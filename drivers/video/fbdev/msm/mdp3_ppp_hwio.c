@@ -41,7 +41,7 @@ enum {
 	LAYER_MAX,
 };
 
-static long long mdp_do_div(long long num, long long den)
+static long long mdp_do_div(uint64_t num, uint64_t den)
 {
 	do_div(num, den);
 	return num;

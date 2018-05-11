@@ -82,6 +82,11 @@
 		/delete-property/ vdd_sr2_pll-supply;
 		/delete-property/ vdd_hf_dig-supply;
 		/delete-property/ vdd_hf_pll-supply;
+		vdd_dig-supply = <&pm8953_s2_level>;
+		vdd_sr2_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_sr2_pll-supply = <&pm8953_l7_ao>;
+		vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_hf_pll-supply = <&pm8953_l7_ao>;
 	};
 
 	qcom,cpu-clock-8939@b111050 {
@@ -120,8 +125,23 @@
 };
 
 &mdss_dsi {
-	/delete-property/ vdda-supply;
-	/delete-property/ vddio-supply;
+	vdda-supply = <&pm8953_l23>;
+	vddio-supply = <&pm8953_l5>;
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
 };
 
 &usb_otg {
@@ -132,21 +152,22 @@
 };
 
 &mdss_dsi0_pll {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi1_pll {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
+	status = "disabled";
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &int_codec {
@@ -251,3 +272,43 @@
 		};
 	};
 };
+
+&pm8953_vadc {
+	pinctrl-0 = <&pa_therm1_default>;
+	/delete-node/ chan@13;
+};
+
+&pm8953_mpps {
+	/delete-node/ case_therm;
+};
+
+&pil_mss {
+	vdd_mss-supply = <&pm8953_s1>;
+	vdd_cx-supply = <&pm8953_s2_level>;
+	vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_mx-supply = <&pm8953_s7_level_ao>;
+	vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_pll-supply = <&pm8953_l7>;
+};
+
+&soc {
+	qcom,lpass@c200000 {
+		vdd_cx-supply = <&pm8953_s2_level>;
+	};
+
+	qcom,pronto@a21b000 {
+		vdd_pronto_pll-supply = <&pm8953_l7>;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		qcom,pronto-vddmx-supply = <&pm8953_s7_level_ao>;
+		qcom,pronto-vddcx-supply = <&pm8953_s2_level>;
+		qcom,pronto-vddpx-supply = <&pm8953_l5>;
+		qcom,iris-vddxo-supply   = <&pm8953_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8953_l19>;
+		qcom,iris-vddpa-supply   = <&pm8953_l9>;
+		qcom,iris-vdddig-supply  = <&pm8953_l5>;
+		qcom,wcnss-adc_tm = <&pm8953_adc_tm>;
+	};
+};
+

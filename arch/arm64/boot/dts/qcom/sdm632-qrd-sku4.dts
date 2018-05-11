@@ -14,39 +14,13 @@
 /dts-v1/;
 
 #include "sdm632.dtsi"
-#include "sdm450-qrd-sku4.dtsi"
 #include "sdm450-pmi632.dtsi"
-#include "msm8953-camera-sensor-qrd.dtsi"
+#include "sdm450-qrd-sku4.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 + PMI8004 QRD SKU4";
+	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 QRD SKU4";
 	compatible = "qcom,sdm632-qrd", "qcom,sdm632", "qcom,qrd";
 	qcom,board-id = <0xb 1>;
-	qcom,pmic-id = <0x010016 0x25 0xC 0x0>;
+	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
 
-&pmi632_vadc {
-	chan@4a {
-		qcom,scale-function = <22>;
-	};
-};
-
-&soc {
-	gpio_keys {
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&tlmm 87 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			debounce-interval = <15>;
-		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&tlmm 86 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			debounce-interval = <15>;
-		};
-	};
-};

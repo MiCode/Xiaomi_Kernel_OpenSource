@@ -1434,9 +1434,10 @@ static int msm_release(struct inode *inode, struct file *filp)
 	struct drm_minor *minor = file_priv->minor;
 	struct drm_device *dev = minor->dev;
 	struct msm_drm_private *priv = dev->dev_private;
-	struct msm_drm_event *node, *temp;
+	struct msm_drm_event *node, *temp, *tmp_node;
 	u32 count;
 	unsigned long flags;
+	LIST_HEAD(tmp_head);
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 	list_for_each_entry_safe(node, temp, &priv->client_event_list,
@@ -1444,14 +1445,25 @@ static int msm_release(struct inode *inode, struct file *filp)
 		if (node->base.file_priv != file_priv)
 			continue;
 		list_del(&node->base.link);
-		spin_unlock_irqrestore(&dev->event_lock, flags);
-		count = msm_event_client_count(dev, &node->info, true);
+		list_add_tail(&node->base.link, &tmp_head);
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	list_for_each_entry_safe(node, temp, &tmp_head,
+			base.link) {
+		list_del(&node->base.link);
+		count = msm_event_client_count(dev, &node->info, false);
+
+		list_for_each_entry(tmp_node, &tmp_head, base.link) {
+			if (tmp_node->event.type == node->info.event &&
+				tmp_node->info.object_id ==
+					node->info.object_id)
+				count++;
+		}
 		if (!count)
 			msm_register_event(dev, &node->info, file_priv, false);
 		kfree(node);
-		spin_lock_irqsave(&dev->event_lock, flags);
 	}
-	spin_unlock_irqrestore(&dev->event_lock, flags);
 
 	return drm_release(inode, filp);
 }
@@ -1806,6 +1818,27 @@ static int add_display_components(struct device *dev,
 	return ret;
 }
 
+static int add_bridge_components(struct device *dev,
+				  struct component_match **matchptr)
+{
+	struct device_node *node;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,sde-kms")) {
+		struct device_node *np = dev->of_node;
+		unsigned int i;
+
+		for (i = 0; ; i++) {
+			node = of_parse_phandle(np, "bridges", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+	}
+
+	return 0;
+}
+
 struct msm_gem_address_space *
 msm_gem_smmu_address_space_get(struct drm_device *dev,
 		unsigned int domain)
@@ -1894,6 +1927,10 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = add_gpu_components(&pdev->dev, &match);
+	if (ret)
+		return ret;
+
+	ret = add_bridge_components(&pdev->dev, &match);
 	if (ret)
 		return ret;
 

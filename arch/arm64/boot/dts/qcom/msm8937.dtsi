@@ -53,7 +53,7 @@
 		};
 	};
 
-	reserved-memory {
+	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -124,6 +124,11 @@
 			reg = <0x0 0x90000000 0x0 0x1400000>;
 		};
 
+		dump_mem: mem_dump_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x2400000>;
+		};
 	};
 
 	aliases {
@@ -186,13 +191,24 @@
 		      <0x0b002000 0x1000>;
 	};
 
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_clk>;
+		clock-names = "apb_pclk";
+		qcom,save-reg;
+	};
+
 	wakegic: wake-gic {
 		compatible = "qcom,mpm-gic-msm8937", "qcom,mpm-gic";
 		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
 		reg = <0x601d0 0x1000>,
 			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
-		qcom,num-mpm-irqs = <96>;
+		qcom,num-mpm-irqs = <64>;
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
@@ -304,6 +320,57 @@
 	};
 
 	thermal_zones: thermal-zones {};
+
+	mem_dump {
+		compatible = "qcom,mem-dump";
+		memory-region = <&dump_mem>;
+
+		rpmh_dump {
+			qcom,dump-size = <0x2000000>;
+			qcom,dump-id = <0xec>;
+		};
+
+		fcm_dump {
+			qcom,dump-size = <0x8400>;
+			qcom,dump-id = <0xee>;
+		};
+
+		rpm_sw_dump {
+			qcom,dump-size = <0x28000>;
+			qcom,dump-id = <0xea>;
+		};
+
+		pmic_dump {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xe4>;
+		};
+
+		vsense_dump {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0xe9>;
+		};
+
+		tmc_etf_dump {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xf0>;
+		};
+
+		tmc_etr_reg_dump {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x100>;
+		};
+
+		tmc_etf_reg_dump {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0x101>;
+		};
+
+		misc_data_dump {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0xe8>;
+		};
+
+	};
 
 	tsens0: tsens@4a8000 {
 		compatible = "qcom,msm8937-tsens";
@@ -833,6 +900,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
@@ -935,6 +1006,7 @@
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		status = "okay";
+		qcom,scandump-size = <0x40000>;
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
@@ -996,9 +1068,19 @@
 			reg = <0x6b0 32>;
 		};
 
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
+		};
+
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
+		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
 		};
 	};
 
@@ -1666,6 +1748,7 @@
 #include "msm8937-regulator.dtsi"
 #include "pm8937.dtsi"
 #include "msm8937-audio.dtsi"
+#include "msm8937-camera.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8937-coresight.dtsi"
 #include "msm8937-thermal.dtsi"

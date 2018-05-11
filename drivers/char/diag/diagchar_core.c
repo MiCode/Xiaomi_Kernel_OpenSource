@@ -459,10 +459,6 @@ static void diag_close_logging_process(const int pid)
 	if (diag_mask_clear_param)
 		diag_clear_masks(pid);
 
-	mutex_lock(&driver->diag_maskclear_mutex);
-	driver->mask_clear = 1;
-	mutex_unlock(&driver->diag_maskclear_mutex);
-
 	mutex_lock(&driver->diagchar_mutex);
 	p_mask =
 	diag_translate_kernel_to_user_mask(session_mask);
@@ -559,9 +555,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: process exit %s\n",
 		current->comm);
 	ret = diag_remove_client_entry(file);
-	mutex_lock(&driver->diag_maskclear_mutex);
-	driver->mask_clear = 0;
-	mutex_unlock(&driver->diag_maskclear_mutex);
+
 	return ret;
 }
 
@@ -1673,11 +1667,56 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 	return ret;
 }
 
+static void diag_switch_logging_clear_mask(
+		struct diag_logging_mode_param_t *param, int pid)
+{
+	int new_mode;
+	struct diag_md_session_t *session_info = NULL;
+
+	mutex_lock(&driver->md_session_lock);
+	session_info = diag_md_session_get_pid(pid);
+	if (!session_info) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid pid: %d\n", pid);
+		mutex_unlock(&driver->md_session_lock);
+		return;
+	}
+	mutex_unlock(&driver->md_session_lock);
+
+	if (!param)
+		return;
+
+	if (!param->peripheral_mask) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"asking for mode switch with no peripheral mask set\n");
+		return;
+	}
+
+	switch (param->req_mode) {
+	case CALLBACK_MODE:
+	case UART_MODE:
+	case SOCKET_MODE:
+	case MEMORY_DEVICE_MODE:
+		new_mode = DIAG_MEMORY_DEVICE_MODE;
+		break;
+	case USB_MODE:
+		new_mode = DIAG_USB_MODE;
+		break;
+	default:
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Request to switch to invalid mode: %d\n",
+			param->req_mode);
+		return;
+	}
+	if ((new_mode == DIAG_USB_MODE) && diag_mask_clear_param)
+		diag_clear_masks(pid);
+
+}
+
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
 	int new_mode, i = 0;
-	int curr_mode, err = 0;
-	uint8_t do_switch = 1, peripheral = 0;
+	int curr_mode, err = 0, peripheral = 0;
+	uint8_t do_switch = 1;
 	uint32_t peripheral_mask = 0, pd_mask = 0;
 
 	if (!param)
@@ -1691,6 +1730,10 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 
 	if (param->pd_mask) {
 		pd_mask = diag_translate_mask(param->pd_mask);
+		param->diag_id = 0;
+		param->pd_val = 0;
+		param->peripheral = -EINVAL;
+
 		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
 			if (pd_mask & (1 << i)) {
 				if (diag_search_diagid_by_pd(i, &param->diag_id,
@@ -1700,6 +1743,12 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				}
 			}
 		}
+
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
+			param->pd_mask, param->diag_id,
+			param->peripheral, param->pd_val);
+
 		if (!param->diag_id ||
 			(param->pd_val < UPD_WLAN) ||
 			(param->pd_val >= NUM_MD_SESSIONS)) {
@@ -1709,22 +1758,26 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			return -EINVAL;
 		}
 
-		DIAG_LOG(DIAG_DEBUG_USERSPACE,
-			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
-			param->pd_mask, param->diag_id,
-			param->peripheral, param->pd_val);
-
 		peripheral = param->peripheral;
+		if ((peripheral < PERIPHERAL_MODEM) ||
+			(peripheral >= NUM_PERIPHERALS)) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Invalid peripheral: %d\n", peripheral);
+			return -EINVAL;
+		}
 		i = param->pd_val - UPD_WLAN;
+		mutex_lock(&driver->md_session_lock);
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
 			diag_mux->mux_mask) &&
 			!driver->pd_session_clear[i]) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
+			mutex_unlock(&driver->md_session_lock);
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
+		mutex_unlock(&driver->md_session_lock);
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;
@@ -2500,6 +2553,7 @@ long diagchar_compat_ioctl(struct file *filp,
 		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
 				   sizeof(mode_param)))
 			return -EFAULT;
+		diag_switch_logging_clear_mask(&mode_param, current->tgid);
 		mutex_lock(&driver->diagchar_mutex);
 		result = diag_switch_logging(&mode_param);
 		mutex_unlock(&driver->diagchar_mutex);
@@ -2631,6 +2685,7 @@ long diagchar_ioctl(struct file *filp,
 		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
 				   sizeof(mode_param)))
 			return -EFAULT;
+		diag_switch_logging_clear_mask(&mode_param, current->tgid);
 		mutex_lock(&driver->diagchar_mutex);
 		result = diag_switch_logging(&mode_param);
 		mutex_unlock(&driver->diagchar_mutex);
@@ -3902,7 +3957,6 @@ static int __init diagchar_init(void)
 	non_hdlc_data.len = 0;
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
-	mutex_init(&driver->diag_maskclear_mutex);
 	mutex_init(&driver->diag_notifier_mutex);
 	mutex_init(&driver->diag_file_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);

@@ -1,0 +1,54 @@
+FocalTech touch controller
+
+The focaltech controller is connected to host processor
+via i2c. The controller generates interrupts when the
+user touches the panel. The host controller is expected
+to read the touch coordinates over i2c and pass the coordinates
+to the rest of the system.
+
+Required properties:
+
+ - compatible		: should be "focaltech,fts".
+ - reg				: i2c slave address of the device.
+ - interrupt-parent	: parent of interrupt.
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - vdd-supply		: Power supply needed to power up the device.
+ - vcc-i2c-supply	: Power source required to power up i2c bus.
+ - focaltech,irq-gpio	: irq gpio which is to provide interrupts to host,
+				same as "interrupts" node. It will also
+				contain active low or active high information.
+ - focaltech,reset-gpio	: reset gpio to control the reset of chip.
+ - focaltech,display-coords : display coordinates in pixels. It is a four
+				tuple consisting of min x, min y, max x and
+				max y values
+
+Optional properties:
+ - focaltech,max-touch-number	: maximnum number of touch points supported.
+ - focaltech,have-key 		: specify whether virtual keys are present.
+ - focaltech,key-number 	: number of keys, maximum 3.
+ - focaltech,keys 			: array of key code.
+ - focaltech,key-y-coord 	: y coordinate for the keys.
+ - focaltech,key-x-coords	: array of x coordinates for the keys.
+ - focaltech,wakeup-gestures-en	: enable wakeup gestures.
+
+Example:
+	i2c@f9923000{
+		focaltech@38{
+			compatible = "focaltech,fts";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <98 0x2008>;
+			vdd-supply = <&pm8110_l19>;
+			vcc_i2c-supply = <&pm8110_l14>;
+			focaltech,reset-gpio = <&msmgpio 16 0x00>;
+			focaltech,irq-gpio = <&msmgpio 98 0x2008>;
+			focaltech,display-coords = <0 0 480 800>;
+			focaltech,max-touch-number = <2>;
+			focaltech,have-key;
+			focaltech,key-number = <3>;
+			focaltech,keys = <139 142 140>;
+			focaltech,key-y-coord = <700>;
+			focaltech,key-x-coords = <80 240 400>;
+		};
+	};

@@ -610,6 +610,8 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
+	atomic_set(&dp->aborted, 0);
+
 	dp_display_host_init(dp);
 
 	/* check for hpd high and framework ready */
@@ -694,10 +696,10 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	/* wait for idle state */
 	cancel_delayed_work(&dp->connect_work);
+	cancel_work(&dp->attention_work);
 	flush_workqueue(dp->wq);
 
 	dp_display_handle_disconnect(dp);
-	atomic_set(&dp->aborted, 0);
 end:
 	return rc;
 }
@@ -801,6 +803,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 		/* wait for idle state */
 		cancel_delayed_work(&dp->connect_work);
+		cancel_work(&dp->attention_work);
 		flush_workqueue(dp->wq);
 
 		dp_display_handle_disconnect(dp);

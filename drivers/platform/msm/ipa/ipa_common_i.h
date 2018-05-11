@@ -333,11 +333,13 @@ struct ipa_mhi_connect_params_internal {
  * @link: entry's link in global header offset entries list
  * @offset: the offset
  * @bin: bin
+ * @ipacm_installed: indicate if installed by ipacm
  */
 struct ipa_hdr_offset_entry {
 	struct list_head link;
 	u32 offset;
 	u32 bin;
+	bool ipacm_installed;
 };
 
 extern const char *ipa_clients_strings[];
@@ -408,7 +410,8 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	ipa_notify_cb notify, void *priv, u8 hdr_len,
 	struct ipa_ntn_conn_out_params *outp);
 
-int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl,
+	struct ipa_ntn_conn_in_params *params);
 u8 *ipa_write_64(u64 w, u8 *dest);
 u8 *ipa_write_32(u32 w, u8 *dest);
 u8 *ipa_write_16(u16 hw, u8 *dest);
@@ -433,5 +436,9 @@ const char *ipa_get_version_string(enum ipa_hw_type ver);
 int ipa_start_gsi_channel(u32 clnt_hdl);
 
 bool ipa_pm_is_used(void);
+
+int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
+		struct sg_table *in_sgt_ptr);
+int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr);
 
 #endif /* _IPA_COMMON_I_H_ */

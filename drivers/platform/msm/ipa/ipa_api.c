@@ -294,6 +294,46 @@ u8 *ipa_pad_to_32(u8 *dest)
 	return dest;
 }
 
+int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
+	struct sg_table *in_sgt_ptr)
+{
+	unsigned int nents;
+
+	if (in_sgt_ptr != NULL) {
+		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+		if (*out_ch_ptr == NULL)
+			return -ENOMEM;
+
+		nents = in_sgt_ptr->nents;
+
+		(*out_ch_ptr)->sgl =
+			kcalloc(nents, sizeof(struct scatterlist),
+				GFP_KERNEL);
+		if ((*out_ch_ptr)->sgl == NULL) {
+			kfree(*out_ch_ptr);
+			*out_ch_ptr = NULL;
+			return -ENOMEM;
+		}
+
+		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
+			nents*sizeof((*out_ch_ptr)->sgl));
+		(*out_ch_ptr)->nents = nents;
+		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
+	}
+	return 0;
+}
+
+int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr)
+{
+	if (*out_sgt_ptr != NULL) {
+		kfree((*out_sgt_ptr)->sgl);
+		(*out_sgt_ptr)->sgl = NULL;
+		kfree(*out_sgt_ptr);
+		*out_sgt_ptr = NULL;
+	}
+	return 0;
+}
+
 /**
  * ipa_connect() - low-level IPA client connect
  * @in:	[in] input parameters from client
@@ -343,13 +383,13 @@ int ipa_disconnect(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_disconnect);
 
 /**
-* ipa_clear_endpoint_delay() - Clear ep_delay.
-* @clnt_hdl:	[in] IPA client handle
-*
-* Returns:	0 on success, negative on failure
-*
-* Note:		Should not be called from atomic context
-*/
+ * ipa_clear_endpoint_delay() - Clear ep_delay.
+ * @clnt_hdl:	[in] IPA client handle
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:		Should not be called from atomic context
+ */
 int ipa_clear_endpoint_delay(u32 clnt_hdl)
 {
 	int ret;
@@ -361,13 +401,13 @@ int ipa_clear_endpoint_delay(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_clear_endpoint_delay);
 
 /**
-* ipa_reset_endpoint() - reset an endpoint from BAM perspective
-* @clnt_hdl:	[in] IPA client handle
-*
-* Returns:	0 on success, negative on failure
-*
-* Note:		Should not be called from atomic context
-*/
+ * ipa_reset_endpoint() - reset an endpoint from BAM perspective
+ * @clnt_hdl:	[in] IPA client handle
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:		Should not be called from atomic context
+ */
 int ipa_reset_endpoint(u32 clnt_hdl)
 {
 	int ret;
@@ -379,13 +419,13 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_reset_endpoint);
 
 /**
-* ipa_disable_endpoint() - Disable an endpoint from IPA perspective
-* @clnt_hdl:	[in] IPA client handle
-*
-* Returns:	0 on success, negative on failure
-*
-* Note:		Should not be called from atomic context
-*/
+ * ipa_disable_endpoint() - Disable an endpoint from IPA perspective
+ * @clnt_hdl:	[in] IPA client handle
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:		Should not be called from atomic context
+ */
 int ipa_disable_endpoint(u32 clnt_hdl)
 {
 	int ret;
@@ -439,14 +479,14 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
 
 /**
-* ipa_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
-* @clnt_hdl:		[in] opaque client handle assigned by IPA to client
-* @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
-*
-* Returns:	0 on success, negative on failure
-*
-* Note:	Should not be called from atomic context
-*/
+ * ipa_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
+ * @clnt_hdl:		[in] opaque client handle assigned by IPA to client
+ * @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
 int ipa_cfg_ep_conn_track(u32 clnt_hdl,
 	const struct ipa_ep_cfg_conn_track *ep_conn_track)
 {
@@ -700,6 +740,26 @@ int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 EXPORT_SYMBOL(ipa_add_hdr);
 
 /**
+ * ipa_add_hdr_usr() - add the specified headers to SW and optionally
+ * commit them to IPA HW
+ * @hdrs:		[inout] set of headers to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_hdr_usr(struct ipa_ioc_add_hdr *hdrs, bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_hdr_usr, hdrs, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_hdr_usr);
+
+/**
  * ipa_del_hdr() - Remove the specified headers from SW and optionally
  * commit them to IPA HW
  * @hdls:	[inout] set of headers to delete
@@ -739,15 +799,16 @@ EXPORT_SYMBOL(ipa_commit_hdr);
  * ipa_reset_hdr() - reset the current header table in SW (does not commit to
  * HW)
  *
+ * @user_only:	[in] indicate delete rules installed by userspace
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_hdr(void)
+int ipa_reset_hdr(bool user_only)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_reset_hdr);
+	IPA_API_DISPATCH_RETURN(ipa_reset_hdr, user_only);
 
 	return ret;
 }
@@ -817,16 +878,18 @@ EXPORT_SYMBOL(ipa_copy_hdr);
  * ipa_add_hdr_proc_ctx() - add the specified headers to SW
  * and optionally commit them to IPA HW
  * @proc_ctxs:	[inout] set of processing context headers to add
+ * @user_only:	[in] indicate rules installed by userspace
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
+int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs,
+							bool user_only)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_add_hdr_proc_ctx, proc_ctxs);
+	IPA_API_DISPATCH_RETURN(ipa_add_hdr_proc_ctx, proc_ctxs, user_only);
 
 	return ret;
 }
@@ -872,6 +935,26 @@ int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 EXPORT_SYMBOL(ipa_add_rt_rule);
 
 /**
+ * ipa_add_rt_rule_usr() - Add the specified routing rules to SW and optionally
+ * commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_rt_rule_usr, rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_rt_rule_usr);
+
+/**
  * ipa_del_rt_rule() - Remove the specified routing rules to SW and optionally
  * commit to IPA HW
  * @hdls:	[inout] set of routing rules to delete
@@ -913,16 +996,17 @@ EXPORT_SYMBOL(ipa_commit_rt);
  * ipa_reset_rt() - reset the current SW routing table of specified type
  * (does not commit to HW)
  * @ip:	The family of routing tables
+ * @user_only:	[in] indicate delete rules installed by userspace
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_rt(enum ipa_ip_type ip)
+int ipa_reset_rt(enum ipa_ip_type ip, bool user_only)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_reset_rt, ip);
+	IPA_API_DISPATCH_RETURN(ipa_reset_rt, ip, user_only);
 
 	return ret;
 }
@@ -1005,6 +1089,7 @@ EXPORT_SYMBOL(ipa_mdfy_rt_rule);
 /**
  * ipa_add_flt_rule() - Add the specified filtering rules to SW and optionally
  * commit to IPA HW
+ * @rules:	[inout] set of filtering rules to add
  *
  * Returns:	0 on success, negative on failure
  *
@@ -1019,6 +1104,26 @@ int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_flt_rule);
+
+/**
+ * ipa_add_flt_rule_usr() - Add the specified filtering rules to
+ * SW and optionally commit to IPA HW
+ * @rules:		[inout] set of filtering rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules, bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_flt_rule_usr, rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_flt_rule_usr);
 
 /**
  * ipa_del_flt_rule() - Remove the specified filtering rules from SW and
@@ -1078,17 +1183,18 @@ EXPORT_SYMBOL(ipa_commit_flt);
 /**
  * ipa_reset_flt() - Reset the current SW filtering table of specified type
  * (does not commit to HW)
- * @ip:	[in] the family of routing tables
+ * @ip:			[in] the family of routing tables
+ * @user_only:	[in] indicate delete rules installed by userspace
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_flt(enum ipa_ip_type ip)
+int ipa_reset_flt(enum ipa_ip_type ip, bool user_only)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_reset_flt, ip);
+	IPA_API_DISPATCH_RETURN(ipa_reset_flt, ip, user_only);
 
 	return ret;
 }
@@ -1865,20 +1971,20 @@ int ipa_uc_dereg_rdyCB(void)
 EXPORT_SYMBOL(ipa_uc_dereg_rdyCB);
 
 /**
-* teth_bridge_init() - Initialize the Tethering bridge driver
-* @params - in/out params for USB initialization API (please look at struct
-*  definition for more info)
-*
-* USB driver gets a pointer to a callback function (usb_notify_cb) and an
-* associated data. USB driver installs this callback function in the call to
-* ipa_connect().
-*
-* Builds IPA resource manager dependency graph.
-*
-* Return codes: 0: success,
-*		-EINVAL - Bad parameter
-*		Other negative value - Failure
-*/
+ * teth_bridge_init() - Initialize the Tethering bridge driver
+ * @params - in/out params for USB initialization API (please look at struct
+ *  definition for more info)
+ *
+ * USB driver gets a pointer to a callback function (usb_notify_cb) and an
+ * associated data. USB driver installs this callback function in the call to
+ * ipa_connect().
+ *
+ * Builds IPA resource manager dependency graph.
+ *
+ * Return codes: 0: success,
+ *		-EINVAL - Bad parameter
+ *		Other negative value - Failure
+ */
 int teth_bridge_init(struct teth_bridge_init_params *params)
 {
 	int ret;
@@ -1890,8 +1996,8 @@ int teth_bridge_init(struct teth_bridge_init_params *params)
 EXPORT_SYMBOL(teth_bridge_init);
 
 /**
-* teth_bridge_disconnect() - Disconnect tethering bridge module
-*/
+ * teth_bridge_disconnect() - Disconnect tethering bridge module
+ */
 int teth_bridge_disconnect(enum ipa_client_type client)
 {
 	int ret;
@@ -1903,14 +2009,14 @@ int teth_bridge_disconnect(enum ipa_client_type client)
 EXPORT_SYMBOL(teth_bridge_disconnect);
 
 /**
-* teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
-* @connect_params:	Connection info
-*
-* Return codes: 0: success
-*		-EINVAL: invalid parameters
-*		-EPERM: Operation not permitted as the bridge is already
-*		connected
-*/
+ * teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
+ * @connect_params:	Connection info
+ *
+ * Return codes: 0: success
+ *		-EINVAL: invalid parameters
+ *		-EPERM: Operation not permitted as the bridge is already
+ *		connected
+ */
 int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
 	int ret;
@@ -2387,16 +2493,16 @@ int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 EXPORT_SYMBOL(ipa_write_qmap_id);
 
 /**
-* ipa_add_interrupt_handler() - Adds handler to an interrupt type
-* @interrupt:		Interrupt type
-* @handler:		The handler to be added
-* @deferred_flag:	whether the handler processing should be deferred in
-*			a workqueue
-* @private_data:	the client's private data
-*
-* Adds handler to an interrupt type and enable the specific bit
-* in IRQ_EN register, associated interrupt in IRQ_STTS register will be enabled
-*/
+ * ipa_add_interrupt_handler() - Adds handler to an interrupt type
+ * @interrupt:		Interrupt type
+ * @handler:		The handler to be added
+ * @deferred_flag:	whether the handler processing should be deferred in
+ *			a workqueue
+ * @private_data:	the client's private data
+ *
+ * Adds handler to an interrupt type and enable the specific bit
+ * in IRQ_EN register, associated interrupt in IRQ_STTS register will be enabled
+ */
 int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 	ipa_irq_handler_t handler,
 	bool deferred_flag,
@@ -2412,11 +2518,11 @@ int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 EXPORT_SYMBOL(ipa_add_interrupt_handler);
 
 /**
-* ipa_remove_interrupt_handler() - Removes handler to an interrupt type
-* @interrupt:		Interrupt type
-*
-* Removes the handler and disable the specific bit in IRQ_EN register
-*/
+ * ipa_remove_interrupt_handler() - Removes handler to an interrupt type
+ * @interrupt:		Interrupt type
+ *
+ * Removes the handler and disable the specific bit in IRQ_EN register
+ */
 int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 {
 	int ret;
@@ -2428,12 +2534,12 @@ int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 EXPORT_SYMBOL(ipa_remove_interrupt_handler);
 
 /**
-* ipa_restore_suspend_handler() - restores the original suspend IRQ handler
-* as it was registered in the IPA init sequence.
-* Return codes:
-* 0: success
-* -EPERM: failed to remove current handler or failed to add original handler
-*/
+ * ipa_restore_suspend_handler() - restores the original suspend IRQ handler
+ * as it was registered in the IPA init sequence.
+ * Return codes:
+ * 0: success
+ * -EPERM: failed to remove current handler or failed to add original handler
+ */
 int ipa_restore_suspend_handler(void)
 {
 	int ret;
@@ -2728,14 +2834,14 @@ int ipa_start_gsi_channel(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_start_gsi_channel);
 
 /**
-* ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
-* @iface - type of vlan capable device
-* @res - query result: true for vlan mode, false for non vlan mode
-*
-* API must be called after ipa_is_ready() returns true, otherwise it will fail
-*
-* Returns: 0 on success, negative on failure
-*/
+ * ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
 int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
 	int ret;
@@ -2814,10 +2920,10 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result;
 
-	/*
-	* IPA probe function can be called for multiple times as the same probe
-	* function handles multiple compatibilities
-	*/
+/**
+ * IPA probe function can be called for multiple times as the same probe
+ * function handles multiple compatibilities
+ */
 	pr_debug("ipa: IPA driver probing started for %s\n",
 		pdev_p->dev.of_node->name);
 
@@ -2905,7 +3011,7 @@ EXPORT_SYMBOL(ipa_register_ipa_ready_cb);
  *
  * Return codes:
  * None
-*/
+ */
 void ipa_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 {
 	IPA_API_DISPATCH(ipa_inc_client_enable_clks, id);
@@ -2921,7 +3027,7 @@ EXPORT_SYMBOL(ipa_inc_client_enable_clks);
  *
  * Return codes:
  * None
-*/
+ */
 void ipa_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
 {
 	IPA_API_DISPATCH(ipa_dec_client_disable_clks, id);
@@ -2951,14 +3057,14 @@ int ipa_inc_client_enable_clks_no_block(
 EXPORT_SYMBOL(ipa_inc_client_enable_clks_no_block);
 
 /**
-* ipa_suspend_resource_no_block() - suspend client endpoints related to the
-* IPA_RM resource and decrement active clients counter. This function is
-* guaranteed to avoid sleeping.
-*
-* @resource: [IN] IPA Resource Manager resource
-*
-* Return codes: 0 on success, negative on failure.
-*/
+ * ipa_suspend_resource_no_block() - suspend client endpoints related to the
+ * IPA_RM resource and decrement active clients counter. This function is
+ * guaranteed to avoid sleeping.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
 int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 {
 	int ret;
@@ -3111,12 +3217,12 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
  * ipa_tear_down_uc_offload_pipes() - tear down uc offload pipes
  */
 int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
-		int ipa_ep_idx_dl)
+		int ipa_ep_idx_dl, struct ipa_ntn_conn_in_params *params)
 {
 	int ret;
 
 	IPA_API_DISPATCH_RETURN(ipa_tear_down_uc_offload_pipes, ipa_ep_idx_ul,
-		ipa_ep_idx_dl);
+		ipa_ep_idx_dl, params);
 
 	return ret;
 }

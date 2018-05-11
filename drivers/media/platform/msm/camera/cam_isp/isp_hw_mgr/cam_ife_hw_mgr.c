@@ -1418,7 +1418,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 
 		in_port = memdup_user((void __user *)isp_resource[i].res_hdl,
 			isp_resource[i].length);
-		if (in_port > 0) {
+		if (!IS_ERR(in_port)) {
 			rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx, in_port,
 				&num_pix_port_per_in, &num_rdi_port_per_in);
 			total_pix_port += num_pix_port_per_in;
@@ -1611,6 +1611,9 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			cdm_cmd->cmd[i].len = cmd->len;
 		}
 
+		if (cfg->request_id == 1)
+			init_completion(&ctx->config_done_complete);
+
 		CAM_DBG(CAM_ISP, "Submit to CDM");
 		rc = cam_cdm_submit_bls(ctx->cdm_handle, cdm_cmd);
 		if (rc) {
@@ -1619,7 +1622,6 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		}
 
 		if (cfg->request_id == 1) {
-			init_completion(&ctx->config_done_complete);
 			rc = wait_for_completion_timeout(
 				&ctx->config_done_complete,
 				msecs_to_jiffies(30));
@@ -1809,7 +1811,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	if (cam_cdm_stream_off(ctx->cdm_handle))
 		CAM_ERR(CAM_ISP, "CDM stream off failed %d",
 			ctx->cdm_handle);
-	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
 
@@ -1830,6 +1831,8 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			break;
 		}
 	}
+
+	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	/*
 	 * If Context does not have PIX resources and has only RDI resource
@@ -2674,7 +2677,8 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 
 static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_ife_hw_mgr_ctx      *ife_ctx,
-	uint64_t                       *time_stamp)
+	uint64_t                       *time_stamp,
+	uint64_t                       *boot_time_stamp)
 {
 	int rc = -EINVAL;
 	uint32_t i;
@@ -2703,9 +2707,12 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 					&csid_get_time,
 					sizeof(
 					struct cam_csid_get_time_stamp_args));
-				if (!rc)
+				if (!rc) {
 					*time_stamp =
 						csid_get_time.time_stamp_val;
+					*boot_time_stamp =
+						csid_get_time.boot_timestamp;
+				}
 			/*
 			 * Single VFE case, Get the time stamp from available
 			 * one csid hw in the context
@@ -3536,7 +3543,8 @@ static int cam_ife_hw_mgr_handle_sof(
 				if (!sof_status && !sof_sent) {
 					cam_ife_mgr_cmd_get_sof_timestamp(
 						ife_hw_mgr_ctx,
-						&sof_done_event_data.timestamp);
+						&sof_done_event_data.timestamp,
+						&sof_done_event_data.boot_time);
 
 					ife_hw_irq_sof_cb(
 						ife_hw_mgr_ctx->common.cb_priv,
@@ -3557,7 +3565,8 @@ static int cam_ife_hw_mgr_handle_sof(
 			if (!sof_status && !sof_sent) {
 				cam_ife_mgr_cmd_get_sof_timestamp(
 					ife_hw_mgr_ctx,
-					&sof_done_event_data.timestamp);
+					&sof_done_event_data.timestamp,
+					&sof_done_event_data.boot_time);
 
 				ife_hw_irq_sof_cb(
 					ife_hw_mgr_ctx->common.cb_priv,
@@ -4031,6 +4040,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 	int rc = -EFAULT;
 	int i, j;
 	struct cam_iommu_handle cdm_handles;
+	struct cam_ife_hw_mgr_ctx *ctx_pool;
+	struct cam_ife_hw_mgr_res *res_list_ife_out;
 
 	CAM_DBG(CAM_ISP, "Enter");
 
@@ -4135,9 +4146,10 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_cid);
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_csid);
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_src);
+		ctx_pool = &g_ife_hw_mgr.ctx_pool[i];
 		for (j = 0; j < CAM_IFE_HW_OUT_RES_MAX; j++) {
-			INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].
-				res_list_ife_out[j].list);
+			res_list_ife_out = &ctx_pool->res_list_ife_out[j];
+			INIT_LIST_HEAD(&res_list_ife_out->list);
 		}
 
 		/* init context pool */
@@ -4168,6 +4180,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 		g_ife_hw_mgr.ctx_pool[i].common.tasklet_info =
 			g_ife_hw_mgr.mgr_common.tasklet_pool[i];
 
+
+		init_completion(&g_ife_hw_mgr.ctx_pool[i].config_done_complete);
 		list_add_tail(&g_ife_hw_mgr.ctx_pool[i].list,
 			&g_ife_hw_mgr.free_ctx_list);
 	}

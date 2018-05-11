@@ -21,7 +21,8 @@
 #include "dsi-panel-hx8394f-720p-video.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
 #include "dsi-adv7533-720p.dtsi"
-
+#include "dsi-panel-hx8399c-fhd-plus-video.dtsi"
+#include "dsi-panel-hx8399c-hd-plus-video.dtsi"
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;

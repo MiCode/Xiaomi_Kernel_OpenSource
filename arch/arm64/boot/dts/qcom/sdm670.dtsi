@@ -1790,7 +1790,7 @@
 	};
 
 	dcc: dcc_v2@10a2000 {
-		compatible = "qcom,dcc_v2";
+		compatible = "qcom,dcc-v2";
 		reg = <0x10a2000 0x1000>,
 		      <0x10ae000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
@@ -1935,6 +1935,10 @@
 		qcom,pm-qos-cpu-group-latency-us = <67 67>;
 		qcom,pm-qos-default-cpu = <0>;
 
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
+
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "core_reset";
 
@@ -2007,7 +2011,7 @@
 			<0 432 0>;
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <13>; /* IPA core version = IPAv3.5.1 */
-		qcom,ipa-hw-mode = <1>;
+		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
@@ -2469,6 +2473,7 @@
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,adsp-remoteheap-vmid = <22 37>;
 		qcom,fastrpc-adsp-audio-pdr;
+		qcom,fastrpc-adsp-sensors-pdr;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -2543,6 +2548,7 @@
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x1806 0x0>;
 			dma-coherent;
+			shared-cb;
 		};
 	};
 
@@ -2561,7 +2567,7 @@
 		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
 	};
 
-	qcom,icnss@18800000 {
+	icnss: qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
 		      <0xa0000000 0x10000000>,

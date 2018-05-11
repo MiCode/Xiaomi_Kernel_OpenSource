@@ -218,9 +218,23 @@ static struct usb_gadget_strings *midi_strings[] = {
 };
 
 static inline struct usb_request *midi_alloc_ep_req(struct usb_ep *ep,
-						    unsigned length)
+				unsigned int length, size_t extra_buf_alloc)
 {
-	return alloc_ep_req(ep, length);
+	struct usb_request      *req;
+
+	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
+	if (!req)
+		return NULL;
+
+	req->length = usb_endpoint_dir_out(ep->desc) ?
+				usb_ep_align(ep, length) : length;
+	req->buf = kmalloc(req->length + extra_buf_alloc, GFP_ATOMIC);
+	if (!req->buf) {
+		usb_ep_free_request(ep, req);
+		return NULL;
+	}
+
+	return req;
 }
 
 static const uint8_t f_midi_cin_length[] = {
@@ -374,7 +388,8 @@ static int f_midi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* pre-allocate write usb requests to use on f_midi_transmit. */
 	while (kfifo_avail(&midi->in_req_fifo)) {
 		struct usb_request *req =
-			midi_alloc_ep_req(midi->in_ep, midi->buflen);
+			midi_alloc_ep_req(midi->in_ep, midi->buflen,
+						midi->gadget->extra_buf_alloc);
 
 		if (req == NULL)
 			return -ENOMEM;
@@ -388,7 +403,7 @@ static int f_midi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* allocate a bunch of read buffers and queue them all at once. */
 	for (i = 0; i < midi->qlen && err == 0; i++) {
 		struct usb_request *req =
-			midi_alloc_ep_req(midi->out_ep, midi->buflen);
+			midi_alloc_ep_req(midi->out_ep, midi->buflen, 0);
 
 		if (req == NULL)
 			return -ENOMEM;

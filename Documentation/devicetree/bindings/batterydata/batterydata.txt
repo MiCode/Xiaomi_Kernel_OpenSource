@@ -101,6 +101,12 @@ Profile data node optional properties:
 			     the low and high thresholds.
 			The threshold values in range should be in ascending
 			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-soft-thresholds: A tuple entry to specify ADC code for battery's soft JEITA
+				threshold.
+				<SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
+- qcom,jeita-hard-thresholds: A tuple entry to specify ADC code for battery's hard JEITA
+				threshold.
+				<HARD_COLD_ADC_CODE, HARD_HOT_ADC_CODE>.
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
@@ -165,6 +171,8 @@ qcom,palladium-batterydata {
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <75>;
+	qcom,jeita-soft-thresholds = <0x3ecc 0x1bff>;
+	qcom,jeita-hard-thresholds = <0x4aff 0x15aa>;
 	qcom,step-chg-ranges = <3600000 4000000 3000000
 				4001000 4200000 2800000
 				4201000 4400000 2000000>;

@@ -15,7 +15,7 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,msm8937-pinctrl";
 		reg = <0x1000000 0x300000>;
-		interrupts = <0 208 0>;
+		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
@@ -141,39 +141,67 @@
 			};
 		};
 
-		pmx_rd_nfc_int {
-			/*qcom,pins = <&gp 17>;*/
-			pins = "gpio17";
-			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <1>;
-			label = "pmx_nfc_int";
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 17 NFC Read Interrupt */
+					pins = "gpio17";
+					function = "gpio";
+				};
 
-			nfc_int_active: active {
-				drive-strength = <6>;
-				bias-pull-up;
+				config {
+					pins = "gpio17";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
 			};
 
-			nfc_int_suspend: suspend {
-				drive-strength = <6>;
-				bias-pull-up;
-			};
-		};
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 17 NFC Read Interrupt */
+					pins = "gpio17";
+					function = "gpio";
+				};
 
-		pmx_nfc_reset {
-			/*qcom,pins = <&gp 16>;*/
-			pins = "gpio16";
-			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <1>;
-			label = "pmx_nfc_disable";
-
-			nfc_disable_active: active {
-				drive-strength = <6>;
-				bias-pull-up;
+				config {
+					pins = "gpio17";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
 			};
 
-			nfc_disable_suspend: suspend {
-				drive-strength = <6>;
-				bias-disable;
+			nfc_disable_active: nfc_disable_active {
+				/* active state */
+				mux {
+					/* 16: NFC ENABLE 130: FW DNLD */
+					/* 93: ESE Enable */
+					pins = "gpio16", "gpio130", "gpio93";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio16", "gpio130", "gpio93";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_disable_suspend: nfc_disable_suspend {
+				/* sleep state */
+				mux {
+					/* 16: NFC ENABLE 130: FW DNLD */
+					/* 93: ESE Enable */
+					pins = "gpio16", "gpio130", "gpio93";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio16", "gpio130", "gpio93";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
 			};
 		};
 
@@ -1376,29 +1404,57 @@
 			};
 		};
 
-		cam_sensor_rear_default: cam_sensor_rear_default {
-			/* RESET, STANDBY */
+		cam_sensor_rear_reset: cam_sensor_rear_reset {
+			/* RESET */
 			mux {
-				pins = "gpio36", "gpio35";
+				pins = "gpio36";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio36","gpio35";
+				pins = "gpio36";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
-		cam_sensor_rear_sleep: cam_sensor_rear_sleep {
-			/* RESET, STANDBY */
+		cam_sensor_rear_reset_sleep: cam_sensor_rear_reset_sleep {
+			/* RESET */
 			mux {
-				pins = "gpio36","gpio35";
+				pins = "gpio36";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio36","gpio35";
+				pins = "gpio36";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_standby: cam_sensor_rear_standby {
+			/* STANDBY */
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_standby_sleep: cam_sensor_rear_standby_sleep {
+			/* STANDBY */
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -1427,6 +1483,34 @@
 
 			config {
 				pins = "gpio62";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_vana: cam_sensor_rear_vana {
+			/* VANA */
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_vana_sleep: cam_sensor_rear_vana_sleep {
+			/* VANA */
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};

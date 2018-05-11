@@ -714,10 +714,10 @@ TRACE_EVENT(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, int next_cpu, int backup_cpu,
 		 int target_cpu, bool sync, bool need_idle,
-		 bool placement_boost, int rtg_cpu),
+		 bool placement_boost, int rtg_cpu, u64 start_t),
 
 	TP_ARGS(p, next_cpu, backup_cpu, target_cpu, sync, need_idle,
-		placement_boost, rtg_cpu),
+		placement_boost, rtg_cpu, start_t),
 
 	TP_STRUCT__entry(
 		__field(int, pid			)
@@ -746,9 +746,7 @@ TRACE_EVENT(sched_task_util,
 		__entry->need_idle		= need_idle;
 		__entry->placement_boost	= placement_boost;
 		__entry->rtg_cpu		= rtg_cpu;
-		__entry->latency		= p->ravg.mark_start ?
-						  ktime_get_ns() -
-						  p->ravg.mark_start : 0;
+		__entry->latency		= (sched_clock() - start_t);
 	),
 
 	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d next_cpu=%d backup_cpu=%d target_cpu=%d sync=%d need_idle=%d placement_boost=%d rtg_cpu=%d latency=%llu",
@@ -1877,6 +1875,39 @@ TRACE_EVENT(sched_isolate,
 		  __entry->requested_cpu, __entry->isolated_cpus,
 		  __entry->time, __entry->isolate)
 );
+
+TRACE_EVENT(sched_preempt_disable,
+
+	TP_PROTO(u64 delta, bool irqs_disabled,
+			unsigned long caddr0, unsigned long caddr1,
+			unsigned long caddr2, unsigned long caddr3),
+
+	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
+
+	TP_STRUCT__entry(
+		__field(u64, delta)
+		__field(bool, irqs_disabled)
+		__field(void*, caddr0)
+		__field(void*, caddr1)
+		__field(void*, caddr2)
+		__field(void*, caddr3)
+	),
+
+	TP_fast_assign(
+		__entry->delta = delta;
+		__entry->irqs_disabled = irqs_disabled;
+		__entry->caddr0 = (void *)caddr0;
+		__entry->caddr1 = (void *)caddr1;
+		__entry->caddr2 = (void *)caddr2;
+		__entry->caddr3 = (void *)caddr3;
+	),
+
+	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%pf<-%pf<-%pf<-%pf)",
+				__entry->delta, __entry->irqs_disabled,
+				__entry->caddr0, __entry->caddr1,
+				__entry->caddr2, __entry->caddr3)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

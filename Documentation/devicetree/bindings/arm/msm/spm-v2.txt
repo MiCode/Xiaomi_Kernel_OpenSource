@@ -45,6 +45,8 @@ Optional properties for only Non-PSCI targets
 	index to send the PMIC data to
 - qcom,vctl-port: The PVC (PMIC Virtual Channel) port used for changing
 	voltage
+- qcom,vctl-port-ub: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
 - qcom,phase-port: The PVC port used for changing the number of phases
 - qcom,pfm-port: The PVC port used for enabling PWM/PFM modes
 - qcom,cpu-vctl-mask: Mask of cpus, whose voltage the spm device can control.
@@ -104,6 +106,8 @@ Optional properties for only PSCI targets:
 - qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
 	between AVS controller requests
 - qcom,vctl-port: The PVC (PMIC Virtual Channel) port used for changing
+	voltage
+- qcom,vctl-port-ub: The PVC (PMIC Virtual Channel) port used for changing
 	voltage
 - qcom,phase-port: The PVC port used for changing the number of phases
 - qcom,pfm-port: The PVC port used for enabling PWM/PFM modes

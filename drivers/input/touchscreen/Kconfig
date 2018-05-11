@@ -1243,6 +1243,7 @@ config TOUCHSCREEN_SYNAPTICS_DSX
           If unsure, say N.
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 config TOUCHSCREEN_FT5X06
        tristate "FocalTech touchscreens"
@@ -1256,6 +1257,17 @@ config TOUCHSCREEN_FT5X06
 
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
+
+config TOUCHSCREEN_GEN_VKEYS
+	tristate "Touchscreen Virtual Keys Driver"
+	help
+         Say Y here if you want to generate a sysfs entry for virtual
+	 keys on Android.
+
+	 If unsure, say N.
+
+	 To compile this driver as a module, choose M here: the
+	 module will be called gen_vkeys.
 
 config FT_SECURE_TOUCH
 	bool "Secure Touch support for Focaltech Touchscreen"

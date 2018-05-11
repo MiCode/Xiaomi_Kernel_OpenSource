@@ -25,8 +25,10 @@
 
 		arm,buffer-size = <0x100000>;
 		arm,sg-enable;
+		qcom,force-reg-dump;
 
 		coresight-name = "coresight-tmc-etr";
+		coresight-csr = <&csr>;
 		coresight-ctis = <&cti0 &cti8>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -49,8 +51,10 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf";
+		coresight-csr = <&csr>;
 
 		arm,default-sink;
+		qcom,force-reg-dump;
 		coresight-ctis = <&cti0 &cti8>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1139,6 +1143,10 @@
 		reg-names = "csr-base";
 		coresight-name = "coresight-csr";
 
+		qcom,usb-bam-support;
+		qcom,hwctrl-set-support;
+		qcom,set-byte-cntr-support;
+
 		qcom,blk-size = <1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1240,6 +1248,7 @@
 				"usbbam-mux", "blsp-mux";
 
 		coresight-name = "coresight-hwevent";
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;

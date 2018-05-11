@@ -13,6 +13,7 @@
 #ifndef __FG_CORE_H__
 #define __FG_CORE_H__
 
+#include <linux/alarmtimer.h>
 #include <linux/atomic.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
@@ -249,6 +250,12 @@ enum slope_limit_status {
 	SLOPE_LIMIT_NUM_COEFFS,
 };
 
+enum esr_filter_status {
+	ROOM_TEMP = 1,
+	LOW_TEMP,
+	RELAX_TEMP,
+};
+
 enum esr_timer_config {
 	TIMER_RETRY = 0,
 	TIMER_MAX,
@@ -296,6 +303,9 @@ struct fg_dt_props {
 	int	esr_broad_flt_upct;
 	int	esr_tight_lt_flt_upct;
 	int	esr_broad_lt_flt_upct;
+	int	esr_flt_rt_switch_temp;
+	int	esr_tight_rt_flt_upct;
+	int	esr_broad_rt_flt_upct;
 	int	slope_limit_temp;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
@@ -402,6 +412,7 @@ static const struct fg_pt fg_tsmc_osc_table[] = {
 };
 
 struct fg_chip {
+	struct thermal_zone_device	*tz_dev;
 	struct device		*dev;
 	struct pmic_revid_data	*pmic_rev_id;
 	struct regmap		*regmap;
@@ -434,6 +445,7 @@ struct fg_chip {
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
 	struct mutex		qnovo_esr_ctrl_lock;
+	spinlock_t		suspend_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
@@ -453,8 +465,10 @@ struct fg_chip {
 	int			delta_soc;
 	int			last_msoc;
 	int			last_recharge_volt_mv;
+	int			delta_temp_irq_count;
 	int			esr_timer_charging_default[NUM_ESR_TIMERS];
 	enum slope_limit_status	slope_limit_sts;
+	enum esr_filter_status	esr_flt_sts;
 	bool			profile_available;
 	bool			profile_loaded;
 	enum prof_load_status	profile_load_status;
@@ -470,6 +484,7 @@ struct fg_chip {
 	bool			use_ima_single_mode;
 	bool			use_dma;
 	bool			qnovo_enable;
+	bool			suspended;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
@@ -477,6 +492,9 @@ struct fg_chip {
 	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
 	struct delayed_work	pl_enable_work;
+	struct work_struct	esr_filter_work;
+	struct alarm		esr_filter_alarm;
+	ktime_t			last_delta_temp_time;
 };
 
 /* Debugfs data structures are below */

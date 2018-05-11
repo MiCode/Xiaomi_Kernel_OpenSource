@@ -56,8 +56,6 @@
 #define TYPE_B_PROTOCOL
 #endif
 
-#define WAKEUP_GESTURE false
-
 #define NO_0D_WHILE_2D
 #define REPORT_2D_Z
 #define REPORT_2D_W
@@ -1014,8 +1012,10 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
 
 	input = input > 0 ? 1 : 0;
 
-	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
+	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture) {
 		rmi4_data->enable_wakeup_gesture = input;
+		rmi4_data->wakeup_gesture_en = input;
+	}
 
 	return count;
 }
@@ -1089,7 +1089,6 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -1250,7 +1249,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -3114,7 +3112,7 @@ flash_prog_mode:
 	}
 
 	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
-		rmi4_data->enable_wakeup_gesture = WAKEUP_GESTURE;
+		rmi4_data->enable_wakeup_gesture = rmi4_data->wakeup_gesture_en;
 	else
 		rmi4_data->enable_wakeup_gesture = false;
 
@@ -3954,6 +3952,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->suspend = false;
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fingers_on_2d = false;
+	rmi4_data->wakeup_gesture_en = bdata->wakeup_gesture_en;
 
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
@@ -4423,7 +4422,8 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 				synaptics_secure_touch_stop(rmi4_data, false);
 			} else if (event == FB_EVENT_BLANK) {
 				transition = evdata->data;
-				if (*transition == FB_BLANK_POWERDOWN) {
+				if (*transition == FB_BLANK_POWERDOWN ||
+					*transition == FB_BLANK_VSYNC_SUSPEND) {
 					flush_work(
 						&(rmi4_data->fb_notify_work));
 					synaptics_rmi4_suspend(
@@ -4564,8 +4564,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
-		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
-		enable_irq_wake(rmi4_data->irq);
+		if (!rmi4_data->suspend) {
+			synaptics_rmi4_wakeup_gesture(rmi4_data, true);
+			enable_irq_wake(rmi4_data->irq);
+		}
 		goto exit;
 	}
 
@@ -4578,9 +4580,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if (rmi4_data->ts_pinctrl) {
 		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
 		rmi4_data->pinctrl_state_suspend);
-		if (retval < 0)
+		if (retval < 0) {
 			dev_err(dev, "Cannot get idle pinctrl state\n");
 			goto err_pinctrl;
+		}
 	}
 exit:
 	mutex_lock(&exp_data.mutex);
@@ -4591,10 +4594,9 @@ exit:
 	}
 	mutex_unlock(&exp_data.mutex);
 
-	if (!rmi4_data->suspend) {
+	if (!rmi4_data->suspend && !rmi4_data->enable_wakeup_gesture)
 		synaptics_rmi4_enable_reg(rmi4_data, false);
-		synaptics_rmi4_get_reg(rmi4_data, false);
-	}
+
 	rmi4_data->suspend = true;
 
 	return 0;
@@ -4620,17 +4622,17 @@ static int synaptics_rmi4_resume(struct device *dev)
 	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
-		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
-		disable_irq_wake(rmi4_data->irq);
+		if (rmi4_data->suspend) {
+			synaptics_rmi4_wakeup_gesture(rmi4_data, false);
+			disable_irq_wake(rmi4_data->irq);
+		}
 		goto exit;
 	}
 
 	rmi4_data->current_page = MASK_8BIT;
 
-	if (rmi4_data->suspend) {
-		synaptics_rmi4_get_reg(rmi4_data, true);
+	if (rmi4_data->suspend)
 		synaptics_rmi4_enable_reg(rmi4_data, true);
-	}
 
 	synaptics_rmi4_sleep_enable(rmi4_data, false);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);

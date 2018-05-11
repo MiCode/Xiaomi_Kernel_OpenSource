@@ -12,32 +12,12 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-cdp.dtsi"
+#include "sdxpoorwills-pcie-ep-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS PCIE-EP CDP";
 	compatible = "qcom,sdxpoorwills-cdp",
 		"qcom,sdxpoorwills", "qcom,cdp";
-	qcom,board-id = <1 0x1>, <1 0x101>;
+	qcom,board-id = <1 0x106>;
 };
 
-&vbus_detect {
-	status = "okay";
-};
-
-&usb {
-	status = "okay";
-	extcon = <&vbus_detect>;
-};
-
-&pcie_ep {
-	status = "okay";
-};
-
-&pcie0 {
-	status = "disabled";
-};
-
-&mhi_device {
-	status = "okay";
-};

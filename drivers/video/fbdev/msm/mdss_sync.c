@@ -37,28 +37,6 @@ struct mdss_fence {
 	struct list_head fence_list;
 };
 
-/**
- * struct mdss_timeline - sync timeline context
- * @kref: reference count of timeline
- * @lock: serialization lock for timeline and fence update
- * @name: name of timeline
- * @fence_name: fence name prefix
- * @next_value: next commit sequence number
- * @value: current retired sequence number
- * @context: fence context identifier
- * @fence_list_head: linked list of outstanding sync fence
- */
-struct mdss_timeline {
-	struct kref kref;
-	spinlock_t lock;
-	spinlock_t list_lock;
-	char name[MDSS_SYNC_NAME_SIZE];
-	u32 next_value;
-	u32 value;
-	u64 context;
-	struct list_head fence_list_head;
-};
-
 #if defined(CONFIG_SYNC_FILE)
 /*
  * to_mdss_fence - get mdss fence from fence base object
@@ -240,6 +218,7 @@ static int mdss_inc_timeline_locked(struct mdss_timeline *tl,
 	spin_lock(&tl->list_lock);
 	if (list_empty(&tl->fence_list_head)) {
 		pr_debug("fence list is empty\n");
+		tl->value += 1;
 		spin_unlock(&tl->list_lock);
 		return 0;
 	}
@@ -301,10 +280,9 @@ void mdss_resync_timeline(struct mdss_timeline *tl)
  */
 struct mdss_fence *mdss_get_sync_fence(
 		struct mdss_timeline *tl, const char *fence_name,
-		u32 *timestamp, int offset)
+		u32 *timestamp, int value)
 {
 	struct mdss_fence *f;
-	u32 val;
 	unsigned long flags;
 
 	if (!tl) {
@@ -318,22 +296,21 @@ struct mdss_fence *mdss_get_sync_fence(
 
 	INIT_LIST_HEAD(&f->fence_list);
 	spin_lock_irqsave(&tl->lock, flags);
-	val = tl->next_value + offset;
-	tl->next_value += 1;
-	fence_init(&f->base, &mdss_fence_ops, &tl->lock, tl->context, val);
+	tl->next_value = value;
+	fence_init(&f->base, &mdss_fence_ops, &tl->lock, tl->context, value);
 	mdss_get_timeline(tl);
 	spin_unlock_irqrestore(&tl->lock, flags);
 
 	spin_lock(&tl->list_lock);
 	list_add_tail(&f->fence_list, &tl->fence_list_head);
 	spin_unlock(&tl->list_lock);
-	snprintf(f->name, sizeof(f->name), "%s_%u", fence_name, val);
+	snprintf(f->name, sizeof(f->name), "%s_%u", fence_name, value);
 
 	if (timestamp)
-		*timestamp = val;
+		*timestamp = value;
 
-	pr_debug("fence created at val=%u tl->name %s next_value %d value %d offset %d\n",
-			val, tl->name, tl->next_value, tl->value, offset);
+	pr_debug("fence created at val=%u tl->name= %s tl->value = %d tl->next_value =%d\n",
+			value, tl->name, tl->value, tl->next_value);
 
 	return (struct mdss_fence *) &f->base;
 }

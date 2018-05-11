@@ -1768,6 +1768,7 @@ struct task_struct {
 	struct sched_entity se;
 	struct sched_rt_entity rt;
 	u64 last_sleep_ts;
+	u64 last_cpu_selected_ts;
 #ifdef CONFIG_SCHED_WALT
 	struct ravg ravg;
 	/*
@@ -3971,6 +3972,7 @@ static inline unsigned long rlimit_max(unsigned int limit)
 #define SCHED_CPUFREQ_WALT (1U << 4)
 #define SCHED_CPUFREQ_PL	(1U << 5)
 #define SCHED_CPUFREQ_EARLY_DET	(1U << 6)
+#define SCHED_CPUFREQ_FORCE_UPDATE (1U << 7)
 
 #define SCHED_CPUFREQ_RT_DL	(SCHED_CPUFREQ_RT | SCHED_CPUFREQ_DL)
 

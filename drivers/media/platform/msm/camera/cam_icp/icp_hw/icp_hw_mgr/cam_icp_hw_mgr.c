@@ -57,6 +57,8 @@
 #define ICP_DEV_TYPE_TO_CLK_TYPE(dev_type) \
 	((dev_type == CAM_ICP_RES_TYPE_BPS) ? ICP_CLK_HW_BPS : ICP_CLK_HW_IPE)
 
+#define ICP_DEVICE_IDLE_TIMEOUT 400
+
 static struct cam_icp_hw_mgr icp_hw_mgr;
 
 static int cam_icp_send_ubwc_cfg(struct cam_icp_hw_mgr *hw_mgr)
@@ -308,8 +310,9 @@ static int32_t cam_icp_deinit_idle_clk(void *priv, void *data)
 		ctx_data = &hw_mgr->ctx_data[i];
 		mutex_lock(&ctx_data->ctx_mutex);
 		if ((ctx_data->state == CAM_ICP_CTX_STATE_ACQUIRED) &&
-			(ICP_DEV_TYPE_TO_CLK_TYPE(ctx_data->
-			icp_dev_acquire_info->dev_type) == clk_info->hw_type)) {
+			(ICP_DEV_TYPE_TO_CLK_TYPE(
+			ctx_data->icp_dev_acquire_info->dev_type)
+			== clk_info->hw_type)) {
 			busy = cam_icp_frame_pending(ctx_data);
 			if (busy) {
 				mutex_unlock(&ctx_data->ctx_mutex);
@@ -548,7 +551,7 @@ static int cam_icp_device_timer_start(struct cam_icp_hw_mgr *hw_mgr)
 	for (i = 0; i < ICP_CLK_HW_MAX; i++)  {
 		if (!hw_mgr->clk_info[i].watch_dog) {
 			rc = crm_timer_init(&hw_mgr->clk_info[i].watch_dog,
-				3000, &hw_mgr->clk_info[i],
+				ICP_DEVICE_IDLE_TIMEOUT, &hw_mgr->clk_info[i],
 				&cam_icp_device_timer_cb);
 
 			if (rc)
@@ -2994,6 +2997,8 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	uint64_t cpu_addr = 0;
 	struct ipe_frame_process_data *frame_process_data = NULL;
 	struct bps_frame_process_data *bps_frame_process_data = NULL;
+	struct frame_set *ipe_set = NULL;
+	struct frame_buffer *bps_bufs = NULL;
 
 	cmd_desc = (struct cam_cmd_buf_desc *)
 		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
@@ -3042,14 +3047,11 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 		frame_process_data->cdm_buffer_addr = 0;
 		frame_process_data->cdm_prog_base = 0;
 		for (i = 0; i < frame_process_data->frames_in_batch; i++) {
+			ipe_set = &frame_process_data->framesets[i];
 			for (j = 0; j < IPE_IO_IMAGES_MAX; j++) {
 				for (k = 0; k < MAX_NUM_OF_IMAGE_PLANES; k++) {
-					frame_process_data->
-					framesets[i].buffers[j].
-					buffer_ptr[k] = 0;
-					frame_process_data->
-					framesets[i].buffers[j].
-					meta_buffer_ptr[k] = 0;
+					ipe_set->buffers[j].buf_ptr[k] = 0;
+					ipe_set->buffers[j].meta_buf_ptr[k] = 0;
 				}
 			}
 		}
@@ -3066,11 +3068,10 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 		bps_frame_process_data->strip_lib_out_addr = 0;
 		bps_frame_process_data->cdm_prog_addr = 0;
 		for (i = 0; i < BPS_IO_IMAGES_MAX; i++) {
+			bps_bufs = &bps_frame_process_data->buffers[i];
 			for (j = 0; j < MAX_NUM_OF_IMAGE_PLANES; j++) {
-				bps_frame_process_data->
-				buffers[i].buffer_ptr[j] = 0;
-				bps_frame_process_data->
-				buffers[i].meta_buffer_ptr[j] = 0;
+				bps_bufs->buf_ptr[j] = 0;
+				bps_bufs->meta_buf_ptr[j] = 0;
 			}
 		}
 	}
@@ -4028,8 +4029,8 @@ static int cam_icp_mgr_alloc_devs(struct device_node *of_node)
 		CAM_ERR(CAM_ICP, "read num bps devices failed");
 		goto num_bps_failed;
 	}
-	icp_hw_mgr.devices[CAM_ICP_DEV_BPS] = kzalloc(
-		sizeof(struct cam_hw_intf *) * num_dev, GFP_KERNEL);
+	icp_hw_mgr.devices[CAM_ICP_DEV_BPS] = kcalloc(num_dev,
+		sizeof(struct cam_hw_intf *), GFP_KERNEL);
 	if (!icp_hw_mgr.devices[CAM_ICP_DEV_BPS]) {
 		rc = -ENOMEM;
 		goto num_bps_failed;

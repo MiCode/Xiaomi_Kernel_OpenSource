@@ -13,6 +13,7 @@
 
 #include "msm8953-qrd.dtsi"
 #include "msm8953-mdss-panels.dtsi"
+#include "msm8953-camera-sensor-qrd.dtsi"
 
 &qusb_phy {
 	qcom,qusb-phy-init-seq = <0x78 0x80
@@ -149,3 +150,30 @@
 &sdhc_2 {
 	cd-gpios = <&tlmm 133 0x0>;
 };
+
+&pmi632_vadc {
+	chan@4a {
+		qcom,scale-function = <22>;
+	};
+};
+
+&soc {
+	gpio_keys {
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&tlmm 87 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 86 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+	};
+};
+

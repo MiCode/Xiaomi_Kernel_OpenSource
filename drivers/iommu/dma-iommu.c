@@ -45,6 +45,7 @@ struct iommu_dma_cookie {
 	spinlock_t		msi_lock;
 	u32			min_iova_align;
 	struct page		*guard_page;
+	u32			force_guard_page_len;
 };
 
 static inline struct iova_domain *cookie_iovad(struct iommu_domain *domain)
@@ -130,20 +131,31 @@ static int iommu_dma_arm_smmu_errata_init(struct iommu_domain *domain)
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	int vmid = VMID_HLOS;
 	int min_iova_align = 0;
+	int force_iova_guard_page = 0;
+
 
 	iommu_domain_get_attr(domain,
 			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
 			&min_iova_align);
 	iommu_domain_get_attr(domain, DOMAIN_ATTR_SECURE_VMID, &vmid);
+	iommu_domain_get_attr(domain,
+			      DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE,
+			      &force_iova_guard_page);
+
 	if (vmid >= VMID_LAST || vmid < 0)
 		vmid = VMID_HLOS;
 
-	if (min_iova_align) {
-		cookie->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
-		cookie->guard_page = arm_smmu_errata_get_guard_page(vmid);
-		if (!cookie->guard_page)
-			return -ENOMEM;
-	}
+	cookie->min_iova_align = (min_iova_align) ? ARM_SMMU_MIN_IOVA_ALIGN :
+		PAGE_SIZE;
+
+	if (force_iova_guard_page)
+		cookie->force_guard_page_len = PAGE_SIZE;
+
+	cookie->guard_page =
+		arm_smmu_errata_get_guard_page(vmid);
+	if (!cookie->guard_page)
+		return -ENOMEM;
+
 	return 0;
 }
 
@@ -244,7 +256,8 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	dma_addr_t ret_iova;
 
 	if (cookie->min_iova_align)
-		guard_len = ALIGN(size, cookie->min_iova_align) - size;
+		guard_len = ALIGN(size + cookie->force_guard_page_len,
+				  cookie->min_iova_align) - size;
 	else
 		guard_len = 0;
 	iova_len = (size + guard_len) >> shift;
@@ -290,12 +303,14 @@ static void iommu_dma_free_iova(struct iommu_domain *domain,
 	unsigned long shift = iova_shift(iovad);
 	unsigned long guard_len;
 
-	if (cookie->min_iova_align) {
-		guard_len = ALIGN(size, cookie->min_iova_align) - size;
-		iommu_unmap(domain, iova + size, guard_len);
-	} else {
+	if (cookie->min_iova_align)
+		guard_len = ALIGN(size + cookie->force_guard_page_len,
+				  cookie->min_iova_align) - size;
+	else
 		guard_len = 0;
-	}
+
+	if (guard_len)
+		iommu_unmap(domain, iova + size, guard_len);
 
 	free_iova_fast(iovad, iova >> shift, (size + guard_len) >> shift);
 }

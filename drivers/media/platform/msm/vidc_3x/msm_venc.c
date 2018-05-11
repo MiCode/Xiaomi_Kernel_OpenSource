@@ -2327,6 +2327,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_VPX_MIN_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		min = temp_ctrl->minimum;
 		if (!VALIDATE_BOUNDARIES(min, max, qp_value))
 			rc = -EINVAL;
@@ -2341,6 +2346,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		min = temp_ctrl->minimum;
 		if (!VALIDATE_BOUNDARIES(min, max, qp_value))
 			rc = -EINVAL;
@@ -2355,6 +2365,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_MIN_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		min = temp_ctrl->minimum;
 		if (!VALIDATE_BOUNDARIES(min, max, qp_value))
 			rc = -EINVAL;

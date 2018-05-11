@@ -190,9 +190,8 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		i2c_reg_settings =
-			&i2c_data->
-			per_frame[csl_packet->header.request_id %
-			MAX_PER_FRAME_ARRAY];
+			&i2c_data->per_frame[csl_packet->header.request_id %
+				MAX_PER_FRAME_ARRAY];
 		CAM_DBG(CAM_SENSOR, "Received Packet: %lld req: %lld",
 			csl_packet->header.request_id % MAX_PER_FRAME_ARRAY,
 			csl_packet->header.request_id);
@@ -231,7 +230,8 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	offset += csl_packet->cmd_buf_offset / 4;
 	cmd_desc = (struct cam_cmd_buf_desc *)(offset);
 
-	rc = cam_sensor_i2c_command_parser(i2c_reg_settings, cmd_desc, 1);
+	rc = cam_sensor_i2c_command_parser(&s_ctrl->io_master_info,
+			i2c_reg_settings, cmd_desc, 1);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Fail parsing I2C Pkt: %d", rc);
 		return rc;
@@ -290,16 +290,12 @@ static int32_t cam_sensor_i2c_modes_util(
 		for (i = 0; i < size; i++) {
 			rc = camera_io_dev_poll(
 			io_master_info,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_addr,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_data,
-			i2c_list->i2c_settings.
-				reg_setting[i].data_mask,
+			i2c_list->i2c_settings.reg_setting[i].reg_addr,
+			i2c_list->i2c_settings.reg_setting[i].reg_data,
+			i2c_list->i2c_settings.reg_setting[i].data_mask,
 			i2c_list->i2c_settings.addr_type,
-				i2c_list->i2c_settings.data_type,
-			i2c_list->i2c_settings.
-				reg_setting[i].delay);
+			i2c_list->i2c_settings.data_type,
+			i2c_list->i2c_settings.reg_setting[i].delay);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
 					"i2c poll apply setting Fail: %d", rc);
@@ -567,7 +563,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_sensor_power_setting *pd = NULL;
 	struct cam_sensor_power_ctrl_t *power_info =
 		&s_ctrl->sensordata->power_info;
-
 	if (!s_ctrl || !arg) {
 		CAM_ERR(CAM_SENSOR, "s_ctrl is NULL");
 		return -EINVAL;
@@ -1104,9 +1099,9 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 
 		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 			if ((del_req_id >
-				 s_ctrl->i2c_data.per_frame[i].request_id) &&
-				(s_ctrl->i2c_data.per_frame[i].
-					is_settings_valid == 1)) {
+				 s_ctrl->i2c_data.per_frame[i].request_id) && (
+				 s_ctrl->i2c_data.per_frame[i].is_settings_valid
+					== 1)) {
 				s_ctrl->i2c_data.per_frame[i].request_id = 0;
 				rc = delete_request(
 					&(s_ctrl->i2c_data.per_frame[i]));

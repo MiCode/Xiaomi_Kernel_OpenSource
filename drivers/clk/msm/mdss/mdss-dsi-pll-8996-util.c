@@ -424,8 +424,8 @@ static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
 	pdb->in.pll_ip_trim = 4;	/* 4, reg: 0x0404 */
 	pdb->in.pll_cpcset_cur = 1;	/* 1, reg: 0x04f0, bit 0 - 2 */
 	pdb->in.pll_cpmset_cur = 1;	/* 1, reg: 0x04f0, bit 3 - 5 */
-	pdb->in.pll_icpmset = 4;	/* 4, reg: 0x04fc, bit 3 - 5 */
-	pdb->in.pll_icpcset = 4;	/* 4, reg: 0x04fc, bit 0 - 2 */
+	pdb->in.pll_icpmset = 7;	/* 7, reg: 0x04fc, bit 3 - 5 */
+	pdb->in.pll_icpcset = 7;	/* 7, reg: 0x04fc, bit 0 - 2 */
 	pdb->in.pll_icpmset_p = 0;	/* 0, reg: 0x04f4, bit 0 - 2 */
 	pdb->in.pll_icpmset_m = 0;	/* 0, reg: 0x04f4, bit 3 - 5 */
 	pdb->in.pll_icpcset_p = 0;	/* 0, reg: 0x04f8, bit 0 - 2 */

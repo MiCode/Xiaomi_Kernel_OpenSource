@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,6 @@
 #include "main.h"
 #include "debug.h"
 #include "pci.h"
-
-#define CNSS_IPC_LOG_PAGES		32
 
 void *cnss_ipc_log_context;
 
@@ -139,10 +137,16 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 {
 	struct cnss_plat_data *plat_priv =
 		((struct seq_file *)fp->private_data)->private;
+	struct cnss_pci_data *pci_priv;
 	char buf[64];
 	char *cmd;
 	unsigned int len = 0;
 	int ret = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	pci_priv = plat_priv->bus_priv;
 
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))
@@ -159,11 +163,11 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		ret = cnss_pci_init(plat_priv);
 	} else if (sysfs_streq(cmd, "download")) {
 		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
-		ret = cnss_pci_start_mhi(plat_priv->bus_priv);
+		ret = cnss_pci_start_mhi(pci_priv);
 	} else if (sysfs_streq(cmd, "linkup")) {
-		ret = cnss_resume_pci_link(plat_priv->bus_priv);
+		ret = cnss_resume_pci_link(pci_priv);
 	} else if (sysfs_streq(cmd, "linkdown")) {
-		ret = cnss_suspend_pci_link(plat_priv->bus_priv);
+		ret = cnss_suspend_pci_link(pci_priv);
 	} else if (sysfs_streq(cmd, "powerup")) {
 		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 		ret = cnss_driver_event_post(plat_priv,
@@ -172,8 +176,10 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	} else if (sysfs_streq(cmd, "shutdown")) {
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
-					     CNSS_EVENT_SYNC, NULL);
+					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
+	} else if (sysfs_streq(cmd, "assert")) {
+		ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
 	} else {
 		cnss_pr_err("Device boot debugfs command is invalid\n");
 		ret = -EINVAL;
@@ -197,6 +203,7 @@ static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "linkdown: bring down PCIe link\n");
 	seq_puts(s, "powerup: full power on sequence to boot device, download FW and do QMI handshake with FW\n");
 	seq_puts(s, "shutdown: full power off sequence to shutdown device\n");
+	seq_puts(s, "assert: trigger firmware assert\n");
 
 	return 0;
 }

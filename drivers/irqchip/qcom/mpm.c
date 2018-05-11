@@ -162,13 +162,26 @@ static inline void msm_mpm_enable_irq(struct irq_data *d, bool on)
 	}
 }
 
-static inline void msm_mpm_set_type(struct irq_data *d,
+static void msm_mpm_program_set_type(bool set, unsigned int reg,
+					unsigned int index, unsigned int mask)
+{
+	u32 type;
+
+	type = msm_mpm_read(reg, index);
+	if (set)
+		type = ENABLE_TYPE(type, mask);
+	else
+		type = CLEAR_TYPE(type, mask);
+
+	msm_mpm_write(reg, index, type);
+}
+
+static void msm_mpm_set_type(struct irq_data *d,
 					unsigned int flowtype)
 {
 	int mpm_pin[MAX_MPM_PIN_PER_IRQ] = {-1, -1};
 	unsigned long flags;
 	int i = 0;
-	u32 type;
 	unsigned int index, mask;
 	unsigned int reg = 0;
 
@@ -180,24 +193,24 @@ static inline void msm_mpm_set_type(struct irq_data *d,
 		index = mpm_pin[i]/32;
 		mask = mpm_pin[i]%32;
 
-		if (flowtype & IRQ_TYPE_LEVEL_HIGH)
-			reg = MPM_REG_FALLING_EDGE;
-
-		if (flowtype & IRQ_TYPE_EDGE_RISING)
-			reg = MPM_REG_RISING_EDGE;
-
-		if (flowtype & IRQ_TYPE_EDGE_FALLING)
-			reg = MPM_REG_POLARITY;
-
 		spin_lock_irqsave(&mpm_lock, flags);
-		type = msm_mpm_read(reg, index);
-
-		if (flowtype)
-			type = ENABLE_TYPE(type, mask);
+		reg = MPM_REG_RISING_EDGE;
+		if (flowtype & IRQ_TYPE_EDGE_RISING)
+			msm_mpm_program_set_type(1, reg, index, mask);
 		else
-			type = CLEAR_TYPE(type, mask);
+			msm_mpm_program_set_type(0, reg, index, mask);
 
-		msm_mpm_write(reg, index, type);
+		reg = MPM_REG_FALLING_EDGE;
+		if (flowtype & IRQ_TYPE_EDGE_FALLING)
+			msm_mpm_program_set_type(1, reg, index, mask);
+		else
+			msm_mpm_program_set_type(0, reg, index, mask);
+
+		reg = MPM_REG_POLARITY;
+		if (flowtype & IRQ_TYPE_LEVEL_HIGH)
+			msm_mpm_program_set_type(1, reg, index, mask);
+		else
+			msm_mpm_program_set_type(0, reg, index, mask);
 		spin_unlock_irqrestore(&mpm_lock, flags);
 	}
 }
@@ -453,6 +466,8 @@ static int system_pm_update_wakeup(bool from_idle)
 	}
 
 	msm_mpm_timer_write((uint32_t *)&wakeup);
+	trace_mpm_wakeup_time(from_idle, wakeup, arch_counter_get_cntvct());
+
 	return 0;
 }
 
@@ -512,6 +527,8 @@ static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
 						IRQCHIP_STATE_PENDING, true);
 
 		}
+
+		msm_mpm_write(MPM_REG_STATUS, i, 0);
 	}
 	return IRQ_HANDLED;
 }
@@ -580,6 +597,10 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 		.compatible = "qcom,mpm-gic-msm8937",
 		.data = mpm_msm8937_gic_chip_data,
 	},
+	{
+		.compatible = "qcom,mpm-gic-msm8909",
+		.data = mpm_msm8909_gic_chip_data,
+	},
 	{}
 };
 
@@ -593,6 +614,10 @@ static const struct of_device_id mpm_gpio_chip_data_table[] = {
 	{
 		.compatible = "qcom,mpm-gpio-msm8937",
 		.data = mpm_msm8937_gpio_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-gpio-msm8909",
+		.data = mpm_msm8909_gpio_chip_data,
 	},
 	{}
 };

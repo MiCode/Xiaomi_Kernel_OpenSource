@@ -1771,12 +1771,30 @@ static int wcnss_wlan_suspend(struct device *dev)
 	return 0;
 }
 
+static int wcnss_wlan_suspend_noirq(struct device *dev)
+{
+	if (penv && dev && (dev == &penv->pdev->dev) &&
+	    penv->smd_channel_ready &&
+	    penv->pm_ops && penv->pm_ops->suspend_noirq)
+		return penv->pm_ops->suspend_noirq(dev);
+	return 0;
+}
+
 static int wcnss_wlan_resume(struct device *dev)
 {
 	if (penv && dev && (dev == &penv->pdev->dev) &&
 	    penv->smd_channel_ready &&
 	    penv->pm_ops && penv->pm_ops->resume)
 		return penv->pm_ops->resume(dev);
+	return 0;
+}
+
+static int wcnss_wlan_resume_noirq(struct device *dev)
+{
+	if (penv && dev && (dev == &penv->pdev->dev) &&
+	    penv->smd_channel_ready &&
+	    penv->pm_ops && penv->pm_ops->resume_noirq)
+		return penv->pm_ops->resume_noirq(dev);
 	return 0;
 }
 
@@ -2177,7 +2195,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		return;
 	}
 	if (len < sizeof(struct smd_msg_hdr)) {
-		pr_err("wcnss: incomplete header available len = %d\n", len);
+		pr_debug("wcnss: incomplete header available len = %d\n", len);
 		return;
 	}
 
@@ -3329,7 +3347,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		return NOTIFY_DONE;
 	}
 
-	pr_debug("%s: wcnss notification event: %lu : %s\n",
+	pr_info("%s: wcnss notification event: %lu : %s\n",
 		 __func__, code, wcnss_subsys_notif_type[code]);
 
 	if (code == SUBSYS_PROXY_VOTE) {
@@ -3535,6 +3553,8 @@ wcnss_wlan_remove(struct platform_device *pdev)
 static const struct dev_pm_ops wcnss_wlan_pm_ops = {
 	.suspend	= wcnss_wlan_suspend,
 	.resume		= wcnss_wlan_resume,
+	.suspend_noirq  = wcnss_wlan_suspend_noirq,
+	.resume_noirq   = wcnss_wlan_resume_noirq,
 };
 
 #ifdef CONFIG_WCNSS_CORE_PRONTO

@@ -114,6 +114,30 @@ config ARCH_MSM8917
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
 
+config ARCH_SDM439
+	bool "Enable support for SDM439"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
+config ARCH_SDM429
+	bool "Enable support for SDM429"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
 config ARCH_SDM450
 	bool "Enable support for SDM450"
 	select CPU_V7
@@ -124,6 +148,22 @@ config ARCH_SDM450
 	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
+config ARCH_SDM632
+	bool "Enable Support for Qualcomm Technologies Inc. SDM632"
+	select CPU_V7
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select SOC_BUS
+	select PM_OPP
+	select MFD_CORE
+	select SND_SOC_COMPRESS
+	select SND_HWDEP
+	select CPU_FREQ_QCOM
 	select COMMON_CLK_MSM
 
 config ARCH_MDM9650
@@ -150,6 +190,28 @@ config ARCH_MDM9650
 	select DEVFREQ_SIMPLE_DEV
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
+	select HAVE_CLK_PREPARE
+
+config ARCH_MDM9607
+	bool "MDM9607"
+	select ARM_GIC
+	select CPU_V7
+	select REGULATOR
+	select REGULATOR_RPM_SMD
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_RPM_SMD
+	select MEMORY_HOLE_CARVEOUT
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select MSM_IRQ
+	select MSM_PM if PM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select MSM_BIMC_BWMON
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select ARM_HAS_SG_CHAIN
 	select HAVE_CLK_PREPARE
 
 endmenu

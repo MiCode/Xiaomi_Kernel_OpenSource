@@ -35,6 +35,14 @@
 		};
 
 		/*BCMs*/
+		bcm_acv: bcm-acv {
+			cell-id = <MSM_BUS_BCM_ACV>;
+			label = "ACV";
+			qcom,bcm-name = "ACV";
+			qcom,rscs = <&rsc_apps>;
+			qcom,bcm-dev;
+		};
+
 		bcm_alc: bcm-alc {
 			cell-id = <MSM_BUS_BCM_ALC>;
 			label = "ALC";
@@ -564,6 +572,15 @@
 			qcom,prio = <0>;
 		};
 
+		mas_alc: mas-alc {
+			cell-id = <MSM_BUS_MASTER_ALC>;
+			label = "mas-alc";
+			qcom,buswidth = <1>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_mc_virt>;
+			qcom,bcms = <&bcm_alc>;
+		};
+
 		/*Internal nodes*/
 
 		/*Slaves*/
@@ -583,7 +600,7 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_mc_virt>;
-			qcom,bcms = <&bcm_mc0>;
+			qcom,bcms = <&bcm_mc0>, <&bcm_acv>;
 		};
 
 		slv_qns_llcc:slv-qns-llcc {

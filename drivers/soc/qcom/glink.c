@@ -457,6 +457,42 @@ static void glink_put_ch_ctx(struct channel_ctx *ctx)
 	rwref_put(&ctx->ch_state_lhb2);
 }
 
+
+/**
+ * glink_subsys_up() - Inform transport about remote subsystem up.
+ * @subsystem:	The name of the subsystem
+ *
+ * Call into the transport using the subsys_up(if_ptr) function to allow it to
+ * initialize any necessary structures.
+ *
+ * Return: Standard error codes.
+ */
+int glink_subsys_up(const char *subsystem)
+{
+	int ret = 0;
+	bool transport_found = false;
+	struct glink_core_xprt_ctx *xprt_ctx = NULL;
+
+	mutex_lock(&transport_list_lock_lha0);
+	list_for_each_entry(xprt_ctx, &transport_list, list_node) {
+		if (!strcmp(subsystem, xprt_ctx->edge) &&
+				!xprt_is_fully_opened(xprt_ctx)) {
+			GLINK_INFO_XPRT(xprt_ctx, "%s: %s Subsystem up\n",
+							__func__, subsystem);
+			if (xprt_ctx->ops->subsys_up)
+				xprt_ctx->ops->subsys_up(xprt_ctx->ops);
+			transport_found = true;
+		}
+	}
+	mutex_unlock(&transport_list_lock_lha0);
+
+	if (!transport_found)
+		ret = -ENODEV;
+
+	return ret;
+}
+EXPORT_SYMBOL(glink_subsys_up);
+
 /**
  * glink_ssr() - Clean up locally for SSR by simulating remote close
  * @subsystem:	The name of the subsystem being restarted
@@ -3792,6 +3828,10 @@ static void glink_dummy_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
  */
 int glink_xprt_name_to_id(const char *name, uint16_t *id)
 {
+	if (!strcmp(name, "bgcom")) {
+		*id = SPIV2_XPRT_ID;
+		return 0;
+	}
 	if (!strcmp(name, "smem")) {
 		*id = SMEM_XPRT_ID;
 		return 0;

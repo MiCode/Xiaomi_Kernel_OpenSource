@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015,2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,83 @@ done:
 	return bsize;
 }
 
+static ssize_t debug_write_ctrl(struct file *file, const char __user *buff,
+				 size_t count, loff_t *ppos)
+{
+	struct ipc_log_context *ilctxt;
+	struct dentry *d = file->f_path.dentry;
+	int bsize = 1;
+	int srcu_idx;
+	int r;
+	char local_buf[3];
+
+	r = debugfs_use_file_start(d, &srcu_idx);
+	if (!r) {
+		ilctxt = file->private_data;
+		r = kref_get_unless_zero(&ilctxt->refcount) ? 0 : -EIO;
+	}
+	debugfs_use_file_finish(srcu_idx);
+	if (r)
+		return r;
+
+	if (copy_from_user(local_buf, buff, bsize)) {
+		count = -EFAULT;
+		goto done;
+	}
+
+	if (*local_buf == '1') {
+		ipc_log_string(ilctxt, "LOGGING DISABLED FOR THIS CLIENT!!\n");
+		ilctxt->disabled = true;
+	} else if (*local_buf == '0') {
+		ilctxt->disabled = false;
+		ipc_log_string(ilctxt, "LOGGING ENABLED FOR THIS CLIENT!!\n");
+	}
+
+done:
+	ipc_log_context_put(ilctxt);
+	return count;
+}
+
+
+static ssize_t debug_write_ctrl_all(struct file *file, const char __user *buff,
+				 size_t count, loff_t *ppos)
+{
+	int bsize = 1;
+	char local_buf[3];
+
+	if (copy_from_user(local_buf, buff, bsize))
+		return -EFAULT;
+	if (*local_buf == '1')
+		ipc_log_ctrl_all(true);
+	else if (*local_buf == '0')
+		ipc_log_ctrl_all(false);
+	return count;
+}
+
+static ssize_t debug_read_ctrl(struct file *file, char __user *buff,
+				 size_t count, loff_t *ppos)
+{
+	struct ipc_log_context *ilctxt;
+	struct dentry *d = file->f_path.dentry;
+	int bsize = 2;
+	int srcu_idx;
+	int r;
+
+	r = debugfs_use_file_start(d, &srcu_idx);
+	if (!r) {
+		ilctxt = file->private_data;
+		r = kref_get_unless_zero(&ilctxt->refcount) ? 0 : -EIO;
+	}
+	debugfs_use_file_finish(srcu_idx);
+	if (r)
+		return r;
+
+	bsize = simple_read_from_buffer(buff, count, ppos,
+				ilctxt->disabled?"1\n":"0\n", bsize);
+	ipc_log_context_put(ilctxt);
+	return bsize;
+}
+
 static ssize_t debug_read(struct file *file, char __user *buff,
 			  size_t count, loff_t *ppos)
 {
@@ -139,6 +216,16 @@ static const struct file_operations debug_ops = {
 static const struct file_operations debug_ops_cont = {
 	.read = debug_read_cont,
 	.open = debug_open,
+};
+
+static const struct file_operations debug_ops_ctrl = {
+	.read = debug_read_ctrl,
+	.write = debug_write_ctrl,
+	.open = debug_open,
+};
+
+static const struct file_operations debug_ops_ctrl_all = {
+	.write = debug_write_ctrl_all,
 };
 
 static void debug_create(const char *name, mode_t mode,
@@ -176,6 +263,9 @@ void check_and_create_debugfs(void)
 			pr_err("%s: unable to create debugfs %ld\n",
 				__func__, PTR_ERR(root_dent));
 			root_dent = NULL;
+		} else {
+			debug_create("ctrl_all", 0444, root_dent,
+				NULL, &debug_ops_ctrl_all);
 		}
 	}
 	mutex_unlock(&ipc_log_debugfs_init_lock);
@@ -195,6 +285,8 @@ void create_ctx_debugfs(struct ipc_log_context *ctxt,
 				     ctxt, &debug_ops);
 			debug_create("log_cont", 0444, ctxt->dent,
 				     ctxt, &debug_ops_cont);
+			debug_create("log_disable", 0444, ctxt->dent,
+				     ctxt, &debug_ops_ctrl);
 		}
 	}
 	add_deserialization_func((void *)ctxt,

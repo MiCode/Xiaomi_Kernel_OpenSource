@@ -16,7 +16,6 @@
 #include "sdm450.dtsi"
 #include "sdm450-pmi632-mtp-s3.dtsi"
 #include "sdm450-pmi632.dtsi"
-#include "sdm632-camera-sensor-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 MTP S3";

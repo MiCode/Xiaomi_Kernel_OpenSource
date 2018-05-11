@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -416,9 +416,6 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 						SDE_ROTATOR_CLK_MDSS_ROT_SUB);
 			if (ret)
 				goto error_rot_sub;
-
-			/* reinitialize static vbif setting */
-			sde_mdp_init_vbif();
 
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
@@ -3329,6 +3326,7 @@ int sde_rotator_pm_resume(struct device *dev)
 	 */
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
+	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 
 	sde_rot_mgr_lock(mgr);

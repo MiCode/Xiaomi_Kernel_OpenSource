@@ -275,7 +275,7 @@ struct mhi_config {
 #define MHI_ENV_VALUE			2
 #define MHI_MASK_ROWS_CH_EV_DB		4
 #define TRB_MAX_DATA_SIZE		8192
-#define MHI_CTRL_STATE			25
+#define MHI_CTRL_STATE			100
 #define IPA_DMA_SYNC                    1
 #define IPA_DMA_ASYNC                   0
 
@@ -607,6 +607,8 @@ struct mhi_dev {
 	bool				mhi_int;
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
+
+	struct kobj_uevent_env		kobj_env;
 };
 
 struct mhi_req {
@@ -710,6 +712,14 @@ enum mhi_client_channel {
 	MHI_CLIENT_RESERVED_2_LOWER = 102,
 	MHI_CLIENT_RESERVED_2_UPPER = 127,
 	MHI_MAX_CHANNELS = 102,
+};
+
+/* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 is used for internal only */
+#define MHI_DEV_UEVENT_CTRL	0
+
+struct mhi_dev_uevent_info {
+	enum mhi_client_channel	channel;
+	enum mhi_ctrl_info	ctrl_info;
 };
 
 struct mhi_dev_iov {
@@ -1251,6 +1261,9 @@ void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
 /**
  * mhi_ctrl_state_info() - Provide MHI state info
+ *		@idx: Channel number idx. Look at channel_state_info and
+ *		pass the index for the corresponding channel.
+ *		@info: Return the control info.
  *		MHI_STATE=CONFIGURED - MHI device is present but not ready
  *					for data traffic.
  *		MHI_STATE=CONNECTED - MHI device is ready for data transfer.
@@ -1258,7 +1271,7 @@ void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
  *		exposes device nodes for the supported MHI software
  *		channels.
  */
-int mhi_ctrl_state_info(uint32_t *info);
+int mhi_ctrl_state_info(uint32_t idx, uint32_t *info);
 
 /**
  * uci_ctrl_update() - Update UCI once TRE's are available for clients to

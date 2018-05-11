@@ -86,9 +86,9 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 				"apc1-cpu1-usr",
 				"apc1-cpu2-usr",
 				"apc1-cpu3-usr",
-				"cpuss0-usr",
-				"cpuss1-usr",
-				"cpuss3-usr"},
+				"apc1-mhm-usr",
+				"apc1-l2-usr",
+				"cpuss0-usr"},
 		.logic = VIRT_MAXIMUM,
 	},
 	{

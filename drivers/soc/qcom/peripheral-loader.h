@@ -64,7 +64,8 @@ struct pil_desc {
 	bool signal_aop;
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
-	struct md_ss_toc *minidump;
+	struct md_ss_toc *minidump_ss;
+	struct md_ss_toc *minidump_pdr;
 	int minidump_id;
 };
 

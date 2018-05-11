@@ -650,6 +650,9 @@ struct mmc_host {
 	 */
 	void *cmdq_private;
 	struct mmc_request	*err_mrq;
+
+	atomic_t rpmb_req_pending;
+	struct mutex		rpmb_req_mutex;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

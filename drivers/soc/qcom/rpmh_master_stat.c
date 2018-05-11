@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
+#include <asm/arch_timer.h>
 #include <soc/qcom/smem.h>
 #include "rpmh_master_stat.h"
 
@@ -102,6 +103,18 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				struct msm_rpmh_master_stats *record,
 				const char *name)
 {
+	uint64_t temp_accumulated_duration = record->accumulated_duration;
+	/*
+	 * If a master is in sleep when reading the sleep stats from SMEM
+	 * adjust the accumulated sleep duration to show actual sleep time.
+	 * This ensures that the displayed stats are real when used for
+	 * the purpose of computing battery utilization.
+	 */
+	if (record->last_entered > record->last_exited)
+		temp_accumulated_duration +=
+				(arch_counter_get_cntvct()
+				- record->last_entered);
+
 	return snprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
@@ -109,7 +122,7 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 			"\tSleep Accumulated Duration:0x%llx\n\n",
 			name, record->version_id, record->counts,
 			record->last_entered, record->last_exited,
-			record->accumulated_duration);
+			temp_accumulated_duration);
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,

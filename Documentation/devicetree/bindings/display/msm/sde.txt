@@ -78,6 +78,8 @@ Required properties
 Optional properties:
 - clock-rate:		List of clock rates in Hz.
 - clock-max-rate:	List of maximum clock rate in Hz that this device supports.
+- connectors:		Specifies the connector components.
+- bridges:		Specifies the bridge components.
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
 				in which case the entry would be appended with

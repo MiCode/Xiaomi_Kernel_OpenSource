@@ -84,6 +84,7 @@ config ARM64
 	select HAVE_FUNCTION_GRAPH_TRACER
 	select HAVE_GCC_PLUGINS
 	select HAVE_GENERIC_DMA_COHERENT
+	select HAVE_HW_BREAKPOINT if PERF_EVENTS
 	select HAVE_IRQ_TIME_ACCOUNTING
 	select HAVE_MEMBLOCK
 	select HAVE_MEMBLOCK_NODE_MAP if NUMA
@@ -1148,6 +1149,29 @@ config BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES
 	help
 	  Space separated list of names of dtbs to append when
 	  building a concatenated Image.gz-dtb.
+
+choice
+	prompt "Kernel compression method"
+	default BUILD_ARM64_KERNEL_COMPRESSION_GZIP
+	help
+	  Allows choice between gzip compressed or uncompressed
+	  kernel image
+
+config BUILD_ARM64_KERNEL_COMPRESSION_GZIP
+	bool "Build compressed kernel image"
+	help
+	  Build a kernel image using gzip
+	  compression with concatenated dtb.
+	  gzip is based on the DEFLATE
+	  algorithm.
+
+config BUILD_ARM64_UNCOMPRESSED_KERNEL
+	bool "Build uncompressed kernel image"
+	help
+	  Build a kernel image without
+	  compression and with
+	  concatenated dtb.
+endchoice
 
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"

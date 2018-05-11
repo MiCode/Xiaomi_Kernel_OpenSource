@@ -38,6 +38,7 @@
 /* Wait time before suspend/resume is complete */
 #define MHI_SUSPEND_MIN			100
 #define MHI_SUSPEND_TIMEOUT		600
+#define MHI_WAKEUP_TIMEOUT_CNT		20
 #define MHI_MASK_CH_EV_LEN		32
 #define MHI_RING_CMD_ID			0
 #define MHI_RING_PRIMARY_EVT_ID		1
@@ -71,11 +72,12 @@ static struct mhi_dev *mhi_ctx;
 static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
-static void mhi_update_state_info(uint32_t info);
+static void mhi_update_state_info(uint32_t uevent_idx, enum mhi_ctrl_info info);
 static int mhi_deinit(struct mhi_dev *mhi);
 static void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
 static int mhi_dev_pcie_notify_event;
 static void mhi_dev_transfer_completion_cb(void *mreq);
+static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
 
 /*
  * mhi_dev_ring_cache_completion_cb () - Call back function called
@@ -454,7 +456,7 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 			return;
 		}
 
-		mhi_update_state_info(MHI_STATE_CONNECTED);
+		mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONNECTED);
 
 		ep_pcie_mask_irq_event(mhi_ctx->phandle,
 				EP_PCIE_INT_EVT_MHI_A7, true);
@@ -825,16 +827,14 @@ EXPORT_SYMBOL(mhi_dev_send_ee_event);
 static void mhi_dev_trigger_cb(void)
 {
 	struct mhi_dev_ready_cb_info *info;
-	uint32_t state_data;
+	enum mhi_ctrl_info state_data;
 
-	mutex_lock(&mhi_ctx->mhi_lock);
 	list_for_each_entry(info, &mhi_ctx->client_cb_list, list)
 		if (info->cb) {
-			mhi_ctrl_state_info(&state_data);
+			mhi_ctrl_state_info(info->cb_data.channel, &state_data);
 			info->cb_data.ctrl_info = state_data;
 			info->cb(&info->cb_data);
 		}
-	mutex_unlock(&mhi_ctx->mhi_lock);
 }
 
 int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
@@ -855,10 +855,17 @@ int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
 }
 EXPORT_SYMBOL(mhi_dev_trigger_hw_acc_wakeup);
 
-static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi)
+static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi,
+				enum mhi_dev_cmd_completion_code code)
 {
 	int rc = 0;
 	union mhi_dev_ring_element_type event;
+
+	if (code > MHI_CMD_COMPL_CODE_RES) {
+		mhi_log(MHI_MSG_ERROR,
+			"Invalid cmd compl code: %d\n", code);
+		return -EINVAL;
+	}
 
 	/* send the command completion event to the host */
 	event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase
@@ -867,11 +874,10 @@ static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi)
 	mhi_log(MHI_MSG_VERBOSE, "evt cmd comp ptr :%d\n",
 			(uint32_t) event.evt_cmd_comp.ptr);
 	event.evt_cmd_comp.type = MHI_DEV_RING_EL_CMD_COMPLETION_EVT;
-	event.evt_cmd_comp.code = MHI_CMD_COMPL_CODE_SUCCESS;
-
+	event.evt_cmd_comp.code = code;
 	rc = mhi_dev_send_event(mhi, 0, &event);
 	if (rc)
-		pr_err("channel start command faied\n");
+		mhi_log(MHI_MSG_ERROR, "Send completion failed\n");
 
 	return rc;
 }
@@ -914,7 +920,8 @@ static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 	mhi_dev_write_to_host(mhi, &data_transfer, NULL, MHI_DEV_DMA_SYNC);
 
 	/* send the completion event to the host */
-	rc = mhi_dev_send_cmd_comp_event(mhi);
+	rc = mhi_dev_send_cmd_comp_event(mhi,
+					MHI_CMD_COMPL_CODE_SUCCESS);
 	if (rc)
 		pr_err("Error sending command completion event\n");
 
@@ -930,6 +937,8 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 	struct mhi_addr host_addr;
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
+	char *connected[2] = { "MHI_CHANNEL_STATE_12=CONNECTED", NULL};
+	char *disconnected[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
 
 	ch_id = el->generic.chid;
 	mhi_log(MHI_MSG_VERBOSE, "for channel:%d and cmd:%d\n",
@@ -942,7 +951,13 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		if (ch_id >= (HW_CHANNEL_BASE)) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
 			if (rc) {
-				pr_err("Error with HW channel cmd :%d\n", rc);
+				mhi_log(MHI_MSG_ERROR,
+					"Error with HW channel cmd %d\n", rc);
+				rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+				if (rc)
+					mhi_log(MHI_MSG_ERROR,
+						"Error with compl event\n");
 				return;
 			}
 			goto send_start_completion_event;
@@ -958,6 +973,11 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"start ring failed for ch %d\n", ch_id);
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+			if (rc)
+				mhi_log(MHI_MSG_ERROR,
+					"Error with compl event\n");
 			return;
 		}
 
@@ -975,6 +995,11 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		rc = mhi_dev_mmio_enable_chdb_a7(mhi, ch_id);
 		if (rc) {
 			pr_err("Failed to enable channel db\n");
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+			if (rc)
+				mhi_log(MHI_MSG_ERROR,
+					"Error with compl event\n");
 			return;
 		}
 
@@ -991,22 +1016,25 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		mhi_dev_write_to_host(mhi, &host_addr, NULL, MHI_DEV_DMA_SYNC);
 
 send_start_completion_event:
-		rc = mhi_dev_send_cmd_comp_event(mhi);
+		rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_SUCCESS);
 		if (rc)
 			pr_err("Error sending command completion event\n");
 
 		/* Trigger callback to clients */
 		mhi_dev_trigger_cb();
 
+		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
+		if (ch_id == MHI_CLIENT_MBIM_OUT)
+			kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, connected);
 		break;
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
-			if (rc) {
+			if (rc)
 				mhi_log(MHI_MSG_ERROR,
 					"send channel stop cmd event failed\n");
-				return;
-			}
 
 			/* send the completion event to the host */
 			event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase +
@@ -1052,6 +1080,10 @@ send_start_completion_event:
 				pr_err("stop event send failed\n");
 
 			mutex_unlock(&ch->ch_lock);
+			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
+			if (ch_id == MHI_CLIENT_MBIM_OUT)
+				kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, disconnected);
 		}
 		break;
 	case MHI_DEV_RING_EL_RESET:
@@ -1059,11 +1091,9 @@ send_start_completion_event:
 			"received reset cmd for channel %d\n", ch_id);
 		if (ch_id >= HW_CHANNEL_BASE) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
-			if (rc) {
+			if (rc)
 				mhi_log(MHI_MSG_ERROR,
 					"send channel stop cmd event failed\n");
-				return;
-			}
 
 			/* send the completion event to the host */
 			event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase +
@@ -1121,10 +1151,15 @@ send_start_completion_event:
 					MHI_DEV_DMA_SYNC);
 
 			/* send the completion event to the host */
-			rc = mhi_dev_send_cmd_comp_event(mhi);
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_SUCCESS);
 			if (rc)
 				pr_err("Error sending command completion event\n");
 			mutex_unlock(&ch->ch_lock);
+			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
+			if (ch_id == MHI_CLIENT_MBIM_OUT)
+				kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, disconnected);
 		}
 		break;
 	default:
@@ -1292,6 +1327,8 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
 	int ch_id = 0, rc = 0;
+	char *disconnected_12[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
+	char *disconnected_14[2] = { "MHI_CHANNEL_STATE_14=DISCONNECTED", NULL};
 
 	/* Hard stop all the channels */
 	for (ch_id = 0; ch_id < mhi->cfg.channels; ch_id++) {
@@ -1306,7 +1343,18 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	}
 
 	/* Update ctrl node */
-	mhi_update_state_info(MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_CLIENT_MBIM_OUT, MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_CLIENT_QMI_OUT, MHI_STATE_DISCONNECTED);
+	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
+				KOBJ_CHANGE, disconnected_12);
+	if (rc)
+		pr_err("Error sending uevent:%d\n", rc);
+
+	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
+				KOBJ_CHANGE, disconnected_14);
+	if (rc)
+		pr_err("Error sending uevent:%d\n", rc);
 
 	flush_workqueue(mhi->ring_init_wq);
 	flush_workqueue(mhi->pending_ring_wq);
@@ -1787,7 +1835,7 @@ int mhi_dev_resume(struct mhi_dev *mhi)
 		mhi_dev_write_to_host(mhi, &data_transfer, NULL,
 				MHI_DEV_DMA_SYNC);
 	}
-	mhi_update_state_info(MHI_STATE_CONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONNECTED);
 
 	atomic_set(&mhi->is_suspended, 0);
 
@@ -2141,11 +2189,19 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	}
 
 	while (atomic_read(&mhi_ctx->is_suspended) &&
-			suspend_wait_timeout < MHI_SUSPEND_TIMEOUT) {
+			suspend_wait_timeout < MHI_WAKEUP_TIMEOUT_CNT) {
 		/* wait for the suspend to finish */
 		msleep(MHI_SUSPEND_MIN);
 		suspend_wait_timeout++;
 	}
+
+	if (suspend_wait_timeout >= MHI_WAKEUP_TIMEOUT_CNT ||
+				mhi_ctx->ctrl_info != MHI_STATE_CONNECTED) {
+		pr_err("Failed to wake up core\n");
+		mutex_unlock(&mhi_ctx->mhi_write_test);
+		return -ENODEV;
+	}
+
 	handle_client = wreq->client;
 	ch = handle_client->channel;
 	ch->wr_request_active = true;
@@ -2348,7 +2404,7 @@ static void mhi_dev_enable(struct work_struct *work)
 	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int)
 		enable_irq(mhi_ctx->mhi_irq);
 
-	mhi_update_state_info(MHI_STATE_CONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONFIGURED);
 }
 
 static void mhi_ring_init_cb(void *data)
@@ -2408,28 +2464,32 @@ int mhi_register_state_cb(void (*mhi_state_cb)
 }
 EXPORT_SYMBOL(mhi_register_state_cb);
 
-static void mhi_update_state_info(uint32_t info)
+static void mhi_update_state_info(uint32_t uevent_idx, enum mhi_ctrl_info info)
 {
 	struct mhi_dev_client_cb_reason reason;
 
-	mhi_ctx->ctrl_info = info;
+	if (uevent_idx == MHI_DEV_UEVENT_CTRL)
+		mhi_ctx->ctrl_info = info;
 
-	if (info == MHI_STATE_CONNECTED)
-		return;
+	channel_state_info[uevent_idx].ctrl_info = info;
 
-	reason.reason = MHI_DEV_CTRL_UPDATE;
-	uci_ctrl_update(&reason);
-}
-
-int mhi_ctrl_state_info(uint32_t *info)
-{
-	if (!info) {
-		pr_err("Invalid info\n");
-		return -EINVAL;
+	if (uevent_idx == MHI_CLIENT_QMI_OUT ||
+			uevent_idx == MHI_CLIENT_QMI_IN) {
+		/* For legacy reasons for QTI client */
+		reason.reason = MHI_DEV_CTRL_UPDATE;
+		uci_ctrl_update(&reason);
 	}
 
-	*info = mhi_ctx->ctrl_info;
-	mhi_log(MHI_MSG_VERBOSE, "ctrl:%d", mhi_ctx->ctrl_info);
+}
+
+int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
+{
+	if (idx == MHI_DEV_UEVENT_CTRL)
+		*info = mhi_ctx->ctrl_info;
+	else
+		*info = channel_state_info[idx].ctrl_info;
+
+	mhi_log(MHI_MSG_VERBOSE, "idx:%d, ctrl:%d", idx, *info);
 
 	return 0;
 }
@@ -2924,7 +2984,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 				"Failed to create IPC logging context\n");
 		}
 		mhi_uci_init();
-		mhi_update_state_info(MHI_STATE_CONFIGURED);
+		mhi_update_state_info(MHI_DEV_UEVENT_CTRL,
+						MHI_STATE_CONFIGURED);
 	}
 
 	INIT_WORK(&mhi_ctx->pcie_event, mhi_dev_pcie_handle_event);

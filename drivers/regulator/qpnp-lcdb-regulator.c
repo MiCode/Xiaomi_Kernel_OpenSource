@@ -991,7 +991,8 @@ irq_handled:
 }
 
 #define MIN_BST_VOLTAGE_MV			4700
-#define MAX_BST_VOLTAGE_MV			6250
+#define PM660_MAX_BST_VOLTAGE_MV		6250
+#define MAX_BST_VOLTAGE_MV			6275
 #define MIN_VOLTAGE_MV				4000
 #define MAX_VOLTAGE_MV				6000
 #define VOLTAGE_MIN_STEP_100_MV			4000
@@ -1017,8 +1018,14 @@ static int qpnp_lcdb_set_bst_voltage(struct qpnp_lcdb *lcdb,
 
 	if (bst_voltage_mv < MIN_BST_VOLTAGE_MV)
 		bst_voltage_mv = MIN_BST_VOLTAGE_MV;
-	else if (bst_voltage_mv > MAX_BST_VOLTAGE_MV)
-		bst_voltage_mv = MAX_BST_VOLTAGE_MV;
+
+	if (pmic_subtype == PM660L_SUBTYPE) {
+		if (bst_voltage_mv > PM660_MAX_BST_VOLTAGE_MV)
+			bst_voltage_mv = PM660_MAX_BST_VOLTAGE_MV;
+	} else {
+		if (bst_voltage_mv > MAX_BST_VOLTAGE_MV)
+			bst_voltage_mv = MAX_BST_VOLTAGE_MV;
+	}
 
 	if (bst_voltage_mv != bst->voltage_mv) {
 		if (pmic_subtype == PM660L_SUBTYPE) {
@@ -1883,6 +1890,8 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 			return rc;
 		}
 		lcdb->bst.soft_start_us = (val & SOFT_START_MASK) * 200 + 200;
+		if (!lcdb->bst.headroom_mv)
+			lcdb->bst.headroom_mv = PM660_BST_HEADROOM_DEFAULT_MV;
 	} else {
 		rc = qpnp_lcdb_read(lcdb, lcdb->base +
 				    LCDB_BST_SS_CTL_REG, &val, 1);
@@ -1891,6 +1900,8 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 			return rc;
 		}
 		lcdb->bst.soft_start_us = soft_start_us[val & SOFT_START_MASK];
+		if (!lcdb->bst.headroom_mv)
+			lcdb->bst.headroom_mv = BST_HEADROOM_DEFAULT_MV;
 	}
 
 	return 0;

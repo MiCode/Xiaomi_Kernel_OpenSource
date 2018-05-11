@@ -278,6 +278,15 @@ config QCOM_MEMORY_DUMP_V2
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
 
+config MSM_DEBUG_LAR_UNLOCK
+        bool "MSM Debug LAR Unlock Support"
+        depends on QCOM_MEMORY_DUMP_V2
+        help
+         This allows unlocking Core Debug lock to allow capture
+         of upper 32 bits of program counter at the time of
+         system crash. This is useful in getting correct crash
+         location.
+
 config QCOM_MINIDUMP
 	bool "QCOM Minidump Support"
 	depends on MSM_SMEM && QCOM_DLOAD_MODE
@@ -377,8 +386,8 @@ config MSM_GLINK
 	  configured separately.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953
 	bool "Helper functions for SMMU configuration through TZ"
+	default n
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
 	  SMMUs for any reason (for example, for errata workarounds or
@@ -548,6 +557,14 @@ config MSM_SUBSYSTEM_RESTART
          shutdown, and restart subsystems with a reference counted API.
          It also notifies userspace of transitions between these states via
          sysfs.
+
+config MSM_SYSMON_COMM
+	bool "MSM System Monitor communication support"
+	depends on MSM_SMD && MSM_SUBSYSTEM_RESTART
+	help
+	  This option adds support for MSM System Monitor library, which
+	  provides an API that may be used for notifying subsystems within
+	  the SoC about other subsystems' power-up/down state-changes.
 
 config MSM_PIL
        bool "Peripheral image loading"
@@ -803,5 +820,51 @@ config MSM_BAM_DMUX
 	  BAM has a limited number of pipes.  This driver
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
+
+	config MSM_GLINK_BGCOM_XPRT
+	depends on MSM_GLINK
+	depends on MSM_BGCOM
+	tristate "Generic Link (G-Link) BGCOM Transport"
+	help
+		G-Link BGCOM Transport is a Transport plug-in developed over BGCOM.
+		This transport plug-in performs marshaling of G-Link
+		commands & data to the appropriate BGCOM format and
+		allows for G-Link communication with remote subsystems that are
+		external to the System-on-Chip.
+
+	config MSM_BGCOM_INTERFACE
+	bool "Driver support for Blackghost Communication"
+	depends on MSM_BGCOM
+	help
+		Create a bg_com_dev device node for user space communication.
+		Single user space client can open device node for communication
+		from hardware. Hardware will provide access to read
+		registers and read/write AHB memory in the device.
+
+	config MSM_BGRSB
+	bool "Provide support for rsb events on Blackghost chipset"
+	depends on MSM_GLINK
+	help
+		BGRSB communicates to BG over Glink for RSB configuration and
+		enable/disable on device power state change. It enables/disables
+		the regulator specific to RSB. Sends the side band events generated
+		by BG to input framework.
+
+	config MSM_PIL_SSR_BG
+	tristate "MSM Subsystem Blackghost(BG) Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+		Support for booting and shutting down Blackghost(BG) SOC which is
+		an external SOC. This driver communicates with Blackghost(BG) SOC
+		via pair of IPC GPIOs for inward and outward signals between MSM
+		and Blackghost(BG) SOC.
+
+	config MSM_BGCOM
+	bool "Provide APIs to communicate with Blackghost chipset"
+	help
+		BGCOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/bg_com_dev and BG processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
 
 source "drivers/soc/qcom/wcnss/Kconfig"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1517,6 +1517,7 @@ static int ipa3_read_table(
 	char *entry;
 	size_t entry_size;
 	bool entry_zeroed;
+	bool entry_valid;
 	u32 i, num_entries = 0, id = *rule_id, pos = 0;
 
 	IPADBG("\n");
@@ -1538,20 +1539,33 @@ static int ipa3_read_table(
 			&entry_zeroed);
 		if (result) {
 			IPAERR(
-				"Failed to determine whether the %s entry is definitely zero",
-				ipahal_nat_type_str(nat_type));
+				"Failed to determine whether the %s entry is definitely zero\n"
+					, ipahal_nat_type_str(nat_type));
 			goto bail;
 		}
 		if (entry_zeroed)
 			continue;
 
-		pos += scnprintf(buff + pos, buff_size - pos,
-			"\tEntry_Index=%d\n", id);
+		result = ipahal_nat_is_entry_valid(nat_type, entry,
+			&entry_valid);
+		if (result) {
+			IPAERR(
+				"Failed to determine whether the %s entry is valid\n"
+					, ipahal_nat_type_str(nat_type));
+			goto bail;
+		}
+
+		if (entry_valid) {
+			++num_entries;
+			pos += scnprintf(buff + pos, buff_size - pos,
+				"\tEntry_Index=%d\n", id);
+		} else {
+			pos += scnprintf(buff + pos, buff_size - pos,
+				"\tEntry_Index=%d - Invalid Entry\n", id);
+		}
 
 		pos += ipahal_nat_stringify_entry(nat_type, entry,
 			buff + pos, buff_size - pos);
-
-		++num_entries;
 	}
 
 	if (num_entries)
@@ -1637,6 +1651,7 @@ static int ipa3_read_pdn_table(char *buff, u32 buff_size)
 	char *pdn_entry;
 	size_t pdn_entry_size;
 	bool entry_zeroed;
+	bool entry_valid;
 	u32 pos = 0;
 
 	IPADBG("\n");
@@ -1654,13 +1669,25 @@ static int ipa3_read_pdn_table(char *buff, u32 buff_size)
 			pdn_entry, &entry_zeroed);
 		if (result) {
 			IPAERR(
-				"Failed to determine whether the PDN entry is definitely zero");
+				"Failed to determine whether the PDN entry is definitely zero\n");
 			goto bail;
 		}
 		if (entry_zeroed)
 			continue;
 
-		pos += scnprintf(buff + pos, buff_size - pos, "PDN %d: ", i);
+		result = ipahal_nat_is_entry_valid(IPAHAL_NAT_IPV4_PDN,
+			pdn_entry, &entry_valid);
+		if (result) {
+			IPAERR(
+				"Failed to determine whether the PDN entry is valid\n");
+			goto bail;
+		}
+		if (entry_valid)
+			pos += scnprintf(buff + pos, buff_size - pos,
+				"PDN %d: ", i);
+		else
+			pos += scnprintf(buff + pos, buff_size - pos,
+				"PDN %d - Invalid: ", i);
 
 		pos += ipahal_nat_stringify_entry(IPAHAL_NAT_IPV4_PDN,
 			pdn_entry, buff + pos, buff_size - pos);
@@ -1865,6 +1892,16 @@ static ssize_t ipa3_pm_ex_read_stats(struct file *file, char __user *ubuf,
 	cnt += result;
 ret:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_print_all_regs();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
 }
 
 static void ipa_dump_status(struct ipahal_pkt_status *status)
@@ -2132,6 +2169,10 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"enable_low_prio_print", IPA_WRITE_ONLY_MODE, NULL, {
 			.write = ipa3_enable_ipc_low,
+		}
+	}, {
+		"ipa_dump_regs", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_ipahal_regs,
 		}
 	}
 };

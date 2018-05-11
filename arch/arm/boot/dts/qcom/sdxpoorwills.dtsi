@@ -43,6 +43,16 @@
 			label = "sbl_mem";
 		};
 
+		flex_sec_apps_mem: flex_sec_apps_regions@8fcfd000 {
+			no-map;
+			reg = <0x8fcfd000 0x3000>;
+		};
+
+		access_control_mem: access_control_mem@8fc80000 {
+			no-map;
+			reg = <0x8fc80000 0x40000>;
+		};
+
 		hyp_region: hyp_region@8fc00000 {
 			no-map;
 			reg = <0x8fc00000 0x80000>;
@@ -278,6 +288,9 @@
 		clocks = <&clock_gcc GCC_BLSP1_UART3_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&uart3_console_active>;
+		pinctrl-1 = <&uart3_console_sleep>;
 	};
 
 	gdsc_usb30: qcom,gdsc@10b004 {
@@ -516,6 +529,8 @@
 			<&clock_gcc GCC_SDCC1_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
+		qcom,restore-after-cx-collapse;
+
 		status = "disabled";
 	};
 
@@ -550,7 +565,13 @@
 			compatible = "qcom,msm-imem-diag-dload";
 			reg = <0xc8 200>;
 		};
-};
+	};
+
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x0c221000 0x1000>;
+		clock-frequency = <32768>;
+	};
 
 	restart@c264000 {
 		compatible = "qcom,pshold";
@@ -637,6 +658,13 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+	};
+
+	qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,xprt = "smem";
 	};
 
 	qcom,glink_pkt {
@@ -798,8 +826,15 @@
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
-		qcom,ipa-loaduC;
-		qcom,ipa-advertise-sg-support;
+	};
+
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+		      <0x10ae000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
 	};
 
 	system_pm {
@@ -823,6 +858,8 @@
 		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
+		qcom,arm-smmu;
+		qcom,smmu-fast-map;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
@@ -963,6 +1000,33 @@
 		qcom,smp2pgpio_map_ipa_1_in {
 			compatible = "qcom,smp2pgpio-map-ipa-1-in";
 			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			qcom,smmu-s1-bypass;
+			iommus = <&apps_smmu 0x5E0 0x0>;
+			qcom,iova-mapping = <0x20000000 0x40000000>;
+			qcom,additional-mapping =
+				/* modem tables in IMEM */
+				<0x14686000 0x14686000 0x3000>;
+			qcom,ipa-q6-smem-size = <16384>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			qcom,smmu-s1-bypass;
+			iommus = <&apps_smmu 0x5E1 0x0>;
+			qcom,additional-mapping =
+				/* ipa-uc ram */
+				<0x1E60000 0x1E60000 0xA000>;
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			qcom,smmu-s1-bypass;
+			iommus = <&apps_smmu 0x5E2 0x0>;
+			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};
 	};
 
@@ -1142,14 +1206,14 @@
 			<0x36000 0x100>,
 			<0x3900000 0x300000>;
 		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
-		interrupts = <0 62 4>, <0 60 4>,
-			<0 45 4>, <0 49 4>,
-			<0 50 4>, <0 51 4>,
-			<0 52 4>, <0 53 4>,
-			<0 54 4>, <0 55 4>,
-			<0 56 4>, <0 57 4>;
+		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
+			<&tlmm 84 2>, <&pdc 0 49 4>,
+			<&pdc 0 50 4>, <&pdc 0 51 4>,
+			<&pdc 0 52 4>, <&pdc 0 53 4>,
+			<&pdc 0 54 4>, <&pdc 0 55 4>,
+			<&pdc 0 56 4>, <&pdc 0 57 4>;
 		interrupt-names = "sbd-intr", "lpi-intr",
-			"wol-intr", "tx-ch0-intr",
+			"phy-intr", "tx-ch0-intr",
 			"tx-ch1-intr", "tx-ch2-intr",
 			"tx-ch3-intr", "tx-ch4-intr",
 			"rx-ch0-intr", "rx-ch1-intr",

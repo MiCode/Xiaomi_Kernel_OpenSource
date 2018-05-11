@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/msm-clocks-8909.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&soc {
+
+	kgsl_smmu: arm,smmu-kgsl@1f00000 {
+		status = "ok";
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x1f00000 0x10000>,
+			<0x1ef2000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <1>;
+		qcom,tz-device-id = "GPU";
+		qcom,skip-init;
+		qcom,dynamic;
+		qcom,use-3-lvl-tables;
+		#global-interrupts = <0>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =
+			<GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
+
+		vdd-supply = <&gdsc_oxili_gx>;
+		qcom,regulator-names = "vdd";
+		clocks =
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>;
+		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+	};
+
+	/* A test device to test the SMMU operation */
+	kgsl_iommu_test_device0 {
+		status = "disabled";
+		compatible = "iommu-debug-test";
+		/*
+		 * The SID should be valid one to get the proper
+		 * SMR,S2CR indices.
+		 */
+		iommus = <&kgsl_smmu 0x0>;
+	};
+
+	apps_iommu: qcom,iommu@1e00000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x1e00000 0x40000>,
+			<0x1ef2000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,tz-device-id = "APPS";
+		qcom,skip-init;
+		qcom,enable-static-cb;
+		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
+		#global-interrupts = <0>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
+			clocks =
+				<&clock_gcc clk_gcc_smmu_cfg_clk>,
+				<&clock_gcc clk_gcc_apss_tcu_clk>;
+			clock-names = "iface_clk", "core_clk";
+	};
+};

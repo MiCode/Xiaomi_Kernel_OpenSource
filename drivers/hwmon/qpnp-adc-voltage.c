@@ -109,7 +109,7 @@
 #define QPNP_VADC_CONV_TIME_MIN					1000
 #define QPNP_VADC_CONV_TIME_MAX					1100
 #define QPNP_ADC_COMPLETION_TIMEOUT				HZ
-#define QPNP_VADC_ERR_COUNT					50
+#define QPNP_VADC_ERR_COUNT					20
 #define QPNP_OP_MODE_SHIFT					3
 
 #define QPNP_VADC_THR_LSB_MASK(val)				(val & 0xff)
@@ -277,42 +277,6 @@ static int qpnp_vadc_is_valid(struct qpnp_vadc_chip *vadc)
 	return -EINVAL;
 }
 
-static int32_t qpnp_vadc_warm_rst_configure(struct qpnp_vadc_chip *vadc)
-{
-	int rc = 0;
-	u8 data = 0, buf = 0;
-
-	buf = QPNP_VADC_ACCESS_DATA;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ACCESS, &buf, 1);
-	if (rc < 0) {
-		pr_err("VADC write access failed\n");
-		return rc;
-	}
-
-	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_PERH_RESET_CTL3, &data, 1);
-	if (rc < 0) {
-		pr_err("VADC perh reset ctl3 read failed\n");
-		return rc;
-	}
-
-	buf = QPNP_VADC_ACCESS_DATA;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ACCESS, &buf, 1);
-	if (rc < 0) {
-		pr_err("VADC write access failed\n");
-		return rc;
-	}
-
-	data |= QPNP_FOLLOW_WARM_RB;
-
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_PERH_RESET_CTL3, &data, 1);
-	if (rc < 0) {
-		pr_err("VADC perh reset ctl3 write failed\n");
-		return rc;
-	}
-
-	return 0;
-}
-
 static int32_t qpnp_vadc_mode_select(struct qpnp_vadc_chip *vadc, u8 mode_ctl)
 {
 	int rc;
@@ -422,20 +386,7 @@ static int qpnp_vadc_hc_check_conversion_status(struct qpnp_vadc_chip *vadc)
 static int qpnp_vadc_hc_read_data(struct qpnp_vadc_chip *vadc, int *data)
 {
 	int rc = 0;
-	u8 buf = 0, rslt_lsb = 0, rslt_msb = 0;
-
-	/* Set hold bit */
-	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc) {
-		pr_err("debug register dump failed\n");
-		return rc;
-	}
-	buf |= QPNP_VADC_HC1_DATA_HOLD_CTL_FIELD;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc) {
-		pr_err("debug register dump failed\n");
-		return rc;
-	}
+	u8 rslt_lsb = 0, rslt_msb = 0;
 
 	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_DATA0, &rslt_lsb, 1);
 	if (rc < 0) {
@@ -462,11 +413,6 @@ static int qpnp_vadc_hc_read_data(struct qpnp_vadc_chip *vadc, int *data)
 		return rc;
 	}
 
-	/* De-assert hold bit */
-	buf &= ~QPNP_VADC_HC1_DATA_HOLD_CTL_FIELD;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc)
-		pr_err("de-asserting hold bit failed\n");
 
 	return rc;
 }
@@ -2754,12 +2700,6 @@ static int qpnp_vadc_probe(struct platform_device *pdev)
 				&vadc->revision_ana_minor, 1);
 	if (rc < 0) {
 		pr_err("qpnp adc ana_minor rev read failed with %d\n", rc);
-		goto err_setup;
-	}
-
-	rc = qpnp_vadc_warm_rst_configure(vadc);
-	if (rc < 0) {
-		pr_err("Setting perp reset on warm reset failed %d\n", rc);
 		goto err_setup;
 	}
 

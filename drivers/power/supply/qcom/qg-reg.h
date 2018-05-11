@@ -77,6 +77,8 @@
 #define QG_LAST_ADC_V_DATA0_REG			0xC0
 #define QG_LAST_ADC_I_DATA0_REG			0xC2
 
+#define QG_LAST_S3_SLEEP_V_DATA0_REG		0xCC
+
 /* SDAM offsets */
 #define QG_SDAM_VALID_OFFSET			0x46
 #define QG_SDAM_SOC_OFFSET			0x47
@@ -85,5 +87,6 @@
 #define QG_SDAM_OCV_OFFSET			0x4C
 #define QG_SDAM_IBAT_OFFSET			0x50
 #define QG_SDAM_TIME_OFFSET			0x54
+#define QG_SDAM_PON_OCV_OFFSET			0x7C
 
 #endif

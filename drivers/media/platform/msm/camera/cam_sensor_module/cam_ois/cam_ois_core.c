@@ -233,17 +233,13 @@ static int cam_ois_apply_settings(struct cam_ois_ctrl_t *o_ctrl,
 			size = i2c_list->i2c_settings.size;
 			for (i = 0; i < size; i++) {
 				rc = camera_io_dev_poll(
-					&(o_ctrl->io_master_info),
-					i2c_list->i2c_settings.
-						reg_setting[i].reg_addr,
-					i2c_list->i2c_settings.
-						reg_setting[i].reg_data,
-					i2c_list->i2c_settings.
-						reg_setting[i].data_mask,
-					i2c_list->i2c_settings.addr_type,
-					i2c_list->i2c_settings.data_type,
-					i2c_list->i2c_settings.
-						reg_setting[i].delay);
+				&(o_ctrl->io_master_info),
+				i2c_list->i2c_settings.reg_setting[i].reg_addr,
+				i2c_list->i2c_settings.reg_setting[i].reg_data,
+				i2c_list->i2c_settings.reg_setting[i].data_mask,
+				i2c_list->i2c_settings.addr_type,
+				i2c_list->i2c_settings.data_type,
+				i2c_list->i2c_settings.reg_setting[i].delay);
 				if (rc < 0) {
 					CAM_ERR(CAM_OIS,
 						"i2c poll apply setting Fail");
@@ -521,6 +517,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				i2c_reg_settings->is_settings_valid = 1;
 				i2c_reg_settings->request_id = 0;
 				rc = cam_sensor_i2c_command_parser(
+					&o_ctrl->io_master_info,
 					i2c_reg_settings,
 					&cmd_desc[i], 1);
 				if (rc < 0) {
@@ -529,14 +526,15 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 					return rc;
 				}
 			} else if ((o_ctrl->is_ois_calib != 0) &&
-				(o_ctrl->i2c_calib_data.
-					is_settings_valid == 0)) {
+				(o_ctrl->i2c_calib_data.is_settings_valid ==
+				0)) {
 				CAM_DBG(CAM_OIS,
 					"Received calib settings");
 				i2c_reg_settings = &(o_ctrl->i2c_calib_data);
 				i2c_reg_settings->is_settings_valid = 1;
 				i2c_reg_settings->request_id = 0;
 				rc = cam_sensor_i2c_command_parser(
+					&o_ctrl->io_master_info,
 					i2c_reg_settings,
 					&cmd_desc[i], 1);
 				if (rc < 0) {
@@ -608,7 +606,8 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		i2c_reg_settings = &(o_ctrl->i2c_mode_data);
 		i2c_reg_settings->is_settings_valid = 1;
 		i2c_reg_settings->request_id = 0;
-		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(&o_ctrl->io_master_info,
+			i2c_reg_settings,
 			cmd_desc, 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d", rc);

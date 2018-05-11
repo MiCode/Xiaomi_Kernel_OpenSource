@@ -542,6 +542,7 @@ struct arm_smmu_domain {
 	bool				qsmmuv500_errata1_init;
 	bool				qsmmuv500_errata1_client;
 	bool				qsmmuv500_errata2_min_align;
+	bool				is_force_guard_page;
 };
 
 static DEFINE_SPINLOCK(arm_smmu_devices_lock);
@@ -3245,6 +3246,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE));
+		ret = 0;
+		break;
+
 	default:
 		ret = -ENODEV;
 		break;
@@ -3447,6 +3454,28 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
 		ret = 0;
 		break;
+
+	case DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE: {
+		int force_iova_guard_page = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force guard page attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (force_iova_guard_page)
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE;
+		else
+			smmu_domain->attributes &=
+				~(1 << DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE);
+
+		ret = 0;
+		break;
+	}
+
 	default:
 		ret = -ENODEV;
 	}
@@ -5486,6 +5515,10 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	pdev = container_of(dev, struct platform_device, dev);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
+	if (!res) {
+		dev_err(dev, "Unable to get the tcu-base\n");
+		return -EINVAL;
+	}
 	data->tcu_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (IS_ERR(data->tcu_base))
 		return PTR_ERR(data->tcu_base);

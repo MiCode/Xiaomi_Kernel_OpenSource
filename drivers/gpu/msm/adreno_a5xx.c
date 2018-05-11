@@ -56,6 +56,7 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a512, a540_vbif },
 	{ adreno_is_a510, a530_vbif },
 	{ adreno_is_a508, a530_vbif },
+	{ adreno_is_a504, a530_vbif },
 	{ adreno_is_a505, a530_vbif },
 	{ adreno_is_a506, a530_vbif },
 };
@@ -127,6 +128,7 @@ static const struct {
 } a5xx_efuse_funcs[] = {
 	{ adreno_is_a530, a530_efuse_leakage },
 	{ adreno_is_a530, a530_efuse_speed_bin },
+	{ adreno_is_a504, a530_efuse_speed_bin },
 	{ adreno_is_a505, a530_efuse_speed_bin },
 	{ adreno_is_a512, a530_efuse_speed_bin },
 	{ adreno_is_a508, a530_efuse_speed_bin },
@@ -152,7 +154,7 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	uint64_t addr;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
-	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
+	if (adreno_is_a504_to_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
 		gpudev->snapshot_data->sect_sizes->cp_meq = 32;
 		gpudev->snapshot_data->sect_sizes->cp_merciu = 1024;
 		gpudev->snapshot_data->sect_sizes->roq = 256;
@@ -1178,6 +1180,7 @@ static const struct {
 	{ adreno_is_a530, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
 	{ adreno_is_a512, a512_hwcg_regs, ARRAY_SIZE(a512_hwcg_regs) },
 	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
+	{ adreno_is_a504, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 	{ adreno_is_a505, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 	{ adreno_is_a506, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 	{ adreno_is_a508, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
@@ -1353,13 +1356,13 @@ static int _execute_reg_sequence(struct adreno_device *adreno_dev,
 
 	/* todo double check the reg writes */
 	while ((cur - opcode) < length) {
-		if (cur[0] == 1 && ((cur + 4) - opcode) <= length) {
+		if (cur[0] == 1 && (length - (cur - opcode) >= 4)) {
 			/* Write a 32 bit value to a 64 bit reg */
 			reg = cur[2];
 			reg = (reg << 32) | cur[1];
 			kgsl_regwrite(KGSL_DEVICE(adreno_dev), reg, cur[3]);
 			cur += 4;
-		} else if (cur[0] == 2 && ((cur + 5) - opcode) <= length) {
+		} else if (cur[0] == 2 && (length - (cur - opcode) >= 5)) {
 			/* Write a 64 bit value to a 64 bit reg */
 			reg = cur[2];
 			reg = (reg << 32) | cur[1];
@@ -1367,7 +1370,7 @@ static int _execute_reg_sequence(struct adreno_device *adreno_dev,
 			val = (val << 32) | cur[3];
 			kgsl_regwrite(KGSL_DEVICE(adreno_dev), reg, val);
 			cur += 5;
-		} else if (cur[0] == 3 && ((cur + 2) - opcode) <= length) {
+		} else if (cur[0] == 3 && (length - (cur - opcode) >= 2)) {
 			/* Delay for X usec */
 			udelay(cur[1]);
 			cur += 2;
@@ -1924,7 +1927,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 * Below CP registers are 0x0 by default, program init
 	 * values based on a5xx flavor.
 	 */
-	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
+	if (adreno_is_a504_to_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
 		kgsl_regwrite(device, A5XX_CP_MEQ_THRESHOLDS, 0x20);
 		kgsl_regwrite(device, A5XX_CP_MERCIU_SIZE, 0x400);
 		kgsl_regwrite(device, A5XX_CP_ROQ_THRESHOLDS_2, 0x40000030);
@@ -1950,7 +1953,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 * vtxFifo and primFifo thresholds default values
 	 * are different.
 	 */
-	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev))
+	if (adreno_is_a504_to_a506(adreno_dev) || adreno_is_a508(adreno_dev))
 		kgsl_regwrite(device, A5XX_PC_DBG_ECO_CNTL,
 						(0x100 << 11 | 0x100 << 22));
 	else if (adreno_is_a510(adreno_dev) || adreno_is_a512(adreno_dev))

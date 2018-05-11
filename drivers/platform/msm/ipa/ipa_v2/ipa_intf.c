@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include "ipa_i.h"
+#include <linux/msm_ipa.h>
 
 struct ipa_intf {
 	char name[IPA_RESOURCE_NAME_MAX];
@@ -379,6 +380,108 @@ static void ipa2_send_msg_free(void *buff, u32 len, u32 type)
 	kfree(buff);
 }
 
+static int wlan_msg_process(struct ipa_msg_meta *meta, void *buff)
+{
+	struct ipa_push_msg *msg_dup;
+	struct ipa_wlan_msg_ex *event_ex_cur_con = NULL;
+	struct ipa_wlan_msg_ex *event_ex_list = NULL;
+	struct ipa_wlan_msg *event_ex_cur_discon = NULL;
+	void *data_dup = NULL;
+	struct ipa_push_msg *entry;
+	struct ipa_push_msg *next;
+	int cnt = 0, total = 0, max = 0;
+	uint8_t mac[IPA_MAC_ADDR_SIZE];
+	uint8_t mac2[IPA_MAC_ADDR_SIZE];
+
+	if (meta->msg_type == WLAN_CLIENT_CONNECT_EX) {
+		/* debug print */
+		event_ex_cur_con = buff;
+		for (cnt = 0; cnt < event_ex_cur_con->num_of_attribs; cnt++) {
+			if (event_ex_cur_con->attribs[cnt].attrib_type ==
+				WLAN_HDR_ATTRIB_MAC_ADDR) {
+				IPADBG("%02x:%02x:%02x:%02x:%02x:%02x,(%d)\n",
+				event_ex_cur_con->attribs[cnt].u.mac_addr[0],
+				event_ex_cur_con->attribs[cnt].u.mac_addr[1],
+				event_ex_cur_con->attribs[cnt].u.mac_addr[2],
+				event_ex_cur_con->attribs[cnt].u.mac_addr[3],
+				event_ex_cur_con->attribs[cnt].u.mac_addr[4],
+				event_ex_cur_con->attribs[cnt].u.mac_addr[5],
+				meta->msg_type);
+			}
+		}
+
+		mutex_lock(&ipa_ctx->msg_wlan_client_lock);
+		msg_dup = kzalloc(sizeof(struct ipa_push_msg), GFP_KERNEL);
+		if (msg_dup == NULL) {
+			IPAERR("fail to alloc ipa_msg container\n");
+			return -ENOMEM;
+		}
+		msg_dup->meta = *meta;
+		if (meta->msg_len > 0 && buff) {
+			data_dup = kmalloc(meta->msg_len, GFP_KERNEL);
+			if (data_dup == NULL) {
+				IPAERR("fail to alloc data_dup container\n");
+				kfree(msg_dup);
+				return -ENOMEM;
+			}
+			memcpy(data_dup, buff, meta->msg_len);
+			msg_dup->buff = data_dup;
+			msg_dup->callback = ipa2_send_msg_free;
+		}
+		list_add_tail(&msg_dup->link, &ipa_ctx->msg_wlan_client_list);
+		mutex_unlock(&ipa_ctx->msg_wlan_client_lock);
+	}
+
+	/* remove the cache */
+	if (meta->msg_type == WLAN_CLIENT_DISCONNECT) {
+		/* debug print */
+		event_ex_cur_discon = buff;
+		IPADBG("Mac %02x:%02x:%02x:%02x:%02x:%02x,msg %d\n",
+		event_ex_cur_discon->mac_addr[0],
+		event_ex_cur_discon->mac_addr[1],
+		event_ex_cur_discon->mac_addr[2],
+		event_ex_cur_discon->mac_addr[3],
+		event_ex_cur_discon->mac_addr[4],
+		event_ex_cur_discon->mac_addr[5],
+		meta->msg_type);
+		memcpy(mac2,
+			event_ex_cur_discon->mac_addr,
+			sizeof(mac2));
+
+		mutex_lock(&ipa_ctx->msg_wlan_client_lock);
+		list_for_each_entry_safe(entry, next,
+				&ipa_ctx->msg_wlan_client_list,
+				link) {
+			event_ex_list = entry->buff;
+			max = event_ex_list->num_of_attribs;
+			for (cnt = 0; cnt < max; cnt++) {
+				memcpy(mac,
+					event_ex_list->attribs[cnt].u.mac_addr,
+					sizeof(mac));
+				if (event_ex_list->attribs[cnt].attrib_type ==
+					WLAN_HDR_ATTRIB_MAC_ADDR) {
+					pr_debug("%02x:%02x:%02x:%02x:%02x:%02x\n",
+					mac[0],	mac[1], mac[2],
+					mac[3],	mac[4],	mac[5]);
+
+					/* compare to delete one*/
+					if (memcmp(mac2,
+						mac,
+						sizeof(mac)) == 0) {
+						IPADBG("clean %d\n", total);
+						list_del(&entry->link);
+						kfree(entry);
+						break;
+					}
+				}
+			}
+			total++;
+		}
+		mutex_unlock(&ipa_ctx->msg_wlan_client_lock);
+	}
+	return 0;
+}
+
 /**
  * ipa2_send_msg() - Send "message" from kernel client to IPA driver
  * @meta: [in] message meta-data
@@ -438,6 +541,11 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	mutex_lock(&ipa_ctx->msg_lock);
 	list_add_tail(&msg->link, &ipa_ctx->msg_list);
+	/* support for softap client event cache */
+	if (wlan_msg_process(meta, buff))
+		IPAERR("wlan_msg_process failed\n");
+
+	/* unlock only after process */
 	mutex_unlock(&ipa_ctx->msg_lock);
 	IPA_STATS_INC_CNT(ipa_ctx->stats.msg_w[meta->msg_type]);
 
@@ -445,6 +553,73 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 	if (buff)
 		callback(buff, meta->msg_len, meta->msg_type);
 
+	return 0;
+}
+
+/**
+ * ipa2_resend_wlan_msg() - Resend cached "message" to IPACM
+ *
+ * resend wlan client connect events to user-space
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_resend_wlan_msg(void)
+{
+	struct ipa_wlan_msg_ex *event_ex_list = NULL;
+	struct ipa_push_msg *entry;
+	struct ipa_push_msg *next;
+	int cnt = 0, total = 0;
+	struct ipa_push_msg *msg;
+	void *data = NULL;
+
+	IPADBG("\n");
+
+	mutex_lock(&ipa_ctx->msg_wlan_client_lock);
+	list_for_each_entry_safe(entry, next, &ipa_ctx->msg_wlan_client_list,
+			link) {
+
+		event_ex_list = entry->buff;
+		for (cnt = 0; cnt < event_ex_list->num_of_attribs; cnt++) {
+			if (event_ex_list->attribs[cnt].attrib_type ==
+				WLAN_HDR_ATTRIB_MAC_ADDR) {
+				IPADBG("%d-Mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+				total,
+				event_ex_list->attribs[cnt].u.mac_addr[0],
+				event_ex_list->attribs[cnt].u.mac_addr[1],
+				event_ex_list->attribs[cnt].u.mac_addr[2],
+				event_ex_list->attribs[cnt].u.mac_addr[3],
+				event_ex_list->attribs[cnt].u.mac_addr[4],
+				event_ex_list->attribs[cnt].u.mac_addr[5]);
+			}
+		}
+
+		msg = kzalloc(sizeof(struct ipa_push_msg), GFP_KERNEL);
+		if (msg == NULL) {
+			IPAERR("fail to alloc ipa_msg container\n");
+			mutex_unlock(&ipa_ctx->msg_wlan_client_lock);
+			return -ENOMEM;
+		}
+		msg->meta = entry->meta;
+		data = kmalloc(entry->meta.msg_len, GFP_KERNEL);
+		if (data == NULL) {
+			IPAERR("fail to alloc data container\n");
+			kfree(msg);
+			mutex_unlock(&ipa_ctx->msg_wlan_client_lock);
+			return -ENOMEM;
+		}
+		memcpy(data, entry->buff, entry->meta.msg_len);
+		msg->buff = data;
+		msg->callback = ipa2_send_msg_free;
+		mutex_lock(&ipa_ctx->msg_lock);
+		list_add_tail(&msg->link, &ipa_ctx->msg_list);
+		mutex_unlock(&ipa_ctx->msg_lock);
+		wake_up(&ipa_ctx->msg_waitq);
+
+		total++;
+	}
+	mutex_unlock(&ipa_ctx->msg_wlan_client_lock);
 	return 0;
 }
 

@@ -171,6 +171,8 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
+ * @enable_sui_enhancement: indicate enable/disable of sui_enhancement feature
+ *                           which is set by user-mode.
  * @sbuf_op_mode_old : inline rotator op mode for previous commit cycle
  * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
  * @sbuf_flush_mask_all: inline rotator flush mask for all attached planes
@@ -241,6 +243,8 @@ struct sde_crtc {
 	bool misr_enable;
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
+
+	bool enable_sui_enhancement;
 
 	u32 sbuf_op_mode_old;
 	u32 sbuf_flush_mask_old;
@@ -390,6 +394,7 @@ struct sde_crtc_state {
 enum sde_crtc_irq_state {
 	IRQ_NOINIT,
 	IRQ_ENABLED,
+	IRQ_DISABLING,
 	IRQ_DISABLED,
 };
 
@@ -687,6 +692,22 @@ static inline int sde_crtc_get_secure_level(struct drm_crtc *crtc,
 
 	return sde_crtc_get_property(to_sde_crtc_state(state),
 			CRTC_PROP_SECURITY_LEVEL);
+}
+
+/**
+ * sde_crtc_is_sui_enhancement_enabled - Checks if user-mode has enabled the
+ *                                        sui enhancement feature
+ * @crtc: Pointer to crtc
+ */
+static inline bool sde_crtc_is_sui_enhancement_enabled(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return false;
+	sde_crtc = to_sde_crtc(crtc);
+
+	return sde_crtc->enable_sui_enhancement;
 }
 
 /**

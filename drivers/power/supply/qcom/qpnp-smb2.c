@@ -716,6 +716,7 @@ static enum power_supply_property smb2_usb_main_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_TOGGLE_STAT,
 	/*
 	 * TODO move the TEMP and TEMP_MAX properties here,
 	 * and update the thermal balancer to look here
@@ -753,6 +754,9 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_icl_current(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		val->intval = 0;
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -783,9 +787,29 @@ static int smb2_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_icl_current(chg, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		rc = smblib_toggle_stat(chg, val->intval);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int smb2_usb_main_prop_is_writeable(struct power_supply *psy,
+				enum power_supply_property psp)
+{
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
 		break;
 	}
 
@@ -799,6 +823,7 @@ static const struct power_supply_desc usb_main_psy_desc = {
 	.num_properties	= ARRAY_SIZE(smb2_usb_main_props),
 	.get_property	= smb2_usb_main_get_prop,
 	.set_property	= smb2_usb_main_set_prop,
+	.property_is_writeable = smb2_usb_main_prop_is_writeable,
 };
 
 static int smb2_init_usb_main_psy(struct smb2 *chip)
@@ -1866,7 +1891,8 @@ static int smb2_chg_config_init(struct smb2 *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8998_SUBTYPE:
 		chip->chg.smb_version = PMI8998_SUBTYPE;
-		chip->chg.wa_flags |= BOOST_BACK_WA | QC_AUTH_INTERRUPT_WA_BIT;
+		chip->chg.wa_flags |= BOOST_BACK_WA | QC_AUTH_INTERRUPT_WA_BIT
+				| TYPEC_PBS_WA_BIT;
 		if (pmic_rev_id->rev4 == PMI8998_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		if (pmic_rev_id->rev4 == PMI8998_V2P0_REV4) /* PMI rev 2.0 */
@@ -1881,7 +1907,8 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.smb_version = PM660_SUBTYPE;
-		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA;
+		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA | OV_IRQ_WA_BIT
+				| TYPEC_PBS_WA_BIT;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
 		chg->chg_freq.freq_5V		= 650;
@@ -2094,6 +2121,7 @@ static struct smb_irq_info smb2_irqs[] = {
 	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_switcher_power_ok,
+		.wake		= true,
 		.storm_data	= {true, 1000, 8},
 	},
 };

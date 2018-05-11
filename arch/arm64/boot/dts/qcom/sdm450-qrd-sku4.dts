@@ -14,9 +14,8 @@
 /dts-v1/;
 
 #include "sdm450.dtsi"
-#include "sdm450-qrd-sku4.dtsi"
 #include "sdm450-pmi632.dtsi"
-#include "msm8953-camera-sensor-qrd.dtsi"
+#include "sdm450-qrd-sku4.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 QRD SKU4";
@@ -25,8 +24,3 @@
 	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
 
-&pmi632_vadc {
-	chan@4a {
-		qcom,scale-function = <22>;
-	};
-};

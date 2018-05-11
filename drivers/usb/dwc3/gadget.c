@@ -937,7 +937,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	struct usb_gadget	*gadget = &dwc->gadget;
 	enum usb_device_speed	speed = gadget->speed;
 
-	dwc3_trace(trace_dwc3_gadget, "%s: req %p dma %08llx length %d%s",
+	dwc3_trace(trace_dwc3_gadget, "%s: req %pK dma %08llx length %d%s%s",
 			dep->name, req, (unsigned long long) dma,
 			length, chain ? " chain" : "");
 
@@ -1293,7 +1293,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	if (!dep->endpoint.desc) {
 		dwc3_trace(trace_dwc3_gadget,
-				"trying to queue request %p to disabled %s",
+				"trying to queue request %pK to disabled %s",
 				&req->request, dep->endpoint.name);
 		return -ESHUTDOWN;
 	}
@@ -1432,13 +1432,13 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
-		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
+		dev_dbg(dwc->dev, "trying to queue request %pK to disabled %s\n",
 				request, ep->name);
 		ret = -ESHUTDOWN;
 		goto out;
 	}
 
-	if (WARN(req->dep != dep, "request %p belongs to '%s'\n",
+	if (WARN(req->dep != dep, "request %pK belongs to '%s'\n",
 				request, req->dep->name)) {
 		ret = -EINVAL;
 		goto out;
@@ -3154,8 +3154,17 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	 * that EP0 is in setup phase by issuing a stall
 	 * and restart if EP0 is not in setup phase.
 	 */
-	if (dwc->ep0state != EP0_SETUP_PHASE)
+	if (dwc->ep0state != EP0_SETUP_PHASE) {
+		unsigned int	dir;
+
+		dbg_event(0xFF, "CONTRPEND", dwc->ep0state);
+		dir = !!dwc->ep0_expect_in;
+		if (dwc->ep0state == EP0_DATA_PHASE)
+			dwc3_ep0_end_control_data(dwc, dwc->eps[dir]);
+		else
+			dwc3_ep0_end_control_data(dwc, dwc->eps[!dir]);
 		dwc3_ep0_stall_and_restart(dwc);
+	}
 
 	dwc3_stop_active_transfers(dwc);
 	dwc3_clear_stall_all_ep(dwc);

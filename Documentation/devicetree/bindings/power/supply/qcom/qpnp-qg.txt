@@ -41,6 +41,16 @@ First Level Node - QGAUGE device
 		    when this interrupt fires. If not specified, the
 		    default value is 3200 mV.
 
+- qcom,vbatt-empty-cold-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    vbatt-empty interrupt fires. This threshold is only
+		    applied at cold temperature specified by
+		    'qcom,cold-temp-threshold'. The SOC is forced to 0
+		    when this interrupt fires. If not specified, the
+		    default value is 3000 mV.
+
 - qcom,vbatt-cutoff-mv
 	Usage:      optional
 	Value type: <u32>
@@ -55,6 +65,16 @@ First Level Node - QGAUGE device
 		    the VBAT_LOW interrupt fires. Software can take necessary
 		    the action when this interrupt fires. If not specified
 		    the default value is 3500 mV.
+
+- qcom,vbatt-low-cold-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: The battery voltage threshold (in mV) at which the
+		    the VBAT_LOW interrupt fires. The threshold is only
+		    applied at cold temperature specified by
+		    'qcom,cold-temp-threshold'. Software can take necessary
+		    the action when this interrupt fires. If not specified
+		    the default value is 3800 mV.
 
 - qcom,qg-iterm-ma
 	Usage:      optional
@@ -163,6 +183,13 @@ First Level Node - QGAUGE device
 		    the SOC drops after charge termination monotonically to
 		    improve the user experience. This is applicable only if
 		    "qcom,hold-soc-while-full" is specified.
+
+- qcom,cold-temp-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: Temperature threshold in decidegree at which the low
+		    temperature specific configuration as applied. If not
+		    specified, the default value is 0 degree centigrade.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver

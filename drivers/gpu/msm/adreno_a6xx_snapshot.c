@@ -1169,7 +1169,8 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 
 	block_id = block->block_id;
 	/* GMU_GX data is read using the GMU_CX block id on A630 */
-	if ((adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev)) &&
+	if ((adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev) ||
+		adreno_is_a616(adreno_dev)) &&
 		(block_id == A6XX_DBGBUS_GMU_GX))
 		block_id = A6XX_DBGBUS_GMU_CX;
 

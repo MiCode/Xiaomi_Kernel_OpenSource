@@ -1320,14 +1320,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			pr_err("cannot create release fence time line\n");
 			return -ENOMEM;
 		}
-		snprintf(timeline_name, sizeof(timeline_name),
-			"mdss_fb_%d_retire", mfd->index);
-		 mfd->mdp_sync_pt_data.timeline_retire =
-				mdss_create_timeline(timeline_name);
-		if (mfd->mdp_sync_pt_data.timeline == NULL) {
-			pr_err("cannot create release fence time line\n");
-			return -ENOMEM;
-		}
+
 		mfd->mdp_sync_pt_data.notifier.notifier_call =
 			__mdss_fb_sync_buf_done_callback;
 	}
@@ -2979,15 +2972,26 @@ int mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data)
  */
 void mdss_fb_signal_timeline(struct msm_sync_pt_data *sync_pt_data)
 {
+	struct msm_fb_data_type *mfd;
+
+	mfd = container_of(sync_pt_data, typeof(*mfd), mdp_sync_pt_data);
 	mutex_lock(&sync_pt_data->sync_mutex);
-	if (atomic_add_unless(&sync_pt_data->commit_cnt, -1, 0) &&
+	if (atomic_read(&sync_pt_data->commit_cnt) &&
 			sync_pt_data->timeline) {
 		mdss_inc_timeline(sync_pt_data->timeline, 1);
-		mdss_inc_timeline(sync_pt_data->timeline_retire, 1);
+
+		/*
+		 * For Command mode panels, the retire timeline is incremented
+		 * whenever we receive a readptr_done. For all other panels,
+		 * the retire fence should be signaled along with the release
+		 * fence once the frame is done.
+		 */
+		if (mfd->panel.type != MIPI_CMD_PANEL)
+			mdss_inc_timeline(sync_pt_data->timeline_retire, 1);
 		MDSS_XLOG(sync_pt_data->timeline_value);
 		sync_pt_data->timeline_value++;
 
-		pr_debug("%s: buffer signaled! timeline val=%d remaining=%d\n",
+		pr_debug("%s: buffer signaled! timeline val=%d commit_cnt=%d\n",
 			sync_pt_data->fence_name, sync_pt_data->timeline_value,
 			atomic_read(&sync_pt_data->commit_cnt));
 	} else {
@@ -3016,9 +3020,10 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd)
 		val = sync_pt_data->threshold +
 			atomic_read(&sync_pt_data->commit_cnt);
 		mdss_resync_timeline(sync_pt_data->timeline);
-		mdss_resync_timeline(sync_pt_data->timeline_retire);
-		sync_pt_data->timeline_value += val;
-		atomic_set(&sync_pt_data->commit_cnt, 0);
+		if (mfd->panel.type != MIPI_CMD_PANEL)
+			mdss_resync_timeline(sync_pt_data->timeline_retire);
+		sync_pt_data->timeline_value = val;
+
 	}
 	mutex_unlock(&sync_pt_data->sync_mutex);
 }
@@ -3216,7 +3221,6 @@ static int mdss_fb_pan_display_ex(struct fb_info *info,
 	mfd->msm_fb_backup.info = *info;
 	mfd->msm_fb_backup.disp_commit = *disp_commit;
 
-	atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
 	atomic_inc(&mfd->commits_pending);
 	atomic_inc(&mfd->kickoff_pending);
 	wake_up_all(&mfd->commit_wait_q);

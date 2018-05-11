@@ -44,7 +44,7 @@
 
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <linux/qcom_iommu.h>
+#include <linux/vmalloc.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -116,39 +116,14 @@ struct mdp3_iommu_domain_map mdp3_iommu_domains[MDP3_IOMMU_DOMAIN_MAX] = {
 	[MDP3_IOMMU_DOMAIN_UNSECURE] = {
 		.domain_type = MDP3_IOMMU_DOMAIN_UNSECURE,
 		.client_name = "mdp_ns",
-		.partitions = {
-			{
-				.start = SZ_128K,
-				.size = SZ_1G - SZ_128K,
-			},
-		},
 		.npartitions = 1,
+		.domain_idx = MDP3_IOMMU_DOMAIN_UNSECURE,
 	},
 	[MDP3_IOMMU_DOMAIN_SECURE] = {
 		.domain_type = MDP3_IOMMU_DOMAIN_SECURE,
 		.client_name = "mdp_secure",
-		.partitions = {
-			{
-				.start = SZ_1G,
-				.size = SZ_1G,
-			},
-		},
 		.npartitions = 1,
-	},
-};
-
-struct mdp3_iommu_ctx_map mdp3_iommu_contexts[MDP3_IOMMU_CTX_MAX] = {
-	[MDP3_IOMMU_CTX_MDP_0] = {
-		.ctx_type = MDP3_IOMMU_CTX_MDP_0,
-		.domain = &mdp3_iommu_domains[MDP3_IOMMU_DOMAIN_UNSECURE],
-		.ctx_name = "mdp_0",
-		.attached = 0,
-	},
-	[MDP3_IOMMU_CTX_MDP_1] = {
-		.ctx_type = MDP3_IOMMU_CTX_MDP_1,
-		.domain = &mdp3_iommu_domains[MDP3_IOMMU_DOMAIN_SECURE],
-		.ctx_name = "mdp_1",
-		.attached = 0,
+		.domain_idx = MDP3_IOMMU_DOMAIN_SECURE,
 	},
 };
 
@@ -785,7 +760,7 @@ static int mdp3_irq_setup(void)
 	ret = devm_request_irq(&mdp3_res->pdev->dev,
 				mdp3_hw->irq_info->irq,
 				mdp3_irq_handler,
-				IRQF_DISABLED, "MDP", mdp3_res);
+				0, "MDP", mdp3_res);
 	if (ret) {
 		pr_err("mdp request_irq() failed!\n");
 		return ret;
@@ -794,7 +769,6 @@ static int mdp3_irq_setup(void)
 	mdp3_res->irq_registered = true;
 	return 0;
 }
-
 
 static int mdp3_get_iommu_domain(u32 type)
 {
@@ -805,155 +779,6 @@ static int mdp3_get_iommu_domain(u32 type)
 		return -ENODEV;
 
 	return mdp3_res->domains[type].domain_idx;
-}
-
-int mdp3_iommu_attach(int context)
-{
-	int rc = 0;
-	struct mdp3_iommu_ctx_map *context_map;
-	struct mdp3_iommu_domain_map *domain_map;
-
-	if (context >= MDP3_IOMMU_CTX_MAX)
-		return -EINVAL;
-
-	context_map = mdp3_res->iommu_contexts + context;
-	if (context_map->attached) {
-		pr_warn("mdp iommu already attached\n");
-		return 0;
-	}
-
-	domain_map = context_map->domain;
-
-	rc = iommu_attach_device(domain_map->domain, context_map->ctx);
-	if (rc) {
-		pr_err("mpd3 iommu attach failed\n");
-		return -EINVAL;
-	}
-
-	context_map->attached = true;
-	return 0;
-}
-
-int mdp3_iommu_dettach(int context)
-{
-	struct mdp3_iommu_ctx_map *context_map;
-	struct mdp3_iommu_domain_map *domain_map;
-
-	if (!mdp3_res->iommu_contexts ||
-		context >= MDP3_IOMMU_CTX_MAX)
-		return -EINVAL;
-
-	context_map = mdp3_res->iommu_contexts + context;
-	if (!context_map->attached) {
-		pr_warn("mdp iommu not attached\n");
-		return 0;
-	}
-
-	domain_map = context_map->domain;
-	iommu_detach_device(domain_map->domain, context_map->ctx);
-	context_map->attached = false;
-
-	return 0;
-}
-
-int mdp3_iommu_domain_init(void)
-{
-	struct msm_iova_layout layout;
-	int i;
-
-	if (mdp3_res->domains) {
-		pr_warn("iommu domain already initialized\n");
-		return 0;
-	}
-
-	for (i = 0; i < MDP3_IOMMU_DOMAIN_MAX; i++) {
-		int domain_idx;
-
-		layout.client_name = mdp3_iommu_domains[i].client_name;
-		layout.partitions = mdp3_iommu_domains[i].partitions;
-		layout.npartitions = mdp3_iommu_domains[i].npartitions;
-		layout.is_secure = (i == MDP3_IOMMU_DOMAIN_SECURE);
-
-		domain_idx = msm_register_domain(&layout);
-		if (IS_ERR_VALUE(domain_idx))
-			return -EINVAL;
-
-		mdp3_iommu_domains[i].domain_idx = domain_idx;
-		mdp3_iommu_domains[i].domain = msm_get_iommu_domain(domain_idx);
-		if (IS_ERR_OR_NULL(mdp3_iommu_domains[i].domain)) {
-			pr_err("unable to get iommu domain(%d)\n",
-				domain_idx);
-			if (!mdp3_iommu_domains[i].domain)
-				return -EINVAL;
-			else
-				return PTR_ERR(mdp3_iommu_domains[i].domain);
-		}
-	}
-
-	mdp3_res->domains = mdp3_iommu_domains;
-
-	return 0;
-}
-
-int mdp3_iommu_context_init(void)
-{
-	int i;
-
-	if (mdp3_res->iommu_contexts) {
-		pr_warn("iommu context already initialized\n");
-		return 0;
-	}
-
-	for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++) {
-		mdp3_iommu_contexts[i].ctx =
-			msm_iommu_get_ctx(mdp3_iommu_contexts[i].ctx_name);
-
-		if (IS_ERR_OR_NULL(mdp3_iommu_contexts[i].ctx)) {
-			pr_warn("unable to get iommu ctx(%s)\n",
-				mdp3_iommu_contexts[i].ctx_name);
-			if (!mdp3_iommu_contexts[i].ctx)
-				return -EINVAL;
-			else
-				return PTR_ERR(mdp3_iommu_contexts[i].ctx);
-		}
-	}
-
-	mdp3_res->iommu_contexts = mdp3_iommu_contexts;
-
-	return 0;
-}
-
-int mdp3_iommu_init(void)
-{
-	int ret;
-
-	mutex_init(&mdp3_res->iommu_lock);
-
-	ret = mdp3_iommu_domain_init();
-	if (ret) {
-		pr_err("mdp3 iommu domain init fails\n");
-		return ret;
-	}
-
-	ret = mdp3_iommu_context_init();
-	if (ret) {
-		pr_err("mdp3 iommu context init fails\n");
-		return ret;
-	}
-	return ret;
-}
-
-void mdp3_iommu_deinit(void)
-{
-	int i;
-
-	if (!mdp3_res->domains)
-		return;
-
-	for (i = 0; i < MDP3_IOMMU_DOMAIN_MAX; i++) {
-		if (!IS_ERR_OR_NULL(mdp3_res->domains[i].domain))
-			msm_unregister_domain(mdp3_res->domains[i].domain);
-	}
 }
 
 static int mdp3_check_version(void)
@@ -1151,11 +976,9 @@ static int mdp3_res_init(void)
 		mdp3_res->ion_client = NULL;
 		return -EINVAL;
 	}
+	mutex_init(&mdp3_res->iommu_lock);
 
-	rc = mdp3_iommu_init();
-	if (rc)
-		return rc;
-
+	mdp3_res->domains = mdp3_iommu_domains;
 	mdp3_res->bus_handle = mdp3_bus_handle;
 	rc = mdp3_bus_scale_register();
 	if (rc) {
@@ -1171,17 +994,19 @@ static int mdp3_res_init(void)
 static void mdp3_res_deinit(void)
 {
 	struct mdss_hw *mdp3_hw;
-	int i;
+	int rc = 0;
 
 	mdp3_hw = &mdp3_res->mdp3_hw;
 	mdp3_bus_scale_unregister();
-
 	mutex_lock(&mdp3_res->iommu_lock);
-	for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++)
-		mdp3_iommu_dettach(i);
+	if (mdp3_res->iommu_ref_cnt) {
+		mdp3_res->iommu_ref_cnt--;
+		if (mdp3_res->iommu_ref_cnt == 0)
+			rc = mdss_smmu_detach(mdss_res);
+		} else {
+			pr_err("iommu ref count %d\n", mdp3_res->iommu_ref_cnt);
+		}
 	mutex_unlock(&mdp3_res->iommu_lock);
-
-	mdp3_iommu_deinit();
 
 	if (!IS_ERR_OR_NULL(mdp3_res->ion_client))
 		ion_client_destroy(mdp3_res->ion_client);
@@ -1503,317 +1328,6 @@ void mdp3_enable_regulator(int enable)
 	mdp3_batfet_ctrl(enable);
 }
 
-static void mdp3_iommu_heap_unmap_iommu(struct mdp3_iommu_meta *meta)
-{
-	unsigned int domain_num;
-	unsigned int partition_num = 0;
-	struct iommu_domain *domain;
-
-	domain_num = (mdp3_res->domains +
-			MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		pr_err("Could not get domain %d. Corruption?\n", domain_num);
-		return;
-	}
-
-	iommu_unmap_range(domain, meta->iova_addr, meta->mapped_size);
-	msm_free_iova_address(meta->iova_addr, domain_num, partition_num,
-		meta->mapped_size);
-}
-
-static void mdp3_iommu_meta_destroy(struct kref *kref)
-{
-	struct mdp3_iommu_meta *meta =
-			container_of(kref, struct mdp3_iommu_meta, ref);
-
-	rb_erase(&meta->node, &mdp3_res->iommu_root);
-	mdp3_iommu_heap_unmap_iommu(meta);
-	dma_buf_put(meta->dbuf);
-	kfree(meta);
-}
-
-
-static void mdp3_iommu_meta_put(struct mdp3_iommu_meta *meta)
-{
-	/* Need to lock here to prevent race against map/unmap */
-	mutex_lock(&mdp3_res->iommu_lock);
-	kref_put(&meta->ref, mdp3_iommu_meta_destroy);
-	mutex_unlock(&mdp3_res->iommu_lock);
-}
-
-static struct mdp3_iommu_meta *mdp3_iommu_meta_lookup(struct sg_table *table)
-{
-	struct rb_root *root = &mdp3_res->iommu_root;
-	struct rb_node **p = &root->rb_node;
-	struct rb_node *parent = NULL;
-	struct mdp3_iommu_meta *entry = NULL;
-
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct mdp3_iommu_meta, node);
-
-		if (table < entry->table)
-			p = &(*p)->rb_left;
-		else if (table > entry->table)
-			p = &(*p)->rb_right;
-		else
-			return entry;
-	}
-	return NULL;
-}
-
-void mdp3_unmap_iommu(struct ion_client *client, struct ion_handle *handle)
-{
-	struct mdp3_iommu_meta *meta;
-	struct sg_table *table;
-
-	table = ion_sg_table(client, handle);
-
-	mutex_lock(&mdp3_res->iommu_lock);
-	meta = mdp3_iommu_meta_lookup(table);
-	if (!meta) {
-		WARN(1, "%s: buffer was never mapped for %pK\n", __func__,
-				handle);
-		mutex_unlock(&mdp3_res->iommu_lock);
-		return;
-	}
-	mutex_unlock(&mdp3_res->iommu_lock);
-
-	mdp3_iommu_meta_put(meta);
-}
-
-static void mdp3_iommu_meta_add(struct mdp3_iommu_meta *meta)
-{
-	struct rb_root *root = &mdp3_res->iommu_root;
-	struct rb_node **p = &root->rb_node;
-	struct rb_node *parent = NULL;
-	struct mdp3_iommu_meta *entry;
-
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct mdp3_iommu_meta, node);
-
-		if (meta->table < entry->table) {
-			p = &(*p)->rb_left;
-		} else if (meta->table > entry->table) {
-			p = &(*p)->rb_right;
-		} else {
-			pr_err("%s: handle %pK already exists\n", __func__,
-				entry->handle);
-			WARN_ON(1);
-		}
-	}
-
-	rb_link_node(&meta->node, parent, p);
-	rb_insert_color(&meta->node, root);
-}
-
-static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
-	unsigned long align, unsigned long iova_length,
-	unsigned int padding, unsigned long flags)
-{
-	struct iommu_domain *domain;
-	int ret = 0;
-	unsigned long size;
-	unsigned long unmap_size;
-	struct sg_table *table;
-	int prot = IOMMU_WRITE | IOMMU_READ;
-	unsigned int domain_num = (mdp3_res->domains +
-			MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
-	unsigned int partition_num = 0;
-
-	size = meta->size;
-	table = meta->table;
-
-	/* Use the biggest alignment to allow bigger IOMMU mappings.
-	 * Use the first entry since the first entry will always be the
-	 * biggest entry. To take advantage of bigger mapping sizes both the
-	 * VA and PA addresses have to be aligned to the biggest size.
-	 */
-	if (table->sgl->length > align)
-		align = table->sgl->length;
-
-	ret = msm_allocate_iova_address(domain_num, partition_num,
-			meta->mapped_size, align,
-			(unsigned long *)&meta->iova_addr);
-
-	if (ret)
-		goto out;
-
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		ret = -ENOMEM;
-		goto out1;
-	}
-
-	/* Adding padding to before buffer */
-	if (padding) {
-		unsigned long phys_addr = sg_phys(table->sgl);
-
-		ret = msm_iommu_map_extra(domain, meta->iova_addr, phys_addr,
-				padding, SZ_4K, prot);
-		if (ret)
-			goto out1;
-	}
-
-	/* Mapping actual buffer */
-	ret = iommu_map_range(domain, meta->iova_addr + padding,
-			table->sgl, size, prot);
-	if (ret) {
-		pr_err("%s: could not map %pa in domain %pK\n",
-			__func__, &meta->iova_addr, domain);
-			unmap_size = padding;
-		goto out2;
-	}
-
-	/* Adding padding to end of buffer */
-	if (padding) {
-		unsigned long phys_addr = sg_phys(table->sgl);
-		unsigned long extra_iova_addr = meta->iova_addr +
-				padding + size;
-		ret = msm_iommu_map_extra(domain, extra_iova_addr, phys_addr,
-				padding, SZ_4K, prot);
-		if (ret) {
-			unmap_size = padding + size;
-			goto out2;
-		}
-	}
-	return ret;
-
-out2:
-	iommu_unmap_range(domain, meta->iova_addr, unmap_size);
-out1:
-	msm_free_iova_address(meta->iova_addr, domain_num, partition_num,
-				iova_length);
-
-out:
-	return ret;
-}
-
-static struct mdp3_iommu_meta *mdp3_iommu_meta_create(struct ion_client *client,
-	struct ion_handle *handle, struct sg_table *table, unsigned long size,
-	unsigned long align, unsigned long iova_length, unsigned int padding,
-	unsigned long flags, dma_addr_t *iova)
-{
-	struct mdp3_iommu_meta *meta;
-	int ret;
-
-	meta = kzalloc(sizeof(*meta), GFP_KERNEL);
-
-	if (!meta)
-		return ERR_PTR(-ENOMEM);
-
-	meta->handle = handle;
-	meta->table = table;
-	meta->size = size;
-	meta->mapped_size = iova_length;
-	meta->dbuf = ion_share_dma_buf(client, handle);
-	kref_init(&meta->ref);
-
-	ret = mdp3_iommu_map_iommu(meta,
-		align, iova_length, padding, flags);
-	if (ret < 0)	{
-		pr_err("%s: Unable to map buffer\n", __func__);
-		goto out;
-	}
-
-	*iova = meta->iova_addr;
-	mdp3_iommu_meta_add(meta);
-
-	return meta;
-out:
-	kfree(meta);
-	return ERR_PTR(ret);
-}
-
-/*
- * PPP hw reads in tiles of 16 which might be outside mapped region
- * need to map buffers ourseleve to add extra padding
- */
-int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
-	unsigned long align, unsigned long padding, dma_addr_t *iova,
-	unsigned long *buffer_size, unsigned long flags,
-	unsigned long iommu_flags)
-{
-	struct mdp3_iommu_meta *iommu_meta = NULL;
-	struct sg_table *table;
-	struct scatterlist *sg;
-	unsigned long size = 0, iova_length = 0;
-	int ret = 0;
-	int i;
-
-	table = ion_sg_table(client, handle);
-	if (IS_ERR_OR_NULL(table))
-		return PTR_ERR(table);
-
-	for_each_sg(table->sgl, sg, table->nents, i)
-		size += sg->length;
-
-	padding = PAGE_ALIGN(padding);
-
-	/* Adding 16 lines padding before and after buffer */
-	iova_length = size + 2 * padding;
-
-	if (size & ~PAGE_MASK) {
-		pr_debug("%s: buffer size %lx is not aligned to %lx",
-			__func__, size, PAGE_SIZE);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (iova_length & ~PAGE_MASK) {
-		pr_debug("%s: iova_length %lx is not aligned to %lx",
-			__func__, iova_length, PAGE_SIZE);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	mutex_lock(&mdp3_res->iommu_lock);
-	iommu_meta = mdp3_iommu_meta_lookup(table);
-
-	if (!iommu_meta) {
-		iommu_meta = mdp3_iommu_meta_create(client, handle, table, size,
-				align, iova_length, padding, flags, iova);
-		if (!IS_ERR_OR_NULL(iommu_meta)) {
-			iommu_meta->flags = iommu_flags;
-			ret = 0;
-		} else {
-			ret = PTR_ERR(iommu_meta);
-			goto out_unlock;
-		}
-	} else {
-		if (iommu_meta->flags != iommu_flags) {
-			pr_err("%s: hndl %pK already mapped with diff flag\n",
-				__func__, handle);
-			ret = -EINVAL;
-			goto out_unlock;
-		} else if (iommu_meta->mapped_size != iova_length) {
-			pr_err("%s: hndl %pK already mapped with diff len\n",
-				__func__, handle);
-			ret = -EINVAL;
-			goto out_unlock;
-		} else {
-			kref_get(&iommu_meta->ref);
-			*iova = iommu_meta->iova_addr;
-		}
-	}
-	WARN_ON(iommu_meta->size != size);
-	mutex_unlock(&mdp3_res->iommu_lock);
-
-	*iova = *iova + padding;
-	*buffer_size = size;
-	return ret;
-
-out_unlock:
-	mutex_unlock(&mdp3_res->iommu_lock);
-out:
-	mdp3_iommu_meta_put(iommu_meta);
-	return ret;
-}
-
 int mdp3_put_img(struct mdp3_img_data *data, int client)
 {
 	struct ion_client *iclient = mdp3_res->ion_client;
@@ -1854,7 +1368,7 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		return -EINVAL;
 	}
 	if (client == MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return 0;
@@ -1877,10 +1391,10 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 					img->memory_id);
 			return -EINVAL;
 		}
-		if (MAJOR(f.file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-			fb_num = MINOR(f.file->f_dentry->d_inode->i_rdev);
+		if (MAJOR(f.file->f_path.dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(f.file->f_path.dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(&data->addr,
-						&data->len, fb_num);
+							&data->len, fb_num);
 			if (ret) {
 				pr_err("mdss_fb_get_phys_info() failed\n");
 				fdput(f);
@@ -1983,7 +1497,7 @@ err_unmap:
 	dma_buf_put(data->srcp_dma_buf);
 
 	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return ret;
@@ -2155,29 +1669,6 @@ error:
 	return rc;
 }
 
-void mdp3_free(struct msm_fb_data_type *mfd)
-{
-	size_t size = 0;
-	int dom;
-	unsigned long phys;
-
-	if (!mfd->iova || !mfd->fbi->screen_base) {
-		pr_info("no fbmem allocated\n");
-		return;
-	}
-
-	size = mfd->fbi->fix.smem_len;
-	phys = mfd->fbi->fix.smem_start;
-	dom = mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain_idx;
-	iommu_unmap(mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain,
-			phys, size);
-	msm_iommu_unmap_contig_buffer(mfd->iova, dom, 0, size);
-
-	mfd->fbi->screen_base = NULL;
-	mfd->fbi->fix.smem_start = 0;
-	mfd->iova = 0;
-}
-
 void mdp3_release_splash_memory(struct msm_fb_data_type *mfd)
 {
 	/* Give back the reserved memory to the system */
@@ -2188,7 +1679,6 @@ void mdp3_release_splash_memory(struct msm_fb_data_type *mfd)
 				mdp3_res->splash_mem_addr,
 				mdp3_res->splash_mem_size);
 		}
-		mdp3_free(mfd);
 		pr_debug("mdp3_release_splash_memory\n");
 		memblock_free(mdp3_res->splash_mem_addr,
 				mdp3_res->splash_mem_size);
@@ -3056,8 +2546,7 @@ static int mdp3_resume(struct platform_device *pdev)
 #define mdp3_resume  NULL
 #endif
 
-
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int mdp3_runtime_resume(struct device *dev)
 {
 	bool device_on = true;

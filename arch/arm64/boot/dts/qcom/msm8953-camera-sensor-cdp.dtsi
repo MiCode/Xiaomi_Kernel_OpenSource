@@ -45,8 +45,8 @@
 		cam_vdig-supply = <&pm8953_l2>;
 		cam_vaf-supply = <&pm8953_l17>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <0 1100000 2850000>;
-		qcom,cam-vreg-max-voltage = <0 1100000 2850000>;
+		qcom,cam-vreg-min-voltage = <0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <0 1200000 2850000>;
 		qcom,cam-vreg-op-mode = <0 105000 100000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
@@ -190,7 +190,7 @@
 		qcom,clock-rates = <19200000 0>;
 	};
 
-	qcom,camera@0 {
+	camera0: qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
 		reg = <0x0>;
@@ -203,10 +203,13 @@
 		cam_vio-supply = <&pm8953_l6>;
 		cam_vdig-supply = <&pm8953_l2>;
 		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <0 1100000 2850000>;
-		qcom,cam-vreg-max-voltage = <0 1100000 2850000>;
-		qcom,cam-vreg-op-mode = <0 105000 100000>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_v_custom1-supply = <&pm8953_l23>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf",
+						"cam_vana", "cam_v_custom1";
+		qcom,cam-vreg-min-voltage = <0 1200000 2850000 2800000 1220000>;
+		qcom,cam-vreg-max-voltage = <0 1200000 2850000 2800000 1220000>;
+		qcom,cam-vreg-op-mode = <0 105000 100000 80000 105000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
 				&cam_sensor_rear_default
@@ -294,8 +297,8 @@
 		cam_vaf-supply = <&pm8953_l17>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
 					"cam_vaf";
-		qcom,cam-vreg-min-voltage = <1175000 0 2800000 2850000>;
-		qcom,cam-vreg-max-voltage = <1175000 0 2800000 2850000>;
+		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
+		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
 		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";

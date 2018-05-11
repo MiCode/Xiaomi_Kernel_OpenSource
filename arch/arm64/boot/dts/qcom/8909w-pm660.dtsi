@@ -326,6 +326,10 @@
 		};
 	};
 
+	qcom,power-on@800 {
+		qcom,use-legacy-hard-reset-offset;
+	};
+
 	pm660_rradc: rradc@4500 {
 		compatible = "qcom,rradc";
 		reg = <0x4500 0x100>;
@@ -446,7 +450,7 @@
 			pins = "gpio12";
 			function = "normal";
 			output-enable;
-			qcom,drive-strength = "medium";
+			qcom,drive-strength = <2>;
 		};
 	};
 
@@ -455,7 +459,7 @@
 			pins = "gpio5";
 			function = "func1";
 			output-enable;
-			qcom,drive-strength = "medium";
+			qcom,drive-strength = <2>;
 			bias-disable;
 		};
 	};
@@ -463,6 +467,15 @@
 
 &pm660_misc {
 	qcom,support-twm-config;
+};
+
+&pm660_pbs {
+	status = "okay";
+};
+
+&pm660_pon {
+	qcom,support-twm-config;
+	qcom,pbs-client = <&pm660_pbs>;
 };
 
 / {

@@ -70,6 +70,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
 #define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
+#define OV_VOTER			"OV_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -88,6 +89,8 @@ enum {
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
 	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
 	OTG_WA				= BIT(4),
+	OV_IRQ_WA_BIT			= BIT(5),
+	TYPEC_PBS_WA_BIT		= BIT(6),
 };
 
 enum smb_irq_index {
@@ -358,6 +361,7 @@ struct smb_charger {
 	bool			try_sink_active;
 	int			boost_current_ua;
 	int			temp_speed_reading_count;
+	bool			fake_usb_insertion;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
@@ -541,6 +545,7 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
 void smblib_usb_typec_change(struct smb_charger *chg);
+int smblib_toggle_stat(struct smb_charger *chg, int reset);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

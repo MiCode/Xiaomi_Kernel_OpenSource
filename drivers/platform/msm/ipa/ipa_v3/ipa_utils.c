@@ -1223,7 +1223,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1475,53 +1475,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 31, 31, 8, 8, IPA_EE_AP } },
-};
-
-static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors ipa_nominal_perf_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-};
-
-static struct msm_bus_paths ipa_usecases_v3_0[]  = {
-	{
-		.num_paths = ARRAY_SIZE(ipa_init_vectors_v3_0),
-		.vectors = ipa_init_vectors_v3_0,
-	},
-	{
-		.num_paths = ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
-		.vectors = ipa_nominal_perf_vectors_v3_0,
-	},
-};
-
-static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
-	.usecase = ipa_usecases_v3_0,
-	.num_usecases = ARRAY_SIZE(ipa_usecases_v3_0),
-	.name = "ipa",
 };
 
 /**
@@ -1972,6 +1925,49 @@ int ipa3_cfg_filter(u32 disable)
 }
 
 /**
+ * ipa_comp_cfg() - Configure QMB/Master port selection
+ *
+ * Returns:	None
+ */
+static void ipa_comp_cfg(void)
+{
+	struct ipahal_reg_comp_cfg comp_cfg;
+
+	/* IPAv4 specific, on NON-MHI config*/
+	if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi == false)) {
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+
+		comp_cfg.ipa_qmb_select_by_address_global_en = false;
+		comp_cfg.ipa_qmb_select_by_address_prod_en = false;
+		comp_cfg.ipa_qmb_select_by_address_cons_en = false;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+	}
+}
+
+/**
  * ipa3_cfg_qsb() - Configure IPA QSB maximal reads and writes
  *
  * Returns:	None
@@ -2049,6 +2045,8 @@ int ipa3_init_hw(void)
 	}
 
 	ipa3_cfg_qsb();
+
+	ipa_comp_cfg();
 
 	return 0;
 }
@@ -3741,7 +3739,6 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
-	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
 	ctrl->clock_scaling_bw_threshold_svs =
 		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =
@@ -4389,6 +4386,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_cfg_ep_holb_by_client = ipa3_cfg_ep_holb_by_client;
 	api_ctrl->ipa_cfg_ep_ctrl = ipa3_cfg_ep_ctrl;
 	api_ctrl->ipa_add_hdr = ipa3_add_hdr;
+	api_ctrl->ipa_add_hdr_usr = ipa3_add_hdr_usr;
 	api_ctrl->ipa_del_hdr = ipa3_del_hdr;
 	api_ctrl->ipa_commit_hdr = ipa3_commit_hdr;
 	api_ctrl->ipa_reset_hdr = ipa3_reset_hdr;
@@ -4398,6 +4396,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
 	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
 	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_add_rt_rule_usr = ipa3_add_rt_rule_usr;
 	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
 	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
 	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
@@ -4406,6 +4405,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
 	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
 	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_add_flt_rule_usr = ipa3_add_flt_rule_usr;
 	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
@@ -5312,14 +5312,14 @@ bool ipa3_is_msm_device(void)
 }
 
 /**
-* ipa3_disable_prefetch() - disable\enable tx prefetch
-*
-* @client: the client which is related to the TX where prefetch will be
-*          disabled
-*
-* Return value: Non applicable
-*
-*/
+ * ipa3_disable_prefetch() - disable\enable tx prefetch
+ *
+ * @client: the client which is related to the TX where prefetch will be
+ *          disabled
+ *
+ * Return value: Non applicable
+ *
+ */
 void ipa3_disable_prefetch(enum ipa_client_type client)
 {
 	struct ipahal_reg_tx_cfg cfg;

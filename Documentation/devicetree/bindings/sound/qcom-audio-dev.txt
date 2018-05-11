@@ -1729,6 +1729,9 @@ Optional Properties:
 - qcom,msm-mi2s-master: This property is used to inform machine driver
   if MSM is the clock master of mi2s. 1 means master and 0 means slave. The
   first entry is primary mi2s; the second entry is secondary mi2s, and so on.
+- qcom,mi2s-aqt-enabled: This property is used to inform machine driver
+  if AQT1000 codec is enabled or not. If this is enabled then codec name
+  for TERT_MI2S needs to be overridden with AQT codec.
 - qcom,msm-mi2s-ext-mclk: This property is used to inform machine driver
   if MCLK from MSM is used for any external audio connections. 1 means used
   as external mclk source and 0 indicate not used. The first entry is
@@ -1870,6 +1873,140 @@ Example:
 		asoc-codec-names = "msm-stub-codec.1";
 		asoc-wsa-codec-names = "wsa881x.20170212";
 		asoc-wsa-codec-prefixes = "SpkrLeft";
+	};
+
+* APQ8009 I2S ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,apq8009-audio-i2s-codec"
+- qcom,model : The user-visible name of this sound card.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+	mentioned in qcom,msm-gpios. Say we have 2^N combinations for N GPIOs,
+	this would list all the 2^N combinations.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+	the flavor. This can be sometimes same as qcom,pinctrl-names i.e with 2^N
+	combinations or will have less incase if some combination is not supported.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+- qcom,audio-routing : A list of the connections between audio components.
+	Each entry is a pair of strings, the first being the connection's sink,
+	the second being the connection's source.
+
+Optional properties:
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- asoc-platform: This is phandle list containing the references to platform device
+		nodes that are used as part of the sound card dai-links.
+- asoc-platform-names:  This property contains list of platform names. The order of
+			the platform names should match to that of the phandle order
+			given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+	cpu dai names should match to that of the phandle order given
+	in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+	where the id (%d) field represents the back-end AFE port id that
+	this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		codec dai names should match to that of the phandle order given
+		in "asoc-codec".
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+- qcom,wsa-devs: This property contains list of wsa codec names. The names
+		should comply with the wsa nodes configurations.
+- qcom,wsa-aux-dev-prefix: This property contains list of wsa codec prefixes.
+- qcom,tdm-i2s-switch-enable: For chipsets where tdm mics are controlled by
+			      switch, drive corresponding gpio to output high
+			      to enable switch.
+
+Example:
+	sound {
+		compatible = "qcom,apq8009-audio-i2s-codec";
+		qcom,model = "apq8009-tashalite-snd-card";
+		qcom,msm-codec-type = "external";
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Digital Mic2",
+			"DMIC3", "MIC BIAS2",
+			"MIC BIAS2", "Digital Mic3",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-gpios =
+			"pri_i2s",
+			"quat_i2s";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"quat_i2s_act",
+			"pri_i2s_quat_i2s_act";
+		pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"quat_i2s_act",
+			"pri_i2s_quat_i2s_act";
+		pinctrl-0 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+			&pri_mi2s_dout_sleep &pri_mi2s_din_sleep
+			&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+		pinctrl-1 = <&pri_mi2s_active &pri_mi2s_ws_active
+			&pri_mi2s_dout_active &pri_mi2s_din_active
+			&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+		pinctrl-2 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+			&pri_mi2s_dout_sleep &pri_mi2s_din_sleep
+			&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-3 = <&pri_mi2s_active &pri_mi2s_ws_active
+			&pri_mi2s_dout_active &pri_mi2s_din_active
+			&quat_mi2s_active &quat_mi2s_din_active>;
+
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+			<&loopback>, <&compress>, <&hostless>,
+			<&afe>, <&lsm>, <&routing>, <&cpe>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+			"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+			"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+			"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
+			"msm-pcm-lpa";
+		asoc-cpu =  <&dai_pri_auxpcm>, <&dai_hdmi>,<&dai_mi2s0>,
+			<&dai_mi2s2>, <&dai_mi2s3>,
+			<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+			<&sb_3_rx>, <&sb_3_tx>,
+			<&sb_4_rx>, <&sb_4_tx>, <&afe_pcm_rx>,
+			<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+			<&incall_record_rx>, <&incall_record_tx>,
+			<&incall_music_rx>, <&incall_music_2_rx>,
+			<&bt_sco_rx>,
+			<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
+			"msm-dai-q6-mi2s.0",
+			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+			"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+			"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+			"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+			"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+			"msm-dai-q6-dev.224",
+			"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+			"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+			"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+			"msm-dai-q6-dev.32770",
+			"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+			"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight";
 	};
 
 * MSM8909 BG ASoC Machine driver
@@ -3053,3 +3190,80 @@ Example:
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
 					  "SpkrRight", "SpkrLeft";
 	};
+
+* QCS605 LC  ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,qcs605-dig-asoc-snd"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+- qcom,msm-gpios : Lists down all the gpio sets that are supported.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+mentioned in qcom,msm-gpios.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+the flavor.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+
+Optional properties:
+- qcom,wsa-disable : Boolean. Disables WSA speaker dailinks from sound node.
+- qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
+- qcom,msm-mclk-freq : This property is used to inform machine driver about
+mclk frequency needs to be configured for internal and external PA.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+	codec dai names should match to that of the phandle order given
+	in "asoc-codec".
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+- qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
+- qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
+- qcom,cdc-sdw-gpios : phandle for soundwire clk and data gpios.
+- qcom,pri-mi2s-gpios : phandle for primary MI2S clk, word select and data gpios.
+- qcom,sec-mi2s-gpios : phandle for secondary MI2S clk, word select and data gpios.
+- qcom,tert-mi2s-gpios : phandle for tertiary MI2S clk, word select and data gpios.
+- qcom,quat-mi2s-gpios : phandle for quaternary MI2S clk, word select and data gpios.
+- qcom,quin-mi2s-gpios : phandle for quinary MI2S clk, word select and data gpios.
+
+Example:
+	 sound {
+		compatible = "qcom,qcs605-dig-asoc-snd";
+		qcom,model = "qcs605-lc-snd-card";
+		qcom,audio-routing =
+			"RX_BIAS", "INT_MCLK0",
+			"SPK_RX_BIAS", "INT_MCLK0",
+			"DMIC1", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic1",
+			"DMIC2", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic2",
+			"DMIC3", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic3",
+			"DMIC4", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic4",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+				<&msm_sdw_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+					"msm_sdw_codec";
+
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,
+				<&wsa881x_213_en>, <&wsa881x_214_en>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
+	}

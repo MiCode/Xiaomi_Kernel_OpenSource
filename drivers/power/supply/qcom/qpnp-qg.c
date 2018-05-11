@@ -64,40 +64,61 @@ static bool is_debug_batt_id(struct qpnp_qg *chip)
 	return false;
 }
 
-static int qg_read_ocv(struct qpnp_qg *chip, u32 *ocv_uv, u8 type)
+static int qg_read_ocv(struct qpnp_qg *chip, u32 *ocv_uv, u32 *ocv_raw, u8 type)
 {
 	int rc, addr;
 	u64 temp = 0;
+	char ocv_name[20];
 
 	switch (type) {
-	case GOOD_OCV:
+	case S3_GOOD_OCV:
 		addr = QG_S3_GOOD_OCV_V_DATA0_REG;
+		strlcpy(ocv_name, "S3_GOOD_OCV", 20);
 		break;
-	case PON_OCV:
+	case S7_PON_OCV:
 		addr = QG_S7_PON_OCV_V_DATA0_REG;
+		strlcpy(ocv_name, "S7_PON_OCV", 20);
+		break;
+	case S3_LAST_OCV:
+		addr = QG_LAST_S3_SLEEP_V_DATA0_REG;
+		strlcpy(ocv_name, "S3_LAST_OCV", 20);
+		break;
+	case SDAM_PON_OCV:
+		addr = QG_SDAM_PON_OCV_OFFSET;
+		strlcpy(ocv_name, "SDAM_PON_OCV", 20);
 		break;
 	default:
 		pr_err("Invalid OCV type %d\n", type);
 		return -EINVAL;
 	}
 
-	rc = qg_read(chip, chip->qg_base + addr, (u8 *)&temp, 2);
-	if (rc < 0) {
-		pr_err("Failed to read ocv, rc=%d\n", rc);
-		return rc;
+	if (type == SDAM_PON_OCV) {
+		rc = qg_sdam_read(SDAM_PON_OCV_UV, ocv_raw);
+		if (rc < 0) {
+			pr_err("Failed to read SDAM PON OCV rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = qg_read(chip, chip->qg_base + addr, (u8 *)ocv_raw, 2);
+		if (rc < 0) {
+			pr_err("Failed to read ocv, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
+	temp = *ocv_raw;
 	*ocv_uv = V_RAW_TO_UV(temp);
 
-	pr_debug("%s: OCV=%duV\n",
-		type == GOOD_OCV ? "GOOD_OCV" : "PON_OCV", *ocv_uv);
+	pr_debug("%s: OCV_RAW=%x OCV=%duV\n", ocv_name, *ocv_raw, *ocv_uv);
 
 	return rc;
 }
 
+#define DEFAULT_S3_FIFO_LENGTH		3
 static int qg_update_fifo_length(struct qpnp_qg *chip, u8 length)
 {
 	int rc;
+	u8 s3_entry_fifo_length = 0;
 
 	if (!length || length > 8) {
 		pr_err("Invalid FIFO length %d\n", length);
@@ -108,6 +129,21 @@ static int qg_update_fifo_length(struct qpnp_qg *chip, u8 length)
 			FIFO_LENGTH_MASK, (length - 1) << FIFO_LENGTH_SHIFT);
 	if (rc < 0)
 		pr_err("Failed to write S2 FIFO length, rc=%d\n", rc);
+
+	/* update the S3 FIFO length, when S2 length is updated */
+	if (length > 3)
+		s3_entry_fifo_length = (chip->dt.s3_entry_fifo_length > 0) ?
+			chip->dt.s3_entry_fifo_length : DEFAULT_S3_FIFO_LENGTH;
+	else	/* Use S3 length as 1 for any S2 length <= 3 */
+		s3_entry_fifo_length = 1;
+
+	rc = qg_masked_write(chip,
+			chip->qg_base + QG_S3_SLEEP_OCV_IBAT_CTL1_REG,
+			SLEEP_IBAT_QUALIFIED_LENGTH_MASK,
+			s3_entry_fifo_length - 1);
+	if (rc < 0)
+		pr_err("Failed to write S3-entry fifo-length, rc=%d\n",
+						rc);
 
 	return rc;
 }
@@ -276,6 +312,12 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		fifo_v = v_fifo[i] | (v_fifo[i + 1] << 8);
 		fifo_i = i_fifo[i] | (i_fifo[i + 1] << 8);
 
+		if (fifo_v == FIFO_V_RESET_VAL || fifo_i == FIFO_I_RESET_VAL) {
+			pr_err("Invalid FIFO data V_RAW=%x I_RAW=%x - FIFO rejected\n",
+						fifo_v, fifo_i);
+			return -EINVAL;
+		}
+
 		temp = sign_extend32(fifo_i, 15);
 
 		chip->kdata.fifo[j].v = V_RAW_TO_UV(fifo_v);
@@ -387,8 +429,19 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 #define VBAT_LOW_HYST_UV		50000 /* 50mV */
 static int qg_vbat_low_wa(struct qpnp_qg *chip)
 {
-	int rc, i;
-	u32 vbat_low_uv = chip->dt.vbatt_low_mv * 1000 + VBAT_LOW_HYST_UV;
+	int rc, i, temp = 0;
+	u32 vbat_low_uv = 0;
+
+	rc = qg_get_battery_temp(chip, &temp);
+	if (rc < 0) {
+		pr_err("Failed to read batt_temp rc=%d\n", rc);
+		temp = 250;
+	}
+
+	vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
+				chip->dt.vbatt_low_cold_mv :
+				chip->dt.vbatt_low_mv);
+	vbat_low_uv += VBAT_LOW_HYST_UV;
 
 	if (!(chip->wa_flags & QG_VBAT_LOW_WA) || !chip->vbat_low)
 		return 0;
@@ -431,6 +484,73 @@ static int qg_vbat_low_wa(struct qpnp_qg *chip)
 
 done:
 	qg_master_hold(chip, false);
+	return rc;
+}
+
+static int qg_vbat_thresholds_config(struct qpnp_qg *chip)
+{
+	int rc, temp = 0, vbat_mv;
+	u8 reg;
+
+	rc = qg_get_battery_temp(chip, &temp);
+	if (rc < 0) {
+		pr_err("Failed to read batt_temp rc=%d\n", rc);
+		return rc;
+	}
+
+	vbat_mv = (temp < chip->dt.cold_temp_threshold) ?
+			chip->dt.vbatt_empty_cold_mv :
+			chip->dt.vbatt_empty_mv;
+
+	rc = qg_read(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to read vbat-empty, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (vbat_mv == (reg * 50))	/* No change */
+		goto config_vbat_low;
+
+	reg = vbat_mv / 50;
+	rc = qg_write(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to write vbat-empty, rc=%d\n", rc);
+		return rc;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS,
+		"VBAT EMPTY threshold updated to %dmV temp=%d\n",
+						vbat_mv, temp);
+
+config_vbat_low:
+	vbat_mv = (temp < chip->dt.cold_temp_threshold) ?
+			chip->dt.vbatt_low_cold_mv :
+			chip->dt.vbatt_low_mv;
+
+	rc = qg_read(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to read vbat-low, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (vbat_mv == (reg * 50))	/* No change */
+		return 0;
+
+	reg = vbat_mv / 50;
+	rc = qg_write(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to write vbat-low, rc=%d\n", rc);
+		return rc;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS,
+		"VBAT LOW threshold updated to %dmV temp=%d\n",
+						vbat_mv, temp);
+
 	return rc;
 }
 
@@ -584,6 +704,10 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 		goto done;
 	}
 
+	rc = qg_vbat_thresholds_config(chip);
+	if (rc < 0)
+		pr_err("Failed to apply VBAT EMPTY config rc=%d\n", rc);
+
 	rc = qg_vbat_low_wa(chip);
 	if (rc < 0) {
 		pr_err("Failed to apply VBAT LOW WA, rc=%d\n", rc);
@@ -669,7 +793,7 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 {
 	int rc;
 	u8 status = 0;
-	u32 ocv_uv;
+	u32 ocv_uv = 0, ocv_raw = 0;
 	struct qpnp_qg *chip = data;
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "IRQ triggered\n");
@@ -685,7 +809,7 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 	if (!(status & GOOD_OCV_BIT))
 		goto done;
 
-	rc = qg_read_ocv(chip, &ocv_uv, GOOD_OCV);
+	rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_GOOD_OCV);
 	if (rc < 0) {
 		pr_err("Failed to read good_ocv, rc=%d\n", rc);
 		goto done;
@@ -1030,9 +1154,6 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	union power_supply_propval prop = {0, };
 	int rc, recharge_soc, health;
 
-	vote(chip->good_ocv_irq_disable_votable,
-		QG_INIT_STATE_IRQ_DISABLE, !chip->charge_done, 0);
-
 	if (!chip->dt.hold_soc_while_full)
 		goto out;
 
@@ -1059,12 +1180,26 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			chip->charge_full = true;
 			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
 					chip->msoc);
-		} else {
+		} else if (health != POWER_SUPPLY_HEALTH_GOOD) {
+			/* terminated in JEITA */
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
 	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
 				&& chip->charge_full) {
+
+		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+			/* Force recharge */
+			prop.intval = 0;
+			rc = power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+			if (rc < 0)
+				pr_err("Failed to force recharge rc=%d\n", rc);
+			else
+				qg_dbg(chip, QG_DEBUG_STATUS,
+					"Forced recharge\n");
+		}
+
 		/*
 		 * If recharge or discharge has started and
 		 * if linearize soc dtsi property defined
@@ -1528,11 +1663,11 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 
 static int qg_determine_pon_soc(struct qpnp_qg *chip)
 {
-	u8 status = 0, ocv_type = 0;
 	int rc = 0, batt_temp = 0;
-	bool use_pon_ocv = true, use_shutdown_ocv = false;
+	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
-	u32 ocv_uv = 0, soc = 0, shutdown[SDAM_MAX] = {0};
+	u32 ocv_uv = 0, ocv_raw = 0, soc = 0, shutdown[SDAM_MAX] = {0};
+	char ocv_type[20] = "NONE";
 
 	if (!chip->profile_loaded) {
 		qg_dbg(chip, QG_DEBUG_PON, "No Profile, skipping PON soc\n");
@@ -1566,9 +1701,9 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 			chip->dt.ignore_shutdown_soc_secs,
 			(rtc_sec - shutdown[SDAM_TIME_SEC]))) {
 		use_pon_ocv = false;
-		use_shutdown_ocv = true;
 		ocv_uv = shutdown[SDAM_OCV_UV];
 		soc = shutdown[SDAM_SOC];
+		strlcpy(ocv_type, "SHUTDOWN_SOC", 20);
 		qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
 	}
 
@@ -1580,24 +1715,31 @@ use_pon_ocv:
 			goto done;
 		}
 
-		rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
-		if (rc < 0) {
-			pr_err("Failed to read status2 register rc=%d\n", rc);
+		/*
+		 * Read S3_LAST_OCV, if S3_LAST_OCV is invalid,
+		 * read the SDAM_PON_OCV
+		 * if SDAM is not-set, use S7_PON_OCV.
+		 */
+		strlcpy(ocv_type, "S3_LAST_SOC", 20);
+		rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_LAST_OCV);
+		if (rc < 0)
 			goto done;
-		}
 
-		if (status & GOOD_OCV_BIT)
-			ocv_type = GOOD_OCV;
-		else
-			ocv_type = PON_OCV;
+		if (ocv_raw == FIFO_V_RESET_VAL) {
+			/* S3_LAST_OCV is invalid */
+			strlcpy(ocv_type, "SDAM_PON_SOC", 20);
+			rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, SDAM_PON_OCV);
+			if (rc < 0)
+				goto done;
 
-		qg_dbg(chip, QG_DEBUG_PON, "Using %s @ PON\n",
-				ocv_type == GOOD_OCV ? "GOOD_OCV" : "PON_OCV");
-
-		rc = qg_read_ocv(chip, &ocv_uv, ocv_type);
-		if (rc < 0) {
-			pr_err("Failed to read ocv rc=%d\n", rc);
-			goto done;
+			if (!ocv_uv) {
+				/* SDAM_PON_OCV is not set */
+				strlcpy(ocv_type, "S7_PON_SOC", 20);
+				rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw,
+							S7_PON_OCV);
+				if (rc < 0)
+					goto done;
+			}
 		}
 
 		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
@@ -1608,7 +1750,7 @@ use_pon_ocv:
 	}
 done:
 	if (rc < 0) {
-		pr_err("Failed to get SOC @ PON, rc=%d\n", rc);
+		pr_err("Failed to get %s @ PON, rc=%d\n", ocv_type, rc);
 		return rc;
 	}
 
@@ -1629,9 +1771,9 @@ done:
 	if (rc < 0)
 		pr_err("Failed to update sdam params rc=%d\n", rc);
 
-	pr_info("use_pon_ocv=%d use_good_ocv=%d use_shutdown_ocv=%d ocv_uv=%duV soc=%d\n",
-			use_pon_ocv, !!(status & GOOD_OCV_BIT),
-			use_shutdown_ocv, ocv_uv, chip->msoc);
+	pr_info("using %s @ PON ocv_uv=%duV soc=%d\n",
+			ocv_type, ocv_uv, chip->msoc);
+
 	return 0;
 }
 
@@ -1639,6 +1781,7 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 {
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
+		chip->wa_flags |= QG_RECHARGE_SOC_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
@@ -1811,31 +1954,25 @@ done_fifo:
 		}
 	}
 
-	/* vbat low */
+	/* vbat based configs */
 	if (chip->dt.vbatt_low_mv < 0)
 		chip->dt.vbatt_low_mv = 0;
 	else if (chip->dt.vbatt_low_mv > 12750)
 		chip->dt.vbatt_low_mv = 12750;
 
-	reg = chip->dt.vbatt_low_mv / 50;
-	rc = qg_write(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
-					&reg, 1);
-	if (rc < 0) {
-		pr_err("Failed to write vbat-low, rc=%d\n", rc);
-		return rc;
-	}
-
-	/* vbat empty */
 	if (chip->dt.vbatt_empty_mv < 0)
 		chip->dt.vbatt_empty_mv = 0;
 	else if (chip->dt.vbatt_empty_mv > 12750)
 		chip->dt.vbatt_empty_mv = 12750;
 
-	reg = chip->dt.vbatt_empty_mv / 50;
-	rc = qg_write(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
-					&reg, 1);
+	if (chip->dt.vbatt_empty_cold_mv < 0)
+		chip->dt.vbatt_empty_cold_mv = 0;
+	else if (chip->dt.vbatt_empty_cold_mv > 12750)
+		chip->dt.vbatt_empty_cold_mv = 12750;
+
+	rc = qg_vbat_thresholds_config(chip);
 	if (rc < 0) {
-		pr_err("Failed to write vbat-empty, rc=%d\n", rc);
+		pr_err("Failed to configure VBAT empty/low rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1933,8 +2070,10 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 }
 
 #define DEFAULT_VBATT_EMPTY_MV		3200
+#define DEFAULT_VBATT_EMPTY_COLD_MV	3000
 #define DEFAULT_VBATT_CUTOFF_MV		3400
 #define DEFAULT_VBATT_LOW_MV		3500
+#define DEFAULT_VBATT_LOW_COLD_MV	3800
 #define DEFAULT_ITERM_MA		100
 #define DEFAULT_S2_FIFO_LENGTH		5
 #define DEFAULT_S2_VBAT_LOW_LENGTH	2
@@ -1942,6 +2081,7 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 #define DEFAULT_S2_ACC_INTVL_MS		100
 #define DEFAULT_DELTA_SOC		1
 #define DEFAULT_SHUTDOWN_SOC_SECS	360
+#define DEFAULT_COLD_TEMP_THRESHOLD	0
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -2061,7 +2201,7 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.s3_entry_ibat_ua = temp;
 
-	rc = of_property_read_u32(node, "qcom,s3-entry-ibat-ua", &temp);
+	rc = of_property_read_u32(node, "qcom,s3-exit-ibat-ua", &temp);
 	if (rc < 0)
 		chip->dt.s3_exit_ibat_ua = -EINVAL;
 	else
@@ -2074,11 +2214,29 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.vbatt_empty_mv = temp;
 
+	rc = of_property_read_u32(node, "qcom,vbatt-empty-cold-mv", &temp);
+	if (rc < 0)
+		chip->dt.vbatt_empty_cold_mv = DEFAULT_VBATT_EMPTY_COLD_MV;
+	else
+		chip->dt.vbatt_empty_cold_mv = temp;
+
+	rc = of_property_read_u32(node, "qcom,cold-temp-threshold", &temp);
+	if (rc < 0)
+		chip->dt.cold_temp_threshold = DEFAULT_COLD_TEMP_THRESHOLD;
+	else
+		chip->dt.cold_temp_threshold = temp;
+
 	rc = of_property_read_u32(node, "qcom,vbatt-low-mv", &temp);
 	if (rc < 0)
 		chip->dt.vbatt_low_mv = DEFAULT_VBATT_LOW_MV;
 	else
 		chip->dt.vbatt_low_mv = temp;
+
+	rc = of_property_read_u32(node, "qcom,vbatt-low-cold-mv", &temp);
+	if (rc < 0)
+		chip->dt.vbatt_low_cold_mv = DEFAULT_VBATT_LOW_COLD_MV;
+	else
+		chip->dt.vbatt_low_cold_mv = temp;
 
 	rc = of_property_read_u32(node, "qcom,vbatt-cutoff-mv", &temp);
 	if (rc < 0)
@@ -2133,6 +2291,10 @@ static int process_suspend(struct qpnp_qg *chip)
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
 		return 0;
+
+	/* disable GOOD_OCV IRQ in sleep */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, true, 0);
 
 	chip->suspend_data = false;
 
@@ -2198,12 +2360,16 @@ static int process_suspend(struct qpnp_qg *chip)
 static int process_resume(struct qpnp_qg *chip)
 {
 	u8 status2 = 0, rt_status = 0;
-	u32 ocv_uv = 0;
+	u32 ocv_uv = 0, ocv_raw = 0;
 	int rc, batt_temp = 0;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
 		return 0;
+
+	/* enable GOOD_OCV IRQ when awake */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, false, 0);
 
 	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status2, 1);
 	if (rc < 0) {
@@ -2212,7 +2378,7 @@ static int process_resume(struct qpnp_qg *chip)
 	}
 
 	if (status2 & GOOD_OCV_BIT) {
-		rc = qg_read_ocv(chip, &ocv_uv, GOOD_OCV);
+		rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_GOOD_OCV);
 		if (rc < 0) {
 			pr_err("Failed to read good_ocv, rc=%d\n", rc);
 			return rc;

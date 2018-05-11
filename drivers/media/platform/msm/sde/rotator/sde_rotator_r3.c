@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2713,6 +2713,9 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr,
 			item->input.format, item->output.format,
 			entry->perf->config.frame_rate);
+
+	/* initialize static vbif setting */
+	sde_mdp_init_vbif();
 
 	if (!ctx->sbuf_mode && mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;

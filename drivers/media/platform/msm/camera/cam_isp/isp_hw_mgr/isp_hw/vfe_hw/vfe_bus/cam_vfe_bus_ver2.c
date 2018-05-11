@@ -863,33 +863,15 @@ static int cam_vfe_bus_acquire_wm(
 			rsrc_data->stride = rsrc_data->width;
 			break;
 		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_PLAIN32_20:
 			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
 			rsrc_data->height = 0;
 			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
 			rsrc_data->pack_fmt = 0x0;
 			rsrc_data->en_cfg = 0x3;
-			break;
-		case CAM_FORMAT_PLAIN16_12:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x3;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN16_14:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x4;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN16_16:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x5;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN32_20:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x9;
 			break;
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->en_cfg = 0x1;
@@ -2291,6 +2273,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	struct cam_buf_io_cfg                    *io_cfg;
 	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
+	struct cam_vfe_bus_ver2_reg_offset_ubwc_client *ubwc_client = NULL;
 	uint32_t *reg_val_pair;
 	uint32_t  i, j, size = 0;
 	uint32_t  frame_inc = 0, ubwc_bw_limit = 0, camera_hw_version, val;
@@ -2326,7 +2309,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
-
+		ubwc_client = wm_data->hw_regs->ubwc_regs;
 		/* update width register */
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->buffer_width_cfg,
@@ -2398,9 +2381,8 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					 * update offset value.
 					 */
 					CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair,
-						j,
-						wm_data->hw_regs->ubwc_regs->
-						h_init, wm_data->offset);
+						j, ubwc_client->h_init,
+						wm_data->offset);
 					wm_data->h_init = wm_data->offset;
 				}
 			} else if (wm_data->h_init !=
@@ -2428,8 +2410,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].meta_stride ||
 				!wm_data->init_cfg_done) {
 				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-					wm_data->hw_regs->ubwc_regs->
-					meta_stride,
+					ubwc_client->meta_stride,
 					io_cfg->planes[i].meta_stride);
 				wm_data->ubwc_meta_stride =
 					io_cfg->planes[i].meta_stride;
@@ -2453,8 +2434,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].meta_offset ||
 				!wm_data->init_cfg_done) {
 				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-					wm_data->hw_regs->ubwc_regs->
-					meta_offset,
+					ubwc_client->meta_offset,
 					io_cfg->planes[i].meta_offset);
 				wm_data->ubwc_meta_offset =
 					io_cfg->planes[i].meta_offset;
@@ -2849,7 +2829,7 @@ static int cam_vfe_bus_process_cmd(
 	case CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ:
 		bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 		if (bus_priv->error_irq_handle) {
-			CAM_INFO(CAM_ISP, "Mask off bus error irq handler");
+			CAM_DBG(CAM_ISP, "Mask off bus error irq handler");
 			rc = cam_irq_controller_unsubscribe_irq(
 				bus_priv->common_data.bus_irq_controller,
 				bus_priv->error_irq_handle);

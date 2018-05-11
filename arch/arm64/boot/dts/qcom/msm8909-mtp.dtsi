@@ -237,6 +237,14 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
+/ {
+	mtp_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+		#include "batterydata-palladium.dtsi"
+	};
+};
+
 &qcom_rng {
 	status = "okay";
 };

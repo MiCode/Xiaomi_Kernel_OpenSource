@@ -1183,7 +1183,8 @@ static inline dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
 
 	size = PAGE_ALIGN(size);
 	if (mapping->min_iova_align)
-		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+		guard_len = ALIGN(size + mapping->force_guard_page_len,
+				  mapping->min_iova_align) - size;
 	else
 		guard_len = 0;
 
@@ -1231,12 +1232,14 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	addr = addr & PAGE_MASK;
 	size = PAGE_ALIGN(size);
-	if (mapping->min_iova_align) {
-		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-		iommu_unmap(mapping->domain, addr + size, guard_len);
-	} else {
+	if (mapping->min_iova_align)
+		guard_len = ALIGN(size + mapping->force_guard_page_len,
+				  mapping->min_iova_align) - size;
+	else
 		guard_len = 0;
-	}
+
+	if (guard_len)
+		iommu_unmap(mapping->domain, addr + size, guard_len);
 
 	start = (addr - mapping->base) >> PAGE_SHIFT;
 	count = (size + guard_len) >> PAGE_SHIFT;
@@ -1987,21 +1990,30 @@ bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
 	int vmid = VMID_HLOS;
 	int min_iova_align = 0;
+	int force_iova_guard_page = 0;
 
 	iommu_domain_get_attr(mapping->domain,
 			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
 			&min_iova_align);
 	iommu_domain_get_attr(mapping->domain,
 			DOMAIN_ATTR_SECURE_VMID, &vmid);
+	iommu_domain_get_attr(mapping->domain,
+			      DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE,
+			      &force_iova_guard_page);
+
 	if (vmid >= VMID_LAST || vmid < 0)
 		vmid = VMID_HLOS;
 
-	if (min_iova_align) {
-		mapping->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
-		mapping->guard_page = arm_smmu_errata_get_guard_page(vmid);
-		if (!mapping->guard_page)
-			return -ENOMEM;
-	}
+	mapping->min_iova_align = (min_iova_align) ? ARM_SMMU_MIN_IOVA_ALIGN :
+		PAGE_SIZE;
+
+	if (force_iova_guard_page)
+		mapping->force_guard_page_len = PAGE_SIZE;
+
+	mapping->guard_page =
+		arm_smmu_errata_get_guard_page(vmid);
+	if (!mapping->guard_page)
+		return -ENOMEM;
 
 	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
 							__GFP_NORETRY);

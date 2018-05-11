@@ -36,6 +36,8 @@ First Level Node - FG Gen3 device
 	Definition: For details about IIO bindings see:
 		    Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- #thermal-sensor-cells: Should be 0. See thermal.txt for a description.
+
 - qcom,rradc-base
 	Usage:      required
 	Value type: <u32>
@@ -380,7 +382,7 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Value in micro percentage for low temperature ESR tight
 		    filter. If this is not specified, then a default value of
-		    48829 (4.88 %) will be used. Lowest possible value is 1954
+		    30000 (3 %) will be used. Lowest possible value is 1954
 		    (0.19 %).
 
 - qcom,fg-esr-broad-lt-filter-micro-pct
@@ -388,8 +390,34 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Value in micro percentage for low temperature ESR broad
 		    filter. If this is not specified, then a default value of
-		    148438 (14.84 %) will be used. Lowest possible value is
+		    30000 (3 %) will be used. Lowest possible value is
 		    1954 (0.19 %).
+
+- qcom,fg-esr-rt-filter-switch-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold below which ESR relax
+		    filter coefficients will be applied after a certain
+		    number of delta battery temperature interrupts firing in
+		    an interval of time. This will be applied only when Qnovo
+		    is enabled. If this is not specified, then the default
+		    value used will be -100. Unit is in decidegC.
+
+- qcom,fg-esr-tight-rt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for relax temperature ESR tight
+		    filter. If this is not specified, then a default value of
+		    5860 will be used. Lowest possible value is 1954 (0.19 %).
+		    This will be applied only if Qnovo is enabled.
+
+- qcom,fg-esr-broad-rt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for relax temperature ESR broad
+		    filter. If this is not specified, then a default value of
+		    156250 will be used. Lowest possible value is 1954 (0.19 %).
+		    This will be applied only if Qnovo is enabled.
 
 - qcom,fg-auto-recharge-soc
 	Usage:      optional
@@ -463,6 +491,7 @@ pmi8998_fg: qpnp,fg {
 	qcom,slope-limit-temp-threshold = <100>;
 	qcom,slope-limit-coeffs = <10 11 12 13>;
 	qcom,battery-thermal-coefficients = [9d 50 ff];
+	#thermal-sensor-cells = <0>;
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {
@@ -489,5 +518,34 @@ pmi8998_fg: qpnp,fg {
 	qcom,fg-memif@4400 {
 		status = "okay";
 		reg = <0x4400 0x100>;
+	};
+};
+
+======================================
+Example for thermal zone configuration
+======================================
+
+thermal_zones {
+	pmi8998_fg {
+		polling-delay-passive = <200>;
+		polling-delay = <200>;
+		thermal-governor = <userspace>;
+		thermal-sensors = <&pmi8998_fg>;
+
+		pmi8998_fg_trip1: pmi8998-fg-trip0 {
+			temperature = <45000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pmi8998_fg_trip2: pmi8998-fg-trip2 {
+			temperature = <50000>;
+			hysteresis = <0>;
+			type = "hot";
+		};
+		pmi8998_fg_trip3: pmi8998-fg-trip3 {
+			temperature = <60000>;
+			hysteresis = <0>;
+			type = "alert";
+		};
 	};
 };

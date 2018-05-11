@@ -1908,6 +1908,11 @@
 			reg = <0x65c 4>;
 		};
 
+		dload_type@1c {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x1c 0x4>;
+		};
+
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
@@ -2565,9 +2570,31 @@
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
+
 		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x706 0x1>,
 			 <&apps_smmu 0x716 0x1>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x712 0>,
+			       <&apps_smmu 0x71f 0>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x40000000>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x713 0>,
+			       <&apps_smmu 0x71c 0>,
+			       <&apps_smmu 0x71d 0>,
+			       <&apps_smmu 0x71e 0>;
+			virtual-addr = <0x60200000>;
+			virtual-size = <0x40000000>;
+			qcom,secure-context-bank;
+		};
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
@@ -2641,7 +2668,7 @@
 			<0 432 0>;
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <13>; /* IPA core version = IPAv3.5.1 */
-		qcom,ipa-hw-mode = <1>;
+		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
@@ -2838,7 +2865,7 @@
 	};
 
 	dcc: dcc_v2@10a2000 {
-		compatible = "qcom,dcc_v2";
+		compatible = "qcom,dcc-v2";
 		reg = <0x10a2000 0x1000>,
 		      <0x10ae000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
@@ -3767,57 +3794,57 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
+		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
 		};
 
-		fcm_dump {
+		fcm {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xee>;
 		};
 
-		rpm_sw_dump {
+		rpm_sw {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
 		};
 
-		pmic_dump {
+		pmic {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe4>;
 		};
 
-		tmc_etf_dump {
+		tmc_etf {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xf0>;
 		};
 
-		tmc_etf_swao_dump {
+		tmc_etfswao {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xf1>;
 		};
 
-		tmc_etr_reg_dump {
+		tmc_etr_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x100>;
 		};
 
-		tmc_etf_reg_dump {
+		tmc_etf_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x101>;
 		};
 
-		tmc_etf_swao_reg_dump {
+		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
 		};
 
-		misc_data_dump {
+		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
 
-		tpdm_swao_dump {
+		tpdm_swao {
 			qcom,dump-size = <0x512>;
 			qcom,dump-id = <0xf2>;
 		};

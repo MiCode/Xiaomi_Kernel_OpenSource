@@ -2913,6 +2913,11 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	if (!data) {
+		atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
+		MDSS_XLOG(atomic_read(&mfd->mdp_sync_pt_data.commit_cnt));
+	}
+
 	/*
 	 * Setup pipe in solid fill before unstaging,
 	 * to ensure no fetches are happening after dettach or reattach.
@@ -3619,9 +3624,8 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 		goto end;
 	}
 
-	if (!ctl->panel_data->panel_info.cont_splash_enabled
-		&& (!mdss_mdp_ctl_is_power_on(ctl) ||
-		mdss_panel_is_power_on_ulp(ctl->power_state))) {
+	if (!ctl->panel_data->panel_info.cont_splash_enabled &&
+	    !mdss_mdp_ctl_is_power_on(ctl)) {
 		pr_debug("fb%d vsync pending first update en=%d, ctl power state:%d\n",
 				mfd->index, en, ctl->power_state);
 		rc = -EPERM;
@@ -5939,10 +5943,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		rc = mdss_mdp_overlay_start(mfd);
 		if (rc)
 			goto end;
-		if (mfd->panel_info->type != WRITEBACK_PANEL) {
-			atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
+		if (mfd->panel_info->type != WRITEBACK_PANEL)
 			rc = mdss_mdp_overlay_kickoff(mfd, NULL);
-		}
 	} else {
 		rc = mdss_mdp_ctl_setup(ctl);
 		if (rc)
@@ -6340,10 +6342,11 @@ static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 
 	mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
 	if (mdp5_data->retire_cnt > 0) {
-		mdss_inc_timeline(mdp5_data->vsync_timeline, val);
+		mdss_inc_timeline(mfd->mdp_sync_pt_data.timeline_retire, val);
 		mdp5_data->retire_cnt -= min(val, mdp5_data->retire_cnt);
 		pr_debug("Retire signaled! timeline val=%d remaining=%d\n",
-			mdss_get_timeline_retire_ts(mdp5_data->vsync_timeline),
+			mdss_get_timeline_retire_ts(
+			mfd->mdp_sync_pt_data.timeline_retire),
 			mdp5_data->retire_cnt);
 
 		if (mdp5_data->retire_cnt == 0) {
@@ -6382,7 +6385,7 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 	value = 1 + mdp5_data->retire_cnt;
 	mdp5_data->retire_cnt++;
 
-	return mdss_fb_sync_get_fence(mdp5_data->vsync_timeline,
+	return mdss_fb_sync_get_fence(mfd->mdp_sync_pt_data.timeline_retire,
 			"mdp-retire", value);
 }
 
@@ -6420,32 +6423,40 @@ static int __vsync_retire_setup(struct msm_fb_data_type *mfd)
 	struct sched_param param = { .sched_priority = 5 };
 
 	snprintf(name, sizeof(name), "mdss_fb%d_retire", mfd->index);
-	mdp5_data->vsync_timeline = mdss_create_timeline(name);
-	if (mdp5_data->vsync_timeline == NULL) {
+	mfd->mdp_sync_pt_data.timeline_retire = mdss_create_timeline(name);
+	if (mfd->mdp_sync_pt_data.timeline_retire == NULL) {
 		pr_err("cannot vsync create time line");
 		return -ENOMEM;
 	}
 
-	kthread_init_worker(&mdp5_data->worker);
-	kthread_init_work(&mdp5_data->vsync_work, __vsync_retire_work_handler);
+	/*
+	 * vsync_work is required only for command mode panels and for panels
+	 * with dynamic mode switch supported. For all other panels the retire
+	 * fence is signaled along with the release fence once the frame
+	 * transfer is done.
+	 */
+	if ((mfd->panel_info->mipi.dms_mode) ||
+		(mfd->panel_info->type == MIPI_CMD_PANEL)) {
+		kthread_init_worker(&mdp5_data->worker);
+		kthread_init_work(&mdp5_data->vsync_work,
+			__vsync_retire_work_handler);
 
-	mdp5_data->thread = kthread_run(kthread_worker_fn,
+		mdp5_data->thread = kthread_run(kthread_worker_fn,
 					&mdp5_data->worker,
 					"vsync_retire_work");
+		if (IS_ERR(mdp5_data->thread)) {
+			pr_err("unable to start vsync thread\n");
+			mdp5_data->thread = NULL;
+			return -ENOMEM;
+		}
 
-	if (IS_ERR(mdp5_data->thread)) {
-		pr_err("unable to start vsync thread\n");
-		mdp5_data->thread = NULL;
-		return -ENOMEM;
+		sched_setscheduler(mdp5_data->thread, SCHED_FIFO, &param);
+		mfd->mdp_sync_pt_data.get_retire_fence =
+				__vsync_retire_get_fence;
+		mdp5_data->vsync_retire_handler.vsync_handler =
+				__vsync_retire_handle_vsync;
+		mdp5_data->vsync_retire_handler.cmd_post_flush = false;
 	}
-
-	sched_setscheduler(mdp5_data->thread, SCHED_FIFO, &param);
-
-	mfd->mdp_sync_pt_data.get_retire_fence = __vsync_retire_get_fence;
-
-	mdp5_data->vsync_retire_handler.vsync_handler =
-		__vsync_retire_handle_vsync;
-	mdp5_data->vsync_retire_handler.cmd_post_flush = false;
 
 	return 0;
 }
@@ -6715,14 +6726,12 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	if (mfd->panel_info->mipi.dms_mode ||
-			mfd->panel_info->type == MIPI_CMD_PANEL) {
-		rc = __vsync_retire_setup(mfd);
-		if (IS_ERR_VALUE((unsigned long)rc)) {
-			pr_err("unable to create vsync timeline\n");
-			goto init_fail;
-		}
+	rc = __vsync_retire_setup(mfd);
+	if (IS_ERR_VALUE((unsigned long)rc)) {
+		pr_err("unable to create vsync timeline\n");
+		goto init_fail;
 	}
+
 	mfd->mdp_sync_pt_data.async_wait_fences = true;
 
 	pm_runtime_set_suspended(&mfd->pdev->dev);

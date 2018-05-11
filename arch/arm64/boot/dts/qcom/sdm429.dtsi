@@ -20,8 +20,6 @@
 };
 
 &soc {
-	/delete-node/ qcom,spm@b1d2000;
-	/delete-node/ qcom,lpm-levels;
 	/delete-node/ etm@619c000;
 	/delete-node/ etm@619d000;
 	/delete-node/ etm@619e000;
@@ -30,6 +28,63 @@
 	/delete-node/ cti@61b9000;
 	/delete-node/ cti@61ba000;
 	/delete-node/ cti@61bb000;
+
+	qcom,spm@b1d2000 {
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			/delete-node/qcom,pm-cluster@1;
+		};
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names =
+			"l2_clk",
+			"cpu0_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table =
+			 <  960000 >,
+			 < 1305600 >,
+			 < 1497600 >,
+			 < 1708800 >,
+			 < 1958400 >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			< 960000   2929 >,
+			< 1305600  5053 >,
+			< 1497600  5712 >,
+			< 1708800  7031 >,
+			< 1958400  7031 >;
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map =
+			< 960000   400000 >,
+			< 1305600  400000 >,
+			< 1497600  533333 >,
+			< 1708800  533333 >,
+			< 1958400  533333 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				< 1305600 2929 >,
+				< 1958400 4248 >;
+		};
+	};
 };
 
 &funnel_apss {
@@ -52,4 +107,74 @@
 	};
 
 	/delete-node/ cpuss0-step;
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdm429";
+	reg = <0x1800000 0x80000>,
+		<0xb016000 0x00040>;
+	reg-names = "cc_base", "apcs_c1_base";
+	vdd_dig-supply = <&pm8953_s2_level>;
+	vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+	vdd_hf_pll-supply = <&pm8953_l7_ao>;
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-8917";
+	reg = <0x1874000 0x4>,
+		<0xb01101c 0x8>;
+	reg-names = "cc_base", "meas";
+	#clock-cells = <1>;
+};
+
+&soc {
+	/delete-node/ qcom,cpu-clock-8939@b111050;
+	clock_cpu: qcom,cpu-clock-8939@b111050 {
+		compatible = "qcom,cpu-clock-sdm429";
+
+		reg =   <0xb011050 0x8>,
+			<0xb1d1050 0x8>,
+			<0x00a412c 0x8>;
+		reg-names = "apcs-c1-rcg-base",
+			"apcs-cci-rcg-base", "efuse";
+
+		qcom,num-cluster;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			<&clock_gcc clk_a53ss_c1_pll>,
+			<&clock_gcc clk_gpll0_ao_clk_src>,
+			<&clock_gcc clk_gpll0_ao_clk_src>;
+		clock-names = "clk-c1-4", "clk-c1-5",
+				"clk-cci-4", "clk-cci-2";
+
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>,
+			< 1958400000 5>;
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed1-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>,
+			< 1804800000 5>;
+
+		qcom,speed1-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		#clock-cells = <1>;
+	};
 };

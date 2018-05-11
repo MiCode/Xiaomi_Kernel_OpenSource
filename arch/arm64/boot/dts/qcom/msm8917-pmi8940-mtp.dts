@@ -14,7 +14,8 @@
 /dts-v1/;
 
 #include "msm8917.dtsi"
-#include "msm8917-pmi8940-mtp.dtsi"
+#include "msm8917-mtp.dtsi"
+#include "msm8917-pmi8940.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8917-PMI8940 MTP";

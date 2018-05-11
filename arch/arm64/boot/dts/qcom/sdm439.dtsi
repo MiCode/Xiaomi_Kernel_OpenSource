@@ -23,12 +23,238 @@
 
 &soc {
 	qcom,csid@1b30000 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30400 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30800 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names =
+			"l2_clk",
+			"cpu0_clk",
+			"cpu4_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 < 1305600 >,
+			 < 1497600 >,
+			 < 1708800 >,
+			 < 1958400 >;
+
+		qcom,cpufreq-table-4 =
+			 <  768000 >,
+			 < 1001600 >,
+			 < 1171200 >,
+			 < 1305600 >,
+			 < 1459200 >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			< 1305600  2929 >,
+			< 1497600  5053 >,
+			< 1708800  5712 >,
+			< 1958400  7031 >;
+		cpu-to-dev-map-4 =
+			<  768000  2929 >,
+			< 1001600  4101 >,
+			< 1171200  5053 >,
+			< 1305600  6152 >,
+			< 1459200  7031 >;
+
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			< 1305600  400000 >,
+			< 1497600  400000 >,
+			< 1708800  533333 >,
+			< 1958400  533333 >;
+		cpu-to-dev-map-4 =
+			<  768000  400000 >,
+			< 1001600  400000 >,
+			< 1171200  533333 >,
+			< 1305600  533333 >,
+			< 1459200  533333 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				< 1305600 2929 >,
+				< 1958400 4248 >;
+			cpu-to-dev-map-4 =
+				< 1171200 2929 >,
+				< 1459200 4248 >;
+		};
+	};
+};
+
+&energy_costs {
+	compatible = "sched-energy";
+
+	CPU_COST_0: core-cost0 {
+		busy-cost-data = <
+			 800000	137
+			1001600	165
+			1305600	207
+			1497600	256
+			1708800	327
+			1958400	445
+		>;
+		idle-cost-data = <
+			100 80 60 40
+		>;
+	};
+	CPU_COST_1: core-cost1 {
+		busy-cost-data = <
+			 768000	43
+			1001600	56
+			1171200	71
+			1305600	89
+			1459200	120
+		>;
+		idle-cost-data = <
+			40 20 10 8
+		>;
+	};
+	CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+			 800000	49
+			1001600	53
+			1305600	61
+			1497600	71
+			1708800	85
+			1958400	110
+		>;
+		idle-cost-data = <
+			4 3 2 1
+		>;
+	};
+	CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+			 768000	8
+			1001600	10
+			1171200	13
+			1305600	15
+			1459200	20
+		>;
+		idle-cost-data = <
+			4 3 2 1
+		>;
+	};
+};
+
+&kgsl_smmu {
+	qcom,enable-static-cb;
+};
+
+&reserved_memory {
+	gpu_mem: gpu_region@0 {
+		compatible = "shared-dma-pool";
+		reusable;
+		alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
+		alignment = <0 0x400000>;
+		size = <0 0x800000>;
+	};
+};
+
+&soc {
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a506_zap";
+		memory-region = <&gpu_mem>;
+		qcom,mas-crypto = <&mas_crypto>;
+		clocks = <&clock_gcc clk_gcc_crypto_clk>,
+		<&clock_gcc clk_gcc_crypto_ahb_clk>,
+		<&clock_gcc clk_gcc_crypto_axi_clk>,
+		<&clock_gcc clk_crypto_clk_src>;
+		clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,proxy-clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <80000000>;
+	};
+};
+
+&kgsl_msm_iommu {
+	gfx3d_secure: gfx3d_secure {
+		compatible = "qcom,smmu-kgsl-cb";
+		iommus = <&kgsl_smmu 2>;
+		memory-region = <&secure_mem>;
+	};
+};
+
+&clock_cpu {
+	compatible = "qcom,cpu-clock-sdm439";
+	vdd-c0-supply = <&apc_vreg_corner>;
+	vdd-c1-supply = <&apc_vreg_corner>;
+	vdd-cci-supply = <&apc_vreg_corner>;
+	qcom,speed0-bin-v0-c0 =
+		<          0 0>,
+		<  768000000 1>,
+		<  998400000 1>,
+		< 1171200000 2>,
+		< 1305600000 3>,
+		< 1459200000 5>;
+
+	qcom,speed0-bin-v0-c1 =
+		<          0 0>,
+		< 1305600000 1>,
+		< 1497600000 2>,
+		< 1708800000 3>,
+		< 1958400000 5>;
+
+	qcom,speed0-bin-v0-cci =
+		<          0 0>,
+		<  400000000 1>,
+		<  533333333 3>;
+
+	qcom,speed1-bin-v0-c0 =
+		<          0 0>,
+		<  768000000 1>,
+		<  998400000 1>,
+		< 1171200000 2>,
+		< 1305600000 3>,
+		< 1459200000 5>;
+
+	qcom,speed1-bin-v0-c1 =
+		<          0 0>,
+		< 1305600000 1>,
+		< 1497600000 2>,
+		< 1708800000 3>,
+		< 1804800000 5>;
+
+	qcom,speed1-bin-v0-cci =
+		<          0 0>,
+		<  400000000 1>,
+		<  533333333 3>;
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdm439";
+	reg = <0x1800000 0x80000>,
+		<0xb016000 0x00040>,
+		<0xb116000 0x00040>,
+		<0x00a6018 0x00004>;
+	reg-names = "cc_base", "apcs_c1_base",
+			"apcs_c0_base", "efuse";
+	vdd_dig-supply = <&pm8953_s2_level>;
+	vdd_sr2_dig-supply = <&pm8953_s2_level_ao>;
+	vdd_sr2_pll-supply = <&pm8953_l7_ao>;
+	vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+	vdd_hf_pll-supply = <&pm8953_l7_ao>;
 };

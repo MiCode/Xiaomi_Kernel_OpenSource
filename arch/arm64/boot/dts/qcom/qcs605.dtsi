@@ -54,6 +54,18 @@
 	reg = <0 0x91c15000 0 0x2000>;
 };
 
+&adsp_mem {
+	size = <0 0x800000>;
+};
+
+&secure_display_memory {
+	status = "disabled";
+};
+
+&sp_mem {
+	status = "disabled";
+};
+
 &soc {
 	qcom,rmnet-ipa {
 		status = "disabled";

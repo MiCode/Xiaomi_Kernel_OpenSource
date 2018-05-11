@@ -628,6 +628,12 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 		msm_vidc_read_efuse_version(
 			pdev, core->resources.pf_cap_tbl, "efuse2");
 
+	rc = call_hfi_op(core->device, core_early_init,
+		core->device->hfi_device_data);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to early init core\n");
+		goto err_fail_sub_device_probe;
+	}
 	dprintk(VIDC_DBG, "populating sub devices\n");
 	/*
 	 * Trigger probe for each sub-device i.e. qcom,msm-vidc,context-bank.
@@ -639,8 +645,12 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 			&pdev->dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to trigger probe for sub-devices\n");
+		call_hfi_op(core->device, core_early_release,
+			core->device->hfi_device_data);
 		goto err_fail_sub_device_probe;
 	}
+	call_hfi_op(core->device, core_early_release,
+		core->device->hfi_device_data);
 
 	return rc;
 

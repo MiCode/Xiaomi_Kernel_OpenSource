@@ -1,0 +1,143 @@
+/*
+ * Copyright (c) 2016, 2018 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc{
+	led_ir0: qcom,ir-led {
+		cell-index = <0>;
+		compatible = "qcom,ir-led";
+		label = "led-ir-label";
+		pwms = <&pm8953_pwm 0 0>;
+	};
+
+	ir_cut0: qcom,ir-cut {
+		cell-index = <0>;
+		compatible = "qcom,ir-cut";
+		label = "ir-cut-label";
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_ir_cut_default>;
+		pinctrl-1 = <&cam_sensor_ir_cut_sleep>;
+		gpios = <&tlmm 38 0>, <&tlmm 39 0>;
+		qcom,gpio-ir-p = <0>;
+		qcom,gpio-ir-m =  <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-req-tbl-label = "IR_CUT_FILTER_P",
+				"IR_CUT_FILTER_M";
+	};
+};
+
+&pm8953_pwm {
+	status = "okay";
+	qcom,dtest-line = <2>;   /* DTEST2 */
+	qcom,dtest-output = <2>; /* OUTPUT PWM */
+};
+
+&pm8953_mpps {
+	mpp@a300 {
+		qcom,mode = <1>;        /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,vin-sel = <3>;     /* L5 @ 1.8V */
+		qcom,src-sel = <5>;     /* DTEST2 */
+		qcom,master-en = <1>;   /* Enable MPP */
+		qcom,invert = <0>;      /* Enable MPP */
+		status = "okay";
+	};
+};
+
+&cci {
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <270>;
+		cam_vdig-supply = <&pm8953_l2>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vana-supply = <&pm8953_l22>;
+		qcom,ir-led-src = <&led_ir0>;
+		qcom,ir-cut-src = <&ir_cut0>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1100000 0 2850000>;
+		qcom,cam-vreg-max-voltage = <1100000 0 2850000>;
+		qcom,cam-vreg-op-mode = <0 105000 80000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_default
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 40 0>,
+			<&tlmm 46 0>,
+			<&tlmm 134 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vdig =  <2>;
+		qcom,gpio-vana =  <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+			"CAM_RESET0",
+			"CAM_VDIG",
+			"CAM_VANA";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+	qcom,camera@1 {
+		cell-index = <1>;
+		compatible = "qcom,camera";
+		reg = <0x1>;
+		qcom,csiphy-sd-index = <1>;
+		qcom,csid-sd-index = <1>;
+		qcom,mount-angle = <270>;
+		cam_vdig-supply = <&pm8953_l1>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vana-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1100000 0 2850000>;
+		qcom,cam-vreg-max-voltage = <1100000 0 2850000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_front1_default>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_front1_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 129 0>,
+			<&tlmm 130 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					  "CAM_RESET2",
+					  "CAM_STANDBY2";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <1>;
+		qcom,cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+};
+

@@ -13,6 +13,7 @@
 
 &soc {
 	int_codec: sound {
+		qcom,model = "sdm439-snd-card-mtp";
 		qcom,msm-hs-micbias-type = "internal";
 
 		asoc-codec = <&stub_codec>, <&msm_digital_codec>,

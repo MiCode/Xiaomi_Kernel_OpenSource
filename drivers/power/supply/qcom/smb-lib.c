@@ -689,6 +689,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
+	vote(chg->hvdcp_hw_inov_dis_votable, OV_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -1010,6 +1011,48 @@ int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 	return 0;
 }
 
+int smblib_toggle_stat(struct smb_charger *chg, int reset)
+{
+	int rc = 0;
+
+	if (reset) {
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin low rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * A minimum of 20us delay is expected before switching on STAT
+		 * pin
+		 */
+		usleep_range(20, 30);
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin high rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't set hardware control rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 static int smblib_micro_usb_disable_power_role_switch(struct smb_charger *chg,
 				bool disable)
 {
@@ -1078,19 +1121,21 @@ static int __smblib_set_prop_typec_power_role(struct smb_charger *chg,
 		return -EINVAL;
 	}
 
-	if (power_role == UFP_EN_CMD_BIT) {
-		/* disable PBS workaround when forcing sink mode */
-		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0x0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
-				rc);
-		}
-	} else {
-		/* restore it back to 0xA5 */
-		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
-				rc);
+	if (chg->wa_flags & TYPEC_PBS_WA_BIT) {
+		if (power_role == UFP_EN_CMD_BIT) {
+			/* disable PBS workaround when forcing sink mode */
+			rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0x0);
+			if (rc < 0) {
+				smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+					rc);
+			}
+		} else {
+			/* restore it back to 0xA5 */
+			rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
+			if (rc < 0) {
+				smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+					rc);
+			}
 		}
 	}
 
@@ -3482,6 +3527,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						chg->chg_freq.freq_removal);
 
 	if (vbus_rising) {
+		if (smblib_get_prop_dfp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
+			chg->fake_usb_insertion = true;
+			return;
+		}
+
 		rc = smblib_request_dpdm(chg, true);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
@@ -3495,6 +3545,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 				!chg->pd_active)
 			pr_err("APSD disabled on vbus rising without PD\n");
 	} else {
+		if (chg->fake_usb_insertion) {
+			chg->fake_usb_insertion = false;
+			return;
+		}
+
 		if (chg->wa_flags & BOOST_BACK_WA) {
 			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
 			if (data) {
@@ -3586,6 +3641,33 @@ static void smblib_handle_sdp_enumeration_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
+#define MICRO_10P3V	10300000
+static void smblib_check_ov_condition(struct smb_charger *chg)
+{
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (chg->wa_flags & OV_IRQ_WA_BIT) {
+		rc = power_supply_get_property(chg->usb_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get current voltage, rc=%d\n",
+				rc);
+			return;
+		}
+
+		if (pval.intval > MICRO_10P3V) {
+			smblib_err(chg, "USBIN OV detected\n");
+			vote(chg->hvdcp_hw_inov_dis_votable, OV_VOTER, true,
+				0);
+			pval.intval = POWER_SUPPLY_DP_DM_FORCE_5V;
+			rc = power_supply_set_property(chg->batt_psy,
+				POWER_SUPPLY_PROP_DP_DM, &pval);
+			return;
+		}
+	}
+}
+
 #define QC3_PULSES_FOR_6V	5
 #define QC3_PULSES_FOR_9V	20
 #define QC3_PULSES_FOR_12V	35
@@ -3595,6 +3677,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 	u8 stat;
 	int pulses;
 
+	smblib_check_ov_condition(chg);
 	power_supply_changed(chg->usb_main_psy);
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
 		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
@@ -3856,6 +3939,9 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc = 0;
 	u8 stat;
+
+	if (chg->fake_usb_insertion)
+		return IRQ_HANDLED;
 
 	rc = smblib_read(chg, APSD_STATUS_REG, &stat);
 	if (rc < 0) {
@@ -4143,6 +4229,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	/* reset hvdcp voters */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
 	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER, true, 0);
+	vote(chg->hvdcp_hw_inov_dis_votable, OV_VOTER, false, 0);
 
 	/* reset power delivery voters */
 	vote(chg->pd_allowed_votable, PD_VOTER, false, 0);
@@ -4224,10 +4311,13 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't enable HW cc_out rc=%d\n", rc);
 
-	/* restore crude sensor */
-	rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't restore crude sensor rc=%d\n", rc);
+	/* restore crude sensor if PM660/PMI8998 */
+	if (chg->wa_flags & TYPEC_PBS_WA_BIT) {
+		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore crude sensor rc=%d\n",
+				rc);
+	}
 
 	mutex_lock(&chg->vconn_oc_lock);
 	if (!chg->vconn_en)
@@ -5173,7 +5263,7 @@ int smblib_init(struct smb_charger *chg)
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
-		rc = qcom_batt_init();
+		rc = qcom_batt_init(chg->smb_version);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_batt_init rc=%d\n",
 				rc);

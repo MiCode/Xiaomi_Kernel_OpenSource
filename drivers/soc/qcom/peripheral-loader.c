@@ -141,28 +141,50 @@ struct pil_priv {
 
 static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 {
-	struct md_ss_region __iomem *region_info;
+	struct md_ss_region __iomem *region_info_ss;
+	struct md_ss_region __iomem *region_info_pdr;
 	struct ramdump_segment *ramdump_segs, *s;
 	struct pil_priv *priv = desc->priv;
-	void __iomem *subsys_segtable_base;
+	void __iomem *subsys_segtable_base_ss;
+	void __iomem *subsys_segtable_base_pdr;
 	u64 ss_region_ptr = 0;
-	void __iomem *offset;
-	int ss_mdump_seg_cnt;
+	void __iomem *offset_ss;
+	void __iomem *offset_pdr;
+	int ss_mdump_seg_cnt_ss = 0, ss_mdump_seg_cnt_pdr = 0, total_segs;
 	int ss_valid_seg_cnt;
 	int ret, i;
 
-	ss_region_ptr = desc->minidump->md_ss_smem_regions_baseptr;
 	if (!ramdump_dev)
 		return -ENODEV;
-	ss_mdump_seg_cnt = desc->minidump->ss_region_count;
-	subsys_segtable_base =
+
+	ss_region_ptr = desc->minidump_ss->md_ss_smem_regions_baseptr;
+	ss_mdump_seg_cnt_ss = desc->minidump_ss->ss_region_count;
+	subsys_segtable_base_ss =
 		ioremap((unsigned long)ss_region_ptr,
-		ss_mdump_seg_cnt * sizeof(struct md_ss_region));
-	region_info = (struct md_ss_region __iomem *)subsys_segtable_base;
-	if (!region_info)
+		ss_mdump_seg_cnt_ss * sizeof(struct md_ss_region));
+	region_info_ss =
+		(struct md_ss_region __iomem *)subsys_segtable_base_ss;
+	if (!region_info_ss)
 		return -EINVAL;
-	pr_info("Minidump : Segments in minidump 0x%x\n", ss_mdump_seg_cnt);
-	ramdump_segs = kcalloc(ss_mdump_seg_cnt,
+	pr_info("Minidump : SS Segments in minidump 0x%x\n",
+		ss_mdump_seg_cnt_ss);
+
+	if (desc->minidump_pdr &&
+		(desc->minidump_pdr->md_ss_enable_status == MD_SS_ENABLED)) {
+		ss_region_ptr = desc->minidump_pdr->md_ss_smem_regions_baseptr;
+		ss_mdump_seg_cnt_pdr = desc->minidump_pdr->ss_region_count;
+		subsys_segtable_base_pdr =
+			ioremap((unsigned long)ss_region_ptr,
+			ss_mdump_seg_cnt_pdr * sizeof(struct md_ss_region));
+		region_info_pdr =
+			(struct md_ss_region __iomem *)subsys_segtable_base_pdr;
+		if (!region_info_pdr)
+			return -EINVAL;
+		pr_info("Minidump : PDR Segments in minidump 0x%x\n",
+			ss_mdump_seg_cnt_pdr);
+	}
+	total_segs = ss_mdump_seg_cnt_ss + ss_mdump_seg_cnt_pdr;
+	ramdump_segs = kcalloc(total_segs,
 			       sizeof(*ramdump_segs), GFP_KERNEL);
 	if (!ramdump_segs)
 		return -ENOMEM;
@@ -172,24 +194,47 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 			(priv->region_end - priv->region_start));
 
 	s = ramdump_segs;
-	ss_valid_seg_cnt = ss_mdump_seg_cnt;
-	for (i = 0; i < ss_mdump_seg_cnt; i++) {
-		memcpy(&offset, &region_info, sizeof(region_info));
-		offset = offset + sizeof(region_info->name) +
-				sizeof(region_info->seq_num);
-		if (__raw_readl(offset) == MD_REGION_VALID) {
-			memcpy(&s->name, &region_info, sizeof(region_info));
-			offset = offset + sizeof(region_info->md_valid);
-			s->address = __raw_readl(offset);
-			offset = offset +
-				sizeof(region_info->region_base_address);
-			s->size = __raw_readl(offset);
+	ss_valid_seg_cnt = total_segs;
+	for (i = 0; i < ss_mdump_seg_cnt_ss; i++) {
+		memcpy(&offset_ss, &region_info_ss, sizeof(region_info_ss));
+		offset_ss = offset_ss + sizeof(region_info_ss->name) +
+				sizeof(region_info_ss->seq_num);
+		if (__raw_readl(offset_ss) == MD_REGION_VALID) {
+			memcpy(&s->name, &region_info_ss,
+				sizeof(region_info_ss));
+			offset_ss = offset_ss +
+				sizeof(region_info_ss->md_valid);
+			s->address = __raw_readl(offset_ss);
+			offset_ss = offset_ss +
+				sizeof(region_info_ss->region_base_address);
+			s->size = __raw_readl(offset_ss);
 			pr_info("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
 				s->name, s->address, (unsigned int)s->size);
 		} else
 			ss_valid_seg_cnt--;
 		s++;
-		region_info++;
+		region_info_ss++;
+	}
+
+	for (i = 0; i < ss_mdump_seg_cnt_pdr; i++) {
+		memcpy(&offset_pdr, &region_info_pdr, sizeof(region_info_pdr));
+		offset_pdr = offset_pdr + sizeof(region_info_pdr->name) +
+				sizeof(region_info_pdr->seq_num);
+		if (__raw_readl(offset_pdr) == MD_REGION_VALID) {
+			memcpy(&s->name, &region_info_pdr,
+				sizeof(region_info_pdr));
+			offset_pdr = offset_pdr +
+				sizeof(region_info_pdr->md_valid);
+			s->address = __raw_readl(offset_pdr);
+			offset_pdr = offset_pdr +
+				sizeof(region_info_pdr->region_base_address);
+			s->size = __raw_readl(offset_pdr);
+			pr_info("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
+				s->name, s->address, (unsigned int)s->size);
+		} else
+			ss_valid_seg_cnt--;
+		s++;
+		region_info_pdr++;
 	}
 	ret = do_minidump(ramdump_dev, ramdump_segs, ss_valid_seg_cnt);
 	kfree(ramdump_segs);
@@ -219,27 +264,27 @@ int pil_do_ramdump(struct pil_desc *desc,
 	struct pil_seg *seg;
 	int count = 0, ret;
 
-	if (desc->minidump) {
+	if (desc->minidump_ss) {
 		pr_info("Minidump : md_ss_toc->md_ss_toc_init is 0x%x\n",
-			(unsigned int)desc->minidump->md_ss_toc_init);
+			(unsigned int)desc->minidump_ss->md_ss_toc_init);
 		pr_info("Minidump : md_ss_toc->md_ss_enable_status is 0x%x\n",
-			(unsigned int)desc->minidump->md_ss_enable_status);
+			(unsigned int)desc->minidump_ss->md_ss_enable_status);
 		pr_info("Minidump : md_ss_toc->encryption_status is 0x%x\n",
-			(unsigned int)desc->minidump->encryption_status);
+			(unsigned int)desc->minidump_ss->encryption_status);
 		pr_info("Minidump : md_ss_toc->ss_region_count is 0x%x\n",
-			(unsigned int)desc->minidump->ss_region_count);
+			(unsigned int)desc->minidump_ss->ss_region_count);
 		pr_info("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
 			(unsigned int)
-			desc->minidump->md_ss_smem_regions_baseptr);
+			desc->minidump_ss->md_ss_smem_regions_baseptr);
 		/**
 		 * Collect minidump if SS ToC is valid and segment table
 		 * is initialized in memory and encryption status is set.
 		 */
-		if ((desc->minidump->md_ss_smem_regions_baseptr != 0) &&
-			(desc->minidump->md_ss_toc_init == true) &&
-			(desc->minidump->md_ss_enable_status ==
+		if ((desc->minidump_ss->md_ss_smem_regions_baseptr != 0) &&
+			(desc->minidump_ss->md_ss_toc_init == true) &&
+			(desc->minidump_ss->md_ss_enable_status ==
 				MD_SS_ENABLED)) {
-			if (desc->minidump->encryption_status ==
+			if (desc->minidump_ss->encryption_status ==
 				MD_SS_ENCR_DONE) {
 				pr_info("Minidump : Dumping for %s\n",
 					desc->name);
@@ -1184,9 +1229,15 @@ int pil_desc_init(struct pil_desc *desc)
 	else {
 		if (g_md_toc && g_md_toc->md_toc_init == true) {
 			ss_toc_addr = &g_md_toc->md_ss_toc[desc->minidump_id];
-			pr_debug("Minidump : ss_toc_addr is %pa and desc->minidump_id is %d\n",
+			pr_debug("Minidump : ss_toc_addr for ss is %pa and desc->minidump_id is %d\n",
 				&ss_toc_addr, desc->minidump_id);
-			memcpy(&desc->minidump, &ss_toc_addr,
+			memcpy(&desc->minidump_ss, &ss_toc_addr,
+			       sizeof(ss_toc_addr));
+			ss_toc_addr =
+				&g_md_toc->md_ss_toc[desc->minidump_id + 1];
+			pr_debug("Minidump : ss_toc_addr for pdr is %pa and desc->minidump_id is %d\n",
+				&ss_toc_addr, desc->minidump_id);
+			memcpy(&desc->minidump_pdr, &ss_toc_addr,
 			       sizeof(ss_toc_addr));
 		}
 	}

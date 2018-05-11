@@ -20,8 +20,6 @@
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
-#include <linux/sync.h>
-#include <linux/sw_sync.h>
 #include "linux/proc_fs.h"
 #include <linux/delay.h>
 
@@ -30,6 +28,7 @@
 #include "mdp3_hwio.h"
 #include "mdp3.h"
 #include "mdss_debug.h"
+#include "mdss_sync.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
 #define MDP_RELEASE_BW_TIMEOUT 50
@@ -76,12 +75,12 @@ struct blit_req_list {
 	struct mdp_blit_req req_list[MAX_LIST_WINDOW];
 	struct mdp3_img_data src_data[MAX_LIST_WINDOW];
 	struct mdp3_img_data dst_data[MAX_LIST_WINDOW];
-	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	struct mdss_fence *acq_fen[MDP_MAX_FENCE_FD];
 	u32 acq_fen_cnt;
 	int cur_rel_fen_fd;
 	struct sync_pt *cur_rel_sync_pt;
-	struct sync_fence *cur_rel_fence;
-	struct sync_fence *last_rel_fence;
+	struct mdss_fence *cur_rel_fence;
+	struct mdss_fence *last_rel_fence;
 };
 
 struct blit_req_queue {
@@ -104,7 +103,8 @@ struct ppp_status {
 	struct task_struct *blit_thread;
 	struct blit_req_queue req_q;
 
-	struct sw_sync_timeline *timeline;
+	struct mdss_timeline *timeline;
+
 	int timeline_value;
 
 	struct timer_list free_bw_timer;
@@ -1188,19 +1188,19 @@ void mdp3_ppp_wait_for_fence(struct blit_req_list *req)
 	ATRACE_BEGIN(__func__);
 	/* buf sync */
 	for (i = 0; i < req->acq_fen_cnt; i++) {
-		ret = sync_fence_wait(req->acq_fen[i],
+		ret = mdss_wait_sync_fence(req->acq_fen[i],
 				WAIT_FENCE_FINAL_TIMEOUT);
 		if (ret < 0) {
 			pr_err("%s: sync_fence_wait failed! ret = %x\n",
 				__func__, ret);
 			break;
 		}
-		sync_fence_put(req->acq_fen[i]);
+		mdss_put_sync_fence(req->acq_fen[i]);
 	}
 	ATRACE_END(__func__);
 	if (ret < 0) {
 		while (i < req->acq_fen_cnt) {
-			sync_fence_put(req->acq_fen[i]);
+			mdss_put_sync_fence(req->acq_fen[i]);
 			i++;
 		}
 	}
@@ -1209,7 +1209,7 @@ void mdp3_ppp_wait_for_fence(struct blit_req_list *req)
 
 void mdp3_ppp_signal_timeline(struct blit_req_list *req)
 {
-	sw_sync_timeline_inc(ppp_stat->timeline, 1);
+	mdss_inc_timeline(ppp_stat->timeline, 1);
 	MDSS_XLOG(ppp_stat->timeline->value, ppp_stat->timeline_value);
 	req->last_rel_fence = req->cur_rel_fence;
 	req->cur_rel_fence = 0;
@@ -1221,12 +1221,12 @@ static void mdp3_ppp_deinit_buf_sync(struct blit_req_list *req)
 	int i;
 
 	put_unused_fd(req->cur_rel_fen_fd);
-	sync_fence_put(req->cur_rel_fence);
+	mdss_put_sync_fence(req->cur_rel_fence);
 	req->cur_rel_fence = NULL;
 	req->cur_rel_fen_fd = 0;
 	ppp_stat->timeline_value--;
 	for (i = 0; i < req->acq_fen_cnt; i++)
-		sync_fence_put(req->acq_fen[i]);
+		mdss_put_sync_fence(req->acq_fen[i]);
 	req->acq_fen_cnt = 0;
 }
 
@@ -1235,7 +1235,7 @@ static int mdp3_ppp_handle_buf_sync(struct blit_req_list *req,
 {
 	int i, fence_cnt = 0, ret = 0;
 	int acq_fen_fd[MDP_MAX_FENCE_FD];
-	struct sync_fence *fence;
+	struct mdss_fence *fence;
 
 	if ((buf_sync->acq_fen_fd_cnt > MDP_MAX_FENCE_FD) ||
 		(ppp_stat->timeline == NULL))
@@ -1249,7 +1249,7 @@ static int mdp3_ppp_handle_buf_sync(struct blit_req_list *req,
 		return ret;
 	}
 	for (i = 0; i < buf_sync->acq_fen_fd_cnt; i++) {
-		fence = sync_fence_fdget(acq_fen_fd[i]);
+		fence = mdss_get_fd_sync_fence(acq_fen_fd[i]);
 		if (fence == NULL) {
 			pr_info("%s: null fence! i=%d fd=%d\n", __func__, i,
 				acq_fen_fd[i]);
@@ -1265,19 +1265,12 @@ static int mdp3_ppp_handle_buf_sync(struct blit_req_list *req,
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT)
 		mdp3_ppp_wait_for_fence(req);
 
-	req->cur_rel_sync_pt = sw_sync_pt_create(ppp_stat->timeline,
-			ppp_stat->timeline_value++);
 	MDSS_XLOG(ppp_stat->timeline_value);
-	if (req->cur_rel_sync_pt == NULL) {
-		pr_err("%s: cannot create sync point\n", __func__);
-		ret = -ENOMEM;
-		goto buf_sync_err_2;
-	}
+
 	/* create fence */
-	req->cur_rel_fence = sync_fence_create("ppp-fence",
-			req->cur_rel_sync_pt);
+	req->cur_rel_fence = mdss_get_sync_fence(ppp_stat->timeline,
+				"ppp_fence", NULL, ppp_stat->timeline_value++);
 	if (req->cur_rel_fence == NULL) {
-		sync_pt_free(req->cur_rel_sync_pt);
 		req->cur_rel_sync_pt = NULL;
 		pr_err("%s: cannot create fence\n", __func__);
 		ret = -ENOMEM;
@@ -1289,7 +1282,7 @@ buf_sync_err_2:
 	ppp_stat->timeline_value--;
 buf_sync_err_1:
 	for (i = 0; i < fence_cnt; i++)
-		sync_fence_put(req->acq_fen[i]);
+		mdss_put_sync_fence(req->acq_fen[i]);
 	req->acq_fen_cnt = 0;
 	return ret;
 }
@@ -1586,7 +1579,7 @@ int mdp3_ppp_parse_req(void __user *p,
 {
 	struct blit_req_list *req;
 	struct blit_req_queue *req_q = &ppp_stat->req_q;
-	struct sync_fence *fence = NULL;
+	struct mdss_fence *fence = NULL;
 	int count, rc, idx, i;
 
 	count = req_list_header->count;
@@ -1642,13 +1635,8 @@ int mdp3_ppp_parse_req(void __user *p,
 	}
 
 	if (async) {
-		req->cur_rel_fen_fd = get_unused_fd_flags(0);
-		if (req->cur_rel_fen_fd < 0) {
-			pr_err("%s: get_unused_fd_flags failed\n", __func__);
-			rc  = -ENOMEM;
-			goto parse_err_1;
-		}
-		sync_fence_install(req->cur_rel_fence, req->cur_rel_fen_fd);
+		req->cur_rel_fen_fd = mdss_get_sync_fence_fd(
+							req->cur_rel_fence);
 		rc = copy_to_user(req_list_header->sync.rel_fen_fd,
 			&req->cur_rel_fen_fd, sizeof(int));
 		if (rc) {
@@ -1664,12 +1652,12 @@ int mdp3_ppp_parse_req(void __user *p,
 	kthread_queue_work(&ppp_stat->kworker, &ppp_stat->blit_work);
 	if (!async) {
 		/* wait for release fence */
-		rc = sync_fence_wait(fence,
+		rc = mdss_wait_sync_fence(fence,
 				5 * MSEC_PER_SEC);
 		if (rc < 0)
 			pr_err("%s: sync blit! rc = %x\n", __func__, rc);
 
-		sync_fence_put(fence);
+		mdss_put_sync_fence(fence);
 		fence = NULL;
 	}
 	return 0;
@@ -1697,15 +1685,15 @@ int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 		return -ENOMEM;
 
 	/*Setup sync_pt timeline for ppp*/
-	ppp_stat->timeline = sw_sync_timeline_create(timeline_name);
+	ppp_stat->timeline = mdss_create_timeline(timeline_name);
 	if (ppp_stat->timeline == NULL) {
 		pr_err("%s: cannot create time line\n", __func__);
 		return -ENOMEM;
 	}
 	ppp_stat->timeline_value = 1;
 
-	init_kthread_worker(&ppp_stat->kworker);
-	init_kthread_work(&ppp_stat->blit_work, mdp3_ppp_blit_handler);
+	kthread_init_worker(&ppp_stat->kworker);
+	kthread_init_work(&ppp_stat->blit_work, mdp3_ppp_blit_handler);
 	ppp_stat->blit_thread = kthread_run(kthread_worker_fn,
 					&ppp_stat->kworker,
 					"mdp3_ppp");

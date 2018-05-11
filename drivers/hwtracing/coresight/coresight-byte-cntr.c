@@ -162,7 +162,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 				goto err0;
 		}
 
-		if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+		if (tmcdrvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
 			tmc_etr_read_bytes(byte_cntr_data, ppos,
 					   byte_cntr_data->block_size, &len,
 					   &bufp);
@@ -172,7 +172,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 
 	} else {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
-			if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+			if (tmcdrvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
 				tmc_etr_flush_bytes(ppos,
 						    byte_cntr_data->block_size,
 						    &len);
@@ -184,7 +184,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (!len)
 				goto err0;
 		} else {
-			if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+			if (tmcdrvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
 				tmc_etr_read_bytes(byte_cntr_data, ppos,
 						   byte_cntr_data->block_size,
 						   &len, &bufp);

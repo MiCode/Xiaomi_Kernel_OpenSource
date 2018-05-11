@@ -101,6 +101,7 @@ enum {
 #define JEITA_CCCOMP_CFG_HOT_REG		(CHGR_BASE + 0x92)
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
 
+#define CHGR_JEITA_THRESHOLD_BASE_REG(i)	(CHGR_BASE + 0x94 + (i * 4))
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
@@ -335,11 +336,6 @@ enum {
 #define AICL_CMD_REG				(MISC_BASE + 0x44)
 #define RERUN_AICL_BIT				BIT(0)
 
-#define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x43)
-#define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
-#define BARK_WDOG_TIMEOUT_MASK			GENMASK(3, 2)
-#define BITE_WDOG_TIMEOUT_MASK			GENMASK(1, 0)
-
 #define MISC_SMB_EN_CMD_REG			(MISC_BASE + 0x48)
 #define SMB_EN_OVERRIDE_VALUE_BIT		BIT(4)
 #define SMB_EN_OVERRIDE_BIT			BIT(3)
@@ -351,6 +347,11 @@ enum {
 #define WATCHDOG_TRIGGER_AFP_EN_BIT		BIT(7)
 #define BARK_WDOG_INT_EN_BIT			BIT(6)
 #define WDOG_TIMER_EN_ON_PLUGIN_BIT		BIT(1)
+
+#define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
+#define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
+#define BARK_WDOG_TIMEOUT_MASK			GENMASK(3, 2)
+#define BITE_WDOG_TIMEOUT_MASK			GENMASK(1, 0)
 
 #define MISC_SMB_CFG_REG			(MISC_BASE + 0x90)
 #define SMB_EN_SEL_BIT				BIT(4)

@@ -11,6 +11,7 @@
  */
 
 #include "qcs605-lc-pmic-overlay.dtsi"
+#include "qcs605-lc-camera-sensor-mtp.dtsi"
 
 &qupv3_se9_2uart {
 	status = "disabled";

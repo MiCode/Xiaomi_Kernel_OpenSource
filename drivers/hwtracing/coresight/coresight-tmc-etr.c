@@ -839,9 +839,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	if (drvdata->mode == CS_MODE_SYSFS)
 		goto out;
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 		drvdata->mode = CS_MODE_SYSFS;
 		tmc_etr_enable_hw(drvdata);
+	}
 
 	drvdata->enable = true;
 	drvdata->sticky_enable = true;

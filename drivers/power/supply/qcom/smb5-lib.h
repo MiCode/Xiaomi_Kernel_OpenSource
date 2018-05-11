@@ -56,7 +56,6 @@ enum print_reason {
 #define CTM_VOTER			"CTM_VOTER"
 #define SW_QC3_VOTER			"SW_QC3_VOTER"
 #define AICL_RERUN_VOTER		"AICL_RERUN_VOTER"
-#define LEGACY_UNKNOWN_VOTER		"LEGACY_UNKNOWN_VOTER"
 #define QNOVO_VOTER			"QNOVO_VOTER"
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
@@ -66,6 +65,9 @@ enum print_reason {
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
+#define DYNAMIC_RP_VOTER		"DYNAMIC_RP_VOTER"
+#define DEFAULT_100MA_VOTER		"DEFAULT_100MA_VOTER"
+#define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -304,6 +306,7 @@ struct smb_charger {
 	/* work */
 	struct work_struct	bms_update_work;
 	struct work_struct	pl_update_work;
+	struct work_struct	jeita_update_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -347,6 +350,7 @@ struct smb_charger {
 	bool			otg_present;
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
+	bool			jeita_configured;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -523,6 +527,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
+int smblib_configure_wdog(struct smb_charger *chg, bool enable);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

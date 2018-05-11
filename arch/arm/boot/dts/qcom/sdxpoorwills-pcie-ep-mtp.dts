@@ -12,32 +12,11 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-mtp.dtsi"
+#include "sdxpoorwills-pcie-ep-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS PCIE-EP MTP";
 	compatible = "qcom,sdxpoorwills-mtp",
 		"qcom,sdxpoorwills", "qcom,mtp";
-	qcom,board-id = <8 0x1>, <8 0x101>;
-};
-
-&vbus_detect {
-	status = "okay";
-};
-
-&usb {
-	status = "okay";
-	extcon = <&vbus_detect>;
-};
-
-&pcie_ep {
-	status = "okay";
-};
-
-&pcie0 {
-	status = "disabled";
-};
-
-&mhi_device {
-	status = "okay";
+	qcom,board-id = <8 0x105>;
 };

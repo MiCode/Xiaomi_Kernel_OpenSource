@@ -3,7 +3,7 @@
  * MSM 7k High speed uart driver
  *
  * Copyright (c) 2008 Google Inc.
- * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -2617,6 +2617,33 @@ static int msm_hs_startup(struct uart_port *uport)
 	/* turn on uart clk */
 	msm_hs_resource_vote(msm_uport);
 
+	/* Set up Uart Receive */
+	msm_hs_write(uport, UART_DM_RFWR, 32);
+	/* Write to BADR explicitly to set up FIFO sizes */
+	msm_hs_write(uport, UARTDM_BADR_ADDR, 64);
+
+	/* configure the CR Protection to Enable */
+	msm_hs_write(uport, UART_DM_CR, CR_PROTECTION_EN);
+
+	/*
+	 * Enable Command register protection before going ahead as this hw
+	 * configuration makes sure that issued cmd to CR register gets complete
+	 * before next issued cmd start. Hence mb() requires here.
+	 */
+	mb();
+
+	/*
+	 * Set RX_BREAK_ZERO_CHAR_OFF and RX_ERROR_CHAR_OFF
+	 * so any rx_break and character having parity of framing
+	 * error don't enter inside UART RX FIFO.
+	 */
+	data = msm_hs_read(uport, UART_DM_MR2);
+	data |= (UARTDM_MR2_RX_BREAK_ZERO_CHAR_OFF |
+			UARTDM_MR2_RX_ERROR_CHAR_OFF);
+	msm_hs_write(uport, UART_DM_MR2, data);
+	/* Ensure register IO completion */
+	mb();
+
 	if (is_use_low_power_wakeup(msm_uport)) {
 		ret = request_threaded_irq(msm_uport->wakeup.irq, NULL,
 					msm_hs_wakeup_isr,
@@ -2797,10 +2824,6 @@ static int uartdm_init_port(struct uart_port *uport)
 		goto exit_lh_init;
 	}
 
-	/* Set up Uart Receive */
-	msm_hs_write(uport, UART_DM_RFWR, 32);
-	/* Write to BADR explicitly to set up FIFO sizes */
-	msm_hs_write(uport, UARTDM_BADR_ADDR, 64);
 
 	INIT_DELAYED_WORK(&rx->flip_insert_work, flip_insert_work);
 
@@ -3331,7 +3354,6 @@ static int msm_hs_probe(struct platform_device *pdev)
 	struct resource *bam_resource;
 	int core_irqres, bam_irqres, wakeup_irqres;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
-	unsigned long data;
 	char name[30];
 
 	if (pdev->dev.of_node) {
@@ -3551,27 +3573,6 @@ static int msm_hs_probe(struct platform_device *pdev)
 	if (unlikely(ret))
 		goto err_clock;
 
-	/* configure the CR Protection to Enable */
-	msm_hs_write(uport, UART_DM_CR, CR_PROTECTION_EN);
-
-	/*
-	 * Enable Command register protection before going ahead as this hw
-	 * configuration makes sure that issued cmd to CR register gets complete
-	 * before next issued cmd start. Hence mb() requires here.
-	 */
-	mb();
-
-	/*
-	 * Set RX_BREAK_ZERO_CHAR_OFF and RX_ERROR_CHAR_OFF
-	 * so any rx_break and character having parity of framing
-	 * error don't enter inside UART RX FIFO.
-	 */
-	data = msm_hs_read(uport, UART_DM_MR2);
-	data |= (UARTDM_MR2_RX_BREAK_ZERO_CHAR_OFF |
-			UARTDM_MR2_RX_ERROR_CHAR_OFF);
-	msm_hs_write(uport, UART_DM_MR2, data);
-	/* Ensure register IO completion */
-	mb();
 
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	if (unlikely(ret)) {
@@ -3761,8 +3762,8 @@ static const struct dev_pm_ops msm_hs_dev_pm_ops = {
 	.runtime_suspend = msm_hs_runtime_suspend,
 	.runtime_resume = msm_hs_runtime_resume,
 	.runtime_idle = NULL,
-	.suspend_noirq = msm_hs_pm_sys_suspend_noirq,
-	.resume_noirq = msm_hs_pm_sys_resume_noirq,
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(msm_hs_pm_sys_suspend_noirq,
+	   msm_hs_pm_sys_resume_noirq)
 };
 
 static struct platform_driver msm_serial_hs_platform_driver = {

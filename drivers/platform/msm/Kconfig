@@ -47,6 +47,16 @@ config IPA3
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config IPA_WDI_UNIFIED_API
+	bool "IPA WDI unified API support"
+	depends on IPA3
+	help
+	  This driver supports IPA WDI unified API.
+	  WDI is the interface between IPA micro controller and WLAN chipset.
+	  It is designed to support IPA HW accelerating path for WLAN use case.
+	  The IPA WDI unified API supports all WDI versions through a unified
+	  interface.
+
 config RMNET_IPA3
 	tristate "IPA3 RMNET WWAN Network Device"
 	depends on IPA3 && MSM_QMI_INTERFACE
@@ -213,5 +223,15 @@ config MSM_EXT_DISPLAY
 	  Enabling this option adds MSM External Display Driver.
 	  External Display driver was added to support the communication
 	  between external display driver and its counterparts.
+
+config MSM_RMNET_BAM
+        bool "RMNET BAM Driver"
+        depends on MSM_BAM_DMUX
+        default n
+        help
+          Implements RMNET over BAM interface.
+          RMNET provides a virtual ethernet interface
+          for routing IP packets within the MSM using
+          BAM as a physical transport.
 
 endmenu

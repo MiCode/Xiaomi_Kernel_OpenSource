@@ -22,3 +22,10 @@
 	qcom,board-id = <0xb 2>;
 	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
+
+&pmi632_vadc {
+	chan@4a {
+		qcom,scale-function = <22>;
+	};
+};
+

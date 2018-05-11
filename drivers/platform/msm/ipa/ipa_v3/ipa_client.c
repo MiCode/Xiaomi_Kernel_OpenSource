@@ -516,15 +516,23 @@ static bool ipa3_is_legal_params(struct ipa_request_gsi_channel_params *params)
 		return true;
 }
 
-int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
+int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
+	enum ipa_smmu_cb_type cb_type)
 {
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
-		return 0;
+	if (cb_type >= IPA_SMMU_CB_MAX) {
+		IPAERR("invalid cb_type\n");
+		return -EINVAL;
+	}
 
-	smmu_domain = ipa3_get_smmu_domain();
+	if (ipa3_ctx->s1_bypass_arr[cb_type]) {
+		IPADBG("CB# %d is set to s1 bypass\n", cb_type);
+		return 0;
+	}
+
+	smmu_domain = ipa3_get_smmu_domain_by_type(cb_type);
 	if (!smmu_domain) {
 		IPAERR("invalid smmu domain\n");
 		return -EINVAL;
@@ -548,7 +556,8 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 	return 0;
 }
 
-int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
+int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
+	enum ipa_smmu_cb_type cb_type)
 {
 	struct iommu_domain *smmu_domain;
 	int res;
@@ -560,10 +569,17 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
 	int i;
 	struct page *page;
 
-	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
-		return 0;
+	if (cb_type >= IPA_SMMU_CB_MAX) {
+		IPAERR("invalid cb_type\n");
+		return -EINVAL;
+	}
 
-	smmu_domain = ipa3_get_smmu_domain();
+	if (ipa3_ctx->s1_bypass_arr[cb_type]) {
+		IPADBG("CB# %d is set to s1 bypass\n", cb_type);
+		return 0;
+	}
+
+	smmu_domain = ipa3_get_smmu_domain_by_type(cb_type);
 	if (!smmu_domain) {
 		IPAERR("invalid smmu domain\n");
 		return -EINVAL;

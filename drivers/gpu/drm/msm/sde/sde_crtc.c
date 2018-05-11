@@ -1851,7 +1851,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE  |
 					SDE_KMS_OPS_CLEANUP_PLANE_FB);
 			}
-			if (catalog->sui_misr_supported)
+			if (catalog->sui_misr_supported &&
+					sde_crtc->enable_sui_enhancement)
 				smmu_state->sui_misr_state =
 						SUI_MISR_ENABLE_REQ;
 		/* secure camera usecase */
@@ -1881,7 +1882,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
 				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
-			if (catalog->sui_misr_supported)
+			if (catalog->sui_misr_supported &&
+					sde_crtc->enable_sui_enhancement)
 				smmu_state->sui_misr_state =
 						SUI_MISR_DISABLE_REQ;
 		}
@@ -4080,6 +4082,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
+	struct sde_kms *sde_kms;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
@@ -4092,6 +4095,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms\n");
 		return;
 	}
 
@@ -4160,7 +4169,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
-	sde_core_perf_crtc_update(crtc, 0, true);
+	/* avoid clk/bw downvote if cont-splash is enabled */
+	if (!sde_kms->splash_data.cont_splash_en)
+		sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
@@ -4389,6 +4400,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
+	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
 	secure = sde_crtc_get_property(cstate, CRTC_PROP_SECURITY_LEVEL);
@@ -4425,7 +4437,8 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 			}
 			plane = pstates[i].drm_pstate->plane;
 
-			if (!sde_plane_is_sec_ui_allowed(plane)) {
+			if (sde_crtc->enable_sui_enhancement &&
+					!sde_plane_is_sec_ui_allowed(plane)) {
 				SDE_ERROR("crtc%d: sec-ui not allowed in p%d\n",
 						crtc->base.id, plane->base.id);
 				return -EINVAL;
@@ -4466,7 +4479,6 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
 
-	sde_crtc = to_sde_crtc(crtc);
 	smmu_state = &sde_kms->smmu_state;
 	/*
 	 * In video mode check for null commit before transition
@@ -4978,6 +4990,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		"idle_time", 0, 0, U64_MAX, 0,
 		CRTC_PROP_IDLE_TIMEOUT);
 
+	msm_property_install_range(&sde_crtc->property_info,
+		"enable_sui_enhancement", 0, 0, U64_MAX, 0,
+		CRTC_PROP_ENABLE_SUI_ENHANCEMENT);
+
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
 
@@ -5212,6 +5228,9 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 	case CRTC_PROP_DRAM_IB:
 		cstate->bw_control = true;
 		cstate->bw_split_vote = true;
+		break;
+	case CRTC_PROP_ENABLE_SUI_ENHANCEMENT:
+		sde_crtc->enable_sui_enhancement = val ? true : false;
 		break;
 	case CRTC_PROP_OUTPUT_FENCE:
 		if (!val)
@@ -6023,10 +6042,10 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			node = kzalloc(sizeof(*node), GFP_KERNEL);
 			if (!node)
 				return -ENOMEM;
-			node->event = event;
 			INIT_LIST_HEAD(&node->list);
 			node->func = custom_events[i].func;
 			node->event = event;
+			node->state = IRQ_NOINIT;
 			spin_lock_init(&node->state_lock);
 			break;
 		}
@@ -6057,8 +6076,6 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 
 	if (!ret) {
 		spin_lock_irqsave(&crtc->spin_lock, flags);
-		/* irq is regiestered and enabled and set the state */
-		node->state = IRQ_ENABLED;
 		list_add_tail(&node->list, &crtc->user_event_list);
 		spin_unlock_irqrestore(&crtc->spin_lock, flags);
 	} else {

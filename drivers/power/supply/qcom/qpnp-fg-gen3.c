@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
+#include <linux/thermal.h>
 #include <linux/iio/consumer.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include "fg-core.h"
@@ -2205,10 +2206,66 @@ static int fg_slope_limit_config(struct fg_chip *chip, int batt_temp)
 	return 0;
 }
 
-static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
+static int __fg_esr_filter_config(struct fg_chip *chip,
+				enum esr_filter_status esr_flt_sts)
 {
-	u8 esr_tight_lt_flt, esr_broad_lt_flt;
-	bool cold_temp = false;
+	u8 esr_tight_flt, esr_broad_flt;
+	int esr_tight_flt_upct, esr_broad_flt_upct;
+	int rc;
+
+	if (esr_flt_sts == chip->esr_flt_sts)
+		return 0;
+
+	if (esr_flt_sts == ROOM_TEMP) {
+		esr_tight_flt_upct = chip->dt.esr_tight_flt_upct;
+		esr_broad_flt_upct = chip->dt.esr_broad_flt_upct;
+	} else if (esr_flt_sts == LOW_TEMP) {
+		esr_tight_flt_upct = chip->dt.esr_tight_lt_flt_upct;
+		esr_broad_flt_upct = chip->dt.esr_broad_lt_flt_upct;
+	} else if (esr_flt_sts == RELAX_TEMP) {
+		esr_tight_flt_upct = chip->dt.esr_tight_rt_flt_upct;
+		esr_broad_flt_upct = chip->dt.esr_broad_rt_flt_upct;
+	} else {
+		pr_err("Unknown esr filter config\n");
+		return 0;
+	}
+
+	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER, esr_tight_flt_upct,
+		&esr_tight_flt);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_byte,
+			&esr_tight_flt,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR LT tight filter, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER, esr_broad_flt_upct,
+		&esr_broad_flt);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_byte,
+			&esr_broad_flt,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR LT broad filter, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->esr_flt_sts = esr_flt_sts;
+	fg_dbg(chip, FG_STATUS, "applied ESR filter %d values\n", esr_flt_sts);
+	return 0;
+}
+
+#define DT_IRQ_COUNT			3
+#define DELTA_TEMP_IRQ_TIME_MS		300000
+#define ESR_FILTER_ALARM_TIME_MS	900000
+static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp,
+				bool override)
+{
+	enum esr_filter_status esr_flt_sts = ROOM_TEMP;
+	bool qnovo_en, input_present, count_temp_irq = false;
+	s64 time_ms;
 	int rc;
 
 	/*
@@ -2218,6 +2275,47 @@ static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
 	if (batt_temp < -210)
 		return 0;
 
+	qnovo_en = is_qnovo_en(chip);
+	input_present = is_input_present(chip);
+
+	/*
+	 * If Qnovo is enabled, after hitting a lower battery temperature of
+	 * say 6 C, count the delta battery temperature interrupts for a
+	 * certain period of time when the battery temperature increases.
+	 * Switch to relaxed filter coefficients once the temperature increase
+	 * is qualified so that ESR accuracy can be improved.
+	 */
+	if (qnovo_en && !override) {
+		if (input_present) {
+			if (chip->esr_flt_sts == RELAX_TEMP) {
+				/* do nothing */
+				return 0;
+			}
+
+			count_temp_irq =  true;
+			if (chip->delta_temp_irq_count) {
+				/* Don't count when temperature is dropping. */
+				if (batt_temp <= chip->last_batt_temp)
+					count_temp_irq = false;
+			} else {
+				/*
+				 * Starting point for counting. Check if the
+				 * temperature is qualified.
+				 */
+				if (batt_temp > chip->dt.esr_flt_rt_switch_temp)
+					count_temp_irq = false;
+				else
+					chip->last_delta_temp_time =
+						ktime_get();
+			}
+		} else {
+			chip->delta_temp_irq_count = 0;
+			rc = alarm_try_to_cancel(&chip->esr_filter_alarm);
+			if (rc < 0)
+				pr_err("Couldn't cancel esr_filter_alarm\n");
+		}
+	}
+
 	/*
 	 * If battery temperature is lesser than 10 C (default), then apply the
 	 * ESR low temperature tight and broad filter values to ESR room
@@ -2225,45 +2323,80 @@ static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
 	 * than 10 C, then apply back the room temperature ESR filter
 	 * coefficients to ESR room temperature tight and broad filters.
 	 */
-	if (batt_temp > chip->dt.esr_flt_switch_temp
-		&& chip->esr_flt_cold_temp_en) {
-		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
-			chip->dt.esr_tight_flt_upct, &esr_tight_lt_flt);
-		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
-			chip->dt.esr_broad_flt_upct, &esr_broad_lt_flt);
-	} else if (batt_temp <= chip->dt.esr_flt_switch_temp
-			&& !chip->esr_flt_cold_temp_en) {
-		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
-			chip->dt.esr_tight_lt_flt_upct, &esr_tight_lt_flt);
-		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
-			chip->dt.esr_broad_lt_flt_upct, &esr_broad_lt_flt);
-		cold_temp = true;
-	} else {
-		return 0;
+	if (batt_temp > chip->dt.esr_flt_switch_temp)
+		esr_flt_sts = ROOM_TEMP;
+	else
+		esr_flt_sts = LOW_TEMP;
+
+	if (count_temp_irq) {
+		time_ms = ktime_ms_delta(ktime_get(),
+				chip->last_delta_temp_time);
+		chip->delta_temp_irq_count++;
+		fg_dbg(chip, FG_STATUS, "dt_irq_count: %d\n",
+			chip->delta_temp_irq_count);
+
+		if (chip->delta_temp_irq_count >= DT_IRQ_COUNT
+			&& time_ms <= DELTA_TEMP_IRQ_TIME_MS) {
+			fg_dbg(chip, FG_STATUS, "%d interrupts in %lld ms\n",
+				chip->delta_temp_irq_count, time_ms);
+			esr_flt_sts = RELAX_TEMP;
+		}
 	}
 
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
-			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_byte,
-			&esr_tight_lt_flt,
-			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR LT tight filter, rc=%d\n", rc);
+	rc = __fg_esr_filter_config(chip, esr_flt_sts);
+	if (rc < 0)
 		return rc;
-	}
 
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_word,
-			chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_byte,
-			&esr_broad_lt_flt,
-			chip->sp[FG_SRAM_ESR_BROAD_FILTER].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR LT broad filter, rc=%d\n", rc);
-		return rc;
-	}
+	if (esr_flt_sts == RELAX_TEMP)
+		alarm_start_relative(&chip->esr_filter_alarm,
+			ms_to_ktime(ESR_FILTER_ALARM_TIME_MS));
 
-	chip->esr_flt_cold_temp_en = cold_temp;
-	fg_dbg(chip, FG_STATUS, "applied %s ESR filter values\n",
-		cold_temp ? "cold" : "normal");
 	return 0;
+}
+
+#define FG_ESR_FILTER_RESTART_MS	60000
+static void esr_filter_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip, esr_filter_work);
+	int rc, batt_temp;
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (rc < 0) {
+		pr_err("Error in getting batt_temp\n");
+		alarm_start_relative(&chip->esr_filter_alarm,
+			ms_to_ktime(FG_ESR_FILTER_RESTART_MS));
+		goto out;
+	}
+
+	rc = fg_esr_filter_config(chip, batt_temp, true);
+	if (rc < 0) {
+		pr_err("Error in configuring ESR filter rc:%d\n", rc);
+		alarm_start_relative(&chip->esr_filter_alarm,
+			ms_to_ktime(FG_ESR_FILTER_RESTART_MS));
+	}
+
+out:
+	chip->delta_temp_irq_count = 0;
+	pm_relax(chip->dev);
+}
+
+static enum alarmtimer_restart fg_esr_filter_alarm_cb(struct alarm *alarm,
+							ktime_t now)
+{
+	struct fg_chip *chip = container_of(alarm, struct fg_chip,
+					esr_filter_alarm);
+
+	fg_dbg(chip, FG_STATUS, "ESR filter alarm triggered %lld\n",
+		ktime_to_ms(now));
+	/*
+	 * We cannot vote for awake votable here as that takes a mutex lock
+	 * and this is executed in an atomic context.
+	 */
+	pm_stay_awake(chip->dev);
+	schedule_work(&chip->esr_filter_work);
+
+	return ALARMTIMER_NORESTART;
 }
 
 static int fg_esr_fcc_config(struct fg_chip *chip)
@@ -3891,6 +4024,14 @@ static int fg_notifier_cb(struct notifier_block *nb,
 	struct power_supply *psy = data;
 	struct fg_chip *chip = container_of(nb, struct fg_chip, nb);
 
+	spin_lock(&chip->suspend_lock);
+	if (chip->suspended) {
+		/* Return if we are still suspended */
+		spin_unlock(&chip->suspend_lock);
+		return NOTIFY_OK;
+	}
+	spin_unlock(&chip->suspend_lock);
+
 	if (event != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
 
@@ -4385,14 +4526,14 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	union power_supply_propval prop = {0, };
 	int rc, batt_temp;
 
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	rc = fg_get_battery_temp(chip, &batt_temp);
 	if (rc < 0) {
 		pr_err("Error in getting batt_temp\n");
 		return IRQ_HANDLED;
 	}
+	fg_dbg(chip, FG_IRQ, "irq %d triggered bat_temp: %d\n", irq, batt_temp);
 
-	rc = fg_esr_filter_config(chip, batt_temp);
+	rc = fg_esr_filter_config(chip, batt_temp, false);
 	if (rc < 0)
 		pr_err("Error in configuring ESR filter rc:%d\n", rc);
 
@@ -4793,8 +4934,11 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_FLT_TEMP_DECIDEGC	100
 #define DEFAULT_ESR_TIGHT_FLT_UPCT	3907
 #define DEFAULT_ESR_BROAD_FLT_UPCT	99610
-#define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	48829
-#define DEFAULT_ESR_BROAD_LT_FLT_UPCT	148438
+#define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	30000
+#define DEFAULT_ESR_BROAD_LT_FLT_UPCT	30000
+#define DEFAULT_ESR_FLT_RT_DECIDEGC	60
+#define DEFAULT_ESR_TIGHT_RT_FLT_UPCT	5860
+#define DEFAULT_ESR_BROAD_RT_FLT_UPCT	156250
 #define DEFAULT_ESR_CLAMP_MOHMS		20
 #define DEFAULT_ESR_PULSE_THRESH_MA	110
 #define DEFAULT_ESR_MEAS_CURR_MA	120
@@ -5128,6 +5272,27 @@ static int fg_parse_dt(struct fg_chip *chip)
 	else
 		chip->dt.esr_broad_lt_flt_upct = temp;
 
+	rc = of_property_read_u32(node, "qcom,fg-esr-rt-filter-switch-temp",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_flt_rt_switch_temp = DEFAULT_ESR_FLT_RT_DECIDEGC;
+	else
+		chip->dt.esr_flt_rt_switch_temp = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-tight-rt-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_tight_rt_flt_upct = DEFAULT_ESR_TIGHT_RT_FLT_UPCT;
+	else
+		chip->dt.esr_tight_rt_flt_upct = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-broad-rt-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_broad_rt_flt_upct = DEFAULT_ESR_BROAD_RT_FLT_UPCT;
+	else
+		chip->dt.esr_broad_rt_flt_upct = temp;
+
 	rc = fg_parse_slope_limit_coefficients(chip);
 	if (rc < 0)
 		pr_err("Error in parsing slope limit coeffs, rc=%d\n", rc);
@@ -5173,6 +5338,7 @@ static void fg_cleanup(struct fg_chip *chip)
 			devm_free_irq(chip->dev, fg_irqs[i].irq, chip);
 	}
 
+	alarm_try_to_cancel(&chip->esr_filter_alarm);
 	power_supply_unreg_notifier(&chip->nb);
 	debugfs_remove_recursive(chip->dfs_root);
 	if (chip->awake_votable)
@@ -5189,6 +5355,29 @@ static void fg_cleanup(struct fg_chip *chip)
 
 	dev_set_drvdata(chip->dev, NULL);
 }
+
+static int fg_tz_get_temp(void *data, int *temperature)
+{
+	struct fg_chip *chip = (struct fg_chip *)data;
+	int rc, batt_temp = 0;
+
+	if (!temperature)
+		return -EINVAL;
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (rc < 0) {
+		pr_err("Error in getting batt_temp\n");
+		return rc;
+	}
+
+	/* Convert deciDegC to milliDegC */
+	*temperature = batt_temp * 100;
+	return 0;
+}
+
+static struct thermal_zone_of_device_ops fg_gen3_tz_ops = {
+	.get_temp = fg_tz_get_temp,
+};
 
 static int fg_gen3_probe(struct platform_device *pdev)
 {
@@ -5285,6 +5474,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->ttf.lock);
 	mutex_init(&chip->charge_full_lock);
 	mutex_init(&chip->qnovo_esr_ctrl_lock);
+	spin_lock_init(&chip->suspend_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
@@ -5292,6 +5482,9 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
+	INIT_WORK(&chip->esr_filter_work, esr_filter_work);
+	alarm_init(&chip->esr_filter_alarm, ALARM_BOOTTIME,
+			fg_esr_filter_alarm_cb);
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
@@ -5363,9 +5556,18 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	if (!rc) {
 		pr_info("battery SOC:%d voltage: %duV temp: %d\n",
 				msoc, volt_uv, batt_temp);
-		rc = fg_esr_filter_config(chip, batt_temp);
+		rc = fg_esr_filter_config(chip, batt_temp, false);
 		if (rc < 0)
 			pr_err("Error in configuring ESR filter rc:%d\n", rc);
+	}
+
+	chip->tz_dev = thermal_zone_of_sensor_register(chip->dev, 0, chip,
+							&fg_gen3_tz_ops);
+	if (IS_ERR_OR_NULL(chip->tz_dev)) {
+		rc = PTR_ERR(chip->tz_dev);
+		chip->tz_dev = NULL;
+		dev_err(chip->dev, "thermal_zone_of_sensor_register() failed rc:%d\n",
+			rc);
 	}
 
 	device_init_wakeup(chip->dev, true);
@@ -5382,6 +5584,10 @@ static int fg_gen3_suspend(struct device *dev)
 {
 	struct fg_chip *chip = dev_get_drvdata(dev);
 	int rc;
+
+	spin_lock(&chip->suspend_lock);
+	chip->suspended = true;
+	spin_unlock(&chip->suspend_lock);
 
 	rc = fg_esr_timer_config(chip, true);
 	if (rc < 0)
@@ -5406,6 +5612,16 @@ static int fg_gen3_resume(struct device *dev)
 	if (fg_sram_dump)
 		schedule_delayed_work(&chip->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));
+
+	if (!work_pending(&chip->status_change_work)) {
+		pm_stay_awake(chip->dev);
+		schedule_work(&chip->status_change_work);
+	}
+
+	spin_lock(&chip->suspend_lock);
+	chip->suspended = false;
+	spin_unlock(&chip->suspend_lock);
+
 	return 0;
 }
 
@@ -5418,6 +5634,8 @@ static int fg_gen3_remove(struct platform_device *pdev)
 {
 	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
 
+	if (chip->tz_dev)
+		thermal_zone_of_sensor_unregister(chip->dev, chip->tz_dev);
 	fg_cleanup(chip);
 	return 0;
 }

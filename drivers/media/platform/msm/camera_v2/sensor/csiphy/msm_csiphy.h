@@ -64,6 +64,41 @@ struct csiphy_reg_parms_t {
 	uint32_t mipi_csiphy_t_wakeup_cfg0_addr;
 	uint32_t csiphy_version;
 	uint32_t combo_clk_mask;
+	uint32_t mipi_csiphy_interrupt_clk_status0_addr;
+	uint32_t mipi_csiphy_interrupt_clk_clear0_addr;
+};
+
+struct csiphy_reg_snps_parms_t {
+	/*MIPI CSI PHY registers*/
+	struct csiphy_reg_t mipi_csiphy_sys_ctrl;
+	struct csiphy_reg_t mipi_csiphy_sys_ctrl_1;
+	struct csiphy_reg_t mipi_csiphy_ctrl_1;
+	struct csiphy_reg_t mipi_csiphy_ctrl_2;
+	struct csiphy_reg_t mipi_csiphy_ctrl_3;
+	struct csiphy_reg_t mipi_csiphy_fifo_ctrl;
+	struct csiphy_reg_t mipi_csiphy_enable;
+	struct csiphy_reg_t mipi_csiphy_basedir;
+	struct csiphy_reg_t mipi_csiphy_force_mode;
+	struct csiphy_reg_t mipi_csiphy_enable_clk;
+	struct csiphy_reg_t mipi_csiphy_irq_mask_ctrl_lane_0;
+	struct csiphy_reg_t mipi_csiphy_irq_mask_ctrl_lane_clk_0;
+	struct csiphy_reg_t mipi_csiphy_rx_sys_7_00;
+	struct csiphy_reg_t mipi_csiphy_rx_sys_9_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_0_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_1_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_2_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_3_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_4_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_ovr_5_00;
+	struct csiphy_reg_t mipi_csiphy_rx_startup_obs_2_00;
+	struct csiphy_reg_t mipi_csiphy_rx_cb_2_00;
+	struct csiphy_reg_t mipi_csiphy_rx_dual_phy_0_00;
+	struct csiphy_reg_t mipi_csiphy_rx_clk_lane_3_00;
+	struct csiphy_reg_t mipi_csiphy_rx_clk_lane_4_00;
+	struct csiphy_reg_t mipi_csiphy_rx_clk_lane_6_00;
+	struct csiphy_reg_t mipi_csiphy_rx_lane_0_7_00;
+	struct csiphy_reg_t mipi_csiphy_rx_lane_1_7_00;
+	struct csiphy_reg_t mipi_csiphy_rx_clk_lane_7_00;
 };
 
 struct csiphy_reg_3ph_parms_t {
@@ -150,11 +185,33 @@ struct csiphy_ctrl_t {
 	struct csiphy_reg_parms_t csiphy_reg;
 	struct csiphy_reg_3ph_parms_t csiphy_3ph_reg;
 	struct csiphy_settings_t csiphy_combo_mode_settings;
+	struct csiphy_reg_snps_parms_t csiphy_snps_reg;
 };
 
 enum msm_csiphy_state_t {
 	CSIPHY_POWER_UP,
 	CSIPHY_POWER_DOWN,
+};
+
+enum snps_csiphy_mode {
+	AGGREGATE_MODE,
+	TWO_LANE_PHY_A,
+	TWO_LANE_PHY_B,
+	INVALID_MODE,
+};
+
+enum snps_csiphy_state {
+	NOT_CONFIGURED,
+	CONFIGURED_AGGREGATE_MODE,
+	CONFIGURED_TWO_LANE_PHY_A,
+	CONFIGURED_TWO_LANE_PHY_B,
+	CONFIGURED_COMBO_MODE,
+};
+
+struct snps_freq_value {
+	uint32_t default_bit_rate;
+	uint8_t hs_freq;
+	uint16_t osc_freq;
 };
 
 struct csiphy_device {
@@ -190,6 +247,9 @@ struct csiphy_device {
 	struct camera_vreg_t *csiphy_vreg;
 	struct regulator *csiphy_reg_ptr[MAX_REGULATOR];
 	int32_t regulator_count;
+	uint8_t is_snps_phy;
+	enum snps_csiphy_state snps_state;
+	uint8_t num_clk_irq_registers;
 };
 
 #define VIDIOC_MSM_CSIPHY_RELEASE \
