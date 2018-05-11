@@ -72,10 +72,6 @@
 #include <linux/security.h>
 #include <linux/spinlock.h>
 
-#ifdef CONFIG_ANDROID_BINDER_IPC_32BIT
-#define BINDER_IPC_32BIT 1
-#endif
-
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
 #include "binder_alloc.h"
@@ -2212,8 +2208,8 @@ static size_t binder_validate_object(struct binder_buffer *buffer, u64 offset)
 	struct binder_object_header *hdr;
 	size_t object_size = 0;
 
-	if (offset > buffer->data_size - sizeof(*hdr) ||
-	    buffer->data_size < sizeof(*hdr) ||
+	if (buffer->data_size < sizeof(*hdr) ||
+	    offset > buffer->data_size - sizeof(*hdr) ||
 	    !IS_ALIGNED(offset, sizeof(u32)))
 		return 0;
 
