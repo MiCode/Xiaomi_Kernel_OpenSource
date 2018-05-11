@@ -25,6 +25,7 @@
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/soc/qcom,dcc_v2.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/spmi/spmi.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -1487,6 +1488,65 @@
 		cell-index = <0>;
 	};
 
+	spmi_debug_bus: qcom,spmi-debug@6b22000 {
+		compatible = "qcom,spmi-pmic-arb-debug";
+		reg = <0x6b22000 0x60>, <0x7820a8 4>;
+		reg-names = "core", "fuse";
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "core_clk";
+		qcom,fuse-disable-bit = <24>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		qcom,pm8150-debug@0 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x0 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8150-debug@1 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x1 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8150b-debug@2 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x2 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8150b-debug@3 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x3 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8150l-debug@4 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x4 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8150l-debug@5 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x5 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+	};
 
 	eud: qcom,msm-eud@88e0000 {
 		compatible = "qcom,msm-eud";
