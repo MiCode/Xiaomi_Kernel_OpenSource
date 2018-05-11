@@ -1258,6 +1258,11 @@ int ipa3_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		goto bail;
 	}
 
+	if (!ipa3_ctx->nat_mem.dev.is_dev_init) {
+		IPAERR_RL("NAT hasn't been initialized\n");
+		return -EPERM;
+	}
+
 	for (cnt = 0; cnt < dma->entries; ++cnt) {
 		result = ipa3_table_validate_table_dma_one(&dma->dma[cnt]);
 		if (result) {
