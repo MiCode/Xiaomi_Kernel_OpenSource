@@ -825,6 +825,18 @@ config HARDEN_BRANCH_PREDICTOR
 
 	  If unsure, say Y.
 
+config PSCI_BP_HARDENING
+	depends on HARDEN_BRANCH_PREDICTOR
+	bool "Use PSCI get version to enable branch predictor hardening"
+	help
+	  If the mitigation for branch prediction is supported using psci
+	  get version by the firmware then enable this option. Some older
+	  versions of firmwares may not be using new SMCCC convention in
+	  such cases use psci get version method to enable hardening for
+	  branch prediction attacks.
+
+	  If unsure, say N.
+
 menuconfig ARMV8_DEPRECATED
 	bool "Emulate deprecated/obsolete ARMv8 instructions"
 	depends on COMPAT
