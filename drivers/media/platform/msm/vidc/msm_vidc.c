@@ -911,6 +911,8 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hal_buffer_size_minimum b;
 
+	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
+		hash32_ptr(inst->session), inst);
 	hdev = inst->core->device;
 
 	/* Check if current session is under HW capability */
@@ -1004,14 +1006,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	if (is_batching_allowed(inst)) {
-		dprintk(VIDC_DBG,
-			"%s: batching enabled for inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
+	if (is_batching_allowed(inst))
 		inst->batch.enable = true;
-		/* this will disable dcvs as batching enabled */
-		msm_dcvs_try_enable(inst);
-	}
+	else
+		inst->batch.enable = false;
+	dprintk(VIDC_DBG, "%s: batching %s for inst %pK (%#x)\n",
+		__func__, inst->batch.enable ? "enabled" : "disabled",
+		inst, hash32_ptr(inst->session));
 
 	/*
 	 * For seq_changed_insufficient, driver should set session_continue
@@ -1146,6 +1147,9 @@ stream_start_failed:
 static inline int stop_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+
+	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
+		hash32_ptr(inst->session), inst);
 
 	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 	if (rc)
