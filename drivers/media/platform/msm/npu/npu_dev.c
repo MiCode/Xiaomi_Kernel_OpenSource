@@ -146,6 +146,15 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"bto_core_clk"
 };
 
+static struct npu_reg npu_saved_bw_registers[] = {
+	{ BWMON2_SAMPLING_WINDOW, 0, false },
+	{ BWMON2_BYTE_COUNT_THRESHOLD_HIGH, 0, false },
+	{ BWMON2_BYTE_COUNT_THRESHOLD_MEDIUM, 0, false },
+	{ BWMON2_BYTE_COUNT_THRESHOLD_LOW, 0, false },
+	{ BWMON2_ZONE_ACTIONS, 0, false },
+	{ BWMON2_ZONE_COUNT_THRESHOLD, 0, false },
+};
+
 /* -------------------------------------------------------------------------
  * Entry Points for Probe
  * -------------------------------------------------------------------------
@@ -406,6 +415,30 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
  * Bandwidth Related
  * -------------------------------------------------------------------------
  */
+static void npu_save_bw_registers(struct npu_device *npu_dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
+		npu_saved_bw_registers[i].val = REGR(npu_dev,
+			npu_saved_bw_registers[i].off);
+		npu_saved_bw_registers[i].valid = true;
+	}
+}
+
+static void npu_restore_bw_registers(struct npu_device *npu_dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(npu_saved_bw_registers); i++) {
+		if (npu_saved_bw_registers[i].valid) {
+			REGW(npu_dev, npu_saved_bw_registers[i].off,
+				npu_saved_bw_registers[i].val);
+			npu_saved_bw_registers[i].valid = false;
+		}
+	}
+}
+
 static void npu_suspend_devbw(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
@@ -417,6 +450,7 @@ static void npu_suspend_devbw(struct npu_device *npu_dev)
 		if (ret)
 			pr_err("devfreq_suspend_devbw failed rc:%d\n",
 				ret);
+		npu_save_bw_registers(npu_dev);
 	}
 }
 
@@ -427,6 +461,7 @@ static void npu_resume_devbw(struct npu_device *npu_dev)
 
 	if (!pwr->bwmon_enabled) {
 		pwr->bwmon_enabled = 1;
+		npu_restore_bw_registers(npu_dev);
 		ret = devfreq_resume_devbw(pwr->devbw);
 
 		if (ret)
