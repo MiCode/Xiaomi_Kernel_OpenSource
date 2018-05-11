@@ -1059,7 +1059,8 @@ static int goldfish_pipe_dma_create_region(
 	return -ENOMEM;
 }
 
-long goldfish_dma_ioctl_getoff(struct goldfish_pipe *pipe, unsigned long arg)
+static long goldfish_dma_ioctl_getoff(struct goldfish_pipe *pipe,
+	unsigned long arg)
 {
 	struct device *pdev_dev = pipe->dev->pdev_dev;
 	struct goldfish_dma_ioctl_info ioctl_data;
@@ -1096,7 +1097,7 @@ long goldfish_dma_ioctl_getoff(struct goldfish_pipe *pipe, unsigned long arg)
 	return 0;
 }
 
-long goldfish_dma_ioctl_create_region(struct goldfish_pipe *pipe,
+static long goldfish_dma_ioctl_create_region(struct goldfish_pipe *pipe,
 	unsigned long arg)
 {
 	struct goldfish_dma_ioctl_info ioctl_data;
