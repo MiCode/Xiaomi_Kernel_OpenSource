@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -691,19 +691,26 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	if (flow_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
 		type.type |= bit_mask_irq;
 		if (flow_type & IRQF_TRIGGER_RISING)
-			type.polarity_high |= bit_mask_irq;
+			type.polarity_high |=  bit_mask_irq;
+		else
+			type.polarity_high &= ~bit_mask_irq;
 		if (flow_type & IRQF_TRIGGER_FALLING)
-			type.polarity_low  |= bit_mask_irq;
+			type.polarity_low  |=  bit_mask_irq;
+		else
+			type.polarity_low  &= ~bit_mask_irq;
 	} else {
 		if ((flow_type & (IRQF_TRIGGER_HIGH)) &&
 		    (flow_type & (IRQF_TRIGGER_LOW)))
 			return -EINVAL;
 
 		type.type &= ~bit_mask_irq; /* level trig */
-		if (flow_type & IRQF_TRIGGER_HIGH)
-			type.polarity_high |= bit_mask_irq;
-		else
-			type.polarity_low  |= bit_mask_irq;
+		if (flow_type & IRQF_TRIGGER_HIGH) {
+			type.polarity_high |=  bit_mask_irq;
+			type.polarity_low  &= ~bit_mask_irq;
+		} else {
+			type.polarity_low  |=  bit_mask_irq;
+			type.polarity_high &= ~bit_mask_irq;
+		}
 	}
 
 	qpnpint_spmi_write(d, QPNPINT_REG_SET_TYPE, &type, sizeof(type));
