@@ -253,7 +253,7 @@ int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	pfn = page_to_pfn(pages[pgoff]);
 
-	VERB("Inserting %p pfn %lx, pa %lx", vmf->virtual_address,
+	VERB("Inserting %pK pfn %lx, pa %lx", vmf->virtual_address,
 			pfn, pfn << PAGE_SHIFT);
 
 	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
@@ -799,7 +799,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 		break;
 	}
 
-	seq_printf(m, "%08x: %c %2d (%2d) %08llx %p %zu%s\n",
+	seq_printf(m, "%08x: %c %2d (%2d) %08llx %pK %zu%s\n",
 
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			obj->name, obj->refcount.refcount.counter,
