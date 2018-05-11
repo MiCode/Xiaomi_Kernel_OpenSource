@@ -1341,8 +1341,8 @@
 	};
 };
 
-#include "pm640.dtsi"
-#include "pm640l.dtsi"
+#include "pm6150.dtsi"
+#include "pm6150l.dtsi"
 #include "sm6150-pinctrl.dtsi"
 #include "sm6150-stub-regulator.dtsi"
 #include "sm6150-pm.dtsi"

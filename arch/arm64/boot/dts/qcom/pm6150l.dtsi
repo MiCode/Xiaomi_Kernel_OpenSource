@@ -15,13 +15,13 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 &spmi_bus {
-	qcom,pm640l@4 {
+	qcom,pm6150l@4 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x4 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm640l_revid: qcom,revid@100 {
+		pm6150l_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
@@ -31,7 +31,7 @@
 			reg = <0x800 0x100>;
 		};
 
-		pm640l_tz: qcom,temp-alarm@2400 {
+		pm6150l_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x4 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
@@ -39,17 +39,17 @@
 			qcom,temperature-threshold-set = <1>;
 		};
 
-		pm640l_clkdiv: clock-controller@5b00 {
+		pm6150l_clkdiv: clock-controller@5b00 {
 			compatible = "qcom,spmi-clkdiv";
 			reg = <0x5b00 0x100>;
 			#clock-cells = <1>;
 			qcom,num-clkdivs = <1>;
-			clock-output-names = "pm640l_div_clk1";
+			clock-output-names = "pm6150l_div_clk1";
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
 		};
 
-		pm640l_gpios: pinctrl@c000 {
+		pm6150l_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xc00>;
 			interrupts = <0x4 0xc0 0 IRQ_TYPE_NONE>,
@@ -63,32 +63,32 @@
 					<0x4 0xc9 0 IRQ_TYPE_NONE>,
 					<0x4 0xca 0 IRQ_TYPE_NONE>,
 					<0x4 0xcb 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pm640l_gpio1", "pm640l_gpio2",
-					"pm640l_gpio3", "pm640l_gpio4",
-					"pm640l_gpio5", "pm640l_gpio6",
-					"pm640l_gpio8", "pm640l_gpio9",
-					"pm640l_gpio10", "pm640l_gpio11",
-					"pm640l_gpio12";
+			interrupt-names = "pm6150l_gpio1", "pm6150l_gpio2",
+					"pm6150l_gpio3", "pm6150l_gpio4",
+					"pm6150l_gpio5", "pm6150l_gpio6",
+					"pm6150l_gpio8", "pm6150l_gpio9",
+					"pm6150l_gpio10", "pm6150l_gpio11",
+					"pm6150l_gpio12";
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <7>;
 		};
 	};
 
-	qcom,pm640l@5 {
+	qcom,pm6150l@5 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x5 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm640l_lcdb: qcom,lcdb@ec00 {
+		pm6150l_lcdb: qcom,lcdb@ec00 {
 			compatible = "qcom,qpnp-lcdb-regulator";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0xec00 0x100>;
 			interrupts = <0x5 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
-			qcom,pmic-revid = <&pm640l_revid>;
+			qcom,pmic-revid = <&pm6150l_revid>;
 			status = "disabled";
 
 			lcdb_ldo_vreg: ldo {
@@ -124,9 +124,9 @@
 			qcom,thermal-derate-en;
 			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
-			qcom,pmic-revid = <&pm640l_revid>;
+			qcom,pmic-revid = <&pm6150l_revid>;
 
-			pm640l_flash0: qcom,flash_0 {
+			pm6150l_flash0: qcom,flash_0 {
 				label = "flash";
 				qcom,led-name = "led:flash_0";
 				qcom,max-current = <1500>;
@@ -139,7 +139,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pm640l_flash1: qcom,flash_1 {
+			pm6150l_flash1: qcom,flash_1 {
 				label = "flash";
 				qcom,led-name = "led:flash_1";
 				qcom,max-current = <1500>;
@@ -152,7 +152,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pm640l_flash2: qcom,flash_2 {
+			pm6150l_flash2: qcom,flash_2 {
 				label = "flash";
 				qcom,led-name = "led:flash_2";
 				qcom,max-current = <750>;
@@ -166,7 +166,7 @@
 				status = "disabled";
 			};
 
-			pm640l_torch0: qcom,torch_0 {
+			pm6150l_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
 				qcom,max-current = <500>;
@@ -178,7 +178,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pm640l_torch1: qcom,torch_1 {
+			pm6150l_torch1: qcom,torch_1 {
 				label = "torch";
 				qcom,led-name = "led:torch_1";
 				qcom,max-current = <500>;
@@ -190,7 +190,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pm640l_torch2: qcom,torch_2 {
+			pm6150l_torch2: qcom,torch_2 {
 				label = "torch";
 				qcom,led-name = "led:torch_2";
 				qcom,max-current = <500>;
@@ -203,21 +203,21 @@
 				status = "disabled";
 			};
 
-			pm640l_switch0: qcom,led_switch_0 {
+			pm6150l_switch0: qcom,led_switch_0 {
 				label = "switch";
 				qcom,led-name = "led:switch_0";
 				qcom,led-mask = <1>;
 				qcom,default-led-trigger = "switch0_trigger";
 			};
 
-			pm640l_switch1: qcom,led_switch_1 {
+			pm6150l_switch1: qcom,led_switch_1 {
 				label = "switch";
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <2>;
 				qcom,default-led-trigger = "switch1_trigger";
 			};
 
-			pm640l_switch2: qcom,led_switch_2 {
+			pm6150l_switch2: qcom,led_switch_2 {
 				label = "switch";
 				qcom,led-name = "led:switch_2";
 				qcom,led-mask = <3>;
@@ -225,41 +225,41 @@
 			};
 		};
 
-		pm640l_wled: qcom,wled@d800 {
-			compatible = "qcom,pm640l-spmi-wled";
+		pm6150l_wled: qcom,wled@d800 {
+			compatible = "qcom,pm6150l-spmi-wled";
 			reg = <0xd800 0x100>, <0xd900 0x100>;
 			reg-names = "wled-ctrl-base", "wled-sink-base";
 			label = "backlight";
 			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "ovp-irq";
-			qcom,pmic-revid = <&pm640l_revid>;
+			qcom,pmic-revid = <&pm6150l_revid>;
 			qcom,auto-calibration;
 			status = "disabled";
 		};
 
-		pm640l_lpg: qcom,pwms@b100 {
+		pm6150l_lpg: qcom,pwms@b100 {
 			compatible = "qcom,pwm-lpg";
 			reg = <0xb100 0x300>;
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
 		};
 
-		pm640l_rgb_led: qcom,leds@d000 {
+		pm6150l_rgb_led: qcom,leds@d000 {
 			compatible = "qcom,tri-led";
 			reg = <0xd000 0x100>;
 			red {
 				label = "red";
-				pwms = <&pm640l_lpg 0 1000000>;
+				pwms = <&pm6150l_lpg 0 1000000>;
 				led-sources = <0>;
 			};
 			green {
 				label = "green";
-				pwms = <&pm640l_lpg 1 1000000>;
+				pwms = <&pm6150l_lpg 1 1000000>;
 				led-sources = <1>;
 			};
 			blue {
 				label = "blue";
-				pwms = <&pm640l_lpg 2 1000000>;
+				pwms = <&pm6150l_lpg 2 1000000>;
 				led-sources = <2>;
 			};
 		};
