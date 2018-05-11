@@ -480,6 +480,7 @@
 						"ilim1-s1",
 						"ilim2-s2",
 						"vreg-ok";
+				qcom,flash-disable-soc = <10>;
 			};
 
 			smb5_vbus: qcom,smb5-vbus {
