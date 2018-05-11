@@ -5686,7 +5686,7 @@ unsigned long capacity_curr_of(int cpu)
 	return cap_scale(max_cap, scale_freq);
 }
 
-static inline bool energy_aware(void)
+inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
