@@ -733,6 +733,13 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		ret = tmc_etr_bam_init(adev, drvdata);
 		if (ret)
 			goto out;
+		/*
+		 * ETR configuration uses a 40-bit AXI master in place of
+		 * the embedded SRAM of ETB/ETF.
+		 */
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+		if (ret)
+			goto out;
 	} else {
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
 		desc.ops = &tmc_etf_cs_ops;
