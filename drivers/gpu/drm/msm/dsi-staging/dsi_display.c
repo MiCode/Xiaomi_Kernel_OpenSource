@@ -4995,7 +4995,10 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		info->h_tile_instance[i] = display->ctrl[i].ctrl->cell_index;
 
 	info->is_connected = true;
-	info->is_primary = true;
+	info->is_primary = false;
+	if (!strcmp(display->display_type, "primary"))
+		info->is_primary = true;
+
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;
