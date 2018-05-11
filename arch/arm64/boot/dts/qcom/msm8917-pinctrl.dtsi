@@ -21,7 +21,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
-
+#include "msm8917-camera-pinctrl.dtsi"
 		/* add pingrp for touchscreen */
 		pmx_ts_int_active {
 			ts_int_active: ts_int_active {
