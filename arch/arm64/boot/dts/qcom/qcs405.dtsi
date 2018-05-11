@@ -219,7 +219,7 @@
 		compatible = "qcom,gcc-qcs405", "syscon";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pmd9655_s1_level>;
+		vdd_cx-supply = <&pms405_s1_level>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "cxo";
 		#clock-cells = <1>;
