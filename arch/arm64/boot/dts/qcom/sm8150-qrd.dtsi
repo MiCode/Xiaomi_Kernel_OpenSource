@@ -497,6 +497,12 @@
 			   "chg_temp";
 };
 
+&smb1390 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb1390_stat_default>;
+	status = "ok";
+};
+
 &smb1390_charger {
 	status = "ok";
 };
