@@ -14,6 +14,7 @@
 #include "pm8150.dtsi"
 #include "pm8150b.dtsi"
 #include "pm8150l.dtsi"
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
 /* PMIC GPIO pin control configurations: */
 &pm8150_gpios {
@@ -64,6 +65,19 @@
 	};
 	smb5_vbus: qcom,smb5-vbus {
 		regulator-name = "smb5-vbus";
+	};
+};
+
+&pm8150b_gpios {
+	smb1390_stat {
+		smb1390_stat_default: smb1390_stat_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <0>;
+		};
 	};
 };
 
