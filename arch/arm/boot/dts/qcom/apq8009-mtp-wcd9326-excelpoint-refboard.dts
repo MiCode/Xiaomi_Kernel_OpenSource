@@ -136,6 +136,32 @@
 			bias-pull-up;
 		};
 	};
+
+	mute_ctrl_active: mute_ctrl_active {
+		mux {
+			pins = "gpio92";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio92";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	mute_ctrl_suspend: mute_ctrl_suspend {
+		mux {
+			pins = "gpio92";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio92";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
 };
 
 &soc {
@@ -404,7 +430,8 @@
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <58 8>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&smb_int_default>;
+		pinctrl-0 = <&smb_int_default &mute_ctrl_active>;
+		pinctrl-1 = <&mute_ctrl_suspend>;
 		qcom,charging-disabled;
 		qcom,empty-soc-disabled;
 		qcom,chg-inhibit-disabled;
