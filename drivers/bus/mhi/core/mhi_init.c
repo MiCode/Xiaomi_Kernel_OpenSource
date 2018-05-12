@@ -414,6 +414,77 @@ error_alloc_chan_ctxt:
 	return ret;
 }
 
+int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+	u32 time_offset, db_offset;
+	int ret;
+
+	reinit_completion(&mhi_tsync->completion);
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		MHI_ERR("MHI host is not in active state\n");
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+		return -EIO;
+	}
+
+	mhi_cntrl->wake_get(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+
+	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_TIMSYNC_CFG);
+	if (ret) {
+		MHI_ERR("Failed to send time sync cfg cmd\n");
+		goto error_send_cmd;
+	}
+
+	ret = wait_for_completion_timeout(&mhi_tsync->completion,
+				msecs_to_jiffies(mhi_cntrl->timeout_ms));
+
+	if (!ret || mhi_tsync->ccs != MHI_EV_CC_SUCCESS) {
+		MHI_ERR("Failed to receive cmd completion for time_sync_cfg\n");
+		ret = -EIO;
+		goto error_send_cmd;
+	}
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+
+	ret = -EIO;
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		goto error_sync_cap;
+
+	ret = mhi_get_capability_offset(mhi_cntrl, TIMESYNC_CAP_ID,
+					&time_offset);
+	if (ret) {
+		MHI_ERR("could not find timesync capability\n");
+		goto error_sync_cap;
+	}
+
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+			   time_offset + TIMESYNC_DB_OFFSET, &db_offset);
+	if (ret)
+		goto error_sync_cap;
+
+	MHI_LOG("TIMESYNC_DB OFFS:0x%x\n", db_offset);
+
+	mhi_tsync->db = mhi_cntrl->regs + db_offset;
+
+error_sync_cap:
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	return ret;
+
+error_send_cmd:
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	return ret;
+}
+
 int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 {
 	u32 val;
@@ -749,6 +820,9 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 		case MHI_ER_CTRL_ELEMENT_TYPE:
 			mhi_event->process_event = mhi_process_ctrl_ev_ring;
 			break;
+		case MHI_ER_TSYNC_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_tsync_event_ring;
+			break;
 		}
 
 		mhi_event->hw_ring = of_property_read_bool(child, "mhi,hw-ev");
@@ -913,6 +987,7 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		       struct device_node *of_node)
 {
 	int ret;
+	struct mhi_timesync *mhi_tsync;
 
 	/* parse firmware image info (optional parameters) */
 	of_property_read_string(of_node, "mhi,fw-name", &mhi_cntrl->fw_image);
@@ -938,9 +1013,35 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		mhi_cntrl->timeout_ms = MHI_TIMEOUT_MS;
 
+	mhi_cntrl->time_sync = of_property_read_bool(of_node, "mhi,time-sync");
+
+	if (mhi_cntrl->time_sync) {
+		mhi_tsync = kzalloc(sizeof(*mhi_tsync), GFP_KERNEL);
+		if (!mhi_tsync) {
+			ret = -ENOMEM;
+			goto error_time_sync;
+		}
+
+		ret = of_property_read_u32(of_node, "mhi,tsync-er",
+					   &mhi_tsync->er_index);
+		if (ret)
+			goto error_time_sync;
+
+		if (mhi_tsync->er_index >= mhi_cntrl->total_ev_rings) {
+			ret = -EINVAL;
+			goto error_time_sync;
+		}
+
+		mhi_cntrl->mhi_tsync = mhi_tsync;
+	}
+
 	return 0;
 
- error_ev_cfg:
+error_time_sync:
+	kfree(mhi_tsync);
+	kfree(mhi_cntrl->mhi_event);
+
+error_ev_cfg:
 	kfree(mhi_cntrl->mhi_chan);
 
 	return ret;
@@ -972,6 +1073,11 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	ret = of_parse_dt(mhi_cntrl, mhi_cntrl->of_node);
 	if (ret)
+		return -EINVAL;
+
+	if (mhi_cntrl->time_sync &&
+	    (!mhi_cntrl->time_get || !mhi_cntrl->lpm_disable ||
+	     !mhi_cntrl->lpm_enable))
 		return -EINVAL;
 
 	mhi_cntrl->mhi_cmd = kcalloc(NR_OF_CMD_RINGS,
@@ -1016,6 +1122,14 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		rwlock_init(&mhi_chan->lock);
 	}
 
+	if (mhi_cntrl->mhi_tsync) {
+		struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+
+		spin_lock_init(&mhi_tsync->lock);
+		INIT_LIST_HEAD(&mhi_tsync->head);
+		init_completion(&mhi_tsync->completion);
+	}
+
 	mhi_cntrl->parent = mhi_bus.dentry;
 	mhi_cntrl->klog_lvl = MHI_MSG_LVL_ERROR;
 
@@ -1039,6 +1153,7 @@ void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 	kfree(mhi_cntrl->mhi_cmd);
 	kfree(mhi_cntrl->mhi_event);
 	kfree(mhi_cntrl->mhi_chan);
+	kfree(mhi_cntrl->mhi_tsync);
 
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_cntrl->node);
@@ -1271,6 +1386,10 @@ static int mhi_driver_remove(struct device *dev)
 
 		mutex_unlock(&mhi_chan->mutex);
 	}
+
+
+	if (mhi_cntrl->tsync_dev == mhi_dev)
+		mhi_cntrl->tsync_dev = NULL;
 
 	/* relinquish any pending votes */
 	read_lock_bh(&mhi_cntrl->pm_lock);

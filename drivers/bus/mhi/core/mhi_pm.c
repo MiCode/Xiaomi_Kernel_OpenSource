@@ -523,7 +523,12 @@ static int mhi_pm_amss_transition(struct mhi_controller *mhi_cntrl)
 		spin_unlock_irq(&mhi_event->lock);
 
 	}
+
 	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	/* setup support for time sync */
+	if (mhi_cntrl->time_sync)
+		mhi_init_timesync(mhi_cntrl);
 
 	MHI_LOG("Adding new devices\n");
 
@@ -901,6 +906,8 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 		mhi_deinit_dev_ctxt(mhi_cntrl);
 	}
 
+	if (mhi_cntrl->mhi_tsync)
+		mhi_cntrl->mhi_tsync->db = NULL;
 }
 EXPORT_SYMBOL(mhi_power_down);
 
@@ -1064,7 +1071,7 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
-static int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
+int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
 
