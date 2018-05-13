@@ -30,6 +30,42 @@
 		};
 	};
 
+	qcom,turing@8300000 {
+		status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+		status = "ok";
+	};
+
+	qcom,spss@1880000 {
+		status = "ok";
+	};
+
+	qcom,npu@0x9800000 {
+		status = "ok";
+	};
+
+	qcom,rmnet-ipa {
+		status = "ok";
+	};
+
+	qcom,ipa_fws {
+		status = "ok";
+	};
+
+	qcom,msm-cdsp-loader {
+		status = "ok";
+	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		status = "ok";
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
