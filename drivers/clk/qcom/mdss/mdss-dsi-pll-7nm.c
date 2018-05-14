@@ -254,6 +254,7 @@ static inline int pll_reg_read(void *context, unsigned int reg,
 					unsigned int *val)
 {
 	int rc = 0;
+	u32 data;
 	struct mdss_pll_resources *rsc = context;
 
 	rc = mdss_pll_resource_enable(rsc, true);
@@ -262,7 +263,19 @@ static inline int pll_reg_read(void *context, unsigned int reg,
 		return rc;
 	}
 
+	/*
+	 * DSI PHY/PLL should be both powered on when reading PLL
+	 * registers. Since PHY power has been enabled in DSI PHY
+	 * driver, only PLL power is needed to enable here.
+	 */
+	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CTRL_0);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data | BIT(5));
+	ndelay(250);
+
 	*val = MDSS_PLL_REG_R(rsc->pll_base, reg);
+
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data);
+
 	(void)mdss_pll_resource_enable(rsc, false);
 
 	return rc;

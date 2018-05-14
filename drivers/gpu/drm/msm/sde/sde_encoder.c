@@ -3410,17 +3410,10 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
-				!phys->ops.needs_single_flush(phys)) {
-			pending_kickoff_cnt =
-				sde_encoder_phys_inc_pending(phys);
+				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-			SDE_EVT32(pending_kickoff_cnt, SDE_EVTLOG_FUNC_CASE1);
-		} else if (ctl->ops.get_pending_flush) {
-			pending_kickoff_cnt =
-				sde_encoder_phys_inc_pending(phys);
+		else if (ctl->ops.get_pending_flush)
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
-			SDE_EVT32(pending_kickoff_cnt, SDE_EVTLOG_FUNC_CASE2);
-		}
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
@@ -3433,6 +3426,26 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
 
+	/* update pending_kickoff_cnt AFTER next frame is queued in HW */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		if (!phys->ops.needs_single_flush ||
+				!phys->ops.needs_single_flush(phys)) {
+			pending_kickoff_cnt =
+					sde_encoder_phys_inc_pending(phys);
+			SDE_EVT32(pending_kickoff_cnt, SDE_EVTLOG_FUNC_CASE1);
+		} else {
+			pending_kickoff_cnt =
+					sde_encoder_phys_inc_pending(phys);
+			SDE_EVT32(pending_kickoff_cnt,
+					pending_flush.pending_flush_mask,
+					SDE_EVTLOG_FUNC_CASE2);
+		}
+	}
 }
 
 static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
