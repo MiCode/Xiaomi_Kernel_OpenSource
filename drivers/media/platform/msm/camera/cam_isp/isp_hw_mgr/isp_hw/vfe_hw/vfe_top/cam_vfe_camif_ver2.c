@@ -138,6 +138,9 @@ int cam_vfe_camif_ver2_acquire_resource(
 	camif_data->first_line  = acquire_data->vfe_in.in_port->line_start;
 	camif_data->last_line   = acquire_data->vfe_in.in_port->line_stop;
 
+	CAM_DBG(CAM_ISP, "hw id:%d pix_pattern:%d dsp_mode=%d",
+		camif_res->hw_intf->hw_idx,
+		camif_data->pix_pattern, camif_data->dsp_mode);
 	return rc;
 }
 
@@ -249,6 +252,8 @@ static int cam_vfe_camif_resource_start(
 	/* Reg Update */
 	cam_io_w_mb(rsrc_data->reg_data->reg_update_cmd_data,
 		rsrc_data->mem_base + rsrc_data->camif_reg->reg_update_cmd);
+	CAM_DBG(CAM_ISP, "hw id:%d RUP val:%d", camif_res->hw_intf->hw_idx,
+		rsrc_data->reg_data->reg_update_cmd_data);
 
 	CAM_DBG(CAM_ISP, "Start Camif IFE %d Done", camif_res->hw_intf->hw_idx);
 	return 0;

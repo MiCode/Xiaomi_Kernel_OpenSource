@@ -10,15 +10,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CAM_VFE_LITE170_H_
-#define _CAM_VFE_LITE170_H_
+#ifndef _CAM_VFE_LITE17X_H_
+#define _CAM_VFE_LITE17X_H_
 
 #include "cam_vfe_bus_ver2.h"
 #include "cam_irq_controller.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_vfe_core.h"
 
-static struct cam_irq_register_set vfe170_top_irq_reg_set[2] = {
+static struct cam_irq_register_set vfe17x_top_irq_reg_set[2] = {
 	{
 		.mask_reg_offset   = 0x0000005C,
 		.clear_reg_offset  = 0x00000064,
@@ -31,14 +31,14 @@ static struct cam_irq_register_set vfe170_top_irq_reg_set[2] = {
 	},
 };
 
-static struct cam_irq_controller_reg_info vfe170_top_irq_reg_info = {
+static struct cam_irq_controller_reg_info vfe17x_top_irq_reg_info = {
 	.num_registers = 2,
-	.irq_reg_set = vfe170_top_irq_reg_set,
+	.irq_reg_set = vfe17x_top_irq_reg_set,
 	.global_clear_offset  = 0x00000058,
 	.global_clear_bitmask = 0x00000001,
 };
 
-static struct cam_vfe_top_ver2_reg_offset_common vfe170_top_common_reg = {
+static struct cam_vfe_top_ver2_reg_offset_common vfe17x_top_common_reg = {
 	.hw_version               = 0x00000000,
 	.hw_capability            = 0x00000004,
 	.lens_feature             = 0x00000008,
@@ -59,49 +59,49 @@ static struct cam_vfe_top_ver2_reg_offset_common vfe170_top_common_reg = {
 	.reg_update_cmd           = 0x000004AC,
 };
 
-static struct cam_vfe_rdi_ver2_reg vfe170_rdi_reg = {
+static struct cam_vfe_rdi_ver2_reg vfe17x_rdi_reg = {
 	.reg_update_cmd           = 0x000004AC,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe170_rdi_0_data = {
+static struct cam_vfe_rdi_reg_data  vfe17x_rdi_0_data = {
 	.reg_update_cmd_data      = 0x2,
 	.sof_irq_mask             = 0x8000000,
 	.reg_update_irq_mask      = 0x20,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe170_rdi_1_data = {
+static struct cam_vfe_rdi_reg_data  vfe17x_rdi_1_data = {
 	.reg_update_cmd_data      = 0x4,
 	.sof_irq_mask             = 0x10000000,
 	.reg_update_irq_mask      = 0x40,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe170_rdi_2_data = {
+static struct cam_vfe_rdi_reg_data  vfe17x_rdi_2_data = {
 	.reg_update_cmd_data      = 0x8,
 	.sof_irq_mask             = 0x20000000,
 	.reg_update_irq_mask      = 0x80,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe170_rdi_3_data = {
+static struct cam_vfe_rdi_reg_data  vfe17x_rdi_3_data = {
 	.reg_update_cmd_data      = 0x10,
 	.sof_irq_mask             = 0x40000000,
 	.reg_update_irq_mask      = 0x100,
 };
 
-static struct cam_vfe_top_ver2_hw_info vfe170_top_hw_info = {
-	.common_reg = &vfe170_top_common_reg,
+static struct cam_vfe_top_ver2_hw_info vfe17x_top_hw_info = {
+	.common_reg = &vfe17x_top_common_reg,
 	.camif_hw_info = {
 		.common_reg = NULL,
 		.camif_reg  = NULL,
 		.reg_data   = NULL,
 		},
 	.rdi_hw_info = {
-		.common_reg = &vfe170_top_common_reg,
-		.rdi_reg    = &vfe170_rdi_reg,
+		.common_reg = &vfe17x_top_common_reg,
+		.rdi_reg    = &vfe17x_rdi_reg,
 		.reg_data = {
-			&vfe170_rdi_0_data,
-			&vfe170_rdi_1_data,
-			&vfe170_rdi_2_data,
-			&vfe170_rdi_3_data,
+			&vfe17x_rdi_0_data,
+			&vfe17x_rdi_1_data,
+			&vfe17x_rdi_2_data,
+			&vfe17x_rdi_3_data,
 			},
 		},
 	.mux_type = {
@@ -112,7 +112,7 @@ static struct cam_vfe_top_ver2_hw_info vfe170_top_hw_info = {
 	},
 };
 
-static struct cam_irq_register_set vfe170_bus_irq_reg[3] = {
+static struct cam_irq_register_set vfe17x_bus_irq_reg[3] = {
 		{
 			.mask_reg_offset   = 0x00002044,
 			.clear_reg_offset  = 0x00002050,
@@ -130,7 +130,7 @@ static struct cam_irq_register_set vfe170_bus_irq_reg[3] = {
 		},
 };
 
-static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
+static struct cam_vfe_bus_ver2_hw_info vfe17x_bus_hw_info = {
 	.common_reg = {
 		.hw_version                   = 0x00002000,
 		.hw_capability                = 0x00002004,
@@ -140,7 +140,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		.dual_master_comp_cfg         = 0x00002028,
 		.irq_reg_info = {
 			.num_registers        = 3,
-			.irq_reg_set          = vfe170_bus_irq_reg,
+			.irq_reg_set          = vfe17x_bus_irq_reg,
 			.global_clear_offset  = 0x00002068,
 			.global_clear_bitmask = 0x00000001,
 		},
@@ -322,15 +322,15 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 	},
 };
 
-static struct cam_vfe_hw_info cam_vfe_lite170_hw_info = {
-	.irq_reg_info                  = &vfe170_top_irq_reg_info,
+static struct cam_vfe_hw_info cam_vfe_lite17x_hw_info = {
+	.irq_reg_info                  = &vfe17x_top_irq_reg_info,
 
 	.bus_version                   = CAM_VFE_BUS_VER_2_0,
-	.bus_hw_info                   = &vfe170_bus_hw_info,
+	.bus_hw_info                   = &vfe17x_bus_hw_info,
 
 	.top_version                   = CAM_VFE_TOP_VER_2_0,
-	.top_hw_info                   = &vfe170_top_hw_info,
+	.top_hw_info                   = &vfe17x_top_hw_info,
 
 };
 
-#endif /* _CAM_VFE_LITE170_H_ */
+#endif /* _CAM_VFE_LITE17X_H_ */
