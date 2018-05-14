@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_3 {
+	status = "ok";
+	qcom,clk-freq-out = <100000>;
+
+	/* PCA9956B LED Drivers */
+	nxp-ledseg-i2c@4b {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,pca9956b";
+		reg = <0x4b>;
+		pca9956b,support_initialize = <1>;
+		pca9956b,mode1 = <0x09>;
+		pca9956b,mode2 = <0x05>;
+
+		pca9956b,ledout0 = <0xAA>;
+		pca9956b,ledout1 = <0xAA>;
+		pca9956b,ledout2 = <0xAA>;
+		pca9956b,ledout3 = <0xFF>;
+		pca9956b,ledout4 = <0xFF>;
+		pca9956b,ledout5 = <0xFF>;
+		pca9956b,defaultiref = <0x2f>;
+	};
+};
+

@@ -46,6 +46,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
+#include <linux/vmalloc.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -1869,7 +1870,7 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		return -EINVAL;
 	}
 	if (client == MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return 0;
@@ -2026,7 +2027,7 @@ err_unmap:
 	dma_buf_put(data->srcp_dma_buf);
 
 	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return ret;
@@ -2674,9 +2675,41 @@ static ssize_t mdp3_show_smart_blit(struct device *dev,
 static DEVICE_ATTR(smart_blit, S_IRUGO | S_IWUSR | S_IWGRP,
 			mdp3_show_smart_blit, mdp3_store_smart_blit);
 
+static ssize_t mdp3_store_twm(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	u32 data = -1;
+	ssize_t rc = 0;
+
+	rc = kstrtoint(buf, 10, &data);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+	mdp3_res->twm_en = data ? true : false;
+	pr_err("TWM :  %s\n",	(mdp3_res->twm_en) ?
+		"ENABLED" : "DISABLED");
+	return len;
+}
+
+static ssize_t mdp3_show_twm(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+
+	pr_err("TWM :  %s\n",	(mdp3_res->twm_en) ?
+		"ENABLED" : "DISABLED");
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdp3_res->twm_en);
+	return ret;
+}
+
+static DEVICE_ATTR(twm_enable, S_IRUGO | S_IWUSR | S_IWGRP,
+			mdp3_show_twm, mdp3_store_twm);
+
 static struct attribute *mdp3_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_smart_blit.attr,
+	&dev_attr_twm_enable.attr,
 	NULL
 };
 
@@ -2938,6 +2971,7 @@ static int mdp3_probe(struct platform_device *pdev)
 		mdp3_dynamic_clock_gating_ctrl;
 	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
 	mdp3_res->mdss_util->panel_intf_status = mdp3_panel_get_intf_status;
+	mdp3_res->twm_en = false;
 
 	if (mdp3_res->mdss_util->param_check(mdss_mdp3_panel)) {
 		mdp3_res->mdss_util->display_disabled = true;

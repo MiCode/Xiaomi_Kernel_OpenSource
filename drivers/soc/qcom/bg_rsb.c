@@ -33,7 +33,7 @@
 
 #define BGRSB_GLINK_INTENT_SIZE 0x04
 #define BGRSB_MSG_SIZE 0x08
-#define TIMEOUT_MS 500
+#define TIMEOUT_MS 2000
 
 #define BGRSB_LDO15_VTG_MIN_UV 3300000
 #define BGRSB_LDO15_VTG_MAX_UV 3300000
@@ -544,7 +544,7 @@ static void bgrsb_bgup_work(struct work_struct *work)
 
 		rc = wait_event_timeout(dev->link_state_wait,
 				(dev->chnl_state == true),
-					msecs_to_jiffies(TIMEOUT_MS*2));
+					msecs_to_jiffies(TIMEOUT_MS));
 		if (rc == 0) {
 			pr_err("Glink channel connection time out\n");
 			return;
@@ -574,7 +574,7 @@ static void bgrsb_glink_bgup_work(struct work_struct *work)
 
 		rc = wait_event_timeout(dev->link_state_wait,
 					(dev->chnl_state == true),
-						msecs_to_jiffies(TIMEOUT_MS*2));
+						msecs_to_jiffies(TIMEOUT_MS));
 		if (rc == 0) {
 			pr_err("Glink channel connection time out\n");
 			return;

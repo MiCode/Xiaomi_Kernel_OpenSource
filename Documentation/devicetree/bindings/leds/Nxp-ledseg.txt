@@ -1,0 +1,36 @@
+NXP LED segment driver devicetree bindings
+
+Required properties:
+
+ - compatible               : "nxp,pca9956b" for PCA9956b
+ - nxp,mode1                : MODE1 register
+ - nxp,mode2                : MODE2 register
+ - nxp,ledout0~5            : LED output state registers
+ - nxp,defaultiref          : LED output gain control default value
+
+Optional properties:
+
+Example:
+pca9956b {
+	/* I2C version */
+	reg = <0x7d>;
+
+	/* nxp-ledseg properties */
+
+	compatible    = "nxp,pca9956b";
+
+	pinctrl-names = "default";
+	pinctrl-0     = <&pca9956b_pins>;
+
+	pca9956b,support_initialize = <1>;
+	pca9956b,mode1 = <0x09>;
+	pca9956b,mode2 = <0x05>;
+
+	pca9956b,ledout0 = <0xaa>;
+	pca9956b,ledout1 = <0xaa>;
+	pca9956b,ledout2 = <0xaa>;
+	pca9956b,ledout3 = <0xff>;
+	pca9956b,ledout4 = <0xff>;
+	pca9956b,ledout5 = <0xff>;
+	pca9956b,defaultiref = <0x2f>;
+};

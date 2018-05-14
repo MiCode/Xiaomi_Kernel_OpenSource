@@ -85,6 +85,25 @@
 	/delete-node/ mpu6050_int_pin;
 	/delete-node/ apds99xx_int_pin;
 	/delete-node/ ak8963_int_pin;
+
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+			config {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+			config {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+		};
+	};
 };
 
 &i2c_3 {
@@ -172,6 +191,23 @@
 	qcom,rpmcc@1800000 {
 		compatible = "qcom,rpmcc-8909-pm660";
 	};
+
+	qcom,sensor-information {
+		sensor_information9: qcom,sensor-information-9 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "emmc_therm";
+		};
+
+		sensor_information10: qcom,sensor-information-10 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "msm_therm";
+		};
+
+		sensor_information11: qcom,sensor-information-11 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "quiet_therm";
+		};
+	};
 };
 
 &sdhc_1 {
@@ -205,6 +241,7 @@
 &mdss_dsi0{
 	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 52 0>;
+	qcom,platform-enable-gpio = <&msm_gpio 59 0>;
 };
 
 &mdss_dsi0_pll {

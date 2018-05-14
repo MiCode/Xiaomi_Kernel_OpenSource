@@ -114,7 +114,6 @@
 
 &pm8916_chg {
 	status = "ok";
-	qcom,use-external-charger;
 };
 
 &pm8916_bms {

@@ -43,12 +43,11 @@
 
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
-#define SLEEP_IN_STATE_CHNG 2000
 #define HED_EVENT_ID_LEN (0x02)
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 
-#define MAX_RETRY 200
+#define MAX_RETRY 500
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -149,8 +148,6 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 
 	mutex_lock(&bg_spi->xfer_mutex);
 	spi_state = state;
-	if (spi_state == BGCOM_SPI_BUSY)
-		msleep(SLEEP_IN_STATE_CHNG);
 	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;
 }
@@ -748,11 +745,18 @@ static int is_bg_resume(void *handle)
 	uint8_t rx_buf[8] = {0};
 	uint32_t cmnd_reg = 0;
 
+	if (spi_state == BGCOM_SPI_BUSY) {
+		printk_ratelimited("SPI is held by TZ\n");
+		goto ret_err;
+	}
+
 	txn_len = 0x08;
 	tx_buf[0] = 0x05;
 	ret = bgcom_transfer(handle, tx_buf, rx_buf, txn_len);
 	if (!ret)
 		memcpy(&cmnd_reg, rx_buf+BG_SPI_READ_LEN, 0x04);
+
+ret_err:
 	return cmnd_reg & BIT(31);
 }
 
@@ -788,7 +792,6 @@ unlock:
 		bg_soft_reset();
 		return -ETIMEDOUT;
 	}
-	pr_info("BG retries for wake up : %d\n", retry);
 	return 0;
 }
 EXPORT_SYMBOL(bgcom_resume);

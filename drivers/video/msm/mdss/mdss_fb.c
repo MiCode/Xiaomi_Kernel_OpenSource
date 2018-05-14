@@ -1669,6 +1669,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	u32 temp = bkl_lvl;
 	bool ad_bl_notify_needed = false;
 	bool bl_notify_needed = false;
+	bool twm_en = false;
 
 	if ((((mdss_fb_is_power_off(mfd) && mfd->dcm_state != DCM_ENTER)
 		|| !mfd->allow_bl_update) && !IS_CALIB_MODE_BL(mfd)) ||
@@ -1703,9 +1704,16 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
 			pr_debug("backlight sent to panel :%d\n", temp);
-			pdata->set_backlight(pdata, temp);
-			mfd->bl_level = bkl_lvl;
-			mfd->bl_level_scaled = temp;
+			if (mfd->mdp.is_twm_en)
+				twm_en = mfd->mdp.is_twm_en();
+
+			if (twm_en) {
+				pr_info("TWM Enabled skip backlight update\n");
+			} else {
+				pdata->set_backlight(pdata, temp);
+				mfd->bl_level = bkl_lvl;
+				mfd->bl_level_scaled = temp;
+			}
 		}
 		if (ad_bl_notify_needed)
 			mdss_fb_bl_update_notify(mfd,
@@ -3380,34 +3388,37 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 
 	commit_v1 = &commit->commit_v1;
 	if (commit_v1->flags & MDP_VALIDATE_LAYER) {
-		ret = mdss_fb_wait_for_kickoff(mfd);
-		if (ret) {
-			pr_err("wait for kickoff failed\n");
-		} else {
-			__ioctl_transition_dyn_mode_state(mfd,
-				MSMFB_ATOMIC_COMMIT, true, false);
-			if (mfd->panel.type == WRITEBACK_PANEL) {
-				output_layer = commit_v1->output_layer;
-				if (!output_layer) {
-					pr_err("Output layer is null\n");
-					goto end;
-				}
-				wb_change = !mdss_fb_is_wb_config_same(mfd,
-						commit_v1->output_layer);
-				if (wb_change) {
-					old_xres = pinfo->xres;
-					old_yres = pinfo->yres;
-					old_format = mfd->fb_imgType;
-					mdss_fb_update_resolution(mfd,
-						output_layer->buffer.width,
-						output_layer->buffer.height,
-						output_layer->buffer.format);
-				}
+		if (!mfd->skip_koff_wait) {
+			ret = mdss_fb_wait_for_kickoff(mfd);
+			if (ret) {
+				pr_err("wait for kickoff failed\n");
+				goto end;
 			}
-			ret = mfd->mdp.atomic_validate(mfd, file, commit_v1);
-			if (!ret)
-				mfd->atomic_commit_pending = true;
 		}
+		__ioctl_transition_dyn_mode_state(mfd,
+			MSMFB_ATOMIC_COMMIT, true, false);
+		if (mfd->panel.type == WRITEBACK_PANEL) {
+			output_layer = (struct mdp_output_layer *)
+					commit_v1->output_layer;
+			if (!output_layer) {
+				pr_err("Output layer is null\n");
+				goto end;
+			}
+			wb_change = !mdss_fb_is_wb_config_same(mfd,
+					output_layer);
+			if (wb_change) {
+				old_xres = pinfo->xres;
+				old_yres = pinfo->yres;
+				old_format = mfd->fb_imgType;
+				mdss_fb_update_resolution(mfd,
+					output_layer->buffer.width,
+					output_layer->buffer.height,
+					output_layer->buffer.format);
+			}
+		}
+		ret = mfd->mdp.atomic_validate(mfd, file, commit_v1);
+		if (!ret)
+			mfd->atomic_commit_pending = true;
 		goto end;
 	} else {
 		ret = mdss_fb_pan_idle(mfd);

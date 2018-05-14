@@ -39,6 +39,7 @@
 /* Wait time before suspend/resume is complete */
 #define MHI_SUSPEND_MIN			100
 #define MHI_SUSPEND_TIMEOUT		600
+#define MHI_WAKEUP_TIMEOUT_CNT		20
 #define MHI_MASK_CH_EV_LEN		32
 #define MHI_RING_CMD_ID			0
 #define MHI_RING_PRIMARY_EVT_ID		1
@@ -996,9 +997,12 @@ send_start_completion_event:
 			pr_err("Error sending command completion event\n");
 
 		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
-		if (ch_id == MHI_CLIENT_MBIM_OUT)
-			kobject_uevent_env(&mhi_ctx->dev->kobj,
+		if (ch_id == MHI_CLIENT_MBIM_OUT) {
+			rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
 						KOBJ_CHANGE, connected);
+			if (rc)
+				pr_err("Error sending uevent %d\n", rc);
+		}
 		break;
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
@@ -1054,9 +1058,12 @@ send_start_completion_event:
 
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
-			if (ch_id == MHI_CLIENT_MBIM_OUT)
-				kobject_uevent_env(&mhi_ctx->dev->kobj,
+			if (ch_id == MHI_CLIENT_MBIM_OUT) {
+				rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
 						KOBJ_CHANGE, disconnected);
+				if (rc)
+					pr_err("Error sending uevent %d\n", rc);
+			}
 		}
 		break;
 	case MHI_DEV_RING_EL_RESET:
@@ -1131,9 +1138,12 @@ send_start_completion_event:
 				pr_err("Error sending command completion event\n");
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
-			if (ch_id == MHI_CLIENT_MBIM_OUT)
-				kobject_uevent_env(&mhi_ctx->dev->kobj,
+			if (ch_id == MHI_CLIENT_MBIM_OUT) {
+				rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
 						KOBJ_CHANGE, disconnected);
+				if (rc)
+					pr_err("Error sending uevent %d\n", rc);
+			}
 		}
 		break;
 	default:
@@ -1301,6 +1311,8 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
 	int ch_id = 0, rc = 0;
+	char *disconnected_12[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
+	char *disconnected_14[2] = { "MHI_CHANNEL_STATE_14=DISCONNECTED", NULL};
 
 	/* Hard stop all the channels */
 	for (ch_id = 0; ch_id < mhi->cfg.channels; ch_id++) {
@@ -1316,6 +1328,17 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 
 	/* Update ctrl node */
 	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_CLIENT_MBIM_OUT, MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_CLIENT_QMI_OUT, MHI_STATE_DISCONNECTED);
+	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
+				KOBJ_CHANGE, disconnected_12);
+	if (rc)
+		pr_err("Error sending uevent:%d\n", rc);
+
+	rc = kobject_uevent_env(&mhi_ctx->dev->kobj,
+				KOBJ_CHANGE, disconnected_14);
+	if (rc)
+		pr_err("Error sending uevent:%d\n", rc);
 
 	flush_workqueue(mhi->ring_init_wq);
 	flush_workqueue(mhi->pending_ring_wq);
@@ -2145,11 +2168,19 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	}
 
 	while (atomic_read(&mhi_ctx->is_suspended) &&
-			suspend_wait_timeout < MHI_SUSPEND_TIMEOUT) {
+			suspend_wait_timeout < MHI_WAKEUP_TIMEOUT_CNT) {
 		/* wait for the suspend to finish */
 		msleep(MHI_SUSPEND_MIN);
 		suspend_wait_timeout++;
 	}
+
+	if (suspend_wait_timeout >= MHI_WAKEUP_TIMEOUT_CNT ||
+				mhi_ctx->ctrl_info != MHI_STATE_CONNECTED) {
+		pr_err("Failed to wake up core\n");
+		mutex_unlock(&mhi_ctx->mhi_write_test);
+		return -ENODEV;
+	}
+
 	handle_client = wreq->client;
 	ch = handle_client->channel;
 	ch->wr_request_active = true;

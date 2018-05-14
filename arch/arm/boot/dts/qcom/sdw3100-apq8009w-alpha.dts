@@ -21,7 +21,7 @@
 #include "msm8909-audio-bg_codec.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 BG Alpha";
+	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 BG Alpha SDW3100";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id =   <265 0>,
 			<301 0>;
@@ -53,6 +53,7 @@
 	qcom,blackghost {
 		compatible = "qcom,pil-blackghost";
 
+		qcom,pil-force-shutdown;
 		qcom,firmware-name = "bg-wear";
 		/* GPIO inputs from blackghost */
 		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;

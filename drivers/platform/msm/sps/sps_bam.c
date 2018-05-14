@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -274,6 +274,7 @@ int sps_bam_enable(struct sps_bam *dev)
 	int result;
 	int rc;
 	int MTIenabled;
+	unsigned long irq_arg = 0;
 
 	/* Is this BAM enabled? */
 	if ((dev->state & BAM_STATE_ENABLED))
@@ -284,6 +285,9 @@ int sps_bam_enable(struct sps_bam *dev)
 		SPS_ERR(dev, "sps:No local access to BAM %pa\n", BAM_ID(dev));
 		return SPS_ERROR;
 	}
+
+	if (dev->props.options & SPS_BAM_OPT_IRQ_NO_SUSPEND)
+		irq_arg = IRQF_NO_SUSPEND;
 
 	/* Set interrupt handling */
 	if ((dev->props.options & SPS_BAM_OPT_IRQ_DISABLED) != 0 ||
@@ -297,14 +301,16 @@ int sps_bam_enable(struct sps_bam *dev)
 			if (dev->props.options & SPS_BAM_RES_CONFIRM) {
 				result = request_irq(dev->props.irq,
 					(irq_handler_t) bam_isr,
-					IRQF_TRIGGER_RISING, "sps", dev);
+					(IRQF_TRIGGER_RISING | irq_arg),
+					"sps", dev);
 				SPS_DBG3(dev,
 					"sps:BAM %pa uses edge for IRQ# %d\n",
 					BAM_ID(dev), dev->props.irq);
 			} else {
 				result = request_irq(dev->props.irq,
 					(irq_handler_t) bam_isr,
-					IRQF_TRIGGER_HIGH, "sps", dev);
+					(IRQF_TRIGGER_HIGH | irq_arg),
+					"sps", dev);
 				SPS_DBG3(dev,
 					"sps:BAM %pa uses level for IRQ# %d\n",
 					BAM_ID(dev), dev->props.irq);

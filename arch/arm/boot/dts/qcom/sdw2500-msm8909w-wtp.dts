@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,17 +16,19 @@
 #include "msm8909-mtp.dtsi"
 #include "msm8909w-gpu.dtsi"
 #include "msm8909w.dtsi"
-#include "apq8009w-memory.dtsi"
+#include "msm8909w-memory.dtsi"
 #include "msm8909w-pm660-mtp.dtsi"
 #include "msm8909w-pm660-camera.dtsi"
 #include "msm8909w-pm660-camera-sensor-wtp-v1.dtsi"
 #include "spi-panel-st7789v2-qvga-cmd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 WTP V2K";
-	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
-	qcom,msm-id =   <265 0>,
-			<301 0>;
+	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 WTP SDW2500";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,msm-id =   <245 0>,
+			<258 0>,
+			<275 0>,
+			<300 0>;
 	qcom,board-id = <8 0x112>;
 	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
 			<0x0001011b 0x0 0x0 0x0>;

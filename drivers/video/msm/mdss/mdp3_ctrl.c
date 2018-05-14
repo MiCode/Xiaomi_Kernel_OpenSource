@@ -408,7 +408,7 @@ static int mdp3_ctrl_async_blit_req(struct msm_fb_data_type *mfd,
 		return -EFAULT;
 	p_req = p + sizeof(req_list_header);
 	count = req_list_header.count;
-	if (count < 0 || count >= MAX_BLIT_REQ)
+	if (count < 0 || count > MAX_BLIT_REQ)
 		return -EINVAL;
 	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 1);
 	if (!rc)
@@ -427,7 +427,7 @@ static int mdp3_ctrl_blit_req(struct msm_fb_data_type *mfd, void __user *p)
 		return -EFAULT;
 	p_req = p + sizeof(struct mdp_blit_req_list);
 	count = req_list_header.count;
-	if (count < 0 || count >= MAX_BLIT_REQ)
+	if (count < 0 || count > MAX_BLIT_REQ)
 		return -EINVAL;
 	req_list_header.sync.acq_fen_fd_cnt = 0;
 	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 0);
@@ -706,8 +706,11 @@ int mdp3_ctrl_get_source_format(u32 imgType)
 	case MDP_RGB_888:
 		format = MDP3_DMA_IBUF_FORMAT_RGB888;
 		break;
+	case MDP_XRGB_8888:
 	case MDP_ARGB_8888:
 	case MDP_RGBA_8888:
+	case MDP_BGRA_8888:
+	case MDP_RGBX_8888:
 		format = MDP3_DMA_IBUF_FORMAT_XRGB8888;
 		break;
 	default:
@@ -1029,6 +1032,11 @@ end:
 	return rc;
 }
 
+static bool mdp3_is_twm_en(void)
+{
+	return mdp3_res->twm_en;
+}
+
 static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 {
 	int rc = 0;
@@ -1074,8 +1082,10 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 			pr_debug("fb%d is off already", mfd->index);
 			goto off_error;
 		}
-		if (panel && panel->set_backlight)
-			panel->set_backlight(panel, 0);
+		if (panel && panel->set_backlight) {
+			if (!mdp3_is_twm_en())
+				panel->set_backlight(panel, 0);
+		}
 	}
 
 	/*
@@ -1083,11 +1093,15 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	* events need to be sent to the interface so that the
 	* panel can be configured in low power mode
 	*/
-	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_BLANK,
-			(void *) (long int)mfd->panel_power_state);
-	if (rc)
-		pr_err("EVENT_BLANK error (%d)\n", rc);
+
+	if (!mdp3_is_twm_en()) {
+		if (panel->event_handler)
+			rc = panel->event_handler(panel, MDSS_EVENT_BLANK,
+				(void *) (long int)mfd->panel_power_state);
+		if (rc)
+			pr_err("EVENT_BLANK error (%d)\n", rc);
+
+	}
 
 	if (intf_stopped) {
 		if (!mdp3_session->clk_on)
@@ -1114,9 +1128,28 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		mdp3_irq_deregister();
 	}
 
-	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF,
-			(void *) (long int)mfd->panel_power_state);
+	if (panel->event_handler) {
+		if (mdp3_is_twm_en()) {
+			pr_info("TWM active skip panel off, disable disp_en\n");
+			if (gpio_is_valid(panel->panel_en_gpio)) {
+				rc = gpio_direction_output(
+					panel->panel_en_gpio, 1);
+				if (rc) {
+					pr_err("%s:set dir for gpio(%d) FAIL\n",
+						__func__, panel->panel_en_gpio);
+				} else {
+					gpio_set_value((panel->panel_en_gpio),
+							0);
+					usleep_range(100, 110);
+					pr_debug("%s:set disp_en_gpio_%d Low\n",
+						__func__, panel->panel_en_gpio);
+				}
+			}
+		} else {
+			rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF,
+				(void *) (long int)mfd->panel_power_state);
+		}
+	}
 	if (rc)
 		pr_err("EVENT_PANEL_OFF error (%d)\n", rc);
 
@@ -1738,9 +1771,9 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	panel = mdp3_session->panel;
 	if (mdp3_ctrl_get_intf_type(mfd) != MDP3_DMA_OUTPUT_SEL_SPI_CMD) {
 		if (mdp3_session->first_commit) {
-			if (panel_info->mipi.init_delay)
-				msleep(((1000 / panel_info->mipi.frame_rate)
-					+ 1) * panel_info->mipi.init_delay);
+			if (panel_info->mipi.post_init_delay)
+				msleep(((1000 / panel_info->mipi.frame_rate) +
+					1) * panel_info->mipi.post_init_delay);
 			else
 				msleep(1000 / panel_info->mipi.frame_rate);
 					mdp3_session->first_commit = false;
@@ -1824,12 +1857,16 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case metadata_op_get_ion_fd:
-		if (mfd->fb_ion_handle) {
+		if (mfd->fb_ion_handle &&  mfd->fb_ion_client) {
+			get_dma_buf(mfd->fbmem_buf);
 			metadata->data.fbmem_ionfd =
-					dma_buf_fd(mfd->fbmem_buf, 0);
-			if (metadata->data.fbmem_ionfd < 0)
+				ion_share_dma_buf_fd(mfd->fb_ion_client,
+					mfd->fb_ion_handle);
+			if (metadata->data.fbmem_ionfd < 0) {
+				dma_buf_put(mfd->fbmem_buf);
 				pr_err("fd allocation failed. fd = %d\n",
 						metadata->data.fbmem_ionfd);
+			}
 		}
 		break;
 	default:
@@ -2961,6 +2998,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_interface->configure_panel = mdp3_update_panel_info;
 	mdp3_interface->input_event_handler = NULL;
 	mdp3_interface->signal_retire_fence = NULL;
+	mdp3_interface->is_twm_en = mdp3_is_twm_en;
 
 	mdp3_session = kzalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
 	if (!mdp3_session) {
@@ -3010,6 +3048,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 		goto init_done;
 	}
 
+	mfd->skip_koff_wait = true;
 	mdp3_session->dma->output_config.out_sel = intf_type;
 	mdp3_session->mfd = mfd;
 	mdp3_session->panel = dev_get_platdata(&mfd->pdev->dev);

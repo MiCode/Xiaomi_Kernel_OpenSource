@@ -49,6 +49,7 @@
 #include <linux/kdebug.h>
 #include <linux/kallsyms.h>
 #include <linux/ftrace.h>
+#include <linux/moduleloader.h>
 
 #include <asm/cacheflush.h>
 #include <asm/desc.h>
@@ -196,6 +197,8 @@ retry:
 		return (opcode != 0x62 && opcode != 0x67);
 	case 0x70:
 		return 0; /* can't boost conditional jump */
+	case 0x90:
+		return opcode != 0x9a;	/* can't boost call far */
 	case 0xc0:
 		/* can't boost software-interruptions */
 		return (0xc1 < opcode && opcode < 0xcc) || opcode == 0xcf;
@@ -372,9 +375,19 @@ int __copy_instruction(u8 *dest, u8 *src)
 	return length;
 }
 
+/* Recover page to RW mode before releasing it */
+void free_insn_page(void *page)
+{
+	set_memory_nx((unsigned long)page & PAGE_MASK, 1);
+	set_memory_rw((unsigned long)page & PAGE_MASK, 1);
+	vfree(page);
+}
+
 static int arch_copy_kprobe(struct kprobe *p)
 {
 	int ret;
+
+	set_memory_rw((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
 
 	/* Copy an instruction with recovering if other optprobe modifies it.*/
 	ret = __copy_instruction(p->ainsn.insn, p->addr);
@@ -389,6 +402,8 @@ static int arch_copy_kprobe(struct kprobe *p)
 		p->ainsn.boostable = 0;
 	else
 		p->ainsn.boostable = -1;
+
+	set_memory_ro((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
 
 	/* Check whether the instruction modifies Interrupt Flag or not */
 	p->ainsn.if_modifier = is_IF_modifier(p->ainsn.insn);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@
 bool ipa2_mhi_sps_channel_empty(enum ipa_client_type client)
 {
 	u32 pipe_idx;
-	bool pending;
+	bool pending = 0;
 
 	pipe_idx = ipa2_get_ep_mapping(client);
 	if (sps_pipe_pending_desc(ipa_ctx->bam_handle,

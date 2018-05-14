@@ -139,8 +139,11 @@ static void diag_usb_buf_tbl_remove(struct diag_usb_info *usb_info,
 			 * Remove reference from the table if it is the
 			 * only instance of the buffer
 			 */
-			if (atomic_read(&entry->ref_count) == 0)
+			if (atomic_read(&entry->ref_count) == 0) {
 				list_del(&entry->track);
+				kfree(entry);
+				entry = NULL;
+			}
 			break;
 		}
 	}
@@ -330,6 +333,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	buf = entry->buf;
 	len = entry->len;
 	kfree(entry);
+	entry = NULL;
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 
 	if (ch->ops && ch->ops->write_done)

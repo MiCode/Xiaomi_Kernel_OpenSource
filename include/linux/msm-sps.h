@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,8 @@
 #define SPS_BAM_CACHED_WP           (1UL << 10)
 /* Reset BAM with pipes connected */
 #define SPS_BAM_FORCE_RESET         (1UL << 11)
+/* BAM IRQ is enabled with IRQF_NO_SUSPEND added*/
+#define SPS_BAM_OPT_IRQ_NO_SUSPEND	(1UL << 12)
 
 /* BAM device management flags */
 
