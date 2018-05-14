@@ -138,13 +138,6 @@
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
 };
 
-/* Force USB to high speed mode before USB re-driver enabled on QRD855 */
-&usb0 {
-	dwc3@a600000 {
-		maximum-speed = "high-speed";
-	};
-};
-
 &qupv3_se9_i2c {
 	status = "ok";
 	nq@28 {

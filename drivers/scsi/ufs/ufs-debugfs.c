@@ -100,6 +100,16 @@ static const int err_inject_query_err_codes[] = {
 	0xFF,
 };
 
+static const int err_inject_hibern8_err_codes[] = {
+	-EIO,
+	-ETIMEDOUT,
+	-1,
+	PWR_REMOTE,
+	PWR_BUSY,
+	PWR_ERROR_CAP,
+	PWR_FATAL_ERROR,
+};
+
 static struct ufsdbg_err_scenario err_scen_arr[] = {
 	{
 		"ERR_INJECT_INTR",
@@ -125,6 +135,16 @@ static struct ufsdbg_err_scenario err_scen_arr[] = {
 		"ERR_INJECT_QUERY",
 		err_inject_query_err_codes,
 		ARRAY_SIZE(err_inject_query_err_codes),
+	},
+	{
+		"ERR_INJECT_HIBERN8_ENTER",
+		err_inject_hibern8_err_codes,
+		ARRAY_SIZE(err_inject_hibern8_err_codes),
+	},
+	{
+		"ERR_INJECT_HIBERN8_EXIT",
+		err_inject_hibern8_err_codes,
+		ARRAY_SIZE(err_inject_hibern8_err_codes),
 	},
 };
 
@@ -281,6 +301,8 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	case ERR_INJECT_UIC:
 	case ERR_INJECT_DME_ATTR:
 	case ERR_INJECT_QUERY:
+	case ERR_INJECT_HIBERN8_ENTER:
+	case ERR_INJECT_HIBERN8_EXIT:
 		goto should_fail;
 	default:
 		dev_err(hba->dev, "%s: unsupported error scenario\n",

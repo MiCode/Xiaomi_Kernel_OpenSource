@@ -58,8 +58,8 @@
 		cam_vaf-supply = <&pm8009_s2>;
 		regulator-names = "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <2850000>;
-		rgltr-max-voltage = <2850000>;
+		rgltr-min-voltage = <2856000>;
+		rgltr-max-voltage = <2856000>;
 		rgltr-load-current = <0>;
 	};
 
@@ -157,8 +157,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2850000 1200000 0 2856000>;
-		rgltr-max-voltage = <0 2850000 1200000 0 2856000>;
+		rgltr-min-voltage = <0 2856000 1200000 0 2856000>;
+		rgltr-max-voltage = <0 2856000 1200000 0 2856000>;
 		rgltr-load-current = <0 80000 1200000 0 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -196,8 +196,8 @@
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_vaf";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2850000 1200000 0 2856000>;
-		rgltr-max-voltage = <0 2850000 1200000 0 2856000>;
+		rgltr-min-voltage = <0 2856000 1200000 0 2856000>;
+		rgltr-max-voltage = <0 2856000 1200000 0 2856000>;
 		rgltr-load-current = <0 80000 1200000 0 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";

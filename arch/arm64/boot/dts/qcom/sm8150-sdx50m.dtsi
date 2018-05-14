@@ -38,6 +38,10 @@
 	};
 };
 
+&wil6210 {
+	status = "disabled";
+};
+
 &mhi_0 {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm3>;
