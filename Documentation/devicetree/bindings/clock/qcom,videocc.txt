@@ -1,7 +1,8 @@
 Qualcomm Technologies, Inc. Video Clock & Reset Controller Bindings
 
 Required properties:
-- compatible: shall contain "qcom,videocc-sm8150" or "qcom,videocc-sm8150-v2".
+- compatible: shall contain "qcom,videocc-sm8150" or "qcom,videocc-sm8150-v2" or
+				"qcom,videocc-sm6150".
 - reg: shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in the reg property.
 - vdd_mm-supply: the logic rail supply.
