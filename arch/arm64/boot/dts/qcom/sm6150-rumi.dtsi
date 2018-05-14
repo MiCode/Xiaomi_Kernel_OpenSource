@@ -12,7 +12,7 @@
 
 &soc {
 	timer {
-		clock-frequency = <5500000>;
+		clock-frequency = <1000000>;
 	};
 
 	timer@0x17c00000 {
@@ -69,5 +69,9 @@
 
 	/delete-property/qcom,devfreq,freq-table;
 
+	status = "disabled";
+};
+
+&spmi_bus {
 	status = "disabled";
 };

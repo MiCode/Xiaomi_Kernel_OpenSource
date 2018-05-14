@@ -879,6 +879,15 @@ config HARDEN_BRANCH_PREDICTOR
 
 	  If unsure, say Y.
 
+config PRINT_VMEMLAYOUT
+	bool "Enable debug option to print kernel virtual memory layout"
+	help
+	  Enable support for printing kernel virtual memory layout for debugging
+	  purpose. If disabled kernel would not show any information about
+	  virtual memory layout during boot up.
+
+	  If unsure, say N.
+
 menuconfig ARMV8_DEPRECATED
 	bool "Emulate deprecated/obsolete ARMv8 instructions"
 	depends on COMPAT

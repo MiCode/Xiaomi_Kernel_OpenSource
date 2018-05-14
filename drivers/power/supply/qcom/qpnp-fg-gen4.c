@@ -446,7 +446,7 @@ static int fg_gen4_get_debug_batt_id(struct fg_dev *fg, int *batt_id)
 
 	batt_id[0] = (30000 * tmp) / (MAX_BIAS_CODE - tmp);
 
-	rc = fg_read(fg, ADC_RR_FAKE_BATT_LOW_LSB(fg), (u8 *)&tmp, 2);
+	rc = fg_read(fg, ADC_RR_FAKE_BATT_HIGH_LSB(fg), (u8 *)&tmp, 2);
 	if (rc < 0) {
 		pr_err("failed to read addr=0x%04x, rc=%d\n",
 			ADC_RR_FAKE_BATT_HIGH_LSB(fg), rc);
@@ -3143,6 +3143,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	mutex_init(&fg->bus_lock);
 	mutex_init(&fg->sram_rw_lock);
 	mutex_init(&fg->charge_full_lock);
+	mutex_init(&chip->ttf.lock);
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
 	INIT_WORK(&fg->status_change_work, status_change_work);

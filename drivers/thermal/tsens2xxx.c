@@ -59,6 +59,7 @@
 #define TSENS_TM_SCALE_DECI_MILLIDEG		100
 #define TSENS_DEBUG_WDOG_TRIGGER_COUNT		5
 #define TSENS_TM_WATCHDOG_LOG(n)		((n) + 0x13c)
+#define TSENS_TM_WATCHDOG_LOG_v23(n)		((n) + 0x170)
 #define TSENS_EN				BIT(0)
 #define TSENS_CTRL_SENSOR_EN_MASK(n)		((n >> 3) & 0xffff)
 #define TSENS_TM_TRDY(n)			((n) + 0xe4)
@@ -321,7 +322,10 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		TSENS_TM_SN_CRITICAL_THRESHOLD(tm->tsens_tm_addr);
 	wd_critical_addr =
 		TSENS_TM_CRITICAL_INT_STATUS(tm->tsens_tm_addr);
-	wd_log_addr = TSENS_TM_WATCHDOG_LOG(tm->tsens_tm_addr);
+	if (tm->ctrl_data->ver_major == 2 && tm->ctrl_data->ver_minor == 3)
+		wd_log_addr = TSENS_TM_WATCHDOG_LOG_v23(tm->tsens_tm_addr);
+	else
+		wd_log_addr = TSENS_TM_WATCHDOG_LOG(tm->tsens_tm_addr);
 
 	if (tm->ctrl_data->wd_bark) {
 		wd_mask = readl_relaxed(wd_critical_addr);
@@ -643,6 +647,8 @@ const struct tsens_data data_tsens23xx = {
 	.wd_bark_mask			= 1,
 	.ops				= &ops_tsens2xxx,
 	.mtc				= false,
+	.ver_major			= 2,
+	.ver_minor			= 3,
 };
 
 const struct tsens_data data_tsens24xx = {

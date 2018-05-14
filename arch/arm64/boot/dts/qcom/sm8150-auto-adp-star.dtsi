@@ -59,3 +59,23 @@
 		};
 	};
 };
+
+&sdhc_2 {
+	vdd-supply = <&pm855_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm855_2_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on
+		&sdc2_cmd_on &sdc2_data_on &storage_cd_default>;
+	pinctrl-1 = <&sdc2_clk_off
+		&sdc2_cmd_off &sdc2_data_off &storage_cd_default>;
+
+	cd-gpios = <&pm855_1_gpios 4 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};

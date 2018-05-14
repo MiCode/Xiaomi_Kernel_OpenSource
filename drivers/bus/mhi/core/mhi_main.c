@@ -461,31 +461,15 @@ error_queue:
 int mhi_destroy_device(struct device *dev, void *data)
 {
 	struct mhi_device *mhi_dev;
-	struct mhi_driver *mhi_drv;
 	struct mhi_controller *mhi_cntrl;
-	struct mhi_chan *mhi_chan;
-	int dir;
 
 	if (dev->bus != &mhi_bus_type)
 		return 0;
 
 	mhi_dev = to_mhi_device(dev);
-	mhi_drv = to_mhi_driver(dev->driver);
 	mhi_cntrl = mhi_dev->mhi_cntrl;
 
 	MHI_LOG("destroy device for chan:%s\n", mhi_dev->chan_name);
-
-	for (dir = 0; dir < 2; dir++) {
-		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
-
-		if (!mhi_chan)
-			continue;
-
-		/* remove device associated with the channel */
-		mutex_lock(&mhi_chan->mutex);
-		mhi_chan->mhi_dev = NULL;
-		mutex_unlock(&mhi_chan->mutex);
-	}
 
 	/* notify the client and remove the device from mhi bus */
 	device_del(dev);
@@ -525,12 +509,18 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		if (!mhi_dev)
 			return;
 
-		if (mhi_chan->dir == DMA_TO_DEVICE) {
+		switch (mhi_chan->dir) {
+		case DMA_TO_DEVICE:
 			mhi_dev->ul_chan = mhi_chan;
 			mhi_dev->ul_chan_id = mhi_chan->chan;
 			mhi_dev->ul_xfer = mhi_chan->queue_xfer;
 			mhi_dev->ul_event_id = mhi_chan->er_index;
-		} else {
+			break;
+		case DMA_NONE:
+		case DMA_BIDIRECTIONAL:
+			mhi_dev->ul_chan_id = mhi_chan->chan;
+		case DMA_FROM_DEVICE:
+			/* we use dl_chan for offload channels */
 			mhi_dev->dl_chan = mhi_chan;
 			mhi_dev->dl_chan_id = mhi_chan->chan;
 			mhi_dev->dl_xfer = mhi_chan->queue_xfer;
@@ -1101,13 +1091,8 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	mhi_chan->ch_state = MHI_CH_STATE_ENABLED;
 	write_unlock_irq(&mhi_chan->lock);
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-
 	/* pre allocate buffer for xfer ring */
 	if (mhi_chan->pre_alloc) {
-		struct mhi_device *mhi_dev = mhi_chan->mhi_dev;
 		int nr_el = get_nr_avail_ring_elements(mhi_cntrl,
 						       &mhi_chan->tre_ring);
 
@@ -1120,16 +1105,29 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 				goto error_pre_alloc;
 			}
 
-			ret = mhi_queue_buf(mhi_dev, mhi_chan, buf, MHI_MAX_MTU,
-					    MHI_EOT);
+			/* prepare transfer descriptors */
+			ret = mhi_chan->gen_tre(mhi_cntrl, mhi_chan, buf, buf,
+						MHI_MAX_MTU, MHI_EOT);
 			if (ret) {
-				MHI_ERR("Chan:%d error queue buffer\n",
+				MHI_ERR("Chan:%d error prepare buffer\n",
 					mhi_chan->chan);
 				kfree(buf);
 				goto error_pre_alloc;
 			}
 		}
+
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		if (MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)) {
+			read_lock_irq(&mhi_chan->lock);
+			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
+			read_unlock_irq(&mhi_chan->lock);
+		}
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mutex_unlock(&mhi_chan->mutex);
 
@@ -1152,6 +1150,11 @@ error_init_chan:
 	return ret;
 
 error_pre_alloc:
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
 	mutex_unlock(&mhi_chan->mutex);
 	__mhi_unprepare_channel(mhi_cntrl, mhi_chan);
 

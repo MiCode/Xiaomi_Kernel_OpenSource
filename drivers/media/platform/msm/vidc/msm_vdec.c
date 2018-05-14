@@ -717,12 +717,14 @@ int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct msm_vidc_core *core;
 	struct msm_vidc_format *fmt = NULL;
 
-	if (!inst) {
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "Invalid input = %pK\n", inst);
 		return -EINVAL;
 	}
+	core = inst->core;
 	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
@@ -740,6 +742,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->prop.fps = DEFAULT_FPS;
 	inst->clk_data.operating_rate = 0;
+	if (core->resources.decode_batching)
+		inst->batch.size = MAX_DEC_BATCH_SIZE;
 
 	/* By default, initialize CAPTURE port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,

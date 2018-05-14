@@ -34,13 +34,77 @@
 		#size-cells = <2>;
 		ranges;
 
+		removed_region0: removed_region@85600000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85600000 0x0 0x900000>;
+		};
+
 		smem_region: smem@85f00000 {
 			no-map;
 			reg = <0x0 0x85f00000 0x0 0x200000>;
 		};
+
+		removed_region1: removed_region@86100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86100000 0x0 0x300000>;
+		};
+
+		wlan_fw_mem: wlan_fw_mem@86400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86400000 0x0 0x1c00000>;
+		};
+
+		adsp_fw_mem: adsp_fw_mem@88000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x88000000 0x0 0x1a00000>;
+		};
+
+		cdsp_fw_mem: cdsp_fw_mem@89a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x89a00000 0x0 0x600000>;
+		};
+
+		secure_mem: secure_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x7000000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+		};
+
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+			linux,cma-default;
+		};
 	};
 
-	aliases { };
+	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+	};
 
 	soc: soc { };
 
@@ -49,6 +113,7 @@
 #include "qcs405-pinctrl.dtsi"
 #include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
+#include "qcs405-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -539,6 +604,56 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 		};
+	};
+
+	sdhc_1: sdhci@7804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x7804000 0x1000>, <0x7805000 0x1000>;
+		reg-names = "hc_mem", "cmdq_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		qcom,large-address-bus;
+
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+						192000000 384000000>;
+		qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+
+		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			<&clock_gcc GCC_SDCC1_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,nonremovable;
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@7844000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x7844000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		qcom,clk-rates = <400000 20000000 25000000
+					50000000 100000000 201500000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 201500000>;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		status = "disabled";
 	};
 };
 

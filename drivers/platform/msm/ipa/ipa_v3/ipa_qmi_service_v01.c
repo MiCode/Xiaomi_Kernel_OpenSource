@@ -1093,10 +1093,91 @@ struct qmi_elem_info ipa3_init_modem_driver_req_msg_data_v01_ei[] = {
 			v6_hash_filter_tbl_start_addr),
 	},
 	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x1F,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_stats_quota_base_addr_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x1F,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_stats_quota_base_addr),
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x20,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_stats_quota_size_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x20,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_stats_quota_size),
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x21,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_drop_stats_base_addr_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x21,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_drop_stats_base_addr),
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x22,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_drop_stats_table_size_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x22,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hw_drop_stats_table_size),
+	},
+	{
 		.data_type	= QMI_EOTI,
 		.is_array	= NO_ARRAY,
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 	},
+
 };
 
 struct qmi_elem_info ipa3_init_modem_driver_resp_msg_data_v01_ei[] = {

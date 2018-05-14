@@ -425,6 +425,20 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	req.v6_hash_filter_tbl_start_addr =
 		IPA_MEM_PART(v6_flt_hash_ofst) + smem_restr_bytes;
 
+	req.hw_stats_quota_base_addr_valid = true;
+	req.hw_stats_quota_base_addr =
+		IPA_MEM_PART(stats_quota_ofst) + smem_restr_bytes;
+
+	req.hw_stats_quota_size_valid = true;
+	req.hw_stats_quota_size = IPA_MEM_PART(stats_quota_size);
+
+	req.hw_drop_stats_base_addr_valid = true;
+	req.hw_drop_stats_base_addr =
+		IPA_MEM_PART(stats_drop_ofst) + smem_restr_bytes;
+
+	req.hw_drop_stats_table_size_valid = true;
+	req.hw_drop_stats_table_size = IPA_MEM_PART(stats_drop_size);
+
 	if (!ipa3_uc_loaded_check()) {  /* First time boot */
 		req.is_ssr_bootup_valid = false;
 		req.is_ssr_bootup = 0;

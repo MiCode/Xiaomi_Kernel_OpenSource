@@ -308,7 +308,8 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
-	if (refcount_dec_and_test(&gpdev->refcount)) {
+	refcount_dec(&gpdev->refcount);
+	if (refcount_read(&gpdev->refcount) == 1) {
 		spin_lock_irqsave(&gpdev->queue_lock, flags);
 
 		/* Discard all SKBs */
@@ -345,7 +346,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 	struct sk_buff *skb;
 	int use;
 
-	if (!gpdev || !refcount_read(&gpdev->refcount)) {
+	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
 		GLINK_PKT_ERR("invalid device handle\n", __func__);
 		return -EINVAL;
 	}
@@ -416,7 +417,7 @@ ssize_t glink_pkt_write(struct file *file, const char __user *buf,
 	int ret;
 
 	gpdev = file->private_data;
-	if (!gpdev || !refcount_read(&gpdev->refcount)) {
+	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
 		GLINK_PKT_ERR("invalid device handle\n", __func__);
 		return -EINVAL;
 	}
@@ -466,7 +467,7 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 	unsigned long flags;
 
 	gpdev = file->private_data;
-	if (!gpdev || !refcount_read(&gpdev->refcount)) {
+	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
 		GLINK_PKT_ERR("invalid device handle\n", __func__);
 		return POLLERR;
 	}
@@ -561,7 +562,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	int ret;
 
 	gpdev = file->private_data;
-	if (!gpdev || !refcount_read(&gpdev->refcount)) {
+	if (!gpdev || refcount_read(&gpdev->refcount) == 1) {
 		GLINK_PKT_ERR("invalid device handle\n", __func__);
 		return -EINVAL;
 	}
@@ -733,7 +734,7 @@ static int glink_pkt_create_device(struct device *parent,
 
 	dev = &gpdev->dev;
 	mutex_init(&gpdev->lock);
-	refcount_set(&gpdev->refcount, 0);
+	refcount_set(&gpdev->refcount, 1);
 	init_completion(&gpdev->ch_open);
 
 	/* Default open timeout for open is 120 sec */

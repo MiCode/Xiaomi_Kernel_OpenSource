@@ -65,7 +65,7 @@ static inline unsigned long int get_ubwc_compression_ratio(
 	return compression_ratio;
 }
 
-static inline int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
+int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int height, width;
 
@@ -370,8 +370,9 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!inst->clk_data.dcvs_mode) {
-		dprintk(VIDC_DBG, "DCVS is not enabled\n");
+	if (!inst->clk_data.dcvs_mode || inst->batch.enable) {
+		dprintk(VIDC_DBG, "Skip DCVS (dcvs %d, batching %d)\n",
+			inst->clk_data.dcvs_mode, inst->batch.enable);
 		return 0;
 	}
 
@@ -871,16 +872,16 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 
 	if (msm_vidc_clock_voting ||
 			inst->flags & VIDC_THUMBNAIL ||
-			inst->clk_data.low_latency_mode) {
-		dprintk(VIDC_PROF,
-			"This session doesn't need DCVS : %pK\n",
-				inst);
+			inst->clk_data.low_latency_mode ||
+			inst->batch.enable) {
+		dprintk(VIDC_PROF, "DCVS disabled: %pK\n", inst);
 		inst->clk_data.extra_capture_buffer_count = 0;
 		inst->clk_data.extra_output_buffer_count = 0;
 		inst->clk_data.dcvs_mode = false;
 		return false;
 	}
 	inst->clk_data.dcvs_mode = true;
+	dprintk(VIDC_PROF, "DCVS enabled: %pK\n", inst);
 
 	inst->clk_data.extra_capture_buffer_count =
 		DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
@@ -996,14 +997,35 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
-	if (!inst) {
+	int count = 0;
+
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return 0;
 	}
+	/*
+	 * no extra buffers for thumbnail session because
+	 * neither dcvs nor batching will be enabled
+	 */
+	if (is_thumbnail_session(inst))
+		return 0;
 
-	return buffer_type == HAL_BUFFER_INPUT ?
+	count = buffer_type == HAL_BUFFER_INPUT ?
 		inst->clk_data.extra_output_buffer_count :
 		inst->clk_data.extra_capture_buffer_count;
+
+	/*
+	 * if platform supports decode batching ensure minimum
+	 * batch size count of extra buffers added on output port
+	 */
+	if (buffer_type == HAL_BUFFER_OUTPUT) {
+		if (inst->core->resources.decode_batching &&
+			is_decode_session(inst) &&
+			count < inst->batch.size)
+			count = inst->batch.size;
+	}
+
+	return count;
 }
 
 int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)

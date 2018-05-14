@@ -231,16 +231,25 @@ EXPORT_SYMBOL(msm_vidc_query_ctrl);
 
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 {
+	int rc = 0;
 	struct msm_vidc_inst *inst = instance;
 
 	if (!inst || !f)
 		return -EINVAL;
 
 	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_s_fmt(instance, f);
+		rc = msm_vdec_s_fmt(instance, f);
 	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_s_fmt(instance, f);
-	return -EINVAL;
+		rc = msm_venc_s_fmt(instance, f);
+
+	dprintk(VIDC_DBG,
+		"s_fmt: %x : type %d wxh %dx%d pixelfmt %#x num_planes %d size[0] %d size[1] %d in_reconfig %d\n",
+		hash32_ptr(inst->session), f->type,
+		f->fmt.pix_mp.width, f->fmt.pix_mp.height,
+		f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.num_planes,
+		f->fmt.pix_mp.plane_fmt[0].sizeimage,
+		f->fmt.pix_mp.plane_fmt[1].sizeimage, inst->in_reconfig);
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_s_fmt);
 
@@ -297,6 +306,13 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 	f->fmt.pix_mp.plane_fmt[0].reserved[0] = VENUS_Y_SCANLINES(color_format,
 			inst->prop.height[port]);
 
+	dprintk(VIDC_DBG,
+		"g_fmt: %x : type %d wxh %dx%d pixelfmt %#x num_planes %d size[0] %d size[1] %d in_reconfig %d\n",
+		hash32_ptr(inst->session), f->type,
+		f->fmt.pix_mp.width, f->fmt.pix_mp.height,
+		f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.num_planes,
+		f->fmt.pix_mp.plane_fmt[0].sizeimage,
+		f->fmt.pix_mp.plane_fmt[1].sizeimage, inst->in_reconfig);
 exit:
 	return rc;
 }
@@ -837,6 +853,11 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 		rc = -EINVAL;
 		break;
 	}
+
+	dprintk(VIDC_DBG,
+		"queue_setup: %x : type %d num_buffers %d num_planes %d sizes[0] %d sizes[1] %d\n",
+		hash32_ptr(inst->session), q->type, *num_buffers,
+		*num_planes, sizes[0], sizes[1]);
 	return rc;
 }
 
@@ -981,6 +1002,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 				"Failed to set output buffers: %d\n", rc);
 			goto fail_start;
 		}
+	}
+
+	if (is_batching_allowed(inst)) {
+		dprintk(VIDC_DBG,
+			"%s: batching enabled for inst %pK (%#x)\n",
+			__func__, inst, hash32_ptr(inst->session));
+		inst->batch.enable = true;
+		/* this will disable dcvs as batching enabled */
+		msm_dcvs_try_enable(inst);
 	}
 
 	/*
@@ -1164,11 +1194,96 @@ static void msm_vidc_stop_streaming(struct vb2_queue *q)
 			inst, q->type);
 }
 
+static int msm_vidc_queue_buf(struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb2)
+{
+	int rc = 0;
+	struct msm_vidc_buffer *mbuf;
+
+	if (!inst || !vb2) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	mbuf = msm_comm_get_vidc_buffer(inst, vb2);
+	if (IS_ERR_OR_NULL(mbuf)) {
+		/*
+		 * if the buffer has RBR_PENDING flag (-EEXIST) then don't queue
+		 * it now, it will be queued via msm_comm_qbuf_rbr() as part of
+		 * RBR event processing.
+		 */
+		if (PTR_ERR(mbuf) == -EEXIST)
+			return 0;
+		dprintk(VIDC_ERR, "%s: failed to get vidc-buf\n", __func__);
+		return -EINVAL;
+	}
+	if (!kref_get_mbuf(inst, mbuf)) {
+		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
+		return -EINVAL;
+	}
+	rc = msm_comm_qbuf(inst, mbuf);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed qbuf\n", __func__);
+	kref_put_mbuf(mbuf);
+
+	return rc;
+}
+
+static int msm_vidc_queue_buf_decode_batch(struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb2)
+{
+	int rc;
+	struct msm_vidc_buffer *mbuf;
+
+	if (!inst || !vb2) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	mbuf = msm_comm_get_vidc_buffer(inst, vb2);
+	if (IS_ERR_OR_NULL(mbuf)) {
+		dprintk(VIDC_ERR, "%s: failed to get vidc-buf\n", __func__);
+		return -EINVAL;
+	}
+	if (!kref_get_mbuf(inst, mbuf)) {
+		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
+		return -EINVAL;
+	}
+	/*
+	 * If this buffer has RBR_EPNDING then it will not be queued
+	 * but it may trigger full batch queuing in below function.
+	 */
+	rc = msm_comm_qbuf_decode_batch(inst, mbuf);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed qbuf\n", __func__);
+	kref_put_mbuf(mbuf);
+
+	return rc;
+}
+
+static int msm_vidc_queue_buf_batch(struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb2)
+{
+	int rc;
+
+	if (!inst || !vb2) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER &&
+			vb2->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		rc = msm_vidc_queue_buf_decode_batch(inst, vb2);
+	else
+		rc = msm_vidc_queue_buf(inst, vb2);
+
+	return rc;
+}
+
 static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 {
 	int rc = 0;
 	struct msm_vidc_inst *inst = NULL;
-	struct msm_vidc_buffer *mbuf = NULL;
 
 	inst = vb2_get_drv_priv(vb2->vb2_queue);
 	if (!inst) {
@@ -1176,30 +1291,14 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 		return;
 	}
 
-	mbuf = msm_comm_get_vidc_buffer(inst, vb2);
-	if (IS_ERR_OR_NULL(mbuf)) {
-		if (PTR_ERR(mbuf) == -EEXIST)
-			return;
-		print_vb2_buffer(VIDC_ERR, "failed to get vidc-buf",
-			inst, vb2);
-		rc = -EINVAL;
-		goto error;
-	}
-	if (!kref_get_mbuf(inst, mbuf)) {
-		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
-		rc = -EINVAL;
-		goto error;
-	}
-
-	rc = msm_comm_qbuf(inst, mbuf);
-	if (rc)
-		print_vidc_buffer(VIDC_ERR, "failed qbuf", inst, mbuf);
-
-	kref_put_mbuf(mbuf);
-
-error:
-	if (rc)
+	if (inst->batch.enable)
+		rc = msm_vidc_queue_buf_batch(inst, vb2);
+	else
+		rc = msm_vidc_queue_buf(inst, vb2);
+	if (rc) {
+		print_vb2_buffer(VIDC_ERR, "failed vb2-qbuf", inst, vb2);
 		msm_comm_generate_session_error(inst);
+	}
 }
 
 static const struct vb2_ops msm_vidc_vb2q_ops = {
@@ -1402,7 +1501,8 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 			ctrl->val = bufreq->buffer_count_min_host;
 			return 0;
 		}
-		if (ctrl->val > bufreq->buffer_count_min_host) {
+		if (ctrl->val > bufreq->buffer_count_min_host &&
+			ctrl->val <= MAX_NUM_OUTPUT_BUFFERS) {
 			dprintk(VIDC_DBG,
 				"Buffer count Host changed from %d to %d\n",
 					bufreq->buffer_count_min_host,
@@ -1421,6 +1521,12 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 
 		msm_vidc_update_host_buff_counts(inst);
 		ctrl->val = bufreq->buffer_count_min_host;
+		dprintk(VIDC_DBG,
+			"g_count: %x : OUTPUT:  min %d min_host %d actual %d\n",
+			hash32_ptr(inst->session),
+			bufreq->buffer_count_min,
+			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_actual);
 		return rc;
 
 	} else if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_CAPTURE) {
@@ -1452,7 +1558,8 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 			bufreq->buffer_count_min_host =
 				ctrl->val;
 		}
-		if (ctrl->val > bufreq->buffer_count_min_host) {
+		if (ctrl->val > bufreq->buffer_count_min_host &&
+			ctrl->val <= MAX_NUM_CAPTURE_BUFFERS) {
 			dprintk(VIDC_DBG,
 				"Buffer count Host changed from %d to %d\n",
 				bufreq->buffer_count_min_host,
@@ -1471,7 +1578,12 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 
 		msm_vidc_update_host_buff_counts(inst);
 		ctrl->val = bufreq->buffer_count_min_host;
-
+		dprintk(VIDC_DBG,
+			"g_count: %x : CAPTURE:  min %d min_host %d actual %d\n",
+			hash32_ptr(inst->session),
+			bufreq->buffer_count_min,
+			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_actual);
 		return rc;
 	}
 	return -EINVAL;

@@ -68,6 +68,7 @@
 #include <linux/atomic.h>
 #include <linux/list.h>
 #include <uapi/linux/spcom.h>
+#include <soc/qcom/subsystem_restart.h>
 
 /**
  * Request buffer size.
@@ -519,6 +520,28 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 	ret = spcom_create_channel_chardev(ch_name);
 
 	return ret;
+}
+
+/**
+ * spcom_handle_restart_sp_command() - Handle Restart SP command from
+ * user space.
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int spcom_handle_restart_sp_command(void)
+{
+	void *subsystem_get_retval = NULL;
+
+	pr_err("restart - PIL FW loading process initiated\n");
+
+	subsystem_get_retval = subsystem_get("spss");
+	if (!subsystem_get_retval) {
+		pr_err("restart - unable to trigger PIL process for FW loading\n");
+		return -EINVAL;
+	}
+
+	pr_err("restart - PIL FW loading process is complete\n");
+	return 0;
 }
 
 /**
@@ -981,7 +1004,8 @@ static int spcom_handle_write(struct spcom_channel *ch,
 
 	pr_debug("cmd_id [0x%x]\n", cmd_id);
 
-	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL) {
+	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL
+			&& cmd_id != SPCOM_CMD_RESTART_SP) {
 		pr_err("channel context is null\n");
 		return -EINVAL;
 	}
@@ -1001,6 +1025,9 @@ static int spcom_handle_write(struct spcom_channel *ch,
 		break;
 	case SPCOM_CMD_CREATE_CHANNEL:
 		ret = spcom_handle_create_channel_command(buf, buf_size);
+		break;
+	case SPCOM_CMD_RESTART_SP:
+		ret = spcom_handle_restart_sp_command();
 		break;
 	default:
 		pr_err("Invalid Command Id [0x%x].\n", (int) cmd->cmd_id);
@@ -1300,13 +1327,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->is_busy = false;
 	ch->pid = 0;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
-
-	if (strcmp(name, "sp_kernel") != 0) {
-		ret = spcom_unregister_rpmsg_drv(ch);
-		if (ret != 0)
-			pr_err("can't unregister rpmsg drv\n", ret);
-	}
-
 	mutex_unlock(&ch->lock);
 	filp->private_data = NULL;
 
@@ -1621,7 +1641,6 @@ static int spcom_create_channel_chardev(const char *name)
 		return ret;
 	}
 
-	mutex_lock(&ch->lock);
 	ret = spcom_register_rpmsg_drv(ch);
 	if (ret < 0) {
 		pr_err("register rpmsg driver failed %d\n", ret);
@@ -1653,6 +1672,7 @@ static int spcom_create_channel_chardev(const char *name)
 		goto exit_destroy_device;
 	}
 	atomic_inc(&spcom_dev->chdev_count);
+	mutex_lock(&ch->lock);
 	ch->cdev = cdev;
 	ch->dev = dev;
 	mutex_unlock(&ch->lock);
@@ -1939,10 +1959,7 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 }
 
-/*
- * register rpmsg driver to match with channel ch_name
- * function shold be called under ch->lock
- */
+/* register rpmsg driver to match with channel ch_name */
 static int spcom_register_rpmsg_drv(struct spcom_channel *ch)
 {
 	struct rpmsg_driver *rpdrv;
@@ -1989,25 +2006,27 @@ static int spcom_register_rpmsg_drv(struct spcom_channel *ch)
 		kfree(drv_name);
 		return ret;
 	}
-	// the function caller should mutex_lock(&ch->lock)
+	mutex_lock(&ch->lock);
 	ch->rpdrv = rpdrv;
 	ch->rpmsg_abort = false;
+	mutex_unlock(&ch->lock);
 
 	return 0;
 }
 
-/* function shold be called under ch->lock */
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch)
 {
 	if (!ch->rpdrv)
 		return -ENODEV;
 	unregister_rpmsg_driver(ch->rpdrv);
 
+	mutex_lock(&ch->lock);
 	kfree(ch->rpdrv->drv.name);
 	kfree((void *)ch->rpdrv->id_table);
 	kfree(ch->rpdrv);
 	ch->rpdrv = NULL;
 	ch->rpmsg_abort = true; /* will unblock spcom_rx() */
+	mutex_unlock(&ch->lock);
 	return 0;
 }
 

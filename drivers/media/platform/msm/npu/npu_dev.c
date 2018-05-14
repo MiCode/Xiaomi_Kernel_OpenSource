@@ -536,6 +536,11 @@ static void npu_disable_core_clocks(struct npu_device *npu_dev)
 	for (i = (npu_dev->core_clk_num)-1; i >= 0 ; i--) {
 		if (npu_is_exclude_clock(core_clks[i].clk_name))
 			continue;
+		if (!npu_dev->host_ctx.fw_enabled) {
+			if (npu_is_post_clock(npu_dev->core_clks[i].clk_name))
+				continue;
+		}
+
 		pr_debug("disabling clock [%s]\n", core_clks[i].clk_name);
 		clk_disable_unprepare(core_clks[i].clk);
 	}

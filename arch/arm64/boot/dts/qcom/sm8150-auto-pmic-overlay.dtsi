@@ -100,6 +100,16 @@ pm855_1_gpios: &pm855_gpios {
 		};
 	};
 
+	storage_sd_detect {
+		storage_cd_default: storage_cd_default {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
 			pins = "gpio6";
