@@ -347,6 +347,7 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 	} else {
 		f->fmt.pix.height = sd_fmt.format.height;
 		f->fmt.pix.width = sd_fmt.format.width;
+		f->fmt.pix.field = sd_fmt.format.field;
 		switch (sd_fmt.format.code) {
 		case MEDIA_BUS_FMT_YUYV8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
