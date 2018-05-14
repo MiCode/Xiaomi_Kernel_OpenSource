@@ -287,6 +287,9 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 	}
 
 	psde = to_sde_plane(plane);
+	if (psde->features & BIT(SDE_SSPP_QOS_FL_NOCALC))
+		return 0;
+
 	pstate = to_sde_plane_state(plane->state);
 	rstate = &pstate->rot;
 	fixed_buff_size = psde->pipe_sblk->pixel_ram_size;
@@ -405,6 +408,8 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 
 		if (fmt && SDE_FORMAT_IS_LINEAR(fmt))
 			lut_usage = SDE_QOS_LUT_USAGE_LINEAR;
+		else if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3))
+			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE_QSEED;
 		else
 			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE;
 	}
@@ -469,6 +474,10 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 			danger_lut = psde->catalog->perf.danger_lut_tbl
 					[SDE_QOS_LUT_USAGE_LINEAR];
 			lut_usage = SDE_QOS_LUT_USAGE_LINEAR;
+		} else if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
+			danger_lut = psde->catalog->perf.danger_lut_tbl
+					[SDE_QOS_LUT_USAGE_MACROTILE_QSEED];
+			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE_QSEED;
 		} else {
 			danger_lut = psde->catalog->perf.danger_lut_tbl
 					[SDE_QOS_LUT_USAGE_MACROTILE];
