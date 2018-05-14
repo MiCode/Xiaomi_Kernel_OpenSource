@@ -173,6 +173,23 @@
 	/delete-property/ qcom,msm-vdd-wsa-switch-current;
 };
 
+&pm8953_l2 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&camera0 {
+	qcom,mount-angle = <90>;
+};
+
+&camera1 {
+	qcom,mount-angle = <90>;
+};
+
+&camera2{
+	qcom,mount-angle = <90>;
+};
+
 &pm8953_diangu_dig {
 	status = "ok";
 };
