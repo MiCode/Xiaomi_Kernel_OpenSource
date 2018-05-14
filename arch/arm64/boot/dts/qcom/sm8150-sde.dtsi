@@ -123,6 +123,11 @@
 		qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
 						0xb0 0xc8 0xe0 0xf8 0x110>;
 
+		qcom,sde-max-per-pipe-bw-kbps = <4500000 4500000
+						 4500000 4500000
+						 4500000 4500000
+						 4500000 4500000>;
+
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 		qcom,sde-sspp-clk-ctrl =
 				<0x2ac 0>, <0x2b4 0>, <0x2bc 0>, <0x2c4 0>,
@@ -147,8 +152,8 @@
 		qcom,sde-has-dest-scaler;
 		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
 		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
-		qcom,sde-max-bw-low-kbps = <9600000>;
-		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-max-bw-low-kbps = <12800000>;
+		qcom,sde-max-bw-high-kbps = <12800000>;
 		qcom,sde-min-core-ib-kbps = <2400000>;
 		qcom,sde-min-llcc-ib-kbps = <800000>;
 		qcom,sde-min-dram-ib-kbps = <800000>;
