@@ -1149,8 +1149,9 @@ static unsigned long vco_7nm_recalc_rate(struct clk_hw *hw,
 	pr_debug("dec=0x%x, frac=0x%x, outdiv=%d, vco=%llu\n",
 		 dec, frac, outdiv, vco_rate);
 
-end:
 	(void)mdss_pll_resource_enable(pll, false);
+
+end:
 	return (unsigned long)vco_rate;
 }
 
