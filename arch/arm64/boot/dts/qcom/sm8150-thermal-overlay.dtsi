@@ -13,111 +13,111 @@
 #include <dt-bindings/thermal/thermal.h>
 
 &thermal_zones {
-	pm855b_tz {
+	pm8150b_tz {
 		cooling-maps {
 			trip0_bat {
-				trip = <&pm855b_trip0>;
+				trip = <&pm8150b_trip0>;
 				cooling-device =
-					<&pm855b_charger (THERMAL_MAX_LIMIT-1)
+					<&pm8150b_charger (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip1_bat {
-				trip = <&pm855b_trip1>;
+				trip = <&pm8150b_trip1>;
 				cooling-device =
-					<&pm855b_charger THERMAL_MAX_LIMIT
+					<&pm8150b_charger THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
 
-	pm855_tz {
+	pm8150_tz {
 		cooling-maps {
 			trip0_cpu0 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU0 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu1 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU1 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu2 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU2 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu3 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU3 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu4 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU4 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu5 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU5 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu6 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU6 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip0_cpu7 {
-				trip = <&pm855_trip0>;
+				trip = <&pm8150_trip0>;
 				cooling-device =
 					<&CPU7 (THERMAL_MAX_LIMIT-1)
 						(THERMAL_MAX_LIMIT-1)>;
 			};
 			trip1_cpu1 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU1 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu2 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU2 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu3 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU3 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu4 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU4 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu5 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu6 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU6 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 			trip1_cpu7 {
-				trip = <&pm855_trip1>;
+				trip = <&pm8150_trip1>;
 				cooling-device =
 					<&CPU7 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
@@ -154,7 +154,7 @@
 		};
 	};
 
-	pm855b-vbat-lvl0 {
+	pm8150b-vbat-lvl0 {
 		cooling-maps {
 			vbat_cpu4 {
 				trip = <&vbat_lvl0>;
@@ -183,7 +183,7 @@
 		};
 	};
 
-	pm855b-ibat-lvl0 {
+	pm8150b-ibat-lvl0 {
 		cooling-maps {
 			ibat_cpu4 {
 				trip = <&ibat_lvl0>;
@@ -212,7 +212,7 @@
 		};
 	};
 
-	pm855l-vph-lvl0 {
+	pm8150l-vph-lvl0 {
 		disable-thermal-zone;
 		cooling-maps {
 			vph_cpu4 {

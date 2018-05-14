@@ -198,8 +198,8 @@
 		wake-gpio = <&tlmm 37 0>;
 
 		gdsc-vdd-supply = <&pcie_0_gdsc>;
-		vreg-1.8-supply = <&pm855l_l3>;
-		vreg-0.9-supply = <&pm855_l5>;
+		vreg-1.8-supply = <&pm8150l_l3>;
+		vreg-0.9-supply = <&pm8150_l5>;
 		vreg-cx-supply = <&VDD_CX_LEVEL>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
@@ -515,8 +515,8 @@
 		wake-gpio = <&tlmm 104 0>;
 
 		gdsc-vdd-supply = <&pcie_1_gdsc>;
-		vreg-1.8-supply = <&pm855l_l3>;
-		vreg-0.9-supply = <&pm855_l5>;
+		vreg-1.8-supply = <&pm8150l_l3>;
+		vreg-0.9-supply = <&pm8150_l5>;
 		vreg-cx-supply = <&VDD_CX_LEVEL>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;

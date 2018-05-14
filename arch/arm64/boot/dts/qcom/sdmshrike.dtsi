@@ -1036,8 +1036,8 @@
 		compatible = "qcom,camcc-sdmshrike";
 		reg = <0xad00000 0x20000>;
 		reg-names = "cc_base";
-		vdd_mx-supply = <&pm855p_s3_level>;
-		vdd_mm-supply = <&pm855p_s1_level>;
+		vdd_mx-supply = <&pm8150c_s3_level>;
+		vdd_mm-supply = <&pm8150c_s1_level>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		#clock-cells = <1>;
@@ -1103,7 +1103,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
 
-		vdd_cx-supply = <&pm855_2_s3_level>;
+		vdd_cx-supply = <&pm8150_2_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
@@ -1441,8 +1441,8 @@
 };
 
 &gpu_gx_gdsc {
-	parent-supply = <&pm855_1_s10_level>;
-	vdd_parent-supply = <&pm855_1_s10_level>;
+	parent-supply = <&pm8150_1_s10_level>;
+	vdd_parent-supply = <&pm8150_1_s10_level>;
 	status = "ok";
 };
 

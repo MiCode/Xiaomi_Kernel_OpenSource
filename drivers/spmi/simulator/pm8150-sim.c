@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@ struct pmic_sim {
 	u32			base_addr;
 };
 
-static const struct spmi_sim_register_init pm855_regs[] = {
+static const struct spmi_sim_register_init pm8150_regs[] = {
 	{0x00101, 0x00, SPMI_SIM_PERM_R},
 	{0x00102, 0x00, SPMI_SIM_PERM_R},
 	{0x00103, 0x01, SPMI_SIM_PERM_R},
@@ -2860,7 +2860,7 @@ static const struct spmi_sim_register_init pm855_regs[] = {
 	{0x1511D, 0x01, SPMI_SIM_PERM_R},
 };
 
-static int pm855_sim_probe(struct platform_device *pdev)
+static int pm8150_sim_probe(struct platform_device *pdev)
 {
 	struct pmic_sim *sim;
 	u32 sid_offset = 0;
@@ -2889,45 +2889,45 @@ static int pm855_sim_probe(struct platform_device *pdev)
 
 	sim->base_addr = sid_offset << 16;
 
-	rc = spmi_sim_init_register(sim->spmi_sim, pm855_regs,
-				ARRAY_SIZE(pm855_regs), sim->base_addr);
+	rc = spmi_sim_init_register(sim->spmi_sim, pm8150_regs,
+				ARRAY_SIZE(pm8150_regs), sim->base_addr);
 	if (rc) {
-		dev_err(&pdev->dev, "could not initialize PM855 register values, rc=%d\n",
+		dev_err(&pdev->dev, "could not initialize PM8150 register values, rc=%d\n",
 			rc);
 		return rc;
 	}
 
-	dev_info(&pdev->dev, "PMIC PM855 simulator registered at base addr=0x%05X\n",
+	dev_info(&pdev->dev, "PMIC PM8150 simulator registered at base addr=0x%05X\n",
 		sim->base_addr);
 
 	return 0;
 }
 
-static const struct of_device_id pm855_sim_match_table[] = {
-	{ .compatible = "qcom,pm855-sim", },
+static const struct of_device_id pm8150_sim_match_table[] = {
+	{ .compatible = "qcom,pm8150-sim", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, pm855_sim_match_table);
+MODULE_DEVICE_TABLE(of, pm8150_sim_match_table);
 
-static struct platform_driver pm855_sim_driver = {
-	.probe		= pm855_sim_probe,
+static struct platform_driver pm8150_sim_driver = {
+	.probe		= pm8150_sim_probe,
 	.driver		= {
-		.name	= "pm855_sim",
-		.of_match_table = pm855_sim_match_table,
+		.name	= "pm8150_sim",
+		.of_match_table = pm8150_sim_match_table,
 	},
 };
 
-static int __init pm855_sim_init(void)
+static int __init pm8150_sim_init(void)
 {
-	return platform_driver_register(&pm855_sim_driver);
+	return platform_driver_register(&pm8150_sim_driver);
 }
-postcore_initcall(pm855_sim_init);
+postcore_initcall(pm8150_sim_init);
 
-static void __exit pm855_sim_exit(void)
+static void __exit pm8150_sim_exit(void)
 {
-	platform_driver_unregister(&pm855_sim_driver);
+	platform_driver_unregister(&pm8150_sim_driver);
 }
-module_exit(pm855_sim_exit);
+module_exit(pm8150_sim_exit);
 
-MODULE_DESCRIPTION("PM855 Simulator Driver");
+MODULE_DESCRIPTION("PM8150 Simulator Driver");
 MODULE_LICENSE("GPL v2");

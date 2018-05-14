@@ -25,10 +25,10 @@
 #define FG_GEN4_DEV_NAME	"qcom,fg-gen4"
 
 #define PERPH_SUBTYPE_REG		0x05
-#define FG_BATT_SOC_PM855B		0x10
-#define FG_BATT_INFO_PM855B		0x11
-#define FG_MEM_IF_PM855B		0x0D
-#define FG_ADC_RR_PM855B		0x13
+#define FG_BATT_SOC_PM8150B		0x10
+#define FG_BATT_INFO_PM8150B		0x11
+#define FG_MEM_IF_PM8150B		0x0D
+#define FG_ADC_RR_PM8150B		0x13
 
 #define FG_SRAM_LEN			960
 #define PROFILE_LEN			416
@@ -176,7 +176,7 @@ module_param_named(
 static int fg_restart_mp;
 static bool fg_sram_dump;
 
-static struct fg_sram_param pm855_sram_params[] = {
+static struct fg_sram_param pm8150_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
 	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
@@ -2824,12 +2824,12 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		fg->pmic_rev_id->pmic_subtype, fg->pmic_rev_id->rev4);
 
 	switch (fg->pmic_rev_id->pmic_subtype) {
-	case PM855B_SUBTYPE:
+	case PM8150B_SUBTYPE:
 		fg->version = GEN4_FG;
 		fg->use_dma = true;
-		fg->sp = pm855_sram_params;
-		if (fg->pmic_rev_id->rev4 == PM855B_V1P0_REV4)
-			fg->wa_flags |= PM855B_V1_DMA_WA;
+		fg->sp = pm8150_sram_params;
+		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4)
+			fg->wa_flags |= PM8150B_V1_DMA_WA;
 		break;
 	default:
 		return -EINVAL;
@@ -2856,16 +2856,16 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		}
 
 		switch (subtype) {
-		case FG_BATT_SOC_PM855B:
+		case FG_BATT_SOC_PM8150B:
 			fg->batt_soc_base = base;
 			break;
-		case FG_BATT_INFO_PM855B:
+		case FG_BATT_INFO_PM8150B:
 			fg->batt_info_base = base;
 			break;
-		case FG_MEM_IF_PM855B:
+		case FG_MEM_IF_PM8150B:
 			fg->mem_if_base = base;
 			break;
-		case FG_ADC_RR_PM855B:
+		case FG_ADC_RR_PM8150B:
 			fg->rradc_base = base;
 			break;
 		default:

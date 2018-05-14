@@ -474,7 +474,7 @@
 		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <4 0>;
-		vdda-1p2-supply = <&pm855p_l3>;
+		vdda-1p2-supply = <&pm8150c_l3>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
@@ -509,7 +509,7 @@
 		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <5 0>;
-		vdda-1p2-supply = <&pm855p_l3>;
+		vdda-1p2-supply = <&pm8150c_l3>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE1_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
@@ -539,7 +539,7 @@
 		cell-index = <0>;
 		reg = <0xae94400 0x7c0>;
 		reg-names = "dsi_phy";
-		vdda-0p9-supply = <&pm855_2_l5>;
+		vdda-0p9-supply = <&pm8150_2_l5>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
 						55 03
@@ -571,7 +571,7 @@
 		cell-index = <1>;
 		reg = <0xae96400 0x7c0>;
 		reg-names = "dsi_phy";
-		vdda-0p9-supply = <&pm855_2_l5>;
+		vdda-0p9-supply = <&pm8150_2_l5>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
 						55 03
