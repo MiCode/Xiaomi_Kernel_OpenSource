@@ -4508,6 +4508,9 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		 * In case of an ESD attack, since we early return from the
 		 * commits, we need to signal the outstanding fences.
 		 */
+		mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
+		atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
+		mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
 		mdss_fb_release_fences(mfd);
 		if ((mfd->panel.type == MIPI_CMD_PANEL) &&
 			mfd->mdp.signal_retire_fence && mdp5_data)
