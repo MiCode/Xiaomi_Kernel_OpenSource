@@ -11,27 +11,27 @@ menuconfig SPMI_SIMULATOR
 
 if SPMI_SIMULATOR
 
-config PM855_PMIC_SIMULATOR
-	tristate "Qualcomm Technologies, Inc. PM855 PMIC Simulator"
+config PM8150_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150 PMIC Simulator"
 	help
-	  The PM855 PMIC Simulator configures the read/write permissions of all
-	  PM855 SPMI registers and loads default register values.  It is used
+	  The PM8150 PMIC Simulator configures the read/write permissions of all
+	  PM8150 SPMI registers and loads default register values.  It is used
 	  in conjunction with the SPMI Controller Simulator to help test PMIC
 	  peripheral drivers before physical PMIC chips are available.
 
-config PM855B_PMIC_SIMULATOR
-	tristate "Qualcomm Technologies, Inc. PM855B PMIC Simulator"
+config PM8150B_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150B PMIC Simulator"
 	help
-	  The PM855B PMIC Simulator configures the read/write permissions of all
-	  PM855B SPMI registers and loads default register values.  It is used
+	  The PM8150B PMIC Simulator configures the read/write permissions of all
+	  PM8150B SPMI registers and loads default register values.  It is used
 	  in conjunction with the SPMI Controller Simulator to help test PMIC
 	  peripheral drivers before physical PMIC chips are available.
 
-config PM855L_PMIC_SIMULATOR
-	tristate "Qualcomm Technologies, Inc. PM855L PMIC Simulator"
+config PM8150L_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150L PMIC Simulator"
 	help
-	  The PM855L PMIC Simulator configures the read/write permissions of all
-	  PM855L SPMI registers and loads default register values.  It is used
+	  The PM8150L PMIC Simulator configures the read/write permissions of all
+	  PM8150L SPMI registers and loads default register values.  It is used
 	  in conjunction with the SPMI Controller Simulator to help test PMIC
 	  peripheral drivers before physical PMIC chips are available.
 

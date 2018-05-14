@@ -661,7 +661,7 @@ static int adc_get_dt_channel_data(struct device *dev,
 
 const struct adc_data data_pmic5 = {
 	.full_scale_code_volt = 0x70e4,
-	/* On PM855B, IBAT LSB = 10A/32767 */
+	/* On PM8150B, IBAT LSB = 10A/32767 */
 	.full_scale_code_cur = 10000,
 	.adc_chans = adc_chans_pmic5,
 	.decimation = (unsigned int []) {250, 420, 840},

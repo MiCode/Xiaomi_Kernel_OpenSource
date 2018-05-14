@@ -312,7 +312,7 @@
 
 		qcom,platform-te-gpio = <&tlmm 8 0>;
 
-		vddio-supply = <&pm855p_l1>;
+		vddio-supply = <&pm8150c_l1>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
 

@@ -2015,7 +2015,7 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				&val->intval);
 
 		/*
-		 * For PM855B, scaling factor = reciprocal of
+		 * For PM8150B, scaling factor = reciprocal of
 		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
 		 */
 		if (smblib_get_prop_ufp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {

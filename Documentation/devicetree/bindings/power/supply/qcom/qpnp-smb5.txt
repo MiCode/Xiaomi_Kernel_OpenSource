@@ -227,18 +227,18 @@ Peripheral specific properties:
 Example
 =======
 
-pm855b_charger: qcom,qpnp-smb5 {
+pm8150b_charger: qcom,qpnp-smb5 {
 	compatible = "qcom,qpnp-smb5";
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	qcom,pmic-revid = <&pm855b_revid>;
+	qcom,pmic-revid = <&pm8150b_revid>;
 
 	dpdm-supply = <&qusb_phy0>;
 
-	io-channels = <&pm855b_vadc ADC_USB_IN_V_16>,
-	              <&pm855b_vadc ADC_USB_IN_I>,
-	              <&pm855b_vadc ADC_CHG_TEMP>;
+	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
+	              <&pm8150b_vadc ADC_USB_IN_I>,
+	              <&pm8150b_vadc ADC_CHG_TEMP>;
 	io-channel-names = "usb_in_voltage",
 	                   "usb_in_current",
 	                   "chg_temp";

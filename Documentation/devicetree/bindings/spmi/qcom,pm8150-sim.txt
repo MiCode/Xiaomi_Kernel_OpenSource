@@ -1,19 +1,19 @@
-PM855B PMIC Simulator
+PM8150 PMIC Simulator
 
 This device simulates the registers found within a Qualcomm Technologies, Inc.
-PM855B PMIC chip.
+PM8150 PMIC chip.
 
 Supported Properties:
 
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: Must be "qcom,pm855b-sim".
+	Definition: Must be "qcom,pm8150-sim".
 
 - qcom,sid-offset
 	Usage:      required
 	Value type: <u32>
-	Definition: Global slave ID (SID) offset of PM855B local SID 0.
+	Definition: Global slave ID (SID) offset of PM8150 local SID 0.
 		    Supported values: 0 - 14
 		    Typical values: 0, 2, or 4
 
@@ -25,8 +25,8 @@ Supported Properties:
 
 Example:
 
-pm855b-sim {
-	compatible = "qcom,pm855b-sim";
+pm8150-sim {
+	compatible = "qcom,pm8150-sim";
 	qcom,spmi-sim = <&spmi_sim>;
-	qcom,sid-offset = <2>;
+	qcom,sid-offset = <0>;
 };

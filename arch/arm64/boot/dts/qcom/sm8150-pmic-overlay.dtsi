@@ -11,12 +11,12 @@
  * GNU General Public License for more details.
  */
 
-#include "pm855.dtsi"
-#include "pm855b.dtsi"
-#include "pm855l.dtsi"
+#include "pm8150.dtsi"
+#include "pm8150b.dtsi"
+#include "pm8150l.dtsi"
 
 /* PMIC GPIO pin control configurations: */
-&pm855_gpios {
+&pm8150_gpios {
 	key_home {
 		key_home_default: key_home_default {
 			pins = "gpio1";
@@ -38,7 +38,7 @@
 	};
 };
 
-&pm855l_gpios {
+&pm8150l_gpios {
 	cam_sensor_eldo4 {
 		cam_sensor_eldo4_default: cam_sensor_eldo4_default {
 			pins = "gpio3";
@@ -58,7 +58,7 @@
 	};
 };
 
-&pm855b_charger {
+&pm8150b_charger {
 	smb5_vconn: qcom,smb5-vconn {
 		regulator-name = "smb5-vconn";
 	};
@@ -68,5 +68,5 @@
 };
 
 &usb0 {
-	extcon = <&pm855b_pdphy>, <&eud>;
+	extcon = <&pm8150b_pdphy>, <&eud>;
 };

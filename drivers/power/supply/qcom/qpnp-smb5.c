@@ -97,7 +97,7 @@ static struct smb_params smb5_pmi632_params = {
 	},
 };
 
-static struct smb_params smb5_pm855b_params = {
+static struct smb_params smb5_pm8150b_params = {
 	.fcc			= {
 		.name   = "fast charge current",
 		.reg    = CHGR_FAST_CHARGE_CURRENT_CFG_REG,
@@ -228,10 +228,10 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	}
 
 	switch (pmic_rev_id->pmic_subtype) {
-	case PM855B_SUBTYPE:
-		chip->chg.smb_version = PM855B_SUBTYPE;
-		chg->param = smb5_pm855b_params;
-		chg->name = "pm855b_charger";
+	case PM8150B_SUBTYPE:
+		chip->chg.smb_version = PM8150B_SUBTYPE;
+		chg->param = smb5_pm8150b_params;
+		chg->name = "pm8150b_charger";
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
@@ -2332,7 +2332,7 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (chg->smb_version == PM855B_SUBTYPE) {
+	if (chg->smb_version == PM8150B_SUBTYPE) {
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);
