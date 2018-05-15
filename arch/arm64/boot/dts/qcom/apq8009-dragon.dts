@@ -66,6 +66,11 @@
 	mdss_mdp: qcom,mdss_mdp@1a00000 {
 		status = "disabled";
 	};
+
+	bluetooth: bt_qca9379 {
+		compatible = "qca,qca9379";
+		qca,bt-reset-gpio = <&msm_gpio 47 0>; /* BT_EN */
+	};
 };
 
 &sdhc_2 {
@@ -131,5 +136,9 @@
 };
 
 &pm8916_bms {
+	status = "ok";
+};
+
+&blsp1_uart2_hs {
 	status = "ok";
 };
