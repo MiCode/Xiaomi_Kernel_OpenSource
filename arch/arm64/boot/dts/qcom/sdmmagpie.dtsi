@@ -12,6 +12,13 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,gpucc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,camcc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,videocc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,dispcc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,npucc-sdmmagpie.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDMMAGPIE";
@@ -400,6 +407,54 @@
 		};
 	};
 
+	clock_rpmh: qcom,rpmh {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpm_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,gpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_npucc: qcom,npucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "npucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
@@ -647,3 +702,100 @@
 };
 
 #include "sdmmagpie-pinctrl.dtsi"
+#include "sdmmagpie-gdsc.dtsi"
+
+&pcie_0_gdsc {
+	status = "ok";
+};
+
+&pcie_tbu_gdsc {
+	status = "ok";
+};
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu2_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
+	status = "ok";
+};
+
+&bps_gdsc {
+	status = "ok";
+};
+
+&ife_0_gdsc {
+	status = "ok";
+};
+
+&ife_1_gdsc {
+	status = "ok";
+};
+
+&ipe_0_gdsc {
+	status = "ok";
+};
+
+&ipe_1_gdsc {
+	status = "ok";
+};
+
+&titan_top_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	status = "ok";
+};
+
+&mvsc_gdsc {
+	status = "ok";
+};
+
+&mvs0_gdsc {
+	status = "ok";
+};
+
+&mvs1_gdsc {
+	status = "ok";
+};
+
+&npu_core_gdsc {
+	status = "ok";
+};
