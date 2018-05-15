@@ -771,10 +771,10 @@ static void subsys_stop(struct subsys_device *subsys)
 	const char *name = subsys->desc->name;
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
+	reinit_completion(&subsys->shutdown_ack);
 	if (!of_property_read_bool(subsys->desc->dev->of_node,
 					"qcom,pil-force-shutdown")) {
 		subsys_set_state(subsys, SUBSYS_OFFLINING);
-		init_completion(&subsys->shutdown_ack);
 		subsys->desc->sysmon_shutdown_ret =
 				sysmon_send_shutdown(subsys->desc);
 		if (subsys->desc->sysmon_shutdown_ret)
@@ -1700,6 +1700,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	dev_set_name(&subsys->dev, "subsys%d", subsys->id);
 
 	mutex_init(&subsys->track.lock);
+	init_completion(&subsys->shutdown_ack);
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
