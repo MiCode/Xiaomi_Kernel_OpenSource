@@ -714,7 +714,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	if (!rndis_opts->bound) {
 		mutex_lock(&rndis_opts->lock);
-		rndis_opts->net = gether_setup_default();
+		rndis_opts->net = gether_setup_name_default("rndis");
 		if (IS_ERR(rndis_opts->net)) {
 			status = PTR_ERR(rndis_opts->net);
 			mutex_unlock(&rndis_opts->lock);
