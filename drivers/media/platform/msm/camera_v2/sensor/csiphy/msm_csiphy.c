@@ -293,10 +293,18 @@ static int msm_csiphy_snps_lane_config(
 	void __iomem *csiphybase;
 	enum snps_csiphy_mode mode = INVALID_MODE;
 	uint32_t value, num_tries, num_lanes, offset;
+	uint32_t clk_mux_reg = 0;
 
 	csiphybase = csiphy_dev->base;
+	if (csiphy_dev->clk_mux_base != NULL)
+		clk_mux_reg = msm_camera_io_r(csiphy_dev->clk_mux_base);
+	else {
+		pr_err("%s: invalid clk_mux_base\n", __func__);
+		return -EINVAL;
+	}
+
 	/* lane mask usage
-	 * BIT	  LANE
+	 * BIT     LANE
 	 * 0(LSB)  PHY A data 0
 	 * 1       PHY A data 1
 	 * 2       PHY B data 0
@@ -318,6 +326,9 @@ static int msm_csiphy_snps_lane_config(
 			return -EINVAL;
 		}
 		csiphy_dev->snps_state = CONFIGURED_AGGREGATE_MODE;
+		clk_mux_reg &= ~0xff;
+		clk_mux_reg |= csiphy_params->csid_core << 4;
+		clk_mux_reg |= (uint32_t)csiphy_params->csid_core;
 	} else if (lane_mask == LANE_MASK_PHY_A) { /* PHY A */
 		/* 2 lane config */
 		num_lanes = 2;
@@ -333,6 +344,8 @@ static int msm_csiphy_snps_lane_config(
 			pr_err("%s: invalid request\n", __func__);
 			return -EINVAL;
 		}
+		clk_mux_reg &= ~0xf;
+		clk_mux_reg |= (uint32_t)csiphy_params->csid_core;
 	} else if (lane_mask == LANE_MASK_PHY_B) { /* PHY B */
 		/* 2 lane config */
 		num_lanes = 2;
@@ -348,10 +361,16 @@ static int msm_csiphy_snps_lane_config(
 			pr_err("%s: invalid request\n", __func__);
 			return -EINVAL;
 		}
+		clk_mux_reg &= ~0xf0;
+		clk_mux_reg |= csiphy_params->csid_core << 4;
 	} else { /* None of available configurations */
 		pr_err("%s: invalid configuration requested\n", __func__);
 		return -EINVAL;
 	}
+
+	msm_camera_io_w(clk_mux_reg, csiphy_dev->clk_mux_base);
+	/* ensure write is done */
+	mb();
 
 	if (mode == AGGREGATE_MODE || mode == TWO_LANE_PHY_A) {
 		ret = msm_csiphy_snps_2_lane_config(csiphy_dev,
