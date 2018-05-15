@@ -1,0 +1,135 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mhi_0: qcom,mhi {
+		/* controller specific configuration */
+		compatible = "qcom,mhi";
+		qcom,pci-domain = <1>;
+		qcom,pci-bus = <1>;
+		qcom,pci-slot = <0>;
+		qcom,smmu-cfg = <0x3>;
+		qcom,msm-bus,name = "mhi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<100 512 0 0>,
+					<100 512 1200000000 650000000>;
+
+		/* mhi bus specific settings */
+		mhi,max-channels = <106>;
+		mhi,chan-cfg =
+			<0 64 2 1 2 0 2 0 0>, <1 64 2 2 2 0 2 0 0>,
+			<2 128 1 1 2 0 1 0 0>, <3 128 1 2 2 0 1 0 0>,
+			<4 64 1 1 2 0 2 0 0>, <5 64 3 2 2 0 2 0 0>,
+			<8 64 1 1 2 0 2 0 0>, <9 64 1 2 2 0 2 0 0>,
+			<10 64 1 1 2 0 2 0 0>, <11 64 1 2 2 0 2 0 0>,
+			<14 64 1 1 2 0 2 0 0>, <15 64 2 2 2 0 2 0 0>,
+			<16 64 3 1 2 0 2 0 0>, <17 64 3 2 2 0 2 0 0>,
+			<18 64 1 1 2 0 2 0 0>, <19 64 1 2 2 0 2 0 8>,
+			<20 64 2 1 2 0 2 1 16>, <21 64 2 2 2 0 2 0 24>,
+			<22 64 2 1 2 0 2 0 0>, <23 64 2 2 2 0 2 0 0>,
+			<24 64 2 1 2 0 1 0 0>, <25 64 2 2 2 0 1 0 0>,
+			<26 64 3 1 2 0 2 0 0>, <27 64 3 2 2 0 2 0 0>,
+			<32 64 3 1 2 0 2 0 0>, <33 64 3 2 2 0 2 0 0>,
+			<100 512 4 1 3 1 2 1 4>, <101 512 5 2 3 1 2 1 0>;
+		mhi,chan-names = "LOOPBACK", "LOOPBACK",
+				 "SAHARA", "SAHARA",
+				 "DIAG", "DIAG",
+				 "QDSS", "QDSS",
+				 "EFS", "EFS",
+				 "QMI0", "QMI0",
+				 "QMI1", "QMI1",
+				 "IP_CTRL", "IP_CTRL",
+				 "IPCR", "IPCR",
+				 "TF", "TF",
+				 "BL", "BL",
+				 "DCI", "DCI",
+				 "DUN", "DUN",
+				 "IP_HW0", "IP_HW0";
+
+		mhi,timeout = <2000>;
+		status = "disabled";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mhi_event@0 {
+			mhi,num-elements = <32>;
+			mhi,intmod = <1>;
+			mhi,msi = <1>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+			mhi,ctrl-ev;
+		};
+
+		mhi_event@1 {
+			mhi,num-elements = <256>;
+			mhi,intmod = <1>;
+			mhi,msi = <2>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+		};
+
+		mhi_event@2 {
+			mhi,num-elements = <256>;
+			mhi,intmod = <1>;
+			mhi,msi = <3>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+		};
+
+		mhi_event@3 {
+			mhi,num-elements = <256>;
+			mhi,intmod = <1>;
+			mhi,msi = <4>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+		};
+
+		mhi_event@4 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <5>;
+			mhi,msi = <5>;
+			mhi,chan = <100>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@5 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <5>;
+			mhi,msi = <6>;
+			mhi,chan = <101>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+		};
+
+		mhi_netdev_0: mhi_rmnet@0 {
+			reg = <0x0>;
+			mhi,chan = "IP_HW0";
+			mhi,interface-name = "rmnet_mhi";
+			mhi,mru = <0x4000>;
+		};
+
+		mhi_netdev_1: mhi_rmnet@1 {
+			reg = <0x1>;
+			mhi,chan = "IP_HW_ADPL";
+			mhi,interface-name = "rmnet_mhi";
+			mhi,mru = <0x4000>;
+		};
+	};
+};

@@ -342,22 +342,6 @@ enum MHI_CH_CFG {
 #define MHI_CH_CFG_BIT_PRE_ALLOC BIT(3) /* host allocate buffers for DL */
 #define MHI_CH_CFG_BIT_AUTO_START BIT(4) /* host auto start channels */
 
-enum MHI_EV_CFG {
-	MHI_EV_CFG_ELEMENTS = 0,
-	MHI_EV_CFG_INTMOD = 1,
-	MHI_EV_CFG_MSI = 2,
-	MHI_EV_CFG_CHAN = 3,
-	MHI_EV_CFG_PRIORITY = 4,
-	MHI_EV_CFG_BRSTMODE = 5,
-	MHI_EV_CFG_BITCFG = 6,
-	MHI_EV_CFG_MAX
-};
-
-#define MHI_EV_CFG_BIT_HW_EV BIT(0) /* hw event ring */
-#define MHI_EV_CFG_BIT_CL_MANAGE BIT(1) /* client manages the event ring */
-#define MHI_EV_CFG_BIT_OFFLOAD_EV BIT(2) /* satellite driver manges it */
-#define MHI_EV_CFG_BIT_CTRL_EV BIT(3) /* ctrl event ring */
-
 enum MHI_BRSTMODE {
 	MHI_BRSTMODE_DISABLE = 0x2,
 	MHI_BRSTMODE_ENABLE = 0x3,

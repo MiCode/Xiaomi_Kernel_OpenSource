@@ -65,26 +65,6 @@ Main node properties:
   Value type: Array of <string>
   Definition: Channel names configured in mhi,chan-cfg.
 
-- mhi,ev-cfg
-  Usage: required
-  Value type: Array of <u32>
-  Definition: Array of tuples describe event configuration.
-	1st element: Event ring length in elements
-	2nd element: Interrupt moderation time in ms
-	3rd element: MSI associated with this event ring
-	4th element: Dedicated channel number, if it's a dedicated event ring
-	5th element: Event ring priority, set to 1 for now
-	6th element: Event doorbell mode configuration as defined by
-	enum MHI_BRSTMODE
-		2 = burst mode disabled
-		3 = burst mode enabled
-	7th element: Bitwise configuration settings for the channel
-		Bit mask:
-		BIT(0) : Event ring associated with hardware channels
-		BIT(1) : Client manages the event ring (use by napi_poll)
-		BIT(2) : Event ring associated with offload channel
-		BIT(3) : Event ring dedicated to control events only
-
 - mhi,timeout
   Usage: optional
   Value type: <u32>
@@ -115,6 +95,63 @@ Main node properties:
   Value type: <u32>
   Definition: Size of each segment to allocate for BHIe vector table
 
+==========================
+mhi event node properties:
+==========================
+
+- mhi,num-elements
+  Usage: required
+  Value type: <u32>
+  Definition: Number of elements event ring support
+
+- mhi,intmod
+  Usage: required
+  Value type: <u32>
+  Definition: interrupt moderation time in ms
+
+- mhi,msi
+  Usage: required
+  Value type: <u32>
+  Definition: MSI associated with this event ring
+
+- mhi,chan
+  Usage: optional
+  Value type: <u32>
+  Definition: Dedicated channel number, if it's a dedicated event ring
+
+- mhi,priority
+  Usage: required
+  Value type: <u32>
+  Definition: Event ring priority, set to 1 for now
+
+- mhi,brstmode
+  Usage: required
+  Value type: <u32>
+  Definition: Event doorbell mode configuration as defined by
+	enum MHI_BRSTMODE
+		2 = burst mode disabled
+		3 = burst mode enabled
+
+- mhi,hw-ev
+  Usage: optional
+  Value type: <bool>
+  Definition: Event ring associated with hardware channels
+
+- mhi,client-manage
+  Usage: optional
+  Value type: <bool>
+  Definition: Client manages the event ring (use by napi_poll)
+
+- mhi,offload
+  Usage: optional
+  Value type: <bool>
+  Definition: Event ring associated with offload channel
+
+- mhi,ctrl-ev
+  Usage: optional
+  Value type: <bool>
+  Definition: Event ring dedicated to control events only
+
 Children node properties:
 
 MHI drivers that require DT can add driver specific information as a child node.
@@ -133,8 +170,25 @@ mhi_controller {
 		       <2 64 1 1 2 1 1 0 0>, <3 64 1 2 2 1 1 0 0>;
 	mhi,chan-names = "LOOPBACK", "LOOPBACK",
 			 "SAHARA", "SAHARA";
-	mhi,ev-cfg = <64 1 1 0 1 2 8>
-		     <64 1 2 0 1 2 0>;
+	mhi_event@0 {
+		mhi,num-elements = <32>;
+		mhi,intmod = <1>;
+		mhi,msi = <1>;
+		mhi,chan = <0>;
+		mhi,priority = <1>;
+		mhi,bstmode = <2>;
+		mhi,ctrl-ev;
+	};
+
+	mhi_event@1 {
+		mhi,num-elements = <256>;
+		mhi,intmod = <1>;
+		mhi,msi = <2>;
+		mhi,chan = <0>;
+		mhi,priority = <1>;
+		mhi,bstmode = <2>;
+	};
+
 	mhi,fw-name = "sbl1.mbn";
 	mhi,timeout = <500>;
 
