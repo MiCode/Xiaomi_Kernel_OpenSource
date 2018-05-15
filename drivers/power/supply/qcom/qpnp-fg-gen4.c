@@ -148,7 +148,6 @@ struct fg_gen4_chip {
 	struct ttf		ttf;
 	struct delayed_work	ttf_work;
 	char			batt_profile[PROFILE_LEN];
-	char			counter_buf[BUCKET_COUNT * 8];
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
 };
@@ -2037,31 +2036,6 @@ static int fg_get_time_to_empty(struct fg_dev *fg, int *val)
 	return 0;
 }
 
-static const char *fg_gen4_get_cycle_counts(struct fg_gen4_chip *chip)
-{
-	int i, rc, len = 0;
-	char *buf;
-
-	buf = chip->counter_buf;
-	for (i = 1; i <= BUCKET_COUNT; i++) {
-		chip->counter->id = i;
-		rc = get_cycle_count(chip->counter);
-		if (rc < 0) {
-			pr_err("Couldn't get cycle count rc=%d\n", rc);
-			return NULL;
-		}
-
-		if (sizeof(chip->counter_buf) - len < 8) {
-			pr_err("Invalid length %d\n", len);
-			return NULL;
-		}
-
-		len += snprintf(buf+len, 8, "%d ", rc);
-	}
-
-	buf[len] = '\0';
-	return buf;
-}
 
 static void sram_dump_work(struct work_struct *work)
 {
@@ -2240,8 +2214,13 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW:
 		rc = fg_gen4_get_charge_counter_shadow(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		rc = get_cycle_count(chip->counter, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
-		pval->strval = fg_gen4_get_cycle_counts(chip);
+		rc = get_cycle_counts(chip->counter, &pval->strval);
+		if (rc < 0)
+			pval->strval = NULL;
 		break;
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
