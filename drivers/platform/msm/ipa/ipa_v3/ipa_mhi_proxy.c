@@ -10,10 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mhi.h>
-#include <linux/of_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/list.h>
+#include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/mhi.h>
 #include "ipa_qmi_service.h"
 #include "../ipa_common_i.h"
 #include "ipa_i.h"
