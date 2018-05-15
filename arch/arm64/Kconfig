@@ -645,6 +645,10 @@ config HOTPLUG_CPU
 	  Say Y here to experiment with turning CPUs off and on.  CPUs
 	  can be controlled through /sys/devices/system/cpu.
 
+config ARCH_ENABLE_MEMORY_HOTPLUG
+    depends on !NUMA
+	def_bool y
+
 # The GPIO number here must be sorted by descending number. In case of
 # a multiplatform kernel, we just want the highest value required by the
 # selected platforms.
@@ -761,6 +765,10 @@ config ARM64_DMA_IOMMU_ALIGNMENT
 	  by the PAGE_SIZE.
 
 endif
+
+config ARCH_MEMORY_PROBE
+	def_bool y
+	depends on MEMORY_HOTPLUG
 
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"
