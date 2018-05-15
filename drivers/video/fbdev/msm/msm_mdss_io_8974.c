@@ -545,8 +545,7 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * is only done from the clock master. This will ensure that the PLL is
 	 * off when PHY reset is called.
 	 */
-	if (mdss_dsi_is_ctrl_clk_slave(ctrl) ||
-		(ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM))
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
 		return;
 
 	mdss_dsi_phy_sw_reset_sub(ctrl);
