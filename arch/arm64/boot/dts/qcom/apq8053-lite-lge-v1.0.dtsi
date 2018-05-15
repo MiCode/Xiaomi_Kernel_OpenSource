@@ -11,17 +11,20 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "apq8053-lite-dragon.dtsi"
 
-#include "apq8053-lite-dragon-v2.0.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite DragonBoard V2.0";
-	compatible = "qcom,apq8053-lite-dragonboard",
-			"qcom,apq8053", "qcom,dragonboard";
-	qcom,board-id = <0x0103000a 0>;
+&wled {
+	qcom,fs-curr-ua = <17500>;
 };
 
-&blsp2_uart0 {
-	status = "okay";
+&camera0 {
+	qcom,mount-angle = <180>;
+};
+
+&camera1 {
+	qcom,mount-angle = <180>;
+};
+
+&camera2 {
+	qcom,mount-angle = <180>;
 };
