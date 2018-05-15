@@ -22,11 +22,6 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_soc.h"
 
-#define CAM_CPAS_AXI_MIN_MNOC_AB_BW   (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_MNOC_IB_BW   (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_CAMNOC_AB_BW (2048 * 1024)
-#define CAM_CPAS_AXI_MIN_CAMNOC_IB_BW (3000000000L)
-
 static uint cam_min_camnoc_ib_bw;
 module_param(cam_min_camnoc_ib_bw, uint, 0644);
 
@@ -580,8 +575,9 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 			soc_private->camnoc_axi_clk_bw_margin) / 100;
 
 		if ((required_camnoc_bw > 0) &&
-			(required_camnoc_bw < CAM_CPAS_AXI_MIN_CAMNOC_IB_BW))
-			required_camnoc_bw = CAM_CPAS_AXI_MIN_CAMNOC_IB_BW;
+			(required_camnoc_bw <
+			soc_private->camnoc_axi_min_ib_bw))
+			required_camnoc_bw = soc_private->camnoc_axi_min_ib_bw;
 
 		clk_rate = required_camnoc_bw / soc_private->camnoc_bus_width;
 
