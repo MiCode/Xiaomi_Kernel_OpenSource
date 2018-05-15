@@ -2077,14 +2077,8 @@ static struct platform_driver msm_actuator_platform_driver = {
 
 static int __init msm_actuator_init_module(void)
 {
-	int32_t rc = 0;
-
 	CDBG("Enter\n");
-	rc = platform_driver_register(&msm_actuator_platform_driver);
-	if (!rc)
-		return rc;
-
-	CDBG("%s:%d rc %d\n", __func__, __LINE__, rc);
+	platform_driver_register(&msm_actuator_platform_driver);
 	return i2c_add_driver(&msm_actuator_i2c_driver);
 }
 
