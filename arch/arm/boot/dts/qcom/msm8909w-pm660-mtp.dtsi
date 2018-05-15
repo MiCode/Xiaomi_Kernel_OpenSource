@@ -40,6 +40,12 @@
 		qcom,iris-vddrfa-supply  = <&pm660_l6>;
 		qcom,iris-vdddig-supply  = <&pm660_l13>;
 		qcom,wcn-external-gpio-support;
+
+		clocks = <&clock_rpm clk_xo_wlan_clk>,
+			<&clock_rpm clk_rf_clk1>,
+			<&clock_debug clk_gcc_debug_mux>,
+			<&clock_gcc clk_wcnss_m_clk>;
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
 	};
 
 	qcom,pronto@a21b000 {
