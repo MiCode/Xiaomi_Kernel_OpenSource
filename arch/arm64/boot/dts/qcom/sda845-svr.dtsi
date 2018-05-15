@@ -249,6 +249,24 @@
 	#cooling-cells = <2>;
 };
 
+&pm8998_l10 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	qcom,init-voltage = <1800000>;
+};
+
+&pm8998_l15 {
+	regulator-min-microvolt = <1504000>;
+	regulator-max-microvolt = <1504000>;
+	qcom,init-voltage = <1504000>;
+};
+
+&pm8998_l16 {
+	regulator-min-microvolt = <3312000>;
+	regulator-max-microvolt = <3312000>;
+	qcom,init-voltage = <3312000>;
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
