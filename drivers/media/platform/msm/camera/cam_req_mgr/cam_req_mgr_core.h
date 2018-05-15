@@ -126,15 +126,16 @@ enum cam_req_mgr_link_state {
 
 /**
  * struct cam_req_mgr_traverse
- * @idx           : slot index
- * @result        : contains which all tables were able to apply successfully
- * @tbl           : pointer of pipeline delay based request table
- * @apply_data    : pointer which various tables will update during traverse
- * @in_q          : input request queue pointer
- * @validate_only : Whether to validate only and/or update settings
- * @self_link     : To indicate whether the check is for the given link or the
- *                  other sync link
- * @open_req_cnt  : Count of open requests yet to be serviced in the kernel.
+ * @idx              : slot index
+ * @result           : contains which all tables were able to apply successfully
+ * @tbl              : pointer of pipeline delay based request table
+ * @apply_data       : pointer which various tables will update during traverse
+ * @in_q             : input request queue pointer
+ * @validate_only    : Whether to validate only and/or update settings
+ * @self_link        : To indicate whether the check is for the given link or
+ *                     the other sync link
+ * @inject_delay_chk : if inject delay has been validated for all pd devices
+ * @open_req_cnt     : Count of open requests yet to be serviced in the kernel.
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -144,7 +145,8 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_req_queue *in_q;
 	bool                          validate_only;
 	bool                          self_link;
-	int32_t                      open_req_cnt;
+	bool                          inject_delay_chk;
+	int32_t                       open_req_cnt;
 };
 
 /**
