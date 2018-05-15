@@ -29,9 +29,6 @@ enum clock_properties {
 
 #define PERF_GOV "performance"
 
-#define GCC_VIDEO_AXI_REG_START_ADDR	0x10B024
-#define GCC_VIDEO_AXI_REG_SIZE		0xC
-
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
 	return NULL;
@@ -795,6 +792,10 @@ int read_platform_resources_from_drv_data(
 
 	res->csc_coeff_data = &platform_data->csc_data;
 
+	res->gcc_register_base = platform_data->gcc_register_base;
+	res->gcc_register_size = platform_data->gcc_register_size;
+
+	res->vpu_ver = platform_data->vpu_ver;
 	return rc;
 
 }
@@ -824,9 +825,6 @@ int read_platform_resources_from_dt(
 	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	res->register_base = kres ? kres->start : -1;
 	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
-
-	res->gcc_register_base = GCC_VIDEO_AXI_REG_START_ADDR;
-	res->gcc_register_size = GCC_VIDEO_AXI_REG_SIZE;
 
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
