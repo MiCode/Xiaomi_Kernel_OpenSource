@@ -175,6 +175,18 @@ extern struct qmi_elem_info
 extern struct qmi_elem_info
 	ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[];
 
+extern struct qmi_elem_info ipa_mhi_ready_indication_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_mem_addr_info_type_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_tr_info_type_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_er_info_type_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_alloc_channel_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_ch_alloc_resp_type_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_alloc_channel_resp_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_clk_vote_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_clk_vote_resp_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_cleanup_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_cleanup_resp_msg_v01_ei[];
+
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
  * @ipa_rmnet_ssr: support modem SSR
@@ -284,6 +296,11 @@ int ipa3_qmi_enable_per_client_stats(
 int ipa3_qmi_get_per_client_packet_stats(
 	struct ipa_get_stats_per_client_req_msg_v01 *req,
 	struct ipa_get_stats_per_client_resp_msg_v01 *resp);
+
+int ipa3_qmi_send_mhi_ready_indication(
+	struct ipa_mhi_ready_indication_msg_v01 *req);
+
+int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req);
 
 void ipa3_qmi_init(void);
 
@@ -406,6 +423,18 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 }
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
+
+static int ipa3_qmi_send_mhi_ready_indication(
+	struct ipa_mhi_ready_indication_msg_v01 *req)
+{
+	return -EPERM;
+}
+
+static int ipa3_qmi_send_mhi_cleanup_request(
+	struct ipa_mhi_cleanup_req_msg_v01 *req)
+{
+	return -EPERM;
+}
 
 static inline int ipa3_wwan_set_modem_perf_profile(int throughput);
 static inline int ipa3_qmi_enable_per_client_stats(
