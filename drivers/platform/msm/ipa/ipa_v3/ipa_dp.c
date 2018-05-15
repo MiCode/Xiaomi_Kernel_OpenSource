@@ -646,7 +646,6 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 	atomic_set(&comp->cnt, 2);
 
 	sys = ipa3_ctx->ep[ep_idx].sys;
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (num_desc == 1) {
 		if (descr->callback || descr->user1)
@@ -685,7 +684,6 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 		kfree(comp);
 
 bail:
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return result;
 }
 
