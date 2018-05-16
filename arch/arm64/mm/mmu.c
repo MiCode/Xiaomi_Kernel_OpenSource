@@ -1,4 +1,3 @@
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 /*
  * Based on arch/arm/mm/mmu.c
  *
@@ -197,7 +196,6 @@ static void alloc_init_cont_pte(pmd_t *pmd, unsigned long addr,
 		phys_addr_t pte_phys;
 		BUG_ON(!pgtable_alloc);
 		pte_phys = pgtable_alloc();
-		pr_debug("Allocating PTE at %pK\n", __va(pte_phys));
 		__pmd_populate(pmd, pte_phys, PMD_TYPE_TABLE);
 	}
 	BUG_ON(pmd_bad(*pmd));
@@ -271,7 +269,6 @@ static void alloc_init_cont_pmd(pud_t *pud, unsigned long addr,
 		phys_addr_t pmd_phys;
 		BUG_ON(!pgtable_alloc);
 		pmd_phys = pgtable_alloc();
-		pr_debug("Allocating PMD at %pK\n", __va(pmd_phys));
 		__pud_populate(pud, pmd_phys, PUD_TYPE_TABLE);
 	}
 	BUG_ON(pud_bad(*pud));
@@ -316,7 +313,6 @@ static void alloc_init_pud(pgd_t *pgd, unsigned long addr, unsigned long end,
 		phys_addr_t pud_phys;
 		BUG_ON(!pgtable_alloc);
 		pud_phys = pgtable_alloc();
-		pr_debug("Allocating PUD at %pK\n", __va(pud_phys));
 		__pgd_populate(pgd, pud_phys, PUD_TYPE_TABLE);
 	}
 	BUG_ON(pgd_bad(*pgd));
@@ -720,7 +716,383 @@ void hotplug_paging(phys_addr_t start, phys_addr_t size)
 	__free_pages(pg, 0);
 }
 
+#ifdef CONFIG_MEMORY_HOTREMOVE
+#define PAGE_INUSE 0xFD
+
+static void  free_pagetable(struct page *page, int order, bool direct)
+{
+	unsigned long magic;
+	unsigned int nr_pages = 1 << order;
+
+	/* bootmem page has reserved flag */
+	if (PageReserved(page)) {
+		__ClearPageReserved(page);
+
+		magic = (unsigned long)page->lru.next;
+		if (magic == SECTION_INFO || magic == MIX_SECTION_INFO) {
+			while (nr_pages--)
+				put_page_bootmem(page++);
+		} else {
+			while (nr_pages--)
+				free_reserved_page(page++);
+		}
+	} else {
+		/*
+		 * Only direct pagetable allocation (those allocated via
+		 * hotplug) call the pgtable_page_ctor; vmemmap pgtable
+		 * allocations don't.
+		 */
+		if (direct)
+			pgtable_page_dtor(page);
+
+		free_pages((unsigned long)page_address(page), order);
+	}
+}
+
+static void free_pte_table(pmd_t *pmd, bool direct)
+{
+	pte_t *pte_start, *pte;
+	struct page *page;
+	int i;
+
+	pte_start =  (pte_t *) pmd_page_vaddr(*pmd);
+	/* Check if there is no valid entry in the PMD */
+	for (i = 0; i < PTRS_PER_PTE; i++) {
+		pte = pte_start + i;
+		if (!pte_none(*pte))
+			return;
+	}
+
+	page = pmd_page(*pmd);
+
+	free_pagetable(page, 0, direct);
+
+	/*
+	 * This spin lock could be only taken in _pte_aloc_kernel
+	 * in mm/memory.c and nowhere else (for arm64). Not sure if
+	 * the function above can be called concurrently. In doubt,
+	 * I am living it here for now, but it probably can be removed
+	 */
+	spin_lock(&init_mm.page_table_lock);
+	pmd_clear(pmd);
+	spin_unlock(&init_mm.page_table_lock);
+}
+
+static void free_pmd_table(pud_t *pud, bool direct)
+{
+	pmd_t *pmd_start, *pmd;
+	struct page *page;
+	int i;
+
+	pmd_start = (pmd_t *) pud_page_vaddr(*pud);
+	/* Check if there is no valid entry in the PMD */
+	for (i = 0; i < PTRS_PER_PMD; i++) {
+		pmd = pmd_start + i;
+		if (!pmd_none(*pmd))
+			return;
+	}
+
+	page = pud_page(*pud);
+
+	free_pagetable(page, 0, direct);
+
+	/*
+	 * This spin lock could be only taken in _pte_aloc_kernel
+	 * in mm/memory.c and nowhere else (for arm64). Not sure if
+	 * the function above can be called concurrently. In doubt,
+	 * I am living it here for now, but it probably can be removed
+	 */
+	spin_lock(&init_mm.page_table_lock);
+	pud_clear(pud);
+	spin_unlock(&init_mm.page_table_lock);
+}
+
+/*
+ * When the PUD is folded on the PGD (three levels of paging),
+ * there's no need to free PUDs
+ */
+#if CONFIG_PGTABLE_LEVELS > 3
+static void free_pud_table(pgd_t *pgd, bool direct)
+{
+	pud_t *pud_start, *pud;
+	struct page *page;
+	int i;
+
+	pud_start = (pud_t *) pgd_page_vaddr(*pgd);
+	/* Check if there is no valid entry in the PUD */
+	for (i = 0; i < PTRS_PER_PUD; i++) {
+		pud = pud_start + i;
+		if (!pud_none(*pud))
+			return;
+	}
+
+	page = pgd_page(*pgd);
+
+	free_pagetable(page, 0, direct);
+
+	/*
+	 * This spin lock could be only
+	 * taken in _pte_aloc_kernel in
+	 * mm/memory.c and nowhere else
+	 * (for arm64). Not sure if the
+	 * function above can be called
+	 * concurrently. In doubt,
+	 * I am living it here for now,
+	 * but it probably can be removed.
+	 */
+	spin_lock(&init_mm.page_table_lock);
+	pgd_clear(pgd);
+	spin_unlock(&init_mm.page_table_lock);
+}
 #endif
+
+static void remove_pte_table(pte_t *pte, unsigned long addr,
+	unsigned long end, bool direct)
+{
+	unsigned long next;
+	void *page_addr;
+
+	for (; addr < end; addr = next, pte++) {
+		next = (addr + PAGE_SIZE) & PAGE_MASK;
+		if (next > end)
+			next = end;
+
+		if (!pte_present(*pte))
+			continue;
+
+		if (PAGE_ALIGNED(addr) && PAGE_ALIGNED(next)) {
+			/*
+			 * Do not free direct mapping pages since they were
+			 * freed when offlining, or simplely not in use.
+			 */
+			if (!direct)
+				free_pagetable(pte_page(*pte), 0, direct);
+
+			/*
+			 * This spin lock could be only
+			 * taken in _pte_aloc_kernel in
+			 * mm/memory.c and nowhere else
+			 * (for arm64). Not sure if the
+			 * function above can be called
+			 * concurrently. In doubt,
+			 * I am living it here for now,
+			 * but it probably can be removed.
+			 */
+			spin_lock(&init_mm.page_table_lock);
+			pte_clear(&init_mm, addr, pte);
+			spin_unlock(&init_mm.page_table_lock);
+		} else {
+			/*
+			 * If we are here, we are freeing vmemmap pages since
+			 * direct mapped memory ranges to be freed are aligned.
+			 *
+			 * If we are not removing the whole page, it means
+			 * other page structs in this page are being used and
+			 * we canot remove them. So fill the unused page_structs
+			 * with 0xFD, and remove the page when it is wholly
+			 * filled with 0xFD.
+			 */
+			memset((void *)addr, PAGE_INUSE, next - addr);
+
+			page_addr = page_address(pte_page(*pte));
+			if (!memchr_inv(page_addr, PAGE_INUSE, PAGE_SIZE)) {
+				free_pagetable(pte_page(*pte), 0, direct);
+
+				/*
+				 * This spin lock could be only
+				 * taken in _pte_aloc_kernel in
+				 * mm/memory.c and nowhere else
+				 * (for arm64). Not sure if the
+				 * function above can be called
+				 * concurrently. In doubt,
+				 * I am living it here for now,
+				 * but it probably can be removed.
+				 */
+				spin_lock(&init_mm.page_table_lock);
+				pte_clear(&init_mm, addr, pte);
+				spin_unlock(&init_mm.page_table_lock);
+			}
+		}
+	}
+
+	// I am adding this flush here in simmetry to the x86 code.
+	// Why do I need to call it here and not in remove_p[mu]d
+	flush_tlb_all();
+}
+
+static void remove_pmd_table(pmd_t *pmd, unsigned long addr,
+	unsigned long end, bool direct)
+{
+	unsigned long next;
+	void *page_addr;
+	pte_t *pte;
+
+	for (; addr < end; addr = next, pmd++) {
+		next = pmd_addr_end(addr, end);
+
+		if (!pmd_present(*pmd))
+			continue;
+
+		// check if we are using 2MB section mappings
+		if (pmd_sect(*pmd)) {
+			if (PAGE_ALIGNED(addr) && PAGE_ALIGNED(next)) {
+				if (!direct) {
+					free_pagetable(pmd_page(*pmd),
+						get_order(PMD_SIZE), direct);
+				}
+				/*
+				 * This spin lock could be only
+				 * taken in _pte_aloc_kernel in
+				 * mm/memory.c and nowhere else
+				 * (for arm64). Not sure if the
+				 * function above can be called
+				 * concurrently. In doubt,
+				 * I am living it here for now,
+				 * but it probably can be removed.
+				 */
+				spin_lock(&init_mm.page_table_lock);
+				pmd_clear(pmd);
+				spin_unlock(&init_mm.page_table_lock);
+			} else {
+				/* If here, we are freeing vmemmap pages. */
+				memset((void *)addr, PAGE_INUSE, next - addr);
+
+				page_addr = page_address(pmd_page(*pmd));
+				if (!memchr_inv(page_addr, PAGE_INUSE,
+						PMD_SIZE)) {
+					free_pagetable(pmd_page(*pmd),
+						get_order(PMD_SIZE), direct);
+
+					/*
+					 * This spin lock could be only
+					 * taken in _pte_aloc_kernel in
+					 * mm/memory.c and nowhere else
+					 * (for arm64). Not sure if the
+					 * function above can be called
+					 * concurrently. In doubt,
+					 * I am living it here for now,
+					 * but it probably can be removed.
+					 */
+					spin_lock(&init_mm.page_table_lock);
+					pmd_clear(pmd);
+					spin_unlock(&init_mm.page_table_lock);
+				}
+			}
+			continue;
+		}
+
+		BUG_ON(!pmd_table(*pmd));
+
+		pte = pte_offset_map(pmd, addr);
+		remove_pte_table(pte, addr, next, direct);
+		free_pte_table(pmd, direct);
+	}
+}
+
+static void remove_pud_table(pud_t *pud, unsigned long addr,
+	unsigned long end, bool direct)
+{
+	unsigned long next;
+	pmd_t *pmd;
+	void *page_addr;
+
+	for (; addr < end; addr = next, pud++) {
+		next = pud_addr_end(addr, end);
+		if (!pud_present(*pud))
+			continue;
+		/*
+		 * If we are using 4K granules, check if we are using
+		 * 1GB section mapping.
+		 */
+		if (pud_sect(*pud)) {
+			if (PAGE_ALIGNED(addr) && PAGE_ALIGNED(next)) {
+				if (!direct) {
+					free_pagetable(pud_page(*pud),
+						get_order(PUD_SIZE), direct);
+				}
+
+				/*
+				 * This spin lock could be only
+				 * taken in _pte_aloc_kernel in
+				 * mm/memory.c and nowhere else
+				 * (for arm64). Not sure if the
+				 * function above can be called
+				 * concurrently. In doubt,
+				 * I am living it here for now,
+				 * but it probably can be removed.
+				 */
+				spin_lock(&init_mm.page_table_lock);
+				pud_clear(pud);
+				spin_unlock(&init_mm.page_table_lock);
+			} else {
+				/* If here, we are freeing vmemmap pages. */
+				memset((void *)addr, PAGE_INUSE, next - addr);
+
+				page_addr = page_address(pud_page(*pud));
+				if (!memchr_inv(page_addr, PAGE_INUSE,
+						PUD_SIZE)) {
+
+					free_pagetable(pud_page(*pud),
+						get_order(PUD_SIZE), direct);
+
+					/*
+					 * This spin lock could be only
+					 * taken in _pte_aloc_kernel in
+					 * mm/memory.c and nowhere else
+					 * (for arm64). Not sure if the
+					 * function above can be called
+					 * concurrently. In doubt,
+					 * I am living it here for now,
+					 * but it probably can be removed.
+					 */
+					spin_lock(&init_mm.page_table_lock);
+					pud_clear(pud);
+					spin_unlock(&init_mm.page_table_lock);
+				}
+			}
+			continue;
+		}
+
+		BUG_ON(!pud_table(*pud));
+
+		pmd = pmd_offset(pud, addr);
+		remove_pmd_table(pmd, addr, next, direct);
+		free_pmd_table(pud, direct);
+	}
+}
+
+void remove_pagetable(unsigned long start, unsigned long end, bool direct)
+{
+	unsigned long next;
+	unsigned long addr;
+	pgd_t *pgd;
+	pud_t *pud;
+
+	for (addr = start; addr < end; addr = next) {
+		next = pgd_addr_end(addr, end);
+
+		pgd = pgd_offset_k(addr);
+		if (pgd_none(*pgd))
+			continue;
+
+		pud = pud_offset(pgd, addr);
+		remove_pud_table(pud, addr, next, direct);
+		/*
+		 * When the PUD is folded on the PGD (three levels of paging),
+		 * I did already clear the PMD page in free_pmd_table,
+		 * and reset the corresponding PGD==PUD entry.
+		 */
+#if CONFIG_PGTABLE_LEVELS > 3
+		free_pud_table(pgd, direct);
+#endif
+	}
+
+	flush_tlb_all();
+}
+
+
+#endif /* CONFIG_MEMORY_HOTREMOVE */
+#endif /* CONFIG_MEMORY_HOTPLUG */
 
 /*
  * Check whether a kernel address is valid (derived from arch/x86/).
@@ -803,6 +1175,9 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
 #endif	/* CONFIG_ARM64_64K_PAGES */
 void vmemmap_free(unsigned long start, unsigned long end)
 {
+#ifdef CONFIG_MEMORY_HOTREMOVE
+	remove_pagetable(start, end, false);
+#endif
 }
 #endif	/* CONFIG_SPARSEMEM_VMEMMAP */
 
