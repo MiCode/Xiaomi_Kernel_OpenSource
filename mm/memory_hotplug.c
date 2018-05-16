@@ -66,7 +66,7 @@ void put_online_mems(void)
 	percpu_up_read(&mem_hotplug_lock);
 }
 
-bool movable_node_enabled = false;
+bool movable_node_enabled = IS_ENABLED(CONFIG_MEMORY_HOTPLUG_MOVABLE_NODE);
 
 #ifndef CONFIG_MEMORY_HOTPLUG_DEFAULT_ONLINE
 bool memhp_auto_online;
