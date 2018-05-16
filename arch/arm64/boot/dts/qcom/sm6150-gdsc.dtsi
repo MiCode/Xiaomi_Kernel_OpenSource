@@ -196,7 +196,7 @@
 
 	/* GDSCs in Video CC */
 	vcodec0_gdsc: qcom,gdsc@ab00874 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "vcodec0_gdsc";
 		reg = <0xab00874 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -204,7 +204,7 @@
 	};
 
 	venus_gdsc: qcom,gdsc@ab00814 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "venus_gdsc";
 		reg = <0xab00814 0x4>;
 		qcom,poll-cfg-gdscr;
