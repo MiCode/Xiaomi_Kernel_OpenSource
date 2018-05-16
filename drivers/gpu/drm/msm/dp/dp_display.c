@@ -1369,7 +1369,8 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 			dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
-	if (dp->usbpd->hpd_high && dp->usbpd->alt_mode_cfg_done) {
+	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
+			dp->usbpd->alt_mode_cfg_done) {
 		if (dp_panel->audio_supported)
 			dp_panel->audio->off(dp_panel->audio);
 
@@ -1427,8 +1428,8 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	 * any notification from driver. Initialize post_open callback to notify
 	 * DP connection once framework restarts.
 	 */
-	if (dp->usbpd->hpd_high && dp->usbpd->alt_mode_cfg_done &&
-			!dp->mst.mst_active) {
+	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
+			dp->usbpd->alt_mode_cfg_done && !dp->mst.mst_active) {
 		dp_display->post_open = dp_display_post_open;
 		dp->dp_display.is_connected = false;
 		dp->dp_display.is_sst_connected = false;
