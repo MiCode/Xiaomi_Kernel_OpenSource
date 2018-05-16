@@ -156,6 +156,7 @@
 
 &pcie_ep {
 	status = "ok";
+	mdm2apstatus-gpio = <&tlmm_pinmux 85 0>;
 };
 
 &pcie0 {
@@ -170,3 +171,15 @@
 	status = "ok";
 };
 
+&pcie0_mdm2apstatus_default {
+	mux {
+		pins = "gpio85";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
