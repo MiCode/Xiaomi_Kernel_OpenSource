@@ -1,0 +1,52 @@
+Qualcomm Technologies, Inc. MDSS EDP
+
+MDSS EDP is a edp driver which supports panels that are compatible with
+VESA EDP display interface specification.
+
+When configuring the optional properties for external backlight, one should also
+configure the gpio that drives the pwm to it.
+
+Required properties
+- compatible :				Must be "qcom,mdss-edp".
+- reg :						Offset and length of the register set for the
+							device.
+- reg-names :				Names to refer to register sets related to this
+							device
+- vdda-supply :				Phandle for vdd regulator device node.
+- gpio-panel-en	:			GPIO for supplying power to panel and backlight
+							driver.
+- gpio-lvl-en	:			GPIO to enable HPD be received by host.
+- status :				A string that has to be set to "okay/ok" to enable
+						the driver. By default this property will be set to
+						"disable". Will be set to "ok/okay" status for
+						specific platforms.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+					interface is mapped.
+- gpio-panel-hpd :			gpio pin use for edp hpd
+
+Optional properties
+- qcom,panel-lpg-channel :		LPG channel for backlight.
+- qcom,panel-pwm-period :		PWM period in microseconds.
+
+
+Optional properties:
+- qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
+					255 = default value.
+
+Example:
+	mdss_edp: qcom,mdss_edp@fd923400 {
+		compatible = "qcom,mdss-edp";
+		reg = <0xfd923400 0x700>,
+			<0xfd8c2000 0x1000>;
+		reg-names = "edp_base", "mmss_cc_base";
+		vdda-supply = <&pm8941_l12>;
+		gpio-panel-en = <&msmgpio 58 0>;
+		gpio-lvl-en = <&msmgpio 91 0>;
+		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
+		qcom,panel-pwm-period = <53>;
+		status = "disable";
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		gpio-panel-hpd = <&msmgpio 102 0>;
+	};
+
+

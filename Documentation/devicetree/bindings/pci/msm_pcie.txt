@@ -74,6 +74,8 @@ Optional Properties:
   - qcom,max-link-speed: Max Gen speed Root complex supports.
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
+  - qcom,phy-power-down-offset: Offset from PCIe PHY base to control the power state
+    of the PHY.
   - qcom,pcie-phy-ver: version of PCIe PHY.
   - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
     Should be specified in groups (offset, value, delay).
@@ -274,6 +276,7 @@ Example:
 		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
 		qcom,phy-status-offset = <0x800>;
+		qcom,phy-power-down-offset = <0x840>;
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;

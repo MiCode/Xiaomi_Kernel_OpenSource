@@ -214,6 +214,7 @@
 		qcom,slv-addr-space-size = <0x4000000>;
 
 		qcom,phy-status-offset = <0x814>;
+		qcom,phy-power-down-offset = <0x840>;
 
 		qcom,boot-option = <0x1>;
 
@@ -530,6 +531,7 @@
 		qcom,slv-addr-space-size = <0x20000000>;
 
 		qcom,phy-status-offset = <0xa14>;
+		qcom,phy-power-down-offset = <0xa40>;
 
 		qcom,boot-option = <0x1>;
 
