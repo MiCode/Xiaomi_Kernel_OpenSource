@@ -113,6 +113,20 @@ config ARM_RK3399_DMC_DEVFREQ
           It sets the frequency for the memory controller and reads the usage counts
           from hardware.
 
+config ARM_QCOM_DEVFREQ_FW
+	bool "Qualcomm Technologies Inc. DEVFREQ FW driver"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	default n
+	help
+	  The firmware present in some QCOM chipsets offloads the steps
+	  necessary for changing the frequency of some devices (Eg: L3). This
+	  driver implements the devfreq interface for this firmware so that
+	  various governors could be used to scale the frequency of these
+	  devices.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
