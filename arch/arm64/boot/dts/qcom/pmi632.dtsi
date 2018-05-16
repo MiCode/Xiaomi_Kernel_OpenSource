@@ -44,8 +44,6 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-vdd-reference = <1875>;
 			qcom,adc-full-scale-code = <0x70e4>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&quiet_therm_default &smb_therm_default>;
 
 			chan@0 {
 				label = "ref_gnd";
@@ -305,21 +303,6 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <1>;
-
-			quiet_therm {
-				quiet_therm_default: quiet_therm_default {
-					pins = "gpio3";
-					bias-high-impedance;
-				};
-			};
-
-			smb_therm {
-				smb_therm_default: smb_therm_default {
-					pins = "gpio4";
-					bias-high-impedance;
-				};
-			};
-
 		};
 
 		pmi632_charger: qcom,qpnp-smb5 {
