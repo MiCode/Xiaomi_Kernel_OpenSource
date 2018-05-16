@@ -80,6 +80,12 @@ enum smb_mode {
 	NUM_MODES,
 };
 
+enum sink_src_mode {
+	SINK_MODE,
+	SRC_MODE,
+	UNATTACHED_MODE,
+};
+
 enum {
 	BOOST_BACK_WA			= BIT(0),
 };
@@ -259,6 +265,7 @@ struct smb_charger {
 	struct smb_params	param;
 	struct smb_iio		iio;
 	int			*debug_mask;
+	int			*pd_disabled;
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
@@ -269,7 +276,6 @@ struct smb_charger {
 	/* locks */
 	struct mutex		lock;
 	struct mutex		ps_change_lock;
-	struct mutex		otg_oc_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -296,8 +302,6 @@ struct smb_charger {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
-	struct votable		*pd_disallowed_votable_indirect;
-	struct votable		*pd_allowed_votable;
 	struct votable		*awake_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
@@ -315,10 +319,17 @@ struct smb_charger {
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
 
-	/* cached status */
+	/* pd */
 	int			voltage_min_uv;
 	int			voltage_max_uv;
 	int			pd_active;
+	bool			pd_hard_reset;
+	bool			pr_swap_in_progress;
+	bool			early_usb_attach;
+	bool			ok_to_pd;
+	bool			typec_legacy;
+
+	/* cached status */
 	bool			system_suspend_supported;
 	int			boost_threshold_ua;
 	int			system_temp_level;
@@ -334,15 +345,10 @@ struct smb_charger {
 	int			connector_type;
 	bool			otg_en;
 	bool			suspend_input_on_debug_batt;
-	int			otg_attempts;
-	int			vconn_attempts;
 	int			default_icl_ua;
 	int			otg_cl_ua;
 	bool			uusb_apsd_rerun_done;
-	bool			pd_hard_reset;
-	bool			typec_present;
 	int			fake_input_current_limited;
-	bool			pr_swap_in_progress;
 	int			typec_mode;
 	int			usb_icl_change_irq_enabled;
 	u32			jeita_status;
@@ -352,6 +358,7 @@ struct smb_charger {
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	bool			jeita_configured;
+	enum sink_src_mode	sink_src_mode;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -420,6 +427,7 @@ irqreturn_t usb_plugin_irq_handler(int irq, void *data);
 irqreturn_t usb_source_change_irq_handler(int irq, void *data);
 irqreturn_t icl_change_irq_handler(int irq, void *data);
 irqreturn_t typec_state_change_irq_handler(int irq, void *data);
+irqreturn_t typec_attach_detach_irq_handler(int irq, void *data);
 irqreturn_t dc_plugin_irq_handler(int irq, void *data);
 irqreturn_t high_duty_cycle_irq_handler(int irq, void *data);
 irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
@@ -484,8 +492,6 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 				union power_supply_propval *val);
