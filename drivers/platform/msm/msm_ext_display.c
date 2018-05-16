@@ -442,6 +442,7 @@ end:
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_ext_disp_select_audio_codec);
 
 static int msm_ext_disp_validate_intf(struct msm_ext_disp_init_data *init_data)
 {
