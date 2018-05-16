@@ -557,6 +557,23 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 /********************
  * HELPER FUNCTIONS *
  ********************/
+int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable)
+{
+	int rc;
+	u8 mask = HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT;
+
+	if (chg->pd_not_supported)
+		return 0;
+
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
+						enable ? mask : 0);
+	if (rc < 0)
+		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
+				rc);
+
+	return rc;
+}
+
 static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
 {
 	int rc = 0;
@@ -2436,15 +2453,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		/* PD hard resets failed, rerun apsd */
 		if (chg->ok_to_pd) {
 			chg->ok_to_pd = false;
-			rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
+			rc = smblib_configure_hvdcp_apsd(chg, true);
 			if (rc < 0) {
 				dev_err(chg->dev,
-					"Couldn't disable APSD rc=%d\n", rc);
+					"Couldn't enable APSD rc=%d\n", rc);
 				return rc;
 			}
-			smblib_rerun_apsd(chg);
+			smblib_rerun_apsd_if_required(chg);
 		}
 	}
 
@@ -3129,7 +3144,7 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 		 * charger-mis-detection.
 		 */
 		chg->uusb_apsd_rerun_done = true;
-		smblib_rerun_apsd(chg);
+		smblib_rerun_apsd_if_required(chg);
 		return IRQ_HANDLED;
 	}
 
@@ -3176,7 +3191,8 @@ static void typec_sink_insertion(struct smb_charger *chg)
 	}
 
 	if (!chg->pr_swap_in_progress)
-		chg->ok_to_pd = !(*chg->pd_disabled) || chg->early_usb_attach;
+		chg->ok_to_pd = (!(*chg->pd_disabled) || chg->early_usb_attach)
+					&& !chg->pd_not_supported;
 }
 
 static void typec_src_insertion(struct smb_charger *chg)
@@ -3195,24 +3211,28 @@ static void typec_src_insertion(struct smb_charger *chg)
 	}
 
 	chg->typec_legacy = stat & TYPEC_LEGACY_CABLE_STATUS_BIT;
-	chg->ok_to_pd = !(chg->typec_legacy || *chg->pd_disabled)
-						|| chg->early_usb_attach;
+	chg->ok_to_pd = (!(chg->typec_legacy || *chg->pd_disabled)
+			|| chg->early_usb_attach) && !chg->pd_not_supported;
 	if (!chg->ok_to_pd) {
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
+		rc = smblib_configure_hvdcp_apsd(chg, true);
 		if (rc < 0) {
 			dev_err(chg->dev,
-				"Couldn't disable APSD rc=%d\n", rc);
+				"Couldn't enable APSD rc=%d\n", rc);
 			return;
 		}
-		smblib_rerun_apsd(chg);
+		smblib_rerun_apsd_if_required(chg);
 	}
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
 {
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
+
+	if (chg->use_extcon) {
+		if (chg->otg_present)
+			smblib_notify_usb_host(chg, false);
+		chg->otg_present = false;
+	}
 }
 
 static void typec_src_removal(struct smb_charger *chg)
@@ -3228,12 +3248,9 @@ static void typec_src_removal(struct smb_charger *chg)
 			"Couldn't disable secondary charger rc=%d\n", rc);
 
 	/* disable apsd */
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-				0);
+	rc = smblib_configure_hvdcp_apsd(chg, false);
 	if (rc < 0)
-		smblib_err(chg,
-			"Couldn't disable APSD rc=%d\n", rc);
+		smblib_err(chg, "Couldn't disable APSD rc=%d\n", rc);
 
 	smblib_update_usb_type(chg);
 
@@ -3290,13 +3307,9 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
 
-	if (chg->use_extcon) {
-		if (chg->otg_present)
-			smblib_notify_usb_host(chg, false);
-		else
-			smblib_notify_device_mode(chg, false);
-	}
-	chg->otg_present = false;
+	if (chg->use_extcon)
+		smblib_notify_device_mode(chg, false);
+
 	chg->typec_legacy = false;
 }
 
@@ -3627,6 +3640,9 @@ static void smblib_uusb_otg_work(struct work_struct *work)
 	otg = !!(stat & U_USB_GROUND_NOVBUS_BIT);
 	if (chg->otg_present != otg)
 		smblib_notify_usb_host(chg, otg);
+	else
+		goto out;
+
 	chg->otg_present = otg;
 	if (!otg)
 		chg->boost_current_ua = 0;

@@ -239,6 +239,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
+		/* PMI632 does not support PD */
+		chg->pd_not_supported = true;
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
@@ -1377,9 +1379,7 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	int rc;
 
 	/* disable apsd */
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-				0);
+	rc = smblib_configure_hvdcp_apsd(chg, false);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't disable APSD rc=%d\n", rc);
 		return rc;
@@ -1498,7 +1498,6 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	if (type) {
 		chg->connector_type = POWER_SUPPLY_CONNECTOR_MICRO_USB;
-		smblib_rerun_apsd_if_required(chg);
 		rc = smb5_configure_micro_usb(chg);
 	} else {
 		chg->connector_type = POWER_SUPPLY_CONNECTOR_TYPEC;
@@ -1512,10 +1511,14 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * PMI632 based hw init:
+	 * - Rerun APSD to ensure proper charger detection if device
+	 *   boots with charger connected.
 	 * - Initialize flash module for PMI632
 	 */
-	if (chg->smb_version == PMI632_SUBTYPE)
+	if (chg->smb_version == PMI632_SUBTYPE) {
 		schgm_flash_init(chg);
+		smblib_rerun_apsd_if_required(chg);
+	}
 
 	/* vote 0mA on usb_icl for non battery platforms */
 	vote(chg->usb_icl_votable,
@@ -1541,12 +1544,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	 * AICL configuration:
 	 * start from min and AICL ADC disable, and enable aicl rerun
 	 */
-	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-		USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT,
-		USBIN_AICL_PERIODIC_RERUN_EN_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure AICL rc=%d\n", rc);
-		return rc;
+	if (chg->smb_version != PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+				USBIN_AICL_PERIODIC_RERUN_EN_BIT
+				| USBIN_AICL_ADC_EN_BIT,
+				USBIN_AICL_PERIODIC_RERUN_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,
