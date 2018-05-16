@@ -990,6 +990,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	struct cam_ife_hw_mgr_res           *cid_res_temp, *cid_res_iterator;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 	uint32_t acquired_cnt = 0;
+	struct cam_isp_out_port_info        *out_port = NULL;
 
 	ife_hw_mgr = ife_ctx->hw_mgr;
 	*cid_res = NULL;
@@ -1007,12 +1008,21 @@ static int cam_ife_mgr_acquire_cid_res(
 	csid_acquire.res_id =  csid_path;
 	CAM_DBG(CAM_ISP, "path %d", csid_path);
 
+	if (in_port->num_out_res)
+		out_port = &(in_port->data[0]);
+
 	/* Try acquiring CID resource from previously acquired HW */
 	list_for_each_entry(cid_res_iterator, &ife_ctx->res_list_ife_cid,
 		list) {
 
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 			if (!cid_res_iterator->hw_res[i])
+				continue;
+
+			if (cid_res_iterator->is_secure == 1 ||
+				(cid_res_iterator->is_secure == 0 &&
+				in_port->num_out_res &&
+				out_port->secure_mode == 1))
 				continue;
 
 			hw_intf = cid_res_iterator->hw_res[i]->hw_intf;
@@ -1084,6 +1094,10 @@ acquire_successful:
 	/* CID(DT_ID) value of acquire device, require for path */
 	cid_res_temp->res_id = csid_acquire.node_res->res_id;
 	cid_res_temp->is_dual_vfe = in_port->usage_type;
+
+	if (in_port->num_out_res)
+		cid_res_temp->is_secure = out_port->secure_mode;
+
 	cam_ife_hw_mgr_put_res(&ife_ctx->res_list_ife_cid, cid_res);
 
 	/*
