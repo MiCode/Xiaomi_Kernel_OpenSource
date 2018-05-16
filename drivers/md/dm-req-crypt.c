@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -1297,11 +1297,11 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	/*
-	 * If underlying device supports flush/discard, mapped target
+	 * If underlying device supports flush, mapped target
 	 * should also allow it
 	 */
 	ti->num_flush_bios = 1;
-	ti->num_discard_bios = 1;
+	/* TODO: Discard support */
 
 	err = 0;
 	DMINFO("%s: Mapping block_device %s to dm-req-crypt ok!\n",
