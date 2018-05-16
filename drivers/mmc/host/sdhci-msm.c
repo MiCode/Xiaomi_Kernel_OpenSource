@@ -39,6 +39,7 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_runtime.h>
 #include <trace/events/mmc.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "sdhci-msm.h"
 #include "sdhci-msm-ice.h"
@@ -4250,6 +4251,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	void __iomem *tlmm_mem;
 	unsigned long flags;
 	bool force_probe;
+	char boot_marker[40];
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -4273,6 +4275,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(host);
 		goto out_host_free;
 	}
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Init", mmc_hostname(host->mmc));
+	place_marker(boot_marker);
 
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = msm_host;
@@ -4746,6 +4752,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 	if (sdhci_msm_is_bootdevice(&pdev->dev))
 		mmc_flush_detect_work(host->mmc);
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Ready", mmc_hostname(host->mmc));
+	place_marker(boot_marker);
 
 	/* Successful initialization */
 	goto out;
