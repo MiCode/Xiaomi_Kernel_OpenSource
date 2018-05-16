@@ -5966,9 +5966,12 @@ static int compute_energy(struct energy_env *eenv)
 		 * when we took visit_cpus.
 		 */
 		sd = rcu_dereference(per_cpu(sd_scs, cpu));
-		if (sd && sd->parent)
-			sg_shared_cap = sd->parent->groups;
-
+		if (sd) {
+			if (sd->parent)
+				sg_shared_cap = sd->parent->groups;
+			else /* single cluster system */
+				sg_shared_cap = sd->groups;
+		}
 		for_each_domain(cpu, sd) {
 			sg = sd->groups;
 			/* Has this sched_domain already been visited? */
