@@ -70,7 +70,7 @@
 			mhi,msi = <1>;
 			mhi,priority = <1>;
 			mhi,brstmode = <2>;
-			mhi,ctrl-ev;
+			mhi,data-type = <1>;
 		};
 
 		mhi_event@1 {

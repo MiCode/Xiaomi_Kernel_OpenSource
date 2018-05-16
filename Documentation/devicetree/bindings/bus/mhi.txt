@@ -132,6 +132,14 @@ mhi event node properties:
 		2 = burst mode disabled
 		3 = burst mode enabled
 
+- mhi,data-type
+  Usage: optional
+  Value type: <u32>
+  Definition: Type of data this event ring will process as defined
+	by enum mhi_er_data_type
+		0 = process data packets (default)
+		1 = process mhi control packets
+
 - mhi,hw-ev
   Usage: optional
   Value type: <bool>
@@ -147,10 +155,6 @@ mhi event node properties:
   Value type: <bool>
   Definition: Event ring associated with offload channel
 
-- mhi,ctrl-ev
-  Usage: optional
-  Value type: <bool>
-  Definition: Event ring dedicated to control events only
 
 Children node properties:
 
@@ -177,7 +181,7 @@ mhi_controller {
 		mhi,chan = <0>;
 		mhi,priority = <1>;
 		mhi,bstmode = <2>;
-		mhi,ctrl-ev;
+		mhi,data-type = <1>;
 	};
 
 	mhi_event@1 {

@@ -734,6 +734,23 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			(mhi_event->db_cfg.brstmode == MHI_BRSTMODE_ENABLE) ?
 			mhi_db_brstmode : mhi_db_brstmode_disable;
 
+		ret = of_property_read_u32(child, "mhi,data-type",
+					   &mhi_event->data_type);
+		if (ret)
+			mhi_event->data_type = MHI_ER_DATA_ELEMENT_TYPE;
+
+		if (mhi_event->data_type > MHI_ER_DATA_TYPE_MAX)
+			goto error_ev_cfg;
+
+		switch (mhi_event->data_type) {
+		case MHI_ER_DATA_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_data_event_ring;
+			break;
+		case MHI_ER_CTRL_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_ctrl_ev_ring;
+			break;
+		}
+
 		mhi_event->hw_ring = of_property_read_bool(child, "mhi,hw-ev");
 		if (mhi_event->hw_ring)
 			mhi_cntrl->hw_ev_rings++;
@@ -743,9 +760,6 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 							"mhi,client-manage");
 		mhi_event->offload_ev = of_property_read_bool(child,
 							      "mhi,offload");
-		mhi_event->ctrl_ev = of_property_read_bool(child,
-							   "mhi,ctrl-ev");
-
 		mhi_event++;
 	}
 
@@ -987,7 +1001,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 		mhi_event->mhi_cntrl = mhi_cntrl;
 		spin_lock_init(&mhi_event->lock);
-		if (mhi_event->ctrl_ev)
+		if (mhi_event->data_type == MHI_ER_CTRL_ELEMENT_TYPE)
 			tasklet_init(&mhi_event->task, mhi_ctrl_ev_task,
 				     (ulong)mhi_event);
 		else
