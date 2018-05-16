@@ -114,14 +114,18 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 {
 	struct recon_buf *binfo, *nextb;
 	struct vidc_input_cr_data *temp, *next;
-	u32 min_cf = 0, max_cf = 0;
-	u32 min_input_cr = 0, max_input_cr = 0, min_cr = 0, max_cr = 0;
+	u32 max_cr = 0, max_cf = 0, max_input_cr = 0;
+	u32 min_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
+	u32 min_input_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
+	u32 min_cf = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
 
 	mutex_lock(&inst->reconbufs.lock);
 	list_for_each_entry_safe(binfo, nextb, &inst->reconbufs.list, list) {
-		min_cr = min(min_cr, binfo->CR);
+		if (binfo->CR)
+			min_cr = min(min_cr, binfo->CR);
+		if (binfo->CF)
+			min_cf = min(min_cf, binfo->CF);
 		max_cr = max(max_cr, binfo->CR);
-		min_cf = min(min_cf, binfo->CF);
 		max_cf = max(max_cf, binfo->CF);
 	}
 	mutex_unlock(&inst->reconbufs.lock);
