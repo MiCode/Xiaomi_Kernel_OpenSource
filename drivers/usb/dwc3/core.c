@@ -749,6 +749,9 @@ static void dwc3_core_setup_global_control(struct dwc3 *dwc)
 	if (dwc->revision < DWC3_REVISION_190A)
 		reg |= DWC3_GCTL_U2RSTECN;
 
+	if (dwc->disable_clk_gating)
+		reg |= DWC3_GCTL_DSBLCLKGTNG;
+
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 }
 
@@ -1138,6 +1141,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 					"snps,bus-suspend-enable");
 	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
 					"snps,usb3-u1u2-disable");
+	dwc->disable_clk_gating = device_property_read_bool(dev,
+					"snps,disable-clk-gating");
 
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
