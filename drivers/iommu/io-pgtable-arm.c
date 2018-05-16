@@ -432,13 +432,15 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 					     arm_lpae_iopte *ptep,
 					     arm_lpae_iopte curr,
-					     struct io_pgtable_cfg *cfg)
+					     struct io_pgtable_cfg *cfg,
+					     int ref_count)
 {
 	arm_lpae_iopte old, new;
 
 	new = __pa(table) | ARM_LPAE_PTE_TYPE_TABLE;
 	if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_NS)
 		new |= ARM_LPAE_PTE_NSTABLE;
+	iopte_tblcnt_set(&new, ref_count);
 
 	/*
 	 * Ensure the table itself is visible before its PTE can be.
@@ -536,7 +538,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 		if (!cptep)
 			return -ENOMEM;
 
-		pte = arm_lpae_install_table(cptep, ptep, 0, cfg);
+		pte = arm_lpae_install_table(cptep, ptep, 0, cfg, 0);
 		if (pte)
 			__arm_lpae_free_pages(cptep, tblsz, cfg, cookie);
 
@@ -767,6 +769,7 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 	size_t split_sz = ARM_LPAE_BLOCK_SIZE(lvl, data);
 	int i, unmap_idx = -1;
 	void *cookie = data->iop.cookie;
+	int child_cnt = 0;
 
 	size = iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova, size);
 
@@ -790,9 +793,10 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 		__arm_lpae_init_pte(data, blk_paddr, pte, lvl, &tablep[i],
 				    true);
+		child_cnt++;
 	}
 
-	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg);
+	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg, child_cnt);
 	if (pte != blk_pte) {
 		__arm_lpae_free_pages(tablep, tablesz, cfg, cookie);
 		/*
