@@ -13,3 +13,34 @@
 
 #include "sdm450-pmi632-cdp-s2.dtsi"
 
+&soc {
+	gpio_keys {
+		home {
+			status = "disabled";
+		};
+	};
+};
+
+&tlmm {
+	tlmm_gpio_key {
+		gpio_key_active {
+			mux {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+
+			config {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+		};
+
+		gpio_key_suspend {
+			mux {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+
+			config {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+		};
+	};
+};
