@@ -1431,11 +1431,39 @@ static int smb5_init_vconn_regulator(struct smb5 *chip)
 static int smb5_configure_typec(struct smb_charger *chg)
 {
 	int rc;
+	u8 val = 0;
+
+	rc = smblib_read(chg, LEGACY_CABLE_STATUS_REG, &val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read Legacy status rc=%d\n", rc);
+		return rc;
+	}
+	/*
+	 * If Legacy cable is detected re-trigger Legacy detection
+	 * by disabling/enabling typeC mode.
+	 */
+	if (val & TYPEC_LEGACY_CABLE_STATUS_BIT) {
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable TYPEC rc=%d\n", rc);
+			return rc;
+		}
+
+		/* delay before enabling typeC */
+		msleep(500);
+
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_DISABLE_CMD_BIT, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable TYPEC rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	/* disable apsd */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
-				0);
+				HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't disable APSD rc=%d\n", rc);
 		return rc;
