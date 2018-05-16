@@ -1002,6 +1002,34 @@ TRACE_EVENT(core_ctl_set_boost,
 	TP_printk("refcount=%u, ret=%d", __entry->refcount, __entry->ret)
 );
 
+TRACE_EVENT(core_ctl_update_nr_need,
+
+	TP_PROTO(int cpu, int nr_need, int prev_misfit_need,
+		int nrrun, int max_nr),
+
+	TP_ARGS(cpu, nr_need, prev_misfit_need, nrrun, max_nr),
+
+	TP_STRUCT__entry(
+		__field( int, cpu)
+		__field( int, nr_need)
+		__field( int, prev_misfit_need)
+		__field( int, nrrun)
+		__field( int, max_nr)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->nr_need = nr_need;
+		__entry->prev_misfit_need = prev_misfit_need;
+		__entry->nrrun = nrrun;
+		__entry->max_nr = max_nr;
+	),
+
+	TP_printk("cpu=%d nr_need=%d prev_misfit_need=%d nrrun=%d max_nr=%d",
+		__entry->cpu, __entry->nr_need, __entry->prev_misfit_need,
+		__entry->nrrun, __entry->max_nr)
+);
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
@@ -1236,30 +1264,26 @@ TRACE_EVENT(sched_energy_diff,
  */
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int avg, int big_avg, int iowait_avg,
-		unsigned int max_nr, unsigned int big_max_nr),
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max),
 
-	TP_ARGS(avg, big_avg, iowait_avg, max_nr, big_max_nr),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max),
 
 	TP_STRUCT__entry(
-		__field( int,   avg                     )
-		__field( int,   big_avg                 )
-		__field( int,   iowait_avg              )
-		__field( unsigned int,  max_nr          )
-		__field( unsigned int,  big_max_nr      )
+		__field( int, cpu)
+		__field( int, nr)
+		__field( int, nr_misfit)
+		__field( int, nr_max)
 	),
 
 	TP_fast_assign(
-		__entry->avg            = avg;
-		__entry->big_avg        = big_avg;
-		__entry->iowait_avg     = iowait_avg;
-		__entry->max_nr         = max_nr;
-		__entry->big_max_nr     = big_max_nr;
+		__entry->cpu = cpu;
+		__entry->nr = nr;
+		__entry->nr_misfit = nr_misfit;
+		__entry->nr_max = nr_max;
 	),
 
-	TP_printk("avg=%d big_avg=%d iowait_avg=%d max_nr=%u big_max_nr=%u",
-		__entry->avg, __entry->big_avg, __entry->iowait_avg,
-		__entry->max_nr, __entry->big_max_nr)
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d",
+		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max)
 );
 
 /*

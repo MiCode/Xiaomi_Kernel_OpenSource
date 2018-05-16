@@ -3047,3 +3047,10 @@ static inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
+
+struct sched_avg_stats {
+	int nr;
+	int nr_misfit;
+	int nr_max;
+};
+extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
