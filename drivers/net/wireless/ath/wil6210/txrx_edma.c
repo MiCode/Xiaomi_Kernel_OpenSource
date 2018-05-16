@@ -1100,9 +1100,11 @@ static int wil_tx_desc_map_edma(union wil_tx_desc *desc,
 	/* 0..6: mac_length; 7:ip_version 0-IP6 1-IP4*/
 	d->dma.length = cpu_to_le16((u16)len);
 	d->mac.d[0] = (ring_index << WIL_EDMA_DESC_TX_MAC_CFG_0_QID_POS);
-	/* translation type:  0 - bypass; 1 - 802.3; 2 - native wifi */
+	/* translation type:  0 - bypass; 1 - 802.3; 2 - native wifi;
+	 * 3 - eth mode
+	 */
 	d->mac.d[2] = BIT(MAC_CFG_DESC_TX_2_SNAP_HDR_INSERTION_EN_POS) |
-		      (1 << MAC_CFG_DESC_TX_2_L2_TRANSLATION_TYPE_POS);
+		      (0x3 << MAC_CFG_DESC_TX_2_L2_TRANSLATION_TYPE_POS);
 
 	return 0;
 }
