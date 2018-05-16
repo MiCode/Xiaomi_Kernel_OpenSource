@@ -600,17 +600,11 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
-		 * up cycle.  If we poll too early, status bit will
-		 * indicate 'on' before the GDSC can finish the power cycle.
-		 * Account for this case by waiting 1us before polling.
+		 * up cycle. Account for this case by waiting 1us before
+		 * proceeding.
 		 */
 		gdsc_mb(sc);
 		udelay(1);
-
-		ret = poll_gdsc_status(sc, ENABLED);
-		if (ret)
-			dev_err(&rdev->dev, "%s set_mode timed out: 0x%x\n",
-				sc->rdesc.name, regval);
 		break;
 	default:
 		ret = -EINVAL;
