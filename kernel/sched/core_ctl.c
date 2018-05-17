@@ -44,6 +44,8 @@ struct cluster_data {
 	unsigned int need_cpus;
 	unsigned int task_thres;
 	unsigned int max_nr;
+	unsigned int nr_prev_assist;
+	unsigned int nr_prev_assist_thresh;
 	s64 need_ts;
 	struct list_head lru;
 	bool pending;
@@ -157,6 +159,26 @@ static ssize_t store_task_thres(struct cluster_data *state,
 		return -EINVAL;
 
 	state->task_thres = val;
+	apply_need(state);
+
+	return count;
+}
+
+static ssize_t show_nr_prev_assist_thresh(const struct cluster_data *state,
+								char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", state->nr_prev_assist_thresh);
+}
+
+static ssize_t store_nr_prev_assist_thresh(struct cluster_data *state,
+				const char *buf, size_t count)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	state->nr_prev_assist_thresh = val;
 	apply_need(state);
 
 	return count;
@@ -389,6 +411,7 @@ core_ctl_attr_rw(offline_delay_ms);
 core_ctl_attr_rw(busy_up_thres);
 core_ctl_attr_rw(busy_down_thres);
 core_ctl_attr_rw(task_thres);
+core_ctl_attr_rw(nr_prev_assist_thresh);
 core_ctl_attr_ro(need_cpus);
 core_ctl_attr_ro(active_cpus);
 core_ctl_attr_ro(global_state);
@@ -402,6 +425,7 @@ static struct attribute *default_attrs[] = {
 	&busy_up_thres.attr,
 	&busy_down_thres.attr,
 	&task_thres.attr,
+	&nr_prev_assist_thresh.attr,
 	&enable.attr,
 	&need_cpus.attr,
 	&active_cpus.attr,
@@ -549,6 +573,56 @@ static int cluster_real_big_tasks(int index)
 	return nr_big;
 }
 
+/*
+ * prev_nr_need_assist:
+ *   Tasks that are eligible to run on the previous
+ *   cluster but cannot run because of insufficient
+ *   CPUs there. prev_nr_need_assist is indicative
+ *   of number of CPUs in this cluster that should
+ *   assist its previous cluster to makeup for
+ *   insufficient CPUs there.
+ *
+ * For example:
+ *   On tri-cluster system with 4 min capacity
+ *   CPUs, 3 intermediate capacity CPUs and 1
+ *   max capacity CPU, if there are 4 small
+ *   tasks running on min capacity CPUs, 4 big
+ *   tasks running on intermediate capacity CPUs
+ *   and no tasks running on max capacity CPU,
+ *   prev_nr_need_assist for min & max capacity
+ *   clusters will be 0, but, for intermediate
+ *   capacity cluster prev_nr_need_assist will
+ *   be 1 as it has 3 CPUs, but, there are 4 big
+ *   tasks to be served.
+ */
+static int prev_cluster_nr_need_assist(int index)
+{
+	int need = 0;
+	int cpu;
+	struct cluster_data *prev_cluster;
+	unsigned int prev_cluster_available_cpus;
+
+	if (index == 0)
+		return 0;
+
+	index--;
+	prev_cluster = &cluster_state[index];
+	prev_cluster_available_cpus = prev_cluster->active_cpus +
+					prev_cluster->nr_isolated_cpus;
+
+	for_each_cpu(cpu, &prev_cluster->cpu_mask)
+		need += nr_stats[cpu].nr;
+
+	need += compute_prev_cluster_misfit_need(index);
+
+	if (need > prev_cluster_available_cpus)
+		need = need - prev_cluster_available_cpus;
+	else
+		need = 0;
+
+	return need;
+}
+
 static void update_running_avg(void)
 {
 	struct cluster_data *cluster;
@@ -571,10 +645,12 @@ static void update_running_avg(void)
 
 		cluster->nrrun = nr_need + prev_misfit_need;
 		cluster->max_nr = compute_cluster_max_nr(index);
+		cluster->nr_prev_assist = prev_cluster_nr_need_assist(index);
 
 		trace_core_ctl_update_nr_need(cluster->first_cpu, nr_need,
 					prev_misfit_need,
-					cluster->nrrun, cluster->max_nr);
+					cluster->nrrun, cluster->max_nr,
+					cluster->nr_prev_assist);
 
 		big_avg += cluster_real_big_tasks(index);
 	}
@@ -591,6 +667,14 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	/* unisolate all cores if there are enough tasks */
 	if (cluster->nrrun >= cluster->task_thres)
 		return cluster->num_cpus;
+
+	/*
+	 * unisolate as many cores as the previous cluster
+	 * needs assistance with.
+	 */
+	if (cluster->nr_prev_assist_thresh != 0 &&
+		cluster->nr_prev_assist >= cluster->nr_prev_assist_thresh)
+		new_need = new_need + cluster->nr_prev_assist;
 
 	/* only unisolate more cores if there are tasks to run */
 	if (cluster->nrrun > new_need)
@@ -1150,6 +1234,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->offline_delay_ms = 100;
 	cluster->task_thres = UINT_MAX;
+	cluster->nr_prev_assist_thresh = 0;
 	cluster->nrrun = cluster->num_cpus;
 	cluster->enable = true;
 	cluster->nr_not_preferred_cpus = 0;
