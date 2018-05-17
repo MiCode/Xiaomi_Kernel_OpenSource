@@ -67,6 +67,7 @@ struct adm_copp {
 	atomic_t adm_delay_stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	uint32_t adm_delay[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	unsigned long adm_status[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+	atomic_t token[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 };
 
 struct source_tracking_data {
@@ -102,6 +103,7 @@ struct adm_ctl {
 	int ec_ref_rx_sampling_rate;
 
 	int native_mode;
+	u32 copp_token;
 };
 
 static struct adm_ctl			this_adm;
@@ -222,13 +224,44 @@ static int adm_get_copp_id(int port_idx, int copp_idx)
 	return atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
 }
 
+static int adm_get_idx_if_single_copp_exists(int port_idx,
+			int topology, int mode,
+			int rate, int bit_width,
+			u32 copp_token)
+{
+	int idx;
+
+	pr_debug("%s: copp_token %d\n", __func__, copp_token);
+
+	for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
+		if ((topology ==
+			atomic_read(&this_adm.copp.topology[port_idx][idx])) &&
+			(mode ==
+			 atomic_read(&this_adm.copp.mode[port_idx][idx])) &&
+			(rate ==
+			 atomic_read(&this_adm.copp.rate[port_idx][idx])) &&
+			(bit_width ==
+			atomic_read(&this_adm.copp.bit_width[port_idx][idx])) &&
+			(copp_token ==
+			atomic_read(&this_adm.copp.token[port_idx][idx])))
+			return idx;
+	return -EINVAL;
+}
+
 static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
-				 int rate, int bit_width, int app_type)
+				 int rate, int bit_width, int app_type,
+				 u32 copp_token)
 {
 	int idx;
 
 	pr_debug("%s: port_idx-%d, topology-0x%x, mode-%d, rate-%d, bit_width-%d\n",
 		 __func__, port_idx, topology, mode, rate, bit_width);
+
+	if (copp_token)
+		return adm_get_idx_if_single_copp_exists(port_idx,
+				topology, mode,
+				rate, bit_width,
+				copp_token);
 
 	for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
 		if ((topology ==
@@ -2804,7 +2837,8 @@ static int adm_open_v5_v6(int tmp_port, int port_idx, int copp_idx,
 }
 
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
-	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id)
+	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id,
+		u32 copp_token)
 {
 	int ret = 0;
 	int port_idx, flags;
@@ -2871,7 +2905,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
 						      perf_mode,
 						      rate, bit_width,
-						      app_type);
+						      app_type, copp_token);
 
 	if (copp_idx < 0) {
 		copp_idx = adm_get_next_available_copp(port_idx);
@@ -2895,6 +2929,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 				   app_type);
 			atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 				   acdb_id);
+			atomic_set(&this_adm.copp.token[port_idx][copp_idx],
+				   copp_token);
 			set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 			if ((path != ADM_PATH_COMPRESSED_RX) &&
@@ -3432,6 +3468,7 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.channels[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
+		atomic_set(&this_adm.copp.token[port_idx][copp_idx], 0);
 
 		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
