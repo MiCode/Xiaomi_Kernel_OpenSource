@@ -103,6 +103,9 @@
 #define SDE_RSC_MODE_1_VAL		1
 #define MAX_MODE2_ENTRY_TRY		3
 
+#define SDE_RSC_REV_1			0x1
+#define SDE_RSC_REV_2			0x2
+
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
 	struct sde_rsc_event *event;
@@ -457,11 +460,13 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 					reg, rsc->debug_mode);
 
-	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+	if (rsc->version < SDE_RSC_REV_2) {
+		reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							rsc->debug_mode);
-	reg |= BIT(13);
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+		reg |= BIT(13);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
+	}
 
 	/* make sure that mode-2 exit before wait*/
 	wmb();
@@ -480,11 +485,14 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 		usleep_range(10, 100);
 	}
 
-	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+	if (rsc->version < SDE_RSC_REV_2) {
+		reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							rsc->debug_mode);
-	reg &= ~BIT(13);
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+		reg &= ~BIT(13);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
+	}
+
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
 
@@ -742,7 +750,7 @@ int rsc_hw_init(struct sde_rsc_priv *rsc)
 		goto end;
 	}
 
-	if (rsc->version == 2)
+	if (rsc->version == SDE_RSC_REV_2)
 		rc = rsc_hw_seq_memory_init_v2(rsc);
 	else
 		rc = rsc_hw_seq_memory_init(rsc);
