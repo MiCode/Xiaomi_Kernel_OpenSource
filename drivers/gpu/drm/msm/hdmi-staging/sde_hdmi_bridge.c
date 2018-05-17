@@ -125,20 +125,20 @@ static void sde_hdmi_clear_hdr_info(struct drm_bridge *bridge)
 	connector->hdr_supported = false;
 }
 
-static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
+static int _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
-	int i, ret;
+	int i, ret = 0;
 	struct sde_hdmi *display = sde_hdmi_bridge->display;
 
 	if ((display->non_pluggable) && (!hdmi->power_on)) {
 		ret = sde_hdmi_core_enable(display);
-		if (ret)
+		if (ret) {
 			SDE_ERROR("failed to enable HDMI core (%d)\n", ret);
-		else
-			hdmi->power_on = true;
+			goto err_core_enable;
+		}
 	}
 
 	for (i = 0; i < config->pwr_reg_cnt; i++) {
@@ -146,15 +146,17 @@ static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 		if (ret) {
 			SDE_ERROR("failed to enable pwr regulator: %s (%d)\n",
 					config->pwr_reg_names[i], ret);
+			goto err_regulator_enable;
 		}
 	}
 
-	if (config->pwr_clk_cnt > 0) {
+	if (config->pwr_clk_cnt > 0 && hdmi->pixclock) {
 		DRM_DEBUG("pixclock: %lu", hdmi->pixclock);
 		ret = clk_set_rate(hdmi->pwr_clks[0], hdmi->pixclock);
 		if (ret) {
-			SDE_ERROR("failed to set pixel clk: %s (%d)\n",
-					config->pwr_clk_names[0], ret);
+			pr_warn("failed to set pixclock: %s %ld (%d)\n",
+				config->pwr_clk_names[0],
+				hdmi->pixclock, ret);
 		}
 	}
 
@@ -163,17 +165,31 @@ static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 		if (ret) {
 			SDE_ERROR("failed to enable pwr clk: %s (%d)\n",
 					config->pwr_clk_names[i], ret);
+			goto err_prepare_enable;
 		}
 	}
+	goto exit;
+
+err_prepare_enable:
+	for (i = 0; i < config->pwr_clk_cnt; i++)
+		clk_disable_unprepare(hdmi->pwr_clks[i]);
+err_regulator_enable:
+	for (i = 0; i < config->pwr_reg_cnt; i++)
+		regulator_disable(hdmi->pwr_regs[i]);
+err_core_enable:
+	if (display->non_pluggable)
+		sde_hdmi_core_disable(display);
+exit:
+	return ret;
 }
 
-static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
+static int _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
 	struct sde_hdmi *display = sde_hdmi_bridge->display;
-	int i, ret;
+	int i, ret = 0;
 
 	/* Wait for vsync */
 	msleep(20);
@@ -183,14 +199,15 @@ static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 
 	for (i = 0; i < config->pwr_reg_cnt; i++) {
 		ret = regulator_disable(hdmi->pwr_regs[i]);
-		if (ret) {
+		if (ret)
 			SDE_ERROR("failed to disable pwr regulator: %s (%d)\n",
 					config->pwr_reg_names[i], ret);
-		}
 	}
 
 	if (display->non_pluggable)
 		sde_hdmi_core_disable(display);
+
+	return ret;
 }
 
 static int _sde_hdmi_bridge_ddc_clear_irq(struct hdmi *hdmi,
@@ -489,9 +506,14 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 	DRM_DEBUG("power up");
 
 	if (!hdmi->power_on) {
-		_sde_hdmi_bridge_power_on(bridge);
+		if (_sde_hdmi_bridge_power_on(bridge)) {
+			DEV_ERR("failed to power on bridge\n");
+			return;
+		}
 		hdmi->power_on = true;
 	}
+
+	_sde_hdmi_bridge_setup_scrambler(hdmi, &display->mode);
 
 	if (phy)
 		phy->funcs->powerup(phy, hdmi->pixclock);
@@ -831,10 +853,6 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 
 	mode = adjusted_mode;
 
-	if (display->non_pluggable && !hdmi->power_on)
-		if (sde_hdmi_core_enable(display))
-			pr_err("mode set enable core failed\n");
-
 	display->dc_enable = mode->private_flags &
 				(MSM_MODE_FLAG_RGB444_DC_ENABLE |
 				 MSM_MODE_FLAG_YUV420_DC_ENABLE);
@@ -909,10 +927,7 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	}
 
 	_sde_hdmi_save_mode(hdmi, mode);
-	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 	_sde_hdmi_bridge_setup_deep_color(hdmi);
-	if (display->non_pluggable && !hdmi->power_on)
-		sde_hdmi_core_disable(display);
 }
 
 static bool _sde_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
