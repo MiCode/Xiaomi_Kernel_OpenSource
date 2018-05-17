@@ -6269,6 +6269,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	struct msm_vidc_buffer *temp;
 	bool found = false;
 	int i = 0;
+	u32 planes[VIDEO_MAX_PLANES] = {0};
 
 	mutex_lock(&inst->flush_lock);
 	mutex_lock(&inst->registeredbufs.lock);
@@ -6282,6 +6283,10 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		}
 	}
 	if (found) {
+		/* save device_addr */
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++)
+			planes[i] = mbuf->smem[i].device_addr;
+
 		/* send RBR event to client */
 		msm_vidc_queue_rbr_event(inst,
 			mbuf->vvb.vb2_buf.planes[0].m.fd,
@@ -6299,6 +6304,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		if (!mbuf->smem[0].refcount) {
 			list_del(&mbuf->list);
 			kref_put_mbuf(mbuf);
+			mbuf = NULL;
 		}
 	} else {
 		print_vidc_buffer(VIDC_ERR, "mbuf not found", inst, mbuf);
@@ -6316,8 +6322,8 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	 */
 	found = false;
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_vb2_plane(inst, mbuf,
-				&temp->vvb.vb2_buf, 0)) {
+		if (msm_comm_compare_device_plane(temp, planes, 0)) {
+			mbuf = temp;
 			found = true;
 			break;
 		}
@@ -6337,9 +6343,11 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		/* don't queue the buffer */
 		found = false;
 	}
-	/* clear DEFERRED flag, if any, as the buffer is going to be queued */
-	if (found)
+	/* clear required flags as the buffer is going to be queued */
+	if (found) {
 		mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
+		mbuf->flags &= ~MSM_VIDC_FLAG_RBR_PENDING;
+	}
 
 unlock:
 	mutex_unlock(&inst->registeredbufs.lock);
