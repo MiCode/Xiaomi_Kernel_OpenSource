@@ -43,7 +43,7 @@ static struct mdss_mdp_cdm *mdss_mdp_cdm_alloc(struct mdss_data_type *mdata)
 
 	for (i = 0; i < mdata->ncdm; i++) {
 		cdm = mdata->cdm_off + i;
-		if (atomic_read(&cdm->kref.refcount) == 0) {
+		if (refcount_read(&cdm->kref.refcount) == 0) {
 			kref_init(&cdm->kref);
 			cdm->mdata = mdata;
 			pr_debug("alloc cdm=%d\n", cdm->num);

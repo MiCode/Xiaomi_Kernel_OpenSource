@@ -14,7 +14,7 @@
 #ifndef MDSS_SMMU_H
 #define MDSS_SMMU_H
 
-#include <linux/msm_ion.h>
+#include <linux/ion.h>
 #include <linux/msm_mdp.h>
 #include <linux/mdss_io_util.h>
 
@@ -83,13 +83,6 @@ static inline struct mdss_smmu_client *mdss_smmu_get_cb(u32 domain)
 
 	return (domain >= MDSS_IOMMU_MAX_DOMAIN) ? NULL :
 			&mdata->mdss_smmu[domain];
-}
-
-static inline struct ion_client *mdss_get_ionclient(void)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	return mdata ? mdata->iclient : NULL;
 }
 
 static inline int is_mdss_iommu_attached(void)

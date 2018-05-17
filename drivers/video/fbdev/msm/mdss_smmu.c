@@ -19,7 +19,7 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
@@ -36,26 +36,14 @@
 
 #define SZ_4G 0xF0000000
 
-#ifdef CONFIG_QCOM_IOMMU
-#include <linux/qcom_iommu.h>
-static inline struct bus_type *mdss_mmu_get_bus(struct device *dev)
-{
-	return msm_iommu_get_bus(dev);
-}
-static inline struct device *mdss_mmu_get_ctx(const char *name)
-{
-	return msm_iommu_get_ctx(name);
-}
-#else
 static inline struct bus_type *mdss_mmu_get_bus(struct device *dev)
 {
 	return &platform_bus_type;
 }
 static inline struct device *mdss_mmu_get_ctx(const char *name)
 {
-	return ERR_PTR(-ENODEV);
+	return NULL;
 }
-#endif
 
 static DEFINE_MUTEX(mdp_iommu_lock);
 
@@ -324,6 +312,7 @@ static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
 		int dir, struct dma_buf *dma_buf)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
+	unsigned long attrs = 0;
 
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
@@ -331,8 +320,8 @@ static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
 	}
 
 	ATRACE_BEGIN("unmap_buffer");
-	msm_dma_unmap_sg(mdss_smmu->dev, table->sgl, table->nents, dir,
-		 dma_buf);
+	msm_dma_unmap_sg_attrs(mdss_smmu->dev, table->sgl, table->nents, dir,
+			dma_buf, attrs);
 	ATRACE_END("unmap_buffer");
 }
 
@@ -847,7 +836,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	iommu_set_fault_handler(mdss_smmu->mmu_mapping->domain,
 			mdss_smmu_fault_handler, mdss_smmu);
-	address = of_get_address_by_name(pdev->dev.of_node, "mmu_cb", 0, 0);
+	address = of_get_address(pdev->dev.of_node, 0, 0, 0);
 	if (address) {
 		size = address + 1;
 		mdss_smmu->mmu_base = ioremap(be32_to_cpu(*address),
