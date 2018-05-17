@@ -23,9 +23,9 @@
 /*
  * Maximum hw resource - This number is based on the maximum
  * output port resource. The current maximum resource number
- * is 24.
+ * is 20.
  */
-#define CAM_ISP_CTX_RES_MAX                     24
+#define CAM_ISP_CTX_RES_MAX                     20
 
 /*
  * Maximum configuration entry size  - This is based on the
