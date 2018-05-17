@@ -25,6 +25,65 @@
 		qcom,msm-vdd-wsa-switch-voltage = <1800000>;
 		qcom,msm-vdd-wsa-switch-current = <10000>;
 	};
+
+	clock_audio_native: audio_ext_clk_native {
+		status = "disabled";
+		compatible = "qcom,audio-ref-clk";
+		#clock-cells = <1>;
+		qcom,codec-mclk-clk-freq = <11289600>;
+		qcom,audio-ref-clk-gpio = <&tlmm 66 0>;
+		qcom,lpass-mclk-id = "pri_mclk";
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&cdc_mclk2_sleep>;
+		pinctrl-1 = <&cdc_mclk2_active>;
+	};
+};
+
+
+&clock_audio {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&tasha_mclk_default>;
+	pinctrl-1 = <&tasha_mclk_default>;
+	qcom,audio-ref-clk-gpio = <&pm8953_gpios 1 0>;
+};
+
+&wcd9335 {
+	cdc-vdd-buck-supply = <&dbu1>;
+	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-buck-current = <650000>;
+
+	cdc-buck-sido-supply = <&dbu1>;
+	qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+	qcom,cdc-buck-sido-current = <150000>;
+
+	cdc-vdd-tx-h-supply = <&dbu1>;
+	qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-tx-h-current = <25000>;
+
+	cdc-vdd-rx-h-supply = <&dbu1>;
+	qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-rx-h-current = <25000>;
+
+	cdc-vdd-px-supply = <&dbu1>;
+	qcom,cdc-vdd-px-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-px-current = <10000>;
+
+	cdc-vdd-mic-bias-supply = <&pm8953_l13>;
+	qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
+	qcom,cdc-vdd-mic-bias-current = <15000>;
+};
+
+&pm8953_gpios {
+	tasha_mclk {
+		tasha_mclk_default: tasha_mclk_default{
+			pins = "gpio1";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
+		};
+	};
 };
 
 &pm8953_1 {
