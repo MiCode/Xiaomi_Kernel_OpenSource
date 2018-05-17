@@ -48,6 +48,23 @@
 		#size-cells = <2>;
 		ranges;
 
+		fastboot_cma: fastboot-cma-mem {
+			reg = <0x0 0x16c00000 0x0 0x4000000>;
+			compatible = "shared-dma-pool";
+			hisi,cma-sec;
+			reusable;
+		};
+
+		uefi-reboot-mode {
+			reg = <0x0 0x32100000 0x0 0x00001000>;
+			no-map;
+		};
+
+		bl31 {
+			reg = <0x0 0x20200000 0x0 0x200000>;
+			no-map;
+		};
+
 		ramoops@32000000 {
 			compatible = "ramoops";
 			reg = <0x0 0x32000000 0x0 0x00100000>;
