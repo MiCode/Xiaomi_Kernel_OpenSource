@@ -62,7 +62,7 @@ static int virtclk_front_get_id(struct clk *clk)
 	if (v->id)
 		return ret;
 
-	msg.header.cmd = CLK_MSG_GETID;
+	msg.header.cmd = CLK_MSG_GETID | v->flag;
 	msg.header.len = sizeof(msg);
 	strlcpy(msg.name, clk->dbg_name, sizeof(msg.name));
 
@@ -119,7 +119,7 @@ static int virtclk_front_prepare(struct clk *clk)
 		return ret;
 
 	msg.clk_id = v->id;
-	msg.cmd = CLK_MSG_ENABLE;
+	msg.cmd = CLK_MSG_ENABLE | v->flag;
 	msg.len = sizeof(struct clk_msg_header);
 
 	rt_mutex_lock(&virtclk_front_ctx.lock);
@@ -173,7 +173,7 @@ static void virtclk_front_unprepare(struct clk *clk)
 		return;
 
 	msg.clk_id = v->id;
-	msg.cmd = CLK_MSG_DISABLE;
+	msg.cmd = CLK_MSG_DISABLE | v->flag;
 	msg.len = sizeof(struct clk_msg_header);
 
 	rt_mutex_lock(&virtclk_front_ctx.lock);
@@ -224,7 +224,7 @@ static int virtclk_front_reset(struct clk *clk, enum clk_reset_action action)
 		return ret;
 
 	msg.header.clk_id = v->id;
-	msg.header.cmd = CLK_MSG_RESET;
+	msg.header.cmd = CLK_MSG_RESET | v->flag;
 	msg.header.len = sizeof(struct clk_msg_header);
 	msg.reset = action;
 
@@ -279,7 +279,7 @@ static int virtclk_front_set_rate(struct clk *clk, unsigned long rate)
 		return ret;
 
 	msg.header.clk_id = v->id;
-	msg.header.cmd = CLK_MSG_SETFREQ;
+	msg.header.cmd = CLK_MSG_SETFREQ | v->flag;
 	msg.header.len = sizeof(msg);
 	msg.freq = (u32)rate;
 
@@ -352,7 +352,7 @@ static unsigned long virtclk_front_get_rate(struct clk *clk)
 		return 0;
 
 	msg.clk_id = v->id;
-	msg.cmd = CLK_MSG_GETFREQ;
+	msg.cmd = CLK_MSG_GETFREQ | v->flag;
 	msg.len = sizeof(msg);
 
 	rt_mutex_lock(&virtclk_front_ctx.lock);
