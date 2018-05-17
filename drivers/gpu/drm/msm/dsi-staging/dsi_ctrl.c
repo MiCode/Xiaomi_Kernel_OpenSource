@@ -1608,14 +1608,15 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool cont_splash_enabled)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
-	if (rc) {
-		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
-		       dsi_ctrl->index, rc);
-		goto error;
-	}
-
 	if (!cont_splash_enabled) {
+		rc = dsi_ctrl_check_state(
+				dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
+		if (rc) {
+			pr_err("[DSI_%d] Ctrl state check failed, rc=%d\n",
+			dsi_ctrl->index, rc);
+			goto error;
+		}
+
 		dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
@@ -1968,12 +1969,6 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
-}
-
-void dsi_ctrl_update_power_state(struct dsi_ctrl *dsi_ctrl,
-				enum dsi_power_state state)
-{
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_POWER_STATE_CHANGE, state);
 }
 
 /**
