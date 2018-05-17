@@ -2189,9 +2189,12 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 		if (driver->time_sync_enabled)
 			diag_send_time_sync_update(peripheral);
 		mutex_lock(&driver->md_session_lock);
-		diag_send_msg_mask_update(peripheral, ALL_SSID, ALL_SSID);
-		diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
-		diag_send_event_mask_update(peripheral);
+		if (driver->set_mask_cmd) {
+			diag_send_msg_mask_update(peripheral,
+				ALL_SSID, ALL_SSID);
+			diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
+			diag_send_event_mask_update(peripheral);
+		}
 		mutex_unlock(&driver->md_session_lock);
 		diag_send_real_time_update(peripheral,
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
@@ -2228,6 +2231,7 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 			break;
 		case DIAG_CMD_OP_SET_LOG_MASK:
 			hdlr = diag_cmd_set_log_mask;
+			driver->set_mask_cmd = 1;
 			break;
 		case DIAG_CMD_OP_GET_LOG_MASK:
 			hdlr = diag_cmd_get_log_mask;
@@ -2247,17 +2251,21 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 			break;
 		case DIAG_CMD_OP_SET_MSG_MASK:
 			hdlr = diag_cmd_set_msg_mask;
+			driver->set_mask_cmd = 1;
 			break;
 		case DIAG_CMD_OP_SET_ALL_MSG_MASK:
 			hdlr = diag_cmd_set_all_msg_mask;
+			driver->set_mask_cmd = 1;
 			break;
 		}
 	} else if (*buf == DIAG_CMD_GET_EVENT_MASK) {
 		hdlr = diag_cmd_get_event_mask;
 	} else if (*buf == DIAG_CMD_SET_EVENT_MASK) {
 		hdlr = diag_cmd_update_event_mask;
+		driver->set_mask_cmd = 1;
 	} else if (*buf == DIAG_CMD_EVENT_TOGGLE) {
 		hdlr = diag_cmd_toggle_events;
+		driver->set_mask_cmd = 1;
 	}
 
 	if (hdlr)
