@@ -432,4 +432,11 @@
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
 	};
+
+	dbu3: dbu3 {
+		compatible = "regulator-fixed";
+		regulator-name = "dbu3";
+		startup-delay-us = <0>;
+		enable-active-high;
+	};
 };
