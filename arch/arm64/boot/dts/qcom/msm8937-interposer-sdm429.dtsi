@@ -59,4 +59,13 @@
 	};
 
 	/delete-node/ cpuss0-step;
+
+	quiet-therm-step {
+		cooling-maps {
+			/delete-node/ skin_cpu4;
+			/delete-node/ skin_cpu5;
+			/delete-node/ skin_cpu6;
+			/delete-node/ skin_cpu7;
+		};
+	};
 };

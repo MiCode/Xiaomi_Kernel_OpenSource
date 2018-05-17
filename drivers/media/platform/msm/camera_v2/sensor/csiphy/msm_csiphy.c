@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/irqreturn.h>
+#include <asm/div64.h>
 #include "msm_csiphy.h"
 #include "msm_sd.h"
 #include "include/msm_csiphy_2_0_hwreg.h"
@@ -179,12 +180,13 @@ static int msm_csiphy_snps_2_lane_config(
 	enum snps_csiphy_mode mode, int num_lanes)
 
 {
+	uint64_t local_data_rate = 0;
 	uint32_t offset;
 	uint32_t value, i, diff, diff_i;
 	void __iomem *csiphybase;
 
 	csiphybase = csiphy_dev->base;
-
+	local_data_rate = csiphy_params->data_rate;
 	if (mode == TWO_LANE_PHY_A)
 		offset = 0x0;
 	else if (mode == TWO_LANE_PHY_B)
@@ -192,13 +194,14 @@ static int msm_csiphy_snps_2_lane_config(
 	else
 		return -EINVAL;
 
+	do_div(local_data_rate, num_lanes * MBPS);
 	diff = abs(snps_v100_freq_values[0].default_bit_rate -
-		((csiphy_params->data_rate / num_lanes) / MBPS));
+		local_data_rate);
 	/* ToDo: Can be optimized to a O(1) search */
 	for (i = 1; i < sizeof(snps_v100_freq_values)/
 		sizeof(snps_v100_freq_values[0]); i++) {
 		diff_i = abs(snps_v100_freq_values[i].default_bit_rate -
-			((csiphy_params->data_rate / num_lanes) / MBPS));
+			local_data_rate);
 		if (diff_i > diff) {
 			i--;
 			break;
@@ -208,7 +211,7 @@ static int msm_csiphy_snps_2_lane_config(
 
 	if (i == (sizeof(snps_v100_freq_values)/
 		sizeof(snps_v100_freq_values[0]))) {
-		if (((csiphy_params->data_rate / num_lanes) / MBPS) >
+		if (local_data_rate >
 			snps_v100_freq_values[--i].default_bit_rate) {
 			pr_err("unsupported data rate\n");
 			return -EINVAL;
@@ -318,7 +321,7 @@ static int msm_csiphy_snps_lane_config(
 	} else if (lane_mask == LANE_MASK_PHY_A) { /* PHY A */
 		/* 2 lane config */
 		num_lanes = 2;
-		if (csiphy_dev->snps_state != NOT_CONFIGURED) {
+		if (csiphy_dev->snps_state == NOT_CONFIGURED) {
 			mode = TWO_LANE_PHY_A;
 			csiphy_dev->snps_state = CONFIGURED_TWO_LANE_PHY_A;
 		} else if (csiphy_dev->snps_state ==
@@ -333,7 +336,7 @@ static int msm_csiphy_snps_lane_config(
 	} else if (lane_mask == LANE_MASK_PHY_B) { /* PHY B */
 		/* 2 lane config */
 		num_lanes = 2;
-		if (csiphy_dev->snps_state != NOT_CONFIGURED) {
+		if (csiphy_dev->snps_state == NOT_CONFIGURED) {
 			mode = TWO_LANE_PHY_B;
 			csiphy_dev->snps_state = CONFIGURED_TWO_LANE_PHY_B;
 		} else if (csiphy_dev->snps_state ==
@@ -1233,7 +1236,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		ratio = csiphy_dev->csiphy_max_clk/clk_rate;
 		csiphy_params->settle_cnt = csiphy_params->settle_cnt/ratio;
 	}
-	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %lu\n",
+	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %llu\n",
 		__func__,
 		csiphy_params->lane_mask,
 		csiphy_params->lane_cnt, csiphy_params->data_rate);

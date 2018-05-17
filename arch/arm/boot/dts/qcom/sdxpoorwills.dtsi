@@ -1237,6 +1237,7 @@
 &soc {
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
 		reg = <0x20000 0x10000>,
 			<0x36000 0x100>,
 			<0x3900000 0x300000>;
@@ -1276,6 +1277,13 @@
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
+		};
+
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			qcom,smmu-s1-bypass;
+			iommus = <&apps_smmu 0x220 0xf>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
 	};
 
