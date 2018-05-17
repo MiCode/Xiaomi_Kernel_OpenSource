@@ -434,6 +434,9 @@ Required properties:
 Required properties:
 
  - compatible :                            "qcom,wcd-dsp-glink"
+ - qcom,msm-codec-glink-edge:              Name of the glink edge which is used
+                                           for IPC.
+                                           If no name is set, it defaults to "wdsp"
 
 * msm_ext_disp_audio_codec_rx
 
@@ -722,6 +725,7 @@ Example:
 
 	wcd_dsp_glink {
 		compatible = "qcom,wcd-dsp-glink";
+		qcom,msm-codec-glink-edge = "bg";
 	};
 
 	msm_ext_disp_audio_codec_rx {
@@ -1179,6 +1183,18 @@ Required properties:
  - qcom,msm-cpudai-tdm-clk-rate: Clock rate for tdm - 12288000.
 				When clock rate is set to zero,
 				then external clock is assumed.
+
+ - qcom,msm-cpudai-tdm-afe-ebit-unsupported: Notify if ebit
+				setting is needed.When this is
+				set, along with clock rate as
+				zero, then afe is not configured
+				for clock.
+
+ - qcom,msm-cpudai-tdm-sec-port-enable: For chipsets with the
+				limitation where we need to enable
+				both RX and TX AFE ports, this flag
+				is used to enable TX/RX port for
+				RX/TX streams.
 
  - qcom,msm-cpudai-tdm-clk-internal: Clock Source.
 				0 - EBIT clock from clk tree
