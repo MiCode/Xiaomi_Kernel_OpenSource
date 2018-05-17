@@ -110,10 +110,7 @@ hab_vchan_free(struct kref *ref)
 		}
 		spin_unlock_bh(&ctx->imp_lock);
 		if (found) {
-			habmm_imp_hyp_unmap(ctx->import_ctx,
-				exp->import_index,
-				exp->payload_count,
-				ctx->kernel);
+			habmm_imp_hyp_unmap(ctx->import_ctx, exp);
 			ctx->import_total--;
 			kfree(exp);
 		}

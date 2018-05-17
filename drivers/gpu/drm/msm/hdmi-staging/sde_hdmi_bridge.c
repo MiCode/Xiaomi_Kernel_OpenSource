@@ -490,6 +490,7 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (!hdmi->power_on) {
 		_sde_hdmi_bridge_power_on(bridge);
+		hdmi->power_on = true;
 	}
 
 	if (phy)

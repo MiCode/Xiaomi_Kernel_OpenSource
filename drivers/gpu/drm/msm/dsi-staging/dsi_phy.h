@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,9 +157,10 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable);
  * Return: error code.
  */
 int dsi_phy_enable(struct msm_dsi_phy *dsi_phy,
-		   struct dsi_host_config *config,
-		   enum dsi_phy_pll_source pll_source,
-		   bool skip_validation);
+			struct dsi_host_config *config,
+			enum dsi_phy_pll_source pll_source,
+			bool skip_validation,
+			bool cont_splash_enabled);
 
 /**
  * dsi_phy_disable() - disable DSI PHY hardware.

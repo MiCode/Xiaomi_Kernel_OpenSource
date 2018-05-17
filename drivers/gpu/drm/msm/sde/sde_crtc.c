@@ -39,10 +39,10 @@
 #include "sde_trace.h"
 
 /* default input fence timeout, in ms */
-#define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
+#define SDE_CRTC_INPUT_FENCE_TIMEOUT    10000
 
 /*
- * The default input fence timeout is 2 seconds while max allowed
+ * The default input fence timeout is 10 seconds while max allowed
  * range is 10 seconds. Any value above 10 seconds adds glitches beyond
  * tolerance limit.
  */
@@ -1625,8 +1625,18 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
 	sde_kms_info_add_keyint(info, "max_linewidth",
 			catalog->max_mixer_width);
-	sde_kms_info_add_keyint(info, "max_blendstages",
-			catalog->max_mixer_blendstages);
+
+	/* till now, we can't know which display early RVC will run on.
+	 * Not to impact early RVC's layer, we decrease all lm's blend stage.
+	 * This should be restored after handoff is done.
+	 */
+	if (sde_kms->splash_info.handoff)
+		sde_kms_info_add_keyint(info, "max_blendstages",
+				catalog->max_mixer_blendstages - 1);
+	else
+		sde_kms_info_add_keyint(info, "max_blendstages",
+				catalog->max_mixer_blendstages);
+
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED2)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,25 +345,20 @@ int hab_mem_import(struct uhab_context *ctx,
 		exp->export_id, exp->payload_count, exp->domid_local,
 		*((uint32_t *)exp->payload));
 
-	ret = habmem_imp_hyp_map(ctx->import_ctx,
-		exp->payload,
-		exp->payload_count,
-		exp->domid_local,
-		&exp->import_index,
-		&exp->kva,
-		kernel,
-		param->flags);
+	ret = habmem_imp_hyp_map(ctx->import_ctx, param, exp, kernel);
+
 	if (ret) {
 		pr_err("Import fail ret:%d pcnt:%d rem:%d 1st_ref:0x%X\n",
 			ret, exp->payload_count,
 			exp->domid_local, *((uint32_t *)exp->payload));
 		return ret;
 	}
-	pr_debug("import index %llx, kva %llx, kernel %d\n",
-		exp->import_index, param->kva, kernel);
 
-	param->index = exp->import_index;
-	param->kva = (uint64_t)exp->kva;
+	exp->import_index = param->index;
+	exp->kva = kernel ? (void *)param->kva : NULL;
+
+	pr_debug("import index %llx, kva or fd %llx, kernel %d\n",
+		exp->import_index, param->kva, kernel);
 
 	return ret;
 }
@@ -396,13 +391,10 @@ int hab_mem_unimport(struct uhab_context *ctx,
 	if (!found)
 		ret = -EINVAL;
 	else {
-		ret = habmm_imp_hyp_unmap(ctx->import_ctx,
-			exp->import_index,
-			exp->payload_count,
-			kernel);
+		ret = habmm_imp_hyp_unmap(ctx->import_ctx, exp);
 		if (ret) {
-			pr_err("unmap fail id:%d pcnt:%d kernel:%d\n",
-				exp->export_id, exp->payload_count, kernel);
+			pr_err("unmap fail id:%d pcnt:%d vcid:%d\n",
+			exp->export_id, exp->payload_count, exp->vcid_remote);
 		}
 		param->kva = (uint64_t)exp->kva;
 		kfree(exp);

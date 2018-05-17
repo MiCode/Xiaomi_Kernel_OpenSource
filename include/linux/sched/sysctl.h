@@ -85,6 +85,11 @@ extern unsigned int sysctl_sched_short_sleep;
 
 #endif /* CONFIG_SCHED_HMP */
 
+#if defined(CONFIG_PREEMPT_TRACER) || defined(CONFIG_IRQSOFF_TRACER)
+extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
+extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
+#endif
+
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
 	SCHED_TUNABLESCALING_LOG,

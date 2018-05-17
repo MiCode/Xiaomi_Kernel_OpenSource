@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -331,6 +331,7 @@ int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @cont_splash_enabled:    Flag for DSI splash enabled in bootloader.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -339,7 +340,7 @@ int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl);
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool cont_splash_enabled);
 
 /**
  * dsi_ctrl_host_deinit() - De-Initialize DSI host hardware.
@@ -403,6 +404,16 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags);
 int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			     enum dsi_power_state state);
 
+/**
+ * dsi_ctrl_update_power_state() - update power state for dsi controller
+ * @dsi_ctrl:          DSI controller handle.
+ * @state:             Power state.
+ *
+ * Update power state for DSI controller.
+ *
+ */
+void dsi_ctrl_update_power_state(struct dsi_ctrl *dsi_ctrl,
+				enum dsi_power_state state);
 /**
  * dsi_ctrl_set_cmd_engine_state() - set command engine state
  * @dsi_ctrl:            DSI Controller handle.

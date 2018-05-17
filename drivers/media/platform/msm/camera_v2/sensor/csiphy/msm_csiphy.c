@@ -135,8 +135,10 @@ static int msm_csiphy_3phase_lane_config(
 	uint8_t i = 0;
 	uint16_t lane_mask = 0, lane_enable = 0, temp;
 	void __iomem *csiphybase;
+	uint64_t two_gbps = 0;
 
 	csiphybase = csiphy_dev->base;
+	two_gbps = 2 * (uint64_t)csiphy_params->lane_cnt * GBPS;
 	lane_mask = csiphy_params->lane_mask & 0x7;
 	while (lane_mask != 0) {
 		temp = (i << 1)+1;
@@ -282,9 +284,9 @@ static int msm_csiphy_3phase_lane_config(
 				csiphy_3ph_reg.mipi_csiphy_3ph_lnn_ctrl51.addr +
 				0x200*i);
 		}
+
 		if ((csiphy_dev->hw_version == CSIPHY_VERSION_V35) &&
-			((csiphy_params->data_rate /
-			csiphy_params->lane_cnt) > 2 * GBPS)) {
+			(csiphy_params->data_rate > two_gbps)) {
 			msm_camera_io_w(0x40,
 				csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
@@ -807,7 +809,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		ratio = csiphy_dev->csiphy_max_clk/clk_rate;
 		csiphy_params->settle_cnt = csiphy_params->settle_cnt/ratio;
 	}
-	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %lu\n",
+	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %llu\n",
 		__func__,
 		csiphy_params->lane_mask,
 		csiphy_params->lane_cnt, csiphy_params->data_rate);
