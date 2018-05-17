@@ -11587,4 +11587,9 @@ struct admx_sec_primary_mic_ch {
 	uint16_t reserved1;
 } __packed;
 
+/*
+* ID of the DTMF Detection  module.
+*/
+#define AUDPROC_MODULE_ID_DTMF_DETECTION        0x00010940
+
 #endif /*_APR_AUDIO_V2_H_ */
