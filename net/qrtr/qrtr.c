@@ -684,6 +684,10 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	struct qrtr_cb *cb;
 
 	ipc = qrtr_port_lookup(to->sq_port);
+	if (!ipc && to->sq_port == QRTR_PORT_CTRL) {
+		kfree_skb(skb);
+		return 0;
+	}
 	if (!ipc || &ipc->sk == skb->sk) { /* do not send to self */
 		kfree_skb(skb);
 		return -ENODEV;
