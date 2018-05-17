@@ -633,46 +633,6 @@ struct elem_info qmi_uaudio_stream_resp_msg_v01_ei[] = {
 					interrupter_num),
 	},
 	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x1C,
-		.offset         = offsetof(
-					struct qmi_uaudio_stream_resp_msg_v01,
-					speed_info_valid),
-	},
-	{
-		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
-		.elem_len       = 1,
-		.elem_size      = sizeof(enum usb_audio_device_speed_enum_v01),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x1C,
-		.offset         = offsetof(
-					struct qmi_uaudio_stream_resp_msg_v01,
-					speed_info),
-	},
-	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x1D,
-		.offset         = offsetof(
-					struct qmi_uaudio_stream_resp_msg_v01,
-					controller_num_valid),
-	},
-	{
-		.data_type      = QMI_UNSIGNED_1_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x1D,
-		.offset         = offsetof(
-					struct qmi_uaudio_stream_resp_msg_v01,
-					controller_num),
-	},
-	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.is_array       = QMI_COMMON_TLV_TYPE,
