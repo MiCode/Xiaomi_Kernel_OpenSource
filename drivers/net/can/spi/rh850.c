@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/completion.h>
+#include <linux/irq.h>
 
 #define DEBUG_RH850	0
 #if DEBUG_RH850 == 1
@@ -1103,6 +1104,7 @@ static int rh850_probe(struct spi_device *spi)
 	int err, i;
 	struct rh850_can *priv_data;
 	struct device *dev;
+	u32 irq_type;
 
 	dev = &spi->dev;
 	dev_info(dev, "rh850_probe");
@@ -1134,8 +1136,11 @@ static int rh850_probe(struct spi_device *spi)
 		}
 	}
 
+	irq_type = irq_get_trigger_type(spi->irq);
+	if (irq_type == IRQ_TYPE_NONE)
+		irq_type = IRQ_TYPE_EDGE_FALLING;
 	err = request_threaded_irq(spi->irq, NULL, rh850_irq,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				   irq_type | IRQF_ONESHOT,
 				   "rh850", priv_data);
 	if (err) {
 		dev_err(dev, "Failed to request irq: %d", err);
