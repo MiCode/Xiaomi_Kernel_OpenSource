@@ -3015,6 +3015,15 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		pstate[R1]->multirect_index = SDE_SSPP_RECT_1;
 	};
 
+	for (i = 0; i < R_MAX; i++) {
+		if (pstate[i]->scaler3_cfg.enable) {
+			SDE_ERROR_PLANE(sde_plane[i],
+			"qseed3 with multirect not allowed, mode:%d\n",
+				pstate[i]->multirect_mode);
+			return -EINVAL;
+		}
+	}
+
 	SDE_DEBUG_PLANE(sde_plane[R0], "R0: %d - %d\n",
 		pstate[R0]->multirect_mode, pstate[R0]->multirect_index);
 	SDE_DEBUG_PLANE(sde_plane[R1], "R1: %d - %d\n",
