@@ -41,8 +41,10 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x1c00000 0x10000
-		       0x1c10000 0x10000>;
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		       0x1c10000 0x10000
+		       0x00a0000 0x06fff>;
+		reg-names = "kgsl_3d0_reg_memory", "kgsl_3d0_shader_memory",
+				"qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
@@ -54,6 +56,7 @@
 		qcom,idle-timeout = <80>; //msecs
 		qcom,strtstp-sleepwake;
 		qcom,gpu-bimc-interface-clk-freq = <400000000>; //In Hz
+		qcom,gpu-disable-fuse = <0x41a0 0x00000001 29>;
 
 		clocks = <&clock_gcc GCC_OXILI_GFX3D_CLK>,
 			<&clock_gcc GCC_OXILI_AHB_CLK>,
