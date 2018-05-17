@@ -17,9 +17,6 @@
 #include "msm_mmu.h"
 #include "sde_hw_mdss.h"
 
-#define SPLASH_CTL_MAX 5
-#define SPLASH_LM_MAX 7
-
 enum splash_connector_type {
 	SPLASH_DSI = 0,
 	SPLASH_HDMI,
@@ -35,13 +32,13 @@ struct splash_ctl_top {
 	u32 value;
 	u8 intf_sel;
 	u8 ctl_lm_cnt;
-	struct splash_lm_hw lm[SPLASH_LM_MAX];
+	struct splash_lm_hw lm[LM_MAX - LM_0];
 };
 
 struct sde_res_data {
-	struct splash_ctl_top top[SPLASH_CTL_MAX];
-	u8 ctl_ids[SPLASH_CTL_MAX];
-	u8 lm_ids[SPLASH_LM_MAX];
+	struct splash_ctl_top top[CTL_MAX - CTL_0];
+	u8 ctl_ids[CTL_MAX - CTL_0];
+	u8 lm_ids[LM_MAX - LM_0];
 	u8 ctl_top_cnt;
 	u8 lm_cnt;
 };
@@ -121,18 +118,21 @@ void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
 /**
  * sde_splash_lk_stop_splash.
  *
- * Tell LK to stop display splash.
+ * Tell LK to stop display splash once one valid user commit arrives.
  */
-int sde_splash_lk_stop_splash(struct msm_kms *kms);
+int sde_splash_lk_stop_splash(struct msm_kms *kms,
+				struct drm_atomic_state *state);
 
 /**
  * sde_splash_free_resource.
  *
- * According to input connector_type, free
- * HDMI's and DSI's resource respectively.
+ * To free all LK's resource, including free reserved memory to system,
+ * withdraw data bus vote, disable MDP core power, send uevent to user
+ * to recycle pipe etc.
  */
 int sde_splash_free_resource(struct msm_kms *kms,
-			struct sde_power_handle *phandle);
+			struct sde_power_handle *phandle,
+			int connector_type, void *display);
 
 /**
  * sde_splash_parse_memory_dt.
