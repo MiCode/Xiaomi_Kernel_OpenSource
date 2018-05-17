@@ -325,6 +325,16 @@
 	vdd_hf_pll-supply = <&pm8953_l7_ao>;
 };
 
+&soc {
+	devfreq_spdm_cpu {
+		status = "disabled";
+	};
+
+	devfreq_spdm_gov {
+		status = "disabled";
+	};
+};
+
 &clock_gcc_mdss {
 	compatible = "qcom,gcc-mdss-sdm439";
 	clocks = <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_src>,
