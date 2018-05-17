@@ -732,18 +732,21 @@ int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
+	int i;
 
-	if (!fw_mem->va && fw_mem->size) {
-		fw_mem->va = dma_alloc_coherent(&pci_priv->pci_dev->dev,
-						fw_mem->size, &fw_mem->pa,
-						GFP_KERNEL);
-		if (!fw_mem->va) {
-			cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx\n",
-				    fw_mem->size);
-			fw_mem->size = 0;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		if (!fw_mem[i].va && fw_mem[i].size) {
+			fw_mem[i].va =
+				dma_alloc_coherent(&pci_priv->pci_dev->dev,
+						   fw_mem[i].size,
+						   &fw_mem[i].pa, GFP_KERNEL);
+			if (!fw_mem[i].va) {
+				cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx, type: %u\n",
+					    fw_mem[i].size, fw_mem[i].type);
 
-			return -ENOMEM;
+				return -ENOMEM;
+			}
 		}
 	}
 
@@ -753,17 +756,25 @@ int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 static void cnss_pci_free_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
+	int i;
 
-	if (fw_mem->va && fw_mem->size) {
-		cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
-			    fw_mem->va, &fw_mem->pa, fw_mem->size);
-		dma_free_coherent(&pci_priv->pci_dev->dev, fw_mem->size,
-				  fw_mem->va, fw_mem->pa);
-		fw_mem->va = NULL;
-		fw_mem->pa = 0;
-		fw_mem->size = 0;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		if (fw_mem[i].va && fw_mem[i].size) {
+			cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
+				    fw_mem[i].va, &fw_mem[i].pa,
+				    fw_mem[i].size, fw_mem[i].type);
+			dma_free_coherent(&pci_priv->pci_dev->dev,
+					  fw_mem[i].size, fw_mem[i].va,
+					  fw_mem[i].pa);
+			fw_mem[i].va = NULL;
+			fw_mem[i].pa = 0;
+			fw_mem[i].size = 0;
+			fw_mem[i].type = 0;
+		}
 	}
+
+	plat_priv->fw_mem_seg_len = 0;
 }
 
 int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
@@ -1107,7 +1118,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	struct cnss_dump_seg *dump_seg =
 		plat_priv->ramdump_info_v2.dump_data_vaddr;
 	struct image_info *fw_image, *rddm_image;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
 	int ret, i;
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
@@ -1152,18 +1163,20 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	dump_data->nentries += rddm_image->entries;
 
-	if (fw_mem->pa && fw_mem->va && fw_mem->size) {
-		cnss_pr_dbg("Collect remote heap dump segment, nentries 1\n");
+	cnss_pr_dbg("Collect remote heap dump segment\n");
 
-		dump_seg->address = fw_mem->pa;
-		dump_seg->v_address = fw_mem->va;
-		dump_seg->size = fw_mem->size;
-		dump_seg->type = CNSS_FW_REMOTE_HEAP;
-		cnss_pr_dbg("seg-0: address 0x%lx, v_address %pK, size 0x%lx\n",
-			    dump_seg->address, dump_seg->v_address,
-			    dump_seg->size);
-		dump_seg++;
-		dump_data->nentries++;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		if (fw_mem[i].type == QMI_WLFW_MEM_TYPE_DDR_V01) {
+			dump_seg->address = fw_mem[i].pa;
+			dump_seg->v_address = fw_mem[i].va;
+			dump_seg->size = fw_mem[i].size;
+			dump_seg->type = CNSS_FW_REMOTE_HEAP;
+			cnss_pr_dbg("seg-%d: address 0x%lx, v_address %pK, size 0x%lx\n",
+				    i, dump_seg->address, dump_seg->v_address,
+				    dump_seg->size);
+			dump_seg++;
+			dump_data->nentries++;
+		}
 	}
 
 	if (dump_data->nentries > 0)
