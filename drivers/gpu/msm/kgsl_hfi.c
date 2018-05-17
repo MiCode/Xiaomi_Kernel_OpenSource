@@ -105,7 +105,6 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		uint32_t *msg)
 {
-	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct hfi_queue_table *tbl = gmu->hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	uint32_t *queue;
@@ -168,7 +167,7 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 	wmb();
 
 	/* Send interrupt to GMU to receive the message */
-	adreno_write_gmureg(ADRENO_DEVICE(device),
+	adreno_write_gmureg(ADRENO_DEVICE(hfi->kgsldev),
 		ADRENO_REG_GMU_HOST2GMU_INTR_SET, 0x1);
 
 	return 0;
