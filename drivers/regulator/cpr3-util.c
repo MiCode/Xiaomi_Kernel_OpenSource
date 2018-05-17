@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1239,6 +1239,16 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	ctrl->reset_step_quot_loop_en
 		= of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-reset-step-quot-loop-en");
+
+	/*
+	 * Configure CPR controller to not consider MID/DN recommendations
+	 * from other thread when all sensors mapped to a thread collapsed
+	 * in a multi-thread configuration.
+	 */
+	if (ctrl->thread_count > 1)
+		ctrl->thread_has_always_vote_en
+			= of_property_read_bool(ctrl->dev->of_node,
+					"qcom,cpr-thread-has-always-vote-en");
 
 	/*
 	 * Regulator device handles are not necessary for CPRh controllers
