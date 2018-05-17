@@ -36,6 +36,7 @@
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,num-gsi-evt-buffs = <0x3>;
 		qcom,use-pdc-interrupts;
+		qcom,pm-qos-latency = <44>;
 		extcon = <0>, <0>, <&eud>, <0>, <0>;
 
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
