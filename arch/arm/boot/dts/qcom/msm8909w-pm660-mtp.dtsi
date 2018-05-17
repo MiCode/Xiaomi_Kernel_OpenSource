@@ -311,4 +311,7 @@
 
 &pm660_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,fg-rsense-sel = <1>;	/* External rsense */
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-recharge-voltage = <4100>;
 };
