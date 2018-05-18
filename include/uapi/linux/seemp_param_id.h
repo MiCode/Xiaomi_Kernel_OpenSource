@@ -1,6 +1,9 @@
 #ifndef _PARAM_ID_H_
 #define _PARAM_ID_H_
 
+#include <linux/string.h>
+#include <linux/types.h>
+
 #define PARAM_ID_LEN 0
 #define PARAM_ID_OOM_ADJ 1
 #define PARAM_ID_APP_UID 2
@@ -12,7 +15,11 @@
 #define PARAM_ID_SENSOR 8
 #define PARAM_ID_WINDOW_TYPE 9
 #define PARAM_ID_WINDOW_FLAG 10
-#define NUM_PARAM_IDS 11
+#define PARAM_ID_RTIC_TYPE 11
+#define PARAM_ID_RTIC_ASSET_ID 12
+#define PARAM_ID_RTIC_ASSET_CATEGORY 13
+#define PARAM_ID_RTIC_RESPONSE 14
+#define NUM_PARAM_IDS 15
 
 static inline int param_id_index(const char *param, const char *end)
 {
@@ -41,6 +48,14 @@ static inline int param_id_index(const char *param, const char *end)
 		id = 9;
 	else if ((len == 11) && !memcmp(param, "window_flag", 11))
 		id = 10;
+	else if ((len == 9) && !memcmp(param, "rtic_type", 9))
+		id = 11;
+	else if ((len == 8) && !memcmp(param, "asset_id", 8))
+		id = 12;
+	else if ((len == 14) && !memcmp(param, "asset_category", 14))
+		id = 13;
+	else if ((len == 8) && !memcmp(param, "response", 8))
+		id = 14;
 
 	return id;
 }
@@ -82,6 +97,18 @@ static inline const char *get_param_id_name(int id)
 		break;
 	case 10:
 		name = "window_flag";
+		break;
+	case 11:
+		name = "rtic_type";
+		break;
+	case 12:
+		name = "asset_id";
+		break;
+	case 13:
+		name = "asset_category";
+		break;
+	case 14:
+		name = "response";
 		break;
 	}
 	return name;
