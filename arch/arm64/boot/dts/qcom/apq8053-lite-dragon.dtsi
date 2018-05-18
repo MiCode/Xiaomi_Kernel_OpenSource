@@ -339,6 +339,7 @@
 &sdhc_2 {
 	/* device communication power supply */
 	vdd-io-supply = <&pm8953_l12>;
+	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <200 22000>;
 
