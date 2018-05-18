@@ -208,7 +208,7 @@ struct mdp3_hw_resource {
 	bool solid_fill_vote_en;
 	struct list_head reg_bus_clist;
 	struct mutex reg_bus_lock;
-
+	bool twm_en;
 	u32 max_bw;
 
 	u8 ppp_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
