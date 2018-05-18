@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2215,12 +2215,16 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 
 		if (wled->en_ext_pfet_sc_pro) {
-			reg = QPNP_WLED_EXT_FET_DTEST2;
-			rc = qpnp_wled_sec_write_reg(wled,
+			if (!(wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE
+				&& wled->pmic_rev_id->rev4 ==
+					PMI8998_V2P0_REV4)) {
+				reg = QPNP_WLED_EXT_FET_DTEST2;
+				rc = qpnp_wled_sec_write_reg(wled,
 					QPNP_WLED_TEST1_REG(wled->ctrl_base),
 					reg);
-			if (rc)
-				return rc;
+				if (rc)
+					return rc;
+			}
 		}
 	} else {
 		rc = qpnp_wled_read_reg(wled,
