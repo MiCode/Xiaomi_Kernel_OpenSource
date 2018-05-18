@@ -2761,6 +2761,23 @@
 		qcom,no-clock-support;
 		iommus = <&apps_smmu 0x0506 0x0011>,
 			 <&apps_smmu 0x0516 0x0011>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x512 0>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x40000000>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x513 0>;
+			virtual-addr = <0x60200000>;
+			virtual-size = <0x40000000>;
+			qcom,secure-context-bank;
+		};
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
