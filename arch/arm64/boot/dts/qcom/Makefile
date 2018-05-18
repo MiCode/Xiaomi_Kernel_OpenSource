@@ -369,15 +369,19 @@ sdm632-qrd-overlay.dtbo-base := sdm632.dtb \
 	sdm632-pm8004.dtb
 
 sdm439-mtp-overlay.dtbo-base := sdm439.dtb \
+	sda439.dtb \
 	msm8937-interposer-sdm439.dtb
 sdm439-cdp-overlay.dtbo-base := sdm439.dtb \
+	sda439.dtb \
 	msm8937-interposer-sdm439.dtb
 sdm439-qrd-overlay.dtbo-base := sdm439.dtb \
 	msm8937-interposer-sdm439.dtb
 sdm439-external-codec-mtp-overlay.dtbo-base := sdm439.dtb
 sdm429-mtp-overlay.dtbo-base := sdm429.dtb \
+	sda429.dtb \
 	msm8937-interposer-sdm429.dtb
 sdm429-cdp-overlay.dtbo-base := sdm429.dtb \
+	sda429.dtb \
 	msm8937-interposer-sdm429.dtb
 sdm429-qrd-overlay.dtbo-base := sdm429.dtb \
 	msm8937-interposer-sdm429.dtb
