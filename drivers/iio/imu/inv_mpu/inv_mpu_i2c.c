@@ -278,6 +278,212 @@ static int inv_i2c_mem_read(struct inv_mpu_state *st, u8 mpu_addr, u16 mem_addr,
 	return res;
 }
 
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static void inv_enable_acc_gyro(struct inv_mpu_state *st)
+{
+	struct iio_dev *indio_dev = iio_priv_to_dev(st);
+	int accel_hz = 100;
+	int gyro_hz = 100;
+
+	/**Enable the ACCEL**/
+	st->chip_config.accel_fs = ACCEL_FSR_2G;
+	inv_set_accel_sf(st);
+	st->trigger_state = MISC_TRIGGER;
+	set_inv_enable(indio_dev);
+
+	st->sensor_l[SENSOR_L_ACCEL].rate = accel_hz;
+	st->trigger_state = DATA_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+
+	st->sensor_l[SENSOR_L_ACCEL].on = 1;
+	st->trigger_state = RATE_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+
+	/**Enable the GYRO**/
+	st->chip_config.fsr = GYRO_FSR_250DPS;
+	inv_set_gyro_sf(st);
+	st->trigger_state = MISC_TRIGGER;
+	set_inv_enable(indio_dev);
+
+	st->sensor_l[SENSOR_L_GYRO].rate = gyro_hz;
+	st->trigger_state = DATA_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+
+	st->sensor_l[SENSOR_L_GYRO].on = 1;
+	st->trigger_state = RATE_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+}
+#else
+static void inv_enable_acc_gyro(struct inv_mpu_state *st)
+{
+}
+#endif
+
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
+{
+	int i = 0, err = 0;
+	struct inv_mpu_state *st;
+
+	st = iio_priv(indio_dev);
+	st->acc_bufsample_cnt = 0;
+	st->gyro_bufsample_cnt = 0;
+	st->report_evt_cnt = 5;
+	st->max_buffer_time = 40;
+
+	st->inv_acc_cachepool = kmem_cache_create("acc_sensor_sample",
+			sizeof(struct inv_acc_sample),
+			0,
+			SLAB_HWCACHE_ALIGN, NULL);
+	if (!st->inv_acc_cachepool) {
+		pr_err("inv_acc_cachepool cache create failed\n");
+		err = -ENOMEM;
+		goto clean_exit1;
+	}
+
+	for (i = 0; i < INV_ACC_MAXSAMPLE; i++) {
+		st->inv_acc_samplist[i] =
+			kmem_cache_alloc(st->inv_acc_cachepool,
+					GFP_KERNEL);
+		if (!st->inv_acc_samplist[i]) {
+			err = -ENOMEM;
+			goto clean_exit2;
+		}
+	}
+
+	st->inv_gyro_cachepool = kmem_cache_create("gyro_sensor_sample"
+			, sizeof(struct inv_gyro_sample), 0,
+			SLAB_HWCACHE_ALIGN, NULL);
+	if (!st->inv_gyro_cachepool) {
+		pr_err("inv_gyro_cachepool cache create failed\n");
+		err = -ENOMEM;
+		goto clean_exit3;
+	}
+
+	for (i = 0; i < INV_GYRO_MAXSAMPLE; i++) {
+		st->inv_gyro_samplist[i] =
+			kmem_cache_alloc(st->inv_gyro_cachepool,
+					GFP_KERNEL);
+		if (!st->inv_gyro_samplist[i]) {
+			err = -ENOMEM;
+			goto clean_exit4;
+		}
+	}
+
+	st->accbuf_dev = input_allocate_device();
+	if (!st->accbuf_dev) {
+		err = -ENOMEM;
+		pr_err("input device allocation failed\n");
+		goto clean_exit5;
+	}
+	st->accbuf_dev->name = "inv_accbuf";
+	st->accbuf_dev->id.bustype = BUS_I2C;
+	input_set_events_per_packet(st->accbuf_dev,
+			st->report_evt_cnt * INV_ACC_MAXSAMPLE);
+	set_bit(EV_ABS, st->accbuf_dev->evbit);
+	input_set_abs_params(st->accbuf_dev, ABS_X,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->accbuf_dev, ABS_Y,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->accbuf_dev, ABS_Z,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->accbuf_dev, ABS_RX,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->accbuf_dev, ABS_RY,
+			-G_MAX, G_MAX, 0, 0);
+	err = input_register_device(st->accbuf_dev);
+	if (err) {
+		pr_err("unable to register input device %s\n",
+				st->accbuf_dev->name);
+		goto clean_exit5;
+	}
+
+	st->gyrobuf_dev = input_allocate_device();
+	if (!st->gyrobuf_dev) {
+		err = -ENOMEM;
+		pr_err("input device allocation failed\n");
+		goto clean_exit6;
+	}
+	st->gyrobuf_dev->name = "inv_gyrobuf";
+	st->gyrobuf_dev->id.bustype = BUS_I2C;
+	input_set_events_per_packet(st->gyrobuf_dev,
+			st->report_evt_cnt * INV_GYRO_MAXSAMPLE);
+	set_bit(EV_ABS, st->gyrobuf_dev->evbit);
+	input_set_abs_params(st->gyrobuf_dev, ABS_X,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->gyrobuf_dev, ABS_Y,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->gyrobuf_dev, ABS_Z,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->gyrobuf_dev, ABS_RX,
+			-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(st->gyrobuf_dev, ABS_RY,
+			-G_MAX, G_MAX, 0, 0);
+	err = input_register_device(st->gyrobuf_dev);
+	if (err) {
+		pr_err("unable to register input device %s\n",
+				st->gyrobuf_dev->name);
+		goto clean_exit6;
+	}
+
+	st->acc_buffer_inv_samples = true;
+	st->gyro_buffer_inv_samples = true;
+	inv_enable_acc_gyro(st);
+
+	return 1;
+clean_exit6:
+	input_free_device(st->gyrobuf_dev);
+	input_unregister_device(st->accbuf_dev);
+clean_exit5:
+	input_free_device(st->accbuf_dev);
+clean_exit4:
+	for (i = 0; i < INV_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(st->inv_gyro_cachepool,
+				st->inv_gyro_samplist[i]);
+clean_exit3:
+	kmem_cache_destroy(st->inv_gyro_cachepool);
+clean_exit2:
+	for (i = 0; i < INV_ACC_MAXSAMPLE; i++)
+		kmem_cache_free(st->inv_acc_cachepool,
+				st->inv_acc_samplist[i]);
+clean_exit1:
+	kmem_cache_destroy(st->inv_acc_cachepool);
+	return 0;
+}
+static void inv_acc_gyro_input_cleanup(
+		struct iio_dev *indio_dev)
+{
+	int i = 0;
+	struct inv_mpu_state *st;
+
+	st = iio_priv(indio_dev);
+	input_free_device(st->accbuf_dev);
+	input_unregister_device(st->gyrobuf_dev);
+	input_free_device(st->gyrobuf_dev);
+	for (i = 0; i < INV_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(st->inv_gyro_cachepool,
+				st->inv_gyro_samplist[i]);
+	kmem_cache_destroy(st->inv_gyro_cachepool);
+	for (i = 0; i < INV_ACC_MAXSAMPLE; i++)
+		kmem_cache_free(st->inv_acc_cachepool,
+				st->inv_acc_samplist[i]);
+	kmem_cache_destroy(st->inv_acc_cachepool);
+}
+#else
+static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
+{
+	return 1;
+}
+static void inv_acc_gyro_input_cleanup(
+		struct iio_dev *indio_dev)
+{
+}
+#endif
+
 /*
  *  inv_mpu_probe() - probe function.
  */
@@ -318,7 +524,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	st->mem_write = inv_i2c_mem_write;
 	st->mem_read = inv_i2c_mem_read;
 	st->dev = &client->dev;
-	st->bus_type = BUS_I2C;
+	st->bus_type = BUS_IIO_I2C;
 #ifdef CONFIG_OF
 	result = invensense_mpu_parse_dt(st->dev, &st->plat_data);
 	if (result)
@@ -420,6 +626,9 @@ static int inv_mpu_probe(struct i2c_client *client,
 #ifdef TIMER_BASED_BATCHING
 	pr_info("Timer based batching\n");
 #endif
+	result = inv_acc_gyro_early_buff_init(indio_dev);
+	if (!result)
+		return -EIO;
 
 	return 0;
 #ifdef KERNEL_VERSION_4_X
@@ -438,10 +647,10 @@ out_remove_ring:
 out_unreg_ring:
 	inv_mpu_unconfigure_ring(indio_dev);
 out_free:
+	dev_err(st->dev, "%s failed %d\n", __func__, result);
 	iio_device_free(indio_dev);
 out_no_free:
 #endif
-	dev_err(st->dev, "%s failed %d\n", __func__, result);
 
 	return -EIO;
 }
@@ -479,6 +688,7 @@ static int inv_mpu_remove(struct i2c_client *client)
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct inv_mpu_state *st = iio_priv(indio_dev);
 
+	inv_acc_gyro_input_cleanup(indio_dev);
 #ifdef KERNEL_VERSION_4_X
 	devm_iio_device_unregister(st->dev, indio_dev);
 #else
