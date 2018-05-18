@@ -311,6 +311,9 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 	int rc = -1;
 	enum cam_ahb_clk_client id;
 
+	if (vfe_used_by_adsp(vfe_dev))
+		return msecs_to_jiffies(50);
+
 	if (vfe_dev->pdev->id == 0)
 		id = CAM_AHB_CLIENT_VFE0;
 	else

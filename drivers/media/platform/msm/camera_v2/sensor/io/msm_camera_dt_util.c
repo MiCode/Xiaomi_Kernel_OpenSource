@@ -14,6 +14,7 @@
 #include "msm_camera_io_util.h"
 #include "msm_camera_i2c_mux.h"
 #include "msm_cci.h"
+#include <media/adsp-shmem-device.h>
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
 #define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
@@ -1424,6 +1425,22 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	int rc = 0, index = 0, no_gpio = 0, ret = 0;
 	struct msm_sensor_power_setting *power_setting = NULL;
 
+	if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
+		/* camera still in use from aDSP side */
+		ctrl->cam_pinctrl_status = 0;
+
+		if (device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+			rc = sensor_i2c_client->i2c_func_tbl->i2c_util(
+				sensor_i2c_client, MSM_CCI_INIT);
+			if (rc < 0) {
+				pr_err("%s cci_init failed\n", __func__);
+				goto power_up_failed;
+			}
+		}
+
+		return rc;
+	}
+
 	CDBG("%s:%d\n", __func__, __LINE__);
 	if (!ctrl || !sensor_i2c_client) {
 		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
@@ -1656,6 +1673,20 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 			sensor_i2c_client);
 		return -EINVAL;
 	}
+
+	if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
+		/* camera still in use from aDSP side */
+
+		if (device_type == MSM_CAMERA_PLATFORM_DEVICE)
+			sensor_i2c_client->i2c_func_tbl->i2c_util(
+			sensor_i2c_client, MSM_CCI_RELEASE);
+		ctrl->cam_pinctrl_status = 0;
+		msm_camera_request_gpio_table(
+			ctrl->gpio_conf->cam_gpio_req_tbl,
+			ctrl->gpio_conf->cam_gpio_req_tbl_size, 0);
+		return ret;
+	}
+
 	if (device_type == MSM_CAMERA_PLATFORM_DEVICE)
 		sensor_i2c_client->i2c_func_tbl->i2c_util(
 			sensor_i2c_client, MSM_CCI_RELEASE);
@@ -1667,10 +1698,12 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 		CDBG("%s type %d\n", __func__, pd->seq_type);
 		switch (pd->seq_type) {
 		case SENSOR_CLK:
-			msm_camera_clk_enable(ctrl->dev,
-				ctrl->clk_info, ctrl->clk_ptr,
-				ctrl->clk_info_size, false);
-				break;
+			if (ctrl->cam_pinctrl_status) { /* adsp */
+				msm_camera_clk_enable(ctrl->dev,
+					ctrl->clk_info, ctrl->clk_ptr,
+					ctrl->clk_info_size, false);
+			}
+			break;
 		case SENSOR_GPIO:
 			if (pd->seq_val >= SENSOR_GPIO_MAX ||
 				!ctrl->gpio_conf->gpio_num_info) {
@@ -1737,12 +1770,13 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 				(pd->delay * 1000) + 1000);
 		}
 	}
+
 	if (ctrl->cam_pinctrl_status) {
 		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
-				ctrl->pinctrl_info.gpio_state_suspend);
+			ctrl->pinctrl_info.gpio_state_suspend);
 		if (ret)
 			pr_err("%s:%d cannot set pin to suspend state",
-				__func__, __LINE__);
+			__func__, __LINE__);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
 	}
 	ctrl->cam_pinctrl_status = 0;

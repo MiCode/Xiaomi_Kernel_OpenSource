@@ -30,6 +30,7 @@
 #include "include/msm_csid_3_6_0_hwreg.h"
 #include "include/msm_csid_3_5_1_hwreg.h"
 #include "cam_hw_ops.h"
+#include <media/adsp-shmem-device.h>
 
 #define V4L2_IDENT_CSID                            50002
 #define CSID_VERSION_V20                      0x02000011
@@ -233,7 +234,14 @@ static int msm_csid_reset(struct csid_device *csid_dev)
 	int32_t rc = 0;
 	uint32_t irq = 0, irq_bitshift;
 
+	if (csid_dev->pdev->id == ADSP_CSID &&
+	    adsp_shmem_get_state() != CAMERA_STATUS_END) {
+		pr_debug("%s: already in use from aDSP\n", __func__);
+		return rc;
+	}
+
 	irq_bitshift = csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift;
+
 	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
 		csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
@@ -651,14 +659,14 @@ static int msm_csid_release(struct csid_device *csid_dev)
 
 	CDBG("%s:%d, hw_version = 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
-
-	irq = msm_camera_io_r(csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-	msm_camera_io_w(irq, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
-	msm_camera_io_w(0, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-
+	if (adsp_shmem_get_state() == CAMERA_STATUS_END) {
+		irq = msm_camera_io_r(csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
+		msm_camera_io_w(irq, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_io_w(0, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+	}
 	msm_camera_enable_irq(csid_dev->irq, false);
 
 	msm_camera_clk_enable(&csid_dev->pdev->dev,
@@ -727,6 +735,12 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 		struct msm_camera_csid_params csid_params;
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
 		int i = 0;
+
+		if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
+			/* aDSP still in use */
+			rc = 0;
+			break;
+		}
 
 		if (copy_from_user(&csid_params,
 			(void __user *)cdata->cfg.csid_params,
@@ -822,6 +836,12 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:
+		if (adsp_shmem_get_state() == CAMERA_STATUS_END) {
+			/* aDSP still in use */
+			rc = 0;
+			break;
+		}
+
 		rc = msm_csid_release(csid_dev);
 		break;
 	default:
@@ -871,13 +891,18 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void *arg)
 		break;
 	}
 	case CSID_CFG: {
-
 		struct msm_camera_csid_params csid_params;
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
 		int i = 0;
 		struct msm_camera_csid_lut_params32 lut_par32;
 		struct msm_camera_csid_params32 csid_params32;
 		struct msm_camera_csid_vc_cfg vc_cfg32;
+
+		if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
+			/* aDSP still in use */
+			rc = 0;
+			break;
+		}
 
 		if (copy_from_user(&csid_params32,
 			(void __user *)compat_ptr(arg32->cfg.csid_params),
