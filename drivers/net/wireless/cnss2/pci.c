@@ -50,6 +50,12 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 
+#ifdef CONFIG_CNSS_EMULATION
+#define EMULATION_HW			1
+#else
+#define EMULATION_HW			0
+#endif
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 static unsigned int pci_link_down_panic;
@@ -2253,6 +2259,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 			cnss_pci_disable_msi(pci_priv);
 			goto disable_bus;
 		}
+		if (EMULATION_HW)
+			break;
 		ret = cnss_suspend_pci_link(pci_priv);
 		if (ret)
 			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
