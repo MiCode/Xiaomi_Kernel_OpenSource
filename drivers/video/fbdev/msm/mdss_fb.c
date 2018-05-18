@@ -45,7 +45,8 @@
 #include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/kthread.h>
-#include <linux/dma-buf.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -121,6 +122,19 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
+
+int of_led_classdev_register(struct device *parent, struct device_node *np,
+				struct led_classdev *led_cdev)
+{
+	/* Stub out till LEDS CLASS defconfig is enabled */
+	return 0;
+}
+
+void led_classdev_unregister(struct led_classdev *led_cdev)
+{
+	/* Stub out till LEDS CLASS defconfig is enabled */
+}
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -2098,18 +2112,6 @@ end:
 	return ret;
 }
 
-static inline int mdss_fb_create_ion_client(struct msm_fb_data_type *mfd)
-{
-	mfd->fb_ion_client  = msm_ion_client_create("mdss_fb_iclient");
-	if (IS_ERR_OR_NULL(mfd->fb_ion_client)) {
-		pr_err("Err:client not created, val %d\n",
-				PTR_RET(mfd->fb_ion_client));
-		mfd->fb_ion_client = NULL;
-		return PTR_RET(mfd->fb_ion_client);
-	}
-	return 0;
-}
-
 void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 {
 	if (!mfd) {
@@ -2120,7 +2122,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	if (!mfd->fbi->screen_base)
 		return;
 
-	if (!mfd->fb_ion_client || !mfd->fb_ion_handle) {
+	if (!mfd->fbmem_buf) {
 		pr_err("invalid input parameters for fb%d\n", mfd->index);
 		return;
 	}
@@ -2128,7 +2130,9 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	mfd->fbi->screen_base = NULL;
 	mfd->fbi->fix.smem_start = 0;
 
-	ion_unmap_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
+	dma_buf_kunmap(mfd->fbmem_buf, 0, mfd->fbi->screen_base);
+
+	dma_buf_end_cpu_access(mfd->fbmem_buf, DMA_BIDIRECTIONAL);
 
 	if (mfd->mdp.fb_mem_get_iommu_domain && !(!mfd->fb_attachment ||
 		!mfd->fb_attachment->dmabuf ||
@@ -2137,16 +2141,18 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 				DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
 		dma_buf_put(mfd->fbmem_buf);
+		mfd->fbmem_buf = NULL;
 	}
 
-	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
-	mfd->fb_ion_handle = NULL;
-	mfd->fbmem_buf = NULL;
+	if (mfd->fbmem_buf) {
+		dma_buf_put(mfd->fbmem_buf);
+		mfd->fbmem_buf = NULL;
+	}
 }
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc = 0;
+	int rc = 0, fd = 0;
 	void *vaddr;
 	int domain;
 
@@ -2155,30 +2161,23 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		return -EINVAL;
 	}
 
-	if (!mfd->fb_ion_client) {
-		rc = mdss_fb_create_ion_client(mfd);
-		if (rc < 0) {
-			pr_err("fb ion client couldn't be created - %d\n", rc);
-			return rc;
-		}
-	}
-
 	pr_debug("size for mmap = %zu\n", fb_size);
-	mfd->fb_ion_handle = ion_alloc(mfd->fb_ion_client, fb_size, SZ_4K,
+	mfd->fbmem_buf = ion_alloc(fb_size,
 			ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(mfd->fb_ion_handle)) {
+	if (IS_ERR_OR_NULL(mfd->fbmem_buf)) {
 		pr_err("unable to alloc fbmem from ion - %ld\n",
-				PTR_ERR(mfd->fb_ion_handle));
-		return PTR_ERR(mfd->fb_ion_handle);
+				PTR_ERR(mfd->fbmem_buf));
+		return PTR_ERR(mfd->fbmem_buf);
 	}
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		mfd->fbmem_buf = ion_share_dma_buf(mfd->fb_ion_client,
-							mfd->fb_ion_handle);
+		fd = dma_buf_fd(mfd->fbmem_buf, 0);
 		if (IS_ERR(mfd->fbmem_buf)) {
 			rc = PTR_ERR(mfd->fbmem_buf);
 			goto fb_mmap_failed;
 		}
+
+		mfd->fbmem_buf = dma_buf_get(fd);
 
 		domain = mfd->mdp.fb_mem_get_iommu_domain();
 
@@ -2201,7 +2200,9 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		goto fb_mmap_failed;
 	}
 
-	vaddr  = ion_map_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
+	dma_buf_begin_cpu_access(mfd->fbmem_buf, DMA_BIDIRECTIONAL);
+
+	vaddr  = dma_buf_kmap(mfd->fbmem_buf, 0);
 	if (IS_ERR_OR_NULL(vaddr)) {
 		pr_err("ION memory mapping failed - %ld\n", PTR_ERR(vaddr));
 		rc = PTR_ERR(vaddr);
@@ -2223,10 +2224,8 @@ err_detach:
 err_put:
 	dma_buf_put(mfd->fbmem_buf);
 fb_mmap_failed:
-	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
 	mfd->fb_attachment = NULL;
 	mfd->fb_table = NULL;
-	mfd->fb_ion_handle = NULL;
 	mfd->fbmem_buf = NULL;
 	return rc;
 }
@@ -2394,7 +2393,7 @@ static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	} else if (mfd->fb_mmap_type == MDP_FB_MMAP_PHYSICAL_ALLOC) {
 		rc = mdss_fb_physical_mmap(info, vma);
 	} else {
-		if (!info->fix.smem_start && !mfd->fb_ion_handle) {
+		if (!info->fix.smem_start) {
 			rc = mdss_fb_fbmem_ion_mmap(info, vma);
 			mfd->fb_mmap_type = MDP_FB_MMAP_ION_ALLOC;
 		} else {
@@ -2860,7 +2859,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			      mfd->index, ret, task->comm, current->tgid);
 			return ret;
 		}
-		if (mfd->fb_ion_handle)
+		if (mfd->fbmem_buf)
 			mdss_fb_free_fb_ion_memory(mfd);
 
 		atomic_set(&mfd->ioctl_ref_cnt, 0);

@@ -20,7 +20,8 @@
 #include <linux/slab.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
-
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/msm-bus.h>
 
 #include "mdss.h"

@@ -14,7 +14,7 @@
 #ifndef MDSS_FB_H
 #define MDSS_FB_H
 
-#include <linux/msm_ion.h>
+#include <linux/ion.h>
 #include <linux/list.h>
 #include <linux/msm_mdp_ext.h>
 #include <linux/types.h>
@@ -311,8 +311,8 @@ struct msm_fb_data_type {
 	u32 calib_mode;
 	u32 calib_mode_bl;
 	u32 ad_bl_level;
-	u32 bl_level;
-	int bl_extn_level;
+	u64 bl_level;
+	u64 bl_extn_level;
 	u32 bl_scale;
 	u32 bl_min_lvl;
 	u32 unset_bl_level;
@@ -354,8 +354,6 @@ struct msm_fb_data_type {
 
 	u32 dcm_state;
 	struct list_head file_list;
-	struct ion_client *fb_ion_client;
-	struct ion_handle *fb_ion_handle;
 	struct dma_buf *fbmem_buf;
 	struct dma_buf_attachment *fb_attachment;
 	struct sg_table *fb_table;
@@ -478,4 +476,7 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var);
 void mdss_fb_calc_fps(struct msm_fb_data_type *mfd);
 void mdss_fb_idle_pc(struct msm_fb_data_type *mfd);
+extern struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+							unsigned int flags);
+
 #endif /* MDSS_FB_H */

@@ -15,6 +15,7 @@
 #define MDSS_WB_H
 
 #include <linux/extcon.h>
+#include <../../../extcon/extcon.h>
 
 struct mdss_wb_ctrl {
 	struct platform_device *pdev;

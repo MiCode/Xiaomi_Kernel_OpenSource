@@ -6028,7 +6028,7 @@ struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index)
 	for (i = 0; i < mdata->nwb; i++) {
 		wb = mdata->wb + i;
 		if ((wb->caps & caps) &&
-			(atomic_read(&wb->kref.refcount) == 0)) {
+			(refcount_read(&wb->kref.refcount) == 0)) {
 			kref_init(&wb->kref);
 			break;
 		}
@@ -6082,7 +6082,7 @@ struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 num, u32 reg_index)
 
 	mutex_lock(&mdata->wb_lock);
 	wb = mdata->wb + num;
-	if (atomic_read(&wb->kref.refcount) == 0)
+	if (refcount_read(&wb->kref.refcount) == 0)
 		kref_init(&wb->kref);
 	else
 		wb = NULL;
