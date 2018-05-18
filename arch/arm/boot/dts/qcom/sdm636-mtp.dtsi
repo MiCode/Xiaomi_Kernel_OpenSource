@@ -11,7 +11,6 @@
  */
 
 #include "sdm660-mtp.dtsi"
-#include "sdm636-camera-sensor-mtp.dtsi"
 / {
 };
 
@@ -20,9 +19,24 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35695b_truly_fhd_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_td4310_tianma_fhd_video>;
 };
 
 &mdss_dsi1 {
 	status = "disabled";
+};
+
+&dsi_td4310_tianma_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+
+&dsi_td4310_shenchao_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

@@ -3224,11 +3224,8 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 		 * Ignore suspend event until device side usb is not into
 		 * CONFIGURED state.
 		 */
-		if (dwc->gadget.state != USB_STATE_CONFIGURED) {
-			pr_err("%s(): state:%d. Ignore SUSPEND.\n",
-						__func__, dwc->gadget.state);
+		if (dwc->gadget.state == USB_STATE_NOTATTACHED)
 			return;
-		}
 
 		dwc3_suspend_gadget(dwc);
 

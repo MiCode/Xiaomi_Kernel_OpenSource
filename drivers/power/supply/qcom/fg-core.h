@@ -422,6 +422,7 @@ struct fg_chip {
 	int			last_msoc;
 	int			last_recharge_volt_mv;
 	int			esr_timer_charging_default[NUM_ESR_TIMERS];
+	int			battery_full_design;
 	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;
 	bool			profile_loaded;

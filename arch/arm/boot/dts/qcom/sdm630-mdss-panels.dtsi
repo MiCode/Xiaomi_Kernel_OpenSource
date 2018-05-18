@@ -17,6 +17,8 @@
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-rm67195-amoled-fhd-cmd.dtsi"
 #include "dsi-panel-sharp-split-link-wuxga-video.dtsi"
+#include "dsi-panel-tianma-td4310-1080p-video.dtsi"
+#include "dsi-panel-tianma-nt36672-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -145,6 +147,30 @@
 		};
 	};
 };
+
+
+&dsi_td4310_tianma_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1a 08 09 05 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+};
+
+&dsi_nt36672_tianma_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1e 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+};
+
 
 &dsi_nt35695b_truly_fhd_video {
 	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1e 08 09 05 03 04 a0

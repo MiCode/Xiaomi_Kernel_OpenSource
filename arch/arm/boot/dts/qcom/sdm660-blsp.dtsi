@@ -96,6 +96,7 @@
 		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		clock-names = "iface_clk", "core_clk";
+		clock-frequency = <400000>;
 		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
 			 <&clock_gcc GCC_BLSP1_QUP3_I2C_APPS_CLK>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
@@ -391,7 +392,16 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc GCC_BLSP2_AHB_CLK>,
 			 <&clock_gcc GCC_BLSP2_QUP3_SPI_APPS_CLK>;
-		status = "disabled";
+		status = "okay";
+
+		device@1 {
+			compatible = "qcom,spi-msm-codec-slave";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <1>; /* Chip select 0 */
+			spi-max-frequency = <1000000>;
+			spi-cpol;
+		};
 	};
 
 	spi_8: spi@c1b8000 { /* BLSP2 QUP4 */

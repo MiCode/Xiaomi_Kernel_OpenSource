@@ -17,6 +17,7 @@ qcom,itech_3000mah {
 	qcom,fastchg-current-ma = <2000>;
 	qcom,batt-id-kohm = <100>;
 	qcom,battery-beta = <3435>;
+	qcom,battery-full-design = <3000>;
 	qcom,battery-type = "itech_b00826lf_3000mah_ver1660_jan10th2017";
 	qcom,checksum = <0xFB8F>;
 	qcom,gui-version = "PMI8998GUI - 2.0.0.54";

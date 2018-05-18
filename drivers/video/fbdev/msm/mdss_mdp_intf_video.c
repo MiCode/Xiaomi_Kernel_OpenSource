@@ -1802,13 +1802,16 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	}
 
 	pdata->panel_info.cont_splash_enabled = 0;
+	pdata->panel_info.esd_rdy = true;
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (sctl) {
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
+		sctl->panel_data->panel_info.esd_rdy = true;
 		sctx = (struct mdss_mdp_video_ctx *) sctl->intf_ctx[MASTER_CTX];
 	} else if (ctl->panel_data->next && is_pingpong_split(ctl->mfd)) {
 		ctl->panel_data->next->panel_info.cont_splash_enabled = 0;
+		ctl->panel_data->next->panel_info.esd_rdy = true;
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
 	}
 

@@ -161,6 +161,7 @@
 			regulator-min-microvolt = <950000>;
 			regulator-max-microvolt = <1010000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -341,6 +342,7 @@
 			regulator-min-microvolt = <1710000>;
 			regulator-max-microvolt = <3600000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 

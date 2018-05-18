@@ -291,6 +291,18 @@
 		};
 	};
 
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		pm660_l16: regulator-l16 {
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			status = "okay";
+			regulator-always-on;
+		};
+	};
+
+
+
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pm660_l17: regulator-l17 {
@@ -345,6 +357,7 @@
 			regulator-min-microvolt = <1710000>;
 			regulator-max-microvolt = <3600000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 

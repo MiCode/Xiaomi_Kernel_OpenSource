@@ -65,8 +65,6 @@ config ARM64
 	select HAVE_CC_STACKPROTECTOR
 	select HAVE_CMPXCHG_DOUBLE
 	select HAVE_CMPXCHG_LOCAL
-	select HAVE_DEBUG_BUGVERBOSE
-	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_ATTRS
 	select HAVE_DMA_CONTIGUOUS
@@ -204,6 +202,18 @@ config ARM64_DMA_USE_IOMMU
 	bool
 	select ARM_HAS_SG_CHAIN
 	select NEED_SG_DMA_LENGTH
+
+config KERNEL_CUSTOM_WHYRED
+	default n
+	bool "Custom for hardware WHYRED_pcb"
+	help
+	  Custom for WHYRED_pcb.
+
+config KERNEL_CUSTOM_WAYNE
+	default n
+	bool "Custom for hardware WAYNE_pcb"
+	help
+	  Custom for WAYNE_pcb.
 
 if ARM64_DMA_USE_IOMMU
 

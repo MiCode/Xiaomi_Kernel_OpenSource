@@ -302,12 +302,20 @@
 			compatible = "android,firmware";
 			fstab {
 				compatible = "android,fstab";
+				system {
+					compatible = "android,system";
+					dev = "/dev/block/platform/soc/c0c4000.sdhci/by-name/system";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,verify";
+					status = "ok";
+				};
 				vendor {
 					compatible = "android,vendor";
 					dev = "/dev/block/platform/soc/c0c4000.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect";
+					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
 			};
@@ -406,6 +414,13 @@
 		cont_splash_mem: splash_region@9d400000 {
 			reg = <0x0 0x9d400000 0x0 0x02400000>;
 			label = "cont_splash_mem";
+		};
+		pstore_reserve_mem: pstore_reserve_mem_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0xA0000000 0x0 0x00400000>;
+			label = "pstore_reserve_mem";
 		};
 	};
 
@@ -672,16 +687,6 @@
 		clock-names = "core", "iface";
 	};
 
-	qcom,qbt1000 {
-		compatible = "qcom,qbt1000";
-		clock-names = "core", "iface";
-		clocks = <&clock_gcc GCC_BLSP1_QUP3_SPI_APPS_CLK>,
-			<&clock_gcc GCC_BLSP1_AHB_CLK>;
-		clock-frequency = <15000000>;
-		qcom,ipc-gpio = <&tlmm 72 0>;
-		qcom,finger-detect-gpio = <&pm660_gpios 11 0>;
-	};
-
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
 		sensor_information0: qcom,sensor-information-0 {
@@ -788,6 +793,10 @@
 			qcom,sensor-type = "llm";
 			qcom,sensor-name = "limits_sensor-01";
 		};
+		sensor_information22: qcom,sensor-information-22 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "id3_therm";
+		};
 	};
 
 	mitigation_profile0: qcom,limit_info-0 {
@@ -869,7 +878,7 @@
 		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
 		qcom,bcl-hotplug-list = <&CPU6 &CPU7>;
-		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5>;
 		qcom,ibat-monitor {
 			qcom,low-threshold-uamp = <3400000>;
 			qcom,high-threshold-uamp = <4200000>;
@@ -2405,6 +2414,13 @@
 		compatible = "qcom,jtag-fuse-v4";
 		reg = <0x786040 0x8>;
 		reg-names = "fuse-base";
+	};
+
+	sn_fuse: snfuse@0xA4128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0x786134 0x4>,
+				<0x78607C 0x4>;
+		reg-names = "sn-base","fuse-state";
 	};
 
 	jtag_mm0: jtagmm@7840000 {

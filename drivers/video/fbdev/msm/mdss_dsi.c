@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,11 +446,13 @@ static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 	return 0;
 }
 
+extern bool ESD_TE_status;
 static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	int power_state)
 {
 	int ret = 0;
 	struct mdss_panel_info *pinfo;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -483,8 +486,45 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	case MDSS_PANEL_POWER_ON:
 		if (mdss_dsi_is_panel_on_lp(pdata))
 			ret = mdss_dsi_panel_power_lp(pdata, false);
-		else
+		else {
+			if (ESD_TE_status) {
+				ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+							panel_data);
+
+				ret = mdss_dsi_panel_reset(pdata, 0);
+				if (ret) {
+					pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+					ret = 0;
+				}
+				if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+					pr_debug("reset disable:pinctrl not enable \n");
+
+				ret = msm_dss_enable_vreg(ctrl_pdata->panel_power_data.vreg_config,
+						ctrl_pdata->panel_power_data.num_vreg, 0);
+				if (ret)
+					pr_err("%s:failed to disable vreg for %s\n", __func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+				msleep(10);
+				mdss_dsi_panel_reset(pdata, 1);
+				msleep(10);
+				mdss_dsi_panel_reset(pdata, 0);
+				msleep(1);
+				mdss_dsi_panel_reset(pdata, 1);
+				msleep(10);
+				mdss_dsi_panel_reset(pdata, 0);
+				msleep(300);
+				mdss_dsi_panel_reset(pdata, 1);
+				msleep(20);
+				mdss_dsi_panel_reset(pdata, 0);
+				msleep(20);
+				mdss_dsi_panel_reset(pdata, 1);
+				msleep(20);
+				mdss_dsi_panel_reset(pdata, 0);
+				printk("nova panel reset\n");
+
+				ESD_TE_status = false;
+			}
 			ret = mdss_dsi_panel_power_on(pdata);
+		}
 		break;
 	case MDSS_PANEL_POWER_LP1:
 	case MDSS_PANEL_POWER_LP2:
@@ -1484,7 +1524,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
-
+	printk("mdss_dsi_on\n");
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -1576,6 +1616,208 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 end:
 	pr_debug("%s-:\n", __func__);
 	return ret;
+}
+
+extern void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+		struct dsi_panel_cmds *pcmds, u32 flags);
+extern int mdss_dsi_read_reg(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0, int *val0, int *val1);
+
+int mdss_dsi_set_gamma(struct mdss_dsi_ctrl_pdata *ctrl, int val2)
+{
+	int val0, val1;
+
+	printk("guorui:%s\n", __func__);
+
+	if (!ctrl) {
+		pr_info("not available\n");
+		return -EINVAL;
+	}
+
+	if (val2 == 1) {
+
+	} else if (val2 == 2) {
+		printk("guorui: %s , download default gamma, line %d \n", __func__, __LINE__);
+		if (ctrl->gamma0_cmds.cmd_cnt) {
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma0_cmds, CMD_REQ_COMMIT);
+			printk("guorui: %s , gamma0, line %d \n", __func__, __LINE__);
+			return 0;
+		}
+	} else {
+		pr_err("%s:val2 not available\n", __func__);
+		return -EINVAL;
+	}
+
+	mdss_dsi_read_reg(ctrl, 0xa1,   &val0,   &val1);
+
+	if (0 == val0 || 0 == val1) {
+		printk("guorui: %s please check reg 0xa1 , val0:0x%x, val1:0x%x\n", __func__, val0, val1);
+		return 0;
+	}
+
+	if (val0 <= 0x8a && val0 >= 0x76) {
+		if (val1 <= 0x85 && val1 >= 0x71) {
+			printk("guorui: %s , no need for gamma balance, line %d \n", __func__, __LINE__);
+			return 0;
+		} else if (val1 <= 0x6b && val1 >= 0x62) {
+			if (ctrl->gamma1_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma1_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma1, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x70 && val1 >= 0x6c) {
+			if (ctrl->gamma2_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma2_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma2, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x8a && val1 >= 0x86) {
+			if (ctrl->gamma3_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma3_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma3, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x94 && val1 >= 0x8b) {
+			if (ctrl->gamma4_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma4_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma4, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	} else if (val0 <= 0x70 && val0 >= 0x67) {
+		if (val1 <= 0x6b && val1 >= 0x62) {
+			if (ctrl->gamma9_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma9_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma9, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x70 && val1 >= 0x6c) {
+			if (ctrl->gamma10_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma10_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma10, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x8a && val1 >= 0x86) {
+			if (ctrl->gamma11_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma11_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma11, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x94 && val1 >= 0x8b) {
+			if (ctrl->gamma12_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma12_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma12, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	} else if (val0 <= 0x75 && val0 >= 0x71) {
+		if (val1 <= 0x6b && val1 >= 0x62) {
+			if (ctrl->gamma13_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma13_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma13, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x70 && val1 >= 0x6c) {
+			if (ctrl->gamma14_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma14_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma14, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x8a && val1 >= 0x86) {
+			if (ctrl->gamma15_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma15_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma15, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x94 && val1 >= 0x8b) {
+			if (ctrl->gamma16_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma16_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma16, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	} else if (val0 <= 0x8f && val0 >= 0x8b) {
+		if (val1 <= 0x6b && val1 >= 0x62) {
+			if (ctrl->gamma17_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma17_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma17, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x70 && val1 >= 0x6c) {
+			if (ctrl->gamma18_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma18_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma18, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x8a && val1 >= 0x86) {
+			if (ctrl->gamma19_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma19_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma19, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x94 && val1 >= 0x8b) {
+			if (ctrl->gamma20_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma20_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma20, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	} else if (val0 <= 0x99 && val0 >= 0x90) {
+		if (val1 <= 0x6b && val1 >= 0x62) {
+			if (ctrl->gamma21_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma21_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma21, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x70 && val1 >= 0x6c) {
+			if (ctrl->gamma22_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma22_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma22, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x8a && val1 >= 0x86) {
+			if (ctrl->gamma23_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma23_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma23, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val1 <= 0x94 && val1 >= 0x8b) {
+			if (ctrl->gamma24_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma24_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma24, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	}
+
+	if (val1 <= 0x85 && val1 >= 0x71) {
+		if (val0 <= 0x70 && val0 >= 0x67) {
+			if (ctrl->gamma5_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma5_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma5, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val0 <= 0x75 && val0 >= 0x71) {
+			if (ctrl->gamma6_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma6_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma6, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val0 <= 0x8f && val0 >= 0x8b) {
+			if (ctrl->gamma7_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma7_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma7, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		} else if (val0 <= 0x99 && val0 >= 0x90) {
+			if (ctrl->gamma8_cmds.cmd_cnt) {
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->gamma8_cmds, CMD_REQ_COMMIT);
+				printk("guorui: %s , gamma8, line %d \n", __func__, __LINE__);
+				return 0;
+			}
+		}
+	}
+	printk("guorui: %s no gamma match! please check reg 0xa1 !\n", __func__);
+	return 0;
 }
 
 static int mdss_dsi_pinctrl_set_state(
@@ -1693,6 +1935,10 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 			ATRACE_END("dsi_panel_on");
 		}
 	}
+
+#ifdef CONFIG_KERNEL_CUSTOM_WHYRED
+
+#endif
 
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
 		mipi->vsync_enable && mipi->hw_vsync_mode) {
@@ -2732,7 +2978,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		ctrl_pdata->ctrl_state |= CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->on_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_unblank(pdata);
-		pdata->panel_info.esd_rdy = true;
 		break;
 	case MDSS_EVENT_BLANK:
 		power_state = (int) (unsigned long) arg;

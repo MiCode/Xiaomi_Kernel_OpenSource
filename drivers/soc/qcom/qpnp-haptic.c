@@ -564,13 +564,14 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, bool on)
 				break;
 			}
 		}
-
+		pr_info("zjl %s  11 val == %d\n", __func__, val);
 		if (i >= QPNP_HAP_MAX_RETRIES)
 			pr_debug("Haptics Busy. Force disable\n");
 	}
 
 	val = on ? QPNP_HAP_EN_BIT : 0;
 	rc = qpnp_hap_write_reg(hap, QPNP_HAP_EN_CTL_REG(hap->base), val);
+	pr_info("zjl %s  end val == %d\n", __func__, val);
 	if (rc < 0)
 		return rc;
 

@@ -537,6 +537,11 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
 	int i, rc;
 	u8 reg;
+	u16 low_limit = WLED_MAX_LEVEL_4095 * 1 / 1000;
+
+	/* WLED's lower limit of operation is 0.4% */
+	if (level > 0 && level < low_limit)
+		level = low_limit;
 
 	/* set brightness registers */
 	for (i = 0; i < wled->max_strings; i++) {
@@ -1336,10 +1341,7 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 		return IRQ_HANDLED;
 	}
 
-	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
-		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
-			int_sts, fault_sts);
-
+	printk("%s, %d auto_calib_enabled = %d", __FILE__, __LINE__, wled->auto_calib_enabled?1:0);
 	if (fault_sts & QPNP_WLED_OVP_FAULT_BIT) {
 		if (wled->auto_calib_enabled && !wled->auto_calib_done) {
 			if (qpnp_wled_auto_cal_required(wled)) {
@@ -2355,6 +2357,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 
 	wled->auto_calib_enabled = of_property_read_bool(pdev->dev.of_node,
 					"qcom,auto-calibration-enable");
+	printk("%s, %d auto_calib_enabled = %d", __FILE__, __LINE__, wled->auto_calib_enabled?1:0);
 	return 0;
 }
 

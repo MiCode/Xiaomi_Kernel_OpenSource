@@ -25,6 +25,11 @@
 #include "dsi-panel-truly-1080p-cmd.dtsi"
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-rm67195-amoled-fhd-cmd.dtsi"
+#include "dsi-panel-tianma-td4310-1080p-video.dtsi"
+#include "dsi-panel-tianma-nt36672-1080p-video.dtsi"
+#include "dsi-panel-jdi-nt36672-1080p-video.dtsi"
+#include "dsi-panel-shenchao-td4310-1080p-video.dtsi"
+#include "dsi-panel-huaxing-nt36672-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -38,6 +43,8 @@
 			qcom,supply-max-voltage = <1950000>;
 			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <2>;
+			qcom,supply-pre-off-sleep = <10>;
 		};
 
 		qcom,panel-supply-entry@1 {
@@ -183,6 +190,57 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
+
+&dsi_td4310_tianma_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_nt36672_tianma_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1e 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_nt36672_jdi_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1e 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_nt36672_huaxing_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1e 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
+&dsi_td4310_shenchao_fhd_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1f 09 0a 06 03 04 a0
+		25 1e 08 0a 06 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+};
+
 
 &dsi_nt35597_truly_dsc_video {
 	qcom,mdss-dsi-panel-timings-phy-v2 = [20 1d 05 07 03 03 04 a0

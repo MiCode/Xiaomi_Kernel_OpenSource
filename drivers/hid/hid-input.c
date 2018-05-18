@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2000-2001 Vojtech Pavlik
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright (c) 2006-2010 Jiri Kosina
  *
  *  HID to Linux Input mapping
@@ -827,8 +828,8 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 		case 0x0e0: map_abs_clear(ABS_VOLUME);		break;
 		case 0x0e2: map_key_clear(KEY_MUTE);		break;
 		case 0x0e5: map_key_clear(KEY_BASSBOOST);	break;
-		case 0x0e9: map_key_clear(KEY_VOLUMEUP);	break;
-		case 0x0ea: map_key_clear(KEY_VOLUMEDOWN);	break;
+		case 0x0e9: map_key_clear(BTN_1);		break;
+		case 0x0ea: map_key_clear(BTN_2);		break;
 		case 0x0f5: map_key_clear(KEY_SLOW);		break;
 
 		case 0x181: map_key_clear(KEY_BUTTONCONFIG);	break;
@@ -1116,7 +1117,6 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 		int count = abs(value);
 		int direction = value > 0 ? KEY_VOLUMEUP : KEY_VOLUMEDOWN;
 		int i;
-
 		for (i = 0; i < count; i++) {
 			input_event(input, EV_KEY, direction, 1);
 			input_sync(input);
@@ -1153,21 +1153,22 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	 * skip the keycode translation and only forward real events.
 	 */
 	if (!(field->flags & (HID_MAIN_ITEM_RELATIVE |
-	                      HID_MAIN_ITEM_BUFFERED_BYTE)) &&
-			      (field->flags & HID_MAIN_ITEM_VARIABLE) &&
-	    usage->usage_index < field->maxusage &&
-	    value == field->value[usage->usage_index])
+			  HID_MAIN_ITEM_BUFFERED_BYTE)) &&
+			  (field->flags & HID_MAIN_ITEM_VARIABLE) &&
+			  usage->usage_index < field->maxusage &&
+			  value == field->value[usage->usage_index])
 		return;
 
 	/* report the usage code as scancode if the key status has changed */
 	if (usage->type == EV_KEY &&
-	    (!test_bit(usage->code, input->key)) == value)
+		(!test_bit(usage->code, input->key)) == value) {
 		input_event(input, EV_MSC, MSC_SCAN, usage->hid);
+	}
 
 	input_event(input, usage->type, usage->code, value);
 
 	if ((field->flags & HID_MAIN_ITEM_RELATIVE) &&
-	    usage->type == EV_KEY && value) {
+		usage->type == EV_KEY && value) {
 		input_sync(input);
 		input_event(input, usage->type, usage->code, 0);
 	}
