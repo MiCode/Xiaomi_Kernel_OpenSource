@@ -2713,8 +2713,11 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	int ret;
 
 	mdwc->dwc3_gdsc = devm_regulator_get(mdwc->dev, "USB3_GDSC");
-	if (IS_ERR(mdwc->dwc3_gdsc))
+	if (IS_ERR(mdwc->dwc3_gdsc)) {
+		if (PTR_ERR(mdwc->dwc3_gdsc) == -EPROBE_DEFER)
+			return PTR_ERR(mdwc->dwc3_gdsc);
 		mdwc->dwc3_gdsc = NULL;
+	}
 
 	mdwc->xo_clk = devm_clk_get(mdwc->dev, "xo");
 	if (IS_ERR(mdwc->xo_clk)) {
