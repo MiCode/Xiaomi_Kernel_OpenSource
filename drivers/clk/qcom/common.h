@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2014, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2017-2018, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_CLK_COMMON_H__
@@ -26,7 +26,9 @@ struct clk_hw;
 struct qcom_cc_desc {
 	const struct regmap_config *config;
 	struct clk_regmap **clks;
+	struct clk_hw **hwclks;
 	size_t num_clks;
+	size_t num_hwclks;
 	const struct qcom_reset_map *resets;
 	size_t num_resets;
 	struct gdsc **gdscs;
