@@ -408,7 +408,6 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	g_npu_dev = npu_dev;
-	debugfs->sys_cache_disable = 1;
 
 	debugfs->root = debugfs_create_dir("npu", NULL);
 	if (IS_ERR_OR_NULL(debugfs->root)) {
@@ -442,7 +441,7 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 	}
 
 	if (!debugfs_create_bool("sys_cache_disable", 0644,
-		debugfs->root, &debugfs->sys_cache_disable)) {
+		debugfs->root, &(host_ctx->sys_cache_disable))) {
 		pr_err("debugfs_creat_bool fail for sys cache\n");
 		goto err;
 	}
