@@ -38,7 +38,7 @@ static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 
 static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x0003FC00,
-	0x0FFF7EBC,
+	0xEFFF7EBC,
 };
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
@@ -703,6 +703,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_GET_HFR_UPDATE:
 	case CAM_ISP_HW_CMD_STRIPE_UPDATE:
 	case CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ:
+	case CAM_ISP_HW_CMD_UBWC_UPDATE:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);
