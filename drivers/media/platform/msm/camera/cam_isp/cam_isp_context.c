@@ -2378,7 +2378,9 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
-		CAM_ISP_CTX_ACTIVATED_APPLIED : CAM_ISP_CTX_ACTIVATED_SOF;
+		CAM_ISP_CTX_ACTIVATED_APPLIED :
+		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_EPOCH :
+		CAM_ISP_CTX_ACTIVATED_SOF;
 
 	/*
 	 * Only place to change state before calling the hw due to
@@ -2396,6 +2398,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		goto end;
 	}
 	CAM_DBG(CAM_ISP, "start device success");
+
+	if (req_isp->num_fence_map_out) {
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->active_req_list);
+	}
 end:
 	return rc;
 }
