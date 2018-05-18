@@ -404,6 +404,10 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	apq8053-iot-mtp.dtb \
 	apq8053-lite-dragon-v1.0.dtb \
 	apq8053-lite-dragon-v2.0.dtb \
+	apq8053-lite-dragon-v2.1.dtb \
+	apq8053-lite-dragon-v2.2.dtb \
+	apq8053-lite-dragon-v2.3.dtb \
+	apq8053-lite-dragon-v2.4.dtb \
 	apq8053-lite-lenovo-v1.0.dtb \
 	apq8053-lite-lenovo-v1.1.dtb \
 	apq8053-lite-harman-v1.0.dtb \
