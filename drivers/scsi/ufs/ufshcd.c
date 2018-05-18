@@ -485,6 +485,26 @@ static struct devfreq_dev_profile ufs_devfreq_profile = {
 	.get_dev_status	= ufshcd_devfreq_get_dev_status,
 };
 
+static int ufshcd_devfreq_init(struct ufs_hba *hba)
+{
+	struct devfreq *devfreq;
+	int ret;
+
+	devfreq = devm_devfreq_add_device(hba->dev,
+			&ufs_devfreq_profile,
+			"simple_ondemand",
+			gov_data);
+	if (IS_ERR(devfreq)) {
+		ret = PTR_ERR(devfreq);
+		dev_err(hba->dev, "Unable to register with devfreq %d\n", ret);
+		return ret;
+	}
+
+	hba->devfreq = devfreq;
+
+	return 0;
+}
+
 static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
 {
 	return tag >= 0 && tag < hba->nutrs;
@@ -8642,16 +8662,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			hba->clk_scaling.saved_pwr_info.is_valid = true;
 			hba->clk_scaling.is_scaled_up = true;
 			if (!hba->devfreq) {
-				hba->devfreq = devm_devfreq_add_device(hba->dev,
-							&ufs_devfreq_profile,
-							"simple_ondemand",
-							gov_data);
-				if (IS_ERR(hba->devfreq)) {
-					ret = PTR_ERR(hba->devfreq);
-					dev_err(hba->dev, "Unable to register with devfreq %d\n",
-							ret);
+				ret = ufshcd_devfreq_init(hba);
+				if (ret)
 					goto out;
-				}
 			}
 			hba->clk_scaling.is_allowed = true;
 		}
