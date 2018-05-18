@@ -184,6 +184,9 @@ Optional properties:
 					255 = default value.
 - qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
 					255 = default value.
+- qcom,bl-update-flag:			A string that specifies controls for backlight update of the panel.
+					"delay_until_first_frame" = Delay backlight update of the panel
+					until the first frame is received from the HW.
 - qcom,mdss-dsi-interleave-mode:	Specifies interleave mode.
 					0 = default value.
 - qcom,mdss-dsi-panel-type:		Specifies the panel operating mode.
@@ -600,6 +603,7 @@ Example:
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = < 15>;
 		qcom,mdss-brightness-max-level = <255>;
+		qcom,bl-update-flag = "delay_until_first_frame";
 		qcom,mdss-dsi-interleave-mode = <0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-te-check-enable;
