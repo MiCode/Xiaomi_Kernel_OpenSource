@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,9 +20,17 @@ struct qdss_buf_tbl_lst {
 	atomic_t available;
 };
 
+struct qdss_mhi_buf_tbl_t {
+	struct list_head link;
+	unsigned char *buf;
+	size_t len;
+};
+
 struct qdss_bridge_drvdata {
-	struct device *dev;
+	int alias;
 	bool opened;
+	spinlock_t lock;
+	struct mhi_device *mhi_dev;
 	struct work_struct read_work;
 	struct work_struct read_done_work;
 	struct work_struct open_work;
@@ -31,6 +39,7 @@ struct qdss_bridge_drvdata {
 	struct mhi_client_handle *hdl;
 	struct mhi_client_info_t *client_info;
 	struct list_head buf_tbl;
+	struct list_head read_done_list;
 	struct usb_qdss_ch *usb_ch;
 };
 
