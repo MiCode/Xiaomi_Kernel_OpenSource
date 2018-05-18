@@ -17,13 +17,13 @@
 #include <dt-bindings/spmi/spmi.h>
 
 &spmi_bus {
-	qcom,pm640@0 {
+	qcom,pm6150@0 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x0 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm640_revid: qcom,revid@100 {
+		pm6150_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
@@ -52,12 +52,12 @@
 			};
 		};
 
-		pm640_misc: qcom,misc@900 {
+		pm6150_misc: qcom,misc@900 {
 			compatible = "qcom,qpnp-misc";
 			reg = <0x900 0x100>;
 		};
 
-		pm640_tz: qcom,temp-alarm@2400 {
+		pm6150_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
@@ -65,17 +65,17 @@
 			qcom,temperature-threshold-set = <1>;
 		};
 
-		pm640_clkdiv: clock-controller@5b00 {
+		pm6150_clkdiv: clock-controller@5b00 {
 			compatible = "qcom,spmi-clkdiv";
 			reg = <0x5b00 0x100>;
 			#clock-cells = <1>;
 			qcom,num-clkdivs = <1>;
-			clock-output-names = "pm640_div_clk1";
+			clock-output-names = "pm6150_div_clk1";
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
 		};
 
-		pm640_gpios: pinctrl@c000 {
+		pm6150_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xa00>;
 			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
@@ -84,22 +84,22 @@
 					<0x0 0xc3 0 IRQ_TYPE_NONE>,
 					<0x0 0xc6 0 IRQ_TYPE_NONE>,
 					<0x0 0xc7 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pm640_gpio1", "pm640_gpio2",
-					"pm640_gpio3", "pm640_gpio4",
-					"pm640_gpio7", "pm640_gpio8";
+			interrupt-names = "pm6150_gpio1", "pm6150_gpio2",
+					"pm6150_gpio3", "pm6150_gpio4",
+					"pm6150_gpio7", "pm6150_gpio8";
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <5 6 9 10>;
 		};
 	};
 
-	qcom,pm640@1 {
+	qcom,pm6150@1 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x1 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm640_vib: qcom,vibrator@5300 {
+		pm6150_vib: qcom,vibrator@5300 {
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5300 0x100>;
 			qcom,vib-ldo-volt-uv = <3000000>;

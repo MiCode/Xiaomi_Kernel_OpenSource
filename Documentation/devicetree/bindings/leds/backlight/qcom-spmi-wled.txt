@@ -10,7 +10,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: should be one of the below.
 			"qcom,pmi8998-spmi-wled",
 			"qcom,pm855l-spmi-wled",
-			"qcom,pm640l-spmi-wled"
+			"qcom,pm6150l-spmi-wled"
 
 - reg
 	Usage:      required

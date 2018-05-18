@@ -349,21 +349,40 @@ static irqreturn_t qiib_irq_handler(int irq, void *priv)
  */
 static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 {
-	char *key;
 	const char *subsys_name;
 	const char *dev_name;
-	uint32_t irqtype;
-	uint32_t irq_clear[2];
-	struct irq_data *irqtype_data;
-	int ret = -ENODEV;
+	char *key;
+	int ret;
 
 	key = "qcom,dev-name";
 	ret = of_property_read_string(node, key, &dev_name);
 	if (ret) {
 		QIIB_ERR("%s: missing key: %s\n", __func__, key);
-		goto missing_key;
+		return ret;
 	}
 	QIIB_DBG("%s: %s = %s\n", __func__, key, dev_name);
+
+	key = "label";
+	ret = of_property_read_string(node, key, &subsys_name);
+	if (ret) {
+		QIIB_ERR("%s: missing key: %s\n", __func__, key);
+		return ret;
+	}
+	QIIB_DBG("%s: %s = %s\n", __func__, key, subsys_name);
+
+	devp->dev_name = dev_name;
+	devp->ssr_name = subsys_name;
+
+	return ret;
+}
+
+static int qiib_init_notifs(struct device_node *node, struct qiib_dev *devp)
+{
+	struct irq_data *irqtype_data;
+	uint32_t irq_clear[2];
+	uint32_t irqtype;
+	char *key;
+	int ret = -ENODEV;
 
 	key = "interrupts";
 	devp->irq_line = irq_of_parse_and_map(node, 0);
@@ -380,14 +399,6 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 	}
 	irqtype = irqd_get_trigger_type(irqtype_data);
 	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
-
-	key = "label";
-	ret = of_property_read_string(node, key, &subsys_name);
-	if (ret) {
-		QIIB_ERR("%s: missing key: %s\n", __func__, key);
-		goto missing_key;
-	}
-	QIIB_DBG("%s: %s = %s\n", __func__, key, subsys_name);
 
 	if (irqtype & IRQF_TRIGGER_HIGH) {
 		key = "qcom,rx-irq-clr-mask";
@@ -417,10 +428,7 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 		}
 	}
 
-	devp->dev_name = dev_name;
-	devp->ssr_name = subsys_name;
 	devp->nb.notifier_call = qiib_restart_notifier_cb;
-
 	devp->notifier_handle = subsys_notif_register_notifier(devp->ssr_name,
 								&devp->nb);
 	if (IS_ERR_OR_NULL(devp->notifier_handle)) {
@@ -543,7 +551,6 @@ static int qsee_ipc_irq_bridge_probe(struct platform_device *pdev)
 		ret = qiib_parse_node(node, devp);
 		if (ret) {
 			QIIB_ERR("%s:qiib_parse_node failed %d\n", __func__, i);
-			kfree(devp);
 			goto error;
 		}
 
@@ -551,9 +558,16 @@ static int qsee_ipc_irq_bridge_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			QIIB_ERR("%s: add [%s] device failed ret=%d\n",
 					__func__, devp->dev_name, ret);
-			kfree(devp);
 			goto error;
 		}
+
+		ret = qiib_init_notifs(node, devp);
+		if (ret < 0) {
+			QIIB_ERR("%s: qiib_init_notifs failed ret=%d\n",
+					__func__, ret);
+			goto error;
+		}
+
 		i++;
 	}
 

@@ -331,6 +331,8 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	struct usb_diag_ch *ch;
 	unsigned long flags;
 	int found = 0;
+	bool connected = false;
+	struct diag_context  *dev;
 
 	spin_lock_irqsave(&ch_lock, flags);
 	/* Check if we already have a channel with this name */
@@ -357,6 +359,16 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		list_add_tail(&ch->list, &usb_diag_ch_list);
 		spin_unlock_irqrestore(&ch_lock, flags);
 	}
+
+	if (ch->priv_usb) {
+		dev = ch->priv_usb;
+		spin_lock_irqsave(&dev->lock, flags);
+		connected = dev->configured;
+		spin_unlock_irqrestore(&dev->lock, flags);
+	}
+
+	if (ch->notify && connected)
+		ch->notify(priv, USB_DIAG_CONNECT, NULL);
 
 	return ch;
 }

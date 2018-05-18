@@ -836,6 +836,11 @@ int ipa3_uc_notify_clk_state(bool enabled)
 {
 	u32 opcode;
 
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_0) {
+		IPADBG_LOW("not supported past IPA v4.0\n");
+		return 0;
+	}
+
 	/*
 	 * If the uC interface has not been initialized yet,
 	 * don't notify the uC on the enable/disable

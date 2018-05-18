@@ -86,7 +86,6 @@ int fw_init(struct npu_device *npu_dev)
 	 * during FW bootup initialization
 	 */
 	reg_val = REGR(npu_dev, REG_NPU_HOST_CTRL_STATUS);
-	reg_val |= HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_VAL;
 
 	/* Enable clock gating only if the HW access platform allows it */
 	if (npu_hw_clk_gating_enabled())
@@ -159,6 +158,8 @@ int npu_host_init(struct npu_device *npu_dev)
 	init_completion(&host_ctx->exec_done);
 	init_completion(&host_ctx->load_done);
 	init_completion(&host_ctx->unload_done);
+
+	host_ctx->sys_cache_disable = 0;
 
 	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
 		&host_ctx->irq_work);

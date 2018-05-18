@@ -1226,7 +1226,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 
 	for (i = off; i < npipes; i++) {
 		pipe = pipe_pool + i;
-		if (pipe && atomic_read(&pipe->kref.refcount) == 0) {
+		if (pipe && refcount_read(&pipe->kref.refcount) == 0) {
 			pipe->mixer_left = mixer;
 			break;
 		}
@@ -1304,11 +1304,11 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 		goto error;
 	}
 
-	if (atomic_read(&pipe->kref.refcount) != 0) {
+	if (refcount_read(&pipe->kref.refcount) != 0) {
 		mutex_unlock(&mdss_mdp_sspp_lock);
 		do {
 			rc = wait_event_interruptible_timeout(pipe->free_waitq,
-				!atomic_read(&pipe->kref.refcount),
+				!refcount_read(&pipe->kref.refcount),
 				usecs_to_jiffies(PIPE_CLEANUP_TIMEOUT_US));
 			if (rc == 0 || retry_count == 5) {
 				pr_err("pipe ndx:%d free wait failed, mfd ndx:%d rc=%d\n",
@@ -1482,7 +1482,7 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 			pipe->ndx, pipe->num, pipe->multirect.num);
 
 	next_pipe = (struct mdss_mdp_pipe *) pipe->multirect.next;
-	if (!next_pipe || (atomic_read(&next_pipe->kref.refcount) == 0)) {
+	if (!next_pipe || (refcount_read(&next_pipe->kref.refcount) == 0)) {
 		mdss_mdp_pipe_hw_cleanup(pipe);
 	} else {
 		pr_debug("skip hw cleanup on pnum=%d rect=%d, rect%d still in use\n",

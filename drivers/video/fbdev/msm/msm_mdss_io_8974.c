@@ -15,7 +15,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
 

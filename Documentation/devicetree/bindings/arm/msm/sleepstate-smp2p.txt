@@ -1,0 +1,12 @@
+Qualcomm Technologies, Inc. SMSM Point-to-Point (SMP2P) Sleepstate driver
+
+Required properties:
+-compatible : should be one of the following:
+- "qcom,smp2p-sleepstate"
+-qcom,smem-states : the relevant outgoing smp2p entry
+
+Example:
+qcom,smp2p_sleepstate {
+	compatible = "qcom,smp2p-sleepstate";
+	qcom,smem-states = <&sleepstate_smp2p_out 0>;
+};

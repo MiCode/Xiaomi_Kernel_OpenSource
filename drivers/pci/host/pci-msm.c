@@ -2944,6 +2944,15 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 						RPMH_REGULATOR_LEVEL_OFF,
 						RPMH_REGULATOR_LEVEL_MAX);
 				}
+
+				if (dev->vreg[i].opt_mode) {
+					rc = regulator_set_load(hdl, 0);
+					if (rc < 0)
+						PCIE_ERR(dev,
+							"PCIe: RC%d can't set mode for %s: %d\n",
+							dev->rc_idx,
+							dev->vreg[i].name, rc);
+				}
 			}
 
 		}
@@ -2955,7 +2964,7 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 
 static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 {
-	int i;
+	int i, ret;
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
@@ -2973,6 +2982,15 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 				regulator_set_voltage(dev->vreg[i].hdl,
 					RPMH_REGULATOR_LEVEL_OFF,
 					RPMH_REGULATOR_LEVEL_MAX);
+			}
+
+			if (dev->vreg[i].opt_mode) {
+				ret = regulator_set_load(dev->vreg[i].hdl, 0);
+				if (ret < 0)
+					PCIE_ERR(dev,
+						"PCIe: RC%d can't set mode for %s: %d\n",
+						dev->rc_idx, dev->vreg[i].name,
+						ret);
 			}
 		}
 	}
