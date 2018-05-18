@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,14 +280,13 @@ EXPORT_SYMBOL(stm_ost_packet);
 
 int stm_set_ost_params(struct stm_drvdata *drvdata, size_t bitmap_size)
 {
-	stmdrvdata = drvdata;
-
 	drvdata->chs.bitmap = devm_kzalloc(drvdata->dev, bitmap_size,
 					   GFP_KERNEL);
 	if (!drvdata->chs.bitmap)
 		return -ENOMEM;
 
 	bitmap_fill(drvdata->entities, OST_ENTITY_MAX);
+	stmdrvdata = drvdata;
 
 	return 0;
 }
