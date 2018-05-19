@@ -478,14 +478,11 @@ static inline void tracer_hardirqs_on(void)
 #ifdef CONFIG_PREEMPTIRQ_EVENTS
 	struct irqsoff_store *is = &per_cpu(the_irqsoff,
 						raw_smp_processor_id());
+	u64 delta = sched_clock() - is->ts;
 
-	if (!is->ts) {
-		is->ts = sched_clock();
-		is->caddr[0] = CALLER_ADDR0;
-		is->caddr[1] = CALLER_ADDR1;
-		is->caddr[2] = CALLER_ADDR2;
-		is->caddr[3] = CALLER_ADDR3;
-	}
+	if (delta > sysctl_irqsoff_tracing_threshold_ns)
+		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
+						is->caddr[2], is->caddr[3]);
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (!preempt_trace() && irq_trace())
@@ -497,15 +494,12 @@ static inline void tracer_hardirqs_off(void)
 #ifdef CONFIG_PREEMPTIRQ_EVENTS
 	struct irqsoff_store *is = &per_cpu(the_irqsoff,
 						raw_smp_processor_id());
-	u64 delta = 0;
 
-	if (is->ts) {
-		delta = sched_clock() - is->ts;
-		is->ts = 0;
-	}
-	if (delta > sysctl_irqsoff_tracing_threshold_ns)
-		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
-						is->caddr[2], is->caddr[3]);
+	is->ts = sched_clock();
+	is->caddr[0] = CALLER_ADDR0;
+	is->caddr[1] = CALLER_ADDR1;
+	is->caddr[2] = CALLER_ADDR2;
+	is->caddr[3] = CALLER_ADDR3;
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (!preempt_trace() && irq_trace())
