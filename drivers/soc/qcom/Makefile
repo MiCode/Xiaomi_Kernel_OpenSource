@@ -36,6 +36,7 @@ obj-$(CONFIG_QPNP_PBS) += qpnp-pbs.o
 obj-$(CONFIG_ICNSS) += icnss.o
 obj-$(CONFIG_ICNSS_QMI) += icnss_qmi.o wlan_firmware_service_v01.o
 obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
+obj-$(CONFIG_MSM_TZ_SMMU) += msm_tz_smmu.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
 obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o

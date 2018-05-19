@@ -470,6 +470,16 @@ config MSM_SPCOM
 	  spcom provides clients/server API, although currently only one client
 	  or server is allowed per logical channel.
 
+config MSM_TZ_SMMU
+	depends on ARCH_MSM8953 || ARCH_QCS405
+	bool "Helper functions for SMMU configuration through TZ"
+	help
+	  Say 'Y' here for targets that need to call into TZ to configure
+	  SMMUs for any reason (for example, for errata workarounds or
+	  configuration of SMMU virtualization).
+
+	  If unsure, say N.
+
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX

@@ -109,6 +109,7 @@
 #define SMR_VALID			(1 << 31)
 #define SMR_MASK_SHIFT			16
 #define SMR_MASK_MASK			0x7FFF
+#define SID_MASK			0x7FFF
 #define SMR_ID_SHIFT			0
 
 #define ARM_SMMU_GR0_S2CR(n)		(0xc00 + ((n) << 2))
