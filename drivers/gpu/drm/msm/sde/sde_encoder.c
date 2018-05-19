@@ -2307,10 +2307,17 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			_sde_encoder_resource_control_rsc_update(drm_enc, true);
 			_sde_encoder_resource_control_helper(drm_enc, true);
 
+			/*
+			 * In some cases, commit comes with slight delay
+			 * (> 80 ms)after early wake up, prevent clock switch
+			 * off to avoid jank in next update. So, increase the
+			 * command mode idle timeout sufficiently to prevent
+			 * such case.
+			 */
 			kthread_mod_delayed_work(&disp_thread->worker,
-						&sde_enc->delayed_off_work,
-						msecs_to_jiffies(
-						IDLE_POWERCOLLAPSE_DURATION));
+					&sde_enc->delayed_off_work,
+					msecs_to_jiffies(
+					IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP));
 
 			sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
 		}
