@@ -1,0 +1,47 @@
+* RPM Stats
+
+RPM maintains a counter of the masters i.e APPS, MPPS etc
+number of times the SoC entered a deeper sleep mode involving
+lowering or powering down the backbone rails - Cx and Mx and
+the oscillator clock, XO.
+
+PROPERTIES
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,rpm-master-stats".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: The address on the RPM RAM from where the stats are read
+	            should be provided as "phys_addr_base". The offset from
+	            which the stats are available should be provided as
+	            "offset_addr".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
+
+- qcom,masters:
+	Usage: required
+	Value tye: <string list>
+	Defination: Provides the masters list.
+
+qcom,master-offset:
+	Usage: required
+	Value tye: <prop-encoded-array>
+	Defination: Provides the masters list
+
+EXAMPLE:
+
+qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "PRONTO", "TZ", "LPASS";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
