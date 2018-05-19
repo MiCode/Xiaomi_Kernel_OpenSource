@@ -211,6 +211,8 @@ struct wmi_ops {
 					(struct ath10k *ar,
 					 enum wmi_bss_survey_req_type type);
 	struct sk_buff *(*gen_echo)(struct ath10k *ar, u32 value);
+	struct sk_buff *(*gen_csa_offload)(struct ath10k *ar,
+					   u32 vdev_id, bool enable);
 };
 
 int ath10k_wmi_cmd_send(struct ath10k *ar, struct sk_buff *skb, u32 cmd_id);
@@ -1490,6 +1492,23 @@ ath10k_wmi_pdev_bss_chan_info_request(struct ath10k *ar,
 
 	return ath10k_wmi_cmd_send(ar, skb,
 				   wmi->cmd->pdev_bss_chan_info_request_cmdid);
+}
+
+static inline int
+ath10k_wmi_csa_offload(struct ath10k *ar, u32 vdev_id, bool enable)
+{
+	struct sk_buff *skb;
+	u32 cmd_id;
+
+	if (!ar->wmi.ops->gen_csa_offload)
+		return -EOPNOTSUPP;
+
+	skb = ar->wmi.ops->gen_csa_offload(ar, vdev_id, enable);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	cmd_id = ar->wmi.cmd->csa_offload_enable_cmdid;
+	return ath10k_wmi_cmd_send(ar, skb, cmd_id);
 }
 
 static inline int
