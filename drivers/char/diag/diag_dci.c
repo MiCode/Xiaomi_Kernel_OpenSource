@@ -2715,7 +2715,7 @@ static void diag_dci_init_handshake_remote(void)
 	}
 }
 
-static int diag_dci_init_remote(void)
+int diag_dci_init_remote(void)
 {
 	int i;
 	struct dci_ops_tbl_t *temp = NULL;
@@ -2743,7 +2743,7 @@ static int diag_dci_init_remote(void)
 	return 0;
 }
 #else
-static int diag_dci_init_remote(void)
+int diag_dci_init_remote(void)
 {
 	return 0;
 }
@@ -2756,10 +2756,6 @@ static int diag_dci_init_ops_tbl(void)
 	err = diag_dci_init_local();
 	if (err)
 		goto err;
-	err = diag_dci_init_remote();
-	if (err)
-		goto err;
-
 	return 0;
 
 err:

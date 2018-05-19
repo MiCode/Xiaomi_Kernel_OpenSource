@@ -3,4 +3,4 @@ obj-$(CONFIG_DIAG_CHAR) += diag_mux.o diag_memorydevice.o diag_usb.o diagmem.o d
 obj-$(CONFIG_DIAGFWD_BRIDGE_CODE) += diagfwd_bridge.o
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE) += diagfwd_hsic.o
 obj-$(CONFIG_USB_QCOM_DIAG_BRIDGE) += diagfwd_smux.o
-obj-$(CONFIG_MSM_MHI) += diagfwd_mhi.o
+obj-$(CONFIG_MHI_BUS) += diagfwd_mhi.o

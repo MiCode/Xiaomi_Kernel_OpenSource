@@ -40,6 +40,7 @@
 #include "diag_mux.h"
 #include "diag_ipc_logging.h"
 #include "diagfwd_peripheral.h"
+#include "diagfwd_mhi.h"
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
@@ -954,7 +955,7 @@ exit:
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static int diag_remote_init(void)
+int diag_remote_init(void)
 {
 	diagmem_setsize(POOL_TYPE_MDM, itemsize_mdm, poolsize_mdm);
 	diagmem_setsize(POOL_TYPE_MDM2, itemsize_mdm, poolsize_mdm);
@@ -969,6 +970,9 @@ static int diag_remote_init(void)
 			poolsize_mdm_dci_write);
 	diagmem_setsize(POOL_TYPE_QSC_MUX, itemsize_qsc_usb,
 			poolsize_qsc_usb);
+	diag_md_mdm_init();
+	if (diag_dci_init_remote())
+		return -ENOMEM;
 	driver->hdlc_encode_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
 	if (!driver->hdlc_encode_buf)
 		return -ENOMEM;
@@ -976,7 +980,7 @@ static int diag_remote_init(void)
 	return 0;
 }
 
-static void diag_remote_exit(void)
+void diag_remote_exit(void)
 {
 	kfree(driver->hdlc_encode_buf);
 }
@@ -1117,12 +1121,12 @@ static int diag_process_userspace_remote(int proc, void *buf, int len)
 	return diagfwd_bridge_write(bridge_index, buf, len);
 }
 #else
-static int diag_remote_init(void)
+int diag_remote_init(void)
 {
 	return 0;
 }
 
-static void diag_remote_exit(void)
+void diag_remote_exit(void)
 {
 }
 
@@ -3989,9 +3993,6 @@ static int __init diagchar_init(void)
 	ret = diag_masks_init();
 	if (ret)
 		goto fail;
-	ret = diag_remote_init();
-	if (ret)
-		goto fail;
 	ret = diag_mux_init();
 	if (ret)
 		goto fail;
@@ -4030,9 +4031,9 @@ static int __init diagchar_init(void)
 	INIT_LIST_HEAD(&driver->diag_id_list);
 	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS", APPS_DATA, APPS_DATA);
 	pr_debug("diagchar initialized now");
-	ret = diagfwd_bridge_init();
-	if (ret)
-		diagfwd_bridge_exit();
+	#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	diag_register_with_mhi();
+	#endif
 	return 0;
 
 fail:

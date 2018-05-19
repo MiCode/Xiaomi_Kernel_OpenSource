@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
 
-#ifdef CONFIG_MSM_MHI
+#ifdef CONFIG_MHI_BUS
 #define diag_mdm_init		diag_mhi_init
 #else
 #define diag_mdm_init		diag_hsic_init
