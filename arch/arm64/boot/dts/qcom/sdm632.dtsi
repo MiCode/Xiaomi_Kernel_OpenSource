@@ -40,6 +40,17 @@
 
 &clock_gcc_gfx {
 	compatible = "qcom,gcc-gfx-sdm632";
+	qcom,gfxfreq-corner =
+		 <         0   0 >,
+		 < 133330000   1 >,  /* Min SVS   */
+		 < 216000000   2 >,  /* Low SVS   */
+		 < 320000000   3 >,  /* SVS       */
+		 < 400000000   4 >,  /* SVS Plus  */
+		 < 510000000   5 >,  /* NOM       */
+		 < 560000000   6 >,  /* Nom Plus  */
+		 < 650000000   7 >,  /* Turbo     */
+		 < 700000000   7 >,  /* Turbo     */
+		 < 725000000   7 >;  /* Turbo     */
 };
 
 &thermal_zones {
