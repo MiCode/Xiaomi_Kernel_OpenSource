@@ -19,6 +19,8 @@
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+
 / {
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
 	compatible = "qcom,sdxpoorwills";
@@ -216,6 +218,31 @@
 				<  576000 >,
 				< 1094400 >,
 				< 1497600 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS(200, 2) >, /*   381 MB/s */
+			< MHZ_TO_MBPS(470, 2) >, /*   896 MB/s */
+			< MHZ_TO_MBPS(547, 2) >, /*  1043 MB/s */
+			< MHZ_TO_MBPS(691, 2) >, /*  1317 MB/s */
+			< MHZ_TO_MBPS(806, 2) >, /*  1537 MB/s */
+			< MHZ_TO_MBPS(940, 2) >, /*  1792 MB/s */
+			< MHZ_TO_MBPS(1383, 2) >; /* 2637 MB/s */
+	};
+
+	devfreq_compute: qcom,devfreq-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0>;
+		qcom,target-dev = <&cpubw>;
+		qcom,core-dev-table =
+				<  153600 MHZ_TO_MBPS(200, 2) >,
+				<  576000 MHZ_TO_MBPS(691, 2) >,
+				< 1497600 MHZ_TO_MBPS(1383, 2)>;
 	};
 
 	clock_gcc: qcom,gcc@100000 {
