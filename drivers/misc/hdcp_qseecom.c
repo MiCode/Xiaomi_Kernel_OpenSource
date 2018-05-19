@@ -137,10 +137,14 @@
 	((((maj) & 0xFF) << 16) | (((min) & 0xFF) << 8) | ((patch) & 0xFF))
 
 #define hdcp2_app_init_var(x) \
-	struct hdcp_##x##_req *req_buf = \
-		(struct hdcp_##x##_req *) handle->qseecom_handle->sbuf; \
-	struct hdcp_##x##_rsp *rsp_buf = \
-		(struct hdcp_##x##_rsp *) (handle->qseecom_handle->sbuf + \
+	struct hdcp_##x##_req *req_buf = NULL; \
+	struct hdcp_##x##_rsp *rsp_buf = NULL; \
+	if (!handle->qseecom_handle) { \
+		pr_err("invalid qseecom_handle while processing %s\n", #x); \
+		return -EINVAL; \
+	} \
+	req_buf = (struct hdcp_##x##_req *) handle->qseecom_handle->sbuf; \
+	rsp_buf = (struct hdcp_##x##_rsp *) (handle->qseecom_handle->sbuf + \
 		QSEECOM_ALIGN(sizeof(struct hdcp_##x##_req))); \
 	req_buf->commandid = hdcp_cmd_##x
 
@@ -835,6 +839,7 @@ static int hdcp2_app_session_init(struct hdcp2_handle *handle)
 
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
 		pr_err("app not loaded\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -867,12 +872,14 @@ static int hdcp2_app_session_deinit(struct hdcp2_handle *handle)
 
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
 		pr_err("app not loaded\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
 	if (!(handle->hdcp_state & HDCP_STATE_SESSION_INIT)) {
 		/* unload library here */
 		pr_err("session not initialized\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -896,12 +903,14 @@ static int hdcp2_app_tx_deinit(struct hdcp2_handle *handle)
 
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
 		pr_err("app not loaded\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
 	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
 		/* unload library here */
 		pr_err("txmtr not initialized\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -925,11 +934,13 @@ static int hdcp2_app_start_auth(struct hdcp2_handle *handle)
 
 	if (!(handle->hdcp_state & HDCP_STATE_SESSION_INIT)) {
 		pr_err("session not initialized\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
 	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
 		pr_err("txmtr not initialized\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -983,14 +994,23 @@ exit:
 	return rc;
 }
 
-static void hdcp2_app_stop(struct hdcp2_handle *handle)
+static int hdcp2_app_stop(struct hdcp2_handle *handle)
 {
-	hdcp2_app_tx_deinit(handle);
+	int rc = 0;
 
-	if (!handle->legacy_app)
-		hdcp2_app_session_deinit(handle);
+	rc = hdcp2_app_tx_deinit(handle);
+	if (rc)
+		goto end;
 
-	hdcp2_app_unload(handle);
+	if (!handle->legacy_app) {
+		rc = hdcp2_app_session_deinit(handle);
+		if (rc)
+			goto end;
+	}
+
+	rc = hdcp2_app_unload(handle);
+end:
+	return rc;
 }
 
 static int hdcp2_app_process_msg(struct hdcp2_handle *handle)
@@ -1128,10 +1148,13 @@ int hdcp2_app_comm(void *ctx, enum hdcp2_app_cmd cmd,
 		rc = hdcp2_app_query_stream(handle);
 		break;
 	case HDCP2_CMD_STOP:
-		hdcp2_app_stop(handle);
+		rc = hdcp2_app_stop(handle);
 	default:
 		goto exit;
 	}
+
+	if (rc)
+		goto exit;
 
 	handle->app_data.request.data = hdcp2_get_recv_buf(handle);
 
