@@ -161,6 +161,7 @@
 #include "msm8917-pm.dtsi"
 #include "msm8917-ion.dtsi"
 #include "msm8917-smp2p.dtsi"
+#include "msm8917-coresight.dtsi"
 #include "msm8917-bus.dtsi"
 #include "msm8917-mdss.dtsi"
 #include "msm8917-mdss-pll.dtsi"
@@ -181,6 +182,18 @@
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 			<0x0b002000 0x1000>;
+	};
+
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+			<0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_clk>;
+		clock-names = "apb_pclk";
+
+		qcom,save-reg;
 	};
 
 	wakegic: wake-gic {
@@ -482,6 +495,23 @@
 		#clock-cells = <1>;
 	};
 
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
+
+		qcom,cpufreq-table =
+			 <  960000 >,
+			 < 1094400 >,
+			 < 1248000 >,
+			 < 1401000 >,
+			 < 1497600 >;
+	};
+
 	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
@@ -713,6 +743,24 @@
 		qcom,target-dev = <&cpubw>;
 	};
 
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1497600  5645 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				<  998400 2270 >,
+				< 1094400 4248 >,
+				< 1497600 4248 >;
+		};
+	};
+
 	qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xb017000 0x1000>;
@@ -722,6 +770,32 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+	};
+
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x200000>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x300000>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
@@ -780,6 +854,64 @@
 			reg = <0x94c 200>;
 		};
 
+	};
+
+	 jtag_fuse: jtagfuse@a601c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@61bc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bc000 0x1000>,
+			<0x61b0000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm1: jtagmm@61bd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bd000 0x1000>,
+			<0x61b2000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			<&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm2: jtagmm@61be000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61be000 0x1000>,
+			<0x61b4000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			<&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm3: jtagmm@61bf000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bf000 0x1000>,
+			<0x61b6000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
 	};
 
 	qcom,ipc-spinlock@1905000 {
@@ -1139,6 +1271,10 @@
 		clock-names = "core_clk_src", "core_clk",
 			"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
+	};
+
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
 	};
 
 	qcom,mss@4080000 {
