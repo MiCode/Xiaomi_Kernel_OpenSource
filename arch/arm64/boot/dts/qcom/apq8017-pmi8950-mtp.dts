@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8017.dtsi"
+#include "msm8917-mtp.dtsi"
+#include "msm8917-pmi8950.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8017-PMI8950 MTP";
+	compatible = "qcom,apq8017-mtp", "qcom,apq8017", "qcom,mtp";
+	qcom,board-id= <8 0>;
+	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+};
+
+&blsp1_uart1 {
+	status = "ok";
+};
+
+&vendor {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-ascent-3450mAh.dtsi"
+	};
+};
+
+&qpnp_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&qpnp_smbcharger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&i2c_2 {
+	/* DSI_TO_HDMI I2C configuration */
+	adv7533@39 {
+		compatible = "adv7533";
+		reg = <0x39>;
+		instance_id = <0>;
+		adi,video-mode = <3>; /* 3 = 1080p */
+		adi,main-addr = <0x39>;
+		adi,cec-dsi-addr = <0x3C>;
+		adi,enable-audio;
+		adi,irq-gpio = <&tlmm 0x29 0x2002>;
+		adi,power-down-gpio = <&tlmm 0x7D 0x0>;
+		adi,switch-gpio = <&pm8937_gpios 0x8 0x1>;
+		pinctrl-names = "pmx_adv7533_active",
+					"pmx_adv7533_suspend";
+		pinctrl-0 = <&adv7533_int_active>;
+		pinctrl-1 = <&adv7533_int_suspend>;
+	};
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
+	qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
+	status = "ok";
+	qcom,bridge-index = <0>;
+	qcom,pluggable;
+};
+
+&dsi_adv7533_1080p {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};

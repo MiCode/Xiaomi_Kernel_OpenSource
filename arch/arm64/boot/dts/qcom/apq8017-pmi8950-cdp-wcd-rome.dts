@@ -1,0 +1,309 @@
+/*
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8017.dtsi"
+#include "msm8917-cdp.dtsi"
+#include "msm8917-pmi8950.dtsi"
+#include "apq8017-rome.dtsi"
+#include "apq8017-audio.dtsi"
+#include "apq8017-pmi8950-cdp-wcd-rome.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8017-PMI8950 CDP \
+						with WCD codec/Rome card";
+	compatible = "qcom,apq8017-cdp", "qcom,apq8017", "qcom,cdp";
+	qcom,board-id= <1 2>;
+	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+};
+
+&blsp1_uart1 {
+	status = "ok";
+};
+
+&wcd9335 {
+	qcom,cdc-mic-unmute-delay = <50>;
+};
+
+&sdhc_2 {
+	/* device core power supply */
+	/delete-property/vdd-supply;
+	/delete-property/qcom,vdd-voltage-level;
+	/delete-property/qcom,vdd-current-level;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8937_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_gpio_active>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_wlan_gpio_sleep>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+		1 &intc 0 221 0
+		2 &tlmm 124 0x4>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	/delete-property/cd-gpios;
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+
+};
+
+&mdss_fb0 {
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+/delete-node/ &cont_splash_mem;
+
+&soc {
+	gpio_keys {
+		/delete-node/ home;
+	};
+};
+
+&usb_otg {
+	vbus_otg-supply = <0>;
+	qcom,vbus-low-as-hostmode;
+};
+
+&i2c_4 {
+	usb2533@2c {
+		status = "ok";
+	};
+};
+
+&i2c_2 {
+	/* DSI_TO_HDMI I2C configuration */
+	adv7533@39 {
+		compatible = "adv7533";
+		reg = <0x39>;
+		instance_id = <0>;
+		adi,video-mode = <3>; /* 3 = 1080p */
+		adi,main-addr = <0x39>;
+		adi,cec-dsi-addr = <0x3C>;
+		adi,enable-audio;
+		adi,irq-gpio = <&tlmm 0x29 0x2002>;
+		adi,power-down-gpio = <&tlmm 0x7D 0x0>;
+		adi,switch-gpio = <&pm8937_gpios 0x8 0x1>;
+		pinctrl-names = "pmx_adv7533_active",
+					"pmx_adv7533_suspend";
+		pinctrl-0 = <&adv7533_int_active>;
+		pinctrl-1 = <&adv7533_int_suspend>;
+	};
+
+	pericom-type-c@1d {
+		status = "disabled";
+	};
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
+	qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
+	status = "ok";
+	qcom,bridge-index = <0>;
+	qcom,pluggable;
+};
+
+&dsi_adv7533_1080p {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x1500000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x87d00000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x88e00000 0x0 0x700000>;
+};
+
+&other_ext_mem {
+	reg = <0x0 0x84f00000 0x0 0x1900000>;
+};
+
+&qcom_seecom {
+	reg = <0x84f00000 0x1400000>;
+};
+
+&secure_mem {
+	status = "disabled";
+};
+
+/* Warning, SPI6 & I2C6 cannot be enabled at the same time due to pin usage. */
+&spi_6 {
+	status = "disabled";
+};
+
+&i2c_6 {
+	status = "ok";
+	qcom,clk-freq-out = <100000>;
+
+	/* TI591XX LED Drivers */
+	tlc59116@60 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59116";
+		reg = <0x60>;
+		out0@0 {
+			label = "ledsec1_g";
+			reg = <0x0>;
+		};
+		out1@1 {
+			label = "ledsec1_r";
+			reg = <0x1>;
+		};
+		out2@2 {
+			label = "ledsec1_b";
+			reg = <0x2>;
+		};
+		out3@3 {
+			label = "ledsec2_g";
+			reg = <0x3>;
+		};
+		out4@4 {
+			label = "ledsec2_r";
+			reg = <0x4>;
+		};
+		out5@5 {
+			label = "ledsec2_b";
+			reg = <0x5>;
+		};
+		out6@6 {
+			label = "ledsec3_g";
+			reg = <0x6>;
+		};
+		out7@7 {
+			label = "ledsec3_r";
+			reg = <0x7>;
+		};
+		out8@8 {
+			label = "ledsec3_b";
+			reg = <0x8>;
+		};
+		out9@9 {
+			label = "ledsec4_g";
+			reg = <0x9>;
+		};
+		out10@10 {
+			label = "ledsec4_r";
+			reg = <0xa>;
+		};
+		out11@11 {
+			label = "ledsec4_b";
+			reg = <0xb>;
+		};
+		out12@12 {
+			label = "ledsec5_g";
+			reg = <0xc>;
+		};
+		out13@13 {
+			label = "ledsec5_r";
+			reg = <0xd>;
+		};
+		out14@14 {
+			label = "ledsec5_b";
+			reg = <0xe>;
+		};
+	};
+
+	tlc59116@61 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59116";
+		reg = <0x61>;
+		out0@0 {
+			label = "ledsec6_g";
+			reg = <0x0>;
+		};
+		out1@1 {
+			label = "ledsec6_r";
+			reg = <0x1>;
+		};
+		out2@2 {
+			label = "ledsec6_b";
+			reg = <0x2>;
+		};
+		out3@3 {
+			label = "ledsec7_g";
+			reg = <0x3>;
+		};
+		out4@4 {
+			label = "ledsec7_r";
+			reg = <0x4>;
+		};
+		out5@5 {
+			label = "ledsec7_b";
+			reg = <0x5>;
+		};
+		out6@6 {
+			label = "ledsec8_g";
+			reg = <0x6>;
+		};
+		out7@7 {
+			label = "ledsec8_r";
+			reg = <0x7>;
+		};
+		out8@8 {
+			label = "ledsec8_b";
+			reg = <0x8>;
+		};
+		out9@9 {
+			label = "ledsec9_g";
+			reg = <0x9>;
+		};
+		out10@10 {
+			label = "ledsec9_r";
+			reg = <0xa>;
+		};
+		out11@11 {
+			label = "ledsec9_b";
+			reg = <0xb>;
+		};
+	};
+};
+
+&soc {
+	pinctrl@1000000 {
+		i2c6{
+			tlc59116_reset: tlc59116_reset {
+				config {
+					pins = "gpio20";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+		};
+	};
+};

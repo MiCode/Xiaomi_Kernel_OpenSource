@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,15 +13,15 @@
 
 /dts-v1/;
 
-#include "msm8917.dtsi"
+#include "apq8017.dtsi"
 #include "msm8917-mtp.dtsi"
-#include "msm8917-pmi8950.dtsi"
+#include "msm8917-pmi8937.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8917-PMI8950 MTP";
-	compatible = "qcom,msm8917-mtp", "qcom,msm8917", "qcom,mtp";
+	model = "Qualcomm Technologies, Inc. APQ8017-PMI8937 MTP";
+	compatible = "qcom,apq8017-mtp", "qcom,apq8017", "qcom,mtp";
 	qcom,board-id= <8 0>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
 };
 
 &blsp1_uart1 {
