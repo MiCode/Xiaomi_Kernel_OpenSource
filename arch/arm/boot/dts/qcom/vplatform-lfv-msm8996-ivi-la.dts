@@ -190,7 +190,7 @@
 };
 
 &usb_detect {
-	qcom,force-vbus-status-off;
+	qcom,force-vbus-status-off; /*on - adb , off - MTMD*/
 };
 
 &android_usb {
@@ -198,6 +198,18 @@
 };
 
 &blsp1_uart2 {
+	status = "okay";
+};
+
+&qusb_phy0 {
+	status = "okay";
+};
+
+&ssphy {
+	status = "okay";
+};
+
+&dbm_1p5 {
 	status = "okay";
 };
 
