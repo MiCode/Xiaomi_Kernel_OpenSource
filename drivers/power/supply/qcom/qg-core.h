@@ -126,7 +126,6 @@ struct qpnp_qg {
 	struct cap_learning	*cl;
 	/* charge counter */
 	struct cycle_counter	*counter;
-	char			counter_buf[BUCKET_COUNT * 8];
 };
 
 enum ocv_type {

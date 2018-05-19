@@ -1195,32 +1195,6 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
-static const char *qg_get_cycle_counts(struct qpnp_qg *chip)
-{
-	int i, rc, len = 0;
-	char *buf;
-
-	buf = chip->counter_buf;
-	for (i = 1; i <= BUCKET_COUNT; i++) {
-		chip->counter->id = i;
-		rc = get_cycle_count(chip->counter);
-		if (rc < 0) {
-			pr_err("Couldn't get cycle count rc=%d\n", rc);
-			return NULL;
-		}
-
-		if (sizeof(chip->counter_buf) - len < 8) {
-			pr_err("Invalid length %d\n", len);
-			return NULL;
-		}
-
-		len += snprintf(buf+len, 8, "%d ", rc);
-	}
-
-	buf[len] = '\0';
-	return buf;
-}
-
 static int qg_psy_set_property(struct power_supply *psy,
 			       enum power_supply_property psp,
 			       const union power_supply_propval *pval)
@@ -1326,7 +1300,12 @@ static int qg_psy_get_property(struct power_supply *psy,
 			pval->intval = (int)temp;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
-		pval->strval = qg_get_cycle_counts(chip);
+		rc = get_cycle_counts(chip->counter, &pval->strval);
+		if (rc < 0)
+			pval->strval = NULL;
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		rc = get_cycle_count(chip->counter, &pval->intval);
 		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
@@ -1364,6 +1343,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_BATT_FULL_CURRENT,
 	POWER_SUPPLY_PROP_BATT_PROFILE_VERSION,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
