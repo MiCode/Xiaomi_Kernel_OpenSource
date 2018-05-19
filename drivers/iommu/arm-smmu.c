@@ -414,6 +414,16 @@ static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 
+static int msm_secure_smmu_map(struct iommu_domain *domain, unsigned long iova,
+			       phys_addr_t paddr, size_t size, int prot);
+static size_t msm_secure_smmu_unmap(struct iommu_domain *domain,
+				    unsigned long iova,
+				    size_t size);
+static size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
+				     unsigned long iova,
+				     struct scatterlist *sg,
+				     unsigned int nents, int prot);
+
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
@@ -1201,6 +1211,28 @@ static const struct iommu_gather_ops arm_smmu_s2_tlb_ops_v1 = {
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
 
+static void msm_smmu_tlb_inv_context(void *cookie)
+{
+}
+
+static void msm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
+					  size_t granule, bool leaf,
+					  void *cookie)
+{
+}
+
+static void msm_smmu_tlb_sync(void *cookie)
+{
+}
+
+static struct iommu_gather_ops msm_smmu_gather_ops = {
+	.tlb_flush_all	= msm_smmu_tlb_inv_context,
+	.tlb_add_flush	= msm_smmu_tlb_inv_range_nosync,
+	.tlb_sync	= msm_smmu_tlb_sync,
+	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
+	.free_pages_exact = arm_smmu_free_pages_exact,
+};
+
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
@@ -1392,6 +1424,19 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	writel(gfsr, gr0_base + ARM_SMMU_GR0_sGFSR);
 	arm_smmu_power_off(smmu->pwr);
 	return IRQ_HANDLED;
+}
+
+static bool arm_smmu_master_attached(struct arm_smmu_device *smmu,
+				     struct iommu_fwspec *fwspec)
+{
+	int i, idx;
+
+	for_each_cfg_sme(fwspec, i, idx) {
+		if (smmu->s2crs[idx].attach_count)
+			return true;
+	}
+
+	return false;
 }
 
 static int arm_smmu_set_pt_format(struct arm_smmu_domain *smmu_domain,
@@ -1747,6 +1792,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		(smmu->model == QCOM_SMMUV500))
 		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		tlb_ops = &msm_smmu_gather_ops;
+
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
 		goto out_unlock;
@@ -1767,6 +1815,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 				.sec_id = smmu->sec_id,
 				.cbndx = cfg->cbndx,
 			},
+			.tlb		= tlb_ops,
 			.iommu_dev      = smmu->dev,
 		};
 		fmt = ARM_MSM_SECURE;
@@ -1847,6 +1896,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Publish page table ops for map/unmap */
 	smmu_domain->pgtbl_ops = pgtbl_ops;
+	if (arm_smmu_is_slave_side_secure(smmu_domain) &&
+			!arm_smmu_master_attached(smmu, dev->iommu_fwspec))
+		arm_smmu_restore_sec_cfg(smmu, cfg->cbndx);
+
 	return 0;
 
 out_clear_smmu:
@@ -2196,8 +2249,6 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	const struct iommu_gather_ops *tlb;
 
 	tlb = smmu_domain->pgtbl_cfg.tlb;
-	if (!tlb)
-		return;
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
@@ -2452,6 +2503,9 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		return msm_secure_smmu_map(domain, iova, paddr, size, prot);
+
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -2491,6 +2545,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return 0;
 
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		return msm_secure_smmu_unmap(domain, iova, size);
+
 	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
 	if (ret)
 		return ret;
@@ -2527,6 +2584,9 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 
 	if (!ops)
 		return -ENODEV;
+
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		return msm_secure_smmu_map_sg(domain, iova, sg, nents, prot);
 
 	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
 	if (ret)
@@ -2702,6 +2762,58 @@ struct arm_smmu_device *arm_smmu_get_by_fwnode(struct fwnode_handle *fwnode)
 	put_device(dev);
 	return dev ? dev_get_drvdata(dev) : NULL;
 }
+
+#ifdef CONFIG_MSM_TZ_SMMU
+static int msm_secure_smmu_map(struct iommu_domain *domain, unsigned long iova,
+			       phys_addr_t paddr, size_t size, int prot)
+{
+	size_t ret;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	ret = ops->map(ops, iova, paddr, size, prot);
+
+	return ret;
+}
+
+static size_t msm_secure_smmu_unmap(struct iommu_domain *domain,
+				    unsigned long iova,
+				    size_t size)
+{
+	size_t ret;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
+	if (ret)
+		return ret;
+
+	ret = ops->unmap(ops, iova, size);
+
+	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+
+	return ret;
+}
+
+static size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
+				     unsigned long iova,
+				     struct scatterlist *sg,
+				     unsigned int nents, int prot)
+{
+	int ret;
+	size_t size;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	ret = ops->map_sg(ops, iova, sg, nents, prot, &size);
+
+	if (!ret)
+		msm_secure_smmu_unmap(domain, iova, size);
+
+	return ret;
+}
+
+#endif
 
 static int arm_smmu_add_device(struct device *dev)
 {
@@ -4374,8 +4486,12 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res)
-		smmu->phys_addr = res->start;
+	if (res == NULL) {
+		dev_err(dev, "no MEM resource info\n");
+		return -EINVAL;
+	}
+
+	smmu->phys_addr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);

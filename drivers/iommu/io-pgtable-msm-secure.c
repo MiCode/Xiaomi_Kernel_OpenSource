@@ -41,6 +41,8 @@
 
 struct msm_secure_io_pgtable {
 	struct io_pgtable iop;
+	/* lock required while operating on page tables */
+	struct mutex pgtbl_lock;
 };
 
 int msm_iommu_sec_pgtbl_init(void)
@@ -133,6 +135,7 @@ static int msm_secure_map(struct io_pgtable_ops *ops, unsigned long iova,
 	flush_va_end = (void *)
 		(((unsigned long) flush_va) + sizeof(phys_addr_t));
 
+	mutex_lock(&data->pgtbl_lock);
 	/*
 	 * Ensure that the buffer is in RAM by the time it gets to TZ
 	 */
@@ -142,10 +145,11 @@ static int msm_secure_map(struct io_pgtable_ops *ops, unsigned long iova,
 				SCM_VAL, SCM_VAL, SCM_VAL);
 
 	if (is_scm_armv8()) {
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_MP,
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				IOMMU_SECURE_MAP2_FLAT), &desc);
 		resp = desc.ret[0];
 	}
+	mutex_unlock(&data->pgtbl_lock);
 
 	if (ret || resp)
 		return -EINVAL;
@@ -258,11 +262,13 @@ static int msm_secure_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 
 	flush_va_end = (void *) (((unsigned long) flush_va) +
 			(cnt * sizeof(*pa_list)));
+
+	mutex_lock(&data->pgtbl_lock);
 	dmac_clean_range(flush_va, flush_va_end);
 
 	if (is_scm_armv8()) {
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_MP,
-					 IOMMU_SECURE_MAP2_FLAT), &desc);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				IOMMU_SECURE_MAP2_FLAT), &desc);
 		resp = desc.ret[0];
 
 		if (ret || resp)
@@ -270,6 +276,7 @@ static int msm_secure_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 		else
 			ret = len;
 	}
+	mutex_unlock(&data->pgtbl_lock);
 
 	kfree(pa_list);
 	return ret;
@@ -293,13 +300,15 @@ static size_t msm_secure_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	desc.args[4] = IOMMU_TLBINVAL_FLAG;
 	desc.arginfo = SCM_ARGS(5);
 
+	mutex_lock(&data->pgtbl_lock);
 	if (is_scm_armv8()) {
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_MP,
-			IOMMU_SECURE_UNMAP2_FLAT), &desc);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				IOMMU_SECURE_UNMAP2_FLAT), &desc);
 
 		if (!ret)
 			ret = len;
 	}
+	mutex_unlock(&data->pgtbl_lock);
 	return ret;
 }
 
@@ -324,6 +333,7 @@ msm_secure_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 		.unmap		= msm_secure_unmap,
 		.iova_to_phys	= msm_secure_iova_to_phys,
 	};
+	mutex_init(&data->pgtbl_lock);
 
 	return data;
 }
