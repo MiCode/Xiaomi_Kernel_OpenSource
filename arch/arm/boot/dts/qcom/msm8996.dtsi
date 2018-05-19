@@ -2018,7 +2018,6 @@
 			snps,nominal-elastic-buffer;
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
-			usb-core-id = <0>;
 		};
 
 		qcom,usbbam@6b04000 {
@@ -2127,7 +2126,6 @@
 			snps,nominal-elastic-buffer;
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
-			usb-core-id = <1>;
 		};
 	};
 

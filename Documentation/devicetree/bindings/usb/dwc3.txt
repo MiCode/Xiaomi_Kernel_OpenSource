@@ -61,7 +61,6 @@ Optional properties:
  - snps,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated event buffers.
 	1 event buffer is needed per h/w accelerated endpoint.
  - xhci-imod-value: Interrupt moderation interval for host mode (in increments of 250nsec).
- - usb-core-id: Differentiates between different controllers present on a device.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
