@@ -261,8 +261,13 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 	int rc = 0, i, j = 0, temp;
 	u8 v_fifo[MAX_FIFO_LENGTH * 2], i_fifo[MAX_FIFO_LENGTH * 2];
 	u32 sample_interval = 0, sample_count = 0, fifo_v = 0, fifo_i = 0;
+	unsigned long rtc_sec = 0;
 
-	chip->kdata.fifo_time = (u32)ktime_get_seconds();
+	rc = get_rtc_time(&rtc_sec);
+	if (rc < 0)
+		pr_err("Failed to get RTC time, rc=%d\n", rc);
+
+	chip->kdata.fifo_time = (u32)rtc_sec;
 
 	if (!fifo_length) {
 		pr_debug("No FIFO data\n");
@@ -1097,17 +1102,36 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 static int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 {
 	int rc = 0, last_ibat = 0;
+	u32 fifo_length = 0;
 
 	if (chip->battery_missing) {
 		*ibat_ua = 0;
 		return 0;
 	}
 
-	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
-				(u8 *)&last_ibat, 2);
-	if (rc < 0) {
-		pr_err("Failed to read LAST_ADV_I reg, rc=%d\n", rc);
-		return rc;
+	if (chip->parallel_enabled) {
+		/* read the last real-time FIFO */
+		rc = get_fifo_length(chip, &fifo_length, true);
+		if (rc < 0) {
+			pr_err("Failed to read RT FIFO length, rc=%d\n", rc);
+			return rc;
+		}
+		fifo_length = (fifo_length == 0) ? 0 : fifo_length - 1;
+		fifo_length *= 2;
+		rc = qg_read(chip, chip->qg_base + QG_I_FIFO0_DATA0_REG +
+					fifo_length, (u8 *)&last_ibat, 2);
+		if (rc < 0) {
+			pr_err("Failed to read FIFO_I_%d reg, rc=%d\n",
+					fifo_length / 2, rc);
+			return rc;
+		}
+	} else {
+		rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
+					(u8 *)&last_ibat, 2);
+		if (rc < 0) {
+			pr_err("Failed to read LAST_ADV_I reg, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	last_ibat = sign_extend32(last_ibat, 15);
@@ -2742,7 +2766,9 @@ static int process_resume(struct qpnp_qg *chip)
 		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		 /* Clear suspend data as there has been a GOOD OCV */
+		memset(&chip->kdata, 0, sizeof(chip->kdata));
 		chip->suspend_data = false;
+
 		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV\n",
 				ocv_uv);
 	}
