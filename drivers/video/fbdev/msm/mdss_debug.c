@@ -1377,6 +1377,38 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 			}
 		} else {
 			if (block_id <= DISPLAY_MISR_HDMI) {
+				/*
+				 * In Dual LM single display configuration,
+				 * the interface number (i.e. block_id)
+				 * might not be the one given from ISR.
+				 * We should always check with the actual
+				 * intf_num from ctl.
+				 */
+				struct msm_fb_data_type *mfd = NULL;
+
+				/*
+				 * ISR pass in NULL ctl, so we need to get it
+				 * from the mdata.
+				 */
+				if (!ctl && mdata->mixer_intf)
+					ctl = mdata->mixer_intf->ctl;
+				if (ctl)
+					mfd = ctl->mfd;
+				if (mfd && is_dual_lm_single_display(mfd)) {
+					switch (ctl->intf_num) {
+					case MDSS_MDP_INTF1:
+						block_id = DISPLAY_MISR_DSI0;
+						break;
+					case MDSS_MDP_INTF2:
+						block_id = DISPLAY_MISR_DSI1;
+						break;
+					default:
+						pr_err("Unmatch INTF for Dual LM single display configuration, INTF:%d\n",
+								ctl->intf_num);
+						return NULL;
+					}
+				}
+
 				intf_base = (char *)mdss_mdp_get_intf_base_addr(
 						mdata, block_id);
 
@@ -1390,11 +1422,15 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 
 					/*
 					 * extra offset required for
-					 * cmd misr in 8996
+					 * cmd misr in 8996 and mdss3.x
 					 */
 					if (IS_MDSS_MAJOR_MINOR_SAME(
 						  mdata->mdp_rev,
-						  MDSS_MDP_HW_REV_107)) {
+						  MDSS_MDP_HW_REV_107) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_300) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_301)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}
