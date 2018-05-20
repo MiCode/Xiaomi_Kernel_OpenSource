@@ -261,6 +261,7 @@ enum {
  * @SDE_WB_QOS,             Writeback supports QoS control, danger/safe/creq
  * @SDE_WB_QOS_8LVL,        Writeback supports 8-level QoS control
  * @SDE_WB_CDP              Writeback supports client driven prefetch
+ * @SDE_WB_HAS_CWB          Writeback block supports concurrent writeback
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -279,6 +280,7 @@ enum {
 	SDE_WB_QOS,
 	SDE_WB_QOS_8LVL,
 	SDE_WB_CDP,
+	SDE_WB_HAS_CWB,
 	SDE_WB_MAX
 };
 
@@ -922,6 +924,7 @@ struct sde_perf_cfg {
  * @has_src_split      source split feature status
  * @has_cdp            Client driven prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
+ * @has_cwb_support    indicates if device supports primary capture through CWB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
@@ -959,6 +962,7 @@ struct sde_mdss_cfg {
 	bool has_cdp;
 	bool has_dim_layer;
 	bool has_wb_ubwc;
+	bool has_cwb_support;
 	u32 ubwc_version;
 	bool has_sbuf;
 	u32 sbuf_headroom;

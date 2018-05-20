@@ -32,6 +32,7 @@
 
 #define TO_S15D16(_x_)	((_x_) << 7)
 
+#define MULTIPLE_CONN_DETECTED(x) (x > 1)
 /**
  * sde_rgb2yuv_601l - rgb to yuv color space conversion matrix
  *
@@ -398,6 +399,31 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	}
 }
 
+static void _sde_encoder_phys_wb_setup_cwb(struct sde_encoder_phys *phys_enc,
+					bool enable)
+{
+	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
+	struct sde_hw_ctl *hw_ctl = phys_enc->hw_ctl;
+	struct sde_crtc *crtc = to_sde_crtc(wb_enc->crtc);
+
+	if (!phys_enc->in_clone_mode) {
+		SDE_DEBUG("not in CWB mode. early return\n");
+		return;
+	}
+
+	memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
+	intf_cfg->intf = SDE_NONE;
+	intf_cfg->wb = hw_wb->idx;
+
+	hw_ctl = crtc->mixers[0].hw_ctl;
+	if (hw_ctl && hw_ctl->ops.update_wb_cfg) {
+		hw_ctl->ops.update_wb_cfg(hw_ctl, intf_cfg, enable);
+		SDE_DEBUG("in CWB mode adding WB for CTL_%d\n",
+				hw_ctl->idx - CTL_0);
+	}
+}
 /**
  * sde_encoder_phys_wb_setup_cdp - setup chroma down prefetch block
  * @phys_enc:	Pointer to physical encoder
@@ -408,8 +434,12 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
 	struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
 
-	memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
+	if (phys_enc->in_clone_mode) {
+		SDE_DEBUG("in CWB mode. early return\n");
+		return;
+	}
 
+	memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
 	intf_cfg->intf = SDE_NONE;
 	intf_cfg->wb = hw_wb->idx;
 	intf_cfg->mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
@@ -417,6 +447,98 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc)
 	if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg)
 		phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl,
 				intf_cfg);
+
+}
+
+static void _sde_enc_phys_wb_detect_cwb(struct sde_encoder_phys *phys_enc,
+		struct drm_crtc_state *crtc_state)
+{
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	const struct sde_wb_cfg *wb_cfg = wb_enc->hw_wb->caps;
+	int conn_count = 0;
+
+	phys_enc->in_clone_mode = false;
+
+	/* Check if WB has CWB support */
+	if (!(wb_cfg->features & SDE_WB_HAS_CWB))
+		return;
+
+	/* Count the number of connectors on the given crtc */
+	drm_for_each_connector(conn, crtc_state->crtc->dev) {
+		conn_state =
+			drm_atomic_get_connector_state(crtc_state->state, conn);
+		if ((conn->state && conn->state->crtc == crtc_state->crtc) ||
+				(conn_state &&
+				 conn_state->crtc == crtc_state->crtc))
+			conn_count++;
+	}
+
+
+	/* Enable clone mode If crtc has multiple connectors & one is WB */
+	if (MULTIPLE_CONN_DETECTED(conn_count))
+		phys_enc->in_clone_mode = true;
+
+	SDE_DEBUG("detect CWB - status:%d\n", phys_enc->in_clone_mode);
+}
+
+static int _sde_enc_phys_wb_validate_cwb(struct sde_encoder_phys *phys_enc,
+			struct drm_crtc_state *crtc_state,
+			 struct drm_connector_state *conn_state)
+{
+	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
+	struct sde_rect wb_roi = {0,};
+	int data_pt;
+	int ds_outw = 0;
+	int ds_outh = 0;
+	int ds_in_use = false;
+	int i = 0;
+	int ret = 0;
+
+	if (!phys_enc->in_clone_mode) {
+		SDE_DEBUG("not in CWB mode. early return\n");
+		goto exit;
+	}
+
+	ret = sde_wb_connector_state_get_output_roi(conn_state, &wb_roi);
+	if (ret) {
+		SDE_ERROR("failed to get roi %d\n", ret);
+		goto exit;
+	}
+
+	data_pt = sde_crtc_get_property(cstate, CRTC_PROP_CAPTURE_OUTPUT);
+
+	/* compute cumulative ds output dimensions if in use */
+	for (i = 0; i < cstate->num_ds; i++)
+		if (cstate->ds_cfg[i].scl3_cfg.enable) {
+			ds_in_use = true;
+			ds_outw += cstate->ds_cfg[i].scl3_cfg.dst_width;
+			ds_outh += cstate->ds_cfg[i].scl3_cfg.dst_height;
+		}
+
+	/* if ds in use check wb roi against ds output dimensions */
+	if ((data_pt == CAPTURE_DSPP_OUT) &&  ds_in_use &&
+			((wb_roi.w != ds_outw) || (wb_roi.h != ds_outh))) {
+		SDE_ERROR("invalid wb roi with dest scalar [%dx%d vs %dx%d]\n",
+				wb_roi.w, wb_roi.h, ds_outw, ds_outh);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	/* validate conn roi against pu rect */
+	if (!sde_kms_rect_is_null(&cstate->crtc_roi)) {
+		if (wb_roi.w != cstate->crtc_roi.w ||
+				wb_roi.h != cstate->crtc_roi.h) {
+			SDE_ERROR("invalid wb roi with pu [%dx%d vs %dx%d]\n",
+					wb_roi.w, wb_roi.h, cstate->crtc_roi.w,
+					 cstate->crtc_roi.h);
+			ret = -EINVAL;
+			goto exit;
+		}
+	}
+exit:
+	return ret;
 }
 
 /**
@@ -452,6 +574,8 @@ static int sde_encoder_phys_wb_atomic_check(
 				conn_state->connector->status);
 		return -EINVAL;
 	}
+
+	_sde_enc_phys_wb_detect_cwb(phys_enc, crtc_state);
 
 	memset(&wb_roi, 0, sizeof(struct sde_rect));
 
@@ -542,7 +666,62 @@ static int sde_encoder_phys_wb_atomic_check(
 		}
 	}
 
-	return 0;
+	rc = _sde_enc_phys_wb_validate_cwb(phys_enc, crtc_state, conn_state);
+	if (rc) {
+		SDE_ERROR("failed in cwb validation %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static void _sde_encoder_phys_wb_update_cwb_flush(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_wb *wb_enc;
+	struct sde_hw_wb *hw_wb;
+	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_cdm *hw_cdm;
+	struct sde_crtc *crtc;
+	struct sde_crtc_state *crtc_state;
+	u32 flush_mask = 0;
+	int capture_point = 0;
+
+	if (!phys_enc->in_clone_mode) {
+		SDE_DEBUG("not in CWB mode. early return\n");
+		return;
+	}
+
+	wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	crtc = to_sde_crtc(wb_enc->crtc);
+	crtc_state = to_sde_crtc_state(wb_enc->crtc->state);
+
+	hw_wb = wb_enc->hw_wb;
+	hw_cdm = phys_enc->hw_cdm;
+
+	/* In CWB mode, program actual source master sde_hw_ctl from crtc */
+	hw_ctl = crtc->mixers[0].hw_ctl;
+	if (!hw_ctl) {
+		SDE_DEBUG("[wb:%d] no ctl assigned for CWB\n",
+				hw_wb->idx - WB_0);
+		return;
+	}
+
+	capture_point  = sde_crtc_get_property(crtc_state,
+			CRTC_PROP_CAPTURE_OUTPUT);
+
+	phys_enc->hw_mdptop->ops.set_cwb_ppb_cntl(phys_enc->hw_mdptop,
+			crtc->num_mixers == CRTC_DUAL_MIXERS,
+			capture_point == CAPTURE_DSPP_OUT);
+
+	if (hw_ctl->ops.get_bitmask_wb)
+		hw_ctl->ops.get_bitmask_wb(hw_ctl, &flush_mask, hw_wb->idx);
+
+	if (hw_ctl->ops.get_bitmask_cdm && hw_cdm)
+		hw_ctl->ops.get_bitmask_cdm(hw_ctl, &flush_mask, hw_cdm->idx);
+
+	if (hw_ctl->ops.update_pending_flush)
+		hw_ctl->ops.update_pending_flush(hw_ctl, flush_mask);
 }
 
 /**
@@ -551,7 +730,7 @@ static int sde_encoder_phys_wb_atomic_check(
  */
 static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	struct sde_encoder_phys_wb *wb_enc;
 	struct sde_hw_wb *hw_wb;
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_hw_cdm *hw_cdm;
@@ -560,11 +739,17 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 	if (!phys_enc)
 		return;
 
+	wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	hw_wb = wb_enc->hw_wb;
-	hw_ctl = phys_enc->hw_ctl;
 	hw_cdm = phys_enc->hw_cdm;
+	hw_ctl = phys_enc->hw_ctl;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
+
+	if (phys_enc->in_clone_mode) {
+		SDE_DEBUG("in CWB mode. early return\n");
+		return;
+	}
 
 	if (!hw_ctl) {
 		SDE_DEBUG("[wb:%d] no ctl assigned\n", hw_wb->idx - WB_0);
@@ -659,54 +844,28 @@ static void sde_encoder_phys_wb_setup(
 	sde_encoder_phys_wb_setup_fb(phys_enc, fb, wb_roi);
 
 	sde_encoder_phys_wb_setup_cdp(phys_enc);
+
+	_sde_encoder_phys_wb_setup_cwb(phys_enc, true);
 }
 
-/**
- * sde_encoder_phys_wb_unregister_irq - unregister writeback interrupt handler
- * @phys_enc:	Pointer to physical encoder
- */
-static int sde_encoder_phys_wb_unregister_irq(
-		struct sde_encoder_phys *phys_enc)
-{
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-
-	if (wb_enc->bypass_irqreg)
-		return 0;
-
-	sde_core_irq_disable(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
-	sde_core_irq_unregister_callback(phys_enc->sde_kms, wb_enc->irq_idx,
-			&wb_enc->irq_cb);
-
-	SDE_DEBUG("un-register IRQ for wb %d, irq_idx=%d\n",
-			hw_wb->idx - WB_0,
-			wb_enc->irq_idx);
-
-	return 0;
-}
-
-/**
- * sde_encoder_phys_wb_done_irq - writeback interrupt handler
- * @arg:	Pointer to writeback encoder
- * @irq_idx:	interrupt index
- */
-static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
+static void _sde_encoder_phys_wb_frame_done_helper(void *arg, bool frame_error)
 {
 	struct sde_encoder_phys_wb *wb_enc = arg;
 	struct sde_encoder_phys *phys_enc = &wb_enc->base;
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	u32 event = 0;
+	u32 event = frame_error ? SDE_ENCODER_FRAME_EVENT_ERROR : 0;
 
-	SDE_DEBUG("[wb:%d,%u]\n", hw_wb->idx - WB_0,
-			wb_enc->frame_count);
+	event |= SDE_ENCODER_FRAME_EVENT_DONE |
+		SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+	SDE_DEBUG("[wb:%d,%u]\n", hw_wb->idx - WB_0, wb_enc->frame_count);
 
 	/* don't notify upper layer for internal commit */
 	if (phys_enc->enable_state == SDE_ENC_DISABLING)
 		goto complete;
 
-	event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
-			| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
-			| SDE_ENCODER_FRAME_EVENT_DONE;
+	if (!phys_enc->in_clone_mode)
+		event |= SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 
 	atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0);
 	if (phys_enc->parent_ops.handle_frame_done)
@@ -724,58 +883,60 @@ complete:
 }
 
 /**
- * sde_encoder_phys_wb_register_irq - register writeback interrupt handler
- * @phys_enc:	Pointer to physical encoder
+ * sde_encoder_phys_wb_done_irq - Pingpong overflow interrupt handler for CWB
+ * @arg:	Pointer to writeback encoder
+ * @irq_idx:	interrupt index
  */
-static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
+static void sde_encoder_phys_cwb_ovflow(void *arg, int irq_idx)
 {
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	struct sde_irq_callback *irq_cb = &wb_enc->irq_cb;
-	enum sde_intr_type intr_type;
-	int ret = 0;
+	_sde_encoder_phys_wb_frame_done_helper(arg, true);
+}
+
+/**
+ * sde_encoder_phys_wb_done_irq - writeback interrupt handler
+ * @arg:	Pointer to writeback encoder
+ * @irq_idx:	interrupt index
+ */
+static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
+{
+	_sde_encoder_phys_wb_frame_done_helper(arg, false);
+}
+
+/**
+ * sde_encoder_phys_wb_irq_ctrl - irq control of WB
+ * @phys:	Pointer to physical encoder
+ * @enable:	indicates enable or disable interrupts
+ */
+static void sde_encoder_phys_wb_irq_ctrl(
+		struct sde_encoder_phys *phys, bool enable)
+{
+
+	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys);
+	int index = 0;
+
+	if (!wb_enc)
+		return;
 
 	if (wb_enc->bypass_irqreg)
-		return 0;
+		return;
 
-	intr_type = sde_encoder_phys_wb_get_intr_type(hw_wb);
-	wb_enc->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-			intr_type, hw_wb->idx);
-	if (wb_enc->irq_idx < 0) {
-		SDE_ERROR(
-			"failed to lookup IRQ index for WB_DONE with wb=%d\n",
-			hw_wb->idx - WB_0);
-		return -EINVAL;
+	if (enable) {
+		sde_encoder_helper_register_irq(phys, INTR_IDX_WB_DONE);
+		if (phys->in_clone_mode) {
+			for (index = 0; index < CRTC_DUAL_MIXERS; index++)
+				sde_encoder_helper_register_irq(phys,
+						index ? INTR_IDX_PP3_OVFL
+						: INTR_IDX_PP2_OVFL);
+		}
+	} else {
+		sde_encoder_helper_unregister_irq(phys, INTR_IDX_WB_DONE);
+		if (phys->in_clone_mode) {
+			for (index = 0; index < CRTC_DUAL_MIXERS; index++)
+				sde_encoder_helper_unregister_irq(phys,
+						index ? INTR_IDX_PP3_OVFL
+						: INTR_IDX_PP2_OVFL);
+		}
 	}
-
-	irq_cb->func = sde_encoder_phys_wb_done_irq;
-	irq_cb->arg = wb_enc;
-	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-			wb_enc->irq_idx, irq_cb);
-	if (ret) {
-		SDE_ERROR("failed to register IRQ callback WB_DONE\n");
-		return ret;
-	}
-
-	ret = sde_core_irq_enable(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
-	if (ret) {
-		SDE_ERROR(
-			"failed to enable IRQ for WB_DONE, wb %d, irq_idx=%d\n",
-				hw_wb->idx - WB_0,
-				wb_enc->irq_idx);
-		wb_enc->irq_idx = -EINVAL;
-
-		/* Unregister callback on IRQ enable failure */
-		sde_core_irq_unregister_callback(phys_enc->sde_kms,
-				wb_enc->irq_idx, irq_cb);
-		return ret;
-	}
-
-	SDE_DEBUG("registered IRQ for wb %d, irq_idx=%d\n",
-			hw_wb->idx - WB_0,
-			wb_enc->irq_idx);
-
-	return ret;
 }
 
 /**
@@ -846,6 +1007,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	u32 irq_status, event = 0;
 	u64 wb_time = 0;
 	int rc = 0;
+	int irq_idx = phys_enc->irq[INTR_IDX_WB_DONE].irq_idx;
 	u32 timeout = max_t(u32, wb_enc->wbdone_timeout, KICKOFF_TIMEOUT_MS);
 
 	/* Return EWOULDBLOCK since we know the wait isn't necessary */
@@ -860,7 +1022,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	/* signal completion if commit with no framebuffer */
 	if (!wb_enc->wb_fb) {
 		SDE_DEBUG("no output framebuffer\n");
-		sde_encoder_phys_wb_done_irq(wb_enc, wb_enc->irq_idx);
+		_sde_encoder_phys_wb_frame_done_helper(wb_enc, false);
 	}
 
 	ret = wait_for_completion_timeout(&wb_enc->wbdone_complete,
@@ -870,11 +1032,11 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 		SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc),
 				wb_enc->frame_count);
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
-				wb_enc->irq_idx, true);
+				irq_idx, true);
 		if (irq_status) {
 			SDE_DEBUG("wb:%d done but irq not triggered\n",
 					WBID(wb_enc));
-			sde_encoder_phys_wb_done_irq(wb_enc, wb_enc->irq_idx);
+			_sde_encoder_phys_wb_frame_done_helper(wb_enc, false);
 		} else {
 			SDE_ERROR("wb:%d kickoff timed out\n",
 					WBID(wb_enc));
@@ -890,8 +1052,6 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 			rc = -ETIMEDOUT;
 		}
 	}
-
-	sde_encoder_phys_wb_unregister_irq(phys_enc);
 
 	if (!rc)
 		wb_enc->end_time = ktime_get();
@@ -937,18 +1097,11 @@ static int sde_encoder_phys_wb_prepare_for_kickoff(
 		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	int ret;
 
 	SDE_DEBUG("[wb:%d,%u]\n", wb_enc->hw_wb->idx - WB_0,
 			wb_enc->kickoff_count);
 
 	reinit_completion(&wb_enc->wbdone_complete);
-
-	ret = sde_encoder_phys_wb_register_irq(phys_enc);
-	if (ret) {
-		SDE_ERROR("failed to register irq %d\n", ret);
-		return ret;
-	}
 
 	wb_enc->kickoff_count++;
 
@@ -956,6 +1109,8 @@ static int sde_encoder_phys_wb_prepare_for_kickoff(
 	sde_encoder_phys_wb_setup(phys_enc);
 
 	_sde_encoder_phys_wb_update_flush(phys_enc);
+
+	_sde_encoder_phys_wb_update_cwb_flush(phys_enc);
 
 	/* vote for iommu/clk/bus */
 	wb_enc->start_time = ktime_get();
@@ -974,6 +1129,15 @@ static void sde_encoder_phys_wb_trigger_flush(struct sde_encoder_phys *phys_enc)
 
 	if (!phys_enc || !wb_enc->hw_wb) {
 		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	/*
+	 * Bail out iff in CWB mode. In case of CWB, primary control-path
+	 * which is actually driving would trigger the flush
+	 */
+	if (phys_enc->in_clone_mode) {
+		SDE_DEBUG("in CWB mode. early return\n");
 		return;
 	}
 
@@ -1183,6 +1347,13 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		goto exit;
 	}
 
+	/* avoid reset frame for CWB */
+	if (phys_enc->in_clone_mode) {
+		_sde_encoder_phys_wb_setup_cwb(phys_enc, false);
+		phys_enc->in_clone_mode = false;
+		goto exit;
+	}
+
 	/* reset h/w before final flush */
 	if (phys_enc->hw_ctl->ops.clear_pending_flush)
 		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
@@ -1320,6 +1491,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->trigger_flush = sde_encoder_phys_wb_trigger_flush;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
+	ops->irq_control = sde_encoder_phys_wb_irq_ctrl;
 }
 
 /**
@@ -1332,6 +1504,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	struct sde_encoder_phys *phys_enc;
 	struct sde_encoder_phys_wb *wb_enc;
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_encoder_irq *irq;
 	int ret = 0;
 
 	SDE_DEBUG("\n");
@@ -1348,7 +1521,6 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 		ret = -ENOMEM;
 		goto fail_alloc;
 	}
-	wb_enc->irq_idx = -EINVAL;
 	wb_enc->wbdone_timeout = KICKOFF_TIMEOUT_MS;
 	init_completion(&wb_enc->wbdone_complete);
 
@@ -1412,7 +1584,36 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	phys_enc->vblank_ctl_lock = p->vblank_ctl_lock;
 	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
-	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
+
+	irq = &phys_enc->irq[INTR_IDX_WB_DONE];
+	INIT_LIST_HEAD(&irq->cb.list);
+	irq->name = "wb_done";
+	irq->hw_idx =  wb_enc->hw_wb->idx;
+	irq->irq_idx = -1;
+	irq->intr_type = sde_encoder_phys_wb_get_intr_type(wb_enc->hw_wb);
+	irq->intr_idx = INTR_IDX_WB_DONE;
+	irq->cb.arg = wb_enc;
+	irq->cb.func = sde_encoder_phys_wb_done_irq;
+
+	irq = &phys_enc->irq[INTR_IDX_PP2_OVFL];
+	INIT_LIST_HEAD(&irq->cb.list);
+	irq->name = "pp2_overflow";
+	irq->hw_idx = CWB_2;
+	irq->irq_idx = -1;
+	irq->intr_type = SDE_IRQ_TYPE_CWB_OVERFLOW;
+	irq->intr_idx = INTR_IDX_PP2_OVFL;
+	irq->cb.arg = wb_enc;
+	irq->cb.func = sde_encoder_phys_cwb_ovflow;
+
+	irq = &phys_enc->irq[INTR_IDX_PP3_OVFL];
+	INIT_LIST_HEAD(&irq->cb.list);
+	irq->name = "pp3_overflow";
+	irq->hw_idx = CWB_3;
+	irq->irq_idx = -1;
+	irq->intr_type = SDE_IRQ_TYPE_CWB_OVERFLOW;
+	irq->intr_idx = INTR_IDX_PP3_OVFL;
+	irq->cb.arg = wb_enc;
+	irq->cb.func = sde_encoder_phys_cwb_ovflow;
 
 	/* create internal buffer for disable logic */
 	if (_sde_encoder_phys_wb_init_internal_fb(wb_enc,
