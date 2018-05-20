@@ -19,4 +19,11 @@
 */
 int bg_soft_reset(void);
 
+/**
+ * is_twm_exit()
+ * Return true if device is booting up on TWM exit.
+ * value is auto cleared once read.
+*/
+bool is_twm_exit(void);
+
 #endif /* BGCOM_INTERFACE_H */

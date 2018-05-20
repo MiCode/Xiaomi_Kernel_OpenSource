@@ -8,6 +8,7 @@
 #define BGCOM_REG_WRITE  5
 #define BGCOM_SOFT_RESET  6
 #define BGCOM_MODEM_DOWN2_BG  7
+#define BGCOM_TWM_EXIT  8
 #define EXCHANGE_CODE  'V'
 
 struct bg_ui_data {
@@ -45,6 +46,9 @@ enum bg_event_type {
 	struct bg_ui_data)
 #define BG_SOFT_RESET \
 	_IOWR(EXCHANGE_CODE, BGCOM_SOFT_RESET, \
+	struct bg_ui_data)
+#define BG_TWM_EXIT \
+	_IOWR(EXCHANGE_CODE, BGCOM_TWM_EXIT, \
 	struct bg_ui_data)
 #define BG_MODEM_DOWN2_BG_DONE \
 	_IOWR(EXCHANGE_CODE, BGCOM_MODEM_DOWN2_BG, \
