@@ -27,6 +27,7 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
 #include <linux/mdss_io_util.h>
+#include <linux/dma-buf.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -45,6 +46,97 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+
+void mdss_dump_dsi_debug_bus(u32 bus_dump_flag,
+	u32 **dump_mem)
+{
+	struct mdss_dsi_data *sdata = mdss_dsi_res;
+	struct mdss_dsi_ctrl_pdata *m_ctrl, *s_ctrl;
+	bool in_log, in_mem;
+	u32 *dump_addr = NULL;
+	u32 status0 = 0, status1 = 0;
+	phys_addr_t phys = 0;
+	int list_size = 0;
+	int i;
+	bool dsi0_active = false, dsi1_active = false;
+
+	if (!sdata || !sdata->dbg_bus || !sdata->dbg_bus_size)
+		return;
+
+	m_ctrl = sdata->ctrl_pdata[0];
+	s_ctrl = sdata->ctrl_pdata[1];
+
+	if (!m_ctrl)
+		return;
+
+	if (m_ctrl && m_ctrl->shared_data->dsi0_active)
+		dsi0_active = true;
+	if (s_ctrl && s_ctrl->shared_data->dsi1_active)
+		dsi1_active = true;
+
+	list_size = (sdata->dbg_bus_size * sizeof(sdata->dbg_bus[0]) * 4);
+
+	in_log = (bus_dump_flag & MDSS_DBG_DUMP_IN_LOG);
+	in_mem = (bus_dump_flag & MDSS_DBG_DUMP_IN_MEM);
+
+	if (in_mem) {
+		if (!(*dump_mem))
+			*dump_mem = dma_alloc_coherent(&sdata->pdev->dev,
+				list_size, &phys, GFP_KERNEL);
+
+		if (*dump_mem) {
+			dump_addr = *dump_mem;
+			pr_info("%s: start_addr:0x%pK end_addr:0x%pK\n",
+				__func__, dump_addr, dump_addr + list_size);
+		} else {
+			in_mem = false;
+			pr_err("dump_mem: allocation fails\n");
+		}
+	}
+
+	pr_info("========= Start DSI Debug Bus =========\n");
+
+	mdss_dsi_clk_ctrl(m_ctrl, m_ctrl->dsi_clk_handle,
+			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
+
+	for (i = 0; i < sdata->dbg_bus_size; i++) {
+		if (dsi0_active) {
+			writel_relaxed(sdata->dbg_bus[i],
+					m_ctrl->ctrl_base + 0x124);
+			wmb(); /* ensure regsiter is committed */
+		}
+		if (dsi1_active) {
+			writel_relaxed(sdata->dbg_bus[i],
+					s_ctrl->ctrl_base + 0x124);
+			wmb(); /* ensure register is committed */
+		}
+
+		if (dsi0_active) {
+			status0 = readl_relaxed(m_ctrl->ctrl_base + 0x128);
+			if (in_log)
+				pr_err("CTRL:0 bus_ctrl: 0x%x status: 0x%x\n",
+					sdata->dbg_bus[i], status0);
+		}
+		if (dsi1_active) {
+			status1 = readl_relaxed(s_ctrl->ctrl_base + 0x128);
+			if (in_log)
+				pr_err("CTRL:1 bus_ctrl: 0x%x status: 0x%x\n",
+					sdata->dbg_bus[i], status1);
+		}
+
+		if (dump_addr && in_mem) {
+			dump_addr[i*4]     = sdata->dbg_bus[i];
+			dump_addr[i*4 + 1] = status0;
+			dump_addr[i*4 + 2] = status1;
+			dump_addr[i*4 + 3] = 0x0;
+		}
+	}
+
+	mdss_dsi_clk_ctrl(m_ctrl, m_ctrl->dsi_clk_handle,
+			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
+
+	pr_info("========End DSI Debug Bus=========\n");
+}
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -3340,6 +3432,8 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		ctrl_pdata->shared_data->dsi0_active = true;
 	else
 		ctrl_pdata->shared_data->dsi1_active = true;
+
+	mdss_dsi_debug_bus_init(mdss_dsi_res);
 
 	return 0;
 
