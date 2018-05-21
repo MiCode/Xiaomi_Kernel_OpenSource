@@ -400,6 +400,7 @@ static int hfi_send_core_fw_start(struct gmu_device *gmu)
 static const char * const hfi_features[] = {
 	[HFI_FEATURE_ECP] = "ECP",
 	[HFI_FEATURE_ACD] = "ACD",
+	[HFI_FEATURE_LM] = "LM",
 };
 
 static const char *feature_to_string(uint32_t feature)
@@ -647,6 +648,9 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
+/* Levels greater than or equal to LM_DCVS_LEVEL are subject to throttling */
+#define LM_DCVS_LEVEL 4
+
 int hfi_start(struct kgsl_device *device,
 		struct gmu_device *gmu, uint32_t boot_state)
 {
@@ -707,6 +711,16 @@ int hfi_start(struct kgsl_device *device,
 
 		if (result)
 			return result;
+
+		if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+			/* We want all bits starting at LM_DCVS_LEVEL to be 1 */
+			int lm_data = -1 << (LM_DCVS_LEVEL - 1);
+
+			result = hfi_send_feature_ctrl(gmu,
+					HFI_FEATURE_LM, 1, lm_data);
+			if (result)
+				return result;
+		}
 
 		result = hfi_send_core_fw_start(gmu);
 		if (result)

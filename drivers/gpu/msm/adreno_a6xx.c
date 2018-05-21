@@ -1414,6 +1414,37 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i;
+	int64_t adj = 0;
+	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	for (i = 0; i < ARRAY_SIZE(counts); i++) {
+		if (!adreno_dev->gpmu_throttle_counters[i])
+			counts[i] = 0;
+		else
+			counts[i] = counter_delta(KGSL_DEVICE(adreno_dev),
+					adreno_dev->gpmu_throttle_counters[i],
+					&busy->throttle_cycles[i]);
+	}
+
+	/*
+	 * The adjustment is the number of cycles lost to throttling, which
+	 * is calculated as a weighted average of the cycles throttled
+	 * at 10%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * the busy count includes the throttled cycles. Therefore, we want
+	 * to remove them to prevent appearing to be busier than
+	 * we actually are.
+	 */
+	adj = -((counts[0] * 1) + (counts[1] * 5) + (counts[2] * 9)) / 10;
+
+	trace_kgsl_clock_throttling(0, counts[1], counts[2],
+			counts[0], adj);
+	return adj;
+}
+
 static void a6xx_count_throttles(struct adreno_device *adreno_dev,
 	uint64_t adj)
 {
@@ -2952,6 +2983,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.regulator_disable = a6xx_sptprac_disable,
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
 	.count_throttles = a6xx_count_throttles,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,

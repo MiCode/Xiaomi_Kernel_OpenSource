@@ -969,7 +969,7 @@ struct adreno_gpudev {
 	void (*pwrlevel_change_settings)(struct adreno_device *,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post);
-	uint64_t (*read_throttling_counters)(struct adreno_device *);
+	int64_t (*read_throttling_counters)(struct adreno_device *);
 	void (*count_throttles)(struct adreno_device *, uint64_t adj);
 	int (*enable_pwr_counters)(struct adreno_device *,
 				unsigned int counter);

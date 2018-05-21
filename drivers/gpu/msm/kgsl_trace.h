@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1198,7 +1198,7 @@ TRACE_EVENT(kgsl_clock_throttling,
 		int crc_50pct,
 		int crc_more50pct,
 		int crc_less50pct,
-		int adj
+		int64_t adj
 	),
 	TP_ARGS(
 		idle_10pct,
@@ -1212,7 +1212,7 @@ TRACE_EVENT(kgsl_clock_throttling,
 		__field(int, crc_50pct)
 		__field(int, crc_more50pct)
 		__field(int, crc_less50pct)
-		__field(int, adj)
+		__field(int64_t, adj)
 	),
 	TP_fast_assign(
 		__entry->idle_10pct = idle_10pct;
