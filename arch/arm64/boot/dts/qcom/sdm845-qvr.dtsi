@@ -18,7 +18,10 @@
 
 #include "sdm845-pmic-overlay.dtsi"
 #include "sdm845-pinctrl-overlay.dtsi"
+
+&qupv3_se10_i2c {
 #include "smb1355.dtsi"
+};
 
 &vendor {
 	bluetooth: bt_wcn3990 {

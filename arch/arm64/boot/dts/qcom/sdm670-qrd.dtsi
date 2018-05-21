@@ -14,8 +14,11 @@
 #include "sdm670-camera-sensor-qrd.dtsi"
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-audio-overlay.dtsi"
-#include "smb1355.dtsi"
 #include "sdm670-sde-display.dtsi"
+
+&qupv3_se10_i2c {
+#include "smb1355.dtsi"
+};
 
 &qupv3_se9_2uart {
 	status = "disabled";

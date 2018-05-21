@@ -14,8 +14,8 @@
 /dts-v1/;
 
 #include "sdm632.dtsi"
-#include "sdm450-pmi632-mtp-s3.dtsi"
 #include "sdm450-pmi632.dtsi"
+#include "sdm450-pmi632-mtp-s3.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 MTP S3";
