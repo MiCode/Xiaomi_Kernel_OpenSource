@@ -327,13 +327,15 @@ static int cap_learning_process_full_data(struct cap_learning *cl)
  */
 static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc)
 {
-	int rc, cc_soc_sw, batt_soc_msb;
+	int rc, cc_soc_sw, batt_soc_msb, batt_soc_pct;
 
 	batt_soc_msb = batt_soc >> 24;
-	if (DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW) >
-		cl->dt.start_soc) {
-		pr_debug("Battery SOC %d is high!, not starting\n",
-			batt_soc_msb);
+	batt_soc_pct = DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW);
+
+	if (batt_soc_pct > cl->dt.max_start_soc ||
+			batt_soc_pct < cl->dt.min_start_soc) {
+		pr_debug("Battery SOC %d is high/low, not starting\n",
+			batt_soc_pct);
 		return -EINVAL;
 	}
 

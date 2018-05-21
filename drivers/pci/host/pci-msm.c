@@ -1457,6 +1457,10 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				pci_walk_bus(bus,
 					&msm_pcie_config_l1_enable, dev);
 
+			/* enable l1 mode, clear bit 5 (REQ_NOT_ENTR_L1) */
+			msm_pcie_write_mask(dev->parf +
+				PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
 			msm_pcie_config_l1_enable(dev->dev, dev);
 		}
 		break;
@@ -6297,7 +6301,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	return ret;
 }
 
-static void msm_pcie_fixup_suspend(struct pci_dev *dev)
+static void msm_pcie_fixup_suspend_late(struct pci_dev *dev)
 {
 	int ret;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
@@ -6330,8 +6334,8 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
-			  msm_pcie_fixup_suspend);
+DECLARE_PCI_FIXUP_SUSPEND_LATE(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
+			  msm_pcie_fixup_suspend_late);
 
 /* Resume the PCIe link */
 static int msm_pcie_pm_resume(struct pci_dev *dev,

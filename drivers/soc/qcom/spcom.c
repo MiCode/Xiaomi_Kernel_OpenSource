@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -374,7 +374,7 @@ static void spcom_link_state_notif_cb(struct glink_link_state_cb_info *cb_info,
 
 	switch (cb_info->link_state) {
 	case GLINK_LINK_STATE_UP:
-		pr_info("GLINK_LINK_STATE_UP.\n");
+		pr_debug("GLINK_LINK_STATE_UP.\n");
 		spcom_create_predefined_channels_chardev();
 		break;
 	case GLINK_LINK_STATE_DOWN:
@@ -1170,7 +1170,7 @@ struct spcom_client *spcom_register_client(struct spcom_client_info *info)
 		kfree(client);
 		client = NULL;
 	} else {
-		pr_info("remote side connect to channel [%s].\n", name);
+		pr_debug("remote side connect to channel [%s].\n", name);
 	}
 
 	return client;
@@ -2010,6 +2010,11 @@ static int spcom_handle_write(struct spcom_channel *ch,
 
 	pr_debug("cmd_id [0x%x] cmd_name [%s].\n", cmd_id, cmd_name);
 
+	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL) {
+		pr_err("channel context is null\n");
+		return -EINVAL;
+	}
+
 	switch (cmd_id) {
 	case SPCOM_CMD_SEND:
 		ret = spcom_handle_send_command(ch, buf, buf_size);
@@ -2342,8 +2347,12 @@ static ssize_t spcom_device_write(struct file *filp,
 
 	ch = filp->private_data;
 	if (!ch) {
-		pr_err("invalid ch pointer, command not allowed.\n");
-		return -EINVAL;
+		if (strcmp(name, DEVICE_NAME) == 0) {
+			pr_debug("control device - no channel context.\n");
+		} else {
+			pr_err("NULL ch pointer, command not allowed.\n");
+			return -EINVAL;
+		}
 	} else {
 		/* Check if remote side connect */
 		if (!spcom_is_channel_connected(ch)) {
@@ -2784,7 +2793,7 @@ static int spcom_probe(struct platform_device *pdev)
 		goto fail_ion_client;
 	}
 
-	pr_info("Driver Initialization ok.\n");
+	pr_debug("Driver Initialization ok.\n");
 
 	return 0;
 
@@ -2821,7 +2830,7 @@ static int __init spcom_init(void)
 {
 	int ret;
 
-	pr_info("spcom driver version 1.3 28-Dec-2017.\n");
+	pr_debug("spcom driver version 1.4 30-Apr-2018.\n");
 
 	ret = platform_driver_register(&spcom_driver);
 	if (ret)

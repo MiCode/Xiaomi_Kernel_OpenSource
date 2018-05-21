@@ -377,6 +377,9 @@ static void ehci_shutdown(struct usb_hcd *hcd)
 	if (!ehci->sbrn)
 		return;
 
+	if (!HCD_HW_ACCESSIBLE(hcd))
+		return;
+
 	spin_lock_irq(&ehci->lock);
 	ehci->shutdown = true;
 	ehci->rh_state = EHCI_RH_STOPPING;

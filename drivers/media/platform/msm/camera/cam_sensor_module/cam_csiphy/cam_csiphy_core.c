@@ -438,6 +438,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		return -EINVAL;
 	}
 
+	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_CSIPHY, "Invalid handle type: %d",
+			cmd->handle_type);
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_CSIPHY, "Opcode received: %d", cmd->op_code);
 	mutex_lock(&csiphy_dev->mutex);
 	switch (cmd->op_code) {

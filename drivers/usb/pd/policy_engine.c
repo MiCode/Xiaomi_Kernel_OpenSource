@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -942,7 +942,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 
 	/* check against received length to avoid overrun */
 	if (bytes_to_copy > len - sizeof(ext_hdr)) {
-		usbpd_warn(&pd->dev, "not enough bytes in chunk, expected:%u received:%lu\n",
+		usbpd_warn(&pd->dev, "not enough bytes in chunk, expected:%u received:%zu\n",
 			bytes_to_copy, len - sizeof(ext_hdr));
 		bytes_to_copy = len - sizeof(ext_hdr);
 	}
@@ -1562,6 +1562,18 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 	/* if this interrupts a previous exchange, abort queued response */
 	if (cmd_type == SVDM_CMD_TYPE_INITIATOR && pd->vdm_tx) {
+		/*
+		 * Drop ATTENTION command unless atleast one SVID handler is
+		 * discovered/connected.
+		 */
+		if (cmd == USBPD_SVDM_ATTENTION && handler &&
+						!handler->discovered) {
+			usbpd_dbg(&pd->dev, "Send vdm command again queued SVDM tx (SVID:0x%04x)\n",
+				VDM_HDR_SVID(pd->vdm_tx->data[0]));
+			kick_sm(pd, 0);
+			return;
+		}
+
 		usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
 				VDM_HDR_SVID(pd->vdm_tx->data[0]));
 

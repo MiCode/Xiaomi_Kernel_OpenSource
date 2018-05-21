@@ -252,7 +252,7 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 
 	/* core exits U1/U2/U3 only in PHY power state P1/P2/P3 respectively */
 	if (dwc->revision <= DWC3_REVISION_310A)
-		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_IN_PX;
+		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_PX;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
@@ -569,6 +569,12 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	int ret;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+
+	/*
+	 * Make sure UX_EXIT_PX is cleared as that causes issues with some
+	 * PHYs. Also, this bit is not supposed to be used in normal operation.
+	 */
+	reg &= ~DWC3_GUSB3PIPECTL_UX_EXIT_PX;
 
 	/*
 	 * Above 1.94a, it is recommended to set DWC3_GUSB3PIPECTL_SUSPHY
@@ -911,6 +917,17 @@ int dwc3_core_init(struct dwc3 *dwc)
 		reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
 		reg |= DWC3_GUCTL1_DEV_L1_EXIT_BY_HW;
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
+	}
+
+	/*
+	 * Enable evicting endpoint cache after flow control for bulk
+	 * endpoints for dwc3 core version 3.00a and 3.20a
+	 */
+	if (dwc->revision == DWC3_REVISION_300A ||
+			dwc->revision == DWC3_REVISION_320A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL2);
+		reg |= DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT;
+		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
 	}
 
 	return 0;

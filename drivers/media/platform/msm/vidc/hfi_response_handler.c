@@ -599,6 +599,9 @@ enum hal_capability get_hal_cap_type(u32 capability_type)
 	case HFI_CAPABILITY_UBWC_CR_STATS:
 		hal_cap = HAL_CAPABILITY_UBWC_CR_STATS;
 		break;
+	case HFI_CAPABILITY_IMG_GRID_DIMENSION:
+		hal_cap = HAL_CAPABILITY_IMG_GRID_DIMENSION;
+		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",
 			__func__, capability_type);
@@ -722,6 +725,9 @@ static inline void copy_cap_prop(
 		break;
 	case HFI_CAPABILITY_UBWC_CR_STATS:
 		out = &capability->ubwc_cr_stats;
+		break;
+	case HFI_CAPABILITY_IMG_GRID_DIMENSION:
+		out = &capability->img_grid_dimension;
 		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",

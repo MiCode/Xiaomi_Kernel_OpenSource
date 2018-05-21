@@ -13,6 +13,7 @@ VADC_TM node
 Required properties:
 - compatible : should be "qcom,qpnp-adc-tm-hc" for thermal ADC driver using
 	       refreshed BTM peripheral.
+	       should include "qcom,qpnp-adc-tm-hc-pm5" for PMIC5.
 - reg : offset and length of the PMIC Aribter register map.
 - address-cells : Must be one.
 - size-cells : Must be zero.

@@ -195,6 +195,12 @@ Charger specific properties:
 		This is only applicable to certain PMICs like PMI632 which
 		has SCHGM_FLASH peripheral.
 
+- qcom,chg-vadc
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Phandle for the VADC node, it is used to obtain USBIN_V
+		    and USBIN_I readings on PMIC632 based platform.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

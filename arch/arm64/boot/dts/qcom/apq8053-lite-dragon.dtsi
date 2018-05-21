@@ -11,7 +11,9 @@
  * GNU General Public License for more details.
  */
 
+#include "apq8053-lite.dtsi"
 #include "msm8953-pinctrl.dtsi"
+#include "apq8053-camera-sensor-dragon.dtsi"
 #include "pmi8950.dtsi"
 #include "msm8953-pmi8950.dtsi"
 
@@ -86,6 +88,21 @@
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&tlmm 76 0>; /* BT_EN */
 	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_tlmm_lines_act>;
+		pinctrl-1 = <&sec_tlmm_lines_sus>;
+	};
+
 };
 
 &firmware {
@@ -124,8 +141,43 @@
 	};
 };
 
+&int_codec {
+	status = "ok";
+	qcom,model = "msm8953-openq624-snd-card";
+
+	/delete-property/ qcom,cdc-us-euro-gpios;
+	qcom,msm-hs-micbias-type = "internal";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"SPK_RX_BIAS", "MCLK",
+		"INT_LDO_H", "MCLK",
+		"MIC BIAS Internal1", "Handset Mic",
+		"MIC BIAS Internal2", "Headset Mic",
+		"MIC BIAS Internal1", "Secondary Mic",
+		"AMIC1", "MIC BIAS Internal1",
+		"AMIC2", "MIC BIAS Internal2",
+		"AMIC3", "MIC BIAS Internal1",
+		"DMIC1", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic1",
+		"DMIC2", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic2";
+
+	qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+	/delete-property/ asoc-wsa-codec-names;
+	/delete-property/ asoc-wsa-codec-prefixes;
+	/delete-property/ msm-vdd-wsa-switch-supply;
+	/delete-property/ qcom,msm-vdd-wsa-switch-voltage;
+	/delete-property/ qcom,msm-vdd-wsa-switch-current;
+};
 &spi_3 {
 	status = "disabled";
+};
+
+&i2c_1 {
+	status = "okay";
 };
 
 &i2c_2 {
@@ -134,39 +186,22 @@
 
 &i2c_3 {
 	status = "okay";
-	focaltech@38 {
-		compatible = "focaltech,5x06";
-		reg = <0x38>;
+	himax_ts@48 {
+		compatible = "himax,hxcommon";
+		reg = <0x48>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <65 0x2>;
 		vdd-supply = <&pm8953_l10>;
-		vcc_i2c-supply = <&pm8953_l5>;
-		/* pins used by touchscreen */
+		avdd-supply = <&pm8953_l5>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
-			"pmx_ts_release";
+					"pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-		focaltech,name = "ft5606";
-		focaltech,family-id = <0x08>;
-		focaltech,reset-gpio = <&tlmm 64 0x0>;
-		focaltech,irq-gpio = <&tlmm 65 0x2008>;
-		focaltech,display-coords = <0 0 1919 1199>;
-		focaltech,panel-coords = <0 0 1919 1199>;
-		focaltech,no-force-update;
-		focaltech,i2c-pull-up;
-		focaltech,group-id = <1>;
-		focaltech,hard-reset-delay-ms = <20>;
-		focaltech,soft-reset-delay-ms = <200>;
-		focaltech,num-max-touches = <5>;
-		focaltech,fw-delay-aa-ms = <30>;
-		focaltech,fw-delay-55-ms = <30>;
-		focaltech,fw-upgrade-id1 = <0x79>;
-		focaltech,fw-upgrade-id2 = <0x08>;
-		focaltech,fw-delay-readid-ms = <10>;
-		focaltech,fw-delay-era-flsh-ms = <2000>;
-		focaltech,fw-auto-cal;
-		focaltech,resume-in-workqueue;
+		himax,panel-coords = <0 800 0 1280>;
+		himax,display-coords = <0 800 0 1280>;
+		himax,irq-gpio = <&tlmm 65 0x2008>;
+		report_type = <1>;
 	};
 };
 
@@ -178,6 +213,71 @@
 	status = "disabled";
 };
 
+#include "msm8953-mdss-panels.dtsi"
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi_active {
+	mux {
+		pins = "gpio61", "gpio100";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio61", "gpio100";
+		drive-strength = <8>;
+		bias-disable = <0>;
+		output-high;
+	};
+};
+
+&mdss_dsi_suspend {
+	mux {
+		pins = "gpio61", "gpio100";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio61", "gpio100";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_boyi_hx83100a_800p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	vdd-supply = <&pm8953_l10>;
+	vddio-supply = <&pm8953_l6>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 100 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "okay";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+	qcom,led-strings-list = [00 01 02 03];
+};
 &blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
@@ -237,36 +337,20 @@
 };
 
 &sdhc_2 {
-	/* device core power supply */
-	vdd-supply = <&pm8953_l11>;
-	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <15000 800000>;
-
 	/* device communication power supply */
 	vdd-io-supply = <&pm8953_l12>;
-	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <200 22000>;
+
 	qcom,core_3_0v_support;
 	qcom,nonremovable;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on
-			&sdc2_wlan_gpio_on>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_wlan_gpio_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
-			&sdc2_wlan_gpio_off>;
+		 &sdc2_wlan_gpio_off>;
 
-	#address-cells = <0>;
-	interrupt-parent = <&sdhc_2>;
-	interrupts = <0 1 2>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-		1 &intc 0 221 0
-		2 &tlmm 133 0>;
-	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-
-	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
 	status = "ok";

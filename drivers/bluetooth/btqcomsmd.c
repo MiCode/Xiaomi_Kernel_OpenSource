@@ -85,7 +85,8 @@ static int btqcomsmd_send(struct hci_dev *hdev, struct sk_buff *skb)
 		break;
 	}
 
-	kfree_skb(skb);
+	if (!ret)
+		kfree_skb(skb);
 
 	return ret;
 }

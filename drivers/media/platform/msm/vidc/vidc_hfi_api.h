@@ -229,6 +229,9 @@ enum hal_property {
 	HAL_PARAM_VIDEO_WORK_MODE,
 	HAL_PARAM_SECURE,
 	HAL_PARAM_VENC_HDR10_PQ_SEI,
+	HAL_CONFIG_HEIC_FRAME_CROP_INFO,
+	HAL_CONFIG_HEIC_FRAME_QUALITY,
+	HAL_CONFIG_HEIC_GRID_ENABLE,
 };
 
 enum hal_domain {
@@ -604,6 +607,7 @@ enum hal_rate_control {
 	HAL_RATE_CONTROL_CBR_CFR,
 	HAL_RATE_CONTROL_MBR_CFR,
 	HAL_RATE_CONTROL_MBR_VFR,
+	HAL_RATE_CONTROL_CQ,
 	HAL_UNUSED_RC = 0x10000000,
 };
 
@@ -649,6 +653,14 @@ struct hal_intra_period {
 
 struct hal_idr_period {
 	u32 idr_period;
+};
+
+struct hal_heic_frame_quality {
+	u32 frame_quality;
+};
+
+struct hal_heic_grid_enable {
+	u32 grid_enable;
 };
 
 enum hal_rotate {
@@ -795,6 +807,7 @@ enum hal_capability {
 	HAL_CAPABILITY_MAX_VIDEOCORES,
 	HAL_CAPABILITY_MAX_WORKMODES,
 	HAL_CAPABILITY_UBWC_CR_STATS,
+	HAL_CAPABILITY_IMG_GRID_DIMENSION,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -832,6 +845,13 @@ enum hal_buffer_layout_type {
 struct hal_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
+};
+
+struct hal_frame_crop {
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
 };
 
 struct hal_codec_supported {
@@ -1232,6 +1252,7 @@ struct msm_vidc_capability {
 	struct hal_capability_supported max_video_cores;
 	struct hal_capability_supported max_work_modes;
 	struct hal_capability_supported ubwc_cr_stats;
+	struct hal_capability_supported img_grid_dimension;
 	struct hal_profile_level_supported profile_level;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;

@@ -4286,7 +4286,7 @@ int perf_event_release_kernel(struct perf_event *event)
 	 *  back online.
 	 */
 #if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-	if (!cpu_online(event->cpu)) {
+	if (event->cpu != -1 && !cpu_online(event->cpu)) {
 		if (event->state == PERF_EVENT_STATE_ZOMBIE)
 			return 0;
 

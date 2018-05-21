@@ -1483,7 +1483,9 @@ struct hfi_device {
 
 	/*Add function pointers for all the hfi functions below*/
 	int (*core_init)(void *device);
+	int (*core_early_init)(void *device);
 	int (*core_release)(void *device);
+	int (*core_early_release)(void *device);
 	int (*core_ping)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
 	int (*session_init)(void *device, void *session_id,

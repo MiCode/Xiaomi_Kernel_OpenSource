@@ -766,18 +766,31 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	 * with regard to rndis_opts->bound access
 	 */
 	if (!rndis_opts->bound) {
+		mutex_lock(&rndis_opts->lock);
+		rndis_opts->net = gether_setup_default();
+		if (IS_ERR(rndis_opts->net)) {
+			status = PTR_ERR(rndis_opts->net);
+			mutex_unlock(&rndis_opts->lock);
+			goto error;
+		}
 		gether_set_gadget(rndis_opts->net, cdev->gadget);
 		status = gether_register_netdev(rndis_opts->net);
-		if (status)
-			goto fail;
+		mutex_unlock(&rndis_opts->lock);
+		if (status) {
+			free_netdev(rndis_opts->net);
+			goto error;
+		}
 		rndis_opts->bound = true;
 	}
+
+	gether_get_host_addr_u8(rndis_opts->net, rndis->ethaddr);
+	rndis->port.ioport = netdev_priv(rndis_opts->net);
 
 	us = usb_gstrings_attach(cdev, rndis_strings,
 				 ARRAY_SIZE(rndis_string_defs));
 	if (IS_ERR(us)) {
 		status = PTR_ERR(us);
-		goto fail;
+		goto netdev_cleanup;
 	}
 	rndis_control_intf.iInterface = us[0].id;
 	rndis_data_intf.iInterface = us[1].id;
@@ -894,7 +907,9 @@ fail:
 		kfree(rndis->notify_req->buf);
 		usb_ep_free_request(rndis->notify, rndis->notify_req);
 	}
-
+netdev_cleanup:
+	gether_cleanup(rndis->port.ioport);
+error:
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
 
 	return status;
@@ -957,8 +972,6 @@ static void rndis_free_inst(struct usb_function_instance *f)
 	if (!opts->borrowed_net) {
 		if (opts->bound)
 			gether_cleanup(netdev_priv(opts->net));
-		else
-			free_netdev(opts->net);
 	}
 
 	kfree(opts->rndis_interf_group);	/* single VLA chunk */
@@ -980,12 +993,6 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 	mutex_init(&opts->lock);
 	spin_lock_init(&_rndis_lock);
 	opts->func_inst.free_func_inst = rndis_free_inst;
-	opts->net = gether_setup_default();
-	if (IS_ERR(opts->net)) {
-		struct net_device *net = opts->net;
-		kfree(opts);
-		return ERR_CAST(net);
-	}
 	INIT_LIST_HEAD(&opts->rndis_os_desc.ext_prop);
 
 	descs[0] = &opts->rndis_os_desc;
@@ -1025,6 +1032,8 @@ static void rndis_free(struct usb_function *f)
 static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis		*rndis = func_to_rndis(f);
+	struct f_rndis_opts	*opts = container_of(f->fi, struct f_rndis_opts,
+								func_inst);
 
 	kfree(f->os_desc_table);
 	f->os_desc_n = 0;
@@ -1032,6 +1041,8 @@ static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
+	gether_cleanup(rndis->port.ioport);
+	opts->bound = false;
 }
 
 static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
@@ -1051,11 +1062,9 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	mutex_lock(&opts->lock);
 	opts->refcnt++;
 
-	gether_get_host_addr_u8(opts->net, rndis->ethaddr);
 	rndis->vendorID = opts->vendor_id;
 	rndis->manufacturer = opts->manufacturer;
 
-	rndis->port.ioport = netdev_priv(opts->net);
 	mutex_unlock(&opts->lock);
 	/* RNDIS activates when the host changes this filter */
 	rndis->port.cdc_filter = 0;

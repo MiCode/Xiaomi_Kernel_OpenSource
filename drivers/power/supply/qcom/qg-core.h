@@ -12,6 +12,9 @@
 #ifndef __QG_CORE_H__
 #define __QG_CORE_H__
 
+#include <linux/kernel.h>
+#include "fg-alg.h"
+
 struct qg_batt_props {
 	const char		*batt_type_str;
 	int			float_volt_uv;
@@ -49,6 +52,8 @@ struct qg_dt {
 	int			cold_temp_threshold;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
+	bool			cl_disable;
+	bool			cl_feedback_on;
 };
 
 struct qpnp_qg {
@@ -109,12 +114,19 @@ struct qpnp_qg {
 	int			maint_soc;
 	int			msoc;
 	int			pon_soc;
+	int			batt_soc;
+	int			cc_soc;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 
 	/* DT */
 	struct qg_dt		dt;
 	struct qg_batt_props	bp;
+	/* capacity learning */
+	struct cap_learning	*cl;
+	/* charge counter */
+	struct cycle_counter	*counter;
+	char			counter_buf[BUCKET_COUNT * 8];
 };
 
 enum ocv_type {
@@ -135,6 +147,7 @@ enum debug_mask {
 	QG_DEBUG_PM		= BIT(7),
 	QG_DEBUG_BUS_READ	= BIT(8),
 	QG_DEBUG_BUS_WRITE	= BIT(9),
+	QG_DEBUG_ALG_CL		= BIT(10),
 };
 
 enum qg_irq {

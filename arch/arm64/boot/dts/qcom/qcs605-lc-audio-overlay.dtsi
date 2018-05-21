@@ -1,0 +1,130 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm670-lpi.dtsi"
+
+&int_codec {
+	compatible = "qcom,qcs605-dig-asoc-snd";
+	qcom,model = "qcs605-lc-snd-card";
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"TX_I2S_CLK", "INT_MCLK0",
+		"DMIC1", "DIGITAL_REGULATOR",
+		"DIGITAL_REGULATOR", "Digital Mic1",
+		"DMIC2", "DIGITAL_REGULATOR",
+		"DIGITAL_REGULATOR", "Digital Mic2",
+		"DMIC3", "DIGITAL_REGULATOR",
+		"DIGITAL_REGULATOR", "Digital Mic3",
+		"DMIC4", "DIGITAL_REGULATOR",
+		"DIGITAL_REGULATOR", "Digital Mic4",
+		"SpkrLeft IN", "SPK1 OUT",
+		"SpkrRight IN", "SPK2 OUT";
+
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,msm-mclk-freq = <9600000>;
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+	asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+		     <&msm_sdw_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+			   "msm_sdw_codec";
+
+	qcom,wsa-max-devs = <2>;
+	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,
+			<&wsa881x_213_en>, <&wsa881x_214_en>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+				  "SpkrLeft", "SpkrRight";
+};
+
+&soc {
+	msm_digital_codec: msm-dig-codec {
+		compatible = "qcom,msm-digital-codec";
+		reg = <0x62ec0000 0x0>;
+		qcom,no-analog-codec;
+
+		cdc-vdd-digital-supply = <&pm660_l13>;
+		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-digital-current = <5000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic12_gpios_active
+			     &cdc_dmic34_gpios_active>;
+		pinctrl-1 = <&cdc_dmic12_gpios_sleep
+			     &cdc_dmic34_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_sdw_gpios: sdw_clk_data_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
+		pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
+	};
+
+	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spkr_1_sd_n_active>;
+		pinctrl-1 = <&spkr_1_sd_n_sleep>;
+	};
+
+	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spkr_2_sd_n_active>;
+		pinctrl-1 = <&spkr_2_sd_n_sleep>;
+	};
+
+	msm_sdw_codec: msm-sdw-codec@62ec1000 {
+		status = "okay";
+		compatible = "qcom,msm-sdw-codec";
+		reg = <0x62ec1000 0x0>;
+		interrupts = <0 88 0>;
+		interrupt-names = "swr_master_irq";
+		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
+
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_211_en: wsa881x_en@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170211>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+			};
+
+			wsa881x_212_en: wsa881x_en@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170212>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+			};
+
+			wsa881x_213_en: wsa881x_en@21170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170213>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+			};
+
+			wsa881x_214_en: wsa881x_en@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+			};
+		};
+	};
+};

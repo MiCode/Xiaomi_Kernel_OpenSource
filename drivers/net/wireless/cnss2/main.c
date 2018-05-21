@@ -1799,20 +1799,7 @@ int cnss_register_subsys(struct cnss_plat_data *plat_priv)
 
 	subsys_info = &plat_priv->subsys_info;
 
-	switch (plat_priv->device_id) {
-	case QCA6174_DEVICE_ID:
-		subsys_info->subsys_desc.name = "AR6320";
-		break;
-	case QCA6290_EMULATION_DEVICE_ID:
-	case QCA6290_DEVICE_ID:
-		subsys_info->subsys_desc.name = "QCA6290";
-		break;
-	default:
-		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
-		ret = -ENODEV;
-		goto out;
-	}
-
+	subsys_info->subsys_desc.name = "wlan";
 	subsys_info->subsys_desc.owner = THIS_MODULE;
 	subsys_info->subsys_desc.powerup = cnss_subsys_powerup;
 	subsys_info->subsys_desc.shutdown = cnss_subsys_shutdown;

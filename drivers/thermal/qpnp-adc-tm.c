@@ -191,6 +191,8 @@
 
 #define QPNP_BTM_MEAS_INTERVAL_CTL			0x50
 #define QPNP_BTM_MEAS_INTERVAL_CTL2			0x51
+#define QPNP_BTM_MEAS_INTERVAL_CTL_PM5			0x44
+#define QPNP_BTM_MEAS_INTERVAL_CTL2_PM5		0x45
 #define QPNP_ADC_TM_MEAS_INTERVAL_TIME_SHIFT		0x3
 #define QPNP_ADC_TM_MEAS_INTERVAL_CTL2_SHIFT		0x4
 #define QPNP_ADC_TM_MEAS_INTERVAL_CTL2_MASK		0xf0
@@ -742,6 +744,7 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 	bool chan_found = false;
 	u8 meas_interval_timer2 = 0, timer_interval_store = 0;
 	uint32_t btm_chan_idx = 0;
+	bool is_pmic_5 = chip->adc->adc_prop->is_pmic_5;
 
 	while (i < chip->max_channels_available) {
 		if (chip->sensor[i].btm_channel_num == btm_chan) {
@@ -763,10 +766,18 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			rc = qpnp_adc_tm_write_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL,
 				chip->sensor[chan_idx].meas_interval, 1);
-		else
-			rc = qpnp_adc_tm_write_reg(chip,
-				QPNP_BTM_MEAS_INTERVAL_CTL,
-				chip->sensor[chan_idx].meas_interval, 1);
+		else {
+			if (!is_pmic_5)
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL,
+					chip->sensor[chan_idx].meas_interval,
+					1);
+			else
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL_PM5,
+					chip->sensor[chan_idx].meas_interval,
+					1);
+		}
 		if (rc < 0) {
 			pr_err("timer1 configure failed\n");
 			return rc;
@@ -778,10 +789,16 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			rc = qpnp_adc_tm_read_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 				&meas_interval_timer2, 1);
-		else
-			rc = qpnp_adc_tm_read_reg(chip,
+		else {
+			if (!is_pmic_5)
+				rc = qpnp_adc_tm_read_reg(chip,
 					QPNP_BTM_MEAS_INTERVAL_CTL2,
 					&meas_interval_timer2, 1);
+			else
+				rc = qpnp_adc_tm_read_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2_PM5,
+					&meas_interval_timer2, 1);
+		}
 		if (rc < 0) {
 			pr_err("timer2 configure read failed\n");
 			return rc;
@@ -794,10 +811,16 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			rc = qpnp_adc_tm_write_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 				meas_interval_timer2, 1);
-		else
-			rc = qpnp_adc_tm_write_reg(chip,
-				QPNP_BTM_MEAS_INTERVAL_CTL2,
-				meas_interval_timer2, 1);
+		else {
+			if (!is_pmic_5)
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2,
+					meas_interval_timer2, 1);
+			else
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2_PM5,
+					meas_interval_timer2, 1);
+		}
 		if (rc < 0) {
 			pr_err("timer2 configure failed\n");
 			return rc;
@@ -808,10 +831,16 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			rc = qpnp_adc_tm_read_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 				&meas_interval_timer2, 1);
-		else
-			rc = qpnp_adc_tm_read_reg(chip,
-				QPNP_BTM_MEAS_INTERVAL_CTL2,
-				&meas_interval_timer2, 1);
+		else {
+			if (!is_pmic_5)
+				rc = qpnp_adc_tm_read_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2,
+					&meas_interval_timer2, 1);
+			else
+				rc = qpnp_adc_tm_read_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2_PM5,
+					&meas_interval_timer2, 1);
+		}
 		if (rc < 0) {
 			pr_err("timer3 read failed\n");
 			return rc;
@@ -823,10 +852,16 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			rc = qpnp_adc_tm_write_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 				meas_interval_timer2, 1);
-		else
-			rc = qpnp_adc_tm_write_reg(chip,
-				QPNP_BTM_MEAS_INTERVAL_CTL2,
-				meas_interval_timer2, 1);
+		else {
+			if (!is_pmic_5)
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2,
+					meas_interval_timer2, 1);
+			else
+				rc = qpnp_adc_tm_write_reg(chip,
+					QPNP_BTM_MEAS_INTERVAL_CTL2_PM5,
+					meas_interval_timer2, 1);
+		}
 		if (rc < 0) {
 			pr_err("timer3 configure failed\n");
 			return rc;
@@ -2997,6 +3032,7 @@ static int qpnp_adc_tm_initial_setup(struct qpnp_adc_tm_chip *chip)
 static const struct of_device_id qpnp_adc_tm_match_table[] = {
 	{	.compatible = "qcom,qpnp-adc-tm" },
 	{	.compatible = "qcom,qpnp-adc-tm-hc" },
+	{	.compatible = "qcom,qpnp-adc-tm-hc-pm5" },
 	{}
 };
 

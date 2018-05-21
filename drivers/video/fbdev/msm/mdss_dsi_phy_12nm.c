@@ -25,6 +25,7 @@
 #define HSTX_CLKLANE_REQSTATE_TIM_CTRL       0x180
 #define HSTX_CLKLANE_HS0STATE_TIM_CTRL       0x188
 #define HSTX_CLKLANE_TRALSTATE_TIM_CTRL      0x18c
+#define HSTX_CLKLANE_EXITSTATE_TIM_CTRL      0x190
 #define HSTX_CLKLANE_CLKPOSTSTATE_TIM_CTRL   0x194
 #define HSTX_DATALANE_REQSTATE_TIM_CTRL      0x1c0
 #define HSTX_DATALANE_HS0STATE_TIM_CTRL      0x1c8
@@ -70,6 +71,8 @@ int mdss_dsi_12nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		(pd->timing_12nm[2] | BIT(6)));
 	DSI_PHY_W32(ctrl->phy_io.base, HSTX_CLKLANE_REQSTATE_TIM_CTRL,
 		pd->timing_12nm[3]);
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_CLKLANE_EXITSTATE_TIM_CTRL,
+		(pd->timing_12nm[7] | BIT(6) | BIT(7)));
 
 	/* DSI PHY data lane timings */
 	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DATALANE_HS0STATE_TIM_CTRL,

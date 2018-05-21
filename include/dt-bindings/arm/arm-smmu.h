@@ -23,5 +23,6 @@
 #define ARM_SMMU_OPT_MMU500_ERRATA1	(1 << 7)
 #define ARM_SMMU_OPT_STATIC_CB          (1 << 8)
 #define ARM_SMMU_OPT_HALT               (1 << 9)
+#define ARM_SMMU_OPT_HIBERNATION	(1 << 10)
 
 #endif

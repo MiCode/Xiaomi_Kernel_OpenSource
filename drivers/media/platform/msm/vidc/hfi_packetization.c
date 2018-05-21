@@ -1239,6 +1239,51 @@ int create_pkt_cmd_session_set_property(
 			struct hfi_h264_entropy_control);
 		break;
 	}
+	case HAL_CONFIG_HEIC_FRAME_QUALITY:
+	{
+		struct hfi_heic_frame_quality *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_HEIC_FRAME_QUALITY;
+		hfi =
+		(struct hfi_heic_frame_quality *) &pkt->rg_property_data[1];
+		hfi->frame_quality =
+			((struct hal_heic_frame_quality *)pdata)->frame_quality;
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_heic_frame_quality);
+		break;
+	}
+	case HAL_CONFIG_HEIC_GRID_ENABLE:
+	{
+		struct hfi_heic_grid_enable *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_HEIC_GRID_ENABLE;
+		hfi = (struct hfi_heic_grid_enable *) &pkt->rg_property_data[1];
+		hfi->grid_enable =
+			((struct hal_heic_grid_enable *)pdata)->grid_enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_heic_grid_enable);
+		break;
+	}
+	case HAL_CONFIG_HEIC_FRAME_CROP_INFO:
+	{
+		struct hfi_frame_crop *hfi_crop_info;
+		struct hal_frame_crop *hal_crop_info =
+		(struct hal_frame_crop *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_HEIC_FRAME_CROP_INFO;
+		hfi_crop_info =
+			(struct hfi_frame_crop *) &pkt->rg_property_data[1];
+
+		hfi_crop_info->left = hal_crop_info->left;
+		hfi_crop_info->top = hal_crop_info->top;
+		hfi_crop_info->width = hal_crop_info->width;
+		hfi_crop_info->height = hal_crop_info->height;
+
+		pkt->size += sizeof(u32) + sizeof(struct hfi_frame_crop);
+		break;
+	}
 	case HAL_PARAM_VENC_RATE_CONTROL:
 	{
 		u32 *rc;
@@ -1265,6 +1310,9 @@ int create_pkt_cmd_session_set_property(
 			break;
 		case HAL_RATE_CONTROL_MBR_VFR:
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_MBR_VFR;
+			break;
+		case HAL_RATE_CONTROL_CQ:
+			pkt->rg_property_data[1] = HFI_RATE_CONTROL_CQ;
 			break;
 		default:
 			dprintk(VIDC_ERR,

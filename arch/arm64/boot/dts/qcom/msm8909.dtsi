@@ -21,7 +21,7 @@
 			<258 0>,
 			<265 0>,
 			<275 0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	aliases {
 		/* smdtty devices */
@@ -251,9 +251,28 @@
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 		<0x0b002000 0x1000>;
+	};
+
+	wakegic: wake-gic@601d0 {
+		compatible = "qcom,mpm-gic-msm8909", "qcom,mpm-gic";
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x601d0 0x1000>,
+			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-msm8909", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
 	};
 
 	restart@4ab000 {
@@ -679,6 +698,16 @@
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	qcom,bam_dmux@4044000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0x4044000 0x19000>;
+		interrupts = <0 29 1>;
+		qcom,rx-ring-size = <32>;
+		qcom,max-rx-mtu = <4096>;
+		qcom,fast-shutdown;
+		qcom,no-cpu-affinity;
 	};
 
 	qcom,smdtty {

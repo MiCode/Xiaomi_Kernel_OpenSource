@@ -148,6 +148,7 @@ enum usb_id_state {
  * @buf: Dynamic Debug Buffer.
  * @max_nominal_system_clk_rate: max freq at which system clock can run in
 		nominal mode.
+ * @sdp_check: SDP detection work in case of USB_FLOAT power supply
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -276,6 +277,7 @@ struct msm_otg {
 	unsigned int notify_current_mA;
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
+	struct delayed_work sdp_check;
 	struct work_struct notify_chg_current_work;
 };
 

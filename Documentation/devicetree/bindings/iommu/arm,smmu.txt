@@ -77,6 +77,21 @@ conditions.
 - qcom,tz-device-id : A string indicating the device ID for this SMMU known
 		  to TZ.  See msm_tz_smmu.c for a full list of mappings.
 
+- qcom,enable-static-cb:
+		A boolean indicating that the SMMU global register space,
+		as well as some context banks, are managed by secure software
+		and may not be modified by HLOS.
+
+- qcom,static-ns-cbs:
+		A list of u32.
+		When qcom,enable-static-cb is selected, indicates which
+		iommu context banks may be used by HLOS.
+
+- qcom,hibernation-support:
+		A boolean, indicates that hibernation should be supported and
+		all secure usecases should be disabled, since they cannot be
+		restored properly.
+
 - qcom,skip-init : Disable resetting configuration for all context banks
                   during device reset.  This is useful for targets where
                   some context banks are dedicated to other execution

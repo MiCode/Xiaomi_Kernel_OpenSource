@@ -691,6 +691,34 @@
 			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
 		};
 
+		qcom,glinkpkt-data5-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA5_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl0";
+		};
+
+		qcom,glinkpkt-data6-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA6_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl1";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data22 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA22";
+			qcom,glinkpkt-dev-name = "smd22";
+		};
+
 		qcom,glinkpkt-data40-cntl {
 			qcom,glinkpkt-transport = "smem";
 			qcom,glinkpkt-edge = "mpss";
@@ -717,6 +745,13 @@
 			qcom,glinkpkt-edge = "mpss";
 			qcom,glinkpkt-ch-name = "DATA11";
 			qcom,glinkpkt-dev-name = "smd11";
+		};
+
+		qcom,glinkpkt-data21 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA21";
+			qcom,glinkpkt-dev-name = "smd21";
 		};
 	};
 
@@ -774,7 +809,7 @@
 		memory-region = <&dump_mem>;
 
 		rpmh_dump {
-			qcom,dump-size = <0x2000000>;
+			qcom,dump-size = <0x300000>;
 			qcom,dump-id = <0xec>;
 		};
 
@@ -1004,7 +1039,6 @@
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E0 0x0>;
 			qcom,iova-mapping = <0x20000000 0x40000000>;
 			qcom,additional-mapping =
@@ -1015,7 +1049,6 @@
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E1 0x0>;
 			qcom,additional-mapping =
 				/* ipa-uc ram */
@@ -1024,7 +1057,6 @@
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E2 0x0>;
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};
@@ -1041,6 +1073,12 @@
 		priority = <0>;
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
+	};
+
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 	};
 
 	vbus_detect: qcom,pmd-vbus-det {
@@ -1202,6 +1240,7 @@
 &soc {
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
 		reg = <0x20000 0x10000>,
 			<0x36000 0x100>,
 			<0x3900000 0x300000>;
@@ -1241,6 +1280,12 @@
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
+		};
+
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x220 0xf>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
 	};
 

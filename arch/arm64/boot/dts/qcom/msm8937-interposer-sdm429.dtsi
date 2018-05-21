@@ -23,6 +23,10 @@
 	/delete-node/ cti@61b9000;
 	/delete-node/ cti@61ba000;
 	/delete-node/ cti@61bb000;
+	/delete-node/ jtagmm@619c000;
+	/delete-node/ jtagmm@619d000;
+	/delete-node/ jtagmm@619e000;
+	/delete-node/ jtagmm@619f000;
 
 	qcom,spm@b1d2000 {
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
@@ -55,4 +59,13 @@
 	};
 
 	/delete-node/ cpuss0-step;
+
+	quiet-therm-step {
+		cooling-maps {
+			/delete-node/ skin_cpu4;
+			/delete-node/ skin_cpu5;
+			/delete-node/ skin_cpu6;
+			/delete-node/ skin_cpu7;
+		};
+	};
 };

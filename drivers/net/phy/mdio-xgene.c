@@ -197,8 +197,11 @@ static int xgene_mdio_reset(struct xgene_mdio_pdata *pdata)
 	}
 
 	ret = xgene_enet_ecc_init(pdata);
-	if (ret)
+	if (ret) {
+		if (pdata->dev->of_node)
+			clk_disable_unprepare(pdata->clk);
 		return ret;
+	}
 	xgene_gmac_reset(pdata);
 
 	return 0;
@@ -229,7 +232,7 @@ static int xgene_xfi_mdio_write(struct mii_bus *bus, int phy_id,
 
 	val = SET_VAL(HSTPHYADX, phy_id) | SET_VAL(HSTREGADX, reg) |
 	      SET_VAL(HSTMIIMWRDAT, data);
-	xgene_enet_wr_mdio_csr(addr, MIIM_FIELD_ADDR, data);
+	xgene_enet_wr_mdio_csr(addr, MIIM_FIELD_ADDR, val);
 
 	val = HSTLDCMD | SET_VAL(HSTMIIMCMD, MIIM_CMD_LEGACY_WRITE);
 	xgene_enet_wr_mdio_csr(addr, MIIM_COMMAND_ADDR, val);
@@ -364,8 +367,10 @@ static int xgene_mdio_probe(struct platform_device *pdev)
 		return ret;
 
 	mdio_bus = mdiobus_alloc();
-	if (!mdio_bus)
-		return -ENOMEM;
+	if (!mdio_bus) {
+		ret = -ENOMEM;
+		goto out_clk;
+	}
 
 	mdio_bus->name = "APM X-Gene MDIO bus";
 
@@ -394,7 +399,7 @@ static int xgene_mdio_probe(struct platform_device *pdev)
 		mdio_bus->phy_mask = ~0;
 		ret = mdiobus_register(mdio_bus);
 		if (ret)
-			goto out;
+			goto out_mdiobus;
 
 		acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_HANDLE(dev), 1,
 				    acpi_register_phy, NULL, mdio_bus, NULL);
@@ -402,15 +407,19 @@ static int xgene_mdio_probe(struct platform_device *pdev)
 	}
 
 	if (ret)
-		goto out;
+		goto out_mdiobus;
 
 	pdata->mdio_bus = mdio_bus;
 	xgene_mdio_status = true;
 
 	return 0;
 
-out:
+out_mdiobus:
 	mdiobus_free(mdio_bus);
+
+out_clk:
+	if (dev->of_node)
+		clk_disable_unprepare(pdata->clk);
 
 	return ret;
 }
