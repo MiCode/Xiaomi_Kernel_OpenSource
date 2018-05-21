@@ -474,7 +474,6 @@ static void show_saved_mc(void)
  */
 static void save_mc_for_early(u8 *mc)
 {
-#ifdef CONFIG_HOTPLUG_CPU
 	/* Synchronization during CPU hotplug. */
 	static DEFINE_MUTEX(x86_cpu_microcode_mutex);
 
@@ -521,7 +520,6 @@ static void save_mc_for_early(u8 *mc)
 
 out:
 	mutex_unlock(&x86_cpu_microcode_mutex);
-#endif
 }
 
 static bool __init load_builtin_intel_microcode(struct cpio_data *cp)
