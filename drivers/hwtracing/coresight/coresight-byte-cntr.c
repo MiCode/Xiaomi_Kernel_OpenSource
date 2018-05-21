@@ -270,8 +270,12 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
+	/* IRQ is a '8- byte' counter and to observe interrupt at
+	 * 'block_size' bytes of data
+	 */
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
-				byte_cntr_data->block_size);
+				(byte_cntr_data->block_size) / 8);
+
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
 	byte_cntr_data->enable = true;
