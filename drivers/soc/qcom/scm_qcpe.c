@@ -416,11 +416,11 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	static bool opened;
 	static u32 handle;
 	u32 size_bytes;
-	int i;
-	uint64_t arglen = desc->arginfo & 0xf;
 	struct smc_params_s smc_params = {0,};
 	int ret;
 #ifdef CONFIG_GHS_VMM
+	int i;
+	uint64_t arglen = desc->arginfo & 0xf;
 	struct ion_handle *ihandle = NULL;
 #endif
 
