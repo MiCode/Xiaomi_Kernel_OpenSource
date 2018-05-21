@@ -1418,16 +1418,20 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	union mhi_dev_ring_element_type *el;
 	int rc = 0;
 	struct mhi_req *req = (struct mhi_req *)mreq;
-	struct mhi_req *local_req = NULL;
 	union mhi_dev_ring_element_type *compl_ev = NULL;
 	struct mhi_dev *mhi = NULL;
 	unsigned long flags;
+	size_t transfer_len;
+	u32 snd_cmpl;
+	uint32_t rd_offset;
 
 	client = req->client;
 	ch = client->channel;
 	mhi = ch->ring->mhi_dev;
 	el = req->el;
-	local_req = req;
+	transfer_len = req->len;
+	snd_cmpl = req->snd_cmpl;
+	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
@@ -1441,14 +1445,13 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 		compl_ev->evt_tr_comp.chid = ch->ch_id;
 		compl_ev->evt_tr_comp.type =
 				MHI_DEV_RING_EL_TRANSFER_COMPLETION_EVENT;
-		compl_ev->evt_tr_comp.len = el->tre.len;
+		compl_ev->evt_tr_comp.len = transfer_len;
 		compl_ev->evt_tr_comp.code = MHI_CMD_COMPL_CODE_EOT;
 		compl_ev->evt_tr_comp.ptr = ch->ring->ring_ctx->generic.rbase +
-				local_req->rd_offset * TR_RING_ELEMENT_SZ;
+						rd_offset * TR_RING_ELEMENT_SZ;
 		ch->curr_ereq->num_events++;
 
-		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS ||
-				local_req->snd_cmpl){
+		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS || snd_cmpl) {
 			mhi_log(MHI_MSG_VERBOSE,
 					"num of tr events %d for ch %d\n",
 					ch->curr_ereq->num_events, ch->ch_id);
