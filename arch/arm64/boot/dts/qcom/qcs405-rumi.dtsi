@@ -75,6 +75,8 @@
 
 &soc {
 	/delete-node/ qcom,spmi@200f000;
+	/delete-node/ regulator@1942120;
+	/delete-node/ regulator@b018000;
 };
 
 &rpm_bus {
