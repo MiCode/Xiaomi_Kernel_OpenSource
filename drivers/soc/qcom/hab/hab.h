@@ -508,6 +508,8 @@ bool hab_is_loopback(void);
 int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
 		char *names, size_t name_size, uint32_t flags);
 
+struct hab_device *find_hab_device(unsigned int mm_id);
+
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;
 
