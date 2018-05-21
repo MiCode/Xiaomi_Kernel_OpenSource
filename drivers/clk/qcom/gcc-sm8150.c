@@ -2106,11 +2106,6 @@ static struct clk_branch gcc_npu_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_npu_axi_clk",
-			.parent_names = (const char *[]){
-				"gcc_npu_axi_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
