@@ -357,7 +357,6 @@ static struct kmsg_dumper pstore_dumper = {
 static void pstore_console_write(struct console *con, const char *s, unsigned c)
 {
 	const char *e = s + c;
-
 	while (s < e) {
 		unsigned long flags;
 		u64 id;
@@ -507,7 +506,7 @@ EXPORT_SYMBOL_GPL(pstore_register);
 void pstore_get_records(int quiet)
 {
 	struct pstore_info *psi = psinfo;
-	char			*buf = NULL;
+	char                    *buf = NULL;
 	ssize_t			size;
 	u64			id;
 	int			count;
@@ -544,7 +543,7 @@ void pstore_get_records(int quiet)
 			}
 		}
 		rc = pstore_mkfile(type, psi->name, id, count, buf,
-				  compressed, (size_t)size, time, psi);
+				   compressed, (size_t)size, time, psi);
 		if (unzipped_len < 0) {
 			/* Free buffer other than big oops */
 			kfree(buf);

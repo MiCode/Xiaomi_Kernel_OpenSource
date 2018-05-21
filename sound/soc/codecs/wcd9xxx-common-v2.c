@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,22 +496,6 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	}
 }
 
-static void wcd_clsh_set_flyback_vneg_ctl(struct snd_soc_codec *codec,
-					  bool enable)
-{
-	if (enable) {
-		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_1, 0xE0,
-				    0x00);
-		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEGDAC_CTRL_2,
-				    0xE0, (0x07 << 5));
-	} else {
-		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_1, 0xE0,
-				    (0x07 << 5));
-		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEGDAC_CTRL_2,
-				    0xE0, (0x02 << 5));
-	}
-}
-
 static void wcd_clsh_set_flyback_current(struct snd_soc_codec *codec, int mode)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
@@ -546,7 +531,6 @@ static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
 
 	if (is_enable) {
 		wcd_clsh_set_buck_regulator_mode(codec, mode);
-		wcd_clsh_set_flyback_vneg_ctl(codec, true);
 		wcd_clsh_set_buck_mode(codec, mode);
 		wcd_clsh_set_flyback_mode(codec, mode);
 		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
@@ -557,7 +541,6 @@ static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
 		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
 		wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
 		wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
-		wcd_clsh_set_flyback_vneg_ctl(codec, false);
 		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 	}
 }
@@ -676,34 +659,39 @@ static void wcd_clsh_state_ear_lo(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
 		is_enable ? "enable" : "disable");
 
-	if (is_enable && (req_state == WCD_CLSH_STATE_LO)) {
-		wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
-	} else {
-		if (req_state == WCD_CLSH_STATE_EAR)
-			goto end;
-
-		/* LO powerdown.
-		 * If EAR Class-H is already enabled, just
-		 * turn on regulator other enable Class-H
-		 * configuration
-		 */
-		if (wcd_clsh_enable_status(codec)) {
-			wcd_clsh_set_buck_regulator_mode(codec,
-					CLS_H_NORMAL);
-			goto end;
-		}
-		wcd_enable_clsh_block(codec, clsh_d, true);
-		snd_soc_update_bits(codec,
+	if (is_enable) {
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/* enable class-h */
+			wcd_enable_clsh_block(codec, clsh_d, true);
+			snd_soc_update_bits(codec,
 				WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
 				0x40, 0x40);
-		wcd_clsh_set_buck_regulator_mode(codec,
+		} else {
+			/* set buck regulator mode to cls_ab */
+			wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
+		}
+	} else {
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/* disable class-h */
+			snd_soc_update_bits(codec,
+				WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+				0x40, 0x00);
+			wcd_enable_clsh_block(codec, clsh_d, false);
+		} else {
+			/* LO powerdown. Enable EAR Class-H */
+			wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
+			wcd_clsh_buck_ctrl(codec, clsh_d, mode, false);
+
+			wcd_clsh_set_buck_regulator_mode(codec,
 				CLS_H_NORMAL);
-		wcd_clsh_set_buck_mode(codec, mode);
-		wcd_clsh_set_flyback_mode(codec, mode);
-		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
-		wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
+			wcd_clsh_set_buck_mode(codec, mode);
+			wcd_clsh_set_flyback_mode(codec, mode);
+			wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
+			wcd_clsh_set_flyback_current(codec, mode);
+			wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
+		}
 	}
-end:
+
 	return;
 }
 
@@ -737,7 +725,6 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 						WCD9XXX_A_CDC_CLSH_K1_LSB,
 						0xFF, 0xC0);
 				wcd_clsh_set_flyback_mode(codec, mode);
-				wcd_clsh_set_flyback_vneg_ctl(codec, false);
 				wcd_clsh_set_buck_mode(codec, mode);
 				wcd_clsh_set_hph_mode(codec, mode);
 				wcd_clsh_set_gain_path(codec, mode);
@@ -773,7 +760,6 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 			if ((clsh_d->state & WCD_CLSH_STATE_HPH_ST)
 				!= WCD_CLSH_STATE_HPH_ST) {
 				wcd_enable_clsh_block(codec, clsh_d, false);
-				wcd_clsh_set_flyback_vneg_ctl(codec, true);
 				wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
 				wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
 			}
@@ -1044,6 +1030,7 @@ static bool wcd_clsh_is_state_valid(u8 state)
 	case WCD_CLSH_STATE_HPHL_LO:
 	case WCD_CLSH_STATE_HPHR_LO:
 	case WCD_CLSH_STATE_HPH_ST_LO:
+	case WCD_CLSH_STATE_EAR_LO:
 		return true;
 	default:
 		return false;

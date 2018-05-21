@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +46,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 266670000 0 0 320000000 0>;
 	};
 
 	qcom,csiphy@a35000 {
@@ -72,7 +73,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 266670000 0 0 320000000 0>;
 	};
 
 	qcom,csiphy@a36000 {
@@ -99,7 +100,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 266670000 0 0 320000000 0>;
 	};
 
 	qcom,csid@a30000  {
@@ -128,7 +129,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 0 0 0 0>;
 		status = "ok";
 	};
 
@@ -158,7 +159,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 0 0 0 0>;
 	};
 
 	qcom,csid@a30800 {
@@ -187,7 +188,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 0 0 0 0>;
 	};
 
 	qcom,csid@a30c00 {
@@ -216,7 +217,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 0 0 0 0>;
 	};
 
 	qcom,ispif@a31000 {
@@ -274,10 +275,10 @@
 			"vfe0_clk_src", "camss_vfe_vfe0_clk", "camss_csi_vfe0_clk",
 			"vfe1_clk_src", "camss_vfe_vfe1_clk", "camss_csi_vfe1_clk";
 		qcom,clock-rates = <0 0 0 0
-			0 0 0 0
-			0 0 0 0
-			0 0 0 0
-			0 0 0 0
+			480000000 0 0 0
+			480000000 0 0 0
+			480000000 0 0 0
+			480000000 0 0 0
 			0 0 0
 			0 0 0>;
 		qcom,clock-cntl-support;
@@ -790,7 +791,7 @@
 	qcom,hw-thd-dat = <22>;
 	qcom,hw-thd-sta = <162>;
 	qcom,hw-tbuf = <227>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;
@@ -799,13 +800,13 @@
 
 &i2c_freq_400Khz {
 	qcom,hw-thigh = <38>;
-	qcom,hw-tlow = <56>;
+	qcom,hw-tlow = <55>;
 	qcom,hw-tsu-sto = <40>;
 	qcom,hw-tsu-sta = <40>;
 	qcom,hw-thd-dat = <22>;
 	qcom,hw-thd-sta = <35>;
 	qcom,hw-tbuf = <62>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;
@@ -835,7 +836,7 @@
 	qcom,hw-thd-dat = <16>;
 	qcom,hw-thd-sta = <15>;
 	qcom,hw-tbuf = <24>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <3>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;

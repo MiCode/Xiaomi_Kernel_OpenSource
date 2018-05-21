@@ -9,6 +9,7 @@
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  2003-10-10 Written by Simon Derr.
  *  2003-10-22 Updates by Stephen Hemminger.
@@ -1468,6 +1469,27 @@ out_unlock:
 	return ret;
 }
 
+static int cpuset_allow_attach(struct cgroup_subsys_state *css,
+		struct cgroup_taskset *tset)
+{
+	const struct cred *cred = current_cred(), *tcred;
+	struct task_struct *task;
+
+	if (capable(CAP_SYS_NICE))
+		return 0;
+
+	cgroup_taskset_for_each(task, tset) {
+		tcred = __task_cred(task);
+
+		if (current != task && !uid_eq(cred->euid, tcred->uid) &&
+				!uid_eq(cred->euid, tcred->suid))
+			return -EACCES;
+	}
+
+	return 0;
+}
+
+
 static void cpuset_cancel_attach(struct cgroup_subsys_state *css,
 				 struct cgroup_taskset *tset)
 {
@@ -2087,6 +2109,7 @@ struct cgroup_subsys cpuset_cgrp_subsys = {
 	.css_offline	= cpuset_css_offline,
 	.css_free	= cpuset_css_free,
 	.can_attach	= cpuset_can_attach,
+	.allow_attach	= cpuset_allow_attach,
 	.cancel_attach	= cpuset_cancel_attach,
 	.attach		= cpuset_attach,
 	.bind		= cpuset_bind,
@@ -2390,6 +2413,45 @@ void __init cpuset_init_smp(void)
 
 	register_hotmemory_notifier(&cpuset_track_online_nodes_nb);
 }
+
+#ifdef CONFIG_CPUSET_EXCLUSIVE_IND
+void cpuset_mask_cpu_exclusive(struct task_struct *tsk)
+{
+	struct cpuset *cur, *c;
+	struct cgroup_subsys_state *css;
+	struct cpumask newmask, curmask;
+	int exclusive_flag = 0;
+	if (tsk->nr_cpus_allowed <= 1)
+		return;
+
+	rcu_read_lock();
+	cur = task_cs(tsk);
+	cpumask_clear(&newmask);
+	cpumask_copy(&curmask, cur->effective_cpus);
+
+	cpuset_for_each_child(c, css, cur) {
+		if (is_cpu_exclusive(c)) {
+			cpumask_andnot(&newmask, &curmask, c->cpus_allowed);
+			cpumask_copy(&curmask, &newmask);
+			exclusive_flag = 1;
+		}
+	}
+
+	if (exclusive_flag && (cpumask_weight(&newmask) > 0)) {
+		tsk->exclusive_flag = 1;
+		cpumask_copy(&tsk->cpus_allowed_bak, &tsk->cpus_allowed);
+		cpumask_copy(&tsk->cpus_allowed, &newmask);
+		tsk->nr_cpus_allowed = cpumask_weight(&tsk->cpus_allowed);
+	}
+
+	if (!exclusive_flag && tsk->exclusive_flag) {
+		tsk->exclusive_flag = 0;
+		cpumask_copy(&tsk->cpus_allowed, &tsk->cpus_allowed_bak);
+		tsk->nr_cpus_allowed = cpumask_weight(&tsk->cpus_allowed);
+	}
+	rcu_read_unlock();
+}
+#endif
 
 /**
  * cpuset_cpus_allowed - return cpus_allowed mask from a tasks cpuset.

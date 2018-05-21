@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,8 @@
 #include "splash.h"
 #include "mdss_mdp_splash_logo.h"
 #include "mdss_smmu.h"
+#include "mdss_dsi_cmd.h"
+#include "mdss_dsi.h"
 
 #define INVALID_PIPE_INDEX 0xFFFF
 #define MAX_FRAME_DONE_COUNT_WAIT 2
@@ -236,6 +239,47 @@ void mdss_free_bootmem(u32 mem_addr, u32 size)
 		free_reserved_page(pfn_to_page(pfn_idx));
 }
 
+static int mdss_dsi_check_panel_identify(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	struct dcs_cmd_req cmdreq;
+	int i = 0;
+	char panel_id[32] = "0x\0";
+	char tmp[4] = {0};
+	rc = 1;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = ctrl->panel_identify_read_cmds.cmds;
+	cmdreq.cmds_cnt = ctrl->panel_identify_read_cmds.cmd_cnt;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_REQ_RX;
+	cmdreq.rlen = ctrl->panel_data.panel_info.panel_identify_len;
+	cmdreq.cb = NULL;
+	cmdreq.rbuf = ctrl->panel_data.panel_info.panel_identify_readback;
+
+	rc = mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+	if (rc <= 0) {
+		pr_err("%s: get status: fail\n", __func__);
+		return rc;
+	}
+
+	for (i = 0; i < ctrl->panel_data.panel_info.panel_identify_len; ++i) {
+		sprintf(tmp, "%02x", ctrl->panel_data.panel_info.panel_identify_readback[i]);
+		strncat(panel_id, tmp, strlen(tmp));
+	}
+	pr_info("panel id read back: %s\n", panel_id);
+
+	for (i = 0; i < ctrl->panel_data.panel_info.panel_identify_len; ++i) {
+		if (ctrl->panel_data.panel_info.panel_identify_readback[i]
+			!= ctrl->panel_data.panel_info.panel_identify[i]) {
+			pr_err("panel identify failed\n");
+			return -EPERM;
+		}
+	}
+	pr_info("panel identify success\n");
+	return rc;
+}
+
+
 int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 					bool use_borderfill)
 {
@@ -245,6 +289,8 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	static u32 splash_mem_size;
 	int rc = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_panel_data *mpanel_mdata = NULL;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (!mfd)
 		return -EINVAL;
@@ -256,6 +302,9 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	ctl = mdp5_data->ctl;
 	if (!ctl)
 		return -EINVAL;
+
+	mpanel_mdata = ctl->panel_data;
+	ctrl_pdata = container_of(mpanel_mdata, struct mdss_dsi_ctrl_pdata, panel_data);
 
 	if (!mfd->panel_info->cont_splash_enabled ||
 		(mfd->splash_info.iommu_dynamic_attached && !use_borderfill)) {
@@ -351,6 +400,10 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	}
 
 	mdss_mdp_footswitch_ctrl_splash(0);
+	if (ctrl_pdata->panel_data.panel_info.panel_identify_len &&
+		ctrl_pdata->panel_identify_read_cmds.cmd_cnt)
+		mdss_dsi_check_panel_identify(ctrl_pdata);
+
 end:
 	return rc;
 }

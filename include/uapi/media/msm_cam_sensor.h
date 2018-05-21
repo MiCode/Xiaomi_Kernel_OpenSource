@@ -368,6 +368,7 @@ enum msm_ois_cfg_type_t {
 	CFG_OIS_POWERUP,
 	CFG_OIS_CONTROL,
 	CFG_OIS_I2C_WRITE_SEQ_TABLE,
+	CFG_OIS_CALIBRATION,
 };
 
 enum msm_ois_cfg_download_type_t {

@@ -346,6 +346,12 @@ extern int sysctl_swap_ratio_enable;
 extern int remove_mapping(struct address_space *mapping, struct page *page);
 extern unsigned long vm_total_pages;
 
+#ifdef CONFIG_PERFGUARD
+extern unsigned long pg_shrink_memory(unsigned long nr_to_reclaim);
+extern unsigned long pg_shrink_pages_from_list(struct list_head *page_list,
+					struct vm_area_struct *vma);
+#endif
+
 #ifdef CONFIG_NUMA
 extern int zone_reclaim_mode;
 extern int sysctl_min_unmapped_ratio;

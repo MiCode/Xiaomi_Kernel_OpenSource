@@ -5,6 +5,7 @@
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors: Liam Girdwood <lrg@ti.com>
  *          Mark Brown <broonie@opensource.wolfsonmicro.com>
@@ -1778,6 +1779,11 @@ int dpcm_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream)
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_SUSPEND))
+			continue;
+
+		pr_info("%s: be substream=%s, users=%d\n", __func__,
+				be_substream->pcm->id, be->dpcm[stream].users);
+		if (be->dpcm[stream].users > 1)
 			continue;
 
 		dev_dbg(be->dev, "ASoC: hw_free BE %s\n",

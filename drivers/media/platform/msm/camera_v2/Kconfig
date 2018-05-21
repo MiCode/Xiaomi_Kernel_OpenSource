@@ -262,3 +262,8 @@ config MSM_SEC_CCI_DEBUG
 	---help---
 	  Enables simulation of secure camera for Secure CCI Realy
 	  debugging.
+config CAMERA_ALS_ENABLE
+	bool "xiaomi camera ALS support"
+	default n
+	---help---
+	   This flag enables support for Camera ALS.

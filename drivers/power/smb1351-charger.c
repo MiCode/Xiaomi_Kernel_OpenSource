@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -864,7 +865,7 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 	int i, rc = 0, icl_result_ma = 0;
 	u8 reg = 0, mask = 0;
 
-	pr_debug("USB current_ma = %d\n", current_ma);
+	pr_info("USB current_ma = %d\n", current_ma);
 
 	if (chip->chg_autonomous_mode) {
 		pr_debug("Charger in autonomous mode\n");
@@ -888,13 +889,12 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 	} else if (current_ma == USB3_MIN_CURRENT_MA) {
 		/* USB 3.0 - 150mA */
 		reg = CMD_USB_3_MODE | CMD_USB_100_MODE;
-	} else if (current_ma == USB2_MAX_CURRENT_MA) {
-		/* USB 2.0 - 500mA */
-		reg = CMD_USB_2_MODE | CMD_USB_500_MODE;
-	} else if (current_ma == USB3_MAX_CURRENT_MA) {
-		/* USB 3.0 - 900mA */
-		reg = CMD_USB_3_MODE | CMD_USB_500_MODE;
-	} else if (current_ma > USB2_MAX_CURRENT_MA) {
+	/*
+	 * As smb1351 is used only for parallel charging for our product,
+	 * sometime, current_ma may be 500mA to 900mA, we should set
+	 * high current mode for them, if not, smb1351 will not charge
+	 */
+	} else if (current_ma >= USB2_MAX_CURRENT_MA) {
 		/* HC mode  - if none of the above */
 		reg = CMD_USB_HC_MODE;
 		rc = smb1351_get_usb_chg_current(chip, &icl_result_ma);
@@ -968,7 +968,7 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 	if (fastchg_current > SMB1351_CHG_FAST_MAX_MA)
 		fastchg_current = SMB1351_CHG_FAST_MAX_MA;
 
-	pr_debug("set fastchg current mA=%d\n", fastchg_current);
+	pr_info("set fastchg current mA=%d\n", fastchg_current);
 
 	/*
 	 * fast chg current could not support less than 1000mA
@@ -2404,7 +2404,7 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	int rc;
 	u8 reg, mask = 0;
 
-	pr_debug("set slave present = %d\n", present);
+	pr_info("set slave present = %d\n", present);
 	if (present == chip->parallel_charger_present) {
 		pr_debug("present %d -> %d, skipping\n",
 				chip->parallel_charger_present, present);
@@ -2527,6 +2527,27 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	return 0;
 }
 
+static int smb1351_get_closest_usb_setpoint(int val)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(usb_chg_current) - 1; i >= 0; i--) {
+		if (usb_chg_current[i] <= val)
+			break;
+	}
+	if (i < 0)
+		i = 0;
+
+	if (i >= ARRAY_SIZE(usb_chg_current) - 1)
+		return ARRAY_SIZE(usb_chg_current) - 1;
+
+	/* check what is closer, i or i + 1 */
+	if (abs(usb_chg_current[i] - val) < abs(usb_chg_current[i + 1] - val))
+		return i;
+	else
+		return i + 1;
+}
+
 static bool smb1351_is_input_current_limited(struct smb1351_charger *chip)
 {
 	int rc;
@@ -2545,7 +2566,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
-	int rc = 0;
+	int rc = 0, index;
 	struct smb1351_charger *chip = container_of(psy,
 				struct smb1351_charger, parallel_psy);
 
@@ -2580,8 +2601,11 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (chip->parallel_charger_present) {
+			index = smb1351_get_closest_usb_setpoint(
+						val->intval / 1000);
+			chip->usb_psy_ma = usb_chg_current[index];
 			rc = smb1351_set_usb_chg_current(chip,
-					val->intval / 1000);
+						chip->usb_psy_ma);
 		}
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
@@ -2617,26 +2641,16 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 {
 	struct smb1351_charger *chip = container_of(psy,
 				struct smb1351_charger, parallel_psy);
-	int rc, icl;
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = !chip->usb_suspended_status;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (chip->parallel_charger_present) {
-			rc = smb1351_get_usb_chg_current(chip, &icl);
-			if (rc) {
-				pr_err("Get ICL result failed, rc=%d\n", rc);
-				return rc;
-			}
-			if (icl > 0)
-				val->intval = icl * 1000;
-			else
-				val->intval = 0;
-		} else {
+		if (chip->parallel_charger_present)
+			val->intval = chip->usb_psy_ma * 1000;
+		else
 			val->intval = 0;
-		}
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = chip->vfloat_mv;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -439,6 +440,31 @@
 			};
 		};
 
+		mdss_vddr_active: mdss_vddr_active {
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio40";
+				drive-strength = <8>; /* 8 mA */
+				bias-disable = <0>; /* no pull */
+				output-high;
+			};
+		};
+
+		mdss_vddr_suspend: mdss_vddr_suspend {
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio40";
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
 		mdss_disp_bkl_active: mdss_disp_bkl_active {
 			config {
 				pins = "gpio135";
@@ -733,6 +759,52 @@
 			};
 		};
 
+		vibrator_mux {
+			vibrator_active: vibrator_active {
+				mux {
+					pins = "gpio93";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio93";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+
+			vibrator_suspend: vibrator_suspend {
+				mux {
+					pins = "gpio93";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio93";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		nfc_mux {
+			nfc_active: nfc_active {
+				nfc_mux {
+					pins = "gpio12", "gpio21";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			nfc_suspend: nfc_suspend {
+				nfc_mux {
+					pins = "gpio12", "gpio21";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		ts_mux {
 			ts_active: ts_active {
 				mux {
@@ -789,30 +861,112 @@
 			};
 		};
 
-		i2c_3 { /* BLSP1 QUP3 */
-			i2c_3_active: i2c_3_active {
+		btn_mux {
+			btn_active: btn_active {
 				mux {
-					pins = "gpio47", "gpio48";
-					function = "blsp_i2c3";
+					pins = "gpio78";
+					function = "gpio";
 				};
 
 				config {
-					pins = "gpio47", "gpio48";
+					pins = "gpio78";
+					drive-strength = <16>;
+					bias-pull-up;
+ 				};
+			};
+
+			btn_suspend: btn_suspend {
+				mux {
+					pins = "gpio78";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio78";
 					drive-strength = <2>;
 					bias-disable;
 				};
 			};
+		};
 
-			i2c_3_sleep: i2c_3_sleep {
+		btn_mux_a4 {
+			btn_active_a4: btn_active_a4 {
 				mux {
-					pins = "gpio47", "gpio48";
-					function = "blsp_i2c3";
+					pins = "gpio77";
+					function = "gpio";
 				};
 
 				config {
-					pins = "gpio47", "gpio48";
-					drive-strength = <2>;
+					pins = "gpio77";
+					drive-strength = <16>;
 					bias-pull-up;
+				};
+			};
+
+			btn_suspend_a4: btn_suspend_a4 {
+				mux {
+					pins = "gpio77";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio77";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		ts_mux_a4 {
+			ts_active_a4: ts_active_a4 {
+				mux {
+					pins = "gpio75", "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio75", "gpio125";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			ts_suspend_a4: ts_suspend_a4 {
+				mux {
+					pins = "gpio75", "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio75", "gpio125";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		fp_mux {
+			fp_active: fp_active {
+				mux {
+					pins = "gpio121";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio121";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+
+			fp_suspend: fp_suspend {
+				mux {
+					pins = "gpio121";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio121";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};
@@ -841,6 +995,34 @@
 					pins = "gpio87", "gpio88";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+		};
+
+		i2c_3 {
+			i2c_3_active: i2c_3_active {
+				mux {
+					pins = "gpio47", "gpio48";
+					function = "blsp_i2c3";
+				};
+
+				config {
+					pins = "gpio47", "gpio48";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c_3_sleep: i2c_3_sleep {
+				mux {
+					pins = "gpio47", "gpio48";
+					function = "blsp_i2c3";
+				};
+
+				config {
+					pins = "gpio47", "gpio48";
+					drive-strength = <2>;
+					bias-pull-up;
 				};
 			};
 		};
@@ -895,6 +1077,34 @@
 
 				config {
 					pins = "gpio55", "gpio56";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		i2c_9 {
+			i2c_9_active: i2c_9_active {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "blsp_i2c9";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
+					driver-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c_9_sleep: i2c_9_sleep {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "blsp_i2c9";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
 					drive-strength = <2>;
 					bias-pull-up;
 				};
@@ -1621,87 +1831,6 @@
 			};
 		};
 
-		sec_mi2s {
-			sec_mi2s_sleep: sec_mi2s_sleep {
-				mux {
-					pins = "gpio80", "gpio81";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio80", "gpio81";
-					drive-strength = <2>;   /* 2 mA */
-					bias-disable;         /* NO PULL */
-				};
-			};
-			sec_mi2s_active: sec_mi2s_active {
-				mux {
-					pins = "gpio80", "gpio81";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio80", "gpio81";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
-		sec_mi2s_sd0 {
-			sec_mi2s_sd0_sleep: sec_mi2s_sd0_sleep {
-				mux {
-					pins = "gpio82";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio82";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			sec_mi2s_sd0_active: sec_mi2s_sd0_active {
-				mux {
-					pins = "gpio82";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio82";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
-		sec_mi2s_sd1 {
-			sec_mi2s_sd1_sleep: sec_mi2s_sd1_sleep {
-				mux {
-					pins = "gpio83";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio83";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			sec_mi2s_sd1_active: sec_mi2s_sd1_active {
-				mux {
-					pins = "gpio83";
-					function = "sec_mi2s";
-				};
-
-				config {
-					pins = "gpio83";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
 		tert_mi2s {
 			tert_mi2s_sleep: tert_mi2s_sleep {
 				mux {
@@ -1730,33 +1859,6 @@
 			};
 		};
 
-		tert_mi2s_sd1 {
-			tert_mi2s_sd1_sleep: tert_mi2s_sd1_sleep {
-				mux {
-					pins = "gpio78";
-					function = "ter_mi2s";
-				};
-
-				config {
-					pins = "gpio78";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			tert_mi2s_sd1_active: tert_mi2s_sd1_active {
-				mux {
-					pins = "gpio78";
-					function = "ter_mi2s";
-				};
-
-				config {
-					pins = "gpio78";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
 		tert_mi2s_sd0 {
 			tert_mi2s_sd0_sleep: tert_mi2s_sd0_sleep {
 				mux {
@@ -1778,88 +1880,6 @@
 
 				config {
 					pins = "gpio77";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
-		quat_mi2s {
-			quat_mi2s_sleep: quat_mi2s_sleep {
-				mux {
-					pins = "gpio58", "gpio59";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio58", "gpio59";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			quat_mi2s_active: quat_mi2s_active {
-				mux {
-					pins = "gpio58", "gpio59";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio58", "gpio59";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-					output-high;
-				};
-			};
-		};
-
-		quat_mi2s_sd1 {
-			quat_mi2s_sd1_sleep: quat_mi2s_sd1_sleep {
-				mux {
-					pins = "gpio61";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio61";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			quat_mi2s_sd1_active: quat_mi2s_sd1_active {
-				mux {
-					pins = "gpio61";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio61";
-					drive-strength = <8>;   /* 8 mA */
-					bias-disable;           /* NO PULL */
-				};
-			};
-		};
-
-		quat_mi2s_sd0 {
-			quat_mi2s_sd0_sleep: quat_mi2s_sd0_sleep {
-				mux {
-					pins = "gpio60";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio60";
-					drive-strength = <2>;   /* 2 mA */
-					bias-pull-down;         /* PULL DOWN */
-				};
-			};
-			quat_mi2s_sd0_active: quat_mi2s_sd0_active {
-				mux {
-					pins = "gpio60";
-					function = "qua_mi2s";
-				};
-
-				config {
-					pins = "gpio60";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
 				};
@@ -1915,6 +1935,33 @@
 
 				config {
 					pins = "gpio77";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		tert_mi2s_sd1 {
+			tert_mi2s_sd1_sleep: tert_mi2s_sd1_sleep {
+				mux {
+					pins = "gpio78";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio78";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			tert_mi2s_sd1_active: tert_mi2s_sd1_active {
+				mux {
+					pins = "gpio78";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio78";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
 				};
@@ -2029,6 +2076,258 @@
 				};
 			};
 		};
+
+		prim_mi2s {
+			pri_mi2s_sleep: pri_mi2s_sleep {
+				prim_mi2s {
+					pins = "gpio65", "gpio66";
+					function = "pri_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			pri_mi2s_active: pri_mi2s_active {
+				prim_mi2s {
+					pins = "gpio65", "gpio66";
+					function = "pri_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		prim_mi2s_mclk {
+			pri_mi2s_mclk_sleep: pri_mi2s_mclk_sleep {
+				prim_mi2s {
+					pins = "gpio64";
+					function = "pri_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			pri_mi2s_mclk_active: pri_mi2s_mclk_active {
+				prim_mi2s {
+					pins = "gpio64";
+					function = "pri_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		prim_mi2s_sd0 {
+			pri_mi2s_sd0_sleep: pri_mi2s_sd0_sleep {
+				prim_mi2s_sd0 {
+					pins = "gpio67";
+					function = "pri_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			pri_mi2s_sd0_active: pri_mi2s_sd0_active {
+				prim_mi2s_sd0 {
+					pins = "gpio67";
+					function = "pri_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		prim_mi2s_sd1 {
+			pri_mi2s_sd1_sleep: pri_mi2s_sd1_sleep {
+				prim_mi2s_sd1 {
+					pins = "gpio68";
+					function = "pri_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			pri_mi2s_sd1_active: pri_mi2s_sd1_active {
+				prim_mi2s_sd1 {
+					pins = "gpio68";
+					function = "pri_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		sec_mi2s {
+			sec_mi2s_sleep: sec_mi2s_sleep {
+				sec_mi2s {
+					pins = "gpio80", "gpio81";
+					function = "sec_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			sec_mi2s_active: sec_mi2s_active {
+				sec_mi2s {
+					pins = "gpio80", "gpio81";
+					function = "sec_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		sec_mi2s_mclk {
+			sec_mi2s_mclk_sleep: sec_mi2s_mclk_sleep {
+				sec_mi2s {
+					pins = "gpio79";
+					function = "sec_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			sec_mi2s_mclk_active: sec_mi2s_mclk_active {
+				sec_mi2s {
+					pins = "gpio79";
+					function = "sec_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		sec_mi2s_sd0 {
+			sec_mi2s_sd0_sleep: sec_mi2s_sd0_sleep {
+				sec_mi2s_sd0 {
+					pins = "gpio82";
+					function = "sec_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			sec_mi2s_sd0_active: sec_mi2s_sd0_active {
+				sec_mi2s_sd0 {
+					pins = "gpio82";
+					function = "sec_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		sec_mi2s_sd1 {
+			sec_mi2s_sd1_sleep: sec_mi2s_sd1_sleep {
+				sec_mi2s_sd1 {
+					pins = "gpio83";
+					function = "sec_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			sec_mi2s_sd1_active: sec_mi2s_sd1_active {
+				sec_mi2s_sd1 {
+					pins = "gpio83";
+					function = "sec_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		quat_mi2s {
+			quat_mi2s_sleep: quat_mi2s_sleep {
+				quat_mi2s {
+					pins = "gpio58", "gpio59";
+					function = "qua_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			quat_mi2s_active: quat_mi2s_active {
+				quat_mi2s {
+					pins = "gpio58", "gpio59";
+					function = "qua_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		quat_mi2s_sd0 {
+			quat_mi2s_sd0_sleep: quat_mi2s_sd0_sleep {
+				quat_mi2s_sd0 {
+					pins = "gpio60";
+					function = "qua_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			quat_mi2s_sd0_active: quat_mi2s_sd0_active {
+				quat_mi2s_sd0 {
+					pins = "gpio60";
+					function = "qua_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		quat_mi2s_sd1 {
+			quat_mi2s_sd1_sleep: quat_mi2s_sd1_sleep {
+				quat_mi2s_sd1 {
+					pins = "gpio61";
+					function = "qua_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			quat_mi2s_sd1_active: quat_mi2s_sd1_active {
+				quat_mi2s_sd1 {
+					pins = "gpio61";
+					function = "qua_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		quat_mi2s_sd2 {
+			quat_mi2s_sd2_sleep: quat_mi2s_sd2_sleep {
+				quat_mi2s_sd2 {
+					pins = "gpio62";
+					function = "qua_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			quat_mi2s_sd2_active: quat_mi2s_sd2_active {
+				quat_mi2s_sd2 {
+					pins = "gpio62";
+					function = "qua_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		quat_mi2s_sd3 {
+			quat_mi2s_sd3_sleep: quat_mi2s_sd3_sleep {
+				quat_mi2s_sd3 {
+					pins = "gpio63";
+					function = "qua_mi2s";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			quat_mi2s_sd3_active: quat_mi2s_sd3_active {
+				quat_mi2s_sd3 {
+					pins = "gpio63";
+					function = "qua_mi2s";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
 		ap_mclk_en {
 			ap_mclk_sleep: ap_mclk_sleep {
 				mux {
@@ -2086,6 +2385,7 @@
 				};
 			};
 		};
+
 
 		cci0_active: cci0_active {
 			mux {
@@ -2176,12 +2476,12 @@
 		cam_sensor_rear_active: cam_sensor_rear_active {
 			/* RESET, STANDBY */
 			mux {
-				pins = "gpio30";
+				pins = "gpio86","gpio30";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio30","gpio29";
+				pins = "gpio86","gpio30";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2190,12 +2490,12 @@
 		cam_sensor_rear_suspend: cam_sensor_rear_suspend{
 			/* RESET, STANDBY */
 			mux {
-				pins = "gpio30","gpio29";
+				pins = "gpio86","gpio30";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio30","gpio29";
+				pins = "gpio86","gpio30";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -3030,5 +3330,23 @@
 			};
 		};
 
+		gp1_clk {
+			gp1_clk_sleep: gp1_clk_sleep {
+				gcc_gp1_clk {
+					pins = "gpio78";
+					function = "gcc_gp1_clk_b";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+			gp1_clk_active: gp1_clk_active {
+				gcc_gp1_clk {
+					pins = "gpio78";
+					function = "gcc_gp1_clk_b";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+				};
+			};
+		};
 	};
 };

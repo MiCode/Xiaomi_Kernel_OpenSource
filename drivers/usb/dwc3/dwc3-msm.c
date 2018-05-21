@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -234,6 +235,7 @@ struct dwc3_msm {
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
 	enum dwc3_perf_mode     mode;
+	u8			dcd_retries;
 	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
@@ -292,6 +294,11 @@ struct dwc3_msm {
 
 #define PM_QOS_SAMPLE_SEC		2
 #define PM_QOS_THRESHOLD_NOM		400
+/* USB PHY DCD based floated charger and DCP detection */
+#define DCD_DONE		0
+#define DCD_TIMEOUT		0x2
+#define DCD_DCP_DET		0x3
+#define DCD_RETRY_MAX_TIMES		10
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
@@ -1954,6 +1961,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	u32 reg = 0;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
+	dev_err(mdwc->dev, "in p3 %d\n", atomic_read(&mdwc->in_p3));
 	if ((mdwc->in_host_mode || (mdwc->vbus_active
 			&& mdwc->otg_state == OTG_STATE_B_SUSPEND))
 			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart) {
@@ -3758,7 +3766,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 	if (mdwc->charging_disabled)
 		return 0;
 
-	if (mdwc->chg_type != DWC3_INVALID_CHARGER) {
+	if ((mdwc->chg_type != DWC3_INVALID_CHARGER) &&
+			(mdwc->chg_type != DWC3_PROPRIETARY_CHARGER)) {
 		dev_dbg(mdwc->dev,
 			"SKIP setting power supply type again,chg_type = %d\n",
 			mdwc->chg_type);
@@ -3835,8 +3844,19 @@ static void dwc3_check_float_lines(struct dwc3_msm *mdwc)
 	dwc3_msm_gadget_vbus_draw(mdwc, 0);
 
 	/* Get linestate with Idp_src enabled */
-	dpdm = usb_phy_dpdm_with_idp_src(mdwc->hs_phy);
-	if (dpdm == 0x2) {
+	if (mdwc->otg_state == OTG_STATE_UNDEFINED) {
+		/* during power on, no need to retry 10 times */
+		dpdm = usb_phy_dpdm_with_idp_src(mdwc->hs_phy);
+	} else {
+		do {
+			dpdm = usb_phy_dpdm_with_idp_src(mdwc->hs_phy);
+			if (dpdm == DCD_DONE || dpdm == DCD_DCP_DET)
+				break;
+			mdwc->dcd_retries++;
+			msleep(200);
+		} while (mdwc->dcd_retries < DCD_RETRY_MAX_TIMES);
+	}
+	if (dpdm == DCD_TIMEOUT || dpdm == DCD_DCP_DET) {
 		/* DP is HIGH = lines are floating */
 		mdwc->chg_type = DWC3_PROPRIETARY_CHARGER;
 		mdwc->otg_state = OTG_STATE_B_IDLE;
@@ -3974,8 +3994,10 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 				if (mdwc->detect_dpdm_floating &&
 					mdwc->chg_type == DWC3_SDP_CHARGER) {
 					dwc3_check_float_lines(mdwc);
-					if (mdwc->chg_type != DWC3_SDP_CHARGER)
+					if (mdwc->chg_type != DWC3_SDP_CHARGER) {
+						work = 1;
 						break;
+					}
 				}
 				dwc3_otg_start_peripheral(mdwc, 1);
 				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
@@ -4041,8 +4063,10 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 				if (mdwc->detect_dpdm_floating &&
 				    mdwc->chg_type == DWC3_SDP_CHARGER) {
 					dwc3_check_float_lines(mdwc);
-					if (mdwc->chg_type != DWC3_SDP_CHARGER)
+					if (mdwc->chg_type != DWC3_SDP_CHARGER) {
+						work = 1;
 						break;
+					}
 				}
 				dwc3_otg_start_peripheral(mdwc, 1);
 				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
@@ -4054,6 +4078,7 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 			}
 		} else {
 			mdwc->typec_current_max = 0;
+			mdwc->dcd_retries = 0;
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
 			dev_dbg(mdwc->dev, "No device, allowing suspend\n");
 			dbg_event(0xFF, "RelNodev", 0);

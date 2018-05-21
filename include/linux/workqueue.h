@@ -12,11 +12,10 @@
 #include <linux/threads.h>
 #include <linux/atomic.h>
 #include <linux/cpumask.h>
+#include <linux/work.h>
 
 struct workqueue_struct;
 
-struct work_struct;
-typedef void (*work_func_t)(struct work_struct *work);
 void delayed_work_timer_fn(unsigned long __data);
 
 /*
@@ -95,15 +94,6 @@ enum {
 
 	/* maximum string length for set_worker_desc() */
 	WORKER_DESC_LEN		= 24,
-};
-
-struct work_struct {
-	atomic_long_t data;
-	struct list_head entry;
-	work_func_t func;
-#ifdef CONFIG_LOCKDEP
-	struct lockdep_map lockdep_map;
-#endif
 };
 
 #define WORK_DATA_INIT()	ATOMIC_LONG_INIT(WORK_STRUCT_NO_POOL)

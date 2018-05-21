@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -696,16 +697,14 @@ static int msm_dai_q6_auxpcm_set_clk(
 	int rc;
 
 	pr_debug("%s: afe_clk_ver: %d, port_id: %d, enable: %d\n", __func__,
-		 aux_dai_data->afe_clk_ver, port_id, enable);
+			aux_dai_data->afe_clk_ver, port_id, enable);
 	if (aux_dai_data->afe_clk_ver == AFE_CLK_VERSION_V2) {
 		aux_dai_data->clk_set.enable = enable;
-		rc = afe_set_lpass_clock_v2(port_id,
-					&aux_dai_data->clk_set);
+		rc = afe_set_lpass_clock_v2(port_id, &aux_dai_data->clk_set);
 	} else {
 		if (!enable)
 			aux_dai_data->clk_cfg.clk_val1 = 0;
-		rc = afe_set_lpass_clock(port_id,
-					&aux_dai_data->clk_cfg);
+		rc = afe_set_lpass_clock(port_id, &aux_dai_data->clk_cfg);
 	}
 	return rc;
 }
@@ -765,6 +764,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->rx_pid, false);
 	msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->tx_pid, false);
+
 exit:
 	mutex_unlock(&aux_dai_data->rlock);
 	return;
@@ -839,6 +839,7 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		rc = -EINVAL;
 		goto fail;
 	}
+
 	if (aux_dai_data->afe_clk_ver == AFE_CLK_VERSION_V2) {
 		memcpy(&aux_dai_data->clk_set, &lpass_clk_set_default,
 				sizeof(struct afe_clk_set));
@@ -847,33 +848,27 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		switch (dai->id) {
 		case MSM_DAI_PRI_AUXPCM_DT_DEV_ID:
 			if (pcm_clk_rate)
-				aux_dai_data->clk_set.clk_id =
-					Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT;
+				aux_dai_data->clk_set.clk_id = Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT;
 			else
-				aux_dai_data->clk_set.clk_id =
-					Q6AFE_LPASS_CLK_ID_PRI_PCM_EBIT;
+				aux_dai_data->clk_set.clk_id = Q6AFE_LPASS_CLK_ID_PRI_PCM_EBIT;
 			break;
 		case MSM_DAI_SEC_AUXPCM_DT_DEV_ID:
 			if (pcm_clk_rate)
-				aux_dai_data->clk_set.clk_id =
-					Q6AFE_LPASS_CLK_ID_SEC_PCM_IBIT;
+				aux_dai_data->clk_set.clk_id = Q6AFE_LPASS_CLK_ID_SEC_PCM_IBIT;
 			else
-				aux_dai_data->clk_set.clk_id =
-					Q6AFE_LPASS_CLK_ID_SEC_PCM_EBIT;
+				aux_dai_data->clk_set.clk_id = Q6AFE_LPASS_CLK_ID_SEC_PCM_EBIT;
 			break;
 		default:
-			dev_err(dai->dev, "%s: AUXPCM id: %d not supported\n",
-				__func__, dai->id);
+			dev_err(dai->dev, "%s: AUXPCM id:%d not supported\n", __func__, dai->id);
 			break;
 		}
 	} else {
-		memcpy(&aux_dai_data->clk_cfg, &lpass_clk_cfg_default,
-				sizeof(struct afe_clk_cfg));
+		memcpy(&aux_dai_data->clk_cfg, &lpass_clk_cfg_default, sizeof(struct afe_clk_cfg));
 		aux_dai_data->clk_cfg.clk_val1 = pcm_clk_rate;
 	}
 
-	rc = msm_dai_q6_auxpcm_set_clk(aux_dai_data,
-				       aux_dai_data->rx_pid, true);
+	rc = msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->rx_pid, true);
+
 	if (rc < 0) {
 		dev_err(dai->dev,
 			"%s:afe_set_lpass_clock on RX pcm_src_clk failed\n",
@@ -881,8 +876,8 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		goto fail;
 	}
 
-	rc = msm_dai_q6_auxpcm_set_clk(aux_dai_data,
-				       aux_dai_data->tx_pid, true);
+	rc = msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->tx_pid, true);
+
 	if (rc < 0) {
 		dev_err(dai->dev,
 			"%s:afe_set_lpass_clock on TX pcm_src_clk failed\n",
@@ -956,8 +951,10 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 		clear_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status);
 		clear_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status);
 	}
+
 	msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->rx_pid, false);
 	msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->tx_pid, false);
+
 	return 0;
 }
 
@@ -3574,6 +3571,8 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	u32 tx_line = 0;
 	u32  rx_line = 0;
 	u32 mi2s_intf = 0;
+	u32 mi2s_slave = 0;
+	u32 mi2s_ext_mclk_rate = 0;
 	struct msm_mi2s_pdata *mi2s_pdata;
 	int rc;
 
@@ -3621,11 +3620,29 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 			"qcom,msm-mi2s-tx-lines");
 		goto free_pdata;
 	}
-	dev_dbg(&pdev->dev, "dev name %s Rx line 0x%x , Tx ine 0x%x\n",
-		dev_name(&pdev->dev), rx_line, tx_line);
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-slave",
+				  &mi2s_slave);
+	if (rc) {
+		dev_dbg(&pdev->dev, "%s: %s Not found, defaulting to Master\n",
+			__func__, "qcom,msm-mi2s-slave");
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-ext-mclk",
+				  &mi2s_ext_mclk_rate);
+	if (rc) {
+		dev_dbg(&pdev->dev, "%s: %s Not found\n",
+			__func__, "qcom,msm-mi2s-ext-mclk");
+	}
+
+	dev_dbg(&pdev->dev, "dev name %s Rx line 0x%x, Tx line 0x%x, slave %d, mi2s_ext_mclk_rate %u\n",
+		dev_name(&pdev->dev), rx_line, tx_line, mi2s_slave, mi2s_ext_mclk_rate);
+
 	mi2s_pdata->rx_sd_lines = rx_line;
 	mi2s_pdata->tx_sd_lines = tx_line;
 	mi2s_pdata->intf_id = mi2s_intf;
+	mi2s_pdata->slave = mi2s_slave;
+	mi2s_pdata->ext_mclk_rate = mi2s_ext_mclk_rate;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_mi2s_dai_data),
 			   GFP_KERNEL);

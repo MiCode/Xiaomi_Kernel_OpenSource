@@ -44,6 +44,16 @@ config ANDROID_BINDER_DEVICES
 	  created. Each binder device has its own context manager, and is
 	  therefore logically separated from the other devices.
 
+config ANDROID_BINDER_IPC_SELFTEST
+	bool "Android Binder IPC Driver Selftest"
+	depends on ANDROID_BINDER_IPC
+	---help---
+	  This feature allows binder selftest to run.
+
+	  Binder selftest checks the allocation and free of binder buffers
+	  exhaustively with combinations of various buffer sizes and
+	  alignments.
+
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"
 	default n
@@ -138,9 +148,29 @@ config ONESHOT_SYNC_USER
 	help
 	  Provide a userspace API for creating oneshot sync objects.
 
+config ANDROID_WHETSTONE
+	bool "Android Whetstone"
+	default N
+	---help---
+	  report to whetstone the memory state when reach target limit value.
+
+config MULTIPLE_LMK
+	bool "Multiple lowmemorykiller"
+	default N
+	---help---
+	  Provide multiple kill in LMK routine
+
+config THREADINFO_POOL
+	bool "enable runtime mem optimization"
+	select DEBUG_FS
+	help
+	  The module is created by MIUI to optimize mem performance
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"
+
+source "drivers/staging/android/perfguard/Kconfig"
 
 endif # if ANDROID
 

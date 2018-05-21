@@ -1,0 +1,6 @@
+config PERFGUARD
+	bool "Performance guard"
+	default n
+	depends on ANDROID && DEBUG_FS
+	help
+	  Choose this to enable performance guard feature

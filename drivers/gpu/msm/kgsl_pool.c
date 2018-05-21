@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -548,6 +549,9 @@ void kgsl_init_page_pools(struct platform_device *pdev)
 
 	/* Initialize shrinker */
 	register_shrinker(&kgsl_pool_shrinker);
+#ifdef CONFIG_PERFGUARD
+	pg_register_kgsl_shrinker(&kgsl_pool_shrinker);
+#endif
 }
 
 void kgsl_exit_page_pools(void)

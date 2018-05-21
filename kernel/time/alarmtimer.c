@@ -60,6 +60,7 @@ static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 static struct mutex power_on_alarm_lock;
+bool alarm_fired;
 
 /**
  * set_power_on_alarm - set power on alarm value into rtc register
@@ -308,6 +309,7 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 	/* set next power off alarm */
 	if (alarm->type == ALARM_POWEROFF_REALTIME)
 		queue_delayed_work(power_off_alarm_workqueue, &work, 0);
+	alarm_fired = true;
 
 	return ret;
 

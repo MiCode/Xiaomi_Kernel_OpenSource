@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +63,8 @@ enum fps_resolution {
 #define EDP_PANEL		12	/* LVDS */
 
 #define DSC_PPS_LEN		128
+#define NIGHT_MAP_LEN		256	/*night mode map array length*/
+#define PANEL_IDENTIFY_LEN	8 /*panel identify code array length*/
 
 /* HDR propeties count */
 #define DISPLAY_PRIMARIES_COUNT	8	/* WRGB x and y values*/
@@ -261,6 +264,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
 	MDSS_EVENT_ENABLE_PARTIAL_ROI,
 	MDSS_EVENT_DSC_PPS_SEND,
+	MDSS_EVENT_DISPPARAM,
 	MDSS_EVENT_DSI_STREAM_SIZE,
 	MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
@@ -641,12 +645,15 @@ struct mdss_panel_info {
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
 	bool dynamic_fps;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
 	bool panel_ack_disabled;
 	bool esd_check_enabled;
 	bool allow_phy_power_off;
+	bool video_panel_te_check;
 	char dfps_update;
 	/* new requested fps before it is updated in hw */
 	int new_fps;
@@ -666,11 +673,17 @@ struct mdss_panel_info {
 	u32 max_fps;
 	u32 prg_fet;
 	struct mdss_panel_roi_alignment roi_alignment;
+	u32 night_map[NIGHT_MAP_LEN];
+	u8 night_map_len;
+	char panel_identify[PANEL_IDENTIFY_LEN];
+	u8 panel_identify_len;
+	char panel_identify_readback[PANEL_IDENTIFY_LEN];
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
 	bool partial_update_supported; /* value from dts if pu is supported */
 	bool partial_update_enabled; /* is pu currently allowed */
+	u32 dispparam_enabled;
 	u32 dcs_cmd_by_left;
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
@@ -716,6 +729,9 @@ struct mdss_panel_info {
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
+	uint32_t panel_paramstatus;
+	uint32_t panel_on_param;
+	uint32_t panel_on_dimming_delay;
 
 	/*
 	 * Value of 2 only when single DSI is configured with 2 DSC
@@ -738,6 +754,7 @@ struct mdss_panel_info {
 	struct edp_panel_info edp;
 
 	bool is_dba_panel;
+	bool is_oled_hbm_mode;
 
 	/*
 	 * Delay(in ms) to accommodate s/w delay while
@@ -753,6 +770,14 @@ struct mdss_panel_info {
 
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
+	u64 panel_active;
+	u64 kickoff_count;
+
+	u64 bl_duration;
+	u64 bl_level_integral;
+
+	/* check disable cabc by panel off*/
+	bool disable_cabc;
 };
 
 struct mdss_panel_timing {
@@ -818,9 +843,6 @@ struct mdss_panel_data {
 	/* To store dsc cfg name passed by bootloader */
 	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
-
-	int panel_te_gpio;
-	struct completion te_done;
 };
 
 struct mdss_panel_debugfs_info {

@@ -1435,11 +1435,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	cci_dev->payload_size =
 			MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_10;
 	cci_dev->support_seq_write = 0;
-	if (cci_dev->hw_version >= 0x10020000) {
-		cci_dev->payload_size =
-			MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11;
-		cci_dev->support_seq_write = 1;
-	}
 	for (i = 0; i < NUM_MASTERS; i++) {
 		for (j = 0; j < NUM_QUEUES; j++) {
 			if (j == QUEUE_0) {

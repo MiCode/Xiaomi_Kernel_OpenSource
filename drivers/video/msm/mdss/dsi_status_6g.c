@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +16,7 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/interrupt.h>
+#include <linux/gpio.h>
 
 #include "mdss_dsi.h"
 #include "mdss_mdp.h"
@@ -36,7 +38,8 @@ static bool mdss_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 
 	atomic_set(&ctrl_pdata->te_irq_ready, 0);
 	reinit_completion(&ctrl_pdata->te_irq_comp);
-	enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+	if (ctrl_pdata->panel_data.panel_info.panel_power_state == MDSS_PANEL_POWER_ON)
+	       enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	/* Define TE interrupt timeout value as 3x(1/fps) */
 	ret = wait_for_completion_timeout(&ctrl_pdata->te_irq_comp,
 			msecs_to_jiffies(interval));

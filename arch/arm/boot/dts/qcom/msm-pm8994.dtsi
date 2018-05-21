@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 	interrupt-controller;
 	#interrupt-cells = <3>;
 
-	qcom,pm8994@0 {
+	pm8994_0: qcom,pm8994@0 {
 		spmi-slave-container;
 		reg = <0x0>;
 		#address-cells = <1>;
@@ -50,15 +51,17 @@
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
 			qcom,kpdpwr-sw-debounce;
+			qcom,s3-debounce = <32>;
+			qcom,s3-src = "kpdpwr-and-resin";
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
 				qcom,support-reset = <1>;
-				qcom,s1-timer = <10256>;
+				qcom,s1-timer = <4480>;
 				qcom,s2-timer = <2000>;
-				qcom,s2-type = <1>;
+				qcom,s2-type = <7>;
 			};
 
 			qcom,pon_2 {
@@ -362,19 +365,19 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pwm@b100 {
+		pm8994_pwm_1: pwm@b100 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb100 0x100>,
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <0>;
-			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <0>;
 			#pwm-cells = <2>;
-			status = "disabled";
+			status = "okay";
 		};
 
-		pwm@b200 {
+		pm8994_pwm_2: pwm@b200 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb200 0x100>,
 			      <0xb042 0x7e>;
@@ -383,10 +386,10 @@
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <1>;
 			#pwm-cells = <2>;
-			status = "disabled";
+			status = "okay";
 		};
 
-		pwm@b300 {
+		pm8994_pwm_3: pwm@b300 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb300 0x100>,
 			      <0xb042 0x7e>;
@@ -395,10 +398,10 @@
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <2>;
 			#pwm-cells = <2>;
-			status = "disabled";
+			status = "okay";
 		};
 
-		pwm@b400 {
+		pm8994_pwm_4: pwm@b400 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb400 0x100>,
 			      <0xb042 0x7e>;
@@ -407,7 +410,7 @@
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <3>;
 			#pwm-cells = <2>;
-			status = "disabled";
+			status = "okay";
 		};
 
 		pwm@b500 {
@@ -422,7 +425,7 @@
 			status = "disabled";
 		};
 
-		pwm@b600 {
+		pm8994_pwm_6: pwm@b600 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb600 0x100>,
 			      <0xb042 0x7e>;
@@ -431,7 +434,7 @@
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <5>;
 			#pwm-cells = <2>;
-			status = "disabled";
+			status = "okay";
 		};
 	};
 };

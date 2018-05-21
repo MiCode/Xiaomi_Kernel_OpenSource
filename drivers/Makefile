@@ -142,6 +142,9 @@ obj-y				+= platform/
 #common clk code
 obj-y				+= clk/
 
+#Elliptic US driver
+obj-y				+= elliptic/
+
 obj-$(CONFIG_MAILBOX)		+= mailbox/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
 obj-$(CONFIG_IOMMU_SUPPORT)	+= iommu/

@@ -135,6 +135,18 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mXT641T30AC.fw mXT640U13AA.fw \
+	mxt_641t_sharp_config.fw mxt_640u_lgd_config.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_jdi_incell.fw \
+	synaptics_lgd_incell.fw synaptics_lgd_incell_backup.fw
+
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FORCE) += synaptics_jdi_3330_a7.fw synaptics_jdi_3331_a7.fw synaptics_lgd_4322_a7.fw  synaptics_lgd_4722_a7.fw \
+	synaptics_jdi_3330_b7.fw synaptics_jdi_3331_b7.fw synaptics_sharp_4322_b7.fw synaptics_sharp_4722_b7.fw synaptics_lgd_backup_A7.fw synaptics_sharp_backup_b7.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_FT5X46) += fte8716_auo_incell_lens_a8.fw fte8716_auo_incell_biel_a8.fw \
+	fte8716_sharp_incell_lens_a8.fw fte8716_sharp_incell_biel_a8.fw
+
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS) += st_fts.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_CYTTSP_BUTTON) += cyttsp_button_no_shielding.fw
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

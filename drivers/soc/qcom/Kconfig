@@ -900,6 +900,15 @@ config WCD_DSP_GLINK
 	   This option enables driver which provides communication interface
 	   between MSM and WCD DSP over glink transport protocol. This driver
 	   provides read and write interface via char device.
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
+config MSM_CAPTOUCH
+	tristate "Capacitive touch simulatation driver"
+	help
+	  This driver is used to allow capacitive touch testing with qbt1000
 
 source "drivers/soc/qcom/memshare/Kconfig"
 

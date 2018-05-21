@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +49,7 @@
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
 #include "cnss_common.h"
+#include <asm/bootinfo.h>
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include <net/cnss_prealloc.h>
@@ -1099,6 +1101,43 @@ int cnss_get_fw_files(struct cnss_fw_files *pfw_files)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_fw_files);
+
+int get_fem_fix_flag(void)
+{
+		struct device *dev;
+		struct pci_dev *pdev;
+		const struct firmware *fw_entry;
+		/* back to grandfather's path to root dir */
+		const char *filename = "../../persist/wlan_bt/ff_flag";
+		int fw_data = 0;
+
+		pdev = penv->pdev;
+		dev = &pdev->dev;
+
+		if (request_firmware(&fw_entry, filename, dev) != 0) {
+			pr_err("cnss: failed to get fw: %s\n", filename);
+			goto end;
+		}
+
+		if (!fw_entry || !fw_entry->data) {
+			pr_err("%s: INVALID FW entries\n", __func__);
+			goto release_fw;
+		}
+
+		if (fw_entry->size > 1) {
+			pr_err("cnss: fem fix flag file has invalid size %s: %zu\n",
+					filename, fw_entry->size);
+			goto release_fw;
+		}
+
+		fw_data = fw_entry->data[0];
+
+release_fw:
+		release_firmware(fw_entry);
+end:
+		pr_err("get_fem_fix_flag: data=%d\n", fw_data);
+		return fw_data;
+}
 
 #ifdef CONFIG_CNSS_SECURE_FW
 static void cnss_wlan_fw_mem_alloc(struct pci_dev *pdev)

@@ -403,7 +403,7 @@ static int msm_csiphy_2phase_lane_config(
 		if ((csiphy_dev->hw_version == CSIPHY_VERSION_V342 ||
 		    csiphy_dev->hw_version == CSIPHY_VERSION_V342_1) &&
 			csiphy_params->combo_mode == 1) {
-			msm_camera_io_w(0x52,
+			msm_camera_io_w(0x50,
 				csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg5.addr + offset);

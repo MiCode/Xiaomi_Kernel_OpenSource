@@ -793,7 +793,7 @@ static int sd_setup_discard_cmnd(struct scsi_cmnd *cmd)
 	}
 
 	rq->completion_data = page;
-	rq->timeout = SD_TIMEOUT;
+	rq->timeout = SD_UNMAP_TIMEOUT;
 
 	cmd->transfersize = len;
 	cmd->allowed = SD_MAX_RETRIES;
