@@ -2013,6 +2013,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
 	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_117:
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
 		mdata->min_prefill_lines = 14;
@@ -2029,6 +2030,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_MIXER_1_FOR_WB, mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
+		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
+			mdata->mdss_caps_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
@@ -4713,6 +4716,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 		/* fall-through */
 	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
+	case MDSS_MDP_HW_REV_117:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if (params->is_rot && params->is_yuv)
