@@ -531,12 +531,26 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 	if (attrib->protocol_eq_present)
 		pr_err("protocol:%d ", attrib->protocol_eq);
 
+	if (attrib->num_ihl_offset_range_16 >
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS) {
+		IPAERR_RL("num_ihl_offset_range_16  Max %d passed value %d\n",
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS,
+			attrib->num_ihl_offset_range_16);
+		 return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_ihl_offset_range_16; i++) {
 		pr_err(
 			   "(ihl_ofst_range16: ofst:%u lo:%u hi:%u) ",
 			   attrib->ihl_offset_range_16[i].offset,
 			   attrib->ihl_offset_range_16[i].range_low,
 			   attrib->ihl_offset_range_16[i].range_high);
+	}
+
+	if (attrib->num_offset_meq_32 > IPA_IPFLTR_NUM_MEQ_32_EQNS) {
+		IPAERR_RL("num_offset_meq_32  Max %d passed value %d\n",
+			IPA_IPFLTR_NUM_MEQ_32_EQNS, attrib->num_offset_meq_32);
+		return -EPERM;
 	}
 
 	for (i = 0; i < attrib->num_offset_meq_32; i++) {
@@ -560,12 +574,25 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 				attrib->ihl_offset_eq_16.value);
 	}
 
+	if (attrib->num_ihl_offset_meq_32 > IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS) {
+		IPAERR_RL("num_ihl_offset_meq_32  Max %d passed value %d\n",
+			IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS,
+			attrib->num_ihl_offset_meq_32);
+		return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_ihl_offset_meq_32; i++) {
 		pr_err(
 				"(ihl_ofst_meq32: ofts:%d mask:0x%x val:0x%x) ",
 				attrib->ihl_offset_meq_32[i].offset,
 				attrib->ihl_offset_meq_32[i].mask,
 				attrib->ihl_offset_meq_32[i].value);
+	}
+
+	if (attrib->num_offset_meq_128 > IPA_IPFLTR_NUM_MEQ_128_EQNS) {
+		IPAERR_RL("num_offset_meq_128  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_MEQ_128_EQNS, attrib->num_offset_meq_128);
+		return -EPERM;
 	}
 
 	for (i = 0; i < attrib->num_offset_meq_128; i++) {
@@ -704,6 +731,7 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 	struct ipa3_debugfs_rt_entry *entry;
 	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
 	int num_tbls;
+	int res = 0;
 
 	if (ip == IPA_IP_v4)
 		num_tbls = IPA_MEM_PART(v4_rt_num_index);
@@ -736,7 +764,11 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
 				entry[i].rule_id, entry[i].prio,
 				entry[i].retain_hdr);
-			ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+			res = ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 
 		pr_err("== HASHABLE TABLE tbl:%d ==\n", j);
@@ -758,14 +790,19 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
 				entry[i].rule_id, entry[i].prio,
 				entry[i].retain_hdr);
-			ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+			res = ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 	}
+bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
-	return 0;
+	return res;
 }
 
 static ssize_t ipa3_read_proc_ctx(struct file *file, char __user *ubuf,
@@ -830,6 +867,7 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 	u32 rt_tbl_idx;
 	u32 bitmap;
 	bool eq;
+	int res = 0;
 
 	mutex_lock(&ipa3_ctx->lock);
 
@@ -860,18 +898,23 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 			pr_err("hashable:%u rule_id:%u max_prio:%u prio:%u ",
 				entry->rule.hashable, entry->rule_id,
 				entry->rule.max_prio, entry->prio);
-			if (eq)
-				ipa3_attrib_dump_eq(
-					&entry->rule.eq_attrib);
-			else
+			if (eq) {
+				res = ipa3_attrib_dump_eq(
+						&entry->rule.eq_attrib);
+				if (res) {
+					IPAERR_RL("failed read attrib eq\n");
+					goto bail;
+				}
+			} else
 				ipa3_attrib_dump(
 					&entry->rule.attrib, ip);
 			i++;
 		}
 	}
+bail:
 	mutex_unlock(&ipa3_ctx->lock);
 
-	return 0;
+	return res;
 }
 
 static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
@@ -884,6 +927,7 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
 	u32 rt_tbl_idx;
 	u32 bitmap;
+	int res = 0;
 
 	entry = kzalloc(sizeof(*entry) * IPA_DBG_MAX_RULE_IN_TBL, GFP_KERNEL);
 	if (!entry)
@@ -906,7 +950,11 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				bitmap, entry[i].rule.retain_hdr);
 			pr_err("rule_id:%u prio:%u ",
 				entry[i].rule_id, entry[i].prio);
-			ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+			res = ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 
 		pr_err("== HASHABLE TABLE ep:%d ==\n", j);
@@ -922,14 +970,19 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 			pr_err("rule_id:%u max_prio:%u prio:%u ",
 				entry[i].rule_id,
 				entry[i].rule.max_prio, entry[i].prio);
-			ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+			res = ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 	}
+bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
-	return 0;
+	return res;
 }
 
 static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
