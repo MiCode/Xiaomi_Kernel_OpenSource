@@ -654,6 +654,12 @@ static int adc_get_dt_channel_data(struct device *dev,
 	else
 		prop->cal_method = ADC_ABSOLUTE_CAL;
 
+	/*
+	 * Default to using timer calibration. Using a fresh calibration value
+	 * for every conversion will increase the overall time for a request.
+	 */
+	prop->cal_val = ADC_TIMER_CAL;
+
 	dev_dbg(dev, "%02x name %s\n", chan, name);
 
 	return 0;
