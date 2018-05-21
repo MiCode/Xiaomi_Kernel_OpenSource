@@ -82,10 +82,6 @@
 	};
 };
 
-&modem_mem {
-	status = "disabled";
-};
-
 &wil6210 {
 	qcom,pcie-parent = <&pcie0>;
 	qcom,smmu-support;

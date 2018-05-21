@@ -97,6 +97,3 @@
 	};
 };
 
-&modem_mem {
-	status = "disabled";
-};
