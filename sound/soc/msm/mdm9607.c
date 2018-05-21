@@ -183,6 +183,12 @@ static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
 					    "S32_LE"};
 static char const *tdm_sample_rate_text[] = {"KHZ_16", "KHZ_48"};
 
+static char const *tdm_num_slots_text[] = {"eight", "sixteen"};
+
+/* TDM default Number of Slots */
+
+static int mdm_tdm_num_slots = 8;
+
 /* TDM default offset */
 static unsigned int tdm_slot_offset[TDM_MAX][TDM_SLOT_OFFSET_MAX] = {
 	/* PRI_TDM_RX */
@@ -1407,6 +1413,24 @@ static int  mdm_sec_tdm_tx_0_sample_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int  mdm_tdm_num_slots_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		mdm_tdm_num_slots = 16;
+		break;
+	case 0:
+	default:
+		mdm_tdm_num_slots = 8;
+		break;
+	}
+	pr_debug("%s: mdm_tdm_num_slots = %d\n",
+		 __func__, mdm_tdm_num_slots);
+	return 0;
+}
+
 
 static int mdm_mi2s_get_spk(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_value *ucontrol)
@@ -1414,6 +1438,16 @@ static int mdm_mi2s_get_spk(struct snd_kcontrol *kcontrol,
 	pr_debug("%s mdm_spk_control %d", __func__, mdm_spk_control);
 
 	ucontrol->value.integer.value[0] = mdm_spk_control;
+	return 0;
+}
+
+
+static int mdm_tdm_num_slots_get(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s mdm_tdm_num_slots %d\n", __func__, mdm_tdm_num_slots);
+
+	ucontrol->value.integer.value[0] = mdm_tdm_num_slots;
 	return 0;
 }
 
@@ -1788,6 +1822,9 @@ static const struct soc_enum mdm_enum[] = {
 				tdm_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tdm_sample_rate_text),
 				tdm_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tdm_num_slots_text),
+				tdm_num_slots_text),
+
 };
 
 static const struct snd_kcontrol_new mdm_snd_controls[] = {
@@ -1862,6 +1899,9 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 	SOC_ENUM_EXT("SEC_TDM_TX_0 SampleRate", mdm_enum[8],
 			mdm_sec_tdm_tx_0_sample_rate_get,
 			mdm_sec_tdm_tx_0_sample_rate_put),
+	SOC_ENUM_EXT("TDM Slots", mdm_enum[9],
+			mdm_tdm_num_slots_get,
+			mdm_tdm_num_slots_put),
 };
 static int mdm_tdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -1992,7 +2032,7 @@ static int mdm_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 				__func__, params_format(params));
 			return -EINVAL;
 		}
-		slots = 8;
+		slots = mdm_tdm_num_slots;
 		slot_mask = tdm_param_set_slot_mask(cpu_dai->id,
 			slot_width, slots);
 		if (!slot_mask) {
