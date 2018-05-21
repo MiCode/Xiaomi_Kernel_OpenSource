@@ -6012,8 +6012,8 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
 
 	/* Inform power controller of upcoming frequency change */
 	mutex_lock(&dev_priv->rps.hw_lock);
-	ret = sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
-				      0x80000000);
+	ret = sandybridge_pcode_write_timeout(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
+					      0x80000000, 2000);
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
 	if (ret) {
@@ -6044,8 +6044,9 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
 	I915_WRITE(CDCLK_CTL, val);
 
 	mutex_lock(&dev_priv->rps.hw_lock);
-	ret = sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
-				      DIV_ROUND_UP(cdclk, 25000));
+	ret = sandybridge_pcode_write_timeout(dev_priv,
+					      HSW_PCODE_DE_WRITE_FREQ_REQ,
+					      DIV_ROUND_UP(cdclk, 25000), 2000);
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
 	if (ret) {

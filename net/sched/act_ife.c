@@ -634,7 +634,7 @@ int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
 		}
 	}
 
-	return 0;
+	return -ENOENT;
 }
 
 struct ifeheadr {
