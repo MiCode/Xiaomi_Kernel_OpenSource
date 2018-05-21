@@ -973,3 +973,4 @@
 };
 
 #include "sdmmagpie-ion.dtsi"
+#include "msm-arm-smmu-sdmmagpie.dtsi"
