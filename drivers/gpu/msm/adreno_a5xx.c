@@ -2226,6 +2226,13 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 				upper_32_bits(gpuaddr));
 
 	/*
+	 * Do not invoke to load zap shader if MMU does
+	 * not support secure mode.
+	 */
+	if (!device->mmu.secured)
+		return 0;
+
+	/*
 	 * Resume call to write the zap shader base address into the
 	 * appropriate register,
 	 * skip if retention is supported for the CPZ register

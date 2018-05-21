@@ -130,6 +130,53 @@ int qg_sdam_read(u8 param, u32 *data)
 	return rc;
 }
 
+int qg_sdam_multibyte_write(u32 offset, u8 *data, u32 length)
+{
+	int rc, i;
+	struct qg_sdam *chip = the_chip;
+
+	if (!chip) {
+		pr_err("Invalid sdam-chip pointer\n");
+		return -EINVAL;
+	}
+
+	offset = chip->sdam_base + offset;
+	rc = regmap_bulk_write(chip->regmap, offset, data, (size_t)length);
+	if (rc < 0) {
+		pr_err("Failed to write offset=%0x4x value=%d\n",
+					offset, *data);
+	} else {
+		for (i = 0; i < length; i++)
+			pr_debug("QG SDAM write offset=%0x4x value=%d\n",
+					offset++, data[i]);
+	}
+
+	return rc;
+}
+
+int qg_sdam_multibyte_read(u32 offset, u8 *data, u32 length)
+{
+	int rc, i;
+	struct qg_sdam *chip = the_chip;
+
+	if (!chip) {
+		pr_err("Invalid sdam-chip pointer\n");
+		return -EINVAL;
+	}
+
+	offset = chip->sdam_base + offset;
+	rc = regmap_raw_read(chip->regmap, offset, (u8 *)data, (size_t)length);
+	if (rc < 0) {
+		pr_err("Failed to read offset=%0x4x\n", offset);
+	} else {
+		for (i = 0; i < length; i++)
+			pr_debug("QG SDAM read offset=%0x4x value=%d\n",
+					offset++, data[i]);
+	}
+
+	return rc;
+}
+
 int qg_sdam_read_all(u32 *sdam_data)
 {
 	int i, rc;

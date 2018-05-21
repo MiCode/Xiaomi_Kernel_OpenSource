@@ -579,6 +579,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_MMU500_ERRATA1, "qcom,mmu500-errata-1" },
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
+	{ ARM_SMMU_OPT_HIBERNATION, "qcom,hibernation-support"},
 	{ 0, NULL},
 };
 
@@ -702,6 +703,11 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 {
 	if (arm_smmu_is_master_side_secure(smmu_domain))
 		mutex_unlock(&smmu_domain->assign_lock);
+}
+
+static bool arm_smmu_opt_hibernation(struct arm_smmu_device *smmu)
+{
+	return smmu->options & ARM_SMMU_OPT_HIBERNATION;
 }
 
 /*
@@ -1855,6 +1861,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	dynamic = is_dynamic_domain(domain);
 	if (dynamic && !(smmu->options & ARM_SMMU_OPT_DYNAMIC)) {
 		dev_err(smmu->dev, "dynamic domains not supported\n");
+		ret = -EPERM;
+		goto out_unlock;
+	}
+
+	if (arm_smmu_has_secure_vmid(smmu_domain) &&
+	    arm_smmu_opt_hibernation(smmu)) {
+		dev_err(smmu->dev,
+			"Secure usecases not supported with hibernation\n");
 		ret = -EPERM;
 		goto out_unlock;
 	}
@@ -3994,6 +4008,33 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 	return cb;
 }
 
+static void parse_static_cb_cfg(struct arm_smmu_device *smmu)
+{
+	u32 idx = 0;
+	u32 val;
+	int ret;
+
+	if (!(arm_smmu_is_static_cb(smmu) &&
+	      arm_smmu_opt_hibernation(smmu)))
+		return;
+
+	/*
+	 * Context banks may be xpu-protected. Require a devicetree property to
+	 * indicate which context banks HLOS has access to.
+	 */
+	bitmap_set(smmu->secure_context_map, 0, ARM_SMMU_MAX_CBS);
+	while (idx < ARM_SMMU_MAX_CBS) {
+		ret = of_property_read_u32_index(
+				smmu->dev->of_node, "qcom,static-ns-cbs",
+				idx++, &val);
+		if (ret)
+			break;
+
+		bitmap_clear(smmu->secure_context_map, val, 1);
+		dev_dbg(smmu->dev, "Detected NS context bank: %d\n", idx);
+	}
+}
+
 static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 {
 	u32 i, raw_smr, raw_s2cr;
@@ -4693,6 +4734,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 
 	parse_driver_options(smmu);
+	parse_static_cb_cfg(smmu);
 
 	smmu->pwr = arm_smmu_init_power_resources(pdev);
 	if (IS_ERR(smmu->pwr))
@@ -4799,8 +4841,9 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (arm_smmu_power_on(smmu->pwr))
 		return -EINVAL;
 
-	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS) ||
-	    !bitmap_empty(smmu->secure_context_map, ARM_SMMU_MAX_CBS))
+	if (!(bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS) &&
+		(bitmap_empty(smmu->secure_context_map, ARM_SMMU_MAX_CBS) ||
+		 arm_smmu_opt_hibernation(smmu))))
 		dev_err(&pdev->dev, "removing device with active domains!\n");
 
 	idr_destroy(&smmu->asid_idr);
@@ -4814,10 +4857,43 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int arm_smmu_pm_freeze(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	if (!arm_smmu_opt_hibernation(smmu)) {
+		dev_err(smmu->dev, "Aborting: Hibernation not supported\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int arm_smmu_pm_restore(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	int ret;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
+
+	arm_smmu_device_reset(smmu);
+	arm_smmu_power_off(smmu->pwr);
+	return 0;
+}
+
+static const struct dev_pm_ops arm_smmu_pm_ops = {
+#ifdef CONFIG_PM_SLEEP
+	.freeze = arm_smmu_pm_freeze,
+	.restore = arm_smmu_pm_restore,
+#endif
+};
+
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {
 		.name		= "arm-smmu",
 		.of_match_table	= of_match_ptr(arm_smmu_of_match),
+		.pm		= &arm_smmu_pm_ops,
 	},
 	.probe	= arm_smmu_device_dt_probe,
 	.remove	= arm_smmu_device_remove,
@@ -4828,6 +4904,7 @@ static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
+	struct device_node *node;
 	ktime_t cur;
 
 	if (registered)
@@ -4839,9 +4916,12 @@ static int __init arm_smmu_init(void)
 		return ret;
 
 	ret = platform_driver_register(&arm_smmu_driver);
-#ifdef CONFIG_MSM_TZ_SMMU
-	ret = register_iommu_sec_ptbl();
-#endif
+	/* Disable secure usecases if hibernation support is enabled */
+	node = of_find_compatible_node(NULL, NULL, "qcom,qsmmu-v500");
+	if (IS_ENABLED(CONFIG_MSM_TZ_SMMU) && node &&
+	    !of_find_property(node, "qcom,hibernation-support", NULL))
+		ret = register_iommu_sec_ptbl();
+
 	registered = !ret;
 	trace_smmu_init(ktime_us_delta(ktime_get(), cur));
 

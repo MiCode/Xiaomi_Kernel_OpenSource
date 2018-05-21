@@ -17,6 +17,7 @@
 
 static const char *sdm429_dt_match[] __initconst = {
 	"qcom,sdm429",
+	"qcom,sda429",
 	NULL
 };
 

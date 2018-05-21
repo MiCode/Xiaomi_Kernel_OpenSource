@@ -24,3 +24,32 @@
 	qcom,pmic-id = <0x010016 0x010011 0x0 0x0>;
 };
 
+&soc {
+	gpio_keys {
+		/delete-node/home;
+	};
+};
+
+&tlmm {
+	tlmm_gpio_key {
+		gpio_key_active: gpio_key_active {
+			mux {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+
+			config {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+		};
+
+		gpio_key_suspend: gpio_key_suspend {
+			mux {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+
+			config {
+				pins = "gpio85", "gpio86", "gpio87";
+			};
+		};
+	};
+};

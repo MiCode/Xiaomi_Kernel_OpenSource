@@ -559,9 +559,6 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	if (dsi_ctrl_validate_host_state(ctrl->ctrl))
 		return 1;
 
-	/* acquire panel_lock to make sure no commands are in progress */
-	dsi_panel_acquire_panel_lock(panel);
-
 	config = &(panel->esd_config);
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
@@ -580,7 +577,7 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 		rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds[i].msg, flags);
 		if (rc <= 0) {
 			pr_err("rx cmd transfer failed rc=%d\n", rc);
-			goto error;
+			return rc;
 		}
 
 		memcpy(config->return_buf + start,
@@ -588,9 +585,6 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 		start += lenp[i];
 	}
 
-error:
-	/* release panel_lock */
-	dsi_panel_release_panel_lock(panel);
 	return rc;
 }
 
@@ -709,15 +703,16 @@ int dsi_display_check_status(void *display, bool te_check_override)
 	u32 status_mode;
 	int rc = 0x1;
 
-	if (dsi_display == NULL)
+	if (!dsi_display || !dsi_display->panel)
 		return -EINVAL;
 
-	mutex_lock(&dsi_display->display_lock);
-
 	panel = dsi_display->panel;
+
+	dsi_panel_acquire_panel_lock(panel);
+
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
-		mutex_unlock(&dsi_display->display_lock);
+		dsi_panel_release_panel_lock(panel);
 		return rc;
 	}
 
@@ -742,7 +737,7 @@ int dsi_display_check_status(void *display, bool te_check_override)
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
-	mutex_unlock(&dsi_display->display_lock);
+	dsi_panel_release_panel_lock(panel);
 
 	return rc;
 }

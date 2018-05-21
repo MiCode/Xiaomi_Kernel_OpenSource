@@ -36,8 +36,8 @@
 #include "cpr3-regulator.h"
 
 #define MSM8953_APSS_FUSE_CORNERS	4
-#define SDM632_POWER_APSS_FUSE_CORNERS	5
-#define SDM632_PERF_APSS_FUSE_CORNERS	3
+#define SDM632_POWER_APSS_FUSE_CORNERS	4
+#define SDM632_PERF_APSS_FUSE_CORNERS	4
 
 /**
  * struct cpr4_apss_fuses - APSS specific fuse data
@@ -103,27 +103,27 @@ static const char * const cpr4_msm8953_apss_fuse_corner_name[] = {
 
 enum cpr4_sdm632_power_apss_fuse_corner {
 	CPR4_SDM632_POWER_APSS_FUSE_CORNER_LOWSVS	= 0,
-	CPR4_SDM632_POWER_APSS_FUSE_CORNER_SVS		= 1,
-	CPR4_SDM632_POWER_APSS_FUSE_CORNER_SVS_L1	= 2,
-	CPR4_SDM632_POWER_APSS_FUSE_CORNER_NOM		= 3,
-	CPR4_SDM632_POWER_APSS_FUSE_CORNER_TURBO_L1	= 4,
+	CPR4_SDM632_POWER_APSS_FUSE_CORNER_SVS_L1	= 1,
+	CPR4_SDM632_POWER_APSS_FUSE_CORNER_NOM		= 2,
+	CPR4_SDM632_POWER_APSS_FUSE_CORNER_TURBO_L1	= 3,
 };
 
 static const char * const cpr4_sdm632_power_apss_fuse_corner_name[] = {
 	[CPR4_SDM632_POWER_APSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
-	[CPR4_SDM632_POWER_APSS_FUSE_CORNER_SVS]	= "SVS",
 	[CPR4_SDM632_POWER_APSS_FUSE_CORNER_SVS_L1]	= "SVS_L1",
 	[CPR4_SDM632_POWER_APSS_FUSE_CORNER_NOM]	= "NOM",
 	[CPR4_SDM632_POWER_APSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
 };
 
 enum cpr4_sdm632_perf_apss_fuse_corner {
-	CPR4_SDM632_PERF_APSS_FUSE_CORNER_SVS_L1	= 0,
-	CPR4_SDM632_PERF_APSS_FUSE_CORNER_NOM		= 1,
-	CPR4_SDM632_PERF_APSS_FUSE_CORNER_TURBO_L1	= 2,
+	CPR4_SDM632_PERF_APSS_FUSE_CORNER_LOWSVS	= 0,
+	CPR4_SDM632_PERF_APSS_FUSE_CORNER_SVS_L1	= 1,
+	CPR4_SDM632_PERF_APSS_FUSE_CORNER_NOM		= 2,
+	CPR4_SDM632_PERF_APSS_FUSE_CORNER_TURBO_L1	= 3,
 };
 
 static const char * const cpr4_sdm632_perf_apss_fuse_corner_name[] = {
+	[CPR4_SDM632_PERF_APSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
 	[CPR4_SDM632_PERF_APSS_FUSE_CORNER_SVS_L1]	= "SVS_L1",
 	[CPR4_SDM632_PERF_APSS_FUSE_CORNER_NOM]		= "NOM",
 	[CPR4_SDM632_PERF_APSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
@@ -229,12 +229,12 @@ static const struct cpr3_fuse_param
 sdm632_apss_ro_sel_param[2][SDM632_POWER_APSS_FUSE_CORNERS][2] = {
 	[CPR4_APSS_POWER_CLUSTER_ID] = {
 		{{73, 28, 31}, {} },
-		{{73, 24, 27}, {} },
 		{{73, 20, 23}, {} },
 		{{73, 16, 19}, {} },
 		{{73, 12, 15}, {} },
 	},
 	[CPR4_APSS_PERF_CLUSTER_ID] = {
+		{{73, 28, 31}, {} },
 		{{73,  8, 11}, {} },
 		{{73,  4,  7}, {} },
 		{{73,  0,  3}, {} },
@@ -245,12 +245,12 @@ static const struct cpr3_fuse_param
 sdm632_apss_init_voltage_param[2][SDM632_POWER_APSS_FUSE_CORNERS][2] = {
 	[CPR4_APSS_POWER_CLUSTER_ID] = {
 		{{74, 18, 23}, {} },
-		{{74, 12, 17}, {} },
 		{{71, 24, 29}, {} },
 		{{74,  6, 11}, {} },
 		{{74,  0,  5}, {} },
 	},
 	[CPR4_APSS_PERF_CLUSTER_ID] = {
+		{{74, 18, 23}, {} },
 		{{71, 18, 23}, {} },
 		{{71, 12, 17}, {} },
 		{{71,  6, 11}, {} },
@@ -261,12 +261,12 @@ static const struct cpr3_fuse_param
 sdm632_apss_target_quot_param[2][SDM632_POWER_APSS_FUSE_CORNERS][2] = {
 	[CPR4_APSS_POWER_CLUSTER_ID] = {
 		{{75, 44, 55}, {} },
-		{{75, 32, 43}, {} },
 		{{72, 44, 55}, {} },
 		{{75, 20, 31}, {} },
 		{{75,  8, 19}, {} },
 	},
 	[CPR4_APSS_PERF_CLUSTER_ID] = {
+		{{75, 44, 55}, {} },
 		{{72, 32, 43}, {} },
 		{{72, 20, 31}, {} },
 		{{72,  8, 19}, {} },
@@ -277,13 +277,13 @@ static const struct cpr3_fuse_param
 sdm632_apss_quot_offset_param[2][SDM632_POWER_APSS_FUSE_CORNERS][2] = {
 	[CPR4_APSS_POWER_CLUSTER_ID] = {
 		{{} },
-		{{74, 39, 45}, {} },
 		{{71, 46, 52}, {} },
 		{{74, 32, 38}, {} },
 		{{74, 24, 30}, {} },
 	},
 	[CPR4_APSS_PERF_CLUSTER_ID] = {
 		{{} },
+		{{74, 39, 45}, {} },
 		{{71, 39, 45}, {} },
 		{{71, 32, 38}, {} },
 	},
@@ -322,12 +322,12 @@ static const int
 sdm632_apss_fuse_ref_volt[2][SDM632_POWER_APSS_FUSE_CORNERS] = {
 	[CPR4_APSS_POWER_CLUSTER_ID] = {
 		645000,
-		720000,
 		790000,
 		865000,
 		1065000,
 	},
 	[CPR4_APSS_PERF_CLUSTER_ID] = {
+		645000,
 		790000,
 		865000,
 		1065000,
@@ -1025,7 +1025,7 @@ static int cpr4_apss_calculate_target_quotients(struct cpr3_regulator *vreg)
 		} else {
 			corner_name = cpr4_sdm632_perf_apss_fuse_corner_name;
 			lowest_fuse_corner =
-				CPR4_SDM632_PERF_APSS_FUSE_CORNER_SVS_L1;
+				CPR4_SDM632_PERF_APSS_FUSE_CORNER_LOWSVS;
 			highest_fuse_corner =
 				CPR4_SDM632_PERF_APSS_FUSE_CORNER_TURBO_L1;
 		}

@@ -146,7 +146,7 @@
  * a new RANGE of SSIDs to the msg_mask_tbl.
  */
 #define MSG_MASK_TBL_CNT		26
-#define APPS_EVENT_LAST_ID		0x0C5A
+#define APPS_EVENT_LAST_ID		0x0C5B
 
 #define MSG_SSID_0			0
 #define MSG_SSID_0_LAST			125

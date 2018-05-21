@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,9 +434,10 @@ static void mhi_read_work_fn(struct work_struct *work)
 	do {
 		if (!(atomic_read(&(read_ch->opened))))
 			break;
-
+		spin_lock_irqsave(&read_ch->lock, flags);
 		buf = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
 				    mhi_info->mempool);
+		spin_unlock_irqrestore(&read_ch->lock, flags);
 		if (!buf)
 			break;
 
@@ -743,4 +744,3 @@ void diag_mhi_exit(void)
 			diagmem_exit(driver, mhi_info->mempool);
 	}
 }
-

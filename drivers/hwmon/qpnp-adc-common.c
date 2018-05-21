@@ -2495,6 +2495,12 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 		}
 	}
 
+	if (of_device_is_compatible(node, "qcom,qpnp-adc-hc-pm5") ||
+		of_device_is_compatible(node, "qcom,qpnp-adc-tm-hc-pm5"))
+		adc_prop->is_pmic_5 = true;
+	else
+		adc_prop->is_pmic_5 = false;
+
 	for_each_child_of_node(node, child) {
 		int channel_num, scaling = 0, post_scaling = 0;
 		int fast_avg_setup, calib_type = 0, rc, hw_settle_time = 0;

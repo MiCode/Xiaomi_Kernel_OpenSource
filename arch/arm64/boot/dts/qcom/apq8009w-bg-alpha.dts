@@ -300,4 +300,5 @@
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 52 0>;
+	qcom,platform-enable-gpio = <&msm_gpio 59 0>;
 };

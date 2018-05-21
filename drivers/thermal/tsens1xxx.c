@@ -517,8 +517,8 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			th_temp = code_to_degc((threshold &
 					TSENS_UPPER_THRESHOLD_MASK) >>
 					TSENS_UPPER_THRESHOLD_SHIFT,
-					tm->sensor);
-			if (th_temp > temp) {
+					(tm->sensor + i));
+			if (th_temp > (temp/TSENS_SCALE_MILLIDEG)) {
 				pr_debug("Re-arm high threshold\n");
 				rc = tsens_tz_activate_trip_type(
 						&tm->sensor[i],
@@ -539,8 +539,8 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 					tm->tsens_tm_addr + addr_offset));
 			th_temp = code_to_degc((threshold &
 					TSENS_LOWER_THRESHOLD_MASK),
-					tm->sensor);
-			if (th_temp < temp) {
+					(tm->sensor + i));
+			if (th_temp < (temp/TSENS_SCALE_MILLIDEG)) {
 				pr_debug("Re-arm Low threshold\n");
 				rc = tsens_tz_activate_trip_type(
 						&tm->sensor[i],

@@ -13,7 +13,6 @@
 
 /dts-v1/;
 
-#include "apq8053-lite.dtsi"
 #include "apq8053-lite-dragon-v2.0.dtsi"
 
 / {
