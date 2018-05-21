@@ -100,6 +100,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_STA529 if I2C
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
 	select SND_SOC_TAS2552 if I2C
+	select SND_SOC_TAS2555 if I2C
+	select SND_SOC_OPA1622
+	select SND_SOC_LM48560 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
@@ -573,6 +576,17 @@ config SND_SOC_TAS2552
 	tristate "Texas Instruments TAS2552 Mono Audio amplifier"
 	depends on I2C
 
+config SND_SOC_TAS2555
+	tristate "Texas Instruments TAS2555 Mono Audio Amplifier with DSP"
+	depends on I2C
+
+config SND_SOC_OPA1622
+	tristate
+
+config SND_SOC_LM48560
+	tristate "Texas Instruments LM48560 ceramic speaker amplifier"
+	depends on I2C
+
 config SND_SOC_TAS5086
 	tristate "Texas Instruments TAS5086 speaker amplifier"
 	depends on I2C
@@ -653,6 +667,9 @@ config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
 	default y if SND_SOC_WCD9306=y
+
+config SND_SOC_TFA98XX
+	tristate "TFA98XX Speaker PA Driver"
 
 config SND_SOC_WCD9XXX_V2
 	tristate

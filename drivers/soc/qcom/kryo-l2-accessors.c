@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@ u64 get_l2_indirect_reg(u64 reg)
 }
 EXPORT_SYMBOL(get_l2_indirect_reg);
 
-#if defined(CONFIG_DEBUG_FS)
+#if defined(CONFIG_MSM_L2_IA_DEBUG)
 
 static u32 debug_addr;
 static int debug_target_cpu;
@@ -180,4 +180,4 @@ static int l2_ia_debug_init(void)
 }
 late_initcall(l2_ia_debug_init);
 
-#endif /* CONFIG_DEBUG_FS */
+#endif /* CONFIG_MSM_L2_IA_DEBUG */

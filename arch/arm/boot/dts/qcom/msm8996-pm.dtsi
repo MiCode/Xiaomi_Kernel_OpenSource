@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -327,9 +328,11 @@
 			<0xff 115>, /* mdss_irq */
 			<0xff 126>, /* bam_irq[0] */
 			<0xff 127>, /* blsp1_qup_irq(0) */
+			<0xff 129>, /* blsp2_qup_irq(3) */
 			<0xff 132>, /* blsp1_qup_irq(5) */
 			<0xff 133>, /* blsp2_qup_irq(0) */
 			<0xff 134>, /* blsp2_qup_irq(1) */
+			<0xff 135>, /* blsp2_qup_irq(3) */
 			<0xff 138>, /* blsp2_qup_irq(5) */
 			<0xff 140>, /* blsp1_uart_irq(1) */
 			<0xff 146>, /* blsp2_uart_irq(1) */
@@ -462,6 +465,7 @@
 			<4  5>,
 			<5  9>,
 			<6  11>,
+			<0xff  14>,
 			<7  66>,
 			<8  22>,
 			<9  24>,

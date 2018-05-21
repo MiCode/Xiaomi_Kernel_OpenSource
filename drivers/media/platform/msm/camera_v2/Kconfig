@@ -241,3 +241,9 @@ config MSM_JPEGDMA
         select V4L2_MEM2MEM_DEV
 	---help---
 	  Enable support for Jpeg dma engine.
+
+config CAMERA_ALS_ENABLE
+	bool "xiaomi camera ALS support"
+	default n
+	---help---
+	   This flag enables support for Camera ALS.

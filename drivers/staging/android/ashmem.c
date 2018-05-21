@@ -5,6 +5,7 @@
  * Copyright (C) 2008 Google, Inc.
  *
  * Robert Love <rlove@google.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -32,7 +33,6 @@
 #include <linux/mutex.h>
 #include <linux/shmem_fs.h>
 #include <linux/ashmem.h>
-#include <asm/cacheflush.h>
 
 #include "ashmem.h"
 
@@ -397,6 +397,7 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 			ret = PTR_ERR(vmfile);
 			goto out;
 		}
+		vmfile->f_mode |= FMODE_LSEEK;
 		asma->file = vmfile;
 	}
 	get_file(asma->file);
@@ -744,37 +745,6 @@ static int ashmem_pin_unpin(struct ashmem_area *asma, unsigned long cmd,
 	return ret;
 }
 
-static int ashmem_cache_op(struct ashmem_area *asma,
-	void (*cache_func)(const void *vstart, const void *vend))
-{
-	int ret = 0;
-	struct vm_area_struct *vma;
-	if (!asma->vm_start)
-		return -EINVAL;
-
-	down_read(&current->mm->mmap_sem);
-	vma = find_vma(current->mm, asma->vm_start);
-	if (!vma) {
-		ret = -EINVAL;
-		goto done;
-	}
-	if (vma->vm_file != asma->file) {
-		ret = -EINVAL;
-		goto done;
-	}
-	if ((asma->vm_start + asma->size) > vma->vm_end) {
-		ret = -EINVAL;
-		goto done;
-	}
-	cache_func((void *)asma->vm_start,
-			(void *)(asma->vm_start + asma->size));
-done:
-	up_read(&current->mm->mmap_sem);
-	if (ret)
-		asma->vm_start = 0;
-	return ret;
-}
-
 static long ashmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct ashmem_area *asma = file->private_data;
@@ -789,10 +759,12 @@ static long ashmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case ASHMEM_SET_SIZE:
 		ret = -EINVAL;
+		mutex_lock(&ashmem_mutex);
 		if (!asma->file) {
 			ret = 0;
 			asma->size = (size_t) arg;
 		}
+		mutex_unlock(&ashmem_mutex);
 		break;
 	case ASHMEM_GET_SIZE:
 		ret = asma->size;
@@ -819,15 +791,6 @@ static long ashmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			nodes_setall(sc.nodes_to_scan);
 			ashmem_shrink_scan(&ashmem_shrinker, &sc);
 		}
-		break;
-	case ASHMEM_CACHE_FLUSH_RANGE:
-		ret = ashmem_cache_op(asma, &dmac_flush_range);
-		break;
-	case ASHMEM_CACHE_CLEAN_RANGE:
-		ret = ashmem_cache_op(asma, &dmac_clean_range);
-		break;
-	case ASHMEM_CACHE_INV_RANGE:
-		ret = ashmem_cache_op(asma, &dmac_inv_range);
 		break;
 	}
 

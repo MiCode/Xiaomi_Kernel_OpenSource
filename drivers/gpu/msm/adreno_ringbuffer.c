@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,12 +257,12 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 	 * switch pagetable
 	 */
 	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->pagetable_desc,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED);
+		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
 	if (ret)
 		return ret;
-
 	return kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->buffer_desc,
-			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
+			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY,
+			0, "ringbuffer");
 }
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)

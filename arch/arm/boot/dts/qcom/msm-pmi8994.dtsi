@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,20 +203,21 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,iterm-ma = <100>;
-			qcom,fastchg-current-ma = <2000>;
-			qcom,float-voltage-mv = <4350>;
+			qcom,iterm-ma = <200>;
+			qcom,fastchg-current-ma = <3000>;
+			qcom,float-voltage-mv = <4400>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
 			qcom,dc-psy-type = "Mains";
 			qcom,dc-psy-ma = <1500>;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,thermal-mitigation = <2500 2000 1100 1000>;
 			qcom,parallel-usb-min-current-ma = <1400>;
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
-			qcom,autoadjust-vfloat;
+			qcom,fastchg-current-comp = <1200>;
+			qcom,float-voltage-comp = <16>;
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
@@ -317,15 +319,22 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <125>;
-			qcom,fg-chg-iterm-ma = <100>;
+			qcom,fg-iterm-ma = <300>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
+			qcom,thermal-coefficients = [DA 86 F0 50 08 3C];
+			qcom,vbat-estimate-diff-mv = <300>;
+
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,hot-bat-decidegc  = <600>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,fg-chg-iterm-ma = <200>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
-			qcom,fg-cc-cv-threshold-mv = <4340>;
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,capacity-learning-feedback;
 
@@ -502,7 +511,7 @@
 				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
 				qcom,qpnp-lab-init-lcd-voltage = <5500000>;
 
-				qcom,qpnp-lab-soft-start = <800>;
+				qcom,qpnp-lab-soft-start = <400>;
 
 				qcom,qpnp-lab-full-pull-down;
 				qcom,qpnp-lab-pull-down-enable;
@@ -510,7 +519,7 @@
 									<1600>;
 				qcom,qpnp-lab-limit-maximum-current = <800>;
 				qcom,qpnp-lab-limit-max-current-enable;
-				qcom,qpnp-lab-ps-threshold = <20>;
+				qcom,qpnp-lab-ps-threshold = <30>;
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;
@@ -535,7 +544,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <600>;
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
@@ -543,9 +552,11 @@
 			qcom,dim-mode = "hybrid";
 			qcom,hyb-thres = <625>;
 			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <25000>;
+			qcom,fs-curr-ua = <20000>;
 			qcom,cons-sync-write-delay-us = <1000>;
-			qcom,led-strings-list = [00 01 02 03];
+			qcom,en-cabc;
+			qcom,en-phase-stag;
+			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
 		};
 
@@ -558,15 +569,15 @@
 			interrupt-names = "sc-irq", "play-irq";
 			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
-			qcom,wave-play-rate-us = <5263>;
+			qcom,wave-play-rate-us = <4166>;
 			qcom,actuator-type = "lra";
-			qcom,wave-shape = "square";
-			qcom,vmax-mv = <2000>;
+			qcom,wave-shape = "sine";
+			qcom,vmax-mv = <2200>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,int-pwm-freq-khz = <505>;
 			qcom,en-brake;
-			qcom,brake-pattern = [03 03 00 00];
+			qcom,brake-pattern = [03 03 02 02];
 			qcom,use-play-irq;
 			qcom,use-sc-irq;
 			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
@@ -592,8 +603,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger =
-					"battery-charging";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 
 			green_led: qcom,rgb_1 {
@@ -605,7 +627,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 
 			blue_led: qcom,rgb_2 {
@@ -617,7 +651,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 		};
 

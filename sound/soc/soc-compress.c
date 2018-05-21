@@ -6,6 +6,7 @@
  * Authors: Namarta Kohli <namartax.kohli@intel.com>
  *          Ramesh Babu K V <ramesh.babu@linux.intel.com>
  *          Vinod Koul <vinod.koul@linux.intel.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -531,6 +532,11 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+							"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {

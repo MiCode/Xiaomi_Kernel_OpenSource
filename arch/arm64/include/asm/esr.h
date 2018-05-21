@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2013 - ARM Ltd
  * Author: Marc Zyngier <marc.zyngier@arm.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -53,5 +54,46 @@
 #define ESR_EL1_EC_WATCHPT_EL1	(0x35)
 #define ESR_EL1_EC_BKPT32	(0x38)
 #define ESR_EL1_EC_BRK64	(0x3C)
+
+/* ISS field definitions for System instruction traps */
+#define ESR_ELx_SYS64_ISS_RES0_SHIFT	22
+#define ESR_ELx_SYS64_ISS_RES0_MASK	(UL(0x7) << ESR_ELx_SYS64_ISS_RES0_SHIFT)
+#define ESR_ELx_SYS64_ISS_DIR_MASK	0x1
+#define ESR_ELx_SYS64_ISS_DIR_READ	0x1
+#define ESR_ELx_SYS64_ISS_DIR_WRITE	0x0
+
+#define ESR_ELx_SYS64_ISS_RT_SHIFT	5
+#define ESR_ELx_SYS64_ISS_RT_MASK	(UL(0x1f) << ESR_ELx_SYS64_ISS_RT_SHIFT)
+#define ESR_ELx_SYS64_ISS_CRM_SHIFT	1
+#define ESR_ELx_SYS64_ISS_CRM_MASK	(UL(0xf) << ESR_ELx_SYS64_ISS_CRM_SHIFT)
+#define ESR_ELx_SYS64_ISS_CRN_SHIFT	10
+#define ESR_ELx_SYS64_ISS_CRN_MASK	(UL(0xf) << ESR_ELx_SYS64_ISS_CRN_SHIFT)
+#define ESR_ELx_SYS64_ISS_OP1_SHIFT	14
+#define ESR_ELx_SYS64_ISS_OP1_MASK	(UL(0x7) << ESR_ELx_SYS64_ISS_OP1_SHIFT)
+#define ESR_ELx_SYS64_ISS_OP2_SHIFT	17
+#define ESR_ELx_SYS64_ISS_OP2_MASK	(UL(0x7) << ESR_ELx_SYS64_ISS_OP2_SHIFT)
+#define ESR_ELx_SYS64_ISS_OP0_SHIFT	20
+#define ESR_ELx_SYS64_ISS_OP0_MASK	(UL(0x3) << ESR_ELx_SYS64_ISS_OP0_SHIFT)
+#define ESR_ELx_SYS64_ISS_SYS_MASK	(ESR_ELx_SYS64_ISS_OP0_MASK | \
+					ESR_ELx_SYS64_ISS_OP1_MASK | \
+					ESR_ELx_SYS64_ISS_OP2_MASK | \
+					ESR_ELx_SYS64_ISS_CRN_MASK | \
+					ESR_ELx_SYS64_ISS_CRM_MASK)
+#define ESR_ELx_SYS64_ISS_SYS_VAL(op0, op1, op2, crn, crm) \
+					(((op0) << ESR_ELx_SYS64_ISS_OP0_SHIFT) | \
+					((op1) << ESR_ELx_SYS64_ISS_OP1_SHIFT) | \
+					((op2) << ESR_ELx_SYS64_ISS_OP2_SHIFT) | \
+					((crn) << ESR_ELx_SYS64_ISS_CRN_SHIFT) | \
+					((crm) << ESR_ELx_SYS64_ISS_CRM_SHIFT))
+
+#define ESR_ELx_SYS64_ISS_SYS_OP_MASK	(ESR_ELx_SYS64_ISS_SYS_MASK | \
+					ESR_ELx_SYS64_ISS_DIR_MASK)
+
+#define ESR_ELx_SYS64_ISS_SYS_CNTVCT	(ESR_ELx_SYS64_ISS_SYS_VAL(3, 3, 2, 14, 0) | \
+					ESR_ELx_SYS64_ISS_DIR_READ)
+
+
+#define ESR_ELx_SYS64_ISS_SYS_CNTFRQ	(ESR_ELx_SYS64_ISS_SYS_VAL(3, 3, 0, 14, 0) | \
+					ESR_ELx_SYS64_ISS_DIR_READ)
 
 #endif /* __ASM_ESR_H */

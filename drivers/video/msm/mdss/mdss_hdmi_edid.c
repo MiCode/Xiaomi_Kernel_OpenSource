@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -460,8 +461,10 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int rc, page_id;
+	u32 i = 0, j, page;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
+	struct msm_hdmi_mode_timing_info info = {0};
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -474,7 +477,22 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 		return rc;
 	}
 
-	edid_ctrl->page_id = page_id;
+	if (page_id > MSM_HDMI_INIT_RES_PAGE) {
+		page = MSM_HDMI_INIT_RES_PAGE;
+		while (page < page_id) {
+			j = 1;
+			while (sizeof(info) * j < PAGE_SIZE) {
+				i++;
+				j++;
+			}
+			page++;
+		}
+	}
+
+	if (i < HDMI_VFRMT_MAX)
+		edid_ctrl->page_id = page_id;
+	else
+		DEV_ERR("%s: invalid page id\n", __func__);
 
 	DEV_DBG("%s: %d\n", __func__, edid_ctrl->page_id);
 	return ret;
@@ -2178,6 +2196,13 @@ int hdmi_edid_parser(void *input)
 		DEV_DBG("HDMI DVI mode: %s\n",
 			edid_ctrl->sink_mode ? "no" : "yes");
 		goto bail;
+	}
+
+	/* Find out if CEA extension blocks exceeding max limit */
+	if (num_of_cea_blocks >= MAX_EDID_BLOCKS) {
+		DEV_WARN("%s: HDMI EDID exceeded max CEA blocks limit\n",
+				__func__);
+		num_of_cea_blocks = MAX_EDID_BLOCKS - 1;
 	}
 
 	/* check for valid CEA block */

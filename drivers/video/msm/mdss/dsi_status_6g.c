@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,8 @@
 #include <linux/delay.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
+#include <linux/gpio.h>
 
 #include "mdss_dsi.h"
 #include "mdss_mdp.h"
@@ -41,12 +44,15 @@ static bool mdss_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	 * first TE interrupt arrives after the TE IRQ line is enabled. For such
 	 * cases, re-schedule the ESD thread.
 	 */
-	ret = !atomic_read(&ctrl_pdata->te_irq_ready);
+	ret = atomic_read(&ctrl_pdata->te_irq_ready);
 	if (ret) {
 		schedule_delayed_work(&pstatus_data->check_status,
 			msecs_to_jiffies(interval));
 		pr_debug("%s: TE IRQ line not enabled yet\n", __func__);
 	}
+	atomic_set(&ctrl_pdata->te_irq_ready, 0);
+	if (ctrl_pdata->panel_data.panel_info.panel_power_state == MDSS_PANEL_POWER_ON)
+		enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 
 	return ret;
 }

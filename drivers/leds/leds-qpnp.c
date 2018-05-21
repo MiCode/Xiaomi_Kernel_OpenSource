@@ -1,5 +1,6 @@
 
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1800,6 +1801,7 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
 	struct qpnp_led_data *led;
+	int rc;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 	if (value < LED_OFF) {
@@ -1811,6 +1813,34 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		value = led->cdev.max_brightness;
 
 	led->cdev.brightness = value;
+
+	if (led->id == QPNP_ID_RGB_RED || led->id == QPNP_ID_RGB_GREEN
+			|| led->id == QPNP_ID_RGB_BLUE) {
+		mutex_lock(&led->lock);
+		rc = qpnp_rgb_set(led);
+		if (rc < 0)
+			dev_err(&led->spmi_dev->dev,
+			"RGB set brightness failed (%d)\n", rc);
+		mutex_unlock(&led->lock);
+		return;
+	} else if (led->id == QPNP_ID_LED_MPP) {
+		mutex_lock(&led->lock);
+		rc = qpnp_mpp_set(led);
+		if (rc < 0)
+			dev_err(&led->spmi_dev->dev,
+			"MPP set brightness failed (%d)\n", rc);
+		mutex_unlock(&led->lock);
+		return;
+	} else if (led->id == QPNP_ID_KPDBL) {
+		mutex_lock(&led->lock);
+		rc = qpnp_kpdbl_set(led);
+		if (rc < 0)
+			dev_err(&led->spmi_dev->dev,
+			"KPDBL set brightness failed (%d)\n", rc);
+		mutex_unlock(&led->lock);
+		return;
+	}
+
 	if (led->in_order_command_processing)
 		queue_work(led->workqueue, &led->work);
 	else

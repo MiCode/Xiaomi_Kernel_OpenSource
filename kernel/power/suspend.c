@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -30,6 +31,7 @@
 #include <trace/events/power.h>
 #include <linux/compiler.h>
 #include <linux/wakeup_reason.h>
+#include <linux/gpio.h>
 
 #include "power.h"
 
@@ -40,6 +42,8 @@ static const struct platform_suspend_ops *suspend_ops;
 static const struct platform_freeze_ops *freeze_ops;
 static DECLARE_WAIT_QUEUE_HEAD(suspend_freeze_wait_head);
 static bool suspend_freeze_wake;
+extern int PROC_AWAKE_ID; /* 12th bit */
+extern int slst_gpio_base_id;
 
 void freeze_set_ops(const struct platform_freeze_ops *ops)
 {
@@ -518,7 +522,11 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+	gpio_set_value (slst_gpio_base_id+PROC_AWAKE_ID, 0);
+	pr_err("%s: PM_SUSPEND_PREPARE %d \n", __func__, slst_gpio_base_id + PROC_AWAKE_ID);
 	error = enter_state(state);
+	gpio_set_value (slst_gpio_base_id+PROC_AWAKE_ID, 1);
+	pr_err("%s: PM_POST_SUSPEND %d \n", __func__, slst_gpio_base_id + PROC_AWAKE_ID);
 	if (error) {
 		suspend_stats.fail++;
 		dpm_save_failed_errno(error);

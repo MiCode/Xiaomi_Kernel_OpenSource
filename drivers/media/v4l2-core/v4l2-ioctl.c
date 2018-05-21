@@ -2517,6 +2517,8 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 			/* read-only ioctl */
 			memset(parg, 0, _IOC_SIZE(cmd));
 		}
+	} else{
+		parg = NULL;
 	}
 
 	err = check_array_args(cmd, parg, &array_size, &user_ptr, &kernel_ptr);

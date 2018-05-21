@@ -739,6 +739,7 @@ nextsi:
 
 	atomic_long_inc(&nr_swap_pages);
 noswap:
+	swapaging_work();
 	return (swp_entry_t) {0};
 }
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2806,6 +2807,9 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	struct msm_ipc_router_remote_port *rport_ptr;
 
 	if (!port_ptr || !name)
+		return -EINVAL;
+
+	if (port_ptr->type != CLIENT_PORT)
 		return -EINVAL;
 
 	if (name->addrtype != MSM_IPC_ADDR_NAME)

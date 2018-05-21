@@ -4,6 +4,7 @@
  * Copyright IBM Corporation, 2007
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2.1 of the GNU Lesser General Public License
@@ -418,6 +419,18 @@ static void freezer_change_state(struct freezer *freezer, bool freeze)
 	rcu_read_unlock();
 	mutex_unlock(&freezer_mutex);
 }
+
+#ifdef CONFIG_FROZEN_APP
+void freezer_change_state_to_thawed(struct task_struct *task)
+{
+	struct freezer *frozen_task;
+
+	frozen_task = task_freezer(task);
+	if (frozen_task->state & CGROUP_FROZEN)
+		freezer_change_state(frozen_task, false);
+	return;
+}
+#endif
 
 static ssize_t freezer_write(struct kernfs_open_file *of,
 			     char *buf, size_t nbytes, loff_t off)

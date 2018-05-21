@@ -10,9 +10,14 @@
 
 /*
  * Time out in seconds for disks and Magneto-opticals (which are slower).
+ * SD_UNMAP_TIMEOUT for in 128GB ufs case, HCI put about 30 unmap cmd(4GB)
+ * at the same time, for every unmap command need 2s, so since the 16th unmap
+ * command already wait 30s in the CMQ, so we enlarge it to 100s.
  */
 #define SD_TIMEOUT		(30 * HZ)
 #define SD_MOD_TIMEOUT		(75 * HZ)
+#define SD_UNMAP_TIMEOUT		(100 * HZ)
+
 /*
  * Flush timeout is a multiplier over the standard device timeout which is
  * user modifiable via sysfs but initially set to SD_TIMEOUT

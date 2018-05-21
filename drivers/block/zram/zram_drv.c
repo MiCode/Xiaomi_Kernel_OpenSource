@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
  *               2012, 2013 Minchan Kim
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.
@@ -49,7 +50,7 @@ static const char *default_compressor = "lzo";
 #define ALLOC_ERROR_LOG_RATE_MS 1000
 
 /* Module params (documentation at end) */
-static unsigned int num_devices = 1;
+static unsigned int num_devices = 4;
 
 static inline void deprecated_attr_warn(const char *name)
 {
@@ -333,6 +334,28 @@ static ssize_t comp_algorithm_store(struct device *dev,
 	return len;
 }
 
+int zs_get_page_usage(unsigned long *total_pool_pages,
+			unsigned long *total_ori_pages)
+{
+	int i;
+	*total_pool_pages = *total_ori_pages = 0;
+	if (!zram_devices)
+		return 0;
+	for (i = 0; i < num_devices; i++) {
+		struct zram *zram = &zram_devices[i];
+		struct zram_meta *meta = zram->meta;
+		if (!down_read_trylock(&zram->init_lock))
+			continue;
+		if (init_done(zram)) {
+			*total_pool_pages += zs_get_total_pages(meta->mem_pool);
+			*total_ori_pages += atomic64_read(
+						&zram->stats.pages_stored);
+		}
+		up_read(&zram->init_lock);
+	}
+	return 0;
+}
+
 /* flag operations needs meta->tb_lock */
 static int zram_test_flag(struct zram_meta *meta, u32 index,
 			enum zram_pageflags flag)
@@ -431,7 +454,7 @@ static struct zram_meta *zram_meta_alloc(int device_id, u64 disksize)
 	}
 
 	snprintf(pool_name, sizeof(pool_name), "zram%d", device_id);
-	meta->mem_pool = zs_create_pool(pool_name, GFP_NOIO | __GFP_HIGHMEM);
+	meta->mem_pool = zs_create_pool(pool_name);
 	if (!meta->mem_pool) {
 		pr_err("Error creating memory pool\n");
 		goto out_error;
@@ -702,7 +725,9 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 			src = uncmem;
 	}
 
-	handle = zs_malloc(meta->mem_pool, clen);
+	handle = zs_malloc(meta->mem_pool, clen,
+			__GFP_NOWARN | __GFP_HIGHMEM |  __GFP_MOVABLE);
+
 	if (!handle) {
 		if (printk_timed_ratelimit(&zram_rs_time,
 					   ALLOC_ERROR_LOG_RATE_MS))

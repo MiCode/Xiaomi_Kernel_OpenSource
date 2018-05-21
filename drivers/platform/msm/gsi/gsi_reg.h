@@ -1,5 +1,5 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
- *
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -1687,5 +1687,7 @@
 #define GSI_INTER_EE_n_SRC_EV_CH_IRQ_CLR_EV_CH_BIT_MAP_BMSK 0xffffffff
 #define GSI_INTER_EE_n_SRC_EV_CH_IRQ_CLR_EV_CH_BIT_MAP_SHFT 0x0
 
+#define GSI_GSI_INST_RAM_BASE_OFFS	0x4000
+#define GSI_GSI_INST_RAM_SIZE		0x4000
 
 #endif /* __GSI_REG_H__ */

@@ -193,6 +193,13 @@ config INPUT_KEYCOMBO
 	  To compile this driver as a module, choose M here: the
 	  module will be called keycombo.
 
+config LAST_TOUCH_EVENTS
+	bool "Last touch events"
+	default n
+	depends on INPUT
+	---help---
+	  Say Y here if you want to get last touch events.
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"
@@ -206,6 +213,8 @@ source "drivers/input/tablet/Kconfig"
 source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
+
+source "drivers/input/fingerprint/Kconfig"
 
 endif
 

@@ -6,6 +6,7 @@
 	David Libault  <david.libault@inventel.fr>
 
    Copyright (C) 2002 Maxim Krasnyansky <maxk@qualcomm.com>
+   Copyright (C) 2018 XiaoMi, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 as
@@ -532,6 +533,9 @@ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
 	int err;
 
 	BT_DBG("");
+
+	if (!l2cap_is_socket(sock))
+		return -EBADFD;
 
 	baswap((void *) dst, &l2cap_pi(sock->sk)->chan->dst);
 	baswap((void *) src, &l2cap_pi(sock->sk)->chan->src);

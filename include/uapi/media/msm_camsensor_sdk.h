@@ -95,6 +95,7 @@ enum msm_camera_i2c_data_type {
 	MSM_CAMERA_I2C_SET_WORD_MASK,
 	MSM_CAMERA_I2C_UNSET_WORD_MASK,
 	MSM_CAMERA_I2C_SET_BYTE_WRITE_MASK_DATA,
+	MSM_CAMERA_I2C_NO_DATA,
 	MSM_CAMERA_I2C_DATA_TYPE_MAX,
 };
 
@@ -130,6 +131,7 @@ enum msm_camera_vreg_name_t {
 	CAM_VAF,
 	CAM_V_CUSTOM1,
 	CAM_V_CUSTOM2,
+	CAM_VMIPI,
 	CAM_VREG_MAX,
 };
 
@@ -189,6 +191,8 @@ enum msm_flash_cfg_type_t {
 	CFG_FLASH_OFF,
 	CFG_FLASH_LOW,
 	CFG_FLASH_HIGH,
+	CFG_FLASH_LOCK,
+	CFG_FLASH_UNLOCK,
 };
 
 enum msm_ir_led_cfg_type_t {

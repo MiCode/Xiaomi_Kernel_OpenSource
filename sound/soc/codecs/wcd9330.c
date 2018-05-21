@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1376,6 +1377,13 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 
 	tomtom_mad_input = ucontrol->value.integer.value[0];
 	micb_4_int_reg = tomtom->resmgr.reg_addr->micb_4_int_rbias;
+
+	if (tomtom_mad_input >= ARRAY_SIZE(tomtom_conn_mad_text)) {
+		dev_err(codec->dev,
+				"%s: tomtom_mad_input = %d out of bounds\n",
+				__func__, tomtom_mad_input);
+		return -EINVAL;
+	}
 
 	pr_debug("%s: tomtom_mad_input = %s\n", __func__,
 			tomtom_conn_mad_text[tomtom_mad_input]);

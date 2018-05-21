@@ -1234,7 +1234,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 
 	if (!mdm_restart && cur_state == MSM_CTRL_DOWN) {
 		int timeout = wait_for_completion_timeout(&dev->qmi.qmi_comp,
-						HZ);
+						3 * HZ);
 		if (!timeout) {
 			SLIM_ERR(dev, "slimbus QMI init timed out\n");
 			return -EREMOTEIO;

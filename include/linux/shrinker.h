@@ -67,4 +67,10 @@ struct shrinker {
 
 extern int register_shrinker(struct shrinker *);
 extern void unregister_shrinker(struct shrinker *);
+
+#ifdef CONFIG_PERFGUARD
+extern void pg_register_kgsl_shrinker(struct shrinker *shrinker);
+extern void pg_register_zsmalloc_shrinker(struct shrinker *shrinker);
+#endif
+
 #endif

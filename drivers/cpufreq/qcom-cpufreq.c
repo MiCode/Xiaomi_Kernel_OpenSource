@@ -5,6 +5,7 @@
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,6 +36,7 @@ static struct clk *cpu_clk[NR_CPUS];
 static struct clk *l2_clk;
 static DEFINE_PER_CPU(struct cpufreq_frequency_table *, freq_table);
 static bool hotplug_ready;
+static int cpu_maxfreq;
 
 struct cpufreq_suspend_t {
 	struct mutex suspend_mutex;
@@ -96,7 +98,9 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	}
 	if (cpufreq_frequency_table_target(policy, table, target_freq, relation,
 			&index)) {
-		pr_err("cpufreq: invalid target_freq: %d\n", target_freq);
+		pr_err("cpufreq: cpu[%d] invalid target_freq: %d, relation %d, policy min %d,"
+				"policy max %d\n", policy->cpu, target_freq, relation,
+				policy->min, policy->max);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -388,6 +392,7 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	struct clk *c;
 	int cpu;
 	struct cpufreq_frequency_table *ftbl;
+	struct cpufreq_frequency_table *pos;
 
 	l2_clk = devm_clk_get(dev, "l2_clk");
 	if (IS_ERR(l2_clk))
@@ -451,7 +456,18 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 		per_cpu(freq_table, cpu) = ftbl;
 	}
 
+	cpu_maxfreq = 0;
+	cpufreq_for_each_valid_entry(pos, ftbl) {
+		if (pos->frequency > cpu_maxfreq)
+			cpu_maxfreq = pos->frequency;
+	}
+
 	return 0;
+}
+
+int get_cpu_maxfreq(void)
+{
+	return cpu_maxfreq;
 }
 
 static struct of_device_id match_table[] = {

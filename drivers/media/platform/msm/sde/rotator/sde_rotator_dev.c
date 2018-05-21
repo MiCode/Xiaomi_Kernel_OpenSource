@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -625,7 +626,7 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			struct sde_rotator_vbinfo *vbinfo =
 					&ctx->vbinfo_cap[i];
 
-			if (vbinfo->fence && vbinfo->fd < 0) {
+			if (vbinfo->fence) {
 				/* fence is not used */
 				SDEDEV_DBG(rot_dev->dev,
 						"put fence s:%d t:%d i:%d\n",
@@ -1555,7 +1556,7 @@ static int sde_rotator_dqbuf(struct file *file,
 			&& (buf->index < ctx->nbuf_cap)) {
 		int idx = buf->index;
 
-		if (ctx->vbinfo_cap[idx].fence && ctx->vbinfo_cap[idx].fd < 0) {
+		if (ctx->vbinfo_cap[idx].fence) {
 			/* fence is not used */
 			SDEDEV_DBG(ctx->rot_dev->dev, "put fence s:%d i:%d\n",
 					ctx->session_id, idx);
@@ -1961,6 +1962,7 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 					ctx->session_id);
 				return vbinfo->fd;
 			}
+			vbinfo->fence = NULL;
 		}
 		fence->fd = vbinfo->fd;
 

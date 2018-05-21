@@ -1,4 +1,5 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,12 +319,11 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 
 static int kgsl_allocate_secure(struct kgsl_device *device,
 				struct kgsl_memdesc *memdesc,
-				struct kgsl_pagetable *pagetable,
 				uint64_t size) {
 	int ret;
 
 	if (MMU_FEATURE(&device->mmu, KGSL_MMU_HYP_SECURE_ALLOC))
-		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, size);
 	else
 		ret = kgsl_cma_alloc_secure(device, memdesc, size);
 
@@ -332,7 +332,6 @@ static int kgsl_allocate_secure(struct kgsl_device *device,
 
 int kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
-		struct kgsl_pagetable *pagetable,
 		uint64_t size, uint64_t flags)
 {
 	int ret;
@@ -340,12 +339,11 @@ int kgsl_allocate_user(struct kgsl_device *device,
 	memdesc->flags = flags;
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
-		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
-				pagetable, size);
+		ret = kgsl_sharedmem_alloc_contig(device, memdesc, size);
 	else if (flags & KGSL_MEMFLAGS_SECURE)
-		ret = kgsl_allocate_secure(device, memdesc, pagetable, size);
+		ret = kgsl_allocate_secure(device, memdesc, size);
 	else
-		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, size);
 
 	return ret;
 }
@@ -563,57 +561,131 @@ static inline unsigned int _fixup_cache_range_op(unsigned int op)
 }
 #endif
 
+static int kgsl_do_cache_op(struct page *page, void *addr,
+		uint64_t offset, uint64_t size, unsigned int op)
+{
+	void (*cache_op)(const void *, const void *);
+
+	/*
+	 * The dmac_xxx_range functions handle addresses and sizes that
+	 * are not aligned to the cacheline size correctly.
+	 */
+	switch (_fixup_cache_range_op(op)) {
+	case KGSL_CACHE_OP_FLUSH:
+		cache_op = dmac_flush_range;
+		break;
+	case KGSL_CACHE_OP_CLEAN:
+		cache_op = dmac_clean_range;
+		break;
+	case KGSL_CACHE_OP_INV:
+		cache_op = dmac_inv_range;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (page != NULL) {
+		unsigned long pfn = page_to_pfn(page) + offset / PAGE_SIZE;
+		/*
+		 *  page_address() returns the kernel virtual address of page.
+		 *  For high memory kernel virtual address exists only if page
+		 *  has been mapped. So use a version of kmap rather than
+		 *  page_address() for high memory.
+		 */
+		if (PageHighMem(page)) {
+			offset &= ~PAGE_MASK;
+
+			do {
+				unsigned int len = size;
+
+				if (len + offset > PAGE_SIZE)
+					len = PAGE_SIZE - offset;
+
+				page = pfn_to_page(pfn++);
+				addr = kmap_atomic(page);
+				cache_op(addr + offset, addr + offset + len);
+				kunmap_atomic(addr);
+
+				size -= len;
+				offset = 0;
+			} while (size);
+
+			return 0;
+		}
+
+		addr = page_address(page);
+	}
+
+	cache_op(addr + offset, addr + offset + (size_t) size);
+	return 0;
+}
+
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		uint64_t size, unsigned int op)
 {
-	/*
-	 * If the buffer is mapped in the kernel operate on that address
-	 * otherwise use the user address
-	 */
+	void *addr = NULL;
+	int ret = 0;
 
-	void *addr = (memdesc->hostptr) ?
-		memdesc->hostptr : (void *) memdesc->useraddr;
-
-	/* Make sure that size is non-zero */
-	if (!size)
+	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
 
-	/* Make sure that the offset + size isn't bigger than we can handle */
-	if ((offset + size) > ULONG_MAX)
-		return -ERANGE;
-
-	/* Make sure the offset + size do not overflow the address */
-	if (addr + ((size_t) offset + (size_t) size) < addr)
+	/* Make sure that the offset + size does not overflow */
+	if ((offset + size < offset) || (offset + size < size))
 		return -ERANGE;
 
 	/* Check that offset+length does not exceed memdesc->size */
 	if (offset + size > memdesc->size)
 		return -ERANGE;
 
-	/* Return quietly if the buffer isn't mapped on the CPU */
-	if (addr == NULL)
-		return 0;
+	if (memdesc->hostptr) {
+		addr = memdesc->hostptr;
+		/* Make sure the offset + size do not overflow the address */
+		if (addr + ((size_t) offset + (size_t) size) < addr)
+			return -ERANGE;
 
-	addr = addr + offset;
-
-	/*
-	 * The dmac_xxx_range functions handle addresses and sizes that
-	 * are not aligned to the cacheline size correctly.
-	 */
-
-	switch (_fixup_cache_range_op(op)) {
-	case KGSL_CACHE_OP_FLUSH:
-		dmac_flush_range(addr, addr + (size_t) size);
-		break;
-	case KGSL_CACHE_OP_CLEAN:
-		dmac_clean_range(addr, addr + (size_t) size);
-		break;
-	case KGSL_CACHE_OP_INV:
-		dmac_inv_range(addr, addr + (size_t) size);
-		break;
+		ret = kgsl_do_cache_op(NULL, addr, offset, size, op);
+		return ret;
 	}
 
-	return 0;
+	/*
+	 * If the buffer is not to mapped to kernel, perform cache
+	 * operations after mapping to kernel.
+	 */
+	if (memdesc->sgt != NULL) {
+		struct scatterlist *sg;
+		unsigned int i, pos = 0;
+
+		for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
+			uint64_t sg_offset, sg_left;
+
+			if (offset >= (pos + sg->length)) {
+				pos += sg->length;
+				continue;
+			}
+			sg_offset = offset > pos ? offset - pos : 0;
+			sg_left = (sg->length - sg_offset > size) ? size :
+						sg->length - sg_offset;
+			ret = kgsl_do_cache_op(sg_page(sg), NULL, sg_offset,
+								sg_left, op);
+			size -= sg_left;
+			if (size == 0)
+				break;
+			pos += sg->length;
+		}
+	} else if (memdesc->pages != NULL) {
+		addr = vmap(memdesc->pages, memdesc->page_count,
+				VM_IOREMAP, pgprot_writecombine(PAGE_KERNEL));
+		if (addr == NULL)
+			return -ENOMEM;
+
+		/* Make sure the offset + size do not overflow the address */
+		if (addr + ((size_t) offset + (size_t) size) < addr)
+			return -ERANGE;
+
+		ret = kgsl_do_cache_op(NULL, addr, offset, size, op);
+		vunmap(addr);
+	}
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
@@ -682,7 +754,6 @@ static void kgsl_zero_pages(struct page **pages, unsigned int pcount)
 
 int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
-			struct kgsl_pagetable *pagetable,
 			uint64_t size)
 {
 	int ret = 0;
@@ -714,7 +785,6 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 
 	len_alloc = PAGE_ALIGN(size) >> PAGE_SHIFT;
 
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_page_alloc_ops;
 
 	/*
@@ -855,10 +925,8 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (memdesc == NULL || memdesc->size == 0)
 		return;
 
-	if (memdesc->gpuaddr) {
-		kgsl_mmu_unmap(memdesc->pagetable, memdesc);
-		kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
-	}
+	/* Make sure the memory object has been unmapped */
+	kgsl_mmu_put_gpuaddr(memdesc);
 
 	if (memdesc->ops && memdesc->ops->free)
 		memdesc->ops->free(memdesc);
@@ -1038,8 +1106,7 @@ void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 EXPORT_SYMBOL(kgsl_get_memory_usage);
 
 int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
-			struct kgsl_memdesc *memdesc,
-			struct kgsl_pagetable *pagetable, uint64_t size)
+			struct kgsl_memdesc *memdesc, uint64_t size)
 {
 	int result = 0;
 
@@ -1048,7 +1115,6 @@ int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 		return -EINVAL;
 
 	memdesc->size = size;
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = device->dev->parent;
 
@@ -1139,7 +1205,6 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 {
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	int result = 0;
-	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
 	size_t aligned;
 
 	/* Align size to 1M boundaries */
@@ -1159,7 +1224,6 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			memdesc->priv &= ~KGSL_MEMDESC_GUARD_PAGE;
 
 	memdesc->size = aligned;
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE].dev;
 

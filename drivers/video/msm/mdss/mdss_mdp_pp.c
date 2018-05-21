@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2408,6 +2409,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 				ad_hw->base + MDSS_MDP_REG_AD_TFILT_CTRL);
 			writel_relaxed(ad->cfg.mode | MDSS_AD_AUTO_TRIGGER,
 				ad_hw->base + MDSS_MDP_REG_AD_MODE_SEL);
+			ad->last_str = 0xFF & readl_relaxed(ad_hw->base +
+					MDSS_MDP_REG_AD_STR_OUT);
 		}
 
 		pp_ad_bypass_config(ad, ctl, ad_hw->num, &ad_bypass);
@@ -4574,6 +4577,11 @@ gamut_clk_off:
 			} else {
 				goto gamut_set_dirty;
 			}
+		}
+		if (pp_gm_has_invalid_lut_size(config)) {
+			pr_debug("invalid lut size for gamut\n");
+			ret = -EINVAL;
+			goto gamut_config_exit;
 		}
 		local_cfg = *config;
 		tbl_off = mdss_pp_res->gamut_tbl[disp_num];

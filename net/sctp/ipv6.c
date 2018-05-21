@@ -3,6 +3,7 @@
  * Copyright (c) 2001 Nokia, Inc.
  * Copyright (c) 2001 La Monte H.P. Yarroll
  * Copyright (c) 2002-2003 Intel Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is part of the SCTP kernel implementation
  *
@@ -653,6 +654,9 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
 	newnp = inet6_sk(newsk);
 
 	memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+	newnp->ipv6_mc_list = NULL;
+	newnp->ipv6_ac_list = NULL;
+	newnp->ipv6_fl_list = NULL;
 
 	rcu_read_lock();
 	opt = rcu_dereference(np->opt);

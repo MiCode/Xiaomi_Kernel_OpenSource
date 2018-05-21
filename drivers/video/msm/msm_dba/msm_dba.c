@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +81,11 @@ void *msm_dba_register_client(struct msm_dba_reg_info *info,
 		if (rc) {
 			pr_err("%s: Client register failed (%s, %d)\n",
 			       __func__, info->chip_name, info->instance_id);
+			/* remove the client from list before freeing */
+			mutex_lock_nested(&device->dev_mutex,
+						SINGLE_DEPTH_NESTING);
+			list_del(&client->list);
+			mutex_unlock(&device->dev_mutex);
 			kfree(client);
 			mutex_unlock(&register_mutex);
 			return ERR_PTR(rc);

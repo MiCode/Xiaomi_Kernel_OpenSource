@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,7 +493,8 @@ static int a5xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	int ret;
 
 	ret = kgsl_allocate_global(device, &rb->preemption_desc,
-		A5XX_CP_CTXRECORD_SIZE_IN_BYTES, 0, KGSL_MEMDESC_PRIVILEGED);
+		A5XX_CP_CTXRECORD_SIZE_IN_BYTES, 0, KGSL_MEMDESC_PRIVILEGED,
+		"preemption_desc");
 	if (ret)
 		return ret;
 
@@ -527,7 +529,8 @@ static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
 
 	/* Allocate mem for storing preemption smmu record */
 	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED);
+		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED,
+		"smmu_info");
 }
 #else
 static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
@@ -557,7 +560,8 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 	/* Allocate mem for storing preemption counters */
 	ret = kgsl_allocate_global(device, &preempt->counters,
 		adreno_dev->num_ringbuffers *
-		A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0);
+		A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0,
+		"preemption_counters");
 	if (ret)
 		return ret;
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1353,17 +1354,13 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		mdss_mdp_release_splash_pipe(mfd);
 		return 0;
 	} else if (mfd->panel_info->cont_splash_enabled) {
-		if (mdp5_data->allow_kickoff) {
-			mdp5_data->allow_kickoff = false;
-		} else {
-			mutex_lock(&mdp5_data->list_lock);
-			rc = list_empty(&mdp5_data->pipes_used);
-			mutex_unlock(&mdp5_data->list_lock);
-			if (rc) {
-				pr_debug("empty kickoff on fb%d during cont splash\n",
+		mutex_lock(&mdp5_data->list_lock);
+		rc = list_empty(&mdp5_data->pipes_used);
+		mutex_unlock(&mdp5_data->list_lock);
+		if (rc) {
+			pr_debug("empty kickoff on fb%d during cont splash\n",
 					mfd->index);
-				return -EPERM;
-			}
+			return -EPERM;
 		}
 	} else if (mdata->handoff_pending) {
 		pr_warn("fb%d: commit while splash handoff pending\n",
@@ -2088,6 +2085,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		commit_cb.data = mfd;
 		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL,
 			&commit_cb);
+		ctl->panel_data->panel_info.kickoff_count++;
 		ATRACE_END("display_commit");
 	}
 
@@ -3829,12 +3827,21 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 		start_y = 0;
 	}
 
+	if ((img->width > mdata->max_cursor_size) ||
+			(img->height > mdata->max_cursor_size) ||
+			(img->depth != 32) || (start_x >= xres) ||
+			(start_y >= yres)) {
+		pr_err("Invalid cursor image coordinates\n");
+		ret = -EINVAL;
+		goto done;
+	}
+
 	roi.w = min(xres - start_x, img->width - roi.x);
 	roi.h = min(yres - start_y, img->height - roi.y);
 
 	if ((roi.w > mdata->max_cursor_size) ||
-		(roi.h > mdata->max_cursor_size) ||
-		(img->depth != 32) || (start_x >= xres) || (start_y >= yres)) {
+		(roi.h > mdata->max_cursor_size)) {
+		pr_err("Invalid cursor ROI size\n");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -4331,12 +4338,16 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
 		break;
 	case metadata_op_get_ion_fd:
-		if (mfd->fb_ion_handle) {
+		if (mfd->fb_ion_handle && mfd->fb_ion_client) {
+			get_dma_buf(mfd->fbmem_buf);
 			metadata->data.fbmem_ionfd =
-				dma_buf_fd(mfd->fbmem_buf, 0);
-			if (metadata->data.fbmem_ionfd < 0)
+					ion_share_dma_buf_fd(mfd->fb_ion_client,
+					mfd->fb_ion_handle);
+			if (metadata->data.fbmem_ionfd < 0) {
+				dma_buf_put(mfd->fbmem_buf);
 				pr_err("fd allocation failed. fd = %d\n",
 						metadata->data.fbmem_ionfd);
+			}
 		}
 		break;
 	case metadata_op_crc:
@@ -5110,7 +5121,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
 	int rc;
 	struct mdss_overlay_private *mdp5_data;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_mixer *mixer;
 	int need_cleanup;
 	int retire_cnt;
@@ -5127,6 +5137,18 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	if (!mdp5_data || !mdp5_data->ctl) {
 		pr_err("ctl not initialized\n");
 		return -ENODEV;
+	}
+
+	if (!mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
+		if (mfd->panel_reconfig) {
+			if (mfd->panel_info->cont_splash_enabled)
+				mdss_mdp_handoff_cleanup_ctl(mfd);
+
+			mdp5_data->borderfill_enable = false;
+			mdss_mdp_ctl_destroy(mdp5_data->ctl);
+			mdp5_data->ctl = NULL;
+		}
+		return 0;
 	}
 
 	/*
@@ -5173,20 +5195,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 	if (need_cleanup) {
 		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
-		if (mdata->handoff_pending)
-			mdp5_data->allow_kickoff = true;
-
 		mdss_mdp_overlay_kickoff(mfd, NULL);
-	} else if (!mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
-		if (mfd->panel_reconfig) {
-			if (mfd->panel_info->cont_splash_enabled)
-				mdss_mdp_handoff_cleanup_ctl(mfd);
-
-			mdp5_data->borderfill_enable = false;
-			mdss_mdp_ctl_destroy(mdp5_data->ctl);
-			mdp5_data->ctl = NULL;
-		}
-		goto end;
 	}
 
 	/*
@@ -5261,7 +5270,6 @@ ctl_stop:
 		mdp5_data->wfd = NULL;
 	}
 
-end:
 	/* Release the last reference to the runtime device */
 	rc = pm_runtime_put(&mfd->pdev->dev);
 	if (rc)
@@ -5689,7 +5697,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_data->hw_refresh = true;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
-	mdp5_data->allow_kickoff = false;
 
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;

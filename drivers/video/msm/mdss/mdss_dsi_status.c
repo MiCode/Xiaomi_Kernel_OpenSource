@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,13 +25,15 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
+
 
 #include "mdss_fb.h"
 #include "mdss_dsi.h"
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
-#define STATUS_CHECK_INTERVAL_MS 5000
+#define STATUS_CHECK_INTERVAL_MS 2000
 #define STATUS_CHECK_INTERVAL_MIN_MS 50
 #define DSI_STATUS_CHECK_INIT -1
 #define DSI_STATUS_CHECK_DISABLE 1
@@ -66,7 +69,6 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 		pr_debug("%s: panel off\n", __func__);
 		return;
 	}
-
 	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
 }
 
@@ -88,16 +90,23 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if (pstatus_data)
-		mod_delayed_work(system_wq, &pstatus_data->check_status,
-			msecs_to_jiffies(interval));
-	else
-		pr_err("Pstatus data is NULL\n");
-
-	if (!atomic_read(&ctrl_pdata->te_irq_ready))
+	if (!atomic_read(&ctrl_pdata->te_irq_ready)) {
 		atomic_inc(&ctrl_pdata->te_irq_ready);
+		schedule_work(&pstatus_data->te_irq_disable);
+	}
 
 	return IRQ_HANDLED;
+}
+
+static void vsync_irq_disable(struct work_struct *work)
+{
+	struct mdss_panel_data *pdata = NULL;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	pdata = container_of(pstatus_data->mfd->panel_info,
+			struct mdss_panel_data, panel_info);
+	ctrl_pdata = container_of(pdata,
+			struct mdss_dsi_ctrl_pdata, panel_data);
+	disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 }
 
 /*
@@ -164,7 +173,7 @@ static int fb_event_callback(struct notifier_block *self,
 		case FB_BLANK_HSYNC_SUSPEND:
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:
-			cancel_delayed_work(&pdata->check_status);
+			cancel_delayed_work_sync(&pdata->check_status);
 			break;
 		default:
 			pr_err("Unknown case in FB_EVENT_BLANK event\n");
@@ -232,6 +241,7 @@ int __init mdss_dsi_status_init(void)
 	pr_info("%s: DSI status check interval:%d\n", __func__,	interval);
 
 	INIT_DELAYED_WORK(&pstatus_data->check_status, check_dsi_ctrl_status);
+	INIT_WORK(&pstatus_data->te_irq_disable, vsync_irq_disable);
 
 	pr_debug("%s: DSI ctrl status work queue initialized\n", __func__);
 

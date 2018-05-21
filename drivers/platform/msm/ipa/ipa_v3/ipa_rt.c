@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -901,12 +902,15 @@ int ipa3_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 		return -EINVAL;
 	}
 
+	mutex_lock(&ipa3_ctx->lock);
 	/* check if this table exists */
 	entry = __ipa3_find_rt_tbl(in->ip, in->name);
-	if (!entry)
+	if (!entry) {
+		mutex_unlock(&ipa3_ctx->lock);
 		return -EFAULT;
-
+	}
 	in->idx  = entry->idx;
+	mutex_unlock(&ipa3_ctx->lock);
 	return 0;
 }
 
@@ -1611,6 +1615,10 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	mutex_lock(&ipa3_ctx->lock);
 	entry = __ipa3_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
+		if (entry->ref_cnt == U32_MAX) {
+			IPAERR("fail: ref count crossed limit\n");
+			goto ret;
+		}
 		entry->ref_cnt++;
 		lookup->hdl = entry->id;
 
@@ -1620,6 +1628,8 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 
 		result = 0;
 	}
+
+ret:
 	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;

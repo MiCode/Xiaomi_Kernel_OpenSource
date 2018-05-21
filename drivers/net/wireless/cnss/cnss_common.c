@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 #include <net/cnss.h>
 #include "cnss_common.h"
 #include <net/cfg80211.h>
+#include <asm/bootinfo.h>
 
 #define AR6320_REV1_VERSION             0x5000000
 #define AR6320_REV1_1_VERSION           0x5000001
@@ -461,6 +463,30 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 {
 	if (!pfw_files)
 		return -ENODEV;
+
+	if (get_hw_version_devid() == 7) {
+		/* Load board data for A7 */
+		if (get_fem_fix_flag() == 1) {
+			/* Load board data for A7 secondary fem supply */
+			strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_a7.b02", sizeof("bd30_a7.b02"));
+		} else {
+			strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_a7.bin", sizeof("bd30_a7.bin"));
+		}
+	} else if (get_hw_version_devid() == 4) {
+		/* Load board data for A4 */
+		strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_a4.bin", sizeof("bd30_a4.bin"));
+	} else if (get_hw_version_devid() == 8) {
+		/* Load board data for A8 */
+		strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_a8.bin", sizeof("bd30_a8.bin"));
+	} else if (get_hw_version_devid() == 9) {
+		/* Load board data for B7 */
+		if (get_fem_fix_flag() == 1) {
+			/* Load board data for B7 secondary fem supply */
+			strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_b7.b02", sizeof("bd30_b7.b02"));
+		} else {
+			strlcpy(FW_FILES_QCA6174_FW_3_0.board_data, "bd30_b7.bin", sizeof("bd30_b7.bin"));
+		}
+	}
 
 	switch (target_version) {
 	case AR6320_REV1_VERSION:

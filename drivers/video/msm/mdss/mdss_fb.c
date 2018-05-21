@@ -2,7 +2,8 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,6 +49,7 @@
 #include <linux/file.h>
 #include <linux/kthread.h>
 #include <linux/dma-buf.h>
+#include <linux/interrupt.h>
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -77,6 +79,7 @@
 
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
+static struct msm_fb_data_type *mfd_data;
 
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -271,10 +274,22 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	if (value > mfd->panel_info->brightness_max)
 		value = mfd->panel_info->brightness_max;
 
+	if (mfd->panel_info->is_oled_hbm_mode) {
+		if (value > 254)
+			value = 254;
+	}
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
 	MDSS_BRIGHT_TO_BL(bl_lvl, value, mfd->panel_info->bl_max,
 				mfd->panel_info->brightness_max);
+
+#if 0
+	/* Night mode brightness remap */
+	if (mfd->panel_info->night_map_len > 0) {
+		if ((value <=  mfd->panel_info->night_map_len) && (value > 0))
+			bl_lvl = mfd->panel_info->night_map[value - 1];
+	}
+#endif
 
 	if (!bl_lvl && value)
 		bl_lvl = 1;
@@ -477,6 +492,21 @@ static ssize_t mdss_mdp_show_blank_event(struct device *dev,
 						mfd->panel_power_state);
 
 	return ret;
+}
+
+static ssize_t mdss_fb_set_dispparam(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int param, ret;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+
+	sscanf(buf, "0x%x", &param);
+	pdata->panel_info.panel_paramstatus = param;
+	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_DISPPARAM, NULL);
+
+	return size;
 }
 
 static void __mdss_fb_idle_notify_work(struct work_struct *work)
@@ -766,6 +796,7 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 }
 
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
+static DEVICE_ATTR(msm_fb_dispparam, 0644, NULL, mdss_fb_set_dispparam);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
@@ -783,6 +814,7 @@ static DEVICE_ATTR(msm_fb_dfps_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_dfps_mode, mdss_fb_change_dfps_mode);
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
+	&dev_attr_msm_fb_dispparam.attr,
 	&dev_attr_msm_fb_split.attr,
 	&dev_attr_show_blank_event.attr,
 	&dev_attr_idle_time.attr,
@@ -1069,6 +1101,33 @@ static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static irqreturn_t esd_err_irq_handle(int irq, void *data)
+{
+	struct msm_fb_data_type *mfd = data;
+
+	pr_info("%s: ESD ERR\n", __func__);
+
+	if (mfd)
+		mdss_fb_report_panel_dead(mfd);
+	else
+		pr_err("%s: mfd is NULL\n", __func__);
+
+	return IRQ_HANDLED;
+}
+
+void mdss_fb_prim_panel_recover(void)
+{
+	pr_info("Primary panel recover...\n");
+
+	if (mfd_data)
+		mdss_fb_report_panel_dead(mfd_data);
+	else
+		pr_err("%s: Primary panel mfd is NULL\n", __func__);
+
+	pr_info("Primary panel recover done\n");
+}
+EXPORT_SYMBOL(mdss_fb_prim_panel_recover);
+
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -1215,6 +1274,19 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			pr_err("failed to register input handler\n");
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
+
+	if (mfd->panel_info->esd_err_irq > 0) {
+		rc = request_threaded_irq(mfd->panel_info->esd_err_irq, NULL,
+			esd_err_irq_handle, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			"esd_err_irq", mfd);
+		if (rc < 0) {
+			pr_err("%s: request irq %d failed\n", __func__, mfd->panel_info->esd_err_irq);
+		}
+	}
+
+	if (mfd->panel_info->is_prim_panel) {
+		mfd_data = mfd;
+	}
 
 	return rc;
 }
@@ -1519,7 +1591,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	u32 temp = bkl_lvl;
 	bool ad_bl_notify_needed = false;
 	bool bl_notify_needed = false;
-
+	static int backlight_enable_flag;
 	if ((((mdss_fb_is_power_off(mfd) && mfd->dcm_state != DCM_ENTER)
 		|| !mfd->allow_bl_update) && !IS_CALIB_MODE_BL(mfd)) ||
 		mfd->panel_info->cont_splash_enabled) {
@@ -1553,6 +1625,17 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
 			pr_debug("backlight sent to panel :%d\n", temp);
+
+			if (0 == temp) {
+				backlight_enable_flag = 0;
+				pr_info("in %s,turn backlight off level = %d\n", __func__, temp);
+			} else {
+				if (0 == backlight_enable_flag) {
+					backlight_enable_flag++;
+					pr_info("in %s,set backlight level = %d\n", __func__, temp);
+				}
+			}
+
 			pdata->set_backlight(pdata, temp);
 			mfd->bl_level = bkl_lvl;
 			mfd->bl_level_scaled = temp;
@@ -2059,6 +2142,10 @@ err_put:
 	dma_buf_put(mfd->fbmem_buf);
 fb_mmap_failed:
 	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
+	mfd->fb_attachment = NULL;
+	mfd->fb_table = NULL;
+	mfd->fb_ion_handle = NULL;
+	mfd->fbmem_buf = NULL;
 	return rc;
 }
 
@@ -4114,8 +4201,6 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		goto buf_sync_err_2;
 	}
 
-	sync_fence_install(rel_fence, rel_fen_fd);
-
 	ret = copy_to_user(buf_sync->rel_fen_fd, &rel_fen_fd, sizeof(int));
 	if (ret) {
 		pr_err("%s: copy_to_user failed\n", sync_pt_data->fence_name);
@@ -4152,8 +4237,6 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		goto buf_sync_err_3;
 	}
 
-	sync_fence_install(retire_fence, retire_fen_fd);
-
 	ret = copy_to_user(buf_sync->retire_fen_fd, &retire_fen_fd,
 			sizeof(int));
 	if (ret) {
@@ -4164,7 +4247,11 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		goto buf_sync_err_3;
 	}
 
+	sync_fence_install(retire_fence, retire_fen_fd);
+
 skip_retire_fence:
+	sync_fence_install(rel_fence, rel_fen_fd);
+
 	mutex_unlock(&sync_pt_data->sync_mutex);
 
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT)
@@ -4787,6 +4874,23 @@ int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num)
 	return 0;
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);
+
+bool mdss_panel_is_prim(struct fb_info *fbi)
+{
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_info *pinfo;
+
+	if (!fbi)
+		return false;
+	mfd = fbi->par;
+	if (!mfd)
+		return false;
+	pinfo = mfd->panel_info;
+	if (!pinfo)
+		return false;
+	return pinfo->is_prim_panel;
+}
+EXPORT_SYMBOL(mdss_panel_is_prim);
 
 int __init mdss_fb_init(void)
 {

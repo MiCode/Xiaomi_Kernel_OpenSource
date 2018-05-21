@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2567,6 +2568,16 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 
 }
 EXPORT_SYMBOL(gsi_enable_fw);
+
+void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
+		unsigned long *size)
+{
+	if (base_offset)
+		*base_offset = GSI_GSI_INST_RAM_BASE_OFFS;
+	if (size)
+		*size = GSI_GSI_INST_RAM_SIZE;
+}
+EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 
 static int msm_gsi_probe(struct platform_device *pdev)
 {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,11 @@
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
+#ifdef CAMERA_ALS_ENABLE
+static atomic_t camera_als_at = ATOMIC_INIT(0);
+static atomic_t front_camera_at = ATOMIC_INIT(0);
+#endif /*CAMERA_ALS_ENABLE*/
 
 int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,
@@ -117,6 +123,27 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 			for (j = 0; j < num_vreg; j++) {
 				if (!strcmp(cam_vreg[j].reg_name, "cam_vaf")) {
 					CDBG("%s:%d i %d j %d cam_vaf\n",
+						__func__, __LINE__, i, j);
+					power_setting[i].seq_val = j;
+					if (VALIDATE_VOLTAGE(
+						cam_vreg[j].min_voltage,
+						cam_vreg[j].max_voltage,
+						power_setting[i].config_val)) {
+						cam_vreg[j].min_voltage =
+						cam_vreg[j].max_voltage =
+						power_setting[i].config_val;
+					}
+					break;
+				}
+			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
+			break;
+
+		case CAM_VMIPI:
+			for (j = 0; j < num_vreg; j++) {
+				if (!strcmp(cam_vreg[j].reg_name, "cam_vmipi")) {
+					CDBG("%s:%d i %d j %d cam_vmipi\n",
 						__func__, __LINE__, i, j);
 					power_setting[i].seq_val = j;
 					if (VALIDATE_VOLTAGE(
@@ -672,6 +699,9 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 		ps, sizeof(*ps) * size);
 
 	power_info->power_down_setting_size = size;
+
+	for (i = 0; i < size; i++)
+		power_info->power_down_setting[i].config_val = 0;
 
 	if (need_reverse) {
 		int c, end = size - 1;
@@ -1416,8 +1446,28 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 {
 	int rc = 0, index = 0, no_gpio = 0, ret = 0;
 	struct msm_sensor_power_setting *power_setting = NULL;
+#ifdef CAMERA_ALS_ENABLE
+	struct platform_device *pdev = NULL;
+#endif /*CAMERA_ALS_ENABLE*/
 
 	CDBG("%s:%d\n", __func__, __LINE__);
+
+#ifdef CAMERA_ALS_ENABLE
+	pdev = container_of(ctrl->dev, struct platform_device, dev);
+	CDBG("%s:%d pdev->name = %s\n", __func__, __LINE__, pdev->name);
+	if (strcmp(pdev->name, "a0c000.qcom,cci:qcom,camera@2") == 0) {
+		atomic_inc(&front_camera_at);
+		if (atomic_read(&camera_als_at)) {
+			return 0;
+		}
+	} else if (strcmp(pdev->name, "a0c000.qcom,cci:qcom,camera-als@3") == 0) {
+		atomic_inc(&camera_als_at);
+		if (atomic_read(&front_camera_at)) {
+			return 1;
+		}
+	}
+#endif /*CAMERA_ALS_ENABLE*/
+
 	if (!ctrl || !sensor_i2c_client) {
 		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
 			sensor_i2c_client);
@@ -1450,6 +1500,13 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 		CDBG("%s index %d\n", __func__, index);
 		power_setting = &ctrl->power_setting[index];
 		CDBG("%s type %d\n", __func__, power_setting->seq_type);
+/*
+		 SENSOR_CLK,
+		 SENSOR_GPIO,
+		 SENSOR_VREG,
+		 SENSOR_I2C_MUX,
+		 SENSOR_I2C,
+*/
 		switch (power_setting->seq_type) {
 		case SENSOR_CLK:
 			if (power_setting->seq_val >= ctrl->clk_info_size) {
@@ -1484,9 +1541,9 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[power_setting->seq_val])
 				continue;
-			CDBG("%s:%d gpio set val %d\n", __func__, __LINE__,
+			CDBG("%s:%d gpio set %d val %d\n", __func__, __LINE__,
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->seq_val]);
+				[power_setting->seq_val], (int) power_setting->config_val);
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val],
@@ -1641,8 +1698,28 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	int index = 0, ret = 0;
 	struct msm_sensor_power_setting *pd = NULL;
 	struct msm_sensor_power_setting *ps;
+#ifdef CAMERA_ALS_ENABLE
+	struct platform_device *pdev = NULL;
+#endif /*CAMERA_ALS_ENABLE*/
 
 	CDBG("%s:%d\n", __func__, __LINE__);
+
+#ifdef CAMERA_ALS_ENABLE
+	pdev = container_of(ctrl->dev, struct platform_device, dev);
+	CDBG("%s:%d pdev->name = %s\n", __func__, __LINE__, pdev->name);
+	if (strcmp(pdev->name, "a0c000.qcom,cci:qcom,camera@2") == 0) {
+		atomic_dec(&front_camera_at);
+		if (atomic_read(&camera_als_at)) {
+			return 0;
+		}
+	} else if (strcmp(pdev->name, "a0c000.qcom,cci:qcom,camera-als@3") == 0) {
+		atomic_dec(&camera_als_at);
+		if (atomic_read(&front_camera_at)) {
+			return 0;
+		}
+	}
+#endif /*CAMERA_ALS_ENABLE*/
+
 	if (!ctrl || !sensor_i2c_client) {
 		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
 			sensor_i2c_client);

@@ -20,6 +20,7 @@ struct vfsmount;
  * Dirent cache data structures
  *
  * (C) Copyright 1997 Thomas Schoebel-Theuer,
+ * Copyright (C) 2018 XiaoMi, Inc.
  * with heavy changes by Linus Torvalds
  */
 
@@ -161,7 +162,7 @@ struct dentry_operations {
 	struct vfsmount *(*d_automount)(struct path *);
 	int (*d_manage)(struct dentry *, bool);
 	struct inode *(*d_select_inode)(struct dentry *, unsigned);
-	void (*d_canonical_path)(const struct dentry *, struct path *);
+	void (*d_canonical_path)(const struct path *, struct path *);
 } ____cacheline_aligned;
 
 /*
@@ -527,5 +528,12 @@ static inline struct dentry *d_backing_dentry(struct dentry *upper)
 {
 	return upper;
 }
+
+struct name_snapshot {
+	const char *name;
+	char inline_name[DNAME_INLINE_LEN];
+};
+void take_dentry_name_snapshot(struct name_snapshot *, struct dentry *);
+void release_dentry_name_snapshot(struct name_snapshot *);
 
 #endif	/* __LINUX_DCACHE_H */

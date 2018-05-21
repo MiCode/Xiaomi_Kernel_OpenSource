@@ -1,0 +1,1 @@
+obj-$(CONFIG_PERFGUARD)			+= perfguard.o

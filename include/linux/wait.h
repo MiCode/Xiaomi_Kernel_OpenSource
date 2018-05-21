@@ -645,13 +645,39 @@ do {									\
 	__ret;								\
 })
 
+#define __wait_event_killable_exclusive(wq, condition, ret)            \
+do {                                                                   \
+	DEFINE_WAIT(__wait);                                            \
+	\
+	for (;;) {                                                      \
+		prepare_to_wait_exclusive(&wq, &__wait, TASK_KILLABLE); \
+		if (condition)                                          \
+			break;                                          \
+		if (!fatal_signal_pending(current)) {                   \
+			schedule();                                     \
+			continue;                                       \
+		}                                                       \
+		ret = -ERESTARTSYS;                                     \
+		break;                                                  \
+	}                                                               \
+	finish_wait(&wq, &__wait);                                      \
+} while (0)
+
+
+#define wait_event_killable_exclusive(wq, condition)                   \
+({                                                                     \
+	int __ret = 0;                                                  \
+	if (!(condition))                                               \
+		__wait_event_killable_exclusive(wq, condition, __ret);  \
+	__ret;                                                          \
+})
 
 #define __wait_event_lock_irq(wq, condition, lock, cmd)			\
 	(void)___wait_event(wq, condition, TASK_UNINTERRUPTIBLE, 0, 0,	\
-			    spin_unlock_irq(&lock);			\
-			    cmd;					\
-			    schedule();					\
-			    spin_lock_irq(&lock))
+			spin_unlock_irq(&lock);			\
+			cmd;					\
+			schedule();					\
+			spin_lock_irq(&lock))
 
 /**
  * wait_event_lock_irq_cmd - sleep until a condition gets true. The
