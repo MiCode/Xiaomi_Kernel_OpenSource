@@ -190,6 +190,7 @@ struct mdss_panel_cfg {
 
 #define MDP_INTF_DSI_CMD_FIFO_UNDERFLOW		0x0001
 #define MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW	0x0002
+#define MDP_INTF_DSI_PANEL_DEAD			0x0003
 
 
 enum {
