@@ -2486,10 +2486,8 @@ read_block_for_search(struct btrfs_trans_handle *trans,
 	if (p->reada != READA_NONE)
 		reada_for_search(root, p, level, slot, key->objectid);
 
-	btrfs_release_path(p);
-
 	ret = -EAGAIN;
-	tmp = read_tree_block(root, blocknr, 0);
+	tmp = read_tree_block(root, blocknr, gen);
 	if (!IS_ERR(tmp)) {
 		/*
 		 * If the read above didn't mark this buffer up to date,
@@ -2503,6 +2501,8 @@ read_block_for_search(struct btrfs_trans_handle *trans,
 	} else {
 		ret = PTR_ERR(tmp);
 	}
+
+	btrfs_release_path(p);
 	return ret;
 }
 
