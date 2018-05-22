@@ -3951,7 +3951,7 @@ del_udc:
 	usb_del_gadget_udc(&udc->gadget);
 remove_trans:
 	if (udc->transceiver)
-		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
+		otg_set_peripheral(udc->transceiver->otg, NULL);
 
 	err("error = %i", retval);
 put_transceiver:
@@ -3989,7 +3989,7 @@ static void udc_remove(void)
 	usb_del_gadget_udc(&udc->gadget);
 
 	if (udc->transceiver) {
-		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
+		otg_set_peripheral(udc->transceiver->otg, NULL);
 		usb_put_phy(udc->transceiver);
 	}
 	destroy_eps(udc);
