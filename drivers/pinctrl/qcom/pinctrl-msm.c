@@ -1196,7 +1196,7 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 		parent_irq = irq_create_fwspec_mapping(&fwspec);
 
 		if (dirconn->gpio != 0) {
-			irq = irq_find_mapping(pctrl->chip.irqdomain,
+			irq = irq_create_mapping(pctrl->chip.irqdomain,
 					dirconn->gpio);
 
 			irq_set_parent(irq, parent_irq);
