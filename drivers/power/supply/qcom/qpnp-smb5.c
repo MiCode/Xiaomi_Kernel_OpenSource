@@ -244,7 +244,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
 		/* PMI632 does not support PD */
-		__pd_disabled = 1;
+		chg->pd_not_supported = true;
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;

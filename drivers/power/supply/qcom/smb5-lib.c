@@ -517,7 +517,7 @@ int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable)
 	int rc;
 	u8 mask = HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT;
 
-	if (chg->pd_disabled)
+	if (chg->pd_not_supported)
 		return 0;
 
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
@@ -3078,7 +3078,8 @@ static void typec_sink_insertion(struct smb_charger *chg)
 	}
 
 	if (!chg->pr_swap_in_progress)
-		chg->ok_to_pd = !(*chg->pd_disabled) || chg->early_usb_attach;
+		chg->ok_to_pd = (!(*chg->pd_disabled) || chg->early_usb_attach)
+					&& !chg->pd_not_supported;
 }
 
 static void typec_src_insertion(struct smb_charger *chg)
@@ -3097,8 +3098,8 @@ static void typec_src_insertion(struct smb_charger *chg)
 	}
 
 	chg->typec_legacy = stat & TYPEC_LEGACY_CABLE_STATUS_BIT;
-	chg->ok_to_pd = !(chg->typec_legacy || *chg->pd_disabled)
-						|| chg->early_usb_attach;
+	chg->ok_to_pd = (!(chg->typec_legacy || *chg->pd_disabled)
+			|| chg->early_usb_attach) && !chg->pd_not_supported;
 	if (!chg->ok_to_pd) {
 		rc = smblib_configure_hvdcp_apsd(chg, true);
 		if (rc < 0) {
