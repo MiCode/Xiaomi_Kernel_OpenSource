@@ -28,6 +28,7 @@
 #include <sound/msm-dai-q6-v2.h>
 #include <sound/pcm_params.h>
 #include <sound/q6core.h>
+#include <soc/qcom/boot_stats.h>
 
 #define MSM_DAI_PRI_AUXPCM_DT_DEV_ID 1
 #define MSM_DAI_SEC_AUXPCM_DT_DEV_ID 2
@@ -4477,6 +4478,7 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	u32 mi2s_intf = 0;
 	struct msm_mi2s_pdata *mi2s_pdata;
 	int rc;
+	char boot_marker[40];
 
 	rc = of_property_read_u32(pdev->dev.of_node, q6_mi2s_dev_id,
 				  &mi2s_intf);
@@ -4485,6 +4487,10 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 			"%s: missing 0x%x in dt node\n", __func__, mi2s_intf);
 		goto rtn;
 	}
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER MSM I2S_%d Init", mi2s_intf);
+	place_marker(boot_marker);
 
 	dev_dbg(&pdev->dev, "dev name %s dev id 0x%x\n", dev_name(&pdev->dev),
 		mi2s_intf);
@@ -4549,6 +4555,11 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 
 	if (IS_ERR_VALUE(rc))
 		goto err_register;
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER MSM I2S_%d Ready", mi2s_intf);
+	place_marker(boot_marker);
+
 	return 0;
 
 err_register:
