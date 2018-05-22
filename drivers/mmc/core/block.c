@@ -3307,7 +3307,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 				 * supported by the card.
 				 */
 				pr_err("%s: blocked SDR104, lower the bus-speed (SDR50 / DDR50)\n",
-					new_req->rq_disk->disk_name);
+					old_req->rq_disk->disk_name);
 				mmc_host_clear_sdr104(card->host);
 				mmc_suspend_clk_scaling(card->host);
 				mmc_blk_reset(md, card->host, type);
