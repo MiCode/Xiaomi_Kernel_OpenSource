@@ -18,6 +18,7 @@
  */
 #include <linux/debugfs.h>
 
+#include "npu_hw.h"
 #include "npu_hw_access.h"
 #include "npu_common.h"
 
@@ -372,7 +373,14 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 			pr_info("error in fw_init\n");
 	} else if (strcmp(buf, "off") == 0) {
 		pr_info("triggering fw_deinit\n");
-		fw_deinit(npu_dev);
+		fw_deinit(npu_dev, true);
+	} else if (strcmp(buf, "ssr") == 0) {
+		pr_info("trigger error irq\n");
+		if (npu_enable_core_power(npu_dev))
+			return -EPERM;
+
+		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_SET(0), 2);
+		npu_disable_core_power(npu_dev);
 	} else if (strcmp(buf, "0") == 0) {
 		pr_info("setting power state to 0\n");
 		npu_dev->pwrctrl.active_pwrlevel = 0;
@@ -446,8 +454,8 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 		goto err;
 	}
 
-	if (!debugfs_create_bool("fw_state", 0444,
-		debugfs->root, &(host_ctx->fw_enabled))) {
+	if (!debugfs_create_u32("fw_state", 0444,
+		debugfs->root, &(host_ctx->fw_state))) {
 		pr_err("debugfs_creat_bool fail for fw_state\n");
 		goto err;
 	}
