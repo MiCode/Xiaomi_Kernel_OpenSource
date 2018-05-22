@@ -2598,6 +2598,9 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 
 	/* Make sure that there is no Tx operation ongoing */
 	netif_stop_queue(netdev);
+	/* Stoppig Watch dog timer when pipe was in suspend state */
+	if (del_timer(&netdev->watchdog_timer))
+		dev_put(netdev);
 	netif_tx_unlock_bh(netdev);
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
@@ -2624,8 +2627,12 @@ static int rmnet_ipa_ap_resume(struct device *dev)
 	struct net_device *netdev = IPA_NETDEV();
 
 	IPAWANDBG("Enter...\n");
-	if (netdev)
+	if (netdev) {
 		netif_wake_queue(netdev);
+		/* Starting Watch dog timer, pipe was changes to resume state */
+		if (netif_running(netdev) && netdev->watchdog_timeo <= 0)
+			__netdev_watchdog_up(netdev);
+	}
 	IPAWANDBG("Exit\n");
 
 	return 0;
