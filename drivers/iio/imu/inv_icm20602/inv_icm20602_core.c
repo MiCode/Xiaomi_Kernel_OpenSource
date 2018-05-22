@@ -41,12 +41,12 @@ static void inv_icm20602_def_config(struct inv_icm20602_state *st)
 {
 	struct icm20602_user_config *config = st->config;
 
-	config->user_fps_in_ms = 10;
+	config->user_fps_in_ms = 20;
 	config->gyro_lpf = INV_ICM20602_GYRO_LFP_92HZ;
 	config->gyro_fsr = ICM20602_GYRO_FSR_1000DPS;
 	config->acc_lpf = ICM20602_ACCLFP_99;
 	config->acc_fsr = ICM20602_ACC_FSR_4G;
-	config->gyro_accel_sample_rate = ICM20602_SAMPLE_RATE_100HZ;
+	config->gyro_accel_sample_rate = ICM20602_SAMPLE_RATE_200HZ;
 	config->fifo_enabled = true;
 
 }
