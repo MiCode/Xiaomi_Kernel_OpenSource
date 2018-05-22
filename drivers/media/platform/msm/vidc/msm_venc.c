@@ -1125,13 +1125,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 	{
-		.name = "RGBA 8:8:8:8",
-		.description = "RGBA 8:8:8:8",
-		.fourcc = V4L2_PIX_FMT_RGB32,
-		.get_frame_size = get_frame_size_rgba,
-		.type = OUTPUT_PORT,
-	},
-	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
