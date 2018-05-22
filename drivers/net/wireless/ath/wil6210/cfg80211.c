@@ -21,10 +21,15 @@
 #include "ftm.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
+#define CTRY_CHINA "CN"
 
 bool disable_ap_sme;
 module_param(disable_ap_sme, bool, 0444);
 MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
+
+static bool country_specific_board_file;
+module_param(country_specific_board_file, bool, 0444);
+MODULE_PARM_DESC(country_specific_board_file, " switch board file upon regulatory domain change (Default: false)");
 
 static bool ignore_reg_hints = true;
 module_param(ignore_reg_hints, bool, 0444);
@@ -1984,6 +1989,64 @@ wil_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev)
 	return 0;
 }
 
+static int wil_switch_board_file(struct wil6210_priv *wil,
+				 const u8 *new_regdomain)
+{
+	int rc = 0;
+
+	if (!country_specific_board_file)
+		return 0;
+
+	if (memcmp(wil->regdomain, CTRY_CHINA, 2) == 0) {
+		wil_info(wil, "moving out of China reg domain, use default board file\n");
+		wil->board_file_country[0] = '\0';
+	} else if (memcmp(new_regdomain, CTRY_CHINA, 2) == 0) {
+		wil_info(wil, "moving into China reg domain, use country specific board file\n");
+		strlcpy(wil->board_file_country, CTRY_CHINA,
+			sizeof(wil->board_file_country));
+	} else {
+		return 0;
+	}
+
+	/* need to switch board file - reset the device */
+
+	mutex_lock(&wil->mutex);
+
+	if (!netif_running(wil_to_ndev(wil)) || wil_is_recovery_blocked(wil))
+		/* new board file will be used in next FW load */
+		goto out;
+
+	__wil_down(wil);
+	rc = __wil_up(wil);
+
+out:
+	mutex_unlock(&wil->mutex);
+	return rc;
+}
+
+static void wil_cfg80211_reg_notify(struct wiphy *wiphy,
+				    struct regulatory_request *request)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int rc;
+
+	wil_info(wil, "cfg reg_notify %c%c%s%s initiator %d hint_type %d\n",
+		 request->alpha2[0], request->alpha2[1],
+		 request->intersect ? " intersect" : "",
+		 request->processed ? " processed" : "",
+		 request->initiator, request->user_reg_hint_type);
+
+	if (memcmp(wil->regdomain, request->alpha2, 2) == 0)
+		/* reg domain did not change */
+		return;
+
+	rc = wil_switch_board_file(wil, request->alpha2);
+	if (rc)
+		wil_err(wil, "switch board file failed %d\n", rc);
+
+	memcpy(wil->regdomain, request->alpha2, 2);
+}
+
 static struct cfg80211_ops wil_cfg80211_ops = {
 	.add_virtual_intf = wil_cfg80211_add_iface,
 	.del_virtual_intf = wil_cfg80211_del_iface,
@@ -2054,6 +2117,8 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 	wiphy->n_cipher_suites = ARRAY_SIZE(wil_cipher_suites);
 	wiphy->mgmt_stypes = wil_mgmt_stypes;
 	wiphy->features |= NL80211_FEATURE_SK_TX_STATUS;
+
+	wiphy->reg_notifier = wil_cfg80211_reg_notify;
 
 	wiphy->n_vendor_commands = ARRAY_SIZE(wil_nl80211_vendor_commands);
 	wiphy->vendor_commands = wil_nl80211_vendor_commands;
