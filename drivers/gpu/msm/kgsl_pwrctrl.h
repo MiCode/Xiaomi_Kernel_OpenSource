@@ -273,4 +273,5 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
 void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device,
 			unsigned long timeout_us);
+void kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
 #endif /* __KGSL_PWRCTRL_H */

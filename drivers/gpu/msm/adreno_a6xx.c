@@ -1123,6 +1123,44 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 	return a6xx_post_start(adreno_dev);
 }
 
+/*
+ * a6xx_sptprac_enable() - Power on SPTPRAC
+ * @adreno_dev: Pointer to Adreno device
+ */
+static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
+{
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
+		return 0;
+
+	return a6xx_gmu_sptprac_enable(adreno_dev);
+}
+
+/*
+ * a6xx_sptprac_disable() - Power off SPTPRAC
+ * @adreno_dev: Pointer to Adreno device
+ */
+static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
+{
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
+		return;
+
+	a6xx_gmu_sptprac_disable(adreno_dev);
+}
+
+/*
+ * a6xx_sptprac_is_on() - Check if SPTP is on using pwr status register
+ * @adreno_dev - Pointer to adreno_device
+ * This check should only be performed if the keepalive bit is set or it
+ * can be guaranteed that the power state of the GPU will remain unchanged
+ */
+bool a6xx_sptprac_is_on(struct adreno_device *adreno_dev)
+{
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
+		return true;
+
+	return a6xx_gmu_sptprac_is_on(adreno_dev);
+}
+
 unsigned int a6xx_set_marker(
 		unsigned int *cmds, enum adreno_cp_marker_type type)
 {
@@ -2813,8 +2851,8 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.platform_setup = a6xx_platform_setup,
 	.init = a6xx_init,
 	.rb_start = a6xx_rb_start,
-	.regulator_enable = a6xx_gmu_sptprac_enable,
-	.regulator_disable = a6xx_gmu_sptprac_disable,
+	.regulator_enable = a6xx_sptprac_enable,
+	.regulator_disable = a6xx_sptprac_disable,
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
 	.count_throttles = a6xx_count_throttles,
@@ -2836,7 +2874,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_init = a6xx_preemption_context_init,
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.gx_is_on = a6xx_gmu_gx_is_on,
-	.sptprac_is_on = a6xx_gmu_sptprac_is_on,
+	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},

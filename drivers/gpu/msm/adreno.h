@@ -1935,7 +1935,8 @@ static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 	if (adreno_has_gbif(adreno_dev))
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
 }
-
+void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
+void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);

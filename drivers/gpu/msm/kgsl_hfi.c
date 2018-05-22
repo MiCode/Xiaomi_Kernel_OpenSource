@@ -720,3 +720,33 @@ int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 
 	return -EINVAL;
 }
+
+/* HFI interrupt handler */
+irqreturn_t hfi_irq_handler(int irq, void *data)
+{
+	struct kgsl_device *device = data;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int status = 0;
+
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
+	adreno_write_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
+
+	if (status & HFI_IRQ_MSGQ_MASK)
+		tasklet_hi_schedule(&hfi->tasklet);
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"GMU CM3 fault interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
+	if (status & ~HFI_IRQ_MASK)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"Unhandled HFI interrupts 0x%lx\n",
+				status & ~HFI_IRQ_MASK);
+
+	return IRQ_HANDLED;
+}
