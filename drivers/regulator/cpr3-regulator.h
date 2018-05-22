@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -766,6 +766,12 @@ struct cpr3_panic_regs_info {
  *			the CPR controller to first use the default step_quot
  *			and then later switch to the run-time calibrated
  *			step_quot.
+ * @thread_has_always_vote_en: Boolean value which indicates that this CPR
+ *			controller should be configured to keep thread vote
+ *			always enabled. This configuration allows the CPR
+ *			controller to not consider MID/DN recommendations from
+ *			other thread when all sensors mapped to a thread
+ *			collapsed.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -879,6 +885,7 @@ struct cpr3_controller {
 	struct notifier_block	panic_notifier;
 	bool			support_ldo300_vreg;
 	bool			reset_step_quot_loop_en;
+	bool			thread_has_always_vote_en;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */

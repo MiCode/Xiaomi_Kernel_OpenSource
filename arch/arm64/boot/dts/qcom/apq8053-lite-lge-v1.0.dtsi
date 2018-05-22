@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "apq8053-lite-dragon.dtsi"
+
+&wled {
+	qcom,fs-curr-ua = <17500>;
+};
+
+&camera0 {
+	qcom,mount-angle = <180>;
+};
+
+&camera1 {
+	qcom,mount-angle = <180>;
+};
+
+&camera2 {
+	qcom,mount-angle = <180>;
+};

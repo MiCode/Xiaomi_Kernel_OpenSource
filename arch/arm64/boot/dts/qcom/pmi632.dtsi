@@ -35,7 +35,8 @@
 		};
 
 		pmi632_vadc: vadc@3100 {
-			compatible = "qcom,qpnp-vadc-hc";
+			compatible = "qcom,qpnp-vadc-hc",
+				"qcom,qpnp-adc-hc-pm5";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -43,8 +44,6 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-vdd-reference = <1875>;
 			qcom,adc-full-scale-code = <0x70e4>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&quiet_therm_default &smb_therm_default>;
 
 			chan@0 {
 				label = "ref_gnd";
@@ -154,6 +153,30 @@
 				qcom,cal-val = <0>;
 			};
 
+			chan@2a {
+				label = "bat_therm_PU30";
+				reg = <0x2a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <24>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@6a {
+				label = "bat_therm_PU400";
+				reg = <0x6a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <25>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
 			chan@4b {
 				label = "bat_id";
 				reg = <0x4b>;
@@ -228,7 +251,8 @@
 		};
 
 		pmi632_adc_tm: vadc@3500 {
-			compatible = "qcom,qpnp-adc-tm-hc";
+			compatible = "qcom,qpnp-adc-tm-hc",
+				"qcom,qpnp-adc-tm-hc-pm5";
 			reg = <0x3500 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -279,21 +303,6 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <1>;
-
-			quiet_therm {
-				quiet_therm_default: quiet_therm_default {
-					pins = "gpio3";
-					bias-high-impedance;
-				};
-			};
-
-			smb_therm {
-				smb_therm_default: smb_therm_default {
-					pins = "gpio4";
-					bias-high-impedance;
-				};
-			};
-
 		};
 
 		pmi632_charger: qcom,qpnp-smb5 {
@@ -305,6 +314,7 @@
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
 			qcom,auto-recharge-soc = <98>;
+			qcom,chg-vadc = <&pmi632_vadc>;
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
@@ -454,6 +464,7 @@
 						"ilim1-s1",
 						"ilim2-s2",
 						"vreg-ok";
+				qcom,flash-disable-soc = <10>;
 			};
 
 			smb5_vbus: qcom,smb5-vbus {

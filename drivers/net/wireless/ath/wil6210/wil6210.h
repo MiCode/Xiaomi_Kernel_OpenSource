@@ -798,9 +798,7 @@ struct wil6210_priv {
 	int fw_calib_result;
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notify;
-#endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
 	bool suspend_resp_rcvd;

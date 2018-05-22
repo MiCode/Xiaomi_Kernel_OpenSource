@@ -1564,6 +1564,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("max_video_cores", &inst->capability.max_video_cores);
 	print_cap("max_work_modes", &inst->capability.max_work_modes);
 	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
+	print_cap("image_grid_dimension", &inst->capability.img_grid_dimension);
 
 	dprintk(VIDC_DBG, "profile count : %u",
 		inst->capability.profile_level.profile_count);
@@ -2034,6 +2035,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	struct v4l2_event flush_event = {0};
+	struct recon_buf *binfo;
 	u32 *ptr = NULL;
 	enum hal_flush flush_type;
 	int rc;
@@ -2087,6 +2089,13 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid flush type received!");
 		goto exit;
 	}
+
+	mutex_lock(&inst->reconbufs.lock);
+	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
+		binfo->CR = 0;
+		binfo->CF = 0;
+	}
+	mutex_unlock(&inst->reconbufs.lock);
 
 	dprintk(VIDC_DBG,
 		"Notify flush complete, flush_type: %x\n", flush_type);
@@ -2397,6 +2406,14 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
+	if ((get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+		HAL_VIDEO_CODEC_HEVC) &&
+		(inst->img_grid_dimension > 0) &&
+		(empty_buf_done->input_tag < inst->tinfo.count - 1)) {
+		dprintk(VIDC_DBG, "Wait for last tile. Current tile no: %d\n",
+		empty_buf_done->input_tag);
+		return;
+	}
 	/* If this is internal EOS buffer, handle it in driver */
 	if (is_eos_buffer(inst, empty_buf_done->packet_buffer)) {
 		dprintk(VIDC_DBG, "Received EOS buffer 0x%x\n",
@@ -4148,6 +4165,58 @@ enum hal_buffer get_hal_buffer_type(unsigned int type,
 	}
 }
 
+static int msm_comm_qbuf_heic_tiles(struct msm_vidc_inst *inst,
+		struct vidc_frame_data *frame_data)
+{
+	int rc = 0, tindex;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->tinfo.count > MAX_HEIC_TILES_COUNT) {
+		dprintk(VIDC_ERR, "%s tiles count exceeds maximum\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	for (tindex = 0; tindex < inst->tinfo.count; ++tindex) {
+		dprintk(VIDC_DBG,
+			"%s tile# %d Crop: left %u top %u width %u height %u\n",
+			__func__, tindex,
+			inst->tinfo.tile_rects[tindex].left,
+			inst->tinfo.tile_rects[tindex].top,
+			inst->tinfo.tile_rects[tindex].width,
+			inst->tinfo.tile_rects[tindex].height);
+
+		rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session,
+				HAL_CONFIG_HEIC_FRAME_CROP_INFO,
+				&inst->tinfo.tile_rects[tindex]);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed to set HEIC crop info %d\n", rc);
+			goto err_bad_input;
+		}
+
+		frame_data->input_tag = tindex;
+
+		rc = call_hfi_op(hdev, session_etb,
+				(void *)inst->session, frame_data);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to issue etb: %d\n", rc);
+			goto err_bad_input;
+		}
+	}
+
+err_bad_input:
+	return rc;
+}
+
 static int msm_comm_qbuf_rbr(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
@@ -4355,12 +4424,26 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		for (c = 0; c < etbs.count; ++c) {
 			struct vidc_frame_data *frame_data = &etbs.data[c];
 
-			rc = call_hfi_op(hdev, session_etb, inst->session,
-					frame_data);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed to issue etb: %d\n",
+			if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+				HAL_VIDEO_CODEC_HEVC &&
+				(inst->img_grid_dimension > 0)) {
+				rc = msm_comm_qbuf_heic_tiles(inst, frame_data);
+				if (rc) {
+					dprintk(VIDC_ERR,
+						"Failed to send tiles: %d\n",
 						rc);
-				goto err_bad_input;
+					goto err_bad_input;
+				}
+			} else {
+
+				rc = call_hfi_op(hdev, session_etb,
+						inst->session, frame_data);
+				if (rc) {
+					dprintk(VIDC_ERR,
+						"Failed to issue etb: %d\n",
+						rc);
+					goto err_bad_input;
+				}
 			}
 
 			log_frame(inst, frame_data,

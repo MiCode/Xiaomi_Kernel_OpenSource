@@ -372,6 +372,8 @@ static ssize_t ipa3_read_hdr(struct file *file, char __user *ubuf, size_t count,
 
 	list_for_each_entry(entry, &ipa3_ctx->hdr_tbl.head_hdr_entry_list,
 			link) {
+		if (entry->cookie != IPA_HDR_COOKIE)
+			continue;
 		nbytes = scnprintf(
 			dbg_buff,
 			IPA_MAX_MSG_LEN,
@@ -556,6 +558,12 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 	if (attrib->tc_eq_present)
 		pr_err("tc:%d ", attrib->tc_eq);
 
+	if (attrib->num_offset_meq_128 > IPA_IPFLTR_NUM_MEQ_128_EQNS) {
+		IPAERR_RL("num_offset_meq_128  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_MEQ_128_EQNS, attrib->num_offset_meq_128);
+		return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_offset_meq_128; i++) {
 		for (j = 0; j < 16; j++) {
 			addr[j] = attrib->offset_meq_128[i].value[j];
@@ -567,12 +575,24 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 			mask, addr);
 	}
 
+	if (attrib->num_offset_meq_32 > IPA_IPFLTR_NUM_MEQ_32_EQNS) {
+		IPAERR_RL("num_offset_meq_32  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_MEQ_32_EQNS, attrib->num_offset_meq_32);
+		return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_offset_meq_32; i++)
 		pr_err(
 			   "(ofst_meq32: ofst:%u mask:0x%x val:0x%x) ",
 			   attrib->offset_meq_32[i].offset,
 			   attrib->offset_meq_32[i].mask,
 			   attrib->offset_meq_32[i].value);
+
+	if (attrib->num_ihl_offset_meq_32 > IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS) {
+		IPAERR_RL("num_ihl_offset_meq_32  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS, attrib->num_ihl_offset_meq_32);
+		return -EPERM;
+	}
 
 	for (i = 0; i < attrib->num_ihl_offset_meq_32; i++)
 		pr_err(
@@ -587,6 +607,14 @@ static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 			attrib->metadata_meq32.offset,
 			attrib->metadata_meq32.mask,
 			attrib->metadata_meq32.value);
+
+	if (attrib->num_ihl_offset_range_16 >
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS) {
+		IPAERR_RL("num_ihl_offset_range_16  Max %d passed value %d\n",
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS,
+			attrib->num_ihl_offset_range_16);
+		return -EPERM;
+	}
 
 	for (i = 0; i < attrib->num_ihl_offset_range_16; i++)
 		pr_err(
@@ -780,7 +808,11 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
 				rules[rl].id, rules[rl].priority,
 				rules[rl].retain_hdr);
-			ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
+			res = ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 
 		pr_err("=== Routing Table %d = Non-Hashable Rules ===\n", tbl);
@@ -811,7 +843,11 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 			pr_err("rule_id:%u prio:%u retain_hdr:%u\n",
 				rules[rl].id, rules[rl].priority,
 				rules[rl].retain_hdr);
-			ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
+			res = ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 		pr_err("\n");
 	}
@@ -885,6 +921,7 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 	u32 rt_tbl_idx;
 	u32 bitmap;
 	bool eq;
+	int res = 0;
 
 	mutex_lock(&ipa3_ctx->lock);
 
@@ -894,6 +931,8 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 		tbl = &ipa3_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
+			if (entry->cookie != IPA_FLT_COOKIE)
+				continue;
 			if (entry->rule.eq_attrib_type) {
 				rt_tbl_idx = entry->rule.rt_tbl_idx;
 				bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
@@ -919,18 +958,23 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("pdn index %d, set metadata %d ",
 					entry->rule.pdn_idx,
 					entry->rule.set_metadata);
-			if (eq)
-				ipa3_attrib_dump_eq(
-					&entry->rule.eq_attrib);
-			else
+			if (eq) {
+				res = ipa3_attrib_dump_eq(
+						&entry->rule.eq_attrib);
+				if (res) {
+					IPAERR_RL("failed read attrib eq\n");
+					goto bail;
+				}
+			} else
 				ipa3_attrib_dump(
 					&entry->rule.attrib, ip);
 			i++;
 		}
 	}
+bail:
 	mutex_unlock(&ipa3_ctx->lock);
 
-	return 0;
+	return res;
 }
 
 static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
@@ -985,7 +1029,11 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				pr_err("pdn: %u, set_metadata: %u ",
 					rules[rl].rule.pdn_idx,
 					rules[rl].rule.set_metadata);
-			ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
+			res = ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 
 		pr_err("=== Filtering Table ep:%d = Non-Hashable Rules ===\n",
@@ -1013,7 +1061,11 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				pr_err("pdn: %u, set_metadata: %u ",
 					rules[rl].rule.pdn_idx,
 					rules[rl].rule.set_metadata);
-			ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
+			res = ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
 		}
 		pr_err("\n");
 	}

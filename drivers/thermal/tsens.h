@@ -153,8 +153,8 @@ struct tsens_device {
 	spinlock_t			tsens_crit_lock;
 	spinlock_t			tsens_upp_low_lock;
 	const struct tsens_data		*ctrl_data;
+	struct tsens_mtc_sysfs  mtcsys;
 	struct tsens_sensor		sensor[0];
-	struct tsens_mtc_sysfs	mtcsys;
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;

@@ -240,16 +240,23 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,tasha-mclk-clk-freq = <9600000>;
+		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,cdc-us-eu-gpios = <&cdc_us_euro_sw>;
+		qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>;
+				<&afe>, <&lsm>, <&routing>, <&cpe>,
+				<&pcm_noirq>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing";
+				"msm-pcm-routing", "msm-cpe-lsm",
+				"msm-pcm-dsp-noirq";
 
 		asoc-cpu = <&dai_pri_auxpcm>,
 				<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s5>,
@@ -281,9 +288,6 @@
 
 		asoc-codec = <&stub_codec>, <&hdmi_dba>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-dba-codec-rx";
-		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
-		qcom,msm-mbhc-hphl-swh = <0>;
-		qcom,msm-mbhc-gnd-swh = <0>;
 
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
@@ -292,11 +296,19 @@
 				"SpkrLeft", "SpkrRight";
 	};
 
+	cpe: qcom,msm-cpe-lsm {
+		compatible = "qcom,msm-cpe-lsm";
+	};
+
 	wcd9xxx_intc: wcd9xxx-irq {
 		status = "disabled";
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <73 0>;
 		qcom,gpio-connect = <&tlmm 73 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio: audio_ext_clk {
@@ -306,28 +318,61 @@
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 		qcom,audio-ref-clk-gpio = <&pm8937_gpios 1 0>;
-		qcom,lpass-mclk-id = "pri_mclk";
 		clocks = <&clock_gcc clk_div_clk2>;
 		pinctrl-0 = <&cdc_mclk2_sleep>;
 		pinctrl-1 = <&cdc_mclk2_active>;
 	};
 
-	wcd_rst_gpio: wcd_gpio_ctrl {
+	wcd_rst_gpio: msm_cdc_pinctrl {
 		status = "disabled";
-		qcom,cdc-rst-n-gpio = <&tlmm 68 0>;
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
 	};
 };
 
 &slim_msm {
 	status = "disabled";
+
+	dai_slim: msm_dai_slim {
+		status = "disabled";
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
 	wcd9335: tasha_codec {
 		status = "disabled";
 		compatible = "qcom,tasha-slim-pgd";
+		elemental-addr = [00 01 A0 01 17 02];
+
+		qcom,cdc-slim-ifd = "tasha-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+				17 18 19 20 21 22 23 24 25 26 27 28 29 30>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
 		clock-names = "wcd_clk", "wcd_native_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>,
 			<&clock_audio clk_audio_ap_clk2>;
 
-		qcom,cdc-reset-gpio = <&tlmm 68 0>;
+		qcom,cdc-static-supplies =
+				"cdc-vdd-buck",
+				"cdc-buck-sido",
+				"cdc-vdd-tx-h",
+				"cdc-vdd-rx-h",
+				"cdc-vdd-px";
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-dmic-sample-rate = <2400000>;
+		qcom,cdc-mclk-clk-rate = <9600000>;
 
 		cdc-vdd-buck-supply = <&eldo2_pm8937>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
@@ -352,18 +397,6 @@
 		cdc-vdd-mic-bias-supply = <&pm8937_l13>;
 		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 		qcom,cdc-vdd-mic-bias-current = <15000>;
-	};
-};
-
-&pm8937_gpios {
-	gpio@c000 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
 	};
 };
 

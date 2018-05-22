@@ -31,7 +31,8 @@
 #define SDE_CRTC_NAME_SIZE	12
 
 /* define the maximum number of in-flight frame events */
-#define SDE_CRTC_FRAME_EVENT_SIZE	4
+/* Expand it to 2x for handling atleast 2 connectors safely */
+#define SDE_CRTC_FRAME_EVENT_SIZE	(4 * 2)
 
 /**
  * enum sde_crtc_client_type: crtc client type
@@ -45,6 +46,16 @@ enum sde_crtc_client_type {
 	RT_CLIENT,
 	NRT_CLIENT,
 	RT_RSC_CLIENT,
+};
+
+/**
+ * enum sde_crtc_output_capture_point
+ * @MIXER_OUT : capture mixer output
+ * @DSPP_OUT : capture output of dspp
+ */
+enum sde_crtc_output_capture_point {
+	CAPTURE_MIXER_OUT,
+	CAPTURE_DSPP_OUT
 };
 
 /**
@@ -81,9 +92,20 @@ struct sde_crtc_mixer {
 };
 
 /**
+ * struct sde_crtc_frame_event_cb_data : info of drm objects of a frame event
+ * @crtc:       pointer to drm crtc object registered for frame event
+ * @connector:  pointer to drm connector which is source of frame event
+ */
+struct sde_crtc_frame_event_cb_data {
+	 struct drm_crtc *crtc;
+	 struct drm_connector *connector;
+};
+
+/**
  * struct sde_crtc_frame_event: stores crtc frame event for crtc processing
  * @work:	base work structure
  * @crtc:	Pointer to crtc handling this event
+ * @connector:  pointer to drm connector which is source of frame event
  * @list:	event list
  * @ts:		timestamp at queue entry
  * @event:	event identifier
@@ -91,6 +113,7 @@ struct sde_crtc_mixer {
 struct sde_crtc_frame_event {
 	struct kthread_work work;
 	struct drm_crtc *crtc;
+	struct drm_connector *connector;
 	struct list_head list;
 	ktime_t ts;
 	u32 event;
@@ -155,13 +178,12 @@ struct sde_crtc_event {
  * @dirty_list    : list of color processing features are dirty
  * @ad_dirty: list containing ad properties that are dirty
  * @ad_active: list containing ad properties that are active
+ * @ad_vsync_count : count of vblank since last reset for AD
  * @crtc_lock     : crtc lock around create, destroy and access.
  * @frame_pending : Whether or not an update is pending
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
- * @retire_events  : static allocation of retire fence connector
- * @retire_event_list : available retire fence connector list
  * @frame_done_comp    : for frame_event_done synchronization
  * @event_thread  : Pointer to event handler thread
  * @event_worker  : Event worker queue
@@ -224,6 +246,7 @@ struct sde_crtc {
 	struct list_head ad_dirty;
 	struct list_head ad_active;
 	struct list_head user_event_list;
+	u32 ad_vsync_count;
 
 	struct mutex crtc_lock;
 	struct mutex crtc_cp_lock;
@@ -232,8 +255,6 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
-	struct sde_crtc_retire_event retire_events[SDE_CRTC_FRAME_EVENT_SIZE];
-	struct list_head retire_event_list;
 	struct completion frame_done_comp;
 
 	/* for handling internal event thread */

@@ -105,6 +105,8 @@ enum {
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
+#define ICL_MAX_STATUS_REG			(DCDC_BASE + 0x06)
+
 #define AICL_ICL_STATUS_REG			(DCDC_BASE + 0x08)
 
 #define AICL_STATUS_REG				(DCDC_BASE + 0x0A)
@@ -194,6 +196,7 @@ enum {
 #define FORCE_12V_BIT				BIT(5)
 #define FORCE_9V_BIT				BIT(4)
 #define FORCE_5V_BIT				BIT(3)
+#define IDLE_BIT				BIT(2)
 #define SINGLE_DECREMENT_BIT			BIT(1)
 #define SINGLE_INCREMENT_BIT			BIT(0)
 
@@ -214,6 +217,7 @@ enum {
 #define HVDCP_AUTH_ALG_EN_CFG_BIT		BIT(6)
 #define HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT	BIT(5)
 #define BC1P2_SRC_DETECT_BIT			BIT(3)
+#define HVDCP_EN_BIT				BIT(2)
 
 #define USBIN_OPTIONS_2_CFG_REG			(USBIN_BASE + 0x63)
 #define FLOAT_OPTIONS_MASK			GENMASK(2, 0)
@@ -261,6 +265,9 @@ enum {
 #define SRC_RA_OPEN_BIT				BIT(1)
 #define AUDIO_ACCESS_RA_RA_BIT			BIT(0)
 
+#define TYPE_C_STATE_MACHINE_STATUS_REG		(TYPEC_BASE + 0x09)
+#define TYPEC_ATTACH_DETACH_STATE_BIT		BIT(5)
+
 #define TYPE_C_MISC_STATUS_REG			(TYPEC_BASE + 0x0B)
 #define SNK_SRC_MODE_BIT			BIT(6)
 #define TYPEC_VBUS_ERROR_STATUS_BIT		BIT(4)
@@ -268,6 +275,7 @@ enum {
 #define CC_ATTACHED_BIT				BIT(0)
 
 #define LEGACY_CABLE_STATUS_REG			(TYPEC_BASE + 0x0D)
+#define TYPEC_LEGACY_CABLE_STATUS_BIT		BIT(1)
 #define TYPEC_NONCOMP_LEGACY_CABLE_STATUS_BIT	BIT(0)
 
 #define TYPEC_U_USB_STATUS_REG			(TYPEC_BASE + 0x0F)
@@ -275,19 +283,23 @@ enum {
 #define U_USB_GROUND_BIT			BIT(4)
 
 #define TYPE_C_MODE_CFG_REG			(TYPEC_BASE + 0x44)
-#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 0)
+#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 1)
 #define EN_SRC_ONLY_BIT				BIT(2)
 #define EN_SNK_ONLY_BIT				BIT(1)
 #define TYPEC_DISABLE_CMD_BIT			BIT(0)
 
 #define TYPE_C_VCONN_CONTROL_REG		(TYPEC_BASE + 0x46)
+#define VCONN_EN_ORIENTATION_BIT		BIT(2)
 #define VCONN_EN_VALUE_BIT			BIT(1)
 #define VCONN_EN_SRC_BIT			BIT(0)
 
 #define TYPE_C_CCOUT_CONTROL_REG		(TYPEC_BASE + 0x48)
+#define TYPEC_CCOUT_BUFFER_EN_BIT		BIT(2)
+#define TYPEC_CCOUT_VALUE_BIT			BIT(1)
 #define TYPEC_CCOUT_SRC_BIT			BIT(0)
 
 #define TYPE_C_EXIT_STATE_CFG_REG		(TYPEC_BASE + 0x50)
+#define BYPASS_VSAFE0V_DURING_ROLE_SWAP_BIT	BIT(3)
 #define EXIT_SNK_BASED_ON_CC_BIT		BIT(0)
 
 #define TYPE_C_INTERRUPT_EN_CFG_1_REG			(TYPEC_BASE + 0x5E)
@@ -315,7 +327,7 @@ enum {
 #define TYPEC_U_USB_CFG_REG			(TYPEC_BASE + 0x70)
 #define EN_MICRO_USB_MODE_BIT			BIT(0)
 
-#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x70)
+#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x73)
 #define MICRO_USB_MODE_ONLY_BIT			BIT(0)
 /********************************
  *  MISC Peripheral Registers  *

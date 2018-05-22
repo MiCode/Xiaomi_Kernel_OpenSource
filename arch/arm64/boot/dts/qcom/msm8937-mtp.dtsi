@@ -152,5 +152,12 @@
 			linux,can-disable;
 			gpio-key,wakeup;
 		};
+
+	};
+};
+
+&thermal_zones {
+	quiet-therm-step {
+		status = "disabled";
 	};
 };

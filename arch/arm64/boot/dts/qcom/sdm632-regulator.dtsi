@@ -114,6 +114,8 @@
 		qcom,cpr-count-repeat = <14>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-reset-step-quot-loop-en;
+		qcom,cpr-thread-has-always-vote-en;
 
 		qcom,apm-ctrl = <&apc_apm>;
 		qcom,apm-threshold-voltage = <875000>;
@@ -131,10 +133,13 @@
 			"APCS_ALIAS0_APM_CTLER_STATUS",
 			"APCS0_CPR_CORE_ADJ_MODE_REG";
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-consecutive-down = <0>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <1>;
 
@@ -143,10 +148,10 @@
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <7>;
 
-				qcom,cpr-fuse-corners = <5>;
+				qcom,cpr-fuse-corners = <4>;
 				qcom,cpr-fuse-combos = <64>;
 				qcom,cpr-corners = <7>;
-				qcom,cpr-corner-fmax-map = <1 2 3 4 7>;
+				qcom,cpr-corner-fmax-map = <1 3 4 7>;
 
 				qcom,cpr-voltage-ceiling =
 					<720000  790000 865000 865000 920000
@@ -155,6 +160,10 @@
 				qcom,cpr-voltage-floor =
 					<500000  500000 500000 500000 500000
 					 500000  500000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					<50000  50000 50000 50000 50000
+					 50000  50000>;
 
 				qcom,mem-acc-voltage = <1 1 2 2 2 2 3>;
 
@@ -171,44 +180,55 @@
 				      <3600 3600 3830 2430 2520 2700 1790 1760
 				       1970 1880 2110 2010 2510 4900 4370 4780>,
 				      <3600 3600 3830 2430 2520 2700 1790 1760
-				       1970 1880 2110 2010 2510 4900 4370 4780>,
-				      <3600 3600 3830 2430 2520 2700 1790 1760
 				       1970 1880 2110 2010 2510 4900 4370 4780>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					< 0       0      0 10000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<(-10000) 0      0 10000>;
 			};
 		};
 
 		thread@1 {
 			qcom,cpr-thread-id = <1>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-consecutive-down = <0>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <1>;
 
 			apc1_perfcl_vreg: regulator {
 				regulator-name = "apc1_perfcl_corner";
 				regulator-min-microvolt = <1>;
-				regulator-max-microvolt = <5>;
+				regulator-max-microvolt = <7>;
 
-				qcom,cpr-fuse-corners = <3>;
+				qcom,cpr-fuse-corners = <4>;
 				qcom,cpr-fuse-combos = <64>;
-				qcom,cpr-corners = <5>;
-				qcom,cpr-corner-fmax-map = <1 2 5>;
+				qcom,cpr-corners = <7>;
+				qcom,cpr-corner-fmax-map = <1 3 4 7>;
 
 				qcom,cpr-voltage-ceiling =
-					<865000 865000 920000 990000 1065000>;
+					<720000 790000 865000 865000 920000
+					 990000 1065000>;
 
 				qcom,cpr-voltage-floor =
-					<500000  500000 500000 500000 500000>;
+					<500000 500000 500000 500000 500000
+					 500000 500000>;
 
-				qcom,mem-acc-voltage = <2 2 2 2 3>;
+				qcom,cpr-floor-to-ceiling-max-range =
+					<50000  50000 50000 50000 50000
+					 50000  50000>;
+
+				qcom,mem-acc-voltage = <1 1 2 2 2 2 3>;
 
 				qcom,corner-frequencies =
-					<1094400000 1401600000 1555200000
-					 1804800000 2016000000>;
+					<633600000   902400000 1094400000
+					 1401600000 1555200000 1804800000
+					 2016000000>;
 
 				qcom,cpr-ro-scaling-factor =
 				      <3600 3600 3830 2430 2520 2700 1790 1760
@@ -216,11 +236,175 @@
 				      <3600 3600 3830 2430 2520 2700 1790 1760
 				       1970 1880 2110 2010 2510 4900 4370 4780>,
 				      <3600 3600 3830 2430 2520 2700 1790 1760
+				       1970 1880 2110 2010 2510 4900 4370 4780>,
+				      <3600 3600 3830 2430 2520 2700 1790 1760
 				       1970 1880 2110 2010 2510 4900 4370 4780>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					/* Speed bin 0; CPR rev 0..7 */
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 1; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 2; CPR rev 0..7 */
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 3; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 4; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 5; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 6; CPR rev 0..7 */
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 7; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					/* Speed bin 0; CPR rev 0..7 */
+					< 30000      0      0     0>,
+					< 30000      0      0     0>,
+					<(-10000)    0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 1; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 2; CPR rev 0..7 */
+					< 30000      0      0     0>,
+					< 30000      0      0     0>,
+					<(-10000)    0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 3; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 4; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 5; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 6; CPR rev 0..7 */
+					< 30000      0      0     0>,
+					< 30000      0      0     0>,
+					<(-10000)    0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+
+					/* Speed bin 7; CPR rev 0..7 */
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>,
+					<     0      0      0     0>;
 			};
 		};
 	};
@@ -266,5 +450,12 @@
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
+	};
+
+	dbu3: dbu3 {
+		compatible = "regulator-fixed";
+		regulator-name = "dbu3";
+		startup-delay-us = <0>;
+		enable-active-high;
 	};
 };

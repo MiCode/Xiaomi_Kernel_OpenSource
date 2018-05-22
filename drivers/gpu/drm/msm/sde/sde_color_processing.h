@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,4 +146,11 @@ void sde_cp_crtc_post_ipc(struct drm_crtc *crtc);
  */
 int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 	struct sde_irq_callback *hist_irq);
+
+/**
+ * sde_cp_update_ad_vsync_count: Api to update AD vsync count
+ * @crtc: Pointer to crtc.
+ * @val: vsync count value
+ */
+void sde_cp_update_ad_vsync_count(struct drm_crtc *crtc, u32 val);
 #endif /*_SDE_COLOR_PROCESSING_H */

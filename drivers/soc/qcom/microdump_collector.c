@@ -48,9 +48,9 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 		crash_reason = smem_get_entry(SMEM_SSR_REASON_MSS0, &size_reason
 				, 0, SMEM_ANY_HOST_FLAG);
 		if (IS_ERR_OR_NULL(crash_reason)) {
-			pr_err("%s: Error in getting SMEM_reason pointer\n",
-				__func__);
-			return -ENODEV;
+			pr_info("%s: smem %d not available\n",
+				__func__, SMEM_SSR_REASON_MSS0);
+			goto out;
 		}
 
 		segment[0].v_address = crash_reason;
@@ -58,9 +58,9 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 
 		crash_data = smem_get_entry(smem_id, &size_data, SMEM_MODEM, 0);
 		if (IS_ERR_OR_NULL(crash_data)) {
-			pr_err("%s: Error in getting SMEM_data pointer\n",
-				__func__);
-			return -ENODEV;
+			pr_info("%s: smem %d not available\n ",
+				__func__, smem_id);
+			goto out;
 		}
 
 		segment[1].v_address = crash_data;
@@ -68,10 +68,11 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 
 		ret = do_ramdump(drv->microdump_dev, segment, 2);
 		if (ret)
-			pr_err("%s: do_ramdump() failed\n", __func__);
+			pr_info("%s: do_ramdump() failed\n", __func__);
 	}
 
-	return ret;
+out:
+	return NOTIFY_OK;
 }
 
 static int microdump_modem_ssr_register_notifier(struct microdump_data *drv)

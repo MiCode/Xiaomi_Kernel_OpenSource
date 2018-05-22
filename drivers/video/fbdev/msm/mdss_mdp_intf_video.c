@@ -1252,7 +1252,7 @@ static int mdss_mdp_video_wait4vsync(struct mdss_mdp_ctl *ctl)
 			pr_err("error polling for vsync\n");
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+				"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 		}
 	} else {
 		rc = 0;

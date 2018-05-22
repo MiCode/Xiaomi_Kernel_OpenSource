@@ -35,8 +35,6 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 
-#define QPNP_VADC_HC_VREF_CODE	0x4000
-
 /* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
 #define QPNP_VADC_REVISION2				0x1
@@ -228,6 +226,8 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_USBIN_I] = {qpnp_adc_scale_usbin_curr},
 	[SCALE_BATT_THERM_TEMP_QRD] = {qpnp_adc_batt_therm_qrd},
 	[SCALE_SMB1390_DIE_TEMP] = {qpnp_adc_scale_die_temp_1390},
+	[SCALE_BATT_THERM_TEMP_PU30] = {qpnp_adc_batt_therm_pu30},
+	[SCALE_BATT_THERM_TEMP_PU400] = {qpnp_adc_batt_therm_pu400},
 };
 
 static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
@@ -506,7 +506,7 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 		goto fail_unlock;
 	}
 
-	if (vadc->adc->adc_prop->full_scale_code == QPNP_VADC_HC_VREF_CODE) {
+	if (!vadc->adc->adc_prop->is_pmic_5) {
 		if (!vadc->vadc_init_calib) {
 			rc = qpnp_vadc_calib_device(vadc);
 			if (rc) {
@@ -2592,6 +2592,8 @@ static const struct of_device_id qpnp_vadc_match_table[] = {
 	{	.compatible = "qcom,qpnp-vadc",
 	},
 	{	.compatible = "qcom,qpnp-vadc-hc",
+	},
+	{	.compatible = "qcom,qpnp-adc-hc-pm5",
 	},
 	{}
 };

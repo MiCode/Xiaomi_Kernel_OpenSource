@@ -233,6 +233,10 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 		pr_err("%s:%d, bklt_en gpio not specified\n",
 						__func__, __LINE__);
 
+	ctrl_pdata->bklt_en_gpio_invert =
+			of_property_read_bool(ctrl_pdev->dev.of_node,
+				"qcom,platform-bklight-en-gpio-invert");
+
 	return 0;
 }
 

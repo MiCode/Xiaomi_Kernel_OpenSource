@@ -279,6 +279,7 @@ struct cam_icp_clk_info {
  * @a5_jtag_debug: entry to enable A5 JTAG debugging
  * @a5_debug_type : entry to enable FW debug message/qdss
  * @a5_dbg_lvl : debug level set to FW.
+ * @a5_fw_dump_lvl : level set for dumping the FW data
  * @ipe0_enable: Flag for IPE0
  * @ipe1_enable: Flag for IPE1
  * @bps_enable: Flag for BPS
@@ -325,6 +326,7 @@ struct cam_icp_hw_mgr {
 	bool a5_jtag_debug;
 	u64 a5_debug_type;
 	u64 a5_dbg_lvl;
+	u64 a5_fw_dump_lvl;
 	bool ipe0_enable;
 	bool ipe1_enable;
 	bool bps_enable;

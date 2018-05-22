@@ -231,6 +231,7 @@ int mdss_qpic_overlay_init(struct msm_fb_data_type *mfd)
 	qpic_interface->dma_fnc = mdss_qpic_pan_display;
 	qpic_interface->ioctl_handler = NULL;
 	qpic_interface->kickoff_fnc = NULL;
+	qpic_interface->is_twm_en = NULL;
 	return 0;
 }
 

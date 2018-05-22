@@ -18,6 +18,34 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 
+static void cam_node_print_ctx_state(
+	struct cam_node *node)
+{
+	int i;
+	struct cam_context *ctx;
+
+	CAM_INFO(CAM_CORE, "[%s] state=%d, ctx_size %d",
+		node->name, node->state, node->ctx_size);
+
+	mutex_lock(&node->list_mutex);
+	for (i = 0; i < node->ctx_size; i++) {
+		ctx = &node->ctx_list[i];
+
+		spin_lock(&ctx->lock);
+		CAM_INFO(CAM_CORE,
+			"[%s][%d] : state=%d, refcount=%d, active_req_list=%d, pending_req_list=%d, wait_req_list=%d, free_req_list=%d",
+			ctx->dev_name ? ctx->dev_name : "null",
+			i, ctx->state,
+			atomic_read(&(ctx->refcount.refcount)),
+			list_empty(&ctx->active_req_list),
+			list_empty(&ctx->pending_req_list),
+			list_empty(&ctx->wait_req_list),
+			list_empty(&ctx->free_req_list));
+		spin_unlock(&ctx->lock);
+	}
+	mutex_unlock(&node->list_mutex);
+}
+
 static struct cam_context *cam_node_get_ctxt_from_free_list(
 		struct cam_node *node)
 {
@@ -75,6 +103,10 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 
 	ctx = cam_node_get_ctxt_from_free_list(node);
 	if (!ctx) {
+		CAM_ERR(CAM_CORE, "No free ctx in free list node %s",
+			node->name);
+		cam_node_print_ctx_state(node);
+
 		rc = -ENOMEM;
 		goto err;
 	}
@@ -85,6 +117,9 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 			node->name);
 		goto free_ctx;
 	}
+
+	CAM_DBG(CAM_CORE, "[%s] Acquire ctx_id %d",
+		node->name, ctx->ctx_id);
 
 	return 0;
 free_ctx:
@@ -259,6 +294,10 @@ static int __cam_node_handle_release_dev(struct cam_node *node,
 	if (rc)
 		CAM_ERR(CAM_CORE, "destroy device handle is failed node %s",
 			node->name);
+
+	CAM_DBG(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
+		node->name, ctx->ctx_id,
+		atomic_read(&(ctx->refcount.refcount)));
 
 	cam_context_putref(ctx);
 	return rc;

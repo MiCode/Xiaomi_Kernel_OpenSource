@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,11 @@
  */
 #define QMI_IPA_MAX_CLIENT_DST_PIPES_V01 8
 #define QMI_IPA_MAX_UL_FIREWALL_RULES_V01 64
+
+/*
+ * Indicates presence of newly added member to support HW stats.
+ */
+#define IPA_QMI_SUPPORTS_STATS
 
 #define IPA_INT_MAX	((int)(~0U>>1))
 #define IPA_INT_MIN	(-IPA_INT_MAX - 1)
@@ -314,6 +319,38 @@ struct ipa_init_modem_driver_req_msg_v01 {
 	* table in IPAv3 onwards. Denotes the offset from the start of
 	* the IPA shared memory.
 	*/
+
+	/* Optional
+	 * Modem HW Stats Quota Base address
+	 * Must be set to true if hw_stats_quota_base_addr
+	 * is being passed
+	 */
+	uint8_t hw_stats_quota_base_addr_valid;
+	uint32_t hw_stats_quota_base_addr;
+
+	/* Optional
+	 * Modem HW Stats Quota Size
+	 * Must be set to true if hw_stats_quota_size
+	 * is being passed
+	 */
+	uint8_t hw_stats_quota_size_valid;
+	uint32_t hw_stats_quota_size;
+
+	/* Optional
+	 * Modem HW Drop Stats Table Start Address
+	 * Must be set to true if hw_drop_stats_base_addr
+	 * is being passed
+	 */
+	uint8_t hw_drop_stats_base_addr_valid;
+	uint32_t hw_drop_stats_base_addr;
+
+	/* Optional
+	 * Modem HW Drop Stats Table size
+	 * Must be set to true if hw_drop_stats_table_size
+	 * is being passed
+	 */
+	uint8_t hw_drop_stats_table_size_valid;
+	uint32_t hw_drop_stats_table_size;
 };  /* Message */
 
 /* Response Message; Requests the modem IPA driver about initialization */
@@ -1951,7 +1988,7 @@ struct ipa_configure_ul_firewall_rules_ind_msg_v01 {
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_V01 0x003A
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 134
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 8
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7

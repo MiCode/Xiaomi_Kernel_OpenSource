@@ -21,6 +21,7 @@ struct cycle_counter {
 	bool		started[BUCKET_COUNT];
 	u16		count[BUCKET_COUNT];
 	u8		last_soc[BUCKET_COUNT];
+	char		str_buf[BUCKET_COUNT * 8];
 	int		id;
 	int		last_bucket;
 	struct mutex	lock;
@@ -29,7 +30,8 @@ struct cycle_counter {
 };
 
 struct cl_params {
-	int	start_soc;
+	int	min_start_soc;
+	int	max_start_soc;
 	int	max_temp;
 	int	min_temp;
 	int	max_cap_inc;
@@ -60,7 +62,8 @@ int restore_cycle_count(struct cycle_counter *counter);
 void clear_cycle_count(struct cycle_counter *counter);
 void cycle_count_update(struct cycle_counter *counter, int batt_soc,
 		int charge_status, bool charge_done, bool input_present);
-int get_cycle_count(struct cycle_counter *counter);
+int get_cycle_count(struct cycle_counter *counter, int *count);
+int get_cycle_counts(struct cycle_counter *counter, const char **buf);
 int cycle_count_init(struct cycle_counter *counter);
 void cap_learning_abort(struct cap_learning *cl);
 void cap_learning_update(struct cap_learning *cl, int batt_temp,

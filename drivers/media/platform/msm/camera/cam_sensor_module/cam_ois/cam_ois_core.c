@@ -672,8 +672,14 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 	struct cam_ois_query_cap_t     ois_cap = {0};
 	struct cam_control            *cmd = (struct cam_control *)arg;
 
-	if (!o_ctrl) {
-		CAM_ERR(CAM_OIS, "e_ctrl is NULL");
+	if (!o_ctrl || !arg) {
+		CAM_ERR(CAM_OIS, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_OIS, "Invalid handle type: %d",
+			cmd->handle_type);
 		return -EINVAL;
 	}
 

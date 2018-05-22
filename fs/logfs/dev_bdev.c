@@ -34,9 +34,9 @@ static int sync_request(struct page *page, struct block_device *bdev, int op)
 	return submit_bio_wait(&bio);
 }
 
-static int bdev_readpage(void *_sb, struct page *page)
+static int bdev_readpage(struct file *_sb, struct page *page)
 {
-	struct super_block *sb = _sb;
+	struct super_block *sb = (struct super_block *)_sb;
 	struct block_device *bdev = logfs_super(sb)->s_bdev;
 	int err;
 

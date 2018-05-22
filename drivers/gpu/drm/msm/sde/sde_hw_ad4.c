@@ -109,6 +109,9 @@ static int ad4_ipc_reset_setup_ipcr(struct sde_hw_dspp *dspp,
 static int ad4_cfg_ipc_reset(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 
+static int ad4_vsync_update(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+
 static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_idle][AD_MODE] = ad4_mode_setup_common,
 	[ad4_state_idle][AD_INIT] = ad4_init_setup_idle,
@@ -121,6 +124,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_idle][AD_IPC_SUSPEND] = ad4_no_op_setup,
 	[ad4_state_idle][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_idle][AD_IPC_RESET] = ad4_no_op_setup,
+	[ad4_state_idle][AD_VSYNC_UPDATE] = ad4_no_op_setup,
 
 	[ad4_state_startup][AD_MODE] = ad4_mode_setup_common,
 	[ad4_state_startup][AD_INIT] = ad4_init_setup,
@@ -133,6 +137,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_startup][AD_STRENGTH] = ad4_no_op_setup,
 	[ad4_state_startup][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_startup][AD_IPC_RESET] = ad4_ipc_reset_setup_startup,
+	[ad4_state_startup][AD_VSYNC_UPDATE] = ad4_vsync_update,
 
 	[ad4_state_run][AD_MODE] = ad4_mode_setup_common,
 	[ad4_state_run][AD_INIT] = ad4_init_setup_run,
@@ -145,6 +150,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_run][AD_IPC_SUSPEND] = ad4_ipc_suspend_setup_run,
 	[ad4_state_run][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_run][AD_IPC_RESET] = ad4_setup_debug,
+	[ad4_state_run][AD_VSYNC_UPDATE] = ad4_vsync_update,
 
 	[ad4_state_ipcs][AD_MODE] = ad4_no_op_setup,
 	[ad4_state_ipcs][AD_INIT] = ad4_no_op_setup,
@@ -157,6 +163,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_ipcs][AD_IPC_SUSPEND] = ad4_no_op_setup,
 	[ad4_state_ipcs][AD_IPC_RESUME] = ad4_ipc_resume_setup_ipcs,
 	[ad4_state_ipcs][AD_IPC_RESET] = ad4_no_op_setup,
+	[ad4_state_ipcs][AD_VSYNC_UPDATE] = ad4_no_op_setup,
 
 	[ad4_state_ipcr][AD_MODE] = ad4_mode_setup_common,
 	[ad4_state_ipcr][AD_INIT] = ad4_init_setup_ipcr,
@@ -169,6 +176,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_ipcr][AD_IPC_SUSPEND] = ad4_ipc_suspend_setup_ipcr,
 	[ad4_state_ipcr][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_ipcr][AD_IPC_RESET] = ad4_ipc_reset_setup_ipcr,
+	[ad4_state_ipcr][AD_VSYNC_UPDATE] = ad4_no_op_setup,
 
 	[ad4_state_manual][AD_MODE] = ad4_mode_setup_common,
 	[ad4_state_manual][AD_INIT] = ad4_init_setup,
@@ -181,6 +189,7 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_manual][AD_IPC_SUSPEND] = ad4_no_op_setup,
 	[ad4_state_manual][AD_IPC_RESUME] = ad4_no_op_setup,
 	[ad4_state_manual][AD_IPC_RESET] = ad4_setup_debug_manual,
+	[ad4_state_manual][AD_VSYNC_UPDATE] = ad4_no_op_setup,
 };
 
 struct ad4_info {
@@ -201,6 +210,7 @@ struct ad4_info {
 	u32 irdx_control_0;
 	u32 tf_ctrl;
 	u32 vc_control_0;
+	u32 frame_pushes;
 };
 
 static struct ad4_info info[DSPP_MAX] = {
@@ -905,6 +915,8 @@ static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 	val = (ad_cfg->cfg_param_046 & (BIT(16) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 
+	info[dspp->idx].frame_pushes = ad_cfg->cfg_param_047;
+
 	return 0;
 }
 
@@ -1544,5 +1556,27 @@ static int ad4_strength_setup_idle(struct sde_hw_dspp *dspp,
 
 	if (AD_STATE_READY(info[dspp->idx].completed_ops_mask))
 		ad4_mode_setup(dspp, info[dspp->idx].mode);
+	return 0;
+}
+
+static int ad4_vsync_update(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 *count;
+	struct sde_hw_mixer *hw_lm;
+
+	if (cfg->hw_cfg->len != sizeof(u32) || !cfg->hw_cfg->payload) {
+		DRM_ERROR("invalid sz param exp %zd given %d cfg %pK\n",
+			sizeof(u32), cfg->hw_cfg->len, cfg->hw_cfg->payload);
+		return -EINVAL;
+	}
+
+	count = (u32 *)(cfg->hw_cfg->payload);
+	hw_lm = cfg->hw_cfg->mixer_info;
+
+	if (hw_lm && !hw_lm->cfg.right_mixer &&
+		(*count < info[dspp->idx].frame_pushes))
+		(*count)++;
+
 	return 0;
 }

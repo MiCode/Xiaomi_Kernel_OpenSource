@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -298,6 +298,7 @@ struct hfi_hybrid_hierp {
 #define HFI_RATE_CONTROL_CBR_CFR	(HFI_OX_BASE + 0x5)
 #define HFI_RATE_CONTROL_MBR_CFR	(HFI_OX_BASE + 0x6)
 #define HFI_RATE_CONTROL_MBR_VFR	(HFI_OX_BASE + 0x7)
+#define HFI_RATE_CONTROL_CQ		(HFI_OX_BASE + 0x8)
 
 
 struct hfi_uncompressed_plane_actual_constraints_info {

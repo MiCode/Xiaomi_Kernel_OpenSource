@@ -164,13 +164,13 @@ void cycle_count_update(struct cycle_counter *counter, int batt_soc,
 }
 
 /**
- * get_cycle_count -
+ * get_bucket_cycle_count -
  * @counter: Cycle counter object
  *
  * Returns the cycle counter for a SOC bucket.
  *
  */
-int get_cycle_count(struct cycle_counter *counter)
+static int get_bucket_cycle_count(struct cycle_counter *counter)
 {
 	int count;
 
@@ -184,6 +184,68 @@ int get_cycle_count(struct cycle_counter *counter)
 	count = counter->count[counter->id - 1];
 	mutex_unlock(&counter->lock);
 	return count;
+}
+
+/**
+ * get_cycle_counts -
+ * @counter: Cycle counter object
+ * @buf: Bucket cycle counts formatted in a string returned to the caller
+ *
+ * Get cycle count for all buckets in a string format
+ */
+int get_cycle_counts(struct cycle_counter *counter, const char **buf)
+{
+	int i, rc, len = 0;
+
+	for (i = 1; i <= BUCKET_COUNT; i++) {
+		counter->id = i;
+		rc = get_bucket_cycle_count(counter);
+		if (rc < 0) {
+			pr_err("Couldn't get cycle count rc=%d\n", rc);
+			return rc;
+		}
+
+		if (sizeof(counter->str_buf) - len < 8) {
+			pr_err("Invalid length %d\n", len);
+			return -EINVAL;
+		}
+
+		len += snprintf(counter->str_buf+len, 8, "%d ", rc);
+	}
+
+	counter->str_buf[len] = '\0';
+	*buf = counter->str_buf;
+	return 0;
+}
+
+/**
+ * get_cycle_count -
+ * @counter: Cycle counter object
+ * @count: Average cycle count returned to the caller
+ *
+ * Get average cycle count for all buckets
+ */
+int get_cycle_count(struct cycle_counter *counter, int *count)
+{
+	int i, rc, temp = 0;
+
+	for (i = 1; i <= BUCKET_COUNT; i++) {
+		counter->id = i;
+		rc = get_bucket_cycle_count(counter);
+		if (rc < 0) {
+			pr_err("Couldn't get cycle count rc=%d\n", rc);
+			return rc;
+		}
+
+		temp += rc;
+	}
+
+	/*
+	 * Normalize the counter across each bucket so that we can get
+	 * the overall charge cycle count.
+	 */
+	*count = temp / BUCKET_COUNT;
+	return 0;
 }
 
 /**
@@ -327,13 +389,15 @@ static int cap_learning_process_full_data(struct cap_learning *cl)
  */
 static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc)
 {
-	int rc, cc_soc_sw, batt_soc_msb;
+	int rc, cc_soc_sw, batt_soc_msb, batt_soc_pct;
 
 	batt_soc_msb = batt_soc >> 24;
-	if (DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW) >
-		cl->dt.start_soc) {
-		pr_debug("Battery SOC %d is high!, not starting\n",
-			batt_soc_msb);
+	batt_soc_pct = DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW);
+
+	if (batt_soc_pct > cl->dt.max_start_soc ||
+			batt_soc_pct < cl->dt.min_start_soc) {
+		pr_debug("Battery SOC %d is high/low, not starting\n",
+			batt_soc_pct);
 		return -EINVAL;
 	}
 

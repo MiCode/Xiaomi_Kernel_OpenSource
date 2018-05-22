@@ -41,12 +41,55 @@ static void dummycon_init(struct vc_data *vc, int init)
 	vc_resize(vc, DUMMY_COLUMNS, DUMMY_ROWS);
 }
 
-static int dummycon_dummy(void)
+static void dummycon_deinit(struct vc_data *vc)
+{
+}
+
+static void dummycon_clear(struct vc_data *vc, int a, int b, int c, int d)
+{
+}
+
+static void dummycon_putc(struct vc_data *vc, int a, int b, int c)
+{
+}
+
+static void dummycon_putcs(struct vc_data *vc, const unsigned short *s, int a, int b, int c)
+{
+}
+
+static void dummycon_cursor(struct vc_data *vc, int a)
+{
+}
+
+static int dummycon_scroll(struct vc_data *vc, int a, int b, int c, int d)
 {
     return 0;
 }
 
-#define DUMMY	(void *)dummycon_dummy
+static int dummycon_switch(struct vc_data *vc)
+{
+    return 0;
+}
+
+static int dummycon_blank(struct vc_data *vc, int a, int b)
+{
+    return 0;
+}
+
+static int dummycon_font_set(struct vc_data *vc, struct console_font *f, unsigned u)
+{
+    return 0;
+}
+
+static int dummycon_font_default(struct vc_data *vc, struct console_font *f, char *c)
+{
+    return 0;
+}
+
+static int dummycon_font_copy(struct vc_data *vc, int a)
+{
+    return 0;
+}
 
 /*
  *  The console `switch' structure for the dummy console
@@ -58,16 +101,16 @@ const struct consw dummy_con = {
     .owner =		THIS_MODULE,
     .con_startup =	dummycon_startup,
     .con_init =		dummycon_init,
-    .con_deinit =	DUMMY,
-    .con_clear =	DUMMY,
-    .con_putc =		DUMMY,
-    .con_putcs =	DUMMY,
-    .con_cursor =	DUMMY,
-    .con_scroll =	DUMMY,
-    .con_switch =	DUMMY,
-    .con_blank =	DUMMY,
-    .con_font_set =	DUMMY,
-    .con_font_default =	DUMMY,
-    .con_font_copy =	DUMMY,
+    .con_deinit =	dummycon_deinit,
+    .con_clear =	dummycon_clear,
+    .con_putc =		dummycon_putc,
+    .con_putcs =	dummycon_putcs,
+    .con_cursor =	dummycon_cursor,
+    .con_scroll =	dummycon_scroll,
+    .con_switch =	dummycon_switch,
+    .con_blank =	dummycon_blank,
+    .con_font_set =	dummycon_font_set,
+    .con_font_default =	dummycon_font_default,
+    .con_font_copy =	dummycon_font_copy,
 };
 EXPORT_SYMBOL_GPL(dummy_con);

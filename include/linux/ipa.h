@@ -117,19 +117,6 @@ enum hdr_total_len_or_pad_type {
 };
 
 /**
-* enum ipa_vlan_ifaces - vlan interfaces types
-* @IPA_VLAN_IF_EMAC: used for EMAC ethernet device
-* @IPA_VLAN_IF_RNDIS: used for RNDIS USB device
-* @IPA_VLAN_IF_ECM: used for ECM USB device
-*/
-enum ipa_vlan_ifaces {
-	IPA_VLAN_IF_EMAC,
-	IPA_VLAN_IF_RNDIS,
-	IPA_VLAN_IF_ECM,
-	IPA_VLAN_IF_MAX
-};
-
-/**
  * struct ipa_ep_cfg_nat - NAT configuration in IPA end-point
  * @nat_en:	This defines the default NAT mode for the pipe: in case of
  *		filter miss - the default NAT mode defines the NATing operation

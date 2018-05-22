@@ -236,6 +236,7 @@ struct msm_mdp_interface {
 	int (*pp_release_fnc)(struct msm_fb_data_type *mfd);
 	void (*signal_retire_fence)(struct msm_fb_data_type *mfd,
 					int retire_cnt);
+	bool (*is_twm_en)(void);
 	void *private1;
 };
 

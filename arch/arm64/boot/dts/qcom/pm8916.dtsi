@@ -169,6 +169,121 @@
 			qcom,pmic-revid = <&pm8916_revid>;
 		};
 
+		pm8916_chg: qcom,charger {
+			compatible = "qcom,qpnp-linear-charger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,vddmax-mv = <4200>;
+			qcom,vddsafe-mv = <4200>;
+			qcom,vinmin-mv = <4308>;
+			qcom,ibatsafe-ma = <1440>;
+			qcom,thermal-mitigation = <1440 720 630 0>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,ibatmax-warm-ma = <360>;
+			qcom,ibatmax-cool-ma = <360>;
+			qcom,batt-hot-percentage = <25>;
+			qcom,batt-cold-percentage = <80>;
+			qcom,tchg-mins = <232>;
+			qcom,resume-soc = <99>;
+			qcom,chg-vadc = <&pm8916_vadc>;
+			qcom,chg-adc_tm = <&pm8916_adc_tm>;
+
+			status = "disabled";
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =
+					<0x0 0x10 0x7 IRQ_TYPE_EDGE_RISING>,
+					<0x0 0x10 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x0 0x10 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x0 0x10 0x0 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-names = "chg-done",
+						  "chg-failed",
+						  "fast-chg-on",
+						  "vbat-det-lo";
+			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts = <0x0 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x12 0x0 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "bat-temp-ok",
+						  "batt-pres";
+			};
+
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =
+					<0 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0 0x13 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0 0x13 0x1 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "usb-over-temp",
+						  "chg-gone",
+						  "usbin-valid";
+			};
+
+			qcom,chg-misc@1600 {
+				reg = <0x1600 0x100>;
+			};
+		};
+
+		pm8916_bms: qcom,vmbms {
+			compatible = "qcom,qpnp-vm-bms";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,v-cutoff-uv = <3400000>;
+			qcom,max-voltage-uv = <4200000>;
+			qcom,r-conn-mohm = <0>;
+			qcom,shutdown-soc-valid-limit = <100>;
+			qcom,low-soc-calculate-soc-threshold = <15>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
+			qcom,low-soc-calculate-soc-ms = <5000>;
+			qcom,calculate-soc-ms = <20000>;
+			qcom,volatge-soc-timeout-ms = <60000>;
+			qcom,low-voltage-threshold = <3450000>;
+			qcom,s3-ocv-tolerence-uv = <1200>;
+			qcom,s2-fifo-length = <5>;
+			qcom,low-soc-fifo-length = <2>;
+			qcom,bms-vadc = <&pm8916_vadc>;
+			qcom,bms-adc_tm = <&pm8916_adc_tm>;
+			qcom,pmic-revid = <&pm8916_revid>;
+
+			qcom,force-s3-on-suspend;
+			qcom,force-s2-in-charging;
+			qcom,report-charger-eoc;
+
+			qcom,batt-pres-status@1208 {
+				reg = <0x1208 0x1>;
+			};
+
+			qcom,qpnp-chg-pres@1008 {
+				reg = <0x1008 0x1>;
+			};
+
+			qcom,vm-bms@4000 {
+				reg = <0x4000 0x100>;
+				interrupts = <0x0 0x40 0x0 IRQ_TYPE_NONE>,
+					     <0x0 0x40 0x1 IRQ_TYPE_NONE>,
+					     <0x0 0x40 0x2 IRQ_TYPE_NONE>,
+					     <0x0 0x40 0x3 IRQ_TYPE_NONE>,
+					     <0x0 0x40 0x4 IRQ_TYPE_NONE>,
+					     <0x0 0x40 0x5 IRQ_TYPE_NONE>;
+
+				interrupt-names = "leave_cv",
+						  "enter_cv",
+						  "good_ocv",
+						  "ocv_thr",
+						  "fifo_update_done",
+						  "fsm_state_change";
+			};
+		};
+
 		pm8916_leds: qcom,leds@a100 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;

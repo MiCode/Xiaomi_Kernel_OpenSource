@@ -183,6 +183,7 @@ struct cam_hw_config_args {
 	uint32_t                        num_out_map_entries;
 	void                           *priv;
 	uint64_t                        request_id;
+	bool                            init_packet;
 };
 
 /**

@@ -1,0 +1,154 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&soc {
+
+	/delete-node/ etm@61bc000;
+	/delete-node/ etm@61bd000;
+	/delete-node/ etm@61be000;
+	/delete-node/ etm@61bf000;
+	/delete-node/ cti@61b8000;
+	/delete-node/ cti@61b9000;
+	/delete-node/ cti@61ba000;
+	/delete-node/ cti@61bb000;
+
+	etm4: etm@61b3000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb959>;
+
+		reg = <0x61b3000 0x1000>;
+		cpu = <&CPU4>;
+		coresight-name = "coresight-etm4";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+					 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+
+		port {
+			etm4_out_funnel_apss0: endpoint {
+				remote-endpoint = <&funnel_apss0_in_etm4>;
+			};
+		};
+	};
+
+	etm5: etm@61b7000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb959>;
+
+		reg = <0x61b7000 0x1000>;
+		cpu = <&CPU5>;
+		coresight-name = "coresight-etm5";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+					 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+
+		port {
+			etm5_out_funnel_apss0: endpoint {
+				remote-endpoint = <&funnel_apss0_in_etm5>;
+			};
+		};
+	};
+
+	etm6: etm@61bb000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb959>;
+
+		reg = <0x61bb000 0x1000>;
+		cpu = <&CPU6>;
+		coresight-name = "coresight-etm6";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+					 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+
+		port {
+			etm6_out_funnel_apss0: endpoint {
+				remote-endpoint = <&funnel_apss0_in_etm6>;
+			};
+		};
+	};
+
+	etm7: etm@61bf000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb959>;
+
+		reg = <0x61bf000 0x1000>;
+		coresight-name = "coresight-etm7";
+		cpu = <&CPU7>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+					 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+
+		port {
+			etm7_out_funnel_apss0: endpoint {
+				remote-endpoint = <&funnel_apss0_in_etm7>;
+			};
+		};
+	};
+
+	cti_cpu4: cti@61b1000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x61b1000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-cpu4";
+		cpu = <&CPU4>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_cpu5: cti@61b5000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x61b5000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-cpu5";
+		cpu = <&CPU5>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_cpu6: cti@61b9000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x61b9000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-cpu6";
+		cpu = <&CPU6>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_cpu7: cti@61bd000{
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+
+		reg = <0x61bd000 0x1000>;
+		reg-names = "cti-base";
+		coresight-name = "coresight-cti-cpu7";
+		cpu = <&CPU7>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk";
+	};
+};

@@ -1847,12 +1847,15 @@ static int ipa3_usb_xdci_connect_internal(
 	}
 
 	if (ipa_pm_is_used()) {
-		result = ipa_pm_set_perf_profile(
-			ipa3_usb_ctx->ttype_ctx[ttype].pm_ctx.hdl,
-			params->max_supported_bandwidth_mbps);
-		if (result) {
-			IPA_USB_ERR("failed to set perf profile\n");
-			return result;
+		/* perf profile is not set on  USB DPL pipe */
+		if (ttype != IPA_USB_TRANSPORT_DPL) {
+			result = ipa_pm_set_perf_profile(
+				ipa3_usb_ctx->ttype_ctx[ttype].pm_ctx.hdl,
+				params->max_supported_bandwidth_mbps);
+			if (result) {
+				IPA_USB_ERR("failed to set perf profile\n");
+				return result;
+			}
 		}
 
 		result = ipa_pm_activate_sync(
