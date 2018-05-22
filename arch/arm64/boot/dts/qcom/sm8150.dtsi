@@ -3238,7 +3238,7 @@
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
-		qcom,ipa-loaduC;
+		qcom,ipa-platform-type-msm;
 		qcom,ipa-advertise-sg-support;
 		qcom,ipa-napi-enable;
 	};
