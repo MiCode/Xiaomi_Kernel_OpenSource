@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -42,7 +42,7 @@
 #define MAX_ENCRYPTION_BUFFERS 1
 #define MIN_IOS 256
 #define MIN_POOL_PAGES 32
-#define KEY_SIZE_XTS 32
+#define KEY_SIZE_XTS 64
 #define AES_XTS_IV_LEN 16
 #define MAX_MSM_ICE_KEY_LUT_SIZE 32
 #define SECTOR_SIZE 512
