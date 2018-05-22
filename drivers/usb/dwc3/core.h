@@ -1322,6 +1322,8 @@ struct dwc3_gadget_ep_cmd_params {
 
 /* prototypes */
 void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode);
+void dwc3_en_sleep_mode(struct dwc3 *dwc);
+void dwc3_dis_sleep_mode(struct dwc3 *dwc);
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type);
 
