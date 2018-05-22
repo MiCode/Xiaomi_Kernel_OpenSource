@@ -939,6 +939,7 @@ int vhost_process_iotlb_msg(struct vhost_dev *dev,
 {
 	int ret = 0;
 
+	mutex_lock(&dev->mutex);
 	vhost_dev_lock_vqs(dev);
 	switch (msg->type) {
 	case VHOST_IOTLB_UPDATE:
@@ -968,6 +969,8 @@ int vhost_process_iotlb_msg(struct vhost_dev *dev,
 	}
 
 	vhost_dev_unlock_vqs(dev);
+	mutex_unlock(&dev->mutex);
+
 	return ret;
 }
 ssize_t vhost_chr_write_iter(struct vhost_dev *dev,
