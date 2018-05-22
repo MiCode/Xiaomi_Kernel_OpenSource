@@ -41,6 +41,7 @@
 #include "wcdcal-hwdep.h"
 
 #define SAMPLE_RATE_48KHZ 48000
+#define SAMPLE_RATE_16KHZ 16000
 
 #define BG_RATES_MAX (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
@@ -611,7 +612,7 @@ static int bg_put_hwd_state(struct snd_kcontrol *kcontrol,
 
 	if (ucontrol->value.integer.value[0] && (!bg_cdc->hwd_started)) {
 		/* enable bg hwd */
-		bg_cdc->hw_params.tx_sample_rate = SAMPLE_RATE_48KHZ;
+		bg_cdc->hw_params.tx_sample_rate = SAMPLE_RATE_16KHZ;
 		bg_cdc->hw_params.tx_bit_width = 16;
 		bg_cdc->hw_params.tx_num_channels = 1;
 		active_session_id = get_active_session_id(dai_id);
@@ -770,10 +771,11 @@ static int bg_cdc_prepare(struct snd_pcm_substream *substream,
 	/* check if RX, TX sampling freq is same if not return error. */
 	if (test_bit(PLAYBACK, &bg_cdc->status_mask) &&
 	    test_bit(CAPTURE, &bg_cdc->status_mask)) {
-		if ((bg_cdc->hw_params.rx_sample_rate !=
+		if (((bg_cdc->hw_params.rx_sample_rate !=
 		    bg_cdc->hw_params.tx_sample_rate) ||
 		    (bg_cdc->hw_params.rx_bit_width !=
-		    bg_cdc->hw_params.rx_bit_width)) {
+		    bg_cdc->hw_params.tx_bit_width)) &&
+			!bg_cdc->hwd_started) {
 			pr_err("%s diff rx and tx configuration %d:%d:%d:%d\n",
 				__func__, bg_cdc->hw_params.rx_sample_rate,
 				bg_cdc->hw_params.tx_sample_rate,
