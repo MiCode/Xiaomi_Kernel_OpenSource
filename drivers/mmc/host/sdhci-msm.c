@@ -4987,6 +4987,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 		host->is_crypto_en = true;
+		msm_host->mmc->inlinecrypt_support = true;
 		/* Packed commands cannot be encrypted/decrypted using ICE */
 		msm_host->mmc->caps2 &= ~(MMC_CAP2_PACKED_WR |
 				MMC_CAP2_PACKED_WR_CONTROL);
