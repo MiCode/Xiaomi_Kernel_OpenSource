@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -516,7 +516,7 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			pad->pullup = arg;
 			break;
 		case PMIC_GPIO_CONF_STRENGTH:
-			if (arg > PMIC_GPIO_STRENGTH_LOW)
+			if (arg > PMIC_GPIO_STRENGTH_HIGH)
 				return -EINVAL;
 			pad->strength = arg;
 			break;
