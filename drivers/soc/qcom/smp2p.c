@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2018-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -97,6 +97,7 @@ struct smp2p_entry {
 
 	struct irq_domain *domain;
 	DECLARE_BITMAP(irq_enabled, 32);
+	DECLARE_BITMAP(irq_pending, 32);
 	DECLARE_BITMAP(irq_rising, 32);
 	DECLARE_BITMAP(irq_falling, 32);
 
@@ -138,6 +139,7 @@ struct qcom_smp2p {
 	unsigned local_pid;
 	unsigned remote_pid;
 
+	int irq;
 	struct regmap *ipc_regmap;
 	int ipc_offset;
 	int ipc_bit;
@@ -177,9 +179,9 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 	struct qcom_smp2p *smp2p = data;
 	unsigned smem_id = smp2p->smem_items[SMP2P_INBOUND];
 	unsigned pid = smp2p->remote_pid;
+	unsigned long status;
 	size_t size;
 	int irq_pin;
-	u32 status;
 	char buf[SMP2P_MAX_ENTRY_NAME];
 	u32 val;
 	int i;
@@ -220,19 +222,22 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 
 		status = val ^ entry->last_value;
 		entry->last_value = val;
+		status |= *entry->irq_pending;
 
 		/* No changes of this entry? */
 		if (!status)
 			continue;
 
-		for_each_set_bit(i, entry->irq_enabled, 32) {
-			if (!(status & BIT(i)))
-				continue;
-
+		for_each_set_bit(i, &status, 32) {
 			if ((val & BIT(i) && test_bit(i, entry->irq_rising)) ||
 			    (!(val & BIT(i)) && test_bit(i, entry->irq_falling))) {
 				irq_pin = irq_find_mapping(entry->domain, i);
 				handle_nested_irq(irq_pin);
+
+				if (test_bit(i, entry->irq_enabled))
+					clear_bit(i, entry->irq_pending);
+				else
+					set_bit(i, entry->irq_pending);
 			}
 		}
 	}
@@ -294,6 +299,8 @@ static int smp2p_irq_map(struct irq_domain *d,
 	irq_set_chip_data(irq, entry);
 	irq_set_nested_thread(irq, 1);
 	irq_set_noprobe(irq);
+	irq_set_parent(irq, entry->smp2p->irq);
+	irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY);
 
 	return 0;
 }
@@ -529,6 +536,7 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 	/* Kick the outgoing edge after allocating entries */
 	qcom_smp2p_kick(smp2p);
 
+	smp2p->irq = irq;
 	ret = devm_request_threaded_irq(&pdev->dev, irq,
 					NULL, qcom_smp2p_intr,
 					IRQF_ONESHOT,
