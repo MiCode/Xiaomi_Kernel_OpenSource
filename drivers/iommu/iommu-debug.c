@@ -1273,6 +1273,8 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 		return -ENOMEM;
 	}
 
+	ddev->domain->is_debug_domain = true;
+
 	if (is_secure && iommu_domain_set_attr(ddev->domain,
 					       DOMAIN_ATTR_SECURE_VMID,
 					       &val)) {
@@ -1327,6 +1329,8 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 
 		if (!dma_mapping)
 			goto out;
+
+		dma_mapping->domain->is_debug_domain = true;
 
 		if (arm_iommu_attach_device(dev, dma_mapping))
 			goto out_release_mapping;
