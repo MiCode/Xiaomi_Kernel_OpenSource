@@ -574,6 +574,24 @@ long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
 		}
 	}
 		break;
+	case VIDIOC_G_AVI_INFOFRAME: {
+		dprintk(BA_DBG, "VIDIOC_G_AVI_INFOFRAME\n");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (arg) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, arg);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
 	case VIDIOC_G_FIELD_INFO: {
 		dprintk(BA_DBG, "VIDIOC_G_FIELD_INFO");
 		sd = inst->sd;
