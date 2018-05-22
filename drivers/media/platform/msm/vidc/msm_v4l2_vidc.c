@@ -252,6 +252,14 @@ static int msm_v4l2_queryctrl(struct file *file, void *fh,
 	return msm_vidc_query_ctrl((void *)vidc_inst, ctrl);
 }
 
+static long msm_v4l2_default(struct file *file, void *fh,
+	bool valid_prio, unsigned int cmd, void *arg)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+
+	return msm_vidc_private((void *)vidc_inst, cmd, arg);
+}
+
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -278,6 +286,7 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_g_parm = msm_v4l2_g_parm,
 	.vidioc_g_crop = msm_v4l2_g_crop,
 	.vidioc_enum_framesizes = msm_v4l2_enum_framesizes,
+	.vidioc_default = msm_v4l2_default,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {
