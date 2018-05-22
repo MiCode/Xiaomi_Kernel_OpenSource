@@ -339,6 +339,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(esr_nominal),
 	POWER_SUPPLY_ATTR(soh),
 	POWER_SUPPLY_ATTR(qc_opti_disable),
+	POWER_SUPPLY_ATTR(fcc_stepper_enable),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
