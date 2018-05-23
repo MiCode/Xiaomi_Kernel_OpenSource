@@ -5642,7 +5642,7 @@ static int msm8996_asoc_machine_remove(struct platform_device *pdev)
 
 	if (pdata->us_p_power)
 		regulator_put(pdata->us_p_power);
-	if (pdata->us_p_power)
+	if (pdata->us_n_power)
 		regulator_put(pdata->us_n_power);
 
 	if (gpio_is_valid(ext_us_amp_gpio))
