@@ -143,6 +143,7 @@ Memory Heaps
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc,mem-adsp"
+	- "qcom,msm-vidc,mem-cdsp"
 - memory-region : phandle to the memory heap/region.
 
 Example:
