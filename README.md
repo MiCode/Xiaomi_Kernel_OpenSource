@@ -37,3 +37,4 @@
 | tissot-n-oss | Mi A1 | Android N | LA.UM.5.3-06310-89xx.0 | [tissot-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-n-oss) |
 | tissot-o-oss | Mi A1 | Android O | LA.UM.6.6.r1-04000-89xx.0 | [tissot-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-o-oss) |
 | whyred-n-oss | Redmi Note 5 | Android N | LA.UM.6.1.r1-11000-sdm660.0 | [whyred-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-n-oss) |
+| whyred-o-oss | Redmi Note 5, Mi 6X | Android O | LA.UM.6.2.r1-06100-sdm660.0 | [whyred-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-o-oss) |
