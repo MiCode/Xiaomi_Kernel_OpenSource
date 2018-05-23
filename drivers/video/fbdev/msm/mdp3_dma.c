@@ -1056,7 +1056,7 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, 0);
 	MDP3_REG_WRITE(MDP3_REG_INTR_CLEAR, 0xfffffff);
 
-	init_completion(&dma->dma_comp);
+	reinit_completion(&dma->dma_comp);
 	dma->vsync_client.handler = NULL;
 	return ret;
 }
