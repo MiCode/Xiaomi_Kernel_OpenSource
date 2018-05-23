@@ -377,10 +377,10 @@ static int msm_vidc_load_allowed_clocks_table(
 	return 0;
 }
 
-static int msm_vidc_populate_mem_adsp(struct device *dev,
+static int msm_vidc_populate_mem_cdsp(struct device *dev,
 		struct msm_vidc_platform_resources *res)
 {
-	res->mem_adsp.dev = dev;
+	res->mem_cdsp.dev = dev;
 
 	return 0;
 }
@@ -1288,7 +1288,7 @@ int read_bus_resources_from_dt(struct platform_device *pdev)
 	return msm_vidc_populate_bus(&pdev->dev, &core->resources);
 }
 
-int read_mem_adsp_resources_from_dt(struct platform_device *pdev)
+int read_mem_cdsp_resources_from_dt(struct platform_device *pdev)
 {
 	struct msm_vidc_core *core;
 
@@ -1308,5 +1308,5 @@ int read_mem_adsp_resources_from_dt(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	return msm_vidc_populate_mem_adsp(&pdev->dev, &core->resources);
+	return msm_vidc_populate_mem_cdsp(&pdev->dev, &core->resources);
 }

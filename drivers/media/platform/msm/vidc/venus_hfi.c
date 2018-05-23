@@ -1611,7 +1611,7 @@ static void __interface_dsp_queues_release(struct venus_hfi_device *device)
 
 	dma_unmap_single_attrs(cb->dev, mem_data->device_addr,
 		mem_data->size, DMA_BIDIRECTIONAL, 0);
-	dma_free_coherent(device->res->mem_adsp.dev, mem_data->size,
+	dma_free_coherent(device->res->mem_cdsp.dev, mem_data->size,
 		mem_data->kvaddr, mem_data->dma_handle);
 
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
@@ -1643,7 +1643,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	mem_data = &dev->dsp_iface_q_table.mem_data;
 
 	/* Allocate dsp queues from ADSP device memory */
-	kvaddr = dma_alloc_coherent(dev->res->mem_adsp.dev, q_size,
+	kvaddr = dma_alloc_coherent(dev->res->mem_cdsp.dev, q_size,
 				&dma_handle, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(kvaddr)) {
 		dprintk(VIDC_ERR, "%s: failed dma allocation\n", __func__);
@@ -1726,7 +1726,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	return rc;
 
 fail_dma_map:
-	dma_free_coherent(dev->res->mem_adsp.dev, q_size, kvaddr, dma_handle);
+	dma_free_coherent(dev->res->mem_cdsp.dev, q_size, kvaddr, dma_handle);
 fail_dma_alloc:
 	return -ENOMEM;
 }

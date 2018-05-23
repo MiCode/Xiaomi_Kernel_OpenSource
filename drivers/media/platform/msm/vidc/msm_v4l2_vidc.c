@@ -488,7 +488,7 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{.compatible = "qcom,msm-vidc"},
 	{.compatible = "qcom,msm-vidc,context-bank"},
 	{.compatible = "qcom,msm-vidc,bus"},
-	{.compatible = "qcom,msm-vidc,mem-adsp"},
+	{.compatible = "qcom,msm-vidc,mem-cdsp"},
 	{}
 };
 
@@ -680,9 +680,9 @@ err_core_init:
 	return rc;
 }
 
-static int msm_vidc_probe_mem_adsp(struct platform_device *pdev)
+static int msm_vidc_probe_mem_cdsp(struct platform_device *pdev)
 {
-	return read_mem_adsp_resources_from_dt(pdev);
+	return read_mem_cdsp_resources_from_dt(pdev);
 }
 
 static int msm_vidc_probe_context_bank(struct platform_device *pdev)
@@ -711,8 +711,8 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		"qcom,msm-vidc,context-bank")) {
 		return msm_vidc_probe_context_bank(pdev);
 	} else if (of_device_is_compatible(pdev->dev.of_node,
-		"qcom,msm-vidc,mem-adsp")) {
-		return msm_vidc_probe_mem_adsp(pdev);
+		"qcom,msm-vidc,mem-cdsp")) {
+		return msm_vidc_probe_mem_cdsp(pdev);
 	}
 
 	/* How did we end up here? */
