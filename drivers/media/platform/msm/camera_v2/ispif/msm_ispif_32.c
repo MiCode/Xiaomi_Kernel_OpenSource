@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,8 @@
 
 #define ISPIF_TIMEOUT_SLEEP_US                1000
 #define ISPIF_TIMEOUT_ALL_US               1000000
+
+#define CSID_VERSION_V37                      0x30070000
 
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
@@ -122,6 +124,11 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	struct clk *reset_clk1[ARRAY_SIZE(ispif_8626_reset_clk_info)];
 
 	ispif->clk_idx = 0;
+
+	if (ispif->csid_version != CSID_VERSION_V37) {
+		pr_err("%s:%d  error returning\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 
 	rc = msm_cam_clk_enable(&ispif->pdev->dev,
 		ispif_8974_reset_clk_info, reset_clk,
@@ -1255,8 +1262,12 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_ahb;
 	}
 
-	msm_ispif_reset_hw(ispif);
-
+	rc = msm_ispif_reset_hw(ispif);
+	if (rc < 0) {
+		pr_err("%s:%d  msm_ispif_reset_hw failed\n", __func__,
+			 __LINE__);
+		goto error_ahb;
+	}
 	rc = msm_ispif_reset(ispif);
 	if (rc == 0) {
 		ispif->ispif_state = ISPIF_POWER_UP;
