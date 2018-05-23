@@ -438,7 +438,7 @@ static struct settings lcdb_settings_pm660l[] = {
 	SETTING(LCDB_LDO_VREG_OK_CTL, false, false),
 };
 
-/* For PMICs like pmi632/pm855L */
+/* For PMICs like pmi632/pm8150L */
 static struct settings lcdb_settings[] = {
 	SETTING(LCDB_BST_PD_CTL, false, true),
 	SETTING(LCDB_RDSON_MGMNT, false, false),

@@ -672,7 +672,7 @@ static int subsystem_powerup(struct subsys_device *dev, void *data)
 	int ret;
 
 	pr_info("[%s:%d]: Powering up %s\n", current->comm, current->pid, name);
-	init_completion(&dev->err_ready);
+	reinit_completion(&dev->err_ready);
 
 	ret = dev->desc->powerup(dev->desc);
 	if (ret < 0) {
@@ -734,7 +734,7 @@ static int subsys_start(struct subsys_device *subsys)
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_POWERUP,
 								NULL);
 
-	init_completion(&subsys->err_ready);
+	reinit_completion(&subsys->err_ready);
 	ret = subsys->desc->powerup(subsys->desc);
 	if (ret) {
 		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
@@ -771,10 +771,10 @@ static void subsys_stop(struct subsys_device *subsys)
 	const char *name = subsys->desc->name;
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
+	reinit_completion(&subsys->shutdown_ack);
 	if (!of_property_read_bool(subsys->desc->dev->of_node,
 					"qcom,pil-force-shutdown")) {
 		subsys_set_state(subsys, SUBSYS_OFFLINING);
-		init_completion(&subsys->shutdown_ack);
 		subsys->desc->sysmon_shutdown_ret =
 				sysmon_send_shutdown(subsys->desc);
 		if (subsys->desc->sysmon_shutdown_ret)
@@ -1660,6 +1660,12 @@ static void subsys_free_irqs(struct subsys_device *subsys)
 		devm_free_irq(desc->dev, desc->err_ready_irq, subsys);
 }
 
+static void init_all_completions(struct subsys_device *subsys_dev)
+{
+	init_completion(&subsys_dev->err_ready);
+	init_completion(&subsys_dev->shutdown_ack);
+}
+
 struct subsys_device *subsys_register(struct subsys_desc *desc)
 {
 	struct subsys_device *subsys;
@@ -1700,6 +1706,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	dev_set_name(&subsys->dev, "subsys%d", subsys->id);
 
 	mutex_init(&subsys->track.lock);
+	init_all_completions(subsys);
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
@@ -1717,10 +1724,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 			goto err_register;
 
 		subsys->restart_order = update_restart_order(subsys);
-
-		ret = subsys_setup_irqs(subsys);
-		if (ret < 0)
-			goto err_setup_irqs;
 
 		if (of_property_read_u32(ofnode, "qcom,ssctl-instance-id",
 					&desc->ssctl_instance_id))
@@ -1753,13 +1756,19 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	list_add_tail(&subsys->list, &subsys_list);
 	mutex_unlock(&subsys_list_lock);
 
+	if (ofnode) {
+		ret = subsys_setup_irqs(subsys);
+		if (ret < 0)
+			goto err_setup_irqs;
+	}
+
 	return subsys;
+err_setup_irqs:
+	if (subsys->desc->edge)
+		sysmon_glink_unregister(desc);
 err_sysmon_glink_register:
 	sysmon_notifier_unregister(subsys->desc);
 err_sysmon_notifier:
-	if (ofnode)
-		subsys_free_irqs(subsys);
-err_setup_irqs:
 	if (ofnode)
 		subsys_remove_restart_order(ofnode);
 err_register:

@@ -24,6 +24,7 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		qcom,periph-map = <0x10>;
+		status = "disabled";
 
 		smb1390_revid: qcom,revid {
 			compatible = "qcom,qpnp-revid";
@@ -36,7 +37,7 @@
 			interrupt-parent = <&smb1390>;
 			status = "disabled";
 
-			io-channels = <&pm855b_vadc ADC_AMUX_THM2>;
+			io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
 			io-channel-names = "cp_die_temp";
 
 			qcom,core {

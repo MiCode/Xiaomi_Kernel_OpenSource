@@ -21,13 +21,13 @@
 	qcom,ap2mdm-errfatal-gpio = <&tlmm 141 0x00>;
 	qcom,mdm2ap-status-gpio   = <&tlmm 142 0x00>;
 	qcom,ap2mdm-status-gpio   = <&tlmm 135 0x00>;
-	qcom,ap2mdm-soft-reset-gpio = <&pm855l_gpios 9 0>;
+	qcom,ap2mdm-soft-reset-gpio = <&pm8150l_gpios 9 0>;
 	qcom,mdm-link-info = "0305_01.01.00";
 	qcom,esoc-skip-restart-for-mdm-crash;
 	status = "ok";
 };
 
-&pm855l_gpios {
+&pm8150l_gpios {
 	ap2mdm_pon_reset {
 		ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
 			/* MDM PON conrol*/
@@ -51,8 +51,29 @@
 	status = "okay";
 };
 
+&tlmm {
+	pcie1 {
+		pcie1_sdx50m_wake_default: pcie1_sdx50m_wake_default {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
 &pcie1 {
 	dma-coherent;
+
+	pinctrl-0 = <&pcie1_clkreq_default
+		&pcie1_perst_default
+		&pcie1_sdx50m_wake_default>;
 };
 
 &soc {

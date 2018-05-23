@@ -1109,6 +1109,98 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-compute";
+		qcom,rpc-latency-us = <611>;
+		qcom,adsp-remoteheap-vmid = <22 37>;
+		qcom,fastrpc-adsp-audio-pdr;
+		qcom,fastrpc-adsp-sensors-pdr;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1081 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1082 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1083 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1084 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1085 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1086 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x1089 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1723 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1724 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1725 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb13 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1726 0x0>;
+			shared-cb = <5>;
+			dma-coherent;
+		};
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
@@ -1356,15 +1448,30 @@
 			#interrupt-cells = <2>;
 		};
 	};
+
+	thermal_zones: thermal-zones {};
+
+	tsens0: tsens@c222000 {
+		compatible = "qcom,sm6150-tsens";
+		reg = <0xc222000 0x8>,
+		      <0xc263000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 506 0>, <0 508 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
+	};
+
 };
 
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
 #include "sm6150-pinctrl.dtsi"
-#include "sm6150-stub-regulator.dtsi"
+#include "sm6150-regulator.dtsi"
 #include "sm6150-pm.dtsi"
 #include "sm6150-gdsc.dtsi"
 #include "sm6150-qupv3.dtsi"
+#include "sm6150-thermal.dtsi"
 
 &emac_gdsc {
 	status = "ok";

@@ -966,6 +966,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+		tmc_etr_free_mem(drvdata);
 	}
 out:
 	mutex_unlock(&drvdata->mem_lock);

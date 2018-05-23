@@ -117,19 +117,63 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
-int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override)
+static int smblib_select_sec_charger(struct smb_charger *chg,
+					enum sec_charger_type sec_chg)
 {
-	int rc = 0;
+	int rc;
 
-	/* override  = 1, SW STAT override; override = 0, HW auto mode */
-	rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
-				SMB_EN_OVERRIDE_BIT,
-				override ? SMB_EN_OVERRIDE_BIT : 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure SW STAT override rc=%d\n",
-			rc);
-		return rc;
+	if (sec_chg == chg->sec_chg_selected)
+		return 0;
+
+	switch (sec_chg) {
+	case SEC_CHG_CP:
+		/* select Charge Pump instead of slave charger */
+		rc = smblib_masked_write(chg, MISC_SMB_CFG_REG,
+					SMB_EN_SEL_BIT, SMB_EN_SEL_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't select SMB charger rc=%d\n",
+				rc);
+			return rc;
+		}
+		/* Enable Charge Pump, under HW control */
+		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,  EN_CP_CMD_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable SMB charger rc=%d\n",
+						rc);
+			return rc;
+		}
+		break;
+	case SEC_CHG_PL:
+		/* select slave charger instead of Charge Pump */
+		rc = smblib_masked_write(chg, MISC_SMB_CFG_REG,
+					SMB_EN_SEL_BIT, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't select SMB charger rc=%d\n",
+				rc);
+			return rc;
+		}
+		/* Enable slave charger, under HW control */
+		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,  EN_STAT_CMD_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable SMB charger rc=%d\n",
+						rc);
+			return rc;
+		}
+		break;
+	case SEC_CHG_NONE:
+	default:
+		/* SW override, disabling secondary charger(s) */
+		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,
+						SMB_EN_OVERRIDE_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable charging rc=%d\n",
+						rc);
+			return rc;
+		}
+		break;
 	}
+
+	chg->sec_chg_selected = sec_chg;
 
 	return rc;
 }
@@ -602,7 +646,8 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->jeita_update_work);
 	}
 
-	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
+	if (chg->sec_pl_present && !chg->pl.psy
+		&& !strcmp(psy->desc->name, "parallel")) {
 		chg->pl.psy = psy;
 		schedule_work(&chg->pl_update_work);
 	}
@@ -2015,7 +2060,7 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				&val->intval);
 
 		/*
-		 * For PM855B, scaling factor = reciprocal of
+		 * For PM8150B, scaling factor = reciprocal of
 		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
 		 */
 		if (smblib_get_prop_ufp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
@@ -2365,10 +2410,28 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		 */
 		vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
+
+		/*
+		 * For PPS, Charge Pump is preferred over parallel charger if
+		 * present.
+		 */
+		if (chg->pd_active == 2 && chg->sec_cp_present) {
+			rc = smblib_select_sec_charger(chg, SEC_CHG_CP);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't enable secondary charger rc=%d\n",
+					rc);
+		}
 	} else {
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 		vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
+
+		rc = smblib_select_sec_charger(chg,
+			chg->sec_pl_present ? SEC_CHG_PL : SEC_CHG_NONE);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Couldn't enable secondary charger rc=%d\n",
+					rc);
 
 		/* PD hard resets failed, rerun apsd */
 		if (chg->ok_to_pd) {
@@ -2891,6 +2954,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 					      bool rising)
 {
 	const struct apsd_result *apsd_result;
+	int rc;
 
 	if (!rising)
 		return;
@@ -2900,6 +2964,15 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
+
+	/* for QC3, switch to CP if present */
+	if ((apsd_result->bit & QC_3P0_BIT) && chg->sec_cp_present) {
+		rc = smblib_select_sec_charger(chg, SEC_CHG_CP);
+		if (rc < 0)
+			dev_err(chg->dev,
+			"Couldn't enable secondary chargers  rc=%d\n", rc);
+	}
+
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
 		   apsd_result->name);
 }
@@ -3147,6 +3220,12 @@ static void typec_src_removal(struct smb_charger *chg)
 	int rc;
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
+
+	rc = smblib_select_sec_charger(chg,
+			chg->sec_pl_present ? SEC_CHG_PL : SEC_CHG_NONE);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"Couldn't disable secondary charger rc=%d\n", rc);
 
 	/* disable apsd */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
@@ -3582,7 +3661,10 @@ static void pl_update_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_update_work);
 
-	smblib_stat_sw_override_cfg(chg, false);
+	if (chg->sec_chg_selected == SEC_CHG_CP)
+		return;
+
+	smblib_select_sec_charger(chg, SEC_CHG_PL);
 }
 
 static void clear_hdc_work(struct work_struct *work)
@@ -3839,6 +3921,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->fake_batt_status = -EINVAL;
 	chg->sink_src_mode = UNATTACHED_MODE;
 	chg->jeita_configured = false;
+	chg->sec_chg_selected = SEC_CHG_NONE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -3865,15 +3948,20 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->bms_psy = power_supply_get_by_name("bms");
-		chg->pl.psy = power_supply_get_by_name("parallel");
-		if (chg->pl.psy) {
-			rc = smblib_stat_sw_override_cfg(chg, false);
-			if (rc < 0) {
-				smblib_err(chg,
-					"Couldn't config stat sw rc=%d\n", rc);
-				return rc;
+
+		if (chg->sec_pl_present) {
+			chg->pl.psy = power_supply_get_by_name("parallel");
+			if (chg->pl.psy &&
+					chg->sec_chg_selected != SEC_CHG_CP) {
+				rc = smblib_select_sec_charger(chg, SEC_CHG_PL);
+				if (rc < 0) {
+					smblib_err(chg, "Couldn't config pl charger rc=%d\n",
+						rc);
+					return rc;
+				}
 			}
 		}
+
 		rc = smblib_register_notifier(chg);
 		if (rc < 0) {
 			smblib_err(chg,

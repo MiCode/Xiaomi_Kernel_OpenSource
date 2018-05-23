@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,9 @@ struct diag_md_info {
 extern struct diag_md_info diag_md[NUM_DIAG_MD_DEV];
 
 int diag_md_init(void);
+int diag_md_mdm_init(void);
 void diag_md_exit(void);
+void diag_md_mdm_exit(void);
 void diag_md_open_all(void);
 void diag_md_close_all(void);
 int diag_md_register(int id, int ctx, struct diag_mux_ops *ops);

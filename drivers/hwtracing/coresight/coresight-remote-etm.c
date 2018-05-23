@@ -95,6 +95,7 @@ static int remote_etm_enable(struct coresight_device *csdev,
 
 	if (!drvdata->service_connected) {
 		dev_err(drvdata->dev, "QMI service not connected!\n");
+		ret = EINVAL;
 		goto err;
 	}
 	/*

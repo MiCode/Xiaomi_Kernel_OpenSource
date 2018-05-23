@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,5 +63,6 @@ int diag_remote_dev_open(int id);
 void diag_remote_dev_close(int id);
 int diag_remote_dev_read_done(int id, unsigned char *buf, int len);
 int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt);
-
+int diag_remote_init(void);
+void diag_remote_exit(void);
 #endif

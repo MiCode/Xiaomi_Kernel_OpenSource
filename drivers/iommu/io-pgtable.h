@@ -4,6 +4,7 @@
 #include <linux/bitops.h>
 
 #include <linux/scatterlist.h>
+#include <soc/qcom/msm_tz_smmu.h>
 
 /*
  * Public API for use by IOMMU drivers
@@ -15,6 +16,7 @@ enum io_pgtable_fmt {
 	ARM_64_LPAE_S2,
 	ARM_V7S,
 	ARM_V8L_FAST,
+	ARM_MSM_SECURE,
 	IO_PGTABLE_NUM_FMTS,
 };
 
@@ -139,6 +141,11 @@ struct io_pgtable_cfg {
 			u64	mair[2];
 			void	*pmds;
 		} av8l_fast_cfg;
+
+		struct {
+			enum tz_smmu_device_id sec_id;
+			int cbndx;
+		} arm_msm_secure_cfg;
 	};
 };
 
@@ -223,17 +230,23 @@ struct io_pgtable {
 
 static inline void io_pgtable_tlb_flush_all(struct io_pgtable *iop)
 {
+	if (!iop->cfg.tlb)
+		return;
 	iop->cfg.tlb->tlb_flush_all(iop->cookie);
 }
 
 static inline void io_pgtable_tlb_add_flush(struct io_pgtable *iop,
 		unsigned long iova, size_t size, size_t granule, bool leaf)
 {
+	if (!iop->cfg.tlb)
+		return;
 	iop->cfg.tlb->tlb_add_flush(iova, size, granule, leaf, iop->cookie);
 }
 
 static inline void io_pgtable_tlb_sync(struct io_pgtable *iop)
 {
+	if (!iop->cfg.tlb)
+		return;
 	iop->cfg.tlb->tlb_sync(iop->cookie);
 }
 
@@ -255,6 +268,7 @@ extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_v7s_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_arm_msm_secure_init_fns;
 
 /**
  * io_pgtable_alloc_pages_exact:

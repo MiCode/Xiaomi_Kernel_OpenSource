@@ -97,7 +97,7 @@ static struct smb_params smb5_pmi632_params = {
 	},
 };
 
-static struct smb_params smb5_pm855b_params = {
+static struct smb_params smb5_pm8150b_params = {
 	.fcc			= {
 		.name   = "fast charge current",
 		.reg    = CHGR_FAST_CHARGE_CURRENT_CFG_REG,
@@ -159,10 +159,10 @@ static struct smb_params smb5_pm855b_params = {
 	.freq_switcher		= {
 		.name	= "switching frequency",
 		.reg	= DCDC_FSW_SEL_REG,
-		.min_u	= 1200,
-		.max_u	= 2400,
+		.min_u	= 600,
+		.max_u	= 1200,
 		.step_u	= 400,
-		.set_proc = NULL,
+		.set_proc = smblib_set_chg_freq,
 	},
 };
 
@@ -173,6 +173,7 @@ struct smb_dt_props {
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	bool			hvdcp_disable;
+	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
@@ -228,10 +229,10 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	}
 
 	switch (pmic_rev_id->pmic_subtype) {
-	case PM855B_SUBTYPE:
-		chip->chg.smb_version = PM855B_SUBTYPE;
-		chg->param = smb5_pm855b_params;
-		chg->name = "pm855b_charger";
+	case PM8150B_SUBTYPE:
+		chip->chg.smb_version = PM8150B_SUBTYPE;
+		chg->param = smb5_pm8150b_params;
+		chg->name = "pm8150b_charger";
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
@@ -241,18 +242,21 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
-		chg->chg_freq.freq_5V			= 600;
-		chg->chg_freq.freq_6V_8V		= 800;
-		chg->chg_freq.freq_9V			= 1050;
-		chg->chg_freq.freq_removal		= 1050;
-		chg->chg_freq.freq_below_otg_threshold	= 800;
-		chg->chg_freq.freq_above_otg_threshold	= 800;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
 				pmic_rev_id->pmic_subtype);
 		rc = -EINVAL;
+		goto out;
 	}
+
+	chg->chg_freq.freq_5V			= 600;
+	chg->chg_freq.freq_6V_8V		= 800;
+	chg->chg_freq.freq_9V			= 1050;
+	chg->chg_freq.freq_12V                  = 1200;
+	chg->chg_freq.freq_removal		= 1050;
+	chg->chg_freq.freq_below_otg_threshold	= 800;
+	chg->chg_freq.freq_above_otg_threshold	= 800;
 
 out:
 	of_node_put(revid_dev_node);
@@ -277,6 +281,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 		pr_err("device tree node missing\n");
 		return -EINVAL;
 	}
+
+	of_property_read_u32(node, "qcom,sec-charger-config",
+					&chip->dt.sec_charger_config);
 
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
@@ -1444,6 +1451,12 @@ static int smb5_init_hw(struct smb5 *chip)
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
 
+	chg->sec_cp_present = chip->dt.sec_charger_config == SEC_CHG_CP_ONLY
+			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
+
+	chg->sec_pl_present = chip->dt.sec_charger_config == SEC_CHG_PL_ONLY
+			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
+
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 		HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
@@ -2332,7 +2345,7 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (chg->smb_version == PM855B_SUBTYPE) {
+	if (chg->smb_version == PM8150B_SUBTYPE) {
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);
