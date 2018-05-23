@@ -143,6 +143,7 @@
 		qcom,sde-has-src-split;
 		qcom,sde-pipe-order-version = <0x1>;
 		qcom,sde-has-dim-layer;
+		qcom,sde-has-idle-pc;
 		qcom,sde-has-dest-scaler;
 		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
 		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
