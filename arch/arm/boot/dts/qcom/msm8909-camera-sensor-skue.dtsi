@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-18 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,17 +11,20 @@
  * GNU General Public License for more details.
  */
 &soc {
-	SY7803_default: SY7803_default {
-		mux {
-			/* CLK, DATA */
-			pins = "gpio31", "gpio32";
-			function = "gpio";
-		};
 
-		config {
-			pins = "gpio31", "gpio32";
-			bias-disable; /* No PULL */
-			drive-strength = <2>; /* 2 MA */
+	msm_gpio: pinctrl@1000000 {
+		SY7803_default: SY7803_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio31", "gpio32";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio31", "gpio32";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
 		};
 	};
 
@@ -33,7 +36,7 @@
 		qcom,flash-en = <&msm_gpio 31 0>;
 		qcom,flash-now = <&msm_gpio 32 0>;
 		qcom,op-seq = "flash_en", "flash_now";
-		qcom,torch-seq-val = <1 0>;
+		qcom,torch-seq-val = <0 1>;
 		qcom,flash-seq-val = <1 1>;
 		linux,name = "flashlight";
 		linux,default-trigger = "flashlight-trigger";
