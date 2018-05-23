@@ -373,6 +373,8 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 	if (!inst->clk_data.dcvs_mode || inst->batch.enable) {
 		dprintk(VIDC_DBG, "Skip DCVS (dcvs %d, batching %d)\n",
 			inst->clk_data.dcvs_mode, inst->batch.enable);
+		/* Request right clocks (load normal clocks) */
+		inst->clk_data.load = inst->clk_data.load_norm;
 		return 0;
 	}
 
