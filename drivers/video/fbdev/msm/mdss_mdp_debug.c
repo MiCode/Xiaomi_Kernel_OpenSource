@@ -955,6 +955,11 @@ void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata)
 	mdata->dbg_bus_size = 0;
 
 	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_116:
+		mdata->dbg_bus = dbg_bus_8996;
+		mdata->dbg_bus_size = ARRAY_SIZE(dbg_bus_8996);
+		break;
 	case MDSS_MDP_HW_REV_107:
 	case MDSS_MDP_HW_REV_107_1:
 	case MDSS_MDP_HW_REV_107_2:
