@@ -268,7 +268,7 @@ struct arm_smmu_device {
 	struct arm_smmu_smr		*smrs;
 	struct arm_smmu_s2cr		*s2crs;
 	struct mutex			stream_map_mutex;
-
+	struct mutex			iommu_group_mutex;
 	unsigned long			va_size;
 	unsigned long			ipa_size;
 	unsigned long			pa_size;
@@ -2177,6 +2177,7 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	struct iommu_group *group;
 	int i, idx, ret;
 
+	mutex_lock(&smmu->iommu_group_mutex);
 	mutex_lock(&smmu->stream_map_mutex);
 	/* Figure out a viable stream map entry allocation */
 	for_each_cfg_sme(fwspec, i, idx) {
@@ -2185,12 +2186,12 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 
 		if (idx != INVALID_SMENDX) {
 			ret = -EEXIST;
-			goto out_err;
+			goto sme_err;
 		}
 
 		ret = arm_smmu_find_sme(smmu, sid, mask);
 		if (ret < 0)
-			goto out_err;
+			goto sme_err;
 
 		idx = ret;
 		if (smrs && smmu->s2crs[idx].count == 0) {
@@ -2201,13 +2202,14 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 		smmu->s2crs[idx].count++;
 		cfg->smendx[i] = (s16)idx;
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 
 	group = iommu_group_get_for_dev(dev);
 	if (!group)
 		group = ERR_PTR(-ENOMEM);
 	if (IS_ERR(group)) {
 		ret = PTR_ERR(group);
-		goto out_err;
+		goto iommu_group_err;
 	}
 	iommu_group_put(group);
 
@@ -2215,15 +2217,19 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	for_each_cfg_sme(fwspec, i, idx)
 		smmu->s2crs[idx].group = group;
 
-	mutex_unlock(&smmu->stream_map_mutex);
+	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
 
-out_err:
+iommu_group_err:
+	mutex_lock(&smmu->stream_map_mutex);
+
+sme_err:
 	while (i--) {
 		arm_smmu_free_sme(smmu, cfg->smendx[i]);
 		cfg->smendx[i] = INVALID_SMENDX;
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
+	mutex_unlock(&smmu->iommu_group_mutex);
 	return ret;
 }
 
@@ -4201,6 +4207,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	smmu->num_mapping_groups = size;
 	mutex_init(&smmu->stream_map_mutex);
+	mutex_init(&smmu->iommu_group_mutex);
 	spin_lock_init(&smmu->global_sync_lock);
 
 	if (smmu->version < ARM_SMMU_V2 || !(id & ID0_PTFS_NO_AARCH32)) {
