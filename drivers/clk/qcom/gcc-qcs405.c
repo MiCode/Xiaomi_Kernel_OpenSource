@@ -1404,6 +1404,19 @@ static struct clk_branch gcc_bimc_gfx_clk = {
 	},
 };
 
+static struct clk_branch gcc_bimc_gpu_clk = {
+	.halt_reg = 0x59030,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x59030,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_bimc_gpu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_bimc_mdss_clk = {
 	.halt_reg = 0x31038,
 	.halt_check = BRANCH_HALT,
@@ -1837,6 +1850,32 @@ static struct clk_branch gcc_geni_ir_s_clk = {
 	},
 };
 
+static struct clk_branch gcc_gfx_tcu_clk = {
+	.halt_reg = 0x12020,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x4500C,
+		.enable_mask = BIT(2),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gfx_tcu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_gfx_tbu_clk = {
+	.halt_reg = 0x12010,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x4500C,
+		.enable_mask = BIT(3),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gfx_tbu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_gp1_clk = {
 	.halt_reg = 0x8000,
 	.halt_check = BRANCH_HALT,
@@ -1886,6 +1925,19 @@ static struct clk_branch gcc_gp3_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_gtcu_ahb_clk = {
+	.halt_reg = 0x12044,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x4500C,
+		.enable_mask = BIT(13),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gtcu_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2351,6 +2403,19 @@ static struct clk_branch gcc_sdcc2_apps_clk = {
 	},
 };
 
+static struct clk_branch gcc_smmu_cfg_clk = {
+	.halt_reg = 0x12038,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x3600C,
+		.enable_mask = BIT(12),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_smmu_cfg_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_sys_noc_usb3_clk = {
 	.halt_reg = 0x26014,
 	.halt_check = BRANCH_HALT,
@@ -2650,6 +2715,11 @@ static struct clk_regmap *gcc_qcs405_clocks[] = {
 	[VSYNC_CLK_SRC] = &vsync_clk_src.clkr,
 	[GCC_USB_HS_INACTIVITY_TIMERS_CLK] =
 			&gcc_usb_hs_inactivity_timers_clk.clkr,
+	[GCC_BIMC_GPU_CLK] = &gcc_bimc_gpu_clk.clkr,
+	[GCC_GTCU_AHB_CLK] = &gcc_gtcu_ahb_clk.clkr,
+	[GCC_GFX_TCU_CLK] = &gcc_gfx_tcu_clk.clkr,
+	[GCC_GFX_TBU_CLK] = &gcc_gfx_tbu_clk.clkr,
+	[GCC_SMMU_CFG_CLK] = &gcc_smmu_cfg_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_qcs405_resets[] = {
@@ -2732,6 +2802,7 @@ static int gcc_qcs405_probe(struct platform_device *pdev)
 
 	clk_set_rate(apss_ahb_clk_src.clkr.hw.clk, 19200000);
 	clk_prepare_enable(apss_ahb_clk_src.clkr.hw.clk);
+	clk_prepare_enable(gpll0_ao_out_main.clkr.hw.clk);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
