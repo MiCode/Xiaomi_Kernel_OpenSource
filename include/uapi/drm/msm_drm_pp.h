@@ -56,6 +56,8 @@ struct drm_msm_pa_vlut {
 #define PA_HSIC_SAT_ENABLE (1 << 1)
 #define PA_HSIC_VAL_ENABLE (1 << 2)
 #define PA_HSIC_CONT_ENABLE (1 << 3)
+#define PA_HSIC_LEFT_DISPLAY_ONLY (1 << 4)
+#define PA_HSIC_RIGHT_DISPLAY_ONLY (1 << 5)
 /**
  * struct drm_msm_pa_hsic - pa hsic feature structure
  * @flags: flags for the feature customization, values can be:
