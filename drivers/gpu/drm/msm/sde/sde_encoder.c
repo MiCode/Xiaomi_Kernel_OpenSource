@@ -3424,9 +3424,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				&pending_flush);
 	}
 
-	_sde_encoder_trigger_start(sde_enc->cur_master);
-
-	/* update pending_kickoff_cnt AFTER next frame is queued in HW */
+	/* update pending_kickoff_cnt AFTER flush but before trigger start */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -3446,6 +3444,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 					SDE_EVTLOG_FUNC_CASE2);
 		}
 	}
+
+	_sde_encoder_trigger_start(sde_enc->cur_master);
 }
 
 static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
