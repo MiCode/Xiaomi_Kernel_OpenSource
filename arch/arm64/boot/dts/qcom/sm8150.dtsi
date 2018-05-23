@@ -1507,7 +1507,7 @@
 
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		vdd_mss-supply = <&pm855_s1_level>;
+		vdd_mss-supply = <&pm8150_s1_level>;
 		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
 
@@ -1590,9 +1590,9 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
-		vdd_cx-supply = <&pm855_l8_level>;
+		vdd_cx-supply = <&pm8150_l8_level>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
-		vdd_mx-supply = <&pm855_l4_level>;
+		vdd_mx-supply = <&pm8150_l4_level>;
 		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
@@ -3380,10 +3380,10 @@
 		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
 
-		vdd-cx-mx-supply = <&pm855_l1>;
-		vdd-1.8-xo-supply = <&pm855_l7>;
-		vdd-1.3-rfa-supply = <&pm855l_l2>;
-		vdd-3.3-ch0-supply = <&pm855l_l11>;
+		vdd-cx-mx-supply = <&pm8150_l1>;
+		vdd-1.8-xo-supply = <&pm8150_l7>;
+		vdd-1.3-rfa-supply = <&pm8150l_l2>;
+		vdd-3.3-ch0-supply = <&pm8150l_l11>;
 		qcom,vdd-cx-mx-config = <752000 752000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 	};
@@ -3401,7 +3401,7 @@
 			<100 512 0 0>,
 			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
 		qcom,use-ext-supply;
-		vddio-supply= <&pm855_s5>;
+		vddio-supply= <&pm8150_s5>;
 		qcom,use-ext-clocks;
 		clocks = <&clock_rpmh RPMH_RF_CLK3>,
 			 <&clock_rpmh RPMH_RF_CLK3_A>;
@@ -3645,8 +3645,8 @@
 };
 
 &gpu_gx_gdsc {
-	parent-supply = <&pm855l_s2_level>;
-	vdd_parent-supply = <&pm855l_s2_level>;
+	parent-supply = <&pm8150l_s2_level>;
+	vdd_parent-supply = <&pm8150l_s2_level>;
 	status = "ok";
 };
 

@@ -99,13 +99,13 @@
 enum wled_version {
 	WLED_PMI8998 = 4,
 	WLED_PM660L,
-	WLED_PM855L,
+	WLED_PM8150L,
 };
 
 static const int version_table[] = {
 	[0] = WLED_PMI8998,
 	[1] = WLED_PM660L,
-	[2] = WLED_PM855L,
+	[2] = WLED_PM8150L,
 };
 
 /* WLED5 specific control registers */
@@ -219,7 +219,7 @@ static inline bool is_wled4(struct wled *wled)
 
 static inline bool is_wled5(struct wled *wled)
 {
-	if (*wled->version == WLED_PM855L)
+	if (*wled->version == WLED_PM8150L)
 		return true;
 
 	return false;
@@ -1483,9 +1483,9 @@ static int wled_probe(struct platform_device *pdev)
 
 	/*
 	 * As per the hardware recommendation, FS current should
-	 * be limited to 20 mA for PM855L v1.0.
+	 * be limited to 20 mA for PM8150L v1.0.
 	 */
-	if (wled->pmic_rev_id->rev4 == PM855L_V1P0_REV4 &&
+	if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4 &&
 		wled->cfg.fs_current > 8)
 		wled->cfg.fs_current = 8;
 
@@ -1513,7 +1513,7 @@ static int wled_probe(struct platform_device *pdev)
 
 static const struct of_device_id wled_match_table[] = {
 	{ .compatible = "qcom,pmi8998-spmi-wled", .data = &version_table[0] },
-	{ .compatible = "qcom,pm855l-spmi-wled", .data = &version_table[2] },
+	{ .compatible = "qcom,pm8150l-spmi-wled", .data = &version_table[2] },
 	{ .compatible = "qcom,pm6150l-spmi-wled", .data = &version_table[2] },
 	{ },
 };

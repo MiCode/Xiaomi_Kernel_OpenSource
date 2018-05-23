@@ -302,11 +302,11 @@ Second Level Nodes - Peripherals managed by FG Gen4 driver
 Example
 ========
 
-pm855b_fg: qpnp,fg {
+pm8150b_fg: qpnp,fg {
 	compatible = "qcom,fg-gen4";
 	#address-cells = <1>;
 	#size-cells = <1>;
-	qcom,pmic-revid = <&pm855b_revid>;
+	qcom,pmic-revid = <&pm8150b_revid>;
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {

@@ -15,7 +15,7 @@ config QPNP_FG_GEN4
 	help
 	  Say Y here to enable the GEN4 Fuel Gauge driver. This adds support
 	  for battery fuel gauging and state of charge of battery connected to
-	  the device that has QTI PMICs like PM855B. The state of charge is
+	  the device that has QTI PMICs like PM8150B. The state of charge is
 	  reported through a BMS power supply property and also sends uevents
 	  when the capacity is updated.
 

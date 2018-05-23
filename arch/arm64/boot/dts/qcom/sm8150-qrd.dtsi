@@ -23,9 +23,9 @@
 &vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pm855_l7>;
-		qca,bt-vdd-pa-supply = <&pm855l_l2>;
-		qca,bt-vdd-ldo-supply = <&pm855l_l11>;
+		qca,bt-vdd-core-supply = <&pm8150_l7>;
+		qca,bt-vdd-pa-supply = <&pm8150l_l2>;
+		qca,bt-vdd-ldo-supply = <&pm8150l_l11>;
 
 		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-pa-voltage-level = <1304000 1304000>;
@@ -42,7 +42,7 @@
 	};
 };
 
-&pm855b_fg {
+&pm8150b_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
@@ -57,7 +57,7 @@
 
 		home {
 			label = "home";
-			gpios = <&pm855_gpios 1 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8150_gpios 1 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <KEY_HOME>;
 			gpio-key,wakeup;
@@ -67,7 +67,7 @@
 
 		vol_up {
 			label = "volume_up";
-			gpios = <&pm855_gpios 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8150_gpios 6 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <KEY_VOLUMEUP>;
 			gpio-key,wakeup;
@@ -81,7 +81,7 @@
 		clock-names = "core", "iface";
 		clock-frequency = <25000000>;
 		qcom,ipc-gpio = <&tlmm 118 0>;
-		qcom,finger-detect-gpio = <&pm855_gpios 1 0>;
+		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
 	};
 };
 
@@ -93,8 +93,8 @@
 		reg = <0x49>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <122 0x2008>;
-		vdd-supply = <&pm855_s4>;
-		avdd-supply = <&pm855_l17>;
+		vdd-supply = <&pm8150_s4>;
+		avdd-supply = <&pm8150_l17>;
 		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
@@ -211,8 +211,8 @@
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 
-	vdda-phy-supply = <&pm855_l5>;
-	vdda-pll-supply = <&pm855l_l3>;
+	vdda-phy-supply = <&pm8150_l5>;
+	vdda-pll-supply = <&pm8150l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
 
@@ -222,24 +222,24 @@
 &ufshc_mem {
 	vdd-hba-supply = <&ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
-	vcc-supply = <&pm855_l10>;
+	vcc-supply = <&pm8150_l10>;
 	vcc-voltage-level = <2950000 2960000>;
-	vccq2-supply = <&pm855_s4>;
+	vccq2-supply = <&pm8150_s4>;
 	vcc-max-microamp = <750000>;
 	vccq2-max-microamp = <750000>;
 
-	qcom,vddp-ref-clk-supply = <&pm855_l9>;
+	qcom,vddp-ref-clk-supply = <&pm8150_l9>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
 };
 
 &sdhc_2 {
-	vdd-supply = <&pm855l_l9>;
+	vdd-supply = <&pm8150l_l9>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
 	qcom,vdd-current-level = <200 800000>;
 
-	vdd-io-supply = <&pm855l_l6>;
+	vdd-io-supply = <&pm8150l_l6>;
 	qcom,vdd-io-voltage-level = <1808000 2960000>;
 	qcom,vdd-io-current-level = <200 22000>;
 
@@ -252,7 +252,7 @@
 	status = "ok";
 };
 
-&pm855b_vadc {
+&pm8150b_vadc {
 	vph_pwr {
 		reg = <ADC_VPH_PWR>;
 		label = "vph_pwr";
@@ -306,7 +306,7 @@
 	};
 };
 
-&pm855_vadc {
+&pm8150_vadc {
 	vph_pwr {
 		reg = <ADC_VPH_PWR>;
 		label = "vph_pwr";
@@ -344,7 +344,7 @@
 	};
 };
 
-&pm855l_vadc {
+&pm8150l_vadc {
 	vph_pwr {
 		reg = <ADC_VPH_PWR>;
 		label = "vph_pwr";
@@ -380,7 +380,7 @@
 	status = "ok";
 };
 
-&pm855b_adc_tm {
+&pm8150b_adc_tm {
 	wp_therm {
 		reg = <ADC_AMUX_THM2_PU2>;
 		qcom,ratiometric;
@@ -388,7 +388,7 @@
 	};
 };
 
-&pm855_adc_tm {
+&pm8150_adc_tm {
 	xo_therm {
 		reg = <ADC_XO_THERM_PU2>;
 		qcom,ratiometric;
@@ -396,7 +396,7 @@
 	};
 };
 
-&pm855l_adc_tm {
+&pm8150l_adc_tm {
 	camera_flash_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
 		qcom,ratiometric;
@@ -421,7 +421,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm855b_adc_tm ADC_AMUX_THM2_PU2>;
+		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM2_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -435,7 +435,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm855_adc_tm ADC_XO_THERM_PU2>;
+		thermal-sensors = <&pm8150_adc_tm ADC_XO_THERM_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -449,7 +449,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm855l_adc_tm ADC_AMUX_THM1_PU2>;
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -463,7 +463,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm855l_adc_tm ADC_AMUX_THM2_PU2>;
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM2_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -477,7 +477,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm855l_adc_tm ADC_AMUX_THM3_PU2>;
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM3_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -488,13 +488,20 @@
 	};
 };
 
-&pm855b_charger {
-	io-channels = <&pm855b_vadc ADC_USB_IN_V_16>,
-		      <&pm855b_vadc ADC_USB_IN_I>,
-		      <&pm855b_vadc ADC_CHG_TEMP>;
+&pm8150b_charger {
+	qcom,sec-charger-config = <1>;
+	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
+		      <&pm8150b_vadc ADC_USB_IN_I>,
+		      <&pm8150b_vadc ADC_CHG_TEMP>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+};
+
+&smb1390 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb1390_stat_default>;
+	status = "ok";
 };
 
 &smb1390_charger {
