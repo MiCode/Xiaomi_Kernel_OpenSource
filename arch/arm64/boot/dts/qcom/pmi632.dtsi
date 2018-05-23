@@ -315,6 +315,7 @@
 			dpdm-supply = <&qusb_phy>;
 			qcom,auto-recharge-soc = <98>;
 			qcom,chg-vadc = <&pmi632_vadc>;
+			qcom,flash-disable-soc = <10>;
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
@@ -464,7 +465,6 @@
 						"ilim1-s1",
 						"ilim2-s2",
 						"vreg-ok";
-				qcom,flash-disable-soc = <10>;
 			};
 
 			smb5_vbus: qcom,smb5-vbus {
