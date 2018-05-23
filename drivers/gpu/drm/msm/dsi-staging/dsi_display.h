@@ -622,4 +622,11 @@ enum dsi_pixel_format dsi_display_get_dst_format(
 		struct drm_connector *connector,
 		void *display);
 
+/**
+ * dsi_display_cont_splash_config() - initialize splash resources
+ * @display:         Handle to display
+ *
+ * Return: Zero on Success
+ */
+int dsi_display_cont_splash_config(void *display);
 #endif /* _DSI_DISPLAY_H_ */
