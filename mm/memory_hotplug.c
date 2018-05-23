@@ -999,6 +999,40 @@ int try_online_node(int nid)
 	return ret;
 }
 
+static int online_memory_one_block(struct memory_block *mem, void *arg)
+{
+	bool *onlined_block = (bool *)arg;
+	int ret;
+
+	if (*onlined_block || !is_memblock_offlined(mem))
+		return 0;
+
+	ret = device_online(&mem->dev);
+	if (!ret)
+		*onlined_block = true;
+
+	return 0;
+}
+
+bool try_online_one_block(int nid)
+{
+	struct zone *zone = &NODE_DATA(nid)->node_zones[ZONE_MOVABLE];
+	unsigned long zone_start, zone_size;
+	bool onlined_block = false;
+	int ret = lock_device_hotplug_sysfs();
+
+	if (ret)
+		return false;
+
+	zone_start = PFN_PHYS(zone->zone_start_pfn);
+	zone_size = zone->spanned_pages << PAGE_SHIFT;
+	walk_memory_blocks(zone_start, zone_size, &onlined_block,
+			   online_memory_one_block);
+
+	unlock_device_hotplug();
+	return onlined_block;
+}
+
 static int check_hotplug_memory_range(u64 start, u64 size)
 {
 	/* memory range must be block size aligned */

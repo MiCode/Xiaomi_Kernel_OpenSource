@@ -110,6 +110,7 @@ extern void __online_page_increment_counters(struct page *page);
 extern void __online_page_free(struct page *page);
 
 extern int try_online_node(int nid);
+extern bool try_online_one_block(int nid);
 
 extern int arch_add_memory(int nid, u64 start, u64 size,
 			struct mhp_restrictions *restrictions);
@@ -267,6 +268,11 @@ static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
 static inline int try_online_node(int nid)
 {
 	return 0;
+}
+
+static inline bool try_online_one_block(int nid)
+{
+	return false;
 }
 
 static inline void get_online_mems(void) {}
