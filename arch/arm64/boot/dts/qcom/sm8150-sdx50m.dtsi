@@ -51,8 +51,29 @@
 	status = "okay";
 };
 
+&tlmm {
+	pcie1 {
+		pcie1_sdx50m_wake_default: pcie1_sdx50m_wake_default {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
 &pcie1 {
 	dma-coherent;
+
+	pinctrl-0 = <&pcie1_clkreq_default
+		&pcie1_perst_default
+		&pcie1_sdx50m_wake_default>;
 };
 
 &soc {
