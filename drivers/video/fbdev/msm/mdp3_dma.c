@@ -665,6 +665,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	ATRACE_BEGIN(__func__);
 	pr_debug("mdp3_dmap_update\n");
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__);
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type = MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
 		if (intf->active) {
@@ -757,6 +758,7 @@ static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__);
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type = MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
 		if (intf->active)
@@ -965,6 +967,8 @@ bool mdp3_dmap_busy(void)
 	val = MDP3_REG_READ(MDP3_REG_DISPLAY_STATUS);
 	pr_err("%s DMAP Status %s\n", __func__,
 		(val & MDP3_DMA_P_BUSY_BIT) ? "BUSY":"IDLE");
+	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__,
+		(val & MDP3_DMA_P_BUSY_BIT) ? 1:0);
 	return val & MDP3_DMA_P_BUSY_BIT;
 }
 
