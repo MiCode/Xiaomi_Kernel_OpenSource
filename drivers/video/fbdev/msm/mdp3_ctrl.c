@@ -380,7 +380,7 @@ static int mdp3_ctrl_async_blit_req(struct msm_fb_data_type *mfd,
 		return -EFAULT;
 	p_req = p + sizeof(req_list_header);
 	count = req_list_header.count;
-	if (count < 0 || count >= MAX_BLIT_REQ)
+	if (count < 0 || count > MAX_BLIT_REQ)
 		return -EINVAL;
 	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 1);
 	if (!rc)
@@ -399,7 +399,7 @@ static int mdp3_ctrl_blit_req(struct msm_fb_data_type *mfd, void __user *p)
 		return -EFAULT;
 	p_req = p + sizeof(struct mdp_blit_req_list);
 	count = req_list_header.count;
-	if (count < 0 || count >= MAX_BLIT_REQ)
+	if (count < 0 || count > MAX_BLIT_REQ)
 		return -EINVAL;
 	req_list_header.sync.acq_fen_fd_cnt = 0;
 	rc = mdp3_ppp_parse_req(p_req, &req_list_header, 0);
