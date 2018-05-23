@@ -284,6 +284,7 @@
 #define GEN4_MEM_ATTN_BIT			BIT(4)
 
 #define MEM_IF_MEM_ARB_CFG(chip)		((chip->mem_if_base) + 0x40)
+#define MEM_CLR_LOG_BIT				BIT(2)
 #define MEM_ARB_LO_LATENCY_EN_BIT		BIT(1)
 #define MEM_ARB_REQ_BIT				BIT(0)
 
