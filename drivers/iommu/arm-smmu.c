@@ -358,6 +358,7 @@ struct arm_smmu_domain {
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
+	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	struct io_pgtable_cfg		pgtbl_cfg;
 	u32 attributes;
 	bool				slave_side_secure;
@@ -1000,10 +1001,10 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 	void __iomem *base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 	unsigned long flags;
 
-	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
 	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
 			    base + ARM_SMMU_CB_TLBSTATUS);
-	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+	spin_unlock_irqrestore(&smmu_domain->sync_lock, flags);
 }
 
 static void arm_smmu_tlb_sync_vmid(void *cookie)
@@ -1999,6 +2000,7 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->cb_lock);
+	spin_lock_init(&smmu_domain->sync_lock);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	mutex_init(&smmu_domain->assign_lock);
@@ -2541,6 +2543,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	unsigned long flags;
 
 	if (!ops)
 		return 0;
@@ -2554,7 +2557,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	/*
