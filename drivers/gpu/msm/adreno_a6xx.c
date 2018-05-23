@@ -446,7 +446,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 
 	if (mmu_prot) {
 		mmu_base = mmu_prot->base;
-		mmu_range = 1 << mmu_prot->range;
+		mmu_range = mmu_prot->range;
 		req_sets += DIV_ROUND_UP(mmu_range, 0x2000);
 	}
 
