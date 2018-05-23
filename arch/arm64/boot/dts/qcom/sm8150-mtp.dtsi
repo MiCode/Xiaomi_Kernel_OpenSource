@@ -44,6 +44,18 @@
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
 	};
+
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pm8150_gpios 10 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>;
+		vbus-out-gpio = <&pm8150_gpios 9 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_det_default
+			     &usb2_id_det_default
+			     &usb2_vbus_boost_default>;
+	};
 };
 
 &qupv3_se13_4uart {
@@ -566,4 +578,8 @@
 
 &smb1390_charger {
 	status = "ok";
+};
+
+&usb1 {
+	extcon = <&extcon_usb1>;
 };
