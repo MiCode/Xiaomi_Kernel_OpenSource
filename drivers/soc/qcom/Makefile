@@ -12,3 +12,14 @@ obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
 obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
 obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
+obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
+obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
+obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
+obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
+
+ifdef CONFIG_MSM_SUBSYSTEM_RESTART
+	obj-y += subsystem_notif.o
+	obj-y += subsystem_restart.o
+	obj-y += ramdump.o
+endif
