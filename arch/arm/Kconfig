@@ -1754,7 +1754,6 @@ config ARCH_WANT_GENERAL_HUGETLB
 
 config ARM_MODULE_PLTS
 	bool "Use PLTs to allow module memory to spill over into vmalloc area"
-	default y
 	depends on MODULES
 	help
 	  Allocate PLTs when loading modules so that jumps and calls whose
