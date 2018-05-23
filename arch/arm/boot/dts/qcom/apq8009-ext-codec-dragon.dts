@@ -16,8 +16,8 @@
 #include "apq8009-dragon.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8009 Dragon Board";
+	model = "Qualcomm Technologies, Inc. APQ8009 + Ext Codec Dragon Board";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id = <265 2>;
-	qcom,board-id= <0x00010020 0>;
+	qcom,board-id= <0x00010120 0>;
 };
