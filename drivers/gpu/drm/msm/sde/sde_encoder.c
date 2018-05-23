@@ -2467,8 +2467,20 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 						IDLE_POWERCOLLAPSE_DURATION));
 		} else if (sde_enc->rc_state == SDE_ENC_RC_STATE_IDLE) {
 			/* enable all the clks and resources */
+			ret = _sde_encoder_resource_control_helper(drm_enc,
+					true);
+			if (ret) {
+				SDE_ERROR_ENC(sde_enc,
+						"sw_event:%d, rc in state %d\n",
+						sw_event, sde_enc->rc_state);
+				SDE_EVT32(DRMID(drm_enc), sw_event,
+						sde_enc->rc_state,
+						SDE_EVTLOG_ERROR);
+				mutex_unlock(&sde_enc->rc_lock);
+				return ret;
+			}
+
 			_sde_encoder_resource_control_rsc_update(drm_enc, true);
-			_sde_encoder_resource_control_helper(drm_enc, true);
 
 			kthread_mod_delayed_work(&disp_thread->worker,
 						&sde_enc->delayed_off_work,
