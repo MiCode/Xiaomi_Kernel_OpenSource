@@ -40,7 +40,7 @@ struct dp_debug_private {
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
 
-	struct dp_usbpd *usbpd;
+	struct dp_hpd *hpd;
 	struct dp_link *link;
 	struct dp_panel *panel;
 	struct dp_aux *aux;
@@ -289,7 +289,7 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 
 	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
 
-	debug->usbpd->simulate_connect(debug->usbpd, !!(hpd & BIT(0)),
+	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)),
 			orientation);
 end:
 	return len;
@@ -576,7 +576,7 @@ static ssize_t dp_debug_read_connected(struct file *file,
 	if (*ppos)
 		return 0;
 
-	len += snprintf(buf, SZ_8, "%d\n", debug->usbpd->hpd_high);
+	len += snprintf(buf, SZ_8, "%d\n", debug->hpd->hpd_high);
 
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
@@ -1120,7 +1120,7 @@ static ssize_t dp_debug_read_dump(struct file *file,
 	if (*ppos)
 		return 0;
 
-	if (!debug->usbpd->hpd_high || !strlen(debug->reg_dump))
+	if (!debug->hpd->hpd_high || !strlen(debug->reg_dump))
 		goto end;
 
 	rc = debug->catalog->get_reg_dump(debug->catalog,
@@ -1404,7 +1404,7 @@ static void dp_debug_sim_work(struct work_struct *work)
 	struct dp_debug_private *debug =
 		container_of(work, typeof(*debug), sim_work);
 
-	debug->usbpd->simulate_attention(debug->usbpd, debug->vdo);
+	debug->hpd->simulate_attention(debug->hpd, debug->vdo);
 }
 
 u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
@@ -1420,7 +1420,7 @@ u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
 }
 
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
-			struct dp_usbpd *usbpd, struct dp_link *link,
+			struct dp_hpd *hpd, struct dp_link *link,
 			struct dp_aux *aux, struct drm_connector **connector,
 			struct dp_catalog *catalog,
 			struct dp_parser *parser)
@@ -1429,7 +1429,7 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	struct dp_debug_private *debug;
 	struct dp_debug *dp_debug;
 
-	if (!dev || !panel || !usbpd || !link || !catalog) {
+	if (!dev || !panel || !hpd || !link || !catalog) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -1444,7 +1444,7 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	INIT_WORK(&debug->sim_work, dp_debug_sim_work);
 
 	debug->dp_debug.debug_en = false;
-	debug->usbpd = usbpd;
+	debug->hpd = hpd;
 	debug->link = link;
 	debug->panel = panel;
 	debug->aux = aux;

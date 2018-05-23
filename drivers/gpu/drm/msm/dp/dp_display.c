@@ -25,7 +25,7 @@
 #include "sde_connector.h"
 
 #include "msm_drv.h"
-#include "dp_usbpd.h"
+#include "dp_hpd.h"
 #include "dp_parser.h"
 #include "dp_power.h"
 #include "dp_catalog.h"
@@ -76,7 +76,7 @@ struct dp_display_private {
 	struct completion notification_comp;
 	struct completion disconnect_comp;
 
-	struct dp_usbpd   *usbpd;
+	struct dp_hpd     *hpd;
 	struct dp_parser  *parser;
 	struct dp_power   *power;
 	struct dp_catalog *catalog;
@@ -89,7 +89,7 @@ struct dp_display_private {
 	struct dp_panel *active_panels[DP_STREAM_MAX];
 	struct dp_hdcp hdcp;
 
-	struct dp_usbpd_cb usbpd_cb;
+	struct dp_hpd_cb hpd_cb;
 	struct dp_display_mode mode;
 	struct dp_display dp_display;
 	struct msm_drm_private *priv;
@@ -469,7 +469,7 @@ static void dp_display_post_open(struct dp_display *dp_display)
 	}
 
 	/* if cable is already connected, send notification */
-	if (dp->usbpd->hpd_high)
+	if (dp->hpd->hpd_high)
 		queue_delayed_work(dp->wq, &dp->connect_work, HZ * 10);
 	else
 		dp_display->post_open = NULL;
@@ -545,10 +545,10 @@ static void dp_display_host_init(struct dp_display_private *dp)
 		return;
 	}
 
-	if (dp->usbpd->orientation == ORIENTATION_CC2)
+	if (dp->hpd->orientation == ORIENTATION_CC2)
 		flip = true;
 
-	reset = dp->debug->sim_mode ? false : !dp->usbpd->multi_func;
+	reset = dp->debug->sim_mode ? false : !dp->hpd->multi_func;
 
 	dp->power->init(dp->power, flip);
 	dp->ctrl->init(dp->ctrl, flip, reset);
@@ -560,8 +560,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 
-	if (!dp->debug->sim_mode) {
-		rc = dp->aux->aux_switch(dp->aux, true, dp->usbpd->orientation);
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch) {
+		rc = dp->aux->aux_switch(dp->aux, true, dp->hpd->orientation);
 		if (rc)
 			goto end;
 	}
@@ -579,7 +579,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 		return 0;
 
 	rc = dp->panel->read_sink_caps(dp->panel,
-			dp->dp_display.base_connector, dp->usbpd->multi_func);
+			dp->dp_display.base_connector, dp->hpd->multi_func);
 	if (rc) {
 		/*
 		 * ETIMEDOUT --> cable may have been removed
@@ -699,7 +699,7 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 	}
 
 	/* check for hpd high and framework ready */
-	if  (dp->usbpd->hpd_high && dp_display_framework_ready(dp))
+	if  (dp->hpd->hpd_high && dp_display_framework_ready(dp))
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 end:
 	return rc;
@@ -744,7 +744,7 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	 * resource vote is still present in cases when the bridge disable is
 	 * delayed.
 	 */
-	if (!dp->power_on && !dp->usbpd->alt_mode_cfg_done)
+	if (!dp->power_on && !dp->hpd->alt_mode_cfg_done)
 		dp_display_host_deinit(dp);
 
 	complete_all(&dp->disconnect_comp);
@@ -793,7 +793,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	dp_display_handle_disconnect(dp);
 
-	if (!dp->debug->sim_mode)
+	if (!dp->debug->sim_mode && !dp->parser->no_aux_switch)
 		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 
 	/* Reset abort value to allow future connections */
@@ -923,19 +923,19 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 	}
 
 	DP_MST_DEBUG("mst: hpd_irq:%d, hpd_high:%d, power_on:%d\n",
-			dp->usbpd->hpd_irq, dp->usbpd->hpd_high,
+			dp->hpd->hpd_irq, dp->hpd->hpd_high,
 			dp->power_on);
 
-	if (dp->usbpd->hpd_irq && dp->usbpd->hpd_high &&
+	if (dp->hpd->hpd_irq && dp->hpd->hpd_high &&
 	    dp->power_on) {
 		dp->link->process_request(dp->link);
 		queue_work(dp->wq, &dp->attention_work);
-	} else if (dp->usbpd->hpd_high && dp->usbpd->hpd_irq) {
+	} else if (dp->hpd->hpd_high && dp->hpd->hpd_irq) {
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 		queue_work(dp->wq, &dp->attention_work);
-	} else if (dp->usbpd->hpd_high) {
+	} else if (dp->hpd->hpd_high) {
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
-	} else if (dp->usbpd->hpd_irq) {
+	} else if (dp->hpd->hpd_irq) {
 		queue_work(dp->wq, &dp->attention_work);
 	} else {
 		/* cancel any pending request */
@@ -992,7 +992,7 @@ static void dp_display_connect_work(struct work_struct *work)
 		return;
 	}
 
-	if (!dp->usbpd->hpd_high) {
+	if (!dp->hpd->hpd_high) {
 		pr_warn("Sink disconnected\n");
 		return;
 	}
@@ -1010,7 +1010,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 	dp_power_put(dp->power);
 	dp_catalog_put(dp->catalog);
 	dp_parser_put(dp->parser);
-	dp_usbpd_put(dp->usbpd);
+	dp_hpd_put(dp->hpd);
 	mutex_destroy(&dp->session_lock);
 	dp_debug_put(dp->debug);
 }
@@ -1019,7 +1019,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 {
 	int rc = 0;
 	struct device *dev = &dp->pdev->dev;
-	struct dp_usbpd_cb *cb = &dp->usbpd_cb;
+	struct dp_hpd_cb *cb = &dp->hpd_cb;
 	struct dp_ctrl_in ctrl_in = {
 		.dev = dev,
 	};
@@ -1065,7 +1065,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_aux;
 	}
 
-	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg,
+	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser,
 			dp->aux_switch_node);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
@@ -1133,15 +1133,15 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	cb->disconnect = dp_display_usbpd_disconnect_cb;
 	cb->attention  = dp_display_usbpd_attention_cb;
 
-	dp->usbpd = dp_usbpd_get(dev, cb);
-	if (IS_ERR(dp->usbpd)) {
-		rc = PTR_ERR(dp->usbpd);
-		pr_err("failed to initialize usbpd, rc = %d\n", rc);
-		dp->usbpd = NULL;
-		goto error_usbpd;
+	dp->hpd = dp_hpd_get(dev, dp->parser, cb);
+	if (IS_ERR(dp->hpd)) {
+		rc = PTR_ERR(dp->hpd);
+		pr_err("failed to initialize hpd, rc = %d\n", rc);
+		dp->hpd = NULL;
+		goto error_hpd;
 	}
 
-	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
+	dp->debug = dp_debug_get(dev, dp->panel, dp->hpd,
 				dp->link, dp->aux,
 				&dp->dp_display.base_connector,
 				dp->catalog, dp->parser);
@@ -1155,8 +1155,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 
 	return rc;
 error_debug:
-	dp_usbpd_put(dp->usbpd);
-error_usbpd:
+	dp_hpd_put(dp->hpd);
+error_hpd:
 	dp_audio_put(dp->panel->audio);
 error_audio:
 	dp_ctrl_put(dp->ctrl);
@@ -1467,8 +1467,8 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 
 	rc = dp_display_stream_pre_disable(dp, dp_panel);
 
-	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
-			dp->usbpd->alt_mode_cfg_done && !dp->mst.mst_active) {
+	if (dp->hpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
+			dp->hpd->alt_mode_cfg_done && !dp->mst.mst_active) {
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 		dp->debug->psm_enabled = true;
 	}
@@ -1528,8 +1528,8 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	 * any notification from driver. Initialize post_open callback to notify
 	 * DP connection once framework restarts.
 	 */
-	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
-			dp->usbpd->alt_mode_cfg_done && !dp->mst.mst_active) {
+	if (dp->hpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
+			dp->hpd->alt_mode_cfg_done && !dp->mst.mst_active) {
 		dp_display->post_open = dp_display_post_open;
 		dp->dp_display.is_sst_connected = false;
 	}
