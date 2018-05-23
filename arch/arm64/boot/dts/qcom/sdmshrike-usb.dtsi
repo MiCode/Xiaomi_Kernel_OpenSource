@@ -113,9 +113,9 @@
 		reg = <0x88e2000 0x110>;
 		reg-names = "hsusb_phy_base";
 
-		vdd-supply = <&pm855_2_l5>;
-		vdda18-supply = <&pm855_1_l12>;
-		vdda33-supply = <&pm855_2_l16>;
+		vdd-supply = <&pm8150_2_l5>;
+		vdda18-supply = <&pm8150_1_l12>;
+		vdda33-supply = <&pm8150_2_l16>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;

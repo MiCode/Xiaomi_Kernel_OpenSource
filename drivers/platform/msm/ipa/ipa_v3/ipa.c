@@ -3879,15 +3879,17 @@ int ipa3_set_clock_plan_from_pm(int idx)
 {
 	u32 clk_rate;
 
-	if (!ipa3_ctx->enable_clock_scaling)
+	IPADBG_LOW("idx = %d\n", idx);
+
+	if (!ipa3_ctx->enable_clock_scaling) {
+		ipa3_ctx->ipa3_active_clients.bus_vote_idx = idx;
 		return 0;
+	}
 
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
 		IPAERR("not supported in this mode\n");
 		return 0;
 	}
-
-	IPADBG_LOW("idx = %d\n", idx);
 
 	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
 		IPAERR("bad voltage\n");

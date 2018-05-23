@@ -95,6 +95,8 @@ static inline int check_stable_address_space(struct mm_struct *mm)
 	return 0;
 }
 
+void __oom_reap_task_mm(struct mm_struct *mm);
+
 extern unsigned long oom_badness(struct task_struct *p,
 		struct mem_cgroup *memcg, const nodemask_t *nodemask,
 		unsigned long totalpages);
@@ -110,6 +112,9 @@ extern bool oom_killer_disable(signed long timeout);
 extern void oom_killer_enable(void);
 
 extern struct task_struct *find_lock_task_mm(struct task_struct *p);
+
+extern void dump_tasks(struct mem_cgroup *memcg,
+		const nodemask_t *nodemask);
 
 /* sysctls */
 extern int sysctl_oom_dump_tasks;

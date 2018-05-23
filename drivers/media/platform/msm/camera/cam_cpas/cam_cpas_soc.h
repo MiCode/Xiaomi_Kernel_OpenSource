@@ -47,6 +47,7 @@ struct cam_cpas_vdd_ahb_mapping {
  * @camnoc_bus_width : CAMNOC Bus width
  * @camnoc_axi_clk_bw_margin : BW Margin in percentage to add while calculating
  *      camnoc axi clock
+ * @camnoc_axi_min_ib_bw: Min camnoc BW which varies based on target
  *
  */
 struct cam_cpas_private_soc {
@@ -63,6 +64,7 @@ struct cam_cpas_private_soc {
 	bool control_camnoc_axi_clk;
 	uint32_t camnoc_bus_width;
 	uint32_t camnoc_axi_clk_bw_margin;
+	uint64_t camnoc_axi_min_ib_bw;
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,

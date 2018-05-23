@@ -114,6 +114,7 @@
 #include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
 #include "qcs405-ion.dtsi"
+#include "qcs405-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -224,6 +225,14 @@
 		clock-names = "cxo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-qcs405";
+		qcom,gcc = <&clock_gcc>;
+		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		#clock-cells = <1>;
 	};
 
 	clock_cpu: qcom,cpu {

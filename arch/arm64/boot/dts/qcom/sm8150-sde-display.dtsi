@@ -340,7 +340,7 @@
 
 		qcom,platform-te-gpio = <&tlmm 8 0>;
 
-		vddio-supply = <&pm855_l14>;
+		vddio-supply = <&pm8150_l14>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
 		vdd-supply = <&display_panel_avdd_eldo>;
@@ -381,7 +381,7 @@
 };
 
 &sde_dp {
-	qcom,dp-usbpd-detection = <&pm855b_pdphy>;
+	qcom,dp-usbpd-detection = <&pm8150b_pdphy>;
 	qcom,ext-disp = <&ext_disp>;
 	qcom,dp-aux-switch = <&fsa4480>;
 

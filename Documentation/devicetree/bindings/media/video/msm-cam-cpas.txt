@@ -71,6 +71,11 @@ First Level Node - CAM CPAS device
   Value type: <u32>
   Definition: CAM HW Version information.
 
+- camnoc-axi-min-ib-bw
+  Usage: optional
+  Value type: <u64>
+  Definition: Min camnoc axi bw for the given target.
+
 - regulator-names
   Usage: required
   Value type: <string>
