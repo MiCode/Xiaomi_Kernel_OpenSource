@@ -1506,6 +1506,9 @@ static int cpufreq_offline(unsigned int cpu)
 		policy->freq_table = NULL;
 	}
 
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_STOP, policy);
+
 unlock:
 	up_write(&policy->rwsem);
 	return 0;
