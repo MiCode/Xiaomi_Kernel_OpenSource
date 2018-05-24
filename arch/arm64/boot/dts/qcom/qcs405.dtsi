@@ -424,53 +424,102 @@
 
 	qcom,glink {
 		compatible = "qcom,glink";
-		modem {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		glink_wcnss: wcnss {
 			qcom,remote-pid = <1>;
 			transport = "smem";
 			mboxes = <&apcs_glb 16>;
-			mbox-names = "mpss_smem";
+			mbox-names = "wcnss_smem";
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 
-			modem_qrtr {
+			label = "wcnss";
+			qcom,glink-label = "wcnss";
+
+			qcom,wcnss_qrtr {
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
+
+			qcom,wcnss_glink_ssr {
+				qcom,glink-channels = "glink_ssr";
+				qcom,notify-edges = <&glink_adsp>,
+						    <&glink_cdsp>;
+			};
 		};
 
-		adsp {
+		glink_adsp: adsp {
 			qcom,remote-pid = <2>;
 			transport = "smem";
 			mboxes = <&apcs_glb 8>;
 			mbox-names = "adsp_smem";
 			interrupts = <GIC_SPI 289 IRQ_TYPE_EDGE_RISING>;
 
-			adsp_qrtr {
+			label = "adsp";
+			qcom,glink-label = "lpass";
+
+			qcom,adsp_qrtr {
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
 			};
 
-			apr_tal_rpmsg {
+			qcom,apr_tal_rpmsg {
 				qcom,glink-channels = "apr_audio_svc";
 				qcom,intents = <0x200 20>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
+
+			qcom,adsp_glink_ssr {
+				qcom,glink-channels = "glink_ssr";
+				qcom,notify-edges = <&glink_wcnss>,
+						    <&glink_cdsp>;
+			};
 		};
 
-		cdsp {
+		glink_cdsp: cdsp {
 			qcom,remote-pid = <5>;
 			transport = "smem";
 			mboxes = <&apcs_glb 12>;
 			mbox-names = "cdsp_smem";
 			interrupts = <GIC_SPI 141 IRQ_TYPE_EDGE_RISING>;
 
-			cdsp_qrtr {
+			label = "cdsp";
+			qcom,glink-label = "cdsp";
+
+			qcom,cdsp_qrtr {
 				qcom,glink-channels = "IPCRTR";
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
+			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
+
+			qcom,cdsp_glink_ssr {
+				qcom,glink-channels = "glink_ssr";
+				qcom,notify-edges = <&glink_wcnss>,
+						    <&glink_adsp>;
 			};
 		};
 	};
