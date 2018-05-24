@@ -860,8 +860,10 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	return rc;
 free_power_down_settings:
 	kfree(power_info->power_down_setting);
+	power_info->power_down_setting = NULL;
 free_power_settings:
 	kfree(power_info->power_setting);
+	power_info->power_setting = NULL;
 	return rc;
 }
 
@@ -1305,7 +1307,9 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		CAM_DBG(CAM_SENSOR, "index: %d", index);
 		power_setting = &ctrl->power_setting[index];
 		if (!power_setting) {
-			CAM_ERR(CAM_SENSOR, "Invalid power up settings");
+			CAM_ERR(CAM_SENSOR,
+				"Invalid power up settings for index %d",
+				index);
 			return -EINVAL;
 		}
 
@@ -1595,11 +1599,6 @@ static int cam_config_mclk_reg(struct cam_sensor_power_ctrl_t *ctrl,
 
 	pd = &ctrl->power_down_setting[index];
 
-	if (!pd) {
-		CAM_ERR(CAM_SENSOR, "Invalid power down setting");
-		return -EINVAL;
-	}
-
 	for (j = 0; j < num_vreg; j++) {
 		if (!strcmp(soc_info->rgltr_name[j], "cam_clk")) {
 
@@ -1642,7 +1641,7 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 {
 	int index = 0, ret = 0, num_vreg = 0, i;
 	struct cam_sensor_power_setting *pd = NULL;
-	struct cam_sensor_power_setting *ps;
+	struct cam_sensor_power_setting *ps = NULL;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
 	CAM_DBG(CAM_SENSOR, "Enter");
@@ -1662,6 +1661,13 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 	for (index = 0; index < ctrl->power_down_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index %d",  index);
 		pd = &ctrl->power_down_setting[index];
+		if (!pd) {
+			CAM_ERR(CAM_SENSOR,
+				"Invalid power down settings for index %d",
+				index);
+			return -EINVAL;
+		}
+
 		ps = NULL;
 		CAM_DBG(CAM_SENSOR, "type %d",  pd->seq_type);
 		switch (pd->seq_type) {
