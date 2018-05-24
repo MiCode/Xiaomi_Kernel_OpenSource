@@ -197,12 +197,7 @@
 		qcom,sde-qos-cpu-mask = <0x3>;
 		qcom,sde-qos-cpu-dma-latency = <300>;
 
-		qcom,sde-inline-rotator = <&mdss_rotator 0>;
-		qcom,sde-inline-rot-xin = <10 11>;
-		qcom,sde-inline-rot-xin-type = "sspp", "wb";
-
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
-		qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
 		qcom,sde-reg-dma-off = <0>;
 		qcom,sde-reg-dma-version = <0x00010001>;
@@ -407,13 +402,6 @@
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
 		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0000ffff>;
-
-		/* Inline rotator QoS Setting */
-		/* setting default register values for RD - qos/danger/safe */
-		qcom,mdss-inline-rot-qos-lut = <0x44556677 0x00112233
-							0x44556677 0x00112233>;
-		qcom,mdss-inline-rot-danger-lut = <0x0055aaff 0x0000ffff>;
-		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000f000>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
