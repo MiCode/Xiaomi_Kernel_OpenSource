@@ -42,15 +42,13 @@ The compiled library will be placed in *<AOSP_DIR\>/out/target/product/<board\>/
 
 To configure sensor the Sensor HAL IIO
 
-> *For Android Version < O use mm tools*
->	$mm sensors-defconfig (default configuration)
-> or
->	$mm sensors-menuconfig
+> For Android Version < O use mm tools
+>   $mm sensors-defconfig (default configuration)
+>   $mm sensors-menuconfig
 
-> *For Android Version >= O*
->	$PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-defconfig (default configuration)
-> or
->	$PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-menuconfig
+> For Android Version >= O use make
+>   $PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-defconfig (default configuration)
+>   $PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-menuconfig
 
 ##### COMPILING THE SENSOR HAL FOR LINUX
 From From SensorHAL_IIO root folder set CROSS_COMPILE and ARCH environment variables accordingly to your target
