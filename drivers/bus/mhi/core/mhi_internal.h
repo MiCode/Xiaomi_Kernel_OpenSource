@@ -550,7 +550,6 @@ struct mhi_chan {
 	struct mhi_ring tre_ring;
 	u32 er_index;
 	u32 intmod;
-	u32 tiocm;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
 	enum MHI_EE ee;
