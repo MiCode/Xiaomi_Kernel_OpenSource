@@ -372,8 +372,10 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 		return;
 	}
 
-	(void)dp->power->power_client_deinit(dp->power);
-	(void)dp->aux->drm_aux_deregister(dp->aux);
+	if (dp->power)
+		(void)dp->power->power_client_deinit(dp->power);
+	if (dp->aux)
+		(void)dp->aux->drm_aux_deregister(dp->aux);
 	dp_display_deinitialize_hdcp(dp);
 }
 

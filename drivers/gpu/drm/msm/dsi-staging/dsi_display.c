@@ -4532,6 +4532,8 @@ int dsi_display_get_info(struct drm_connector *connector,
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;
 	info->max_height = 1080;
+	info->qsync_min_fps =
+		display->panel->qsync_min_fps;
 
 	switch (display->panel->panel_mode) {
 	case DSI_OP_VIDEO_MODE:
@@ -5470,6 +5472,43 @@ exit:
 	return rc;
 }
 
+static int dsi_display_qsync(struct dsi_display *display, bool enable)
+{
+	int i;
+	int rc = 0;
+
+	if (!display->panel->qsync_min_fps) {
+		pr_err("%s:ERROR: qsync set, but no fps\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	for (i = 0; i < display->ctrl_count; i++) {
+
+		if (enable) {
+			/* send the commands to enable qsync */
+			rc = dsi_panel_send_qsync_on_dcs(display->panel, i);
+			if (rc) {
+				pr_err("fail qsync ON cmds rc:%d\n", rc);
+				goto exit;
+			}
+		} else {
+			/* send the commands to enable qsync */
+			rc = dsi_panel_send_qsync_off_dcs(display->panel, i);
+			if (rc) {
+				pr_err("fail qsync OFF cmds rc:%d\n", rc);
+				goto exit;
+			}
+		}
+	}
+
+exit:
+	SDE_EVT32(enable, display->panel->qsync_min_fps, rc);
+	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
 static int dsi_display_set_roi(struct dsi_display *display,
 		struct msm_roi_list *rois)
 {
@@ -5533,10 +5572,20 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
 {
 	int rc = 0;
 	int i;
+	bool enable;
 
 	/* check and setup MISR */
 	if (display->misr_enable)
 		_dsi_display_setup_misr(display);
+
+	if (params->qsync_update) {
+		enable = (params->qsync_mode > 0) ? true : false;
+		rc = dsi_display_qsync(display, enable);
+		if (rc)
+			pr_err("%s failed to send qsync commands",
+				__func__);
+		SDE_EVT32(params->qsync_mode, rc);
+	}
 
 	rc = dsi_display_set_roi(display, params->rois);
 

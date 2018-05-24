@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
 };
 
 #define MERGE_3D_MODE 0x004
+#define MERGE_3D_MUX  0x000
 
 static struct sde_merge_3d_cfg *_merge_3d_offset(enum sde_merge_3d idx,
 		struct sde_mdss_cfg *m,
@@ -86,10 +87,23 @@ static void _sde_hw_merge_3d_setup_blend_mode(struct sde_hw_merge_3d *ctx,
 	SDE_REG_WRITE(c, MERGE_3D_MODE, mode);
 }
 
+static void sde_hw_merge_3d_reset_blend_mode(struct sde_hw_merge_3d *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!ctx)
+		return;
+
+	c = &ctx->hw;
+	SDE_REG_WRITE(c, MERGE_3D_MODE, 0x0);
+	SDE_REG_WRITE(c, MERGE_3D_MUX, 0x0);
+}
+
 static void _setup_merge_3d_ops(struct sde_hw_merge_3d_ops *ops,
 	const struct sde_merge_3d_cfg *hw_cap)
 {
 	ops->setup_blend_mode = _sde_hw_merge_3d_setup_blend_mode;
+	ops->reset_blend_mode = sde_hw_merge_3d_reset_blend_mode;
 }
 
 static struct sde_hw_merge_3d *_sde_pp_merge_3d_init(enum sde_merge_3d idx,
@@ -169,6 +183,22 @@ static int sde_hw_pp_setup_te_config(struct sde_hw_pingpong *pp,
 			(te->start_pos + te->sync_threshold_start + 1));
 
 	return 0;
+}
+
+static void sde_hw_pp_update_te(struct sde_hw_pingpong *pp,
+		struct sde_hw_tear_check *te)
+{
+	struct sde_hw_blk_reg_map *c;
+	int cfg;
+
+	if (!pp || !te)
+		return;
+	c = &pp->hw;
+
+	cfg = SDE_REG_READ(c, PP_SYNC_THRESH);
+	cfg &= ~0xFFFF;
+	cfg |= te->sync_threshold_start;
+	SDE_REG_WRITE(c, PP_SYNC_THRESH, cfg);
 }
 
 static int sde_hw_pp_setup_autorefresh_config(struct sde_hw_pingpong *pp,
@@ -422,6 +452,11 @@ static void sde_hw_pp_setup_3d_merge_mode(struct sde_hw_pingpong *pp,
 		pp->merge_3d->ops.setup_blend_mode(pp->merge_3d, cfg);
 }
 
+static void sde_hw_pp_reset_3d_merge_mode(struct sde_hw_pingpong *pp)
+{
+	if (pp->merge_3d && pp->merge_3d->ops.reset_blend_mode)
+		pp->merge_3d->ops.reset_blend_mode(pp->merge_3d);
+}
 static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	const struct sde_pingpong_cfg *hw_cap)
 {
@@ -430,6 +465,7 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	if (hw_cap->features & BIT(SDE_PINGPONG_TE)) {
 		ops->setup_tearcheck = sde_hw_pp_setup_te_config;
 		ops->enable_tearcheck = sde_hw_pp_enable_te;
+		ops->update_tearcheck = sde_hw_pp_update_te;
 		ops->connect_external_te = sde_hw_pp_connect_external_te;
 		ops->get_vsync_info = sde_hw_pp_get_vsync_info;
 		ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
@@ -453,6 +489,7 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	}
 	if (test_bit(SDE_PINGPONG_MERGE_3D, &hw_cap->features))
 		ops->setup_3d_mode = sde_hw_pp_setup_3d_merge_mode;
+		ops->reset_3d_mode = sde_hw_pp_reset_3d_merge_mode;
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {
