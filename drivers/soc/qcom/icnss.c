@@ -2113,6 +2113,7 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
+	icnss_ignore_qmi_timeout(false);
 
 	penv->wlfw_clnt = qmi_handle_create(icnss_qmi_wlfw_clnt_notify, penv);
 	if (!penv->wlfw_clnt) {
@@ -2450,8 +2451,10 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	int ret = 0;
 	struct icnss_event_pd_service_down_data *event_data = data;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_qmi_timeout(false);
 		goto out;
+	}
 
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
@@ -2475,8 +2478,6 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 out:
 	kfree(data);
 
-	icnss_ignore_qmi_timeout(false);
-
 	return ret;
 }
 
@@ -2485,15 +2486,16 @@ static int icnss_driver_event_early_crash_ind(struct icnss_priv *priv,
 {
 	int ret = 0;
 
-	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state)) {
+		icnss_ignore_qmi_timeout(false);
 		goto out;
+	}
 
 	priv->early_crash_ind = true;
 	icnss_fw_crashed(priv, NULL);
 
 out:
 	kfree(data);
-	icnss_ignore_qmi_timeout(false);
 
 	return ret;
 }
