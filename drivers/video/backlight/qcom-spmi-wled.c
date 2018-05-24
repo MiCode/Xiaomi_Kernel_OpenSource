@@ -109,10 +109,16 @@ static const int version_table[] = {
 };
 
 /* WLED5 specific control registers */
+#define WLED5_CTRL_SH_FOR_SOFTSTART_REG	0x58
+#define  WLED5_SOFTSTART_EN_SH_SS	BIT(0)
+
 #define WLED5_CTRL_OVP_INT_CTL_REG	0x5f
 #define  WLED5_OVP_INT_N_MASK		GENMASK(6, 4)
 #define  WLED5_OVP_INT_N_SHIFT		4
 #define  WLED5_OVP_INT_TIMER_MASK	GENMASK(2, 0)
+
+#define WLED5_CTRL_TEST4_REG		0xe5
+#define  WLED5_TEST4_EN_SH_SS		BIT(5)
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -284,6 +290,54 @@ static int wled_sync_toggle(struct wled *wled)
 	return rc;
 }
 
+static int wled5_sample_hold_control(struct wled *wled, u16 brightness,
+					bool enable)
+{
+	int rc;
+	u16 offset, threshold;
+	u8 val, mask;
+
+	/*
+	 * Control S_H only when module was disabled and a lower brightness
+	 * of < 1% is set.
+	 */
+	if (wled->prev_state)
+		return 0;
+
+	/* If CABC is enabled, then don't do anything for now */
+	if (!wled->cabc_disabled)
+		return 0;
+
+	/* 1 % threshold to enable the workaround */
+	threshold = DIV_ROUND_UP(wled->max_brightness, 100);
+
+	/* If brightness is > 1%, don't do anything */
+	if (brightness > threshold)
+		return 0;
+
+	/* Wait for ~5ms before enabling S_H */
+	if (enable)
+		usleep_range(5000, 5010);
+
+	/* Disable S_H if brightness is < 1% */
+	if (wled->pmic_rev_id->rev4 == PM8150L_V3P0_REV4) {
+		offset = WLED5_CTRL_SH_FOR_SOFTSTART_REG;
+		val = enable ? WLED5_SOFTSTART_EN_SH_SS : 0;
+		mask = WLED5_SOFTSTART_EN_SH_SS;
+	} else {
+		offset = WLED5_CTRL_TEST4_REG;
+		val = enable ? WLED5_TEST4_EN_SH_SS : 0;
+		mask = WLED5_TEST4_EN_SH_SS;
+	}
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + offset, mask, val);
+	if (rc < 0)
+		pr_err("Error in writing offset 0x%02X rc=%d\n", offset, rc);
+
+	return rc;
+}
+
 static int wled5_set_brightness(struct wled *wled, u16 brightness)
 {
 	int rc, offset;
@@ -376,10 +430,28 @@ static int wled_update_status(struct backlight_device *bl)
 			goto unlock_mutex;
 		}
 
+		if (is_wled5(wled)) {
+			rc = wled5_sample_hold_control(wled, brightness, false);
+			if (rc < 0) {
+				pr_err("wled disabling sample and hold failed rc:%d\n",
+					rc);
+				goto unlock_mutex;
+			}
+		}
+
 		if (!!brightness != wled->prev_state) {
 			rc = wled_module_enable(wled, !!brightness);
 			if (rc < 0) {
 				pr_err("wled enable failed rc:%d\n", rc);
+				goto unlock_mutex;
+			}
+		}
+
+		if (is_wled5(wled)) {
+			rc = wled5_sample_hold_control(wled, brightness, true);
+			if (rc < 0) {
+				pr_err("wled enabling sample and hold failed rc:%d\n",
+					rc);
 				goto unlock_mutex;
 			}
 		}
