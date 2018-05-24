@@ -26,6 +26,7 @@
 
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
+#define WIL_BOARD_FILE_MAX_NAMELEN 128
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -946,6 +947,30 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 	le32_to_cpus(&r->head);
 }
 
+/* construct actual board file name to use */
+void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
+{
+	const char *board_file = WIL_BOARD_FILE_NAME;
+	const char *ext;
+	int prefix_len;
+
+	if (wil->board_file_country[0] == '\0') {
+		strlcpy(buf, board_file, len);
+		return;
+	}
+
+	/* use country specific board file */
+	if (len < strlen(board_file) + 4 /* for _XX and terminating null */)
+		return;
+
+	ext = strrchr(board_file, '.');
+	prefix_len = (ext ? ext - board_file : strlen(board_file));
+	snprintf(buf, len, "%.*s_%.2s",
+		 prefix_len, board_file, wil->board_file_country);
+	if (ext)
+		strlcat(buf, ext, len);
+}
+
 static int wil_get_bl_info(struct wil6210_priv *wil)
 {
 	struct net_device *ndev = wil_to_ndev(wil);
@@ -1260,8 +1285,12 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 	wil_set_oob_mode(wil, oob_mode);
 	if (load_fw) {
+		char board_file[WIL_BOARD_FILE_MAX_NAMELEN];
+
+		board_file[0] = '\0';
+		wil_get_board_file(wil, board_file, sizeof(board_file));
 		wil_info(wil, "Use firmware <%s> + board <%s>\n",
-			 wil->wil_fw_name, WIL_BOARD_FILE_NAME);
+			 wil->wil_fw_name, board_file);
 
 		if (!no_flash)
 			wil_bl_prepare_halt(wil);
@@ -1273,11 +1302,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		if (rc)
 			goto out;
 		if (wil->brd_file_addr)
-			rc = wil_request_board(wil, WIL_BOARD_FILE_NAME);
+			rc = wil_request_board(wil, board_file);
 		else
-			rc = wil_request_firmware(wil,
-						  WIL_BOARD_FILE_NAME,
-						  true);
+			rc = wil_request_firmware(wil, board_file, true);
 		if (rc)
 			goto out;
 
