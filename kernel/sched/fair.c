@@ -5207,6 +5207,14 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	p->misfit = !task_fits_max(p, rq->cpu);
 #endif
 	/*
+	 * The code below (indirectly) updates schedutil which looks at
+	 * the cfs_rq utilization to select a frequency.
+	 * Let's add the task's estimated utilization to the cfs_rq's
+	 * estimated utilization, before we update schedutil.
+	 */
+	util_est_enqueue(&rq->cfs, p);
+
+	/*
 	 * If in_iowait is set, the code below may not trigger any cpufreq
 	 * utilization updates, so do it here explicitly with the IOWAIT flag
 	 * passed.
@@ -5272,7 +5280,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 			update_overutilized_status(rq);
 	}
 
-	util_est_enqueue(&rq->cfs, p);
 	hrtick_update(rq);
 }
 
