@@ -880,16 +880,11 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 	u32 chan;
 	struct mhi_chan *mhi_chan;
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
 		MHI_ERR("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
-
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 	local_rp = ev_ring->rp;
@@ -915,7 +910,6 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
 		mhi_ring_er_db(mhi_event);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
