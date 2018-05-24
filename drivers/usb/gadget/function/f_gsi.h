@@ -280,7 +280,7 @@ struct f_gsi {
 	struct timer_list gsi_rw_timer;
 	u8 debugfs_rw_timer_enable;
 	u16 gsi_rw_timer_interval;
-
+	bool host_supports_flow_control;
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
