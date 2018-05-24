@@ -21,6 +21,20 @@ LOCAL_PATH := $(call my-dir)
 ST_HAL_ROOT_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := libsensoriioutils
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/ $(LOCAL_PATH)/linux/tools/iio/ $(LOCAL_PATH)/linux/iio/
+LOCAL_CFLAGS += -Wall -Wunused-parameter -Wunused-value -Wunused-function
+LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libc
+LOCAL_SRC_FILES := ../linux/tools/iio/iio_utils.cpp
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := sensoriioutils
+LOCAL_SRC_FILES := libsensoriioutils.so
+include $(PREBUILT_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
 include $(ST_HAL_ROOT_PATH)/../hal_config
 
 LOCAL_PRELINK_MODULE := false
@@ -41,7 +55,9 @@ endif # ST_HAL_ANDROID_VERSION
 LOCAL_MODULE_OWNER := STMicroelectronics
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ \
-			$(LOCAL_PATH)/../
+			$(LOCAL_PATH)/../ \
+			$(LOCAL_PATH)/../linux/tools/iio/ \
+			$(LOCAL_PATH)/../linux/iio/
 
 LOCAL_CFLAGS += -DLOG_TAG=\"SensorHAL\" -Wall \
 		-Wunused-parameter -Wunused-value -Wunused-function
@@ -51,11 +67,10 @@ LOCAL_CFLAGS += -g -O0
 LOCAL_LDFLAGS += -Wl,-Map,$(LOCAL_PATH)/../$(LOCAL_MODULE).map
 endif # DEBUG
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libc
+LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libc libsensoriioutils
 
 LOCAL_SRC_FILES := \
 		SensorHAL.cpp \
-		iio_utils.c \
 		CircularBuffer.cpp \
 		FlushBufferStack.cpp \
 		FlushRequested.cpp \

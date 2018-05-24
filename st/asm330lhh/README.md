@@ -21,7 +21,7 @@ Currently supported sensors are:
 
 Software architecture and Integration details
 =============
-
+##### COMPILING THE SENSOR HAL CODE FOR ANDROID
 STM Sensor HAL is written in *C++* language using object-oriented design. For each hw sensor there is a custom class file (*Accelerometer.cpp*, *Gyroscope.cpp*) which extends the common base class (*SensorBase.cpp*).
 
 Copy the HAL source code into *<AOSP_DIR\>/hardware/STMicroelectronics/SensorHAL_IIO* folder. During building process Android will include automatically the SensorHAL Android.mk.
@@ -40,16 +40,33 @@ To compile the SensorHAL_IIO just build AOSP source code from *$TOP* folder
 
 The compiled library will be placed in *<AOSP_DIR\>/out/target/product/<board\>/system/vendor/lib/hw/sensor.{TARGET_BOARD_PLATFORM}.so*
 
-To configure sensor the Sensor HAL IIO use mm utility from HAL root folder
+To configure sensor the Sensor HAL IIO
 
-	$mm sensors-defconfig (default configuration)
-or
+> *For Android Version < O use mm tools*
+>	$mm sensors-defconfig (default configuration)
+> or
+>	$mm sensors-menuconfig
 
-	$mm sensors-menuconfig
+> *For Android Version >= O*
+>	$PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-defconfig (default configuration)
+> or
+>	$PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-menuconfig
+
+##### COMPILING THE SENSOR HAL FOR LINUX
+From From SensorHAL_IIO root folder set CROSS_COMPILE and ARCH environment variables accordingly to your target
+board, for example on HiKey board:
+>     export ARCH=arm64
+>     export CROSS_COMPILE=<binutils_path>/gcc-linaro-5.5.0-2017.10-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+
+   Then use Makefile to build:
+
+      make
+
+   Linux library (.so) will be produced in HAL root directory, please copy SensorHAL and libsensoriioutils shared object to your standard /lib or LD_LIBRARY_PATH target filesystem.
 
 Copyright
 ========
-Copyright (C) 2017 STMicroelectronics
+Copyright (C) 2018 STMicroelectronics
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

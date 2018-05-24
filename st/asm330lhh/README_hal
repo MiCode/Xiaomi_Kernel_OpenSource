@@ -1,8 +1,6 @@
-/* Android STMicroelectronics SensorHAL release 3.x
- *
- * Copyright (C) 2015-2016 STMicroelectronics
- * Author: Denis Ciocca - <denis.ciocca@st.com>
-*/
+*Android STMicroelectronics SensorHAL release 3.x*
+*Copyright (C) 2015-2018 STMicroelectronics*
+*Author: Denis Ciocca - <denis.ciocca@st.com>*
 
 These are the release notes for STMicroelectronics SensorHAL version 3.
 Read them carefully, as they tell you what this is all about, explain how
@@ -35,7 +33,8 @@ INSTALLING SOURCE CODE
 
 CONFIGURING THE SENSOR HAL
 
---> From SensorHAL_IIO root folder (not for Android pre-release):
+--> Android Version < O
+   From SensorHAL_IIO root folder:
 
    "mm sensors-defconfig"	Generated default hal_config file.
 
@@ -43,7 +42,9 @@ CONFIGURING THE SENSOR HAL
 
    "mm sensors-cleanconf"	Delete hal_config, hal_config.old and configuration.h files.
 
---> From Android source code $TOP folder (Android L/M/N not for Android O preview):
+
+--> Android Version >= O
+   From SensorHAL_IIO root folder:
 
    "make -f Makefile_config sensors-defconfig"	Generated default hal_config file.
 
@@ -52,7 +53,19 @@ CONFIGURING THE SENSOR HAL
    "make -f Makefile_configsensors-cleanconf"	Delete hal_config, hal_config.old and configuration.h files.
 
 
-COMPILING THE SENSOR HAL CODE
+--> Android Version pre-release
+   From SensorHAL_IIO root folder:
+
+   "PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-defconfig"	Generated default hal_config file.
+
+   "PLATFORM_VERSION=x.y.z make -f Makefile_config sensors-menuconfig"	Text based color menus, radiolists & dialogs.
+
+   "PLATFORM_VERSION=x.y.z make -f Makefile_configsensors-cleanconf"	Delete hal_config, hal_config.old and configuration.h files.
+
+    where x.y.z are related to Android pre-release version (see version_defaults.mk in <AOSP_TOP_DIR>/build/make/core/ path)
+
+
+COMPILING THE SENSOR HAL CODE FOR ANDROID
 
 --> From From SensorHAL_IIO root folder:
 
@@ -66,10 +79,22 @@ COMPILING THE SENSOR HAL CODE
    Just build Android source code as described on source.android.com. The SensorHAL will
    be automatically build and installed into system.img
 
-BUILD Linux SensorHAL
 
-   Use Makefile to build SensorHAL.so, CROSS_COMPILE and ARCH environment variables must
-   be set to build tools for cross compile to target board.
+COMPILING THE SENSOR HAL FOR LINUX
+
+   From From SensorHAL_IIO root folder set CROSS_COMPILE and ARCH environment
+   variables accordingly to your target board, for example on HiKey board:
+
+>     export ARCH=arm64
+>     export CROSS_COMPILE=<binutils_path>/gcc-linaro-5.5.0-2017.10-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+
+   Then use Makefile to build:
+
+      make
+
+   Linux library (.so) will be produced in HAL root directory, please copy
+   SensorHAL and libsensoriioutils shared object to your standard /lib or
+   LD_LIBRARY_PATH target filesystem.
 
 SENSORS SUPPORTED:
    - ST Test sensors		(Accel + Magn + Gyro);
@@ -84,4 +109,4 @@ CHANGELOG:
    v3.1.4: Added support for ASM330LHH
    v3.1.5: Added support for Android N. Added support for different kernel versions
    v3.1.6: Add support to Android O
-
+   v3.1.7: Move iio_utils in separated shared library

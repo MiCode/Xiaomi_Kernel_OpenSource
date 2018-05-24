@@ -25,28 +25,6 @@ extracted from the Linux kernel source tree, which is covered by GPLv2 only.
     * tools/kconfig-language.txt
 
 
-This product contains a modified version of `iio_utils` code extracted from
-the Linux kernel source tree, which is covered by GPLv2 only.
-Originally developed by Jonathan Cameron <jic23@kernel.org>.
-
-  * LICENSE:
-    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
-  * FILE:
-    * src/iio_utils.h
-    * src/iio_utils.c
-
-
-This product contains a modified version of parts of iio framework, code
-extracted from the Linux kernel source tree, which is covered by GPLv2 only.
-Originally developed by Jonathan Cameron <jic23@kernel.org>.
-
-  * LICENSE:
-    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
-  * FILE:
-    * src/types.h
-    * src/events.h
-
-
 This project may contains proprietary librares under lib/ folder. Different
 LICENSES are applied on binary files.
 

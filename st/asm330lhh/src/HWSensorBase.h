@@ -25,7 +25,7 @@
 
 extern "C" {
 	#include "iio_utils.h"
-	#include <linux/iio/events.h>
+	#include "events.h"
 };
 
 #define HW_SENSOR_BASE_DEFAULT_IIO_BUFFER_LEN	(2)

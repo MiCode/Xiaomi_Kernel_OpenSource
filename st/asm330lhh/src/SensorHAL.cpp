@@ -225,7 +225,7 @@ static int st_hal_set_fullscale(char *iio_sysfs_path, int sensor_type,
 	if (i == (int)sa->num_available)
 		i = sa->num_available - 1;
 
-	err = iio_utils_set_scale(iio_sysfs_path, sa->values[i], iio_sensor_type);
+	err = iio_utils::iio_utils_set_scale(iio_sysfs_path, sa->values[i], iio_sensor_type);
 	if (err < 0)
 		return err;
 
@@ -247,7 +247,7 @@ static int st_hal_load_iio_devices_data(STSensorHAL_iio_devices_data *data)
 	int err, iio_devices_num, i, n;
 	struct iio_device iio_devices[ST_HAL_IIO_MAX_DEVICES];
 
-	iio_devices_num = iio_utils_get_devices_name(iio_devices, ST_HAL_IIO_MAX_DEVICES);
+	iio_devices_num = iio_utils::iio_utils_get_devices_name(iio_devices, ST_HAL_IIO_MAX_DEVICES);
 	if (iio_devices_num <= 0)
 		return iio_devices_num;
 
@@ -296,13 +296,13 @@ static int st_hal_load_iio_devices_data(STSensorHAL_iio_devices_data *data)
 
 		data[index].power_consumption = ST_sensors_supported[n].power_consumption;
 
-		err = iio_utils_build_channel_array(data[index].iio_sysfs_path, &data[index].channels, &data[index].num_channels);
+		err = iio_utils::iio_utils_build_channel_array(data[index].iio_sysfs_path, &data[index].channels, &data[index].num_channels);
 		if (err < 0 && err != -ENOENT) {
 			ALOGE("\"%s\": failed to read IIO channels informations. (errno: %d)", iio_devices[i].name, err);
 			goto st_hal_load_free_iio_sysfs_path;
 		}
 
-		err = iio_utils_enable_sensor(data[index].iio_sysfs_path, false);
+		err = iio_utils::iio_utils_enable_sensor(data[index].iio_sysfs_path, false);
 		if (err < 0) {
 			ALOGE("\"%s\": failed to disable sensor. (errno: %d)", iio_devices[i].name, err);
 			goto st_hal_load_free_iio_channels;
@@ -323,13 +323,13 @@ static int st_hal_load_iio_devices_data(STSensorHAL_iio_devices_data *data)
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
 		    ST_sensors_supported[n].android_sensor_type != SENSOR_TYPE_GLANCE_GESTURE) {
-			err = iio_utils_get_sampling_frequency_available(data[index].iio_sysfs_path, &data[index].sfa);
+			err = iio_utils::iio_utils_get_sampling_frequency_available(data[index].iio_sysfs_path, &data[index].sfa);
 			if (err < 0) {
 				ALOGE("\"%s\": unable to get sampling frequency availability. (errno: %d)", iio_devices[i].name, err);
 				goto st_hal_load_free_iio_channels;
 			}
 
-			err = iio_utils_get_scale_available(data[index].iio_sysfs_path, &data[index].sa,
+			err = iio_utils::iio_utils_get_scale_available(data[index].iio_sysfs_path, &data[index].sa,
 									ST_sensors_supported[n].iio_sensor_type);
 			if (err < 0) {
 				ALOGE("\"%s\": unable to get scale availability. (errno: %d)", iio_devices[i].name, err);
@@ -354,7 +354,7 @@ static int st_hal_load_iio_devices_data(STSensorHAL_iio_devices_data *data)
 		if (err < 0)
 			goto st_hal_load_free_device_name;
 
-		data[index].hw_fifo_len = iio_utils_get_hw_fifo_length(data[index].iio_sysfs_path);
+		data[index].hw_fifo_len = iio_utils::iio_utils_get_hw_fifo_length(data[index].iio_sysfs_path);
 		data[index].sensor_type = ST_sensors_supported[n].android_sensor_type;
 		data[index].dev_id = iio_devices[i].dev_num;
 
@@ -460,6 +460,8 @@ static int st_hal_dev_batch(struct sensors_poll_device_1 *dev, int handle,
 #else /* CONFIG_ST_HAL_ANDROID_VERSION */
 	(void)flags;
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
+
+	ALOGD("changed timeout=%" PRIu64 "ms pollrate_ns=%" PRIu64 "ms", timeout, period_ns);
 
 	return hal_data->sensor_classes[index]->SetDelay(handle, period_ns, timeout, true);
 }

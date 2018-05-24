@@ -20,14 +20,15 @@ LOCAL_PATH := ${CURDIR}
 CC := $(CROSS_COMPILE)gcc
 CXX := $(CROSS_COMPILE)g++
 RM = rm -f
-INCLUDES := -I$(LOCAL_PATH)/ -I$(LOCAL_PATH)/src -I$(LOCAL_PATH)/linux/
+INCLUDES := -I$(LOCAL_PATH)/ -I$(LOCAL_PATH)/src -I$(LOCAL_PATH)/linux/ \
+		-I$(LOCAL_PATH)/linux/tools/iio -I$(LOCAL_PATH)/linux/iio
 CFLAGS += $(INCLUDES) -DLOG_TAG=\"SensorHAL\" -DPLTF_LINUX_ENABLED -Wall \
 		-Wunused-parameter -Wunused-value -Wunused-function -Wunused-label -fPIC
 
 CPPFLAGS = $(INCLUDES) -g -DPLTF_LINUX_ENABLED -Wunused-label -Wall -fPIC \
 		-D_DEFAULT_SOURCE
-LDFLAGS = -g
-LDLIBS = -lpthread
+LDFLAGS = -g -L$(OUT)
+LDLIBS = -lpthread -lsensoriioutils
 
 ifeq ($(DEBUG),y)
 CFLAGS += -g -O0
@@ -47,22 +48,23 @@ LOCAL_SRC_FILES := \
 		src/Accelerometer.cpp \
 		src/Gyroscope.cpp
 
+IIO_UTILS_SRC := linux/tools/iio/iio_utils.cpp
+
 ifdef CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
 LOCAL_SRC_FILES += src/SelfTest.cpp
 endif # CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
 
-OBJS=$(subst .cpp,.o,$(LOCAL_SRC_FILES)) src/iio_utils.o
+OBJS=$(subst .cpp,.o,$(LOCAL_SRC_FILES))
+IIO_UTILS=$(subst .cpp,.o,$(IIO_UTILS_SRC))
 
 all: SensorHAL
 
-SensorHAL: $(OBJS)
+iio_utils: $(IIO_UTILS)
+	$(CXX) $(LDFLAGS) -shared $(IIO_UTILS) -o $(OUT)/libsensoriioutils.so
+
+SensorHAL: $(OBJS) iio_utils
 	$(CXX) $(LDFLAGS) -shared $(OBJS) $(LDLIBS) -o $(OUT)/SensorHAL.so
 
 clean:
-	$(RM) $(OBJS)
-
-distclean: clean
-	$(RM) SensorHAL.so
-
-
+	$(RM) $(OBJS) $(IIO_UTILS) $(OUT)/libsensoriioutils.so $(OUT)/SensorHAL.so
 

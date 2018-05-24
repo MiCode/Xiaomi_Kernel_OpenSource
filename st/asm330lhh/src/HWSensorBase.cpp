@@ -253,7 +253,7 @@ HWSensorBase::HWSensorBase(HWSensorBaseCommonData *data, const char *name,
 	}
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
-	err = iio_utils_support_injection_mode(common_data.iio_sysfs_path);
+	err = iio_utils::iio_utils_support_injection_mode(common_data.iio_sysfs_path);
 	switch (err) {
 	case 0:
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
@@ -304,7 +304,7 @@ void HWSensorBase::GetSelfTestAvailable()
 {
 	int err;
 
-	err = iio_utils_get_selftest_available(common_data.iio_sysfs_path, selftest.mode);
+	err = iio_utils::iio_utils_get_selftest_available(common_data.iio_sysfs_path, selftest.mode);
 	if (err < 0)
 		return;
 
@@ -318,7 +318,7 @@ selftest_status HWSensorBase::ExecuteSelfTest()
 	if (selftest.available == 0)
 		return NOT_AVAILABLE;
 
-	status = iio_utils_execute_selftest(common_data.iio_sysfs_path, &selftest.mode[0][0]);
+	status = iio_utils::iio_utils_execute_selftest(common_data.iio_sysfs_path, &selftest.mode[0][0]);
 	if (status < 0) {
 		ALOGE("\"%s\": failed to execute selftest procedure. (errno: %d)", GetName(), status);
 		return GENERIC_ERROR;
@@ -341,7 +341,7 @@ int HWSensorBase::WriteBufferLenght(unsigned int buf_len)
 	else
 		hw_buf_fifo_len = buf_len;
 
-	err = iio_utils_set_hw_fifo_watermark(common_data.iio_sysfs_path, hw_buf_fifo_len);
+	err = iio_utils::iio_utils_set_hw_fifo_watermark(common_data.iio_sysfs_path, hw_buf_fifo_len);
 	if (err < 0) {
 		ALOGE("%s: Failed to write hw fifo watermark.", GetName());
 		return err;
@@ -381,7 +381,7 @@ int HWSensorBase::Enable(int handle, bool enable, bool lock_en_mutex)
 		goto unlock_mutex;
 
 	if ((enable && !old_status) || (!enable && !old_status_no_handle)) {
-		err = iio_utils_enable_sensor(common_data.iio_sysfs_path, GetStatus(false));
+		err = iio_utils::iio_utils_enable_sensor(common_data.iio_sysfs_path, GetStatus(false));
 		if (err < 0) {
 			ALOGE("%s: Failed to enable iio sensor device.", GetName());
 			goto restore_status_enable;
@@ -548,7 +548,7 @@ int HWSensorBase::FlushData(int handle, bool lock_en_mutex)
 			for (i = 0; i < dependencies.num; i++)
 				dependencies.sb[i]->FlushData(sensor_t_data.handle, true);
 
-			err = iio_utils_hw_fifo_flush(common_data.iio_sysfs_path);
+			err = iio_utils::iio_utils_hw_fifo_flush(common_data.iio_sysfs_path);
 			if (err < 0) {
 				ALOGE("%s: Failed to flush hw fifo.", GetName());
 				goto unlock_mutex;
@@ -698,7 +698,7 @@ int HWSensorBase::InjectionMode(bool enable)
 		} else
 			free(injection_data);
 
-		err = iio_utils_set_injection_mode(common_data.iio_sysfs_path, enable);
+		err = iio_utils::iio_utils_set_injection_mode(common_data.iio_sysfs_path, enable);
 		if (err < 0) {
 			ALOGE("%s: Failed to switch injection mode.", GetName());
 			free(injection_data);
@@ -737,7 +737,7 @@ int HWSensorBase::InjectSensorData(const sensors_event_t *data)
 		return -EINVAL;
 	}
 
-	return iio_utils_inject_data(common_data.iio_sysfs_path, injection_data, scan_size, iio_sensor_type);
+	return iio_utils::iio_utils_inject_data(common_data.iio_sysfs_path, injection_data, scan_size, iio_sensor_type);
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
@@ -822,7 +822,7 @@ int HWSensorBaseWithPollrate::SetDelay(int handle, int64_t period_ns, int64_t ti
 		i--;
 
 	if (current_min_pollrate != min_pollrate_ns) {
-		err = iio_utils_set_sampling_frequency(common_data.iio_sysfs_path, sampling_frequency_available.hz[i]);
+		err = iio_utils::iio_utils_set_sampling_frequency(common_data.iio_sysfs_path, sampling_frequency_available.hz[i]);
 		if (err < 0) {
 			ALOGE("%s: Failed to write sampling frequency to iio device.", GetName());
 			goto mutex_unlock;
@@ -846,13 +846,16 @@ int HWSensorBaseWithPollrate::SetDelay(int handle, int64_t period_ns, int64_t ti
 
 	if (sensor_t_data.fifoMaxEventCount > 0) {
 		min_timeout_ns = GetMinTimeout(false);
+
+#ifdef CONFIG_ST_HAL_COMPENSATE_DELAY
 		if (min_timeout_ns < HW_SENSOR_BASE_DELAY_TRANSFER_DATA)
 			min_timeout_ns = 0;
 		else
 			min_timeout_ns -= HW_SENSOR_BASE_DELAY_TRANSFER_DATA;
-
+#endif /* CONFIG_ST_HAL_COMPENSATE_DELAY */
 		if (current_min_timeout != min_timeout_ns) {
 			buf_len = min_timeout_ns / FREQUENCY_TO_NS(sampling_frequency_available.hz[i]);
+
 			if (buf_len > sensor_t_data.fifoMaxEventCount)
 				buf_len = sensor_t_data.fifoMaxEventCount;
 
@@ -903,7 +906,7 @@ int HWSensorBaseWithPollrate::FlushData(int handle, bool lock_en_mutex)
 			for (i = 0; i < dependencies.num; i++)
 				dependencies.sb[i]->FlushData(sensor_t_data.handle, true);
 
-			err = iio_utils_hw_fifo_flush(common_data.iio_sysfs_path);
+			err = iio_utils::iio_utils_hw_fifo_flush(common_data.iio_sysfs_path);
 			if (err < 0) {
 				ALOGE("%s: Failed to flush hw fifo.", GetName());
 				goto unlock_mutex;
