@@ -1890,6 +1890,34 @@
 			};
 		};
 
+		cdc_reset_ctrl {
+			cdc_reset_sleep: cdc_reset_sleep {
+				mux {
+					pins = "gpio27";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio27";
+					drive-strength = <16>;
+					bias-disable;
+					output-low;
+				};
+			};
+			cdc_reset_active:cdc_reset_active {
+				mux {
+					pins = "gpio27";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio27"; /* gpio67 old */
+					drive-strength = <16>;
+					bias-pull-down;
+					output-high;
+				};
+			};
+		};
+
+
 		cdc-dmic-lines {
 			cdc_dmic0_clk_act: dmic0_clk_on {
 				mux {
