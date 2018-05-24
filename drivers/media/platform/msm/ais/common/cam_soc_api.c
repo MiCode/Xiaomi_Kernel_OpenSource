@@ -26,6 +26,7 @@
 #include <linux/msm-bus.h>
 #include "cam_soc_api.h"
 #include "msm_camera_diag_util.h"
+#include <linux/clk/msm-clock-generic.h>
 
 struct msm_cam_bus_pscale_data {
 	struct msm_bus_scale_pdata *pdata;
@@ -362,6 +363,7 @@ int msm_camera_clk_enable(struct device *dev,
 						   clk_info[i].clk_name);
 					goto cam_clk_set_err;
 				}
+				clk_ptr[i]->flags |= CLKFLAG_NO_RATE_CACHE;
 				rc = clk_set_rate(clk_ptr[i],
 					clk_rate);
 				if (rc < 0) {
@@ -383,6 +385,7 @@ int msm_camera_clk_enable(struct device *dev,
 						goto cam_clk_set_err;
 					}
 				}
+				clk_ptr[i]->flags |= CLKFLAG_NO_RATE_CACHE;
 				rc = clk_set_rate(clk_ptr[i],
 							clk_rate);
 				if (rc < 0) {
