@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3615,7 +3615,8 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 		 * if pd is not allowed, then set pd_active = false right here,
 		 * so that it starts the hvdcp engine
 		 */
-		if (!get_effective_result(chg->pd_allowed_votable))
+		if (!get_effective_result(chg->pd_allowed_votable) &&
+				!chg->micro_usb_mode)
 			__smblib_set_prop_pd_active(chg, 0);
 	}
 
