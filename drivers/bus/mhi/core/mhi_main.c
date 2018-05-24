@@ -276,6 +276,7 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
+	bool assert_wake = false;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -294,7 +295,17 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+
+	/*
+	 * For UL channels always assert WAKE until work is done,
+	 * For DL channels only assert if MHI is in a LPM
+	 */
+	if (mhi_chan->dir == DMA_TO_DEVICE ||
+	    (mhi_chan->dir == DMA_FROM_DEVICE &&
+	     mhi_cntrl->pm_state != MHI_PM_M0)) {
+		assert_wake = true;
+		mhi_cntrl->wake_get(mhi_cntrl, false);
+	}
 
 	/* generate the tre */
 	buf_info = buf_ring->wp;
@@ -328,18 +339,16 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 		read_unlock_bh(&mhi_chan->lock);
 	}
 
-	if (mhi_chan->dir == DMA_FROM_DEVICE) {
-		bool override = (mhi_cntrl->pm_state != MHI_PM_M0);
-
-		mhi_cntrl->wake_put(mhi_cntrl, override);
-	}
+	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return 0;
 
 map_error:
-	mhi_cntrl->wake_put(mhi_cntrl, false);
+	if (assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return -ENOMEM;
@@ -402,13 +411,17 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct mhi_ring *tre_ring;
 	unsigned long flags;
+	bool assert_wake = false;
 	int ret;
 
-	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+	/*
+	 * this check here only as a guard, it's always
+	 * possible mhi can enter error while executing rest of function,
+	 * which is not fatal so we do not need to hold pm_lock
+	 */
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
 		MHI_ERR("MHI is not in active state, pm_state:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
 		return -EIO;
 	}
@@ -419,18 +432,27 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
-
 	tre_ring = &mhi_chan->tre_ring;
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
-		goto error_queue;
+		return -ENOMEM;
 
 	ret = mhi_chan->gen_tre(mhi_cntrl, mhi_chan, buf, buf, len, mflags);
 	if (unlikely(ret))
-		goto error_queue;
+		return ret;
 
 	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+
+	/*
+	 * For UL channels always assert WAKE until work is done,
+	 * For DL channels only assert if MHI is in a LPM
+	 */
+	if (mhi_chan->dir == DMA_TO_DEVICE ||
+	    (mhi_chan->dir == DMA_FROM_DEVICE &&
+	     mhi_cntrl->pm_state != MHI_PM_M0)) {
+		assert_wake = true;
+		mhi_cntrl->wake_get(mhi_cntrl, false);
+	}
+
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))) {
 		unsigned long flags;
 
@@ -439,22 +461,12 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		read_unlock_irqrestore(&mhi_chan->lock, flags);
 	}
 
-	if (mhi_chan->dir == DMA_FROM_DEVICE) {
-		bool override = (mhi_cntrl->pm_state != MHI_PM_M0);
-
-		mhi_cntrl->wake_put(mhi_cntrl, override);
-	}
+	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
 	return 0;
-
-error_queue:
-	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
-
-	return -ENOMEM;
 }
 
 /* destroy specific device */
