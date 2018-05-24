@@ -949,6 +949,12 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 		return;
 	}
 
+	if (!einfo->rx_fifo) {
+		if (!get_rx_fifo(einfo))
+			return;
+		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
+	}
+
 	if ((atomic_ctx) && ((einfo->tx_resume_needed) ||
 		(waitqueue_active(&einfo->tx_blocked_queue)))) /* tx waiting ?*/
 		tx_wakeup_worker(einfo);
@@ -1554,10 +1560,10 @@ static void subsys_up(struct glink_transport_if *if_ptr)
 	struct edge_info *einfo;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	einfo->in_ssr = false;
 	if (!einfo->rx_fifo) {
 		if (!get_rx_fifo(einfo))
 			return;
-		einfo->in_ssr = false;
 		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
 	}
 }
