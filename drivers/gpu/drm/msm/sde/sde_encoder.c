@@ -1722,7 +1722,9 @@ static int _sde_encoder_update_rsc_client(
 	struct drm_crtc *primary_crtc;
 	int pipe = -1;
 	int rc = 0;
-	int wait_refcount;
+	int wait_refcount, i;
+	struct sde_encoder_phys *phys;
+	u32 qsync_mode = 0;
 
 	if (!drm_enc || !drm_enc->dev) {
 		SDE_ERROR("invalid encoder arguments\n");
@@ -1751,14 +1753,28 @@ static int _sde_encoder_update_rsc_client(
 	}
 
 	/**
-	 * only primary command mode panel can request CMD state.
+	 * only primary command mode panel without Qsync can request CMD state.
 	 * all other panels/displays can request for VID state including
 	 * secondary command mode panel.
 	 */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+
+		if (phys) {
+			qsync_mode = sde_connector_get_property(
+					phys->connector->state,
+					CONNECTOR_PROP_QSYNC_MODE);
+			break;
+		}
+	}
+
 	rsc_state = enable ?
 		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
-		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
-		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+				disp_info->is_primary && !qsync_mode) ?
+				SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE) :
+				SDE_RSC_IDLE_STATE;
+
+	SDE_EVT32(rsc_state, qsync_mode);
 	prefill_lines = config ? mode_info.prefill_lines +
 		config->inline_rotate_prefill : mode_info.prefill_lines;
 
@@ -3093,6 +3109,27 @@ static void sde_encoder_frame_done_callback(
 	}
 }
 
+static void sde_encoder_get_qsync_fps_callback(
+	struct drm_encoder *drm_enc,
+	u32 *qsync_fps)
+{
+	struct msm_display_info *disp_info;
+	struct sde_encoder_virt *sde_enc;
+
+	if (!qsync_fps)
+		return;
+
+	*qsync_fps = 0;
+	if (!drm_enc) {
+		SDE_ERROR("invalid drm encoder\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	disp_info = &sde_enc->disp_info;
+	*qsync_fps = disp_info->qsync_min_fps;
+}
+
 int sde_encoder_idle_request(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -3986,6 +4023,46 @@ int sde_encoder_poll_line_counts(struct drm_encoder *drm_enc)
 	return -ETIMEDOUT;
 }
 
+static int _helper_flush_mixer(struct sde_encoder_phys *phys_enc)
+{
+	struct drm_encoder *drm_enc;
+	struct sde_hw_mixer_cfg mixer;
+	struct sde_rm_hw_iter lm_iter;
+	bool lm_valid = false;
+
+	if (!phys_enc || !phys_enc->parent) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	drm_enc = phys_enc->parent;
+	memset(&mixer, 0, sizeof(mixer));
+
+	sde_rm_init_hw_iter(&lm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
+	while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &lm_iter)) {
+		struct sde_hw_mixer *hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
+
+		if (!hw_lm)
+			continue;
+
+		/* update LM flush */
+		if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
+			phys_enc->hw_ctl->ops.update_bitmask_mixer(
+					phys_enc->hw_ctl,
+					hw_lm->idx, 1);
+
+		lm_valid = true;
+	}
+
+	if (!lm_valid) {
+		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+			"lm not found to flush\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -3997,6 +4074,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	uint32_t ln_cnt1, ln_cnt2;
 	unsigned int i;
 	int rc, ret = 0;
+	struct msm_display_info *disp_info;
 
 	if (!drm_enc || !params || !drm_enc->dev ||
 		!drm_enc->dev->dev_private) {
@@ -4006,6 +4084,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
+	disp_info = &sde_enc->disp_info;
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -4032,6 +4111,12 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
 			_sde_encoder_setup_dither(phys);
+
+			/* flush the mixer if qsync is enabled */
+			if (sde_enc->cur_master && sde_connector_qsync_updated(
+					sde_enc->cur_master->connector)) {
+				_helper_flush_mixer(phys);
+			}
 		}
 	}
 	SDE_ATRACE_END("enc_prepare_for_kickoff");
@@ -4587,6 +4672,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		sde_encoder_vblank_callback,
 		sde_encoder_underrun_callback,
 		sde_encoder_frame_done_callback,
+		sde_encoder_get_qsync_fps_callback,
 	};
 	struct sde_enc_phys_init_params phys_params;
 

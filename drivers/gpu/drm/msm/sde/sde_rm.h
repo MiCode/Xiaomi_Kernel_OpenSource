@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,18 @@ enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_RESERVE_CLEAR,
 	SDE_RM_TOPCTL_DSPP,
 	SDE_RM_TOPCTL_DS,
+};
+
+/**
+ * enum sde_rm_topology_control - HW resource use case in use by connector
+ * @SDE_RM_QSYNC_DISABLED: If set, Qsync feature is supported and in
+ *                              disable state.
+ * @SDE_RM_QSYNC_CONTINUOUS_MODE: If set, Qsync is enabled in continuous
+ *                              mode.
+ */
+enum sde_rm_qsync_modes {
+	SDE_RM_QSYNC_DISABLED,
+	SDE_RM_QSYNC_CONTINUOUS_MODE,
 };
 
 /**

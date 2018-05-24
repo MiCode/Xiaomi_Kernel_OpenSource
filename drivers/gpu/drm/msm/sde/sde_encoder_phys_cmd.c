@@ -835,6 +835,76 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 	}
 }
 
+static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
+{
+	struct drm_connector *conn = phys_enc->connector;
+	u32 qsync_mode;
+	struct drm_display_mode *mode;
+	u32 threshold_lines = 0;
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+
+	if (!conn || !conn->state)
+		return 0;
+
+	mode = &phys_enc->cached_mode;
+	qsync_mode = sde_connector_get_property(
+			conn->state, CONNECTOR_PROP_QSYNC_MODE);
+
+	if (mode && (qsync_mode == SDE_RM_QSYNC_CONTINUOUS_MODE)) {
+		u32 qsync_min_fps = 0;
+		u32 default_fps = mode->vrefresh;
+		u32 yres = mode->vdisplay;
+		u32 slow_time_ns;
+		u32 default_time_ns;
+		u32 extra_time_ns;
+		u32 total_extra_lines;
+		u32 default_line_time_ns;
+
+		if (phys_enc->parent_ops.get_qsync_fps)
+			phys_enc->parent_ops.get_qsync_fps(
+				phys_enc->parent, &qsync_min_fps);
+
+		if (!qsync_min_fps || !default_fps || !yres) {
+			SDE_ERROR_CMDENC(cmd_enc,
+				"wrong qsync params %d %d %d\n",
+				qsync_min_fps, default_fps, yres);
+			goto exit;
+		}
+
+		if (qsync_min_fps >= default_fps) {
+			SDE_ERROR_CMDENC(cmd_enc,
+				"qsync fps:%d must be less than default:%d\n",
+				qsync_min_fps, default_fps);
+			goto exit;
+		}
+
+		/* Calculate the number of extra lines*/
+		slow_time_ns = (1 * 1000000000) / qsync_min_fps;
+		default_time_ns = (1 * 1000000000) / default_fps;
+		extra_time_ns = slow_time_ns - default_time_ns;
+		default_line_time_ns = (1 * 1000000000) / (default_fps * yres);
+
+		total_extra_lines = extra_time_ns / default_line_time_ns;
+		threshold_lines += total_extra_lines;
+
+		SDE_DEBUG_CMDENC(cmd_enc, "slow:%d default:%d extra:%d(ns)\n",
+			slow_time_ns, default_time_ns, extra_time_ns);
+		SDE_DEBUG_CMDENC(cmd_enc, "extra_lines:%d threshold:%d\n",
+			total_extra_lines, threshold_lines);
+		SDE_DEBUG_CMDENC(cmd_enc, "min_fps:%d fps:%d yres:%d\n",
+			qsync_min_fps, default_fps, yres);
+
+		SDE_EVT32(qsync_mode, qsync_min_fps, extra_time_ns, default_fps,
+			yres, threshold_lines);
+	}
+
+exit:
+	threshold_lines += DEFAULT_TEARCHECK_SYNC_THRESH_START;
+
+	return threshold_lines;
+}
+
 static void sde_encoder_phys_cmd_tearcheck_config(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -907,7 +977,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 */
 	tc_cfg.sync_cfg_height = 0xFFF0;
 	tc_cfg.vsync_init_val = mode->vdisplay;
-	tc_cfg.sync_threshold_start = DEFAULT_TEARCHECK_SYNC_THRESH_START;
+	tc_cfg.sync_threshold_start = _get_tearcheck_threshold(phys_enc);
 	tc_cfg.sync_threshold_continue = DEFAULT_TEARCHECK_SYNC_THRESH_CONTINUE;
 	tc_cfg.start_pos = mode->vdisplay;
 	tc_cfg.rd_ptr_irq = mode->vdisplay + 1;
@@ -1201,6 +1271,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
+	struct sde_hw_tear_check tc_cfg = {0};
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
@@ -1226,6 +1297,18 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		SDE_EVT32(DRMID(phys_enc->parent),
 				phys_enc->hw_pp->idx - PINGPONG_0);
 		SDE_ERROR("failed wait_for_idle: %d\n", ret);
+	}
+
+	if (sde_connector_qsync_updated(phys_enc->connector)) {
+		tc_cfg.sync_threshold_start =
+			_get_tearcheck_threshold(phys_enc);
+		if (phys_enc->has_intf_te &&
+				phys_enc->hw_intf->ops.update_tearcheck)
+			phys_enc->hw_intf->ops.update_tearcheck(
+					phys_enc->hw_intf, &tc_cfg);
+		else if (phys_enc->hw_pp->ops.update_tearcheck)
+			phys_enc->hw_pp->ops.update_tearcheck(
+					phys_enc->hw_pp, &tc_cfg);
 	}
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",

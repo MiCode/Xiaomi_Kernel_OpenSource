@@ -435,6 +435,22 @@ static int sde_hw_intf_enable_te(struct sde_hw_intf *intf, bool enable)
 	return 0;
 }
 
+static void sde_hw_intf_update_te(struct sde_hw_intf *intf,
+		struct sde_hw_tear_check *te)
+{
+	struct sde_hw_blk_reg_map *c;
+	int cfg;
+
+	if (!intf || !te)
+		return;
+
+	c = &intf->hw;
+	cfg = SDE_REG_READ(c, INTF_TEAR_SYNC_THRESH);
+	cfg &= ~0xFFFF;
+	cfg |= te->sync_threshold_start;
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_THRESH, cfg);
+}
+
 static int sde_hw_intf_connect_external_te(struct sde_hw_intf *intf,
 		bool enable_external_te)
 {
@@ -513,6 +529,7 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	if (cap & BIT(SDE_INTF_TE)) {
 		ops->setup_tearcheck = sde_hw_intf_setup_te_config;
 		ops->enable_tearcheck = sde_hw_intf_enable_te;
+		ops->update_tearcheck = sde_hw_intf_update_te;
 		ops->connect_external_te = sde_hw_intf_connect_external_te;
 		ops->get_vsync_info = sde_hw_intf_get_vsync_info;
 		ops->setup_autorefresh = sde_hw_intf_setup_autorefresh_config;

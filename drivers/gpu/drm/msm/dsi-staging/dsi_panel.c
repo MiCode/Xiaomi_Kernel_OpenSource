@@ -1054,6 +1054,24 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc = 0;
+	u32 val = 0;
+
+	rc = of_property_read_u32(of_node,
+				  "qcom,mdss-dsi-qsync-min-refresh-rate",
+				  &val);
+	if (rc)
+		pr_err("[%s] qsync min fps not defined rc:%d\n",
+			panel->name, rc);
+
+	panel->qsync_min_fps = val;
+
+	return rc;
+}
+
 static int dsi_panel_parse_dfps_caps(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1386,6 +1404,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"ROI not parsed from DTSI, generated dynamically",
 	"qcom,mdss-dsi-timing-switch-command",
 	"qcom,mdss-dsi-post-mode-switch-on-command",
+	"qcom,mdss-dsi-qsync-on-commands",
+	"qcom,mdss-dsi-qsync-off-commands",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1410,6 +1430,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"ROI not parsed from DTSI, generated dynamically",
 	"qcom,mdss-dsi-timing-switch-command-state",
 	"qcom,mdss-dsi-post-mode-switch-on-command-state",
+	"qcom,mdss-dsi-qsync-on-commands-state",
+	"qcom,mdss-dsi-qsync-off-commands-state",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2785,6 +2807,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse dfps configuration, rc=%d\n", rc);
 
+	rc = dsi_panel_parse_qsync_caps(panel, of_node);
+	if (rc)
+		pr_err("failed to parse qsync features, rc=%d\n", rc);
+
 	rc = dsi_panel_parse_phy_props(panel);
 	if (rc) {
 		pr_err("failed to parse panel physical dimension, rc=%d\n", rc);
@@ -3401,6 +3427,50 @@ error_free_mem:
 	kfree(set->cmds);
 
 exit:
+	return rc;
+}
+
+int dsi_panel_send_qsync_on_dcs(struct dsi_panel *panel,
+		int ctrl_idx)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	pr_debug("ctrl:%d qsync on\n", ctrl_idx);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_QSYNC_ON);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_QSYNC_ON cmds rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_send_qsync_off_dcs(struct dsi_panel *panel,
+		int ctrl_idx)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	pr_debug("ctrl:%d qsync off\n", ctrl_idx);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_QSYNC_OFF);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_QSYNC_OFF cmds rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
