@@ -728,14 +728,16 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
 	int count = 0;
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
+	/*
+	 * this is a quick check to avoid unnecessary event processing
+	 * in case we already in error state, but it's still possible
+	 * to transition to error state while processing events
+	 */
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
 		MHI_ERR("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
-	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 	local_rp = ev_ring->rp;
