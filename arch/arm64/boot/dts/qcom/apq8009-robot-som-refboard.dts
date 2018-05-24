@@ -186,3 +186,12 @@
 &blsp1_uart2_hs {
 	status = "ok";
 };
+
+&i2c_1 {
+	status = "okay";
+	vl53l0x@52 {
+		compatible = "st,stmvl53l0";
+		reg = <0x29>;
+		status = "ok";
+	};
+};
