@@ -21,7 +21,6 @@
 #include <linux/memblock.h>
 #include <linux/preempt.h>
 #include <linux/seqlock.h>
-#include <linux/irqflags.h>
 
 #include <asm/sections.h>
 #include <linux/io.h>
@@ -1773,35 +1772,30 @@ void __init memblock_allow_resize(void)
 	memblock_can_resize = 1;
 }
 
-static unsigned long __init_memblock
-memblock_resize_late(int begin, unsigned long flags)
+static void __init_memblock memblock_resize_late(int begin)
 {
 	static int memblock_can_resize_old;
 
 	if (begin) {
 		preempt_disable();
-		local_irq_save(flags);
 		memblock_can_resize_old = memblock_can_resize;
 		memblock_can_resize = 0;
 		raw_write_seqcount_begin(&memblock_seq);
 	} else {
 		raw_write_seqcount_end(&memblock_seq);
 		memblock_can_resize = memblock_can_resize_old;
-		local_irq_restore(flags);
 		preempt_enable();
 	}
-
-	return flags;
 }
 
-unsigned long __init_memblock memblock_region_resize_late_begin(void)
+void __init_memblock memblock_region_resize_late_begin(void)
 {
-	return memblock_resize_late(1, 0);
+	memblock_resize_late(1);
 }
 
-void __init_memblock memblock_region_resize_late_end(unsigned long flags)
+void __init_memblock memblock_region_resize_late_end(void)
 {
-	memblock_resize_late(0, flags);
+	memblock_resize_late(0);
 }
 
 static int __init early_memblock(char *p)
