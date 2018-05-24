@@ -524,8 +524,16 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		if (msgs[i].flags & I2C_M_RD) {
 			sg_init_table(&gi2c->rx_sg, 1);
-			geni_se_iommu_map_buf(rx_dev, &gi2c->rx_ph, msgs[i].buf,
-						msgs[i].len, DMA_FROM_DEVICE);
+			ret = geni_se_iommu_map_buf(rx_dev, &gi2c->rx_ph,
+						msgs[i].buf, msgs[i].len,
+						DMA_FROM_DEVICE);
+			if (ret) {
+				GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+					    "geni_se_iommu_map_buf for rx failed :%d\n",
+					    ret);
+				goto geni_i2c_gsi_xfer_out;
+
+			}
 			gi2c->rx_t.dword[0] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->rx_ph);
 			gi2c->rx_t.dword[1] =
@@ -546,7 +554,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
 					    "prep_slave_sg for rx failed\n");
 				gi2c->err = -ENOMEM;
-				goto geni_i2c_gsi_xfer_out;
+				goto geni_i2c_err_prep_sg;
 			}
 			gi2c->rx_desc->callback = gi2c_gsi_rx_cb;
 			gi2c->rx_desc->callback_param = &gi2c->rx_cb;
@@ -555,8 +563,16 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			rx_cookie = dmaengine_submit(gi2c->rx_desc);
 			dma_async_issue_pending(gi2c->rx_c);
 		} else {
-			geni_se_iommu_map_buf(tx_dev, &gi2c->tx_ph, msgs[i].buf,
-						msgs[i].len, DMA_TO_DEVICE);
+			ret = geni_se_iommu_map_buf(tx_dev, &gi2c->tx_ph,
+						msgs[i].buf, msgs[i].len,
+						DMA_TO_DEVICE);
+			if (ret) {
+				GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+					    "geni_se_iommu_map_buf for tx failed :%d\n",
+					    ret);
+				goto geni_i2c_gsi_xfer_out;
+
+			}
 			gi2c->tx_t.dword[0] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->tx_ph);
 			gi2c->tx_t.dword[1] =
@@ -578,7 +594,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
 				    "prep_slave_sg for tx failed\n");
 			gi2c->err = -ENOMEM;
-			goto geni_i2c_gsi_xfer_out;
+			goto geni_i2c_err_prep_sg;
 		}
 		gi2c->tx_desc->callback = gi2c_gsi_tx_cb;
 		gi2c->tx_desc->callback_param = &gi2c->tx_cb;
@@ -589,12 +605,6 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		timeout = wait_for_completion_timeout(&gi2c->xfer,
 						gi2c->xfer_timeout);
-		if (msgs[i].flags & I2C_M_RD)
-			geni_se_iommu_unmap_buf(rx_dev, &gi2c->rx_ph,
-				msgs[i].len, DMA_FROM_DEVICE);
-		else
-			geni_se_iommu_unmap_buf(tx_dev, &gi2c->tx_ph,
-				msgs[i].len, DMA_TO_DEVICE);
 
 		if (!timeout) {
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -602,12 +612,21 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 					gi2c->xfer_timeout, gi2c->cur->len);
 			gi2c->err = -ETIMEDOUT;
 		}
+geni_i2c_err_prep_sg:
+		if (msgs[i].flags & I2C_M_RD)
+			geni_se_iommu_unmap_buf(rx_dev, &gi2c->rx_ph,
+				msgs[i].len, DMA_FROM_DEVICE);
+		else
+			geni_se_iommu_unmap_buf(tx_dev, &gi2c->tx_ph,
+				msgs[i].len, DMA_TO_DEVICE);
+
 		if (gi2c->err) {
 			dmaengine_terminate_all(gi2c->tx_c);
 			gi2c->cfg_sent = 0;
 			goto geni_i2c_gsi_xfer_out;
 		}
 	}
+
 geni_i2c_gsi_xfer_out:
 	if (!ret && gi2c->err)
 		ret = gi2c->err;
