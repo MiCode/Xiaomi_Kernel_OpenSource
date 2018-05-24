@@ -43,6 +43,9 @@
 #define CAM_CMD_BUF_GENERIC                 0x9
 #define CAM_CMD_BUF_LEGACY                  0xA
 
+/* UBWC API Version */
+#define CAM_UBWC_CFG_VERSION_1              1
+
 /**
  * enum flush_type_t - Identifies the various flush types
  *
@@ -230,6 +233,34 @@ struct cam_plane_cfg {
 	uint32_t                meta_offset;
 	uint32_t                packer_config;
 	uint32_t                mode_config;
+	uint32_t                tile_config;
+	uint32_t                h_init;
+	uint32_t                v_init;
+};
+
+/**
+ * struct cam_ubwc_plane_cfg_v1 - UBWC Plane configuration info
+ *
+ * @port_type:                  Port Type
+ * @meta_stride:                UBWC metadata stride
+ * @meta_size:                  UBWC metadata plane size
+ * @meta_offset:                UBWC metadata offset
+ * @packer_config:              UBWC packer config
+ * @mode_config_0:              UBWC mode config 0
+ * @mode_config_1:              UBWC 3 mode config 1
+ * @tile_config:                UBWC tile config
+ * @h_init:                     UBWC horizontal initial coordinate in pixels
+ * @v_init:                     UBWC vertical initial coordinate in lines
+ *
+ */
+struct cam_ubwc_plane_cfg_v1 {
+	uint32_t                port_type;
+	uint32_t                meta_stride;
+	uint32_t                meta_size;
+	uint32_t                meta_offset;
+	uint32_t                packer_config;
+	uint32_t                mode_config_0;
+	uint32_t                mode_config_1;
 	uint32_t                tile_config;
 	uint32_t                h_init;
 	uint32_t                v_init;
@@ -472,6 +503,24 @@ struct cam_flush_dev_cmd {
 	uint32_t       flush_type;
 	uint32_t       reserved;
 	int64_t        req_id;
+};
+
+/**
+ * struct cam_ubwc_config - UBWC Configuration Payload
+ *
+ * @api_version:         UBWC config api version
+ * @num_ports:           Number of ports to be configured
+ * @ubwc_plane_config:   Array of UBWC configurations per port
+ *                       Size [CAM_PACKET_MAX_PLANES - 1] per port
+ *                       as UBWC is supported on Y & C planes
+ *                       and therefore a max size of 2 planes
+ *
+ */
+struct cam_ubwc_config {
+	uint32_t   api_version;
+	uint32_t   num_ports;
+	struct cam_ubwc_plane_cfg_v1
+		   ubwc_plane_cfg[1][CAM_PACKET_MAX_PLANES - 1];
 };
 
 #endif /* __UAPI_CAM_DEFS_H__ */

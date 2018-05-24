@@ -109,6 +109,7 @@ struct iommu_domain {
 	void *handler_token;
 	struct iommu_domain_geometry geometry;
 	void *iova_cookie;
+	bool is_debug_domain;
 };
 
 enum iommu_cap {

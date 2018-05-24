@@ -352,8 +352,8 @@ Optional properties:
 				priority for realtime clients.
 - qcom,sde-vbif-qos-nrt-remap:	This array is used to program vbif qos remapper register
 				priority for non-realtime clients.
-- qcom,sde-danger-lut:		A 4 cell property, with a format of <linear,
-				tile, nrt, cwb>,
+- qcom,sde-danger-lut:		Array of 5 cell property, with a format of
+				<linear, tile, nrt, cwb, tile-qseed>,
 				indicating the danger luts on sspp.
 - qcom,sde-safe-lut-linear:	Array of 2 cell property, with a format of
 				<fill level, lut> in ascending fill level
@@ -362,6 +362,11 @@ Optional properties:
 - qcom,sde-safe-lut-macrotile:	Array of 2 cell property, with a format of
 				<fill level, lut> in ascending fill level
 				indicating the safe luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-macrotile-qseed: Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for macrotile format
+				with qseed3 on sspp.
 				Zero fill level on the last entry identifies the default lut.
 - qcom,sde-safe-lut-nrt:	Array of 2 cell property, with a format of
 				<fill level, lut> in ascending fill level
@@ -378,6 +383,11 @@ Optional properties:
 - qcom,sde-qos-lut-macrotile:	Array of 3 cell property, with a format of
 				<fill level, lut hi, lut lo> in ascending fill level
 				indicating the qos luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-macrotile-qseed: Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for macrotile format
+				with qseed3 enabled on sspp.
 				Zero fill level on the last entry identifies the default lut.
 - qcom,sde-qos-lut-nrt:		Array of 3 cell property, with a format of
 				<fill level, lut hi, lut lo> in ascending fill level
@@ -617,8 +627,13 @@ Example:
     qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 
     qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
-            0x00000000>;
-    qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+            0x00000000 0x0000ffff>;
+    qcom,sde-safe-lut-linear = <0 0xfff8>;
+    qcom,sde-safe-lut-macrotile = <0 0xf000>;
+    qcom,sde-safe-lut-macrotile-qseed = <0 0xf000>;
+    qcom,sde-safe-lut-nrt = <0 0xffff>;
+    qcom,sde-safe-lut-cwb = <0 0xffff>;
+
     qcom,sde-qos-lut-linear =
             <4 0x00000000 0x00000357>,
             <5 0x00000000 0x00003357>,
@@ -639,6 +654,8 @@ Example:
             <13 0x00002233 0x44556677>,
             <14 0x00012233 0x44556677>,
             <0 0x00112233 0x44556677>;
+    qcom,sde-qos-lut-macrotile-qseed =
+            <0 0x00112233 0x66777777>;
     qcom,sde-qos-lut-nrt =
             <0 0x00000000 0x00000000>;
     qcom,sde-qos-lut-cwb =

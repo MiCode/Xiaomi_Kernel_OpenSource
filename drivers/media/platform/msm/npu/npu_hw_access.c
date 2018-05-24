@@ -304,7 +304,7 @@ uint8_t npu_hw_clk_gating_enabled(void)
 
 uint8_t npu_hw_log_enabled(void)
 {
-	return 0;
+	return 1;
 }
 
 /* -------------------------------------------------------------------------

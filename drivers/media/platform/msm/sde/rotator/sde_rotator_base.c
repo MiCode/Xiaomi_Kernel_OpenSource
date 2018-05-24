@@ -217,12 +217,18 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%llu rd:%d\n",
 		width, height, fps, pixfmt, is_yuv, res, is_rd);
 
+	if (!is_yuv)
+		goto exit;
+
+	/*
+	 * If (total_source_pixels <= 62208000  && YUV) -> RD/WROT=2 //1080p30
+	 * If (total_source_pixels <= 124416000 && YUV) -> RD/WROT=4 //1080p60
+	 * If (total_source_pixels <= 2160p && YUV && FPS <= 30) -> RD/WROT = 32
+	 */
 	if (res <= (RES_1080p * 30))
 		ot_lim = 2;
 	else if (res <= (RES_1080p * 60))
 		ot_lim = 4;
-	else if (res <= (RES_UHD * 30))
-		ot_lim = 8;
 
 exit:
 	SDEROT_DBG("ot_lim=%d\n", ot_lim);
@@ -251,6 +257,8 @@ static u32 get_ot_limit(u32 reg_off, u32 bit_off,
 	val = SDE_VBIF_READ(mdata, reg_off);
 	val &= (0xFF << bit_off);
 	val = val >> bit_off;
+
+	SDEROT_EVTLOG(val, ot_lim);
 
 	if (val == ot_lim)
 		ot_lim = 0;

@@ -703,7 +703,7 @@
 
 	cam_csid0: qcom,csid0@acb3000 {
 		cell-index = <0>;
-		compatible = "qcom,csid170";
+		compatible = "qcom,csid175";
 		reg-names = "csid";
 		reg = <0xacb3000 0x1000>;
 		reg-cam-base = <0xb3000>;
@@ -739,7 +739,7 @@
 
 	cam_vfe0: qcom,vfe0@acaf000 {
 		cell-index = <0>;
-		compatible = "qcom,vfe170";
+		compatible = "qcom,vfe175";
 		reg-names = "ife";
 		reg = <0xacaf000 0x4000>;
 		reg-cam-base = <0xaf000>;
@@ -770,7 +770,7 @@
 
 	cam_csid1: qcom,csid1@acba000 {
 		cell-index = <1>;
-		compatible = "qcom,csid170";
+		compatible = "qcom,csid175";
 		reg-names = "csid";
 		reg = <0xacba000 0x1000>;
 		reg-cam-base = <0xba000>;
@@ -806,7 +806,7 @@
 
 	cam_vfe1: qcom,vfe1@acb6000 {
 		cell-index = <1>;
-		compatible = "qcom,vfe170";
+		compatible = "qcom,vfe175";
 		reg-names = "ife";
 		reg = <0xacb6000 0x4000>;
 		reg-cam-base = <0xb6000>;
@@ -837,7 +837,7 @@
 
 	cam_csid_lite0: qcom,csid-lite0@acc8000 {
 		cell-index = <2>;
-		compatible = "qcom,csid-lite170";
+		compatible = "qcom,csid-lite175";
 		reg-names = "csid-lite";
 		reg = <0xacc8000 0x1000>;
 		reg-cam-base = <0xc8000>;
@@ -870,7 +870,7 @@
 
 	cam_vfe_lite0: qcom,vfe-lite0@acc4000 {
 		cell-index = <2>;
-		compatible = "qcom,vfe-lite170";
+		compatible = "qcom,vfe-lite175";
 		reg-names = "ife-lite";
 		reg = <0xacc4000 0x4000>;
 		reg-cam-base = <0xc4000>;
@@ -895,7 +895,7 @@
 
 	cam_csid_lite1: qcom,csid-lite1@accf000 {
 		cell-index = <3>;
-		compatible = "qcom,csid-lite170";
+		compatible = "qcom,csid-lite175";
 		reg-names = "csid-lite";
 		reg = <0xaccf000 0x1000>;
 		reg-cam-base = <0xcf000>;
@@ -928,7 +928,7 @@
 
 	cam_vfe_lite1: qcom,vfe-lite1@accb000 {
 		cell-index = <3>;
-		compatible = "qcom,vfe-lite170";
+		compatible = "qcom,vfe-lite175";
 		reg-names = "ife-lite";
 		reg = <0xaccb000 0x4000>;
 		reg-cam-base = <0xcb000>;

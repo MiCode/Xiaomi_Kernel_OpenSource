@@ -112,6 +112,10 @@ static int _gmu_iommu_fault_handler(struct device *dev,
 		fault_type = "translation";
 	else if (flags & IOMMU_FAULT_PERMISSION)
 		fault_type = "permission";
+	else if (flags & IOMMU_FAULT_EXTERNAL)
+		fault_type = "external";
+	else if (flags & IOMMU_FAULT_TRANSACTION_STALLED)
+		fault_type = "transaction stalled";
 
 	dev_err(dev, "GMU fault addr = %lX, context=%s (%s %s fault)\n",
 			addr, name,
@@ -1674,7 +1678,7 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_COLD_BOOT);
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1694,7 +1698,7 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_COLD_BOOT);
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1715,7 +1719,7 @@ static int gmu_start(struct kgsl_device *device)
 				goto error_gmu;
 
 
-			ret = hfi_start(gmu, GMU_COLD_BOOT);
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 
@@ -1731,7 +1735,7 @@ static int gmu_start(struct kgsl_device *device)
 			if (ret)
 				goto error_gmu;
 
-			ret = hfi_start(gmu, GMU_COLD_BOOT);
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 		}

@@ -9,4 +9,4 @@ ccflags-y += -Idrivers/media/platform/msm/camera/cam_smmu/
 ccflags-y += -Idrivers/media/platform/msm/camera/cam_req_mgr/
 
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_ife_csid_dev.o cam_ife_csid_soc.o cam_ife_csid_core.o
-obj-$(CONFIG_SPECTRA_CAMERA) += cam_ife_csid170.o cam_ife_csid_lite170.o
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_ife_csid17x.o cam_ife_csid_lite17x.o

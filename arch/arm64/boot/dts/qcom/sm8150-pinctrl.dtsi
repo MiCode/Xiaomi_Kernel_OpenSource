@@ -3926,5 +3926,17 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio49";
+				function = "qdss_cti";
+			};
+			config {
+				pins = "gpio49";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };

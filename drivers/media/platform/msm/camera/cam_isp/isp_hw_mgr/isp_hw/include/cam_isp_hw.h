@@ -95,6 +95,7 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_BW_CONTROL,
 	CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ,
 	CAM_ISP_HW_CMD_GET_REG_DUMP,
+	CAM_ISP_HW_CMD_UBWC_UPDATE,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -201,6 +202,7 @@ struct cam_isp_hw_get_cmd_update {
 		struct cam_isp_port_hfr_config       *hfr_update;
 		struct cam_isp_clock_config          *clock_update;
 		struct cam_isp_bw_config             *bw_update;
+		struct cam_ubwc_plane_cfg_v1         *ubwc_update;
 	};
 };
 

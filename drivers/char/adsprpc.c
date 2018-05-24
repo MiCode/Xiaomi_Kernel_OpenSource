@@ -2990,16 +2990,24 @@ static int fastrpc_cb_probe(struct device *dev)
 	if (err)
 		goto bail;
 	sess = &chan->session[chan->sesscount];
-	sess->smmu.cb = iommuspec.args[0] & 0xf;
 	sess->used = 0;
 	sess->smmu.coherent = of_property_read_bool(dev->of_node,
 						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
+
+	/* Software workaround for SMMU interconnect HW bug */
 	if (cid == SDSP_DOMAIN_ID) {
+		sess->smmu.cb = iommuspec.args[0] & 0x3;
+		VERIFY(err, sess->smmu.cb);
+		if (err)
+			goto bail;
 		start += ((uint64_t)sess->smmu.cb << 32);
-		dma_set_mask(dev, DMA_BIT_MASK(36));
+		dma_set_mask(dev, DMA_BIT_MASK(34));
+	} else {
+		sess->smmu.cb = iommuspec.args[0] & 0xf;
 	}
+
 	if (sess->smmu.secure)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =

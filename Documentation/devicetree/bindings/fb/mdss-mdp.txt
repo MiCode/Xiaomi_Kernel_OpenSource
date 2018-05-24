@@ -1,0 +1,898 @@
+Qualcomm Technologies, Inc. MDSS MDP
+
+MDSS is Mobile Display SubSystem which implements Linux framebuffer APIs to
+drive user interface to different panel interfaces. MDP driver is the core of
+MDSS which manage all data paths to different panel interfaces.
+
+Required properties
+- compatible :		Must be "qcom,mdss_mdp"
+			- "qcom,mdss_mdp3" for mdp3
+- reg :			offset and length of the register set for the device.
+- reg-names :		names to refer to register sets related to this device
+- interrupts :		Interrupt associated with MDSS.
+- interrupt-controller:	Mark the device node as an interrupt controller.
+			This is an empty, boolean property.
+- #interrupt-cells: 	Should be one. The first cell is interrupt number.
+- vdd-supply :		Phandle for vdd regulator device node.
+- qcom,max-clk-rate:	Specify maximum MDP core clock rate in hz that this
+			device supports.
+- qcom,mdss-pipe-vig-off:	Array of offset for MDP source surface pipes of
+				type VIG, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of VIG pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-vig-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the VIG pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-vig-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective VIG pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-vig-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-rgb-off:	Array of offsets for MDP source surface pipes of
+				type RGB, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of RGB pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-rgb-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the RGB pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-rgb-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective RGB pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-rgb-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-dma-off:	Array of offsets for MDP source surface pipes of
+				type DMA, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of DMA pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-dma-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the DMA pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-dma-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective DMA pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-dma-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-cursor-off:	Array of offsets for MDP source surface pipes of
+				type cursor, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of cursor pipes that can be
+				active in MDP for this configuration. Meant for
+				hardware that has hw cursors support as a
+				source pipe.
+- qcom,mdss-pipe-cursor-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective cursor pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-cursor-off
+- qcom,mdss-pipe-cursor-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-cursor-off
+- qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
+				hw blocks within MDP, these offsets are
+				calculated from register "mdp_phys" defined in
+				reg property.  The number of ctl offsets defined
+				here should reflect the number of control paths
+				that can be configured concurrently on MDP for
+				this configuration.
+- qcom,mdss-wb-off:		Array of offset addresses for the progammable
+				writeback blocks within MDP. The number of
+				offsets defined should match the number of ctl
+				blocks defined in property: qcom,mdss-ctl-off
+- qcom,mdss-mixer-intf-off: 	Array of offset addresses for the available
+				mixer blocks that can drive data to panel
+				interfaces.
+				These offsets are be calculated from register
+				"mdp_phys" defined in reg property.
+				The number of offsets defined should reflect the
+				amount of mixers that can drive data to a panel
+				interface.
+- qcom,mdss-dspp-off: 		Array of offset addresses for the available dspp
+				blocks. These offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of dspp blocks should match the
+				number of mixers driving data to interface
+				defined in property: qcom,mdss-mixer-intf-off
+- qcom,mdss-pingpong-off:	Array of offset addresses for the available
+				pingpong blocks. These offsets are calculated
+				from register "mdp_phys" defined in reg property.
+				The number of pingpong blocks should match the
+				number of mixers driving data to interface
+				defined in property: qcom,mdss-mixer-intf-off
+- qcom,mdss-mixer-wb-off: 	Array of offset addresses for the available
+				mixer blocks that can be drive data to writeback
+				block.  These offsets will be calculated from
+				register "mdp_phys" defined in reg property.
+				The number of writeback mixer offsets defined
+				should reflect the number of mixers that can
+				drive data to a writeback block.
+- qcom,mdss-intf-off:		Array of offset addresses for the available MDP
+				video interface blocks that can drive data to a
+				panel controller through timing engine.
+				The offsets are calculated from "mdp_phys"
+				defined in reg property. The number of offsets
+				defiend should reflect the number of progammable
+				interface blocks available in hardware.
+- qcom,mdss-pref-prim-intf:	A string which indicates the configured hardware
+				interface between MDP and the primary panel.
+				Individual panel controller drivers initialize
+				hardware based on this property.
+				Based on the interfaces supported at present,
+				possible values are:
+				- "dsi"
+				- "edp"
+				- "hdmi"
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing MDSS client.
+- qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases
+				defined in the vectors property. This must be
+				set to <3> for MDSS driver where use-case 0 is
+				used to take off MDSS BW votes from the system.
+				And use-case 1 & 2 are used in ping-pong fashion
+				to generate run-time BW requests.
+- qcom,msm-bus,active-only:	A boolean flag indicating if it is active only.
+- qcom,msm-bus,num-paths:	This represents the number of paths in each
+				Bus Scaling Usecase. This value depends on
+				how many number of AXI master ports are
+				dedicated to MDSS for particular chipset. This
+				value represents the RT + NRT AXI master ports.
+- qcom,msm-bus,vectors-KBps:	* A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+				* Current values of src & dst are defined at
+				include/linux/msm-bus-board.h
+				src values allowed for MDSS are:
+					22 = MSM_BUS_MASTER_MDP_PORT0
+					23 = MSM_BUS_MASTER_MDP_PORT1
+					25 = MSM_BUS_MASTER_ROTATOR
+				dst values allowed for MDSS are:
+					512 = MSM_BUS_SLAVE_EBI_CH0
+				ab: Represents aggregated bandwidth.
+				ib: Represents instantaneous bandwidth.
+				* Total number of 4 cell properties will be
+				(number of use-cases * number of paths).
+				* These values will be overridden by the driver
+				based on the run-time requirements. So initial
+				ab and ib values defined here are random and
+				bare no logic except for the use-case 0 where ab
+				and ib values needs to be 0.
+				* Define realtime vector properties followed by
+				non-realtime vector properties.
+
+- qcom,mdss-prefill-outstanding-buffer-bytes: The size of mdp outstanding buffer
+				in bytes. The buffer is filled during prefill
+				time and the buffer size shall be included in
+				prefill bandwidth calculation.
+- qcom,mdss-prefill-y-buffer-bytes: The size of mdp y plane buffer in bytes. The
+				buffer is filled during prefill time when format
+				is YUV and the buffer size shall be included in
+				prefill bandwidth calculation.
+- qcom,mdss-prefill-scaler-buffer-lines-bilinear: The value indicates how many lines
+				of scaler line buffer need to be filled during
+				prefill time. If bilinear scalar is enabled, then this
+				number of lines is used to determine how many bytes
+				of scaler buffer to be included in prefill bandwidth
+				calculation.
+- qcom,mdss-prefill-scaler-buffer-lines-caf: The value indicates how many lines of
+				of scaler line buffer need to be filled during
+				prefill time. If CAF mode filter is enabled, then
+				this number of lines is used to determine how many
+				bytes of scaler buffer to be included in prefill
+				bandwidth calculation.
+- qcom,mdss-prefill-post-scaler-buffer: The size of post scaler buffer in bytes.
+				The buffer is used to smooth the output of the
+				scaler. If the buffer is present in h/w, it is
+				filled during prefill time and the number of bytes
+				shall be included in prefill bandwidth calculation.
+- qcom,mdss-prefill-pingpong-buffer-pixels: The size of pingpong buffer in pixels.
+				The buffer is used to keep pixels flowing to the
+				panel interface. If the vertical start position of a
+				layer is in the beginning of the active area, pingpong
+				buffer must be filled during prefill time to generate
+				starting lines. The number of bytes to be filled is
+				determined by the line width, starting position,
+				byte per pixel and scaling ratio, this number shall be
+				included in prefill bandwidth calculation.
+- qcom,mdss-prefill-fbc-lines:  The value indicates how many lines are required to fill
+				fbc buffer during prefill time if FBC (Frame Buffer
+				Compressor) is enabled. The number of bytes to be filled
+				is determined by the line width, bytes per pixel and
+				scaling ratio, this number shall be included in prefill bandwidth
+				calculation.
+- qcom,max-mixer-width:	Specify maximum MDP mixer width that the device supports.
+				This is a mandatory property, if not specified then
+				mdp probe will fail.
+
+Optional properties:
+- batfet-supply :	Phandle for battery FET regulator device node.
+- vdd-cx-supply :	Phandle for vdd CX regulator device node.
+- qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
+			settings used to setup MDSS QoS for optimum performance.
+			The key used should be offset from "vbif_phys" register
+			defined in reg property.
+- qcom,vbif-nrt-settings : The key used should be offset from "vbif_nrt_phys"
+			register defined in reg property. Refer qcom,vbif-settings
+			for a detailed description of this binding.
+- qcom,mdp-settings :	Array with key-value pairs of constant MDP register
+			settings used to setup MDSS QoS for best performance.
+			The key used should be offset from "mdp_phys" register
+			defined in reg property.
+- qcom,mdss-smp-data:	Array of shared memory pool data for dynamic SMP. There
+			should be only two values in this property. The first
+			value corresponds to the number of smp blocks and the
+			second is the size of each block present in the mdss
+			hardware. This property is optional for MDP hardware
+			with fix pixel latency ram.
+- qcom,mdss-rot-block-size:	The size of a memory block (in pixels) to be used
+				by the rotator. If this property is not specified,
+				then a default value of 128 pixels would be used.
+- qcom,mdss-has-bwc: Boolean property to indicate the presence of bandwidth
+		      compression feature in the rotator.
+- qcom,mdss-has-non-scalar-rgb: Boolean property to indicate the presence of RGB
+				pipes which have no scaling support.
+- qcom,mdss-has-decimation: Boolean property to indicate the presence of
+			    decimation feature in fetch.
+- qcom,mdss-has-fixed-qos-arbiter-enabled: Boolean property to indicate the
+			    presence of rt/nrt feature. This feature enables
+			    increased performance by prioritizing the real time
+			    (rt) traffic over non real time (nrt) traffic to
+			    access the memory.
+- qcom,mdss-num-nrt-paths: Integer property represents the number of non-realtime
+			    paths in each Bus Scaling Usecase. This value depends on
+			    number of AXI ports are dedicated to non-realtime VBIF for
+			    particular chipset. This property is mandatory when
+			    "qcom,mdss-has-fixed-qos-arbiter-enabled" is enabled.
+			    These paths must be defined after rt-paths in
+			    "qcom,msm-bus,vectors-KBps" vector request.
+- qcom,mdss-has-source-split: Boolean property to indicate if source split
+			      feature is available or not.
+- qcom,mdss-has-rotator-downscale: Boolean property to indicate if rotator
+				   downscale feature is available or not.
+- qcom,mdss-rot-downscale-min: This integer value indicates the Minimum
+				downscale factor supported by rotator.
+- qcom,mdss-rot-downscale-max: This integer value indicates the Maximum
+				downscale factor supported by rotator.
+- qcom,mdss-ad-off:		Array of offset addresses for the available
+				Assertive Display (AD) blocks. These offsets
+				are calculated from the register "mdp_phys"
+				defined in reg property. The number of AD
+				offsets should be less than or equal to the
+				number of mixers driving interfaces defined in
+				property: qcom,mdss-mixer-intf-off. Assumes
+				that AD blocks are aligned with the mixer
+				offsets as well (i.e. the first mixer offset
+				corresponds to the same pathway as the first
+				AD offset).
+- qcom,mdss-has-wb-ad: Boolean property to indicate assertive display feature
+				support on write back framebuffer.
+- qcom,mdss-no-lut-read: 	Boolean property to indicate reading of LUT is
+				not supported.
+- qcom,mdss-no-hist-vote	Boolean property to indicate histogram reads
+				and histogram LUT writes do not need additional
+				bandwidth voting.
+- qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
+				   writeback wfd block.
+				"intf" = Writeback wfd block is
+				   connected to the interface mixer.
+				"shared" = Writeback block shared
+				   between wfd and rotator.
+				"dedicated" = Dedicated writeback
+				   block for wfd using writeback mixer.
+- qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
+				restricted for a source surface pipe. If this
+				property is not specified, no such restriction
+				would be applied.
+- qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
+				linear format. The value tells the GPU highest memory
+				 bank bit used.
+- qcom,mdss-pipe-rgb-fixed-mmb: Array of indexes describing fixed Memory Macro
+				Blocks (MMBs) for rgb pipes. First value denotes
+				total numbers of MMBs per pipe while values, if
+				any, following first one denotes indexes of MMBs
+				to that RGB pipe.
+- qcom,mdss-pipe-vig-fixed-mmb: Array of indexes describing fixed Memory Macro
+				Blocks (MMBs) for vig pipes. First value denotes
+				total numbers of MMBs per pipe while values, if
+				any, following first one denotes indexes of MMBs
+				to that VIG pipe.
+- qcom,mdss-pipe-sw-reset-off: Property to indicate offset to the register which
+			       holds sw_reset bitmap for different MDSS
+			       components.
+- qcom,mdss-pipe-vig-sw-reset-map: Array of bit offsets for vig pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-rgb-sw-reset-map: Array of bit offsets for rgb pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-dma-sw-reset-map: Array of bit offsets for dma pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-default-ot-wr-limit: This integer value indicates maximum number of pending
+				writes that can be allowed on each WR xin.
+				This value can be used to reduce the pending writes
+				limit and can be tuned to match performance
+				requirements depending upon system state.
+				Some platforms require a dynamic ot limiting in
+				some cases. Setting this default ot write limit
+				will enable this dynamic limiting for the write
+				operations in the platforms that require these
+				limits.
+- qcom,mdss-default-ot-rd-limit: This integer value indicates the default number of pending
+				reads that can be allowed on each RD xin.
+				Some platforms require a dynamic ot limiting in
+				some cases. Setting this default ot read limit
+				will enable this dynamic limiting for the read
+				operations in the platforms that require these
+				limits.
+- qcom,mdss-clk-levels:		This array indicates the mdp core clock level selection
+				array. Core clock is calculated for each frame and
+				hence depending upon calculated value, clock rate
+				will be rounded up to the next level according to
+				this table. Order of entries need to be ordered in
+				ascending order.
+- qcom,mdss-vbif-qos-rt-setting: This array is used to program vbif qos remapper register
+				 priority for real time clients.
+- qcom,mdss-vbif-qos-nrt-setting: This array is used to program vbif qos remapper register
+				  priority for non real time clients.
+- qcom,mdss-traffic-shaper-enabled: This boolean property enables traffic shaper functionality
+				    for MDSS rotator which spread out rotator bandwidth request
+				    so that rotator don't compete with other real time read
+				    clients.
+- qcom,mdss-dram-channels:	This represents the number of channels in the
+				Bus memory controller.
+- qcom,regs-dump-mdp:		This array represents the registers offsets that
+				will be dumped from the mdp when the debug logging
+				is enabled; each entry in the table is an start and
+				end offset from the MDP address "mdp_phys", the
+				format of each entry is as follows:
+				<start_offset end_offset>
+				Ex:
+				<0x01000 0x01404>
+				Will dump the MDP registers
+				from the address: "mdp_phys + 0x01000"
+				to the address: "mdp_phys + 0x01404"
+- qcom,regs-dump-names-mdp:	This array represents the tag that will be used
+				for each of the entries defined within regs-dump.
+				Note that each tag matches with one of the
+				regs-dump entries in the same order as they
+				are defined.
+- qcom,regs-dump-xin-id-mdp:	Array of VBIF clients ids (xins) corresponding
+				to mdp block. Xin id property is not valid for mdp
+				internal blocks like ctl, lm, dspp. It should set
+				to 0xff for such blocks.
+
+Fudge Factors:			Fudge factors are used to boost demand for
+				resources like bus bandswidth, clk rate etc. to
+				overcome system inefficiencies and avoid any
+				glitches. These fudge factors are expressed in
+				terms of numerator and denominator. First value
+				is numerator followed by denominator. They all
+				are optional but highly recommended.
+				Ex:
+				x = value to be fudged
+				a = numerator, default value is 1
+				b = denominator, default value is 1
+				FUDGE(x, a, b) = ((x * a) / b)
+- qcom,mdss-ib-factor:		This fudge factor is applied to calculated ib
+				values in default conditions.
+- qcom,mdss-ib-factor-overlap:	This fudge factor is applied to calculated ib
+				values when the overlap bandwidth is the
+				predominant value compared to prefill bandwidth
+				value.
+- qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
+				clk rate in default conditions.
+
+- qcom,max-bandwidth-low-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a low bandwidth threshold which should
+				be applied in most scenarios to be safe from
+				underflows when unable to satisfy bandwidth
+				requirements.
+- qcom,max-bandwidth-high-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a high bandwidth threshold which can be
+				applied in scenarios where panel interface can
+				be more tolerant to memory latency such as
+				command mode panels.
+- qcom,max-bandwidth-per-pipe-kbps: A two dimensional array indicating the max
+				bandwidth in KB that a single pipe can support
+				without underflow for various usecases. The
+				first parameter indicates the usecase and the
+				second parameter gives the max bw allowed for
+				the usecase. Following are the enum values for
+				modes in different cases:
+				For default case, mode = 1
+				camera usecase, mode = 2
+				hflip usecase, mode = 4
+				vflip usecase, mode = 8
+				First parameter/mode value need to match enum,
+				mdss_mdp_max_bw_mode, present in
+				include/uapi/linux/msm_mdp.h.
+- qcom,max-bw-settings:         This two dimension array indicates the max bandwidth
+				in KB that has to be supported when particular
+				scenarios are involved such as camera, flip.
+				The first parameter indicate the
+				scenario/usecase and second parameter indicate
+				the maximum bandwidth for that usecase.
+				Following are the enum values for modes in different
+				cases:
+				For default case, mode = 1
+				camera usecase, mode = 2
+				hflip usecase, mode = 4
+				vflip usecase, mode = 8
+				First parameter/mode value need to match enum,
+				mdss_mdp_max_bw_mode, present in
+				include/uapi/linux/msm_mdp.h.
+
+- qcom,mdss-has-panic-ctrl: Boolean property to indicate if panic/robust signal
+				control feature is available or not.
+- qcom,mdss-en-svs-high: Boolean property to indicate if this target needs to
+				enable the svs high voltage level for CX rail.
+- qcom,mdss-pipe-vig-panic-ctrl-offsets: Array of panic/robust signal offsets
+				corresponding to the respective VIG pipes.
+				Number of signal offsets should match the
+				number of offsets defined in property:
+				qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-rgb-panic-ctrl-offsets: Array of panic/robust signal offsets
+				corresponding to the respective RGB pipes.
+				Number of signal offsets should match the
+				number of offsets defined in property:
+				qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-dma-panic-ctrl-offsets: Array of panic/robust signal offsets
+				corresponding to the respective DMA pipes.
+				Number of signal offsets should match the
+				number of offsets defined in property:
+				qcom,mdss-pipe-dma-off
+- qcom,mdss-per-pipe-panic-luts: Array to configure the panic/robust luts for
+				each rt and nrt clients. This property is
+				for the MDPv1.7 and above, which configures
+				the panic independently on each client.
+				Each element of the array corresponds to:
+				First element - panic for linear formats
+				Second element - panic for tile formats
+				Third element - robust for linear formats
+				Fourth element - robust for tile formats
+- qcom,mdss-has-pingpong-split:	Boolean property to indicate if destination
+				split feature is available or not in the target.
+- qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
+				to be programmed when pingpong split feature is enabled.
+				Offset is calculated from the "mdp_phys"
+				register value. Mandatory when qcom,mdss-has-pingpong-split
+				is enabled.
+- qcom,mdss-ppb-ctl-off:	Array of offset addresses of ping pong buffer control registers.
+				The offsets are calculated from the "mdp_phys" base address
+				specified. The number of offsets should match the
+				number of ping pong buffers available in the hardware.
+				Mandatory when qcom,mdss-has-pingpong-split is enabled.
+- qcom,mdss-ppb-cfg-off:	Array of offset addresses of ping pong buffer config registers.
+				The offsets are calculated from the "mdp_phys" base address
+				specified. The number of offsets should match the
+				number of ping pong buffers available in the hardware.
+				Mandatory when qcom,mdss-has-pingpong-split is enabled.
+- qcom,mdss-cdm-off:            Array of offset addresses for the available
+				chroma down modules that can convert RGB data
+				to YUV before sending it to the interface
+				block. These offsets will be calculated from
+				register "mdp_phys" define in reg property. The
+				number of cdm offsets should reflect the number
+				of cdm blocks present in hardware.
+- qcom,mdss-dsc-off:            Array of offset addresses for the available
+				display stream compression module block.
+				These offsets will be calculated from
+				register "mdp_phys" define in reg property. The
+				number of dsc offsets should reflect the number
+				of dsc blocks present in hardware.
+- qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
+				the device supports. If not specified, a default value
+				of 2048 will be applied.
+- qcom,mdss-reg-bus:		Property to provide Bus scaling for register access for
+				MDP and DSI Blocks.
+
+- qcom,mdss-rot-reg-bus:	Property to provide Bus scaling for register access for
+				Rotator Block.
+
+- qcom,mdss-hw-rt:	        Optional Property to request min vote on the bus.
+			        Few Low tier targets expect min vote on the bus during SMMU
+			        and TZ operations. use this handle to request the vote needed.
+
+Optional subnodes:
+- mdss_fb:		Child nodes representing the frame buffer virtual devices.
+
+Subnode properties:
+- compatible :		Must be "qcom,mdss-fb"
+- cell-index :		Index representing frame buffer
+- qcom,mdss-mixer-swap: A boolean property that indicates if the mixer muxes
+			 need to be swapped based on the target panel.
+			 By default the property is not defined.
+- qcom,memblock-reserve: Specifies the memory location and the size reserved
+			 for the framebuffer used to display the splash screen.
+			 This property is required whenever the continuous splash
+			 screen feature is enabled for the corresponding
+			 framebuffer device. It should be used for only 32bit
+			 kernel.
+- qcom,cont-splash-memory: Specifies the memory block region reserved for
+			 continuous splash screen feature. This property should be
+			 defined for corresponding framebuffer device if
+			 "qcom,memblock-reserve" is not defined when continuous
+			 splash screen feature is enabled.
+- linux,contiguous-region: Phandle to the continuous memory region reserved for
+			 frame-buffer or continuous splash screen. Size of this
+			 region is dependent on the display panel resolution and
+			 buffering scheme for frame-buffer node. Currently driver
+			 uses double buffering.
+
+			 Example: Width = 1920, Height = 1080, BytesPerPixel = 4,
+			 Number of frame-buffers reserved = 2.
+			 Size = 1920*1080*4*2 = ROUND_1MB(15.8MB) = 16MB.
+- qcom,mdss-fb-splash-logo-enabled:    The boolean entry enables the framebuffer
+					driver to display the splash logo image.
+					It is independent of continuous splash
+					screen feature and has no relation with
+					qcom,cont-splash-enabled entry present in
+					panel configuration.
+- qcom,mdss-idle-power-collapse-enabled: Boolean property that enables support
+					for mdss power collapse in idle
+					screen use cases with smart panels.
+- qcom,boot-indication-enabled: Boolean property that enables turning on the blue
+				LED for notifying that the device is in boot
+				process.
+
+- qcom,mdss-pp-offets: A node that lists the offsets of post processing blocks
+		       from base module.
+		       -- qcom,mdss-mdss-sspp-igc-lut-off: This 32 bit value provides the
+		              offset to the IGC lut rams from mdp_phys base.
+		       -- qcom,mdss-sspp-vig-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the VIG pipe base address.
+		       -- qcom,mdss-sspp-rgb-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the RGB pipe base address.
+		       -- qcom,mdss-sspp-dma-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the DMA pipe base address.
+		       -- qcom,mdss-dspp-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the DSPP pipe base address.
+		       -- qcom,mdss-lm-pgc-off: This 32 bit value provides the offset
+		               to PGC block from the layer mixer base address.
+		       -- qcom,mdss-dspp-gamut-off: This 32 bit value provides the offset
+		               to gamut block from DSPP base address.
+		       -- qcom,mdss-dspp-pgc-off: This 32 bit value provides the offset to
+		               PGC block from the DSPP base address.
+
+- qcom,mdss-scaler-offsets: A node that lists the offsets of scaler blocks
+		            from base module.
+		            -- qcom,mdss-vig-scaler-off: This 32 bit value provides the
+		                   offset to vig scaler from vig pipe base.
+		            -- qcom,mdss-vig-scaler-lut-off: This 32 bit value provides the
+		                   offset to vig scaler lut from vig pipe base.
+		            -- qcom,mdss-has-dest-scaler: Boolean property to indicate the
+		                   presence of destination scaler block.
+		            -- qcom,mdss-dest-block-off: This 32 bit value provides the
+		                   offset from mdp base to destination scaler block.
+		            -- qcom,mdss-dest-scaler-off: Array containing offsets of
+		                   destination scalar modules from the scaler block.
+		            -- qcom,mdss-dest-scaler-lut-off: Array containing offsets of destination
+		                   scaler lut tables from scalar block.
+
+- qcom,mdss-has-separate-rotator: Boolean property to indicate support of
+				  indpendent rotator. Indpendent rotator has
+				  separate DMA pipe working in block mode only.
+
+- smmu_mdp_***:	Child nodes representing the mdss smmu virtual devices.
+		Mandatory smmu v2 and not required for smmu v1.
+
+Subnode properties:
+- compatible :		Compatible name used in smmu v2.
+			smmu_v2 names should be:
+			"qcom,smmu_mdp_unsec" 	- smmu context bank device for
+						unsecure mdp domain.
+			"qcom,smmu_rot_unsec"	- smmu context bank device for
+						unsecure rotation domain.
+			"qcom,smmu_mdp_sec" 	- smmu context bank device for
+						secure mdp domain.
+			"qcom,smmu_rot_sec"	- smmu context bank device for
+						secure rotation domain.
+			"qcom,smmu_kms_unsec" 	- smmu context bank device for
+						unsecure mdp domain for KMS driver.
+			"qcom,smmu_nrt_unsec"	- smmu context bank device for
+						unsecure rotation domain for KMS driver.
+			"qcom,smmu_kms_sec" 	- smmu context bank device for
+						secure mdp domain for KMS driver.
+			"qcom,smmu_nrt_sec"	- smmu context bank device for
+						secure rotation domain for KMS driver.
+			"qcom,smmu_arm_mdp_unsec"	- arm smmu context bank device for
+						unsecure mdp domain.
+			"qcom,smmu_arm_mdp_sec"	- arm smmu context bank device for
+						secure mdp domain.
+- gdsc-mmagic-mdss-supply: Phandle for mmagic mdss supply regulator device node.
+- reg :			offset and length of the register set for the device.
+- reg-names :		names to refer to register sets related to this device
+- clocks:		List of Phandles for clock device nodes
+			needed by the device.
+- clock-names:		List of clock names needed by the device.
+
+Subnode properties:
+Required properties:
+- compatible:		Must be "qcom,mdss_wb"
+- qcom,mdss_pan_res:	Array containing two elements, width and height which
+			specifies size of writeback buffer.
+- qcom,mdss_pan_bpp:	Specifies bits per pixel for writeback buffer.
+- qcom,mdss-fb-map:	Specifies the handle for frame buffer.
+
+Example:
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>,
+			<0xfd924000 0x1000>,
+			<0xfd925000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys", "vbif_nrt_phys";
+		interrupts = <0 72 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		vdd-supply = <&gdsc_mdss>;
+		batfet-supply = <&pm8941_chg_batif>;
+		vdd-cx-supply = <&pm8841_s2_corner>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_mdp";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,mdss-dram-channels = <2>;
+		qcom,mdss-num-nrt-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>, <23 512 0 0>,
+			<22 512 0 6400000>, <23 512 0 6400000>,
+			<22 512 0 6400000>, <23 512 0 6400000>;
+
+		/* Fudge factors */
+		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
+		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
+		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
+		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
+
+		/* Clock levels */
+		qcom,mdss-clk-levels = <92310000, 177780000, 200000000>;
+
+		/* VBIF QoS remapper settings*/
+		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
+
+		qcom,max-bandwidth-low-kbps = <2300000>;
+		qcom,max-bandwidth-high-kbps = <3000000>;
+		qcom,max-bandwidth-per-pipe-kbps = <4 2100000>,
+						   <8 1800000>;
+		qcom,max-bw-settings = <1 2300000>,
+				       <2 1700000>,
+				       <4 2300000>,
+				       <8 2000000>;
+
+		qcom,max-mixer-width = <2048>;
+		qcom,max-pipe-width = <2048>;
+		qcom,max-clk-rate = <320000000>;
+		qcom,vbif-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>;
+		qcom,vbif-nrt-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>;
+		qcom,mdp-settings = <0x02E0 0x000000AA>,
+				    <0x02E4 0x00000055>;
+		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
+					  0x00001A00>;
+		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200
+					  0x00002600>;
+		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
+		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
+		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
+		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
+		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
+		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+		qcom,mdss-pipe-rgb-fixed-mmb =	<2 0 1>,
+						<2 2 3>,
+						<2 4 5>,
+						<2 6 7>;
+		qcom,mdss-pipe-vig-fixed-mmb =	<1 8>,
+						<1 9>,
+						<1 10>,
+						<1 11>;
+		qcom,mdss-smp-data = <22 4096>;
+		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-rotator-ot-limit = <2>;
+		qcom,mdss-smp-mb-per-pipe = <2>;
+		qcom,mdss-pref-prim-intf = "dsi";
+		qcom,mdss-has-non-scalar-rgb;
+		qcom,mdss-has-bwc;
+		qcom,mdss-has-decimation;
+		qcom,mdss-has-fixed-qos-arbiter-enabled;
+		qcom,mdss-has-source-split;
+		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-no-lut-read;
+		qcom,mdss-no-hist-vote;
+		qcom,mdss-traffic-shaper-enabled;
+		qcom,mdss-has-rotator-downscale;
+		qcom,mdss-rot-downscale-min = <2>;
+		qcom,mdss-rot-downscale-max = <16>;
+
+		qcom,mdss-has-pingpong-split;
+		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
+		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
+		qcom,mdss-pipe-dma-xin-id = <2 10>;
+		qcom,mdss-pipe-cursor-xin-id = <7 7>;
+
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
+						      <0x3B4 0 0>,
+						      <0x3BC 0 0>,
+						      <0x3C4 0 0>;
+
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>,
+						      <0x3B4 4 8>,
+						      <0x3BC 4 8>,
+						      <0x3C4 4 8>;
+
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
+						      <0x3B4 8 12>;
+
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
+						<0xff00>;
+
+		qcom,mdss-has-panic-ctrl;
+		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1 2 3>;
+		qcom,mdss-pipe-rgb-panic-ctrl-offsets = <4 5 6 7>;
+		qcom,mdss-pipe-dma-panic-ctrl-offsets = <8 9>;
+
+		qcom,mdss-pipe-sw-reset-off = <0x0128>;
+		qcom,mdss-pipe-vig-sw-reset-map = <5 6 7 8>;
+		qcom,mdss-pipe-rgb-sw-reset-map = <9 10 11 12>;
+		qcom,mdss-pipe-dma-sw-reset-map = <13 14>;
+
+		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
+				     0x00000900 0x0000A00>;
+		qcom,mdss-mixer-intf-off = <0x00003200 0x00003600
+					    0x00003A00>;
+		qcom,mdss-mixer-wb-off = <0x00003E00 0x00004200>;
+		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
+		qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
+		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
+				    0x00017100 0x00019100>;
+		qcom,mdss-intf-off = <0x00021100 0x00021300
+					   0x00021500 0x00021700>;
+		qcom,mdss-cdm-off = <0x0007A200>;
+		qcom,mdss-ppb-ctl-off = <0x0000420>;
+		qcom,mdss-ppb-cfg-off = <0x0000424>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>
+
+		/* buffer parameters to calculate prefill bandwidth */
+		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
+		qcom,mdss-prefill-y-buffer-bytes = <4096>;
+		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
+		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
+		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
+		qcom,mdss-prefill-fbc-lines = <2>;
+		qcom,mdss-idle-power-collapse-enabled;
+
+		qcom,regs-dump-xin-id-mdp = <0xff 0xff 0xff 0xff 0x0 0x0>;
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+			qcom,mdss-mixer-swap;
+			linux,contiguous-region = <&fb_mem>;
+			qcom,mdss-fb-splash-logo-enabled:
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
+		};
+
+		qcom,mdss-pp-offsets {
+			qcom,mdss-sspp-mdss-igc-lut-off = <0x3000>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1580>;
+			qcom,mdss-sspp-rgb-pcc-off = <0x180>;
+			qcom,mdss-sspp-dma-pcc-off = <0x180>;
+			qcom,mdss-lm-pgc-off = <0x3C0>;
+			qcom,mdss-dspp-gamut-off = <0x1600>;
+			qcom,mdss-dspp-pcc-off = <0x1700>;
+			qcom,mdss-dspp-pgc-off = <0x17C0>;
+		};
+
+		qcom,mdss-scaler-offsets {
+			qcom,mdss-vig-scaler-off = <0xA00>;
+			qcom,mdss-vig-scaler-lut-off = <0xB00>;
+			qcom,mdss-has-dest-scaler;
+			qcom,mdss-dest-block-off = <0x00061000>;
+			qcom,mdss-dest-scaler-off = <0x800 0x1000>;
+			qcom,mdss-dest-scaler-lut-off = <0x900 0x1100>;
+		};
+
+		qcom,mdss-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_reg";
+		    qcom,msm-bus,num-cases = <4>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>,
+			    <1 590 0 160000>,
+			    <1 590 0 320000>;
+		};
+
+		qcom,mdss-hw-rt-bus {
+		    /* hw-rt Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_hw_rt";
+		    qcom,msm-bus,num-cases = <2>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,vectors-KBps =
+			    <22 512 0 0>,
+			    <22 512 0 1000>;
+		};
+
+		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
+			compatible = "qcom,smmu_mdp_sec";
+			iommus = <&mdp_smmu 1>;
+			reg = <0xd09000 0x000d00>,
+			reg-names = "mmu_cb";
+			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
+			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
+				<&clock_mmss clk_smmu_mdp_axi_clk>;
+			clock-names = "dummy_clk", "dummy_clk";
+		};
+
+		qcom,mdss_wb_panel {
+			compatible = "qcom,mdss_wb";
+			qcom,mdss_pan_res = <1280 720>;
+			qcom,mdss_pan_bpp = <24>;
+			qcom,mdss-fb-map = <&mdss_fb1>;
+		};
+
+		qcom,mdss-rot-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_rot_reg";
+		    qcom,msm-bus,num-cases = <2>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>;
+		};
+	};
+

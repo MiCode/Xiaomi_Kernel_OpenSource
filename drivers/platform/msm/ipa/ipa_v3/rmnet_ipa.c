@@ -36,6 +36,7 @@
 #include <uapi/linux/net_map.h>
 #include <uapi/linux/msm_rmnet.h>
 #include <net/rmnet_config.h>
+#include "ipa_mhi_proxy.h"
 
 #include "ipa_trace.h"
 
@@ -3601,6 +3602,8 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 		 */
 		rmnet_ipa_get_network_stats_and_update();
 	}
+
+	imp_handle_modem_ready();
 }
 
 static inline bool rmnet_ipa3_check_any_client_inited

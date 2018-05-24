@@ -1092,6 +1092,8 @@ struct ipa3_smp2p_info {
 	u32 in_base_id;
 	bool ipa_clk_on;
 	bool res_sent;
+	unsigned int smem_bit;
+	struct qcom_smem_state *smem_state;
 };
 
 /**
@@ -2238,6 +2240,7 @@ int ipa3_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa3_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);

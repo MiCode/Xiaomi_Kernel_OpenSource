@@ -1665,6 +1665,10 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:
 		ctrl->val = inst->capability.tme_version;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
+		ctrl->val =
+		inst->capability.nal_stream_format.nal_stream_format_supported;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to

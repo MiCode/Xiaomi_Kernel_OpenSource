@@ -384,7 +384,7 @@ int diag_md_init(void)
 	int i, j;
 	struct diag_md_info *ch = NULL;
 
-	for (i = 0; i < NUM_DIAG_MD_DEV; i++) {
+	for (i = 0; i < DIAG_MD_LOCAL_LAST; i++) {
 		ch = &diag_md[i];
 		ch->num_tbl_entries = diag_mempools[ch->mempool].poolsize;
 		ch->tbl = kcalloc(ch->num_tbl_entries,
@@ -407,12 +407,53 @@ fail:
 	return -ENOMEM;
 }
 
+int diag_md_mdm_init(void)
+{
+	int i, j;
+	struct diag_md_info *ch = NULL;
+
+	for (i = DIAG_MD_BRIDGE_BASE; i < NUM_DIAG_MD_DEV; i++) {
+		ch = &diag_md[i];
+		ch->num_tbl_entries = diag_mempools[ch->mempool].poolsize;
+		ch->tbl = kcalloc(ch->num_tbl_entries, sizeof(*ch->tbl),
+				GFP_KERNEL);
+		if (!ch->tbl)
+			goto fail;
+
+		for (j = 0; j < ch->num_tbl_entries; j++) {
+			ch->tbl[j].buf = NULL;
+			ch->tbl[j].len = 0;
+			ch->tbl[j].ctx = 0;
+		}
+		spin_lock_init(&(ch->lock));
+	}
+
+	return 0;
+
+fail:
+	diag_md_mdm_exit();
+	return -ENOMEM;
+}
+
 void diag_md_exit(void)
 {
 	int i;
 	struct diag_md_info *ch = NULL;
 
-	for (i = 0; i < NUM_DIAG_MD_DEV; i++) {
+	for (i = 0; i < DIAG_MD_LOCAL_LAST; i++) {
+		ch = &diag_md[i];
+		kfree(ch->tbl);
+		ch->num_tbl_entries = 0;
+		ch->ops = NULL;
+	}
+}
+
+void diag_md_mdm_exit(void)
+{
+	int i;
+	struct diag_md_info *ch = NULL;
+
+	for (i = DIAG_MD_BRIDGE_BASE; i < NUM_DIAG_MD_DEV; i++) {
 		ch = &diag_md[i];
 		kfree(ch->tbl);
 		ch->num_tbl_entries = 0;

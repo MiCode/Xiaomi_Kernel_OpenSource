@@ -323,14 +323,20 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 dma_addr_t msm_gem_get_dma_addr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	struct drm_device *dev = obj->dev;
+	struct sg_table *sgt;
 
-	if (IS_ERR_OR_NULL(msm_obj->sgt)) {
-		dev_err(dev->dev, "invalid scatter/gather table\n");
-		return 0;
+	if (!msm_obj->sgt) {
+		sgt = dma_buf_map_attachment(obj->import_attach,
+						DMA_BIDIRECTIONAL);
+		if (IS_ERR_OR_NULL(sgt)) {
+			DRM_ERROR("dma_buf_map_attachment failure, err=%d\n",
+					PTR_ERR(sgt));
+			return 0;
+		}
+		msm_obj->sgt = sgt;
 	}
 
-	return sg_dma_address(msm_obj->sgt->sgl);
+	return sg_phys(msm_obj->sgt->sgl);
 }
 
 static struct msm_gem_vma *add_vma(struct drm_gem_object *obj,

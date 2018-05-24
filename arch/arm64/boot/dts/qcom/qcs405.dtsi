@@ -114,6 +114,7 @@
 #include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
 #include "qcs405-ion.dtsi"
+#include "qcs405-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -211,7 +212,7 @@
 	};
 
 	clock_rpmcc: qcom,rpmcc {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,rpmcc-qcs405";
 		#clock-cells = <1>;
 	};
 
@@ -219,7 +220,7 @@
 		compatible = "qcom,gcc-qcs405", "syscon";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pmd9655_s1_level>;
+		vdd_cx-supply = <&pms405_s1_level>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "cxo";
 		#clock-cells = <1>;
@@ -273,12 +274,12 @@
 
 	};
 
-	dcc: dcc@b3000 {
-		compatible = "qcom,dcc";
-		reg = <0xb3000 0x1000>,
-		      <0xb4000 0x2000>;
+	dcc: dcc_v2@b2000 {
+		compatible = "qcom,dcc_v2";
+		reg = <0x000b2000 0x1000>,
+		      <0x000bf800 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
-		qcom,save-reg;
+		dcc-ram-offset = <0x400>;
 	};
 
 	rpm_bus: qcom,rpm-smd {
@@ -658,10 +659,10 @@
 };
 
 #include "qcs405-gdsc.dtsi"
-#include "qcs405-thermal.dtsi"
 #include "pms405.dtsi"
 #include "pms405-rpm-regulator.dtsi"
 #include "qcs405-regulator.dtsi"
+#include "qcs405-thermal.dtsi"
 
 &gdsc_mdss {
 	status = "ok";
@@ -670,3 +671,5 @@
 &gdsc_oxili_gx {
 	status = "ok";
 };
+
+#include "qcs405-coresight.dtsi"

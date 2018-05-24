@@ -1002,6 +1002,36 @@ TRACE_EVENT(core_ctl_set_boost,
 	TP_printk("refcount=%u, ret=%d", __entry->refcount, __entry->ret)
 );
 
+TRACE_EVENT(core_ctl_update_nr_need,
+
+	TP_PROTO(int cpu, int nr_need, int prev_misfit_need,
+		int nrrun, int max_nr, int nr_prev_assist),
+
+	TP_ARGS(cpu, nr_need, prev_misfit_need, nrrun, max_nr, nr_prev_assist),
+
+	TP_STRUCT__entry(
+		__field( int, cpu)
+		__field( int, nr_need)
+		__field( int, prev_misfit_need)
+		__field( int, nrrun)
+		__field( int, max_nr)
+		__field( int, nr_prev_assist)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->nr_need = nr_need;
+		__entry->prev_misfit_need = prev_misfit_need;
+		__entry->nrrun = nrrun;
+		__entry->max_nr = max_nr;
+		__entry->nr_prev_assist = nr_prev_assist;
+	),
+
+	TP_printk("cpu=%d nr_need=%d prev_misfit_need=%d nrrun=%d max_nr=%d nr_prev_assist=%d",
+		__entry->cpu, __entry->nr_need, __entry->prev_misfit_need,
+		__entry->nrrun, __entry->max_nr, __entry->nr_prev_assist)
+);
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
@@ -1231,35 +1261,79 @@ TRACE_EVENT(sched_energy_diff,
 		__entry->backup_cpu, __entry->backup_energy)
 );
 
+TRACE_EVENT(sched_task_util,
+
+	TP_PROTO(struct task_struct *p, int next_cpu, int backup_cpu,
+		int target_cpu, bool sync, bool need_idle, int fastpath,
+		bool placement_boost, int rtg_cpu, u64 start_t),
+
+	TP_ARGS(p, next_cpu, backup_cpu, target_cpu, sync, need_idle, fastpath,
+		placement_boost, rtg_cpu, start_t),
+
+	TP_STRUCT__entry(
+		__field(int, pid			)
+		__array(char, comm, TASK_COMM_LEN	)
+		__field(unsigned long, util		)
+		__field(int, prev_cpu			)
+		__field(int, next_cpu			)
+		__field(int, backup_cpu			)
+		__field(int, target_cpu			)
+		__field(bool, sync			)
+		__field(bool, need_idle			)
+		__field(int, fastpath			)
+		__field(bool, placement_boost		)
+		__field(int, rtg_cpu			)
+		__field(u64, latency			)
+	),
+
+	TP_fast_assign(
+		__entry->pid			= p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util			= task_util(p);
+		__entry->prev_cpu		= task_cpu(p);
+		__entry->next_cpu		= next_cpu;
+		__entry->backup_cpu		= backup_cpu;
+		__entry->target_cpu		= target_cpu;
+		__entry->sync			= sync;
+		__entry->need_idle		= need_idle;
+		__entry->fastpath		= fastpath;
+		__entry->placement_boost	= placement_boost;
+		__entry->rtg_cpu		= rtg_cpu;
+		__entry->latency		= (sched_clock() - start_t);
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d next_cpu=%d backup_cpu=%d target_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d rtg_cpu=%d latency=%llu",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->next_cpu, __entry->backup_cpu, __entry->target_cpu,
+		__entry->sync, __entry->need_idle, __entry->fastpath,
+		__entry->placement_boost, __entry->rtg_cpu, __entry->latency)
+)
+
 /*
  * Tracepoint for sched_get_nr_running_avg
  */
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int avg, int big_avg, int iowait_avg,
-		unsigned int max_nr, unsigned int big_max_nr),
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max),
 
-	TP_ARGS(avg, big_avg, iowait_avg, max_nr, big_max_nr),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max),
 
 	TP_STRUCT__entry(
-		__field( int,   avg                     )
-		__field( int,   big_avg                 )
-		__field( int,   iowait_avg              )
-		__field( unsigned int,  max_nr          )
-		__field( unsigned int,  big_max_nr      )
+		__field( int, cpu)
+		__field( int, nr)
+		__field( int, nr_misfit)
+		__field( int, nr_max)
 	),
 
 	TP_fast_assign(
-		__entry->avg            = avg;
-		__entry->big_avg        = big_avg;
-		__entry->iowait_avg     = iowait_avg;
-		__entry->max_nr         = max_nr;
-		__entry->big_max_nr     = big_max_nr;
+		__entry->cpu = cpu;
+		__entry->nr = nr;
+		__entry->nr_misfit = nr_misfit;
+		__entry->nr_max = nr_max;
 	),
 
-	TP_printk("avg=%d big_avg=%d iowait_avg=%d max_nr=%u big_max_nr=%u",
-		__entry->avg, __entry->big_avg, __entry->iowait_avg,
-		__entry->max_nr, __entry->big_max_nr)
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d",
+		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max)
 );
 
 /*

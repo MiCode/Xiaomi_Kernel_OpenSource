@@ -984,20 +984,14 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	int rc = 0;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-t-clk-post", &val);
-	if (rc) {
-		pr_debug("[%s] Fallback to default t_clk_post value\n", name);
-		host->t_clk_post = 0x03;
-	} else {
+	if (!rc) {
 		host->t_clk_post = val;
 		pr_debug("[%s] t_clk_post = %d\n", name, val);
 	}
 
 	val = 0;
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-t-clk-pre", &val);
-	if (rc) {
-		pr_debug("[%s] Fallback to default t_clk_pre value\n", name);
-		host->t_clk_pre = 0x24;
-	} else {
+	if (!rc) {
 		host->t_clk_pre = val;
 		pr_debug("[%s] t_clk_pre = %d\n", name, val);
 	}

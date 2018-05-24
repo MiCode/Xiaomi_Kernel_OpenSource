@@ -7,3 +7,5 @@ ipat-y := ipa.o ipa_debugfs.o ipa_hdr.o ipa_flt.o ipa_rt.o ipa_dp.o ipa_client.o
 	ipa_hw_stats.o ipa_pm.o ipa_wdi3_i.o
 
 obj-$(CONFIG_RMNET_IPA3) += rmnet_ipa.o ipa_qmi_service_v01.o ipa_qmi_service.o rmnet_ipa_fd_ioctl.o
+
+obj-$(CONFIG_IPA3_MHI_PROXY) += ipa_mhi_proxy.o

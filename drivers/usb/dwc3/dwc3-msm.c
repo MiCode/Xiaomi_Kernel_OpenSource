@@ -2113,6 +2113,60 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 	}
 }
 
+enum bus_vote {
+	BUS_VOTE_INVALID,
+	BUS_VOTE_SUSPEND,
+	BUS_VOTE_NOMINAL,
+	BUS_VOTE_SVS
+};
+
+static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
+{
+	int ret = 0;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (!mdwc->bus_perf_client)
+		return 0;
+
+	dbg_event(0xFF, "bus_vote_start", bv);
+
+	switch (bv) {
+	case BUS_VOTE_SVS:
+		/* On some platforms SVS does not have separate vote. Vote for
+		 * nominal if svs usecase does not exist
+		 */
+		if (mdwc->bus_scale_table->num_usecases == 2)
+			goto nominal_vote;
+
+		/* index starts from zero */
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 2);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	case BUS_VOTE_NOMINAL:
+nominal_vote:
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 1);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	case BUS_VOTE_SUSPEND:
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 0);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	default:
+		dev_err(mdwc->dev, "Unsupported bus vote:%d\n", bv);
+		ret = -EINVAL;
+	}
+
+	dbg_event(0xFF, "bus_vote_end", bv);
+
+	return ret;
+
+}
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
@@ -2244,15 +2298,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	/* Remove bus voting */
-	if (mdwc->bus_perf_client) {
-		dbg_event(0xFF, "bus_devote_start", 0);
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 0);
-		dbg_event(0xFF, "bus_devote_finish", 0);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw unvoting failed %d\n", ret);
-	}
+	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SUSPEND);
 
 	/*
 	 * release wakeup source with timeout to defer system suspend to
@@ -2310,15 +2356,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	pm_stay_awake(mdwc->dev);
 
-	/* Enable bus voting */
-	if (mdwc->bus_perf_client) {
-		dbg_event(0xFF, "bus_vote_start", 1);
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 1);
-		dbg_event(0xFF, "bus_vote_finish", 1);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-	}
+	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
+		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
+	else
+		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
 
 	/* Vote for TCXO while waking up USB HSPHY */
 	ret = clk_prepare_enable(mdwc->xo_clk);
@@ -2513,10 +2554,10 @@ static void dwc3_resume_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
 
-	if (mdwc->vbus_active && !mdwc->in_restart) {
+	if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 		extcon_id = EXTCON_USB;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
-	} else if (mdwc->id_state == DWC3_ID_GROUND) {
+	} else if (mdwc->extcon && mdwc->id_state == DWC3_ID_GROUND) {
 		extcon_id = EXTCON_USB_HOST;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	}
@@ -3110,7 +3151,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
 	struct device	*dev = &pdev->dev;
-	union power_supply_propval pval = {0};
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
@@ -3361,26 +3401,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&mdwc->suspend_resume_mutex);
-	mdwc->usb_psy = power_supply_get_by_name("usb");
-	if (!mdwc->usb_psy) {
-		dev_warn(mdwc->dev, "Could not get usb power_supply\n");
-		pval.intval = -EINVAL;
-	} else {
-		power_supply_get_property(mdwc->usb_psy,
-			POWER_SUPPLY_PROP_PRESENT, &pval);
-	}
 
 	ret = dwc3_msm_extcon_register(mdwc);
 	if (ret)
-		goto put_psy;
+		goto put_dwc3;
 
-	if (!pval.intval) {
-		/* USB cable is not connected */
-		schedule_delayed_work(&mdwc->sm_work, 0);
-	} else {
-		if (!mdwc->vbus_active && mdwc->id_state && pval.intval > 0)
-			dev_info(mdwc->dev, "charger detection in progress\n");
-	}
+	schedule_delayed_work(&mdwc->sm_work, 0);
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
@@ -3394,10 +3420,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	return 0;
-
-put_psy:
-	if (mdwc->usb_psy)
-		power_supply_put(mdwc->usb_psy);
 
 put_dwc3:
 	if (mdwc->bus_perf_client)
@@ -3499,17 +3521,9 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, host_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	struct usb_device *udev = ptr;
-	union power_supply_propval pval;
-	unsigned int max_power;
 
 	if (event != USB_DEVICE_ADD && event != USB_DEVICE_REMOVE)
 		return NOTIFY_DONE;
-
-	if (!mdwc->usb_psy) {
-		mdwc->usb_psy = power_supply_get_by_name("usb");
-		if (!mdwc->usb_psy)
-			return NOTIFY_DONE;
-	}
 
 	/*
 	 * For direct-attach devices, new udev is direct child of root hub
@@ -3530,31 +3544,17 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 					"set hs core clk rate %ld\n",
 					mdwc->core_clk_rate_hs);
 				mdwc->max_rh_port_speed = USB_SPEED_HIGH;
+				dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
 			} else {
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
-
-			if (udev->speed >= USB_SPEED_SUPER)
-				max_power = udev->actconfig->desc.bMaxPower * 8;
-			else
-				max_power = udev->actconfig->desc.bMaxPower * 2;
-			dev_dbg(mdwc->dev, "%s configured bMaxPower:%d (mA)\n",
-					dev_name(&udev->dev), max_power);
-
-			/* inform PMIC of max power so it can optimize boost */
-			pval.intval = max_power * 1000;
-			power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_BOOST_CURRENT, &pval);
 		} else {
-			pval.intval = 0;
-			power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_BOOST_CURRENT, &pval);
-
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",
 				mdwc->core_clk_rate);
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
+			dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
 		}
 	}
 

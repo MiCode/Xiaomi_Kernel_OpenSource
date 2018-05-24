@@ -296,11 +296,11 @@ struct cam_ife_csid_common_reg_offset {
  *
  */
 struct cam_ife_csid_reg_offset {
-	struct cam_ife_csid_common_reg_offset   *cmn_reg;
-	struct cam_ife_csid_csi2_rx_reg_offset  *csi2_reg;
-	struct cam_ife_csid_ipp_reg_offset      *ipp_reg;
-	struct cam_ife_csid_rdi_reg_offset      *rdi_reg[CAM_IFE_CSID_RDI_MAX];
-	struct cam_ife_csid_csi2_tpg_reg_offset *tpg_reg;
+	const struct cam_ife_csid_common_reg_offset   *cmn_reg;
+	const struct cam_ife_csid_csi2_rx_reg_offset  *csi2_reg;
+	const struct cam_ife_csid_ipp_reg_offset      *ipp_reg;
+	const struct cam_ife_csid_rdi_reg_offset *rdi_reg[CAM_IFE_CSID_RDI_MAX];
+	const struct cam_ife_csid_csi2_tpg_reg_offset *tpg_reg;
 };
 
 
@@ -313,9 +313,9 @@ struct cam_ife_csid_reg_offset {
  *
  */
 struct cam_ife_csid_hw_info {
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	uint32_t                             hw_dts_version;
-	uint32_t                             csid_max_clk;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
+	uint32_t                                hw_dts_version;
+	uint32_t                                csid_max_clk;
 
 };
 

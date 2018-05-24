@@ -758,6 +758,7 @@ static int pd_eval_src_caps(struct usbpd *pd)
 {
 	int i;
 	union power_supply_propval val;
+	bool pps_found = false;
 	u32 first_pdo = pd->received_pdos[0];
 
 	if (PD_SRC_PDO_TYPE(first_pdo) != PD_SRC_PDO_TYPE_FIXED) {
@@ -777,10 +778,8 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
 		start_usb_peripheral(pd);
 
-	if (pd->spec_rev == USBPD_REV_30 && !rev3_sink_only) {
-		bool pps_found = false;
-
-		/* downgrade to 2.0 if no PPS */
+	/* Check for PPS APDOs */
+	if (pd->spec_rev == USBPD_REV_30) {
 		for (i = 1; i < PD_MAX_DATA_OBJ; i++) {
 			if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
 					PD_SRC_PDO_TYPE_AUGMENTED) &&
@@ -789,9 +788,17 @@ static int pd_eval_src_caps(struct usbpd *pd)
 				break;
 			}
 		}
-		if (!pps_found)
+
+		/* downgrade to 2.0 if no PPS */
+		if (!pps_found && !rev3_sink_only)
 			pd->spec_rev = USBPD_REV_20;
 	}
+
+	val.intval = pps_found ?
+			POWER_SUPPLY_PD_PPS_ACTIVE :
+			POWER_SUPPLY_PD_ACTIVE;
+	power_supply_set_property(pd->usb_psy,
+			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1, 0, 0);
@@ -2148,7 +2155,7 @@ static void usbpd_sm(struct work_struct *w)
 				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
 
-				val.intval = 0;
+				val.intval = POWER_SUPPLY_PD_INACTIVE;
 				power_supply_set_property(pd->usb_psy,
 						POWER_SUPPLY_PROP_PD_ACTIVE,
 						&val);
@@ -2168,7 +2175,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
 		kick_sm(pd, SENDER_RESPONSE_TIME);
 
-		val.intval = 1;
+		val.intval = POWER_SUPPLY_PD_ACTIVE;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		break;
@@ -2356,10 +2363,6 @@ static void usbpd_sm(struct work_struct *w)
 			pd->src_cap_id++;
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
-
-			val.intval = 1;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 		} else {
@@ -2370,7 +2373,7 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
 					&val);
 
-			val.intval = 0;
+			val.intval = POWER_SUPPLY_PD_INACTIVE;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		}
@@ -3573,7 +3576,7 @@ static ssize_t rdo_h_show(struct device *dev, struct device_attribute *attr,
 {
 	struct usbpd *pd = dev_get_drvdata(dev);
 	int pos = PD_RDO_OBJ_POS(pd->rdo);
-	int type = PD_SRC_PDO_TYPE(pd->received_pdos[pos]);
+	int type = PD_SRC_PDO_TYPE(pd->received_pdos[pos - 1]);
 	int len;
 
 	len = scnprintf(buf, PAGE_SIZE, "Request Data Object\n"

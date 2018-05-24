@@ -296,9 +296,43 @@
 
 		pm855l_lpg: qcom,pwms@b100 {
 			compatible = "qcom,pwm-lpg";
-			reg = <0xb100 0x300>;
-			reg-names = "lpg-base";
+			reg = <0xb100 0x300>, <0xb000 0x100>;
+			reg-names = "lpg-base", "lut-base";
 			#pwm-cells = <2>;
+			qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+						90 80 70 60 50 40 30 20 10 0>;
+			lpg1 {
+				qcom,lpg-chan-id = <1>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+
+			lpg2 {
+				qcom,lpg-chan-id = <2>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+
+			lpg3 {
+				qcom,lpg-chan-id = <3>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
 		};
 
 		pm855l_rgb_led: qcom,leds@d000 {
@@ -308,16 +342,19 @@
 				label = "red";
 				pwms = <&pm855l_lpg 0 1000000>;
 				led-sources = <0>;
+				linux,default-trigger = "timer";
 			};
 			green {
 				label = "green";
 				pwms = <&pm855l_lpg 1 1000000>;
 				led-sources = <1>;
+				linux,default-trigger = "timer";
 			};
 			blue {
 				label = "blue";
 				pwms = <&pm855l_lpg 2 1000000>;
 				led-sources = <2>;
+				linux,default-trigger = "timer";
 			};
 		};
 	};

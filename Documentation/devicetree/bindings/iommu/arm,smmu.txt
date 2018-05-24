@@ -74,6 +74,9 @@ conditions.
                   address size faults are due to a fundamental programming
                   error from which we don't care about recovering anyways.
 
+- qcom,tz-device-id : A string indicating the device ID for this SMMU known
+		  to TZ.  See msm_tz_smmu.c for a full list of mappings.
+
 - qcom,skip-init : Disable resetting configuration for all context banks
                   during device reset.  This is useful for targets where
                   some context banks are dedicated to other execution
@@ -100,6 +103,15 @@ conditions.
 		  An array of <sid mask actlr-setting>.
 		  Any sid X for which X&~mask==sid will be programmed with the
 		  given actlr-setting.
+
+- qcom,enable-static-cb : Enables option to use pre-defined static context bank
+		  allocation programmed by TZ. Global register including SMR and
+		  S2CR registers are configured by TZ before kernel comes up and
+		  this programming is not altered throughout the life of system.
+		  We would be reading through these registers at run time to
+		  identify CB allocated for a particular sid. SID masking isn't
+		  supported as we are directly comparing client SID with ID bits
+		  of SMR registers.
 
 - qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
                   disable in ms. In case of unmap call, regulator is

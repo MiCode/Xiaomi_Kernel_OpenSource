@@ -1125,6 +1125,7 @@ struct dwc3 {
 	unsigned		ssp_u3_u0_quirk:1;
 	unsigned		tx_de_emphasis:2;
 	unsigned		err_evt_seen:1;
+	unsigned		disable_clk_gating:1;
 	unsigned		enable_bus_suspend:1;
 	unsigned		usb3_u1u2_disable:1;
 

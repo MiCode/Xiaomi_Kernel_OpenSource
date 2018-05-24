@@ -1753,12 +1753,10 @@ static int __init lpm_levels_module_init(void)
 #endif
 
 	rc = platform_driver_register(&lpm_driver);
-	if (rc) {
-		pr_info("Error registering %s\n", lpm_driver.driver.name);
-		goto fail;
-	}
+	if (rc)
+		pr_info("Error registering %s rc=%d\n", lpm_driver.driver.name,
+									rc);
 
-fail:
 	return rc;
 }
 late_initcall(lpm_levels_module_init);

@@ -601,9 +601,9 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
-int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
+int hfi_start(struct kgsl_device *device,
+		struct gmu_device *gmu, uint32_t boot_state)
 {
-	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 

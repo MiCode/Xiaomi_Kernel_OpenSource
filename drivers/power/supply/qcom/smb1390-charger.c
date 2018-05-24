@@ -106,9 +106,7 @@ struct smb1390 {
 	/* votables */
 	struct votable		*disable_votable;
 	struct votable		*ilim_votable;
-	struct votable		*pl_disable_votable;
 	struct votable		*fcc_votable;
-	struct votable		*hvdcp_hw_inov_dis_votable;
 
 	/* power supplies */
 	struct power_supply	*usb_psy;
@@ -175,23 +173,6 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 		chip->fcc_votable = find_votable("FCC");
 		if (!chip->fcc_votable) {
 			pr_debug("Couldn't find FCC votable\n");
-			return false;
-		}
-	}
-
-	if (!chip->pl_disable_votable) {
-		chip->pl_disable_votable = find_votable("PL_DISABLE");
-		if (!chip->pl_disable_votable) {
-			pr_debug("Couldn't find PL_DISABLE votable\n");
-			return false;
-		}
-	}
-
-	if (!chip->hvdcp_hw_inov_dis_votable) {
-		chip->hvdcp_hw_inov_dis_votable =
-			find_votable("HVDCP_HW_INOV_DIS");
-		if (!chip->hvdcp_hw_inov_dis_votable) {
-			pr_debug("Couldn't find HVDCP_HW_INOV_DIS votable\n");
 			return false;
 		}
 	}
@@ -347,11 +328,7 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		if (rc < 0)
 			return rc;
 
-		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
-		vote(chip->pl_disable_votable, CP_VOTER, false, 0);
 	} else {
-		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, true, 0);
-		vote(chip->pl_disable_votable, CP_VOTER, true, 0);
 		rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
 				   CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
 		if (rc < 0)

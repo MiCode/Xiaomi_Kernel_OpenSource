@@ -81,6 +81,10 @@
 	rpm-standalone;
 };
 
+&thermal_zones {
+	/delete-node/ aoss-lowf;
+};
+
 #include "qcs405-stub-regulator.dtsi"
 
 &sdhc_1 {
