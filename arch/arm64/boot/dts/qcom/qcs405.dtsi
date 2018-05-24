@@ -283,7 +283,7 @@
 	};
 
 	dcc: dcc_v2@b2000 {
-		compatible = "qcom,dcc_v2";
+		compatible = "qcom,dcc-v2";
 		reg = <0x000b2000 0x1000>,
 		      <0x000bf800 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
