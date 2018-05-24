@@ -42,6 +42,7 @@
 	((vote_y & BCM_TCS_CMD_VOTE_MASK) << BCM_TCS_CMD_VOTE_Y_SHFT))
 
 static int msm_bus_dev_init_qos(struct device *dev, void *data);
+static int msm_bus_dev_sbm_config(struct device *dev, bool enable);
 
 static struct list_head bcm_query_list_inorder[VCD_MAX_CNT];
 static struct msm_bus_node_device_type *cur_rsc;
@@ -562,6 +563,7 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		bcm_clist_add(node);
+		msm_bus_dev_sbm_config(&node->dev, false);
 	}
 
 	if (!cur_rsc) {
@@ -654,6 +656,7 @@ int msm_bus_commit_data(struct list_head *clist)
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		if (unlikely(node->node_info->defer_qos))
 			msm_bus_dev_init_qos(&node->dev, NULL);
+		msm_bus_dev_sbm_config(&node->dev, true);
 	}
 
 exit_msm_bus_commit_data:
@@ -1005,6 +1008,47 @@ exit_init_qos:
 	return ret;
 }
 
+static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *node_dev = NULL;
+	struct msm_bus_node_device_type *fab_dev = NULL;
+
+	node_dev = to_msm_bus_node(dev);
+	if (!node_dev) {
+		MSM_BUS_ERR("%s: Unable to get node device info", __func__);
+		return -ENXIO;
+	}
+
+	if (!node_dev->node_info->num_disable_ports)
+		return 0;
+
+	if ((node_dev->node_bw[DUAL_CTX].sum_ab ||
+		node_dev->node_bw[DUAL_CTX].max_ib) && !enable)
+		return 0;
+	else if ((!node_dev->node_bw[DUAL_CTX].sum_ab &&
+		!node_dev->node_bw[DUAL_CTX].max_ib) && enable)
+		return 0;
+
+	fab_dev = to_msm_bus_node(node_dev->node_info->bus_device);
+	if (!fab_dev) {
+		MSM_BUS_ERR("%s: Unable to get bus device info for %d",
+			__func__,
+			node_dev->node_info->id);
+		return -ENXIO;
+	}
+
+	if (fab_dev->fabdev &&
+			fab_dev->fabdev->noc_ops.sbm_config) {
+		ret = fab_dev->fabdev->noc_ops.sbm_config(
+			node_dev,
+			fab_dev->fabdev->qos_base,
+			fab_dev->fabdev->sbm_offset,
+			enable);
+	}
+	return ret;
+}
+
 static int msm_bus_fabric_init(struct device *dev,
 			struct msm_bus_node_device_type *pdata)
 {
@@ -1041,6 +1085,7 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_freq = pdata->fabdev->qos_freq;
 	fabdev->bus_type = pdata->fabdev->bus_type;
 	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
+	fabdev->sbm_offset = pdata->fabdev->sbm_offset;
 	msm_bus_fab_init_noc_ops(node_dev);
 
 	fabdev->qos_base = devm_ioremap(dev,
@@ -1293,6 +1338,8 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->num_bcm_devs = pdata_node_info->num_bcm_devs;
 	node_info->num_rsc_devs = pdata_node_info->num_rsc_devs;
 	node_info->num_qports = pdata_node_info->num_qports;
+	node_info->num_disable_ports = pdata_node_info->num_disable_ports;
+	node_info->disable_ports = pdata_node_info->disable_ports;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
 	node_info->is_bcm_dev = pdata_node_info->is_bcm_dev;
