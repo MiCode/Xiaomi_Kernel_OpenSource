@@ -521,6 +521,9 @@ Optional properties:
 					value 0.
 - qcom,mdss-dsi-dma-schedule-line:	An integer value indicates the line number after vertical active
 					region, at which command DMA needs to be triggered.
+- qcom,mdss-dsi-panel-cmds-only-by-right: Boolean used to mention whether the panel support DSI1 or
+					DSI0 to send commands. If this was set, that mean the panel only support
+					DSI1 to send commands, otherwise DSI0 will send comands.
 
 Required properties for sub-nodes:	None
 Optional properties:

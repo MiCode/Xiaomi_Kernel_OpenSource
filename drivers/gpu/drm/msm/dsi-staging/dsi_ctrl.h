@@ -60,6 +60,18 @@
 #define DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE 64
 
 /**
+ * enum dsi_channel_id - defines dsi channel id.
+ * @DSI_CTRL_LEFT:    DSI 0 channel
+ * @DSI_CTRL_RIGHT:   DSI 1 channel
+ * @DSI_CTRL_MAX:  Maximum value.
+ */
+enum dsi_channel_id {
+	DSI_CTRL_LEFT = 0,
+	DSI_CTRL_RIGHT,
+	DSI_CTRL_MAX,
+};
+
+/**
  * enum dsi_power_state - defines power states for dsi controller.
  * @DSI_CTRL_POWER_VREG_OFF:    Digital and analog supplies for DSI controller
 				turned off
