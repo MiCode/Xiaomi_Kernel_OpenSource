@@ -1497,7 +1497,7 @@ static int clk_alpha_pll_slew_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long freq_hz;
-	const struct pll_vco *curr_vco, *vco;
+	const struct pll_vco *curr_vco = NULL, *vco;
 	u32 l, ctl;
 	u64 a;
 	int i = 0;
@@ -1563,7 +1563,7 @@ static int clk_alpha_pll_calibrate(struct clk_hw *hw)
 	unsigned long calibration_freq, freq_hz;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	struct clk_hw *parent;
-	const struct pll_vco *vco;
+	const struct pll_vco *vco = NULL;
 	u64 a;
 	u32 l, ctl;
 	int rc, i = 0;
