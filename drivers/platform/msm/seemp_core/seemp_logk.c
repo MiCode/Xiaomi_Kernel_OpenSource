@@ -22,10 +22,6 @@
 #include "seemp_logk.h"
 #include "seemp_ringbuf.h"
 
-#ifndef VM_RESERVED
-#define VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
-#endif
-
 #define MASK_BUFFER_SIZE 256
 #define FOUR_MB 4
 #define YEAR_BASE 1900
@@ -555,7 +551,7 @@ static int seemp_logk_mmap(struct file *filp,
 		return -EIO;
 	}
 
-	vma->vm_flags |= VM_RESERVED | VM_SHARED;
+	vma->vm_flags |= (VM_DONTEXPAND | VM_DONTDUMP) | VM_SHARED;
 	vptr = (char *) slogk_dev->ring;
 	ret = 0;
 
