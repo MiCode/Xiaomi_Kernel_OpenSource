@@ -29,6 +29,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/kthread.h>
 
 #include <linux/uaccess.h>
 #include <asm/setup.h>
@@ -122,6 +123,7 @@ struct pil_priv {
 	struct wakeup_source ws;
 	char wname[32];
 	struct pil_desc *desc;
+	int num_segs;
 	struct list_head segs;
 	phys_addr_t entry_addr;
 	phys_addr_t base_addr;
@@ -666,6 +668,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
+	priv->num_segs = 0;
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
 		phdr = &mdt->phdr[i];
 		if (!segment_is_loadable(phdr))
@@ -676,6 +679,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 			return PTR_ERR(seg);
 
 		list_add_tail(&seg->list, &priv->segs);
+		priv->num_segs++;
 	}
 	list_sort(NULL, &priv->segs, pil_cmp_seg);
 
@@ -878,6 +882,99 @@ static int pil_notify_aop(struct pil_desc *desc, char *status)
 /* Synchronize request_firmware() with suspend */
 static DECLARE_RWSEM(pil_pm_rwsem);
 
+struct pil_seg_data {
+	int seg_id;
+	struct pil_desc *desc;
+	struct pil_seg *seg;
+	struct completion load_done;
+	int retval;
+};
+
+static int pil_load_seg_thread_fn(void *data)
+{
+	struct pil_seg_data *pil_seg_data = data;
+	struct pil_desc *desc = pil_seg_data->desc;
+	struct pil_seg *seg = pil_seg_data->seg;
+
+	pil_seg_data->retval = pil_load_seg(desc, seg);
+	complete(&pil_seg_data->load_done);
+
+	return 0;
+}
+
+static int pil_load_segs(struct pil_desc *desc)
+{
+	int seg_id = 0;
+	struct pil_priv *priv = desc->priv;
+	struct pil_seg_data *pil_seg_data;
+	struct pil_seg *seg;
+	struct task_struct *task_load_seg;
+	unsigned long *err_map;
+
+	err_map = kcalloc(priv->num_segs, sizeof(*err_map), GFP_KERNEL);
+
+	pil_seg_data = kcalloc(priv->num_segs, sizeof(*pil_seg_data),
+				GFP_KERNEL);
+	if (!pil_seg_data)
+		return -ENOMEM;
+
+	/* Initialize and spawn a thread for each segment */
+	list_for_each_entry(seg, &desc->priv->segs, list) {
+		pil_seg_data[seg_id].seg_id = seg_id;
+		pil_seg_data[seg_id].desc = desc;
+		pil_seg_data[seg_id].seg = seg;
+		init_completion(&pil_seg_data[seg_id].load_done);
+		task_load_seg = kthread_run(pil_load_seg_thread_fn,
+						&pil_seg_data[seg_id],
+						"%s-%d", desc->name, seg_id);
+		/*
+		 * For error handling, do not block/kill other threads. Just
+		 * set the error return code for this thread and call its
+		 * completion. Errors can be handled while the threads are being
+		 * collected.
+		 */
+		if (IS_ERR(task_load_seg)) {
+			pil_seg_data[seg_id].retval = PTR_ERR(task_load_seg);
+			complete(&pil_seg_data[seg_id].load_done);
+			pil_err(desc,
+			"Failed to spawn the thread for seg_id: %d, rc: %d\n",
+			seg_id, pil_seg_data[seg_id].retval);
+		}
+
+		seg_id++;
+	}
+
+	bitmap_zero(err_map, priv->num_segs);
+
+	/* Wait for the parallel loads to finish */
+	seg_id = 0;
+	list_for_each_entry(seg, &desc->priv->segs, list) {
+		if (wait_for_completion_interruptible(
+					&pil_seg_data[seg_id].load_done))
+			pil_seg_data[seg_id].retval = -ERESTARTSYS;
+
+		/* Don't exit if one of the thread fails. Wait for others to
+		 * complete. Bitmap the return codes we get from the threads.
+		 */
+		if (pil_seg_data[seg_id].retval) {
+			pil_err(desc,
+				"Failed to load the segment[%d]. ret = %d\n",
+				seg_id, pil_seg_data[seg_id].retval);
+			__set_bit(seg_id, err_map);
+		}
+
+		seg_id++;
+	}
+
+	kfree(pil_seg_data);
+
+	/* Each segment can fail due to different reason. Send a generic err */
+	if (!bitmap_empty(err_map, priv->num_segs))
+		return -EFAULT;
+
+	return 0;
+}
+
 /**
  * pil_boot() - Load a peripheral image into memory and boot it
  * @desc: descriptor from pil_desc_init()
@@ -890,7 +987,6 @@ int pil_boot(struct pil_desc *desc)
 	char fw_name[30];
 	const struct pil_mdt *mdt;
 	const struct elf32_hdr *ehdr;
-	struct pil_seg *seg;
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
@@ -998,11 +1094,10 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	trace_pil_event("before_load_seg", desc);
-	list_for_each_entry(seg, &desc->priv->segs, list) {
-		ret = pil_load_seg(desc, seg);
-		if (ret)
-			goto err_deinit_image;
-	}
+
+	ret = pil_load_segs(desc);
+	if (ret)
+		goto err_deinit_image;
 
 	if (desc->subsys_vmid > 0) {
 		trace_pil_event("before_reclaim_mem", desc);
