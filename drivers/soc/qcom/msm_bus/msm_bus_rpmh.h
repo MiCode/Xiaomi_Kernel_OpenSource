@@ -79,6 +79,11 @@ struct nodevector {
 	uint64_t query_vec_b;
 };
 
+struct node_regulator {
+	char name[MAX_REG_NAME];
+	struct regulator *reg;
+};
+
 struct qos_bcm_type {
 	int qos_bcm_id;
 	struct nodevector vec;
@@ -215,6 +220,8 @@ struct msm_bus_node_device_type {
 	struct nodeclk *node_qos_clks;
 	uint32_t num_qos_bcms;
 	struct qos_bcm_type *qos_bcms;
+	uint32_t num_regs;
+	struct node_regulator *node_regs;
 	unsigned int ap_owned;
 	struct device_node *of_node;
 	struct device dev;
@@ -223,6 +230,7 @@ struct msm_bus_node_device_type {
 	bool query_dirty;
 	struct list_head dev_link;
 	struct list_head devlist;
+	bool is_connected;
 };
 
 static inline struct msm_bus_node_device_type *to_msm_bus_node(struct device *d)

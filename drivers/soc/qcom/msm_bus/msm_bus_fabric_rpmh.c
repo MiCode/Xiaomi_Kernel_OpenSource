@@ -1010,7 +1010,7 @@ exit_init_qos:
 
 static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
 {
-	int ret = 0;
+	int ret = 0, idx = 0;
 	struct msm_bus_node_device_type *node_dev = NULL;
 	struct msm_bus_node_device_type *fab_dev = NULL;
 
@@ -1024,11 +1024,32 @@ static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
 		return 0;
 
 	if ((node_dev->node_bw[DUAL_CTX].sum_ab ||
-		node_dev->node_bw[DUAL_CTX].max_ib) && !enable)
+		node_dev->node_bw[DUAL_CTX].max_ib ||
+		!node_dev->is_connected) && !enable)
 		return 0;
-	else if ((!node_dev->node_bw[DUAL_CTX].sum_ab &&
-		!node_dev->node_bw[DUAL_CTX].max_ib) && enable)
+	else if (((!node_dev->node_bw[DUAL_CTX].sum_ab &&
+		!node_dev->node_bw[DUAL_CTX].max_ib) ||
+		node_dev->is_connected) && enable)
 		return 0;
+
+	if (enable) {
+		for (idx = 0; idx < node_dev->num_regs; idx++) {
+			if (!node_dev->node_regs[idx].reg)
+				node_dev->node_regs[idx].reg =
+				devm_regulator_get(dev,
+				node_dev->node_regs[idx].name);
+
+			if ((IS_ERR_OR_NULL(node_dev->node_regs[idx].reg)))
+				return -ENXIO;
+			ret = regulator_enable(node_dev->node_regs[idx].reg);
+			if (ret) {
+				MSM_BUS_ERR("%s: Failed to enable reg:%s\n",
+				__func__, node_dev->node_regs[idx].name);
+				return ret;
+			}
+		}
+		node_dev->is_connected = true;
+	}
 
 	fab_dev = to_msm_bus_node(node_dev->node_info->bus_device);
 	if (!fab_dev) {
@@ -1045,6 +1066,25 @@ static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
 			fab_dev->fabdev->qos_base,
 			fab_dev->fabdev->sbm_offset,
 			enable);
+	}
+
+	if (!enable) {
+		for (idx = 0; idx < node_dev->num_regs; idx++) {
+			if (!node_dev->node_regs[idx].reg)
+				node_dev->node_regs[idx].reg =
+				devm_regulator_get(dev,
+					node_dev->node_regs[idx].name);
+
+			if ((IS_ERR_OR_NULL(node_dev->node_regs[idx].reg)))
+				return -ENXIO;
+			ret = regulator_disable(node_dev->node_regs[idx].reg);
+			if (ret) {
+				MSM_BUS_ERR("%s: Failed to disable reg:%s\n",
+				__func__, node_dev->node_regs[idx].name);
+				return ret;
+			}
+		}
+		node_dev->is_connected = false;
 	}
 	return ret;
 }
@@ -1563,6 +1603,9 @@ static struct device *msm_bus_device_init(
 					pdata->qos_bcms[i].vec.vec_b;
 		}
 	}
+	bus_node->num_regs = pdata->num_regs;
+	if (bus_node->num_regs)
+		bus_node->node_regs = pdata->node_regs;
 
 	bus_dev->of_node = pdata->of_node;
 

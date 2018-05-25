@@ -522,10 +522,12 @@ static int get_bus_node_device_data(
 {
 	bool enable_only;
 	bool setrate_only;
-	int num_elems = 0, num_bcms = 0, i = 0, ret = 0;
+	int num_elems = 0, num_bcms = 0, i = 0, ret = 0, num_regs = 0;
 	uint32_t *vec_arr = NULL;
 	struct qos_bcm_type *qos_bcms = NULL;
 	struct device_node *qos_clk_node = NULL;
+	const char *reg_name;
+	struct property *prop;
 
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
@@ -696,6 +698,24 @@ static int get_bus_node_device_data(
 			scnprintf(node_device->clk[DUAL_CTX].reg_name,
 				MAX_REG_NAME, "%c", '\0');
 
+		num_regs = of_property_count_strings(dev_node,
+							"node-reg-names");
+		if (num_regs < 0)
+			node_device->num_regs = 0;
+		else {
+			i = 0;
+			node_device->num_regs = num_regs;
+			node_device->node_regs = devm_kzalloc(&pdev->dev,
+				(num_regs * sizeof(struct node_regulator)),
+								GFP_KERNEL);
+
+			of_property_for_each_string(dev_node, "node-reg-names",
+							prop, reg_name) {
+				scnprintf(node_device->node_regs[i].name,
+					MAX_REG_NAME, "%s", reg_name);
+				i++;
+			}
+		}
 	}
 	return 0;
 }
