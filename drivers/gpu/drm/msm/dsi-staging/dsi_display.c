@@ -2607,8 +2607,9 @@ int dsi_pre_clkoff_cb(void *priv,
 			   enum dsi_clk_type clk,
 			   enum dsi_clk_state new_state)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct dsi_display *display = priv;
+	struct dsi_display_ctrl *ctrl;
 
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
@@ -2655,6 +2656,15 @@ int dsi_pre_clkoff_cb(void *priv,
 		}
 		/* dsi will not be able to serve irqs from here on */
 		dsi_display_ctrl_irq_update(display, false);
+
+		/* cache the MISR values */
+		for (i = 0; i < display->ctrl_count; i++) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl)
+				continue;
+			dsi_ctrl_cache_misr(ctrl->ctrl);
+		}
+
 	}
 
 	return rc;
