@@ -42,6 +42,7 @@ obj-$(CONFIG_MSM_PFE_WA) += pfe-wa.o
 obj-$(CONFIG_ARCH_MSM8996) += msm_cpu_voltage.o
 
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
+obj-$(CONFIG_MSM_PASR) += pasr.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
