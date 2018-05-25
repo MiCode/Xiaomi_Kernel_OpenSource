@@ -342,22 +342,6 @@ enum MHI_CH_CFG {
 #define MHI_CH_CFG_BIT_PRE_ALLOC BIT(3) /* host allocate buffers for DL */
 #define MHI_CH_CFG_BIT_AUTO_START BIT(4) /* host auto start channels */
 
-enum MHI_EV_CFG {
-	MHI_EV_CFG_ELEMENTS = 0,
-	MHI_EV_CFG_INTMOD = 1,
-	MHI_EV_CFG_MSI = 2,
-	MHI_EV_CFG_CHAN = 3,
-	MHI_EV_CFG_PRIORITY = 4,
-	MHI_EV_CFG_BRSTMODE = 5,
-	MHI_EV_CFG_BITCFG = 6,
-	MHI_EV_CFG_MAX
-};
-
-#define MHI_EV_CFG_BIT_HW_EV BIT(0) /* hw event ring */
-#define MHI_EV_CFG_BIT_CL_MANAGE BIT(1) /* client manages the event ring */
-#define MHI_EV_CFG_BIT_OFFLOAD_EV BIT(2) /* satellite driver manges it */
-#define MHI_EV_CFG_BIT_CTRL_EV BIT(3) /* ctrl event ring */
-
 enum MHI_BRSTMODE {
 	MHI_BRSTMODE_DISABLE = 0x2,
 	MHI_BRSTMODE_ENABLE = 0x3,
@@ -468,6 +452,12 @@ enum MHI_ER_TYPE {
 	MHI_ER_TYPE_VALID = 0x1,
 };
 
+enum mhi_er_data_type {
+	MHI_ER_DATA_ELEMENT_TYPE,
+	MHI_ER_CTRL_ELEMENT_TYPE,
+	MHI_ER_DATA_TYPE_MAX = MHI_ER_CTRL_ELEMENT_TYPE,
+};
+
 struct db_cfg {
 	bool reset_req;
 	bool db_mode;
@@ -533,15 +523,18 @@ struct mhi_event {
 	u32 msi;
 	int chan; /* this event ring is dedicated to a channel */
 	u32 priority;
+	enum mhi_er_data_type data_type;
 	struct mhi_ring ring;
 	struct db_cfg db_cfg;
 	bool hw_ring;
 	bool cl_manage;
 	bool offload_ev; /* managed by a device driver */
-	bool ctrl_ev;
 	spinlock_t lock;
 	struct mhi_chan *mhi_chan; /* dedicated to channel */
 	struct tasklet_struct task;
+	int (*process_event)(struct mhi_controller *mhi_cntrl,
+			     struct mhi_event *mhi_event,
+			     u32 event_quota);
 	struct mhi_controller *mhi_cntrl;
 };
 
@@ -557,7 +550,6 @@ struct mhi_chan {
 	struct mhi_ring tre_ring;
 	u32 er_index;
 	u32 intmod;
-	u32 tiocm;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
 	enum MHI_EE ee;
@@ -623,6 +615,10 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);
 void mhi_pm_m1_transition(struct mhi_controller *mhi_cntrl);
 int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl);
 void mhi_notify(struct mhi_device *mhi_dev, enum MHI_CB cb_reason);
+int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
+				struct mhi_event *mhi_event, u32 event_quota);
+int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
+			     struct mhi_event *mhi_event, u32 event_quota);
 
 /* queue transfer buffer */
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
