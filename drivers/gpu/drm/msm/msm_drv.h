@@ -195,6 +195,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_AUTOREFRESH,
 	CONNECTOR_PROP_LP,
 	CONNECTOR_PROP_FB_TRANSLATION_MODE,
+	CONNECTOR_PROP_QSYNC_MODE,
 
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT
@@ -456,6 +457,7 @@ struct msm_mode_info {
  * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
  *				 used instead of panel TE in cmd mode panels
  * @roi_caps:           Region of interest capability info
+ * @qsync_min_fps	Minimum fps supported by Qsync feature
  */
 struct msm_display_info {
 	int intf_type;
@@ -476,6 +478,8 @@ struct msm_display_info {
 	bool is_primary;
 	bool is_te_using_watchdog_timer;
 	struct msm_roi_caps roi_caps;
+
+	uint32_t qsync_min_fps;
 };
 
 #define MSM_MAX_ROI	4
@@ -493,10 +497,14 @@ struct msm_roi_list {
 /**
  * struct - msm_display_kickoff_params - info for display features at kickoff
  * @rois: Regions of interest structure for mapping CRTC to Connector output
+ * @qsync_mode: Qsync mode, where 0: disabled 1: continuous mode
+ * @qsync_update: Qsync settings were changed/updated
  */
 struct msm_display_kickoff_params {
 	struct msm_roi_list *rois;
 	struct drm_msm_ext_hdr_metadata *hdr_meta;
+	uint32_t qsync_mode;
+	bool qsync_update;
 };
 
 /**

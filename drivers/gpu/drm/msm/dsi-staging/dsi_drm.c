@@ -439,6 +439,8 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 		sde_kms_info_add_keystr(info, "panel mode", "command");
 		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
 				panel->cmd_config.mdp_transfer_time_us);
+		sde_kms_info_add_keystr(info, "qsync support",
+				panel->qsync_min_fps ? "true" : "false");
 		break;
 	default:
 		pr_debug("invalid panel type:%d\n", panel->panel_mode);
