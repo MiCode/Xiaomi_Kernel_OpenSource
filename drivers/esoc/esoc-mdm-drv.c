@@ -19,8 +19,25 @@
 #include "esoc-mdm.h"
 #include "mdm-dbg.h"
 
-/* Maximum number of powerup trial requests per session */
-#define ESOC_MAX_PON_REQ	2
+/* Default number of powerup trial requests per session */
+#define ESOC_DEF_PON_REQ	2
+static unsigned int n_pon_tries = ESOC_DEF_PON_REQ;
+module_param(n_pon_tries, uint, 0644);
+MODULE_PARM_DESC(n_pon_tries,
+"Number of power-on retrials allowed upon boot failure");
+
+enum esoc_boot_fail_action {
+	BOOT_FAIL_ACTION_RETRY,
+	BOOT_FAIL_ACTION_COLD_RESET,
+	BOOT_FAIL_ACTION_SHUTDOWN,
+	BOOT_FAIL_ACTION_PANIC,
+	BOOT_FAIL_ACTION_NOP,
+};
+
+static unsigned int boot_fail_action = BOOT_FAIL_ACTION_NOP;
+module_param(boot_fail_action, uint, 0644);
+MODULE_PARM_DESC(boot_fail_action,
+"Actions: 0:Retry PON; 1:Cold reset; 2:Power-down; 3:APQ Panic; 4:No action");
 
 enum esoc_pon_state {
 	PON_INIT,
@@ -232,6 +249,41 @@ static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink)
 	reinit_completion(&mdm_drv->req_eng_wait);
 }
 
+/* Returns 0 to proceed towards another retry, or an error code to quit */
+static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
+{
+	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
+
+	switch (boot_fail_action) {
+	case BOOT_FAIL_ACTION_RETRY:
+		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		(*pon_trial)++;
+		break;
+	/*
+	 * Issue a shutdown here and rerun the powerup again.
+	 * This way it becomes a cold reset. Else, we end up
+	 * issuing a cold reset & a warm reset back to back.
+	 */
+	case BOOT_FAIL_ACTION_COLD_RESET:
+		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		(*pon_trial)++;
+		mdm_power_down(mdm);
+		break;
+	case BOOT_FAIL_ACTION_PANIC:
+		panic("Panic requested on external modem boot failure\n");
+		break;
+	case BOOT_FAIL_ACTION_NOP:
+		return -EIO;
+	case BOOT_FAIL_ACTION_SHUTDOWN:
+	default:
+		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		mdm_power_down(mdm);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 {
 	int ret;
@@ -240,7 +292,6 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 								subsys);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
-	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
 	int timeout = INT_MAX;
 	u8 pon_trial = 1;
 
@@ -288,16 +339,16 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 		ret = wait_for_completion_timeout(&mdm_drv->pon_done, timeout);
 		if (mdm_drv->pon_state == PON_FAIL || ret <= 0) {
 			dev_err(&esoc_clink->dev, "booting failed\n");
-			mdm_subsys_retry_powerup_cleanup(esoc_clink);
-			mdm_power_down(mdm);
-			return -EIO;
+			ret = mdm_handle_boot_fail(esoc_clink, &pon_trial);
+			if (ret)
+				return ret;
 		} else if (mdm_drv->pon_state == PON_RETRY) {
 			pon_trial++;
 			mdm_subsys_retry_powerup_cleanup(esoc_clink);
 		} else if (mdm_drv->pon_state == PON_SUCCESS) {
 			break;
 		}
-	} while (pon_trial <= ESOC_MAX_PON_REQ);
+	} while (pon_trial <= n_pon_tries);
 
 	return 0;
 }
@@ -375,6 +426,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 		dev_dbg(&esoc_clink->dev, "dbg engine initialized\n");
 		debug_init_done = true;
 	}
+
 	return 0;
 queue_err:
 	esoc_clink_unregister_ssr(esoc_clink);
