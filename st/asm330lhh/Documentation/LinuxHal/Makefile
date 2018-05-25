@@ -28,11 +28,11 @@ all: test_linux
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-$(ODIR)/%.o: %.c
+%.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 test_linux: test_linux.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB)
 
 clean:
-	rm -f *.o 
+	rm -f *.o test_linux

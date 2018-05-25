@@ -21,7 +21,6 @@
 
 #include <sys/ioctl.h>
 #include <stdint.h>
-#include <linux/iio/types.h>
 
 #define IIO_MAX_NAME_LENGTH			70
 #define IIO_UTILS_MAX_SAMP_FREQ_AVAILABLE	10
@@ -46,6 +45,133 @@
 #define IIO_EVENT_CODE_EXTRACT_CHAN2(mask)	((__s16)(((mask) >> 16) & 0xFFFF))
 #define IIO_EVENT_CODE_EXTRACT_MODIFIER(mask)	((mask >> 40) & 0xFF)
 #define IIO_EVENT_CODE_EXTRACT_DIFF(mask)	(((mask) >> 55) & 0x1)
+
+#include <linux/ioctl.h>
+#include <linux/types.h>
+
+/**
+ * struct iio_event_data - The actual event being pushed to userspace
+ * @id:		event identifier
+ * @timestamp:	best estimate of time of event occurrence (often from
+ *		the interrupt handler)
+ */
+struct iio_event_data {
+	__u64	id;
+	__s64	timestamp;
+};
+
+#define IIO_GET_EVENT_FD_IOCTL _IOR('i', 0x90, int)
+
+#define IIO_EVENT_CODE_EXTRACT_TYPE(mask) ((mask >> 56) & 0xFF)
+
+#define IIO_EVENT_CODE_EXTRACT_DIR(mask) ((mask >> 48) & 0x7F)
+
+#define IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(mask) ((mask >> 32) & 0xFF)
+
+/* Event code number extraction depends on which type of event we have.
+ * Perhaps review this function in the future*/
+#define IIO_EVENT_CODE_EXTRACT_CHAN(mask) ((__s16)(mask & 0xFFFF))
+#define IIO_EVENT_CODE_EXTRACT_CHAN2(mask) ((__s16)(((mask) >> 16) & 0xFFFF))
+
+#define IIO_EVENT_CODE_EXTRACT_MODIFIER(mask) ((mask >> 40) & 0xFF)
+#define IIO_EVENT_CODE_EXTRACT_DIFF(mask) (((mask) >> 55) & 0x1)
+
+enum iio_chan_type {
+	IIO_VOLTAGE,
+	IIO_CURRENT,
+	IIO_POWER,
+	IIO_ACCEL,
+	IIO_ANGL_VEL,
+	IIO_MAGN,
+	IIO_LIGHT,
+	IIO_INTENSITY,
+	IIO_PROXIMITY,
+	IIO_TEMP,
+	IIO_INCLI,
+	IIO_ROT,
+	IIO_ANGL,
+	IIO_TIMESTAMP,
+	IIO_CAPACITANCE,
+	IIO_ALTVOLTAGE,
+	IIO_CCT,
+	IIO_PRESSURE,
+	IIO_HUMIDITYRELATIVE,
+	IIO_ACTIVITY,
+	IIO_STEPS,
+	IIO_ENERGY,
+	IIO_DISTANCE,
+	IIO_VELOCITY,
+	IIO_CONCENTRATION,
+	IIO_RESISTANCE,
+	IIO_SIGN_MOTION,
+	IIO_STEP_DETECTOR,
+	IIO_STEP_COUNTER,
+	IIO_LINEAR_ACCEL,
+	IIO_GRAVITY,
+	IIO_TILT,
+	IIO_TAP,
+	IIO_TAP_TAP,
+	IIO_WRIST_TILT_GESTURE,
+	IIO_GESTURE,
+};
+
+enum iio_modifier {
+	IIO_NO_MOD,
+	IIO_MOD_X,
+	IIO_MOD_Y,
+	IIO_MOD_Z,
+	IIO_MOD_X_AND_Y,
+	IIO_MOD_X_AND_Z,
+	IIO_MOD_Y_AND_Z,
+	IIO_MOD_X_AND_Y_AND_Z,
+	IIO_MOD_X_OR_Y,
+	IIO_MOD_X_OR_Z,
+	IIO_MOD_Y_OR_Z,
+	IIO_MOD_X_OR_Y_OR_Z,
+	IIO_MOD_LIGHT_BOTH,
+	IIO_MOD_LIGHT_IR,
+	IIO_MOD_ROOT_SUM_SQUARED_X_Y,
+	IIO_MOD_SUM_SQUARED_X_Y_Z,
+	IIO_MOD_LIGHT_CLEAR,
+	IIO_MOD_LIGHT_RED,
+	IIO_MOD_LIGHT_GREEN,
+	IIO_MOD_LIGHT_BLUE,
+	IIO_MOD_QUATERNION,
+	IIO_MOD_TEMP_AMBIENT,
+	IIO_MOD_TEMP_OBJECT,
+	IIO_MOD_NORTH_MAGN,
+	IIO_MOD_NORTH_TRUE,
+	IIO_MOD_NORTH_MAGN_TILT_COMP,
+	IIO_MOD_NORTH_TRUE_TILT_COMP,
+	IIO_MOD_RUNNING,
+	IIO_MOD_JOGGING,
+	IIO_MOD_WALKING,
+	IIO_MOD_STILL,
+	IIO_MOD_ROOT_SUM_SQUARED_X_Y_Z,
+	IIO_MOD_I,
+	IIO_MOD_Q,
+	IIO_MOD_CO2,
+	IIO_MOD_VOC,
+};
+
+enum iio_event_type {
+	IIO_EV_TYPE_THRESH,
+	IIO_EV_TYPE_MAG,
+	IIO_EV_TYPE_ROC,
+	IIO_EV_TYPE_THRESH_ADAPTIVE,
+	IIO_EV_TYPE_MAG_ADAPTIVE,
+	IIO_EV_TYPE_CHANGE,
+	IIO_EV_TYPE_FIFO_FLUSH,
+};
+
+enum iio_event_direction {
+	IIO_EV_DIR_EITHER,
+	IIO_EV_DIR_RISING,
+	IIO_EV_DIR_FALLING,
+	IIO_EV_DIR_NONE,
+	IIO_EV_DIR_FIFO_EMPTY,
+	IIO_EV_DIR_FIFO_DATA,
+};
 
 struct iio_scale_available {
 	float values[IIO_UTILS_SCALE_AVAILABLE];

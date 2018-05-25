@@ -14,17 +14,6 @@ under the License.
 
 -------------------------------------------------------------------------------
 
-This product contains a modified version of kconfig parser and frontends
-extracted from the Linux kernel source tree, which is covered by GPLv2 only.
-
-  * LICENSE:
-    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
-  * FILE:
-    * tools/mkconfig (binary)
-    * tools/kconfig-mconf (binary)
-    * tools/kconfig-language.txt
-
-
 This project may contains proprietary librares under lib/ folder. Different
 LICENSES are applied on binary files.
 
