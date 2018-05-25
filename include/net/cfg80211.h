@@ -25,6 +25,9 @@
 #include <linux/net.h>
 #include <net/regulatory.h>
 
+/* Backport support for DFS offload */
+#define CFG80211_DFS_OFFLOAD_BACKPORT 1
+
 /**
  * DOC: Introduction
  *
