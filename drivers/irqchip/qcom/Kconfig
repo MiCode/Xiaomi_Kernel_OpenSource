@@ -21,6 +21,16 @@ config QTI_PDC_SM6150
         help
           QTI Power Domain Controller for SM6150
 
+config QTI_PDC_SDMMAGPIE
+        bool "QTI PDC SDMMAGPIE"
+        select QTI_PDC
+        default y if ARCH_SDMMAGPIE
+        help
+          QTI Power Domain Controller for SDMMAGPIE
+	  This is used for managing and configuring
+	  the wakeup interrupts. Enable it when
+	  ARCH_SDMMAGPIE is selected.
+
 config QTI_MPM
 	bool "QTI MPM"
 	depends on ARCH_QCOM
