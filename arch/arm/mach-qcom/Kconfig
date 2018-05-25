@@ -94,7 +94,7 @@ config ARCH_MSM8909
 	select MAY_HAVE_SPARSE_IRQ
 	select PINCTRL_MSM_TLMM
 	select USE_PINCTRL_IRQ
-	select MSM_PM if PM
+	select MSM_PM_LEGACY if PM
 	select MSM_RPM_SMD
 	select MSM_RPM_STATS_LOG
 	select MSM_RPM_LOG
