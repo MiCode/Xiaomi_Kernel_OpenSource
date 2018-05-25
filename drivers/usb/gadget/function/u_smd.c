@@ -470,7 +470,7 @@ static unsigned int convert_uart_sigs_to_acm(unsigned uart_sig)
 	unsigned int acm_sig = 0;
 
 	/* should this needs to be in calling functions ??? */
-	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR);
+	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR | TIOCM_CTS);
 
 	if (uart_sig & TIOCM_RI)
 		acm_sig |= SMD_ACM_CTRL_RI;
@@ -478,6 +478,8 @@ static unsigned int convert_uart_sigs_to_acm(unsigned uart_sig)
 		acm_sig |= SMD_ACM_CTRL_DCD;
 	if (uart_sig & TIOCM_DSR)
 		acm_sig |= SMD_ACM_CTRL_DSR;
+	if (uart_sig & TIOCM_CTS)
+		acm_sig |= SMD_ACM_CTRL_BRK;
 
 	return acm_sig;
 }
