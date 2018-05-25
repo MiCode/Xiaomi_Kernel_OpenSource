@@ -1,0 +1,35 @@
+* MSM PM SNOC client
+
+MSM PM SNOC client device is used to setup a bus request for 100 Mhz for the
+SNOC bus when the Apps cores are active. This bus request helps mitigate the
+exit latency from power collapse in cases where there aren't any active bus
+requests for SNOC.
+
+This device is dependent on the pm-8x60 device, which configures the low power
+mode of respective cores.
+
+The required properties of this device are:
+
+- compatible: qcom,pm-snoc-client
+- qcom,msm-bus,name:            String representing the client-name
+- qcom,msm-bus,num-cases:       Total number of usecases
+- qcom,msm-bus,active-only:     Boolean context flag for requests in active or
+                                dual (active & sleep) contex
+- qcom,msm-bus,num-paths:       Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:    Arrays of unsigned integers representing:
+                                master-id, slave-id, arbitrated bandwidth
+                                in KBps, instantaneous bandwidth in KBps
+
+
+Example:
+	qcom,pm-snoc-client {
+		compatible = "qcom,pm-snoc-client";
+		qcom,msm-bus,name = "ocimem_snoc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors =
+			<22 512 0 0>,
+			<22 512 320000 3200000>;
+	};
+
