@@ -488,6 +488,10 @@
 	};
 };
 
+&spmi_debug_bus {
+	status = "ok";
+};
+
 &pm8150b_charger {
 	qcom,sec-charger-config = <1>;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,

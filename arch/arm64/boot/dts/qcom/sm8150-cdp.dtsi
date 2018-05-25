@@ -289,6 +289,10 @@
 	status = "ok";
 };
 
+&spmi_debug_bus {
+	status = "ok";
+};
+
 &pm8150l_wled {
 	qcom,string-cfg= <7>;
 	status = "ok";
