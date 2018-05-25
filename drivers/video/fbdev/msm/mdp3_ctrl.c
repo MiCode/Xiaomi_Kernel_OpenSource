@@ -1524,7 +1524,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 			}
 		}
 		mdp3_session->dma_active = 1;
-		init_completion(&mdp3_session->dma_completion);
+		reinit_completion(&mdp3_session->dma_completion);
 		mdp3_ctrl_notify(mdp3_session, MDP_NOTIFY_FRAME_FLUSHED);
 		mdp3_bufq_push(&mdp3_session->bufq_out, data);
 	}
@@ -1673,7 +1673,7 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 			}
 		}
 		mdp3_session->dma_active = 1;
-		init_completion(&mdp3_session->dma_completion);
+		reinit_completion(&mdp3_session->dma_completion);
 		mdp3_ctrl_notify(mdp3_session, MDP_NOTIFY_FRAME_FLUSHED);
 	} else {
 		pr_debug("mdp3_ctrl_pan_display no memory, stop interface");
