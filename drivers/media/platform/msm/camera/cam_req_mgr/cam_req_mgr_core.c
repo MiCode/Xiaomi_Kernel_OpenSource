@@ -163,6 +163,34 @@ static void __cam_req_mgr_dec_idx(int32_t *val, int32_t step, int32_t max_val)
 }
 
 /**
+ * __cam_req_mgr_validate_inject_delay()
+ *
+ * @brief    : Check if any pd device is introducing inject delay
+ * @tbl      : cam_req_mgr_req_tbl
+ * @curr_idx : slot idx
+ *
+ * @return   : 0 for success, negative for failure
+ */
+static int __cam_req_mgr_validate_inject_delay(
+	struct cam_req_mgr_req_tbl  *tbl,
+	int32_t curr_idx)
+{
+	struct cam_req_mgr_tbl_slot *slot = NULL;
+
+	while (tbl) {
+		slot = &tbl->slot[curr_idx];
+		if (slot->inject_delay > 0) {
+			slot->inject_delay--;
+			return -EAGAIN;
+		}
+		__cam_req_mgr_dec_idx(&curr_idx, tbl->pd_delta,
+			tbl->num_slots);
+		tbl = tbl->next;
+	}
+	return 0;
+}
+
+/**
  * __cam_req_mgr_traverse()
  *
  * @brief    : Traverse through pd tables, it will internally cover all linked
@@ -201,14 +229,17 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		tbl->skip_traverse, traverse_data->in_q->slot[curr_idx].status,
 		traverse_data->in_q->slot[curr_idx].skip_idx);
 
-	if ((slot->inject_delay > 0) &&
-		(traverse_data->self_link == true)) {
-		CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
-		apply_data[tbl->pd].req_id = -1;
-		slot->inject_delay--;
-		/* This pd table is not ready to proceed with asked idx */
-		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
-		return -EAGAIN;
+	if ((traverse_data->self_link == true) &&
+		(!traverse_data->inject_delay_chk)) {
+		rc = __cam_req_mgr_validate_inject_delay(tbl, curr_idx);
+		if (rc) {
+			CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
+			apply_data[tbl->pd].req_id = -1;
+			/* This pd tbl not ready to proceed with asked idx */
+			SET_FAILURE_BIT(traverse_data->result, tbl->pd);
+			return -EAGAIN;
+		}
+		traverse_data->inject_delay_chk = true;
 	}
 
 	/* Check if req is ready or in skip mode or pd tbl is in skip mode */
@@ -519,6 +550,7 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.result = 0;
 	traverse_data.validate_only = validate_only;
 	traverse_data.self_link = self_link;
+	traverse_data.inject_delay_chk = false;
 	traverse_data.open_req_cnt = link->open_req_cnt;
 	/*
 	 *  Traverse through all pd tables, if result is success,
