@@ -35,7 +35,7 @@
 #define MHI_SOFTWARE_CLIENT_LIMIT	(MHI_MAX_SOFTWARE_CHANNELS/2)
 #define MHI_UCI_IPC_LOG_PAGES		(100)
 
-#define MAX_NR_TRBS_PER_CHAN		1
+#define MAX_NR_TRBS_PER_CHAN		9
 #define MHI_QTI_IFACE_ID		4
 #define DEVICE_NAME "mhi"
 
@@ -70,7 +70,131 @@ struct chan_attr {
 	u32 nr_trbs;
 	/* direction of the channel, see enum mhi_chan_dir */
 	enum mhi_chan_dir dir;
-	u32 uci_ownership;
+	/* need to register mhi channel state change callback */
+	bool register_cb;
+};
+
+/* UCI channel attributes table */
+static const struct chan_attr uci_chan_attr_table[] = {
+	{
+		MHI_CLIENT_LOOPBACK_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_LOOPBACK_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_SAHARA_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_SAHARA_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_EFS_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_EFS_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_MBIM_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_MBIM_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_QMI_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_QMI_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_IP_CTRL_0_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_IP_CTRL_0_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_IP_CTRL_1_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_IP_CTRL_1_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{
+		MHI_CLIENT_DUN_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		false
+	},
+	{
+		MHI_CLIENT_DUN_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		false
+	},
+	{ /* Must be the last */
+		MHI_CLIENT_INVALID,
+		0,
+		0,
+		MHI_DIR_INVALID,
+		false
+	},
 };
 
 struct uci_ctrl {
@@ -87,6 +211,8 @@ struct uci_client {
 	u32 in_chan;
 	struct mhi_dev_client *out_handle;
 	struct mhi_dev_client *in_handle;
+	const struct chan_attr *in_chan_attr;
+	const struct chan_attr *out_chan_attr;
 	wait_queue_head_t read_wq;
 	wait_queue_head_t write_wq;
 	atomic_t read_data_ready;
@@ -104,7 +230,6 @@ struct uci_client {
 };
 
 struct mhi_uci_ctxt_t {
-	struct chan_attr chan_attrib[MHI_MAX_SOFTWARE_CHANNELS];
 	struct uci_client client_handles[MHI_SOFTWARE_CLIENT_LIMIT];
 	struct uci_ctrl ctrl_handle;
 	void (*event_notifier)(struct mhi_dev_client_cb_reason *cb);
@@ -119,6 +244,7 @@ struct mhi_uci_ctxt_t {
 };
 
 #define CHAN_TO_CLIENT(_CHAN_NR) (_CHAN_NR / 2)
+#define CLIENT_TO_CHAN(_CLIENT_NR) (_CLIENT_NR * 2)
 
 #define uci_log(_msg_lvl, _msg, ...) do { \
 	if (_msg_lvl >= mhi_uci_msg_lvl) { \
@@ -155,8 +281,8 @@ static int mhi_init_read_chan(struct uci_client *client_handle,
 		enum mhi_client_channel chan)
 {
 	int rc = 0;
-	u32 i , j;
-	struct chan_attr *chan_attributes;
+	u32 i, j;
+	const struct chan_attr *in_chan_attr;
 	size_t buf_size;
 	void *data_loc;
 
@@ -169,10 +295,15 @@ static int mhi_init_read_chan(struct uci_client *client_handle,
 		return -EINVAL;
 	}
 
-	chan_attributes = &uci_ctxt.chan_attrib[chan];
-	buf_size = chan_attributes->max_packet_size;
+	in_chan_attr = client_handle->in_chan_attr;
+	if (!in_chan_attr) {
+		uci_log(UCI_DBG_ERROR, "Null channel attributes for chan %d\n",
+				client_handle->in_chan);
+		return -EINVAL;
+	}
+	buf_size = in_chan_attr->max_packet_size;
 
-	for (i = 0; i < (chan_attributes->nr_trbs); i++) {
+	for (i = 0; i < (in_chan_attr->nr_trbs); i++) {
 		data_loc = kmalloc(buf_size, GFP_KERNEL);
 		if (!data_loc) {
 			rc = -ENOMEM;
@@ -397,19 +528,10 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	struct mhi_uci_ctxt_t *uci_ctxt;
-	u32 nr_in_bufs = 0;
 	int rc = 0;
-	int in_chan = 0;
-	u32 buf_size = 0;
 
 	if (!uci_handle)
 		return -EINVAL;
-
-	uci_ctxt = uci_handle->uci_ctxt;
-	in_chan = iminor(mhi_inode) + 1;
-	nr_in_bufs = uci_ctxt->chan_attrib[in_chan].nr_trbs;
-	buf_size = uci_ctxt->chan_attrib[in_chan].max_packet_size;
 
 	if (atomic_sub_return(1, &uci_handle->ref_count) == 0) {
 		uci_log(UCI_DBG_DBG,
@@ -750,54 +872,25 @@ static ssize_t mhi_uci_client_write(struct file *file,
 
 static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 {
-	u32 i = 0;
-	u32 data_size = TRB_MAX_DATA_SIZE;
-	u32 index = 0;
+	u32 i;
+	u32 index;
 	struct uci_client *client;
-	struct chan_attr *chan_attrib = NULL;
+	const struct chan_attr *chan_attrib;
 
-	for (i = 0; i < ARRAY_SIZE(uci_ctxt->chan_attrib); i++) {
-		chan_attrib = &uci_ctxt->chan_attrib[i];
-		switch (i) {
-		case MHI_CLIENT_LOOPBACK_OUT:
-		case MHI_CLIENT_LOOPBACK_IN:
-		case MHI_CLIENT_SAHARA_OUT:
-		case MHI_CLIENT_SAHARA_IN:
-		case MHI_CLIENT_EFS_OUT:
-		case MHI_CLIENT_EFS_IN:
-		case MHI_CLIENT_MBIM_OUT:
-		case MHI_CLIENT_MBIM_IN:
-		case MHI_CLIENT_QMI_OUT:
-		case MHI_CLIENT_QMI_IN:
-		case MHI_CLIENT_IP_CTRL_0_OUT:
-		case MHI_CLIENT_IP_CTRL_0_IN:
-		case MHI_CLIENT_IP_CTRL_1_OUT:
-		case MHI_CLIENT_IP_CTRL_1_IN:
-		case MHI_CLIENT_DUN_OUT:
-		case MHI_CLIENT_DUN_IN:
-			chan_attrib->uci_ownership = 1;
+	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i += 2) {
+		chan_attrib = &uci_chan_attr_table[i];
+		if (chan_attrib->chan_id == MHI_CLIENT_INVALID)
 			break;
-		default:
-			chan_attrib->uci_ownership = 0;
-			break;
-		}
-		if (chan_attrib->uci_ownership) {
-			chan_attrib->chan_id = i;
-			chan_attrib->max_packet_size = data_size;
-			index = CHAN_TO_CLIENT(i);
-			client = &uci_ctxt->client_handles[index];
-			chan_attrib->nr_trbs = 9;
-			client->in_buf_list =
-			      kmalloc(sizeof(struct mhi_dev_iov) *
-					      chan_attrib->nr_trbs,
+		index = CHAN_TO_CLIENT(i);
+		client = &uci_ctxt->client_handles[index];
+		client->out_chan_attr = chan_attrib;
+		client->in_chan_attr = ++chan_attrib;
+		client->in_buf_list =
+			kcalloc(chan_attrib->nr_trbs,
+					sizeof(struct mhi_dev_iov),
 					GFP_KERNEL);
-			if (NULL == client->in_buf_list)
-				return -ENOMEM;
-		}
-		if (i % 2 == 0)
-			chan_attrib->dir = MHI_DIR_OUT;
-		else
-			chan_attrib->dir = MHI_DIR_IN;
+		if (!client->in_buf_list)
+			return -ENOMEM;
 	}
 	return 0;
 }
@@ -949,16 +1042,14 @@ int mhi_uci_init(void)
 	uci_log(UCI_DBG_INFO, "Registering for MHI events.\n");
 
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; i++) {
-		if (uci_ctxt.chan_attrib[i * 2].uci_ownership) {
-			mhi_client = &uci_ctxt.client_handles[i];
-
-			r = mhi_register_client(mhi_client, i);
-
-			if (r) {
-				uci_log(UCI_DBG_CRITICAL,
-					"Failed to reg client %d ret %d\n",
-					r, i);
-			}
+		mhi_client = &uci_ctxt.client_handles[i];
+		if (!mhi_client->in_chan_attr)
+			continue;
+		r = mhi_register_client(mhi_client, i);
+		if (r) {
+			uci_log(UCI_DBG_CRITICAL,
+				"Failed to reg client %d ret %d\n",
+				r, i);
 		}
 	}
 
@@ -992,29 +1083,30 @@ int mhi_uci_init(void)
 
 	uci_log(UCI_DBG_INFO, "Setting up device nodes.\n");
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; i++) {
-		if (uci_ctxt.chan_attrib[i*2].uci_ownership) {
-			cdev_init(&uci_ctxt.cdev[i], &mhi_uci_client_fops);
-			uci_ctxt.cdev[i].owner = THIS_MODULE;
-			r = cdev_add(&uci_ctxt.cdev[i],
-					uci_ctxt.start_ctrl_nr + i , 1);
-			if (IS_ERR_VALUE(r)) {
-				uci_log(UCI_DBG_ERROR,
-					"Failed to add cdev %d, ret 0x%x\n",
-					i, r);
-				goto failed_char_add;
-			}
+		mhi_client = &uci_ctxt.client_handles[i];
+		if (!mhi_client->in_chan_attr)
+			continue;
+		cdev_init(&uci_ctxt.cdev[i], &mhi_uci_client_fops);
+		uci_ctxt.cdev[i].owner = THIS_MODULE;
+		r = cdev_add(&uci_ctxt.cdev[i],
+				uci_ctxt.start_ctrl_nr + i, 1);
+		if (IS_ERR_VALUE(r)) {
+			uci_log(UCI_DBG_ERROR,
+				"Failed to add cdev %d, ret 0x%x\n",
+				i, r);
+			goto failed_char_add;
+		}
 
-			uci_ctxt.client_handles[i].dev =
-				device_create(uci_ctxt.mhi_uci_class, NULL,
-						uci_ctxt.start_ctrl_nr + i,
-						NULL, DEVICE_NAME "_pipe_%d",
-						i * 2);
-			if (IS_ERR(uci_ctxt.client_handles[i].dev)) {
-				uci_log(UCI_DBG_ERROR,
-						"Failed to add cdev %d\n", i);
-				cdev_del(&uci_ctxt.cdev[i]);
-				goto failed_device_create;
-			}
+		uci_ctxt.client_handles[i].dev =
+			device_create(uci_ctxt.mhi_uci_class, NULL,
+					uci_ctxt.start_ctrl_nr + i,
+					NULL, DEVICE_NAME "_pipe_%d",
+					i * 2);
+		if (IS_ERR(uci_ctxt.client_handles[i].dev)) {
+			uci_log(UCI_DBG_ERROR,
+					"Failed to add cdev %d\n", i);
+			cdev_del(&uci_ctxt.cdev[i]);
+			goto failed_device_create;
 		}
 	}
 
