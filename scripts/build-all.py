@@ -270,35 +270,23 @@ class Builder():
         steps.append(ExecStep(['make', 'O=%s' % dest_dir,
             self.confname], env=self.make_env))
 
-        if not all_options.updateconfigs:
-            # Build targets can be dependent upon the completion of
-            # previous build targets, so build them one at a time.
-            cmd_line = ['make',
-                'INSTALL_HDR_PATH=%s' % hdri_dir,
-                'INSTALL_MOD_PATH=%s' % modi_dir,
-                'O=%s' % dest_dir,
-                'REAL_CC=%s' % clang_bin]
-            build_targets = []
-            for c in make_command:
-                if re.match(r'^-{1,2}\w', c):
-                    cmd_line.append(c)
-                else:
-                    build_targets.append(c)
-            for t in build_targets:
-                steps.append(ExecStep(cmd_line + [t], env=self.make_env))
-
-        # Copy the defconfig back.
-        if all_options.configs or all_options.updateconfigs:
-            steps.append(ExecStep(['make', 'O=%s' % dest_dir,
-                'savedefconfig'], env=self.make_env))
-            steps.append(CopyfileStep(savedefconfig, defconfig))
+        # Build targets can be dependent upon the completion of
+        # previous build targets, so build them one at a time.
+        cmd_line = ['make',
+            'INSTALL_HDR_PATH=%s' % hdri_dir,
+            'INSTALL_MOD_PATH=%s' % modi_dir,
+            'O=%s' % dest_dir,
+            'REAL_CC=%s' % clang_bin]
+        build_targets = []
+        for c in make_command:
+            if re.match(r'^-{1,2}\w', c):
+                cmd_line.append(c)
+            else:
+                build_targets.append(c)
+        for t in build_targets:
+            steps.append(ExecStep(cmd_line + [t], env=self.make_env))
 
         return steps
-
-def update_config(file, str):
-    print 'Updating %s with \'%s\'\n' % (file, str)
-    with open(file, 'a') as defconfig:
-        defconfig.write(str + '\n')
 
 def scan_configs():
     """Get the full list of defconfigs appropriate for this tree."""
@@ -341,8 +329,6 @@ def build_many(targets):
 
     tracker = BuildTracker(parallel)
     for target in targets:
-        if all_options.updateconfigs:
-            update_config(target.defconfig, all_options.updateconfigs)
         steps = target.build()
         tracker.add_sequence(target.log_name, target.name, steps)
     tracker.run()
@@ -358,25 +344,14 @@ def main():
     usage = ("""
            %prog [options] all                 -- Build all targets
            %prog [options] target target ...   -- List specific targets
-           %prog [options] perf                -- Build all perf targets
-           %prog [options] noperf              -- Build all non-perf targets""")
+           """)
     parser = OptionParser(usage=usage, version=version)
-    parser.add_option('--configs', action='store_true',
-            dest='configs',
-            help="Copy configs back into tree")
     parser.add_option('--list', action='store_true',
             dest='list',
             help='List available targets')
     parser.add_option('-v', '--verbose', action='store_true',
             dest='verbose',
             help='Output to stdout in addition to log file')
-    parser.add_option('--oldconfig', action='store_true',
-            dest='oldconfig',
-            help='Only process "make oldconfig"')
-    parser.add_option('--updateconfigs',
-            dest='updateconfigs',
-            help="Update defconfigs with provided option setting, "
-                 "e.g. --updateconfigs=\'CONFIG_USE_THING=y\'")
     parser.add_option('-j', '--jobs', type='int', dest="jobs",
             help="Number of simultaneous jobs")
     parser.add_option('-l', '--load-average', type='int',
@@ -399,25 +374,11 @@ def main():
             print "   %s" % target.name
         sys.exit(0)
 
-    if options.oldconfig:
-        make_command = ["oldconfig"]
-    elif options.make_target:
+    if options.make_target:
         make_command = options.make_target
 
     if args == ['all']:
         build_many(configs)
-    elif args == ['perf']:
-        targets = []
-        for t in configs:
-            if "perf" in t.name:
-                targets.append(t)
-        build_many(targets)
-    elif args == ['noperf']:
-        targets = []
-        for t in configs:
-            if "perf" not in t.name:
-                targets.append(t)
-        build_many(targets)
     elif len(args) > 0:
         all_configs = {}
         for t in configs:
