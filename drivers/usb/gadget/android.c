@@ -1971,6 +1971,7 @@ static struct android_usb_function qdss_function = {
 #define MAX_SERIAL_INSTANCES 4
 struct serial_function_config {
 	int instances_on;
+	bool serial_initialized;
 	struct usb_function *f_serial[MAX_SERIAL_INSTANCES];
 	struct usb_function_instance *f_serial_inst[MAX_SERIAL_INSTANCES];
 };
@@ -2097,8 +2098,9 @@ static int serial_function_bind_config(struct android_usb_function *f,
 	char *name, *xport_name = NULL;
 	char buf[32], *b, xport_name_buf[32], *tb;
 	int err = -1, i, ports = 0;
-	static int serial_initialized;
 	struct serial_function_config *config = f->config;
+	static bool transports_initialized;
+
 	strlcpy(buf, serial_transports, sizeof(buf));
 	b = strim(buf);
 
@@ -2111,7 +2113,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		if (name) {
 			if (tb)
 				xport_name = strsep(&tb, ",");
-			if (!serial_initialized) {
+			if (!config->serial_initialized) {
 				err = gserial_init_port(ports, name,
 						xport_name);
 				if (err) {
@@ -2133,7 +2135,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 	 * switching composition from 1 serial function to 2 serial functions.
 	 * Mark 2nd port to use tty if user didn't specify transport.
 	 */
-	if ((config->instances_on == 1) && !serial_initialized) {
+	if ((config->instances_on == 1) && !config->serial_initialized) {
 		err = gserial_init_port(ports, "tty", "serial_tty");
 		if (err) {
 			pr_err("serial: Cannot open port '%s'", "tty");
@@ -2146,14 +2148,18 @@ static int serial_function_bind_config(struct android_usb_function *f,
 	if (ports > config->instances_on)
 		ports = config->instances_on;
 
-	if (serial_initialized)
+	if (config->serial_initialized)
 		goto bind_config;
 
-	err = gport_setup(c);
-	if (err) {
-		pr_err("serial: Cannot setup transports");
-		gserial_deinit_port();
-		goto out;
+	if (!transports_initialized) {
+		err = gport_setup(c);
+		if (err) {
+			pr_err("serial: Cannot setup transports");
+			gserial_deinit_port();
+			goto out;
+		}
+		/* transports are initialized once and shared across configs */
+		transports_initialized = true;
 	}
 
 	for (i = 0; i < config->instances_on; i++) {
@@ -2169,7 +2175,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		}
 	}
 
-	serial_initialized = 1;
+	config->serial_initialized = true;
 
 bind_config:
 	for (i = 0; i < ports; i++) {
@@ -2204,6 +2210,13 @@ static struct android_usb_function serial_function = {
 	.cleanup	= serial_function_cleanup,
 	.bind_config	= serial_function_bind_config,
 	.attributes	= serial_function_attributes,
+};
+
+static struct android_usb_function serial_function_config2 = {
+	.name		= "serial_config2",
+	.init		= serial_function_init,
+	.cleanup	= serial_function_cleanup,
+	.bind_config	= serial_function_bind_config,
 };
 
 /* CCID */
@@ -3282,6 +3295,7 @@ static struct android_usb_function *supported_functions[] = {
 	[ANDROID_DIAG] = &diag_function,
 	[ANDROID_QDSS_BAM] = &qdss_function,
 	[ANDROID_SERIAL] = &serial_function,
+	[ANDROID_SERIAL_CONFIG2] = &serial_function_config2,
 	[ANDROID_CCID] = &ccid_function,
 	[ANDROID_ACM] = &acm_function,
 	[ANDROID_MTP] = &mtp_function,
@@ -3321,6 +3335,7 @@ static struct android_usb_function *default_functions[] = {
 	&diag_function,
 	&qdss_function,
 	&serial_function,
+	&serial_function_config2,
 	&ccid_function,
 	&acm_function,
 	&mtp_function,
