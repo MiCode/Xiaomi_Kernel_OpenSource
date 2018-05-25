@@ -1,5 +1,6 @@
 obj-$(CONFIG_QPNP_FG_GEN3)     += qpnp-fg-gen3.o fg-memif.o fg-util.o
 obj-$(CONFIG_QPNP_FG_GEN4)     += qpnp-fg-gen4.o fg-memif.o fg-util.o fg-alg.o  pmic-voter.o
+obj-$(CONFIG_QPNP_QG)		+= qpnp-qg.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
 obj-$(CONFIG_SMB1351_USB_CHARGER) += smb1351-charger.o pmic-voter.o battery.o
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)   += smb1355-charger.o pmic-voter.o
 obj-$(CONFIG_QPNP_SMB2)		+= step-chg-jeita.o battery.o qpnp-smb2.o smb-lib.o pmic-voter.o storm-watch.o
