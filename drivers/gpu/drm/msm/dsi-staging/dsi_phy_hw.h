@@ -251,6 +251,12 @@ struct dsi_phy_hw_ops {
 	 */
 	void (*toggle_resync_fifo)(struct dsi_phy_hw *phy);
 
+	/**
+	 * reset_clk_en_sel() - reset clk_en_sel on phy cmn_clk_cfg1 register
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 */
+	void (*reset_clk_en_sel)(struct dsi_phy_hw *phy);
+
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
 };

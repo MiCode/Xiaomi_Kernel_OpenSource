@@ -276,6 +276,18 @@ void dsi_phy_hw_v4_0_toggle_resync_fifo(struct dsi_phy_hw *phy)
 	wmb();
 }
 
+void dsi_phy_hw_v4_0_reset_clk_en_sel(struct dsi_phy_hw *phy)
+{
+	u32 data = 0;
+
+	/*Turning off CLK_EN_SEL after retime buffer sync */
+	data = DSI_R32(phy, DSIPHY_CMN_CLK_CFG1);
+	data &= ~BIT(4);
+	DSI_W32(phy, DSIPHY_CMN_CLK_CFG1, data);
+	/* ensure that clk_en_sel bit is turned off */
+	wmb();
+}
+
 int dsi_phy_hw_v4_0_wait_for_lane_idle(
 		struct dsi_phy_hw *phy, u32 lanes)
 {

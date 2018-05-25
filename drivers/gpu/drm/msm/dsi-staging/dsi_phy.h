@@ -260,6 +260,15 @@ int dsi_phy_lane_reset(struct msm_dsi_phy *phy);
 void dsi_phy_toggle_resync_fifo(struct msm_dsi_phy *phy);
 
 /**
+ * dsi_phy_reset_clk_en_sel() - reset clk_en_select on cmn_clk_cfg1 register
+ * @phy:          DSI PHY handle
+ *
+ * After toggling resync fifo regiater, clk_en_sel bit on cmn_clk_cfg1
+ * register has to be reset
+ */
+void dsi_phy_reset_clk_en_sel(struct msm_dsi_phy *phy);
+
+/**
  * dsi_phy_drv_register() - register platform driver for dsi phy
  */
 void dsi_phy_drv_register(void);
