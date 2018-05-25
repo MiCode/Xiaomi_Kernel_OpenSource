@@ -4200,9 +4200,35 @@ static const struct qcom_cc_desc gcc_sm8150_desc = {
 
 static const struct of_device_id gcc_sm8150_match_table[] = {
 	{ .compatible = "qcom,gcc-sm8150" },
+	{ .compatible = "qcom,gcc-sm8150-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sm8150_match_table);
+
+static void gcc_sm8150_fixup_sm8150v2(struct regmap *regmap)
+{
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 9600000;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_LOWER] = 19200000;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 9600000;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_LOWER] = 19200000;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] = 50000000;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 100000000;
+}
+
+static int gcc_sm8150_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,gcc-sm8150-v2"))
+		gcc_sm8150_fixup_sm8150v2(regmap);
+
+	return 0;
+}
 
 static int gcc_sm8150_probe(struct platform_device *pdev)
 {
@@ -4247,6 +4273,10 @@ static int gcc_sm8150_probe(struct platform_device *pdev)
 				"Unable to get vdd_cx_ao regulator\n");
 		return PTR_ERR(vdd_cx_ao.regulator[0]);
 	}
+
+	ret = gcc_sm8150_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sm8150_desc, regmap);
 	if (ret) {
