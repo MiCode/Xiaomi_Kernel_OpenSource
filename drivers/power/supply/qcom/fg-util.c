@@ -886,19 +886,26 @@ int fg_get_msoc(struct fg_dev *fg, int *msoc)
 #define SKIP_BATT_TYPE		"Skipped loading battery"
 const char *fg_get_battery_type(struct fg_dev *fg)
 {
-	if (fg->battery_missing ||
-		fg->profile_load_status == PROFILE_MISSING)
+	switch (fg->profile_load_status) {
+	case PROFILE_MISSING:
+		return DEFAULT_BATT_TYPE;
+	case PROFILE_SKIPPED:
+		return SKIP_BATT_TYPE;
+	case PROFILE_LOADED:
+		if (fg->bp.batt_type_str)
+			return fg->bp.batt_type_str;
+		break;
+	case PROFILE_NOT_LOADED:
+		return MISSING_BATT_TYPE;
+	default:
+		break;
+	};
+
+	if (fg->battery_missing)
 		return MISSING_BATT_TYPE;
 
-	if (fg->profile_load_status == PROFILE_SKIPPED)
-		return SKIP_BATT_TYPE;
-
-	if (fg->bp.batt_type_str) {
-		if (fg->profile_loaded)
-			return fg->bp.batt_type_str;
-		else if (fg->profile_available)
-			return LOADING_BATT_TYPE;
-	}
+	if (fg->profile_available)
+		return LOADING_BATT_TYPE;
 
 	return DEFAULT_BATT_TYPE;
 }
