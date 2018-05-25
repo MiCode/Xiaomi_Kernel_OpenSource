@@ -643,10 +643,27 @@ int hfi_start(struct kgsl_device *device,
 		struct gmu_device *gmu, uint32_t boot_state)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int result;
+	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
+	struct hfi_queue_table *tbl = mem_addr->hostptr;
+	struct hfi_queue_header *hdr;
+	int result, i;
 
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
+
+	/* Force read_index to the write_index no matter what */
+	for (i = 0; i < HFI_QUEUE_MAX; i++) {
+		hdr = &tbl->qhdr[i];
+		if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
+			continue;
+
+		if (hdr->read_index != hdr->write_index) {
+			dev_err(&gmu->pdev->dev,
+				"HFI Q[%d] Index Error: read:0x%X write:0x%X\n",
+				i, hdr->read_index, hdr->write_index);
+			hdr->read_index = hdr->write_index;
+		}
+	}
 
 	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev)) {
 		result = hfi_send_gmu_init(gmu, boot_state);
@@ -714,9 +731,6 @@ void hfi_stop(struct gmu_device *gmu)
 			dev_err(&gmu->pdev->dev,
 			"HFI queue[%d] is not empty before close: rd=%d,wt=%d",
 				i, hdr->read_index, hdr->write_index);
-
-		hdr->read_index = 0x0;
-		hdr->write_index = 0x0;
 	}
 
 	clear_bit(GMU_HFI_ON, &gmu->flags);
