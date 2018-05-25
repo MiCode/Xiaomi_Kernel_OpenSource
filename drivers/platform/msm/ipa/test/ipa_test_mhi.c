@@ -327,6 +327,8 @@ struct ipa_test_mhi_context {
 	u32 prod_hdl;
 	u32 cons_hdl;
 	u32 test_prod_hdl;
+	phys_addr_t transport_phys_addr;
+	unsigned long transport_size;
 };
 
 static struct ipa_test_mhi_context *test_mhi_ctx;
@@ -780,11 +782,6 @@ static int ipa_test_mhi_suite_setup(void **ppriv)
 
 	IPA_UT_DBG("Start Setup\n");
 
-	if (!gsi_ctx) {
-		IPA_UT_ERR("No GSI ctx\n");
-		return -EINVAL;
-	}
-
 	if (!ipa3_ctx) {
 		IPA_UT_ERR("No IPA ctx\n");
 		return -EINVAL;
@@ -797,11 +794,20 @@ static int ipa_test_mhi_suite_setup(void **ppriv)
 		return -ENOMEM;
 	}
 
-	test_mhi_ctx->gsi_mmio = ioremap_nocache(gsi_ctx->per.phys_addr,
-		gsi_ctx->per.size);
-	if (!test_mhi_ctx) {
+	rc = ipa3_get_transport_info(&test_mhi_ctx->transport_phys_addr,
+				     &test_mhi_ctx->transport_size);
+	if (rc != 0) {
+		IPA_UT_ERR("ipa3_get_transport_info() failed\n");
+		rc = -EFAULT;
+		goto fail_free_ctx;
+	}
+
+	test_mhi_ctx->gsi_mmio =
+	    ioremap_nocache(test_mhi_ctx->transport_phys_addr,
+			    test_mhi_ctx->transport_size);
+	if (!test_mhi_ctx->gsi_mmio) {
 		IPA_UT_ERR("failed to remap GSI HW size=%lu\n",
-			gsi_ctx->per.size);
+			   test_mhi_ctx->transport_size);
 		rc = -EFAULT;
 		goto fail_free_ctx;
 	}
@@ -1385,7 +1391,7 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 		/* write value to event ring doorbell */
 		IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
 			p_events[event_ring_index].wp,
-			&(gsi_ctx->per.phys_addr),
+			&(test_mhi_ctx->transport_phys_addr),
 			GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
 			event_ring_index + ipa3_ctx->mhi_evid_limits[0], 0));
 		iowrite32(p_events[event_ring_index].wp,
@@ -1432,7 +1438,7 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 				IPA_UT_LOG(
 					"DB to channel 0x%llx: base %pa ofst 0x%x\n"
 					, p_channels[channel_idx].wp
-					, &(gsi_ctx->per.phys_addr)
+					, &(test_mhi_ctx->transport_phys_addr)
 					, GSI_EE_n_GSI_CH_k_DOORBELL_0_OFFS(
 						channel_idx, 0));
 				iowrite32(p_channels[channel_idx].wp,
@@ -3324,4 +3330,3 @@ IPA_UT_DEFINE_SUITE_START(mhi, "MHI for GSI",
 		ipa_mhi_test_in_loop_channel_reset_ipa_holb,
 		true, IPA_HW_v3_0, IPA_HW_MAX),
 } IPA_UT_DEFINE_SUITE_END(mhi);
-

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,15 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/msm_gsi.h>
+#include <linux/errno.h>
 #include <linux/ipc_logging.h>
+
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if IPA_EMULATION_COMPILE == 1
+# include "gsi_emulation_stubs.h"
+#endif
 
 #define GSI_CHAN_MAX      31
 #define GSI_EVT_RING_MAX  23
@@ -204,6 +212,13 @@ struct gsi_ctx {
 	struct completion gen_ee_cmd_compl;
 	void *ipc_logbuf;
 	void *ipc_logbuf_low;
+	/*
+	 * The following used only on emulation systems.
+	 */
+	void __iomem *intcntrlr_base;
+	u32 intcntrlr_mem_size;
+	irq_handler_t intcntrlr_gsi_isr;
+	irq_handler_t intcntrlr_client_isr;
 };
 
 enum gsi_re_type {
