@@ -601,11 +601,19 @@ reg_base_err:
 }
 
 static const struct of_device_id mpm_gic_chip_data_table[] = {
+	{
+		.compatible = "qcom,mpm-gic-msm8937",
+		.data = mpm_msm8937_gic_chip_data,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mpm_gic_chip_data_table);
 
 static const struct of_device_id mpm_gpio_chip_data_table[] = {
+	{
+		.compatible = "qcom,mpm-gpio-msm8937",
+		.data = mpm_msm8937_gpio_chip_data,
+	},
 	{}
 };
 
