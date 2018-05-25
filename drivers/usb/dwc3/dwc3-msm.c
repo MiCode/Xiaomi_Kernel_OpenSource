@@ -148,6 +148,14 @@ enum msm_usb_irq {
 	USB_MAX_IRQ
 };
 
+enum bus_vote {
+	BUS_VOTE_NONE,
+	BUS_VOTE_NOMINAL,
+	BUS_VOTE_SVS,
+	BUS_VOTE_MIN,
+	BUS_VOTE_MAX
+};
+
 struct usb_irq {
 	char *name;
 	int irq;
@@ -224,6 +232,7 @@ struct dwc3_msm {
 	unsigned int		max_power;
 	bool			charging_disabled;
 	enum usb_otg_state	otg_state;
+	enum bus_vote		override_bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	*usb_psy;
@@ -2113,60 +2122,39 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 	}
 }
 
-enum bus_vote {
-	BUS_VOTE_INVALID,
-	BUS_VOTE_SUSPEND,
-	BUS_VOTE_NOMINAL,
-	BUS_VOTE_SVS
-};
-
 static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 {
 	int ret = 0;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	unsigned int bv_index = mdwc->override_bus_vote ?: bv;
 
 	if (!mdwc->bus_perf_client)
 		return 0;
 
 	dbg_event(0xFF, "bus_vote_start", bv);
 
-	switch (bv) {
-	case BUS_VOTE_SVS:
-		/* On some platforms SVS does not have separate vote. Vote for
-		 * nominal if svs usecase does not exist
-		 */
-		if (mdwc->bus_scale_table->num_usecases == 2)
-			goto nominal_vote;
+	/* On some platforms SVS does not have separate vote.
+	 * Vote for nominal if svs usecase does not exist.
+	 * If the request is to set the bus_vote to _NONE,
+	 * set it to _NONE irrespective of the requested vote
+	 * from userspace.
+	 */
+	if (bv >= mdwc->bus_scale_table->num_usecases)
+		bv_index = BUS_VOTE_NOMINAL;
+	else if (bv == BUS_VOTE_NONE)
+		bv_index = BUS_VOTE_NONE;
 
-		/* index starts from zero */
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 2);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	case BUS_VOTE_NOMINAL:
-nominal_vote:
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 1);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	case BUS_VOTE_SUSPEND:
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 0);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	default:
-		dev_err(mdwc->dev, "Unsupported bus vote:%d\n", bv);
-		ret = -EINVAL;
-	}
+	ret = msm_bus_scale_client_update_request(
+			mdwc->bus_perf_client, bv_index);
+	if (ret)
+		dev_err(mdwc->dev, "bus bw voting %d failed %d\n",
+				bv_index, ret);
 
-	dbg_event(0xFF, "bus_vote_end", bv);
+	dbg_event(0xFF, "bus_vote_end", bv_index);
 
 	return ret;
-
 }
+
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
@@ -2298,7 +2286,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SUSPEND);
+	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
 	/*
 	 * release wakeup source with timeout to defer system suspend to
@@ -3146,6 +3134,65 @@ static ssize_t usb_compliance_mode_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(usb_compliance_mode);
 
+static ssize_t bus_vote_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (mdwc->override_bus_vote == BUS_VOTE_MIN)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Fixed bus vote: min");
+	else if (mdwc->override_bus_vote == BUS_VOTE_MAX)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Fixed bus vote: max");
+	else
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Do not have fixed bus vote");
+}
+
+static ssize_t bus_vote_store(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	bool bv_fixed = false;
+	enum bus_vote bv;
+
+	if (sysfs_streq(buf, "min")
+			&& (mdwc->bus_scale_table->num_usecases
+			>= (BUS_VOTE_MIN + 1))) {
+		bv_fixed = true;
+		mdwc->override_bus_vote = BUS_VOTE_MIN;
+	} else if (sysfs_streq(buf, "max")
+			&& (mdwc->bus_scale_table->num_usecases
+			>= (BUS_VOTE_MAX + 1))) {
+		bv_fixed = true;
+		mdwc->override_bus_vote = BUS_VOTE_MAX;
+	} else if (sysfs_streq(buf, "cancel")) {
+		bv_fixed = false;
+		mdwc->override_bus_vote = BUS_VOTE_NONE;
+	} else {
+		dev_err(dev, "min/max/cancel only.\n");
+		return -EINVAL;
+	}
+
+	/* Update bus vote value only when not suspend */
+	if (!atomic_read(&dwc->in_lpm)) {
+		if (bv_fixed)
+			bv = mdwc->override_bus_vote;
+		else if (mdwc->in_host_mode
+			&& (mdwc->max_rh_port_speed == USB_SPEED_HIGH))
+			bv = BUS_VOTE_SVS;
+		else
+			bv = BUS_VOTE_NOMINAL;
+
+		dwc3_msm_update_bus_bw(mdwc, bv);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(bus_vote);
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -3411,6 +3458,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
+	device_create_file(&pdev->dev, &dev_attr_bus_vote);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	if (host_mode) {
