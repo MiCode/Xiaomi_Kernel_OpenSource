@@ -2342,6 +2342,14 @@ static void gsi_resume(struct usb_function *f)
 	log_event_dbg("%s: completed", __func__);
 }
 
+static int gsi_get_status(struct usb_function *f)
+{
+	unsigned int remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+
+	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
+		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+}
+
 static int gsi_func_suspend(struct usb_function *f, u8 options)
 {
 	bool func_wakeup_allowed;
@@ -3002,6 +3010,7 @@ static int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.disable = gsi_disable;
 	gsi->function.free_func = gsi_free_func;
 	gsi->function.suspend = gsi_suspend;
+	gsi->function.get_status = gsi_get_status;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 
