@@ -3101,6 +3101,7 @@ int f2fs_release_page(struct page *page, gfp_t wait);
 int f2fs_migrate_page(struct address_space *mapping, struct page *newpage,
 			struct page *page, enum migrate_mode mode);
 #endif
+void clear_radix_tree_dirty_tag(struct page *page);
 
 /*
  * gc.c
