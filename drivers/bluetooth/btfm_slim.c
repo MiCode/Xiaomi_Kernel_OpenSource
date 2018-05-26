@@ -301,15 +301,29 @@ static int btfm_slim_get_logical_addr(struct slim_device *slim)
 static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 {
 	int ret = -EINVAL, i;
+	int  chipset_ver;
 	struct btfmslim_ch *rx_chs;
 	struct btfmslim_ch *tx_chs;
 
 	if (!btfmslim)
 		return ret;
 
+	chipset_ver = get_chipset_version();
+	BTFMSLIM_INFO("chipset soc version:%x", chipset_ver);
+
 	rx_chs = btfmslim->rx_chs;
 	tx_chs = btfmslim->tx_chs;
-
+	if (chipset_ver ==  QCA_CHEROKEE_SOC_ID_0300) {
+		for (i = 0; (tx_chs->port != BTFM_SLIM_PGD_PORT_LAST) &&
+		(i < BTFM_SLIM_NUM_CODEC_DAIS); i++, tx_chs++) {
+			if (tx_chs->port == SLAVE_SB_PGD_PORT_TX1_FM)
+				tx_chs->port = CHRKVER3_SB_PGD_PORT_TX1_FM;
+			else if (tx_chs->port == SLAVE_SB_PGD_PORT_TX2_FM)
+				tx_chs->port = CHRKVER3_SB_PGD_PORT_TX2_FM;
+			BTFMSLIM_INFO("Tx port:%d", tx_chs->port);
+		}
+		tx_chs = btfmslim->tx_chs;
+	}
 	if (!rx_chs || !tx_chs)
 		return ret;
 
