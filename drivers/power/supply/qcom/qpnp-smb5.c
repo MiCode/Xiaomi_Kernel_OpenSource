@@ -1670,14 +1670,17 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	}
 	chg->typec_try_mode |= EN_TRY_SNK_BIT;
 
-	/* configure VCONN for software control */
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
+	/* For PD capable targets configure VCONN for software control */
+	if (!chg->pd_not_supported) {
+		rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
 				 VCONN_EN_SRC_BIT | VCONN_EN_VALUE_BIT,
 				 VCONN_EN_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure VCONN for SW control rc=%d\n", rc);
-		return rc;
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure VCONN for SW control rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	/* Enable detection of unoriented debug accessory in source mode */
