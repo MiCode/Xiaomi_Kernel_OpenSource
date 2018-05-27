@@ -375,6 +375,7 @@ struct ufs_qcom_host {
 	struct work_struct ice_cfg_work;
 	struct request *req_pending;
 	struct ufs_vreg *vddp_ref_clk;
+	bool work_pending;
 };
 
 static inline u32

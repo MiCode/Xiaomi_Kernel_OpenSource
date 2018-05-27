@@ -97,6 +97,10 @@ extern int fscrypt_inherit_context(struct inode *, struct inode *,
 /* keyinfo.c */
 extern int fscrypt_get_encryption_info(struct inode *);
 extern void fscrypt_put_encryption_info(struct inode *);
+extern int fs_using_hardware_encryption(struct inode *inode);
+extern char *fscrypt_get_ice_encryption_key(const struct inode *inode);
+extern char *fscrypt_get_ice_encryption_salt(const struct inode *inode);
+extern int fscrypt_is_aes_xts_cipher(const struct inode *inode);
 
 /* fname.c */
 extern int fscrypt_setup_filename(struct inode *, const struct qstr *,

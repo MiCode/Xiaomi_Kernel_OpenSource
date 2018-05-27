@@ -32,14 +32,18 @@ static void __fscrypt_decrypt_bio(struct bio *bio, bool done)
 
 	bio_for_each_segment_all(bv, bio, i) {
 		struct page *page = bv->bv_page;
-		int ret = fscrypt_decrypt_page(page->mapping->host, page,
-				PAGE_SIZE, 0, page->index);
 
-		if (ret) {
-			WARN_ON_ONCE(1);
-			SetPageError(page);
-		} else if (done) {
+		if (fs_is_ice_enabled()) {
 			SetPageUptodate(page);
+		} else {
+			int ret = fscrypt_decrypt_page(page->mapping->host,
+				page, PAGE_SIZE, 0, page->index);
+			if (ret) {
+				WARN_ON_ONCE(1);
+				SetPageError(page);
+			} else if (done) {
+				SetPageUptodate(page);
+			}
 		}
 		if (done)
 			unlock_page(page);

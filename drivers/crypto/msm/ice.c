@@ -152,6 +152,9 @@ static int qti_ice_setting_config(struct request *req,
 		return -EPERM;
 	}
 
+	if (!setting)
+		return -EINVAL;
+
 	if ((short)(crypto_data->key_index) >= 0) {
 
 		memcpy(&setting->crypto_data, crypto_data,
@@ -1488,7 +1491,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 	bool is_pfe = false;
 	sector_t data_size;
 
-	if (!pdev || !req || !setting) {
+	if (!pdev || !req) {
 		pr_err("%s: Invalid params passed\n", __func__);
 		return -EINVAL;
 	}
@@ -1507,6 +1510,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		/* It is not an error to have a request with no  bio */
 		return 0;
 	}
+    //pr_err("%s bio is %pK\n", __func__, req->bio);
 
 	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
 	if (is_pfe) {
@@ -1664,7 +1668,7 @@ static struct ice_device *get_ice_device_from_storage_type
 
 	list_for_each_entry(ice_dev, &ice_devices, list) {
 		if (!strcmp(ice_dev->ice_instance_type, storage_type)) {
-			pr_info("%s: found ice device %p\n", __func__, ice_dev);
+			pr_debug("%s: ice device %pK\n", __func__, ice_dev);
 			return ice_dev;
 		}
 	}

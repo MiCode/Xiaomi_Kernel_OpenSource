@@ -6,6 +6,11 @@ menu "Security options"
 
 source security/keys/Kconfig
 
+if ARCH_QCOM
+source security/pfe/Kconfig
+endif
+
+
 config SECURITY_DMESG_RESTRICT
 	bool "Restrict unprivileged access to the kernel syslog"
 	default n
