@@ -540,6 +540,7 @@ int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
 int smblib_configure_wdog(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
+int smblib_icl_override(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

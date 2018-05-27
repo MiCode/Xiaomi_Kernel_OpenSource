@@ -116,6 +116,19 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
+int smblib_icl_override(struct smb_charger *chg, bool override)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				ICL_OVERRIDE_AFTER_APSD_BIT,
+				override ? ICL_OVERRIDE_AFTER_APSD_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+
+	return rc;
+}
+
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override)
 {
 	int rc = 0;
@@ -871,7 +884,7 @@ static int get_sdp_current(struct smb_charger *chg, int *icl_ua)
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc = 0;
-	bool hc_mode = false;
+	bool hc_mode = false, override = false;
 
 	/* suspend and return if 25mA or less is requested */
 	if (icl_ua <= USBIN_25MA)
@@ -897,6 +910,13 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 			goto out;
 		}
 		hc_mode = true;
+
+		/*
+		 * Micro USB mode follows ICL register independent of override
+		 * bit, configure override only for typeC mode.
+		 */
+		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
+			override = true;
 	}
 
 set_mode:
@@ -904,6 +924,12 @@ set_mode:
 		USBIN_MODE_CHG_BIT, hc_mode ? USBIN_MODE_CHG_BIT : 0);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
+		goto out;
+	}
+
+	rc = smblib_icl_override(chg, override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		goto out;
 	}
 
