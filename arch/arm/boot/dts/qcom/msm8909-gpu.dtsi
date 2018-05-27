@@ -19,24 +19,13 @@
 	/* To use BIMC based bus governor */
 	gpubw: qcom,gpubw {
 		compatible = "qcom,devbw";
-		governor = "bw_hwmon";
+		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
 		qcom,bw-tbl =
 			<    0 >,	/*   9.6 MHz */
-			<  381 >,	/*  50.0 MHz */
-			<  762 >,	/* 100.0 MHz */
 			< 1525 >,	/* 200.0 MHz */
 			< 3051 >,	/* 400.0 MHz */
 			< 4066 >;	/* 533.0 MHz */
-	};
-
-	qcom,gpu-bwmon@410000 {
-		compatible = "qcom,bimc-bwmon2";
-		reg = <0x00410000 0x300>, <0x00401000 0x200>;
-		reg-names = "base", "global_base";
-		interrupts = <0 183 4>;
-		qcom,mport = <2>;
-		qcom,target-dev = <&gpubw>;
 	};
 
 	msm_gpu: qcom,kgsl-3d0@01c00000 {
@@ -105,24 +94,32 @@
 				reg = <0>;
 				qcom,gpu-freq = <456000000>;
 				qcom,bus-freq = <3>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <3>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
 				qcom,gpu-freq = <307200000>;
 				qcom,bus-freq = <2>;
+				qcom,bus-min = <2>;
+				qcom,bus-max = <3>;
 			};
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
 				qcom,gpu-freq = <200000000>;
-				qcom,bus-freq = <1>;
+				qcom,bus-freq = <2>;
+				qcom,bus-min = <1>;
+				qcom,bus-max = <2>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
 				qcom,gpu-freq = <19200000>;
 				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
 			};
 		};
 
