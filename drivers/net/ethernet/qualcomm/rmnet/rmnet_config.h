@@ -52,6 +52,10 @@ struct rmnet_port {
 	struct hrtimer hrtimer;
 
 	void *qmi_info;
+
+	/* dl marker elements */
+	spinlock_t dl_list_lock;
+	struct list_head dl_list;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;
