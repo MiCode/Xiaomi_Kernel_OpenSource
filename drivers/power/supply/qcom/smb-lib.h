@@ -477,6 +477,8 @@ int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
