@@ -740,12 +740,17 @@ config ARCH_HAS_KCOV
 	  only for x86_64. KCOV requires testing on other archs, and most likely
 	  disabling of instrumentation for some early boot code.
 
+# Upstream uses $(cc-option, -fsanitize-coverage=trace-pc), which requires
+# cc-option support. Here we instead check CC in scripts/Makefile.kcov.
+config CC_HAS_SANCOV_TRACE_PC
+	def_bool ARCH_HAS_KCOV
+
 config KCOV
 	bool "Code coverage for fuzzing"
 	depends on ARCH_HAS_KCOV
+	depends on CC_HAS_SANCOV_TRACE_PC || GCC_PLUGINS
 	select DEBUG_FS
-	select GCC_PLUGINS if !COMPILE_TEST
-	select GCC_PLUGIN_SANCOV if !COMPILE_TEST
+	select GCC_PLUGIN_SANCOV if !CC_HAS_SANCOV_TRACE_PC
 	help
 	  KCOV exposes kernel code coverage information in a form suitable
 	  for coverage-guided fuzzing (randomized testing).
@@ -756,10 +761,11 @@ config KCOV
 
 	  For more details, see Documentation/dev-tools/kcov.rst.
 
+# Upstream uses $(cc-option, -fsanitize-coverage=trace-cmp), which requires
+# cc-option support. Here we instead check CC in scripts/Makefile.kcov.
 config KCOV_ENABLE_COMPARISONS
 	bool "Enable comparison operands collection by KCOV"
 	depends on KCOV
-	default n
 	help
 	  KCOV also exposes operands of every comparison in the instrumented
 	  code along with operand sizes and PCs of the comparison instructions.
@@ -769,7 +775,7 @@ config KCOV_ENABLE_COMPARISONS
 config KCOV_INSTRUMENT_ALL
 	bool "Instrument all code by default"
 	depends on KCOV
-	default y if KCOV
+	default y
 	help
 	  If you are doing generic system call fuzzing (like e.g. syzkaller),
 	  then you will want to instrument the whole kernel and you should
