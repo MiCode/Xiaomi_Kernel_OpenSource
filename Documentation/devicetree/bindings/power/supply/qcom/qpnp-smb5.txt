@@ -247,6 +247,12 @@ Charger specific properties:
 	Definition: Boolean flag which when present enables mositure protection
 		    feature.
 
+- qcom,fcc-stepping-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables stepwise change in FCC.
+		The default stepping rate is 100mA/sec.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
