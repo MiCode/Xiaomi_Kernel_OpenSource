@@ -935,6 +935,7 @@ static int ipa3_wdi2_gsi_alloc_channel_ring(
 
 	channel_props->use_db_eng = GSI_CHAN_DB_MODE;
 	channel_props->max_prefetch = GSI_ONE_PREFETCH_SEG;
+	channel_props->prefetch_mode = ep_cfg->prefetch_mode;
 	channel_props->low_weight = 1;
 	channel_props->err_cb = ipa_gsi_chan_err_cb;
 

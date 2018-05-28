@@ -1330,7 +1330,10 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.ring_base_addr =
 		params->xfer_ring_base_addr_iova;
 	chan_params.chan_params.ring_base_vaddr = NULL;
-	chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		chan_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	else
+		chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
 	chan_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	if (params->dir == GSI_CHAN_DIR_FROM_GSI)
 		chan_params.chan_params.low_weight =
