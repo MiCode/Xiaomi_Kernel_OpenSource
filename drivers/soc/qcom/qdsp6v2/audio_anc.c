@@ -53,6 +53,9 @@ static size_t get_user_anc_cmd_size(int32_t anc_cmd)
 	case ANC_CMD_ALGO_MODULE:
 		size = sizeof(struct audio_anc_algo_module_info);
 		break;
+	case ANC_CMD_ALGO_CALIBRATION:
+		size = sizeof(struct audio_anc_algo_calibration_info);
+		break;
 	default:
 		pr_err("%s:Invalid anc cmd %d!",
 			__func__, anc_cmd);
@@ -77,6 +80,7 @@ static int call_set_anc(int32_t anc_cmd,
 	case ANC_CMD_RPM:
 	case ANC_CMD_BYPASS_MODE:
 	case ANC_CMD_ALGO_MODULE:
+	case ANC_CMD_ALGO_CALIBRATION:
 		ret = msm_anc_dev_set_info(data, anc_cmd);
 		break;
 	default:
@@ -176,6 +180,12 @@ static long audio_anc_shared_ioctl(struct file *file, unsigned int cmd,
 			sizeof(union audio_anc_data));
 		ret = -EINVAL;
 		goto done;
+	} else if ((data->hdr.anc_cmd_size + sizeof(data->hdr)) > size) {
+		pr_err("%s: anc_cmd size %d + anc cmd hdr size %zd is is greater than user buffer siz %d!\n",
+			__func__, data->hdr.anc_cmd_size, sizeof(data->hdr),
+			size);
+		ret = -EFAULT;
+		goto done;
 	}
 
 	switch (cmd) {
@@ -194,15 +204,9 @@ static long audio_anc_shared_ioctl(struct file *file, unsigned int cmd,
 			goto done;
 		if (data == NULL)
 			goto done;
-		if ((sizeof(data->hdr) + data->hdr.anc_cmd_size) > size) {
-			pr_err("%s: header size %zd plus ype size %d larger than data buffer size %d\n",
-				__func__, sizeof(data->hdr),
-				data->hdr.anc_cmd_size, size);
-			ret = -EFAULT;
-			goto done;
-		} else if (copy_to_user((void *)arg, data,
+		if (copy_to_user(arg, data,
 			sizeof(data->hdr) + data->hdr.anc_cmd_size)) {
-			pr_err("%s: Could not copy cal type to user\n",
+			pr_err("%s: Could not copy anc data to user\n",
 				__func__);
 			ret = -EFAULT;
 			goto done;
