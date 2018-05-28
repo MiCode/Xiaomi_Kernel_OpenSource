@@ -440,6 +440,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (rc < 0)
 		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
 
+	chg->fcc_stepper_enable = of_property_read_bool(node,
+					"qcom,fcc-stepping-enable");
+
 	rc = of_property_match_string(node, "io-channel-names",
 			"usb_in_voltage");
 	if (rc >= 0) {
@@ -1176,6 +1179,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
+	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1293,6 +1297,8 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
 		val->intval = 0;
+	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
+		val->intval = chg->fcc_stepper_enable;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
