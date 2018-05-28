@@ -31,7 +31,6 @@
 
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
-		qcom,use-psci;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -40,8 +39,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			label = "perf";
-			qcom,spm-device-names = "l2";
-			qcom,default-level=<0>;
 			qcom,psci-mode-shift = <4>;
 			qcom,psci-mode-mask = <0xf>;
 
@@ -98,11 +95,12 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
 				qcom,pm-cpu-level@0 {
 					reg = <0>;
-					qcom,psci-cpu-mode = <0>;
 					label = "wfi";
+					qcom,psci-cpu-mode = <1>;
 					qcom,latency-us = <12>;
 					qcom,ss-power = <463>;
 					qcom,energy-overhead = <23520>;
@@ -111,8 +109,8 @@
 
 				qcom,pm-cpu-level@1 {
 					reg = <1>;
-					qcom,psci-cpu-mode = <3>;
 					label = "pc";
+					qcom,psci-cpu-mode = <3>;
 					qcom,latency-us = <180>;
 					qcom,ss-power = <429>;
 					qcom,energy-overhead = <162991>;
@@ -125,7 +123,17 @@
 		};
 	};
 
-	qcom,cpu-sleep-status {
-		compatible = "qcom,cpu-sleep-status";
+	qcom,rpm-stats@29dba0 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x200000 0x1000>, <0x290014 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+	};
+
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "PRONTO", "TZ", "LPASS";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
 	};
 };

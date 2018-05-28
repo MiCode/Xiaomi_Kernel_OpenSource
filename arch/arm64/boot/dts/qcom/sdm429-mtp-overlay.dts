@@ -22,5 +22,4 @@
 / {
 	model = "MTP";
 	qcom,board-id = <8 2>;
-	qcom,msm-id = <354 0x0>;
 };

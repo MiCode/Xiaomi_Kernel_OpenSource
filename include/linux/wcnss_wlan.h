@@ -63,6 +63,13 @@ enum {
 	WCNSS_WLAN_MAX_GPIO,
 };
 
+enum wcnss_log_type {
+	ERR,
+	WARN,
+	INFO,
+	DBG,
+};
+
 #define WCNSS_VBATT_THRESHOLD           3500000
 #define WCNSS_VBATT_GUARD               20000
 #define WCNSS_VBATT_HIGH                3700000
@@ -145,6 +152,7 @@ void wcnss_dump_stack(struct task_struct *task);
 void wcnss_snoc_vote(bool clk_chk_en);
 int wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 				  struct device *dev);
+void wcnss_log(enum wcnss_log_type type, const char *_fmt, ...);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);

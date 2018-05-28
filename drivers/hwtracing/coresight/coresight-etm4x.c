@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@
 
 #include "coresight-etm4x.h"
 #include "coresight-etm-perf.h"
+#include "coresight-priv.h"
 
 static int boot_enable;
 module_param_named(boot_enable, boot_enable, int, 0444);
@@ -436,6 +437,9 @@ static void etm4_init_arch_data(void *info)
 
 	CS_UNLOCK(drvdata->base);
 
+	if (!coresight_authstatus_enabled(drvdata->base))
+		goto out;
+
 	/* find all capabilities of the tracing unit */
 	etmidr0 = readl_relaxed(drvdata->base + TRCIDR0);
 
@@ -582,6 +586,8 @@ static void etm4_init_arch_data(void *info)
 	drvdata->nrseqstate = BMVAL(etmidr5, 25, 27);
 	/* NUMCNTR, bits[30:28] number of counters available for tracing */
 	drvdata->nr_cntr = BMVAL(etmidr5, 28, 30);
+
+out:
 	CS_LOCK(drvdata->base);
 }
 

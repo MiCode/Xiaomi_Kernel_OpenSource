@@ -1456,6 +1456,35 @@ end:
 }
 
 /**
+ * mdss_mdp_retention_init() - initialize retention setting
+ * @mdata: pointer to the global mdss data structure.
+ */
+static int mdss_mdp_retention_init(struct mdss_data_type *mdata)
+{
+	struct clk *mdss_axi_clk = mdss_mdp_get_clk(MDSS_CLK_AXI);
+	int rc;
+
+	if (!mdss_axi_clk) {
+		pr_err("failed to get AXI clock\n");
+		return -EINVAL;
+	}
+
+	rc = clk_set_flags(mdss_axi_clk, CLKFLAG_NORETAIN_MEM);
+	if (rc) {
+		pr_err("failed to set AXI no memory retention %d\n", rc);
+		return rc;
+	}
+
+	rc = clk_set_flags(mdss_axi_clk, CLKFLAG_NORETAIN_PERIPH);
+	if (rc) {
+		pr_err("failed to set AXI no periphery retention %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+/**
  * mdss_bus_bandwidth_ctrl() -- place bus bandwidth request
  * @enable:	value of enable or disable
  *
@@ -2692,6 +2721,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	rc = mdss_mdp_res_init(mdata);
 	if (rc) {
 		pr_err("unable to initialize mdss mdp resources\n");
+		goto probe_done;
+	}
+
+	rc = mdss_mdp_retention_init(mdata);
+	if (rc) {
+		pr_err("unable to initialize mdss mdp retention\n");
 		goto probe_done;
 	}
 

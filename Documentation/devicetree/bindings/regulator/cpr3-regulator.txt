@@ -241,6 +241,15 @@ Platform independent properties:
 		    time in order to allow hardware closed-loop CPR voltage
 		    change requests to reach the PMIC regulator.
 
+- qcom,cpr-thread-has-always-vote-en
+	Usage:      optional; only meaningful for CPR4 controller
+	Value type: <empty>
+	Definition: Boolean value which indicates that the CPR controller should
+		    be configured to keep thread vote always enabled. This
+		    configuration allows the CPR controller to not consider
+		    MID/DN recommendations from other thread when all sensors
+		    mapped to a thread collapsed.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================

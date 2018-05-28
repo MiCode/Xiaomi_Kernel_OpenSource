@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/qpnp/qpnp-misc.h>
 #include <linux/qpnp/qpnp-revid.h>
@@ -321,6 +322,7 @@ struct hap_chip {
 	int				sc_irq;
 	struct pwm_param		pwm_data;
 	struct hap_lra_ares_param	ares_cfg;
+	struct regulator		*vcc_pon;
 	u32				play_time_ms;
 	u32				max_play_time_ms;
 	u32				vmax_mv;
@@ -355,6 +357,7 @@ struct hap_chip {
 	bool				lra_auto_mode;
 	bool				play_irq_en;
 	bool				auto_res_err_recovery_hw;
+	bool				vcc_pon_enabled;
 };
 
 static int qpnp_haptics_parse_buffer_dt(struct hap_chip *chip);
@@ -801,10 +804,29 @@ static void qpnp_haptics_work(struct work_struct *work)
 
 	enable = atomic_read(&chip->state);
 	pr_debug("state: %d\n", enable);
+
+	if (chip->vcc_pon && enable && !chip->vcc_pon_enabled) {
+		rc = regulator_enable(chip->vcc_pon);
+		if (rc < 0)
+			pr_err("%s: could not enable vcc_pon regulator rc=%d\n",
+				 __func__, rc);
+		else
+			chip->vcc_pon_enabled = true;
+	}
+
 	rc = qpnp_haptics_play(chip, enable);
 	if (rc < 0)
 		pr_err("Error in %sing haptics, rc=%d\n",
 			enable ? "play" : "stopp", rc);
+
+	if (chip->vcc_pon && !enable && chip->vcc_pon_enabled) {
+		rc = regulator_disable(chip->vcc_pon);
+		if (rc)
+			pr_err("%s: could not disable vcc_pon regulator rc=%d\n",
+				 __func__, rc);
+		else
+			chip->vcc_pon_enabled = false;
+	}
 }
 
 static enum hrtimer_restart hap_stop_timer(struct hrtimer *timer)
@@ -2054,6 +2076,7 @@ static int qpnp_haptics_parse_dt(struct hap_chip *chip)
 	struct device_node *revid_node, *misc_node;
 	const char *temp_str;
 	int rc, temp;
+	struct regulator *vcc_pon;
 
 	rc = of_property_read_u32(node, "reg", &temp);
 	if (rc < 0) {
@@ -2380,6 +2403,16 @@ static int qpnp_haptics_parse_dt(struct hap_chip *chip)
 		rc = qpnp_haptics_parse_buffer_dt(chip);
 	else if (chip->play_mode == HAP_PWM)
 		rc = qpnp_haptics_parse_pwm_dt(chip);
+
+	if (of_find_property(node, "vcc_pon-supply", NULL)) {
+		vcc_pon = regulator_get(&chip->pdev->dev, "vcc_pon");
+		if (IS_ERR(vcc_pon)) {
+			rc = PTR_ERR(vcc_pon);
+			dev_err(&chip->pdev->dev,
+				"regulator get failed vcc_pon rc=%d\n", rc);
+		}
+		chip->vcc_pon = vcc_pon;
+	}
 
 	return rc;
 }

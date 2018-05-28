@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,10 +23,12 @@
 #define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
 #define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
 #define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
+#define QMI_WLFW_CAL_DONE_IND_V01 0x003E
 #define QMI_WLFW_HOST_CAP_REQ_V01 0x0034
 #define QMI_WLFW_DYNAMIC_FEATURE_MASK_RESP_V01 0x003B
 #define QMI_WLFW_M3_INFO_REQ_V01 0x003C
 #define QMI_WLFW_CAP_REQ_V01 0x0024
+#define QMI_WLFW_FW_INIT_DONE_IND_V01 0x0038
 #define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
 #define QMI_WLFW_M3_INFO_RESP_V01 0x003C
 #define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
@@ -42,7 +44,6 @@
 #define QMI_WLFW_WLAN_MODE_REQ_V01 0x0022
 #define QMI_WLFW_IND_REGISTER_REQ_V01 0x0020
 #define QMI_WLFW_WLAN_CFG_RESP_V01 0x0023
-#define QMI_WLFW_COLD_BOOT_CAL_DONE_IND_V01 0x0038
 #define QMI_WLFW_REQUEST_MEM_IND_V01 0x0035
 #define QMI_WLFW_REJUVENATE_IND_V01 0x0039
 #define QMI_WLFW_DYNAMIC_FEATURE_MASK_REQ_V01 0x003B
@@ -72,13 +73,16 @@
 #define QMI_WLFW_IND_REGISTER_RESP_V01 0x0020
 
 #define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
+#define QMI_WLFW_MAX_NUM_MEM_SEG_V01 32
 #define QMI_WLFW_MAX_NUM_CAL_V01 5
 #define QMI_WLFW_MAX_DATA_SIZE_V01 6144
 #define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_CE_V01 12
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
 #define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
+#define QMI_WLFW_MAX_NUM_GPIO_V01 32
 #define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
+#define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
@@ -117,6 +121,17 @@ enum wlfw_pipedir_enum_v01 {
 	WLFW_PIPEDIR_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
+enum wlfw_mem_type_enum_v01 {
+	WLFW_MEM_TYPE_ENUM_MIN_VAL_V01 = INT_MIN,
+	QMI_WLFW_MEM_TYPE_MSA_V01 = 0,
+	QMI_WLFW_MEM_TYPE_DDR_V01 = 1,
+	QMI_WLFW_MEM_BDF_V01 = 2,
+	QMI_WLFW_MEM_M3_V01 = 3,
+	QMI_WLFW_MEM_CAL_V01 = 4,
+	QMI_WLFW_MEM_DPD_V01 = 5,
+	WLFW_MEM_TYPE_ENUM_MAX_VAL_V01 = INT_MAX,
+};
+
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
 #define QMI_WLFW_CE_ATTR_NO_SNOOP_V01 ((u32)0x01)
 #define QMI_WLFW_CE_ATTR_BYTE_SWAP_DATA_V01 ((u32)0x02)
@@ -128,6 +143,7 @@ enum wlfw_pipedir_enum_v01 {
 #define QMI_WLFW_FW_READY_V01 ((u64)0x02ULL)
 #define QMI_WLFW_MSA_READY_V01 ((u64)0x04ULL)
 #define QMI_WLFW_FW_MEM_READY_V01 ((u64)0x08ULL)
+#define QMI_WLFW_FW_INIT_DONE_V01 ((u64)0x10ULL)
 
 #define QMI_WLFW_FW_REJUVENATE_V01 ((u64)0x01ULL)
 
@@ -158,6 +174,26 @@ struct wlfw_memory_region_info_s_v01 {
 	u64 region_addr;
 	u32 size;
 	u8 secure_flag;
+};
+
+struct wlfw_mem_cfg_s_v01 {
+	u64 offset;
+	u32 size;
+	u8 secure_flag;
+};
+
+struct wlfw_mem_seg_s_v01 {
+	u32 size;
+	enum wlfw_mem_type_enum_v01 type;
+	u32 mem_cfg_len;
+	struct wlfw_mem_cfg_s_v01 mem_cfg[QMI_WLFW_MAX_NUM_MEM_CFG_V01];
+};
+
+struct wlfw_mem_seg_resp_s_v01 {
+	u64 addr;
+	u32 size;
+	enum wlfw_mem_type_enum_v01 type;
+	u8 restore;
 };
 
 struct wlfw_rf_chip_info_s_v01 {
@@ -195,13 +231,17 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 request_mem_enable;
 	u8 fw_mem_ready_enable_valid;
 	u8 fw_mem_ready_enable;
-	u8 cold_boot_cal_done_enable_valid;
-	u8 cold_boot_cal_done_enable;
+	u8 fw_init_done_enable_valid;
+	u8 fw_init_done_enable;
 	u8 rejuvenate_enable_valid;
 	u32 rejuvenate_enable;
+	u8 xo_cal_enable_valid;
+	u8 xo_cal_enable;
+	u8 cal_done_enable_valid;
+	u8 cal_done_enable;
 };
 
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 46
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 54
 extern struct elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
@@ -533,13 +573,36 @@ struct wlfw_mac_addr_resp_msg_v01 {
 extern struct elem_info wlfw_mac_addr_resp_msg_v01_ei[];
 
 struct wlfw_host_cap_req_msg_v01 {
-	u8 daemon_support_valid;
-	u8 daemon_support;
+	u8 num_clients_valid;
+	u32 num_clients;
 	u8 wake_msi_valid;
 	u32 wake_msi;
+	u8 gpios_valid;
+	u32 gpios_len;
+	u32 gpios[QMI_WLFW_MAX_NUM_GPIO_V01];
+	u8 nm_modem_valid;
+	u8 nm_modem;
+	u8 bdf_support_valid;
+	u8 bdf_support;
+	u8 bdf_cache_support_valid;
+	u8 bdf_cache_support;
+	u8 m3_support_valid;
+	u8 m3_support;
+	u8 m3_cache_support_valid;
+	u8 m3_cache_support;
+	u8 cal_filesys_support_valid;
+	u8 cal_filesys_support;
+	u8 cal_cache_support_valid;
+	u8 cal_cache_support;
+	u8 cal_done_valid;
+	u8 cal_done;
+	u8 mem_bucket_valid;
+	u32 mem_bucket;
+	u8 mem_cfg_mode_valid;
+	u8 mem_cfg_mode;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 11
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 189
 extern struct elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -550,18 +613,19 @@ struct wlfw_host_cap_resp_msg_v01 {
 extern struct elem_info wlfw_host_cap_resp_msg_v01_ei[];
 
 struct wlfw_request_mem_ind_msg_v01 {
-	u32 size;
+	u32 mem_seg_len;
+	struct wlfw_mem_seg_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
 
-#define WLFW_REQUEST_MEM_IND_MSG_V01_MAX_MSG_LEN 7
+#define WLFW_REQUEST_MEM_IND_MSG_V01_MAX_MSG_LEN 1124
 extern struct elem_info wlfw_request_mem_ind_msg_v01_ei[];
 
 struct wlfw_respond_mem_req_msg_v01 {
-	u64 addr;
-	u32 size;
+	u32 mem_seg_len;
+	struct wlfw_mem_seg_resp_s_v01 mem_seg[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
 };
 
-#define WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN 18
+#define WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN 548
 extern struct elem_info wlfw_respond_mem_req_msg_v01_ei[];
 
 struct wlfw_respond_mem_resp_msg_v01 {
@@ -578,12 +642,12 @@ struct wlfw_fw_mem_ready_ind_msg_v01 {
 #define WLFW_FW_MEM_READY_IND_MSG_V01_MAX_MSG_LEN 0
 extern struct elem_info wlfw_fw_mem_ready_ind_msg_v01_ei[];
 
-struct wlfw_cold_boot_cal_done_ind_msg_v01 {
+struct wlfw_fw_init_done_ind_msg_v01 {
 	char placeholder;
 };
 
-#define WLFW_COLD_BOOT_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 0
-extern struct elem_info wlfw_cold_boot_cal_done_ind_msg_v01_ei[];
+#define WLFW_FW_INIT_DONE_IND_MSG_V01_MAX_MSG_LEN 0
+extern struct elem_info wlfw_fw_init_done_ind_msg_v01_ei[];
 
 struct wlfw_rejuvenate_ind_msg_v01 {
 	u8 cause_for_rejuvenation_valid;
@@ -653,5 +717,12 @@ struct wlfw_xo_cal_ind_msg_v01 {
 
 #define WLFW_XO_CAL_IND_MSG_V01_MAX_MSG_LEN 4
 extern struct elem_info wlfw_xo_cal_ind_msg_v01_ei[];
+
+struct wlfw_cal_done_ind_msg_v01 {
+	char placeholder;
+};
+
+#define WLFW_CAL_DONE_IND_MSG_V01_MAX_MSG_LEN 0
+extern struct elem_info wlfw_cal_done_ind_msg_v01_ei[];
 
 #endif

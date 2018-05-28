@@ -483,4 +483,11 @@
 
 		qcom,cpr-enable;
 	};
+
+	dbu1: dbu1 {
+		compatible = "regulator-fixed";
+		regulator-name = "dbu1";
+		startup-delay-us = <0>;
+		enable-active-high;
+	};
 };

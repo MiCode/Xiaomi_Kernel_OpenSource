@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,16 +159,28 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.daemon_support_valid = 1;
-	req.daemon_support = daemon_support;
-
-	cnss_pr_dbg("daemon_support is %d\n", req.daemon_support);
+	req.num_clients_valid = 1;
+	req.num_clients = daemon_support ? 2 : 1;
+	cnss_pr_dbg("Number of clients is %d\n", req.num_clients);
 
 	req.wake_msi = cnss_get_wake_msi(plat_priv);
 	if (req.wake_msi) {
 		cnss_pr_dbg("WAKE MSI base data is %d\n", req.wake_msi);
 		req.wake_msi_valid = 1;
 	}
+
+	req.bdf_support_valid = 1;
+	req.bdf_support = 1;
+
+	req.m3_support_valid = 1;
+	req.m3_support = 1;
+
+	req.m3_cache_support_valid = 1;
+	req.m3_cache_support = 1;
+
+	req.cal_done_valid = 1;
+	req.cal_done = plat_priv->cal_done;
+	cnss_pr_dbg("Calibration done is %d\n", plat_priv->cal_done);
 
 	req_desc.max_msg_len = WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_HOST_CAP_REQ_V01;
@@ -221,8 +233,8 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req.request_mem_enable = 1;
 	req.fw_mem_ready_enable_valid = 1;
 	req.fw_mem_ready_enable = 1;
-	req.cold_boot_cal_done_enable_valid = 1;
-	req.cold_boot_cal_done_enable = 1;
+	req.fw_init_done_enable_valid = 1;
+	req.fw_init_done_enable = 1;
 	req.pin_connect_result_enable_valid = 1;
 	req.pin_connect_result_enable = 1;
 
@@ -260,27 +272,48 @@ static int cnss_wlfw_request_mem_ind_hdlr(struct cnss_plat_data *plat_priv,
 					  void *msg, unsigned int msg_len)
 {
 	struct msg_desc ind_desc;
-	struct wlfw_request_mem_ind_msg_v01 ind_msg;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
-	int ret = 0;
+	struct wlfw_request_mem_ind_msg_v01 *ind_msg;
+	int ret = 0, i;
+
+	ind_msg = kzalloc(sizeof(*ind_msg), GFP_KERNEL);
+	if (!ind_msg)
+		return -ENOMEM;
 
 	ind_desc.msg_id = QMI_WLFW_REQUEST_MEM_IND_V01;
 	ind_desc.max_msg_len = WLFW_REQUEST_MEM_IND_MSG_V01_MAX_MSG_LEN;
 	ind_desc.ei_array = wlfw_request_mem_ind_msg_v01_ei;
 
-	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
+	ret = qmi_kernel_decode(&ind_desc, ind_msg, msg, msg_len);
 	if (ret < 0) {
 		cnss_pr_err("Failed to decode request memory indication, msg_len: %u, err = %d\n",
 			    ret, msg_len);
-		return ret;
+		goto out;
 	}
 
-	fw_mem->size = ind_msg.size;
+	if (ind_msg->mem_seg_len == 0 ||
+	    ind_msg->mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
+		cnss_pr_err("Invalid memory segment length: %u\n",
+			    ind_msg->mem_seg_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	cnss_pr_dbg("FW memory segment count is %u\n", ind_msg->mem_seg_len);
+	plat_priv->fw_mem_seg_len = ind_msg->mem_seg_len;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		plat_priv->fw_mem[i].type = ind_msg->mem_seg[i].type;
+		plat_priv->fw_mem[i].size = ind_msg->mem_seg[i].size;
+	}
 
 	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_REQUEST_MEM,
 			       0, NULL);
 
+	kfree(ind_msg);
 	return 0;
+
+out:
+	kfree(ind_msg);
+	return ret;
 }
 
 static int cnss_qmi_pin_result_ind_hdlr(struct cnss_plat_data *plat_priv,
@@ -317,29 +350,46 @@ static int cnss_qmi_pin_result_ind_hdlr(struct cnss_plat_data *plat_priv,
 
 int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 {
-	struct wlfw_respond_mem_req_msg_v01 req;
-	struct wlfw_respond_mem_resp_msg_v01 resp;
+	struct wlfw_respond_mem_req_msg_v01 *req;
+	struct wlfw_respond_mem_resp_msg_v01 *resp;
 	struct msg_desc req_desc, resp_desc;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
-	int ret = 0;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
+	int ret = 0, i;
 
 	cnss_pr_dbg("Sending respond memory message, state: 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (!fw_mem->pa || !fw_mem->size) {
-		cnss_pr_err("Memory for FW is not available!\n");
-		ret = -ENOMEM;
-		goto out;
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp)
+		return -ENOMEM;
+
+	req->mem_seg_len = plat_priv->fw_mem_seg_len;
+	for (i = 0; i < req->mem_seg_len; i++) {
+		if (!fw_mem[i].pa || !fw_mem[i].size) {
+			if (fw_mem[i].type == 0) {
+				cnss_pr_err("Invalid memory for FW type, segment = %d\n",
+					    i);
+				ret = -EINVAL;
+				goto out;
+			}
+			cnss_pr_err("Memory for FW is not available for type: %u\n",
+				    fw_mem[i].type);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		cnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
+			    fw_mem[i].va, &fw_mem[i].pa,
+			    fw_mem[i].size, fw_mem[i].type);
+
+		req->mem_seg[i].addr = fw_mem[i].pa;
+		req->mem_seg[i].size = fw_mem[i].size;
+		req->mem_seg[i].type = fw_mem[i].type;
 	}
-
-	cnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
-		    fw_mem->va, &fw_mem->pa, fw_mem->size);
-
-	memset(&req, 0, sizeof(req));
-	memset(&resp, 0, sizeof(resp));
-
-	req.addr = fw_mem->pa;
-	req.size = fw_mem->size;
 
 	req_desc.max_msg_len = WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_RESPOND_MEM_REQ_V01;
@@ -349,8 +399,8 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 	resp_desc.msg_id = QMI_WLFW_RESPOND_MEM_RESP_V01;
 	resp_desc.ei_array = wlfw_respond_mem_resp_msg_v01_ei;
 
-	ret = qmi_send_req_wait(plat_priv->qmi_wlfw_clnt, &req_desc, &req,
-				sizeof(req), &resp_desc, &resp, sizeof(resp),
+	ret = qmi_send_req_wait(plat_priv->qmi_wlfw_clnt, &req_desc, req,
+				sizeof(*req), &resp_desc, resp, sizeof(*resp),
 				QMI_WLFW_TIMEOUT_MS);
 	if (ret < 0) {
 		cnss_pr_err("Failed to send respond memory request, err = %d\n",
@@ -358,16 +408,21 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
 		cnss_pr_err("Respond memory request failed, result: %d, err: %d\n",
-			    resp.resp.result, resp.resp.error);
-		ret = resp.resp.result;
+			    resp->resp.result, resp->resp.error);
+		ret = resp->resp.result;
 		goto out;
 	}
 
+	kfree(req);
+	kfree(resp);
 	return 0;
+
 out:
 	CNSS_ASSERT(0);
+	kfree(req);
+	kfree(resp);
 	return ret;
 }
 
@@ -908,12 +963,12 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 				       CNSS_DRIVER_EVENT_FW_MEM_READY,
 				       0, NULL);
 		break;
-	case QMI_WLFW_COLD_BOOT_CAL_DONE_IND_V01:
+	case QMI_WLFW_FW_READY_IND_V01:
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
 				       0, NULL);
 		break;
-	case QMI_WLFW_FW_READY_IND_V01:
+	case QMI_WLFW_FW_INIT_DONE_IND_V01:
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_FW_READY,
 				       0, NULL);
@@ -974,11 +1029,11 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv)
 	cnss_pr_info("QMI WLFW service connected, state: 0x%lx\n",
 		     plat_priv->driver_state);
 
-	ret = cnss_wlfw_host_cap_send_sync(plat_priv);
+	ret = cnss_wlfw_ind_register_send_sync(plat_priv);
 	if (ret < 0)
 		goto out;
 
-	ret = cnss_wlfw_ind_register_send_sync(plat_priv);
+	ret = cnss_wlfw_host_cap_send_sync(plat_priv);
 	if (ret < 0)
 		goto out;
 

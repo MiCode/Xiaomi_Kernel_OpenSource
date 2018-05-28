@@ -57,7 +57,7 @@
 #define MDSS_DSI_HW_REV_104             0x10040000      /* 8996   */
 #define MDSS_DSI_HW_REV_104_1           0x10040001      /* 8996   */
 #define MDSS_DSI_HW_REV_104_2           0x10040002      /* 8937   */
-
+#define MDSS_DSI_HW_REV_201		20010000	/* 660 */
 #define MDSS_DSI_HW_REV_STEP_0		0x0
 #define MDSS_DSI_HW_REV_STEP_1		0x1
 #define MDSS_DSI_HW_REV_STEP_2		0x2
@@ -297,6 +297,8 @@ struct mdss_dsi_data {
 	 * mutex, clocks, regulator information, setup information
 	 */
 	struct dsi_shared_data *shared_data;
+	u32 *dbg_bus;
+	int dbg_bus_size;
 };
 
 /*
@@ -407,7 +409,7 @@ struct mdss_dsi_ctrl_pdata {
 	int (*cmdlist_commit)(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 	void (*switch_mode)(struct mdss_panel_data *pdata, int mode);
 	struct mdss_panel_data panel_data;
-	unsigned char *ctrl_base;
+	unsigned char __iomem *ctrl_base;
 	struct mdss_io_data ctrl_io;
 	struct mdss_io_data mmss_misc_io;
 	struct mdss_io_data phy_io;
@@ -683,6 +685,8 @@ void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata, int power_state);
+
+void mdss_dsi_debug_bus_init(struct mdss_dsi_data *sdata);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

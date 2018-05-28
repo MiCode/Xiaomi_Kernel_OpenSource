@@ -2511,7 +2511,8 @@ void task_numa_work(struct callback_head *work)
 		return;
 
 
-	down_read(&mm->mmap_sem);
+	if (!down_read_trylock(&mm->mmap_sem))
+		return;
 	vma = find_vma(mm, start);
 	if (!vma) {
 		reset_ptenuma_scan(p);
@@ -6871,6 +6872,13 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	if (!sg->group_weight)
 		return true;
 
+	/*
+	 * Don't skip a group if a task affinity allows it
+	 * to run only on that group.
+	 */
+	if (cpumask_subset(tsk_cpus_allowed(p), sched_group_cpus(sg)))
+		return false;
+
 	if (!task_fits_max(p, fcpu))
 		return true;
 
@@ -8803,12 +8811,11 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	int max_cap_cpu;
 	unsigned long flags;
 
-	capacity = min(capacity, thermal_cap(cpu));
-
-	cpu_rq(cpu)->cpu_capacity_orig = capacity;
-
 	capacity *= arch_scale_max_freq_capacity(sd, cpu);
 	capacity >>= SCHED_CAPACITY_SHIFT;
+
+	capacity = min(capacity, thermal_cap(cpu));
+	cpu_rq(cpu)->cpu_capacity_orig = capacity;
 
 	mcc = &cpu_rq(cpu)->rd->max_cpu_capacity;
 

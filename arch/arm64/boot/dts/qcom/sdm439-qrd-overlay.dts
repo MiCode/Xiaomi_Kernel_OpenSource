@@ -22,5 +22,4 @@
 / {
 	model = "QRD";
 	qcom,board-id = <0xb 2>;
-	qcom,msm-id = <353 0x0>;
 };

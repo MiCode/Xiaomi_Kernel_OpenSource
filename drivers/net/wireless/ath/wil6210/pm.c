@@ -33,7 +33,11 @@ int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime)
 	if (wmi_only || debug_fw) {
 		wil_dbg_pm(wil, "Deny any suspend - %s mode\n",
 			   wmi_only ? "wmi_only" : "debug_fw");
-		rc = -EPERM;
+		rc = -EBUSY;
+		goto out;
+	}
+	if (is_runtime && !wil->platform_ops.suspend) {
+		rc = -EBUSY;
 		goto out;
 	}
 	if (!(ndev->flags & IFF_UP)) {

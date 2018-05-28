@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,7 +179,7 @@ static void sde_hw_lm_clear_dim_layer(struct sde_hw_mixer *ctx)
 	u32 reset = BIT(16), val;
 
 	reset = ~reset;
-	for (i = SDE_STAGE_0; i < sblk->maxblendstages; i++) {
+	for (i = SDE_STAGE_0; i <= sblk->maxblendstages; i++) {
 		stage_off = _stage_offset(ctx, i);
 		if (WARN_ON(stage_off < 0))
 			return;
