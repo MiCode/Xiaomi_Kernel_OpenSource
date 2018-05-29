@@ -276,12 +276,6 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
 
-static int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
-{
-	/* This function doesn't seem to be applicbale for 4.14 */
-	return 0;
-}
-
 static inline u32 is_mdp_irq_enabled(void)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
