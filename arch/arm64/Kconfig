@@ -942,6 +942,14 @@ config PRINT_VMEMLAYOUT
 
 	  If unsure, say N.
 
+config ARM64_SSBD
+	bool "Speculative Store Bypass Disable" if EXPERT
+	help
+	  This enables mitigation of the bypassing of previous stores
+	  by speculative loads.
+
+	  If unsure, say Y.
+
 menuconfig ARMV8_DEPRECATED
 	bool "Emulate deprecated/obsolete ARMv8 instructions"
 	depends on COMPAT
