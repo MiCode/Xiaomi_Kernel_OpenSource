@@ -263,6 +263,7 @@ int pil_do_ramdump(struct pil_desc *desc,
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *seg;
 	int count = 0, ret;
+	u32 encryption_status = 0;
 
 	if (desc->minidump_ss) {
 		pr_info("Minidump : md_ss_toc->md_ss_toc_init is 0x%x\n",
@@ -280,12 +281,14 @@ int pil_do_ramdump(struct pil_desc *desc,
 		 * Collect minidump if SS ToC is valid and segment table
 		 * is initialized in memory and encryption status is set.
 		 */
+		encryption_status = desc->minidump_ss->encryption_status;
+
 		if ((desc->minidump_ss->md_ss_smem_regions_baseptr != 0) &&
 			(desc->minidump_ss->md_ss_toc_init == true) &&
 			(desc->minidump_ss->md_ss_enable_status ==
 				MD_SS_ENABLED)) {
-			if (desc->minidump_ss->encryption_status ==
-				MD_SS_ENCR_DONE) {
+			if (encryption_status == MD_SS_ENCR_DONE ||
+				encryption_status == MD_SS_ENCR_NOTREQ) {
 				pr_info("Minidump : Dumping for %s\n",
 					desc->name);
 				return pil_do_minidump(desc, minidump_dev);

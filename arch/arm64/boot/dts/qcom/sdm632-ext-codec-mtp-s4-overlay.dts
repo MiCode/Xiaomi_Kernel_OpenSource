@@ -18,7 +18,6 @@
 
 / {
 	model = "Ext Codec MTP S4";
-	compatible = "qcom,mtp";
 	qcom,board-id = <8 4>;
 };
 

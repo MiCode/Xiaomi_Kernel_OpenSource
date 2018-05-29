@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8488,6 +8488,8 @@ unregister_led_class:
 out:
 	handle_usb_removal(chip);
 votables_cleanup:
+	if (chip->hvdcp_enable_votable)
+		destroy_votable(chip->hvdcp_enable_votable);
 	if (chip->aicl_deglitch_short_votable)
 		destroy_votable(chip->aicl_deglitch_short_votable);
 	if (chip->hw_aicl_rerun_enable_indirect_votable)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Program Flow Trace driver
  *
@@ -39,6 +39,7 @@
 
 #include "coresight-etm.h"
 #include "coresight-etm-perf.h"
+#include "coresight-priv.h"
 
 /*
  * Not really modular but using module_param is the easiest way to
@@ -711,6 +712,10 @@ static void etm_init_arch_data(void *info)
 
 	CS_UNLOCK(drvdata->base);
 
+	/* check the state of the fuse */
+	if (!coresight_authstatus_enabled(drvdata->base))
+		goto out;
+
 	/* First dummy read */
 	(void)etm_readl(drvdata, ETMPDSR);
 	/* Provide power to ETM: ETMPDCR[3] == 1 */
@@ -742,6 +747,7 @@ static void etm_init_arch_data(void *info)
 
 	etm_set_pwrdwn(drvdata);
 	etm_clr_pwrup(drvdata);
+out:
 	CS_LOCK(drvdata->base);
 }
 

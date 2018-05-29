@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -185,6 +185,7 @@ extern const struct clk_ops clk_byte2_ops;
 extern const struct clk_ops clk_pixel_ops;
 extern const struct clk_ops clk_gfx3d_ops;
 extern const struct clk_ops clk_dp_ops;
+extern const struct clk_ops clk_esc_ops;
 
 extern int clk_rcg2_get_dfs_clock_rate(struct clk_rcg2 *clk,
 				struct device *dev, u8 rcg_flags);

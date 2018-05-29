@@ -206,7 +206,7 @@ wcnss_dt_parse_vreg_level(struct device *dev, int index,
 					 voltage_levels,
 					 ARRAY_SIZE(voltage_levels));
 	if (ret) {
-		dev_err(dev, "error reading %s property\n", vreg_name);
+		wcnss_log(ERR, "error reading %s property\n", vreg_name);
 		return ret;
 	}
 
@@ -217,7 +217,8 @@ wcnss_dt_parse_vreg_level(struct device *dev, int index,
 	ret = of_property_read_u32(dev->of_node, current_vreg_name,
 				   &current_vreg);
 	if (ret) {
-		dev_err(dev, "error reading %s property\n", current_vreg_name);
+		wcnss_log(ERR, "error reading %s property\n",
+			  current_vreg_name);
 		return ret;
 	}
 
@@ -240,12 +241,14 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 		if (IS_ERR(pronto_vregs[vreg_i].regulator)) {
 			if (pronto_vregs[vreg_i].required) {
 				rc = PTR_ERR(pronto_vregs[vreg_i].regulator);
-				dev_err(dev, "regulator get of %s failed (%d)\n",
+				wcnss_log(ERR,
+					"regulator get of %s failed (%d)\n",
 					pronto_vregs[vreg_i].name, rc);
 				return rc;
 			} else {
-				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
-					pronto_vregs[vreg_i].name);
+				wcnss_log(DBG,
+				"Skip optional regulator configuration: %s\n",
+				pronto_vregs[vreg_i].name);
 				continue;
 			}
 		}
@@ -255,7 +258,8 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 					       pronto_vregs[vreg_i].volt,
 					       wlan_config->pronto_vlevel);
 		if (rc) {
-			dev_err(dev, "error reading voltage-level property\n");
+			wcnss_log(ERR,
+				  "error reading voltage-level property\n");
 			return rc;
 		}
 		pronto_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
@@ -269,12 +273,14 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 		if (IS_ERR(iris_vregs[vreg_i].regulator)) {
 			if (iris_vregs[vreg_i].required) {
 				rc = PTR_ERR(iris_vregs[vreg_i].regulator);
-				dev_err(dev, "regulator get of %s failed (%d)\n",
+				wcnss_log(ERR,
+					"regulator get of %s failed (%d)\n",
 					iris_vregs[vreg_i].name, rc);
 				return rc;
 			} else {
-				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
-					iris_vregs[vreg_i].name);
+				wcnss_log(DBG,
+				"Skip optional regulator configuration: %s\n",
+				iris_vregs[vreg_i].name);
 				continue;
 			}
 		}
@@ -284,7 +290,8 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 					       iris_vregs[vreg_i].volt,
 					       wlan_config->iris_vlevel);
 		if (rc) {
-			dev_err(dev, "error reading voltage-level property\n");
+			wcnss_log(ERR,
+				  "error reading voltage-level property\n");
 			return rc;
 		}
 		iris_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
@@ -334,7 +341,7 @@ configure_iris_xo(struct device *dev,
 
 		clk = clk_get(dev, "xo");
 		if (IS_ERR(clk)) {
-			pr_err("Couldn't get xo clock\n");
+			wcnss_log(ERR, "Couldn't get xo clock\n");
 			return PTR_ERR(clk);
 		}
 
@@ -344,7 +351,7 @@ configure_iris_xo(struct device *dev,
 
 		clk = clk_get(dev, "cxo");
 		if (IS_ERR(clk)) {
-			pr_err("Couldn't get cxo clock\n");
+			wcnss_log(ERR, "Couldn't get cxo clock\n");
 			return PTR_ERR(clk);
 		}
 	}
@@ -352,21 +359,21 @@ configure_iris_xo(struct device *dev,
 	if (on) {
 		msm_wcnss_base = cfg->msm_wcnss_base;
 		if (!msm_wcnss_base) {
-			pr_err("ioremap wcnss physical failed\n");
+			wcnss_log(ERR, "ioremap wcnss physical failed\n");
 			goto fail;
 		}
 
 		/* Enable IRIS XO */
 		rc = clk_prepare_enable(clk);
 		if (rc) {
-			pr_err("clk enable failed\n");
+			wcnss_log(ERR, "clk enable failed\n");
 			goto fail;
 		}
 
 		/* NV bit is set to indicate that platform driver is capable
 		 * of doing NV download.
 		 */
-		pr_debug("wcnss: Indicate NV bin download\n");
+		wcnss_log(DBG, "Indicate NV bin download\n");
 		spare_reg = msm_wcnss_base + spare_offset;
 		reg = readl_relaxed(spare_reg);
 		reg |= NVBIN_DLND_BIT;
@@ -403,10 +410,11 @@ configure_iris_xo(struct device *dev,
 					cpu_relax();
 
 				iris_reg = readl_relaxed(iris_read_reg);
-				pr_info("wcnss: IRIS Reg: %08x\n", iris_reg);
+				wcnss_log(INFO, "IRIS Reg: %08x\n", iris_reg);
 
 				if (validate_iris_chip_id(iris_reg) && i >= 4) {
-					pr_info("wcnss: IRIS Card absent/invalid\n");
+					wcnss_log(INFO,
+						"IRIS Card absent/invalid\n");
 					auto_detect = WCNSS_XO_INVALID;
 					/* Reset iris read bit */
 					reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
@@ -416,7 +424,8 @@ configure_iris_xo(struct device *dev,
 					reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
 					goto xo_configure;
 				} else if (!validate_iris_chip_id(iris_reg)) {
-					pr_debug("wcnss: IRIS Card is present\n");
+					wcnss_log(DBG,
+						  "IRIS Card is present\n");
 					break;
 				}
 				reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
@@ -472,13 +481,13 @@ xo_configure:
 		    auto_detect ==  WCNSS_XO_19MHZ) {
 			clk_rf = clk_get(dev, "rf_clk");
 			if (IS_ERR(clk_rf)) {
-				pr_err("Couldn't get rf_clk\n");
+				wcnss_log(ERR, "Couldn't get rf_clk\n");
 				goto fail;
 			}
 
 			rc = clk_prepare_enable(clk_rf);
 			if (rc) {
-				pr_err("clk_rf enable failed\n");
+				wcnss_log(ERR, "clk_rf enable failed\n");
 				goto fail;
 			}
 			if (iris_xo_set)
@@ -489,7 +498,7 @@ xo_configure:
 		    auto_detect ==  WCNSS_XO_19MHZ) {
 		clk_rf = clk_get(dev, "rf_clk");
 		if (IS_ERR(clk_rf)) {
-			pr_err("Couldn't get rf_clk\n");
+			wcnss_log(ERR, "Couldn't get rf_clk\n");
 			goto fail;
 		}
 		clk_disable_unprepare(clk_rf);
@@ -517,7 +526,7 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 	cfg = wcnss_get_wlan_config();
 
 	if (!cfg) {
-		pr_err("Failed to get WLAN configuration\n");
+		wcnss_log(ERR, "Failed to get WLAN configuration\n");
 		return;
 	}
 
@@ -530,7 +539,8 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 		if (regulators[i].state & VREG_OPTIMUM_MODE_MASK) {
 			rc = regulator_set_load(regulators[i].regulator, 0);
 			if (rc < 0) {
-				pr_err("regulator set load(%s) failed (%d)\n",
+				wcnss_log(ERR,
+					"regulator set load(%s) failed (%d)\n",
 				       regulators[i].name, rc);
 			}
 		}
@@ -553,15 +563,16 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 						   max_voltage);
 
 			if (rc)
-				pr_err("regulator_set_voltage(%s) failed (%d)\n",
-				       regulators[i].name, rc);
+				wcnss_log(ERR,
+				"regulator_set_voltage(%s) failed (%d)\n",
+				regulators[i].name, rc);
 		}
 
 		/* Disable regulator */
 		if (regulators[i].state & VREG_ENABLE_MASK) {
 			rc = regulator_disable(regulators[i].regulator);
 			if (rc < 0)
-				pr_err("vreg %s disable failed (%d)\n",
+				wcnss_log(ERR, "vreg %s disable failed (%d)\n",
 				       regulators[i].name, rc);
 		}
 	}
@@ -579,7 +590,7 @@ static int wcnss_vregs_on(struct device *dev,
 	cfg = wcnss_get_wlan_config();
 
 	if (!cfg) {
-		pr_err("Failed to get WLAN configuration\n");
+		wcnss_log(ERR, "Failed to get WLAN configuration\n");
 		return -EINVAL;
 	}
 
@@ -608,7 +619,8 @@ static int wcnss_vregs_on(struct device *dev,
 						   max_voltage);
 
 			if (rc) {
-				pr_err("regulator_set_voltage(%s) failed (%d)\n",
+				wcnss_log(ERR,
+				"regulator_set_voltage(%s) failed (%d)\n",
 				       regulators[i].name, rc);
 				goto fail;
 			}
@@ -620,7 +632,8 @@ static int wcnss_vregs_on(struct device *dev,
 			rc = regulator_set_load(regulators[i].regulator,
 						voltage_level[i].uA_load);
 			if (rc < 0) {
-				pr_err("regulator set load(%s) failed (%d)\n",
+				wcnss_log(ERR,
+				"regulator set load(%s) failed (%d)\n",
 				       regulators[i].name, rc);
 				goto fail;
 			}
@@ -630,7 +643,7 @@ static int wcnss_vregs_on(struct device *dev,
 		/* Enable the regulator */
 		rc = regulator_enable(regulators[i].regulator);
 		if (rc) {
-			pr_err("vreg %s enable failed (%d)\n",
+			wcnss_log(ERR, "vreg %s enable failed (%d)\n",
 			       regulators[i].name, rc);
 			goto fail;
 		}
@@ -653,7 +666,7 @@ static void wcnss_iris_vregs_off(enum wcnss_hw_type hw_type,
 				cfg->iris_vlevel);
 		break;
 	default:
-		pr_err("%s invalid hardware %d\n", __func__, hw_type);
+		wcnss_log(ERR, "%s invalid hardware %d\n", __func__, hw_type);
 	}
 }
 
@@ -669,7 +682,7 @@ static int wcnss_iris_vregs_on(struct device *dev,
 				     cfg->iris_vlevel);
 		break;
 	default:
-		pr_err("%s invalid hardware %d\n", __func__, hw_type);
+		wcnss_log(ERR, "%s invalid hardware %d\n", __func__, hw_type);
 	}
 	return ret;
 }
@@ -683,7 +696,7 @@ static void wcnss_core_vregs_off(enum wcnss_hw_type hw_type,
 				ARRAY_SIZE(pronto_vregs), cfg->pronto_vlevel);
 		break;
 	default:
-		pr_err("%s invalid hardware %d\n", __func__, hw_type);
+		wcnss_log(ERR, "%s invalid hardware %d\n", __func__, hw_type);
 	}
 }
 
@@ -700,7 +713,7 @@ static int wcnss_core_vregs_on(struct device *dev,
 				     cfg->pronto_vlevel);
 		break;
 	default:
-		pr_err("%s invalid hardware %d\n", __func__, hw_type);
+		wcnss_log(ERR, "%s invalid hardware %d\n", __func__, hw_type);
 	}
 
 	return ret;

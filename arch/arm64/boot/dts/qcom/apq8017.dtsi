@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8917.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8017";
+	compatible = "qcom,apq8017";
+	qcom,msm-id = <307 0x0>;
+};
+
+&tlmm {
+	pmx_adv7533_int: pmx_adv7533_int {
+		adv7533_int_active: adv7533_int_active {
+			mux {
+				pins = "gpio41";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio41";
+				function = "gpio";
+				drive-strength = <16>;
+				bias-pull-up; /* pull up */
+			};
+		};
+
+		adv7533_int_suspend: adv7533_int_suspend {
+			mux {
+				pins = "gpio41";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio41";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+&mdss_dsi_active {
+	mux {
+		pins = "gpio60", "gpio98", "gpio115", "gpio133";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio60", "gpio98", "gpio115", "gpio133";
+		drive-strength = <8>; /* 8 mA */
+		bias-disable = <0>; /* no pull */
+		output-high;
+	};
+};
+
+&mdss_dsi_suspend {
+	mux {
+		pins = "gpio60", "gpio98", "gpio115", "gpio133";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio60", "gpio98", "gpio115", "gpio133";
+		drive-strength = <2>; /* 2 mA */
+		bias-pull-down; /* pull down */
+	};
+};

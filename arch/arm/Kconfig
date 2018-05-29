@@ -574,6 +574,7 @@ config ARCH_QCOM
        select PINCTRL
        select ARCH_WANT_KMAP_ATOMIC_FLUSH
        select SND_SOC_COMPRESS
+       select SND_HWDEP
        help
          Support for Qualcomm MSM/QSD based systems.  This runs on the
          apps processor of the MSM/QSD and depends on a shared memory

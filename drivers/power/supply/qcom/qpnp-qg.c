@@ -261,8 +261,13 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 	int rc = 0, i, j = 0, temp;
 	u8 v_fifo[MAX_FIFO_LENGTH * 2], i_fifo[MAX_FIFO_LENGTH * 2];
 	u32 sample_interval = 0, sample_count = 0, fifo_v = 0, fifo_i = 0;
+	unsigned long rtc_sec = 0;
 
-	chip->kdata.fifo_time = (u32)ktime_get_seconds();
+	rc = get_rtc_time(&rtc_sec);
+	if (rc < 0)
+		pr_err("Failed to get RTC time, rc=%d\n", rc);
+
+	chip->kdata.fifo_time = (u32)rtc_sec;
 
 	if (!fifo_length) {
 		pr_debug("No FIFO data\n");
@@ -1097,17 +1102,36 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 static int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 {
 	int rc = 0, last_ibat = 0;
+	u32 fifo_length = 0;
 
 	if (chip->battery_missing) {
 		*ibat_ua = 0;
 		return 0;
 	}
 
-	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
-				(u8 *)&last_ibat, 2);
-	if (rc < 0) {
-		pr_err("Failed to read LAST_ADV_I reg, rc=%d\n", rc);
-		return rc;
+	if (chip->parallel_enabled) {
+		/* read the last real-time FIFO */
+		rc = get_fifo_length(chip, &fifo_length, true);
+		if (rc < 0) {
+			pr_err("Failed to read RT FIFO length, rc=%d\n", rc);
+			return rc;
+		}
+		fifo_length = (fifo_length == 0) ? 0 : fifo_length - 1;
+		fifo_length *= 2;
+		rc = qg_read(chip, chip->qg_base + QG_I_FIFO0_DATA0_REG +
+					fifo_length, (u8 *)&last_ibat, 2);
+		if (rc < 0) {
+			pr_err("Failed to read FIFO_I_%d reg, rc=%d\n",
+					fifo_length / 2, rc);
+			return rc;
+		}
+	} else {
+		rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
+					(u8 *)&last_ibat, 2);
+		if (rc < 0) {
+			pr_err("Failed to read LAST_ADV_I reg, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	last_ibat = sign_extend32(last_ibat, 15);
@@ -1169,32 +1193,6 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	mutex_unlock(&chip->soc_lock);
 
 	return 0;
-}
-
-static const char *qg_get_cycle_counts(struct qpnp_qg *chip)
-{
-	int i, rc, len = 0;
-	char *buf;
-
-	buf = chip->counter_buf;
-	for (i = 1; i <= BUCKET_COUNT; i++) {
-		chip->counter->id = i;
-		rc = get_cycle_count(chip->counter);
-		if (rc < 0) {
-			pr_err("Couldn't get cycle count rc=%d\n", rc);
-			return NULL;
-		}
-
-		if (sizeof(chip->counter_buf) - len < 8) {
-			pr_err("Invalid length %d\n", len);
-			return NULL;
-		}
-
-		len += snprintf(buf+len, 8, "%d ", rc);
-	}
-
-	buf[len] = '\0';
-	return buf;
 }
 
 static int qg_psy_set_property(struct power_supply *psy,
@@ -1302,7 +1300,12 @@ static int qg_psy_get_property(struct power_supply *psy,
 			pval->intval = (int)temp;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
-		pval->strval = qg_get_cycle_counts(chip);
+		rc = get_cycle_counts(chip->counter, &pval->strval);
+		if (rc < 0)
+			pval->strval = NULL;
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		rc = get_cycle_count(chip->counter, &pval->intval);
 		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
@@ -1340,6 +1343,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_BATT_FULL_CURRENT,
 	POWER_SUPPLY_PROP_BATT_PROFILE_VERSION,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -2742,7 +2746,9 @@ static int process_resume(struct qpnp_qg *chip)
 		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		 /* Clear suspend data as there has been a GOOD OCV */
+		memset(&chip->kdata, 0, sizeof(chip->kdata));
 		chip->suspend_data = false;
+
 		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV\n",
 				ocv_uv);
 	}

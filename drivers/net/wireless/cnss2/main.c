@@ -1675,6 +1675,7 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 
 static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 {
+	plat_priv->cal_done = true;
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
 	cnss_shutdown(plat_priv);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);

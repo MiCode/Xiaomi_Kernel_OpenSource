@@ -114,14 +114,18 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 {
 	struct recon_buf *binfo, *nextb;
 	struct vidc_input_cr_data *temp, *next;
-	u32 min_cf = 0, max_cf = 0;
-	u32 min_input_cr = 0, max_input_cr = 0, min_cr = 0, max_cr = 0;
+	u32 max_cr = 0, max_cf = 0, max_input_cr = 0;
+	u32 min_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
+	u32 min_input_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO;
+	u32 min_cf = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
 
 	mutex_lock(&inst->reconbufs.lock);
 	list_for_each_entry_safe(binfo, nextb, &inst->reconbufs.list, list) {
-		min_cr = min(min_cr, binfo->CR);
+		if (binfo->CR)
+			min_cr = min(min_cr, binfo->CR);
+		if (binfo->CF)
+			min_cf = min(min_cf, binfo->CF);
 		max_cr = max(max_cr, binfo->CR);
-		min_cf = min(min_cf, binfo->CF);
 		max_cf = max(max_cf, binfo->CF);
 	}
 	mutex_unlock(&inst->reconbufs.lock);
@@ -605,6 +609,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u64 rate = 0;
 	struct clock_data *dcvs = NULL;
+	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 7;
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
@@ -627,8 +632,19 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
-		/* 10 / 7 is overhead factor */
-		vsp_cycles += (inst->clk_data.bitrate * 10) / 7;
+		operating_rate = inst->clk_data.operating_rate >> 16;
+		if (operating_rate > inst->prop.fps && inst->prop.fps) {
+			vsp_factor_num *= operating_rate;
+			vsp_factor_den *= inst->prop.fps;
+		}
+		//adjust factor for 2 core case, due to workload is not
+		//equally distributed on 2 cores, use 0.65 instead of 0.5
+		if (inst->clk_data.core_id == VIDC_CORE_ID_3) {
+			vsp_factor_num = vsp_factor_num * 13 / 10;
+			vsp_factor_den *= 2;
+		}
+		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
+				vsp_factor_den;
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
 

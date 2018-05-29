@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,7 +281,7 @@ static inline void ipa_broadcast_quota_reach_ind
 {
 }
 
-static int rmnet_ipa_reset_tethering_stats
+static inline int rmnet_ipa_reset_tethering_stats
 (
 	struct wan_ioctl_reset_tether_stats *data
 )

@@ -22,5 +22,4 @@
 / {
 	model = "CDP";
 	qcom,board-id = <1 2>;
-	qcom,msm-id = <353 0x0>;
 };

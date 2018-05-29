@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,6 +178,7 @@
 
 #define CPR4_REG_MISC				0x700
 #define CPR4_MISC_RESET_STEP_QUOT_LOOP_EN	BIT(2)
+#define CPR4_MISC_THREAD_HAS_ALWAYS_VOTE_EN	BIT(3)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK	GENMASK(23, 20)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_SHIFT	20
 #define CPR4_MISC_TEMP_SENSOR_ID_START_MASK	GENMASK(27, 24)
@@ -732,6 +733,11 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 		cpr3_masked_write(ctrl, CPR4_REG_MISC,
 				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN,
 				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN);
+
+	if (ctrl->thread_has_always_vote_en)
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+			CPR4_MISC_THREAD_HAS_ALWAYS_VOTE_EN,
+			CPR4_MISC_THREAD_HAS_ALWAYS_VOTE_EN);
 
 	if (ctrl->supports_hw_closed_loop) {
 		if (ctrl->saw_use_unit_mV)

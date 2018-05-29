@@ -411,6 +411,27 @@ static struct clk_freq_tbl ftbl_gfx3d_clk_src_sdm450[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gfx3d_clk_src_sdm632[] = {
+	F_MM(  19200000, FIXED_CLK_SRC,                  xo,    1,    0,     0),
+	F_MM(  50000000, FIXED_CLK_SRC,  gpll0_main_div2_mm,    8,    0,     0),
+	F_MM(  80000000, FIXED_CLK_SRC,  gpll0_main_div2_mm,    5,    0,     0),
+	F_MM( 100000000, FIXED_CLK_SRC,  gpll0_main_div2_mm,    4,    0,     0),
+	F_MM( 133330000, FIXED_CLK_SRC,  gpll0_main_div2_mm,    3,    0,     0),
+	F_MM( 160000000, FIXED_CLK_SRC,  gpll0_main_div2_mm,  2.5,    0,     0),
+	F_MM( 200000000, FIXED_CLK_SRC,  gpll0_main_div2_mm,    2,    0,     0),
+	F_MM( 216000000, FIXED_CLK_SRC, gpll6_main_div2_gfx,  2.5,    0,     0),
+	F_MM( 266670000, FIXED_CLK_SRC,               gpll0,    3,    0,     0),
+	F_MM( 320000000, FIXED_CLK_SRC,               gpll0,  2.5,    0,     0),
+	F_MM( 400000000, FIXED_CLK_SRC,               gpll0,    2,    0,     0),
+	F_MM( 460800000, FIXED_CLK_SRC,       gpll4_out_aux,  2.5,    0,     0),
+	F_MM( 510000000,    1020000000,               gpll3,    1,    0,     0),
+	F_MM( 560000000,    1120000000,               gpll3,    1,    0,     0),
+	F_MM( 650000000,    1300000000,               gpll3,    1,    0,     0),
+	F_MM( 700000000,    1400000000,               gpll3,    1,    0,     0),
+	F_MM( 725000000,    1450000000,               gpll3,    1,    0,     0),
+
+	F_END
+};
 static struct rcg_clk gfx3d_clk_src = {
 	.cmd_rcgr_reg = GFX3D_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -4103,6 +4124,11 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 							"qcom,gcc-gfx-sdm450");
 	if (compat_bin)
 		gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_sdm450;
+
+	compat_bin = of_device_is_compatible(pdev->dev.of_node,
+							"qcom,gcc-gfx-sdm632");
+	if (compat_bin)
+		gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_sdm632;
 
 	ret = of_get_fmax_vdd_class(pdev, &gcc_oxili_gfx3d_clk.c,
 					"qcom,gfxfreq-corner");

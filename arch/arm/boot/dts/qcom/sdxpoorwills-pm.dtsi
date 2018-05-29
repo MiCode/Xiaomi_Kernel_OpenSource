@@ -98,4 +98,9 @@
 		reg = <0xC300000 0x1000>, <0xC370004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
 	};
+
+	qcom,rpmh-master-stats@b211200 {
+		compatible = "qcom,rpmh-master-stats-v1";
+		reg = <0xb211200 0x60>;
+	};
 };

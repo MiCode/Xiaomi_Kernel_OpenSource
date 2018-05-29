@@ -797,14 +797,18 @@ err_invalid_fw:
 int pil_mss_debug_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	u32 encryption_status;
 	int ret;
+
 
 	if (!pil->minidump_ss)
 		return 0;
-	if (pil->minidump_ss) {
-		if (pil->minidump_ss->md_ss_enable_status != MD_SS_ENABLED)
-			return 0;
-	}
+
+	encryption_status = pil->minidump_ss->encryption_status;
+
+	if ((pil->minidump_ss->md_ss_enable_status != MD_SS_ENABLED) ||
+		encryption_status == MD_SS_ENCR_NOTREQ)
+		return 0;
 
 	/*
 	 * Bring subsystem out of reset and enable required
@@ -836,7 +840,7 @@ int pil_mss_debug_reset(struct pil_desc *pil)
 	 * complete before returning
 	 */
 	pr_info("Minidump: waiting encryption to complete\n");
-	msleep(10000);
+	msleep(13000);
 	if (pil->minidump_ss) {
 		writel_relaxed(0x2, drv->reg_base + QDSP6SS_NMI_CFG);
 		/* Let write complete before proceeding */

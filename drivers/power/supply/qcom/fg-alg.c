@@ -19,6 +19,7 @@
 #include "fg-alg.h"
 
 #define FULL_SOC_RAW		255
+#define FULL_BATT_SOC		GENMASK(31, 0)
 #define CAPACITY_DELTA_DECIPCT	500
 
 /* Cycle counter APIs */
@@ -164,13 +165,13 @@ void cycle_count_update(struct cycle_counter *counter, int batt_soc,
 }
 
 /**
- * get_cycle_count -
+ * get_bucket_cycle_count -
  * @counter: Cycle counter object
  *
  * Returns the cycle counter for a SOC bucket.
  *
  */
-int get_cycle_count(struct cycle_counter *counter)
+static int get_bucket_cycle_count(struct cycle_counter *counter)
 {
 	int count;
 
@@ -184,6 +185,68 @@ int get_cycle_count(struct cycle_counter *counter)
 	count = counter->count[counter->id - 1];
 	mutex_unlock(&counter->lock);
 	return count;
+}
+
+/**
+ * get_cycle_counts -
+ * @counter: Cycle counter object
+ * @buf: Bucket cycle counts formatted in a string returned to the caller
+ *
+ * Get cycle count for all buckets in a string format
+ */
+int get_cycle_counts(struct cycle_counter *counter, const char **buf)
+{
+	int i, rc, len = 0;
+
+	for (i = 1; i <= BUCKET_COUNT; i++) {
+		counter->id = i;
+		rc = get_bucket_cycle_count(counter);
+		if (rc < 0) {
+			pr_err("Couldn't get cycle count rc=%d\n", rc);
+			return rc;
+		}
+
+		if (sizeof(counter->str_buf) - len < 8) {
+			pr_err("Invalid length %d\n", len);
+			return -EINVAL;
+		}
+
+		len += snprintf(counter->str_buf+len, 8, "%d ", rc);
+	}
+
+	counter->str_buf[len] = '\0';
+	*buf = counter->str_buf;
+	return 0;
+}
+
+/**
+ * get_cycle_count -
+ * @counter: Cycle counter object
+ * @count: Average cycle count returned to the caller
+ *
+ * Get average cycle count for all buckets
+ */
+int get_cycle_count(struct cycle_counter *counter, int *count)
+{
+	int i, rc, temp = 0;
+
+	for (i = 1; i <= BUCKET_COUNT; i++) {
+		counter->id = i;
+		rc = get_bucket_cycle_count(counter);
+		if (rc < 0) {
+			pr_err("Couldn't get cycle count rc=%d\n", rc);
+			return rc;
+		}
+
+		temp += rc;
+	}
+
+	/*
+	 * Normalize the counter across each bucket so that we can get
+	 * the overall charge cycle count.
+	 */
+	*count = temp / BUCKET_COUNT;
+	return 0;
 }
 
 /**
@@ -289,7 +352,7 @@ static void cap_learning_post_process(struct cap_learning *cl)
  */
 static int cap_learning_process_full_data(struct cap_learning *cl)
 {
-	int rc, cc_soc_sw, cc_soc_delta_pct;
+	int rc, cc_soc_sw, cc_soc_delta_centi_pct;
 	int64_t delta_cap_uah;
 
 	rc = cl->get_cc_soc(cl->data, &cc_soc_sw);
@@ -298,20 +361,21 @@ static int cap_learning_process_full_data(struct cap_learning *cl)
 		return rc;
 	}
 
-	cc_soc_delta_pct =
-		div64_s64((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 100,
+	cc_soc_delta_centi_pct =
+		div64_s64((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 10000,
 			cl->cc_soc_max);
 
 	/* If the delta is < 50%, then skip processing full data */
-	if (cc_soc_delta_pct < 50) {
-		pr_err("cc_soc_delta_pct: %d\n", cc_soc_delta_pct);
+	if (cc_soc_delta_centi_pct < 5000) {
+		pr_err("cc_soc_delta_centi_pct: %d\n", cc_soc_delta_centi_pct);
 		return -ERANGE;
 	}
 
-	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_pct, 100);
+	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_centi_pct,
+				 10000);
 	cl->final_cap_uah = cl->init_cap_uah + delta_cap_uah;
-	pr_debug("Current cc_soc=%d cc_soc_delta_pct=%d total_cap_uah=%lld\n",
-		cc_soc_sw, cc_soc_delta_pct, cl->final_cap_uah);
+	pr_debug("Current cc_soc=%d cc_soc_delta_centi_pct=%d total_cap_uah=%lld\n",
+		cc_soc_sw, cc_soc_delta_centi_pct, cl->final_cap_uah);
 	return 0;
 }
 
@@ -339,8 +403,8 @@ static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc)
 		return -EINVAL;
 	}
 
-	cl->init_cap_uah = div64_s64(cl->learned_cap_uah * batt_soc_msb,
-					FULL_SOC_RAW);
+	cl->init_cap_uah = div64_s64(cl->learned_cap_uah * batt_soc,
+					FULL_BATT_SOC);
 
 	if (cl->prime_cc_soc) {
 		/*

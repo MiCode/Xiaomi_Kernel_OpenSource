@@ -33,10 +33,8 @@ module_param(ftm_mode, bool, 0444);
 MODULE_PARM_DESC(ftm_mode, " Set factory test mode, default - false");
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_SLEEP
 static int wil6210_pm_notify(struct notifier_block *notify_block,
 			     unsigned long mode, void *unused);
-#endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
 static
@@ -354,7 +352,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_SLEEP
 	wil->pm_notify.notifier_call = wil6210_pm_notify;
 	rc = register_pm_notifier(&wil->pm_notify);
 	if (rc)
@@ -362,7 +359,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		 * be prevented in a later phase if needed
 		 */
 		wil_err(wil, "register_pm_notifier failed: %d\n", rc);
-#endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
 	wil6210_debugfs_init(wil);
@@ -397,9 +393,7 @@ static void wil_pcie_remove(struct pci_dev *pdev)
 	wil_dbg_misc(wil, "pcie_remove\n");
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_SLEEP
 	unregister_pm_notifier(&wil->pm_notify);
-#endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
 	wil_pm_runtime_forbid(wil);
@@ -428,7 +422,6 @@ static const struct pci_device_id wil6210_pcie_ids[] = {
 MODULE_DEVICE_TABLE(pci, wil6210_pcie_ids);
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_SLEEP
 
 static int wil6210_suspend(struct device *dev, bool is_runtime)
 {
@@ -546,7 +539,6 @@ static int wil6210_pm_resume(struct device *dev)
 {
 	return wil6210_resume(dev, false);
 }
-#endif /* CONFIG_PM_SLEEP */
 
 static int wil6210_pm_runtime_idle(struct device *dev)
 {
@@ -578,10 +570,12 @@ static int wil6210_pm_runtime_suspend(struct device *dev)
 #endif /* CONFIG_PM */
 
 static const struct dev_pm_ops wil6210_pm_ops = {
+#ifdef CONFIG_PM
 	SET_SYSTEM_SLEEP_PM_OPS(wil6210_pm_suspend, wil6210_pm_resume)
 	SET_RUNTIME_PM_OPS(wil6210_pm_runtime_suspend,
 			   wil6210_pm_runtime_resume,
 			   wil6210_pm_runtime_idle)
+#endif /* CONFIG_PM */
 };
 
 static struct pci_driver wil6210_driver = {

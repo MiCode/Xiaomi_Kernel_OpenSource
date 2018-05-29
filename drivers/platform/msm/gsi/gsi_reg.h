@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1124,6 +1124,8 @@
 #define GSI_EE_n_GSI_CH_k_QOS_RMSK 0x303
 #define GSI_EE_n_GSI_CH_k_QOS_MAXk 30
 #define GSI_EE_n_GSI_CH_k_QOS_MAXn 3
+#define GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK 0x400
+#define GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT 0xa
 #define GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK 0x200
 #define GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT 0x9
 #define GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK 0x100

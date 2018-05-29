@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -817,6 +817,11 @@ int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client)
 int ipa3_uc_notify_clk_state(bool enabled)
 {
 	u32 opcode;
+
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_0) {
+		IPADBG_LOW("not supported past IPA v4.0\n");
+		return 0;
+	}
 
 	/*
 	 * If the uC interface has not been initialized yet,
