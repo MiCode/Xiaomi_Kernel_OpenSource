@@ -3360,7 +3360,8 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		rc = smblib_request_dpdm(chg, true);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
-
+		if (chg->fcc_stepper_mode)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
 		/* Schedule work to enable parallel charger */
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,
@@ -3378,6 +3379,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						false, 0);
 			}
 		}
+
+		/* Force 1500mA FCC on removal */
+		if (chg->fcc_stepper_mode)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
+						true, 1500000);
 
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
