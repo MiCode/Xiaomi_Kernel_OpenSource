@@ -2256,8 +2256,17 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 	smmu_domain->pgtbl_ops = pgtbl_ops;
 	ret = 0;
 out:
-	if (ret)
+	if (ret) {
 		free_io_pgtable_ops(pgtbl_ops);
+		/* unassign any freed page table memory */
+		if (arm_smmu_is_master_side_secure(smmu_domain)) {
+			arm_smmu_secure_domain_lock(smmu_domain);
+			arm_smmu_secure_pool_destroy(smmu_domain);
+			arm_smmu_unassign_table(smmu_domain);
+			arm_smmu_secure_domain_unlock(smmu_domain);
+		}
+		smmu_domain->pgtbl_ops = NULL;
+	}
 	mutex_unlock(&smmu->attach_lock);
 
 	return ret;
