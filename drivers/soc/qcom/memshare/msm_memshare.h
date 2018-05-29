@@ -41,6 +41,8 @@ struct mem_blocks {
 	uint32_t allotted;
 	/* Memory allocation request received or not */
 	uint32_t alloc_request;
+	/* Allocation on request from a client*/
+	uint32_t client_request;
 	/* Size required for client */
 	uint32_t size;
 	/*

@@ -406,6 +406,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 				memblock[i].peripheral ==
 				DHMS_MEM_PROC_MPSS_V01 &&
 				!memblock[i].guarantee &&
+				!memblock[i].client_request &&
 				memblock[i].allotted &&
 				!memblock[i].alloc_request) {
 				pr_debug("memshare: hypervisor unmapping  for client id: %d\n",
@@ -665,9 +666,10 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 					__func__);
 		flag = 1;
 	} else if (!memblock[client_id].guarantee &&
-					memblock[client_id].allotted) {
-		pr_debug("memshare: %s: size: %d",
-				__func__, memblock[client_id].size);
+				!memblock[client_id].client_request &&
+				memblock[client_id].allotted) {
+		pr_debug("memshare: %s:client_id:%d - size: %d",
+				__func__, client_id, memblock[client_id].size);
 		ret = hyp_assign_phys(memblock[client_id].phy_addr,
 				memblock[client_id].size, source_vmlist, 1,
 				dest_vmids, dest_perms, 1);
@@ -676,8 +678,8 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 		 * This is an error case as hyp mapping was successful
 		 * earlier but during unmap it lead to failure.
 		 */
-			pr_err("memshare: %s, failed to unmap the region\n",
-				__func__);
+			pr_err("memshare: %s, failed to unmap the region for client id:%d\n",
+				__func__, client_id);
 		}
 		size = memblock[client_id].size;
 		if (memblock[client_id].client_id == 1) {
@@ -696,8 +698,8 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 			attrs);
 		free_client(client_id);
 	} else {
-		pr_err("memshare: %s, Request came for a guaranteed client cannot free up the memory\n",
-						__func__);
+		pr_err("memshare: %s, Request came for a guaranteed client (client_id: %d) cannot free up the memory\n",
+						__func__, client_id);
 	}
 
 	if (flag) {
@@ -991,6 +993,10 @@ static int memshare_child_probe(struct platform_device *pdev)
 	memblock[num_clients].guarantee = of_property_read_bool(
 							pdev->dev.of_node,
 							"qcom,allocate-boot-time");
+
+	memblock[num_clients].client_request = of_property_read_bool(
+							pdev->dev.of_node,
+							"qcom,allocate-on-request");
 
 	rc = of_property_read_string(pdev->dev.of_node, "label",
 						&name);
