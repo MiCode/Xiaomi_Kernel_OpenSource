@@ -153,6 +153,22 @@ void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
 void sde_fence_timeline_status(struct sde_fence_context *ctx,
 					struct drm_mode_object *drm_obj);
 
+/**
+ * sde_fence_timeline_dump - utility to dump fence list info in debugfs node
+ * @fence: Pointer fence container
+ * @drm_obj: Pointer to drm object associated with fence timeline
+ * @s: used to writing on debugfs node
+ */
+void sde_debugfs_timeline_dump(struct sde_fence_context *ctx,
+		struct drm_mode_object *drm_obj, struct seq_file **s);
+
+/**
+ * sde_fence_timeline_status - dumps fence timeline in debugfs node
+ * @fence: Pointer fence container
+ * @s: used to writing on debugfs node
+ */
+void sde_fence_list_dump(struct fence *fence, struct seq_file **s);
+
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -212,6 +228,18 @@ static inline void sde_fence_timeline_status(struct sde_fence_context *ctx,
 {
 	/* do nothing */
 }
+
+void sde_debugfs_timeline_dump(struct sde_fence_context *ctx,
+		struct drm_mode_object *drm_obj, struct seq_file **s)
+{
+	/* do nothing */
+}
+
+void sde_fence_list_dump(struct fence *fence, struct seq_file **s)
+{
+	/* do nothing */
+}
+
 #endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 
 #endif /* _SDE_FENCE_H_ */

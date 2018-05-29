@@ -5692,6 +5692,73 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 }
 DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_crtc_debugfs_state);
 
+static int _sde_debugfs_fence_status_show(struct seq_file *s, void *data)
+{
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct drm_connector *conn;
+	struct drm_mode_object *drm_obj;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct sde_fence_context *ctx;
+
+	if (!s || !s->private)
+		return -EINVAL;
+
+	sde_crtc = s->private;
+	crtc = &sde_crtc->base;
+	cstate = to_sde_crtc_state(crtc->state);
+
+	/* Dump input fence info */
+	seq_puts(s, "===Input fence===\n");
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		struct sde_plane_state *pstate;
+		struct fence *fence;
+
+		pstate = to_sde_plane_state(plane->state);
+		if (!pstate)
+			continue;
+
+		seq_printf(s, "plane:%u stage:%d\n", plane->base.id,
+			pstate->stage);
+
+		fence = pstate->input_fence;
+		if (fence)
+			sde_fence_list_dump(fence, &s);
+	}
+
+	/* Dump release fence info */
+	seq_puts(s, "\n");
+	seq_puts(s, "===Release fence===\n");
+	ctx = &sde_crtc->output_fence;
+	drm_obj = &crtc->base;
+	sde_debugfs_timeline_dump(ctx, drm_obj, &s);
+	seq_puts(s, "\n");
+
+	/* Dump retire fence info */
+	seq_puts(s, "===Retire fence===\n");
+	drm_for_each_connector(conn, crtc->dev)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			struct sde_connector *c_conn;
+
+			c_conn = to_sde_connector(conn);
+			ctx = &c_conn->retire_fence;
+			drm_obj = &conn->base;
+			sde_debugfs_timeline_dump(ctx, drm_obj, &s);
+		}
+
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+static int _sde_debugfs_fence_status(struct inode *inode, struct file *file)
+{
+	return single_open(file, _sde_debugfs_fence_status_show,
+				inode->i_private);
+}
+
 static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
@@ -5707,6 +5774,10 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 		.open =		simple_open,
 		.read =		_sde_crtc_misr_read,
 		.write =	_sde_crtc_misr_setup,
+	};
+	static const struct file_operations debugfs_fence_fops = {
+		.open =		_sde_debugfs_fence_status,
+		.read =		seq_read,
 	};
 
 	if (!crtc)
@@ -5732,6 +5803,8 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 			&sde_crtc_debugfs_state_fops);
 	debugfs_create_file("misr_data", 0600, sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_misr_fops);
+	debugfs_create_file("fence_status", 0400, sde_crtc->debugfs_root,
+					sde_crtc, &debugfs_fence_fops);
 
 	return 0;
 }

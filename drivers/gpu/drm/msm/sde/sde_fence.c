@@ -431,3 +431,55 @@ void sde_fence_timeline_status(struct sde_fence_context *ctx,
 		obj_name, drm_obj->id, drm_obj->type, ctx->done_count,
 		ctx->commit_count);
 }
+
+void sde_fence_list_dump(struct fence *fence, struct seq_file **s)
+{
+	char timeline_str[TIMELINE_VAL_LENGTH];
+
+	if (fence->ops->timeline_value_str)
+		fence->ops->timeline_value_str(fence,
+		timeline_str, TIMELINE_VAL_LENGTH);
+
+	seq_printf(*s, "fence name:%s timeline name:%s seqno:0x%x timeline:%s signaled:0x%x\n",
+		fence->ops->get_driver_name(fence),
+		fence->ops->get_timeline_name(fence),
+		fence->seqno, timeline_str,
+		fence->ops->signaled ?
+		fence->ops->signaled(fence) : 0xffffffff);
+}
+
+void sde_debugfs_timeline_dump(struct sde_fence_context *ctx,
+		struct drm_mode_object *drm_obj, struct seq_file **s)
+{
+	char *obj_name;
+	struct sde_fence *fc, *next;
+	struct fence *fence;
+
+	if (!ctx || !drm_obj) {
+		SDE_ERROR("invalid input params\n");
+		return;
+	}
+
+	switch (drm_obj->type) {
+	case DRM_MODE_OBJECT_CRTC:
+		obj_name = "crtc";
+		break;
+	case DRM_MODE_OBJECT_CONNECTOR:
+		obj_name = "connector";
+		break;
+	default:
+		obj_name = "unknown";
+		break;
+	}
+
+	seq_printf(*s, "drm obj:%s id:%d type:0x%x done_count:%d commit_count:%d\n",
+		obj_name, drm_obj->id, drm_obj->type, ctx->done_count,
+		ctx->commit_count);
+
+	spin_lock(&ctx->list_lock);
+	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list) {
+		fence = &fc->base;
+		sde_fence_list_dump(fence, s);
+	}
+	spin_unlock(&ctx->list_lock);
+}
