@@ -896,6 +896,7 @@ static bool cpu_has_broken_dbm(void)
 #ifdef CONFIG_ARM64_ERRATUM_1024718
 		// A55 r0p0 -r1p0
 		GENERIC_MIDR_RANGE(MIDR_CORTEX_A55, 0, 0, 1, 0),
+		GENERIC_MIDR_RANGE(MIDR_KRYO3S, 7, 12, 7, 12),
 #endif
 		{},
 	};
