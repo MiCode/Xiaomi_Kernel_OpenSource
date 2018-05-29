@@ -37,10 +37,6 @@
 };
 
 &soc {
-	qcom,msm-ssc-sensors {
-		status = "disabled";
-	};
-
 	qcom,msm-thermal {
 		qcom,hotplug-temp = <115>;
 		qcom,hotplug-temp-hysteresis = <25>;
@@ -86,6 +82,8 @@
 	};
 };
 
-&modem_mem {
-	status = "disabled";
+&wil6210 {
+	qcom,pcie-parent = <&pcie0>;
+	qcom,smmu-support;
+	status = "ok";
 };

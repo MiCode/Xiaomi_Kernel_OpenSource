@@ -37,6 +37,8 @@ uint16_t apr_get_data_src(struct apr_hdr *hdr)
 		return APR_DEST_MODEM;
 	else if (hdr->src_domain == APR_DOMAIN_ADSP)
 		return APR_DEST_QDSP6;
+	else if (hdr->src_domain == APR_DOMAIN_SDSP)
+		return APR_DEST_DSPS;
 	else {
 		pr_err("APR: Pkt from wrong source: %d\n", hdr->src_domain);
 		return APR_DEST_MAX;		/*RETURN INVALID VALUE*/
@@ -47,6 +49,8 @@ int apr_get_dest_id(char *dest)
 {
 	if (!strcmp(dest, "ADSP"))
 		return APR_DEST_QDSP6;
+	else if (!strcmp(dest, "SDSP"))
+		return APR_DEST_DSPS;
 	else
 		return APR_DEST_MODEM;
 }

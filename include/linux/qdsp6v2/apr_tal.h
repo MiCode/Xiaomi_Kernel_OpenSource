@@ -27,7 +27,8 @@
 
 #define APR_DEST_MODEM 0
 #define APR_DEST_QDSP6 1
-#define APR_DEST_MAX   2
+#define APR_DEST_DSPS  3
+#define APR_DEST_MAX   4
 
 #if defined(CONFIG_MSM_QDSP6_APRV2_GLINK) || \
 	defined(CONFIG_MSM_QDSP6_APRV3_GLINK)

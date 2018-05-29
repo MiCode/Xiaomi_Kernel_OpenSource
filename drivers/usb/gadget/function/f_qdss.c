@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1162,7 +1162,7 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	return &usb_qdss->port.function;
 }
 
-DECLARE_USB_FUNCTION_INIT(qdss, qdss_alloc_inst, qdss_alloc);
+DECLARE_USB_FUNCTION(qdss, qdss_alloc_inst, qdss_alloc);
 static int __init usb_qdss_init(void)
 {
 	int ret;

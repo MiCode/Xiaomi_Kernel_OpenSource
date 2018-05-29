@@ -1798,7 +1798,7 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 
 /* helper to install properties which are common to planes and crtcs */
 static void _sde_plane_install_properties(struct drm_plane *plane,
-	struct sde_mdss_cfg *catalog)
+	struct sde_mdss_cfg *catalog, bool plane_reserved)
 {
 	static const struct drm_prop_enum_list e_blend_op[] = {
 		{SDE_DRM_BLEND_OP_NOT_DEFINED,    "not_defined"},
@@ -1994,6 +1994,16 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	sde_kms_info_add_keyint(info, "max_downscale", maxdwnscale);
 	sde_kms_info_add_keyint(info, "max_horizontal_deci", maxhdeciexp);
 	sde_kms_info_add_keyint(info, "max_vertical_deci", maxvdeciexp);
+
+	/* When early RVC is enabled in bootloader and doesn't exit,
+	 * user app should not touch the pipe which RVC is on.
+	 * So mark the plane_unavailibility to the special pipe's property,
+	 * user can parse this property of this pipe and stop this pipe's
+	 * allocation after parsing.
+	 * plane_reserved is 1, means the pipe is occupied in bootloader.
+	 * plane_reserved is 0, means it's not used in bootloader.
+	 */
+	sde_kms_info_add_keyint(info, "plane_unavailability", plane_reserved);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, info->len, PLANE_PROP_INFO);
 
@@ -2731,7 +2741,8 @@ end:
 /* initialize plane */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,
-		unsigned long possible_crtcs, bool vp_enabled)
+		unsigned long possible_crtcs,
+		bool vp_enabled, bool plane_reserved)
 {
 	struct drm_plane *plane = NULL;
 	struct sde_plane *psde;
@@ -2856,7 +2867,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 			PLANE_PROP_COUNT, PLANE_PROP_BLOBCOUNT,
 			sizeof(struct sde_plane_state));
 
-	_sde_plane_install_properties(plane, kms->catalog);
+	_sde_plane_install_properties(plane, kms->catalog, plane_reserved);
 
 	/* save user friendly pipe name for later */
 	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);

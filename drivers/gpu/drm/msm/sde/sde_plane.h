@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -77,10 +77,12 @@ void sde_plane_flush(struct drm_plane *plane);
  * @primary_plane: true if this pipe is primary plane for crtc
  * @possible_crtcs: bitmask of crtc that can be attached to the given pipe
  * @vp_enabled:  Flag indicating if virtual planes enabled
+ * @plane_reserved: Flag indicating the plane is occupied in bootloader
  */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,
-		unsigned long possible_crtcs, bool vp_enabled);
+		unsigned long possible_crtcs,
+		bool vp_enabled, bool plane_reserved);
 
 /**
  * sde_plane_wait_input_fence - wait for input fence object

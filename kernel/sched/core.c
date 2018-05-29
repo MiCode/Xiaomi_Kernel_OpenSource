@@ -3268,9 +3268,24 @@ notrace unsigned long get_parent_ip(unsigned long addr)
 
 #if defined(CONFIG_PREEMPT) && (defined(CONFIG_DEBUG_PREEMPT) || \
 				defined(CONFIG_PREEMPT_TRACER))
+/*
+ * preemptoff stack tracing threshold in ns.
+ * default: 1ms
+ */
+unsigned int sysctl_preemptoff_tracing_threshold_ns = 1000000UL;
+
+struct preempt_store {
+	u64 ts;
+	unsigned long caddr[4];
+	bool irqs_disabled;
+};
+
+static DEFINE_PER_CPU(struct preempt_store, the_ps);
 
 void preempt_count_add(int val)
 {
+	struct preempt_store *ps = &per_cpu(the_ps, raw_smp_processor_id());
+
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
@@ -3291,6 +3306,13 @@ void preempt_count_add(int val)
 #ifdef CONFIG_DEBUG_PREEMPT
 		current->preempt_disable_ip = ip;
 #endif
+		ps->ts = sched_clock();
+		ps->caddr[0] = CALLER_ADDR0;
+		ps->caddr[1] = CALLER_ADDR1;
+		ps->caddr[2] = CALLER_ADDR2;
+		ps->caddr[3] = CALLER_ADDR3;
+		ps->irqs_disabled = irqs_disabled();
+
 		trace_preempt_off(CALLER_ADDR0, ip);
 	}
 }
@@ -3313,8 +3335,22 @@ void preempt_count_sub(int val)
 		return;
 #endif
 
-	if (preempt_count() == val)
+	if (preempt_count() == val) {
+		struct preempt_store *ps = &per_cpu(the_ps,
+				raw_smp_processor_id());
+		u64 delta = sched_clock() - ps->ts;
+
+		/*
+		 * Trace preempt disable stack if preemption
+		 * is disabled for more than the threshold.
+		 */
+		if (delta > sysctl_preemptoff_tracing_threshold_ns)
+			trace_sched_preempt_disable(delta, ps->irqs_disabled,
+						ps->caddr[0], ps->caddr[1],
+						ps->caddr[2], ps->caddr[3]);
+
 		trace_preempt_on(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
+	}
 	__preempt_count_sub(val);
 }
 EXPORT_SYMBOL(preempt_count_sub);

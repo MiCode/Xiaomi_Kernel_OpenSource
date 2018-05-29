@@ -4999,6 +4999,17 @@ dma_addr_t xhci_get_sec_event_ring_dma_addr(struct usb_hcd *hcd,
 	return 0;
 }
 
+static dma_addr_t xhci_get_dcba_dma_addr(struct usb_hcd *hcd,
+	struct usb_device *udev)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if (!(xhci->xhc_state & XHCI_STATE_HALTED) && xhci->dcbaa)
+		return xhci->dcbaa->dev_context_ptrs[udev->slot_id];
+
+	return 0;
+}
+
 dma_addr_t xhci_get_xfer_ring_dma_addr(struct usb_hcd *hcd,
 	struct usb_device *udev, struct usb_host_endpoint *ep)
 {
@@ -5022,13 +5033,6 @@ dma_addr_t xhci_get_xfer_ring_dma_addr(struct usb_hcd *hcd,
 		return virt_dev->eps[ep_index].ring->first_seg->dma;
 
 	return 0;
-}
-
-int xhci_get_core_id(struct usb_hcd *hcd)
-{
-	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
-
-	return xhci->core_id;
 }
 
 static const struct hc_driver xhci_hc_driver = {
@@ -5094,7 +5098,7 @@ static const struct hc_driver xhci_hc_driver = {
 	.sec_event_ring_cleanup =	xhci_sec_event_ring_cleanup,
 	.get_sec_event_ring_dma_addr =	xhci_get_sec_event_ring_dma_addr,
 	.get_xfer_ring_dma_addr =	xhci_get_xfer_ring_dma_addr,
-	.get_core_id =			xhci_get_core_id,
+	.get_dcba_dma_addr =		xhci_get_dcba_dma_addr,
 };
 
 void xhci_init_driver(struct hc_driver *drv,

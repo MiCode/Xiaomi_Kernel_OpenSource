@@ -19,8 +19,10 @@
 
 #define AVCS_CMD_ADSP_EVENT_GET_STATE		0x0001290C
 #define AVCS_CMDRSP_ADSP_EVENT_GET_STATE	0x0001290D
+#define AVCS_SERVICES_AND_STATIC_MODULES_READY		0x1
+#define AVCS_SERVICE_AND_ALL_MODULES_READY			0x5
 
-bool q6core_is_adsp_ready(void);
+int q6core_is_adsp_ready(void);
 int q6core_add_remove_pool_pages(phys_addr_t buf_add, uint32_t bufsz,
 			uint32_t mempool_id, bool add_pages);
 

@@ -356,18 +356,21 @@ err:
 	return ret;
 }
 
-struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
+int hab_vchan_recv(struct uhab_context *ctx,
+				struct hab_message **message,
 				int vcid,
+				int *rsize,
 				unsigned int flags)
 {
 	struct virtual_channel *vchan;
-	struct hab_message *message;
 	int ret = 0;
 	int nonblocking_flag = flags & HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING;
 
 	vchan = hab_get_vchan_fromvcid(vcid, ctx);
-	if (!vchan)
-		return ERR_PTR(-ENODEV);
+	if (!vchan) {
+		pr_err("vcid %X, vchan %p ctx %p\n", vcid, vchan, ctx);
+		return -ENODEV;
+	}
 
 	if (nonblocking_flag) {
 		/*
@@ -378,18 +381,18 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 		physical_channel_rx_dispatch((unsigned long) vchan->pchan);
 	}
 
-	message = hab_msg_dequeue(vchan, flags);
-	if (!message) {
+	ret = hab_msg_dequeue(vchan, message, rsize, flags);
+	if (!(*message)) {
 		if (nonblocking_flag)
 			ret = -EAGAIN;
 		else if (vchan->otherend_closed)
 			ret = -ENODEV;
-		else
-			ret = -EPIPE;
+		else if (ret == -ERESTARTSYS)
+			ret = -EINTR;
 	}
 
 	hab_vchan_put(vchan);
-	return ret ? ERR_PTR(ret) : message;
+	return ret;
 }
 
 bool hab_is_loopback(void)
@@ -843,29 +846,22 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-		msg = hab_vchan_recv(ctx, recv_param->vcid, recv_param->flags);
+		ret = hab_vchan_recv(ctx, &msg, recv_param->vcid,
+				&recv_param->sizebytes, recv_param->flags);
 
-		if (IS_ERR(msg)) {
-			recv_param->sizebytes = 0;
-			ret = PTR_ERR(msg);
-			break;
-		}
-
-		if (recv_param->sizebytes < msg->sizebytes) {
-			recv_param->sizebytes = 0;
-			ret = -EINVAL;
-		} else if (copy_to_user((void __user *)recv_param->data,
+		if (ret == 0 && msg) {
+			if (copy_to_user((void __user *)recv_param->data,
 					msg->data,
 					msg->sizebytes)) {
-			pr_err("copy_to_user failed: vc=%x size=%d\n",
-				recv_param->vcid, (int)msg->sizebytes);
-			recv_param->sizebytes = 0;
-			ret = -EFAULT;
-		} else {
-			recv_param->sizebytes = msg->sizebytes;
+				pr_err("copy_to_user failed: vc=%x size=%d\n",
+				   recv_param->vcid, (int)msg->sizebytes);
+				recv_param->sizebytes = 0;
+				ret = -EFAULT;
+			}
 		}
 
-		hab_msg_free(msg);
+		if (msg)
+			hab_msg_free(msg);
 		break;
 	case IOCTL_HAB_VC_EXPORT:
 		ret = hab_mem_export(ctx, (struct hab_export *)data, 0);

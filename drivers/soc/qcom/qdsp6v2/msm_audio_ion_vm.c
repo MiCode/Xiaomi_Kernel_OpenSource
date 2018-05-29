@@ -83,6 +83,7 @@ static int msm_audio_ion_smmu_map(struct ion_client *client,
 	struct msm_audio_smmu_vm_map_cmd_rsp cmd_rsp;
 	struct msm_audio_smmu_map_data *map_data = NULL;
 	struct msm_audio_smmu_vm_map_cmd smmu_map_cmd;
+	unsigned long delay = jiffies + (HZ / 2);
 
 	rc = ion_handle_get_size(client, handle, len);
 	if (rc) {
@@ -122,12 +123,15 @@ static int msm_audio_ion_smmu_map(struct ion_client *client,
 		goto err;
 	}
 
-	cmd_rsp_size = sizeof(cmd_rsp);
-	rc = habmm_socket_recv(msm_audio_ion_hab_handle,
-		(void *)&cmd_rsp,
-		&cmd_rsp_size,
-		0xFFFFFFFF,
-		0);
+	do {
+		cmd_rsp_size = sizeof(cmd_rsp);
+		rc = habmm_socket_recv(msm_audio_ion_hab_handle,
+			(void *)&cmd_rsp,
+			&cmd_rsp_size,
+			0xFFFFFFFF,
+			0);
+	} while (time_before(jiffies, delay) && (rc == -EAGAIN) &&
+			(cmd_rsp_size == 0));
 	if (rc) {
 		pr_err("%s: habmm_socket_recv failed %d\n",
 			__func__, rc);
@@ -181,6 +185,7 @@ static int msm_audio_ion_smmu_unmap(struct ion_client *client,
 	struct msm_audio_smmu_vm_unmap_cmd_rsp cmd_rsp;
 	struct msm_audio_smmu_map_data *map_data, *next;
 	struct msm_audio_smmu_vm_unmap_cmd smmu_unmap_cmd;
+	unsigned long delay = jiffies + (HZ / 2);
 
 	/*
 	 * Though list_for_each_entry_safe is delete safe, lock
@@ -205,12 +210,15 @@ static int msm_audio_ion_smmu_unmap(struct ion_client *client,
 				goto err;
 			}
 
-			cmd_rsp_size = sizeof(cmd_rsp);
-			rc = habmm_socket_recv(msm_audio_ion_hab_handle,
-				(void *)&cmd_rsp,
-				&cmd_rsp_size,
-				0xFFFFFFFF,
-				0);
+			do {
+				cmd_rsp_size = sizeof(cmd_rsp);
+				rc = habmm_socket_recv(msm_audio_ion_hab_handle,
+					(void *)&cmd_rsp,
+					&cmd_rsp_size,
+					0xFFFFFFFF,
+					0);
+			} while (time_before(jiffies, delay) &&
+					(rc == -EAGAIN) && (cmd_rsp_size == 0));
 			if (rc) {
 				pr_err("%s: habmm_socket_recv failed %d\n",
 					__func__, rc);

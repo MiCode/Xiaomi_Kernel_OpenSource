@@ -82,8 +82,8 @@ struct wiphy;
 /* Indicate support for including KEK length in rekey data */
 #define CFG80211_REKEY_DATA_KEK_LEN 1
 
-/* Indicate support for regulatory update sync event */
-#define CFG80211_REG_UPDATE_SYNC_EVENT 1
+/* Indicate backport support for processing user cell base hint */
+#define CFG80211_USER_HINT_CELL_BASE_SELF_MANAGED 1
 
 /*
  * wireless hardware capability structures
@@ -996,9 +996,9 @@ enum rate_info_flags {
  * @RATE_INFO_BW_160: 160 MHz bandwidth
  */
 enum rate_info_bw {
+	RATE_INFO_BW_20 = 0,
 	RATE_INFO_BW_5,
 	RATE_INFO_BW_10,
-	RATE_INFO_BW_20,
 	RATE_INFO_BW_40,
 	RATE_INFO_BW_80,
 	RATE_INFO_BW_160,
@@ -5773,14 +5773,6 @@ void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
  * @gfp: context flags
  */
 void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp);
-
-/**
- * cfg80211_send_reg_change_event - notify user-space of regulatory change
- * @request: regulatory request
- * @wiphy: the wiphy to use
- */
-void cfg80211_send_reg_change_event(struct regulatory_request *request,
-				    struct wiphy *wiphy);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 

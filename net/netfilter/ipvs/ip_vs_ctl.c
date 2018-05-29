@@ -2352,11 +2352,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
 			strlcpy(cfg.mcast_ifn, dm->mcast_ifn,
 				sizeof(cfg.mcast_ifn));
 			cfg.syncid = dm->syncid;
-			rtnl_lock();
-			mutex_lock(&ipvs->sync_mutex);
 			ret = start_sync_thread(ipvs, &cfg, dm->state);
-			mutex_unlock(&ipvs->sync_mutex);
-			rtnl_unlock();
 		} else {
 			mutex_lock(&ipvs->sync_mutex);
 			ret = stop_sync_thread(ipvs, dm->state);
@@ -2808,7 +2804,7 @@ static struct genl_family ip_vs_genl_family = {
 	.hdrsize	= 0,
 	.name		= IPVS_GENL_NAME,
 	.version	= IPVS_GENL_VERSION,
-	.maxattr	= IPVS_CMD_MAX,
+	.maxattr	= IPVS_CMD_ATTR_MAX,
 	.netnsok        = true,         /* Make ipvsadm to work on netns */
 };
 
@@ -3435,12 +3431,8 @@ static int ip_vs_genl_new_daemon(struct netns_ipvs *ipvs, struct nlattr **attrs)
 	if (ipvs->mixed_address_family_dests > 0)
 		return -EINVAL;
 
-	rtnl_lock();
-	mutex_lock(&ipvs->sync_mutex);
 	ret = start_sync_thread(ipvs, &c,
 				nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]));
-	mutex_unlock(&ipvs->sync_mutex);
-	rtnl_unlock();
 	return ret;
 }
 

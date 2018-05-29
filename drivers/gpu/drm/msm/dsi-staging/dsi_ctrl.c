@@ -1598,7 +1598,7 @@ exit:
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool cont_splash_enabled)
 {
 	int rc = 0;
 
@@ -1615,37 +1615,40 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		goto error;
 	}
 
-	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
+	if (!cont_splash_enabled) {
+		dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
-	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
 				    &dsi_ctrl->host_config.common_config);
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
-		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+		if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.cmd_engine);
 
-		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
 				dsi_ctrl->host_config.video_timing.h_active,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
 				dsi_ctrl->host_config.video_timing.v_active,
 				0x0);
-	} else {
-		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
+		} else {
+			dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.video_engine);
-		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
 					  &dsi_ctrl->host_config.video_timing);
+		}
 	}
-
-
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 
-	/* Perform a soft reset before enabling dsi controller */
-	dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+	/* Perform a soft reset before enabling dsi controller
+	 * But skip the reset if dsi is enabled in bootloader.
+	 */
+	if (!cont_splash_enabled)
+		dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
 	pr_debug("[DSI_%d]Host initialization complete\n", dsi_ctrl->index);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
 error:
@@ -1965,6 +1968,12 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+void dsi_ctrl_update_power_state(struct dsi_ctrl *dsi_ctrl,
+				enum dsi_power_state state)
+{
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_POWER_STATE_CHANGE, state);
 }
 
 /**

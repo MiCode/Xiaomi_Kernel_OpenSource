@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,9 @@
 
 #define AFE_CLK_VERSION_V1    1
 #define AFE_CLK_VERSION_V2    2
+
+#define AFE_MAX_RDDMA    10
+#define AFE_MAX_WRDMA    10
 
 typedef int (*routing_cb)(int port);
 
@@ -208,6 +211,87 @@ enum {
 	AFE_MAX_PORTS
 };
 
+
+enum {
+	IDX_PRIMARY_TDM_RX_0,
+	IDX_PRIMARY_TDM_RX_1,
+	IDX_PRIMARY_TDM_RX_2,
+	IDX_PRIMARY_TDM_RX_3,
+	IDX_PRIMARY_TDM_RX_4,
+	IDX_PRIMARY_TDM_RX_5,
+	IDX_PRIMARY_TDM_RX_6,
+	IDX_PRIMARY_TDM_RX_7,
+	IDX_PRIMARY_TDM_TX_0,
+	IDX_PRIMARY_TDM_TX_1,
+	IDX_PRIMARY_TDM_TX_2,
+	IDX_PRIMARY_TDM_TX_3,
+	IDX_PRIMARY_TDM_TX_4,
+	IDX_PRIMARY_TDM_TX_5,
+	IDX_PRIMARY_TDM_TX_6,
+	IDX_PRIMARY_TDM_TX_7,
+	IDX_SECONDARY_TDM_RX_0,
+	IDX_SECONDARY_TDM_RX_1,
+	IDX_SECONDARY_TDM_RX_2,
+	IDX_SECONDARY_TDM_RX_3,
+	IDX_SECONDARY_TDM_RX_4,
+	IDX_SECONDARY_TDM_RX_5,
+	IDX_SECONDARY_TDM_RX_6,
+	IDX_SECONDARY_TDM_RX_7,
+	IDX_SECONDARY_TDM_TX_0,
+	IDX_SECONDARY_TDM_TX_1,
+	IDX_SECONDARY_TDM_TX_2,
+	IDX_SECONDARY_TDM_TX_3,
+	IDX_SECONDARY_TDM_TX_4,
+	IDX_SECONDARY_TDM_TX_5,
+	IDX_SECONDARY_TDM_TX_6,
+	IDX_SECONDARY_TDM_TX_7,
+	IDX_TERTIARY_TDM_RX_0,
+	IDX_TERTIARY_TDM_RX_1,
+	IDX_TERTIARY_TDM_RX_2,
+	IDX_TERTIARY_TDM_RX_3,
+	IDX_TERTIARY_TDM_RX_4,
+	IDX_TERTIARY_TDM_RX_5,
+	IDX_TERTIARY_TDM_RX_6,
+	IDX_TERTIARY_TDM_RX_7,
+	IDX_TERTIARY_TDM_TX_0,
+	IDX_TERTIARY_TDM_TX_1,
+	IDX_TERTIARY_TDM_TX_2,
+	IDX_TERTIARY_TDM_TX_3,
+	IDX_TERTIARY_TDM_TX_4,
+	IDX_TERTIARY_TDM_TX_5,
+	IDX_TERTIARY_TDM_TX_6,
+	IDX_TERTIARY_TDM_TX_7,
+	IDX_QUATERNARY_TDM_RX_0,
+	IDX_QUATERNARY_TDM_RX_1,
+	IDX_QUATERNARY_TDM_RX_2,
+	IDX_QUATERNARY_TDM_RX_3,
+	IDX_QUATERNARY_TDM_RX_4,
+	IDX_QUATERNARY_TDM_RX_5,
+	IDX_QUATERNARY_TDM_RX_6,
+	IDX_QUATERNARY_TDM_RX_7,
+	IDX_QUATERNARY_TDM_TX_0,
+	IDX_QUATERNARY_TDM_TX_1,
+	IDX_QUATERNARY_TDM_TX_2,
+	IDX_QUATERNARY_TDM_TX_3,
+	IDX_QUATERNARY_TDM_TX_4,
+	IDX_QUATERNARY_TDM_TX_5,
+	IDX_QUATERNARY_TDM_TX_6,
+	IDX_QUATERNARY_TDM_TX_7,
+	IDX_TDM_MAX,
+};
+
+enum {
+	IDX_GROUP_PRIMARY_TDM_RX,
+	IDX_GROUP_PRIMARY_TDM_TX,
+	IDX_GROUP_SECONDARY_TDM_RX,
+	IDX_GROUP_SECONDARY_TDM_TX,
+	IDX_GROUP_TERTIARY_TDM_RX,
+	IDX_GROUP_TERTIARY_TDM_TX,
+	IDX_GROUP_QUATERNARY_TDM_RX,
+	IDX_GROUP_QUATERNARY_TDM_TX,
+	IDX_GROUP_TDM_MAX,
+};
+
 enum afe_mad_type {
 	MAD_HW_NONE = 0x00,
 	MAD_HW_AUDIO = 0x01,
@@ -369,4 +453,9 @@ void afe_set_routing_callback(routing_cb);
 int afe_get_av_dev_drift(struct afe_param_id_dev_timing_stats *timing_stats,
 		u16 port);
 int afe_get_svc_version(uint32_t service_id);
+int afe_request_dma_resources(uint8_t dma_type, uint8_t num_read_dma_channels,
+				uint8_t num_write_dma_channels);
+int afe_get_dma_idx(bool **ret_rddma_idx,
+				bool **ret_wrdma_idx);
+int afe_release_all_dma_resources(void);
 #endif /* __Q6AFE_V2_H__ */

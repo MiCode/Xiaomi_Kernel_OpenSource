@@ -39,10 +39,10 @@
 #include "sde_trace.h"
 
 /* default input fence timeout, in ms */
-#define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
+#define SDE_CRTC_INPUT_FENCE_TIMEOUT    10000
 
 /*
- * The default input fence timeout is 2 seconds while max allowed
+ * The default input fence timeout is 10 seconds while max allowed
  * range is 10 seconds. Any value above 10 seconds adds glitches beyond
  * tolerance limit.
  */
@@ -304,6 +304,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
+	struct sde_splash_info *sinfo;
+	struct sde_kms *sde_kms = _sde_crtc_get_kms(crtc);
 
 	int i;
 
@@ -311,6 +313,17 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
 		SDE_ERROR("invalid number mixers: %d\n", sde_crtc->num_mixers);
+		return;
+	}
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
+	sinfo = &sde_kms->splash_info;
+	if (!sinfo) {
+		SDE_ERROR("invalid splash info\n");
 		return;
 	}
 
@@ -323,7 +336,10 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		mixer[i].flush_mask = 0;
 		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
 			mixer[i].hw_ctl->ops.clear_all_blendstages(
-					mixer[i].hw_ctl);
+					mixer[i].hw_ctl,
+					sinfo->handoff,
+					sinfo->reserved_pipe_info,
+					MAX_BLOCKS);
 	}
 
 	/* initialize stage cfg */
@@ -350,7 +366,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 			mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
-			&sde_crtc->stage_cfg, i);
+			&sde_crtc->stage_cfg, i,
+			sinfo->handoff, sinfo->reserved_pipe_info, MAX_BLOCKS);
 	}
 }
 
@@ -1625,8 +1642,18 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
 	sde_kms_info_add_keyint(info, "max_linewidth",
 			catalog->max_mixer_width);
-	sde_kms_info_add_keyint(info, "max_blendstages",
-			catalog->max_mixer_blendstages);
+
+	/* till now, we can't know which display early RVC will run on.
+	 * Not to impact early RVC's layer, we decrease all lm's blend stage.
+	 * This should be restored after handoff is done.
+	 */
+	if (sde_kms->splash_info.handoff)
+		sde_kms_info_add_keyint(info, "max_blendstages",
+				catalog->max_mixer_blendstages - 1);
+	else
+		sde_kms_info_add_keyint(info, "max_blendstages",
+				catalog->max_mixer_blendstages);
+
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED2)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)

@@ -196,6 +196,8 @@ struct sde_hdmi {
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	/* DEBUG FS */
 	struct dentry *root;
+
+	bool cont_splash_enabled;
 };
 
 /**

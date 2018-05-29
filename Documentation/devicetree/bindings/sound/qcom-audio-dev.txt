@@ -2550,3 +2550,69 @@ Example of child node that would have qcom,wdsp-cmpnt-dev-name property
 	wcd934x_cdc: tavil_codec {
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
 	};
+
+
+* MSM external ANC driver
+
+Required properties:
+- compatible : "qcom,msm-ext-anc"
+- qcom,refs-port-id : This is AFE port ID for playback in ADSP used for ANC Algo refers input.
+- qcom,spkr-port-id : This is AFE port ID for ANC speaker in Sensor DSP.
+- qcom,mic-port-id : This is AFE port ID for ANC mic in Sensor DSP.
+- qcom,num-anc-mic : Define the number of microphones which are directly involved in ANC processing.
+- qcom,num-add-mic-signal : Define additional microphone which might be required for monitoring the environment, input reference signal.
+- qcom,anc-mic-array : Array that specifies the channel or slot index used for ANC in one MIC hardware interface like TDM Tx.
+			The channel or slot index is count from 0.
+			Always place the valid channel or slot index value setting in from index 0 of this array.
+			This array include two parts:
+			Part I  ---- num_anc_mic, define the number of microphones which are directly involved in ANC processing.
+			Part II ---- num_add_mic_signal, define additional microphones which might be required for
+			monitoring the environment, input reference signal.
+			num_add_mic_signal is always appened at the end of num_anc_mic.
+- qcom,num-anc-spkr : Define the number of speakers which are directly involved in ANC processing.
+- qcom,num-add-spkr-signal : Define additional speaker channels which connects to interested speakers for example a subwoofer.
+- qcom,anc-spkr-array : Array that specifies the channel or slot index used for ANC in one SPEAKER hardware interface like TDM Rx.
+			The channel or slot index is count from 0.
+			Always place the valid channel or slot index value setting in from index 0 of this array.
+			This array include two parts:
+			Part I  ---- num_anc_spkr, define the number of speakers which are directly involved in ANC processing.
+			Part II ---- num_add_spkr_signal, define additional speakers.
+			num_add_spkr_signal is always appened at the end of num_anc_spkr.
+- qcom,refs-tdm-rx : Point to phandle for refs tdm port info.
+- qcom,spkr-tdm-rx : Point to phandle for spkr tdm port info.
+- qcom,mic-tdm-tx : Point to phandle for mic tdm port info.
+Example 1:
+
+	qcom,msm-ext-anc {
+		compatible = "qcom,msm-ext-anc";
+		qcom,refs-port-id = <36906>;
+		qcom,spkr-port-id = <36912>;
+		qcom,mic-port-id = <36913>;
+		qcom,num-anc-mic = <4>;
+		qcom,num-add-mic-signal = <0>;
+		qcom,anc-mic-array = <0 1 2 3>;
+		qcom,num-anc-spkr = <4>;
+		qcom,num-add-spkr-signal = <0>;
+		qcom,anc-spkr-array = <0 1 2 3>;
+		qcom,refs-tdm-rx = <&dai_tert_tdm_rx_5>;
+		qcom,spkr-tdm-rx = <&dai_quat_tdm_rx_0>;
+		qcom,mic-tdm-tx = <&dai_quat_tdm_tx_0>;
+	};
+
+Example 2:
+
+	qcom,msm-ext-anc {
+		compatible = "qcom,msm-ext-anc";
+		qcom,refs-port-id = <36906>;
+		qcom,spkr-port-id = <36912>;
+		qcom,mic-port-id = <36913>;
+		qcom,num-anc-mic = <4>;
+		qcom,num-add-mic-signal = <2>;
+		qcom,anc-mic-array = <2 1 0 3 6 7>;
+		qcom,num-anc-spkr = <4>;
+		qcom,num-add-spkr-signal = <1>;
+		qcom,anc-spkr-array = <0 1 2 3 6>;
+		qcom,refs-tdm-rx = <&dai_tert_tdm_rx_5>;
+		qcom,spkr-tdm-rx = <&dai_quat_tdm_rx_0>;
+		qcom,mic-tdm-tx = <&dai_quat_tdm_tx_0>;
+	};

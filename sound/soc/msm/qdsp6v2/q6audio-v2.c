@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -794,6 +794,7 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_INT5_MI2S_TX:
 	case AFE_PORT_ID_INT6_MI2S_RX:
 	case AFE_PORT_ID_INT6_MI2S_TX:
+	case AFE_PORT_ID_MULTICHAN_HDMI_RX:
 	{
 		ret = 0;
 		break;

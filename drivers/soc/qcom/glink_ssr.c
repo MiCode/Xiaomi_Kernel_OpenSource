@@ -538,7 +538,6 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 	 * only modified during setup.
 	 */
 	atomic_set(&responses_remaining, ss_info->notify_list_len);
-	init_waitqueue_head(&waitqueue);
 	notifications_successful = true;
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
@@ -945,7 +944,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	ss_info->cb_data = NULL;
 	spin_lock_init(&ss_info->link_up_lock);
 	spin_lock_init(&ss_info->cb_lock);
-
+	init_waitqueue_head(&waitqueue);
 	nb = kmalloc(sizeof(struct restart_notifier_block), GFP_KERNEL);
 	if (!nb) {
 		GLINK_SSR_ERR("<SSR> %s: Could not allocate notifier block\n",

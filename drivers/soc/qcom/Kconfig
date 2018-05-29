@@ -2,6 +2,13 @@
 # QCOM Soc drivers
 #
 source "drivers/soc/qcom/hab/Kconfig"
+config MSM_PASR
+	bool "MSM DDR Partial Array Self-Refresh Driver"
+	help
+	  RPM controls DDR functionaliy. This driver
+	  is an interface for linux memory hotplug to RPM
+	  for start/stop self-refresh of hot added or removed
+	  memory in DDR.
 
 config MSM_INRUSH_CURRENT_MITIGATION
 	bool "Inrush-current mitigation Driver"
@@ -966,5 +973,12 @@ config QCOM_QDSS_BRIDGE
 	  The driver will help route diag traffic from modem side over the QDSS
 	  sub-system to USB on APSS side. The driver acts as a bridge between the
 	  MHI and USB interface. If unsure, say N.
+
+config EXT_ANC
+	bool "Enable External ANC"
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	help
+	 This option enables support for anti-noise cnacellation
+	 on Sensor DSP.
 
 source "drivers/soc/qcom/memshare/Kconfig"

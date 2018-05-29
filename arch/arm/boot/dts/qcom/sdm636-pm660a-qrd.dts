@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 
 #include "sdm636.dtsi"
 #include "sdm636-qrd.dtsi"
-#include "msm-pm660a.dtsi"
+#include "sdm660-internal-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660A QRD";
@@ -24,6 +24,33 @@
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
 			<0x0001001b 0x0002001a 0x0 0x0>,
 			<0x0001001b 0x0202001a 0x0 0x0>;
+};
+
+&int_codec {
+	qcom,model = "sdm660-snd-card-skush";
+	/delete-property/ qcom,us-euro-gpios;
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"INT_LDO_H", "INT_MCLK0",
+		"MIC BIAS External2", "Headset Mic",
+		"AMIC2", "MIC BIAS External2",
+		"MIC BIAS External", "Digital Mic1",
+		"DMIC1", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic3",
+		"DMIC3", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic4",
+		"DMIC4", "MIC BIAS External",
+		"SpkrLeft IN", "SPK1 OUT",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC1_IN", "ADC1_OUT",
+		"ADC2_IN", "ADC2_OUT",
+		"ADC3_IN", "ADC3_OUT";
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_213_en>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };
 
 &pm660a_oledb {
@@ -44,6 +71,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	oledb-supply = <&pm660a_oledb>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
 	qcom,platform-reset-gpio = <&tlmm 53 0>;

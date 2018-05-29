@@ -233,10 +233,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
-	if (device_property_read_u32(pdev->dev.parent, "usb-core-id",
-								&xhci->core_id))
-		xhci->core_id = -EINVAL;
-
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
@@ -437,7 +433,6 @@ MODULE_DEVICE_TABLE(acpi, usb_xhci_acpi_match);
 static struct platform_driver usb_xhci_driver = {
 	.probe	= xhci_plat_probe,
 	.remove	= xhci_plat_remove,
-	.shutdown	= usb_hcd_platform_shutdown,
 	.driver	= {
 		.name = "xhci-hcd",
 		.pm = DEV_PM_OPS,
