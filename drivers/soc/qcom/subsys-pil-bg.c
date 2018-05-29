@@ -91,9 +91,18 @@ static irqreturn_t bg_status_change(int irq, void *dev_id);
 static void bg_app_shutdown_notify(const struct subsys_desc *subsys)
 {
 	struct pil_bg_data *bg_data = subsys_to_data(subsys);
+
+	/* Disable irq if already BG is up */
+	if (bg_data->is_ready) {
+		disable_irq(bg_data->status_irq);
+		disable_irq(bg_data->errfatal_irq);
+		bg_data->is_ready = false;
+	}
 	/* Toggle AP2BG err fatal gpio here to inform apps err fatal event */
-	if (gpio_is_valid(bg_data->gpios[2]))
+	if (gpio_is_valid(bg_data->gpios[2])) {
+		pr_debug("Sending Apps shutdown signal\n");
 		gpio_set_value(bg_data->gpios[2], 1);
+	}
 }
 
 /**
@@ -107,9 +116,18 @@ static int bg_app_reboot_notify(struct notifier_block *nb,
 {
 	struct pil_bg_data *bg_data = container_of(nb,
 					struct pil_bg_data, reboot_blk);
+
+	/* Disable irq if already BG is up */
+	if (bg_data->is_ready) {
+		disable_irq(bg_data->status_irq);
+		disable_irq(bg_data->errfatal_irq);
+		bg_data->is_ready = false;
+	}
 	/* Toggle AP2BG err fatal gpio here to inform apps err fatal event */
-	if (gpio_is_valid(bg_data->gpios[2]))
+	if (gpio_is_valid(bg_data->gpios[2])) {
+		pr_debug("Sending reboot signal\n");
 		gpio_set_value(bg_data->gpios[2], 1);
+	}
 	return NOTIFY_DONE;
 }
 
@@ -267,7 +285,6 @@ static int bg_powerup(const struct subsys_desc *subsys)
 		return ret;
 	}
 	enable_irq(bg_data->status_irq);
-	enable_irq(bg_data->errfatal_irq);
 	ret = wait_for_err_ready(bg_data);
 	if (ret) {
 		dev_err(bg_data->desc.dev,
@@ -290,10 +307,12 @@ static int bg_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct pil_bg_data *bg_data = subsys_to_data(subsys);
 
-	disable_irq(bg_data->status_irq);
-	devm_free_irq(bg_data->desc.dev, bg_data->status_irq, bg_data);
-	disable_irq(bg_data->errfatal_irq);
-	bg_data->is_ready = false;
+	if (bg_data->is_ready) {
+		disable_irq(bg_data->status_irq);
+		devm_free_irq(bg_data->desc.dev, bg_data->status_irq, bg_data);
+		disable_irq(bg_data->errfatal_irq);
+		bg_data->is_ready = false;
+	}
 	return 0;
 }
 
@@ -588,7 +607,6 @@ static int setup_bg_gpio_irq(struct platform_device *pdev,
 		goto err;
 	}
 	drvdata->errfatal_irq = irq;
-	enable_irq(drvdata->errfatal_irq);
 	/* Configure outgoing GPIO's */
 	if (gpio_request(drvdata->gpios[2], "AP2BG_ERRFATAL")) {
 		dev_err(&pdev->dev,
