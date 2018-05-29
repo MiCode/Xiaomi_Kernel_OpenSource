@@ -938,7 +938,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	int rc = 0;
 	struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info              *soc_info;
-	uint32_t i, val;
+	uint32_t i, val, clk_lvl;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -960,7 +960,10 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
-	rc = cam_ife_csid_enable_soc_resources(soc_info);
+	clk_lvl = cam_ife_csid_get_vote_level(soc_info, csid_hw->clk_rate);
+	CAM_DBG(CAM_ISP, "CSID clock lvl %u", clk_lvl);
+
+	rc = cam_ife_csid_enable_soc_resources(soc_info, clk_lvl);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "CSID:%d Enable SOC failed",
 			csid_hw->hw_intf->hw_idx);
@@ -2194,6 +2197,9 @@ static int cam_ife_csid_reserve(void *hw_priv,
 	csid_hw = (struct cam_ife_csid_hw   *)csid_hw_info->core_info;
 	reserv = (struct cam_csid_hw_reserve_resource_args  *)reserve_args;
 
+	CAM_DBG(CAM_ISP, "res_type %d, CSID: %u",
+		reserv->res_type, csid_hw->hw_intf->hw_idx);
+
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	switch (reserv->res_type) {
 	case CAM_ISP_RESOURCE_CID:
@@ -2678,6 +2684,23 @@ static int cam_ife_csid_sof_irq_debug(
 	return 0;
 }
 
+static int cam_ife_csid_set_csid_clock(
+	struct cam_ife_csid_hw *csid_hw, void *cmd_args)
+{
+	struct cam_ife_csid_clock_update_args *clk_update = NULL;
+
+	if (!csid_hw)
+		return -EINVAL;
+
+	clk_update =
+		(struct cam_ife_csid_clock_update_args *)cmd_args;
+
+	csid_hw->clk_rate = clk_update->clk_rate;
+	CAM_INFO(CAM_ISP, "CSID clock rate %llu", csid_hw->clk_rate);
+
+	return 0;
+}
+
 static int cam_ife_csid_process_cmd(void *hw_priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -2708,6 +2731,9 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 		break;
 	case CAM_IFE_CSID_SOF_IRQ_DEBUG:
 		rc = cam_ife_csid_sof_irq_debug(csid_hw, cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
+		rc = cam_ife_csid_set_csid_clock(csid_hw, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",

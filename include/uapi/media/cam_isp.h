@@ -84,9 +84,11 @@
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
 /* ISP Generic Cmd Buffer Blob types */
-#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG      0
-#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG    1
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG       2
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG          0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG        1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG           2
+#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
+#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 
 /* Query devices */
 /**
@@ -339,6 +341,15 @@ struct cam_isp_clock_config {
 	uint64_t                       left_pix_hz;
 	uint64_t                       right_pix_hz;
 	uint64_t                       rdi_hz[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_csid_clock_config - CSID clock configuration
+ *
+ * @csid_clock                  CSID clock
+ */
+struct cam_isp_csid_clock_config {
+	uint64_t                       csid_clock;
 } __attribute__((packed));
 
 /**
