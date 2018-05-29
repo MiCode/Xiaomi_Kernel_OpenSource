@@ -177,8 +177,11 @@
 		interrupts = <50 0>;
 		interrupt-names = "nfc_irq";
 		pinctrl-names = "nfc_active","nfc_suspend";
-		pinctrl-0 = <&nfcw_int_active &nfcw_disable_active>;
+		pinctrl-0 = <&nfcw_int_active
+			     &nfcw_disable_active
+			     &nfc_clk_default>;
 		pinctrl-1 = <&nfcw_int_suspend &nfcw_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
 		clock-names = "ref_clk";
 	};
 };

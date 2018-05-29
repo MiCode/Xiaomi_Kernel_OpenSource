@@ -222,6 +222,7 @@
 			     &nfcw_disable_active
 			     &nfc_clk_default>;
 		pinctrl-1 = <&nfcw_int_suspend &nfcw_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
 		clock-names = "ref_clk";
 	};
 };
