@@ -34,6 +34,7 @@
 #include <sound/pcm_params.h>
 #include <sound/info.h>
 #include <device_event.h>
+#include <soc/qcom/boot_stats.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 
 #define DRV_NAME "apq8096-auto-asoc-snd"
@@ -6831,6 +6832,12 @@ static int apq8096_asoc_machine_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	int ret;
 	enum apr_subsys_state q6_state;
+	static int first_probe = 1;
+
+	if (first_probe) {
+		place_marker("M - DRIVER Audio Init");
+		first_probe = 0;
+	}
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -6894,6 +6901,7 @@ static int apq8096_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 	dev_info(&pdev->dev, "Sound card %s registered\n", card->name);
+	place_marker("M - DRIVER Audio Ready");
 	return 0;
 
 err:
