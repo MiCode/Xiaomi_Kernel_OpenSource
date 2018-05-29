@@ -30,6 +30,7 @@
 #include "peripheral-loader.h"
 #include "../../misc/qseecom_kernel.h"
 #include "pil_bg_intf.h"
+#include "bgcom_interface.h"
 
 #define INVALID_GPIO	-1
 #define NUM_GPIOS	4
@@ -37,7 +38,7 @@
 #define desc_to_data(d)	container_of(d, struct pil_bg_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_bg_data, subsys_desc)
 #define BG_RAMDUMP_SZ	0x00102000
-#define BG_CRASH_IN_TWM	2
+#define BG_CRASH_IN_TWM	-2
 /**
  * struct pil_bg_data
  * @qseecom_handle: handle of TZ app
@@ -393,7 +394,9 @@ static int bg_auth_and_xfer(struct pil_desc *pil)
 	ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
 	if (bg_data->cmd_status == BG_CRASH_IN_TWM) {
 		/* Do ramdump and resend boot cmd */
-		bg_data->subsys_desc.ramdump(true, &bg_data->subsys_desc);
+		if (is_twm_exit())
+			bg_data->subsys_desc.ramdump(true,
+				&bg_data->subsys_desc);
 		bg_tz_req.tzapp_bg_cmd = BGPIL_DLOAD_CONT;
 		ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
 	}
@@ -524,7 +527,6 @@ static irqreturn_t bg_status_change(int irq, void *dev_id)
 	} else if (value == false && drvdata->is_ready) {
 		dev_err(drvdata->desc.dev,
 			"BG got unexpected reset: irq state changed 1->0\n");
-			drvdata->is_ready = false;
 		queue_work(drvdata->bg_queue, &drvdata->restart_work);
 	} else {
 		dev_err(drvdata->desc.dev,

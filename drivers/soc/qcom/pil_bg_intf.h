@@ -36,7 +36,7 @@ __packed struct tzapp_bg_req {
 __packed struct tzapp_bg_rsp {
 	uint32_t tzapp_bg_cmd;
 	uint32_t bg_info_len;
-	uint32_t status;
+	int32_t status;
 	uint32_t bg_info[100];
 };
 

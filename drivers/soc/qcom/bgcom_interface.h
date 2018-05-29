@@ -13,10 +13,17 @@
 #ifndef BGCOM_INTERFACE_H
 #define BGCOM_INTERFACE_H
 
-/**
+/*
  * bg_soft_reset() - soft reset Blackghost
  * Return 0 on success or -Ve on error
  */
 int bg_soft_reset(void);
+
+/*
+ * is_twm_exit()
+ * Return true if device is booting up on TWM exit.
+ * value is auto cleared once read.
+ */
+bool is_twm_exit(void);
 
 #endif /* BGCOM_INTERFACE_H */
