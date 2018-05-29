@@ -276,6 +276,7 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
+	bool assert_wake = false;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -294,7 +295,17 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+
+	/*
+	 * For UL channels always assert WAKE until work is done,
+	 * For DL channels only assert if MHI is in a LPM
+	 */
+	if (mhi_chan->dir == DMA_TO_DEVICE ||
+	    (mhi_chan->dir == DMA_FROM_DEVICE &&
+	     mhi_cntrl->pm_state != MHI_PM_M0)) {
+		assert_wake = true;
+		mhi_cntrl->wake_get(mhi_cntrl, false);
+	}
 
 	/* generate the tre */
 	buf_info = buf_ring->wp;
@@ -328,18 +339,16 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 		read_unlock_bh(&mhi_chan->lock);
 	}
 
-	if (mhi_chan->dir == DMA_FROM_DEVICE) {
-		bool override = (mhi_cntrl->pm_state != MHI_PM_M0);
-
-		mhi_cntrl->wake_put(mhi_cntrl, override);
-	}
+	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return 0;
 
 map_error:
-	mhi_cntrl->wake_put(mhi_cntrl, false);
+	if (assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return -ENOMEM;
@@ -402,13 +411,17 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct mhi_ring *tre_ring;
 	unsigned long flags;
+	bool assert_wake = false;
 	int ret;
 
-	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+	/*
+	 * this check here only as a guard, it's always
+	 * possible mhi can enter error while executing rest of function,
+	 * which is not fatal so we do not need to hold pm_lock
+	 */
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
 		MHI_ERR("MHI is not in active state, pm_state:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
 		return -EIO;
 	}
@@ -419,18 +432,27 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
-
 	tre_ring = &mhi_chan->tre_ring;
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
-		goto error_queue;
+		return -ENOMEM;
 
 	ret = mhi_chan->gen_tre(mhi_cntrl, mhi_chan, buf, buf, len, mflags);
 	if (unlikely(ret))
-		goto error_queue;
+		return ret;
 
 	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+
+	/*
+	 * For UL channels always assert WAKE until work is done,
+	 * For DL channels only assert if MHI is in a LPM
+	 */
+	if (mhi_chan->dir == DMA_TO_DEVICE ||
+	    (mhi_chan->dir == DMA_FROM_DEVICE &&
+	     mhi_cntrl->pm_state != MHI_PM_M0)) {
+		assert_wake = true;
+		mhi_cntrl->wake_get(mhi_cntrl, false);
+	}
+
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))) {
 		unsigned long flags;
 
@@ -439,22 +461,12 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		read_unlock_irqrestore(&mhi_chan->lock, flags);
 	}
 
-	if (mhi_chan->dir == DMA_FROM_DEVICE) {
-		bool override = (mhi_cntrl->pm_state != MHI_PM_M0);
-
-		mhi_cntrl->wake_put(mhi_cntrl, override);
-	}
+	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
+		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
 	return 0;
-
-error_queue:
-	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
-
-	return -ENOMEM;
 }
 
 /* destroy specific device */
@@ -706,9 +718,9 @@ end_process_tx_event:
 	return 0;
 }
 
-static int mhi_process_event_ring(struct mhi_controller *mhi_cntrl,
-				  struct mhi_event *mhi_event,
-				  u32 event_quota)
+int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
+			     struct mhi_event *mhi_event,
+			     u32 event_quota)
 {
 	struct mhi_tre *dev_rp, *local_rp;
 	struct mhi_ring *ev_ring = &mhi_event->ring;
@@ -716,38 +728,27 @@ static int mhi_process_event_ring(struct mhi_controller *mhi_cntrl,
 		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
 	int count = 0;
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
+	/*
+	 * this is a quick check to avoid unnecessary event processing
+	 * in case we already in error state, but it's still possible
+	 * to transition to error state while processing events
+	 */
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
 		MHI_ERR("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
-
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 	local_rp = ev_ring->rp;
 
-	while (dev_rp != local_rp && event_quota > 0) {
+	while (dev_rp != local_rp) {
 		enum MHI_PKT_TYPE type = MHI_TRE_GET_EV_TYPE(local_rp);
 
 		MHI_VERB("Processing Event:0x%llx 0x%08x 0x%08x\n",
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
 		switch (type) {
-		case MHI_PKT_TYPE_TX_EVENT:
-		{
-			u32 chan;
-			struct mhi_chan *mhi_chan;
-
-			chan = MHI_TRE_GET_EV_CHID(local_rp);
-			mhi_chan = &mhi_cntrl->mhi_chan[chan];
-			parse_xfer_event(mhi_cntrl, local_rp, mhi_chan);
-			event_quota--;
-			break;
-		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum MHI_STATE new_state;
@@ -848,13 +849,59 @@ static int mhi_process_event_ring(struct mhi_controller *mhi_cntrl,
 
 			break;
 		}
-		case MHI_PKT_TYPE_STALE_EVENT:
-			MHI_VERB("Stale Event received for chan:%u\n",
-				 MHI_TRE_GET_EV_CHID(local_rp));
-			break;
 		default:
-			MHI_ERR("Unsupported packet type code 0x%x\n", type);
+			MHI_ASSERT(1, "Unsupported ev type");
 			break;
+		}
+
+		mhi_recycle_ev_ring_element(mhi_cntrl, ev_ring);
+		local_rp = ev_ring->rp;
+		dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+		count++;
+	}
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
+		mhi_ring_er_db(mhi_event);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
+
+	return count;
+}
+
+int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
+				struct mhi_event *mhi_event,
+				u32 event_quota)
+{
+	struct mhi_tre *dev_rp, *local_rp;
+	struct mhi_ring *ev_ring = &mhi_event->ring;
+	struct mhi_event_ctxt *er_ctxt =
+		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
+	int count = 0;
+	u32 chan;
+	struct mhi_chan *mhi_chan;
+
+	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
+		MHI_ERR("No EV access, PM_STATE:%s\n",
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		return -EIO;
+	}
+
+	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+	local_rp = ev_ring->rp;
+
+	while (dev_rp != local_rp && event_quota > 0) {
+		enum MHI_PKT_TYPE type = MHI_TRE_GET_EV_TYPE(local_rp);
+
+		MHI_VERB("Processing Event:0x%llx 0x%08x 0x%08x\n",
+			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
+
+		if (likely(type == MHI_PKT_TYPE_TX_EVENT)) {
+			chan = MHI_TRE_GET_EV_CHID(local_rp);
+			mhi_chan = &mhi_cntrl->mhi_chan[chan];
+			parse_xfer_event(mhi_cntrl, local_rp, mhi_chan);
+			event_quota--;
 		}
 
 		mhi_recycle_ev_ring_element(mhi_cntrl, ev_ring);
@@ -865,10 +912,10 @@ static int mhi_process_event_ring(struct mhi_controller *mhi_cntrl,
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
 		mhi_ring_er_db(mhi_event);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
+
 	return count;
 }
 
@@ -881,7 +928,7 @@ void mhi_ev_task(unsigned long data)
 
 	/* process all pending events */
 	spin_lock_bh(&mhi_event->lock);
-	mhi_process_event_ring(mhi_cntrl, mhi_event, U32_MAX);
+	mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
 	spin_unlock_bh(&mhi_event->lock);
 }
 
@@ -896,7 +943,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 	MHI_VERB("Enter for ev_index:%d\n", mhi_event->er_index);
 
 	/* process ctrl events events */
-	ret = mhi_process_event_ring(mhi_cntrl, mhi_event, U32_MAX);
+	ret = mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
 
 	/*
 	 * we received a MSI but no events to process maybe device went to
@@ -1471,7 +1518,7 @@ int mhi_poll(struct mhi_device *mhi_dev,
 	int ret;
 
 	spin_lock_bh(&mhi_event->lock);
-	ret = mhi_process_event_ring(mhi_cntrl, mhi_event, budget);
+	ret = mhi_event->process_event(mhi_cntrl, mhi_event, budget);
 	spin_unlock_bh(&mhi_event->lock);
 
 	return ret;

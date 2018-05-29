@@ -594,7 +594,7 @@ int imp_handle_vote_req(bool vote)
 	IMP_DBG_LOW("vote %d\n", vote);
 
 	mutex_lock(&imp_ctx->mutex);
-	if (imp_ctx->state != IMP_READY) {
+	if (imp_ctx->state != IMP_STARTED) {
 		IMP_ERR("unexpected vote when in state %d\n", imp_ctx->state);
 		mutex_unlock(&imp_ctx->mutex);
 		return -EPERM;

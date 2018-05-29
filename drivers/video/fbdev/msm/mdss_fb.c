@@ -2171,14 +2171,6 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	}
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		fd = dma_buf_fd(mfd->fbmem_buf, 0);
-		if (IS_ERR(mfd->fbmem_buf)) {
-			rc = PTR_ERR(mfd->fbmem_buf);
-			goto fb_mmap_failed;
-		}
-
-		mfd->fbmem_buf = dma_buf_get(fd);
-
 		domain = mfd->mdp.fb_mem_get_iommu_domain();
 
 		mfd->fb_attachment = mdss_smmu_dma_buf_attach(mfd->fbmem_buf,

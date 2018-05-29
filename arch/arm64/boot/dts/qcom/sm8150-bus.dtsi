@@ -1521,6 +1521,8 @@
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
 			qcom,disable-ports = <10 11 34>;
+			mmcx-supply = <&VDD_MMCX_LEVEL>;
+			node-reg-names = "mmcx";
 		};
 
 		slv_qhs_clk_ctl:slv-qhs-clk-ctl {
@@ -1595,6 +1597,8 @@
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
 			qcom,disable-ports = <12 13>;
+			mmcx-supply = <&VDD_MMCX_LEVEL>;
+			node-reg-names = "mmcx";
 		};
 
 		slv_qhs_emac_cfg:slv-qhs-emac-cfg {
@@ -1904,6 +1908,8 @@
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
 			qcom,disable-ports = <15 16 35>;
+			mmcx-supply = <&VDD_MMCX_LEVEL>;
+			node-reg-names = "mmcx";
 		};
 
 		slv_qhs_vsense_ctrl_cfg:slv-qhs-vsense-ctrl-cfg {

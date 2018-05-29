@@ -279,6 +279,7 @@ struct smb_charger {
 	int			smb_version;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
+	bool			pd_not_supported;
 
 	/* locks */
 	struct mutex		lock;
@@ -554,6 +555,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
