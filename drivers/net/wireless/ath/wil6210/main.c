@@ -1159,6 +1159,8 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
 {
 	const char *board_file;
+	const char *ext;
+	int prefix_len;
 	const char *wil_talyn_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
 			      WIL_FW_NAME_TALYN;
 
@@ -1174,7 +1176,21 @@ void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
 			board_file = WIL_BOARD_FILE_NAME;
 	}
 
-	strlcpy(buf, board_file, len);
+	if (wil->board_file_country[0] == '\0') {
+		strlcpy(buf, board_file, len);
+		return;
+	}
+
+	/* use country specific board file */
+	if (len < strlen(board_file) + 4 /* for _XX and terminating null */)
+		return;
+
+	ext = strrchr(board_file, '.');
+	prefix_len = (ext ? ext - board_file : strlen(board_file));
+	snprintf(buf, len, "%.*s_%.2s",
+		 prefix_len, board_file, wil->board_file_country);
+	if (ext)
+		strlcat(buf, ext, len);
 }
 
 static int wil_get_bl_info(struct wil6210_priv *wil)
@@ -1556,15 +1572,15 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (load_fw) {
 		char board_file[WIL_BOARD_FILE_MAX_NAMELEN];
 
-		if  (wil->secured_boot) {
-			wil_err(wil, "secured boot is not supported\n");
-			return -ENOTSUPP;
-		}
-
 		board_file[0] = '\0';
 		wil_get_board_file(wil, board_file, sizeof(board_file));
 		wil_info(wil, "Use firmware <%s> + board <%s>\n",
 			 wil->wil_fw_name, board_file);
+
+		if  (wil->secured_boot) {
+			wil_err(wil, "secured boot is not supported\n");
+			return -ENOTSUPP;
+		}
 
 		if (!no_flash)
 			wil_bl_prepare_halt(wil);
