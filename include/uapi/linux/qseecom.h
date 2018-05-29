@@ -281,13 +281,6 @@ struct qseecom_ice_data_t {
 	int flag;
 };
 
-struct qseecom_encdec_conf_t {
-	__le64 start_sector;
-	size_t fs_size;
-	int index;
-	int mode;
-};
-
 #define SG_ENTRY_SZ		sizeof(struct qseecom_sg_entry)
 #define SG_ENTRY_SZ_64BIT	sizeof(struct qseecom_sg_entry_64bit)
 
@@ -398,8 +391,5 @@ struct file;
 
 #define QSEECOM_IOCTL_SET_ICE_INFO \
 	_IOWR(QSEECOM_IOC_MAGIC, 43, struct qseecom_ice_data_t)
-
-#define QSEECOM_IOCTL_SET_ENCDEC_INFO \
-	_IOWR(QSEECOM_IOC_MAGIC, 44, struct qseecom_encdec_conf_t)
 
 #endif /* _UAPI_QSEECOM_H_ */
