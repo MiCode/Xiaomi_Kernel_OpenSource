@@ -263,7 +263,7 @@ static int __init ssbd_cfg(char *buf)
 }
 early_param("ssbd", ssbd_cfg);
 
-static void arm64_set_ssbd_mitigation(bool state)
+void arm64_set_ssbd_mitigation(bool state)
 {
 	switch (psci_ops.conduit) {
 	case PSCI_CONDUIT_HVC:
