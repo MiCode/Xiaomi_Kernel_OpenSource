@@ -65,18 +65,13 @@
 #define MAX_LRME_V4l2_EVENTS 30
 
 /* Max bytes that can be read per CCI read transaction */
-#define CCI_READ_MAX 12
+#define CCI_READ_MAX 256
 #define CCI_I2C_READ_MAX_RETRIES 3
 #define CCI_I2C_MAX_READ 8192
 #define CCI_I2C_MAX_WRITE 8192
+#define CCI_I2C_MAX_BYTE_COUNT 65535
 
 #define CAMX_CCI_DEV_NAME "cam-cci-driver"
-
-/* Max bytes that can be read per CCI read transaction */
-#define CCI_READ_MAX 12
-#define CCI_I2C_READ_MAX_RETRIES 3
-#define CCI_I2C_MAX_READ 8192
-#define CCI_I2C_MAX_WRITE 8192
 
 #define PRIORITY_QUEUE (QUEUE_0)
 #define SYNC_QUEUE (QUEUE_1)
@@ -125,6 +120,7 @@ struct cam_cci_read_cfg {
 	uint16_t addr_type;
 	uint8_t *data;
 	uint16_t num_byte;
+	uint16_t data_type;
 };
 
 struct cam_cci_i2c_queue_info {

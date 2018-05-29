@@ -411,6 +411,7 @@
 		qcom,cpas-hw-ver = <0x170110>; /* Titan v170 v1.1.0 */
 		nvmem-cells = <&minor_rev>;
 		nvmem-cell-names = "minor_rev";
+		camnoc-axi-min-ib-bw = <3000000000>;
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
