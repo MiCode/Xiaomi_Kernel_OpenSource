@@ -72,6 +72,7 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	struct sde_connector *c_conn;
 	int bl_lvl;
 	struct drm_event event;
+	int rc = 0;
 
 	brightness = bd->props.brightness;
 
@@ -97,11 +98,11 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 		event.length = sizeof(u32);
 		msm_mode_object_event_notify(&c_conn->base.base,
 				c_conn->base.dev, &event, (u8 *)&brightness);
-		c_conn->ops.set_backlight(&c_conn->base,
+		rc = c_conn->ops.set_backlight(&c_conn->base,
 				c_conn->display, bl_lvl);
 	}
 
-	return 0;
+	return rc;
 }
 
 static int sde_backlight_device_get_brightness(struct backlight_device *bd)
@@ -419,16 +420,32 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 	if (!c_conn)
 		return;
 
+	/* Return if there is no change in ESD status check condition */
+	if (en == c_conn->esd_status_check)
+		return;
+
 	sde_connector_get_info(connector, &info);
 	if (c_conn->ops.check_status &&
 		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
-		if (en)
+		if (en) {
+			u32 interval;
+
+			/*
+			 * If debugfs property is not set then take
+			 * default value
+			 */
+			interval = c_conn->esd_status_interval ?
+				c_conn->esd_status_interval :
+					STATUS_CHECK_INTERVAL_MS;
 			/* Schedule ESD status check */
 			schedule_delayed_work(&c_conn->status_work,
-				msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
-		else
+				msecs_to_jiffies(interval));
+			c_conn->esd_status_check = true;
+		} else {
 			/* Cancel any pending ESD status check */
 			cancel_delayed_work_sync(&c_conn->status_work);
+			c_conn->esd_status_check = false;
+		}
 	}
 }
 
@@ -477,8 +494,12 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	}
 	c_conn->last_panel_power_mode = mode;
 
+	mutex_unlock(&c_conn->lock);
 	if (mode != SDE_MODE_DPMS_ON)
 		sde_connector_schedule_status_work(connector, false);
+	else
+		sde_connector_schedule_status_work(connector, true);
+	mutex_lock(&c_conn->lock);
 
 	return rc;
 }
@@ -1516,10 +1537,14 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 
 	sde_connector_get_info(connector, &info);
 	if (sde_connector->ops.check_status &&
-		(info.capabilities & MSM_DISPLAY_ESD_ENABLED))
+		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
 		debugfs_create_u32("force_panel_dead", 0600,
 				connector->debugfs_entry,
 				&sde_connector->force_panel_dead);
+		debugfs_create_u32("esd_status_interval", 0600,
+				connector->debugfs_entry,
+				&sde_connector->esd_status_interval);
+	}
 
 	if (!debugfs_create_bool("fb_kmap", 0600, connector->debugfs_entry,
 			&sde_connector->fb_kmap)) {
@@ -1732,10 +1757,16 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	}
 
 	if (rc > 0) {
+		u32 interval;
+
 		SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
 				conn->base.base.id, conn->encoder->base.id);
+
+		/* If debugfs property is not set then take default value */
+		interval = conn->esd_status_interval ?
+			conn->esd_status_interval : STATUS_CHECK_INTERVAL_MS;
 		schedule_delayed_work(&conn->status_work,
-			msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
+			msecs_to_jiffies(interval));
 		return;
 	}
 
