@@ -825,6 +825,19 @@ int mhi_dev_send_ee_event(struct mhi_dev *mhi, enum mhi_dev_execenv exec_env)
 }
 EXPORT_SYMBOL(mhi_dev_send_ee_event);
 
+static void mhi_dev_trigger_cb(void)
+{
+	struct mhi_dev_ready_cb_info *info;
+	enum mhi_ctrl_info state_data;
+
+	list_for_each_entry(info, &mhi_ctx->client_cb_list, list)
+		if (info->cb) {
+			mhi_ctrl_state_info(info->cb_data.channel, &state_data);
+			info->cb_data.ctrl_info = state_data;
+			info->cb(&info->cb_data);
+		}
+}
+
 int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
 {
 	int rc = 0;
@@ -984,6 +997,9 @@ send_start_completion_event:
 		rc = mhi_dev_send_cmd_comp_event(mhi);
 		if (rc)
 			pr_err("Error sending command completion event\n");
+
+		/* Trigger callback to clients */
+		mhi_dev_trigger_cb();
 
 		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
 		if (ch_id == MHI_CLIENT_MBIM_OUT) {
@@ -2397,6 +2413,51 @@ static void mhi_ring_init_cb(void *data)
 	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
 }
 
+int mhi_register_state_cb(void (*mhi_state_cb)
+				(struct mhi_dev_client_cb_data *cb_data),
+				void *data, enum mhi_client_channel channel)
+{
+	struct mhi_dev_ready_cb_info *cb_info = NULL;
+
+	if (!mhi_ctx) {
+		pr_err("MHI device not ready\n");
+		return -ENXIO;
+	}
+
+	if (channel > MHI_MAX_CHANNELS) {
+		pr_err("Invalid channel :%d\n", channel);
+		return -EINVAL;
+	}
+
+	mutex_lock(&mhi_ctx->mhi_lock);
+	cb_info = kmalloc(sizeof(struct mhi_dev_ready_cb_info), GFP_KERNEL);
+	if (!cb_info) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
+		return -ENOMEM;
+	}
+
+	cb_info->cb = mhi_state_cb;
+	cb_info->cb_data.user_data = data;
+	cb_info->cb_data.channel = channel;
+
+	list_add_tail(&cb_info->list, &mhi_ctx->client_cb_list);
+
+	/**
+	 * If channel is open during registration, no callback is issued.
+	 * Instead return -EEXIST to notify the client. Clients request
+	 * is added to the list to notify future state change notification.
+	 */
+	if (mhi_ctx->ch[channel].state == MHI_DEV_CH_STARTED) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
+		return -EEXIST;
+	}
+
+	mutex_unlock(&mhi_ctx->mhi_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_register_state_cb);
+
 static void mhi_update_state_info(uint32_t uevent_idx, enum mhi_ctrl_info info)
 {
 	struct mhi_dev_client_cb_reason reason;
@@ -2770,6 +2831,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 
 	INIT_LIST_HEAD(&mhi_ctx->event_ring_list);
 	INIT_LIST_HEAD(&mhi_ctx->process_ring_list);
+	INIT_LIST_HEAD(&mhi_ctx->client_cb_list);
 	mutex_init(&mhi_ctx->mhi_lock);
 	mutex_init(&mhi_ctx->mhi_event_lock);
 	mutex_init(&mhi_ctx->mhi_write_test);
