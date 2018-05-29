@@ -38,6 +38,16 @@
 	compatible = "qcom,cc-debug-sdm632";
 };
 
+&soc {
+	devfreq_spdm_cpu {
+		status = "disabled";
+	};
+
+	devfreq_spdm_gov {
+		status = "disabled";
+	};
+};
+
 &clock_gcc_gfx {
 	compatible = "qcom,gcc-gfx-sdm632";
 	qcom,gfxfreq-corner =
