@@ -396,6 +396,29 @@ static int hfi_send_feature_ctrls(struct gmu_device *gmu)
 	return 0;
 }
 
+static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
+{
+	struct hfi_dcvstable_v1_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_PERF_TBL, sizeof(cmd)),
+		.gpu_level_num = gmu->num_gpupwrlevels,
+		.gmu_level_num = gmu->num_gmupwrlevels,
+	};
+	int i;
+
+	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
+		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
+		/* Divide by 1000 to convert to kHz */
+		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
+	}
+
+	for (i = 0; i < gmu->num_gmupwrlevels; i++) {
+		cmd.cx_votes[i].vote = gmu->rpmh_votes.cx_votes[i];
+		cmd.cx_votes[i].freq = gmu->gmu_freqs[i] / 1000;
+	}
+
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+}
+
 static int hfi_send_dcvstbl(struct gmu_device *gmu)
 {
 	struct hfi_dcvstable_cmd cmd = {
@@ -407,6 +430,11 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
+		/*
+		 * Set ACD threshold to the maximum value as a default.
+		 * At this level, ACD will never activate.
+		 */
+		cmd.gx_votes[i].acd = 0xFFFFFFFF;
 		/* Divide by 1000 to convert to kHz */
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
@@ -619,7 +647,10 @@ int hfi_start(struct kgsl_device *device,
 	if (result)
 		return result;
 
-	result = hfi_send_dcvstbl(gmu);
+	if (HFI_VER_MAJOR(&gmu->hfi) < 2)
+		result = hfi_send_dcvstbl_v1(gmu);
+	else
+		result = hfi_send_dcvstbl(gmu);
 	if (result)
 		return result;
 
