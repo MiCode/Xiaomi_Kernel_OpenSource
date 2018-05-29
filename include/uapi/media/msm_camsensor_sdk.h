@@ -50,6 +50,8 @@
 
 #define MSM_SENSOR_BYPASS_VIDEO_NODE    1
 
+#define SENSOR_PROBE_WRITE
+
 enum msm_sensor_camera_id_t {
 	CAMERA_0,
 	CAMERA_1,
@@ -292,10 +294,19 @@ struct msm_sensor_init_params {
 	unsigned int            sensor_mount_angle;
 };
 
+struct msm_camera_i2c_reg_setting {
+	struct msm_camera_i2c_reg_array *reg_setting;
+	unsigned short size;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	enum msm_camera_i2c_data_type data_type;
+	unsigned short delay;
+};
+
 struct msm_sensor_id_info_t {
 	unsigned short sensor_id_reg_addr;
 	unsigned short sensor_id;
 	unsigned short sensor_id_mask;
+	struct msm_camera_i2c_reg_setting setting;
 };
 
 struct msm_camera_sensor_slave_info {
@@ -320,14 +331,6 @@ struct msm_camera_i2c_reg_array {
 	unsigned short reg_addr;
 	unsigned short reg_data;
 	unsigned int delay;
-};
-
-struct msm_camera_i2c_reg_setting {
-	struct msm_camera_i2c_reg_array *reg_setting;
-	unsigned short size;
-	enum msm_camera_i2c_reg_addr_type addr_type;
-	enum msm_camera_i2c_data_type data_type;
-	unsigned short delay;
 };
 
 struct msm_camera_csid_vc_cfg {
