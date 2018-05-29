@@ -25,13 +25,11 @@
 #define MHI_PCI_BAR_NUM (0)
 
 struct mhi_dev {
-	struct platform_device *pdev;
 	struct pci_dev *pci_dev;
 	u32 smmu_cfg;
 	int resn;
 	void *arch_info;
 	bool powered_on;
-	bool debug_mode;
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 };
@@ -44,8 +42,6 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 
 int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
-int mhi_arch_platform_init(struct mhi_dev *mhi_dev);
-void mhi_arch_platform_deinit(struct mhi_dev *mhi_dev);
 int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_iommu_deinit(struct mhi_controller *mhi_cntrl);
 int mhi_arch_link_off(struct mhi_controller *mhi_cntrl, bool graceful);
@@ -72,15 +68,6 @@ static inline int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 }
 
 static inline void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
-{
-}
-
-static inline int mhi_arch_platform_init(struct mhi_dev *mhi_dev)
-{
-	return 0;
-}
-
-static inline void mhi_arch_platform_deinit(struct mhi_dev *mhi_dev)
 {
 }
 
