@@ -991,6 +991,26 @@ struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 	return &fmt[i];
 }
 
+struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
+	struct msm_vidc_format_constraint fmt[], int size, int fourcc)
+{
+	int i;
+
+	if (!fmt) {
+		dprintk(VIDC_ERR, "Invalid inputs, fmt = %pK\n", fmt);
+		return NULL;
+	}
+	for (i = 0; i < size; i++) {
+		if (fmt[i].fourcc == fourcc)
+			break;
+	}
+	if (i == size) {
+		dprintk(VIDC_INFO, "Format constraint not found.\n");
+		return NULL;
+	}
+	return &fmt[i];
+}
+
 struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type)
 {
@@ -6518,3 +6538,73 @@ int msm_comm_release_mark_data(struct msm_vidc_inst *inst)
 	return 0;
 }
 
+int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type,
+		struct msm_vidc_format_constraint *pix_constraint)
+{
+	struct hal_uncompressed_plane_actual_constraints_info
+		*pconstraint = NULL;
+	u32 num_planes = 2;
+	u32 size = 0;
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	size = sizeof(buffer_type)
+			+ sizeof(u32)
+			+ num_planes
+			* sizeof(struct hal_uncompressed_plane_constraints);
+
+	pconstraint = kzalloc(size, GFP_KERNEL);
+	if (!pconstraint) {
+		dprintk(VIDC_ERR, "No memory cannot alloc constrain\n");
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	pconstraint->buffer_type = buffer_type;
+	pconstraint->num_planes = pix_constraint->num_planes;
+	//set Y plan constraints
+	dprintk(VIDC_INFO, "Set Y plan constraints.\n");
+	pconstraint->rg_plane_format[0].stride_multiples =
+			pix_constraint->y_stride_multiples;
+	pconstraint->rg_plane_format[0].max_stride =
+			pix_constraint->y_max_stride;
+	pconstraint->rg_plane_format[0].min_plane_buffer_height_multiple =
+			pix_constraint->y_min_plane_buffer_height_multiple;
+	pconstraint->rg_plane_format[0].buffer_alignment =
+			pix_constraint->y_buffer_alignment;
+
+	//set UV plan constraints
+	dprintk(VIDC_INFO, "Set UV plan constraints.\n");
+	pconstraint->rg_plane_format[1].stride_multiples =
+			pix_constraint->uv_stride_multiples;
+	pconstraint->rg_plane_format[1].max_stride =
+			pix_constraint->uv_max_stride;
+	pconstraint->rg_plane_format[1].min_plane_buffer_height_multiple =
+			pix_constraint->uv_min_plane_buffer_height_multiple;
+	pconstraint->rg_plane_format[1].buffer_alignment =
+			pix_constraint->uv_buffer_alignment;
+
+	rc = call_hfi_op(hdev,
+			session_set_property,
+			inst->session,
+			HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
+			pconstraint);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set input color format constraint\n");
+	else
+		dprintk(VIDC_DBG, "Set color format constraint success\n");
+
+exit:
+	if (!pconstraint)
+		kfree(pconstraint);
+	return rc;
+}
