@@ -249,33 +249,13 @@
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
-			qcom,msm-bus,name = "mdss_sde_mnoc";
+			qcom,msm-bus,name = "mdss_sde";
 			qcom,msm-bus,num-cases = <3>;
 			qcom,msm-bus,num-paths = <2>;
 			qcom,msm-bus,vectors-KBps =
-			    <22 773 0 0>, <23 773 0 0>,
-			    <22 773 0 6400000>, <23 773 0 6400000>,
-			    <22 773 0 6400000>, <23 773 0 6400000>;
-		};
-
-		qcom,sde-llcc-bus {
-			qcom,msm-bus,name = "mdss_sde_llcc";
-			qcom,msm-bus,num-cases = <3>;
-			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,vectors-KBps =
-			    <132 770 0 0>,
-			    <132 770 0 6400000>,
-			    <132 770 0 6400000>;
-		};
-
-		qcom,sde-ebi-bus {
-			qcom,msm-bus,name = "mdss_sde_ebi";
-			qcom,msm-bus,num-cases = <3>;
-			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,vectors-KBps =
-			    <129 512 0 0>,
-			    <129 512 0 6400000>,
-			    <129 512 0 6400000>;
+			    <22 512 0 0>, <23 512 0 0>,
+			    <22 512 0 6400000>, <23 512 0 6400000>,
+			    <22 512 0 6400000>, <23 512 0 6400000>;
 		};
 
 		qcom,sde-reg-bus {
