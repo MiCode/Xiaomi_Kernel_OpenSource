@@ -472,12 +472,6 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
-/*
- * Gmu FW header format:
- * <32-bit start addr> <32-bit size> <32-bit pad0> <32-bit pad1> <Payload>
- */
-#define GMU_FW_HEADER_SIZE 4
-
 #define GMU_ITCM_VA_START 0x0
 #define GMU_ITCM_VA_END   (GMU_ITCM_VA_START + 0x4000) /* 16 KB */
 
@@ -490,50 +484,52 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	uint32_t *fwptr = gmu->fw_image->hostptr;
-	int i, j;
-	int start_addr, size_in_bytes, num_dwords, tcm_slot, num_records;
+	uint8_t *fw = (uint8_t *)gmu->fw_image->data;
+	struct gmu_block_header *blk;
+	uint32_t *fwptr;
+	int j;
+	int tcm_slot;
 
-	/*
-	 * Read first record. pad0 field of first record contains
-	 * number of records in the image.
-	 */
-	num_records = fwptr[2];
-	for (i = 0; i < num_records; i++) {
-		start_addr = fwptr[0];
-		size_in_bytes = fwptr[1];
-		num_dwords = size_in_bytes / sizeof(uint32_t);
-		fwptr += GMU_FW_HEADER_SIZE;
+	while (fw < (uint8_t *)gmu->fw_image->data + gmu->fw_image->size) {
+		blk = (struct gmu_block_header *)fw;
+		fw += sizeof(*blk);
 
-		if ((start_addr >= GMU_ITCM_VA_START) &&
-				(start_addr < GMU_ITCM_VA_END)) {
-			tcm_slot = start_addr / sizeof(uint32_t);
+		/* Don't deal with zero size blocks */
+		if (blk->size == 0)
+			continue;
 
-			for (j = 0; j < num_dwords; j++)
+		if ((blk->addr >= GMU_ITCM_VA_START) &&
+				(blk->addr < GMU_ITCM_VA_END)) {
+			fwptr = (uint32_t *)fw;
+			tcm_slot = (blk->addr - GMU_ITCM_VA_START)
+				/ sizeof(uint32_t);
+
+			for (j = 0; j < blk->size / sizeof(uint32_t); j++)
 				gmu_core_regwrite(device,
 					A6XX_GMU_CM3_ITCM_START + tcm_slot + j,
 					fwptr[j]);
-		} else if ((start_addr >= GMU_DTCM_VA_START) &&
-				(start_addr < GMU_DTCM_VA_END)) {
-			tcm_slot = (start_addr - GMU_DTCM_VA_START)
+		} else if ((blk->addr >= GMU_DTCM_VA_START) &&
+				(blk->addr < GMU_DTCM_VA_END)) {
+			fwptr = (uint32_t *)fw;
+			tcm_slot = (blk->addr - GMU_DTCM_VA_START)
 				/ sizeof(uint32_t);
 
-			for (j = 0; j < num_dwords; j++)
+			for (j = 0; j < blk->size / sizeof(uint32_t); j++)
 				gmu_core_regwrite(device,
 					A6XX_GMU_CM3_DTCM_START + tcm_slot + j,
 					fwptr[j]);
-		} else if ((start_addr >= GMU_ICACHE_VA_START) &&
-				(start_addr < GMU_ICACHE_VA_END)) {
-			if (!is_cached_fw_size_valid(size_in_bytes)) {
+		} else if ((blk->addr >= GMU_ICACHE_VA_START) &&
+				(blk->addr < GMU_ICACHE_VA_END)) {
+			if (!is_cached_fw_size_valid(blk->size)) {
 				dev_err(&gmu->pdev->dev,
 						"GMU firmware size too big\n");
 				return -EINVAL;
 
 			}
-			memcpy(gmu->icache_mem->hostptr, fwptr, size_in_bytes);
+			memcpy(gmu->icache_mem->hostptr, fw, blk->size);
 		}
 
-		fwptr += num_dwords;
+		fw += blk->size;
 	}
 
 	/* Proceed only after the FW is written */
@@ -1044,11 +1040,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
  */
 static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 {
-	const struct firmware *fw = NULL;
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
-	int image_size, ret =  -EINVAL;
+	int ret =  -EINVAL;
 
 	/* there is no GMU */
 	if (!gmu_core_isenabled(device))
@@ -1061,22 +1056,11 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	if (gpucore->gpmufw_name == NULL)
 		return -EINVAL;
 
-	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
-	if (ret || fw == NULL) {
+	ret = request_firmware(&gmu->fw_image, gpucore->gpmufw_name,
+			device->dev);
+	if (ret || gmu->fw_image == NULL)
 		KGSL_CORE_ERR("request_firmware (%s) failed: %d\n",
 				gpucore->gpmufw_name, ret);
-		return ret;
-	}
-
-	image_size = PAGE_ALIGN(fw->size);
-
-	ret = allocate_gmu_image(gmu, image_size);
-
-	/* load into shared memory with GMU */
-	if (!ret)
-		memcpy(gmu->fw_image->hostptr, fw->data, fw->size);
-
-	release_firmware(fw);
 
 	return ret;
 }
