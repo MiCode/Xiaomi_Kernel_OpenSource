@@ -326,8 +326,10 @@
 #define MEM_IF_ADDR_LSB(chip)			((chip->mem_if_base) + 0x61)
 #define MEM_IF_ADDR_MSB(chip)			((chip->mem_if_base) + 0x62)
 #define MEM_IF_WR_DATA0(chip)			((chip->mem_if_base) + 0x63)
+#define MEM_IF_WR_DATA1(chip)			((chip->mem_if_base) + 0x64)
 #define MEM_IF_WR_DATA3(chip)			((chip->mem_if_base) + 0x66)
 #define MEM_IF_RD_DATA0(chip)			((chip->mem_if_base) + 0x67)
+#define MEM_IF_RD_DATA1(chip)			((chip->mem_if_base) + 0x68)
 #define MEM_IF_RD_DATA3(chip)			((chip->mem_if_base) + 0x6A)
 
 #define MEM_IF_DMA_STS(chip)			((chip->mem_if_base) + 0x70)
