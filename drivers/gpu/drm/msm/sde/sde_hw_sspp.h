@@ -273,16 +273,6 @@ struct sde_hw_pipe_ts_cfg {
 #define SDE_PIPE_SBUF_PLANE_NUM	2
 
 /**
- * struct sde_hw_pipe_sbuf_status - stream buffer status
- * @empty: indicate if stream buffer is empty of not
- * @rd_ptr: current read pointer of stream buffer
- */
-struct sde_hw_pipe_sbuf_status {
-	bool empty[SDE_PIPE_SBUF_PLANE_NUM];
-	u32 rd_ptr[SDE_PIPE_SBUF_PLANE_NUM];
-};
-
-/**
  * struct sde_hw_sspp_ops - interface to the SSPP Hw driver functions
  * Caller must call the init function to get the pipe context for each pipe
  * Assumption is these functions will be called after clocks are enabled
@@ -521,14 +511,6 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*setup_sys_cache)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_sc_cfg *cfg);
-
-	/**
-	 * get_sbuf_status - get stream buffer status
-	 * @ctx: Pointer to pipe context
-	 * @status: Pointer to stream buffer status
-	 */
-	void (*get_sbuf_status)(struct sde_hw_pipe *ctx,
-			struct sde_hw_pipe_sbuf_status *status);
 
 	/**
 	 * setup_ts_prefill - setup prefill traffic shaper

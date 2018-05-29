@@ -834,45 +834,6 @@ static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_QOS_CTRL + idx, qos_ctrl);
 }
 
-static void sde_hw_sspp_setup_sys_cache(struct sde_hw_pipe *ctx,
-		struct sde_hw_pipe_sc_cfg *cfg)
-{
-	u32 idx, val;
-
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
-		return;
-
-	if (!cfg)
-		return;
-
-	val = ((cfg->op_mode & 0x3) << 18) |
-			((cfg->rd_en & 0x1) << 15) |
-			((cfg->rd_scid & 0x1f) << 8) |
-			((cfg->rd_noallocate & 0x1) << 4) |
-			((cfg->rd_op_type & 0xf) << 0);
-
-	SDE_REG_WRITE(&ctx->hw, SSPP_SYS_CACHE_MODE + idx, val);
-}
-
-static void sde_hw_sspp_get_sbuf_status(struct sde_hw_pipe *ctx,
-		struct sde_hw_pipe_sbuf_status *status)
-{
-	u32 idx, val;
-
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
-		return;
-
-	if (!status)
-		return;
-
-	val = SDE_REG_READ(&ctx->hw, SSPP_SBUF_STATUS_PLANE0 + idx);
-	status->empty[0] = val & SSPP_SBUF_STATUS_PLANE_EMPTY ? true : false;
-	status->rd_ptr[0] = val & 0xffff;
-	val = SDE_REG_READ(&ctx->hw, SSPP_SBUF_STATUS_PLANE1 + idx);
-	status->empty[1] = val & SSPP_SBUF_STATUS_PLANE_EMPTY ? true : false;
-	status->rd_ptr[1] = val & 0xffff;
-}
-
 static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
 		struct sde_hw_pipe_ts_cfg *cfg,
 		enum sde_sspp_multirect_index index)
@@ -1146,11 +1107,6 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 					: SDE_SSPP_SCALER_QSEED3, c->idx);
 		if (!ret)
 			c->ops.setup_scaler = reg_dmav1_setup_vig_qseed3;
-	}
-
-	if (test_bit(SDE_SSPP_SBUF, &features)) {
-		c->ops.setup_sys_cache = sde_hw_sspp_setup_sys_cache;
-		c->ops.get_sbuf_status = sde_hw_sspp_get_sbuf_status;
 	}
 
 	if (test_bit(SDE_SSPP_CDP, &features))

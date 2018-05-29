@@ -333,16 +333,12 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  *	mode specific operations
  * @base:	Baseclass physical encoder structure
  * @timing_params: Current timing parameter
- * @rot_fetch:	Prefill for inline rotation
  * @error_count: Number of consecutive kickoffs that experienced an error
- * @rot_fetch_valid: true if rot_fetch is updated (reset in enc enable)
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	struct intf_timing_params timing_params;
-	struct intf_prog_fetch rot_fetch;
 	int error_count;
-	bool rot_fetch_valid;
 };
 
 /**

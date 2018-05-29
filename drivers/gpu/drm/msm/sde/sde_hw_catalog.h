@@ -163,7 +163,6 @@ enum {
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
  * @SDE_SSPP_SMART_DMA_V2p5, SmartDMA 2.5 support
- * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_SSPP_CDP             Supports client driven prefetch
@@ -197,7 +196,6 @@ enum {
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
 	SDE_SSPP_SMART_DMA_V2p5,
-	SDE_SSPP_SBUF,
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
 	SDE_SSPP_CDP,
@@ -303,7 +301,6 @@ enum {
  * CTL sub-blocks
  * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
- * @SDE_CTL_SBUF                CTL supports inline stream buffer
  * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
  * @SDE_CTL_ACTIVE_CFG          CTL configuration is specified using active
  *                              blocks
@@ -312,7 +309,6 @@ enum {
 enum {
 	SDE_CTL_SPLIT_DISPLAY = 0x1,
 	SDE_CTL_PINGPONG_SPLIT,
-	SDE_CTL_SBUF,
 	SDE_CTL_PRIMARY_PREF,
 	SDE_CTL_ACTIVE_CFG,
 	SDE_CTL_MAX
@@ -320,15 +316,13 @@ enum {
 
 /**
  * INTF sub-blocks
- * @SDE_INTF_ROT_START          INTF supports rotator start trigger
  * @SDE_INTF_INPUT_CTRL         Supports the setting of pp block from which
  *                              pixel data arrives to this INTF
  * @SDE_INTF_TE                 INTF block has TE configuration support
  * @SDE_INTF_MAX
  */
 enum {
-	SDE_INTF_ROT_START = 0x1,
-	SDE_INTF_INPUT_CTRL,
+	SDE_INTF_INPUT_CTRL = 0x1,
 	SDE_INTF_TE,
 	SDE_INTF_MAX
 };
@@ -1062,9 +1056,6 @@ struct sde_perf_cfg {
  * @has_cwb_support    indicates if device supports primary capture through CWB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @ubwc_bw_calc_version indicate how UBWC BW has to be calculated
- * @has_sbuf           indicate if stream buffer is available
- * @sbuf_headroom      stream buffer headroom in lines
- * @sbuf_prefill       stream buffer prefill default in lines
  * @has_idle_pc        indicate if idle power collapse feature is supported
  * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
@@ -1116,9 +1107,6 @@ struct sde_mdss_cfg {
 	bool has_cwb_support;
 	u32 ubwc_version;
 	u32 ubwc_bw_calc_version;
-	bool has_sbuf;
-	u32 sbuf_headroom;
-	u32 sbuf_prefill;
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;

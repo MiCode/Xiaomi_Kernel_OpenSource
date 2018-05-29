@@ -1763,8 +1763,7 @@ static int _sde_encoder_switch_to_watchdog_vsync(struct drm_encoder *drm_enc)
 }
 
 static int _sde_encoder_update_rsc_client(
-		struct drm_encoder *drm_enc,
-		struct sde_encoder_rsc_config *config, bool enable)
+		struct drm_encoder *drm_enc, bool enable)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct drm_crtc *crtc;
@@ -1836,8 +1835,7 @@ static int _sde_encoder_update_rsc_client(
 
 	SDE_EVT32(rsc_state, qsync_mode);
 
-	prefill_lines = config ? mode_info.prefill_lines +
-		config->inline_rotate_prefill : mode_info.prefill_lines;
+	prefill_lines = mode_info.prefill_lines;
 
 	/* compare specific items and reconfigure the rsc */
 	if ((rsc_config->fps != mode_info.frame_rate) ||
@@ -2012,32 +2010,6 @@ struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 		return NULL;
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	return sde_enc->rsc_client;
-}
-
-static void _sde_encoder_resource_control_rsc_update(
-		struct drm_encoder *drm_enc, bool enable)
-{
-	struct sde_encoder_rsc_config rsc_cfg = { 0 };
-	struct sde_encoder_virt *sde_enc;
-
-	if (!drm_enc) {
-		SDE_ERROR("invalid encoder argument\n");
-		return;
-	}
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	if (!sde_enc->crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	if (enable) {
-		rsc_cfg.inline_rotate_prefill =
-				sde_crtc_get_inline_prefill(sde_enc->crtc);
-
-		_sde_encoder_update_rsc_client(drm_enc, &rsc_cfg, true);
-	} else {
-		_sde_encoder_update_rsc_client(drm_enc, NULL, false);
-	}
 }
 
 static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
@@ -2251,7 +2223,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 				return ret;
 			}
 
-			_sde_encoder_resource_control_rsc_update(drm_enc, true);
+			_sde_encoder_update_rsc_client(drm_enc, true);
 		}
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
@@ -2358,7 +2330,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		 * IRQs are still enabled currently, which allows wait for
 		 * VBLANK which RSC may require to correctly transition to OFF
 		 */
-		_sde_encoder_resource_control_rsc_update(drm_enc, false);
+		_sde_encoder_update_rsc_client(drm_enc, false);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_PRE_OFF,
@@ -2434,7 +2406,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 				return ret;
 			}
 
-			_sde_encoder_resource_control_rsc_update(drm_enc, true);
+			_sde_encoder_update_rsc_client(drm_enc, true);
 
 			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_ON, SDE_EVTLOG_FUNC_CASE5);
@@ -2479,7 +2451,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 		_sde_encoder_irq_control(drm_enc, true);
 
-		_sde_encoder_update_rsc_client(drm_enc, NULL, true);
+		_sde_encoder_update_rsc_client(drm_enc, true);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_ON, SDE_EVTLOG_FUNC_CASE6);
@@ -2519,8 +2491,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			_sde_encoder_irq_control(drm_enc, false);
 		} else {
 			/* disable all the clks and resources */
-			_sde_encoder_resource_control_rsc_update(drm_enc,
-								false);
+			_sde_encoder_update_rsc_client(drm_enc, false);
 			_sde_encoder_resource_control_helper(drm_enc, false);
 		}
 
@@ -2578,7 +2549,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 				return ret;
 			}
 
-			_sde_encoder_resource_control_rsc_update(drm_enc, true);
+			_sde_encoder_update_rsc_client(drm_enc, true);
 
 			/*
 			 * In some cases, commit comes with slight delay
@@ -3567,15 +3538,6 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 				phys->hw_pp->idx - PINGPONG_0,
 				ctl->idx - CTL_0);
 		return;
-	}
-
-	/* Start rotator before CTL_START for async inline mode */
-	if (sde_crtc_get_rotator_op_mode(sde_enc->crtc) ==
-			SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
-			ctl->ops.trigger_rot_start) {
-		SDE_DEBUG_ENC(sde_enc, "trigger rotator start ctl%d\n",
-				ctl->idx - CTL_0);
-		ctl->ops.trigger_rot_start(ctl);
 	}
 
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)

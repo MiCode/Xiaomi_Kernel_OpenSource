@@ -322,25 +322,6 @@ static void sde_hw_intf_setup_prg_fetch(
 	SDE_REG_WRITE(c, INTF_CONFIG, fetch_enable);
 }
 
-static void sde_hw_intf_setup_rot_start(
-		struct sde_hw_intf *intf,
-		const struct intf_prog_fetch *fetch)
-{
-	struct sde_hw_blk_reg_map *c = &intf->hw;
-	int fetch_enable;
-
-	fetch_enable = SDE_REG_READ(c, INTF_CONFIG);
-	if (fetch->enable) {
-		fetch_enable |= BIT(19);
-		SDE_REG_WRITE(c, INTF_PROG_ROT_START,
-				fetch->fetch_start);
-	} else {
-		fetch_enable &= ~BIT(19);
-	}
-
-	SDE_REG_WRITE(c, INTF_CONFIG, fetch_enable);
-}
-
 static void sde_hw_intf_bind_pingpong_blk(
 		struct sde_hw_intf *intf,
 		bool enable,
@@ -618,8 +599,6 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->avr_setup = sde_hw_intf_avr_setup;
 	ops->avr_trigger = sde_hw_intf_avr_trigger;
 	ops->avr_ctrl = sde_hw_intf_avr_ctrl;
-	if (cap & BIT(SDE_INTF_ROT_START))
-		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
 
 	if (cap & BIT(SDE_INTF_INPUT_CTRL))
 		ops->bind_pingpong_blk = sde_hw_intf_bind_pingpong_blk;
