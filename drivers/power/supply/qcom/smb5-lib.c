@@ -117,8 +117,7 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
-static int smblib_select_sec_charger(struct smb_charger *chg,
-					enum sec_charger_type sec_chg)
+static int smblib_select_sec_charger(struct smb_charger *chg, int sec_chg)
 {
 	int rc;
 
@@ -126,7 +125,7 @@ static int smblib_select_sec_charger(struct smb_charger *chg,
 		return 0;
 
 	switch (sec_chg) {
-	case SEC_CHG_CP:
+	case POWER_SUPPLY_CHARGER_SEC_CP:
 		/* select Charge Pump instead of slave charger */
 		rc = smblib_masked_write(chg, MISC_SMB_CFG_REG,
 					SMB_EN_SEL_BIT, SMB_EN_SEL_BIT);
@@ -143,7 +142,7 @@ static int smblib_select_sec_charger(struct smb_charger *chg,
 			return rc;
 		}
 		break;
-	case SEC_CHG_PL:
+	case POWER_SUPPLY_CHARGER_SEC_PL:
 		/* select slave charger instead of Charge Pump */
 		rc = smblib_masked_write(chg, MISC_SMB_CFG_REG,
 					SMB_EN_SEL_BIT, 0);
@@ -160,7 +159,7 @@ static int smblib_select_sec_charger(struct smb_charger *chg,
 			return rc;
 		}
 		break;
-	case SEC_CHG_NONE:
+	case POWER_SUPPLY_CHARGER_SEC_NONE:
 	default:
 		/* SW override, disabling secondary charger(s) */
 		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,
@@ -2452,8 +2451,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		 * For PPS, Charge Pump is preferred over parallel charger if
 		 * present.
 		 */
-		if (chg->pd_active == 2 && chg->sec_cp_present) {
-			rc = smblib_select_sec_charger(chg, SEC_CHG_CP);
+		if (chg->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE
+						&& chg->sec_cp_present) {
+			rc = smblib_select_sec_charger(chg,
+						POWER_SUPPLY_CHARGER_SEC_CP);
 			if (rc < 0)
 				dev_err(chg->dev, "Couldn't enable secondary charger rc=%d\n",
 					rc);
@@ -2464,7 +2465,8 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 
 		rc = smblib_select_sec_charger(chg,
-			chg->sec_pl_present ? SEC_CHG_PL : SEC_CHG_NONE);
+			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
+						POWER_SUPPLY_CHARGER_SEC_NONE);
 		if (rc < 0)
 			dev_err(chg->dev,
 				"Couldn't enable secondary charger rc=%d\n",
@@ -3004,7 +3006,8 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	/* for QC3, switch to CP if present */
 	if ((apsd_result->bit & QC_3P0_BIT) && chg->sec_cp_present) {
-		rc = smblib_select_sec_charger(chg, SEC_CHG_CP);
+		rc = smblib_select_sec_charger(chg,
+					POWER_SUPPLY_CHARGER_SEC_CP);
 		if (rc < 0)
 			dev_err(chg->dev,
 			"Couldn't enable secondary chargers  rc=%d\n", rc);
@@ -3264,7 +3267,8 @@ static void typec_src_removal(struct smb_charger *chg)
 	struct storm_watch *wdata;
 
 	rc = smblib_select_sec_charger(chg,
-			chg->sec_pl_present ? SEC_CHG_PL : SEC_CHG_NONE);
+			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
+						POWER_SUPPLY_CHARGER_SEC_NONE);
 	if (rc < 0)
 		dev_err(chg->dev,
 			"Couldn't disable secondary charger rc=%d\n", rc);
@@ -3699,10 +3703,10 @@ static void pl_update_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_update_work);
 
-	if (chg->sec_chg_selected == SEC_CHG_CP)
+	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP)
 		return;
 
-	smblib_select_sec_charger(chg, SEC_CHG_PL);
+	smblib_select_sec_charger(chg, POWER_SUPPLY_CHARGER_SEC_PL);
 }
 
 static void clear_hdc_work(struct work_struct *work)
@@ -3959,7 +3963,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->fake_batt_status = -EINVAL;
 	chg->sink_src_mode = UNATTACHED_MODE;
 	chg->jeita_configured = false;
-	chg->sec_chg_selected = SEC_CHG_NONE;
+	chg->sec_chg_selected = POWER_SUPPLY_CHARGER_SEC_NONE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -3989,9 +3993,10 @@ int smblib_init(struct smb_charger *chg)
 
 		if (chg->sec_pl_present) {
 			chg->pl.psy = power_supply_get_by_name("parallel");
-			if (chg->pl.psy &&
-					chg->sec_chg_selected != SEC_CHG_CP) {
-				rc = smblib_select_sec_charger(chg, SEC_CHG_PL);
+			if (chg->sec_chg_selected != POWER_SUPPLY_CHARGER_SEC_CP
+				&& chg->pl.psy) {
+				rc = smblib_select_sec_charger(chg,
+						POWER_SUPPLY_CHARGER_SEC_PL);
 				if (rc < 0) {
 					smblib_err(chg, "Couldn't config pl charger rc=%d\n",
 						rc);
