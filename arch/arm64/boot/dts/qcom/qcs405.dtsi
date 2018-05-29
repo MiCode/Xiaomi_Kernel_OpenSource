@@ -115,6 +115,7 @@
 #include "qcs405-cpu.dtsi"
 #include "qcs405-ion.dtsi"
 #include "qcs405-pm.dtsi"
+#include "msm-arm-smmu-qcs405.dtsi"
 
 &soc {
 	#address-cells = <1>;
