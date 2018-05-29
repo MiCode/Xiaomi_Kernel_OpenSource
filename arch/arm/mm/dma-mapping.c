@@ -2470,22 +2470,34 @@ static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 				    const struct iommu_ops *iommu)
 {
 	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *domain;
 
 	if (!iommu)
 		return false;
 
-	mapping = arm_iommu_create_mapping(dev->bus, dma_base, size);
-	if (IS_ERR(mapping)) {
-		pr_warn("Failed to create %llu-byte IOMMU mapping for device %s\n",
-				size, dev_name(dev));
-		return false;
-	}
+	/*
+	 * Adding this to not to attach to smmu device by default as any way
+	 * clients call the arm_iommu_create_mapping() in their use cases.
+	 */
+	domain = iommu_get_domain_for_dev(dev);
 
-	if (__arm_iommu_attach_device(dev, mapping)) {
-		pr_warn("Failed to attached device %s to IOMMU_mapping\n",
-				dev_name(dev));
-		arm_iommu_release_mapping(mapping);
+	if (!domain)
 		return false;
+
+	if (domain->type == IOMMU_DOMAIN_DMA) {
+		mapping = arm_iommu_create_mapping(dev->bus, dma_base, size);
+		if (IS_ERR(mapping)) {
+			pr_warn("Failed to create %llu-byte IOMMU mapping for device %s\n",
+				size, dev_name(dev));
+			return false;
+		}
+
+		if (__arm_iommu_attach_device(dev, mapping)) {
+			pr_warn("Failed to attached device %s to IOMMU_mapping\n",
+				dev_name(dev));
+			arm_iommu_release_mapping(mapping);
+			return false;
+		}
 	}
 
 	return true;
