@@ -1103,6 +1103,52 @@ static void get_batt_psy_props(struct fg_dev *fg)
 	}
 }
 
+static int fg_gen4_update_maint_soc(struct fg_dev *fg)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc = 0, msoc;
+
+	if (!chip->dt.linearize_soc)
+		return 0;
+
+	mutex_lock(&fg->charge_full_lock);
+	if (fg->delta_soc <= 0)
+		goto out;
+
+	rc = fg_get_msoc(fg, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting msoc, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (msoc > fg->maint_soc) {
+		/*
+		 * When the monotonic SOC goes above maintenance SOC, we should
+		 * stop showing the maintenance SOC.
+		 */
+		fg->delta_soc = 0;
+		fg->maint_soc = 0;
+	} else if (fg->maint_soc && msoc <= fg->last_msoc) {
+		/* MSOC is decreasing. Decrease maintenance SOC as well */
+		fg->maint_soc -= 1;
+		if (!(msoc % 10)) {
+			/*
+			 * Reduce the maintenance SOC additionally by 1 whenever
+			 * it crosses a SOC multiple of 10.
+			 */
+			fg->maint_soc -= 1;
+			fg->delta_soc -= 1;
+		}
+	}
+
+	fg_dbg(fg, FG_STATUS, "msoc: %d last_msoc: %d maint_soc: %d delta_soc: %d\n",
+		msoc, fg->last_msoc, fg->maint_soc, fg->delta_soc);
+	fg->last_msoc = msoc;
+out:
+	mutex_unlock(&fg->charge_full_lock);
+	return rc;
+}
+
 static int fg_gen4_configure_full_soc(struct fg_dev *fg, int bsoc)
 {
 	int rc;
@@ -1505,6 +1551,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_gen4_update_maint_soc(fg);
+	if (rc < 0)
+		pr_err("Error in updating maint_soc, rc=%d\n", rc);
 
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
