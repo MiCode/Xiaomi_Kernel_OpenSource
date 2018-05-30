@@ -1493,6 +1493,14 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				EN_TRY_SNK_BIT, EN_TRY_SNK_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't enable try.snk rc=%d\n", rc);
+		return rc;
+	}
+
 	/* Keep VCONN in h/w controlled mode for PMI632 */
 	if (chg->smb_version != PMI632_SUBTYPE) {
 		/* configure VCONN for software control */
