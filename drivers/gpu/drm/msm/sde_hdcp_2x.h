@@ -26,6 +26,7 @@
  * @HDCP_2X_CMD_STOP:              stop authentication
  * @HDCP_2X_CMD_MSG_SEND_SUCCESS:  sending message to sink succeeded
  * @HDCP_2X_CMD_MSG_SEND_FAILED:   sending message to sink failed
+ * @HDCP_2X_CMD_MSG_SEND_TIMEOUT:  sending message to sink timed out
  * @HDCP_2X_CMD_MSG_RECV_SUCCESS:  receiving message from sink succeeded
  * @HDCP_2X_CMD_MSG_RECV_FAILED:   receiving message from sink failed
  * @HDCP_2X_CMD_MSG_RECV_TIMEOUT:  receiving message from sink timed out
@@ -38,6 +39,7 @@ enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_STOP,
 	HDCP_2X_CMD_MSG_SEND_SUCCESS,
 	HDCP_2X_CMD_MSG_SEND_FAILED,
+	HDCP_2X_CMD_MSG_SEND_TIMEOUT,
 	HDCP_2X_CMD_MSG_RECV_SUCCESS,
 	HDCP_2X_CMD_MSG_RECV_FAILED,
 	HDCP_2X_CMD_MSG_RECV_TIMEOUT,
@@ -141,6 +143,8 @@ static inline const char *sde_hdcp_2x_cmd_to_str(
 		return TO_STR(HDCP_2X_CMD_MSG_SEND_SUCCESS);
 	case HDCP_2X_CMD_MSG_SEND_FAILED:
 		return TO_STR(HDCP_2X_CMD_MSG_SEND_FAILED);
+	case HDCP_2X_CMD_MSG_SEND_TIMEOUT:
+		return TO_STR(HDCP_2X_CMD_MSG_SEND_TIMEOUT);
 	case HDCP_2X_CMD_MSG_RECV_SUCCESS:
 		return TO_STR(HDCP_2X_CMD_MSG_RECV_SUCCESS);
 	case HDCP_2X_CMD_MSG_RECV_FAILED:
