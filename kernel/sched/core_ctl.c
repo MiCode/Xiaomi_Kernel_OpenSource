@@ -676,8 +676,7 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	 * unisolate as many cores as the previous cluster
 	 * needs assistance with.
 	 */
-	if (cluster->nr_prev_assist_thresh != 0 &&
-		cluster->nr_prev_assist >= cluster->nr_prev_assist_thresh)
+	if (cluster->nr_prev_assist >= cluster->nr_prev_assist_thresh)
 		new_need = new_need + cluster->nr_prev_assist;
 
 	/* only unisolate more cores if there are tasks to run */
@@ -1204,7 +1203,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->offline_delay_ms = 100;
 	cluster->task_thres = UINT_MAX;
-	cluster->nr_prev_assist_thresh = 0;
+	cluster->nr_prev_assist_thresh = UINT_MAX;
 	cluster->nrrun = cluster->num_cpus;
 	cluster->enable = true;
 	cluster->nr_not_preferred_cpus = 0;
