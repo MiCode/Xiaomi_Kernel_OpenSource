@@ -284,6 +284,7 @@ enum {
 
 #define TYPE_C_MODE_CFG_REG			(TYPEC_BASE + 0x44)
 #define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 1)
+#define EN_TRY_SNK_BIT				BIT(4)
 #define EN_SRC_ONLY_BIT				BIT(2)
 #define EN_SNK_ONLY_BIT				BIT(1)
 #define TYPEC_DISABLE_CMD_BIT			BIT(0)
