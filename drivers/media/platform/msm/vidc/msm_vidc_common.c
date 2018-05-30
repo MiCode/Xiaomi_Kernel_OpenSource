@@ -2406,8 +2406,9 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
-	if ((get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
-		HAL_VIDEO_CODEC_HEVC) &&
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		(get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_HEVC) &&
 		(inst->img_grid_dimension > 0) &&
 		(empty_buf_done->input_tag < inst->tinfo.count - 1)) {
 		dprintk(VIDC_DBG, "Wait for last tile. Current tile no: %d\n",
@@ -4424,8 +4425,9 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		for (c = 0; c < etbs.count; ++c) {
 			struct vidc_frame_data *frame_data = &etbs.data[c];
 
-			if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
-				HAL_VIDEO_CODEC_HEVC &&
+			if (inst->session_type == MSM_VIDC_ENCODER &&
+				get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc)
+				 == HAL_VIDEO_CODEC_HEVC &&
 				(inst->img_grid_dimension > 0)) {
 				rc = msm_comm_qbuf_heic_tiles(inst, frame_data);
 				if (rc) {
