@@ -801,18 +801,22 @@ no_ops:
 }
 
 static int _sde_kms_release_splash_buffer(unsigned int mem_addr,
-							unsigned int size)
+					unsigned int splash_buffer_size,
+					unsigned int ramdump_buffer_size)
 {
 	unsigned long pfn_start, pfn_end, pfn_idx;
 	int ret = 0;
 
-	if (!mem_addr || !size)
+	if (!mem_addr || !splash_buffer_size)
 		SDE_ERROR("invalid params\n");
 
-	pfn_start = mem_addr >> PAGE_SHIFT;
-	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
+	mem_addr +=  ramdump_buffer_size;
+	splash_buffer_size -= ramdump_buffer_size;
 
-	ret = memblock_free(mem_addr, size);
+	pfn_start = mem_addr >> PAGE_SHIFT;
+	pfn_end = (mem_addr + splash_buffer_size) >> PAGE_SHIFT;
+
+	ret = memblock_free(mem_addr, splash_buffer_size);
 	if (ret) {
 		SDE_ERROR("continuous splash memory free failed:%d\n", ret);
 		return ret;
@@ -993,7 +997,8 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 
 		rc = _sde_kms_release_splash_buffer(
 			sde_kms->splash_data.splash_base,
-			sde_kms->splash_data.splash_size);
+			sde_kms->splash_data.splash_size,
+			sde_kms->splash_data.ramdump_size);
 		if (rc)
 			pr_err("failed to release splash memory\n");
 		sde_kms->splash_data.splash_base = 0;
@@ -1691,7 +1696,8 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	_sde_kms_release_displays(sde_kms);
 	(void)_sde_kms_release_splash_buffer(
 				sde_kms->splash_data.splash_base,
-				sde_kms->splash_data.splash_size);
+				sde_kms->splash_data.splash_size,
+				sde_kms->splash_data.ramdump_size);
 
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
@@ -2803,8 +2809,8 @@ static int sde_kms_pd_disable(struct generic_pm_domain *genpd)
 static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 {
 	int ret = 0;
-	struct device_node *parent, *node;
-	struct resource r;
+	struct device_node *parent, *node, *node1;
+	struct resource r, r1;
 
 	if (!data)
 		return -EINVAL;
@@ -2829,9 +2835,29 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 	data->splash_base = (unsigned long)r.start;
 	data->splash_size = (r.end - r.start) + 1;
 
-	pr_info("found continuous splash base address:%lx size:%x\n",
-						data->splash_base,
-						data->splash_size);
+	node1 = of_find_node_by_name(parent, "disp_rdump_region");
+	if (!node1)
+		SDE_DEBUG("failed to find disp ramdump memory reservation\n");
+
+	if (!node1 || of_address_to_resource(node1, 0, &r1)) {
+		SDE_DEBUG("failed to find data for  disp ramdump memory\n");
+		data->ramdump_base = 0;
+		data->ramdump_size = 0;
+	} else {
+		data->ramdump_base = (unsigned long)r1.start;
+		data->ramdump_size = (r1.end - r1.start) + 1;
+	}
+
+	if ((data->ramdump_base && data->ramdump_base != data->splash_base) ||
+			(data->ramdump_size > data->splash_size)) {
+		SDE_ERROR("ramdump/splash buffer addr/size mismatched\n");
+		data->ramdump_base = 0;
+		data->ramdump_size = 0;
+	}
+
+	pr_info("cont spla base adds:%lx size:%x rdump adds=:%lx size:%x\n",
+			data->splash_base, data->splash_size,
+			data->ramdump_base, data->ramdump_size);
 	return ret;
 }
 

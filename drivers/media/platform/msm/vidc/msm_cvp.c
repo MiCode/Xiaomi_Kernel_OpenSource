@@ -311,8 +311,29 @@ static int msm_cvp_request_power(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR,
 			"%s: failed to scale clocks and bus for inst %pK (%#x)\n",
 			__func__, inst, hash32_ptr(inst->session));
+		goto exit;
 	}
 
+	if (!inst->clk_data.min_freq && !inst->clk_data.ddr_bw &&
+		!inst->clk_data.sys_cache_bw) {
+		rc = msm_cvp_inst_pause(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to pause inst %pK (%#x)\n",
+				__func__, inst, hash32_ptr(inst->session));
+			goto exit;
+		}
+	} else {
+		rc = msm_cvp_inst_resume(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to resume inst %pK (%#x)\n",
+				__func__, inst, hash32_ptr(inst->session));
+			goto exit;
+		}
+	}
+
+exit:
 	return rc;
 }
 
@@ -515,65 +536,70 @@ int msm_cvp_ctrl_init(struct msm_vidc_inst *inst,
 		ARRAY_SIZE(msm_cvp_ctrls), ctrl_ops);
 }
 
+int msm_cvp_inst_pause(struct msm_vidc_inst *inst)
+{
+	int rc;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	rc = call_hfi_op(hdev, session_pause, (void *)inst->session);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed to pause inst %pK (%#x)\n",
+			__func__, inst, hash32_ptr(inst->session));
+
+	return rc;
+}
+
+int msm_cvp_inst_resume(struct msm_vidc_inst *inst)
+{
+	int rc;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	rc = call_hfi_op(hdev, session_resume, (void *)inst->session);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed to resume inst %pK (%#x)\n",
+			__func__, inst, hash32_ptr(inst->session));
+
+	return rc;
+}
+
 int msm_cvp_inst_deinit(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct hfi_device *hdev;
-	struct msm_vidc_cvp_buffer *cbuf;
-	struct vidc_unregister_buffer vbuf;
+	struct msm_vidc_cvp_buffer *cbuf, *temp;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
-	hdev = inst->core->device;
 	dprintk(VIDC_DBG, "%s: inst %pK (%#x)\n", __func__,
 		inst, hash32_ptr(inst->session));
 
-	do {
-		mutex_lock(&inst->cvpbufs.lock);
-		if (list_empty(&inst->cvpbufs.list)) {
-			mutex_unlock(&inst->cvpbufs.lock);
-			break;
-		}
-		cbuf = list_first_entry(&inst->cvpbufs.list,
-			struct msm_vidc_cvp_buffer, list);
-		mutex_unlock(&inst->cvpbufs.lock);
+	rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: close failed\n", __func__);
 
+	mutex_lock(&inst->cvpbufs.lock);
+	list_for_each_entry_safe(cbuf, temp, &inst->cvpbufs.list, list) {
 		print_cvp_buffer(VIDC_ERR, "unregistered", inst, cbuf);
-		memset(&vbuf, 0, sizeof(struct vidc_unregister_buffer));
-		vbuf.index = cbuf->buf.index;
-		vbuf.type = get_hal_buftype(__func__, cbuf->buf.type);
-		vbuf.size = cbuf->buf.size;
-		vbuf.device_addr = cbuf->smem.device_addr;
-		vbuf.client_data = cbuf->smem.device_addr;
-		vbuf.response_required = true;
-		rc = call_hfi_op(hdev, session_unregister_buffer,
-				(void *)inst->session, &vbuf);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s: unregbuf failed\n", __func__);
-		} else {
-			rc = wait_for_completion_timeout(
-				&inst->completions[
-				SESSION_MSG_INDEX(
-				HAL_SESSION_UNREGISTER_BUFFER_DONE)],
-				msecs_to_jiffies(
-				inst->core->resources.msm_vidc_hw_rsp_timeout));
-			if (!rc)
-				dprintk(VIDC_ERR,
-					 "%s: wait timedout for unregbuf done\n",
-					__func__);
-		}
 		rc = msm_smem_unmap_dma_buf(inst, &cbuf->smem);
 		if (rc)
 			dprintk(VIDC_ERR, "%s: unmap failed\n", __func__);
-
-		mutex_lock(&inst->cvpbufs.lock);
 		list_del(&cbuf->list);
-		mutex_unlock(&inst->cvpbufs.lock);
 		kfree(cbuf);
-		cbuf = NULL;
-	} while (1);
+	}
+	mutex_unlock(&inst->cvpbufs.lock);
 
 	inst->clk_data.min_freq = 0;
 	inst->clk_data.ddr_bw = 0;

@@ -56,13 +56,6 @@
 #define PCIE20_PARF_DBI_BASE_ADDR       0x350
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE 0x358
 
-#define PCS_BASE 0x800
-
-#define PCS_PORT(n) (PCS_BASE + n * 0x1000)
-
-#define PCIE_N_SW_RESET(n)			(PCS_PORT(n) + 0x00)
-#define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
-
 #define PCIE_GEN3_SPCIE_CAP			0x0154
 #define PCIE_GEN3_GEN2_CTRL			0x080c
 #define PCIE_GEN3_RELATED			0x0890
@@ -600,6 +593,7 @@ struct msm_pcie_dev_t {
 	uint32_t			wr_halt_size;
 	uint32_t			slv_addr_space_size;
 	uint32_t			phy_status_offset;
+	uint32_t			phy_power_down_offset;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	uint32_t			perst_delay_us_min;
@@ -1251,6 +1245,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->slv_addr_space_size);
 	PCIE_DBG_FS(dev, "phy_status_offset: 0x%x\n",
 		dev->phy_status_offset);
+	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
+		dev->phy_power_down_offset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -1455,6 +1451,10 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				pci_walk_bus(bus,
 					&msm_pcie_config_l1_enable, dev);
 
+			/* enable l1 mode, clear bit 5 (REQ_NOT_ENTR_L1) */
+			msm_pcie_write_mask(dev->parf +
+				PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
 			msm_pcie_config_l1_enable(dev->dev, dev);
 		}
 		break;
@@ -1549,6 +1549,13 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			break;
 		}
 
+		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
+					(!dev->res[base_sel - 1].resource)) {
+			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
+								dev->rc_idx);
+			break;
+		}
+
 		PCIE_DBG_FS(dev,
 			"base: %s: 0x%pK\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
 			dev->res[base_sel - 1].name,
@@ -1568,6 +1575,13 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 
 		break;
 	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
+		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
+					(!dev->res[base_sel - 1].resource)) {
+			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
+								dev->rc_idx);
+			break;
+		}
+
 		if (!base_sel) {
 			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
 			break;
@@ -3734,23 +3748,22 @@ static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
 
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE,
-		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
 
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_EQ_CONTROL, BIT(4), 0);
+	msm_pcie_write_mask(dev->dm_core,
+		PCIE_GEN3_EQ_CONTROL, 0x20);
 
 	msm_pcie_write_mask(dev->dm_core +
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
 	/* configure PCIe preset */
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, 1);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
 	msm_pcie_write_reg(dev->dm_core,
 		PCIE_GEN3_SPCIE_CAP, 0x77777777);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, 1);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 }
 
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
@@ -4025,12 +4038,8 @@ link_fail:
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
 
-	if (dev->max_link_speed != GEN3_SPEED) {
-		msm_pcie_write_reg(dev->phy,
-			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
-		msm_pcie_write_reg(dev->phy,
-			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
-	}
+	if (dev->phy_power_down_offset)
+		msm_pcie_write_reg(dev->phy, dev->phy_power_down_offset, 0);
 
 	msm_pcie_pipe_clk_deinit(dev);
 	msm_pcie_clk_deinit(dev);
@@ -4068,12 +4077,8 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 
-	if (dev->max_link_speed != GEN3_SPEED) {
-		msm_pcie_write_reg(dev->phy,
-			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
-		msm_pcie_write_reg(dev->phy,
-			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
-	}
+	if (dev->phy_power_down_offset)
+		msm_pcie_write_reg(dev->phy, dev->phy_power_down_offset, 0);
 
 	if (options & PM_CLK) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
@@ -5888,6 +5893,19 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			"RC%d: phy-status-offset: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].phy_status_offset);
 	}
+
+	msm_pcie_dev[rc_idx].phy_power_down_offset = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,phy-power-down-offset",
+				&msm_pcie_dev[rc_idx].phy_power_down_offset);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: qcom,phy-power-down-offset not found.\n",
+			rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: phy-power-down-offset: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].phy_power_down_offset);
 
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,

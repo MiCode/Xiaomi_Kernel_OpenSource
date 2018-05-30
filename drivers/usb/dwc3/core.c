@@ -167,12 +167,8 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 	int		retries = 1000;
 	int		ret;
 
-	/* Reset PHYs */
+	/* Reset and initialize PHYs */
 	usb_phy_reset(dwc->usb2_phy);
-
-	if (dwc->maximum_speed == USB_SPEED_SUPER)
-		usb_phy_reset(dwc->usb3_phy);
-
 	ret = usb_phy_init(dwc->usb2_phy);
 	if (ret) {
 		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
@@ -180,9 +176,10 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 		return ret;
 	}
 
-	if (dwc->maximum_speed == USB_SPEED_HIGH)
+	if (dwc->maximum_speed <= USB_SPEED_HIGH)
 		goto generic_phy_init;
 
+	usb_phy_reset(dwc->usb3_phy);
 	ret = usb_phy_init(dwc->usb3_phy);
 	if (ret == -EBUSY) {
 		/*
@@ -546,6 +543,10 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	if (dwc->dis_del_phy_power_chg_quirk)
 		reg &= ~DWC3_GUSB3PIPECTL_DEPOCHANGE;
 
+	if (dwc->ssp_u3_u0_quirk)
+		reg |= (DWC3_GUSB3PIPECTL_UX_EXIT_PX |
+				DWC3_GUSB3PIPECTL_P3EXSIGP2);
+
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
@@ -723,6 +724,9 @@ static void dwc3_core_setup_global_control(struct dwc3 *dwc)
 	if (dwc->revision < DWC3_REVISION_190A)
 		reg |= DWC3_GCTL_U2RSTECN;
 
+	if (dwc->disable_clk_gating)
+		reg |= DWC3_GCTL_DSBLCLKGTNG;
+
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 }
 
@@ -762,7 +766,7 @@ int dwc3_core_init(struct dwc3 *dwc)
 	/* Handle USB2.0-only core configuration */
 	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
 			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
+		if (dwc->maximum_speed >= USB_SPEED_SUPER)
 			dwc->maximum_speed = USB_SPEED_HIGH;
 	}
 
@@ -1039,6 +1043,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 
 	dwc->tx_de_emphasis_quirk = device_property_read_bool(dev,
 				"snps,tx_de_emphasis_quirk");
+	dwc->ssp_u3_u0_quirk = device_property_read_bool(dev,
+				"snps,ssp-u3-u0-quirk");
 	device_property_read_u8(dev, "snps,tx_de_emphasis",
 				&tx_de_emphasis);
 	device_property_read_string(dev, "snps,hsphy_interface",
@@ -1049,6 +1055,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 					"snps,bus-suspend-enable");
 	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
 					"snps,usb3-u1u2-disable");
+	dwc->disable_clk_gating = device_property_read_bool(dev,
+					"snps,disable-clk-gating");
 
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
 	dwc->tx_de_emphasis = tx_de_emphasis;

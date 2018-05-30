@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2018, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -793,7 +793,7 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	status = usb_assign_descriptors(f, cser_fs_function, cser_hs_function,
-			cser_ss_function, NULL);
+			cser_ss_function, cser_ss_function);
 	if (status)
 		goto fail;
 

@@ -220,6 +220,11 @@ struct venus_resources {
 	struct msm_vidc_fw fw;
 };
 
+enum dsp_flag {
+	DSP_INIT = BIT(0),
+	DSP_SUSPEND = BIT(1),
+};
+
 enum venus_hfi_state {
 	VENUS_STATE_DEINIT = 1,
 	VENUS_STATE_INIT,
@@ -245,6 +250,7 @@ struct venus_hfi_device {
 	struct vidc_mem_addr mem_addr;
 	struct vidc_iface_q_info iface_queues[VIDC_IFACEQ_NUMQ];
 	struct vidc_iface_q_info dsp_iface_queues[VIDC_IFACEQ_NUMQ];
+	u32 dsp_flags;
 	struct hal_data *hal_data;
 	struct workqueue_struct *vidc_workq;
 	struct workqueue_struct *venus_pm_workq;

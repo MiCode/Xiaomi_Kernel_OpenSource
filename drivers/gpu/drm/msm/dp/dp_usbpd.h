@@ -65,7 +65,8 @@ struct dp_usbpd {
 	bool alt_mode_cfg_done;
 	bool debug_en;
 
-	int (*simulate_connect)(struct dp_usbpd *dp_usbpd, bool hpd);
+	int (*simulate_connect)(struct dp_usbpd *dp_usbpd, bool hpd,
+			int orientation);
 	int (*simulate_attention)(struct dp_usbpd *dp_usbpd, int vdo);
 };
 

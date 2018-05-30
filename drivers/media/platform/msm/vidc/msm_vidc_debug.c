@@ -27,7 +27,7 @@ int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;
 bool msm_vidc_fw_coverage = !true;
 bool msm_vidc_thermal_mitigation_disabled = !true;
-bool msm_vidc_clock_scaling = true;
+int msm_vidc_clock_voting = !1;
 bool msm_vidc_syscache_disable = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
@@ -200,8 +200,8 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(u32, "debug_output", &msm_vidc_debug_out) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
 			&msm_vidc_thermal_mitigation_disabled) &&
-	__debugfs_create(bool, "clock_scaling",
-			&msm_vidc_clock_scaling) &&
+	__debugfs_create(u32, "core_clock_voting",
+			&msm_vidc_clock_voting) &&
 	__debugfs_create(bool, "disable_video_syscache",
 			&msm_vidc_syscache_disable);
 

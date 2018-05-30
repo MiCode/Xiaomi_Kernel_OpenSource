@@ -533,6 +533,61 @@
 			};
 		};
 
+		pmx_sde: pmx_sde {
+			sde_dsi_active: sde_dsi_active {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;   /* no pull */
+				};
+			};
+			sde_dsi_suspend: sde_dsi_suspend {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio8";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio8";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio8";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio8";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
 		sec_tdm {
 			sec_tdm_sleep: sec_tdm_sleep {
 				mux {
@@ -1675,16 +1730,18 @@
 		};
 
 		fsa_usbc_ana_en_n@100 {
-			mux {
-				pins = "gpio100";
-				function = "gpio";
-			};
+			fsa_usbc_ana_en: fsa_usbc_ana_en {
+				mux {
+					pins = "gpio100";
+					function = "gpio";
+				};
 
-			config {
-				pins = "gpio100";
-				drive-strength = <2>;
-				bias-disable;
-				output-low;
+				config {
+					pins = "gpio100";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
 			};
 		};
 

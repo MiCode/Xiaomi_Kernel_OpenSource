@@ -50,11 +50,18 @@
 #define QMI_IPA_MAX_PIPES_V01 20
 #define QMI_IPA_MAX_APN_V01 8
 #define QMI_IPA_MAX_PER_CLIENTS_V01 64
+#define QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01 6
+#define QMI_IPA_REMOTE_MHI_MEMORY_MAPPING_NUM_MAX_V01 6
 /* Currently max we can use is only 1. But for scalability purpose
  * we are having max value as 8.
  */
 #define QMI_IPA_MAX_CLIENT_DST_PIPES_V01 8
 #define QMI_IPA_MAX_UL_FIREWALL_RULES_V01 64
+
+/*
+ * Indicates presence of newly added member to support HW stats.
+ */
+#define IPA_QMI_SUPPORTS_STATS
 
 #define IPA_INT_MAX	((int)(~0U>>1))
 #define IPA_INT_MIN	(-IPA_INT_MAX - 1)
@@ -316,6 +323,38 @@ struct ipa_init_modem_driver_req_msg_v01 {
 	 * table in IPAv3 onwards. Denotes the offset from the start of
 	 * the IPA shared memory.
 	 */
+
+	/* Optional
+	 * Modem HW Stats Quota Base address
+	 * Must be set to true if hw_stats_quota_base_addr
+	 * is being passed
+	 */
+	uint8_t hw_stats_quota_base_addr_valid;
+	uint32_t hw_stats_quota_base_addr;
+
+	/* Optional
+	 * Modem HW Stats Quota Size
+	 * Must be set to true if hw_stats_quota_size
+	 * is being passed
+	 */
+	uint8_t hw_stats_quota_size_valid;
+	uint32_t hw_stats_quota_size;
+
+	/* Optional
+	 * Modem HW Drop Stats Table Start Address
+	 * Must be set to true if hw_drop_stats_base_addr
+	 * is being passed
+	 */
+	uint8_t hw_drop_stats_base_addr_valid;
+	uint32_t hw_drop_stats_base_addr;
+
+	/* Optional
+	 * Modem HW Drop Stats Table size
+	 * Must be set to true if hw_drop_stats_table_size
+	 * is being passed
+	 */
+	uint8_t hw_drop_stats_table_size_valid;
+	uint32_t hw_drop_stats_table_size;
 };  /* Message */
 
 /* Response Message; Requests the modem IPA driver about initialization */
@@ -416,6 +455,16 @@ struct ipa_indication_reg_req_msg_v01 {
 	 *  in the request message makes sense only when the
 	 *  QMI_IPA_INDICATION_REGISTER_REQ is being originated from the Master
 	 *  driver
+	 */
+
+	/* Optional */
+	/* IPA MHI Ready Indication */
+	uint8_t ipa_mhi_ready_ind_valid;
+	/*  Must be set to true if ipa_mhi_ready_ind is being passed */
+	uint8_t ipa_mhi_ready_ind;
+	/*
+	 * If set to TRUE, this field indicates that the client wants to
+	 * receive indications about MHI ready for Channel allocations.
 	 */
 };  /* Message */
 
@@ -1911,6 +1960,245 @@ struct ipa_configure_ul_firewall_rules_ind_msg_v01 {
 };  /* Message */
 
 
+struct ipa_mhi_ch_init_info_type_v01 {
+	uint8_t ch_id;
+	/* Remote MHI channel ID */
+
+	uint8_t er_id;
+	/* Remote MHI Event ring ID */
+
+	uint32_t ch_doorbell_addr;
+	/* TR Channel Doorbell addr */
+
+	uint32_t er_doorbell_addr;
+	/* Event ring Doorbell addr */
+
+	uint32_t direction_type;
+	/* Direction type */
+};
+
+struct ipa_mhi_smmu_info_type_v01 {
+	uint64_t iova_ctl_base_addr;
+	/* IOVA mapped Control Region base address */
+
+	uint64_t iova_ctl_size;
+	/* IOVA Control region size */
+
+	uint64_t iova_data_base_addr;
+	/* IOVA mapped Data Region base address */
+
+	uint64_t iova_data_size;
+	/* IOVA Data Region size */
+};
+
+struct ipa_mhi_ready_indication_msg_v01 {
+	/* Mandatory */
+	uint32_t ch_info_arr_len;
+	/* Must be set to # of elements in ch_info_arr. */
+	struct ipa_mhi_ch_init_info_type_v01
+		ch_info_arr[QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01];
+	/* Channel Information array */
+
+	/* Mandatory */
+	uint8_t smmu_info_valid;
+	/* Must be set to true if smmu_info is being passed. */
+	struct ipa_mhi_smmu_info_type_v01 smmu_info;
+	/* SMMU enabled indication */
+};
+#define IPA_MHI_READY_INDICATION_MSG_V01_MAX_MSG_LEN 123
+
+struct ipa_mhi_mem_addr_info_type_v01 {
+	uint64_t pa;
+	/* Memory region start physical addr */
+
+	uint64_t iova;
+	/* Memory region start iova mapped addr */
+
+	uint64_t size;
+	/* Memory region size */
+};
+
+enum ipa_mhi_brst_mode_enum_v01 {
+	IPA_MHI_BRST_MODE_ENUM_MIN_VAL_V01 = IPA_INT_MIN,
+
+	QMI_IPA_BURST_MODE_DEFAULT_V01 = 0,
+	/*
+	 * Default - burst mode enabled for hardware channels,
+	 * disabled for software channels
+	 */
+
+	QMI_IPA_BURST_MODE_ENABLED_V01 = 1,
+	/* Burst mode is enabled for this channel */
+
+	QMI_IPA_BURST_MODE_DISABLED_V01 = 2,
+	/* Burst mode is disabled for this channel */
+
+	IPA_MHI_BRST_MODE_ENUM_MAX_VAL_V01 = IPA_INT_MAX,
+};
+
+struct ipa_mhi_tr_info_type_v01 {
+	uint8_t ch_id;
+	/* TR Channel ID */
+
+	uint16_t poll_cfg;
+	/*
+	 * Poll Configuration - Default or timer to poll the
+	 * MHI context in milliseconds
+	 */
+
+	enum ipa_mhi_brst_mode_enum_v01 brst_mode_type;
+	/* Burst mode configuration */
+
+	uint64_t ring_iova;
+	/* IOVA mapped ring base address */
+
+	uint64_t ring_len;
+	/* Ring Length in bytes */
+
+	uint64_t rp;
+	/* IOVA mapped Read pointer address */
+
+	uint64_t wp;
+	/* IOVA mapped write pointer address */
+};
+
+struct ipa_mhi_er_info_type_v01 {
+	uint8_t er_id;
+	/* Event ring ID */
+
+	uint32_t intmod_cycles;
+	/* Interrupt moderation cycles */
+
+	uint32_t intmod_count;
+	/* Interrupt moderation count */
+
+	uint32_t msi_addr;
+	/* IOVA mapped MSI address for this ER */
+
+	uint64_t ring_iova;
+	/* IOVA mapped ring base address */
+
+	uint64_t ring_len;
+	/* Ring length in bytes */
+
+	uint64_t rp;
+	/* IOVA mapped Read pointer address */
+
+	uint64_t wp;
+	/* IOVA mapped Write pointer address */
+};
+
+struct ipa_mhi_alloc_channel_req_msg_v01 {
+	/* Mandatory */
+	uint32_t tr_info_arr_len;
+	/* Must be set to # of elements in tr_info_arr. */
+	struct ipa_mhi_tr_info_type_v01
+		tr_info_arr[QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01];
+	/* Array of TR context information for Remote MHI channels */
+
+	/* Mandatory */
+	uint32_t er_info_arr_len;
+	/* Must be set to # of elements in er_info_arr. */
+	struct ipa_mhi_er_info_type_v01
+		er_info_arr[QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01];
+	/* Array of ER context information for Remote MHI channels */
+
+	/* Mandatory */
+	uint32_t ctrl_addr_map_info_len;
+	/* Must be set to # of elements in ctrl_addr_map_info. */
+
+	struct ipa_mhi_mem_addr_info_type_v01
+	ctrl_addr_map_info[QMI_IPA_REMOTE_MHI_MEMORY_MAPPING_NUM_MAX_V01];
+	/*
+	 * List of PA-IOVA address mappings for control regions
+	 * used by Modem
+	 */
+
+	/* Mandatory */
+	uint32_t data_addr_map_info_len;
+	/* Must be set to # of elements in data_addr_map_info. */
+	struct ipa_mhi_mem_addr_info_type_v01
+	data_addr_map_info[QMI_IPA_REMOTE_MHI_MEMORY_MAPPING_NUM_MAX_V01];
+	/* List of PA-IOVA address mappings for data regions used by Modem */
+};
+#define IPA_MHI_ALLOC_CHANNEL_REQ_MSG_V01_MAX_MSG_LEN 808
+
+struct ipa_mhi_ch_alloc_resp_type_v01 {
+	uint8_t ch_id;
+	/* Remote MHI channel ID */
+
+	uint8_t is_success;
+	/* Channel Allocation Status */
+};
+
+struct ipa_mhi_alloc_channel_resp_msg_v01 {
+	/* Mandatory */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type. Contains the following data members:
+	 * - qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	 * - qmi_error_type  -- Error code. Possible error code values
+	 *			are described in the error codes section
+	 *			of each message definition.
+	 */
+
+	/* Optional */
+	uint8_t alloc_resp_arr_valid;
+	/* Must be set to true if alloc_resp_arr is being passed. */
+	uint32_t alloc_resp_arr_len;
+	/* Must be set to # of elements in alloc_resp_arr. */
+	struct ipa_mhi_ch_alloc_resp_type_v01
+		alloc_resp_arr[QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01];
+	/* MHI channel allocation response array */
+};
+#define IPA_MHI_ALLOC_CHANNEL_RESP_MSG_V01_MAX_MSG_LEN 23
+
+struct ipa_mhi_clk_vote_req_msg_v01 {
+	/* Mandatory */
+	uint8_t mhi_vote;
+	/*
+	 * MHI vote request
+	 * TRUE  - ON
+	 * FALSE - OFF
+	 */
+};
+#define IPA_MHI_CLK_VOTE_REQ_MSG_V01_MAX_MSG_LEN 4
+
+struct ipa_mhi_clk_vote_resp_msg_v01 {
+	/* Mandatory */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type. Contains the following data members:
+	 * - qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	 * - qmi_error_type  -- Error code. Possible error code values
+	 *			are described in the error codes section
+	 *			of each message definition.
+	 */
+};
+#define IPA_MHI_CLK_VOTE_RESP_MSG_V01_MAX_MSG_LEN 7
+
+struct ipa_mhi_cleanup_req_msg_v01 {
+	/* Optional */
+	uint8_t cleanup_valid;
+	/* Must be set to true if cleanup is being passed. */
+	uint8_t cleanup;
+	/*
+	 * a Flag to indicate the type of action
+	 * 1 - Cleanup Request
+	 */
+};
+#define IPA_MHI_CLEANUP_REQ_MSG_V01_MAX_MSG_LEN 4
+
+struct ipa_mhi_cleanup_resp_msg_v01 {
+	/* Mandatory */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type. Contains the following data members:
+	 * - qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	 * - qmi_error_type  -- Error code. Possible error code values
+	 *			are described in the error codes section
+	 *			of each message definition.
+	 */
+};
+#define IPA_MHI_CLEANUP_RESP_MSG_V01_MAX_MSG_LEN 7
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -1951,9 +2239,16 @@ struct ipa_configure_ul_firewall_rules_ind_msg_v01 {
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_REQ_V01 0x003A
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_RESP_V01 0x003A
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_V01 0x003A
+#define QMI_IPA_MHI_CLK_VOTE_REQ_V01 0x003B
+#define QMI_IPA_MHI_CLK_VOTE_RESP_V01 0x003B
+#define QMI_IPA_MHI_READY_IND_V01 0x003C
+#define QMI_IPA_MHI_ALLOC_CHANNEL_REQ_V01 0x003D
+#define QMI_IPA_MHI_ALLOC_CHANNEL_RESP_V01 0x003D
+#define QMI_IPA_MHI_CLEANUP_REQ_V01 0x003E
+#define QMI_IPA_MHI_CLEANUP_RESP_V01 0x003E
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 134
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 8
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7

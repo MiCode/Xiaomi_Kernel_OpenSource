@@ -359,7 +359,7 @@ static struct ipa_ep_cfg usb_to_ipa_ep_cfg_deaggr_dis = {
 			sizeof(struct rndis_pkt_hdr),
 		.hdr_a5_mux = false,
 		.hdr_remove_additional = false,
-		.hdr_metadata_reg_valid = false,
+		.hdr_metadata_reg_valid = true,
 	},
 	.hdr_ext = {
 		.hdr_pad_to_alignment = 0,
@@ -406,7 +406,7 @@ static struct ipa_ep_cfg usb_to_ipa_ep_cfg_deaggr_en = {
 		.hdr_ofst_pkt_size = 3 * sizeof(u32),
 		.hdr_a5_mux = false,
 		.hdr_remove_additional = false,
-		.hdr_metadata_reg_valid = false,
+		.hdr_metadata_reg_valid = true,
 	},
 	.hdr_ext = {
 		.hdr_pad_to_alignment = 0,
@@ -2165,6 +2165,9 @@ static int rndis_ipa_ep_registers_cfg(
 		ipa_to_usb_ep_cfg.aggr.aggr_byte_limit,
 		ipa_to_usb_ep_cfg.aggr.aggr_time_limit,
 		ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit);
+
+	/* enable hdr_metadata_reg_valid */
+	usb_to_ipa_ep_cfg->hdr.hdr_metadata_reg_valid = true;
 
 	result = ipa_cfg_ep(ipa_to_usb_hdl, &ipa_to_usb_ep_cfg);
 	if (result) {

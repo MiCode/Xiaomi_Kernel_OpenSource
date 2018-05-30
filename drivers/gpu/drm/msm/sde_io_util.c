@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,6 +217,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
 	bool need_sleep;
+	int reg_mode;
 
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
@@ -226,6 +227,17 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					__builtin_return_address(0), __func__,
 					in_vreg[i].vreg_name, rc);
 				goto vreg_set_opt_mode_fail;
+			}
+			reg_mode = regulator_get_mode(in_vreg[i].vreg);
+			if (reg_mode == REGULATOR_MODE_FAST) {
+				DEV_DBG("%pS->%s: %s operation not allowed\n",
+					__builtin_return_address(0), __func__,
+					in_vreg[i].vreg_name);
+				/*
+				 * This regulator is controlled by Hw cannot be
+				 * controlled by Sw vote
+				 */
+				continue;
 			}
 			need_sleep = !regulator_is_enabled(in_vreg[i].vreg);
 			if (in_vreg[i].pre_on_sleep && need_sleep)
@@ -252,6 +264,17 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--) {
+			reg_mode = regulator_get_mode(in_vreg[i].vreg);
+			if (reg_mode == REGULATOR_MODE_FAST) {
+				DEV_DBG("%pS->%s: %s operation not allowed\n",
+					__builtin_return_address(0), __func__,
+					in_vreg[i].vreg_name);
+				/*
+				 * This regulator is controlled by Hw cannot be
+				 * controlled by Sw vote
+				 */
+				continue;
+			}
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					in_vreg[i].pre_off_sleep * 1000);

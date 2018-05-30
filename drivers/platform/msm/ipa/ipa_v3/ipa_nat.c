@@ -80,6 +80,7 @@ static int ipa3_nat_ipv6ct_mmap(struct file *filp, struct vm_area_struct *vma)
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	unsigned long phys_addr;
 	int result = 0;
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 
 	IPADBG("\n");
 
@@ -111,8 +112,14 @@ static int ipa3_nat_ipv6ct_mmap(struct file *filp, struct vm_area_struct *vma)
 			goto bail;
 		}
 	}
+	/* check if smmu enable & dma_coherent mode */
+	if (!cb->valid ||
+		!is_device_dma_coherent(cb->dev)) {
+		vma->vm_page_prot =
+		pgprot_noncached(vma->vm_page_prot);
+		IPADBG("App smmu enable in DMA mode\n");
+	}
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	if (dev->is_sys_mem) {
 		IPADBG("Mapping system memory\n");
 		IPADBG("map sz=0x%zx\n", dev->size);

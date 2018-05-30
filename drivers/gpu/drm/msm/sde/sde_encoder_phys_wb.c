@@ -153,6 +153,71 @@ static void sde_encoder_phys_wb_set_qos_remap(
 	sde_vbif_set_qos_remap(phys_enc->sde_kms, &qos_params);
 }
 
+static u64 _sde_encoder_phys_wb_get_qos_lut(const struct sde_qos_lut_tbl *tbl,
+		u32 total_fl)
+{
+	int i;
+
+	if (!tbl || !tbl->nentry || !tbl->entries)
+		return 0;
+
+	for (i = 0; i < tbl->nentry; i++)
+		if (total_fl <= tbl->entries[i].fl)
+			return tbl->entries[i].lut;
+
+	/* if last fl is zero, use as default */
+	if (!tbl->entries[i-1].fl)
+		return tbl->entries[i-1].lut;
+
+	return 0;
+}
+
+/**
+ * sde_encoder_phys_wb_set_qos - set QoS/danger/safe LUTs for writeback
+ * @phys_enc:	Pointer to physical encoder
+ */
+static void sde_encoder_phys_wb_set_qos(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_wb *wb_enc;
+	struct sde_hw_wb *hw_wb;
+	struct sde_hw_wb_qos_cfg qos_cfg;
+	struct sde_mdss_cfg *catalog;
+
+	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->sde_kms->catalog) {
+		SDE_ERROR("invalid parameter(s)\n");
+		return;
+	}
+	catalog = phys_enc->sde_kms->catalog;
+
+	wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	if (!wb_enc->hw_wb) {
+		SDE_ERROR("invalid writeback hardware\n");
+		return;
+	}
+
+	hw_wb = wb_enc->hw_wb;
+
+	memset(&qos_cfg, 0, sizeof(struct sde_hw_wb_qos_cfg));
+	qos_cfg.danger_safe_en = true;
+	qos_cfg.danger_lut =
+		catalog->perf.danger_lut_tbl[SDE_QOS_LUT_USAGE_NRT];
+	qos_cfg.safe_lut =
+		(u32) _sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.sfe_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
+	qos_cfg.creq_lut =
+		_sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.qos_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
+
+	if (hw_wb->ops.setup_danger_safe_lut)
+		hw_wb->ops.setup_danger_safe_lut(hw_wb, &qos_cfg);
+
+	if (hw_wb->ops.setup_creq_lut)
+		hw_wb->ops.setup_creq_lut(hw_wb, &qos_cfg);
+
+	if (hw_wb->ops.setup_qos_ctrl)
+		hw_wb->ops.setup_qos_ctrl(hw_wb, &qos_cfg);
+}
+
 /**
  * sde_encoder_phys_setup_cdm - setup chroma down block
  * @phys_enc:	Pointer to physical encoder
@@ -709,6 +774,8 @@ static void sde_encoder_phys_wb_setup(
 	sde_encoder_phys_wb_set_traffic_shaper(phys_enc);
 
 	sde_encoder_phys_wb_set_qos_remap(phys_enc);
+
+	sde_encoder_phys_wb_set_qos(phys_enc);
 
 	sde_encoder_phys_setup_cdm(phys_enc, fb, wb_enc->wb_fmt, wb_roi);
 

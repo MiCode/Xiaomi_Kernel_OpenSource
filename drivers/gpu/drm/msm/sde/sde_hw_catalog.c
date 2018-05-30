@@ -201,6 +201,8 @@ enum {
 	PERF_CDP_SETTING,
 	PERF_CPU_MASK,
 	PERF_CPU_DMA_LATENCY,
+	PERF_QOS_LUT_MACROTILE_QSEED,
+	PERF_SAFE_LUT_MACROTILE_QSEED,
 	PERF_PROP_MAX,
 };
 
@@ -497,6 +499,10 @@ static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_CPU_MASK, "qcom,sde-qos-cpu-mask", false, PROP_TYPE_U32},
 	{PERF_CPU_DMA_LATENCY, "qcom,sde-qos-cpu-dma-latency", false,
 			PROP_TYPE_U32},
+	{PERF_QOS_LUT_MACROTILE_QSEED, "qcom,sde-qos-lut-macrotile-qseed",
+			false, PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_MACROTILE_QSEED, "qcom,sde-safe-lut-macrotile-qseed",
+			false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -1768,7 +1774,7 @@ static int sde_intf_parse_dt(struct device_node *np,
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 
-		if (IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion),
 				SDE_HW_VER_500))
 			set_bit(SDE_INTF_TE, &intf->features);
 	}
@@ -3133,6 +3139,18 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (rc)
 		goto freeprop;
 
+	rc = _validate_dt_entry(np,
+			&sde_perf_prop[PERF_QOS_LUT_MACROTILE_QSEED], 1,
+			&prop_count[PERF_QOS_LUT_MACROTILE_QSEED], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np,
+			&sde_perf_prop[PERF_SAFE_LUT_MACROTILE_QSEED], 1,
+			&prop_count[PERF_SAFE_LUT_MACROTILE_QSEED], NULL);
+	if (rc)
+		goto freeprop;
+
 	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
 			prop_count, prop_exists, prop_value);
 	if (rc)
@@ -3239,6 +3257,8 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 					PERF_SAFE_LUT_NRT,
 			[SDE_QOS_LUT_USAGE_CWB] =
 					PERF_SAFE_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_SAFE_LUT_MACROTILE_QSEED,
 		};
 		const u32 entry_size = 2;
 		int m, count;
@@ -3281,6 +3301,8 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 					PERF_QOS_LUT_NRT,
 			[SDE_QOS_LUT_USAGE_CWB] =
 					PERF_QOS_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_QOS_LUT_MACROTILE_QSEED,
 		};
 		const u32 entry_size = 3;
 		int m, count;
@@ -3430,7 +3452,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -3468,7 +3490,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500))
+	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500))
 		sde_cfg->has_hdr = true;
 
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
@@ -3486,7 +3508,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -3522,16 +3544,20 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 
 	if (IS_MSM8996_TARGET(hw_rev)) {
-		/* update msm8996 target here */
 		sde_cfg->perf.min_prefill_lines = 21;
 	} else if (IS_MSM8998_TARGET(hw_rev)) {
-		/* update msm8998 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
-	} else if (IS_SDM845_TARGET(hw_rev) || IS_SDM670_TARGET(hw_rev)) {
-		/* update sdm845 target here */
+	} else if (IS_SDM845_TARGET(hw_rev)) {
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x3F71;
+	} else if (IS_SDM670_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
@@ -3544,6 +3570,15 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
 		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x3F71;
+	} else if (IS_SDMSHRIKE_TARGET(hw_rev)) {
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3561,6 +3596,15 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 
 	if (!sde_cfg)
 		return -EINVAL;
+
+	if (IS_SM8150_TARGET(hw_rev)) {
+		sde_cfg->sui_supported_blendstage =
+			sde_cfg->max_mixer_blendstages - SDE_STAGE_0;
+
+		for (i = 0; i < sde_cfg->sspp_count; i++)
+			set_bit(SDE_SSPP_QOS_FL_NOCALC,
+					&sde_cfg->sspp[i].features);
+	}
 
 	for (i = 0; i < sde_cfg->sspp_count; i++) {
 		if (sde_cfg->sspp[i].sblk) {

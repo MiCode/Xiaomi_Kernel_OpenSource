@@ -167,6 +167,15 @@ Optional Properties:
 				Specify the size of snapshot in bytes. This will override
 				snapshot size defined in the driver code.
 
+- qcom,enable-ca-jump:
+                                Boolean. Enables use of context aware DCVS
+- qcom,ca-busy-penalty:
+                                This property represents the time in microseconds required to
+                                initiate context aware power level jump.
+- qcom,ca-target-pwrlevel:
+                                This value indicates which qcom,gpu-pwrlevel to jump on in case
+                                of context aware power level jump.
+
 - qcom,gpu-qdss-stm:
 				<baseAddr size>
 				baseAddr - base address of the gpu channels in the qdss stm memory region
@@ -323,6 +332,15 @@ Example of A330 GPU in MSM8916:
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <5>;
 
+		/* Enable context aware freq. scaling */
+		qcom,enable-ca-jump;
+
+		/* Context aware jump busy penalty in us */
+		qcom,ca-busy-penalty = <12000>;
+
+		/* Context aware jump target power level */
+		qcom,ca-target-pwrlevel = <1>;
+
 		qcom,soc-hw-revisions {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -389,6 +407,7 @@ Example of A330 GPU in MSM8916:
 				#size-cells = <0>;
 
 				qcom,speed-bin = <0>;
+				qcom,ca-target-pwrlevel = <1>;
 
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;

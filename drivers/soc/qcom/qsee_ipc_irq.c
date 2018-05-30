@@ -26,6 +26,7 @@
 
 #define hwirq_to_index(_irq) (_irq / MAX_BANK_IRQ)
 #define hwirq_to_bit(_irq) (_irq % MAX_BANK_IRQ)
+#define to_hwirq(_index, _bit) ((_index * MAX_BANK_IRQ) + _bit)
 
 struct qsee_irq_data {
 	const char *name;
@@ -71,6 +72,7 @@ static irqreturn_t qsee_intr(int irq, void *data)
 	u32 status;
 	u32 mask;
 	int i;
+	int j;
 
 	for (i = 0; i < qirq->num_banks; i++) {
 		if (qirq->banks[i].irq == irq) {
@@ -92,14 +94,14 @@ static irqreturn_t qsee_intr(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	for_each_set_bit(i, bank->irq_enabled, bank->data->msb) {
-		if (!(status & BIT(i)))
+	for_each_set_bit(j, bank->irq_enabled, bank->data->msb) {
+		if (!(status & BIT(j)))
 			continue;
 
-		irq_pin = irq_find_mapping(qirq->domain, i);
+		irq_pin = irq_find_mapping(qirq->domain, to_hwirq(i, j));
 		desc = irq_to_desc(irq_pin);
 		handle_simple_irq(desc);
-		regmap_write(qirq->regmap, bank->data->clear, BIT(i));
+		regmap_write(qirq->regmap, bank->data->clear, BIT(j));
 	}
 
 	return IRQ_HANDLED;

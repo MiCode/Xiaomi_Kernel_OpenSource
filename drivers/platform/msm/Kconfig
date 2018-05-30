@@ -147,6 +147,17 @@ config RNDIS_IPA
 	  This Network interface is aimed to allow data path go through
 	  IPA core while using RNDIS protocol.
 
+config IPA3_MHI_PROXY
+	tristate "IPA3 MHI proxy driver"
+	depends on RMNET_IPA3
+	help
+	  This driver is used as a proxy between modem and MHI host driver.
+	  Its main functionality is to setup MHI Satellite channels on behalf of
+	  modem and provide the ability of modem to MHI device communication.
+	  Once the configuration is done modem will communicate directly with
+	  the MHI device without AP involvement, with the exception of
+	  power management.
+
 config IPA_UT
 	tristate "IPA Unit-Test Framework and Test Suites"
 	depends on IPA3 && DEBUG_FS
@@ -168,5 +179,13 @@ config MSM_11AD
 
 	  If you choose to build it as a module, it will be called
 	  msm_11ad_proxy.
+
+config SEEMP_CORE
+	tristate "SEEMP Core"
+	help
+	  This option enables QTI Snapdragron Smart Protection to detect
+	  anomalies in various activities. It records task activities in
+	  a log and rates the actions according to whether a typical user would
+	  use the tools.
 
 endmenu

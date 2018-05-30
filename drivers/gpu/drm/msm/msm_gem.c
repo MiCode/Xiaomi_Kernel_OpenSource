@@ -26,6 +26,7 @@
 #include "msm_gem.h"
 #include "msm_gpu.h"
 #include "msm_mmu.h"
+#include "sde_dbg.h"
 
 static void msm_gem_vunmap_locked(struct drm_gem_object *obj);
 
@@ -322,14 +323,20 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 dma_addr_t msm_gem_get_dma_addr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	struct drm_device *dev = obj->dev;
+	struct sg_table *sgt;
 
-	if (IS_ERR_OR_NULL(msm_obj->sgt)) {
-		dev_err(dev->dev, "invalid scatter/gather table\n");
-		return 0;
+	if (!msm_obj->sgt) {
+		sgt = dma_buf_map_attachment(obj->import_attach,
+						DMA_BIDIRECTIONAL);
+		if (IS_ERR_OR_NULL(sgt)) {
+			DRM_ERROR("dma_buf_map_attachment failure, err=%d\n",
+					PTR_ERR(sgt));
+			return 0;
+		}
+		msm_obj->sgt = sgt;
 	}
 
-	return sg_dma_address(msm_obj->sgt->sgl);
+	return sg_phys(msm_obj->sgt->sgl);
 }
 
 static struct msm_gem_vma *add_vma(struct drm_gem_object *obj,
@@ -416,9 +423,44 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 
 	if (!vma) {
 		struct page **pages;
+		struct device *dev;
+		struct dma_buf *dmabuf;
+		bool reattach = false;
+
+		/*
+		 * both secure/non-secure domains are attached with the default
+		 * devive (non-sec) with dma_buf_attach during
+		 * msm_gem_prime_import. detach and attach the correct device
+		 * to the dma_buf based on the aspace domain.
+		 */
+		dev = msm_gem_get_aspace_device(aspace);
+		if (dev && obj->import_attach &&
+				(dev != obj->import_attach->dev)) {
+			dmabuf = obj->import_attach->dmabuf;
+
+			DRM_DEBUG("detach nsec-dev:%pK attach sec-dev:%pK\n",
+					 obj->import_attach->dev, dev);
+			SDE_EVT32(obj->import_attach->dev, dev, msm_obj->sgt);
+
+
+			if (msm_obj->sgt)
+				dma_buf_unmap_attachment(obj->import_attach,
+							msm_obj->sgt,
+							DMA_BIDIRECTIONAL);
+			dma_buf_detach(dmabuf, obj->import_attach);
+
+			obj->import_attach = dma_buf_attach(dmabuf, dev);
+			if (IS_ERR(obj->import_attach)) {
+				DRM_ERROR("dma_buf_attach failure, err=%ld\n",
+						PTR_ERR(obj->import_attach));
+				goto unlock;
+			}
+			reattach = true;
+		}
 
 		/* perform delayed import for buffers without existing sgt */
-		if ((msm_obj->flags & MSM_BO_EXTBUF) && !(msm_obj->sgt)) {
+		if (((msm_obj->flags & MSM_BO_EXTBUF) && !(msm_obj->sgt))
+				|| reattach) {
 			ret = msm_gem_delayed_import(obj);
 			if (ret) {
 				DRM_ERROR("delayed dma-buf import failed %d\n",

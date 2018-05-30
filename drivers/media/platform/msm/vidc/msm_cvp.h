@@ -26,6 +26,8 @@ void handle_session_unregister_buffer_done(enum hal_command_response cmd,
 int msm_vidc_cvp(struct msm_vidc_inst *inst, struct msm_vidc_arg *arg);
 int msm_cvp_inst_init(struct msm_vidc_inst *inst);
 int msm_cvp_inst_deinit(struct msm_vidc_inst *inst);
+int msm_cvp_inst_pause(struct msm_vidc_inst *inst);
+int msm_cvp_inst_resume(struct msm_vidc_inst *inst);
 int msm_cvp_ctrl_init(struct msm_vidc_inst *inst,
 		const struct v4l2_ctrl_ops *ctrl_ops);
 #endif

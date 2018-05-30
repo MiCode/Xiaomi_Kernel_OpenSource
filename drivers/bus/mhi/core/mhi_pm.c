@@ -161,8 +161,7 @@ enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
 	return mhi_cntrl->pm_state;
 }
 
-static void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
-			      enum MHI_STATE state)
+void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl, enum MHI_STATE state)
 {
 	if (state == MHI_STATE_RESET) {
 		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,

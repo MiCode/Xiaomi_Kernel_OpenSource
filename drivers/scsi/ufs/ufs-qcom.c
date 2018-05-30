@@ -2325,6 +2325,9 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *attr = &host->dev_req_params;
 	int err = 0;
+	struct ufs_clk_info *clki;
+	struct list_head *head = &hba->clk_list_head;
+	u32 max_freq = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		goto out;
@@ -2333,8 +2336,25 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 		__ufs_qcom_cfg_timers(hba, attr->gear_rx, attr->pwr_rx,
 				      attr->hs_rate, false, true);
 
-	/* set unipro core clock cycles to 150 and clear clock divider */
-	err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk) &&
+			(!strcmp(clki->name, "core_clk_unipro"))) {
+			max_freq = clki->max_freq;
+			break;
+		}
+	}
+
+	switch (max_freq) {
+	case 300000000:
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 300, 12);
+		break;
+	case 150000000:
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
 out:
 	return err;
 }
@@ -2344,6 +2364,9 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *attr = &host->dev_req_params;
 	int err = 0;
+	struct ufs_clk_info *clki;
+	struct list_head *head = &hba->clk_list_head;
+	u32 curr_freq = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
@@ -2352,18 +2375,25 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 		ufs_qcom_cfg_timers(hba, attr->gear_rx, attr->pwr_rx,
 				    attr->hs_rate, false);
 
-	if (ufs_qcom_cap_svs2(host))
-		/*
-		 * For SVS2 set unipro core clock cycles to 38 and
-		 * clear clock divider
-		 */
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk) &&
+			(!strcmp(clki->name, "core_clk_unipro"))) {
+			curr_freq = clk_get_rate(clki->clk);
+			break;
+		}
+	}
+
+	switch (curr_freq) {
+	case 37500000:
 		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 38, 2);
-	else
-		/*
-		 * For SVS set unipro core clock cycles to 75 and
-		 * clear clock divider
-		 */
+		break;
+	case 75000000:
 		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75, 3);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
 
 	return err;
 }

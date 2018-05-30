@@ -27,6 +27,7 @@
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
+#include "dsi_parser.h"
 #include "msm_drv.h"
 
 #define MAX_BL_LEVEL 4096
@@ -149,6 +150,7 @@ struct dsi_panel {
 	struct drm_panel drm_panel;
 	struct mipi_dsi_host *host;
 	struct device *parent;
+	struct dentry *root;
 
 	struct dsi_host_common_cfg host_config;
 	struct dsi_video_engine_cfg video_config;
@@ -167,6 +169,8 @@ struct dsi_panel {
 	struct dsi_pinctrl_info pinctrl;
 	struct drm_panel_hdr_properties hdr_props;
 	struct drm_panel_esd_config esd_config;
+
+	struct dsi_parser_utils utils;
 
 	bool lp11_init;
 	bool ulps_enabled;
@@ -204,6 +208,8 @@ static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
+				struct device_node *parser_node,
+				struct dentry *root,
 				int topology_override);
 
 int dsi_panel_trigger_esd_attack(struct dsi_panel *panel);
@@ -214,8 +220,7 @@ int dsi_panel_drv_init(struct dsi_panel *panel, struct mipi_dsi_host *host);
 
 int dsi_panel_drv_deinit(struct dsi_panel *panel);
 
-int dsi_panel_get_mode_count(struct dsi_panel *panel,
-		struct device_node *of_node);
+int dsi_panel_get_mode_count(struct dsi_panel *panel);
 
 void dsi_panel_put_mode(struct dsi_display_mode *mode);
 

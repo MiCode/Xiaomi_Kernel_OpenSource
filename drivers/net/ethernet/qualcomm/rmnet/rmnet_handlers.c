@@ -179,7 +179,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	if (skb_headroom(skb) < required_headroom) {
 		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL))
-			goto fail;
+			return -ENOMEM;
 	}
 
 	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV4)
@@ -187,17 +187,31 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0);
 	if (!map_header)
-		goto fail;
+		return -ENOMEM;
 
 	map_header->mux_id = mux_id;
 
+	if (port->data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
+		int non_linear_skb;
+
+		if (rmnet_map_tx_agg_skip(skb, required_headroom))
+			goto done;
+
+		non_linear_skb = (orig_dev->features & NETIF_F_GSO) &&
+				 skb_is_nonlinear(skb);
+
+		if (non_linear_skb) {
+			if (unlikely(__skb_linearize(skb)))
+				goto done;
+		}
+
+		rmnet_map_tx_aggregate(skb, port);
+		return -EINPROGRESS;
+	}
+
+done:
 	skb->protocol = htons(ETH_P_MAP);
-
 	return 0;
-
-fail:
-	kfree_skb(skb);
-	return -ENOMEM;
 }
 
 static void
@@ -250,6 +264,7 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	struct rmnet_port *port;
 	struct rmnet_priv *priv;
 	u8 mux_id;
+	int err;
 
 	sk_pacing_shift_update(skb->sk, 8);
 
@@ -259,15 +274,21 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	mux_id = priv->mux_id;
 
 	port = rmnet_get_port(skb->dev);
-	if (!port) {
-		kfree_skb(skb);
-		return;
-	}
+	if (!port)
+		goto drop;
 
-	if (rmnet_map_egress_handler(skb, port, mux_id, orig_dev))
+	err = rmnet_map_egress_handler(skb, port, mux_id, orig_dev);
+	if (err == -ENOMEM)
+		goto drop;
+	else if (err == -EINPROGRESS)
 		return;
 
 	rmnet_vnd_tx_fixup(skb, orig_dev);
 
 	dev_queue_xmit(skb);
+	return;
+
+drop:
+	this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
+	kfree_skb(skb);
 }

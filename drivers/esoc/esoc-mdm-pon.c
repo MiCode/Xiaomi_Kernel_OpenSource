@@ -57,13 +57,13 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 	 * Allow PS hold assert to be detected
 	 */
 	if (!atomic)
-		usleep_range(203000, 300000);
+		usleep_range(80000,180000);
 	else
 		/*
 		 * The flow falls through this path as a part of the
 		 * panic handler, which has to executed atomically.
 		 */
-		mdelay(203);
+		mdelay(100);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			soft_reset_direction_de_assert);
 	return 0;
@@ -145,7 +145,7 @@ static int sdx50m_power_down(struct mdm_ctrl *mdm)
 	 * for the reset to fully take place. Sleep here to ensure the
 	 * reset has occurred before the function exits.
 	 */
-	msleep(406);
+	msleep(300);
 	return 0;
 }
 
@@ -175,7 +175,7 @@ static void sdx50m_cold_reset(struct mdm_ctrl *mdm)
 	 * The function is executed as a part of the atomic reboot handler.
 	 * Hence, go with a busy loop instead of sleep.
 	 */
-	mdelay(334);
+	mdelay(600);
 
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			!mdm->soft_reset_inverted);

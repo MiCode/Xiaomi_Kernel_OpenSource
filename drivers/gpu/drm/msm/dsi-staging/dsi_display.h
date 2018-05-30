@@ -19,6 +19,7 @@
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
+#include <linux/firmware.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 
@@ -107,6 +108,7 @@ struct dsi_display_boot_param {
 	int length;
 	struct device_node *node;
 	int cmdline_topology;
+	void *disp;
 };
 
 /**
@@ -131,6 +133,7 @@ struct dsi_display_clk_info {
  * @list:             List pointer.
  * @is_active:        Is display active.
  * @is_cont_splash_enabled:  Is continuous splash enabled
+ * @sw_te_using_wd:   Is software te enabled
  * @display_lock:     Mutex for dsi_display interface.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
@@ -142,6 +145,8 @@ struct dsi_display_clk_info {
  *		      index into the ctrl[MAX_DSI_CTRLS_PER_DISPLAY] array.
  * @cmd_master_idx:   The master controller for sending DSI commands to panel.
  * @video_master_idx: The master controller for enabling video engine.
+ * @cached_clk_rate:  The cached DSI clock rate set dynamically by sysfs.
+ * @clkrate_change_pending: Flag indicating the pending DSI clock re-enabling.
  * @clock_info:       Clock sourcing for DSI display.
  * @config:           DSI host configuration information.
  * @lane_map:         Lane mapping between DSI host and Panel.
@@ -170,8 +175,8 @@ struct dsi_display {
 	const char *name;
 	const char *display_type;
 	struct list_head list;
-	bool is_active;
 	bool is_cont_splash_enabled;
+	bool sw_te_using_wd;
 	struct mutex display_lock;
 
 	u32 ctrl_count;
@@ -179,7 +184,9 @@ struct dsi_display {
 
 	/* panel info */
 	struct dsi_panel *panel;
+	struct device_node *disp_node;
 	struct device_node *panel_of;
+	struct device_node *parser_node;
 
 	struct dsi_display_mode *modes;
 
@@ -187,6 +194,10 @@ struct dsi_display {
 	u32 clk_master_idx;
 	u32 cmd_master_idx;
 	u32 video_master_idx;
+
+	/* dynamic DSI clock info*/
+	u32  cached_clk_rate;
+	atomic_t clkrate_change_pending;
 
 	struct dsi_display_clk_info clock_info;
 	struct dsi_host_config config;
@@ -225,6 +236,10 @@ struct dsi_display {
 	struct work_struct fifo_underflow_work;
 	struct work_struct fifo_overflow_work;
 	struct work_struct lp_rx_timeout_work;
+
+	/* firmware panel data */
+	const struct firmware *fw;
+	void *parser;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);
@@ -246,14 +261,6 @@ int dsi_display_get_num_of_displays(void);
  */
 int dsi_display_get_active_displays(void **display_array,
 		u32 max_display_count);
-
-/**
- * dsi_display_get_boot_display()- get DSI boot display name
- * @index:	index of display selection
- *
- * Return:	returns the display node pointer
- */
-struct device_node *dsi_display_get_boot_display(int index);
 
 /**
  * dsi_display_get_display_by_name()- finds display by name

@@ -50,6 +50,15 @@ config RPMSG_QCOM_GLINK_SPSS
 	  region with the remote proc by writing the smem descriptor location
 	  and size into shared registers.
 
+config RPMSG_QCOM_GLINK_SPI
+	tristate "Qualcomm SPI Glink driver"
+	help
+	  Say y here to enable support for the GLINK SPI communication driver,
+	  which provides support for using the GLINK communication protocol
+	  over SPI. This transport performs marshaling of GLINK commands and
+	  data to the appropriate SPI bus wire format and allows for GLINK
+	  communication with remote subsystems that are external to the SoC.
+
 config RPMSG_QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on QCOM_SMEM

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <asm-generic/sizes.h>
 #include <linux/msm_rtb.h>
 #include <asm/timex.h>
+#include <soc/qcom/minidump.h>
 
 #define SENTINEL_BYTE_1 0xFF
 #define SENTINEL_BYTE_2 0xAA
@@ -242,6 +243,7 @@ EXPORT_SYMBOL(uncached_logk);
 static int msm_rtb_probe(struct platform_device *pdev)
 {
 	struct msm_rtb_platform_data *d = pdev->dev.platform_data;
+	struct md_region md_entry;
 #if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
 	unsigned int cpu;
 #endif
@@ -293,6 +295,12 @@ static int msm_rtb_probe(struct platform_device *pdev)
 
 	memset(msm_rtb.rtb, 0, msm_rtb.size);
 
+	strlcpy(md_entry.name, "KRTB_BUF", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)msm_rtb.rtb;
+	md_entry.phys_addr = msm_rtb.phys;
+	md_entry.size = msm_rtb.size;
+	if (msm_minidump_add_region(&md_entry))
+		pr_info("Failed to add RTB in Minidump\n");
 
 #if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)
 	for_each_possible_cpu(cpu) {

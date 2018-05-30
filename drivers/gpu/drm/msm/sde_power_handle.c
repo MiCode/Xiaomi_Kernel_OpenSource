@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,12 +56,9 @@ static void sde_power_event_trigger_locked(struct sde_power_handle *phandle,
 	}
 }
 
-static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
+static inline void sde_power_rsc_client_init(struct sde_power_handle *phandle)
 {
-	u32 rsc_state;
-	int ret = 0;
-
-	/* creates the rsc client on the first enable */
+	/* creates the rsc client */
 	if (!phandle->rsc_client_init) {
 		phandle->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX,
 				"sde_power_handle", false);
@@ -72,6 +69,12 @@ static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
 		}
 		phandle->rsc_client_init = true;
 	}
+}
+
+static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
+{
+	u32 rsc_state;
+	int ret = 0;
 
 	rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
 
@@ -890,6 +893,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 	if (!changed)
 		goto end;
 
+	/* RSC client init */
+	sde_power_rsc_client_init(phandle);
+
 	if (enable) {
 		sde_power_event_trigger_locked(phandle,
 				SDE_POWER_EVENT_PRE_ENABLE);
@@ -903,21 +909,11 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 				goto data_bus_hdl_err;
 			}
 		}
-		/*
-		 * - When the target is RSCC enabled, regulator should
-		 *   be enabled by the s/w only for the first time during
-		 *   bootup. After that, RSCC hardware takes care of enabling/
-		 *   disabling it.
-		 * - When the target is not RSCC enabled, regulator should
-		 *   be totally handled by the software.
-		 */
-		if (!phandle->rsc_client) {
-			rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
-									enable);
-			if (rc) {
-				pr_err("failed to enable vregs rc=%d\n", rc);
-				goto vreg_err;
-			}
+		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+				enable);
+		if (rc) {
+			pr_err("failed to enable vregs rc=%d\n", rc);
+			goto vreg_err;
 		}
 
 		rc = sde_power_reg_bus_update(phandle->reg_bus_hdl,
@@ -927,13 +923,13 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			goto reg_bus_hdl_err;
 		}
 
+		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE1);
 		rc = sde_power_rsc_update(phandle, true);
 		if (rc) {
 			pr_err("failed to update rsc\n");
 			goto rsc_err;
 		}
 
-		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE1);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
@@ -948,16 +944,15 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 				SDE_POWER_EVENT_PRE_DISABLE);
 
 		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE2);
-		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
-
 		sde_power_rsc_update(phandle, false);
+
+		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_reg_bus_update(phandle->reg_bus_hdl,
 							max_usecase_ndx);
 
-		if (!phandle->rsc_client)
-			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
-									enable);
+		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+
 		for (i = 0 ; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 			sde_power_data_bus_update(&phandle->data_bus_handle[i],
 					enable);
@@ -977,8 +972,7 @@ clk_err:
 rsc_err:
 	sde_power_reg_bus_update(phandle->reg_bus_hdl, prev_usecase_ndx);
 reg_bus_hdl_err:
-	if (!phandle->rsc_client)
-		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
+	msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	for (i = 0 ; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 		sde_power_data_bus_update(&phandle->data_bus_handle[i], 0);

@@ -46,6 +46,15 @@
 			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
+#define IPAHAL_DBG_REG(fmt, args...) \
+	do { \
+		pr_err(fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			" %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			" %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAHAL_ERR_RL(fmt, args...) \
 		do { \
 			pr_err_ratelimited_ipa(IPAHAL_DRV_NAME " %s:%d " fmt, \

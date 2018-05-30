@@ -313,6 +313,7 @@ def scan_configs():
         )
     arch64_pats = (
         r'msm*_defconfig',
+        r'sm*_defconfig',
         r'sdm*_defconfig',
         r'sdx*_defconfig',
         )

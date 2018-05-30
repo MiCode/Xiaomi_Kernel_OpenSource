@@ -111,6 +111,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+	ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -340,6 +341,7 @@ struct icnss_priv {
 	bool bypass_s1_smmu;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
+	bool early_crash_ind;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
 	u16 line_number;

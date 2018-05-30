@@ -212,8 +212,9 @@ Properties below are specific to BOOST subnode only.
 - qcom,bst-headroom-mv
 	Usage:      optional
 	Value type:  <u16>
-	Definition:  Headroom of the boost (in mV). The minimum headroom is
-		     200mV and if not specified defaults to 200mV.
+	Definition:  Headroom of the boost (in mV). If not specified, then the
+		     default value is 200 mV (PM660L) or 150 mV (for PM855L or
+		     PMI632).
 
 =======
 Example

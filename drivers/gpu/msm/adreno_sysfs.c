@@ -242,23 +242,6 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static int _gmu_idle_level_store(struct adreno_device *adreno_dev,
-		unsigned int val)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
-
-	mutex_lock(&device->mutex);
-
-	/* Power down the GPU before changing the idle level */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	gmu->idle_level = val;
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-	return 0;
-}
-
 static unsigned int _preemption_show(struct adreno_device *adreno_dev)
 {
 	return adreno_is_preemption_enabled(adreno_dev);
@@ -309,36 +292,12 @@ static unsigned int _lm_show(struct adreno_device *adreno_dev)
 
 static int _ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
-	unsigned int requested_idle_level;
-
-	if (!kgsl_gmu_isenabled(device) ||
-			!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
-		return -EINVAL;
-
-	if ((val && gmu->idle_level >= GPU_HW_IFPC) ||
-			(!val && gmu->idle_level < GPU_HW_IFPC))
-		return 0;
-
-	if (val)
-		requested_idle_level = GPU_HW_IFPC;
-	else {
-		if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
-			requested_idle_level = GPU_HW_SPTP_PC;
-		else
-			requested_idle_level = GPU_HW_ACTIVE;
-	}
-
-	return _gmu_idle_level_store(adreno_dev, requested_idle_level);
+	return adreno_gmu_ifpc_store(adreno_dev, val);
 }
 
 static unsigned int _ifpc_show(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
-
-	return kgsl_gmu_isenabled(device) && gmu->idle_level >= GPU_HW_IFPC;
+	return adreno_gmu_ifpc_show(adreno_dev);
 }
 
 static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)

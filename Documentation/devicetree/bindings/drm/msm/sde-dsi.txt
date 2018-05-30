@@ -62,6 +62,10 @@ Optional properties:
 - qcom,dsi-display-active: Current active display
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
+- qcom,dsi-ctrl-num:		Specifies the DSI controllers to use
+- qcom,dsi-phy-num:		Specifies the DSI PHYs to use
+- qcom,dsi-select-clocks:	Specifies the required clocks to use
+- qcom,dsi-display-list:	Specifies the list of supported displays.
 - qcom,dsi-manager:       Specifies dsi manager is present
 - qcom,dsi-display:       Specifies dsi display is present
 - qcom,hdmi-display:      Specifies hdmi is present

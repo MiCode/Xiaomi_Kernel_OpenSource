@@ -74,36 +74,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 
-bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
-{
-	return !!(inst->flags & VIDC_TURBO);
-}
-
-static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
-{
-	return !!(inst->flags & VIDC_THUMBNAIL);
-}
-
-static inline bool is_low_power_session(struct msm_vidc_inst *inst)
-{
-	return !!(inst->flags & VIDC_LOW_POWER);
-}
-
-static inline bool is_realtime_session(struct msm_vidc_inst *inst)
-{
-	return !!(inst->flags & VIDC_REALTIME);
-}
-
-int msm_comm_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
-{
-	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
-}
-
-int msm_comm_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
-{
-	return v4l2_s_ctrl(NULL, &inst->ctrl_handler, ctrl);
-}
-
 int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
@@ -795,7 +765,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = 0;
 	}
 
-	if (msm_comm_turbo_session(inst)) {
+	if (is_turbo_session(inst)) {
 		if (!(quirks & LOAD_CALC_IGNORE_TURBO_LOAD))
 			load = inst->core->resources.max_load;
 	}
@@ -2773,6 +2743,35 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 	return true;
 }
 
+bool is_batching_allowed(struct msm_vidc_inst *inst)
+{
+	bool allowed = false;
+
+	if (!inst || !inst->core)
+		return false;
+
+	/*
+	 * Enable decode batching based on below conditions
+	 * - decode session
+	 * - platform supports batching
+	 * - session resolution <= 1080p
+	 * - low latency not enabled
+	 * - not a thumbnail session
+	 * - realtime session
+	 * - UBWC color format
+	 */
+	if (is_decode_session(inst) && inst->core->resources.decode_batching &&
+		(msm_vidc_get_mbs_per_frame(inst) <=
+		MAX_DEC_BATCH_WIDTH * MAX_DEC_BATCH_HEIGHT) &&
+		!inst->clk_data.low_latency_mode &&
+		!is_thumbnail_session(inst) && is_realtime_session(inst) &&
+		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_NV12_UBWC ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_NV12_TP10_UBWC))
+		allowed = true;
+
+	return allowed;
+}
+
 static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 {
 	int rc = 0, abort_completion = 0;
@@ -3107,7 +3106,7 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (is_thumbnail_session(temp))
 				strlcat(properties, "N", sizeof(properties));
 
-			if (msm_comm_turbo_session(temp))
+			if (is_turbo_session(temp))
 				strlcat(properties, "T", sizeof(properties));
 
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
@@ -3977,6 +3976,30 @@ enum hal_buffer get_hal_buffer_type(unsigned int type,
 	}
 }
 
+static int num_pending_qbufs(struct msm_vidc_inst *inst, u32 type)
+{
+	int count = 0;
+	struct msm_vidc_buffer *mbuf;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+		if (mbuf->vvb.vb2_buf.type != type)
+			continue;
+		/* Count only deferred buffers */
+		if (!(mbuf->flags & MSM_VIDC_FLAG_DEFERRED))
+			continue;
+		count++;
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return count;
+}
+
 static int msm_comm_qbuf_to_hfi(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
@@ -4114,10 +4137,87 @@ int msm_comm_qbufs(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+/*
+ * msm_comm_qbuf_decode_batch - count the buffers which are not queued to
+ *              firmware yet (count includes rbr pending buffers too) and
+ *              queue the buffers at once if full batch count reached.
+ *              Don't queue rbr pending buffers as they would be queued
+ *              when rbr event arrived from firmware.
+ */
+int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0;
+	u32 count = 0;
+	struct msm_vidc_buffer *buf;
+
+	if (!inst || !mbuf) {
+		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "%s: inst is in bad state\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->state != MSM_VIDC_START_DONE) {
+		mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
+		print_vidc_buffer(VIDC_DBG, "qbuf deferred", inst, mbuf);
+		return 0;
+	}
+
+	/*
+	 * Don't batch for initial few buffers to avoid startup latency increase
+	 * due to batching
+	 */
+	if (inst->count.fbd < 30)
+		return msm_comm_qbuf(inst, mbuf);
+
+	count = num_pending_qbufs(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	if (count < inst->batch.size) {
+		mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
+		print_vidc_buffer(VIDC_DBG, "qbuf_batch deferred", inst, mbuf);
+		return 0;
+	}
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(buf, &inst->registeredbufs.list, list) {
+		/* Don't queue if buffer is not CAPTURE_MPLANE */
+		if (!(buf->vvb.vb2_buf.type &
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
+			continue;
+		/* Don't queue if buffer is not a deferred buffer */
+		if (!(buf->flags & MSM_VIDC_FLAG_DEFERRED))
+			continue;
+		/* Don't queue if RBR event is pending on this buffer */
+		if (buf->flags & MSM_VIDC_FLAG_RBR_PENDING)
+			continue;
+		print_vidc_buffer(VIDC_DBG, "qbuf", inst, buf);
+		rc = msm_comm_qbuf_to_hfi(inst, buf);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: Failed qbuf to hfi: %d\n",
+				__func__, rc);
+			break;
+		}
+		/* Queue pending buffers till the current buffer only */
+		if (buf == mbuf)
+			break;
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return rc;
+}
+
 int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 {
 	int extra_buffers;
 	struct hal_buffer_requirements *bufreq;
+	struct hal_buffer_requirements *bufreq_extra;
 
 	bufreq = get_buff_req_buffer(inst,
 		HAL_BUFFER_INPUT);
@@ -4130,11 +4230,24 @@ int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
 		extra_buffers;
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
-	if (bufreq) {
-		if (bufreq->buffer_count_min)
-			bufreq->buffer_count_min_host =
-				bufreq->buffer_count_min + extra_buffers;
+
+	/* decode batching needs minimum batch size count of input buffers */
+	if (is_decode_session(inst) && !is_thumbnail_session(inst) &&
+		inst->core->resources.decode_batching &&
+		bufreq->buffer_count_min_host < inst->batch.size)
+		bufreq->buffer_count_min_host = inst->batch.size;
+
+	/* adjust min_host count for VP9 decoder */
+	if (is_decode_session(inst) && !is_thumbnail_session(inst) &&
+		inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9 &&
+		bufreq->buffer_count_min_host < MIN_NUM_OUTPUT_BUFFERS_VP9)
+		bufreq->buffer_count_min_host = MIN_NUM_OUTPUT_BUFFERS_VP9;
+
+	bufreq_extra = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
+	if (bufreq_extra) {
+		if (bufreq_extra->buffer_count_min)
+			bufreq_extra->buffer_count_min_host =
+				bufreq->buffer_count_min_host;
 	}
 
 	if (msm_comm_get_stream_output_mode(inst) ==
@@ -6065,15 +6178,9 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 			if (found_plane0)
 				rc = -EEXIST;
 		}
-		/*
-		 * If RBR pending on this buffer then enable RBR_PENDING flag
-		 * and clear the DEFERRED flag to avoid this buffer getting
-		 * queued to video hardware in msm_comm_qbuf() which tries to
-		 * queue all the DEFERRED buffers.
-		 */
 		if (rc == -EEXIST) {
+			/* enable RBR pending */
 			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
-			mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
 		}
 	}
 

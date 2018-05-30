@@ -115,7 +115,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 {
 	int const idle_pattern_completion_timeout_ms = 3 * HZ / 100;
 	struct dp_ctrl_private *ctrl;
-	u32 state;
+	u32 state = 0x0;
 
 	if (!dp_ctrl) {
 		pr_err("Invalid input data\n");
@@ -139,7 +139,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 		return;
 	}
 
-	state = (strm == DP_STREAM_0) ? MST_DP0_PUSH_VCPF : MST_DP1_PUSH_VCPF;
+	state |= (strm == DP_STREAM_0) ? MST_DP0_PUSH_VCPF : MST_DP1_PUSH_VCPF;
 
 trigger_idle:
 	reinit_completion(&ctrl->idle_comp);
@@ -759,12 +759,16 @@ static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 	 * link clocks and core clocks.
 	 */
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
+	ctrl->dp_ctrl.stream_off(&ctrl->dp_ctrl, ctrl->panel);
 	ctrl->dp_ctrl.off(&ctrl->dp_ctrl);
+
+	ctrl->aux->init(ctrl->aux, ctrl->parser->aux_cfg);
 
 	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl, ctrl->mst_mode);
 	if (ret)
 		pr_err("failed to enable DP controller\n");
 
+	ctrl->dp_ctrl.stream_on(&ctrl->dp_ctrl, ctrl->panel);
 	pr_debug("end\n");
 }
 
@@ -905,6 +909,11 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		goto end;
 	}
 
+	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
+		dp_ctrl_send_phy_test_pattern(ctrl);
+		return 0;
+	}
+
 	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
 	if (rc)
 		goto end;
@@ -990,9 +999,6 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 
 		dp_ctrl_enable_mainlink_clocks(ctrl);
 	}
-
-	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
-		dp_ctrl_send_phy_test_pattern(ctrl);
 
 	ctrl->power_on = true;
 

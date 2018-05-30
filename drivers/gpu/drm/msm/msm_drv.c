@@ -47,7 +47,6 @@
 #include "msm_gpu.h"
 #include "msm_kms.h"
 #include "sde_wb.h"
-#include "dsi_display.h"
 
 /*
  * MSM driver version:
@@ -991,7 +990,7 @@ static void msm_lastclose(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
 	struct drm_modeset_acquire_ctx ctx;
-	int i;
+	int i, rc;
 
 	/*
 	 * clean up vblank disable immediately as this is the last close.
@@ -1009,15 +1008,31 @@ static void msm_lastclose(struct drm_device *dev)
 
 	if (priv->fbdev) {
 		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
-	} else {
-		drm_modeset_acquire_init(&ctx, 0);
-		drm_modeset_lock_all_ctx(dev, &ctx);
-		msm_disable_all_modes(dev, &ctx);
-		if (kms && kms->funcs && kms->funcs->lastclose)
-			kms->funcs->lastclose(kms, &ctx);
-		drm_modeset_drop_locks(&ctx);
-		drm_modeset_acquire_fini(&ctx);
+		return;
 	}
+
+	drm_modeset_acquire_init(&ctx, 0);
+retry:
+	rc = drm_modeset_lock_all_ctx(dev, &ctx);
+	if (rc)
+		goto fail;
+
+	rc = msm_disable_all_modes(dev, &ctx);
+	if (rc)
+		goto fail;
+
+	if (kms && kms->funcs && kms->funcs->lastclose)
+		kms->funcs->lastclose(kms, &ctx);
+
+fail:
+	if (rc == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		goto retry;
+	} else if (rc) {
+		pr_err("last close failed: %d\n", rc);
+	}
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
 }
 
 static irqreturn_t msm_irq(int irq, void *arg)
@@ -1824,7 +1839,6 @@ static int add_display_components(struct device *dev,
 {
 	struct device *mdp_dev = NULL;
 	struct device_node *node;
-	const char *name;
 	int ret;
 
 	if (of_device_is_compatible(dev->of_node, "qcom,sde-kms")) {
@@ -1837,17 +1851,6 @@ static int add_display_components(struct device *dev,
 				break;
 
 			component_match_add(dev, matchptr, compare_of, node);
-		}
-
-		for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
-			node = dsi_display_get_boot_display(i);
-
-			if (node != NULL) {
-				name = of_get_property(node, "label", NULL);
-				component_match_add(dev, matchptr, compare_of,
-						node);
-				pr_debug("Added component = %s\n", name);
-			}
 		}
 
 		return 0;

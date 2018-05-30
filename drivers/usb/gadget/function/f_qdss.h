@@ -59,6 +59,10 @@ struct f_qdss {
 	struct usb_qdss_ch ch;
 	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
+
+	/* for mdm channel SW path */
+	struct list_head data_write_pool;
+
 	struct work_struct connect_w;
 	struct work_struct disconnect_w;
 	spinlock_t lock;

@@ -287,6 +287,11 @@ struct buf_count {
 	int ebd;
 };
 
+struct batch_mode {
+	bool enable;
+	u32 size;
+};
+
 struct clock_data {
 	int buffer_counter;
 	int load;
@@ -407,7 +412,7 @@ struct msm_vidc_inst {
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct v4l2_ctrl **ctrls;
-	enum msm_vidc_pixel_depth bit_depth;
+	int bit_depth;
 	struct kref kref;
 	bool in_flush;
 	u32 pic_struct;
@@ -417,6 +422,7 @@ struct msm_vidc_inst {
 	u32 entropy_mode;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
+	struct batch_mode batch;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

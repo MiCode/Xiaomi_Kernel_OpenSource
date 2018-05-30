@@ -99,7 +99,6 @@ struct mhi_skb_priv {
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
-	spinlock_t tx_lock;
 	spinlock_t rx_lock;
 	bool enabled;
 	rwlock_t pm_lock; /* state change lock */
@@ -107,8 +106,6 @@ struct mhi_netdev {
 	struct work_struct alloc_work;
 	int wake;
 
-	struct sk_buff_head tx_submitted;
-	struct sk_buff_head rx_submitted;
 	struct sk_buff_head rx_allocated;
 
 	u32 mru;
@@ -196,18 +193,16 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 			skb->destructor = mhi_netdev_skb_destructor;
 
 		spin_lock_bh(&mhi_netdev->rx_lock);
-		skb_queue_tail(&mhi_netdev->rx_submitted, skb);
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb,
 					 skb_priv->size, MHI_EOT);
+		spin_unlock_bh(&mhi_netdev->rx_lock);
+
 		if (ret) {
-			skb_dequeue_tail(&mhi_netdev->rx_submitted);
-			spin_unlock_bh(&mhi_netdev->rx_lock);
 			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
 			ret = -EIO;
 			goto error_queue;
 		}
 
-		spin_unlock_bh(&mhi_netdev->rx_lock);
 		read_unlock_bh(&mhi_netdev->pm_lock);
 	}
 
@@ -273,14 +268,12 @@ static int mhi_netdev_skb_recycle(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 		}
 
 		skb_priv = (struct mhi_skb_priv *)(skb->cb);
-		skb_queue_tail(&mhi_netdev->rx_submitted, skb);
 		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb,
 					 skb_priv->size, MHI_EOT);
 
 		/* failed to queue buffer */
 		if (ret) {
 			MSG_ERR("Failed to queue skb, ret:%d\n", ret);
-			skb_dequeue_tail(&mhi_netdev->rx_submitted);
 			skb_queue_tail(&mhi_netdev->rx_allocated, skb);
 			goto error_queue;
 		}
@@ -299,23 +292,11 @@ static void mhi_netdev_dealloc(struct mhi_netdev *mhi_netdev)
 {
 	struct sk_buff *skb;
 
-	skb_queue_purge(&mhi_netdev->tx_submitted);
-	if (!mhi_netdev->recycle_buf) {
-		skb_queue_purge(&mhi_netdev->rx_submitted);
-	} else {
-		skb = skb_dequeue(&mhi_netdev->rx_submitted);
-		while (skb) {
-			skb->destructor = NULL;
-			kfree_skb(skb);
-			skb = skb_dequeue(&mhi_netdev->rx_submitted);
-		}
-
+	skb = skb_dequeue(&mhi_netdev->rx_allocated);
+	while (skb) {
+		skb->destructor = NULL;
+		kfree_skb(skb);
 		skb = skb_dequeue(&mhi_netdev->rx_allocated);
-		while (skb) {
-			skb->destructor = NULL;
-			kfree_skb(skb);
-			skb = skb_dequeue(&mhi_netdev->rx_allocated);
-		}
 	}
 }
 
@@ -431,21 +412,16 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto mhi_xmit_exit;
 	}
 
-	spin_lock_bh(&mhi_netdev->tx_lock);
-	skb_queue_tail(&mhi_netdev->tx_submitted, skb);
 	res = mhi_queue_transfer(mhi_dev, DMA_TO_DEVICE, skb, skb->len,
 				 MHI_EOT);
 	if (res) {
 		MSG_VERB("Failed to queue with reason:%d\n", res);
-		skb_dequeue_tail(&mhi_netdev->tx_submitted);
 		netif_stop_queue(dev);
-		spin_unlock_bh(&mhi_netdev->tx_lock);
 		mhi_netdev->stats.tx_full++;
 		res = NETDEV_TX_BUSY;
 		goto mhi_xmit_exit;
 	}
 
-	spin_unlock_bh(&mhi_netdev->tx_lock);
 	mhi_netdev->stats.tx_pkts++;
 
 mhi_xmit_exit:
@@ -639,8 +615,6 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 			goto net_dev_reg_fail;
 		}
 
-		skb_queue_head_init(&mhi_netdev->tx_submitted);
-		skb_queue_head_init(&mhi_netdev->rx_submitted);
 		skb_queue_head_init(&mhi_netdev->rx_allocated);
 	}
 
@@ -697,21 +671,15 @@ static void mhi_netdev_xfer_ul_cb(struct mhi_device *mhi_dev,
 				  struct mhi_result *mhi_result)
 {
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
-	struct sk_buff *skb = skb_dequeue(&mhi_netdev->tx_submitted);
+	struct sk_buff *skb = mhi_result->buf_addr;
 	struct net_device *ndev = mhi_netdev->ndev;
-	unsigned long flags;
-
-	MHI_ASSERT(skb != mhi_result->buf_addr, "ooo ul cb");
 
 	ndev->stats.tx_packets++;
 	ndev->stats.tx_bytes += skb->len;
 	dev_kfree_skb(skb);
 
-	if (netif_queue_stopped(ndev)) {
-		spin_lock_irqsave(&mhi_netdev->tx_lock, flags);
+	if (netif_queue_stopped(ndev))
 		netif_wake_queue(ndev);
-		spin_unlock_irqrestore(&mhi_netdev->tx_lock, flags);
-	}
 }
 
 static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
@@ -739,12 +707,6 @@ static int mhi_netdev_process_fragment(struct mhi_netdev *mhi_netdev,
 			return -ENOMEM;
 	}
 
-	/* recycle the skb */
-	if (mhi_netdev->recycle_buf)
-		mhi_netdev_skb_destructor(skb);
-	else
-		dev_kfree_skb(skb);
-
 	mhi_netdev->stats.rx_frag++;
 
 	return 0;
@@ -754,11 +716,14 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 				  struct mhi_result *mhi_result)
 {
 	struct mhi_netdev *mhi_netdev = mhi_device_get_devdata(mhi_dev);
-	struct sk_buff *skb = skb_dequeue(&mhi_netdev->rx_submitted);
+	struct sk_buff *skb = mhi_result->buf_addr;
 	struct net_device *dev = mhi_netdev->ndev;
 	int ret = 0;
 
-	MHI_ASSERT(skb != mhi_result->buf_addr, "ooo dl cb");
+	if (mhi_result->transaction_status == -ENOTCONN) {
+		dev_kfree_skb(skb);
+		return;
+	}
 
 	skb_put(skb, mhi_result->bytes_xferd);
 	dev->stats.rx_packets++;
@@ -768,6 +733,13 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 	if (mhi_result->transaction_status == -EOVERFLOW ||
 	    mhi_netdev->frag_skb) {
 		ret = mhi_netdev_process_fragment(mhi_netdev, skb);
+
+		/* recycle the skb */
+		if (mhi_netdev->recycle_buf)
+			mhi_netdev_skb_destructor(skb);
+		else
+			dev_kfree_skb(skb);
+
 		if (ret)
 			return;
 	}
@@ -982,7 +954,6 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	mhi_netdev->rx_queue = mhi_netdev->recycle_buf ?
 		mhi_netdev_skb_recycle : mhi_netdev_alloc_skb;
 
-	spin_lock_init(&mhi_netdev->tx_lock);
 	spin_lock_init(&mhi_netdev->rx_lock);
 	rwlock_init(&mhi_netdev->pm_lock);
 	INIT_WORK(&mhi_netdev->alloc_work, mhi_netdev_alloc_work);

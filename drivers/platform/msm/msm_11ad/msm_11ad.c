@@ -131,7 +131,8 @@ struct msm11ad_ctx {
 	/* cpu boost support */
 	bool use_cpu_boost;
 	bool is_cpu_boosted;
-	struct cpumask boost_cpu;
+	struct cpumask boost_cpu_0;
+	struct cpumask boost_cpu_1;
 
 	bool keep_radio_on_during_sleep;
 	int features;
@@ -964,13 +965,22 @@ static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 
 	if (minfreq != maxfreq) {
 		/*
-		 * use first big core for boost, to be compatible with WLAN
+		 * use first 2 big cores for boost, to be compatible with WLAN
 		 * which assigns big cores from the last index
 		 */
 		ctx->use_cpu_boost = true;
-		cpumask_clear(&ctx->boost_cpu);
-		cpumask_set_cpu(boost_cpu, &ctx->boost_cpu);
-		dev_info(ctx->dev, "CPU boost: will use core %d\n", boost_cpu);
+		cpumask_clear(&ctx->boost_cpu_0);
+		cpumask_clear(&ctx->boost_cpu_1);
+		cpumask_set_cpu(boost_cpu, &ctx->boost_cpu_0);
+		if (boost_cpu < (nr_cpu_ids - 1)) {
+			cpumask_set_cpu(boost_cpu + 1, &ctx->boost_cpu_1);
+			dev_info(ctx->dev, "CPU boost: will use cores %d - %d\n",
+				 boost_cpu, boost_cpu + 1);
+		} else {
+			cpumask_set_cpu(boost_cpu, &ctx->boost_cpu_1);
+			dev_info(ctx->dev, "CPU boost: will use core %d\n",
+				 boost_cpu);
+		}
 	} else {
 		ctx->use_cpu_boost = false;
 		dev_info(ctx->dev, "CPU boost disabled, uniform topology\n");
@@ -1253,7 +1263,8 @@ static struct platform_driver msm_11ad_driver = {
 };
 module_platform_driver(msm_11ad_driver);
 
-static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
+static void msm_11ad_set_affinity_hint(struct msm11ad_ctx *ctx, uint irq,
+				       struct cpumask *boost_cpu)
 {
 	/*
 	 * There is a very small window where user space can change the
@@ -1264,15 +1275,14 @@ static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
 	struct irq_desc *desc;
 
 	while (retries > 0) {
-		irq_modify_status(ctx->pcidev->irq, IRQ_NO_BALANCING, 0);
-		rc = irq_set_affinity_hint(ctx->pcidev->irq, &ctx->boost_cpu);
+		irq_modify_status(irq, IRQ_NO_BALANCING, 0);
+		rc = irq_set_affinity_hint(irq, boost_cpu);
 		if (rc)
 			dev_warn(ctx->dev,
 				"Failed set affinity, rc=%d\n", rc);
-		irq_modify_status(ctx->pcidev->irq, 0, IRQ_NO_BALANCING);
-		desc = irq_to_desc(ctx->pcidev->irq);
-		if (cpumask_equal(desc->irq_common_data.affinity,
-				  &ctx->boost_cpu))
+		irq_modify_status(irq, 0, IRQ_NO_BALANCING);
+		desc = irq_to_desc(irq);
+		if (cpumask_equal(desc->irq_common_data.affinity, boost_cpu))
 			break;
 		retries--;
 	}
@@ -1281,15 +1291,30 @@ static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
 		dev_warn(ctx->dev, "failed to set CPU boost affinity\n");
 }
 
-static void msm_11ad_clear_boost_affinity(struct msm11ad_ctx *ctx)
+static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_set_affinity_hint(ctx, ctx->pcidev->irq, &ctx->boost_cpu_0);
+	/* boost rx and tx interrupts */
+	if (ctx->features & BIT(WIL_PLATFORM_FEATURE_TRIPLE_MSI))
+		msm_11ad_set_affinity_hint(ctx, ctx->pcidev->irq + 1,
+					  &ctx->boost_cpu_1);
+}
+
+static void msm_11ad_clear_affinity_hint(struct msm11ad_ctx *ctx, uint irq)
 {
 	int rc;
 
-	irq_modify_status(ctx->pcidev->irq, IRQ_NO_BALANCING, 0);
-	rc = irq_set_affinity_hint(ctx->pcidev->irq, NULL);
+	irq_modify_status(irq, IRQ_NO_BALANCING, 0);
+	rc = irq_set_affinity_hint(irq, NULL);
 	if (rc)
-		dev_warn(ctx->dev,
-			 "Failed clear affinity, rc=%d\n", rc);
+		dev_warn(ctx->dev, "Failed clear affinity, rc=%d\n", rc);
+}
+
+static void msm_11ad_clear_boost_affinity(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_clear_affinity_hint(ctx, ctx->pcidev->irq);
+	if (ctx->features & BIT(WIL_PLATFORM_FEATURE_TRIPLE_MSI))
+		msm_11ad_clear_affinity_hint(ctx, ctx->pcidev->irq + 1);
 }
 
 /* hooks for the wil6210 driver */

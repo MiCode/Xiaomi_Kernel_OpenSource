@@ -616,7 +616,19 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	struct mhi_chan_ctxt *ch_ctxt;
 	int er_index, chan;
 
-	mhi_chan = (dir == DMA_TO_DEVICE) ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+	switch (dir) {
+	case DMA_TO_DEVICE:
+		mhi_chan = mhi_dev->ul_chan;
+		break;
+	case DMA_BIDIRECTIONAL:
+	case DMA_FROM_DEVICE:
+	case DMA_NONE:
+		mhi_chan = mhi_dev->dl_chan;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	er_index = mhi_chan->er_index;
 	chan = mhi_chan->chan;
 
@@ -823,6 +835,22 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		mhi_chan->offload_ch = !!(bit_cfg & MHI_CH_CFG_BIT_OFFLOAD_CH);
 		mhi_chan->db_cfg.reset_req =
 			!!(bit_cfg & MHI_CH_CFG_BIT_DBMODE_RESET_CH);
+		mhi_chan->pre_alloc = !!(bit_cfg & MHI_CH_CFG_BIT_PRE_ALLOC);
+		mhi_chan->auto_start = !!(bit_cfg & MHI_CH_CFG_BIT_AUTO_START);
+
+		if (mhi_chan->pre_alloc &&
+		    (mhi_chan->dir != DMA_FROM_DEVICE ||
+		     mhi_chan->xfer_type != MHI_XFER_BUFFER))
+			goto error_chan_cfg;
+
+		/* bi-dir and dirctionless channels must be a offload chan */
+		if ((mhi_chan->dir == DMA_BIDIRECTIONAL ||
+		     mhi_chan->dir == DMA_NONE) && !mhi_chan->offload_ch)
+			goto error_chan_cfg;
+
+		/* if mhi host allocate the buffers then client cannot queue */
+		if (mhi_chan->pre_alloc)
+			mhi_chan->queue_xfer = mhi_queue_nop;
 
 		ret = of_property_read_string_index(of_node, "mhi,chan-names",
 						    i, &mhi_chan->name);
@@ -1112,26 +1140,30 @@ static int mhi_driver_probe(struct device *dev)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *ul_chan = mhi_dev->ul_chan;
 	struct mhi_chan *dl_chan = mhi_dev->dl_chan;
-	bool offload_ch = ((ul_chan && ul_chan->offload_ch) ||
-			   (dl_chan && dl_chan->offload_ch));
+	bool auto_start = false;
+	int ret;
 
-	/* all offload channels require status_cb to be defined */
-	if (offload_ch) {
-		if (!mhi_dev->status_cb)
-			return -EINVAL;
-		mhi_dev->status_cb = mhi_drv->status_cb;
-	}
 
-	if (ul_chan && !offload_ch) {
-		if (!mhi_drv->ul_xfer_cb)
+	if (ul_chan) {
+		/* lpm notification require status_cb */
+		if (ul_chan->lpm_notify && !mhi_drv->status_cb)
 			return -EINVAL;
+
+		if (!ul_chan->offload_ch && !mhi_drv->ul_xfer_cb)
+			return -EINVAL;
+
 		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
+		mhi_dev->status_cb = mhi_drv->status_cb;
+		auto_start = ul_chan->auto_start;
 	}
 
-	if (dl_chan && !offload_ch) {
-		if (!mhi_drv->dl_xfer_cb)
+	if (dl_chan) {
+		if (dl_chan->lpm_notify && !mhi_drv->status_cb)
 			return -EINVAL;
-		dl_chan->xfer_cb = mhi_drv->dl_xfer_cb;
+
+		if (!dl_chan->offload_ch && !mhi_drv->dl_xfer_cb)
+			return -EINVAL;
+
 		mhi_event = &mhi_cntrl->mhi_event[dl_chan->er_index];
 
 		/*
@@ -1141,10 +1173,20 @@ static int mhi_driver_probe(struct device *dev)
 		 */
 		if (mhi_event->cl_manage && !mhi_drv->status_cb)
 			return -EINVAL;
+
+		dl_chan->xfer_cb = mhi_drv->dl_xfer_cb;
+
+		/* ul & dl uses same status cb */
 		mhi_dev->status_cb = mhi_drv->status_cb;
+		auto_start = (auto_start || dl_chan->auto_start);
 	}
 
-	return mhi_drv->probe(mhi_dev, mhi_dev->id);
+	ret = mhi_drv->probe(mhi_dev, mhi_dev->id);
+
+	if (!ret && auto_start)
+		mhi_prepare_for_transfer(mhi_dev);
+
+	return ret;
 }
 
 static int mhi_driver_remove(struct device *dev)
@@ -1199,6 +1241,9 @@ static int mhi_driver_remove(struct device *dev)
 		if (ch_state[dir] == MHI_CH_STATE_ENABLED &&
 		    !mhi_chan->offload_ch)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
+
+		/* remove associated device */
+		mhi_chan->mhi_dev = NULL;
 
 		mutex_unlock(&mhi_chan->mutex);
 	}

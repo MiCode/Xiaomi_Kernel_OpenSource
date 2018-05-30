@@ -81,10 +81,21 @@ struct io_pgtable_cfg {
 	 *	be accessed by a fully cache-coherent IOMMU or CPU (e.g. for a
 	 *	software-emulated IOMMU), such that pagetable updates need not
 	 *	be treated as explicit DMA data.
+	 *
+
+	 * IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE:
+	 *	Having page tables which are non coherent, but cached in a
+	 *	system cache requires SH=Non-Shareable. This applies to the
+	 *	qsmmuv500 model. For data buffers SH=Non-Shareable is not
+	 *	required.
 
 	 * IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT: Override the attributes
 	 *	set in TCR for the page table walker. Use attributes specified
 	 *	by the upstream hw instead.
+	 *
+	 * IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA: Override the attributes
+	 *	set in TCR for the page table walker with Write-Back,
+	 *	no Write-Allocate cacheable encoding.
 	 *
 	 */
 	#define IO_PGTABLE_QUIRK_ARM_NS		BIT(0)
@@ -92,7 +103,9 @@ struct io_pgtable_cfg {
 	#define IO_PGTABLE_QUIRK_TLBI_ON_MAP	BIT(2)
 	#define IO_PGTABLE_QUIRK_ARM_MTK_4GB	BIT(3)
 	#define IO_PGTABLE_QUIRK_NO_DMA		BIT(4)
+	#define IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE BIT(5)
 	#define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT	BIT(6)
+	#define IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA	BIT(7)
 	unsigned long			quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;

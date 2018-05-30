@@ -318,6 +318,16 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 	return -EINVAL;
 }
 
+struct device *msm_gem_get_aspace_device(struct msm_gem_address_space *aspace)
+{
+	struct device *client_dev = NULL;
+
+	if (aspace && aspace->mmu && aspace->mmu->funcs->get_dev)
+		client_dev = aspace->mmu->funcs->get_dev(aspace->mmu);
+
+	return client_dev;
+}
+
 void msm_gem_add_obj_to_aspace_active_list(
 		struct msm_gem_address_space *aspace,
 		struct drm_gem_object *obj)

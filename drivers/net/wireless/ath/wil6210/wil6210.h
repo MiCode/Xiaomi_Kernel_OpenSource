@@ -24,6 +24,7 @@
 #include <net/cfg80211.h>
 #include <linux/timex.h>
 #include <linux/types.h>
+#include <linux/irqreturn.h>
 #include "wmi.h"
 #include "wil_platform.h"
 #include "ftm.h"
@@ -37,6 +38,12 @@ extern bool rx_align_2;
 extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
+extern bool use_rx_hw_reordering;
+extern bool use_compressed_rx_status;
+
+struct wil6210_priv;
+struct wil6210_vif;
+union wil_tx_desc;
 
 #define WIL_NAME "wil6210"
 
@@ -45,6 +52,9 @@ extern bool disable_ap_sme;
 
 #define WIL_FW_NAME_SPARROW_PLUS "wil6210_sparrow_plus.fw"
 #define WIL_FW_NAME_FTM_SPARROW_PLUS "wil6210_sparrow_plus_ftm.fw"
+
+#define WIL_FW_NAME_TALYN "wil6436.fw"
+#define WIL_FW_NAME_FTM_TALYN "wil6436_ftm.fw"
 
 #define WIL_BOARD_FILE_NAME "wil6210.brd" /* board & radio parameters */
 
@@ -206,7 +216,9 @@ struct RGF_ICR {
 #define RGF_USER_SPARROW_M_4			(0x880c50) /* Sparrow */
 	#define BIT_SPARROW_M_4_SEL_SLEEP_OR_REF	BIT(2)
 #define RGF_USER_OTP_HW_RD_MACHINE_1	(0x880ce0)
-	#define BIT_NO_FLASH_INDICATION		BIT(8)
+	#define BIT_OTP_SIGNATURE_ERR_TALYN_MB		BIT(0)
+	#define BIT_OTP_HW_SECTION_DONE_TALYN_MB	BIT(2)
+	#define BIT_NO_FLASH_INDICATION			BIT(8)
 #define RGF_USER_XPM_IFC_RD_TIME1	(0x880cec)
 #define RGF_USER_XPM_IFC_RD_TIME2	(0x880cf0)
 #define RGF_USER_XPM_IFC_RD_TIME3	(0x880cf4)
@@ -307,6 +319,29 @@ struct RGF_ICR {
 	#define BIT_CAF_OSC_XTAL_EN		BIT(0)
 #define RGF_CAF_PLL_LOCK_STATUS		(0x88afec)
 	#define BIT_CAF_OSC_DIG_XTAL_STABLE	BIT(0)
+
+#define RGF_OTP_QC_SECURED		(0x8a0038)
+	#define BIT_BOOT_FROM_ROM		BIT(31)
+
+/* eDMA */
+#define RGF_INT_COUNT_ON_SPECIAL_EVT	(0x8b62d8)
+
+#define RGF_INT_CTRL_INT_GEN_CFG_0	(0x8bc000)
+#define RGF_INT_CTRL_INT_GEN_CFG_1	(0x8bc004)
+#define RGF_INT_GEN_TIME_UNIT_LIMIT	(0x8bc0c8)
+
+#define RGF_INT_GEN_CTRL		(0x8bc0ec)
+	#define BIT_CONTROL_0			BIT(0)
+
+/* eDMA status interrupts */
+#define RGF_INT_GEN_RX_ICR		(0x8bc0f4)
+	#define BIT_RX_STATUS_IRQ BIT(WIL_RX_STATUS_IRQ_IDX)
+#define RGF_INT_GEN_TX_ICR		(0x8bc110)
+	#define BIT_TX_STATUS_IRQ BIT(WIL_TX_STATUS_IRQ_IDX)
+#define RGF_INT_CTRL_RX_INT_MASK	(0x8bc12c)
+#define RGF_INT_CTRL_TX_INT_MASK	(0x8bc130)
+
+#define RGF_INT_GEN_IDLE_TIME_LIMIT	(0x8bc134)
 
 #define USER_EXT_USER_PMU_3		(0x88d00c)
 	#define BIT_PMU_DEVICE_RDY		BIT(0)
@@ -487,6 +522,17 @@ struct wil_ring {
 };
 
 /**
+ * Additional data for Rx ring.
+ * Used for enhanced DMA RX chaining.
+ */
+struct wil_ring_rx_data {
+	/* the skb being assembled */
+	struct sk_buff *skb;
+	/* true if we are skipping a bad fragmented packet */
+	bool skipping;
+};
+
+/**
  * Status ring structure, used for enhanced DMA completions for RX and TX.
  */
 struct wil_status_ring {
@@ -498,6 +544,43 @@ struct wil_status_ring {
 	u32 hwtail; /* write here to inform hw */
 	bool is_rx;
 	u8 desc_rdy_pol; /* Expected descriptor ready bit polarity */
+	struct wil_ring_rx_data rx_data;
+};
+
+/**
+ * struct tx_rx_ops - different TX/RX ops for legacy and enhanced
+ * DMA flow
+ */
+struct wil_txrx_ops {
+	void (*configure_interrupt_moderation)(struct wil6210_priv *wil);
+	/* TX ops */
+	int (*ring_init_tx)(struct wil6210_vif *vif, int ring_id,
+			    int size, int cid, int tid);
+	void (*ring_fini_tx)(struct wil6210_priv *wil, struct wil_ring *ring);
+	int (*ring_init_bcast)(struct wil6210_vif *vif, int id, int size);
+	int (*tx_init)(struct wil6210_priv *wil);
+	void (*tx_fini)(struct wil6210_priv *wil);
+	int (*tx_desc_map)(union wil_tx_desc *desc, dma_addr_t pa,
+			   u32 len, int ring_index);
+	void (*tx_desc_unmap)(struct device *dev,
+			      union wil_tx_desc *desc,
+			      struct wil_ctx *ctx);
+	int (*tx_ring_tso)(struct wil6210_priv *wil, struct wil6210_vif *vif,
+			   struct wil_ring *ring, struct sk_buff *skb);
+	irqreturn_t (*irq_tx)(int irq, void *cookie);
+	/* RX ops */
+	int (*rx_init)(struct wil6210_priv *wil, u16 ring_size);
+	void (*rx_fini)(struct wil6210_priv *wil);
+	int (*wmi_addba_rx_resp)(struct wil6210_priv *wil, u8 mid, u8 cid,
+				 u8 tid, u8 token, u16 status, bool amsdu,
+				 u16 agg_wsize, u16 timeout);
+	void (*get_reorder_params)(struct sk_buff *skb, int *tid, int *cid,
+				   int *mid, u16 *seq, int *mcast);
+	void (*get_netif_rx_params)(struct sk_buff *skb,
+				    int *cid, int *security);
+	int (*rx_crypto_check)(struct wil6210_priv *wil, struct sk_buff *skb);
+	bool (*is_rx_idle)(struct wil6210_priv *wil);
+	irqreturn_t (*irq_rx)(int irq, void *cookie);
 };
 
 /**
@@ -513,18 +596,6 @@ struct wil_ring_tx_data {
 	bool addba_in_progress; /* if set, agg_xxx is for request in progress */
 	u8 mid;
 	spinlock_t lock;
-};
-
-/**
- * Additional data for Rx ring.
- * Used for enhanced DMA RX chaining.
- */
-struct wil_ring_rx_data {
-	/* the skb being assembled */
-	struct sk_buff *skb;
-	/* true if we are skipping a bad fragmented packet */
-	bool skipping;
-	u16 buff_size;
 };
 
 enum { /* for wil6210_priv.status */
@@ -857,17 +928,19 @@ struct wil6210_priv {
 
 	/* DMA related */
 	struct wil_ring ring_rx;
-	struct wil_ring_rx_data ring_rx_data;
 	unsigned int rx_buf_len;
 	struct wil_ring ring_tx[WIL6210_MAX_TX_RINGS];
 	struct wil_ring_tx_data ring_tx_data[WIL6210_MAX_TX_RINGS];
 	struct wil_status_ring srings[WIL6210_MAX_STATUS_RINGS];
-	int num_rx_status_rings;
+	u8 num_rx_status_rings;
+	int tx_sring_idx;
 	u8 ring2cid_tid[WIL6210_MAX_TX_RINGS][2]; /* [0] - CID, [1] - TID */
 	struct wil_sta_info sta[WIL6210_MAX_CID];
 	u32 ring_idle_trsh; /* HW fetches up to 16 descriptors at once  */
 	u32 dma_addr_size; /* indicates dma addr size */
 	struct wil_rx_buff_mgmt rx_buff_mgmt;
+	bool use_enhanced_dma_hw;
+	struct wil_txrx_ops txrx_ops;
 
 	struct mutex mutex; /* for wil6210_priv access in wil_{up|down} */
 	/* statistics */
@@ -921,6 +994,9 @@ struct wil6210_priv {
 	u32 rgf_fw_assert_code_addr;
 	u32 rgf_ucode_assert_code_addr;
 	u32 iccm_base;
+
+	bool secured_boot;
+	u8 boot_config;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1199,14 +1275,10 @@ void wil_probe_client_flush(struct wil6210_vif *vif);
 void wil_probe_client_worker(struct work_struct *work);
 void wil_disconnect_worker(struct work_struct *work);
 
-int wil_rx_init(struct wil6210_priv *wil, u16 size);
-void wil_rx_fini(struct wil6210_priv *wil);
+void wil_init_txrx_ops(struct wil6210_priv *wil);
 
 /* TX API */
-int wil_vring_init_tx(struct wil6210_vif *vif, int id, int size,
-		      int cid, int tid);
-void wil_ring_fini_tx(struct wil6210_priv *wil, int id);
-int wil_tx_init(struct wil6210_vif *vif, int cid);
+int wil_ring_init_tx(struct wil6210_vif *vif, int cid);
 int wil_vring_init_bcast(struct wil6210_vif *vif, int id, int size);
 int wil_bcast_init(struct wil6210_vif *vif);
 void wil_bcast_fini(struct wil6210_vif *vif);
@@ -1219,10 +1291,12 @@ void wil_update_net_queues_bh(struct wil6210_priv *wil, struct wil6210_vif *vif,
 netdev_tx_t wil_start_xmit(struct sk_buff *skb, struct net_device *ndev);
 int wil_tx_complete(struct wil6210_vif *vif, int ringid);
 void wil6210_unmask_irq_tx(struct wil6210_priv *wil);
+void wil6210_unmask_irq_tx_edma(struct wil6210_priv *wil);
 
 /* RX API */
 void wil_rx_handle(struct wil6210_priv *wil, int *quota);
 void wil6210_unmask_irq_rx(struct wil6210_priv *wil);
+void wil6210_unmask_irq_rx_edma(struct wil6210_priv *wil);
 
 int wil_iftype_nl2wmi(enum nl80211_iftype type);
 
@@ -1244,7 +1318,6 @@ bool wil_is_wmi_idle(struct wil6210_priv *wil);
 int wmi_resume(struct wil6210_priv *wil);
 int wmi_suspend(struct wil6210_priv *wil);
 bool wil_is_tx_idle(struct wil6210_priv *wil);
-bool wil_is_rx_idle(struct wil6210_priv *wil);
 
 int wil_fw_copy_crash_dump(struct wil6210_priv *wil, void *dest, u32 size);
 void wil_fw_core_dump(struct wil6210_priv *wil);
@@ -1277,5 +1350,20 @@ int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct);
 int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);
 int wmi_stop_sched_scan(struct wil6210_priv *wil);
+
+int reverse_memcmp(const void *cs, const void *ct, size_t count);
+
+/* WMI for enhanced DMA */
+int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id);
+int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
+			       u16 max_rx_pl_per_desc);
+int wil_wmi_rx_sring_add(struct wil6210_priv *wil, u16 ring_id);
+int wil_wmi_rx_desc_ring_add(struct wil6210_priv *wil, int status_ring_id);
+int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
+			     int tid);
+int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id);
+int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
+			   u8 tid, u8 token, u16 status, bool amsdu,
+			   u16 agg_wsize, u16 timeout);
 
 #endif /* __WIL6210_H__ */

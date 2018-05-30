@@ -600,6 +600,9 @@ struct section_perm {
 	pmdval_t mask;
 	pmdval_t prot;
 	pmdval_t clear;
+	pteval_t ptemask;
+	pteval_t pteprot;
+	pteval_t pteclear;
 };
 
 /* First section-aligned location at or after __start_rodata. */
@@ -613,6 +616,8 @@ static struct section_perm nx_perms[] = {
 		.end	= (unsigned long)_stext,
 		.mask	= ~PMD_SECT_XN,
 		.prot	= PMD_SECT_XN,
+		.ptemask = ~L_PTE_XN,
+		.pteprot = L_PTE_XN,
 	},
 	/* Make init RW (set NX). */
 	{
@@ -621,6 +626,8 @@ static struct section_perm nx_perms[] = {
 		.end	= (unsigned long)_sdata,
 		.mask	= ~PMD_SECT_XN,
 		.prot	= PMD_SECT_XN,
+		.ptemask = ~L_PTE_XN,
+		.pteprot = L_PTE_XN,
 	},
 	/* Make rodata NX (set RO in ro_perms below). */
 	{
@@ -629,6 +636,8 @@ static struct section_perm nx_perms[] = {
 		.end    = (unsigned long)__init_begin,
 		.mask   = ~PMD_SECT_XN,
 		.prot   = PMD_SECT_XN,
+		.ptemask = ~L_PTE_XN,
+		.pteprot = L_PTE_XN,
 	},
 };
 
@@ -646,6 +655,8 @@ static struct section_perm ro_perms[] = {
 		.prot   = PMD_SECT_APX | PMD_SECT_AP_WRITE,
 		.clear  = PMD_SECT_AP_WRITE,
 #endif
+		.ptemask = ~L_PTE_RDONLY,
+		.pteprot = L_PTE_RDONLY,
 	},
 };
 
@@ -654,6 +665,35 @@ static struct section_perm ro_perms[] = {
  * copied into each mm). During startup, this is the init_mm. Is only
  * safe to be called with preemption disabled, as under stop_machine().
  */
+struct pte_data {
+	pteval_t mask;
+	pteval_t val;
+};
+
+static int __pte_update(pte_t *ptep, pgtable_t token, unsigned long addr,
+			void *d)
+{
+	struct pte_data *data = d;
+	pte_t pte = *ptep;
+
+	pte = __pte((pte_val(*ptep) & data->mask) | data->val);
+	set_pte_ext(ptep, pte, 0);
+
+	return 0;
+}
+
+static inline void pte_update(unsigned long addr, pteval_t mask,
+				  pteval_t prot, struct mm_struct *mm)
+{
+	struct pte_data data;
+
+	data.mask = mask;
+	data.val = prot;
+
+	apply_to_page_range(mm, addr, SECTION_SIZE, __pte_update, &data);
+	flush_tlb_kernel_range(addr, addr + SECTION_SIZE);
+}
+
 static inline void section_update(unsigned long addr, pmdval_t mask,
 				  pmdval_t prot, struct mm_struct *mm)
 {
@@ -702,11 +742,21 @@ void set_section_perms(struct section_perm *perms, int n, bool set,
 
 		for (addr = perms[i].start;
 		     addr < perms[i].end;
-		     addr += SECTION_SIZE)
-			section_update(addr, perms[i].mask,
-				set ? perms[i].prot : perms[i].clear, mm);
-	}
+		     addr += SECTION_SIZE) {
+			pmd_t *pmd;
 
+			pmd = pmd_offset(pud_offset(pgd_offset(mm, addr),
+						addr), addr);
+			if (pmd_bad(*pmd))
+				section_update(addr, perms[i].mask,
+					set ? perms[i].prot : perms[i].clear,
+					mm);
+			else
+				pte_update(addr, perms[i].ptemask,
+				     set ? perms[i].pteprot : perms[i].pteclear,
+				     mm);
+		}
+	}
 }
 
 /**

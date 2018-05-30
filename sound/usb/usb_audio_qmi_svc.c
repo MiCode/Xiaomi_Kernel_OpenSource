@@ -123,7 +123,8 @@ struct uaudio_qmi_svc {
 	struct qmi_handle *uaudio_svc_hdl;
 	struct work_struct qmi_disconnect_work;
 	struct workqueue_struct *uaudio_wq;
-	struct sockaddr_qrtr *client_sq;
+	struct sockaddr_qrtr client_sq;
+	bool client_connected;
 	ktime_t t_request_recvd;
 	ktime_t t_resp_sent;
 };
@@ -857,13 +858,15 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 
 	if (atomic_read(&dev->in_use)) {
 		mutex_unlock(&chip->dev_lock);
-
 		pr_debug("%s: sending qmi indication disconnect\n", __func__);
+		pr_debug("%s: sq->sq_family:%x sq->sq_node:%x sq->sq_port:%x\n",
+				__func__, svc->client_sq.sq_family,
+				svc->client_sq.sq_node, svc->client_sq.sq_port);
 		disconnect_ind.dev_event = USB_AUDIO_DEV_DISCONNECT_V01;
 		disconnect_ind.slot_id = dev->udev->slot_id;
 		disconnect_ind.controller_num = dev->usb_core_id;
 		disconnect_ind.controller_num_valid = 1;
-		ret = qmi_send_indication(svc->uaudio_svc_hdl, svc->client_sq,
+		ret = qmi_send_indication(svc->uaudio_svc_hdl, &svc->client_sq,
 				QMI_UADUIO_STREAM_IND_V01,
 				QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN,
 				qmi_uaudio_stream_ind_msg_v01_ei,
@@ -1017,8 +1020,14 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
 
-	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)decoded_msg;
+	pr_debug("%s: sq_node:%x sq_port:%x sq_family:%x\n",
+			__func__, sq->sq_node, sq->sq_port, sq->sq_family);
+	if (!svc->client_connected) {
+		svc->client_sq = *sq;
+		svc->client_connected = true;
+	}
 
+	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)decoded_msg;
 	if (!req_msg->audio_format_valid || !req_msg->bit_rate_valid ||
 	!req_msg->number_of_ch_valid || !req_msg->xfer_buff_size_valid) {
 		pr_err("%s: invalid request msg\n", __func__);
@@ -1049,7 +1058,6 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 		goto response;
 	}
 
-	svc->client_sq = sq;
 	subs = find_snd_usb_substream(pcm_card_num, pcm_dev_num, direction,
 					&chip, uaudio_disconnect_cb);
 	if (!subs || !chip || atomic_read(&chip->shutdown)) {
@@ -1185,15 +1193,13 @@ static void uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
 		return;
 	}
 
-	if (svc->client_sq == NULL) {
-		pr_debug("%s: client is not connected.\n", __func__);
-		return;
-	}
-
-	if (svc->client_sq->sq_node == node &&
-			svc->client_sq->sq_port == port) {
+	if (svc->client_connected && svc->client_sq.sq_node == node &&
+			svc->client_sq.sq_port == port) {
 		queue_work(svc->uaudio_wq, &svc->qmi_disconnect_work);
-		svc->client_sq = NULL;
+		svc->client_sq.sq_node = 0;
+		svc->client_sq.sq_port = 0;
+		svc->client_sq.sq_family = 0;
+		svc->client_connected = false;
 	}
 }
 

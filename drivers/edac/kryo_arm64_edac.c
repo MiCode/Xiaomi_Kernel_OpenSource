@@ -46,8 +46,12 @@ module_param(poll_msec, int, 0444);
 #define L2_SILVER_BIT 0x1
 #define L3_BIT 0x2
 
-#define L1_GOLD_DC_BIT 0x1
-#define L1_GOLD_IC_BIT 0x4
+#define QCOM_CPU_PART_KRYO4XX_GOLD 0x804
+#define QCOM_CPU_PART_KRYO4XX_SILVER_V1 0x803
+#define QCOM_CPU_PART_KRYO4XX_SILVER_V2 0x805
+
+#define L1_GOLD_IC_BIT 0x1
+#define L1_GOLD_DC_BIT 0x4
 #define L2_GOLD_BIT 0x8
 #define L2_GOLD_TLB_BIT 0x2
 
@@ -258,8 +262,12 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 	struct edac_device_ctl_info *edev_ctl, int cpu)
 {
 	int level = 0;
+	u32 part_num;
 
-	if (cpu <= 3) {
+	part_num = read_cpuid_part_number();
+	switch (part_num) {
+	case QCOM_CPU_PART_KRYO4XX_SILVER_V1:
+	case QCOM_CPU_PART_KRYO4XX_SILVER_V2:
 		switch (KRYO_ERRXMISC_LVL(errxmisc)) {
 		case L1_SILVER_BIT:
 			level = L1;
@@ -267,8 +275,13 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 		case L2_SILVER_BIT:
 			level = L2;
 			break;
+		default:
+			edac_printk(KERN_CRIT, EDAC_CPU,
+				"silver cpu:%d unknown error location:%u\n",
+				cpu, KRYO_ERRXMISC_LVL(errxmisc));
 		}
-	} else {
+		break;
+	case QCOM_CPU_PART_KRYO4XX_GOLD:
 		switch (KRYO_ERRXMISC_LVL_GOLD(errxmisc)) {
 		case L1_GOLD_DC_BIT:
 		case L1_GOLD_IC_BIT:
@@ -278,8 +291,19 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 		case L2_GOLD_TLB_BIT:
 			level = L2;
 			break;
+		default:
+			edac_printk(KERN_CRIT, EDAC_CPU,
+				"gold cpu:%d unknown error location:%u\n",
+				cpu, KRYO_ERRXMISC_LVL_GOLD(errxmisc));
 		}
+		break;
+	default:
+		edac_printk(KERN_CRIT, EDAC_CPU,
+			"Error in matching cpu%d with part num:%u\n",
+			cpu, part_num);
+		return;
 	}
+
 	switch (level) {
 	case L1:
 		if (KRYO_ERRXSTATUS_UE(errxstatus))

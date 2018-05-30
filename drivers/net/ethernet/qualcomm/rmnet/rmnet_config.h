@@ -37,6 +37,19 @@ struct rmnet_port {
 	u8 rmnet_mode;
 	struct hlist_head muxed_ep[RMNET_MAX_LOGICAL_EP];
 	struct net_device *bridge_ep;
+
+	u16 egress_agg_size;
+	u16 egress_agg_count;
+
+	/* Protect aggregation related elements */
+	spinlock_t agg_lock;
+
+	struct sk_buff *agg_skb;
+	int agg_state;
+	u8 agg_count;
+	struct timespec agg_time;
+	struct timespec agg_last;
+	struct hrtimer hrtimer;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;
@@ -54,11 +67,24 @@ struct rmnet_pcpu_stats {
 	struct u64_stats_sync syncp;
 };
 
+struct rmnet_priv_stats {
+	u64 csum_ok;
+	u64 csum_valid_unset;
+	u64 csum_validation_failed;
+	u64 csum_err_bad_buffer;
+	u64 csum_err_invalid_ip_version;
+	u64 csum_err_invalid_transport;
+	u64 csum_fragmented_pkt;
+	u64 csum_skipped;
+	u64 csum_sw;
+};
+
 struct rmnet_priv {
 	u8 mux_id;
 	struct net_device *real_dev;
 	struct rmnet_pcpu_stats __percpu *pcpu_stats;
 	struct gro_cells gro_cells;
+	struct rmnet_priv_stats stats;
 };
 
 struct rmnet_port *rmnet_get_port(struct net_device *real_dev);

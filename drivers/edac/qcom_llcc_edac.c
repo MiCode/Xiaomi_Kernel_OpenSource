@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,13 +295,14 @@ static void dump_syn_reg(struct edac_device_ctl_info *edev_ctl,
 	errors[err_type].func(edev_ctl, 0, bank, errors[err_type].msg);
 }
 
-static void qcom_llcc_check_cache_errors
+static irqreturn_t qcom_llcc_check_cache_errors
 		(struct edac_device_ctl_info *edev_ctl)
 {
 	u32 drp_error;
 	u32 trp_error;
 	struct erp_drvdata *drv = edev_ctl->pvt_info;
 	u32 i;
+	irqreturn_t irq_rc = IRQ_NONE;
 
 	for (i = 0; i < drv->num_banks; i++) {
 		/* Look for Data RAM errors */
@@ -312,10 +313,12 @@ static void qcom_llcc_check_cache_errors
 			edac_printk(KERN_CRIT, EDAC_LLCC,
 				"Single Bit Error detected in Data Ram\n");
 			dump_syn_reg(edev_ctl, LLCC_DRAM_CE, i);
+			irq_rc = IRQ_HANDLED;
 		} else if (drp_error & DB_ECC_ERROR) {
 			edac_printk(KERN_CRIT, EDAC_LLCC,
 				"Double Bit Error detected in Data Ram\n");
 			dump_syn_reg(edev_ctl, LLCC_DRAM_UE, i);
+			irq_rc = IRQ_HANDLED;
 		}
 
 		/* Look for Tag RAM errors */
@@ -326,12 +329,16 @@ static void qcom_llcc_check_cache_errors
 			edac_printk(KERN_CRIT, EDAC_LLCC,
 				"Single Bit Error detected in Tag Ram\n");
 			dump_syn_reg(edev_ctl, LLCC_TRAM_CE, i);
+			irq_rc = IRQ_HANDLED;
 		} else if (trp_error & DB_ECC_ERROR) {
 			edac_printk(KERN_CRIT, EDAC_LLCC,
 				"Double Bit Error detected in Tag Ram\n");
 			dump_syn_reg(edev_ctl, LLCC_TRAM_UE, i);
+			irq_rc = IRQ_HANDLED;
 		}
 	}
+
+	return irq_rc;
 }
 
 #ifdef CONFIG_EDAC_LLCC_POLL
@@ -344,8 +351,7 @@ static void qcom_llcc_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
 static irqreturn_t llcc_ecc_irq_handler
 			(int irq, void *edev_ctl)
 {
-	qcom_llcc_check_cache_errors(edev_ctl);
-	return IRQ_HANDLED;
+	return qcom_llcc_check_cache_errors(edev_ctl);
 }
 
 static int qcom_llcc_erp_probe(struct platform_device *pdev)
@@ -431,7 +437,8 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 		}
 
 		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
-				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
+				IRQF_SHARED | IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+				"llcc_ecc", edev_ctl);
 		if (rc) {
 			dev_err(dev, "failed to request ecc irq\n");
 			goto out_dev;

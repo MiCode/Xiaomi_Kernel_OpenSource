@@ -24,17 +24,94 @@
 static struct tmc_drvdata *tmcdrvdata;
 
 static void tmc_etr_read_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
-			       size_t bytes, size_t *len)
+			       size_t bytes, size_t *len, char **bufp)
 {
-	if (*len >= bytes) {
-		atomic_dec(&byte_cntr_data->irq_cnt);
+
+	if (*bufp >= (char *)(tmcdrvdata->vaddr + tmcdrvdata->size))
+		*bufp = tmcdrvdata->vaddr;
+
+	if (*len >= bytes)
 		*len = bytes;
+	else if (((uint32_t)*ppos % bytes) + *len > bytes)
+		*len = bytes - ((uint32_t)*ppos % bytes);
+
+	if ((*bufp + *len) > (char *)(tmcdrvdata->vaddr +
+		tmcdrvdata->size))
+		*len = (char *)(tmcdrvdata->vaddr + tmcdrvdata->size) -
+			*bufp;
+	if (*len == bytes || (*len + (uint32_t)*ppos) % bytes == 0)
+		atomic_dec(&byte_cntr_data->irq_cnt);
+}
+
+static void tmc_etr_sg_read_pos(loff_t *ppos,
+				size_t bytes, bool noirq, size_t *len,
+				char **bufpp)
+{
+	uint32_t rwp, i = 0;
+	uint32_t blk_num, sg_tbl_num, blk_num_loc, read_off;
+	uint32_t *virt_pte, *virt_st_tbl;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(tmcdrvdata->size, PAGE_SIZE);
+	int ents_per_pg = PAGE_SIZE/sizeof(uint32_t);
+
+	if (*len == 0)
+		return;
+
+	blk_num = *ppos / PAGE_SIZE;
+	read_off = *ppos % PAGE_SIZE;
+
+	virt_st_tbl = (uint32_t *)tmcdrvdata->vaddr;
+
+	/* Compute table index and block entry index within that table */
+	if (blk_num && (blk_num == (total_ents - 1)) &&
+	    !(blk_num % (ents_per_pg - 1))) {
+		sg_tbl_num = blk_num / ents_per_pg;
+		blk_num_loc = ents_per_pg - 1;
 	} else {
-		if (((uint32_t)*ppos % bytes) + *len > bytes)
-			*len = bytes - ((uint32_t)*ppos % bytes);
-		if ((*len + (uint32_t)*ppos) % bytes == 0)
-			atomic_dec(&byte_cntr_data->irq_cnt);
+		sg_tbl_num = blk_num / (ents_per_pg - 1);
+		blk_num_loc = blk_num % (ents_per_pg - 1);
 	}
+
+	for (i = 0; i < sg_tbl_num; i++) {
+		virt_pte = virt_st_tbl + (ents_per_pg - 1);
+		phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+		virt_st_tbl = (uint32_t *)phys_to_virt(phys_pte);
+	}
+
+	virt_pte = virt_st_tbl + blk_num_loc;
+	phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+	virt_blk = phys_to_virt(phys_pte);
+
+	*bufpp = (char *)(virt_blk + read_off);
+
+	if (noirq) {
+		rwp = readl_relaxed(tmcdrvdata->base + TMC_RWP);
+		tmc_etr_sg_rwp_pos(tmcdrvdata, rwp);
+		if (tmcdrvdata->sg_blk_num == blk_num &&
+		    rwp >= (phys_pte + read_off))
+			*len = rwp - phys_pte - read_off;
+		else if (tmcdrvdata->sg_blk_num > blk_num)
+			*len = PAGE_SIZE - read_off;
+		else
+			*len = bytes;
+	} else {
+
+		if (*len > (PAGE_SIZE - read_off))
+			*len = PAGE_SIZE - read_off;
+
+		if (*len >= (bytes - ((uint32_t)*ppos % bytes)))
+			*len = bytes - ((uint32_t)*ppos % bytes);
+
+		if (*len == bytes || (*len + (uint32_t)*ppos) % bytes == 0)
+			atomic_dec(&tmcdrvdata->byte_cntr->irq_cnt);
+	}
+
+	/*
+	 * Invalidate cache range before reading. This will make sure that CPU
+	 * reads latest contents from DDR
+	 */
+	dmac_inv_range((void *)(*bufpp), (void *)(*bufpp) + *len);
 }
 
 static irqreturn_t etr_handler(int irq, void *data)
@@ -73,6 +150,8 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 	if (!byte_cntr_data->read_active)
 		goto err0;
 
+	bufp = (char *)(tmcdrvdata->buf + *ppos);
+
 	if (byte_cntr_data->enable) {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			mutex_unlock(&byte_cntr_data->byte_cntr_lock);
@@ -83,19 +162,38 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (!byte_cntr_data->read_active)
 				goto err0;
 		}
-		bufp = (char *)(tmcdrvdata->vaddr + *ppos);
 
-		tmc_etr_read_bytes(byte_cntr_data, ppos,
-					byte_cntr_data->block_size, &len);
+		if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+			tmc_etr_read_bytes(byte_cntr_data, ppos,
+					   byte_cntr_data->block_size, &len,
+					   &bufp);
+		else
+			tmc_etr_sg_read_pos(ppos, byte_cntr_data->block_size, 0,
+					    &len, &bufp);
+
 	} else {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
-			tmc_etr_flush_bytes(ppos, byte_cntr_data->block_size,
-									&len);
+			if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+				tmc_etr_flush_bytes(ppos,
+						    byte_cntr_data->block_size,
+						    &len);
+			else
+				tmc_etr_sg_read_pos(ppos,
+						    byte_cntr_data->block_size,
+						    1,
+						    &len, &bufp);
 			if (!len)
 				goto err0;
 		} else {
-			tmc_etr_read_bytes(byte_cntr_data, ppos,
-					byte_cntr_data->block_size, &len);
+			if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
+				tmc_etr_read_bytes(byte_cntr_data, ppos,
+						   byte_cntr_data->block_size,
+						   &len, &bufp);
+			else
+				tmc_etr_sg_read_pos(ppos,
+						    byte_cntr_data->block_size,
+						    1,
+						    &len, &bufp);
 		}
 	}
 

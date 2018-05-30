@@ -2454,6 +2454,23 @@ static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
 }
 
 /**
+ * _sde_crtc_clear_dim_layers_v1 - clear all dim layer settings
+ * @cstate:      Pointer to sde crtc state
+ */
+static void _sde_crtc_clear_dim_layers_v1(struct sde_crtc_state *cstate)
+{
+	u32 i;
+
+	if (!cstate)
+		return;
+
+	for (i = 0; i < cstate->num_dim_layers; i++)
+		memset(&cstate->dim_layer[i], 0, sizeof(cstate->dim_layer[i]));
+
+	cstate->num_dim_layers = 0;
+}
+
+/**
  * _sde_crtc_set_dim_layer_v1 - copy dim layer settings from userspace
  * @cstate:      Pointer to sde crtc state
  * @user_ptr:    User ptr for sde_drm_dim_layer_v1 struct
@@ -2473,6 +2490,8 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 	dim_layer = cstate->dim_layer;
 
 	if (!usr_ptr) {
+		/* usr_ptr is null when setting the default property value */
+		_sde_crtc_clear_dim_layers_v1(cstate);
 		SDE_DEBUG("dim_layer data removed\n");
 		return;
 	}
@@ -4094,6 +4113,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
+	struct sde_kms *sde_kms;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
@@ -4106,6 +4126,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms\n");
 		return;
 	}
 
@@ -4174,7 +4200,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
-	sde_core_perf_crtc_update(crtc, 0, true);
+	/* avoid clk/bw downvote if cont-splash is enabled */
+	if (!sde_kms->splash_data.cont_splash_en)
+		sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
@@ -4329,46 +4357,6 @@ static int pstate_cmp(const void *a, const void *b)
 	return rc;
 }
 
-static int _sde_crtc_excl_rect_overlap_check(struct plane_state pstates[],
-	int cnt, int curr_cnt, struct sde_rect *excl_rect)
-{
-	struct sde_rect dst_rect, intersect;
-	int i, rc = -EINVAL;
-	const struct drm_plane_state *pstate;
-
-	for (i = 0; i < cnt; i++) {
-		if (i == curr_cnt)
-			continue;
-
-		pstate = pstates[i].drm_pstate;
-		POPULATE_RECT(&dst_rect, pstate->crtc_x, pstate->crtc_y,
-				pstate->crtc_w, pstate->crtc_h, false);
-		sde_kms_rect_intersect(&dst_rect, excl_rect, &intersect);
-
-		/* complete intersection of excl_rect is required */
-		if (intersect.w == excl_rect->w && intersect.h == excl_rect->h
-			    /* intersecting rect should be in another z_order */
-			    && pstates[curr_cnt].stage != pstates[i].stage) {
-			rc = 0;
-			goto end;
-		}
-	}
-
-	SDE_ERROR(
-	    "no overlapping rect for [%d] z_pos:%d, excl_rect:{%d,%d,%d,%d}\n",
-			i, pstates[curr_cnt].stage,
-			excl_rect->x, excl_rect->y, excl_rect->w, excl_rect->h);
-	for (i = 0; i < cnt; i++) {
-		pstate = pstates[i].drm_pstate;
-		SDE_ERROR("[%d] p:%d, z_pos:%d, src:{%d,%d,%d,%d}\n",
-				i, pstate->plane->base.id, pstates[i].stage,
-				pstate->crtc_x, pstate->crtc_y,
-				pstate->crtc_w, pstate->crtc_h);
-	}
-end:
-	return rc;
-}
-
 /* no input validation - caller API has all the checks */
 static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		struct plane_state pstates[], int cnt)
@@ -4401,17 +4389,16 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		}
 	}
 
-	/* this is traversing on sorted z-order pstates */
+	/* log all src and excl_rect, useful for debugging */
 	for (i = 0; i < cnt; i++) {
 		pstate = pstates[i].drm_pstate;
 		sde_pstate = to_sde_plane_state(pstate);
-		if (sde_pstate->excl_rect.w && sde_pstate->excl_rect.h) {
-			/* check overlap on any other z-order */
-			rc = _sde_crtc_excl_rect_overlap_check(pstates, cnt,
-			     i, &sde_pstate->excl_rect);
-			if (rc)
-				goto end;
-		}
+		SDE_DEBUG("p %d z %d src{%d,%d,%d,%d} excl_rect{%d,%d,%d,%d}\n",
+			pstate->plane->base.id, pstates[i].stage,
+			pstate->crtc_x, pstate->crtc_y,
+			pstate->crtc_w, pstate->crtc_h,
+			sde_pstate->excl_rect.x, sde_pstate->excl_rect.y,
+			sde_pstate->excl_rect.w, sde_pstate->excl_rect.h);
 	}
 
 end:
@@ -5208,6 +5195,13 @@ static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 	 * triggered right after PP_DONE interrupt.
 	 */
 	offset = is_cmd ? 0 : (offset + conn_offset);
+
+	/*
+	 * Hwcomposer now queries the fences using the commit list in atomic
+	 * commit ioctl. The offset should be set to next timeline
+	 * which will be incremented during the prepare commit phase
+	 */
+	offset++;
 
 	return sde_fence_create(&sde_crtc->output_fence, val, offset);
 }

@@ -93,7 +93,7 @@ static enum vidc_status hfi_map_err_status(u32 hfi_err)
 	return vidc_err;
 }
 
-static enum msm_vidc_pixel_depth get_hal_pixel_depth(u32 hfi_bit_depth)
+static int get_hal_pixel_depth(u32 hfi_bit_depth)
 {
 	switch (hfi_bit_depth) {
 	case HFI_BITDEPTH_8: return MSM_VIDC_BIT_DEPTH_8;
@@ -119,7 +119,7 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
-	enum msm_vidc_pixel_depth luma_bit_depth, chroma_bit_depth;
+	int luma_bit_depth, chroma_bit_depth;
 	struct hfi_colour_space *colour_info;
 
 	if (sizeof(struct hfi_msg_event_notify_packet) > pkt->size) {
@@ -858,6 +858,37 @@ static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 	return 0;
 }
 
+static int copy_nal_stream_format_caps_to_sessions(u32 nal_stream_format_value,
+		struct msm_vidc_capability *capabilities, u32 num_sessions,
+		u32 codecs, u32 domain)
+{
+	u32 i = 0;
+	struct msm_vidc_capability *capability;
+	u32 sess_codec;
+	u32 sess_domain;
+
+	for (i = 0; i < num_sessions; i++) {
+		sess_codec = 0;
+		sess_domain = 0;
+		capability = &capabilities[i];
+
+		if (capability->codec)
+			sess_codec =
+				vidc_get_hfi_codec(capability->codec);
+		if (capability->domain)
+			sess_domain =
+				vidc_get_hfi_domain(capability->domain);
+
+		if (!(sess_codec & codecs && sess_domain & domain))
+			continue;
+
+		capability->nal_stream_format.nal_stream_format_supported =
+				nal_stream_format_value;
+	}
+
+	return 0;
+}
+
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
@@ -986,6 +1017,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 		}
 		case HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SUPPORTED:
 		{
+			struct hfi_nal_stream_format_supported *prop =
+				(struct hfi_nal_stream_format_supported *)
+					(data_ptr + next_offset);
+
+			copy_nal_stream_format_caps_to_sessions(
+					prop->nal_stream_format_supported,
+					capabilities, num_sessions,
+					codecs, domain);
+
 			next_offset +=
 				sizeof(struct hfi_nal_stream_format_supported);
 			num_properties--;

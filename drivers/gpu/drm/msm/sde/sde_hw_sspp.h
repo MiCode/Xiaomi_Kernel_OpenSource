@@ -56,6 +56,7 @@ enum {
  * SDE_SSPP_RECT_SOLO - multirect disabled
  * SDE_SSPP_RECT_0 - rect0 of a multirect pipe
  * SDE_SSPP_RECT_1 - rect1 of a multirect pipe
+ * SDE_SSPP_RECT_MAX - max enum of multirect pipe
  *
  * Note: HW supports multirect with either RECT0 or
  * RECT1. Considering no benefit of such configs over
@@ -66,6 +67,7 @@ enum sde_sspp_multirect_index {
 	SDE_SSPP_RECT_SOLO = 0,
 	SDE_SSPP_RECT_0,
 	SDE_SSPP_RECT_1,
+	SDE_SSPP_RECT_MAX,
 };
 
 enum sde_sspp_multirect_mode {

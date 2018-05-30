@@ -1,4 +1,4 @@
-Qualcomm mdss-dsi-panel
+Qualcomm Technologies, Inc. mdss-dsi-panel
 
 mdss-dsi-panel is a dsi panel device which supports panels that
 are compatible with MIPI display serial interface specification.
@@ -12,6 +12,7 @@ Required properties:
 					This property specifies the version
 					for DSI HW that this panel will work with
 					"qcom,dsi-panel-v2" = DSI V2.0
+					"qcom,msm-dsi-v2" = DSI V2.0
 - status:        			This property applies to DSI V2 panels only.
 					This property should not be added for panels
 					that work based on version "V6.0"
@@ -37,8 +38,10 @@ Required properties:
 					"display_2" = DISPLAY_2
 - qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
 					timing settings for the panel.
-- qcom,mdss-dsi-panel-timings-8996:		An array of length 40 char that specifies the 8996 PHY lane
-					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
+					lane timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-12nm: An array of length 8 char that specifies the 12nm DSI PHY
+					lane timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -61,8 +64,38 @@ Required properties:
 						 transmitted
 					byte 5, 6: 16 bits length in network byte order
 					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-on:		This is used to enable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-off:		This is used to disable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
 - qcom,mdss-dsi-post-panel-on-command:	same as "qcom,mdss-dsi-on-command" except commands are
 					sent after displaying an image.
+
+- qcom,mdss-dsi-idle-on-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode entry.
+
+- qcom,mdss-dsi-idle-off-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode exit.
 
 Note, if a short DCS packet(i.e packet with Byte 0:dcs data type as 05) mentioned in
 qcom,mdss-dsi-on-command/qcom,mdss-dsi-off-command stream fails to transmit,
@@ -248,6 +281,35 @@ Optional properties:
 					60 = 60 frames per second (default)
 - qcom,mdss-dsi-panel-clockrate:	A 64 bit value specifies the panel clock speed in Hz.
 					0 = default value.
+- qcom,mdss-mdp-kickoff-threshold:	This property can be used to define a region
+					(in terms of scanlines) where the
+hardware is allowed
+					to trigger a data transfer from MDP to DSI.
+					If this property is used, the region must be defined setting
+					two values, the low and the high thresholds:
+					<low_threshold high_threshold>
+					Where following condition must be met:
+					low_threshold < high_threshold
+					These values will be used by the driver in such way that if
+					the Driver receives a request to kickoff a transfer (MDP to DSI),
+					the transfer will be triggered only if the following condition
+					is satisfied:
+					low_threshold < scanline < high_threshold
+					If the condition is not met, then the driver will delay the
+					transfer by the time defined in the following property:
+					"qcom,mdss-mdp-kickoff-delay".
+					So in order to use this property, the delay property must
+					be defined as well and greater than 0.
+- qcom,mdss-mdp-kickoff-delay:	This property defines the delay in microseconds that
+					the driver will delay before triggering an MDP transfer if the
+					thresholds defined by the following property are not met:
+					"qcom,mdss-mdp-kickoff-threshold".
+					So in order to use this property, the threshold property must
+					be defined as well. Note that this delay cannot be zero
+					and also should not be greater than
+the fps window.
+					i.e. For 60fps value should not exceed
+16666 uS.
 - qcom,mdss-mdp-transfer-time-us:	Specifies the dsi transfer time for command mode
 					panels in microseconds. Driver uses this number to adjust
 					the clock rate according to the expected transfer time.
@@ -275,14 +337,10 @@ Optional properties:
 					to the physical width in the framebuffer information.
 - qcom,mdss-pan-physical-height-dimension:	Specifies panel physical height in mm which corresponds
 					to the physical height in the framebuffer information.
-- qcom,mdss-dsi-mode-sel-gpio-state:	String that specifies the lcd mode for panel
-					(such as single-port/dual-port), if qcom,panel-mode-gpio
-					binding is defined in dsi controller.
-					"dual_port" = Set GPIO to LOW
-					"single_port" = Set GPIO to HIGH
+- qcom,mdss-dsi-panel-mode-gpio-state:	String that specifies the mode state for panel if it is defined
+					in dsi controller.
 					"high" = Set GPIO to HIGH
 					"low" = Set GPIO to LOW
-					The default value is "dual_port".
 - qcom,mdss-tear-check-disable:		Boolean to disable mdp tear check. Tear check is enabled by default to avoid
 					tearing. Other tear-check properties are ignored if this property is present.
 					The below tear check configuration properties can be individually tuned if
@@ -330,6 +388,28 @@ Optional properties:
 					2A/2B command.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
+- qcom,mdss-dsi-panel-hdr-enabled:	Boolean to indicate HDR support in panel.
+- qcom,mdss-dsi-panel-hdr-color-primaries:
+					Array of 8 unsigned integers denoting chromaticity of panel.These
+					values are specified in nits units. The value range is 0 through 50000.
+					To obtain real chromacity, these values should be divided by factor of
+					50000. The structure of array is defined in below order
+						value 1: x value of white chromaticity of display panel
+						value 2: y value of white chromaticity of display panel
+						value 3: x value of red chromaticity of display panel
+						value 4: y value of red chromaticity of display panel
+						value 5: x value of green chromaticity of display panel
+						value 6: y value of green chromaticity of display panel
+						value 7: x value of blue chromaticity of display panel
+						value 8: y value of blue chromaticity of display panel
+- qcom,mdss-dsi-panel-peak-brightness:	Maximum brightness supported by panel.In absence of maximum value
+					typical value becomes peak brightness. Value is specified in nits units.
+					To obtail real peak brightness, this value should be divided by factor of
+					10000.
+- qcom,mdss-dsi-panel-blackness-level:	Blackness level supported by panel. Blackness level is defined as
+					ratio of peak brightness to contrast. Value is specified in nits units.
+					To obtail real blackness level, this value should be divided by factor of
+					10000.
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
@@ -424,7 +504,11 @@ Optional properties:
 					fields in the supply entry, refer to the qcom,ctrl-supply-entries
 					binding above.
 - qcom,config-select:			Optional property to select default configuration.
-
+- qcom,panel-allow-phy-poweroff:	A boolean property indicates that panel allows to turn off the phy power
+					supply during idle screen. A panel should able to handle the dsi lanes
+					in floating state(not LP00 or LP11) to turn on this property. Software
+					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
+					idle screen (footswitch control off) when this property is enabled.
 [[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
 					Default configuration can be chosen by specifying phandle of the
 					selected subnode in the qcom,config-select.
@@ -471,6 +555,7 @@ Optional properites:
 					to a non-DSI interface.
 - qcom,bridge-name:			A string to indicate the name of the bridge chip connected to DSI. qcom,bridge-name
 					is required if qcom,dba-panel is defined for the panel.
+- qcom,hdmi-mode:			Indicates where current panel is HDMI mode, otherwise, it will be DVI mode.
 - qcom,adjust-timer-wakeup-ms:		An integer value to indicate the timer delay(in ms) to accommodate
 					s/w delay while configuring the event timer wakeup logic.
 
@@ -492,6 +577,8 @@ Additional properties added to the second level nodes that represent timings pro
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
+
+Note, all the "qcom,supply-*" properties have their definitions in mdss-dsi-txt.
 
 Example:
 &mdss_mdp {
@@ -538,7 +625,6 @@ Example:
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = < 15>;
-		qcom,mdss-brightness-max-level = <255>;
 		qcom,mdss-dsi-interleave-mode = <0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-te-check-enable;
@@ -568,19 +654,26 @@ Example:
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-panel-clockrate = <424000000>;
+		qcom,mdss-mdp-kickoff-threshold = <11 2430>;
+		qcom,mdss-mdp-kickoff-delay = <1000>;
 		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
-                qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
+                qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 2e 06 08 05 03 04 a0];
+                qcom,mdss-dsi-panel-timings-phy-12nm =
+				[a9 4e 56 0b 8a 4d 0b d6];
 		qcom,mdss-dsi-on-command = [32 01 00 00 00 00 02 00 00
 					29 01 00 00 10 00 02 FF 99];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command = [22 01 00 00 00 00 00];
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-lp-mode-on = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 FF 99];
+		qcom,mdss-dsi-lp-mode-off = [22 01 00 00 00 00 00];
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
@@ -592,7 +685,7 @@ Example:
 		qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 		qcom,mdss-pan-physical-width-dimension = <60>;
 		qcom,mdss-pan-physical-height-dimension = <140>;
-		qcom,mdss-dsi-mode-sel-gpio-state = "dsc_mode";
+		qcom,mdss-dsi-panel-mode-gpio-state = "low";
 		qcom,mdss-tear-check-sync-cfg-height = <0xfff0>;
 		qcom,mdss-tear-check-sync-init-val = <1280>;
 		qcom,mdss-tear-check-sync-threshold-start = <4>;
@@ -611,6 +704,7 @@ Example:
 		qcom,suspend-ulps-enabled;
 		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 		qcom,esd-check-enabled;
+		qcom,panel-allow-phy-poweroff;
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
@@ -682,6 +776,7 @@ Example:
 				qcom,supply-max-voltage = <2800000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
 				qcom,supply-pre-off-sleep = <0>;
@@ -695,6 +790,7 @@ Example:
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
 				qcom,supply-pre-off-sleep = <0>;

@@ -915,6 +915,9 @@ struct arm_pmu *armpmu_alloc(void)
 		events->percpu_pmu = pmu;
 	}
 
+	pmu->pmu_state  = ARM_PMU_STATE_OFF;
+	pmu->percpu_irq = -1;
+
 	return pmu;
 
 out_free_pmu:
@@ -943,9 +946,6 @@ int armpmu_register(struct arm_pmu *pmu)
 
 	if (!__oprofile_cpu_pmu)
 		__oprofile_cpu_pmu = pmu;
-
-	pmu->pmu_state  = ARM_PMU_STATE_OFF;
-	pmu->percpu_irq = -1;
 
 	pr_info("enabled with %s PMU driver, %d counters available\n",
 		pmu->name, pmu->num_events);

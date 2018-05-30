@@ -26,7 +26,7 @@
 #include "kgsl_snapshot.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_drawobj.h"
-#include "kgsl_gmu.h"
+#include "kgsl_gmu_core.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
@@ -128,10 +128,6 @@ struct kgsl_functable {
 	int (*init)(struct kgsl_device *device);
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
-	void (*gmu_regread)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int *value);
-	void (*gmu_regwrite)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int value);
 	int (*getproperty)(struct kgsl_device *device,
 		unsigned int type, void __user *value,
 		size_t sizebytes);
@@ -190,6 +186,8 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
+	void (*dispatcher_halt)(struct kgsl_device *device);
+	void (*dispatcher_unhalt)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -267,7 +265,7 @@ struct kgsl_device {
 	const char *shadermemname;
 
 	struct kgsl_mmu mmu;
-	struct gmu_device gmu;
+	struct gmu_core_device gmu_core;
 	struct completion hwaccess_gate;
 	struct completion halt_gate;
 	const struct kgsl_functable *ftbl;
@@ -443,6 +441,7 @@ struct kgsl_context {
  * @syncsource_lock: Spinlock to protect the syncsource idr
  * @fd_count: Counter for the number of FDs for this process
  * @ctxt_count: Count for the number of contexts for this process
+ * @ctxt_count_lock: Spinlock to protect ctxt_count
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -463,6 +462,7 @@ struct kgsl_process_private {
 	spinlock_t syncsource_lock;
 	int fd_count;
 	atomic_t ctxt_count;
+	spinlock_t ctxt_count_lock;
 };
 
 /**
@@ -562,26 +562,14 @@ static inline bool kgsl_is_register_offset(struct kgsl_device *device,
 	return ((offsetwords * sizeof(uint32_t)) < device->reg_len);
 }
 
-static inline bool kgsl_is_gmu_offset(struct kgsl_device *device,
-				unsigned int offsetwords)
-{
-	struct gmu_device *gmu = &device->gmu;
-
-	return (gmu->pdev &&
-		(offsetwords >= gmu->gmu2gpu_offset) &&
-		((offsetwords - gmu->gmu2gpu_offset) * sizeof(uint32_t) <
-			gmu->reg_len));
-}
-
 static inline void kgsl_regread(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int *value)
 {
 	if (kgsl_is_register_offset(device, offsetwords))
 		device->ftbl->regread(device, offsetwords, value);
-	else if (device->ftbl->gmu_regread &&
-			kgsl_is_gmu_offset(device, offsetwords))
-		device->ftbl->gmu_regread(device, offsetwords, value);
+	else if (gmu_core_is_register_offset(device, offsetwords))
+		gmu_core_regread(device, offsetwords, value);
 	else {
 		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
 		*value = 0;
@@ -594,29 +582,10 @@ static inline void kgsl_regwrite(struct kgsl_device *device,
 {
 	if (kgsl_is_register_offset(device, offsetwords))
 		device->ftbl->regwrite(device, offsetwords, value);
-	else if (device->ftbl->gmu_regwrite &&
-			kgsl_is_gmu_offset(device, offsetwords))
-		device->ftbl->gmu_regwrite(device, offsetwords, value);
+	else if (gmu_core_is_register_offset(device, offsetwords))
+		gmu_core_regwrite(device, offsetwords, value);
 	else
 		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
-}
-
-static inline void kgsl_gmu_regread(struct kgsl_device *device,
-				unsigned int offsetwords,
-				unsigned int *value)
-{
-	if (device->ftbl->gmu_regread)
-		device->ftbl->gmu_regread(device, offsetwords, value);
-	else
-		*value = 0;
-}
-
-static inline void kgsl_gmu_regwrite(struct kgsl_device *device,
-				 unsigned int offsetwords,
-				 unsigned int value)
-{
-	if (device->ftbl->gmu_regwrite)
-		device->ftbl->gmu_regwrite(device, offsetwords, value);
 }
 
 static inline void kgsl_regrmw(struct kgsl_device *device,
@@ -628,17 +597,6 @@ static inline void kgsl_regrmw(struct kgsl_device *device,
 	kgsl_regread(device, offsetwords, &val);
 	val &= ~mask;
 	kgsl_regwrite(device, offsetwords, val | bits);
-}
-
-static inline void kgsl_gmu_regrmw(struct kgsl_device *device,
-		unsigned int offsetwords,
-		unsigned int mask, unsigned int bits)
-{
-	unsigned int val = 0;
-
-	kgsl_gmu_regread(device, offsetwords, &val);
-	val &= ~mask;
-	kgsl_gmu_regwrite(device, offsetwords, val | bits);
 }
 
 static inline int kgsl_idle(struct kgsl_device *device)
@@ -685,13 +643,11 @@ static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
 
 static inline int kgsl_state_is_awake(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
-
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (kgsl_gmu_isenabled(device) &&
-			test_bit(GMU_CLK_ON, &gmu->flags))
+	else if (gmu_core_isenabled(device) &&
+			gmu_core_testbit(device, GMU_CLK_ON))
 		return true;
 	else
 		return false;

@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,mlp466076_3250mah_averaged_masterslave_mar27th2018 {
+	/* #mlp466076_3250mAh_averaged_MasterSlave_Mar27th2018 */
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <6000000>;
+	qcom,jeita-fcc-ranges = <0  150  650000
+				151 450  4875000
+				451 550  1625000>;
+	qcom,jeita-fv-ranges = <0   150  4150000
+				151 450  4400000
+				451 550  4150000>;
+	qcom,batt-id-kohm = <133>;
+	qcom,battery-beta = <4250>;
+	qcom,therm-room-temp = <100000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "mlp466076_3250mah_mar27th2018";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,checksum = <0xC5FF>;
+	qcom,gui-version = "PM855GUI - 0.0.0.32";
+	qcom,fg-profile-data = [
+		 09 00 31 EA
+		 85 C4 5A BA
+		 33 AA 00 00
+		 EE BC 66 8B
+		 F6 87 AC 95
+		 78 9A D2 87
+		 2F 00 6C 0C
+		 EF 02 B0 04
+		 41 02 CE 07
+		 00 00 A6 00
+		 70 07 CD 06
+		 64 14 66 25
+		 55 1C 06 0A
+		 E8 3A C0 43
+		 40 00 37 00
+		 40 00 4D 00
+		 41 00 33 00
+		 38 00 3B 00
+		 43 00 4C 00
+		 40 00 40 00
+		 3E 00 3B 00
+		 34 00 32 00
+		 2F 00 56 00
+		 4A 64 42 00
+		 49 00 40 08
+		 40 00 36 00
+		 36 00 40 10
+		 3C 10 36 00
+		 64 28 4A 48
+		 3E 60 39 0C
+		 40 00 D8 00
+		 66 20 C1 0C
+		 C7 02 61 FE
+		 2A 1C EA 0B
+		 5A 0D A2 22
+		 F6 17 3A 42
+		 2E 55 7F 02
+		 71 13 47 20
+		 B9 04 2E 0B
+		 9E 05 D4 1C
+		 D5 03 F7 05
+		 4D 02 8C 18
+		 D4 22 B5 45
+		 90 52 7F 14
+		 AE 20 60 04
+		 68 CB 66 AD
+		 DC 1C 7C D1
+		 B1 05 D3 BA
+		 78 18 AA 8A
+		 FD 85 18 92
+		 8F A0 09 80
+		 43 00 82 FC
+		 33 03 25 02
+		 00 F8 FE EC
+		 F4 DB F1 F7
+		 68 0B EA 14
+		 71 20 20 18
+		 A6 1E BD 03
+		 C8 05 54 01
+		 CE 07 32 00
+		 15 03 4D 02
+		 90 02 35 04
+		 01 03 1D 03
+		 47 03 DB 02
+		 52 05 40 00
+		 3B 00 3E 00
+		 3F 64 40 00
+		 41 00 3E 08
+		 43 F8 40 00
+		 40 08 40 10
+		 40 10 36 00
+		 3F 28 42 48
+		 42 60 47 0C
+		 38 00 39 00
+		 3F 08 40 00
+		 40 00 40 00
+		 2F 10 3D 10
+		 3B 00 42 20
+		 53 40 37 58
+		 3D 0E 41 00
+		 40 00 40 08
+		 D8 00 28 20
+		 94 05 44 0A
+		 23 0D 8F 1C
+		 08 22 3D 45
+		 C4 52 4F 18
+		 41 02 26 05
+		 86 02 6A 11
+		 3F 0A EA 1F
+		 59 05 BC 02
+		 FA 05 A2 1C
+		 77 03 92 05
+		 A5 02 84 18
+		 A0 03 34 04
+		 C6 02 67 00
+		 E9 1F 2B 05
+		 FE 02 A8 05
+		 C4 1C 83 02
+		 F1 04 66 03
+		 A6 18 FC 02
+		 65 05 28 03
+		 71 00 61 01
+		 C0 00 FA 00
+		 38 0D 00 00
+	];
+};
