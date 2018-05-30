@@ -3270,10 +3270,9 @@ static struct config_item_type gsi_func_rndis_type = {
 static int gsi_set_inst_name(struct usb_function_instance *fi,
 	const char *name)
 {
-	int name_len, ret = 0;
+	int name_len, prot_id, ret = 0;
 	struct gsi_opts *opts;
 	struct f_gsi *gsi;
-	enum usb_prot_id prot_id;
 
 	opts = container_of(fi, struct gsi_opts, func_inst);
 
