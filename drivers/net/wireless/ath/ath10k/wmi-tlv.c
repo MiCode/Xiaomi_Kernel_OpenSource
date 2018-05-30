@@ -3079,6 +3079,37 @@ ath10k_wmi_tlv_op_gen_tdls_peer_update(struct ath10k *ar,
 }
 
 static struct sk_buff *
+ath10k_wmi_tlv_op_gen_csa_offload(struct ath10k *ar, u32 vdev_id, bool enable)
+{
+	struct wmi_csa_offload_enable_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	int len;
+
+	len = sizeof(*cmd) + sizeof(*tlv);
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	tlv = (void *)skb->data;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_CSA_OFFLOAD_ENABLE_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (void *)tlv->value;
+
+	cmd->vdev_id = __cpu_to_le32(vdev_id);
+	if (enable)
+		cmd->csa_offload_enable |=
+			 __cpu_to_le32(WMI_CSA_OFFLOAD_ENABLE);
+	else
+		cmd->csa_offload_enable |=
+			__cpu_to_le32(WMI_CSA_OFFLOAD_DISABLE);
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI,
+		   "wmi CSA offload for vdev: %d\n", vdev_id);
+	return skb;
+}
+
+static struct sk_buff *
 ath10k_wmi_op_gen_gtk_offload(struct ath10k *ar, struct ath10k_vif *arvif)
 {
 	struct wmi_tlv_gtk_offload_cmd *cmd;
@@ -3895,6 +3926,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.gen_sta_keepalive = ath10k_wmi_tlv_op_gen_sta_keepalive,
 	.gen_set_arp_ns_offload = ath10k_wmi_tlv_op_gen_set_arp_ns_offload,
 	.gen_gtk_offload = ath10k_wmi_op_gen_gtk_offload,
+	.gen_csa_offload = ath10k_wmi_tlv_op_gen_csa_offload,
 	.gen_wow_enable = ath10k_wmi_tlv_op_gen_wow_enable,
 	.gen_wow_add_wakeup_event = ath10k_wmi_tlv_op_gen_wow_add_wakeup_event,
 	.gen_wow_host_wakeup_ind = ath10k_wmi_tlv_gen_wow_host_wakeup_ind,

@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "QSEECOM: %s:%d : " fmt, __func__, __LINE__
+
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -18,7 +20,6 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/delay.h>
-#include <linux/of.h>
 
 #include <asm/cacheflush.h>
 #include <asm/compiler.h>
@@ -29,6 +30,12 @@
 #include <trace/events/scm.h>
 
 #include <linux/habmm.h>
+
+#ifdef CONFIG_GHS_VMM
+#include <../../staging/android/ion/ion_hvenv_driver.h>
+#include <linux/msm_ion.h>
+#include <soc/qcom/qseecomi.h>
+#endif
 
 #define SCM_ENOMEM			(-5)
 #define SCM_EOPNOTSUPP		(-4)
@@ -68,7 +75,8 @@ DEFINE_MUTEX(scm_lmh_lock);
 	else \
 		result = x + y; \
 	result; \
-	})
+})
+
 /**
  * struct scm_command - one SCM command buffer
  * @len: total available memory for command and response
@@ -113,6 +121,19 @@ struct scm_response {
 	u32	is_complete;
 };
 
+struct scm_extra_arg {
+	union {
+		u32 args32[N_EXT_SCM_ARGS];
+		u64 args64[N_EXT_SCM_ARGS];
+	};
+};
+
+struct smc_params_s {
+	uint64_t fn_id;
+	uint64_t arginfo;
+	uint64_t args[MAX_SCM_ARGS];
+} __packed;
+
 #ifdef CONFIG_ARM64
 
 #define R0_STR "x0"
@@ -140,6 +161,16 @@ struct scm_response {
 #define R6_STR "r6"
 
 #endif
+
+static enum scm_interface_version {
+	SCM_UNKNOWN,
+	SCM_LEGACY,
+	SCM_ARMV8_32,
+	SCM_ARMV8_64,
+} scm_version = SCM_UNKNOWN;
+
+/* This will be set to specify SMC32 or SMC64 */
+static u32 scm_version_mask;
 
 /**
  * scm_command_to_response() - Get a pointer to a scm_response
@@ -195,76 +226,280 @@ static int scm_remap_error(int err)
 	return -EINVAL;
 }
 
-#define MAX_SCM_ARGS 10
+#ifdef CONFIG_GHS_VMM
+enum SCM_QCPE_IONIZE {
+	/* args[0] - physical addr, args[1] - length */
+	IONIZE_IDX_0,
 
-struct qcpe_msg_s {
-	uint64_t fn_id;
-	uint64_t arginfo;
-	uint64_t args[MAX_SCM_ARGS];
+	/* args[1] - physical addr, args[2] - length */
+	IONIZE_IDX_1,
+
+	/* args[0] - physical addr, args[1] - length */
+	/* args[2] - physical addr, args[3] - length */
+	IONIZE_IDX_0_2,
+
+	/* args[2] - physical addr, args[3] - length */
+	IONIZE_IDX_2,
+
+	/* args[5] - physical addr, args[6] - length */
+	IONIZE_IDX_5
 };
+
+static struct ion_client *ion_clnt;
+
+static int  scm_ion_alloc(size_t len, void **vaddr,
+	ion_phys_addr_t *paddr, struct ion_handle **ihandle)
+{
+	struct ion_handle *ihndl = NULL;
+	void *mvaddr;
+	ion_phys_addr_t mpaddr;
+	int ret = 0;
+
+	if (!ion_clnt) {
+		ion_clnt = hvenv_ion_client_create("qseecom-kernel");
+		if (IS_ERR_OR_NULL(ion_clnt)) {
+			pr_err("Ion client cannot be created\n");
+			return SCM_ENOMEM;
+		}
+	}
+
+	ihndl = ion_alloc(ion_clnt, len,
+			SZ_4K, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(ihandle)) {
+		pr_err("ION alloc failed\n");
+		return SCM_ENOMEM;
+	}
+
+	mvaddr = ion_map_kernel(ion_clnt, ihndl);
+	if (IS_ERR_OR_NULL(mvaddr)) {
+		pr_err("ION memory mapping for image loading failed\n");
+		ret = SCM_ENOMEM;
+		goto free_ion;
+	}
+
+	ret = ion_phys(ion_clnt, ihndl, &mpaddr, &len);
+	if (ret) {
+		pr_err("physical memory retrieval failure\n");
+		ret = SCM_ENOMEM;
+		goto unmap_ion;
+
+	}
+
+	*vaddr = mvaddr;
+	*paddr = mpaddr;
+	*ihandle = ihndl;
+	return ret;
+
+unmap_ion:
+	ion_unmap_kernel(ion_clnt, ihndl);
+free_ion:
+	ion_free(ion_clnt, ihndl);
+	return ret;
+}
+
+static int scm_ionize(enum SCM_QCPE_IONIZE idx,
+		u64 *args, struct ion_handle **ihandle)
+{
+	ion_phys_addr_t ion_paddr;
+	void *krn_vaddr;
+	void *ion_vaddr;
+	size_t len, len1;
+	struct ion_handle *ihndl = NULL;
+	int ret = 0;
+
+	switch (idx) {
+	case IONIZE_IDX_0:
+		len = (size_t)args[1];
+		ret = scm_ion_alloc(len, &ion_vaddr, &ion_paddr, &ihndl);
+		if (ret)
+			break;
+		krn_vaddr = phys_to_virt(args[0]);
+		memcpy(ion_vaddr, krn_vaddr, len);
+		args[0] = ion_paddr;
+		break;
+
+	case IONIZE_IDX_1:
+		len = (size_t)args[2];
+		ret = scm_ion_alloc(len, &ion_vaddr, &ion_paddr, &ihndl);
+		if (ret)
+			break;
+		krn_vaddr = phys_to_virt(args[1]);
+		memcpy(ion_vaddr, krn_vaddr, len);
+		args[1] = ion_paddr;
+		break;
+
+	case IONIZE_IDX_0_2:
+		len = (size_t)args[1] + (size_t)args[3];
+		ret = scm_ion_alloc(len, &ion_vaddr, &ion_paddr, &ihndl);
+		if (ret)
+			break;
+		krn_vaddr = phys_to_virt(args[0]);
+		len = (size_t)args[1];
+		memcpy(ion_vaddr, krn_vaddr, len);
+		args[0] = ion_paddr;
+
+		krn_vaddr = phys_to_virt(args[2]);
+		len1 = (size_t)args[3];
+		memcpy((uint8_t *)ion_vaddr + len, krn_vaddr, len1);
+		args[2] = ion_paddr;
+		break;
+
+	case IONIZE_IDX_2:
+		len = (size_t)args[3];
+		ret = scm_ion_alloc(len, &ion_vaddr, &ion_paddr, &ihndl);
+		if (ret)
+			break;
+		krn_vaddr = phys_to_virt(args[2]);
+		memcpy(ion_vaddr, krn_vaddr, len);
+		args[2] = ion_paddr;
+		break;
+
+	case IONIZE_IDX_5:
+		len = (size_t)args[6];
+		ret = scm_ion_alloc(len, &ion_vaddr, &ion_paddr, &ihndl);
+		if (ret)
+			break;
+		krn_vaddr = phys_to_virt(args[5]);
+		memcpy(ion_vaddr, krn_vaddr, len);
+		args[5] = ion_paddr;
+		break;
+	default:
+		break;
+	}
+	*ihandle = ihndl;
+	return ret;
+}
+
+static int ionize_buffers(u32 fn_id,
+		struct smc_params_s *desc, struct ion_handle **ihandle)
+{
+	struct ion_handle *ihndl = NULL;
+	int ret = 0;
+
+	switch (fn_id) {
+	case TZ_OS_APP_LOOKUP_ID:
+	case TZ_OS_KS_GEN_KEY_ID:
+	case TZ_OS_KS_DEL_KEY_ID:
+	case TZ_OS_KS_SET_PIPE_KEY_ID:
+	case TZ_OS_KS_UPDATE_KEY_ID:
+		ret = scm_ionize(IONIZE_IDX_0, desc->args, &ihndl);
+		break;
+
+	case TZ_ES_SAVE_PARTITION_HASH_ID:
+		ret = scm_ionize(IONIZE_IDX_1, desc->args, &ihndl);
+		break;
+
+	case TZ_OS_LISTENER_RESPONSE_HANDLER_WITH_WHITELIST_ID:
+		ret = scm_ionize(IONIZE_IDX_2, desc->args, &ihndl);
+		break;
+
+	case TZ_APP_QSAPP_SEND_DATA_WITH_WHITELIST_ID:
+	case TZ_APP_GPAPP_OPEN_SESSION_WITH_WHITELIST_ID:
+	case TZ_APP_GPAPP_INVOKE_COMMAND_WITH_WHITELIST_ID:
+		ret = scm_ionize(IONIZE_IDX_5, desc->args, &ihndl);
+		break;
+	default:
+		break;
+	}
+	*ihandle = ihndl;
+	return ret;
+}
+
+static void free_ion_buffers(struct ion_handle *ihandle)
+{
+	ion_free(ion_clnt, ihandle);
+}
+#endif
 
 static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 {
 	static bool opened;
 	static u32 handle;
-	u32 ret;
 	u32 size_bytes;
-	struct qcpe_msg_s msg;
+	int i;
+	uint64_t arglen = desc->arginfo & 0xf;
+	struct smc_params_s smc_params = {0,};
+	int ret;
+#ifdef CONFIG_GHS_VMM
+	struct ion_handle *ihandle = NULL;
+#endif
 
-	pr_info("scm_call_qcpe: IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx",
-		fn_id, desc->arginfo, desc->args[0], desc->args[1],
-		desc->args[2], desc->args[3], desc->args[4],
-		desc->args[5], desc->args[6]);
+	pr_info("\nscm_call_qcpe: IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
+			fn_id, desc->arginfo, desc->args[0], desc->args[1],
+			desc->args[2], desc->args[3], desc->x5);
 
 	if (!opened) {
 		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
 		if (ret) {
-			pr_err("scm_call_qcpe: habmm_socket_open failed with ret = %d",
-				ret);
+			pr_err(
+			"scm_call_qcpe: habmm_socket_open failed with ret = %d",
+			ret);
 			return ret;
 		}
 		opened = true;
 	}
 
-	msg.fn_id = fn_id | 0x40000000; /* SMC64_MASK */
-	msg.arginfo = desc->arginfo;
-	msg.args[0] = desc->args[0];
-	msg.args[1] = desc->args[1];
-	msg.args[2] = desc->args[2];
-	msg.args[3] = desc->x5;
-	msg.args[4] = 0;
+	smc_params.fn_id   = fn_id | scm_version_mask;
+	smc_params.arginfo = desc->arginfo;
+	smc_params.args[0] = desc->args[0];
+	smc_params.args[1] = desc->args[1];
+	smc_params.args[2] = desc->args[2];
 
-	ret = habmm_socket_send(handle, &msg, sizeof(msg), 0);
-	if (ret) {
-		pr_err("scm_call_qcpe: habmm_socket_send failed with ret = %d",
-			ret);
-		return ret;
+#ifdef CONFIG_GHS_VMM
+	if (arglen <= N_REGISTER_ARGS) {
+		smc_params.args[FIRST_EXT_ARG_IDX] = desc->x5;
+	} else {
+		struct scm_extra_arg *argbuf =
+				(struct scm_extra_arg *)desc->extra_arg_buf;
+		int j = 0;
+
+		if (scm_version == SCM_ARMV8_64)
+			for (i = FIRST_EXT_ARG_IDX; i < MAX_SCM_ARGS; i++)
+				smc_params.args[i] = argbuf->args64[j++];
+		else
+			for (i = FIRST_EXT_ARG_IDX; i < MAX_SCM_ARGS; i++)
+				smc_params.args[i] = argbuf->args32[j++];
 	}
 
-	size_bytes = sizeof(msg);
-	memset(&msg, 0x0, sizeof(msg));
-
-	ret = habmm_socket_recv(handle, &msg, &size_bytes, 0, 0);
-	if (ret) {
-		pr_err("scm_call_qcpe: habmm_socket_recv failed with ret = %d",
-			ret);
+	ret = ionize_buffers(fn_id & (~SMC64_MASK), &smc_params, &ihandle);
+	if (ret)
 		return ret;
-	}
+#else
+	smc_params.args[3] = desc->x5;
+	smc_params.args[4] = 0;
+#endif
 
-	if (size_bytes != sizeof(msg)) {
+	ret = habmm_socket_send(handle, &smc_params, sizeof(smc_params), 0);
+	if (ret)
+		goto err_ret;
+
+	size_bytes = sizeof(smc_params);
+	memset(&smc_params, 0x0, sizeof(smc_params));
+
+	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0, 0);
+	if (ret)
+		goto err_ret;
+
+	if (size_bytes != sizeof(smc_params)) {
 		pr_err("scm_call_qcpe: expected size: %lu, actual=%u\n",
-			sizeof(msg), size_bytes);
-		return SCM_ERROR;
+				sizeof(smc_params), size_bytes);
+		ret = SCM_ERROR;
+		goto err_ret;
 	}
 
-	desc->ret[0] = msg.args[1];
-	desc->ret[1] = msg.args[2];
-	desc->ret[2] = msg.args[3];
+	desc->ret[0] = smc_params.args[1];
+	desc->ret[1] = smc_params.args[2];
+	desc->ret[2] = smc_params.args[3];
+	ret = smc_params.args[0];
+	pr_info("\nscm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
+		smc_params.args[0], desc->ret[0], desc->ret[1], desc->ret[2]);
 
-	pr_info("scm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
-		msg.args[0], msg.args[1], msg.args[2], msg.args[3]);
-
-	return msg.args[0];
+err_ret:
+#ifdef CONFIG_GHS_VMM
+	if (ihandle)
+		free_ion_buffers(ihandle);
+#endif
+	return ret;
 }
 
 static u32 smc(u32 cmd_addr)
@@ -324,7 +559,7 @@ static void scm_inv_range(unsigned long start, unsigned long end)
 	outer_inv_range(start, end);
 	while (start < end) {
 		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
-		     : "memory");
+				: "memory");
 		start += cacheline_size;
 	}
 	mb(); /* Make sure memory is visible to TZ */
@@ -357,9 +592,9 @@ static void scm_inv_range(unsigned long start, unsigned long end)
  */
 
 static int scm_call_common(u32 svc_id, u32 cmd_id, const void *cmd_buf,
-				size_t cmd_len, void *resp_buf, size_t resp_len,
-				struct scm_command *scm_buf,
-				size_t scm_buf_length)
+		size_t cmd_len, void *resp_buf, size_t resp_len,
+		struct scm_command *scm_buf,
+		size_t scm_buf_length)
 {
 	int ret;
 	struct scm_response *rsp;
@@ -403,15 +638,15 @@ static int scm_call_common(u32 svc_id, u32 cmd_id, const void *cmd_buf,
  * since we want the first attempt to be the "fastpath".
  */
 static int _scm_call_retry(u32 svc_id, u32 cmd_id, const void *cmd_buf,
-				size_t cmd_len, void *resp_buf, size_t resp_len,
-				struct scm_command *cmd,
-				size_t len)
+		size_t cmd_len, void *resp_buf, size_t resp_len,
+		struct scm_command *cmd,
+		size_t len)
 {
 	int ret, retry_count = 0;
 
 	do {
 		ret = scm_call_common(svc_id, cmd_id, cmd_buf, cmd_len,
-					resp_buf, resp_len, cmd, len);
+				resp_buf, resp_len, cmd, len);
 		if (ret == SCM_EBUSY)
 			msleep(SCM_EBUSY_WAIT_MS);
 		if (retry_count == 33)
@@ -447,27 +682,10 @@ int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 	memset(scm_buf, 0, scm_buf_len);
 
 	ret = scm_call_common(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf,
-				resp_len, scm_buf, len);
+			resp_len, scm_buf, len);
 	return ret;
 
 }
-
-struct scm_extra_arg {
-	union {
-		u32 args32[N_EXT_SCM_ARGS];
-		u64 args64[N_EXT_SCM_ARGS];
-	};
-};
-
-static enum scm_interface_version {
-	SCM_UNKNOWN,
-	SCM_LEGACY,
-	SCM_ARMV8_32,
-	SCM_ARMV8_64,
-} scm_version = SCM_UNKNOWN;
-
-/* This will be set to specify SMC32 or SMC64 */
-static u32 scm_version_mask;
 
 bool is_scm_armv8(void)
 {
@@ -478,7 +696,7 @@ bool is_scm_armv8(void)
 
 	if (likely(scm_version != SCM_UNKNOWN))
 		return (scm_version == SCM_ARMV8_32) ||
-			(scm_version == SCM_ARMV8_64);
+				(scm_version == SCM_ARMV8_64);
 	/*
 	 * This is a one time check that runs on the first ever
 	 * invocation of is_scm_armv8. We might be called in atomic
@@ -515,7 +733,7 @@ bool is_scm_armv8(void)
 		scm_version_mask = SMC64_MASK;
 
 	pr_debug("scm_call: scm version is %x, mask is %x\n", scm_version,
-		  scm_version_mask);
+			scm_version_mask);
 
 	return (scm_version == SCM_ARMV8_32) ||
 			(scm_version == SCM_ARMV8_64);
@@ -557,7 +775,7 @@ static int allocate_extra_arg_buffer(struct scm_desc *desc, gfp_t flags)
 	desc->x5 = virt_to_phys(argbuf);
 	__cpuc_flush_dcache_area(argbuf, argbuflen);
 	outer_flush_range(virt_to_phys(argbuf),
-			  virt_to_phys(argbuf) + argbuflen);
+			virt_to_phys(argbuf) + argbuflen);
 
 	return 0;
 }
@@ -582,7 +800,7 @@ static int allocate_extra_arg_buffer(struct scm_desc *desc, gfp_t flags)
  * Note that cache maintenance on the argument buffer (desc->args) is taken care
  * of by scm_call2; however, callers are responsible for any other cached
  * buffers passed over to the secure world.
-*/
+ */
 int scm_call2(u32 fn_id, struct scm_desc *desc)
 {
 	int arglen = desc->arginfo & 0xf;
@@ -652,16 +870,16 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 	x0 = fn_id | BIT(SMC_ATOMIC_SYSCALL) | scm_version_mask;
 
 	pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
-		x0, desc->arginfo, desc->args[0], desc->args[1],
-		desc->args[2], desc->x5);
+			x0, desc->arginfo, desc->args[0], desc->args[1],
+			desc->args[2], desc->x5);
 
 	ret = scm_call_qcpe(x0, desc);
 
 	if (ret < 0)
 		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
-			x0, desc->arginfo, desc->args[0], desc->args[1],
-			desc->args[2], desc->x5, ret, desc->ret[0],
-			desc->ret[1], desc->ret[2]);
+				x0, desc->arginfo, desc->args[0], desc->args[1],
+				desc->args[2], desc->x5, ret, desc->ret[0],
+				desc->ret[1], desc->ret[2]);
 
 	if (arglen > N_REGISTER_ARGS)
 		kfree(desc->extra_arg_buf);
@@ -703,10 +921,10 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		return -ENOMEM;
 
 	ret = scm_call_common(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf,
-				resp_len, cmd, len);
+			resp_len, cmd, len);
 	if (unlikely(ret == SCM_EBUSY))
 		ret = _scm_call_retry(svc_id, cmd_id, cmd_buf, cmd_len,
-				      resp_buf, resp_len, cmd, PAGE_ALIGN(len));
+				resp_buf, resp_len, cmd, PAGE_ALIGN(len));
 	kfree(cmd);
 	return ret;
 }
@@ -715,9 +933,9 @@ EXPORT_SYMBOL(scm_call);
 #define SCM_CLASS_REGISTER	(0x2 << 8)
 #define SCM_MASK_IRQS		BIT(5)
 #define SCM_ATOMIC(svc, cmd, n) (((((svc) << 10)|((cmd) & 0x3ff)) << 12) | \
-				SCM_CLASS_REGISTER | \
-				SCM_MASK_IRQS | \
-				(n & 0xf))
+		SCM_CLASS_REGISTER | \
+		SCM_MASK_IRQS | \
+		(n & 0xf))
 
 /**
  * scm_call_atomic1() - Send an atomic SCM command with one argument
@@ -914,7 +1132,7 @@ EXPORT_SYMBOL(scm_call_atomic4_3);
  * uninterruptable, atomic and SMP safe.
  */
 s32 scm_call_atomic5_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
-	u32 arg3, u32 arg4, u32 arg5, u32 *ret1, u32 *ret2, u32 *ret3)
+		u32 arg3, u32 arg4, u32 arg5, u32 *ret1, u32 *ret2, u32 *ret3)
 {
 	int ret;
 	int context_id;
@@ -991,8 +1209,8 @@ EXPORT_SYMBOL(scm_get_version);
 u32 scm_io_read(phys_addr_t address)
 {
 	struct scm_desc desc = {
-		.args[0] = address,
-		.arginfo = SCM_ARGS(1),
+			.args[0] = address,
+			.arginfo = SCM_ARGS(1),
 	};
 
 	if (!is_scm_armv8())
@@ -1011,12 +1229,12 @@ int scm_io_write(phys_addr_t address, u32 val)
 		ret = scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, address, val);
 	else {
 		struct scm_desc desc = {
-			.args[0] = address,
-			.args[1] = val,
-			.arginfo = SCM_ARGS(2),
+				.args[0] = address,
+				.args[1] = val,
+				.arginfo = SCM_ARGS(2),
 		};
 		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_IO, SCM_IO_WRITE),
-				       &desc);
+				&desc);
 	}
 	return ret;
 }
@@ -1032,7 +1250,7 @@ int scm_is_call_available(u32 svc_id, u32 cmd_id)
 		u32 svc_cmd = (svc_id << 10) | cmd_id;
 
 		ret = scm_call(SCM_SVC_INFO, IS_CALL_AVAIL_CMD, &svc_cmd,
-			sizeof(svc_cmd), &ret_val, sizeof(ret_val));
+				sizeof(svc_cmd), &ret_val, sizeof(ret_val));
 		if (!ret && ret_val)
 			return 1;
 		else
@@ -1130,7 +1348,7 @@ bool scm_is_secure_device(void)
 	desc.arginfo = 0;
 	if (!is_scm_armv8()) {
 		ret = scm_call(SCM_SVC_INFO, TZ_INFO_GET_SECURE_STATE, NULL,
-			0, &resp, sizeof(resp));
+				0, &resp, sizeof(resp));
 	} else {
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
 				TZ_INFO_GET_SECURE_STATE),

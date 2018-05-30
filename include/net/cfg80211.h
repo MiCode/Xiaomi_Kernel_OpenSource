@@ -82,9 +82,6 @@ struct wiphy;
 /* Indicate support for including KEK length in rekey data */
 #define CFG80211_REKEY_DATA_KEK_LEN 1
 
-/* Indicate support for regulatory update sync event */
-#define CFG80211_REG_UPDATE_SYNC_EVENT 1
-
 /*
  * wireless hardware capability structures
  */
@@ -5773,14 +5770,6 @@ void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
  * @gfp: context flags
  */
 void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp);
-
-/**
- * cfg80211_send_reg_change_event - notify user-space of regulatory change
- * @request: regulatory request
- * @wiphy: the wiphy to use
- */
-void cfg80211_send_reg_change_event(struct regulatory_request *request,
-				    struct wiphy *wiphy);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 

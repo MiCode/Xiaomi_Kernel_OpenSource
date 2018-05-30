@@ -51,22 +51,14 @@ int32_t habmm_socket_recv(int32_t handle, void *dst_buff, uint32_t *size_bytes,
 	if (!size_bytes || !dst_buff)
 		return -EINVAL;
 
-	msg = hab_vchan_recv(hab_driver.kctx, handle, flags);
+	ret = hab_vchan_recv(hab_driver.kctx, &msg, handle, size_bytes, flags);
 
-	if (IS_ERR(msg)) {
-		*size_bytes = 0;
-		return PTR_ERR(msg);
-	}
-
-	if (*size_bytes < msg->sizebytes) {
-		*size_bytes = 0;
-		ret = -EINVAL;
-	} else {
+	if (ret == 0 && msg)
 		memcpy(dst_buff, msg->data, msg->sizebytes);
-		*size_bytes = msg->sizebytes;
-	}
 
-	hab_msg_free(msg);
+	if (msg)
+		hab_msg_free(msg);
+
 	return ret;
 }
 EXPORT_SYMBOL(habmm_socket_recv);

@@ -697,6 +697,16 @@ usb_get_sec_event_ring_dma_addr(struct usb_device *dev,
 }
 EXPORT_SYMBOL(usb_get_sec_event_ring_dma_addr);
 
+dma_addr_t
+usb_get_dcba_dma_addr(struct usb_device *dev)
+{
+	if (dev->state == USB_STATE_NOTATTACHED)
+		return 0;
+
+	return usb_hcd_get_dcba_dma_addr(dev);
+}
+EXPORT_SYMBOL(usb_get_dcba_dma_addr);
+
 dma_addr_t usb_get_xfer_ring_dma_addr(struct usb_device *dev,
 	struct usb_host_endpoint *ep)
 {
@@ -706,15 +716,6 @@ dma_addr_t usb_get_xfer_ring_dma_addr(struct usb_device *dev,
 	return usb_hcd_get_xfer_ring_dma_addr(dev, ep);
 }
 EXPORT_SYMBOL(usb_get_xfer_ring_dma_addr);
-
-int usb_get_controller_id(struct usb_device *dev)
-{
-	if (dev->state == USB_STATE_NOTATTACHED)
-		return -EINVAL;
-
-	return usb_hcd_get_controller_id(dev);
-}
-EXPORT_SYMBOL(usb_get_controller_id);
 
 /*-------------------------------------------------------------------*/
 /*

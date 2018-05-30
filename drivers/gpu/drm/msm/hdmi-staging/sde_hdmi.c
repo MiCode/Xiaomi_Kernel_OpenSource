@@ -1353,23 +1353,28 @@ int sde_hdmi_core_enable(struct sde_hdmi *sde_hdmi)
 	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
 	const struct hdmi_platform_config *config = hdmi->config;
 	struct device *dev = &hdmi->pdev->dev;
-	int i, ret;
+	int i, ret = 0;
 
 	for (i = 0; i < config->hpd_reg_cnt; i++) {
 		ret = regulator_enable(hdmi->hpd_regs[i]);
 		if (ret) {
 			SDE_ERROR("failed to enable hpd regulator: %s (%d)\n",
 					config->hpd_reg_names[i], ret);
+			goto err_regulator_enable;
 		}
 	}
 
 	ret = pinctrl_pm_select_default_state(dev);
-	if (ret)
+	if (ret) {
 		SDE_ERROR("pinctrl state chg failed: %d\n", ret);
+		goto err_pinctrl_state;
+	}
 
 	ret = _sde_hdmi_gpio_config(hdmi, true);
-	if (ret)
+	if (ret) {
 		SDE_ERROR("failed to configure GPIOs: %d\n", ret);
+		goto err_gpio_config;
+	}
 
 	for (i = 0; i < config->hpd_clk_cnt; i++) {
 		if (config->hpd_freq && config->hpd_freq[i]) {
@@ -1384,13 +1389,23 @@ int sde_hdmi_core_enable(struct sde_hdmi *sde_hdmi)
 		if (ret) {
 			SDE_ERROR("failed to enable hpd clk: %s (%d)\n",
 					config->hpd_clk_names[i], ret);
+			goto err_clk_prepare_enable;
 		}
 	}
 	sde_hdmi_set_mode(hdmi, true);
+	goto exit;
 
-	/* Wait for vsync */
-	msleep(20);
-
+err_clk_prepare_enable:
+	for (i = 0; i < config->hpd_clk_cnt; i++)
+		clk_disable_unprepare(hdmi->hpd_clks[i]);
+err_gpio_config:
+	_sde_hdmi_gpio_config(hdmi, false);
+err_pinctrl_state:
+	pinctrl_pm_select_sleep_state(dev);
+err_regulator_enable:
+	for (i = 0; i < config->hpd_reg_cnt; i++)
+		regulator_disable(hdmi->hpd_regs[i]);
+exit:
 	return ret;
 }
 

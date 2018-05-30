@@ -2242,6 +2242,17 @@ usb_hcd_get_sec_event_ring_dma_addr(struct usb_device *udev,
 }
 
 dma_addr_t
+usb_hcd_get_dcba_dma_addr(struct usb_device *udev)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return 0;
+
+	return hcd->driver->get_dcba_dma_addr(hcd, udev);
+}
+
+dma_addr_t
 usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
 		struct usb_host_endpoint *ep)
 {
@@ -2251,16 +2262,6 @@ usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
 		return 0;
 
 	return hcd->driver->get_xfer_ring_dma_addr(hcd, udev, ep);
-}
-
-int usb_hcd_get_controller_id(struct usb_device *udev)
-{
-	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
-
-	if (!HCD_RH_RUNNING(hcd))
-		return -EINVAL;
-
-	return hcd->driver->get_core_id(hcd);
 }
 
 #ifdef	CONFIG_PM
@@ -2395,6 +2396,7 @@ void usb_hcd_resume_root_hub (struct usb_hcd *hcd)
 
 	spin_lock_irqsave (&hcd_root_hub_lock, flags);
 	if (hcd->rh_registered) {
+		pm_wakeup_event(&hcd->self.root_hub->dev, 0);
 		set_bit(HCD_FLAG_WAKEUP_PENDING, &hcd->flags);
 		queue_work(pm_wq, &hcd->wakeup_work);
 	}

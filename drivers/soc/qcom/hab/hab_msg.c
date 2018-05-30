@@ -42,8 +42,9 @@ void hab_msg_free(struct hab_message *message)
 	kfree(message);
 }
 
-struct hab_message *
-hab_msg_dequeue(struct virtual_channel *vchan, unsigned int flags)
+int
+hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
+		int *rsize, unsigned int flags)
 {
 	struct hab_message *message = NULL;
 	int ret = 0;
@@ -64,15 +65,30 @@ hab_msg_dequeue(struct virtual_channel *vchan, unsigned int flags)
 	}
 
 	/* return all the received messages before the remote close */
-	if (!ret && !hab_rx_queue_empty(vchan)) {
+	if ((!ret || (ret == -ERESTARTSYS)) && !hab_rx_queue_empty(vchan)) {
 		spin_lock_bh(&vchan->rx_lock);
 		message = list_first_entry(&vchan->rx_list,
 				struct hab_message, node);
-		list_del(&message->node);
+		if (message) {
+			if (*rsize >= message->sizebytes) {
+				/* msg can be safely retrieved in full */
+				list_del(&message->node);
+				ret = 0;
+				*rsize = message->sizebytes;
+			} else {
+				pr_err("rcv buffer too small %d < %zd\n",
+					   *rsize, message->sizebytes);
+				*rsize = 0;
+				message = NULL;
+				ret = -EINVAL;
+			}
+		}
 		spin_unlock_bh(&vchan->rx_lock);
-	}
+	} else
+		*rsize = 0;
 
-	return message;
+	*msg = message;
+	return ret;
 }
 
 static void hab_msg_queue(struct virtual_channel *vchan,

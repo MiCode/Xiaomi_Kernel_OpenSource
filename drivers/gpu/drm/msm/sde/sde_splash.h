@@ -15,18 +15,46 @@
 
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "sde_hw_mdss.h"
+
+#define SPLASH_CTL_MAX 5
+#define SPLASH_LM_MAX 7
 
 enum splash_connector_type {
 	SPLASH_DSI = 0,
 	SPLASH_HDMI,
 };
 
+struct splash_lm_hw {
+	u8 lm_id;
+	u8 ctl_id;
+	u32 lm_reg_value;
+};
+
+struct splash_ctl_top {
+	u32 value;
+	u8 intf_sel;
+	u8 ctl_lm_cnt;
+	struct splash_lm_hw lm[SPLASH_LM_MAX];
+};
+
+struct sde_res_data {
+	struct splash_ctl_top top[SPLASH_CTL_MAX];
+	u8 ctl_ids[SPLASH_CTL_MAX];
+	u8 lm_ids[SPLASH_LM_MAX];
+	u8 ctl_top_cnt;
+	u8 lm_cnt;
+};
+
 struct sde_splash_info {
 	/* handoff flag */
 	bool handoff;
 
-	/* flag of display scratch registers */
-	bool program_scratch_regs;
+	/* current hw configuration */
+	struct sde_res_data res;
+
+	/* flag of display splash status */
+	bool display_splash_enabled;
 
 	/* to indicate LK is totally exited */
 	bool lk_is_exited;
@@ -91,21 +119,20 @@ void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
 				int connector_type);
 
 /**
- * sde_splash_clean_up_exit_lk.
+ * sde_splash_lk_stop_splash.
  *
- * Tell LK to exit, and clean up the resource.
+ * Tell LK to stop display splash.
  */
-int sde_splash_clean_up_exit_lk(struct msm_kms *kms);
+int sde_splash_lk_stop_splash(struct msm_kms *kms);
 
 /**
- * sde_splash_clean_up_free_resource.
+ * sde_splash_free_resource.
  *
  * According to input connector_type, free
  * HDMI's and DSI's resource respectively.
  */
-int sde_splash_clean_up_free_resource(struct msm_kms *kms,
-				struct sde_power_handle *phandle,
-				int connector_type, void *display);
+int sde_splash_free_resource(struct msm_kms *kms,
+			struct sde_power_handle *phandle);
 
 /**
  * sde_splash_parse_memory_dt.
@@ -152,7 +179,7 @@ void sde_splash_destroy(struct sde_splash_info *sinfo,
  *
  * Get LK's status to check if it has been stopped.
  */
-bool sde_splash_get_lk_complete_status(struct sde_splash_info *sinfo);
+bool sde_splash_get_lk_complete_status(struct msm_kms *kms);
 
 /**
  * sde_splash_setup_display_resource

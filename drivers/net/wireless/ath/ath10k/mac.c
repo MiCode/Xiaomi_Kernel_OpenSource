@@ -5004,6 +5004,15 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 		goto err;
 	}
 
+	if ((arvif->vdev_type == WMI_VDEV_TYPE_STA) && QCA_REV_WCN3990(ar)) {
+		ret = ath10k_wmi_csa_offload(ar, arvif->vdev_id, true);
+		if (ret) {
+			ath10k_err(ar, "CSA offload failed for vdev %i: %d\n",
+				   arvif->vdev_id, ret);
+			goto err_vdev_delete;
+		}
+	}
+
 	ar->free_vdev_map &= ~(1LL << arvif->vdev_id);
 	list_add(&arvif->list, &ar->arvifs);
 
@@ -5215,6 +5224,9 @@ static void ath10k_remove_interface(struct ieee80211_hw *hw,
 
 		kfree(arvif->u.ap.noa_data);
 	}
+
+	if ((arvif->vdev_type == WMI_VDEV_TYPE_STA) && QCA_REV_WCN3990(ar))
+		ath10k_wmi_csa_offload(ar, arvif->vdev_id, false);
 
 	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac vdev %i delete (remove interface)\n",
 		   arvif->vdev_id);
@@ -5929,9 +5941,8 @@ static void ath10k_sta_rc_update_wk(struct work_struct *wk)
 				    sta->addr, smps, err);
 	}
 
-	if (changed & IEEE80211_RC_SUPP_RATES_CHANGED ||
-	    changed & IEEE80211_RC_NSS_CHANGED) {
-		ath10k_dbg(ar, ATH10K_DBG_MAC, "mac update sta %pM supp rates/nss\n",
+	if (changed & IEEE80211_RC_SUPP_RATES_CHANGED) {
+		ath10k_dbg(ar, ATH10K_DBG_MAC, "mac update sta %pM supp rates\n",
 			   sta->addr);
 
 		err = ath10k_station_assoc(ar, arvif->vif, sta, true);

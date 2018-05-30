@@ -304,6 +304,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
+	struct sde_splash_info *sinfo;
+	struct sde_kms *sde_kms = _sde_crtc_get_kms(crtc);
 
 	int i;
 
@@ -311,6 +313,17 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
 		SDE_ERROR("invalid number mixers: %d\n", sde_crtc->num_mixers);
+		return;
+	}
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
+	sinfo = &sde_kms->splash_info;
+	if (!sinfo) {
+		SDE_ERROR("invalid splash info\n");
 		return;
 	}
 
@@ -323,7 +336,10 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		mixer[i].flush_mask = 0;
 		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
 			mixer[i].hw_ctl->ops.clear_all_blendstages(
-					mixer[i].hw_ctl);
+					mixer[i].hw_ctl,
+					sinfo->handoff,
+					sinfo->reserved_pipe_info,
+					MAX_BLOCKS);
 	}
 
 	/* initialize stage cfg */
@@ -350,7 +366,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 			mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
-			&sde_crtc->stage_cfg, i);
+			&sde_crtc->stage_cfg, i,
+			sinfo->handoff, sinfo->reserved_pipe_info, MAX_BLOCKS);
 	}
 }
 

@@ -982,8 +982,9 @@ int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
 
 	event_data = (struct msm_adsp_event_data *)payload;
 	kctl->info(kctl, &kctl_info);
-	if (sizeof(struct msm_adsp_event_data)
-		+ event_data->payload_len > kctl_info.count) {
+
+	if (event_data->payload_len >
+		kctl_info.count - sizeof(struct msm_adsp_event_data)) {
 		pr_err("%s: payload length exceeds limit of %u bytes.\n",
 			__func__, kctl_info.count);
 		ret = -EINVAL;

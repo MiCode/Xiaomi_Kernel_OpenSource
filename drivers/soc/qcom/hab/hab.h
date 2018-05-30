@@ -373,9 +373,11 @@ long hab_vchan_send(struct uhab_context *ctx,
 		size_t sizebytes,
 		void *data,
 		unsigned int flags);
-struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
-				int vcid,
-				unsigned int flags);
+int hab_vchan_recv(struct uhab_context *ctx,
+		struct hab_message **msg,
+		int vcid,
+		int *rsize,
+		unsigned int flags);
 void hab_vchan_stop(struct virtual_channel *vchan);
 void hab_vchans_stop(struct physical_channel *pchan);
 void hab_vchan_stop_notify(struct virtual_channel *vchan);
@@ -422,8 +424,8 @@ int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
 
 void hab_msg_free(struct hab_message *message);
-struct hab_message *hab_msg_dequeue(struct virtual_channel *vchan,
-		unsigned int flags);
+int hab_msg_dequeue(struct virtual_channel *vchan,
+		struct hab_message **msg, int *rsize, unsigned int flags);
 
 void hab_msg_recv(struct physical_channel *pchan,
 		struct hab_header *header);
