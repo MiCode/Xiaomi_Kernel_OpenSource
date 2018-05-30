@@ -1522,7 +1522,7 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 	clk_trion_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
 
 	/* Enable clock gating for DSI and MDP clocks */
-	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x7f0, 0x7f0);
+	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x670, 0x670);
 
 	ret = qcom_cc_really_probe(pdev, &disp_cc_sm8150_desc, regmap);
 	if (ret) {
