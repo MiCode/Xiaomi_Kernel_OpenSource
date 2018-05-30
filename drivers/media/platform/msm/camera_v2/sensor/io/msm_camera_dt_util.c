@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +97,26 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 			for (j = 0; j < num_vreg; j++) {
 				if (!strcmp(cam_vreg[j].reg_name, "cam_vana")) {
 					CDBG("%s:%d i %d j %d cam_vana\n",
+						__func__, __LINE__, i, j);
+					power_setting[i].seq_val = j;
+					if (VALIDATE_VOLTAGE(
+						cam_vreg[j].min_voltage,
+						cam_vreg[j].max_voltage,
+						power_setting[i].config_val)) {
+						cam_vreg[j].min_voltage =
+						cam_vreg[j].max_voltage =
+						power_setting[i].config_val;
+					}
+					break;
+				}
+			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
+			break;
+		case CAM_DRV:
+			for (j = 0; j < num_vreg; j++) {
+				if (!strcmp(cam_vreg[j].reg_name, "cam_drv")) {
+					CDBG("%s:%d i %d j %d cam_drv\n",
 						__func__, __LINE__, i, j);
 					power_setting[i].seq_val = j;
 					if (VALIDATE_VOLTAGE(
@@ -881,6 +902,25 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		rc = 0;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,gpio-drv", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-drv failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err(" %s:%d qcom,gpio-drv invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_DRV] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_DRV] = 1;
+		pr_err("%s qcom,gpio-drv %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_DRV]);
+	} else {
+		rc = 0;
+	}
 	rc = of_property_read_u32(of_node, "qcom,gpio-vaf", &val);
 	if (rc != -EINVAL) {
 		if (rc < 0) {
@@ -1319,6 +1359,10 @@ int msm_cam_sensor_handle_reg_gpio(int seq_val,
 
 	case CAM_VANA:
 		gpio_offset = SENSOR_GPIO_VANA;
+		break;
+
+	case CAM_DRV:
+		gpio_offset = SENSOR_GPIO_DRV;
 		break;
 
 	case CAM_VAF:

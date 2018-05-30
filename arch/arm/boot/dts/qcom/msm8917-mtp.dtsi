@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +14,8 @@
 
 #include "msm8917-pinctrl.dtsi"
 #include "msm8917-camera-sensor-mtp.dtsi"
+#include "msm8937-mdss-panels.dtsi"
+
 
 &spi_3 { /* BLSP1 QUP3 */
 	spi-max-frequency = <16000000>;
@@ -39,28 +42,17 @@
 };
 
 &soc {
+	ant_check {
+		compatible = "ant_check";
+		ant_check_gpio = <&tlmm 46 0x0>;
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
 		pinctrl-0 = <&gpio_key_active>;
 		pinctrl-1 = <&gpio_key_suspend>;
-
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&tlmm 128 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			debounce-interval = <15>;
-		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&tlmm 127 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			debounce-interval = <15>;
-		};
 
 		vol_up {
 			label = "volume_up";
@@ -71,19 +63,67 @@
 		};
 	};
 
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		vcc_ana-supply = <&pm8917_l10>;
-		vcc_dig-supply = <&pm8917_l5>;
-		qcom,afe-load = <50000>;
-		qcom,afe-vtg-min = <2850000>;
-		qcom,afe-vtg-max = <2850000>;
-		qcom,dig-load = <15000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
+
+		vibrator_gpio {
+		compatible = "qcom,vibrator-gpio";
+		qcom,vibrator-timeout-ms = <15000>;
+		qcom,vib-gpio_one = <&tlmm 9 0x00>;
+		label = "vibrator";
+	};
+
+		goodix_fp{
+			compatible = "goodix,fingerprint";
+			interrupt-parent = <&tlmm>;
+			interrupt = <124 0x0>;
+			vcc_spi_supply = <&pm8917_l6>;
+			vcc_ana_supply = <&pm8917_l6>;
+			vdd_io-supply = <&pm8917_l6>;
+			goodix,gpio_reset = <&tlmm 132 0>;
+			goodix,gpio_irq = <&tlmm 124 0>;
+		goodix,gpio_ldo = <&tlmm 128 0>;
+		};
+
+	pwm_ir {
+		compatible = "pwm-ir";
+		pwms = <&pm8937_pwm 0 0>;
+		qcom,test-gpios = <&pm8937_gpios 6 0>;
+		reg-id = "vdd";
+		vdd-supply = <&pm8917_l10>;
+	};
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <124 0x0>;
+		fpc,gpio_rst    = <&tlmm 132 0x0>;
+		fpc,gpio_irq    = <&tlmm 124 0x0>;
+		vcc_spi-supply  = <&pm8917_l6>;
+		vdd_io-supply   = <&pm8917_l6>;
+		vdd_ana-supply  = <&pm8917_l6>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_132>;
+		pinctrl-1 = <&msm_gpio_132_output_high>;
+		pinctrl-2 = <&msm_gpio_124>;
 	};
 };
 
+&pm8937_gpios{
+	gpio@c500{
+		status = "okay";
+		qcom,mode = <1>;		/*DIGITAL OUT*/
+		qcom,pull = <5>;		/*NO PULL*/
+		qcom,src-sel = <5>; 		/*DTEST2 OUT*/
+		qcom,vin-sel = <3>;
+		qcom,master-en = <1>;		/*ENABLE GPIO*/
+		qcom,out-strength = <3>;	/*Max strength current*/
+	};
+};
+/*
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
 	reg = <0xd300 0x100>;
@@ -103,15 +143,13 @@
 	qcom,lra-auto-res-mode="qwd";
 	qcom,lra-high-z="opt1";
 	qcom,lra-res-cal-period = <0>;
-};
+};*/
 
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
 };
-
-#include "msm8937-mdss-panels.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -121,6 +159,7 @@
 	hw-config = "single_dsi";
 };
 
+/*
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_truly_720_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
@@ -144,6 +183,22 @@
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <2 2 2 2 2 2>;
 };
+*/
+
+&mdss_dsi0 {
+	qcom,regulator-ldo-mode;
+	qcom,dsi-pref-prim-pan = <&dsi_sc_ili9881c_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 93 1>;
+	qcom,ocp2131-enp-gpio = <&tlmm 12 0>;
+	qcom,ocp2131-enn-gpio = <&tlmm 13 0>;
+
+};
+
 
 &sdhc_1 {
 	/* device core power supply */
@@ -194,7 +249,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 67 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 67 0x1>;
+	cd-gpios = <&tlmm 67 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;

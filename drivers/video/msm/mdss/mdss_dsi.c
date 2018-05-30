@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +43,10 @@ static struct mdss_dsi_data *mdss_dsi_res;
 
 #define DSI_DISABLE_PC_LATENCY 100
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
+
+#if defined(CONFIG_UGGLITE)||defined(CONFIG_UGG)
+int ID0_status,ID1_status;
+#endif
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
 
@@ -282,7 +287,7 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		ret = -EINVAL;
 		goto end;
 	}
-
+		 printk("ysg %s:%d\n",__func__,__LINE__);
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -315,7 +320,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
-
+		 printk("ysg:%s:%d\n",__func__,__LINE__);
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -344,7 +349,11 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 	}
-
+#if defined(CONFIG_UGGLITE)||defined(CONFIG_UGG)
+	ID0_status = gpio_get_value(59);
+	ID1_status = gpio_get_value(66);
+	printk("swb.%s:get lcd_detect id0=%d,id1=%d\n", __func__,ID0_status,ID1_status);
+#endif
 	return ret;
 }
 
@@ -2538,6 +2547,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		power_state = (int) (unsigned long) arg;
+		 disable_esd_thread();
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
@@ -2829,13 +2839,13 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev,
 			__func__, __LINE__);
 
 	/* find panel device node */
+
 	dsi_pan_node = mdss_dsi_find_panel_of_node(pdev, panel_cfg);
 	if (!dsi_pan_node) {
-		pr_err("%s: can't find panel node %s\n", __func__, panel_cfg);
+		pr_err("%s: can't find ysg  panel node %s\n", __func__, panel_cfg);
 		of_node_put(dsi_pan_node);
 		return NULL;
 	}
-
 	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, ndx);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
@@ -3933,6 +3943,26 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		pr_info("%s: bklt_en gpio not specified\n", __func__);
 
+
+	ctrl_pdata->ocp2131_enp_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,"qcom,ocp2131-enp-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->ocp2131_enp_gpio))
+		pr_info("%s: ocp2131_enp_gpio not specified\n", __func__);
+
+	ctrl_pdata->ocp2131_enn_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,"qcom,ocp2131-enn-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->ocp2131_enn_gpio))
+		pr_info("%s: ocp2131_enn_gpio not specified\n", __func__);
+	ctrl_pdata->lcm_vci_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			"qcom,lcm-vci-en-gpio", 0);
+	if(!gpio_is_valid(ctrl_pdata->lcm_vci_en_gpio))
+		pr_info("%s: lcm_vci-en-gpio not specified\n",__func__);
+		 ctrl_pdata->lcmio_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			"qcom,vddio-gpio", 0);
+	if(!gpio_is_valid(ctrl_pdata->lcmio_en_gpio)) {
+	     printk("ysg free 20\n");
+
+	}
+	if(!gpio_is_valid(ctrl_pdata->lcmio_en_gpio))
+	pr_info("%s: ysg lcmio-en gpio not specified\n",__func__);
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))

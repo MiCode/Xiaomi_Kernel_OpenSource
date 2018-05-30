@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +37,11 @@
 #define CHANNEL_STATUS_MASK_INIT 0x0
 #define CHANNEL_STATUS_MASK 0x4
 #define AFE_API_VERSION_CLOCK_SET 1
+#ifdef CONFIG_TAS2557_EXIST_D3
 
+extern bool speaker_pa_is_tas2557(void);
+
+#endif
 static const struct afe_clk_set lpass_clk_set_default = {
 	AFE_API_VERSION_CLOCK_SET,
 	Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT,
@@ -3159,15 +3164,27 @@ static int msm_dai_q6_mi2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct msm_dai_q6_mi2s_dai_data *mi2s_dai_data =
 	dev_get_drvdata(dai->dev);
-
-	if (test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) ||
-	    test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
-		dev_err(dai->dev, "%s: err chg i2s mode while dai running",
-			__func__);
-		return -EPERM;
+#ifdef CONFIG_TAS2557_EXIST_D3
+	if (!speaker_pa_is_tas2557()) {
+		if (test_bit(STATUS_PORT_STARTED,
+		    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) ||
+		    test_bit(STATUS_PORT_STARTED,
+		    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
+			dev_err(dai->dev, "%s: err chg i2s mode while dai running",
+				__func__);
+			return -EPERM;
+		}
 	}
+#else
+	if (test_bit(STATUS_PORT_STARTED,
+		    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) ||
+		    test_bit(STATUS_PORT_STARTED,
+		    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
+			dev_err(dai->dev, "%s: err chg i2s mode while dai running",
+				__func__);
+			return -EPERM;
+		}
+#endif
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:

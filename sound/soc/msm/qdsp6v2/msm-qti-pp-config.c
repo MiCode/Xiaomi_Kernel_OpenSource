@@ -585,7 +585,7 @@ static int msm_qti_pp_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
 static int msm_qti_pp_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
-	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL] = {0};
 	int i;
 
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)

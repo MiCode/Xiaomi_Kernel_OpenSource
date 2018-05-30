@@ -1592,6 +1592,7 @@ enum msm_camera_vreg_name_t {
 	CAM_VANA,
 	CAM_VAF,
 	CAM_VREG_MAX,
+	CAM_DRV,
 };
 
 struct msm_camera_csi_lane_params {

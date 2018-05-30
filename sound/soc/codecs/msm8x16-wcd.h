@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +56,13 @@
 #define DEFAULT_MULTIPLIER 800
 #define DEFAULT_GAIN 9
 #define DEFAULT_OFFSET 100
+
+
+#ifdef CONFIG_TAS2557_EXIST_D3
+#define MAX97220_ENABLE_GPIO 42
+#define MAX97220_ON  do { gpio_direction_output(MAX97220_ENABLE_GPIO, 1); } while (0)
+#define MAX97220_OFF do { gpio_direction_output(MAX97220_ENABLE_GPIO, 0); } while (0)
+#endif
 
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
@@ -228,6 +236,15 @@ struct msm8916_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
 	int spk_ext_pa_gpio;
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	int spk_ext_pa_gpio_lc;
+	int spk_hs_switch_gpio;
+	struct delayed_work pa_gpio_work;
+	struct delayed_work pa_gpio_work_close;
+	struct delayed_work hs_gpio_work;
+	unsigned char pa_is_on;
+	unsigned char hs_is_on;
+#endif
 	int mclk_freq;
 	int lb_mode;
 	int afe_clk_ver;
@@ -246,6 +263,7 @@ struct msm8916_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_quin_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	struct on_demand_supply wsa_switch_supply;
+	const char *spk_pa_name;
 };
 
 struct msm8x16_wcd_pdata {

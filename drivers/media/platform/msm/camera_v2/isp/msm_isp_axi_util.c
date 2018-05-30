@@ -510,8 +510,11 @@ static void msm_isp_cfg_framedrop_reg(struct vfe_device *vfe_dev,
 	if (!runtime_init_frame_drop)
 		framedrop_period = stream_info->current_framedrop_period;
 
-	if (MSM_VFE_STREAM_STOP_PERIOD != framedrop_period)
+	if (MSM_VFE_STREAM_STOP_PERIOD != framedrop_period) {
 		framedrop_pattern = 0x1;
+		if(framedrop_period > 1)
+			framedrop_pattern = framedrop_pattern << (framedrop_period-1);
+	}
 
 	ISP_DBG("%s: stream %x framedrop pattern %x period %u\n", __func__,
 		stream_info->stream_handle, framedrop_pattern,
@@ -2970,7 +2973,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				intf < VFE_SRC_MAX) {
 				vfe_dev->axi_data.src_info[intf].active = 0;
 				vfe_dev->axi_data.src_info[intf].flag = 0;
-
 			}
 		} else
 			src_mask |= (1 << intf);

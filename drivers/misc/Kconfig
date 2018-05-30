@@ -572,9 +572,22 @@ config TI_DRV2667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
 
+config VIB_GPIO
+	tristate "Vibrator timed gpio driver"
+	depends on GPIOLIB && ANDROID_TIMED_OUTPUT
+	default n
+
 config QPNP_MISC
 	tristate "QPNP Misc Peripheral"
 	depends on SPMI || MSM_SPMI
+	help
+	  Say 'y' here to include support for the QTI QPNP MISC
+	  peripheral. The MISC peripheral holds the USB ID interrupt
+	  and the driver provides an API to check if this interrupt
+	  is available on the current PMIC chip.
+
+config ANT_CHECK
+	tristate "ant check gpio"
 	help
 	  Say 'y' here to include support for the QTI QPNP MISC
 	  peripheral. The MISC peripheral holds the USB ID interrupt

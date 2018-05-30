@@ -16,7 +16,7 @@ config GT9XX_TOUCHPANEL_DRIVER
 	  If unsure, say N.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called gt9xx.
+	  module will be called gt9xx_update.
 
 config GT9XX_TOUCHPANEL_UPDATE
 	tristate "Goodix GT9xx touchpanel auto update support"
@@ -48,4 +48,4 @@ config GT9XX_TOUCHPANEL_DEBUG
 	  If unsure, say N.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called gt9xx_tool.
+	  module will be called gt9xx_update.

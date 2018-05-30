@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +35,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x83300000 0x0 0x3800000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -46,13 +47,13 @@
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d600000 0x0 0x1100000>;
+			reg = <0x0 0x8d600000 0x0 0x1200000>;
 		};
 
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8e700000 0x0 0x700000>;
+			reg = <0x0 0x8e800000 0x0 0x700000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -723,6 +724,31 @@
 			qcom,enable-load = <0>;
 			qcom,disable-load = <0>;
 		};
+
+
+		tas2557@4c {
+			compatible = "ti,tas2557";
+			reg = <0x4c>;
+			#ti,load = <0>;   /* 0, 8Ohm; 1, 6Ohm; 2, 4Ohm */
+			#ti,channel = <0>;   /* 0, left channel; 1, right channel */
+			i2c-pull-up;
+			vdd-supply = <&pm8953_l6>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			ti,cdc-reset-gpio = <&tlmm 141 0>;
+			ti,irq-gpio = <&tlmm 139 0>;
+			ti,i2s-bits = <16>;
+			status = "ok";
+		};
+
+		spkamp@3a {
+		compatible = "maxim,max98927L";
+		status = "okay";
+		reg = <0x3a>;
+		max989xx_vdd = <&pm8953_l6>;
+		mono_stereo_mode = <0>;
+		interleave_mode = <0>;
+		maxim,98927-reset-gpio = <&tlmm 141 0>;
+		};
 	};
 
 	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
@@ -748,7 +774,6 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -1127,7 +1152,7 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <15000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
@@ -1211,6 +1236,13 @@
 		reg = <0xa601c 0x8>;
 		reg-names = "fuse-base";
 	};
+
+	sn_fuse: snfuse@0xA4128 {
+		 compatible = "qcom,sn-fuse";
+		 reg = <0xA4128 0x4>,
+		     <0xA6034 0x4>;
+		 reg-names = "sn-base","fuse-state";
+	 };
 
 	jtag_mm0: jtagmm@619c000 {
 		compatible = "qcom,jtagv8-mm";
@@ -1608,7 +1640,7 @@
 
 	qcom_seecom: qseecom@85b00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x83300000 0x3000000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -2140,7 +2172,7 @@
 		qcom,vdd-voltage-level = <0 925000 925000>;
 
 		qcom,qusb-phy-init-seq = <0xF8 0x80
-					0xB3 0x84
+					0x73 0x84
 					0x83 0x88
 					0xC0 0x8C
 					0x14 0x9C
@@ -2434,7 +2466,7 @@
 	};
 
 	chan@11 {
-		label = "pa_therm1";
+		label = "case_therm";
 		reg = <0x11>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
@@ -2464,18 +2496,6 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <4>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
-	};
-
-	chan@13 {
-		label = "case_therm";
-		reg = <0x13>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 		qcom,vadc-thermal-node;

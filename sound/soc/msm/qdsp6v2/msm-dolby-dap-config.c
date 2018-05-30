@@ -24,6 +24,10 @@
 #define DOLBY_PARAM_VCNB_MAX_LENGTH 40
 #endif
 
+#ifndef DOLBY_PARAM_VCNB_MAX_LENGTH
+#define DOLBY_PARAM_VCNB_MAX_LENGTH 40
+#endif
+
 /* dolby endp based parameters */
 struct dolby_dap_endp_params_s {
 	int device;

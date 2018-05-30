@@ -156,6 +156,7 @@ struct rc_dev {
 	u32				max_timeout;
 	u32				rx_resolution;
 	u32				tx_resolution;
+	u32				open_count;
 	int				(*change_protocol)(struct rc_dev *dev, u64 *rc_type);
 	int				(*change_wakeup_protocol)(struct rc_dev *dev, u64 *rc_type);
 	int				(*open)(struct rc_dev *dev);

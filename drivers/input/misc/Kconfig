@@ -757,3 +757,4 @@ config INPUT_DRV2667_HAPTICS
 	  module will be called drv260x-haptics.
 
 endif
+

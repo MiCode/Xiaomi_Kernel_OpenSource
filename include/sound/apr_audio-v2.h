@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -8176,6 +8177,34 @@ struct afe_spkr_prot_calib_get_resp {
 	struct asm_calib_res_cfg res_cfg;
 } __packed;
 
+#ifdef CONFIG_SND_SOC_MAX98927
+#define AFE_RX_TOPOLOGY_ID_DSM										0x10001060
+#define AFE_MODULE_DSM_TX                         0x10001061
+#define AFE_MODULE_DSM_RX                         0x10001062
+#define AFE_PARAM_ID_DSM_CFG                      0x10001066
+#define AFE_PARAM_ID_DSM_ENABLE                   0x10001068
+
+#define AFE_DSM_RX_PORT		AFE_PORT_ID_QUATERNARY_MI2S_RX
+#define AFE_DSM_TX_PORT		AFE_PORT_ID_QUATERNARY_MI2S_TX
+
+struct afe_dsm_set_command {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+} __packed;
+
+struct afe_dsm_get_command {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_get_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+} __packed;
+
+struct afe_dsm_get_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	uint32_t payload[0];
+} __packed;
+#endif
 
 /* SRS TRUMEDIA start */
 /* topology */
@@ -9512,3 +9541,4 @@ struct adm_param_fluence_sourcetracking_t {
 
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_OPERATING_INPUT_MEDIA_INFO  0x0001091E
 #endif /*_APR_AUDIO_V2_H_ */
+

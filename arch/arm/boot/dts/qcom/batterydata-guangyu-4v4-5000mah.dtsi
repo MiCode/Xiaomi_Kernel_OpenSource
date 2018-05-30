@@ -1,0 +1,71 @@
+
+qcom,sdm630_guangyu_5000mah{
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <5000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4085>;
+	qcom,thermal-coefficients = [DF 85 66 4A E8 35];
+	qcom,fastchg-current-ma = <2000>;
+	qcom,battery-type = "sdm630_guangyu_5000mah";
+	qcom,checksum = <0x1EA5>;
+	qcom,gui-version = "PM660GUI - 0.0.0.41";
+	qcom,fg-profile-data = [
+		 78 1F A4 05
+		 81 0A 73 FC
+		 85 1D 8E F4
+		 6F 12 F7 1D
+		 DB 18 C2 22
+		 C6 45 6E 52
+		 56 00 00 00
+		 0F 00 00 00
+		 00 00 78 BC
+		 0F C5 69 BA
+		 1D 00 08 00
+		 12 E2 BB 07
+		 C5 F4 35 F2
+		 47 02 EB 12
+		 A3 EC 8D 2A
+		 1E 06 09 20
+		 27 00 14 00
+		 10 20 30 05
+		 CA 0A FD 05
+		 41 1D 06 01
+		 57 FA CE 0D
+		 08 19 04 23
+		 4C 45 4C 53
+		 59 00 00 00
+		 0D 00 00 00
+		 00 00 5A CD
+		 1A BA 98 BD
+		 18 00 00 00
+		 49 EB BB 07
+		 24 ED 1A E3
+		 65 DC 23 02
+		 23 07 7B 1A
+		 9C 33 CC FF
+		 07 10 00 00
+		 78 13 66 46
+		 18 00 40 00
+		 1C 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

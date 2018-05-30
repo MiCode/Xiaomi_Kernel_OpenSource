@@ -40,6 +40,10 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <8>;
 			};
 
 			qcom,pon_2 {

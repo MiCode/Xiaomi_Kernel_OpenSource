@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -468,7 +469,7 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 		return rc;
 
 	hap->reg_en_ctl = val;
-
+pr_info("zjl %s  end val == %d\n", __func__, val);
 	return 0;
 }
 
@@ -1322,6 +1323,33 @@ static ssize_t qpnp_hap_ramp_test_data_show(struct device *dev,
 
 }
 
+
+/* sysfs show function for vmax */
+static ssize_t qpnp_hap_vmax_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", hap->vmax_mv);
+}
+
+/* sysfs store for vmax */
+static ssize_t qpnp_hap_vmax_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+
+	if (sscanf(buf, " %u", &hap->vmax_mv) != 1)
+			return -EINVAL;
+	if (!qpnp_hap_vmax_config(hap))
+			return -EIO;
+	return count;
+}
+
 /* sysfs attributes */
 static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(wf_s0, (S_IRUGO | S_IWUSR | S_IWGRP),
@@ -1369,6 +1397,10 @@ static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(min_max_test, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_min_max_test_data_show,
 			qpnp_hap_min_max_test_data_store),
+	__ATTR(vmax_mv, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_vmax_show,
+			qpnp_hap_vmax_store),
+
 };
 
 static int calculate_lra_code(struct qpnp_hap *hap)
@@ -1655,6 +1687,8 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 		hrtimer_cancel(&hap->auto_res_err_poll_timer);
 
 	hrtimer_cancel(&hap->hap_timer);
+
+
 
 	if (value == 0) {
 		if (hap->state == 0) {

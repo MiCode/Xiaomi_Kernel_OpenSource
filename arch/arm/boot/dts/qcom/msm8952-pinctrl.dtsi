@@ -1438,12 +1438,12 @@
 		tpiu_setb_6 {
 			setb_6: setb {
 				mux {
-					pins = "gpio22";
+					pins = "gpio122";
 					function = "qdss_traceclk_b";
 				};
 
 				config {
-					pins = "gpio22";
+					pins = "gpio122";
 					drive-strength = <16>;
 					bias-disable;
 				};
@@ -1453,12 +1453,12 @@
 		tpiu_setb_7 {
 			setb_7: setb {
 				mux {
-					pins = "gpio23";
+					pins = "gpio123";
 					function = "qdss_tracedata_b";
 				};
 
 				config {
-					pins = "gpio23";
+					pins = "gpio123";
 					drive-strength = <16>;
 					bias-disable;
 				};

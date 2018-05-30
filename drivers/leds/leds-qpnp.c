@@ -1,5 +1,6 @@
 
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1809,8 +1810,23 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 
 	if (value > led->cdev.max_brightness)
 		value = led->cdev.max_brightness;
+#if 0
 
-	led->cdev.brightness = value;
+	if(strncmp(led->cdev.name, "button-backlight", sizeof("button-backlight")) == 0) {
+		pr_debug("===== jianglei %s LED start =====\n", led->cdev.name);
+		pr_debug("===== jianglei %d LED start =====\n", value);
+		if(value != LED_OFF) {
+			led->cdev.brightness = LED_OFF;
+			pr_debug("===== jianglei %d LED OFF =====\n", led->cdev.brightness);
+		} else{
+			led->cdev.brightness = LED_FULL;
+			pr_debug("===== jianglei %d LED FULL =====\n", led->cdev.brightness);
+		}
+
+	} else
+
+#endif
+		led->cdev.brightness = value;
 	if (led->in_order_command_processing)
 		queue_work(led->workqueue, &led->work);
 	else

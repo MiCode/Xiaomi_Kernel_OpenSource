@@ -301,7 +301,7 @@
 	};
 
 	int_codec: sound {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card-mtp";
 		reg = <0xc051000 0x4>,
@@ -338,7 +338,7 @@
 			"pri_i2s",
 			"us_eu_gpio",
 			"quin_i2s";
-		qcom,pinctrl-names =
+		/*qcom,pinctrl-names =
 			"all_off",
 			"pri_i2s_act",
 			"us_eu_gpio_act",
@@ -379,7 +379,7 @@
 				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
 		pinctrl-7 = <&cdc_pdm_lines_act
 				&cdc_pdm_lines_2_act &cross_conn_det_act
-				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;*/
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -472,7 +472,7 @@
 		qcom,msm-gpios =
 			"quin_i2s",
 			"us_eu_gpio";
-		qcom,pinctrl-names =
+	/*	qcom,pinctrl-names =
 			"all_off",
 			"quin_act",
 			"us_eu_gpio_act",
@@ -489,7 +489,7 @@
 		pinctrl-2 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
 						&cross_conn_det_act>;
 		pinctrl-3 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
-						&cross_conn_det_act>;
+						&cross_conn_det_act>;*/
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;

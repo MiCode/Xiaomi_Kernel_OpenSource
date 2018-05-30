@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 #include "msm_ois.h"
 #include "msm_cci.h"
 
+extern uint16_t otp_ois[19];
 DEFINE_MSM_MUTEX(msm_ois_mutex);
 /*#define MSM_OIS_DEBUG*/
 #undef CDBG
@@ -26,90 +28,63 @@ DEFINE_MSM_MUTEX(msm_ois_mutex);
 #else
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
-
+typedef	uint16_t OIS_UWORD;
+struct OIS_otp{
+	OIS_UWORD	gl_CURDAT;
+	OIS_UWORD	gl_HALOFS_X;
+	OIS_UWORD	gl_HALOFS_Y;
+	OIS_UWORD	gl_HX_OFS;
+	OIS_UWORD	gl_HY_OFS;
+	OIS_UWORD	gl_PSTXOF;
+	OIS_UWORD	gl_PSTYOF;
+	OIS_UWORD	gl_GX_OFS;
+	OIS_UWORD	gl_GY_OFS;
+	OIS_UWORD	gl_KgxHG;
+	OIS_UWORD	gl_KgyHG;
+	OIS_UWORD	gl_KGXG;
+	OIS_UWORD	gl_KGYG;
+	OIS_UWORD	gl_SFTHAL_X;
+	OIS_UWORD	gl_SFTHAL_Y;
+	OIS_UWORD	gl_TMP_X_;
+	OIS_UWORD	gl_TMP_Y_;
+	OIS_UWORD	gl_KgxH0;
+	OIS_UWORD	gl_KgyH0;
+};
 static struct v4l2_file_operations msm_ois_v4l2_subdev_fops;
 static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl);
 static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl);
 
 static struct i2c_driver msm_ois_i2c_driver;
+static struct OIS_otp * msm_ois_otp;
 
+int32_t i = 0;
+unsigned char data_rd[2]={0};
+unsigned short int  read_data = 0;
+uint16_t ois_addr[] ={
+			0x8230,
+			0x8231,
+			0x8232,
+			0x841e,
+			0x849e,
+			0x8239,
+			0x823b,
+			0x8406,
+			0x8486,
+			0x8446,
+			0x84c6,
+			0x840f,
+			0x848f,
+			0x846a,
+			0x846b,
+			0x846a,
+			0x846b,
+			0x8470,
+			0x8472
+		};
 static int32_t msm_ois_download(struct msm_ois_ctrl_t *o_ctrl)
 {
-	uint16_t bytes_in_tx = 0;
-	uint16_t total_bytes = 0;
-	uint8_t *ptr = NULL;
-	int32_t rc = 0;
-	const struct firmware *fw = NULL;
-	const char *fw_name_prog = NULL;
-	const char *fw_name_coeff = NULL;
-	char name_prog[MAX_SENSOR_NAME] = {0};
-	char name_coeff[MAX_SENSOR_NAME] = {0};
-	struct device *dev = &(o_ctrl->pdev->dev);
-	enum msm_camera_i2c_reg_addr_type save_addr_type;
 
-	CDBG("Enter\n");
-	save_addr_type = o_ctrl->i2c_client.addr_type;
-	o_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
-
-	snprintf(name_coeff, MAX_SENSOR_NAME, "%s.coeff",
-		o_ctrl->oboard_info->ois_name);
-
-	snprintf(name_prog, MAX_SENSOR_NAME, "%s.prog",
-		o_ctrl->oboard_info->ois_name);
-
-	/* cast pointer as const pointer*/
-	fw_name_prog = name_prog;
-	fw_name_coeff = name_coeff;
-
-	/* Load FW */
-	rc = request_firmware(&fw, fw_name_prog, dev);
-	if (rc) {
-		dev_err(dev, "Failed to locate %s\n", fw_name_prog);
-		o_ctrl->i2c_client.addr_type = save_addr_type;
-		return rc;
-	}
-
-	total_bytes = fw->size;
-	for (ptr = (uint8_t *)fw->data; total_bytes;
-		total_bytes -= bytes_in_tx, ptr += bytes_in_tx) {
-		bytes_in_tx = (total_bytes > 10) ? 10 : total_bytes;
-		rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
-			&o_ctrl->i2c_client, o_ctrl->oboard_info->opcode.prog,
-			 ptr, bytes_in_tx);
-		if (rc < 0) {
-			pr_err("Failed: remaining bytes to be downloaded: %d",
-				bytes_in_tx);
-			/* abort download fw and return error*/
-			goto release_firmware;
-		}
-	}
-	release_firmware(fw);
-
-	rc = request_firmware(&fw, fw_name_coeff, dev);
-	if (rc) {
-		dev_err(dev, "Failed to locate %s\n", fw_name_coeff);
-		o_ctrl->i2c_client.addr_type = save_addr_type;
-		return rc;
-	}
-	total_bytes = fw->size;
-	for (ptr = (uint8_t *)fw->data; total_bytes;
-		total_bytes -= bytes_in_tx, ptr += bytes_in_tx) {
-		bytes_in_tx = (total_bytes > 10) ? 10 : total_bytes;
-		rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
-			&o_ctrl->i2c_client, o_ctrl->oboard_info->opcode.coeff,
-			ptr, bytes_in_tx);
-		if (rc < 0) {
-			pr_err("Failed: remaining bytes to be downloaded: %d",
-				total_bytes);
-			/* abort download fw*/
-			break;
-		}
-	}
-release_firmware:
-	release_firmware(fw);
-	o_ctrl->i2c_client.addr_type = save_addr_type;
-
-	return rc;
+	return 0;
 }
 
 static int32_t msm_ois_data_config(struct msm_ois_ctrl_t *o_ctrl,
@@ -390,6 +365,15 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 		rc = msm_ois_write_settings(o_ctrl,
 			set_info->ois_params.setting_size,
 			settings);
+	msm_ois_otp =(struct OIS_otp *)otp_ois;
+
+
+	for(i = 0 ; i < 19 ; i++) {
+	o_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+			&o_ctrl->i2c_client,ois_addr[i],(uint8_t*)&otp_ois[i], 2);
+		}
+
+
 		kfree(settings);
 		if (rc < 0) {
 			pr_err("Error\n");
@@ -452,8 +436,7 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 			break;
 		}
 
-		if (!conf_array.size ||
-			conf_array.size > I2C_SEQ_REG_DATA_MAX) {
+		if (!conf_array.size) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
@@ -899,6 +882,7 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 			pr_err("ERR:%s: Error in reading OIS pinctrl\n",
 				__func__);
 			msm_ois_t->cam_pinctrl_status = 0;
+			rc = 0;
 		}
 	}
 

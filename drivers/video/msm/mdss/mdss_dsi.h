@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -431,7 +432,13 @@ struct mdss_dsi_ctrl_pdata {
 	int rst_gpio;
 	int disp_en_gpio;
 	int bklt_en_gpio;
+	int lcmio_en_gpio;
+	int lcm_vci_en_gpio;
 	int mode_gpio;
+
+	int ocp2131_enp_gpio;
+	int ocp2131_enn_gpio;
+
 	int bklt_ctrl;	/* backlight ctrl */
 	bool pwm_pmi;
 	int pwm_period;
@@ -469,6 +476,21 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
 	u32 *status_valid_params;
+	struct dsi_panel_cmds cabc_on_cmds;
+	struct dsi_panel_cmds cabc_off_cmds;
+	struct dsi_panel_cmds cold_cmds;
+	struct dsi_panel_cmds warm_cmds;
+	struct dsi_panel_cmds default_cmds;
+	struct dsi_panel_cmds level1_cmds;
+	struct dsi_panel_cmds level2_cmds;
+	struct dsi_panel_cmds level3_cmds;
+	struct dsi_panel_cmds level4_cmds;
+	struct dsi_panel_cmds level5_cmds;
+	struct dsi_panel_cmds level6_cmds;
+	struct dsi_panel_cmds level7_cmds;
+	struct dsi_panel_cmds level8_cmds;
+	struct dsi_panel_cmds ce_on_cmds;
+	struct dsi_panel_cmds ce_off_cmds;
 	u32 *status_cmds_rlen;
 	u32 *status_value;
 	unsigned char *return_buf;
@@ -587,6 +609,7 @@ int mdss_dsi_wait_for_lane_idle(struct mdss_dsi_ctrl_pdata *ctrl);
 
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
 irqreturn_t hw_vsync_handler(int irq, void *data);
+void disable_esd_thread(void);
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 void mdss_dsi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);

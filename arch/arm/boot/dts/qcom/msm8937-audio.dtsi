@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,60 +17,45 @@
 &int_codec {
 	qcom,model = "msm8952-snd-card-mtp";
 
-	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
-	qcom,msm-mbhc-hphl-swh = <0>;
-	qcom,msm-mbhc-gnd-swh = <0>;
-	qcom,msm-hs-micbias-type = "external";
-	qcom,msm-micbias1-ext-cap;
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,msm-hs-micbias-type = "external";
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-micbias2-ext-cap;
+		qcom,smg3711-enable-gpio = <&tlmm 25 0>;
+		qcom,smg3711-in-gpio = <&tlmm 16 0>;
 
 	qcom,hdmi-dba-codec-rx;
 
 	qcom,msm-gpios =
-		"pri_i2s",
-		"us_eu_gpio",
-		"quin_i2s";
-	qcom,pinctrl-names =
-		"all_off",
-		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
-		"quin_act",
-		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act";
-	pinctrl-names =
-		"all_off",
-		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
-		"quin_act",
-		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act";
-	pinctrl-0 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_sus
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-1 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_sus
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-2 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_act
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-3 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_act
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-4 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_sus
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-5 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_sus
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-6 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_act
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-7 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_act
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+			"pri_i2s",
+			"spk_ext_pa-sw";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"spk_ext_pa_act",
+			"spk_ext_pa_sus";
+		pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"spk_ext_pa_act",
+			"spk_ext_pa_sus";
+		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
+		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		pinctrl-2 = <&spk_ext_pa_active>;
+		pinctrl-3 = <&spk_ext_pa_suspend>;
+		qcom,spk_ext_pa = <&tlmm 1 0>;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS External2",
+			"AMIC3", "MIC BIAS External";
+
 
 	asoc-codec = <&stub_codec>, <&pm8937_cajon_dig>, <&hdmi_dba>;
 	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
@@ -88,7 +74,7 @@
 	qcom,msm-gpios =
 		"quin_i2s",
 		"us_eu_gpio";
-	qcom,pinctrl-names =
+	/*qcom,pinctrl-names =
 		"all_off",
 		"quin_act",
 		"us_eu_gpio_act",
@@ -105,7 +91,7 @@
 	pinctrl-2 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
 						&cross_conn_det_act>;
 	pinctrl-3 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
-						&cross_conn_det_act>;
+						&cross_conn_det_act>;*/
 
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,

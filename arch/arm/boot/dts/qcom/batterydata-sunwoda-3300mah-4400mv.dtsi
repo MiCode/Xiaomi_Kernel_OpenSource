@@ -1,0 +1,49 @@
+
+qcom,sunwoda-3300mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3300>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <4250>;
+	qcom,thermal-coefficients = [B7 85 B2 49 71 35];
+	qcom,battery-type = "sunwoda-3300mah";
+	qcom,chg-rslow-comp-c1 = <3063422>;
+	qcom,chg-rslow-comp-c2 = <3686413>;
+	qcom,chg-rs-to-rslow = <1196440>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0xC456>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 E1 83 D7 7C
+		 09 81 04 77
+		 63 83 2C 74
+		 70 89 98 94
+		 28 82 E2 99
+		 D7 BC 62 C9
+		 55 0F EC 83
+		 D6 7C F2 80
+		 B1 76 54 83
+		 C7 68 82 7B
+		 A8 8C 48 82
+		 E8 99 4B BD
+		 6A CA 54 0D
+		 11 0D 14 59
+		 14 70 77 FD
+		 35 3F CC 37
+		 FE 2A 00 00
+		 11 45 CD 33
+		 5E 3C 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 63 70 5B 6B
+		 C8 6A 3E 80
+		 15 6E E8 58
+		 88 62 15 7A
+		 BF 6C 20 52
+		 4C 6F DA 91
+		 17 CF 60 92
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

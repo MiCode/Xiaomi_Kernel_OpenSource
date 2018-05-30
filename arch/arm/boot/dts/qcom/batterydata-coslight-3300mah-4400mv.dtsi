@@ -1,0 +1,49 @@
+
+qcom,coslight-3300mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3300>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4085>;
+	qcom,thermal-coefficients = [dd 85 63 4A 00 35];
+	qcom,battery-type = "coslight-3300mah";
+	qcom,chg-rslow-comp-c1 = <3754226>;
+	qcom,chg-rslow-comp-c2 = <6242851>;
+	qcom,chg-rs-to-rslow = <1007595>;
+	qcom,chg-rslow-comp-thr = <0xB2>;
+	qcom,checksum = <0xFB12>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 DE 83 AF 7C
+		 DC 80 9B 76
+		 5F 83 4B 6E
+		 C2 88 10 94
+		 28 82 E8 99
+		 E6 BC 82 C9
+		 56 0E E0 83
+		 42 7C 67 80
+		 83 75 51 83
+		 50 6A 86 79
+		 B7 87 3A 82
+		 26 9A 7E BD
+		 A5 CA 54 0D
+		 D1 0C 62 59
+		 14 70 77 FD
+		 68 3D 6E 3D
+		 3F 29 00 00
+		 11 45 CD 2B
+		 5E 3C 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 71 6B 44 6A
+		 92 61 41 7A
+		 23 6E 3F 60
+		 D0 70 A3 80
+		 34 6C AD 58
+		 77 77 FA 91
+		 18 B8 61 DF
+		 5E A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

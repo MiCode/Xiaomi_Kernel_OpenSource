@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +41,10 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <8>;
 			};
 
 			qcom,pon_2 {
@@ -47,6 +52,16 @@
 				qcom,pull-up = <1>;
 				linux,code = <114>;
 			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <1000>;
+				qcom,s2-type = <1>;
+			};
+
 		};
 
 		pm8937_temp_alarm: qcom,temp-alarm@2400 {
@@ -370,6 +385,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		/*
 		pm8937_pwm: pwm@bc00 {
 			status = "disabled";
 			compatible = "qcom,qpnp-pwm";
@@ -378,6 +394,25 @@
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
 			#pwm-cells = <2>;
+		};
+*/
+		pm8937_pwm: pwm@bc00 {
+		     compatible = "qcom,qpnp-pwm";
+		     reg = <0xbc00 0x100>;
+		     reg-names = "qpnp-lpg-channel-base";
+		     qcom,channel-id = <0>;
+		     qcom,supported-sizes = <6>,<9>;
+		     qcom,period = <4000000>;
+		     qcom,mode-select = <0>;
+		     qcom,dtest-line = <2>;
+		     qcom,dtest-output = <2>;
+		     #pwm-cells = <2>;
+		     status = "okay";
+
+		     qcom,pwm {
+			     qcom,duty = <2000000>;
+			     label = "pwm";
+		     };
 		};
 	};
 };

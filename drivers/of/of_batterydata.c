@@ -384,12 +384,13 @@ struct device_node *of_batterydata_get_best_profile(
 					best_id_kohm = batt_ids.kohm[i];
 				}
 			}
+		if (best_node ==NULL) {
+			pr_err("sunxing no battery data configed,add default\n");
+			best_node = node;
+			best_id_kohm = batt_ids.kohm[i];
+			return best_node;
 		}
-	}
-
-	if (best_node == NULL) {
-		pr_err("No battery data found\n");
-		return best_node;
+		}
 	}
 
 	/* check that profile id is in range of the measured batt_id */

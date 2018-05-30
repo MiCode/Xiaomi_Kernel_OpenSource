@@ -142,6 +142,7 @@
 		qcom,ipc-bit-offset = <1>;
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
+			<48 168>, /* usb_phy_id_irq*/
 			<49 172>, /* usb1_hs_async_wakeup_irq */
 			<58 166>, /* usb_hs_irq */
 			<53 104>, /* mdss_irq */

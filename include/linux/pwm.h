@@ -23,6 +23,9 @@ void pwm_free(struct pwm_device *pwm);
  */
 int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns);
 
+long stop_ir_pwm_data(void);
+/* pwm_enable & pwm_disable - direct write pwm register to control pwm output is enabled and disabled*/
+long qpnp_ir_pwm_data(void *arg);
 /*
  * pwm_enable - start a PWM output toggling
  */

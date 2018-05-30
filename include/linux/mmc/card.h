@@ -106,7 +106,7 @@ struct mmc_ext_csd {
 	u8			raw_ext_csd_structure;	/* 194 */
 	u8			raw_card_type;		/* 196 */
 	u8			raw_drive_strength;	/* 197 */
-	u8			out_of_int_time;	/* 198 */
+	u16			out_of_int_time;	/* 198 */
 	u8			raw_pwr_cl_52_195;	/* 200 */
 	u8			raw_pwr_cl_26_195;	/* 201 */
 	u8			raw_pwr_cl_52_360;	/* 202 */
