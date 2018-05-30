@@ -836,8 +836,6 @@ static int setup_fw_sge_queues(struct adapter *adap)
 
 	err = t4_sge_alloc_rxq(adap, &s->fw_evtq, true, adap->port[0],
 			       adap->msi_idx, NULL, fwevtq_handler, NULL, -1);
-	if (err)
-		t4_free_sge_resources(adap);
 	return err;
 }
 
@@ -4940,6 +4938,13 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (err)
 		goto out_free_dev;
 
+	err = setup_fw_sge_queues(adapter);
+	if (err) {
+		dev_err(adapter->pdev_dev,
+			"FW sge queue allocation failed, err %d", err);
+		goto out_free_dev;
+	}
+
 	/*
 	 * The card is now ready to go.  If any errors occur during device
 	 * registration we do not fail the whole card but rather proceed only
@@ -4983,7 +4988,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	print_adapter_info(adapter);
-	setup_fw_sge_queues(adapter);
 	return 0;
 
 sriov:
@@ -5035,6 +5039,7 @@ sriov:
 #endif
 
  out_free_dev:
+	t4_free_sge_resources(adapter);
 	free_some_resources(adapter);
 	if (adapter->flags & USING_MSIX)
 		free_msix_info(adapter);

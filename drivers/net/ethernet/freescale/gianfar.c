@@ -2935,7 +2935,7 @@ static irqreturn_t gfar_transmit(int irq, void *grp_id)
 static bool gfar_add_rx_frag(struct gfar_rx_buff *rxb, u32 lstatus,
 			     struct sk_buff *skb, bool first)
 {
-	unsigned int size = lstatus & BD_LENGTH_MASK;
+	int size = lstatus & BD_LENGTH_MASK;
 	struct page *page = rxb->page;
 	bool last = !!(lstatus & BD_LFLAG(RXBD_LAST));
 
@@ -2950,11 +2950,16 @@ static bool gfar_add_rx_frag(struct gfar_rx_buff *rxb, u32 lstatus,
 		if (last)
 			size -= skb->len;
 
-		/* in case the last fragment consisted only of the FCS */
+		/* Add the last fragment if it contains something other than
+		 * the FCS, otherwise drop it and trim off any part of the FCS
+		 * that was already received.
+		 */
 		if (size > 0)
 			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
 					rxb->page_offset + RXBUF_ALIGNMENT,
 					size, GFAR_RXB_TRUESIZE);
+		else if (size < 0)
+			pskb_trim(skb, skb->len + size);
 	}
 
 	/* try reuse page */
@@ -3070,9 +3075,6 @@ static void gfar_process_frame(struct net_device *ndev, struct sk_buff *skb)
 	if (ndev->features & NETIF_F_RXCSUM)
 		gfar_rx_checksum(skb, fcb);
 
-	/* Tell the skb what kind of packet this is */
-	skb->protocol = eth_type_trans(skb, ndev);
-
 	/* There's need to check for NETIF_F_HW_VLAN_CTAG_RX here.
 	 * Even if vlan rx accel is disabled, on some chips
 	 * RXFCB_VLN is pseudo randomly set.
@@ -3143,13 +3145,15 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
 			continue;
 		}
 
+		gfar_process_frame(ndev, skb);
+
 		/* Increment the number of packets */
 		total_pkts++;
 		total_bytes += skb->len;
 
 		skb_record_rx_queue(skb, rx_queue->qindex);
 
-		gfar_process_frame(ndev, skb);
+		skb->protocol = eth_type_trans(skb, ndev);
 
 		/* Send the packet up the stack */
 		napi_gro_receive(&rx_queue->grp->napi_rx, skb);
