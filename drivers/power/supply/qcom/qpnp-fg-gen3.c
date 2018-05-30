@@ -2560,9 +2560,6 @@ done:
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
 
-	if (fg->profile_load_status == PROFILE_LOADED)
-		fg->profile_loaded = true;
-
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
 	fg->soc_reporting_ready = true;
@@ -3927,7 +3924,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 
 	if (fg->battery_missing) {
 		fg->profile_available = false;
-		fg->profile_loaded = false;
 		fg->profile_load_status = PROFILE_NOT_LOADED;
 		fg->soc_reporting_ready = false;
 		fg->batt_id_ohms = -EINVAL;
