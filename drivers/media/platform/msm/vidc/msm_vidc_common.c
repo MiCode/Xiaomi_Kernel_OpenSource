@@ -4188,15 +4188,16 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry(buf, &inst->registeredbufs.list, list) {
 		/* Don't queue if buffer is not CAPTURE_MPLANE */
-		if (!(buf->vvb.vb2_buf.type &
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
-			continue;
+		if (buf->vvb.vb2_buf.type !=
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			goto loop_end;
 		/* Don't queue if buffer is not a deferred buffer */
 		if (!(buf->flags & MSM_VIDC_FLAG_DEFERRED))
-			continue;
+			goto loop_end;
 		/* Don't queue if RBR event is pending on this buffer */
 		if (buf->flags & MSM_VIDC_FLAG_RBR_PENDING)
-			continue;
+			goto loop_end;
+
 		print_vidc_buffer(VIDC_DBG, "batch-qbuf", inst, buf);
 		rc = msm_comm_qbuf_to_hfi(inst, buf);
 		if (rc) {
@@ -4204,6 +4205,7 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 				__func__, rc);
 			break;
 		}
+loop_end:
 		/* Queue pending buffers till the current buffer only */
 		if (buf == mbuf)
 			break;
