@@ -12,6 +12,7 @@
 #include "kgsl_gmu_core.h"
 #include "kgsl_gmu.h"
 #include "kgsl_trace.h"
+#include "kgsl_snapshot.h"
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -1507,6 +1508,55 @@ static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 	return desc->memdesc->size + sizeof(*mem_hdr);
 }
 
+struct kgsl_snapshot_gmu_version {
+	uint32_t type;
+	uint32_t value;
+};
+
+static size_t a6xx_snapshot_gmu_version(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	uint32_t *data = (uint32_t *) (buf + sizeof(*header));
+	struct kgsl_snapshot_gmu_version *ver = priv;
+
+	if (remain < DEBUG_SECTION_SZ(1)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Version");
+		return 0;
+	}
+
+	header->type = ver->type;
+	header->size = sizeof(uint32_t);
+
+	*data = ver->value;
+
+	return DEBUG_SECTION_SZ(1);
+}
+
+static void a6xx_gmu_snapshot_versions(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	int i;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_snapshot_gmu_version gmu_vers[] = {
+		{ .type = SNAPSHOT_DEBUG_GMU_CORE_VERSION,
+			.value = gmu->ver.core, },
+		{ .type = SNAPSHOT_DEBUG_GMU_CORE_DEV_VERSION,
+			.value = gmu->ver.core_dev, },
+		{ .type = SNAPSHOT_DEBUG_GMU_PWR_VERSION,
+			.value = gmu->ver.pwr, },
+		{ .type = SNAPSHOT_DEBUG_GMU_PWR_DEV_VERSION,
+			.value = gmu->ver.pwr_dev, },
+		{ .type = SNAPSHOT_DEBUG_GMU_HFI_VERSION,
+			.value = gmu->ver.hfi, },
+	};
+
+	for (i = 0; i < ARRAY_SIZE(gmu_vers); i++)
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
+				snapshot, a6xx_snapshot_gmu_version,
+				&gmu_vers[i]);
+}
+
 /*
  * a6xx_gmu_snapshot() - A6XX GMU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -1528,6 +1578,8 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 
 	if (!gmu_core_isenabled(device))
 		return;
+
+	a6xx_gmu_snapshot_versions(device, snapshot);
 
 	for (i = 0; i < ARRAY_SIZE(desc); i++) {
 		if (desc[i].memdesc)
