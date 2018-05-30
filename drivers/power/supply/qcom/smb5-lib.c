@@ -126,6 +126,8 @@ static int smblib_select_sec_charger(struct smb_charger *chg, int sec_chg)
 
 	switch (sec_chg) {
 	case POWER_SUPPLY_CHARGER_SEC_CP:
+		vote(chg->pl_disable_votable, PL_SMB_EN_VOTER, true, 0);
+
 		/* select Charge Pump instead of slave charger */
 		rc = smblib_masked_write(chg, MISC_SMB_CFG_REG,
 					SMB_EN_SEL_BIT, SMB_EN_SEL_BIT);
@@ -158,9 +160,14 @@ static int smblib_select_sec_charger(struct smb_charger *chg, int sec_chg)
 						rc);
 			return rc;
 		}
+
+		vote(chg->pl_disable_votable, PL_SMB_EN_VOTER, false, 0);
+
 		break;
 	case POWER_SUPPLY_CHARGER_SEC_NONE:
 	default:
+		vote(chg->pl_disable_votable, PL_SMB_EN_VOTER, true, 0);
+
 		/* SW override, disabling secondary charger(s) */
 		rc = smblib_write(chg, MISC_SMB_EN_CMD_REG,
 						SMB_EN_OVERRIDE_BIT);
@@ -3298,7 +3305,6 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
-	vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CTM_VOTER, false, 0);
