@@ -79,3 +79,17 @@
 
 	status = "ok";
 };
+
+&usb0 {
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb1 {
+	status = "ok";
+	dwc3@a800000 {
+		dr_mode = "host";
+	};
+};
