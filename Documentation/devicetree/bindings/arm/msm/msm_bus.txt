@@ -145,6 +145,8 @@ qcom,sbm-offset:	The offset used to determine location of Sideband
 			remove bandwidth votes.
 qcom,disable-ports:	The ports to disable on the sideband manager when the
 			requirement bandwidth affecting	the node reduces to 0.
+node-reg-names:		Names of the regulator associated with bus node used
+			to grab the phandle of the regulator.
 
 Example:
 

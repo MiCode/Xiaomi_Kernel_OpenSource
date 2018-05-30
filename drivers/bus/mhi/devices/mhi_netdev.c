@@ -320,8 +320,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 		return 0;
 	}
 
-	mhi_device_get(mhi_dev);
-
 	rx_work = mhi_poll(mhi_dev, budget);
 	if (rx_work < 0) {
 		MSG_ERR("Error polling ret:%d\n", rx_work);
@@ -346,7 +344,6 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 		mhi_netdev->stats.rx_budget_overflow++;
 
 exit_poll:
-	mhi_device_put(mhi_dev);
 	read_unlock_bh(&mhi_netdev->pm_lock);
 
 	MSG_VERB("polled %d pkts\n", rx_work);

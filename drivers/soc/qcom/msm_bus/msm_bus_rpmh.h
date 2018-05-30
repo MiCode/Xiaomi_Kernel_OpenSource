@@ -52,6 +52,9 @@ struct msm_bus_noc_ops {
 			uint32_t qos_delta, uint32_t qos_freq, int enable_lim,
 			uint64_t lim_bw);
 	bool (*update_bw_reg)(int mode);
+	int (*sbm_config)(struct msm_bus_node_device_type *node_dev,
+			void __iomem *noc_base, uint32_t sbm_offset,
+			bool enable);
 };
 
 struct nodebw {
@@ -74,6 +77,11 @@ struct nodevector {
 	uint64_t vec_b;
 	uint64_t query_vec_a;
 	uint64_t query_vec_b;
+};
+
+struct node_regulator {
+	char name[MAX_REG_NAME];
+	struct regulator *reg;
 };
 
 struct qos_bcm_type {
@@ -111,6 +119,7 @@ struct msm_bus_fab_device_type {
 	uint32_t base_offset;
 	uint32_t qos_freq;
 	uint32_t qos_off;
+	uint32_t sbm_offset;
 	struct msm_bus_noc_ops noc_ops;
 	enum msm_bus_hw_sel bus_type;
 	bool bypass_qos_prg;
@@ -189,6 +198,8 @@ struct msm_bus_node_info_type {
 	struct rule_update_path_info rule;
 	uint64_t lim_bw;
 	bool defer_qos;
+	uint32_t *disable_ports;
+	int num_disable_ports;
 	struct node_agg_params_type agg_params;
 };
 
@@ -209,6 +220,8 @@ struct msm_bus_node_device_type {
 	struct nodeclk *node_qos_clks;
 	uint32_t num_qos_bcms;
 	struct qos_bcm_type *qos_bcms;
+	uint32_t num_regs;
+	struct node_regulator *node_regs;
 	unsigned int ap_owned;
 	struct device_node *of_node;
 	struct device dev;
@@ -217,6 +230,7 @@ struct msm_bus_node_device_type {
 	bool query_dirty;
 	struct list_head dev_link;
 	struct list_head devlist;
+	bool is_connected;
 };
 
 static inline struct msm_bus_node_device_type *to_msm_bus_node(struct device *d)

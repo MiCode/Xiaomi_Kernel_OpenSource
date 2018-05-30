@@ -669,83 +669,107 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			   struct device_node *of_node)
 {
-	struct {
-		u32 ev_cfg[MHI_EV_CFG_MAX];
-	} *ev_cfg;
-	int num, i, ret;
+	int i, ret, num = 0;
 	struct mhi_event *mhi_event;
-	u32 bit_cfg;
+	struct device_node *child;
 
-	num = of_property_count_elems_of_size(of_node, "mhi,ev-cfg",
-					      sizeof(*ev_cfg));
-	if (num <= 0)
+	for_each_available_child_of_node(of_node, child) {
+		if (!strcmp(child->name, "mhi_event"))
+			num++;
+	}
+
+	if (!num)
 		return -EINVAL;
-
-	ev_cfg = kcalloc(num, sizeof(*ev_cfg), GFP_KERNEL);
-	if (!ev_cfg)
-		return -ENOMEM;
 
 	mhi_cntrl->total_ev_rings = num;
 	mhi_cntrl->mhi_event = kcalloc(num, sizeof(*mhi_cntrl->mhi_event),
 				       GFP_KERNEL);
-	if (!mhi_cntrl->mhi_event) {
-		kfree(ev_cfg);
+	if (!mhi_cntrl->mhi_event)
 		return -ENOMEM;
-	}
-
-	ret = of_property_read_u32_array(of_node, "mhi,ev-cfg", (u32 *)ev_cfg,
-					 num * sizeof(*ev_cfg) / sizeof(u32));
-	if (ret)
-		goto error_ev_cfg;
 
 	/* populate ev ring */
 	mhi_event = mhi_cntrl->mhi_event;
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		mhi_event->er_index = i;
-		mhi_event->ring.elements =
-			ev_cfg[i].ev_cfg[MHI_EV_CFG_ELEMENTS];
-		mhi_event->intmod = ev_cfg[i].ev_cfg[MHI_EV_CFG_INTMOD];
-		mhi_event->msi = ev_cfg[i].ev_cfg[MHI_EV_CFG_MSI];
-		mhi_event->chan = ev_cfg[i].ev_cfg[MHI_EV_CFG_CHAN];
-		if (mhi_event->chan >= mhi_cntrl->max_chan)
+	i = 0;
+	for_each_available_child_of_node(of_node, child) {
+		if (strcmp(child->name, "mhi_event"))
+			continue;
+
+		mhi_event->er_index = i++;
+		ret = of_property_read_u32(child, "mhi,num-elements",
+					   (u32 *)&mhi_event->ring.elements);
+		if (ret)
 			goto error_ev_cfg;
 
-		/* this event ring has a dedicated channel */
-		if (mhi_event->chan)
+		ret = of_property_read_u32(child, "mhi,intmod",
+					   &mhi_event->intmod);
+		if (ret)
+			goto error_ev_cfg;
+
+		ret = of_property_read_u32(child, "mhi,msi",
+					   &mhi_event->msi);
+		if (ret)
+			goto error_ev_cfg;
+
+		ret = of_property_read_u32(child, "mhi,chan",
+					   &mhi_event->chan);
+		if (!ret) {
+			if (mhi_event->chan >= mhi_cntrl->max_chan)
+				goto error_ev_cfg;
+			/* this event ring has a dedicated channel */
 			mhi_event->mhi_chan =
 				&mhi_cntrl->mhi_chan[mhi_event->chan];
+		}
 
-		mhi_event->priority = ev_cfg[i].ev_cfg[MHI_EV_CFG_PRIORITY];
-		mhi_event->db_cfg.brstmode =
-			ev_cfg[i].ev_cfg[MHI_EV_CFG_BRSTMODE];
-		if (MHI_INVALID_BRSTMODE(mhi_event->db_cfg.brstmode))
+		ret = of_property_read_u32(child, "mhi,priority",
+					   &mhi_event->priority);
+		if (ret)
+			goto error_ev_cfg;
+
+		ret = of_property_read_u32(child, "mhi,brstmode",
+					   &mhi_event->db_cfg.brstmode);
+		if (ret || MHI_INVALID_BRSTMODE(mhi_event->db_cfg.brstmode))
 			goto error_ev_cfg;
 
 		mhi_event->db_cfg.process_db =
 			(mhi_event->db_cfg.brstmode == MHI_BRSTMODE_ENABLE) ?
 			mhi_db_brstmode : mhi_db_brstmode_disable;
 
-		bit_cfg = ev_cfg[i].ev_cfg[MHI_EV_CFG_BITCFG];
-		if (bit_cfg & MHI_EV_CFG_BIT_HW_EV) {
-			mhi_event->hw_ring = true;
+		ret = of_property_read_u32(child, "mhi,data-type",
+					   &mhi_event->data_type);
+		if (ret)
+			mhi_event->data_type = MHI_ER_DATA_ELEMENT_TYPE;
+
+		if (mhi_event->data_type > MHI_ER_DATA_TYPE_MAX)
+			goto error_ev_cfg;
+
+		switch (mhi_event->data_type) {
+		case MHI_ER_DATA_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_data_event_ring;
+			break;
+		case MHI_ER_CTRL_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_ctrl_ev_ring;
+			break;
+		}
+
+		mhi_event->hw_ring = of_property_read_bool(child, "mhi,hw-ev");
+		if (mhi_event->hw_ring)
 			mhi_cntrl->hw_ev_rings++;
-		} else
+		else
 			mhi_cntrl->sw_ev_rings++;
-
-		mhi_event->cl_manage = !!(bit_cfg & MHI_EV_CFG_BIT_CL_MANAGE);
-		mhi_event->offload_ev = !!(bit_cfg & MHI_EV_CFG_BIT_OFFLOAD_EV);
-		mhi_event->ctrl_ev = !!(bit_cfg & MHI_EV_CFG_BIT_CTRL_EV);
+		mhi_event->cl_manage = of_property_read_bool(child,
+							"mhi,client-manage");
+		mhi_event->offload_ev = of_property_read_bool(child,
+							      "mhi,offload");
+		mhi_event++;
 	}
-
-	kfree(ev_cfg);
 
 	/* we need msi for each event ring + additional one for BHI */
 	mhi_cntrl->msi_required = mhi_cntrl->total_ev_rings + 1;
 
 	return 0;
 
- error_ev_cfg:
-	kfree(ev_cfg);
+error_ev_cfg:
+
 	kfree(mhi_cntrl->mhi_event);
 	return -EINVAL;
 }
@@ -977,7 +1001,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 		mhi_event->mhi_cntrl = mhi_cntrl;
 		spin_lock_init(&mhi_event->lock);
-		if (mhi_event->ctrl_ev)
+		if (mhi_event->data_type == MHI_ER_CTRL_ELEMENT_TYPE)
 			tasklet_init(&mhi_event->task, mhi_ctrl_ev_task,
 				     (ulong)mhi_event);
 		else

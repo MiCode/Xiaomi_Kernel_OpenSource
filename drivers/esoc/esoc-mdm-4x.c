@@ -101,7 +101,7 @@ static void mdm_enable_irqs(struct mdm_ctrl *mdm)
 	}
 }
 
-static void mdm_disable_irqs(struct mdm_ctrl *mdm)
+void mdm_disable_irqs(struct mdm_ctrl *mdm)
 {
 	if (!mdm)
 		return;
@@ -373,6 +373,9 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		break;
 	case ESOC_BOOT_FAIL:
 		esoc_clink_evt_notify(ESOC_INVALID_STATE, esoc);
+		break;
+	case ESOC_PON_RETRY:
+		esoc_clink_evt_notify(ESOC_RETRY_PON_EVT, esoc);
 		break;
 	case ESOC_UPGRADE_AVAILABLE:
 		break;

@@ -86,7 +86,7 @@ PLIST_HEAD(swap_active_head);
  * before any swap_info_struct->lock.
  */
 struct plist_head *swap_avail_heads;
-static DEFINE_SPINLOCK(swap_avail_lock);
+DEFINE_SPINLOCK(swap_avail_lock);
 
 struct swap_info_struct *swap_info[MAX_SWAPFILES];
 
@@ -931,6 +931,7 @@ int get_swap_pages(int n_goal, bool cluster, swp_entry_t swp_entries[])
 	long avail_pgs;
 	int n_ret = 0;
 	int node;
+	int swap_ratio_off = 0;
 
 	/* Only single cluster request supported */
 	WARN_ON_ONCE(n_goal > 1 && cluster);
@@ -947,14 +948,34 @@ int get_swap_pages(int n_goal, bool cluster, swp_entry_t swp_entries[])
 
 	atomic_long_sub(n_goal * nr_pages, &nr_swap_pages);
 
+lock_and_start:
 	spin_lock(&swap_avail_lock);
 
 start_over:
 	node = numa_node_id();
 	plist_for_each_entry_safe(si, next, &swap_avail_heads[node], avail_lists[node]) {
+
+		if (sysctl_swap_ratio && !swap_ratio_off) {
+			int ret;
+
+			spin_unlock(&swap_avail_lock);
+			ret = swap_ratio(&si, node);
+			if (ret < 0) {
+				/*
+				 * Error. Start again with swap
+				 * ratio disabled.
+				 */
+				swap_ratio_off = 1;
+				goto lock_and_start;
+			} else {
+				goto start;
+			}
+		}
+
 		/* requeue si to after same-priority siblings */
 		plist_requeue(&si->avail_lists[node], &swap_avail_heads[node]);
 		spin_unlock(&swap_avail_lock);
+start:
 		spin_lock(&si->lock);
 		if (!si->highest_bit || !(si->flags & SWP_WRITEOK)) {
 			spin_lock(&swap_avail_lock);
@@ -3265,9 +3286,11 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 
 	mutex_lock(&swapon_mutex);
 	prio = -1;
-	if (swap_flags & SWAP_FLAG_PREFER)
+	if (swap_flags & SWAP_FLAG_PREFER) {
 		prio =
 		  (swap_flags & SWAP_FLAG_PRIO_MASK) >> SWAP_FLAG_PRIO_SHIFT;
+		setup_swap_ratio(p, prio);
+	}
 	enable_swap_info(p, prio, swap_map, cluster_info, frontswap_map);
 
 	pr_info("Adding %uk swap on %s.  Priority:%d extents:%d across:%lluk %s%s%s%s%s\n",

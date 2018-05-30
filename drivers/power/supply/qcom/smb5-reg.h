@@ -283,7 +283,7 @@ enum {
 #define U_USB_GROUND_BIT			BIT(4)
 
 #define TYPE_C_MODE_CFG_REG			(TYPEC_BASE + 0x44)
-#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 0)
+#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 1)
 #define EN_SRC_ONLY_BIT				BIT(2)
 #define EN_SNK_ONLY_BIT				BIT(1)
 #define TYPEC_DISABLE_CMD_BIT			BIT(0)
@@ -327,7 +327,7 @@ enum {
 #define TYPEC_U_USB_CFG_REG			(TYPEC_BASE + 0x70)
 #define EN_MICRO_USB_MODE_BIT			BIT(0)
 
-#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x70)
+#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x73)
 #define MICRO_USB_MODE_ONLY_BIT			BIT(0)
 /********************************
  *  MISC Peripheral Registers  *

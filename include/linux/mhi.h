@@ -224,6 +224,7 @@ struct mhi_controller {
  * @mtu: Maximum # of bytes controller support
  * @ul_chan_id: MHI channel id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
+ * @tiocm: Device current terminal settings
  * @priv: Driver private data
  */
 struct mhi_device {
@@ -237,6 +238,7 @@ struct mhi_device {
 	int dl_chan_id;
 	int ul_event_id;
 	int dl_event_id;
+	u32 tiocm;
 	const struct mhi_device_id *id;
 	const char *chan_name;
 	struct mhi_controller *mhi_cntrl;

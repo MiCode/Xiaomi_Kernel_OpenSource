@@ -1975,4 +1975,5 @@ struct gmu_core_ops gmu_ops = {
 	.dcvs_set = gmu_dcvs_set,
 	.snapshot = gmu_snapshot,
 	.regulator_isenabled = gmu_regulator_isenabled,
+	.suspend = gmu_suspend,
 };
