@@ -746,6 +746,7 @@
 #include "pms405-rpm-regulator.dtsi"
 #include "qcs405-regulator.dtsi"
 #include "qcs405-thermal.dtsi"
+#include "qcs405-bus.dtsi"
 
 &gdsc_mdss {
 	status = "ok";
