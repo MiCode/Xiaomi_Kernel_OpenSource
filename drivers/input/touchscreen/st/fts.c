@@ -228,7 +228,7 @@ static ssize_t fts_fwupdate_store(struct device *dev,
 	ret = flash_burn(fwD, mode, !mode);
 
 	if (ret < OK && ret != (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED))
-		logError(1, "%s flashProcedure: ERROR %02X\n",
+		logError(0, "%s flashProcedure: ERROR %02X\n",
 			tag, ERROR_FLASH_PROCEDURE);
 	logError(0, "%s flashing procedure Finished!\n", tag);
 
@@ -3020,9 +3020,9 @@ static void fts_status_event_handler(struct fts_ts_info *info,
 	case FTS_WATER_MODE_ON:
 	case FTS_WATER_MODE_OFF:
 	default:
-		logError(1, "%s %s Received unhandled status event = ",
+		logError(0, "%s %s Received unhandled status event = ",
 			tag, __func__);
-		logError(1, "%02X %02X %02X %02X %02X %02X %02X %02X\n",
+		logError(0, "%02X %02X %02X %02X %02X %02X %02X %02X\n",
 			event[0], event[1], event[2], event[3], event[4],
 			event[5], event[6], event[7]);
 		break;
@@ -3324,12 +3324,12 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	error = fts_disableInterrupt();
 
 #ifdef FTS_USE_POLLING_MODE
-	logError(1, "%s Polling Mode\n");
+	logError(0, "%s Polling Mode\n");
 	hrtimer_init(&info->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	info->timer.function = fts_timer_func;
 	hrtimer_start(&info->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 #else
-	logError(1, "%s Interrupt Mode\n", tag);
+	logError(0, "%s Interrupt Mode\n", tag);
 	if (request_irq(info->client->irq, fts_interrupt_handler,
 		IRQF_TRIGGER_LOW, info->client->name, info)) {
 		logError(1, "%s Request irq failed\n", tag);
@@ -3397,14 +3397,14 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 {
 	int error = 0;
 
-	logError(1, "%s %s: Power Cycle Starting...\n", tag, __func__);
+	logError(0, "%s %s: Power Cycle Starting...\n", tag, __func__);
 
 	/**
 	 * if IRQ pin is short with DVDD a call to
 	 * the ISR will triggered when the regulator is turned off
 	 */
 
-	logError(1, "%s %s: Disabling IRQ...\n", tag, __func__);
+	logError(0, "%s %s: Disabling IRQ...\n", tag, __func__);
 	disable_irq_nosync(info->client->irq);
 	if (info->pwr_reg) {
 		error = regulator_disable(info->pwr_reg);
@@ -3456,9 +3456,9 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 
 	release_all_touches(info);
 
-	logError(1, "%s %s: Enabling IRQ...\n", tag, __func__);
+	logError(0, "%s %s: Enabling IRQ...\n", tag, __func__);
 	enable_irq(info->client->irq);
-	logError(1, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n",
+	logError(0, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n",
 		tag, __func__, error);
 	setSystemResettedUp(1);
 	setSystemResettedDown(1);
@@ -3469,7 +3469,7 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep)
 {
 	int error = 0;
 
-	logError(1, "%s %s: Power Cycle Starting...\n", tag, __func__);
+	logError(0, "%s %s: Power Cycle Starting...\n", tag, __func__);
 
 	if (info->pwr_reg) {
 		error = regulator_disable(info->pwr_reg);
@@ -3524,7 +3524,7 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep)
 	/*before reset clear all slot */
 	release_all_touches(info);
 
-	logError(1, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n",
+	logError(0, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n",
 		tag, __func__, error);
 	setSystemResettedUp(1);
 	setSystemResettedDown(1);
@@ -3536,13 +3536,13 @@ static int fts_init_afterProbe(struct fts_ts_info *info)
 	int error = 0;
 
 	/* system reset */
-	error = cleanUp(0);
+	error = cleanUp(1);
 
 	/* enable the features and the sensing */
 	error |= fts_mode_handler(info, 0);
 
 	/* enable the interrupt */
-	error |= fts_enableInterrupt();
+	/* error |= fts_enableInterrupt(); */
 
 #if defined(CONFIG_FB_MSM)
 	error |= fb_register_client(&info->notifier);
@@ -4183,13 +4183,13 @@ static int fts_probe(struct i2c_client *client,
 	int retval;
 	int skip_5_1 = 0;
 
-	logError(1, "%s %s: driver probe begin!\n", tag, __func__);
+	logError(0, "%s %s: driver probe begin!\n", tag, __func__);
 
-	logError(1, "%s SET I2C Functionality and Dev INFO:\n", tag);
+	logError(0, "%s SET I2C Functionality and Dev INFO:\n", tag);
 	openChannel(client);
 	/* logError(1, "%s driver ver. %s (built on %s, %s)\n", tag,*/
 	/*      FTS_TS_DRV_VERSION, __DATE__, __TIME__);*/
-	 logError(1, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
+	 logError(0, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		logError(1, "%s Unsupported I2C functionality\n", tag);
@@ -4209,7 +4209,7 @@ static int fts_probe(struct i2c_client *client,
 	info->client = client;
 
 	i2c_set_clientdata(client, info);
-	logError(1, "%s i2c address: %x\n", tag, client->addr);
+	logError(0, "%s i2c address: %x\n", tag, client->addr);
 	info->dev = &info->client->dev;
 	if (dp) {
 		info->bdata = devm_kzalloc(&client->dev,
@@ -4223,7 +4223,7 @@ static int fts_probe(struct i2c_client *client,
 		parse_dt(&client->dev, info->bdata);
 	}
 
-	logError(1, "%s SET Regulators:\n", tag);
+	logError(0, "%s SET Regulators:\n", tag);
 	retval = fts_get_reg(info, true);
 	if (retval < 0) {
 		logError(1, "%s ERROR: %s: Failed to get regulators\n",
@@ -4238,7 +4238,7 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_2;
 	}
 
-	logError(1, "%s SET GPIOS:\n", tag);
+	logError(0, "%s SET GPIOS:\n", tag);
 	retval = fts_set_gpio(info);
 	if (retval < 0) {
 		logError(1, "%s %s: ERROR Failed to set up GPIO's\n",
@@ -4257,15 +4257,7 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_3;
 	}
 
-	error = fts_init_afterProbe(info);
-	if (error < OK) {
-		logError(1,
-			"%s Cannot initialize the hardware device ERROR %08X\n",
-			tag, error);
-		goto ProbeErrorExit_3;
-	}
-
-	logError(1, "%s SET Event Handler:\n", tag);
+	logError(0, "%s SET Event Handler:\n", tag);
 	/*wake_lock_init(&info->wakelock, WAKE_LOCK_SUSPEND, "fts_tp");*/
 	wakeup_source_init(&info->wakeup_source, "fts_tp");
 	/*info->event_wq = create_singlethread_workqueue("fts-event-queue");*/
@@ -4282,7 +4274,7 @@ static int fts_probe(struct i2c_client *client,
 	INIT_WORK(&info->resume_work, fts_resume_work);
 	INIT_WORK(&info->suspend_work, fts_suspend_work);
 
-	logError(1, "%s SET Input Device Property:\n", tag);
+	logError(0, "%s SET Input Device Property:\n", tag);
 	/*info->dev = &info->client->dev;*/
 	info->input_dev = input_allocate_device();
 	if (!info->input_dev) {
@@ -4384,7 +4376,7 @@ static int fts_probe(struct i2c_client *client,
 #endif
 
 	/* init hardware device */
-	logError(1, "%s Device Initialization:\n", tag);
+	logError(0, "%s Device Initialization:\n", tag);
 	error = fts_init(info);
 	if (error < OK) {
 		logError(1, "%s Cannot initialize the device ERROR %08X\n",
@@ -4416,7 +4408,7 @@ static int fts_probe(struct i2c_client *client,
 		/*goto ProbeErrorExit_6;*/
 	/*}*/
 
-	logError(1, "%s SET Device File Nodes:\n", tag);
+	logError(0, "%s SET Device File Nodes:\n", tag);
 	/* sysfs stuff */
 	info->attrs.attrs = fts_attr_group;
 	error = sysfs_create_group(&client->dev.kobj, &info->attrs);
@@ -4472,6 +4464,13 @@ static int fts_probe(struct i2c_client *client,
 	}
 #endif
 
+	error = fts_init_afterProbe(info);
+	if (error < OK) {
+		logError(1,
+			"%s Cannot initialize the hardware device ERROR %08X\n",
+			tag, error);
+		goto ProbeErrorExit_11;
+	}
 	logError(1, "%s Probe Finished!\n", tag);
 	return OK;
 
