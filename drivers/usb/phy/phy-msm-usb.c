@@ -273,6 +273,11 @@ static int dcp_max_current = IDEV_CHG_MAX;
 module_param(dcp_max_current, int, 0644);
 MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 
+static bool chg_detection_for_float_charger;
+module_param(chg_detection_for_float_charger, bool, 0644);
+MODULE_PARM_DESC(chg_detection_for_float_charger,
+	"Whether to do PHY based charger detection for float chargers");
+
 static struct msm_otg *the_msm_otg;
 static bool debug_bus_voting_enabled;
 
@@ -2974,10 +2979,20 @@ static void msm_otg_set_vbus_state(int online)
 			set_bit(ID, &motg->inputs);
 	}
 
-	if (test_bit(B_SESS_VLD, &motg->inputs) &&
-	     get_psy_type(motg) == POWER_SUPPLY_TYPE_UNKNOWN &&
-	     !motg->chg_detection)
-		motg->chg_detection = true;
+	/*
+	 * Enable PHY based charger detection in 2 cases:
+	 * 1. PMI not capable of doing charger detection and provides VBUS
+	 *    notification with UNKNOWN psy type.
+	 * 2. Data lines have been cut off from PMI, in which case it provides
+	 *    VBUS notification with FLOAT psy type and we want to do PHY based
+	 *    charger detection by setting 'chg_detection_for_float_charger'.
+	 */
+	if (test_bit(B_SESS_VLD, &motg->inputs) && !motg->chg_detection) {
+		if ((get_psy_type(motg) == POWER_SUPPLY_TYPE_UNKNOWN) ||
+		    (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_FLOAT &&
+		     chg_detection_for_float_charger))
+			motg->chg_detection = true;
+	}
 
 	if (motg->chg_detection)
 		queue_delayed_work(motg->otg_wq, &motg->chg_work, 0);
