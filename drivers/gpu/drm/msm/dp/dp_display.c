@@ -222,6 +222,11 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 		return;
 	}
 
+	if (dp->debug->sim_mode) {
+		pr_debug("skip HDCP version checks for simulation mode\n");
+		return;
+	}
+
 	fd = dp->hdcp.hdcp2;
 	if (fd)
 		ops = sde_dp_hdcp2p2_start(fd);
