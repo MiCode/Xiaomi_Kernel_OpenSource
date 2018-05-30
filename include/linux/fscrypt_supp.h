@@ -29,6 +29,7 @@ struct fscrypt_operations {
 	bool (*dummy_context)(struct inode *);
 	bool (*empty_dir)(struct inode *);
 	unsigned (*max_namelen)(struct inode *);
+	bool (*is_encrypted)(struct inode *);
 };
 
 struct fscrypt_ctx {
@@ -97,10 +98,6 @@ extern int fscrypt_inherit_context(struct inode *, struct inode *,
 /* keyinfo.c */
 extern int fscrypt_get_encryption_info(struct inode *);
 extern void fscrypt_put_encryption_info(struct inode *);
-extern int fs_using_hardware_encryption(struct inode *inode);
-extern char *fscrypt_get_ice_encryption_key(const struct inode *inode);
-extern char *fscrypt_get_ice_encryption_salt(const struct inode *inode);
-extern int fscrypt_is_aes_xts_cipher(const struct inode *inode);
 
 /* fname.c */
 extern int fscrypt_setup_filename(struct inode *, const struct qstr *,
@@ -198,6 +195,13 @@ extern void fscrypt_enqueue_decrypt_bio(struct fscrypt_ctx *ctx,
 extern void fscrypt_pullback_bio_page(struct page **, bool);
 extern int fscrypt_zeroout_range(const struct inode *, pgoff_t, sector_t,
 				 unsigned int);
+
+/* fscrypt_ice.c */
+extern int fscrypt_using_hardware_encryption(const struct inode *inode);
+extern void fscrypt_set_ice_dun(const struct inode *inode,
+		struct bio *bio, u64 dun);
+extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted);
+
 
 /* hooks.c */
 extern int fscrypt_file_open(struct inode *inode, struct file *filp);
