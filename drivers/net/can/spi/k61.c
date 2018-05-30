@@ -60,6 +60,7 @@ struct k61_can {
 	int cmd_result;
 	int bits_per_word;
 	int reset_delay_msec;
+	s64 time_diff;
 };
 
 struct k61_netdev_privdata {
@@ -97,6 +98,7 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_DATA_BUFF_REMOVE	0x88
 #define CMD_CAN_RELEASE_BUFFER          0x89
 #define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
+#define CMD_UPDATE_TIME_INFO		0x9D
 
 #define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
 #define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
@@ -112,7 +114,7 @@ struct can_fw_resp {
 } __packed;
 
 struct can_write_req {
-	u32 ts;
+	u64 ts;
 	u32 mid;
 	u8 dlc;
 	u8 data[];
@@ -123,7 +125,7 @@ struct can_write_resp {
 } __packed;
 
 struct can_receive_frame {
-	u32 ts;
+	u64 ts;
 	u32 mid;
 	u8 dlc;
 	u8 data[];
@@ -134,6 +136,10 @@ struct can_add_filter_req {
 	u32 mid;
 	u32 mask;
 	u8 type;
+} __packed;
+
+struct can_time_info {
+	u64 time;
 } __packed;
 
 static struct can_bittiming_const k61_bittiming_const = {
@@ -199,8 +205,7 @@ static void k61_receive_frame(struct k61_can *priv_data,
 	struct can_frame *cf;
 	struct sk_buff *skb;
 	struct skb_shared_hwtstamps *skt;
-	struct timeval tv;
-	static int msec;
+	ktime_t nsec;
 	struct net_device *netdev;
 	int i;
 
@@ -217,7 +222,7 @@ static void k61_receive_frame(struct k61_can *priv_data,
 		return;
 	}
 
-	LOGDI("rcv frame %d %x %d %x %x %x %x %x %x %x %x\n",
+	LOGDI("rcv frame %llu %x %d %x %x %x %x %x %x %x %x\n",
 	      frame->ts, frame->mid, frame->dlc, frame->data[0],
 	      frame->data[1], frame->data[2], frame->data[3], frame->data[4],
 	      frame->data[5], frame->data[6], frame->data[7]);
@@ -227,13 +232,11 @@ static void k61_receive_frame(struct k61_can *priv_data,
 	for (i = 0; i < cf->can_dlc; i++)
 		cf->data[i] = frame->data[i];
 
-	msec = le32_to_cpu(frame->ts);
-	tv.tv_sec = msec / 1000;
-	tv.tv_usec = (msec - tv.tv_sec * 1000) * 1000;
+	nsec = ms_to_ktime(le64_to_cpu(frame->ts) + priv_data->time_diff);
 	skt = skb_hwtstamps(skb);
-	skt->hwtstamp = timeval_to_ktime(tv);
+	skt->hwtstamp = nsec;
 	LOGDI("  hwtstamp %lld\n", ktime_to_ms(skt->hwtstamp));
-	skb->tstamp = timeval_to_ktime(tv);
+	skb->tstamp = nsec;
 	netif_rx(skb);
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += cf->can_dlc;
@@ -243,6 +246,9 @@ static void k61_process_response(struct k61_can *priv_data,
 				 struct spi_miso *resp)
 {
 	int ret = 0;
+	u64 mstime;
+	ktime_t ktime_now;
+
 	LOGDI("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
 	if (resp->cmd == CMD_CAN_RECEIVE_FRAME) {
 		struct can_receive_frame *frame =
@@ -253,6 +259,12 @@ static void k61_process_response(struct k61_can *priv_data,
 
 		dev_info(&priv_data->spidev->dev, "fw %d.%d.%d",
 			 fw_resp->maj, fw_resp->min, fw_resp->ver);
+	} else if (resp->cmd == CMD_UPDATE_TIME_INFO) {
+		struct can_time_info *time_data =
+		     (struct can_time_info *)resp->data;
+		ktime_now = ktime_get_boottime();
+		mstime = ktime_to_ms(ktime_now);
+		priv_data->time_diff = mstime - (le64_to_cpu(time_data->time));
 	}
 
 	if (resp->cmd == priv_data->wait_cmd) {
