@@ -603,9 +603,9 @@ static int enable_npu_crc(struct regmap *regmap)
 {
 	int ret = 0;
 
-	/* Set npu_cc_cal_cp_clk to a safe frequency */
+	/* Set npu_cc_cal_cp_clk to the lowest supported frequency */
 	clk_set_rate(npu_cc_cal_dp_clk.clkr.hw.clk,
-		npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_MIN]);
+		clk_round_rate(npu_cc_cal_dp_clk_src.clkr.hw.clk, 1));
 	/* Turn on the NPU GDSC */
 	ret = regulator_enable(vdd_gdsc);
 	if (ret) {
