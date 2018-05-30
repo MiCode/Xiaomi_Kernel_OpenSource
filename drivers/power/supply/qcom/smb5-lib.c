@@ -1617,6 +1617,25 @@ int smblib_set_prop_input_current_limited(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc;
+	u8 new_thr = DIV_ROUND_CLOSEST(val->intval * 255, 100);
+
+	rc = smblib_write(chg, CHARGE_RCHG_SOC_THRESHOLD_CFG_REG,
+			new_thr);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write to RCHG_SOC_THRESHOLD_CFG_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	chg->auto_recharge_soc = val->intval;
+
+	return rc;
+}
+
 int smblib_rerun_aicl(struct smb_charger *chg)
 {
 	int rc;
