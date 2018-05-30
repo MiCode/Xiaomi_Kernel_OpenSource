@@ -1233,8 +1233,8 @@ static int cluster_init(const struct cpumask *mask)
 
 static int __init core_ctl_init(void)
 {
-	unsigned int cpu;
-	struct cpumask cpus = *cpu_possible_mask;
+	struct sched_cluster *cluster;
+	int ret;
 
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 			"core_ctl/isolation:online",
@@ -1244,15 +1244,12 @@ static int __init core_ctl_init(void)
 			"core_ctl/isolation:dead",
 			NULL, core_ctl_isolation_dead_cpu);
 
-	for_each_cpu(cpu, &cpus) {
-		int ret;
-		const struct cpumask *cluster_cpus = cpu_coregroup_mask(cpu);
-
-		ret = cluster_init(cluster_cpus);
+	for_each_sched_cluster(cluster) {
+		ret = cluster_init(&cluster->cpus);
 		if (ret)
 			pr_warn("unable to create core ctl group: %d\n", ret);
-		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 	}
+
 	initialized = true;
 	return 0;
 }
