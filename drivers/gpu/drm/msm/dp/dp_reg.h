@@ -267,9 +267,9 @@
 #define DP_PHY_AUX_CFG7                         (0x0000003C)
 #define DP_PHY_AUX_CFG8                         (0x00000040)
 #define DP_PHY_AUX_CFG9                         (0x00000044)
-#define DP_PHY_AUX_INTERRUPT_MASK               (0x00000048)
-#define DP_PHY_AUX_INTERRUPT_CLEAR              (0x0000004C)
-#define DP_PHY_AUX_INTERRUPT_STATUS             (0x000000BC)
+#define DP_PHY_AUX_INTERRUPT_MASK               (0x00000054)
+#define DP_PHY_AUX_INTERRUPT_CLEAR              (0x00000058)
+#define DP_PHY_AUX_INTERRUPT_STATUS             (0x000000D8)
 
 #define DP_PHY_SPARE0				(0x00AC)
 

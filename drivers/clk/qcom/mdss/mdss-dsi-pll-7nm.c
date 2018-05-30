@@ -896,7 +896,10 @@ static void dsi_pll_enable_global_clk(struct mdss_pll_resources *rsc)
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_3, 0x04);
 
 	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
-	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data | BIT(5)));
+
+	/* Turn on clk_en_sel bit prior to resync toggle fifo */
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data | BIT(5) |
+								BIT(4)));
 }
 
 static void dsi_pll_phy_dig_reset(struct mdss_pll_resources *rsc)
