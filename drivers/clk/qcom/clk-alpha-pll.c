@@ -724,21 +724,13 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 {
 	int ret = 0;
 
+	if (pll->inited)
+		return ret;
+
 	if (trion_pll_is_enabled(pll, regmap)) {
 		pr_warn("PLL is already enabled. Skipping configuration.\n");
 		pll->inited = true;
 		return ret;
-	}
-
-	/*
-	 * Disable the PLL if it's already been initialized. Not doing so might
-	 * lead to the PLL running with the old frequency configuration.
-	 */
-	if (pll->inited) {
-		ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
-						PLL_RESET_N, 0);
-		if (ret)
-			return ret;
 	}
 
 	if (config->l)
@@ -1032,7 +1024,10 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
 	u32 mode_regval;
-	int ret;
+	int ret = 0;
+
+	if (pll->inited)
+		return ret;
 
 	ret = regmap_read(regmap, pll->offset + PLL_MODE, &mode_regval);
 	if (ret)
