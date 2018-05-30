@@ -409,18 +409,13 @@ static void smb1390_status_change_work(struct work_struct *work)
 		goto out;
 
 	rc = power_supply_get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_TYPEC_MODE, &pval);
+			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
 	if (rc < 0) {
 		pr_err("Couldn't get usb present rc=%d\n", rc);
 		goto out;
 	}
 
-	if (pval.intval != POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-			&& pval.intval != POWER_SUPPLY_TYPEC_SOURCE_MEDIUM
-			&& pval.intval != POWER_SUPPLY_TYPEC_SOURCE_HIGH) {
-		vote(chip->disable_votable, USB_VOTER, true, 0);
-		vote(chip->fcc_votable, CP_VOTER, false, 0);
-	} else {
+	if (pval.intval == POWER_SUPPLY_CHARGER_SEC_CP) {
 		vote(chip->disable_votable, USB_VOTER, false, 0);
 
 		/*
@@ -463,6 +458,9 @@ static void smb1390_status_change_work(struct work_struct *work)
 					   &chip->taper_work);
 			}
 		}
+	} else {
+		vote(chip->disable_votable, USB_VOTER, true, 0);
+		vote(chip->fcc_votable, CP_VOTER, false, 0);
 	}
 
 out:
