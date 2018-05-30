@@ -48,7 +48,6 @@ enum mmc_drv_op {
 };
 
 struct mmc_queue_req {
-	struct request		*req;
 	struct mmc_blk_request	brq;
 	struct scatterlist	*sg;
 	struct mmc_async_req	areq;
@@ -78,7 +77,6 @@ struct mmc_queue {
 	struct mmc_queue_req	mqrq[2];
 	struct mmc_queue_req	*mqrq_cur;
 	struct mmc_queue_req	*mqrq_prev;
-	struct mmc_queue_req	*mqrq_cmdq;
 	struct work_struct	cmdq_err_work;
 
 	struct completion	cmdq_pending_req_done;
