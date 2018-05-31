@@ -6270,7 +6270,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			iova_p, &pa_p, size_p);
 		ipa3_iommu_map(cb->mapping->domain,
 			iova_p, pa_p, size_p,
-			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+			IOMMU_READ | IOMMU_WRITE);
 	}
 
 
