@@ -1890,6 +1890,17 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 			if (IS_ERR_VALUE(rc))
 				goto pan_error;
 		}
+
+		if (mdp3_ctrl_get_intf_type(mfd) ==
+				MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+			rc = mdp3_session->dma->wait_for_dma(mdp3_session->dma,
+					mdp3_session->intf);
+			if (!rc && !mdp3_session->first_commit) {
+				pr_err("dma done timedout\n");
+				goto pan_error;
+			}
+		}
+
 		rc = mdp3_session->dma->update(mdp3_session->dma,
 				(void *)(int)(mfd->iova + offset),
 				mdp3_session->intf, NULL,
