@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@ TRACE_EVENT(irq_pin_config,
 	),
 
 	TP_printk("%s hwirq:%u pin:%u type:%u enable:%u",
-		__entry->func, __entry->pin, __entry->hwirq, __entry->type,
+		__entry->func, __entry->hwirq, __entry->pin, __entry->type,
 		__entry->enable)
 );
 
