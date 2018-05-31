@@ -29,6 +29,7 @@
 #include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
+#include "dsi-panel-sw43404-amoled-dsc-fhd-plus-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &tlmm {
@@ -333,6 +334,17 @@
 		qcom,dsi-panel = <&dsi_sw43404_amoled_video>;
 	};
 
+	dsi_sw43404_amoled_fhd_plus_cmd_display: qcom,dsi-display@18 {
+		label = "dsi_sw43404_amoled_fhd_plus_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sw43404_amoled_fhd_plus_cmd>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -375,7 +387,8 @@
 			&dsi_sw43404_amoled_cmd_display
 			&dsi_nt35695b_truly_fhd_cmd_display
 			&dsi_nt35695b_truly_fhd_video_display
-			&dsi_sw43404_amoled_video_display>;
+			&dsi_sw43404_amoled_video_display
+			&dsi_sw43404_amoled_fhd_plus_cmd_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -670,6 +683,17 @@
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 16 05 05 20 1f 06
 				06 03 03 04 00 13 15];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sw43404_amoled_fhd_plus_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 12 04 04 1e 1e 04
+				05 02 03 04 00 11 14];
 			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 		};
