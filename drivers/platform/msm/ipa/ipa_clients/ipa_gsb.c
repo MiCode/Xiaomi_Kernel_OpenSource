@@ -67,7 +67,8 @@
 static char dbg_buff[IPA_GSB_MAX_MSG_LEN];
 
 #define IPA_GSB_SKB_HEADROOM 256
-#define IPA_GSB_AGGR_BYTE_LIMIT 6
+#define IPA_GSB_SKB_DUMMY_HEADER 42
+#define IPA_GSB_AGGR_BYTE_LIMIT 14
 #define IPA_GSB_AGGR_TIME_LIMIT 1
 
 static struct dentry *dent;
@@ -280,22 +281,36 @@ static int ipa_gsb_commit_partial_hdr(struct ipa_gsb_iface_info *iface_info)
 			 "%s_ipv4", iface_info->netdev_name);
 	snprintf(hdr->hdr[1].name, sizeof(hdr->hdr[1].name),
 			 "%s_ipv6", iface_info->netdev_name);
-	/* partial header: [hdl][QMAP ID][pkt size][ETH header] */
+	/*
+	 * partial header:
+	 * [hdl][QMAP ID][pkt size][Dummy Header][ETH header]
+	 */
 	for (i = IPA_IP_v4; i < IPA_IP_MAX; i++) {
-		hdr->hdr[i].hdr_len = ETH_HLEN + sizeof(struct ipa_gsb_mux_hdr);
+		/*
+		 * Optimization: add dummy header to reserve space
+		 * for rndis header, so we can do the skb_clone
+		 * instead of deep copy.
+		 */
+		hdr->hdr[i].hdr_len = ETH_HLEN +
+			sizeof(struct ipa_gsb_mux_hdr) +
+			IPA_GSB_SKB_DUMMY_HEADER;
 		hdr->hdr[i].type = IPA_HDR_L2_ETHERNET_II;
 		hdr->hdr[i].is_partial = 1;
 		hdr->hdr[i].is_eth2_ofst_valid = 1;
-		hdr->hdr[i].eth2_ofst = sizeof(struct ipa_gsb_mux_hdr);
+		hdr->hdr[i].eth2_ofst = sizeof(struct ipa_gsb_mux_hdr) +
+			IPA_GSB_SKB_DUMMY_HEADER;
 		/* populate iface handle */
 		hdr->hdr[i].hdr[0] = iface_info->iface_hdl;
 		/* populate src ETH address */
-		memcpy(&hdr->hdr[i].hdr[10], iface_info->device_ethaddr, 6);
+		memcpy(&hdr->hdr[i].hdr[10 + IPA_GSB_SKB_DUMMY_HEADER],
+			iface_info->device_ethaddr, 6);
 		/* populate Ethertype */
 		if (i == IPA_IP_v4)
-			*(u16 *)(hdr->hdr[i].hdr + 16) = htons(ETH_P_IP);
+			*(u16 *)(hdr->hdr[i].hdr + 16 +
+				IPA_GSB_SKB_DUMMY_HEADER) = htons(ETH_P_IP);
 		else
-			*(u16 *)(hdr->hdr[i].hdr + 16) = htons(ETH_P_IPV6);
+			*(u16 *)(hdr->hdr[i].hdr + 16 +
+				IPA_GSB_SKB_DUMMY_HEADER) = htons(ETH_P_IPV6);
 	}
 
 	if (ipa_add_hdr(hdr)) {
@@ -412,7 +427,7 @@ static void ipa_gsb_pm_cb(void *user_data, enum ipa_pm_cb_event event)
 		return;
 	}
 
-	IPA_GSB_DBG("wake up clients\n");
+	IPA_GSB_DBG_LOW("wake up clients\n");
 	for (i = 0; i < MAX_SUPPORTED_IFACE; i++)
 		if (ipa_gsb_ctx->iface[i] != NULL)
 			ipa_gsb_ctx->iface[i]->wakeup_request(
@@ -631,21 +646,6 @@ int ipa_bridge_cleanup(u32 hdl)
 }
 EXPORT_SYMBOL(ipa_bridge_cleanup);
 
-static struct sk_buff *ipa_gsb_skb_copy(struct sk_buff *skb, int len)
-{
-	struct sk_buff *skb2 = NULL;
-
-	skb2 = __dev_alloc_skb(len + IPA_GSB_SKB_HEADROOM, GFP_KERNEL);
-	if (likely(skb2)) {
-		skb_reserve(skb2, IPA_GSB_SKB_HEADROOM);
-		memcpy(skb2->data, skb->data, len);
-		skb2->len = len;
-		skb_set_tail_pointer(skb2, len);
-	}
-
-	return skb2;
-}
-
 static void ipa_gsb_cons_cb(void *priv, enum ipa_dp_evt_type evt,
 	unsigned long data)
 {
@@ -663,24 +663,42 @@ static void ipa_gsb_cons_cb(void *priv, enum ipa_dp_evt_type evt,
 
 	skb = (struct sk_buff *)data;
 
+	if (skb == NULL) {
+		IPA_GSB_ERR("unexpected NULL data\n");
+		WARN_ON(1);
+		return;
+	}
+
 	while (skb->len) {
 		mux_hdr = (struct ipa_gsb_mux_hdr *)skb->data;
 		pkt_size = mux_hdr->pkt_size;
 		/* 4-byte padding */
-		pad_byte = ((pkt_size + sizeof(*mux_hdr) + ETH_HLEN + 3) & ~3)
-			- (pkt_size + sizeof(*mux_hdr) + ETH_HLEN);
+		pad_byte = ((pkt_size + sizeof(*mux_hdr) + ETH_HLEN +
+			3 + IPA_GSB_SKB_DUMMY_HEADER) & ~3) -
+			(pkt_size + sizeof(*mux_hdr) +
+			ETH_HLEN + IPA_GSB_SKB_DUMMY_HEADER);
 		hdl = mux_hdr->iface_hdl;
-		IPA_GSB_DBG("pkt_size: %d, pad_byte: %d, hdl: %d\n",
+		IPA_GSB_DBG_LOW("pkt_size: %d, pad_byte: %d, hdl: %d\n",
 			pkt_size, pad_byte, hdl);
 
-		/* remove 4 byte mux header */
-		skb_pull(skb, sizeof(*mux_hdr));
-		skb2 = ipa_gsb_skb_copy(skb, pkt_size + ETH_HLEN);
+		/* remove 4 byte mux header AND dummy header*/
+		skb_pull(skb, sizeof(*mux_hdr) + IPA_GSB_SKB_DUMMY_HEADER);
+
+		skb2 = skb_clone(skb, GFP_KERNEL);
+		if (!skb2) {
+			IPA_GSB_ERR("skb_clone failed\n");
+			WARN_ON(1);
+			break;
+		}
+		skb_trim(skb2, pkt_size + ETH_HLEN);
 		ipa_gsb_ctx->iface[hdl]->send_dl_skb(
 			ipa_gsb_ctx->iface[hdl]->priv, skb2);
 		ipa_gsb_ctx->iface[hdl]->iface_stats.num_dl_packets++;
-
 		skb_pull(skb, pkt_size + ETH_HLEN + pad_byte);
+	}
+	if (skb) {
+		dev_kfree_skb_any(skb);
+		skb = NULL;
 	}
 }
 
@@ -693,6 +711,12 @@ static void ipa_gsb_tx_dp_notify(void *priv, enum ipa_dp_evt_type evt,
 
 	skb = (struct sk_buff *)data;
 
+	if (skb == NULL) {
+		IPA_GSB_ERR("unexpected NULL data\n");
+		WARN_ON(1);
+		return;
+	}
+
 	if (evt != IPA_WRITE_DONE && evt != IPA_RECEIVE) {
 		IPA_GSB_ERR("unexpected event: %d\n", evt);
 		dev_kfree_skb_any(skb);
@@ -704,7 +728,7 @@ static void ipa_gsb_tx_dp_notify(void *priv, enum ipa_dp_evt_type evt,
 	/* change to host order */
 	*(u32 *)mux_hdr = ntohl(*(u32 *)mux_hdr);
 	hdl = mux_hdr->iface_hdl;
-	IPA_GSB_DBG("evt: %d, hdl in tx_dp_notify: %d\n", evt, hdl);
+	IPA_GSB_DBG_LOW("evt: %d, hdl in tx_dp_notify: %d\n", evt, hdl);
 
 	/* remove 4 byte mux header */
 	skb_pull(skb, sizeof(struct ipa_gsb_mux_hdr));
@@ -742,7 +766,8 @@ static int ipa_gsb_connect_sys_pipe(void)
 	/* configure TX EP */
 	cons_params.client = IPA_CLIENT_ODU_EMB_CONS;
 	cons_params.ipa_ep_cfg.hdr.hdr_len =
-		ETH_HLEN + sizeof(struct ipa_gsb_mux_hdr);
+		ETH_HLEN + sizeof(struct ipa_gsb_mux_hdr) +
+		IPA_GSB_SKB_DUMMY_HEADER;
 	cons_params.ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
 	cons_params.ipa_ep_cfg.hdr.hdr_ofst_pkt_size = 2;
 	cons_params.ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment = 2;
@@ -913,7 +938,7 @@ int ipa_bridge_resume(u32 hdl)
 		return -EFAULT;
 	}
 
-	IPA_GSB_DBG("client hdl: %d\n", hdl);
+	IPA_GSB_DBG_LOW("client hdl: %d\n", hdl);
 
 	if (!ipa_gsb_ctx->iface[hdl]->is_connected) {
 		IPA_GSB_ERR("iface is not connected\n");
@@ -921,7 +946,7 @@ int ipa_bridge_resume(u32 hdl)
 	}
 
 	if (ipa_gsb_ctx->iface[hdl]->is_resumed) {
-		IPA_GSB_DBG("iface was already resumed\n");
+		IPA_GSB_DBG_LOW("iface was already resumed\n");
 		return 0;
 	}
 
@@ -948,7 +973,7 @@ int ipa_bridge_resume(u32 hdl)
 
 	ipa_gsb_ctx->iface[hdl]->is_resumed = true;
 	ipa_gsb_ctx->num_resumed_iface++;
-	IPA_GSB_DBG("num resumed iface: %d\n",
+	IPA_GSB_DBG_LOW("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
 
 	mutex_unlock(&ipa_gsb_ctx->lock);
@@ -965,7 +990,7 @@ int ipa_bridge_suspend(u32 hdl)
 		return -EFAULT;
 	}
 
-	IPA_GSB_DBG("client hdl: %d\n", hdl);
+	IPA_GSB_DBG_LOW("client hdl: %d\n", hdl);
 
 	if (!ipa_gsb_ctx->iface[hdl]->is_connected) {
 		IPA_GSB_ERR("iface is not connected\n");
@@ -973,7 +998,7 @@ int ipa_bridge_suspend(u32 hdl)
 	}
 
 	if (!ipa_gsb_ctx->iface[hdl]->is_resumed) {
-		IPA_GSB_DBG("iface was already suspended\n");
+		IPA_GSB_DBG_LOW("iface was already suspended\n");
 		return 0;
 	}
 
@@ -1001,7 +1026,7 @@ int ipa_bridge_suspend(u32 hdl)
 
 	ipa_gsb_ctx->iface[hdl]->is_resumed = false;
 	ipa_gsb_ctx->num_resumed_iface--;
-	IPA_GSB_DBG("num resumed iface: %d\n",
+	IPA_GSB_DBG_LOW("num resumed iface: %d\n",
 		ipa_gsb_ctx->num_resumed_iface);
 
 	mutex_unlock(&ipa_gsb_ctx->lock);
@@ -1035,12 +1060,12 @@ int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
 	struct stats iface_stats;
 	int ret;
 
-	IPA_GSB_DBG("client hdl: %d\n", hdl);
+	IPA_GSB_DBG_LOW("client hdl: %d\n", hdl);
 
 	iface_stats = ipa_gsb_ctx->iface[hdl]->iface_stats;
 	/* make sure skb has enough headroom */
 	if (unlikely(skb_headroom(skb) < sizeof(struct ipa_gsb_mux_hdr))) {
-		IPA_GSB_DBG("skb doesn't have enough headroom\n");
+		IPA_GSB_DBG_LOW("skb doesn't have enough headroom\n");
 		skb2 = skb_copy_expand(skb, sizeof(struct ipa_gsb_mux_hdr),
 			0, GFP_ATOMIC);
 		if (!skb2) {
