@@ -342,6 +342,12 @@
 #define HDMI_EDID_A_ENABLE_BMSK                 0x0001
 #define HDMI_EDID_A_ENABLE_SHFT                 0
 
+/* HDMI RX INFOFRAME Map Registers (Read Only) */
+#define HDMI_REG_AVI_INF_PB_ADDR                0x00
+#define HDMI_REG_AVI_PACKET_ID_ADDR             0xE0
+#define HDMI_REG_AVI_INF_VERS_ADDR              0xE1
+#define HDMI_REG_AVI_INF_LEN_ADDR               0xE2
+
 /* CEC Map Registers */
 #define CEC_REG_LOG_ADDR_MASK_ADDR              0x27
 #define CEC_REG_LOG_ADDR_MASK2_BMSK             0x0040

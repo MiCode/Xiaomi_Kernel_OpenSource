@@ -41,28 +41,32 @@
 #include "msm_camera_i2c.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
+#include "linux/hdmi.h"
 
 #define DRIVER_NAME "adv7481"
 
-#define I2C_RW_DELAY		1
-#define I2C_SW_RST_DELAY	5000
+#define I2C_RW_DELAY			1
+#define I2C_SW_RST_DELAY		5000
 #define GPIO_HW_RST_DELAY_HI	10000
 #define GPIO_HW_RST_DELAY_LOW	10000
-#define SDP_MIN_SLEEP		5000
-#define SDP_MAX_SLEEP		6000
-#define SDP_NUM_TRIES		30
-#define LOCK_MIN_SLEEP		5000
-#define LOCK_MAX_SLEEP		6000
-#define LOCK_NUM_TRIES		200
+#define SDP_MIN_SLEEP			5000
+#define SDP_MAX_SLEEP			6000
+#define SDP_NUM_TRIES			30
+#define LOCK_MIN_SLEEP			5000
+#define LOCK_MAX_SLEEP			6000
+#define LOCK_NUM_TRIES			200
 
 #define MAX_DEFAULT_WIDTH       1280
 #define MAX_DEFAULT_HEIGHT      720
 #define MAX_DEFAULT_FRAME_RATE  60
 #define MAX_DEFAULT_PIX_CLK_HZ  74240000
 
-#define ONE_MHZ_TO_HZ		1000000
-#define I2C_BLOCK_WRITE_SIZE    1024
-#define ADV_REG_STABLE_DELAY    70      /* ms*/
+#define ONE_MHZ_TO_HZ			1000000
+#define I2C_BLOCK_WRITE_SIZE	1024
+#define ADV_REG_STABLE_DELAY	70		/* ms*/
+
+#define AVI_INFOFRAME_SIZE		31
+#define INFOFRAME_DATA_SIZE		28
 
 enum adv7481_gpio_t {
 
@@ -120,6 +124,7 @@ struct adv7481_state {
 	uint8_t i2c_csi_txa_addr;
 	uint8_t i2c_csi_txb_addr;
 	uint8_t i2c_hdmi_addr;
+	uint8_t i2c_hdmi_inf_addr;
 	uint8_t i2c_edid_addr;
 	uint8_t i2c_cp_addr;
 	uint8_t i2c_sdp_addr;
@@ -140,6 +145,9 @@ struct adv7481_state {
 	int csia_src;
 	int csib_src;
 	int mode;
+
+	/* AVI Infoframe Params */
+	struct avi_infoframe_params hdmi_avi_infoframe;
 
 	/* resolution configuration */
 	struct resolution_config res_configs[RES_MAX];
@@ -304,6 +312,14 @@ static int32_t adv7481_cci_i2c_read(struct msm_camera_i2c_client *i2c_client,
 				data, data_type);
 }
 
+static int32_t adv7481_cci_i2c_read_seq(
+	struct msm_camera_i2c_client *i2c_client,
+	uint8_t reg, uint8_t *data, uint32_t size)
+{
+	return i2c_client->i2c_func_tbl->i2c_read_seq(i2c_client, reg,
+				data, size);
+}
+
 static int32_t adv7481_wr_byte(struct msm_camera_i2c_client *c_i2c_client,
 	uint8_t sid, uint8_t reg, uint8_t data)
 {
@@ -330,6 +346,20 @@ static int32_t adv7481_wr_block(struct msm_camera_i2c_client *c_i2c_client,
 	ret = adv7481_cci_i2c_write_seq(c_i2c_client, reg, data, size);
 	if (ret < 0)
 		pr_err("Error %d writing cci i2c block data\n", ret);
+
+	return ret;
+}
+
+static int32_t adv7481_rd_block(struct msm_camera_i2c_client *c_i2c_client,
+	uint8_t sid, uint8_t reg, uint8_t *data, uint32_t size)
+{
+	int ret = 0;
+
+	c_i2c_client->cci_client->sid = sid;
+
+	ret = adv7481_cci_i2c_read_seq(c_i2c_client, reg, data, size);
+	if (ret < 0)
+		pr_err("Error %d reading cci i2c block data\n", ret);
 
 	return ret;
 }
@@ -392,6 +422,7 @@ static int adv7481_set_irq(struct adv7481_state *state)
 			ADV_REG_SETFIELD(1, IO_CP_UNLOCK_CP_MB1) |
 			ADV_REG_SETFIELD(1, IO_VMUTE_REQUEST_HDMI_MB1) |
 			ADV_REG_SETFIELD(1, IO_INT_SD_MB1));
+
 	/* Set cable detect */
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 			IO_HDMI_LVL_INT_MASKB_3_ADDR,
@@ -801,6 +832,7 @@ static int adv7481_dev_init(struct adv7481_state *state)
 	state->i2c_csi_txb_addr = IO_REG_CSI_TXB_SADDR >> 1;
 	state->i2c_cp_addr = IO_REG_CP_SADDR >> 1;
 	state->i2c_hdmi_addr = IO_REG_HDMI_SADDR >> 1;
+	state->i2c_hdmi_inf_addr = IO_REG_HDMI_INF_SADDR >> 1;
 	state->i2c_edid_addr = IO_REG_EDID_SADDR >> 1;
 	state->i2c_sdp_addr = IO_REG_SDP_SADDR >> 1;
 	state->i2c_rep_addr = IO_REG_HDMI_REP_SADDR >> 1;
@@ -1035,10 +1067,16 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	struct adv7481_vid_params vid_params;
 	struct adv7481_hdmi_params hdmi_params;
 
+	struct device *dev = state->dev;
+	union hdmi_infoframe hdmi_info_frame;
+	uint8_t inf_buffer[AVI_INFOFRAME_SIZE];
+
 	pr_debug("Enter %s with command: 0x%x", __func__, cmd);
 
 	memset(&vid_params, 0, sizeof(struct adv7481_vid_params));
 	memset(&hdmi_params, 0, sizeof(struct adv7481_hdmi_params));
+	memset(&hdmi_info_frame, 0, sizeof(union hdmi_infoframe));
+	memset(inf_buffer, 0, AVI_INFOFRAME_SIZE);
 
 	if (!sd)
 		return -EINVAL;
@@ -1087,6 +1125,58 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		if (copy_to_user((void __user *)adv_arg.ptr,
 			(void *)&user_csi, sizeof(struct csi_ctrl_params))) {
 			pr_err("%s: Failed to copy CSI params\n", __func__);
+			return -EINVAL;
+		}
+		break;
+	}
+	case VIDIOC_G_AVI_INFOFRAME: {
+		int int_raw = adv7481_rd_byte(&state->i2c_client,
+			state->i2c_io_addr,
+			IO_HDMI_EDG_RAW_STATUS_1_ADDR);
+		adv7481_wr_byte(&state->i2c_client,
+			state->i2c_io_addr,
+			IO_HDMI_EDG_INT_CLEAR_1_ADDR, int_raw);
+		if (ADV_REG_GETFIELD(int_raw, IO_NEW_AVI_INFO_RAW)) {
+			inf_buffer[0] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_PACKET_ID_ADDR);
+			inf_buffer[1] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_VERS_ADDR);
+			inf_buffer[2] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_LEN_ADDR);
+			ret = adv7481_rd_block(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_PB_ADDR,
+				&inf_buffer[3],
+				INFOFRAME_DATA_SIZE);
+			if (ret) {
+				pr_err("%s:Error in VIDIOC_G_AVI_INFOFRAME\n",
+						__func__);
+				return -EINVAL;
+			}
+			if (hdmi_infoframe_unpack(&hdmi_info_frame,
+					(void *)inf_buffer) < 0) {
+				pr_err("%s: infoframe unpack fail\n", __func__);
+				return -EINVAL;
+			}
+			hdmi_infoframe_log(KERN_ERR, dev, &hdmi_info_frame);
+			state->hdmi_avi_infoframe.picture_aspect =
+				(enum picture_aspect_ratio)
+					hdmi_info_frame.avi.picture_aspect;
+			state->hdmi_avi_infoframe.active_aspect =
+				(enum active_format_aspect_ratio)
+					hdmi_info_frame.avi.active_aspect;
+			state->hdmi_avi_infoframe.video_code =
+				hdmi_info_frame.avi.video_code;
+		} else {
+			pr_err("%s: No new AVI Infoframe\n", __func__);
+		}
+		if (copy_to_user((void __user *)adv_arg.ptr,
+				(void *)&state->hdmi_avi_infoframe,
+				sizeof(struct avi_infoframe_params))) {
+			pr_err("%s: Failed to copy Infoframe\n", __func__);
 			return -EINVAL;
 		}
 		break;
@@ -2628,7 +2718,7 @@ static int adv7481_probe(struct platform_device *pdev)
 		goto err_media_entity;
 	}
 	enable_irq(state->irq);
-	pr_debug("Probe successful!\n");
+	pr_info("ADV7481 Probe successful!\n");
 
 	return ret;
 
