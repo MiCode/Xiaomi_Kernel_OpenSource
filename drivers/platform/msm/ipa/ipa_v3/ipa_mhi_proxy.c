@@ -331,6 +331,11 @@ static void __map_smmu_info(struct device *dev,
 	}
 
 	for (i = 0; i < num_mapping; i++) {
+		int prot = IOMMU_READ | IOMMU_WRITE;
+		u32 ipa_base = ipa3_ctx->ipa_wrapper_base +
+			ipa3_ctx->ctrl->ipa_reg_base_ofst;
+		u32 ipa_size = ipa3_ctx->ipa_wrapper_size;
+
 		imp_smmu_round_to_page(map_info[i].iova, map_info[i].pa,
 			map_info[i].size, &iova_p, &pa_p, &size_p);
 
@@ -340,11 +345,14 @@ static void __map_smmu_info(struct device *dev,
 				(partition->base + partition->size) <
 				(iova_p + size_p));
 
+			/* for IPA uC MBOM we need to map with device type */
+			if (pa_p - ipa_base < ipa_size)
+				prot |= IOMMU_MMIO;
+
 			IMP_DBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			iommu_map(domain,
-				iova_p, pa_p, size_p,
-				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+				iova_p, pa_p, size_p, prot);
 		} else {
 			IMP_DBG("unmapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
