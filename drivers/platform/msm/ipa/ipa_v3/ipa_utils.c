@@ -1991,9 +1991,12 @@ void ipa3_cfg_qsb(void)
 	max_writes.qmb_1_max_writes = 2;
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5) {
-		max_writes.qmb_1_max_writes = 4;
 		max_reads.qmb_1_max_reads = 12;
+		max_writes.qmb_1_max_writes = 4;
 	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		max_reads.qmb_0_max_reads = 12;
 
 	ipahal_write_reg_fields(IPA_QSB_MAX_WRITES, &max_writes);
 	ipahal_write_reg_fields(IPA_QSB_MAX_READS, &max_reads);
