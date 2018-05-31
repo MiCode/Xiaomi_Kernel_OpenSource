@@ -485,7 +485,7 @@ static int sde_smmu_fault_handler(struct iommu_domain *domain,
 	SDEROT_ERR("SMMU device:%s", sde_smmu->dev->kobj.name);
 
 	/* generate dump, but no panic */
-	sde_rot_evtlog_tout_handler(false, __func__, "rot", "vbif_dbg_bus");
+	SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus", "vbif_dbg_bus");
 
 	/*
 	 * return -ENOSYS to allow smmu driver to dump out useful

@@ -668,6 +668,12 @@ int dsi_ctrl_setup_misr(struct dsi_ctrl *dsi_ctrl,
 u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl);
 
 /**
+ * dsi_ctrl_cache_misr - Cache frame MISR value
+ * @dsi_ctrl:              DSI controller handle.
+ */
+void dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_drv_register() - register platform driver for dsi controller
  */
 void dsi_ctrl_drv_register(void);
