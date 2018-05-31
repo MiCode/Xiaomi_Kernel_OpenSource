@@ -38,8 +38,10 @@
 	interrupt-parent = <&pdc>;
 
 	mem-offline {
+		compatible = "qcom,mem-offline";
 		mem-percent = "35";
 		granule = <512>;
+		mboxes = <&qmp_aop 0>;
 	};
 
 	aliases {
