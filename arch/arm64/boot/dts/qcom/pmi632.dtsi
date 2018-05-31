@@ -316,6 +316,8 @@
 			qcom,auto-recharge-soc = <98>;
 			qcom,chg-vadc = <&pmi632_vadc>;
 			qcom,flash-disable-soc = <10>;
+			qcom,sw-jeita-enable;
+			qcom,step-charging-enable;
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
