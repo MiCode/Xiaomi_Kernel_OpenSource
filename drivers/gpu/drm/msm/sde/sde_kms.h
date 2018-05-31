@@ -288,6 +288,8 @@ struct sde_kms {
 	atomic_t detach_sec_cb;
 	atomic_t detach_all_cb;
 	struct mutex secure_transition_lock;
+
+	bool first_kickoff;
 };
 
 struct vsync_info {
