@@ -53,6 +53,7 @@ struct msm_mmu_funcs {
 			uint32_t dest_address, uint32_t size, int prot);
 	int (*one_to_one_unmap)(struct msm_mmu *mmu, uint32_t dest_address,
 					uint32_t size);
+	struct device *(*get_dev)(struct msm_mmu *mmu);
 };
 
 struct msm_mmu {

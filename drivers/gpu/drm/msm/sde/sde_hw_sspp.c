@@ -150,6 +150,7 @@
 #define VIG_CSC_10_SRC_DATAFMT BIT(1)
 #define VIG_CSC_10_EN          BIT(0)
 #define CSC_10BIT_OFFSET       4
+#define DGM_CSC_MATRIX_SHIFT       0
 
 /* traffic shaper clock in Hz */
 #define TS_CLK			19200000
@@ -388,19 +389,24 @@ static void sde_hw_sspp_setup_secure(struct sde_hw_pipe *ctx,
 
 	c = &ctx->hw;
 
-	if (enable) {
-		if ((rect_mode == SDE_SSPP_RECT_SOLO)
-				|| (rect_mode == SDE_SSPP_RECT_0))
-			secure_bit_mask =
-				(rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
-		else
-			secure_bit_mask = 0xA;
+	if ((rect_mode == SDE_SSPP_RECT_SOLO)
+			|| (rect_mode == SDE_SSPP_RECT_0))
+		secure_bit_mask =
+			(rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
+	else
+		secure_bit_mask = 0xA;
 
-		secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+
+	if (enable)
 		secure |= secure_bit_mask;
-	}
+	else
+		secure &= ~secure_bit_mask;
 
 	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
+
+	/* multiple planes share same sw_status register */
+	wmb();
 }
 
 
@@ -1053,7 +1059,7 @@ static void sde_hw_sspp_setup_dgm_csc(struct sde_hw_pipe *ctx,
 	if (data) {
 		op_mode |= BIT(0);
 		sde_hw_csc_matrix_coeff_setup(&ctx->hw,
-			offset + CSC_10BIT_OFFSET, data);
+			offset + CSC_10BIT_OFFSET, data, DGM_CSC_MATRIX_SHIFT);
 	}
 
 	SDE_REG_WRITE(&ctx->hw, offset, op_mode);

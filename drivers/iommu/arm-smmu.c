@@ -248,6 +248,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
+#define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -379,6 +380,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
+	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ 0, NULL},
 };
 
@@ -401,6 +403,8 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
 static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu,
 				struct device *dev);
+
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -437,6 +441,11 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 		return smmu_domain->smmu->dev->archdata.dma_coherent;
 	else
 		return false;
+}
+
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu)
+{
+	return smmu->options & ARM_SMMU_OPT_STATIC_CB;
 }
 
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
@@ -1480,6 +1489,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -1676,6 +1688,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_NO_DMA;
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_LLC_NWA))
+		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
+	if (((quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) ||
+	     (quirks & IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA)) &&
+		(smmu->model == QCOM_SMMUV500))
+		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
@@ -1891,7 +1909,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
@@ -2812,6 +2831,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_USE_LLC_NWA:
+		*((int *)data) = !!(smmu_domain->attributes &
+				   (1 << DOMAIN_ATTR_USE_LLC_NWA));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_EARLY_MAP:
 		*((int *)data) = !!(smmu_domain->attributes
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
@@ -2992,6 +3016,17 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_USE_UPSTREAM_HINT;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_USE_LLC_NWA:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_USE_LLC_NWA;
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_EARLY_MAP: {
@@ -3498,6 +3533,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS)
 		reg |= sCR0_EXIDENABLE;
 
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
+
 	/* Push the button */
 	arm_smmu_tlb_sync_global(smmu);
 	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
@@ -3562,7 +3601,7 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 			cb = smmu->s2crs[idx].cbndx;
 	}
 
-	if (cb < 0) {
+	if (cb < 0 && !arm_smmu_is_static_cb(smmu)) {
 		mutex_unlock(&smmu->stream_map_mutex);
 		return __arm_smmu_alloc_bitmap(smmu->context_map,
 						smmu->num_s2_context_banks,
@@ -4346,11 +4385,6 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void arm_smmu_device_shutdown(struct platform_device *pdev)
-{
-	arm_smmu_device_remove(pdev);
-}
-
 static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 {
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
@@ -4369,7 +4403,6 @@ static struct platform_driver arm_smmu_driver = {
 	},
 	.probe	= arm_smmu_device_dt_probe,
 	.remove	= arm_smmu_device_remove,
-	.shutdown = arm_smmu_device_shutdown,
 };
 
 static struct platform_driver qsmmuv500_tbu_driver;
@@ -4441,7 +4474,7 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 #define DEBUG_PAR_PA_SHIFT		12
 #define DEBUG_PAR_FAULT_VAL		0x1
 
-#define TBU_DBG_TIMEOUT_US		30000
+#define TBU_DBG_TIMEOUT_US		100
 
 #define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
 #define QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT	0x8
@@ -4504,11 +4537,12 @@ static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
 	return false;
 }
 
-static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
+static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
+				struct arm_smmu_domain *smmu_domain)
 {
 	unsigned long flags;
-	u32 val;
-	void __iomem *base;
+	u32 halt, fsr, sctlr_orig, sctlr, status;
+	void __iomem *base, *cb_base;
 
 	spin_lock_irqsave(&tbu->halt_lock, flags);
 	if (tbu->halt_count) {
@@ -4517,19 +4551,48 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
 		return 0;
 	}
 
+	cb_base = ARM_SMMU_CB(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 	base = tbu->base;
-	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	val |= DEBUG_SID_HALT_VAL;
-	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+	halt = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	halt |= DEBUG_SID_HALT_VAL;
+	writel_relaxed(halt, base + DEBUG_SID_HALT_REG);
 
-	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG,
-					val, (val & DEBUG_SR_HALT_ACK_VAL),
-					0, TBU_DBG_TIMEOUT_US)) {
+	if (!readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US))
+		goto out;
+
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	if (!(fsr & FSR_FAULT)) {
 		dev_err(tbu->dev, "Couldn't halt TBU!\n");
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
 		return -ETIMEDOUT;
 	}
 
+	/*
+	 * We are in a fault; Our request to halt the bus will not complete
+	 * until transactions in front of us (such as the fault itself) have
+	 * completed. Disable iommu faults and terminate any existing
+	 * transactions.
+	 */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+
+	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+
+	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt TBU from fault context!\n");
+		writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return -ETIMEDOUT;
+	}
+
+	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+out:
 	tbu->halt_count = 1;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 	return 0;
@@ -4630,6 +4693,14 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	void __iomem *cb_base;
 	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
+	ktime_t timeout;
+
+	/* only 36 bit iova is supported */
+	if (iova >= (1ULL << 36)) {
+		dev_err_ratelimited(smmu->dev, "ECATS: address too large: %pad\n",
+					&iova);
+		return 0;
+	}
 
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	tbu = qsmmuv500_find_tbu(smmu, sid);
@@ -4640,34 +4711,22 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	if (ret)
 		return 0;
 
-	/*
-	 * Disable client transactions & wait for existing operations to
-	 * complete.
-	 */
-	ret = qsmmuv500_tbu_halt(tbu);
+	ret = qsmmuv500_tbu_halt(tbu, smmu_domain);
 	if (ret)
 		goto out_power_off;
+
+	/*
+	 * ECATS can trigger the fault interrupt, so disable it temporarily
+	 * and check for an interrupt manually.
+	 */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
 	/* Only one concurrent atos operation */
 	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
 	if (ret)
 		goto out_resume;
-
-	/*
-	 * We can be called from an interrupt handler with FSR already set
-	 * so terminate the faulting transaction prior to starting ecats.
-	 * No new racing faults can occur since we in the halted state.
-	 * ECATS can trigger the fault interrupt, so disable it temporarily
-	 * and check for an interrupt manually.
-	 */
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-	if (fsr & FSR_FAULT) {
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
-		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-	}
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
-	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
 redo:
 	/* Set address and stream-id */
@@ -4687,32 +4746,40 @@ redo:
 	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
 
 	ret = 0;
-	if (readl_poll_timeout_atomic(tbu->base + DEBUG_SR_HALT_ACK_REG,
-				val, !(val & DEBUG_SR_ECATS_RUNNING_VAL),
-				0, TBU_DBG_TIMEOUT_US)) {
-		dev_err(tbu->dev, "ECATS translation timed out!\n");
-	}
-
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-	if (fsr & FSR_FAULT) {
-		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
-			fsr);
-		ret = -EINVAL;
-
-		writel_relaxed(val, cb_base + ARM_SMMU_CB_FSR);
-		/*
-		 * Clear pending interrupts
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
-		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
+	for (;;) {
+		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
+			break;
+		val = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		if (val & FSR_FAULT)
+			break;
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			dev_err(tbu->dev, "ECATS translation timed out!\n");
+			ret = -ETIMEDOUT;
+			break;
+		}
 	}
 
 	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	if (val & DEBUG_PAR_FAULT_VAL) {
-		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
-			val);
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	if (fsr & FSR_FAULT) {
+		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
+				fsr);
+
+		/* Clear pending interrupts */
+		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation.
+		 */
+		wmb();
+		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+
+		/* Check if ECATS translation failed */
+		if (val & DEBUG_PAR_FAULT_VAL)
+			dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
+					val);
 		ret = -EINVAL;
 	}
 

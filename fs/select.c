@@ -361,7 +361,7 @@ typedef struct {
  *
  * Use "unsigned long" accesses to let user-mode fd_set's be long-aligned.
  */
-static inline
+static noinline_for_stack
 int get_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
 {
 	nr = FDS_BYTES(nr);
@@ -372,7 +372,7 @@ int get_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
 	return 0;
 }
 
-static inline unsigned long __must_check
+static noinline_for_stack  unsigned long __must_check
 set_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
 {
 	if (ufdset)
@@ -380,7 +380,7 @@ set_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
 	return 0;
 }
 
-static inline
+static noinline_for_stack
 void zero_fd_set(unsigned long nr, unsigned long *fdset)
 {
 	memset(fdset, 0, FDS_BYTES(nr));
@@ -449,7 +449,8 @@ static inline void wait_key_set(poll_table *wait, unsigned long in,
 		wait->_key |= POLLOUT_SET;
 }
 
-static int do_select(int n, fd_set_bits *fds, struct timespec64 *end_time)
+static int noinline_for_stack
+do_select(int n, fd_set_bits *fds, struct timespec64 *end_time)
 {
 	ktime_t expire, *to = NULL;
 	struct poll_wqueues table;

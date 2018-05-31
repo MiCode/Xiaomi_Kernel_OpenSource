@@ -29,6 +29,7 @@
 #define SCM_SVC_LMH			0x13
 #define SCM_SVC_SMMU_PROGRAM		0x15
 #define SCM_SVC_QDSS			0x16
+#define SCM_SVC_RTIC			0x19
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #define SCM_FUSE_READ			0x7
@@ -102,9 +103,13 @@ extern int scm_call2_noretry(u32 cmd_id, struct scm_desc *desc);
 extern int scm_call2_atomic(u32 cmd_id, struct scm_desc *desc);
 extern u32 scm_get_version(void);
 extern int scm_is_call_available(u32 svc_id, u32 cmd_id);
+extern int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret);
 extern u32 scm_io_read(phys_addr_t address);
 extern int scm_io_write(phys_addr_t address, u32 val);
 extern bool scm_is_secure_device(void);
+extern int scm_enable_mem_protection(void);
+extern int scm_get_feat_version(u32 feat);
+extern bool is_scm_armv8(void);
 
 extern struct mutex scm_lmh_lock;
 
@@ -130,6 +135,11 @@ static inline u32 scm_get_version(void)
 	return 0;
 }
 
+static inline int scm_get_feat_version(u32 feat)
+{
+	return 0;
+}
+
 static inline int scm_is_call_available(u32 svc_id, u32 cmd_id)
 {
 	return 0;
@@ -138,6 +148,11 @@ static inline int scm_is_call_available(u32 svc_id, u32 cmd_id)
 static inline bool is_scm_armv8(void)
 {
 	return true;
+}
+
+static inline int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
+{
+	return 0;
 }
 
 static inline u32 scm_io_read(phys_addr_t address)
@@ -150,9 +165,14 @@ static inline int scm_io_write(phys_addr_t address, u32 val)
 	return 0;
 }
 
-inline bool scm_is_secure_device(void)
+static inline bool scm_is_secure_device(void)
 {
 	return false;
+}
+
+static inline int scm_enable_mem_protection(void)
+{
+	return 0;
 }
 #endif
 #endif

@@ -36,6 +36,7 @@
 #include "common.h"
 #include "clk-regmap.h"
 #include "clk-voter.h"
+#include "clk-debug.h"
 
 #define OSM_INIT_RATE			300000000UL
 #define XO_RATE				19200000UL
@@ -169,6 +170,7 @@ static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
 const struct clk_ops clk_ops_cpu_osm = {
 	.round_rate = clk_osm_round_rate,
 	.list_rate = clk_osm_list_rate,
+	.debug_init = clk_debug_measure_add,
 };
 
 static int clk_core_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -264,6 +266,7 @@ const static struct clk_ops clk_ops_l3_osm = {
 	.list_rate = clk_osm_list_rate,
 	.recalc_rate = l3_clk_recalc_rate,
 	.set_rate = l3_clk_set_rate,
+	.debug_init = clk_debug_measure_add,
 };
 
 static struct clk_init_data osm_clks_init[] = {
@@ -301,6 +304,7 @@ static struct clk_osm l3_clk = {
 static DEFINE_CLK_VOTER(l3_cluster0_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_cluster1_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_misc_vote_clk, l3_clk, 0);
+static DEFINE_CLK_VOTER(l3_gpu_vote_clk, l3_clk, 0);
 
 static struct clk_osm pwrcl_clk = {
 	.cluster_num = 1,
@@ -429,6 +433,7 @@ static struct clk_hw *osm_qcom_clk_hws[] = {
 	[L3_CLUSTER0_VOTE_CLK] = &l3_cluster0_vote_clk.hw,
 	[L3_CLUSTER1_VOTE_CLK] = &l3_cluster1_vote_clk.hw,
 	[L3_MISC_VOTE_CLK] = &l3_misc_vote_clk.hw,
+	[L3_GPU_VOTE_CLK] = &l3_gpu_vote_clk.hw,
 	[L3_CLK] = &l3_clk.hw,
 	[CPU0_PWRCL_CLK] = &cpu0_pwrcl_clk.hw,
 	[CPU1_PWRCL_CLK] = &cpu1_pwrcl_clk.hw,
@@ -1116,6 +1121,8 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 			"clk: Failed to enable cluster1 clock for L3\n");
 	WARN(clk_prepare_enable(l3_misc_vote_clk.hw.clk),
 			"clk: Failed to enable misc clock for L3\n");
+	WARN(clk_prepare_enable(l3_gpu_vote_clk.hw.clk),
+			"clk: Failed to enable gpu clock for L3\n");
 
 	populate_opp_table(pdev);
 

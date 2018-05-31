@@ -5,6 +5,7 @@ no-export-headers += a.out.h
 endif
 
 header-y += hbtp_input.h
+header-y += qbt1000.h
 
 ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm.h),)
 no-export-headers += kvm.h
@@ -16,3 +17,5 @@ endif
 
 header-y += sockev.h
 header-y += nfc/
+header-y += seemp_api.h
+header-y += seemp_param_id.h

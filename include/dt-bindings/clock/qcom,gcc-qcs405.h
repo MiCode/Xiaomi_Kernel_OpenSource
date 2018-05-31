@@ -137,6 +137,12 @@
 #define GPLL0_AO_CLK_SRC				120
 #define WCNSS_M_CLK					121
 #define GCC_USB_HS_INACTIVITY_TIMERS_CLK		122
+#define GPLL0_AO_OUT_MAIN				123
+#define GPLL0_SLEEP_CLK_SRC				124
+#define GPLL6						125
+#define GPLL6_OUT_AUX					126
+#define MDSS_MDP_VOTE_CLK				127
+#define MDSS_ROTATOR_VOTE_CLK				128
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -137,6 +137,14 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	prop.dataf = ((rates == 48000) || (rates == 44100) ||
 		(rates == 88200) || (rates == 96000)) ?
 			SLIM_CH_DATAF_NOT_DEFINED : SLIM_CH_DATAF_LPCM_AUDIO;
+
+	/* for feedback channel PCM bit should not be set */
+	if (btfm_feedback_ch_setting) {
+		BTFMSLIM_DBG("port open for feedback ch, not setting PCM bit");
+		prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
+		/* reset so that next port open sets the data format properly */
+		btfm_feedback_ch_setting = 0;
+	}
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = ((rates == 44100) || (rates == 88200)) ?
 		(rates/11025) : (rates/4000);

@@ -37,6 +37,8 @@ Optional:
 	compatible "qcom,ipa-smmu-uc-cb"
 - qcom,use-a2-service: determine if A2 service will be used
 - qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
+- qcom,use-ipa-in-mhi-mode: Boolean context flag to indicate whether
+				device booting in MHI config or not.
 - qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
 - qcom,ee: which EE is assigned to (non-secure) APPS from IPA-BAM POV. This
 is a number
@@ -128,6 +130,8 @@ IPA SMMU sub nodes
 
 - qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass.
 
+- dma-coherent: Indicate using dma-coherent or not in SMMU block
+
 - iommus : the phandle and stream IDs for the SMMU used by this root
 
 - qcom,iova-mapping: specifies the start address and size of iova space.
@@ -137,13 +141,11 @@ IPA SMMU sub nodes
 
 IPA SMP2P sub nodes
 
--compatible: "qcom,smp2pgpio-map-ipa-1-out" - represents the out gpio from
+-compatible: "qcom,smp2p-map-ipa-1-out" - represents the out smp2p from
 					      ipa driver to modem.
 
--compatible: "qcom,smp2pgpio-map-ipa-1-in" - represents the in gpio to
+-compatible: "qcom,smp2p-map-ipa-1-in" - represents the in smp2p to
 					     ipa driver from modem.
-
--gpios: Binding to the gpio defined in XXX-smp2p.dtsi
 
 
 Example:
@@ -197,15 +199,13 @@ qcom,ipa@fd4c0000 {
 		qcom,descriptor-fifo-size = <0x300>;
 	};
 
-	/* smp2p gpio information */
-	qcom,smp2pgpio_map_ipa_1_out {
-		compatible = "qcom,smp2pgpio-map-ipa-1-out";
-		gpios = <&smp2pgpio_ipa_1_out 0 0>;
+	/* smp2p information */
+	qcom,smp2p_map_ipa_1_out {
+		compatible = "qcom,smp2p-map-ipa-1-out";
 	};
 
-	qcom,smp2pgpio_map_ipa_1_in {
-		compatible = "qcom,smp2pgpio-map-ipa-1-in";
-		gpios = <&smp2pgpio_ipa_1_in 0 0>;
+	qcom,smp2p_map_ipa_1_in {
+		compatible = "qcom,smp2p-map-ipa-1-in";
 	};
 
 	ipa_smmu_ap: ipa_smmu_ap {

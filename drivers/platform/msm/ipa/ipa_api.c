@@ -2771,8 +2771,8 @@ static const struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa-smmu-ap-cb", },
 	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
 	{ .compatible = "qcom,ipa-smmu-uc-cb", },
-	{ .compatible = "qcom,smp2pgpio-map-ipa-1-in", },
-	{ .compatible = "qcom,smp2pgpio-map-ipa-1-out", },
+	{ .compatible = "qcom,smp2p-map-ipa-1-in", },
+	{ .compatible = "qcom,smp2p-map-ipa-1-out", },
 	{}
 };
 

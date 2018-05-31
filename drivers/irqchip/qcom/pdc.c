@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
+#include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -93,6 +94,20 @@ static inline int pdc_enable_intr(struct irq_data *d, bool on)
 			0, on);
 
 	return 0;
+}
+
+static int qcom_pdc_gic_get_irqchip_state(struct irq_data *d,
+		enum irqchip_irq_state which, bool *state)
+{
+	return d->parent_data->chip->irq_get_irqchip_state(d,
+		which, state);
+}
+
+static int qcom_pdc_gic_set_irqchip_state(struct irq_data *d,
+		enum irqchip_irq_state which, bool value)
+{
+	return d->parent_data->chip->irq_set_irqchip_state(d,
+		which, value);
 }
 
 static void qcom_pdc_gic_mask(struct irq_data *d)
@@ -220,6 +235,8 @@ static struct irq_chip qcom_pdc_gic_chip = {
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 #endif
+	.irq_get_irqchip_state	= qcom_pdc_gic_get_irqchip_state,
+	.irq_set_irqchip_state	= qcom_pdc_gic_set_irqchip_state,
 };
 
 static int qcom_pdc_translate(struct irq_domain *d,

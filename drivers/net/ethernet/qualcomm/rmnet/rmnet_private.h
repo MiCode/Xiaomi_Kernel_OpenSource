@@ -18,6 +18,9 @@
 #define RMNET_NEEDED_HEADROOM      16
 #define RMNET_TX_QUEUE_LEN         1000
 
+/* Constants */
+#define RMNET_EGRESS_FORMAT_AGGREGATION         BIT(31)
+
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)
 /* Pass the frame directly to another device with dev_queue_xmit() */

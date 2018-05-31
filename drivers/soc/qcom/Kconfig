@@ -67,6 +67,14 @@ config QCOM_SDMSHRIKE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SM6150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM6150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SM6150. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
@@ -382,6 +390,31 @@ config QCOM_EUD
 	  Embedded USB Debugger (EUD).
 	  If unsure, say N.
 
+config QCOM_MINIDUMP
+	bool "QCOM Minidump Support"
+	depends on QCOM_SMEM && QCOM_DLOAD_MODE
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  Minidump would dump all registered entries, only when DLOAD mode
+	  is enabled.
+
+config MINIDUMP_MAX_ENTRIES
+	int "Minidump Maximum num of entries"
+	default 200
+	depends on QCOM_MINIDUMP
+	help
+	  This defines maximum number of entries to be allocated for application
+	  subsytem in Minidump table.
+config MSM_RPM_SMD
+	bool "RPM driver using SMD protocol"
+	help
+	  RPM is the dedicated hardware engine for managing shared SoC
+	  resources. This config adds driver support for using SMD as a
+	  transport layer communication with RPM hardware. It also selects
+	  the MSM_MPM config that programs the MPM module to monitor interrupts
+	  during sleep modes.
+
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
 	help
@@ -424,6 +457,19 @@ config MSM_SPSS_UTILS
 	  because the SPSS firmware size is too small to support multiple
 	  HW versions.
 
+config MSM_SPCOM
+	depends on QCOM_GLINK
+	bool "Secure Processor Communication over GLINK"
+	help
+	  spcom driver allows loading Secure Processor Applications and
+	  sending messages to Secure Processor Applications.
+	  spcom provides interface to both user space app and kernel driver.
+	  It is using glink as the transport layer, which provides multiple
+	  logical channels over single physical channel.
+	  The physical layer is based on shared memory and interrupts.
+	  spcom provides clients/server API, although currently only one client
+	  or server is allowed per logical channel.
+
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX
@@ -444,6 +490,16 @@ config QSEE_IPC_IRQ
 	  the registers in the spcs region to mask and clear interrupts.
 	  Clients can use this driver to avoid adding common interrupt handling
 	  code.
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	select QSEE_IPC_IRQ
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE) to userspace.
+	  The interrupt will be propagated through a character device that
+	  userspace clients can poll on.
 
 config QCOM_GLINK
 	tristate "GLINK Probe Helper"
@@ -499,6 +555,14 @@ config MSM_CDSP_LOADER
 	  for platforms that have compute DSP.
 	  Say M if you want to enable this module.
 
+config QCOM_SMCINVOKE
+       bool "Secure QSEE Support"
+       help
+         Enable SMCInvoke driver which supports capability based secure
+         communication between QTI Secure Execution Environment (QSEE)
+         and high level operating system. It exposes APIs for both
+         userspace and kernel clients.
+
 config MSM_EVENT_TIMER
 	bool "Event timer"
         help
@@ -525,6 +589,15 @@ config MSM_NOPM
 	help
 	  This enables bare minimum support of power management at platform level.
 	  i.e WFI
+
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver provides services for configuring the fingerprint
+	  sensor hardware and for communicating with the trusted app which
+	  uses it. It enables clocks and provides commands for loading
+	  trusted apps, unloading them and marshalling buffers to the
+	  trusted fingerprint app.
 
 config APSS_CORE_EA
 	depends on CPU_FREQ && PM_OPP
@@ -595,4 +668,21 @@ config QMP_DEBUGFS_CLIENT
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+
+config QCOM_QHEE_ENABLE_MEM_PROTECTION
+	bool "QHEE enable kernel memory protection"
+	depends on QCOM_SCM
+	default y
+	help
+	  When this option is enabled, an SCM call will be invoked to enable
+	  kernel memory protection in stage 2 memory mappings on kernel boot.
+	  This is part of a security feature enabled in QHEE.
+
+config QCOM_SMP2P_SLEEPSTATE
+	bool "SMP2P Sleepstate notifier"
+	depends on QCOM_SMP2P
+	help
+	  When this option is enabled, notifications are sent to remote procs
+	  for the power state changes on the local processor. The notifications
+	  are sent through the smp2p framework.
 endmenu

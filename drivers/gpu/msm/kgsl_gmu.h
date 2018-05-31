@@ -15,21 +15,8 @@
 
 #include "kgsl_hfi.h"
 
-#define GMU_INT_WDOG_BITE		BIT(0)
-#define GMU_INT_RSCC_COMP		BIT(1)
-#define GMU_INT_FENCE_ERR		BIT(3)
-#define GMU_INT_DBD_WAKEUP		BIT(4)
-#define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
-#define GMU_AO_INT_MASK		\
-		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_HOST_AHB_BUS_ERR |	\
-		GMU_INT_FENCE_ERR)
-
 #define MAX_GMUFW_SIZE	0x2000	/* in bytes */
 #define FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
-
-#define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
-#define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
 
@@ -54,10 +41,6 @@
 				CX_VOTE_ENABLE		| \
 				GFX_VOTE_ENABLE)
 
-/* Bitmask for GPU idle status check */
-#define GPUBUSYIGNAHB		BIT(23)
-#define CXGXCPUBUSYIGNAHB	BIT(30)
-
 /* GMU timeouts */
 #define GMU_IDLE_TIMEOUT        100 /* ms */
 
@@ -65,41 +48,11 @@
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
 
-/*
- * OOB requests values. These range from 0 to 7 and then
- * the BIT() offset into the actual value is calculated
- * later based on the request. This keeps the math clean
- * and easy to ensure not reaching over/under the range
- * of 8 bits.
- */
-enum oob_request {
-	oob_gpu = 0,
-	oob_perfcntr = 1,
-	oob_preempt = 2,
-	oob_boot_slumber = 6, /* reserved special case */
-	oob_dcvs = 7, /* reserved special case */
-};
+/* For GMU Logs*/
+#define LOGMEM_SIZE  SZ_4K
 
-/*
- * Wait time before trying to write the register again.
- * Hopefully the GMU has finished waking up during this delay.
- * This delay must be less than the IFPC main hysteresis or
- * the GMU will start shutting down before we try again.
- */
-#define GMU_WAKEUP_DELAY_US 10
-/* Max amount of tries to wake up the GMU. */
-#define GMU_WAKEUP_RETRY_MAX 60
-
-/* Bits for the flags field in the gmu structure */
-enum gmu_flags {
-	GMU_BOOT_INIT_DONE = 0,
-	GMU_CLK_ON,
-	GMU_HFI_ON,
-	GMU_FAULT,
-	GMU_DCVS_REPLAY,
-	GMU_GPMU,
-	GMU_ENABLED,
-};
+extern struct gmu_dev_ops adreno_a6xx_gmudev;
+#define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
 
 /**
  * struct gmu_memdesc - Gmu shared memory object descriptor
@@ -129,20 +82,6 @@ struct rpmh_votes_t {
 	uint32_t cx_votes[MAX_CX_LEVELS];
 	struct gmu_bw_votes ddr_votes;
 	struct gmu_bw_votes cnoc_votes;
-};
-
-#define MAX_GMU_CLKS 6
-#define DEFAULT_GMU_FREQ_IDX 1
-
-/*
- * These are the different ways the GMU can boot. GMU_WARM_BOOT is waking up
- * from slumber. GMU_COLD_BOOT is booting for the first time. GMU_RESET
- * is a soft reset of the GMU.
- */
-enum gmu_boot {
-	GMU_WARM_BOOT = 0,
-	GMU_COLD_BOOT = 1,
-	GMU_RESET = 2
 };
 
 enum gmu_load_mode {
@@ -178,9 +117,6 @@ enum gpu_idle_level {
  * @reg_phys: GMU CSR physical address
  * @reg_virt: GMU CSR virtual address
  * @reg_len: GMU CSR range
- * @gmu2gpu_offset: address difference between GMU register set
- *	and GPU register set, the offset will be used when accessing
- *	gmu registers using offset defined in GPU register space.
  * @pdc_reg_virt: starting kernel virtual address for RPMh PDC registers
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: descriptor of GMU memory that has GMU image in it
@@ -218,7 +154,6 @@ struct gmu_device {
 	unsigned long reg_phys;
 	void __iomem *reg_virt;
 	unsigned int reg_len;
-	unsigned int gmu2gpu_offset;
 	void __iomem *pdc_reg_virt;
 	unsigned int gmu_interrupt_num;
 	struct gmu_memdesc cached_fw_image;
@@ -252,20 +187,8 @@ struct gmu_device {
 	unsigned int fault_count;
 };
 
-struct kgsl_device;
-void gmu_snapshot(struct kgsl_device *device);
-
-bool kgsl_gmu_gpmu_isenabled(struct kgsl_device *device);
-bool kgsl_gmu_isenabled(struct kgsl_device *device);
-
-int gmu_probe(struct kgsl_device *device, unsigned long flags);
-void gmu_remove(struct kgsl_device *device);
-int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
-int gmu_start(struct kgsl_device *device);
-void gmu_stop(struct kgsl_device *device);
-int gmu_dcvs_set(struct gmu_device *gmu, unsigned int gpu_pwrlevel,
-		unsigned int bus_level);
-int allocate_gmu_cached_fw(struct gmu_device *gmu);
 bool is_cached_fw_size_valid(uint32_t size_in_bytes);
-void init_gmu_log_base(struct kgsl_device *device);
+int allocate_gmu_cached_fw(struct gmu_device *gmu);
+int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
+
 #endif /* __KGSL_GMU_H */

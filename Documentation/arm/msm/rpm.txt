@@ -1,0 +1,157 @@
+Introduction
+============
+
+Resource Power Manager (RPM)
+
+RPM is a dedicated hardware engine for managing shared SoC resources,
+which includes buses, clocks, power rails, etc.  The goal of RPM is
+to achieve the maximum power savings while satisfying the SoC's
+operational and performance requirements.  RPM accepts resource
+requests from multiple RPM masters.  It arbitrates and aggregates the
+requests, and configures the shared resources.  The RPM masters are
+the application processor, the modem processor, as well as some
+hardware accelerators.
+
+The RPM driver provides an API for interacting with RPM.  Kernel code
+calls the RPM driver to request RPM-managed, shared resources.
+Kernel code can also register with the driver for RPM notifications,
+which are sent when the status of shared resources change.
+
+Hardware description
+====================
+
+RPM exposes a separate region of registers to each of the RPM masters.
+In general, each register represents some shared resource(s).  At a
+very basic level, a master requests resources by writing to the
+registers, then generating an interrupt to RPM.  RPM processes the
+request, writes acknowledgment to the registers, then generates an
+interrupt to the master.
+
+In addition to the master-specific regions, RPM also exposes a shared
+region that contains the current status of the shared resources.  Only
+RPM can write to the status region, but every master can read from it.
+
+RPM contains internal logics that aggregate and arbitrate among
+requests from the various RPM masters.  It interfaces with the PMIC,
+the bus arbitration block, and the clock controller block in order to
+configure the shared resources.
+
+Software description
+====================
+
+The RPM driver encapsulates the low level RPM interactions, which
+rely on reading/writing registers and generating/processing
+interrupts, and provides a higher level synchronuous set/clear/get
+interface.  Most functions take an array of id-value pairs.
+The ids identify the RPM registers which would correspond to some
+RPM resources, the values specify the new resource values.
+
+The RPM driver synchronizes accesses to RPM.  It protects against
+simultaneous accesses from multiple tasks, on SMP cores, in task
+contexts, and in atomic contexts.
+
+Design
+======
+
+Design goals:
+- Encapsulate low level RPM interactions.
+- Provide a synchronuous set/clear/get interface.
+- Synchronize simultaneous software accesses to RPM.
+
+Power Management
+================
+
+RPM is part of the power management architecture for MSM 8660.  RPM
+manages shared system resources to lower system power.
+
+SMP/multi-core
+==============
+
+The RPM driver uses mutex to synchronize client accesses among tasks.
+It uses spinlocks to synchronize accesses from atomic contexts and
+SMP cores.
+
+Security
+========
+
+None.
+
+Performance
+===========
+
+None.
+
+Interface
+=========
+
+msm_rpm_get_status():
+The function reads the shared status region and returns the current
+resource values, which are the arbitrated/aggregated results across
+all RPM masters.
+
+msm_rpm_set():
+The function makes a resource request to RPM.
+
+msm_rpm_set_noirq():
+The function is similar to msm_rpm_set() except that it must be
+called with interrupts masked.  If possible, use msm_rpm_set()
+instead, to maximize CPU throughput.
+
+msm_rpm_clear():
+The function makes a resource request to RPM to clear resource values.
+Once the values are cleared, the resources revert back to their default
+values for this RPM master.  RPM internally uses the default values as
+the requests from this RPM master when arbitrating and aggregating with
+requests from other RPM masters.
+
+msm_rpm_clear_noirq():
+The function is similar to msm_rpm_clear() except that it must be
+called with interrupts masked.  If possible, use msm_rpm_clear()
+instead, to maximize CPU throughput.
+
+msm_rpm_register_notification():
+The function registers for RPM notification.  When the specified
+resources change their status on RPM, RPM sends out notifications
+and the driver will "up" the semaphore in struct
+msm_rpm_notification.
+
+msm_rpm_unregister_notification():
+The function unregisters a notification.
+
+msm_rpm_init():
+The function initializes the RPM driver with platform specific data.
+
+Driver parameters
+=================
+
+None.
+
+Config options
+==============
+
+MSM_RPM
+
+Dependencies
+============
+
+None.
+
+User space utilities
+====================
+
+None.
+
+Other
+=====
+
+None.
+
+Known issues
+============
+
+None.
+
+To do
+=====
+
+None.

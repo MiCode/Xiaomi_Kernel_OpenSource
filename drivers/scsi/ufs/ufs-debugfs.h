@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@ enum ufsdbg_err_inject_scenario {
 	ERR_INJECT_UIC,
 	ERR_INJECT_DME_ATTR,
 	ERR_INJECT_QUERY,
+	ERR_INJECT_HIBERN8_ENTER,
+	ERR_INJECT_HIBERN8_EXIT,
 	ERR_INJECT_MAX_ERR_SCENARIOS,
 };
 

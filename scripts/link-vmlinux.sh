@@ -61,7 +61,38 @@ archive_builtin()
 		${AR} rcsTP${KBUILD_ARFLAGS} built-in.o			\
 					${KBUILD_VMLINUX_INIT}		\
 					${KBUILD_VMLINUX_MAIN}
+
+		if [ -n "${CONFIG_LTO_CLANG}" ]; then
+			mv -f built-in.o built-in.o.tmp
+			${LLVM_AR} rcsT${KBUILD_ARFLAGS} built-in.o $(${AR} t built-in.o.tmp)
+			rm -f built-in.o.tmp
+		fi
 	fi
+}
+
+# If CONFIG_LTO_CLANG is selected, collect generated symbol versions into
+# .tmp_symversions
+modversions()
+{
+	if [ -z "${CONFIG_LTO_CLANG}" ]; then
+		return
+	fi
+
+	if [ -z "${CONFIG_MODVERSIONS}" ]; then
+		return
+	fi
+
+	rm -f .tmp_symversions
+
+	for a in built-in.o ${KBUILD_VMLINUX_LIBS}; do
+		for o in $(${AR} t $a); do
+			if [ -f ${o}.symversions ]; then
+				cat ${o}.symversions >> .tmp_symversions
+			fi
+		done
+	done
+
+	echo "-T .tmp_symversions"
 }
 
 # Link of vmlinux.o used for section mismatch analysis
@@ -84,7 +115,29 @@ modpost_link()
 			${KBUILD_VMLINUX_LIBS}				\
 			--end-group"
 	fi
-	${LD} ${LDFLAGS} -r -o ${1} ${objects}
+
+	if [ -n "${CONFIG_LTO_CLANG}" ]; then
+		# This might take a while, so indicate that we're doing
+		# an LTO link
+		info LTO vmlinux.o
+	else
+		info LD vmlinux.o
+	fi
+
+	${LD} ${LDFLAGS} -r -o ${1} $(modversions) ${objects}
+}
+
+# If CONFIG_LTO_CLANG is selected, we postpone running recordmcount until
+# we have compiled LLVM IR to an object file.
+recordmcount()
+{
+	if [ -z "${CONFIG_LTO_CLANG}" ]; then
+		return
+	fi
+
+	if [ -n "${CONFIG_FTRACE_MCOUNT_RECORD}" ]; then
+		scripts/recordmcount ${RECORDMCOUNT_FLAGS} $*
+	fi
 }
 
 # Link of vmlinux
@@ -96,8 +149,16 @@ vmlinux_link()
 	local objects
 
 	if [ "${SRCARCH}" != "um" ]; then
-		if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
-			objects="--whole-archive			\
+		local ld=${LD}
+		local ldflags="${LDFLAGS} ${LDFLAGS_vmlinux}"
+
+		if [ -n "${LDFINAL_vmlinux}" ]; then
+			ld=${LDFINAL_vmlinux}
+			ldflags="${LDFLAGS_FINAL_vmlinux} ${LDFLAGS_vmlinux}"
+		fi
+
+		if [[ -n "${CONFIG_THIN_ARCHIVES}" && -z "${CONFIG_LTO_CLANG}" ]]; then
+			objects="--whole-archive 			\
 				built-in.o				\
 				--no-whole-archive			\
 				--start-group				\
@@ -113,8 +174,7 @@ vmlinux_link()
 				${1}"
 		fi
 
-		${LD} ${LDFLAGS} ${LDFLAGS_vmlinux} -o ${2}		\
-			-T ${lds} ${objects}
+		${ld} ${ldflags} -o ${2} -T ${lds} ${objects}
 	else
 		if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
 			objects="-Wl,--whole-archive			\
@@ -140,7 +200,6 @@ vmlinux_link()
 		rm -f linux
 	fi
 }
-
 
 # Create ${2} .o file with all symbols from the ${1} object file
 kallsyms()
@@ -173,6 +232,28 @@ kallsyms()
 	${CC} ${aflags} -c -o ${2} ${afile}
 }
 
+# Generates ${2} .o file with RTIC MP's from the ${1} object file (vmlinux)
+# ${3} the file name where the sizes of the RTIC MP structure are stored
+# just in case, save copy of the RTIC mp to ${4}
+# Note: RTIC_MPGEN has to be set if MPGen is available
+rtic_mp()
+{
+	# assume that RTIC_MP_O generation may fail
+	RTIC_MP_O=
+
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
+	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+	--binpath='' --vmlinux=${1} --config=${KCONFIG_CONFIG} && \
+	cat rtic_mp.c | ${CC} ${aflags} -c -o ${2} -x c - && \
+	cp rtic_mp.c ${4} && \
+	${NM} --print-size --size-sort ${2} > ${3} && \
+	RTIC_MP_O=${2}
+	# NM - save generated variable sizes for verification
+	# RTIC_MP_O is our retval - great success if set to generated .o file
+}
+
 # Create map file with all symbols from ${1}
 # See mksymap for additional details
 mksysmap()
@@ -192,11 +273,14 @@ cleanup()
 	rm -f .tmp_System.map
 	rm -f .tmp_kallsyms*
 	rm -f .tmp_version
+	rm -f .tmp_symversions
 	rm -f .tmp_vmlinux*
 	rm -f built-in.o
 	rm -f System.map
 	rm -f vmlinux
 	rm -f vmlinux.o
+	rm -f .tmp_rtic_mp_sz*
+	rm -f rtic_mp.*
 }
 
 on_exit()
@@ -253,11 +337,30 @@ ${MAKE} -f "${srctree}/scripts/Makefile.build" obj=init GCC_PLUGINS_CFLAGS="${GC
 archive_builtin
 
 #link vmlinux.o
-info LD vmlinux.o
 modpost_link vmlinux.o
 
 # modpost vmlinux.o to check for section mismatches
 ${MAKE} -f "${srctree}/scripts/Makefile.modpost" vmlinux.o
+
+if [ -n "${CONFIG_LTO_CLANG}" ]; then
+	# Re-use vmlinux.o, so we can avoid the slow LTO link step in
+	# vmlinux_link
+	KBUILD_VMLINUX_INIT=
+	KBUILD_VMLINUX_MAIN=vmlinux.o
+	KBUILD_VMLINUX_LIBS=
+
+	# Call recordmcount if needed
+	recordmcount vmlinux.o
+fi
+
+# Generate RTIC MP placeholder compile unit of the correct size
+# and add it to the list of link objects
+# this needs to be done before generating kallsyms
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	rtic_mp vmlinux.o rtic_mp.o .tmp_rtic_mp_sz1 .tmp_rtic_mp1.c
+	KBUILD_VMLINUX_LIBS+=" "
+	KBUILD_VMLINUX_LIBS+=$RTIC_MP_O
+fi
 
 kallsymso=""
 kallsyms_vmlinux=""
@@ -308,6 +411,18 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 		vmlinux_link .tmp_kallsyms2.o .tmp_vmlinux3
 
 		kallsyms .tmp_vmlinux3 .tmp_kallsyms3.o
+	fi
+fi
+
+# Update RTIC MP object by replacing the place holder
+# with actual MP data of the same size
+# Also double check that object size did not change
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	rtic_mp "${kallsyms_vmlinux}" rtic_mp.o .tmp_rtic_mp_sz2 \
+		.tmp_rtic_mp2.c
+	if ! cmp -s .tmp_rtic_mp_sz1 .tmp_rtic_mp_sz2; then
+		echo >&2 'ERROR: RTIC MP object files size mismatch'
+		exit 1
 	fi
 fi
 

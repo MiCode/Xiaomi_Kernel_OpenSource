@@ -151,6 +151,33 @@ struct	compat_qcedev_sha_op_req {
 	enum qcedev_sha_alg_enum		alg;
 };
 
+/**
+ * struct compact_qcedev_map_buf_req - Holds the mapping request information
+ * fd (IN):            Array of fds.
+ * num_fds (IN):       Number of fds in fd[].
+ * fd_size (IN):       Array of sizes corresponding to each fd in fd[].
+ * fd_offset (IN):     Array of offset corresponding to each fd in fd[].
+ * vaddr (OUT):        Array of mapped virtual address corresponding to
+ *                     each fd in fd[].
+ */
+struct compat_qcedev_map_buf_req {
+	compat_long_t	fd[QCEDEV_MAX_BUFFERS];
+	compat_ulong_t	num_fds;
+	compat_ulong_t	fd_size[QCEDEV_MAX_BUFFERS];
+	compat_ulong_t	fd_offset[QCEDEV_MAX_BUFFERS];
+	compat_u64      buf_vaddr[QCEDEV_MAX_BUFFERS];
+};
+
+/**
+ * struct compat_qcedev_unmap_buf_req - Holds the hashing request information
+ * fd (IN):	       Array of fds to unmap
+ * num_fds (IN):       Number of fds in fd[].
+ */
+struct	compat_qcedev_unmap_buf_req {
+	compat_long_t	fd[QCEDEV_MAX_BUFFERS];
+	compat_ulong_t	num_fds;
+};
+
 struct file;
 extern long compat_qcedev_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg);
@@ -173,6 +200,9 @@ extern long compat_qcedev_ioctl(struct file *file,
 	_IO(QCEDEV_IOC_MAGIC, 8)
 #define COMPAT_QCEDEV_IOCTL_GET_CMAC_REQ	\
 	_IOWR(QCEDEV_IOC_MAGIC, 9, struct compat_qcedev_sha_op_req)
-
+#define COMPAT_QCEDEV_IOCTL_MAP_BUF_REQ	\
+	_IOWR(QCEDEV_IOC_MAGIC, 10, struct compat_qcedev_map_buf_req)
+#define COMPAT_QCEDEV_IOCTL_UNMAP_BUF_REQ \
+	_IOWR(QCEDEV_IOC_MAGIC, 11, struct compat_qcedev_unmap_buf_req)
 #endif /* CONFIG_COMPAT */
 #endif /* _UAPI_COMPAT_QCEDEV__H */

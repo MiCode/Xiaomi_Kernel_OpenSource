@@ -80,6 +80,7 @@ DEFINE_MUTEX(scm_lmh_lock);
 #define R3_STR "r3"
 #define R4_STR "r4"
 #define R5_STR "r5"
+#define R6_STR "r6"
 
 #endif
 
@@ -277,7 +278,7 @@ static enum scm_interface_version {
 /* This will be set to specify SMC32 or SMC64 */
 static u32 scm_version_mask;
 
-static bool is_scm_armv8(void)
+bool is_scm_armv8(void)
 {
 	int ret;
 	u64 ret1, x0;
@@ -588,6 +589,56 @@ int scm_is_call_available(u32 svc_id, u32 cmd_id)
 }
 EXPORT_SYMBOL(scm_is_call_available);
 
+#define GET_FEAT_VERSION_CMD	3
+int scm_get_feat_version(u32 feat)
+{
+	struct scm_desc desc = {0};
+	int ret;
+
+	ret = scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD);
+	if (ret <= 0)
+		return 0;
+
+	desc.args[0] = feat;
+	desc.arginfo = SCM_ARGS(1);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, GET_FEAT_VERSION_CMD),
+			&desc);
+	if (!ret)
+		return desc.ret[0];
+
+	return 0;
+}
+EXPORT_SYMBOL(scm_get_feat_version);
+
+#define RESTORE_SEC_CFG    2
+int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
+{
+	struct scm_desc desc = {0};
+	int ret;
+	struct restore_sec_cfg {
+		u32 device_id;
+		u32 spare;
+	} cfg;
+
+	cfg.device_id = device_id;
+	cfg.spare = spare;
+
+	if (IS_ERR_OR_NULL(scm_ret))
+		return -EINVAL;
+
+	desc.args[0] = device_id;
+	desc.args[1] = spare;
+	desc.arginfo = SCM_ARGS(2);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, RESTORE_SEC_CFG), &desc);
+	if (ret)
+		return ret;
+
+	*scm_ret = desc.ret[0];
+	return 0;
+}
+EXPORT_SYMBOL(scm_restore_sec_cfg);
+
 /*
  * SCM call command ID to check secure mode
  * Return zero for secure device.
@@ -618,3 +669,44 @@ bool scm_is_secure_device(void)
 		return false;
 }
 EXPORT_SYMBOL(scm_is_secure_device);
+
+/*
+ * SCM call command ID to protect kernel memory
+ * in Hyp Stage 2 page tables.
+ * Return zero for success.
+ * Return non-zero for failure.
+ */
+#define TZ_RTIC_ENABLE_MEM_PROTECTION	0x4
+#if IS_ENABLED(CONFIG_QCOM_QHEE_ENABLE_MEM_PROTECTION)
+int scm_enable_mem_protection(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0, resp;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_RTIC,
+			TZ_RTIC_ENABLE_MEM_PROTECTION),
+			&desc);
+	resp = desc.ret[0];
+
+	if (ret == -1) {
+		pr_err("%s: SCM call not supported\n", __func__);
+		return ret;
+	} else if (ret || resp) {
+		pr_err("%s: SCM call failed\n", __func__);
+		if (ret)
+			return ret;
+		else
+			return resp;
+	}
+
+	return resp;
+}
+#else
+inline int scm_enable_mem_protection(void)
+{
+	return 0;
+}
+#endif
+EXPORT_SYMBOL(scm_enable_mem_protection);

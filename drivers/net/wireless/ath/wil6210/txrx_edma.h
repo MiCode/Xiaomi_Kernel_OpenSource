@@ -19,6 +19,62 @@
 
 #include "wil6210.h"
 
+#define WIL_DEFAULT_RX_STATUS_RING_ID 0
+#define WIL_RX_DESC_RING_ID 0
+#define WIL_RX_STATUS_IRQ_IDX 0
+#define WIL_TX_STATUS_IRQ_IDX 1
+
+#define WIL_EDMA_AGG_WATERMARK (0xffff)
+#define WIL_EDMA_AGG_WATERMARK_POS (16)
+
+#define WIL_EDMA_IDLE_TIME_LIMIT_USEC (50)
+#define WIL_EDMA_TIME_UNIT_CLK_CYCLES (330) /* fits 1 usec */
+
+/* Error field */
+#define WIL_RX_EDMA_ERROR_MIC	(1)
+#define WIL_RX_EDMA_ERROR_KEY	(2) /* Key missing */
+#define WIL_RX_EDMA_ERROR_REPLAY	(3)
+#define WIL_RX_EDMA_ERROR_AMSDU	(4)
+#define WIL_RX_EDMA_ERROR_FCS	(7)
+
+#define WIL_RX_EDMA_ERROR_L3_ERR	(BIT(0) | BIT(1))
+#define WIL_RX_EDMA_ERROR_L4_ERR	(BIT(0) | BIT(1))
+
+#define WIL_RX_EDMA_DLPF_LU_MISS_BIT		BIT(11)
+#define WIL_RX_EDMA_DLPF_LU_MISS_CID_TID_MASK	0x7
+#define WIL_RX_EDMA_DLPF_LU_HIT_CID_TID_MASK	0xf
+
+#define WIL_RX_EDMA_DLPF_LU_MISS_CID_POS	2
+#define WIL_RX_EDMA_DLPF_LU_HIT_CID_POS		4
+
+#define WIL_RX_EDMA_DLPF_LU_MISS_TID_POS	5
+
+#define WIL_RX_EDMA_MID_VALID_BIT		BIT(22)
+
+#define WIL_EDMA_DESC_TX_MAC_CFG_0_QID_POS 16
+#define WIL_EDMA_DESC_TX_MAC_CFG_0_QID_LEN 6
+
+#define WIL_EDMA_DESC_TX_CFG_EOP_POS 0
+#define WIL_EDMA_DESC_TX_CFG_EOP_LEN 1
+
+#define WIL_EDMA_DESC_TX_CFG_TSO_DESC_TYPE_POS 3
+#define WIL_EDMA_DESC_TX_CFG_TSO_DESC_TYPE_LEN 2
+
+#define WIL_EDMA_DESC_TX_CFG_SEG_EN_POS 5
+#define WIL_EDMA_DESC_TX_CFG_SEG_EN_LEN 1
+
+#define WIL_EDMA_DESC_TX_CFG_INSERT_IP_CHKSUM_POS 6
+#define WIL_EDMA_DESC_TX_CFG_INSERT_IP_CHKSUM_LEN 1
+
+#define WIL_EDMA_DESC_TX_CFG_INSERT_TCP_CHKSUM_POS 7
+#define WIL_EDMA_DESC_TX_CFG_INSERT_TCP_CHKSUM_LEN 1
+
+#define WIL_EDMA_DESC_TX_CFG_L4_TYPE_POS 15
+#define WIL_EDMA_DESC_TX_CFG_L4_TYPE_LEN 1
+
+#define WIL_EDMA_DESC_TX_CFG_PSEUDO_HEADER_CALC_EN_POS 5
+#define WIL_EDMA_DESC_TX_CFG_PSEUDO_HEADER_CALC_EN_LEN 1
+
 /* Enhanced Rx descriptor - MAC part
  * [dword 0] : Reserved
  * [dword 1] : Reserved
@@ -216,7 +272,7 @@ struct wil_ring_tx_status {
  *	bit 22..23 : CB mode:2 - The CB Mode: 0-DMG, 1-EDMG, 2-Wide
  *	bit 24..27 : Data Offset:4 - The data offset, a code that describe the
  *		     payload shift from the beginning of the buffer:
- *		     0 - 0 Bytes, 1 - 2 Bytes, 2 - 6 Bytes
+ *		     0 - 0 Bytes, 3 - 2 Bytes
  *	bit     28 : A-MSDU Present:1 - The QoS (b7) A-MSDU present field
  *	bit     29 : A-MSDU Type:1 The QoS (b8) A-MSDU Type field
  *	bit     30 : A-MPDU:1 - Packet is part of aggregated MPDU
@@ -284,7 +340,214 @@ struct wil_rx_status_extension {
 struct wil_rx_status_extended {
 	struct wil_rx_status_compressed comp;
 	struct wil_rx_status_extension ext;
-};
+} __packed;
+
+static inline void *wil_skb_rxstatus(struct sk_buff *skb)
+{
+	return (void *)skb->cb;
+}
+
+static inline __le16 wil_rx_status_get_length(void *msg)
+{
+	return ((struct wil_rx_status_compressed *)msg)->length;
+}
+
+static inline u8 wil_rx_status_get_mcs(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d1,
+			    16, 21);
+}
+
+static inline u16 wil_rx_status_get_flow_id(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    8, 19);
+}
+
+static inline u8 wil_rx_status_get_mcast(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    26, 26);
+}
+
+/**
+ * In case of DLPF miss the parsing of flow Id should be as follows:
+ * dest_id:2
+ * src_id :3 - cid
+ * tid:3
+ * Otherwise:
+ * tid:4
+ * cid:4
+ */
+
+static inline u8 wil_rx_status_get_cid(void *msg)
+{
+	u16 val = wil_rx_status_get_flow_id(msg);
+
+	if (val & WIL_RX_EDMA_DLPF_LU_MISS_BIT)
+		/* CID is in bits 2..4 */
+		return (val >> WIL_RX_EDMA_DLPF_LU_MISS_CID_POS) &
+			WIL_RX_EDMA_DLPF_LU_MISS_CID_TID_MASK;
+	else
+		/* CID is in bits 4..7 */
+		return (val >> WIL_RX_EDMA_DLPF_LU_HIT_CID_POS) &
+			WIL_RX_EDMA_DLPF_LU_HIT_CID_TID_MASK;
+}
+
+static inline u8 wil_rx_status_get_tid(void *msg)
+{
+	u16 val = wil_rx_status_get_flow_id(msg);
+
+	if (val & WIL_RX_EDMA_DLPF_LU_MISS_BIT)
+		/* TID is in bits 5..7 */
+		return (val >> WIL_RX_EDMA_DLPF_LU_MISS_TID_POS) &
+			WIL_RX_EDMA_DLPF_LU_MISS_CID_TID_MASK;
+	else
+		/* TID is in bits 0..3 */
+		return val & WIL_RX_EDMA_DLPF_LU_MISS_CID_TID_MASK;
+}
+
+static inline int wil_rx_status_get_desc_rdy_bit(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    31, 31);
+}
+
+static inline int wil_rx_status_get_eop(void *msg) /* EoP = End of Packet */
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    30, 30);
+}
+
+static inline __le16 wil_rx_status_get_buff_id(void *msg)
+{
+	return ((struct wil_rx_status_compressed *)msg)->buff_id;
+}
+
+static inline u8 wil_rx_status_get_data_offset(void *msg)
+{
+	u8 val = WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d1,
+			      24, 27);
+
+	switch (val) {
+	case 0: return 0;
+	case 3: return 2;
+	default: return 0xFF;
+	}
+}
+
+static inline int wil_rx_status_get_frame_type(void *msg)
+{
+	if (use_compressed_rx_status)
+		return IEEE80211_FTYPE_DATA;
+
+	return WIL_GET_BITS(((struct wil_rx_status_extended *)msg)->ext.d1,
+			    0, 1) << 2;
+}
+
+static inline int wil_rx_status_get_fc1(void *msg)
+{
+	if (use_compressed_rx_status)
+		return 0;
+
+	return WIL_GET_BITS(((struct wil_rx_status_extended *)msg)->ext.d1,
+			    0, 5) << 2;
+}
+
+static inline __le16 wil_rx_status_get_seq(void *msg)
+{
+	if (use_compressed_rx_status)
+		return 0;
+
+	return ((struct wil_rx_status_extended *)msg)->ext.seq_num;
+}
+
+static inline int wil_rx_status_get_mid(void *msg)
+{
+	if (!(((struct wil_rx_status_compressed *)msg)->d0 &
+	    WIL_RX_EDMA_MID_VALID_BIT))
+		return 0; /* use the default MID */
+
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    20, 21);
+}
+
+static inline int wil_rx_status_get_error(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    29, 29);
+}
+
+static inline int wil_rx_status_get_l2_rx_status(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    0, 2);
+}
+
+static inline int wil_rx_status_get_l3_rx_status(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    3, 4);
+}
+
+static inline int wil_rx_status_get_l4_rx_status(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    5, 6);
+}
+
+static inline int wil_rx_status_get_security(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d0,
+			    28, 28);
+}
+
+static inline u8 wil_rx_status_get_key_id(void *msg)
+{
+	return WIL_GET_BITS(((struct wil_rx_status_compressed *)msg)->d1,
+			    31, 31);
+}
+
+static inline u8 wil_tx_status_get_mcs(struct wil_ring_tx_status *msg)
+{
+	return WIL_GET_BITS(msg->d2, 0, 4);
+}
+
+static inline u32 wil_ring_next_head(struct wil_ring *ring)
+{
+	return (ring->swhead + 1) % ring->size;
+}
+
+static inline void wil_desc_set_addr_edma(struct wil_ring_dma_addr *addr,
+					  __le16 *addr_high_high,
+					  dma_addr_t pa)
+{
+	addr->addr_low = cpu_to_le32(lower_32_bits(pa));
+	addr->addr_high = cpu_to_le16((u16)upper_32_bits(pa));
+	*addr_high_high = cpu_to_le16((u16)(upper_32_bits(pa) >> 16));
+}
+
+static inline
+dma_addr_t wil_tx_desc_get_addr_edma(struct wil_ring_tx_enhanced_dma *dma)
+{
+	return le32_to_cpu(dma->addr.addr_low) |
+			   ((u64)le16_to_cpu(dma->addr.addr_high) << 32) |
+			   ((u64)le16_to_cpu(dma->addr_high_high) << 48);
+}
+
+static inline
+dma_addr_t wil_rx_desc_get_addr_edma(struct wil_ring_rx_enhanced_dma *dma)
+{
+	return le32_to_cpu(dma->addr.addr_low) |
+			   ((u64)le16_to_cpu(dma->addr.addr_high) << 32) |
+			   ((u64)le16_to_cpu(dma->addr_high_high) << 48);
+}
+
+void wil_configure_interrupt_moderation_edma(struct wil6210_priv *wil);
+int wil_tx_sring_handler(struct wil6210_priv *wil,
+			 struct wil_status_ring *sring);
+void wil_rx_handle_edma(struct wil6210_priv *wil, int *quota);
+void wil_init_txrx_ops_edma(struct wil6210_priv *wil);
 
 #endif /* WIL6210_TXRX_EDMA_H */
 

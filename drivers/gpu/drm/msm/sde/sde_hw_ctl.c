@@ -576,6 +576,42 @@ static inline int sde_hw_ctl_trigger_flush_v1(struct sde_hw_ctl *ctx)
 	return 0;
 }
 
+static inline u32 sde_hw_ctl_get_intf_v1(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 intf_active;
+
+	if (!ctx) {
+		pr_err("Invalid input argument\n");
+		return 0;
+	}
+
+	c = &ctx->hw;
+	intf_active = SDE_REG_READ(c, CTL_INTF_ACTIVE);
+
+	return intf_active;
+}
+
+static inline u32 sde_hw_ctl_get_intf(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 ctl_top;
+	u32 intf_active = 0;
+
+	if (!ctx) {
+		pr_err("Invalid input argument\n");
+		return 0;
+	}
+
+	c = &ctx->hw;
+	ctl_top = SDE_REG_READ(c, CTL_TOP);
+
+	intf_active = (ctl_top > 0) ?
+		BIT(ctl_top - 1) : 0;
+
+	return intf_active;
+}
+
 static u32 sde_hw_ctl_poll_reset_status(struct sde_hw_ctl *ctx, u32 timeout_us)
 {
 	struct sde_hw_blk_reg_map *c;
@@ -1011,6 +1047,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->update_bitmask_merge3d =
 			sde_hw_ctl_update_bitmask_merge3d_v1;
 		ops->update_bitmask_cwb = sde_hw_ctl_update_bitmask_cwb_v1;
+		ops->get_ctl_intf = sde_hw_ctl_get_intf_v1;
 	} else {
 		ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 		ops->trigger_flush = sde_hw_ctl_trigger_flush;
@@ -1020,6 +1057,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->update_bitmask_cdm = sde_hw_ctl_update_bitmask_cdm;
 		ops->update_bitmask_wb = sde_hw_ctl_update_bitmask_wb;
 		ops->update_bitmask_intf = sde_hw_ctl_update_bitmask_intf;
+		ops->get_ctl_intf = sde_hw_ctl_get_intf;
 	}
 	ops->clear_pending_flush = sde_hw_ctl_clear_pending_flush;
 	ops->get_pending_flush = sde_hw_ctl_get_pending_flush;

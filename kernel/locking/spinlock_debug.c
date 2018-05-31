@@ -150,6 +150,11 @@ static void rwlock_bug(rwlock_t *lock, const char *msg)
 	printk(KERN_EMERG "BUG: rwlock %s on CPU#%d, %s/%d, %p\n",
 		msg, raw_smp_processor_id(), current->comm,
 		task_pid_nr(current), lock);
+#ifdef CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG
+	msm_trigger_wdog_bite();
+#elif defined(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG)
+	BUG();
+#endif
 	dump_stack();
 }
 

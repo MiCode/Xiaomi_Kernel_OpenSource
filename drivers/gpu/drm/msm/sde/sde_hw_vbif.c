@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,8 @@
 #define VBIF_OUT_WR_LIM_CONF0		0x00D4
 #define VBIF_OUT_AXI_AMEMTYPE_CONF0	0x0160
 #define VBIF_OUT_AXI_AMEMTYPE_CONF1	0x0164
+#define VBIF_OUT_AXI_ASHARED		0x0170
+#define VBIF_OUT_AXI_AINNERSHARED	0x0174
 #define VBIF_XIN_PND_ERR		0x0190
 #define VBIF_XIN_SRC_ERR		0x0194
 #define VBIF_XIN_CLR_ERR		0x019C
@@ -73,11 +75,12 @@ static void sde_hw_set_mem_type(struct sde_hw_vbif *vbif,
 	 * Assume 4 bits per bit field, 8 fields per 32-bit register so
 	 * 16 bit fields maximum across two registers
 	 */
-	if (!vbif || xin_id >= MAX_XIN_COUNT || xin_id >= 16)
+	if (!vbif || xin_id >= MAX_XIN_COUNT)
 		return;
 
 	c = &vbif->hw;
 
+	/* enable cacheable */
 	if (xin_id >= 8) {
 		xin_id -= 8;
 		reg_off = VBIF_OUT_AXI_AMEMTYPE_CONF1;
@@ -89,6 +92,30 @@ static void sde_hw_set_mem_type(struct sde_hw_vbif *vbif,
 	reg_val &= ~(0x7 << bit_off);
 	reg_val |= (value & 0x7) << bit_off;
 	SDE_REG_WRITE(c, reg_off, reg_val);
+}
+
+static void sde_hw_set_mem_type_v1(struct sde_hw_vbif *vbif,
+		u32 xin_id, u32 value)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg_val;
+
+	if (!vbif || xin_id >= MAX_XIN_COUNT)
+		return;
+
+	sde_hw_set_mem_type(vbif, xin_id, value);
+
+	c = &vbif->hw;
+
+	/* disable outer shareable */
+	reg_val = SDE_REG_READ(c, VBIF_OUT_AXI_ASHARED);
+	reg_val &= ~BIT(xin_id);
+	SDE_REG_WRITE(c, VBIF_OUT_AXI_ASHARED, 0);
+
+	/* disable inner shareable */
+	reg_val = SDE_REG_READ(c, VBIF_OUT_AXI_AINNERSHARED);
+	reg_val &= ~BIT(xin_id);
+	SDE_REG_WRITE(c, VBIF_OUT_AXI_AINNERSHARED, 0);
 }
 
 static void sde_hw_set_limit_conf(struct sde_hw_vbif *vbif,
@@ -205,8 +232,8 @@ static void sde_hw_set_write_gather_en(struct sde_hw_vbif *vbif, u32 xin_id)
 	SDE_REG_WRITE(c, VBIF_WRITE_GATHER_EN, reg_val);
 }
 
-static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
-		unsigned long cap)
+static void _setup_vbif_ops(const struct sde_mdss_cfg *m,
+		struct sde_hw_vbif_ops *ops, unsigned long cap)
 {
 	ops->set_limit_conf = sde_hw_set_limit_conf;
 	ops->get_limit_conf = sde_hw_get_limit_conf;
@@ -214,7 +241,10 @@ static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 	ops->get_halt_ctrl = sde_hw_get_halt_ctrl;
 	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
 		ops->set_qos_remap = sde_hw_set_qos_remap;
-	ops->set_mem_type = sde_hw_set_mem_type;
+	if (IS_SM8150_TARGET(m->hwversion))
+		ops->set_mem_type = sde_hw_set_mem_type_v1;
+	else
+		ops->set_mem_type = sde_hw_set_mem_type;
 	ops->clear_errors = sde_hw_clear_errors;
 	ops->set_write_gather_en = sde_hw_set_write_gather_en;
 }
@@ -262,7 +292,7 @@ struct sde_hw_vbif *sde_hw_vbif_init(enum sde_vbif idx,
 	 */
 	c->idx = idx;
 	c->cap = cfg;
-	_setup_vbif_ops(&c->ops, c->cap->features);
+	_setup_vbif_ops(m, &c->ops, c->cap->features);
 
 	/* no need to register sub-range in sde dbg, dump entire vbif io base */
 

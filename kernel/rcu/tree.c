@@ -4176,6 +4176,8 @@ static void __init rcu_dump_rcu_node_tree(struct rcu_state *rsp)
 	pr_cont("\n");
 }
 
+struct workqueue_struct *rcu_gp_wq;
+
 void __init rcu_init(void)
 {
 	int cpu;
@@ -4203,6 +4205,10 @@ void __init rcu_init(void)
 		if (IS_ENABLED(CONFIG_TREE_SRCU))
 			srcu_online_cpu(cpu);
 	}
+
+	/* Create workqueue for expedited GPs and for Tree SRCU. */
+	rcu_gp_wq = alloc_workqueue("rcu_gp", WQ_MEM_RECLAIM, 0);
+	WARN_ON(!rcu_gp_wq);
 }
 
 #include "tree_exp.h"

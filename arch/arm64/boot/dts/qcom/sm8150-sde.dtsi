@@ -79,7 +79,7 @@
 
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
-		qcom,sde-intf-size = <0x280>;
+		qcom,sde-intf-size = <0x2b8>;
 		qcom,sde-intf-type = "dp", "dsi", "dsi", "dp";
 
 		qcom,sde-pp-off = <0x71000 0x71800
@@ -123,6 +123,11 @@
 		qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
 						0xb0 0xc8 0xe0 0xf8 0x110>;
 
+		qcom,sde-max-per-pipe-bw-kbps = <4500000 4500000
+						 4500000 4500000
+						 4500000 4500000
+						 4500000 4500000>;
+
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 		qcom,sde-sspp-clk-ctrl =
 				<0x2ac 0>, <0x2b4 0>, <0x2bc 0>, <0x2c4 0>,
@@ -147,8 +152,8 @@
 		qcom,sde-has-dest-scaler;
 		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
 		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
-		qcom,sde-max-bw-low-kbps = <9600000>;
-		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-max-bw-low-kbps = <12800000>;
+		qcom,sde-max-bw-high-kbps = <12800000>;
 		qcom,sde-min-core-ib-kbps = <2400000>;
 		qcom,sde-min-llcc-ib-kbps = <800000>;
 		qcom,sde-min-dram-ib-kbps = <800000>;
@@ -166,44 +171,22 @@
 		qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
 		qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
 
-		qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
-			0x00000000>;
-		qcom,sde-safe-lut-linear =
-			<4 0xfff8>,
-			<0 0xfff0>;
-		qcom,sde-safe-lut-macrotile =
-			<10 0xfe00>,
-			<11 0xfc00>,
-			<12 0xf800>,
-			<0 0xf000>;
-		qcom,sde-safe-lut-nrt =
-			<0 0xffff>;
-		qcom,sde-safe-lut-cwb =
-			<0 0xffff>;
-		qcom,sde-qos-lut-linear =
-			<4 0x00000000 0x00000357>,
-			<5 0x00000000 0x00003357>,
-			<6 0x00000000 0x00023357>,
-			<7 0x00000000 0x00223357>,
-			<8 0x00000000 0x02223357>,
-			<9 0x00000000 0x22223357>,
-			<10 0x00000002 0x22223357>,
-			<11 0x00000022 0x22223357>,
-			<12 0x00000222 0x22223357>,
-			<13 0x00002222 0x22223357>,
-			<14 0x00012222 0x22223357>,
-			<0 0x00112222 0x22223357>;
-		qcom,sde-qos-lut-macrotile =
-			<10 0x00000003 0x44556677>,
-			<11 0x00000033 0x44556677>,
-			<12 0x00000233 0x44556677>,
-			<13 0x00002233 0x44556677>,
-			<14 0x00012233 0x44556677>,
-			<0 0x00112233 0x44556677>;
-		qcom,sde-qos-lut-nrt =
-			<0 0x00000000 0x00000000>;
-		qcom,sde-qos-lut-cwb =
-			<0 0x75300000 0x00000000>;
+		/* macrotile & macrotile-qseed has the same configs */
+		qcom,sde-danger-lut = <0x0000000f 0x0000ffff
+			0x00000000 0x00000000 0x0000ffff>;
+
+		qcom,sde-safe-lut-linear = <0 0xfff8>;
+		qcom,sde-safe-lut-macrotile = <0 0xf000>;
+		/* same as safe-lut-macrotile */
+		qcom,sde-safe-lut-macrotile-qseed = <0 0xf000>;
+		qcom,sde-safe-lut-nrt = <0 0xffff>;
+		qcom,sde-safe-lut-cwb = <0 0xffff>;
+
+		qcom,sde-qos-lut-linear = <0 0x00112222 0x22223357>;
+		qcom,sde-qos-lut-macrotile = <0 0x00112233 0x44556677>;
+		qcom,sde-qos-lut-macrotile-qseed = <0 0x00112233 0x66777777>;
+		qcom,sde-qos-lut-nrt = <0 0x00000000 0x00000000>;
+		qcom,sde-qos-lut-cwb = <0 0x75300000 0x00000000>;
 
 		qcom,sde-cdp-setting = <1 1>, <1 0>;
 
@@ -313,7 +296,6 @@
 			qcom,msm-bus,name = "mdss_reg";
 			qcom,msm-bus,num-cases = <4>;
 			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,active-only;
 			qcom,msm-bus,vectors-KBps =
 				<1 590 0 0>,
 				<1 590 0 76800>,
@@ -442,7 +424,7 @@
 		qcom,mdss-inline-rot-qos-lut = <0x44556677 0x00112233
 							0x44556677 0x00112233>;
 		qcom,mdss-inline-rot-danger-lut = <0x0055aaff 0x0000ffff>;
-		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000ff00>;
+		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000f000>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
@@ -457,7 +439,6 @@
 			qcom,msm-bus,name = "mdss_rot_reg";
 			qcom,msm-bus,num-cases = <2>;
 			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,active-only;
 			qcom,msm-bus,vectors-KBps =
 				<1 590 0 0>,
 				<1 590 0 76800>;
@@ -507,6 +488,19 @@
 				qcom,supply-disable-load = <4>;
 			};
 		};
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
 	};
 
 	mdss_dsi1: qcom,mdss_dsi_ctrl1@ae96000 {
@@ -538,6 +532,19 @@
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <21800>;
 				qcom,supply-disable-load = <4>;
+			};
+		};
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 	};
@@ -661,15 +668,17 @@
 		qcom,aux-cfg0-settings = [20 00];
 		qcom,aux-cfg1-settings = [24 13];
 		qcom,aux-cfg2-settings = [28 24];
-		qcom,aux-cfg3-settings = [2c 10];
+		qcom,aux-cfg3-settings = [2c 00];
 		qcom,aux-cfg4-settings = [30 0a];
 		qcom,aux-cfg5-settings = [34 26];
 		qcom,aux-cfg6-settings = [38 0a];
 		qcom,aux-cfg7-settings = [3c 03];
-		qcom,aux-cfg8-settings = [40 bb];
+		qcom,aux-cfg8-settings = [40 b7];
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;
+
+		qcom,mst-enable;
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
@@ -696,6 +705,20 @@
 				qcom,supply-max-voltage = <880000>;
 				qcom,supply-enable-load = <36000>;
 				qcom,supply-disable-load = <32>;
+			};
+		};
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 	};

@@ -21,10 +21,13 @@ Optional subnodes:
 - qcom,msm-fastrpc-rpmsg      :	Child node for rpmsg instead of glink for IPC
 
 Subnode Required properties:
-- compatible :		Must be "qcom,msm-fastrpc-compute-cb"
-- label:		Label describing the channel this context bank belongs to
-- iommus : 		A list of phandle and IOMMU specifier pairs that describe the
+- compatible   :  Must be "qcom,msm-fastrpc-compute-cb"
+- label        :  Label describing the channel this context bank belongs to
+- iommus       :  A list of phandle and IOMMU specifier pairs that describe the
 			IOMMU master interfaces of the device
+- dma-coherent :  A flag marking a context bank as I/O coherent
+- shared-cb    :  A value indicating how many fastrpc sessions can share a
+			context bank
 
 Example:
 	qcom,msm_fastrpc {
@@ -42,12 +45,14 @@ Example:
 		qcom,msm_fastrpc_compute_cb_1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&apps_smmu 0x1401 0x0>,
+			iommus = <&apps_smmu 0x1401 0x0>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb_2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "adsprpc-smd";
-			iommus = <&apps_smmu 0x1402 0x0>,
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x1402 0x0>;
+			shared-cb = <5>;
 		};
 	};
 

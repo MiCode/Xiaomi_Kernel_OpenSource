@@ -889,7 +889,7 @@ int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 static int _sde_connector_set_roi_v1(
 		struct sde_connector *c_conn,
 		struct sde_connector_state *c_state,
-		void *usr_ptr)
+		void __user *usr_ptr)
 {
 	struct sde_drm_roi_v1 roi_v1;
 	int i;
@@ -940,7 +940,7 @@ static int _sde_connector_set_roi_v1(
 static int _sde_connector_set_ext_hdr_info(
 	struct sde_connector *c_conn,
 	struct sde_connector_state *c_state,
-	void *usr_ptr)
+	void __user *usr_ptr)
 {
 	int rc = 0;
 	struct drm_connector *connector;
@@ -1054,7 +1054,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		if (!val)
 			goto end;
 
-		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 0);
+		/*
+		 * update the the offset to a timeline for commit completion
+		 */
+		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 1);
 		if (rc) {
 			SDE_ERROR("fence create failed rc:%d\n", rc);
 			goto end;
@@ -1071,7 +1074,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 		break;
 	case CONNECTOR_PROP_ROI_V1:
-		rc = _sde_connector_set_roi_v1(c_conn, c_state, (void *)val);
+		rc = _sde_connector_set_roi_v1(c_conn,
+				c_state, (void __user *)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 		break;
@@ -1094,7 +1098,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	if (idx == CONNECTOR_PROP_HDR_METADATA) {
 		rc = _sde_connector_set_ext_hdr_info(c_conn,
-			c_state, (void *)val);
+			c_state, (void __user *)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}

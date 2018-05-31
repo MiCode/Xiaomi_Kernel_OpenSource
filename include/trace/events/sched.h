@@ -810,7 +810,7 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__field( unsigned long, load_avg                )
 		__field( unsigned long, util_avg                )
 		__field( unsigned long, util_avg_pelt           )
-		__field( unsigned long, util_avg_walt           )
+		__field( u32,		util_avg_walt           )
 	),
 
 	TP_fast_assign(
@@ -820,16 +820,16 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__entry->util_avg_pelt  = cfs_rq->avg.util_avg;
 		__entry->util_avg_walt  = 0;
 #ifdef CONFIG_SCHED_WALT
-		__entry->util_avg_walt  =
-			cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
-		do_div(__entry->util_avg_walt, sched_ravg_window);
+		__entry->util_avg_walt  = div64_ul(cpu_rq(cpu)->prev_runnable_sum,
+					  sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+
 		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
 			__entry->util_avg       = __entry->util_avg_walt;
 #endif
 	),
 
 	TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
-			"util_avg_pelt=%lu util_avg_walt=%lu",
+			"util_avg_pelt=%lu util_avg_walt=%u",
 		__entry->cpu, __entry->load_avg, __entry->util_avg,
 		__entry->util_avg_pelt, __entry->util_avg_walt)
 );
@@ -853,7 +853,7 @@ TRACE_EVENT(sched_load_se,
 		__field(	unsigned long,	load			      )
 		__field(	unsigned long,	util			      )
 		__field(	unsigned long,	util_pelt		      )
-		__field(	unsigned long,	util_walt		      )
+		__field(	u32,		util_walt		      )
 	),
 
 	TP_fast_assign(
@@ -873,15 +873,14 @@ TRACE_EVENT(sched_load_se,
 #ifdef CONFIG_SCHED_WALT
 		if (!se->my_q) {
 			struct task_struct *p = container_of(se, struct task_struct, se);
-			__entry->util_walt = ((unsigned long)(p->ravg.demand) << SCHED_CAPACITY_SHIFT);
-			do_div(__entry->util_walt, sched_ravg_window);
+			__entry->util_walt = p->ravg.demand / (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 			if (!walt_disabled && sysctl_sched_use_walt_task_util)
 				__entry->util = __entry->util_walt;
 		}
 #endif
 	),
 
-	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%lu",
+	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%u",
 		  __entry->cpu, __get_str(path), __entry->comm,
 		  __entry->pid, __entry->load, __entry->util,
 		  __entry->util_pelt, __entry->util_walt)
@@ -1001,6 +1000,36 @@ TRACE_EVENT(core_ctl_set_boost,
 		__entry->ret = ret;
 	),
 	TP_printk("refcount=%u, ret=%d", __entry->refcount, __entry->ret)
+);
+
+TRACE_EVENT(core_ctl_update_nr_need,
+
+	TP_PROTO(int cpu, int nr_need, int prev_misfit_need,
+		int nrrun, int max_nr, int nr_prev_assist),
+
+	TP_ARGS(cpu, nr_need, prev_misfit_need, nrrun, max_nr, nr_prev_assist),
+
+	TP_STRUCT__entry(
+		__field( int, cpu)
+		__field( int, nr_need)
+		__field( int, prev_misfit_need)
+		__field( int, nrrun)
+		__field( int, max_nr)
+		__field( int, nr_prev_assist)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->nr_need = nr_need;
+		__entry->prev_misfit_need = prev_misfit_need;
+		__entry->nrrun = nrrun;
+		__entry->max_nr = max_nr;
+		__entry->nr_prev_assist = nr_prev_assist;
+	),
+
+	TP_printk("cpu=%d nr_need=%d prev_misfit_need=%d nrrun=%d max_nr=%d nr_prev_assist=%d",
+		__entry->cpu, __entry->nr_need, __entry->prev_misfit_need,
+		__entry->nrrun, __entry->max_nr, __entry->nr_prev_assist)
 );
 
 /*
@@ -1237,30 +1266,26 @@ TRACE_EVENT(sched_energy_diff,
  */
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int avg, int big_avg, int iowait_avg,
-		unsigned int max_nr, unsigned int big_max_nr),
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max),
 
-	TP_ARGS(avg, big_avg, iowait_avg, max_nr, big_max_nr),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max),
 
 	TP_STRUCT__entry(
-		__field( int,   avg                     )
-		__field( int,   big_avg                 )
-		__field( int,   iowait_avg              )
-		__field( unsigned int,  max_nr          )
-		__field( unsigned int,  big_max_nr      )
+		__field( int, cpu)
+		__field( int, nr)
+		__field( int, nr_misfit)
+		__field( int, nr_max)
 	),
 
 	TP_fast_assign(
-		__entry->avg            = avg;
-		__entry->big_avg        = big_avg;
-		__entry->iowait_avg     = iowait_avg;
-		__entry->max_nr         = max_nr;
-		__entry->big_max_nr     = big_max_nr;
+		__entry->cpu = cpu;
+		__entry->nr = nr;
+		__entry->nr_misfit = nr_misfit;
+		__entry->nr_max = nr_max;
 	),
 
-	TP_printk("avg=%d big_avg=%d iowait_avg=%d max_nr=%u big_max_nr=%u",
-		__entry->avg, __entry->big_avg, __entry->iowait_avg,
-		__entry->max_nr, __entry->big_max_nr)
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d",
+		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max)
 );
 
 /*
@@ -1297,6 +1322,38 @@ TRACE_EVENT(sched_isolate,
 	TP_printk("iso cpu=%u cpus=0x%x time=%u us isolated=%d",
 		__entry->requested_cpu, __entry->isolated_cpus,
 		__entry->time, __entry->isolate)
+);
+
+TRACE_EVENT(sched_preempt_disable,
+
+	TP_PROTO(u64 delta, bool irqs_disabled,
+			unsigned long caddr0, unsigned long caddr1,
+			unsigned long caddr2, unsigned long caddr3),
+
+	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
+
+	TP_STRUCT__entry(
+		__field(u64, delta)
+		__field(bool, irqs_disabled)
+		__field(void*, caddr0)
+		__field(void*, caddr1)
+		__field(void*, caddr2)
+		__field(void*, caddr3)
+	),
+
+	TP_fast_assign(
+		__entry->delta = delta;
+		__entry->irqs_disabled = irqs_disabled;
+		__entry->caddr0 = (void *)caddr0;
+		__entry->caddr1 = (void *)caddr1;
+		__entry->caddr2 = (void *)caddr2;
+		__entry->caddr3 = (void *)caddr3;
+	),
+
+	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%pf<-%pf<-%pf<-%pf)",
+				__entry->delta, __entry->irqs_disabled,
+				__entry->caddr0, __entry->caddr1,
+				__entry->caddr2, __entry->caddr3)
 );
 
 #include "walt.h"

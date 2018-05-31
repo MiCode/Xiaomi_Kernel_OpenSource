@@ -33,6 +33,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
+#include <soc/qcom/minidump.h>
 
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
@@ -42,10 +43,11 @@
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 #define SCM_IO_DEASSERT_PS_HOLD		2
 #define SCM_WDOG_DEBUG_BOOT_PART	0x9
-#define SCM_DLOAD_MODE			0X10
+#define SCM_DLOAD_FULLDUMP		0X10
 #define SCM_EDLOAD_MODE			0X01
 #define SCM_DLOAD_CMD			0x10
-
+#define SCM_DLOAD_MINIDUMP		0X20
+#define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
 static int restart_mode;
 static void *restart_reason, *dload_type_addr;
@@ -72,6 +74,7 @@ static struct kobject dload_kobj;
 #endif
 
 static int in_panic;
+static int dload_type = SCM_DLOAD_FULLDUMP;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
@@ -80,7 +83,7 @@ static void *kaslr_imem_addr;
 #endif
 static bool scm_dload_supported;
 
-static int dload_set(const char *val, struct kernel_param *kp);
+static int dload_set(const char *val, const struct kernel_param *kp);
 /* interface for exporting attributes */
 struct reset_attribute {
 	struct attribute        attr;
@@ -140,7 +143,7 @@ static void set_dload_mode(int on)
 		mb();
 	}
 
-	ret = scm_set_dload_mode(on ? SCM_DLOAD_MODE : 0, 0);
+	ret = scm_set_dload_mode(on ? dload_type : 0, 0);
 	if (ret)
 		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
 
@@ -179,7 +182,7 @@ static void enable_emergency_dload_mode(void)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
 
-static int dload_set(const char *val, struct kernel_param *kp)
+static int dload_set(const char *val, const struct kernel_param *kp)
 {
 	int ret;
 
@@ -438,6 +441,9 @@ static ssize_t show_emmc_dload(struct kobject *kobj, struct attribute *attr,
 {
 	uint32_t read_val, show_val;
 
+	if (!dload_type_addr)
+		return -ENODEV;
+
 	read_val = __raw_readl(dload_type_addr);
 	if (read_val == EMMC_DLOAD_TYPE)
 		show_val = 1;
@@ -453,6 +459,9 @@ static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
 	uint32_t enabled;
 	int ret;
 
+	if (!dload_type_addr)
+		return -ENODEV;
+
 	ret = kstrtouint(buf, 0, &enabled);
 	if (ret < 0)
 		return ret;
@@ -467,10 +476,57 @@ static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
 
 	return count;
 }
+
+#ifdef CONFIG_QCOM_MINIDUMP
+static DEFINE_MUTEX(tcsr_lock);
+
+static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
+		(dload_type == SCM_DLOAD_BOTHDUMPS) ? "both" :
+		((dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full"));
+}
+
+static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	if (sysfs_streq(buf, "full")) {
+		dload_type = SCM_DLOAD_FULLDUMP;
+	} else if (sysfs_streq(buf, "mini")) {
+		if (!msm_minidump_enabled()) {
+			pr_err("Minidump is not enabled\n");
+			return -ENODEV;
+		}
+		dload_type = SCM_DLOAD_MINIDUMP;
+	} else if (sysfs_streq(buf, "both")) {
+		if (!msm_minidump_enabled()) {
+			pr_err("Minidump not enabled, setting fulldump only\n");
+			dload_type = SCM_DLOAD_FULLDUMP;
+			return count;
+		}
+		dload_type = SCM_DLOAD_BOTHDUMPS;
+	} else{
+		pr_err("Invalid Dump setup request..\n");
+		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&tcsr_lock);
+	/*Overwrite TCSR reg*/
+	set_dload_mode(dload_type);
+	mutex_unlock(&tcsr_lock);
+	return count;
+}
+RESET_ATTR(dload_mode, 0644, show_dload_mode, store_dload_mode);
+#endif
 RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
 
 static struct attribute *reset_attrs[] = {
 	&reset_attr_emmc_dload.attr,
+#ifdef CONFIG_QCOM_MINIDUMP
+	&reset_attr_dload_mode.attr,
+#endif
 	NULL
 };
 

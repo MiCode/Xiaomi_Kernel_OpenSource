@@ -203,12 +203,6 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
-static void dp_display_destroy_hdcp_workqueue(struct dp_display_private *dp)
-{
-	if (dp->wq)
-		destroy_workqueue(dp->wq);
-}
-
 static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 {
 	void *fd = NULL;
@@ -270,7 +264,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 	}
 
 	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
-	dp_display_destroy_hdcp_workqueue(dp);
 	mutex_destroy(&dp->hdcp_mutex);
 }
 
@@ -660,36 +653,6 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	return rc;
 }
 
-static int dp_display_configure_aux_switch(struct dp_display_private *dp)
-{
-	int rc = 0;
-	enum fsa_function event = FSA_EVENT_MAX;
-
-	if (!dp->aux_switch_node) {
-		pr_debug("undefined fsa4480 handle\n");
-		goto end;
-	}
-
-	switch (dp->usbpd->orientation) {
-	case ORIENTATION_CC1:
-		event = FSA_USBC_ORIENTATION_CC1;
-		break;
-	case ORIENTATION_CC2:
-		event = FSA_USBC_ORIENTATION_CC2;
-		break;
-	default:
-		pr_err("invalid orientation\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	rc = fsa4480_switch_event(dp->aux_switch_node, event);
-	if (rc)
-		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
-end:
-	return rc;
-}
-
 static int dp_display_usbpd_configure_cb(struct device *dev)
 {
 	int rc = 0;
@@ -708,9 +671,11 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	rc = dp_display_configure_aux_switch(dp);
-	if (rc)
-		goto end;
+	if (!dp->debug->sim_mode) {
+		rc = dp->aux->aux_switch(dp->aux, true, dp->usbpd->orientation);
+		if (rc)
+			goto end;
+	}
 
 	dp_display_host_init(dp);
 
@@ -799,6 +764,10 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	flush_workqueue(dp->wq);
 
 	dp_display_handle_disconnect(dp);
+
+	if (!dp->debug->sim_mode)
+		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
+
 	atomic_set(&dp->aborted, 0);
 end:
 	return rc;
@@ -1035,7 +1004,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_aux;
 	}
 
-	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg);
+	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg,
+			dp->aux_switch_node);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
 		pr_err("failed to initialize aux, rc = %d\n", rc);
@@ -1975,6 +1945,9 @@ static int dp_display_remove(struct platform_device *pdev)
 	dp = platform_get_drvdata(pdev);
 
 	dp_display_deinit_sub_modules(dp);
+
+	if (dp->wq)
+		destroy_workqueue(dp->wq);
 
 	platform_set_drvdata(pdev, NULL);
 	devm_kfree(&pdev->dev, dp);

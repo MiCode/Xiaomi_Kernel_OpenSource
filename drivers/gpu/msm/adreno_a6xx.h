@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,8 +129,13 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context);
 
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
-void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
+void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
-
+void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
+		struct kgsl_snapshot *snapshot);
 void a6xx_crashdump_init(struct adreno_device *adreno_dev);
+int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev);
+void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev);
+bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev);
+bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev);
 #endif

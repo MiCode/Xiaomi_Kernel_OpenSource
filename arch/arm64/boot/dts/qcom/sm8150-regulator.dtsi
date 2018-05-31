@@ -195,11 +195,14 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
+		proxy-supply = <&pm855_l5>;
 		L5A: pm855_l5: regulator-pm855-l5 {
 			regulator-name = "pm855_l5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <880000>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <23800>;
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
@@ -402,11 +405,14 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm855_l14>;
 		L14A: pm855_l14: regulator-pm855-l14 {
 			regulator-name = "pm855_l14";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1880000>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <115000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
@@ -683,11 +689,14 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
+		proxy-supply = <&pm855l_l3>;
 		L3C: pm855l_l3: regulator-pm855l-l3 {
 			regulator-name = "pm855l_l3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <51800>;
 			qcom,init-voltage = <1200000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};

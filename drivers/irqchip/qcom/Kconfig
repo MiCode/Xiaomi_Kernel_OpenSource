@@ -14,9 +14,9 @@ config QTI_PDC_SM8150
         help
           QTI Power Domain Controller for SM8150
 
-config QTI_PDC_SDM640
-        bool "QTI PDC SDM640"
+config QTI_PDC_SM6150
+        bool "QTI PDC SM6150"
         select QTI_PDC
-        default y if ARCH_SDM640
+        default y if ARCH_SM6150
         help
-          QTI Power Domain Controller for SDM640
+          QTI Power Domain Controller for SM6150

@@ -192,6 +192,7 @@ struct msm_vidc_platform_resources {
 	bool domain_cvp;
 	bool non_fatal_pagefaults;
 	bool cache_pagetables;
+	bool decode_batching;
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
 	struct msm_vidc_csc_coeff *csc_coeff_data;

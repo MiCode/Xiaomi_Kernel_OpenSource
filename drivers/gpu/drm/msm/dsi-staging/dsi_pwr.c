@@ -17,11 +17,13 @@
 #include <linux/slab.h>
 
 #include "dsi_pwr.h"
+#include "dsi_parser.h"
 
 /*
  * dsi_pwr_parse_supply_node() - parse power supply node from root device node
  */
-static int dsi_pwr_parse_supply_node(struct device_node *root,
+static int dsi_pwr_parse_supply_node(struct dsi_parser_utils *utils,
+				     struct device_node *root,
 				     struct dsi_regulator_info *regs)
 {
 	int rc = 0;
@@ -29,10 +31,10 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 	u32 tmp = 0;
 	struct device_node *node = NULL;
 
-	for_each_child_of_node(root, node) {
+	dsi_for_each_child_node(root, node) {
 		const char *st = NULL;
 
-		rc = of_property_read_string(node, "qcom,supply-name", &st);
+		rc = utils->read_string(node, "qcom,supply-name", &st);
 		if (rc) {
 			pr_err("failed to read name, rc = %d\n", rc);
 			goto error;
@@ -42,32 +44,28 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			 ARRAY_SIZE(regs->vregs[i].vreg_name),
 			 "%s", st);
 
-		rc = of_property_read_u32(node, "qcom,supply-min-voltage",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-min-voltage", &tmp);
 		if (rc) {
 			pr_err("failed to read min voltage, rc = %d\n", rc);
 			goto error;
 		}
 		regs->vregs[i].min_voltage = tmp;
 
-		rc = of_property_read_u32(node, "qcom,supply-max-voltage",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-max-voltage", &tmp);
 		if (rc) {
 			pr_err("failed to read max voltage, rc = %d\n", rc);
 			goto error;
 		}
 		regs->vregs[i].max_voltage = tmp;
 
-		rc = of_property_read_u32(node, "qcom,supply-enable-load",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-enable-load", &tmp);
 		if (rc) {
 			pr_err("failed to read enable load, rc = %d\n", rc);
 			goto error;
 		}
 		regs->vregs[i].enable_load = tmp;
 
-		rc = of_property_read_u32(node, "qcom,supply-disable-load",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-disable-load", &tmp);
 		if (rc) {
 			pr_err("failed to read disable load, rc = %d\n", rc);
 			goto error;
@@ -75,8 +73,7 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 		regs->vregs[i].disable_load = tmp;
 
 		/* Optional values */
-		rc = of_property_read_u32(node, "qcom,supply-pre-on-sleep",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-pre-on-sleep", &tmp);
 		if (rc) {
 			pr_debug("pre-on-sleep not specified\n");
 			rc = 0;
@@ -84,8 +81,7 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			regs->vregs[i].pre_on_sleep = tmp;
 		}
 
-		rc = of_property_read_u32(node, "qcom,supply-pre-off-sleep",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-pre-off-sleep", &tmp);
 		if (rc) {
 			pr_debug("pre-off-sleep not specified\n");
 			rc = 0;
@@ -93,8 +89,7 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			regs->vregs[i].pre_off_sleep = tmp;
 		}
 
-		rc = of_property_read_u32(node, "qcom,supply-post-on-sleep",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-post-on-sleep", &tmp);
 		if (rc) {
 			pr_debug("post-on-sleep not specified\n");
 			rc = 0;
@@ -102,8 +97,7 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			regs->vregs[i].post_on_sleep = tmp;
 		}
 
-		rc = of_property_read_u32(node, "qcom,supply-post-off-sleep",
-					  &tmp);
+		rc = utils->read_u32(node, "qcom,supply-post-off-sleep", &tmp);
 		if (rc) {
 			pr_debug("post-off-sleep not specified\n");
 			rc = 0;
@@ -221,22 +215,23 @@ error:
  *
  * return: error code in case of failure or 0 for success.
  */
-int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
+int dsi_pwr_of_get_vreg_data(struct dsi_parser_utils *utils,
 				 struct dsi_regulator_info *regs,
 				 char *supply_name)
 {
 	int rc = 0;
 	struct device_node *supply_root_node = NULL;
 
-	if (!of_node || !regs) {
+	if (!utils || !regs) {
 		pr_err("Bad params\n");
 		return -EINVAL;
 	}
 
 	regs->count = 0;
-	supply_root_node = of_get_child_by_name(of_node, supply_name);
+	supply_root_node = utils->get_child_by_name(utils->data, supply_name);
 	if (!supply_root_node) {
-		supply_root_node = of_parse_phandle(of_node, supply_name, 0);
+		supply_root_node = of_parse_phandle(utils->node,
+					supply_name, 0);
 		if (!supply_root_node) {
 			pr_debug("No supply entry present for %s\n",
 					supply_name);
@@ -244,7 +239,7 @@ int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
 		}
 	}
 
-	regs->count = of_get_available_child_count(supply_root_node);
+	regs->count = utils->get_available_child_count(supply_root_node);
 	if (regs->count == 0) {
 		pr_err("No vregs defined for %s\n", supply_name);
 		return -EINVAL;
@@ -256,7 +251,7 @@ int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
 		return -ENOMEM;
 	}
 
-	rc = dsi_pwr_parse_supply_node(supply_root_node, regs);
+	rc = dsi_pwr_parse_supply_node(utils, supply_root_node, regs);
 	if (rc) {
 		pr_err("failed to parse supply node for %s, rc = %d\n",
 			supply_name, rc);
@@ -285,6 +280,7 @@ int dsi_pwr_get_dt_vreg_data(struct device *dev,
 	struct device_node *of_node = NULL;
 	struct device_node *supply_node = NULL;
 	struct device_node *supply_root_node = NULL;
+	struct dsi_parser_utils utils = *dsi_parser_get_of_utils();
 
 	if (!dev || !regs) {
 		pr_err("Bad params\n");
@@ -318,7 +314,10 @@ int dsi_pwr_get_dt_vreg_data(struct device *dev,
 		return -ENOMEM;
 	}
 
-	rc = dsi_pwr_parse_supply_node(supply_root_node, regs);
+	utils.data = of_node;
+	utils.node = of_node;
+
+	rc = dsi_pwr_parse_supply_node(&utils, supply_root_node, regs);
 	if (rc) {
 		pr_err("failed to parse supply node for %s, rc = %d\n",
 		       supply_name, rc);

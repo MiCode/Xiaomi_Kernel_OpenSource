@@ -101,6 +101,11 @@
 #define TMC_FFCR_TRIGON_TRIGIN	BIT(8)
 #define TMC_FFCR_STOP_ON_FLUSH	BIT(12)
 
+#define TMC_ETR_SG_ENT_TO_BLK(phys_pte)	(((phys_addr_t)phys_pte >> 4)	\
+					 << PAGE_SHIFT)
+#define TMC_ETR_SG_ENT(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x2)
+#define TMC_ETR_SG_NXT_TBL(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x3)
+#define TMC_ETR_SG_LST_ENT(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x1)
 
 #define TMC_DEVID_NOSCAT	BIT(24)
 
@@ -147,6 +152,15 @@ enum tmc_mem_intf_width {
 #define CORESIGHT_SOC_600_ETR_CAPS	\
 	(TMC_ETR_SAVE_RESTORE | TMC_ETR_AXI_ARCACHE)
 
+enum tmc_etr_mem_type {
+	TMC_ETR_MEM_TYPE_CONTIG,
+	TMC_ETR_MEM_TYPE_SG,
+};
+
+static const char * const str_tmc_etr_mem_type[] = {
+	[TMC_ETR_MEM_TYPE_CONTIG]	= "contig",
+	[TMC_ETR_MEM_TYPE_SG]		= "sg",
+};
 enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_NONE,
 	TMC_ETR_OUT_MODE_MEM,
@@ -210,8 +224,11 @@ struct tmc_drvdata {
 	struct mutex		mem_lock;
 	u32			mem_size;
 	u32			trigger_cntr;
+	enum tmc_etr_mem_type	mem_type;
+	enum tmc_etr_mem_type	memtype;
 	u32			etr_caps;
 	u32			delta_bottom;
+	int			sg_blk_num;
 	enum tmc_etr_out_mode	out_mode;
 	struct usb_qdss_ch	*usbch;
 	struct tmc_etr_bam_data	*bamdata;
@@ -238,6 +255,8 @@ extern const struct coresight_ops tmc_etb_cs_ops;
 extern const struct coresight_ops tmc_etf_cs_ops;
 
 /* ETR functions */
+void tmc_etr_sg_compute_read(struct tmc_drvdata *drvdata, loff_t *ppos,
+			     char **bufpp, size_t *len);
 int tmc_read_prepare_etr(struct tmc_drvdata *drvdata);
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata);
 void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata);
@@ -251,7 +270,9 @@ int tmc_etr_bam_init(struct amba_device *adev,
 extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
+extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp);
 
+extern const struct coresight_ops tmc_etr_cs_ops;
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\

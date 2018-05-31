@@ -15,6 +15,9 @@
 
 #include <linux/kernel.h>
 
+#define USB_QDSS_CH_MDM	"qdss_mdm"
+#define USB_QDSS_CH_MSM	"qdss"
+
 struct qdss_request {
 	char *buf;
 	int length;

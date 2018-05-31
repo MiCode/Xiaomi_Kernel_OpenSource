@@ -814,6 +814,7 @@
 #define GBIF_AXI1_WRITE_DATA_TOTAL_BEATS   47
 
 /* GBIF registers */
+#define A6XX_GBIF_SCACHE_CNTL1            0x3c02
 #define A6XX_GBIF_QSB_SIDE0               0x3c03
 #define A6XX_GBIF_QSB_SIDE1               0x3c04
 #define A6XX_GBIF_QSB_SIDE2               0x3c05

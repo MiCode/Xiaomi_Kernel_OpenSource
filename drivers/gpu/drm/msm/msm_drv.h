@@ -668,6 +668,8 @@ int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt, int npages,
 		unsigned int flags);
 
+struct device *msm_gem_get_aspace_device(struct msm_gem_address_space *aspace);
+
 void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 
 struct msm_gem_address_space *

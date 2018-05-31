@@ -189,7 +189,8 @@ u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
 		u32 scaler_offset);
 
 void sde_hw_csc_matrix_coeff_setup(struct sde_hw_blk_reg_map *c,
-		u32 csc_reg_off, struct sde_csc_cfg *data);
+		u32 csc_reg_off, struct sde_csc_cfg *data,
+		u32 shift_bit);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,

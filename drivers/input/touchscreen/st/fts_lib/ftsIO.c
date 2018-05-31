@@ -1,20 +1,37 @@
 /*
+ * FTS Capacitive touch screen controller (FingerTipS)
+ *
+ * Copyright (C) 2016-2018, STMicroelectronics Limited.
+ * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
+ *
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-**************************************************************************
-**						STMicroelectronics						**
-**************************************************************************
-**						marco.cali@st.com				**
-**************************************************************************
-*																		*
-*					 I2C/SPI Communication				 *
-*																		*
-**************************************************************************
-**************************************************************************
-
-*/
-
-#include "ftsSoftware.h"
-#include "ftsCrossCompile.h"
+/**
+ *
+ **************************************************************************
+ **                        STMicroelectronics                            **
+ **************************************************************************
+ **                        marco.cali@st.com                             **
+ **************************************************************************
+ *                                                                        *
+ *                        I2C/SPI Communication                          **
+ *                                                                        *
+ **************************************************************************
+ **************************************************************************
+ *
+ */
 
 #include <linux/init.h>
 #include <linux/errno.h>
@@ -40,29 +57,31 @@
 #include <linux/firmware.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
-/* #include <linux/sec_sysfs.h> */
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include <linux/spi/spidev.h>
-static struct i2c_client *client;
-static u16 I2CSAD;
 
+#include "ftsSoftware.h"
+#include "ftsCrossCompile.h"
 #include "ftsError.h"
 #include "ftsHardware.h"
 #include "ftsIO.h"
 #include "ftsTool.h"
 
 static char tag[8] = "[ FTS ]\0";
+static struct i2c_client *client;
+static u16 I2CSAD;
+
 
 int openChannel(struct i2c_client *clt)
 {
 	client = clt;
 	I2CSAD = clt->addr;
-	logError(1, "%s openChannel: SAD: %02X\n", tag, I2CSAD);
+	logError(1, "%s %s: SAD: %02X\n", tag, __func__, I2CSAD);
 	return OK;
 }
 
-struct device *getDev(void)
+struct device *getDev()
 {
 	if (client != NULL)
 		return &(client->dev);
@@ -70,7 +89,7 @@ struct device *getDev(void)
 		return NULL;
 }
 
-struct i2c_client *getClient(void)
+struct i2c_client *getClient()
 {
 	if (client != NULL)
 		return client;
@@ -82,15 +101,15 @@ int fts_readCmd(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 {
 	int ret = -1;
 	int retry = 0;
-	struct i2c_msg	I2CMsg[2];
+	struct i2c_msg I2CMsg[2];
 
-	/* write msg */
+	//write msg
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)cmdLength;
 	I2CMsg[0].buf = (__u8 *)cmd;
 
-	/* read msg */
+	//read msg
 	I2CMsg[1].addr = (__u16)I2CSAD;
 	I2CMsg[1].flags = I2C_M_RD;
 	I2CMsg[1].len = byteToRead;
@@ -100,13 +119,13 @@ int fts_readCmd(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 		return ERROR_I2C_O;
 	while (retry < I2C_RETRY && ret < OK) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 2);
-		if (ret >= OK)
-			break;
 		retry++;
-		msleep(I2C_WAIT_BEFORE_RETRY);
+		if (ret < OK)
+			msleep(I2C_WAIT_BEFORE_RETRY);
 	}
 	if (ret < 0) {
-		logError(1, "%s fts_readCmd: ERROR %02X\n", tag, ERROR_I2C_R);
+		logError(1, "%s %s: ERROR %02X\n",
+			tag, __func__, ERROR_I2C_R);
 		return ERROR_I2C_R;
 	}
 	return OK;
@@ -116,7 +135,7 @@ int fts_writeCmd(u8 *cmd, int cmdLength)
 {
 	int ret = -1;
 	int retry = 0;
-	struct i2c_msg				I2CMsg[2];
+	struct i2c_msg I2CMsg[1];
 
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
@@ -124,17 +143,16 @@ int fts_writeCmd(u8 *cmd, int cmdLength)
 	I2CMsg[0].buf = (__u8 *)cmd;
 
 	if (client == NULL)
-return ERROR_I2C_O;
+		return ERROR_I2C_O;
 	while (retry < I2C_RETRY && ret < OK) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 1);
-		if (ret >= OK)
-			break;
 		retry++;
-		msleep(I2C_WAIT_BEFORE_RETRY);
-		/* logError(1, "%s fts_writeCmd: attempt %d\n", tag, retry); */
+		if (ret < OK)
+			msleep(I2C_WAIT_BEFORE_RETRY);
+		//logError(1,"%s fts_writeCmd: attempt %d\n", tag, retry);
 	}
 	if (ret < 0) {
-		logError(1, "%s fts_writeCmd: ERROR %02X\n", tag, ERROR_I2C_W);
+		logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_I2C_W);
 		return ERROR_I2C_W;
 	}
 	return OK;
@@ -145,7 +163,7 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 	int ret = -1;
 	int ret2 = -1;
 	int retry = 0;
-	struct i2c_msg				I2CMsg[2];
+	struct i2c_msg I2CMsg[1];
 
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
@@ -153,48 +171,49 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 	I2CMsg[0].buf = (__u8 *)cmd;
 
 	if (client == NULL)
-return ERROR_I2C_O;
+		return ERROR_I2C_O;
 	while (retry < I2C_RETRY && (ret < OK || ret2 < OK)) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 1);
 		retry++;
-		if (ret >= 0) {
+		if (ret >= 0)
 			ret2 = checkEcho(cmd, cmdLength);
-			break;
-		}
-		msleep(I2C_WAIT_BEFORE_RETRY);
-		/* logError(1, "%s fts_writeCmd: attempt %d\n", tag, retry); */
+		if (ret < OK || ret2 < OK)
+			msleep(I2C_WAIT_BEFORE_RETRY);
+		//logError(1,"%s fts_writeCmd: attempt %d\n", tag, retry);
 	}
 	if (ret < 0) {
-		logError(1, "%s fts_writeFwCmd: ERROR %02X\n", tag, ERROR_I2C_W);
+		logError(1, "%s %s: ERROR %02X\n",
+			tag, __func__, ERROR_I2C_W);
 		return ERROR_I2C_W;
 	}
 	if (ret2 < OK) {
-		logError(1, "%s fts_writeFwCmd: check echo ERROR %02X\n", tag, ret2);
-		return (ret|ERROR_I2C_W);
+		logError(1, "%s %s: check echo ERROR %02X\n",
+			tag, __func__, ret2);
+		return (ret | ERROR_I2C_W);
 	}
 	return OK;
 }
+
 
 int writeReadCmd(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1,
 	int readCmdLength, u8 *outBuf, int byteToRead)
 {
 	int ret = -1;
 	int retry = 0;
-	struct i2c_msg				I2CMsg[3];
-
-	/* write msg */
+	struct i2c_msg I2CMsg[3];
+	//write msg
 	I2CMsg[0].addr = (__u16)I2CSAD;
 	I2CMsg[0].flags = (__u16)0;
 	I2CMsg[0].len = (__u16)writeCmdLength;
 	I2CMsg[0].buf = (__u8 *)writeCmd1;
 
-	/* write msg */
+	//write msg
 	I2CMsg[1].addr = (__u16)I2CSAD;
 	I2CMsg[1].flags = (__u16)0;
 	I2CMsg[1].len = (__u16)readCmdLength;
 	I2CMsg[1].buf = (__u8 *)readCmd1;
 
-	/* read msg */
+	//read msg
 	I2CMsg[2].addr = (__u16)I2CSAD;
 	I2CMsg[2].flags = I2C_M_RD;
 	I2CMsg[2].len = byteToRead;
@@ -204,30 +223,31 @@ int writeReadCmd(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1,
 		return ERROR_I2C_O;
 	while (retry < I2C_RETRY && ret < OK) {
 		ret = i2c_transfer(client->adapter, I2CMsg, 3);
-		if (ret >= OK)
-			break;
 		retry++;
-		msleep(I2C_WAIT_BEFORE_RETRY);
+		if (ret < OK)
+			msleep(I2C_WAIT_BEFORE_RETRY);
 	}
 
 	if (ret < 0) {
-		logError(1, "%s writeReadCmd: ERROR %02X\n", tag, ERROR_I2C_WR);
-			return ERROR_I2C_WR;
+		logError(1, "%s %s: ERROR %02X\n",
+			tag, __func__, ERROR_I2C_WR);
+		return ERROR_I2C_WR;
 	}
 	return OK;
-
 }
 
-int readCmdU16(u8 cmd, u16 address, u8 *outBuf, int byteToRead, int hasDummyByte)
-{
 
+int readCmdU16(u8 cmd, u16 address, u8 *outBuf, int byteToRead,
+	int hasDummyByte)
+{
 	int remaining = byteToRead;
 	int toRead = 0;
 	u8 rCmd[3] = { cmd, 0x00, 0x00 };
 
-	u8 *buff = (u8 *)kmalloc((READ_CHUNK + 1)*sizeof(u8), GFP_KERNEL);
+	u8 *buff = (u8 *)kmalloc_array(READ_CHUNK + 1, sizeof(u8), GFP_KERNEL);
+
 	if (buff == NULL) {
-		logError(1, "%s readCmdU16: ERROR %02X\n", tag, ERROR_ALLOC);
+		logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_ALLOC);
 		return ERROR_ALLOC;
 	}
 
@@ -245,7 +265,9 @@ int readCmdU16(u8 cmd, u16 address, u8 *outBuf, int byteToRead, int hasDummyByte
 
 		if (hasDummyByte) {
 			if (fts_readCmd(rCmd, 3, buff, toRead + 1) < 0) {
-				logError(1, "%s readCmdU16: ERROR %02X\n", tag, ERROR_I2C_R);
+				logError(1, "%s %s: ERROR %02X\n",
+					tag, __func__, ERROR_I2C_R);
+				kfree(buff);
 				return ERROR_I2C_R;
 			}
 			memcpy(outBuf, buff + 1, toRead);
@@ -256,24 +278,23 @@ int readCmdU16(u8 cmd, u16 address, u8 *outBuf, int byteToRead, int hasDummyByte
 		}
 
 		address += toRead;
-
 		outBuf += toRead;
-
 	}
 	kfree(buff);
 
 	return OK;
 }
 
+
 int writeCmdU16(u8 WriteCmd, u16 address, u8 *dataToWrite, int byteToWrite)
 {
-
 	int remaining = byteToWrite;
 	int toWrite = 0;
 
-	u8 *buff = (u8 *)kmalloc((WRITE_CHUNK + 3)*sizeof(u8), GFP_KERNEL);
+	u8 *buff = (u8 *)kmalloc_array(WRITE_CHUNK + 3, sizeof(u8), GFP_KERNEL);
+
 	if (buff == NULL) {
-		logError(1, "%s writeCmdU16: ERROR %02X\n", tag, ERROR_ALLOC);
+		logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_ALLOC);
 		return ERROR_ALLOC;
 	}
 
@@ -292,30 +313,37 @@ int writeCmdU16(u8 WriteCmd, u16 address, u8 *dataToWrite, int byteToWrite)
 		buff[2] = (u8)(address & 0xFF);
 		memcpy(buff + 3, dataToWrite, toWrite);
 		if (fts_writeCmd(buff, 3 + toWrite) < 0) {
-			logError(1, "%s writeCmdU16: ERROR %02\n", tag, ERROR_I2C_W);
+			logError(1, "%s %s: ERROR %02\n",
+				tag, __func__, ERROR_I2C_W);
+			kfree(buff);
 			return ERROR_I2C_W;
 		}
 		address += toWrite;
 		dataToWrite += toWrite;
-
 	}
 
+	kfree(buff);
 	return OK;
 }
 
-int writeCmdU32(u8 writeCmd1, u8 writeCmd2, u32 address, u8 *dataToWrite, int byteToWrite)
+int writeCmdU32(u8 writeCmd1, u8 writeCmd2, u32 address, u8 *dataToWrite,
+	int byteToWrite)
 {
-
 	int remaining = byteToWrite;
 	int toWrite = 0;
+	int ret;
 
 	u8 buff1[3] = { writeCmd1, 0x00, 0x00 };
-	u8 *buff2 = (u8 *)kmalloc((WRITE_CHUNK + 3)*sizeof(u8), GFP_KERNEL);
+	u8 *buff2 = (u8 *)kmalloc_array(WRITE_CHUNK + 3,
+				sizeof(u8), GFP_KERNEL);
+
 	if (buff2 == NULL) {
-		logError(1, "%s writeCmdU32: ERROR %02X\n", tag, ERROR_ALLOC);
+		logError(1, "%s %s: ERROR %02X\n",
+			tag, __func__, ERROR_ALLOC);
 		return ERROR_ALLOC;
 	}
 	buff2[0] = writeCmd2;
+
 
 	while (remaining > 0) {
 		if (remaining >= WRITE_CHUNK) {
@@ -333,33 +361,41 @@ int writeCmdU32(u8 writeCmd1, u8 writeCmd2, u32 address, u8 *dataToWrite, int by
 		memcpy(buff2 + 3, dataToWrite, toWrite);
 
 		if (fts_writeCmd(buff1, 3) < 0) {
-			logError(1, "%s writeCmdU32: ERROR %02X\n", tag, ERROR_I2C_W);
-			return ERROR_I2C_W;
+			logError(1, "%s %s: ERROR %02X\n",
+				tag, __func__, ERROR_I2C_W);
+			ret = ERROR_I2C_W;
+			goto END;
 		}
 		if (fts_writeCmd(buff2, 3 + toWrite) < 0) {
-			logError(1, "%s writeCmdU32: ERROR %02X\n", tag, ERROR_I2C_W);
-			return ERROR_I2C_W;
+			logError(1, "%s %s: ERROR %02X\n",
+				tag, __func__, ERROR_I2C_W);
+			ret = ERROR_I2C_W;
+			goto END;
 		}
 
 		address += toWrite;
 		dataToWrite += toWrite;
-
 	}
 
-	return OK;
+	ret = OK;
+END:
+	kfree(buff2);
+	return ret;
 }
 
-int writeReadCmdU32(u8 wCmd, u8 rCmd, u32 address, u8 *outBuf, int byteToRead, int hasDummyByte)
+int writeReadCmdU32(u8 wCmd, u8 rCmd, u32 address, u8 *outBuf,
+			int byteToRead, int hasDummyByte)
 {
-
 	int remaining = byteToRead;
 	int toRead = 0;
 	u8 reaCmd[3];
 	u8 wriCmd[3];
 
-	u8 *buff = (u8 *)kmalloc((READ_CHUNK + 1)*sizeof(u8), GFP_KERNEL);
+	u8 *buff = (u8 *)kmalloc_array(READ_CHUNK + 1, sizeof(u8), GFP_KERNEL);
+
 	if (buff == NULL) {
-		logError(1, "%s writereadCmd32: ERROR %02X\n", tag, ERROR_ALLOC);
+		logError(1, "%s writereadCmd32: ERROR %02X\n",
+			tag, ERROR_ALLOC);
 		return ERROR_ALLOC;
 	}
 
@@ -382,22 +418,25 @@ int writeReadCmdU32(u8 wCmd, u8 rCmd, u32 address, u8 *outBuf, int byteToRead, i
 		reaCmd[2] = (u8)(address & 0x000000FF);
 
 		if (hasDummyByte) {
-			if (writeReadCmd(wriCmd, 3, reaCmd, 3, buff, toRead + 1) < 0) {
-				logError(1, "%s writeCmdU32: ERROR %02X\n", tag, ERROR_I2C_WR);
+			if (writeReadCmd(wriCmd, 3, reaCmd, 3,
+				buff, toRead + 1) < 0) {
+				logError(1, "%s writeCmdU32: ERROR %02X\n",
+					tag, ERROR_I2C_WR);
+				kfree(buff);
 				return ERROR_I2C_WR;
 			}
 			memcpy(outBuf, buff + 1, toRead);
 		} else {
-			if (writeReadCmd(wriCmd, 3, reaCmd, 3, buff, toRead) < 0)
+			if (writeReadCmd(wriCmd, 3, reaCmd,
+				3, buff, toRead) < 0)
 				return ERROR_I2C_WR;
 			memcpy(outBuf, buff, toRead);
 		}
 
 		address += toRead;
-
 		outBuf += toRead;
-
 	}
 
+	kfree(buff);
 	return OK;
 }

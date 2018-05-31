@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@
  * IPA_CPU_2_HW_CMD_MEMCPY : CPU instructs HW to do memcopy using QMB.
  * IPA_CPU_2_HW_CMD_RESET_PIPE : Command to reset a pipe - SW WA for a HW bug.
  * IPA_CPU_2_HW_CMD_GSI_CH_EMPTY : Command to check for GSI channel emptiness.
+ * IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO: Command to store remote IPA Info
  */
 enum ipa3_cpu_2_hw_commands {
 	IPA_CPU_2_HW_CMD_NO_OP                     =
@@ -65,6 +66,8 @@ enum ipa3_cpu_2_hw_commands {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 9),
 	IPA_CPU_2_HW_CMD_GSI_CH_EMPTY              =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 10),
+	IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO           =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 11),
 };
 
 /**
@@ -160,6 +163,19 @@ union IpaHwChkChEmptyCmdData_t {
 	} __packed params;
 	u32 raw32b;
 } __packed;
+
+
+/**
+ * Structure holding the parameters for IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO
+ * command.
+ * @remoteIPAAddr: 5G IPA address : uC proxies Q6 doorbell to this address
+ * @mboxN: mbox on which Q6 will interrupt uC
+ */
+struct IpaHwDbAddrInfo_t {
+	u32 remoteIPAAddr;
+	uint32_t mboxN;
+} __packed;
+
 
 /**
  * When resource group 10 limitation mitigation is enabled, uC send
@@ -820,6 +836,11 @@ int ipa3_uc_notify_clk_state(bool enabled)
 {
 	u32 opcode;
 
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_0) {
+		IPADBG_LOW("not supported past IPA v4.0\n");
+		return 0;
+	}
+
 	/*
 	 * If the uC interface has not been initialized yet,
 	 * don't notify the uC on the enable/disable
@@ -925,5 +946,38 @@ int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	res = 0;
 free_coherent:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
+	return res;
+}
+
+int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n)
+{
+	int res;
+	struct ipa_mem_buffer cmd;
+	struct IpaHwDbAddrInfo_t *uc_info;
+
+	cmd.size = sizeof(*uc_info);
+	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
+		&cmd.phys_base, GFP_KERNEL);
+	if (cmd.base == NULL)
+		return -ENOMEM;
+
+	uc_info = (struct IpaHwDbAddrInfo_t *) cmd.base;
+	uc_info->remoteIPAAddr = remote_addr;
+	uc_info->mboxN = mbox_n;
+
+	res = ipa3_uc_send_cmd((u32)(cmd.phys_base),
+		IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO, 0,
+		false, 10 * HZ);
+
+	if (res) {
+		IPAERR("fail to map 0x%x to mbox %d\n",
+			uc_info->remoteIPAAddr,
+			uc_info->mboxN);
+		goto free_coherent;
+	}
+
+	res = 0;
+free_coherent:
+	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	return res;
 }

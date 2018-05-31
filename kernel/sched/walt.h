@@ -57,7 +57,7 @@ extern struct sched_cluster init_cluster;
 extern void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
 
-extern unsigned int nr_eligible_big_tasks(int cpu);
+extern unsigned int walt_big_tasks(int cpu);
 
 static inline void
 inc_nr_big_task(struct walt_sched_stats *stats, struct task_struct *p)
@@ -318,7 +318,7 @@ static inline void walt_inc_cumulative_runnable_avg(struct rq *rq,
 {
 }
 
-static inline unsigned int nr_eligible_big_tasks(int cpu)
+static inline unsigned int walt_big_tasks(int cpu)
 {
 	return 0;
 }

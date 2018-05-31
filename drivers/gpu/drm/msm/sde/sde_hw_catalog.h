@@ -36,6 +36,9 @@
 #define SDE_HW_STEP(rev)		((rev) & 0xFFFF)
 #define SDE_HW_MAJOR_MINOR(rev)		((rev) >> 16)
 
+#define IS_SDE_MAJOR_SAME(rev1, rev2)   \
+	(SDE_HW_MAJOR((rev1)) == SDE_HW_MAJOR((rev2)))
+
 #define IS_SDE_MAJOR_MINOR_SAME(rev1, rev2)   \
 	(SDE_HW_MAJOR_MINOR((rev1)) == SDE_HW_MAJOR_MINOR((rev2)))
 
@@ -49,12 +52,14 @@
 #define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
 #define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sm8150 v1.0 */
 #define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sm8150 v2.0 */
+#define SDE_HW_VER_510	SDE_HW_VER(5, 1, 0) /* sdmshrike v1.0 */
 
 #define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
 #define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
 #define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 #define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
 #define IS_SM8150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
+#define IS_SDMSHRIKE_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_510)
 
 #define SDE_HW_BLK_NAME_LEN	16
 
@@ -151,6 +156,7 @@ enum {
  * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
+ * @SDE_SSPP_QOS_FL_NOCALC   Avoid fill level calculation for QoS/danger/safe
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -183,6 +189,7 @@ enum {
 	SDE_SSPP_DGM_CSC,
 	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_BLOCK_SEC_UI,
+	SDE_SSPP_QOS_FL_NOCALC,
 	SDE_SSPP_MAX
 };
 
@@ -445,6 +452,7 @@ enum sde_qos_lut_usage {
 	SDE_QOS_LUT_USAGE_MACROTILE,
 	SDE_QOS_LUT_USAGE_NRT,
 	SDE_QOS_LUT_USAGE_CWB,
+	SDE_QOS_LUT_USAGE_MACROTILE_QSEED,
 	SDE_QOS_LUT_USAGE_MAX,
 };
 

@@ -29,6 +29,7 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 int msm_vidc_set_clocks(struct msm_vidc_core *core);
 int msm_comm_vote_bus(struct msm_vidc_core *core);
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst);
+int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst);
 void msm_comm_free_freq_table(struct msm_vidc_inst *inst);

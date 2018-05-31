@@ -306,6 +306,35 @@ static int qcom_vadc_scale_hw_calib_die_temp(
 	return 0;
 }
 
+static int qcom_vadc_scale_hw_smb_temp(
+				const struct vadc_prescale_ratio *prescale,
+				const struct adc_data *data,
+				u16 adc_code, int *result_mdec)
+{
+	s64 voltage = 0, adc_vdd_ref_mv = 1875;
+	u64 temp;
+
+	if (adc_code > VADC5_MAX_CODE)
+		adc_code = 0;
+
+	/* (ADC code * vref_vadc (1.875V)) / full_scale_code */
+	voltage = (s64) adc_code * adc_vdd_ref_mv * 1000;
+	voltage = div64_s64(voltage, data->full_scale_code_volt);
+	if (voltage > 0) {
+		temp = voltage * prescale->den;
+		temp *= 100;
+		do_div(temp, prescale->num * PMIC5_SMB_TEMP_SCALE_FACTOR);
+		voltage = temp;
+	} else {
+		voltage = 0;
+	}
+
+	voltage = PMIC5_SMB_TEMP_CONSTANT - voltage;
+	*result_mdec = voltage;
+
+	return 0;
+}
+
 static int qcom_vadc_scale_hw_chg5_temp(
 				const struct vadc_prescale_ratio *prescale,
 				const struct adc_data *data,
@@ -411,6 +440,9 @@ int qcom_vadc_hw_scale(enum vadc_scale_fn_type scaletype,
 						adc_code, result);
 	case SCALE_HW_CALIB_PM5_CHG_TEMP:
 		return qcom_vadc_scale_hw_chg5_temp(prescale, data,
+						adc_code, result);
+	case SCALE_HW_CALIB_PM5_SMB_TEMP:
+		return qcom_vadc_scale_hw_smb_temp(prescale, data,
 						adc_code, result);
 	default:
 		return -EINVAL;

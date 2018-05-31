@@ -1005,18 +1005,14 @@ static int armv8pmu_probe_pmu(struct arm_pmu *cpu_pmu)
 				    __armv8pmu_probe_pmu,
 				    &probe, 1);
 	if (ret)
-		goto probe_fail;
+		return ret;
 
-	if (!probe.present) {
-		ret = -ENODEV;
-		goto probe_fail;
-	}
+	if (!probe.present)
+		return -ENODEV;
+
+	idle_notifier_register(&pmu_idle_nb->perf_cpu_idle_nb);
 
 	return 0;
-
-probe_fail:
-	idle_notifier_unregister(&pmu_idle_nb->perf_cpu_idle_nb);
-	return ret;
 }
 
 static int armv8_pmu_init(struct arm_pmu *cpu_pmu)

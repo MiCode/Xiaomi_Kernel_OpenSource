@@ -12,6 +12,7 @@ msm_kgsl_core-y = \
 	kgsl_snapshot.o \
 	kgsl_events.o \
 	kgsl_pool.o \
+	kgsl_gmu_core.o \
 	kgsl_gmu.o \
 	kgsl_hfi.o
 
@@ -39,6 +40,7 @@ msm_adreno-y += \
 	adreno_a4xx_preempt.o \
 	adreno_a5xx_preempt.o \
 	adreno_a6xx_preempt.o \
+	adreno_a6xx_gmu.o \
 	adreno_sysfs.o \
 	adreno.o \
 	adreno_cp_parser.o \

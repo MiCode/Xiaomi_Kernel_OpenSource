@@ -30,5 +30,6 @@
 #define CPU7_PERFPCL_CLK		13
 #define PERFPCL_CLK			14
 #define CPU7_PERFCL_CLK			15
+#define L3_GPU_VOTE_CLK			16
 
 #endif

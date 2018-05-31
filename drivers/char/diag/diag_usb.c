@@ -206,7 +206,19 @@ static void usb_connect_work_fn(struct work_struct *work)
 {
 	struct diag_usb_info *ch = container_of(work, struct diag_usb_info,
 						connect_work);
+
+	wait_event_interruptible(ch->wait_q, ch->enabled > 0);
+	ch->max_size = usb_diag_request_size(ch->hdl);
+	atomic_set(&ch->connected, 1);
+
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag: USB channel %s: disconnected_status: %d, connected_status: %d\n",
+	ch->name, atomic_read(&ch->disconnected), atomic_read(&ch->connected));
+
 	usb_connect(ch);
+
+	if (atomic_read(&ch->disconnected))
+		wake_up_interruptible(&ch->wait_q);
 }
 
 /*
@@ -231,6 +243,19 @@ static void usb_disconnect_work_fn(struct work_struct *work)
 {
 	struct diag_usb_info *ch = container_of(work, struct diag_usb_info,
 						disconnect_work);
+
+	atomic_set(&ch->disconnected, 1);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag: USB channel %s: disconnected_status: %d, connected_status: %d\n",
+	ch->name, atomic_read(&ch->disconnected), atomic_read(&ch->connected));
+
+	wait_event_interruptible(ch->wait_q, atomic_read(&ch->connected) > 0);
+	atomic_set(&ch->connected, 0);
+	atomic_set(&ch->disconnected, 0);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag: USB channel %s: Cleared disconnected(%d) and connected(%d) status\n",
+	ch->name, atomic_read(&ch->disconnected), atomic_read(&ch->connected));
+
 	usb_disconnect(ch);
 }
 
@@ -308,23 +333,25 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	if (!ch || !req)
 		return;
 
+	spin_lock_irqsave(&ch->write_lock, flags);
 	ch->write_cnt++;
 	entry = diag_usb_buf_tbl_get(ch, req->context);
 	if (!entry) {
 		pr_err_ratelimited("diag: In %s, unable to find entry %pK in the table\n",
 				   __func__, req->context);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
 	if (atomic_read(&entry->ref_count) != 0) {
 		DIAG_LOG(DIAG_DEBUG_MUX, "partial write_done ref %d\n",
 			 atomic_read(&entry->ref_count));
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		diagmem_free(driver, req, ch->mempool);
 		return;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
 		 ctxt);
-	spin_lock_irqsave(&ch->write_lock, flags);
 	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
@@ -355,15 +382,15 @@ static void diag_usb_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_DIAG_CONNECT:
-		usb_info->max_size = usb_diag_request_size(usb_info->hdl);
-		atomic_set(&usb_info->connected, 1);
-		pr_info("diag: USB channel %s connected\n", usb_info->name);
-		queue_work(usb_info->usb_wq,
+		pr_info("diag: USB channel %s: Received Connect event\n",
+			usb_info->name);
+		if (!atomic_read(&usb_info->connected))
+			queue_work(usb_info->usb_wq,
 			   &usb_info->connect_work);
 		break;
 	case USB_DIAG_DISCONNECT:
-		atomic_set(&usb_info->connected, 0);
-		pr_info("diag: USB channel %s disconnected\n", usb_info->name);
+		pr_info("diag: USB channel %s: Received Disconnect event\n",
+			usb_info->name);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->disconnect_work);
 		break;
@@ -616,6 +643,7 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	if (!ch->read_ptr)
 		goto err;
 	atomic_set(&ch->connected, 0);
+	atomic_set(&ch->disconnected, 0);
 	atomic_set(&ch->read_pending, 0);
 	/*
 	 * This function is called when the mux registers with Diag-USB.
@@ -629,6 +657,7 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	INIT_WORK(&(ch->read_done_work), usb_read_done_work_fn);
 	INIT_WORK(&(ch->connect_work), usb_connect_work_fn);
 	INIT_WORK(&(ch->disconnect_work), usb_disconnect_work_fn);
+	init_waitqueue_head(&ch->wait_q);
 	strlcpy(wq_name, "DIAG_USB_", DIAG_USB_STRING_SZ);
 	strlcat(wq_name, ch->name, sizeof(ch->name));
 	ch->usb_wq = create_singlethread_workqueue(wq_name);
@@ -641,7 +670,9 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 		goto err;
 	}
 	ch->enabled = 1;
-	pr_debug("diag: Successfully registered USB %s\n", ch->name);
+	wake_up_interruptible(&ch->wait_q);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: Successfully registered USB %s\n", ch->name);
 	return 0;
 
 err:

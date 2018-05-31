@@ -852,7 +852,6 @@ struct rq {
 	int cstate, wakeup_latency, wakeup_energy;
 	u64 window_start;
 	s64 cum_window_start;
-	u64 load_reported_window;
 	unsigned long walt_flags;
 
 	u64 cur_irqload;
@@ -876,6 +875,9 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	bool notif_pending;
+	u64 last_cc_update;
+	u64 cycles;
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1213,7 +1215,7 @@ struct sched_group {
 	unsigned int group_weight;
 	struct sched_group_capacity *sgc;
 	int asym_prefer_cpu;		/* cpu of highest priority in group */
-	struct sched_group_energy const *sge;
+	const struct sched_group_energy *sge;
 
 	/*
 	 * The CPUs this group covers.
@@ -1953,7 +1955,7 @@ static inline unsigned long
 cpu_util_freq_pelt(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long util = rq->cfs.avg.util_avg;
+	u64 util = rq->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 	util *= (100 + per_cpu(sched_load_boost, cpu));
@@ -1963,6 +1965,8 @@ cpu_util_freq_pelt(int cpu)
 }
 
 #ifdef CONFIG_SCHED_WALT
+extern atomic64_t walt_irq_work_lastq_ws;
+
 static inline unsigned long
 cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 {
@@ -1999,7 +2003,7 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
 		walt_load->pl = pl;
-		walt_load->ws = rq->window_start;
+		walt_load->ws = atomic64_read(&walt_irq_work_lastq_ws);
 	}
 
 	return (util >= capacity) ? capacity : util;
@@ -2450,20 +2454,8 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	struct update_util_data *data;
 
 #ifdef CONFIG_SCHED_WALT
-	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
-				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET;
-
-	/*
-	 * Skip if we've already reported, but not if this is an inter-cluster
-	 * migration. Also only allow WALT update sites.
-	 */
 	if (!(flags & SCHED_CPUFREQ_WALT))
 		return;
-	if (!sched_disable_window_stats &&
-		(rq->load_reported_window == rq->window_start) &&
-		!(flags & exception_flags))
-		return;
-	rq->load_reported_window = rq->window_start;
 #endif
 
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
@@ -2580,6 +2572,15 @@ extern int update_preferred_cluster(struct related_thread_group *grp,
 extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
+
+#define NO_BOOST 0
+#define FULL_THROTTLE_BOOST 1
+#define CONSERVATIVE_BOOST 2
+#define RESTRAINED_BOOST 3
+#define FULL_THROTTLE_BOOST_DISABLE -1
+#define CONSERVATIVE_BOOST_DISABLE -2
+#define RESTRAINED_BOOST_DISABLE -3
+#define MAX_NUM_BOOST_TYPE (RESTRAINED_BOOST+1)
 
 static inline int cpu_capacity(int cpu)
 {
@@ -2921,6 +2922,12 @@ static inline int sched_boost(void)
 	return 0;
 }
 
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return false;
+}
+
 static inline bool hmp_capable(void) { return false; }
 static inline bool is_max_capacity_cpu(int cpu) { return true; }
 static inline bool is_min_capacity_cpu(int cpu) { return true; }
@@ -3040,3 +3047,10 @@ static inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
+
+struct sched_avg_stats {
+	int nr;
+	int nr_misfit;
+	int nr_max;
+};
+extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);

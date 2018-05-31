@@ -829,12 +829,17 @@ struct hfi_cmd_session_continue_packet {
 	u32 session_id;
 };
 
+enum session_flags {
+	SESSION_PAUSE = BIT(1),
+};
+
 struct hal_session {
 	struct list_head list;
 	void *session_id;
 	bool is_decoder;
 	enum hal_video_codec codec;
 	enum hal_domain domain;
+	u32 flags;
 	void *device;
 };
 

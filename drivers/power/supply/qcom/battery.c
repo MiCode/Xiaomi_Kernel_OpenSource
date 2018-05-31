@@ -70,6 +70,7 @@ struct pl_data {
 	int			charge_type;
 	int			total_settled_ua;
 	int			pl_settled_ua;
+	u32			wa_flags;
 	struct class		qcom_batt_class;
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
@@ -79,6 +80,10 @@ struct pl_data *the_chip;
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
+};
+
+enum {
+	AICL_RERUN_WA_BIT	= BIT(0),
 };
 
 static int debug_mask;
@@ -539,7 +544,7 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	if (icl_ua > pval.intval)
 		rerun_aicl = true;
 
-	if (rerun_aicl) {
+	if (rerun_aicl && (chip->wa_flags & AICL_RERUN_WA_BIT)) {
 		/* set a lower ICL */
 		pval.intval = max(pval.intval - ICL_STEP_UA, ICL_STEP_UA);
 		power_supply_set_property(chip->main_psy,
@@ -1015,8 +1020,20 @@ static int pl_determine_initial_status(struct pl_data *chip)
 	return 0;
 }
 
+static void pl_config_init(struct pl_data *chip, int smb_version)
+{
+	switch (smb_version) {
+	case PMI8998_SUBTYPE:
+	case PM660_SUBTYPE:
+		chip->wa_flags = AICL_RERUN_WA_BIT;
+		break;
+	default:
+		break;
+	}
+}
+
 #define DEFAULT_RESTRICTED_CURRENT_UA	1000000
-int qcom_batt_init(void)
+int qcom_batt_init(int smb_version)
 {
 	struct pl_data *chip;
 	int rc = 0;
@@ -1031,6 +1048,7 @@ int qcom_batt_init(void)
 	if (!chip)
 		return -ENOMEM;
 	chip->slave_pct = 50;
+	pl_config_init(chip, smb_version);
 	chip->restricted_current = DEFAULT_RESTRICTED_CURRENT_UA;
 
 	chip->pl_ws = wakeup_source_register("qcom-battery");

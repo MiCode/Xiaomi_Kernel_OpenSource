@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/regulator/consumer.h>
+
+struct dsi_parser_utils;
 
 /**
  * struct dsi_vreg - regulator information for DSI regulators
@@ -66,7 +68,7 @@ struct dsi_regulator_info {
  *
  * return: error code in case of failure or 0 for success.
  */
-int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
+int dsi_pwr_of_get_vreg_data(struct dsi_parser_utils *utils,
 				 struct dsi_regulator_info *regs,
 				 char *supply_name);
 

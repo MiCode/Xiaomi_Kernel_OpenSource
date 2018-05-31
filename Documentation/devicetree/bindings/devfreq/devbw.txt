@@ -9,11 +9,11 @@ Required properties:
 - compatible:		Must be "qcom,devbw"
 - qcom,src-dst-ports:	A list of tuples where each tuple consists of a bus
 			master port number and a bus slave port number.
-- qcom,bw-tbl:		A list of meaningful instantaneous bandwidth values
-			(in MB/s) that can be requested from the device
-			master port to the slave port. The list of values
-			depend on the supported bus/slave frequencies and the
-			bus width.
+- operating-points-v2:	A phandle to the OPP v2 table that holds meaningful
+			instantaneous bandwidth values (in MB/s) that can be
+			requested from the device master port to the slave port.
+			The list of values depend on the supported bus/slave
+			frequencies and the bus width.
 
 Optional properties:
 - qcom,active-only:	Indicates that the bandwidth votes need to be
@@ -23,17 +23,36 @@ Optional properties:
 
 Example:
 
+	bw_opp_table: bw-opp-table {
+		compatible = "operating-points-v2";
+		opp-75  {
+			opp-hz = /bits/ 64 <  572 >; /*  75 MHz */
+		};
+		opp-150 {
+			opp-hz = /bits/ 64 < 1144 >; /* 150 MHz */
+		};
+		opp-200 {
+			opp-hz = /bits/ 64 < 1525 >; /* 200 MHz */
+		};
+		opp-307 {
+			opp-hz = /bits/ 64 < 2342 >; /* 307 MHz */
+		};
+		opp-460 {
+			opp-hz = /bits/ 64 < 3509 >; /* 460 MHz */
+		};
+		opp-614 {
+			opp-hz = /bits/ 64 < 4684 >; /* 614 MHz */
+		};
+		opp-800 {
+			opp-hz = /bits/ 64 < 6103 >; /* 800 MHz */
+		};
+		opp-931 {
+			opp-hz = /bits/ 64 < 7102 >; /* 931 MHz */
+		};
+	};
 	qcom,cpubw {
 		compatible = "qcom,devbw";
 		qcom,src-dst-ports = <1 512>, <2 512>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			<  572 /*  75 MHz */ >,
-			< 1144 /* 150 MHz */ >,
-			< 1525 /* 200 MHz */ >,
-			< 2342 /* 307 MHz */ >,
-			< 3509 /* 460 MHz */ >,
-			< 4684 /* 614 MHz */ >,
-			< 6103 /* 800 MHz */ >,
-			< 7102 /* 931 MHz */ >;
+		operating-points-v2 = <&bw_opp_table>;
 	};

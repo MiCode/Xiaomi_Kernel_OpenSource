@@ -125,6 +125,12 @@ enum {
 	POWER_SUPPLY_PL_NON_STACKED_BATFET,
 };
 
+enum {
+	POWER_SUPPLY_PD_INACTIVE = 0,
+	POWER_SUPPLY_PD_ACTIVE,
+	POWER_SUPPLY_PD_PPS_ACTIVE,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
@@ -280,6 +286,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_BATT_PROFILE_VERSION,
 	POWER_SUPPLY_PROP_BATT_FULL_CURRENT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
+	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -287,6 +294,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 };
 
 enum power_supply_type {

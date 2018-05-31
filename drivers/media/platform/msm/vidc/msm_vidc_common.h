@@ -15,6 +15,10 @@
 #define _MSM_VIDC_COMMON_H_
 #include "msm_vidc_internal.h"
 
+#define MAX_DEC_BATCH_SIZE                     6
+#define MAX_DEC_BATCH_WIDTH                    1920
+#define MAX_DEC_BATCH_HEIGHT                   1088
+
 struct vb2_buf_entry {
 	struct list_head list;
 	struct vb2_buffer *vb;
@@ -34,6 +38,48 @@ enum load_calc_quirks {
 	LOAD_CALC_IGNORE_NON_REALTIME_LOAD = 1 << 2,
 };
 
+static inline bool is_turbo_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_TURBO);
+}
+
+static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_THUMBNAIL);
+}
+
+static inline bool is_low_power_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_LOW_POWER);
+}
+
+static inline bool is_realtime_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_REALTIME);
+}
+
+static inline bool is_decode_session(struct msm_vidc_inst *inst)
+{
+	return inst->session_type == MSM_VIDC_DECODER;
+}
+
+static inline bool is_encode_session(struct msm_vidc_inst *inst)
+{
+	return inst->session_type == MSM_VIDC_ENCODER;
+}
+
+static inline int msm_comm_g_ctrl(struct msm_vidc_inst *inst,
+		struct v4l2_control *ctrl)
+{
+	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
+}
+
+static inline int msm_comm_s_ctrl(struct msm_vidc_inst *inst,
+		struct v4l2_control *ctrl)
+{
+	return v4l2_s_ctrl(NULL, &inst->ctrl_handler, ctrl);
+}
+bool is_batching_allowed(struct msm_vidc_inst *inst);
 enum hal_buffer get_hal_buffer_type(unsigned int type,
 		unsigned int plane_num);
 void put_inst(struct msm_vidc_inst *inst);
@@ -172,5 +218,6 @@ void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
 void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
 		u32 index, u32 *mark_data, u32 *mark_target);
 int msm_comm_release_mark_data(struct msm_vidc_inst *inst);
-
+int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
 #endif

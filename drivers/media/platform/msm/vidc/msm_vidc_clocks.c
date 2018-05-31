@@ -65,7 +65,7 @@ static inline unsigned long int get_ubwc_compression_ratio(
 	return compression_ratio;
 }
 
-static inline int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
+int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int height, width;
 
@@ -270,7 +270,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].fps = inst->prop.fps;
 
 		vote_data[i].power_mode = 0;
-		if (!msm_vidc_clock_scaling || is_turbo ||
+		if (msm_vidc_clock_voting || is_turbo ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 
@@ -370,8 +370,9 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!inst->clk_data.dcvs_mode) {
-		dprintk(VIDC_DBG, "DCVS is not enabled\n");
+	if (!inst->clk_data.dcvs_mode || inst->batch.enable) {
+		dprintk(VIDC_DBG, "Skip DCVS (dcvs %d, batching %d)\n",
+			inst->clk_data.dcvs_mode, inst->batch.enable);
 		return 0;
 	}
 
@@ -686,6 +687,14 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
 
+		if (msm_vidc_clock_voting) {
+			dprintk(VIDC_PROF,
+				"msm_vidc_clock_voting %d\n",
+				 msm_vidc_clock_voting);
+			freq_core_max = msm_vidc_clock_voting;
+			break;
+		}
+
 		if (temp->clk_data.turbo_mode) {
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
@@ -758,7 +767,7 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 	operating_rate = operating_rate >> 16;
 
 	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
-			!msm_vidc_clock_scaling ||
+			msm_vidc_clock_voting ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,
 			"Requestd operating rate is valid %u\n",
@@ -820,7 +829,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	inst->clk_data.min_freq = freq;
 
 	if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW ||
-		!msm_vidc_clock_scaling)
+		msm_vidc_clock_voting)
 		inst->clk_data.min_freq = msm_vidc_max_freq(inst->core);
 	else
 		inst->clk_data.min_freq = freq;
@@ -861,18 +870,18 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!msm_vidc_clock_scaling ||
+	if (msm_vidc_clock_voting ||
 			inst->flags & VIDC_THUMBNAIL ||
-			inst->clk_data.low_latency_mode) {
-		dprintk(VIDC_PROF,
-			"This session doesn't need DCVS : %pK\n",
-				inst);
+			inst->clk_data.low_latency_mode ||
+			inst->batch.enable) {
+		dprintk(VIDC_PROF, "DCVS disabled: %pK\n", inst);
 		inst->clk_data.extra_capture_buffer_count = 0;
 		inst->clk_data.extra_output_buffer_count = 0;
 		inst->clk_data.dcvs_mode = false;
 		return false;
 	}
 	inst->clk_data.dcvs_mode = true;
+	dprintk(VIDC_PROF, "DCVS enabled: %pK\n", inst);
 
 	inst->clk_data.extra_capture_buffer_count =
 		DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
@@ -988,14 +997,35 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
-	if (!inst) {
+	int count = 0;
+
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return 0;
 	}
+	/*
+	 * no extra buffers for thumbnail session because
+	 * neither dcvs nor batching will be enabled
+	 */
+	if (is_thumbnail_session(inst))
+		return 0;
 
-	return buffer_type == HAL_BUFFER_INPUT ?
+	count = buffer_type == HAL_BUFFER_INPUT ?
 		inst->clk_data.extra_output_buffer_count :
 		inst->clk_data.extra_capture_buffer_count;
+
+	/*
+	 * if platform supports decode batching ensure minimum
+	 * batch size count of extra buffers added on output port
+	 */
+	if (buffer_type == HAL_BUFFER_OUTPUT) {
+		if (inst->core->resources.decode_batching &&
+			is_decode_session(inst) &&
+			count < inst->batch.size)
+			count = inst->batch.size;
+	}
+
+	return count;
 }
 
 int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
@@ -1308,11 +1338,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 		min_lp_load = core0_lp_load;
 	}
 
-	current_inst_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
-		inst->clk_data.entry->vpp_cycles;
+	current_inst_load = (msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
+		inst->clk_data.entry->vpp_cycles)/inst->clk_data.work_route;
 
-	current_inst_lp_load = msm_comm_get_inst_load(inst,
-		LOAD_CALC_NO_QUIRKS) * lp_cycles;
+	current_inst_lp_load = (msm_comm_get_inst_load(inst,
+		LOAD_CALC_NO_QUIRKS) * lp_cycles)/inst->clk_data.work_route;
 
 	dprintk(VIDC_DBG, "Core 0 RT Load = %d Core 1 RT Load = %d\n",
 		 core0_load, core1_load);

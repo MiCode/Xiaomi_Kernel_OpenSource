@@ -99,6 +99,13 @@
 #define MAX_CHECK_LOOPS			500
 #define POWER_CTRL_BIT_12		12
 
+#define SDE_RSC_MODE_0_VAL		0
+#define SDE_RSC_MODE_1_VAL		1
+#define MAX_MODE2_ENTRY_TRY		3
+
+#define SDE_RSC_REV_1			0x1
+#define SDE_RSC_REV_2			0x2
+
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
 	struct sde_rsc_event *event;
@@ -191,39 +198,40 @@ static int rsc_hw_seq_memory_init_v2(struct sde_rsc_priv *rsc)
 						0x38bb9ebe, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x10,
 						0xbeff39e0, rsc->debug_mode);
-
-	/* Mode - 2 sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
 						0x20209b9e, rsc->debug_mode);
+
+	/* Mode - 2 sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
-						0xfab9baa0, rsc->debug_mode);
+						0xb9bae5a0, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
-						0xfebdbbf9, rsc->debug_mode);
+						0xbdbbf9fa, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
-						0xa138999a, rsc->debug_mode);
+						0x38999afe, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
-						0xa2e081e1, rsc->debug_mode);
+						0xac81e1a1, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
-						0x9d3982e2, rsc->debug_mode);
+						0x82e2a2e0, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
+						0x8cfd9d39, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
+						0xbc20209b, rsc->debug_mode);
 
 	/* tcs sleep & wake sequence */
-	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0x20209bfd, rsc->debug_mode);
-	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0x01a6fcbc, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x20209ce6, rsc->debug_mode);
+						0xe601a6fc, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x38,
-						0x01a7fcbc, rsc->debug_mode);
+						0xbc20209c, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x3c,
-						0x00209ce7, rsc->debug_mode);
-
+						0xe701a7fc, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x40,
+						0x0000209c, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
-						0x30, rsc->debug_mode);
+						0x33, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x38, rsc->debug_mode);
+						0x3b, rsc->debug_mode);
 
 	/* start address */
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_CTRL_DRV0,
@@ -452,11 +460,13 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 					reg, rsc->debug_mode);
 
-	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+	if (rsc->version < SDE_RSC_REV_2) {
+		reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							rsc->debug_mode);
-	reg |= BIT(13);
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+		reg |= BIT(13);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
+	}
 
 	/* make sure that mode-2 exit before wait*/
 	wmb();
@@ -475,35 +485,30 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 		usleep_range(10, 100);
 	}
 
-	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+	if (rsc->version < SDE_RSC_REV_2) {
+		reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							rsc->debug_mode);
-	reg &= ~BIT(13);
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
+		reg &= ~BIT(13);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
+	}
+
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x3, rsc->debug_mode);
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
 	return rc;
 }
 
-static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
+static int sde_rsc_mode2_entry_trigger(struct sde_rsc_priv *rsc)
 {
 	int rc;
 	int count, wrapper_status;
 	unsigned long reg;
-
-	if (rsc->power_collapse_block)
-		return -EINVAL;
-
-	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
-	if (rc) {
-		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
-		return rc;
-	}
-
-	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
 
 	/* update qtimers to high during clk & video mode state */
 	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
@@ -549,11 +554,89 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		usleep_range(10, 100);
 	}
 
-	if (rc) {
-		pr_err("mdss gdsc power down failed rc:%d\n", rc);
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		goto end;
+	return rc;
+}
+
+static void sde_rsc_reset_mode_0_1(struct sde_rsc_priv *rsc)
+{
+	u32 seq_busy, current_mode, curr_inst_addr;
+
+	seq_busy = dss_reg_r(&rsc->drv_io, SDE_RSCC_SEQ_BUSY_DRV0,
+			rsc->debug_mode);
+	current_mode = dss_reg_r(&rsc->drv_io, SDE_RSCC_SOLVER_STATUS2_DRV0,
+			rsc->debug_mode);
+	curr_inst_addr = dss_reg_r(&rsc->drv_io, SDE_RSCC_SEQ_PROGRAM_COUNTER,
+			rsc->debug_mode);
+	SDE_EVT32(seq_busy, current_mode, curr_inst_addr);
+
+	if (seq_busy && (current_mode == SDE_RSC_MODE_0_VAL ||
+			current_mode == SDE_RSC_MODE_1_VAL)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+		/* unstick f1 qtimer */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
+						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
+		/* manually trigger f1 qtimer interrupt */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+		/* unstick f0 qtimer */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
+		/* manually trigger f0 qtimer interrupt */
+		wmb();
 	}
+}
+
+static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
+{
+	int rc = 0, i;
+	u32 reg;
+
+	if (rsc->power_collapse_block)
+		return -EINVAL;
+
+	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+	if (rc) {
+		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
+		return rc;
+	}
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x7, rsc->debug_mode);
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
+
+	for (i = 0; i <= MAX_MODE2_ENTRY_TRY; i++) {
+		rc = sde_rsc_mode2_entry_trigger(rsc);
+		if (!rc)
+			break;
+
+		reg = dss_reg_r(&rsc->drv_io,
+				SDE_RSCC_SEQ_PROGRAM_COUNTER, rsc->debug_mode);
+		pr_err("mdss gdsc power down failed, instruction:0x%x, rc:%d\n",
+				reg, rc);
+		SDE_EVT32(rc, reg, SDE_EVTLOG_ERROR);
+
+		/* avoid touching f1 qtimer for last try */
+		if (i != MAX_MODE2_ENTRY_TRY)
+			sde_rsc_reset_mode_0_1(rsc);
+	}
+
+	if (rc)
+		goto end;
 
 	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
 			(rsc->current_state == SDE_RSC_CLK_STATE)) {
@@ -628,7 +711,7 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
-		reg &= ~(BIT(8) | BIT(0));
+		reg &= ~BIT(0);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
 		/* make sure that solver mode is disabled */
@@ -667,7 +750,7 @@ int rsc_hw_init(struct sde_rsc_priv *rsc)
 		goto end;
 	}
 
-	if (rsc->version == 2)
+	if (rsc->version == SDE_RSC_REV_2)
 		rc = rsc_hw_seq_memory_init_v2(rsc);
 	else
 		rc = rsc_hw_seq_memory_init(rsc);

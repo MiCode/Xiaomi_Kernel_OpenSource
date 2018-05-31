@@ -119,8 +119,13 @@ long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
 }
 EXPORT_SYMBOL(mhi_ioctl);
 
-static void mhi_dtr_xfer_cb(struct mhi_device *mhi_dev,
-			    struct mhi_result *mhi_result)
+static void mhi_dtr_dl_xfer_cb(struct mhi_device *mhi_dev,
+			       struct mhi_result *mhi_result)
+{
+}
+
+static void mhi_dtr_ul_xfer_cb(struct mhi_device *mhi_dev,
+			       struct mhi_result *mhi_result)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct mhi_chan *dtr_chan = mhi_cntrl->dtr_dev->ul_chan;
@@ -163,8 +168,8 @@ static struct mhi_driver mhi_dtr_driver = {
 	.id_table = mhi_dtr_table,
 	.remove = mhi_dtr_remove,
 	.probe = mhi_dtr_probe,
-	.ul_xfer_cb = mhi_dtr_xfer_cb,
-	.dl_xfer_cb = mhi_dtr_xfer_cb,
+	.ul_xfer_cb = mhi_dtr_ul_xfer_cb,
+	.dl_xfer_cb = mhi_dtr_dl_xfer_cb,
 	.driver = {
 		.name = "MHI_DTR",
 		.owner = THIS_MODULE,

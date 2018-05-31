@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@ struct diag_usb_info {
 	atomic_t connected;
 	atomic_t diag_state;
 	atomic_t read_pending;
+	atomic_t disconnected;
 	int enabled;
 	int mempool;
 	int max_size;
@@ -70,6 +71,7 @@ struct diag_usb_info {
 	struct work_struct connect_work;
 	struct work_struct disconnect_work;
 	struct workqueue_struct *usb_wq;
+	wait_queue_head_t wait_q;
 };
 
 #ifdef CONFIG_DIAG_OVER_USB

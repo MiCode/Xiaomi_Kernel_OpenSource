@@ -1092,6 +1092,8 @@ struct ipa3_smp2p_info {
 	u32 in_base_id;
 	bool ipa_clk_on;
 	bool res_sent;
+	unsigned int smem_bit;
+	struct qcom_smem_state *smem_state;
 };
 
 /**
@@ -1141,6 +1143,7 @@ struct ipa_hw_stats_quota {
 
 struct ipa_hw_stats_teth {
 	struct ipahal_stats_init_tethering init;
+	struct ipa_quota_stats_all prod_stats_sum[IPA_CLIENT_MAX];
 	struct ipa_quota_stats_all prod_stats[IPA_CLIENT_MAX];
 };
 
@@ -1436,6 +1439,7 @@ struct ipa3_plat_drv_res {
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
 	u32 mhi_evid_limits[2]; /* start and end values */
+	bool ipa_mhi_dynamic_config;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;
@@ -2132,6 +2136,7 @@ int __ipa3_release_hdr(u32 hdr_hdl);
 int __ipa3_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe);
 int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe);
+int _ipa_read_ipahal_regs(void);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);
@@ -2235,6 +2240,7 @@ int ipa3_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa3_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n);
 void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
@@ -2276,8 +2282,10 @@ int ipa_reset_all_drop_stats(void);
 
 int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in);
 
-int ipa_get_teth_stats(enum ipa_client_type prod,
-	struct ipa_quota_stats_all *out);
+int ipa_get_teth_stats(void);
+
+int ipa_query_teth_stats(enum ipa_client_type prod,
+	struct ipa_quota_stats_all *out, bool reset);
 
 int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons);
 
@@ -2356,4 +2364,5 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
 	struct ipahal_imm_cmd_pyld *cmd_pyld);
+int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
 #endif /* _IPA3_I_H_ */

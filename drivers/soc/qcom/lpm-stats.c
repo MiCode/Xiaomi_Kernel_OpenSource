@@ -21,6 +21,7 @@
 #include <linux/debugfs.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <linux/suspend.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/lpm-stats.h>
@@ -44,7 +45,7 @@ struct level_stats {
 	int64_t max_time[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
 	int success_count;
 	int failed_count;
-	int64_t total_time;
+	uint64_t total_time;
 	uint64_t enter_time;
 };
 
@@ -103,7 +104,7 @@ static void level_stats_print(struct seq_file *m, struct level_stats *stats)
 	int i = 0;
 	int64_t bucket_time = 0;
 	char seqs[MAX_STR_LEN] = {0};
-	int64_t s = stats->total_time;
+	uint64_t s = stats->total_time;
 	uint32_t ns = do_div(s, NSEC_PER_SEC);
 
 	snprintf(seqs, MAX_STR_LEN,
@@ -254,6 +255,15 @@ static ssize_t level_stats_file_write(struct file *file,
 	return count;
 }
 
+static void reset_cpu_stats(void *info)
+{
+	struct lpm_stats *stats = &(*this_cpu_ptr(&(cpu_stats)));
+	int i;
+
+	for (i = 0; i < stats->num_levels; i++)
+		level_stats_reset(&stats->time_stats[i]);
+}
+
 static ssize_t lpm_stats_file_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *off)
 {
@@ -275,6 +285,12 @@ static ssize_t lpm_stats_file_write(struct file *file,
 		return -EINVAL;
 
 	level_stats_reset_all(stats);
+	/*
+	 * Wake up each CPU and reset the stats from that CPU,
+	 * for that CPU, so we could have better timestamp for
+	 * accounting.
+	 */
+	on_each_cpu(reset_cpu_stats, NULL, 1);
 
 	return count;
 }

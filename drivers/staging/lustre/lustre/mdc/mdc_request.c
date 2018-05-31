@@ -1121,9 +1121,9 @@ struct readpage_param {
  * in PAGE_SIZE (if PAGE_SIZE greater than LU_PAGE_SIZE), and the
  * lu_dirpage for this integrated page will be adjusted.
  **/
-static int mdc_read_page_remote(void *data, struct page *page0)
+static int mdc_read_page_remote(struct file *data, struct page *page0)
 {
-	struct readpage_param *rp = data;
+	struct readpage_param *rp = (struct readpage_param *)data;
 	struct page **page_pool;
 	struct page *page;
 	struct lu_dirpage *dp;

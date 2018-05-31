@@ -569,11 +569,11 @@
 			regulator-name = "pm855p_s1_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
-				= <RPMH_REGULATOR_LEVEL_RETENTION>;
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 			regulator-max-microvolt
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
-				= <RPMH_REGULATOR_LEVEL_RETENTION>;
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 		};
 	};
 
@@ -879,5 +879,12 @@
 			qcom,init-voltage = <3296000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
+	};
+
+	refgen: refgen-regulator@88e7000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0x88e7000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
 	};
 };
