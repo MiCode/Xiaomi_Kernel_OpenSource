@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -323,6 +323,7 @@ unsigned char *dci_get_buffer_from_bridge(int token);
 int diag_dci_write_bridge(int token, unsigned char *buf, int len);
 int diag_dci_write_done_bridge(int index, unsigned char *buf, int len);
 int diag_dci_send_handshake_pkt(int index);
+int diag_dci_init_remote(void);
 #endif
 
 #endif

@@ -12,6 +12,7 @@
 #ifndef MSM_GSI_H
 #define MSM_GSI_H
 #include <linux/types.h>
+#include <linux/interrupt.h>
 
 enum gsi_ver {
 	GSI_VER_ERR = 0,
@@ -82,6 +83,9 @@ enum gsi_intr_type {
  * @irq:        IRQ number
  * @phys_addr:  physical address of GSI block
  * @size:       register size of GSI block
+ * @emulator_intcntrlr_addr: the location of emulator's interrupt control block
+ * @emulator_intcntrlr_size: the sise of emulator_intcntrlr_addr
+ * @emulator_intcntrlr_client_isr: client's isr. Called by the emulator's isr
  * @mhi_er_id_limits_valid: valid flag for mhi_er_id_limits
  * @mhi_er_id_limits: MHI event ring start and end ids
  * @notify_cb:  general notification callback
@@ -107,6 +111,9 @@ struct gsi_per_props {
 	unsigned int irq;
 	phys_addr_t phys_addr;
 	unsigned long size;
+	phys_addr_t emulator_intcntrlr_addr;
+	unsigned long emulator_intcntrlr_size;
+	irq_handler_t emulator_intcntrlr_client_isr;
 	bool mhi_er_id_limits_valid;
 	uint32_t mhi_er_id_limits[2];
 	void (*notify_cb)(struct gsi_per_notify *notify);
@@ -1285,7 +1292,8 @@ static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
-static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
+static inline int gsi_enable_fw(
+	phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

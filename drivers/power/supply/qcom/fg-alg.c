@@ -19,6 +19,7 @@
 #include "fg-alg.h"
 
 #define FULL_SOC_RAW		255
+#define FULL_BATT_SOC		GENMASK(31, 0)
 #define CAPACITY_DELTA_DECIPCT	500
 
 /* Cycle counter APIs */
@@ -351,7 +352,7 @@ static void cap_learning_post_process(struct cap_learning *cl)
  */
 static int cap_learning_process_full_data(struct cap_learning *cl)
 {
-	int rc, cc_soc_sw, cc_soc_delta_pct;
+	int rc, cc_soc_sw, cc_soc_delta_centi_pct;
 	int64_t delta_cap_uah;
 
 	rc = cl->get_cc_soc(cl->data, &cc_soc_sw);
@@ -360,20 +361,21 @@ static int cap_learning_process_full_data(struct cap_learning *cl)
 		return rc;
 	}
 
-	cc_soc_delta_pct =
-		div64_s64((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 100,
+	cc_soc_delta_centi_pct =
+		div64_s64((int64_t)(cc_soc_sw - cl->init_cc_soc_sw) * 10000,
 			cl->cc_soc_max);
 
 	/* If the delta is < 50%, then skip processing full data */
-	if (cc_soc_delta_pct < 50) {
-		pr_err("cc_soc_delta_pct: %d\n", cc_soc_delta_pct);
+	if (cc_soc_delta_centi_pct < 5000) {
+		pr_err("cc_soc_delta_centi_pct: %d\n", cc_soc_delta_centi_pct);
 		return -ERANGE;
 	}
 
-	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_pct, 100);
+	delta_cap_uah = div64_s64(cl->learned_cap_uah * cc_soc_delta_centi_pct,
+				 10000);
 	cl->final_cap_uah = cl->init_cap_uah + delta_cap_uah;
-	pr_debug("Current cc_soc=%d cc_soc_delta_pct=%d total_cap_uah=%lld\n",
-		cc_soc_sw, cc_soc_delta_pct, cl->final_cap_uah);
+	pr_debug("Current cc_soc=%d cc_soc_delta_centi_pct=%d total_cap_uah=%lld\n",
+		cc_soc_sw, cc_soc_delta_centi_pct, cl->final_cap_uah);
 	return 0;
 }
 
@@ -401,8 +403,8 @@ static int cap_learning_begin(struct cap_learning *cl, u32 batt_soc)
 		return -EINVAL;
 	}
 
-	cl->init_cap_uah = div64_s64(cl->learned_cap_uah * batt_soc_msb,
-					FULL_SOC_RAW);
+	cl->init_cap_uah = div64_s64(cl->learned_cap_uah * batt_soc,
+					FULL_BATT_SOC);
 
 	if (cl->prime_cc_soc) {
 		/*

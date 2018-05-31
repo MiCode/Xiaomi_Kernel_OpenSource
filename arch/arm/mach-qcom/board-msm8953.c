@@ -37,8 +37,8 @@ static int __init msm8953_dt_populate(void)
 	/* Explicitly parent the /soc devices to the root node to preserve
 	 * the kernel ABI (sysfs structure, etc) until userspace is updated
 	 */
-	of_platform_populate(of_find_node_by_path("/soc"),
-			     of_default_bus_match_table, NULL, NULL);
+	return of_platform_populate(of_find_node_by_path("/soc"),
+				of_default_bus_match_table, NULL, NULL);
 }
 late_initcall(msm8953_dt_populate);
 #endif

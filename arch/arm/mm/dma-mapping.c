@@ -2372,6 +2372,7 @@ iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 
 	mapping->nr_bitmaps = 1;
 	mapping->extensions = extensions;
+	mapping->bits = BITS_PER_BYTE * bitmap_size;
 
 	spin_lock_init(&mapping->lock);
 	mapping->ops = &iommu_ops;

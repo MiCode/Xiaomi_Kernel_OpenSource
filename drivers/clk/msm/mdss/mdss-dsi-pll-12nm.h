@@ -37,6 +37,22 @@
 #define DSIPHY_PLL_LOOP_DIV_RATIO_1			0x2e8
 #define DSIPHY_SLEWRATE_DDL_CYC_FRQ_ADJ_1		0x328
 #define DSIPHY_SSC0					0x394
+#define DSIPHY_SSC7					0x3b0
+#define DSIPHY_SSC8					0x3b4
+#define DSIPHY_SSC1					0x398
+#define DSIPHY_SSC2					0x39c
+#define DSIPHY_SSC3					0x3a0
+#define DSIPHY_SSC4					0x3a4
+#define DSIPHY_SSC5					0x3a8
+#define DSIPHY_SSC6					0x3ac
+#define DSIPHY_SSC10					0x360
+#define DSIPHY_SSC11					0x364
+#define DSIPHY_SSC12					0x368
+#define DSIPHY_SSC13					0x36c
+#define DSIPHY_SSC14					0x370
+#define DSIPHY_SSC15					0x374
+#define DSIPHY_SSC7					0x3b0
+#define DSIPHY_SSC8					0x3b4
 #define DSIPHY_SSC9					0x3b8
 #define DSIPHY_STAT0					0x3e0
 #define DSIPHY_CTRL0					0x3e8
@@ -58,6 +74,14 @@ struct dsi_pll_param {
 	u32 post_div_mux;
 	u32 pixel_divhf;
 	u32 fsm_ovr_ctrl;
+
+	/* ssc_params */
+	u32 mpll_ssc_peak_i;
+	u32 mpll_stepsize_i;
+	u32 mpll_mint_i;
+	u32 mpll_frac_den;
+	u32 mpll_frac_quot_i;
+	u32 mpll_frac_rem;
 };
 
 enum {

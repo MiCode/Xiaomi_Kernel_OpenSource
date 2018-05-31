@@ -1021,10 +1021,9 @@ send_start_completion_event:
 		if (rc)
 			pr_err("Error sending command completion event\n");
 
+		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
 		/* Trigger callback to clients */
 		mhi_dev_trigger_cb();
-
-		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
 		if (ch_id == MHI_CLIENT_MBIM_OUT)
 			kobject_uevent_env(&mhi_ctx->dev->kobj,
 						KOBJ_CHANGE, connected);
@@ -1418,16 +1417,20 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	union mhi_dev_ring_element_type *el;
 	int rc = 0;
 	struct mhi_req *req = (struct mhi_req *)mreq;
-	struct mhi_req *local_req = NULL;
 	union mhi_dev_ring_element_type *compl_ev = NULL;
 	struct mhi_dev *mhi = NULL;
 	unsigned long flags;
+	size_t transfer_len;
+	u32 snd_cmpl;
+	uint32_t rd_offset;
 
 	client = req->client;
 	ch = client->channel;
 	mhi = ch->ring->mhi_dev;
 	el = req->el;
-	local_req = req;
+	transfer_len = req->len;
+	snd_cmpl = req->snd_cmpl;
+	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
@@ -1441,14 +1444,13 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 		compl_ev->evt_tr_comp.chid = ch->ch_id;
 		compl_ev->evt_tr_comp.type =
 				MHI_DEV_RING_EL_TRANSFER_COMPLETION_EVENT;
-		compl_ev->evt_tr_comp.len = el->tre.len;
+		compl_ev->evt_tr_comp.len = transfer_len;
 		compl_ev->evt_tr_comp.code = MHI_CMD_COMPL_CODE_EOT;
 		compl_ev->evt_tr_comp.ptr = ch->ring->ring_ctx->generic.rbase +
-				local_req->rd_offset * TR_RING_ELEMENT_SZ;
+						rd_offset * TR_RING_ELEMENT_SZ;
 		ch->curr_ereq->num_events++;
 
-		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS ||
-				local_req->snd_cmpl){
+		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS || snd_cmpl) {
 			mhi_log(MHI_MSG_VERBOSE,
 					"num of tr events %d for ch %d\n",
 					ch->curr_ereq->num_events, ch->ch_id);
@@ -2452,8 +2454,10 @@ int mhi_register_state_cb(void (*mhi_state_cb)
 	 * If channel is open during registration, no callback is issued.
 	 * Instead return -EEXIST to notify the client. Clients request
 	 * is added to the list to notify future state change notification.
+	 * Channel struct may not be allocated yet if this function is called
+	 * early during boot - add an explicit check for non-null "ch".
 	 */
-	if (mhi_ctx->ch[channel].state == MHI_DEV_CH_STARTED) {
+	if (mhi_ctx->ch && (mhi_ctx->ch[channel].state == MHI_DEV_CH_STARTED)) {
 		mutex_unlock(&mhi_ctx->mhi_lock);
 		return -EEXIST;
 	}
@@ -2832,8 +2836,6 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 
 	INIT_LIST_HEAD(&mhi_ctx->event_ring_list);
 	INIT_LIST_HEAD(&mhi_ctx->process_ring_list);
-	INIT_LIST_HEAD(&mhi_ctx->client_cb_list);
-	mutex_init(&mhi_ctx->mhi_lock);
 	mutex_init(&mhi_ctx->mhi_event_lock);
 	mutex_init(&mhi_ctx->mhi_write_test);
 
@@ -2983,6 +2985,14 @@ static int mhi_dev_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Failed to create IPC logging context\n");
 		}
+		/*
+		 * The below list and mutex should be initialized
+		 * before calling mhi_uci_init to avoid crash in
+		 * mhi_register_state_cb when accessing these.
+		 */
+		INIT_LIST_HEAD(&mhi_ctx->client_cb_list);
+		mutex_init(&mhi_ctx->mhi_lock);
+
 		mhi_uci_init();
 		mhi_update_state_info(MHI_DEV_UEVENT_CTRL,
 						MHI_STATE_CONFIGURED);

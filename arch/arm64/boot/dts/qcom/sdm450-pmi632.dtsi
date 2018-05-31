@@ -372,3 +372,24 @@
 		};
 	};
 };
+
+&tlmm {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			 mux {
+				 pins = "gpio61";
+			 };
+			 config {
+				 pins = "gpio61";
+			 };
+		 };
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			  mux {
+				  pins = "gpio61";
+			  };
+			  config {
+				  pins = "gpio61";
+			  };
+		  };
+	};
+};

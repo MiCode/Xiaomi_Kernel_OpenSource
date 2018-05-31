@@ -43,6 +43,27 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&pmi632_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&quiet_therm_default &smb_therm_default>;
+};
+
+&pmi632_gpios {
+	quiet_therm {
+		quiet_therm_default: quiet_therm_default {
+			pins = "gpio3";
+			bias-high-impedance;
+		};
+	};
+
+	smb_therm {
+		smb_therm_default: smb_therm_default {
+			pins = "gpio4";
+			bias-high-impedance;
+		};
+	};
+};
+
 &pm8953_typec {
 	status = "disabled";
 };

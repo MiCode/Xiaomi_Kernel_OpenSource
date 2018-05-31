@@ -568,6 +568,7 @@ config USB_CONFIGFS_F_CCID
 config USB_CONFIGFS_F_GSI
 	bool "USB GSI function"
 	select USB_F_GSI
+	select USB_U_ETHER
 	depends on USB_CONFIGFS
 	help
 	  Generic function driver to support h/w acceleration to IPA over GSI.

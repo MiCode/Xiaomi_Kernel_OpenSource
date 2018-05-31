@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "apq8053-lite-dragon.dtsi"
+
+&pm8953_l4 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&pm8953_l10 {
+	status = "okay";
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-always-on;
+};
+
+&pm8953_l2 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&pm8953_l17 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&pm8953_l22 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&i2c_3 {
+	status = "okay";
+	/delete-node/ himax_ts@48;
+	focaltech_ts@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8953_l10>;
+		avdd-supply = <&pm8953_l6>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		focaltech,display-coords = <0 0 800 1280>;
+		focaltech,reset-gpio = <&tlmm 64 0x0>;
+		focaltech,irq-gpio = <&tlmm 65 0x2>;
+		focaltech,max-touch-number = <5>;
+		report_type = <1>;
+	};
+};
+
+&wled {
+	qcom,led-strings-list = [00 01 02];
+};
+
+&camera0 {
+	qcom,mount-angle = <90>;
+};
+
+&camera1 {
+	qcom,mount-angle = <90>;
+};
+
+&camera2{
+	qcom,mount-angle = <90>;
+};

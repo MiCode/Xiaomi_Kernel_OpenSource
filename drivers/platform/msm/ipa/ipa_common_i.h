@@ -15,6 +15,7 @@
 
 #ifndef _IPA_COMMON_I_H_
 #define _IPA_COMMON_I_H_
+#include <linux/errno.h>
 #include <linux/ipc_logging.h>
 #include <linux/ipa.h>
 #include <linux/ipa_uc_offload.h>
@@ -440,5 +441,8 @@ bool ipa_pm_is_used(void);
 int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 		struct sg_table *in_sgt_ptr);
 int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr);
+
+int ipa_ut_module_init(void);
+void ipa_ut_module_exit(void);
 
 #endif /* _IPA_COMMON_I_H_ */

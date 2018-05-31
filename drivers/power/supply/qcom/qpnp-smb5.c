@@ -244,7 +244,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
 		/* PMI632 does not support PD */
-		__pd_disabled = 1;
+		chg->pd_not_supported = true;
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
@@ -1594,11 +1594,20 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * PMI632 based hw init:
+	 * - Enable STAT pin function on SMB_EN
 	 * - Rerun APSD to ensure proper charger detection if device
 	 *   boots with charger connected.
 	 * - Initialize flash module for PMI632
 	 */
 	if (chg->smb_version == PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
+					EN_STAT_CMD_BIT, EN_STAT_CMD_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure SMB_EN rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		schgm_flash_init(chg);
 		smblib_rerun_apsd_if_required(chg);
 	}
