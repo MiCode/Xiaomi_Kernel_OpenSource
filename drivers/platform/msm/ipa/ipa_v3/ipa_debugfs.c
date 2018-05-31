@@ -2291,6 +2291,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	file = debugfs_create_u32("clk_rate", IPA_READ_ONLY_MODE,
+		dent, &ipa3_ctx->curr_ipa_clk_rate);
+	if (!file) {
+		IPAERR("could not create clk_rate file\n");
+		goto fail;
+	}
+
 	ipa_debugfs_init_stats(dent);
 
 	return;
