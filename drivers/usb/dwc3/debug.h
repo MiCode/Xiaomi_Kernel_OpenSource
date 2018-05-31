@@ -43,6 +43,10 @@
 
 #define dbg_setup(ep_num, req) \
 	dwc3_dbg_setup(dwc, ep_num, req)
+
+#define dbg_log_string(fmt, ...) \
+	ipc_log_string(dwc->dwc_ipc_log_ctxt,\
+			"%s: " fmt, __func__, ##__VA_ARGS__)
 /**
  * dwc3_gadget_ep_cmd_string - returns endpoint command string
  * @cmd: command code
