@@ -592,7 +592,7 @@ static int mhi_uci_probe(struct mhi_device *mhi_dev,
 		INIT_LIST_HEAD(&uci_chan->pending);
 	};
 
-	uci_dev->mtu = id->driver_data;
+	uci_dev->mtu = min_t(size_t, id->driver_data, mhi_dev->mtu);
 	mhi_device_set_devdata(mhi_dev, uci_dev);
 	uci_dev->enabled = true;
 
