@@ -313,7 +313,7 @@ static inline struct gsi_opts *to_gsi_opts(struct config_item *item)
 			    func_inst.group);
 }
 
-static enum usb_prot_id name_to_prot_id(const char *name)
+static int name_to_prot_id(const char *name)
 {
 	if (!name)
 		goto error;
