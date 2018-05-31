@@ -714,6 +714,8 @@
 			<RPMH_REGULATOR_MODE_PASS
 			 RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1000000 2000000>;
+		qcom,send-defaults;
 
 		BOB: pm6150l_bob: regulator-pm6150l-bob {
 			regulator-name = "pm6150l_bob";
