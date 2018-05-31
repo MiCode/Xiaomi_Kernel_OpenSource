@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,7 @@ static const struct freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_GFX(370000000, 0,  2, 0, 0,  740000000),
 	F_GFX(430000000, 0,  2, 0, 0,  860000000),
 	F_GFX(465000000, 0,  2, 0, 0,  930000000),
+	F_GFX(585000000, 0,  2, 0, 0, 1170000000),
 	F_GFX(588000000, 0,  2, 0, 0, 1176000000),
 	F_GFX(647000000, 0,  2, 0, 0, 1294000000),
 	F_GFX(700000000, 0,  2, 0, 0, 1400000000),
