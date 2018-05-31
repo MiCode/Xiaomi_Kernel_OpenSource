@@ -406,7 +406,7 @@ struct hfi_prep_slumber_cmd {
 struct hfi_err_cmd {
 	uint32_t hdr;
 	uint32_t error_code;
-	uint32_t data[2];
+	uint32_t data[16];
 };
 
 /* F2H */
