@@ -7528,6 +7528,7 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	case MDSS_MDP_HW_REV_114:
 	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
+	case MDSS_MDP_HW_REV_117:
 		pp_cfg = pp_get_driver_ops_v1_7(ops);
 		if (IS_ERR_OR_NULL(pp_cfg))
 			ret = -EINVAL;

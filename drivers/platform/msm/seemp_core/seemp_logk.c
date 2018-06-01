@@ -782,18 +782,17 @@ pingpong_fail:
 
 __exit void seemp_logk_cleanup(void)
 {
-	int ret;
-
 	dev_t devno = MKDEV(slogk_dev->major, slogk_dev->minor);
 
 	if (el2_shared_mem != NULL) {
+		int ret;
 		struct scm_desc desc = {0};
 
 		desc.arginfo = SCM_ARGS(0);
 		ret = scm_call2(EL2_SCM_ID2, &desc);
 		if (ret || desc.ret[0] || desc.ret[1]) {
 			pr_err("SCM call failed with ret val = %d %d %d\n",
-			ret, (int)desc.ret[0], (int)desc.ret[1]);
+				ret, (int)desc.ret[0], (int)desc.ret[1]);
 		} else {
 			free_page((unsigned long) el2_shared_mem);
 			el2_shared_mem = NULL;

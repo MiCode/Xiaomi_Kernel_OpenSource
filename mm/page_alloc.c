@@ -2299,14 +2299,14 @@ do_steal:
 static struct page *__rmqueue(struct zone *zone, unsigned int order,
 				int migratetype)
 {
-	struct page *page;
+	struct page *page = NULL;
 
 retry:
-	page = __rmqueue_smallest(zone, order, migratetype);
-	if (unlikely(!page)) {
-		if (migratetype == MIGRATE_MOVABLE)
-			page = __rmqueue_cma_fallback(zone, order);
+	if (migratetype == MIGRATE_MOVABLE)
+		page = __rmqueue_cma_fallback(zone, order);
 
+	if (!page) {
+		page = __rmqueue_smallest(zone, order, migratetype);
 		if (!page && __rmqueue_fallback(zone, order, migratetype))
 			goto retry;
 	}

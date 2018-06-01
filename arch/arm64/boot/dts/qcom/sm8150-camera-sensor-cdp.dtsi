@@ -16,9 +16,9 @@
 		cell-index = <0>;
 		reg = <0x00 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm855l_flash0 &pm855l_flash1>;
-		torch-source = <&pm855l_torch0 &pm855l_torch1>;
-		switch-source = <&pm855l_switch2>;
+		flash-source = <&pm8150l_flash0 &pm8150l_flash1>;
+		torch-source = <&pm8150l_torch0 &pm8150l_torch1>;
+		switch-source = <&pm8150l_switch2>;
 		status = "ok";
 	};
 
@@ -26,9 +26,9 @@
 		cell-index = <1>;
 		reg = <0x01 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm855l_flash0 &pm855l_flash1>;
-		torch-source = <&pm855l_torch0 &pm855l_torch1>;
-		switch-source = <&pm855l_switch2>;
+		flash-source = <&pm8150l_flash0 &pm8150l_flash1>;
+		torch-source = <&pm8150l_torch0 &pm8150l_torch1>;
+		switch-source = <&pm8150l_switch2>;
 		status = "ok";
 	};
 
@@ -36,9 +36,9 @@
 		cell-index = <3>;
 		reg = <0x03 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm855l_flash1>;
-		torch-source = <&pm855l_torch1>;
-		switch-source = <&pm855l_switch0>;
+		flash-source = <&pm8150l_flash1>;
+		torch-source = <&pm8150l_torch1>;
+		switch-source = <&pm8150l_switch0>;
 		status = "ok";
 	};
 };
@@ -106,7 +106,7 @@
 		cell-index = <0>;
 		reg = <0>;
 		compatible = "qcom,eeprom";
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l5>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
@@ -145,7 +145,7 @@
 		reg = <0x1>;
 		compatible = "qcom,eeprom";
 		cam_vdig-supply = <&pm8009_l2>;
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		cam_vaf-supply = <&pm8009_s2>;
@@ -182,7 +182,7 @@
 		cell-index = <2>;
 		reg = <0x2>;
 		compatible = "qcom,eeprom";
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
@@ -228,7 +228,7 @@
 		actuator-src = <&actuator_rear>;
 		ois-src = <&ois_rear>;
 		eeprom-src = <&eeprom_rear>;
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l5>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
@@ -272,7 +272,7 @@
 		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vdig-supply = <&pm8009_l2>;
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
@@ -313,7 +313,7 @@
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;
 		actuator-src = <&actuator_front>;
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
@@ -354,7 +354,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		led-flash-src = <&led_flash_iris>;
-		cam_vio-supply = <&pm855l_l1>;
+		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l5>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;

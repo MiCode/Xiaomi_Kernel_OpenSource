@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2013-2014, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,13 +11,22 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef __REGULATOR_CPR_REGULATOR_H__
+#define __REGULATOR_CPR_REGULATOR_H__
 
-#include "sm8150.dtsi"
+#include <linux/init.h>
 
-/ {
-	model = "Qualcomm Technologies, Inc. SM8150 v1 SoC";
-	compatible = "qcom,sm8150";
-	qcom,pmic-name = "PM8150";
-	qcom,board-id = <0 0>;
-};
+#ifdef CONFIG_REGULATOR_CPR
+
+int __init cpr_regulator_init(void);
+
+#else
+
+static inline int __init cpr_regulator_init(void)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_REGULATOR_CPR */
+
+#endif /* __REGULATOR_CPR_REGULATOR_H__ */

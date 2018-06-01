@@ -78,6 +78,19 @@ enum smb_mode {
 	NUM_MODES,
 };
 
+enum sec_charger_config {
+	MAIN_STANDALONE = 0,
+	SEC_CHG_CP_ONLY,
+	SEC_CHG_PL_ONLY,
+	SEC_CHG_CP_AND_PL,
+};
+
+enum sec_charger_type {
+	SEC_CHG_NONE = 0,
+	SEC_CHG_CP,
+	SEC_CHG_PL,
+};
+
 enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,
@@ -313,6 +326,11 @@ struct smb_charger {
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
 
+	/* secondary charger config */
+	bool			sec_pl_present;
+	bool			sec_cp_present;
+	int			sec_chg_selected;
+
 	/* pd */
 	int			voltage_min_uv;
 	int			voltage_max_uv;
@@ -536,7 +554,6 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
-int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

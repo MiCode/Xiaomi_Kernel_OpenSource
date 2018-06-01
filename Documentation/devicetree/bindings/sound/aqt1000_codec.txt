@@ -73,15 +73,15 @@ i2c@a88000 {
                 pinctrl-names = "default";
                 pinctrl-0 = <&aqt_intr_default>;
 
-                cdc-vdd-rxtx-supply = <&pm855_s4>;
+                cdc-vdd-rxtx-supply = <&pm8150_s4>;
                 qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
                 qcom,cdc-vdd-rxtx-current = <33300>;
 
-                cdc-vdd-buck-supply = <&pm855_s4>;
+                cdc-vdd-buck-supply = <&pm8150_s4>;
                 qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
                 qcom,cdc-vdd-buck-current = <650000>;
 
-                cdc-vdd-vbat-supply = <&pm8551_bob>;
+                cdc-vdd-vbat-supply = <&pm81501_bob>;
                 qcom,cdc-vdd-vbat-voltage = <3300000 3300000>;
                 qcom,cdc-vdd-vbat-current = <5000>;
 

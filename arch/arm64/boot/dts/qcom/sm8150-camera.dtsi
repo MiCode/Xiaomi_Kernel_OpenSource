@@ -28,7 +28,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm855l_l3>;
+		mipi-csi-vdd-supply = <&pm8150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
 			<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
@@ -54,7 +54,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm855l_l3>;
+		mipi-csi-vdd-supply = <&pm8150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSIPHY1_CLK>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
@@ -81,7 +81,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm855l_l3>;
+		mipi-csi-vdd-supply = <&pm8150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
 			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
@@ -107,7 +107,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm855l_l3>;
+		mipi-csi-vdd-supply = <&pm8150l_l3>;
 		clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSIPHY3_CLK>,
 			<&clock_camcc CAM_CC_CSI3PHYTIMER_CLK_SRC>,
@@ -499,6 +499,7 @@
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
 		qcom,cpas-hw-ver = <0x175100>; /* Titan v175 v1.0.0 */
+		camnoc-axi-min-ib-bw = <3000000000>;
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names =
