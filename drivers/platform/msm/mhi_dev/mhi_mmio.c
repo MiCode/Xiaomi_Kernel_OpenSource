@@ -25,7 +25,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 
-#include "mhi.h"
+#include <linux/msm_mhi_dev.h>
 #include "mhi_hwio.h"
 
 int mhi_dev_mmio_read(struct mhi_dev *dev, uint32_t offset,
