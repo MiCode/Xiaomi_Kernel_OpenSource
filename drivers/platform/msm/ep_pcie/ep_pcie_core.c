@@ -468,6 +468,13 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 		"Initial version of MMIO is:0x%x\n",
 		readl_relaxed(dev->mmio + PCIE20_MHIVER));
 
+	if (dev->config_mmio_init) {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: MMIO already initialized, return\n",
+				dev->rev);
+		return;
+	}
+
 	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
 	ep_pcie_write_reg(dev->mmio, PCIE20_MHICTRL, 0x0);
@@ -476,6 +483,8 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_LOWER, 0x2);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_UPPER, 0x1);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_INTVEC, 0xffffffff);
+
+	dev->config_mmio_init = true;
 }
 
 static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
