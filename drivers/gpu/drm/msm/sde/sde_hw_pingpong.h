@@ -122,11 +122,6 @@ struct sde_hw_pingpong_ops {
 	 */
 	void (*setup_3d_mode)(struct sde_hw_pingpong *pp,
 			enum sde_3d_blend_mode cfg);
-
-	/**
-	 * reset 3d blend configuration
-	 */
-	void (*reset_3d_mode)(struct sde_hw_pingpong *pp);
 };
 
 struct sde_hw_merge_3d_ops {
@@ -135,11 +130,6 @@ struct sde_hw_merge_3d_ops {
 	 */
 	void (*setup_blend_mode)(struct sde_hw_merge_3d *id,
 			enum sde_3d_blend_mode cfg);
-
-	/**
-	 * reset 3d blend mode configuration
-	 */
-	void (*reset_blend_mode)(struct sde_hw_merge_3d *id);
 };
 
 struct sde_hw_merge_3d {
