@@ -228,8 +228,7 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 #define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
 	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 
-static void receive_ack_cmd(struct kgsl_device *device,
-		struct gmu_device *gmu, void *rcvd)
+static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
 {
 	uint32_t *ack = rcvd;
 	uint32_t hdr = ack[0];
@@ -250,19 +249,10 @@ static void receive_ack_cmd(struct kgsl_device *device,
 			return;
 		}
 	}
-
-	dev_err_ratelimited(&gmu->pdev->dev,
-			"HFI ACK: Cannot find sender for 0x%8.8X\n", req_hdr);
-	/* Didn't find the sender, list all the waiters */
-	list_for_each_entry(cmd, &hfi->msglist, node) {
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"HFI ACK: Waiters: 0x%8.8X\n", cmd->sent_hdr);
-	}
-
 	spin_unlock_bh(&hfi->msglock);
 
-	adreno_set_gpu_fault(ADRENO_DEVICE(device), ADRENO_GMU_FAULT);
-	adreno_dispatcher_schedule(device);
+	dev_err(&gmu->pdev->dev,
+			"HFI ACK(0x%x) Cannot find sender\n", req_hdr);
 }
 
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
@@ -491,12 +481,11 @@ static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
 			cmd->type, cmd->timestamp, cmd->data);
 }
 
-static void hfi_v1_receiver(struct kgsl_device *device,
-		struct gmu_device *gmu, uint32_t *rcvd)
+static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
 {
 	/* V1 ACK Handler */
 	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_V1_MSG_ACK) {
-		receive_ack_cmd(device, gmu, rcvd);
+		receive_ack_cmd(gmu, rcvd);
 		return;
 	}
 
@@ -518,7 +507,6 @@ static void hfi_v1_receiver(struct kgsl_device *device,
 
 void hfi_receiver(unsigned long data)
 {
-	struct kgsl_device *device;
 	struct gmu_device *gmu;
 	uint32_t rcvd[MAX_RCVD_SIZE];
 	int read_queue[] = {
@@ -530,8 +518,7 @@ void hfi_receiver(unsigned long data)
 	if (!data)
 		return;
 
-	device = (struct kgsl_device *)data;
-	gmu = KGSL_GMU_DEVICE(device);
+	gmu = (struct gmu_device *)data;
 
 	/* While we are here, check all of the queues for messages */
 	for (q = 0; q < ARRAY_SIZE(read_queue); q++) {
@@ -539,13 +526,13 @@ void hfi_receiver(unsigned long data)
 				rcvd, sizeof(rcvd)) > 0) {
 			/* Special case if we're v1 */
 			if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
-				hfi_v1_receiver(device, gmu, rcvd);
+				hfi_v1_receiver(gmu, rcvd);
 				continue;
 			}
 
 			/* V2 ACK Handler */
 			if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-				receive_ack_cmd(device, gmu, rcvd);
+				receive_ack_cmd(gmu, rcvd);
 				continue;
 			}
 
