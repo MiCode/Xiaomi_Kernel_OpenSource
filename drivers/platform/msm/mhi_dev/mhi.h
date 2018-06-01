@@ -440,7 +440,13 @@ struct mhi_dev_channel {
 	struct mutex			ch_lock;
 	/* client which the current inbound/outbound message is for */
 	struct mhi_dev_client		*active_client;
-
+	/*
+	 * Pointer to event request structs used to temporarily store
+	 * completion events and meta data before sending them to host
+	 */
+	struct event_req		*ereqs;
+	/* Pointer to completion event buffers */
+	union mhi_dev_ring_element_type *tr_events;
 	struct list_head		event_req_buffers;
 	struct event_req		*curr_ereq;
 
