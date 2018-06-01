@@ -428,7 +428,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj,
 
 	if (!ret && domain) {
 		*iova = domain->iova;
-		if (aspace && aspace->domain_attached)
+		if (aspace && !msm_obj->in_active_list)
 			msm_gem_add_obj_to_aspace_active_list(aspace, obj);
 	} else {
 		obj_remove_domain(domain);
@@ -968,6 +968,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	INIT_LIST_HEAD(&msm_obj->domains);
 	INIT_LIST_HEAD(&msm_obj->iova_list);
 	msm_obj->aspace = NULL;
+	msm_obj->in_active_list = false;
 
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 
