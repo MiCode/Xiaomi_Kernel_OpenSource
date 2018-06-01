@@ -44,25 +44,6 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	return 0;
 }
 
-int ufs_qcom_phy_qmp_v4_phy_wa(struct ufs_qcom_phy *ufs_qcom_phy,
-					u8 flags)
-{
-	if (flags == 0) {
-		writel_relaxed(0x00, ufs_qcom_phy->mmio +
-				QSERDES_RX0_AC_JTAG_ENABLE);
-		writel_relaxed(0x00, ufs_qcom_phy->mmio +
-				QSERDES_RX1_AC_JTAG_ENABLE);
-	}
-	else if (flags == 1) {
-		writel_relaxed(0x01, ufs_qcom_phy->mmio +
-				QSERDES_RX0_AC_JTAG_ENABLE);
-		writel_relaxed(0x01, ufs_qcom_phy->mmio +
-				QSERDES_RX1_AC_JTAG_ENABLE);
-	}
-
-	wmb();
-	return 0;
-}
 static int ufs_qcom_phy_qmp_v4_init(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy_qmp_v4 *phy = phy_get_drvdata(generic_phy);
@@ -203,7 +184,6 @@ struct ufs_qcom_phy_specific_ops phy_v4_ops = {
 	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v4_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_v4_power_control,
 	.dbg_register_dump	= ufs_qcom_phy_qmp_v4_dbg_register_dump,
-	.phy_wa			= ufs_qcom_phy_qmp_v4_phy_wa,
 };
 
 static int ufs_qcom_phy_qmp_v4_probe(struct platform_device *pdev)
