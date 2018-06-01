@@ -482,6 +482,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SCOPE,
@@ -594,6 +595,12 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONNECTOR_TYPE:
 		val->intval = chg->connector_type;
 		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		if (chg->connector_health == -EINVAL)
+			rc = smblib_get_prop_connector_health(chg, val);
+		else
+			val->intval = chg->connector_health;
+		break;
 	case POWER_SUPPLY_PROP_SCOPE:
 		val->intval = POWER_SUPPLY_SCOPE_UNKNOWN;
 		rc = smblib_get_prop_usb_present(chg, &pval);
@@ -663,6 +670,10 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		rc = smblib_set_prop_sdp_current_max(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		chg->connector_health = val->intval;
+		power_supply_changed(chg->usb_psy);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -677,6 +688,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		return 1;
 	default:
 		break;
@@ -2398,6 +2410,7 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->mode = PARALLEL_MASTER;
 	chg->irq_info = smb5_irqs;
 	chg->die_health = -EINVAL;
+	chg->connector_health = -EINVAL;
 	chg->otg_present = false;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);

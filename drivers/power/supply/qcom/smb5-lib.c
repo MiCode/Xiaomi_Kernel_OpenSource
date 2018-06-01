@@ -2245,6 +2245,40 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_connector_health(struct smb_charger *chg,
+						union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, CONNECTOR_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CONNECTOR_TEMP_STATUS_REG, rc=%d\n",
+									rc);
+		return rc;
+	}
+
+	/* Thermal status bits are mutually exclusive */
+	switch (stat) {
+	case CONNECTOR_TEMP_LB_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_COOL;
+		break;
+	case CONNECTOR_TEMP_UB_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_WARM;
+		break;
+	case CONNECTOR_TEMP_RST_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_HOT;
+		break;
+	case CONNECTOR_TEMP_SHDN_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	return 0;
+}
+
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
 #define DCP_CURRENT_UA			1500000

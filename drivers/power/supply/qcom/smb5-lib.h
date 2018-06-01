@@ -376,6 +376,7 @@ struct smb_charger {
 	int			pulse_cnt;
 
 	int			die_health;
+	int			connector_health;
 
 	/* flash */
 	u32			flash_derating_soc;
@@ -513,6 +514,8 @@ int smblib_get_pe_start(struct smb_charger *chg,
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg,
+			       union power_supply_propval *val);
+int smblib_get_prop_connector_health(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
