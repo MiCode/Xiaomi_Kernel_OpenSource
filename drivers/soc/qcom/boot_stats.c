@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014,2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014,2016,2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,12 +28,14 @@
 #include <soc/qcom/boot_stats.h>
 
 static void __iomem *mpm_counter_base;
+static phys_addr_t mpm_counter_pa;
 static uint32_t mpm_counter_freq;
 struct boot_stats __iomem *boot_stats;
 
 static int mpm_parse_dt(void)
 {
 	struct device_node *np;
+	const __be32 *addrp;
 	u32 freq;
 
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-boot_stats");
@@ -58,10 +60,17 @@ static int mpm_parse_dt(void)
 	else
 		return -ENODEV;
 
-	if (of_get_address(np, 0, NULL, NULL)) {
+	addrp = of_get_address(np, 0, NULL, NULL);
+	if (addrp) {
 		mpm_counter_base = of_iomap(np, 0);
 		if (!mpm_counter_base) {
 			pr_err("mpm_counter: cant map counter base\n");
+			return -ENODEV;
+		}
+
+		mpm_counter_pa = of_translate_address(np, addrp);
+		if (mpm_counter_pa == OF_BAD_ADDR) {
+			pr_err("mpm_counter: failed to get physical address\n");
 			return -ENODEV;
 		}
 	}
@@ -119,6 +128,11 @@ unsigned long long int msm_timer_get_sclk_ticks(void)
 		return 0;
 	}
 	return t1;
+}
+
+phys_addr_t msm_timer_get_pa(void)
+{
+	return mpm_counter_pa;
 }
 
 int boot_stats_init(void)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016,2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,11 +25,12 @@
 #include <linux/export.h>
 #include <linux/types.h>
 #include <linux/mutex.h>
+#include <linux/mm.h>
 #include <soc/qcom/boot_stats.h>
 
 #define MAX_STRING_LEN 256
 #define BOOT_MARKER_MAX_LEN 40
-static struct dentry *dent_bkpi, *dent_bkpi_status;
+static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
 static struct boot_marker boot_marker_list;
 
 struct boot_marker {
@@ -140,6 +141,48 @@ static const struct file_operations fops_bkpi = {
 	.write = bootkpi_writer,
 };
 
+static ssize_t mpm_timer_read(struct file *fp, char __user *user_buffer,
+			size_t count, loff_t *position)
+{
+	unsigned long long int timer_value;
+	int rc = 0;
+	char buf[100];
+	int temp = 0;
+
+	timer_value = msm_timer_get_sclk_ticks();
+
+	temp = scnprintf(buf, sizeof(buf), "%llu.%03llu seconds\n",
+			timer_value/TIMER_KHZ,
+			(((timer_value % TIMER_KHZ) * 1000) / TIMER_KHZ));
+
+	rc = simple_read_from_buffer(user_buffer, count, position, buf, temp);
+
+	return rc;
+}
+
+static int mpm_timer_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int mpm_timer_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	phys_addr_t addr = msm_timer_get_pa();
+
+	if (vma->vm_flags & VM_WRITE)
+		return -EPERM;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	return vm_iomap_memory(vma, addr, PAGE_SIZE);
+}
+
+static const struct file_operations fops_mpm_timer = {
+	.owner = THIS_MODULE,
+	.open  = mpm_timer_open,
+	.read  = mpm_timer_read,
+	.mmap = mpm_timer_mmap,
+};
+
 static int __init init_bootkpi(void)
 {
 	dent_bkpi = debugfs_create_dir("bootkpi", NULL);
@@ -147,11 +190,22 @@ static int __init init_bootkpi(void)
 		return -ENODEV;
 
 	dent_bkpi_status = debugfs_create_file("kpi_values",
-		(S_IRUGO|S_IWUGO), dent_bkpi, 0, &fops_bkpi);
+		(S_IRUGO|S_IWUGO), dent_bkpi, NULL, &fops_bkpi);
 	if (IS_ERR_OR_NULL(dent_bkpi_status)) {
 		debugfs_remove(dent_bkpi);
 		dent_bkpi = NULL;
 		pr_err("boot_marker: Could not create 'kpi_values' debugfs file\n");
+		return -ENODEV;
+	}
+
+	dent_mpm_timer = debugfs_create_file("mpm_timer",
+		S_IRUGO, dent_bkpi, NULL, &fops_mpm_timer);
+	if (IS_ERR_OR_NULL(dent_mpm_timer)) {
+		debugfs_remove(dent_bkpi_status);
+		dent_bkpi_status = NULL;
+		debugfs_remove(dent_bkpi);
+		dent_bkpi = NULL;
+		pr_err("boot_marker: Could not create 'mpm_timer' debugfs file\n");
 		return -ENODEV;
 	}
 
