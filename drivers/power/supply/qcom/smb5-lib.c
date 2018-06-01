@@ -1513,6 +1513,45 @@ int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_get_prop_batt_iterm(struct smb_charger *chg,
+		union power_supply_propval *val)
+{
+	int rc, temp;
+	u8 stat;
+
+	/*
+	 * Currently, only ADC comparator-based termination is supported,
+	 * hence read only the threshold corresponding to ADC source.
+	 * Proceed only if CHGR_ITERM_USE_ANALOG_BIT is 0.
+	 */
+	rc = smblib_read(chg, CHGR_ENG_CHARGING_CFG_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CHGR_ENG_CHARGING_CFG_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (stat & CHGR_ITERM_USE_ANALOG_BIT) {
+		val->intval = -EINVAL;
+		return 0;
+	}
+
+	rc = smblib_batch_read(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
+			(u8 *)&temp, 2);
+
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CHGR_ADC_ITERM_UP_THD_MSB_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	temp = sign_extend32(temp, 15);
+	temp = DIV_ROUND_CLOSEST(temp * 10000, ADC_CHG_TERM_MASK);
+	val->intval = temp;
+
+	return rc;
+}
+
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 			      union power_supply_propval *val)
 {
