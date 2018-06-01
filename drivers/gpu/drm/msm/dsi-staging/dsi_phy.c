@@ -107,7 +107,8 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 
 	phy->hw.base = ptr;
 
-	pr_debug("[%s] map dsi_phy registers to %p\n", phy->name, phy->hw.base);
+	pr_debug("[%s] map dsi_phy registers to %pK\n",
+		phy->name, phy->hw.base);
 
 	return rc;
 }
