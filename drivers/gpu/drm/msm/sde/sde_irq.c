@@ -19,7 +19,7 @@
 #include "sde_irq.h"
 #include "sde_core_irq.h"
 
-uint32_t g_sde_irq_status;
+static uint32_t g_sde_irq_status;
 
 void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 {
@@ -46,7 +46,6 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 
 	/* store irq status in case of irq-storm debugging */
 	g_sde_irq_status = interrupts;
-	SDE_EVT32(g_sde_irq_status);
 
 	/*
 	 * Taking care of MDP interrupt
