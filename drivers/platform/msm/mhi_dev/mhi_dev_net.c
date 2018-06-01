@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include <linux/errno.h>
 #include <linux/ktime.h>
 
-#include "mhi.h"
+#include <linux/msm_mhi_dev.h>
 
 #define MHI_NET_DRIVER_NAME  "mhi_dev_net_drv"
 #define MHI_NET_DEV_NAME     "mhi_dev_net%d"
