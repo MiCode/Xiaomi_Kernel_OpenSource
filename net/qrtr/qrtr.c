@@ -372,13 +372,23 @@ static void qrtr_port_put(struct qrtr_sock *ipc);
 static void qrtr_node_rx_work(struct work_struct *work)
 {
 	struct qrtr_node *node = container_of(work, struct qrtr_node, work);
+	struct qrtr_ctrl_pkt *pkt;
+	struct sockaddr_qrtr dst;
+	struct sockaddr_qrtr src;
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&node->rx_queue)) != NULL) {
 		struct qrtr_sock *ipc;
 		struct qrtr_cb *cb;
+		int confirm;
 
 		cb = (struct qrtr_cb *)skb->cb;
+		src.sq_node = cb->src_node;
+		src.sq_port = cb->src_port;
+		dst.sq_node = cb->dst_node;
+		dst.sq_port = cb->dst_port;
+		confirm = !!cb->confirm_rx;
+
 		qrtr_node_assign(node, cb->src_node);
 
 		ipc = qrtr_port_lookup(cb->dst_port);
@@ -389,6 +399,20 @@ static void qrtr_node_rx_work(struct work_struct *work)
 				kfree_skb(skb);
 
 			qrtr_port_put(ipc);
+		}
+
+		if (confirm) {
+			skb = qrtr_alloc_ctrl_packet(&pkt);
+			if (!skb)
+				break;
+
+			pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
+			pkt->client.node = cpu_to_le32(dst.sq_node);
+			pkt->client.port = cpu_to_le32(dst.sq_port);
+
+			if (qrtr_node_enqueue(node, skb, QRTR_TYPE_RESUME_TX,
+					      &dst, &src))
+				break;
 		}
 	}
 }
@@ -811,36 +835,6 @@ out_node:
 	return rc;
 }
 
-static void qrtr_send_resume_tx(struct sk_buff *skb)
-{
-	struct qrtr_ctrl_pkt *pkt;
-	struct sockaddr_qrtr dst;
-	struct sockaddr_qrtr src;
-	struct qrtr_node *node;
-	struct sk_buff *ctl;
-	struct qrtr_cb *cb;
-
-	cb = (struct qrtr_cb *)skb->cb;
-	node = qrtr_node_lookup(cb->src_node);
-	if (!node)
-		return;
-
-	src.sq_node = cb->src_node;
-	src.sq_port = cb->src_port;
-	dst.sq_node = cb->dst_node;
-	dst.sq_port = cb->dst_port;
-
-	ctl = qrtr_alloc_ctrl_packet(&pkt);
-	if (!ctl)
-		return;
-
-	pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
-	pkt->client.node = cpu_to_le32(dst.sq_node);
-	pkt->client.port = cpu_to_le32(dst.sq_port);
-
-	qrtr_node_enqueue(node, ctl, QRTR_TYPE_RESUME_TX, &dst, &src);
-}
-
 static int qrtr_recvmsg(struct socket *sock, struct msghdr *msg,
 			size_t size, int flags)
 {
@@ -875,16 +869,13 @@ static int qrtr_recvmsg(struct socket *sock, struct msghdr *msg,
 		goto out;
 	rc = copied;
 
-	cb = (struct qrtr_cb *)skb->cb;
 	if (addr) {
+		cb = (struct qrtr_cb *)skb->cb;
 		addr->sq_family = AF_QIPCRTR;
 		addr->sq_node = cb->src_node;
 		addr->sq_port = cb->src_port;
 		msg->msg_namelen = sizeof(*addr);
 	}
-
-	if (!!cb->confirm_rx)
-		qrtr_send_resume_tx(skb);
 
 out:
 	skb_free_datagram(sk, skb);
