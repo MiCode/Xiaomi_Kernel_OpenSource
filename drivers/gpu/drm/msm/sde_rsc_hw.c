@@ -609,12 +609,10 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	if (rsc->power_collapse_block)
 		return -EINVAL;
 
-	if (rsc->sw_fs_enabled) {
-		rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
-		if (rc) {
-			pr_err("vdd reg fast mode set failed rc:%d\n", rc);
-			return rc;
-		}
+	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+	if (rc) {
+		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
+		return rc;
 	}
 
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
@@ -648,11 +646,6 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	}
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
-
-	if (rsc->sw_fs_enabled) {
-		regulator_disable(rsc->fs);
-		rsc->sw_fs_enabled = false;
-	}
 
 	return 0;
 
