@@ -51,6 +51,20 @@ Main node properties:
 	feature for time synchronization between host processor and
 	external modem.
 
+- mhi,use-bb
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true, if PCIe controller does not have full access to host
+	DDR, and we're using a dedicated memory pool like cma, or
+	carveout pool. Pool must support atomic allocation.
+
+- mhi,buffer-len
+  Usage: optional
+  Value type: <bool>
+  Definition: MHI automatically pre-allocate buffers for some channel.
+	Set the length of buffer size to allocate. If not default
+	size MHI_MAX_MTU will be used.
+
 ============================
 mhi channel node properties:
 ============================

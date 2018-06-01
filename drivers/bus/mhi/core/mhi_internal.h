@@ -536,6 +536,7 @@ struct mhi_cmd {
 struct mhi_buf_info {
 	dma_addr_t p_addr;
 	void *v_addr;
+	void *bb_addr;
 	void *wp;
 	size_t len;
 	void *cb_buf;
@@ -741,6 +742,15 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 			 struct image_info **image_info, size_t alloc_size);
 void mhi_free_bhie_table(struct mhi_controller *mhi_cntrl,
 			 struct image_info *image_info);
+
+int mhi_map_single_no_bb(struct mhi_controller *mhi_cntrl,
+			 struct mhi_buf_info *buf_info);
+int mhi_map_single_use_bb(struct mhi_controller *mhi_cntrl,
+			  struct mhi_buf_info *buf_info);
+void mhi_unmap_single_no_bb(struct mhi_controller *mhi_cntrl,
+			    struct mhi_buf_info *buf_info);
+void mhi_unmap_single_use_bb(struct mhi_controller *mhi_cntrl,
+			     struct mhi_buf_info *buf_info);
 
 /* initialization methods */
 int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,

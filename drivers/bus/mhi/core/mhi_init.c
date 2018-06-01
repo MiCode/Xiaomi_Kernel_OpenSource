@@ -1038,6 +1038,12 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		mhi_cntrl->mhi_tsync = mhi_tsync;
 	}
 
+	mhi_cntrl->bounce_buf = of_property_read_bool(of_node, "mhi,use-bb");
+	ret = of_property_read_u32(of_node, "mhi,buffer-len",
+				   (u32 *)&mhi_cntrl->buffer_len);
+	if (ret)
+		mhi_cntrl->buffer_len = MHI_MAX_MTU;
+
 	return 0;
 
 error_time_sync:
@@ -1131,6 +1137,14 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		spin_lock_init(&mhi_tsync->lock);
 		INIT_LIST_HEAD(&mhi_tsync->head);
 		init_completion(&mhi_tsync->completion);
+	}
+
+	if (mhi_cntrl->bounce_buf) {
+		mhi_cntrl->map_single = mhi_map_single_use_bb;
+		mhi_cntrl->unmap_single = mhi_unmap_single_use_bb;
+	} else {
+		mhi_cntrl->map_single = mhi_map_single_no_bb;
+		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
 	}
 
 	mhi_cntrl->parent = mhi_bus.dentry;
