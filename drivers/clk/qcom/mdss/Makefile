@@ -6,3 +6,5 @@ obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dp-pll-10nm-util.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-7nm.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dp-pll-7nm.o
 obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dp-pll-7nm-util.o
+obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-28lpm.o
+obj-$(CONFIG_QCOM_MDSS_PLL) += mdss-dsi-pll-28nm-util.o
