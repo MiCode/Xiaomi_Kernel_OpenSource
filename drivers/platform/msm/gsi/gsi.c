@@ -2236,6 +2236,10 @@ revrfy_chnlstate:
 		BUG();
 	}
 
+	/* Hardware issue fixed from GSI 2.0 and no need for the WA */
+	if (gsi_ctx->per.ver >= GSI_VER_2_0)
+		reset_done = true;
+
 	/* workaround: reset GSI producers again */
 	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && !reset_done) {
 		usleep_range(GSI_RESET_WA_MIN_SLEEP, GSI_RESET_WA_MAX_SLEEP);
