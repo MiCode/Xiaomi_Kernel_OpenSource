@@ -442,6 +442,11 @@
 		mboxes = <&apcs_glb 0>;
 	};
 
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
