@@ -593,7 +593,7 @@ err_ret:
 
 /*
  * gmu_dcvs_set() - request GMU to change GPU frequency and/or bandwidth.
- * @device: Pointer to the device
+ * @gmu: Pointer to GMU device
  * @gpu_pwrlevel: index to GPU DCVS table used by KGSL
  * @bus_level: index to GPU bus table used by KGSL
  *

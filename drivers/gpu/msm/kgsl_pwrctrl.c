@@ -27,8 +27,6 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_gmu.h"
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -223,18 +221,14 @@ static void kgsl_pwrctrl_vbif_update(unsigned long ab)
 static int kgsl_bus_scale_request(struct kgsl_device *device,
 		unsigned int buslevel)
 {
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
 	/* GMU scales BW */
-	if (gmu_core_gpmu_isenabled(device)) {
-		/* Zero bus level is invalid for GMU DCVS */
-		if (!test_bit(GMU_HFI_ON, &gmu->flags) || !buslevel)
-			return 0;
+	if (gmu_core_gpmu_isenabled(device))
+		return 0;
 
-		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
-	} else if (pwr->pcl) {
+	if (pwr->pcl) {
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	}
@@ -304,8 +298,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	unsigned long ab;
 
 	/* the bus should be ON to update the active frequency */
-	if (!gmu_core_gpmu_isenabled(device) && on &&
-			!(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
+	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
