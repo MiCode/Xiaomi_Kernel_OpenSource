@@ -72,6 +72,8 @@ enum print_reason {
 
 #define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
 
+#define ADC_CHG_TERM_MASK	32767
+
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
@@ -182,6 +184,12 @@ enum float_options {
 	FLOAT_SDP		= 2,
 	DISABLE_CHARGING	= 3,
 	SUSPEND_INPUT		= 4,
+};
+
+enum chg_term_config_src {
+	ITERM_SRC_UNSPECIFIED,
+	ITERM_SRC_ADC,
+	ITERM_SRC_ANALOG
 };
 
 struct smb_irq_info {
@@ -471,6 +479,8 @@ int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);

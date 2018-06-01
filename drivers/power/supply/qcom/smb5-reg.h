@@ -73,6 +73,11 @@ enum {
 
 #define CHGR_FAST_CHARGE_CURRENT_CFG_REG	(CHGR_BASE + 0x61)
 
+#define CHGR_ADC_ITERM_UP_THD_MSB_REG		(CHGR_BASE + 0x67)
+#define CHGR_ADC_ITERM_UP_THD_LSB_REG		(CHGR_BASE + 0x68)
+#define CHGR_ADC_ITERM_LO_THD_MSB_REG		(CHGR_BASE + 0x69)
+#define CHGR_ADC_ITERM_LO_THD_LSB_REG		(CHGR_BASE + 0x6A)
+
 #define CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG	(CHGR_BASE + 0x6B)
 #define NO_OF_SAMPLE_FOR_RCHG_SHIFT		2
 #define NO_OF_SAMPLE_FOR_RCHG			GENMASK(3, 2)
@@ -102,6 +107,10 @@ enum {
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
 
 #define CHGR_JEITA_THRESHOLD_BASE_REG(i)	(CHGR_BASE + 0x94 + (i * 4))
+
+#define CHGR_ENG_CHARGING_CFG_REG		(CHGR_BASE + 0xC0)
+#define CHGR_ITERM_USE_ANALOG_BIT		BIT(3)
+
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
