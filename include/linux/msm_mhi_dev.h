@@ -786,7 +786,7 @@ void mhi_ring_init(struct mhi_dev_ring *ring,
  * mhi_ring_start() - Fetches the respective transfer ring's context from
  *		the host and updates the write offset.
  * @ring:	Ring for the respective context - Channel/Event/Command.
- * @ctx:	Tranfer ring of type mhi_dev_ring_ctx.
+ * @ctx:	Transfer ring of type mhi_dev_ring_ctx.
  * @dev:	MHI device structure.
  */
 int mhi_ring_start(struct mhi_dev_ring *ring,
