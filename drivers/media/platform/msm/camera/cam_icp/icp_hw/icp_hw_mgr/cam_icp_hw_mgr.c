@@ -3341,6 +3341,15 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 
 	return rc;
 }
+static bool cam_icp_mgr_is_input_reference_buffer(uint32_t resource_type)
+{
+	if (resource_type == CAM_ICP_IPE_INPUT_IMAGE_FULL_REF ||
+		resource_type == CAM_ICP_IPE_INPUT_IMAGE_DS4_REF ||
+		resource_type == CAM_ICP_IPE_INPUT_IMAGE_DS16_REF)
+		return true;
+	else
+		return false;
+}
 
 static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_hw_ctx_data *ctx_data,
@@ -3360,6 +3369,9 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 
 	for (i = 0, j = 0, k = 0; i < packet->num_io_configs; i++) {
 		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT) {
+			if (cam_icp_mgr_is_input_reference_buffer(
+				io_cfg_ptr[i].resource_type))
+				continue;
 			sync_in_obj[j++] = io_cfg_ptr[i].fence;
 			prepare_args->num_in_map_entries++;
 		} else {
@@ -3367,8 +3379,9 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 				io_cfg_ptr[i].fence;
 			prepare_args->num_out_map_entries++;
 		}
-		CAM_DBG(CAM_ICP, "dir[%d]: %u, fence: %u",
-			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence);
+		CAM_DBG(CAM_ICP, "dir[%d]: %u, fence: %u resource_type = %u",
+			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence,
+			io_cfg_ptr[i].resource_type);
 	}
 
 	if (prepare_args->num_in_map_entries > 1) {
