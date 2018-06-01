@@ -30,6 +30,7 @@
 #define MDP_CORE_CLK_RATE_SVS	160000000
 #define MDP_CORE_CLK_RATE_SUPER_SVS	200000000
 #define MDP_CORE_CLK_RATE_MAX	307200000
+#define SEC_DEVICE_MDP3         1
 
 #define CLK_FUDGE_NUM		12
 #define CLK_FUDGE_DEN		10
@@ -92,6 +93,12 @@ enum {
 	DI_PARTITION_NUM = 0,
 	DI_DOMAIN_NUM = 1,
 	DI_MAX,
+};
+
+enum mdp3_sd_transition {
+	NO_TRANSITION,
+	NONSECURE_TO_SECURE,
+	SECURE_TO_NONSECURE,
 };
 
 struct mdp3_bus_handle_map {

@@ -47,6 +47,7 @@
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <linux/vmalloc.h>
+#include <soc/qcom/scm.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -2874,7 +2875,7 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 
 static int mdp3_probe(struct platform_device *pdev)
 {
-	int rc;
+	int rc, scm_ret = 0;
 	static struct msm_mdp_interface mdp3_interface = {
 	.init_fnc = mdp3_init,
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
@@ -2992,6 +2993,10 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("mdss smmu init failed\n");
 
 	__mdp3_set_supported_formats();
+
+	rc = scm_restore_sec_cfg(SEC_DEVICE_MDP3, 0, &scm_ret);
+	if (rc)
+		pr_err("Restore secure cfg failed\n");
 
 	mdp3_res->mdss_util->mdp_probe_done = true;
 	pr_debug("%s: END\n", __func__);
