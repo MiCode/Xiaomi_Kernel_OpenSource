@@ -14,7 +14,6 @@
 #define __KGSL_HFI_H
 
 #include <linux/types.h>
-#include "kgsl_gmu_core.h"
 
 #define HFI_QUEUE_SIZE			SZ_4K		/* bytes */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
