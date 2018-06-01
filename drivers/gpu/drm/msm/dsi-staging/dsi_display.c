@@ -614,12 +614,20 @@ exit:
 
 static int dsi_display_status_reg_read(struct dsi_display *display)
 {
-	int rc = 0, i;
+	int rc = 0, i, cmd_channel_idx = DSI_CTRL_LEFT;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
 	pr_debug(" ++\n");
 
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	/*
+	 * Check the Panel DSI command channel.
+	 * If the cmd_channel is set, then we should
+	 * choose the right DSI(DSI1) controller to send command,
+	 * else we choose the left(DSI0) controller.
+	 */
+	if (display->panel->esd_config.cmd_channel)
+		cmd_channel_idx = DSI_CTRL_RIGHT;
+	m_ctrl = &display->ctrl[cmd_channel_idx];
 
 	if (display->tx_cmd_buf == NULL) {
 		rc = dsi_host_alloc_cmd_tx_buffer(display);
