@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -833,6 +833,7 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
+	F(8000000, P_CAM_CC_PLL2_OUT_EVEN, 10, 1, 6),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_CAM_CC_PLL2_OUT_EVEN, 10, 1, 2),
 	F(33333333, P_CAM_CC_PLL0_OUT_EVEN, 2, 1, 9),
