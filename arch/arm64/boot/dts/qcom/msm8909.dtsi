@@ -1942,3 +1942,4 @@
 	clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>;
 	status = "okay";
 };
+#include "msm8909-thermal.dtsi"
