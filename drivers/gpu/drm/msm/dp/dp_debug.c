@@ -399,6 +399,72 @@ static ssize_t dp_debug_mst_mode_write(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_max_pclk_khz_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 max_pclk = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return 0;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &max_pclk) != 0)
+		return 0;
+
+	if (max_pclk > debug->parser->max_pclk_khz)
+		pr_err("requested: %d, max_pclk_khz:%d\n", max_pclk,
+				debug->parser->max_pclk_khz);
+	else
+		debug->dp_debug.max_pclk_khz = max_pclk;
+
+	pr_debug("max_pclk_khz: %d\n", max_pclk);
+
+	return len;
+}
+
+static ssize_t dp_debug_max_pclk_khz_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, (SZ_4K - len),
+			"max_pclk_khz = %d, org: %d\n",
+			debug->dp_debug.max_pclk_khz,
+			debug->parser->max_pclk_khz);
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+	kfree(buf);
+	return len;
+}
+
 static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -1154,6 +1220,12 @@ static const struct file_operations mst_sideband_mode_fops = {
 	.write = dp_debug_mst_sideband_mode_write,
 };
 
+static const struct file_operations max_pclk_khz_fops = {
+	.open = simple_open,
+	.write = dp_debug_max_pclk_khz_write,
+	.read = dp_debug_max_pclk_khz_read,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1306,6 +1378,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	if (IS_ERR_OR_NULL(file)) {
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_file("max_pclk_khz", 0644, dir,
+			debug, &max_pclk_khz_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs max_pclk_khz failed, rc=%d\n",
 		       DEBUG_NAME, rc);
 	}
 

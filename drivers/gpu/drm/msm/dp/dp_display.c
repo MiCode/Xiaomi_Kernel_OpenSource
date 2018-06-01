@@ -564,7 +564,12 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->link->process_request(dp->link);
 	dp->panel->handle_sink_request(dp->panel);
 
-	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+	if (dp->debug->max_pclk_khz)
+		dp->dp_display.max_pclk_khz = dp->debug->max_pclk_khz;
+	else
+		dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+
+	pr_debug("dp max_pclk_khz = %d\n", dp->dp_display.max_pclk_khz);
 
 	dp_display_process_mst_hpd_high(dp);
 notify:
