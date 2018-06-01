@@ -253,6 +253,8 @@ struct msm_vidc_format {
 	int type;
 	u32 (*get_frame_size)(int plane, u32 height, u32 width);
 	bool defer_outputs;
+	u32 input_min_count;
+	u32 output_min_count;
 };
 
 struct msm_vidc_drv {
@@ -320,8 +322,6 @@ struct clock_data {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	unsigned int extra_capture_buffer_count;
-	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
 	bool dcvs_mode;
 	unsigned long bitrate;

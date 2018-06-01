@@ -103,6 +103,8 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst,
 int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
+int msm_comm_set_buffer_count(struct msm_vidc_inst *inst,
+	int host_count, int act_count, enum hal_buffer type);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
@@ -119,7 +121,6 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 int msm_comm_suspend(int core_id);
-int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	enum v4l2_mpeg_vidc_extradata index);
 struct hal_buffer_requirements *get_buff_req_buffer(
