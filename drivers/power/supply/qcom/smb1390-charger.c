@@ -100,6 +100,7 @@ struct smb1390 {
 	struct regmap		*regmap;
 	struct notifier_block	nb;
 	struct class		cp_class;
+	struct wakeup_source	*cp_ws;
 
 	/* work structs */
 	struct work_struct	status_change_work;
@@ -114,6 +115,7 @@ struct smb1390 {
 	struct votable		*pl_disable_votable;
 	struct votable		*fcc_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
+	struct votable		*cp_awake_votable;
 
 	/* power supplies */
 	struct power_supply	*usb_psy;
@@ -378,11 +380,12 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		if (rc < 0)
 			return rc;
 
-		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 		vote(chip->pl_disable_votable, CP_VOTER, false, 0);
+		vote(chip->cp_awake_votable, CP_VOTER, false, 0);
 	} else {
 		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, true, 0);
 		vote(chip->pl_disable_votable, CP_VOTER, true, 0);
+		vote(chip->cp_awake_votable, CP_VOTER, true, 0);
 		rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
 				   CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
 		if (rc < 0)
@@ -426,6 +429,20 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	}
 
 	return rc;
+}
+
+static int smb1390_awake_vote_cb(struct votable *votable, void *data,
+				int awake, const char *client)
+{
+	struct smb1390 *chip = data;
+
+	if (awake)
+		__pm_stay_awake(chip->cp_ws);
+	else
+		__pm_relax(chip->cp_ws);
+
+	pr_debug("client: %s awake: %d\n", client, awake);
+	return 0;
 }
 
 static int smb1390_notifier_cb(struct notifier_block *nb,
@@ -589,6 +606,11 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	if (IS_ERR(chip->ilim_votable))
 		return PTR_ERR(chip->ilim_votable);
 
+	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
+			smb1390_awake_vote_cb, chip);
+	if (IS_ERR(chip->cp_awake_votable))
+		return PTR_ERR(chip->cp_awake_votable);
+
 	return 0;
 }
 
@@ -722,15 +744,20 @@ static int smb1390_probe(struct platform_device *pdev)
 	rc = smb1390_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		goto out_work;
+		return rc;
 	}
 
 	chip->vadc_dev = qpnp_get_vadc(chip->dev, "smb");
 	if (IS_ERR(chip->vadc_dev)) {
 		rc = PTR_ERR(chip->vadc_dev);
-		pr_err("Couldn't get vadc dev rc=%d\n", rc);
-		goto out_work;
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't get vadc dev rc=%d\n", rc);
+		return rc;
 	}
+
+	chip->cp_ws = wakeup_source_register("qcom-chargepump");
+	if (!chip->cp_ws)
+		return rc;
 
 	rc = smb1390_create_votables(chip);
 	if (rc < 0) {
@@ -778,6 +805,7 @@ out_votables:
 out_work:
 	cancel_work(&chip->taper_work);
 	cancel_work(&chip->status_change_work);
+	wakeup_source_unregister(chip->cp_ws);
 	return rc;
 }
 
@@ -790,8 +818,10 @@ static int smb1390_remove(struct platform_device *pdev)
 
 	/* explicitly disable charging */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 	cancel_work(&chip->taper_work);
 	cancel_work(&chip->status_change_work);
+	wakeup_source_unregister(chip->cp_ws);
 	smb1390_destroy_votables(chip);
 	return 0;
 }
