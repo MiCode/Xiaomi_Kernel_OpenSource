@@ -21,6 +21,8 @@
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
 		qcom,use-3-lvl-tables;
+		qcom,no-asid-retention;
+		qcom,disable-atos;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
