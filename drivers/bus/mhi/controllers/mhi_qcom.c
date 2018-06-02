@@ -345,6 +345,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_dev *mhi_dev;
 	struct device_node *of_node = pci_dev->dev.of_node;
+	bool use_bb;
 	u64 addr_win[2];
 	int ret;
 
@@ -367,9 +368,14 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	if (ret)
 		goto error_register;
 
-	/* if s1 translation enabled pull iova addr from dt */
-	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
-	    !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS)) {
+	use_bb = of_property_read_bool(of_node, "mhi,use-bb");
+
+	/*
+	 * if s1 translation enabled or using bounce buffer pull iova addr
+	 * from dt
+	 */
+	if (use_bb || (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
+		       !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))) {
 		ret = of_property_count_elems_of_size(of_node, "qcom,addr-win",
 						      sizeof(addr_win));
 		if (ret != 1)
@@ -387,7 +393,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_dev->iova_stop = addr_win[1];
 
 	/*
-	 * if S1 is enabled, set MHI_CTRL start address to 0 so we can use low
+	 * If S1 is enabled, set MHI_CTRL start address to 0 so we can use low
 	 * level mapping api to map buffers outside of smmu domain
 	 */
 	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
