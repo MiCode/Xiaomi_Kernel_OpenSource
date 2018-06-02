@@ -708,7 +708,7 @@
 			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		iommus = <&apps_smmu 0x00d6 0x0>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
@@ -724,7 +724,7 @@
 			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		iommus = <&apps_smmu 0x0376 0x0>;
