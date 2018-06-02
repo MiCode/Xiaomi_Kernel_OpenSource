@@ -1035,7 +1035,6 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hal_video_work_route pdata;
-	u32 yuv_size = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1059,7 +1058,6 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
-		u32 rc_mode = 0;
 		u32 slice_mode = 0;
 
 		switch (inst->fmts[CAPTURE_PORT].fourcc) {
@@ -1069,23 +1067,11 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 			goto decision_done;
 		}
 
-		yuv_size = inst->prop.height[CAPTURE_PORT] *
-				inst->prop.width[CAPTURE_PORT];
-
-		if ((yuv_size <= 1920 * 1088) &&
-			inst->prop.fps <= 60) {
-			rc_mode =  msm_comm_g_ctrl_for_id(inst,
-					V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-			slice_mode =  msm_comm_g_ctrl_for_id(inst,
-					V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-
-			if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) ||
-				(rc_mode ==
-				 V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) ||
-				(slice_mode ==
-				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES)) {
-				pdata.video_work_route = 1;
-			}
+		slice_mode =  msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+		if (slice_mode ==
+			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
+			pdata.video_work_route = 1;
 		}
 	} else {
 		return -EINVAL;
@@ -1123,7 +1109,6 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 
 	if (inst->clk_data.low_latency_mode) {
 		pdata.video_work_mode = VIDC_WORK_MODE_1;
-
 		goto decision_done;
 	}
 
@@ -1146,26 +1131,27 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
-		u32 rc_mode = 0;
-		u32 slice_mode = 0;
+		u32 codec = inst->fmts[CAPTURE_PORT].fourcc;
+		u32 width = inst->prop.width[OUTPUT_PORT];
 
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		pdata.video_work_mode = VIDC_WORK_MODE_2;
 
-		switch (inst->fmts[CAPTURE_PORT].fourcc) {
+		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
+		{
+			if (width <= 3840)  {
+				pdata.video_work_mode = VIDC_WORK_MODE_1;
+				goto decision_done;
+			}
+			break;
+		}
 		case V4L2_PIX_FMT_TME:
+		{
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
 			goto decision_done;
 		}
+		}
 
-		slice_mode =  msm_comm_g_ctrl_for_id(inst,
-				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		rc_mode =  msm_comm_g_ctrl_for_id(inst,
-				V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if ((slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) &&
-			((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) ||
-			 (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR) ||
-			 (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)))
-			pdata.video_work_mode = VIDC_WORK_MODE_2;
 	} else {
 		return -EINVAL;
 	}
