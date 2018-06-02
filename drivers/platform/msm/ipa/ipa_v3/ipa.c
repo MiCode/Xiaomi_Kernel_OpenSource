@@ -2122,6 +2122,9 @@ static void ipa3_q6_avoid_holb(void)
 	ep_holb.tmr_val = 0;
 	ep_holb.en = 1;
 
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2)
+		ipa3_cal_ep_holb_scale_base_val(ep_holb.tmr_val, &ep_holb);
+
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
 			ep_idx = ipa3_get_ep_mapping(client_idx);
@@ -2224,6 +2227,15 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	if ((ip >= IPA_IP_MAX) || (rlt >= IPA_RULE_TYPE_MAX)) {
 		IPAERR("Input Err: ip=%d ; rlt=%d\n", ip, rlt);
 		return -EINVAL;
+	}
+
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (rlt == IPA_RULE_HASHABLE && ipa3_ctx->ipa_fltrt_not_hashable) {
+		IPADBG("Clean hashable rules not supported\n");
+		return retval;
 	}
 
 	/* Up to filtering pipes we have filtering tables */
@@ -2344,6 +2356,15 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 		return -EINVAL;
 	}
 
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (rlt == IPA_RULE_HASHABLE && ipa3_ctx->ipa_fltrt_not_hashable) {
+		IPADBG("Clean hashable rules not supported\n");
+		return retval;
+	}
+
 	if (ip == IPA_IP_v4) {
 		modem_rt_index_lo = IPA_MEM_PART(v4_modem_rt_index_lo);
 		modem_rt_index_hi = IPA_MEM_PART(v4_modem_rt_index_hi);
@@ -2417,7 +2438,7 @@ static int ipa3_q6_clean_q6_tables(void)
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
-	int retval;
+	int retval = 0;
 	struct ipahal_reg_fltrt_hash_flush flush;
 	struct ipahal_reg_valmask valmask;
 
@@ -2458,6 +2479,12 @@ static int ipa3_q6_clean_q6_tables(void)
 		return -EFAULT;
 	}
 
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable)
+		return retval;
 	/* Flush rules cache */
 	desc = kzalloc(sizeof(struct ipa3_desc), GFP_KERNEL);
 	if (!desc)
@@ -2856,10 +2883,21 @@ int _ipa_init_rt4_v3(void)
 		return rc;
 	}
 
-	v4_cmd.hash_rules_addr = mem.phys_base;
-	v4_cmd.hash_rules_size = mem.size;
-	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_rt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v4_cmd.hash_rules_addr = 0;
+		v4_cmd.hash_rules_size = 0;
+		v4_cmd.hash_local_addr = 0;
+	} else {
+		v4_cmd.hash_rules_addr = mem.phys_base;
+		v4_cmd.hash_rules_size = mem.size;
+		v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v4_rt_hash_ofst);
+	}
+
 	v4_cmd.nhash_rules_addr = mem.phys_base;
 	v4_cmd.nhash_rules_size = mem.size;
 	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2919,10 +2957,21 @@ int _ipa_init_rt6_v3(void)
 		return rc;
 	}
 
-	v6_cmd.hash_rules_addr = mem.phys_base;
-	v6_cmd.hash_rules_size = mem.size;
-	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_rt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v6_cmd.hash_rules_addr = 0;
+		v6_cmd.hash_rules_size = 0;
+		v6_cmd.hash_local_addr = 0;
+	} else {
+		v6_cmd.hash_rules_addr = mem.phys_base;
+		v6_cmd.hash_rules_size = mem.size;
+		v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v6_rt_hash_ofst);
+	}
+
 	v6_cmd.nhash_rules_addr = mem.phys_base;
 	v6_cmd.nhash_rules_size = mem.size;
 	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2976,10 +3025,21 @@ int _ipa_init_flt4_v3(void)
 		return rc;
 	}
 
-	v4_cmd.hash_rules_addr = mem.phys_base;
-	v4_cmd.hash_rules_size = mem.size;
-	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_flt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v4_cmd.hash_rules_addr = 0;
+		v4_cmd.hash_rules_size = 0;
+		v4_cmd.hash_local_addr = 0;
+	} else {
+		v4_cmd.hash_rules_addr = mem.phys_base;
+		v4_cmd.hash_rules_size = mem.size;
+		v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v4_flt_hash_ofst);
+	}
+
 	v4_cmd.nhash_rules_addr = mem.phys_base;
 	v4_cmd.nhash_rules_size = mem.size;
 	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -3033,10 +3093,21 @@ int _ipa_init_flt6_v3(void)
 		return rc;
 	}
 
-	v6_cmd.hash_rules_addr = mem.phys_base;
-	v6_cmd.hash_rules_size = mem.size;
-	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_flt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v6_cmd.hash_rules_addr = 0;
+		v6_cmd.hash_rules_size = 0;
+		v6_cmd.hash_local_addr = 0;
+	} else {
+		v6_cmd.hash_rules_addr = mem.phys_base;
+		v6_cmd.hash_rules_size = mem.size;
+		v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v6_flt_hash_ofst);
+	}
+
 	v6_cmd.nhash_rules_addr = mem.phys_base;
 	v6_cmd.nhash_rules_size = mem.size;
 	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -3173,20 +3244,21 @@ static int ipa3_setup_apps_pipes(void)
 	ipa3_ctx->ctrl->ipa_init_flt6();
 	IPADBG("V6 FLT initialized\n");
 
-	if (ipa3_setup_flt_hash_tuple()) {
-		IPAERR(":fail to configure flt hash tuple\n");
-		result = -EPERM;
-		goto fail_flt_hash_tuple;
-	}
-	IPADBG("flt hash tuple is configured\n");
+	if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+		if (ipa3_setup_flt_hash_tuple()) {
+			IPAERR(":fail to configure flt hash tuple\n");
+			result = -EPERM;
+			goto fail_flt_hash_tuple;
+		}
+		IPADBG("flt hash tuple is configured\n");
 
-	if (ipa3_setup_rt_hash_tuple()) {
-		IPAERR(":fail to configure rt hash tuple\n");
-		result = -EPERM;
-		goto fail_flt_hash_tuple;
+		if (ipa3_setup_rt_hash_tuple()) {
+			IPAERR(":fail to configure rt hash tuple\n");
+			result = -EPERM;
+			goto fail_flt_hash_tuple;
+		}
+		IPADBG("rt hash tuple is configured\n");
 	}
-	IPADBG("rt hash tuple is configured\n");
-
 	if (ipa3_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");
 		result = -EPERM;
@@ -4389,6 +4461,9 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	case IPA_HW_v4_1:
 		gsi_ver = GSI_VER_2_0;
 		break;
+	case IPA_HW_v4_2:
+		gsi_ver = GSI_VER_2_2;
+		break;
 	default:
 		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
 		WARN_ON(1);
@@ -5017,6 +5092,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
+	ipa3_ctx->ipa_fltrt_not_hashable = resource_p->ipa_fltrt_not_hashable;
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
@@ -5566,6 +5642,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_tz_unlock_reg = NULL;
 	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
+	ipa_drv_res->ipa_fltrt_not_hashable = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -5637,6 +5714,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2");
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
+			? "True" : "False");
+
+	ipa_drv_res->ipa_fltrt_not_hashable =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-fltrt-not-hashable");
+	IPADBG(": IPA filter/route rule hashable = %s\n",
+			ipa_drv_res->ipa_fltrt_not_hashable
 			? "True" : "False");
 
 	ipa_drv_res->use_64_bit_dma_mask =

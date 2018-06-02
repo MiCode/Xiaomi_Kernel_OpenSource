@@ -57,6 +57,7 @@
 #define IPA_BCR_REG_VAL_v3_0 (0x00000001)
 #define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
 #define IPA_BCR_REG_VAL_v4_0 (0x00000039)
+#define IPA_BCR_REG_VAL_v4_2 (0x00000000)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -141,6 +142,9 @@
 #define IPA_v4_0_SRC_GROUP_MAX		(4)
 #define IPA_v4_0_DST_GROUP_MAX		(4)
 
+#define IPA_v4_2_GROUP_UL_DL		(0)
+#define IPA_v4_2_SRC_GROUP_MAX		(1)
+#define IPA_v4_2_DST_GROUP_MAX		(1)
 #define IPA_GROUP_MAX IPA_v3_0_GROUP_MAX
 
 enum ipa_rsrc_grp_type_src {
@@ -210,6 +214,7 @@ enum ipa_ver {
 	IPA_4_0,
 	IPA_4_0_MHI,
 	IPA_4_1,
+	IPA_4_2,
 	IPA_VER_MAX,
 };
 
@@ -312,6 +317,19 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{14, 14}, {20, 20}, {0, 0}, {14, 14}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_2] = {
+		/* UL_DL   other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{3, 63}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{10, 10}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{1, 1}, {0, 0}, {0, 0},  {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{5, 5}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+	},
 
 };
 
@@ -368,6 +386,13 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{2, 63}, {1, 63}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_2] = {
+		/*UL/DL/DPL, other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{1, 63}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
@@ -407,6 +432,11 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
 		{3, 3}, {7, 7}, {0, 0}, {2, 2}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_2] = {
+		/* UL_DL, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{4, 4}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+	},
 
 };
 
@@ -439,6 +469,10 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 	[IPA_4_1] = {
 		/* LWA_DL UL_DL	not used UC_RX_Q, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 1, 1, 1, 0, 0 },
+	},
+	[IPA_4_2] = {
+		/* UL_DL, other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 0, 0, 0, 0, 0 },
 	},
 };
 
@@ -1792,6 +1826,97 @@ static struct ipa3_mem_partition ipa_4_1_mem_part = {
 	.stats_drop_size		= 0x20,
 };
 
+static struct ipa3_mem_partition ipa_4_2_mem_part = {
+	.ofst_start			= 0x280,
+	.nat_ofst			= 0x0,
+	.nat_size			= 0x0,
+	.v4_flt_hash_ofst		= 0x288,
+	.v4_flt_hash_size		= 0x0,
+	.v4_flt_hash_size_ddr		= 0x0,
+	.v4_flt_nhash_ofst		= 0x290,
+	.v4_flt_nhash_size		= 0x78,
+	.v4_flt_nhash_size_ddr		= 0x4000,
+	.v6_flt_hash_ofst		= 0x310,
+	.v6_flt_hash_size		= 0x0,
+	.v6_flt_hash_size_ddr		= 0x0,
+	.v6_flt_nhash_ofst		= 0x318,
+	.v6_flt_nhash_size		= 0x78,
+	.v6_flt_nhash_size_ddr		= 0x4000,
+	.v4_rt_num_index		= 0xf,
+	.v4_modem_rt_index_lo		= 0x0,
+	.v4_modem_rt_index_hi		= 0x7,
+	.v4_apps_rt_index_lo		= 0x8,
+	.v4_apps_rt_index_hi		= 0xe,
+	.v4_rt_hash_ofst		= 0x398,
+	.v4_rt_hash_size		= 0x0,
+	.v4_rt_hash_size_ddr		= 0x0,
+	.v4_rt_nhash_ofst		= 0x3A0,
+	.v4_rt_nhash_size		= 0x78,
+	.v4_rt_nhash_size_ddr		= 0x4000,
+	.v6_rt_num_index		= 0xf,
+	.v6_modem_rt_index_lo		= 0x0,
+	.v6_modem_rt_index_hi		= 0x7,
+	.v6_apps_rt_index_lo		= 0x8,
+	.v6_apps_rt_index_hi		= 0xe,
+	.v6_rt_hash_ofst		= 0x420,
+	.v6_rt_hash_size		= 0x0,
+	.v6_rt_hash_size_ddr		= 0x0,
+	.v6_rt_nhash_ofst		= 0x428,
+	.v6_rt_nhash_size		= 0x78,
+	.v6_rt_nhash_size_ddr		= 0x4000,
+	.modem_hdr_ofst			= 0x4A8,
+	.modem_hdr_size			= 0x140,
+	.apps_hdr_ofst			= 0x5E8,
+	.apps_hdr_size			= 0x0,
+	.apps_hdr_size_ddr		= 0x800,
+	.modem_hdr_proc_ctx_ofst	= 0x5F0,
+	.modem_hdr_proc_ctx_size	= 0x200,
+	.apps_hdr_proc_ctx_ofst		= 0x7F0,
+	.apps_hdr_proc_ctx_size		= 0x200,
+	.apps_hdr_proc_ctx_size_ddr	= 0x0,
+	.modem_comp_decomp_ofst		= 0x0,
+	.modem_comp_decomp_size		= 0x0,
+	.modem_ofst			= 0xbf0,
+	.modem_size			= 0x100c,
+	.apps_v4_flt_hash_ofst		= 0x1bfc,
+	.apps_v4_flt_hash_size		= 0x0,
+	.apps_v4_flt_nhash_ofst		= 0x1bfc,
+	.apps_v4_flt_nhash_size		= 0x0,
+	.apps_v6_flt_hash_ofst		= 0x1bfc,
+	.apps_v6_flt_hash_size		= 0x0,
+	.apps_v6_flt_nhash_ofst		= 0x1bfc,
+	.apps_v6_flt_nhash_size		= 0x0,
+	.uc_info_ofst			= 0x80,
+	.uc_info_size			= 0x200,
+	.end_ofst			= 0x2000,
+	.apps_v4_rt_hash_ofst		= 0x1bfc,
+	.apps_v4_rt_hash_size		= 0x0,
+	.apps_v4_rt_nhash_ofst		= 0x1bfc,
+	.apps_v4_rt_nhash_size		= 0x0,
+	.apps_v6_rt_hash_ofst		= 0x1bfc,
+	.apps_v6_rt_hash_size		= 0x0,
+	.apps_v6_rt_nhash_ofst		= 0x1bfc,
+	.apps_v6_rt_nhash_size		= 0x0,
+	.uc_event_ring_ofst		= 0x1c00,
+	.uc_event_ring_size		= 0x400,
+	.pdn_config_ofst		= 0x9F8,
+	.pdn_config_size		= 0x50,
+	.stats_quota_ofst		= 0xa50,
+	.stats_quota_size		= 0x60,
+	.stats_tethering_ofst		= 0xab0,
+	.stats_tethering_size		= 0x140,
+	.stats_flt_v4_ofst		= 0xbf0,
+	.stats_flt_v4_size		= 0x0,
+	.stats_flt_v6_ofst		= 0xbf0,
+	.stats_flt_v6_size		= 0x0,
+	.stats_rt_v4_ofst		= 0xbf0,
+	.stats_rt_v4_size		= 0x0,
+	.stats_rt_v6_ofst		= 0xbf0,
+	.stats_rt_v6_size		= 0x0,
+	.stats_drop_ofst		= 0xbf0,
+	.stats_drop_size		= 0x0,
+};
+
 /**
  * ipa3_get_clients_from_rm_resource() - get IPA clients which are related to an
  * IPA_RM resource
@@ -2337,6 +2462,9 @@ int ipa3_init_hw(void)
 	case IPA_HW_v4_1:
 		val = IPA_BCR_REG_VAL_v4_0;
 		break;
+	case IPA_HW_v4_2:
+		val = IPA_BCR_REG_VAL_v4_2;
+		break;
 	default:
 		IPAERR("unknown HW type in dts\n");
 		return -EFAULT;
@@ -2410,6 +2538,9 @@ u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v4_1:
 		hw_type_index = IPA_4_1;
+		break;
+	case IPA_HW_v4_2:
+		hw_type_index = IPA_4_2;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -3278,8 +3409,13 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 		if (ep_mode->mode == IPA_DMA)
 			type = IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY;
 		else
-			type =
-			   IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP;
+			/* In IPA4.2 only single pass only supported*/
+			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2)
+				type =
+				IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_NO_UCP;
+			else
+				type =
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP;
 
 		IPADBG(" set sequencers to sequance 0x%x, ep = %d\n", type,
 				clnt_hdl);
@@ -3432,6 +3568,34 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	return 0;
 }
 
+#define MAX_ALLOWED_BASE_VAL 0x1f
+#define MAX_ALLOWED_SCALE_VAL 0x1f
+
+/**
+ * ipa3_cal_ep_holb_scale_base_val - calculate base and scale value from tmr_val
+ *
+ * In IPA4.2 HW version need configure base and scale value in HOL timer reg
+ * @tmr_val: [in] timer value for HOL timer
+ * @ipa_ep_cfg: [out] Fill IPA end-point configuration base and scale value
+ *			and return
+ */
+void ipa3_cal_ep_holb_scale_base_val(u32 tmr_val,
+				struct ipa_ep_cfg_holb *ep_holb)
+{
+	u32 base_val, scale, scale_val = 1, base = 2;
+
+	for (scale = 0; scale <= MAX_ALLOWED_SCALE_VAL; scale++) {
+		base_val = tmr_val/scale_val;
+		if (scale != 0)
+			scale_val *= base;
+		if (base_val <= MAX_ALLOWED_BASE_VAL)
+			break;
+	}
+	ep_holb->base_val = base_val;
+	ep_holb->scale = scale_val;
+
+}
+
 /**
  * ipa3_cfg_ep_holb() - IPA end-point holb configuration
  *
@@ -3467,9 +3631,15 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
 		ep_holb);
-
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, clnt_hdl,
-		ep_holb);
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
+		ipa3_cal_ep_holb_scale_base_val(ep_holb->tmr_val,
+				&ipa3_ctx->ep[clnt_hdl].holb);
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+			clnt_hdl, &ipa3_ctx->ep[clnt_hdl].holb);
+	} else {
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+			clnt_hdl, ep_holb);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
@@ -3779,6 +3949,9 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 	switch (type) {
 	case IPA_HW_v4_1:
 		ipa3_ctx->ctrl->mem_partition = &ipa_4_1_mem_part;
+		break;
+	case IPA_HW_v4_2:
+		ipa3_ctx->ctrl->mem_partition = &ipa_4_2_mem_part;
 		break;
 
 	case IPA_HW_None:
@@ -5041,6 +5214,36 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 			}
 		}
 		break;
+	case IPA_4_2:
+		if (src) {
+			switch (group_index) {
+			case IPA_v4_2_GROUP_UL_DL:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			default:
+				IPAERR(
+				" Invalid source resource group,index #%d\n",
+				group_index);
+				break;
+			}
+		} else {
+			switch (group_index) {
+			case IPA_v4_2_GROUP_UL_DL:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			default:
+				IPAERR(
+				" Invalid destination resource group,index #%d\n",
+				group_index);
+				break;
+			}
+		}
+		break;
+
 	default:
 		IPAERR("invalid hw type\n");
 		WARN_ON(1);
@@ -5150,6 +5353,12 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		src_grp_idx_max = IPA_v4_0_SRC_GROUP_MAX;
 		dst_grp_idx_max = IPA_v4_0_DST_GROUP_MAX;
 		break;
+	case IPA_4_2:
+		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
+		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
+		src_grp_idx_max = IPA_v4_2_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_2_DST_GROUP_MAX;
+		break;
 	default:
 		IPAERR("invalid hw type index\n");
 		WARN_ON(1);
@@ -5203,7 +5412,9 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		ipa3_configure_rx_hps_clients(1, false);
 	}
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
+	/* In IPA4.2 no support to HPS weight config*/
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5 &&
+		(ipa3_ctx->ipa_hw_type != IPA_HW_v4_2))
 		ipa3_configure_rx_hps_weight();
 
 	IPADBG("EXIT\n");
@@ -5620,6 +5831,7 @@ bool ipa3_is_msm_device(void)
 	case IPA_HW_v3_1:
 	case IPA_HW_v3_5_1:
 	case IPA_HW_v4_1:
+	case IPA_HW_v4_2:
 		return true;
 	default:
 		IPAERR("unknown HW type %d\n", ipa3_ctx->ipa_hw_type);
