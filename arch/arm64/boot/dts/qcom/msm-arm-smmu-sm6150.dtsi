@@ -18,7 +18,7 @@
 		reg = <0x50a0000 0x10000>,
 			<0x50c2000 0x20>;
 		reg-names = "base", "tcu-base";
-		#iommu-cells = <1>;
+		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
@@ -200,7 +200,7 @@
 		 * the SMMU driver. Our test uses ATOS, which doesn't use SIDs
 		 * anyways, so using a dummy value is ok.
 		 */
-		iommus = <&kgsl_smmu 0x7>;
+		iommus = <&kgsl_smmu 0x7 0>;
 	};
 
 	apps_iommu_test_device {
