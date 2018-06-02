@@ -181,7 +181,7 @@ void mhi_assert_dev_wake(struct mhi_controller *mhi_cntrl, bool force)
 	if (unlikely(force)) {
 		spin_lock_irqsave(&mhi_cntrl->wlock, flags);
 		atomic_inc(&mhi_cntrl->dev_wake);
-		if (MHI_WAKE_DB_ACCESS_VALID(mhi_cntrl->pm_state) &&
+		if (MHI_WAKE_DB_FORCE_SET_VALID(mhi_cntrl->pm_state) &&
 		    !mhi_cntrl->wake_set) {
 			mhi_write_db(mhi_cntrl, mhi_cntrl->wake_db, 1);
 			mhi_cntrl->wake_set = true;
@@ -194,7 +194,7 @@ void mhi_assert_dev_wake(struct mhi_controller *mhi_cntrl, bool force)
 
 		spin_lock_irqsave(&mhi_cntrl->wlock, flags);
 		if ((atomic_inc_return(&mhi_cntrl->dev_wake) == 1) &&
-		    MHI_WAKE_DB_ACCESS_VALID(mhi_cntrl->pm_state) &&
+		    MHI_WAKE_DB_SET_VALID(mhi_cntrl->pm_state) &&
 		    !mhi_cntrl->wake_set) {
 			mhi_write_db(mhi_cntrl, mhi_cntrl->wake_db, 1);
 			mhi_cntrl->wake_set = true;
@@ -216,7 +216,7 @@ void mhi_deassert_dev_wake(struct mhi_controller *mhi_cntrl, bool override)
 
 	spin_lock_irqsave(&mhi_cntrl->wlock, flags);
 	if ((atomic_dec_return(&mhi_cntrl->dev_wake) == 0) &&
-	    MHI_WAKE_DB_ACCESS_VALID(mhi_cntrl->pm_state) && !override &&
+	    MHI_WAKE_DB_CLEAR_VALID(mhi_cntrl->pm_state) && !override &&
 	    mhi_cntrl->wake_set) {
 		mhi_write_db(mhi_cntrl, mhi_cntrl->wake_db, 0);
 		mhi_cntrl->wake_set = false;
@@ -329,7 +329,7 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 	}
 	mhi_cntrl->M0++;
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, true);
+	mhi_cntrl->wake_get(mhi_cntrl, false);
 
 	/* ring all event rings and CMD ring only if we're in AMSS */
 	if (mhi_cntrl->ee == MHI_EE_AMSS) {
@@ -1069,7 +1069,7 @@ static int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	int ret;
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+	mhi_cntrl->wake_get(mhi_cntrl, true);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
 		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
@@ -1100,7 +1100,7 @@ void mhi_device_get(struct mhi_device *mhi_dev)
 
 	atomic_inc(&mhi_dev->dev_wake);
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+	mhi_cntrl->wake_get(mhi_cntrl, true);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 }
 EXPORT_SYMBOL(mhi_device_get);
