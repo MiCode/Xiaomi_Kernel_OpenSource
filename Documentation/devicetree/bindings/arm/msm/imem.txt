@@ -73,6 +73,11 @@ USB Diag Cookies:
 Memory region used to store USB PID and serial numbers to be used by
 bootloader in download mode.
 
+SSR Minidump Offset
+-------------------
+-Compatible: "qcom,msm-imem-minidump"
+-reg: start address and size of ssr imem region
+
 Required properties:
 -compatible: "qcom,msm-imem-diag-dload"
 -reg: start address and size of USB Diag download mode region in imem
@@ -120,5 +125,10 @@ Example:
 		emergency_download_mode@fe0 {
 			compatible = "qcom,msm-imem-emergency_download_mode";
 			reg = <0xfe0 12>;
+		};
+
+		ss_mdump@b88 {
+			compatible = "qcom,msm-imem-minidump";
+			reg = <0xb88 28>;
 		};
 	};
