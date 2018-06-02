@@ -374,6 +374,7 @@ struct cpr_regulator {
 	u32		num_corners;
 	int		*quot_adjust;
 	int		*mem_acc_corner_map;
+	unsigned int	*vdd_mode_map;
 
 	int			num_adj_cpus;
 	int			*adj_cpus;
@@ -1398,6 +1399,7 @@ static int cpr_calculate_de_aging_margin(struct cpr_regulator *cpr_vreg)
 	u32 save_ctl, save_irq;
 	cpumask_t tmp_mask;
 	int rc = 0, i;
+	unsigned int current_mode;
 
 	save_ctl = cpr_read(cpr_vreg, REG_RBCPR_CTL);
 	save_irq = cpr_read(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line));
@@ -1420,6 +1422,13 @@ static int cpr_calculate_de_aging_margin(struct cpr_regulator *cpr_vreg)
 		cpr_err(cpr_vreg, "Unable to set aging reference voltage, rc = %d\n",
 			rc);
 		return rc;
+	}
+
+	current_mode = regulator_get_mode(cpr_vreg->vdd_apc);
+	if (current_mode < 0) {
+		cpr_err(cpr_vreg, "Failed to get vdd-supply mode, error=%d\n",
+			current_mode);
+		return current_mode;
 	}
 
 	/* Force PWM mode */
@@ -1447,10 +1456,10 @@ static int cpr_calculate_de_aging_margin(struct cpr_regulator *cpr_vreg)
 	put_online_cpus();
 
 	/* Set to initial mode */
-	rc = regulator_set_mode(cpr_vreg->vdd_apc, REGULATOR_MODE_IDLE);
+	rc = regulator_set_mode(cpr_vreg->vdd_apc, current_mode);
 	if (rc) {
 		cpr_err(cpr_vreg, "unable to configure vdd-supply for mode=%u, rc=%d\n",
-			REGULATOR_MODE_IDLE, rc);
+			current_mode, rc);
 		return rc;
 	}
 
@@ -1510,6 +1519,17 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 	rc = cpr_scale_voltage(cpr_vreg, corner, new_volt, change_dir);
 	if (rc)
 		return rc;
+
+	if (cpr_vreg->vdd_mode_map) {
+		rc = regulator_set_mode(cpr_vreg->vdd_apc,
+					cpr_vreg->vdd_mode_map[corner]);
+		if (rc) {
+			cpr_err(cpr_vreg, "unable to configure vdd-supply for mode=%u, rc=%d\n",
+				cpr_vreg->vdd_mode_map[corner], rc);
+			return rc;
+		}
+	}
+
 
 	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->vreg_enabled) {
 		cpr_irq_clr(cpr_vreg);
@@ -4560,6 +4580,44 @@ static int cpr_rpm_apc_init(struct platform_device *pdev,
 	return rc;
 }
 
+static int cpr_parse_vdd_mode_config(struct platform_device *pdev,
+			       struct cpr_regulator *cpr_vreg)
+{
+	int rc, len = 0, i, mode;
+	struct device_node *of_node = pdev->dev.of_node;
+	const char *prop_str = "qcom,cpr-vdd-mode-map";
+
+	if (!of_find_property(of_node, prop_str, &len))
+		return 0;
+
+	if (len != cpr_vreg->num_corners * sizeof(u32)) {
+		cpr_err(cpr_vreg, "%s length=%d is invalid: required:%d\n",
+			prop_str, len, cpr_vreg->num_corners);
+		return -EINVAL;
+	}
+
+	cpr_vreg->vdd_mode_map = devm_kcalloc(&pdev->dev,
+						cpr_vreg->num_corners + 1,
+						sizeof(*cpr_vreg->vdd_mode_map),
+						GFP_KERNEL);
+	if (!cpr_vreg->vdd_mode_map)
+		return -ENOMEM;
+
+	for (i = 0; i < cpr_vreg->num_corners; i++) {
+		rc = of_property_read_u32_index(of_node, prop_str, i, &mode);
+		if (rc) {
+			cpr_err(cpr_vreg, "read %s index %d failed, rc = %d\n",
+				prop_str, i, rc);
+			return rc;
+		}
+		cpr_vreg->vdd_mode_map[i + CPR_CORNER_MIN]
+					= mode ? REGULATOR_MODE_NORMAL
+						: REGULATOR_MODE_IDLE;
+	}
+
+	return rc;
+}
+
 static int cpr_vsens_init(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
@@ -5553,6 +5611,12 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Initialize RPM APC regulator failed rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	rc = cpr_parse_vdd_mode_config(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "vdd-mode parsing failed, rc=%d\n", rc);
 		return rc;
 	}
 
