@@ -600,23 +600,27 @@ static int prev_cluster_nr_need_assist(int index)
 	int need = 0;
 	int cpu;
 	struct cluster_data *prev_cluster;
-	unsigned int prev_cluster_available_cpus;
 
 	if (index == 0)
 		return 0;
 
 	index--;
 	prev_cluster = &cluster_state[index];
-	prev_cluster_available_cpus = prev_cluster->active_cpus +
-					prev_cluster->nr_isolated_cpus;
+
+	/*
+	 * Next cluster should not assist, while there are isolated cpus
+	 * in this cluster.
+	 */
+	if (prev_cluster->nr_isolated_cpus)
+		return 0;
 
 	for_each_cpu(cpu, &prev_cluster->cpu_mask)
 		need += nr_stats[cpu].nr;
 
 	need += compute_prev_cluster_misfit_need(index);
 
-	if (need > prev_cluster_available_cpus)
-		need = need - prev_cluster_available_cpus;
+	if (need > prev_cluster->active_cpus)
+		need = need - prev_cluster->active_cpus;
 	else
 		need = 0;
 

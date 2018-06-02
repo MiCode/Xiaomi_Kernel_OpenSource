@@ -506,6 +506,19 @@ struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 	return NULL;
 }
 
+struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
+{
+
+	if (cb_type == IPA_SMMU_CB_WLAN && smmu_cb[IPA_SMMU_CB_WLAN].valid)
+		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
+
+	if (smmu_cb[cb_type].valid)
+		return smmu_cb[cb_type].mapping->domain;
+
+	IPAERR("CB#%d not valid\n", cb_type);
+
+	return NULL;
+}
 
 struct device *ipa3_get_dma_dev(void)
 {
@@ -2590,6 +2603,8 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	 * on pipe reset procedure
 	 */
 	ipa3_q6_pipe_delay(false);
+
+	ipa3_set_usb_prod_pipe_delay();
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");

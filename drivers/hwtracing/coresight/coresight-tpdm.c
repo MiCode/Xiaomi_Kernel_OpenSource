@@ -4345,7 +4345,6 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->bc_counters_avail = BMVAL(devid, 6, 10) + 1;
 	drvdata->tc_counters_avail = BMVAL(devid, 4, 5) + 1;
 
-	pm_runtime_put(&adev->dev);
 	tpdm_setup_disable(drvdata);
 
 	drvdata->traceid = traceid++;
@@ -4367,6 +4366,8 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
+
+	pm_runtime_put(&adev->dev);
 
 	return 0;
 }

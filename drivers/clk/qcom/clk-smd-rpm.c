@@ -650,6 +650,7 @@ static DEFINE_CLK_BRANCH_VOTER(cxo_pil_pronto_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_wlan_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_cdsp_clk, cxo);
 
 static struct clk_hw *qcs405_clks[] = {
 	[RPM_SMD_XO_CLK_SRC]		= &qcs405_cxo.hw,
@@ -706,6 +707,7 @@ static struct clk_hw *qcs405_clks[] = {
 	[CXO_SMD_PIL_MSS_CLK]		= &cxo_pil_mss_clk.hw,
 	[CXO_SMD_WLAN_CLK]		= &cxo_wlan_clk.hw,
 	[CXO_SMD_PIL_LPASS_CLK]		= &cxo_pil_lpass_clk.hw,
+	[CXO_SMD_PIL_CDSP_CLK]		= &cxo_pil_cdsp_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_qcs405 = {

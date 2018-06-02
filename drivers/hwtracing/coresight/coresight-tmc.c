@@ -708,8 +708,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	pm_runtime_put(&adev->dev);
-
 	ret = tmc_iommu_init(drvdata);
 	if (ret) {
 		dev_err(dev, "TMC SMMU init failed, err =%d\n", ret);
@@ -792,6 +790,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		tmc_iommu_deinit(drvdata);
 		coresight_unregister(drvdata->csdev);
 	}
+
+	if (!ret)
+		pm_runtime_put(&adev->dev);
+
 	return ret;
 
 out_iommu_deinit:

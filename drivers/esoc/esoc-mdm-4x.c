@@ -418,7 +418,7 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm_disable_irqs(mdm);
 		mdm->debug = 0;
 		mdm->ready = false;
-		mdm_cold_reset(mdm);
+		mdm_power_down(mdm);
 		break;
 	};
 }

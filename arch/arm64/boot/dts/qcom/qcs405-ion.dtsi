@@ -21,6 +21,12 @@
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
+		qcom,ion-heap@8 { /* CP_MM HEAP */
+			reg = <8>;
+			memory-region = <&secure_mem>;
+			qcom,ion-heap-type = "SECURE_DMA";
+		};
+
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			reg = <27>;
 			memory-region = <&qseecom_mem>;

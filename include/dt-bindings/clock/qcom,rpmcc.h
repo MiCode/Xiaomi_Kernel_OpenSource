@@ -133,5 +133,6 @@
 #define CXO_SMD_PIL_MSS_CLK			93
 #define CXO_SMD_WLAN_CLK			94
 #define CXO_SMD_PIL_LPASS_CLK			95
+#define CXO_SMD_PIL_CDSP_CLK			96
 
 #endif

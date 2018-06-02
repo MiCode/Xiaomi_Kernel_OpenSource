@@ -1402,6 +1402,14 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				EN_TRY_SNK_BIT, EN_TRY_SNK_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't enable try.snk rc=%d\n", rc);
+		return rc;
+	}
+
 	/* configure VCONN for software control */
 	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
 				 VCONN_EN_SRC_BIT | VCONN_EN_VALUE_BIT,
