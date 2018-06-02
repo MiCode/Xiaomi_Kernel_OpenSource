@@ -103,7 +103,6 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_INTF,
 	SDE_HW_BLK_WB,
 	SDE_HW_BLK_DSC,
-	SDE_HW_BLK_ROT,
 	SDE_HW_BLK_MERGE_3D,
 	SDE_HW_BLK_MAX,
 };
@@ -303,13 +302,6 @@ enum sde_iommu_domain {
 enum sde_rot {
 	ROT_0 = 1,
 	ROT_MAX
-};
-
-enum sde_inline_rot {
-	INLINE_ROT_NONE,
-	INLINE_ROT0_SSPP,
-	INLINE_ROT0_WB,
-	INLINE_ROT_MAX
 };
 
 enum sde_merge_3d {

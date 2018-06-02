@@ -25,7 +25,6 @@
 #include "sde_fence.h"
 #include "sde_kms.h"
 #include "sde_core_perf.h"
-#include "sde_hw_blk.h"
 #include "sde_hw_ds.h"
 
 #define SDE_CRTC_NAME_SIZE	12
@@ -219,8 +218,6 @@ struct sde_crtc_fps_info {
  * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
- * @rp_lock       : serialization lock for resource pool
- * @rp_head       : list of active resource pool
  * @plane_mask_old: keeps track of the planes used in the previous commit
  */
 struct sde_crtc {
@@ -288,9 +285,6 @@ struct sde_crtc {
 	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
 
-	struct mutex rp_lock;
-	struct list_head rp_head;
-
 	u32 plane_mask_old;
 
 	/* blob for histogram data */
@@ -298,56 +292,6 @@ struct sde_crtc {
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
-
-/**
- * struct sde_crtc_res_ops - common operations for crtc resources
- * @get: get given resource
- * @put: put given resource
- */
-struct sde_crtc_res_ops {
-	void *(*get)(void *val, u32 type, u64 tag);
-	void (*put)(void *val);
-};
-
-#define SDE_CRTC_RES_FLAG_FREE		BIT(0)
-
-/**
- * struct sde_crtc_res - definition of crtc resources
- * @list: list of crtc resource
- * @type: crtc resource type
- * @tag: unique identifier per type
- * @refcount: reference/usage count
- * @ops: callback operations
- * @val: resource handle associated with type/tag
- * @flags: customization flags
- */
-struct sde_crtc_res {
-	struct list_head list;
-	u32 type;
-	u64 tag;
-	atomic_t refcount;
-	struct sde_crtc_res_ops ops;
-	void *val;
-	u32 flags;
-};
-
-/**
- * sde_crtc_respool - crtc resource pool
- * @rp_lock: pointer to serialization lock
- * @rp_head: pointer to head of active resource pools of this crtc
- * @rp_list: list of crtc resource pool
- * @sequence_id: sequence identifier, incremented per state duplication
- * @res_list: list of resource managed by this resource pool
- * @ops: resource operations for parent resource pool
- */
-struct sde_crtc_respool {
-	struct mutex *rp_lock;
-	struct list_head *rp_head;
-	struct list_head rp_list;
-	u32 sequence_id;
-	struct list_head res_list;
-	struct sde_crtc_res_ops ops;
-};
 
 /**
  * struct sde_crtc_state - sde container for atomic crtc state
@@ -405,8 +349,6 @@ struct sde_crtc_state {
 	struct sde_hw_scaler3_lut_cfg scl3_lut_cfg;
 
 	struct sde_core_perf_params new_perf;
-
-	struct sde_crtc_respool rp;
 };
 
 enum sde_crtc_irq_state {
@@ -630,36 +572,6 @@ static inline bool sde_crtc_is_reset_required(struct drm_crtc *crtc)
 int sde_crtc_event_queue(struct drm_crtc *crtc,
 		void (*func)(struct drm_crtc *crtc, void *usr),
 		void *usr, bool color_processing_event);
-
-/**
- * sde_crtc_res_add - add given resource to resource pool in crtc state
- * @state: Pointer to drm crtc state
- * @type: Resource type
- * @tag: Search tag for given resource
- * @val: Resource handle
- * @ops: Resource callback operations
- * return: 0 if success; error code otherwise
- */
-int sde_crtc_res_add(struct drm_crtc_state *state, u32 type, u64 tag,
-		void *val, struct sde_crtc_res_ops *ops);
-
-/**
- * sde_crtc_res_get - get given resource from resource pool in crtc state
- * @state: Pointer to drm crtc state
- * @type: Resource type
- * @tag: Search tag for given resource
- * return: Resource handle if success; pointer error or null otherwise
- */
-void *sde_crtc_res_get(struct drm_crtc_state *state, u32 type, u64 tag);
-
-/**
- * sde_crtc_res_put - return given resource to resource pool in crtc state
- * @state: Pointer to drm crtc state
- * @type: Resource type
- * @tag: Search tag for given resource
- * return: None
- */
-void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
 
 /**
  * sde_crtc_get_crtc_roi - retrieve the crtc_roi from the given state object

@@ -185,476 +185,6 @@ static void sde_crtc_calc_fps(struct sde_crtc *sde_crtc)
 	sde_crtc->fps_info.next_time_index %= MAX_FRAME_COUNT;
 }
 
-/**
- * _sde_crtc_rp_to_crtc - get crtc from resource pool object
- * @rp: Pointer to resource pool
- * return: Pointer to drm crtc if success; null otherwise
- */
-static struct drm_crtc *_sde_crtc_rp_to_crtc(struct sde_crtc_respool *rp)
-{
-	if (!rp)
-		return NULL;
-
-	return container_of(rp, struct sde_crtc_state, rp)->base.crtc;
-}
-
-/**
- * _sde_crtc_rp_reclaim - reclaim unused, or all if forced, resources in pool
- * @rp: Pointer to resource pool
- * @force: True to reclaim all resources; otherwise, reclaim only unused ones
- * return: None
- */
-static void _sde_crtc_rp_reclaim(struct sde_crtc_respool *rp, bool force)
-{
-	struct sde_crtc_res *res, *next;
-	struct drm_crtc *crtc;
-
-	crtc = _sde_crtc_rp_to_crtc(rp);
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	SDE_DEBUG("crtc%d.%u %s\n", crtc->base.id, rp->sequence_id,
-			force ? "destroy" : "free_unused");
-
-	list_for_each_entry_safe(res, next, &rp->res_list, list) {
-		if (!force && !(res->flags & SDE_CRTC_RES_FLAG_FREE))
-			continue;
-		SDE_DEBUG("crtc%d.%u reclaim res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, rp->sequence_id,
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-		list_del(&res->list);
-		if (res->ops.put)
-			res->ops.put(res->val);
-		kfree(res);
-	}
-}
-
-/**
- * _sde_crtc_rp_free_unused - free unused resource in pool
- * @rp: Pointer to resource pool
- * return: none
- */
-static void _sde_crtc_rp_free_unused(struct sde_crtc_respool *rp)
-{
-	mutex_lock(rp->rp_lock);
-	_sde_crtc_rp_reclaim(rp, false);
-	mutex_unlock(rp->rp_lock);
-}
-
-/**
- * _sde_crtc_rp_destroy - destroy resource pool
- * @rp: Pointer to resource pool
- * return: None
- */
-static void _sde_crtc_rp_destroy(struct sde_crtc_respool *rp)
-{
-	mutex_lock(rp->rp_lock);
-	list_del_init(&rp->rp_list);
-	_sde_crtc_rp_reclaim(rp, true);
-	mutex_unlock(rp->rp_lock);
-}
-
-/**
- * _sde_crtc_hw_blk_get - get callback for hardware block
- * @val: Resource handle
- * @type: Resource type
- * @tag: Search tag for given resource
- * return: Resource handle
- */
-static void *_sde_crtc_hw_blk_get(void *val, u32 type, u64 tag)
-{
-	SDE_DEBUG("res:%d/0x%llx/%pK\n", type, tag, val);
-	return sde_hw_blk_get(val, type, tag);
-}
-
-/**
- * _sde_crtc_hw_blk_put - put callback for hardware block
- * @val: Resource handle
- * return: None
- */
-static void _sde_crtc_hw_blk_put(void *val)
-{
-	SDE_DEBUG("res://%pK\n", val);
-	sde_hw_blk_put(val);
-}
-
-/**
- * _sde_crtc_rp_duplicate - duplicate resource pool and reset reference count
- * @rp: Pointer to original resource pool
- * @dup_rp: Pointer to duplicated resource pool
- * return: None
- */
-static void _sde_crtc_rp_duplicate(struct sde_crtc_respool *rp,
-		struct sde_crtc_respool *dup_rp)
-{
-	struct sde_crtc_res *res, *dup_res;
-	struct drm_crtc *crtc;
-
-	if (!rp || !dup_rp || !rp->rp_head) {
-		SDE_ERROR("invalid resource pool\n");
-		return;
-	}
-
-	crtc = _sde_crtc_rp_to_crtc(rp);
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	SDE_DEBUG("crtc%d.%u duplicate\n", crtc->base.id, rp->sequence_id);
-
-	mutex_lock(rp->rp_lock);
-	dup_rp->sequence_id = rp->sequence_id + 1;
-	INIT_LIST_HEAD(&dup_rp->res_list);
-	dup_rp->ops = rp->ops;
-	list_for_each_entry(res, &rp->res_list, list) {
-		dup_res = kzalloc(sizeof(struct sde_crtc_res), GFP_KERNEL);
-		if (!dup_res) {
-			mutex_unlock(rp->rp_lock);
-			return;
-		}
-		INIT_LIST_HEAD(&dup_res->list);
-		atomic_set(&dup_res->refcount, 0);
-		dup_res->type = res->type;
-		dup_res->tag = res->tag;
-		dup_res->val = res->val;
-		dup_res->ops = res->ops;
-		dup_res->flags = SDE_CRTC_RES_FLAG_FREE;
-		SDE_DEBUG("crtc%d.%u dup res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, dup_rp->sequence_id,
-				dup_res->type, dup_res->tag, dup_res->val,
-				atomic_read(&dup_res->refcount));
-		list_add_tail(&dup_res->list, &dup_rp->res_list);
-		if (dup_res->ops.get)
-			dup_res->ops.get(dup_res->val, 0, -1);
-	}
-
-	dup_rp->rp_lock = rp->rp_lock;
-	dup_rp->rp_head = rp->rp_head;
-	INIT_LIST_HEAD(&dup_rp->rp_list);
-	list_add_tail(&dup_rp->rp_list, rp->rp_head);
-	mutex_unlock(rp->rp_lock);
-}
-
-/**
- * _sde_crtc_rp_reset - reset resource pool after allocation
- * @rp: Pointer to original resource pool
- * @rp_lock: Pointer to serialization resource pool lock
- * @rp_head: Pointer to crtc resource pool head
- * return: None
- */
-static void _sde_crtc_rp_reset(struct sde_crtc_respool *rp,
-		struct mutex *rp_lock, struct list_head *rp_head)
-{
-	if (!rp || !rp_lock || !rp_head) {
-		SDE_ERROR("invalid resource pool\n");
-		return;
-	}
-
-	mutex_lock(rp_lock);
-	rp->rp_lock = rp_lock;
-	rp->rp_head = rp_head;
-	INIT_LIST_HEAD(&rp->rp_list);
-	rp->sequence_id = 0;
-	INIT_LIST_HEAD(&rp->res_list);
-	rp->ops.get = _sde_crtc_hw_blk_get;
-	rp->ops.put = _sde_crtc_hw_blk_put;
-	list_add_tail(&rp->rp_list, rp->rp_head);
-	mutex_unlock(rp_lock);
-}
-
-/**
- * _sde_crtc_rp_add_no_lock - add given resource to resource pool without lock
- * @rp: Pointer to original resource pool
- * @type: Resource type
- * @tag: Search tag for given resource
- * @val: Resource handle
- * @ops: Resource callback operations
- * return: 0 if success; error code otherwise
- */
-static int _sde_crtc_rp_add_no_lock(struct sde_crtc_respool *rp, u32 type,
-		u64 tag, void *val, struct sde_crtc_res_ops *ops)
-{
-	struct sde_crtc_res *res;
-	struct drm_crtc *crtc;
-
-	if (!rp || !ops) {
-		SDE_ERROR("invalid resource pool/ops\n");
-		return -EINVAL;
-	}
-
-	crtc = _sde_crtc_rp_to_crtc(rp);
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return -EINVAL;
-	}
-
-	list_for_each_entry(res, &rp->res_list, list) {
-		if (res->type != type || res->tag != tag)
-			continue;
-		SDE_ERROR("crtc%d.%u already exist res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, rp->sequence_id,
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-		return -EEXIST;
-	}
-	res = kzalloc(sizeof(struct sde_crtc_res), GFP_KERNEL);
-	if (!res)
-		return -ENOMEM;
-	INIT_LIST_HEAD(&res->list);
-	atomic_set(&res->refcount, 1);
-	res->type = type;
-	res->tag = tag;
-	res->val = val;
-	res->ops = *ops;
-	list_add_tail(&res->list, &rp->res_list);
-	SDE_DEBUG("crtc%d.%u added res:0x%x/0x%llx\n",
-			crtc->base.id, rp->sequence_id, type, tag);
-	return 0;
-}
-
-/**
- * _sde_crtc_rp_add - add given resource to resource pool
- * @rp: Pointer to original resource pool
- * @type: Resource type
- * @tag: Search tag for given resource
- * @val: Resource handle
- * @ops: Resource callback operations
- * return: 0 if success; error code otherwise
- */
-static int _sde_crtc_rp_add(struct sde_crtc_respool *rp, u32 type, u64 tag,
-		void *val, struct sde_crtc_res_ops *ops)
-{
-	int rc;
-
-	if (!rp) {
-		SDE_ERROR("invalid resource pool\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(rp->rp_lock);
-	rc = _sde_crtc_rp_add_no_lock(rp, type, tag, val, ops);
-	mutex_unlock(rp->rp_lock);
-	return rc;
-}
-
-/**
- * _sde_crtc_rp_get - lookup the resource from given resource pool and obtain
- *	if available; otherwise, obtain resource from global pool
- * @rp: Pointer to original resource pool
- * @type: Resource type
- * @tag:  Search tag for given resource
- * return: Resource handle if success; pointer error or null otherwise
- */
-static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
-{
-	struct sde_crtc_respool *old_rp;
-	struct sde_crtc_res *res;
-	void *val = NULL;
-	int rc;
-	struct drm_crtc *crtc;
-
-	if (!rp) {
-		SDE_ERROR("invalid resource pool\n");
-		return NULL;
-	}
-
-	crtc = _sde_crtc_rp_to_crtc(rp);
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return NULL;
-	}
-
-	mutex_lock(rp->rp_lock);
-	list_for_each_entry(res, &rp->res_list, list) {
-		if (res->type != type || res->tag != tag)
-			continue;
-		SDE_DEBUG("crtc%d.%u found res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, rp->sequence_id,
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-		atomic_inc(&res->refcount);
-		res->flags &= ~SDE_CRTC_RES_FLAG_FREE;
-		mutex_unlock(rp->rp_lock);
-		return res->val;
-	}
-	list_for_each_entry(res, &rp->res_list, list) {
-		if (res->type != type || !(res->flags & SDE_CRTC_RES_FLAG_FREE))
-			continue;
-		SDE_DEBUG("crtc%d.%u retag res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, rp->sequence_id,
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-		atomic_inc(&res->refcount);
-		res->tag = tag;
-		res->flags &= ~SDE_CRTC_RES_FLAG_FREE;
-		mutex_unlock(rp->rp_lock);
-		return res->val;
-	}
-	/* not in this rp, try to grab from global pool */
-	if (rp->ops.get)
-		val = rp->ops.get(NULL, type, -1);
-	if (!IS_ERR_OR_NULL(val))
-		goto add_res;
-	/*
-	 * Search older resource pools for hw blk with matching type,
-	 * necessary when resource is being used by this object,
-	 * but in previous states not yet cleaned up.
-	 *
-	 * This enables searching of all resources currently owned
-	 * by this crtc even though the resource might not be used
-	 * in the current atomic state. This allows those resources
-	 * to be re-acquired by the new atomic state immediately
-	 * without waiting for the resources to be fully released.
-	 */
-	else if (IS_ERR_OR_NULL(val) && (type < SDE_HW_BLK_MAX)) {
-		list_for_each_entry(old_rp, rp->rp_head, rp_list) {
-			if (old_rp == rp)
-				continue;
-
-			list_for_each_entry(res, &old_rp->res_list, list) {
-				if (res->type != type)
-					continue;
-				SDE_DEBUG(
-					"crtc%d.%u found res:0x%x//%pK/ in crtc%d.%d\n",
-						crtc->base.id,
-						rp->sequence_id,
-						res->type, res->val,
-						crtc->base.id,
-						old_rp->sequence_id);
-				SDE_EVT32_VERBOSE(crtc->base.id,
-						rp->sequence_id,
-						res->type, res->val,
-						crtc->base.id,
-						old_rp->sequence_id);
-				if (res->ops.get)
-					res->ops.get(res->val, 0, -1);
-				val = res->val;
-				break;
-			}
-
-			if (!IS_ERR_OR_NULL(val))
-				break;
-		}
-	}
-	if (IS_ERR_OR_NULL(val)) {
-		SDE_DEBUG("crtc%d.%u failed to get res:0x%x//\n",
-				crtc->base.id, rp->sequence_id, type);
-		mutex_unlock(rp->rp_lock);
-		return NULL;
-	}
-add_res:
-	rc = _sde_crtc_rp_add_no_lock(rp, type, tag, val, &rp->ops);
-	if (rc) {
-		SDE_ERROR("crtc%d.%u failed to add res:0x%x/0x%llx\n",
-				crtc->base.id, rp->sequence_id, type, tag);
-		if (rp->ops.put)
-			rp->ops.put(val);
-		val = NULL;
-	}
-	mutex_unlock(rp->rp_lock);
-	return val;
-}
-
-/**
- * _sde_crtc_rp_put - return given resource to resource pool
- * @rp: Pointer to original resource pool
- * @type: Resource type
- * @tag: Search tag for given resource
- * return: None
- */
-static void _sde_crtc_rp_put(struct sde_crtc_respool *rp, u32 type, u64 tag)
-{
-	struct sde_crtc_res *res, *next;
-	struct drm_crtc *crtc;
-
-	if (!rp) {
-		SDE_ERROR("invalid resource pool\n");
-		return;
-	}
-
-	crtc = _sde_crtc_rp_to_crtc(rp);
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	mutex_lock(rp->rp_lock);
-	list_for_each_entry_safe(res, next, &rp->res_list, list) {
-		if (res->type != type || res->tag != tag)
-			continue;
-		SDE_DEBUG("crtc%d.%u found res:0x%x/0x%llx/%pK/%d\n",
-				crtc->base.id, rp->sequence_id,
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-		if (res->flags & SDE_CRTC_RES_FLAG_FREE)
-			SDE_ERROR(
-				"crtc%d.%u already free res:0x%x/0x%llx/%pK/%d\n",
-					crtc->base.id, rp->sequence_id,
-					res->type, res->tag, res->val,
-					atomic_read(&res->refcount));
-		else if (atomic_dec_return(&res->refcount) == 0)
-			res->flags |= SDE_CRTC_RES_FLAG_FREE;
-
-		mutex_unlock(rp->rp_lock);
-		return;
-	}
-	SDE_ERROR("crtc%d.%u not found res:0x%x/0x%llx\n",
-			crtc->base.id, rp->sequence_id, type, tag);
-	mutex_unlock(rp->rp_lock);
-}
-
-int sde_crtc_res_add(struct drm_crtc_state *state, u32 type, u64 tag,
-		void *val, struct sde_crtc_res_ops *ops)
-{
-	struct sde_crtc_respool *rp;
-
-	if (!state) {
-		SDE_ERROR("invalid parameters\n");
-		return -EINVAL;
-	}
-
-	rp = &to_sde_crtc_state(state)->rp;
-	return _sde_crtc_rp_add(rp, type, tag, val, ops);
-}
-
-void *sde_crtc_res_get(struct drm_crtc_state *state, u32 type, u64 tag)
-{
-	struct sde_crtc_respool *rp;
-	void *val;
-
-	if (!state) {
-		SDE_ERROR("invalid parameters\n");
-		return NULL;
-	}
-
-	rp = &to_sde_crtc_state(state)->rp;
-	val = _sde_crtc_rp_get(rp, type, tag);
-	if (IS_ERR(val)) {
-		SDE_ERROR("failed to get res type:0x%x:0x%llx\n",
-				type, tag);
-		return NULL;
-	}
-
-	return val;
-}
-
-void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag)
-{
-	struct sde_crtc_respool *rp;
-
-	if (!state) {
-		SDE_ERROR("invalid parameters\n");
-		return;
-	}
-
-	rp = &to_sde_crtc_state(state)->rp;
-	_sde_crtc_rp_put(rp, type, tag);
-}
-
 static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 {
 	if (!sde_crtc)
@@ -3501,8 +3031,6 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
-	_sde_crtc_rp_destroy(&cstate->rp);
-
 	__drm_atomic_helper_crtc_destroy_state(state);
 
 	/* destroy value helper */
@@ -3948,8 +3476,6 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	/* duplicate base helper */
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &cstate->base);
 
-	_sde_crtc_rp_duplicate(&old_cstate->rp, &cstate->rp);
-
 	return &cstate->base;
 }
 
@@ -3999,9 +3525,6 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 			cstate->property_values);
 
 	_sde_crtc_set_input_fence_timeout(cstate);
-
-	_sde_crtc_rp_reset(&cstate->rp, &sde_crtc->rp_lock,
-			&sde_crtc->rp_head);
 
 	cstate->base.crtc = crtc;
 	crtc->state = &cstate->base;
@@ -4953,7 +4476,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 end:
 	kfree(pstates);
 	kfree(multirect_plane);
-	_sde_crtc_rp_free_unused(&cstate->rp);
 	return rc;
 }
 
@@ -5809,8 +5331,6 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	struct drm_crtc *crtc = (struct drm_crtc *) s->private;
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
-	struct sde_crtc_res *res;
-	struct sde_crtc_respool *rp;
 	int i;
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
@@ -5827,17 +5347,6 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 				sde_power_handle_get_dbus_name(i),
 				sde_crtc->cur_perf.max_per_pipe_ib[i]);
 	}
-
-	mutex_lock(&sde_crtc->rp_lock);
-	list_for_each_entry(rp, &sde_crtc->rp_head, rp_list) {
-		seq_printf(s, "rp.%d: ", rp->sequence_id);
-		list_for_each_entry(res, &rp->res_list, list)
-			seq_printf(s, "0x%x/0x%llx/%pK/%d ",
-					res->type, res->tag, res->val,
-					atomic_read(&res->refcount));
-		seq_puts(s, "\n");
-	}
-	mutex_unlock(&sde_crtc->rp_lock);
 
 	return 0;
 }
@@ -6164,9 +5673,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	mutex_init(&sde_crtc->crtc_lock);
 	spin_lock_init(&sde_crtc->spin_lock);
 	atomic_set(&sde_crtc->frame_pending, 0);
-
-	mutex_init(&sde_crtc->rp_lock);
-	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
 	sde_crtc->enabled = false;
 
