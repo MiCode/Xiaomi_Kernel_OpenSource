@@ -1,5 +1,4 @@
 #!/bin/awk -f
-# SPDX-License-Identifier: GPL-2.0
 # gen-insn-attr-x86.awk: Instruction attribute table generator
 # Written by Masami Hiramatsu <mhiramat@redhat.com>
 #
