@@ -1149,6 +1149,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		val->intval = chg->auto_recharge_soc;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
