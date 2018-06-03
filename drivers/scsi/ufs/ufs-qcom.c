@@ -1579,7 +1579,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 				 enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err;
+	int err = 0;
 
 	/*
 	 * In case ufs_qcom_init() is not yet done, simply ignore.
@@ -2553,7 +2553,7 @@ bool ufs_qcom_testbus_cfg_is_ok(struct ufs_qcom_host *host,
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 {
 	int reg = 0;
-	int offset, ret = 0, testbus_sel_offset = 19;
+	int offset = -1, ret = 0, testbus_sel_offset = 19;
 	u32 mask = TEST_BUS_SUB_SEL_MASK;
 	unsigned long flags;
 	struct ufs_hba *hba;
@@ -2618,6 +2618,13 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 * is legal
 	 */
 	}
+
+	if (offset < 0) {
+		dev_err(hba->dev, "%s: Bad offset: %d\n", __func__, offset);
+		ret = -EINVAL;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		goto out;
+	}
 	mask <<= offset;
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -2680,7 +2687,7 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 		return;
 
 	host->testbus.select_major = TSTBUS_UTP_HCI;
-	for (i = 0; i <= nminor; i++) {
+	for (i = 0; i < nminor; i++) {
 		host->testbus.select_minor = i;
 		ufs_qcom_testbus_config(host);
 		testbus[i] = ufshcd_readl(hba, UFS_TEST_BUS);
