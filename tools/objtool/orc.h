@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Josh Poimboeuf <jpoimboe@redhat.com>
+ * Copyright (C) 2017 Josh Poimboeuf <jpoimboe@redhat.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -14,15 +14,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _BUILTIN_H
-#define _BUILTIN_H
 
-#include <subcmd/parse-options.h>
+#ifndef _ORC_H
+#define _ORC_H
 
-extern const struct option check_options[];
-extern bool no_fp, no_unreachable, retpoline, module;
+#include <asm/orc_types.h>
 
-extern int cmd_check(int argc, const char **argv);
-extern int cmd_orc(int argc, const char **argv);
+struct objtool_file;
 
-#endif /* _BUILTIN_H */
+int create_orc(struct objtool_file *file);
+int create_orc_sections(struct objtool_file *file);
+
+int orc_dump(const char *objname);
+
+#endif /* _ORC_H */
