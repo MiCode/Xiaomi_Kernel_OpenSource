@@ -1392,6 +1392,19 @@ static struct clk_branch gcc_apss_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_apss_tcu_clk = {
+	.halt_reg = 0x5b004,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x4500c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_apss_tcu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_bimc_gfx_clk = {
 	.halt_reg = 0x59034,
 	.halt_check = BRANCH_HALT,
@@ -1401,6 +1414,10 @@ static struct clk_branch gcc_bimc_gfx_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_bimc_gfx_clk",
 			.ops = &clk_branch2_ops,
+			.parent_names = (const char *[]){
+				"gcc_apss_tcu_clk",
+			},
+
 		},
 	},
 };
@@ -1776,6 +1793,45 @@ static struct clk_branch gcc_boot_rom_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_crypto_ahb_clk = {
+	.halt_reg = 0x16024,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x45004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_crypto_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_crypto_axi_clk = {
+	.halt_reg = 0x16020,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x45004,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_crypto_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_crypto_clk = {
+	.halt_reg = 0x1601c,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x45004,
+		.enable_mask = BIT(2),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_crypto_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_eth_axi_clk = {
 	.halt_reg = 0x4e010,
 	.halt_check = BRANCH_HALT,
@@ -1935,10 +1991,23 @@ static struct clk_branch gcc_gtcu_ahb_clk = {
 	.halt_reg = 0x12044,
 	.halt_check = BRANCH_VOTED,
 	.clkr = {
-		.enable_reg = 0x4500C,
+		.enable_reg = 0x4500c,
 		.enable_mask = BIT(13),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gtcu_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_mdp_tbu_clk = {
+	.halt_reg = 0x1201c,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x4500c,
+		.enable_mask = BIT(4),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_mdp_tbu_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2319,6 +2388,19 @@ static struct clk_branch gcc_pwm2_xo512_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pwm2_xo512_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_qdss_dap_clk = {
+	.halt_reg = 0x29084,
+	.halt_check = BRANCH_VOTED,
+	.clkr = {
+		.enable_reg = 0x45004,
+		.enable_mask = BIT(21),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_qdss_dap_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2721,6 +2803,12 @@ static struct clk_regmap *gcc_qcs405_clocks[] = {
 	[GCC_GFX_TCU_CLK] = &gcc_gfx_tcu_clk.clkr,
 	[GCC_GFX_TBU_CLK] = &gcc_gfx_tbu_clk.clkr,
 	[GCC_SMMU_CFG_CLK] = &gcc_smmu_cfg_clk.clkr,
+	[GCC_APSS_TCU_CLK] = &gcc_apss_tcu_clk.clkr,
+	[GCC_CRYPTO_AHB_CLK] = &gcc_crypto_ahb_clk.clkr,
+	[GCC_CRYPTO_AXI_CLK] = &gcc_crypto_axi_clk.clkr,
+	[GCC_CRYPTO_CLK] = &gcc_crypto_clk.clkr,
+	[GCC_MDP_TBU_CLK] = &gcc_mdp_tbu_clk.clkr,
+	[GCC_QDSS_DAP_CLK] = &gcc_qdss_dap_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_qcs405_resets[] = {
