@@ -6,7 +6,6 @@
  *  Copyright (C) 1991-2002  Linus Torvalds
  */
 #include "sched.h"
-#include <linux/cpufreq_times.h>
 
 #include <linux/nospec.h>
 
@@ -2156,8 +2155,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	/* Even if schedstat is disabled, there should not be garbage */
 	memset(&p->se.statistics, 0, sizeof(p->se.statistics));
 #endif
-
-	cpufreq_task_times_init(p);
 
 	RB_CLEAR_NODE(&p->dl.rb_node);
 	init_dl_task_timer(&p->dl);
