@@ -577,7 +577,7 @@ config MSM_JTAGV8
 
 config QCOM_QDSS_BRIDGE
 	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
-	depends on MSM_MHI
+	depends on MHI_BUS
 	help
 	  The driver will help route diag traffic from modem side over the QDSS
 	  sub-system to USB on APSS side. The driver acts as a bridge between the
