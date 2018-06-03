@@ -1137,10 +1137,23 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 /* construct actual board file name to use */
 void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
 {
-	const char *board_file = wil->board_file ?
-					wil->board_file : WIL_BOARD_FILE_NAME;
+	const char *board_file;
 	const char *ext;
 	int prefix_len;
+	const char *wil_talyn_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
+			      WIL_FW_NAME_TALYN;
+
+	if (wil->board_file) {
+		board_file = wil->board_file;
+	} else {
+		/* If specific FW file is used for Talyn,
+		 * use specific board file
+		 */
+		if (strcmp(wil->wil_fw_name, wil_talyn_fw_name) == 0)
+			board_file = WIL_BRD_NAME_TALYN;
+		else
+			board_file = WIL_BOARD_FILE_NAME;
+	}
 
 	if (wil->board_file_country[0] == '\0') {
 		strlcpy(buf, board_file, len);
