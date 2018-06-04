@@ -137,7 +137,7 @@
 		};
 
 		adsp_shmem_device_mem: adsp_shmem_device_region@0xc0100000 {
-			reg = <0x0 0xc0100000 0x0 0x1f400000>;
+			reg = <0x0 0xc0100000 0x0 0x08200000>;
 			label = "adsp_shmem_device_mem";
 		};
 
