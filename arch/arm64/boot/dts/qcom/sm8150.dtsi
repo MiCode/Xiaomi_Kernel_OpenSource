@@ -770,6 +770,7 @@
 
 #include "sm8150-sde-pll.dtsi"
 #include "sm8150-sde.dtsi"
+#include "msm-rdbg.dtsi"
 
 #include "sm8150-camera.dtsi"
 
