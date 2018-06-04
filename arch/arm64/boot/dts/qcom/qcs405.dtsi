@@ -251,9 +251,15 @@
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-qcs405";
 		qcom,gcc = <&clock_gcc>;
+		qcom,cpucc = <&cpucc_debug>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "xo_clk_src";
 		#clock-cells = <1>;
+	};
+
+	cpucc_debug: syscon@0b01101c {
+		compatible = "syscon";
+		reg = <0xb01101c 0x4>;
 	};
 
 	clock_cpu: qcom,clock-cpu@0b011050 {
