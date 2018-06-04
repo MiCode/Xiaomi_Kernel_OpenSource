@@ -1,0 +1,32 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm670-qrd.dtsi"
+#include "sdm670-external-codec.dtsi"
+
+&dsi_dual_nt36850_truly_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_hx8399_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_hx8399_truly_cmd_display {
+	qcom,dsi-display-active;
+};
