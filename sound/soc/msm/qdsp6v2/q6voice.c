@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6861,8 +6861,8 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		pr_debug("Recd VSS_ISTREAM_EVT_NOT_READY\n");
 	} else if (data->opcode == VSS_ISTREAM_EVT_READY) {
 		pr_debug("Recd VSS_ISTREAM_EVT_READY\n");
-	} else if (data->opcode == VSS_ICOMMON_RSP_GET_PARAM ||
-		   VSS_ICOMMON_RSP_GET_PARAM_V3) {
+	} else if ((data->opcode == VSS_ICOMMON_RSP_GET_PARAM) ||
+		(data->opcode == VSS_ICOMMON_RSP_GET_PARAM_V3)) {
 		pr_debug("%s: VSS_ICOMMON_RSP_GET_PARAM\n", __func__);
 		ptr = data->payload;
 		if (ptr[0] != 0) {
@@ -6871,7 +6871,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		}
 		rtac_make_voice_callback(RTAC_CVS, data->payload,
 					data->payload_size);
-	}  else if (data->opcode == VSS_ISTREAM_EVT_RX_DTMF_DETECTED) {
+	} else if (data->opcode == VSS_ISTREAM_EVT_RX_DTMF_DETECTED) {
 		struct vss_istream_evt_rx_dtmf_detected *dtmf_rx_detected;
 		uint32_t *voc_pkt = data->payload;
 		uint32_t pkt_len = data->payload_size;
