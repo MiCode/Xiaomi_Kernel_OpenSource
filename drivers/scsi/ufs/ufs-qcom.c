@@ -2749,7 +2749,7 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	 * the regulators.
 	 */
 	if (of_property_read_bool(np, "non-removable") &&
-	    strlen(android_boot_dev) &&
+	    !of_property_read_bool(np, "force-ufshc-probe") &&
 	    strcmp(android_boot_dev, dev_name(dev)))
 		return -ENODEV;
 
