@@ -142,6 +142,10 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm670-pm660a-tasha-codec-cdp-overlay.dtbo \
 		sdm670-aqt1000-cdp-overlay.dtbo \
 		sdm670-pm660a-aqt1000-cdp-overlay.dtbo \
+		sxr1120-lc-mtp-overlay.dtbo \
+		sxr1120-lc-external-codec-mtp-overlay.dtbo \
+		sxr1120-lc-cdp-overlay.dtbo \
+		sxr1120-lc-external-codec-cdp-overlay.dtbo \
 		qcs605-cdp-overlay.dtbo \
 		qcs605-mtp-overlay.dtbo \
 		qcs605-360camera-overlay.dtbo \
@@ -199,6 +203,10 @@ sda670-mtp-overlay.dtbo-base := sda670.dtb
 sda670-hdk-overlay.dtbo-base := sda670.dtb
 sda670-pm660a-cdp-overlay.dtbo-base := sda670.dtb
 sda670-pm660a-mtp-overlay.dtbo-base := sda670.dtb
+sxr1120-lc-mtp-overlay.dtbo-base := sxr1120-lc.dtb
+sxr1120-lc-external-codec-mtp-overlay.dtbo-base := sxr1120-lc.dtb
+sxr1120-lc-cdp-overlay.dtbo-base := sxr1120-lc.dtb
+sxr1120-lc-external-codec-cdp-overlay.dtbo-base := sxr1120-lc.dtb
 qcs605-cdp-overlay.dtbo-base := qcs605.dtb
 qcs605-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-external-codec-mtp-overlay.dtbo-base := qcs605.dtb
@@ -255,6 +263,10 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sdm670-pm660a-tasha-codec-cdp.dtb \
 	sda670-pm660a-mtp.dtb \
 	sda670-pm660a-cdp.dtb \
+	sxr1120-lc-mtp.dtb \
+	sxr1120-lc-external-codec-mtp.dtb \
+	sxr1120-lc-cdp.dtb \
+	sxr1120-lc-external-codec-cdp.dtb \
 	qcs605-360camera.dtb \
 	qcs605-mtp.dtb \
 	qcs605-cdp.dtb \
