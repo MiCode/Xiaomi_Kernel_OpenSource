@@ -1264,28 +1264,28 @@ static int hbtp_fb_suspend(struct hbtp_data *ts)
 			goto err_power_disable;
 		}
 		ts->power_suspended = true;
+	}
 
-		if (ts->input_dev) {
-			kobject_uevent_env(&ts->input_dev->dev.kobj,
-					KOBJ_OFFLINE, envp);
+	if (ts->input_dev) {
+		kobject_uevent_env(&ts->input_dev->dev.kobj,
+				KOBJ_OFFLINE, envp);
 
-			if (ts->power_sig_enabled) {
-				pr_debug("%s: power_sig is enabled, wait for signal\n",
-						__func__);
-				mutex_unlock(&hbtp->mutex);
-				rc = wait_for_completion_interruptible(
-						&hbtp->power_suspend_sig);
-				if (rc != 0) {
-					pr_err("%s: wait for suspend is interrupted\n",
-							__func__);
-				}
-				mutex_lock(&hbtp->mutex);
-				pr_debug("%s: Wait is done for suspend\n",
-						__func__);
-			} else {
-				pr_debug("%s: power_sig is NOT enabled",
+		if (ts->power_sig_enabled) {
+			pr_debug("%s: power_sig is enabled, wait for signal\n",
+					__func__);
+			mutex_unlock(&hbtp->mutex);
+			rc = wait_for_completion_interruptible(
+					&hbtp->power_suspend_sig);
+			if (rc != 0) {
+				pr_err("%s: wait for suspend is interrupted\n",
 						__func__);
 			}
+			mutex_lock(&hbtp->mutex);
+			pr_debug("%s: Wait is done for suspend\n",
+					__func__);
+		} else {
+			pr_debug("%s: power_sig is NOT enabled",
+					__func__);
 		}
 	}
 
