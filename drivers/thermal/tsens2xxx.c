@@ -31,6 +31,7 @@
 #define TSENS_TM_CRITICAL_INT_EN		BIT(2)
 #define TSENS_TM_UPPER_INT_EN			BIT(1)
 #define TSENS_TM_LOWER_INT_EN			BIT(0)
+#define TSENS_TM_UPPER_LOWER_INT_DISABLE	0xffffffff
 #define TSENS_TM_SN_UPPER_LOWER_THRESHOLD(n)	((n) + 0x20)
 #define TSENS_TM_SN_ADDR_OFFSET			0x4
 #define TSENS_TM_UPPER_THRESHOLD_SET(n)		((n) << 12)
@@ -525,6 +526,7 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	void __iomem *srot_addr;
 	void __iomem *sensor_int_mask_addr;
 	unsigned int srot_val, crit_mask, crit_val;
+	void __iomem *int_mask_addr;
 
 	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
 	srot_val = readl_relaxed(srot_addr);
@@ -566,6 +568,9 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 		/*Update watchdog monitoring*/
 		mb();
 	}
+
+	int_mask_addr = TSENS_TM_UPPER_LOWER_INT_MASK(tmdev->tsens_tm_addr);
+	writel_relaxed(TSENS_TM_UPPER_LOWER_INT_DISABLE, int_mask_addr);
 
 	writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
 		TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
