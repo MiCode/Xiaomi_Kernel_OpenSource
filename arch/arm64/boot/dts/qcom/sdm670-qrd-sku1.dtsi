@@ -10,17 +10,5 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
-
-#include "sdm670-qrd-sku1.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660L QRD";
-	compatible = "qcom,sdm670-qrd", "qcom,sdm670", "qcom,qrd";
-	qcom,msm-id = <360 0x0>;
-	qcom,board-id = <0x0002000b 0>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-		       <0x0001001b 0x0102001a 0x0 0x0>,
-		       <0x0001001b 0x0201011a 0x0 0x0>;
-};
+#include "sdm670-qrd.dtsi"
+#include "sdm670-audio-overlay.dtsi"
