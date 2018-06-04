@@ -5417,7 +5417,7 @@ static void ipa_gsi_setup_reg(void)
 	 * Before configuring the FIFOs need to unset bit 30 in the
 	 * spare register
 	 */
-	ipahal_write_reg(IPA_SPARE_REG_1_OFST,
+	ipahal_write_reg(IPA_SPARE_REG_1,
 			 (IPA_SPARE_REG_1_VAL & (~(1 << 30))));
 
 	/* setup IPA_ENDP_GSI_CFG_TLV_n reg */
@@ -5434,7 +5434,7 @@ static void ipa_gsi_setup_reg(void)
 		IPADBG("Config is true");
 		reg_val = (gsi_ep_info_cfg->ipa_if_tlv << 16) + start;
 		start += gsi_ep_info_cfg->ipa_if_tlv;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_TLV_OFST_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_TLV_n, i, reg_val);
 	}
 
 	/* setup IPA_ENDP_GSI_CFG_AOS_n reg */
@@ -5446,7 +5446,7 @@ static void ipa_gsi_setup_reg(void)
 			continue;
 		reg_val = (gsi_ep_info_cfg->ipa_if_aos << 16) + start;
 		start += gsi_ep_info_cfg->ipa_if_aos;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_AOS_OFST_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_AOS_n, i, reg_val);
 	}
 
 	/* setup IPA_ENDP_GSI_CFG1_n reg */
@@ -5458,7 +5458,7 @@ static void ipa_gsi_setup_reg(void)
 		reg_val = (1 << 16) +
 			((u32)gsi_ep_info_cfg->ipa_gsi_chan_num << 8) +
 			gsi_ep_info_cfg->ee;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_OFST_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_n, i, reg_val);
 	}
 
 	/*
@@ -5471,16 +5471,16 @@ static void ipa_gsi_setup_reg(void)
 		if (!gsi_ep_info_cfg)
 			continue;
 		reg_val = 1 << 31;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_OFST_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
 		reg_val = 0;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_OFST_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
 	}
 
 	/*
 	 * After configuring the FIFOs need to set bit 30 in the spare
 	 * register
 	 */
-	ipahal_write_reg(IPA_SPARE_REG_1_OFST,
+	ipahal_write_reg(IPA_SPARE_REG_1,
 			 (IPA_SPARE_REG_1_VAL | (1 << 30)));
 }
 
