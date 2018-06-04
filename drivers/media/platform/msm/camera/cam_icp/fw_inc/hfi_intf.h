@@ -153,4 +153,10 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
 int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 	void __iomem *icp_base, bool debug);
 
+/**
+ * cam_hfi_queue_dump() - utility function to dump hfi queues
+ */
+void cam_hfi_queue_dump(void);
+
+
 #endif /* _HFI_INTF_H_ */
