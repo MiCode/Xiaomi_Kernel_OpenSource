@@ -122,7 +122,7 @@ struct virtual_channel *hab_get_vchan_fromvcid(int32_t vcid,
 	return NULL;
 }
 
-static struct hab_device *find_hab_device(unsigned int mm_id)
+struct hab_device *find_hab_device(unsigned int mm_id)
 {
 	int i;
 
