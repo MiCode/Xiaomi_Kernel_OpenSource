@@ -44,6 +44,9 @@
 #define UV_TO_DECIUV(a)			(a / 100)
 #define DECIUV_TO_UV(a)			(a * 100)
 
+#define QG_MAX_ESR_COUNT		10
+#define QG_MIN_ESR_COUNT		2
+
 #define CAP(min, max, value)			\
 		((min > value) ? min : ((value > max) ? max : value))
 
