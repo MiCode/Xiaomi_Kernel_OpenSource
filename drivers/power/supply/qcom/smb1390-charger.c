@@ -82,6 +82,7 @@
 #define FCC_VOTER	"FCC_VOTER"
 #define ICL_VOTER	"ICL_VOTER"
 #define USB_VOTER	"USB_VOTER"
+#define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
 
 enum {
 	SWITCHER_OFF_WINDOW_IRQ = 0,
@@ -126,6 +127,7 @@ struct smb1390 {
 	bool			status_change_running;
 	bool			taper_work_running;
 	int			adc_channel;
+	int			irq_status;
 };
 
 struct smb_irq {
@@ -206,6 +208,18 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	return true;
 }
 
+static void cp_toggle_switcher(struct smb1390 *chip)
+{
+	vote(chip->disable_votable, SWITCHER_TOGGLE_VOTER, true, 0);
+
+	/* Delay for toggling switcher */
+	usleep_range(20, 30);
+
+	vote(chip->disable_votable, SWITCHER_TOGGLE_VOTER, false, 0);
+
+	return;
+}
+
 static irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb1390 *chip = data;
@@ -214,36 +228,9 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 	for (i = 0; i < NUM_IRQS; ++i) {
 		if (irq == chip->irqs[i])
 			pr_debug("%s IRQ triggered\n", smb_irqs[i].name);
+			chip->irq_status |= 1 << i;
 	}
 
-	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t irev_irq_handler(int irq, void *data)
-{
-	struct smb1390 *chip = data;
-	int rc;
-
-	pr_debug("IREV IRQ triggered\n");
-
-	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
-			CMD_EN_SWITCHER_BIT, 0);
-	if (rc < 0) {
-		pr_err("Couldn't disable switcher by command mode, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
-			CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't enable switcher by command mode, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-out:
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 	return IRQ_HANDLED;
 }
@@ -266,7 +253,7 @@ static const struct smb_irq smb_irqs[] = {
 	},
 	[IREV_IRQ] = {
 		.name		= "irev-fault",
-		.handler	= irev_irq_handler,
+		.handler	= default_irq_handler,
 		.wake		= true,
 	},
 	[VPH_OV_HARD_IRQ] = {
@@ -340,6 +327,38 @@ static ssize_t enable_store(struct class *c, struct class_attribute *attr,
 	return count;
 }
 
+static ssize_t cp_irq_show(struct class *c, struct class_attribute *attr,
+			char *buf)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	int rc, val;
+
+	rc = smb1390_read(chip, CORE_INT_RT_STS_REG, &val);
+	if (rc < 0)
+		return -EINVAL;
+
+	val |= chip->irq_status;
+	chip->irq_status = 0;
+
+	return snprintf(buf, PAGE_SIZE, "%x\n", val);
+}
+
+static ssize_t toggle_switcher_store(struct class *c,
+			struct class_attribute *attr, const char *buf,
+			size_t count)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	if (val)
+		cp_toggle_switcher(chip);
+
+	return count;
+}
+
 static ssize_t die_temp_show(struct class *c, struct class_attribute *attr,
 			     char *buf)
 {
@@ -360,6 +379,8 @@ static struct class_attribute cp_class_attrs[] = {
 	__ATTR_RO(stat1),
 	__ATTR_RO(stat2),
 	__ATTR_RW(enable),
+	__ATTR_RO(cp_irq),
+	__ATTR_WO(toggle_switcher),
 	__ATTR_RO(die_temp),
 	__ATTR_NULL,
 };
