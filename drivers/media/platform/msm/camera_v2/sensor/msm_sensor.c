@@ -260,12 +260,12 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	sensor_name = s_ctrl->sensordata->sensor_name;
 
 	if (adsp_shmem_is_initialized()) {
-		pr_info("%s aDSP sensor_name:%s\n", __func__,
-		adsp_shmem_get_sensor_name());
+		pr_debug("%s aDSP camera supports sensor_name:%s\n", __func__,
+			adsp_shmem_get_sensor_name());
 		if (strnstr(sensor_name, adsp_shmem_get_sensor_name(),
 			strlen(sensor_name))) {
-			pr_info("%s this is special adsp sensor:%s!\n",
-			 __func__, sensor_name);
+			pr_debug("%s ARM-side sensor matched with aDSP-side sensor:%s\n",
+				__func__, sensor_name);
 			return rc;
 		}
 	}

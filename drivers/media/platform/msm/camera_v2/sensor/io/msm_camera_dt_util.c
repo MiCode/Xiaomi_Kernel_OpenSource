@@ -1778,11 +1778,12 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 			pr_err("%s:%d cannot set pin to suspend state",
 			__func__, __LINE__);
 		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
-	}
-	ctrl->cam_pinctrl_status = 0;
-	msm_camera_request_gpio_table(
+		msm_camera_request_gpio_table(
 		ctrl->gpio_conf->cam_gpio_req_tbl,
 		ctrl->gpio_conf->cam_gpio_req_tbl_size, 0);
+	}
+	ctrl->cam_pinctrl_status = 0;
+
 	CDBG("%s exit\n", __func__);
 	return 0;
 }
