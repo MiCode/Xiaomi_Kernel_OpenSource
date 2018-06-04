@@ -16,6 +16,7 @@
 #define ANC_CMD_RPM    2
 #define ANC_CMD_BYPASS_MODE    3
 #define ANC_CMD_ALGO_MODULE    4
+#define ANC_CMD_ALGO_CALIBRATION    5
 
 /* room for ANC_CMD define extend */
 #define ANC_CMD_MAX   0xFF
@@ -39,10 +40,16 @@ struct audio_anc_algo_module_info {
 	int32_t module_id;
 };
 
+struct audio_anc_algo_calibration_info {
+	int32_t payload_size;
+	/* num bytes of payload specificed in payload_size followed */
+};
+
 union  audio_anc_data {
 	struct audio_anc_rpm_info rpm_info;
 	struct audio_anc_bypass_mode bypass_mode_info;
 	struct audio_anc_algo_module_info algo_info;
+	struct audio_anc_algo_calibration_info algo_cali_info;
 };
 
 struct audio_anc_packet {
