@@ -2630,7 +2630,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 		return -EINVAL;
 	}
 	iommu->protect.base = reg_val[0] / sizeof(u32);
-	iommu->protect.range = ilog2(reg_val[1] / sizeof(u32));
+	iommu->protect.range = reg_val[1] / sizeof(u32);
 
 	of_property_for_each_string(node, "clock-names", prop, cname) {
 		struct clk *c = devm_clk_get(&pdev->dev, cname);
