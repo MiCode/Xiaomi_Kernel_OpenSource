@@ -230,7 +230,7 @@ class Builder():
         self.name = name
         self.defconfig = defconfig
 
-        self.confname = self.defconfig.split('/')[-1]
+        self.confname = re.sub('arch/arm[64]*/configs/', '', self.defconfig)
 
         # Determine if this is a 64-bit target based on the location
         # of the defconfig.
@@ -310,6 +310,13 @@ def scan_configs():
             for n in glob.glob('arch/arm64/configs/' + p):
                 name = os.path.basename(n)[:-10] + "-llvm" + "-64"
                 names.append(Builder(name, n))
+    for defconfig in glob.glob('arch/arm*/configs/vendor/*_defconfig'):
+        target = os.path.basename(defconfig)[:-10]
+        name = target + "-llvm"
+        if 'arch/arm64' in defconfig:
+            name = name + "-64"
+        names.append(Builder(name, defconfig))
+
     return names
 
 def build_many(targets):
