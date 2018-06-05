@@ -675,6 +675,14 @@ Optional properties:
 				The number of quadruples should be equal to the number of values specified in
 				the qcom,cpr-aging-sensor-id property. This property is required if
 				the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-vdd-mode-map:	Array of boolean values which define the mapping
+				of the VDD operating mode for each APC virtual
+				corner. A element value 0 indicates the VDD to
+				be configured to AUTO mode and value 1 indicates
+				the VDD to be configured to PWM mode for the
+				corresponding virtual corner. The elements in
+				the array are ordered from lowest voltage corner
+				to highest voltage corner.
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -727,6 +735,7 @@ Example:
 		qcom,cpr-voltage-ceiling = <1050000 1150000 1280000>;
 		qcom,cpr-voltage-floor = <1050000 1050000 1100000>;
 		vdd-apc-supply = <&pm8226_s2>;
+		qcom,cpr-vdd-mode-map = <0 0 0 0 0 0 1 1 1 1 1 1>;
 		vdd-apc-optional-prim-supply = <&ncp6335d>;
 		vdd-apc-optional-sec-supply = <&fan53555>;
 		vdd-mx-supply = <&pm8226_l3_ao>;

@@ -157,7 +157,7 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 10000,
+		.value = 1000,
 	},
 	{
 		.key = "qcom,debug-timeout",

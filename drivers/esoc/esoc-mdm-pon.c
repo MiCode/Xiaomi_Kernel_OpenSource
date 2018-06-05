@@ -81,7 +81,7 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 
 	mdm_toggle_soft_reset(mdm, false);
 	/* Add a delay to allow PON sequence to complete*/
-	msleep(50);
+	msleep(150);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
 	if (gpio_is_valid(MDM_GPIO(mdm, MDM2AP_PBLRDY))) {
 		for (i = 0; i  < MDM_PBLRDY_CNT; i++) {

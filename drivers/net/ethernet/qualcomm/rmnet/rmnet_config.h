@@ -50,6 +50,8 @@ struct rmnet_port {
 	struct timespec agg_time;
 	struct timespec agg_last;
 	struct hrtimer hrtimer;
+
+	void *qmi_info;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;
@@ -85,6 +87,7 @@ struct rmnet_priv {
 	struct rmnet_pcpu_stats __percpu *pcpu_stats;
 	struct gro_cells gro_cells;
 	struct rmnet_priv_stats stats;
+	void *qos_info;
 };
 
 struct rmnet_port *rmnet_get_port(struct net_device *real_dev);

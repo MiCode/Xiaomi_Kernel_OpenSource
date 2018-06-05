@@ -1149,6 +1149,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		val->intval = chg->auto_recharge_soc;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1224,6 +1227,9 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		chg->die_health = val->intval;
 		power_supply_changed(chg->batt_psy);
+		break;
+	case POWER_SUPPLY_PROP_RECHARGE_SOC:
+		rc = smblib_set_prop_rechg_soc_thresh(chg, val);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1444,6 +1450,7 @@ static int smb5_init_hw(struct smb5 *chip)
 	struct smb_charger *chg = &chip->chg;
 	int rc, type = 0;
 	u8 val = 0;
+	union power_supply_propval pval;
 
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
@@ -1723,13 +1730,14 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/* program the auto-recharge threshold */
 	if (chip->dt.auto_recharge_soc != -EINVAL) {
-		rc = smblib_write(chg, CHARGE_RCHG_SOC_THRESHOLD_CFG_REG,
-				(chip->dt.auto_recharge_soc * 255) / 100);
+		pval.intval = chip->dt.auto_recharge_soc;
+		rc = smblib_set_prop_rechg_soc_thresh(chg, &pval);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't configure CHG_RCHG_SOC_REG rc=%d\n",
-				rc);
+					rc);
 			return rc;
 		}
+
 		/* Program the sample count for SOC based recharge to 1 */
 		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
 						NO_OF_SAMPLE_FOR_RCHG, 0);

@@ -927,9 +927,10 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 		goto set_mode;
 
 	/* configure current */
-	if (((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
-		|| (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB))
-		&& (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)) {
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB
+		&& (chg->typec_legacy
+		|| chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+		|| chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)) {
 		rc = set_sdp_current(chg, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set SDP ICL rc=%d\n", rc);
@@ -1615,6 +1616,25 @@ int smblib_set_prop_input_current_limited(struct smb_charger *chg,
 {
 	chg->fake_input_current_limited = val->intval;
 	return 0;
+}
+
+int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc;
+	u8 new_thr = DIV_ROUND_CLOSEST(val->intval * 255, 100);
+
+	rc = smblib_write(chg, CHARGE_RCHG_SOC_THRESHOLD_CFG_REG,
+			new_thr);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write to RCHG_SOC_THRESHOLD_CFG_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	chg->auto_recharge_soc = val->intval;
+
+	return rc;
 }
 
 int smblib_rerun_aicl(struct smb_charger *chg)

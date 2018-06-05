@@ -53,6 +53,9 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == EAST) ? base + 0xb7000 : \
+			((base == WEST) ? base + 0xbb000 : \
+			((base == NORTH) ? base + 0xbc000 : base + 0xbe000)), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -67,6 +70,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1845,6 +1849,89 @@ static const struct msm_pingroup sm8150_groups[] = {
 	[178] = UFS_RESET(ufs_reset, 0xdb6004),
 };
 
+static struct msm_dir_conn sm8150_dir_conn[] = {
+	{3, 511},
+	{5, 512},
+	{8, 513},
+	{9, 514},
+	{10, 615},
+	{12, 619},
+	{24, 517},
+	{26, 518},
+	{27, 521},
+	{28, 522},
+	{30, 519},
+	{36, 523},
+	{37, 524},
+	{38, 510},
+	{39, 633}, /* GPIO 39 mapped to 640 SPI as well */
+	{41, 527},
+	{42, 528},
+	{46, 530},
+	{47, 529},
+	{48, 531},
+	{49, 533},
+	{50, 532},
+	{51, 631}, /* GPIO 51 mapped to SPI 638 as well */
+	{53, 534},
+	{54, 535},
+	{55, 536},
+	{56, 537},
+	{58, 538},
+	{60, 540},
+	{61, 541},
+	{68, 542},
+	{70, 543},
+	{76, 551},
+	{77, 546},
+	{81, 544},
+	{83, 545},
+	{86, 547},
+	{87, 564},
+	{88, 632}, /* GPIO 88 mapped to SPI 639 as well */
+	{90, 549},
+	{91, 550},
+	{93, 555},
+	{95, 552},
+	{96, 553},
+	{97, 554},
+	{101, 520},
+	{103, 557},
+	{104, 558},
+	{108, 559},
+	{112, 560},
+	{113, 561},
+	{114, 562},
+	{117, 565},
+	{118, 616},
+	{119, 567},
+	{120, 568},
+	{121, 569},
+	{122, 570},
+	{123, 571},
+	{124, 572},
+	{125, 573},
+	{129, 609},
+	{132, 620},
+	{133, 563},
+	{134, 516},
+	{136, 612},
+	{142, 618},
+	{144, 630}, /* GPIO 144 mapped to SPI 637 as well */
+	{147, 617},
+	{150, 622},
+	{152, 623},
+	{153, 624},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+	{0, 212},
+	{0, 211},
+	{0, 210},
+	{0, 209},
+};
+
 static const struct msm_pinctrl_soc_data sm8150_pinctrl = {
 	.pins = sm8150_pins,
 	.npins = ARRAY_SIZE(sm8150_pins),
@@ -1853,6 +1940,9 @@ static const struct msm_pinctrl_soc_data sm8150_pinctrl = {
 	.groups = sm8150_groups,
 	.ngroups = ARRAY_SIZE(sm8150_groups),
 	.ngpios = 175,
+	.dir_conn = sm8150_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sm8150_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int sm8150_pinctrl_probe(struct platform_device *pdev)

@@ -30,8 +30,11 @@ static int fg_set_address(struct fg_dev *fg, u16 address)
 	int rc;
 
 	buffer[0] = address & 0xFF;
-	/* MSB has to be written zero */
-	buffer[1] = 0;
+	buffer[1] = address >> 8;
+
+	/* MSB has to be written zero for GEN3 FG */
+	if (fg->version == GEN3_FG)
+		buffer[1] = 0;
 
 	rc = fg_write(fg, MEM_IF_ADDR_LSB(fg), buffer, 2);
 	if (rc < 0) {
@@ -103,27 +106,52 @@ static int fg_run_iacs_clear_sequence(struct fg_dev *fg)
 	usleep_range(35, 40);
 
 	while (1) {
-		val = 0;
-		rc = fg_write(fg, MEM_IF_ADDR_MSB(fg), &val, 1);
-		if (rc < 0) {
-			pr_err("failed to write 0x%04x, rc=%d\n",
-				MEM_IF_ADDR_MSB(fg), rc);
-			return rc;
-		}
+		if (fg->version == GEN4_FG) {
+			val = 0x4;
+			rc = fg_write(fg, MEM_IF_ADDR_MSB(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to write 0x%04x, rc=%d\n",
+					MEM_IF_ADDR_MSB(fg), rc);
+				return rc;
+			}
 
-		val = 0;
-		rc = fg_write(fg, MEM_IF_WR_DATA3(fg), &val, 1);
-		if (rc < 0) {
-			pr_err("failed to write 0x%04x, rc=%d\n",
-				MEM_IF_WR_DATA3(fg), rc);
-			return rc;
-		}
+			val = 0;
+			rc = fg_write(fg, MEM_IF_WR_DATA1(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to write 0x%04x, rc=%d\n",
+					MEM_IF_WR_DATA1(fg), rc);
+				return rc;
+			}
 
-		rc = fg_read(fg, MEM_IF_RD_DATA3(fg), &val, 1);
-		if (rc < 0) {
-			pr_err("failed to read 0x%04x, rc=%d\n",
-				MEM_IF_RD_DATA3(fg), rc);
-			return rc;
+			rc = fg_read(fg, MEM_IF_RD_DATA1(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to read 0x%04x, rc=%d\n",
+					MEM_IF_RD_DATA1(fg), rc);
+				return rc;
+			}
+		} else { /* GEN3 FG */
+			val = 0;
+			rc = fg_write(fg, MEM_IF_ADDR_MSB(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to write 0x%04x, rc=%d\n",
+					MEM_IF_ADDR_MSB(fg), rc);
+				return rc;
+			}
+
+			val = 0;
+			rc = fg_write(fg, MEM_IF_WR_DATA3(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to write 0x%04x, rc=%d\n",
+					MEM_IF_WR_DATA3(fg), rc);
+				return rc;
+			}
+
+			rc = fg_read(fg, MEM_IF_RD_DATA3(fg), &val, 1);
+			if (rc < 0) {
+				pr_err("failed to read 0x%04x, rc=%d\n",
+					MEM_IF_RD_DATA3(fg), rc);
+				return rc;
+			}
 		}
 
 		/* Delay for IMA hardware to clear */
@@ -313,7 +341,7 @@ static int __fg_interleaved_mem_write(struct fg_dev *fg, u16 address,
 				int offset, u8 *val, int len)
 {
 	int rc = 0, i;
-	u8 *ptr = val, byte_enable = 0, num_bytes = 0;
+	u8 *ptr = val, byte_enable = 0, num_bytes = 0, dummy_byte = 0;
 
 	fg_dbg(fg, FG_SRAM_WRITE, "length %d addr=%02X offset=%d\n", len,
 		address, offset);
@@ -343,18 +371,24 @@ static int __fg_interleaved_mem_write(struct fg_dev *fg, u16 address,
 		}
 
 		/*
-		 * The last-byte WR_DATA3 starts the write transaction.
-		 * Write a dummy value to WR_DATA3 if it does not have
+		 * The last-byte WR_DATA3/1 starts the write transaction.
+		 * Write a dummy value to WR_DATA3/1 if it does not have
 		 * valid data. This dummy data is not written to the
-		 * SRAM as byte_en for WR_DATA3 is not set.
+		 * SRAM as byte_en for WR_DATA3/1 is not set.
 		 */
-		if (!(byte_enable & BIT(3))) {
-			u8 dummy_byte = 0x0;
-
+		if (fg->version == GEN3_FG && !(byte_enable & BIT(3))) {
 			rc = fg_write(fg, MEM_IF_WR_DATA3(fg), &dummy_byte,
 					1);
 			if (rc < 0) {
 				pr_err("failed to write dummy-data to WR_DATA3 rc=%d\n",
+					rc);
+				return rc;
+			}
+		} else if (fg->version == GEN4_FG && !(byte_enable & BIT(1))) {
+			rc = fg_write(fg, MEM_IF_WR_DATA1(fg), &dummy_byte,
+					1);
+			if (rc < 0) {
+				pr_err("failed to write dummy-data to WR_DATA1 rc=%d\n",
 					rc);
 				return rc;
 			}
@@ -542,7 +576,8 @@ static int fg_interleaved_mem_config(struct fg_dev *fg, u8 *val,
 	}
 
 	/* configure for the read/write, single/burst mode */
-	burst_mode = fg->use_ima_single_mode ? false : ((offset + len) > 4);
+	burst_mode = fg->use_ima_single_mode ? false :
+			(offset + len) > fg->sram.num_bytes_per_word;
 	rc = fg_config_access_mode(fg, access, burst_mode);
 	if (rc < 0) {
 		pr_err("failed to set memory access rc = %d\n", rc);
@@ -588,11 +623,17 @@ int fg_interleaved_mem_read(struct fg_dev *fg, u16 address, u8 offset,
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
 
-	if (offset > 3) {
-		pr_err("offset too large %d\n", offset);
-		return -EINVAL;
+	if (fg->version == GEN4_FG) {
+		if (offset > 1) {
+			pr_err("offset too large %d\n", offset);
+			return -EINVAL;
+		}
+	} else {
+		if (offset > 3) {
+			pr_err("offset too large %d\n", offset);
+			return -EINVAL;
+		}
 	}
-
 retry:
 	if (count >= RETRY_COUNT) {
 		pr_err("Tried %d times\n", RETRY_COUNT);
@@ -673,11 +714,17 @@ int fg_interleaved_mem_write(struct fg_dev *fg, u16 address, u8 offset,
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
 
-	if (offset > 3) {
-		pr_err("offset too large %d\n", offset);
-		return -EINVAL;
+	if (fg->version == GEN4_FG) {
+		if (offset > 1) {
+			pr_err("offset too large %d\n", offset);
+			return -EINVAL;
+		}
+	} else {
+		if (offset > 3) {
+			pr_err("offset too large %d\n", offset);
+			return -EINVAL;
+		}
 	}
-
 retry:
 	if (count >= RETRY_COUNT) {
 		pr_err("Tried %d times\n", RETRY_COUNT);

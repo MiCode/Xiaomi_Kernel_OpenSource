@@ -93,6 +93,16 @@ config QCOM_LLCC_AMON_PANIC
 	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
 	  ages out.
 
+config QCOM_LLCC_PERFMON
+	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for LLCC Performance monitor block. Using
+	  this various events in different LLCC sub block ports can be monitored.
+	  This is used for performance and debug activity and exports SYSFS
+	  interface. SYSFS interface used for configure and dump the LLCC
+	  performance events.
+
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
@@ -111,6 +121,26 @@ config QCOM_QMI_HELPERS
 	  messages are used in communication between the majority of QRTR
 	  clients and this helpers provide the common functionality needed for
 	  doing this from a kernel driver.
+
+config QCOM_QMI_DFC
+	bool "Enable burst mode flow control"
+	depends on QCOM_QMI_HELPERS
+	depends on RMNET
+	help
+	  Say y here to enable support for burst mode data flow control.
+	  DFC client provides an interface to the modem dfc service and
+	  does burst mode flow control. It enables the flow on receiving flow
+	  status indication and disables flows while grant size is reached.
+	  If unsure or not use burst mode flow control, say 'N'.
+
+config QCOM_QMI_POWER_COLLAPSE
+	bool "Enable power collapse feature"
+	depends on QCOM_QMI_DFC
+	help
+	  Say y here to enable support for power collapse.
+	  It is to register/unregister the flow status indication callback
+	  based on detected flow status.
+	  If unsure or not use power collapse feature, say 'N'.
 
 config QCOM_SMEM
 	tristate "Qualcomm Shared Memory Manager (SMEM)"
@@ -557,7 +587,7 @@ config MSM_JTAGV8
 
 config QCOM_QDSS_BRIDGE
 	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
-	depends on MSM_MHI
+	depends on MHI_BUS
 	help
 	  The driver will help route diag traffic from modem side over the QDSS
 	  sub-system to USB on APSS side. The driver acts as a bridge between the
