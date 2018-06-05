@@ -20,6 +20,7 @@ Required properties:
 	       should be "qcom,sdm845-tsens" for SDM845 TSENS driver.
 	       should be "qcom,tsens24xx" for 2.4 TSENS controller.
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
+	       should be "qcom,msm8909-tsens" for 8909 TSENS driver.
 	       The compatible property is used to identify the respective controller to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers with associated property in reg-names

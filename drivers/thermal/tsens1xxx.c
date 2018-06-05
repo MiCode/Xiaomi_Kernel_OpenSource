@@ -33,6 +33,7 @@
 #define TSENS_UPPER_THRESHOLD_SHIFT	10
 
 #define TSENS_S0_STATUS_ADDR(n)		((n) + 0x30)
+#define TSENS_S0_TRDY_ADDR(n)		((n) + 0x5c)
 #define TSENS_SN_ADDR_OFFSET		0x4
 #define TSENS_SN_STATUS_TEMP_MASK	0x3ff
 #define TSENS_SN_STATUS_LOWER_STATUS	BIT(11)
@@ -54,102 +55,6 @@
 #define TSENS_THRESHOLD_MAX_CODE	0x3ff
 #define TSENS_THRESHOLD_MIN_CODE	0x0
 #define TSENS_SCALE_MILLIDEG		1000
-
-/* eeprom layout data for 8937 */
-#define BASE0_MASK	0x000000ff
-#define BASE1_MASK	0xff000000
-#define BASE1_SHIFT	24
-
-#define S0_P1_MASK		0x000001f8
-#define S1_P1_MASK		0x001f8000
-#define S2_P1_MASK_0_4		0xf8000000
-#define S2_P1_MASK_5		0x00000001
-#define S3_P1_MASK		0x00001f80
-#define S4_P1_MASK		0x01f80000
-#define S5_P1_MASK		0x00003f00
-#define S6_P1_MASK		0x03f00000
-#define S7_P1_MASK		0x0000003f
-#define S8_P1_MASK		0x0003f000
-#define S9_P1_MASK		0x0000003f
-#define S10_P1_MASK		0x0003f000
-
-#define S0_P2_MASK		0x00007e00
-#define S1_P2_MASK		0x07e00000
-#define S2_P2_MASK		0x0000007e
-#define S3_P2_MASK		0x0007e000
-#define S4_P2_MASK		0x7e000000
-#define S5_P2_MASK		0x000fc000
-#define S6_P2_MASK		0xfc000000
-#define S7_P2_MASK		0x00000fc0
-#define S8_P2_MASK		0x00fc0000
-#define S9_P2_MASK		0x00000fc0
-#define S10_P2_MASK		0x00fc0000
-
-#define S0_P1_SHIFT     3
-#define S1_P1_SHIFT     15
-#define S2_P1_SHIFT_0_4 27
-#define S2_P1_SHIFT_5   5
-#define S3_P1_SHIFT     7
-#define S4_P1_SHIFT     19
-#define S5_P1_SHIFT     8
-#define S6_P1_SHIFT     20
-#define S8_P1_SHIFT     12
-#define S10_P1_SHIFT    12
-
-#define S0_P2_SHIFT     9
-#define S1_P2_SHIFT     21
-#define S2_P2_SHIFT     1
-#define S3_P2_SHIFT     13
-#define S4_P2_SHIFT     25
-#define S5_P2_SHIFT     14
-#define S6_P2_SHIFT     26
-#define S7_P2_SHIFT     6
-#define S8_P2_SHIFT     18
-#define S9_P2_SHIFT     6
-#define S10_P2_SHIFT    18
-
-#define CAL_SEL_MASK	0x00000007
-
-#define CAL_DEGC_PT1		30
-#define CAL_DEGC_PT2		120
-#define SLOPE_FACTOR		1000
-#define SLOPE_DEFAULT		3200
-
-/*
- * Use this function on devices where slope and offset calculations
- * depend on calibration data read from qfprom. On others the slope
- * and offset values are derived from tz->tzp->slope and tz->tzp->offset
- * resp.
- */
-static void compute_intercept_slope(struct tsens_device *tmdev, u32 *p1,
-			     u32 *p2, u32 mode)
-{
-	int i;
-	int num, den;
-
-	for (i = 0; i < TSENS_1x_MAX_SENSORS; i++) {
-		pr_debug(
-			"sensor%d - data_point1:%#x data_point2:%#x\n",
-			i, p1[i], p2[i]);
-
-		tmdev->sensor[i].slope = SLOPE_DEFAULT;
-		if (mode == TWO_PT_CALIB) {
-			/*
-			 * slope (m) = adc_code2 - adc_code1 (y2 - y1)/
-			 *	temp_120_degc - temp_30_degc (x2 - x1)
-			 */
-			num = p2[i] - p1[i];
-			num *= SLOPE_FACTOR;
-			den = CAL_DEGC_PT2 - CAL_DEGC_PT1;
-			tmdev->sensor[i].slope = num / den;
-		}
-
-		tmdev->sensor[i].offset = (p1[i] * SLOPE_FACTOR) -
-				(CAL_DEGC_PT1 *
-				tmdev->sensor[i].slope);
-		pr_debug("offset:%d\n", tmdev->sensor[i].offset);
-	}
-}
 
 static int code_to_degc(u32 adc_code, const struct tsens_sensor *sensor)
 {
@@ -184,72 +89,6 @@ static int degc_to_code(int degc, const struct tsens_sensor *sensor)
 	return code;
 }
 
-static int calibrate_8937(struct tsens_device *tmdev)
-{
-	int base0 = 0, base1 = 0, i;
-	u32 p1[TSENS_1x_MAX_SENSORS], p2[TSENS_1x_MAX_SENSORS];
-	int mode = 0, tmp = 0;
-	u32 qfprom_cdata[5] = {0, 0, 0, 0, 0};
-
-	qfprom_cdata[0] = readl_relaxed(tmdev->tsens_calib_addr + 0x1D8);
-	qfprom_cdata[1] = readl_relaxed(tmdev->tsens_calib_addr + 0x1DC);
-	qfprom_cdata[2] = readl_relaxed(tmdev->tsens_calib_addr + 0x210);
-	qfprom_cdata[3] = readl_relaxed(tmdev->tsens_calib_addr + 0x214);
-	qfprom_cdata[4] = readl_relaxed(tmdev->tsens_calib_addr + 0x230);
-
-	mode = (qfprom_cdata[2] & CAL_SEL_MASK);
-	pr_debug("calibration mode is %d\n", mode);
-
-	switch (mode) {
-	case TWO_PT_CALIB:
-		base1 = (qfprom_cdata[1] & BASE1_MASK) >> BASE1_SHIFT;
-		p2[0] = (qfprom_cdata[2] & S0_P2_MASK) >> S0_P2_SHIFT;
-		p2[1] = (qfprom_cdata[2] & S1_P2_MASK) >> S1_P2_SHIFT;
-		p2[2] = (qfprom_cdata[3] & S2_P2_MASK) >> S2_P2_SHIFT;
-		p2[3] = (qfprom_cdata[3] & S3_P2_MASK) >> S3_P2_SHIFT;
-		p2[4] = (qfprom_cdata[3] & S4_P2_MASK) >> S4_P2_SHIFT;
-		p2[5] = (qfprom_cdata[0] & S5_P2_MASK) >> S5_P2_SHIFT;
-		p2[6] = (qfprom_cdata[0] & S6_P2_MASK) >> S6_P2_SHIFT;
-		p2[7] = (qfprom_cdata[1] & S7_P2_MASK) >> S7_P2_SHIFT;
-		p2[8] = (qfprom_cdata[1] & S8_P2_MASK) >> S8_P2_SHIFT;
-		p2[9] = (qfprom_cdata[4] & S9_P2_MASK) >> S9_P2_SHIFT;
-		p2[10] = (qfprom_cdata[4] & S10_P2_MASK) >> S10_P2_SHIFT;
-
-		for (i = 0; i < TSENS_1x_MAX_SENSORS; i++)
-			p2[i] = ((base1 + p2[i]) << 2);
-		/* Fall through */
-	case ONE_PT_CALIB2:
-		base0 = (qfprom_cdata[0] & BASE0_MASK);
-		p1[0] = (qfprom_cdata[2] & S0_P1_MASK) >> S0_P1_SHIFT;
-		p1[1] = (qfprom_cdata[2] & S1_P1_MASK) >> S1_P1_SHIFT;
-		p1[2] = (qfprom_cdata[2] & S2_P1_MASK_0_4) >> S2_P1_SHIFT_0_4;
-		tmp = (qfprom_cdata[3] & S2_P1_MASK_5) << S2_P1_SHIFT_5;
-		p1[2] |= tmp;
-		p1[3] = (qfprom_cdata[3] & S3_P1_MASK) >> S3_P1_SHIFT;
-		p1[4] = (qfprom_cdata[3] & S4_P1_MASK) >> S4_P1_SHIFT;
-		p1[5] = (qfprom_cdata[0] & S5_P1_MASK) >> S5_P1_SHIFT;
-		p1[6] = (qfprom_cdata[0] & S6_P1_MASK) >> S6_P1_SHIFT;
-		p1[7] = (qfprom_cdata[1] & S7_P1_MASK);
-		p1[8] = (qfprom_cdata[1] & S8_P1_MASK) >> S8_P1_SHIFT;
-		p1[9] = (qfprom_cdata[4] & S9_P1_MASK);
-		p1[10] = (qfprom_cdata[4] & S10_P1_MASK) >> S10_P1_SHIFT;
-
-		for (i = 0; i < TSENS_1x_MAX_SENSORS; i++)
-			p1[i] = (((base0) + p1[i]) << 2);
-		break;
-	default:
-		for (i = 0; i < TSENS_1x_MAX_SENSORS; i++) {
-			p1[i] = 500;
-			p2[i] = 780;
-		}
-		break;
-	}
-
-	compute_intercept_slope(tmdev, p1, p2, mode);
-
-	return 0;
-}
-
 static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 {
 	struct tsens_device *tmdev = NULL;
@@ -265,8 +104,21 @@ static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	tmdev = sensor->tmdev;
 
-	trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_tm_addr);
-	sensor_addr = TSENS_SN_STATUS_ADDR(tmdev->tsens_tm_addr);
+	if ((tmdev->ctrl_data->ver_major == 1) &&
+			(tmdev->ctrl_data->ver_minor == 1)) {
+		trdy_addr = TSENS_S0_TRDY_ADDR(tmdev->tsens_tm_addr);
+		sensor_addr = TSENS_S0_STATUS_ADDR(tmdev->tsens_tm_addr);
+
+		if (!(tmdev->prev_reading_avail)) {
+			while (!((readl_relaxed(trdy_addr)) & TSENS_TRDY_MASK))
+				usleep_range(TSENS_TRDY_RDY_MIN_TIME,
+						TSENS_TRDY_RDY_MAX_TIME);
+			tmdev->prev_reading_avail = true;
+		}
+	} else {
+		trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_tm_addr);
+		sensor_addr = TSENS_SN_STATUS_ADDR(tmdev->tsens_tm_addr);
+	}
 
 	code = readl_relaxed(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));
@@ -486,11 +338,17 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 	void __iomem *sensor_status_ctrl_addr;
 	u32 rc = 0, addr_offset;
 
-	sensor_status_addr = TSENS_SN_STATUS_ADDR(tm->tsens_tm_addr);
+
+	if ((tm->ctrl_data->ver_major == 1) &&
+			(tm->ctrl_data->ver_minor == 1))
+		sensor_status_addr = TSENS_S0_STATUS_ADDR(tm->tsens_tm_addr);
+	else
+		sensor_status_addr = TSENS_SN_STATUS_ADDR(tm->tsens_tm_addr);
+
 	sensor_status_ctrl_addr =
 		TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tm->tsens_tm_addr);
 
-	for (i = 0; i < TSENS_1x_MAX_SENSORS; i++) {
+	for (i = 0; i < tm->ctrl_data->num_sensors; i++) {
 		bool upper_thr = false, lower_thr = false;
 
 		if (IS_ERR(tm->sensor[i].tzd))
@@ -581,7 +439,12 @@ static int tsens1xxx_hw_sensor_en(struct tsens_device *tmdev,
 	void __iomem *srot_addr;
 	unsigned int srot_val, sensor_en;
 
-	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	if ((tmdev->ctrl_data->ver_major == 1) &&
+			(tmdev->ctrl_data->ver_minor == 1))
+		srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr);
+	else
+		srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+
 	srot_val = readl_relaxed(srot_addr);
 	srot_val = TSENS_CTRL_SENSOR_EN_MASK(srot_val);
 
@@ -595,7 +458,12 @@ static int tsens1xxx_hw_init(struct tsens_device *tmdev)
 	void __iomem *srot_addr;
 	unsigned int srot_val;
 
-	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	if ((tmdev->ctrl_data->ver_major == 1) &&
+			(tmdev->ctrl_data->ver_minor == 1))
+		srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr);
+	else
+		srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+
 	srot_val = readl_relaxed(srot_addr);
 	if (!(srot_val & TSENS_EN)) {
 		pr_err("TSENS device is not enabled\n");
@@ -665,9 +533,27 @@ static const struct tsens_ops ops_tsens1xxx = {
 };
 
 const struct tsens_data data_tsens14xx = {
+	.num_sensors = TSENS_NUM_SENSORS_8937,
 	.ops = &ops_tsens1xxx,
 	.valid_status_check = true,
 	.mtc = true,
 	.ver_major = 1,
 	.ver_minor = 4,
+};
+
+static const struct tsens_ops ops_tsens1xxx_8909 = {
+	.hw_init		= tsens1xxx_hw_init,
+	.get_temp		= tsens1xxx_get_temp,
+	.set_trips		= tsens1xxx_set_trip_temp,
+	.interrupts_reg	= tsens1xxx_register_interrupts,
+	.sensor_en		= tsens1xxx_hw_sensor_en,
+	.calibrate		= calibrate_8909,
+	.dbg			= tsens2xxx_dbg,
+};
+
+const struct tsens_data data_tsens1xxx_8909 = {
+	.num_sensors = TSENS_NUM_SENSORS_8909,
+	.ops = &ops_tsens1xxx_8909,
+	.ver_major = 1,
+	.ver_minor = 1,
 };
