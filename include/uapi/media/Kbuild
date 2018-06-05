@@ -26,5 +26,6 @@ header-y += msm_media_info.h
 header-y += msmb_camera.h
 header-y += msmb_generic_buf_mgr.h
 header-y += msmb_isp.h
+header-y += msmb_qca.h
 header-y += msmb_ispif.h
 header-y += msmb_pproc.h
