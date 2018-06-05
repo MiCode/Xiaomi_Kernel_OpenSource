@@ -14,14 +14,9 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
-#include "qcs405-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS405 MTP";
-	compatible = "qcom,qcs405-mtp", "qcom,qcs405", "qcom,mtp";
-	qcom,board-id = <8 0>;
-};
-
-&qnand_1 {
-	status = "ok";
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 SPI IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x010020 0x1>;
 };

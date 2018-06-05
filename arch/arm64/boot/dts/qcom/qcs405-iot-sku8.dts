@@ -11,6 +11,12 @@
  * GNU General Public License for more details.
  */
 
-&smb1351_otg_supply {
-	qcom,charging-disabled;
+/dts-v1/;
+
+#include "qcs405.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 AMIC IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x060020 0x1>;
 };
