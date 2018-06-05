@@ -242,6 +242,8 @@ enum dsi_dfps_type {
  * @DSI_CMD_SET_ROI:			   Panel ROI update
  * @DSI_CMD_SET_TIMING_SWITCH:             Timing switch
  * @DSI_CMD_SET_POST_TIMING_SWITCH:        Post timing switch
+ * @DSI_CMD_SET_QSYNC_ON                   Enable qsync mode
+ * @DSI_CMD_SET_QSYNC_OFF                  Disable qsync mode
  * @DSI_CMD_SET_MAX
  */
 enum dsi_cmd_set_type {

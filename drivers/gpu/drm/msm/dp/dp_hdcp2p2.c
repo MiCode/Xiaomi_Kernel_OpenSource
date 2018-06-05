@@ -359,6 +359,12 @@ static int dp_hdcp2p2_aux_read_message(struct dp_hdcp2p2_ctrl *ctrl)
 		goto exit;
 	}
 
+	if (!buf) {
+		pr_err("invalid request buffer\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
 	pr_debug("request: offset(0x%x), size(%d)\n", offset, size);
 
 	do {
@@ -471,9 +477,9 @@ static void dp_hdcp2p2_send_msg_work(struct kthread_work *work)
 
 exit:
 	if (rc == -ETIMEDOUT)
-		cdata.cmd = HDCP_2X_CMD_MSG_RECV_TIMEOUT;
+		cdata.cmd = HDCP_2X_CMD_MSG_SEND_TIMEOUT;
 	else if (rc)
-		cdata.cmd = HDCP_2X_CMD_MSG_RECV_FAILED;
+		cdata.cmd = HDCP_2X_CMD_MSG_SEND_FAILED;
 
 	dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }

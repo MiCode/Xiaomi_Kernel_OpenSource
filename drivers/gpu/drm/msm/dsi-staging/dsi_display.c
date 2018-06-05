@@ -2181,6 +2181,16 @@ static void dsi_display_toggle_resync_fifo(struct dsi_display *display)
 		ctrl = &display->ctrl[i];
 		dsi_phy_toggle_resync_fifo(ctrl->phy);
 	}
+
+	/*
+	 * After retime buffer synchronization we need to turn of clk_en_sel
+	 * bit on each phy.
+	 */
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_phy_reset_clk_en_sel(ctrl->phy);
+	}
+
 }
 
 static int dsi_display_ctrl_update(struct dsi_display *display)

@@ -2830,9 +2830,12 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse dfps configuration, rc=%d\n", rc);
 
-	rc = dsi_panel_parse_qsync_caps(panel, of_node);
-	if (rc)
-		pr_err("failed to parse qsync features, rc=%d\n", rc);
+	if (!(panel->dfps_caps.dfps_support)) {
+		/* qsync and dfps are mutually exclusive features */
+		rc = dsi_panel_parse_qsync_caps(panel, of_node);
+		if (rc)
+			pr_err("failed to parse qsync features, rc=%d\n", rc);
+	}
 
 	rc = dsi_panel_parse_phy_props(panel);
 	if (rc) {
