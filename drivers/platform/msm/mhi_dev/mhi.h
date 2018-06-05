@@ -605,6 +605,8 @@ struct mhi_dev {
 
 	/*Register for interrupt */
 	bool				mhi_int;
+	bool				mhi_int_en;
+
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
 
