@@ -603,6 +603,7 @@ struct mhi_dev {
 
 	/*Register for interrupt*/
 	bool				mhi_int;
+	bool				mhi_int_en;
 
 	struct kobj_uevent_env		kobj_env;
 };
