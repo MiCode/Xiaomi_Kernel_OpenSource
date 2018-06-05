@@ -276,5 +276,6 @@ void check_and_switch_context(struct mm_struct *mm, struct task_struct *tsk)
 	raw_spin_unlock_irqrestore(&cpu_asid_lock, flags);
 
 switch_mm_fastpath:
+	arm_apply_bp_hardening();
 	cpu_switch_mm(mm->pgd, mm);
 }
