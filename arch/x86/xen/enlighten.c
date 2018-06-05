@@ -75,6 +75,7 @@
 #include <asm/mwait.h>
 #include <asm/pci_x86.h>
 #include <asm/cpu.h>
+#include <asm/unwind_hints.h>
 
 #ifdef CONFIG_ACPI
 #include <linux/acpi.h>
@@ -1452,10 +1453,12 @@ static void __ref xen_setup_gdt(int cpu)
 		 * GDT. The new GDT has  __KERNEL_CS with CS.L = 1
 		 * and we are jumping to reload it.
 		 */
-		asm volatile ("pushq %0\n"
+		asm volatile (UNWIND_HINT_SAVE
+			      "pushq %0\n"
 			      "leaq 1f(%%rip),%0\n"
 			      "pushq %0\n"
 			      "lretq\n"
+			      UNWIND_HINT_RESTORE
 			      "1:\n"
 			      : "=&r" (dummy) : "0" (__KERNEL_CS));
 
