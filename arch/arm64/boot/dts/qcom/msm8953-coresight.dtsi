@@ -505,6 +505,8 @@
 
 		reg = <0x619c000 0x1000>;
 		cpu = <&CPU0>;
+
+		qcom,tupwr-disable;
 		coresight-name = "coresight-etm0";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
