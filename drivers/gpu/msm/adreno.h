@@ -1862,8 +1862,11 @@ static inline int adreno_perfcntr_active_oob_get(
 
 	if (gmu_dev_ops->oob_set) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
-		if (ret)
+		if (ret) {
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
+		}
 	}
 
 	return ret;
