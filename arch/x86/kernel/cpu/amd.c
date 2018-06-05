@@ -296,13 +296,24 @@ static int nearby_node(int apicid)
 }
 #endif
 
+#ifdef CONFIG_SMP
+
+static void amd_get_topology_early(struct cpuinfo_x86 *c)
+{
+	if (boot_cpu_has(X86_FEATURE_TOPOEXT)) {
+		u32 eax, ebx, ecx, edx;
+
+		cpuid(0x8000001e, &eax, &ebx, &ecx, &edx);
+		smp_num_siblings = ((ebx >> 8) & 0xff) + 1;
+	}
+}
+
 /*
  * Fixup core topology information for
  * (1) AMD multi-node processors
  *     Assumption: Number of cores in each internal node is the same.
  * (2) AMD processors supporting compute units
  */
-#ifdef CONFIG_SMP
 static void amd_get_topology(struct cpuinfo_x86 *c)
 {
 	u8 node_id;
@@ -633,6 +644,8 @@ static void early_init_amd(struct cpuinfo_x86 *c)
 	 */
 	if (cpu_has_amd_erratum(c, amd_erratum_400))
 		set_cpu_bug(c, X86_BUG_AMD_E400);
+
+	amd_get_topology_early(c);
 }
 
 static void init_amd_k8(struct cpuinfo_x86 *c)
