@@ -92,7 +92,7 @@ void dsi_phy_hw_v3_0_update_timing_params(
 	timing->lane_v3[6] = desc->hs_prepare.reg_value;
 	timing->lane_v3[7] = desc->hs_trail.reg_value;
 	timing->lane_v3[8] = desc->hs_rqst.reg_value;
-	timing->lane_v3[9] = 0x03;
+	timing->lane_v3[9] = 0x02;
 	timing->lane_v3[10] = 0x04;
 	timing->lane_v3[11] = 0x00;
 
