@@ -171,8 +171,8 @@
 #define KGSL_END_OF_PROFILE_IDENTIFIER	0x2DEFADE2
 #define KGSL_PWRON_FIXUP_IDENTIFIER	0x2AFAFAFA
 
-/* Number of times to try hard reset */
-#define NUM_TIMES_RESET_RETRY 5
+/* Number of times to try hard reset for pre-a6xx GPUs */
+#define NUM_TIMES_RESET_RETRY 4
 
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100

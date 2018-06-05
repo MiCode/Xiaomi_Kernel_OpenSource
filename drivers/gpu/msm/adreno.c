@@ -2218,13 +2218,17 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		/* since device is officially off now clear start bit */
 		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-		/* Keep trying to start the device until it works */
-		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-			ret = adreno_start(device, 0);
-			if (!ret)
-				break;
+		/* Try to reset the device */
+		ret = adreno_start(device, 0);
 
-			msleep(20);
+		/* On some GPUS, keep trying until it works */
+		if (ret && ADRENO_GPUREV(adreno_dev) < 600) {
+			for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+				msleep(20);
+				ret = adreno_start(device, 0);
+				if (!ret)
+					break;
+			}
 		}
 	}
 	if (ret)
