@@ -793,6 +793,37 @@ out:
 	return rc;
 }
 
+static int fg_poll_alg_active(struct fg_dev *fg)
+{
+	u32 retries = 35, poll_time_us = 10000;
+	int rc;
+	u8 val;
+
+	/*
+	 * ALG active should be asserted low within ~164 ms mostly however
+	 * during ESR pulsing, a worst case delay of ~320 ms is needed.
+	 */
+	while (retries--) {
+		rc = fg_read(fg, BATT_INFO_PEEK_RD(fg), &val, 1);
+		if (rc < 0) {
+			pr_err("failed to read PEEK_MUX rc=%d\n", rc);
+			return rc;
+		}
+
+		if (!(val & ALG_ACTIVE_BIT))
+			break;
+
+		usleep_range(poll_time_us, poll_time_us + 1);
+	}
+
+	if (val & ALG_ACTIVE_BIT)
+		return -ETIMEDOUT;
+
+	/* Wait for 1 ms after ALG active is asserted low */
+	usleep_range(1000, 1001);
+	return rc;
+}
+
 static int fg_direct_mem_release(struct fg_dev *fg)
 {
 	int rc;
@@ -822,6 +853,14 @@ static int fg_direct_mem_request(struct fg_dev *fg)
 {
 	int rc, ret, i = 0;
 	u8 val, mask, poll_bit;
+
+	if (fg->wa_flags & PM8150B_V1_DMA_WA) {
+		rc = fg_poll_alg_active(fg);
+		if (rc < 0) {
+			pr_err("Failed to assert ALG active rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	val = mask = MEM_ARB_REQ_BIT;
 	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
@@ -1169,6 +1208,7 @@ static struct fg_dma_address fg_gen4_addr_map[6] = {
 static int fg_dma_init(struct fg_dev *fg)
 {
 	int rc;
+	u8 val;
 
 	if (fg->version == GEN3_FG) {
 		fg->sram.addr_map = fg_gen3_addr_map;
@@ -1215,6 +1255,17 @@ static int fg_dma_init(struct fg_dev *fg)
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
 		return rc;
+	}
+
+	/* Configure PEEK_MUX only for PM8150B v1.0 */
+	if (fg->wa_flags & PM8150B_V1_DMA_WA) {
+		val = ALG_ACTIVE_PEEK_CFG;
+		rc = fg_write(fg, BATT_INFO_PEEK_MUX4(fg), &val, 1);
+		if (rc < 0) {
+			pr_err("failed to configure batt_info_peek_mux4 rc:%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	return 0;
