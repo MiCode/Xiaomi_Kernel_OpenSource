@@ -170,6 +170,7 @@ struct smb1355 {
 	struct pmic_revid_data	*pmic_rev_id;
 
 	int			c_health;
+	int			c_charger_temp_max;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -427,23 +428,6 @@ static int smb1355_get_prop_charger_temp(struct smb1355 *chip,
 	return rc;
 }
 
-static int smb1355_get_prop_charger_temp_max(struct smb1355 *chip,
-				union power_supply_propval *val)
-{
-	int rc;
-
-	if (!chip->iio.temp_max_chan ||
-		PTR_ERR(chip->iio.temp_max_chan) == -EPROBE_DEFER)
-		chip->iio.temp_max_chan = devm_iio_channel_get(chip->dev,
-							"charger_temp_max");
-	if (IS_ERR(chip->iio.temp_max_chan))
-		return PTR_ERR(chip->iio.temp_max_chan);
-
-	rc = iio_read_channel_processed(chip->iio.temp_max_chan, &val->intval);
-	val->intval /= 100;
-	return rc;
-}
-
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -470,7 +454,7 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		rc = smb1355_get_prop_charger_temp(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
-		rc = smb1355_get_prop_charger_temp_max(chip, val);
+		val->intval = chip->c_charger_temp_max;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb1355_get_parallel_charging(chip, &val->intval);
@@ -559,6 +543,9 @@ static int smb1355_parallel_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		chip->c_health = val->intval;
 		power_supply_changed(chip->parallel_psy);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		chip->c_charger_temp_max = val->intval;
 		break;
 	default:
 		pr_debug("parallel power supply set prop %d not supported\n",
@@ -903,6 +890,7 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	chip->param = v1_params;
 	chip->c_health = -EINVAL;
+	chip->c_charger_temp_max = -EINVAL;
 	chip->name = "smb1355";
 	mutex_init(&chip->write_lock);
 

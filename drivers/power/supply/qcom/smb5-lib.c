@@ -3800,8 +3800,26 @@ static void bms_update_work(struct work_struct *work)
 
 static void pl_update_work(struct work_struct *work)
 {
+	union power_supply_propval prop_val;
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_update_work);
+	int rc;
+
+	rc = smblib_get_thermal_threshold(chg, SMB_REG_H_THRESHOLD_MSB_REG,
+				&prop_val.intval);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		return;
+	}
+
+	rc = power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+				&prop_val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_CHARGER_TEMP_MAX rc=%d\n",
+				rc);
+		return;
+	}
 
 	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP)
 		return;
@@ -4047,6 +4065,7 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 
 int smblib_init(struct smb_charger *chg)
 {
+	union power_supply_propval prop_val;
 	int rc = 0;
 
 	mutex_init(&chg->lock);
@@ -4093,13 +4112,33 @@ int smblib_init(struct smb_charger *chg)
 
 		if (chg->sec_pl_present) {
 			chg->pl.psy = power_supply_get_by_name("parallel");
-			if (chg->sec_chg_selected != POWER_SUPPLY_CHARGER_SEC_CP
-				&& chg->pl.psy) {
-				rc = smblib_select_sec_charger(chg,
+			if (chg->pl.psy) {
+				if (chg->sec_chg_selected
+					!= POWER_SUPPLY_CHARGER_SEC_CP) {
+					rc = smblib_select_sec_charger(chg,
 						POWER_SUPPLY_CHARGER_SEC_PL);
+					if (rc < 0) {
+						smblib_err(chg, "Couldn't config pl charger rc=%d\n",
+							rc);
+						return rc;
+					}
+				}
+
+				rc = smblib_get_thermal_threshold(chg,
+						SMB_REG_H_THRESHOLD_MSB_REG,
+						&prop_val.intval);
 				if (rc < 0) {
-					smblib_err(chg, "Couldn't config pl charger rc=%d\n",
-						rc);
+					dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+							rc);
+					return rc;
+				}
+
+				rc = power_supply_set_property(chg->pl.psy,
+					POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+					&prop_val);
+				if (rc < 0) {
+					dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_CHARGER_TEMP_MAX rc=%d\n",
+							rc);
 					return rc;
 				}
 			}

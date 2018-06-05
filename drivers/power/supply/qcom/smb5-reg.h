@@ -388,4 +388,6 @@ enum {
 
 #define DIE_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0xA0)
 
+#define SMB_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0XBC)
+
 #endif /* __SMB5_CHARGER_REG_H */
