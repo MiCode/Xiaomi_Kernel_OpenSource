@@ -130,6 +130,30 @@ extern struct bus_type mhi_bus_type;
 #define MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_MASK (0xFFFFFFFF)
 #define MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_SHIFT (0)
 
+/* MHI misc capability registers */
+#define MISC_OFFSET (0x24)
+#define MISC_CAP_MASK (0xFFFFFFFF)
+#define MISC_CAP_SHIFT (0)
+
+#define CAP_CAPID_MASK (0xFF000000)
+#define CAP_CAPID_SHIFT (24)
+#define CAP_NEXT_CAP_MASK (0x00FFF000)
+#define CAP_NEXT_CAP_SHIFT (12)
+
+/* MHI Timesync offsets */
+#define TIMESYNC_CFG_OFFSET (0x00)
+#define TIMESYNC_CFG_CAPID_MASK (CAP_CAPID_MASK)
+#define TIMESYNC_CFG_CAPID_SHIFT (CAP_CAPID_SHIFT)
+#define TIMESYNC_CFG_NEXT_OFF_MASK (CAP_NEXT_CAP_MASK)
+#define TIMESYNC_CFG_NEXT_OFF_SHIFT (CAP_NEXT_CAP_SHIFT)
+#define TIMESYNC_CFG_NUMCMD_MASK (0xFF)
+#define TIMESYNC_CFG_NUMCMD_SHIFT (0)
+#define TIMESYNC_TIME_LOW_OFFSET (0x4)
+#define TIMESYNC_TIME_HIGH_OFFSET (0x8)
+#define TIMESYNC_DB_OFFSET (0xC)
+
+#define TIMESYNC_CAP_ID (2)
+
 /* MHI BHI offfsets */
 #define BHI_BHIVERSION_MINOR (0x00)
 #define BHI_BHIVERSION_MAJOR (0x04)
@@ -238,27 +262,44 @@ struct __packed bhi_vec_entry {
 	u64 size;
 };
 
+enum mhi_cmd_type {
+	MHI_CMD_TYPE_NOP = 1,
+	MHI_CMD_TYPE_RESET = 16,
+	MHI_CMD_TYPE_STOP = 17,
+	MHI_CMD_TYPE_START = 18,
+	MHI_CMD_TYPE_TSYNC = 24,
+};
+
 /* no operation command */
 #define MHI_TRE_CMD_NOOP_PTR (0)
 #define MHI_TRE_CMD_NOOP_DWORD0 (0)
-#define MHI_TRE_CMD_NOOP_DWORD1 (1 << 16)
+#define MHI_TRE_CMD_NOOP_DWORD1 (MHI_CMD_TYPE_NOP << 16)
 
 /* channel reset command */
 #define MHI_TRE_CMD_RESET_PTR (0)
 #define MHI_TRE_CMD_RESET_DWORD0 (0)
-#define MHI_TRE_CMD_RESET_DWORD1(chid) ((chid << 24) | (16 << 16))
+#define MHI_TRE_CMD_RESET_DWORD1(chid) ((chid << 24) | \
+					(MHI_CMD_TYPE_RESET << 16))
 
 /* channel stop command */
 #define MHI_TRE_CMD_STOP_PTR (0)
 #define MHI_TRE_CMD_STOP_DWORD0 (0)
-#define MHI_TRE_CMD_STOP_DWORD1(chid) ((chid << 24) | (17 << 16))
+#define MHI_TRE_CMD_STOP_DWORD1(chid) ((chid << 24) | (MHI_CMD_TYPE_STOP << 16))
 
 /* channel start command */
 #define MHI_TRE_CMD_START_PTR (0)
 #define MHI_TRE_CMD_START_DWORD0 (0)
-#define MHI_TRE_CMD_START_DWORD1(chid) ((chid << 24) | (18 << 16))
+#define MHI_TRE_CMD_START_DWORD1(chid) ((chid << 24) | \
+					(MHI_CMD_TYPE_START << 16))
+
+/* time sync cfg command */
+#define MHI_TRE_CMD_TSYNC_CFG_PTR (0)
+#define MHI_TRE_CMD_TSYNC_CFG_DWORD0 (0)
+#define MHI_TRE_CMD_TSYNC_CFG_DWORD1(er) ((MHI_CMD_TYPE_TSYNC << 16) | \
+					  (er << 24))
 
 #define MHI_TRE_GET_CMD_CHID(tre) (((tre)->dword[1] >> 24) & 0xFF)
+#define MHI_TRE_GET_CMD_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
 
 /* event descriptor macros */
 #define MHI_TRE_EV_PTR(ptr) (ptr)
@@ -271,7 +312,8 @@ struct __packed bhi_vec_entry {
 #define MHI_TRE_GET_EV_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
 #define MHI_TRE_GET_EV_STATE(tre) (((tre)->dword[0] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_EXECENV(tre) (((tre)->dword[0] >> 24) & 0xFF)
-
+#define MHI_TRE_GET_EV_SEQ(tre) ((tre)->dword[0])
+#define MHI_TRE_GET_EV_TIME(tre) ((tre)->ptr)
 
 /* transfer descriptor macros */
 #define MHI_TRE_DATA_PTR(ptr) (ptr)
@@ -280,11 +322,9 @@ struct __packed bhi_vec_entry {
 	| (ieot << 9) | (ieob << 8) | chain)
 
 enum MHI_CMD {
-	MHI_CMD_NOOP = 0x0,
-	MHI_CMD_RESET_CHAN = 0x1,
-	MHI_CMD_STOP_CHAN = 0x2,
-	MHI_CMD_START_CHAN = 0x3,
-	MHI_CMD_RESUME_CHAN = 0x4,
+	MHI_CMD_RESET_CHAN,
+	MHI_CMD_START_CHAN,
+	MHI_CMD_TIMSYNC_CFG,
 };
 
 enum MHI_PKT_TYPE {
@@ -298,6 +338,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_CMD_COMPLETION_EVENT = 0x21,
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
+	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
 };
 
@@ -457,7 +498,8 @@ enum MHI_ER_TYPE {
 enum mhi_er_data_type {
 	MHI_ER_DATA_ELEMENT_TYPE,
 	MHI_ER_CTRL_ELEMENT_TYPE,
-	MHI_ER_DATA_TYPE_MAX = MHI_ER_CTRL_ELEMENT_TYPE,
+	MHI_ER_TSYNC_ELEMENT_TYPE,
+	MHI_ER_DATA_TYPE_MAX = MHI_ER_TSYNC_ELEMENT_TYPE,
 };
 
 struct db_cfg {
@@ -577,6 +619,25 @@ struct mhi_chan {
 	struct list_head node;
 };
 
+struct tsync_node {
+	struct list_head node;
+	u32 sequence;
+	u64 local_time;
+	u64 remote_time;
+	struct mhi_device *mhi_dev;
+	void (*cb_func)(struct mhi_device *mhi_dev, u32 sequence,
+			u64 local_time, u64 remote_time);
+};
+
+struct mhi_timesync {
+	u32 er_index;
+	void __iomem *db;
+	enum MHI_EV_CCS ccs;
+	struct completion completion;
+	spinlock_t lock;
+	struct list_head head;
+};
+
 struct mhi_bus {
 	struct list_head controller_list;
 	struct mutex lock;
@@ -621,6 +682,11 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota);
 int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			     struct mhi_event *mhi_event, u32 event_quota);
+int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
+				 struct mhi_event *mhi_event, u32 event_quota);
+int mhi_send_cmd(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
+		 enum MHI_CMD cmd);
+int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl);
 
 /* queue transfer buffer */
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
@@ -657,6 +723,9 @@ void mhi_ring_cmd_db(struct mhi_controller *mhi_cntrl, struct mhi_cmd *mhi_cmd);
 void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
 void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl, enum MHI_STATE state);
+int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
+			      u32 *offset);
+int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,
