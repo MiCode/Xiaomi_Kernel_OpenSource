@@ -28,7 +28,7 @@ static bool use_msi = true;
 module_param(use_msi, bool, 0444);
 MODULE_PARM_DESC(use_msi, " Use MSI interrupt, default - true");
 
-static bool ftm_mode;
+bool ftm_mode;
 module_param(ftm_mode, bool, 0444);
 MODULE_PARM_DESC(ftm_mode, " Set factory test mode, default - false");
 

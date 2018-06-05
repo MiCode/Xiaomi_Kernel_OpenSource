@@ -40,6 +40,7 @@ extern bool debug_fw;
 extern bool disable_ap_sme;
 extern bool use_rx_hw_reordering;
 extern bool use_compressed_rx_status;
+extern bool ftm_mode;
 
 struct wil6210_priv;
 struct wil6210_vif;
@@ -55,6 +56,7 @@ union wil_tx_desc;
 
 #define WIL_FW_NAME_TALYN "wil6436.fw"
 #define WIL_FW_NAME_FTM_TALYN "wil6436_ftm.fw"
+#define WIL_BRD_NAME_TALYN "wil6436.brd"
 
 #define WIL_BOARD_FILE_NAME "wil6210.brd" /* board & radio parameters */
 
@@ -876,6 +878,7 @@ struct wil6210_priv {
 	const char *hw_name;
 	const char *wil_fw_name;
 	char *board_file;
+	char board_file_country[3]; /* alpha2 */
 	u32 brd_file_addr;
 	u32 brd_file_max_size;
 	DECLARE_BITMAP(hw_capa, hw_capa_last);
@@ -980,6 +983,9 @@ struct wil6210_priv {
 		short direct;
 	} snr_thresh;
 
+	/* current reg domain configured in kernel */
+	char regdomain[3]; /* alpha2 */
+
 #ifdef CONFIG_PM
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notify;
@@ -1079,6 +1085,8 @@ static inline void wil_c(struct wil6210_priv *wil, u32 reg, u32 val)
 {
 	wil_w(wil, reg, wil_r(wil, reg) & ~val);
 }
+
+void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len);
 
 #if defined(CONFIG_DYNAMIC_DEBUG)
 #define wil_hex_dump_txrx(prefix_str, prefix_type, rowsize,	\
