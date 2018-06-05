@@ -122,7 +122,7 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 	struct device *dev = NULL;
 	int res;
 
-	logError(1, "%s %s starting...\n", tag, __func__);
+	logError(0, "%s %s starting...\n", tag, __func__);
 	switch (from) {
 #ifdef FW_H_FILE
 	case 1:
@@ -139,7 +139,7 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 		memcpy(*data, (u8 *)FW_ARRAY_NAME, (*size));
 		break;
 #endif
-	default:
+	case 2:
 		logError(1, "%s Read FW from BIN file!\n", tag);
 		dev = getDev();
 
@@ -160,7 +160,7 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 				memcpy(*data, (u8 *)fw->data, (*size));
 				release_firmware(fw);
 			} else {
-				logError(1, "%s %s:No File found! ERROR %08X\n",
+				logError(0, "%s %s:No File found! ERROR %08X\n",
 					tag, __func__, ERROR_FILE_NOT_FOUND);
 				return ERROR_FILE_NOT_FOUND;
 			}
@@ -169,8 +169,13 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 			tag, __func__, ERROR_OP_NOT_ALLOW);
 			return ERROR_OP_NOT_ALLOW;
 		}
+		break;
+	default:
+		return ERROR_OP_NOT_ALLOW;
+		/* break; */
 	}
-	logError(1, "%s %s:Finshed!\n", tag, __func__);
+
+	logError(0, "%s %s:Finshed!\n", tag, __func__);
 	return OK;
 }
 
@@ -183,7 +188,7 @@ int readFwFile(const char *path, struct Firmware *fw, int keep_cx)
 
 	res = getFWdata(path, &orig_data, &orig_size, LOAD_FW_FROM);
 	if (res < OK) {
-		logError(1, "%s %s:impossible retrieve FW... ERROR %08X\n",
+		logError(0, "%s %s:impossible retrieve FW... ERROR %08X\n",
 			tag, __func__, ERROR_MEMH_READ);
 
 		return (res | ERROR_MEMH_READ);
@@ -208,7 +213,7 @@ int flashProcedure(const char *path, int force, int keep_cx)
 	logError(0, "%s Reading Fw file...\n", tag);
 	res = readFwFile(path, &fw, keep_cx);
 	if (res < OK) {
-		logError(1, "%s %s: ERROR %02X\n",
+		logError(0, "%s %s: ERROR %02X\n",
 			tag, __func__, (res | ERROR_FLASH_PROCEDURE));
 		kfree(fw.data);
 		return (res | ERROR_FLASH_PROCEDURE);
