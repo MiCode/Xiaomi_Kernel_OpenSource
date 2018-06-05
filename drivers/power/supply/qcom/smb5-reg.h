@@ -386,4 +386,6 @@ enum {
 #define STAT_FUNCTION_CFG_BIT			BIT(1)
 #define STAT_IRQ_PULSING_EN_BIT			BIT(0)
 
+#define DIE_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0xA0)
+
 #endif /* __SMB5_CHARGER_REG_H */

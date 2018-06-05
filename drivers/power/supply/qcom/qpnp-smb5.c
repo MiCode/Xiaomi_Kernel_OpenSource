@@ -1049,6 +1049,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
@@ -1114,6 +1115,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		}
 		if (pval.intval)
 			rc = smblib_get_prop_charger_temp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		val->intval = chg->charger_temp_max;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_get_prop_input_current_limited(chg, val);
@@ -1560,6 +1564,13 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
+
+	rc = smblib_get_thermal_threshold(chg, DIE_REG_H_THRESHOLD_MSB_REG,
+				&chg->charger_temp_max);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		return rc;
+	}
 
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
