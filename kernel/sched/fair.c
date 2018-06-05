@@ -6876,7 +6876,8 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 }
 
 static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
-			   struct cpumask *rtg_target)
+			   struct cpumask *rtg_target,
+			   unsigned long target_capacity)
 {
 	int fcpu = group_first_cpu(sg);
 
@@ -6890,8 +6891,11 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	 */
 	if (cpumask_subset(tsk_cpus_allowed(p), sched_group_cpus(sg)))
 		return false;
-
-	if (!task_fits_max(p, fcpu))
+	/*
+	 * if we have found a target cpu within a group, don't bother checking
+	 * other groups
+	 */
+	if (target_capacity != ULONG_MAX)
 		return true;
 
 	if (rtg_target && !cpumask_test_cpu(fcpu, rtg_target))
@@ -6900,12 +6904,35 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	return false;
 }
 
-static int start_cpu(bool boosted)
+static int start_cpu(struct task_struct *p, bool boosted,
+		     struct cpumask *rtg_target)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-	int start_cpu;
+	int start_cpu = -1;
 
-	start_cpu = boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
+	if (boosted)
+		return rd->max_cap_orig_cpu;
+
+	/* Where the task should land based on its demand */
+	if (rd->min_cap_orig_cpu != -1
+			&& task_fits_max(p, rd->min_cap_orig_cpu))
+		start_cpu = rd->min_cap_orig_cpu;
+	else
+		start_cpu = rd->max_cap_orig_cpu;
+
+	/*
+	 * start it up to its preferred cluster if the preferred cluster is
+	 * higher capacity
+	 */
+	if (start_cpu != -1 && rtg_target &&
+			!cpumask_test_cpu(start_cpu, rtg_target)) {
+		int rtg_target_cpu = cpumask_first(rtg_target);
+
+		if (capacity_orig_of(start_cpu) <
+			capacity_orig_of(rtg_target_cpu)) {
+			start_cpu = rtg_target_cpu;
+		}
+	}
 
 	return walt_start_cpu(start_cpu);
 }
@@ -6929,6 +6956,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
+	long spare_cap, most_spare_cap = 0;
+	int most_spare_cap_cpu = -1;
 	unsigned int active_cpus_count = 0;
 	int isolated_candidate = -1;
 	int prev_cpu = task_cpu(p);
@@ -6939,7 +6968,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	schedstat_inc(this_rq()->eas_stats.fbt_attempts);
 
 	/* Find start CPU based on boost value */
-	cpu = start_cpu(boosted);
+	cpu = start_cpu(p, boosted, fbt_env->rtg_target);
 	if (cpu < 0) {
 		schedstat_inc(p->se.statistics.nr_wakeups_fbt_no_cpu);
 		schedstat_inc(this_rq()->eas_stats.fbt_no_cpu);
@@ -6960,7 +6989,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		cpumask_t search_cpus;
 		bool do_rotate = false, avoid_prev_cpu = false;
 
-		if (skip_sg(p, sg, fbt_env->rtg_target))
+		if (skip_sg(p, sg, fbt_env->rtg_target, target_capacity))
 			continue;
 
 		cpumask_copy(&search_cpus, tsk_cpus_allowed(p));
@@ -6997,6 +7026,12 @@ retry:
 			 */
 			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util(p);
+			spare_cap = capacity_orig_of(i) - wake_util;
+
+			if (spare_cap > most_spare_cap) {
+				most_spare_cap = spare_cap;
+				most_spare_cap_cpu = i;
+			}
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -7271,6 +7306,11 @@ retry:
 		*backup_cpu = prefer_idle
 		? best_active_cpu
 		: best_idle_cpu;
+
+	if (target_cpu == -1 && most_spare_cap_cpu != -1 &&
+		/* ensure we use active cpu for active migration */
+		!(p->state == TASK_RUNNING && !idle_cpu(most_spare_cap_cpu)))
+		target_cpu = most_spare_cap_cpu;
 
 	if (target_cpu == -1 && cpu_isolated(prev_cpu) &&
 			isolated_candidate != -1) {
