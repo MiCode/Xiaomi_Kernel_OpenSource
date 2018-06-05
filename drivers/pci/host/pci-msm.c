@@ -1723,6 +1723,46 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				PCIE20_PORT_LINK_CTRL_REG));
 		break;
 	case MSM_PCIE_SETUP_LOOPBACK_IATU:
+	{
+		void __iomem *iatu_base_vir;
+		u32 iatu_base_phy;
+		u32 iatu_viewport_offset;
+		u32 iatu_ctrl1_offset;
+		u32 iatu_ctrl2_offset;
+		u32 iatu_lbar_offset;
+		u32 iatu_ubar_offset;
+		u32 iatu_lar_offset;
+		u32 iatu_ltar_offset;
+		u32 iatu_utar_offset;
+		u32 iatu_n = 1;
+
+		if (dev->iatu) {
+			iatu_base_vir = dev->iatu;
+			iatu_base_phy =
+				dev->res[MSM_PCIE_RES_IATU].resource->start;
+
+			iatu_viewport_offset = 0;
+			iatu_ctrl1_offset = PCIE_IATU_CTRL1(iatu_n);
+			iatu_ctrl2_offset = PCIE_IATU_CTRL2(iatu_n);
+			iatu_lbar_offset = PCIE_IATU_LBAR(iatu_n);
+			iatu_ubar_offset = PCIE_IATU_UBAR(iatu_n);
+			iatu_lar_offset = PCIE_IATU_LAR(iatu_n);
+			iatu_ltar_offset = PCIE_IATU_LTAR(iatu_n);
+			iatu_utar_offset = PCIE_IATU_UTAR(iatu_n);
+		} else {
+			iatu_base_vir = dev->dm_core;
+			iatu_base_phy = dbi_base_addr;
+
+			iatu_viewport_offset = PCIE20_PLR_IATU_VIEWPORT;
+			iatu_ctrl1_offset = PCIE20_PLR_IATU_CTRL1;
+			iatu_ctrl2_offset = PCIE20_PLR_IATU_CTRL2;
+			iatu_lbar_offset = PCIE20_PLR_IATU_LBAR;
+			iatu_ubar_offset = PCIE20_PLR_IATU_UBAR;
+			iatu_lar_offset = PCIE20_PLR_IATU_LAR;
+			iatu_ltar_offset = PCIE20_PLR_IATU_LTAR;
+			iatu_utar_offset = PCIE20_PLR_IATU_UTAR;
+		}
+
 		PCIE_DBG_FS(dev, "PCIe: RC%d: Setup iATU.\n", dev->rc_idx);
 
 		if (!loopback_ddr_vir) {
@@ -1732,58 +1772,64 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			break;
 		}
 
-		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_VIEWPORT);
-		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_VIEWPORT:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_VIEWPORT,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
+		if (iatu_viewport_offset) {
+			writel_relaxed(0x0, iatu_base_vir +
+				iatu_viewport_offset);
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: PCIE20_PLR_IATU_VIEWPORT:\t0x%x: 0x%x\n",
+				dev->rc_idx,
+				iatu_base_phy + iatu_viewport_offset,
+				readl_relaxed(iatu_base_vir +
+					iatu_viewport_offset));
+		}
 
-		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_CTRL1);
+		writel_relaxed(0x0, iatu_base_vir + iatu_ctrl1_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL1:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL1,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
+			dev->rc_idx, iatu_base_phy + iatu_ctrl1_offset,
+			readl_relaxed(iatu_base_vir + iatu_ctrl1_offset));
 
 		writel_relaxed(loopback_lbar_phy,
-			dev->dm_core + PCIE20_PLR_IATU_LBAR);
+			iatu_base_vir + iatu_lbar_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_LBAR:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LBAR,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
+			dev->rc_idx, iatu_base_phy + iatu_lbar_offset,
+			readl_relaxed(iatu_base_vir + iatu_lbar_offset));
 
-		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_UBAR);
+		writel_relaxed(0x0, iatu_base_vir + iatu_ubar_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_UBAR:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UBAR,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
+			dev->rc_idx, iatu_base_phy + iatu_ubar_offset,
+			readl_relaxed(iatu_base_vir + iatu_ubar_offset));
 
 		writel_relaxed(loopback_lbar_phy + 0xfff,
-			dev->dm_core + PCIE20_PLR_IATU_LAR);
+			iatu_base_vir + iatu_lar_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_LAR:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LAR,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
+			dev->rc_idx, iatu_base_phy + iatu_lar_offset,
+			readl_relaxed(iatu_base_vir + iatu_lar_offset));
 
 		writel_relaxed(loopback_ddr_phy,
-			dev->dm_core + PCIE20_PLR_IATU_LTAR);
+			iatu_base_vir + iatu_ltar_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_LTAR:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LTAR,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
+			dev->rc_idx, iatu_base_phy + iatu_ltar_offset,
+			readl_relaxed(iatu_base_vir + iatu_ltar_offset));
 
-		writel_relaxed(0, dev->dm_core + PCIE20_PLR_IATU_UTAR);
+		writel_relaxed(0, iatu_base_vir + iatu_utar_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_UTAR:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UTAR,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
+			dev->rc_idx, iatu_base_phy + iatu_utar_offset,
+			readl_relaxed(iatu_base_vir + iatu_utar_offset));
 
 		writel_relaxed(0x80000000,
-			dev->dm_core + PCIE20_PLR_IATU_CTRL2);
+			iatu_base_vir + iatu_ctrl2_offset);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL2:\t0x%x: 0x%x\n",
-			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL2,
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+			dev->rc_idx, iatu_base_phy + iatu_ctrl2_offset,
+			readl_relaxed(iatu_base_vir + iatu_ctrl2_offset));
 		break;
+	}
 	case MSM_PCIE_READ_DDR:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Read DDR values.\n",
@@ -2944,6 +2990,15 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 						RPMH_REGULATOR_LEVEL_OFF,
 						RPMH_REGULATOR_LEVEL_MAX);
 				}
+
+				if (dev->vreg[i].opt_mode) {
+					rc = regulator_set_load(hdl, 0);
+					if (rc < 0)
+						PCIE_ERR(dev,
+							"PCIe: RC%d can't set mode for %s: %d\n",
+							dev->rc_idx,
+							dev->vreg[i].name, rc);
+				}
 			}
 
 		}
@@ -2955,7 +3010,7 @@ static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 
 static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 {
-	int i;
+	int i, ret;
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
@@ -2973,6 +3028,15 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 				regulator_set_voltage(dev->vreg[i].hdl,
 					RPMH_REGULATOR_LEVEL_OFF,
 					RPMH_REGULATOR_LEVEL_MAX);
+			}
+
+			if (dev->vreg[i].opt_mode) {
+				ret = regulator_set_load(dev->vreg[i].hdl, 0);
+				if (ret < 0)
+					PCIE_ERR(dev,
+						"PCIe: RC%d can't set mode for %s: %d\n",
+						dev->rc_idx, dev->vreg[i].name,
+						ret);
 			}
 		}
 	}

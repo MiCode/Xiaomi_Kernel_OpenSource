@@ -61,6 +61,9 @@ Generic board variants:
 - MTP device:
   compatible = "qcom,mtp"
 
+- IDP device:
+  compatible = "qcom,idp"
+
 - FLUID device:
   compatible = "qcom,fluid"
 
@@ -142,6 +145,7 @@ compatible = "qcom,sm6150-rumi"
 compatible = "qcom,sm6150-mtp"
 compatible = "qcom,sm6150-cdp"
 compatible = "qcom,sm6150-qrd"
+compatible = "qcom,sm6150-idp"
 compatible = "qcom,qcs405-rumi"
 compatible = "qcom,qcs405-mtp"
 compatible = "qcom,qcs405-cdp"

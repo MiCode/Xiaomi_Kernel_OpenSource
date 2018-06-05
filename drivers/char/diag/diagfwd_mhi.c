@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,9 @@
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
-#include <linux/msm_mhi.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-direction.h>
+#include <linux/mhi.h>
 #include <linux/delay.h>
 #include <linux/vmalloc.h>
 #include <asm/current.h>
@@ -51,15 +53,12 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV] = {
 		.mempool = POOL_TYPE_MDM,
 		.mempool_init = 0,
 		.mhi_wq = NULL,
+		.mhi_dev = NULL,
 		.read_ch = {
-			.chan = MHI_CLIENT_DIAG_IN,
 			.type = TYPE_MHI_READ_CH,
-			.hdl = NULL,
 		},
 		.write_ch = {
-			.chan = MHI_CLIENT_DIAG_OUT,
 			.type = TYPE_MHI_WRITE_CH,
-			.hdl = NULL,
 		}
 	},
 	{
@@ -71,42 +70,15 @@ struct diag_mhi_info diag_mhi[NUM_MHI_DEV] = {
 		.mempool = POOL_TYPE_MDM_DCI,
 		.mempool_init = 0,
 		.mhi_wq = NULL,
+		.mhi_dev = NULL,
 		.read_ch = {
-			.chan = MHI_CLIENT_DCI_IN,
 			.type = TYPE_MHI_READ_CH,
-			.hdl = NULL,
 		},
 		.write_ch = {
-			.chan = MHI_CLIENT_DCI_OUT,
 			.type = TYPE_MHI_WRITE_CH,
-			.hdl = NULL,
 		}
 	}
 };
-
-static int mhi_ch_open(struct diag_mhi_ch_t *ch)
-{
-	int err = 0;
-
-	if (!ch)
-		return -EINVAL;
-
-	if (atomic_read(&ch->opened)) {
-		pr_debug("diag: In %s, channel is already opened, id: %d\n",
-			 __func__, ch->type);
-		return 0;
-	}
-	err = mhi_open_channel(ch->hdl);
-	if (err) {
-		pr_err("diag: In %s, unable to open ch, type: %d, err: %d\n",
-		       __func__, ch->type, err);
-		return err;
-	}
-
-	atomic_set(&ch->opened, 1);
-	INIT_LIST_HEAD(&ch->buf_tbl);
-	return 0;
-}
 
 static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
 			   void *buf, int len)
@@ -244,17 +216,14 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	if (close_flag == CLOSE_CHANNELS) {
 		atomic_set(&(mhi_info->read_ch.opened), 0);
 		atomic_set(&(mhi_info->write_ch.opened), 0);
+		mhi_unprepare_from_transfer(mhi_info->mhi_dev);
 	}
 
-	if (!(atomic_read(&(mhi_info->read_ch.opened)))) {
+	if (!(atomic_read(&(mhi_info->read_ch.opened))))
 		flush_workqueue(mhi_info->mhi_wq);
-		mhi_close_channel(mhi_info->read_ch.hdl);
-	}
 
-	if (!(atomic_read(&(mhi_info->write_ch.opened)))) {
+	if (!(atomic_read(&(mhi_info->write_ch.opened))))
 		flush_workqueue(mhi_info->mhi_wq);
-		mhi_close_channel(mhi_info->write_ch.hdl);
-	}
 
 	mhi_buf_tbl_clear(mhi_info);
 	diag_remote_dev_close(mhi_info->dev_id);
@@ -295,28 +264,23 @@ static void mhi_close_work_fn(struct work_struct *work)
 static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
 {
 	int err = 0;
-	unsigned long flags;
 
 	if (!mhi_info)
 		return -EIO;
-
+	if (!mhi_info->enabled)
+		return -ENODEV;
 	if (open_flag == OPEN_CHANNELS) {
-		if (!atomic_read(&mhi_info->read_ch.opened)) {
-			err = mhi_ch_open(&mhi_info->read_ch);
-			if (err)
-				goto fail;
-			DIAG_LOG(DIAG_DEBUG_BRIDGE,
-				 "opened mhi read channel, port: %d\n",
-				 mhi_info->id);
+		err = mhi_prepare_for_transfer(mhi_info->mhi_dev);
+		if (err) {
+			pr_err("diag: In %s, unable to open ch, err: %d\n",
+				__func__, err);
+			goto fail;
 		}
-		if (!atomic_read(&mhi_info->write_ch.opened)) {
-			err = mhi_ch_open(&mhi_info->write_ch);
-			if (err)
-				goto fail;
-			DIAG_LOG(DIAG_DEBUG_BRIDGE,
-				 "opened mhi write channel, port: %d\n",
-				 mhi_info->id);
-		}
+		atomic_set(&mhi_info->read_ch.opened, 1);
+		atomic_set(&mhi_info->write_ch.opened, 1);
+		DIAG_LOG(DIAG_DEBUG_BRIDGE,
+			 "opened mhi read/write channel, port: %d\n",
+			mhi_info->id);
 	} else if (open_flag == CHANNELS_OPENED) {
 		if (!atomic_read(&(mhi_info->read_ch.opened)) ||
 		    !atomic_read(&(mhi_info->write_ch.opened))) {
@@ -324,9 +288,6 @@ static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
 		}
 	}
 
-	spin_lock_irqsave(&mhi_info->lock, flags);
-	mhi_info->enabled = 1;
-	spin_unlock_irqrestore(&mhi_info->lock, flags);
 	diag_remote_dev_open(mhi_info->dev_id);
 	queue_work(mhi_info->mhi_wq, &(mhi_info->read_work));
 	return 0;
@@ -344,8 +305,6 @@ static int mhi_open(int id)
 		return -EINVAL;
 	}
 
-	if (!diag_mhi[id].enabled)
-		return -ENODEV;
 	/*
 	 * This function is called whenever the channel needs to be opened
 	 * explicitly by Diag. Open both the read and write channels (denoted by
@@ -377,8 +336,10 @@ static void mhi_open_work_fn(struct work_struct *work)
 static void mhi_read_done_work_fn(struct work_struct *work)
 {
 	unsigned char *buf = NULL;
-	struct mhi_result result;
 	int err = 0;
+	int len;
+	unsigned long flags;
+	struct diag_mhi_buf_tbl_t *tp;
 	struct diag_mhi_info *mhi_info = container_of(work,
 						      struct diag_mhi_info,
 						      read_done_work);
@@ -388,17 +349,23 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 	do {
 		if (!(atomic_read(&(mhi_info->read_ch.opened))))
 			break;
-		err = mhi_poll_inbound(mhi_info->read_ch.hdl, &result);
-		if (err) {
-			pr_debug("diag: In %s, err %d\n", __func__, err);
+		spin_lock_irqsave(&mhi_info->lock, flags);
+		if (list_empty(&mhi_info->read_done_list)) {
+			spin_unlock_irqrestore(&mhi_info->lock, flags);
 			break;
 		}
-		buf = result.buf_addr;
+		tp = list_first_entry(&mhi_info->read_done_list,
+					struct diag_mhi_buf_tbl_t, link);
+		list_del(&tp->link);
+		buf = tp->buf;
+		len = tp->len;
+		kfree(tp);
+		spin_unlock_irqrestore(&mhi_info->lock, flags);
 		if (!buf)
 			break;
 		DIAG_LOG(DIAG_DEBUG_BRIDGE,
-			 "read from mhi port %d buf %pK\n",
-			 mhi_info->id, buf);
+			"read from mhi port %d buf %pK len:%d\n",
+			mhi_info->id, buf, len);
 		/*
 		 * The read buffers can come after the MHI channels are closed.
 		 * If the channels are closed at the time of read, discard the
@@ -406,13 +373,13 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 		 */
 		if ((atomic_read(&(mhi_info->read_ch.opened)))) {
 			err = diag_remote_dev_read_done(mhi_info->dev_id, buf,
-						  result.bytes_xferd);
+						  len);
 			if (err)
 				mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH,
-					buf, result.bytes_xferd);
+					buf, len);
 		} else {
 			mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
-					   result.bytes_xferd);
+					   len);
 		}
 	} while (buf);
 }
@@ -434,9 +401,10 @@ static void mhi_read_work_fn(struct work_struct *work)
 	do {
 		if (!(atomic_read(&(read_ch->opened))))
 			break;
-
+		spin_lock_irqsave(&read_ch->lock, flags);
 		buf = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
 				    mhi_info->mempool);
+		spin_unlock_irqrestore(&read_ch->lock, flags);
 		if (!buf)
 			break;
 
@@ -449,8 +417,8 @@ static void mhi_read_work_fn(struct work_struct *work)
 			 "queueing a read buf %pK, ch: %s\n",
 			 buf, mhi_info->name);
 		spin_lock_irqsave(&read_ch->lock, flags);
-		err = mhi_queue_xfer(read_ch->hdl, buf, DIAG_MDM_BUF_SIZE,
-				     mhi_flags);
+		err = mhi_queue_transfer(mhi_info->mhi_dev, DMA_FROM_DEVICE,
+					buf, DIAG_MDM_BUF_SIZE, mhi_flags);
 		spin_unlock_irqrestore(&read_ch->lock, flags);
 		if (err) {
 			pr_err_ratelimited("diag: Unable to read from MHI channel %s, err: %d\n",
@@ -514,7 +482,8 @@ static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
 		goto fail;
 
 	spin_lock_irqsave(&ch->lock, flags);
-	err = mhi_queue_xfer(ch->hdl, buf, len, mhi_flags);
+	err = mhi_queue_transfer(diag_mhi[id].mhi_dev, DMA_TO_DEVICE, buf,
+				len, mhi_flags);
 	spin_unlock_irqrestore(&ch->lock, flags);
 	if (err) {
 		pr_err_ratelimited("diag: In %s, cannot write to MHI channel %pK, len %d, err: %d\n",
@@ -544,103 +513,133 @@ static int mhi_fwd_complete(int id, unsigned char *buf, int len, int ctxt)
 	return 0;
 }
 
-static void mhi_notifier(struct mhi_cb_info *cb_info)
+static struct diag_mhi_info *diag_get_mhi_info(struct mhi_device *mhi_dev)
 {
-	int index;
-	int type;
-	int err = 0;
-	struct mhi_result *result = NULL;
-	struct diag_mhi_ch_t *ch = NULL;
+	struct diag_mhi_info *mhi_info = NULL;
+	int i;
+
+	for (i = 0; i < NUM_MHI_DEV; i++) {
+		mhi_info = &diag_mhi[i];
+		if (mhi_info->mhi_dev == mhi_dev)
+			return mhi_info;
+	}
+	return NULL;
+}
+static void diag_mhi_read_cb(struct mhi_device *mhi_dev,
+				struct mhi_result *result)
+{
+	struct diag_mhi_info *mhi_info = NULL;
+	struct diag_mhi_buf_tbl_t *tp;
+	unsigned long flags;
 	void *buf = NULL;
 
-	if (!cb_info)
+	if (!mhi_dev)
 		return;
+	mhi_info = diag_get_mhi_info(mhi_dev);
+	if (!mhi_info)
+		return;
+	buf = result->buf_addr;
 
-	result = cb_info->result;
-	if (!result) {
-		pr_err_ratelimited("diag: failed to obtain mhi result from callback\n");
+	if (!buf)
+		return;
+	if (atomic_read(&mhi_info->read_ch.opened) &&
+	    result->transaction_status != -ENOTCONN) {
+		tp = kmalloc(sizeof(*tp), GFP_ATOMIC);
+		if (!tp) {
+			DIAG_LOG(DIAG_DEBUG_BRIDGE,
+			"no mem for list\n");
+			return;
+		}
+		tp->buf = buf;
+		tp->len = result->bytes_xferd;
+		spin_lock_irqsave(&mhi_info->lock, flags);
+		list_add_tail(&tp->link, &mhi_info->read_done_list);
+		spin_unlock_irqrestore(&mhi_info->lock, flags);
+		queue_work(mhi_info->mhi_wq, &(mhi_info->read_done_work));
+	} else {
+		mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
+					result->bytes_xferd);
+	}
+}
+
+static void diag_mhi_write_cb(struct mhi_device *mhi_dev,
+				struct mhi_result *result)
+{
+	struct diag_mhi_info *mhi_info = NULL;
+	void *buf = NULL;
+
+	if (!mhi_dev)
+		return;
+	mhi_info = diag_get_mhi_info(mhi_dev);
+	if (!mhi_info)
+		return;
+	buf = result->buf_addr;
+	if (!buf) {
+		pr_err_ratelimited("diag: In %s, unable to de-serialize the data\n",
+					__func__);
 		return;
 	}
-
-	index = GET_INFO_INDEX((uintptr_t)cb_info->result->user_data);
-	if (index < 0 || index >= NUM_MHI_DEV) {
-		pr_err_ratelimited("diag: In %s, invalid MHI index %d\n",
-				   __func__, index);
-		return;
-	}
-
-	type = GET_CH_TYPE((uintptr_t)cb_info->result->user_data);
-	switch (type) {
-	case TYPE_MHI_READ_CH:
-		ch = &diag_mhi[index].read_ch;
-		break;
-	case TYPE_MHI_WRITE_CH:
-		ch = &diag_mhi[index].write_ch;
-		break;
-	default:
-		pr_err_ratelimited("diag: In %s, invalid channel type %d\n",
-				   __func__, type);
-		return;
-	}
-
-	switch (cb_info->cb_reason) {
-	case MHI_CB_MHI_ENABLED:
-		DIAG_LOG(DIAG_DEBUG_BRIDGE,
-			 "received mhi enabled notifiation port: %d ch: %d\n",
-			 index, ch->type);
-		err = mhi_ch_open(ch);
-		if (err)
-			break;
-		if (ch->type == TYPE_MHI_READ_CH) {
-			diag_mhi[index].num_read = mhi_get_free_desc(ch->hdl);
-			if (diag_mhi[index].num_read <= 0) {
-				pr_err("diag: In %s, invalid number of descriptors %d\n",
-				       __func__, diag_mhi[index].num_read);
-				break;
-			}
-		}
-		__mhi_open(&diag_mhi[index], CHANNELS_OPENED);
-		queue_work(diag_mhi[index].mhi_wq,
-			   &(diag_mhi[index].open_work));
-		break;
-	case MHI_CB_MHI_DISABLED:
-		DIAG_LOG(DIAG_DEBUG_BRIDGE,
-			 "received mhi disabled notifiation port: %d ch: %d\n",
-			 index, ch->type);
-		atomic_set(&(ch->opened), 0);
-		__mhi_close(&diag_mhi[index], CHANNELS_CLOSED);
-		break;
-	case MHI_CB_XFER:
-		/*
-		 * If the channel is a read channel, this is a read
-		 * complete notification - write complete if the channel is
-		 * a write channel.
-		 */
-		if (type == TYPE_MHI_READ_CH) {
-			if (!atomic_read(&(diag_mhi[index].read_ch.opened)))
-				break;
-
-			queue_work(diag_mhi[index].mhi_wq,
-				   &(diag_mhi[index].read_done_work));
-			break;
-		}
-		buf = result->buf_addr;
-		if (!buf) {
-			pr_err_ratelimited("diag: In %s, unable to de-serialize the data\n",
-					   __func__);
-			break;
-		}
-		mhi_buf_tbl_remove(&diag_mhi[index], TYPE_MHI_WRITE_CH, buf,
+	mhi_buf_tbl_remove(mhi_info, TYPE_MHI_WRITE_CH, buf,
 				   result->bytes_xferd);
-		diag_remote_dev_write_done(diag_mhi[index].dev_id, buf,
+	diag_remote_dev_write_done(mhi_info->dev_id, buf,
 					   result->bytes_xferd,
-					   diag_mhi[index].id);
-		break;
-	default:
-		pr_err("diag: In %s, invalid cb reason 0x%x\n", __func__,
-		       cb_info->cb_reason);
-		break;
+					   mhi_info->id);
+}
+
+static void diag_mhi_remove(struct mhi_device *mhi_dev)
+{
+	unsigned long flags;
+	struct diag_mhi_info *mhi_info = NULL;
+
+	if (!mhi_dev)
+		return;
+	mhi_info = diag_get_mhi_info(mhi_dev);
+	if (!mhi_info)
+		return;
+	if (!mhi_info->enabled)
+		return;
+	spin_lock_irqsave(&mhi_info->lock, flags);
+	mhi_info->enabled = 0;
+	spin_unlock_irqrestore(&mhi_info->lock, flags);
+	atomic_set(&(mhi_info->read_ch.opened), 0);
+	atomic_set(&(mhi_info->write_ch.opened), 0);
+	flush_workqueue(mhi_info->mhi_wq);
+	mhi_buf_tbl_clear(mhi_info);
+	diag_remote_dev_close(mhi_info->dev_id);
+}
+
+static int diag_mhi_probe(struct mhi_device *mhi_dev,
+			const struct mhi_device_id *id)
+{
+	int index = id->driver_data;
+	int ret = 0;
+	unsigned long flags;
+	struct diag_mhi_info *mhi_info = &diag_mhi[index];
+
+	DIAG_LOG(DIAG_DEBUG_BRIDGE,
+		"received probe for %d\n",
+		index);
+	diag_mhi[index].mhi_dev = mhi_dev;
+	ret = diag_remote_init();
+	if (ret) {
+		diag_remote_exit();
+		return ret;
 	}
+	ret = diagfwd_bridge_init();
+	if (ret) {
+		diagfwd_bridge_exit();
+		diag_remote_exit();
+		return ret;
+	}
+	DIAG_LOG(DIAG_DEBUG_BRIDGE,
+		"diag: mhi device is ready to open\n");
+	spin_lock_irqsave(&mhi_info->lock, flags);
+	mhi_info->enabled = 1;
+	spin_unlock_irqrestore(&mhi_info->lock, flags);
+	__mhi_open(&diag_mhi[index], CHANNELS_OPENED);
+	queue_work(diag_mhi[index].mhi_wq,
+			   &(diag_mhi[index].open_work));
+	return ret;
 }
 
 static struct diag_remote_dev_ops diag_mhi_fwd_ops = {
@@ -651,20 +650,18 @@ static struct diag_remote_dev_ops diag_mhi_fwd_ops = {
 	.fwd_complete = mhi_fwd_complete,
 };
 
-static int diag_mhi_register_ch(int id, struct diag_mhi_ch_t *ch)
+static void diag_mhi_dev_exit(int dev)
 {
-	int ctxt = 0;
+	struct diag_mhi_info *mhi_info = NULL;
 
-	if (!ch)
-		return -EIO;
-	if (id < 0 || id >= NUM_MHI_DEV)
-		return -EINVAL;
-	spin_lock_init(&ch->lock);
-	atomic_set(&(ch->opened), 0);
-	ctxt = SET_CH_CTXT(id, ch->type);
-	ch->client_info.mhi_client_cb = mhi_notifier;
-	return mhi_register_channel(&ch->hdl, ch->chan, 0, &ch->client_info,
-				    (void *)(uintptr_t)ctxt);
+	mhi_info = &diag_mhi[dev];
+	if (!mhi_info)
+		return;
+	if (mhi_info->mhi_wq)
+		destroy_workqueue(mhi_info->mhi_wq);
+	mhi_close(mhi_info->id);
+	if (mhi_info->mempool_init)
+		diagmem_exit(driver, mhi_info->mempool);
 }
 
 int diag_mhi_init(void)
@@ -677,7 +674,14 @@ int diag_mhi_init(void)
 	for (i = 0; i < NUM_MHI_DEV; i++) {
 		mhi_info = &diag_mhi[i];
 		spin_lock_init(&mhi_info->lock);
+		spin_lock_init(&mhi_info->read_ch.lock);
+		spin_lock_init(&mhi_info->write_ch.lock);
+		INIT_LIST_HEAD(&mhi_info->read_ch.buf_tbl);
+		INIT_LIST_HEAD(&mhi_info->write_ch.buf_tbl);
+		atomic_set(&(mhi_info->read_ch.opened), 0);
+		atomic_set(&(mhi_info->write_ch.opened), 0);
 		INIT_WORK(&(mhi_info->read_work), mhi_read_work_fn);
+		INIT_LIST_HEAD(&mhi_info->read_done_list);
 		INIT_WORK(&(mhi_info->read_done_work), mhi_read_done_work_fn);
 		INIT_WORK(&(mhi_info->open_work), mhi_open_work_fn);
 		INIT_WORK(&(mhi_info->close_work), mhi_close_work_fn);
@@ -695,39 +699,43 @@ int diag_mhi_init(void)
 			       i, err);
 			goto fail;
 		}
-		err = diag_mhi_register_ch(mhi_info->id, &mhi_info->read_ch);
-		if (err) {
-			pr_err("diag: Unable to register MHI read channel for %d, err: %d\n",
-			       i, err);
-			goto fail;
-		}
-		err = diag_mhi_register_ch(mhi_info->id, &mhi_info->write_ch);
-		if (err) {
-			pr_err("diag: Unable to register MHI write channel for %d, err: %d\n",
-			       i, err);
-			goto fail;
-		}
 		DIAG_LOG(DIAG_DEBUG_BRIDGE, "mhi port %d is initailzed\n", i);
 	}
 
 	return 0;
 fail:
-	diag_mhi_exit();
+	diag_mhi_dev_exit(i);
 	return -ENOMEM;
 }
 
 void diag_mhi_exit(void)
 {
 	int i;
-	struct diag_mhi_info *mhi_info = NULL;
 
 	for (i = 0; i < NUM_MHI_DEV; i++) {
-		mhi_info = &diag_mhi[i];
-		if (mhi_info->mhi_wq)
-			destroy_workqueue(mhi_info->mhi_wq);
-		mhi_close(mhi_info->id);
-		if (mhi_info->mempool_init)
-			diagmem_exit(driver, mhi_info->mempool);
+		diag_mhi_dev_exit(i);
 	}
 }
 
+static const struct mhi_device_id diag_mhi_match_table[] = {
+	{ .chan = "DIAG", .driver_data = MHI_1 },
+	{ .chan = "DCI", .driver_data = MHI_DCI_1 },
+	{NULL},
+};
+
+static struct mhi_driver diag_mhi_driver = {
+	.id_table = diag_mhi_match_table,
+	.remove = diag_mhi_remove,
+	.probe = diag_mhi_probe,
+	.ul_xfer_cb = diag_mhi_write_cb,
+	.dl_xfer_cb = diag_mhi_read_cb,
+	.driver = {
+		.name = "diag_mhi_driver",
+		.owner = THIS_MODULE,
+	},
+};
+
+void diag_register_with_mhi(void)
+{
+	mhi_driver_register(&diag_mhi_driver);
+}

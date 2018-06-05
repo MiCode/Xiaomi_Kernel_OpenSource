@@ -28,7 +28,7 @@
 
 		home {
 			label = "home";
-			gpios = <&pm855_1_gpios 1 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8150_1_gpios 1 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <KEY_HOME>;
 			gpio-key,wakeup;
@@ -38,7 +38,7 @@
 
 		vol_up {
 			label = "volume_up";
-			gpios = <&pm855_1_gpios 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8150_1_gpios 6 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <KEY_VOLUMEUP>;
 			gpio-key,wakeup;
@@ -52,7 +52,7 @@
 	};
 };
 
-&pm855l_wled {
+&pm8150l_wled {
 	qcom,string-cfg= <7>;
 	status = "ok";
 };
@@ -83,7 +83,7 @@
 	qcom,dsi-display-active;
 };
 
-&pm855l_lcdb {
+&pm8150l_lcdb {
 	status = "ok";
 };
 
@@ -104,11 +104,11 @@
 };
 
 &sdhc_2 {
-	vdd-supply = <&pm855_2_l17>;
+	vdd-supply = <&pm8150_2_l17>;
 	qcom,vdd-voltage-level = <2960000 2960000>;
 	qcom,vdd-current-level = <200 800000>;
 
-	vdd-io-supply = <&pm855p_l6>;
+	vdd-io-supply = <&pm8150c_l6>;
 	qcom,vdd-io-voltage-level = <1800000 2960000>;
 	qcom,vdd-io-current-level = <200 22000>;
 

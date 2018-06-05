@@ -3698,7 +3698,7 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 			if (cleanup) {
 				if (data->client.sec_buf_fd[i].is_sec_buf_fd &&
 					data->client.sec_buf_fd[i].vbase)
-					dma_free_coherent(qseecom.pdev,
+					dma_free_coherent(qseecom.dev,
 					data->client.sec_buf_fd[i].size,
 					data->client.sec_buf_fd[i].vbase,
 					data->client.sec_buf_fd[i].pbase);
@@ -3813,7 +3813,7 @@ err:
 	for (i = 0; i < MAX_ION_FD; i++)
 		if (data->client.sec_buf_fd[i].is_sec_buf_fd &&
 			data->client.sec_buf_fd[i].vbase)
-			dma_free_coherent(qseecom.pdev,
+			dma_free_coherent(qseecom.dev,
 				data->client.sec_buf_fd[i].size,
 				data->client.sec_buf_fd[i].vbase,
 				data->client.sec_buf_fd[i].pbase);
@@ -4163,7 +4163,7 @@ static void __qseecom_free_coherent_buf(uint32_t size,
 				u8 *vaddr, phys_addr_t paddr)
 {
 	size = (size + PAGE_SIZE) & PAGE_MASK;
-	dma_free_coherent(qseecom.pdev, size, vaddr, paddr);
+	dma_free_coherent(qseecom.dev, size, vaddr, paddr);
 }
 
 static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname,
@@ -6521,7 +6521,7 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 		if (cleanup && data->client.sec_buf_fd[i].is_sec_buf_fd &&
 			(*update)) {
 			if (data->client.sec_buf_fd[i].vbase)
-				dma_free_coherent(qseecom.pdev,
+				dma_free_coherent(qseecom.dev,
 					data->client.sec_buf_fd[i].size,
 					data->client.sec_buf_fd[i].vbase,
 					data->client.sec_buf_fd[i].pbase);

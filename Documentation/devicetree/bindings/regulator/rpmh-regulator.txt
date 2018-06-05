@@ -287,8 +287,8 @@ rpmh-regulator-ldoc1 {
 	compatible = "qcom,rpmh-xob-regulator";
 	mboxes = <&apps_rsc 0>;
 	qcom,resource-name = "ldoc1";
-	pm855l_l1: regulator-pm855l-l1 {
-		regulator-name = "pm855l_l1";
+	pm8150l_l1: regulator-pm8150l-l1 {
+		regulator-name = "pm8150l_l1";
 		qcom,set = <RPMH_REGULATOR_SET_ALL>;
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;

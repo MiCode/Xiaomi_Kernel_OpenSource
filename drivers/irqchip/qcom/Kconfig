@@ -20,3 +20,12 @@ config QTI_PDC_SM6150
         default y if ARCH_SM6150
         help
           QTI Power Domain Controller for SM6150
+
+config QTI_MPM
+	bool "QTI MPM"
+	depends on ARCH_QCOM
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  QTI MSM Power Manager driver to manage and configure wakeup
+	  IRQs.

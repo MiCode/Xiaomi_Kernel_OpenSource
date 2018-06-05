@@ -80,7 +80,7 @@ Example:
 				"qtimer_core_clk",
 				"sleep_clk";
 		vdd-supply = <&npu_core_gdsc>;
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&pm8150l_s6_level>;
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		mboxes = <&qmp_npu0 0>, <&qmp_npu1 0>;

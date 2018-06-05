@@ -141,8 +141,7 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 			 struct nlattr *tb[], struct nlattr *data[],
 			 struct netlink_ext_ack *extack)
 {
-	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION |
-			  RMNET_EGRESS_FORMAT_AGGREGATION;
+	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION;
 	struct net_device *real_dev;
 	int mode = RMNET_EPMODE_VND;
 	struct rmnet_endpoint *ep;

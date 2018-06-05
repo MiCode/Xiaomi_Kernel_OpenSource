@@ -2,12 +2,11 @@ Qualcomm Technologies, Inc. SMSM Point-to-Point (SMP2P) Sleepstate driver
 
 Required properties:
 -compatible : should be one of the following:
-- "qcom,smp2pgpio_sleepstate_3_out" - for sensor processor on remote pid 3
-- "qcom,smp2pgpio-sleepstate-out" - for other cases
--gpios : the relevant gpio pins of the entry.
+- "qcom,smp2p-sleepstate"
+-qcom,smem-states : the relevant outgoing smp2p entry
 
 Example:
-	qcom,smp2pgpio-sleepstate-3-out {
-		compatible = "qcom,smp2pgpio_sleepstate_3_out";
-		gpios = <&smp2pgpio_sleepstate_3_out 0 0>;
-	};
+qcom,smp2p_sleepstate {
+	compatible = "qcom,smp2p-sleepstate";
+	qcom,smem-states = <&sleepstate_smp2p_out 0>;
+};

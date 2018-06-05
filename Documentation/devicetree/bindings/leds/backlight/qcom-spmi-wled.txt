@@ -9,7 +9,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Value type: <string>
 	Definition: should be one of the below.
 			"qcom,pmi8998-spmi-wled",
-			"qcom,pm855l-spmi-wled",
+			"qcom,pm8150l-spmi-wled",
 			"qcom,pm6150l-spmi-wled"
 
 - reg
@@ -34,7 +34,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: Brightness value on boot. Default is 2048.
 		    Range of values are:
 		    For pmi8998, it is 0-4095.
-		    For pm855l, this can vary from 0-4095 or 0-32767 depending
+		    For pm8150l, this can vary from 0-4095 or 0-32767 depending
 		    on the brightness control mode. If CABC is enabled, 0-4095
 		    range is used.
 
@@ -43,7 +43,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Value type: <u32>
 	Definition: Maximum brightness level. Allowed values are:
 		    For pmi8998, it is 4095.
-		    For pm855l, this can be either 4095 or 32767.
+		    For pm8150l, this can be either 4095 or 32767.
 		    If CABC is enabled, this is capped to 4095.
 
 - qcom,fs-current-limit
@@ -93,7 +93,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Usage:      optional
 	Value type: <bool>
 	Definition: Specify if external PFET control for short circuit
-		    protection is needed. This is not applicable for PM855L.
+		    protection is needed. This is not applicable for PM8150L.
 
 - interrupts
 	Usage:      optional
@@ -161,7 +161,7 @@ qcom-wled@d800 {
 };
 
 qcom-wled@d800 {
-	compatible = "qcom,pm855l-spmi-wled";
+	compatible = "qcom,pm8150l-spmi-wled";
 	#address-cells = <2>;
 	#size-cells = <0>;
 	reg = <0xd800 0x100>, <0xd900 0x100>;

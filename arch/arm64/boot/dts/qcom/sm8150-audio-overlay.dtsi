@@ -183,23 +183,23 @@
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio 0>;
 
-		cdc-vdd-ldo-rxtx-supply = <&pm855_s5>;
+		cdc-vdd-ldo-rxtx-supply = <&pm8150_s5>;
 		qcom,cdc-vdd-ldo-rxtx-voltage = <2040000 2040000>;
 		qcom,cdc-vdd-ldo-rxtx-current = <30000>;
 
-		cdc-vdd-buck-sido-supply = <&pm855_s4>;
+		cdc-vdd-buck-sido-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-buck-sido-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-sido-current = <228000>;
 
-		cdc-vdd-px-supply = <&pm855_s4>;
+		cdc-vdd-px-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-px-current = <15000>;
 
-		cdc-vdd-mic-bias-supply = <&pm855l_bob>;
+		cdc-vdd-mic-bias-supply = <&pm8150l_bob>;
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-mic-bias-current = <16800>;
 
-		cdc-vdd-pa-supply = <&pm855l_bob>;
+		cdc-vdd-pa-supply = <&pm8150l_bob>;
 		qcom,cdc-vdd-pa-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-pa-current = <1000000>;
 
@@ -246,27 +246,27 @@
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio_lnbb 0>;
 
-		cdc-vdd-buck-supply = <&pm855_s4>;
+		cdc-vdd-buck-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
-		cdc-buck-sido-supply = <&pm855_s4>;
+		cdc-buck-sido-supply = <&pm8150_s4>;
 		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
 		qcom,cdc-buck-sido-current = <500000>;
 
-		cdc-vdd-tx-h-supply = <&pm855_s4>;
+		cdc-vdd-tx-h-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-tx-h-current = <25000>;
 
-		cdc-vdd-rx-h-supply = <&pm855_s4>;
+		cdc-vdd-rx-h-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-rx-h-current = <25000>;
 
-		cdc-vddpx-1-supply = <&pm855_s4>;
+		cdc-vddpx-1-supply = <&pm8150_s4>;
 		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
 		qcom,cdc-vddpx-1-current = <10000>;
 
-		cdc-vdd-3v3-supply = <&pm855l_bob>;
+		cdc-vdd-3v3-supply = <&pm8150l_bob>;
 		qcom,cdc-vdd-3v3-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-3v3-current = <16800>;
 
@@ -316,15 +316,15 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&aqt_intr_default>;
 
-		cdc-vdd-rxtx-supply = <&pm855_s4>;
+		cdc-vdd-rxtx-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-rxtx-current = <33300>;
 
-		cdc-vdd-buck-supply = <&pm855_s4>;
+		cdc-vdd-buck-supply = <&pm8150_s4>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
-		cdc-vdd-vbat-supply = <&pm855l_bob>;
+		cdc-vdd-vbat-supply = <&pm8150l_bob>;
 		qcom,cdc-vdd-vbat-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-vbat-current = <5000>;
 
