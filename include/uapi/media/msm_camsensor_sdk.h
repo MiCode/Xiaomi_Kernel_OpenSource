@@ -313,6 +313,15 @@ struct msm_vendor_id_info_t {
 	enum msm_cci_i2c_master_t cci_i2c_master;
 };
 
+struct msm_vcm_id_info_t {
+	unsigned short eeprom_slave_addr;
+	unsigned short vcm_id_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	unsigned short vcm_id;
+	enum msm_camera_i2c_data_type data_type;
+	enum msm_cci_i2c_master_t cci_i2c_master;
+};
+
 
 struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
@@ -326,6 +335,7 @@ struct msm_camera_sensor_slave_info {
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t sensor_id_info;
 	struct msm_vendor_id_info_t vendor_id_info;
+	struct msm_vcm_id_info_t vcm_id_info;
 	struct msm_sensor_power_setting_array power_setting_array;
 	unsigned char  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
