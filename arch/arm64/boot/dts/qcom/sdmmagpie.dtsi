@@ -971,3 +971,5 @@
 &npu_core_gdsc {
 	status = "ok";
 };
+
+#include "sdmmagpie-ion.dtsi"
