@@ -70,6 +70,21 @@ MODULE_PARM_DESC(fbc_bypass,
 		 "Bypass firmware download when loading WLAN driver");
 #endif
 
+#ifdef CONFIG_CNSS2_DEBUG
+#ifdef CONFIG_CNSS_EMULATION
+static unsigned int mhi_timeout = 90000;
+#else
+static unsigned int mhi_timeout;
+#endif
+module_param(mhi_timeout, uint, 0600);
+MODULE_PARM_DESC(mhi_timeout,
+		 "Timeout for MHI operation in milliseconds");
+
+#define MHI_TIMEOUT_OVERWRITE_MS	mhi_timeout
+#else
+#define MHI_TIMEOUT_OVERWRITE_MS	0
+#endif
+
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
@@ -2115,6 +2130,9 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	if (fbc_bypass)
 		return 0;
+
+	if (MHI_TIMEOUT_OVERWRITE_MS)
+		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
