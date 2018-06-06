@@ -1,0 +1,28 @@
+Memory offline driver
+=====================
+
+The memory offline driver supports the onlining and offlining of DDR memory.
+Through the mem-offline node you can configure how much of the DDR will
+support being offlined/onlined.
+By default all memory is onlined when the device has booted up.
+
+Note that offlinable memory can only support 'movable' memory allocations so
+designating too much memory as offlinable can result in system performance and
+stability issues.
+
+For more information on how to request the onlining and offlining of memory
+see the memory hotplug documentation (Documentation/memory-hotplug.txt).
+
+Required properties:
+- compatible: "qcom,mem-offline"
+- granule: The minimum granule size in mega-bytes for memory onlining/offlining.
+- mem-percent: Percentage of the DDR which will support being onlined/offlined.
+	The system will round down the value to align with the minimum offlinable
+	granule size supported by DDR.
+
+Example:
+  mem-offline {
+	compatible = "qcom,mem-offline";
+	granule = <512>;
+	mem-percent = "35";
+  };

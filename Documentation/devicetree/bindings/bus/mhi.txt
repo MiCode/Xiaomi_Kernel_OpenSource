@@ -95,6 +95,13 @@ Main node properties:
   Value type: <u32>
   Definition: Size of each segment to allocate for BHIe vector table
 
+- mhi,time-sync
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true, if the external device support MHI get time
+	feature for time synchronization between host processor and
+	external modem.
+
 ==========================
 mhi event node properties:
 ==========================

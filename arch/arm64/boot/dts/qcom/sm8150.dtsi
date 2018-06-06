@@ -37,6 +37,11 @@
 	qcom,msm-id = <339 0x10000>;
 	interrupt-parent = <&pdc>;
 
+	mem-offline {
+		mem-percent = "35";
+		granule = <512>;
+	};
+
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */

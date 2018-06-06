@@ -113,6 +113,10 @@ conditions.
 		  supported as we are directly comparing client SID with ID bits
 		  of SMR registers.
 
+-qcom,disable-atos:
+		  Some hardware may not have full support for atos debugging
+		  in tandem with other features like power collapse.
+
 - qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
                   disable in ms. In case of unmap call, regulator is
                   enabled/disabled. This may introduce additional delay. For

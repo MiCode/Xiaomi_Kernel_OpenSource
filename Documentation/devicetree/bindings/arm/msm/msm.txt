@@ -56,10 +56,16 @@ SoCs:
 - SDXPRAIRIE
   compatible = "qcom,sdxprairie"
 
+- SDMMAGPIE
+  compatible = "qcom,sdmmagpie"
+
 Generic board variants:
 
 - CDP device:
   compatible = "qcom,cdp"
+
+- IDP device:
+  compatible = "qcom,idp"
 
 - MTP device:
   compatible = "qcom,mtp"
@@ -157,3 +163,6 @@ compatible = "qcom,auto-adp-star"
 compatible = "qcom,sdxprairie-rumi"
 compatible = "qcom,sdxprairie-mtp"
 compatible = "qcom,sdxprairie-cdp"
+compatible = "qcom,sdmmagpie-rumi"
+compatible = "qcom,sdmmagpie-idp"
+compatible = "qcom,sdmmagpie-qrd"

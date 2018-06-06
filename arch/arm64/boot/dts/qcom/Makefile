@@ -86,6 +86,22 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-idp.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
+		sdmmagpie-idp-overlay.dtbo \
+		sdmmagpie-rumi-overlay.dtbo \
+		sdmmagpie-qrd-overlay.dtbo \
+
+sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
+else
+dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
+	sdmmagpie-idp.dtb \
+	sdmmagpie-qrd.dtb
+endif
+
+
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

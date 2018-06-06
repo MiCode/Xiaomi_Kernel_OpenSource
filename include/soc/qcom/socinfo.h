@@ -69,6 +69,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs405")
 #define early_machine_is_sdxprairie()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxprairie")
+#define early_machine_is_sdmmagpie()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmmagpie")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -93,6 +95,7 @@
 #define early_machine_is_sm6150()	0
 #define early_machine_is_qcs405()	0
 #define early_machine_is_sdxprairie()	0
+#define early_machine_is_sdmmagpie()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -119,6 +122,7 @@ enum msm_cpu {
 	MSM_CPU_SM6150,
 	MSM_CPU_QCS405,
 	SDX_CPU_SDXPRAIRIE,
+	MSM_CPU_SDMMAGPIE,
 };
 
 struct msm_soc_info {

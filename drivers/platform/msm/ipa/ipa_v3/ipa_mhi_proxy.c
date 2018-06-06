@@ -619,6 +619,7 @@ int imp_handle_vote_req(bool vote)
 		imp_ctx->lpm_disabled = false;
 	}
 
+	mutex_unlock(&imp_ctx->mutex);
 	return 0;
 }
 

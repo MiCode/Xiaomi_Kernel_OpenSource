@@ -9,6 +9,7 @@ obj-$(CONFIG_QCOM_SM8150_LLCC) += llcc-sm8150.o
 obj-$(CONFIG_QCOM_SDMSHRIKE_LLCC) += llcc-sdmshrike.o
 obj-$(CONFIG_QCOM_SM6150_LLCC) += llcc-sm6150.o
 obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
+obj-$(CONFIG_QCOM_SDMMAGPIE_LLCC) += llcc-sdmmagpie.o
 obj-$(CONFIG_QCOM_LLCC_AMON) += llcc-amon.o
 obj-$(CONFIG_QCOM_PM)	+=	spm.o
 obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
@@ -88,3 +89,4 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_SMP2P_SLEEPSTATE) += smp2p_sleepstate.o
+obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o

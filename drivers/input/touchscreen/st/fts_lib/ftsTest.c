@@ -818,9 +818,9 @@ int production_test_ms_raw(char *path_limits, int stop_on_fail,
 				&trows,
 				&tcolumns);
 			if (ret < 0 || (trows != 1 || tcolumns != 2)) {
-				logError(1, "%s %s:MS_RAW_MIN_MAX failed...",
+				logError(0, "%s %s:MS_RAW_MIN_MAX failed...",
 					tag, __func__);
-				logError(1, "ERROR %02X\n",
+				logError(0, "ERROR %02X\n",
 					ERROR_PROD_TEST_DATA);
 				ret |= ERROR_PROD_TEST_DATA;
 				goto ERROR_LIMITS;
@@ -832,9 +832,9 @@ int production_test_ms_raw(char *path_limits, int stop_on_fail,
 				thresholds[0],
 				thresholds[1]);
 			if (ret != OK) {
-				logError(1, "%s %s:MS RAW failed...",
+				logError(0, "%s %s:MS RAW failed...",
 					tag, __func__);
-				logError(1, "ERROR COUNT = %d\n", ret);
+				logError(0, "ERROR COUNT = %d\n", ret);
 				logError(0, "%s MS RAW MIN MAX TEST:...", tag);
 				logError(0, "FAIL\n\n", tag);
 				count_fail += 1;
@@ -1553,9 +1553,9 @@ int production_test_ms_key_cx(char *path_limits, int stop_on_fail,
 	 //read MS compensation data
 	ret = readMutualSenseCompensationData(MS_KEY, &msCompData);
 	if (ret < 0) {
-		logError(1, "%s production_test_data: ", tag);
-		logError(1, "readMutualSenseCompensationData failed... ");
-		logError(1, "ERROR %02X\n", ERROR_PROD_TEST_DATA);
+		logError(0, "%s production_test_data: ", tag);
+		logError(0, "readMutualSenseCompensationData failed... ");
+		logError(0, "ERROR %02X\n", ERROR_PROD_TEST_DATA);
 		return (ret | ERROR_PROD_TEST_DATA);
 	}
 
@@ -1575,10 +1575,10 @@ int production_test_ms_key_cx(char *path_limits, int stop_on_fail,
 			&trows,
 			&tcolumns);
 		if (ret < 0 || (trows != 1 || tcolumns != 2)) {
-			logError(1, "%s production_test_data: ", tag);
-			logError(1, "parseProductionTestLimits ");
-			logError(1, "MS_KEY_CX1_MIN_MAX failed... ");
-			logError(1, "ERROR %02X\n", ERROR_PROD_TEST_DATA);
+			logError(0, "%s production_test_data: ", tag);
+			logError(0, "parseProductionTestLimits ");
+			logError(0, "MS_KEY_CX1_MIN_MAX failed... ");
+			logError(0, "ERROR %02X\n", ERROR_PROD_TEST_DATA);
 			ret |= ERROR_PROD_TEST_DATA;
 			goto ERROR_LIMITS;
 		}
@@ -3628,9 +3628,9 @@ int production_test_data(char *path_limits, int stop_on_fail,
 	int res = OK, ret;
 
 	if (todo == NULL) {
-		logError(1, "%s %s: ", tag, __func__);
-		logError(1, "No TestToDo specified!! ");
-		logError(1, "ERROR = %02X\n",
+		logError(0, "%s %s: ", tag, __func__);
+		logError(0, "No TestToDo specified!! ");
+		logError(0, "ERROR = %02X\n",
 			(ERROR_OP_NOT_ALLOW | ERROR_PROD_TEST_DATA));
 		return (ERROR_OP_NOT_ALLOW | ERROR_PROD_TEST_DATA);
 	}
@@ -3639,9 +3639,9 @@ int production_test_data(char *path_limits, int stop_on_fail,
 	ret = production_test_ms_raw(path_limits, stop_on_fail, todo);
 	res |= ret;
 	if (ret < 0) {
-		logError(1, "%s %s: ", tag, __func__);
-		logError(1, "production_test_ms_raw failed... ");
-		logError(1, "ERROR = %02X\n", ret);
+		logError(0, "%s %s: ", tag, __func__);
+		logError(0, "production_test_ms_raw failed... ");
+		logError(0, "ERROR = %02X\n", ret);
 		if (stop_on_fail == 1)
 			goto END;
 	}
@@ -3649,9 +3649,9 @@ int production_test_data(char *path_limits, int stop_on_fail,
 	ret = production_test_ms_cx(path_limits, stop_on_fail, todo);
 	res |= ret;
 	if (ret < 0) {
-		logError(1, "%s %s: ", tag, __func__);
-		logError(1, "production_test_ms_cx failed... ");
-		logError(1, "ERROR = %02X\n", ret);
+		logError(0, "%s %s: ", tag, __func__);
+		logError(0, "production_test_ms_cx failed... ");
+		logError(0, "ERROR = %02X\n", ret);
 		if (stop_on_fail == 1)
 			goto END;
 	}
@@ -3659,9 +3659,9 @@ int production_test_data(char *path_limits, int stop_on_fail,
 	ret = production_test_ss_raw(path_limits, stop_on_fail, todo);
 	res |= ret;
 	if (ret < 0) {
-		logError(1, "%s %s: ", tag, __func__);
-		logError(1, "production_test_ss_raw failed... ");
-		logError(1, "ERROR = %02X\n", ret);
+		logError(0, "%s %s: ", tag, __func__);
+		logError(0, "production_test_ss_raw failed... ");
+		logError(0, "ERROR = %02X\n", ret);
 		if (stop_on_fail == 1)
 			goto END;
 	}
@@ -3669,9 +3669,9 @@ int production_test_data(char *path_limits, int stop_on_fail,
 	ret = production_test_ss_ix_cx(path_limits, stop_on_fail, todo);
 	res |= ret;
 	if (ret < 0) {
-		logError(1, "%s %s: ", tag, __func__);
-		logError(1, "production_test_ss_ix_cx failed... ");
-		logError(1, "ERROR = %02X\n", ret);
+		logError(0, "%s %s: ", tag, __func__);
+		logError(0, "production_test_ss_ix_cx failed... ");
+		logError(0, "ERROR = %02X\n", ret);
 		if (stop_on_fail == 1)
 			goto END;
 	}
@@ -3708,7 +3708,7 @@ int save_mp_flag(u32 signature)
 	if (res < OK) {
 		logError(1, "%s %s: ERROR %08X ...\n", tag, __func__, res);
 	} else {
-		logError(1, "%s Saving Flag DONE!\n", tag);
+		logError(0, "%s Saving Flag DONE!\n", tag);
 		res = OK;
 	}
 	return res;
@@ -3741,7 +3741,7 @@ int parseProductionTestLimits(char *path, char *label,
 #endif
 
 	if (fd != 0) {
-		logError(1, "%s %s: ERROR %02X\n",
+		logError(0, "%s %s: ERROR %02X\n",
 			tag, __func__, ERROR_FILE_NOT_FOUND);
 		return ERROR_FILE_NOT_FOUND;
 	}

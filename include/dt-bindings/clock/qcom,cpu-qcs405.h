@@ -11,9 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_MSM_CPU_CC_QCS405_H
-#define _DT_BINDINGS_CLK_MSM_CPU_CC_QCS405_H
+#ifndef _DT_BINDINGS_CLK_QCOM_CPU_QCS405_H
+#define _DT_BINDINGS_CLK_QCOM_CPU_QCS405_H
 
-#define A53_PERF_CL_CLK			0
+#define APCS_CPU_PLL		0
+#define APCS_MUX_CLK		1
 
 #endif
