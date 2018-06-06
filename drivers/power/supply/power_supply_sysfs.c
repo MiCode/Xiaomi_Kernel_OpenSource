@@ -335,6 +335,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(battery_info),
 	POWER_SUPPLY_ATTR(battery_info_id),
 	POWER_SUPPLY_ATTR(enable_jeita_detection),
+	POWER_SUPPLY_ATTR(esr_actual),
+	POWER_SUPPLY_ATTR(esr_nominal),
+	POWER_SUPPLY_ATTR(soh),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
