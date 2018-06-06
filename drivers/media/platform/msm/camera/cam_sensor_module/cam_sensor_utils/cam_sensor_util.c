@@ -698,25 +698,21 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	}
 
 	power_info->power_setting_size = 0;
-	if (power_info->power_setting == NULL) {
-		power_info->power_setting =
-			(struct cam_sensor_power_setting *)
-			kzalloc(sizeof(struct cam_sensor_power_setting) *
-				MAX_POWER_CONFIG, GFP_KERNEL);
-		if (!power_info->power_setting)
-			return -ENOMEM;
-	}
+	power_info->power_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting) *
+			MAX_POWER_CONFIG, GFP_KERNEL);
+	if (!power_info->power_setting)
+		return -ENOMEM;
 
 	power_info->power_down_setting_size = 0;
-	if (power_info->power_down_setting == NULL) {
-		power_info->power_down_setting =
-			(struct cam_sensor_power_setting *)
-			kzalloc(sizeof(struct cam_sensor_power_setting) *
-				MAX_POWER_CONFIG, GFP_KERNEL);
-		if (!power_info->power_down_setting) {
-			rc = -ENOMEM;
-			goto free_power_settings;
-		}
+	power_info->power_down_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting) *
+			MAX_POWER_CONFIG, GFP_KERNEL);
+	if (!power_info->power_down_setting) {
+		rc = -ENOMEM;
+		goto free_power_settings;
 	}
 
 	while (tot_size < cmd_length) {
