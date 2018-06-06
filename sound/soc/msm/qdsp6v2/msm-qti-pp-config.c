@@ -172,6 +172,45 @@ static int msm_qti_pp_put_eq_band_count_audio_mixer(
 	return 0;
 }
 
+static int msm_qti_pp_put_dtmf_module_enable
+		(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	u16 fe_id = 0;
+	struct msm_pcm_routing_fdai_data fe_dai;
+	struct audio_client *ac = NULL;
+	struct param_hdr_v3 param_hdr;
+	int ret = 0;
+	u32 flag = ucontrol->value.integer.value[0];
+
+	fe_id = ((struct soc_multi_mixer_control *)
+			kcontrol->private_value)->shift;
+	if (fe_id >= MSM_FRONTEND_DAI_MM_SIZE) {
+		pr_err("%s: invalid FE %d\n", __func__, fe_id);
+		return -EINVAL;
+	}
+
+	msm_pcm_routing_get_fedai_info(fe_id, SESSION_TYPE_RX, &fe_dai);
+	ac = q6asm_get_audio_client(fe_dai.strm_id);
+
+	if (ac == NULL) {
+		pr_err("%s ac is null.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	param_hdr.module_id = AUDPROC_MODULE_ID_DTMF_DETECTION;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_id = AUDPROC_PARAM_ID_ENABLE;
+	param_hdr.param_size = 4;
+
+	ret = q6asm_pack_and_set_pp_param_in_band(ac,
+			param_hdr, (u8 *)&flag);
+
+done:
+	return ret;
+}
+
 static int msm_qti_pp_get_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
@@ -1364,6 +1403,18 @@ static const struct snd_kcontrol_new asphere_mixer_controls[] = {
 	0xFFFFFFFF, 0, 2, msm_qti_pp_asphere_get, msm_qti_pp_asphere_set),
 };
 
+static const struct snd_kcontrol_new dtmf_detect_enable_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1 DTMF Detect Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, NULL,
+	msm_qti_pp_put_dtmf_module_enable),
+	SOC_SINGLE_EXT("MultiMedia6 DTMF Detect Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA6, 1, 0, NULL,
+	msm_qti_pp_put_dtmf_module_enable),
+	SOC_SINGLE_EXT("MultiMedia21 DTMF Detect Enable", SND_SOC_NOPM,
+	MSM_FRONTEND_DAI_MULTIMEDIA21, 1, 0, NULL,
+	msm_qti_pp_put_dtmf_module_enable),
+};
+
 #ifdef CONFIG_QTI_PP
 void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 {
@@ -1420,5 +1471,9 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, msm_multichannel_ec_controls,
 			ARRAY_SIZE(msm_multichannel_ec_controls));
+
+	snd_soc_add_platform_controls(platform,
+				dtmf_detect_enable_mixer_controls,
+			ARRAY_SIZE(dtmf_detect_enable_mixer_controls));
 }
 #endif /* CONFIG_QTI_PP */
