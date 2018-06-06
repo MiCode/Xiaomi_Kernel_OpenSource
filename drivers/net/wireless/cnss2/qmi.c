@@ -238,6 +238,10 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req.fw_init_done_enable = 1;
 	req.pin_connect_result_enable_valid = 1;
 	req.pin_connect_result_enable = 1;
+	req.initiate_cal_download_enable_valid = 1;
+	req.initiate_cal_download_enable = 1;
+	req.initiate_cal_update_enable_valid = 1;
+	req.initiate_cal_update_enable = 1;
 
 	req_desc.max_msg_len = WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_IND_REGISTER_REQ_V01;
@@ -267,6 +271,13 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 out:
 	CNSS_ASSERT(0);
 	return ret;
+}
+
+static int cnss_qmi_initiate_cal_update_ind_hdlr(
+					 struct cnss_plat_data *plat_priv,
+					 void *msg, unsigned int msg_len)
+{
+	return 0;
 }
 
 static int cnss_wlfw_request_mem_ind_hdlr(struct cnss_plat_data *plat_priv,
@@ -941,6 +952,11 @@ out:
 	return ret;
 }
 
+int cnss_wlfw_cal_report_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
 static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 			       unsigned int msg_id, void *msg,
 			       unsigned int msg_len, void *ind_cb_priv)
@@ -976,6 +992,9 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 		break;
 	case QMI_WLFW_PIN_CONNECT_RESULT_IND_V01:
 		cnss_qmi_pin_result_ind_hdlr(plat_priv, msg, msg_len);
+		break;
+	case QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01:
+		cnss_qmi_initiate_cal_update_ind_hdlr(plat_priv, msg, msg_len);
 		break;
 	default:
 		cnss_pr_err("Invalid QMI WLFW indication, msg_id: 0x%x\n",
