@@ -521,12 +521,23 @@ static struct clk_rcg2 blsp1_qup1_i2c_apps_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_blsp1_qup1_spi_apps_clk_src[] = {
+	F(960000, P_XO, 10, 1, 2),
+	F(4800000, P_XO, 4, 0, 0),
+	F(9600000, P_XO, 2, 0, 0),
+	F(16000000, P_GPLL0_OUT_MAIN, 10, 1, 5),
+	F(19200000, P_XO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_MAIN, 16, 1, 2),
+	F(30000000, P_GPLL0_OUT_MAIN, 1,  3, 80),
+	{ }
+};
+
 static struct clk_rcg2 blsp1_qup1_spi_apps_clk_src = {
 	.cmd_rcgr = 0x2024,
 	.mnd_width = 8,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_blsp1_qup0_spi_apps_clk_src,
+	.freq_tbl = ftbl_blsp1_qup1_spi_apps_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "blsp1_qup1_spi_apps_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -536,7 +547,7 @@ static struct clk_rcg2 blsp1_qup1_spi_apps_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOW] = 25000000,
-			[VDD_NOMINAL] = 50000000},
+			[VDD_NOMINAL] = 30000000},
 	},
 };
 
@@ -563,7 +574,7 @@ static struct clk_rcg2 blsp1_qup2_spi_apps_clk_src = {
 	.mnd_width = 8,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_blsp1_qup0_spi_apps_clk_src,
+	.freq_tbl = ftbl_blsp1_qup1_spi_apps_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "blsp1_qup2_spi_apps_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -573,7 +584,7 @@ static struct clk_rcg2 blsp1_qup2_spi_apps_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOW] = 25000000,
-			[VDD_NOMINAL] = 50000000},
+			[VDD_NOMINAL] = 30000000},
 	},
 };
 
