@@ -205,6 +205,15 @@ struct ufs_dev_cmd {
 	struct ufs_query query;
 };
 
+struct ufs_desc_size {
+	int dev_desc;
+	int pwr_desc;
+	int geom_desc;
+	int interc_desc;
+	int unit_desc;
+	int conf_desc;
+};
+
 /**
  * struct ufs_clk_info - UFS clock related info
  * @list: list headed by hba->clk_list_head
@@ -388,6 +397,7 @@ struct ufs_init_prefetch {
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
  * @max_pwr_info: keeps the device max valid pwm
+ * @desc_size: descriptor sizes reported by device
  * @urgent_bkops_lvl: keeps track of urgent bkops level for device
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
  *  device is known or not.
@@ -563,6 +573,9 @@ struct ufs_hba {
 
 	enum bkops_status urgent_bkops_lvl;
 	bool is_urgent_bkops_lvl_checked;
+
+	struct ufs_desc_size desc_size;
+
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_read;
 	struct io_latency_state io_lat_write;
@@ -739,6 +752,10 @@ int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, bool *flag_res);
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+
+int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
+	int *desc_length);
+
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 
 /* Wrapper functions for safely calling variant operations */
