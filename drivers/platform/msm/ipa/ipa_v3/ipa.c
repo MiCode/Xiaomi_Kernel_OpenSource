@@ -4464,6 +4464,9 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	case IPA_HW_v4_2:
 		gsi_ver = GSI_VER_2_2;
 		break;
+	case IPA_HW_v4_5:
+		gsi_ver = GSI_VER_2_5;
+		break;
 	default:
 		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
 		WARN_ON(1);
@@ -4523,7 +4526,6 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* move proxy vote for modem on ipa3_post_init */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
-
 	/* SMMU was already attached if used, safe to do allocations */
 	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
 		ipa3_ctx->pdev)) {
@@ -4647,8 +4649,8 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	/*
-	 * IPAv3.5 and above requires to disable prefetch for USB in order
-	 * to allow MBIM to work.
+	 * Disable prefetch for USB or MHI at IPAv3.5/IPA.3.5.1
+	 * This is to allow MBIM to work.
 	 */
 	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
 		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
@@ -4901,18 +4903,20 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		if (count && (dbg_buff[count - 1] == '\n'))
 			dbg_buff[count - 1] = '\0';
 
+		/*
+		 * This logic enforeces MHI mode based on userspace input.
+		 * Note that MHI mode could be already determined due
+		 *  to previous logic.
+		 */
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
-			pr_info(
-				"IPA is loading with MHI configuration\n");
-		} else if (!strcmp(dbg_buff, "1")) {
-			pr_info(
-				"IPA is loading with non MHI configuration\n");
-		} else {
+		} else if (strcmp(dbg_buff, "1")) {
 			IPAERR("got invalid string %s not loading FW\n",
 				dbg_buff);
 			return count;
 		}
+		pr_info("IPA is loading with %sMHI configuration\n",
+			ipa3_ctx->ipa_config_is_mhi ? "" : "non ");
 	}
 
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
@@ -5655,6 +5659,11 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	if (ipa_drv_res->ipa_hw_type < IPA_HW_v3_0) {
 		IPAERR(":IPA version below 3.0 not supported\n");
+		return -ENODEV;
+	}
+
+	if (ipa_drv_res->ipa_hw_type >= IPA_HW_MAX) {
+		IPAERR(":IPA version is greater than the MAX\n");
 		return -ENODEV;
 	}
 

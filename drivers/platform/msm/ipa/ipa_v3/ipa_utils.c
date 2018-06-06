@@ -217,6 +217,8 @@ enum ipa_ver {
 	IPA_4_0_MHI,
 	IPA_4_1,
 	IPA_4_2,
+	IPA_4_5,
+	IPA_4_5_MHI,
 	IPA_VER_MAX,
 };
 
@@ -2619,7 +2621,6 @@ void ipa3_cfg_qsb(void)
 int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
-	u32 val;
 	struct ipahal_reg_counter_cfg cnt_cfg;
 
 	/* Read IPA version and make sure we have access to the registers */
@@ -2630,25 +2631,24 @@ int ipa3_init_hw(void)
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
-		val = IPA_BCR_REG_VAL_v3_0;
+		ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL_v3_0);
 		break;
 	case IPA_HW_v3_5:
 	case IPA_HW_v3_5_1:
-		val = IPA_BCR_REG_VAL_v3_5;
+		ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL_v3_5);
 		break;
 	case IPA_HW_v4_0:
 	case IPA_HW_v4_1:
-		val = IPA_BCR_REG_VAL_v4_0;
+		ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL_v4_0);
 		break;
 	case IPA_HW_v4_2:
-		val = IPA_BCR_REG_VAL_v4_2;
+		ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL_v4_2);
 		break;
 	default:
-		IPAERR("unknown HW type in dts\n");
-		return -EFAULT;
+		IPADBG("Do not update BCR - hw_type=%d\n",
+			ipa3_ctx->ipa_hw_type);
+		break;
 	}
-
-	ipahal_write_reg(IPA_BCR, val);
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 		struct ipahal_reg_clkon_cfg clkon_cfg;
@@ -2719,6 +2719,11 @@ u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v4_2:
 		hw_type_index = IPA_4_2;
+		break;
+	case IPA_HW_v4_5:
+		hw_type_index = IPA_4_5;
+		if (ipa3_ctx->ipa_config_is_mhi)
+			hw_type_index = IPA_4_5_MHI;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -4131,7 +4136,9 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 	case IPA_HW_v4_2:
 		ipa3_ctx->ctrl->mem_partition = &ipa_4_2_mem_part;
 		break;
-
+	case IPA_HW_v4_5:
+		ipa3_ctx->ctrl->mem_partition = &ipa_4_2_mem_part;
+		break;
 	case IPA_HW_None:
 	case IPA_HW_v1_0:
 	case IPA_HW_v1_1:
@@ -5421,6 +5428,36 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 			}
 		}
 		break;
+	case IPA_4_5:
+	case IPA_4_5_MHI:
+		if (src) {
+			switch (group_index) {
+			case IPA_v4_2_GROUP_UL_DL:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			default:
+				IPAERR(
+				" Invalid source resource group,index #%d\n",
+				group_index);
+				break;
+			}
+		} else {
+			switch (group_index) {
+			case IPA_v4_2_GROUP_UL_DL:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			default:
+				IPAERR(
+				" Invalid destination resource group,index #%d\n",
+				group_index);
+				break;
+			}
+		}
+		break;
 
 	default:
 		IPAERR("invalid hw type\n");
@@ -5532,6 +5569,13 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		dst_grp_idx_max = IPA_v4_0_DST_GROUP_MAX;
 		break;
 	case IPA_4_2:
+		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
+		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
+		src_grp_idx_max = IPA_v4_2_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_2_DST_GROUP_MAX;
+		break;
+	case IPA_4_5:
+	case IPA_4_5_MHI:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
 		src_grp_idx_max = IPA_v4_2_SRC_GROUP_MAX;
@@ -6005,6 +6049,7 @@ bool ipa3_is_msm_device(void)
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_5:
 	case IPA_HW_v4_0:
+	case IPA_HW_v4_5:
 		return false;
 	case IPA_HW_v3_1:
 	case IPA_HW_v3_5_1:
