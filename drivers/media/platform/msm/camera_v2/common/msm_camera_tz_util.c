@@ -20,8 +20,6 @@
 #define EMPTY_QSEECOM_HANDLE    NULL
 #define QSEECOM_SBUFF_SIZE      SZ_128K
 
-#define MSM_CAMERA_TZ_UTIL_VERBOSE
-
 #define MSM_CAMERA_TZ_BOOT_PROTECTED (false)
 
 /* Update version major number in case the HLOS-TA interface is changed*/

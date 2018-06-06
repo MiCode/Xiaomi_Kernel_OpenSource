@@ -29,7 +29,6 @@
 #include "include/msm_csiphy_5_0_hwreg.h"
 #include "include/msm_csiphy_5_0_1_hwreg.h"
 #include "include/msm_csiphy_10_0_0_hwreg.h"
-
 #include "cam_hw_ops.h"
 
 #define DBG_CSIPHY 0
@@ -1248,9 +1247,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	clk_rate = (csiphy_params->csiphy_clk > 0)
-			? csiphy_params->csiphy_clk :
-			csiphy_dev->csiphy_max_clk;
+	clk_rate = csiphy_dev->csiphy_max_clk;
 	clk_rate = msm_camera_clk_set_rate(&csiphy_dev->pdev->dev,
 		csiphy_dev->csiphy_clk[csiphy_dev->csiphy_clk_index],
 		clk_rate);
