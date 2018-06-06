@@ -122,3 +122,7 @@
 
 	status = "disabled";
 };
+
+&smb1351_otg_supply {
+	status = "disabled";
+};

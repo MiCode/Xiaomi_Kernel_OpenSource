@@ -782,5 +782,20 @@
 				bias-disable;
 			};
 		};
+
+		/* SMB CONFIGURATION */
+		smb_stat: smb_stat {
+			mux {
+				pins = "gpio107";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio107";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
 	};
 };
