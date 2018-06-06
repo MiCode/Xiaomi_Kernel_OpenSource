@@ -1696,6 +1696,7 @@
 #include "sm6150-gdsc.dtsi"
 #include "sm6150-qupv3.dtsi"
 #include "sm6150-thermal.dtsi"
+#include "sm6150-gpu.dtsi"
 
 &emac_gdsc {
 	status = "ok";
