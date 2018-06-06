@@ -275,6 +275,25 @@ static void _sde_splash_destroy_splash_node(struct sde_splash_info *sinfo)
 	sinfo->splash_mem_size = NULL;
 }
 
+static void _sde_splash_update_display_splash_status(struct sde_kms *sde_kms)
+{
+	struct dsi_display *dsi_display;
+	struct sde_hdmi *sde_hdmi;
+	int i = 0;
+
+	for (i = 0; i < sde_kms->dsi_display_count; i++) {
+		dsi_display = (struct dsi_display *)sde_kms->dsi_displays[i];
+
+		dsi_display->cont_splash_enabled = false;
+	}
+
+	for (i = 0; i < sde_kms->hdmi_display_count; i++) {
+		sde_hdmi = (struct sde_hdmi *)sde_kms->hdmi_displays[i];
+
+		sde_hdmi->cont_splash_enabled = false;
+	}
+}
+
 static void _sde_splash_sent_pipe_update_uevent(struct sde_kms *sde_kms)
 {
 	char *event_string;
@@ -737,6 +756,7 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
 	intr = sde_kms->hw_intr;
 
 	if (sde_kms->splash_info.handoff &&
+		!sde_kms->splash_info.display_splash_enabled &&
 		SDE_LK_EXIT_VALUE == SDE_REG_READ(&intr->hw,
 					SCRATCH_REGISTER_1)) {
 		SDE_DEBUG("LK totoally exits\n");
@@ -815,6 +835,9 @@ int sde_splash_free_resource(struct msm_kms *kms,
 
 		/* send uevent to notify user to recycle resource */
 		_sde_splash_sent_pipe_update_uevent(sde_kms);
+
+		/* set display's splash status to false after handoff is done */
+		_sde_splash_update_display_splash_status(sde_kms);
 
 		/* Finally mark handoff flag to false to say
 		 * handoff is complete.
