@@ -364,25 +364,6 @@ enum MHI_CH_STATE {
 	MHI_CH_STATE_ERROR = 0x5,
 };
 
-enum MHI_CH_CFG {
-	MHI_CH_CFG_CHAN_ID = 0,
-	MHI_CH_CFG_ELEMENTS = 1,
-	MHI_CH_CFG_ER_INDEX = 2,
-	MHI_CH_CFG_DIRECTION = 3,
-	MHI_CH_CFG_BRSTMODE = 4,
-	MHI_CH_CFG_POLLCFG = 5,
-	MHI_CH_CFG_EE = 6,
-	MHI_CH_CFG_XFER_TYPE = 7,
-	MHI_CH_CFG_BITCFG = 8,
-	MHI_CH_CFG_MAX
-};
-
-#define MHI_CH_CFG_BIT_LPM_NOTIFY BIT(0) /* require LPM notification */
-#define MHI_CH_CFG_BIT_OFFLOAD_CH BIT(1) /* satellite mhi devices */
-#define MHI_CH_CFG_BIT_DBMODE_RESET_CH BIT(2) /* require db mode to reset */
-#define MHI_CH_CFG_BIT_PRE_ALLOC BIT(3) /* host allocate buffers for DL */
-#define MHI_CH_CFG_BIT_AUTO_START BIT(4) /* host auto start channels */
-
 enum MHI_BRSTMODE {
 	MHI_BRSTMODE_DISABLE = 0x2,
 	MHI_BRSTMODE_ENABLE = 0x3,
