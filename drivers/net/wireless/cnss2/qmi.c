@@ -91,6 +91,10 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req->pin_connect_result_enable = 1;
 	req->cal_done_enable_valid = 1;
 	req->cal_done_enable = 1;
+	req->initiate_cal_download_enable_valid = 1;
+	req->initiate_cal_download_enable = 1;
+	req->initiate_cal_update_enable_valid = 1;
+	req->initiate_cal_update_enable = 1;
 	req->qdss_trace_req_mem_enable_valid = 1;
 	req->qdss_trace_req_mem_enable = 1;
 	req->qdss_trace_save_enable_valid = 1;
@@ -1289,6 +1293,13 @@ static void cnss_wlfw_cal_done_ind_cb(struct qmi_handle *qmi_wlfw,
 			       0, NULL);
 }
 
+static void cnss_wlfw_initiate_cal_update_ind_cb(struct qmi_handle *qmi_wlfw,
+						 struct sockaddr_qrtr *sq,
+						 struct qmi_txn *txn,
+						 const void *data)
+{
+}
+
 static void cnss_wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 						struct sockaddr_qrtr *sq,
 						struct qmi_txn *txn,
@@ -1474,6 +1485,14 @@ static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 		.decoded_size =
 		sizeof(struct wlfw_qdss_trace_free_ind_msg_v01),
 		.fn = cnss_wlfw_qdss_trace_free_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01,
+		.ei = wlfw_initiate_cal_update_ind_msg_v01_ei,
+		.decoded_size =
+			sizeof(struct wlfw_initiate_cal_update_ind_msg_v01),
+		.fn = cnss_wlfw_initiate_cal_update_ind_cb
 	},
 	{}
 };

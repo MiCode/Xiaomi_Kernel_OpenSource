@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define _NET_CNSS2_H
 
 #include <linux/pci.h>
+#include <linux/usb.h>
 
 #define CNSS_MAX_FILE_NAME		20
 #define CNSS_MAX_TIMESTAMP_LEN		32
@@ -81,6 +82,21 @@ struct cnss_wlan_driver {
 	void (*update_status)(struct pci_dev *pdev, uint32_t status);
 	struct cnss_wlan_runtime_ops *runtime_ops;
 	const struct pci_device_id *id_table;
+};
+
+struct cnss_usb_wlan_driver {
+	char *name;
+	int  (*probe)(struct usb_interface *pintf, const struct usb_device_id
+		      *id);
+	void (*remove)(struct usb_interface *pintf);
+	int  (*reinit)(struct usb_interface *pintf, const struct usb_device_id
+		       *id);
+	void (*shutdown)(struct usb_interface *pintf);
+	void (*crash_shutdown)(struct usb_interface *pintf);
+	int  (*suspend)(struct usb_interface *pintf, pm_message_t state);
+	int  (*resume)(struct usb_interface *pintf);
+	int  (*reset_resume)(struct usb_interface *pintf);
+	const struct usb_device_id *id_table;
 };
 
 enum cnss_driver_status {
@@ -205,5 +221,7 @@ extern int cnss_athdiag_write(struct device *dev, uint32_t offset,
 			      uint32_t mem_type, uint32_t data_len,
 			      uint8_t *input);
 extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
-
+extern int cnss_usb_wlan_register_driver(struct cnss_usb_wlan_driver *driver);
+extern void cnss_usb_wlan_unregister_driver(struct cnss_usb_wlan_driver *
+					    driver);
 #endif /* _NET_CNSS2_H */
