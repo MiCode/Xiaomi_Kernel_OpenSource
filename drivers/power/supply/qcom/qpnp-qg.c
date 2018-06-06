@@ -1006,6 +1006,7 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 		qg_dbg(chip, QG_DEBUG_ESR, "ESR_SW=%d during %s\n",
 			chip->esr_avg, is_charging ? "CHARGE" : "DISCHARGE");
 		qg_retrieve_esr_params(chip);
+		chip->esr_actual = chip->esr_avg;
 	}
 
 	return 0;
@@ -1055,6 +1056,12 @@ static void process_udata_work(struct work_struct *work)
 
 	if (chip->udata.param[QG_ESR].valid)
 		chip->esr_last = chip->udata.param[QG_ESR].data;
+
+	if (chip->esr_actual != -EINVAL && chip->udata.param[QG_ESR].valid) {
+		chip->esr_nominal = chip->udata.param[QG_ESR].data;
+		if (chip->qg_psy)
+			power_supply_changed(chip->qg_psy);
+	}
 
 	if (!chip->dt.esr_disable)
 		qg_store_esr_params(chip);
@@ -1702,6 +1709,17 @@ static int qg_psy_set_property(struct power_supply *psy,
 			chip->cl->learned_cap_uah = pval->intval;
 		mutex_unlock(&chip->cl->lock);
 		break;
+	case POWER_SUPPLY_PROP_SOH:
+		chip->soh = pval->intval;
+		qg_dbg(chip, QG_DEBUG_STATUS, "SOH update: SOH=%d esr_actual=%d esr_nominal=%d\n",
+				chip->soh, chip->esr_actual, chip->esr_nominal);
+		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		chip->esr_actual = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		chip->esr_nominal = pval->intval;
+		break;
 	default:
 		break;
 	}
@@ -1747,6 +1765,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_NOW:
 		pval->intval = chip->esr_last;
+		break;
+	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
+		pval->intval = chip->soc_reporting_ready;
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE:
 		pval->intval = chip->dt.rbat_conn_mohm;
@@ -1796,6 +1817,17 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = ttf_get_time_to_empty(chip->ttf, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		pval->intval = (chip->esr_actual == -EINVAL) ?  -EINVAL :
+					(chip->esr_actual * 1000);
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		pval->intval = (chip->esr_nominal == -EINVAL) ?  -EINVAL :
+					(chip->esr_nominal * 1000);
+		break;
+	case POWER_SUPPLY_PROP_SOH:
+		pval->intval = chip->soh;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1809,6 +1841,9 @@ static int qg_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+	case POWER_SUPPLY_PROP_SOH:
 		return 1;
 	default:
 		break;
@@ -1826,6 +1861,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE_NOW,
+	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
@@ -1839,6 +1875,9 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
+	POWER_SUPPLY_PROP_ESR_ACTUAL,
+	POWER_SUPPLY_PROP_ESR_NOMINAL,
+	POWER_SUPPLY_PROP_SOH,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -2642,6 +2681,9 @@ done:
 
 	pr_info("using %s @ PON ocv_uv=%duV soc=%d\n",
 			ocv_type, ocv_uv, chip->msoc);
+
+	/* SOC reporting is now ready */
+	chip->soc_reporting_ready = 1;
 
 	return 0;
 }
@@ -3576,6 +3618,9 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->cc_soc = INT_MIN;
 	chip->full_soc = QG_SOC_FULL;
 	chip->chg_iterm_ma = INT_MIN;
+	chip->soh = -EINVAL;
+	chip->esr_actual = -EINVAL;
+	chip->esr_nominal = -EINVAL;
 
 	rc = qg_alg_init(chip);
 	if (rc < 0) {

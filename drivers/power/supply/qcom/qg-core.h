@@ -121,6 +121,10 @@ struct qpnp_qg {
 	int			charge_type;
 	int			chg_iterm_ma;
 	int			next_wakeup_ms;
+	int			esr_actual;
+	int			esr_nominal;
+	int			soh;
+	int			soc_reporting_ready;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
