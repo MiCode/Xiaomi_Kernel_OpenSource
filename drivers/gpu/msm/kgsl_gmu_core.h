@@ -17,6 +17,10 @@
 #define GMU_DEVICE_OPS(_a) ((_a)->gmu_core.dev_ops)
 #define GMU_CORE_OPS(_a) ((_a)->gmu_core.core_ops)
 
+#define GMU_DEV_OP_VALID(_devops, _field) \
+	(((_devops) != NULL) && \
+	 ((_devops)->_field != NULL))
+
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
 #define MAX_CX_LEVELS		4

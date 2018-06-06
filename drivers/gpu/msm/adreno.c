@@ -1832,13 +1832,13 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Send OOB request to turn on the GX */
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		status = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (status)
 			goto error_mmu_off;
 	}
 
-	if (gmu_dev_ops->hfi_start_msg) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, hfi_start_msg)) {
 		status = gmu_dev_ops->hfi_start_msg(adreno_dev);
 		if (status)
 			goto error_mmu_off;
@@ -2028,7 +2028,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 				pmqos_active_vote);
 
 	/* Send OOB request to allow IFPC */
-	if (gmu_dev_ops->oob_clear) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear)) {
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 		/* If we made it this far, the BOOT OOB was sent to the GMU */
@@ -2039,7 +2039,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	return 0;
 
 error_oob_clear:
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 error_mmu_off:
@@ -2092,9 +2092,9 @@ static int adreno_stop(struct kgsl_device *device)
 		return 0;
 
 	/* Turn the power on one last time before stopping */
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		error = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
-		if (error) {
+		if (error && GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear)) {
 			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 			if (gmu_core_regulator_isenabled(device)) {
 				/* GPU is on. Try recovery */
@@ -2128,7 +2128,7 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	/*
@@ -2137,7 +2137,7 @@ static int adreno_stop(struct kgsl_device *device)
 	 * GMU to return to the lowest idle level. This is
 	 * because some idle level transitions require VBIF and MMU.
 	 */
-	if (!error && gmu_dev_ops->wait_for_lowest_idle &&
+	if (!error && GMU_DEV_OP_VALID(gmu_dev_ops, wait_for_lowest_idle) &&
 			gmu_dev_ops->wait_for_lowest_idle(adreno_dev)) {
 
 		gmu_core_setbit(device, GMU_FAULT);
@@ -2789,7 +2789,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int ret;
 
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (ret)
 			return ret;
@@ -2813,7 +2813,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	else
 		ret = _soft_reset(adreno_dev);
 	if (ret) {
-		if (gmu_dev_ops->oob_clear)
+		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 		return ret;
 	}
@@ -2867,7 +2867,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	return ret;
@@ -3215,7 +3215,7 @@ unsigned int adreno_gmu_ifpc_show(struct adreno_device *adreno_dev)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->ifpc_show)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, ifpc_show))
 		return gmu_dev_ops->ifpc_show(adreno_dev);
 
 	return 0;
@@ -3226,7 +3226,7 @@ int adreno_gmu_ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->ifpc_store)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, ifpc_store))
 		return gmu_dev_ops->ifpc_store(adreno_dev, val);
 
 	return -EINVAL;
