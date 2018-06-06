@@ -147,6 +147,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		qcs605-360camera-overlay.dtbo \
 		qcs605-external-codec-mtp-overlay.dtbo \
 		qcs605-lc-mtp-overlay.dtbo \
+		qcs605-lc-cdp-overlay.dtbo \
 		sdm710-cdp-overlay.dtbo \
 		sdm710-mtp-overlay.dtbo \
 		sdm710-qrd-overlay.dtbo \
@@ -203,6 +204,7 @@ qcs605-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-external-codec-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-lc-mtp-overlay.dtbo-base := qcs605-lc.dtb
 qcs605-360camera-overlay.dtbo-base := qcs605.dtb
+qcs605-lc-cdp-overlay.dtbo-base := qcs605-lc-cdp-base.dtb
 sdm710-cdp-overlay.dtbo-base := sdm710.dtb
 sdm710-mtp-overlay.dtbo-base := sdm710.dtb
 sdm710-qrd-overlay.dtbo-base := sdm710.dtb
@@ -258,6 +260,7 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	qcs605-cdp.dtb \
 	qcs605-external-codec-mtp.dtb \
 	qcs605-lc-mtp.dtb \
+	qcs605-lc-cdp.dtb \
 	sdm710-mtp.dtb \
 	sdm710-cdp.dtb \
 	sdm710-qrd.dtb \
