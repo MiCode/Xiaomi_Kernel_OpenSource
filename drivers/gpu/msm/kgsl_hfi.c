@@ -610,7 +610,7 @@ int hfi_start(struct kgsl_device *device,
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
 
-	if (!adreno_is_a640(adreno_dev)) {
+	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev)) {
 		result = hfi_send_gmu_init(gmu, boot_state);
 		if (result)
 			return result;
@@ -629,10 +629,12 @@ int hfi_start(struct kgsl_device *device,
 		return result;
 
 	/*
-	 * Send H2F_MSG_CORE_FW_START and features for A640 devices,
-	 * otherwise send H2F_MSG_TEST if quirk is enabled.
+	 * If quirk is enabled send H2F_MSG_TEST and tell the GMU
+	 * we are sending no more HFIs until the next boot otherwise
+	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
-	if (adreno_is_a640(adreno_dev)) {
+
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
 		result = hfi_send_feature_ctrls(gmu);
 		if (result)
 			return result;
@@ -641,17 +643,12 @@ int hfi_start(struct kgsl_device *device,
 		if (result)
 			return result;
 	} else {
-		/*
-		 * Tell the GMU we are sending no more HFIs
-		 * until the next boot
-		 */
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 			result = hfi_send_test(gmu);
 			if (result)
 				return result;
 		}
 	}
-
 	set_bit(GMU_HFI_ON, &gmu->flags);
 	return 0;
 }

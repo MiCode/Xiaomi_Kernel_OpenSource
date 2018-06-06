@@ -551,7 +551,7 @@ static int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return 0;
 
-	if (adreno_is_a640(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev)) {
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
@@ -604,7 +604,7 @@ static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(device))
 		return;
 
-	if (adreno_is_a640(adreno_dev)) {
+	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615(adreno_dev)) {
 		clear = BIT(31 - req * 2);
 		if (req >= 6) {
 			dev_err(&gmu->pdev->dev,
@@ -626,11 +626,12 @@ static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_start_cmd req;
 
-	if (!adreno_is_a640(adreno_dev))
-		return 0;
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		return hfi_send_req(KGSL_GMU_DEVICE(device),
+					 H2F_MSG_START, &req);
 
-	/* Send hfi start msg */
-	return hfi_send_req(KGSL_GMU_DEVICE(device), H2F_MSG_START, &req);
+	return 0;
+
 }
 
 #define FREQ_VOTE(idx, ack) (((idx) & 0xFF) | (((ack) & 0xF) << 28))
