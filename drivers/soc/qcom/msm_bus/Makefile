@@ -10,7 +10,7 @@ ifdef CONFIG_QCOM_BUS_CONFIG_RPMH
 		msm_bus_bimc_rpmh.o msm_bus_noc_rpmh.o msm_bus_proxy_client.o
 	obj-$(CONFIG_OF) += msm_bus_of_rpmh.o
 else
-	obj-y += msm_bus_fabric_adhoc.o msm_bus_arb_adhoc.o \
+	obj-y += msm_bus_fabric_adhoc.o msm_bus_arb_adhoc.o msm_bus_rules.o \
 		msm_bus_bimc_adhoc.o msm_bus_noc_adhoc.o
 	obj-$(CONFIG_OF) += msm_bus_of_adhoc.o
 endif
