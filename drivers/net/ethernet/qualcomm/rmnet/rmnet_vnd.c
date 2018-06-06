@@ -114,8 +114,6 @@ static void rmnet_vnd_uninit(struct net_device *dev)
 
 	qmi_rmnet_qos_exit(dev);
 	priv->qos_info = NULL;
-
-	free_netdev(dev);
 }
 
 static void rmnet_get_stats64(struct net_device *dev,
