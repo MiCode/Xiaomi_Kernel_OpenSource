@@ -133,7 +133,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 	pci_disable_device(pci_priv->pci_dev);
 
 	if (pci_priv->pci_dev->device != QCA6174_DEVICE_ID) {
-		if (pci_set_power_state(pci_priv->pci_dev, PCI_D3hot))
+		ret = pci_set_power_state(pci_priv->pci_dev, PCI_D3hot);
+		if (ret)
 			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
 	}
 
@@ -404,10 +405,12 @@ static int cnss_pci_suspend(struct device *dev)
 					  SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 
-		ret = pci_set_power_state(pci_dev, PCI_D3hot);
-		if (ret)
-			cnss_pr_err("Failed to set D3Hot, err = %d\n",
-				    ret);
+		if (pci_dev->device != QCA6174_DEVICE_ID) {
+			ret = pci_set_power_state(pci_dev, PCI_D3hot);
+			if (ret)
+				cnss_pr_err("Failed to set D3Hot, err = %d\n",
+					    ret);
+		}
 	}
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
@@ -643,9 +646,12 @@ int cnss_auto_suspend(struct device *dev)
 		cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 
-		ret = pci_set_power_state(pci_dev, PCI_D3hot);
-		if (ret)
-			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
+		if (pci_dev->device != QCA6174_DEVICE_ID) {
+			ret = pci_set_power_state(pci_dev, PCI_D3hot);
+			if (ret)
+				cnss_pr_err("Failed to set D3Hot, err =  %d\n",
+					    ret);
+		}
 
 		cnss_pr_dbg("Suspending PCI link\n");
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_DOWN)) {
