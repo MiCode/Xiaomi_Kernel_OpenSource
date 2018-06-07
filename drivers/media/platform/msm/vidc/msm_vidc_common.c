@@ -5146,17 +5146,32 @@ int msm_vidc_noc_error_info(struct msm_vidc_core *core)
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)
 {
-	int rc = 0;
+	if (!core) {
+		dprintk(VIDC_WARN, "%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	core->ssr_type = type;
+	schedule_work(&core->ssr_work);
+	return 0;
+}
+
+void msm_vidc_ssr_handler(struct work_struct *work)
+{
+	int rc;
+	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
 
+	core = container_of(work, struct msm_vidc_core, ssr_work);
 	if (!core || !core->device) {
-		dprintk(VIDC_WARN, "Invalid parameters: %pK\n", core);
-		return -EINVAL;
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return;
 	}
 	hdev = core->device;
 
 	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_INIT_DONE) {
+		dprintk(VIDC_WARN, "%s: ssr type %d\n", __func__,
+			core->ssr_type);
 		/*
 		 * In current implementation user-initiated SSR triggers
 		 * a fatal error from hardware. However, there is no way
@@ -5165,7 +5180,7 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		 */
 		core->trigger_ssr = true;
 		rc = call_hfi_op(hdev, core_trigger_ssr,
-				hdev->hfi_device_data, type);
+				hdev->hfi_device_data, core->ssr_type);
 		if (rc) {
 			dprintk(VIDC_ERR, "%s: trigger_ssr failed\n",
 				__func__);
@@ -5176,8 +5191,6 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 			__func__, core);
 	}
 	mutex_unlock(&core->lock);
-
-	return rc;
 }
 
 static int msm_vidc_load_supported(struct msm_vidc_inst *inst)

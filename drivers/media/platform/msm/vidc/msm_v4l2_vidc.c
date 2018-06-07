@@ -362,6 +362,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	}
 
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
+	INIT_WORK(&core->ssr_work, msm_vidc_ssr_handler);
 
 	mutex_lock(&core->lock);
 	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
