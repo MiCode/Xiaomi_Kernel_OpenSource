@@ -28,6 +28,10 @@
 #define QRTR_MIN_EPH_SOCKET 0x4000
 #define QRTR_MAX_EPH_SOCKET 0x7fff
 
+/* qrtr socket states */
+#define QRTR_STATE_MULTI	-2
+#define QRTR_STATE_INIT	-1
+
 /**
  * struct qrtr_hdr_v1 - (I|R)PCrouter packet header version 1
  * @version: protocol version
@@ -94,6 +98,8 @@ struct qrtr_sock {
 	struct sock sk;
 	struct sockaddr_qrtr us;
 	struct sockaddr_qrtr peer;
+
+	int state;
 };
 
 static inline struct qrtr_sock *qrtr_sk(struct sock *sk)
@@ -619,29 +625,59 @@ static void qrtr_port_put(struct qrtr_sock *ipc)
 	sock_put(&ipc->sk);
 }
 
-/* Remove port assignment. */
-static void qrtr_port_remove(struct qrtr_sock *ipc)
+static void qrtr_send_del_client(struct qrtr_sock *ipc)
 {
 	struct qrtr_ctrl_pkt *pkt;
-	struct sk_buff *skb;
-	int port = ipc->us.sq_port;
 	struct sockaddr_qrtr to;
+	struct qrtr_node *node;
+	struct sk_buff *skbn;
+	struct sk_buff *skb;
+	int type = QRTR_TYPE_DEL_CLIENT;
+
+	skb = qrtr_alloc_ctrl_packet(&pkt);
+	if (!skb)
+		return;
 
 	to.sq_family = AF_QIPCRTR;
 	to.sq_node = QRTR_NODE_BCAST;
 	to.sq_port = QRTR_PORT_CTRL;
 
-	skb = qrtr_alloc_ctrl_packet(&pkt);
-	if (skb) {
-		pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
-		pkt->client.node = cpu_to_le32(ipc->us.sq_node);
-		pkt->client.port = cpu_to_le32(ipc->us.sq_port);
+	pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
+	pkt->client.node = cpu_to_le32(ipc->us.sq_node);
+	pkt->client.port = cpu_to_le32(ipc->us.sq_port);
 
-		skb_set_owner_w(skb, &ipc->sk);
-		qrtr_bcast_enqueue(NULL, skb, QRTR_TYPE_DEL_CLIENT, &ipc->us,
-				   &to);
+	skb_set_owner_w(skb, &ipc->sk);
+
+	if (ipc->state == QRTR_STATE_MULTI) {
+		qrtr_bcast_enqueue(NULL, skb, type, &ipc->us, &to);
+		return;
 	}
 
+	if (ipc->state > QRTR_STATE_INIT) {
+		node = qrtr_node_lookup(ipc->state);
+		if (!node)
+			goto exit;
+
+		skbn = skb_clone(skb, GFP_KERNEL);
+		if (!skbn) {
+			qrtr_node_release(node);
+			goto exit;
+		}
+
+		skb_set_owner_w(skbn, &ipc->sk);
+		qrtr_node_enqueue(node, skbn, type, &ipc->us, &to);
+		qrtr_node_release(node);
+	}
+exit:
+	qrtr_local_enqueue(NULL, skb, type, &ipc->us, &to);
+}
+
+/* Remove port assignment. */
+static void qrtr_port_remove(struct qrtr_sock *ipc)
+{
+	int port = ipc->us.sq_port;
+
+	qrtr_send_del_client(ipc);
 	if (port == QRTR_PORT_CTRL)
 		port = 0;
 
@@ -903,6 +939,11 @@ static int qrtr_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
 			release_sock(sk);
 			return -ECONNRESET;
 		}
+
+		if (ipc->state > QRTR_STATE_INIT && ipc->state != node->nid)
+			ipc->state = QRTR_STATE_MULTI;
+		else if (ipc->state == QRTR_STATE_INIT)
+			ipc->state = node->nid;
 	}
 
 	plen = (len + 3) & ~3;
@@ -1224,6 +1265,7 @@ static int qrtr_create(struct net *net, struct socket *sock,
 	ipc->us.sq_family = AF_QIPCRTR;
 	ipc->us.sq_node = qrtr_local_nid;
 	ipc->us.sq_port = 0;
+	ipc->state = QRTR_STATE_INIT;
 
 	return 0;
 }
