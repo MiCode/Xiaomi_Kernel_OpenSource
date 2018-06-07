@@ -942,6 +942,7 @@
 #include "qcs405-regulator.dtsi"
 #include "qcs405-thermal.dtsi"
 #include "qcs405-bus.dtsi"
+#include "qcs405-audio.dtsi"
 
 &gdsc_mdss {
 	status = "ok";
