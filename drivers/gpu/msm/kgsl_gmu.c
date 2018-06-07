@@ -1419,6 +1419,7 @@ static int gmu_probe(struct kgsl_device *device,
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)gmu);
 	INIT_LIST_HEAD(&hfi->msglist);
 	spin_lock_init(&hfi->msglock);
+	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/
 	ret = gmu_pwrlevel_probe(gmu, node);
