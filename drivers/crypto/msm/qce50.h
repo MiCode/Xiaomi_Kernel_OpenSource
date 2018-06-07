@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,8 @@
 		((uintptr_t)pce_dev->coh_vmem +			\
 		((uintptr_t)x - (uintptr_t)pce_dev->coh_pmem))
 #define GET_PHYS_ADDR(x)  \
-		(phys_addr_t)(((uintptr_t)pce_dev->coh_pmem +	\
-		((uintptr_t)x - (uintptr_t)pce_dev->coh_vmem)))
+		((uintptr_t)pce_dev->coh_pmem +			\
+		((uintptr_t)x - (uintptr_t)pce_dev->coh_vmem))
 
 #define CRYPTO_REG_SIZE 4
 #define NUM_OF_CRYPTO_AUTH_IV_REG 16
@@ -38,24 +38,12 @@
 #define QCE_MAX_NUM_DESC    128
 #define SPS_MAX_PKT_SIZE  (32 * 1024  - 64)
 
-/* default bam ipc log level */
-#define QCE_BAM_DEFAULT_IPC_LOGLVL 2
-
 /* State of consumer/producer Pipe */
 enum qce_pipe_st_enum {
 	QCE_PIPE_STATE_IDLE = 0,
 	QCE_PIPE_STATE_IN_PROG = 1,
 	QCE_PIPE_STATE_COMP = 2,
 	QCE_PIPE_STATE_LAST
-};
-
-enum qce_xfer_type_enum {
-	QCE_XFER_HASHING,
-	QCE_XFER_CIPHERING,
-	QCE_XFER_AEAD,
-	QCE_XFER_F8,
-	QCE_XFER_F9,
-	QCE_XFER_TYPE_LAST
 };
 
 struct qce_sps_ep_conn_data {
@@ -126,7 +114,6 @@ struct qce_cmdlistptr_ops {
 	struct qce_cmdlist_info aead_hmac_sha256_cbc_3des;
 	struct qce_cmdlist_info aead_aes_128_ccm;
 	struct qce_cmdlist_info aead_aes_256_ccm;
-	struct qce_cmdlist_info cipher_null;
 	struct qce_cmdlist_info f8_kasumi;
 	struct qce_cmdlist_info f8_snow3g;
 	struct qce_cmdlist_info f9_kasumi;
@@ -178,67 +165,40 @@ struct qce_ce_cfg_reg_setting {
 	uint32_t auth_cfg_snow3g;
 };
 
-struct ce_bam_info {
+/* DM data structure with buffers, commandlists & commmand pointer lists */
+struct ce_sps_data {
+
 	uint32_t			bam_irq;
 	uint32_t			bam_mem;
 	void __iomem			*bam_iobase;
+
+	struct qce_sps_ep_conn_data	producer;
+	struct qce_sps_ep_conn_data	consumer;
+	struct sps_event_notify		notify;
+	struct scatterlist		*src;
+	struct scatterlist		*dst;
 	uint32_t			ce_device;
 	uint32_t			ce_hw_instance;
-	uint32_t			bam_ee;
 	unsigned int			pipe_pair_index;
 	unsigned int			src_pipe_index;
 	unsigned int			dest_pipe_index;
 	unsigned long			bam_handle;
-	int				ce_burst_size;
-	uint32_t			minor_version;
-	struct qce_sps_ep_conn_data	producer;
-	struct qce_sps_ep_conn_data	consumer;
-};
 
-/* SPS data structure with buffers, commandlists & commmand pointer lists */
-struct ce_sps_data {
+	enum qce_pipe_st_enum consumer_state;	/* Consumer pipe state */
 	enum qce_pipe_st_enum producer_state;	/* Producer pipe state */
+
 	int consumer_status;		/* consumer pipe status */
 	int producer_status;		/* producer pipe status */
+
 	struct sps_transfer in_transfer;
 	struct sps_transfer out_transfer;
+
+	int ce_burst_size;
+
 	struct qce_cmdlistptr_ops cmdlistptr;
-	uint32_t result_dump; /* reuslt dump virtual address */
-	uint32_t result_dump_null;
-	uint32_t result_dump_phy; /* result dump physical address (32 bits) */
-	uint32_t result_dump_null_phy;
-
-	uint32_t ignore_buffer; /* ignore buffer virtual address */
-	struct ce_result_dump_format *result; /* ponter to result dump */
-	struct ce_result_dump_format *result_null;
+	uint32_t result_dump;
+	uint32_t ignore_buffer;
+	struct ce_result_dump_format *result;
+	uint32_t minor_version;
 };
-
-struct ce_request_info {
-	atomic_t in_use;
-	bool in_prog;
-	enum qce_xfer_type_enum	xfer_type;
-	struct ce_sps_data ce_sps;
-	qce_comp_func_ptr_t qce_cb;	/* qce callback function pointer */
-	void *user;
-	void *areq;
-	int assoc_nents;
-	int src_nents;
-	int dst_nents;
-	dma_addr_t phy_iv_in;
-	unsigned char dec_iv[16];
-	int dir;
-	enum qce_cipher_mode_enum mode;
-	dma_addr_t phy_ota_src;
-	dma_addr_t phy_ota_dst;
-	unsigned int ota_size;
-	unsigned int req_len;
-};
-
-struct qce_driver_stats {
-	int no_of_timeouts;
-	int no_of_dummy_reqs;
-	int current_mode;
-	int outstanding_reqs;
-};
-
 #endif /* _DRIVERS_CRYPTO_MSM_QCE50_H */
