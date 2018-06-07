@@ -1087,6 +1087,30 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
 	return clk;
 }
 
+int sde_power_clk_set_flags(struct sde_power_handle *phandle,
+		char *clock_name, unsigned long flags)
+{
+	struct clk *clk;
+
+	if (!phandle) {
+		pr_err("invalid input power handle\n");
+		return -EINVAL;
+	}
+
+	if (!clock_name) {
+		pr_err("invalid input clock name\n");
+		return -EINVAL;
+	}
+
+	clk = sde_power_clk_get_clk(phandle, clock_name);
+	if (!clk) {
+		pr_err("get_clk failed for clk: %s\n", clock_name);
+		return -EINVAL;
+	}
+
+	return clk_set_flags(clk, flags);
+}
+
 struct sde_power_event *sde_power_handle_register_event(
 		struct sde_power_handle *phandle,
 		u32 event_type, void (*cb_fnc)(u32 event_type, void *usr),
