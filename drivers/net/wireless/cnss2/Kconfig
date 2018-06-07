@@ -47,6 +47,14 @@ config CNSS_QCA6290
 	  These changes are needed to support the new hardware architecture
 	  for CNSS QCA6290 chipset.
 
+config CNSS_QCA6390
+	bool "Enable CNSS QCA6390 chipset specific changes"
+	---help---
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6390 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6390 chipset.
+
 config CNSS_EMULATION
 	bool "Enable specific changes for emulation hardware"
 	---help---
