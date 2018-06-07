@@ -1128,6 +1128,7 @@ static struct platform_driver bimc_bwmon_driver = {
 	.driver = {
 		.name = "bimc-bwmon",
 		.of_match_table = bimc_bwmon_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 
