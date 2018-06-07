@@ -3270,7 +3270,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 {
 
 	uint32_t  i, j;
-	uint32_t len = FLASH_PTABLE_HDR_LEN;
+	size_t len = FLASH_PTABLE_HDR_LEN;
 	struct flash_partition_entry *pentry;
 	char *delimiter = ":";
 	void *temp_ptable = NULL;
