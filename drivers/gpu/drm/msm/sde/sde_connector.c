@@ -2220,6 +2220,23 @@ error_free_conn:
 	return ERR_PTR(rc);
 }
 
+static int _sde_conn_hw_recovery_handler(
+		struct drm_connector *connector, bool val)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return -EINVAL;
+	}
+	c_conn = to_sde_connector(connector);
+
+	if (c_conn->encoder)
+		sde_encoder_recovery_events_handler(c_conn->encoder, val);
+
+	return 0;
+}
+
 int sde_connector_register_custom_event(struct sde_kms *kms,
 		struct drm_connector *conn_drm, u32 event, bool val)
 {
@@ -2232,8 +2249,46 @@ int sde_connector_register_custom_event(struct sde_kms *kms,
 	case DRM_EVENT_PANEL_DEAD:
 		ret = 0;
 		break;
+	case DRM_EVENT_SDE_HW_RECOVERY:
+		ret = _sde_conn_hw_recovery_handler(conn_drm, val);
+		break;
 	default:
 		break;
 	}
+	return ret;
+}
+
+int sde_connector_event_notify(struct drm_connector *connector, uint32_t type,
+		uint32_t len, uint32_t val)
+{
+	struct drm_event event;
+	int ret;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return -EINVAL;
+	}
+
+	switch (type) {
+	case DRM_EVENT_SYS_BACKLIGHT:
+	case DRM_EVENT_PANEL_DEAD:
+	case DRM_EVENT_SDE_HW_RECOVERY:
+		ret = 0;
+		break;
+	default:
+		SDE_ERROR("connector %d, Unsupported event %d\n",
+				connector->base.id, type);
+		return -EINVAL;
+	}
+
+	event.type = type;
+	event.length = len;
+	msm_mode_object_event_notify(&connector->base, connector->dev, &event,
+			(u8 *)&val);
+
+	SDE_EVT32(connector->base.id, type, len, val);
+	SDE_DEBUG("connector:%d hw recovery event(%d) value (%d) notified\n",
+			connector->base.id, type, val);
+
 	return ret;
 }

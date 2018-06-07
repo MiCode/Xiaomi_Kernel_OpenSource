@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,11 +208,12 @@ bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag);
  * @evtlog_buf:		target buffer to print into
  * @evtlog_buf_size:	size of target buffer
  * @update_last_entry:	whether or not to stop at most recent entry
+ * @full_dump:          whether to dump full or to limit print entries
  * Returns:		number of bytes written to buffer
  */
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size,
-		bool update_last_entry);
+		bool update_last_entry, bool full_dump);
 
 /**
  * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset

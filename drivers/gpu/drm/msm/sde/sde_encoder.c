@@ -216,6 +216,7 @@ enum sde_enc_rc_states {
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
  * @crtc			pointer to drm_crtc
+ * @recovery_events_enabled:	status of hw recovery feature enable by client
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -265,6 +266,8 @@ struct sde_encoder_virt {
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
 	struct drm_crtc *crtc;
+
+	bool recovery_events_enabled;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -5242,4 +5245,32 @@ int sde_encoder_display_failure_notification(struct drm_encoder *enc)
 	sde_encoder_wait_for_event(enc, MSM_ENC_TX_COMPLETE);
 
 	return 0;
+}
+
+bool sde_encoder_recovery_events_enabled(struct drm_encoder *encoder)
+{
+	struct sde_encoder_virt *sde_enc;
+
+	if (!encoder) {
+		SDE_ERROR("invalid drm enc\n");
+		return false;
+	}
+
+	sde_enc = to_sde_encoder_virt(encoder);
+
+	return sde_enc->recovery_events_enabled;
+}
+
+void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
+		bool enabled)
+{
+	struct sde_encoder_virt *sde_enc;
+
+	if (!encoder) {
+		SDE_ERROR("invalid drm enc\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(encoder);
+	sde_enc->recovery_events_enabled = enabled;
 }
