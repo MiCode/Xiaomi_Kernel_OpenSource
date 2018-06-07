@@ -2788,9 +2788,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 	fire_sched_in_preempt_notifiers(current);
 	if (mm)
 		mmdrop(mm);
-	if (unlikely(prev_state & (TASK_DEAD|TASK_PARKED))) {
-		switch (prev_state) {
-		case TASK_DEAD:
+	if (unlikely(prev_state  == TASK_DEAD)) {
 			if (prev->sched_class->task_dead)
 				prev->sched_class->task_dead(prev);
 
@@ -2804,12 +2802,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 			put_task_stack(prev);
 
 			put_task_struct(prev);
-			break;
 
-		case TASK_PARKED:
-			kthread_park_complete(prev);
-			break;
-		}
 	}
 
 	tick_nohz_task_switch();
