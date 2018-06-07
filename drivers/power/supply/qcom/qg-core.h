@@ -118,6 +118,7 @@ struct qpnp_qg {
 	bool			charge_full;
 	int			charge_status;
 	int			charge_type;
+	int			chg_iterm_ma;
 	int			next_wakeup_ms;
 	u32			fifo_done_count;
 	u32			wa_flags;
@@ -135,6 +136,7 @@ struct qpnp_qg {
 	int			pon_soc;
 	int			batt_soc;
 	int			cc_soc;
+	int			full_soc;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 
@@ -145,6 +147,8 @@ struct qpnp_qg {
 	struct cap_learning	*cl;
 	/* charge counter */
 	struct cycle_counter	*counter;
+	/* ttf */
+	struct ttf		*ttf;
 };
 
 enum ocv_type {
