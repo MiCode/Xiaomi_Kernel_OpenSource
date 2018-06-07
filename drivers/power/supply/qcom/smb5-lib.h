@@ -78,19 +78,6 @@ enum smb_mode {
 	NUM_MODES,
 };
 
-enum sec_charger_config {
-	MAIN_STANDALONE = 0,
-	SEC_CHG_CP_ONLY,
-	SEC_CHG_PL_ONLY,
-	SEC_CHG_CP_AND_PL,
-};
-
-enum sec_charger_type {
-	SEC_CHG_NONE = 0,
-	SEC_CHG_CP,
-	SEC_CHG_PL,
-};
-
 enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,

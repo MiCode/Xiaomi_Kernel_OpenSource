@@ -286,6 +286,13 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	of_property_read_u32(node, "qcom,sec-charger-config",
 					&chip->dt.sec_charger_config);
+	chg->sec_cp_present =
+		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP ||
+		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP_PL;
+
+	chg->sec_pl_present =
+		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_PL ||
+		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP_PL;
 
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
@@ -461,6 +468,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
@@ -579,6 +587,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = pval.intval ? POWER_SUPPLY_SCOPE_DEVICE
 				: chg->otg_present ? POWER_SUPPLY_SCOPE_SYSTEM
 						: POWER_SUPPLY_SCOPE_UNKNOWN;
+		break;
+	case POWER_SUPPLY_PROP_SMB_EN_MODE:
+		val->intval = chg->sec_chg_selected;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1465,12 +1476,6 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
-
-	chg->sec_cp_present = chip->dt.sec_charger_config == SEC_CHG_CP_ONLY
-			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
-
-	chg->sec_pl_present = chip->dt.sec_charger_config == SEC_CHG_PL_ONLY
-			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
 
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
