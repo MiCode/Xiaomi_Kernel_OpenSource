@@ -19,7 +19,7 @@
 void *rmnet_get_qmi_pt(void *port);
 void *rmnet_get_qos_pt(struct net_device *dev);
 void *rmnet_get_rmnet_port(struct net_device *dev);
-struct net_device *rmnet_get_rmnet_dev(void *port, uint8_t mux_id);
+struct net_device *rmnet_get_rmnet_dev(void *port, u8 mux_id);
 void rmnet_reset_qmi_pt(void *port);
 void rmnet_init_qmi_pt(void *port, void *qmi);
 #else
@@ -39,7 +39,7 @@ static inline void *rmnet_get_rmnet_port(struct net_device *dev)
 }
 
 static inline struct net_device *rmnet_get_rmnet_dev(void *port,
-						     uint8_t mux_id)
+						     u8 mux_id)
 {
 	return NULL;
 }
