@@ -253,14 +253,34 @@
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-qcs405";
 		qcom,gcc = <&clock_gcc>;
+		qcom,cpucc = <&cpucc_debug>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
 		clock-names = "xo_clk_src";
 		#clock-cells = <1>;
 	};
 
-	clock_cpu: qcom,cpu {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpu_clocks";
+	cpucc_debug: syscon@0b01101c {
+		compatible = "syscon";
+		reg = <0xb01101c 0x4>;
+	};
+
+	clock_cpu: qcom,clock-cpu@0b011050 {
+		status = "disabled";
+		compatible = "qcom,cpu-qcs405";
+		clocks = <&clock_rpmcc RPM_SMD_XO_A_CLK_SRC>,
+			<&clock_gcc GPLL0_AO_OUT_MAIN>;
+		clock-names = "xo_ao", "gpll0_ao" ;
+		reg = <0x0b011050 0x8>,
+			<0xb016000 0x34>;
+		reg-names = "apcs_cmd" , "apcs_pll";
+		cpu-vdd-supply = <&apc_vreg_corner>;
+		vdd_dig_ao-supply = <&pms405_s1_level>;
+		qcom,speed0-bin-v0 =
+			< 0         0>,
+			< 960000000  1>,
+			< 1113600000 2>,
+			< 1267200000 3>,
+			< 1382400000 4>;
 		#clock-cells = <1>;
 	};
 
