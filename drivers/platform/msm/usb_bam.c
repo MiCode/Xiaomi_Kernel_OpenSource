@@ -632,7 +632,7 @@ int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
 				&ctx->usb_bam_connections[idx];
 	unsigned long peer_bam_handle;
 
-	ret = sps_phy2h(pipe_connect->dst_phy_addr, &peer_bam_handle);
+	ret = sps_phy2h(pipe_connect->src_phy_addr, &peer_bam_handle);
 	if (ret) {
 		log_event_err("%s: sps_phy2h failed (src BAM) %d\n",
 						__func__, ret);
