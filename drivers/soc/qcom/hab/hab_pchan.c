@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,10 +35,10 @@ hab_pchan_alloc(struct hab_device *habdev, int otherend_id)
 	rwlock_init(&pchan->vchans_lock);
 	spin_lock_init(&pchan->rxbuf_lock);
 
-	mutex_lock(&habdev->pchan_lock);
+	spin_lock_bh(&habdev->pchan_lock);
 	list_add_tail(&pchan->node, &habdev->pchannels);
 	habdev->pchan_cnt++;
-	mutex_unlock(&habdev->pchan_lock);
+	spin_unlock_bh(&habdev->pchan_lock);
 
 	return pchan;
 }
@@ -47,11 +47,26 @@ static void hab_pchan_free(struct kref *ref)
 {
 	struct physical_channel *pchan =
 		container_of(ref, struct physical_channel, refcount);
+	struct virtual_channel *vchan;
 
-	mutex_lock(&pchan->habdev->pchan_lock);
+	pr_debug("pchan %s refcnt %d\n", pchan->name,
+			get_refcnt(pchan->refcount));
+
+	spin_lock_bh(&pchan->habdev->pchan_lock);
 	list_del(&pchan->node);
 	pchan->habdev->pchan_cnt--;
-	mutex_unlock(&pchan->habdev->pchan_lock);
+	spin_unlock_bh(&pchan->habdev->pchan_lock);
+
+	/* check vchan leaking */
+	read_lock(&pchan->vchans_lock);
+	list_for_each_entry(vchan, &pchan->vchannels, pnode) {
+		/* no logging on the owner. it might have been gone */
+		pr_warn("leaking vchan id %X remote %X refcnt %d\n",
+				vchan->id, vchan->otherend_id,
+				get_refcnt(vchan->refcount));
+	}
+	read_unlock(&pchan->vchans_lock);
+
 	kfree(pchan->hyp_data);
 	kfree(pchan);
 }
@@ -61,7 +76,7 @@ hab_pchan_find_domid(struct hab_device *dev, int dom_id)
 {
 	struct physical_channel *pchan;
 
-	mutex_lock(&dev->pchan_lock);
+	spin_lock_bh(&dev->pchan_lock);
 	list_for_each_entry(pchan, &dev->pchannels, node)
 		if (pchan->dom_id == dom_id || dom_id == HABCFG_VMID_DONT_CARE)
 			break;
@@ -75,7 +90,7 @@ hab_pchan_find_domid(struct hab_device *dev, int dom_id)
 	if (pchan && !kref_get_unless_zero(&pchan->refcount))
 		pchan = NULL;
 
-	mutex_unlock(&dev->pchan_lock);
+	spin_unlock_bh(&dev->pchan_lock);
 
 	return pchan;
 }

@@ -13,7 +13,8 @@
 #include "hab.h"
 
 struct virtual_channel *
-hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
+hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan,
+				int openid)
 {
 	int id;
 	struct virtual_channel *vchan;
@@ -28,11 +29,13 @@ hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
 	/* This should be the first thing we do in this function */
 	idr_preload(GFP_KERNEL);
 	spin_lock_bh(&pchan->vid_lock);
-	id = idr_alloc(&pchan->vchan_idr, vchan, 1, 256, GFP_NOWAIT);
+	id = idr_alloc(&pchan->vchan_idr, vchan, 1,
+		(HAB_VCID_ID_MASK >> HAB_VCID_ID_SHIFT) + 1, GFP_NOWAIT);
 	spin_unlock_bh(&pchan->vid_lock);
 	idr_preload_end();
 
-	if (id < 0) {
+	if (id <= 0) {
+		pr_err("idr failed %d\n", id);
 		kfree(vchan);
 		return NULL;
 	}
@@ -40,8 +43,11 @@ hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
 
 	hab_pchan_get(pchan);
 	vchan->pchan = pchan;
+	/* vchan need both vcid and openid to be properly located */
+	vchan->session_id = openid;
 	write_lock(&pchan->vchans_lock);
 	list_add_tail(&vchan->pnode, &pchan->vchannels);
+	pchan->vcnt++;
 	write_unlock(&pchan->vchans_lock);
 	vchan->id = ((id << HAB_VCID_ID_SHIFT) & HAB_VCID_ID_MASK) |
 		((pchan->habdev->id << HAB_VCID_MMID_SHIFT) &
@@ -53,7 +59,7 @@ hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
 	init_waitqueue_head(&vchan->rx_queue);
 
 	kref_init(&vchan->refcount);
-	kref_init(&vchan->usagecnt);
+
 	vchan->otherend_closed = pchan->closed;
 
 	hab_ctx_get(ctx);
@@ -65,11 +71,9 @@ hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
 static void
 hab_vchan_free(struct kref *ref)
 {
-	int found;
 	struct virtual_channel *vchan =
 		container_of(ref, struct virtual_channel, refcount);
 	struct hab_message *message, *msg_tmp;
-	struct export_desc *exp, *exp_tmp;
 	struct physical_channel *pchan = vchan->pchan;
 	struct uhab_context *ctx = vchan->ctx;
 	struct virtual_channel *vc, *vc_tmp;
@@ -81,73 +85,84 @@ hab_vchan_free(struct kref *ref)
 	}
 	spin_unlock_bh(&vchan->rx_lock);
 
-	do {
-		found = 0;
-		write_lock(&ctx->exp_lock);
-		list_for_each_entry_safe(exp, exp_tmp, &ctx->exp_whse, node) {
-			if (exp->vcid_local == vchan->id) {
-				list_del(&exp->node);
-				found = 1;
-				break;
-			}
-		}
-		write_unlock(&ctx->exp_lock);
-		if (found) {
-			habmem_hyp_revoke(exp->payload, exp->payload_count);
-			habmem_remove_export(exp);
-		}
-	} while (found);
+	/* the release vchan from ctx was done earlier in vchan close() */
+	hab_ctx_put(ctx); /* now ctx is not needed from this vchan's view */
+	vchan->ctx = NULL;
 
-	do {
-		found = 0;
-		spin_lock_bh(&ctx->imp_lock);
-		list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
-			if (exp->vcid_remote == vchan->id) {
-				list_del(&exp->node);
-				found = 1;
-				break;
-			}
-		}
-		spin_unlock_bh(&ctx->imp_lock);
-		if (found) {
-			habmm_imp_hyp_unmap(ctx->import_ctx, exp);
-			ctx->import_total--;
-			kfree(exp);
-		}
-	} while (found);
-
-	spin_lock_bh(&pchan->vid_lock);
-	idr_remove(&pchan->vchan_idr, HAB_VCID_GET_ID(vchan->id));
-	spin_unlock_bh(&pchan->vid_lock);
-
+	/* release vchan from pchan. no more msg for this vchan */
 	write_lock(&pchan->vchans_lock);
 	list_for_each_entry_safe(vc, vc_tmp, &pchan->vchannels, pnode) {
 		if (vchan == vc) {
 			list_del(&vc->pnode);
+			/* the ref is held in case of pchan is freed */
+			pchan->vcnt--;
 			break;
 		}
 	}
 	write_unlock(&pchan->vchans_lock);
 
-	hab_pchan_put(pchan);
-	hab_ctx_put(ctx);
+	/* release idr at the last so same idr will not be used early */
+	spin_lock_bh(&pchan->vid_lock);
+	idr_remove(&pchan->vchan_idr, HAB_VCID_GET_ID(vchan->id));
+	spin_unlock_bh(&pchan->vid_lock);
+
+	hab_pchan_put(pchan); /* no more need for pchan from this vchan */
 
 	kfree(vchan);
 }
 
+/*
+ * only for msg recv path to retrieve vchan from vcid and openid based on
+ * pchan's vchan list
+ */
 struct virtual_channel*
 hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 {
 	struct virtual_channel *vchan;
 	uint32_t vchan_id = HAB_HEADER_GET_ID(*header);
 	uint32_t session_id = HAB_HEADER_GET_SESSION_ID(*header);
+	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
+	uint32_t payload_type = HAB_HEADER_GET_TYPE(*header);
 
 	spin_lock_bh(&pchan->vid_lock);
 	vchan = idr_find(&pchan->vchan_idr, HAB_VCID_GET_ID(vchan_id));
-	if (vchan)
-		if ((vchan->session_id != session_id) ||
-			 (!kref_get_unless_zero(&vchan->refcount)))
+	if (vchan) {
+		if (vchan->session_id != session_id)
+			/*
+			 * skipped if session is different even vcid
+			 * is the same
+			 */
 			vchan = NULL;
+		else if (!vchan->otherend_id /*&& !vchan->session_id*/) {
+			/*
+			 * not paired vchan can be fetched right after it is
+			 * alloc'ed. so it has to be skipped during search
+			 * for remote msg
+			 */
+			pr_warn("vcid %x is not paired yet session %d refcnt %d type %d sz %zd\n",
+				vchan->id, vchan->otherend_id,
+				get_refcnt(vchan->refcount),
+				payload_type, sizebytes);
+			vchan = NULL;
+		} else if (!kref_get_unless_zero(&vchan->refcount)) {
+			/*
+			 * this happens when refcnt is already zero
+			 * (put from other thread) or there is an actual error
+			 */
+			pr_err("failed to inc vcid %pK %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
+				vchan, vchan->id, vchan->otherend_id,
+				vchan->session_id, get_refcnt(vchan->refcount),
+				vchan_id, session_id, payload_type, sizebytes);
+			vchan = NULL;
+		} else if (vchan->otherend_closed || vchan->closed) {
+			pr_err("closed already remote %d local %d vcid %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
+				vchan->otherend_closed, vchan->closed,
+				vchan->id, vchan->otherend_id,
+				vchan->session_id, get_refcnt(vchan->refcount),
+				vchan_id, session_id, payload_type, sizebytes);
+			vchan = NULL;
+		}
+	}
 	spin_unlock_bh(&pchan->vid_lock);
 
 	return vchan;
@@ -158,6 +173,7 @@ void hab_vchan_stop(struct virtual_channel *vchan)
 	if (vchan) {
 		vchan->otherend_closed = 1;
 		wake_up(&vchan->rx_queue);
+		wake_up_interruptible(&vchan->ctx->exp_wq);
 	}
 }
 
@@ -184,23 +200,36 @@ int hab_vchan_find_domid(struct virtual_channel *vchan)
 	return vchan ? vchan->pchan->dom_id : -1;
 }
 
-static void
-hab_vchan_free_deferred(struct work_struct *work)
+/* this sould be only called once after refcnt is zero */
+static void hab_vchan_schedule_free(struct kref *ref)
 {
-	struct virtual_channel *vchan =
-		container_of(work, struct virtual_channel, work);
-
-	hab_vchan_free(&vchan->refcount);
-}
-
-static void
-hab_vchan_schedule_free(struct kref *ref)
-{
-	struct virtual_channel *vchan =
+	struct virtual_channel *vchanin =
 		container_of(ref, struct virtual_channel, refcount);
+	struct uhab_context *ctx = vchanin->ctx;
+	struct virtual_channel *vchan, *tmp;
+	int bnotify = 0;
 
-	INIT_WORK(&vchan->work, hab_vchan_free_deferred);
-	schedule_work(&vchan->work);
+	/*
+	 * similar logic is in ctx free. if ctx free runs first,
+	 * this is skipped
+	 */
+	write_lock(&ctx->ctx_lock);
+	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
+		if (vchan == vchanin) {
+			pr_debug("vchan free refcnt = %d\n",
+					 get_refcnt(vchan->refcount));
+			ctx->vcnt--;
+			list_del(&vchan->node);
+			bnotify = 1;
+			break;
+		}
+	}
+	write_unlock(&ctx->ctx_lock);
+
+	if (bnotify)
+		hab_vchan_stop_notify(vchan);
+
+	hab_vchan_free(ref);
 }
 
 void hab_vchan_put(struct virtual_channel *vchan)
@@ -210,17 +239,23 @@ void hab_vchan_put(struct virtual_channel *vchan)
 }
 
 int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
-		char *names, size_t name_size, uint32_t flags)
+			   char *names, size_t name_size, uint32_t flags)
 {
 	struct virtual_channel *vchan = hab_get_vchan_fromvcid(vcid, ctx);
+	if (!vchan)
+		return -EINVAL;
 
-	if (!vchan || vchan->otherend_closed)
+	if (vchan->otherend_closed) {
+		hab_vchan_put(vchan);
 		return -ENODEV;
+	}
 
 	*ids = vchan->pchan->vmid_local |
 		((uint64_t)vchan->pchan->vmid_remote) << 32;
 	names[0] = 0;
 	names[name_size/2] = 0;
+
+	hab_vchan_put(vchan);
 
 	return 0;
 }

@@ -16,7 +16,7 @@
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
-#define pr_fmt(fmt) "|hab:%s:%d|" fmt, __func__, __LINE__
+#define pr_fmt(fmt) "hab:%s:%d " fmt, __func__, __LINE__
 
 #include <linux/types.h>
 
@@ -41,16 +41,19 @@
 #include <linux/uaccess.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
+#include <linux/jiffies.h>
+#include <linux/reboot.h>
 
 enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_MSG = 0x0,
 	HAB_PAYLOAD_TYPE_INIT,
 	HAB_PAYLOAD_TYPE_INIT_ACK,
-	HAB_PAYLOAD_TYPE_ACK,
+	HAB_PAYLOAD_TYPE_INIT_DONE,
 	HAB_PAYLOAD_TYPE_EXPORT,
 	HAB_PAYLOAD_TYPE_EXPORT_ACK,
 	HAB_PAYLOAD_TYPE_PROFILE,
 	HAB_PAYLOAD_TYPE_CLOSE,
+	HAB_PAYLOAD_TYPE_INIT_CANCEL,
 	HAB_PAYLOAD_TYPE_MAX,
 };
 #define LOOPBACK_DOM 0xFF
@@ -128,21 +131,21 @@ struct hab_header {
 /* "Size" of the HAB_HEADER_ID and HAB_VCID_ID must match */
 #define HAB_HEADER_SIZE_SHIFT 0
 #define HAB_HEADER_TYPE_SHIFT 16
-#define HAB_HEADER_ID_SHIFT 24
+#define HAB_HEADER_ID_SHIFT 20
 #define HAB_HEADER_SIZE_MASK 0x0000FFFF
-#define HAB_HEADER_TYPE_MASK 0x00FF0000
-#define HAB_HEADER_ID_MASK   0xFF000000
+#define HAB_HEADER_TYPE_MASK 0x000F0000
+#define HAB_HEADER_ID_MASK   0xFFF00000
 #define HAB_HEADER_INITIALIZER {0}
 
 #define HAB_MMID_GET_MAJOR(mmid) (mmid & 0xFFFF)
 #define HAB_MMID_GET_MINOR(mmid) ((mmid>>16) & 0xFF)
 
 #define HAB_VCID_ID_SHIFT 0
-#define HAB_VCID_DOMID_SHIFT 8
-#define HAB_VCID_MMID_SHIFT 16
-#define HAB_VCID_ID_MASK 0x000000FF
-#define HAB_VCID_DOMID_MASK 0x0000FF00
-#define HAB_VCID_MMID_MASK 0xFFFF0000
+#define HAB_VCID_DOMID_SHIFT 12
+#define HAB_VCID_MMID_SHIFT 20
+#define HAB_VCID_ID_MASK 0x00000FFF
+#define HAB_VCID_DOMID_MASK 0x000FF000
+#define HAB_VCID_MMID_MASK 0xFFF00000
 #define HAB_VCID_GET_ID(vcid) \
 	(((vcid) & HAB_VCID_ID_MASK) >> HAB_VCID_ID_SHIFT)
 
@@ -182,12 +185,14 @@ struct hab_header {
 
 #define HAB_HEADER_GET_SESSION_ID(header) ((header).session_id)
 
+#define HAB_HS_TIMEOUT (10*1000*1000)
+
 struct physical_channel {
+	struct list_head node;
 	char name[MAX_VMID_NAME_SIZE];
 	int is_be;
 	struct kref refcount;
 	struct hab_device *habdev;
-	struct list_head node;
 	struct idr vchan_idr;
 	spinlock_t vid_lock;
 
@@ -195,38 +200,44 @@ struct physical_channel {
 	spinlock_t expid_lock;
 
 	void *hyp_data;
-	int dom_id;
-	int vmid_local;
+	int dom_id; /* BE role: remote vmid; FE role: don't care */
+	int vmid_local; /* from DT or hab_config */
 	int vmid_remote;
-	char vmname_local[12];
+	char vmname_local[12]; /* from DT */
 	char vmname_remote[12];
 	int closed;
 
 	spinlock_t rxbuf_lock;
 
-	/* vchans over this pchan */
+	/* debug only */
+	uint32_t sequence_tx;
+	uint32_t sequence_rx;
+
+	/* vchans on this pchan */
 	struct list_head vchannels;
+	int vcnt;
 	rwlock_t vchans_lock;
 };
-
+/* this payload has to be used together with type */
 struct hab_open_send_data {
 	int vchan_id;
 	int sub_id;
 	int open_id;
+	int ver_fe;
+	int ver_be;
+	int reserved;
 };
 
 struct hab_open_request {
 	int type;
 	struct physical_channel *pchan;
-	int vchan_id;
-	int sub_id;
-	int open_id;
+	struct hab_open_send_data xdata;
 };
 
 struct hab_open_node {
 	struct hab_open_request request;
 	struct list_head node;
-	int age;
+	int64_t age; /* sec */
 };
 
 struct hab_export_ack {
@@ -247,20 +258,25 @@ struct hab_message {
 	uint32_t data[];
 };
 
+/* for all the pchans of same kind */
 struct hab_device {
 	char name[MAX_VMID_NAME_SIZE];
-	unsigned int id;
+	uint32_t id;
 	struct list_head pchannels;
 	int pchan_cnt;
-	struct mutex pchan_lock;
-	struct list_head openq_list;
+	spinlock_t pchan_lock;
+	struct list_head openq_list; /* received */
 	spinlock_t openlock;
 	wait_queue_head_t openq;
+	int openq_cnt;
 };
 
 struct uhab_context {
+	struct list_head node; /* managed by the driver */
 	struct kref refcount;
+
 	struct list_head vchannels;
+	int vcnt;
 
 	struct list_head exp_whse;
 	uint32_t export_total;
@@ -276,9 +292,15 @@ struct uhab_context {
 
 	void *import_ctx;
 
+	struct list_head pending_open; /* sent to remote */
+	int pending_cnt;
+
 	rwlock_t ctx_lock;
 	int closing;
 	int kernel;
+	int owner;
+
+	int lb_be; /* loopback only */
 };
 
 /*
@@ -297,7 +319,7 @@ struct local_vmid {
 };
 
 struct hab_driver {
-	struct device *dev;
+	struct device *dev; /* mmid dev list */
 	struct cdev cdev;
 	dev_t major;
 	struct class *class;
@@ -305,33 +327,30 @@ struct hab_driver {
 	struct hab_device *devp;
 	struct uhab_context *kctx;
 
+	struct list_head uctx_list;
+	int ctx_cnt;
+	spinlock_t drvlock;
+
 	struct local_vmid settings; /* parser results */
 
 	int b_server_dom;
-	int loopback_num;
+	int b_loopback_be; /* only allow 2 apps simultaneously 1 fe 1 be */
 	int b_loopback;
 
 	void *hyp_priv; /* hypervisor plug-in storage */
 };
 
 struct virtual_channel {
-	struct work_struct work;
 	/*
 	 * refcount is used to track the references from hab core to the virtual
 	 * channel such as references from physical channels,
 	 * i.e. references from the "other" side
 	 */
 	struct kref refcount;
-	/*
-	 * usagecnt is used to track the clients who are using this virtual
-	 * channel such as local clients, client sowftware etc,
-	 * i.e. references from "this" side
-	 */
-	struct kref usagecnt;
 	struct physical_channel *pchan;
 	struct uhab_context *ctx;
-	struct list_head node;
-	struct list_head pnode;
+	struct list_head node; /* for ctx */
+	struct list_head pnode; /* for pchan */
 	struct list_head rx_list;
 	wait_queue_head_t rx_queue;
 	spinlock_t rx_lock;
@@ -339,6 +358,14 @@ struct virtual_channel {
 	int otherend_id;
 	int otherend_closed;
 	uint32_t session_id;
+
+	/*
+	 * set when local close() is called explicitly. vchan could be
+	 * used in hab-recv-msg() path (2) then close() is called (1).
+	 * this is same case as close is not called and no msg path
+	 */
+	int closed;
+	int forked; /* if fork is detected and assume only once */
 };
 
 /*
@@ -351,12 +378,15 @@ struct export_desc {
 	int       readonly;
 	uint64_t  import_index;
 
-	struct virtual_channel *vchan;
+	struct virtual_channel *vchan; /* vchan could be freed earlier */
+	struct uhab_context *ctx;
+	struct physical_channel *pchan;
 
 	int32_t             vcid_local;
 	int32_t             vcid_remote;
 	int                 domid_local;
 	int                 domid_remote;
+	int                 flags;
 
 	struct list_head    node;
 	void *kva;
@@ -365,7 +395,8 @@ struct export_desc {
 } __packed;
 
 int hab_vchan_open(struct uhab_context *ctx,
-		unsigned int mmid, int32_t *vcid, uint32_t flags);
+		unsigned int mmid, int32_t *vcid,
+		int32_t timeout, uint32_t flags);
 void hab_vchan_close(struct uhab_context *ctx,
 		int32_t vcid);
 long hab_vchan_send(struct uhab_context *ctx,
@@ -401,13 +432,17 @@ int habmem_hyp_grant_user(unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata);
+		void *ppdata,
+		int *compressed,
+		int *compressed_size);
 
 int habmem_hyp_grant(unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata);
+		void *ppdata,
+		int *compressed,
+		int *compressed_size);
 
 int habmem_hyp_revoke(void *expdata, uint32_t count);
 
@@ -417,7 +452,7 @@ void habmem_imp_hyp_close(void *priv, int kernel);
 int habmem_imp_hyp_map(void *imp_ctx, struct hab_import *param,
 		struct export_desc *exp, int kernel);
 
-int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp);
+int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel);
 
 int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
@@ -427,7 +462,7 @@ void hab_msg_free(struct hab_message *message);
 int hab_msg_dequeue(struct virtual_channel *vchan,
 		struct hab_message **msg, int *rsize, unsigned int flags);
 
-void hab_msg_recv(struct physical_channel *pchan,
+int hab_msg_recv(struct physical_channel *pchan,
 		struct hab_header *header);
 
 void hab_open_request_init(struct hab_open_request *request,
@@ -447,7 +482,7 @@ int hab_open_listen(struct uhab_context *ctx,
 		int ms_timeout);
 
 struct virtual_channel *hab_vchan_alloc(struct uhab_context *ctx,
-		struct physical_channel *pchan);
+		struct physical_channel *pchan, int openid);
 struct virtual_channel *hab_vchan_get(struct physical_channel *pchan,
 						  struct hab_header *header);
 void hab_vchan_put(struct virtual_channel *vchan);
@@ -482,6 +517,7 @@ static inline void hab_ctx_put(struct uhab_context *ctx)
 void hab_send_close_msg(struct virtual_channel *vchan);
 int hab_hypervisor_register(void);
 void hab_hypervisor_unregister(void);
+void hab_hypervisor_unregister_common(void);
 int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 		int vmid_remote, struct hab_device *mmid_device);
 int habhyp_commdev_dealloc(void *commdev);
@@ -496,7 +532,7 @@ int physical_channel_send(struct physical_channel *pchan,
 
 void physical_channel_rx_dispatch(unsigned long physical_channel);
 
-int loopback_pchan_create(char *dev_name);
+int loopback_pchan_create(struct hab_device *dev, char *pchan_name);
 
 int hab_parse(struct local_vmid *settings);
 
@@ -511,6 +547,21 @@ int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
 		char *names, size_t name_size, uint32_t flags);
 
 struct hab_device *find_hab_device(unsigned int mm_id);
+
+int get_refcnt(struct kref ref);
+
+int hab_open_pending_enter(struct uhab_context *ctx,
+		struct physical_channel *pchan,
+		struct hab_open_node *pending);
+
+int hab_open_pending_exit(struct uhab_context *ctx,
+		struct physical_channel *pchan,
+		struct hab_open_node *pending);
+
+int hab_open_cancel_notify(struct hab_open_request *request);
+
+int hab_open_receive_cancel(struct physical_channel *pchan,
+		size_t sizebytes);
 
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;

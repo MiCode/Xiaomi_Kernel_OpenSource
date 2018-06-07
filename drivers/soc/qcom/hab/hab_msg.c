@@ -78,13 +78,14 @@ hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
 			} else {
 				pr_err("rcv buffer too small %d < %zd\n",
 					   *rsize, message->sizebytes);
-				*rsize = 0;
+				*rsize = message->sizebytes;
 				message = NULL;
-				ret = -EINVAL;
+				ret = -EOVERFLOW; /* come back again */
 			}
 		}
 		spin_unlock_bh(&vchan->rx_lock);
 	} else
+		/* no message received, retain the original status */
 		*rsize = 0;
 
 	*msg = message;
@@ -142,18 +143,13 @@ static int hab_receive_create_export_ack(struct physical_channel *pchan,
 		return -ENOMEM;
 
 	if (sizeof(ack_recvd->ack) != sizebytes)
-		pr_err("exp ack size %lu is not as arrived %zu\n",
+		pr_err("exp ack size %zu is not as arrived %zu\n",
 				  sizeof(ack_recvd->ack), sizebytes);
 
 	if (physical_channel_read(pchan,
 		&ack_recvd->ack,
 		sizebytes) != sizebytes)
 		return -EIO;
-
-	pr_debug("receive export id %d, local vc %X, vd remote %X\n",
-		ack_recvd->ack.export_id,
-		ack_recvd->ack.vcid_local,
-		ack_recvd->ack.vcid_remote);
 
 	spin_lock_bh(&ctx->expq_lock);
 	list_add_tail(&ack_recvd->node, &ctx->exp_rxq);
@@ -162,10 +158,21 @@ static int hab_receive_create_export_ack(struct physical_channel *pchan,
 	return 0;
 }
 
-void hab_msg_recv(struct physical_channel *pchan,
+static void hab_msg_drop(struct physical_channel *pchan, size_t sizebytes)
+{
+	uint8_t *data = NULL;
+
+	data = kmalloc(sizebytes, GFP_ATOMIC);
+	if (data == NULL)
+		return;
+	physical_channel_read(pchan, data, sizebytes);
+	kfree(data);
+}
+
+int hab_msg_recv(struct physical_channel *pchan,
 		struct hab_header *header)
 {
-	int ret;
+	int ret = 0;
 	struct hab_message *message;
 	struct hab_device *dev = pchan->habdev;
 	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
@@ -179,7 +186,8 @@ void hab_msg_recv(struct physical_channel *pchan,
 	/* get the local virtual channel if it isn't an open message */
 	if (payload_type != HAB_PAYLOAD_TYPE_INIT &&
 		payload_type != HAB_PAYLOAD_TYPE_INIT_ACK &&
-		payload_type != HAB_PAYLOAD_TYPE_ACK) {
+		payload_type != HAB_PAYLOAD_TYPE_INIT_DONE &&
+		payload_type != HAB_PAYLOAD_TYPE_INIT_CANCEL) {
 
 		/* sanity check the received message */
 		if (payload_type >= HAB_PAYLOAD_TYPE_MAX ||
@@ -189,29 +197,42 @@ void hab_msg_recv(struct physical_channel *pchan,
 				payload_type, vchan_id, sizebytes, session_id);
 		}
 
+		/*
+		 * need both vcid and session_id to be accurate.
+		 * this is from pchan instead of ctx
+		 */
 		vchan = hab_vchan_get(pchan, header);
 		if (!vchan) {
-			pr_debug("vchan is not found, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
+			pr_info("vchan is not found, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
 				payload_type, vchan_id, sizebytes, session_id);
 
-			if (sizebytes)
-				pr_err("message is dropped\n");
-
-			return;
+			if (sizebytes) {
+				hab_msg_drop(pchan, sizebytes);
+				pr_err("message %d dropped no vchan, session id %d\n",
+					payload_type, session_id);
+			}
+			return -EINVAL;
 		} else if (vchan->otherend_closed) {
 			hab_vchan_put(vchan);
-			pr_debug("vchan remote is closed, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
+			pr_info("vchan remote is closed payload type %d, vchan id %x, sizebytes %zx, session %d\n",
 				payload_type, vchan_id, sizebytes, session_id);
-
-			if (sizebytes)
-				pr_err("message is dropped\n");
-
-			return;
+			if (sizebytes) {
+				hab_msg_drop(pchan, sizebytes);
+				pr_err("message %d dropped remote close, session id %d\n",
+					   payload_type, session_id);
+			}
+			return -ENODEV;
 		}
 	} else {
 		if (sizebytes != sizeof(struct hab_open_send_data)) {
-			pr_err("Invalid open request received, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
+			pr_err("Invalid open request received type %d, vcid %x, szbytes %zx, session %d\n",
 				payload_type, vchan_id, sizebytes, session_id);
+			if (sizebytes) {
+				hab_msg_drop(pchan, sizebytes);
+				pr_err("message %d dropped unknown reason, session id %d\n",
+					   payload_type, session_id);
+			}
+			return -ENODEV;
 		}
 	}
 
@@ -226,7 +247,7 @@ void hab_msg_recv(struct physical_channel *pchan,
 
 	case HAB_PAYLOAD_TYPE_INIT:
 	case HAB_PAYLOAD_TYPE_INIT_ACK:
-	case HAB_PAYLOAD_TYPE_ACK:
+	case HAB_PAYLOAD_TYPE_INIT_DONE:
 		ret = hab_open_request_add(pchan, sizebytes, payload_type);
 		if (ret) {
 			pr_err("open request add failed, ret %d, payload type %d, sizebytes %zx\n",
@@ -236,6 +257,16 @@ void hab_msg_recv(struct physical_channel *pchan,
 		wake_up_interruptible(&dev->openq);
 		break;
 
+	case HAB_PAYLOAD_TYPE_INIT_CANCEL:
+		pr_info("remote open cancel header vcid %X session %d local %d remote %d\n",
+			vchan_id, session_id, pchan->vmid_local,
+			pchan->vmid_remote);
+		ret = hab_open_receive_cancel(pchan, sizebytes);
+		if (ret)
+			pr_err("open cancel handling failed ret %d vcid %X session %d\n",
+				   ret, vchan_id, session_id);
+		break;
+
 	case HAB_PAYLOAD_TYPE_EXPORT:
 		exp_desc = kzalloc(sizebytes, GFP_ATOMIC);
 		if (!exp_desc)
@@ -243,7 +274,10 @@ void hab_msg_recv(struct physical_channel *pchan,
 
 		if (physical_channel_read(pchan, exp_desc, sizebytes) !=
 			sizebytes) {
-			vfree(exp_desc);
+			pr_err("corrupted exp expect %zd bytes vcid %X remote %X open %d!\n",
+					sizebytes, vchan->id,
+					vchan->otherend_id, vchan->session_id);
+			kfree(exp_desc);
 			break;
 		}
 
@@ -265,36 +299,33 @@ void hab_msg_recv(struct physical_channel *pchan,
 
 	case HAB_PAYLOAD_TYPE_CLOSE:
 		/* remote request close */
-		pr_debug("remote side request close\n");
-		pr_debug(" vchan id %X, other end %X, session %d\n",
-				vchan->id, vchan->otherend_id, session_id);
+		pr_info("remote request close vcid %pK %X other id %X session %d refcnt %d\n",
+			vchan, vchan->id, vchan->otherend_id,
+			session_id, get_refcnt(vchan->refcount));
 		hab_vchan_stop(vchan);
 		break;
 
 	case HAB_PAYLOAD_TYPE_PROFILE:
 		do_gettimeofday(&tv);
-
 		/* pull down the incoming data */
 		message = hab_msg_alloc(pchan, sizebytes);
-		if (!message) {
-			pr_err("msg alloc failed\n");
-			break;
+		if (!message)
+			pr_err("failed to allocate msg Arrived msg will be lost\n");
+		else {
+			struct habmm_xing_vm_stat *pstat =
+				(struct habmm_xing_vm_stat *)message->data;
+			pstat->rx_sec = tv.tv_sec;
+			pstat->rx_usec = tv.tv_usec;
+			hab_msg_queue(vchan, message);
 		}
-
-		((uint64_t *)message->data)[2] = tv.tv_sec;
-		((uint64_t *)message->data)[3] = tv.tv_usec;
-		hab_msg_queue(vchan, message);
 		break;
 
 	default:
-		pr_err("unknown msg is received\n");
-		pr_err("payload type %d, vchan id %x\n",
-				payload_type, vchan_id);
-		pr_err("sizebytes %zx, session %d\n",
-				sizebytes, session_id);
-
+		pr_err("unknown msg received, payload type %d, vchan id %x, sizebytes %zx, session %d\n",
+			   payload_type, vchan_id, sizebytes, session_id);
 		break;
 	}
 	if (vchan)
 		hab_vchan_put(vchan);
+	return ret;
 }

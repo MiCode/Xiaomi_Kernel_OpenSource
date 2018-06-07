@@ -10,13 +10,14 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/module.h>
 #include "hab.h"
+#include <linux/module.h>
 
 int32_t habmm_socket_open(int32_t *handle, uint32_t mm_ip_id,
 		uint32_t timeout, uint32_t flags)
 {
-	return hab_vchan_open(hab_driver.kctx, mm_ip_id, handle, flags);
+	return hab_vchan_open(hab_driver.kctx, mm_ip_id, handle,
+				timeout, flags);
 }
 EXPORT_SYMBOL(habmm_socket_open);
 
@@ -55,6 +56,9 @@ int32_t habmm_socket_recv(int32_t handle, void *dst_buff, uint32_t *size_bytes,
 
 	if (ret == 0 && msg)
 		memcpy(dst_buff, msg->data, msg->sizebytes);
+	else if (ret && msg)
+		pr_warn("vcid %X recv failed %d but msg is still received %zd bytes\n",
+				handle, ret, msg->sizebytes);
 
 	if (msg)
 		hab_msg_free(msg);
