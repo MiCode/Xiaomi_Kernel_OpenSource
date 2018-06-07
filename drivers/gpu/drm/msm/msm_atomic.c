@@ -462,12 +462,15 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		DRM_DEBUG_ATOMIC("enabling [ENCODER:%d:%s]\n",
 				 encoder->base.id, encoder->name);
 
-		blank = MSM_DRM_BLANK_UNBLANK;
-		notifier_data.data = &blank;
-		notifier_data.id =
-			connector->state->crtc->index;
-		msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
+		if (connector->state->crtc->state->active_changed) {
+			blank = MSM_DRM_BLANK_UNBLANK;
+			notifier_data.data = &blank;
+			notifier_data.id =
+				connector->state->crtc->index;
+			DRM_DEBUG_ATOMIC("Notify early unblank\n");
+			msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 					    &notifier_data);
+		}
 		/*
 		 * Each encoder has at most one connector (since we always steal
 		 * it away), so we won't call enable hooks twice.
@@ -512,8 +515,11 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 				 encoder->base.id, encoder->name);
 
 		drm_bridge_enable(encoder->bridge);
-		msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+		if (connector->state->crtc->state->active_changed) {
+			DRM_DEBUG_ATOMIC("Notify unblank\n");
+			msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
 					    &notifier_data);
+		}
 	}
 	SDE_ATRACE_END("msm_enable");
 }
