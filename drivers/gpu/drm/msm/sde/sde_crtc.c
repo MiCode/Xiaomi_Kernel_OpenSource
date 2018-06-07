@@ -25,6 +25,7 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_flip_work.h>
+#include <linux/clk/qcom.h>
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
@@ -4131,6 +4132,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
 
+	/* disable mdp LUT memory retention */
+	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+				CLKFLAG_NORETAIN_MEM);
+	if (ret)
+		SDE_ERROR("failed to disable LUT memory retention %d\n", ret);
+
 	/* destination scaler if enabled should be reconfigured on resume */
 	if (cstate->num_ds_enabled)
 		sde_crtc->ds_reconfig = true;
@@ -4276,6 +4283,12 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 	power_on = 1;
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
+
+	/* enable mdp LUT memory retention */
+	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+					CLKFLAG_RETAIN_MEM);
+	if (ret)
+		SDE_ERROR("failed to enable LUT memory retention %d\n", ret);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 
