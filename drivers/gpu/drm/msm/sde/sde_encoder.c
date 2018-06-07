@@ -738,8 +738,8 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	mutex_destroy(&sde_enc->enc_lock);
 
 	if (sde_enc->input_handler) {
-		input_unregister_handler(sde_enc->input_handler);
 		kfree(sde_enc->input_handler);
+		sde_enc->input_handler = NULL;
 	}
 
 	kfree(sde_enc);
@@ -2510,6 +2510,109 @@ void sde_encoder_control_te(struct drm_encoder *drm_enc, bool enable)
 	}
 }
 
+static int _sde_encoder_input_connect(struct input_handler *handler,
+	struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int rc = 0;
+
+	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = handler->name;
+
+	rc = input_register_handle(handle);
+	if (rc) {
+		pr_err("failed to register input handle\n");
+		goto error;
+	}
+
+	rc = input_open_device(handle);
+	if (rc) {
+		pr_err("failed to open input device\n");
+		goto error_unregister;
+	}
+
+	return 0;
+
+error_unregister:
+	input_unregister_handle(handle);
+
+error:
+	kfree(handle);
+
+	return rc;
+}
+
+static void _sde_encoder_input_disconnect(struct input_handle *handle)
+{
+	 input_close_device(handle);
+	 input_unregister_handle(handle);
+	 kfree(handle);
+}
+
+/**
+ * Structure for specifying event parameters on which to receive callbacks.
+ * This structure will trigger a callback in case of a touch event (specified by
+ * EV_ABS) where there is a change in X and Y coordinates,
+ */
+static const struct input_device_id sde_input_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+					BIT_MASK(ABS_MT_POSITION_X) |
+					BIT_MASK(ABS_MT_POSITION_Y) },
+	},
+	{ },
+};
+
+static int _sde_encoder_input_handler_register(
+		struct input_handler *input_handler)
+{
+	int rc = 0;
+
+	rc = input_register_handler(input_handler);
+	if (rc) {
+		pr_err("input_register_handler failed, rc= %d\n", rc);
+		kfree(input_handler);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int _sde_encoder_input_handler(
+		struct sde_encoder_virt *sde_enc)
+{
+	struct input_handler *input_handler = NULL;
+	int rc = 0;
+
+	if (sde_enc->input_handler) {
+		SDE_ERROR_ENC(sde_enc,
+				"input_handle is active. unexpected\n");
+		return -EINVAL;
+	}
+
+	input_handler = kzalloc(sizeof(*sde_enc->input_handler), GFP_KERNEL);
+	if (!input_handler)
+		return -ENOMEM;
+
+	input_handler->event = sde_encoder_input_event_handler;
+	input_handler->connect = _sde_encoder_input_connect;
+	input_handler->disconnect = _sde_encoder_input_disconnect;
+	input_handler->name = "sde";
+	input_handler->id_table = sde_input_ids;
+	input_handler->private = sde_enc;
+
+	sde_enc->input_handler = input_handler;
+
+	return rc;
+}
+
 static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
@@ -2584,12 +2687,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct msm_compression_info *comp_info = NULL;
 	struct drm_display_mode *cur_mode = NULL;
 	struct msm_mode_info mode_info;
+	struct msm_display_info *disp_info;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	disp_info = &sde_enc->disp_info;
 
 	if (!sde_kms_power_resource_is_enabled(drm_enc->dev)) {
 		SDE_ERROR("power resource is not enabled\n");
@@ -2625,6 +2730,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	if (!sde_enc->cur_master) {
 		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
 		return;
+	}
+
+	if (sde_enc->input_handler) {
+		ret = _sde_encoder_input_handler_register(
+				sde_enc->input_handler);
+		if (ret)
+			SDE_ERROR(
+			"input handler registration failed, rc = %d\n", ret);
 	}
 
 	ret = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
@@ -2704,6 +2817,11 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
+
+	kthread_flush_work(&sde_enc->input_event_work);
+
+	if (sde_enc->input_handler)
+		input_unregister_handler(sde_enc->input_handler);
 
 	/*
 	 * For primary command mode encoders, execute the resource control
@@ -3631,102 +3749,6 @@ static void sde_encoder_input_event_work_handler(struct kthread_work *work)
 
 	sde_encoder_resource_control(&sde_enc->base,
 			SDE_ENC_RC_EVENT_EARLY_WAKEUP);
-}
-
-static int _sde_encoder_input_connect(struct input_handler *handler,
-	struct input_dev *dev, const struct input_device_id *id)
-{
-	struct input_handle *handle;
-	int rc = 0;
-
-	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
-	if (!handle)
-		return -ENOMEM;
-
-	handle->dev = dev;
-	handle->handler = handler;
-	handle->name = handler->name;
-
-	rc = input_register_handle(handle);
-	if (rc) {
-		pr_err("failed to register input handle\n");
-		goto error;
-	}
-
-	rc = input_open_device(handle);
-	if (rc) {
-		pr_err("failed to open input device\n");
-		goto error_unregister;
-	}
-
-	return 0;
-
-error_unregister:
-	input_unregister_handle(handle);
-
-error:
-	kfree(handle);
-
-	return rc;
-}
-
-static void _sde_encoder_input_disconnect(struct input_handle *handle)
-{
-	 input_close_device(handle);
-	 input_unregister_handle(handle);
-	 kfree(handle);
-}
-
-/**
- * Structure for specifying event parameters on which to receive callbacks.
- * This structure will trigger a callback in case of a touch event (specified by
- * EV_ABS) where there is a change in X and Y coordinates,
- */
-static const struct input_device_id sde_input_ids[] = {
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
-		.evbit = { BIT_MASK(EV_ABS) },
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-					BIT_MASK(ABS_MT_POSITION_X) |
-					BIT_MASK(ABS_MT_POSITION_Y) },
-	},
-	{ },
-};
-
-static int _sde_encoder_input_handler(
-		struct sde_encoder_virt *sde_enc)
-{
-	struct input_handler *input_handler = NULL;
-	int rc = 0;
-
-	if (sde_enc->input_handler) {
-		SDE_ERROR_ENC(sde_enc,
-				"input_handle is active. unexpected\n");
-		return -EINVAL;
-	}
-
-	input_handler = kzalloc(sizeof(*sde_enc->input_handler), GFP_KERNEL);
-	if (!input_handler)
-		return -ENOMEM;
-
-	input_handler->event = sde_encoder_input_event_handler;
-	input_handler->connect = _sde_encoder_input_connect;
-	input_handler->disconnect = _sde_encoder_input_disconnect;
-	input_handler->name = "sde";
-	input_handler->id_table = sde_input_ids;
-	input_handler->private = sde_enc;
-
-	rc = input_register_handler(input_handler);
-	if (rc) {
-		SDE_ERROR_ENC(sde_enc,
-			"input_register_handler failed, rc= %d\n", rc);
-		kfree(input_handler);
-		return rc;
-	}
-
-	sde_enc->input_handler = input_handler;
-
-	return rc;
 }
 
 static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
