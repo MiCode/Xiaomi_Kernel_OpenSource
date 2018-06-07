@@ -58,6 +58,7 @@
 #define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	((n) << 21)
 #define DWC3_GUCTL1_IP_GAP_ADD_ON_MASK	DWC3_GUCTL1_IP_GAP_ADD_ON(7)
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
+#define DWC3_GUCTL3_USB20_RETRY_DISABLE	BIT(16)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
 #define DWC31_LINK_GDBGLTSSM	0xd050
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
@@ -5691,10 +5692,26 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
 
-		/* Increase Inter-packet delay by 1 UTMI clock cycle (EL_23) */
-		if (DWC3_VER_IS_WITHIN(DWC31, 170A, ANY))
+		/*
+		 * Increase Inter-packet delay by 1 UTMI clock cycle (EL_23).
+		 *
+		 * STAR 9001346572: Host: When a Single USB 2.0 Endpoint Receives NAKs Continuously,
+		 * Host Stops Transfers to Other Endpoints. When an active endpoint that is not
+		 * currently cached in the host controller is chosen to be cached to the same cache
+		 * index as the endpoint that receives NAK, The endpoint that receives the NAK
+		 * responses would be in continuous retry mode that would prevent it from getting
+		 * evicted out of the host controller cache. This would prevent the new endpoint to
+		 * get into the endpoint cache and therefore service to this endpoint is not done.
+		 * The workaround is to disable lower layer LSP retrying the USB2.0 NAKed transfer.
+		 * Forcing this to LSP upper layer allows next EP to evict the stuck EP from cache.
+		 */
+		if (DWC3_VER_IS_WITHIN(DWC31, 170A, ANY)) {
 			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
 				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
+
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL3,
+				DWC3_GUCTL3_USB20_RETRY_DISABLE, 1);
+		}
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
