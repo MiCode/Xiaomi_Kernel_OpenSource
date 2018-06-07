@@ -560,7 +560,7 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
 {
 	int status = 0;
 
-	if (data_type >= PERIPHERAL_MODEM && data_type <= PERIPHERAL_SENSORS) {
+	if (data_type >= PERIPHERAL_MODEM && data_type < NUM_PERIPHERALS) {
 		if (driver->feature[data_type].stm_support) {
 			status = diag_send_stm_state(data_type, cmd);
 			if (status == 0)
@@ -596,7 +596,7 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	 */
 	if ((version != 2) || (cmd > STM_AUTO_QUERY) ||
 		((cmd != STATUS_STM && cmd != STM_AUTO_QUERY) &&
-		((mask == 0) || (0 != (mask >> 4))))) {
+		((mask == 0) || (0 != (mask >> (NUM_PERIPHERALS + 1)))))) {
 		/* Command is invalid. Send bad param message response */
 		dest_buf[0] = BAD_PARAM_RESPONSE_MESSAGE;
 		for (i = 0; i < STM_CMD_NUM_BYTES; i++)
@@ -618,10 +618,6 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 		if (mask & DIAG_STM_SENSORS)
 			diag_process_stm_mask(cmd, DIAG_STM_SENSORS,
 						PERIPHERAL_SENSORS);
-		if (mask & DIAG_STM_WDSP)
-			diag_process_stm_mask(cmd, DIAG_STM_WDSP,
-						PERIPHERAL_WDSP);
-
 		if (mask & DIAG_STM_CDSP)
 			diag_process_stm_mask(cmd, DIAG_STM_CDSP,
 						PERIPHERAL_CDSP);
@@ -646,9 +642,6 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	if (driver->feature[PERIPHERAL_SENSORS].stm_support)
 		rsp_supported |= DIAG_STM_SENSORS;
 
-	if (driver->feature[PERIPHERAL_WDSP].stm_support)
-		rsp_supported |= DIAG_STM_WDSP;
-
 	if (driver->feature[PERIPHERAL_CDSP].stm_support)
 		rsp_supported |= DIAG_STM_CDSP;
 
@@ -666,9 +659,6 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 
 	if (driver->stm_state[PERIPHERAL_SENSORS])
 		rsp_status |= DIAG_STM_SENSORS;
-
-	if (driver->stm_state[PERIPHERAL_WDSP])
-		rsp_status |= DIAG_STM_WDSP;
 
 	if (driver->stm_state[PERIPHERAL_CDSP])
 		rsp_status |= DIAG_STM_CDSP;

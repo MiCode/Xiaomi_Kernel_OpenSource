@@ -29,7 +29,7 @@ qcom,mlp466076_3250mah_averaged_masterslave_mar27th2018 {
 	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
 	qcom,therm-center-offset = <0x70>;
 	qcom,checksum = <0xC5FF>;
-	qcom,gui-version = "PM855GUI - 0.0.0.32";
+	qcom,gui-version = "PM8150GUI - 0.0.0.32";
 	qcom,fg-profile-data = [
 		 09 00 31 EA
 		 85 C4 5A BA

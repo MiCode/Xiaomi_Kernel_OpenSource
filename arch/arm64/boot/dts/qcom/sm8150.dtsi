@@ -650,31 +650,31 @@
 		pil_modem_mem: modem_region@8d800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d800000 0x0 0x7d00000>;
+			reg = <0x0 0x8d800000 0x0 0x8f00000>;
 		};
 
-		pil_video_mem: pil_video_region@95500000 {
+		pil_video_mem: pil_video_region@96700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x95500000 0x0 0x500000>;
+			reg = <0x0 0x96700000 0x0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@95a00000 {
+		pil_cdsp_mem: cdsp_regions@96c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x95a00000 0x0 0x800000>;
+			reg = <0x0 0x96c00000 0x0 0x800000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@96200000 {
+		pil_slpi_mem: pil_slpi_region@97400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x96200000 0x0 0x1400000>;
+			reg = <0x0 0x97400000 0x0 0x1400000>;
 		};
 
-		pil_spss_mem: pil_spss_region@97600000 {
+		pil_spss_mem: pil_spss_region@98800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x97600000 0x0 0x100000>;
+			reg = <0x0 0x98800000 0x0 0x100000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
@@ -1507,7 +1507,7 @@
 
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		vdd_mss-supply = <&pm855_s1_level>;
+		vdd_mss-supply = <&pm8150_s1_level>;
 		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
 
@@ -1590,9 +1590,9 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
-		vdd_cx-supply = <&pm855_l8_level>;
+		vdd_cx-supply = <&pm8150_l8_level>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
-		vdd_mx-supply = <&pm855_l4_level>;
+		vdd_mx-supply = <&pm8150_l4_level>;
 		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
@@ -2699,6 +2699,11 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+	};
+
 	system_pm {
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
@@ -2761,6 +2766,23 @@
 		qcom,no-clock-support;
 		iommus = <&apps_smmu 0x0506 0x0011>,
 			 <&apps_smmu 0x0516 0x0011>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x512 0>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x40000000>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x513 0>;
+			virtual-addr = <0x60200000>;
+			virtual-size = <0x40000000>;
+			qcom,secure-context-bank;
+		};
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
@@ -3216,8 +3238,9 @@
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
-		qcom,ipa-loaduC;
+		qcom,ipa-platform-type-msm;
 		qcom,ipa-advertise-sg-support;
+		qcom,ipa-napi-enable;
 	};
 
 	ipa_hw: qcom,ipa@1e00000 {
@@ -3357,10 +3380,10 @@
 		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
 
-		vdd-cx-mx-supply = <&pm855_l1>;
-		vdd-1.8-xo-supply = <&pm855_l7>;
-		vdd-1.3-rfa-supply = <&pm855l_l2>;
-		vdd-3.3-ch0-supply = <&pm855l_l11>;
+		vdd-cx-mx-supply = <&pm8150_l1>;
+		vdd-1.8-xo-supply = <&pm8150_l7>;
+		vdd-1.3-rfa-supply = <&pm8150l_l2>;
+		vdd-3.3-ch0-supply = <&pm8150l_l11>;
 		qcom,vdd-cx-mx-config = <752000 752000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 	};
@@ -3378,7 +3401,7 @@
 			<100 512 0 0>,
 			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
 		qcom,use-ext-supply;
-		vddio-supply= <&pm855_s5>;
+		vddio-supply= <&pm8150_s5>;
 		qcom,use-ext-clocks;
 		clocks = <&clock_rpmh RPMH_RF_CLK3>,
 			 <&clock_rpmh RPMH_RF_CLK3_A>;
@@ -3622,8 +3645,8 @@
 };
 
 &gpu_gx_gdsc {
-	parent-supply = <&pm855l_s2_level>;
-	vdd_parent-supply = <&pm855l_s2_level>;
+	parent-supply = <&pm8150l_s2_level>;
+	vdd_parent-supply = <&pm8150l_s2_level>;
 	status = "ok";
 };
 

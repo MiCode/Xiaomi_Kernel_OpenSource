@@ -129,9 +129,9 @@
 		reg = <0x88e2000 0x110>;
 		reg-names = "hsusb_phy_base";
 
-		vdd-supply = <&pm855_l5>;
-		vdda18-supply = <&pm855_l12>;
-		vdda33-supply = <&pm855_l2>;
+		vdd-supply = <&pm8150_l5>;
+		vdda18-supply = <&pm8150_l12>;
+		vdda33-supply = <&pm8150_l2>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
@@ -148,9 +148,9 @@
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
 
-		vdd-supply = <&pm855_l5>;
+		vdd-supply = <&pm8150_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
-		core-supply = <&pm855l_l3>;
+		core-supply = <&pm8150l_l3>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
 		    /* <reg_offset, value, delay> */

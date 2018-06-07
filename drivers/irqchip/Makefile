@@ -82,3 +82,4 @@ obj-$(CONFIG_STM32_EXTI) 		+= irq-stm32-exti.o
 obj-$(CONFIG_QCOM_IRQ_COMBINER)		+= qcom-irq-combiner.o
 obj-$(CONFIG_IRQ_UNIPHIER_AIDET)	+= irq-uniphier-aidet.o
 obj-$(CONFIG_QTI_PDC)			+= qcom/
+obj-$(CONFIG_ARCH_QCOM)			+= qcom/

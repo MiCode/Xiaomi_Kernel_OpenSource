@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 #endif
-#ifdef CONFIG_MSM_MHI
+#ifdef CONFIG_MHI_BUS
 #include "diagfwd_mhi.h"
 #endif
 #include "diagmem.h"
@@ -789,7 +789,7 @@ const struct file_operations diag_dbgfs_hsicinfo_ops = {
 	.read = diag_dbgfs_read_hsicinfo,
 };
 #endif
-#ifdef CONFIG_MSM_MHI
+#ifdef CONFIG_MHI_BUS
 static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *ppos)
 {
@@ -821,24 +821,22 @@ static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 			"id: %d\n"
 			"name: %s\n"
+			"enabled %d\n"
 			"bridge index: %s\n"
 			"mempool: %s\n"
 			"read ch opened: %d\n"
-			"read ch hdl: %pK\n"
 			"write ch opened: %d\n"
-			"write ch hdl: %pK\n"
 			"read work pending: %d\n"
 			"read done work pending: %d\n"
 			"open work pending: %d\n"
 			"close work pending: %d\n\n",
 			mhi_info->id,
 			mhi_info->name,
+			mhi_info->enabled,
 			DIAG_BRIDGE_GET_NAME(mhi_info->dev_id),
 			DIAG_MEMPOOL_GET_NAME(mhi_info->mempool),
 			atomic_read(&mhi_info->read_ch.opened),
-			mhi_info->read_ch.hdl,
 			atomic_read(&mhi_info->write_ch.opened),
-			mhi_info->write_ch.hdl,
 			work_pending(&mhi_info->read_work),
 			work_pending(&mhi_info->read_done_work),
 			work_pending(&mhi_info->open_work),
@@ -1036,7 +1034,7 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 #endif
-#ifdef CONFIG_MSM_MHI
+#ifdef CONFIG_MHI_BUS
 	entry = debugfs_create_file("mhiinfo", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_mhiinfo_ops);
 	if (!entry)

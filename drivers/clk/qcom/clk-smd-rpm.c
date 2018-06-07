@@ -706,7 +706,7 @@ static struct clk_hw *qcs405_clks[] = {
 
 static const struct rpm_smd_clk_desc rpm_clk_qcs405 = {
 	.clks = qcs405_clks,
-	.num_rpm_clks = RPM_SMD_QPIC_A_CLK,
+	.num_rpm_clks = RPM_SMD_CE1_A_CLK,
 	.num_clks = ARRAY_SIZE(qcs405_clks),
 };
 

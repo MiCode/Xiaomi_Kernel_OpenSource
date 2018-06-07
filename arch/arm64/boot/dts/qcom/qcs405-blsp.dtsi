@@ -220,7 +220,7 @@
 		      <0x7884000 0x25000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 96 0>, <0 238 0>;
-		spi-max-frequency = <50000000>;
+		spi-max-frequency = <25000000>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <10>;
@@ -245,7 +245,7 @@
 		      <0x7884000 0x25000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 97 0>, <0 238 0>;
-		spi-max-frequency = <50000000>;
+		spi-max-frequency = <25000000>;
 		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <12>;

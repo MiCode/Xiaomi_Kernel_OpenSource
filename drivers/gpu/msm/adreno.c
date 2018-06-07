@@ -1161,7 +1161,7 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 	struct resource *res;
 
 	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-					   "kgsl_3d0_cx_dbgc_memory");
+					   "cx_dbgc");
 
 	if (res == NULL)
 		return;

@@ -950,20 +950,19 @@ out_rc:
 
 static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 {
-	unsigned int minfreq = 0, maxfreq = 0, freq;
+	unsigned int cpu0freq, freq;
 	int i, boost_cpu = 0;
 
+	cpu0freq = cpufreq_quick_get_max(0);
 	for_each_possible_cpu(i) {
 		freq = cpufreq_quick_get_max(i);
-		if (freq > maxfreq) {
-			maxfreq = freq;
+		if (freq > cpu0freq) {
 			boost_cpu = i;
+			break;
 		}
-		if (!minfreq || freq < minfreq)
-			minfreq = freq;
 	}
 
-	if (minfreq != maxfreq) {
+	if (boost_cpu) {
 		/*
 		 * use first 2 big cores for boost, to be compatible with WLAN
 		 * which assigns big cores from the last index

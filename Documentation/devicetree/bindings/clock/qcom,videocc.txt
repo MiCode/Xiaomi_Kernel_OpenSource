@@ -15,7 +15,7 @@ Example:
 		compatible = "qcom,videocc-sm8150";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
-		vdd_mm-supply = <&pm855l_s5_level>;
+		vdd_mm-supply = <&pm8150l_s5_level>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		#clock-cells = <1>;

@@ -796,8 +796,8 @@ static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 		}
 
 		if (val & poll_bit) {
-			/* Delay needed for PM855B V1 after DMA is granted */
-			if (fg->wa_flags & PM855B_V1_DMA_WA)
+			/* Delay needed for PM8150B V1 after DMA is granted */
+			if (fg->wa_flags & PM8150B_V1_DMA_WA)
 				usleep_range(1000, 1001);
 			return 0;
 		}

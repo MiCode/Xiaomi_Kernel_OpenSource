@@ -80,8 +80,8 @@ spmi_sim: spmi-sim {
 		<0x40105 0x18>;
 };
 
-pm855-sim {
-	compatible = "qcom,pm855-sim";
+pm8150-sim {
+	compatible = "qcom,pm8150-sim";
 	qcom,spmi-sim = <&spmi_sim>;
 	qcom,sid-offset = <0>;
 };

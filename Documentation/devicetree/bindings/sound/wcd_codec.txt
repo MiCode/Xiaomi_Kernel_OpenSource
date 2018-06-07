@@ -169,23 +169,23 @@ pahu_codec {
 	clock-names = "wcd_clk";
 	clocks = <&clock_audio AUDIO_LPASS_MCLK>;
 
-	cdc-vdd-ldo-rxtx-supply = <&pm855_s5>;
+	cdc-vdd-ldo-rxtx-supply = <&pm8150_s5>;
 	qcom,cdc-vdd-ldo-rxtx-voltage = <2040000 2040000>;
 	qcom,cdc-vdd-ldo-rxtx-current = <30000>;
 
-	cdc-vdd-buck-sido-supply = <&pm855_s4>;
+	cdc-vdd-buck-sido-supply = <&pm8150_s4>;
 	qcom,cdc-vdd-buck-sido-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-buck-sido-current = <250000>;
 
-	cdc-vdd-px-supply = <&pm855_s4>;
+	cdc-vdd-px-supply = <&pm8150_s4>;
 	qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-px-current = <15000>;
 
-	cdc-vdd-mic-bias-supply = <&pm855l_bob>;
+	cdc-vdd-mic-bias-supply = <&pm8150l_bob>;
 	qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
 	qcom,cdc-vdd-mic-bias-current = <20000>;
 
-	cdc-vdd-pa-supply = <&pm855l_bob>;
+	cdc-vdd-pa-supply = <&pm8150l_bob>;
 	qcom,cdc-vdd-pa-voltage = <3300000 3300000>;
 	qcom,cdc-vdd-pa-current = <230000>;
 

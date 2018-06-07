@@ -1,6 +1,8 @@
 #ifndef _SEEMP_API_H_
 #define _SEEMP_API_H_
 
+#define SEEMP_API_kernel__rtic                                            100000
+
 #define SEEMP_API_kernel__oom_adjust_write                                     0
 #define SEEMP_API_kernel__sendto                                               1
 #define SEEMP_API_kernel__recvfrom                                             2

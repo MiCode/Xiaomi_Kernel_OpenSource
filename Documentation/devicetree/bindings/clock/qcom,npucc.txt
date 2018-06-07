@@ -18,7 +18,7 @@ Example:
 		compatible = "qcom,npucc-sm8150";
 		reg = <0x9910000 0x10000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&pm8150l_s6_level>;
 		vdd_gdsc-supply = <&npu_core_gdsc>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
