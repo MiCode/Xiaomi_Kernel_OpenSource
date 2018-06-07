@@ -846,6 +846,18 @@ int dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
 
+	/*
+	 * STAR: 9001346572:Host stops transfers to other EPs when a single
+	 * USB2.0 EP NAKs continuously requires to disable internal retry
+	 * feature
+	 */
+	if ((dwc->revision == DWC3_USB31_REVISION_170A) &&
+		(dwc->versiontype == DWC3_USB31_VER_TYPE_GA)) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL3);
+		reg |= DWC3_GUCTL3_USB20_RETRY_DISABLE;
+		dwc3_writel(dwc->regs, DWC3_GUCTL3, reg);
+	}
+
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
 
 	return 0;
