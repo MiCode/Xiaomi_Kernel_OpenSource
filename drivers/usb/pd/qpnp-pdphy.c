@@ -50,7 +50,7 @@
 #define TX_SIZE_MASK			0xF
 
 #define USB_PDPHY_TX_CONTROL		0x44
-#define TX_CONTROL_RETRY_COUNT		(BIT(6) | BIT(5))
+#define TX_CONTROL_RETRY_COUNT(n)	(((n) & 0x3) << 5)
 #define TX_CONTROL_FRAME_TYPE		(BIT(4) | BIT(3) | BIT(2))
 #define TX_CONTROL_FRAME_TYPE_CABLE_RESET (0x1 << 2)
 #define TX_CONTROL_SEND_SIGNAL		BIT(1)
@@ -79,6 +79,9 @@
 #define VDD_PDPHY_VOL_MIN		3088000 /* uV */
 #define VDD_PDPHY_VOL_MAX		3088000 /* uV */
 #define VDD_PDPHY_HPM_LOAD		3000 /* uA */
+
+/* Message Spec Rev field */
+#define PD_MSG_HDR_REV(hdr)		(((hdr) >> 6) & 3)
 
 /* timers */
 #define RECEIVER_RESPONSE_TIME		15	/* tReceiverResponse */
@@ -520,7 +523,13 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 
 	usleep_range(2, 3);
 
-	val = TX_CONTROL_RETRY_COUNT | (sop << 2) | TX_CONTROL_SEND_MSG;
+	val = (sop << 2) | TX_CONTROL_SEND_MSG;
+
+	/* nRetryCount == 2 for PD 3.0, 3 for PD 2.0 */
+	if (PD_MSG_HDR_REV(hdr) == USBPD_REV_30)
+		val |= TX_CONTROL_RETRY_COUNT(2);
+	else
+		val |= TX_CONTROL_RETRY_COUNT(3);
 
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
 	if (ret)
