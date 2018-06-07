@@ -743,7 +743,11 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_FILTER_CNTL, 0x804);
 	kgsl_regwrite(device, A6XX_UCHE_CACHE_WAYS, 0x4);
 
-	kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x010000C0);
+	/* ROQ sizes are twice as big on a640/a680 than on a630 */
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
+	else
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x010000C0);
 	kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 
 	/* Setting the mem pool size */
