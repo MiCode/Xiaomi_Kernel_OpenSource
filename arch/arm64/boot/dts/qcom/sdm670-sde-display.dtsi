@@ -468,7 +468,7 @@
 
 	dsi_hx8399_truly_cmd_display: qcom,dsi-display@16 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_hx8399_truly_cmd_display";
+		label = "dsi_hx8399_truly_fhd_video_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0>;
