@@ -890,9 +890,9 @@
 
 &i2c_5 {
 	status = "ok";
-	smb1351_otg_supply: smb1351-charger@1d {
+	smb1351_otg_supply: smb1351-charger@55 {
 		compatible = "qcom,smb1351-charger";
-		reg = <0x1d>;
+		reg = <0x55>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <107 IRQ_TYPE_LEVEL_LOW>;
 		qcom,float-voltage-mv = <4350>;
