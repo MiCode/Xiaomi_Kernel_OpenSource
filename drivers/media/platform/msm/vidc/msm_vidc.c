@@ -1001,7 +1001,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 	/* Decide work route for current session */
-	rc = msm_vidc_decide_work_route(inst);
+	rc = call_core_op(inst->core, decide_work_route, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to decide work route for session %pK\n", inst);
@@ -1009,7 +1009,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 	/* Decide work mode for current session */
-	rc = msm_vidc_decide_work_mode(inst);
+	rc = call_core_op(inst->core, decide_work_mode, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to decide work mode for session %pK\n", inst);

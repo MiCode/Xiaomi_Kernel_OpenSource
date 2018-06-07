@@ -206,6 +206,10 @@ struct vidc_iface_q_info {
 #define venus_hfi_for_each_subcache_reverse(__device, __sinfo) \
 	venus_hfi_for_each_thing_reverse(__device, __sinfo, subcache)
 
+#define call_venus_op(d, op, args...)			\
+	(((d) && (d)->vpu_ops && (d)->vpu_ops->op) ? \
+	((d)->vpu_ops->op(args)):0)
+
 /* Internal data used in vidc_hal not exposed to msm_vidc*/
 struct hal_data {
 	u32 irq;
@@ -228,6 +232,14 @@ enum dsp_flag {
 enum venus_hfi_state {
 	VENUS_STATE_DEINIT = 1,
 	VENUS_STATE_INIT,
+};
+
+struct venus_hfi_device;
+
+struct venus_hfi_vpu_ops {
+	void (*interrupt_init)(struct venus_hfi_device *ptr);
+	void (*setup_dsp_uc_memmap)(struct venus_hfi_device *device);
+	void (*clock_config_on_enable)(struct venus_hfi_device *device);
 };
 
 struct venus_hfi_device {
@@ -266,6 +278,7 @@ struct venus_hfi_device {
 	struct pm_qos_request qos;
 	unsigned int skip_pc_count;
 	struct msm_vidc_capability *sys_init_capabilities;
+	struct venus_hfi_vpu_ops *vpu_ops;
 };
 
 void venus_hfi_delete_device(void *device);
