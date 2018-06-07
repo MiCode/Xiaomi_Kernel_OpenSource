@@ -532,7 +532,7 @@ static int spcom_handle_restart_sp_command(void)
 {
 	void *subsystem_get_retval = NULL;
 
-	pr_err("restart - PIL FW loading process initiated\n");
+	pr_debug("restart - PIL FW loading process initiated\n");
 
 	subsystem_get_retval = subsystem_get("spss");
 	if (!subsystem_get_retval) {
@@ -540,7 +540,7 @@ static int spcom_handle_restart_sp_command(void)
 		return -EINVAL;
 	}
 
-	pr_err("restart - PIL FW loading process is complete\n");
+	pr_debug("restart - PIL FW loading process is complete\n");
 	return 0;
 }
 
@@ -882,7 +882,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	/* Check if this shared buffer is already locked */
 	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
 		if (ch->dmabuf_handle_table[i] == dma_buf) {
-			pr_err("fd [%d] shared buf is already locked.\n", fd);
+			pr_debug("fd [%d] shared buf is already locked.\n", fd);
 			/* decrement back the ref count */
 			mutex_unlock(&ch->lock);
 			dma_buf_put(dma_buf);
@@ -1292,8 +1292,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
 	int ret = 0;
-
-	pr_err("close file [%s].\n", name);
 
 	if (strcmp(name, "unknown") == 0) {
 		pr_err("name is unknown\n");
@@ -1893,7 +1891,7 @@ static int spcom_rpdev_cb(struct rpmsg_device *rpdev,
 	spin_lock_irqsave(&spcom_dev->rx_lock, flags);
 	list_add(&rx_item->list, &spcom_dev->rx_list_head);
 	spin_unlock_irqrestore(&spcom_dev->rx_lock, flags);
-	pr_err("signaling rx item for %s, received %d bytes\n",
+	pr_debug("signaling rx item for %s, received %d bytes\n",
 	       rpdev->id.name, len);
 
 	schedule_work(&rpmsg_rx_consumer);
