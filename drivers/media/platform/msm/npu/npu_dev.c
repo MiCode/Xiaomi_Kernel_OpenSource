@@ -18,6 +18,7 @@
  */
 #include <linux/clk.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
@@ -153,6 +154,12 @@ static struct npu_reg npu_saved_bw_registers[] = {
 	{ BWMON2_BYTE_COUNT_THRESHOLD_LOW, 0, false },
 	{ BWMON2_ZONE_ACTIONS, 0, false },
 	{ BWMON2_ZONE_COUNT_THRESHOLD, 0, false },
+};
+
+static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
+	{"ipc_irq", 0},
+	{"error_irq", 0},
+	{"wdg_bite_irq", 0},
 };
 
 /* -------------------------------------------------------------------------
@@ -297,7 +304,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		return;
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
-		if (!npu_dev->host_ctx.fw_enabled)
+		if (npu_dev->host_ctx.fw_state == FW_DISABLED)
 			npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
@@ -372,7 +379,7 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 			npu_dev->core_clks[i].clk_name))
 			continue;
 
-		if (!npu_dev->host_ctx.fw_enabled) {
+		if (npu_dev->host_ctx.fw_state == FW_DISABLED) {
 			if (npu_is_post_clock(
 				npu_dev->core_clks[i].clk_name))
 				continue;
@@ -381,14 +388,11 @@ static int npu_set_power_level(struct npu_device *npu_dev)
 		pr_debug("requested rate of clock [%s] to [%ld]\n",
 			npu_dev->core_clks[i].clk_name, pwrlevel->clk_freq[i]);
 
-		clk_rate = clk_round_rate(npu_dev->core_clks[i].clk,
-			pwrlevel->clk_freq[i]);
-
 		pr_debug("actual round clk rate [%ld]\n", clk_rate);
 
 		ret = clk_set_rate(npu_dev->core_clks[i].clk, clk_rate);
 		if (ret) {
-			pr_err("clk_set_rate %s to %ld failed with %d\n",
+			pr_debug("clk_set_rate %s to %ld failed with %d\n",
 				npu_dev->core_clks[i].clk_name,
 				clk_rate, ret);
 			break;
@@ -571,7 +575,7 @@ static void npu_disable_core_clocks(struct npu_device *npu_dev)
 	for (i = (npu_dev->core_clk_num)-1; i >= 0 ; i--) {
 		if (npu_is_exclude_clock(core_clks[i].clk_name))
 			continue;
-		if (!npu_dev->host_ctx.fw_enabled) {
+		if (npu_dev->host_ctx.fw_state == FW_DISABLED) {
 			if (npu_is_post_clock(npu_dev->core_clks[i].clk_name))
 				continue;
 		}
@@ -679,18 +683,38 @@ static void npu_disable_regulators(struct npu_device *npu_dev)
  */
 int npu_enable_irq(struct npu_device *npu_dev)
 {
+	int i;
+
 	/* clear pending irq state */
 	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
-	enable_irq(npu_dev->irq);
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), NPU_ERROR_IRQ_MASK);
+
+	for (i = 0; i < NPU_MAX_IRQ; i++) {
+		if (npu_dev->irq[i].irq != 0) {
+			enable_irq(npu_dev->irq[i].irq);
+			pr_debug("enable irq %d\n", npu_dev->irq[i].irq);
+		}
+	}
 
 	return 0;
 }
 
 void npu_disable_irq(struct npu_device *npu_dev)
 {
-	disable_irq(npu_dev->irq);
+	int i;
+
+	for (i = 0; i < NPU_MAX_IRQ; i++) {
+		if (npu_dev->irq[i].irq != 0) {
+			disable_irq(npu_dev->irq[i].irq);
+			pr_debug("disable irq %d\n", npu_dev->irq[i].irq);
+		}
+	}
+
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), 0);
 	/* clear pending irq state */
 	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
 }
 
 /* -------------------------------------------------------------------------
@@ -1089,6 +1113,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		uint32_t j = 0;
 		uint32_t index;
 		uint32_t clk_array_values[NUM_TOTAL_CLKS];
+		uint32_t clk_rate;
 		struct npu_pwrlevel *level;
 
 		if (of_property_read_u32(child, "reg", &index))
@@ -1116,18 +1141,25 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 			of_property_read_string_index(pdev->dev.of_node,
 				"clock-names", i, &clock_name);
 
+			if (npu_is_exclude_rate_clock(clock_name))
+				continue;
+
 			for (j = 0; j < npu_dev->core_clk_num; j++) {
 				if (!strcmp(npu_clock_order[j],
-					clock_name)) {
-					level->clk_freq[j] =
-						clk_array_values[i];
+					clock_name))
 					break;
-				}
 			}
+
 			if (j == npu_dev->core_clk_num) {
 				pr_err("pwrlevel clock is not in ordered list\n");
 				return -EINVAL;
 			}
+
+			clk_rate = clk_round_rate(npu_dev->core_clks[j].clk,
+				clk_array_values[i]);
+			pr_debug("clk %s rate [%ld]:[%ld]\n", clock_name,
+				clk_array_values[i], clk_rate);
+			level->clk_freq[j] = clk_rate;
 		}
 	}
 
@@ -1201,6 +1233,42 @@ static int npu_thermalctrl_init(struct npu_device *npu_dev)
 	return ret;
 }
 
+static int npu_irq_init(struct npu_device *npu_dev)
+{
+	unsigned long irq_type;
+	int ret = 0, i;
+
+	memcpy(npu_dev->irq, npu_irq_info, sizeof(npu_irq_info));
+	for (i = 0; i < NPU_MAX_IRQ; i++) {
+		irq_type = IRQF_TRIGGER_RISING | IRQF_ONESHOT;
+		npu_dev->irq[i].irq = platform_get_irq_byname(
+			npu_dev->pdev, npu_dev->irq[i].name);
+		if (npu_dev->irq[i].irq < 0) {
+			pr_err("get_irq for %s failed\n\n",
+				npu_dev->irq[i].name);
+			ret = -EINVAL;
+			break;
+		}
+
+		pr_debug("irq %s: %d\n", npu_dev->irq[i].name,
+			npu_dev->irq[i].irq);
+		irq_set_status_flags(npu_dev->irq[i].irq,
+						IRQ_NOAUTOEN);
+		ret = devm_request_irq(&npu_dev->pdev->dev,
+				npu_dev->irq[i].irq, npu_intr_hdler,
+				irq_type, npu_dev->irq[i].name,
+				npu_dev);
+		if (ret) {
+			pr_err("devm_request_irq(%s:%d) failed\n",
+				npu_dev->irq[i].name,
+				npu_dev->irq[i].irq);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -1245,6 +1313,10 @@ static int npu_probe(struct platform_device *pdev)
 	if (rc)
 		goto error_get_dev_num;
 
+	rc = npu_irq_init(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
 	npu_dev->npu_base = devm_ioremap(&pdev->dev, res->start,
 					npu_dev->reg_size);
 	if (unlikely(!npu_dev->npu_base)) {
@@ -1257,21 +1329,6 @@ static int npu_probe(struct platform_device *pdev)
 	pr_debug("hw base phy address=0x%x virt=%pK\n",
 		npu_dev->npu_phys, npu_dev->npu_base);
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		pr_err("unable to get irq\n");
-		rc = -ENOMEM;
-		goto error_get_dev_num;
-	}
-	rc = devm_request_irq(&pdev->dev, res->start,
-				npu_intr_hdler, 0x0, "npu", npu_dev);
-	if (rc) {
-		pr_err("devm_request_irq() failed\n");
-		goto error_get_dev_num;
-	}
-	disable_irq(res->start);
-	npu_dev->irq = res->start;
-	pr_debug("irq %d\n", npu_dev->irq);
 	/* character device might be optional */
 	rc = alloc_chrdev_region(&npu_dev->dev_num, 0, 1, DRIVER_NAME);
 	if (rc < 0) {
