@@ -40,7 +40,24 @@ Optional properties:
                 receive.
 
 SPI slave nodes must be children of the SPI master node and can contain
-properties described in Documentation/devicetree/bindings/spi/spi-bus.txt
+the following properties.
+
+Required properties:
+- compatible:     Should contain:
+                  "qcom,spi-msm-slave" for external slave control
+
+- reg:            Chip select address of device.
+
+- spi-max-frequency: Maximum SPI clocking speed of device in Hz.
+
+Optional properties:
+- spi-cpol:       Empty property indicating device requires
+                  inverse clock polarity (CPOL) mode.
+- spi-cpha:       Empty property indicating device requires
+                  shifted clock phase (CPHA) mode.
+
+Other optional properties described in
+Documentation/devicetree/bindings/spi/spi-bus.txt
 
 Example:
 
