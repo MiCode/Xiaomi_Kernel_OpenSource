@@ -455,7 +455,6 @@
 
 &mhi_0 {
 	mhi,fw-name = "debug.mbn";
-	status = "okay";
 };
 
 &pm8150b_adc_tm {
