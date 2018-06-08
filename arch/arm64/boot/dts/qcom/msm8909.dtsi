@@ -77,6 +77,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu0_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU1: cpu@1 {
@@ -86,6 +87,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU2: cpu@2 {
@@ -95,6 +97,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU3: cpu@3 {
@@ -104,6 +107,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu3_slp_sts>;
+			#cooling-cells = <2>;
 		};
 	};
 
