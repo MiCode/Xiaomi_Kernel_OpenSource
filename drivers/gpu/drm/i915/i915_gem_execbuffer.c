@@ -1911,7 +1911,7 @@ static int i915_reset_gen7_sol_offsets(struct drm_i915_gem_request *req)
 	return 0;
 }
 
-static struct i915_vma *eb_parse(struct i915_execbuffer *eb, bool is_master)
+static struct i915_vma *eb_parse(struct i915_execbuffer *eb)
 {
 	struct drm_i915_gem_object *shadow_batch_obj;
 	struct i915_vma *vma;
@@ -1926,8 +1926,7 @@ static struct i915_vma *eb_parse(struct i915_execbuffer *eb, bool is_master)
 				      eb->batch->obj,
 				      shadow_batch_obj,
 				      eb->batch_start_offset,
-				      eb->batch_len,
-				      is_master);
+				      eb->batch_len);
 	if (err) {
 		if (err == -EACCES) /* unhandled chained batch */
 			vma = NULL;
@@ -2325,7 +2324,7 @@ i915_gem_do_execbuffer(struct drm_device *dev,
 	if (eb_use_cmdparser(&eb)) {
 		struct i915_vma *vma;
 
-		vma = eb_parse(&eb, drm_is_current_master(file));
+		vma = eb_parse(&eb);
 		if (IS_ERR(vma)) {
 			err = PTR_ERR(vma);
 			goto err_vma;
