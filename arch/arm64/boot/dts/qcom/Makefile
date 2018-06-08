@@ -22,6 +22,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm8150p-qrd-overlay.dtbo \
 		sm8150-sdx50m-cdp-overlay.dtbo \
 		sm8150-sdx50m-mtp-overlay.dtbo \
+		sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo \
 		sm8150-sdx50m-qrd-overlay.dtbo
 
 sm8150-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
@@ -31,6 +32,7 @@ sm8150-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-auto-adp-star-overlay.dtbo-base := sm8150-auto.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
+sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-sdx50m-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150p-mtp-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
 sm8150p-qrd-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
