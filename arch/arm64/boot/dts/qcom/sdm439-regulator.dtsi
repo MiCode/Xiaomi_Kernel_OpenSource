@@ -472,11 +472,18 @@
 		qcom,cpr-fuse-version-map =
 			/* <Speed-bin pvs-version cpr-rev ... ... ...> */
 			<(-1)    (-1)   ( 0)   (-1)    (-1)    (-1)>,
+			<(-1)    (-1)   ( 1)   (-1)    (-1)    (-1)>,
 			<(-1)    (-1)   (-1)   (-1)    (-1)    (-1)>;
 
 		qcom,cpr-quotient-adjustment =
-			<66    77      66>, /* SVSP_30mV, NOM_35mV, TUR_30mV */
-			<0      0       0>;
+			<66      77      66>, /* SVSP/NOM/TUR:30/35/30 mV */
+			<(-74) (-57)  (-30)>, /* SVSP/NOM/TUR:-34/-26/-14 mV */
+			<0        0       0>;
+
+		qcom,cpr-floor-to-ceiling-max-range =
+			<50000 50000 50000 65000 65000>,
+			<50000 50000 50000 65000 65000>,
+			<50000 50000 50000 65000 65000>;
 
 		qcom,cpr-voltage-ceiling-override =
 			<(-1) (-1) 810000 845000 885000 960000 960000>;
