@@ -57,11 +57,13 @@ struct sde_encoder_hw_resources {
  * @is_primary: set to true if the display is primary display
  * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
  *                      the bounds of the physical display at the bit index
+ * @recovery_events_enabled: indicates status of client for recoovery events
  */
 struct sde_encoder_kickoff_params {
 	u32 inline_rotate_prefill;
 	u32 is_primary;
 	unsigned long affected_displays;
+	bool recovery_events_enabled;
 };
 
 /**
@@ -251,5 +253,21 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder);
  * @Return:     true if successful in updating the encoder structure
  */
 int sde_encoder_display_failure_notification(struct drm_encoder *enc);
+
+/**
+ * sde_encoder_recovery_events_enabled - checks if client has enabled
+ * sw recovery mechanism for this connector
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     true if enabled
+ */
+bool sde_encoder_recovery_events_enabled(struct drm_encoder *encoder);
+
+/**
+ * sde_encoder_recovery_events_handler - handler to enable/disable the
+ * sw recovery for this connector
+ * @drm_enc:    Pointer to drm encoder structure
+ */
+void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
+		bool val);
 
 #endif /* __SDE_ENCODER_H__ */

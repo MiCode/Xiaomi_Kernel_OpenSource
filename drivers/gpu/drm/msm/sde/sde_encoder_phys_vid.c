@@ -897,6 +897,9 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 {
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_ctl *ctl;
+	bool recovery_events;
+	struct drm_connector *conn;
+	int event;
 	int rc;
 	struct intf_avr_params avr_params;
 
@@ -910,6 +913,9 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 	if (!ctl->ops.wait_reset_status)
 		return 0;
 
+	conn = phys_enc->connector;
+	recovery_events = sde_encoder_recovery_events_enabled(
+			phys_enc->parent);
 	/*
 	 * hw supports hardware initiated ctl reset, so before we kickoff a new
 	 * frame, need to check and wait for hw initiated ctl reset completion
@@ -920,17 +926,40 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 				ctl->idx, rc);
 
 		++vid_enc->error_count;
-		if (vid_enc->error_count >= KICKOFF_MAX_ERRORS) {
-			vid_enc->error_count = KICKOFF_MAX_ERRORS;
 
-			SDE_DBG_DUMP("panic");
-		} else if (vid_enc->error_count == 1) {
+		/* to avoid flooding, only log first time, and "dead" time */
+		if (vid_enc->error_count == 1) {
 			SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		}
+
+		/*
+		 * if the recovery event is registered by user, don't panic
+		 * trigger panic on first timeout if no listener registered
+		 */
+		if (recovery_events) {
+			event = vid_enc->error_count > KICKOFF_MAX_ERRORS ?
+				SDE_RECOVERY_HARD_RESET : SDE_RECOVERY_CAPTURE;
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t), event);
+		} else {
+			SDE_DBG_DUMP("panic");
 		}
 
 		/* request a ctl reset before the next flush */
 		phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
 	} else {
+		if (recovery_events && vid_enc->error_count)
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t),
+					SDE_RECOVERY_SUCCESS);
 		vid_enc->error_count = 0;
 	}
 

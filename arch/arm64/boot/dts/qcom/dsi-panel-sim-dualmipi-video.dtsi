@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 200>, <1 20>;
 		qcom,panel-ack-disabled;
+		qcom,mdss-dsi-qsync-min-refresh-rate = <45>;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{
@@ -55,6 +56,14 @@
 					[05 01 00 00 32 00 02 28 00
 					05 01 00 00 78 00 02 10 00];
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-qsync-on-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-on-commands-state =
+					"dsi_hs_mode";
+				qcom,mdss-dsi-qsync-off-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-off-commands-state =
+					"dsi_hs_mode";
 			};
 		};
 	};

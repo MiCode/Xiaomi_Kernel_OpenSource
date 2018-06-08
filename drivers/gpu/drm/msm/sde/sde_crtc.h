@@ -143,8 +143,6 @@ struct sde_crtc_event {
  * @enabled       : whether the SDE CRTC is currently enabled. updated in the
  *                  commit-thread, not state-swap time which is earlier, so
  *                  safe to make decisions on during VBLANK on/off work
- * @reset_request : whether or not a h/w request was requested for the previous
- *                  frame
  * @ds_reconfig   : force reconfiguration of the destination scaler block
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
@@ -208,7 +206,6 @@ struct sde_crtc {
 	bool vblank_requested;
 	bool suspend;
 	bool enabled;
-	bool reset_request;
 
 	bool ds_reconfig;
 	struct list_head feature_list;
