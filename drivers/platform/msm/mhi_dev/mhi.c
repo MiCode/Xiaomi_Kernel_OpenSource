@@ -122,22 +122,18 @@ void mhi_dev_read_from_host(struct mhi_dev *mhi, struct mhi_addr *transfer)
 		host_addr_pa = transfer->host_pa | bit_40;
 	}
 
-	if (mhi->use_ipa) {
-		mhi_log(MHI_MSG_VERBOSE,
-			"device 0x%x <<-- host 0x%llx, size %d\n",
-			transfer->phy_addr, host_addr_pa,
-			(int) transfer->size);
-		rc = ipa_dma_async_memcpy((u64)transfer->phy_addr, host_addr_pa,
-				(int)transfer->size,
-				mhi_dev_ring_cache_completion_cb, &ring_req);
-		if (rc)
-			pr_err("error while reading from host:%d\n", rc);
+	mhi_log(MHI_MSG_VERBOSE,
+		"device 0x%x <<-- host 0x%llx, size %d\n",
+		transfer->phy_addr, host_addr_pa,
+		(int) transfer->size);
+	rc = ipa_dma_async_memcpy((u64)transfer->phy_addr, host_addr_pa,
+			(int)transfer->size,
+			mhi_dev_ring_cache_completion_cb, &ring_req);
+	if (rc)
+		pr_err("error while reading from host:%d\n", rc);
 
-		wait_for_completion(&done);
-	} else {
-		memcpy(transfer->virt_addr, (void *) &transfer->device_va,
-				(int) transfer->size);
-	}
+	wait_for_completion(&done);
+
 }
 EXPORT_SYMBOL(mhi_dev_read_from_host);
 
@@ -160,42 +156,35 @@ void mhi_dev_write_to_host(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		host_addr_pa = transfer->host_pa | bit_40;
 	}
 
-	if (mhi->use_ipa) {
-		mhi_log(MHI_MSG_VERBOSE,
-			"device 0x%llx --> host 0x%llx, size %d\n",
-			(uint64_t) mhi->cache_dma_handle, host_addr_pa,
-			(int) transfer->size);
-		if (tr_type == MHI_DEV_DMA_ASYNC) {
-			dma = dma_map_single(&mhi->pdev->dev,
-					transfer->virt_addr, transfer->size,
-					DMA_TO_DEVICE);
-			if (ereq->event_type == SEND_EVENT_BUFFER) {
-				ereq->dma = dma;
-				ereq->dma_len = transfer->size;
-			} else if (ereq->event_type == SEND_EVENT_RD_OFFSET) {
-				ereq->event_rd_dma = dma;
-			}
-			rc = ipa_dma_async_memcpy(host_addr_pa, (uint64_t) dma,
-					(int)transfer->size,
-					ereq->client_cb, ereq);
-			if (rc)
-				pr_err("error while writing to host:%d\n", rc);
-		} else if (tr_type == MHI_DEV_DMA_SYNC) {
-			/* Copy the device content to a local device
-			 * physical address */
-			memcpy(mhi->dma_cache, transfer->virt_addr,
-					transfer->size);
-			rc = ipa_dma_sync_memcpy(host_addr_pa,
-					(u64) mhi->cache_dma_handle,
-					(int) transfer->size);
-			if (rc)
-				pr_err("error while writing to host:%d\n", rc);
+	mhi_log(MHI_MSG_VERBOSE,
+		"device 0x%llx --> host 0x%llx, size %d\n",
+		(uint64_t) mhi->cache_dma_handle, host_addr_pa,
+		(int) transfer->size);
+	if (tr_type == MHI_DEV_DMA_ASYNC) {
+		dma = dma_map_single(&mhi->pdev->dev,
+				transfer->virt_addr, transfer->size,
+				DMA_TO_DEVICE);
+		if (ereq->event_type == SEND_EVENT_BUFFER) {
+			ereq->dma = dma;
+			ereq->dma_len = transfer->size;
+		} else if (ereq->event_type == SEND_EVENT_RD_OFFSET) {
+			ereq->event_rd_dma = dma;
 		}
-	} else {
-		memcpy((void *) &transfer->device_va, transfer->virt_addr,
+		rc = ipa_dma_async_memcpy(host_addr_pa, (uint64_t) dma,
+				(int)transfer->size,
+				ereq->client_cb, ereq);
+		if (rc)
+			pr_err("error while writing to host:%d\n", rc);
+	} else if (tr_type == MHI_DEV_DMA_SYNC) {
+		/* Copy the device content to a local device
+		 * physical address */
+		memcpy(mhi->dma_cache, transfer->virt_addr,
 				transfer->size);
-		/* Update state before sending events */
-		wmb();
+		rc = ipa_dma_sync_memcpy(host_addr_pa,
+				(u64) mhi->cache_dma_handle,
+				(int) transfer->size);
+		if (rc)
+			pr_err("error while writing to host:%d\n", rc);
 	}
 }
 EXPORT_SYMBOL(mhi_dev_write_to_host);

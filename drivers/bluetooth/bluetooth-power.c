@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, 2013-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@
 static struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qca,ar3002" },
 	{	.compatible = "qca,qca6174" },
+	{	.compatible = "qca,qca9379" },
 	{	.compatible = "qca,wcn3990" },
 	{}
 };

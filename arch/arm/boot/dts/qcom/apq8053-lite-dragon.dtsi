@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,6 +171,23 @@
 	/delete-property/ msm-vdd-wsa-switch-supply;
 	/delete-property/ qcom,msm-vdd-wsa-switch-voltage;
 	/delete-property/ qcom,msm-vdd-wsa-switch-current;
+};
+
+&pm8953_l2 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&camera0 {
+	qcom,mount-angle = <90>;
+};
+
+&camera1 {
+	qcom,mount-angle = <90>;
+};
+
+&camera2{
+	qcom,mount-angle = <90>;
 };
 
 &pm8953_diangu_dig {
@@ -535,5 +552,15 @@
 		qcom,master-en = <1>;	/* Enable GPIO */
 		qcom,invert = <0>;
 		status = "ok";
+	};
+};
+
+&soc {
+	qcom,wcnss-wlan@0a000000 {
+		status = "disabled";
+	};
+
+	qcom,pronto@a21b000 {
+		status = "disabled";
 	};
 };

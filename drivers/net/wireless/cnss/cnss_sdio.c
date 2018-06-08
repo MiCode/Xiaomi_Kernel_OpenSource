@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,6 +127,7 @@ static struct cnss_sdio_data {
 /* SDIO manufacturer ID and Codes */
 #define MANUFACTURER_ID_AR6320_BASE        0x500
 #define MANUFACTURER_ID_QCA9377_BASE       0x700
+#define MANUFACTURER_ID_QCA9379_BASE       0x800
 #define MANUFACTURER_CODE                  0x271
 
 static const struct sdio_device_id ar6k_id_table[] = {
@@ -162,6 +163,22 @@ static const struct sdio_device_id ar6k_id_table[] = {
 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xD))},
 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xE))},
 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xF))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x0))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x1))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x2))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x3))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x4))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x5))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x6))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x7))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x8))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0x9))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xA))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xB))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xC))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xD))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xE))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9379_BASE | 0xF))},
 	{},
 };
 MODULE_DEVICE_TABLE(sdio, ar6k_id_table);
@@ -261,11 +278,6 @@ static int cnss_put_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	if (!cnss_pdata->regulator.wlan_vreg) {
-		pr_debug("wlan_vreg regulator is invalid\n");
-		return 0;
-	}
-
 	ret = mmc_power_save_host(host);
 	if (ret) {
 		pr_err("Failed to Power Save Host err:%d\n",
@@ -273,7 +285,11 @@ static int cnss_put_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	regulator_disable(cnss_pdata->regulator.wlan_vreg);
+	if (cnss_pdata->regulator.wlan_vreg)
+		regulator_disable(cnss_pdata->regulator.wlan_vreg);
+	else
+		pr_debug("wlan_vreg regulator is invalid\n");
+
 	info->cnss_hw_state = CNSS_HW_SLEEP;
 
 	return ret;
@@ -307,22 +323,23 @@ static int cnss_get_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	if (!cnss_pdata->regulator.wlan_vreg) {
+	if (cnss_pdata->regulator.wlan_vreg) {
+		ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
+		if (ret) {
+			pr_err("Failed to enable wlan vreg\n");
+			return ret;
+		}
+	} else {
 		pr_debug("wlan_vreg regulator is invalid\n");
-		return 0;
 	}
 
-	ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
-	if (ret) {
-		pr_err("Failed to enable wlan vreg\n");
-		return ret;
-	}
 
 	ret = mmc_power_restore_host(host);
 	if (ret) {
 		pr_err("Failed to restore host power ret:%d\n",
 		       ret);
-		regulator_disable(cnss_pdata->regulator.wlan_vreg);
+		if (cnss_pdata->regulator.wlan_vreg)
+			regulator_disable(cnss_pdata->regulator.wlan_vreg);
 		return ret;
 	}
 

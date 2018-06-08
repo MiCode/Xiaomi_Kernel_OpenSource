@@ -1,0 +1,185 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9650-v1.1-mtp.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. MDM 9650 PCIE EP TTP";
+	compatible = "qcom,mdm9650-ttp", "qcom,mdm9650", "qcom,ttp";
+	qcom,board-id = <0x1e 2>;
+};
+
+&pmd9650_l13 {
+	regulator-always-on;
+};
+
+&i2c_1 {
+	status = "ok";
+	bmi160@68{
+		compatible = "bosch-sensortec,bmi160";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <0x0 0x2002>;
+		bmi,init-interval = <200>;
+		bmi,place = <1>;
+		bmi,gpio_irq = <&tlmm_pinmux 0x0 0x2002>;
+	};
+};
+
+&i2c_3 {
+	status = "ok";
+	smb1351_otg_supply: smb1351-charger@55{
+		status = "disabled";
+	};
+};
+
+&soc {
+	tlmm_pinmux: pinctrl@1000000 {
+		i2c_1 {
+			i2c_1_active {
+				config {
+					pins = "gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0x0d 0x0>; /* PMD9655 VBUS DETECT */
+		interrupt-names = "vbus_det_irq";
+	};
+};
+
+&usb3 {
+	cpe-gpio = <&tlmm_pinmux 87 0>;
+};
+
+&spi_2 {
+	status = "ok";
+
+	can-controller@0 {
+		compatible = "fsl,k61";
+		spi-max-frequency = <4800000>;
+		reg = <0>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <84 0>;
+		reset-gpio = <&tlmm_pinmux 68 0x1>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&can_rst_on>;
+		pinctrl-1 = <&can_rst_off>;
+	};
+};
+
+&blsp1_uart4b_hs {
+	status = "ok";
+};
+
+&blsp1_uart2_hs {
+	status = "disabled";
+};
+
+&snd_tasha {
+	pinctrl-names =
+		"all_off",
+		"pri_mi2s_aux_master_active",
+		"pri_mi2s_aux_slave_active",
+		"invalid_state_1",
+		"sec_mi2s_aux_master_active",
+		"pri_master_active_sec_master_active",
+		"pri_slave_active_sec_master_active",
+		"invalid_state_2",
+		"sec_mi2s_aux_slave_active",
+		"pri_master_active_sec_slave_active",
+		"pri_slave_active_sec_slave_active";
+	pinctrl-0 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-1 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-2 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-3 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-4 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-5 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-6 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-7 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-8 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-9 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-10 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
+};
+
+&pcie_ep {
+	status = "ok";
+	mdm2apstatus-gpio = <&tlmm_pinmux 85 0>;
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&cnss_pcie {
+	status = "disabled";
+};
+
+&mhi_device {
+	status = "ok";
+};
+
+&pcie0_mdm2apstatus_default {
+	mux {
+		pins = "gpio85";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
