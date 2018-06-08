@@ -38,6 +38,7 @@ struct diag_md_info {
 	int ctx;
 	int mempool;
 	int num_tbl_entries;
+	int md_info_inited;
 	spinlock_t lock;
 	struct diag_buf_tbl_t *tbl;
 	struct diag_mux_ops *ops;
