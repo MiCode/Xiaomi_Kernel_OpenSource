@@ -84,3 +84,23 @@
 		qcom,mhi-erdb-base = <0x40300700>;
 	};
 };
+
+&reserved_memory {
+	pil_buffer_p2_mem: pil_buffer_p2_region@a0000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0xa0000000 0x0 0x01000000>;
+	};
+
+	pil_buffer_p1_mem: pil_buffer_p1_region@0a1000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0xa1000000 0x0 0x02c00000>;
+	};
+
+	pil_pcie_mem: pil_pcie_mem_region@a3c00000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0xa3c00000 0x0 0x01000000>;
+	};
+};
