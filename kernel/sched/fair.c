@@ -7391,7 +7391,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 {
 	int use_fbt = sched_feat(FIND_BEST_TARGET);
 	int cpu_iter, eas_cpu_idx = EAS_CPU_NXT;
-	int energy_cpu = -1;
+	int target_cpu = -1;
 	struct energy_env *eenv;
 
 	if (sysctl_sched_sync_hint_enable && sync) {
@@ -7403,7 +7403,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	/* prepopulate energy diff environment */
 	eenv = get_eenv(p, prev_cpu);
 	if (eenv->max_cpu_count < 2)
-		return energy_cpu;
+		return -1;
 
 	if(!use_fbt) {
 		/*
@@ -7448,9 +7448,15 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 
 		/* Find a cpu with sufficient capacity */
-		eenv->cpu[EAS_CPU_NXT].cpu_id = find_best_target(p,
-				&eenv->cpu[EAS_CPU_BKP].cpu_id,
-				boosted, prefer_idle);
+		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
+					      boosted, prefer_idle);
+
+		/* Immediately return a found idle CPU for a prefer_idle task */
+		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu))
+			return target_cpu;
+
+		/* Place target into NEXT slot */
+		eenv->cpu[EAS_CPU_NXT].cpu_id = target_cpu;
 
 		/* take note if no backup was found */
 		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0)
@@ -7467,14 +7473,14 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 * candidates beyond prev_cpu, so we will
 		 * fall-back to the regular slow-path.
 		 */
-		return energy_cpu;
+		return -1;
 	}
 
 	/* find most energy-efficient CPU */
-	energy_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
+	target_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
 					eenv->cpu[eenv->next_idx].cpu_id;
 
-	return energy_cpu;
+	return target_cpu;
 }
 
 static inline bool nohz_kick_needed(struct rq *rq, bool only_update);
