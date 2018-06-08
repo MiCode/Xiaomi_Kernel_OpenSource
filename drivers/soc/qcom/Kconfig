@@ -90,6 +90,15 @@ config QCOM_SMD_RPM
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
 
+config QCOM_SCM
+	bool "Secure Channel Manager (SCM) support"
+	default n
+	help
+	  Say y here to enable Secure Channel Mananger(SCM) support for SoC.
+	  SCM provides communication channel to communicate with secure
+	  world(EL2 and EL3) by using smc call.
+	  SCM driver provides the support for atomic scm calls also.
+
 config QCOM_SMEM_STATE
 	bool
 
