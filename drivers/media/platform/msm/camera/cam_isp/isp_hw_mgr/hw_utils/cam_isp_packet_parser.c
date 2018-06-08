@@ -70,6 +70,12 @@ int cam_isp_add_change_base(
 			hw_entry[num_ent].handle = kmd_buf_info->handle;
 			hw_entry[num_ent].len    = get_base.cmd.used_bytes;
 			hw_entry[num_ent].offset = kmd_buf_info->offset;
+			CAM_DBG(CAM_ISP,
+				"num_ent=%d handle=0x%x, len=%u, offset=%u",
+				num_ent,
+				hw_entry[num_ent].handle,
+				hw_entry[num_ent].len,
+				hw_entry[num_ent].offset);
 
 			kmd_buf_info->used_bytes += get_base.cmd.used_bytes;
 			kmd_buf_info->offset     += get_base.cmd.used_bytes;
@@ -184,6 +190,16 @@ int cam_isp_add_cmd_buf_update(
 		return -EINVAL;
 	}
 
+	cmd_update.cmd_type = hw_cmd_type;
+	cmd_update.cmd.cmd_buf_addr = cmd_buf_addr;
+	cmd_update.cmd.size = kmd_buf_remain_size;
+	cmd_update.cmd.used_bytes = 0;
+	cmd_update.data = cmd_update_data;
+	CAM_DBG(CAM_ISP, "cmd_type %u cmd buffer 0x%pK, size %d",
+		cmd_update.cmd_type,
+		cmd_update.cmd.cmd_buf_addr,
+		cmd_update.cmd.size);
+
 	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 		if (!hw_mgr_res->hw_res[i])
 			continue;
@@ -193,14 +209,7 @@ int cam_isp_add_cmd_buf_update(
 
 		res = hw_mgr_res->hw_res[i];
 		cmd_update.res = res;
-		cmd_update.cmd_type = hw_cmd_type;
-		cmd_update.cmd.cmd_buf_addr = cmd_buf_addr;
-		cmd_update.cmd.size = kmd_buf_remain_size;
-		cmd_update.data = cmd_update_data;
 
-		CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
-			cmd_update.cmd.cmd_buf_addr,
-			cmd_update.cmd.size);
 		rc = res->hw_intf->hw_ops.process_cmd(
 			res->hw_intf->hw_priv,
 			cmd_update.cmd_type, &cmd_update,
@@ -280,6 +289,12 @@ int cam_isp_add_command_buffers(
 				hw_entry[num_ent].handle =
 					cmd_desc[i].mem_handle;
 				hw_entry[num_ent].offset = cmd_desc[i].offset;
+				CAM_DBG(CAM_ISP,
+					"Meta_Left num_ent=%d handle=0x%x, len=%u, offset=%u",
+					num_ent,
+					hw_entry[num_ent].handle,
+					hw_entry[num_ent].len,
+					hw_entry[num_ent].offset);
 
 				if (cmd_meta_data ==
 					CAM_ISP_PACKET_META_DMI_LEFT)
@@ -295,6 +310,12 @@ int cam_isp_add_command_buffers(
 				hw_entry[num_ent].handle =
 					cmd_desc[i].mem_handle;
 				hw_entry[num_ent].offset = cmd_desc[i].offset;
+				CAM_DBG(CAM_ISP,
+					"Meta_Right num_ent=%d handle=0x%x, len=%u, offset=%u",
+					num_ent,
+					hw_entry[num_ent].handle,
+					hw_entry[num_ent].len,
+					hw_entry[num_ent].offset);
 
 				if (cmd_meta_data ==
 					CAM_ISP_PACKET_META_DMI_RIGHT)
@@ -308,7 +329,12 @@ int cam_isp_add_command_buffers(
 			hw_entry[num_ent].handle =
 				cmd_desc[i].mem_handle;
 			hw_entry[num_ent].offset = cmd_desc[i].offset;
-
+			CAM_DBG(CAM_ISP,
+				"Meta_Common num_ent=%d handle=0x%x, len=%u, offset=%u",
+				num_ent,
+				hw_entry[num_ent].handle,
+				hw_entry[num_ent].len,
+				hw_entry[num_ent].offset);
 			if (cmd_meta_data == CAM_ISP_PACKET_META_DMI_COMMON)
 				hw_entry[num_ent].flags = 0x1;
 
@@ -647,6 +673,12 @@ int cam_isp_add_io_buffers(
 		prepare->hw_update_entries[num_ent].len = io_cfg_used_bytes;
 		prepare->hw_update_entries[num_ent].offset =
 			kmd_buf_info->offset;
+		CAM_DBG(CAM_ISP,
+			"num_ent=%d handle=0x%x, len=%u, offset=%u",
+			num_ent,
+			prepare->hw_update_entries[num_ent].handle,
+			prepare->hw_update_entries[num_ent].len,
+			prepare->hw_update_entries[num_ent].offset);
 		num_ent++;
 
 		kmd_buf_info->used_bytes += io_cfg_used_bytes;
@@ -741,6 +773,12 @@ int cam_isp_add_reg_update(
 		prepare->hw_update_entries[num_ent].len = reg_update_size;
 		prepare->hw_update_entries[num_ent].offset =
 			kmd_buf_info->offset;
+		CAM_DBG(CAM_ISP,
+			"num_ent=%d handle=0x%x, len=%u, offset=%u",
+			num_ent,
+			prepare->hw_update_entries[num_ent].handle,
+			prepare->hw_update_entries[num_ent].len,
+			prepare->hw_update_entries[num_ent].offset);
 		num_ent++;
 
 		kmd_buf_info->used_bytes += reg_update_size;
