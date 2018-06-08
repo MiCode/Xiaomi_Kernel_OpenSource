@@ -71,7 +71,6 @@
 #define SQ_CTRL1_CHIRP_DISABLE		0x20
 #define SQ_CTRL2_CHIRP_DISABLE		0x80
 
-#define PORT_TUNE1_OVERRIDE_VAL		0xc5
 #define DEBUG_CTRL1_OVERRIDE_VAL	0x09
 
 /* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
@@ -154,6 +153,7 @@ struct qusb_phy {
 	struct hrtimer		timer;
 	int			soc_min_rev;
 	bool			host_chirp_erratum;
+	bool			override_bias_ctrl2;
 };
 
 #ifdef CONFIG_NVMEM
@@ -473,6 +473,7 @@ static void qusb_phy_reset(struct qusb_phy *qphy)
 static void qusb_phy_host_init(struct usb_phy *phy)
 {
 	u8 reg;
+	int p_index;
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 
 	dev_dbg(phy->dev, "%s\n", __func__);
@@ -480,17 +481,43 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
 
-	/* If soc revision is mentioned and host_chirp_erratum flag is set
-	 * then override TUNE1 and DEBUG_CTRL1
-	 */
-	if (qphy->soc_min_rev && qphy->host_chirp_erratum) {
-		writel_relaxed(PORT_TUNE1_OVERRIDE_VAL,
-				qphy->base + qphy->phy_reg[PORT_TUNE1]);
-		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
-				qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
+	if (qphy->efuse_reg) {
+		if (!qphy->tune_val)
+			qusb_phy_get_tune1_param(qphy);
+	} else {
+		/* For non fused chips we need to write the TUNE1 param as
+		 * specified in DT otherwise we will end up writing 0 to
+		 * to TUNE1
+		 */
+		qphy->tune_val = readb_relaxed(qphy->base +
+					qphy->phy_reg[PORT_TUNE1]);
 	}
 
-	if (qphy->refgen_north_bg_reg)
+	/* If soc revision is mentioned and host_chirp_erratum flag is set
+	 * then override TUNE1 and DEBUG_CTRL1 while honouring efuse values
+	 */
+	if (qphy->soc_min_rev && qphy->host_chirp_erratum) {
+		writel_relaxed(qphy->tune_val | BIT(7),
+			qphy->base + qphy->phy_reg[PORT_TUNE1]);
+		pr_debug("%s(): Programming TUNE1 parameter as:%x\n",
+			__func__, readb_relaxed(qphy->base +
+					qphy->phy_reg[PORT_TUNE1]));
+		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
+			qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
+	} else {
+		writel_relaxed(qphy->tune_val,
+			qphy->base + qphy->phy_reg[PORT_TUNE1]);
+	}
+
+	/* if debugfs based tunex params are set, use that value. */
+	for (p_index = 0; p_index < 5; p_index++) {
+		if (qphy->tune[p_index])
+			writel_relaxed(qphy->tune[p_index],
+				qphy->base + qphy->phy_reg[PORT_TUNE1] +
+							(4 * p_index));
+	}
+
+	if (qphy->refgen_north_bg_reg && qphy->override_bias_ctrl2)
 		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
 			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
@@ -585,7 +612,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 							(4 * p_index));
 	}
 
-	if (qphy->refgen_north_bg_reg)
+	if (qphy->refgen_north_bg_reg && qphy->override_bias_ctrl2)
 		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
 			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
@@ -1208,6 +1235,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->host_chirp_erratum = of_property_read_bool(dev->of_node,
 					"qcom,host-chirp-erratum");
+
+	qphy->override_bias_ctrl2 = of_property_read_bool(dev->of_node,
+					"qcom,override-bias-ctrl2");
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
