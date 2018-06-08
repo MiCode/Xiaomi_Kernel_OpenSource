@@ -18,10 +18,10 @@
 void msm_dsi_ahb_ctrl(int enable);
 
 int msm_dsi_io_init(struct platform_device *dev,
-				struct mdss_module_power *mp);
+				struct dss_module_power *mp);
 
 void msm_dsi_io_deinit(struct platform_device *dev,
-				struct mdss_module_power *mp);
+				struct dss_module_power *mp);
 
 int msm_dsi_clk_init(struct platform_device *dev);
 

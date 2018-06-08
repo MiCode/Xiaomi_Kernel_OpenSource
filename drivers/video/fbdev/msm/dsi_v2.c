@@ -236,7 +236,7 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 }
 
 static void mdss_dsi_put_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *module_power)
+	struct dss_module_power *module_power)
 {
 	if (!module_power) {
 		pr_err("%s: invalid input\n", __func__);
@@ -251,7 +251,7 @@ static void mdss_dsi_put_dt_vreg_data(struct device *dev,
 }
 
 static int mdss_dsi_get_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *mp, enum dsi_pm_type module)
+	struct dss_module_power *mp, enum dsi_pm_type module)
 {
 	int i = 0, rc = 0;
 	u32 tmp = 0;
@@ -286,7 +286,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		pr_debug("%s: vreg found. count=%d\n", __func__, mp->num_vreg);
 	}
 
-	mp->vreg_config = devm_kzalloc(dev, sizeof(struct mdss_vreg) *
+	mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
 		mp->num_vreg, GFP_KERNEL);
 	if (!mp->vreg_config) {
 		rc = -ENOMEM;

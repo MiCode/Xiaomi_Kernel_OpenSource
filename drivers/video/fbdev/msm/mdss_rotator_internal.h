@@ -172,7 +172,7 @@ struct mdss_rot_mgr {
 	struct mdss_rot_bus_data_type reg_bus;
 
 	/* Module power is only used for regulator management */
-	struct mdss_module_power module_power;
+	struct dss_module_power module_power;
 	bool regulator_enable;
 
 	struct mutex clk_lock;
