@@ -267,6 +267,7 @@ out:
 }
 
 #define MICRO_1P5A		1500000
+#define MICRO_1PA		1000000
 #define MICRO_P1A		100000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define MIN_WD_BARK_TIME		16
@@ -317,7 +318,8 @@ static int smb5_parse_dt(struct smb5 *chip)
 	rc = of_property_read_u32(node,
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chg->otg_cl_ua = MICRO_1P5A;
+		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
+							MICRO_1PA : MICRO_1P5A;
 
 	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
 		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
@@ -1623,6 +1625,13 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	/* set OTG current limit */
+	rc = smblib_set_charge_param(chg, &chg->param.otg_cl, chg->otg_cl_ua);
+	if (rc < 0) {
+		pr_err("Couldn't set otg current limit rc=%d\n", rc);
+		return rc;
+	}
+
 	/* vote 0mA on usb_icl for non battery platforms */
 	vote(chg->usb_icl_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
@@ -2386,16 +2395,16 @@ static int smb5_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = smb5_parse_dt(chip);
-	if (rc < 0) {
-		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
-	}
-
 	rc = smb5_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
 			pr_err("Couldn't setup chg_config rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb5_parse_dt(chip);
+	if (rc < 0) {
+		pr_err("Couldn't parse device tree rc=%d\n", rc);
 		return rc;
 	}
 
