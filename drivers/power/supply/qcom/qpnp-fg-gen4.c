@@ -591,6 +591,8 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 	case TTF_MODE:
 		if (is_qnovo_en(fg))
 			*val = TTF_MODE_QNOVO;
+		else if (chip->ttf->step_chg_cfg_valid)
+			*val = TTF_MODE_V_STEP_CHG;
 		else
 			*val = TTF_MODE_NORMAL;
 		break;
@@ -801,7 +803,7 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 	struct device_node *node = fg->dev->of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data;
-	int rc, len;
+	int rc, len, i, tuple_len;
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -873,6 +875,64 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 			pr_err("battery therm-center-offset unavailable, rc:%d\n",
 				rc);
 			fg->bp.therm_ctr_offset = -EINVAL;
+		}
+	}
+
+	/*
+	 * Currently step charging thresholds should be read only for Vbatt
+	 * based and not for SOC based.
+	 */
+	if (!of_property_read_bool(profile_node, "qcom,soc-based-step-chg") &&
+		of_find_property(profile_node, "qcom,step-chg-ranges", &len) &&
+		fg->bp.float_volt_uv > 0 && fg->bp.fastchg_curr_ma > 0) {
+		len /= sizeof(u32);
+		tuple_len = len / (sizeof(struct range_data) / sizeof(u32));
+		if (tuple_len <= 0 || tuple_len > MAX_STEP_CHG_ENTRIES)
+			return -EINVAL;
+
+		mutex_lock(&chip->ttf->lock);
+		chip->ttf->step_chg_cfg =
+			kcalloc(len, sizeof(*chip->ttf->step_chg_cfg),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_cfg) {
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		chip->ttf->step_chg_data =
+			kcalloc(tuple_len, sizeof(*chip->ttf->step_chg_data),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_data) {
+			kfree(chip->ttf->step_chg_cfg);
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		rc = read_range_data_from_node(profile_node,
+				"qcom,step-chg-ranges",
+				chip->ttf->step_chg_cfg,
+				fg->bp.float_volt_uv,
+				fg->bp.fastchg_curr_ma * 1000);
+		if (rc < 0) {
+			pr_err("Error in reading qcom,step-chg-ranges from battery profile, rc=%d\n",
+				rc);
+			kfree(chip->ttf->step_chg_data);
+			kfree(chip->ttf->step_chg_cfg);
+			chip->ttf->step_chg_cfg = NULL;
+			mutex_unlock(&chip->ttf->lock);
+			return rc;
+		}
+
+		chip->ttf->step_chg_num_params = tuple_len;
+		chip->ttf->step_chg_cfg_valid = true;
+		mutex_unlock(&chip->ttf->lock);
+
+		if (chip->ttf->step_chg_cfg_valid) {
+			for (i = 0; i < tuple_len; i++)
+				pr_debug("Vbatt_low: %d Vbatt_high: %d FCC: %d\n",
+				chip->ttf->step_chg_cfg[i].low_threshold,
+				chip->ttf->step_chg_cfg[i].high_threshold,
+				chip->ttf->step_chg_cfg[i].value);
 		}
 	}
 
@@ -1493,6 +1553,7 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	u8 status;
 	int rc;
 
@@ -1511,6 +1572,15 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		fg->profile_load_status = PROFILE_NOT_LOADED;
 		fg->soc_reporting_ready = false;
 		fg->batt_id_ohms = -EINVAL;
+
+		mutex_lock(&chip->ttf->lock);
+		chip->ttf->step_chg_cfg_valid = false;
+		chip->ttf->step_chg_num_params = 0;
+		kfree(chip->ttf->step_chg_cfg);
+		chip->ttf->step_chg_cfg = NULL;
+		kfree(chip->ttf->step_chg_data);
+		chip->ttf->step_chg_data = NULL;
+		mutex_unlock(&chip->ttf->lock);
 		return IRQ_HANDLED;
 	}
 
