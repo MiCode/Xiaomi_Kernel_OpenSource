@@ -324,33 +324,10 @@
 				mhi,ee = <2>;
 			};
 
-			mhi_chan@100 {
-				reg = <100>;
-				label = "IP_HW0";
-				mhi,num-elements = <512>;
-				mhi,event-ring = <4>;
-				mhi,chan-dir = <1>;
-				mhi,data-type = <1>;
-				mhi,doorbell-mode = <3>;
-				mhi,ee = <2>;
-				mhi,db-mode-switch;
-			};
-
-			mhi_chan@101 {
-				reg = <101>;
-				label = "IP_HW0";
-				mhi,num-elements = <512>;
-				mhi,event-ring = <5>;
-				mhi,chan-dir = <2>;
-				mhi,data-type = <1>;
-				mhi,doorbell-mode = <3>;
-				mhi,ee = <2>;
-			};
-
 			mhi_chan@104 {
 				reg = <104>;
 				label = "IP_HW_OFFLOAD_0";
-				mhi,event-ring = <6>;
+				mhi,event-ring = <4>;
 				mhi,chan-dir = <1>;
 				mhi,data-type = <3>;
 				mhi,ee = <2>;
@@ -360,7 +337,7 @@
 			mhi_chan@105 {
 				reg = <105>;
 				label = "IP_HW_OFFLOAD_0";
-				mhi,event-ring = <7>;
+				mhi,event-ring = <5>;
 				mhi,chan-dir = <2>;
 				mhi,data-type = <3>;
 				mhi,ee = <2>;
@@ -402,30 +379,9 @@
 			};
 
 			mhi_event@4 {
-				mhi,num-elements = <1024>;
-				mhi,intmod = <5>;
-				mhi,msi = <5>;
-				mhi,chan = <100>;
-				mhi,priority = <1>;
-				mhi,brstmode = <3>;
-				mhi,hw-ev;
-			};
-
-			mhi_event@5 {
-				mhi,num-elements = <1024>;
-				mhi,intmod = <5>;
-				mhi,msi = <6>;
-				mhi,chan = <101>;
-				mhi,priority = <1>;
-				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-			};
-
-			mhi_event@6 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
-				mhi,msi = <7>;
+				mhi,msi = <5>;
 				mhi,chan = <104>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
@@ -434,10 +390,10 @@
 				mhi,offload;
 			};
 
-			mhi_event@7 {
+			mhi_event@5 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
-				mhi,msi = <8>;
+				mhi,msi = <6>;
 				mhi,chan = <105>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
