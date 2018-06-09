@@ -395,10 +395,22 @@ no_rx:
 
 static inline void msm_wait_for_xmitr(struct uart_port *port)
 {
+	u32 count = 500000;
+
 	while (!(msm_read(port, UART_SR) & UART_SR_TX_EMPTY)) {
 		if (msm_read(port, UART_ISR) & UART_ISR_TX_READY)
 			break;
 		udelay(1);
+
+		/* At worst case, it is stuck in this loop for waiting
+		 * TX ready, have a 500ms timeout to avoid stuck here
+		 * and only miss some log to uart.
+		 */
+		if (count-- == 0) {
+			msm_write(port, UART_CR_CMD_RESET_TX, UART_CR);
+			printk_deferred("uart may lost data, resetting TX!\n");
+			break;
+		}
 	}
 	msm_write(port, UART_CR_CMD_RESET_TX_READY, UART_CR);
 }
