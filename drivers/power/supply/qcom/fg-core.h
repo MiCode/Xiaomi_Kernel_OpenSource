@@ -269,9 +269,9 @@ enum esr_timer_config {
 	NUM_ESR_TIMERS,
 };
 
-enum ttf_mode {
-	TTF_MODE_NORMAL = 0,
-	TTF_MODE_QNOVO,
+enum fg_ttf_mode {
+	FG_TTF_MODE_NORMAL = 0,
+	FG_TTF_MODE_QNOVO,
 };
 
 /* parameters from battery profile */
@@ -327,7 +327,7 @@ struct fg_pt {
 	s32 y;
 };
 
-struct ttf {
+struct fg_ttf {
 	struct fg_circ_buf	ibatt;
 	struct fg_circ_buf	vbatt;
 	struct fg_cc_step_data	cc_step;
