@@ -13,11 +13,18 @@
 #ifndef __FG_ALG_H__
 #define __FG_ALG_H__
 
+#include "step-chg-jeita.h"
+
 #define BUCKET_COUNT		8
 #define BUCKET_SOC_PCT		(256 / BUCKET_COUNT)
 #define MAX_CC_STEPS		20
 #define MAX_TTF_SAMPLES		10
 
+#define is_between(left, right, value) \
+		(((left) >= (right) && (left) >= (value) \
+			&& (value) >= (right)) \
+		|| ((left) <= (right) && (left) <= (value) \
+			&& (value) <= (right)))
 struct cycle_counter {
 	void		*data;
 	char		str_buf[BUCKET_COUNT * 8];
@@ -63,6 +70,7 @@ struct cap_learning {
 enum ttf_mode {
 	TTF_MODE_NORMAL = 0,
 	TTF_MODE_QNOVO,
+	TTF_MODE_V_STEP_CHG,
 };
 
 enum ttf_param {
@@ -94,12 +102,21 @@ struct ttf_pt {
 	s32 y;
 };
 
+struct step_chg_data {
+	int ocv;
+	int soc;
+};
+
 struct ttf {
 	void			*data;
 	struct ttf_circ_buf	ibatt;
 	struct ttf_circ_buf	vbatt;
 	struct ttf_cc_step_data	cc_step;
 	struct mutex		lock;
+	struct step_chg_data	*step_chg_data;
+	struct range_data	*step_chg_cfg;
+	bool			step_chg_cfg_valid;
+	int			step_chg_num_params;
 	int			mode;
 	int			last_ttf;
 	int			input_present;
