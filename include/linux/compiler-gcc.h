@@ -206,7 +206,7 @@
 #ifdef CONFIG_STACK_VALIDATION
 #define annotate_unreachable() ({					\
 	asm("1:\t\n"							\
-	    ".pushsection __unreachable, \"a\"\t\n"			\
+	    ".pushsection .discard.unreachable\t\n"			\
 	    ".long 1b\t\n"						\
 	    ".popsection\t\n");						\
 })
