@@ -132,7 +132,9 @@ static void _dba_bridge_pre_enable(struct drm_bridge *bridge)
 	}
 
 	d_bridge = to_dba_bridge(bridge);
-	if (d_bridge->ops.power_on)
+
+	/* Skip power_on calling when splash is enabled in bootloader. */
+	if ((d_bridge->ops.power_on) && (!d_bridge->cont_splash_enabled))
 		d_bridge->ops.power_on(d_bridge->dba_ctx, true, 0);
 }
 
@@ -193,7 +195,8 @@ static void _dba_bridge_enable(struct drm_bridge *bridge)
 			video_cfg.scaninfo, video_cfg.ar, video_cfg.vic);
 	}
 
-	if (d_bridge->ops.video_on) {
+	/* Skip video_on calling if splash is enabled in bootloader. */
+	if ((d_bridge->ops.video_on) && (!d_bridge->cont_splash_enabled)) {
 		rc = d_bridge->ops.video_on(d_bridge->dba_ctx, true,
 						&video_cfg, 0);
 		if (rc)

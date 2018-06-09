@@ -405,16 +405,6 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			     enum dsi_power_state state);
 
 /**
- * dsi_ctrl_update_power_state() - update power state for dsi controller
- * @dsi_ctrl:          DSI controller handle.
- * @state:             Power state.
- *
- * Update power state for DSI controller.
- *
- */
-void dsi_ctrl_update_power_state(struct dsi_ctrl *dsi_ctrl,
-				enum dsi_power_state state);
-/**
  * dsi_ctrl_set_cmd_engine_state() - set command engine state
  * @dsi_ctrl:            DSI Controller handle.
  * @state:               Engine state.

@@ -236,6 +236,12 @@ static int dsi_display_phy_power_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *ctrl;
 
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip phy power on\n");
+		return rc;
+	}
+
 	/* Sequence does not matter for split dsi usecases */
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -292,6 +298,12 @@ static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip core clk on calling\n");
+		return rc;
+	}
+
 	/*
 	 * In case of split DSI usecases, the clock for master controller should
 	 * be enabled before the other controller. Master controller in the
@@ -333,6 +345,12 @@ static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip ctrl link clk on calling\n");
+		return rc;
+	}
 
 	/*
 	 * In case of split DSI usecases, the clock for master controller should
@@ -2827,28 +2845,12 @@ int dsi_dsiplay_setup_splash_resource(struct dsi_display *display)
 		if (!ctrl)
 			return -EINVAL;
 
-		dsi_pwr_enable_regulator(&ctrl->ctrl->pwr_info.host_pwr, true);
-		dsi_pwr_enable_regulator(&ctrl->ctrl->pwr_info.digital, true);
-		dsi_pwr_enable_regulator(&ctrl->phy->pwr_info.phy_pwr, true);
-
-		ret = dsi_clk_enable_core_clks(&ctrl->ctrl->clk_info.core_clks,
-						true);
-		if (ret) {
-			SDE_ERROR("failed to set core clk for dsi, ret = %d\n",
-						ret);
-			return -EINVAL;
-		}
-
-		ret = dsi_clk_enable_link_clks(&ctrl->ctrl->clk_info.link_clks,
-						true);
-		if (ret) {
-			SDE_ERROR("failed to set link clk for dsi, ret = %d\n",
-						ret);
-			return -EINVAL;
-		}
-
-		dsi_ctrl_update_power_state(ctrl->ctrl,
+		ret = dsi_ctrl_set_power_state(ctrl->ctrl,
 					DSI_CTRL_POWER_LINK_CLK_ON);
+		if (ret) {
+			SDE_ERROR("calling dsi_ctrl_set_power_state failed\n");
+			return ret;
+		}
 	}
 
 	return ret;
