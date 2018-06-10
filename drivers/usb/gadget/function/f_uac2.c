@@ -18,6 +18,9 @@
 #include "u_audio.h"
 #include "u_uac2.h"
 
+/* Keep everyone on toes */
+#define USB_XFERS	8
+
 /*
  * The driver implements a simple UAC_2 topology.
  * USB-OUT -> IT_1 -> OT_3 -> ALSA_Capture
@@ -292,6 +295,13 @@ static struct usb_endpoint_descriptor hs_epout_desc = {
 	.bInterval = 4,
 };
 
+static struct usb_ss_ep_comp_descriptor ss_epout_comp_desc = {
+	 .bLength =		 sizeof(ss_epout_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(1024),
+};
+
 /* CS AS ISO OUT Endpoint */
 static struct uac2_iso_endpoint_descriptor as_iso_out_desc = {
 	.bLength = sizeof as_iso_out_desc,
@@ -369,6 +379,13 @@ static struct usb_endpoint_descriptor hs_epin_desc = {
 	.bInterval = 4,
 };
 
+static struct usb_ss_ep_comp_descriptor ss_epin_comp_desc = {
+	 .bLength =		 sizeof(ss_epin_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(1024),
+};
+
 /* CS AS ISO IN Endpoint */
 static struct uac2_iso_endpoint_descriptor as_iso_in_desc = {
 	.bLength = sizeof as_iso_in_desc,
@@ -437,6 +454,38 @@ static struct usb_descriptor_header *hs_audio_desc[] = {
 	(struct usb_descriptor_header *)&as_in_hdr_desc,
 	(struct usb_descriptor_header *)&as_in_fmt1_desc,
 	(struct usb_descriptor_header *)&hs_epin_desc,
+	(struct usb_descriptor_header *)&as_iso_in_desc,
+	NULL,
+};
+
+static struct usb_descriptor_header *ss_audio_desc[] = {
+	(struct usb_descriptor_header *)&iad_desc,
+	(struct usb_descriptor_header *)&std_ac_if_desc,
+
+	(struct usb_descriptor_header *)&ac_hdr_desc,
+	(struct usb_descriptor_header *)&in_clk_src_desc,
+	(struct usb_descriptor_header *)&out_clk_src_desc,
+	(struct usb_descriptor_header *)&usb_out_it_desc,
+	(struct usb_descriptor_header *)&io_in_it_desc,
+	(struct usb_descriptor_header *)&usb_in_ot_desc,
+	(struct usb_descriptor_header *)&io_out_ot_desc,
+
+	(struct usb_descriptor_header *)&std_as_out_if0_desc,
+	(struct usb_descriptor_header *)&std_as_out_if1_desc,
+
+	(struct usb_descriptor_header *)&as_out_hdr_desc,
+	(struct usb_descriptor_header *)&as_out_fmt1_desc,
+	(struct usb_descriptor_header *)&hs_epout_desc,
+	(struct usb_descriptor_header *)&ss_epout_comp_desc,
+	(struct usb_descriptor_header *)&as_iso_out_desc,
+
+	(struct usb_descriptor_header *)&std_as_in_if0_desc,
+	(struct usb_descriptor_header *)&std_as_in_if1_desc,
+
+	(struct usb_descriptor_header *)&as_in_hdr_desc,
+	(struct usb_descriptor_header *)&as_in_fmt1_desc,
+	(struct usb_descriptor_header *)&hs_epin_desc,
+	(struct usb_descriptor_header *)&ss_epin_comp_desc,
 	(struct usb_descriptor_header *)&as_iso_in_desc,
 	NULL,
 };
@@ -531,6 +580,7 @@ afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 	iad_desc.bFirstInterface = ret;
 
 	std_ac_if_desc.bInterfaceNumber = ret;
+	iad_desc.bFirstInterface = ret;
 	uac2->ac_intf = ret;
 	uac2->ac_alt = 0;
 
@@ -582,8 +632,8 @@ afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 	hs_epout_desc.bEndpointAddress = fs_epout_desc.bEndpointAddress;
 	hs_epin_desc.bEndpointAddress = fs_epin_desc.bEndpointAddress;
 
-	ret = usb_assign_descriptors(fn, fs_audio_desc, hs_audio_desc, NULL,
-				     NULL);
+	ret = usb_assign_descriptors(fn, fs_audio_desc, hs_audio_desc,
+					ss_audio_desc, NULL);
 	if (ret)
 		return ret;
 
@@ -1011,6 +1061,19 @@ static struct usb_function *afunc_alloc(struct usb_function_instance *fi)
 }
 
 DECLARE_USB_FUNCTION_INIT(uac2, afunc_alloc_inst, afunc_alloc);
+
+static int afunc_init(void)
+{
+	return usb_function_register(&uac2usb_func);
+}
+module_init(afunc_init);
+
+static void __exit afunc_exit(void)
+{
+	usb_function_unregister(&uac2usb_func);
+}
+module_exit(afunc_exit);
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yadwinder Singh");
 MODULE_AUTHOR("Jaswinder Singh");
