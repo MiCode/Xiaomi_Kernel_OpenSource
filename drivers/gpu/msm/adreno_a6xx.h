@@ -106,6 +106,68 @@ struct cpu_gpu_lock {
 #define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 
+/*
+ * timed_poll_check() - polling *gmu* register at given offset until
+ * its value changed to match expected value. The function times
+ * out and returns after given duration if register is not updated
+ * as expected.
+ *
+ * @device: Pointer to KGSL device
+ * @offset: Register offset
+ * @expected_ret: expected register value that stops polling
+ * @timout: number of jiffies to abort the polling
+ * @mask: bitmask to filter register value to match expected_ret
+ */
+static inline int timed_poll_check(struct kgsl_device *device,
+		unsigned int offset, unsigned int expected_ret,
+		unsigned int timeout, unsigned int mask)
+{
+	unsigned long t;
+	unsigned int value;
+
+	t = jiffies + msecs_to_jiffies(timeout);
+
+	do {
+		gmu_core_regread(device, offset, &value);
+		if ((value & mask) == expected_ret)
+			return 0;
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Double check one last time */
+	gmu_core_regread(device, offset, &value);
+	if ((value & mask) == expected_ret)
+		return 0;
+
+	return -ETIMEDOUT;
+}
+
+/*
+ * read_AO_counter() - Returns the 64bit always on counter value
+ *
+ * @device: Pointer to KGSL device
+ */
+static inline uint64_t read_AO_counter(struct kgsl_device *device)
+{
+	unsigned int l, h, h1;
+
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
+
+	/*
+	 * If there's no change in COUNTER_H we have no overflow so return,
+	 * otherwise read COUNTER_L again
+	 */
+
+	if (h == h1)
+		return (uint64_t) l | ((uint64_t) h << 32);
+
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	return (uint64_t) l | ((uint64_t) h1 << 32);
+}
+
 /* Preemption functions */
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
 void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
@@ -130,8 +192,6 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context);
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
-		struct kgsl_snapshot *snapshot);
-void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 void a6xx_crashdump_init(struct adreno_device *adreno_dev);
 int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev);

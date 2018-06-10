@@ -3361,3 +3361,32 @@ unsigned int kgsl_pwr_limits_get_freq(enum kgsl_deviceid id)
 	return freq;
 }
 EXPORT_SYMBOL(kgsl_pwr_limits_get_freq);
+
+/**
+ * kgsl_pwrctrl_set_default_gpu_pwrlevel() - Set GPU to default power level
+ * @device: Pointer to the kgsl_device struct
+ */
+void kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int new_level = pwr->default_pwrlevel;
+	unsigned int old_level = pwr->active_pwrlevel;
+
+	/*
+	 * Update the level according to any thermal,
+	 * max/min, or power constraints.
+	 */
+	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
+
+	/*
+	 * If thermal cycling is required and the new level hits the
+	 * thermal limit, kick off the cycling.
+	 */
+	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
+
+	pwr->active_pwrlevel = new_level;
+	pwr->previous_pwrlevel = old_level;
+
+	/* Request adjusted DCVS level */
+	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
+}

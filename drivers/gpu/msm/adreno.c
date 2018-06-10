@@ -3111,9 +3111,50 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
+/**
+ * adreno_gmu_clear_and_unmask_irqs() - Clear pending IRQs and Unmask IRQs
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
+ */
+void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+
+	/* Clear any pending IRQs before unmasking on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+
+	/* Unmask needed IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~(gmu_dev_ops->gmu2host_intr_mask));
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			(unsigned int) ~(gmu_dev_ops->gmu_ao_intr_mask));
+}
+
+/**
+ * adreno_gmu_mask_and_clear_irqs() - Mask all IRQs and clear pending IRQs
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
+ */
+void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev)
+{
+	/* Mask all IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			0xFFFFFFFF);
+
+	/* Clear any pending IRQs before disabling */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+}
+
 /*
  * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
- * @adreno_dev: Pointer to the Adreno device device that owns the GMU
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
  * @offset: 32bit register enum that is to be written
  * @val: The value to be written to the register
  * @fence_mask: The value to poll the fence status register
