@@ -1956,7 +1956,8 @@ static void msm_isp_handle_done_buf_frame_id_mismatch(
 
 static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
-	struct timeval *time_stamp, uint32_t frame_id)
+	struct timeval *time_stamp, struct timeval *time_stamp_system,
+	uint32_t frame_id)
 {
 	int rc;
 	unsigned long flags;
@@ -2037,7 +2038,13 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	}
 
 	buf_event.frame_id = frame_id;
+	/* timestamp stores monotonic time */
 	buf_event.timestamp = *time_stamp;
+	/* for buf_event, mono_timestamp is unused attribute
+	 * reuse this to store system time and propagate to
+	 * userspace
+	 */
+	buf_event.mono_timestamp = *time_stamp_system;
 	buf_event.u.buf_done.session_id = stream_info->session_id;
 	buf_event.u.buf_done.stream_id = stream_info->stream_id;
 	buf_event.u.buf_done.handle = buf->bufq_handle;
@@ -3934,6 +3941,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer *done_buf = NULL;
 	unsigned long flags;
 	struct timeval *time_stamp;
+	struct timeval *time_stamp_system;
 	uint32_t frame_id, buf_index = -1;
 	struct msm_vfe_axi_stream *temp_stream;
 
@@ -3947,6 +3955,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		time_stamp = &ts->vt_time;
 	} else {
 		time_stamp = &ts->buf_time;
+		/* store system time */
+		time_stamp_system = &ts->event_time;
 	}
 
 	frame_id = vfe_dev->axi_data.
@@ -4089,7 +4099,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	}
 
 	msm_isp_process_done_buf(vfe_dev, stream_info,
-			done_buf, time_stamp, frame_id);
+			done_buf, time_stamp, time_stamp_system, frame_id);
 }
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
