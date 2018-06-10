@@ -330,6 +330,12 @@
 #include "smb1355.dtsi"
 };
 
+&pmi632_vadc {
+	chan@4a {
+		qcom,scale-function = <22>;
+	};
+};
+
 &pmi632_gpios {
 	smb_en {
 		smb_en_default: smb_en_default {
