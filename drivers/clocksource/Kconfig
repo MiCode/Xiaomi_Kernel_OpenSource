@@ -331,6 +331,15 @@ config ARM_ARCH_TIMER_VCT_ACCESS
 	  This option enables support for reading the ARM architected timer's
 	  virtual counter in userspace.
 
+config MSM_TIMER_LEAP
+	bool "ARCH TIMER counter rollover"
+	default n
+	depends on ARM_ARCH_TIMER && ARM64
+	help
+	  This option enables a check for least significant 32 bits of
+	  counter rollover. On every counter read if least significant
+	  32 bits are set, reread counter.
+
 config ARM_GLOBAL_TIMER
 	bool "Support for the ARM global timer" if COMPILE_TEST
 	select CLKSRC_OF if OF
