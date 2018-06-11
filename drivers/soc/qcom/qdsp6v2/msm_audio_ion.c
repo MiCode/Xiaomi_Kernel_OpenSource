@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@
 #define MSM_AUDIO_SMMU_SID_OFFSET 32
 
 #define TZBSP_MEM_PROTECT_AUDIO_CMD_ID 0x00000005
+#define TZBSP_MEM_PROTECT_AUDIO_CMD_ID_2 0x00000006
 
 struct addr_range {
 	dma_addr_t start;
@@ -811,11 +812,12 @@ u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa)
 		return upper_32_bits(pa);
 }
 
-static void msm_audio_protect_memory_region(struct device *dev)
+static int msm_audio_protect_memory_region(struct device *dev)
 {
 	int ret = 0;
 	unsigned long size = 0;
 	phys_addr_t phys_addr = 0;
+	struct scm_desc desc2 = {0};
 	struct tz_mem_protect_cmd_buf desc = {0};
 	struct tz_resp resp = {0};
 
@@ -825,13 +827,24 @@ static void msm_audio_protect_memory_region(struct device *dev)
 	pr_debug("%s: cma_audio_mem_addr %pK with size %lu\n",
 		 __func__, &phys_addr, size);
 
-	desc.phys_addr = phys_addr;
-	desc.size = size;
-	ret = scm_call(SCM_SVC_MP, TZBSP_MEM_PROTECT_AUDIO_CMD_ID,
-		(void *)&desc , sizeof(desc), (void *)&resp, sizeof(resp));
+	desc2.args[0] = desc.phys_addr = phys_addr;
+	desc2.args[1] = desc.size = size;
+	desc2.arginfo = SCM_ARGS(2);
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_MP, TZBSP_MEM_PROTECT_AUDIO_CMD_ID,
+			(void *)&desc , sizeof(desc),
+			 (void *)&resp, sizeof(resp));
+	} else {
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+			TZBSP_MEM_PROTECT_AUDIO_CMD_ID_2), &desc2);
+		resp.ret = desc2.ret[0];
+	}
 	if (ret < 0)
 		pr_err("%s: SCM call failed, scm_call_ret %d tz_resp %d\n",
 		       __func__, ret, resp.ret);
+	if (!is_scm_armv8())
+		return ret;
+	return desc2.ret[0];
 }
 
 static int msm_audio_ion_probe(struct platform_device *pdev)
