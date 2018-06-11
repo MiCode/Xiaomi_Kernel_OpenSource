@@ -3212,6 +3212,10 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
 	entry = mk_pte(page, fe->vma_page_prot);
 	if (write)
 		entry = maybe_mkwrite(pte_mkdirty(entry), fe->vma_flags);
+
+	if (fe->flags & FAULT_FLAG_PREFAULT_OLD)
+		entry = pte_mkold(entry);
+
 	/* copy-on-write page */
 	if (write && !(fe->vma_flags & VM_SHARED)) {
 		inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
@@ -3300,6 +3304,7 @@ static int do_fault_around(struct fault_env *fe, pgoff_t start_pgoff)
 	pgoff_t end_pgoff;
 	int off, ret = 0;
 
+	fe->fault_address = address;
 	nr_pages = READ_ONCE(fault_around_bytes) >> PAGE_SHIFT;
 	mask = ~(nr_pages * PAGE_SIZE - 1) & PAGE_MASK;
 
