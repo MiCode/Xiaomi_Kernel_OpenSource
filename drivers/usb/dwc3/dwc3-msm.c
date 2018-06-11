@@ -3734,6 +3734,21 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->in_host_mode = true;
 		dwc3_usb3_phy_suspend(dwc, true);
 
+		/* Reduce the U3 exit handshake timer from 8us to approximately
+		 * 300ns to avoid lfps handshake interoperability issues
+		 */
+		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+			dev_dbg(mdwc->dev, "LU3:%08x\n",
+				dwc3_msm_read_reg(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0)));
+		}
+
 		/* xHCI should have incremented child count as necessary */
 		dbg_event(0xFF, "StrtHost psync",
 			atomic_read(&mdwc->dev->power.usage_count));
@@ -3840,6 +3855,22 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		dwc3_msm_block_reset(mdwc, false);
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		mdwc->in_device_mode = true;
+
+		/* Reduce the U3 exit handshake timer from 8us to approximately
+		 * 300ns to avoid lfps handshake interoperability issues
+		 */
+		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+			dev_dbg(mdwc->dev, "LU3:%08x\n",
+				dwc3_msm_read_reg(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0)));
+		}
+
 		usb_gadget_vbus_connect(&dwc->gadget);
 #ifdef CONFIG_SMP
 		mdwc->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
