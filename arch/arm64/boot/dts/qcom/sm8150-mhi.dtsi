@@ -347,6 +347,27 @@
 				mhi,ee = <2>;
 			};
 
+			mhi_chan@104 {
+				reg = <104>;
+				label = "IP_HW_OFFLOAD_0";
+				mhi,event-ring = <6>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <3>;
+				mhi,ee = <2>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@105 {
+				reg = <105>;
+				label = "IP_HW_OFFLOAD_0";
+				mhi,event-ring = <7>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <3>;
+				mhi,ee = <2>;
+				mhi,offload-chan;
+				mhi,lpm-notify;
+			};
+
 			mhi_event@0 {
 				mhi,num-elements = <32>;
 				mhi,intmod = <1>;
@@ -399,6 +420,30 @@
 				mhi,brstmode = <3>;
 				mhi,hw-ev;
 				mhi,client-manage;
+			};
+
+			mhi_event@6 {
+				mhi,num-elements = <0>;
+				mhi,intmod = <0>;
+				mhi,msi = <7>;
+				mhi,chan = <104>;
+				mhi,priority = <1>;
+				mhi,brstmode = <3>;
+				mhi,hw-ev;
+				mhi,client-manage;
+				mhi,offload;
+			};
+
+			mhi_event@7 {
+				mhi,num-elements = <0>;
+				mhi,intmod = <0>;
+				mhi,msi = <8>;
+				mhi,chan = <105>;
+				mhi,priority = <1>;
+				mhi,brstmode = <3>;
+				mhi,hw-ev;
+				mhi,client-manage;
+				mhi,offload;
 			};
 
 			mhi_netdev_0: mhi_rmnet@0 {
