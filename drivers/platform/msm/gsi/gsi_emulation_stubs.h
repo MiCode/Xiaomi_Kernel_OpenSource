@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,20 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#include "apq8053-lite-dragon.dtsi"
+#if !defined(_GSI_EMULATION_STUBS_H_)
+# define _GSI_EMULATION_STUBS_H_
 
-&wled {
-	qcom,fs-curr-ua = <17500>;
-};
+# include <asm/barrier.h>
+# define __iormb()       rmb() /* used in gsi.h */
+# define __iowmb()       wmb() /* used in gsi.h */
 
-&camera0 {
-	qcom,mount-angle = <180>;
-};
-
-&camera1 {
-	qcom,mount-angle = <180>;
-};
-
-&camera2 {
-	qcom,mount-angle = <180>;
-};
+#endif /* #if !defined(_GSI_EMULATION_STUBS_H_) */

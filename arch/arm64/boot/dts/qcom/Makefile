@@ -135,6 +135,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm670-usbc-external-codec-pm660a-mtp-overlay.dtbo \
 		sda670-cdp-overlay.dtbo \
 		sda670-mtp-overlay.dtbo \
+		sda670-hdk-overlay.dtbo \
 		sda670-pm660a-cdp-overlay.dtbo \
 		sda670-pm660a-mtp-overlay.dtbo \
 		sdm670-tasha-codec-cdp-overlay.dtbo \
@@ -194,6 +195,7 @@ sdm670-aqt1000-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-pm660a-aqt1000-cdp-overlay.dtbo-base := sdm670.dtb
 sda670-cdp-overlay.dtbo-base := sda670.dtb
 sda670-mtp-overlay.dtbo-base := sda670.dtb
+sda670-hdk-overlay.dtbo-base := sda670.dtb
 sda670-pm660a-cdp-overlay.dtbo-base := sda670.dtb
 sda670-pm660a-mtp-overlay.dtbo-base := sda670.dtb
 qcs605-cdp-overlay.dtbo-base := qcs605.dtb
@@ -245,6 +247,7 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sdm670-usbc-pm660a-cdp.dtb \
 	sdm670-usbc-pm660a-mtp.dtb \
 	sda670-mtp.dtb \
+	sda670-hdk.dtb \
 	sda670-cdp.dtb \
 	sdm670-tasha-codec-cdp.dtb \
 	sdm670-pm660a-tasha-codec-cdp.dtb \
@@ -408,10 +411,6 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	apq8053-lite-dragon-v2.2.dtb \
 	apq8053-lite-dragon-v2.3.dtb \
 	apq8053-lite-dragon-v2.4.dtb \
-	apq8053-lite-lenovo-v1.0.dtb \
-	apq8053-lite-lenovo-v1.1.dtb \
-	apq8053-lite-harman-v1.0.dtb \
-	apq8053-lite-lge-v1.0.dtb \
 	msm8953-pmi8940-cdp.dtb \
 	msm8953-pmi8940-mtp.dtb \
 	msm8953-pmi8937-cdp.dtb \
@@ -451,7 +450,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
 	apq8009w-bg-alpha.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-robot-som-refboard.dtb \
-	apq8009-dragon.dtb
+	apq8009-dragon.dtb \
+	apq8009-lat-v1.0.dtb
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \

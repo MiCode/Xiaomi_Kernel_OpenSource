@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,17 +10,5 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "apq8053-lite-lenovo-v1.1.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite Lenovo v1.1 Board";
-	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
-			"qcom,dragonboard";
-	qcom,board-id= <0x01010120 0>;
-};
-
-&blsp2_uart0 {
-	status = "okay";
-};
+#include "sdm670-qrd.dtsi"
+#include "sdm670-audio-overlay.dtsi"

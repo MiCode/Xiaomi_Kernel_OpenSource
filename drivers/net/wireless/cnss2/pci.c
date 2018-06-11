@@ -19,6 +19,7 @@
 #include <linux/memblock.h>
 
 #include "main.h"
+#include "bus.h"
 #include "debug.h"
 #include "pci.h"
 
@@ -42,6 +43,10 @@
 
 #define MAX_M3_FILE_NAME_LENGTH		13
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
+
+#define WAKE_MSI_NAME			"WAKE"
+
+#define FW_ASSERT_TIMEOUT		5000
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
@@ -592,18 +597,7 @@ static int cnss_pci_runtime_idle(struct device *dev)
 
 int cnss_wlan_pm_control(struct device *dev, bool vote)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct cnss_pci_data *pci_priv;
-	struct pci_dev *pci_dev;
-
-	if (!plat_priv)
-		return -ENODEV;
-
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv)
-		return -ENODEV;
-
-	pci_dev = pci_priv->pci_dev;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
 
 	return msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
 				   MSM_PCIE_ENABLE_PC,
@@ -615,19 +609,17 @@ EXPORT_SYMBOL(cnss_wlan_pm_control);
 int cnss_auto_suspend(struct device *dev)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct pci_dev *pci_dev;
-	struct cnss_pci_data *pci_priv;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
 	struct cnss_bus_bw_info *bus_bw_info;
 
-	if (!plat_priv)
-		return -ENODEV;
-
-	pci_priv = plat_priv->bus_priv;
 	if (!pci_priv)
 		return -ENODEV;
 
-	pci_dev = pci_priv->pci_dev;
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
 
 	if (pci_priv->pci_link_state) {
 		if (cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND)) {
@@ -673,19 +665,18 @@ EXPORT_SYMBOL(cnss_auto_suspend);
 int cnss_auto_resume(struct device *dev)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct pci_dev *pci_dev;
-	struct cnss_pci_data *pci_priv;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
 	struct cnss_bus_bw_info *bus_bw_info;
 
-	if (!plat_priv)
-		return -ENODEV;
-
-	pci_priv = plat_priv->bus_priv;
 	if (!pci_priv)
 		return -ENODEV;
 
-	pci_dev = pci_priv->pci_dev;
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
 	if (!pci_priv->pci_link_state) {
 		cnss_pr_dbg("Resuming PCI link\n");
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
@@ -830,17 +821,58 @@ static void cnss_pci_free_m3_mem(struct cnss_pci_data *pci_priv)
 	m3_mem->size = 0;
 }
 
-int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
-			  phys_addr_t *pa)
+int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 {
+	int ret;
+	struct cnss_plat_data *plat_priv;
+
 	if (!pci_priv)
 		return -ENODEV;
 
-	*va = pci_priv->bar;
-	*pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
+	if (ret) {
+		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
+		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+				       CNSS_REASON_DEFAULT);
+		return 0;
+	}
+
+	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
+		mod_timer(&plat_priv->fw_boot_timer,
+			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
+	}
 
 	return 0;
 }
+
+void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	cnss_pr_err("Timeout waiting for FW ready indication\n");
+
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+			       CNSS_REASON_TIMEOUT);
+}
+
+int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	info->va = pci_priv->bar;
+	info->pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_soc_info);
 
 static struct cnss_msi_config msi_config = {
 	.total_vectors = 32,
@@ -927,7 +959,7 @@ int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
 				 int *num_vectors, u32 *user_base_data,
 				 u32 *base_vector)
 {
-	struct cnss_pci_data *pci_priv = dev_get_drvdata(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
 	struct cnss_msi_config *msi_config;
 	int idx;
 
@@ -985,6 +1017,25 @@ void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 			      msi_addr_high);
 }
 EXPORT_SYMBOL(cnss_get_msi_address);
+
+u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv)
+{
+	int ret, num_vectors;
+	u32 user_base_data, base_vector;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	ret = cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
+					   WAKE_MSI_NAME, &num_vectors,
+					   &user_base_data, &base_vector);
+	if (ret) {
+		cnss_pr_err("WAKE MSI is not valid\n");
+		return 0;
+	}
+
+	return user_base_data;
+}
 
 static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 {

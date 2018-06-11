@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,16 +12,12 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "apq8053-lite-lge-v1.0.dtsi"
+#include "sda670-hdk.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite LGE v1.0 Board";
-	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
-			"qcom,dragonboard";
-	qcom,board-id= <0x01030020 0>;
-};
-
-&blsp2_uart0 {
-	status = "okay";
+	model = "Qualcomm Technologies, Inc. SDA670 HDK";
+	compatible = "qcom,sda670-hdk", "qcom,sda670", "qcom,hdk";
+	qcom,board-id = <0x01001F 0x00>;
 };

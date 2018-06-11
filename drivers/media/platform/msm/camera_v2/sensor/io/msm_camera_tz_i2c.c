@@ -20,7 +20,6 @@
 #include "msm_sensor.h"
 
 #undef CDBG
-#define MSM_CAMERA_TZ_I2C_VERBOSE
 
 #ifdef CONFIG_MSM_SEC_CCI_DEBUG
 	#define TZ_I2C_FN_RETURN(ret, i2c_fn, ...) \

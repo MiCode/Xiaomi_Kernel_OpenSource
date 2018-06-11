@@ -67,7 +67,7 @@
 		pm8953_cx_cdev: regulator-cx-cdev {
 			compatible = "qcom,regulator-cooling-device";
 			regulator-cdev-supply = <&pm8953_s2_floor_level>;
-			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
 					RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			#cooling-cells = <2>;
 		};
@@ -479,7 +479,7 @@
 			<0      0       0>;
 
 		qcom,cpr-voltage-ceiling-override =
-			<(-1) (-1) 795000 795000 835000 910000 910000>;
+			<(-1) (-1) 810000 845000 885000 960000 960000>;
 
 		qcom,cpr-enable;
 	};

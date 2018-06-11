@@ -72,6 +72,9 @@ static const int ipa_ihl_ofst_meq32[] = { IPA_IHL_OFFSET_MEQ32_0,
 
 #define INVALID_EP_MAPPING_INDEX (-1)
 
+#define IPA_IS_RAN_OUT_OF_EQ(__eq_array, __eq_index) \
+		(ARRAY_SIZE(__eq_array) <= (__eq_index))
+
 struct ipa_ep_confing {
 	bool valid;
 	int pipe_num;
@@ -119,6 +122,7 @@ static const struct ipa_ep_confing ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_MHI_PROD]           = {true, 18},
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        = {true,  6},
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        = {true,  7},
+
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
 						 = {true, 12},
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
@@ -1409,6 +1413,11 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+			if (IPA_IS_RAN_OUT_OF_EQ(ipa_ihl_ofst_meq32,
+							ihl_ofst_meq32)) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
 				IPAERR("ran out of ihl_meq32 eq\n");
 				return -EPERM;
@@ -1426,6 +1435,11 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+			if (IPA_IS_RAN_OUT_OF_EQ(ipa_ihl_ofst_meq32,
+							ihl_ofst_meq32)) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
 				IPAERR("ran out of ihl_meq32 eq\n");
 				return -EPERM;

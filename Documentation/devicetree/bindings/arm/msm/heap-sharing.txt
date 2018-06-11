@@ -29,6 +29,10 @@ Optional properties for child nodes:
 
 - qcom,allocate-boot-time:	Indicates whether clients needs boot time memory allocation.
 
+- qcom,allocate-on-request:	Indicates memory allocation happens only when client requests.
+
+/* "qcom,allocate-boot-time" and "qcom,allocate-on-request" are mutually exclusive properties. */
+
 Example:
 
 qcom,memshare {

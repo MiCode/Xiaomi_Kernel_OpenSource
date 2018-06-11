@@ -189,6 +189,8 @@ Optional properties :
 	point to external connector device, which provide "USB-HOST" cable events.
 	A single phandle may be specified if a single connector device provides
 	both "USB" and "USB-HOST" events.
+- qcom,phy-id-high-as-peripheral: If present, specifies device to switch to device mode
+	if PHY ID state is high or host mode if PHY ID state is low.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {

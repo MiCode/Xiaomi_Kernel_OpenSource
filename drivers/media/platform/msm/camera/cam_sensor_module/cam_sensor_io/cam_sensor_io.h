@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
  * @io_master_info: I2C/SPI master information
  * @addr: I2C address
  * @data: I2C data
+ * @addr_type: I2C addr type
  * @data_type: I2C data type
  * @num_bytes: number of bytes
  *
@@ -60,6 +61,7 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	uint32_t addr, uint8_t *data,
 	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
 	int32_t num_bytes);
 
 /**

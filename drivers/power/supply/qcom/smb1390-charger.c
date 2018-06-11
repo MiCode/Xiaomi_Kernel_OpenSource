@@ -82,6 +82,7 @@
 #define FCC_VOTER	"FCC_VOTER"
 #define ICL_VOTER	"ICL_VOTER"
 #define USB_VOTER	"USB_VOTER"
+#define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
 
 enum {
 	SWITCHER_OFF_WINDOW_IRQ = 0,
@@ -100,6 +101,7 @@ struct smb1390 {
 	struct regmap		*regmap;
 	struct notifier_block	nb;
 	struct class		cp_class;
+	struct wakeup_source	*cp_ws;
 
 	/* work structs */
 	struct work_struct	status_change_work;
@@ -114,6 +116,7 @@ struct smb1390 {
 	struct votable		*pl_disable_votable;
 	struct votable		*fcc_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
+	struct votable		*cp_awake_votable;
 
 	/* power supplies */
 	struct power_supply	*usb_psy;
@@ -124,6 +127,7 @@ struct smb1390 {
 	bool			status_change_running;
 	bool			taper_work_running;
 	int			adc_channel;
+	int			irq_status;
 };
 
 struct smb_irq {
@@ -204,6 +208,18 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 	return true;
 }
 
+static void cp_toggle_switcher(struct smb1390 *chip)
+{
+	vote(chip->disable_votable, SWITCHER_TOGGLE_VOTER, true, 0);
+
+	/* Delay for toggling switcher */
+	usleep_range(20, 30);
+
+	vote(chip->disable_votable, SWITCHER_TOGGLE_VOTER, false, 0);
+
+	return;
+}
+
 static irqreturn_t default_irq_handler(int irq, void *data)
 {
 	struct smb1390 *chip = data;
@@ -212,36 +228,9 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 	for (i = 0; i < NUM_IRQS; ++i) {
 		if (irq == chip->irqs[i])
 			pr_debug("%s IRQ triggered\n", smb_irqs[i].name);
+			chip->irq_status |= 1 << i;
 	}
 
-	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t irev_irq_handler(int irq, void *data)
-{
-	struct smb1390 *chip = data;
-	int rc;
-
-	pr_debug("IREV IRQ triggered\n");
-
-	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
-			CMD_EN_SWITCHER_BIT, 0);
-	if (rc < 0) {
-		pr_err("Couldn't disable switcher by command mode, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
-			CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't enable switcher by command mode, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-out:
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 	return IRQ_HANDLED;
 }
@@ -264,7 +253,7 @@ static const struct smb_irq smb_irqs[] = {
 	},
 	[IREV_IRQ] = {
 		.name		= "irev-fault",
-		.handler	= irev_irq_handler,
+		.handler	= default_irq_handler,
 		.wake		= true,
 	},
 	[VPH_OV_HARD_IRQ] = {
@@ -338,6 +327,38 @@ static ssize_t enable_store(struct class *c, struct class_attribute *attr,
 	return count;
 }
 
+static ssize_t cp_irq_show(struct class *c, struct class_attribute *attr,
+			char *buf)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	int rc, val;
+
+	rc = smb1390_read(chip, CORE_INT_RT_STS_REG, &val);
+	if (rc < 0)
+		return -EINVAL;
+
+	val |= chip->irq_status;
+	chip->irq_status = 0;
+
+	return snprintf(buf, PAGE_SIZE, "%x\n", val);
+}
+
+static ssize_t toggle_switcher_store(struct class *c,
+			struct class_attribute *attr, const char *buf,
+			size_t count)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	if (val)
+		cp_toggle_switcher(chip);
+
+	return count;
+}
+
 static ssize_t die_temp_show(struct class *c, struct class_attribute *attr,
 			     char *buf)
 {
@@ -358,6 +379,8 @@ static struct class_attribute cp_class_attrs[] = {
 	__ATTR_RO(stat1),
 	__ATTR_RO(stat2),
 	__ATTR_RW(enable),
+	__ATTR_RO(cp_irq),
+	__ATTR_WO(toggle_switcher),
 	__ATTR_RO(die_temp),
 	__ATTR_NULL,
 };
@@ -378,11 +401,12 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		if (rc < 0)
 			return rc;
 
-		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 		vote(chip->pl_disable_votable, CP_VOTER, false, 0);
+		vote(chip->cp_awake_votable, CP_VOTER, false, 0);
 	} else {
 		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, true, 0);
 		vote(chip->pl_disable_votable, CP_VOTER, true, 0);
+		vote(chip->cp_awake_votable, CP_VOTER, true, 0);
 		rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
 				   CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
 		if (rc < 0)
@@ -426,6 +450,20 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	}
 
 	return rc;
+}
+
+static int smb1390_awake_vote_cb(struct votable *votable, void *data,
+				int awake, const char *client)
+{
+	struct smb1390 *chip = data;
+
+	if (awake)
+		__pm_stay_awake(chip->cp_ws);
+	else
+		__pm_relax(chip->cp_ws);
+
+	pr_debug("client: %s awake: %d\n", client, awake);
+	return 0;
 }
 
 static int smb1390_notifier_cb(struct notifier_block *nb,
@@ -589,6 +627,11 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	if (IS_ERR(chip->ilim_votable))
 		return PTR_ERR(chip->ilim_votable);
 
+	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
+			smb1390_awake_vote_cb, chip);
+	if (IS_ERR(chip->cp_awake_votable))
+		return PTR_ERR(chip->cp_awake_votable);
+
 	return 0;
 }
 
@@ -722,15 +765,20 @@ static int smb1390_probe(struct platform_device *pdev)
 	rc = smb1390_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		goto out_work;
+		return rc;
 	}
 
 	chip->vadc_dev = qpnp_get_vadc(chip->dev, "smb");
 	if (IS_ERR(chip->vadc_dev)) {
 		rc = PTR_ERR(chip->vadc_dev);
-		pr_err("Couldn't get vadc dev rc=%d\n", rc);
-		goto out_work;
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't get vadc dev rc=%d\n", rc);
+		return rc;
 	}
+
+	chip->cp_ws = wakeup_source_register("qcom-chargepump");
+	if (!chip->cp_ws)
+		return rc;
 
 	rc = smb1390_create_votables(chip);
 	if (rc < 0) {
@@ -778,6 +826,7 @@ out_votables:
 out_work:
 	cancel_work(&chip->taper_work);
 	cancel_work(&chip->status_change_work);
+	wakeup_source_unregister(chip->cp_ws);
 	return rc;
 }
 
@@ -790,8 +839,10 @@ static int smb1390_remove(struct platform_device *pdev)
 
 	/* explicitly disable charging */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 	cancel_work(&chip->taper_work);
 	cancel_work(&chip->status_change_work);
+	wakeup_source_unregister(chip->cp_ws);
 	smb1390_destroy_votables(chip);
 	return 0;
 }

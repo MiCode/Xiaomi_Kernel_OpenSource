@@ -70,6 +70,10 @@
 			29 01 00 00 00 00 05 2a 00 04 01 89
 			/* Reset row start address */
 			29 01 00 00 00 00 05 2b 00 00 01 85
+			15 01 00 00 00 00 02 fe 01
+			15 01 00 00 00 00 02 04 00
+			15 01 00 00 00 00 02 fe 00
+			15 01 00 00 00 00 02 3a 77
 			];
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-lane-map = "lane_map_0123";

@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,17 +10,24 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef PFK_ICE_H_
+#define PFK_ICE_H_
 
-#include "apq8053-lite-harman-v1.0.dtsi"
+/*
+ * PFK ICE
+ *
+ * ICE keys configuration through scm calls.
+ *
+ */
 
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite Harman v1.0 Board";
-	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
-			"qcom,dragonboard";
-	qcom,board-id= <0x01020020 0>;
-};
+#include <linux/types.h>
 
-&blsp2_uart0 {
-	status = "okay";
-};
+int pfk_ice_init(void);
+int pfk_ice_deinit(void);
+
+int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
+			char *storage_type);
+int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type);
+
+
+#endif /* PFK_ICE_H_ */

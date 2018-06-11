@@ -71,6 +71,7 @@
 
 	qcom,blackghost {
 		compatible = "qcom,pil-blackghost";
+		qcom,pil-force-shutdown;
 		qcom,firmware-name = "bg-wear";
 		/* GPIO inputs from blackghost */
 		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
@@ -221,6 +222,7 @@
 			     &nfcw_disable_active
 			     &nfc_clk_default>;
 		pinctrl-1 = <&nfcw_int_suspend &nfcw_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
 		clock-names = "ref_clk";
 	};
 };
@@ -239,6 +241,33 @@
 
 &i2c_2 {
 	status = "disabled";
+};
+
+&sdc1_clk_off {
+	config {
+		pins = "sdc1_clk";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_cmd_off {
+	config {
+		pins = "sdc1_cmd";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_data_off {
+	config {
+		pins = "sdc1_data";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
 };
 
 &sdhc_2 {

@@ -243,6 +243,8 @@ static int dsi_ctrl_debugfs_init(struct dsi_ctrl *dsi_ctrl,
 						dsi_ctrl->cell_index);
 	sde_dbg_reg_register_base(dbg_name, dsi_ctrl->hw.base,
 				msm_iomap_size(dsi_ctrl->pdev, "dsi_ctrl"));
+	sde_dbg_reg_register_dump_range(dbg_name, dbg_name, 0,
+				msm_iomap_size(dsi_ctrl->pdev, "dsi_ctrl"), 0);
 error_remove_dir:
 	debugfs_remove(dir);
 error:
@@ -271,6 +273,8 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	struct dsi_ctrl_state_info *state = &dsi_ctrl->current_state;
+
+	SDE_EVT32(dsi_ctrl->cell_index, op);
 
 	switch (op) {
 	case DSI_CTRL_OP_POWER_STATE_CHANGE:
@@ -461,7 +465,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	}
 
 	ctrl->hw.base = ptr;
-	pr_debug("[%s] map dsi_ctrl registers to %p\n", ctrl->name,
+	pr_debug("[%s] map dsi_ctrl registers to %pK\n", ctrl->name,
 		 ctrl->hw.base);
 
 	switch (ctrl->version) {
@@ -1338,10 +1342,20 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 	u32 current_read_len = 0, total_bytes_read = 0;
 	bool short_resp = false;
 	bool read_done = false;
-	u32 dlen, diff, rlen = msg->rx_len;
+	u32 dlen, diff, rlen;
 	unsigned char *buff;
 	char cmd;
+	struct dsi_cmd_desc *of_cmd;
 
+	if (!msg) {
+		pr_err("Invalid msg\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	of_cmd = container_of(msg, struct dsi_cmd_desc, msg);
+
+	rlen = msg->rx_len;
 	if (msg->rx_len <= 2) {
 		short_resp = true;
 		rd_pkt_size = msg->rx_len;
@@ -1788,10 +1802,13 @@ static struct platform_driver dsi_ctrl_driver = {
 
 #if defined(CONFIG_DEBUG_FS)
 
-void dsi_ctrl_debug_dump(void)
+void dsi_ctrl_debug_dump(u32 *entries, u32 size)
 {
 	struct list_head *pos, *tmp;
 	struct dsi_ctrl *ctrl = NULL;
+
+	if (!entries || !size)
+		return;
 
 	mutex_lock(&dsi_ctrl_list_lock);
 	list_for_each_safe(pos, tmp, &dsi_ctrl_list) {
@@ -1800,7 +1817,7 @@ void dsi_ctrl_debug_dump(void)
 		n = list_entry(pos, struct dsi_ctrl_list_item, list);
 		ctrl = n->ctrl;
 		pr_err("dsi ctrl:%d\n", ctrl->cell_index);
-		ctrl->hw.ops.debug_bus(&ctrl->hw);
+		ctrl->hw.ops.debug_bus(&ctrl->hw, entries, size);
 	}
 	mutex_unlock(&dsi_ctrl_list_lock);
 }

@@ -1834,7 +1834,7 @@ retry:
 			if (avoid_prev_cpu && cpu == prev_cpu)
 				continue;
 
-			if (__cpu_overutilized(cpu, util + tutil))
+			if (__cpu_overutilized(cpu, tutil))
 				continue;
 
 			if (cpu_isolated(cpu))

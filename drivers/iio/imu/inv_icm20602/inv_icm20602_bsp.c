@@ -95,12 +95,12 @@ int icm20602_init_reg_map(void)
 #define W_FLG	0
 #define R_FLG	1
 int icm20602_bulk_read(struct inv_icm20602_state *st,
-			int reg, char *buf, int size)
+			int reg, u8 *buf, int size)
 {
 	int result = MPU_SUCCESS;
 	char tx_buf[2] = {0x0, 0x0};
 	int tmp_size = size;
-	int tmp_buf = buf;
+	u8 *tmp_buf = buf;
 	struct i2c_msg msg[2];
 
 	if (!st || !buf)
@@ -109,38 +109,31 @@ int icm20602_bulk_read(struct inv_icm20602_state *st,
 	if (st->interface == ICM20602_SPI) {
 		tx_buf[0] = ICM20602_READ_REG(reg);
 		result = spi_write_then_read(st->spi, &tx_buf[0],
-			1, tmp_buf, size);
+		1, tmp_buf, size);
 		if (result) {
 			pr_err("mpu read reg %u failed, rc %d\n",
-				reg, result);
+			reg, result);
 			result = -MPU_READ_FAIL;
 		}
 	} else {
 		result = size;
-		while (tmp_size > 0) {
 #ifdef ICM20602_I2C_SMBUS
-			result += i2c_smbus_read_i2c_block_data(st->client,
-				reg, (tmp_size < 32)?tmp_size:32, tmp_buf);
-			tmp_size -= 32;
-			tmp_buf += tmp_size;
+		result += i2c_smbus_read_i2c_block_data(st->client,
+		reg, size, tmp_buf);
 #else
-			tx_buf[0] = reg;
-			msg[0].addr = st->client->addr;
-			msg[0].flags = W_FLG;
-			msg[0].len = 1;
-			msg[0].buf = tx_buf;
+		tx_buf[0] = reg;
+		msg[0].addr = st->client->addr;
+		msg[0].flags = W_FLG;
+		msg[0].len = 1;
+		msg[0].buf = tx_buf;
 
-			msg[1].addr = st->client->addr;
-			msg[1].flags = I2C_M_RD;
-			msg[1].len = (tmp_size < 32)?tmp_size:32;
-			msg[1].buf = tmp_buf;
-			i2c_transfer(st->client->adapter, msg, ARRAY_SIZE(msg));
-			tmp_size -= 32;
-			tmp_buf += tmp_size;
+		msg[1].addr = st->client->addr;
+		msg[1].flags = I2C_M_RD;
+		msg[1].len = size;
+		msg[1].buf = tmp_buf;
+		i2c_transfer(st->client->adapter, msg, ARRAY_SIZE(msg));
 #endif
-		}
 	}
-
 	return result;
 }
 
@@ -352,6 +345,33 @@ static int icm20602_stop_fifo(struct inv_icm20602_state *st)
 		reg_set_20602.USER_CTRL.reg_u.REG.FIFO_RST = 0x0;
 	}
 
+	return MPU_SUCCESS;
+}
+
+int icm20602_int_status(struct inv_icm20602_state *st,
+	u8 *int_status)
+{
+	return icm20602_read_reg(st,
+		reg_set_20602.INT_STATUS.address, int_status);
+}
+
+int icm20602_int_wm_status(struct inv_icm20602_state *st,
+	u8 *int_status)
+{
+	return icm20602_read_reg(st,
+		reg_set_20602.FIFO_WM_INT_STATUS.address, int_status);
+}
+
+int icm20602_fifo_count(struct inv_icm20602_state *st,
+	u16 *fifo_count)
+{
+	u8 count_h, count_l;
+
+	*fifo_count = 0;
+	icm20602_read_reg(st, reg_set_20602.FIFO_COUNTH.address, &count_h);
+	icm20602_read_reg(st, reg_set_20602.FIFO_COUNTL.address, &count_l);
+	*fifo_count |= (count_h << 8);
+	*fifo_count |= count_l;
 	return MPU_SUCCESS;
 }
 
@@ -809,6 +829,7 @@ int icm20602_init_device(struct inv_icm20602_state *st)
 	int result = MPU_SUCCESS;
 	struct icm20602_user_config *config = NULL;
 	int package_count;
+	int i;
 
 	config = st->config;
 	if (st == NULL || st->config == NULL) {
@@ -860,7 +881,7 @@ int icm20602_init_device(struct inv_icm20602_state *st)
 	/* buffer malloc */
 	package_count = config->fifo_waterlevel / ICM20602_PACKAGE_SIZE;
 
-	st->buf = kzalloc(sizeof(config->fifo_waterlevel * 2), GFP_ATOMIC);
+	st->buf = kzalloc(config->fifo_waterlevel * 2, GFP_ATOMIC);
 	if (!st->buf)
 		return -ENOMEM;
 
@@ -869,8 +890,25 @@ int icm20602_init_device(struct inv_icm20602_state *st)
 	if (!st->data_push)
 		return -ENOMEM;
 
+	for (i = 0; i < package_count; i++) {
+		st->data_push[i].raw_data =
+			kzalloc(ICM20602_PACKAGE_SIZE, GFP_ATOMIC);
+	}
+
 	return result;
 }
+
+int icm20602_reset_fifo(struct inv_icm20602_state *st)
+{
+	reg_set_20602.USER_CTRL.reg_u.REG.FIFO_RST = 0x1;
+	if (icm20602_write_reg_simple(st, reg_set_20602.USER_CTRL)) {
+		reg_set_20602.USER_CTRL.reg_u.REG.FIFO_RST = 0x0;
+		return -MPU_FAIL;
+	}
+	reg_set_20602.USER_CTRL.reg_u.REG.FIFO_RST = 0x0;
+	return MPU_SUCCESS;
+}
+
 
 void icm20602_rw_test(struct inv_icm20602_state *st)
 {

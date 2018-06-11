@@ -134,6 +134,11 @@ enum ipahal_reg_name {
 	IPA_FEC_ATTR_EE_n,
 	IPA_MBIM_DEAGGR_FEC_ATTR_EE_n,
 	IPA_GEN_DEAGGR_FEC_ATTR_EE_n,
+	IPA_GSI_CONF,
+	IPA_ENDP_GSI_CFG1_n,
+	IPA_ENDP_GSI_CFG2_n,
+	IPA_ENDP_GSI_CFG_AOS_n,
+	IPA_ENDP_GSI_CFG_TLV_n,
 	IPA_REG_MAX,
 };
 
@@ -641,4 +646,3 @@ void ipahal_get_fltrt_hash_flush_valmask(
 	struct ipahal_reg_valmask *valmask);
 
 #endif /* _IPAHAL_REG_H_ */
-

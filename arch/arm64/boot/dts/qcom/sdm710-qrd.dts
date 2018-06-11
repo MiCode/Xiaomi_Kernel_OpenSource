@@ -15,6 +15,7 @@
 
 #include "sdm710.dtsi"
 #include "sdm670-qrd.dtsi"
+#include "sdm670-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660L QRD";

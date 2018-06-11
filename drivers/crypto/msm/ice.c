@@ -77,6 +77,8 @@ static inline void pfk_clear_on_reset(void)
 #define QCOM_ICE_ENCRYPT	0x1
 #define QCOM_ICE_DECRYPT	0x2
 #define QCOM_SECT_LEN_IN_BYTE	512
+#define QCOM_UD_FOOTER_SIZE	0x4000
+#define QCOM_UD_FOOTER_SECS	(QCOM_UD_FOOTER_SIZE / QCOM_SECT_LEN_IN_BYTE)
 
 struct ice_clk_info {
 	struct list_head list;
@@ -127,8 +129,6 @@ struct ice_device {
 };
 
 static int ice_fde_flag;
-static unsigned long userdata_start;
-static unsigned long userdata_end;
 static struct ice_crypto_setting ice_data;
 
 static int qti_ice_setting_config(struct request *req,
@@ -152,22 +152,29 @@ static int qti_ice_setting_config(struct request *req,
 		return -EPERM;
 	}
 
+	if (!setting)
+		return -EINVAL;
+
 	if ((short)(crypto_data->key_index) >= 0) {
 
 		memcpy(&setting->crypto_data, crypto_data,
 				sizeof(setting->crypto_data));
 
-		if (rq_data_dir(req) == WRITE &&
-				(ice_fde_flag & QCOM_ICE_ENCRYPT))
-			setting->encr_bypass = false;
-		else if (rq_data_dir(req) == READ &&
-				(ice_fde_flag & QCOM_ICE_DECRYPT))
-			setting->decr_bypass = false;
-		else {
+		switch (rq_data_dir(req)) {
+		case WRITE:
+			if (!ice_fde_flag || (ice_fde_flag & QCOM_ICE_ENCRYPT))
+				setting->encr_bypass = false;
+			break;
+		case READ:
+			if (!ice_fde_flag || (ice_fde_flag & QCOM_ICE_DECRYPT))
+				setting->decr_bypass = false;
+			break;
+		default:
 			/* Should I say BUG_ON */
 			setting->encr_bypass = true;
 			setting->decr_bypass = true;
-			pr_debug("%s direction unknown", __func__);
+			pr_debug("%s(): direction unknown\n", __func__);
+			break;
 		}
 	}
 
@@ -180,26 +187,6 @@ void qcom_ice_set_fde_flag(int flag)
 	pr_debug("%s read_write setting %d\n", __func__, ice_fde_flag);
 }
 EXPORT_SYMBOL(qcom_ice_set_fde_flag);
-
-int qcom_ice_set_fde_conf(sector_t s_sector, sector_t size,
-					int index, int mode)
-{
-	userdata_start = s_sector;
-	userdata_end = s_sector + size;
-	if (INT_MAX - s_sector < size) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
-	ice_data.key_index = index;
-	ice_data.algo_mode = mode;
-	ice_data.key_size = ICE_CRYPTO_KEY_SIZE_256;
-	ice_data.key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
-
-	pr_debug("%s sector info set start %lu end %lu\n", __func__,
-		userdata_start, userdata_end);
-	return 0;
-}
-EXPORT_SYMBOL(qcom_ice_set_fde_conf);
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
@@ -1483,12 +1470,15 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		struct request *req,
 		struct ice_data_setting *setting, bool async)
 {
+	struct ice_crypto_setting *crypto_data;
 	struct ice_crypto_setting pfk_crypto_data = {0};
 	int ret = 0;
 	bool is_pfe = false;
 	sector_t data_size;
+	union map_info *info;
+	unsigned long sec_end = 0;
 
-	if (!pdev || !req || !setting) {
+	if (!pdev || !req) {
 		pr_err("%s: Invalid params passed\n", __func__);
 		return -EINVAL;
 	}
@@ -1507,6 +1497,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		/* It is not an error to have a request with no  bio */
 		return 0;
 	}
+    //pr_err("%s bio is %pK\n", __func__, req->bio);
 
 	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
 	if (is_pfe) {
@@ -1521,22 +1512,46 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 				&pfk_crypto_data, setting);
 	}
 
-	if (ice_fde_flag == 0)
-		return 0;
-
-	if ((req->__sector >= userdata_start) &&
-			(req->__sector < userdata_end)) {
-	/*
-	 * Ugly hack to address non-block-size aligned userdata end address in
-	 * eMMC based devices.
-	 */
-		data_size = req->__data_len/QCOM_SECT_LEN_IN_BYTE;
-
-		if ((req->__sector + data_size) > userdata_end)
-			return 0;
-		else
+	if (!ice_fde_flag) {
+		if (bio_flagged(req->bio, BIO_INLINECRYPT)) {
+			info = dm_get_rq_mapinfo(req);
+			if (!info) {
+				pr_debug("%s info not available in request\n",
+							__func__);
+				return 0;
+			}
+			crypto_data = (struct ice_crypto_setting *)info->ptr;
+			if (!crypto_data) {
+				pr_err("%s crypto_data not available in req\n",
+							__func__);
+				return -EINVAL;
+			}
 			return qti_ice_setting_config(req, pdev,
-				&ice_data, setting);
+						crypto_data, setting);
+		}
+		return 0;
+	}
+
+	if (req->part && req->part->info && req->part->info->volname[0]) {
+		if (!strcmp(req->part->info->volname, "userdata")) {
+			sec_end = req->part->start_sect + req->part->nr_sects -
+					QCOM_UD_FOOTER_SECS;
+			if ((req->__sector >= req->part->start_sect) &&
+				(req->__sector < sec_end)) {
+				/*
+				 * Ugly hack to address non-block-size aligned
+				 * userdata end address in eMMC based devices.
+				 */
+				data_size = req->__data_len /
+						QCOM_SECT_LEN_IN_BYTE;
+
+				if ((req->__sector + data_size) > sec_end)
+					return 0;
+				else
+					return qti_ice_setting_config(req, pdev,
+						&ice_data, setting);
+			}
+		}
 	}
 
 	/*
@@ -1664,7 +1679,7 @@ static struct ice_device *get_ice_device_from_storage_type
 
 	list_for_each_entry(ice_dev, &ice_devices, list) {
 		if (!strcmp(ice_dev->ice_instance_type, storage_type)) {
-			pr_info("%s: found ice device %p\n", __func__, ice_dev);
+			pr_debug("%s: ice device %pK\n", __func__, ice_dev);
 			return ice_dev;
 		}
 	}

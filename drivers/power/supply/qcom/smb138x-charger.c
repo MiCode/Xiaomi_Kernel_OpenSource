@@ -1371,10 +1371,12 @@ static struct smb_irq_info smb138x_irqs[] = {
 	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
 		.handler	= smblib_handle_usb_plugin,
+		.wake		= true,
 	},
 	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
 		.handler	= smblib_handle_usb_source_change,
+		.wake		= true,
 	},
 	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
@@ -1383,6 +1385,7 @@ static struct smb_irq_info smb138x_irqs[] = {
 	[TYPE_C_CHANGE_IRQ] = {
 		.name		= "type-c-change",
 		.handler	= smblib_handle_usb_typec_change,
+		.wake		= true,
 	},
 /* DC INPUT IRQs */
 	[DCIN_COLLAPSE_IRQ] = {
@@ -1824,6 +1827,8 @@ static int smb138x_probe(struct platform_device *pdev)
 			pr_err("Couldn't probe SMB138X rc=%d\n", rc);
 		goto cleanup;
 	}
+
+	device_init_wakeup(chip->chg.dev, true);
 
 	pr_info("SMB138X probed successfully mode=%d\n", chip->chg.mode);
 	return rc;

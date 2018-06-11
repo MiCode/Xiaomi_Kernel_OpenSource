@@ -253,7 +253,7 @@ int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	pfn = page_to_pfn(pages[pgoff]);
 
-	VERB("Inserting %p pfn %lx, pa %lx", vmf->virtual_address,
+	VERB("Inserting %pK pfn %lx, pa %lx", vmf->virtual_address,
 			pfn, pfn << PAGE_SHIFT);
 
 	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
@@ -428,7 +428,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj,
 
 	if (!ret && domain) {
 		*iova = domain->iova;
-		if (aspace && aspace->domain_attached)
+		if (aspace && !msm_obj->in_active_list)
 			msm_gem_add_obj_to_aspace_active_list(aspace, obj);
 	} else {
 		obj_remove_domain(domain);
@@ -799,7 +799,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 		break;
 	}
 
-	seq_printf(m, "%08x: %c %2d (%2d) %08llx %p %zu%s\n",
+	seq_printf(m, "%08x: %c %2d (%2d) %08llx %pK %zu%s\n",
 
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			obj->name, obj->refcount.refcount.counter,
@@ -968,6 +968,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	INIT_LIST_HEAD(&msm_obj->domains);
 	INIT_LIST_HEAD(&msm_obj->iova_list);
 	msm_obj->aspace = NULL;
+	msm_obj->in_active_list = false;
 
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 

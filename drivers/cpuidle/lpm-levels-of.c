@@ -614,6 +614,7 @@ static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
 				break;
 			}
 		}
+		of_node_put(cpu_node);
 		cpu_node = of_parse_phandle(node, "qcom,cpu", idx++);
 	}
 
@@ -651,13 +652,16 @@ static int parse_cpu(struct device_node *node, struct lpm_cpu *cpu)
 		cpu->nlevels++;
 
 		ret = parse_cpu_mode(n, l);
-		if (ret)
+		if (ret) {
+			of_node_put(n);
 			return ret;
+		}
 
 		ret = parse_power_params(n, &l->pwr);
-		if (ret)
+		if (ret) {
+			of_node_put(n);
 			return ret;
-
+		}
 		key = "qcom,use-broadcast-timer";
 		l->use_bc_timer = of_property_read_bool(n, key);
 
@@ -670,6 +674,7 @@ static int parse_cpu(struct device_node *node, struct lpm_cpu *cpu)
 			l->reset_level = LPM_RESET_LVL_NONE;
 		else if (ret)
 			return ret;
+		of_node_put(n);
 	}
 
 	for (i = 0; i < cpu->nlevels; i++) {
@@ -820,8 +825,11 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 		key = "qcom,pm-cluster-level";
 		if (!of_node_cmp(n->name, key)) {
-			if (parse_cluster_level(n, c))
+			if (parse_cluster_level(n, c)) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
+			of_node_put(n);
 			continue;
 		}
 
@@ -830,22 +838,28 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			struct lpm_cluster *child;
 
 			child = parse_cluster(n, c);
-			if (!child)
+			if (!child) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
 
 			list_add(&child->list, &c->child);
 			cpumask_or(&c->child_cpus, &c->child_cpus,
 					&child->child_cpus);
 			c->aff_level = child->aff_level + 1;
+			of_node_put(n);
 			continue;
 		}
 
 		key = "qcom,pm-cpu";
 		if (!of_node_cmp(n->name, key)) {
-			if (parse_cpu_levels(n, c))
+			if (parse_cpu_levels(n, c)) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
 
 			c->aff_level = 1;
+			of_node_put(n);
 		}
 	}
 
@@ -879,6 +893,7 @@ failed_parse_params:
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 {
 	struct device_node *top = NULL;
+	struct lpm_cluster *c;
 
 	top = of_find_node_by_name(pdev->dev.of_node, "qcom,pm-cluster");
 	if (!top) {
@@ -887,7 +902,9 @@ struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 	}
 
 	lpm_pdev = pdev;
-	return parse_cluster(top, NULL);
+	c = parse_cluster(top, NULL);
+	of_node_put(top);
+	return c;
 }
 
 void cluster_dt_walkthrough(struct lpm_cluster *cluster)

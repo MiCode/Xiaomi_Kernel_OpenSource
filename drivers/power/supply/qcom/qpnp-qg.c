@@ -43,6 +43,16 @@ module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
 );
 
+static int qg_esr_mod_count = 10;
+module_param_named(
+	esr_mod_count, qg_esr_mod_count, int, 0600
+);
+
+static int qg_esr_count = 5;
+module_param_named(
+	esr_count, qg_esr_count, int, 0600
+);
+
 static bool is_battery_present(struct qpnp_qg *chip)
 {
 	u8 reg = 0;
@@ -211,6 +221,14 @@ static void qg_notify_charger(struct qpnp_qg *chip)
 	}
 
 	pr_debug("Notified charger on float voltage and FCC\n");
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT, &prop);
+	if (rc < 0) {
+		pr_err("Failed to get charge term current, rc=%d\n", rc);
+		return;
+	}
+	chip->chg_iterm_ma = prop.intval;
 }
 
 static bool is_batt_available(struct qpnp_qg *chip)
@@ -228,7 +246,7 @@ static bool is_batt_available(struct qpnp_qg *chip)
 	return true;
 }
 
-static int qg_update_sdam_params(struct qpnp_qg *chip)
+static int qg_store_soc_params(struct qpnp_qg *chip)
 {
 	int rc, batt_temp = 0, i;
 	unsigned long rtc_sec = 0;
@@ -245,13 +263,11 @@ static int qg_update_sdam_params(struct qpnp_qg *chip)
 	else
 		chip->sdam_data[SDAM_TEMP] = (u32)batt_temp;
 
-	rc = qg_sdam_write_all(chip->sdam_data);
-	if (rc < 0)
-		pr_err("Failed to write to SDAM rc=%d\n", rc);
-
-	for (i = 0; i < SDAM_MAX; i++)
+	for (i = 0; i <= SDAM_TIME_SEC; i++) {
+		rc |= qg_sdam_write(i, chip->sdam_data[i]);
 		qg_dbg(chip, QG_DEBUG_STATUS, "SDAM write param %d value=%d\n",
 					i, chip->sdam_data[i]);
+	}
 
 	return rc;
 }
@@ -433,6 +449,87 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 	return rc;
 }
 
+#define MIN_FIFO_FULL_TIME_MS			12000
+static int process_rt_fifo_data(struct qpnp_qg *chip,
+				bool vbat_low, bool update_smb)
+{
+	int rc = 0;
+	ktime_t now = ktime_get();
+	s64 time_delta;
+
+	/*
+	 * Reject the FIFO read event if there are back-to-back requests
+	 * This is done to gaurantee that there is always a minimum FIFO
+	 * data to be processed, ignore this if vbat_low is set.
+	 */
+	time_delta = ktime_ms_delta(now, chip->last_user_update_time);
+
+	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms vbat_low=%d\n",
+				time_delta, vbat_low);
+
+	if (time_delta > MIN_FIFO_FULL_TIME_MS || vbat_low || update_smb) {
+		rc = qg_master_hold(chip, true);
+		if (rc < 0) {
+			pr_err("Failed to hold master, rc=%d\n", rc);
+			goto done;
+		}
+
+		rc = qg_process_rt_fifo(chip);
+		if (rc < 0) {
+			pr_err("Failed to process FIFO real-time, rc=%d\n", rc);
+			goto done;
+		}
+
+		if (vbat_low) {
+			/* change FIFO length */
+			rc = qg_update_fifo_length(chip,
+					chip->dt.s2_vbat_low_fifo_length);
+			if (rc < 0)
+				goto done;
+
+			qg_dbg(chip, QG_DEBUG_STATUS,
+				"FIFO length updated to %d vbat_low=%d\n",
+					chip->dt.s2_vbat_low_fifo_length,
+					vbat_low);
+		}
+
+		if (update_smb) {
+			rc = qg_masked_write(chip, chip->qg_base +
+				QG_MODE_CTL1_REG, PARALLEL_IBAT_SENSE_EN_BIT,
+				chip->parallel_enabled ?
+					PARALLEL_IBAT_SENSE_EN_BIT : 0);
+			if (rc < 0) {
+				pr_err("Failed to update SMB_EN, rc=%d\n", rc);
+				goto done;
+			}
+			qg_dbg(chip, QG_DEBUG_STATUS, "Parallel SENSE %d\n",
+						chip->parallel_enabled);
+		}
+
+		rc = qg_master_hold(chip, false);
+		if (rc < 0) {
+			pr_err("Failed to release master, rc=%d\n", rc);
+			goto done;
+		}
+		/* FIFOs restarted */
+		chip->last_fifo_update_time = ktime_get();
+
+		/* signal the read thread */
+		chip->data_ready = true;
+		wake_up_interruptible(&chip->qg_wait_q);
+		chip->last_user_update_time = now;
+
+		/* vote to stay awake until userspace reads data */
+		vote(chip->awake_votable, FIFO_RT_DONE_VOTER, true, 0);
+	} else {
+		qg_dbg(chip, QG_DEBUG_FIFO, "FIFO processing too early time_delta=%lld\n",
+							time_delta);
+	}
+done:
+	qg_master_hold(chip, false);
+	return rc;
+}
+
 #define VBAT_LOW_HYST_UV		50000 /* 50mV */
 static int qg_vbat_low_wa(struct qpnp_qg *chip)
 {
@@ -561,82 +658,353 @@ config_vbat_low:
 	return rc;
 }
 
-#define MIN_FIFO_FULL_TIME_MS			12000
-static int process_rt_fifo_data(struct qpnp_qg *chip,
-				bool vbat_low, bool update_smb)
+static void qg_retrieve_esr_params(struct qpnp_qg *chip)
 {
-	int rc = 0;
-	ktime_t now = ktime_get();
-	s64 time_delta;
+	u32 data = 0;
+	int rc;
+
+	rc = qg_sdam_read(SDAM_ESR_CHARGE_DELTA, &data);
+	if (!rc && data) {
+		chip->kdata.param[QG_ESR_CHARGE_DELTA].data = data;
+		chip->kdata.param[QG_ESR_CHARGE_DELTA].valid = true;
+		qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR_CHARGE_DELTA SDAM=%d\n", data);
+	} else if (rc < 0) {
+		pr_err("Failed to read ESR_CHARGE_DELTA rc=%d\n", rc);
+	}
+
+	rc = qg_sdam_read(SDAM_ESR_DISCHARGE_DELTA, &data);
+	if (!rc && data) {
+		chip->kdata.param[QG_ESR_DISCHARGE_DELTA].data = data;
+		chip->kdata.param[QG_ESR_DISCHARGE_DELTA].valid = true;
+		qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR_DISCHARGE_DELTA SDAM=%d\n", data);
+	} else if (rc < 0) {
+		pr_err("Failed to read ESR_DISCHARGE_DELTA rc=%d\n", rc);
+	}
+
+	rc = qg_sdam_read(SDAM_ESR_CHARGE_SF, &data);
+	if (!rc && data) {
+		chip->kdata.param[QG_ESR_CHARGE_SF].data = data;
+		chip->kdata.param[QG_ESR_CHARGE_SF].valid = true;
+		qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR_CHARGE_SF SDAM=%d\n", data);
+	} else if (rc < 0) {
+		pr_err("Failed to read ESR_CHARGE_SF rc=%d\n", rc);
+	}
+
+	rc = qg_sdam_read(SDAM_ESR_DISCHARGE_SF, &data);
+	if (!rc && data) {
+		chip->kdata.param[QG_ESR_DISCHARGE_SF].data = data;
+		chip->kdata.param[QG_ESR_DISCHARGE_SF].valid = true;
+		qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR_DISCHARGE_SF SDAM=%d\n", data);
+	} else if (rc < 0) {
+		pr_err("Failed to read ESR_DISCHARGE_SF rc=%d\n", rc);
+	}
+}
+
+static void qg_store_esr_params(struct qpnp_qg *chip)
+{
+	unsigned int esr;
+
+	if (chip->udata.param[QG_ESR_CHARGE_DELTA].valid) {
+		esr = chip->udata.param[QG_ESR_CHARGE_DELTA].data;
+		qg_sdam_write(SDAM_ESR_CHARGE_DELTA, esr);
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"SDAM store ESR_CHARGE_DELTA=%d\n", esr);
+	}
+
+	if (chip->udata.param[QG_ESR_DISCHARGE_DELTA].valid) {
+		esr = chip->udata.param[QG_ESR_DISCHARGE_DELTA].data;
+		qg_sdam_write(SDAM_ESR_DISCHARGE_DELTA, esr);
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"SDAM store ESR_DISCHARGE_DELTA=%d\n", esr);
+	}
+
+	if (chip->udata.param[QG_ESR_CHARGE_SF].valid) {
+		esr = chip->udata.param[QG_ESR_CHARGE_SF].data;
+		qg_sdam_write(SDAM_ESR_CHARGE_SF, esr);
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"SDAM store ESR_CHARGE_SF=%d\n", esr);
+	}
+
+	if (chip->udata.param[QG_ESR_DISCHARGE_SF].valid) {
+		esr = chip->udata.param[QG_ESR_DISCHARGE_SF].data;
+		qg_sdam_write(SDAM_ESR_DISCHARGE_SF, esr);
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"SDAM store ESR_DISCHARGE_SF=%d\n", esr);
+	}
+}
+
+#define MAX_ESR_RETRY_COUNT		10
+#define ESR_SD_PERCENT			10
+static int qg_process_esr_data(struct qpnp_qg *chip)
+{
+	int i;
+	int pre_i, post_i, pre_v, post_v, first_pre_i = 0;
+	int diff_v, diff_i, esr_avg = 0, count = 0;
+
+	for (i = 0; i < qg_esr_count; i++) {
+		if (!chip->esr_data[i].valid)
+			continue;
+
+		pre_i = chip->esr_data[i].pre_esr_i;
+		pre_v = chip->esr_data[i].pre_esr_v;
+		post_i = chip->esr_data[i].post_esr_i;
+		post_v = chip->esr_data[i].post_esr_v;
+
+		/*
+		 * Check if any of the pre/post readings have changed
+		 * signs by comparing it with the first valid
+		 * pre_i value.
+		 */
+		if (!first_pre_i)
+			first_pre_i = pre_i;
+
+		if ((first_pre_i < 0 && pre_i > 0) ||
+			(first_pre_i > 0 && post_i < 0) ||
+			(first_pre_i < 0 && post_i > 0)) {
+			qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR-sign mismatch %d reject all data\n", i);
+			esr_avg = count = 0;
+			break;
+		}
+
+		/* calculate ESR */
+		diff_v = abs(post_v - pre_v);
+		diff_i = abs(post_i - pre_i);
+
+		if (!diff_v || !diff_i ||
+			(diff_i < chip->dt.esr_qual_i_ua) ||
+			(diff_v < chip->dt.esr_qual_v_uv)) {
+			qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR (%d) V/I %duA %duV fails qualification\n",
+				i, diff_i, diff_v);
+			chip->esr_data[i].valid = false;
+			continue;
+		}
+
+		chip->esr_data[i].esr =
+			DIV_ROUND_CLOSEST(diff_v * 1000, diff_i);
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"ESR qualified: i=%d pre_i=%d pre_v=%d post_i=%d post_v=%d esr_diff_v=%d esr_diff_i=%d esr=%d\n",
+			i, pre_i, pre_v, post_i, post_v,
+			diff_v, diff_i, chip->esr_data[i].esr);
+
+		esr_avg += chip->esr_data[i].esr;
+		count++;
+	}
+
+	if (!count) {
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"No ESR samples qualified, ESR not found\n");
+		chip->esr_avg = 0;
+		return 0;
+	}
+
+	esr_avg /= count;
+	qg_dbg(chip, QG_DEBUG_ESR,
+		"ESR all sample average=%d count=%d apply_SD=%d\n",
+		esr_avg, count, (esr_avg * ESR_SD_PERCENT) / 100);
 
 	/*
-	 * Reject the FIFO read event if there are back-to-back requests
-	 * This is done to gaurantee that there is always a minimum FIFO
-	 * data to be processed, ignore this if vbat_low is set.
+	 * Reject ESR samples which do not fall in
+	 * 10% the standard-deviation
 	 */
-	time_delta = ktime_ms_delta(now, chip->last_user_update_time);
+	count = 0;
+	for (i = 0; i < qg_esr_count; i++) {
+		if (!chip->esr_data[i].valid)
+			continue;
 
-	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms vbat_low=%d\n",
-				time_delta, vbat_low);
+		if ((abs(chip->esr_data[i].esr - esr_avg) <=
+			(esr_avg * ESR_SD_PERCENT) / 100)) {
+			/* valid ESR */
+			chip->esr_avg += chip->esr_data[i].esr;
+			count++;
+			qg_dbg(chip, QG_DEBUG_ESR,
+				"Valid ESR after SD (%d) %d mOhm\n",
+				i, chip->esr_data[i].esr);
+		} else {
+			qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR (%d) %d falls-out of SD(%d)\n",
+				i, chip->esr_data[i].esr, ESR_SD_PERCENT);
+		}
+	}
 
-	if (time_delta > MIN_FIFO_FULL_TIME_MS || vbat_low || update_smb) {
-		rc = qg_master_hold(chip, true);
+	if (count >= QG_MIN_ESR_COUNT) {
+		chip->esr_avg /= count;
+		qg_dbg(chip, QG_DEBUG_ESR, "Average estimated ESR %d mOhm\n",
+					chip->esr_avg);
+	} else {
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"Not enough ESR samples, ESR not found\n");
+		chip->esr_avg = 0;
+	}
+
+	return 0;
+}
+
+static int qg_esr_estimate(struct qpnp_qg *chip)
+{
+	int rc, i, ibat;
+	u8 esr_done_count, reg0 = 0, reg1 = 0;
+	bool is_charging = false;
+
+	if (chip->dt.esr_disable)
+		return 0;
+
+	/*
+	 * Charge - enable ESR estimation only during fast-charging.
+	 * Discharge - enable ESR estimation only if enabled via DT.
+	 */
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING &&
+			chip->charge_type != POWER_SUPPLY_CHARGE_TYPE_FAST) {
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"Skip ESR, Not in fast-charge (CC)\n");
+		return 0;
+	}
+
+	if (chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
+			!chip->dt.esr_discharge_enable)
+		return 0;
+
+	if (chip->batt_soc != INT_MIN && (chip->batt_soc <
+					chip->dt.esr_disable_soc)) {
+		qg_dbg(chip, QG_DEBUG_ESR,
+			"Skip ESR, batt-soc below %d\n",
+				chip->dt.esr_disable_soc);
+		return 0;
+	}
+
+	qg_dbg(chip, QG_DEBUG_ESR, "FIFO done count=%d ESR mod count=%d\n",
+			chip->fifo_done_count, qg_esr_mod_count);
+
+	if ((chip->fifo_done_count % qg_esr_mod_count) != 0)
+		return 0;
+
+	if (qg_esr_count > QG_MAX_ESR_COUNT)
+		qg_esr_count = QG_MAX_ESR_COUNT;
+
+	if (qg_esr_count < QG_MIN_ESR_COUNT)
+		qg_esr_count = QG_MIN_ESR_COUNT;
+
+	/* clear all data */
+	chip->esr_avg = 0;
+	memset(&chip->esr_data, 0, sizeof(chip->esr_data));
+
+	rc = qg_master_hold(chip, true);
+	if (rc < 0) {
+		pr_err("Failed to hold master, rc=%d\n", rc);
+		goto done;
+	}
+
+	for (i = 0; i < qg_esr_count; i++) {
+		/* Fire ESR measurement */
+		rc = qg_masked_write(chip,
+			chip->qg_base + QG_ESR_MEAS_TRIG_REG,
+			HW_ESR_MEAS_START_BIT, HW_ESR_MEAS_START_BIT);
 		if (rc < 0) {
-			pr_err("Failed to hold master, rc=%d\n", rc);
-			goto done;
+			pr_err("Failed to start ESR rc=%d\n", rc);
+			continue;
 		}
 
-		rc = qg_process_rt_fifo(chip);
-		if (rc < 0) {
-			pr_err("Failed to process FIFO real-time, rc=%d\n", rc);
-			goto done;
-		}
+		esr_done_count = reg0 = reg1 = 0;
+		do {
+			/* delay for ESR processing to complete */
+			msleep(50);
 
-		if (vbat_low) {
-			/* change FIFO length */
-			rc = qg_update_fifo_length(chip,
-					chip->dt.s2_vbat_low_fifo_length);
+			esr_done_count++;
+
+			rc = qg_read(chip,
+				chip->qg_base + QG_STATUS1_REG, &reg0, 1);
+			if (rc < 0)
+				continue;
+
+			rc = qg_read(chip,
+				chip->qg_base + QG_STATUS4_REG, &reg1, 1);
+			if (rc < 0)
+				continue;
+
+			/* check ESR-done status */
+			if (!(reg1 & ESR_MEAS_IN_PROGRESS_BIT) &&
+					(reg0 & ESR_MEAS_DONE_BIT)) {
+				qg_dbg(chip, QG_DEBUG_ESR,
+					"ESR measurement done %d count %d\n",
+						i, esr_done_count);
+				break;
+			}
+		} while (esr_done_count < MAX_ESR_RETRY_COUNT);
+
+		if (esr_done_count == MAX_ESR_RETRY_COUNT) {
+			pr_err("Failed to get ESR done for %d iteration\n", i);
+			continue;
+		} else {
+			/* found a valid ESR, read pre-post data */
+			rc = qg_read_raw_data(chip, QG_PRE_ESR_V_DATA0_REG,
+					&chip->esr_data[i].pre_esr_v);
 			if (rc < 0)
 				goto done;
 
-			qg_dbg(chip, QG_DEBUG_STATUS,
-				"FIFO length updated to %d vbat_low=%d\n",
-					chip->dt.s2_vbat_low_fifo_length,
-					vbat_low);
-		}
-
-		if (update_smb) {
-			rc = qg_masked_write(chip, chip->qg_base +
-				QG_MODE_CTL1_REG, PARALLEL_IBAT_SENSE_EN_BIT,
-				chip->parallel_enabled ?
-					PARALLEL_IBAT_SENSE_EN_BIT : 0);
-			if (rc < 0) {
-				pr_err("Failed to update SMB_EN, rc=%d\n", rc);
+			rc = qg_read_raw_data(chip, QG_PRE_ESR_I_DATA0_REG,
+					&chip->esr_data[i].pre_esr_i);
+			if (rc < 0)
 				goto done;
-			}
-			qg_dbg(chip, QG_DEBUG_STATUS, "Parallel SENSE %d\n",
-						chip->parallel_enabled);
+
+			rc = qg_read_raw_data(chip, QG_POST_ESR_V_DATA0_REG,
+					&chip->esr_data[i].post_esr_v);
+			if (rc < 0)
+				goto done;
+
+			rc = qg_read_raw_data(chip, QG_POST_ESR_I_DATA0_REG,
+					&chip->esr_data[i].post_esr_i);
+			if (rc < 0)
+				goto done;
+
+			chip->esr_data[i].pre_esr_v =
+				V_RAW_TO_UV(chip->esr_data[i].pre_esr_v);
+			ibat = sign_extend32(chip->esr_data[i].pre_esr_i, 15);
+			chip->esr_data[i].pre_esr_i = I_RAW_TO_UA(ibat);
+			chip->esr_data[i].post_esr_v =
+				V_RAW_TO_UV(chip->esr_data[i].post_esr_v);
+			ibat = sign_extend32(chip->esr_data[i].post_esr_i, 15);
+			chip->esr_data[i].post_esr_i = I_RAW_TO_UA(ibat);
+
+			chip->esr_data[i].valid = true;
+
+			if ((int)chip->esr_data[i].pre_esr_i < 0)
+				is_charging = true;
+
+			qg_dbg(chip, QG_DEBUG_ESR,
+				"ESR values for %d iteration pre_v=%d pre_i=%d post_v=%d post_i=%d\n",
+				i, chip->esr_data[i].pre_esr_v,
+				(int)chip->esr_data[i].pre_esr_i,
+				chip->esr_data[i].post_esr_v,
+				(int)chip->esr_data[i].post_esr_i);
 		}
-
-		rc = qg_master_hold(chip, false);
-		if (rc < 0) {
-			pr_err("Failed to release master, rc=%d\n", rc);
-			goto done;
-		}
-		/* FIFOs restarted */
-		chip->last_fifo_update_time = ktime_get();
-
-		/* signal the read thread */
-		chip->data_ready = true;
-		wake_up_interruptible(&chip->qg_wait_q);
-		chip->last_user_update_time = now;
-
-		/* vote to stay awake until userspace reads data */
-		vote(chip->awake_votable, FIFO_RT_DONE_VOTER, true, 0);
-	} else {
-		qg_dbg(chip, QG_DEBUG_FIFO, "FIFO processing too early time_delta=%lld\n",
-							time_delta);
+		/* delay before the next ESR measurement */
+		msleep(200);
 	}
+
+	rc = qg_process_esr_data(chip);
+	if (rc < 0)
+		pr_err("Failed to process ESR data rc=%d\n", rc);
+
+	rc = qg_master_hold(chip, false);
+	if (rc < 0) {
+		pr_err("Failed to release master, rc=%d\n", rc);
+		goto done;
+	}
+
+	if (chip->esr_avg) {
+		chip->kdata.param[QG_ESR].data = chip->esr_avg;
+		chip->kdata.param[QG_ESR].valid = true;
+		qg_dbg(chip, QG_DEBUG_ESR, "ESR_SW=%d during %s\n",
+			chip->esr_avg, is_charging ? "CHARGE" : "DISCHARGE");
+		qg_retrieve_esr_params(chip);
+	}
+
+	return 0;
 done:
 	qg_master_hold(chip, false);
 	return rc;
@@ -654,6 +1022,9 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_BATT_SOC].valid)
 		chip->batt_soc = chip->udata.param[QG_BATT_SOC].data;
 
+	if (chip->udata.param[QG_FULL_SOC].valid)
+		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
+
 	if (chip->udata.param[QG_SOC].valid) {
 		qg_dbg(chip, QG_DEBUG_SOC, "udata SOC=%d last SOC=%d\n",
 			chip->udata.param[QG_SOC].data, chip->catch_up_soc);
@@ -669,7 +1040,7 @@ static void process_udata_work(struct work_struct *work)
 				chip->udata.param[QG_RBAT_MOHM].data;
 		chip->sdam_data[SDAM_VALID] = 1;
 
-		rc = qg_update_sdam_params(chip);
+		rc = qg_store_soc_params(chip);
 		if (rc < 0)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
@@ -678,6 +1049,14 @@ static void process_udata_work(struct work_struct *work)
 		chip->charge_counter_uah =
 			chip->udata.param[QG_CHARGE_COUNTER].data;
 
+	if (chip->udata.param[QG_ESR].valid)
+		chip->esr_last = chip->udata.param[QG_ESR].data;
+
+	if (!chip->dt.esr_disable)
+		qg_store_esr_params(chip);
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "udata update: batt_soc=%d cc_soc=%d full_soc=%d qg_esr=%d\n",
+		chip->batt_soc, chip->cc_soc, chip->full_soc, chip->esr_last);
 	vote(chip->awake_votable, UDATA_READY_VOTER, false, 0);
 }
 
@@ -717,6 +1096,9 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 		goto done;
 	}
 
+	if (++chip->fifo_done_count == U32_MAX)
+		chip->fifo_done_count = 0;
+
 	rc = qg_vbat_thresholds_config(chip);
 	if (rc < 0)
 		pr_err("Failed to apply VBAT EMPTY config rc=%d\n", rc);
@@ -724,6 +1106,12 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 	rc = qg_vbat_low_wa(chip);
 	if (rc < 0) {
 		pr_err("Failed to apply VBAT LOW WA, rc=%d\n", rc);
+		goto done;
+	}
+
+	rc = qg_esr_estimate(chip);
+	if (rc < 0) {
+		pr_err("Failed to estimate ESR, rc=%d\n", rc);
 		goto done;
 	}
 
@@ -794,7 +1182,7 @@ static irqreturn_t qg_vbat_empty_handler(int irq, void *data)
 	chip->sdam_data[SDAM_OCV_UV] = ocv_uv;
 	chip->sdam_data[SDAM_VALID] = 1;
 
-	qg_update_sdam_params(chip);
+	qg_store_soc_params(chip);
 
 	if (chip->qg_psy)
 		power_supply_changed(chip->qg_psy);
@@ -1195,6 +1583,87 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
+{
+	union power_supply_propval prop = {0, };
+	struct qpnp_qg *chip = data;
+	int rc = 0;
+	int64_t temp = 0;
+
+	if (!chip)
+		return -ENODEV;
+
+	if (chip->battery_missing || !chip->profile_loaded)
+		return -EPERM;
+
+	switch (param) {
+	case TTF_MSOC:
+		rc = qg_get_battery_capacity(chip, val);
+		break;
+	case TTF_VBAT:
+		rc = qg_get_battery_voltage(chip, val);
+		break;
+	case TTF_IBAT:
+		rc = qg_get_battery_current(chip, val);
+		break;
+	case TTF_FCC:
+		if (chip->qg_psy) {
+			rc = power_supply_get_property(chip->qg_psy,
+				POWER_SUPPLY_PROP_CHARGE_FULL, &prop);
+			if (rc >= 0) {
+				temp = div64_u64(prop.intval, 1000);
+				*val  = div64_u64(chip->full_soc * temp,
+						QG_SOC_FULL);
+			}
+		}
+		break;
+	case TTF_MODE:
+		*val = TTF_MODE_NORMAL;
+		break;
+	case TTF_ITERM:
+		if (chip->chg_iterm_ma == INT_MIN)
+			*val = 0;
+		else
+			*val = chip->chg_iterm_ma;
+		break;
+	case TTF_RBATT:
+		rc = qg_sdam_read(SDAM_RBAT_MOHM, val);
+		if (!rc)
+			*val *= 1000;
+		break;
+	case TTF_VFLOAT:
+		*val = chip->bp.float_volt_uv;
+		break;
+	case TTF_CHG_TYPE:
+		*val = chip->charge_type;
+		break;
+	case TTF_CHG_STATUS:
+		*val = chip->charge_status;
+		break;
+	default:
+		pr_err("Unsupported property %d\n", param);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int qg_ttf_awake_voter(void *data, bool val)
+{
+	struct qpnp_qg *chip = data;
+
+	if (!chip)
+		return -ENODEV;
+
+	if (chip->battery_missing || !chip->profile_loaded)
+		return -EPERM;
+
+	vote(chip->awake_votable, TTF_AWAKE_VOTER, val, 0);
+
+	return 0;
+}
+
 static int qg_psy_set_property(struct power_supply *psy,
 			       enum power_supply_property psp,
 			       const union power_supply_propval *pval)
@@ -1265,6 +1734,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 		if (!rc)
 			pval->intval *= 1000;
 		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_NOW:
+		pval->intval = chip->esr_last;
+		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE:
 		pval->intval = chip->dt.rbat_conn_mohm;
 		break;
@@ -1307,6 +1779,12 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		rc = get_cycle_count(chip->counter, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
+		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
+		rc = ttf_get_time_to_empty(chip->ttf, &pval->intval);
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1336,6 +1814,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_RESISTANCE_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
@@ -1347,6 +1826,8 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -1481,6 +1962,13 @@ static void qg_status_change_work(struct work_struct *work)
 	}
 
 	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
+	if (rc < 0)
+		pr_err("Failed to get charge-type, rc=%d\n", rc);
+	else
+		chip->charge_type = prop.intval;
+
+	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_STATUS, &prop);
 	if (rc < 0)
 		pr_err("Failed to get charger status, rc=%d\n", rc);
@@ -1526,6 +2014,8 @@ static void qg_status_change_work(struct work_struct *work)
 	rc = qg_charge_full_update(chip);
 	if (rc < 0)
 		pr_err("Failed in charge_full_update, rc=%d\n", rc);
+
+	ttf_update(chip->ttf, chip->usb_present);
 out:
 	pm_relax(chip->dev);
 }
@@ -1996,7 +2486,7 @@ done:
 	if (rc < 0)
 		pr_err("Failed to update MSOC register rc=%d\n", rc);
 
-	rc = qg_update_sdam_params(chip);
+	rc = qg_store_soc_params(chip);
 	if (rc < 0)
 		pr_err("Failed to update sdam params rc=%d\n", rc);
 
@@ -2224,6 +2714,10 @@ static int qg_post_init(struct qpnp_qg *chip)
 				QG_INIT_STATE_IRQ_DISABLE, true, 0);
 	}
 
+	/* restore ESR data */
+	if (!chip->dt.esr_disable)
+		qg_retrieve_esr_params(chip);
+
 	return 0;
 }
 
@@ -2298,10 +2792,12 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 	return 0;
 }
 
+#define QG_TTF_ITERM_DELTA_MA		1
 static int qg_alg_init(struct qpnp_qg *chip)
 {
 	struct cycle_counter *counter;
 	struct cap_learning *cl;
+	struct ttf *ttf;
 	struct device_node *node = chip->dev->of_node;
 	int rc;
 
@@ -2323,6 +2819,28 @@ static int qg_alg_init(struct qpnp_qg *chip)
 	}
 
 	chip->counter = counter;
+
+	ttf = devm_kzalloc(chip->dev, sizeof(*ttf), GFP_KERNEL);
+	if (!ttf)
+		return -ENOMEM;
+
+	ttf->get_ttf_param = qg_get_ttf_param;
+	ttf->awake_voter = qg_ttf_awake_voter;
+	ttf->iterm_delta = QG_TTF_ITERM_DELTA_MA;
+	ttf->data = chip;
+
+	rc = ttf_tte_init(ttf);
+	if (rc < 0) {
+		dev_err(chip->dev, "Error in initializing ttf, rc:%d\n",
+			rc);
+		ttf->data = NULL;
+		counter->data = NULL;
+		devm_kfree(chip->dev, ttf);
+		devm_kfree(chip->dev, counter);
+		return rc;
+	}
+
+	chip->ttf = ttf;
 
 	chip->dt.cl_disable = of_property_read_bool(node,
 					"qcom,cl-disable");
@@ -2348,6 +2866,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 		counter->data = NULL;
 		cl->data = NULL;
 		devm_kfree(chip->dev, counter);
+		devm_kfree(chip->dev, ttf);
 		devm_kfree(chip->dev, cl);
 		return rc;
 	}
@@ -2373,10 +2892,13 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_CL_MAX_START_SOC	15
 #define DEFAULT_CL_MIN_TEMP_DECIDEGC	150
 #define DEFAULT_CL_MAX_TEMP_DECIDEGC	500
-#define DEFAULT_CL_MAX_INC_DECIPERC	5
-#define DEFAULT_CL_MAX_DEC_DECIPERC	100
-#define DEFAULT_CL_MIN_LIM_DECIPERC	0
-#define DEFAULT_CL_MAX_LIM_DECIPERC	0
+#define DEFAULT_CL_MAX_INC_DECIPERC	10
+#define DEFAULT_CL_MAX_DEC_DECIPERC	20
+#define DEFAULT_CL_MIN_LIM_DECIPERC	500
+#define DEFAULT_CL_MAX_LIM_DECIPERC	100
+#define DEFAULT_ESR_QUAL_CURRENT_UA	130000
+#define DEFAULT_ESR_QUAL_VBAT_UV	7000
+#define DEFAULT_ESR_DISABLE_SOC		1000
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -2570,6 +3092,31 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.rbat_conn_mohm = temp;
 
+	/* esr */
+	chip->dt.esr_disable = of_property_read_bool(node,
+					"qcom,esr-disable");
+
+	chip->dt.esr_discharge_enable = of_property_read_bool(node,
+					"qcom,esr-discharge-enable");
+
+	rc = of_property_read_u32(node, "qcom,esr-qual-current-ua", &temp);
+	if (rc < 0)
+		chip->dt.esr_qual_i_ua = DEFAULT_ESR_QUAL_CURRENT_UA;
+	else
+		chip->dt.esr_qual_i_ua = temp;
+
+	rc = of_property_read_u32(node, "qcom,esr-qual-vbatt-uv", &temp);
+	if (rc < 0)
+		chip->dt.esr_qual_v_uv = DEFAULT_ESR_QUAL_VBAT_UV;
+	else
+		chip->dt.esr_qual_v_uv = temp;
+
+	rc = of_property_read_u32(node, "qcom,esr-disable-soc", &temp);
+	if (rc < 0)
+		chip->dt.esr_disable_soc = DEFAULT_ESR_DISABLE_SOC;
+	else
+		chip->dt.esr_disable_soc = temp * 100;
+
 	/* Capacity learning params*/
 	if (!chip->dt.cl_disable) {
 		chip->dt.cl_feedback_on = of_property_read_bool(node,
@@ -2646,6 +3193,7 @@ static int process_suspend(struct qpnp_qg *chip)
 	if (!chip->profile_loaded)
 		return 0;
 
+	cancel_delayed_work_sync(&chip->ttf->ttf_work);
 	/* disable GOOD_OCV IRQ in sleep */
 	vote(chip->good_ocv_irq_disable_votable,
 			QG_INIT_STATE_IRQ_DISABLE, true, 0);
@@ -2778,6 +3326,8 @@ static int process_resume(struct qpnp_qg *chip)
 		chip->suspend_data = false;
 	}
 
+	schedule_delayed_work(&chip->ttf->ttf_work, 0);
+
 	return rc;
 }
 
@@ -2855,6 +3405,8 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->maint_soc = -EINVAL;
 	chip->batt_soc = INT_MIN;
 	chip->cc_soc = INT_MIN;
+	chip->full_soc = QG_SOC_FULL;
+	chip->chg_iterm_ma = INT_MIN;
 
 	rc = qg_alg_init(chip);
 	if (rc < 0) {
@@ -2920,6 +3472,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 			pr_err("Error in restoring cycle_count, rc=%d\n", rc);
 			return rc;
 		}
+		schedule_delayed_work(&chip->ttf->ttf_work, 10000);
 	}
 
 	rc = qg_determine_pon_soc(chip);
