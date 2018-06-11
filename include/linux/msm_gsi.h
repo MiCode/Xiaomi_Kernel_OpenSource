@@ -1095,11 +1095,12 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver);
  *
  * @base_offset:[OUT] - IRAM base offset address
  * @size:	[OUT] - IRAM size
+ * @ver: GSI core version
 
  * @Return none
  */
 void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size);
+		unsigned long *size, enum gsi_ver ver);
 
 /**
  * gsi_halt_channel_ee - Peripheral should call this function
@@ -1320,7 +1321,7 @@ static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 }
 
 static inline void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size)
+		unsigned long *size, enum gsi_ver ver)
 {
 }
 

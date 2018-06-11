@@ -5933,11 +5933,13 @@ static int ipa3_load_single_fw(const struct firmware *firmware,
  *
  * @firmware: Structure which contains the FW data from the user space.
  * @gsi_mem_base: GSI base address
+ * @gsi_ver: GSI Version
  *
  * Return value: 0 on success, negative otherwise
  *
  */
-int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
+int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
+	enum gsi_ver gsi_ver)
 {
 	const struct elf32_hdr *ehdr;
 	const struct elf32_phdr *phdr;
@@ -5946,6 +5948,11 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
 	phys_addr_t ipa_reg_mem_base;
 	u32 ipa_reg_ofst;
 	int rc;
+
+	if (gsi_ver == GSI_VER_ERR) {
+		IPAERR("Invalid GSI Version\n");
+		return -EINVAL;
+	}
 
 	if (!gsi_mem_base) {
 		IPAERR("Invalid GSI base address\n");
@@ -5977,7 +5984,8 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
 	 */
 
 	/* Load GSI FW image */
-	gsi_get_inst_ram_offset_and_size(&gsi_iram_ofst, &gsi_iram_size);
+	gsi_get_inst_ram_offset_and_size(&gsi_iram_ofst, &gsi_iram_size,
+		gsi_ver);
 	if (phdr->p_vaddr != (gsi_mem_base + gsi_iram_ofst)) {
 		IPAERR(
 			"Invalid GSI FW img load addr vaddr=0x%x gsi_mem_base=%pa gsi_iram_ofst=0x%lx\n"

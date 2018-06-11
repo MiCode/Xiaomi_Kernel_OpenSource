@@ -2997,13 +2997,46 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 EXPORT_SYMBOL(gsi_enable_fw);
 
 void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size)
+		unsigned long *size, enum gsi_ver ver)
 {
-	if (base_offset)
-		*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
+	unsigned long maxn;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return;
+	}
+
+	switch (ver) {
+	case GSI_VER_1_0:
+	case GSI_VER_1_2:
+	case GSI_VER_1_3:
+		maxn = GSI_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_0:
+		maxn = GSI_V2_0_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_2:
+		maxn = GSI_V2_2_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_5:
+		maxn = GSI_V2_5_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_ERR:
+	case GSI_VER_MAX:
+	default:
+		GSIERR("GSI version is not supported %d\n", ver);
+		WARN_ON(1);
+		return;
+	}
 	if (size)
-		*size = GSI_GSI_INST_RAM_n_WORD_SZ *
-			(GSI_GSI_INST_RAM_n_MAXn + 1);
+		*size = GSI_GSI_INST_RAM_n_WORD_SZ * (maxn + 1);
+
+	if (base_offset) {
+		if (ver < GSI_VER_2_5)
+			*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
+		else
+			*base_offset = GSI_V2_5_GSI_INST_RAM_n_OFFS(0);
+	}
 }
 EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 
