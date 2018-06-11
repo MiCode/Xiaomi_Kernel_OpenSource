@@ -278,8 +278,8 @@ static ssize_t mhi_uci_write(struct file *file,
 			(nr_avail = mhi_get_no_free_descriptors(mhi_dev,
 							DMA_TO_DEVICE)) > 0);
 
-		if (ret == -ERESTARTSYS) {
-			MSG_LOG("Exit signal caught for node\n");
+		if (ret == -ERESTARTSYS || !uci_dev->enabled) {
+			MSG_LOG("Exit signal caught for node or not enabled\n");
 			return -ERESTARTSYS;
 		}
 
