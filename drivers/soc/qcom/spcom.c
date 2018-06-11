@@ -1935,16 +1935,26 @@ static int spcom_rpdev_probe(struct rpmsg_device *rpdev)
 static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 {
 	struct spcom_channel *ch;
+	int i;
 
 	if (!rpdev) {
 		pr_err("rpdev is NULL\n");
 		return;
 	}
 
+	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 	ch = dev_get_drvdata(&rpdev->dev);
 	if (!ch) {
 		pr_err("channel %s not found\n", rpdev->id.name);
 		return;
+	}
+	/* release all ion buffers locked by the channel */
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
+		if (ch->dmabuf_handle_table[i]) {
+			dma_buf_put(ch->dmabuf_handle_table[i]);
+			ch->dmabuf_handle_table[i] = NULL;
+			dev_info(&rpdev->dev, "dma_buf_put(%d)\n", i);
+		}
 	}
 	mutex_lock(&ch->lock);
 	ch->rpdev = NULL;
@@ -1956,7 +1966,6 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	if (atomic_dec_and_test(&spcom_dev->rpmsg_dev_count))
 		complete_all(&spcom_dev->rpmsg_state_change);
 
-	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 }
 
 /* register rpmsg driver to match with channel ch_name */
