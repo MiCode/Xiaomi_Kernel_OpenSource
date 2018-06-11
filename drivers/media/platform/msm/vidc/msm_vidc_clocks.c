@@ -22,6 +22,24 @@
 #define MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO (5 << 16)
 
+static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
+	u32 filled_len);
+static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst);
+static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
+	u32 filled_len);
+
+struct msm_vidc_core_ops core_ops_vpu4 = {
+	.calc_freq = msm_vidc_calc_freq_ar50,
+	.decide_work_route = NULL,
+	.decide_work_mode = msm_vidc_decide_work_mode_ar50,
+};
+
+struct msm_vidc_core_ops core_ops_vpu5 = {
+	.calc_freq = msm_vidc_calc_freq,
+	.decide_work_route = msm_vidc_decide_work_route,
+	.decide_work_mode = msm_vidc_decide_work_mode,
+};
+
 static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
 {
 	dprintk(VIDC_PROF,
@@ -576,8 +594,77 @@ exit:
 	mutex_unlock(&inst->input_crs.lock);
 }
 
+static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
+	u32 filled_len)
+{
+	unsigned long freq = 0;
+	unsigned long vpp_cycles = 0, vsp_cycles = 0;
+	u32 vpp_cycles_per_mb;
+	u32 mbs_per_second;
+	struct msm_vidc_core *core = NULL;
+	int i = 0;
+	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
+	u64 rate = 0;
+	struct clock_data *dcvs = NULL;
 
+	core = inst->core;
+	dcvs = &inst->clk_data;
 
+	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
+		LOAD_CALC_NO_QUIRKS);
+
+	/*
+	 * Calculate vpp, vsp cycles separately for encoder and decoder.
+	 * Even though, most part is common now, in future it may change
+	 * between them.
+	 */
+
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		vpp_cycles_per_mb = inst->flags & VIDC_LOW_POWER ?
+			inst->clk_data.entry->low_power_cycles :
+			inst->clk_data.entry->vpp_cycles;
+
+		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
+
+		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
+
+		/* 10 / 7 is overhead factor */
+		vsp_cycles += (inst->clk_data.bitrate * 10) / 7;
+	} else if (inst->session_type == MSM_VIDC_DECODER) {
+		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
+
+		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
+		/* 10 / 7 is overhead factor */
+		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
+
+	} else {
+		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
+		return msm_vidc_max_freq(inst->core);
+	}
+
+	freq = max(vpp_cycles, vsp_cycles);
+
+	dprintk(VIDC_DBG, "Update DCVS Load\n");
+	allowed_clks_tbl = core->resources.allowed_clks_tbl;
+	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
+		rate = allowed_clks_tbl[i].clock_rate;
+		if (rate >= freq)
+			break;
+	}
+
+	dcvs->load_norm = rate;
+	dcvs->load_low = i < (core->resources.allowed_clks_tbl_size - 1) ?
+		allowed_clks_tbl[i+1].clock_rate : dcvs->load_norm;
+	dcvs->load_high = i > 0 ? allowed_clks_tbl[i-1].clock_rate :
+		dcvs->load_norm;
+
+	msm_dcvs_print_dcvs_stats(dcvs);
+
+	dprintk(VIDC_PROF, "%s Inst %pK : Filled Len = %d Freq = %lu\n",
+		__func__, inst, filled_len, freq);
+
+	return freq;
+}
 
 static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	u32 filled_len)
@@ -829,7 +916,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 		goto no_clock_change;
 	}
 
-	freq = msm_vidc_calc_freq(inst, filled_len);
+	freq = call_core_op(inst->core, calc_freq, inst, filled_len);
 
 	msm_vidc_update_freq_entry(inst, freq, device_addr, is_turbo);
 
@@ -1093,6 +1180,71 @@ decision_done:
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure work route %pK\n", inst);
+
+	return rc;
+}
+
+static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_video_work_mode pdata;
+	struct hal_enable latency;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR,
+			"%s Invalid args: Inst = %pK\n",
+			__func__, inst);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+	if (inst->clk_data.low_latency_mode) {
+		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		goto decision_done;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		pdata.video_work_mode = VIDC_WORK_MODE_2;
+		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		case V4L2_PIX_FMT_MPEG2:
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			break;
+		case V4L2_PIX_FMT_H264:
+		case V4L2_PIX_FMT_HEVC:
+			if (inst->prop.height[OUTPUT_PORT] *
+				inst->prop.width[OUTPUT_PORT] <=
+					1280 * 720)
+				pdata.video_work_mode = VIDC_WORK_MODE_1;
+			break;
+		}
+	} else if (inst->session_type == MSM_VIDC_ENCODER)
+		pdata.video_work_mode = VIDC_WORK_MODE_1;
+	else {
+		return -EINVAL;
+	}
+
+decision_done:
+
+	inst->clk_data.work_mode = pdata.video_work_mode;
+	rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VIDEO_WORK_MODE,
+			(void *)&pdata);
+	if (rc)
+		dprintk(VIDC_WARN,
+				" Failed to configure Work Mode %pK\n", inst);
+
+	/* For WORK_MODE_1, set Low Latency mode by default to HW. */
+
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+			inst->clk_data.work_mode == VIDC_WORK_MODE_1) {
+		latency.enable = 1;
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
+			(void *)&latency);
+	}
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
 
 	return rc;
 }
@@ -1427,6 +1579,17 @@ decision_done:
 	msm_print_core_status(core, VIDC_CORE_ID_2);
 
 	return rc;
+}
+
+void msm_vidc_init_core_clk_ops(struct msm_vidc_core *core)
+{
+	if (!core)
+		return;
+
+	if (core->platform_data->vpu_ver == VPU_VERSION_4)
+		core->core_ops = &core_ops_vpu4;
+	else
+		core->core_ops = &core_ops_vpu5;
 }
 
 void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)

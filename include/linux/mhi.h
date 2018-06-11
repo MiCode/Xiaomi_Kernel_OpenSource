@@ -19,6 +19,7 @@ struct mhi_cmd;
 struct image_info;
 struct bhi_vec_entry;
 struct mhi_timesync;
+struct mhi_buf_info;
 
 /**
  * enum MHI_CB - MHI callback
@@ -218,9 +219,17 @@ struct mhi_controller {
 	u64 (*time_get)(struct mhi_controller *mhi_cntrl, void *priv);
 	void (*lpm_disable)(struct mhi_controller *mhi_cntrl, void *priv);
 	void (*lpm_enable)(struct mhi_controller *mhi_cntrl, void *priv);
+	int (*map_single)(struct mhi_controller *mhi_cntrl,
+			  struct mhi_buf_info *buf);
+	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
+			     struct mhi_buf_info *buf);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
+
+	/* bounce buffer settings */
+	bool bounce_buf;
+	size_t buffer_len;
 
 	/* supports time sync feature */
 	bool time_sync;

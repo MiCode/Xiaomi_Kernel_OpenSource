@@ -197,6 +197,7 @@ struct msm_vidc_platform_resources {
 	int codec_data_count;
 	struct msm_vidc_csc_coeff *csc_coeff_data;
 	struct msm_vidc_mem_cdsp mem_cdsp;
+	uint32_t vpu_ver;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)

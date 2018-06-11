@@ -9,31 +9,11 @@ Node Structure
 
 Main node properties:
 
-- compatible
+- reg
   Usage: required
-  Value type: <string>
-  Definition: "qcom,mhi"
-
-- qcom,pci-dev-id
-  Usage: optional
-  Value type: <u32>
-  Definition: PCIe device id of external modem to bind. If not set, any
-	device is compatible with this node.
-
-- qcom,pci-domain
-  Usage: required
-  Value type: <u32>
-  Definition: PCIe root complex external modem connected to
-
-- qcom,pci-bus
-  Usage: required
-  Value type: <u32>
-  Definition: PCIe bus external modem connected to
-
-- qcom,pci-slot
-  Usage: required
-  Value type: <u32>
-  Definition: PCIe slot as assigned by pci framework to external modem
+  Value type: Array (5-cell PCI resource) of <u32>
+  Definition: First cell is devfn, which is determined by pci bus topology.
+	Assign the other cells 0 since they are not used.
 
 - qcom,smmu-cfg
   Usage: required
@@ -94,17 +74,24 @@ Main node properties:
 ========
 Example:
 ========
-qcom,mhi {
-	compatible = "qcom,mhi";
-	qcom,pci-domain = <0>;
-	qcom,pci-bus = <1>;
-	qcom,pci-slot = <0>;
-	qcom,smmu-cfg = <0x3d>;
-	qcom,addr-win = <0x0 0x20000000 0x0 0x3fffffff>;
-	qcom,msm-bus,name = "mhi";
-	qcom,msm-bus,num-cases = <2>;
-	qcom,msm-bus,num-paths = <1>;
-	qcom,msm-bus,vectors-KBps = <45 512 0 0>,
-				    <45 512 1200000000 650000000>;
-	<mhi bus configurations>
+
+/* pcie domain (root complex) modem connected to */
+&pcie1 {
+	/* pcie bus modem connected to */
+	pci,bus@1 {
+		reg = <0 0 0 0 0>;
+
+		qcom,mhi {
+			reg = <0 0 0 0 0>;
+			qcom,smmu-cfg = <0x3d>;
+			qcom,addr-win = <0x0 0x20000000 0x0 0x3fffffff>;
+			qcom,msm-bus,name = "mhi";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps = <45 512 0 0>,
+				<45 512 1200000000 650000000>;
+
+			<mhi bus configurations>
+		};
+	};
 };

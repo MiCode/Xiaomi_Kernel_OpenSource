@@ -32,6 +32,7 @@
 #include "venus_boot.h"
 #include "vidc_hfi_api.h"
 #include "msm_v4l2_private.h"
+#include "msm_vidc_clocks.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -361,6 +362,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	}
 
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
+	INIT_WORK(&core->ssr_work, msm_vidc_ssr_handler);
 
 	mutex_lock(&core->lock);
 	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
@@ -369,6 +371,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 	mutex_unlock(&core->lock);
 
+	msm_vidc_init_core_clk_ops(core);
 	return rc;
 }
 

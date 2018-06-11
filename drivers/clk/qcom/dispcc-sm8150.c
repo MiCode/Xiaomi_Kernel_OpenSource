@@ -176,6 +176,20 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
+};
+
+static const struct alpha_pll_config disp_cc_pll0_config_sm8150_v2 = {
+	.l = 0x47,
+	.alpha = 0xE000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -204,6 +218,20 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 };
 
 static const struct alpha_pll_config disp_cc_pll1_config = {
+	.l = 0x1F,
+	.alpha = 0x4000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
+};
+
+static const struct alpha_pll_config disp_cc_pll1_config_sm8150_v2 = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -374,8 +402,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 108000,
-			[VDD_LOW] = 180000,
+			[VDD_LOWER] = 180000,
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
@@ -397,8 +424,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 108000,
-			[VDD_LOW] = 180000,
+			[VDD_LOWER] = 180000,
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
@@ -428,8 +454,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_link1_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200,
-			[VDD_LOWER] = 162000,
-			[VDD_LOW] = 270000,
+			[VDD_LOWER] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
 	},
@@ -451,8 +476,7 @@ static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200,
-			[VDD_LOWER] = 162000,
-			[VDD_LOW] = 270000,
+			[VDD_LOWER] = 270000,
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
 	},
@@ -472,9 +496,9 @@ static struct clk_rcg2 disp_cc_mdss_dp_pixel1_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 337500000,
-			[VDD_LOW_L1] = 675000000},
+			[VDD_MIN] = 19200,
+			[VDD_LOWER] = 337500,
+			[VDD_LOW_L1] = 675000},
 	},
 };
 
@@ -1486,9 +1510,52 @@ static const struct qcom_cc_desc disp_cc_sm8150_desc = {
 
 static const struct of_device_id disp_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,dispcc-sm8150" },
+	{ .compatible = "qcom,dispcc-sm8150-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_sm8150_match_table);
+
+static void disp_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
+{
+	clk_trion_pll_configure(&disp_cc_pll0, regmap,
+		&disp_cc_pll0_config_sm8150_v2);
+	clk_trion_pll_configure(&disp_cc_pll1, regmap,
+		&disp_cc_pll1_config_sm8150_v2);
+	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		337500;
+	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		675000;
+	disp_cc_mdss_dp_pixel2_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		337500;
+	disp_cc_mdss_dp_pixel2_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		675000;
+	disp_cc_mdss_dp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		337500;
+	disp_cc_mdss_dp_pixel_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		675000;
+	disp_cc_mdss_edp_link_clk_src.clkr.hw.init->rate_max[VDD_LOW] =
+		594000000;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		337500000;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		675000000;
+}
+
+static int disp_cc_sm8150_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,dispcc-sm8150-v2"))
+		disp_cc_sm8150_fixup_sm8150v2(regmap);
+
+	return 0;
+}
 
 static int disp_cc_sm8150_probe(struct platform_device *pdev)
 {
@@ -1517,6 +1584,10 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
+
+	ret = disp_cc_sm8150_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	clk_trion_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
 	clk_trion_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);

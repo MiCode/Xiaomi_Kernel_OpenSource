@@ -17,3 +17,23 @@
 	qcom,msm-name = "SM8150 V2";
 	qcom,msm-id = <339 0x20000>;
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-sm8150-v2", "syscon";
+};
+
+&clock_camcc {
+	compatible = "qcom,camcc-sm8150-v2", "syscon";
+};
+
+&clock_dispcc {
+	compatible = "qcom,dispcc-sm8150-v2", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,videocc-sm8150-v2", "syscon";
+};
+
+&clock_npucc {
+	compatible = "qcom,npucc-sm8150-v2", "syscon";
+};

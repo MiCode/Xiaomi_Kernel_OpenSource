@@ -2294,7 +2294,7 @@ int ipahal_print_all_regs(void)
 	}
 
 	for (i = 0; i < IPA_REG_MAX ; i++) {
-		if (!ipahal_reg_objs[IPA_HW_v4_0][i].en_print)
+		if (!ipahal_reg_objs[ipahal_ctx->hw_type][i].en_print)
 			continue;
 
 		j = ipahal_reg_objs[ipahal_ctx->hw_type][i].n_start;

@@ -2801,6 +2801,9 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 	case IPA_HW_v4_2:
 		str = "4.2";
 		break;
+	case IPA_HW_v4_5:
+		str = "4.5";
+		break;
 	default:
 		str = "Invalid version";
 		break;
@@ -2857,6 +2860,7 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v4_0:
 	case IPA_HW_v4_1:
 	case IPA_HW_v4_2:
+	case IPA_HW_v4_5:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;

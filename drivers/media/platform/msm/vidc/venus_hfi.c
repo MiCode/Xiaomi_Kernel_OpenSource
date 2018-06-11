@@ -108,6 +108,23 @@ static int __disable_subcaches(struct venus_hfi_device *device);
 static int __power_collapse(struct venus_hfi_device *device, bool force);
 static int venus_hfi_noc_error_info(void *dev);
 
+static void interrupt_init_vpu4(struct venus_hfi_device *device);
+static void interrupt_init_vpu5(struct venus_hfi_device *device);
+static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device);
+static void clock_config_on_enable_vpu5(struct venus_hfi_device *device);
+
+struct venus_hfi_vpu_ops vpu4_ops = {
+	.interrupt_init = interrupt_init_vpu4,
+	.setup_dsp_uc_memmap = NULL,
+	.clock_config_on_enable = NULL,
+};
+
+struct venus_hfi_vpu_ops vpu5_ops = {
+	.interrupt_init = interrupt_init_vpu5,
+	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_vpu5,
+	.clock_config_on_enable = clock_config_on_enable_vpu5,
+};
+
 /**
  * Utility function to enforce some of our assumptions.  Spam calls to this
  * in hotspots in code to double check some of the assumptions that we hold.
@@ -1860,20 +1877,7 @@ static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
 	if (device->qdss.align_device_addr)
 		__write_register(device, VIDC_MMAP_ADDR,
 				(u32)device->qdss.align_device_addr);
-	/* initialize DSP QTBL & UCREGION with CPU queues */
-	__write_register(device, HFI_DSP_QTBL_ADDR,
-			(u32)device->iface_q_table.align_device_addr);
-	__write_register(device, HFI_DSP_UC_REGION_ADDR,
-			(u32)device->iface_q_table.align_device_addr);
-	__write_register(device, HFI_DSP_UC_REGION_SIZE, SHARED_QSIZE);
-	if (device->res->domain_cvp) {
-		__write_register(device, HFI_DSP_QTBL_ADDR,
-			(u32)device->dsp_iface_q_table.align_device_addr);
-		__write_register(device, HFI_DSP_UC_REGION_ADDR,
-			(u32)device->dsp_iface_q_table.align_device_addr);
-		__write_register(device, HFI_DSP_UC_REGION_SIZE,
-			device->dsp_iface_q_table.mem_data.size);
-	}
+	call_venus_op(device, setup_dsp_uc_memmap, device);
 }
 
 static int __interface_queues_init(struct venus_hfi_device *dev)
@@ -3745,14 +3749,18 @@ static int __init_regs_and_interrupts(struct venus_hfi_device *device,
 		goto error_irq_fail;
 	}
 
-	hal->gcc_reg_base = devm_ioremap_nocache(&res->pdev->dev,
-			res->gcc_register_base, res->gcc_register_size);
-	hal->gcc_reg_size = res->gcc_register_size;
-	if (!hal->gcc_reg_base) {
-		dprintk(VIDC_ERR,
-			"could not map gcc reg addr %pa of size %d\n",
-			&res->gcc_register_base, res->gcc_register_size);
-		goto error_irq_fail;
+	if (res->gcc_register_base) {
+		hal->gcc_reg_base = devm_ioremap_nocache(&res->pdev->dev,
+				res->gcc_register_base,
+					res->gcc_register_size);
+		hal->gcc_reg_size = res->gcc_register_size;
+		if (!hal->gcc_reg_base) {
+			dprintk(VIDC_ERR,
+				"could not map gcc reg addr %pa of size %d\n",
+				&res->gcc_register_base,
+				res->gcc_register_size);
+			goto error_irq_fail;
+		}
 	}
 
 	device->hal_data = hal;
@@ -3965,8 +3973,7 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clock: %s prepared and enabled\n", cl->name);
 	}
 
-	__write_register(device, VIDC_WRAPPER_CPU_CGC_DIS, 0);
-	__write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
+	call_venus_op(device, clock_config_on_enable, device);
 	return rc;
 
 fail_clk_enable:
@@ -4540,10 +4547,53 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 	return 0;
 }
 
+static void interrupt_init_vpu5(struct venus_hfi_device *device)
+{
+	u32 mask_val = 0;
+
+	/* All interrupts should be disabled initially 0x1F6 : Reset value */
+	mask_val = __read_register(device, VIDC_WRAPPER_INTR_MASK);
+
+	/* Write 0 to unmask CPU and WD interrupts */
+	mask_val &= ~(VIDC_WRAPPER_INTR_MASK_A2HWD_BMSK |
+			VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK);
+	__write_register(device, VIDC_WRAPPER_INTR_MASK, mask_val);
+}
+
+static void interrupt_init_vpu4(struct venus_hfi_device *device)
+{
+	__write_register(device, VIDC_WRAPPER_INTR_MASK,
+			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
+}
+
+static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device)
+{
+	/* initialize DSP QTBL & UCREGION with CPU queues */
+	__write_register(device, HFI_DSP_QTBL_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, HFI_DSP_UC_REGION_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, HFI_DSP_UC_REGION_SIZE, SHARED_QSIZE);
+	if (device->res->domain_cvp) {
+		__write_register(device, HFI_DSP_QTBL_ADDR,
+			(u32)device->dsp_iface_q_table.align_device_addr);
+		__write_register(device, HFI_DSP_UC_REGION_ADDR,
+			(u32)device->dsp_iface_q_table.align_device_addr);
+		__write_register(device, HFI_DSP_UC_REGION_SIZE,
+			device->dsp_iface_q_table.mem_data.size);
+	}
+}
+
+static void clock_config_on_enable_vpu5(struct venus_hfi_device *device)
+{
+	__write_register(device, VIDC_WRAPPER_CPU_CGC_DIS, 0);
+	__write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
+}
+
 static int __venus_power_on(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 mask_val = 0;
+
 
 	if (device->power_enabled)
 		return 0;
@@ -4588,13 +4638,7 @@ static int __venus_power_on(struct venus_hfi_device *device)
 	 */
 	__set_registers(device);
 
-	/* All interrupts should be disabled initially 0x1F6 : Reset value */
-	mask_val = __read_register(device, VIDC_WRAPPER_INTR_MASK);
-
-	/* Write 0 to unmask CPU and WD interrupts */
-	mask_val &= ~(VIDC_WRAPPER_INTR_MASK_A2HWD_BMSK |
-			VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK);
-	__write_register(device, VIDC_WRAPPER_INTR_MASK, mask_val);
+	call_venus_op(device, interrupt_init, device);
 	device->intr_status = 0;
 	enable_irq(device->hal_data->irq);
 
@@ -4997,6 +5041,14 @@ static int __initialize_packetization(struct venus_hfi_device *device)
 	return rc;
 }
 
+void __init_venus_ops(struct venus_hfi_device *device)
+{
+	if (device->res->vpu_ver == VPU_VERSION_4)
+		device->vpu_ops = &vpu4_ops;
+	else
+		device->vpu_ops = &vpu5_ops;
+}
+
 static struct venus_hfi_device *__add_device(u32 device_id,
 			struct msm_vidc_platform_resources *res,
 			hfi_cmd_response_callback callback)
@@ -5039,6 +5091,8 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 	hdevice->res = res;
 	hdevice->device_id = device_id;
 	hdevice->callback = callback;
+
+	__init_venus_ops(hdevice);
 
 	hdevice->vidc_workq = create_singlethread_workqueue(
 		"msm_vidc_workerq_venus");

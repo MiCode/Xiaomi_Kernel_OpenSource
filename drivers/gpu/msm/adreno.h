@@ -213,6 +213,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
+	ADRENO_REV_A680 = 680,
 };
 
 #define ADRENO_START_WARM 0
@@ -1251,6 +1252,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
+ADRENO_TARGET(a680, ADRENO_REV_A680)
 
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
 {
@@ -1891,10 +1893,10 @@ static inline bool adreno_has_sptprac_gdsc(struct adreno_device *adreno_dev)
 
 static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev) || adreno_is_a640(adreno_dev))
-		return true;
-	else
+	if (!adreno_is_a6xx(adreno_dev) || adreno_is_a630(adreno_dev))
 		return false;
+	else
+		return true;
 }
 
 /**
@@ -1933,7 +1935,8 @@ static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 	if (adreno_has_gbif(adreno_dev))
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
 }
-
+void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
+void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);

@@ -218,7 +218,8 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 
 	return count;
 }
-static CLASS_ATTR_RW(slave_pct);
+static struct class_attribute class_attr_slave_pct =
+		__ATTR(parallel_pct, 0644, slave_pct_show, slave_pct_store);
 
 /************************
  * RESTRICTED CHARGIGNG *

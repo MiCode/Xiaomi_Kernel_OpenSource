@@ -181,16 +181,26 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 		if (instance->initialized && old_target == instance->target)
 			continue;
 
-		/* Activate a passive thermal instance */
-		if (old_target == THERMAL_NO_TARGET &&
-			instance->target != THERMAL_NO_TARGET) {
-			update_passive_instance(tz, trip_type, 1);
-			trace_thermal_zone_trip(tz, trip, trip_type, true);
-		/* Deactivate a passive thermal instance */
-		} else if (old_target != THERMAL_NO_TARGET &&
-			instance->target == THERMAL_NO_TARGET) {
-			update_passive_instance(tz, trip_type, -1);
-			trace_thermal_zone_trip(tz, trip, trip_type, false);
+		if (!instance->initialized) {
+			if (instance->target != THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							true);
+				update_passive_instance(tz, trip_type, 1);
+			}
+		} else {
+			/* Activate a passive thermal instance */
+			if (old_target == THERMAL_NO_TARGET &&
+				instance->target != THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							true);
+				update_passive_instance(tz, trip_type, 1);
+			/* Deactivate a passive thermal instance */
+			} else if (old_target != THERMAL_NO_TARGET &&
+				instance->target == THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							false);
+				update_passive_instance(tz, trip_type, -1);
+			}
 		}
 
 		instance->initialized = true;

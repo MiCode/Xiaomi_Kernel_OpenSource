@@ -33,22 +33,13 @@ enum print_reason {
 #define PD_VOTER			"PD_VOTER"
 #define DCP_VOTER			"DCP_VOTER"
 #define QC_VOTER			"QC_VOTER"
-#define PL_USBIN_USBIN_VOTER		"PL_USBIN_USBIN_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
-#define PL_QNOVO_VOTER			"PL_QNOVO_VOTER"
 #define USBIN_V_VOTER			"USBIN_V_VOTER"
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
-#define TYPEC_SRC_VOTER			"TYPEC_SRC_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
-#define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
-#define APSD_VOTER			"APSD_VOTER"
-#define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
-#define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
-#define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
-#define USBIN_USBIN_BOOST_VOTER		"USBIN_USBIN_BOOST_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
@@ -66,29 +57,19 @@ enum print_reason {
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
+#define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
 
 #define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
 
+#define ADC_CHG_TERM_MASK	32767
+
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
 	NUM_MODES,
-};
-
-enum sec_charger_config {
-	MAIN_STANDALONE = 0,
-	SEC_CHG_CP_ONLY,
-	SEC_CHG_PL_ONLY,
-	SEC_CHG_CP_AND_PL,
-};
-
-enum sec_charger_type {
-	SEC_CHG_NONE = 0,
-	SEC_CHG_CP,
-	SEC_CHG_PL,
 };
 
 enum sink_src_mode {
@@ -182,6 +163,12 @@ enum float_options {
 	FLOAT_SDP		= 2,
 	DISABLE_CHARGING	= 3,
 	SUSPEND_INPUT		= 4,
+};
+
+enum chg_term_config_src {
+	ITERM_SRC_UNSPECIFIED,
+	ITERM_SRC_ADC,
+	ITERM_SRC_ANALOG
 };
 
 struct smb_irq_info {
@@ -471,6 +458,8 @@ int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);

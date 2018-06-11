@@ -96,6 +96,8 @@
 #define IPA_IOCTL_DEL_NAT_TABLE                 54
 #define IPA_IOCTL_DEL_IPV6CT_TABLE              55
 #define IPA_IOCTL_GET_VLAN_MODE                 56
+#define IPA_IOCTL_ADD_BRIDGE_VLAN_MAPPING       57
+#define IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING       58
 
 /**
  * max size of the header to be inserted
@@ -510,7 +512,13 @@ enum ipa_per_client_stats_event {
 	IPA_PER_CLIENT_STATS_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_PER_CLIENT_STATS_EVENT_MAX)
+enum ipa_vlan_bridge_event {
+	ADD_BRIDGE_VLAN_MAPPING = IPA_PER_CLIENT_STATS_EVENT_MAX,
+	DEL_BRIDGE_VLAN_MAPPING,
+	BRIDGE_VLAN_MAPPING_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (BRIDGE_VLAN_MAPPING_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -572,6 +580,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v4_0: IPA hardware version 4.0
  * @IPA_HW_v4_1: IPA hardware version 4.1
  * @IPA_HW_v4_2: IPA hardware version 4.2
+ * @IPA_HW_v4_5: IPA hardware version 4.5
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -589,12 +598,14 @@ enum ipa_hw_type {
 	IPA_HW_v4_0 = 14,
 	IPA_HW_v4_1 = 15,
 	IPA_HW_v4_2 = 16,
+	IPA_HW_v4_5 = 17,
 };
-#define IPA_HW_MAX (IPA_HW_v4_2 + 1)
+#define IPA_HW_MAX (IPA_HW_v4_5 + 1)
 
 #define IPA_HW_v4_0 IPA_HW_v4_0
 #define IPA_HW_v4_1 IPA_HW_v4_1
 #define IPA_HW_v4_2 IPA_HW_v4_2
+#define IPA_HW_v4_5 IPA_HW_v4_5
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -1876,6 +1887,20 @@ struct ipa_ioc_get_vlan_mode {
 };
 
 /**
+ * struct ipa_ioc_bridge_vlan_mapping_info - vlan to bridge mapping info
+ * @bridge_name: bridge interface name
+ * @vlan_id: vlan ID bridge is mapped to
+ * @bridge_ipv4: bridge interface ipv4 address
+ * @subnet_mask: bridge interface subnet mask
+ */
+struct ipa_ioc_bridge_vlan_mapping_info {
+	char bridge_name[IPA_RESOURCE_NAME_MAX];
+	uint16_t vlan_id;
+	uint32_t bridge_ipv4;
+	uint32_t subnet_mask;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -2056,6 +2081,15 @@ struct ipa_ioc_get_vlan_mode {
 #define IPA_IOC_GET_VLAN_MODE _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_VLAN_MODE, \
 				struct ipa_ioc_get_vlan_mode *)
+
+#define IPA_IOC_ADD_BRIDGE_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_BRIDGE_VLAN_MAPPING, \
+				struct ipa_ioc_bridge_vlan_mapping_info)
+
+#define IPA_IOC_DEL_BRIDGE_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING, \
+				struct ipa_ioc_bridge_vlan_mapping_info)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */

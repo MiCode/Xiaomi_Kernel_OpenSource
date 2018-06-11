@@ -298,6 +298,51 @@ static bool mhi_is_ring_full(struct mhi_controller *mhi_cntrl,
 	return (tmp == ring->rp);
 }
 
+int mhi_map_single_no_bb(struct mhi_controller *mhi_cntrl,
+			 struct mhi_buf_info *buf_info)
+{
+	buf_info->p_addr = dma_map_single(mhi_cntrl->dev, buf_info->v_addr,
+					  buf_info->len, buf_info->dir);
+	if (dma_mapping_error(mhi_cntrl->dev, buf_info->p_addr))
+		return -ENOMEM;
+
+	return 0;
+}
+
+int mhi_map_single_use_bb(struct mhi_controller *mhi_cntrl,
+			  struct mhi_buf_info *buf_info)
+{
+	void *buf = mhi_alloc_coherent(mhi_cntrl, buf_info->len,
+				       &buf_info->p_addr, GFP_ATOMIC);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (buf_info->dir == DMA_TO_DEVICE)
+		memcpy(buf, buf_info->v_addr, buf_info->len);
+
+	buf_info->bb_addr = buf;
+
+	return 0;
+}
+
+void mhi_unmap_single_no_bb(struct mhi_controller *mhi_cntrl,
+			    struct mhi_buf_info *buf_info)
+{
+	dma_unmap_single(mhi_cntrl->dev, buf_info->p_addr, buf_info->len,
+			 buf_info->dir);
+}
+
+void mhi_unmap_single_use_bb(struct mhi_controller *mhi_cntrl,
+			    struct mhi_buf_info *buf_info)
+{
+	if (buf_info->dir == DMA_FROM_DEVICE)
+		memcpy(buf_info->v_addr, buf_info->bb_addr, buf_info->len);
+
+	mhi_free_coherent(mhi_cntrl, buf_info->len, buf_info->bb_addr,
+			  buf_info->p_addr);
+}
+
 int mhi_queue_skb(struct mhi_device *mhi_dev,
 		  struct mhi_chan *mhi_chan,
 		  void *buf,
@@ -311,6 +356,7 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
 	bool assert_wake = false;
+	int ret;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -348,10 +394,8 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	buf_info->wp = tre_ring->wp;
 	buf_info->dir = mhi_chan->dir;
 	buf_info->len = len;
-	buf_info->p_addr = dma_map_single(mhi_cntrl->dev, buf_info->v_addr, len,
-					  buf_info->dir);
-
-	if (dma_mapping_error(mhi_cntrl->dev, buf_info->p_addr))
+	ret = mhi_cntrl->map_single(mhi_cntrl, buf_info);
+	if (ret)
 		goto map_error;
 
 	mhi_tre = tre_ring->wp;
@@ -385,7 +429,7 @@ map_error:
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	return -ENOMEM;
+	return ret;
 }
 
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
@@ -399,6 +443,7 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	struct mhi_tre *mhi_tre;
 	struct mhi_buf_info *buf_info;
 	int eot, eob, chain, bei;
+	int ret;
 
 	buf_ring = &mhi_chan->buf_ring;
 	tre_ring = &mhi_chan->tre_ring;
@@ -409,11 +454,10 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	buf_info->wp = tre_ring->wp;
 	buf_info->dir = mhi_chan->dir;
 	buf_info->len = buf_len;
-	buf_info->p_addr = dma_map_single(mhi_cntrl->dev, buf, buf_len,
-					  buf_info->dir);
 
-	if (dma_mapping_error(mhi_cntrl->dev, buf_info->p_addr))
-		return -ENOMEM;
+	ret = mhi_cntrl->map_single(mhi_cntrl, buf_info);
+	if (ret)
+		return ret;
 
 	eob = !!(flags & MHI_EOB);
 	eot = !!(flags & MHI_EOT);
@@ -736,8 +780,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 			else
 				xfer_len = buf_info->len;
 
-			dma_unmap_single(mhi_cntrl->dev, buf_info->p_addr,
-					 buf_info->len, buf_info->dir);
+			mhi_cntrl->unmap_single(mhi_cntrl, buf_info);
 
 			result.buf_addr = buf_info->cb_buf;
 			result.bytes_xferd = xfer_len;
@@ -1328,11 +1371,12 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	if (mhi_chan->pre_alloc) {
 		int nr_el = get_nr_avail_ring_elements(mhi_cntrl,
 						       &mhi_chan->tre_ring);
+		size_t len = mhi_cntrl->buffer_len;
 
 		while (nr_el--) {
 			void *buf;
 
-			buf = kmalloc(MHI_MAX_MTU, GFP_KERNEL);
+			buf = kmalloc(len, GFP_KERNEL);
 			if (!buf) {
 				ret = -ENOMEM;
 				goto error_pre_alloc;
@@ -1340,7 +1384,7 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 
 			/* prepare transfer descriptors */
 			ret = mhi_chan->gen_tre(mhi_cntrl, mhi_chan, buf, buf,
-						MHI_MAX_MTU, MHI_EOT);
+						len, MHI_EOT);
 			if (ret) {
 				MHI_ERR("Chan:%d error prepare buffer\n",
 					mhi_chan->chan);
@@ -1455,8 +1499,7 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 		if (mhi_chan->dir == DMA_TO_DEVICE)
 			mhi_cntrl->wake_put(mhi_cntrl, false);
 
-		dma_unmap_single(mhi_cntrl->dev, buf_info->p_addr,
-				 buf_info->len, buf_info->dir);
+		mhi_cntrl->unmap_single(mhi_cntrl, buf_info);
 		mhi_del_ring_element(mhi_cntrl, buf_ring);
 		mhi_del_ring_element(mhi_cntrl, tre_ring);
 

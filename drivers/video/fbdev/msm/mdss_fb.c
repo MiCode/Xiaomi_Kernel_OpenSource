@@ -123,18 +123,6 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
 
-int of_led_classdev_register(struct device *parent, struct device_node *np,
-				struct led_classdev *led_cdev)
-{
-	/* Stub out till LEDS CLASS defconfig is enabled */
-	return 0;
-}
-
-void led_classdev_unregister(struct led_classdev *led_cdev)
-{
-	/* Stub out till LEDS CLASS defconfig is enabled */
-}
-
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -1341,10 +1329,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (!lcd_backlight_registered) {
 		backlight_led.brightness = mfd->panel_info->brightness_max;
 		backlight_led.max_brightness = mfd->panel_info->brightness_max;
-		if (led_classdev_register(&pdev->dev, &backlight_led))
-			pr_err("led_classdev_register failed\n");
-		else
-			lcd_backlight_registered = 1;
+		lcd_backlight_registered = 1;
 	}
 
 	mdss_fb_init_panel_modes(mfd, pdata);
@@ -1441,7 +1426,6 @@ static int mdss_fb_remove(struct platform_device *pdev)
 
 	if (lcd_backlight_registered) {
 		lcd_backlight_registered = 0;
-		led_classdev_unregister(&backlight_led);
 	}
 
 	return 0;

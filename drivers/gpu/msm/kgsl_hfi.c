@@ -105,7 +105,6 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		uint32_t *msg)
 {
-	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct hfi_queue_table *tbl = gmu->hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	uint32_t *queue;
@@ -168,7 +167,7 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 	wmb();
 
 	/* Send interrupt to GMU to receive the message */
-	adreno_write_gmureg(ADRENO_DEVICE(device),
+	adreno_write_gmureg(ADRENO_DEVICE(hfi->kgsldev),
 		ADRENO_REG_GMU_HOST2GMU_INTR_SET, 0x1);
 
 	return 0;
@@ -610,7 +609,7 @@ int hfi_start(struct kgsl_device *device,
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
 
-	if (!adreno_is_a640(adreno_dev)) {
+	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev)) {
 		result = hfi_send_gmu_init(gmu, boot_state);
 		if (result)
 			return result;
@@ -629,10 +628,12 @@ int hfi_start(struct kgsl_device *device,
 		return result;
 
 	/*
-	 * Send H2F_MSG_CORE_FW_START and features for A640 devices,
-	 * otherwise send H2F_MSG_TEST if quirk is enabled.
+	 * If quirk is enabled send H2F_MSG_TEST and tell the GMU
+	 * we are sending no more HFIs until the next boot otherwise
+	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
-	if (adreno_is_a640(adreno_dev)) {
+
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
 		result = hfi_send_feature_ctrls(gmu);
 		if (result)
 			return result;
@@ -641,17 +642,12 @@ int hfi_start(struct kgsl_device *device,
 		if (result)
 			return result;
 	} else {
-		/*
-		 * Tell the GMU we are sending no more HFIs
-		 * until the next boot
-		 */
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 			result = hfi_send_test(gmu);
 			if (result)
 				return result;
 		}
 	}
-
 	set_bit(GMU_HFI_ON, &gmu->flags);
 	return 0;
 }
@@ -723,4 +719,34 @@ int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 	}
 
 	return -EINVAL;
+}
+
+/* HFI interrupt handler */
+irqreturn_t hfi_irq_handler(int irq, void *data)
+{
+	struct kgsl_device *device = data;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int status = 0;
+
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
+	adreno_write_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
+
+	if (status & HFI_IRQ_MSGQ_MASK)
+		tasklet_hi_schedule(&hfi->tasklet);
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"GMU CM3 fault interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
+	if (status & ~HFI_IRQ_MASK)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"Unhandled HFI interrupts 0x%lx\n",
+				status & ~HFI_IRQ_MASK);
+
+	return IRQ_HANDLED;
 }

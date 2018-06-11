@@ -10,3 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+&smb1351_otg_supply {
+	qcom,charging-disabled;
+};
