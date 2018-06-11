@@ -383,6 +383,14 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		ret = 0;
 	}
 
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
+		ret = gpio_direction_output(
+			ctrl_pdata->vdd_ext_gpio, 0);
+		if (ret)
+			pr_err("%s: unable to set dir for vdd gpio\n",
+					__func__);
+	}
+
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
 
@@ -409,6 +417,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
+		ret = gpio_direction_output(
+				ctrl_pdata->vdd_ext_gpio, 1);
+		usleep_range(3000, 4000); /* h/w recommended delay */
+		if (ret)
+			pr_err("%s: unable to set dir for vdd gpio\n",
+					__func__);
+	}
 
 	ret = msm_mdss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
@@ -4182,6 +4199,11 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	ctrl_pdata->bklt_en_gpio_invert =
 			of_property_read_bool(ctrl_pdev->dev.of_node,
 				"qcom,platform-bklight-en-gpio-invert");
+
+	ctrl_pdata->vdd_ext_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,ext-vdd-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->vdd_ext_gpio))
+		pr_info("%s: ext vdd gpio not specified\n", __func__);
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
