@@ -71,6 +71,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define OV_VOTER			"OV_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
+#define FG_ESR_VOTER			"FG_ESR_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
