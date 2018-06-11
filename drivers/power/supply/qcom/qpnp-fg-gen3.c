@@ -15,6 +15,8 @@
 #include <linux/ktime.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/spinlock.h>
+#include <linux/alarmtimer.h>
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
@@ -2754,6 +2756,142 @@ static const char *fg_get_cycle_count(struct fg_chip *chip)
 	return buf;
 }
 
+#define ESR_SW_FCC_UA				100000	/* 100mA */
+#define ESR_EXTRACTION_ENABLE_MASK		BIT(0)
+static void fg_esr_sw_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip, esr_sw_work);
+	union power_supply_propval pval = {0, };
+	int rc, esr_uohms = 0;
+
+	vote(chip->awake_votable, FG_ESR_VOTER, true, 0);
+	/*
+	 * Enable ESR extraction just before we reduce the FCC
+	 * to make sure that FG extracts the ESR. Disable ESR
+	 * extraction after FCC reduction is complete to prevent
+	 * any further HW pulses.
+	 */
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+			ESR_EXTRACTION_ENABLE_OFFSET,
+			ESR_EXTRACTION_ENABLE_MASK, 0x1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Failed to enable ESR extraction rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for 1 FG cycle to complete */
+	msleep(1500);
+
+	/* for FCC to 100mA */
+	pval.intval = ESR_SW_FCC_UA;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
+			&pval);
+	if (rc < 0) {
+		pr_err("Failed to set FCC to 100mA rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for ESR readings */
+	msleep(3000);
+
+	/* FCC to 0 (removes vote) */
+	pval.intval = 0;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
+			&pval);
+	if (rc < 0) {
+		pr_err("Failed to remove FCC vote rc=%d\n", rc);
+		goto done;
+	}
+
+	fg_get_sram_prop(chip, FG_SRAM_ESR, &esr_uohms);
+	fg_dbg(chip, FG_STATUS, "SW ESR done ESR=%d\n", esr_uohms);
+
+	/* restart the alarm timer */
+	alarm_start_relative(&chip->esr_sw_timer,
+		ms_to_ktime(chip->esr_wakeup_ms));
+done:
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+			ESR_EXTRACTION_ENABLE_OFFSET,
+			ESR_EXTRACTION_ENABLE_MASK, 0x0, FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("Failed to disable ESR extraction rc=%d\n", rc);
+
+
+	vote(chip->awake_votable, FG_ESR_VOTER, false, 0);
+	fg_relax(chip, FG_SW_ESR_WAKE);
+}
+
+static enum alarmtimer_restart
+	fg_esr_sw_timer(struct alarm *alarm, ktime_t now)
+{
+	struct fg_chip *chip = container_of(alarm,
+			struct fg_chip, esr_sw_timer);
+
+	if (!chip->usb_present)
+		return ALARMTIMER_NORESTART;
+
+	fg_stay_awake(chip, FG_SW_ESR_WAKE);
+	schedule_work(&chip->esr_sw_work);
+
+	return ALARMTIMER_NORESTART;
+}
+
+static int fg_config_esr_sw(struct fg_chip *chip)
+{
+	int rc;
+	union power_supply_propval prop = {0, };
+
+	if (!chip->dt.use_esr_sw)
+		return 0;
+
+	if (!usb_psy_initialized(chip))
+		return 0;
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &prop);
+	if (rc < 0) {
+		pr_err("Error in reading usb-status rc = %d\n", rc);
+		return rc;
+	}
+
+	if (chip->usb_present != prop.intval) {
+		chip->usb_present = prop.intval;
+		fg_dbg(chip, FG_STATUS, "USB status changed=%d\n",
+						chip->usb_present);
+		/* cancel any pending work */
+		alarm_cancel(&chip->esr_sw_timer);
+		cancel_work_sync(&chip->esr_sw_work);
+
+		if (chip->usb_present) {
+			/* disable ESR extraction across the charging cycle */
+			rc = fg_sram_masked_write(chip,
+					ESR_EXTRACTION_ENABLE_WORD,
+					ESR_EXTRACTION_ENABLE_OFFSET,
+					ESR_EXTRACTION_ENABLE_MASK,
+					0x0, FG_IMA_DEFAULT);
+			if (rc < 0)
+				return rc;
+			/* wake up early for the first ESR on insertion */
+			alarm_start_relative(&chip->esr_sw_timer,
+				ms_to_ktime(chip->esr_wakeup_ms / 2));
+		} else {
+			/* enable ESR extraction on removal */
+			rc = fg_sram_masked_write(chip,
+					ESR_EXTRACTION_ENABLE_WORD,
+					ESR_EXTRACTION_ENABLE_OFFSET,
+					ESR_EXTRACTION_ENABLE_MASK,
+					0x1, FG_IMA_DEFAULT);
+			if (rc < 0)
+				return rc;
+		}
+	}
+
+	return 0;
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2770,6 +2908,10 @@ static void status_change_work(struct work_struct *work)
 		fg_dbg(chip, FG_STATUS, "Profile load is not complete yet\n");
 		goto out;
 	}
+
+	rc = fg_config_esr_sw(chip);
+	if (rc < 0)
+		pr_err("Failed to config SW ESR rc=%d\n", rc);
 
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
 			&prop);
@@ -2836,7 +2978,7 @@ static void status_change_work(struct work_struct *work)
 out:
 	fg_dbg(chip, FG_STATUS, "charge_status:%d charge_type:%d charge_done:%d\n",
 		chip->charge_status, chip->charge_type, chip->charge_done);
-	pm_relax(chip->dev);
+	fg_relax(chip, FG_STATUS_NOTIFY_WAKE);
 }
 
 static int fg_bp_params_config(struct fg_chip *chip)
@@ -3157,7 +3299,7 @@ out:
 	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
 	if (!work_pending(&chip->status_change_work)) {
-		pm_stay_awake(chip->dev);
+		fg_stay_awake(chip, FG_STATUS_NOTIFY_WAKE);
 		schedule_work(&chip->status_change_work);
 	}
 }
@@ -4075,7 +4217,7 @@ static int fg_notifier_cb(struct notifier_block *nb,
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
 		 */
-		pm_stay_awake(chip->dev);
+		fg_stay_awake(chip, FG_STATUS_NOTIFY_WAKE);
 		schedule_work(&chip->status_change_work);
 	}
 
@@ -4409,6 +4551,18 @@ static int fg_hw_init(struct fg_chip *chip)
 				FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in writing ki_coeff_hi_chg, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.use_esr_sw) {
+		/* Enable ESR extraction explicitly */
+		rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+				ESR_EXTRACTION_ENABLE_OFFSET,
+				ESR_EXTRACTION_ENABLE_MASK,
+				0x1, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in enabling ESR extraction rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -5350,6 +5504,8 @@ static int fg_parse_dt(struct fg_chip *chip)
 			chip->dt.bmd_en_delay_ms = temp;
 	}
 
+	chip->dt.use_esr_sw = of_property_read_bool(node, "qcom,fg-use-sw-esr");
+
 	return 0;
 }
 
@@ -5498,12 +5654,14 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->ttf.lock);
 	mutex_init(&chip->charge_full_lock);
 	mutex_init(&chip->qnovo_esr_ctrl_lock);
+	spin_lock_init(&chip->awake_lock);
 	spin_lock_init(&chip->suspend_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
+	INIT_WORK(&chip->esr_sw_work, fg_esr_sw_work);
 	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
 	INIT_WORK(&chip->esr_filter_work, esr_filter_work);
@@ -5524,6 +5682,23 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "Error in initializing FG hardware, rc:%d\n",
 			rc);
 		goto exit;
+	}
+
+	if (chip->dt.use_esr_sw) {
+		if (alarmtimer_get_rtcdev()) {
+			alarm_init(&chip->esr_sw_timer, ALARM_BOOTTIME,
+				fg_esr_sw_timer);
+		} else {
+			pr_err("Failed to get esw_sw alarm-timer\n");
+			/* RTC always registers, hence defer until it passes */
+			rc = -EPROBE_DEFER;
+			goto exit;
+		}
+		if (chip->dt.esr_timer_charging[TIMER_MAX] != -EINVAL)
+			chip->esr_wakeup_ms =
+				chip->dt.esr_timer_charging[TIMER_MAX] * 1460;
+		else
+			chip->esr_wakeup_ms = 140000;	/* 140 seconds */
 	}
 
 	/* Register the power supply */

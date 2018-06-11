@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -998,4 +998,28 @@ int fg_debugfs_create(struct fg_chip *chip)
 err_remove_fs:
 	debugfs_remove_recursive(chip->dfs_root);
 	return -ENOMEM;
+}
+
+void fg_stay_awake(struct fg_chip *chip, int awake_reason)
+{
+	spin_lock(&chip->awake_lock);
+
+	if (!chip->awake_status)
+		pm_stay_awake(chip->dev);
+
+	chip->awake_status |= awake_reason;
+
+	spin_unlock(&chip->awake_lock);
+}
+
+void fg_relax(struct fg_chip *chip, int awake_reason)
+{
+	spin_lock(&chip->awake_lock);
+
+	chip->awake_status &= ~awake_reason;
+
+	if (!chip->awake_status)
+		pm_relax(chip->dev);
+
+	spin_unlock(&chip->awake_lock);
 }
