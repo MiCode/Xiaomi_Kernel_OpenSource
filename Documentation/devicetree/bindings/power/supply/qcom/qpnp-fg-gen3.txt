@@ -438,6 +438,12 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: The delay in ms for FG to enable BMD after reading RID.
 
+- qcom,fg-use-sw-esr
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property when defined uses software based
+		    ESR during charging.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
