@@ -824,13 +824,13 @@ int mhi_dev_send_ee_event(struct mhi_dev *mhi, enum mhi_dev_execenv exec_env)
 }
 EXPORT_SYMBOL(mhi_dev_send_ee_event);
 
-static void mhi_dev_trigger_cb(void)
+static void mhi_dev_trigger_cb(enum mhi_client_channel ch_id)
 {
 	struct mhi_dev_ready_cb_info *info;
 	enum mhi_ctrl_info state_data;
 
 	list_for_each_entry(info, &mhi_ctx->client_cb_list, list)
-		if (info->cb) {
+		if (info->cb && info->cb_data.channel == ch_id) {
 			mhi_ctrl_state_info(info->cb_data.channel, &state_data);
 			info->cb_data.ctrl_info = state_data;
 			info->cb(&info->cb_data);
@@ -1023,7 +1023,7 @@ send_start_completion_event:
 
 		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
 		/* Trigger callback to clients */
-		mhi_dev_trigger_cb();
+		mhi_dev_trigger_cb(ch_id);
 		if (ch_id == MHI_CLIENT_MBIM_OUT)
 			kobject_uevent_env(&mhi_ctx->dev->kobj,
 						KOBJ_CHANGE, connected);
