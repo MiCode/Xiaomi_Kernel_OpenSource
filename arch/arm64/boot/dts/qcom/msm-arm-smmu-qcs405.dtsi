@@ -21,6 +21,7 @@
 		#iommu-cells = <2>;
 		qcom,tz-device-id = "GPU";
 		qcom,skip-init;
+		qcom,disable-atos;
 		qcom,dynamic;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <0>;
@@ -36,7 +37,7 @@
 		clock-names = "iface_clk", "core_clk";
 	};
 
-	apps_iommu: qcom,iommu@1e00000 {
+	apps_smmu: qcom,iommu@1e00000 {
 		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1e00000 0x40000>,
@@ -45,6 +46,7 @@
 		#iommu-cells = <2>;
 		qcom,tz-device-id = "APPS";
 		qcom,skip-init;
+		qcom,disable-atos;
 		qcom,enable-static-cb;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <0>;
