@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2471,10 +2471,6 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 		return;
 	}
 
-	if (penv->bus_client)
-		msm_bus_scale_client_update_request(penv->bus_client,
-						    CNSS_BUS_WIDTH_NONE);
-
 	if (!pdev) {
 		pr_err("%d: invalid pdev\n", __LINE__);
 		goto cut_power;
@@ -2496,7 +2492,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS)) {
 			pr_err("Failed to shutdown PCIe link\n");
-			return;
+			goto bus_request;
 		}
 	} else if (penv->pcie_link_state && penv->pcie_link_down_ind) {
 		penv->saved_state = NULL;
@@ -2505,7 +2501,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 				pdev, PM_OPTIONS_SUSPEND_LINK_DOWN)) {
 			pr_err("Failed to shutdown PCIe link (with linkdown option)\n");
-			return;
+			goto bus_request;
 		}
 	}
 	penv->pcie_link_state = PCIE_LINK_DOWN;
@@ -2519,6 +2515,10 @@ cut_power:
 	cnss_configure_wlan_en_gpio(WLAN_EN_LOW);
 	if (cnss_wlan_vreg_set(vreg_info, VREG_OFF))
 		pr_err("wlan vreg OFF failed\n");
+bus_request:
+	if (penv->bus_client)
+		msm_bus_scale_client_update_request(penv->bus_client,
+						    CNSS_BUS_WIDTH_NONE);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
