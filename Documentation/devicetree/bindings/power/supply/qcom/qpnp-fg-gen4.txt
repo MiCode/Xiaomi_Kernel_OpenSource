@@ -229,6 +229,17 @@ First Level Node - FG Gen4 device
 		    This should be defined in the ascending order and in the
 		    range of 0-100. Array limit is set to 3.
 
+- qcom,ki-coeff-low-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of ki coefficient values for low discharge current
+		    during discharge. These values will be applied when the
+		    monotonic SOC goes below the SOC threshold specified under
+		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
+		    property should be specified if qcom,ki-coeff-soc-dischg
+		    is specified to make it fully functional. Value has no
+		    unit. Allowed range is 62 to 15564 in micro units.
+
 - qcom,ki-coeff-med-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
@@ -250,6 +261,27 @@ First Level Node - FG Gen4 device
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 62 to 15564 in micro units.
+
+- qcom,ki-coeff-low-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for low charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
+
+- qcom,ki-coeff-med-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for medium charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
+
+- qcom,ki-coeff-hi-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for high charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
 
 - qcom,fg-rconn-uohms
 	Usage:      optional

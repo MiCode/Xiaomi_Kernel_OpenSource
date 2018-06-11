@@ -275,6 +275,12 @@
 #define ESR_REQ_CTL_BIT				BIT(1)
 #define ESR_REQ_CTL_EN_BIT			BIT(0)
 
+#define BATT_INFO_PEEK_MUX4(chip)		(chip->batt_info_base + 0xEE)
+#define ALG_ACTIVE_PEEK_CFG			0xAC
+
+#define BATT_INFO_PEEK_RD(chip)			(chip->batt_info_base + 0xEF)
+#define ALG_ACTIVE_BIT				BIT(3)
+
 /* FG_MEM_IF register and bit definitions */
 #define MEM_IF_INT_RT_STS(chip)			((chip->mem_if_base) + 0x10)
 #define MEM_XCP_BIT				BIT(1)
