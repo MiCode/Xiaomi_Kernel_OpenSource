@@ -14,7 +14,16 @@
 qcom,alium_860_89032_0000_3600mah_averaged_masterslave_feb7th2018 {
 	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Feb7th2018*/
 	qcom,max-voltage-uv = <4350000>;
-	qcom,fastchg-current-ma = <3600>;
+	qcom,fastchg-current-ma = <5400>;
+	qcom,jeita-fcc-ranges = <0  100  2500000
+				110 400  5400000
+				410 450  2500000>;
+	qcom,jeita-fv-ranges = <0   100  4250000
+				110 400  4350000
+				410 450  4250000>;
+	qcom,step-chg-ranges = <3600000  4200000  5400000
+				4201000  4300000  3600000
+				4301000  4350000  2500000>;
 	qcom,batt-id-kohm = <107>;
 	qcom,battery-beta = <4250>;
 	qcom,therm-room-temp = <100000>;
