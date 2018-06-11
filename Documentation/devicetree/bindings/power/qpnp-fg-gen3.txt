@@ -385,6 +385,12 @@ First Level Node - FG Gen3 device
 		    property "qcom,slope-limit-temp-threshold" to make dynamic
 		    slope limit adjustment functional.
 
+- qcom,fg-use-sw-esr
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property when defined uses software based
+		    ESR during charging.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================

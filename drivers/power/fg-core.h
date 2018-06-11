@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,10 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/spmi.h>
+#include <linux/alarmtimer.h>
 #include <linux/power_supply.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/string_helpers.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
@@ -50,6 +52,7 @@
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
 #define DELTA_SOC		"fg_delta_soc"
+#define FG_ESR_VOTER		"fg_esr_voter"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
@@ -92,6 +95,11 @@ enum fg_debug_flag {
 	FG_BUS_READ		= BIT(6), /* Show REGMAP reads */
 	FG_CAP_LEARN		= BIT(7), /* Show capacity learning */
 	FG_TTF			= BIT(8), /* Show time to full */
+};
+
+enum awake_reasons {
+	FG_SW_ESR_WAKE = BIT(0),
+	FG_STATUS_NOTIFY_WAKE = BIT(1),
 };
 
 /* SRAM access */
@@ -233,6 +241,7 @@ struct fg_dt_props {
 	bool	force_load_profile;
 	bool	hold_soc_while_full;
 	bool	auto_recharge_soc;
+	bool	use_esr_sw;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -375,15 +384,19 @@ struct fg_chip {
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct fg_cap_learning  cl;
+	struct alarm            esr_sw_timer;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		batt_avg_lock;
 	struct mutex		charge_full_lock;
+	spinlock_t		awake_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
 	u32			rradc_base;
 	u32			wa_flags;
+	u32			esr_wakeup_ms;
+	u32			awake_status;
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
@@ -410,11 +423,13 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			usb_present;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
+	struct work_struct	esr_sw_work;
 	struct delayed_work	batt_avg_work;
 	struct delayed_work	sram_dump_work;
 	struct fg_circ_buf	ibatt_circ_buf;
@@ -477,4 +492,6 @@ extern void fg_circ_buf_add(struct fg_circ_buf *, int);
 extern void fg_circ_buf_clr(struct fg_circ_buf *);
 extern int fg_circ_buf_avg(struct fg_circ_buf *, int *);
 extern int fg_lerp(const struct fg_pt *, size_t, s32, s32 *);
+void fg_stay_awake(struct fg_chip *chip, int awake_reason);
+void fg_relax(struct fg_chip *chip, int awake_reason);
 #endif
