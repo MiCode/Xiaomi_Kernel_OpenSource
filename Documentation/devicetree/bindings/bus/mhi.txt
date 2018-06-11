@@ -316,11 +316,21 @@ MHI netdev properties
   Value type: <bool>
   Definition: Set true if interface support recycling buffers.
 
+- aliases
+  Usage: required
+  Value type: <string>
+  Definition: mhi net_device should have numbered alias in the alias node,
+	in the form of mhi_netdevN, N = 0, 1..n for each network interface.
+
 ========
 Example:
 ========
 
-mhi_rmnet@0 {
+aliases {
+	mhi_netdev0 = &mhi_netdev_0;
+};
+
+mhi_netdev_0: mhi_rmnet@0 {
 	mhi,chan = "IP_HW0";
 	mhi,interface-name = "rmnet_mhi";
 	mhi,mru = <0x4000>;
