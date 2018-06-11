@@ -793,36 +793,52 @@ out:
 	return rc;
 }
 
-#define MEM_GNT_WAIT_TIME_US	10000
-#define MEM_GNT_RETRIES		50
-static int fg_direct_mem_request(struct fg_dev *fg, bool request)
+static int fg_direct_mem_release(struct fg_dev *fg)
 {
-	int rc, ret, i = 0;
-	u8 val, mask, poll_bit;
+	int rc;
+	u8 val = 0, mask;
 
 	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
-	val = request ? MEM_ACCESS_REQ_BIT : 0;
 	rc = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
 		return rc;
 	}
 
-	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
-	val = request ? mask : 0;
+	mask = MEM_ARB_REQ_BIT;
 	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("released access\n");
+	return rc;
+}
+
+#define MEM_GNT_WAIT_TIME_US	10000
+#define MEM_GNT_RETRIES		50
+static int fg_direct_mem_request(struct fg_dev *fg)
+{
+	int rc, ret, i = 0;
+	u8 val, mask, poll_bit;
+
+	val = mask = MEM_ARB_REQ_BIT;
+	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return rc;
+	}
+
+	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
+	val = MEM_ACCESS_REQ_BIT;
+	rc = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
 		goto release;
 	}
 
-	if (request)
-		pr_debug("requesting access\n");
-	else
-		pr_debug("releasing access\n");
-
-	if (!request)
-		return 0;
+	pr_debug("requesting access\n");
 
 	/*
 	 * HW takes 5 cycles (200 KHz clock) to grant access after requesting
@@ -858,20 +874,9 @@ static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 	fg_dump_regs(fg);
 
 release:
-	val = 0;
-	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
-	ret = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
-	if (ret < 0) {
-		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
+	ret = fg_direct_mem_release(fg);
+	if (ret < 0)
 		return ret;
-	}
-
-	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
-	ret = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
-	if (ret < 0) {
-		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
-		return ret;
-	}
 
 	return rc;
 }
@@ -987,7 +992,7 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 
 	pr_debug("number of partitions: %d\n", num_partitions);
 
-	rc = fg_direct_mem_request(fg, true);
+	rc = fg_direct_mem_request(fg);
 	if (rc < 0) {
 		pr_err("Error in requesting direct_mem access rc=%d\n", rc);
 		return rc;
@@ -1032,7 +1037,7 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 		offset = 0;
 	}
 
-	ret = fg_direct_mem_request(fg, false);
+	rc = fg_direct_mem_release(fg);
 	if (ret < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n", rc);
 		return ret;
@@ -1196,10 +1201,19 @@ static int fg_dma_init(struct fg_dev *fg)
 	}
 
 	/* Release the DMA initially so that request can happen */
-	rc = fg_direct_mem_request(fg, false);
+	rc = fg_direct_mem_release(fg);
 	if (rc < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/* Set low latency always and clear log bit */
+	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg),
+		MEM_ARB_LO_LATENCY_EN_BIT | MEM_CLR_LOG_BIT,
+		MEM_ARB_LO_LATENCY_EN_BIT);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
 		return rc;
 	}
 
