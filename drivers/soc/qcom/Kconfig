@@ -12,6 +12,15 @@ config QCOM_GLINK_SSR
 	  implements the SSR protocol for notifying the remote processor about
 	  neighboring subsystems going up or down.
 
+config QCOM_CPUSS_DUMP
+	bool "CPU Subsystem Dumping support"
+	help
+	  Add support to dump various hardware entities such as the instruction
+	  and data tlb's as well as the unified tlb, which are a part of the
+	  cpu subsystem to an allocated buffer. This allows for analysis of the
+	  the entities if corruption is suspected.
+	  If unsure, say N
+
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM
