@@ -2849,7 +2849,7 @@ int gsi_set_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
 }
 EXPORT_SYMBOL(gsi_set_channel_cfg);
 
-static void gsi_configure_ieps(void *base)
+static void gsi_configure_ieps(void *base, enum gsi_ver ver)
 {
 	void __iomem *gsi_base = base;
 
@@ -2866,6 +2866,10 @@ static void gsi_configure_ieps(void *base)
 	gsi_writel(11, gsi_base + GSI_GSI_IRAM_PTR_NEW_RE_OFFS);
 	gsi_writel(12, gsi_base + GSI_GSI_IRAM_PTR_READ_ENG_COMP_OFFS);
 	gsi_writel(13, gsi_base + GSI_GSI_IRAM_PTR_TIMER_EXPIRED_OFFS);
+
+	if (ver >= GSI_VER_2_5)
+		gsi_writel(17,
+			gsi_base + GSI_V2_5_GSI_IRAM_PTR_TLV_CH_NOT_FULL_OFFS);
 }
 
 static void gsi_configure_bck_prs_matrix(void *base)
@@ -2908,9 +2912,19 @@ static void gsi_configure_bck_prs_matrix(void *base)
 }
 
 int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr)
+		phys_addr_t per_base_addr, enum gsi_ver ver)
 {
 	void __iomem *gsi_base;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (ver <= GSI_VER_ERR || ver >= GSI_VER_MAX) {
+		GSIERR("Incorrect version %d\n", ver);
+		return -GSI_STATUS_ERROR;
+	}
 
 	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
 	if (!gsi_base) {
@@ -2921,7 +2935,7 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 	gsi_writel(per_base_addr,
 			gsi_base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
 	gsi_configure_bck_prs_matrix((void *)gsi_base);
-	gsi_configure_ieps(gsi_base);
+	gsi_configure_ieps(gsi_base, ver);
 	iounmap(gsi_base);
 
 	return 0;
