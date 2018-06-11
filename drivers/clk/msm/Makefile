@@ -53,3 +53,7 @@ obj-$(CONFIG_ARCH_MSM8953)	+= clock-cpu-8953.o
 
 obj-y				+= gdsc.o
 obj-y				+= mdss/
+
+ifdef CONFIG_ARCH_MDM9607
+KBUILD_CFLAGS	+= -fno-cse-follow-jumps
+endif
