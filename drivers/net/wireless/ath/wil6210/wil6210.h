@@ -1004,6 +1004,9 @@ struct wil6210_priv {
 
 	bool secured_boot;
 	u8 boot_config;
+
+	/* relevant only for eDMA */
+	bool amsdu_en;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
