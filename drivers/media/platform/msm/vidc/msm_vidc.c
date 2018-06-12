@@ -913,7 +913,11 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	struct hal_vbv_hdr_buf_size hrd_buf_size;
 	struct hal_enable latency;
 	struct hfi_device *hdev;
+	struct hal_multi_slice_control multi_slice_control;
 	u32 codec;
+	u32 mbps, mb_per_frame, fps, bitrate;
+	u32 slice_val, slice_mode, max_avg_slicesize;
+	u32 output_width, output_height;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -965,6 +969,61 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		inst->clk_data.low_latency_mode = latency.enable;
 	}
 
+	/* Update Slice Config */
+	slice_mode =  msm_comm_g_ctrl_for_id(inst,
+		 V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+
+	if ((codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC) &&
+		slice_mode != V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) {
+
+		output_height = inst->prop.height[CAPTURE_PORT];
+		output_width = inst->prop.width[CAPTURE_PORT];
+		fps = inst->prop.fps;
+		bitrate = inst->clk_data.bitrate;
+		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
+		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
+
+		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF &&
+			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
+			slice_mode = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+			slice_val = 0;
+		} else if (slice_mode ==
+				    V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
+			if (output_width > 3840 || output_height > 3840 ||
+				mb_per_frame > NUM_MBS_PER_FRAME(3840, 2160) ||
+				fps > 60) {
+				slice_mode =
+					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+				slice_val = 0;
+			} else {
+				slice_val = msm_comm_g_ctrl_for_id(inst,
+				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB);
+				slice_val = max(slice_val, mb_per_frame / 10);
+			}
+		} else {
+			if (output_width > 1920 || output_height > 1920 ||
+				mb_per_frame > NUM_MBS_PER_FRAME(1920, 1088) ||
+				 fps > 30) {
+				slice_mode =
+					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+				slice_val = 0;
+			} else {
+				slice_val = msm_comm_g_ctrl_for_id(inst,
+				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES);
+				max_avg_slicesize = ((bitrate / fps) / 8) / 10;
+				slice_val =
+					max(slice_val, max_avg_slicesize);
+			}
+		}
+
+		multi_slice_control.multi_slice = slice_mode;
+		multi_slice_control.slice_size = slice_val;
+
+		rc = call_hfi_op(hdev, session_set_property,
+		 (void *)inst->session, HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
+		 (void *)&multi_slice_control);
+	}
 	return rc;
 }
 
