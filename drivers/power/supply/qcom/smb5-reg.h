@@ -138,6 +138,8 @@ enum {
 #define DCDC_OTG_CFG_REG			(DCDC_BASE + 0x53)
 #define OTG_EN_SRC_CFG_BIT			BIT(1)
 
+#define DCDC_CFG_REF_MAX_PSNS_REG		(DCDC_BASE + 0x8C)
+
 /********************************
  *  BATIF Peripheral Registers  *
  ********************************/
