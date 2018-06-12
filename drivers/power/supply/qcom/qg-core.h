@@ -60,6 +60,7 @@ struct qg_dt {
 	bool			cl_feedback_on;
 	bool			esr_disable;
 	bool			esr_discharge_enable;
+	bool			qg_ext_sense;
 };
 
 struct qg_esr_data {
@@ -151,11 +152,18 @@ struct qpnp_qg {
 	struct ttf		*ttf;
 };
 
+struct ocv_all {
+	u32 ocv_uv;
+	u32 ocv_raw;
+	char ocv_type[20];
+};
+
 enum ocv_type {
 	S7_PON_OCV,
 	S3_GOOD_OCV,
 	S3_LAST_OCV,
 	SDAM_PON_OCV,
+	PON_OCV_MAX,
 };
 
 enum debug_mask {

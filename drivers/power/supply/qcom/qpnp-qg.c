@@ -29,6 +29,7 @@
 #include <linux/pmic-voter.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <uapi/linux/qg.h>
+#include <uapi/linux/qg-profile.h>
 #include "fg-alg.h"
 #include "qg-sdam.h"
 #include "qg-core.h"
@@ -685,6 +686,7 @@ static void qg_retrieve_esr_params(struct qpnp_qg *chip)
 
 	rc = qg_sdam_read(SDAM_ESR_CHARGE_SF, &data);
 	if (!rc && data) {
+		data = CAP(QG_ESR_SF_MIN, QG_ESR_SF_MAX, data);
 		chip->kdata.param[QG_ESR_CHARGE_SF].data = data;
 		chip->kdata.param[QG_ESR_CHARGE_SF].valid = true;
 		qg_dbg(chip, QG_DEBUG_ESR,
@@ -695,6 +697,7 @@ static void qg_retrieve_esr_params(struct qpnp_qg *chip)
 
 	rc = qg_sdam_read(SDAM_ESR_DISCHARGE_SF, &data);
 	if (!rc && data) {
+		data = CAP(QG_ESR_SF_MIN, QG_ESR_SF_MAX, data);
 		chip->kdata.param[QG_ESR_DISCHARGE_SF].data = data;
 		chip->kdata.param[QG_ESR_DISCHARGE_SF].valid = true;
 		qg_dbg(chip, QG_DEBUG_ESR,
@@ -1914,6 +1917,7 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 {
 	int rc;
 	bool parallel_enabled = is_parallel_enabled(chip);
+	bool update_smb = false;
 
 	if (parallel_enabled == chip->parallel_enabled)
 		return 0;
@@ -1924,7 +1928,14 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 
 	mutex_lock(&chip->data_lock);
 
-	rc = process_rt_fifo_data(chip, false, true);
+	/*
+	 * Parallel charger uses the same external sense, hence do not
+	 * enable SMB sensing if PMI632 is configured for external sense.
+	 */
+	if (!chip->dt.qg_ext_sense)
+		update_smb = true;
+
+	rc = process_rt_fifo_data(chip, false, update_smb);
 	if (rc < 0)
 		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
@@ -2380,12 +2391,21 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 	return 0;
 }
 
+
+static struct ocv_all ocv[] = {
+	[S7_PON_OCV] = { 0, 0, "S7_PON_OCV"},
+	[S3_GOOD_OCV] = { 0, 0, "S3_GOOD_OCV"},
+	[S3_LAST_OCV] = { 0, 0, "S3_LAST_OCV"},
+	[SDAM_PON_OCV] = { 0, 0, "SDAM_PON_OCV"},
+};
+
+#define S7_ERROR_MARGIN_UV		20000
 static int qg_determine_pon_soc(struct qpnp_qg *chip)
 {
-	int rc = 0, batt_temp = 0;
+	int rc = 0, batt_temp = 0, i;
 	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
-	u32 ocv_uv = 0, ocv_raw = 0, soc = 0, shutdown[SDAM_MAX] = {0};
+	u32 ocv_uv = 0, soc = 0, shutdown[SDAM_MAX] = {0};
 	char ocv_type[20] = "NONE";
 
 	if (!chip->profile_loaded) {
@@ -2434,33 +2454,47 @@ use_pon_ocv:
 			goto done;
 		}
 
-		/*
-		 * Read S3_LAST_OCV, if S3_LAST_OCV is invalid,
-		 * read the SDAM_PON_OCV
-		 * if SDAM is not-set, use S7_PON_OCV.
-		 */
-		strlcpy(ocv_type, "S3_LAST_SOC", 20);
-		rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_LAST_OCV);
-		if (rc < 0)
-			goto done;
-
-		if (ocv_raw == FIFO_V_RESET_VAL) {
-			/* S3_LAST_OCV is invalid */
-			strlcpy(ocv_type, "SDAM_PON_SOC", 20);
-			rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, SDAM_PON_OCV);
+		/* read all OCVs */
+		for (i = S7_PON_OCV; i < PON_OCV_MAX; i++) {
+			rc = qg_read_ocv(chip, &ocv[i].ocv_uv,
+						&ocv[i].ocv_raw, i);
 			if (rc < 0)
-				goto done;
+				pr_err("Failed to read %s OCV rc=%d\n",
+						ocv[i].ocv_type, rc);
+			else
+				qg_dbg(chip, QG_DEBUG_PON, "%s OCV=%d\n",
+					ocv[i].ocv_type, ocv[i].ocv_uv);
+		}
 
-			if (!ocv_uv) {
-				/* SDAM_PON_OCV is not set */
+		if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
+			if (!ocv[SDAM_PON_OCV].ocv_uv) {
 				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw,
-							S7_PON_OCV);
-				if (rc < 0)
-					goto done;
+				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+			} else if (ocv[SDAM_PON_OCV].ocv_uv <=
+					ocv[S7_PON_OCV].ocv_uv) {
+				strlcpy(ocv_type, "S7_PON_SOC", 20);
+				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+			} else if (!shutdown[SDAM_VALID] &&
+				((ocv[SDAM_PON_OCV].ocv_uv -
+					ocv[S7_PON_OCV].ocv_uv) >
+					S7_ERROR_MARGIN_UV)) {
+				strlcpy(ocv_type, "S7_PON_SOC", 20);
+				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+			} else {
+				strlcpy(ocv_type, "SDAM_PON_SOC", 20);
+				ocv_uv = ocv[SDAM_PON_OCV].ocv_uv;
+			}
+		} else {
+			if (ocv[S3_LAST_OCV].ocv_uv >= ocv[S7_PON_OCV].ocv_uv) {
+				strlcpy(ocv_type, "S3_LAST_SOC", 20);
+				ocv_uv = ocv[S3_LAST_OCV].ocv_uv;
+			} else {
+				strlcpy(ocv_type, "S7_PON_SOC", 20);
+				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
 			}
 		}
 
+		ocv_uv = CAP(QG_MIN_OCV_UV, QG_MAX_OCV_UV, ocv_uv);
 		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
 		if (rc < 0) {
 			pr_err("Failed to lookup SOC@PON rc=%d\n", rc);
@@ -3117,6 +3151,8 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.esr_disable_soc = temp * 100;
 
+	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
+
 	/* Capacity learning params*/
 	if (!chip->dt.cl_disable) {
 		chip->dt.cl_feedback_on = of_property_read_bool(node,
@@ -3176,9 +3212,9 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
 			chip->cl->dt.min_temp, chip->cl->dt.max_temp);
 	}
-	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d\n",
+	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d ext-sns=%d\n",
 			chip->dt.vbatt_empty_mv, chip->dt.vbatt_low_mv,
-			chip->dt.delta_soc);
+			chip->dt.delta_soc, chip->dt.qg_ext_sense);
 
 	return 0;
 }
