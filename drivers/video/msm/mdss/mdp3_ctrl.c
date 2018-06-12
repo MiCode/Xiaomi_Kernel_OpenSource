@@ -1674,8 +1674,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 					mdp3_session->intf);
 			if (!rc && !mdp3_session->first_commit) {
 				pr_err("dma done timedout\n");
-				mutex_unlock(&mdp3_session->lock);
-				return -ETIMEDOUT;
+				rc = -ETIMEDOUT;
+				goto frame_done;
 			}
 		}
 
@@ -1897,6 +1897,8 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 					mdp3_session->intf);
 			if (!rc && !mdp3_session->first_commit) {
 				pr_err("dma done timedout\n");
+				mdp3_ctrl_notify(mdp3_session,
+	                                MDP_NOTIFY_FRAME_TIMEOUT);
 				goto pan_error;
 			}
 		}

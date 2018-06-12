@@ -1715,6 +1715,7 @@ int mdp3_ppp_parse_req(void __user *p,
 					mdp3_session->intf);
 		if (!rc) {
 			pr_err("secure dma done not completed\n");
+			rc = -ETIMEDOUT;
 			goto parse_err_2;
 		}
 		mdp3_session->transition_state = SECURE_TO_NONSECURE;
