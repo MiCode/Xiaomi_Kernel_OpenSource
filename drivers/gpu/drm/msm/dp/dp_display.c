@@ -829,11 +829,6 @@ static void dp_display_attention_work(struct work_struct *work)
 	if (!dp->power_on)
 		goto mst_attention;
 
-	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->cp_irq) {
-		if (!dp->hdcp.ops->cp_irq(dp->hdcp.data))
-			goto mst_attention;
-	}
-
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		dp_display_handle_disconnect(dp);
 
@@ -861,16 +856,17 @@ static void dp_display_attention_work(struct work_struct *work)
 		goto mst_attention;
 	}
 
-	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED) {
+	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
+		dp->link->send_test_response(dp->link);
 		dp_display_handle_maintenance_req(dp);
 		goto mst_attention;
 	}
 
-	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
-		dp->link->send_test_response(dp->link);
+	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED)
 		dp_display_handle_maintenance_req(dp);
-	}
 
+	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->cp_irq)
+		dp->hdcp.ops->cp_irq(dp->hdcp.data);
 mst_attention:
 	dp_display_mst_attention(dp);
 }
