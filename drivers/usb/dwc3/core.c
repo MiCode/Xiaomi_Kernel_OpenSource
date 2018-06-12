@@ -894,6 +894,21 @@ int dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
 	}
 
+	/*
+	 * Workaround for STAR 9001285599 which affects dwc3 core version 3.20a
+	 * only. If the PM TIMER ECN is enabled thru GUCTL2[19], then link
+	 * compliance test (TD7.21) may fail. If the ECN is not enabled
+	 * GUCTL2[19] = 0), the controller will use the old timer value (5us),
+	 * which is still fine for Link Compliance test. Hence Do not enable
+	 * PM TIMER ECN in V3.20a by setting GUCTL2[19] by default,
+	 * instead use GUCTL2[19] = 0.
+	 */
+	if (dwc->revision == DWC3_REVISION_320A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL2);
+		reg &= ~DWC3_GUCTL2_LC_TIMER;
+		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
+	}
+
 	return 0;
 
 err3:
