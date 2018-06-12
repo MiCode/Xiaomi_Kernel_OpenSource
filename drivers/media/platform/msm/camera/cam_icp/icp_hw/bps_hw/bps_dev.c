@@ -33,6 +33,8 @@ static struct cam_bps_device_hw_info cam_bps_hw_info = {
 };
 EXPORT_SYMBOL(cam_bps_hw_info);
 
+static char bps_dev_name[8];
+
 static bool cam_bps_cpas_cb(uint32_t client_handle, void *userdata,
 	struct cam_cpas_irq_data *irq_data)
 {
@@ -111,9 +113,14 @@ int cam_bps_probe(struct platform_device *pdev)
 		kfree(bps_dev_intf);
 		return -ENOMEM;
 	}
+
+	memset(bps_dev_name, 0, sizeof(bps_dev_name));
+	snprintf(bps_dev_name, sizeof(bps_dev_name),
+		"bps%1u", bps_dev_intf->hw_idx);
+
 	bps_dev->soc_info.pdev = pdev;
 	bps_dev->soc_info.dev = &pdev->dev;
-	bps_dev->soc_info.dev_name = pdev->name;
+	bps_dev->soc_info.dev_name = bps_dev_name;
 	bps_dev_intf->hw_priv = bps_dev;
 	bps_dev_intf->hw_ops.init = cam_bps_init_hw;
 	bps_dev_intf->hw_ops.deinit = cam_bps_deinit_hw;

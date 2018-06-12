@@ -110,6 +110,11 @@ and name of firmware image.
   Value type: <string>
   Definition: Source clock name.
 
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
 - clocks
   Usage: required
   Value type: <phandle>
