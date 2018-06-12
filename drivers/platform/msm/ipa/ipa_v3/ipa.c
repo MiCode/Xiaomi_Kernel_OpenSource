@@ -4458,21 +4458,6 @@ static void ipa3_trigger_ipa_ready_cbs(void)
 	mutex_unlock(&ipa3_ctx->lock);
 }
 
-static int ipa3_gsi_pre_fw_load_init(void)
-{
-	int result;
-
-	result = gsi_configure_regs(ipa3_res.transport_mem_base,
-		ipa3_res.transport_mem_size,
-		ipa3_res.ipa_mem_base);
-	if (result) {
-		IPAERR("Failed to configure GSI registers\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static void ipa3_uc_is_loaded(void)
 {
 	IPADBG("\n");
@@ -4513,6 +4498,22 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	IPADBG("GSI version %d\n", gsi_ver);
 
 	return gsi_ver;
+}
+
+static int ipa3_gsi_pre_fw_load_init(void)
+{
+	int result;
+
+	result = gsi_configure_regs(ipa3_res.transport_mem_base,
+		ipa3_res.transport_mem_size,
+		ipa3_res.ipa_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
+	if (result) {
+		IPAERR("Failed to configure GSI registers\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -4819,7 +4820,8 @@ static int ipa3_manual_load_ipa_fws(void)
 
 	IPADBG("FWs are available for loading\n");
 
-	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
+	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
 	if (result) {
 		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);
