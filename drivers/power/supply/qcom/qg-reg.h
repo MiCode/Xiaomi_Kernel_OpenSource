@@ -105,6 +105,8 @@
 #define QG_SDAM_ESR_DISCHARGE_DELTA_OFFSET	0x6E /* 4-byte 0x6E-0x71 */
 #define QG_SDAM_ESR_CHARGE_SF_OFFSET		0x72 /* 2-byte 0x72-0x73 */
 #define QG_SDAM_ESR_DISCHARGE_SF_OFFSET		0x74 /* 2-byte 0x74-0x75 */
-#define QG_SDAM_PON_OCV_OFFSET			0x7C /* 2-byte 0x7C-0x7D */
+
+/* Below offset is used by PBS */
+#define QG_SDAM_PON_OCV_OFFSET			0xBC /* 2-byte 0xBC-0xBD */
 
 #endif
