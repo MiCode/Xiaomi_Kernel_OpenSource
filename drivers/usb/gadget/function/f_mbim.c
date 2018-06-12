@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016,2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1910,9 +1910,12 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 
 	ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
 			   req, GFP_ATOMIC);
-	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN)) {
+	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN && ret != -EBUSY)) {
 		spin_lock_irqsave(&dev->lock, flags);
-		/* check if device disconnected while we dropped lock */
+		/*
+		 * cpkt already freed if device disconnected while we
+		 * dropped lock. Nothing to be done in that case.
+		 */
 		if (atomic_read(&dev->online)) {
 			list_del(&cpkt->list);
 			atomic_dec(&dev->not_port.notify_count);
