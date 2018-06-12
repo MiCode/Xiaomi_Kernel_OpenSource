@@ -333,6 +333,7 @@
 #define DWC3_GUCTL2_RST_ACTBITLATER		(1 << 14)
 #define DWC3_GUCTL2_HP_TIMER(n)			((n) << 21)
 #define DWC3_GUCTL2_HP_TIMER_MASK		DWC3_GUCTL2_HP_TIMER(0x1f)
+#define DWC3_GUCTL2_LC_TIMER			(1 << 19)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
