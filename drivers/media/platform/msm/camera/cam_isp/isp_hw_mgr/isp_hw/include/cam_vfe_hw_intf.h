@@ -26,13 +26,14 @@
 #define VFE_BUS_BASE_IDX              1
 
 enum cam_isp_hw_vfe_in_mux {
-	CAM_ISP_HW_VFE_IN_CAMIF     = 0,
-	CAM_ISP_HW_VFE_IN_TESTGEN   = 1,
-	CAM_ISP_HW_VFE_IN_BUS_RD    = 2,
-	CAM_ISP_HW_VFE_IN_RDI0      = 3,
-	CAM_ISP_HW_VFE_IN_RDI1      = 4,
-	CAM_ISP_HW_VFE_IN_RDI2      = 5,
-	CAM_ISP_HW_VFE_IN_RDI3      = 6,
+	CAM_ISP_HW_VFE_IN_CAMIF       = 0,
+	CAM_ISP_HW_VFE_IN_TESTGEN     = 1,
+	CAM_ISP_HW_VFE_IN_BUS_RD      = 2,
+	CAM_ISP_HW_VFE_IN_RDI0        = 3,
+	CAM_ISP_HW_VFE_IN_RDI1        = 4,
+	CAM_ISP_HW_VFE_IN_RDI2        = 5,
+	CAM_ISP_HW_VFE_IN_RDI3        = 6,
+	CAM_ISP_HW_VFE_IN_CAMIF_LITE  = 7,
 	CAM_ISP_HW_VFE_IN_MAX,
 };
 
