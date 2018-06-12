@@ -254,4 +254,224 @@
 			};
 		};
 	};
+	mdm-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 0>;
+		tracks-low;
+		trips {
+			mdm_trip: mdm-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu1_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu2_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu3_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&pm8909_cx_cdev 0 0>;
+			};
+		};
+	};
+	camera-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 1>;
+		tracks-low;
+		trips {
+			camera_trip: camera-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu1_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu2_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu3_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cx_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&pm8909_cx_cdev 0 0>;
+			};
+		};
+	};
+	gpu-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 2>;
+		tracks-low;
+		trips {
+			gpu_trip: gpu-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_vdd_cdev {
+				trip = <&gpu_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu1_vdd_cdev {
+				trip = <&gpu_trip>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu2_vdd_cdev {
+				trip = <&gpu_trip>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu3_vdd_cdev {
+				trip = <&gpu_trip>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cx_vdd_cdev {
+				trip = <&gpu_trip>;
+				cooling-device = <&pm8909_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu0-2-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 3>;
+		tracks-low;
+		trips {
+			cpu0_2_trip: cpu0-2-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_vdd_cdev {
+				trip = <&cpu0_2_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu1_vdd_cdev {
+				trip = <&cpu0_2_trip>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu2_vdd_cdev {
+				trip = <&cpu0_2_trip>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu3_vdd_cdev {
+				trip = <&cpu0_2_trip>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cx_vdd_cdev {
+				trip = <&cpu0_2_trip>;
+				cooling-device = <&pm8909_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu1-3-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 4>;
+		tracks-low;
+		trips {
+			cpu1_3_trip: cpu1-3-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_vdd_cdev {
+				trip = <&cpu1_3_trip>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu1_vdd_cdev {
+				trip = <&cpu1_3_trip>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu2_vdd_cdev {
+				trip = <&cpu1_3_trip>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cpu3_vdd_cdev {
+				trip = <&cpu1_3_trip>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-2)
+						(THERMAL_MAX_LIMIT-2)>;
+			};
+			cx_vdd_cdev {
+				trip = <&cpu1_3_trip>;
+				cooling-device = <&pm8909_cx_cdev 0 0>;
+			};
+		};
+	};
 };
