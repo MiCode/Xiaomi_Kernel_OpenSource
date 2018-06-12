@@ -19,6 +19,7 @@
 #include "sm8150-camera-sensor-mtp.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
 #include "smb1390.dtsi"
+#include "smb1355.dtsi"
 
 &qupv3_se12_2uart {
 	status = "ok";
@@ -572,7 +573,7 @@
 
 &smb1390 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&smb1390_stat_default>;
+	pinctrl-0 = <&smb_stat_default>;
 	status = "ok";
 };
 
@@ -582,4 +583,12 @@
 
 &usb1 {
 	extcon = <&extcon_usb1>;
+};
+
+&smb1355 {
+	status = "ok";
+};
+
+&smb1355_charger {
+	status = "ok";
 };
