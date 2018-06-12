@@ -24,6 +24,19 @@
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
+struct firmware_info {
+	unsigned int dev_id;
+	const char *fw_image;
+	const char *edl_image;
+};
+
+static const struct firmware_info firmware_table[] = {
+	{.dev_id = 0x305, .fw_image = "sdx50m/sbl1.mbn"},
+	{.dev_id = 0x304, .fw_image = "sbl.mbn", .edl_image = "edl.mbn"},
+	/* default, set to debug.mbn */
+	{.fw_image = "debug.mbn"},
+};
+
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -332,9 +345,10 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_dev *mhi_dev;
 	struct device_node *of_node = pci_dev->dev.of_node;
+	const struct firmware_info *firmware_info;
 	bool use_bb;
 	u64 addr_win[2];
-	int ret;
+	int ret, i;
 
 	if (!of_node)
 		return ERR_PTR(-ENODEV);
@@ -403,6 +417,15 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
 		goto error_register;
+
+	for (i = 0; i < ARRAY_SIZE(firmware_table); i++) {
+		firmware_info = firmware_table + i;
+		if (mhi_cntrl->dev_id == firmware_info->dev_id)
+			break;
+	}
+
+	mhi_cntrl->fw_image = firmware_info->fw_image;
+	mhi_cntrl->edl_image = firmware_info->edl_image;
 
 	return mhi_cntrl;
 
