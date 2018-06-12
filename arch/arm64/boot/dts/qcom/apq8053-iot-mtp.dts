@@ -86,3 +86,12 @@
 	qcom,model = "msm8953-tasha-snd-card";
 	status = "okay";
 };
+
+&soc {
+	usb_detect: usb_detect {
+		compatible = "linux,extcon-usb-gpio";
+		pintctrl-names = "default";
+		pinctrl-0 = <&ssusb_mode_sel>;
+		id-gpio = <&tlmm 12 0>;
+	};
+};
