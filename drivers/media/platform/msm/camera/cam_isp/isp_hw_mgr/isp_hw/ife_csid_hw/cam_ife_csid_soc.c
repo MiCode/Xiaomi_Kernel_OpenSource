@@ -112,8 +112,6 @@ int cam_ife_csid_deinit_soc_resources(
 		CAM_ERR(CAM_ISP, "CPAS unregistration failed rc=%d", rc);
 
 	rc = cam_soc_util_release_platform_resource(soc_info);
-	if (rc < 0)
-		return rc;
 
 	return rc;
 }

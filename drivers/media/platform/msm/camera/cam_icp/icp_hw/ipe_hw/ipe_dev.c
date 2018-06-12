@@ -41,6 +41,8 @@ static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
 };
 EXPORT_SYMBOL(cam_ipe_hw_info);
 
+static char ipe_dev_name[8];
+
 int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_ipe_device_core_info *core_info,
 	uint32_t hw_idx)
@@ -96,9 +98,14 @@ int cam_ipe_probe(struct platform_device *pdev)
 		kfree(ipe_dev_intf);
 		return -ENOMEM;
 	}
+
+	memset(ipe_dev_name, 0, sizeof(ipe_dev_name));
+	snprintf(ipe_dev_name, sizeof(ipe_dev_name),
+		"ipe%1u", ipe_dev_intf->hw_idx);
+
 	ipe_dev->soc_info.pdev = pdev;
 	ipe_dev->soc_info.dev = &pdev->dev;
-	ipe_dev->soc_info.dev_name = pdev->name;
+	ipe_dev->soc_info.dev_name = ipe_dev_name;
 	ipe_dev_intf->hw_priv = ipe_dev;
 	ipe_dev_intf->hw_ops.init = cam_ipe_init_hw;
 	ipe_dev_intf->hw_ops.deinit = cam_ipe_deinit_hw;
