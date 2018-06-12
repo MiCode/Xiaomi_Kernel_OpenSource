@@ -3923,7 +3923,7 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 		data.filled_len = 0;
 		data.offset = 0;
 		data.flags = HAL_BUFFERFLAG_EOS;
-		data.timestamp = LLONG_MAX;
+		data.timestamp = 0;
 		data.extradata_addr = data.device_addr;
 		data.extradata_size = 0;
 		dprintk(VIDC_DBG, "Queueing EOS buffer 0x%x\n",
