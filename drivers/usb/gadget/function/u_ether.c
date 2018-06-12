@@ -818,29 +818,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	dev->tx_pkts_rcvd++;
-	/*
-	 * no buffer copies needed, unless the network stack did it
-	 * or the hardware can't use skb buffers.
-	 * or there's not enough space for extra headers we need
-	 */
-	spin_lock_irqsave(&dev->lock, flags);
-	if (dev->wrap && dev->port_usb)
-		skb = dev->wrap(dev->port_usb, skb);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
-	if (!skb) {
-		if (dev->port_usb && dev->port_usb->supports_multi_frame) {
-			/*
-			 * Multi frame CDC protocols may store the frame for
-			 * later which is not a dropped frame.
-			 */
-		} else {
-			dev->net->stats.tx_dropped++;
-		}
-
-		/* no error code for dropped packets */
-		return NETDEV_TX_OK;
-	}
 
 	/* Allocate memory for tx_reqs to support multi packet transfer */
 	spin_lock_irqsave(&dev->req_lock, flags);
@@ -875,9 +852,30 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_throttle++;
 		netif_stop_queue(net);
 	}
+	spin_unlock_irqrestore(&dev->req_lock, flags);
+
+	/* no buffer copies needed, unless the network stack did it
+	 * or the hardware can't use skb buffers.
+	 * or there's not enough space for extra headers we need
+	 */
+	spin_lock_irqsave(&dev->lock, flags);
+	if (dev->wrap) {
+		if (dev->port_usb)
+			skb = dev->wrap(dev->port_usb, skb);
+		if (!skb) {
+			spin_unlock_irqrestore(&dev->lock, flags);
+			/* Multi frame CDC protocols may store the frame for
+			 * later which is not a dropped frame.
+			 */
+			if (dev->port_usb &&
+					dev->port_usb->supports_multi_frame)
+				goto multiframe;
+			goto drop;
+		}
+	}
 
 	dev->tx_skb_hold_count++;
-	spin_unlock_irqrestore(&dev->req_lock, flags);
+	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (multi_pkt_xfer) {
 		pr_debug("req->length:%d header_len:%u\n"
@@ -1000,7 +998,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			dev_kfree_skb_any(skb);
 		else
 			req->length = 0;
+drop:
 		dev->net->stats.tx_dropped++;
+multiframe:
 		spin_lock_irqsave(&dev->req_lock, flags);
 		if (list_empty(&dev->tx_reqs))
 			netif_start_queue(net);
