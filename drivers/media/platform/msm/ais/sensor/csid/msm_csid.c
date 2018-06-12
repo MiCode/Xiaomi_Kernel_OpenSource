@@ -36,6 +36,7 @@
 #include "include/msm_csid_3_6_0_hwreg.h"
 #include "include/msm_csid_3_5_1_hwreg.h"
 #include "cam_hw_ops.h"
+#include "msm_camera_diag_util.h"
 
 #define V4L2_IDENT_CSID                            50002
 #define CSID_VERSION_V20                      0x02000011
@@ -870,6 +871,20 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 	case CSID_STOP:
 		rc = msm_csid_stop(csid_dev, cdata->cfg.csid_cidmask);
 		break;
+	case CSID_READ_REG_LIST_CMD:
+	{
+		struct msm_camera_reg_list_cmd reg_list_cmd;
+
+		if (copy_from_user(&reg_list_cmd,
+				(void __user *)cdata->cfg.csid_reg_list_cmd,
+				sizeof(struct msm_camera_reg_list_cmd))) {
+			pr_err("%s: %d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = msm_camera_get_reg_list(csid_dev->base, &reg_list_cmd);
+		break;
+	}
 	default:
 		pr_err("%s: %d failed\n", __func__, __LINE__);
 		rc = -ENOIOCTLCMD;

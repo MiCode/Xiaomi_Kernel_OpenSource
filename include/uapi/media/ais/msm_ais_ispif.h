@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #include <linux/videodev2.h>
+#include <media/ais/msm_ais_mgr.h>
 
 #define CSID_VERSION_V20                      0x02000011
 #define CSID_VERSION_V22                      0x02001000
@@ -141,8 +142,11 @@ enum ispif_cfg_type_t {
 	ISPIF_STOP,
 	ISPIF_ENABLE_REG_DUMP,
 	ISPIF_SET_VFE_INFO,
-	ISPIF_CFG2
+	ISPIF_CFG2,
+	ISPIF_READ_REG_LIST_CMD,
+	ISPIF_WRITE_REG_LIST_CMD,
 };
+
 
 
 struct ispif_cfg_data_ext {
@@ -158,10 +162,12 @@ struct ispif_cfg_data {
 		uint32_t csid_version;               /* ISPIF_INIT */
 		struct msm_ispif_vfe_info vfe_info;  /* ISPIF_SET_VFE_INFO */
 		struct msm_ispif_param_data params;  /* CFG, START, STOP */
+		struct msm_camera_reg_list_cmd *reg_list;
 	};
 };
 
 #define ISPIF_RDI_PACK_MODE_SUPPORT 1
+#define ISPIF_RW_REG_LIST_SUPPORT
 
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct ispif_cfg_data)

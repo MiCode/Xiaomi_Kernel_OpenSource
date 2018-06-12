@@ -3,7 +3,7 @@
 
 #include <linux/v4l2-mediabus.h>
 #include <media/ais/msm_ais_sensor_sdk.h>
-
+#include <media/ais/msm_ais_mgr.h>
 #include <linux/types.h>
 #include <linux/i2c.h>
 
@@ -152,6 +152,8 @@ enum csid_cfg_type_t {
 	CSID_START,
 	CSID_STOP,
 	CSID_RELEASE,
+	CSID_READ_REG_LIST_CMD,
+	CSID_WRITE_REG_LIST_CMD,
 };
 
 enum csiphy_cfg_type_t {
@@ -160,6 +162,8 @@ enum csiphy_cfg_type_t {
 	CSIPHY_START,
 	CSIPHY_STOP,
 	CSIPHY_RELEASE,
+	CSIPHY_READ_REG_LIST_CMD,
+	CSIPHY_WRITE_REG_LIST_CMD,
 };
 
 enum camera_vreg_type {
@@ -291,6 +295,7 @@ struct csid_cfg_data {
 		struct msm_camera_csid_params *csid_params;
 		struct msm_camera_csid_testmode_parms *csid_testmode_params;
 		uint32_t csid_cidmask;
+		struct msm_camera_reg_list_cmd *csid_reg_list_cmd;
 	} cfg;
 };
 
@@ -299,6 +304,7 @@ struct csiphy_cfg_data {
 	union {
 		struct msm_camera_csiphy_params *csiphy_params;
 		struct msm_camera_csi_lane_params *csi_lane_params;
+		struct msm_camera_reg_list_cmd *csiphy_reg_list_cmd;
 	} cfg;
 };
 
@@ -612,6 +618,8 @@ struct sensor_init_cfg_data {
 		void *setting;
 	} cfg;
 };
+
+#define CSI_RW_REG_LIST_SUPPORT
 
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data)
