@@ -106,7 +106,7 @@ enum {
  *  DCDC Peripheral Registers  *
  ********************************/
 #define ICL_MAX_STATUS_REG			(DCDC_BASE + 0x06)
-
+#define ICL_STATUS_REG				(DCDC_BASE + 0x07)
 #define AICL_ICL_STATUS_REG			(DCDC_BASE + 0x08)
 
 #define AICL_STATUS_REG				(DCDC_BASE + 0x0A)
@@ -145,6 +145,18 @@ enum {
 
 #define SHIP_MODE_REG				(BATIF_BASE + 0x40)
 #define SHIP_MODE_EN_BIT			BIT(0)
+
+#define BATIF_ADC_CHANNEL_EN_REG		(BATIF_BASE + 0x82)
+#define CONN_THM_CHANNEL_EN_BIT			BIT(4)
+#define DIE_TEMP_CHANNEL_EN_BIT			BIT(2)
+
+#define BATIF_ADC_INTERNAL_PULL_UP_REG		(BATIF_BASE + 0x86)
+#define INTERNAL_PULL_UP_CONN_THM_MASK		GENMASK(5, 4)
+#define CONN_THM_SHIFT				4
+#define INTERNAL_PULL_NO_PULL			0x00
+#define INTERNAL_PULL_30K_PULL			0x01
+#define INTERNAL_PULL_100K_PULL			0x02
+#define INTERNAL_PULL_400K_PULL			0x03
 
 /********************************
  *  USBIN Peripheral Registers  *
@@ -333,7 +345,7 @@ enum {
 /********************************
  *  MISC Peripheral Registers  *
  ********************************/
-#define TEMP_RANGE_STATUS_REG			(MISC_BASE + 0x06)
+#define MISC_TEMP_RANGE_STATUS_REG		(MISC_BASE + 0x06)
 #define THERM_REG_ACTIVE_BIT			BIT(6)
 #define TLIM_BIT				BIT(5)
 #define TEMP_RANGE_MASK				GENMASK(4, 1)
@@ -342,6 +354,12 @@ enum {
 #define TEMP_WITHIN_RANGE_BIT			BIT(2)
 #define TEMP_BELOW_RANGE_BIT			BIT(1)
 #define THERMREG_DISABLED_BIT			BIT(0)
+
+#define MISC_DIE_TEMP_STATUS_REG		(MISC_BASE + 0x07)
+#define DIE_TEMP_SHDN_BIT			BIT(3)
+#define DIE_TEMP_RST_BIT			BIT(2)
+#define DIE_TEMP_UB_BIT				BIT(1)
+#define DIE_TEMP_LB_BIT				BIT(0)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
@@ -365,6 +383,16 @@ enum {
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
 #define BARK_WDOG_TIMEOUT_MASK			GENMASK(3, 2)
 #define BITE_WDOG_TIMEOUT_MASK			GENMASK(1, 0)
+
+#define MISC_THERMREG_SRC_CFG_REG		(MISC_BASE + 0x70)
+#define THERMREG_SW_ICL_ADJUST_BIT		BIT(7)
+#define DIE_ADC_SEL_BIT				BIT(6)
+#define THERMREG_SMB_ADC_SRC_EN_BIT		BIT(5)
+#define THERMREG_CONNECTOR_ADC_SRC_EN_BIT	BIT(4)
+#define SKIN_ADC_CFG_BIT			BIT(3)
+#define THERMREG_SKIN_ADC_SRC_EN_BIT		BIT(2)
+#define THERMREG_DIE_ADC_SRC_EN_BIT		BIT(1)
+#define THERMREG_DIE_CMP_SRC_EN_BIT		BIT(0)
 
 #define MISC_SMB_CFG_REG			(MISC_BASE + 0x90)
 #define SMB_EN_SEL_BIT				BIT(4)

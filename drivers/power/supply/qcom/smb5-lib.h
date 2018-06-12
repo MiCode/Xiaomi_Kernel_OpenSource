@@ -360,6 +360,9 @@ struct smb_charger {
 	int			auto_recharge_soc;
 	bool			jeita_configured;
 	enum sink_src_mode	sink_src_mode;
+	bool			hw_die_temp_mitigation;
+	bool			hw_connector_mitigation;
+	int			connector_pull_up;
 
 	/* workaround flag */
 	u32			wa_flags;
