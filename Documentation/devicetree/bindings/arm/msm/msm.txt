@@ -95,6 +95,9 @@ SoCs:
 - QCS605
   compatible = "qcom,qcs605"
 
+- SXR1120
+  compatible = "qcom,sxr1120"
+
 - SDA670
   compatible = "qcom,sda670"
 
@@ -324,6 +327,8 @@ compatible = "qcom,sdm670-mtp"
 compatible = "qcom,sdm670-qrd"
 compatible = "qcom,qcs605-cdp"
 compatible = "qcom,qcs605-mtp"
+compatible = "qcom,sxr1120-mtp"
+compatible = "qcom,sxr1120-cdp"
 compatible = "qcom,sda670-cdp"
 compatible = "qcom,sda670-mtp"
 compatible = "qcom,sda670-hdk"
