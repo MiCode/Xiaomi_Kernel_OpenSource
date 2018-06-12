@@ -2761,7 +2761,7 @@ bool is_batching_allowed(struct msm_vidc_inst *inst)
 	 */
 	if (is_decode_session(inst) && inst->core->resources.decode_batching &&
 		(msm_vidc_get_mbs_per_frame(inst) <=
-		MAX_DEC_BATCH_WIDTH * MAX_DEC_BATCH_HEIGHT) &&
+		NUM_MBS_PER_FRAME(MAX_DEC_BATCH_HEIGHT, MAX_DEC_BATCH_WIDTH)) &&
 		!inst->clk_data.low_latency_mode &&
 		!is_thumbnail_session(inst) &&
 		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_NV12_UBWC ||
