@@ -327,6 +327,24 @@ static const struct clk_rpmh_desc clk_rpmh_sm8150 = {
 	.num_clks = ARRAY_SIZE(sm8150_rpmh_clocks),
 };
 
+static struct clk_hw *sm6150_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]          = &sm8150_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]        = &sm8150_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK2]       = &sm8150_ln_bb_clk2.hw,
+	[RPMH_LN_BB_CLK2_A]     = &sm8150_ln_bb_clk2_ao.hw,
+	[RPMH_LN_BB_CLK3]       = &sm8150_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]     = &sm8150_ln_bb_clk3_ao.hw,
+	[RPMH_RF_CLK1]          = &sm8150_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]        = &sm8150_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]          = &sm8150_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]        = &sm8150_rf_clk2_ao.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_sm6150 = {
+	.clks = sm6150_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(sm6150_rpmh_clocks),
+};
+
 static struct clk_hw *sdmshrike_rpmh_clocks[] = {
 	[RPMH_CXO_CLK]		= &sm8150_bi_tcxo.hw,
 	[RPMH_CXO_CLK_A]	= &sm8150_bi_tcxo_ao.hw,
@@ -352,6 +370,7 @@ static const struct clk_rpmh_desc clk_rpmh_sdmshrike = {
 static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sm8150", .data = &clk_rpmh_sm8150},
 	{ .compatible = "qcom,rpmh-clk-sdmshrike", .data = &clk_rpmh_sdmshrike},
+	{ .compatible = "qcom,rpmh-clk-sm6150", .data = &clk_rpmh_sm6150},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
