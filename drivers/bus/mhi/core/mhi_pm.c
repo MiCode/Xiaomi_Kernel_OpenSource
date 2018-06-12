@@ -777,6 +777,9 @@ void mhi_pm_st_worker(struct work_struct *work)
 		case MHI_ST_TRANSITION_AMSS:
 			mhi_pm_amss_transition(mhi_cntrl);
 			break;
+		case MHI_ST_TRANSITION_READY:
+			mhi_ready_state_transition(mhi_cntrl);
+			break;
 		default:
 			break;
 		}
