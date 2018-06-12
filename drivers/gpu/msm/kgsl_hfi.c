@@ -45,10 +45,14 @@
 	 (((minor) & 0x7FFFFF) << 5) | \
 	 ((branch) & 0x1F))
 
+static void hfi_process_queues(struct kgsl_device *device,
+		struct gmu_device *gmu);
+
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		unsigned int *output, unsigned int max_size)
 {
+	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
@@ -58,12 +62,17 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 	uint32_t size;
 	int result = 0;
 
-	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
-		return -EINVAL;
+	spin_lock_bh(&hfi->read_queue_lock);
+
+	if (hdr->status == HFI_QUEUE_STATUS_DISABLED) {
+		result = -EINVAL;
+		goto done;
+	}
 
 	if (hdr->read_index == hdr->write_index) {
 		hdr->rx_req = 1;
-		return -ENODATA;
+		result = -ENODATA;
+		goto done;
 	}
 
 	/* Clear the output data before populating */
@@ -77,7 +86,8 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		dev_err(&gmu->pdev->dev,
 		"HFI message too big: hdr:0x%x rd idx=%d\n",
 			msg_hdr, hdr->read_index);
-		return -EMSGSIZE;
+		result = -EMSGSIZE;
+		goto done;
 	}
 
 	read = hdr->read_index;
@@ -101,6 +111,8 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 
 	hdr->read_index = read;
 
+done:
+	spin_unlock_bh(&hfi->read_queue_lock);
 	return result;
 }
 
@@ -279,6 +291,7 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 	int rc;
 	uint32_t *cmd = data;
 	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct kgsl_device *device = hfi->kgsldev;
 	unsigned int seqnum = atomic_inc_return(&hfi->seqnum);
 
 	*cmd = MSG_HDR_SET_SEQNUM(*cmd, seqnum);
@@ -300,11 +313,22 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 			&ret_cmd->msg_complete,
 			msecs_to_jiffies(HFI_RSP_TIMEOUT));
 	if (!rc) {
-		dev_err(&gmu->pdev->dev,
-				"Receiving GMU ack %d timed out\n",
-				MSG_HDR_GET_ID(*cmd));
-		rc = -ETIMEDOUT;
-		goto done;
+		/* Check one more time to make sure there is no response */
+		hfi_process_queues(device, gmu);
+		if (!completion_done(&ret_cmd->msg_complete)) {
+			dev_err(&gmu->pdev->dev,
+				"Timed out waiting on ack for 0x%8.8X (id %d, sequence %d)\n",
+				cmd[0],
+				MSG_HDR_GET_ID(*cmd),
+				MSG_HDR_GET_SEQNUM(*cmd));
+			rc = -ETIMEDOUT;
+			goto done;
+		} else
+			dev_err(&gmu->pdev->dev,
+				"Found ack on second try for 0x%8.8X (id %d, sequence %d)\n",
+				cmd[0],
+				MSG_HDR_GET_ID(*cmd),
+				MSG_HDR_GET_SEQNUM(*cmd));
 	}
 
 	/* If we got here we succeeded */
@@ -577,10 +601,9 @@ static void hfi_v1_receiver(struct kgsl_device *device,
 	}
 }
 
-void hfi_receiver(unsigned long data)
+static void hfi_process_queues(struct kgsl_device *device,
+		struct gmu_device *gmu)
 {
-	struct kgsl_device *device;
-	struct gmu_device *gmu;
 	uint32_t rcvd[MAX_RCVD_SIZE];
 	int read_queue[] = {
 		HFI_MSG_IDX,
@@ -588,13 +611,7 @@ void hfi_receiver(unsigned long data)
 	};
 	int q;
 
-	if (!data)
-		return;
-
-	device = (struct kgsl_device *)data;
-	gmu = KGSL_GMU_DEVICE(device);
-
-	/* While we are here, check all of the queues for messages */
+	/* Check all of the queues for messages */
 	for (q = 0; q < ARRAY_SIZE(read_queue); q++) {
 		while (hfi_queue_read(gmu, read_queue[q],
 				rcvd, sizeof(rcvd)) > 0) {
@@ -626,6 +643,14 @@ void hfi_receiver(unsigned long data)
 			}
 		};
 	}
+}
+
+void hfi_receiver(unsigned long data)
+{
+	struct kgsl_device *device = (struct kgsl_device *) data;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	hfi_process_queues(device, gmu);
 }
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
