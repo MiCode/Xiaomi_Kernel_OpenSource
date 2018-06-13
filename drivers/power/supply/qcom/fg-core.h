@@ -291,6 +291,8 @@ struct fg_batt_props {
 	int		fastchg_curr_ma;
 	int		*therm_coeffs;
 	int		therm_ctr_offset;
+	int		*rslow_normal_coeffs;
+	int		*rslow_low_coeffs;
 };
 
 struct fg_cyc_ctr_data {

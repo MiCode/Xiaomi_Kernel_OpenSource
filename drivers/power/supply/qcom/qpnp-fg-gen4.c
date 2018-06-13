@@ -39,6 +39,7 @@
 #define SLOPE_LIMIT_NUM_COEFFS		4
 #define SLOPE_LIMIT_COEFF_MAX		31128
 #define BATT_THERM_NUM_COEFFS		5
+#define RSLOW_NUM_COEFFS		4
 
 /* SRAM address/offset definitions in ascending order */
 #define BATT_THERM_CONFIG_WORD		3
@@ -90,6 +91,8 @@
 #define VBATT_LOW_OFFSET		1
 #define PROFILE_LOAD_WORD		65
 #define PROFILE_LOAD_OFFSET		0
+#define RSLOW_COEFF_DISCHG_WORD		78
+#define RSLOW_COEFF_LOW_OFFSET		0
 #define RSLOW_CONFIG_WORD		241
 #define RSLOW_CONFIG_OFFSET		0
 #define NOM_CAP_WORD			271
@@ -172,6 +175,7 @@ struct fg_gen4_chip {
 	int			soh;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
+	bool			rslow_low;
 };
 
 struct bias_config {
@@ -774,6 +778,67 @@ static int fg_gen4_store_count(void *data, u16 *buf, int id, int length)
 
 /* All worker and helper functions below */
 
+static int fg_parse_dt_property_u32_array(struct device_node *node,
+				const char *prop_name, int *buf, int len)
+{
+	int rc;
+
+	rc = of_property_count_elems_of_size(node, prop_name, sizeof(u32));
+	if (rc < 0) {
+		if (rc == -EINVAL)
+			return 0;
+		else
+			return rc;
+	} else if (rc != len) {
+		pr_err("Incorrect length %d for %s, rc=%d\n", len, prop_name,
+			rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(node, prop_name, buf, len);
+	if (rc < 0) {
+		pr_err("Error in reading %s, rc=%d\n", prop_name, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static void fg_gen4_update_rslow_coeff(struct fg_dev *fg, int batt_temp)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, i;
+	bool rslow_low = false;
+	u8 buf[RSLOW_NUM_COEFFS];
+
+	if (!fg->bp.rslow_normal_coeffs || !fg->bp.rslow_low_coeffs)
+		return;
+
+	/* Update Rslow low coefficients when Tbatt is < 0 C */
+	if (batt_temp < 0)
+		rslow_low = true;
+
+	if (chip->rslow_low == rslow_low)
+		return;
+
+	for (i = 0; i < RSLOW_NUM_COEFFS; i++) {
+		if (rslow_low)
+			buf[i] = fg->bp.rslow_low_coeffs[i] & 0xFF;
+		else
+			buf[i] = fg->bp.rslow_normal_coeffs[i] & 0xFF;
+	}
+
+	rc = fg_sram_write(fg, RSLOW_COEFF_DISCHG_WORD, RSLOW_COEFF_LOW_OFFSET,
+			buf, RSLOW_NUM_COEFFS, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Failed to write RLOW_COEFF_DISCHG_WORD rc=%d\n", rc);
+	} else {
+		chip->rslow_low = rslow_low;
+		fg_dbg(fg, FG_STATUS, "Updated Rslow %s coefficients\n",
+			rslow_low ? "low" : "normal");
+	}
+}
+
 #define KI_COEFF_LOW_DISCHG_DEFAULT	428
 #define KI_COEFF_MED_DISCHG_DEFAULT	245
 #define KI_COEFF_HI_DISCHG_DEFAULT	123
@@ -934,6 +999,50 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		}
 	}
 
+	if (of_find_property(profile_node, "qcom,rslow-normal-coeffs", NULL) &&
+		of_find_property(profile_node, "qcom,rslow-low-coeffs", NULL)) {
+		if (!fg->bp.rslow_normal_coeffs) {
+			fg->bp.rslow_normal_coeffs = devm_kcalloc(fg->dev,
+						RSLOW_NUM_COEFFS, sizeof(u32),
+						GFP_KERNEL);
+			if (!fg->bp.rslow_normal_coeffs)
+				return -ENOMEM;
+		}
+
+		if (!fg->bp.rslow_low_coeffs) {
+			fg->bp.rslow_low_coeffs = devm_kcalloc(fg->dev,
+						RSLOW_NUM_COEFFS, sizeof(u32),
+						GFP_KERNEL);
+			if (!fg->bp.rslow_low_coeffs) {
+				devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+				fg->bp.rslow_normal_coeffs = NULL;
+				return -ENOMEM;
+			}
+		}
+
+		rc = fg_parse_dt_property_u32_array(profile_node,
+			"qcom,rslow-normal-coeffs",
+			fg->bp.rslow_normal_coeffs, RSLOW_NUM_COEFFS);
+		if (rc < 0) {
+			devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+			fg->bp.rslow_normal_coeffs = NULL;
+			devm_kfree(fg->dev, fg->bp.rslow_low_coeffs);
+			fg->bp.rslow_low_coeffs = NULL;
+			return rc;
+		}
+
+		rc = fg_parse_dt_property_u32_array(profile_node,
+			"qcom,rslow-low-coeffs",
+			fg->bp.rslow_low_coeffs, RSLOW_NUM_COEFFS);
+		if (rc < 0) {
+			devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+			fg->bp.rslow_normal_coeffs = NULL;
+			devm_kfree(fg->dev, fg->bp.rslow_low_coeffs);
+			fg->bp.rslow_low_coeffs = NULL;
+			return rc;
+		}
+	}
+
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
@@ -953,8 +1062,10 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 
 static int fg_gen4_bp_params_config(struct fg_dev *fg)
 {
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, i;
 	u8 buf, therm_coeffs[BATT_THERM_NUM_COEFFS * 2];
+	u8 rslow_coeffs[RSLOW_NUM_COEFFS];
 
 	if (fg->bp.vbatt_full_mv > 0) {
 		rc = fg_set_constant_chg_voltage(fg,
@@ -985,6 +1096,29 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 				rc);
 			return rc;
 		}
+	}
+
+	if (fg->bp.rslow_normal_coeffs && fg->bp.rslow_low_coeffs) {
+		rc = fg_sram_read(fg, RSLOW_COEFF_DISCHG_WORD,
+				RSLOW_COEFF_LOW_OFFSET, rslow_coeffs,
+				RSLOW_NUM_COEFFS, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Failed to read RLOW_COEFF_DISCHG_WORD rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Read Rslow coefficients back and set the status */
+		for (i = 0; i < RSLOW_NUM_COEFFS; i++) {
+			buf = fg->bp.rslow_low_coeffs[i] & 0xFF;
+			if (rslow_coeffs[i] == buf) {
+				chip->rslow_low = true;
+			} else {
+				chip->rslow_low = false;
+				break;
+			}
+		}
+		fg_dbg(fg, FG_STATUS, "Rslow_low: %d\n", chip->rslow_low);
 	}
 
 	return 0;
@@ -1659,6 +1793,7 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (batt_psy_initialized(fg))
 		power_supply_changed(fg->batt_psy);
 
+	fg_gen4_update_rslow_coeff(fg, batt_temp);
 	return IRQ_HANDLED;
 }
 
@@ -2741,32 +2876,6 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	rc = restore_cycle_count(chip->counter);
 	if (rc < 0) {
 		pr_err("Error in restoring cycle_count, rc=%d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-static int fg_parse_dt_property_u32_array(struct device_node *node,
-				const char *prop_name, int *buf, int len)
-{
-	int rc;
-
-	rc = of_property_count_elems_of_size(node, prop_name, sizeof(u32));
-	if (rc < 0) {
-		if (rc == -EINVAL)
-			return 0;
-		else
-			return rc;
-	} else if (rc != len) {
-		pr_err("Incorrect length %d for %s, rc=%d\n", len, prop_name,
-			rc);
-		return -EINVAL;
-	}
-
-	rc = of_property_read_u32_array(node, prop_name, buf, len);
-	if (rc < 0) {
-		pr_err("Error in reading %s, rc=%d\n", prop_name, rc);
 		return rc;
 	}
 
