@@ -367,29 +367,6 @@ static int _sde_splash_free_module_resource(struct msm_mmu *mmu,
 	return 0;
 }
 
-static bool _sde_splash_validate_commit(struct sde_kms *sde_kms,
-					struct drm_atomic_state *state)
-{
-	int i, nplanes;
-	struct drm_plane *plane;
-	struct drm_device *dev = sde_kms->dev;
-
-	nplanes = dev->mode_config.num_total_plane;
-
-	for (i = 0; i < nplanes; i++) {
-		plane = state->planes[i];
-
-		/*
-		 * As plane state has been swapped, we need to check
-		 * fb in state->planes, not fb in state->plane_state.
-		 */
-		if (plane && plane->fb)
-			return true;
-	}
-
-	return false;
-}
-
 __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -883,8 +860,7 @@ int sde_splash_free_resource(struct msm_kms *kms,
  * 1. Notify LK to stop display splash.
  * 2. Set DOMAIN_ATTR_EARLY_MAP to 1 to enable stage 1 translation in iommu.
  */
-int sde_splash_lk_stop_splash(struct msm_kms *kms,
-				struct drm_atomic_state *state)
+int sde_splash_lk_stop_splash(struct msm_kms *kms)
 {
 	struct sde_splash_info *sinfo;
 	struct msm_mmu *mmu;
@@ -900,8 +876,7 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
 
 	/* Monitor LK's status and tell it to exit. */
 	mutex_lock(&sde_splash_lock);
-	if (_sde_splash_validate_commit(sde_kms, state) &&
-			sinfo->display_splash_enabled) {
+	if (sinfo->display_splash_enabled) {
 		if (_sde_splash_lk_check(sde_kms->hw_intr))
 			_sde_splash_notify_lk_stop_splash(sde_kms->hw_intr);
 
