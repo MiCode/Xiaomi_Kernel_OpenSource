@@ -28,6 +28,7 @@ obj-$(CONFIG_IPQ_LCC_806X) += lcc-ipq806x.o
 obj-$(CONFIG_MDM_GCC_9615) += gcc-mdm9615.o
 obj-$(CONFIG_MDM_GCC_QCS405) += gcc-qcs405.o
 obj-$(CONFIG_MDM_LCC_9615) += lcc-mdm9615.o
+obj-$(CONFIG_MSM_CAMCC_SM6150) += camcc-sm6150.o
 obj-$(CONFIG_MSM_CAMCC_SM8150) += camcc-sm8150.o
 obj-$(CONFIG_MSM_CAMCC_SDMSHRIKE) += camcc-sdmshrike.o
 obj-$(CONFIG_MSM_CLK_AOP_QMP) += clk-aop-qmp.o
