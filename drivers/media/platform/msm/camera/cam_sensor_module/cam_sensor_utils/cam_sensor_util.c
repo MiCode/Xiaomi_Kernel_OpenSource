@@ -1553,7 +1553,7 @@ power_up_failed:
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
 		cam_res_mgr_shared_pinctrl_select_state(false);
-		pinctrl_put(ctrl->pinctrl_info.pinctrl);
+		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
 		cam_res_mgr_shared_pinctrl_put();
 	}
 
@@ -1766,7 +1766,7 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
 
 		cam_res_mgr_shared_pinctrl_select_state(false);
-		pinctrl_put(ctrl->pinctrl_info.pinctrl);
+		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
 		cam_res_mgr_shared_pinctrl_put();
 	}
 

@@ -24,7 +24,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
-#include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
@@ -60,9 +59,6 @@
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
 
-#define IPA_GPIO_IN_QUERY_CLK_IDX 0
-#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
-#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
 #define IPA_SMP2P_SMEM_STATE_MASK 3
 
 
@@ -4390,7 +4386,7 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
 			BIT(IPA_SMP2P_SMEM_STATE_MASK),
-			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1<<1)));
+			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
 
 	ipa3_ctx->smp2p_info.res_sent = true;
 	IPADBG("IPA clocks are %s\n",
@@ -4405,10 +4401,9 @@ void ipa3_reset_freeze_vote(void)
 	if (ipa3_ctx->smp2p_info.ipa_clk_on)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("FREEZE_VOTE");
 
-	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-		IPA_GPIO_OUT_CLK_VOTE_IDX, 0);
-	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-		IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 0);
+	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
+		BIT(IPA_SMP2P_SMEM_STATE_MASK),
+		BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;
@@ -4458,21 +4453,6 @@ static void ipa3_trigger_ipa_ready_cbs(void)
 	mutex_unlock(&ipa3_ctx->lock);
 }
 
-static int ipa3_gsi_pre_fw_load_init(void)
-{
-	int result;
-
-	result = gsi_configure_regs(ipa3_res.transport_mem_base,
-		ipa3_res.transport_mem_size,
-		ipa3_res.ipa_mem_base);
-	if (result) {
-		IPAERR("Failed to configure GSI registers\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static void ipa3_uc_is_loaded(void)
 {
 	IPADBG("\n");
@@ -4513,6 +4493,22 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	IPADBG("GSI version %d\n", gsi_ver);
 
 	return gsi_ver;
+}
+
+static int ipa3_gsi_pre_fw_load_init(void)
+{
+	int result;
+
+	result = gsi_configure_regs(ipa3_res.transport_mem_base,
+		ipa3_res.transport_mem_size,
+		ipa3_res.ipa_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
+	if (result) {
+		IPAERR("Failed to configure GSI registers\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -4819,7 +4815,8 @@ static int ipa3_manual_load_ipa_fws(void)
 
 	IPADBG("FWs are available for loading\n");
 
-	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
+	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
 	if (result) {
 		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);

@@ -19,6 +19,7 @@
 #include "sm8150-camera-sensor-qrd.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
 #include "smb1390.dtsi"
+#include "smb1355.dtsi"
 
 &vendor {
 	bluetooth: bt_wcn3990 {
@@ -498,7 +499,7 @@
 
 &smb1390 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&smb1390_stat_default>;
+	pinctrl-0 = <&smb_stat_default>;
 	status = "ok";
 };
 
@@ -510,4 +511,14 @@
 	qcom,param-override-seq =
 		<0x49 0x70
 		 0x28 0x74>;
+};
+
+&smb1355 {
+	status = "ok";
+};
+
+&smb1355_charger {
+	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+	io-channel-names = "charger_temp";
+	status = "ok";
 };

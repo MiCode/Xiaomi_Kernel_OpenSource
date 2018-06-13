@@ -103,6 +103,9 @@ dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-qrd.dtb
 endif
 
+dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
+	sdxprairie-cdp.dtb \
+	sdxprairie-mtp.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)

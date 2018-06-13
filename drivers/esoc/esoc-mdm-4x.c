@@ -55,6 +55,8 @@ static const int required_gpios[] = {
 	AP2MDM_STATUS,
 };
 
+void *ipc_log;
+
 static void mdm_debug_gpio_show(struct mdm_ctrl *mdm)
 {
 	struct device *dev = mdm->dev;
@@ -83,10 +85,25 @@ static void mdm_debug_gpio_show(struct mdm_ctrl *mdm)
 			 __func__, MDM_GPIO(mdm, MDM2AP_VDDMIN));
 }
 
+static void mdm_debug_gpio_ipc_log(struct mdm_ctrl *mdm)
+{
+	esoc_mdm_log("MDM2AP_ERRFATAL gpio = %d\n",
+			MDM_GPIO(mdm, MDM2AP_ERRFATAL));
+	esoc_mdm_log("AP2MDM_ERRFATAL gpio = %d\n",
+			MDM_GPIO(mdm, AP2MDM_ERRFATAL));
+	esoc_mdm_log("MDM2AP_STATUS gpio = %d\n",
+			MDM_GPIO(mdm, MDM2AP_STATUS));
+	esoc_mdm_log("AP2MDM_STATUS gpio = %d\n",
+			MDM_GPIO(mdm, AP2MDM_STATUS));
+	esoc_mdm_log("AP2MDM_SOFT_RESET gpio = %d\n",
+			MDM_GPIO(mdm, AP2MDM_SOFT_RESET));
+}
+
 static void mdm_enable_irqs(struct mdm_ctrl *mdm)
 {
 	if (!mdm)
 		return;
+	esoc_mdm_log("Enabling the interrupts\n");
 	if (mdm->irq_mask & IRQ_ERRFATAL) {
 		enable_irq(mdm->errfatal_irq);
 		mdm->irq_mask &= ~IRQ_ERRFATAL;
@@ -105,6 +122,7 @@ void mdm_disable_irqs(struct mdm_ctrl *mdm)
 {
 	if (!mdm)
 		return;
+	esoc_mdm_log("Disabling the interrupts\n");
 	if (!(mdm->irq_mask & IRQ_ERRFATAL)) {
 		disable_irq_nosync(mdm->errfatal_irq);
 		mdm->irq_mask |= IRQ_ERRFATAL;
@@ -192,6 +210,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 				esoc->clink_ops->notify(ESOC_BOOT_DONE, esoc);
 			}
 		}
+		esoc_mdm_log("ESOC_PWR_ON: Setting AP2MDM_ERRFATAL = 0\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 		mdm->init = 1;
 		mdm_do_first_power_on(mdm);
@@ -206,11 +225,17 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 			break;
 		graceful_shutdown = true;
 		if (!esoc->userspace_handle_shutdown) {
+			esoc_mdm_log(
+			"ESOC_PWR_OFF: sending sysmon-shutdown to modem\n");
 			ret = sysmon_send_shutdown(&esoc->subsys);
 			if (ret) {
+				esoc_mdm_log(
+			"ESOC_PWR_OFF: sysmon-shutdown failed: %d\n", ret);
 				dev_err(mdm->dev,
 				 "sysmon shutdown fail, ret = %d\n", ret);
 				graceful_shutdown = false;
+				esoc_mdm_log(
+			"ESOC_PWR_OFF: forcefully powering-off modem\n");
 			}
 		} else {
 			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
@@ -236,13 +261,19 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * monitored by multiple mdms(might be wrongly interpreted as
 		 * a primary crash).
 		 */
-		if (esoc->statusline_not_a_powersource == false)
+		if (esoc->statusline_not_a_powersource == false) {
+			esoc_mdm_log(
+			"ESOC_FORCE_PWR_OFF: setting AP2MDM_STATUS = 0\n");
 			gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
+		}
+		esoc_mdm_log(
+		"ESOC_FORCE_PWR_OFF: Queueing request: ESOC_REQ_SHUTDOWN\n");
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
 		mdm_power_down(mdm);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		break;
 	case ESOC_RESET:
+		esoc_mdm_log("ESOC_RESET: Resetting the modem\n");
 		mdm_toggle_soft_reset(mdm, false);
 		break;
 	case ESOC_PREPARE_DEBUG:
@@ -252,8 +283,12 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * an APQ crash, wait till mdm is ready for ramdumps.
 		 */
 		mdm->ready = false;
+		esoc_mdm_log(
+		"ESOC_PREPARE_DEBUG: Cancelling the status check work\n");
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		if (!mdm->esoc->auto_boot) {
+			esoc_mdm_log(
+			"ESOC_PREPARE_DEBUG: setting AP2MDM_ERRFATAL = 1\n");
 			gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 			dev_dbg(mdm->dev,
 				"set ap2mdm errfatal to force reset\n");
@@ -266,6 +301,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		if (mdm->skip_restart_for_mdm_crash)
 			break;
 
+		esoc_mdm_log("ESOC_EXE_DEBUG: Resetting the modem\n");
 		mdm->debug = 1;
 		mdm_toggle_soft_reset(mdm, false);
 		/*
@@ -273,8 +309,12 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * then power down the mdm and switch gpios to booting
 		 * config
 		 */
+		esoc_mdm_log(
+		"ESOC_EXE_DEBUG: Waiting for ramdumps to be collected\n");
 		wait_for_completion(&mdm->debug_done);
 		if (mdm->debug_fail) {
+			esoc_mdm_log(
+			"ESOC_EXE_DEBUG: Failed to collect the ramdumps\n");
 			dev_err(mdm->dev, "unable to collect ramdumps\n");
 			mdm->debug = 0;
 			return -EIO;
@@ -288,11 +328,13 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * Deassert APQ to mdm err fatal
 		 * Power on the mdm
 		 */
+		esoc_mdm_log("ESOC_EXIT_DEBUG: Setting AP2MDM_ERRFATAL = 0\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 		dev_dbg(mdm->dev, "exiting debug state after power on\n");
 		mdm->get_restart_reason = true;
 		break;
 	default:
+		esoc_mdm_log("Invalid command\n");
 		return -EINVAL;
 	};
 	return 0;
@@ -306,7 +348,11 @@ static void mdm2ap_status_check(struct work_struct *work)
 	struct device *dev = mdm->dev;
 	struct esoc_clink *esoc = mdm->esoc;
 
+	esoc_mdm_log(
+	"Powerup timer expired after images are transferred to modem\n");
+
 	if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS)) == 0) {
+		esoc_mdm_log("MDM2AP_STATUS did not go high\n");
 		dev_dbg(dev, "MDM2AP_STATUS did not go high\n");
 		esoc_clink_evt_notify(ESOC_UNEXPECTED_RESET, esoc);
 	}
@@ -336,14 +382,17 @@ static void mdm_get_restart_reason(struct work_struct *work)
 		ret = sysmon_get_reason(&mdm->esoc->subsys, sfr_buf,
 							sizeof(sfr_buf));
 		if (!ret) {
+			esoc_mdm_log("restart reason is %s\n", sfr_buf);
 			dev_err(dev, "mdm restart reason is %s\n", sfr_buf);
 			break;
 		}
 		msleep(SFR_RETRY_INTERVAL);
 	} while (++ntries < SFR_MAX_RETRIES);
-	if (ntries == SFR_MAX_RETRIES)
+	if (ntries == SFR_MAX_RETRIES) {
+		esoc_mdm_log("restart reason not obtained. err: %d\n", ret);
 		dev_dbg(dev, "%s: Error retrieving restart reason: %d\n",
 						__func__, ret);
+	}
 	mdm->get_restart_reason = false;
 }
 
@@ -355,36 +404,53 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 	struct device *dev = mdm->dev;
 
+	esoc_mdm_log("Notification: %d\n", notify);
+
 	switch (notify) {
 	case ESOC_IMG_XFER_DONE:
-		if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS)) ==  0)
+		if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS)) ==  0) {
+			esoc_mdm_log(
+		"ESOC_IMG_XFER_DONE: Begin timeout of %lu ms for modem_status\n",
+			MDM2AP_STATUS_TIMEOUT_MS);
 			schedule_delayed_work(&mdm->mdm2ap_status_check_work,
 				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
+		}
 		break;
 	case ESOC_BOOT_DONE:
+		esoc_mdm_log(
+		"ESOC_BOOT_DONE: Sending the notification: ESOC_RUN_STATE\n");
 		esoc_clink_evt_notify(ESOC_RUN_STATE, esoc);
 		break;
 	case ESOC_IMG_XFER_RETRY:
+		esoc_mdm_log("ESOC_IMG_XFER_RETRY: Resetting the device\n");
 		mdm->init = 1;
 		mdm_toggle_soft_reset(mdm, false);
 		break;
 	case ESOC_IMG_XFER_FAIL:
+		esoc_mdm_log(
+		"ESOC_IMG_XFER_FAIL: Send notification: ESOC_INVALID_STATE\n");
 		esoc_clink_evt_notify(ESOC_INVALID_STATE, esoc);
 		break;
 	case ESOC_BOOT_FAIL:
+		esoc_mdm_log(
+		"ESOC_BOOT_FAIL: Send notification: ESOC_INVALID_STATE\n");
 		esoc_clink_evt_notify(ESOC_INVALID_STATE, esoc);
 		break;
 	case ESOC_PON_RETRY:
+		esoc_mdm_log(
+		"ESOC_PON_RETRY: Send notification: ESOC_RETRY_PON_EVT\n");
 		esoc_clink_evt_notify(ESOC_RETRY_PON_EVT, esoc);
 		break;
 	case ESOC_UPGRADE_AVAILABLE:
 		break;
 	case ESOC_DEBUG_DONE:
+		esoc_mdm_log("ESOC_DEBUG_DONE: Ramdumps collection done\n");
 		mdm->debug_fail = false;
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		complete(&mdm->debug_done);
 		break;
 	case ESOC_DEBUG_FAIL:
+		esoc_mdm_log("ESOC_DEBUG_FAIL: Ramdumps collection failed\n");
 		mdm->debug_fail = true;
 		complete(&mdm->debug_done);
 		break;
@@ -392,9 +458,13 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm_disable_irqs(mdm);
 		status_down = false;
 		dev_dbg(dev, "signal apq err fatal for graceful restart\n");
+		esoc_mdm_log(
+		"ESOC_PRIMARY_CRASH: Setting AP2MDM_ERRFATAL = 1\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 		if (esoc->primary)
 			break;
+		esoc_mdm_log(
+		"ESOC_PRIMARY_CRASH: Waiting for MDM2AP_STATUS to go LOW\n");
 		timeout = local_clock();
 		do_div(timeout, NSEC_PER_MSEC);
 		timeout += MDM_MODEM_TIMEOUT;
@@ -409,6 +479,8 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		} while (!time_after64(now, timeout));
 
 		if (!status_down) {
+			esoc_mdm_log(
+	"ESOC_PRIMARY_CRASH: MDM2AP_STATUS didn't go LOW. Resetting modem\n");
 			dev_err(mdm->dev, "%s MDM2AP status did not go low\n",
 								__func__);
 			mdm_toggle_soft_reset(mdm, true);
@@ -418,6 +490,8 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm_disable_irqs(mdm);
 		mdm->debug = 0;
 		mdm->ready = false;
+		esoc_mdm_log(
+		"ESOC_PRIMARY_REBOOT: Powering down the modem\n");
 		mdm_power_down(mdm);
 		break;
 	};
@@ -435,6 +509,7 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 	if (!mdm->ready)
 		goto mdm_pwroff_irq;
 	esoc = mdm->esoc;
+	esoc_mdm_log("MDM2AP_ERRFATAL IRQ received!\n");
 	dev_err(dev, "%s: mdm sent errfatal interrupt\n",
 					__func__);
 	subsys_set_crash_status(esoc->subsys_dev, true);
@@ -442,6 +517,8 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 	esoc_clink_evt_notify(ESOC_ERR_FATAL, esoc);
 	return IRQ_HANDLED;
 mdm_pwroff_irq:
+	esoc_mdm_log(
+	"MDM2AP_ERRFATAL IRQ received before modem booted. Ignoring.\n");
 	dev_info(dev, "errfatal irq when in pwroff\n");
 no_mdm_irq:
 	return IRQ_HANDLED;
@@ -458,15 +535,19 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	dev = mdm->dev;
 	esoc = mdm->esoc;
+	esoc_mdm_log("MDM2AP_STATUS IRQ received!\n");
 	/*
 	 * On auto boot devices, there is a possibility of receiving
 	 * status change interrupt before esoc_clink structure is
 	 * initialized. Ignore them.
 	 */
-	if (!esoc)
+	if (!esoc) {
+		esoc_mdm_log("Unexpected IRQ. Ignoring.\n");
 		return IRQ_HANDLED;
+	}
 	value = gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS));
 	if (value == 0 && mdm->ready) {
+		esoc_mdm_log("Unexpected reset of external modem\n");
 		dev_err(dev, "unexpected reset external modem\n");
 		subsys_set_crash_status(esoc->subsys_dev, true);
 		esoc_clink_evt_notify(ESOC_UNEXPECTED_RESET, esoc);
@@ -478,6 +559,8 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		if (esoc->auto_boot && mdm->ready)
 			return IRQ_HANDLED;
 
+		esoc_mdm_log(
+		"Modem ready. Cancelling the the status_check work\n");
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		dev_dbg(dev, "status = 1: mdm is now ready\n");
 		mdm->ready = true;
@@ -887,30 +970,35 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 
 	ret = mdm_dt_parse_gpios(mdm);
 	if (ret) {
+		esoc_mdm_log("Failed to parse DT gpios\n");
 		dev_err(mdm->dev, "Failed to parse DT gpios\n");
 		goto err_destroy_wrkq;
 	}
 
 	ret = mdm_pon_dt_init(mdm);
 	if (ret) {
+		esoc_mdm_log("Failed to parse PON DT gpios\n");
 		dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
 		goto err_destroy_wrkq;
 	}
 
 	ret = mdm_pinctrl_init(mdm);
 	if (ret) {
+		esoc_mdm_log("Failed to init pinctrl\n");
 		dev_err(mdm->dev, "Failed to init pinctrl\n");
 		goto err_destroy_wrkq;
 	}
 
 	ret = mdm_pon_setup(mdm);
 	if (ret) {
+		esoc_mdm_log("Failed to setup PON\n");
 		dev_err(mdm->dev, "Failed to setup PON\n");
 		goto err_destroy_wrkq;
 	}
 
 	ret = mdm_configure_ipc(mdm, pdev);
 	if (ret) {
+		esoc_mdm_log("Failed to configure the ipc\n");
 		dev_err(mdm->dev, "Failed to configure the ipc\n");
 		goto err_release_ipc;
 	}
@@ -935,10 +1023,12 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 
 	ret = esoc_clink_register(esoc);
 	if (ret) {
+		esoc_mdm_log("esoc registration failed\n");
 		dev_err(mdm->dev, "esoc registration failed\n");
 		goto err_free_irq;
 	}
 	dev_dbg(mdm->dev, "esoc registration done\n");
+	esoc_mdm_log("Done configuring the GPIOs and esoc registration\n");
 
 	init_completion(&mdm->debug_done);
 	INIT_WORK(&mdm->mdm_status_work, mdm_status_fn);
@@ -948,6 +1038,8 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 	mdm->debug_fail = false;
 	mdm->esoc = esoc;
 	mdm->init = 0;
+
+	mdm_debug_gpio_ipc_log(mdm);
 
 	return 0;
 
@@ -994,6 +1086,7 @@ static int mdm_probe(struct platform_device *pdev)
 	const struct mdm_ops *mdm_ops;
 	struct device_node *node = pdev->dev.of_node;
 	struct mdm_ctrl *mdm;
+	int ret;
 
 	match = of_match_node(mdm_dt_match, node);
 	if (IS_ERR_OR_NULL(match))
@@ -1002,7 +1095,16 @@ static int mdm_probe(struct platform_device *pdev)
 	mdm = devm_kzalloc(&pdev->dev, sizeof(*mdm), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(mdm))
 		return PTR_ERR(mdm);
-	return mdm_ops->config_hw(mdm, mdm_ops, pdev);
+
+	ipc_log = ipc_log_context_create(ESOC_MDM_IPC_PAGES, "esoc-mdm", 0);
+	if (!ipc_log)
+		dev_err(&pdev->dev, "Failed to setup IPC logging\n");
+
+	ret = mdm_ops->config_hw(mdm, mdm_ops, pdev);
+	if (ret)
+		ipc_log_context_destroy(ipc_log);
+
+	return ret;
 }
 
 static struct platform_driver mdm_driver = {

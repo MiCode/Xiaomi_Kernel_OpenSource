@@ -190,8 +190,12 @@ enum fg_sram_param_id {
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
 	FG_SRAM_RECHARGE_VBATT_THR,
+	FG_SRAM_KI_COEFF_LOW_DISCHG,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_LOW_CHG,
+	FG_SRAM_KI_COEFF_MED_CHG,
+	FG_SRAM_KI_COEFF_HI_CHG,
 	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
@@ -269,9 +273,9 @@ enum esr_timer_config {
 	NUM_ESR_TIMERS,
 };
 
-enum ttf_mode {
-	TTF_MODE_NORMAL = 0,
-	TTF_MODE_QNOVO,
+enum fg_ttf_mode {
+	FG_TTF_MODE_NORMAL = 0,
+	FG_TTF_MODE_QNOVO,
 };
 
 /* parameters from battery profile */
@@ -327,7 +331,7 @@ struct fg_pt {
 	s32 y;
 };
 
-struct ttf {
+struct fg_ttf {
 	struct fg_circ_buf	ibatt;
 	struct fg_circ_buf	vbatt;
 	struct fg_cc_step_data	cc_step;

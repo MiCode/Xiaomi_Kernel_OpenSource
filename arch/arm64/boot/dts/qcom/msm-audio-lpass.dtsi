@@ -299,6 +299,13 @@
 	audio_apr: qcom,msm-audio-apr {
 		compatible = "qcom,msm-audio-apr";
 		qcom,subsys-name = "apr_adsp";
+
+		msm_audio_ion: qcom,msm-audio-ion {
+			compatible = "qcom,msm-audio-ion";
+			qcom,smmu-version = <2>;
+			qcom,smmu-enabled;
+			iommus = <&apps_smmu 0x1b21 0x0>;
+		};
 	};
 
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
@@ -374,13 +381,6 @@
 	hdmi_dba: qcom,msm-hdmi-dba-codec-rx {
 		compatible = "qcom,msm-hdmi-dba-codec-rx";
 		qcom,dba-bridge-chip = "adv7533";
-	};
-
-	msm_audio_ion: qcom,msm-audio-ion {
-		compatible = "qcom,msm-audio-ion";
-		qcom,smmu-version = <2>;
-		qcom,smmu-enabled;
-		iommus = <&apps_smmu 0x1b21 0x0>;
 	};
 
 	qcom,msm-adsp-loader {

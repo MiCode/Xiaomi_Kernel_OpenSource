@@ -138,6 +138,8 @@ enum {
 #define DCDC_OTG_CFG_REG			(DCDC_BASE + 0x53)
 #define OTG_EN_SRC_CFG_BIT			BIT(1)
 
+#define DCDC_CFG_REF_MAX_PSNS_REG		(DCDC_BASE + 0x8C)
+
 /********************************
  *  BATIF Peripheral Registers  *
  ********************************/
@@ -352,6 +354,12 @@ enum {
 #define TEMP_WITHIN_RANGE_BIT			BIT(2)
 #define TEMP_BELOW_RANGE_BIT			BIT(1)
 #define THERMREG_DISABLED_BIT			BIT(0)
+
+#define CONNECTOR_TEMP_STATUS_REG		(MISC_BASE + 0x09)
+#define CONNECTOR_TEMP_SHDN_BIT			BIT(3)
+#define CONNECTOR_TEMP_RST_BIT			BIT(2)
+#define CONNECTOR_TEMP_UB_BIT			BIT(1)
+#define CONNECTOR_TEMP_LB_BIT			BIT(0)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)

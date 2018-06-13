@@ -1069,11 +1069,12 @@ int gsi_start_xfer(unsigned long chan_hdl);
  * @gsi_base_addr: Base address of GSI register space
  * @gsi_size: Mapping size of the GSI register space
  * @per_base_addr: Base address of the peripheral using GSI
+ * @ver: GSI core version
  *
  * @Return gsi_status
  */
 int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr);
+		phys_addr_t per_base_addr, enum gsi_ver ver);
 
 /**
  * gsi_enable_fw - Peripheral should call this function
@@ -1094,11 +1095,12 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver);
  *
  * @base_offset:[OUT] - IRAM base offset address
  * @size:	[OUT] - IRAM size
+ * @ver: GSI core version
 
  * @Return none
  */
 void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size);
+		unsigned long *size, enum gsi_ver ver);
 
 /**
  * gsi_halt_channel_ee - Peripheral should call this function
@@ -1308,7 +1310,7 @@ static inline int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
 }
 
 static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr)
+		phys_addr_t per_base_addr, enum gsi_ver ver)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1319,7 +1321,7 @@ static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 }
 
 static inline void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size)
+		unsigned long *size, enum gsi_ver ver)
 {
 }
 

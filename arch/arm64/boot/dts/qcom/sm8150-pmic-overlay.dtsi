@@ -88,8 +88,8 @@
 };
 
 &pm8150b_gpios {
-	smb1390_stat {
-		smb1390_stat_default: smb1390_stat_default {
+	smb_stat {
+		smb_stat_default: smb_stat_default {
 			pins = "gpio6";
 			function = "normal";
 			input-enable;

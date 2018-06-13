@@ -117,6 +117,19 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
+int smblib_icl_override(struct smb_charger *chg, bool override)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				ICL_OVERRIDE_AFTER_APSD_BIT,
+				override ? ICL_OVERRIDE_AFTER_APSD_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+
+	return rc;
+}
+
 static int smblib_select_sec_charger(struct smb_charger *chg, int sec_chg)
 {
 	int rc;
@@ -923,7 +936,7 @@ static int get_sdp_current(struct smb_charger *chg, int *icl_ua)
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc = 0;
-	bool hc_mode = false;
+	bool hc_mode = false, override = false;
 
 	/* suspend and return if 25mA or less is requested */
 	if (icl_ua <= USBIN_25MA)
@@ -950,6 +963,13 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 			goto out;
 		}
 		hc_mode = true;
+
+		/*
+		 * Micro USB mode follows ICL register independent of override
+		 * bit, configure override only for typeC mode.
+		 */
+		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
+			override = true;
 	}
 
 set_mode:
@@ -957,6 +977,12 @@ set_mode:
 		USBIN_MODE_CHG_BIT, hc_mode ? USBIN_MODE_CHG_BIT : 0);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
+		goto out;
+	}
+
+	rc = smblib_icl_override(chg, override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		goto out;
 	}
 
@@ -2236,6 +2262,40 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_HEALTH_HOT;
 		break;
 	case ALERT_LEVEL_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	return 0;
+}
+
+int smblib_get_prop_connector_health(struct smb_charger *chg,
+						union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, CONNECTOR_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CONNECTOR_TEMP_STATUS_REG, rc=%d\n",
+									rc);
+		return rc;
+	}
+
+	/* Thermal status bits are mutually exclusive */
+	switch (stat) {
+	case CONNECTOR_TEMP_LB_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_COOL;
+		break;
+	case CONNECTOR_TEMP_UB_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_WARM;
+		break;
+	case CONNECTOR_TEMP_RST_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_HOT;
+		break;
+	case CONNECTOR_TEMP_SHDN_BIT:
 		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
 		break;
 	default:

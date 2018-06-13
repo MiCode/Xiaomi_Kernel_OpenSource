@@ -2913,6 +2913,11 @@ int vfs_create2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry,
 	if (error)
 		return error;
 	error = dir->i_op->create(dir, dentry, mode, want_excl);
+	if (error)
+		return error;
+	error = security_inode_post_create(dir, dentry, mode);
+	if (error)
+		return error;
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;
@@ -3735,6 +3740,13 @@ int vfs_mknod2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry, u
 		return error;
 
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
+	if (error)
+		return error;
+
+	error = security_inode_post_create(dir, dentry, mode);
+	if (error)
+		return error;
+
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;

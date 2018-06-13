@@ -235,6 +235,7 @@ struct smb_params {
 	struct smb_chg_param	icl_max_stat;
 	struct smb_chg_param	icl_stat;
 	struct smb_chg_param	otg_cl;
+	struct smb_chg_param	dc_icl;
 	struct smb_chg_param	jeita_cc_comp_hot;
 	struct smb_chg_param	jeita_cc_comp_cold;
 	struct smb_chg_param	freq_switcher;
@@ -376,6 +377,7 @@ struct smb_charger {
 	int			pulse_cnt;
 
 	int			die_health;
+	int			connector_health;
 
 	/* flash */
 	u32			flash_derating_soc;
@@ -514,6 +516,8 @@ int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg,
 			       union power_supply_propval *val);
+int smblib_get_prop_connector_health(struct smb_charger *chg,
+			       union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
@@ -547,6 +551,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
+int smblib_icl_override(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
