@@ -12,6 +12,15 @@
  */
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/device.h>
+#include <linux/iommu.h>
+#include <linux/io.h>
+#include <linux/of_platform.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/pm_opp.h>
+#include <linux/io.h>
+#include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"
 #include "kgsl_gmu_core.h"
