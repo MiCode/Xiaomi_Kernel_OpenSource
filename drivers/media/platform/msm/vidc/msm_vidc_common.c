@@ -2417,6 +2417,11 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	update_recon_stats(inst, &empty_buf_done->recon_stats);
 	msm_vidc_clear_freq_entry(inst, mbuf->smem[0].device_addr);
 	/*
+	 * dma cache operations need to be performed before dma_unmap
+	 * which is done inside msm_comm_put_vidc_buffer()
+	 */
+	msm_comm_dqbuf_cache_operations(inst, mbuf);
+	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
 	 * in put_buffer.
@@ -2601,6 +2606,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
+	/*
+	 * dma cache operations need to be performed before dma_unmap
+	 * which is done inside msm_comm_put_vidc_buffer()
+	 */
+	msm_comm_dqbuf_cache_operations(inst, mbuf);
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
@@ -6100,6 +6110,137 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	return rc;
 }
 
+int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0, i;
+	struct vb2_buffer *vb;
+	bool skip;
+
+	if (!inst || !mbuf) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+			__func__, inst, mbuf);
+		return -EINVAL;
+	}
+	vb = &mbuf->vvb.vb2_buf;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		unsigned long offset, size;
+		enum smem_cache_ops cache_op;
+
+		skip = true;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = 0;
+					size = vb->planes[i].length;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = 0;
+					size = vb->planes[i].length;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+
+		if (!skip) {
+			rc = msm_smem_cache_operations(mbuf->smem[i].dma_buf,
+					cache_op, offset, size);
+			if (rc)
+				print_vidc_buffer(VIDC_ERR,
+					"qbuf cache ops failed", inst, mbuf);
+		}
+	}
+
+	return rc;
+}
+
+int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0, i;
+	struct vb2_buffer *vb;
+	bool skip;
+
+	if (!inst || !mbuf) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+			__func__, inst, mbuf);
+		return -EINVAL;
+	}
+	vb = &mbuf->vvb.vb2_buf;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		unsigned long offset, size;
+		enum smem_cache_ops cache_op;
+
+		skip = true;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* bitstream and extradata */
+				/* we do not need cache operations */
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* yuv and extradata */
+				/* we do not need cache operations */
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					/*
+					 * Include vp8e header bytes as well
+					 * by making offset equal to zero
+					 */
+					offset = 0;
+					size = vb->planes[i].bytesused +
+						vb->planes[i].data_offset;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+
+		if (!skip) {
+			rc = msm_smem_cache_operations(mbuf->smem[i].dma_buf,
+					cache_op, offset, size);
+			if (rc)
+				print_vidc_buffer(VIDC_ERR,
+					"dqbuf cache ops failed", inst, mbuf);
+		}
+	}
+
+	return rc;
+}
+
 struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb2)
 {
@@ -6188,6 +6329,8 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 			goto exit;
 		}
 	}
+	/* dma cache operations need to be performed after dma_map */
+	msm_comm_qbuf_cache_operations(inst, mbuf);
 
 	/* special handling for decoder */
 	if (inst->session_type == MSM_VIDC_DECODER) {
