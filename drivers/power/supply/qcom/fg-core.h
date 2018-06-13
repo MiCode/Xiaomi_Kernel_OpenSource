@@ -257,6 +257,7 @@ enum wa_flags {
 	PMI8998_V1_REV_WA = BIT(0),
 	PM660_TSMC_OSC_WA = BIT(1),
 	PM8150B_V1_DMA_WA = BIT(2),
+	PM8150B_V1_RSLOW_COMP_WA = BIT(3),
 };
 
 enum slope_limit_status {

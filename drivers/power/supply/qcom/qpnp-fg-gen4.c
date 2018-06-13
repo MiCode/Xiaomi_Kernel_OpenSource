@@ -90,6 +90,8 @@
 #define VBATT_LOW_OFFSET		1
 #define PROFILE_LOAD_WORD		65
 #define PROFILE_LOAD_OFFSET		0
+#define RSLOW_CONFIG_WORD		241
+#define RSLOW_CONFIG_OFFSET		0
 #define NOM_CAP_WORD			271
 #define NOM_CAP_OFFSET			0
 #define RCONN_WORD			275
@@ -2638,6 +2640,18 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
+	if (fg->wa_flags & PM8150B_V1_RSLOW_COMP_WA) {
+		val = 0;
+		mask = BIT(1);
+		rc = fg_sram_masked_write(fg, RSLOW_CONFIG_WORD,
+				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = restore_cycle_count(chip->counter);
 	if (rc < 0) {
 		pr_err("Error in restoring cycle_count, rc=%d\n", rc);
@@ -2833,8 +2847,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		fg->version = GEN4_FG;
 		fg->use_dma = true;
 		fg->sp = pm8150_sram_params;
-		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4)
+		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4) {
 			fg->wa_flags |= PM8150B_V1_DMA_WA;
+			fg->wa_flags |= PM8150B_V1_RSLOW_COMP_WA;
+		}
 		break;
 	default:
 		return -EINVAL;
