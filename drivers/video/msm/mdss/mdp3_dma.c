@@ -726,7 +726,7 @@ return rc;
 static int mdp3_wait_for_dma_comp(struct mdp3_dma *dma, struct mdp3_intf *intf)
 {
 	int vsync_status;
-	int rc = 0;
+	int rc = 1;
 	int retry_count = 2;
 
 	if (intf->active) {
