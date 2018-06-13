@@ -104,6 +104,10 @@
 #define PROFILE_INTEGRITY_OFFSET	0
 #define ESR_WORD			331
 #define ESR_OFFSET			0
+#define ESR_MDL_WORD			335
+#define ESR_MDL_OFFSET			0
+#define ESR_ACT_WORD			342
+#define ESR_ACT_OFFSET			0
 #define RSLOW_WORD			368
 #define RSLOW_OFFSET			0
 #define OCV_WORD			417
@@ -163,6 +167,9 @@ struct fg_gen4_chip {
 	struct ttf		*ttf;
 	char			batt_profile[PROFILE_LEN];
 	int			recharge_soc_thr;
+	int			esr_actual;
+	int			esr_nominal;
+	int			soh;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
 };
@@ -202,6 +209,10 @@ static struct fg_sram_param pm8150_sram_params[] = {
 		fg_decode_voltage_15b),
 	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
 		fg_decode_value_16b),
+	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
+	PARAM(ESR_ACT, ESR_ACT_WORD, ESR_ACT_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(CC_SOC, CC_SOC_WORD, CC_SOC_OFFSET, 4, 1, 1, 0, NULL,
@@ -1218,6 +1229,53 @@ static void get_batt_psy_props(struct fg_dev *fg)
 	}
 }
 
+static int fg_gen4_esr_soh_update(struct fg_dev *fg)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, msoc, esr_uohms;
+
+	if (!fg->soc_reporting_ready || fg->battery_missing) {
+		chip->esr_actual = -EINVAL;
+		chip->esr_nominal = -EINVAL;
+		return 0;
+	}
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
+		rc = fg_get_msoc(fg, &msoc);
+		if (rc < 0) {
+			pr_err("Error in getting msoc, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (msoc == ESR_SOH_SOC) {
+			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
+			if (rc < 0) {
+				pr_err("Error in getting esr_actual, rc=%d\n",
+					rc);
+				return rc;
+			}
+			chip->esr_actual = esr_uohms;
+
+			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_MDL, &esr_uohms);
+			if (rc < 0) {
+				pr_err("Error in getting esr_nominal, rc=%d\n",
+					rc);
+				chip->esr_actual = -EINVAL;
+				return rc;
+			}
+			chip->esr_nominal = esr_uohms;
+
+			fg_dbg(fg, FG_STATUS, "esr_actual: %d esr_nominal: %d\n",
+				chip->esr_actual, chip->esr_nominal);
+
+			if (fg->batt_psy)
+				power_supply_changed(fg->batt_psy);
+		}
+	}
+
+	return 0;
+}
+
 static int fg_gen4_update_maint_soc(struct fg_dev *fg)
 {
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
@@ -1666,6 +1724,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
 
+	rc = fg_gen4_esr_soh_update(fg);
+	if (rc < 0)
+		pr_err("Error in updating ESR for SOH, rc=%d\n", rc);
+
 	rc = fg_gen4_update_maint_soc(fg);
 	if (rc < 0)
 		pr_err("Error in updating maint_soc, rc=%d\n", rc);
@@ -2044,6 +2106,12 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		rc = fg_get_battery_resistance(fg, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		pval->intval = chip->esr_actual;
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		pval->intval = chip->esr_nominal;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 		rc = fg_get_sram_prop(fg, FG_SRAM_OCV, &pval->intval);
 		break;
@@ -2085,6 +2153,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
+		break;
+	case POWER_SUPPLY_PROP_SOH:
+		pval->intval = chip->soh;
 		break;
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
 		pval->intval = is_debug_batt_id(fg);
@@ -2167,6 +2238,15 @@ static int fg_psy_set_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		chip->esr_actual = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		chip->esr_nominal = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_SOH:
+		chip->soh = pval->intval;
+		break;
 	default:
 		break;
 	}
@@ -2181,6 +2261,9 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 	case POWER_SUPPLY_PROP_CC_STEP:
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+	case POWER_SUPPLY_PROP_SOH:
 		return 1;
 	default:
 		break;
@@ -2198,6 +2281,8 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_ESR_ACTUAL,
+	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
@@ -2207,6 +2292,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,

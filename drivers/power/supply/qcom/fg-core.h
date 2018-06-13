@@ -82,6 +82,7 @@
 
 #define DEBUG_BATT_SOC			67
 #define BATT_MISS_SOC			50
+#define ESR_SOH_SOC			50
 #define EMPTY_SOC			0
 
 enum prof_load_status {
@@ -165,6 +166,8 @@ enum fg_sram_param_id {
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
 	FG_SRAM_ESR,
+	FG_SRAM_ESR_MDL,
+	FG_SRAM_ESR_ACT,
 	FG_SRAM_RSLOW,
 	FG_SRAM_ALG_FLAGS,
 	FG_SRAM_CC_SOC,
