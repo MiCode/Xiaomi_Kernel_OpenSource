@@ -116,6 +116,12 @@ struct bio {
 	struct bio_set		*bi_pool;
 
 	/*
+	 * When using dircet-io (O_DIRECT), we can't get the inode from a bio
+	 * by walking bio->bi_io_vec->bv_page->mapping->host
+	 * since the page is anon.
+	 */
+	struct inode		*bi_dio_inode;
+	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
 	 * MUST obviously be kept at the very end of the bio.

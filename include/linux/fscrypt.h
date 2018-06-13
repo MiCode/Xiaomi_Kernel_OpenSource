@@ -17,6 +17,8 @@
 #include <linux/fs.h>
 
 #define FS_CRYPTO_BLOCK_SIZE		16
+#define FS_ENCRYPTION_MODE_PRIVATE	127
+#define FS_AES_256_XTS_KEY_SIZE		64
 
 struct fscrypt_ctx;
 struct fscrypt_info;
@@ -41,6 +43,8 @@ struct fscrypt_name {
 
 /* Maximum value for the third parameter of fscrypt_operations.set_context(). */
 #define FSCRYPT_SET_CONTEXT_MAX_SIZE	28
+
+extern int fs_using_hardware_encryption(struct inode *inode);
 
 #if __FS_HAS_ENCRYPTION
 #include <linux/fscrypt_supp.h>
