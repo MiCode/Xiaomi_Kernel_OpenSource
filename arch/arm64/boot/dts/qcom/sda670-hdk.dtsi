@@ -11,6 +11,7 @@
  */
 #include "sdm670-qrd.dtsi"
 #include "sdm670-external-codec.dtsi"
+#include "sda670-camera-sensor-hdk.dtsi"
 
 &dsi_dual_nt36850_truly_cmd_display {
 	/delete-property/ qcom,dsi-display-active;
