@@ -343,7 +343,7 @@ static bool sde_encoder_phys_vid_mode_fixup(
 
 /* vid_enc timing_params must be configured before calling this function */
 static void _sde_encoder_phys_vid_setup_avr(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc, u32 qsync_min_fps)
 {
 	struct sde_encoder_phys_vid *vid_enc;
 	struct drm_display_mode mode;
@@ -352,18 +352,13 @@ static void _sde_encoder_phys_vid_setup_avr(
 	mode = phys_enc->cached_mode;
 	if (vid_enc->base.hw_intf->ops.avr_setup) {
 		struct intf_avr_params avr_params = {0};
-		u32 qsync_min_fps = 0;
 		u32 default_fps = mode.vrefresh;
 		int ret;
 
-		if (phys_enc->parent_ops.get_qsync_fps)
-			phys_enc->parent_ops.get_qsync_fps(
-				phys_enc->parent, &qsync_min_fps);
-
-		if (!qsync_min_fps || !default_fps) {
+		if (!default_fps) {
 			SDE_ERROR_VIDENC(vid_enc,
-					"wrong qsync params %d %d\n",
-					qsync_min_fps, default_fps);
+					"invalid default fps %d\n",
+					default_fps);
 			return;
 		}
 
@@ -397,6 +392,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	struct intf_timing_params timing_params = { 0 };
 	const struct sde_format *fmt = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
+	u32 qsync_min_fps = 0;
 	unsigned long lock_flags;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
@@ -462,7 +458,13 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	programmable_fetch_config(phys_enc, &timing_params);
 
 exit:
-	_sde_encoder_phys_vid_setup_avr(phys_enc);
+	if (phys_enc->parent_ops.get_qsync_fps)
+		phys_enc->parent_ops.get_qsync_fps(
+				phys_enc->parent, &qsync_min_fps);
+
+	/* only panels which support qsync will have a non-zero min fps */
+	if (qsync_min_fps)
+		_sde_encoder_phys_vid_setup_avr(phys_enc, qsync_min_fps);
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
