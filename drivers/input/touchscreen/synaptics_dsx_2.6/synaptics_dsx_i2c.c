@@ -210,6 +210,12 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 		bdata->ub_i2c_addr = -1;
 	}
 
+	retval = of_property_read_string(np, "synaptics,fw-name", &name);
+	if (retval < 0)
+		bdata->fw_name = NULL;
+	else
+		bdata->fw_name = name;
+
 	prop = of_find_property(np, "synaptics,cap-button-codes", NULL);
 	if (prop && prop->length) {
 		bdata->cap_button_map->map = devm_kzalloc(dev,
