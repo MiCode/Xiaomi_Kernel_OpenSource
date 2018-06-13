@@ -184,7 +184,7 @@ EXPORT_SYMBOL(fastcvpd_video_resume);
 int fastcvpd_video_shutdown(uint32_t session_flag)
 {
 	struct fastcvpd_apps *me = &gfa_cv;
-	int err;
+	int err, local_cmd_msg_rsp;
 	struct fastcvpd_cmd_msg local_cmd_msg;
 	int srcVM[DEST_VM_NUM] = {VMID_HLOS, VMID_CDSP_Q6};
 	int destVM[SRC_VM_NUM] = {VMID_HLOS};
@@ -202,21 +202,21 @@ int fastcvpd_video_shutdown(uint32_t session_flag)
 	spin_lock(&me->hlock);
 	local_cmd_msg.msg_ptr = cmd_msg.msg_ptr;
 	local_cmd_msg.msg_ptr_len = cmd_msg.msg_ptr_len;
-	if (cmd_msg_rsp.ret_val == 0) {
+	local_cmd_msg_rsp = cmd_msg_rsp.ret_val;
+	spin_unlock(&me->hlock);
+	if (local_cmd_msg_rsp == 0) {
 		err = hyp_assign_phys((uint64_t)local_cmd_msg.msg_ptr,
 			local_cmd_msg.msg_ptr_len, srcVM, DEST_VM_NUM, destVM,
 			destVMperm, SRC_VM_NUM);
 		if (err) {
 			pr_err("%s: Failed to hyp_assign. err=%d\n",
 				__func__, err);
-			spin_unlock(&me->hlock);
 			return err;
 		}
 	} else {
 		pr_err("%s: Skipping hyp_assign as CDSP sent invalid response=%d\n",
 			__func__, cmd_msg_rsp.ret_val);
 	}
-	spin_unlock(&me->hlock);
 
 	return err;
 }
