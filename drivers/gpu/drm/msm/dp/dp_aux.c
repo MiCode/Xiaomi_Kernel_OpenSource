@@ -371,11 +371,8 @@ static void dp_aux_transfer_helper(struct dp_aux_private *aux,
 	bool i2c_read = input_msg->request &
 		(DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
 
-	if (!i2c_mot || !i2c_read || (input_msg->size == 0)) {
-		/* reset the offset for all other transaction types */
-		aux->offset = 0;
+	if (!i2c_mot || !i2c_read || (input_msg->size == 0))
 		return;
-	}
 
 	/*
 	 * Sending the segment value and EDID offset will be performed
@@ -495,12 +492,6 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 	if ((msg->address + msg->size) > SZ_16K) {
 		pr_err("invalid dpcd access: addr=0x%x, size=0x%x\n",
 				msg->address + msg->size);
-		goto address_error;
-	}
-
-	if ((msg->size + aux->offset) > SZ_256) {
-		pr_err("invalid edid access: offset=0x%x, size=0x%x\n",
-				aux->offset, msg->size);
 		goto address_error;
 	}
 
