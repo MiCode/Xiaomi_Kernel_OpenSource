@@ -211,6 +211,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	init_completion(&host_ctx->exec_done);
 	init_completion(&host_ctx->load_done);
 	init_completion(&host_ctx->unload_done);
+	init_completion(&host_ctx->loopback_done);
 
 	host_ctx->sys_cache_disable = 0;
 	spin_lock_init(&host_ctx->lock);
@@ -287,6 +288,7 @@ static int host_error_hdlr(struct npu_device *npu_dev)
 	complete_all(&host_ctx->exec_done);
 	complete_all(&host_ctx->load_done);
 	complete_all(&host_ctx->unload_done);
+	complete_all(&host_ctx->loopback_done);
 
 	return 1;
 }
@@ -430,6 +432,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 	struct ipc_msg_header_pkt *resp_pkt;
 	struct ipc_msg_load_pkt *load_rsp_pkt;
 	struct ipc_msg_execute_pkt *exe_rsp_pkt;
+	struct ipc_msg_loopback_pkt *lb_rsp_pkt;
 
 	msg_id = msg[1];
 	switch (msg_id) {
@@ -481,6 +484,14 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			resp_pkt->status, resp_pkt->trans_id);
 		complete_all(&host_ctx->unload_done);
 		break;
+
+	case NPU_IPC_MSG_LOOPBACK_DONE:
+		lb_rsp_pkt = (struct ipc_msg_loopback_pkt *)msg;
+		pr_debug("NPU_IPC_MSG_LOOPBACK_DONE loopbackParams: 0x%x\n",
+			lb_rsp_pkt->loopbackParams);
+		complete_all(&host_ctx->loopback_done);
+		break;
+
 	default:
 		pr_err("Not supported apps response received %d\n",
 			msg_id);
@@ -804,6 +815,39 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 				exec_ioctl->output_layers[i].buf_hdl);
 		}
 	}
+
+	return ret;
+}
+
+int32_t npu_host_loopback_test(struct npu_device *npu_dev)
+{
+	struct ipc_cmd_loopback_pkt loopback_packet;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int32_t ret;
+
+	ret = fw_init(npu_dev);
+	if (ret)
+		return ret;
+
+	loopback_packet.header.cmd_type = NPU_IPC_CMD_LOOPBACK;
+	loopback_packet.header.size = sizeof(struct ipc_cmd_loopback_pkt);
+	loopback_packet.header.trans_id = 0;
+	loopback_packet.header.flags = 0;
+	loopback_packet.loopbackParams = 15;
+
+	reinit_completion(&host_ctx->loopback_done);
+	ret = npu_host_ipc_send_cmd(npu_dev,
+		 IPC_QUEUE_APPS_EXEC, &loopback_packet);
+
+	if (ret) {
+		pr_err("NPU_IPC_CMD_LOOPBACK sent failed: %d\n", ret);
+	} else if (!wait_for_completion_interruptible_timeout(
+		&host_ctx->loopback_done, NW_LOAD_TIMEOUT)) {
+		pr_err_ratelimited("npu: NPU_IPC_CMD_LOOPBACK time out\n");
+		ret = -ETIMEDOUT;
+	}
+
+	fw_deinit(npu_dev, true);
 
 	return ret;
 }
