@@ -72,7 +72,7 @@
 		arm,buffer-size = <0x400000>;
 
 		coresight-name = "coresight-tmc-etr";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
@@ -98,7 +98,7 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		arm,default-sink;
 		coresight-csr = <&csr>;
 
