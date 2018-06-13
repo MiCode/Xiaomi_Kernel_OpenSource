@@ -1351,14 +1351,20 @@ static int ipa3_usb_request_xdci_channel(
 		params->xfer_scratch.depcmd_low_addr;
 	chan_params.chan_scratch.xdci.depcmd_hi_addr =
 		params->xfer_scratch.depcmd_hi_addr;
-	chan_params.chan_scratch.xdci.outstanding_threshold =
+
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		chan_params.chan_scratch.xdci.outstanding_threshold =
 		((params->teth_prot == IPA_USB_MBIM) ? 1 : 2) *
 		chan_params.chan_params.re_size;
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
-		chan_params.chan_scratch.xdci.outstanding_threshold = 0;
-
+	}
 	/* max_outstanding_tre is set in ipa3_request_gsi_channel() */
+
 	result = ipa3_request_gsi_channel(&chan_params, out_params);
 	if (result) {
 		IPA_USB_ERR("failed to allocate GSI channel\n");

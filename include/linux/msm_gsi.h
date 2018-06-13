@@ -457,6 +457,8 @@ struct gsi_xfer_elem {
  * gsi_gpi_channel_scratch - GPI protocol SW config area of
  * channel scratch
  *
+ * @dl_nlo_channel:      Whether this is DL NLO Channel or not? Relevant for
+ *                       GSI 2.5 and above where DL NLO introduced.
  * @max_outstanding_tre: Used for the prefetch management sequence by the
  *                       sequencer. Defines the maximum number of allowed
  *                       outstanding TREs in IPA/GSI (in Bytes). RE engine
@@ -466,18 +468,23 @@ struct gsi_xfer_elem {
  *                       the feature in doorbell mode (DB Mode=1). Maximum
  *                       outstanding TREs should be set to 64KB
  *                       (or any value larger or equal to ring length . RLEN)
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  * @outstanding_threshold: Used for the prefetch management sequence by the
  *                       sequencer. Defines the threshold (in Bytes) as to when
  *                       to update the channel doorbell. Should be smaller than
  *                       Maximum outstanding TREs. value. It is suggested to
  *                       configure this value to 2 * element size.
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  */
 struct __packed gsi_gpi_channel_scratch {
-	uint64_t resvd1;
+	uint64_t dl_nlo_channel:1; /* Relevant starting GSI 2.5 */
+	uint64_t resvd1:63;
 	uint32_t resvd2:16;
-	uint32_t max_outstanding_tre:16;
+	uint32_t max_outstanding_tre:16; /* Not relevant starting GSI 2.5 */
 	uint32_t resvd3:16;
-	uint32_t outstanding_threshold:16;
+	uint32_t outstanding_threshold:16; /* Not relevant starting GSI 2.5 */
 };
 
 /**
@@ -517,12 +524,16 @@ struct __packed gsi_gpi_channel_scratch {
  *                       To disable the feature in doorbell mode (DB Mode=1).
  *                       Maximum outstanding TREs should be set to 64KB
  *                       (or any value larger or equal to ring length . RLEN)
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  * @outstanding_threshold: Used for the prefetch management sequence by the
  *                       sequencer. Defines the threshold (in Bytes) as to when
  *                       to update the channel doorbell. Should be smaller than
  *                       Maximum outstanding TREs. value. It is suggested to
  *                       configure this value to min(TLV_FIFO_SIZE/2,8) *
  *                       element size.
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  */
 struct __packed gsi_mhi_channel_scratch {
 	uint64_t mhi_host_wp_addr;
@@ -533,9 +544,9 @@ struct __packed gsi_mhi_channel_scratch {
 	uint32_t polling_mode:1;
 	uint32_t oob_mod_threshold:5;
 	uint32_t resvd2:2;
-	uint32_t max_outstanding_tre:16;
+	uint32_t max_outstanding_tre:16; /* Not relevant starting GSI 2.5 */
 	uint32_t resvd3:16;
-	uint32_t outstanding_threshold:16;
+	uint32_t outstanding_threshold:16; /* Not relevant starting GSI 2.5 */
 };
 
 /**
@@ -560,6 +571,8 @@ struct __packed gsi_mhi_channel_scratch {
  *                       To disable the feature in doorbell mode (DB Mode=1)
  *                       Maximum outstanding TREs should be set to 64KB
  *                       (or any value larger or equal to ring length . RLEN)
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  * @depcmd_hi_addr: Used to generate "Update Transfer" command
  * @outstanding_threshold: Used for the prefetch management sequence by the
  *                       sequencer. Defines the threshold (in Bytes) as to when
@@ -567,6 +580,8 @@ struct __packed gsi_mhi_channel_scratch {
  *                       Maximum outstanding TREs. value. It is suggested to
  *                       configure this value to 2 * element size. for MBIM the
  *                       suggested configuration is the element size.
+ *                       The field is irrelevant starting GSI 2.5 where smart
+ *                       prefetch implemented by the H/W.
  */
 struct __packed gsi_xdci_channel_scratch {
 	uint32_t last_trb_addr:16;
@@ -576,9 +591,9 @@ struct __packed gsi_xdci_channel_scratch {
 	uint32_t depcmd_low_addr;
 	uint32_t depcmd_hi_addr:8;
 	uint32_t resvd2:8;
-	uint32_t max_outstanding_tre:16;
+	uint32_t max_outstanding_tre:16; /* Not relevant starting GSI 2.5 */
 	uint32_t resvd3:16;
-	uint32_t outstanding_threshold:16;
+	uint32_t outstanding_threshold:16; /* Not relevant starting GSI 2.5 */
 };
 
 /**
@@ -864,6 +879,21 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
  */
 int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val);
+
+/**
+ * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
+ * function to update the scratch area of the channel context. Updating
+ * will be by read-modify-write method, so non SWI fields will not be
+ * affected
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @mscr:      MHI Channel Scratch value
+ *
+ * @Return gsi_status
+ */
+int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
+		struct __packed gsi_mhi_channel_scratch mscr);
 
 /**
  * gsi_start_channel - Peripheral should call this function to
@@ -1224,6 +1254,12 @@ static inline int gsi_alloc_channel(struct gsi_chan_props *props,
 
 static inline int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
+		struct __packed gsi_mhi_channel_scratch mscr)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

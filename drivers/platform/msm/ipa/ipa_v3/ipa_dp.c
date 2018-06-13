@@ -3792,15 +3792,20 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		goto fail_alloc_channel;
 
 	memset(&ch_scratch, 0, sizeof(ch_scratch));
-	ch_scratch.gpi.max_outstanding_tre = gsi_ep_info->ipa_if_tlv *
-		GSI_CHAN_RE_SIZE_16B;
-	ch_scratch.gpi.outstanding_threshold = 2 * GSI_CHAN_RE_SIZE_16B;
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		ch_scratch.gpi.max_outstanding_tre = 0;
-		ch_scratch.gpi.outstanding_threshold = 0;
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		ch_scratch.gpi.max_outstanding_tre =
+			gsi_ep_info->ipa_if_tlv * GSI_CHAN_RE_SIZE_16B;
+		ch_scratch.gpi.outstanding_threshold =
+			2 * GSI_CHAN_RE_SIZE_16B;
 	}
-
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ch_scratch.gpi.dl_nlo_channel = 0;
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write scratch %d\n", result);
