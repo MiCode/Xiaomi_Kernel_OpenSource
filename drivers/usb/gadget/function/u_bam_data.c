@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -771,6 +771,13 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 
 	if (!port->is_ipa_connected) {
 		pr_debug("%s: Already disconnected. Bailing out.\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	if (port->last_event == U_BAM_DATA_CONNECT_E) {
+		pr_debug("%s: Port is about to connect. Bail out.\n",
+			__func__);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
