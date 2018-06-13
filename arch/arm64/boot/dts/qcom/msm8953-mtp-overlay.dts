@@ -21,7 +21,7 @@
 	qcom,board-id = <8 0>;
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-itech-3000mah.dtsi"
