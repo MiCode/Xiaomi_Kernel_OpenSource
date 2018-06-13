@@ -2937,6 +2937,7 @@ static int __init ipa3_usb_init(void)
 	int i;
 	unsigned long flags;
 	int res;
+	struct ipa3_usb_pm_context *pm_ctx;
 
 	pr_debug("entry\n");
 	ipa3_usb_ctx = kzalloc(sizeof(struct ipa3_usb_context), GFP_KERNEL);
@@ -2956,19 +2957,13 @@ static int __init ipa3_usb_init(void)
 	ipa3_usb_ctx->dl_data_pending = false;
 	mutex_init(&ipa3_usb_ctx->general_mutex);
 
-	if (ipa_pm_is_used()) {
-		struct ipa3_usb_pm_context *pm_ctx;
-
-		pm_ctx =
-			&ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].pm_ctx;
-		pm_ctx->hdl = ~0;
-		pm_ctx->remote_wakeup_work =
-			&ipa3_usb_notify_remote_wakeup_work;
-		pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].pm_ctx;
-		pm_ctx->hdl = ~0;
-		pm_ctx->remote_wakeup_work =
-			&ipa3_usb_dpl_notify_remote_wakeup_work;
-	}
+	/* init PM related members */
+	pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].pm_ctx;
+	pm_ctx->hdl = ~0;
+	pm_ctx->remote_wakeup_work = &ipa3_usb_notify_remote_wakeup_work;
+	pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].pm_ctx;
+	pm_ctx->hdl = ~0;
+	pm_ctx->remote_wakeup_work = &ipa3_usb_dpl_notify_remote_wakeup_work;
 
 	for (i = 0; i < IPA_USB_TRANSPORT_MAX; i++) {
 		ipa3_usb_ctx->ttype_ctx[i].rm_ctx.prod_valid = false;
