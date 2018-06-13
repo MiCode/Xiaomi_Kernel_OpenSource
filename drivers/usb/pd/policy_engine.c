@@ -3686,8 +3686,12 @@ static ssize_t get_src_cap_ext_show(struct device *dev,
 		return ret;
 
 	for (i = 0; i < PD_SRC_CAP_EXT_DB_LEN; i++)
-		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
-			pd->src_cap_ext_db[i]);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s0x%02x",
+				i ? " " : "", pd->src_cap_ext_db[i]);
+
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
 	return len;
 }
 static DEVICE_ATTR_RO(get_src_cap_ext);
@@ -3705,7 +3709,7 @@ static ssize_t get_pps_status_show(struct device *dev,
 	if (ret)
 		return ret;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", pd->pps_status_db);
+	return snprintf(buf, PAGE_SIZE, "0x%08x\n", pd->pps_status_db);
 }
 static DEVICE_ATTR_RO(get_pps_status);
 
@@ -3747,8 +3751,12 @@ static ssize_t get_battery_cap_show(struct device *dev,
 		return -EINVAL;
 
 	for (i = 0; i < PD_BATTERY_CAP_DB_LEN; i++)
-		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
-			pd->battery_cap_db[i]);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s0x%02x",
+				i ? " " : "", pd->battery_cap_db[i]);
+
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
 	return len;
 }
 static DEVICE_ATTR_RW(get_battery_cap);
@@ -3779,7 +3787,7 @@ static ssize_t get_battery_status_show(struct device *dev,
 	if (pd->get_battery_status_db == -EINVAL)
 		return -EINVAL;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", pd->battery_sts_dobj);
+	return snprintf(buf, PAGE_SIZE, "0x%08x\n", pd->battery_sts_dobj);
 }
 static DEVICE_ATTR_RW(get_battery_status);
 
