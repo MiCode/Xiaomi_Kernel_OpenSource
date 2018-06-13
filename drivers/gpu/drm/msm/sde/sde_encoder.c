@@ -1887,7 +1887,7 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 {
 	struct drm_encoder *drm_enc = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
-	struct msm_drm_thread *disp_thread = NULL;
+	struct msm_drm_thread *event_thread = NULL;
 	struct msm_drm_private *priv = NULL;
 
 	if (!handle || !handle->handler || !handle->handler->private) {
@@ -1904,7 +1904,7 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 	priv = drm_enc->dev->dev_private;
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	if (!sde_enc->crtc || (sde_enc->crtc->index
-			>= ARRAY_SIZE(priv->disp_thread))) {
+			>= ARRAY_SIZE(priv->event_thread))) {
 		SDE_DEBUG_ENC(sde_enc,
 			"invalid cached CRTC: %d or crtc index: %d\n",
 			sde_enc->crtc == NULL,
@@ -1914,9 +1914,10 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 
 	SDE_EVT32_VERBOSE(DRMID(drm_enc));
 
-	disp_thread = &priv->disp_thread[sde_enc->crtc->index];
+	event_thread = &priv->event_thread[sde_enc->crtc->index];
 
-	kthread_queue_work(&disp_thread->worker,
+	/* Queue input event work to event thread */
+	kthread_queue_work(&event_thread->worker,
 				&sde_enc->input_event_work);
 }
 
