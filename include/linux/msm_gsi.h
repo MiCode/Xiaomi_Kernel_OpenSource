@@ -221,9 +221,19 @@ enum gsi_max_prefetch {
 	GSI_TWO_PREFETCH_SEG = 0x1
 };
 
+/**
+ * @GSI_USE_PREFETCH_BUFS: Channel will use normal prefetch buffers if possible
+ * @GSI_ESCAPE_BUF_ONLY: Channel will always use escape buffers only
+ * @GSI_SMART_PRE_FETCH: Channel will work in smart prefetch mode.
+ *	relevant starting GSI 2.5
+ * @GSI_FREE_PRE_FETCH: Channel will work in free prefetch mode.
+ *	relevant starting GSI 2.5
+ */
 enum gsi_prefetch_mode {
 	GSI_USE_PREFETCH_BUFS = 0x0,
-	GSI_ESCAPE_BUF_ONLY = 0x1
+	GSI_ESCAPE_BUF_ONLY = 0x1,
+	GSI_SMART_PRE_FETCH = 0x2,
+	GSI_FREE_PRE_FETCH = 0x3,
 };
 
 enum gsi_chan_evt {
@@ -315,6 +325,12 @@ enum gsi_chan_use_db_eng {
  * @max_prefetch:    limit number of pre-fetch segments for channel
  * @low_weight:      low channel weight (priority of channel for RE engine
  *                   round robin algorithm); must be >= 1
+ * @empty_lvl_threshold:
+ *                   The thershold number of free entries available in the
+ *                   receiving fifos of GSI-peripheral. If Smart PF mode
+ *                   is used, REE will fetch/send new TRE to peripheral only
+ *                   if peripheral's empty_level_count is higher than
+ *                   EMPTY_LVL_THRSHOLD defined for this channel
  * @xfer_cb:         transfer notification callback, this callback happens
  *                   on event boundaries
  *
@@ -365,6 +381,7 @@ struct gsi_chan_props {
 	enum gsi_max_prefetch max_prefetch;
 	uint8_t low_weight;
 	enum gsi_prefetch_mode prefetch_mode;
+	uint8_t empty_lvl_threshold;
 	void (*xfer_cb)(struct gsi_chan_xfer_notify *notify);
 	void (*err_cb)(struct gsi_chan_err_notify *notify);
 	void *chan_user_data;
