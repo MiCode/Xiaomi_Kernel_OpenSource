@@ -33,7 +33,7 @@
 
 #define FG_SRAM_LEN			960
 #define PROFILE_LEN			416
-#define PROFILE_COMP_LEN		208
+#define PROFILE_COMP_LEN		24
 #define KI_COEFF_SOC_LEVELS		3
 #define KI_COEFF_MAX			15564
 #define SLOPE_LIMIT_NUM_COEFFS		4
