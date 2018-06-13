@@ -259,6 +259,10 @@ struct dsi_ctrl {
 	bool misr_enable;
 	u32 misr_cache;
 
+	/* Check for spurious interrupts */
+	unsigned long jiffies_start;
+	unsigned int error_interrupt_count;
+
 	bool phy_isolation_enabled;
 	bool null_insertion_enabled;
 	bool modeupdated;

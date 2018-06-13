@@ -2166,6 +2166,35 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable)
 	return 0;
 }
 
+static bool dsi_ctrl_check_for_spurious_error_interrupts(
+					struct dsi_ctrl *dsi_ctrl)
+{
+	const unsigned long intr_check_interval = msecs_to_jiffies(1000);
+	const unsigned int interrupt_threshold = 15;
+	unsigned long jiffies_now = jiffies;
+
+	if (!dsi_ctrl) {
+		pr_err("Invalid DSI controller structure\n");
+		return false;
+	}
+
+	if (dsi_ctrl->jiffies_start == 0)
+		dsi_ctrl->jiffies_start = jiffies;
+
+	dsi_ctrl->error_interrupt_count++;
+
+	if ((jiffies_now - dsi_ctrl->jiffies_start) < intr_check_interval) {
+		if (dsi_ctrl->error_interrupt_count > interrupt_threshold) {
+			pr_warn("Detected spurious interrupts on dsi ctrl\n");
+			return true;
+		}
+	} else {
+		dsi_ctrl->jiffies_start = jiffies;
+		dsi_ctrl->error_interrupt_count = 1;
+	}
+	return false;
+}
+
 static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 				unsigned long int error)
 {
@@ -2236,6 +2265,19 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 	/* ACK error */
 	if (error & 0xF)
 		pr_err("ack error: 0x%lx\n", error);
+
+	/*
+	 * DSI Phy can go into bad state during ESD influence. This can
+	 * manifest as various types of spurious error interrupts on
+	 * DSI controller. This check will allow us to handle afore mentioned
+	 * case and prevent us from re enabling interrupts until a full ESD
+	 * recovery is completed.
+	 */
+	if (dsi_ctrl_check_for_spurious_error_interrupts(dsi_ctrl) &&
+				dsi_ctrl->esd_check_underway) {
+		dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+		return;
+	}
 
 	/* enable back DSI interrupts */
 	if (dsi_ctrl->hw.ops.error_intr_ctrl)
