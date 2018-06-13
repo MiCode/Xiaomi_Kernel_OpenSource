@@ -28,6 +28,7 @@ Optional property:
  - synaptics,reset-delay-ms	   : reset delay for controller (ms), default 100.
  - synaptics,max-y-for-2d	   : maximal y value of the panel.
  - synaptics,bus-lpm-cur-uA	   : I2C bus idle mode current setting.
+ - synaptics,fw-name		   : name of firmware .img file in /lib/firmware
  - clock-names			: Clock names used for secure touch. They are: "iface_clk", "core_clk"
  - clocks			: Defined if 'clock-names' DT property is defined. These clocks
 				  are associated with the underlying I2C bus.
