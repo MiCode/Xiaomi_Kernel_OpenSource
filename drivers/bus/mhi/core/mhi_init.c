@@ -1061,6 +1061,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
+	struct mhi_device *mhi_dev;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1082,8 +1083,10 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->mhi_cmd = kcalloc(NR_OF_CMD_RINGS,
 				     sizeof(*mhi_cntrl->mhi_cmd), GFP_KERNEL);
-	if (!mhi_cntrl->mhi_cmd)
+	if (!mhi_cntrl->mhi_cmd) {
+		ret = -ENOMEM;
 		goto error_alloc_cmd;
+	}
 
 	INIT_LIST_HEAD(&mhi_cntrl->transition_list);
 	mutex_init(&mhi_cntrl->pm_mutex);
@@ -1138,30 +1141,58 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
 	}
 
+	/* register controller with mhi_bus */
+	mhi_dev = mhi_alloc_device(mhi_cntrl);
+	if (!mhi_dev) {
+		ret = -ENOMEM;
+		goto error_alloc_dev;
+	}
+
+	mhi_dev->dev_type = MHI_CONTROLLER_TYPE;
+	mhi_dev->mhi_cntrl = mhi_cntrl;
+	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u", mhi_dev->dev_id,
+		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot);
+	ret = device_add(&mhi_dev->dev);
+	if (ret)
+		goto error_add_dev;
+
+	mhi_cntrl->mhi_dev = mhi_dev;
+
 	mhi_cntrl->parent = mhi_bus.dentry;
 	mhi_cntrl->klog_lvl = MHI_MSG_LVL_ERROR;
 
-	/* add to list */
+	/* adding it to this list only for debug purpose */
 	mutex_lock(&mhi_bus.lock);
 	list_add_tail(&mhi_cntrl->node, &mhi_bus.controller_list);
 	mutex_unlock(&mhi_bus.lock);
 
 	return 0;
 
+error_add_dev:
+	mhi_dealloc_device(mhi_cntrl, mhi_dev);
+
+error_alloc_dev:
+	kfree(mhi_cntrl->mhi_cmd);
+
 error_alloc_cmd:
 	kfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_event);
 
-	return -ENOMEM;
+	return ret;
 };
 EXPORT_SYMBOL(of_register_mhi_controller);
 
 void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
+
 	kfree(mhi_cntrl->mhi_cmd);
 	kfree(mhi_cntrl->mhi_event);
 	kfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_tsync);
+
+	device_del(&mhi_dev->dev);
+	put_device(&mhi_dev->dev);
 
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_cntrl->node);
@@ -1256,6 +1287,10 @@ static int mhi_match(struct device *dev, struct device_driver *drv)
 	struct mhi_driver *mhi_drv = to_mhi_driver(drv);
 	const struct mhi_device_id *id;
 
+	/* if controller type there is no client driver associated with it */
+	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
+		return 0;
+
 	for (id = mhi_drv->id_table; id->chan; id++)
 		if (!strcmp(mhi_dev->chan_name, id->chan)) {
 			mhi_dev->id = id;
@@ -1347,6 +1382,10 @@ static int mhi_driver_remove(struct device *dev)
 		MHI_CH_STATE_DISABLED
 	};
 	int dir;
+
+	/* control device has no work to do */
+	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
+		return 0;
 
 	MHI_LOG("Removing device for chan:%s\n", mhi_dev->chan_name);
 

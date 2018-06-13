@@ -64,10 +64,12 @@ enum MHI_FLAGS {
  * enum mhi_device_type - Device types
  * @MHI_XFER_TYPE: Handles data transfer
  * @MHI_TIMESYNC_TYPE: Use for timesync feature
+ * @MHI_CONTROLLER_TYPE: Control device
  */
 enum mhi_device_type {
 	MHI_XFER_TYPE,
 	MHI_TIMESYNC_TYPE,
+	MHI_CONTROLLER_TYPE,
 };
 
 /**
@@ -129,6 +131,7 @@ struct image_info {
  */
 struct mhi_controller {
 	struct list_head node;
+	struct mhi_device *mhi_dev;
 
 	/* device node for iommu ops */
 	struct device *dev;
