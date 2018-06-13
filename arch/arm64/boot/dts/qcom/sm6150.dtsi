@@ -610,8 +610,11 @@
 	};
 
 	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sm6150", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_cx_ao-supply = <&pm6150_s1_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -638,8 +641,11 @@
 	};
 
 	clock_gpucc: qcom,gpupcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+		compatible = "qcom,gpucc-sm6150", "syscon";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_mx-supply = <&pm6150_s3_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1625,14 +1631,6 @@
 	status = "ok";
 };
 
-&hlos1_vote_turing_mmu_tbu0_gdsc {
-	status = "ok";
-};
-
-&hlos1_vote_turing_mmu_tbu1_gdsc {
-	status = "ok";
-};
-
 &bps_gdsc {
 	status = "ok";
 };
@@ -1662,6 +1660,10 @@
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&pm6150_s1_level>;
 	status = "ok";
 };
 
