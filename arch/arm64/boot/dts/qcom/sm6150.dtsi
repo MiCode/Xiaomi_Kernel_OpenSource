@@ -1875,6 +1875,12 @@
 #include "sm6150-qupv3.dtsi"
 #include "sm6150-thermal.dtsi"
 #include "sm6150-gpu.dtsi"
+#include "sm6150-usb.dtsi"
+
+&usb0 {
+	extcon = <&pm6150_pdphy>;
+	vbus_dwc3-supply = <&smb5_vbus>;
+};
 
 &emac_gdsc {
 	status = "ok";
