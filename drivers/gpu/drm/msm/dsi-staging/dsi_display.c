@@ -672,8 +672,12 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 	}
 exit:
 	/* mask only error interrupts */
-	if (rc <= 0)
+	if (rc <= 0) {
 		dsi_display_mask_ctrl_error_interrupts(display);
+
+		/* Handle Panel failures during display disable sequence */
+		display->panel->esd_recovery_pending = true;
+	}
 
 	dsi_display_cmd_engine_disable(display);
 done:
