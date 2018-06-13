@@ -43,6 +43,7 @@ enum usbpd_state {
 	PE_ERROR_RECOVERY,
 	PE_SRC_DISABLED,
 	PE_SRC_STARTUP,
+	PE_SRC_STARTUP_WAIT_FOR_VDM_RESP,
 	PE_SRC_SEND_CAPABILITIES,
 	PE_SRC_SEND_CAPABILITIES_WAIT, /* substate to wait for Request */
 	PE_SRC_NEGOTIATE_CAPABILITY,
@@ -79,6 +80,7 @@ static const char * const usbpd_state_strings[] = {
 	"ERROR_RECOVERY",
 	"SRC_Disabled",
 	"SRC_Startup",
+	"SRC_Startup_Wait_for_VDM_Resp",
 	"SRC_Send_Capabilities",
 	"SRC_Send_Capabilities (Wait for Request)",
 	"SRC_Negotiate_Capability",
@@ -316,11 +318,12 @@ static void *usbpd_ipc_log;
 #define ID_HDR_USB_HOST		BIT(31)
 #define ID_HDR_USB_DEVICE	BIT(30)
 #define ID_HDR_MODAL_OPR	BIT(26)
-#define ID_HDR_PRODUCT_TYPE(n)	((n) >> 27)
+#define ID_HDR_PRODUCT_TYPE(n)	(((n) >> 27) & 0x7)
 #define ID_HDR_PRODUCT_PER_MASK	(2 << 27)
 #define ID_HDR_PRODUCT_HUB	1
 #define ID_HDR_PRODUCT_PER	2
 #define ID_HDR_PRODUCT_AMA	5
+#define ID_HDR_PRODUCT_VPD	6
 #define ID_HDR_VID		0x05c6 /* qcom */
 #define PROD_VDO_PID		0x0a00 /* TBD */
 
@@ -455,6 +458,8 @@ static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB_HOST,
 	EXTCON_NONE,
 };
+
+static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type);
 
 enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 {
@@ -1000,9 +1005,8 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 	unsigned long flags;
 	u16 header;
 
-	if (sop != SOP_MSG) {
-		usbpd_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
-				sop);
+	if (sop == SOPII_MSG) {
+		usbpd_err(&pd->dev, "only SOP/SOP' supported\n");
 		return;
 	}
 
@@ -1101,6 +1105,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.msg_rx_cb		= phy_msg_received,
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
+					  FRAME_FILTER_EN_SOPI |
 					  FRAME_FILTER_EN_HARD_RESET,
 	};
 	union power_supply_propval val = {0};
@@ -1181,6 +1186,20 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 					POWER_SUPPLY_PROP_PR_SWAP, &val);
 		}
 
+		if (pd->vconn_enabled) {
+			/*
+			 * wait for tVCONNStable (50ms), until SOPI becomes
+			 * ready for communication.
+			 */
+			usleep_range(50000, 51000);
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+			handle_vdm_tx(pd, SOPI_MSG);
+			pd->current_state = PE_SRC_STARTUP_WAIT_FOR_VDM_RESP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+			return;
+		}
 		/*
 		 * A sink might remove its terminations (during some Type-C
 		 * compliance tests or a sink attempting to do Try.SRC)
@@ -1522,7 +1541,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 {
 	struct vdm_tx *vdm_tx;
 
-	if (!pd->in_explicit_contract || pd->vdm_tx)
+	if (pd->vdm_tx)
 		return -EBUSY;
 
 	vdm_tx = kzalloc(sizeof(*vdm_tx), GFP_KERNEL);
@@ -1538,7 +1557,8 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 	pd->vdm_tx = vdm_tx;
 
 	/* slight delay before queuing to prioritize handling of incoming VDM */
-	kick_sm(pd, 2);
+	if (pd->in_explicit_contract)
+		kick_sm(pd, 2);
 
 	return 0;
 }
@@ -1559,6 +1579,7 @@ EXPORT_SYMBOL(usbpd_send_svdm);
 
 static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 {
+	int ret;
 	u32 vdm_hdr =
 	rx_msg->data_len >= sizeof(u32) ? ((u32 *)rx_msg->payload)[0] : 0;
 
@@ -1629,6 +1650,24 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		case USBPD_SVDM_DISCOVER_IDENTITY:
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
+
+			if (num_vdos && ID_HDR_PRODUCT_TYPE(vdos[0]) ==
+					ID_HDR_PRODUCT_VPD) {
+
+				usbpd_dbg(&pd->dev, "VPD detected turn off vbus\n");
+
+				if (pd->vbus_enabled) {
+					ret = regulator_disable(pd->vbus);
+					if (ret)
+						usbpd_err(&pd->dev, "Err disabling vbus (%d)\n",
+								ret);
+					else
+						pd->vbus_enabled = false;
+				}
+			}
+
+			if (!pd->in_explicit_contract)
+				break;
 
 			pd->vdm_state = DISCOVERED_ID;
 			usbpd_send_svdm(pd, USBPD_SID,
@@ -1767,7 +1806,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	}
 }
 
-static void handle_vdm_tx(struct usbpd *pd)
+static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 {
 	int ret;
 	unsigned long flags;
@@ -1785,13 +1824,13 @@ static void handle_vdm_tx(struct usbpd *pd)
 		spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
-				pd->vdm_tx->size, SOP_MSG);
+				pd->vdm_tx->size, sop_type);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
 					ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 
 			/* retry when hitting PE_SRC/SNK_Ready again */
-			if (ret != -EBUSY)
+			if (ret != -EBUSY && sop_type == SOP_MSG)
 				usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
@@ -1966,7 +2005,7 @@ static void usbpd_sm(struct work_struct *w)
 {
 	struct usbpd *pd = container_of(w, struct usbpd, sm_work);
 	union power_supply_propval val = {0};
-	int ret;
+	int ret, ms;
 	struct rx_msg *rx_msg = NULL;
 	unsigned long flags;
 
@@ -2142,6 +2181,21 @@ static void usbpd_sm(struct work_struct *w)
 		}
 		break;
 
+	case PE_SRC_STARTUP_WAIT_FOR_VDM_RESP:
+		if (IS_DATA(rx_msg, MSG_VDM))
+			handle_vdm_rx(pd, rx_msg);
+
+		/* tVCONNStable (50ms) elapsed */
+		ms = FIRST_SOURCE_CAP_TIME - 50;
+
+		/* if no vdm msg received SENDER_RESPONSE_TIME elapsed */
+		if (!rx_msg)
+			ms -= SENDER_RESPONSE_TIME;
+
+		pd->current_state = PE_SRC_SEND_CAPABILITIES;
+		kick_sm(pd, ms);
+		break;
+
 	case PE_SRC_STARTUP:
 		usbpd_set_state(pd, PE_SRC_STARTUP);
 		break;
@@ -2275,7 +2329,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else {
-			handle_vdm_tx(pd);
+			handle_vdm_tx(pd, SOP_MSG);
 		}
 		break;
 
@@ -2689,7 +2743,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else if (is_sink_tx_ok(pd)) {
-			handle_vdm_tx(pd);
+			handle_vdm_tx(pd, SOP_MSG);
 		}
 		break;
 

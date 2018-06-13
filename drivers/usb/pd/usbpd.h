@@ -58,6 +58,7 @@ enum pd_spec_rev {
 
 /* enable msg and signal to be received by phy */
 #define FRAME_FILTER_EN_SOP		BIT(0)
+#define FRAME_FILTER_EN_SOPI		BIT(1)
 #define FRAME_FILTER_EN_HARD_RESET	BIT(5)
 
 struct pd_phy_params {
