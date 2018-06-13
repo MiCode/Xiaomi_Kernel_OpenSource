@@ -21,3 +21,14 @@
 	qcom,msm-id = <265 2>;
 	qcom,board-id= <0x00010020 0>;
 };
+
+&blsp1_uart2_hs {
+	status = "okay";
+};
+
+&i2c_2 {
+	status = "disabled";
+	nq@28 {
+		status = "disabled";
+	};
+};
