@@ -2280,7 +2280,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x00000830, 0x70, 8, 17, 1},
 };
 
-int ipahal_print_all_regs(void)
+int ipahal_print_all_regs(bool print_to_dmesg)
 {
 	int i, j;
 
@@ -2299,9 +2299,16 @@ int ipahal_print_all_regs(void)
 
 		j = ipahal_reg_objs[ipahal_ctx->hw_type][i].n_start;
 
-		if (j == ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end)
-			IPAHAL_DBG_REG("%s=0x%x\n", ipahal_reg_name_str(i),
-				ipahal_read_reg_n(i, j));
+		if (j == ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end) {
+			if (print_to_dmesg)
+				IPAHAL_DBG_REG("%s=0x%x\n",
+					ipahal_reg_name_str(i),
+					ipahal_read_reg_n(i, j));
+			else
+				IPAHAL_DBG_REG_IPC_ONLY("%s=0x%x\n",
+					ipahal_reg_name_str(i),
+					ipahal_read_reg_n(i, j));
+		}
 
 		for (; j < ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end; j++)
 			IPAHAL_DBG_REG("%s_%u=0x%x\n", ipahal_reg_name_str(i),
