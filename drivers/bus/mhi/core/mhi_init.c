@@ -992,15 +992,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	int ret;
 	struct mhi_timesync *mhi_tsync;
 
-	/* parse firmware image info (optional parameters) */
-	of_property_read_string(of_node, "mhi,fw-name", &mhi_cntrl->fw_image);
-	of_property_read_string(of_node, "mhi,edl-name", &mhi_cntrl->fw_image);
-	mhi_cntrl->fbc_download = of_property_read_bool(of_node, "mhi,dl-fbc");
-	of_property_read_u32(of_node, "mhi,sbl-size",
-			     (u32 *)&mhi_cntrl->sbl_size);
-	of_property_read_u32(of_node, "mhi,seg-len",
-			     (u32 *)&mhi_cntrl->seg_len);
-
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
 	if (ret)

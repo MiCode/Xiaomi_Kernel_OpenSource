@@ -24,19 +24,6 @@
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
-static struct pci_device_id mhi_pcie_device_id[] = {
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0300)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0301)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0302)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0303)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
-	{0},
-};
-
-static struct pci_driver mhi_pcie_driver;
-
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -495,6 +482,17 @@ static const struct dev_pm_ops pm_ops = {
 			   mhi_runtime_resume,
 			   mhi_runtime_idle)
 	SET_SYSTEM_SLEEP_PM_OPS(mhi_system_suspend, mhi_system_resume)
+};
+
+static struct pci_device_id mhi_pcie_device_id[] = {
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0300)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0301)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0302)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0303)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
+	{0},
 };
 
 static struct pci_driver mhi_pcie_driver = {
