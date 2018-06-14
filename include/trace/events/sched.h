@@ -82,7 +82,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->cpu		= task_cpu(p);
 		__entry->enqueue	= enqueue;
 		__entry->nr_running	= task_rq(p)->nr_running;
-		__entry->cpu_load	= cpu_util(task_cpu(p));
+		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
 		__entry->cpus_allowed	= cpus_allowed;
 		__entry->demand		= task_load(p);
