@@ -272,6 +272,59 @@ int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend)
 	return rc;
 }
 
+
+static const s16 therm_lookup_table[] = {
+	/* Index -30C~85C, ADC raw code */
+	0x6C92, 0x6C43, 0x6BF0, 0x6B98, 0x6B3A, 0x6AD8, 0x6A70, 0x6A03,
+	0x6990, 0x6916, 0x6897, 0x6811, 0x6785, 0x66F2, 0x6658, 0x65B7,
+	0x650F, 0x6460, 0x63AA, 0x62EC, 0x6226, 0x6159, 0x6084, 0x5FA8,
+	0x5EC3, 0x5DD8, 0x5CE4, 0x5BE9, 0x5AE7, 0x59DD, 0x58CD, 0x57B5,
+	0x5696, 0x5571, 0x5446, 0x5314, 0x51DD, 0x50A0, 0x4F5E, 0x4E17,
+	0x4CCC, 0x4B7D, 0x4A2A, 0x48D4, 0x477C, 0x4621, 0x44C4, 0x4365,
+	0x4206, 0x40A6, 0x3F45, 0x3DE6, 0x3C86, 0x3B28, 0x39CC, 0x3872,
+	0x3719, 0x35C4, 0x3471, 0x3322, 0x31D7, 0x308F, 0x2F4C, 0x2E0D,
+	0x2CD3, 0x2B9E, 0x2A6E, 0x2943, 0x281D, 0x26FE, 0x25E3, 0x24CF,
+	0x23C0, 0x22B8, 0x21B5, 0x20B8, 0x1FC2, 0x1ED1, 0x1DE6, 0x1D01,
+	0x1C22, 0x1B49, 0x1A75, 0x19A8, 0x18E0, 0x181D, 0x1761, 0x16A9,
+	0x15F7, 0x154A, 0x14A2, 0x13FF, 0x1361, 0x12C8, 0x1234, 0x11A4,
+	0x1119, 0x1091, 0x100F, 0x0F90, 0x0F15, 0x0E9E, 0x0E2B, 0x0DBC,
+	0x0D50, 0x0CE8, 0x0C83, 0x0C21, 0x0BC3, 0x0B67, 0x0B0F, 0x0AB9,
+	0x0A66, 0x0A16, 0x09C9, 0x097E,
+};
+
+int smblib_get_thermal_threshold(struct smb_charger *chg, u16 addr, int *val)
+{
+	u8 buff[2];
+	s16 temp;
+	int rc = 0;
+	int i, lower, upper;
+
+	rc = smblib_batch_read(chg, addr, buff, 2);
+	if (rc < 0) {
+		pr_err("failed to write to 0x%04X, rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	temp = buff[1] | buff[0] << 8;
+
+	lower = 0;
+	upper = ARRAY_SIZE(therm_lookup_table) - 1;
+	while (lower <= upper) {
+		i = (upper + lower) / 2;
+		if (therm_lookup_table[i] < temp)
+			upper = i - 1;
+		else if (therm_lookup_table[i] > temp)
+			lower = i + 1;
+		else
+			break;
+	}
+
+	/* index 0 corresonds to -30C */
+	*val = (i - 30) * 10;
+
+	return rc;
+}
+
 struct apsd_result {
 	const char * const name;
 	const u8 bit;
@@ -3807,8 +3860,26 @@ static void bms_update_work(struct work_struct *work)
 
 static void pl_update_work(struct work_struct *work)
 {
+	union power_supply_propval prop_val;
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_update_work);
+	int rc;
+
+	rc = smblib_get_thermal_threshold(chg, SMB_REG_H_THRESHOLD_MSB_REG,
+				&prop_val.intval);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		return;
+	}
+
+	rc = power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+				&prop_val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_CHARGER_TEMP_MAX rc=%d\n",
+				rc);
+		return;
+	}
 
 	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP)
 		return;
@@ -4054,6 +4125,7 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 
 int smblib_init(struct smb_charger *chg)
 {
+	union power_supply_propval prop_val;
 	int rc = 0;
 
 	mutex_init(&chg->lock);
@@ -4100,13 +4172,33 @@ int smblib_init(struct smb_charger *chg)
 
 		if (chg->sec_pl_present) {
 			chg->pl.psy = power_supply_get_by_name("parallel");
-			if (chg->sec_chg_selected != POWER_SUPPLY_CHARGER_SEC_CP
-				&& chg->pl.psy) {
-				rc = smblib_select_sec_charger(chg,
+			if (chg->pl.psy) {
+				if (chg->sec_chg_selected
+					!= POWER_SUPPLY_CHARGER_SEC_CP) {
+					rc = smblib_select_sec_charger(chg,
 						POWER_SUPPLY_CHARGER_SEC_PL);
+					if (rc < 0) {
+						smblib_err(chg, "Couldn't config pl charger rc=%d\n",
+							rc);
+						return rc;
+					}
+				}
+
+				rc = smblib_get_thermal_threshold(chg,
+						SMB_REG_H_THRESHOLD_MSB_REG,
+						&prop_val.intval);
 				if (rc < 0) {
-					smblib_err(chg, "Couldn't config pl charger rc=%d\n",
-						rc);
+					dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+							rc);
+					return rc;
+				}
+
+				rc = power_supply_set_property(chg->pl.psy,
+					POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+					&prop_val);
+				if (rc < 0) {
+					dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_CHARGER_TEMP_MAX rc=%d\n",
+							rc);
 					return rc;
 				}
 			}

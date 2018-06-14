@@ -361,6 +361,7 @@ struct smb_charger {
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
 	bool			jeita_configured;
+	int			charger_temp_max;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -540,6 +541,7 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_thermal_threshold(struct smb_charger *chg, u16 addr, int *val);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable);
 int smblib_rerun_aicl(struct smb_charger *chg);
