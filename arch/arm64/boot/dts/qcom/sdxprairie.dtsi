@@ -31,6 +31,19 @@
 			reg = <0x8fd00000 0x300000>;
 			label = "peripheral2_mem";
 		};
+
+		hyp_mem: hyp_region@8fc00000 {
+			no-map;
+			reg = <0x8fc00000 0x80000>;
+			label = "hyp_mem";
+		};
+
+		mpss_adsp_mem: mpss_adsp_region@84000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x84000000 0xb700000>;
+			label = "mpss_adsp_mem";
+		};
 	};
 
 	cpus {
