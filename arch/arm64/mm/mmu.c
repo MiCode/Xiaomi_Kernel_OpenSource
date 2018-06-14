@@ -656,10 +656,16 @@ static phys_addr_t pgd_pgtable_alloc(void)
  */
 void hotplug_paging(phys_addr_t start, phys_addr_t size)
 {
-
 	struct page *pg;
-	phys_addr_t pgd_phys = pgd_pgtable_alloc();
-	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
+	phys_addr_t pgd_phys;
+	pgd_t *pgd;
+	int cpu;
+
+	for_each_possible_cpu(cpu)
+		if (current->cpu != cpu)
+			sched_isolate_cpu(cpu);
+	pgd_phys = pgd_pgtable_alloc();
+	pgd = pgd_set_fixmap(pgd_phys);
 
 	memcpy(pgd, swapper_pg_dir, PAGE_SIZE);
 
@@ -675,6 +681,9 @@ void hotplug_paging(phys_addr_t start, phys_addr_t size)
 	pg = phys_to_page(pgd_phys);
 	pgtable_page_dtor(pg);
 	__free_pages(pg, 0);
+	for_each_possible_cpu(cpu)
+		if (current->cpu != cpu)
+			sched_unisolate_cpu_unlocked(cpu);
 }
 
 #ifdef CONFIG_MEMORY_HOTREMOVE
