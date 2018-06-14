@@ -445,6 +445,13 @@ int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->in_clone_mode;
 }
 
+bool sde_encoder_is_primary_display(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+
+	return sde_enc && sde_enc->disp_info.is_primary;
+}
+
 int sde_encoder_in_cont_splash(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);

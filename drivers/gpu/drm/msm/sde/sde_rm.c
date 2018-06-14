@@ -1443,14 +1443,18 @@ static int _sde_rm_populate_requirements(
 		return -EINVAL;
 	}
 
-	/**
-	 * Set the requirement based on caps if not set from user space
-	 * This will ensure to select LM tied with DS blocks
-	 * Currently, DS blocks are tied with LM 0 and LM 1 (primary display)
+	/*
+	 * select dspp HW block for all dsi displays and ds for only
+	 * primary dsi display.
 	 */
-	if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
-		conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI)
-		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
+	if (conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		if (!RM_RQ_DSPP(reqs))
+			reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
+
+		if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
+		    sde_encoder_is_primary_display(enc))
+			reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
+	}
 
 	/**
 	 * Set the requirement for LM which has CWB support if CWB is
