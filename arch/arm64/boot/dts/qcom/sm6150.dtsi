@@ -763,9 +763,12 @@
 		#reset-cells = <1>;
 	};
 
-	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,camcc-sm6150", "syscon";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
