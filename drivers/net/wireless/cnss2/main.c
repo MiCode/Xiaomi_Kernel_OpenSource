@@ -1287,7 +1287,7 @@ static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
 }
 
-static int cnss_qca6174_register_ramdump(struct cnss_plat_data *plat_priv)
+static int cnss_register_ramdump_v1(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 	struct device *dev;
@@ -1338,7 +1338,7 @@ out:
 	return ret;
 }
 
-static void cnss_qca6174_unregister_ramdump(struct cnss_plat_data *plat_priv)
+static void cnss_unregister_ramdump_v1(struct cnss_plat_data *plat_priv)
 {
 	struct device *dev;
 	struct cnss_ramdump_info *ramdump_info;
@@ -1355,7 +1355,7 @@ static void cnss_qca6174_unregister_ramdump(struct cnss_plat_data *plat_priv)
 				  ramdump_info->ramdump_pa);
 }
 
-static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
+static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 	struct cnss_subsys_info *subsys_info;
@@ -1411,7 +1411,7 @@ free_ramdump:
 	return ret;
 }
 
-static void cnss_qca6290_unregister_ramdump(struct cnss_plat_data *plat_priv)
+static void cnss_unregister_ramdump_v2(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info_v2 *info_v2;
 
@@ -1431,11 +1431,11 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
-		ret = cnss_qca6174_register_ramdump(plat_priv);
+		ret = cnss_register_ramdump_v1(plat_priv);
 		break;
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
-		ret = cnss_qca6290_register_ramdump(plat_priv);
+		ret = cnss_register_ramdump_v2(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
@@ -1449,11 +1449,11 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 {
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
-		cnss_qca6174_unregister_ramdump(plat_priv);
+		cnss_unregister_ramdump_v1(plat_priv);
 		break;
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
-		cnss_qca6290_unregister_ramdump(plat_priv);
+		cnss_unregister_ramdump_v2(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
