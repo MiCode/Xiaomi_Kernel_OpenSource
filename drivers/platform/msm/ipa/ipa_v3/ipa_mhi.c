@@ -198,6 +198,7 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa3_ep_context *ep;
 	const struct ipa_gsi_ep_config *ep_cfg;
+	bool burst_mode_enabled = false;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -280,8 +281,21 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	ch_props.ring_len = params->ch_ctx_host->rlen;
 	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
 			params->ch_ctx_host->rbase);
-	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
+
+	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
+		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE) {
+		burst_mode_enabled = true;
+	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0 &&
+		!burst_mode_enabled)
+		ch_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	else
+		ch_props.use_db_eng = GSI_CHAN_DB_MODE;
+
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
+	ch_props.prefetch_mode =
+		ipa_get_ep_prefetch_mode(client);
 	ch_props.low_weight = 1;
 	ch_props.err_cb = params->ch_err_cb;
 	ch_props.chan_user_data = params->channel;
@@ -307,9 +321,9 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		ch_scratch.mhi.outstanding_threshold = 0;
 	}
 	ch_scratch.mhi.oob_mod_threshold = 4;
-	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
-		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE) {
-		ch_scratch.mhi.burst_mode_enabled = true;
+
+	if (burst_mode_enabled) {
+		ch_scratch.mhi.burst_mode_enabled = burst_mode_enabled;
 		ch_scratch.mhi.polling_configuration =
 			ipa3_mhi_get_ch_poll_cfg(client, params->ch_ctx_host,
 				(ch_props.ring_len / ch_props.re_size));

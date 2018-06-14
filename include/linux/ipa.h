@@ -1156,6 +1156,7 @@ struct ipa_wdi_buffer_info {
  * @ipa_if_tlv: number of IPA_IF TLV
  * @ipa_if_aos: number of IPA_IF AOS
  * @ee: Execution environment
+ * @prefetch_mode: Prefetch mode to be used
  */
 struct ipa_gsi_ep_config {
 	int ipa_ep_num;
@@ -1163,6 +1164,7 @@ struct ipa_gsi_ep_config {
 	int ipa_if_tlv;
 	int ipa_if_aos;
 	int ee;
+	enum gsi_prefetch_mode prefetch_mode;
 };
 
 /**
