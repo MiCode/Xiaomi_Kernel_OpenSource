@@ -21,7 +21,7 @@
 };
 
 &hsic_host {
-	status = "disabled";
+	status = "ok";
 };
 
 &emac_lan_vreg{

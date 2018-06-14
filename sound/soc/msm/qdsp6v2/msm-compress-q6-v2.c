@@ -1147,15 +1147,15 @@ static int msm_compr_configure_dsp_for_playback
 		switch (q6core_get_avs_version()) {
 		case (Q6_SUBSYS_AVS2_7):
 			ret = q6asm_stream_open_write_v3(ac,
-					prtd->codec, bits_per_sample,
-					ac->stream_id,
-					prtd->gapless_state.use_dsp_gapless_mode);
+				prtd->codec, bits_per_sample,
+				ac->stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
 			break;
 		case (Q6_SUBSYS_AVS2_8):
 			ret = q6asm_stream_open_write_v4(ac,
-					prtd->codec, bits_per_sample,
-					ac->stream_id,
-					prtd->gapless_state.use_dsp_gapless_mode);
+				prtd->codec, bits_per_sample,
+				ac->stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
 			break;
 		case (Q6_SUBSYS_INVALID):
 		default:
@@ -2398,15 +2398,15 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		switch (q6core_get_avs_version()) {
 		case (Q6_SUBSYS_AVS2_7):
 			rc = q6asm_stream_open_write_v3(ac,
-					prtd->codec, bits_per_sample,
-					ac->stream_id,
-					prtd->gapless_state.use_dsp_gapless_mode);
+				prtd->codec, bits_per_sample,
+				ac->stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
 			break;
 		case (Q6_SUBSYS_AVS2_8):
 			rc = q6asm_stream_open_write_v4(ac,
-					prtd->codec, bits_per_sample,
-					ac->stream_id,
-					prtd->gapless_state.use_dsp_gapless_mode);
+				prtd->codec, bits_per_sample,
+				ac->stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
 			break;
 		case (Q6_SUBSYS_INVALID):
 		default:

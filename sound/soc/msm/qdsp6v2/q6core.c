@@ -252,7 +252,7 @@ void ocm_core_open(void)
 					aprv2_core_fn_q, 0xFFFFFFFF, NULL);
 	pr_debug("%s: Open_q %pK\n", __func__, q6core_lcl.core_handle_q);
 	if (q6core_lcl.core_handle_q == NULL)
-		pr_err("%s: Unable to register CORE\n", __func__);
+		pr_err_ratelimited("%s: Unable to register CORE\n", __func__);
 }
 
 struct cal_block_data *cal_utils_get_cal_block_by_key(
@@ -618,7 +618,7 @@ bool q6core_is_adsp_ready(void)
 	q6core_lcl.bus_bw_resp_received = 0;
 	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)&hdr);
 	if (rc < 0) {
-		pr_err("%s: Get ADSP state APR packet send event %d\n",
+		pr_err_ratelimited("%s: Get ADSP state APR packet send event %d\n",
 			__func__, rc);
 		goto bail;
 	}

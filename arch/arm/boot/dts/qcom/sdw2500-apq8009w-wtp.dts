@@ -33,6 +33,23 @@
 };
 
 &soc {
+	/delete-node/ qcom,msm-cpufreq;
+	qcom,msm-cpufreq {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk";
+		qcom,cpufreq-table =
+			 <  400000 >,
+			 <  800000 >,
+			 < 1094400 >,
+			 < 1267200 >;
+	};
+
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		synaptics@20 {
 			compatible = "synaptics,dsx-i2c";

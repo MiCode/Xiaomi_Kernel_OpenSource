@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8009-dragon.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8009 + Ext Codec Dragon Board";
+	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
+	qcom,msm-id = <265 2>;
+	qcom,board-id= <0x00010120 0>;
+};
