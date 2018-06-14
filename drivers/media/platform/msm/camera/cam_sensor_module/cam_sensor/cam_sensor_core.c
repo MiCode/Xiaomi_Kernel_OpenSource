@@ -599,7 +599,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		} else {
 			CAM_ERR(CAM_SENSOR, "Invalid Command Type: %d",
 				 cmd->handle_type);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto release_mutex;
 		}
 
 		pu = power_info->power_setting;
