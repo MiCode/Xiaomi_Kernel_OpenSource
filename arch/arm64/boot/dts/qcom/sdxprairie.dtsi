@@ -138,3 +138,4 @@
 };
 
 #include "sdxprairie-pinctrl.dtsi"
+#include "sdxprairie-ion.dtsi"
