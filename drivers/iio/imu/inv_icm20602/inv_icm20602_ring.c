@@ -67,9 +67,8 @@ static int inv_icm20602_read_data(struct iio_dev *indio_dev)
 	struct icm20602_user_config *config = st->config;
 	int package_count;
 	char *buf = st->buf;
-	struct struct_icm20602_data *data_push = st->data_push;
 	s64 timestamp;
-	u8 int_status, int_wm_status;
+	u8 int_status;
 	u16 fifo_count;
 	int i;
 
@@ -81,6 +80,7 @@ static int inv_icm20602_read_data(struct iio_dev *indio_dev)
 	if (int_status & BIT_FIFO_OFLOW_INT) {
 		icm20602_fifo_count(st, &fifo_count);
 		pr_debug("fifo_count = %d\n", fifo_count);
+		inv_clear_kfifo(st);
 		icm20602_reset_fifo(st);
 		goto end_session;
 	}
@@ -102,14 +102,6 @@ static int inv_icm20602_read_data(struct iio_dev *indio_dev)
 		memset(st->buf, 0, config->fifo_waterlevel);
 	}
 end_session:
-	mutex_unlock(&indio_dev->mlock);
-	iio_trigger_notify_done(indio_dev->trig);
-	return MPU_SUCCESS;
-
-flush_fifo:
-	/* Flush HW and SW FIFOs. */
-	inv_clear_kfifo(st);
-	icm20602_reset_fifo(st);
 	mutex_unlock(&indio_dev->mlock);
 	iio_trigger_notify_done(indio_dev->trig);
 	return MPU_SUCCESS;
