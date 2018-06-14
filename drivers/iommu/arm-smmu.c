@@ -515,6 +515,11 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 		mutex_unlock(&smmu_domain->assign_lock);
 }
 
+static bool arm_smmu_opt_hibernation(struct arm_smmu_device *smmu)
+{
+	return IS_ENABLED(CONFIG_HIBERNATION);
+}
+
 /*
  * init()
  * Hook for additional device tree parsing at probe time.
@@ -1685,6 +1690,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		dev_err(smmu->dev, "dynamic domains not supported\n");
 		ret = -EPERM;
 
+		goto out_unlock;
+	}
+
+	if (arm_smmu_has_secure_vmid(smmu_domain) &&
+	    arm_smmu_opt_hibernation(smmu)) {
+		dev_err(smmu->dev,
+			"Secure usecases not supported with hibernation\n");
+		ret = -EPERM;
 		goto out_unlock;
 	}
 
