@@ -660,6 +660,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	if (!prtd->audio_client) {
 		pr_info("%s: Could not allocate memory\n", __func__);
 		kfree(prtd);
+		prtd = NULL;
 		return -ENOMEM;
 	}
 
@@ -1135,6 +1136,12 @@ static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 	}
 
 	prtd = substream->runtime->private_data;
+	if (prtd == NULL) {
+		pr_err("%s prtd is null.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	if (prtd->audio_client == NULL) {
 		pr_err("%s prtd is null.\n", __func__);
 		ret = -EINVAL;
