@@ -12,6 +12,7 @@
 
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
@@ -213,6 +214,7 @@ struct qti_hap_chip {
 	struct qti_hap_effect		*predefined;
 	struct qti_hap_effect		constant;
 	struct regulator		*vdd_supply;
+	struct hrtimer			stop_timer;
 	spinlock_t			bus_lock;
 	ktime_t				last_sc_time;
 	int				play_irq;
@@ -901,6 +903,8 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 {
 	struct qti_hap_chip *chip = input_get_drvdata(dev);
 	struct qti_hap_play_info *play = &chip->play;
+	s64 secs;
+	unsigned long nsecs;
 	int rc = 0;
 
 	dev_dbg(chip->dev, "playback, val = %d\n", val);
@@ -919,6 +923,11 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 				disable_irq_nosync(chip->play_irq);
 				chip->play_irq_en = false;
 			}
+			secs = play->length_us / USEC_PER_SEC;
+			nsecs = (play->length_us % USEC_PER_SEC) *
+				NSEC_PER_USEC;
+			hrtimer_start(&chip->stop_timer, ktime_set(secs, nsecs),
+					HRTIMER_MODE_REL);
 		}
 	} else {
 		play->length_us = 0;
@@ -1054,6 +1063,26 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	}
 
 	return 0;
+}
+
+static enum hrtimer_restart qti_hap_stop_timer(struct hrtimer *timer)
+{
+	struct qti_hap_chip *chip = container_of(timer, struct qti_hap_chip,
+			stop_timer);
+	int rc;
+
+	chip->play.length_us = 0;
+	rc = qti_haptics_play(chip, false);
+	if (rc < 0) {
+		dev_err(chip->dev, "Stop playing failed, rc=%d\n", rc);
+		goto err_out;
+	}
+
+	rc = qti_haptics_module_en(chip, false);
+	if (rc < 0)
+		dev_err(chip->dev, "Disable module failed, rc=%d\n", rc);
+err_out:
+	return HRTIMER_NORESTART;
 }
 
 static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
@@ -1366,6 +1395,9 @@ static int qti_haptics_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "request sc-irq failed, rc=%d\n", rc);
 		return rc;
 	}
+
+	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	chip->stop_timer.function = qti_hap_stop_timer;
 
 	input_dev->name = "vibrator";
 	input_set_drvdata(input_dev, chip);
