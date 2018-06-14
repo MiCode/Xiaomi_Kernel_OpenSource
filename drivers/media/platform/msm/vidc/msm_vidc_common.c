@@ -4183,7 +4183,6 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		count = num_pending_qbufs(inst,
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 		if (count < inst->batch.size) {
-			mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
 			print_vidc_buffer(VIDC_DBG,
 				"batch-qbuf deferred", inst, mbuf);
 			return 0;
