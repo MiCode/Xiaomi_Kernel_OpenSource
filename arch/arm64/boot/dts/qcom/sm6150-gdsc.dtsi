@@ -159,7 +159,7 @@
 
 	/* GDSCs in Display CC */
 	mdss_core_gdsc: qcom,gdsc@af03000 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "mdss_core_gdsc";
 		reg = <0xaf03000 0x4>;
 		qcom,poll-cfg-gdscr;
