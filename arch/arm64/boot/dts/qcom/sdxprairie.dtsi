@@ -139,3 +139,4 @@
 
 #include "sdxprairie-pinctrl.dtsi"
 #include "sdxprairie-ion.dtsi"
+#include "msm-arm-smmu-sdxprairie.dtsi"
