@@ -3720,7 +3720,7 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 	for (i = 0; i < smmu->num_context_banks; ++i) {
 		cb_base = ARM_SMMU_CB(smmu, i);
 
-		writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+		arm_smmu_write_context_bank(smmu, i, 0);
 		writel_relaxed(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
 		/*
 		 * Disable MMU-500's not-particularly-beneficial next-page
@@ -4674,8 +4674,15 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 {
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	int ret;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
 
 	arm_smmu_device_reset(smmu);
+	arm_smmu_power_off(smmu->pwr);
+
 	return 0;
 }
 
