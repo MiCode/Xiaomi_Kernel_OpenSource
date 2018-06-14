@@ -616,6 +616,18 @@ static const struct usb_device_id diag_bridge_ids[] = {
 	/* 909E, ifc#1 refers to diag client interface */
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 1),
 	.driver_info =	DEV_ID(1), },
+	/* 9900, ifc#2 refers to diag client interface */
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9900, 2),
+	.driver_info =	DEV_ID(0), },
+	/* 9900, ifc#1 refers to IPC client interface */
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9900, 1),
+	.driver_info =	DEV_ID(1), },
+	/* 9901, ifc#4 refers to diag client interface */
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9901, 4),
+	.driver_info =	DEV_ID(0), },
+	/* 9901, ifc#3 refers to IPC client interface */
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9901, 3),
+	.driver_info =	DEV_ID(1), },
 
 	{} /* terminating entry */
 };
