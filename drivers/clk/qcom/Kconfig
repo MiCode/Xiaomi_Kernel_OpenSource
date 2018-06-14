@@ -386,3 +386,12 @@ config MSM_CAMCC_SM6150
 	  SM6150 devices.
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
+
+config MSM_DISPCC_SM6150
+	tristate "SM6150 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
