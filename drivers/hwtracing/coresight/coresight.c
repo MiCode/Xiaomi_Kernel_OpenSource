@@ -211,8 +211,10 @@ static int coresight_enable_link(struct coresight_device *csdev,
 	if (atomic_inc_return(&csdev->refcnt[refport]) == 1) {
 		if (link_ops(csdev)->enable) {
 			ret = link_ops(csdev)->enable(csdev, inport, outport);
-			if (ret)
+			if (ret) {
+				atomic_dec(&csdev->refcnt[refport]);
 				return ret;
+			}
 		}
 	}
 
@@ -302,42 +304,66 @@ static bool coresight_disable_source(struct coresight_device *csdev)
 	return !csdev->enable;
 }
 
-void coresight_disable_path(struct list_head *path)
+static void coresight_disable_list_node(struct list_head *path,
+					struct coresight_node *nd)
 {
 	u32 type;
-	struct coresight_node *nd;
 	struct coresight_device *csdev, *parent, *child;
 
+	csdev = nd->csdev;
+	type = csdev->type;
+
+	/*
+	 * ETF devices are tricky... They can be a link or a sink,
+	 * depending on how they are configured.  If an ETF has been
+	 * "activated" it will be configured as a sink, otherwise
+	 * go ahead with the link configuration.
+	 */
+	if (type == CORESIGHT_DEV_TYPE_LINKSINK)
+		type = (csdev == coresight_get_sink(path)) ?
+					CORESIGHT_DEV_TYPE_SINK :
+					CORESIGHT_DEV_TYPE_LINK;
+
+	switch (type) {
+	case CORESIGHT_DEV_TYPE_SINK:
+		coresight_disable_sink(csdev);
+		break;
+	case CORESIGHT_DEV_TYPE_SOURCE:
+		/* sources are disabled from either sysFS or Perf */
+		break;
+	case CORESIGHT_DEV_TYPE_LINK:
+		parent = list_prev_entry(nd, link)->csdev;
+		child = list_next_entry(nd, link)->csdev;
+		coresight_disable_link(csdev, parent, child, path);
+		break;
+	default:
+		break;
+	}
+}
+
+/**
+ * During enabling path, if it is failed, then only those enabled
+ * devices need to be disabled. This function is to disable devices
+ * which is enabled before the failed device.
+ *
+ * @path the head of the list
+ * @nd the failed device node
+ */
+static void coresight_disable_previous_devs(struct list_head *path,
+					struct coresight_node *nd)
+{
+
+	list_for_each_entry_continue(nd, path, link) {
+		coresight_disable_list_node(path, nd);
+	}
+}
+
+void coresight_disable_path(struct list_head *path)
+{
+	struct coresight_node *nd;
+
 	list_for_each_entry(nd, path, link) {
-		csdev = nd->csdev;
-		type = csdev->type;
-
-		/*
-		 * ETF devices are tricky... They can be a link or a sink,
-		 * depending on how they are configured.  If an ETF has been
-		 * "activated" it will be configured as a sink, otherwise
-		 * go ahead with the link configuration.
-		 */
-		if (type == CORESIGHT_DEV_TYPE_LINKSINK)
-			type = (csdev == coresight_get_sink(path)) ?
-						CORESIGHT_DEV_TYPE_SINK :
-						CORESIGHT_DEV_TYPE_LINK;
-
-		switch (type) {
-		case CORESIGHT_DEV_TYPE_SINK:
-			coresight_disable_sink(csdev);
-			break;
-		case CORESIGHT_DEV_TYPE_SOURCE:
-			/* sources are disabled from either sysFS or Perf */
-			break;
-		case CORESIGHT_DEV_TYPE_LINK:
-			parent = list_prev_entry(nd, link)->csdev;
-			child = list_next_entry(nd, link)->csdev;
-			coresight_disable_link(csdev, parent, child, path);
-			break;
-		default:
-			break;
-		}
+		coresight_disable_list_node(path, nd);
 	}
 }
 
@@ -388,7 +414,7 @@ int coresight_enable_path(struct list_head *path, u32 mode)
 out:
 	return ret;
 err:
-	coresight_disable_path(path);
+	coresight_disable_previous_devs(path, nd);
 	goto out;
 }
 
@@ -838,6 +864,7 @@ static ssize_t enable_source_store(struct device *dev,
 		if (ret)
 			return ret;
 	} else {
+		atomic_set(csdev->refcnt, 1);
 		coresight_disable(csdev);
 	}
 
@@ -1072,6 +1099,7 @@ static ssize_t reset_source_sink_store(struct bus_type *bus,
 		csdev = coresight_get_source(cspath->path);
 		if (!csdev)
 			continue;
+		atomic_set(csdev->refcnt, 1);
 		__coresight_disable(csdev);
 	}
 
