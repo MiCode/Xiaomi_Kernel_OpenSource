@@ -95,7 +95,7 @@
 };
 
 &soc {
-	sound-9335 {
+	ext_codec: sound-9335 {
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
@@ -112,12 +112,22 @@
 			"MIC BIAS3", "Digital Mic3",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
-	};
 
-	i2c@78b8000 {
-		wcd9xxx_codec@d {
-			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
-		};
+		qcom,msm-gpios =
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-0 = <&cross_conn_det_sus>;
+		pinctrl-1 = <&cross_conn_det_act>;
+		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
+		qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
 	};
 
 	i2c@78b9000 {
@@ -204,6 +214,36 @@
 		qcom,gpio-mode-sel = <&msm_gpio 97 0>;
 		qcom,id-det-gpio = <&msm_gpio 110 0>;
 		qcom,dpdm_switch_gpio = <&pm8916_gpios 3 0>;
+	};
+
+	i2c@78b8000 {
+		wcd9xxx_codec@d {
+			status = "okay";
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+		};
+	};
+
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_active &pri_mi2s_ws_active
+		     &pri_mi2s_dout_active &pri_mi2s_din_active>;
+		pinctrl-1 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+		     &pri_mi2s_dout_sleep &pri_mi2s_din_sleep>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+	};
+
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
 	};
 };
 
@@ -324,6 +364,18 @@
 };
 
 &spi_0 {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	status = "okay";
+};
+
+&blsp1_uart2_hs {
 	status = "disabled";
 };
 
