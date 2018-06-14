@@ -835,6 +835,7 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		return;
 	}
 
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_VIDEO;
 }
