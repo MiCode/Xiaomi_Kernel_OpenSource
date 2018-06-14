@@ -651,9 +651,9 @@
 &dsi_sw43404_amoled_cmd {
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
-			qcom,mdss-dsi-panel-phy-timings = [00 1a 07 06 22 21 07
-				07 04 03 04 00 16 16];
-			qcom,display-topology = <2 1 1>;
+			qcom,mdss-dsi-panel-phy-timings = [00 16 05 05 20 1f 06
+				06 03 03 04 00 13 15];
+			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};

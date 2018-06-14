@@ -1799,8 +1799,8 @@ int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only)
 		aspace->mmu->funcs->attach(mmu, (const char **)iommu_ports,
 			ARRAY_SIZE(iommu_ports));
 
-		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 		aspace->domain_attached = true;
+		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 	}
 
 	return 0;
