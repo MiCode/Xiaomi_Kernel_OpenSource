@@ -777,18 +777,18 @@ static ssize_t stmvl53l0x_store_enable_ps_sensor(struct device *dev,
 				size_t count)
 {
 	struct vl_data *data = dev_get_drvdata(dev);
-
+	int ret;
 	unsigned int val;
 
-	kstrtoint(buf, 10, &val);
+	ret = kstrtoint(buf, 10, &val);
 	if ((val != 0) && (val != 1)) {
-		err("store unvalid value=%ld\n", val);
+		err("store unvalid value=%d\n", val);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
 	dbg("Enter, enable_ps_sensor flag:%d\n",
 		data->enable_ps_sensor);
-	dbg("enable ps senosr ( %ld)\n", val);
+	dbg("enable ps senosr ( %d)\n", val);
 
 	if (val == 1) {
 		/* turn on tof sensor */
@@ -831,10 +831,11 @@ static ssize_t stmvl53l0x_store_enable_debug(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int on;
+	int ret;
 
-	kstrtoint(buf, 10, &on);
+	ret = kstrtoint(buf, 10, &on);
 	if ((on != 0) &&  (on != 1)) {
-		err("set debug=%ld\n", on);
+		err("set debug=%d\n", on);
 		return count;
 	}
 	data->enableDebug = on;
@@ -862,10 +863,11 @@ static ssize_t stmvl53l0x_store_set_delay_ms(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int delay_ms;
+	int ret;
 
-	kstrtoint(buf, 10, &delay_ms);
+	ret = kstrtoint(buf, 10, &delay_ms);
 	if (delay_ms == 0) {
-		err("set delay_ms=%ld\n", delay_ms);
+		err("set delay_ms=%d\n", delay_ms);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
@@ -895,10 +897,11 @@ static ssize_t stmvl53l0x_store_set_timing_budget(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int timingBudget;
+	int ret;
 
-	kstrtoint(buf, 10, &timingBudget);
+	ret = kstrtoint(buf, 10, &timingBudget);
 	if (timingBudget == 0) {
-		err("set timingBudget=%ld\n", timingBudget);
+		err("set timingBudget=%d\n", timingBudget);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
@@ -929,10 +932,11 @@ static ssize_t stmvl53l0x_store_set_long_range(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int useLongRange;
+	int ret;
 
-	kstrtoint(buf, 10, &useLongRange);
+	ret = kstrtoint(buf, 10, &useLongRange);
 	if ((useLongRange != 0) &&  (useLongRange != 1)) {
-		err("set useLongRange=%ld\n", useLongRange);
+		err("set useLongRange=%d\n", useLongRange);
 		return count;
 	}
 
@@ -960,7 +964,6 @@ static ssize_t stmvl53l0x_show_meter(struct device *dev,
 	struct VL_RangingMeasurementData_t Measure;
 
 	papi_func_tbl->PerformSingleRangingMeasurement(data, &Measure);
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
 	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
 }
 
@@ -972,11 +975,7 @@ static DEVICE_ATTR(show_meter, 0660/*S_IWUGO | S_IRUGO*/,
 static ssize_t stmvl53l0x_show_xtalk(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	struct vl_data *data = dev_get_drvdata(dev);
-	struct VL_RangingMeasurementData_t Measure;
-
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
-	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
+	return 0;
 }
 
 static ssize_t stmvl53l0x_set_xtalk(struct device *dev,
@@ -985,8 +984,9 @@ static ssize_t stmvl53l0x_set_xtalk(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	unsigned int targetDistance;
+	int ret;
 
-	kstrtoint(buf, 10, &targetDistance);
+	ret = kstrtoint(buf, 10, &targetDistance);
 	data->xtalkCalDistance = targetDistance;
 	stmvl53l0x_start(data, 3, XTALKCALIB_MODE);
 	return count;
@@ -1004,7 +1004,6 @@ static ssize_t stmvl53l0x_show_offset(struct device *dev,
 	struct VL_RangingMeasurementData_t Measure;
 
 	papi_func_tbl->PerformSingleRangingMeasurement(data, &Measure);
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
 	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
 }
 
@@ -1014,8 +1013,9 @@ static ssize_t stmvl53l0x_set_offset(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	unsigned int targetDistance;
+	int ret;
 
-	kstrtoint(buf, 10, &targetDistance);
+	ret = kstrtoint(buf, 10, &targetDistance);
 	data->offsetCalDistance = targetDistance;
 	stmvl53l0x_start(data, 3, OFFSETCALIB_MODE);
 	return count;
@@ -1067,9 +1067,9 @@ static ssize_t stmvl53l0x_show_OffsetCalibrationData(struct device *dev,
 
 	papi_func_tbl->GetOffsetCalibrationDataMicroMeter(data,
 					&offset_calibration_data);
-	dbg("GetOffsetCalibrationDataMicroMeter = %ld\n",
+	dbg("GetOffsetCalibrationDataMicroMeter = %d\n",
 					offset_calibration_data);
-	return snprintf(buf, 2, "%ld\n",
+	return snprintf(buf, 2, "%d\n",
 			offset_calibration_data);
 }
 
@@ -1079,8 +1079,9 @@ static ssize_t stmvl53l0x_set_OffsetCalibrationData(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int32_t offset_calibration_data;
+	int ret;
 
-	kstrtoint(buf, 10, &offset_calibration_data);
+	ret = kstrtoint(buf, 10, &offset_calibration_data);
 	papi_func_tbl->SetOffsetCalibrationDataMicroMeter(data,
 			offset_calibration_data);
 	return count;
@@ -1100,9 +1101,9 @@ static ssize_t stmvl53l0x_show_XTalkCompensationRateMegaCps(struct device *dev,
 
 	papi_func_tbl->GetXTalkCompensationRateMegaCps(data,
 					&xtalk_compensation_rate);
-	dbg("xtalk_compensation_rate = %ld\n",
+	dbg("xtalk_compensation_rate = %d\n",
 					xtalk_compensation_rate);
-	return snprintf(buf, 2, "%ld\n", xtalk_compensation_rate);
+	return snprintf(buf, 2, "%d\n", xtalk_compensation_rate);
 
 }
 
@@ -1112,8 +1113,9 @@ static ssize_t stmvl53l0x_set_XTalkCompensationRateMegaCps(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	unsigned int xtalk_compensation_rate;
+	int ret;
 
-	kstrtoint(buf, 10, &xtalk_compensation_rate);
+	ret = kstrtoint(buf, 10, &xtalk_compensation_rate);
 	papi_func_tbl->SetXTalkCompensationRateMegaCps(data,
 						xtalk_compensation_rate);
 	return count;
@@ -1689,7 +1691,7 @@ static int stmvl53l0x_start(struct vl_data *data, uint8_t scaling,
 			vl53l0x_dev,
 			&ref_spad_count,
 			&is_aperture_spads);
-		dbg("SPAD calibration:%lu,%u\n", ref_spad_count,
+		dbg("SPAD calibration:%d,%d\n", ref_spad_count,
 					(unsigned int)is_aperture_spads);
 		return rc;
 	} else if (mode == REFCALIB_MODE) {
