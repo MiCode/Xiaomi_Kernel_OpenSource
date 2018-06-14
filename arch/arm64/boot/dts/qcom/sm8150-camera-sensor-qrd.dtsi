@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/clock/qcom,camcc-sm8150.h>
+
 &soc {
 	led_flash_rear: qcom,camera-flash@0 {
 		cell-index = <0>;
