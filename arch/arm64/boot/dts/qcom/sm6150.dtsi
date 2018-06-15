@@ -620,8 +620,10 @@
 	};
 
 	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+		compatible = "qcom,videocc-sm6150", "syscon";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
