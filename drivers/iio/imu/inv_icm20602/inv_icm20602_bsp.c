@@ -224,7 +224,7 @@ int icm20602_read_raw(struct inv_icm20602_state *st,
 {
 	struct struct_icm20602_raw_data raw_data;
 
-	if ((type) & (ACCEL) != 0) {
+	if ((type & ACCEL) != 0) {
 		icm20602_read_reg(st,
 			reg_set_20602.ACCEL_XOUT_H.address,
 			&raw_data.ACCEL_XOUT_H);
@@ -256,7 +256,7 @@ int icm20602_read_raw(struct inv_icm20602_state *st,
 			raw_data.ACCEL_ZOUT_L);
 	}
 
-	if ((type) & (GYRO) != 0) {
+	if ((type & GYRO) != 0) {
 		icm20602_read_reg(st,
 			reg_set_20602.GYRO_XOUT_H.address,
 			&raw_data.GYRO_XOUT_H);
@@ -432,7 +432,6 @@ static int icm20602_read_ST_code(struct inv_icm20602_state *st)
 
 static int icm20602_set_self_test(struct inv_icm20602_state *st)
 {
-	uint8_t raw_data[6] = {0, 0, 0, 0, 0, 0};
 	int result = 0;
 
 	reg_set_20602.SMPLRT_DIV.reg_u.REG.SMPLRT_DIV = 0;
@@ -565,7 +564,7 @@ static bool icm20602_check_acc_selftest(struct inv_icm20602_state *st,
 	st_otp.Y = (st_otp.Y != 0) ? mpu_st_tb[acc_ST_code.Y - 1] : 0;
 	st_otp.Z = (st_otp.Z != 0) ? mpu_st_tb[acc_ST_code.Z - 1] : 0;
 
-	if ((st_otp.X) & (st_otp.Y) & (st_otp.Z) == 0)
+	if ((st_otp.X & st_otp.Y & st_otp.Z) == 0)
 		otp_value_zero = true;
 
 	st_shift_cust.X = acc_st->X - acc->X;
@@ -626,7 +625,7 @@ static int icm20602_check_gyro_selftest(struct inv_icm20602_state *st,
 	st_otp.Y = (gyro_ST_code.Y != 0) ? mpu_st_tb[gyro_ST_code.Y - 1] : 0;
 	st_otp.Z = (gyro_ST_code.Z != 0) ? mpu_st_tb[gyro_ST_code.Z - 1] : 0;
 
-	if ((st_otp.X) & (st_otp.Y) & (st_otp.Z) == 0)
+	if ((st_otp.X & st_otp.Y & st_otp.Z) == 0)
 		otp_value_zero = true;
 
 	st_shift_cust.X = gyro_st->X - gyro->X;
