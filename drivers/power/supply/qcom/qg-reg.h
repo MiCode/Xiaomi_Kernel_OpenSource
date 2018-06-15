@@ -17,6 +17,7 @@
 #define QG_TYPE					0x0D
 
 #define QG_STATUS1_REG				0x08
+#define QG_OK_BIT				BIT(7)
 #define BATTERY_PRESENT_BIT			BIT(0)
 #define ESR_MEAS_DONE_BIT			BIT(4)
 
@@ -32,6 +33,7 @@
 #define QG_INT_RT_STS_REG			0x10
 #define FIFO_UPDATE_DONE_RT_STS_BIT		BIT(3)
 #define VBAT_LOW_INT_RT_STS_BIT			BIT(1)
+#define BATTERY_MISSING_INT_RT_STS_BIT		BIT(0)
 
 #define QG_INT_LATCHED_STS_REG			0x18
 #define FIFO_UPDATE_DONE_INT_LAT_STS_BIT	BIT(3)
@@ -63,6 +65,12 @@
 
 #define QG_S3_ENTRY_IBAT_THRESHOLD_REG		0x5E
 #define QG_S3_EXIT_IBAT_THRESHOLD_REG		0x5F
+
+#define QG_S5_OCV_VALIDATE_MEAS_CTL1_REG	0x60
+#define ALLOW_S5_BIT				BIT(7)
+
+#define QG_S7_PON_OCV_MEAS_CTL1_REG		0x64
+#define ADC_CONV_DLY_MASK			GENMASK(3, 0)
 
 #define QG_ESR_MEAS_TRIG_REG			0x68
 #define HW_ESR_MEAS_START_BIT			BIT(0)
@@ -105,6 +113,7 @@
 #define QG_SDAM_ESR_DISCHARGE_DELTA_OFFSET	0x6E /* 4-byte 0x6E-0x71 */
 #define QG_SDAM_ESR_CHARGE_SF_OFFSET		0x72 /* 2-byte 0x72-0x73 */
 #define QG_SDAM_ESR_DISCHARGE_SF_OFFSET		0x74 /* 2-byte 0x74-0x75 */
+#define QG_SDAM_MAX_OFFSET			0xA4
 
 /* Below offset is used by PBS */
 #define QG_SDAM_PON_OCV_OFFSET			0xBC /* 2-byte 0xBC-0xBD */
