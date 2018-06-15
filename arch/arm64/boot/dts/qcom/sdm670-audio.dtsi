@@ -173,7 +173,6 @@
 		compatible = "qcom,sdm670-asoc-snd";
 		qcom,model = "sdm670-mtp-snd-card";
 		qcom,wcn-btfm;
-		qcom,ext-disp-audio-rx;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,

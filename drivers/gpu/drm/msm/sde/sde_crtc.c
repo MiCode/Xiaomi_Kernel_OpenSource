@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Author: Rob Clark <robdclark@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -6159,10 +6160,10 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			node = kzalloc(sizeof(*node), GFP_KERNEL);
 			if (!node)
 				return -ENOMEM;
-			node->event = event;
 			INIT_LIST_HEAD(&node->list);
 			node->func = custom_events[i].func;
 			node->event = event;
+			node->state = IRQ_NOINIT;
 			spin_lock_init(&node->state_lock);
 			break;
 		}
@@ -6193,8 +6194,6 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 
 	if (!ret) {
 		spin_lock_irqsave(&crtc->spin_lock, flags);
-		/* irq is regiestered and enabled and set the state */
-		node->state = IRQ_ENABLED;
 		list_add_tail(&node->list, &crtc->user_event_list);
 		spin_unlock_irqrestore(&crtc->spin_lock, flags);
 	} else {

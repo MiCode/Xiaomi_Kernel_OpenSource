@@ -163,7 +163,9 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm710-usbc-external-codec-pm660a-cdp-overlay.dtbo \
 		sdm710-usbc-external-codec-pm660a-mtp-overlay.dtbo \
 		sdm710-tasha-codec-cdp-overlay.dtbo \
-		sdm710-pm660a-tasha-codec-cdp-overlay.dtbo
+		sdm710-pm660a-tasha-codec-cdp-overlay.dtbo \
+		sirius-sdm710-overlay.dtbo \
+		sirius-sdm670-overlay.dtbo
 
 sdm670-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-mtp-overlay.dtbo-base := sdm670.dtb
@@ -193,6 +195,8 @@ sda670-pm660a-mtp-overlay.dtbo-base := sda670.dtb
 qcs605-cdp-overlay.dtbo-base := qcs605.dtb
 qcs605-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-external-codec-mtp-overlay.dtbo-base := qcs605.dtb
+sirius-sdm710-overlay.dtbo-base := sdm710.dtb
+sirius-sdm670-overlay.dtbo-base := sdm670.dtb
 qcs605-lc-mtp-overlay.dtbo-base := qcs605-lc.dtb
 qcs605-360camera-overlay.dtbo-base := qcs605.dtb
 sdm710-cdp-overlay.dtbo-base := sdm710.dtb
@@ -265,7 +269,9 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sdm710-usbc-pm660a-cdp.dtb \
 	sdm710-usbc-pm660a-mtp.dtb \
 	sdm710-tasha-codec-cdp.dtb \
-	sdm710-pm660a-tasha-codec-cdp.dtb
+	sdm710-pm660a-tasha-codec-cdp.dtb \
+	sirius-sdm710.dtb \
+	sirius-sdm670.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

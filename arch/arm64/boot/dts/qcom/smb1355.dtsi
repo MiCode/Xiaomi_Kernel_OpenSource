@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +40,8 @@
 			interrupt-parent = <&smb1355_0>;
 			status = "disabled";
 
-			io-channels = <&pmi8998_rradc 2>,
-				      <&pmi8998_rradc 12>;
+			io-channels = <&pm660_rradc 8>,
+				      <&pm660_rradc 10>;
 			io-channel-names = "charger_temp",
 					   "charger_temp_max";
 
@@ -86,8 +87,8 @@
 			interrupt-parent = <&smb1355_1>;
 			status = "disabled";
 
-			io-channels = <&pmi8998_rradc 2>,
-				      <&pmi8998_rradc 12>;
+			io-channels = <&pm660_rradc 8>,
+				      <&pm660_rradc 10>;
 			io-channel-names = "charger_temp",
 					   "charger_temp_max";
 

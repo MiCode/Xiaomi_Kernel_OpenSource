@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -690,10 +691,10 @@ int qcom_step_chg_init(struct device *dev,
 
 	chip->jeita_fcc_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fcc_config->prop_name = "BATT_TEMP";
-	chip->jeita_fcc_config->hysteresis = 10;
+	chip->jeita_fcc_config->hysteresis = 5;
 	chip->jeita_fv_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fv_config->prop_name = "BATT_TEMP";
-	chip->jeita_fv_config->hysteresis = 10;
+	chip->jeita_fv_config->hysteresis = 5;
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->get_config_work, get_config_work);

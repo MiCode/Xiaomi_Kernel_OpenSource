@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc_ops.h
  *
  *  Copyright 2006-2007 Pierre Ossman
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +28,7 @@ int mmc_spi_set_crc(struct mmc_host *host, int use_crc);
 int mmc_bus_test(struct mmc_card *card, u8 bus_width);
 int mmc_send_hpi_cmd(struct mmc_card *card, u32 *status);
 int mmc_can_ext_csd(struct mmc_card *card);
+int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd);
 int mmc_discard_queue(struct mmc_host *host, u32 tasks);
 int mmc_switch_status_error(struct mmc_host *host, u32 status);
 int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
@@ -34,5 +36,8 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		bool ignore_crc);
 int __mmc_send_status(struct mmc_card *card, u32 *status,
 				    bool ignore_crc);
+int mmc_send_vc_cmd(struct mmc_card *card, u32 opcode, u32 arg);
+int mmc_send_cxd_data(struct mmc_card *card, struct mmc_host *host,
+		u32 opcode, void *buf, unsigned len);
 #endif
 

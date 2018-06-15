@@ -235,7 +235,6 @@ static inline void free_thread_stack(struct task_struct *tsk)
 		return;
 	}
 #endif
-
 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
 }
 # else

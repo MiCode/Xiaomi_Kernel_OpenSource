@@ -1,6 +1,7 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1596,6 +1597,9 @@ static void lpm_suspend_wake(void)
 	lpm_stats_suspend_exit();
 }
 
+extern void regulator_debug_print_enabled(bool only_enabled);
+extern void system_sleep_status_print_enabled(void);
+extern void gpio_debug_print(void);
 static int lpm_suspend_enter(suspend_state_t state)
 {
 	int cpu = raw_smp_processor_id();
@@ -1622,6 +1626,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * LPMs(XO and Vmin).
 	 */
 	clock_debug_print_enabled(true);
+	regulator_debug_print_enabled(true);
+	gpio_debug_print();
+	system_sleep_status_print_enabled();
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 

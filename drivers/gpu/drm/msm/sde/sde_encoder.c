@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Author: Rob Clark <robdclark@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -203,6 +204,7 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @input_event_work:		worker to handle input device touch events
+ * @esd_trigger_work:		worker to handle esd trigger events
  * @input_handler:			handler for input device events
  * @topology:                   topology of the display
  * @vblank_enabled:		boolean to track userspace vblank vote
@@ -249,6 +251,7 @@ struct sde_encoder_virt {
 	struct kthread_delayed_work delayed_off_work;
 	struct kthread_work vsync_event_work;
 	struct kthread_work input_event_work;
+	struct kthread_work esd_trigger_work;
 	struct input_handler *input_handler;
 	struct msm_display_topology topology;
 	bool vblank_enabled;
@@ -2299,10 +2302,17 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			_sde_encoder_resource_control_rsc_update(drm_enc, true);
 			_sde_encoder_resource_control_helper(drm_enc, true);
 
+			/*
+			 * In some cases, commit comes with slight delay
+			 * (> 80 ms)after early wake up, prevent clock switch
+			 * off to avoid jank in next update. So, increase the
+			 * command mode idle timeout sufficiently to prevent
+			 * such case.
+			 */
 			kthread_mod_delayed_work(&disp_thread->worker,
 						&sde_enc->delayed_off_work,
 						msecs_to_jiffies(
-						IDLE_POWERCOLLAPSE_DURATION));
+						IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP));
 
 			sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
 		}
@@ -3542,6 +3552,20 @@ static void sde_encoder_vsync_event_handler(unsigned long data)
 				&sde_enc->vsync_event_work);
 }
 
+static void sde_encoder_esd_trigger_work_handler(struct kthread_work *work)
+{
+	struct sde_encoder_virt *sde_enc = container_of(work,
+				struct sde_encoder_virt, esd_trigger_work);
+
+	if (!sde_enc) {
+		SDE_ERROR("invalid sde encoder\n");
+		return;
+	}
+
+	sde_encoder_resource_control(&sde_enc->base,
+			SDE_ENC_RC_EVENT_KICKOFF);
+}
+
 static void sde_encoder_input_event_work_handler(struct kthread_work *work)
 {
 	struct sde_encoder_virt *sde_enc = container_of(work,
@@ -4531,6 +4555,9 @@ struct drm_encoder *sde_encoder_init(
 	kthread_init_work(&sde_enc->input_event_work,
 			sde_encoder_input_event_work_handler);
 
+	kthread_init_work(&sde_enc->esd_trigger_work,
+			sde_encoder_esd_trigger_work_handler);
+
 	memcpy(&sde_enc->disp_info, disp_info, sizeof(*disp_info));
 
 	SDE_DEBUG_ENC(sde_enc, "created\n");
@@ -4796,6 +4823,38 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 
 int sde_encoder_display_failure_notification(struct drm_encoder *enc)
 {
+	struct msm_drm_thread *disp_thread = NULL;
+	struct msm_drm_private *priv = NULL;
+	struct sde_encoder_virt *sde_enc = NULL;
+
+	if (!enc || !enc->dev || !enc->dev->dev_private) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	priv = enc->dev->dev_private;
+	sde_enc = to_sde_encoder_virt(enc);
+	if (!sde_enc->crtc || (sde_enc->crtc->index
+			>= ARRAY_SIZE(priv->disp_thread))) {
+		SDE_DEBUG_ENC(sde_enc,
+			"invalid cached CRTC: %d or crtc index: %d\n",
+			sde_enc->crtc == NULL,
+			sde_enc->crtc ? sde_enc->crtc->index : -EINVAL);
+		return -EINVAL;
+	}
+
+	SDE_EVT32_VERBOSE(DRMID(enc));
+
+	disp_thread = &priv->disp_thread[sde_enc->crtc->index];
+
+	if (current->tgid == disp_thread->thread->tgid) {
+		sde_encoder_resource_control(&sde_enc->base,
+			SDE_ENC_RC_EVENT_KICKOFF);
+	} else {
+		kthread_queue_work(&disp_thread->worker,
+					&sde_enc->esd_trigger_work);
+		kthread_flush_work(&sde_enc->esd_trigger_work);
+	}
 	/**
 	 * panel may stop generating te signal (vsync) during esd failure. rsc
 	 * hardware may hang without vsync. Avoid rsc hang by generating the

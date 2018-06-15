@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1860,7 +1861,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 		g_fd_hw_mgr.cdm_iommu.secure);
 
 	/* Init hw mgr contexts and add to free list */
-	for (i = 0; i < CAM_CTX_MAX; i++) {
+	for (i = 0; i < CAM_FD_CTX_MAX; i++) {
 		hw_mgr_ctx = &g_fd_hw_mgr.ctx_pool[i];
 
 		memset(hw_mgr_ctx, 0x0, sizeof(*hw_mgr_ctx));

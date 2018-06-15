@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Author: Rob Clark <robdclark@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -436,6 +437,7 @@ struct sde_crtc_state {
 enum sde_crtc_irq_state {
 	IRQ_NOINIT,
 	IRQ_ENABLED,
+	IRQ_DISABLING,
 	IRQ_DISABLED,
 };
 

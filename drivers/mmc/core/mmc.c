@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc.c
  *
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  *
@@ -21,6 +22,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/reboot.h>
 #include <trace/events/mmc.h>
+#include <linux/mmc/ffu.h>
 
 #include "core.h"
 #include "host.h"
@@ -850,6 +852,8 @@ MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
 MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
+MMC_DEV_ATTR(life_time_est_typ_a, "%u\n", card->ext_csd.device_life_time_est_typ_a);
+MMC_DEV_ATTR(life_time_est_typ_b, "%u\n", card->ext_csd.device_life_time_est_typ_b);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
@@ -907,6 +911,8 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
+	&dev_attr_life_time_est_typ_a.attr,
+	&dev_attr_life_time_est_typ_b.attr,
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_enhanced_rpmb_supported.attr,
 	&dev_attr_rel_sectors.attr,
@@ -1897,6 +1903,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	u32 cid[4];
 	u32 rocr;
 
+#ifdef EXPORT_HR_INIT
+	char ext_csd[256] = {};
+	u32 i = 0;
+#endif
+
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
@@ -2063,6 +2074,33 @@ reinit:
 
 		if (card->ext_csd.sectors && (rocr & MMC_CARD_SECTOR_ADDR))
 			mmc_card_set_blockaddr(card);
+
+#ifdef EXPORT_HR_INIT
+		if (card->cid.manfid == CID_MANFID_HYNIX) {
+			err = mmc_send_vc_cmd(card, 60, 0x534D4900);
+			if (err) {
+				pr_err("%s: %s: vc cmd () fails %d\n",
+						mmc_hostname(host), __func__, err);
+			}
+			err = mmc_send_vc_cmd(card, 60, 0x48525054);
+			if (err) {
+				pr_err("%s: %s: vc cmd () fails %d\n",
+						mmc_hostname(host), __func__, err);
+			}
+
+			err = mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD, ext_csd, 512);
+
+			if (err) {
+				pr_err("%s: %s: ext csd fail %d\n",
+						mmc_hostname(host), __func__, err);
+			}
+
+			for (i = 0; i < 512; i += 8) {
+				pr_err("[%d~%d]: %02x   %02x %02x       %02x %02x       %02x %02x       %02x\n", i, i+7,
+						   ext_csd[i], ext_csd[i+1], ext_csd[i+2], ext_csd[i+3], ext_csd[i+4], ext_csd[i+5], ext_csd[i+6], ext_csd[i+7]);
+			}
+		}
+#endif
 	}
 
 	/*

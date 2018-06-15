@@ -2,6 +2,7 @@
  * Debugfs support for hosts and cards
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -654,6 +655,109 @@ static const struct file_operations mmc_dbg_ext_csd_fops = {
 	.llseek		= default_llseek,
 };
 
+static int mmc_hr_open(struct inode *inode, struct file *filp)
+{
+	struct mmc_card *card = inode->i_private;
+	char *buf;
+	ssize_t n = 0;
+	u8 *ext_csd;
+	int err = 0, i;
+
+
+	buf = kzalloc(EXT_CSD_STR_LEN + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	if (card->cid.manfid != CID_MANFID_HYNIX) {
+		snprintf(buf, EXT_CSD_STR_LEN + 1, "NOT SUPPORTED\n");
+		filp->private_data = buf;
+		return 0;
+	}
+	mmc_get_card(card);
+	if (mmc_card_cmdq(card)) {
+		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		if (err) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+					mmc_hostname(card->host), __func__,
+					err);
+			mmc_put_card(card);
+			goto out_free_halt;
+		}
+	}
+
+	err = mmc_send_vc_cmd(card, 60, 0x534D4900);
+	if (err) {
+		pr_err("%s: vc 1st cmd failed %d\n", __func__, err);
+		goto out_free;
+	} else {
+		pr_err("%s: vc 1st cmd succeed\n", __func__);
+	}
+
+	mdelay(200);
+
+	err = mmc_send_vc_cmd(card, 60, 0x48525054);
+	if (err) {
+		pr_err("%s: vc  2nd cmd  failed %d\n", __func__, err);
+		goto out_free;
+	} else {
+		pr_err("%s: vc 2nd cmd succeed\n", __func__);
+	}
+	mdelay(200);
+	err = mmc_get_ext_csd(card, &ext_csd);
+	mdelay(200);
+	if (err)
+		goto out_free;
+
+	for (i = 0; i < 512; i++)
+		n += snprintf(buf + n, EXT_CSD_STR_LEN + 1 - n, "%02x", ext_csd[i]);
+	n += snprintf(buf + n, EXT_CSD_STR_LEN + 1 - n, "\n");
+	BUG_ON(n != EXT_CSD_STR_LEN);
+
+	filp->private_data = buf;
+
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
+
+	mmc_put_card(card);
+	kfree(ext_csd);
+	return 0;
+
+out_free:
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
+	mmc_put_card(card);
+out_free_halt:
+	kfree(buf);
+	return err;
+}
+
+static ssize_t mmc_hr_read(struct file *filp, char __user *ubuf,
+				size_t cnt, loff_t *ppos)
+{
+	char *buf = filp->private_data;
+
+	return simple_read_from_buffer(ubuf, cnt, ppos,
+				       buf, EXT_CSD_STR_LEN);
+}
+
+static int mmc_hr_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+	return 0;
+}
+static const struct file_operations mmc_dbg_hr_fops = {
+	.open		= mmc_hr_open,
+	.read		= mmc_hr_read,
+	.release	= mmc_hr_release,
+	.llseek		= default_llseek,
+};
+
 static int mmc_wr_pack_stats_open(struct inode *inode, struct file *filp)
 {
 	struct mmc_card *card = inode->i_private;
@@ -972,8 +1076,13 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 			goto err;
 
 	if (mmc_card_mmc(card))
-		if (!debugfs_create_file("ext_csd", S_IRUSR, root, card,
+		if (!debugfs_create_file("ext_csd", S_IRUGO, root, card,
 					&mmc_dbg_ext_csd_fops))
+			goto err;
+
+	if (mmc_card_mmc(card))
+		if (!debugfs_create_file("hr", S_IRUGO, root, card,
+					&mmc_dbg_hr_fops))
 			goto err;
 
 	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 6) &&

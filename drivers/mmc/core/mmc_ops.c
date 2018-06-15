@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc_ops.h
  *
  *  Copyright 2006-2007 Pierre Ossman
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -251,6 +252,26 @@ int mmc_set_relative_addr(struct mmc_card *card)
 	return mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 }
 
+int mmc_send_vc_cmd(struct mmc_card *card, u32 opcode, u32 arg)
+{
+	int err;
+	struct mmc_command cmd = {0};
+
+	BUG_ON(!card);
+	BUG_ON(!card->host);
+
+	cmd.opcode = opcode;
+	cmd.arg = arg;
+	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
+	cmd.busy_timeout = card->host->max_busy_timeout;
+
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	return 0;
+}
+
 static int
 mmc_send_cxd_native(struct mmc_host *host, u32 arg, u32 *cxd, int opcode)
 {
@@ -277,7 +298,7 @@ mmc_send_cxd_native(struct mmc_host *host, u32 arg, u32 *cxd, int opcode)
  * NOTE: void *buf, caller for the buf is required to use DMA-capable
  * buffer or on-stack buffer (with some overhead in callee).
  */
-static int
+int
 mmc_send_cxd_data(struct mmc_card *card, struct mmc_host *host,
 		u32 opcode, void *buf, unsigned len)
 {
@@ -379,6 +400,13 @@ err:
 	kfree(cid_tmp);
 	return ret;
 }
+
+int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd)
+{
+	return mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD,
+			ext_csd, 512);
+}
+EXPORT_SYMBOL_GPL(mmc_send_ext_csd);
 
 int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 {

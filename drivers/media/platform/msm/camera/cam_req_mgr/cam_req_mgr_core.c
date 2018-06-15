@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -708,8 +709,6 @@ static int __cam_req_mgr_process_sync_req(
 			"No req applied on corresponding SOF on sync link: %x",
 			sync_link->link_hdl);
 		sync_link->sync_link_sof_skip = false;
-		/*It is to manage compensate inject delay for each pd*/
-		__cam_req_mgr_check_link_is_ready(link, slot->idx, true, true);
 		return -EINVAL;
 	}
 
@@ -1684,8 +1683,8 @@ int cam_req_mgr_process_error(void *priv, void *data)
 					evt_data.u.error = err_info->error;
 					if (device->ops &&
 						device->ops->process_evt)
-						rc = device->ops->process_evt(
-							&evt_data);
+						rc = device->ops->
+							process_evt(&evt_data);
 				}
 			}
 			/* Bring processing pointer to bubbled req id */
@@ -2289,15 +2288,16 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 		return -EINVAL;
 	}
 
+	mutex_lock(&g_crm_core_dev->crm_lock);
+
 	/* session hdl's priv data is cam session struct */
 	cam_session = (struct cam_req_mgr_core_session *)
 		cam_get_device_priv(link_info->session_hdl);
 	if (!cam_session) {
 		CAM_DBG(CAM_CRM, "NULL pointer");
+		mutex_unlock(&g_crm_core_dev->crm_lock);
 		return -EINVAL;
 	}
-
-	mutex_lock(&g_crm_core_dev->crm_lock);
 
 	/* Allocate link struct and map it with session's request queue */
 	link = __cam_req_mgr_reserve_link(cam_session);

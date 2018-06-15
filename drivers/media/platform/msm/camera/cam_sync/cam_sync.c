@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +124,6 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 {
 	struct sync_table_row *row = NULL;
 	struct sync_callback_info *sync_cb, *temp;
-	bool found = false;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
@@ -146,12 +146,11 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 			sync_cb->cb_data == userdata) {
 			list_del_init(&sync_cb->list);
 			kfree(sync_cb);
-			found = true;
 		}
 	}
 
 	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-	return found ? 0 : -ENOENT;
+	return 0;
 }
 
 int cam_sync_signal(int32_t sync_obj, uint32_t status)
