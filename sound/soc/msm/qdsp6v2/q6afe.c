@@ -2374,7 +2374,8 @@ int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type)
 	int i;
 
 	if (port_id == AFE_PORT_ID_TERTIARY_MI2S_TX ||
-		port_id == AFE_PORT_ID_INT3_MI2S_TX) {
+		port_id == AFE_PORT_ID_INT3_MI2S_TX ||
+		port_id == AFE_PORT_ID_QUATERNARY_TDM_TX) {
 		mad_type = MAD_SW_AUDIO;
 		return 0;
 	}
@@ -2393,7 +2394,8 @@ enum afe_mad_type afe_port_get_mad_type(u16 port_id)
 	int i;
 
 	if (port_id == AFE_PORT_ID_TERTIARY_MI2S_TX ||
-		port_id == AFE_PORT_ID_INT3_MI2S_TX)
+		port_id == AFE_PORT_ID_INT3_MI2S_TX ||
+		port_id == AFE_PORT_ID_QUATERNARY_TDM_TX)
 		return MAD_SW_AUDIO;
 
 	i = port_id - SLIMBUS_0_RX;
