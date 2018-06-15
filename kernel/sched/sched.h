@@ -2899,6 +2899,14 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
+{
+	bool boost_on_big = task_sched_boost(p) &&
+				sched_boost_policy() == SCHED_BOOST_ON_BIG;
+
+	return boost_on_big;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -2911,6 +2919,11 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
 {
 	return false;
 }
