@@ -1006,8 +1006,8 @@
 
 	cpu_cpu_llcc_bwmon: qcom,cpu-cpu-llcc-bwmon@90b6400 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x90b6400 0x300>, <0x90b6300 0x200>;
-		reg-names = "base", "global_base";
+		reg = <0x90b6400 0x300>, <0x90b6300 0x200>, <0x00144294 0x4>;
+		reg-names = "base", "global_base", "gcc_dnoc_cfg";
 		interrupts = <GIC_SPI 581 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
@@ -1041,8 +1041,8 @@
 
 	cpu_llcc_ddr_bwmon: qcom,cpu-llcc-ddr-bwmon@90cd000 {
 		compatible = "qcom,bimc-bwmon5";
-		reg = <0x90cd000 0x1000>;
-		reg-names = "base";
+		reg = <0x90cd000 0x1000>, <0x00144294 0x4>;
+		reg-names = "base", "gcc_dnoc_cfg";
 		interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpu_llcc_ddr_bw>;
