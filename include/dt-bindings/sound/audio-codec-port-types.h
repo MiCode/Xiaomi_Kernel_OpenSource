@@ -1,0 +1,33 @@
+#ifndef __AUDIO_CODEC_PORT_TYPES_H
+#define __AUDIO_CODEC_PORT_TYPES_H
+
+enum codec_port_type {
+	SPKR_L = 1,
+	SPKR_L_BOOST,
+	SPKR_L_COMP,
+	SPKR_L_VI,
+	SPKR_R,
+	SPKR_R_BOOST,
+	SPKR_R_COMP,
+	SPKR_R_VI,
+	HPH,
+	COMPANDER,
+	CLSH,
+	LO,
+	DSD,
+	MBHC,
+	ADC1,
+	ADC2,
+	ADC3,
+	DMIC1,
+	DMIC2,
+	DMIC3,
+	DMIC4,
+	DMIC5,
+	DMIC6,
+	DMIC7,
+	DMIC8,
+	DMIC9,
+	DMIC10,
+};
+#endif /* __AUDIO_CODEC_PORT_TYPES_H */
