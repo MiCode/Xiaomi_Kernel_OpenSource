@@ -84,7 +84,6 @@
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
-			snps,usb3_lpm_capable;
 			snps,ssp-u3-u0-quirk;
 			snps,usb3-u1u2-disable;
 			usb-core-id = <0>;
