@@ -69,6 +69,8 @@ Profile data node optional properties:
 			size 5.
 - qcom,therm-center-offset: Specifies the resistor divide ratio between pull-up
 			resistor and the thermistor for GEN4 FG.
+- qcom,therm-pull-up: Specifies the thermistor pull-up resistor value in
+			KOhms.
 - qcom,rslow-normal-coeffs: Array of Rslow coefficients that will be applied
 			when the battery temperature is greater than 0 degree
 			Celsius for GEN4 FG. This should be exactly of size 4.

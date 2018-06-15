@@ -999,6 +999,15 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		}
 	}
 
+	if (of_find_property(profile_node, "qcom,therm-pull-up", NULL)) {
+		rc = of_property_read_u32(profile_node, "qcom,therm-pull-up",
+				&fg->bp.therm_pull_up_kohms);
+		if (rc < 0) {
+			pr_err("Couldn't read therm-pull-up, rc:%d\n", rc);
+			fg->bp.therm_pull_up_kohms = -EINVAL;
+		}
+	}
+
 	if (of_find_property(profile_node, "qcom,rslow-normal-coeffs", NULL) &&
 		of_find_property(profile_node, "qcom,rslow-low-coeffs", NULL)) {
 		if (!fg->bp.rslow_normal_coeffs) {
@@ -1119,6 +1128,30 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 			}
 		}
 		fg_dbg(fg, FG_STATUS, "Rslow_low: %d\n", chip->rslow_low);
+	}
+
+	if (fg->bp.therm_pull_up_kohms > 0) {
+		switch (fg->bp.therm_pull_up_kohms) {
+		case 30:
+			buf = BATT_THERM_PULL_UP_30K;
+			break;
+		case 100:
+			buf = BATT_THERM_PULL_UP_100K;
+			break;
+		case 400:
+			buf = BATT_THERM_PULL_UP_400K;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		rc = fg_masked_write(fg, ADC_RR_BATT_THERM_BASE_CFG1(fg),
+					BATT_THERM_PULL_UP_MASK, buf);
+		if (rc < 0) {
+			pr_err("failed to write to 0x%04X, rc=%d\n",
+				ADC_RR_BATT_THERM_BASE_CFG1(fg), rc);
+			return rc;
+		}
 	}
 
 	return 0;
