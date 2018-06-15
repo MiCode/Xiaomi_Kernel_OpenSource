@@ -1160,6 +1160,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_H264,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "VP8",
@@ -1167,6 +1169,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_VP8,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "HEVC",
@@ -1174,6 +1178,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_HEVC,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "YCrCb Semiplanar 4:2:0",
@@ -1195,6 +1201,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_TME,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
@@ -2414,6 +2422,20 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[2].buffer_count_min_host =
 	inst->buff_req.buffer[2].buffer_count_actual =
 		MIN_NUM_ENC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[3].buffer_type = HAL_BUFFER_OUTPUT2;
+	inst->buff_req.buffer[3].buffer_count_min_host =
+	inst->buff_req.buffer[3].buffer_count_actual =
+		MIN_NUM_ENC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[4].buffer_type = HAL_BUFFER_EXTRADATA_INPUT;
+	inst->buff_req.buffer[5].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT;
+	inst->buff_req.buffer[6].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT2;
+	inst->buff_req.buffer[7].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+	inst->buff_req.buffer[8].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_1;
+	inst->buff_req.buffer[9].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_2;
+	inst->buff_req.buffer[10].buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+	inst->buff_req.buffer[11].buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
+	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
+	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
 
 	/* By default, initialize OUTPUT port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,

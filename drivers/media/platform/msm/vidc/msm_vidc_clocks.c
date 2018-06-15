@@ -971,18 +971,12 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 			inst->clk_data.low_latency_mode ||
 			inst->batch.enable) {
 		dprintk(VIDC_PROF, "DCVS disabled: %pK\n", inst);
-		inst->clk_data.extra_capture_buffer_count = 0;
-		inst->clk_data.extra_output_buffer_count = 0;
 		inst->clk_data.dcvs_mode = false;
 		return false;
 	}
 	inst->clk_data.dcvs_mode = true;
 	dprintk(VIDC_PROF, "DCVS enabled: %pK\n", inst);
 
-	inst->clk_data.extra_capture_buffer_count =
-		DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
-	inst->clk_data.extra_output_buffer_count =
-		DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
 	return true;
 }
 
@@ -1090,6 +1084,17 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 			__func__);
 }
 
+static bool is_output_buffer(struct msm_vidc_inst *inst,
+	enum hal_buffer buffer_type)
+{
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		return buffer_type == HAL_BUFFER_OUTPUT2;
+	} else {
+		return buffer_type == HAL_BUFFER_OUTPUT;
+	}
+}
+
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
@@ -1106,15 +1111,22 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	if (is_thumbnail_session(inst))
 		return 0;
 
-	count = buffer_type == HAL_BUFFER_INPUT ?
-		inst->clk_data.extra_output_buffer_count :
-		inst->clk_data.extra_capture_buffer_count;
+	/* Add DCVS extra buffer count */
+	if (inst->core->resources.dcvs) {
+		if (is_decode_session(inst) &&
+			is_output_buffer(inst, buffer_type)) {
+			count += DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
+		} else if ((is_encode_session(inst) &&
+			buffer_type == HAL_BUFFER_INPUT)) {
+			count += DCVS_ENC_EXTRA_INPUT_BUFFERS;
+		}
+	}
 
 	/*
 	 * if platform supports decode batching ensure minimum
 	 * batch size count of extra buffers added on output port
 	 */
-	if (buffer_type == HAL_BUFFER_OUTPUT) {
+	if (is_output_buffer(inst, buffer_type)) {
 		if (inst->core->resources.decode_batching &&
 			is_decode_session(inst) &&
 			count < inst->batch.size)

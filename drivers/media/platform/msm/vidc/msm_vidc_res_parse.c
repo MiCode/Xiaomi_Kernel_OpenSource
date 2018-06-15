@@ -789,6 +789,8 @@ int read_platform_resources_from_drv_data(
 			"qcom,domain-attr-cache-pagetables");
 	res->decode_batching = find_key_value(platform_data,
 			"qcom,decode-batching");
+	res->dcvs = find_key_value(platform_data,
+			"qcom,dcvs");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 

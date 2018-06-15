@@ -476,6 +476,8 @@ struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
+		.input_min_count = 4,
+		.output_min_count = 6,
 	},
 	{
 		.name = "H264",
@@ -484,6 +486,8 @@ struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
+		.input_min_count = 4,
+		.output_min_count = 8,
 	},
 	{
 		.name = "HEVC",
@@ -492,6 +496,8 @@ struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
+		.input_min_count = 4,
+		.output_min_count = 8,
 	},
 	{
 		.name = "VP8",
@@ -500,6 +506,8 @@ struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_compressed_full_yuv,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
+		.input_min_count = 4,
+		.output_min_count = 6,
 	},
 	{
 		.name = "VP9",
@@ -508,6 +516,8 @@ struct msm_vidc_format vdec_formats[] = {
 		.get_frame_size = get_frame_size_compressed_full_yuv,
 		.type = OUTPUT_PORT,
 		.defer_outputs = true,
+		.input_min_count = 4,
+		.output_min_count = 11,
 	},
 };
 
@@ -769,6 +779,16 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[3].buffer_count_min_host =
 	inst->buff_req.buffer[3].buffer_count_actual =
 		MIN_NUM_DEC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[4].buffer_type = HAL_BUFFER_EXTRADATA_INPUT;
+	inst->buff_req.buffer[5].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT;
+	inst->buff_req.buffer[6].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT2;
+	inst->buff_req.buffer[7].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+	inst->buff_req.buffer[8].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_1;
+	inst->buff_req.buffer[9].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_2;
+	inst->buff_req.buffer[10].buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+	inst->buff_req.buffer[11].buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
+	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
+	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
 
 	/* By default, initialize OUTPUT port to H264 decoder */
 	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
@@ -811,6 +831,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_profile_level profile_level;
 	struct hal_frame_size frame_sz;
 	struct hal_buffer_requirements *bufreq;
+	struct hal_buffer_requirements *bufreq_out2;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1013,6 +1034,16 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				dprintk(VIDC_ERR,
 					"Failed:Disabling OUTPUT2 port : %d\n",
 					rc);
+
+			bufreq_out2 = get_buff_req_buffer(inst,
+					HAL_BUFFER_OUTPUT2);
+			if (!bufreq_out2)
+				break;
+
+			bufreq_out2->buffer_count_min =
+				bufreq_out2->buffer_count_min_host =
+				bufreq_out2->buffer_count_actual = 0;
+
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
 			switch (inst->bit_depth) {
@@ -1079,21 +1110,43 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				dprintk(VIDC_ERR,
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
-
-			rc = msm_comm_try_get_bufreqs(inst);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s Failed to get buffer reqs : %d\n",
-					__func__, rc);
+			/* Populate output2 bufreqs with output bufreqs */
+			bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+			if (!bufreq)
 				break;
-			}
 
-			rc = msm_vidc_update_host_buff_counts(inst);
+			bufreq_out2 = get_buff_req_buffer(inst,
+						HAL_BUFFER_OUTPUT2);
+			if (!bufreq_out2)
+				break;
+
+			memcpy(bufreq_out2, bufreq,
+				sizeof(struct hal_buffer_requirements));
+			bufreq_out2->buffer_type = HAL_BUFFER_OUTPUT2;
+			rc = msm_comm_set_buffer_count(inst,
+				bufreq_out2->buffer_count_min_host,
+				bufreq_out2->buffer_count_actual,
+				HAL_BUFFER_OUTPUT2);
 			if (rc) {
 				dprintk(VIDC_ERR,
-					"%s Failed: update buff counts : %d\n",
-					__func__, rc);
+					"%s: Failed to set opb buffer count to FW\n");
+				return -EINVAL;
 			}
+			/* Do the same for extradata but no set is required */
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+			if (!bufreq)
+				break;
+
+			bufreq_out2 = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT2);
+			if (!bufreq_out2)
+				break;
+
+			memcpy(bufreq_out2, bufreq,
+				sizeof(struct hal_buffer_requirements));
+			bufreq_out2->buffer_type =
+				HAL_BUFFER_EXTRADATA_OUTPUT2;
 			break;
 		default:
 			dprintk(VIDC_ERR,
@@ -1228,7 +1281,6 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 				dprintk(VIDC_ERR,
 					"%s Failed setting stream output mode : %d\n",
 					__func__, rc);
-			rc = msm_vidc_update_host_buff_counts(inst);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT:
 			conceal_color.conceal_color_8bit = ext_control[i].value;
