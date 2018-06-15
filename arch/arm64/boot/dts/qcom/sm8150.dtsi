@@ -2869,7 +2869,7 @@
 			<1 618 0 0>,    /* No vote */
 			<1 618 0 300000>;  /* 75 MHz */
 		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
-		clock-names = "iface";
+		clock-names = "iface_clk";
 	};
 
 	qcom_cedev: qcedev@1de0000 {
