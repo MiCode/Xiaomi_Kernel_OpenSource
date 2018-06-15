@@ -82,7 +82,7 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
-	rmnet_vnd_rx_fixup(skb, skb->dev);
+	rmnet_vnd_rx_fixup(skb->dev, skb->len);
 
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
@@ -314,6 +314,7 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	struct rmnet_priv *priv;
 	u8 mux_id;
 	int err;
+	u32 skb_len;
 
 	sk_pacing_shift_update(skb->sk, 8);
 
@@ -326,13 +327,16 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	if (!port)
 		goto drop;
 
+	skb_len = skb->len;
 	err = rmnet_map_egress_handler(skb, port, mux_id, orig_dev);
 	if (err == -ENOMEM)
 		goto drop;
-	else if (err == -EINPROGRESS)
+	else if (err == -EINPROGRESS) {
+		rmnet_vnd_tx_fixup(orig_dev, skb_len);
 		return;
+	}
 
-	rmnet_vnd_tx_fixup(skb, orig_dev);
+	rmnet_vnd_tx_fixup(orig_dev, skb_len);
 
 	dev_queue_xmit(skb);
 	return;
