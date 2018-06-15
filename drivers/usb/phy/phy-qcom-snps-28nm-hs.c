@@ -33,7 +33,7 @@
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
 
-#define USB_HSPHY_1P8_VOL_MIN			1704000 /* uV */
+#define USB_HSPHY_1P8_VOL_MIN			1800000 /* uV */
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
@@ -69,6 +69,17 @@ struct msm_snps_hsphy {
 	struct regulator_bulk_data	regulator[USB_HSPHY_MAX_REGULATORS];
 
 	struct mutex		phy_lock;
+};
+
+static char *override_phy_init;
+module_param(override_phy_init, charp, 0644);
+MODULE_PARM_DESC(override_phy_init,
+		"Override SNPS HS PHY Init Settings");
+
+struct hsphy_reg_val {
+	u32 offset;
+	u32 val;
+	u32 delay;
 };
 
 static void msm_snps_hsphy_disable_clocks(struct msm_snps_hsphy *phy)
@@ -250,6 +261,42 @@ static int msm_snps_phy_block_reset(struct msm_snps_hsphy *phy)
 	return 0;
 }
 
+static void msm_snps_hsphy_por(struct msm_snps_hsphy *phy)
+{
+	struct hsphy_reg_val *reg = NULL;
+	u32 aseq[20];
+	u32 *seq, tmp;
+
+	if (override_phy_init) {
+		dev_dbg(phy->phy.dev, "Override HS PHY Init:%s\n",
+							override_phy_init);
+		get_options(override_phy_init, ARRAY_SIZE(aseq), aseq);
+		seq = &aseq[1];
+	} else {
+		seq = phy->phy_init_seq;
+	}
+
+	reg = (struct hsphy_reg_val *)seq;
+	if (!reg)
+		return;
+
+	while (reg->offset != -1) {
+		writeb_relaxed(reg->val,
+				phy->phy_csr_regs + reg->offset);
+
+		tmp = readb_relaxed(phy->phy_csr_regs + reg->offset);
+		if (tmp != reg->val)
+			dev_err(phy->phy.dev, "write:%x to: %x failed\n",
+						reg->val, reg->offset);
+		if (reg->delay)
+			usleep_range(reg->delay, reg->delay + 10);
+		reg++;
+	}
+
+	/* Ensure that the above parameter overrides is successful. */
+	mb();
+}
+
 static int msm_snps_hsphy_reset(struct msm_snps_hsphy *phy)
 {
 	int ret;
@@ -307,6 +354,8 @@ static int msm_snps_hsphy_init(struct usb_phy *uphy)
 	ret = msm_snps_phy_block_reset(phy);
 	if (ret)
 		return ret;
+
+	msm_snps_hsphy_por(phy);
 
 	ret = msm_snps_hsphy_reset(phy);
 
