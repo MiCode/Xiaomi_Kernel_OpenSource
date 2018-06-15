@@ -512,13 +512,3 @@
 		<0x49 0x70
 		 0x28 0x74>;
 };
-
-&smb1355 {
-	status = "ok";
-};
-
-&smb1355_charger {
-	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
-	io-channel-names = "charger_temp";
-	status = "ok";
-};
