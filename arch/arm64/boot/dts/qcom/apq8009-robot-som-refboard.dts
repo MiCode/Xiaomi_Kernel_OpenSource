@@ -161,7 +161,7 @@
 	interrupt-map-mask = <0xffffffff>;
 	interrupt-map = <0 &intc 0 125 0
 		1 &intc 0 221 0
-		2 &msm_gpio 38 0>;
+		2 &msm_gpio 40 0x1>;
 	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
 
 	qcom,vdd-voltage-level = <1800000 2950000>;
