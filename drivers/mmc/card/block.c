@@ -4099,6 +4099,13 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				mmc_blk_cmdq_requeue_rw_rq(mq, req);
 				mmc_put_card(host->card);
+			} else if (ret == -ENOMEM) {
+				/*
+				 * Elaborate error handling is not needed for
+				 * system errors. Let the higher layer decide
+				 * on the next steps.
+				 */
+				goto out;
 			}
 		}
 	}
