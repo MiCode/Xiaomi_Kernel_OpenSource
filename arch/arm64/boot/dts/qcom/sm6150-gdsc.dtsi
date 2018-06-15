@@ -14,7 +14,7 @@
 &soc {
 	/* GDSCs in Global CC */
 	emac_gdsc: qcom,gdsc@106004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "emac_gdsc";
 		reg = <0x106004 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -22,7 +22,7 @@
 	};
 
 	pcie_0_gdsc: qcom,gdsc@16b004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "pcie_0_gdsc";
 		reg = <0x16b004 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -30,7 +30,7 @@
 	};
 
 	ufs_phy_gdsc: qcom,gdsc@177004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "ufs_phy_gdsc";
 		reg = <0x177004 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -38,7 +38,7 @@
 	};
 
 	usb20_sec_gdsc: qcom,gdsc@1a6004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "usb20_sec_gdsc";
 		reg = <0x1a6004 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -46,7 +46,7 @@
 	};
 
 	usb30_prim_gdsc: qcom,gdsc@10f004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "usb30_prim_gdsc";
 		reg = <0x10f004 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -54,7 +54,7 @@
 	};
 
 	hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc: qcom,gdsc@17d040 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc";
 		reg = <0x17d040 0x4>;
 		qcom,no-status-check-on-disable;
@@ -63,7 +63,7 @@
 	};
 
 	hlos1_vote_aggre_noc_mmu_tbu1_gdsc: qcom,gdsc@17d044 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu1_gdsc";
 		reg = <0x17d044 0x4>;
 		qcom,no-status-check-on-disable;
@@ -72,7 +72,7 @@
 	};
 
 	hlos1_vote_aggre_noc_mmu_tbu2_gdsc: qcom,gdsc@17d048 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu2_gdsc";
 		reg = <0x17d048 0x4>;
 		qcom,no-status-check-on-disable;
@@ -81,7 +81,7 @@
 	};
 
 	hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc: qcom,gdsc@17d04c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc";
 		reg = <0x17d04c 0x4>;
 		qcom,no-status-check-on-disable;
@@ -90,7 +90,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
 		reg = <0x17d050 0x4>;
 		qcom,no-status-check-on-disable;
@@ -99,7 +99,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_sf_gdsc: qcom,gdsc@17d054 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf_gdsc";
 		reg = <0x17d054 0x4>;
 		qcom,no-status-check-on-disable;
@@ -108,27 +108,9 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@17d058 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
 		reg = <0x17d058 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_turing_mmu_tbu0_gdsc: qcom,gdsc@17d05c {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_turing_mmu_tbu0_gdsc";
-		reg = <0x17d05c 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_turing_mmu_tbu1_gdsc: qcom,gdsc@17d060 {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_turing_mmu_tbu1_gdsc";
-		reg = <0x17d060 0x4>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
 		status = "disabled";
@@ -194,7 +176,7 @@
 	};
 
 	gpu_cx_gdsc: qcom,gdsc@509106c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gpu_cx_gdsc";
 		reg = <0x509106c 0x4>;
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
@@ -205,7 +187,7 @@
 	};
 
 	gpu_gx_gdsc: qcom,gdsc@509100c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gpu_gx_gdsc";
 		reg = <0x509100c 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -214,7 +196,7 @@
 
 	/* GDSCs in Video CC */
 	vcodec0_gdsc: qcom,gdsc@ab00874 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "vcodec0_gdsc";
 		reg = <0xab00874 0x4>;
 		qcom,poll-cfg-gdscr;
@@ -222,7 +204,7 @@
 	};
 
 	venus_gdsc: qcom,gdsc@ab00814 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "venus_gdsc";
 		reg = <0xab00814 0x4>;
 		qcom,poll-cfg-gdscr;

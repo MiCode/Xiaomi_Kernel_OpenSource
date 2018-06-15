@@ -24,18 +24,18 @@
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
-static struct pci_device_id mhi_pcie_device_id[] = {
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0300)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0301)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0302)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0303)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
-	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
-	{0},
+struct firmware_info {
+	unsigned int dev_id;
+	const char *fw_image;
+	const char *edl_image;
 };
 
-static struct pci_driver mhi_pcie_driver;
+static const struct firmware_info firmware_table[] = {
+	{.dev_id = 0x305, .fw_image = "sdx50m/sbl1.mbn"},
+	{.dev_id = 0x304, .fw_image = "sbl.mbn", .edl_image = "edl.mbn"},
+	/* default, set to debug.mbn */
+	{.fw_image = "debug.mbn"},
+};
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 {
@@ -345,9 +345,10 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_dev *mhi_dev;
 	struct device_node *of_node = pci_dev->dev.of_node;
+	const struct firmware_info *firmware_info;
 	bool use_bb;
 	u64 addr_win[2];
-	int ret;
+	int ret, i;
 
 	if (!of_node)
 		return ERR_PTR(-ENODEV);
@@ -416,6 +417,15 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
 		goto error_register;
+
+	for (i = 0; i < ARRAY_SIZE(firmware_table); i++) {
+		firmware_info = firmware_table + i;
+		if (mhi_cntrl->dev_id == firmware_info->dev_id)
+			break;
+	}
+
+	mhi_cntrl->fw_image = firmware_info->fw_image;
+	mhi_cntrl->edl_image = firmware_info->edl_image;
 
 	return mhi_cntrl;
 
@@ -495,6 +505,17 @@ static const struct dev_pm_ops pm_ops = {
 			   mhi_runtime_resume,
 			   mhi_runtime_idle)
 	SET_SYSTEM_SLEEP_PM_OPS(mhi_system_suspend, mhi_system_resume)
+};
+
+static struct pci_device_id mhi_pcie_device_id[] = {
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0300)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0301)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0302)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0303)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
+	{0},
 };
 
 static struct pci_driver mhi_pcie_driver = {

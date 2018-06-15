@@ -653,6 +653,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 	/* num of rx srings can be updated via debugfs before allocation */
 	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
 
+	wil->amsdu_en = 1;
+
 	return 0;
 
 out_wmi_wq:

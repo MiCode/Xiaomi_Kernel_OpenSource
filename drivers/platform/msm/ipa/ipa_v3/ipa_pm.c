@@ -242,7 +242,7 @@ static int calculate_throughput(void)
 	struct ipa_pm_client *client;
 
 	/* Create a basic array to hold throughputs*/
-	for (i = 0, n = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1, n = 0; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 		if (client != NULL && IPA_PM_STATE_ACTIVE(client->state)) {
 			/* default case */
@@ -498,7 +498,8 @@ static int find_next_open_array_element(const char *name)
 
 	n = -ENOBUFS;
 
-	for (i = IPA_PM_MAX_CLIENTS - 1; i >= 0; i--) {
+	/* 0 is not a valid handle */
+	for (i = IPA_PM_MAX_CLIENTS - 1; i >= 1; i--) {
 		if (ipa_pm_ctx->clients[i] == NULL) {
 			n = i;
 			continue;
@@ -1063,7 +1064,7 @@ int ipa_pm_deactivate_all_deferred(void)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 
 		if (client == NULL)
@@ -1304,7 +1305,7 @@ int ipa_pm_stat(char *buf, int size)
 	cnt += result;
 
 
-	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 
 		if (client == NULL)

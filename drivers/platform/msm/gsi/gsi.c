@@ -1623,6 +1623,56 @@ int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
 }
 EXPORT_SYMBOL(gsi_set_evt_ring_cfg);
 
+static void gsi_program_chan_ctx_qos(struct gsi_chan_props *props,
+	unsigned int ee)
+{
+	uint32_t val;
+
+	val =
+	(((props->low_weight <<
+		GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
+		GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
+	((props->max_prefetch <<
+		 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
+		 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
+	((props->use_db_eng <<
+		GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
+		 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
+	if (gsi_ctx->per.ver >= GSI_VER_2_0)
+		val |= ((props->prefetch_mode <<
+			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
+			& GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK);
+
+	gsi_writel(val, gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+}
+
+static void gsi_program_chan_ctx_qos_v2_5(struct gsi_chan_props *props,
+	unsigned int ee)
+{
+	uint32_t val;
+
+	val =
+	(((props->low_weight <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
+	((props->max_prefetch <<
+		 GSI_V2_5_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
+		 GSI_V2_5_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
+	((props->use_db_eng <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK) |
+	((props->prefetch_mode <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_BMSK) |
+	((props->empty_lvl_threshold <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_BMSK));
+
+	gsi_writel(val, gsi_ctx->base +
+			GSI_V2_5_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+}
+
 static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 		uint8_t erindex)
 {
@@ -1656,19 +1706,10 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_CNTXT_3_OFFS(props->ch_id, ee));
 
-	val = (((props->low_weight << GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
-				GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
-		((props->max_prefetch <<
-			 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
-			 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
-		((props->use_db_eng << GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
-			 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
-	if (gsi_ctx->per.ver >= GSI_VER_2_0)
-		val |= ((props->prefetch_mode <<
-			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
-			& GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK);
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_5)
+		gsi_program_chan_ctx_qos_v2_5(props, ee);
+	else
+		gsi_program_chan_ctx_qos(props, ee);
 }
 
 static void gsi_init_chan_ring(struct gsi_chan_props *props,
@@ -1868,8 +1909,6 @@ EXPORT_SYMBOL(gsi_alloc_channel);
 static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
 {
-	uint32_t reg;
-
 	gsi_writel(val.data.word1, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
@@ -1879,17 +1918,69 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 	gsi_writel(val.data.word3, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+
+	gsi_writel(val.data.word4, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+}
+
+static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
+	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
+{
+	union __packed gsi_channel_scratch scr;
+
 	/* below sequence is not atomic. assumption is sequencer specific fields
 	 * will remain unchanged across this sequence
 	 */
-	reg = gsi_readl(gsi_ctx->base +
+
+	/* READ */
+	scr.data.word1 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word2 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word3 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word4 = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
-	reg &= 0xFFFF;
-	reg |= (val.data.word4 & 0xFFFF0000);
-	gsi_writel(reg, gsi_ctx->base +
+
+	/* UPDATE */
+	scr.mhi.mhi_host_wp_addr = mscr.mhi_host_wp_addr;
+	scr.mhi.assert_bit40 = mscr.assert_bit40;
+	scr.mhi.polling_configuration = mscr.polling_configuration;
+	scr.mhi.burst_mode_enabled = mscr.burst_mode_enabled;
+	scr.mhi.polling_mode = mscr.polling_mode;
+	scr.mhi.oob_mod_threshold = mscr.oob_mod_threshold;
+
+	if (gsi_ctx->per.ver < GSI_VER_2_5) {
+		scr.mhi.max_outstanding_tre = mscr.max_outstanding_tre;
+		scr.mhi.outstanding_threshold = mscr.outstanding_threshold;
+	}
+
+	/* WRITE */
+	gsi_writel(scr.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word2, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word3, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word4, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+
+	return scr;
 }
 
 int gsi_write_channel_scratch(unsigned long chan_hdl,
@@ -1924,6 +2015,38 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_write_channel_scratch);
+
+int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
+		struct __packed gsi_mhi_channel_scratch mscr)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	if (gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_ALLOCATED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STOPPED) {
+		GSIERR("bad state %d\n",
+				gsi_ctx->chan[chan_hdl].state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+	ctx->scratch = __gsi_update_mhi_channel_scratch(chan_hdl, mscr);
+	mutex_unlock(&ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_update_mhi_channel_scratch);
 
 int gsi_query_channel_db_addr(unsigned long chan_hdl,
 		uint32_t *db_addr_wp_lsb, uint32_t *db_addr_wp_msb)

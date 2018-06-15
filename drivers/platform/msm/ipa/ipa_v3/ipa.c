@@ -4422,7 +4422,7 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 		IPAERR("uC panic handler failed %d\n", res);
 
 	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
-		ipahal_print_all_regs();
+		ipahal_print_all_regs(false);
 
 	return NOTIFY_DONE;
 }

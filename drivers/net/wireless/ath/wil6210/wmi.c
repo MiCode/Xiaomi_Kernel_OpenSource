@@ -39,10 +39,6 @@ module_param(led_id, byte, 0444);
 MODULE_PARM_DESC(led_id,
 		 " 60G device led enablement. Set the led ID (0-2) to enable");
 
-static bool amsdu_en;
-module_param(amsdu_en, bool, 0444);
-MODULE_PARM_DESC(amsdu_en, " enable A-MSDU, default: false");
-
 #define WIL_WAIT_FOR_SUSPEND_RESUME_COMP 200
 #define WIL_WMI_CALL_GENERAL_TO_MS 100
 
@@ -2153,8 +2149,8 @@ int wmi_addba(struct wil6210_priv *wil, u8 mid,
 	      u8 ringid, u8 size, u16 timeout)
 {
 	u8 amsdu = wil->use_enhanced_dma_hw && use_rx_hw_reordering &&
-		amsdu_en ? 1 : 0;
-
+		test_bit(WMI_FW_CAPABILITY_AMSDU, wil->fw_capabilities) &&
+		wil->amsdu_en;
 	struct wmi_ring_ba_en_cmd cmd = {
 		.ring_id = ringid,
 		.agg_max_wsize = size,

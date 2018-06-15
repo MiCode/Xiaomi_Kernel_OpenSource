@@ -409,7 +409,7 @@ static int clk_smd_rpm_enable_scaling(void)
 		.length = sizeof(value),
 	};
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_SLEEP_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_SLEEP_STATE,
 			QCOM_SMD_RPM_MISC_CLK,
 			QCOM_RPM_SCALING_ENABLE_ID, &req, 1);
 	if (ret) {
@@ -417,7 +417,7 @@ static int clk_smd_rpm_enable_scaling(void)
 		return ret;
 	}
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_ACTIVE_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_ACTIVE_STATE,
 			QCOM_SMD_RPM_MISC_CLK,
 			QCOM_RPM_SCALING_ENABLE_ID, &req, 1);
 	if (ret) {
@@ -439,7 +439,7 @@ static int clk_vote_bimc(struct clk_hw *hw, uint32_t rate)
 		.length = sizeof(rate),
 	};
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_ACTIVE_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_ACTIVE_STATE,
 		r->rpm_res_type, r->rpm_clk_id, &req, 1);
 	if (ret < 0) {
 		if (ret != -EPROBE_DEFER)

@@ -275,8 +275,8 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 	int i, ret;
 	void __iomem *base = mhi_cntrl->bhi;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
-	dma_addr_t phys = dma_map_single(mhi_cntrl->dev, buf, size,
-					 DMA_TO_DEVICE);
+	dma_addr_t dma_addr = dma_map_single(mhi_cntrl->dev, buf, size,
+					     DMA_TO_DEVICE);
 	struct {
 		char *name;
 		u32 offset;
@@ -288,7 +288,7 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 		{ NULL },
 	};
 
-	if (dma_mapping_error(mhi_cntrl->dev, phys))
+	if (dma_mapping_error(mhi_cntrl->dev, dma_addr))
 		return -ENOMEM;
 
 	MHI_LOG("Starting BHI programming\n");
@@ -301,8 +301,10 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 	}
 
 	mhi_write_reg(mhi_cntrl, base, BHI_STATUS, 0);
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH, upper_32_bits(phys));
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW, lower_32_bits(phys));
+	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
+		      upper_32_bits(dma_addr));
+	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
+		      lower_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
 	mhi_cntrl->session_id = prandom_u32() & BHI_TXDB_SEQNUM_BMSK;
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, mhi_cntrl->session_id);
@@ -337,12 +339,12 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 	}
 
-	dma_unmap_single(mhi_cntrl->dev, phys, size, DMA_TO_DEVICE);
+	dma_unmap_single(mhi_cntrl->dev, dma_addr, size, DMA_TO_DEVICE);
 
 	return (tx_status == BHI_STATUS_SUCCESS) ? 0 : -ETIMEDOUT;
 
 invalid_pm_state:
-	dma_unmap_single(mhi_cntrl->dev, phys, size, DMA_TO_DEVICE);
+	dma_unmap_single(mhi_cntrl->dev, dma_addr, size, DMA_TO_DEVICE);
 
 	return -EIO;
 }
