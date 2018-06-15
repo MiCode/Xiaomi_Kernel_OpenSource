@@ -99,13 +99,13 @@ static void __exit npu_exit(void);
  * -------------------------------------------------------------------------
  */
 static const char * const npu_clock_order[] = {
+	"at_clk",
+	"trig_clk",
 	"armwic_core_clk",
-	"cal_dp_clk_src",
 	"cal_dp_clk",
 	"cal_dp_cdc_clk",
 	"conf_noc_ahb_clk",
 	"comp_noc_axi_clk",
-	"npu_core_clk_src",
 	"npu_core_clk",
 	"npu_core_cti_clk",
 	"npu_core_apb_clk",
@@ -126,18 +126,16 @@ static const char * const npu_post_clocks[] = {
 };
 
 static const char * const npu_exclude_clocks[] = {
-	"npu_core_clk_src",
-	"cal_dp_clk_src",
 	"perf_cnt_clk",
-	"npu_core_cti_clk",
-	"npu_core_apb_clk",
-	"npu_core_atb_clk"
 };
 
 static const char * const npu_exclude_rate_clocks[] = {
+	"at_clk",
+	"trig_clk",
 	"sleep_clk",
 	"xo_clk",
 	"conf_noc_ahb_clk",
+	"comp_noc_axi_clk",
 	"npu_core_cti_clk",
 	"npu_core_apb_clk",
 	"npu_core_atb_clk",
@@ -557,7 +555,7 @@ static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil)
 		rc = clk_set_rate(core_clks[i].clk,
 			pwrlevel->clk_freq[i]);
 		if (rc) {
-			pr_debug("clk_set_rate %s to %ld failed\n",
+			pr_err("clk_set_rate %s to %ld failed\n",
 				core_clks[i].clk_name,
 				pwrlevel->clk_freq[i]);
 			break;
