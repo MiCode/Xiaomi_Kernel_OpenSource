@@ -1,0 +1,57 @@
+Himax touch controller
+
+Required properties:
+
+ - compatible	: should be "himax,hxcommon"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - himax,irq-gpio	: irq gpio
+ - himax,reset-gpio	: reset gpio
+
+Optional property:
+ - vdd-supply		: Analog power supply needed to power device
+ - vcc_i2c-supply		: Power source required to pull up i2c bus
+ - himax,i2c-pull-up	: specify to indicate pull up is needed
+ - himax,disable-gpios	: specify to disable gpios in suspend (power saving)
+ - himax,button-map		: virtual key code mappings to be used
+ - himax,x-flip		: modify orientation of the x axis
+ - himax,y-flip		: modify orientation of the y axis
+ - himax,panel-coords	: touch panel min x, min y, max x and
+					max y resolution
+ - himax,display-coords	: display min x, min y, max x and
+					max y resolution
+ - himax,reset-delay	: reset delay for controller (ms), default 100
+ - himax,fw-image-name	: name of firmware .img file in /etc/firmware
+ - himax,power-down		: fully power down regulators in suspend
+ - himax,do-lockdown	: perform one time lockdown procedure
+
+Example:
+	i2c@f9927000 { /* BLSP1 QUP5 */
+		cell-index = <5>;
+		compatible = "himax,hxcommon";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9927000 0x1000>;
+		interrupt-names = "qup_err_intr";
+		interrupts = <0 99 0>;
+		gpios = <&msmgpio 19 0>, /* SCL */
+			<&msmgpio 18 0>; /* SDA */
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+
+		himax_ts@20 {
+			compatible = "himax,hxcommon"
+			reg = <0x20>;
+			interrupt-parent = <&tlmm>;
+			interrupts	= <255 0x2008>;
+			vdd-supply 	= <&pm8994_l15>;
+			avdd-supply = <&pm8994_l22>;
+			himax,panel-coords = <0 720 0 1440>;
+			himax,display-coords = <0 720 0 1440>;
+			himax,irq-gpio = <&tlmm 255 0x2008>;
+			himax,rst-gpio = <&tlmm 8 0x00>;
+		};
+	};
