@@ -35,6 +35,12 @@
 #define ADC_RR_BATT_ID_LO_BIAS_LSB(chip)	(chip->rradc_base + 0x76)
 #define ADC_RR_BATT_ID_LO_BIAS_MSB(chip)	(chip->rradc_base + 0x77)
 
+#define ADC_RR_BATT_THERM_BASE_CFG1(chip)	(chip->rradc_base + 0x81)
+#define BATT_THERM_PULL_UP_30K			1
+#define BATT_THERM_PULL_UP_100K			2
+#define BATT_THERM_PULL_UP_400K			3
+#define BATT_THERM_PULL_UP_MASK			GENMASK(1, 0)
+
 #define ADC_RR_BATT_TEMP_LSB(chip)		(chip->rradc_base + 0x88)
 #define ADC_RR_BATT_TEMP_MSB(chip)		(chip->rradc_base + 0x89)
 #define GEN4_BATT_TEMP_MSB_MASK			GENMASK(1, 0)

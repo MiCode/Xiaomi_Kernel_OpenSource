@@ -33,12 +33,13 @@
 
 #define FG_SRAM_LEN			960
 #define PROFILE_LEN			416
-#define PROFILE_COMP_LEN		208
+#define PROFILE_COMP_LEN		24
 #define KI_COEFF_SOC_LEVELS		3
 #define KI_COEFF_MAX			15564
 #define SLOPE_LIMIT_NUM_COEFFS		4
 #define SLOPE_LIMIT_COEFF_MAX		31128
 #define BATT_THERM_NUM_COEFFS		5
+#define RSLOW_NUM_COEFFS		4
 
 /* SRAM address/offset definitions in ascending order */
 #define BATT_THERM_CONFIG_WORD		3
@@ -90,6 +91,10 @@
 #define VBATT_LOW_OFFSET		1
 #define PROFILE_LOAD_WORD		65
 #define PROFILE_LOAD_OFFSET		0
+#define RSLOW_COEFF_DISCHG_WORD		78
+#define RSLOW_COEFF_LOW_OFFSET		0
+#define RSLOW_CONFIG_WORD		241
+#define RSLOW_CONFIG_OFFSET		0
 #define NOM_CAP_WORD			271
 #define NOM_CAP_OFFSET			0
 #define RCONN_WORD			275
@@ -102,6 +107,10 @@
 #define PROFILE_INTEGRITY_OFFSET	0
 #define ESR_WORD			331
 #define ESR_OFFSET			0
+#define ESR_MDL_WORD			335
+#define ESR_MDL_OFFSET			0
+#define ESR_ACT_WORD			342
+#define ESR_ACT_OFFSET			0
 #define RSLOW_WORD			368
 #define RSLOW_OFFSET			0
 #define OCV_WORD			417
@@ -161,8 +170,12 @@ struct fg_gen4_chip {
 	struct ttf		*ttf;
 	char			batt_profile[PROFILE_LEN];
 	int			recharge_soc_thr;
+	int			esr_actual;
+	int			esr_nominal;
+	int			soh;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
+	bool			rslow_low;
 };
 
 struct bias_config {
@@ -200,6 +213,10 @@ static struct fg_sram_param pm8150_sram_params[] = {
 		fg_decode_voltage_15b),
 	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
 		fg_decode_value_16b),
+	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
+	PARAM(ESR_ACT, ESR_ACT_WORD, ESR_ACT_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(CC_SOC, CC_SOC_WORD, CC_SOC_OFFSET, 4, 1, 1, 0, NULL,
@@ -761,6 +778,67 @@ static int fg_gen4_store_count(void *data, u16 *buf, int id, int length)
 
 /* All worker and helper functions below */
 
+static int fg_parse_dt_property_u32_array(struct device_node *node,
+				const char *prop_name, int *buf, int len)
+{
+	int rc;
+
+	rc = of_property_count_elems_of_size(node, prop_name, sizeof(u32));
+	if (rc < 0) {
+		if (rc == -EINVAL)
+			return 0;
+		else
+			return rc;
+	} else if (rc != len) {
+		pr_err("Incorrect length %d for %s, rc=%d\n", len, prop_name,
+			rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(node, prop_name, buf, len);
+	if (rc < 0) {
+		pr_err("Error in reading %s, rc=%d\n", prop_name, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static void fg_gen4_update_rslow_coeff(struct fg_dev *fg, int batt_temp)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, i;
+	bool rslow_low = false;
+	u8 buf[RSLOW_NUM_COEFFS];
+
+	if (!fg->bp.rslow_normal_coeffs || !fg->bp.rslow_low_coeffs)
+		return;
+
+	/* Update Rslow low coefficients when Tbatt is < 0 C */
+	if (batt_temp < 0)
+		rslow_low = true;
+
+	if (chip->rslow_low == rslow_low)
+		return;
+
+	for (i = 0; i < RSLOW_NUM_COEFFS; i++) {
+		if (rslow_low)
+			buf[i] = fg->bp.rslow_low_coeffs[i] & 0xFF;
+		else
+			buf[i] = fg->bp.rslow_normal_coeffs[i] & 0xFF;
+	}
+
+	rc = fg_sram_write(fg, RSLOW_COEFF_DISCHG_WORD, RSLOW_COEFF_LOW_OFFSET,
+			buf, RSLOW_NUM_COEFFS, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Failed to write RLOW_COEFF_DISCHG_WORD rc=%d\n", rc);
+	} else {
+		chip->rslow_low = rslow_low;
+		fg_dbg(fg, FG_STATUS, "Updated Rslow %s coefficients\n",
+			rslow_low ? "low" : "normal");
+	}
+}
+
 #define KI_COEFF_LOW_DISCHG_DEFAULT	428
 #define KI_COEFF_MED_DISCHG_DEFAULT	245
 #define KI_COEFF_HI_DISCHG_DEFAULT	123
@@ -921,6 +999,59 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		}
 	}
 
+	if (of_find_property(profile_node, "qcom,therm-pull-up", NULL)) {
+		rc = of_property_read_u32(profile_node, "qcom,therm-pull-up",
+				&fg->bp.therm_pull_up_kohms);
+		if (rc < 0) {
+			pr_err("Couldn't read therm-pull-up, rc:%d\n", rc);
+			fg->bp.therm_pull_up_kohms = -EINVAL;
+		}
+	}
+
+	if (of_find_property(profile_node, "qcom,rslow-normal-coeffs", NULL) &&
+		of_find_property(profile_node, "qcom,rslow-low-coeffs", NULL)) {
+		if (!fg->bp.rslow_normal_coeffs) {
+			fg->bp.rslow_normal_coeffs = devm_kcalloc(fg->dev,
+						RSLOW_NUM_COEFFS, sizeof(u32),
+						GFP_KERNEL);
+			if (!fg->bp.rslow_normal_coeffs)
+				return -ENOMEM;
+		}
+
+		if (!fg->bp.rslow_low_coeffs) {
+			fg->bp.rslow_low_coeffs = devm_kcalloc(fg->dev,
+						RSLOW_NUM_COEFFS, sizeof(u32),
+						GFP_KERNEL);
+			if (!fg->bp.rslow_low_coeffs) {
+				devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+				fg->bp.rslow_normal_coeffs = NULL;
+				return -ENOMEM;
+			}
+		}
+
+		rc = fg_parse_dt_property_u32_array(profile_node,
+			"qcom,rslow-normal-coeffs",
+			fg->bp.rslow_normal_coeffs, RSLOW_NUM_COEFFS);
+		if (rc < 0) {
+			devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+			fg->bp.rslow_normal_coeffs = NULL;
+			devm_kfree(fg->dev, fg->bp.rslow_low_coeffs);
+			fg->bp.rslow_low_coeffs = NULL;
+			return rc;
+		}
+
+		rc = fg_parse_dt_property_u32_array(profile_node,
+			"qcom,rslow-low-coeffs",
+			fg->bp.rslow_low_coeffs, RSLOW_NUM_COEFFS);
+		if (rc < 0) {
+			devm_kfree(fg->dev, fg->bp.rslow_normal_coeffs);
+			fg->bp.rslow_normal_coeffs = NULL;
+			devm_kfree(fg->dev, fg->bp.rslow_low_coeffs);
+			fg->bp.rslow_low_coeffs = NULL;
+			return rc;
+		}
+	}
+
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
@@ -940,8 +1071,10 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 
 static int fg_gen4_bp_params_config(struct fg_dev *fg)
 {
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, i;
 	u8 buf, therm_coeffs[BATT_THERM_NUM_COEFFS * 2];
+	u8 rslow_coeffs[RSLOW_NUM_COEFFS];
 
 	if (fg->bp.vbatt_full_mv > 0) {
 		rc = fg_set_constant_chg_voltage(fg,
@@ -970,6 +1103,53 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 		if (rc < 0) {
 			pr_err("Error in writing therm-ctr-offset, rc=%d\n",
 				rc);
+			return rc;
+		}
+	}
+
+	if (fg->bp.rslow_normal_coeffs && fg->bp.rslow_low_coeffs) {
+		rc = fg_sram_read(fg, RSLOW_COEFF_DISCHG_WORD,
+				RSLOW_COEFF_LOW_OFFSET, rslow_coeffs,
+				RSLOW_NUM_COEFFS, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Failed to read RLOW_COEFF_DISCHG_WORD rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Read Rslow coefficients back and set the status */
+		for (i = 0; i < RSLOW_NUM_COEFFS; i++) {
+			buf = fg->bp.rslow_low_coeffs[i] & 0xFF;
+			if (rslow_coeffs[i] == buf) {
+				chip->rslow_low = true;
+			} else {
+				chip->rslow_low = false;
+				break;
+			}
+		}
+		fg_dbg(fg, FG_STATUS, "Rslow_low: %d\n", chip->rslow_low);
+	}
+
+	if (fg->bp.therm_pull_up_kohms > 0) {
+		switch (fg->bp.therm_pull_up_kohms) {
+		case 30:
+			buf = BATT_THERM_PULL_UP_30K;
+			break;
+		case 100:
+			buf = BATT_THERM_PULL_UP_100K;
+			break;
+		case 400:
+			buf = BATT_THERM_PULL_UP_400K;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		rc = fg_masked_write(fg, ADC_RR_BATT_THERM_BASE_CFG1(fg),
+					BATT_THERM_PULL_UP_MASK, buf);
+		if (rc < 0) {
+			pr_err("failed to write to 0x%04X, rc=%d\n",
+				ADC_RR_BATT_THERM_BASE_CFG1(fg), rc);
 			return rc;
 		}
 	}
@@ -1214,6 +1394,53 @@ static void get_batt_psy_props(struct fg_dev *fg)
 		else
 			chip->recharge_soc_thr = prop.intval;
 	}
+}
+
+static int fg_gen4_esr_soh_update(struct fg_dev *fg)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, msoc, esr_uohms;
+
+	if (!fg->soc_reporting_ready || fg->battery_missing) {
+		chip->esr_actual = -EINVAL;
+		chip->esr_nominal = -EINVAL;
+		return 0;
+	}
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
+		rc = fg_get_msoc(fg, &msoc);
+		if (rc < 0) {
+			pr_err("Error in getting msoc, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (msoc == ESR_SOH_SOC) {
+			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
+			if (rc < 0) {
+				pr_err("Error in getting esr_actual, rc=%d\n",
+					rc);
+				return rc;
+			}
+			chip->esr_actual = esr_uohms;
+
+			rc = fg_get_sram_prop(fg, FG_SRAM_ESR_MDL, &esr_uohms);
+			if (rc < 0) {
+				pr_err("Error in getting esr_nominal, rc=%d\n",
+					rc);
+				chip->esr_actual = -EINVAL;
+				return rc;
+			}
+			chip->esr_nominal = esr_uohms;
+
+			fg_dbg(fg, FG_STATUS, "esr_actual: %d esr_nominal: %d\n",
+				chip->esr_actual, chip->esr_nominal);
+
+			if (fg->batt_psy)
+				power_supply_changed(fg->batt_psy);
+		}
+	}
+
+	return 0;
 }
 
 static int fg_gen4_update_maint_soc(struct fg_dev *fg)
@@ -1599,6 +1826,7 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (batt_psy_initialized(fg))
 		power_supply_changed(fg->batt_psy);
 
+	fg_gen4_update_rslow_coeff(fg, batt_temp);
 	return IRQ_HANDLED;
 }
 
@@ -1663,6 +1891,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_gen4_esr_soh_update(fg);
+	if (rc < 0)
+		pr_err("Error in updating ESR for SOH, rc=%d\n", rc);
 
 	rc = fg_gen4_update_maint_soc(fg);
 	if (rc < 0)
@@ -2042,6 +2274,12 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		rc = fg_get_battery_resistance(fg, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		pval->intval = chip->esr_actual;
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		pval->intval = chip->esr_nominal;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 		rc = fg_get_sram_prop(fg, FG_SRAM_OCV, &pval->intval);
 		break;
@@ -2083,6 +2321,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
+		break;
+	case POWER_SUPPLY_PROP_SOH:
+		pval->intval = chip->soh;
 		break;
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
 		pval->intval = is_debug_batt_id(fg);
@@ -2165,6 +2406,15 @@ static int fg_psy_set_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+		chip->esr_actual = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+		chip->esr_nominal = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_SOH:
+		chip->soh = pval->intval;
+		break;
 	default:
 		break;
 	}
@@ -2179,6 +2429,9 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 	case POWER_SUPPLY_PROP_CC_STEP:
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
+	case POWER_SUPPLY_PROP_ESR_ACTUAL:
+	case POWER_SUPPLY_PROP_ESR_NOMINAL:
+	case POWER_SUPPLY_PROP_SOH:
 		return 1;
 	default:
 		break;
@@ -2196,6 +2449,8 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_ESR_ACTUAL,
+	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
@@ -2205,6 +2460,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
@@ -2638,35 +2894,21 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
+	if (fg->wa_flags & PM8150B_V1_RSLOW_COMP_WA) {
+		val = 0;
+		mask = BIT(1);
+		rc = fg_sram_masked_write(fg, RSLOW_CONFIG_WORD,
+				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = restore_cycle_count(chip->counter);
 	if (rc < 0) {
 		pr_err("Error in restoring cycle_count, rc=%d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-static int fg_parse_dt_property_u32_array(struct device_node *node,
-				const char *prop_name, int *buf, int len)
-{
-	int rc;
-
-	rc = of_property_count_elems_of_size(node, prop_name, sizeof(u32));
-	if (rc < 0) {
-		if (rc == -EINVAL)
-			return 0;
-		else
-			return rc;
-	} else if (rc != len) {
-		pr_err("Incorrect length %d for %s, rc=%d\n", len, prop_name,
-			rc);
-		return -EINVAL;
-	}
-
-	rc = of_property_read_u32_array(node, prop_name, buf, len);
-	if (rc < 0) {
-		pr_err("Error in reading %s, rc=%d\n", prop_name, rc);
 		return rc;
 	}
 
@@ -2833,8 +3075,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		fg->version = GEN4_FG;
 		fg->use_dma = true;
 		fg->sp = pm8150_sram_params;
-		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4)
+		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4) {
 			fg->wa_flags |= PM8150B_V1_DMA_WA;
+			fg->wa_flags |= PM8150B_V1_RSLOW_COMP_WA;
+		}
 		break;
 	default:
 		return -EINVAL;
