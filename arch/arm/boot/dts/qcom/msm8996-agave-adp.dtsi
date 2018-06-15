@@ -1611,3 +1611,7 @@
 	contiguous-region = <&cont_splash_mem &cont_splash_mem_hdmi
 				&early_camera_mem>;
 };
+
+&pil_modem {
+	/delete-property/qcom,ahb-clk-vote;
+};
