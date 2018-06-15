@@ -18,18 +18,23 @@
 #include <linux/skbuff.h>
 
 #ifdef CONFIG_QCOM_QMI_DFC
-void *qmi_rmnet_qos_init(struct net_device *real_dev, uint8_t mux_id);
+void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id);
 void qmi_rmnet_qos_exit(struct net_device *dev);
+void qmi_rmnet_qmi_exit(void *qmi_pt, void *port);
 void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt);
 void qmi_rmnet_burst_fc_check(struct net_device *dev, struct sk_buff *skb);
 #else
 static inline void *qmi_rmnet_qos_init(struct net_device *real_dev,
-				       uint8_t mux_id)
+				       u8 mux_id)
 {
 	return NULL;
 }
 
 static inline void qmi_rmnet_qos_exit(struct net_device *dev)
+{
+}
+
+static inline void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 {
 }
 
