@@ -1,0 +1,27 @@
+Qualcomm Technologies, Inc. mdss-spi-client
+
+mdss-spi-client is for SPI display to send the FB data to SPI master.
+
+Required properties:
+- compatible : should be "qcom,mdss-spi-client"
+- spi-max-frequency : Maximum SPI clocking speed of device in Hz
+
+Optional properties:
+- label: A string used to describe the controller used.
+- spi-cpol : Boolean property indicating device requires inverse
+  clock polarity (CPOL) mode
+- spi-cpha :  Empty property indicating device requires shifted
+  clock phase (CPHA) mode
+- spi-cs-high :  Empty property indicating device requires
+  chip select active high
+
+Example:
+spi@78b9000 { /* BLSP1 QUP5 */
+	qcom,mdss_spi_client {
+		reg = <0>;
+		compatible = "qcom,mdss-spi-client";
+		label = "MDSS SPI QUP5 CLIENT";
+		spi-max-frequency = <50000000>;
+	};
+};
+
