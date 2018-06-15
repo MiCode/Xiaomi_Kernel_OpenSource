@@ -447,7 +447,7 @@ struct hdmi_tx_ddc_ctrl {
 	atomic_t write_busy_wait_done;
 	atomic_t read_busy_wait_done;
 	atomic_t rxstatus_busy_wait_done;
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct completion ddc_sw_done;
 	struct hdmi_tx_ddc_data ddc_data;
 	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;

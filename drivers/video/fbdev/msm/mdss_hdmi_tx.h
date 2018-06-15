@@ -41,8 +41,8 @@ struct hdmi_tx_platform_data {
 	bool primary;
 	bool cont_splash_enabled;
 	bool cond_power_on;
-	struct mdss_io_data io[HDMI_TX_MAX_IO];
-	struct mdss_module_power power_data[HDMI_TX_MAX_PM];
+	struct dss_io_data io[HDMI_TX_MAX_IO];
+	struct dss_module_power power_data[HDMI_TX_MAX_PM];
 	struct reg_bus_client *reg_bus_clt[HDMI_TX_MAX_PM];
 	/* bitfield representing each module's pin state */
 	u64 pin_states;

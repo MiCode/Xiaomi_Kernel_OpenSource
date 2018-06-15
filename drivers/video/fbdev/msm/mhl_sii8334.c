@@ -203,7 +203,7 @@ int mhl_i2c_reg_read(struct i2c_client *client,
 	int rc = -1;
 	uint8_t buffer = 0;
 
-	rc = mdss_i2c_byte_read(client, slave_addrs[slave_addr_index],
+	rc = dss_i2c_byte_read(client, slave_addrs[slave_addr_index],
 				reg_offset, &buffer);
 	if (rc) {
 		pr_err("%s: slave=%x, off=%x\n",
@@ -218,7 +218,7 @@ int mhl_i2c_reg_write(struct i2c_client *client,
 			     uint8_t slave_addr_index, uint8_t reg_offset,
 			     uint8_t value)
 {
-	return mdss_i2c_byte_write(client, slave_addrs[slave_addr_index],
+	return dss_i2c_byte_write(client, slave_addrs[slave_addr_index],
 				 reg_offset, &value);
 }
 
@@ -240,7 +240,7 @@ static int mhl_tx_get_dt_data(struct device *dev,
 {
 	int i, rc = 0;
 	struct device_node *of_node = NULL;
-	struct mdss_gpio *temp_gpio = NULL;
+	struct dss_gpio *temp_gpio = NULL;
 	struct platform_device *hdmi_pdev = NULL;
 	struct device_node *hdmi_tx_node = NULL;
 	int dt_gpio;
@@ -262,7 +262,7 @@ static int mhl_tx_get_dt_data(struct device *dev,
 
 	/* GPIOs */
 	temp_gpio = NULL;
-	temp_gpio = devm_kzalloc(dev, sizeof(struct mdss_gpio), GFP_KERNEL);
+	temp_gpio = devm_kzalloc(dev, sizeof(struct dss_gpio), GFP_KERNEL);
 	pr_debug("%s: gpios allocd\n", __func__);
 	if (!(temp_gpio)) {
 		pr_err("%s: can't alloc %d gpio mem\n", __func__, i);
@@ -283,7 +283,7 @@ static int mhl_tx_get_dt_data(struct device *dev,
 
 	/* PWR */
 	temp_gpio = NULL;
-	temp_gpio = devm_kzalloc(dev, sizeof(struct mdss_gpio), GFP_KERNEL);
+	temp_gpio = devm_kzalloc(dev, sizeof(struct dss_gpio), GFP_KERNEL);
 	pr_debug("%s: gpios allocd\n", __func__);
 	if (!(temp_gpio)) {
 		pr_err("%s: can't alloc %d gpio mem\n", __func__, i);
@@ -303,7 +303,7 @@ static int mhl_tx_get_dt_data(struct device *dev,
 
 	/* INTR */
 	temp_gpio = NULL;
-	temp_gpio = devm_kzalloc(dev, sizeof(struct mdss_gpio), GFP_KERNEL);
+	temp_gpio = devm_kzalloc(dev, sizeof(struct dss_gpio), GFP_KERNEL);
 	pr_debug("%s: gpios allocd\n", __func__);
 	if (!(temp_gpio)) {
 		pr_err("%s: can't alloc %d gpio mem\n", __func__, i);
@@ -1716,7 +1716,7 @@ vreg_config_failed:
 static int mhl_gpio_config(struct mhl_tx_ctrl *mhl_ctrl, int on)
 {
 	int ret;
-	struct mdss_gpio *temp_reset_gpio, *temp_intr_gpio;
+	struct dss_gpio *temp_reset_gpio, *temp_intr_gpio;
 
 	/* caused too many line spills */
 	temp_reset_gpio = mhl_ctrl->pdata->gpios[MHL_TX_RESET_GPIO];
