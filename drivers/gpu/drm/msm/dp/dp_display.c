@@ -632,8 +632,11 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	int rc = 0, idx;
 	struct dp_panel *dp_panel;
 
+	mutex_lock(&dp->session_lock);
+
 	if (!dp->dp_display.is_connected) {
 		pr_debug("HPD already off\n");
+		mutex_unlock(&dp->session_lock);
 		return 0;
 	}
 
@@ -646,9 +649,13 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
-		if (dp_panel->audio_supported)
+		if (dp_panel->audio_supported) {
 			dp_panel->audio->off(dp_panel->audio);
+			dp_panel->audio_supported = false;
+		}
 	}
+
+	mutex_unlock(&dp->session_lock);
 
 	dp_display_process_mst_hpd_low(dp);
 
