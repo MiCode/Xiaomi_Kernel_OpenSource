@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,6 @@ int physical_channel_send(struct physical_channel *pchan,
 	int sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
 	int total_size = sizeof(*header) + sizebytes;
-	struct timeval tv;
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
 		return -EINVAL; /* too much data for ring */
@@ -67,9 +66,13 @@ int physical_channel_send(struct physical_channel *pchan,
 	}
 
 	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_PROFILE) {
+		struct timeval tv;
+		struct habmm_xing_vm_stat *pstat =
+			(struct habmm_xing_vm_stat *)payload;
+
 		do_gettimeofday(&tv);
-		((uint64_t *)payload)[0] = tv.tv_sec;
-		((uint64_t *)payload)[1] = tv.tv_usec;
+		pstat->tx_sec = tv.tv_sec;
+		pstat->tx_usec = tv.tv_usec;
 	}
 
 	if (sizebytes) {
@@ -102,7 +105,7 @@ void physical_channel_rx_dispatch(unsigned long data)
 			break; /* no data available */
 
 		if (header.signature != HAB_HEAD_SIGNATURE) {
-			pr_err("HAB signature mismatch, expect %X, received %X, id_type_size %X, session %X, sequence %X\n",
+			pr_err("HAB signature mismatch expect %X received %X, id_type_size %X session %X sequence %X\n",
 				HAB_HEAD_SIGNATURE, header.signature,
 				header.id_type_size,
 				header.session_id,

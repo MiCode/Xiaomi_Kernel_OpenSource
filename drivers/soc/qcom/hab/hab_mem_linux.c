@@ -82,8 +82,6 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 		goto err;
 	}
 
-	pr_debug("vma flags %lx\n", vma->vm_flags);
-
 	/* Look for the fd that matches this the vma file */
 	fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
 	if (fd == 0) {
@@ -111,7 +109,6 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 
 	for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
 		page = sg_page(s);
-		pr_debug("sgl length %d\n", s->length);
 
 		for (j = page_offset; j < (s->length >> PAGE_SHIFT); j++) {
 			pages[rc] = nth_page(page, j);
@@ -205,7 +202,9 @@ int habmem_hyp_grant_user(unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata)
+		void *ppdata,
+		int *compressed,
+		int *compressed_size)
 {
 	int i, ret = 0;
 	struct grantable *item = (struct grantable *)ppdata;
@@ -239,7 +238,8 @@ int habmem_hyp_grant_user(unsigned long address,
 		for (i = 0; i < page_count; i++)
 			item[i].pfn = page_to_pfn(pages[i]);
 	} else {
-		pr_err("get %d user pages failed: %d\n", page_count, ret);
+		pr_err("get %d user pages failed %d flags %d\n",
+			page_count, ret, flags);
 	}
 
 	vfree(pages);
@@ -256,7 +256,9 @@ int habmem_hyp_grant(unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata)
+		void *ppdata,
+		int *compressed,
+		int *compressed_size)
 {
 	int i;
 	struct grantable *item;
@@ -310,7 +312,7 @@ void habmem_imp_hyp_close(void *imp_ctx, int kernel)
 		list_del(&pglist->list);
 		priv->cnt--;
 
-		vfree(pglist->pages);
+		kfree(pglist->pages);
 		kfree(pglist);
 	}
 
@@ -460,19 +462,19 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	unsigned long pfn;
 	int i, j, k = 0;
 	pgprot_t prot = PAGE_KERNEL;
-	int32_t fd;
+	int32_t fd, size;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
 	if (!pfn_table || !priv)
 		return -EINVAL;
-
-	pages = vmalloc(exp->payload_count * sizeof(struct page *));
+	size = exp->payload_count * sizeof(struct page *);
+	pages = kmalloc(size, GFP_KERNEL);
 	if (!pages)
 		return -ENOMEM;
 
 	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
 	if (!pglist) {
-		vfree(pages);
+		kfree(pages);
 		return -ENOMEM;
 	}
 
@@ -503,7 +505,7 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	exp_info.priv = pglist;
 	pglist->dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR(pglist->dmabuf)) {
-		vfree(pages);
+		kfree(pages);
 		kfree(pglist);
 		return PTR_ERR(pglist->dmabuf);
 	}
@@ -511,7 +513,7 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	fd = dma_buf_fd(pglist->dmabuf, O_CLOEXEC);
 	if (fd < 0) {
 		dma_buf_put(pglist->dmabuf);
-		vfree(pages);
+		kfree(pages);
 		kfree(pglist);
 		return -EINVAL;
 	}
@@ -539,17 +541,18 @@ static int habmem_imp_hyp_map_kva(void *imp_ctx,
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
 	unsigned long pfn;
-	int i, j, k = 0;
+	int i, j, k = 0, size;
 	pgprot_t prot = PAGE_KERNEL;
 
 	if (!pfn_table || !priv)
 		return -EINVAL;
-	pages = vmalloc(exp->payload_count * sizeof(struct page *));
+	size = exp->payload_count * sizeof(struct page *);
+	pages = kmalloc(size, GFP_KERNEL);
 	if (!pages)
 		return -ENOMEM;
 	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
 	if (!pglist) {
-		vfree(pages);
+		kfree(pages);
 		return -ENOMEM;
 	}
 
@@ -575,7 +578,7 @@ static int habmem_imp_hyp_map_kva(void *imp_ctx,
 
 	pglist->kva = vmap(pglist->pages, pglist->npages, VM_MAP, prot);
 	if (pglist->kva == NULL) {
-		vfree(pages);
+		kfree(pages);
 		kfree(pglist);
 		pr_err("%ld pages vmap failed\n", pglist->npages);
 		return -ENOMEM;
@@ -607,18 +610,18 @@ static int habmem_imp_hyp_map_uva(void *imp_ctx,
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
 	unsigned long pfn;
-	int i, j, k = 0;
+	int i, j, k = 0, size;
 
 	if (!pfn_table || !priv)
 		return -EINVAL;
-
-	pages = vmalloc(exp->payload_count * sizeof(struct page *));
+	size = exp->payload_count * sizeof(struct page *);
+	pages = kmalloc(size, GFP_KERNEL);
 	if (!pages)
 		return -ENOMEM;
 
 	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
 	if (!pglist) {
-		vfree(pages);
+		kfree(pages);
 		return -ENOMEM;
 	}
 
@@ -670,7 +673,7 @@ int habmem_imp_hyp_map(void *imp_ctx, struct hab_import *param,
 	return ret;
 }
 
-int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp)
+int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel)
 {
 	struct importer_context *priv = imp_ctx;
 	struct pages_list *pglist, *tmp;
@@ -679,11 +682,8 @@ int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp)
 	write_lock(&priv->implist_lock);
 	list_for_each_entry_safe(pglist, tmp, &priv->imp_list, list) {
 		if (pglist->export_id == exp->export_id &&
-		    pglist->vcid == exp->vcid_remote) {
+			pglist->vcid == exp->vcid_remote) {
 			found = 1;
-		}
-
-		if (found) {
 			list_del(&pglist->list);
 			priv->cnt--;
 			break;
@@ -705,7 +705,7 @@ int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp)
 	if (pglist->dmabuf)
 		dma_buf_put(pglist->dmabuf);
 
-	vfree(pglist->pages);
+	kfree(pglist->pages);
 	kfree(pglist);
 
 	return 0;
@@ -718,9 +718,6 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 	long length = vma->vm_end - vma->vm_start;
 	struct pages_list *pglist;
 	int bfound = 0;
-
-	pr_debug("mmap request start %lX, len %ld, index %lX\n",
-		vma->vm_start, length, vma->vm_pgoff);
 
 	read_lock(&imp_ctx->implist_lock);
 	list_for_each_entry(pglist, &imp_ctx->imp_list, list) {
