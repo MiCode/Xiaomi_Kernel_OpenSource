@@ -1540,7 +1540,7 @@ static int cam_isp_blob_bw_update(
 	int                                    rc = -EINVAL;
 	uint32_t                               i;
 
-	CAM_DBG(CAM_ISP,
+	CAM_DBG(CAM_PERF,
 		"usage=%u left cam_bw_bps=%llu ext_bw_bps=%llu\n"
 		"right cam_bw_bps=%llu ext_bw_bps=%llu",
 		bw_config->usage_type,
@@ -1953,7 +1953,8 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
 		cam_ife_hw_mgr_deinit_hw_res(&ctx->res_list_ife_out[i]);
 
-	CAM_DBG(CAM_ISP, "Exit...ctx id:%d rc :%d", ctx->ctx_index, rc);
+	CAM_DBG(CAM_ISP,
+		"Stop success for ctx id:%d rc :%d", ctx->ctx_index, rc);
 
 	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
 	if (!atomic_dec_return(&g_ife_hw_mgr.active_ctx_cnt)) {
@@ -2231,7 +2232,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	}
 
 	/* Start IFE root node: do nothing */
-	CAM_DBG(CAM_ISP, "Exit...(success)");
+	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
 	return 0;
 err:
 	stop_hw_method.hw_stop_cmd = CAM_CSID_HALT_IMMEDIATELY;
@@ -2418,7 +2419,7 @@ static int cam_isp_blob_clock_update(
 
 	ctx = prepare->ctxt_to_hw_map;
 
-	CAM_DBG(CAM_ISP,
+	CAM_DBG(CAM_PERF,
 		"usage=%u left_clk= %lu right_clk=%lu",
 		clock_config->usage_type,
 		clock_config->left_pix_hz,
@@ -2571,7 +2572,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "enter");
+	CAM_DBG(CAM_REQ, "Enter for req_id %lld",
+		prepare->packet->header.request_id);
 
 	prepare_hw_data = (struct cam_isp_prepare_hw_update_data  *)
 		prepare->priv;
