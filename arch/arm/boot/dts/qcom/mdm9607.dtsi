@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/mdm-clocks-9607.h>
 #include <dt-bindings/clock/msm-clocks-a7.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9607";
@@ -545,6 +546,25 @@
 			bmi,place = <1>;
 			bmi,gpio_irq = <&tlmm_pinmux 78 0x2002>;
 		};
+
+		iam20680@69{
+			compatible = "inven,iam20680";
+			reg = <0x69>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+			interrupt-parent = <&tlmm_pinmux>;
+			interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+			axis_map_x = <1>;
+			axis_map_y = <0>;
+			axis_map_z = <2>;
+			negate_x = <1>;
+			negate_y = <0>;
+			negate_z = <0>;
+			inven,secondary_type = "none";
+			inven,aux_type = "none";
+			inven,read_only_slave_type = "none";
+		};
+
 	};
 
 	blsp1_uart3: uart@78b1000 {
