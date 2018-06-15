@@ -514,6 +514,8 @@ int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 struct dma_buf *msm_smem_get_dma_buf(int fd);
 void msm_smem_put_dma_buf(void *dma_buf);
+int msm_smem_cache_operations(struct dma_buf *dbuf,
+	enum smem_cache_ops cache_op, unsigned long offset, unsigned long size);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
 void msm_vidc_ssr_handler(struct work_struct *work);
 /*

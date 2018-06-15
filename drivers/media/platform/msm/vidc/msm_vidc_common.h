@@ -204,9 +204,9 @@ bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 		u32 *planes);
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
-		struct v4l2_buffer *b);
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
-			struct v4l2_buffer *b);
+		struct msm_vidc_buffer *mbuf);
 void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
