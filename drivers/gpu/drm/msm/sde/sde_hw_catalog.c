@@ -1018,6 +1018,15 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 			VIG_QSEED_LEN, 0);
 		snprintf(sblk->scaler_blk.name, SDE_HW_BLK_NAME_LEN,
 			"sspp_scaler%u", sspp->id - SSPP_VIG0);
+	} else if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3LITE) {
+		set_bit(SDE_SSPP_SCALER_QSEED3LITE, &sspp->features);
+		sblk->scaler_blk.id = SDE_SSPP_SCALER_QSEED3LITE;
+		sblk->scaler_blk.base = PROP_VALUE_ACCESS(prop_value,
+			VIG_QSEED_OFF, 0);
+		sblk->scaler_blk.len = PROP_VALUE_ACCESS(prop_value,
+			VIG_QSEED_LEN, 0);
+		snprintf(sblk->scaler_blk.name, SDE_HW_BLK_NAME_LEN,
+			"sspp_scaler%u", sspp->id - SSPP_VIG0);
 	}
 
 	if (sde_cfg->has_sbuf)
@@ -2428,6 +2437,9 @@ static int sde_ds_parse_dt(struct device_node *np,
 
 		if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3)
 			set_bit(SDE_SSPP_SCALER_QSEED3, &ds->features);
+		else if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3LITE)
+			set_bit(SDE_SSPP_SCALER_QSEED3LITE, &ds->features);
+
 	}
 
 end:
@@ -2989,6 +3001,8 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
+	} else if (!rc && !strcmp(type, "qseedv3lite")) {
+		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3LITE;
 	} else if (!rc && !strcmp(type, "qseedv2")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
 	} else if (rc) {

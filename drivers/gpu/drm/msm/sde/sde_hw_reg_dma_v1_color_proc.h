@@ -173,6 +173,24 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 	struct sde_hw_pipe_cfg *sspp, struct sde_hw_pixel_ext *pe,
 	void *scaler_cfg);
 
+/**reg_dmav1_setup_scaler3_lut - Qseed3 lut coefficient programming
+ * @buf: defines structure for reg dma ops on the reg dma buffer.
+ * @scaler3_cfg: QSEEDv3 configuration
+ * @offset: Scaler Offest
+ */
+
+void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset);
+
+/**reg_dmav1_setup_scaler3lite_lut - Qseed3lite lut coefficient programming
+ * @buf: defines structure for reg dma ops on the reg dma buffer.
+ * @scaler3_cfg: QSEEDv3 configuration
+ * @offset: Scaler Offest
+ */
+
+void reg_dmav1_setup_scaler3lite_lut(struct sde_reg_dma_setup_ops_cfg *buf,
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset);
+
 /**
  * reg_dmav1_deinit_sspp_ops() - deinitialize the sspp feature op for sde v4
  *                               which were initialized.

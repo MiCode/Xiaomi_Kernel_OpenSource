@@ -14,6 +14,8 @@
 #include "sde_hw_reg_dma_v1_color_proc.h"
 #include "sde_hw_color_proc_common_v4.h"
 #include "sde_hw_ctl.h"
+#include "sde_hw_sspp.h"
+#include "sde_hwio.h"
 
 /* Reserve space of 128 words for LUT dma payload set-up */
 #define REG_DMA_HEADERS_BUFFER_SZ (sizeof(u32) * 128)
@@ -71,25 +73,18 @@
 #define VIG_1D_LUT_IGC_LEN 128
 #define VIG_IGC_DATA_MASK (BIT(10) - 1)
 
-#define QSEED3_DE_OFFSET 0x24
-#define QSEED3_COEF_LUT_OFF                    0x100
-#define QSEED3_FILTERS                     5
-#define QSEED3_LUT_REGIONS                 4
-#define QSEED3_CIRCULAR_LUTS               9
-#define QSEED3_SEPARABLE_LUTS              10
-#define QSEED3_LUT_SIZE                    60
-#define QSEED3_DIR_LUT_SIZE                (200 * sizeof(u32))
-#define QSEED3_CIR_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
-#define QSEED3_SEP_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
+/* SDE_SCALER_QSEED3 */
+#define QSEED3_DE_OFFSET                       0x24
 #define QSEED3_COEF_LUT_SWAP_BIT           0
-#define QSEED3_COEF_LUT_DIR_BIT            1
-#define QSEED3_COEF_LUT_Y_CIR_BIT          2
-#define QSEED3_COEF_LUT_UV_CIR_BIT         3
-#define QSEED3_COEF_LUT_Y_SEP_BIT          4
-#define QSEED3_COEF_LUT_UV_SEP_BIT         5
 #define QSEED3_COEF_LUT_CTRL_OFF               0x4C
+
+/* SDE_SCALER_QSEED3LITE */
+#define QSEED3L_COEF_LUT_SWAP_BIT          0
+#define QSEED3L_COEF_LUT_Y_SEP_BIT         4
+#define QSEED3L_COEF_LUT_UV_SEP_BIT        5
+#define QSEED3L_COEF_LUT_CTRL_OFF              0x4c
+#define Y_INDEX                            0
+#define UV_INDEX                           1
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 static struct sde_reg_dma_buffer
@@ -2265,7 +2260,7 @@ int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
 	return 0;
 }
 
-static void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
+void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
 		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset)
 {
 	int i, filter, rc;
@@ -2342,11 +2337,73 @@ static void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
 		REG_DMA_SETUP_OPS(*buf, QSEED3_COEF_LUT_CTRL_OFF + offset, &i,
 				sizeof(i), REG_SINGLE_WRITE, 0, 0, 0);
 		rc = dma_ops->setup_payload(buf);
-		if (rc)
+		if (rc) {
 			DRM_ERROR("lut write failed ret %d\n", rc);
 			return;
+		}
 	}
 
+}
+
+void reg_dmav1_setup_scaler3lite_lut(
+		struct sde_reg_dma_setup_ops_cfg *buf,
+			struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset)
+{
+	int i, filter, rc;
+	int config_lut = 0x0;
+	unsigned long lut_flags;
+	u32 lut_addr, lut_offset;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	u32 *lut[QSEED3LITE_FILTERS] = {NULL, NULL};
+	static const uint32_t off_tbl[QSEED3LITE_FILTERS] = {0x000, 0x200};
+
+	/* destination scaler case */
+	if (!scaler3_cfg->sep_lut)
+		return;
+
+	dma_ops = sde_reg_dma_get_ops();
+	lut_flags = (unsigned long) scaler3_cfg->lut_flag;
+	if (test_bit(QSEED3L_COEF_LUT_Y_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->y_rgb_sep_lut_idx < QSEED3L_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3L_SEP_LUT_SIZE)) {
+		lut[Y_INDEX] = scaler3_cfg->sep_lut +
+			scaler3_cfg->y_rgb_sep_lut_idx * QSEED3L_LUT_SIZE;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3L_COEF_LUT_UV_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->uv_sep_lut_idx < QSEED3L_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3L_SEP_LUT_SIZE)) {
+		lut[UV_INDEX] = scaler3_cfg->sep_lut +
+			scaler3_cfg->uv_sep_lut_idx * QSEED3L_LUT_SIZE;
+		config_lut = 1;
+	}
+
+	for (filter = 0; filter < QSEED3LITE_FILTERS && config_lut; filter++) {
+		if (!lut[filter])
+			continue;
+		lut_offset = 0;
+		lut_addr = QSEED3L_COEF_LUT_OFF + offset
+			+ off_tbl[filter];
+		REG_DMA_SETUP_OPS(*buf, lut_addr,
+				&lut[filter][0], QSEED3L_LUT_SIZE * sizeof(u32),
+				REG_BLK_WRITE_SINGLE, 0, 0, 0);
+		rc = dma_ops->setup_payload(buf);
+		if (rc) {
+			DRM_ERROR("lut write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	if (test_bit(QSEED3L_COEF_LUT_SWAP_BIT, &lut_flags)) {
+		i = BIT(0);
+		REG_DMA_SETUP_OPS(*buf, QSEED3L_COEF_LUT_CTRL_OFF + offset, &i,
+				sizeof(i), REG_SINGLE_WRITE, 0, 0, 0);
+		rc = dma_ops->setup_payload(buf);
+		if (rc) {
+			DRM_ERROR("lut write failed ret %d\n", rc);
+			return;
+		}
+	}
 }
 
 static int reg_dmav1_setup_scaler3_de(struct sde_reg_dma_setup_ops_cfg *buf,
@@ -2404,7 +2461,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	struct sde_hw_cp_cfg hw_cfg = {};
 	u32 op_mode = 0, offset;
-	u32 preload, src_y_rgb, src_uv, dst;
+	u32 preload, src_y_rgb, src_uv, dst, dir_weight;
 	u32 cache[4];
 	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
@@ -2473,9 +2530,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 			op_mode |= BIT(8);
 	}
 
-	if (scaler3_cfg->lut_flag)
-		reg_dmav1_setup_scaler3_lut(&dma_write_cfg, scaler3_cfg,
-					offset);
+	ctx->ops.setup_scaler_lut(&dma_write_cfg, scaler3_cfg, offset);
 
 	cache[0] = scaler3_cfg->init_phase_x[0] & 0x1FFFFF;
 	cache[1] = scaler3_cfg->init_phase_y[0] & 0x1FFFFF;
@@ -2523,6 +2578,19 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 	if (rc) {
 		DRM_ERROR("setting sizes failed ret %d\n", rc);
 		return;
+	}
+
+	if (is_qseed3_rev_qseed3lite(ctx->catalog)) {
+		dir_weight = (scaler3_cfg->dir_weight & 0xFF);
+
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+				offset + 0x60, &dir_weight, sizeof(u32),
+				REG_SINGLE_WRITE, 0, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("lut write failed ret %d\n", rc);
+			return;
+		}
 	}
 
 end:

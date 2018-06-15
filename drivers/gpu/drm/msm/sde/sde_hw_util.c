@@ -42,11 +42,6 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 #define QSEED3_DST_SIZE                    0x48
 #define QSEED3_COEF_LUT_CTRL               0x4C
 #define QSEED3_COEF_LUT_SWAP_BIT           0
-#define QSEED3_COEF_LUT_DIR_BIT            1
-#define QSEED3_COEF_LUT_Y_CIR_BIT          2
-#define QSEED3_COEF_LUT_UV_CIR_BIT         3
-#define QSEED3_COEF_LUT_Y_SEP_BIT          4
-#define QSEED3_COEF_LUT_UV_SEP_BIT         5
 #define QSEED3_BUFFER_CTRL                 0x50
 #define QSEED3_CLK_CTRL0                   0x54
 #define QSEED3_CLK_CTRL1                   0x58
@@ -58,20 +53,17 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 #define QSEED3_PHASE_INIT_Y_V              0x94
 #define QSEED3_PHASE_INIT_UV_H             0x98
 #define QSEED3_PHASE_INIT_UV_V             0x9C
-#define QSEED3_COEF_LUT                    0x100
-#define QSEED3_FILTERS                     5
-#define QSEED3_LUT_REGIONS                 4
-#define QSEED3_CIRCULAR_LUTS               9
-#define QSEED3_SEPARABLE_LUTS              10
-#define QSEED3_LUT_SIZE                    60
 #define QSEED3_ENABLE                      2
-#define QSEED3_DIR_LUT_SIZE                (200 * sizeof(u32))
-#define QSEED3_CIR_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
-#define QSEED3_SEP_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
-
 #define CSC_MATRIX_SHIFT                   7
+
+/* SDE_SCALER_QSEED3LITE */
+#define QSEED3L_COEF_LUT_Y_SEP_BIT         4
+#define QSEED3L_COEF_LUT_UV_SEP_BIT        5
+#define QSEED3L_DIR_FILTER_WEIGHT          0x60
+#define QSEED3LITE_SCALER_VERSION          0x2004
+
+typedef void (*scaler_lut_type)(struct sde_hw_blk_reg_map *,
+		struct sde_hw_scaler3_cfg *, u32);
 
 void sde_reg_write(struct sde_hw_blk_reg_map *c,
 		u32 reg_off,
@@ -129,6 +121,9 @@ void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 	cfg->uv_cir_lut_idx = scale_v2->uv_cir_lut_idx;
 	cfg->y_rgb_sep_lut_idx = scale_v2->y_rgb_sep_lut_idx;
 	cfg->uv_sep_lut_idx = scale_v2->uv_sep_lut_idx;
+	cfg->de.prec_shift = scale_v2->de.prec_shift;
+	cfg->dir_weight = scale_v2->dir_weight;
+	cfg->unsharp_mask_blend = scale_v2->unsharp_mask_blend;
 
 	cfg->de.enable = scale_v2->de.enable;
 	cfg->de.sharpen_level1 = scale_v2->de.sharpen_level1;
@@ -139,7 +134,6 @@ void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 	cfg->de.thr_dieout = scale_v2->de.thr_dieout;
 	cfg->de.thr_low = scale_v2->de.thr_low;
 	cfg->de.thr_high = scale_v2->de.thr_high;
-	cfg->de.prec_shift = scale_v2->de.prec_shift;
 
 	for (i = 0; i < SDE_MAX_DE_CURVES; i++) {
 		cfg->de.adjust_a[i] = scale_v2->de.adjust_a[i];
@@ -205,7 +199,7 @@ static void _sde_hw_setup_scaler3_lut(struct sde_hw_blk_reg_map *c,
 				continue;
 			lut_offset = 0;
 			for (i = 0; i < QSEED3_LUT_REGIONS; i++) {
-				lut_addr = QSEED3_COEF_LUT + offset
+				lut_addr = QSEED3_COEF_LUT_OFF + offset
 					+ off_tbl[filter][i][1];
 				lut_len = off_tbl[filter][i][0] << 2;
 				for (j = 0; j < lut_len; j++) {
@@ -221,6 +215,55 @@ static void _sde_hw_setup_scaler3_lut(struct sde_hw_blk_reg_map *c,
 	if (test_bit(QSEED3_COEF_LUT_SWAP_BIT, &lut_flags))
 		SDE_REG_WRITE(c, QSEED3_COEF_LUT_CTRL + offset, BIT(0));
 
+}
+
+static void _sde_hw_setup_scaler3lite_lut(struct sde_hw_blk_reg_map *c,
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset)
+{
+	int i, filter;
+	int config_lut = 0x0;
+	unsigned long lut_flags;
+	u32 lut_addr, lut_offset;
+	u32 *lut[QSEED3LITE_FILTERS] = {NULL, NULL};
+	static const uint32_t off_tbl[QSEED3LITE_FILTERS] = {0x000, 0x200};
+
+	SDE_REG_WRITE(c, QSEED3L_DIR_FILTER_WEIGHT + offset,
+			scaler3_cfg->dir_weight & 0xFF);
+
+	/* destination scaler case */
+	if (!scaler3_cfg->sep_lut)
+		return;
+
+	lut_flags = (unsigned long) scaler3_cfg->lut_flag;
+	if (test_bit(QSEED3L_COEF_LUT_Y_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->y_rgb_sep_lut_idx < QSEED3L_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3L_SEP_LUT_SIZE)) {
+		lut[0] = scaler3_cfg->sep_lut +
+			scaler3_cfg->y_rgb_sep_lut_idx * QSEED3L_LUT_SIZE;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3L_COEF_LUT_UV_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->uv_sep_lut_idx < QSEED3L_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3L_SEP_LUT_SIZE)) {
+		lut[1] = scaler3_cfg->sep_lut +
+			scaler3_cfg->uv_sep_lut_idx * QSEED3L_LUT_SIZE;
+		config_lut = 1;
+	}
+
+	if (config_lut) {
+		for (filter = 0; filter < QSEED3LITE_FILTERS; filter++) {
+			if (!lut[filter])
+				continue;
+			lut_offset = 0;
+			lut_addr = QSEED3L_COEF_LUT_OFF + offset +
+				off_tbl[filter];
+			for (i = 0; i < QSEED3L_LUT_SIZE; i++) {
+				SDE_REG_WRITE(c, lut_addr,
+						(lut[filter])[lut_offset++]);
+				lut_addr += 4;
+			}
+		}
+	}
 }
 
 static void _sde_hw_setup_scaler3_de(struct sde_hw_blk_reg_map *c,
@@ -267,13 +310,32 @@ static void _sde_hw_setup_scaler3_de(struct sde_hw_blk_reg_map *c,
 
 }
 
+static inline scaler_lut_type get_scaler_lut(
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 scaler_version)
+{
+	scaler_lut_type lut_ptr = NULL;
+
+	if (!(scaler3_cfg->lut_flag))
+		return NULL;
+
+	switch (scaler_version) {
+
+	case QSEED3LITE_SCALER_VERSION:
+		lut_ptr = _sde_hw_setup_scaler3lite_lut;
+		break;
+	default:
+		lut_ptr = _sde_hw_setup_scaler3_lut;
+	}
+	return lut_ptr;
+}
+
 void sde_hw_setup_scaler3(struct sde_hw_blk_reg_map *c,
-		struct sde_hw_scaler3_cfg *scaler3_cfg,
-		u32 scaler_offset, u32 scaler_version,
-		const struct sde_format *format)
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 scaler_version,
+		u32 scaler_offset, const struct sde_format *format)
 {
 	u32 op_mode = 0;
 	u32 phase_init, preload, src_y_rgb, src_uv, dst;
+	scaler_lut_type setup_lut = NULL;
 
 	if (!scaler3_cfg->enable)
 		goto end;
@@ -309,9 +371,9 @@ void sde_hw_setup_scaler3(struct sde_hw_blk_reg_map *c,
 		op_mode |= BIT(8);
 	}
 
-	if (scaler3_cfg->lut_flag)
-		_sde_hw_setup_scaler3_lut(c, scaler3_cfg,
-								scaler_offset);
+	setup_lut = get_scaler_lut(scaler3_cfg, scaler_version);
+	if (setup_lut)
+		setup_lut(c, scaler3_cfg, scaler_offset);
 
 	if (scaler_version == 0x1002) {
 		phase_init =

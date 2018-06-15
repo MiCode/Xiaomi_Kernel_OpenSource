@@ -157,6 +157,7 @@ enum {
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
  * @SDE_SSPP_QOS_FL_NOCALC   Avoid fill level calculation for QoS/danger/safe
+ * @SDE_SSPP_SCALER_QSEED3LITE Qseed3lite algorithm support
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -190,6 +191,7 @@ enum {
 	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_BLOCK_SEC_UI,
 	SDE_SSPP_QOS_FL_NOCALC,
+	SDE_SSPP_SCALER_QSEED3LITE,
 	SDE_SSPP_MAX
 };
 
@@ -655,7 +657,7 @@ struct sde_ctl_cfg {
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
-	const struct sde_sspp_sub_blks *sblk;
+	struct sde_sspp_sub_blks *sblk;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
 	u32 type;

@@ -59,4 +59,30 @@
 #define MDP_VSYNC_SEL                   0x414
 #define DCE_SEL                         0x450
 
+/* SDE_SCALER_QSEED3 */
+#define QSEED3_COEF_LUT_OFF              0x100
+#define QSEED3_FILTERS                     5
+#define QSEED3_LUT_REGIONS                 4
+#define QSEED3_CIRCULAR_LUTS               9
+#define QSEED3_SEPARABLE_LUTS              10
+#define QSEED3_LUT_SIZE                    60
+#define QSEED3_DIR_LUT_SIZE                (200 * sizeof(u32))
+#define QSEED3_COEF_LUT_DIR_BIT            1
+#define QSEED3_COEF_LUT_Y_CIR_BIT          2
+#define QSEED3_COEF_LUT_UV_CIR_BIT         3
+#define QSEED3_COEF_LUT_Y_SEP_BIT          4
+#define QSEED3_COEF_LUT_UV_SEP_BIT         5
+#define QSEED3_CIR_LUT_SIZE \
+	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
+#define QSEED3_SEP_LUT_SIZE \
+	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
+
+/* SDE_SCALER_QSEED3LITE */
+#define QSEED3L_COEF_LUT_OFF                   0x100
+#define QSEED3LITE_FILTERS                 2
+#define QSEED3L_SEPARABLE_LUTS             10
+#define QSEED3L_LUT_SIZE                   33
+#define QSEED3L_SEP_LUT_SIZE \
+	(QSEED3L_LUT_SIZE * QSEED3L_SEPARABLE_LUTS * sizeof(u32))
+
 #endif /*_SDE_HWIO_H */
