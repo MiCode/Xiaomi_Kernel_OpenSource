@@ -21,6 +21,8 @@
 /* room for ANC_CMD define extend */
 #define ANC_CMD_MAX   0xFF
 
+#define ANC_CALIBRATION_PAYLOAD_SIZE_MAX   100
+
 struct audio_anc_header {
 	int32_t data_size;
 	int32_t version;
@@ -35,14 +37,23 @@ struct audio_anc_rpm_info {
 struct audio_anc_bypass_mode {
 	int32_t mode;
 };
-
 struct audio_anc_algo_module_info {
 	int32_t module_id;
 };
 
+struct audio_anc_algo_calibration_header {
+	uint32_t module_id;
+	uint32_t param_id;
+	uint32_t payload_size;
+};
+
+struct audio_anc_algo_calibration_body {
+	int32_t payload[ANC_CALIBRATION_PAYLOAD_SIZE_MAX];
+};
+
 struct audio_anc_algo_calibration_info {
-	int32_t payload_size;
-	/* num bytes of payload specificed in payload_size followed */
+	struct audio_anc_algo_calibration_header cali_header;
+	struct audio_anc_algo_calibration_body cali_body;
 };
 
 union  audio_anc_data {

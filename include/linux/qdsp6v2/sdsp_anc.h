@@ -15,7 +15,6 @@
 #include <sound/q6afe-v2.h>
 #include <sound/apr_audio-v2.h>
 
-
 #define AUD_MSVC_MODULE_AUDIO_DEV_RESOURCE_SHARE           0x0001028A
 #define AUD_MSVC_PARAM_ID_PORT_SHARE_RESOURCE_CONFIG       0x00010297
 #define AUD_MSVC_API_VERSION_SHARE_RESOURCE_CONFIG         0x1
@@ -23,8 +22,6 @@
 #define AUD_MSVC_PARAM_ID_DEV_ANC_REFS_CONFIG              0x00010286
 #define AUD_MSVC_API_VERSION_DEV_ANC_REFS_CONFIG           0x1
 #define AUD_MSVC_MODULE_AUDIO_DEV_ANC_ALGO                 0x00010234
-#define AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_RPM                0x00010235
-#define AUD_MSVC_API_VERSION_DEV_ANC_ALGO_RPM              0x1
 
 struct aud_msvc_port_param_data_v2 {
 	/* ID of the module to be configured.
@@ -148,7 +145,7 @@ struct aud_msvc_port_cmd_get_param_v2 {
 } __packed;
 
 struct aud_audioif_config_command {
-	struct apr_hdr			hdr;
+	struct apr_hdr hdr;
 	struct aud_msvc_port_cmd_set_param_v2 param;
 	struct aud_msvc_port_param_data_v2    pdata;
 	union afe_port_config            port;
@@ -162,13 +159,6 @@ struct aud_msvc_param_id_dev_share_resource_cfg {
 	u32                  lpm_length;
 } __packed;
 
-
-struct aud_msvc_param_id_dev_anc_algo_rpm {
-	u32                  minor_version;
-	u32                  rpm;
-} __packed;
-
-
 struct aud_msvc_param_id_dev_anc_refs_cfg {
 	u32                  minor_version;
 	u16                  port_id;
@@ -177,63 +167,18 @@ struct aud_msvc_param_id_dev_anc_refs_cfg {
 	u32                  bit_width;
 } __packed;
 
-
 struct anc_share_resource_command {
-	struct apr_hdr			hdr;
+	struct apr_hdr hdr;
 	struct aud_msvc_port_cmd_set_param_v2 param;
 	struct aud_msvc_port_param_data_v2    pdata;
 	struct aud_msvc_param_id_dev_share_resource_cfg resource;
 } __packed;
 
-
 struct anc_config_ref_command {
-	struct apr_hdr			hdr;
+	struct apr_hdr hdr;
 	struct aud_msvc_port_cmd_set_param_v2 param;
 	struct aud_msvc_port_param_data_v2    pdata;
 	struct aud_msvc_param_id_dev_anc_refs_cfg refs;
-} __packed;
-
-
-
-struct anc_set_rpm_command {
-	struct apr_hdr			hdr;
-	struct aud_msvc_port_cmd_set_param_v2 param;
-	struct aud_msvc_port_param_data_v2    pdata;
-	struct aud_msvc_param_id_dev_anc_algo_rpm set_rpm;
-} __packed;
-
-struct anc_get_rpm_command {
-	struct apr_hdr			hdr;
-	struct aud_msvc_port_cmd_get_param_v2 param;
-	struct aud_msvc_port_param_data_v2    pdata;
-	struct aud_msvc_param_id_dev_anc_algo_rpm get_rpm;
-} __packed;
-
-struct anc_get_rpm_resp {
-	uint32_t status;
-	struct aud_msvc_port_param_data_v2 pdata;
-	struct aud_msvc_param_id_dev_anc_algo_rpm res_rpm;
-} __packed;
-
-#define AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_BYPASS_MODE      0x0001029B
-
-#define AUD_MSVC_API_VERSION_DEV_ANC_ALGO_BYPASS_MODE    0x1
-
-#define AUD_MSVC_ANC_ALGO_BYPASS_MODE_NO                               0x0
-#define AUD_MSVC_ANC_ALGO_BYPASS_MODE_REFS_TO_ANC_SPKR                 0x1
-#define AUD_MSVC_ANC_ALGO_BYPASS_MODE_ANC_MIC_TO_ANC_SPKR              0x2
-#define AUD_MSVC_ANC_ALGO_BYPASS_MODE_REFS_MIXED_ANC_MIC_TO_ANC_SPKR   0x3
-
-struct aud_msvc_param_id_dev_anc_algo_bypass_mode {
-	uint32_t                  minor_version;
-	uint32_t                  bypass_mode;
-} __packed;
-
-struct anc_set_bypass_mode_command {
-	struct apr_hdr                   hdr;
-	struct aud_msvc_port_cmd_set_param_v2 param;
-	struct aud_msvc_port_param_data_v2    pdata;
-	struct aud_msvc_param_id_dev_anc_algo_bypass_mode set_bypass_mode;
 } __packed;
 
 #define AUD_MSVC_PARAM_ID_PORT_ANC_ALGO_MODULE_ID      0x0001023A
@@ -244,7 +189,7 @@ struct aud_msvc_param_id_dev_anc_algo_module_id {
 } __packed;
 
 struct anc_set_algo_module_id_command {
-	struct apr_hdr                   hdr;
+	struct apr_hdr hdr;
 	struct aud_msvc_port_cmd_set_param_v2 param;
 	struct aud_msvc_port_param_data_v2    pdata;
 	struct aud_msvc_param_id_dev_anc_algo_module_id set_algo_module_id;
@@ -269,11 +214,35 @@ struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info {
 } __packed;
 
 struct anc_set_mic_spkr_layout_info_command {
-	struct apr_hdr                   hdr;
+	struct apr_hdr hdr;
 	struct aud_msvc_port_cmd_set_param_v2 param;
 	struct aud_msvc_port_param_data_v2    pdata;
 	struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info
 		set_mic_spkr_layout;
+} __packed;
+
+struct anc_set_algo_module_cali_data_command {
+	struct apr_hdr hdr;
+	struct aud_msvc_port_cmd_set_param_v2 param;
+	struct aud_msvc_port_param_data_v2    pdata;
+	/*
+	 * calibration data payload followed
+	 */
+} __packed;
+
+struct anc_get_algo_module_cali_data_command {
+	struct apr_hdr hdr;
+	struct aud_msvc_port_cmd_get_param_v2 param;
+	struct aud_msvc_port_param_data_v2    pdata;
+	/*
+	 * calibration data payload followed
+	 */
+} __packed;
+
+struct anc_get_algo_module_cali_data_resp {
+	uint32_t status;
+	struct aud_msvc_port_param_data_v2 pdata;
+	uint32_t payload[128];
 } __packed;
 
 int anc_if_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port);
@@ -286,14 +255,14 @@ int anc_if_share_resource(u16 port_id, u16 rddma_idx, u16 wrdma_idx,
 int anc_if_config_ref(u16 port_id, u32 sample_rate, u32 bit_width,
 		u16 num_channel);
 
-int anc_if_set_rpm(u16 port_id, u32 rpm);
-
-int anc_if_set_bypass_mode(u16 port_id, u32 bypass_mode);
-
 int anc_if_set_algo_module_id(u16 port_id, u32 module_id);
 
 int anc_if_set_anc_mic_spkr_layout(u16 port_id,
 struct aud_msvc_param_id_dev_anc_mic_spkr_layout_info *set_mic_spkr_layout_p);
+
+int anc_if_set_algo_module_cali_data(u16 port_id, void *data_p);
+
+int anc_if_get_algo_module_cali_data(u16 port_id, void *data_p);
 
 int anc_if_shared_mem_map(void);
 
