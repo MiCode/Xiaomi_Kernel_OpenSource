@@ -394,7 +394,7 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 
 		/* last entry is for vector table */
 		if (i == segments - 1)
-			vec_size = sizeof(struct __packed bhi_vec_entry) * i;
+			vec_size = sizeof(struct bhi_vec_entry) * i;
 
 		mhi_buf->len = vec_size;
 		mhi_buf->buf = mhi_alloc_coherent(mhi_cntrl, vec_size,
