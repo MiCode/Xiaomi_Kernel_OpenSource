@@ -736,7 +736,6 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	return 0;
 }
 
-#if defined(CONFIG_OF)
 static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			   struct device_node *of_node)
 {
@@ -1046,13 +1045,6 @@ error_ev_cfg:
 
 	return ret;
 }
-#else
-static int of_parse_dt(struct mhi_controller *mhi_cntrl,
-		       struct device_node *of_node)
-{
-	return -EINVAL;
-}
-#endif
 
 int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
