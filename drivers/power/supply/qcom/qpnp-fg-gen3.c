@@ -476,7 +476,7 @@ static int fg_get_charge_raw(struct fg_dev *fg, int *val)
 		return rc;
 	}
 
-	*val = div_s64(cc_soc * chip->cl.nom_cap_uah, CC_SOC_30BIT);
+	*val = div_s64((int64_t)cc_soc * chip->cl.nom_cap_uah, CC_SOC_30BIT);
 	return 0;
 }
 
@@ -484,7 +484,8 @@ static int fg_get_charge_raw(struct fg_dev *fg, int *val)
 static int fg_get_charge_counter_shadow(struct fg_dev *fg, int *val)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int rc, batt_soc;
+	int rc;
+	unsigned int batt_soc;
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_BATT_SOC, &batt_soc);
 	if (rc < 0) {
@@ -492,14 +493,16 @@ static int fg_get_charge_counter_shadow(struct fg_dev *fg, int *val)
 		return rc;
 	}
 
-	*val = div_u64((u32)batt_soc * chip->cl.learned_cc_uah, BATT_SOC_32BIT);
+	*val = div_u64((uint64_t)batt_soc * chip->cl.learned_cc_uah,
+							BATT_SOC_32BIT);
 	return 0;
 }
 
 static int fg_get_charge_counter(struct fg_dev *fg, int *val)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int rc, cc_soc;
+	int rc;
+	int cc_soc;
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_CC_SOC_SW, &cc_soc);
 	if (rc < 0) {
@@ -507,7 +510,7 @@ static int fg_get_charge_counter(struct fg_dev *fg, int *val)
 		return rc;
 	}
 
-	*val = div_s64(cc_soc * chip->cl.learned_cc_uah, CC_SOC_30BIT);
+	*val = div_s64((int64_t)cc_soc * chip->cl.learned_cc_uah, CC_SOC_30BIT);
 	return 0;
 }
 
@@ -914,7 +917,7 @@ static int fg_awake_cb(struct votable *votable, void *data, int awake,
 	return 0;
 }
 
-static int fg_prime_cc_soc_sw(struct fg_dev *fg, int cc_soc_sw)
+static int fg_prime_cc_soc_sw(struct fg_dev *fg, unsigned int cc_soc_sw)
 {
 	int rc;
 
@@ -924,7 +927,7 @@ static int fg_prime_cc_soc_sw(struct fg_dev *fg, int cc_soc_sw)
 	if (rc < 0)
 		pr_err("Error in writing cc_soc_sw, rc=%d\n", rc);
 	else
-		fg_dbg(fg, FG_STATUS, "cc_soc_sw: %x\n", cc_soc_sw);
+		fg_dbg(fg, FG_STATUS, "cc_soc_sw: %u\n", cc_soc_sw);
 
 	return rc;
 }
@@ -1092,8 +1095,10 @@ static void fg_cap_learning_post_process(struct fg_dev *fg)
 static int fg_cap_learning_process_full_data(struct fg_dev *fg)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int rc, cc_soc_sw, cc_soc_delta_pct;
+	int rc;
+	unsigned int cc_soc_sw;
 	int64_t delta_cc_uah;
+	unsigned int cc_soc_delta_pct;
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_CC_SOC_SW, &cc_soc_sw);
 	if (rc < 0) {
@@ -1111,10 +1116,10 @@ static int fg_cap_learning_process_full_data(struct fg_dev *fg)
 		return -ERANGE;
 	}
 
-	delta_cc_uah = div64_s64(chip->cl.learned_cc_uah * cc_soc_delta_pct,
+	delta_cc_uah = div64_u64(chip->cl.learned_cc_uah * cc_soc_delta_pct,
 				100);
 	chip->cl.final_cc_uah = chip->cl.init_cc_uah + delta_cc_uah;
-	fg_dbg(fg, FG_CAP_LEARN, "Current cc_soc=%d cc_soc_delta_pct=%d total_cc_uah=%lld\n",
+	fg_dbg(fg, FG_CAP_LEARN, "Current cc_soc=%d cc_soc_delta_pct=%u total_cc_uah=%llu\n",
 		cc_soc_sw, cc_soc_delta_pct, chip->cl.final_cc_uah);
 	return 0;
 }
@@ -1122,21 +1127,22 @@ static int fg_cap_learning_process_full_data(struct fg_dev *fg)
 static int fg_cap_learning_begin(struct fg_dev *fg, u32 batt_soc)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int rc, cc_soc_sw, batt_soc_msb;
+	int rc;
+	unsigned int batt_soc_msb, cc_soc_sw;
 
 	batt_soc_msb = batt_soc >> 24;
 	if (DIV_ROUND_CLOSEST(batt_soc_msb * 100, FULL_SOC_RAW) >
 		chip->dt.cl_start_soc) {
-		fg_dbg(fg, FG_CAP_LEARN, "Battery SOC %d is high!, not starting\n",
+		fg_dbg(fg, FG_CAP_LEARN, "Battery SOC %u is high!, not starting\n",
 			batt_soc_msb);
 		return -EINVAL;
 	}
 
-	chip->cl.init_cc_uah = div64_s64(chip->cl.learned_cc_uah * batt_soc_msb,
+	chip->cl.init_cc_uah = div64_u64(chip->cl.learned_cc_uah * batt_soc_msb,
 					FULL_SOC_RAW);
 
 	/* Prime cc_soc_sw with battery SOC when capacity learning begins */
-	cc_soc_sw = div64_s64((int64_t)batt_soc * CC_SOC_30BIT,
+	cc_soc_sw = div64_u64((uint64_t)batt_soc * CC_SOC_30BIT,
 				BATT_SOC_32BIT);
 	rc = fg_prime_cc_soc_sw(fg, cc_soc_sw);
 	if (rc < 0) {
@@ -1153,7 +1159,8 @@ out:
 
 static int fg_cap_learning_done(struct fg_dev *fg)
 {
-	int rc, cc_soc_sw;
+	int rc;
+	unsigned int cc_soc_sw;
 
 	rc = fg_cap_learning_process_full_data(fg);
 	if (rc < 0) {
@@ -1178,7 +1185,8 @@ out:
 static void fg_cap_learning_update(struct fg_dev *fg)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int rc, batt_soc, batt_soc_msb, cc_soc_sw;
+	int rc;
+	unsigned int batt_soc, batt_soc_msb, cc_soc_sw;
 	bool input_present = is_input_present(fg);
 	bool prime_cc = false;
 
@@ -1265,7 +1273,7 @@ static void fg_cap_learning_update(struct fg_dev *fg)
 		if (fg->charge_done)
 			cc_soc_sw = CC_SOC_30BIT;
 		else
-			cc_soc_sw = div_u64((u32)batt_soc *
+			cc_soc_sw = div_u64((uint64_t)batt_soc *
 					CC_SOC_30BIT, BATT_SOC_32BIT);
 
 		rc = fg_prime_cc_soc_sw(fg, cc_soc_sw);
