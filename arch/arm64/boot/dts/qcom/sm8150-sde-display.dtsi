@@ -345,8 +345,9 @@
 		qcom,dsi-panel = <&dsi_sw43404_amoled_fhd_plus_cmd>;
 	};
 
-	sde_dsi: qcom,dsi-display {
+	sde_dsi: qcom,dsi-display-primary {
 		compatible = "qcom,dsi-display";
+		label = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
@@ -391,6 +392,36 @@
 			&dsi_sw43404_amoled_fhd_plus_cmd_display>;
 	};
 
+	sde_dsi1: qcom,dsi-display-secondary {
+		compatible = "qcom,dsi-display";
+		label = "secondary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+		clock-names = "src_byte_clk0", "src_pixel_clk0",
+			      "src_byte_clk1", "src_pixel_clk1";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi1_active &sde_te1_active>;
+		pinctrl-1 = <&sde_dsi1_suspend &sde_te1_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 9 0>;
+
+		vddio-supply = <&pm8150_l14>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		vdd-supply = <&display_panel_avdd_eldo>;
+
+		qcom,dsi-display-list =
+			<&dsi_nt35695b_truly_fhd_cmd_display
+			&dsi_nt35695b_truly_fhd_video_display>;
+	};
+
 	sde_wb: qcom,wb-display@0 {
 		compatible = "qcom,wb-display";
 		cell-index = <0>;
@@ -421,7 +452,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi &sde_dsi1>;
 };
 
 /* PHY TIMINGS REVISION P */
