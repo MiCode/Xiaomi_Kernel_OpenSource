@@ -626,7 +626,6 @@ struct mhi_timesync {
 struct mhi_bus {
 	struct list_head controller_list;
 	struct mutex lock;
-	struct dentry *dentry;
 };
 
 /* default MHI timeout */
