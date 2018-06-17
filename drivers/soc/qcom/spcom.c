@@ -362,7 +362,7 @@ static int spcom_rx(struct spcom_channel *ch,
 {
 	unsigned long jiffies = msecs_to_jiffies(timeout_msec);
 	long timeleft = 1;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&ch->lock);
 
@@ -374,10 +374,10 @@ static int spcom_rx(struct spcom_channel *ch,
 		/* wait for rx response */
 		pr_debug("wait for rx done, timeout_msec=%d\n", timeout_msec);
 		if (timeout_msec)
-			timeleft = wait_for_completion_timeout(&ch->rx_done,
-							       jiffies);
+			timeleft = wait_for_completion_interruptible_timeout(
+						     &ch->rx_done, jiffies);
 		else
-			wait_for_completion(&ch->rx_done);
+			ret = wait_for_completion_interruptible(&ch->rx_done);
 
 		mutex_lock(&ch->lock);
 		if (timeout_msec && timeleft == 0) {
@@ -387,6 +387,12 @@ static int spcom_rx(struct spcom_channel *ch,
 		} else if (ch->rpmsg_abort) {
 			pr_warn("rpmsg channel is closing\n");
 			ret = -ERESTART;
+			goto exit_err;
+		} else if (ret < 0 || timeleft == -ERESTARTSYS) {
+			pr_debug("wait interrupted: ret=%d, timeleft=%ld\n",
+				 ret, timeleft);
+			if (timeleft == -ERESTARTSYS)
+				ret = -ERESTARTSYS;
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
 			pr_debug("actual_rx_size is [%zu]\n",
@@ -439,6 +445,7 @@ exit_err:
 static int spcom_get_next_request_size(struct spcom_channel *ch)
 {
 	int size = -1;
+	int ret = 0;
 
 	/* NOTE: Remote clients might not be connected yet.*/
 	mutex_lock(&ch->lock);
@@ -448,18 +455,26 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 	if (ch->actual_rx_size) {
 		pr_debug("next-req-size already ready ch [%s] size [%zu]\n",
 			 ch->name, ch->actual_rx_size);
+		ret = -EFAULT;
 		goto exit_ready;
 	}
 	mutex_unlock(&ch->lock); /* unlock while waiting */
 
 	pr_debug("Wait for Rx Done, ch [%s].\n", ch->name);
-	wait_for_completion(&ch->rx_done);
+	ret = wait_for_completion_interruptible(&ch->rx_done);
+	if (ret < 0) {
+		pr_debug("ch [%s]:interrupted wait ret=%d\n",
+			 ret, ch->name);
+		goto exit_error;
+	}
 
 	mutex_lock(&ch->lock); /* re-lock after waiting */
 
 	if (ch->actual_rx_size == 0) {
 		pr_err("invalid rx size [%zu] ch [%s]\n",
 		       ch->actual_rx_size, ch->name);
+		mutex_unlock(&ch->lock);
+		ret = -EFAULT;
 		goto exit_error;
 	}
 
@@ -470,6 +485,8 @@ exit_ready:
 		size -= sizeof(struct spcom_msg_hdr);
 	} else {
 		pr_err("rx size [%d] too small.\n", size);
+		ret = -EFAULT;
+		mutex_unlock(&ch->lock);
 		goto exit_error;
 	}
 
@@ -477,10 +494,7 @@ exit_ready:
 	return size;
 
 exit_error:
-	mutex_unlock(&ch->lock);
-	return -EFAULT;
-
-
+	return ret;
 }
 
 /*======================================================================*/
@@ -1465,7 +1479,8 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 
 	ret = spcom_handle_read(ch, buf, buf_size);
 	if (ret < 0) {
-		pr_err("read error [%d].\n", ret);
+		if (ret != -ERESTARTSYS)
+			pr_err("read error [%d].\n", ret);
 		kfree(buf);
 		return ret;
 	}
