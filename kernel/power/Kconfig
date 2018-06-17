@@ -77,6 +77,33 @@ config HIBERNATION
 
 	  For more information take a look at <file:Documentation/power/swsusp.txt>.
 
+config HIBERNATION_IMAGE_REUSE
+	bool "Reuse hibernation image"
+	depends on HIBERNATION
+	---help---
+	  By default this hibernation image is erased after either a
+	  successful or unsuccessful hibernation restore sequeunce. Since
+	  filesystem contents on disk are not part of the hibernation
+	  image, failure to create a new hibernation image every boot can
+	  lead to filesystem corruption.
+
+	  Conversely, if the usecase can guarantee that the filesystem is
+	  not ever modified, the same hibernation image can be reused. This
+	  prevents creating additional hibernation images unncesarily.
+
+	  For more details, refer to the description of CONFIG_HIBERNATION
+	  for booting without resuming.
+
+config HIBERNATION_SKIP_CRC
+	bool "Skip LZO image CRC check"
+	default n
+	depends on HIBERNATION
+	---help---
+	  Some filesystem devices may have hw based integrity checks. In this
+	  scenario, repeating the integrity check in software is unnecessary
+	  and wasteful. This config option has no effect if uncompressed
+	  hibernation images are used.
+
 config ARCH_SAVE_PAGE_KEYS
 	bool
 
