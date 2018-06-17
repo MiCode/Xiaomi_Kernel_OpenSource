@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2018, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -1251,6 +1251,7 @@ ssize_t f_cdev_write(struct file *file,
 		ret = -EFAULT;
 	} else {
 		req->length = xfer_size;
+		req->zero = 1;
 		ret = usb_ep_queue(in, req, GFP_KERNEL);
 		if (ret) {
 			pr_err("EP QUEUE failed:%d\n", ret);
