@@ -1677,10 +1677,32 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 		uint8_t erindex)
 {
 	uint32_t val;
+	uint32_t prot;
+	uint32_t prot_msb;
 
-	val = (((props->prot << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT)
-			& GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK) |
-		((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
+	switch (props->prot) {
+	case GSI_CHAN_PROT_MHI:
+	case GSI_CHAN_PROT_XHCI:
+	case GSI_CHAN_PROT_GPI:
+	case GSI_CHAN_PROT_XDCI:
+		prot = props->prot;
+		prot_msb = 0;
+		break;
+	default:
+		GSIERR("Unsupported protocol %d\n", props->prot);
+		WARN_ON(1);
+		return;
+	}
+	val = ((prot <<
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT) &
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK);
+	if (gsi_ctx->per.ver >= GSI_VER_2_5) {
+		val |= ((prot_msb <<
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_BMSK);
+	}
+
+	val |= (((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_BMSK) |
 		((erindex << GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_BMSK) |
