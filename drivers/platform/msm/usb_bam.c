@@ -962,7 +962,6 @@ int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx)
 static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 {
 	int i;
-	int bam;
 	struct usb_bam_ctx_type *ctx = user;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct usb_bam_event_info *event_info;
@@ -976,8 +975,6 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 		spin_lock(&ctx->usb_bam_lock);
 
 		ctx->is_bam_inactivity = true;
-		log_event_dbg("%s: Inactivity happened on bam=%s,%d\n",
-				__func__, (char *)user, bam);
 
 		for (i = 0; i < ctx->max_connections; i++) {
 			pipe_connect = &ctx->usb_bam_connections[i];
