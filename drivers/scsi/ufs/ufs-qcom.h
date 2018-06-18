@@ -383,6 +383,7 @@ struct ufs_qcom_host {
 	struct request *req_pending;
 	struct ufs_vreg *vddp_ref_clk;
 	bool work_pending;
+	bool is_phy_pwr_on;
 };
 
 static inline u32
