@@ -33,10 +33,6 @@
 				     0x0 0x4>;
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	timer {
 		clock-frequency = <0x100000>;
 	};
@@ -46,7 +42,7 @@
 	};
 };
 
-&usb0 {
+&usb2s {
 	dwc3@78c0000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
