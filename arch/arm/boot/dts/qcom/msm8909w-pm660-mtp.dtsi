@@ -318,4 +318,5 @@
 	qcom,fg-use-sw-esr;
 	qcom,fg-esr-pulse-thresh-ma = <40>;
 	qcom,fg-esr-meas-curr-ma = <60>;
+	qcom,fg-cutoff-current = <50>;
 };
