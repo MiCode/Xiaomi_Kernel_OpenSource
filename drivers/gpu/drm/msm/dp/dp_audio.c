@@ -669,6 +669,9 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	int rc = 0;
 	struct msm_ext_disp_init_data *ext = &audio->ext_audio_data;
 
+	if (!ext->intf_ops.audio_notify)
+		goto end;
+
 	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
 			&ext->codec, state);
 	if (rc) {
@@ -710,12 +713,14 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 
 	audio->session_on = true;
 
-	rc = ext->intf_ops.audio_config(audio->ext_pdev,
-			&ext->codec,
-			EXT_DISPLAY_CABLE_CONNECT);
-	if (rc) {
-		pr_err("failed to config audio, err=%d\n", rc);
-		goto end;
+	if (ext->intf_ops.audio_config) {
+		rc = ext->intf_ops.audio_config(audio->ext_pdev,
+				&ext->codec,
+				EXT_DISPLAY_CABLE_CONNECT);
+		if (rc) {
+			pr_err("failed to config audio, err=%d\n", rc);
+			goto end;
+		}
 	}
 
 	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
@@ -752,11 +757,13 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 
 	pr_debug("success\n");
 end:
-	rc = ext->intf_ops.audio_config(audio->ext_pdev,
-			&ext->codec,
-			EXT_DISPLAY_CABLE_DISCONNECT);
-	if (rc)
-		pr_err("failed to config audio, err=%d\n", rc);
+	if (ext->intf_ops.audio_config) {
+		rc = ext->intf_ops.audio_config(audio->ext_pdev,
+				&ext->codec,
+				EXT_DISPLAY_CABLE_DISCONNECT);
+		if (rc)
+			pr_err("failed to config audio, err=%d\n", rc);
+	}
 
 	audio->session_on = false;
 	audio->engine_on  = false;
