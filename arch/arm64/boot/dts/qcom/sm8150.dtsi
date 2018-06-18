@@ -2133,7 +2133,7 @@
 	};
 
 	qcom,sps {
-		compatible = "qcom,msm_sps_4k";
+		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
 	};
 
