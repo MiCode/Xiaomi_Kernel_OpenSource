@@ -1283,7 +1283,7 @@ static int mhi_match(struct device *dev, struct device_driver *drv)
 	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
 		return 0;
 
-	for (id = mhi_drv->id_table; id->chan; id++)
+	for (id = mhi_drv->id_table; id->chan[0]; id++)
 		if (!strcmp(mhi_dev->chan_name, id->chan)) {
 			mhi_dev->id = id;
 			return 1;
