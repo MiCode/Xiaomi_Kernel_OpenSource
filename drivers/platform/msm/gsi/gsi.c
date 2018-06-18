@@ -369,6 +369,8 @@ uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
 static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		uint64_t addr2)
 {
+	uint32_t addr_diff;
+
 	WARN(addr1 < ctx->base || addr1 >= ctx->end,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr1);
@@ -376,10 +378,11 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr2);
 
+	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
-		return (addr2 - addr1) / ctx->elem_sz;
+		return addr_diff / ctx->elem_sz;
 	else
-		return (addr2 - addr1 + ctx->len) / ctx->elem_sz;
+		return (addr_diff + ctx->len) / ctx->elem_sz;
 }
 
 static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
