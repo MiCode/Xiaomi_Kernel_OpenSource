@@ -90,27 +90,7 @@
 			iommus =
 				<&apps_smmu 0x1300 0x60>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x6f800000>;
-		};
-
-		secure_bitstream_cb {
-			compatible = "qcom,msm-vidc,context-bank";
-			label = "venus_sec_bitstream";
-			iommus =
-				<&apps_smmu 0x1301 0x4>;
-			buffer-types = <0x241>;
-			virtual-addr-pool = <0x4b000000 0x25800000>;
-			qcom,secure-context-bank;
-		};
-
-		secure_pixel_cb {
-			compatible = "qcom,msm-vidc,context-bank";
-			label = "venus_sec_pixel";
-			iommus =
-				<&apps_smmu 0x1303 0x20>;
-			buffer-types = <0x106>;
-			virtual-addr-pool = <0x25800000 0x25800000>;
-			qcom,secure-context-bank;
+			virtual-addr-pool = <0x25800000 0xba800000>;
 		};
 
 		secure_non_pixel_cb {
@@ -120,6 +100,26 @@
 				<&apps_smmu 0x1304 0x60>;
 			buffer-types = <0x480>;
 			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus =
+				<&apps_smmu 0x1301 0x4>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x0 0xe0000000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus =
+				<&apps_smmu 0x1303 0x20>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x0 0xe0000000>;
 			qcom,secure-context-bank;
 		};
 
