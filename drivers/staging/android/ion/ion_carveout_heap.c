@@ -64,6 +64,7 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	struct sg_table *table;
 	phys_addr_t paddr;
 	int ret;
+	struct device *dev = heap->priv;
 
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
@@ -80,6 +81,10 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 
 	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), size, 0);
 	buffer->sg_table = table;
+
+	if (ion_buffer_cached(buffer))
+		ion_pages_sync_for_device(dev, sg_page(table->sgl),
+					  buffer->size, DMA_FROM_DEVICE);
 
 	return 0;
 
