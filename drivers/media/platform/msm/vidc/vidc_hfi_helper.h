@@ -350,6 +350,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00A)
 #define  HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER		\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00B)
+#define  HFI_PROPERTY_CONFIG_VENC_VBV_HRD_BUF_SIZE		\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00D)
 #define  HFI_PROPERTY_CONFIG_VENC_PERF_MODE			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00E)
 #define HFI_PROPERTY_CONFIG_VENC_BASELAYER_PRIORITYID		\
@@ -1115,6 +1117,10 @@ struct hfi_content_light_level_sei_payload {
 struct hfi_hdr10_pq_sei {
 	struct hfi_mastering_display_colour_sei_payload mdisp_info;
 	struct hfi_content_light_level_sei_payload cll_info;
+};
+
+struct hfi_vbv_hdr_buf_size {
+	u32 vbv_hdr_buf_size;
 };
 
 #endif

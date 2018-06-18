@@ -21,3 +21,7 @@
 	compatible = "qcom,qcs405-mtp", "qcom,qcs405", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };
+
+&qnand_1 {
+	status = "ok";
+};

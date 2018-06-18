@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pm_runtime.h>
-#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/mhi.h>
@@ -341,144 +340,111 @@ DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m0_fops, NULL,
 DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m3_fops, NULL,
 			mhi_debugfs_trigger_m3, "%llu\n");
 
-static int mhi_init_debugfs_trigger_go(void *data, u64 val)
+static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 {
-	struct mhi_controller *mhi_cntrl = data;
-
-	MHI_LOG("Trigger power up sequence\n");
-
-	mhi_async_power_up(mhi_cntrl);
-
-	return 0;
-}
-DEFINE_SIMPLE_ATTRIBUTE(mhi_init_debugfs_trigger_go_fops, NULL,
-			mhi_init_debugfs_trigger_go, "%llu\n");
-
-
-int mhi_init_debugfs_debug_show(struct seq_file *m, void *d)
-{
-	seq_puts(m, "Enable debug mode to debug  external soc\n");
-	seq_puts(m,
-		 "Usage:  echo 'devid,timeout,domain,smmu_cfg' > debug_mode\n");
-	seq_puts(m, "No spaces between parameters\n");
-	seq_puts(m, "\t1.  devid : 0 or pci device id to register\n");
-	seq_puts(m, "\t2.  timeout: mhi cmd/state transition timeout\n");
-	seq_puts(m, "\t3.  domain: Rootcomplex\n");
-	seq_puts(m, "\t4.  smmu_cfg: smmu configuration mask:\n");
-	seq_puts(m, "\t\t- BIT0: ATTACH\n");
-	seq_puts(m, "\t\t- BIT1: S1 BYPASS\n");
-	seq_puts(m, "\t\t-BIT2: FAST_MAP\n");
-	seq_puts(m, "\t\t-BIT3: ATOMIC\n");
-	seq_puts(m, "\t\t-BIT4: FORCE_COHERENT\n");
-	seq_puts(m, "\t\t-BIT5: GEOMETRY\n");
-	seq_puts(m, "\tAll timeout are in ms, enter 0 to keep default\n");
-	seq_puts(m, "Examples inputs: '0x307,10000'\n");
-	seq_puts(m, "\techo '0,10000,1'\n");
-	seq_puts(m, "\techo '0x307,10000,0,0x3d'\n");
-	seq_puts(m, "firmware image name will be changed to debug.mbn\n");
-
-	return 0;
-}
-
-static int mhi_init_debugfs_debug_open(struct inode *node, struct file *file)
-{
-	return single_open(file, mhi_init_debugfs_debug_show, NULL);
-}
-
-static ssize_t mhi_init_debugfs_debug_write(struct file *fp,
-					    const char __user *ubuf,
-					    size_t count,
-					    loff_t *pos)
-{
-	char *buf = kmalloc(count + 1, GFP_KERNEL);
-	/* #,devid,timeout,domain,smmu-cfg */
-	int args[5] = {0};
-	static char const *dbg_fw = "debug.mbn";
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_dev *mhi_dev;
+	struct device_node *of_node = pci_dev->dev.of_node;
+	bool use_bb;
+	u64 addr_win[2];
 	int ret;
-	struct mhi_controller *mhi_cntrl = fp->f_inode->i_private;
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct pci_device_id *id;
 
-	if (!buf)
-		return -ENOMEM;
+	if (!of_node)
+		return ERR_PTR(-ENODEV);
 
-	ret = copy_from_user(buf, ubuf, count);
+	mhi_cntrl = mhi_alloc_controller(sizeof(*mhi_dev));
+	if (!mhi_cntrl)
+		return ERR_PTR(-ENOMEM);
+
+	mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	mhi_cntrl->domain = pci_domain_nr(pci_dev->bus);
+	mhi_cntrl->dev_id = pci_dev->device;
+	mhi_cntrl->bus = pci_dev->bus->number;
+	mhi_cntrl->slot = PCI_SLOT(pci_dev->devfn);
+
+	ret = of_property_read_u32(of_node, "qcom,smmu-cfg",
+				   &mhi_dev->smmu_cfg);
 	if (ret)
-		goto error_read;
-	buf[count] = 0;
-	get_options(buf, ARRAY_SIZE(args), args);
-	kfree(buf);
+		goto error_register;
 
-	/* override default parameters */
-	mhi_cntrl->fw_image = dbg_fw;
-	mhi_cntrl->edl_image = dbg_fw;
+	use_bb = of_property_read_bool(of_node, "mhi,use-bb");
 
-	if (args[0] >= 2 && args[2])
-		mhi_cntrl->timeout_ms = args[2];
-
-	if (args[0] >= 3 && args[3])
-		mhi_cntrl->domain = args[3];
-
-	if (args[0] >= 4 && args[4])
-		mhi_dev->smmu_cfg = args[4];
-
-	/* If it's a new device id register it */
-	if (args[0] && args[1]) {
-		/* find the debug_id  and overwrite it */
-		for (id = mhi_pcie_device_id; id->vendor; id++)
-			if (id->device == MHI_PCIE_DEBUG_ID) {
-				id->device = args[1];
-				pci_unregister_driver(&mhi_pcie_driver);
-				ret = pci_register_driver(&mhi_pcie_driver);
-			}
+	/*
+	 * if s1 translation enabled or using bounce buffer pull iova addr
+	 * from dt
+	 */
+	if (use_bb || (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
+		       !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))) {
+		ret = of_property_count_elems_of_size(of_node, "qcom,addr-win",
+						      sizeof(addr_win));
+		if (ret != 1)
+			goto error_register;
+		ret = of_property_read_u64_array(of_node, "qcom,addr-win",
+						 addr_win, 2);
+		if (ret)
+			goto error_register;
+	} else {
+		addr_win[0] = memblock_start_of_DRAM();
+		addr_win[1] = memblock_end_of_DRAM();
 	}
 
-	mhi_dev->debug_mode = true;
-	debugfs_create_file("go", 0444, mhi_cntrl->parent, mhi_cntrl,
-			    &mhi_init_debugfs_trigger_go_fops);
-	pr_info(
-		"%s: ret:%d pcidev:0x%x smm_cfg:%u timeout:%u\n",
-		__func__, ret, args[1], mhi_dev->smmu_cfg,
-		mhi_cntrl->timeout_ms);
-	return count;
+	mhi_dev->iova_start = addr_win[0];
+	mhi_dev->iova_stop = addr_win[1];
 
-error_read:
-	kfree(buf);
-	return ret;
+	/*
+	 * If S1 is enabled, set MHI_CTRL start address to 0 so we can use low
+	 * level mapping api to map buffers outside of smmu domain
+	 */
+	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
+	    !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))
+		mhi_cntrl->iova_start = 0;
+	else
+		mhi_cntrl->iova_start = addr_win[0];
+
+	mhi_cntrl->iova_stop = mhi_dev->iova_stop;
+	mhi_cntrl->of_node = of_node;
+
+	mhi_dev->pci_dev = pci_dev;
+
+	/* setup power management apis */
+	mhi_cntrl->status_cb = mhi_status_cb;
+	mhi_cntrl->runtime_get = mhi_runtime_get;
+	mhi_cntrl->runtime_put = mhi_runtime_put;
+	mhi_cntrl->link_status = mhi_link_status;
+
+	ret = of_register_mhi_controller(mhi_cntrl);
+	if (ret)
+		goto error_register;
+
+	return mhi_cntrl;
+
+error_register:
+	mhi_free_controller(mhi_cntrl);
+
+	return ERR_PTR(-EINVAL);
 }
-
-static const struct file_operations debugfs_debug_ops = {
-	.open = mhi_init_debugfs_debug_open,
-	.release = single_release,
-	.read = seq_read,
-	.write = mhi_init_debugfs_debug_write,
-};
 
 int mhi_pci_probe(struct pci_dev *pci_dev,
 		  const struct pci_device_id *device_id)
 {
-	struct mhi_controller *mhi_cntrl = NULL;
+	struct mhi_controller *mhi_cntrl;
 	u32 domain = pci_domain_nr(pci_dev->bus);
 	u32 bus = pci_dev->bus->number;
-	/* first match to exact DT node, if not match to any free DT */
-	u32 dev_id[] = {pci_dev->device, PCI_ANY_ID};
+	u32 dev_id = pci_dev->device;
 	u32 slot = PCI_SLOT(pci_dev->devfn);
 	struct mhi_dev *mhi_dev;
-	int i, ret;
+	int ret;
 
-	/* find a matching controller */
-	for (i = 0; i < ARRAY_SIZE(dev_id); i++) {
-		mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id[i]);
-		if (mhi_cntrl)
-			break;
-	}
-
+	/* see if we already registered */
+	mhi_cntrl = mhi_bdf_to_controller(domain, bus, slot, dev_id);
 	if (!mhi_cntrl)
-		return -EPROBE_DEFER;
+		mhi_cntrl = mhi_register_controller(pci_dev);
 
-	mhi_cntrl->dev_id = pci_dev->device;
+	if (IS_ERR(mhi_cntrl))
+		return PTR_ERR(mhi_cntrl);
+
 	mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	mhi_dev->pci_dev = pci_dev;
 	mhi_dev->powered_on = true;
 
 	ret = mhi_arch_pcie_init(mhi_cntrl);
@@ -493,12 +459,10 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto error_init_pci;
 
-	/* start power up sequence if not in debug mode */
-	if (!mhi_dev->debug_mode) {
-		ret = mhi_async_power_up(mhi_cntrl);
-		if (ret)
-			goto error_power_up;
-	}
+	/* start power up sequence */
+	ret = mhi_async_power_up(mhi_cntrl);
+	if (ret)
+		goto error_power_up;
 
 	pm_runtime_mark_last_busy(&pci_dev->dev);
 	pm_runtime_allow(&pci_dev->dev);
@@ -526,124 +490,6 @@ error_iommu_init:
 	return ret;
 }
 
-static const struct of_device_id mhi_plat_match[] = {
-	{ .compatible = "qcom,mhi" },
-	{},
-};
-
-static int mhi_platform_probe(struct platform_device *pdev)
-{
-	struct mhi_controller *mhi_cntrl;
-	struct mhi_dev *mhi_dev;
-	struct device_node *of_node = pdev->dev.of_node;
-	u64 addr_win[2];
-	int ret;
-
-	if (!of_node)
-		return -ENODEV;
-
-	mhi_cntrl = mhi_alloc_controller(sizeof(*mhi_dev));
-	if (!mhi_cntrl)
-		return -ENOMEM;
-
-	mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-
-	/* get pci bus topology for this node */
-	ret = of_property_read_u32(of_node, "qcom,pci-dev-id",
-				   &mhi_cntrl->dev_id);
-	if (ret)
-		mhi_cntrl->dev_id = PCI_ANY_ID;
-
-	ret = of_property_read_u32(of_node, "qcom,pci-domain",
-				   &mhi_cntrl->domain);
-	if (ret)
-		goto error_probe;
-
-	ret = of_property_read_u32(of_node, "qcom,pci-bus", &mhi_cntrl->bus);
-	if (ret)
-		goto error_probe;
-
-	ret = of_property_read_u32(of_node, "qcom,pci-slot", &mhi_cntrl->slot);
-	if (ret)
-		goto error_probe;
-
-	ret = of_property_read_u32(of_node, "qcom,smmu-cfg",
-				   &mhi_dev->smmu_cfg);
-	if (ret)
-		goto error_probe;
-
-	/* if s1 translation enabled pull iova addr from dt */
-	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
-	    !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS)) {
-		ret = of_property_count_elems_of_size(of_node, "qcom,addr-win",
-						      sizeof(addr_win));
-		if (ret != 1)
-			goto error_probe;
-		ret = of_property_read_u64_array(of_node, "qcom,addr-win",
-						 addr_win, 2);
-		if (ret)
-			goto error_probe;
-	} else {
-		addr_win[0] = memblock_start_of_DRAM();
-		addr_win[1] = memblock_end_of_DRAM();
-	}
-
-	mhi_dev->iova_start = addr_win[0];
-	mhi_dev->iova_stop = addr_win[1];
-
-	/*
-	 * if S1 is enabled, set MHI_CTRL start address to 0 so we can use low
-	 * level mapping api to map buffers outside of smmu domain
-	 */
-	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
-	    !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))
-		mhi_cntrl->iova_start = 0;
-	else
-		mhi_cntrl->iova_start = addr_win[0];
-
-	mhi_cntrl->iova_stop = mhi_dev->iova_stop;
-	mhi_cntrl->of_node = of_node;
-
-	/* setup power management apis */
-	mhi_cntrl->status_cb = mhi_status_cb;
-	mhi_cntrl->runtime_get = mhi_runtime_get;
-	mhi_cntrl->runtime_put = mhi_runtime_put;
-	mhi_cntrl->link_status = mhi_link_status;
-
-	mhi_dev->pdev = pdev;
-
-	ret = mhi_arch_platform_init(mhi_dev);
-	if (ret)
-		goto error_probe;
-
-	ret = of_register_mhi_controller(mhi_cntrl);
-	if (ret)
-		goto error_register;
-
-	if (mhi_cntrl->parent)
-		debugfs_create_file("debug_mode", 0444, mhi_cntrl->parent,
-				    mhi_cntrl, &debugfs_debug_ops);
-
-	return 0;
-
-error_register:
-	mhi_arch_platform_deinit(mhi_dev);
-
-error_probe:
-	mhi_free_controller(mhi_cntrl);
-
-	return -EINVAL;
-};
-
-static struct platform_driver mhi_platform_driver = {
-	.probe = mhi_platform_probe,
-	.driver = {
-		.name = "mhi",
-		.owner = THIS_MODULE,
-		.of_match_table = mhi_plat_match,
-	},
-};
-
 static const struct dev_pm_ops pm_ops = {
 	SET_RUNTIME_PM_OPS(mhi_runtime_suspend,
 			   mhi_runtime_resume,
@@ -660,26 +506,7 @@ static struct pci_driver mhi_pcie_driver = {
 	}
 };
 
-static int __init mhi_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&mhi_platform_driver);
-	if (ret)
-		return ret;
-
-	ret = pci_register_driver(&mhi_pcie_driver);
-	if (ret)
-		goto pci_reg_error;
-
-	return ret;
-
-pci_reg_error:
-	platform_driver_unregister(&mhi_platform_driver);
-
-	return ret;
-};
-module_init(mhi_init);
+module_pci_driver(mhi_pcie_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("MHI_CORE");

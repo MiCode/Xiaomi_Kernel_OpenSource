@@ -1155,13 +1155,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 	{
-		.name = "RGBA 8:8:8:8",
-		.description = "RGBA 8:8:8:8",
-		.fourcc = V4L2_PIX_FMT_RGB32,
-		.get_frame_size = get_frame_size_rgba,
-		.type = OUTPUT_PORT,
-	},
-	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
@@ -1514,17 +1507,32 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: {
 		int temp = 0;
 
+		enable.enable = false;
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB:
 			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
 			break;
 		case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES:
 			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+			enable.enable = true;
 			break;
 		case V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE:
 		default:
 			temp = 0;
 			break;
+		}
+
+		temp_ctrl =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
+		if (!temp_ctrl->val) {
+			rc = msm_comm_try_set_prop(inst,
+				   HAL_PARAM_VENC_LOW_LATENCY, &enable.enable);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"SliceMode Low Latency enable fail\n");
+			else
+				inst->clk_data.low_latency_mode =
+							(bool) enable.enable;
 		}
 
 		if (temp)

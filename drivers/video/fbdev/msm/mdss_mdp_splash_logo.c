@@ -39,8 +39,6 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	struct msm_fb_splash_info *sinfo;
 	unsigned long buf_size = size;
 	struct mdss_data_type *mdata;
-	struct dma_buf *dma_buf = NULL;
-	int fd = 0;
 
 	if (!mfd || !size)
 		return -EINVAL;
@@ -51,19 +49,10 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	if (!mdata || sinfo->splash_buffer)
 		return -EINVAL;
 
-	dma_buf = ion_alloc(size, ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(dma_buf)) {
+	sinfo->dma_buf = ion_alloc(size, ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(sinfo->dma_buf)) {
 		pr_err("ion memory allocation failed\n");
-		rc = PTR_RET(dma_buf);
-		goto end;
-	}
-
-	fd = dma_buf_fd(dma_buf, 0);
-
-	sinfo->size = size;
-	sinfo->dma_buf = dma_buf_get(fd);
-	if (IS_ERR(sinfo->dma_buf)) {
-		rc = PTR_ERR(sinfo->dma_buf);
+		rc = PTR_RET(sinfo->dma_buf);
 		goto end;
 	}
 

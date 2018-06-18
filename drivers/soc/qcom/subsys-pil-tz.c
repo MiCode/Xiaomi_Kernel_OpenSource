@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -864,7 +864,7 @@ static int subsys_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	return pil_do_ramdump(&d->desc, d->ramdump_dev);
+	return pil_do_ramdump(&d->desc, d->ramdump_dev, NULL);
 }
 
 static void subsys_free_memory(const struct subsys_desc *subsys)

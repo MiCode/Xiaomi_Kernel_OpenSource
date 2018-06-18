@@ -77,7 +77,7 @@ int openChannel(struct i2c_client *clt)
 {
 	client = clt;
 	I2CSAD = clt->addr;
-	logError(1, "%s %s: SAD: %02X\n", tag, __func__, I2CSAD);
+	logError(0, "%s %s: SAD: %02X\n", tag, __func__, I2CSAD);
 	return OK;
 }
 

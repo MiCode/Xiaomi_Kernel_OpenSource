@@ -304,10 +304,16 @@ struct ipa_ep_cfg_route {
  * @tmr_val: duration in units of 128 IPA clk clock cyles [0,511], 1 clk=1.28us
  *	     IPAv2.5 support 32 bit HOLB timeout value, previous versions
  *	     supports 16 bit
+ * splitting timer value into 2 fields for IPA4.2  new timer value is:
+ * BASE_VALUE* (2^SCALE)
+ * @base_val : base value of the timer
+ * @scale : scale value for timer
  */
 struct ipa_ep_cfg_holb {
 	u16 en;
 	u32 tmr_val;
+	u32 base_val;
+	u32 scale;
 };
 
 /**

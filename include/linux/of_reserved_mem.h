@@ -15,7 +15,6 @@ struct reserved_mem {
 	phys_addr_t			base;
 	phys_addr_t			size;
 	void				*priv;
-	int				fixup;
 };
 
 struct reserved_mem_ops {

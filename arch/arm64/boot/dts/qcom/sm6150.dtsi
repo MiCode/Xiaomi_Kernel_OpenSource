@@ -341,7 +341,7 @@
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/7c4000.sdhci/by-name/vendor";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
@@ -478,8 +478,8 @@
 			size = <0 0x5c00000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9d400000 {
-			reg = <0x0 0x9d400000 0x0 0x02400000>;
+		cont_splash_memory: cont_splash_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "cont_splash_region";
 		};
 
@@ -708,7 +708,7 @@
 			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		iommus = <&apps_smmu 0x00d6 0x0>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
@@ -724,7 +724,7 @@
 			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		iommus = <&apps_smmu 0x0376 0x0>;
@@ -946,6 +946,15 @@
 		reg = <0xc3f000c 8>;
 	};
 
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+		      <0x10ae000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
@@ -1107,6 +1116,11 @@
 		reg = <0x17c00000 0x1000>;
 
 		#mbox-cells = <1>;
+	};
+
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
 	};
 
 	qcom,msm-adsprpc-mem {
@@ -1571,3 +1585,4 @@
 
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
+#include "sm6150-coresight.dtsi"

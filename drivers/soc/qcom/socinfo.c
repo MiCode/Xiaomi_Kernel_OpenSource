@@ -319,6 +319,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* qcs405 ID */
 	[352] = {MSM_CPU_QCS405, "QCS405"},
 
+	/* sdxprairie ID */
+	[357] = {SDX_CPU_SDXPRAIRIE, "SDXPRAIRIE"},
+
+	/* sdmmagpie ID */
+	[365] = {MSM_CPU_SDMMAGPIE, "SDMMAGPIE"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1189,6 +1195,14 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_qcs405()) {
 		dummy_socinfo.id = 352;
 		strlcpy(dummy_socinfo.build_id, "qcs405 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdxprairie()) {
+		dummy_socinfo.id = 357;
+		strlcpy(dummy_socinfo.build_id, "sdxprairie - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdmmagpie()) {
+		dummy_socinfo.id = 365;
+		strlcpy(dummy_socinfo.build_id, "sdmmagpie - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",

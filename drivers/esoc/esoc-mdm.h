@@ -123,6 +123,8 @@ struct mdm_ops {
 					struct platform_device *pdev);
 };
 
+void mdm_disable_irqs(struct mdm_ctrl *mdm);
+
 static inline int mdm_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 {
 	return mdm->pon_ops->soft_reset(mdm, atomic);

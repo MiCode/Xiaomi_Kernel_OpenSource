@@ -52,6 +52,12 @@ struct intf_status {
 	u32 line_count;		/* current line count including blanking */
 };
 
+struct intf_avr_params {
+	u32 default_fps;
+	u32 min_fps;
+	u32 avr_mode; /* 0 - disable, 1 - continuous, 2 - one-shot */
+};
+
 /**
  * struct sde_hw_intf_ops : Interface to the interface Hw driver functions
  *  Assumption is these functions will be called after clocks are enabled
@@ -113,6 +119,12 @@ struct sde_hw_intf_ops {
 			bool enable);
 
 	/**
+	 * updates tearcheck configuration
+	 */
+	void (*update_tearcheck)(struct sde_hw_intf *intf,
+			struct sde_hw_tear_check *cfg);
+
+	/**
 	 * read, modify, write to either set or clear listening to external TE
 	 * @Return: 1 if TE was originally connected, 0 if not, or -ERROR
 	 */
@@ -148,6 +160,24 @@ struct sde_hw_intf_ops {
 	 * Select vsync signal for tear-effect configuration
 	 */
 	void (*vsync_sel)(struct sde_hw_intf *intf, u32 vsync_source);
+
+	/**
+	 * Program the AVR_TOTAL for min fps rate
+	 */
+	int (*avr_setup)(struct sde_hw_intf *intf,
+			const struct intf_timing_params *params,
+			const struct intf_avr_params *avr_params);
+
+	/**
+	 * Signal the trigger on each commit for AVR
+	 */
+	void (*avr_trigger)(struct sde_hw_intf *ctx);
+
+	/**
+	 * Enable AVR and select the mode
+	 */
+	void (*avr_ctrl)(struct sde_hw_intf *intf,
+			const struct intf_avr_params *avr_params);
 };
 
 struct sde_hw_intf {

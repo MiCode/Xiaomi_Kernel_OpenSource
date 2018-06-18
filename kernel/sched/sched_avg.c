@@ -35,7 +35,7 @@ static s64 last_get_time;
 
 static DEFINE_PER_CPU(atomic64_t, last_busy_time) = ATOMIC64_INIT(0);
 
-#define NR_THRESHOLD_PCT		85
+#define NR_THRESHOLD_PCT		15
 
 /**
  * sched_get_nr_running_avg
@@ -76,7 +76,7 @@ void sched_get_nr_running_avg(struct sched_avg_stats *stats)
 
 		/*
 		 * NR_THRESHOLD_PCT is to make sure that the task ran
-		 * at least 15% in the last window to compensate any
+		 * at least 85% in the last window to compensate any
 		 * over estimating being done.
 		 */
 		stats[cpu].nr = (int)div64_u64((tmp_nr + NR_THRESHOLD_PCT),

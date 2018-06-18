@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -243,7 +243,7 @@ enum bimc_m_bke_health_3 {
 	(M_BKE_GC_GC_BMSK >> \
 	(M_BKE_GC_GC_SHFT + 1))
 
-static int bimc_div(int64_t *a, uint32_t b)
+static int bimc_div(uint64_t *a, uint32_t b)
 {
 	if ((*a > 0) && (*a < b)) {
 		*a = 0;
@@ -549,8 +549,8 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 
 	if (info && info->num_qports &&
 		((info->qos_params.mode == BIMC_QOS_MODE_LIMITER))) {
-		bw = msm_bus_div64(info->num_qports,
-				dev->node_bw[ACTIVE_CTX].sum_ab);
+		bw = msm_bus_div64(dev->node_bw[ACTIVE_CTX].sum_ab,
+				info->num_qports);
 
 		MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
 				info->id, bw);

@@ -74,6 +74,11 @@
 #define DBG_CTRL_RESET_HW_PANIC	BIT(2)
 #define DBG_CTRL_MAX			BIT(3)
 
+#define DUMP_BUF_SIZE			(4096 * 512)
+#define DUMP_CLMN_COUNT			4
+#define DUMP_LINE_SIZE			256
+#define DUMP_MAX_LINES_PER_BLK		512
+
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
  * @start: start offset
@@ -170,6 +175,24 @@ struct sde_dbg_vbif_debug_bus {
 };
 
 /**
+ * struct sde_dbg_regbuf - wraps buffer and tracking params for register dumps
+ * @buf: pointer to allocated memory for storing register dumps in hw recovery
+ * @buf_size: size of the memory allocated
+ * @len: size of the dump data valid in the buffer
+ * @rpos: cursor points to the buffer position read by client
+ * @dump_done: to indicate if dumping to user memory is complete
+ * @cur_blk: points to the current sde_dbg_reg_base block
+ */
+struct sde_dbg_regbuf {
+	char *buf;
+	int buf_size;
+	int len;
+	int rpos;
+	int dump_done;
+	struct sde_dbg_reg_base *cur_blk;
+};
+
+/**
  * struct sde_dbg_base - global sde debug base structure
  * @evtlog: event log instance
  * @reg_base_list: list of register dumping regions
@@ -185,6 +208,10 @@ struct sde_dbg_vbif_debug_bus {
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
  * @dump_all: dump all entries in register dump
  * @dsi_dbg_bus: dump dsi debug bus register
+ * @regbuf: buffer data to track the register dumping in hw recovery
+ * @cur_evt_index: index used for tracking event logs dump in hw recovery
+ * @dbgbus_dump_idx: index used for tracking dbg-bus dump in hw recovery
+ * @vbif_dbgbus_dump_idx: index for tracking vbif dumps in hw recovery
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -205,6 +232,11 @@ static struct sde_dbg_base {
 	bool dump_all;
 	bool dsi_dbg_bus;
 	u32 debugfs_ctrl;
+
+	struct sde_dbg_regbuf regbuf;
+	u32 cur_evt_index;
+	u32 dbgbus_dump_idx;
+	u32 vbif_dbgbus_dump_idx;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -4025,6 +4057,12 @@ static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
 	/* non-seekable */
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	file->private_data = inode->i_private;
+	mutex_lock(&sde_dbg_base.mutex);
+	sde_dbg_base.cur_evt_index = 0;
+	sde_dbg_base.evtlog->first = sde_dbg_base.evtlog->curr + 1;
+	sde_dbg_base.evtlog->last =
+		sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY;
+	mutex_unlock(&sde_dbg_base.mutex);
 	return 0;
 }
 
@@ -4044,8 +4082,13 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 	if (!buff || !ppos)
 		return -EINVAL;
 
-	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
-			SDE_EVTLOG_BUF_MAX, true);
+	mutex_lock(&sde_dbg_base.mutex);
+	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog,
+			evtlog_buf, SDE_EVTLOG_BUF_MAX,
+			!sde_dbg_base.cur_evt_index, true);
+	sde_dbg_base.cur_evt_index++;
+	mutex_unlock(&sde_dbg_base.mutex);
+
 	if (len < 0 || len > count) {
 		pr_err("len is more than user buffer size");
 		return 0;
@@ -4233,6 +4276,329 @@ static const struct file_operations sde_evtlog_filter_fops = {
 	.read =		seq_read,
 	.llseek =	seq_lseek,
 	.release =	seq_release
+};
+
+static int sde_recovery_regdump_open(struct inode *inode, struct file *file)
+{
+	if (!inode || !file)
+		return -EINVAL;
+
+	/* non-seekable */
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
+	file->private_data = inode->i_private;
+
+	/* initialize to start position */
+	sde_dbg_base.regbuf.rpos = 0;
+	sde_dbg_base.regbuf.cur_blk = NULL;
+	sde_dbg_base.regbuf.dump_done = false;
+
+	return 0;
+}
+
+static ssize_t _sde_dbg_dump_reg_rows(u32 reg_start,
+		void *start, int count, char *buf, int buflen)
+{
+	int i;
+	int len = 0;
+	u32 *addr;
+	u32  reg_offset = 0;
+	int rows = min(count / DUMP_CLMN_COUNT, DUMP_MAX_LINES_PER_BLK);
+
+	if (!start || !buf) {
+		pr_err("invalid address for dump\n");
+		return len;
+	}
+
+	if (buflen < PAGE_SIZE) {
+		pr_err("buffer too small for dump\n");
+		return len;
+	}
+
+	for (i = 0; i < rows; i++) {
+		addr = start + (i * DUMP_CLMN_COUNT * sizeof(u32));
+		reg_offset = reg_start + (i * DUMP_CLMN_COUNT * sizeof(u32));
+		if (buflen < (len + DUMP_LINE_SIZE))
+			break;
+
+		len += snprintf(buf + len, DUMP_LINE_SIZE,
+				"0x%.8X | %.8X %.8X %.8X %.8X\n",
+				reg_offset, addr[0], addr[1], addr[2], addr[3]);
+	}
+
+	return len;
+}
+
+static int  _sde_dbg_recovery_dump_sub_blk(struct sde_dbg_reg_range *sub_blk,
+		char  *buf, int buflen)
+{
+	int count = 0;
+	int len = 0;
+
+	if (!sub_blk || (buflen < PAGE_SIZE)) {
+		pr_err("invalid params buflen:%d subblk valid:%d\n",
+				buflen, sub_blk != NULL);
+		return len;
+	}
+
+	count = (sub_blk->offset.end - sub_blk->offset.start) / (sizeof(u32));
+	if (count < DUMP_CLMN_COUNT) {
+		pr_err("invalid count for register dumps :%d\n", count);
+		return len;
+	}
+
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"------------------------------------------\n");
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"**** sub block [%s] - size:%d ****\n",
+			sub_blk->range_name, count);
+	len += _sde_dbg_dump_reg_rows(sub_blk->offset.start, sub_blk->reg_dump,
+			count, buf + len, buflen - len);
+
+	return len;
+}
+
+static int  _sde_dbg_recovery_dump_reg_blk(struct sde_dbg_reg_base *blk,
+		char *buf, int buf_size, int *out_len)
+{
+	int ret = 0;
+	int len = 0;
+	struct sde_dbg_reg_range *sub_blk;
+
+	if (buf_size < PAGE_SIZE) {
+		pr_err("buffer too small for dump\n");
+		return len;
+	}
+
+	if (!blk || !strlen(blk->name)) {
+		len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"Found one invalid block - skip dump\n");
+		*out_len = len;
+		return len;
+	}
+
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"******************************************\n");
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"==========================================\n");
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"*********** DUMP of %s block *************\n",
+			blk->name);
+	len += snprintf(buf + len, DUMP_LINE_SIZE,
+			"count:%ld max-off:0x%lx has_sub_blk:%d\n",
+			blk->cnt, blk->max_offset,
+			!list_empty(&blk->sub_range_list));
+
+	if (list_empty(&blk->sub_range_list)) {
+		len += _sde_dbg_dump_reg_rows(0, blk->reg_dump,
+				blk->max_offset / sizeof(u32), buf + len,
+				buf_size - len);
+	} else {
+		list_for_each_entry(sub_blk, &blk->sub_range_list, head)
+			len += _sde_dbg_recovery_dump_sub_blk(sub_blk,
+					buf + len, buf_size - len);
+	}
+	*out_len = len;
+
+	return ret;
+}
+
+static ssize_t sde_recovery_regdump_read(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	int usize = 0;
+	struct sde_dbg_base *dbg_base = &sde_dbg_base;
+	struct sde_dbg_regbuf *rbuf = &dbg_base->regbuf;
+
+	mutex_lock(&sde_dbg_base.mutex);
+	if (!rbuf->dump_done && !rbuf->cur_blk) {
+		if (!rbuf->buf)
+			rbuf->buf = kzalloc(DUMP_BUF_SIZE, GFP_KERNEL);
+		if (!rbuf->buf) {
+			len =  -ENOMEM;
+			goto err;
+		}
+		rbuf->rpos = 0;
+		rbuf->len = 0;
+		rbuf->buf_size = DUMP_BUF_SIZE;
+
+		rbuf->cur_blk = list_first_entry(&dbg_base->reg_base_list,
+				struct sde_dbg_reg_base, reg_base_head);
+		if (rbuf->cur_blk)
+			_sde_dbg_recovery_dump_reg_blk(rbuf->cur_blk,
+					rbuf->buf,
+					rbuf->buf_size,
+					&rbuf->len);
+		pr_debug("dumping done for blk:%s len:%d\n", rbuf->cur_blk ?
+				rbuf->cur_blk->name : "unknown", rbuf->len);
+	} else if (rbuf->len == rbuf->rpos && rbuf->cur_blk) {
+		rbuf->rpos = 0;
+		rbuf->len = 0;
+		rbuf->buf_size = DUMP_BUF_SIZE;
+
+		if (rbuf->cur_blk == list_last_entry(&dbg_base->reg_base_list,
+					struct sde_dbg_reg_base, reg_base_head))
+			rbuf->cur_blk = NULL;
+		else
+			rbuf->cur_blk = list_next_entry(rbuf->cur_blk,
+					reg_base_head);
+
+		if (rbuf->cur_blk)
+			_sde_dbg_recovery_dump_reg_blk(rbuf->cur_blk,
+					rbuf->buf,
+					rbuf->buf_size,
+					&rbuf->len);
+		pr_debug("dumping done for blk:%s len:%d\n", rbuf->cur_blk ?
+				rbuf->cur_blk->name : "unknown", rbuf->len);
+	}
+
+	if ((rbuf->len - rbuf->rpos) > 0) {
+		usize = ((rbuf->len - rbuf->rpos) > count) ?
+			count  : rbuf->len - rbuf->rpos;
+		if (copy_to_user(ubuf, rbuf->buf + rbuf->rpos, usize)) {
+			len =  -EFAULT;
+			goto err;
+		}
+
+		len = usize;
+		rbuf->rpos += usize;
+		*ppos += usize;
+	}
+
+	if (!len && rbuf->buf)
+		rbuf->dump_done = true;
+err:
+	mutex_unlock(&sde_dbg_base.mutex);
+
+	return len;
+}
+
+static const struct file_operations sde_recovery_reg_fops = {
+	.open = sde_recovery_regdump_open,
+	.read = sde_recovery_regdump_read,
+};
+
+static int sde_recovery_dbgbus_dump_open(struct inode *inode, struct file *file)
+{
+	if (!inode || !file)
+		return -EINVAL;
+
+	/* non-seekable */
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
+	file->private_data = inode->i_private;
+
+	mutex_lock(&sde_dbg_base.mutex);
+	sde_dbg_base.dbgbus_dump_idx = 0;
+	mutex_unlock(&sde_dbg_base.mutex);
+
+	return 0;
+}
+
+static ssize_t sde_recovery_dbgbus_dump_read(struct file *file,
+		char __user *buff,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
+	u32 *data;
+	struct sde_dbg_sde_debug_bus *bus;
+
+	mutex_lock(&sde_dbg_base.mutex);
+	bus = &sde_dbg_base.dbgbus_sde;
+	if (!bus->cmn.dumped_content || !bus->cmn.entries_size)
+		goto dump_done;
+
+	if (sde_dbg_base.dbgbus_dump_idx <=
+			((bus->cmn.entries_size - 1) * DUMP_CLMN_COUNT)) {
+		data = &bus->cmn.dumped_content[
+			sde_dbg_base.dbgbus_dump_idx];
+		len = snprintf(evtlog_buf, SDE_EVTLOG_BUF_MAX,
+				"0x%.8X | %.8X %.8X %.8X %.8X\n",
+				sde_dbg_base.dbgbus_dump_idx,
+				data[0], data[1], data[2], data[3]);
+		sde_dbg_base.dbgbus_dump_idx += DUMP_CLMN_COUNT;
+		if ((count < len) || copy_to_user(buff, evtlog_buf, len)) {
+			len = -EFAULT;
+			goto dump_done;
+		}
+		*ppos += len;
+	}
+dump_done:
+	mutex_unlock(&sde_dbg_base.mutex);
+
+	return len;
+}
+
+static const struct file_operations sde_recovery_dbgbus_fops = {
+	.open = sde_recovery_dbgbus_dump_open,
+	.read = sde_recovery_dbgbus_dump_read,
+};
+
+static int sde_recovery_vbif_dbgbus_dump_open(struct inode *inode,
+		struct file *file)
+{
+	if (!inode || !file)
+		return -EINVAL;
+
+	/* non-seekable */
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
+	file->private_data = inode->i_private;
+
+	mutex_lock(&sde_dbg_base.mutex);
+	sde_dbg_base.vbif_dbgbus_dump_idx = 0;
+	mutex_unlock(&sde_dbg_base.mutex);
+
+	return 0;
+}
+
+static ssize_t sde_recovery_vbif_dbgbus_dump_read(struct file *file,
+		char __user *buff,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
+	int i;
+	u32 *data;
+	u32 list_size = 0;
+	struct vbif_debug_bus_entry *head;
+	struct sde_dbg_vbif_debug_bus *bus;
+
+	mutex_lock(&sde_dbg_base.mutex);
+	bus = &sde_dbg_base.dbgbus_vbif_rt;
+	if (!bus->cmn.dumped_content || !bus->cmn.entries_size)
+		goto dump_done;
+
+	/* calculate total number of test point */
+	for (i = 0; i < bus->cmn.entries_size; i++) {
+		head = bus->entries + i;
+		list_size += (head->block_cnt * head->test_pnt_cnt);
+	}
+
+	/* 4 entries for each test point*/
+	list_size *= DUMP_CLMN_COUNT;
+	if (sde_dbg_base.vbif_dbgbus_dump_idx < list_size) {
+		data = &bus->cmn.dumped_content[
+			sde_dbg_base.vbif_dbgbus_dump_idx];
+		len = snprintf(evtlog_buf, SDE_EVTLOG_BUF_MAX,
+				"0x%.8X | %.8X %.8X %.8X %.8X\n",
+				sde_dbg_base.vbif_dbgbus_dump_idx,
+				data[0], data[1], data[2], data[3]);
+		sde_dbg_base.vbif_dbgbus_dump_idx += DUMP_CLMN_COUNT;
+		if ((count < len) || copy_to_user(buff, evtlog_buf, len)) {
+			len = -EFAULT;
+			goto dump_done;
+		}
+		*ppos += len;
+	}
+dump_done:
+	mutex_unlock(&sde_dbg_base.mutex);
+
+	return len;
+}
+
+static const struct file_operations sde_recovery_vbif_dbgbus_fops = {
+	.open = sde_recovery_vbif_dbgbus_dump_open,
+	.read = sde_recovery_vbif_dbgbus_dump_read,
 };
 
 /**
@@ -4563,6 +4929,12 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 			&sde_dbg_base.panic_on_err);
 	debugfs_create_u32("reg_dump", 0600, debugfs_root,
 			&sde_dbg_base.enable_reg_dump);
+	debugfs_create_file("recovery_reg", 0400, debugfs_root, NULL,
+			&sde_recovery_reg_fops);
+	debugfs_create_file("recovery_dbgbus", 0400, debugfs_root, NULL,
+			&sde_recovery_dbgbus_fops);
+	debugfs_create_file("recovery_vbif_dbgbus", 0400, debugfs_root, NULL,
+			&sde_recovery_vbif_dbgbus_fops);
 
 	if (dbg->dbgbus_sde.entries) {
 		dbg->dbgbus_sde.cmn.name = DBGBUS_NAME_SDE;
@@ -4662,6 +5034,7 @@ int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl)
 	sde_dbg_base.work_panic = false;
 	sde_dbg_base.panic_on_err = DEFAULT_PANIC;
 	sde_dbg_base.enable_reg_dump = DEFAULT_REGDUMP;
+	memset(&sde_dbg_base.regbuf, 0, sizeof(sde_dbg_base.regbuf));
 
 	pr_info("evtlog_status: enable:%d, panic:%d, dump:%d\n",
 		sde_dbg_base.evtlog->enable, sde_dbg_base.panic_on_err,
@@ -4695,6 +5068,8 @@ static void sde_dbg_reg_base_destroy(void)
  */
 void sde_dbg_destroy(void)
 {
+	kfree(sde_dbg_base.regbuf.buf);
+	memset(&sde_dbg_base.regbuf, 0, sizeof(sde_dbg_base.regbuf));
 	_sde_dbg_debugfs_destroy();
 	sde_dbg_base_evtlog = NULL;
 	sde_evtlog_destroy(sde_dbg_base.evtlog);

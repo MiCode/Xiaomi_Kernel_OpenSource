@@ -21,3 +21,7 @@
 	compatible = "qcom,qcs405-rumi", "qcom,qcs405", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
+
+&qnand_1 {
+	status = "ok";
+};

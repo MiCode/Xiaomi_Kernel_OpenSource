@@ -1686,11 +1686,20 @@ static int fg_set_recharge_soc(struct fg_dev *fg, int recharge_soc)
 static int fg_adjust_recharge_soc(struct fg_dev *fg)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
+	union power_supply_propval prop = {0, };
 	int rc, msoc, recharge_soc, new_recharge_soc = 0;
 	bool recharge_soc_status;
 
 	if (!chip->dt.auto_recharge_soc)
 		return 0;
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
+		&prop);
+	if (rc < 0) {
+		pr_err("Error in getting battery health, rc=%d\n", rc);
+		return rc;
+	}
+	chip->health = prop.intval;
 
 	recharge_soc = chip->dt.recharge_soc_thr;
 	recharge_soc_status = fg->recharge_soc_adjusted;
@@ -1720,6 +1729,9 @@ static int fg_adjust_recharge_soc(struct fg_dev *fg)
 			}
 		} else {
 			if (!fg->recharge_soc_adjusted)
+				return 0;
+
+			if (chip->health != POWER_SUPPLY_HEALTH_GOOD)
 				return 0;
 
 			/* Restore the default value */
@@ -2547,9 +2559,6 @@ done:
 
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
-
-	if (fg->profile_load_status == PROFILE_LOADED)
-		fg->profile_loaded = true;
 
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
@@ -3915,7 +3924,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 
 	if (fg->battery_missing) {
 		fg->profile_available = false;
-		fg->profile_loaded = false;
 		fg->profile_load_status = PROFILE_NOT_LOADED;
 		fg->soc_reporting_ready = false;
 		fg->batt_id_ohms = -EINVAL;

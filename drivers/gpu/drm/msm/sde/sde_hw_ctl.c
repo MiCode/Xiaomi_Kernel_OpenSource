@@ -912,6 +912,48 @@ static int sde_hw_ctl_intf_cfg_v1(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
+static int sde_hw_ctl_reset_post_te_disable(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg_v1 *cfg, u32 merge_3d_idx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 intf_active = 0;
+	u32 intf_flush = 0;
+	u32 merge_3d_active = 0;
+	u32 merge_3d_flush = 0;
+	u32 i;
+
+	if (!ctx || !cfg) {
+		SDE_ERROR("invalid hw_ctl or hw_intf blk\n");
+		return -EINVAL;
+	}
+
+	c = &ctx->hw;
+	for (i = 0; i < cfg->intf_count; i++) {
+		if (cfg->intf[i]) {
+			intf_active &= ~BIT(cfg->intf[i] - INTF_0);
+			intf_flush |= BIT(cfg->intf[i] - INTF_0);
+		}
+	}
+
+	/* disable and flush merge3d_blk */
+	merge_3d_flush = BIT(merge_3d_idx - MERGE_3D_0);
+	merge_3d_active &= ~BIT(merge_3d_idx - MERGE_3D_0);
+
+	sde_hw_ctl_clear_all_blendstages(ctx);
+	SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
+	SDE_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
+	SDE_REG_WRITE(c, CTL_MERGE_3D_FLUSH, merge_3d_flush);
+	SDE_REG_WRITE(c, CTL_INTF_FLUSH, intf_flush);
+
+	/* flush intf, ctl, layer mixer and merge_3d in reset sequence */
+	SDE_REG_WRITE(c, CTL_FLUSH, 0x809207C0);
+
+	/* do ctl start for flushing ctl path when timing engine is disabled */
+	SDE_REG_WRITE(c, CTL_START, 0x1);
+
+	return 0;
+}
+
 static int sde_hw_ctl_dsc_cfg(struct sde_hw_ctl *ctx,
 		struct sde_ctl_dsc_cfg *cfg)
 {
@@ -1048,6 +1090,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 			sde_hw_ctl_update_bitmask_merge3d_v1;
 		ops->update_bitmask_cwb = sde_hw_ctl_update_bitmask_cwb_v1;
 		ops->get_ctl_intf = sde_hw_ctl_get_intf_v1;
+		ops->reset_post_te_disable = sde_hw_ctl_reset_post_te_disable;
 	} else {
 		ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 		ops->trigger_flush = sde_hw_ctl_trigger_flush;

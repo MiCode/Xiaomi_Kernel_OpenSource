@@ -123,6 +123,16 @@ void gmu_core_stop(struct kgsl_device *device)
 		gmu_core_ops->stop(device);
 }
 
+int gmu_core_suspend(struct kgsl_device *device)
+{
+	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+
+	if (gmu_core_ops && gmu_core_ops->suspend)
+		return gmu_core_ops->suspend(device);
+
+	return -EINVAL;
+}
+
 void gmu_core_snapshot(struct kgsl_device *device)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);

@@ -16,3 +16,7 @@
 &qupv3_se0_2uart {
 	status = "ok";
 };
+
+&pm6150_charger {
+	qcom,batteryless-platform;
+};

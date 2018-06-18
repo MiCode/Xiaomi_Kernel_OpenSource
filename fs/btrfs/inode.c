@@ -1754,12 +1754,12 @@ static void btrfs_add_delalloc_inodes(struct btrfs_root *root,
 	spin_unlock(&root->delalloc_lock);
 }
 
-static void btrfs_del_delalloc_inode(struct btrfs_root *root,
-				     struct btrfs_inode *inode)
+
+void __btrfs_del_delalloc_inode(struct btrfs_root *root,
+				struct btrfs_inode *inode)
 {
 	struct btrfs_fs_info *fs_info = btrfs_sb(inode->vfs_inode.i_sb);
 
-	spin_lock(&root->delalloc_lock);
 	if (!list_empty(&inode->delalloc_inodes)) {
 		list_del_init(&inode->delalloc_inodes);
 		clear_bit(BTRFS_INODE_IN_DELALLOC_LIST,
@@ -1772,6 +1772,13 @@ static void btrfs_del_delalloc_inode(struct btrfs_root *root,
 			spin_unlock(&fs_info->delalloc_root_lock);
 		}
 	}
+}
+
+static void btrfs_del_delalloc_inode(struct btrfs_root *root,
+				     struct btrfs_inode *inode)
+{
+	spin_lock(&root->delalloc_lock);
+	__btrfs_del_delalloc_inode(root, inode);
 	spin_unlock(&root->delalloc_lock);
 }
 
@@ -6657,8 +6664,7 @@ static int btrfs_mknod(struct inode *dir, struct dentry *dentry,
 		goto out_unlock_inode;
 	} else {
 		btrfs_update_inode(trans, root, inode);
-		unlock_new_inode(inode);
-		d_instantiate(dentry, inode);
+		d_instantiate_new(dentry, inode);
 	}
 
 out_unlock:
@@ -6735,8 +6741,7 @@ static int btrfs_create(struct inode *dir, struct dentry *dentry,
 		goto out_unlock_inode;
 
 	BTRFS_I(inode)->io_tree.ops = &btrfs_extent_io_ops;
-	unlock_new_inode(inode);
-	d_instantiate(dentry, inode);
+	d_instantiate_new(dentry, inode);
 
 out_unlock:
 	btrfs_end_transaction(trans);
@@ -6883,12 +6888,7 @@ static int btrfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	if (err)
 		goto out_fail_inode;
 
-	d_instantiate(dentry, inode);
-	/*
-	 * mkdir is special.  We're unlocking after we call d_instantiate
-	 * to avoid a race with nfsd calling d_instantiate.
-	 */
-	unlock_new_inode(inode);
+	d_instantiate_new(dentry, inode);
 	drop_on_err = 0;
 
 out_fail:
@@ -10566,8 +10566,7 @@ static int btrfs_symlink(struct inode *dir, struct dentry *dentry,
 		goto out_unlock_inode;
 	}
 
-	unlock_new_inode(inode);
-	d_instantiate(dentry, inode);
+	d_instantiate_new(dentry, inode);
 
 out_unlock:
 	btrfs_end_transaction(trans);

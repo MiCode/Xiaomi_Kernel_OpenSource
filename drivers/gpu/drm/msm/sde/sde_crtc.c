@@ -25,6 +25,7 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_flip_work.h>
+#include <linux/clk/qcom.h>
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
@@ -2300,7 +2301,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
-	bool frame_done = false;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -2353,10 +2353,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
-
-		if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
-					| SDE_ENCODER_FRAME_EVENT_ERROR))
-			frame_done = true;
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
@@ -2372,9 +2368,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
-
-	if (frame_done)
-		complete_all(&sde_crtc->frame_done_comp);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -3293,10 +3286,10 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 			&cstate->property_state);
 }
 
-static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
+static int _sde_crtc_flush_event_thread(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
-	int ret, rc = 0, i;
+	int i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3320,17 +3313,9 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 			kthread_flush_work(&sde_crtc->frame_events[i].work);
 	}
 
-	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
-			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
-	if (!ret) {
-		SDE_ERROR("frame done completion wait timed out, ret:%d\n",
-				ret);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FATAL);
-		rc = -ETIMEDOUT;
-	}
 	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 
-	return rc;
+	return 0;
 }
 
 static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
@@ -3450,11 +3435,12 @@ static void _sde_crtc_remove_pipe_flush(struct drm_crtc *crtc)
  * _sde_crtc_reset_hw - attempt hardware reset on errors
  * @crtc: Pointer to DRM crtc instance
  * @old_state: Pointer to crtc state for previous commit
- * @dump_status: Whether or not to dump debug status before reset
+ * @recovery_events: Whether or not recovery events are enabled
  * Returns: Zero if current commit should still be attempted
  */
 static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state, bool dump_status)
+		struct drm_crtc_state *old_state,
+		bool recovery_events)
 {
 	struct drm_plane *plane_halt[MAX_PLANES];
 	struct drm_plane *plane;
@@ -3474,10 +3460,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 
 	old_rot_op_mode = to_sde_crtc_state(old_state)->sbuf_cfg.rot_op_mode;
 	SDE_EVT32(DRMID(crtc), old_rot_op_mode,
-			dump_status, SDE_EVTLOG_FUNC_ENTRY);
-
-	if (dump_status)
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			recovery_events, SDE_EVTLOG_FUNC_ENTRY);
 
 	/* optionally generate a panic instead of performing a h/w reset */
 	SDE_DBG_CTRL("stop_ftrace", "reset_hw_panic");
@@ -3509,7 +3492,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	 */
 	if (i == sde_crtc->num_ctls &&
 			old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
-		return false;
+		return 0;
 
 	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
 
@@ -3586,7 +3569,8 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 			sde_encoder_kickoff(encoder, false);
 	}
 
-	return -EAGAIN;
+	/* panic the device if VBIF is not in good state */
+	return !recovery_events ? 0 : -EAGAIN;
 }
 
 /**
@@ -3653,8 +3637,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	bool is_error, reset_req;
-	int ret;
+	bool is_error, reset_req, recovery_events;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3700,6 +3683,9 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 				crtc->state);
 		if (sde_encoder_prepare_for_kickoff(encoder, &params))
 			reset_req = true;
+
+		recovery_events =
+			sde_encoder_recovery_events_enabled(encoder);
 	}
 
 	/*
@@ -3707,26 +3693,13 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	 * preparing for the kickoff
 	 */
 	if (reset_req) {
-		if (_sde_crtc_reset_hw(crtc, old_state,
-					!sde_crtc->reset_request))
+		if (_sde_crtc_reset_hw(crtc, old_state, recovery_events))
 			is_error = true;
 	}
-	sde_crtc->reset_request = reset_req;
 
-	/* wait for frame_event_done completion */
-	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
-	ret = _sde_crtc_wait_for_frame_done(crtc);
-	SDE_ATRACE_END("wait_for_frame_done_event");
-	if (ret) {
-		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
-				crtc->base.id,
-				atomic_read(&sde_crtc->frame_pending));
-
-		is_error = true;
-
-		/* force offline rotation mode since the commit has no pipes */
-		cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
-	}
+	SDE_ATRACE_BEGIN("flush_event_thread");
+	_sde_crtc_flush_event_thread(crtc);
+	SDE_ATRACE_END("flush_event_thread");
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
@@ -3765,7 +3738,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		sde_encoder_kickoff(encoder, false);
 	}
 
-	reinit_completion(&sde_crtc->frame_done_comp);
 	SDE_ATRACE_END("crtc_commit");
 }
 
@@ -4160,15 +4132,17 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
 
+	/* disable mdp LUT memory retention */
+	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+				CLKFLAG_NORETAIN_MEM);
+	if (ret)
+		SDE_ERROR("failed to disable LUT memory retention %d\n", ret);
+
 	/* destination scaler if enabled should be reconfigured on resume */
 	if (cstate->num_ds_enabled)
 		sde_crtc->ds_reconfig = true;
 
-	/* wait for frame_event_done completion */
-	if (_sde_crtc_wait_for_frame_done(crtc))
-		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
-				crtc->base.id,
-				atomic_read(&sde_crtc->frame_pending));
+	_sde_crtc_flush_event_thread(crtc);
 
 	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
 			sde_crtc->vblank_requested,
@@ -4183,6 +4157,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	sde_crtc->enabled = false;
 
 	if (atomic_read(&sde_crtc->frame_pending)) {
+		SDE_ERROR("crtc%d frame_pending%d\n", crtc->base.id,
+				atomic_read(&sde_crtc->frame_pending));
 		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->frame_pending),
 							SDE_EVTLOG_FUNC_CASE2);
 		sde_core_perf_crtc_release_bw(crtc);
@@ -4307,6 +4283,12 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 	power_on = 1;
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
+
+	/* enable mdp LUT memory retention */
+	ret = sde_power_clk_set_flags(&priv->phandle, "lut_clk",
+					CLKFLAG_RETAIN_MEM);
+	if (ret)
+		SDE_ERROR("failed to enable LUT memory retention %d\n", ret);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 
@@ -4929,7 +4911,7 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
-	SDE_DEBUG("%s: cancel: %p\n", sde_crtc->name, file);
+	SDE_DEBUG("%s: cancel: %pK\n", sde_crtc->name, file);
 	_sde_crtc_complete_flip(crtc, file);
 }
 
@@ -5412,7 +5394,6 @@ int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
 
 void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count)
 {
-	struct sde_kms *sde_kms;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_mixer *m;
 	int i;
@@ -5422,20 +5403,6 @@ void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count)
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
-
-	sde_kms = _sde_crtc_get_kms(crtc);
-	if (!sde_kms) {
-		SDE_ERROR("invalid sde_kms\n");
-		return;
-	}
-
-	mutex_lock(&sde_crtc->crtc_lock);
-	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
-		SDE_DEBUG("crtc:%d misr enable/disable not allowed\n",
-				DRMID(crtc));
-		mutex_unlock(&sde_crtc->crtc_lock);
-		return;
-	}
 
 	sde_crtc->misr_enable = enable;
 	sde_crtc->misr_frame_count = frame_count;
@@ -5447,7 +5414,6 @@ void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count)
 
 		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
 	}
-	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -5604,12 +5570,19 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 	char buf[MISR_BUFF_SIZE + 1];
 	u32 frame_count, enable;
 	size_t buff_copy;
+	struct sde_kms *sde_kms;
 
 	if (!file || !file->private_data)
 		return -EINVAL;
 
 	sde_crtc = file->private_data;
 	crtc = &sde_crtc->base;
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return -EINVAL;
+	}
 
 	buff_copy = min_t(size_t, count, MISR_BUFF_SIZE);
 	if (copy_from_user(buf, user_buf, buff_copy)) {
@@ -5626,7 +5599,16 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 	if (rc)
 		return rc;
 
+	mutex_lock(&sde_crtc->crtc_lock);
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG("crtc:%d misr enable/disable not allowed\n",
+				DRMID(crtc));
+		goto end;
+	}
 	sde_crtc_misr_setup(crtc, enable, frame_count);
+
+end:
+	mutex_unlock(&sde_crtc->crtc_lock);
 	_sde_crtc_power_enable(sde_crtc, false);
 
 	return count;
@@ -6003,7 +5985,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	mutex_init(&sde_crtc->rp_lock);
 	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
-	init_completion(&sde_crtc->frame_done_comp);
 	sde_crtc->enabled = false;
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);

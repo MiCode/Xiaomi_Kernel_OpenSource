@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,6 +166,11 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 			&fab_dev->base_offset);
 	if (ret)
 		dev_dbg(&pdev->dev, "Bus base offset is missing\n");
+
+	ret = of_property_read_u32(dev_node, "qcom,sbm-offset",
+			&fab_dev->sbm_offset);
+	if (ret)
+		dev_dbg(&pdev->dev, "sbm disable offset is missing\n");
 
 	ret = of_property_read_u32(dev_node, "qcom,qos-off",
 			&fab_dev->qos_off);
@@ -375,6 +380,25 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
 
+	node_info->num_disable_ports = of_property_count_elems_of_size(dev_node,
+			 "qcom,disable-ports", sizeof(uint32_t));
+
+	if (node_info->num_disable_ports < 0) {
+		node_info->num_disable_ports = 0;
+		dev_dbg(&pdev->dev, "no disable ports\n");
+	}
+
+	if (node_info->num_disable_ports) {
+		node_info->disable_ports = devm_kcalloc(&pdev->dev,
+			node_info->num_disable_ports, sizeof(uint32_t),
+							GFP_KERNEL);
+		if (!node_info->disable_ports)
+			return NULL;
+		ret = of_property_read_u32_array(dev_node, "qcom,disable-ports",
+					node_info->disable_ports,
+					node_info->num_disable_ports);
+	}
+
 	if (of_get_property(dev_node, "qcom,connections", &size)) {
 		node_info->num_connections = size / sizeof(int);
 		node_info->connections = devm_kzalloc(&pdev->dev, size,
@@ -498,10 +522,12 @@ static int get_bus_node_device_data(
 {
 	bool enable_only;
 	bool setrate_only;
-	int num_elems = 0, num_bcms = 0, i = 0, ret = 0;
+	int num_elems = 0, num_bcms = 0, i = 0, ret = 0, num_regs = 0;
 	uint32_t *vec_arr = NULL;
 	struct qos_bcm_type *qos_bcms = NULL;
 	struct device_node *qos_clk_node = NULL;
+	const char *reg_name;
+	struct property *prop;
 
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
@@ -672,6 +698,24 @@ static int get_bus_node_device_data(
 			scnprintf(node_device->clk[DUAL_CTX].reg_name,
 				MAX_REG_NAME, "%c", '\0');
 
+		num_regs = of_property_count_strings(dev_node,
+							"node-reg-names");
+		if (num_regs < 0)
+			node_device->num_regs = 0;
+		else {
+			i = 0;
+			node_device->num_regs = num_regs;
+			node_device->node_regs = devm_kzalloc(&pdev->dev,
+				(num_regs * sizeof(struct node_regulator)),
+								GFP_KERNEL);
+
+			of_property_for_each_string(dev_node, "node-reg-names",
+							prop, reg_name) {
+				scnprintf(node_device->node_regs[i].name,
+					MAX_REG_NAME, "%s", reg_name);
+				i++;
+			}
+		}
 	}
 	return 0;
 }

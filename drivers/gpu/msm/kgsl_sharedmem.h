@@ -135,7 +135,6 @@ kgsl_memdesc_get_memtype(const struct kgsl_memdesc *memdesc)
 static inline int
 kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 {
-	align = max_t(unsigned int, align, ilog2(memdesc->pad_to));
 	if (align > 32)
 		align = 32;
 

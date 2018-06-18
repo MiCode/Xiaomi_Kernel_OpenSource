@@ -15,10 +15,11 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,qcs405-pinctrl";
 		reg = <0x1000000 0x300000>;
-		interrupts = <0 208 0>;
+		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 
 		pmx-uartconsole {
@@ -779,6 +780,21 @@
 				pins = "gpio21";
 				drive-strength = <2>;
 				bias-disable;
+			};
+		};
+
+		/* SMB CONFIGURATION */
+		smb_stat: smb_stat {
+			mux {
+				pins = "gpio107";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio107";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
 			};
 		};
 	};

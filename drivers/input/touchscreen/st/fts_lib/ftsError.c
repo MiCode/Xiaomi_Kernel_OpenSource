@@ -109,7 +109,7 @@ int dumpErrorInfo(void)
 			tag,  __func__, ret);
 		return ret;
 	}
-	logError(1, "%s %s: Error Info =\n", tag, __func__);
+	logError(0, "%s %s: Error Info =\n", tag, __func__);
 	u8ToU32(data, &sign);
 	if (sign != ERROR_SIGNATURE)
 		logError(1, "%s %s:Wrong Signature! Data may be invalid!\n",
@@ -147,7 +147,7 @@ int errorHandler(u8 *event, int size)
 		return ERROR_OP_NOT_ALLOW;
 	}
 
-	logError(1, "%s %s: Starting handling...\n", tag, __func__);
+	logError(0, "%s %s: Starting handling...\n", tag, __func__);
 	//TODO: write an error log for undefinied command subtype 0xBA
 	switch (event[1]) {
 	case EVENT_TYPE_ESD_ERROR:	//esd
@@ -251,8 +251,7 @@ int errorHandler(u8 *event, int size)
 		break;
 
 	default:
-		logError(1,
-		"%s %s: No Action taken!\n", tag, __func__);
+		logError(0,  "%s %s: No Action taken!\n", tag, __func__);
 	break;
 	}
 	logError(1, "%s %s: handling Finished! res = %08X\n",

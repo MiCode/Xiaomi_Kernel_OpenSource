@@ -575,12 +575,12 @@ int readChipInfo(int doRequest)
 	ftsInfo.u8_ftsaVer = data[index++];
 	ftsInfo.u8_tchRptVer = data[index++];
 
-	logError(1, "%s External Release =  ", tag);
+	logError(0, "%s External Release =  ", tag);
 	for (i = 0; i < EXTERNAL_RELEASE_INFO_SIZE; i++) {
 		ftsInfo.u8_extReleaseInfo[i] = data[index++];
-		logError(1, "%02X ", ftsInfo.u8_extReleaseInfo[i]);
+		logError(0, "%02X ", ftsInfo.u8_extReleaseInfo[i]);
 	}
-	logError(1, "\n");
+	logError(0, "\n");
 
 	for (i = 0; i < sizeof(ftsInfo.u8_custInfo); i++)
 		ftsInfo.u8_custInfo[i] = data[index++];
@@ -606,10 +606,10 @@ int readChipInfo(int doRequest)
 	index += 2;
 
 	ftsInfo.u8_scrForceLen = data[index++];
-	logError(1, "%s Force Len = %d\n", tag, ftsInfo.u8_scrForceLen);
+	logError(0, "%s Force Len = %d\n", tag, ftsInfo.u8_scrForceLen);
 
 	ftsInfo.u8_scrSenseLen = data[index++];
-	logError(1, "%s Sense Len = %d\n", tag, ftsInfo.u8_scrSenseLen);
+	logError(0, "%s Sense Len = %d\n", tag, ftsInfo.u8_scrSenseLen);
 
 	for (i = 0; i < 8; i++)
 		ftsInfo.u64_scrForceEn[i] = data[index++];
@@ -618,7 +618,7 @@ int readChipInfo(int doRequest)
 		ftsInfo.u64_scrSenseEn[i] = data[index++];
 
 	ftsInfo.u8_msKeyLen = data[index++];
-	logError(1, "%s MS Key Len = %d\n", tag, ftsInfo.u8_msKeyLen);
+	logError(0, "%s MS Key Len = %d\n", tag, ftsInfo.u8_msKeyLen);
 
 	for (i = 0; i < 8; i++)
 		ftsInfo.u64_msKeyForceEn[i] = data[index++];
@@ -627,7 +627,7 @@ int readChipInfo(int doRequest)
 		ftsInfo.u64_msKeySenseEn[i] = data[index++];
 
 	ftsInfo.u8_ssKeyLen = data[index++];
-	logError(1, "%s SS Key Len = %d\n", tag, ftsInfo.u8_ssKeyLen);
+	logError(0, "%s SS Key Len = %d\n", tag, ftsInfo.u8_ssKeyLen);
 
 	for (i = 0; i < 8; i++)
 		ftsInfo.u64_ssKeyForceEn[i] = data[index++];
@@ -647,25 +647,25 @@ int readChipInfo(int doRequest)
 
 
 	ftsInfo.u8_msScrConfigTuneVer = data[index++];
-	logError(1, "%s CFG MS TUNING VERSION = %02X\n",
+	logError(0, "%s CFG MS TUNING VERSION = %02X\n",
 		tag, ftsInfo.u8_msScrConfigTuneVer);
 	ftsInfo.u8_msScrLpConfigTuneVer = data[index++];
 	ftsInfo.u8_msScrHwulpConfigTuneVer = data[index++];
 	ftsInfo.u8_msKeyConfigTuneVer = data[index++];
 	ftsInfo.u8_ssTchConfigTuneVer = data[index++];
-	logError(1, "%s CFG SS TUNING VERSION = %02X\n",
+	logError(0, "%s CFG SS TUNING VERSION = %02X\n",
 		tag, ftsInfo.u8_ssTchConfigTuneVer);
 	ftsInfo.u8_ssKeyConfigTuneVer = data[index++];
 	ftsInfo.u8_ssHvrConfigTuneVer = data[index++];
 	ftsInfo.u8_frcTchConfigTuneVer = data[index++];
 	ftsInfo.u8_msScrCxmemTuneVer = data[index++];
-	logError(1, "%s CX MS TUNING VERSION = %02X\n",
+	logError(0, "%s CX MS TUNING VERSION = %02X\n",
 		tag, ftsInfo.u8_msScrCxmemTuneVer);
 	ftsInfo.u8_msScrLpCxmemTuneVer = data[index++];
 	ftsInfo.u8_msScrHwulpCxmemTuneVer = data[index++];
 	ftsInfo.u8_msKeyCxmemTuneVer = data[index++];
 	ftsInfo.u8_ssTchCxmemTuneVer = data[index++];
-	logError(1, "%s CX SS TUNING VERSION = %02X\n",
+	logError(0, "%s CX SS TUNING VERSION = %02X\n",
 		tag, ftsInfo.u8_ssTchCxmemTuneVer);
 	ftsInfo.u8_ssKeyCxmemTuneVer = data[index++];
 	ftsInfo.u8_ssHvrCxmemTuneVer = data[index++];
@@ -675,7 +675,7 @@ int readChipInfo(int doRequest)
 				((data[index + 1] & 0x000000FF) << 8) +
 				(data[index] & 0x000000FF);
 	index += 4;
-	logError(1, "%s MP SIGNATURE = %08X\n", tag, ftsInfo.u32_mpPassFlag);
+	logError(0, "%s MP SIGNATURE = %08X\n", tag, ftsInfo.u32_mpPassFlag);
 	ftsInfo.u32_featEn = ((data[index + 3] & 0x000000FF) << 24) +
 				((data[index + 2] & 0x000000FF) << 16) +
 				((data[index + 1] & 0x000000FF) << 8) +
@@ -686,31 +686,31 @@ int readChipInfo(int doRequest)
 				((data[index + 1] & 0x000000FF) << 8) +
 				(data[index] & 0x000000FF);
 	index += 4;
-	logError(1, "%s FEATURES = %08X\n", tag, ftsInfo.u32_echoEn);
+	logError(0, "%s FEATURES = %08X\n", tag, ftsInfo.u32_echoEn);
 	ftsInfo.u8_sideTchConfigTuneVer = data[index++];
 	ftsInfo.u8_sideTchCxmemTuneVer = data[index++];
 	ftsInfo.u8_sideTchForceLen = data[index++];
-	logError(1, "%s Side Touch Force Len = %d\n",
+	logError(0, "%s Side Touch Force Len = %d\n",
 		tag, ftsInfo.u8_sideTchForceLen);
 	ftsInfo.u8_sideTchSenseLen = data[index++];
-	logError(1, "%s Side Touch Sense Len = %d\n",
+	logError(0, "%s Side Touch Sense Len = %d\n",
 		tag, ftsInfo.u8_sideTchSenseLen);
 	for (i = 0; i < 8; i++)
 		ftsInfo.u64_sideTchForceEn[i] = data[index++];
 	for (i = 0; i < 8; i++)
 		ftsInfo.u64_sideTchSenseEn[i] = data[index++];
 	ftsInfo.u8_errSign = data[index++];
-	logError(1, "%s ERROR SIGNATURE = %02X\n", tag, ftsInfo.u8_errSign);
+	logError(0, "%s ERROR SIGNATURE = %02X\n", tag, ftsInfo.u8_errSign);
 	if (ftsInfo.u8_errSign == ERROR_SIGN_HEAD) {
-		logError(1, "%s Correct Error Signature found!\n", tag);
+		logError(0, "%s Correct Error Signature found!\n", tag);
 		u8ToU16(&data[index], &ftsInfo.u16_errOffset);
 	} else {
 		logError(1, "%s Error Signature NOT FOUND!\n", tag);
 		ftsInfo.u16_errOffset = INVALID_ERROR_OFFS;
 	}
-	logError(1, "%s ERROR OFFSET = %04X\n", tag, ftsInfo.u16_errOffset);
+	logError(0, "%s ERROR OFFSET = %04X\n", tag, ftsInfo.u16_errOffset);
 	index += 2;
-	logError(1, "%s Parsed %d bytes!\n", tag, index);
+	logError(0, "%s Parsed %d bytes!\n", tag, index);
 
 
 	if (index != CHIP_INFO_SIZE + 3) {
@@ -720,7 +720,7 @@ int readChipInfo(int doRequest)
 		return ERROR_OP_NOT_ALLOW;
 	}
 
-	logError(1, "%s Chip Info Read DONE!\n", tag);
+	logError(0, "%s Chip Info Read DONE!\n", tag);
 	return OK;
 
 FAIL:

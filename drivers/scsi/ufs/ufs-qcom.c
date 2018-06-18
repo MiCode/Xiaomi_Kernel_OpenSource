@@ -589,6 +589,36 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 				      update_link_startup_timer, false);
 }
 
+static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba)
+{
+	struct ufs_clk_info *clki;
+	struct list_head *head = &hba->clk_list_head;
+	u32 max_freq = 0;
+	int err = 0;
+
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk) &&
+			(!strcmp(clki->name, "core_clk_unipro"))) {
+			max_freq = clki->max_freq;
+			break;
+		}
+	}
+
+	switch (max_freq) {
+	case 300000000:
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 300, 12);
+		break;
+	case 150000000:
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
 static int ufs_qcom_link_startup_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -609,10 +639,7 @@ static int ufs_qcom_link_startup_pre_change(struct ufs_hba *hba)
 		goto out;
 
 	if (ufs_qcom_cap_qunipro(host)) {
-		/*
-		 * set unipro core clock cycles to 150 & clear clock divider
-		 */
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(hba);
 		if (err)
 			goto out;
 	}
@@ -1552,7 +1579,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 				 enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err;
+	int err = 0;
 
 	/*
 	 * In case ufs_qcom_init() is not yet done, simply ignore.
@@ -2325,9 +2352,6 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *attr = &host->dev_req_params;
 	int err = 0;
-	struct ufs_clk_info *clki;
-	struct list_head *head = &hba->clk_list_head;
-	u32 max_freq = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		goto out;
@@ -2336,25 +2360,7 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 		__ufs_qcom_cfg_timers(hba, attr->gear_rx, attr->pwr_rx,
 				      attr->hs_rate, false, true);
 
-	list_for_each_entry(clki, head, list) {
-		if (!IS_ERR_OR_NULL(clki->clk) &&
-			(!strcmp(clki->name, "core_clk_unipro"))) {
-			max_freq = clki->max_freq;
-			break;
-		}
-	}
-
-	switch (max_freq) {
-	case 300000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 300, 12);
-		break;
-	case 150000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
-		break;
-	default:
-		err = -EINVAL;
-		break;
-	}
+	err = ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(hba);
 out:
 	return err;
 }
@@ -2547,7 +2553,7 @@ bool ufs_qcom_testbus_cfg_is_ok(struct ufs_qcom_host *host,
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 {
 	int reg = 0;
-	int offset, ret = 0, testbus_sel_offset = 19;
+	int offset = -1, ret = 0, testbus_sel_offset = 19;
 	u32 mask = TEST_BUS_SUB_SEL_MASK;
 	unsigned long flags;
 	struct ufs_hba *hba;
@@ -2612,6 +2618,13 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 * is legal
 	 */
 	}
+
+	if (offset < 0) {
+		dev_err(hba->dev, "%s: Bad offset: %d\n", __func__, offset);
+		ret = -EINVAL;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		goto out;
+	}
 	mask <<= offset;
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -2674,7 +2687,7 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 		return;
 
 	host->testbus.select_major = TSTBUS_UTP_HCI;
-	for (i = 0; i <= nminor; i++) {
+	for (i = 0; i < nminor; i++) {
 		host->testbus.select_minor = i;
 		ufs_qcom_testbus_config(host);
 		testbus[i] = ufshcd_readl(hba, UFS_TEST_BUS);

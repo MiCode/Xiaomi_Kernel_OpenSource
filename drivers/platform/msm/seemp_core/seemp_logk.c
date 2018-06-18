@@ -22,10 +22,6 @@
 #include "seemp_logk.h"
 #include "seemp_ringbuf.h"
 
-#ifndef VM_RESERVED
-#define VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
-#endif
-
 #define MASK_BUFFER_SIZE 256
 #define FOUR_MB 4
 #define YEAR_BASE 1900
@@ -279,6 +275,9 @@ static ssize_t
 seemp_logk_write(struct file *file, const char __user *buf, size_t count,
 		loff_t *ppos)
 {
+	if (seemp_logk_kernel_begin == NULL)
+		seemp_logk_attach();
+
 	return seemp_logk_usr_record(buf, count);
 }
 
@@ -555,7 +554,7 @@ static int seemp_logk_mmap(struct file *filp,
 		return -EIO;
 	}
 
-	vma->vm_flags |= VM_RESERVED | VM_SHARED;
+	vma->vm_flags |= (VM_DONTEXPAND | VM_DONTDUMP) | VM_SHARED;
 	vptr = (char *) slogk_dev->ring;
 	ret = 0;
 
@@ -748,7 +747,6 @@ __init int seemp_logk_init(void)
 		goto class_destroy_fail;
 	}
 
-	seemp_logk_attach();
 	mutex_init(&slogk_dev->lock);
 	init_waitqueue_head(&slogk_dev->readers_wq);
 	init_waitqueue_head(&slogk_dev->writers_wq);

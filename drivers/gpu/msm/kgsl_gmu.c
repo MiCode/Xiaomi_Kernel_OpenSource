@@ -593,7 +593,7 @@ err_ret:
 
 /*
  * gmu_dcvs_set() - request GMU to change GPU frequency and/or bandwidth.
- * @gmu: Pointer to GMU device
+ * @device: Pointer to the device
  * @gpu_pwrlevel: index to GPU DCVS table used by KGSL
  * @bus_level: index to GPU bus table used by KGSL
  *
@@ -618,9 +618,10 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 	if (bus_level < gmu->num_bwlevels && bus_level > 0)
 		req.bw = bus_level;
 
+	/* GMU will vote for slumber levels through the sleep sequence */
 	if ((req.freq == INVALID_DCVS_IDX) &&
 		(req.bw == INVALID_DCVS_IDX))
-		return -EINVAL;
+		return 0;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		int ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
@@ -637,6 +638,9 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 
 		return ret;
 	}
+
+	if (!test_bit(GMU_HFI_ON, &gmu->flags))
+		return 0;
 
 	return hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
 }
@@ -1415,6 +1419,7 @@ static int gmu_probe(struct kgsl_device *device,
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)gmu);
 	INIT_LIST_HEAD(&hfi->msglist);
 	spin_lock_init(&hfi->msglock);
+	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/
 	ret = gmu_pwrlevel_probe(gmu, node);
@@ -1975,4 +1980,5 @@ struct gmu_core_ops gmu_ops = {
 	.dcvs_set = gmu_dcvs_set,
 	.snapshot = gmu_snapshot,
 	.regulator_isenabled = gmu_regulator_isenabled,
+	.suspend = gmu_suspend,
 };

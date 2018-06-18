@@ -1064,6 +1064,13 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen2;
 	}
 
+	result = gsi_start_channel(ep->gsi_chan_hdl);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("gsi_start_channel failed res=%d ep=%d.\n", result,
+			ipa_ep_idx);
+		goto fail_gen2;
+	}
+
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(sys_in->client);
 
@@ -1113,11 +1120,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_disable_data_path(clnt_hdl);
-	if (ep->napi_enabled) {
-		do {
-			usleep_range(95, 105);
-		} while (atomic_read(&ep->sys->curr_polling_state));
-	}
 
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		do {
@@ -1131,9 +1133,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
-	if (IPA_CLIENT_IS_CONS(ep->client))
-		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
-	flush_workqueue(ep->sys->wq);
 	/* channel stop might fail on timeout if IPA is busy */
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		result = ipa3_stop_gsi_channel(clnt_hdl);
@@ -1141,7 +1140,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 			break;
 
 		if (result != -GSI_STATUS_AGAIN &&
-		    result != -GSI_STATUS_TIMED_OUT)
+			result != -GSI_STATUS_TIMED_OUT)
 			break;
 	}
 
@@ -1150,6 +1149,17 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		ipa_assert();
 		return result;
 	}
+
+	if (ep->napi_enabled) {
+		do {
+			usleep_range(95, 105);
+		} while (atomic_read(&ep->sys->curr_polling_state));
+	}
+
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+	flush_workqueue(ep->sys->wq);
+
 	result = ipa3_reset_gsi_channel(clnt_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to reset chan: %d.\n", result);
@@ -3797,15 +3807,11 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		goto fail_write_channel_scratch;
 	}
 
-	result = gsi_start_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS)
-		goto fail_start_channel;
 	if (ep->client == IPA_CLIENT_MEMCPY_DMA_SYNC_CONS)
 		gsi_config_channel_mode(ep->gsi_chan_hdl,
 				GSI_CHAN_MODE_POLL);
 	return 0;
 
-fail_start_channel:
 fail_write_channel_scratch:
 	if (gsi_dealloc_channel(ep->gsi_chan_hdl)
 		!= GSI_STATUS_SUCCESS) {

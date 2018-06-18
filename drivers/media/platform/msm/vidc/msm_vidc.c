@@ -905,12 +905,77 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	u32 rc_mode;
+	bool set_rc = false;
+	struct hal_vbv_hdr_buf_size hrd_buf_size;
+	struct hal_enable latency;
+	struct hfi_device *hdev;
+	u32 codec;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->session_type != MSM_VIDC_ENCODER)
+		return rc;
+
+	hdev = inst->core->device;
+
+	codec = inst->fmts[CAPTURE_PORT].fourcc;
+	rc_mode =  msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+	latency.enable =  msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
+
+	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) {
+		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR;
+		set_rc = true;
+	} else if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
+			   latency.enable == V4L2_MPEG_MSM_VIDC_ENABLE &&
+			   codec != V4L2_PIX_FMT_VP8) {
+		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+		set_rc = true;
+	}
+
+	if (set_rc) {
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_RATE_CONTROL,
+			(void *)&rc_mode);
+	}
+
+	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
+		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
+		(codec != V4L2_PIX_FMT_VP8)) {
+		hrd_buf_size.vbv_hdr_buf_size = 1000;
+		dprintk(VIDC_DBG, "Enable cbr+ hdr_buf_size %d :\n",
+				hrd_buf_size.vbv_hdr_buf_size);
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
+			(void *)&hrd_buf_size);
+
+		latency.enable = V4L2_MPEG_MSM_VIDC_ENABLE;
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
+			(void *)&latency);
+
+		inst->clk_data.low_latency_mode = latency.enable;
+	}
+
+	return rc;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hal_buffer_size_minimum b;
 
+	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
+		hash32_ptr(inst->session), inst);
 	hdev = inst->core->device;
 
 	/* Check if current session is under HW capability */
@@ -928,8 +993,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	rc = msm_vidc_set_internal_config(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Set internal config failed %pK\n", inst);
+		goto fail_start;
+	}
+
 	/* Decide work route for current session */
-	rc = msm_vidc_decide_work_route(inst);
+	rc = call_core_op(inst->core, decide_work_route, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to decide work route for session %pK\n", inst);
@@ -937,7 +1009,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 	/* Decide work mode for current session */
-	rc = msm_vidc_decide_work_mode(inst);
+	rc = call_core_op(inst->core, decide_work_mode, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to decide work mode for session %pK\n", inst);
@@ -1004,14 +1076,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	if (is_batching_allowed(inst)) {
-		dprintk(VIDC_DBG,
-			"%s: batching enabled for inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
+	if (is_batching_allowed(inst))
 		inst->batch.enable = true;
-		/* this will disable dcvs as batching enabled */
-		msm_dcvs_try_enable(inst);
-	}
+	else
+		inst->batch.enable = false;
+	dprintk(VIDC_DBG, "%s: batching %s for inst %pK (%#x)\n",
+		__func__, inst->batch.enable ? "enabled" : "disabled",
+		inst, hash32_ptr(inst->session));
 
 	/*
 	 * For seq_changed_insufficient, driver should set session_continue
@@ -1146,6 +1217,9 @@ stream_start_failed:
 static inline int stop_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+
+	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
+		hash32_ptr(inst->session), inst);
 
 	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 	if (rc)

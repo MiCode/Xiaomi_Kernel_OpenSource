@@ -610,13 +610,10 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 	dsi = &panel->mipi_device;
 
-	mutex_lock(&panel->panel_lock);
-
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
 
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -631,7 +628,7 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		rc = backlight_device_set_brightness(bl->raw_bd, bl_lvl);
 		break;
 	case DSI_BACKLIGHT_DCS:
-		dsi_panel_update_backlight(panel, bl_lvl);
+		rc = dsi_panel_update_backlight(panel, bl_lvl);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -1054,6 +1051,24 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc = 0;
+	u32 val = 0;
+
+	rc = of_property_read_u32(of_node,
+				  "qcom,mdss-dsi-qsync-min-refresh-rate",
+				  &val);
+	if (rc)
+		pr_err("[%s] qsync min fps not defined rc:%d\n",
+			panel->name, rc);
+
+	panel->qsync_min_fps = val;
+
+	return rc;
+}
+
 static int dsi_panel_parse_dfps_caps(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1386,6 +1401,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"ROI not parsed from DTSI, generated dynamically",
 	"qcom,mdss-dsi-timing-switch-command",
 	"qcom,mdss-dsi-post-mode-switch-on-command",
+	"qcom,mdss-dsi-qsync-on-commands",
+	"qcom,mdss-dsi-qsync-off-commands",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1410,6 +1427,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"ROI not parsed from DTSI, generated dynamically",
 	"qcom,mdss-dsi-timing-switch-command-state",
 	"qcom,mdss-dsi-post-mode-switch-on-command-state",
+	"qcom,mdss-dsi-qsync-on-commands-state",
+	"qcom,mdss-dsi-qsync-off-commands-state",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2564,54 +2583,23 @@ static void dsi_panel_esd_config_deinit(struct drm_panel_esd_config *esd_config)
 	kfree(esd_config->status_cmd.cmds);
 }
 
-static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
+int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel)
 {
+	struct drm_panel_esd_config *esd_config;
 	int rc = 0;
 	u32 tmp;
 	u32 i, status_len, *lenp;
 	struct property *data;
-	const char *string;
-	struct drm_panel_esd_config *esd_config;
 	struct dsi_parser_utils *utils = &panel->utils;
-	u8 *esd_mode = NULL;
 
-	esd_config = &panel->esd_config;
-	esd_config->status_mode = ESD_MODE_MAX;
-	esd_config->esd_enabled = utils->read_bool(utils->data,
-					"qcom,esd-check-enabled");
-
-	if (!esd_config->esd_enabled)
-		return 0;
-
-	rc = utils->read_string(utils->data,
-			"qcom,mdss-dsi-panel-status-check-mode", &string);
-	if (!rc) {
-		if (!strcmp(string, "bta_check")) {
-			esd_config->status_mode = ESD_MODE_SW_BTA;
-		} else if (!strcmp(string, "reg_read")) {
-			esd_config->status_mode = ESD_MODE_REG_READ;
-		} else if (!strcmp(string, "te_signal_check")) {
-			if (panel->panel_mode == DSI_OP_CMD_MODE) {
-				esd_config->status_mode = ESD_MODE_PANEL_TE;
-			} else {
-				pr_err("TE-ESD not valid for video mode\n");
-				rc = -EINVAL;
-				goto error;
-			}
-		} else {
-			pr_err("No valid panel-status-check-mode string\n");
-			rc = -EINVAL;
-			goto error;
-		}
-	} else {
-		pr_debug("status check method not defined!\n");
-		rc = -EINVAL;
-		goto error;
+	if (!panel) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
 	}
 
-	if ((esd_config->status_mode == ESD_MODE_SW_BTA) ||
-		(esd_config->status_mode == ESD_MODE_PANEL_TE))
-		return 0;
+	esd_config = &panel->esd_config;
+	if (!esd_config)
+		return -EINVAL;
 
 	dsi_panel_parse_cmd_sets_sub(&esd_config->status_cmd,
 				DSI_CMD_SET_PANEL_STATUS, utils);
@@ -2686,8 +2674,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 	}
 
 	esd_config->status_buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!esd_config->status_buf)
+	if (!esd_config->status_buf) {
+		rc = -ENOMEM;
 		goto error4;
+	}
 
 	rc = utils->read_u32_array(utils->data,
 		"qcom,mdss-dsi-panel-status-value",
@@ -2697,15 +2687,6 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 		memset(esd_config->status_value, 0,
 				esd_config->groups * status_len);
 	}
-
-	if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
-		esd_mode = "register_read";
-	else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
-		esd_mode = "bta_trigger";
-	else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
-		esd_mode = "te_check";
-
-	pr_info("ESD enabled with mode: %s\n", esd_mode);
 
 	return 0;
 
@@ -2718,6 +2699,70 @@ error2:
 	kfree(esd_config->status_cmds_rlen);
 error1:
 	kfree(esd_config->status_cmd.cmds);
+error:
+	return rc;
+}
+
+static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
+{
+	int rc = 0;
+	const char *string;
+	struct drm_panel_esd_config *esd_config;
+	struct dsi_parser_utils *utils = &panel->utils;
+	u8 *esd_mode = NULL;
+
+	esd_config = &panel->esd_config;
+	esd_config->status_mode = ESD_MODE_MAX;
+	esd_config->esd_enabled = utils->read_bool(utils->data,
+		"qcom,esd-check-enabled");
+
+	if (!esd_config->esd_enabled)
+		return 0;
+
+	rc = utils->read_string(utils->data,
+			"qcom,mdss-dsi-panel-status-check-mode", &string);
+	if (!rc) {
+		if (!strcmp(string, "bta_check")) {
+			esd_config->status_mode = ESD_MODE_SW_BTA;
+		} else if (!strcmp(string, "reg_read")) {
+			esd_config->status_mode = ESD_MODE_REG_READ;
+		} else if (!strcmp(string, "te_signal_check")) {
+			if (panel->panel_mode == DSI_OP_CMD_MODE) {
+				esd_config->status_mode = ESD_MODE_PANEL_TE;
+			} else {
+				pr_err("TE-ESD not valid for video mode\n");
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			pr_err("No valid panel-status-check-mode string\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		pr_debug("status check method not defined!\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (panel->esd_config.status_mode == ESD_MODE_REG_READ) {
+		rc = dsi_panel_parse_esd_reg_read_configs(panel);
+		if (rc) {
+			pr_err("failed to parse esd reg read mode params, rc=%d\n",
+						rc);
+			goto error;
+		}
+		esd_mode = "register_read";
+	} else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA) {
+		esd_mode = "bta_trigger";
+	} else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE) {
+		esd_mode = "te_check";
+	}
+
+	pr_info("ESD enabled with mode: %s\n", esd_mode);
+
+	return 0;
+
 error:
 	panel->esd_config.esd_enabled = false;
 	return rc;
@@ -2784,6 +2829,13 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_dfps_caps(panel);
 	if (rc)
 		pr_err("failed to parse dfps configuration, rc=%d\n", rc);
+
+	if (!(panel->dfps_caps.dfps_support)) {
+		/* qsync and dfps are mutually exclusive features */
+		rc = dsi_panel_parse_qsync_caps(panel, of_node);
+		if (rc)
+			pr_err("failed to parse qsync features, rc=%d\n", rc);
+	}
 
 	rc = dsi_panel_parse_phy_props(panel);
 	if (rc) {
@@ -3401,6 +3453,50 @@ error_free_mem:
 	kfree(set->cmds);
 
 exit:
+	return rc;
+}
+
+int dsi_panel_send_qsync_on_dcs(struct dsi_panel *panel,
+		int ctrl_idx)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	pr_debug("ctrl:%d qsync on\n", ctrl_idx);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_QSYNC_ON);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_QSYNC_ON cmds rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_send_qsync_off_dcs(struct dsi_panel *panel,
+		int ctrl_idx)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	pr_debug("ctrl:%d qsync off\n", ctrl_idx);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_QSYNC_OFF);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_QSYNC_OFF cmds rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 

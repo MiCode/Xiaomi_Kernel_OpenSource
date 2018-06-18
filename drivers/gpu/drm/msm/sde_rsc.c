@@ -1246,6 +1246,8 @@ static void sde_rsc_deinit(struct platform_device *pdev,
 
 	if (rsc->pclient)
 		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
+	if (rsc->sw_fs_enabled)
+		regulator_disable(rsc->fs);
 	if (rsc->fs)
 		devm_regulator_put(rsc->fs);
 	if (rsc->wrapper_io.base)
@@ -1404,6 +1406,14 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		pr_err("sde rsc: hw register failed ret:%d\n", ret);
 		goto sde_rsc_fail;
 	}
+
+	ret = regulator_enable(rsc->fs);
+	if (ret) {
+		pr_err("sde rsc: fs on failed ret:%d\n", ret);
+		goto sde_rsc_fail;
+	}
+
+	rsc->sw_fs_enabled = true;
 
 	if (sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true)) {
 		pr_err("failed to enable sde rsc power resources\n");

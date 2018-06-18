@@ -15,6 +15,26 @@
 
 #include "sm8150-auto-pmic-overlay.dtsi"
 
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&qupv3_se3_spi {
+	status = "ok";
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+};
+&pil_modem {
+	status = "disabled";
+};
+
+
 &soc {
 	qcom,lpass@17300000 {
 		status = "disabled";
@@ -28,6 +48,42 @@
 		modem {
 			status = "disabled";
 		};
+	};
+
+	qcom,turing@8300000 {
+		status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+		status = "ok";
+	};
+
+	qcom,spss@1880000 {
+		status = "ok";
+	};
+
+	qcom,npu@0x9800000 {
+		status = "ok";
+	};
+
+	qcom,rmnet-ipa {
+		status = "ok";
+	};
+
+	qcom,ipa_fws {
+		status = "ok";
+	};
+
+	qcom,msm-cdsp-loader {
+		status = "ok";
+	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		status = "ok";
 	};
 
 	gpio_keys {
@@ -60,6 +116,32 @@
 	};
 };
 
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+
+	vdda-phy-supply = <&pm8150_2_l18>;
+	vdda-pll-supply = <&pm8150_2_l8>;
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_1_l10>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm8150_1_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_2_l5>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
 &sdhc_2 {
 	vdd-supply = <&pm8150_1_l17>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
@@ -78,4 +160,18 @@
 	cd-gpios = <&pm8150_1_gpios 4 GPIO_ACTIVE_LOW>;
 
 	status = "ok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb1 {
+	status = "ok";
+	dwc3@a800000 {
+		dr_mode = "host";
+	};
 };

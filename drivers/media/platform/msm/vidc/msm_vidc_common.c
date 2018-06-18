@@ -2757,14 +2757,13 @@ bool is_batching_allowed(struct msm_vidc_inst *inst)
 	 * - session resolution <= 1080p
 	 * - low latency not enabled
 	 * - not a thumbnail session
-	 * - realtime session
 	 * - UBWC color format
 	 */
 	if (is_decode_session(inst) && inst->core->resources.decode_batching &&
 		(msm_vidc_get_mbs_per_frame(inst) <=
 		MAX_DEC_BATCH_WIDTH * MAX_DEC_BATCH_HEIGHT) &&
 		!inst->clk_data.low_latency_mode &&
-		!is_thumbnail_session(inst) && is_realtime_session(inst) &&
+		!is_thumbnail_session(inst) &&
 		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_NV12_UBWC ||
 		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_NV12_TP10_UBWC))
 		allowed = true;
@@ -4168,17 +4167,18 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 	}
 
 	/*
-	 * Don't batch for initial few buffers to avoid startup latency increase
+	 * Don't defer buffers initially to avoid startup latency increase
 	 * due to batching
-	 */
-	if (inst->count.fbd < 30)
-		return msm_comm_qbuf(inst, mbuf);
-
-	count = num_pending_qbufs(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (count < inst->batch.size) {
-		mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
-		print_vidc_buffer(VIDC_DBG, "qbuf_batch deferred", inst, mbuf);
-		return 0;
+	*/
+	if (inst->clk_data.buffer_counter > SKIP_BATCH_WINDOW) {
+		count = num_pending_qbufs(inst,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+		if (count < inst->batch.size) {
+			mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
+			print_vidc_buffer(VIDC_DBG,
+				"batch-qbuf deferred", inst, mbuf);
+			return 0;
+		}
 	}
 
 	rc = msm_comm_scale_clocks_and_bus(inst);
@@ -4188,22 +4188,24 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry(buf, &inst->registeredbufs.list, list) {
 		/* Don't queue if buffer is not CAPTURE_MPLANE */
-		if (!(buf->vvb.vb2_buf.type &
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
-			continue;
+		if (buf->vvb.vb2_buf.type !=
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			goto loop_end;
 		/* Don't queue if buffer is not a deferred buffer */
 		if (!(buf->flags & MSM_VIDC_FLAG_DEFERRED))
-			continue;
+			goto loop_end;
 		/* Don't queue if RBR event is pending on this buffer */
 		if (buf->flags & MSM_VIDC_FLAG_RBR_PENDING)
-			continue;
-		print_vidc_buffer(VIDC_DBG, "qbuf", inst, buf);
+			goto loop_end;
+
+		print_vidc_buffer(VIDC_DBG, "batch-qbuf", inst, buf);
 		rc = msm_comm_qbuf_to_hfi(inst, buf);
 		if (rc) {
 			dprintk(VIDC_ERR, "%s: Failed qbuf to hfi: %d\n",
 				__func__, rc);
 			break;
 		}
+loop_end:
 		/* Queue pending buffers till the current buffer only */
 		if (buf == mbuf)
 			break;
@@ -5144,17 +5146,32 @@ int msm_vidc_noc_error_info(struct msm_vidc_core *core)
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)
 {
-	int rc = 0;
+	if (!core) {
+		dprintk(VIDC_WARN, "%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	core->ssr_type = type;
+	schedule_work(&core->ssr_work);
+	return 0;
+}
+
+void msm_vidc_ssr_handler(struct work_struct *work)
+{
+	int rc;
+	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
 
+	core = container_of(work, struct msm_vidc_core, ssr_work);
 	if (!core || !core->device) {
-		dprintk(VIDC_WARN, "Invalid parameters: %pK\n", core);
-		return -EINVAL;
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return;
 	}
 	hdev = core->device;
 
 	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_INIT_DONE) {
+		dprintk(VIDC_WARN, "%s: ssr type %d\n", __func__,
+			core->ssr_type);
 		/*
 		 * In current implementation user-initiated SSR triggers
 		 * a fatal error from hardware. However, there is no way
@@ -5163,7 +5180,7 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		 */
 		core->trigger_ssr = true;
 		rc = call_hfi_op(hdev, core_trigger_ssr,
-				hdev->hfi_device_data, type);
+				hdev->hfi_device_data, core->ssr_type);
 		if (rc) {
 			dprintk(VIDC_ERR, "%s: trigger_ssr failed\n",
 				__func__);
@@ -5174,8 +5191,6 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 			__func__, core);
 	}
 	mutex_unlock(&core->lock);
-
-	return rc;
 }
 
 static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
@@ -6179,6 +6194,8 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 				rc = -EEXIST;
 		}
 		if (rc == -EEXIST) {
+			print_vidc_buffer(VIDC_DBG,
+				"existing qbuf", inst, mbuf);
 			/* enable RBR pending */
 			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
 		}
@@ -6189,10 +6206,15 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		list_add_tail(&mbuf->list, &inst->registeredbufs.list);
 
 	mutex_unlock(&inst->registeredbufs.lock);
-	if (rc == -EEXIST) {
-		print_vidc_buffer(VIDC_DBG, "qbuf upon rbr", inst, mbuf);
+
+	/*
+	 * Return mbuf if decode batching is enabled as this buffer
+	 * may trigger queuing full batch to firmware, also this buffer
+	 * will not be queued to firmware while full batch queuing,
+	 * it will be queued when rbr event arrived from firmware.
+	 */
+	if (rc == -EEXIST && !inst->batch.enable)
 		return ERR_PTR(rc);
-	}
 
 	return mbuf;
 
@@ -6345,7 +6367,6 @@ unlock:
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	if (found) {
-		print_vidc_buffer(VIDC_DBG, "rbr qbuf", inst, mbuf);
 		rc = msm_comm_qbuf_in_rbr(inst, mbuf);
 		if (rc)
 			print_vidc_buffer(VIDC_ERR,

@@ -27,6 +27,7 @@ struct esoc_link_data {
 
 #define ESOC_REQ_SEND_SHUTDOWN	ESOC_REQ_SEND_SHUTDOWN
 #define ESOC_REQ_CRASH_SHUTDOWN ESOC_REQ_CRASH_SHUTDOWN
+#define ESOC_PON_RETRY		ESOC_PON_RETRY
 
 enum esoc_evt {
 	ESOC_RUN_STATE = 0x1,
@@ -38,6 +39,7 @@ enum esoc_evt {
 	ESOC_CMD_ENG_ON,
 	ESOC_CMD_ENG_OFF,
 	ESOC_INVALID_STATE,
+	ESOC_RETRY_PON_EVT,
 };
 
 enum esoc_cmd {
@@ -61,6 +63,7 @@ enum esoc_notify {
 	ESOC_DEBUG_FAIL,
 	ESOC_PRIMARY_CRASH,
 	ESOC_PRIMARY_REBOOT,
+	ESOC_PON_RETRY,
 };
 
 enum esoc_req {

@@ -18,6 +18,8 @@ struct mhi_ctxt;
 struct mhi_cmd;
 struct image_info;
 struct bhi_vec_entry;
+struct mhi_timesync;
+struct mhi_buf_info;
 
 /**
  * enum MHI_CB - MHI callback
@@ -56,6 +58,16 @@ enum MHI_FLAGS {
 	MHI_EOB,
 	MHI_EOT,
 	MHI_CHAIN,
+};
+
+/**
+ * enum mhi_device_type - Device types
+ * @MHI_XFER_TYPE: Handles data transfer
+ * @MHI_TIMESYNC_TYPE: Use for timesync feature
+ */
+enum mhi_device_type {
+	MHI_XFER_TYPE,
+	MHI_TIMESYNC_TYPE,
 };
 
 /**
@@ -110,6 +122,9 @@ struct image_info {
  * @link_status: Query link status in case of abnormal value read from device
  * @runtime_get: Async runtime resume function
  * @runtimet_put: Release votes
+ * @time_get: Return host time in us
+ * @lpm_disable: Request controller to disable link level low power modes
+ * @lpm_enable: Controller may enable link level low power modes again
  * @priv_data: Points to bus master's private data
  */
 struct mhi_controller {
@@ -201,9 +216,25 @@ struct mhi_controller {
 	void (*wake_put)(struct mhi_controller *, bool);
 	int (*runtime_get)(struct mhi_controller *, void *);
 	void (*runtime_put)(struct mhi_controller *, void *);
+	u64 (*time_get)(struct mhi_controller *mhi_cntrl, void *priv);
+	void (*lpm_disable)(struct mhi_controller *mhi_cntrl, void *priv);
+	void (*lpm_enable)(struct mhi_controller *mhi_cntrl, void *priv);
+	int (*map_single)(struct mhi_controller *mhi_cntrl,
+			  struct mhi_buf_info *buf);
+	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
+			     struct mhi_buf_info *buf);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
+
+	/* bounce buffer settings */
+	bool bounce_buf;
+	size_t buffer_len;
+
+	/* supports time sync feature */
+	bool time_sync;
+	struct mhi_timesync *mhi_tsync;
+	struct mhi_device *tsync_dev;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;
@@ -224,6 +255,7 @@ struct mhi_controller {
  * @mtu: Maximum # of bytes controller support
  * @ul_chan_id: MHI channel id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
+ * @tiocm: Device current terminal settings
  * @priv: Driver private data
  */
 struct mhi_device {
@@ -237,12 +269,14 @@ struct mhi_device {
 	int dl_chan_id;
 	int ul_event_id;
 	int dl_event_id;
+	u32 tiocm;
 	const struct mhi_device_id *id;
 	const char *chan_name;
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_chan *ul_chan;
 	struct mhi_chan *dl_chan;
 	atomic_t dev_wake;
+	enum mhi_device_type dev_type;
 	void *priv_data;
 	int (*ul_xfer)(struct mhi_device *, struct mhi_chan *, void *,
 		       size_t, enum MHI_FLAGS);

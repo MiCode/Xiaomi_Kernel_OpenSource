@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1192,6 +1192,9 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);
+
+	dev_info(&pdev->dev, "Bus scaling driver probe successful\n");
+
 exit_device_probe:
 	return ret;
 }

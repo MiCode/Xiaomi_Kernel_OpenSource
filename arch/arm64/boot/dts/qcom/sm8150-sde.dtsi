@@ -26,11 +26,13 @@
 			<&clock_gcc GCC_DISP_HF_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
+			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_MDP_LUT_CLK>;
 		clock-names = "gcc_iface", "gcc_bus",
-				"iface_clk", "core_clk", "vsync_clk";
-		clock-rate = <0 0 0 300000000 19200000>;
-		clock-max-rate = <0 0 0 460000000 19200000>;
+				"iface_clk", "core_clk", "vsync_clk",
+				"lut_clk";
+		clock-rate = <0 0 0 300000000 19200000 300000000>;
+		clock-max-rate = <0 0 0 460000000 19200000 460000000>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
@@ -193,12 +195,7 @@
 		qcom,sde-qos-cpu-mask = <0x3>;
 		qcom,sde-qos-cpu-dma-latency = <300>;
 
-		qcom,sde-inline-rotator = <&mdss_rotator 0>;
-		qcom,sde-inline-rot-xin = <10 11>;
-		qcom,sde-inline-rot-xin-type = "sspp", "wb";
-
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
-		qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
 		qcom,sde-reg-dma-off = <0>;
 		qcom,sde-reg-dma-version = <0x00010001>;
@@ -240,6 +237,7 @@
 			qcom,sde-dspp-gamut = <0x1000 0x00040001>;
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
+			qcom,sde-dspp-dither = <0x82c 0x00010007>;
 		};
 
 		qcom,platform-supply-entries {
@@ -419,13 +417,6 @@
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
 		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0000ffff>;
 
-		/* Inline rotator QoS Setting */
-		/* setting default register values for RD - qos/danger/safe */
-		qcom,mdss-inline-rot-qos-lut = <0x44556677 0x00112233
-							0x44556677 0x00112233>;
-		qcom,mdss-inline-rot-danger-lut = <0x0055aaff 0x0000ffff>;
-		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000f000>;
-
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 
@@ -485,7 +476,7 @@
 				qcom,supply-min-voltage = <1200000>;
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <21800>;
-				qcom,supply-disable-load = <4>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 		qcom,core-supply-entries {
@@ -531,7 +522,7 @@
 				qcom,supply-min-voltage = <1200000>;
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <21800>;
-				qcom,supply-disable-load = <4>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 		qcom,core-supply-entries {
@@ -576,7 +567,7 @@
 				qcom,supply-min-voltage = <880000>;
 				qcom,supply-max-voltage = <880000>;
 				qcom,supply-enable-load = <36000>;
-				qcom,supply-disable-load = <32>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 	};
@@ -608,7 +599,7 @@
 				qcom,supply-min-voltage = <880000>;
 				qcom,supply-max-voltage = <880000>;
 				qcom,supply-enable-load = <36000>;
-				qcom,supply-disable-load = <32>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 	};
@@ -690,7 +681,7 @@
 				qcom,supply-min-voltage = <1200000>;
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <21800>;
-				qcom,supply-disable-load = <4>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 
@@ -704,7 +695,7 @@
 				qcom,supply-min-voltage = <880000>;
 				qcom,supply-max-voltage = <880000>;
 				qcom,supply-enable-load = <36000>;
-				qcom,supply-disable-load = <32>;
+				qcom,supply-disable-load = <0>;
 			};
 		};
 

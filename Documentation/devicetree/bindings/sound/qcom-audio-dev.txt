@@ -300,6 +300,11 @@ Required properties:
  - compatible : "qcom,msm-audio-apr"
 		This device is added to represent APR module.
 
+ - qcom,subsys-name: This value provides the subsystem name where codec
+		is present. It can be "apr_modem" or "apr_adsp". This
+		property enable apr driver to receive subsystem up/down
+		notification from modem/adsp.
+
 * msm-ocmem-audio
 
 Required properties:
@@ -650,6 +655,7 @@ Example:
 
 	audio_apr: qcom,msm-audio-apr {
 		compatible = "qcom,msm-audio-apr";
+		qcom,subsys-name = "apr_adsp";
 	};
 
 	qcom,msm-ocmem-audio {

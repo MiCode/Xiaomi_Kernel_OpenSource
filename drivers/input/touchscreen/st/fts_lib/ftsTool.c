@@ -699,7 +699,7 @@ int pollForEvent(int *event_to_search, int event_bytes,
 			temp = printHex("ERROR EVENT = ",
 				readData, FIFO_EVENT_SIZE);
 			if (temp != NULL)
-				logError(1, "%s %s", tag, temp);
+				logError(0, "%s %s", tag, temp);
 			kfree(temp);
 			count_err++;
 			err_handling = errorHandler(readData, FIFO_EVENT_SIZE);
@@ -715,13 +715,13 @@ int pollForEvent(int *event_to_search, int event_bytes,
 				temp = printHex("READ EVENT = ",
 					readData, FIFO_EVENT_SIZE);
 				if (temp != NULL)
-					logError(1, "%s %s", tag, temp);
+					logError(0, "%s %s", tag, temp);
 				kfree(temp);
 			}
 			if (readData[0] == EVENTID_CONTROL_READY &&
 				event_to_search[0] != EVENTID_CONTROL_READY) {
-				logError(1, "Unmanned Controller Ready Event!");
-				logError(1, "%s %s:Setting reset flags...\n",
+				logError(0, "Unmanned Controller Ready Event!");
+				logError(0, "%s %s:Setting reset flags...\n",
 					tag, __func__);
 				setSystemResettedUp(1);
 				setSystemResettedDown(1);
@@ -742,7 +742,7 @@ int pollForEvent(int *event_to_search, int event_bytes,
 	}
 	stopStopWatch(&clock);
 	if ((retry >= time_to_count) && find != 1) {
-		logError(1, "%s %s: ERROR %02X\n",
+		logError(0, "%s %s: ERROR %02X\n",
 			tag, __func__,  ERROR_TIMEOUT);
 		return ERROR_TIMEOUT;
 	}
@@ -756,7 +756,7 @@ int pollForEvent(int *event_to_search, int event_bytes,
 		logError(0, "Number of errors found = %d\n", count_err);
 		return count_err;
 	}
-	logError(1, "%s %s: ERROR %02X\n", tag, __func__, ERROR_I2C_R);
+	logError(0, "%s %s: ERROR %02X\n", tag, __func__, ERROR_I2C_R);
 	return ERROR_I2C_R;
 }
 
@@ -905,7 +905,7 @@ int attempt_function(int(*code)(void), unsigned long wait_before_retry,
 void setResetGpio(int gpio)
 {
 	reset_gpio = gpio;
-	logError(1, "%s %s: reset_gpio = %d\n", tag, __func__, reset_gpio);
+	logError(0, "%s %s: reset_gpio = %d\n", tag, __func__, reset_gpio);
 }
 
 int fts_system_reset(void)
@@ -939,7 +939,7 @@ int fts_system_reset(void)
 			res = pollForEvent(&event_to_search, 1,
 					readData, GENERAL_TIMEOUT);
 			if (res < OK) {
-				logError(1, "%s %s: ERROR %02X\n",
+				logError(0, "%s %s: ERROR %02X\n",
 					tag, __func__, res);
 			}
 		}
@@ -1073,7 +1073,7 @@ int checkEcho(u8 *cmd, int size)
 	u8 readData[FIFO_EVENT_SIZE];
 
 	if ((ftsInfo.u32_echoEn & 0x00000001) != ECHO_ENABLED) {
-		logError(1, "%s ECHO Not Enabled!\n", tag);
+		logError(0, "%s ECHO Not Enabled!\n", tag);
 		return OK;
 	}
 	if (size < 1) {
@@ -1157,7 +1157,7 @@ int writeNoiseParameters(u8 *noise)
 	ret = fts_writeCmd(cmd, NOISE_PARAMETERS_SIZE + 2);
 	//not use writeFwCmd because this function should be fast
 	if (ret < OK) {
-		logError(1, "%s %s:impossible write command... ERROR %02X\n",
+		logError(0, "%s %s:impossible write command... ERROR %02X\n",
 			tag, __func__, ret);
 		ret = (ret | ERROR_NOISE_PARAMETERS);
 			goto ERROR;
@@ -1165,7 +1165,7 @@ int writeNoiseParameters(u8 *noise)
 
 	ret = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
 	if (ret < OK) {
-		logError(1, "%s %s: polling FIFO ERROR %02X\n",
+		logError(0, "%s %s: polling FIFO ERROR %02X\n",
 			tag, __func__, ret);
 		ret = (ret | ERROR_NOISE_PARAMETERS);
 			goto ERROR;
@@ -1209,7 +1209,7 @@ int readNoiseParameters(u8 *noise)
 	cmd[1] = NOISE_PARAMETERS;
 	ret = fts_writeCmd(cmd, 2);//not use writeFwCmd should be fast
 	if (ret < OK) {
-		logError(1, "%s %s:impossible write command... ERROR %02X\n",
+		logError(0, "%s %s:impossible write command... ERROR %02X\n",
 			tag, __func__, ret);
 		ret = (ret | ERROR_NOISE_PARAMETERS);
 			goto ERROR;
@@ -1217,7 +1217,7 @@ int readNoiseParameters(u8 *noise)
 
 	ret = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
 	if (ret < OK) {
-		logError(1, "%s %s: polling FIFO ERROR %02X\n",
+		logError(0, "%s %s: polling FIFO ERROR %02X\n",
 			tag, __func__, ret);
 		ret = (ret | ERROR_NOISE_PARAMETERS);
 			goto ERROR;

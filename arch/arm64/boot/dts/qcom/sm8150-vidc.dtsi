@@ -124,9 +124,9 @@
 		};
 
 		/* Memory Heaps */
-		qcom,msm-vidc,mem_adsp {
-			compatible = "qcom,msm-vidc,mem-adsp";
-			memory-region = <&adsp_mem>;
+		qcom,msm-vidc,mem_cdsp {
+			compatible = "qcom,msm-vidc,mem-cdsp";
+			memory-region = <&cdsp_mem>;
 		};
 	};
 };

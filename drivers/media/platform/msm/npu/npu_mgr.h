@@ -17,6 +17,7 @@
  * Includes
  * -------------------------------------------------------------------------
  */
+#include <linux/spinlock.h>
 #include "npu_hw_access.h"
 
 /* -------------------------------------------------------------------------
@@ -50,12 +51,22 @@ struct npu_network {
 	uint32_t ipc_trans_id;
 	uint32_t priority;
 	uint32_t perf_mode;
+
+	bool cmd_error;
+};
+
+enum fw_state {
+	FW_DISABLED = 0,
+	FW_ENABLING = 1,
+	FW_DISABLING = 2,
+	FW_ENABLED = 3,
 };
 
 struct npu_host_ctx {
+	spinlock_t lock;
 	void *subsystem_handle;
-	bool fw_enabled;
-	bool power_enabled;
+	enum fw_state fw_state;
+	int32_t fw_ref_cnt;
 	int32_t power_vote_num;
 	struct work_struct irq_work;
 	struct workqueue_struct *wq;
@@ -65,6 +76,9 @@ struct npu_host_ctx {
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
+
+	uint32_t err_irq_sts;
+	uint32_t wdg_irq_sts;
 };
 
 struct npu_device;

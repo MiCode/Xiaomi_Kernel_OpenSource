@@ -143,6 +143,17 @@
 #define GPLL6_OUT_AUX					126
 #define MDSS_MDP_VOTE_CLK				127
 #define MDSS_ROTATOR_VOTE_CLK				128
+#define GCC_BIMC_GPU_CLK				129
+#define GCC_GTCU_AHB_CLK				130
+#define GCC_GFX_TCU_CLK					131
+#define GCC_GFX_TBU_CLK					132
+#define GCC_SMMU_CFG_CLK				133
+#define GCC_APSS_TCU_CLK				134
+#define GCC_CRYPTO_AHB_CLK				135
+#define GCC_CRYPTO_AXI_CLK				136
+#define GCC_CRYPTO_CLK					137
+#define GCC_MDP_TBU_CLK					138
+#define GCC_QDSS_DAP_CLK				139
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1
