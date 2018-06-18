@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016,2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,7 +132,9 @@ struct f_mbim {
 
 	atomic_t		error;
 	unsigned int		cpkt_drop_cnt;
+
 	bool			remote_wakeup_enabled;
+	struct delayed_work	rwake_work;
 };
 
 struct mbim_ntb_input_size {
@@ -665,6 +667,29 @@ static void mbim_clear_queues(struct f_mbim *mbim)
 		mbim_free_ctrl_pkt(cpkt);
 	}
 	spin_unlock(&mbim->lock);
+}
+
+static void mbim_remote_wakeup_work(struct work_struct *w)
+{
+	struct f_mbim	*mbim = container_of(w, struct f_mbim, rwake_work.work);
+	int		ret = 0;
+
+	if ((mbim->cdev->gadget->speed == USB_SPEED_SUPER) &&
+			!mbim->function.func_is_suspended){
+		pr_debug("%s: resume in progress\n", __func__);
+		return;
+	}
+
+	if ((mbim->cdev->gadget->speed == USB_SPEED_SUPER) &&
+			mbim->function.func_is_suspended)
+		ret = usb_func_wakeup(&mbim->function);
+	else
+		ret = usb_gadget_wakeup(mbim->cdev->gadget);
+
+	if (ret == -EBUSY || ret == -EAGAIN)
+		pr_debug("%s:RW delayed due to LPM exit %d\n",  __func__, ret);
+	else
+		pr_info("%s: remote wake-up failed: %d\n", __func__, ret);
 }
 
 /*
@@ -1285,6 +1310,8 @@ static void mbim_disable(struct usb_function *f)
 	struct usb_composite_dev *cdev = mbim->cdev;
 
 	pr_info("SET DEVICE OFFLINE\n");
+
+	cancel_delayed_work(&mbim->rwake_work);
 	atomic_set(&mbim->online, 0);
 	mbim->remote_wakeup_enabled = 0;
 
@@ -1362,6 +1389,13 @@ static void mbim_suspend(struct usb_function *f)
 
 	bam_data_suspend(&mbim->bam_port, mbim->port_num, USB_FUNC_MBIM,
 			 mbim->remote_wakeup_enabled);
+
+	if (mbim->remote_wakeup_enabled &&
+			atomic_read(&mbim->not_port.notify_count) > 0) {
+		pr_info("%s: pending notification, wakeup host\n", __func__);
+		schedule_delayed_work(&mbim->rwake_work,
+				      msecs_to_jiffies(2000));
+	}
 }
 
 static void mbim_resume(struct usb_function *f)
@@ -1380,6 +1414,8 @@ static void mbim_resume(struct usb_function *f)
 	if ((mbim->cdev->gadget->speed == USB_SPEED_SUPER) &&
 		f->func_is_suspended)
 		return;
+
+	cancel_delayed_work(&mbim->rwake_work);
 
 	/* resume control path by queuing notify req */
 	spin_lock(&mbim->lock);
@@ -1748,6 +1784,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
 	INIT_LIST_HEAD(&mbim->cpkt_resp_q);
+	INIT_DELAYED_WORK(&mbim->rwake_work, mbim_remote_wakeup_work);
 
 	status = usb_add_function(c, &mbim->function);
 
