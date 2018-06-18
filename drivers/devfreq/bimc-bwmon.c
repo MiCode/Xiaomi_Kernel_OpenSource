@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -669,6 +669,7 @@ static struct platform_driver bimc_bwmon_driver = {
 		.name = "bimc-bwmon",
 		.of_match_table = match_table,
 		.owner = THIS_MODULE,
+		.suppress_bind_attrs = true,
 	},
 };
 
