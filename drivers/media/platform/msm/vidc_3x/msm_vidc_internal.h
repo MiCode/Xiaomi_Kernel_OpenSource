@@ -316,7 +316,7 @@ struct msm_vidc_ctrl {
 	s32 maximum;
 	s32 default_value;
 	u32 step;
-	u32 menu_skip_mask;
+	u64 menu_skip_mask;
 	u32 flags;
 	const char * const *qmenu;
 };

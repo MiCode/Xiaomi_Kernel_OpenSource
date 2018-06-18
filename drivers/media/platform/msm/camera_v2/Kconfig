@@ -95,13 +95,22 @@ config MSM_EEPROM
           and also provides support for writing data in case of FLASH ROM.
 	  Currently supports I2C, CCI and SPI protocol
 
+config MSM_ISP_V1
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of CSID can be routed to of pix or raw
+          data interface in VFE.
+
 config MSM_ISPIF
         bool "QTI MSM Image Signal Processing interface support"
         depends on MSMB_CAMERA
         ---help---
           Enable support for Image Signal Processing interface module.
           This module acts as a crossbar between CSID and VFE. Output
-          of any CID of CSID can be routed to of of pix or raw
+          of any CID of CSID can be routed to of pix or raw
           data interface in VFE.
 
 config MSM_ISPIF_V1

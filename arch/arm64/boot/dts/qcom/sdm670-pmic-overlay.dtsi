@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &pm660_0{
 	pm660_charger: qcom,qpnp-smb2 {
 		compatible = "qcom,qpnp-smb2";

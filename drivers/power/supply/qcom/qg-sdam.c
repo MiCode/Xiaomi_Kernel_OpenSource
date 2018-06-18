@@ -68,6 +68,26 @@ static struct qg_sdam_info sdam_info[] = {
 		.offset = QG_SDAM_PON_OCV_OFFSET,
 		.length = 2,
 	},
+	[SDAM_ESR_CHARGE_DELTA] = {
+		.name	= "SDAM_ESR_CHARGE_DELTA",
+		.offset = QG_SDAM_ESR_CHARGE_DELTA_OFFSET,
+		.length = 4,
+	},
+	[SDAM_ESR_DISCHARGE_DELTA] = {
+		.name	= "SDAM_ESR_DISCHARGE_DELTA",
+		.offset = QG_SDAM_ESR_DISCHARGE_DELTA_OFFSET,
+		.length = 4,
+	},
+	[SDAM_ESR_CHARGE_SF] = {
+		.name	= "SDAM_ESR_CHARGE_SF_OFFSET",
+		.offset = QG_SDAM_ESR_CHARGE_SF_OFFSET,
+		.length = 2,
+	},
+	[SDAM_ESR_DISCHARGE_SF] = {
+		.name	= "SDAM_ESR_DISCHARGE_SF_OFFSET",
+		.offset = QG_SDAM_ESR_DISCHARGE_SF_OFFSET,
+		.length = 2,
+	},
 };
 
 int qg_sdam_write(u8 param, u32 data)

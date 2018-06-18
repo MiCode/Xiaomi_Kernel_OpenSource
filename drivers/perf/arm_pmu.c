@@ -1128,6 +1128,7 @@ int arm_pmu_device_probe(struct platform_device *pdev,
 	armpmu_init(pmu);
 
 	pmu->plat_device = pdev;
+	platform_set_drvdata(pdev, pmu);
 
 	if (node && (of_id = of_match_node(of_table, pdev->dev.of_node))) {
 		init_fn = of_id->data;

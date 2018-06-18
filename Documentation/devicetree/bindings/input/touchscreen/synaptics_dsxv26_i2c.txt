@@ -24,6 +24,7 @@ Optional property:
  - synaptics,reset-on-state      : reset gpio active state.
  - synaptics,power-on-state      : power switch active state.
  - synaptics,ub-i2c-addr	 : microbootloader mode I2C slave address.
+ - synaptics,do-not-disable-regulators	   : If specified, regulators cannot be disabled/enabled during suspend/resume.
  - synaptics,cap-button-codes  : virtual key code mappings to be used.
  - synaptics,vir-button-codes  : virtual key code and the response region on panel.
  - synaptics,wakeup-gestures-en: enable wakeup gestures.
@@ -33,6 +34,7 @@ Optional property:
  - synaptics,reset-active-ms	   : reset active duration for controller (ms), default 100.
  - synaptics,power-delay-ms	   : power delay for controller (ms), default 100.
  - synaptics,max-y-for-2d	   : maximal y value of the panel.
+ - synaptics,bus-lpm-cur-uA	   : I2C bus idle mode current setting.
  - synaptics,swap-axes		   : specify whether to swap axes.
  - synaptics,resume-in-workqueue	: specify whether to defer the resume to workqueue.
  - clock-names			: Clock names used for secure touch. They are: "iface_clk", "core_clk"

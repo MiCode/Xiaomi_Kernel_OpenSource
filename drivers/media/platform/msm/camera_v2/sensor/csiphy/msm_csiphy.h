@@ -250,6 +250,7 @@ struct csiphy_device {
 	uint8_t is_snps_phy;
 	enum snps_csiphy_state snps_state;
 	uint8_t num_clk_irq_registers;
+	uint64_t snps_programmed_data_rate;
 };
 
 #define VIDIOC_MSM_CSIPHY_RELEASE \

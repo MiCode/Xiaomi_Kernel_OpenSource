@@ -1,0 +1,61 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+smb1390: qcom,smb1390@10 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x10>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
+	interrupt-names = "smb1390";
+	interrupt-controller;
+	#interrupt-cells = <3>;
+	qcom,periph-map = <0x10>;
+
+	smb1390_revid: qcom,revid {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100>;
+	};
+
+	smb1390_charger: qcom,charge_pump {
+		compatible = "qcom,smb1390-charger";
+		qcom,pmic-revid = <&smb1390_revid>;
+		interrupt-parent = <&smb1390>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb1390_die_temp_default>;
+		qcom,smb-vadc = <&pm8998_vadc>;
+		qcom,channel-num = <0x14>;
+		status = "disabled";
+
+		qcom,core {
+			interrupts = <0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x4 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x6 IRQ_TYPE_EDGE_RISING>,
+				     <0x10 0x7 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "switcher-off-window",
+					  "switcher-off-fault",
+					  "tsd-fault",
+					  "irev-fault",
+					  "vph-ov-hard",
+					  "vph-ov-soft",
+					  "ilim",
+					  "temp-alarm";
+		};
+	};
+};

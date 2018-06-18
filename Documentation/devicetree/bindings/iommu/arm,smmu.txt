@@ -87,11 +87,6 @@ conditions.
 		When qcom,enable-static-cb is selected, indicates which
 		iommu context banks may be used by HLOS.
 
-- qcom,hibernation-support:
-		A boolean, indicates that hibernation should be supported and
-		all secure usecases should be disabled, since they cannot be
-		restored properly.
-
 - qcom,skip-init : Disable resetting configuration for all context banks
                   during device reset.  This is useful for targets where
                   some context banks are dedicated to other execution

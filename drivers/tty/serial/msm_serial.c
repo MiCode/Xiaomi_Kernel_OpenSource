@@ -395,10 +395,22 @@ no_rx:
 
 static inline void msm_wait_for_xmitr(struct uart_port *port)
 {
+	u32 count = 500000;
+
 	while (!(msm_read(port, UART_SR) & UART_SR_TX_EMPTY)) {
 		if (msm_read(port, UART_ISR) & UART_ISR_TX_READY)
 			break;
 		udelay(1);
+
+		/* At worst case, it is stuck in this loop for waiting
+		 * TX ready, have a 500ms timeout to avoid stuck here
+		 * and only miss some log to uart.
+		 */
+		if (count-- == 0) {
+			msm_write(port, UART_CR_CMD_RESET_TX, UART_CR);
+			printk_deferred("uart may lost data, resetting TX!\n");
+			break;
+		}
 	}
 	msm_write(port, UART_CR_CMD_RESET_TX_READY, UART_CR);
 }
@@ -1858,10 +1870,35 @@ static int msm_serial_resume(struct device *dev)
 
 	return 0;
 }
+
+static int msm_serial_freeze(struct device *dev)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+	struct msm_port *msm_port = UART_TO_MSM(port);
+	int ret;
+
+	ret = msm_serial_suspend(dev);
+	if (ret)
+		return ret;
+
+	/*
+	 * Set the rate as recommended to avoid issues where the clock
+	 * driver skips reconfiguring the clock hardware during
+	 * hibernation resume.
+	 */
+	return clk_set_rate(msm_port->clk, 19200000);
+}
 #endif
 
 static const struct dev_pm_ops msm_serial_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(msm_serial_suspend, msm_serial_resume)
+#ifdef CONFIG_PM_SLEEP
+	.suspend = msm_serial_suspend,
+	.resume = msm_serial_resume,
+	.freeze = msm_serial_freeze,
+	.thaw = msm_serial_resume,
+	.poweroff = msm_serial_suspend,
+	.restore = msm_serial_resume,
+#endif
 };
 
 static struct platform_driver msm_platform_driver = {

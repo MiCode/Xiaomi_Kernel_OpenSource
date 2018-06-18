@@ -19,7 +19,15 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/ipa_uc_offload.h>
+#include <linux/pci.h>
 #include "ipa_api.h"
+
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if IPA_EMULATION_COMPILE == 1
+# include "ipa_v3/ipa_emulation_stubs.h"
+#endif
 
 #define DRV_NAME "ipa"
 
@@ -95,6 +103,8 @@
 			} \
 		} \
 	} while (0)
+
+static bool running_emulation = IPA_EMULATION_COMPILE;
 
 static enum ipa_hw_type ipa_api_hw_type;
 static struct ipa_api_controller *ipa_api_ctrl;
@@ -2916,6 +2926,57 @@ static const struct of_device_id ipa_plat_drv_match[] = {
 	{}
 };
 
+/*********************************************************/
+/*                PCIe Version                           */
+/*********************************************************/
+
+static const struct of_device_id ipa_pci_drv_match[] = {
+	{ .compatible = "qcom,ipa", },
+	{}
+};
+
+/*
+ * Forward declarations of static functions required for PCI
+ * registraion
+ *
+ * VENDOR and DEVICE should be defined in pci_ids.h
+ */
+static int ipa_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
+static void ipa_pci_remove(struct pci_dev *pdev);
+static void ipa_pci_shutdown(struct pci_dev *pdev);
+static pci_ers_result_t ipa_pci_io_error_detected(struct pci_dev *dev,
+	pci_channel_state_t state);
+static pci_ers_result_t ipa_pci_io_slot_reset(struct pci_dev *dev);
+static void ipa_pci_io_resume(struct pci_dev *dev);
+
+#define LOCAL_VENDOR 0x17CB
+#define LOCAL_DEVICE 0x00ff
+
+static const char ipa_pci_driver_name[] = "qcipav3";
+
+static const struct pci_device_id ipa_pci_tbl[] = {
+	{ PCI_DEVICE(LOCAL_VENDOR, LOCAL_DEVICE) },
+	{ 0, 0, 0, 0, 0, 0, 0 }
+};
+
+MODULE_DEVICE_TABLE(pci, ipa_pci_tbl);
+
+/* PCI Error Recovery */
+static const struct pci_error_handlers ipa_pci_err_handler = {
+	.error_detected = ipa_pci_io_error_detected,
+	.slot_reset = ipa_pci_io_slot_reset,
+	.resume = ipa_pci_io_resume,
+};
+
+static struct pci_driver ipa_pci_driver = {
+	.name     = ipa_pci_driver_name,
+	.id_table = ipa_pci_tbl,
+	.probe    = ipa_pci_probe,
+	.remove   = ipa_pci_remove,
+	.shutdown = ipa_pci_shutdown,
+	.err_handler = &ipa_pci_err_handler
+};
+
 static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result;
@@ -3364,10 +3425,86 @@ static struct platform_driver ipa_plat_drv = {
 	},
 };
 
+/*********************************************************/
+/*                PCIe Version                           */
+/*********************************************************/
+
+static int ipa_pci_probe(
+	struct pci_dev             *pci_dev,
+	const struct pci_device_id *ent)
+{
+	int result;
+
+	if (!pci_dev || !ent) {
+		pr_err(
+		    "Bad arg: pci_dev (%pK) and/or ent (%pK)\n",
+		    pci_dev, ent);
+		return -EOPNOTSUPP;
+	}
+
+	if (!ipa_api_ctrl) {
+		ipa_api_ctrl = kzalloc(sizeof(*ipa_api_ctrl), GFP_KERNEL);
+		if (ipa_api_ctrl == NULL)
+			return -ENOMEM;
+		/* Get IPA HW Version */
+		result = of_property_read_u32(NULL,
+			"qcom,ipa-hw-ver", &ipa_api_hw_type);
+		if (result || ipa_api_hw_type == 0) {
+			pr_err("ipa: get resource failed for ipa-hw-ver!\n");
+			kfree(ipa_api_ctrl);
+			ipa_api_ctrl = NULL;
+			return -ENODEV;
+		}
+		pr_debug("ipa: ipa_api_hw_type = %d", ipa_api_hw_type);
+	}
+
+	/*
+	 * Call a reduced version of platform_probe appropriate for PCIe
+	 */
+	result = ipa3_pci_drv_probe(pci_dev, ipa_api_ctrl, ipa_pci_drv_match);
+
+	if (result && result != -EPROBE_DEFER)
+		pr_err("ipa: ipa3_pci_drv_probe failed\n");
+
+	if (running_emulation)
+		ipa_ut_module_init();
+
+	return result;
+}
+
+static void ipa_pci_remove(struct pci_dev *pci_dev)
+{
+	if (running_emulation)
+		ipa_ut_module_exit();
+}
+
+static void ipa_pci_shutdown(struct pci_dev *pci_dev)
+{
+}
+
+static pci_ers_result_t ipa_pci_io_error_detected(struct pci_dev *pci_dev,
+	pci_channel_state_t state)
+{
+	return 0;
+}
+
+static pci_ers_result_t ipa_pci_io_slot_reset(struct pci_dev *pci_dev)
+{
+	return 0;
+}
+
+static void ipa_pci_io_resume(struct pci_dev *pci_dev)
+{
+}
+
 static int __init ipa_module_init(void)
 {
 	pr_debug("IPA module init\n");
 
+	if (running_emulation) {
+		/* Register as a PCI device driver */
+		return pci_register_driver(&ipa_pci_driver);
+	}
 	/* Register as a platform device driver */
 	return platform_driver_register(&ipa_plat_drv);
 }

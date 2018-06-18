@@ -132,7 +132,7 @@
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x2400000>;
+			size = <0x400000>;
 		};
 	};
 

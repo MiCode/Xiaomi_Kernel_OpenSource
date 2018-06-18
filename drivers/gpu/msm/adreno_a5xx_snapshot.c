@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -412,6 +412,15 @@ static const unsigned int a5xx_registers[] = {
 	0xEC00, 0xEC05, 0xEC08, 0xECE9, 0xECF0, 0xECF0,
 	/* VPC CTX 1 */
 	0xEA80, 0xEA80, 0xEA82, 0xEAA3, 0xEAA5, 0xEAC2,
+};
+
+/*
+ * GPMU registers to dump for A5XX on snapshot.
+ * Registers in pairs - first value is the start offset, second
+ * is the stop offset (inclusive)
+ */
+
+static const unsigned int a5xx_gpmu_registers[] = {
 	/* GPMU */
 	0xA800, 0xA8FF, 0xAC60, 0xAC60,
 };
@@ -664,23 +673,22 @@ static size_t a5xx_snapshot_pre_crashdump_regs(struct kgsl_device *device,
 	return kgsl_snapshot_dump_registers(device, buf, remain, &pre_cdregs);
 }
 
+struct registers {
+	const unsigned int *regs;
+	size_t size;
+};
+
 static size_t a5xx_legacy_snapshot_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain)
+		u8 *buf, size_t remain, const unsigned int *regs, size_t size)
 {
-	struct kgsl_snapshot_registers regs = {
-		.regs = a5xx_registers,
-		.count = ARRAY_SIZE(a5xx_registers) / 2,
+	struct kgsl_snapshot_registers snapshot_regs = {
+		.regs = regs,
+		.count = size / 2,
 	};
 
-	return kgsl_snapshot_dump_registers(device, buf, remain, &regs);
+	return kgsl_snapshot_dump_registers(device, buf, remain,
+			&snapshot_regs);
 }
-
-static struct cdregs {
-	const unsigned int *regs;
-	unsigned int size;
-} _a5xx_cd_registers[] = {
-	{ a5xx_registers, ARRAY_SIZE(a5xx_registers) },
-};
 
 #define REG_PAIR_COUNT(_a, _i) \
 	(((_a)[(2 * (_i)) + 1] - (_a)[2 * (_i)]) + 1)
@@ -691,11 +699,13 @@ static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int *src = (unsigned int *) registers.hostptr;
-	unsigned int i, j, k;
+	struct registers *regs = (struct registers *)priv;
+	unsigned int j, k;
 	unsigned int count = 0;
 
 	if (crash_dump_valid == false)
-		return a5xx_legacy_snapshot_registers(device, buf, remain);
+		return a5xx_legacy_snapshot_registers(device, buf, remain,
+				regs->regs, regs->size);
 
 	if (remain < sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
@@ -704,24 +714,20 @@ static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 
 	remain -= sizeof(*header);
 
-	for (i = 0; i < ARRAY_SIZE(_a5xx_cd_registers); i++) {
-		struct cdregs *regs = &_a5xx_cd_registers[i];
+	for (j = 0; j < regs->size / 2; j++) {
+		unsigned int start = regs->regs[2 * j];
+		unsigned int end = regs->regs[(2 * j) + 1];
 
-		for (j = 0; j < regs->size / 2; j++) {
-			unsigned int start = regs->regs[2 * j];
-			unsigned int end = regs->regs[(2 * j) + 1];
+		if (remain < ((end - start) + 1) * 8) {
+			SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+			goto out;
+		}
 
-			if (remain < ((end - start) + 1) * 8) {
-				SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
-				goto out;
-			}
+		remain -= ((end - start) + 1) * 8;
 
-			remain -= ((end - start) + 1) * 8;
-
-			for (k = start; k <= end; k++, count++) {
-				*data++ = k;
-				*data++ = *src++;
-			}
+		for (k = start; k <= end; k++, count++) {
+			*data++ = k;
+			*data++ = *src++;
 		}
 	}
 
@@ -861,6 +867,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	unsigned int reg, i;
 	struct adreno_ringbuffer *rb;
+	struct registers regs;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
 	a5xx_hwcg_set(adreno_dev, false);
@@ -877,8 +884,20 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	/* Try to run the crash dumper */
 	_a5xx_do_crashdump(device);
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-		snapshot, a5xx_snapshot_registers, NULL);
+	regs.regs = a5xx_registers;
+	regs.size = ARRAY_SIZE(a5xx_registers);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
+			a5xx_snapshot_registers, &regs);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+		regs.regs = a5xx_gpmu_registers;
+		regs.size = ARRAY_SIZE(a5xx_gpmu_registers);
+
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+				snapshot, a5xx_snapshot_registers, &regs);
+	}
+
 
 	/* Dump SP TP HLSQ registers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
@@ -1035,17 +1054,23 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	 * To save the registers, we need 16 bytes per register pair for the
 	 * script and a dword for each register int the data
 	 */
-	for (i = 0; i < ARRAY_SIZE(_a5xx_cd_registers); i++) {
-		struct cdregs *regs = &_a5xx_cd_registers[i];
 
+	/* Each pair needs 16 bytes (2 qwords) */
+	script_size += (ARRAY_SIZE(a5xx_registers) / 2) * 16;
+
+	/* Each register needs a dword in the data */
+	for (j = 0; j < ARRAY_SIZE(a5xx_registers) / 2; j++)
+		data_size += REG_PAIR_COUNT(a5xx_registers, j) *
+			sizeof(unsigned int);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
 		/* Each pair needs 16 bytes (2 qwords) */
-		script_size += (regs->size / 2) * 16;
+		script_size += (ARRAY_SIZE(a5xx_gpmu_registers) / 2) * 16;
 
 		/* Each register needs a dword in the data */
-		for (j = 0; j < regs->size / 2; j++)
-			data_size += REG_PAIR_COUNT(regs->regs, j) *
+		for (j = 0; j < ARRAY_SIZE(a5xx_gpmu_registers) / 2; j++)
+			data_size += REG_PAIR_COUNT(a5xx_gpmu_registers, j) *
 				sizeof(unsigned int);
-
 	}
 
 	/*
@@ -1083,13 +1108,21 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	ptr = (uint64_t *) capturescript.hostptr;
 
 	/* For the registers, program a read command for each pair */
-	for (i = 0; i < ARRAY_SIZE(_a5xx_cd_registers); i++) {
-		struct cdregs *regs = &_a5xx_cd_registers[i];
 
-		for (j = 0; j < regs->size / 2; j++) {
-			unsigned int r = REG_PAIR_COUNT(regs->regs, j);
+	for (j = 0; j < ARRAY_SIZE(a5xx_registers) / 2; j++) {
+		unsigned int r = REG_PAIR_COUNT(a5xx_registers, j);
+		*ptr++ = registers.gpuaddr + offset;
+		*ptr++ = (((uint64_t) a5xx_registers[2 * j]) << 44)
+			| r;
+		offset += r * sizeof(unsigned int);
+	}
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+		for (j = 0; j < ARRAY_SIZE(a5xx_gpmu_registers) / 2; j++) {
+			unsigned int r = REG_PAIR_COUNT(a5xx_gpmu_registers, j);
 			*ptr++ = registers.gpuaddr + offset;
-			*ptr++ = (((uint64_t) regs->regs[2 * j]) << 44) | r;
+			*ptr++ = (((uint64_t) a5xx_gpmu_registers[2 * j]) << 44)
+				| r;
 			offset += r * sizeof(unsigned int);
 		}
 	}

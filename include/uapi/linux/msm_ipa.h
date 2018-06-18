@@ -98,6 +98,8 @@
 #define IPA_IOCTL_CLEANUP                       56
 #define IPA_IOCTL_QUERY_WLAN_CLIENT             57
 #define IPA_IOCTL_GET_VLAN_MODE                 58
+#define IPA_IOCTL_ADD_BRIDGE_VLAN_MAPPING       59
+#define IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING       60
 
 /**
  * max size of the header to be inserted
@@ -512,7 +514,13 @@ enum ipa_per_client_stats_event {
 	IPA_PER_CLIENT_STATS_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_PER_CLIENT_STATS_EVENT_MAX)
+enum ipa_vlan_bridge_event {
+	ADD_BRIDGE_VLAN_MAPPING = IPA_PER_CLIENT_STATS_EVENT_MAX,
+	DEL_BRIDGE_VLAN_MAPPING,
+	BRIDGE_VLAN_MAPPING_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (BRIDGE_VLAN_MAPPING_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -1872,6 +1880,20 @@ struct ipa_ioc_get_vlan_mode {
 };
 
 /**
+ * struct ipa_ioc_bridge_vlan_mapping_info - vlan to bridge mapping info
+ * @bridge_name: bridge interface name
+ * @vlan_id: vlan ID bridge is mapped to
+ * @bridge_ipv4: bridge interface ipv4 address
+ * @subnet_mask: bridge interface subnet mask
+ */
+struct ipa_ioc_bridge_vlan_mapping_info {
+	char bridge_name[IPA_RESOURCE_NAME_MAX];
+	uint16_t vlan_id;
+	uint32_t bridge_ipv4;
+	uint32_t subnet_mask;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -2056,6 +2078,15 @@ struct ipa_ioc_get_vlan_mode {
 #define IPA_IOC_GET_VLAN_MODE _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_VLAN_MODE, \
 				struct ipa_ioc_get_vlan_mode *)
+
+#define IPA_IOC_ADD_BRIDGE_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_BRIDGE_VLAN_MAPPING, \
+				struct ipa_ioc_bridge_vlan_mapping_info)
+
+#define IPA_IOC_DEL_BRIDGE_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING, \
+				struct ipa_ioc_bridge_vlan_mapping_info)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */

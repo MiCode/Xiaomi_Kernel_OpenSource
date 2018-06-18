@@ -823,7 +823,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -846,7 +846,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)|
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO) |
+			(1ULL << V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -1564,6 +1565,7 @@ static void msm_venc_update_plane_count(struct msm_vidc_inst *inst, int type)
 		case V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB:
 		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
+		case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
 		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI:
 			inst->fmts[CAPTURE_PORT].num_planes = 2;
 		default:

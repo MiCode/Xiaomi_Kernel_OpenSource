@@ -6979,19 +6979,6 @@ static inline long qseecom_ioctl(struct file *file,
 		break;
 	}
 
-	case QSEECOM_IOCTL_SET_ENCDEC_INFO: {
-		struct qseecom_encdec_conf_t conf;
-
-		ret = copy_from_user(&conf, argp, sizeof(conf));
-		if (ret) {
-			pr_err("copy_from_user failed\n");
-			return -EFAULT;
-		}
-		ret = qcom_ice_set_fde_conf(conf.start_sector, conf.fs_size,
-					conf.index, conf.mode);
-		break;
-	}
-
 	case QSEECOM_IOCTL_UNREGISTER_LISTENER_REQ: {
 		if ((data->listener.id == 0) ||
 			(data->type != QSEECOM_LISTENER_SERVICE)) {

@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,19 +8,12 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
+#ifndef _ARCH_ARM_MACH_MSM_PM_BOOT_H
+#define _ARCH_ARM_MACH_MSM_PM_BOOT_H
 
-/dts-v1/;
+void msm_pm_boot_config_before_pc(unsigned int cpu, unsigned long entry);
+void msm_pm_boot_config_after_pc(unsigned int cpu);
 
-#include "apq8053-lite-lenovo-v1.0.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite Lenovo v1.0 Board";
-	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
-			"qcom,dragonboard";
-	qcom,board-id= <0x01010020 0>;
-};
-
-&blsp2_uart0 {
-	status = "okay";
-};
+#endif

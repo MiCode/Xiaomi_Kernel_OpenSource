@@ -901,6 +901,51 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+static int msm_vidc_create_tile_info_table(struct msm_vidc_inst *inst)
+{
+	int i = 0, j = 0;
+	u32 width = 0, height = 0;
+	u32 trows = 0, tcols = 0;
+
+	/* Don't create table for non-HEIC formats*/
+	if (inst->img_grid_dimension <= 0 ||
+		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+		return 0;
+
+	width = inst->prop.width[OUTPUT_PORT];
+	height = inst->prop.height[OUTPUT_PORT];
+	tcols = (width + inst->img_grid_dimension - 1) /
+		inst->img_grid_dimension;
+	trows = (height + inst->img_grid_dimension - 1) /
+		inst->img_grid_dimension;
+	inst->tinfo.count = trows * tcols;
+	if (inst->tinfo.count > MAX_HEIC_TILES_COUNT) {
+		dprintk(VIDC_ERR,
+			"Tiles count (%d) exceeds maximum\n",
+			inst->tinfo.count);
+		return -ENOTSUPP;
+	}
+
+	dprintk(VIDC_DBG,
+		"Grid dimension %d width %d height %d row %d col %d\n",
+		inst->img_grid_dimension, width, height,
+		trows, tcols);
+
+	for (j = 0; j < trows; ++j) {
+		for (i = 0; i < tcols; ++i) {
+			inst->tinfo.tile_rects[j*tcols+i].left =
+				(i * inst->img_grid_dimension);
+			inst->tinfo.tile_rects[j*tcols+i].top =
+				(j * inst->img_grid_dimension);
+			inst->tinfo.tile_rects[j*tcols+i].width =
+				inst->img_grid_dimension;
+			inst->tinfo.tile_rects[j*tcols+i].height =
+				inst->img_grid_dimension;
+		}
+	}
+	return 0;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -908,6 +953,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct hal_buffer_size_minimum b;
 
 	hdev = inst->core->device;
+
+	/* Create tile info table */
+	rc = msm_vidc_create_tile_info_table(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "Tile info table was not generated\n");
+		goto fail_start;
+	}
 
 	/* Check if current session is under HW capability */
 	rc = msm_vidc_check_session_supported(inst);

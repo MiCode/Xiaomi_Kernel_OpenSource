@@ -66,7 +66,16 @@ x_tmp		.req	x8
 	.macro	get_clock_shifted_nsec res, cycle_last, mult
 	/* Read the virtual counter. */
 	isb
+#if IS_ENABLED(CONFIG_MSM_TIMER_LEAP)
+#define LEAST_32BITS	0x00000000FFFFFFFF
+9999:
+	mrs x_tmp, cntvct_el0
+	and \res, x_tmp, #LEAST_32BITS
+	eor \res, \res, #LEAST_32BITS
+	cbz \res, 9999b
+#else
 	mrs	x_tmp, cntvct_el0
+#endif
 	/* Calculate cycle delta and convert to ns. */
 	sub	\res, x_tmp, \cycle_last
 	/* We can only guarantee 56 bits of precision. */

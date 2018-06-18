@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -524,7 +524,7 @@ static void a4xx_protect_init(struct adreno_device *adreno_dev)
 	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
 	if (iommu_regs)
 		adreno_set_protected_registers(adreno_dev, &index,
-				iommu_regs->base, iommu_regs->range);
+				iommu_regs->base, ilog2(iommu_regs->range));
 }
 
 static struct adreno_snapshot_sizes a4xx_snap_sizes = {

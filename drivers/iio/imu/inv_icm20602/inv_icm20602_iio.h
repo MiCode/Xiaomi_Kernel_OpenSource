@@ -180,7 +180,7 @@ struct icm20602_user_config {
 	uint32_t user_fps_in_ms;
 
 	bool fifo_enabled;
-	uint32_t fifo_waterlevel;
+	uint16_t fifo_waterlevel;
 	struct X_Y_Z wake_on_motion;
 };
 
@@ -257,19 +257,21 @@ struct struct_icm20602_real_data {
 
 struct struct_icm20602_data {
 	s64 timestamps;
-	struct struct_icm20602_raw_data raw_data;
-	struct struct_icm20602_real_data real_data;
+	u8 *raw_data;
 };
 
 extern struct iio_trigger *inv_trig;
 irqreturn_t inv_icm20602_irq_handler(int irq, void *p);
 irqreturn_t inv_icm20602_read_fifo_fn(int irq, void *p);
-int inv_icm20602_reset_fifo(struct iio_dev *indio_dev);
 
 int inv_icm20602_probe_trigger(struct iio_dev *indio_dev);
 void inv_icm20602_remove_trigger(struct inv_icm20602_state *st);
 int inv_icm20602_validate_trigger(struct iio_dev *indio_dev,
 				struct iio_trigger *trig);
+int icm20602_int_status(struct inv_icm20602_state *st, u8 *int_status);
+int icm20602_int_wm_status(struct inv_icm20602_state *st, u8 *int_status);
+int icm20602_reset_fifo(struct inv_icm20602_state *st);
+int icm20602_fifo_count(struct inv_icm20602_state *st, u16 *fifo_count);
 
 int icm20602_read_raw(struct inv_icm20602_state *st,
 		struct struct_icm20602_real_data *real_data, uint32_t type);

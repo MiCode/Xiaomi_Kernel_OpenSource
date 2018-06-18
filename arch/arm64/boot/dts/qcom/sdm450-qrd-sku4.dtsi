@@ -189,6 +189,15 @@
 			output-enable;
 		};
 	};
+
+	pmi632_sense {
+		/* GPIO 7 and 8 are external-sense pins for PMI632 */
+		pmi632_sense_default: pmi632_sense_default {
+			pins = "gpio7", "gpio8";
+			bias-high-impedance;	/* disable the GPIO */
+			bias-disable;		/* no-pull */
+		};
+	};
 };
 
 &tlmm {
@@ -209,7 +218,7 @@
 &smb1355_0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-			&smb_en_default>;
+		&smb_en_default &pmi632_sense_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_0: qcom,smb1355-charger@1000 {
@@ -223,7 +232,7 @@
 &smb1355_1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-			&smb_en_default>;
+		&smb_en_default &pmi632_sense_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_1: qcom,smb1355-charger@1000 {

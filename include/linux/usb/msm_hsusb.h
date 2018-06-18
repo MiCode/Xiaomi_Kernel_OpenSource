@@ -44,6 +44,33 @@ enum usb_noc_mode {
 };
 
 /**
+ * Different states involved in USB charger detection.
+ *
+ * USB_CHG_STATE_UNDEFINED	USB charger is not connected or detection
+ *                              process is not yet started.
+ * USB_CHG_STATE_IN_PROGRESS	Charger detection in progress
+ * USB_CHG_STATE_WAIT_FOR_DCD	Waiting for Data pins contact.
+ * USB_CHG_STATE_DCD_DONE	Data pin contact is detected.
+ * USB_CHG_STATE_PRIMARY_DONE	Primary detection is completed (Detects
+ *                              between SDP and DCP/CDP).
+ * USB_CHG_STATE_SECONDARY_DONE	Secondary detection is completed (Detects
+ *                              between DCP and CDP).
+ * USB_CHG_STATE_DETECTED	USB charger type is determined.
+ * USB_CHG_STATE_QUEUE_SM_WORK	SM work to start/stop gadget is queued.
+ *
+ */
+enum usb_chg_state {
+	USB_CHG_STATE_UNDEFINED = 0,
+	USB_CHG_STATE_IN_PROGRESS,
+	USB_CHG_STATE_WAIT_FOR_DCD,
+	USB_CHG_STATE_DCD_DONE,
+	USB_CHG_STATE_PRIMARY_DONE,
+	USB_CHG_STATE_SECONDARY_DONE,
+	USB_CHG_STATE_DETECTED,
+	USB_CHG_STATE_QUEUE_SM_WORK,
+};
+
+/**
  * USB charger types
  *
  * USB_INVALID_CHARGER	Invalid USB charger.
@@ -126,7 +153,10 @@ enum usb_id_state {
  * @async_int: IRQ line on which ASYNC interrupt arrived in LPM.
  * @cur_power: The amount of mA available from downstream port.
  * @otg_wq: Strict order otg workqueue for OTG works (SM/ID/SUSPEND).
+ * @chg_work: Charger detection work.
+ * @chg_state: The state of charger detection process.
  * @chg_type: The type of charger attached.
+ * @chg_detection: True if PHY is doing charger type detection.
  * @bus_perf_client: Bus performance client handle to request BUS bandwidth
  * @host_bus_suspend: indicates host bus suspend or not.
  * @device_bus_suspend: indicates device bus suspend or not.
@@ -149,6 +179,7 @@ enum usb_id_state {
  * @max_nominal_system_clk_rate: max freq at which system clock can run in
 		nominal mode.
  * @sdp_check: SDP detection work in case of USB_FLOAT power supply
+ * @notify_charger_work: Charger notification work.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -191,8 +222,11 @@ struct msm_otg {
 	int async_int;
 	unsigned int cur_power;
 	struct workqueue_struct *otg_wq;
+	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
+	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
+	bool chg_detection;
 	unsigned int dcd_time;
 	unsigned long caps;
 	uint32_t bus_perf_client;
@@ -278,7 +312,7 @@ struct msm_otg {
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
 	struct delayed_work sdp_check;
-	struct work_struct notify_chg_current_work;
+	struct work_struct notify_charger_work;
 };
 
 struct ci13xxx_platform_data {

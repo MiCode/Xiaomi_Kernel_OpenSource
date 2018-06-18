@@ -22,6 +22,9 @@
 #include <asm/smp_plat.h>
 #include <asm/fixmap.h>
 #include "platsmp.h"
+#ifdef CONFIG_MSM_PM_LEGACY
+#include <soc/qcom/pm-legacy.h>
+#endif
 
 #define MSM_APCS_IDR 0x0B011030
 
@@ -62,10 +65,18 @@ static void qcom_cpu_die(unsigned int cpu)
 {
 	wfi();
 }
+
+static bool qcom_cpu_can_disable(unsigned int cpu)
+{
+	return true; /*Hotplug of any CPU is supported */
+}
 #endif
 
 static void qcom_secondary_init(unsigned int cpu)
 {
+#ifdef CONFIG_MSM_PM_LEGACY
+	WARN_ON(msm_platform_secondary_init(cpu));
+#endif
 	/*
 	 * Synchronise with the boot thread.
 	 */
@@ -472,7 +483,13 @@ struct smp_operations msm8909_smp_ops __initdata = {
 	.smp_secondary_init = qcom_secondary_init,
 	.smp_boot_secondary = msm8909_boot_secondary,
 #ifdef CONFIG_HOTPLUG_CPU
+#ifdef CONFIG_MSM_PM_LEGACY
+	.cpu_die		= qcom_cpu_die_legacy,
+	.cpu_kill		= qcom_cpu_kill_legacy,
+#else
 	.cpu_die		= qcom_cpu_die,
+#endif
+	.cpu_can_disable	= qcom_cpu_can_disable,
 #endif
 };
 

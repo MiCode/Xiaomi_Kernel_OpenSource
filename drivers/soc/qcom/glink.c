@@ -1775,6 +1775,18 @@ struct glink_core_tx_pkt *ch_get_tx_pending_remote_done(
 			return tx_pkt;
 		}
 	}
+	list_for_each_entry(tx_pkt, &ctx->tx_active, list_node) {
+		if (tx_pkt->riid == riid) {
+			if (tx_pkt->size_remaining) {
+				GLINK_ERR_CH(ctx, "%s: R[%u] TX not complete",
+						__func__, riid);
+				tx_pkt = NULL;
+			}
+			spin_unlock_irqrestore(
+				&ctx->tx_pending_rmt_done_lock_lhc4, flags);
+			return tx_pkt;
+		}
+	}
 	spin_unlock_irqrestore(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 
 	GLINK_ERR_CH(ctx, "%s: R[%u] Tx packet for intent not found.\n",
@@ -1805,6 +1817,20 @@ void ch_remove_tx_pending_remote_done(struct channel_ctx *ctx,
 	spin_lock_irqsave(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 	list_for_each_entry_safe(local_tx_pkt, tmp_tx_pkt,
 			&ctx->tx_pending_remote_done, list_done) {
+		if (tx_pkt == local_tx_pkt) {
+			list_del_init(&tx_pkt->list_done);
+			GLINK_DBG_CH(ctx,
+				"%s: R[%u] Removed Tx packet for intent\n",
+				__func__,
+				tx_pkt->riid);
+			rwref_put(&tx_pkt->pkt_ref);
+			spin_unlock_irqrestore(
+				&ctx->tx_pending_rmt_done_lock_lhc4, flags);
+			return;
+		}
+	}
+	list_for_each_entry_safe(local_tx_pkt, tmp_tx_pkt,
+				&ctx->tx_active, list_node) {
 		if (tx_pkt == local_tx_pkt) {
 			list_del_init(&tx_pkt->list_done);
 			GLINK_DBG_CH(ctx,
@@ -5578,12 +5604,6 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 		tx_info = list_first_entry(&ctx->tx_active,
 				struct glink_core_tx_pkt, list_node);
 		rwref_get(&tx_info->pkt_ref);
-
-		spin_lock(&ctx->tx_pending_rmt_done_lock_lhc4);
-		if (list_empty(&tx_info->list_done))
-			list_add(&tx_info->list_done,
-				 &ctx->tx_pending_remote_done);
-		spin_unlock(&ctx->tx_pending_rmt_done_lock_lhc4);
 		spin_unlock_irqrestore(&ctx->tx_lists_lock_lhc3, flags);
 
 		if (unlikely(tx_info->tracer_pkt)) {
@@ -5648,9 +5668,16 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 		txd_len += tx_len;
 		if (!tx_info->size_remaining) {
 			num_pkts++;
+			spin_lock(&ctx->tx_pending_rmt_done_lock_lhc4);
 			list_del_init(&tx_info->list_node);
+			if (list_empty(&tx_info->list_done))
+				list_add(&tx_info->list_done,
+					&ctx->tx_pending_remote_done);
+			rwref_put(&tx_info->pkt_ref);
+			spin_unlock(&ctx->tx_pending_rmt_done_lock_lhc4);
+		} else {
+			rwref_put(&tx_info->pkt_ref);
 		}
-		rwref_put(&tx_info->pkt_ref);
 	}
 
 	ctx->txd_len += txd_len;

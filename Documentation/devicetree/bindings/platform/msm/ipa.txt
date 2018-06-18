@@ -118,6 +118,10 @@ Optional properties:
     controller phandle and "clk_ipa_clk" as macro for "iface_clk"
 - clock-names: This property shall contain the clock input names used
     by driver in same order as the clocks property.This should be "iface_clk"
+- emulator-bar0-offset: Specifies the offset, within PCIe BAR0, where
+    IPA/GSI programmable registers reside.  This property is used only
+    with the IPA/GSI emulation system, which is connected to and
+    communicated with via PCIe.
 
 IPA SMMU sub nodes
 

@@ -109,6 +109,10 @@ Parent node optional properties:
 					this. If this property is not specified,
 					low battery voltage threshold will be
 					configured to 4200 mV.
+- qcom,fg-rconn-mohm:			Battery connector resistance (Rconn) in
+					milliohms. If Rconn is specified, then
+					Rslow values will be updated to account
+					it for an accurate ESR.
 - qcom,cycle-counter-en:		Boolean property which enables the cycle
 					counter feature. If this property is
 					present, then the following properties
@@ -143,6 +147,14 @@ Parent node optional properties:
 					battery voltage shadow and the current
 					predicted voltage in uV to initiate
 					capacity learning.
+- qcom,cl-max-limit-deciperc:		The maximum percent that the capacity
+					cannot go above during any capacity
+					learning cycle. This property is in the
+					unit of .1% increments.
+- qcom,cl-min-limit-deciperc:		The minimum percent that the capacity
+					cannot go below during any capacity
+					learning cycle. This property is in the
+					unit of .1% increments.
 - qcom,capacity-estimation-on:		A boolean property to have the fuel
 					gauge driver attempt to estimate the
 					battery capacity using battery
@@ -178,6 +190,97 @@ Parent node optional properties:
 					settings will be different from default.
 					Once SOC crosses 5%, ESR pulse timings
 					will be restored back to default.
+- qcom,fg-control-slope-limiter:	A boolean property to specify if SOC
+					slope limiter coefficients needs to
+					be modified based on charging status
+					and battery temperature threshold.
+- qcom,fg-slope-limit-temp-threshold:	Temperature threshold in decidegC used
+					for applying the slope coefficient based
+					on charging status and battery
+					temperature. If this property is not
+					specified, a default value of 100 (10C)
+					will be applied by default.
+- qcom,fg-slope-limit-low-temp-chg:	When the temperature goes below the
+					specified temperature threshold and
+					battery is charging, slope coefficient
+					specified with this property will be
+					applied. If this property is not
+					specified, a default value of 45 will be
+					applied.
+- qcom,fg-slope-limit-low-temp-dischg:	Same as "qcom,fg-slope-limit-low-temp-chg"
+					except this is when the battery is
+					discharging.
+- qcom,fg-slope-limit-high-temp-chg:	When the temperature goes above the
+					specified temperature threshold and
+					battery is charging, slope coefficient
+					specified with this property will be
+					applied. If this property is not
+					specified, a default value of 2 will be
+					applied.
+- qcom,fg-slope-limit-high-temp-dischg:	Same as "qcom,fg-slope-limit-high-temp-chg"
+					except this is when the battery is
+					discharging.
+- qcom,fg-dischg-voltage-gain-ctrl:	A boolean property to specify if the
+					voltage gain needs to be modified
+					during discharging based on monotonic
+					soc.
+- qcom,fg-dischg-voltage-gain-soc:	Array of monotonic SOC threshold values
+					to change the voltage gain settings
+					during discharge. This should be defined
+					in the ascending order and in the range
+					of 0-100. Array limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain settings.
+- qcom,fg-dischg-med-voltage-gain:	Array of voltage gain values that needs
+					to be applied to medC voltage gain when
+					the monotonic SOC goes below the SOC
+					threshold specified under
+					qcom,fg-dischg-voltage-gain-soc. Array
+					limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain setting.
+- qcom,fg-dischg-high-voltage-gain:	Array of voltage gain values that needs
+					to be applied to highC voltage gain when
+					the monotonic SOC goes below the SOC
+					threshold specified under
+					qcom,fg-dischg-voltage-gain-soc. Array
+					limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain setting.
+- qcom,fg-use-vbat-low-empty-soc:	A boolean property to specify whether
+					vbatt-low interrupt is used to handle
+					empty battery condition. If this is
+					not specified, empty battery condition
+					is detected by empty-soc interrupt.
+- qcom,fg-batt-temp-low-limit:		Battery temperature (in decidegC) low
+					limit  which will be used to validate
+					the battery temperature reading from FG.
+					If the battery temperature goes below
+					this limit, last read good temperature
+					will be notified to userspace. If this
+					limit is not specified, then the
+					default limit would be -60C.
+- qcom,fg-batt-temp-high-limit:		Battery temperature (in decidegC) high
+					limit  which will be used to validate
+					the battery temperature reading from FG.
+					If the battery temperature goes above
+					this limit, last read good temperature
+					will be notified to userspace. If this
+					limit is not specified, then the
+					default limit would be 150C.
+- qcom,fg-cc-soc-limit-pct:		Percentage of CC_SOC before resetting
+					FG and restore the full CC_SOC value.
+- qcom,fg-restore-batt-info:		A boolean property to specify whether
+					battery parameters needs to be
+					restored. If this feature is enabled,
+					then validating the battery parameters
+					by OCV/battery SOC, validation range
+					in percentage should be specified via
+					appropriate module parameters to make
+					it work properly.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.

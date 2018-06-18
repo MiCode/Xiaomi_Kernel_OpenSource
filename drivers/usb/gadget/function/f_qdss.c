@@ -1205,7 +1205,7 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	return &usb_qdss->port.function;
 }
 
-DECLARE_USB_FUNCTION_INIT(qdss, qdss_alloc_inst, qdss_alloc);
+DECLARE_USB_FUNCTION(qdss, qdss_alloc_inst, qdss_alloc);
 static int __init usb_qdss_init(void)
 {
 	int ret;

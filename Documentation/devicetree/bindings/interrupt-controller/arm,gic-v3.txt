@@ -57,6 +57,10 @@ Optional
   occupied by the redistributors. Required if more than one such
   region is present.
 
+- ignored-save-restore-irqs: Array of u32 elements, specifying the interrupts
+  which are ignored while doing gicd save/restore. Maximum of 10 elements
+  is supported at present.
+
 Sub-nodes:
 
 PPI affinity can be expressed as a single "ppi-partitions" node,
