@@ -14,7 +14,6 @@
 #include <dt-bindings/input/input.h>
 
 #include "sm8150-pmic-overlay.dtsi"
-#include "sm8150-audio-overlay.dtsi"
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-qrd.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
@@ -97,47 +96,6 @@
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
 	};
-};
-
-&snd_9360 {
-	qcom,model = "sm8150-pahu-qrd-snd-card";
-	qcom,audio-routing =
-		"AIF4 VI", "MCLK",
-		"MADINPUT", "MCLK",
-		"DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC5", "MIC BIAS4",
-		"MIC BIAS4", "Digital Mic5",
-		"SpkrRight IN", "SPK2 OUT";
-
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
-	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
-};
-
-&snd_934x {
-	qcom,model = "sm8150-tavil-qrd-snd-card";
-	qcom,audio-routing =
-		"AIF4 VI", "MCLK",
-		"RX_BIAS", "MCLK",
-		"MADINPUT", "MCLK",
-		"AMIC2", "MIC BIAS2",
-		"MIC BIAS2", "Headset Mic",
-		"DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
-		"DMIC5", "MIC BIAS4",
-		"MIC BIAS4", "Digital Mic5",
-		"SpkrRight IN", "SPK2 OUT";
-
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70214>;
-	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
 };
 
 &qupv3_se9_i2c {

@@ -14,7 +14,6 @@
 #include <dt-bindings/input/input.h>
 
 #include "sm8150-pmic-overlay.dtsi"
-#include "sm8150-audio-overlay.dtsi"
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-cdp.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
@@ -102,11 +101,6 @@
 		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
 		status = "disabled";
 	};
-};
-
-&snd_934x {
-	qcom,model = "sm8150-tavil-cdp-snd-card";
-	qcom,us-euro-gpios = <&tavil_us_euro_switch>;
 };
 
 &dsi_sharp_4k_dsc_cmd {
