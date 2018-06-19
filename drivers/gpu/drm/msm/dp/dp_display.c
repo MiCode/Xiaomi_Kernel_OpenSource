@@ -1269,8 +1269,10 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
-	if (!rc)
-		dp->power_on = true;
+	if (rc)
+		goto end;
+
+	dp->power_on = true;
 
 stream_setup:
 	rc = dp_display_stream_enable(dp, panel);
@@ -1285,7 +1287,6 @@ static void dp_display_stream_post_enable(struct dp_display_private *dp,
 {
 	dp_panel->spd_config(dp_panel);
 	dp_panel->setup_hdr(dp_panel, NULL);
-	dp_panel->hw_cfg(dp_panel);
 
 	dp_panel->audio->register_ext_disp(dp_panel->audio);
 }
