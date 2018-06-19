@@ -132,6 +132,23 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 
 	dlhdr = (struct rmnet_map_dl_ind_hdr *)skb->data;
 
+	port->stats.dl_hdr_last_seq = dlhdr->le.seq;
+	port->stats.dl_hdr_last_bytes = dlhdr->le.bytes;
+	port->stats.dl_hdr_last_pkts = dlhdr->le.pkts;
+	port->stats.dl_hdr_last_flows = dlhdr->le.flows;
+	port->stats.dl_hdr_total_bytes += port->stats.dl_hdr_last_bytes;
+	port->stats.dl_hdr_total_pkts += port->stats.dl_hdr_last_pkts;
+	port->stats.dl_hdr_count++;
+
+	if (unlikely(!(port->stats.dl_hdr_count)))
+		port->stats.dl_hdr_count = 1;
+
+	port->stats.dl_hdr_avg_bytes = port->stats.dl_hdr_total_bytes /
+				       port->stats.dl_hdr_count;
+
+	port->stats.dl_hdr_avg_pkts = port->stats.dl_hdr_total_pkts /
+				      port->stats.dl_hdr_count;
+
 	rmnet_map_dl_hdr_notify(port, dlhdr);
 }
 
@@ -146,6 +163,9 @@ static void rmnet_map_process_flow_end(struct sk_buff *skb,
 	skb_pull(skb, RMNET_MAP_CMD_SIZE);
 
 	dltrl = (struct rmnet_map_dl_ind_trl *)skb->data;
+
+	port->stats.dl_trl_last_seq = dltrl->seq_le;
+	port->stats.dl_trl_count++;
 
 	rmnet_map_dl_trl_notify(port, dltrl);
 }
