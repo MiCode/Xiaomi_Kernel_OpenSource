@@ -19,6 +19,9 @@
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0x7580000 0x100000>;
 		reg-names = "core_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 
 		interrupts = <0 25 0>, <0 24 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
@@ -123,6 +126,9 @@
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0x78c0000 0x100000>;
 		reg-names = "core_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 
 		interrupts = <0 32 0>, <0 31 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
