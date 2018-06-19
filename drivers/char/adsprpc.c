@@ -3124,7 +3124,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
-	dma_set_seg_boundary(sess->smmu.dev, DMA_BIT_MASK(64));
+	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
 
 	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
 		VERIFY(err, !of_property_read_u32(dev->of_node, "shared-cb",
