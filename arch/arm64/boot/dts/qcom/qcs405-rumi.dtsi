@@ -44,6 +44,7 @@
 
 &usb3 {
 	/delete-property/ extcon;
+	status = "disabled";
 };
 
 &usb2s {
