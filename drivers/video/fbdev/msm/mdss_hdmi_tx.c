@@ -119,23 +119,23 @@ static struct mdss_hw hdmi_tx_hw = {
 	.irq_handler = hdmi_tx_isr,
 };
 
-static struct mdss_gpio hpd_gpio_config[] = {
+static struct dss_gpio hpd_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-hpd"},
 	{0, 1, COMPATIBLE_NAME "-mux-en"},
 	{0, 0, COMPATIBLE_NAME "-mux-sel"},
 	{0, 1, COMPATIBLE_NAME "-mux-lpm"}
 };
 
-static struct mdss_gpio ddc_gpio_config[] = {
+static struct dss_gpio ddc_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-ddc-mux-sel"},
 	{0, 1, COMPATIBLE_NAME "-ddc-clk"},
 	{0, 1, COMPATIBLE_NAME "-ddc-data"}
 };
 
-static struct mdss_gpio core_gpio_config[] = {
+static struct dss_gpio core_gpio_config[] = {
 };
 
-static struct mdss_gpio cec_gpio_config[] = {
+static struct dss_gpio cec_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-cec"}
 };
 
@@ -154,7 +154,7 @@ static int hdmi_tx_get_version(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc;
 	int reg_val;
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, true);
 	if (rc) {
@@ -394,7 +394,7 @@ static void hdmi_tx_wait_for_audio_engine(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u64 status = 0;
 	u32 wait_for_vote = 50;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -485,7 +485,7 @@ EXPORT_SYMBOL(hdmi_get_featuredata_from_sysfs_dev);
 
 static int hdmi_tx_config_5v(struct hdmi_tx_ctrl *hdmi_ctrl, bool enable)
 {
-	struct mdss_module_power *pd = NULL;
+	struct dss_module_power *pd = NULL;
 	int ret = 0;
 
 	if (!hdmi_ctrl) {
@@ -646,7 +646,7 @@ end:
 
 static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	struct mdss_module_power *power_data = NULL;
+	struct dss_module_power *power_data = NULL;
 	struct mdss_panel_info *pinfo;
 	int rc = 0;
 
@@ -677,7 +677,7 @@ static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	DEV_DBG("%s: rate %ld\n", __func__, power_data->clk_config->rate);
 
-	msm_mdss_clk_set_rate(power_data->clk_config, power_data->num_clk);
+	msm_dss_clk_set_rate(power_data->clk_config, power_data->num_clk);
 end:
 	return rc;
 }
@@ -738,7 +738,7 @@ static ssize_t hdmi_tx_sysfs_wta_sim_mode(struct device *dev,
 {
 	int sim_mode, rc;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 
 	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
 
@@ -1224,7 +1224,7 @@ static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
 {
 	int read, ret;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct mdss_module_power *pd = NULL;
+	struct dss_module_power *pd = NULL;
 
 	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
 	if (!hdmi_ctrl) {
@@ -1335,7 +1335,7 @@ static void hdmi_tx_sysfs_remove(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static int hdmi_tx_config_avmute(struct hdmi_tx_ctrl *hdmi_ctrl, bool set)
 {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	u32 av_mute_status;
 	bool av_pkt_en = false;
 
@@ -1376,7 +1376,7 @@ static int hdmi_tx_config_avmute(struct hdmi_tx_ctrl *hdmi_ctrl, bool set)
 
 static bool hdmi_tx_is_encryption_set(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	bool enc_en = true;
 	u32 reg_val;
 
@@ -1962,7 +1962,7 @@ end:
 
 static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	struct mdss_io_data *io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	struct dss_io_data *io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 
 	return DSS_REG_R_ND(io, HDMI_CTRL) & BIT(0);
 } /* hdmi_tx_is_controller_on */
@@ -2098,7 +2098,7 @@ static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	int rc = -EINVAL;
 	int retry = MAX_EDID_READ_RETRY;
 
@@ -2151,7 +2151,7 @@ end:
 static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u32 hdmi_disabled, hdcp_disabled, reg_val;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	int ret = 0;
 
 	if (!hdmi_ctrl) {
@@ -2210,7 +2210,7 @@ end:
 
 static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 {
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	/* Defaults: Disable block, HDMI mode */
 	u32 reg_val = BIT(1);
 
@@ -2262,7 +2262,7 @@ static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 {
 	struct pinctrl_state *pin_state = NULL;
 	int rc = -EFAULT;
-	struct mdss_module_power *power_data = NULL;
+	struct dss_module_power *power_data = NULL;
 	u64 cur_pin_states;
 
 	if (!hdmi_ctrl) {
@@ -2359,7 +2359,7 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int config)
 {
 	int rc = 0;
-	struct mdss_module_power *power_data = NULL;
+	struct dss_module_power *power_data = NULL;
 	char name[MAX_CLIENT_NAME_LEN];
 
 	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
@@ -2376,7 +2376,7 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 
 	if (config) {
-		rc = msm_mdss_config_vreg(&hdmi_ctrl->pdev->dev,
+		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 1);
 		if (rc) {
 			DEV_ERR("%s: Failed to config %s vreg. Err=%d\n",
@@ -2389,13 +2389,13 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			mdss_reg_bus_vote_client_create(name);
 		if (IS_ERR(hdmi_ctrl->pdata.reg_bus_clt[module])) {
 			pr_err("reg bus client create failed\n");
-			msm_mdss_config_vreg(&hdmi_ctrl->pdev->dev,
+			msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 0);
 			rc = PTR_ERR(hdmi_ctrl->pdata.reg_bus_clt[module]);
 			goto exit;
 		}
 
-		rc = msm_mdss_get_clk(&hdmi_ctrl->pdev->dev,
+		rc = msm_dss_get_clk(&hdmi_ctrl->pdev->dev,
 			power_data->clk_config, power_data->num_clk);
 		if (rc) {
 			DEV_ERR("%s: Failed to get %s clk. Err=%d\n",
@@ -2404,16 +2404,16 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			mdss_reg_bus_vote_client_destroy(
 				hdmi_ctrl->pdata.reg_bus_clt[module]);
 			hdmi_ctrl->pdata.reg_bus_clt[module] = NULL;
-			msm_mdss_config_vreg(&hdmi_ctrl->pdev->dev,
+			msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 0);
 		}
 	} else {
-		msm_mdss_put_clk(power_data->clk_config, power_data->num_clk);
+		msm_dss_put_clk(power_data->clk_config, power_data->num_clk);
 		mdss_reg_bus_vote_client_destroy(
 			hdmi_ctrl->pdata.reg_bus_clt[module]);
 		hdmi_ctrl->pdata.reg_bus_clt[module] = NULL;
 
-		rc = msm_mdss_config_vreg(&hdmi_ctrl->pdev->dev,
+		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 0);
 		if (rc)
 			DEV_ERR("%s: Fail to deconfig %s vreg. Err=%d\n",
@@ -2429,7 +2429,7 @@ static int hdmi_tx_check_clk_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 {
 	int i;
 	int rc = 0;
-	struct mdss_module_power *pd = NULL;
+	struct dss_module_power *pd = NULL;
 
 	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
 		DEV_ERR("%s: Error: invalid input\n", __func__);
@@ -2475,7 +2475,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable)
 {
 	int rc = 0;
-	struct mdss_module_power *power_data = NULL;
+	struct dss_module_power *power_data = NULL;
 
 	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
 		DEV_ERR("%s: Error: invalid input\n", __func__);
@@ -2497,7 +2497,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 
 	if (enable && !hdmi_ctrl->power_data_enable[module]) {
-		rc = msm_mdss_enable_vreg(power_data->vreg_config,
+		rc = msm_dss_enable_vreg(power_data->vreg_config,
 			power_data->num_vreg, 1);
 		if (rc) {
 			DEV_ERR("%s: Failed to enable %s vreg. Error=%d\n",
@@ -2512,7 +2512,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto error;
 		}
 
-		rc = msm_mdss_enable_gpio(power_data->gpio_config,
+		rc = msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 1);
 		if (rc) {
 			DEV_ERR("%s: Failed to enable %s gpio. Error=%d\n",
@@ -2522,7 +2522,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
 			VOTE_INDEX_LOW);
 
-		rc = msm_mdss_clk_set_rate(power_data->clk_config,
+		rc = msm_dss_clk_set_rate(power_data->clk_config,
 			power_data->num_clk);
 		if (rc) {
 			DEV_ERR("%s: failed to set clks rate for %s. err=%d\n",
@@ -2530,7 +2530,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto disable_gpio;
 		}
 
-		rc = msm_mdss_enable_clk(power_data->clk_config,
+		rc = msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 1);
 		if (rc) {
 			DEV_ERR("%s: Failed to enable clks for %s. Error=%d\n",
@@ -2541,14 +2541,14 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	} else if (!enable && hdmi_ctrl->power_data_enable[module] &&
 		(!hdmi_tx_is_cec_wakeup_en(hdmi_ctrl) ||
 		((module != HDMI_TX_HPD_PM) && (module != HDMI_TX_CEC_PM)))) {
-		msm_mdss_enable_clk(power_data->clk_config,
+		msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 0);
 		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
 			VOTE_INDEX_DISABLE);
-		msm_mdss_enable_gpio(power_data->gpio_config,
+		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
 		hdmi_tx_pinctrl_set_state(hdmi_ctrl, module, 0);
-		msm_mdss_enable_vreg(power_data->vreg_config,
+		msm_dss_enable_vreg(power_data->vreg_config,
 			power_data->num_vreg, 0);
 		hdmi_ctrl->power_data_enable[module] = false;
 	}
@@ -2558,9 +2558,9 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 disable_gpio:
 	mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
 		VOTE_INDEX_DISABLE);
-	msm_mdss_enable_gpio(power_data->gpio_config, power_data->num_gpio, 0);
+	msm_dss_enable_gpio(power_data->gpio_config, power_data->num_gpio, 0);
 disable_vreg:
-	msm_mdss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0);
+	msm_dss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0);
 error:
 	return rc;
 } /* hdmi_tx_enable_power */
@@ -2609,7 +2609,7 @@ static void hdmi_tx_phy_reset(struct hdmi_tx_ctrl *hdmi_ctrl)
 	unsigned int phy_reset_polarity = 0x0;
 	unsigned int pll_reset_polarity = 0x0;
 	unsigned int val;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2867,7 +2867,7 @@ static inline bool hdmi_tx_hw_is_cable_connected(struct hdmi_tx_ctrl *hdmi_ctrl)
 static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	bool polarity)
 {
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	bool cable_sense;
 
 	if (!hdmi_ctrl) {
@@ -2915,7 +2915,7 @@ static inline void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static int hdmi_tx_power_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	void *pdata =  NULL;
 
 	if (!hdmi_ctrl) {
@@ -3043,7 +3043,7 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	unsigned long flags;
 
 	if (!hdmi_ctrl) {
@@ -3093,7 +3093,7 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u32 reg_val;
 	int rc = 0;
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -3116,7 +3116,7 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 			return rc;
 		}
 
-		mdss_reg_dump(io->base, io->len, "HDMI-INIT: ", REG_DUMP);
+		dss_reg_dump(io->base, io->len, "HDMI-INIT: ", REG_DUMP);
 
 		if (!hdmi_ctrl->panel_data.panel_info.cont_splash_enabled) {
 			hdmi_tx_set_mode(hdmi_ctrl, false);
@@ -3215,7 +3215,7 @@ end:
 
 static irqreturn_t hdmi_tx_isr(int irq, void *data)
 {
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)data;
 	unsigned long flags;
 	u32 hpd_current_state;
@@ -3856,7 +3856,7 @@ static void hdmi_tx_deinit_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* IO */
 	for (i = HDMI_TX_MAX_IO - 1; i >= 0; i--) {
 		if (hdmi_ctrl->pdata.io[i].base)
-			msm_mdss_iounmap(&hdmi_ctrl->pdata.io[i]);
+			msm_dss_iounmap(&hdmi_ctrl->pdata.io[i]);
 	}
 } /* hdmi_tx_deinit_resource */
 
@@ -3876,7 +3876,7 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	/* IO */
 	for (i = 0; i < HDMI_TX_MAX_IO; i++) {
-		rc = msm_mdss_ioremap_byname(hdmi_ctrl->pdev, &pdata->io[i],
+		rc = msm_dss_ioremap_byname(hdmi_ctrl->pdev, &pdata->io[i],
 			hdmi_tx_io_name(i));
 		if (rc) {
 			DEV_DBG("%s: '%s' remap failed or not available\n",
@@ -3905,7 +3905,7 @@ error:
 } /* hdmi_tx_init_resource */
 
 static void hdmi_tx_put_dt_clk_data(struct device *dev,
-	struct mdss_module_power *module_power)
+	struct dss_module_power *module_power)
 {
 	if (!module_power) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -3921,7 +3921,7 @@ static void hdmi_tx_put_dt_clk_data(struct device *dev,
 
 /* todo: once clk are moved to device tree then change this implementation */
 static int hdmi_tx_get_dt_clk_data(struct device *dev,
-	struct mdss_module_power *mp, u32 module_type)
+	struct dss_module_power *mp, u32 module_type)
 {
 	int rc = 0;
 
@@ -3935,7 +3935,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 	switch (module_type) {
 	case HDMI_TX_HPD_PM:
 		mp->num_clk = 4;
-		mp->clk_config = devm_kzalloc(dev, sizeof(struct mdss_clk) *
+		mp->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
 			mp->num_clk, GFP_KERNEL);
 		if (!mp->clk_config) {
 			DEV_ERR("%s: can't alloc '%s' clk mem\n", __func__,
@@ -3968,7 +3968,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 
 	case HDMI_TX_CORE_PM:
 		mp->num_clk = 1;
-		mp->clk_config = devm_kzalloc(dev, sizeof(struct mdss_clk) *
+		mp->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
 			mp->num_clk, GFP_KERNEL);
 		if (!mp->clk_config) {
 			DEV_ERR("%s: can't alloc '%s' clk mem\n", __func__,
@@ -4007,7 +4007,7 @@ error:
 } /* hdmi_tx_get_dt_clk_data */
 
 static void hdmi_tx_put_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *module_power)
+	struct dss_module_power *module_power)
 {
 	if (!module_power) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -4022,7 +4022,7 @@ static void hdmi_tx_put_dt_vreg_data(struct device *dev,
 } /* hdmi_tx_put_dt_vreg_data */
 
 static int hdmi_tx_get_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *mp, u32 module_type)
+	struct dss_module_power *mp, u32 module_type)
 {
 	int i, j, rc = 0;
 	int dt_vreg_total = 0, mod_vreg_total = 0;
@@ -4087,7 +4087,7 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 
 	if (mod_vreg_total > 0) {
 		mp->num_vreg = mod_vreg_total;
-		mp->vreg_config = devm_kzalloc(dev, sizeof(struct mdss_vreg) *
+		mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
 			mod_vreg_total, GFP_KERNEL);
 		if (!mp->vreg_config) {
 			DEV_ERR("%s: can't alloc '%s' vreg mem\n", __func__,
@@ -4200,7 +4200,7 @@ error:
 } /* hdmi_tx_get_dt_vreg_data */
 
 static void hdmi_tx_put_dt_gpio_data(struct device *dev,
-	struct mdss_module_power *module_power)
+	struct dss_module_power *module_power)
 {
 	if (!module_power) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -4215,11 +4215,11 @@ static void hdmi_tx_put_dt_gpio_data(struct device *dev,
 } /* hdmi_tx_put_dt_gpio_data */
 
 static int hdmi_tx_get_dt_gpio_data(struct device *dev,
-	struct mdss_module_power *mp, u32 module_type)
+	struct dss_module_power *mp, u32 module_type)
 {
 	int i, j;
 	int mp_gpio_cnt = 0, gpio_list_size = 0;
-	struct mdss_gpio *gpio_list = NULL;
+	struct dss_gpio *gpio_list = NULL;
 	struct device_node *of_node = NULL;
 
 	DEV_DBG("%s: module: '%s'\n", __func__, hdmi_tx_pm_name(module_type));
@@ -4266,7 +4266,7 @@ static int hdmi_tx_get_dt_gpio_data(struct device *dev,
 	DEV_DBG("%s: mp_gpio_cnt = %d\n", __func__, mp_gpio_cnt);
 	mp->num_gpio = mp_gpio_cnt;
 
-	mp->gpio_config = devm_kzalloc(dev, sizeof(struct mdss_gpio) *
+	mp->gpio_config = devm_kzalloc(dev, sizeof(struct dss_gpio) *
 		mp_gpio_cnt, GFP_KERNEL);
 	if (!mp->gpio_config) {
 		DEV_ERR("%s: can't alloc '%s' gpio mem\n", __func__,
@@ -4285,7 +4285,7 @@ static int hdmi_tx_get_dt_gpio_data(struct device *dev,
 			continue;
 		}
 		memcpy(&mp->gpio_config[j], &gpio_list[i],
-			sizeof(struct mdss_gpio));
+			sizeof(struct dss_gpio));
 
 		mp->gpio_config[j].gpio = (unsigned int)gpio;
 
@@ -4533,17 +4533,17 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 
 	if (hdmi_ctrl->panel_data.panel_info.cont_splash_enabled) {
 		for (i = 0; i < HDMI_TX_MAX_PM; i++) {
-			msm_mdss_enable_vreg(
+			msm_dss_enable_vreg(
 				hdmi_ctrl->pdata.power_data[i].vreg_config,
 				hdmi_ctrl->pdata.power_data[i].num_vreg, 1);
 
 			hdmi_tx_pinctrl_set_state(hdmi_ctrl, i, 1);
 
-			msm_mdss_enable_gpio(
+			msm_dss_enable_gpio(
 				hdmi_ctrl->pdata.power_data[i].gpio_config,
 				hdmi_ctrl->pdata.power_data[i].num_gpio, 1);
 
-			msm_mdss_enable_clk(
+			msm_dss_enable_clk(
 				hdmi_ctrl->pdata.power_data[i].clk_config,
 				hdmi_ctrl->pdata.power_data[i].num_clk, 1);
 

@@ -254,7 +254,7 @@ static void mdss_rotator_footswitch_ctrl(struct mdss_rot_mgr *mgr, bool on)
 	}
 
 	pr_debug("%s: rotator regulators", on ? "Enable" : "Disable");
-	ret = msm_mdss_enable_vreg(mgr->module_power.vreg_config,
+	ret = msm_dss_enable_vreg(mgr->module_power.vreg_config,
 		mgr->module_power.num_vreg, on);
 	if (ret) {
 		pr_warn("Rotator regulator failed to %s\n",
@@ -2658,14 +2658,14 @@ static int mdss_rotator_parse_dt(struct mdss_rot_mgr *mgr,
 }
 
 static void mdss_rotator_put_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *mp)
+	struct dss_module_power *mp)
 {
 	if (!mp) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	msm_mdss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 0);
+	msm_dss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 0);
 	if (mp->vreg_config) {
 		devm_kfree(dev, mp->vreg_config);
 		mp->vreg_config = NULL;
@@ -2674,7 +2674,7 @@ static void mdss_rotator_put_dt_vreg_data(struct device *dev,
 }
 
 static int mdss_rotator_get_dt_vreg_data(struct device *dev,
-	struct mdss_module_power *mp)
+	struct dss_module_power *mp)
 {
 	const char *st = NULL;
 	struct device_node *of_node = NULL;
@@ -2696,7 +2696,7 @@ static int mdss_rotator_get_dt_vreg_data(struct device *dev,
 		return 0;
 	}
 	mp->num_vreg = dt_vreg_total;
-	mp->vreg_config = devm_kzalloc(dev, sizeof(struct mdss_vreg) *
+	mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
 		dt_vreg_total, GFP_KERNEL);
 	if (!mp->vreg_config) {
 		DEV_ERR("%s: can't alloc vreg mem\n", __func__);
@@ -2714,7 +2714,7 @@ static int mdss_rotator_get_dt_vreg_data(struct device *dev,
 		}
 		snprintf(mp->vreg_config[i].vreg_name, 32, "%s", st);
 	}
-	msm_mdss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 1);
+	msm_dss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 1);
 
 	for (i = 0; i < dt_vreg_total; i++) {
 		DEV_DBG("%s: %s min=%d, max=%d, enable=%d disable=%d\n",

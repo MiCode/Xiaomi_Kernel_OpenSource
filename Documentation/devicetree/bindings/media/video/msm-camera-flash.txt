@@ -65,6 +65,11 @@ First Level Node - CAM FLASH device
   Value type: <u32>
   Definition: Max duration in ms flash can glow.
 
+- wled-flash-support
+  Usage: optional
+  Value type: <boolean>
+  Definition: To identity wled flash hardware support.
+
 - gpios
   Usage: optional
   Value type: <u32>
@@ -109,7 +114,8 @@ led_flash_rear: qcom,camera-flash@0 {
 		flash-source = <&pmi8998_flash0 &pmi8998_flash1>;
 		torch-source = <&pmi8998_torch0 &pmi8998_torch1>;
 		switch-source = <&pmi8998_switch0>;
-        qcom,slave-id = <0x00 0x00 0x0011>;
+		wled-flash-support;
+		qcom,slave-id = <0x00 0x00 0x0011>;
 		qcom,cci-master = <0>;
 		gpios = <&msmgpio 23 0>,
 			<&msmgpio 24 0>;

@@ -52,6 +52,10 @@
 #define INST_ID_DCI_CMD		3
 #define INST_ID_DCI		4
 
+#define MAX_BUF_SIZE 		0x4400
+#define MAX_NO_PACKETS		10
+#define DIAG_SO_RCVBUF_SIZE	(MAX_BUF_SIZE * MAX_NO_PACKETS)
+
 struct qmi_handle *cntl_qmi;
 static uint64_t bootup_req[NUM_SOCKET_SUBSYSTEMS];
 
@@ -438,6 +442,7 @@ static void socket_open_server(struct diag_socket_info *info)
 	struct kvec iv = { &pkt, sizeof(pkt) };
 	int ret;
 	int sl = sizeof(sq);
+	unsigned int size = DIAG_SO_RCVBUF_SIZE;
 
 	if (!info || info->port_type != PORT_TYPE_SERVER)
 		return;
@@ -455,6 +460,9 @@ static void socket_open_server(struct diag_socket_info *info)
 		sock_release(info->hdl);
 		return;
 	}
+
+	kernel_setsockopt(info->hdl, SOL_SOCKET, SO_RCVBUF,
+			  (char *)&size, sizeof(size));
 
 	write_lock_bh(&info->hdl->sk->sk_callback_lock);
 	info->hdl->sk->sk_user_data = (void *)(info);

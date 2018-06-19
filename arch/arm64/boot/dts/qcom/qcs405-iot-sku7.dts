@@ -14,14 +14,9 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
-#include "qcs405-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS405 CDP";
-	compatible = "qcom,qcs405-cdp", "qcom,qcs405", "qcom,cdp";
-	qcom,board-id = <1 0>;
-};
-
-&qnand_1 {
-	status = "ok";
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 CSRA6 IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x050020 0x1>;
 };

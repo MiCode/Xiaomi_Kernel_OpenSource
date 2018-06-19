@@ -768,4 +768,13 @@ config QCOM_SMP2P_SLEEPSTATE
 	  When this option is enabled, notifications are sent to remote procs
 	  for the power state changes on the local processor. The notifications
 	  are sent through the smp2p framework.
+
+config QCOM_CDSP_RM
+	bool "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency.
 endmenu

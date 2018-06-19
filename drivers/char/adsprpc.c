@@ -2673,7 +2673,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
 
-		if (me->channel[cid].ssrcount !=
+		if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			mutex_lock(&fl->map_mutex);
 			if (fastrpc_mmap_remove_ssr(fl))

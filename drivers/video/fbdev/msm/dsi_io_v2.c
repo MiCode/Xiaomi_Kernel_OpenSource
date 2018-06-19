@@ -50,7 +50,7 @@ void msm_dsi_ahb_ctrl(int enable)
 	}
 }
 
-int msm_dsi_io_init(struct platform_device *pdev, struct mdss_module_power *mp)
+int msm_dsi_io_init(struct platform_device *pdev, struct dss_module_power *mp)
 {
 	int rc;
 
@@ -67,7 +67,7 @@ int msm_dsi_io_init(struct platform_device *pdev, struct mdss_module_power *mp)
 		return rc;
 	}
 
-	rc = msm_mdss_config_vreg(&pdev->dev, mp->vreg_config,
+	rc = msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
 						mp->num_vreg, 1);
 	if (rc) {
 		pr_err("fail to initialize DSI regulator\n");
@@ -78,11 +78,11 @@ int msm_dsi_io_init(struct platform_device *pdev, struct mdss_module_power *mp)
 }
 
 void msm_dsi_io_deinit(struct platform_device *pdev,
-				 struct mdss_module_power *mp)
+				 struct dss_module_power *mp)
 {
 	if (dsi_io_private) {
 		msm_dsi_clk_deinit();
-		msm_mdss_config_vreg(&pdev->dev, mp->vreg_config,
+		msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
 					mp->num_vreg, 0);
 		kfree(dsi_io_private);
 		dsi_io_private = NULL;

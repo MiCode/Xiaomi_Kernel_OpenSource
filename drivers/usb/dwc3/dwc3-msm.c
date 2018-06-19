@@ -2456,8 +2456,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
-				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
-					DWC3_GUSB2PHYCFG_SUSPHY));
+				~DWC3_GUSB2PHYCFG_SUSPHY);
 
 	/* Disable wakeup capable for HS_PHY IRQ & SS_PHY_IRQ if enabled */
 	if (mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY) {
@@ -2713,8 +2712,11 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	int ret;
 
 	mdwc->dwc3_gdsc = devm_regulator_get(mdwc->dev, "USB3_GDSC");
-	if (IS_ERR(mdwc->dwc3_gdsc))
+	if (IS_ERR(mdwc->dwc3_gdsc)) {
+		if (PTR_ERR(mdwc->dwc3_gdsc) == -EPROBE_DEFER)
+			return PTR_ERR(mdwc->dwc3_gdsc);
 		mdwc->dwc3_gdsc = NULL;
+	}
 
 	mdwc->xo_clk = devm_clk_get(mdwc->dev, "xo");
 	if (IS_ERR(mdwc->xo_clk)) {
@@ -3712,6 +3714,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		usb_register_notify(&mdwc->host_nb);
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
+		dwc3_en_sleep_mode(dwc);
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
 		ret = dwc3_host_init(dwc);
@@ -3854,6 +3857,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 */
 		dwc3_msm_block_reset(mdwc, false);
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		dwc3_dis_sleep_mode(dwc);
 		mdwc->in_device_mode = true;
 
 		/* Reduce the U3 exit handshake timer from 8us to approximately

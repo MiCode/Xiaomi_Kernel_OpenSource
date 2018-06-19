@@ -797,5 +797,14 @@
 				input-enable;
 			};
 		};
+
+		usb3_id_det_default: usb2_id_det_default {
+			config {
+				pins = "gpio116";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
 	};
 };

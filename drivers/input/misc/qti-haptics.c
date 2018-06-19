@@ -12,6 +12,7 @@
 
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
@@ -176,6 +177,10 @@ struct qti_hap_effect {
 	u16			play_rate_us;
 	u8			wf_repeat_n;
 	u8			wf_s_repeat_n;
+	u8			brake[HAP_BRAKE_PATTERN_MAX];
+	int			brake_pattern_length;
+	bool			brake_en;
+	bool			lra_auto_res_disable;
 };
 
 struct qti_hap_play_info {
@@ -194,9 +199,7 @@ struct qti_hap_config {
 	u16			vmax_mv;
 	u16			ilim_ma;
 	u16			play_rate_us;
-	u8			brake[HAP_BRAKE_PATTERN_MAX];
-	bool			brake_en;
-	bool			lra_auto_res_en;
+	bool			lra_allow_variable_play_rate;
 	bool			use_ext_wf_src;
 };
 
@@ -211,6 +214,7 @@ struct qti_hap_chip {
 	struct qti_hap_effect		*predefined;
 	struct qti_hap_effect		constant;
 	struct regulator		*vdd_supply;
+	struct hrtimer			stop_timer;
 	spinlock_t			bus_lock;
 	ktime_t				last_sc_time;
 	int				play_irq;
@@ -550,6 +554,21 @@ static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
 	return rc;
 }
 
+static int qti_haptics_lra_auto_res_enable(struct qti_hap_chip *chip, bool en)
+{
+	int rc;
+	u8 addr, val, mask;
+
+	addr = REG_HAP_AUTO_RES_CTRL;
+	mask = HAP_AUTO_RES_EN_BIT;
+	val = en ? HAP_AUTO_RES_EN_BIT : 0;
+	rc = qti_haptics_masked_write(chip, addr, mask, val);
+	if (rc < 0)
+		dev_err(chip->dev, "set AUTO_RES_CTRL failed, rc=%d\n", rc);
+
+	return rc;
+}
+
 static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 {
 	struct qti_hap_play_info *play = &chip->play;
@@ -570,6 +589,13 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 		rc = qti_haptics_config_vmax(chip, play->vmax_mv);
 		if (rc < 0)
 			return rc;
+
+		/* Enable Auto-Resonance when VMAX wf-src is selected */
+		if (config->act_type == ACT_LRA) {
+			rc = qti_haptics_lra_auto_res_enable(chip, true);
+			if (rc < 0)
+				return rc;
+		}
 
 		/* Set WF_SOURCE to VMAX */
 		rc = qti_haptics_config_wf_src(chip, INT_WF_VMAX);
@@ -626,13 +652,21 @@ static int qti_haptics_load_predefined_effect(struct qti_hap_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	/* override play-rate for ERM here, no need for LRA */
-	if (config->act_type == ACT_ERM) {
-		rc = qti_haptics_config_play_rate_us(chip,
-				play->effect->play_rate_us);
+	rc = qti_haptics_config_play_rate_us(chip, play->effect->play_rate_us);
+	if (rc < 0)
+		return rc;
+
+	if (config->act_type == ACT_LRA) {
+		rc = qti_haptics_lra_auto_res_enable(chip,
+				!play->effect->lra_auto_res_disable);
 		if (rc < 0)
 			return rc;
 	}
+
+	/* Set brake pattern in the effect */
+	rc = qti_haptics_config_brake(chip, play->effect->brake);
+	if (rc < 0)
+		return rc;
 
 	rc = qti_haptics_config_wf_buffer(chip);
 	if (rc < 0)
@@ -736,16 +770,14 @@ handled:
 static inline void get_play_length(struct qti_hap_play_info *play,
 		int *length_us)
 {
-	struct qti_hap_chip *chip = container_of(play,
-			struct qti_hap_chip, play);
 	struct qti_hap_effect *effect = play->effect;
 	int tmp;
 
 	tmp = effect->pattern_length * effect->play_rate_us;
 	tmp *= wf_s_repeat[effect->wf_s_repeat_n];
 	tmp *= wf_repeat[effect->wf_repeat_n];
-	if (chip->config.brake_en)
-		tmp += effect->play_rate_us * HAP_BRAKE_PATTERN_MAX;
+	if (effect->brake_en)
+		tmp += effect->play_rate_us * effect->brake_pattern_length;
 
 	*length_us = tmp;
 }
@@ -871,6 +903,8 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 {
 	struct qti_hap_chip *chip = input_get_drvdata(dev);
 	struct qti_hap_play_info *play = &chip->play;
+	s64 secs;
+	unsigned long nsecs;
 	int rc = 0;
 
 	dev_dbg(chip->dev, "playback, val = %d\n", val);
@@ -889,6 +923,11 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 				disable_irq_nosync(chip->play_irq);
 				chip->play_irq_en = false;
 			}
+			secs = play->length_us / USEC_PER_SEC;
+			nsecs = (play->length_us % USEC_PER_SEC) *
+				NSEC_PER_USEC;
+			hrtimer_start(&chip->stop_timer, ktime_set(secs, nsecs),
+					HRTIMER_MODE_REL);
 		}
 	} else {
 		play->length_us = 0;
@@ -954,9 +993,8 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	/* Set HAP_EN_CTL3 */
 	addr = REG_HAP_EN_CTL3;
 	val = HAP_HBRIDGE_EN_BIT | HAP_PWM_SIGNAL_EN_BIT | HAP_ILIM_EN_BIT |
-		HAP_ILIM_CC_EN_BIT | HAP_DAC_EN_BIT | HAP_PWM_CTL_EN_BIT;
-	if (config->act_type == ACT_LRA && config->lra_auto_res_en)
-		val |= HAP_AUTO_RES_RBIAS_EN_BIT;
+		HAP_ILIM_CC_EN_BIT | HAP_AUTO_RES_RBIAS_EN_BIT |
+		HAP_DAC_EN_BIT | HAP_PWM_CTL_EN_BIT;
 	rc = qti_haptics_write(chip, addr, &val, 1);
 	if (rc < 0) {
 		dev_err(chip->dev, "set EN_CTL3 failed, rc=%d\n", rc);
@@ -978,11 +1016,6 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	 * or the play duration of each waveform sample for ERM.
 	 */
 	rc = qti_haptics_config_play_rate_us(chip, config->play_rate_us);
-	if (rc < 0)
-		return rc;
-
-	/* Set default brake pattern */
-	rc = qti_haptics_config_brake(chip, config->brake);
 	if (rc < 0)
 		return rc;
 
@@ -1008,10 +1041,6 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 		return rc;
 	}
 
-	/* Skip configurations below if auto-res-en is not set */
-	if (!config->lra_auto_res_en)
-		return 0;
-
 	addr = REG_HAP_AUTO_RES_CFG;
 	mask = HAP_AUTO_RES_MODE_BIT | HAP_CAL_EOP_EN_BIT | HAP_CAL_PERIOD_MASK;
 	val = config->lra_auto_res_mode << HAP_AUTO_RES_MODE_SHIFT;
@@ -1023,8 +1052,9 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	}
 
 	addr = REG_HAP_AUTO_RES_CTRL;
-	val = HAP_AUTO_RES_EN_BIT | HAP_SEL_AUTO_RES_PERIOD | AUTO_RES_EN_DLY(4)
-		| AUTO_RES_CNT_ERR_DELTA(2) | HAP_AUTO_RES_ERR_RECOVERY_BIT;
+	val = HAP_AUTO_RES_EN_BIT | HAP_SEL_AUTO_RES_PERIOD |
+		AUTO_RES_CNT_ERR_DELTA(2) | HAP_AUTO_RES_ERR_RECOVERY_BIT |
+		AUTO_RES_EN_DLY(4);
 	rc = qti_haptics_write(chip, addr, &val, 1);
 	if (rc < 0) {
 		dev_err(chip->dev, "set AUTO_RES_CTRL failed, rc=%d\n",
@@ -1033,6 +1063,26 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	}
 
 	return 0;
+}
+
+static enum hrtimer_restart qti_hap_stop_timer(struct hrtimer *timer)
+{
+	struct qti_hap_chip *chip = container_of(timer, struct qti_hap_chip,
+			stop_timer);
+	int rc;
+
+	chip->play.length_us = 0;
+	rc = qti_haptics_play(chip, false);
+	if (rc < 0) {
+		dev_err(chip->dev, "Stop playing failed, rc=%d\n", rc);
+		goto err_out;
+	}
+
+	rc = qti_haptics_module_en(chip, false);
+	if (rc < 0)
+		dev_err(chip->dev, "Disable module failed, rc=%d\n", rc);
+err_out:
+	return HRTIMER_NORESTART;
 }
 
 static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
@@ -1096,30 +1146,6 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 		config->play_rate_us = (tmp >= HAP_PLAY_RATE_US_MAX) ?
 			HAP_PLAY_RATE_US_MAX : tmp;
 
-	tmp = of_property_count_elems_of_size(node, "qcom,brake-pattern",
-			sizeof(u8));
-	if (tmp > 0) {
-		if (tmp != HAP_BRAKE_PATTERN_MAX) {
-			dev_err(chip->dev, "brake-pattern should be %d bytes\n",
-					HAP_BRAKE_PATTERN_MAX);
-			return -EINVAL;
-		}
-
-		rc = of_property_read_u8_array(node, "qcom,brake-pattern",
-				config->brake, HAP_BRAKE_PATTERN_MAX);
-		if (rc < 0) {
-			dev_err(chip->dev, "Failed to get brake-pattern, rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		for (val = 0, j = 0; j < HAP_BRAKE_PATTERN_MAX; j++)
-			val |= (config->brake[j] & HAP_BRAKE_PATTERN_MASK) <<
-				j * HAP_BRAKE_PATTERN_SHIFT;
-
-		config->brake_en = (val != 0);
-	}
-
 	if (of_find_property(node, "qcom,external-waveform-source", NULL)) {
 		if (!of_property_read_string(node,
 				"qcom,external-waveform-source", &str)) {
@@ -1162,8 +1188,8 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 			}
 		}
 
-		config->lra_auto_res_en = of_property_read_bool(node,
-				"qcom,lra-auto-resonance-en");
+		config->lra_allow_variable_play_rate = of_property_read_bool(
+				node, "qcom,lra-allow-variable-play-rate");
 
 		config->lra_auto_res_mode = AUTO_RES_MODE_ZXD;
 		rc = of_property_read_string(node,
@@ -1233,10 +1259,6 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 			return rc;
 		}
 
-		for (j = 0; j < effect->pattern_length; j++)
-			effect->pattern[j] = effect->pattern[j] <<
-				HAP_WF_AMP_SHIFT;
-
 		effect->play_rate_us = config->play_rate_us;
 		rc = of_property_read_u32(child_node, "qcom,wf-play-rate-us",
 				&tmp);
@@ -1247,6 +1269,7 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 			effect->play_rate_us = tmp;
 
 		if (config->act_type == ACT_LRA &&
+				!config->lra_allow_variable_play_rate &&
 				config->play_rate_us != effect->play_rate_us) {
 			dev_warn(chip->dev, "play rate should match with LRA resonance frequency\n");
 			effect->play_rate_us = config->play_rate_us;
@@ -1277,6 +1300,41 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 
 			effect->wf_s_repeat_n = j;
 		}
+
+		effect->lra_auto_res_disable = of_property_read_bool(node,
+				"qcom,lra-auto-resonance-disable");
+
+		tmp = of_property_count_elems_of_size(child_node,
+				"qcom,wf-brake-pattern", sizeof(u8));
+		if (tmp <= 0)
+			continue;
+
+		if (tmp > HAP_BRAKE_PATTERN_MAX) {
+			dev_err(chip->dev, "wf-brake-pattern shouldn't be more than %d bytes\n",
+					HAP_BRAKE_PATTERN_MAX);
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u8_array(child_node,
+				"qcom,wf-brake-pattern", effect->brake, tmp);
+		if (rc < 0) {
+			dev_err(chip->dev, "Failed to get wf-brake-pattern, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		effect->brake_pattern_length = tmp;
+		for (j = tmp - 1; j >= 0; j--) {
+			if (effect->brake[j] != 0)
+				break;
+			effect->brake_pattern_length--;
+		}
+
+		for (val = 0, j = 0; j < effect->brake_pattern_length; j++)
+			val |= (effect->brake[j] & HAP_BRAKE_PATTERN_MASK)
+				<< j * HAP_BRAKE_PATTERN_SHIFT;
+
+		effect->brake_en = (val != 0);
 	}
 
 	return 0;
@@ -1337,6 +1395,9 @@ static int qti_haptics_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "request sc-irq failed, rc=%d\n", rc);
 		return rc;
 	}
+
+	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	chip->stop_timer.function = qti_hap_stop_timer;
 
 	input_dev->name = "vibrator";
 	input_set_drvdata(input_dev, chip);

@@ -73,7 +73,7 @@ struct hdmi_panel_ops {
  * @version:  hardware version of the hdmi tx
  */
 struct hdmi_panel_init_data {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct hdmi_util_ds_data *ds_data;
 	struct hdmi_panel_data *panel_data;
 	struct hdmi_tx_ddc_ctrl *ddc;

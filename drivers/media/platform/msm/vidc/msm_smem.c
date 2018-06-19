@@ -78,6 +78,13 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, unsigned long align,
 		 * Mapping of sg is taken care by map attachment
 		 */
 		attach->dma_map_attrs = DMA_ATTR_DELAYED_UNMAP;
+		/*
+		 * We do not need dma_map function to perform cache operations
+		 * on the whole buffer size and hence pass skip sync flag.
+		 * We do the required cache operations separately for the
+		 * required buffer size
+		 */
+		attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		if (res->sys_cache_present)
 			attach->dma_map_attrs |=
 				DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
@@ -510,6 +517,44 @@ int msm_smem_free(struct msm_smem *smem)
 
 	return rc;
 };
+
+int msm_smem_cache_operations(struct dma_buf *dbuf,
+	enum smem_cache_ops cache_op, unsigned long offset, unsigned long size)
+{
+	int rc = 0;
+
+	if (!dbuf) {
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (cache_op) {
+	case SMEM_CACHE_CLEAN:
+	case SMEM_CACHE_CLEAN_INVALIDATE:
+		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_TO_DEVICE,
+				offset, size);
+		if (rc)
+			break;
+		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_TO_DEVICE,
+				offset, size);
+		break;
+	case SMEM_CACHE_INVALIDATE:
+		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_TO_DEVICE,
+				offset, size);
+		if (rc)
+			break;
+		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_FROM_DEVICE,
+				offset, size);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: cache (%d) operation not supported\n",
+			__func__, cache_op);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
 
 struct context_bank_info *msm_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_vidc_platform_resources *res,

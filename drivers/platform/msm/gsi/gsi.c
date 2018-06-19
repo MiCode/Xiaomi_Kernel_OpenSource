@@ -369,6 +369,8 @@ uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
 static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		uint64_t addr2)
 {
+	uint32_t addr_diff;
+
 	WARN(addr1 < ctx->base || addr1 >= ctx->end,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr1);
@@ -376,10 +378,11 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr2);
 
+	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
-		return (addr2 - addr1) / ctx->elem_sz;
+		return addr_diff / ctx->elem_sz;
 	else
-		return (addr2 - addr1 + ctx->len) / ctx->elem_sz;
+		return (addr_diff + ctx->len) / ctx->elem_sz;
 }
 
 static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
@@ -1677,10 +1680,32 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 		uint8_t erindex)
 {
 	uint32_t val;
+	uint32_t prot;
+	uint32_t prot_msb;
 
-	val = (((props->prot << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT)
-			& GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK) |
-		((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
+	switch (props->prot) {
+	case GSI_CHAN_PROT_MHI:
+	case GSI_CHAN_PROT_XHCI:
+	case GSI_CHAN_PROT_GPI:
+	case GSI_CHAN_PROT_XDCI:
+		prot = props->prot;
+		prot_msb = 0;
+		break;
+	default:
+		GSIERR("Unsupported protocol %d\n", props->prot);
+		WARN_ON(1);
+		return;
+	}
+	val = ((prot <<
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT) &
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK);
+	if (gsi_ctx->per.ver >= GSI_VER_2_5) {
+		val |= ((prot_msb <<
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_BMSK);
+	}
+
+	val |= (((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_BMSK) |
 		((erindex << GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_BMSK) |
@@ -2191,6 +2216,20 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	res = wait_for_completion_timeout(&ctx->compl,
 			msecs_to_jiffies(GSI_STOP_CMD_TIMEOUT_MS));
 	if (res == 0) {
+		/*
+		 * check channel state here in case the channel is stopped but
+		 * the interrupt was not handled yet.
+		 */
+		val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+		ctx->state = (val &
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+		if (ctx->state == GSI_CHAN_STATE_STOPPED) {
+			res = GSI_STATUS_SUCCESS;
+			goto free_lock;
+		}
 		GSIDBG("chan_hdl=%lu timed out\n", chan_hdl);
 		res = -GSI_STATUS_TIMED_OUT;
 		goto free_lock;
@@ -2867,21 +2906,27 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	spin_lock_irqsave(&gsi_ctx->slock, flags);
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
+		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
+		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
+		spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		ctx->stats.callback_to_poll++;
 	}
 
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
+		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
+		spin_unlock_irqrestore(&ctx->ring.slock, flags);
+		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
+		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 		ctx->stats.poll_to_callback++;
 	}
-	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 
 	return GSI_STATUS_SUCCESS;
 }

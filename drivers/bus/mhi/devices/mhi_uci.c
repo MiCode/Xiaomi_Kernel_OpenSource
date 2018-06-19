@@ -540,8 +540,8 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 		return;
 	}
 
-	mutex_unlock(&uci_dev->mutex);
 	MSG_LOG("Exit\n");
+	mutex_unlock(&uci_dev->mutex);
 }
 
 static int mhi_uci_probe(struct mhi_device *mhi_dev,

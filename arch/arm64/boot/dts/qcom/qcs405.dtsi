@@ -18,6 +18,7 @@
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
@@ -218,6 +219,15 @@
 			interrupts = <0 14 0x4>;
 			reg = <0xb128000 0x1000>;
 			status = "disabled";
+		};
+	};
+
+	clocks {
+		xo_board {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <19200000>;
+			clock-output-names = "xo_board";
 		};
 	};
 
@@ -859,44 +869,6 @@
 
 	thermal_zones: thermal-zones {};
 
-	usb0: hsusb@78c0000 {
-		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x78c0000 0x100000>;
-		reg-names = "core_base";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-
-		interrupts = <0 32 0>;
-		interrupt-names = "pwr_event_irq";
-		/* Using dummy Xo clock, need to check the proper mapping */
-		clocks = <&clock_gcc GCC_USB_HS_SYSTEM_CLK>,
-			 <&clock_gcc GCC_PCNOC_USB2_CLK>,
-			 <&clock_gcc GCC_USB30_SLEEP_CLK>,
-			 <&clock_gcc GCC_USB_HS_INACTIVITY_TIMERS_CLK>,
-			 <&clock_gcc GCC_USB20_MOCK_UTMI_CLK>;
-		clock-names = "core_clk", "iface_clk", "xo",
-				"sleep_clk", "utmi_clk";
-
-		qcom,core-clk-rate = <200000000>;
-		qcom,core-clk-rate-hs = <66666667>;
-		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
-		resets = <&clock_gcc GCC_USB_HS_BCR>;
-		reset-names = "core_reset";
-
-		dwc3@78c0000 {
-			compatible = "snps,dwc3";
-			reg = <0x78c0000 0xcd00>;
-			interrupt-parent = <&intc>;
-			interrupts = <0 44 0>;
-			tx-fifo-resize;
-			linux,sysdev_is_parent;
-			snps,disable-clk-gating;
-			snps,has-lpm-erratum;
-			snps,hird-threshold = /bits/ 8 <0x10>;
-		};
-	};
-
 	sdhc_1: sdhci@7804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x7804000 0x1000>, <0x7805000 0x1000>;
@@ -979,6 +951,7 @@
 };
 
 #include "qcs405-coresight.dtsi"
+#include "qcs405-usb.dtsi"
 
 &i2c_5 {
 	status = "ok";
@@ -996,4 +969,43 @@
 		pinctrl-0 = <&smb_stat>;
 		qcom,switch-freq = <2>;
 	};
+};
+
+&pms405_gpios {
+	usb3_vbus_boost {
+		usb3_vbus_boost_default: usb3_vbus_boost_default {
+			pins = "gpio3";
+			function = "normal";
+			output-low;
+			power-source = <1>;
+		};
+	};
+
+	usb3_vbus_det {
+		usb3_vbus_det_default: usb3_vbus_det_default {
+			pins = "gpio12";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;
+		};
+	};
+};
+
+&soc {
+	usb3_extcon: usb3_extcon {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&tlmm 116 GPIO_ACTIVE_HIGH>;
+		vbus-gpio = <&pms405_gpios 12 GPIO_ACTIVE_HIGH>;
+		vbus-out-gpio = <&pms405_gpios 3 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb3_vbus_det_default
+			     &usb3_id_det_default
+			     &usb3_vbus_boost_default>;
+	};
+};
+
+&usb2s {
+	extcon = <&smb1351_otg_supply>;
 };

@@ -94,6 +94,15 @@ config QPNP_QNOVO
 	  module. It also allows userspace code to read diagnostics of voltage
 	  and current measured during certain phases of the pulses.
 
+config QPNP_QNOVO5
+	bool "QPNP QNOVO5 driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qnovo5 PBS-based pulse charging engine.
+	  Qnovo5 driver accepts pulse parameters via sysfs entries and programs
+	  the hardware module. It also allows userspace code to read diagnostics
+	  of voltage and current measured during certain phases of the pulses.
+
 config SMB1390_CHARGE_PUMP
 	tristate "SMB1390 Charge Pump"
 	depends on MFD_I2C_PMIC

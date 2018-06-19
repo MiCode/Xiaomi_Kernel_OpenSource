@@ -991,6 +991,26 @@ struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 	return &fmt[i];
 }
 
+struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
+	struct msm_vidc_format_constraint fmt[], int size, int fourcc)
+{
+	int i;
+
+	if (!fmt) {
+		dprintk(VIDC_ERR, "Invalid inputs, fmt = %pK\n", fmt);
+		return NULL;
+	}
+	for (i = 0; i < size; i++) {
+		if (fmt[i].fourcc == fourcc)
+			break;
+	}
+	if (i == size) {
+		dprintk(VIDC_INFO, "Format constraint not found.\n");
+		return NULL;
+	}
+	return &fmt[i];
+}
+
 struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type)
 {
@@ -2417,6 +2437,11 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	update_recon_stats(inst, &empty_buf_done->recon_stats);
 	msm_vidc_clear_freq_entry(inst, mbuf->smem[0].device_addr);
 	/*
+	 * dma cache operations need to be performed before dma_unmap
+	 * which is done inside msm_comm_put_vidc_buffer()
+	 */
+	msm_comm_dqbuf_cache_operations(inst, mbuf);
+	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
 	 * in put_buffer.
@@ -2601,6 +2626,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
+	/*
+	 * dma cache operations need to be performed before dma_unmap
+	 * which is done inside msm_comm_put_vidc_buffer()
+	 */
+	msm_comm_dqbuf_cache_operations(inst, mbuf);
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
@@ -4268,7 +4298,6 @@ int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		count = num_pending_qbufs(inst,
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 		if (count < inst->batch.size) {
-			mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
 			print_vidc_buffer(VIDC_DBG,
 				"batch-qbuf deferred", inst, mbuf);
 			return 0;
@@ -6103,6 +6132,137 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	return rc;
 }
 
+int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0, i;
+	struct vb2_buffer *vb;
+	bool skip;
+
+	if (!inst || !mbuf) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+			__func__, inst, mbuf);
+		return -EINVAL;
+	}
+	vb = &mbuf->vvb.vb2_buf;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		unsigned long offset, size;
+		enum smem_cache_ops cache_op;
+
+		skip = true;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = 0;
+					size = vb->planes[i].length;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = 0;
+					size = vb->planes[i].length;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+
+		if (!skip) {
+			rc = msm_smem_cache_operations(mbuf->smem[i].dma_buf,
+					cache_op, offset, size);
+			if (rc)
+				print_vidc_buffer(VIDC_ERR,
+					"qbuf cache ops failed", inst, mbuf);
+		}
+	}
+
+	return rc;
+}
+
+int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0, i;
+	struct vb2_buffer *vb;
+	bool skip;
+
+	if (!inst || !mbuf) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+			__func__, inst, mbuf);
+		return -EINVAL;
+	}
+	vb = &mbuf->vvb.vb2_buf;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		unsigned long offset, size;
+		enum smem_cache_ops cache_op;
+
+		skip = true;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* bitstream and extradata */
+				/* we do not need cache operations */
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = vb->planes[i].data_offset;
+					size = vb->planes[i].bytesused;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* yuv and extradata */
+				/* we do not need cache operations */
+			} else if (vb->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					/*
+					 * Include vp8e header bytes as well
+					 * by making offset equal to zero
+					 */
+					offset = 0;
+					size = vb->planes[i].bytesused +
+						vb->planes[i].data_offset;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+
+		if (!skip) {
+			rc = msm_smem_cache_operations(mbuf->smem[i].dma_buf,
+					cache_op, offset, size);
+			if (rc)
+				print_vidc_buffer(VIDC_ERR,
+					"dqbuf cache ops failed", inst, mbuf);
+		}
+	}
+
+	return rc;
+}
+
 struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb2)
 {
@@ -6191,6 +6351,8 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 			goto exit;
 		}
 	}
+	/* dma cache operations need to be performed after dma_map */
+	msm_comm_qbuf_cache_operations(inst, mbuf);
 
 	/* special handling for decoder */
 	if (inst->session_type == MSM_VIDC_DECODER) {
@@ -6564,3 +6726,73 @@ int msm_comm_release_mark_data(struct msm_vidc_inst *inst)
 	return 0;
 }
 
+int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type,
+		struct msm_vidc_format_constraint *pix_constraint)
+{
+	struct hal_uncompressed_plane_actual_constraints_info
+		*pconstraint = NULL;
+	u32 num_planes = 2;
+	u32 size = 0;
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	size = sizeof(buffer_type)
+			+ sizeof(u32)
+			+ num_planes
+			* sizeof(struct hal_uncompressed_plane_constraints);
+
+	pconstraint = kzalloc(size, GFP_KERNEL);
+	if (!pconstraint) {
+		dprintk(VIDC_ERR, "No memory cannot alloc constrain\n");
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	pconstraint->buffer_type = buffer_type;
+	pconstraint->num_planes = pix_constraint->num_planes;
+	//set Y plan constraints
+	dprintk(VIDC_INFO, "Set Y plan constraints.\n");
+	pconstraint->rg_plane_format[0].stride_multiples =
+			pix_constraint->y_stride_multiples;
+	pconstraint->rg_plane_format[0].max_stride =
+			pix_constraint->y_max_stride;
+	pconstraint->rg_plane_format[0].min_plane_buffer_height_multiple =
+			pix_constraint->y_min_plane_buffer_height_multiple;
+	pconstraint->rg_plane_format[0].buffer_alignment =
+			pix_constraint->y_buffer_alignment;
+
+	//set UV plan constraints
+	dprintk(VIDC_INFO, "Set UV plan constraints.\n");
+	pconstraint->rg_plane_format[1].stride_multiples =
+			pix_constraint->uv_stride_multiples;
+	pconstraint->rg_plane_format[1].max_stride =
+			pix_constraint->uv_max_stride;
+	pconstraint->rg_plane_format[1].min_plane_buffer_height_multiple =
+			pix_constraint->uv_min_plane_buffer_height_multiple;
+	pconstraint->rg_plane_format[1].buffer_alignment =
+			pix_constraint->uv_buffer_alignment;
+
+	rc = call_hfi_op(hdev,
+			session_set_property,
+			inst->session,
+			HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
+			pconstraint);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set input color format constraint\n");
+	else
+		dprintk(VIDC_DBG, "Set color format constraint success\n");
+
+exit:
+	if (!pconstraint)
+		kfree(pconstraint);
+	return rc;
+}

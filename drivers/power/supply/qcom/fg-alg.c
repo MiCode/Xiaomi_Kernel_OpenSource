@@ -798,12 +798,16 @@ static int ttf_lerp(const struct ttf_pt *pts, size_t tablesize,
 
 static int get_time_to_full_locked(struct ttf *ttf, int *val)
 {
+	struct step_chg_data *step_chg_data = ttf->step_chg_data;
+	struct range_data *step_chg_cfg = ttf->step_chg_cfg;
 	int rc, ibatt_avg, vbatt_avg, rbatt = 0, msoc = 0, act_cap_mah = 0,
 		i_cc2cv = 0, soc_cc2cv, tau, divisor, iterm = 0, ttf_mode = 0,
 		i, soc_per_step, msoc_this_step, msoc_next_step,
 		ibatt_this_step, t_predicted_this_step, ttf_slope,
-		t_predicted_cv, t_predicted = 0, charge_type = 0,
+		t_predicted_cv, t_predicted = 0, charge_type = 0, i_step,
 		float_volt_uv = 0;
+	int vbatt_now, multiplier, curr_window = 0, pbatt_avg;
+	bool power_approx = false;
 	s64 delta_ms;
 
 	rc = ttf->get_ttf_param(ttf->data, TTF_MSOC, &msoc);
@@ -873,7 +877,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		return rc;
 	}
 
-	pr_debug(" TTF: ibatt_avg=%d vbatt_avg=%d rbatt=%d act_cap_mah=%d\n",
+	pr_debug("TTF: ibatt_avg=%d vbatt_avg=%d rbatt=%d act_cap_mah=%d\n",
 				ibatt_avg, vbatt_avg, rbatt, act_cap_mah);
 
 	rc =  ttf->get_ttf_param(ttf->data, TTF_VFLOAT, &float_volt_uv);
@@ -887,9 +891,13 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		pr_err("failed to get charge_type rc=%d\n", rc);
 		return rc;
 	}
+
+	pr_debug("TTF: mode: %d\n", ttf->mode);
+
 	/* estimated battery current at the CC to CV transition */
 	switch (ttf->mode) {
 	case TTF_MODE_NORMAL:
+	case TTF_MODE_V_STEP_CHG:
 		i_cc2cv = ibatt_avg * vbatt_avg /
 			max(MILLI_UNIT, float_volt_uv / MILLI_UNIT);
 		break;
@@ -945,6 +953,91 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 				msoc_this_step, msoc_next_step,
 				ibatt_this_step, t_predicted_this_step);
 		}
+		break;
+	case TTF_MODE_V_STEP_CHG:
+		if (!step_chg_data || !step_chg_cfg)
+			break;
+
+		pbatt_avg = vbatt_avg * ibatt_avg;
+
+		rc =  ttf->get_ttf_param(ttf->data, TTF_VBAT, &vbatt_now);
+		if (rc < 0) {
+			pr_err("failed to get battery voltage, rc=%d\n", rc);
+			return rc;
+		}
+
+		curr_window = ttf->step_chg_num_params - 1;
+		for (i = 0; i < ttf->step_chg_num_params; i++) {
+			if (is_between(step_chg_cfg[i].low_threshold,
+					step_chg_cfg[i].high_threshold,
+					vbatt_now))
+				curr_window = i;
+		}
+
+		pr_debug("TTF: curr_window: %d pbatt_avg: %d\n", curr_window,
+			pbatt_avg);
+
+		t_predicted_this_step = 0;
+		for (i = 0; i < ttf->step_chg_num_params; i++) {
+			/*
+			 * If Ibatt_avg differs by step charging threshold by
+			 * more than 100 mA, then use power approximation to
+			 * get charging current step.
+			 */
+
+			if (step_chg_cfg[i].value - ibatt_avg > 100)
+				power_approx = true;
+
+			/* Calculate OCV for each window */
+			if (power_approx) {
+				i_step = pbatt_avg / max((u32)MILLI_UNIT,
+					(step_chg_cfg[i].high_threshold /
+						MILLI_UNIT));
+			} else {
+				if (i == curr_window)
+					i_step = ((step_chg_cfg[i].value /
+							MILLI_UNIT) +
+							ibatt_avg) / 2;
+				else
+					i_step = (step_chg_cfg[i].value /
+							MILLI_UNIT);
+			}
+
+			step_chg_data[i].ocv = step_chg_cfg[i].high_threshold -
+						(rbatt * i_step);
+
+			/* Calculate SOC for each window */
+			step_chg_data[i].soc = (float_volt_uv -
+					step_chg_data[i].ocv) / OCV_SLOPE_UV;
+			step_chg_data[i].soc = 100 - step_chg_data[i].soc;
+
+			/* Calculate CC time for each window */
+			multiplier = act_cap_mah * HOURS_TO_SECONDS;
+			if (curr_window > 0 && i < curr_window)
+				t_predicted_this_step = 0;
+			else if (i == curr_window)
+				t_predicted_this_step =
+					div_s64((s64)multiplier *
+						(step_chg_data[i].soc - msoc),
+						i_step);
+			else if (i > 0)
+				t_predicted_this_step =
+					div_s64((s64)multiplier *
+						(step_chg_data[i].soc -
+						step_chg_data[i - 1].soc),
+						i_step);
+
+			if (t_predicted_this_step < 0)
+				t_predicted_this_step = 0;
+
+			t_predicted_this_step =
+				DIV_ROUND_CLOSEST(t_predicted_this_step, 100);
+			pr_debug("TTF: step: %d i_step: %d OCV: %d SOC: %d t_pred: %d\n",
+				i, i_step, step_chg_data[i].ocv,
+				step_chg_data[i].soc, t_predicted_this_step);
+			t_predicted += t_predicted_this_step;
+		}
+
 		break;
 	default:
 		pr_err("TTF mode %d is not supported\n", ttf->mode);

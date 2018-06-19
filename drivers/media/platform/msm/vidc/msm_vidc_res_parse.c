@@ -981,6 +981,17 @@ static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 		goto release_mapping;
 	}
 
+	/*
+	 * configure device segment size and segment boundary to ensure
+	 * iommu mapping returns one mapping (which is required for partial
+	 * cache operations)
+	 */
+	if (!dev->dma_parms)
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
+
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,
 		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %pK, mapping: %pK",

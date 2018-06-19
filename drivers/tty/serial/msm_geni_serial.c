@@ -96,6 +96,7 @@
 /* UART S_CMD OP codes */
 #define UART_START_READ		(0x1)
 #define UART_PARAM		(0x1)
+#define UART_PARAM_RFR_OPEN		(BIT(7))
 
 /* UART DMA Rx GP_IRQ_BITS */
 #define UART_DMA_RX_PARITY_ERR	BIT(5)
@@ -610,6 +611,26 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
 }
 
+static void msm_geni_serial_complete_rx_eot(struct uart_port *uport)
+{
+	int poll_done = 0, tries = 0;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+
+	do {
+		poll_done = msm_geni_serial_poll_bit(uport, SE_DMA_RX_IRQ_STAT,
+								RX_EOT, true);
+		tries++;
+	} while (!poll_done && tries < 5);
+
+	if (!poll_done)
+		IPC_LOG_MSG(port->ipc_log_misc,
+		"%s: RX_EOT, GENI:0x%x, DMA_DEBUG:0x%x\n", __func__,
+		geni_read_reg_nolog(uport->membase, SE_GENI_STATUS),
+		geni_read_reg_nolog(uport->membase, SE_DMA_DEBUG_REG0));
+	else
+		geni_write_reg_nolog(RX_EOT, uport->membase, SE_DMA_RX_IRQ_CLR);
+}
+
 #ifdef CONFIG_CONSOLE_POLL
 static int msm_geni_serial_get_char(struct uart_port *uport)
 {
@@ -996,12 +1017,14 @@ static void start_rx_sequencer(struct uart_port *uport)
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int ret;
+	u32 geni_se_param = UART_PARAM_RFR_OPEN;
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	if (geni_status & S_GENI_CMD_ACTIVE)
 		msm_geni_serial_stop_rx(uport);
 
-	geni_setup_s_cmd(uport->membase, UART_START_READ, 0);
+	/* Start RX with the RFR_OPEN to keep RFR in always ready state */
+	geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
 
 	if (port->xfer_mode == FIFO_MODE) {
 		geni_s_irq_en = geni_read_reg_nolog(uport->membase,
@@ -1075,7 +1098,7 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	unsigned int geni_m_irq_en;
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-	u32 irq_clear = S_CMD_DONE_EN;
+	u32 irq_clear = S_CMD_CANCEL_EN;
 	bool done;
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s\n", __func__);
@@ -1097,22 +1120,33 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	/* Possible stop rx is called multiple times. */
 	if (!(geni_status & S_GENI_CMD_ACTIVE))
 		goto exit_rx_seq;
+
 	geni_cancel_s_cmd(uport->membase);
 	/*
 	 * Ensure that the cancel goes through before polling for the
 	 * cancel control bit.
 	 */
 	mb();
+	if (!uart_console(uport))
+		msm_geni_serial_complete_rx_eot(uport);
+
 	done = msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
 					S_GENI_CMD_CANCEL, false);
-	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
-	if (!done)
+	if (done) {
+		geni_write_reg_nolog(irq_clear, uport->membase,
+						SE_GENI_S_IRQ_CLEAR);
+		goto exit_rx_seq;
+	} else {
 		IPC_LOG_MSG(port->ipc_log_misc, "%s Cancel fail 0x%x\n",
-							__func__, geni_status);
+						__func__, geni_status);
+	}
 
-	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
-	if ((geni_status & S_GENI_CMD_ACTIVE))
+	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	if ((geni_status & S_GENI_CMD_ACTIVE)) {
+		IPC_LOG_MSG(port->ipc_log_misc, "%s:Abort Rx, GENI:0x%x\n",
+						__func__, geni_status);
 		msm_geni_serial_abort_rx(uport);
+	}
 exit_rx_seq:
 	if (port->xfer_mode == SE_DMA && port->rx_dma) {
 		msm_geni_serial_rx_fsm_rst(uport);
@@ -1690,6 +1724,9 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 		ret = -ENXIO;
 		goto exit_startup;
 	}
+	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s: FW Ver:0x%x%x\n",
+		__func__,
+		get_se_m_fw(uport->membase), get_se_s_fw(uport->membase));
 
 	get_tx_fifo_size(msm_port);
 	if (!msm_port->port_setup) {
@@ -1817,6 +1854,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long clk_rate;
+	unsigned long flags;
 
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
@@ -1828,7 +1866,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 			return;
 		}
 	}
+	/* Take a spinlock else stop_rx causes a race with an ISR due to Cancel
+	 * and FSM_RESET. This also has a potential race with the dma_map/unmap
+	 * operations of ISR.
+	 */
+	spin_lock_irqsave(&uport->lock, flags);
 	msm_geni_serial_stop_rx(uport);
+	spin_unlock_irqrestore(&uport->lock, flags);
 	/* baud rate */
 	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
 	port->cur_baud = baud;
@@ -2514,7 +2558,6 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	int ret = 0;
-	u32 uart_manual_rfr = 0;
 	u32 geni_status = geni_read_reg_nolog(port->uport.membase,
 							SE_GENI_STATUS);
 
@@ -2526,23 +2569,8 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	 * Resources off
 	 */
 	disable_irq(port->uport.irq);
-	/*
-	 * If the clients haven't done a manual flow on/off then go ahead and
-	 * set this to manual flow on.
-	 */
-	if (!port->manual_flow) {
-		uart_manual_rfr |= (UART_MANUAL_RFR_EN | UART_RFR_READY);
-		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
-							SE_UART_MANUAL_RFR);
-		/*
-		 * Ensure that the manual flow on writes go through before
-		 * doing a stop_rx else we could end up flowing off the peer.
-		 */
-		mb();
-		IPC_LOG_MSG(port->ipc_log_pwr, "%s: Manual Flow ON 0x%x\n",
-						 __func__, uart_manual_rfr);
-	}
 	stop_rx_sequencer(&port->uport);
+	geni_status = geni_read_reg_nolog(port->uport.membase, SE_GENI_STATUS);
 	if ((geni_status & M_GENI_CMD_ACTIVE))
 		stop_tx_sequencer(&port->uport);
 	ret = se_geni_resources_off(&port->serial_rsc);
@@ -2587,9 +2615,6 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		goto exit_runtime_resume;
 	}
 	start_rx_sequencer(&port->uport);
-	if (!port->manual_flow)
-		geni_write_reg_nolog(0, port->uport.membase,
-						SE_UART_MANUAL_RFR);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
 	if (pm_runtime_enabled(dev))
