@@ -265,6 +265,7 @@ struct fastrpc_apps {
 	int rpmsg_register;
 	spinlock_t ctxlock;
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
+	bool legacy_remote_heap;
 };
 
 struct fastrpc_mmap {
@@ -1877,7 +1878,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = init->filelen;
 		inbuf.pageslen = 0;
-		if (!me->staticpd_flags) {
+		if (!me->staticpd_flags && !(me->legacy_remote_heap)) {
 			inbuf.pageslen = 1;
 			mutex_lock(&fl->map_mutex);
 			VERIFY(err, !fastrpc_mmap_create(fl, -1, 0, init->mem,
@@ -2058,6 +2059,7 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 {
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
+	int tgid = 0;
 	int destVM[1] = {VMID_HLOS};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
@@ -2070,17 +2072,21 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 			uint8_t skey;
 		} routargs;
 
-		ra[0].buf.pv = (void *)&routargs;
-		ra[0].buf.len = sizeof(routargs);
+		if (fl == NULL)
+			goto bail;
+		tgid = fl->tgid;
+		ra[0].buf.pv = (void *)&tgid;
+		ra[0].buf.len = sizeof(tgid);
+
+		ra[1].buf.pv = (void *)&routargs;
+		ra[1].buf.len = sizeof(routargs);
 
 		ioctl.inv.handle = 1;
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 0, 1);
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
 		ioctl.inv.pra = ra;
 		ioctl.fds = NULL;
 		ioctl.attrs = NULL;
 		ioctl.crc = NULL;
-		if (fl == NULL)
-			goto bail;
 
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 				FASTRPC_MODE_PARALLEL, 1, &ioctl)));
@@ -3256,7 +3262,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		return 0;
 	}
-
+	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-legacy-remote-heap");
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
 					  NULL, &pdev->dev));
@@ -3330,6 +3337,7 @@ static int __init fastrpc_device_init(void)
 
 	fastrpc_init(me);
 	me->dev = NULL;
+	me->legacy_remote_heap = 0;
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
 		goto register_bail;
