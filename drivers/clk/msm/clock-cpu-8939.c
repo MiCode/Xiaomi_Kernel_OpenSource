@@ -999,7 +999,7 @@ static int __init clock_cpu_lpm_get_latency(void)
 
 	return rc;
 }
-late_initcall(clock_cpu_lpm_get_latency);
+late_initcall_sync(clock_cpu_lpm_get_latency);
 
 #define APCS_C0_PLL			0xb116000
 #define C0_PLL_MODE			0x0

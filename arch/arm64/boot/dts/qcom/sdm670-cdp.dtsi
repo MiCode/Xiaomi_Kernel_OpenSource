@@ -38,6 +38,8 @@
 	qcom,vddp-ref-clk-supply = <&pm660_l1>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
+	force-ufshc-probe;
+
 	status = "ok";
 };
 
