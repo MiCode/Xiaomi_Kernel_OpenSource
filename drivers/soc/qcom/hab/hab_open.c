@@ -165,8 +165,8 @@ int hab_open_listen(struct uhab_context *ctx,
 			pr_warn("local closing during open ret %d\n", ret);
 			ret = -ENODEV;
 		} else if (-ERESTARTSYS == ret) {
-			pr_warn("local interrupted during open ret %d\n", ret);
-			ret = -EAGAIN;
+			pr_warn("local interrupted ret %d\n", ret);
+			ret = -EINTR;
 		}
 	}
 
