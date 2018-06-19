@@ -936,6 +936,13 @@ struct msm_vfe_axi_output_plane_cfg {
 	uint32_t frame_increment;
 };
 
+struct msm_vfe_axi_framedrop_update {
+	enum msm_vfe_axi_stream_src stream_src;
+
+	uint8_t framedrop_period;
+	uint32_t framedrop_pattern;
+};
+
 struct msm_vfe_axi_output_path_cfg {
 	uint8_t enable;
 
@@ -1003,6 +1010,7 @@ enum msm_isp_ioctl_cmd_code {
 
 	MSM_ISP_SET_CLK_STATUS,
 	MSM_ISP_CMD_EXT,
+	MSM_ISP_FRAMEDROP_UPDATE,
 };
 
 
@@ -1128,6 +1136,10 @@ enum msm_isp_ioctl_cmd_code {
 
 #define VIDIOC_MSM_ISP_AXI_OUTPUT_CFG \
 	_IOWR('V', MSM_ISP_AXI_OUTPUT_CFG, \
+		struct msm_vfe_axi_output_cfg)
+
+#define VIDIOC_MSM_ISP_FRAMEDROP_UPDATE \
+	_IOWR('V', MSM_ISP_FRAMEDROP_UPDATE, \
 		struct msm_vfe_axi_output_cfg)
 
 #define VIDIOC_MSM_ISP_CAMIF_CFG \
