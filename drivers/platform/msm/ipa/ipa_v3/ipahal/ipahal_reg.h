@@ -36,6 +36,7 @@ enum ipahal_reg_name {
 	IPA_ENABLED_PIPES,
 	IPA_VERSION,
 	IPA_TAG_TIMER,
+	IPA_NAT_TIMER,
 	IPA_COMP_HW_VERSION,
 	IPA_COMP_CFG,
 	IPA_STATE_TX_WRAPPER,
@@ -117,6 +118,9 @@ enum ipahal_reg_name {
 	IPA_HPS_SEQUENCER_FIRST,
 	IPA_HPS_SEQUENCER_LAST,
 	IPA_CLKON_CFG,
+	IPA_QTIME_TIMESTAMP_CFG,
+	IPA_TIMERS_PULSE_GRAN_CFG,
+	IPA_TIMERS_XO_CLK_DIV_CFG,
 	IPA_STAT_QUOTA_BASE_n,
 	IPA_STAT_QUOTA_MASK_n,
 	IPA_STAT_TETHERING_BASE_n,
@@ -276,6 +280,83 @@ struct ipahal_reg_clkon_cfg {
 	bool open_tx_wrapper;
 	bool open_proc;
 	bool open_rx;
+};
+
+/*
+ * struct ipahal_reg_qtime_timestamp_cfg - IPA timestamp configuration
+ *  Relevant starting IPA 4.5.
+ *  IPA timestamps are based on QTIMER which is 56bit length which is
+ *  based on XO clk running at 19.2MHz (52nsec resolution).
+ *  Specific timestamps (TAG, NAT, DPL) my require lower resolution.
+ *  This can be achieved by omitting LSB bits from 56bit QTIMER.
+ *  e.g. if we omit (shift) 24 bit then we get (2^24)*(52n)=0.87sec resolution.
+ *
+ * @dpl_timestamp_lsb: Shifting Qtime value. Value will be used as LSB of
+ *  DPL timestamp.
+ * @dpl_timestamp_sel: if false, DPL timestamp will be based on legacy
+ *  DPL_TIMER which counts in 1ms. if true, it will be based on QTIME
+ *  value shifted by dpl_timestamp_lsb.
+ * @tag_timestamp_lsb: Shifting Qtime value. Value will be used as LSB of
+ *  TAG timestamp.
+ * @nat_timestamp_lsb: Shifting Qtime value. Value will be used as LSB of
+ *  NAT timestamp.
+ */
+struct ipahal_reg_qtime_timestamp_cfg {
+	u32 dpl_timestamp_lsb;
+	bool dpl_timestamp_sel;
+	u32 tag_timestamp_lsb;
+	u32 nat_timestamp_lsb;
+};
+
+/*
+ * enum ipa_timers_time_gran_type - Time granularity to be used with timers
+ *
+ * e.g. for HOLB and Aggregation timers
+ */
+enum ipa_timers_time_gran_type {
+	IPA_TIMERS_TIME_GRAN_10_USEC,
+	IPA_TIMERS_TIME_GRAN_20_USEC,
+	IPA_TIMERS_TIME_GRAN_50_USEC,
+	IPA_TIMERS_TIME_GRAN_100_USEC,
+	IPA_TIMERS_TIME_GRAN_1_MSEC,
+	IPA_TIMERS_TIME_GRAN_10_MSEC,
+	IPA_TIMERS_TIME_GRAN_100_MSEC,
+	IPA_TIMERS_TIME_GRAN_NEAR_HALF_SEC, /* 0.65536s */
+	IPA_TIMERS_TIME_GRAN_MAX,
+};
+
+/*
+ * struct ipahal_reg_timers_pulse_gran_cfg - Counters tick granularities
+ *  Relevant starting IPA 4.5.
+ *  IPA timers are based on XO CLK running 19.2MHz (52ns resolution) deviced
+ *  by clock divider (see IPA_TIMERS_XO_CLK_DIV_CFG) - default 100Khz (10usec).
+ *  IPA timers instances (e.g. HOLB or AGGR) may require different resolutions.
+ *  There are 3 global pulse generators with configurable granularity. Each
+ *  timer instance can choose one of the three generators to work with.
+ *  Each generator granularity can be one of supported ones.
+ *
+ * @gran_X: granularity tick of counterX
+ */
+struct ipahal_reg_timers_pulse_gran_cfg {
+	enum ipa_timers_time_gran_type gran_0;
+	enum ipa_timers_time_gran_type gran_1;
+	enum ipa_timers_time_gran_type gran_2;
+};
+
+/*
+ * struct ipahal_reg_timers_xo_clk_div_cfg - IPA timers clock divider
+ * Used to control clock divider which gets XO_CLK of 19.2MHz as input.
+ * Output of CDIV is used to generate IPA timers granularity
+ *
+ * @enable: Enable of the clock divider for all IPA and GSI timers.
+ *  clock is disabled by default, and need to be enabled when system is up.
+ * @value: Divided value to be used by CDIV. POR value is set to 191
+ *  to generate 100KHz clk based on XO_CLK.
+ *  Values of ipahal_reg_timers_pulse_gran_cfg are based on this default.
+ */
+struct ipahal_reg_timers_xo_clk_div_cfg {
+	bool enable;
+	u32 value;
 };
 
 /*
@@ -661,12 +742,10 @@ u32 ipahal_get_reg_base(void);
  * These functions supply specific register values for specific operations
  *  that cannot be reached by generic functions.
  * E.g. To disable aggregation, need to write to specific bits of the AGGR
- *  register. The other bits should be untouched. This oeprate is very specific
- *  and cannot be generically defined. For such operations we define these
- *  specific functions.
+ *  register. The other bits should be untouched. This operation is very
+ *  specific and cannot be generically defined. For such operations we define
+ *  these specific functions.
  */
-u32 ipahal_aggr_get_max_byte_limit(void);
-u32 ipahal_aggr_get_max_pkt_limit(void);
 void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask);
 void ipahal_get_fltrt_hash_flush_valmask(
