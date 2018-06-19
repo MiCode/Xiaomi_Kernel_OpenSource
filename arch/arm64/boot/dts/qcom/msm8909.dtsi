@@ -77,7 +77,6 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu0_slp_sts>;
-			qcom,limits-info = <&mitigation_profile0>;
 		};
 
 		CPU1: cpu@1 {
@@ -87,7 +86,6 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
-			qcom,limits-info = <&mitigation_profile2>;
 		};
 
 		CPU2: cpu@2 {
@@ -97,7 +95,6 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
-			qcom,limits-info = <&mitigation_profile1>;
 		};
 
 		CPU3: cpu@3 {
@@ -107,7 +104,6 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu3_slp_sts>;
-			qcom,limits-info = <&mitigation_profile2>;
 		};
 	};
 
@@ -557,79 +553,6 @@
 			qcom,dump-id = <0xe8>;
 		};
 
-	};
-
-	qcom,sensor-information {
-		compatible = "qcom,sensor-information";
-		sensor_information0: qcom,sensor-information-0 {
-			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor0";
-			qcom,alias-name = "pop_mem";
-		};
-
-		sensor_information1: qcom,sensor-information-1 {
-			qcom,sensor-type =  "tsens";
-			qcom,sensor-name = "tsens_tz_sensor1";
-		};
-
-		sensor_information2: qcom,sensor-information-2 {
-			qcom,sensor-type =  "tsens";
-			qcom,sensor-name = "tsens_tz_sensor2";
-		};
-
-		sensor_information3: qcom,sensor-information-3 {
-			qcom,sensor-type =  "tsens";
-			qcom,sensor-name = "tsens_tz_sensor3";
-		};
-
-		sensor_information4: qcom,sensor-information-4 {
-			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor4";
-		};
-
-		sensor_information5: qcom,sensor-information-5 {
-			qcom,sensor-type = "adc";
-			qcom,sensor-name = "pa_therm0";
-		};
-
-		sensor_information6: qcom,sensor-information-6 {
-			qcom,sensor-type = "adc";
-			qcom,sensor-name = "case_therm";
-		};
-
-		sensor_information7: qcom,sensor-information-7 {
-			qcom,sensor-type = "alarm";
-			qcom,sensor-name = "pm8909_tz";
-			qcom,scaling-factor = <1000>;
-		};
-
-		sensor_information8: qcom,sensor-information-8 {
-			qcom,sensor-type = "adc";
-			qcom,sensor-name = "xo_therm";
-		};
-
-		sensor_information9: qcom,sensor-information-9 {
-			qcom,sensor-type = "adc";
-			qcom,sensor-name = "xo_therm_buf";
-		};
-	};
-
-	mitigation_profile0: qcom,limit_info-0 {
-		qcom,temperature-sensor = <&sensor_information3>;
-		qcom,boot-frequency-mitigate;
-		qcom,emergency-frequency-mitigate;
-	};
-
-	mitigation_profile1: qcom,limit_info-1 {
-		qcom,temperature-sensor = <&sensor_information3>;
-		qcom,boot-frequency-mitigate;
-		qcom,hotplug-mitigation-enable;
-	};
-
-	mitigation_profile2: qcom,limit_info-2 {
-		qcom,temperature-sensor = <&sensor_information4>;
-		qcom,boot-frequency-mitigate;
-		qcom,hotplug-mitigation-enable;
 	};
 
 	qcom,ipc-spinlock@1905000 {
