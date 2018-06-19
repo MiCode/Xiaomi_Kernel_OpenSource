@@ -43,7 +43,10 @@ static void host_irq_wq(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_fw_ready(struct npu_device *npu_dev);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx);
-static struct npu_network *get_network(struct npu_host_ctx *ctx, int64_t id);
+static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
+	uint32_t hdl);
+static struct npu_network *get_network_by_id(struct npu_host_ctx *ctx,
+	int64_t id);
 static void free_network(struct npu_host_ctx *ctx, int64_t id);
 static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg);
 static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg);
@@ -361,6 +364,7 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx)
 			 * by 1 for the next IPC cmd on the same network
 			 */
 			network->ipc_trans_id = 1;
+			network->network_hdl = 0;
 			break;
 		}
 		network++;
@@ -374,7 +378,28 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx)
 	return network;
 }
 
-static struct npu_network *get_network(struct npu_host_ctx *ctx, int64_t id)
+static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
+	uint32_t hdl)
+{
+	int32_t i;
+	struct npu_network *network = ctx->networks;
+
+	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+		if (network->network_hdl == hdl)
+			break;
+
+		network++;
+	}
+	if (i == MAX_LOADED_NETWORK) {
+		pr_err("network hdl invalid %d\n", hdl);
+		network = NULL;
+	}
+
+	return network;
+}
+
+static struct npu_network *get_network_by_id(struct npu_host_ctx *ctx,
+	int64_t id)
 {
 	if (id >= 1 && id <= MAX_LOADED_NETWORK)
 		return &ctx->networks[id - 1];
@@ -384,7 +409,7 @@ static struct npu_network *get_network(struct npu_host_ctx *ctx, int64_t id)
 
 static void free_network(struct npu_host_ctx *ctx, int64_t id)
 {
-	struct npu_network *network = get_network(ctx, id);
+	struct npu_network *network = get_network_by_id(ctx, id);
 	unsigned long flags;
 
 	if (network) {
@@ -440,7 +465,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		 * the network ID on the way back
 		 */
 		network_id = load_rsp_pkt->header.flags;
-		network = get_network(host_ctx, network_id);
+		network = get_network_by_id(host_ctx, network_id);
 		if (!network) {
 			pr_err("can't find network %d\n", network_id);
 			break;
@@ -600,7 +625,6 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	network->first_block_size = load_ioctl->first_block_size;
 	network->priority = load_ioctl->priority;
 	network->perf_mode = load_ioctl->perf_mode;
-	load_ioctl->network_hdl = network->id;
 
 	networks_perf_mode = find_networks_perf_mode(host_ctx);
 
@@ -646,6 +670,8 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 		goto error_free_network;
 	}
 
+	load_ioctl->network_hdl = network->network_hdl;
+
 	return ret;
 
 error_free_network:
@@ -664,7 +690,7 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	/* get the corresponding network for ipc trans id purpose */
-	network = get_network(host_ctx, (int64_t)unload->network_hdl);
+	network = get_network_by_hdl(host_ctx, unload->network_hdl);
 	if (!network)
 		return -EINVAL;
 
@@ -698,7 +724,7 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 		 * free the network on the kernel if the corresponding ACO
 		 * handle is unloaded on the firmware side
 		 */
-		free_network(host_ctx, (int64_t)unload->network_hdl);
+		free_network(host_ctx, network->id);
 		fw_deinit(npu_dev, true);
 	}
 
@@ -718,7 +744,7 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int i = 0;
 
-	network = get_network(host_ctx, (int64_t)exec_ioctl->network_hdl);
+	network = get_network_by_hdl(host_ctx, exec_ioctl->network_hdl);
 
 	if (!network)
 		return -EINVAL;
