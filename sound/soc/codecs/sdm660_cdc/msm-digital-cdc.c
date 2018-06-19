@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2134,6 +2134,10 @@ static int msm_dig_suspend(struct device *dev)
 
 	if (!registered_digcodec || !msm_dig_cdc) {
 		pr_debug("%s:digcodec not initialized, return\n", __func__);
+		return 0;
+	}
+	if (!registered_digcodec->component.card) {
+		pr_debug("%s:component not initialized, return\n", __func__);
 		return 0;
 	}
 	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
