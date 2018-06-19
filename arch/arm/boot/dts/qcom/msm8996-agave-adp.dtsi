@@ -1041,10 +1041,8 @@
 		status = "disabled";
 	};
 
-	qcom,msm-ssc-sensors {
-		compatible = "qcom,msm-ssc-sensors";
-		qcom,firmware-name = "slpi";
-		status = "ok";
+	ssc_sensors: qcom,msm-ssc-sensors {
+		status = "disabled";
 	};
 
 	sound-adp-agave {
@@ -1142,6 +1140,7 @@
 		qcom,refs-tdm-rx = <&dai_tert_tdm_rx_5>;
 		qcom,spkr-tdm-rx = <&dai_quat_tdm_rx_0>;
 		qcom,mic-tdm-tx = <&dai_quat_tdm_tx_0>;
+		status = "disabled";
 	};
 
 	usb_detect: usb_detect {
