@@ -10,4 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include "qcs405.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS403";
+	qcom,msm-name = "QCS403";
+	qcom,msm-id = <373 0x0>;
+};
