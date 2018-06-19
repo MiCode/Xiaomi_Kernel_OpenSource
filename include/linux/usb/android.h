@@ -97,7 +97,7 @@ static enum android_function_index name_to_func_idx(const char *name)
 	if (!strncasecmp("AUDIO_SOURCE", name, FUNC_NAME_LEN))
 		return ANDROID_AUDIO_SRC;
 	if (!strncasecmp("CHARGING", name, FUNC_NAME_LEN))
-		return ANDROID_AUDIO_SRC;
+		return ANDROID_CHARGER;
 	if (!strncasecmp("MIDI", name, FUNC_NAME_LEN))
 		return ANDROID_MIDI;
 	if (!strncasecmp("RNDIS_GSI", name, FUNC_NAME_LEN))
