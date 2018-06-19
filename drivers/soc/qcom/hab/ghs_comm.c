@@ -129,7 +129,7 @@ void physical_channel_rx_dispatch(unsigned long physical_channel)
 				/* no more pending msg */
 				break;
 			}
-			pr_error("recv unhandled result %d, size %zd\n",
+			pr_err("recv unhandled result %d, size %zd\n",
 				result, dev->read_size);
 			break;
 		}
