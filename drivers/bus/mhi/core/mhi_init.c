@@ -1158,7 +1158,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->mhi_dev = mhi_dev;
 
-	mhi_cntrl->parent = mhi_bus.dentry;
+	mhi_cntrl->parent = debugfs_lookup(mhi_bus_type.name, NULL);
 	mhi_cntrl->klog_lvl = MHI_MSG_LVL_ERROR;
 
 	/* adding it to this list only for debug purpose */
@@ -1493,14 +1493,13 @@ struct mhi_device *mhi_alloc_device(struct mhi_controller *mhi_cntrl)
 
 static int __init mhi_init(void)
 {
-	struct dentry *dentry;
 	int ret;
 
 	mutex_init(&mhi_bus.lock);
 	INIT_LIST_HEAD(&mhi_bus.controller_list);
-	dentry = debugfs_create_dir("mhi", NULL);
-	if (!IS_ERR_OR_NULL(dentry))
-		mhi_bus.dentry = dentry;
+
+	/* parent directory */
+	debugfs_create_dir(mhi_bus_type.name, NULL);
 
 	ret = bus_register(&mhi_bus_type);
 
