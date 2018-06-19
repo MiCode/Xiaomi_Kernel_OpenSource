@@ -147,7 +147,7 @@ trigger_idle:
 
 	if (!wait_for_completion_timeout(&ctrl->idle_comp,
 			idle_pattern_completion_timeout_ms))
-		pr_warn("PUSH_IDLE pattern timedout\n");
+		pr_warn("PUSH_IDLE time out\n");
 
 	pr_debug("mainlink off done\n");
 }
@@ -179,11 +179,11 @@ static int dp_ctrl_wait4video_ready(struct dp_ctrl_private *ctrl)
 
 	ret = wait_for_completion_timeout(&ctrl->video_comp, HZ / 2);
 	if (ret <= 0) {
-		pr_err("Link Train timedout\n");
-		ret = -EINVAL;
+		pr_err("SEND_VIDEO time out (%d)\n", ret);
+		return -EINVAL;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
@@ -838,20 +838,21 @@ static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
 	ctrl->catalog->reset(ctrl->catalog);
 }
 
+static void dp_ctrl_send_video(struct dp_ctrl_private *ctrl)
+{
+	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+}
+
 static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 		struct dp_panel *panel)
 {
 	u32 x_int, y_frac_enum, lanes, bw_code;
 	bool act_complete;
 
-	if (!ctrl->mst_mode) {
-		ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+	if (!ctrl->mst_mode)
 		return 0;
-	}
 
 	DP_MST_DEBUG("mst stream channel allocation\n");
-
-	panel->hw_cfg(panel);
 
 	ctrl->catalog->channel_alloc(ctrl->catalog,
 				panel->stream_id,
@@ -875,8 +876,6 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 	DP_MST_DEBUG("mst lane_cnt:%d, bw:%d, x_int:%d, y_frac:%d\n",
 			lanes, bw_code, x_int, y_frac_enum);
 
-	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
-
 	ctrl->catalog->trigger_act(ctrl->catalog);
 	msleep(20); /* needs 1 frame time */
 
@@ -897,8 +896,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	struct dp_ctrl_private *ctrl;
 
 	if (!dp_ctrl || !panel) {
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
@@ -906,7 +904,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	rc = dp_ctrl_enable_stream_clocks(ctrl, panel);
 	if (rc) {
 		pr_err("failure on stream clock enable\n");
-		goto end;
+		return rc;
 	}
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
@@ -914,15 +912,23 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return 0;
 	}
 
+	rc = panel->hw_cfg(panel);
+	if (rc)
+		return rc;
+
+	dp_ctrl_send_video(ctrl);
+
 	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
 	if (rc)
-		goto end;
+		return rc;
 
-	dp_ctrl_wait4video_ready(ctrl);
+	rc = dp_ctrl_wait4video_ready(ctrl);
+	if (rc)
+		return rc;
+
 	link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
 	pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
 
-end:
 	return rc;
 }
 
