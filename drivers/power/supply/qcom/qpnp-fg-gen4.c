@@ -3094,7 +3094,7 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	return 0;
 }
 
-#define DEFAULT_CUTOFF_VOLT_MV		3000
+#define DEFAULT_CUTOFF_VOLT_MV		3100
 #define DEFAULT_EMPTY_VOLT_MV		2812
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_CUTOFF_CURR_MA		200
