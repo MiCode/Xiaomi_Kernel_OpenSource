@@ -3154,10 +3154,11 @@ exit:
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 {
 	struct msm_vidc_inst *temp;
+	int op_rate = 0;
 
 	dprintk(VIDC_ERR, "Running instances:\n");
-	dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s|%4s\n",
-			"type", "w", "h", "fps", "prop");
+	dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s|%6s|%4s\n",
+			"type", "w", "h", "fps", "opr", "prop");
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
@@ -3171,13 +3172,21 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (msm_comm_turbo_session(temp))
 				strlcat(properties, "T", sizeof(properties));
 
-			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
+			if (is_realtime_session(temp))
+				strlcat(properties, "R", sizeof(properties));
+
+			if (temp->clk_data.operating_rate)
+				op_rate = temp->clk_data.operating_rate >> 16;
+			else
+				op_rate = temp->prop.fps;
+
+			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%6d|%4s\n",
 					temp->session_type,
 					max(temp->prop.width[CAPTURE_PORT],
 						temp->prop.width[OUTPUT_PORT]),
 					max(temp->prop.height[CAPTURE_PORT],
 						temp->prop.height[OUTPUT_PORT]),
-					temp->prop.fps, properties);
+					temp->prop.fps, op_rate, properties);
 		}
 	}
 	mutex_unlock(&core->lock);
