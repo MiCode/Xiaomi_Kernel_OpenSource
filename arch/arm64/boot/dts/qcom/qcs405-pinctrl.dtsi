@@ -645,6 +645,39 @@
 			};
 		};
 
+		ntag {
+			ntag_int_active: ntag_int_active {
+				/* active state */
+				mux {
+					/* GPIO 53 Field Detect Interrupt */
+					pins = "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			ntag_int_suspend: ntag_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 53 Field Detect Interrupt */
+					pins = "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+		};
+
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
 			config {

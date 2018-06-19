@@ -121,6 +121,22 @@
 #include "qcs405-gpu.dtsi"
 #include "qcs405-mdss-pll.dtsi"
 
+&i2c_5 { /* BLSP (NTAG) */
+	status = "ok";
+	nq@55 {
+		compatible = "qcom,nq-ntag";
+		reg = <0x55>;
+		qcom,nq-ntagfd = <&tlmm 53 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <53 0>;
+		interrupt-names = "ntag_fd";
+		pinctrl-names = "ntag_active", "ntag_suspend";
+		pinctrl-0 = <&ntag_int_active>;
+		pinctrl-1 = <&ntag_int_suspend>;
+	};
+};
+
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
