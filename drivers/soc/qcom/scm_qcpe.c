@@ -416,24 +416,22 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	static bool opened;
 	static u32 handle;
 	u32 size_bytes;
-	int i;
-	uint64_t arglen = desc->arginfo & 0xf;
 	struct smc_params_s smc_params = {0,};
 	int ret;
 #ifdef CONFIG_GHS_VMM
+	int i;
+	uint64_t arglen = desc->arginfo & 0xf;
 	struct ion_handle *ihandle = NULL;
 #endif
 
-	pr_info("\nscm_call_qcpe: IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
+	pr_info("IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
 			fn_id, desc->arginfo, desc->args[0], desc->args[1],
 			desc->args[2], desc->args[3], desc->x5);
 
 	if (!opened) {
 		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
 		if (ret) {
-			pr_err(
-			"scm_call_qcpe: habmm_socket_open failed with ret = %d",
-			ret);
+			pr_err("habmm_socket_open failed with ret = %d\n", ret);
 			return ret;
 		}
 		opened = true;
@@ -470,19 +468,25 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 #endif
 
 	ret = habmm_socket_send(handle, &smc_params, sizeof(smc_params), 0);
-	if (ret)
+	if (ret) {
+		pr_err("habmm_socket_send failed, ret= 0x%x\n", ret);
 		goto err_ret;
+	}
 
 	size_bytes = sizeof(smc_params);
 	memset(&smc_params, 0x0, sizeof(smc_params));
 
-	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0, 0);
-	if (ret)
+	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
+	if (ret) {
+		pr_err("habmm_socket_recv failed, ret= 0x%x\n", ret);
 		goto err_ret;
+	}
 
 	if (size_bytes != sizeof(smc_params)) {
-		pr_err("scm_call_qcpe: expected size: %lu, actual=%u\n",
-				sizeof(smc_params), size_bytes);
+		pr_err("habmm_socket_recv expected size: %lu, actual=%u\n",
+				sizeof(smc_params),
+				size_bytes);
 		ret = SCM_ERROR;
 		goto err_ret;
 	}
@@ -491,10 +495,15 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	desc->ret[1] = smc_params.args[2];
 	desc->ret[2] = smc_params.args[3];
 	ret = smc_params.args[0];
-	pr_info("\nscm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
+	pr_info("OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
 		smc_params.args[0], desc->ret[0], desc->ret[1], desc->ret[2]);
+	goto no_err;
 
 err_ret:
+	habmm_socket_close(handle);
+	opened = false;
+
+no_err:
 #ifdef CONFIG_GHS_VMM
 	if (ihandle)
 		free_ion_buffers(ihandle);

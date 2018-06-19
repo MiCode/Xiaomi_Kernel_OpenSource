@@ -154,6 +154,16 @@
 					/* Up to 800 Mbps */
 					<45 512 207108 14432000>;
 	};
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2d000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2d000000 0x18>;
+		reg-names = "vdev_base";
+		wlan {
+			subsys-name = "AR6320";
+			offset = <16>;
+		};
+	};
 };
 
 &reserved_memory {

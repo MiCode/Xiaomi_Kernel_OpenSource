@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2238,6 +2238,7 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 {
 	switch (chg->real_charger_type) {
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 	case POWER_SUPPLY_TYPE_USB_PD:
 		if (chg->smb_version == PM660_SUBTYPE)
 			val->intval = MICRO_9V;
@@ -3359,7 +3360,8 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		rc = smblib_request_dpdm(chg, true);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
-
+		if (chg->fcc_stepper_mode)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
 		/* Schedule work to enable parallel charger */
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,
@@ -3377,6 +3379,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						false, 0);
 			}
 		}
+
+		/* Force 1500mA FCC on removal */
+		if (chg->fcc_stepper_mode)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
+						true, 1500000);
 
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
@@ -3615,7 +3622,8 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 		 * if pd is not allowed, then set pd_active = false right here,
 		 * so that it starts the hvdcp engine
 		 */
-		if (!get_effective_result(chg->pd_allowed_votable))
+		if (!get_effective_result(chg->pd_allowed_votable) &&
+				!chg->micro_usb_mode)
 			__smblib_set_prop_pd_active(chg, 0);
 	}
 

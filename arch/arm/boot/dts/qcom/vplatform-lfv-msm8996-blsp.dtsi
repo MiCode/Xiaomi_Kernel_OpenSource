@@ -10,6 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	aliases {
 		spi9 = &spi_9;
@@ -94,7 +96,7 @@
 		    <0x7544000 0x2b000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
-		interrupts = <0 108 0>, <0 238 0>, <0 810 0>;
+		interrupts = <0 108 0>, <0 238 0>, <0 810 IRQ_TYPE_LEVEL_HIGH>;
 		#address-cells = <0>;
 
 		qcom,inject-rx-on-wakeup;

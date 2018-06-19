@@ -183,6 +183,12 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present enables sw compensation for jeita
 
+- qcom,fcc-stepping-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables stepwise change in FCC.
+	      The default stepping rate is 100mA/sec.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

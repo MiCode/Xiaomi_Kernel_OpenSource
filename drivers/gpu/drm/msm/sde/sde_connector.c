@@ -572,6 +572,7 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 {
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	struct sde_connector *c_conn;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -584,11 +585,17 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 	/* signal connector's retire fence */
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, 0);
 
-	/* after first vsync comes,
-	 * early splash resource should start to be released.
+	/*
+	 * After LK totally exits, LK's early splash resource
+	 * should be released.
 	 */
-	if (sde_splash_get_lk_complete_status(priv->kms))
-		sde_splash_free_resource(priv->kms, &priv->phandle);
+	if (sde_splash_get_lk_complete_status(priv->kms)) {
+		c_conn = to_sde_connector(connector);
+
+		sde_splash_free_resource(priv->kms, &priv->phandle,
+					c_conn->connector_type,
+					c_conn->display);
+	}
 
 }
 

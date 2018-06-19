@@ -14,7 +14,7 @@
 #ifndef HABMM_H
 #define HABMM_H
 
-#include <uapi/linux/habmmid.h>
+#include "linux/habmmid.h"
 
 #define HAB_API_VER_DEF(_MAJOR_, _MINOR_) \
 		((_MAJOR_&0xFF)<<16 | (_MINOR_&0xFFF))

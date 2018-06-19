@@ -1,0 +1,164 @@
+* Qualcomm Technologies, Inc. MSM Camera diag
+
+[Root level node]
+==================
+Required properties:
+- compatible: Must be "qcom,diag-cam".
+
+[Subnode]
+==========
+Required properties:
+- mmagic-supply: should contain mmagic regulator used for mmagic clocks.
+- gdscr-supply: should contain gdsr regulator used for cci clocks.
+- vfe0-vdd-supply: phandle to vfe0 regulator.
+- qcom,cam-vreg-name: name of the voltage regulators required for the device.
+- clocks: List of clock handles. The parent clocks of the input clocks to the
+        devices in this power domain are set to oscclk before power gating
+        and restored back after powering on a domain. This is required for
+        all domains which are powered on and off and not required for unused
+        domains.
+- clock-names: name of the clock used by the driver.
+- qcom,clock-rates: clock rate in Hz.
+- qcom,clock-control: The valid fields are "NO_SET_RATE", "INIT_RATE" and
+  "SET_RATE". "NO_SET_RATE" the corresponding clock is enabled without setting
+  the rate assuming some other driver has already set it to appropriate rate.
+  "INIT_RATE" clock rate is not queried assuming some other driver has set
+  the clock rate and ispif will set the the clock to this rate.
+  "SET_RATE" clock is enabled and the rate is set to the value specified
+  in the property qcom,clock-rates.
+
+Example:
+
+	qcom,diag-cam {
+			cell-index = <0>;
+			compatible = "qcom,diag-cam";
+			status = "ok";
+			mmagic-supply = <&gdsc_mmagic_camss>;
+			gdscr-supply = <&gdsc_camss_top>;
+			vfe0-vdd-supply = <&gdsc_vfe0>;
+			vfe1-vdd-supply = <&gdsc_vfe1>;
+			qcom,cam-vreg-name = "mmagic", "gdscr",
+					"vfe0-vdd", "vfe1-vdd";
+			clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+				<&clock_mmss clk_camss_top_ahb_clk>,
+				<&clock_mmss clk_camss_ispif_ahb_clk>,
+				<&clock_mmss clk_csi0phytimer_clk_src>,
+				<&clock_mmss clk_camss_csi0phytimer_clk>,
+				<&clock_mmss clk_camss_ahb_clk>,
+				<&clock_mmss clk_csi1phytimer_clk_src>,
+				<&clock_mmss clk_camss_csi1phytimer_clk>,
+				<&clock_mmss clk_csi2phytimer_clk_src>,
+				<&clock_mmss clk_camss_csi2phytimer_clk>,
+				<&clock_mmss clk_csi0_clk_src>,
+				<&clock_mmss clk_camss_csi0_clk>,
+				<&clock_mmss clk_camss_csi0phy_clk>,
+				<&clock_mmss clk_camss_csi0_ahb_clk>,
+				<&clock_mmss clk_camss_csi0rdi_clk>,
+				<&clock_mmss clk_camss_csi0pix_clk>,
+				<&clock_mmss clk_csi1_clk_src>,
+				<&clock_mmss clk_camss_csi1_clk>,
+				<&clock_mmss clk_camss_csi1phy_clk>,
+				<&clock_mmss clk_camss_csi1_ahb_clk>,
+				<&clock_mmss clk_camss_csi1rdi_clk>,
+				<&clock_mmss clk_camss_csi1pix_clk>,
+				<&clock_mmss clk_csi2_clk_src>,
+				<&clock_mmss clk_camss_csi2_clk>,
+				<&clock_mmss clk_camss_csi2phy_clk>,
+				<&clock_mmss clk_camss_csi2_ahb_clk>,
+				<&clock_mmss clk_camss_csi2rdi_clk>,
+				<&clock_mmss clk_camss_csi2pix_clk>,
+				<&clock_mmss clk_csi3_clk_src>,
+				<&clock_mmss clk_camss_csi3_clk>,
+				<&clock_mmss clk_camss_csi3phy_clk>,
+				<&clock_mmss clk_camss_csi3_ahb_clk>,
+				<&clock_mmss clk_camss_csi3rdi_clk>,
+				<&clock_mmss clk_camss_csi3pix_clk>,
+				<&clock_mmss clk_vfe0_clk_src>,
+				<&clock_mmss clk_camss_vfe0_clk>,
+				<&clock_mmss clk_camss_csi_vfe0_clk>,
+				<&clock_mmss clk_vfe1_clk_src>,
+				<&clock_mmss clk_camss_vfe1_clk>,
+				<&clock_mmss clk_camss_csi_vfe1_clk>,
+				<&clock_mmss clk_mmagic_camss_axi_clk>,
+				<&clock_mmss clk_camss_vfe_ahb_clk>,
+				<&clock_mmss clk_camss_vfe0_ahb_clk>,
+				<&clock_mmss clk_camss_vfe_axi_clk>,
+				<&clock_mmss clk_camss_vfe0_stream_clk>,
+				<&clock_mmss clk_smmu_vfe_axi_clk>,
+				<&clock_mmss clk_camss_vfe1_ahb_clk>,
+				<&clock_mmss clk_camss_vfe1_stream_clk>;
+			clock-names =
+				"clk_mmss_mmagic_ahb_clk",
+				"clk_camss_top_ahb_clk",
+				"clk_camss_ispif_ahb_clk",
+				"clk_csi0phytimer_clk_src",
+				"clk_camss_csi0phytimer_clk",
+				"clk_camss_ahb_clk",
+				"clk_csi1phytimer_clk_src",
+				"clk_camss_csi1phytimer_clk",
+				"clk_csi2phytimer_clk_src",
+				"clk_camss_csi2phytimer_clk",
+				"clk_csi0_clk_src",
+				"clk_camss_csi0_clk",
+				"clk_camss_csi0phy_clk",
+				"clk_camss_csi0_ahb_clk",
+				"clk_camss_csi0rdi_clk",
+				"clk_camss_csi0pix_clk",
+				"clk_csi1_clk_src",
+				"clk_camss_csi1_clk",
+				"clk_camss_csi1phy_clk",
+				"clk_camss_csi1_ahb_clk",
+				"clk_camss_csi1rdi_clk",
+				"clk_camss_csi1pix_clk",
+				"clk_csi2_clk_src",
+				"clk_camss_csi2_clk",
+				"clk_camss_csi2phy_clk",
+				"clk_camss_csi2_ahb_clk",
+				"clk_camss_csi2rdi_clk",
+				"clk_camss_csi2pix_clk",
+				"clk_csi3_clk_src",
+				"clk_camss_csi3_clk",
+				"clk_camss_csi3phy_clk",
+				"clk_camss_csi3_ahb_clk",
+				"clk_camss_csi3rdi_clk",
+				"clk_camss_csi3pix_clk",
+				"clk_vfe0_clk_src",
+				"clk_camss_vfe0_clk",
+				"clk_camss_csi_vfe0_clk",
+				"clk_vfe1_clk_src",
+				"clk_camss_vfe1_clk",
+				"clk_camss_csi_vfe1_clk",
+				"clk_mmagic_camss_axi_clk",
+				"clk_camss_vfe_ahb_clk",
+				"clk_camss_vfe0_ahb_clk",
+				"clk_camss_vfe_axi_clk",
+				"clk_camss_vfe0_stream_clk",
+				"clk_smmu_vfe_axi_clk",
+				"clk_camss_vfe1_ahb_clk",
+				"clk_camss_vfe1_stream_clk";
+			qcom,clock-rates = <0 0 0 0 0 0 0 0
+				0 0 0 0 0 0 0 0 0 0
+				0 0 0 0 0 0 0 0 0 0
+				0 0 0 0 0 0 0 0 0 0
+				0 0 0 0 0 0 0 0 0 0
+				>;
+			qcom,clock-cntl-support;
+			qcom,clock-control = "NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE",
+				"INIT_RATE","NO_SET_RATE","NO_SET_RATE",
+				"INIT_RATE","NO_SET_RATE","INIT_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+				"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE";
+	};
+

@@ -345,10 +345,10 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 	if (sde_kms->splash_info.handoff &&
 		sde_kms->splash_info.display_splash_enabled)
-		sde_splash_lk_stop_splash(kms);
-	else
-		sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, true);
+		sde_splash_lk_stop_splash(kms, state);
+
+	sde_power_resource_enable(&priv->phandle,
+			sde_kms->core_client, true);
 }
 
 static void sde_kms_commit(struct msm_kms *kms,

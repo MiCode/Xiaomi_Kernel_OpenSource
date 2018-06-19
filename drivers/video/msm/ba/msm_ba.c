@@ -347,6 +347,7 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 	} else {
 		f->fmt.pix.height = sd_fmt.format.height;
 		f->fmt.pix.width = sd_fmt.format.width;
+		f->fmt.pix.field = sd_fmt.format.field;
 		switch (sd_fmt.format.code) {
 		case MEDIA_BUS_FMT_YUYV8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
@@ -558,6 +559,24 @@ long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
 		break;
 	case VIDIOC_G_CSI_PARAMS: {
 		dprintk(BA_DBG, "VIDIOC_G_CSI_PARAMS");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (arg) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, arg);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_G_AVI_INFOFRAME: {
+		dprintk(BA_DBG, "VIDIOC_G_AVI_INFOFRAME\n");
 		sd = inst->sd;
 		if (!sd) {
 			dprintk(BA_ERR, "No sd registered");

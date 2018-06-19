@@ -191,7 +191,7 @@ static struct adv7533_reg_cfg adv7533_video_en[] = {
 
 static struct adv7533_reg_cfg adv7533_video_disable[] = {
 	/* Timing Generator Disable */
-	{I2C_ADDR_CEC_DSI, 0x27, 0x4B, 0},
+	{I2C_ADDR_CEC_DSI, 0x27, 0x0B, 0},
 	/* SPDIF disable */
 	{I2C_ADDR_MAIN, 0x0B, 0x00, 0},
 	/* Gate CEC Clock */

@@ -2,6 +2,13 @@
 # QCOM Soc drivers
 #
 source "drivers/soc/qcom/hab/Kconfig"
+config MSM_PASR
+	bool "MSM DDR Partial Array Self-Refresh Driver"
+	help
+	  RPM controls DDR functionaliy. This driver
+	  is an interface for linux memory hotplug to RPM
+	  for start/stop self-refresh of hot added or removed
+	  memory in DDR.
 
 config MSM_INRUSH_CURRENT_MITIGATION
 	bool "Inrush-current mitigation Driver"
@@ -703,6 +710,18 @@ config MSM_CDSP_LOADER
 	  Enable CDSP image loader.
 	  The CDSP loader brings CDSP out of reset
 	  during boot.
+	  Say M if you want to enable this module.
+
+config MSM_LPASS_RESOURCE_MANAGER
+	tristate "LPASS Resource Manager support"
+	select SND_SOC_MSM_APRV2_INTF
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || \
+		MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
+	help
+	  Manages the allocation of LPASS resources. It also
+	  can check LPAIF for Early Audio playback progress.
+	  To check early audio playback, PCM registers are read.
+	  If register is enabled, playback is on-going.
 	  Say M if you want to enable this module.
 
 config MSM_PERFORMANCE

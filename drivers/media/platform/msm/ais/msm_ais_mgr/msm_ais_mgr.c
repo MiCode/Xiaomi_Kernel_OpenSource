@@ -15,6 +15,8 @@
 #include <media/ais/msm_ais_mgr.h>
 #include "msm_ais_mngr.h"
 #include "msm_early_cam.h"
+#include "msm_camera_diag_util.h"
+#include "msm_diag_cam.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -42,7 +44,56 @@ static long msm_ais_hndl_ioctl(struct v4l2_subdev *sd, void *arg)
 	case AIS_CLK_DISABLE:
 		rc = msm_ais_disable_clocks();
 		break;
+	case AIS_CLK_ENABLE_ALLCLK:
+		rc = msm_ais_enable_allclocks();
+		break;
+	case AIS_CLK_DISABLE_ALLCLK:
+		rc = msm_ais_disable_allclocks();
+		break;
+	default:
+		pr_err("invalid cfg_type\n");
+		rc = -EINVAL;
+	}
 
+	if (rc)
+		pr_err("msm_ais_hndl_ioctl failed %ld\n", rc);
+
+	mutex_unlock(&clk_mngr_dev->cont_mutex);
+	return rc;
+}
+
+static long msm_ais_hndl_ext_ioctl(struct v4l2_subdev *sd, void *arg)
+{
+	long rc = 0;
+	struct clk_mgr_cfg_data_ext *pcdata =
+				(struct clk_mgr_cfg_data_ext *)arg;
+	struct msm_ais_mngr_device *clk_mngr_dev =
+		(struct msm_ais_mngr_device *)v4l2_get_subdevdata(sd);
+
+	if (WARN_ON(!clk_mngr_dev) || WARN_ON(!pcdata)) {
+		rc = -EINVAL;
+		return rc;
+	}
+
+	mutex_lock(&clk_mngr_dev->cont_mutex);
+	CDBG(pr_fmt("cfg_type = %d\n"), pcdata->cfg_type);
+	switch (pcdata->cfg_type) {
+	case AIS_DIAG_GET_REGULATOR_INFO_LIST:
+		rc = msm_diag_camera_get_vreginfo_list(
+				&pcdata->data.vreg_infolist);
+		break;
+	case AIS_DIAG_GET_BUS_INFO_STATE:
+		rc = msm_camera_diag_get_ddrbw(&pcdata->data.bus_info);
+		break;
+	case AIS_DIAG_GET_CLK_INFO_LIST:
+		rc = msm_camera_diag_get_clk_list(&pcdata->data.clk_infolist);
+		break;
+	case AIS_DIAG_GET_GPIO_LIST:
+		rc = msm_camera_diag_get_gpio_list(&pcdata->data.gpio_list);
+		break;
+	case AIS_DIAG_SET_GPIO_LIST:
+		rc = msm_camera_diag_set_gpio_list(&pcdata->data.gpio_list);
+		break;
 	default:
 		pr_err("invalid cfg_type\n");
 		rc = -EINVAL;
@@ -62,6 +113,11 @@ static long msm_ais_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_ais_hndl_ioctl(sd, arg);
 		if (rc)
 			pr_err("msm_ais_mngr_subdev_ioctl failed\n");
+		break;
+	case VIDIOC_MSM_AIS_CLK_CFG_EXT:
+		rc = msm_ais_hndl_ext_ioctl(sd, arg);
+		if (rc)
+			pr_err("msm_ais_hndl_ext_ioctl failed\n");
 		break;
 	default:
 		rc = -ENOIOCTLCMD;
@@ -136,6 +192,7 @@ static int32_t __init msm_ais_mngr_init(void)
 
 static void __exit msm_ais_mngr_exit(void)
 {
+
 	msm_sd_unregister(&msm_ais_mngr_dev->subdev);
 	mutex_destroy(&msm_ais_mngr_dev->cont_mutex);
 	kfree(msm_ais_mngr_dev);

@@ -39,6 +39,7 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_runtime.h>
 #include <trace/events/mmc.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "sdhci-msm.h"
 #include "sdhci-msm-ice.h"
@@ -801,19 +802,23 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 			| CORE_CK_OUT_EN), host->ioaddr +
 			msm_host_offset->CORE_DLL_CONFIG);
 
-	wait_cnt = 50;
-	/* Wait until DLL_LOCK bit of DLL_STATUS register becomes '1' */
-	while (!(readl_relaxed(host->ioaddr +
-		msm_host_offset->CORE_DLL_STATUS) & CORE_DLL_LOCK)) {
-		/* max. wait for 50us sec for LOCK bit to be set */
-		if (--wait_cnt == 0) {
-			pr_err("%s: %s: DLL failed to LOCK\n",
-				mmc_hostname(mmc), __func__);
-			rc = -ETIMEDOUT;
-			goto out;
+	/* For hs400es mode, no need to wait for core dll lock */
+	if (!(msm_host->enhanced_strobe &&
+				mmc_card_strobe(msm_host->mmc->card))) {
+		wait_cnt = 50;
+		/* Wait until DLL_LOCK bit of DLL_STATUS register becomes '1' */
+		while (!(readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_STATUS) & CORE_DLL_LOCK)) {
+			/* max. wait for 50us sec for LOCK bit to be set */
+			if (--wait_cnt == 0) {
+				pr_err("%s: %s: DLL failed to LOCK\n",
+					mmc_hostname(mmc), __func__);
+				rc = -ETIMEDOUT;
+				goto out;
+			}
+			/* wait for 1us before polling again */
+			udelay(1);
 		}
-		/* wait for 1us before polling again */
-		udelay(1);
 	}
 
 out:
@@ -3166,7 +3171,10 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					| CORE_HC_SELECT_IN_EN), host->ioaddr +
 					msm_host_offset->CORE_VENDOR_SPEC);
 		}
-		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
+		/* No need to check for DLL lock for HS400es mode */
+		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533 &&
+				!((card && mmc_card_strobe(card) &&
+				 msm_host->enhanced_strobe))) {
 			/*
 			 * Poll on DLL_LOCK and DDR_DLL_LOCK bits in
 			 * CORE_DLL_STATUS to be set.  This should get set
@@ -4250,6 +4258,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	void __iomem *tlmm_mem;
 	unsigned long flags;
 	bool force_probe;
+	char boot_marker[40];
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -4273,6 +4282,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(host);
 		goto out_host_free;
 	}
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Init", mmc_hostname(host->mmc));
+	place_marker(boot_marker);
 
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = msm_host;
@@ -4746,6 +4759,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 	if (sdhci_msm_is_bootdevice(&pdev->dev))
 		mmc_flush_detect_work(host->mmc);
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Ready", mmc_hostname(host->mmc));
+	place_marker(boot_marker);
 
 	/* Successful initialization */
 	goto out;

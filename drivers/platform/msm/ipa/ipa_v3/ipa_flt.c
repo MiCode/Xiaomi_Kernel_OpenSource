@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,8 +61,10 @@ static int ipa3_generate_flt_hw_rule(enum ipa_ip_type ip,
 	gen_params.rule = (const struct ipa_flt_rule *)&entry->rule;
 
 	res = ipahal_flt_generate_hw_rule(&gen_params, &entry->hw_len, buf);
-	if (res)
-		IPAERR("failed to generate flt h/w rule\n");
+	if (res) {
+		IPAERR_RL("failed to generate flt h/w rule\n");
+		return res;
+	}
 
 	return 0;
 }
