@@ -21,6 +21,7 @@
 #include <soc/qcom/rpmh.h>
 #include <soc/qcom/tcs.h>
 #include <trace/events/trace_msm_bus.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include "msm_bus_core.h"
 #include "msm_bus_rpmh.h"
 #include "msm_bus_noc.h"
@@ -621,12 +622,12 @@ int msm_bus_commit_data(struct list_head *clist)
 		MSM_BUS_ERR("%s: Error invalidating mbox: %d\n",
 						__func__, ret);
 
-	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE) {
-		ret = rpmh_write(cur_mbox, cur_rsc->rscdev->req_state,
-						cmdlist_active, cnt_active);
+	if (cur_rsc->node_info->id == MSM_BUS_RSC_DISP) {
+		ret = rpmh_write_batch(cur_mbox, cur_rsc->rscdev->req_state,
+						cmdlist_active, n_active);
 		/*
-		 * Ignore -EBUSY from rpmh_write if it's an AWAKE_STATE
-		 * request since AWAKE requests are invalid when
+		 * Ignore -EBUSY from rpmh_write if it's an AMC
+		 * request to Display RSC which are invalid when
 		 * the display RSC is in solver mode and the bus driver
 		 * does not know the current state of the display RSC.
 		 */
