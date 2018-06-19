@@ -28,15 +28,6 @@
 #define NO_CHANGE 1
 #define UPDATED 2
 
-struct dfc_work {
-	struct work_struct work;
-	struct net_device *dev;
-	u8 bearer_id;
-	u8  ack_req;
-	u16 seq;
-	u8 mux_id;
-};
-
 struct dfc_qmi_data {
 	void *rmnet_port;
 	struct workqueue_struct *dfc_wq;
@@ -63,7 +54,6 @@ static void dfc_ind_reg_dereg(struct work_struct *work);
 
 static void dfc_svc_init(struct work_struct *work);
 static void dfc_do_burst_flow_control(struct work_struct *work);
-static void dfc_disable_flow(struct work_struct *work);
 
 /* **************************************************** */
 #define DFC_SERVICE_ID_V01 0x4E
@@ -546,9 +536,7 @@ static int dfc_disable_bearer_flows(struct net_device *dev, u8 bearer_id)
 			return 0;
 
 		if (itm->bearer_id == bearer_id) {
-			rtnl_lock();
 			tc_qdisc_flow_control(dev, itm->tcm_handle, 0);
-			rtnl_unlock();
 			rc++;
 		}
 	}
@@ -593,15 +581,6 @@ static int dfc_do_fc(struct net_device *dev, u32 flow_id,
 		len = tc_qdisc_flow_control(dev, itm->tcm_handle, enable);
 	}
 	return len;
-}
-
-static void dfc_disable_flow(struct work_struct *work)
-{
-	struct dfc_work *data = (struct dfc_work *)work;
-	int rc = dfc_disable_bearer_flows(data->dev, data->bearer_id);
-
-	pr_debug("%s() %d flows disabled\n", __func__, rc);
-	kfree(data);
 }
 
 static void dfc_do_flow_controls(struct net_device *dev,
@@ -865,11 +844,10 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 			 struct sk_buff *skb)
 {
 	struct rmnet_bearer_map *bearer;
-	struct dfc_work *svc_check;
 	struct rmnet_flow_map *itm;
 	int ip_type;
 
-	if (!qos || !skb)
+	if (!qos)
 		return;
 
 	if (!rtnl_trylock())
@@ -888,22 +866,8 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 		if (bearer->counter >= bearer->grant_size) {
 			bearer->counter = 0;
 
-			svc_check = kmalloc(sizeof(struct dfc_work),
-					    GFP_ATOMIC);
-			if (!svc_check) {
-				rtnl_unlock();
-				return;
-			}
-
-			INIT_WORK((struct work_struct *)svc_check,
-				  dfc_disable_flow);
-			svc_check->dev = dev;
-			svc_check->bearer_id = bearer->bearer_id;
-			svc_check->ack_req = bearer->ack_req;
-			svc_check->seq = bearer->seq;
-			svc_check->mux_id = qos->mux_id;
+			dfc_disable_bearer_flows(dev, bearer->bearer_id);
 			rtnl_unlock();
-			schedule_work((struct work_struct *)svc_check);
 		} else {
 			rtnl_unlock();
 		}
