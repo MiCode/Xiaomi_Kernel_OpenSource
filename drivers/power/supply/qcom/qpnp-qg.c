@@ -1380,7 +1380,7 @@ static int qg_get_learned_capacity(void *data, int64_t *learned_cap_uah)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	rc = qg_sdam_multibyte_read(QG_SDAM_LEARNED_CAPACITY_OFFSET,
 					(u8 *)&cc_mah, 2);
@@ -1405,7 +1405,7 @@ static int qg_store_learned_capacity(void *data, int64_t learned_cap_uah)
 		return -ENODEV;
 
 	if (chip->battery_missing || !learned_cap_uah)
-		return -EPERM;
+		return -ENODEV;
 
 	cc_mah = div64_s64(learned_cap_uah, 1000);
 	rc = qg_sdam_multibyte_write(QG_SDAM_LEARNED_CAPACITY_OFFSET,
@@ -1445,7 +1445,7 @@ static int qg_restore_cycle_count(void *data, u16 *buf, int length)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	if (!buf || length > BUCKET_COUNT)
 		return -EINVAL;
@@ -1473,7 +1473,7 @@ static int qg_store_cycle_count(void *data, u16 *buf, int id, int length)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	if (!buf || length > BUCKET_COUNT * 2 || id < 0 ||
 		id > BUCKET_COUNT - 1 ||
@@ -1615,7 +1615,7 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	switch (param) {
 	case TTF_MSOC:
@@ -1678,7 +1678,7 @@ static int qg_ttf_awake_voter(void *data, bool val)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	vote(chip->awake_votable, TTF_AWAKE_VOTER, val, 0);
 
