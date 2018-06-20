@@ -302,6 +302,8 @@ enum {
 #define USB_ENG_SSUPPLY_USB2_REG		(USBIN_BASE + 0xC0)
 #define ENG_SSUPPLY_12V_OV_OPT_BIT		BIT(1)
 
+#define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
+#define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)
 /********************************
  *  DCIN Peripheral Registers   *
  ********************************/
@@ -463,6 +465,7 @@ enum {
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
 
 #define AICL_CMD_REG				(MISC_BASE + 0x44)
+#define RESTART_AICL_BIT			BIT(1)
 #define RERUN_AICL_BIT				BIT(0)
 
 #define MISC_SMB_EN_CMD_REG			(MISC_BASE + 0x48)

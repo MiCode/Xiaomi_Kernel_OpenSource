@@ -88,6 +88,22 @@ static struct smb_params smb5_pmi632_params = {
 		.step_u	= 400,
 		.set_proc = smblib_set_chg_freq,
 	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 8800,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
+	},
 };
 
 static struct smb_params smb5_pm8150b_params = {
@@ -163,6 +179,22 @@ static struct smb_params smb5_pm8150b_params = {
 		.max_u	= 1200,
 		.step_u	= 400,
 		.set_proc = smblib_set_chg_freq,
+	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 11800,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
 	},
 };
 
@@ -302,6 +334,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
+		chg->wa_flags |= WEAK_ADAPTER_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -1563,7 +1596,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_RERUN_AICL:
-		rc = smblib_rerun_aicl(chg);
+		rc = smblib_run_aicl(chg, RERUN_AICL);
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		if (!chg->flash_active)
@@ -2070,6 +2103,12 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
+	smblib_get_charge_param(chg, &chg->param.aicl_5v_threshold,
+				&chg->default_aicl_5v_threshold_mv);
+	chg->aicl_5v_threshold_mv = chg->default_aicl_5v_threshold_mv;
+	smblib_get_charge_param(chg, &chg->param.aicl_cont_threshold,
+				&chg->default_aicl_cont_threshold_mv);
+	chg->aicl_cont_threshold_mv = chg->default_aicl_cont_threshold_mv;
 
 	if (chg->charger_temp_max == -EINVAL) {
 		rc = smblib_get_thermal_threshold(chg,
@@ -2626,6 +2665,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= usbin_uv_irq_handler,
+		.wake		= true,
+		.storm_data	= {true, 3000, 5},
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",

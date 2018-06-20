@@ -145,6 +145,31 @@ int schgm_flash_get_vreg_ok(struct smb_charger *chg, int *val)
 	return 0;
 }
 
+void schgm_flash_torch_priority(struct smb_charger *chg, enum torch_mode mode)
+{
+	int rc;
+	u8 reg;
+
+	/*
+	 * If torch is configured in default BOOST mode, skip any update in the
+	 * mode configuration.
+	 */
+	if (chg->headroom_mode == FIXED_MODE)
+		return;
+
+	if ((mode != TORCH_BOOST_MODE) && (mode != TORCH_BUCK_MODE))
+		return;
+
+	reg = mode;
+	rc = smblib_masked_write(chg, SCHGM_TORCH_PRIORITY_CONTROL_REG,
+					TORCH_PRIORITY_CONTROL_BIT, reg);
+	if (rc < 0)
+		pr_err("Couldn't configure Torch priority control rc=%d\n",
+				rc);
+
+	pr_debug("Torch priority changed to: %d\n", mode);
+}
+
 int schgm_flash_init(struct smb_charger *chg)
 {
 	int rc;
@@ -188,7 +213,7 @@ int schgm_flash_init(struct smb_charger *chg)
 
 		reg = (chg->headroom_mode == FIXED_MODE)
 					? TORCH_PRIORITY_CONTROL_BIT : 0;
-		rc = smblib_write(chg, SCHGM_TORCH_PRIORITY_CONTROL, reg);
+		rc = smblib_write(chg, SCHGM_TORCH_PRIORITY_CONTROL_REG, reg);
 		if (rc < 0) {
 			pr_err("Couldn't force 5V boost in torch mode rc=%d\n",
 					rc);

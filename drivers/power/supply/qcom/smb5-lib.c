@@ -19,6 +19,7 @@
 #include "schgm-flash.h"
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
+#include "schgm-flash.h"
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -588,6 +589,25 @@ static int smblib_is_input_present(struct smb_charger *chg,
 	return 0;
 }
 
+#define AICL_RANGE2_MIN_MV		5600
+#define AICL_RANGE2_STEP_DELTA_MV	200
+#define AICL_RANGE2_OFFSET		16
+int smblib_get_aicl_cont_threshold(struct smb_chg_param *param, u8 val_raw)
+{
+	int base = param->min_u;
+	u8 reg = val_raw;
+	int step = param->step_u;
+
+
+	if (val_raw >= AICL_RANGE2_OFFSET) {
+		reg = val_raw - AICL_RANGE2_OFFSET;
+		base = AICL_RANGE2_MIN_MV;
+		step = AICL_RANGE2_STEP_DELTA_MV;
+	}
+
+	return base + (reg * step);
+}
+
 /********************
  * REGISTER SETTERS *
  ********************/
@@ -824,6 +844,29 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+int smblib_set_aicl_cont_threshold(struct smb_chg_param *param,
+				int val_u, u8 *val_raw)
+{
+	int base = param->min_u;
+	int offset = 0;
+	int step = param->step_u;
+
+	if (val_u > param->max_u)
+		val_u = param->max_u;
+	if (val_u < param->min_u)
+		val_u = param->min_u;
+
+	if (val_u >= AICL_RANGE2_MIN_MV) {
+		base = AICL_RANGE2_MIN_MV;
+		step = AICL_RANGE2_STEP_DELTA_MV;
+		offset = AICL_RANGE2_OFFSET;
+	};
+
+	*val_raw = ((val_u - base) / step) + offset;
+
+	return 0;
 }
 
 /********************
@@ -1306,8 +1349,7 @@ unsuspend:
 
 	/* Re-run AICL */
 	if (icl_override != SW_OVERRIDE_HC_MODE)
-		rc = smblib_rerun_aicl(chg);
-
+		rc = smblib_run_aicl(chg, RERUN_AICL);
 out:
 	return rc;
 }
@@ -2081,7 +2123,7 @@ int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
 	return rc;
 }
 
-int smblib_rerun_aicl(struct smb_charger *chg)
+int smblib_run_aicl(struct smb_charger *chg, int type)
 {
 	int rc;
 	u8 stat;
@@ -2099,8 +2141,8 @@ int smblib_rerun_aicl(struct smb_charger *chg)
 
 	smblib_dbg(chg, PR_MISC, "re-running AICL\n");
 
-	rc = smblib_masked_write(chg, AICL_CMD_REG, RERUN_AICL_BIT,
-				RERUN_AICL_BIT);
+	stat = (type == RERUN_AICL) ? RERUN_AICL_BIT : RESTART_AICL_BIT;
+	rc = smblib_masked_write(chg, AICL_CMD_REG, stat, stat);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't write to AICL_CMD_REG rc=%d\n",
 				rc);
@@ -4189,6 +4231,8 @@ irqreturn_t batt_psy_changed_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define AICL_STEP_MV		200
+#define MAX_AICL_THRESHOLD_MV	4800
 irqreturn_t usbin_uv_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -4199,6 +4243,70 @@ irqreturn_t usbin_uv_irq_handler(int irq, void *data)
 	u8 stat = 0, max_pulses = 0;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if ((chg->wa_flags & WEAK_ADAPTER_WA)
+			&& is_storming(&irq_data->storm_data)) {
+
+		if (chg->aicl_max_reached) {
+			smblib_dbg(chg, PR_MISC,
+					"USBIN_UV storm at max AICL threshold\n");
+			return IRQ_HANDLED;
+		}
+
+		smblib_dbg(chg, PR_MISC, "USBIN_UV storm at threshold %d\n",
+				chg->aicl_5v_threshold_mv);
+
+		/* suspend USBIN before updating AICL threshold */
+		vote(chg->usb_icl_votable, AICL_THRESHOLD_VOTER, true, 0);
+
+		/* delay for VASHDN deglitch */
+		msleep(20);
+
+		if (chg->aicl_5v_threshold_mv > MAX_AICL_THRESHOLD_MV) {
+			/* reached max AICL threshold */
+			chg->aicl_max_reached = true;
+			goto unsuspend_input;
+		}
+
+		/* Increase AICL threshold by 200mV */
+		rc = smblib_set_charge_param(chg, &chg->param.aicl_5v_threshold,
+				chg->aicl_5v_threshold_mv + AICL_STEP_MV);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Error in setting AICL threshold rc=%d\n", rc);
+		else
+			chg->aicl_5v_threshold_mv += AICL_STEP_MV;
+
+		rc = smblib_set_charge_param(chg,
+				&chg->param.aicl_cont_threshold,
+				chg->aicl_cont_threshold_mv + AICL_STEP_MV);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Error in setting AICL threshold rc=%d\n", rc);
+		else
+			chg->aicl_cont_threshold_mv += AICL_STEP_MV;
+
+unsuspend_input:
+		/* Force torch in boost mode to ensure it works with low ICL */
+		if (chg->smb_version == PMI632_SUBTYPE)
+			schgm_flash_torch_priority(chg, TORCH_BOOST_MODE);
+
+		if (chg->aicl_max_reached) {
+			smblib_dbg(chg, PR_MISC,
+				"Reached max AICL threshold resctricting ICL to 100mA\n");
+			vote(chg->usb_icl_votable, AICL_THRESHOLD_VOTER,
+					true, USBIN_100MA);
+			smblib_run_aicl(chg, RESTART_AICL);
+		} else {
+			smblib_run_aicl(chg, RESTART_AICL);
+			vote(chg->usb_icl_votable, AICL_THRESHOLD_VOTER,
+					false, 0);
+		}
+
+		wdata = &chg->irq_info[USBIN_UV_IRQ].irq_data->storm_data;
+		reset_storm_count(wdata);
+	}
+
 	if (!chg->irq_info[SWITCHER_POWER_OK_IRQ].irq_data)
 		return IRQ_HANDLED;
 
@@ -4427,6 +4535,33 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		if (chg->fcc_stepper_enable)
 			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
 							true, 1500000);
+
+		if (chg->wa_flags & WEAK_ADAPTER_WA) {
+			chg->aicl_5v_threshold_mv =
+					chg->default_aicl_5v_threshold_mv;
+			chg->aicl_cont_threshold_mv =
+					chg->default_aicl_cont_threshold_mv;
+
+			smblib_set_charge_param(chg,
+					&chg->param.aicl_5v_threshold,
+					chg->aicl_5v_threshold_mv);
+			smblib_set_charge_param(chg,
+					&chg->param.aicl_cont_threshold,
+					chg->aicl_cont_threshold_mv);
+			chg->aicl_max_reached = false;
+
+			if (chg->smb_version == PMI632_SUBTYPE)
+				schgm_flash_torch_priority(chg,
+						TORCH_BUCK_MODE);
+
+			data = chg->irq_info[USBIN_UV_IRQ].irq_data;
+			if (data) {
+				wdata = &data->storm_data;
+				reset_storm_count(wdata);
+			}
+			vote(chg->usb_icl_votable, AICL_THRESHOLD_VOTER,
+					false, 0);
+		}
 
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
