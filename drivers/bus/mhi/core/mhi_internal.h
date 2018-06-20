@@ -220,47 +220,47 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
 
-struct __packed mhi_event_ctxt {
+struct mhi_event_ctxt {
 	u32 reserved : 8;
 	u32 intmodc : 8;
 	u32 intmodt : 16;
 	u32 ertype;
 	u32 msivec;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_chan_ctxt {
+struct mhi_chan_ctxt {
 	u32 chstate : 8;
 	u32 brstmode : 2;
 	u32 pollcfg : 6;
 	u32 reserved : 16;
 	u32 chtype;
 	u32 erindex;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_cmd_ctxt {
+struct mhi_cmd_ctxt {
 	u32 reserved0;
 	u32 reserved1;
 	u32 reserved2;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_tre {
+struct mhi_tre {
 	u64 ptr;
 	u32 dword[2];
 };
 
-struct __packed bhi_vec_entry {
+struct bhi_vec_entry {
 	u64 dma_addr;
 	u64 size;
 };

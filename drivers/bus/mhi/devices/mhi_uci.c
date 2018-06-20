@@ -655,7 +655,7 @@ static const struct mhi_device_id mhi_uci_match_table[] = {
 	{ .chan = "TF", .driver_data = 0x1000 },
 	{ .chan = "BL", .driver_data = 0x1000 },
 	{ .chan = "DUN", .driver_data = 0x1000 },
-	{ NULL },
+	{},
 };
 
 static struct mhi_driver mhi_uci_driver = {
