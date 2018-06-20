@@ -281,10 +281,12 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
+
 	/* To test remote wakeup using debugfs */
-	struct timer_list debugfs_rw_timer;
-	u8 debugfs_rw_enable;
-	u16 debugfs_rw_interval;
+	struct timer_list gsi_rw_timer;
+	u8 debugfs_rw_timer_enable;
+	u16 gsi_rw_timer_interval;
+
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)

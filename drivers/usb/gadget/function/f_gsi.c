@@ -188,26 +188,23 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	return ret;
 }
 
-static void debugfs_rw_timer_func(unsigned long arg)
+static void gsi_rw_timer_func(unsigned long arg)
 {
-	struct f_gsi *gsi;
-
-	gsi = (struct f_gsi *)arg;
+	struct f_gsi *gsi = (struct f_gsi *)arg;
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_dbg("%s: gsi not connected..del timer\n", __func__);
-		gsi->debugfs_rw_enable = 0;
-		del_timer(&gsi->debugfs_rw_timer);
+		log_event_dbg("%s: gsi not connected.. bail-out\n", __func__);
+		gsi->debugfs_rw_timer_enable = 0;
 		return;
 	}
 
 	log_event_dbg("%s: calling gsi_wakeup_host\n", __func__);
 	gsi_wakeup_host(gsi);
 
-	if (gsi->debugfs_rw_enable) {
+	if (gsi->debugfs_rw_timer_enable) {
 		log_event_dbg("%s: re-arm the timer\n", __func__);
-		mod_timer(&gsi->debugfs_rw_timer,
-			jiffies + msecs_to_jiffies(gsi->debugfs_rw_interval));
+		mod_timer(&gsi->gsi_rw_timer,
+			jiffies + msecs_to_jiffies(gsi->gsi_rw_timer_interval));
 	}
 }
 
@@ -260,7 +257,7 @@ static ssize_t usb_gsi_rw_write(struct file *file,
 		goto err;
 	}
 
-	if (gsi->debugfs_rw_enable == !!input) {
+	if (gsi->debugfs_rw_timer_enable == !!input) {
 		if (!!input)
 			log_event_dbg("%s: RW already enabled\n", __func__);
 		else
@@ -268,21 +265,14 @@ static ssize_t usb_gsi_rw_write(struct file *file,
 		goto err;
 	}
 
-	gsi->debugfs_rw_enable = !!input;
-	if (gsi->debugfs_rw_enable) {
-		init_timer(&gsi->debugfs_rw_timer);
-		gsi->debugfs_rw_timer.data = (unsigned long) gsi;
-		gsi->debugfs_rw_timer.function = debugfs_rw_timer_func;
+	gsi->debugfs_rw_timer_enable = !!input;
 
-		/* Use default remote wakeup timer interval if it is not set */
-		if (!gsi->debugfs_rw_interval)
-			gsi->debugfs_rw_interval = DEFAULT_RW_TIMER_INTERVAL;
-		gsi->debugfs_rw_timer.expires = jiffies +
-				msecs_to_jiffies(gsi->debugfs_rw_interval);
-		add_timer(&gsi->debugfs_rw_timer);
+	if (gsi->debugfs_rw_timer_enable) {
+		mod_timer(&gsi->gsi_rw_timer, jiffies +
+			  msecs_to_jiffies(gsi->gsi_rw_timer_interval));
 		log_event_dbg("%s: timer initialized\n", __func__);
 	} else {
-		del_timer_sync(&gsi->debugfs_rw_timer);
+		del_timer_sync(&gsi->gsi_rw_timer);
 		log_event_dbg("%s: timer deleted\n", __func__);
 	}
 
@@ -301,7 +291,7 @@ static int usb_gsi_rw_show(struct seq_file *s, void *unused)
 		return 0;
 	}
 
-	seq_printf(s, "%d\n", gsi->debugfs_rw_enable);
+	seq_printf(s, "%d\n", gsi->debugfs_rw_timer_enable);
 
 	return 0;
 }
@@ -349,7 +339,7 @@ static ssize_t usb_gsi_rw_timer_write(struct file *file,
 		goto err;
 	}
 
-	gsi->debugfs_rw_interval = timer_val;
+	gsi->gsi_rw_timer_interval = timer_val;
 err:
 	return count;
 }
@@ -357,7 +347,6 @@ err:
 static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
 {
 	struct f_gsi *gsi;
-	unsigned int timer_interval;
 
 	gsi = get_connected_gsi();
 	if (!gsi) {
@@ -365,11 +354,7 @@ static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
 		return 0;
 	}
 
-	timer_interval = DEFAULT_RW_TIMER_INTERVAL;
-	if (gsi->debugfs_rw_interval)
-		timer_interval = gsi->debugfs_rw_interval;
-
-	seq_printf(s, "%ums\n", timer_interval);
+	seq_printf(s, "%ums\n", gsi->gsi_rw_timer_interval);
 
 	return 0;
 }
@@ -3281,6 +3266,8 @@ static struct f_gsi *gsi_function_init(enum ipa_usb_teth_prot prot_id)
 		kfree(gsi);
 		goto error;
 	}
+	gsi->gsi_rw_timer_interval = DEFAULT_RW_TIMER_INTERVAL;
+	setup_timer(&gsi->gsi_rw_timer, gsi_rw_timer_func, (unsigned long) gsi);
 
 	return gsi;
 error:
