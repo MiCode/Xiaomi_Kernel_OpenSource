@@ -7050,8 +7050,6 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 			   struct cpumask *rtg_target,
 			   unsigned long target_capacity)
 {
-	int fcpu = group_first_cpu(sg);
-
 	/* Are all CPUs isolated in this group? */
 	if (!sg->group_weight)
 		return true;
@@ -7068,9 +7066,6 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	 * other groups
 	 */
 	if (target_capacity != ULONG_MAX)
-		return true;
-
-	if (rtg_target && !cpumask_test_cpu(fcpu, rtg_target))
 		return true;
 
 	return false;
