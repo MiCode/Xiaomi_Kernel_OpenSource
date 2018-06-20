@@ -184,9 +184,6 @@ int habhyp_commdev_dealloc(void *commdev)
 	struct ghs_vdev *dev = pchan->hyp_data;
 
 	kgipc_endpoint_free(dev->endpoint);
-
-	spin_lock_destroy(&dev->io_lock);
-
 	kfree(dev->read_data);
 	kfree(dev);
 
