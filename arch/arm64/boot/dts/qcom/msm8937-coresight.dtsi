@@ -973,26 +973,13 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_modem_cpu0: cti@6128000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b966>;
-
-		reg = <0x6128000 0x1000>;
-		reg-names = "cti-base";
-		coresight-name = "coresight-cti-modem-cpu0";
-
-		clocks = <&clock_gcc clk_qdss_clk>,
-			 <&clock_gcc clk_qdss_a_clk>;
-		clock-names = "apb_pclk";
-	};
-
-	cti_modem_cpu1: cti@6124000{
+	cti_modem_cpu0: cti@6124000{
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 
 		reg = <0x6124000 0x1000>;
 		reg-names = "cti-base";
-		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-name = "coresight-cti-modem-cpu0";
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
