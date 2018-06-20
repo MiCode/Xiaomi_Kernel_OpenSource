@@ -1387,6 +1387,9 @@ static void profile_load_work(struct work_struct *work)
 
 	fg_dbg(fg, FG_STATUS, "SOC is ready\n");
 	fg->profile_load_status = PROFILE_LOADED;
+
+	if (fg->wa_flags & PM8150B_V1_DMA_WA)
+		msleep(1000);
 done:
 	rc = fg_gen4_bp_params_config(fg);
 	if (rc < 0)
