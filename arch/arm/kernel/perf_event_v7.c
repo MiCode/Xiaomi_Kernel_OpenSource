@@ -1301,6 +1301,19 @@ static int armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
 	return armv7_probe_pmu(cpu_pmu);
 }
 
+static int armv8_pmuv3_pmu_init(struct arm_pmu *cpu_pmu)
+{
+	armv7pmu_init(cpu_pmu);
+	cpu_pmu->name		= "armv7_pmuv3";
+	cpu_pmu->map_event	= armv7_a7_map_event;
+	cpu_pmu->set_event_filter = armv7pmu_set_event_filter;
+	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_EVENTS] =
+		&armv7_pmuv2_events_attr_group;
+	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
+		&armv7_pmu_format_attr_group;
+	return armv7_probe_pmu(cpu_pmu);
+}
+
 static int armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
 {
 	armv7pmu_init(cpu_pmu);
@@ -2073,6 +2086,7 @@ static const struct of_device_id armv7_pmu_of_device_ids[] = {
 	{.compatible = "qcom,krait-pmu",	.data = krait_pmu_init},
 	{.compatible = "qcom,scorpion-pmu",	.data = scorpion_pmu_init},
 	{.compatible = "qcom,scorpion-mp-pmu",	.data = scorpion_mp_pmu_init},
+	{.compatible = "arm,armv8-pmuv3",	.data = armv8_pmuv3_pmu_init},
 	{},
 };
 
