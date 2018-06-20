@@ -7304,7 +7304,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 
 	if (pdata->us_p_power)
 		regulator_put(pdata->us_p_power);
-	if (pdata->us_p_power)
+	if (pdata->us_n_power)
 		regulator_put(pdata->us_n_power);
 
 	audio_notifier_deregister("sdm845");
