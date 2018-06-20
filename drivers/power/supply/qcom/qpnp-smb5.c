@@ -545,6 +545,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
+	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
@@ -675,6 +676,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_MODE:
 		val->intval = chg->sec_chg_selected;
+		break;
+	case POWER_SUPPLY_PROP_SMB_EN_REASON:
+		val->intval = chg->cp_reason;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);

@@ -321,6 +321,7 @@ struct smb_charger {
 	bool			sec_pl_present;
 	bool			sec_cp_present;
 	int			sec_chg_selected;
+	int			cp_reason;
 
 	/* pd */
 	int			voltage_min_uv;
