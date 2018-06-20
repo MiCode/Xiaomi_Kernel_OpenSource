@@ -1163,7 +1163,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
-			return rc;
+			goto error;
 		}
 	}
 
