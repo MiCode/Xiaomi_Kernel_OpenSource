@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2012,8 +2012,10 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 			goto fail_dma_mapping;
 		}
 
+		spin_lock_bh(&sys->spinlock);
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
 		rx_len_cached = ++sys->len;
+		spin_unlock_bh(&sys->spinlock);
 
 		ret = sps_transfer_one(sys->ep->ep_hdl,
 			rx_pkt->data.dma_addr, sys->rx_buff_sz, rx_pkt, 0);
@@ -2027,8 +2029,10 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 	return;
 
 fail_sps_transfer:
+	spin_lock_bh(&sys->spinlock);
 	list_del(&rx_pkt->link);
 	rx_len_cached = --sys->len;
+	spin_unlock_bh(&sys->spinlock);
 	dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 fail_dma_mapping:
@@ -2098,8 +2102,10 @@ static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
 			}
 		}
 
+		spin_lock_bh(&sys->spinlock);
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
 		rx_len_cached = ++sys->len;
+		spin_unlock_bh(&sys->spinlock);
 
 		ret = sps_transfer_one(sys->ep->ep_hdl,
 			rx_pkt->data.dma_addr, sys->rx_buff_sz, rx_pkt, 0);
@@ -2112,9 +2118,11 @@ static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
 
 	return;
 fail_sps_transfer:
+	spin_lock_bh(&sys->spinlock);
 	rx_len_cached = --sys->len;
 	list_del(&rx_pkt->link);
 	INIT_LIST_HEAD(&rx_pkt->link);
+	spin_unlock_bh(&sys->spinlock);
 	dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
 		sys->rx_buff_sz, DMA_FROM_DEVICE);
 fail_dma_mapping:
@@ -2143,7 +2151,9 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 			break;
 
 		rx_pkt = sys->repl.cache[curr];
+		spin_lock_bh(&sys->spinlock);
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
+		spin_unlock_bh(&sys->spinlock);
 
 		ret = sps_transfer_one(sys->ep->ep_hdl,
 			rx_pkt->data.dma_addr, sys->rx_buff_sz, rx_pkt, 0);
@@ -2202,6 +2212,7 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 	u32 head;
 	u32 tail;
 
+	spin_lock_bh(&sys->spinlock);
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->head_desc_list, link) {
 		list_del(&rx_pkt->link);
@@ -2219,6 +2230,7 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
+	spin_unlock_bh(&sys->spinlock);
 
 	if (sys->repl.cache) {
 		head = atomic_read(&sys->repl.head_idx);
@@ -2871,8 +2883,10 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	struct ipa_rx_pkt_wrapper *rx_pkt_expected;
 	struct sk_buff *rx_skb;
 
+	spin_lock_bh(&sys->spinlock);
 	if (unlikely(list_empty(&sys->head_desc_list))) {
 		WARN_ON(1);
+		spin_unlock_bh(&sys->spinlock);
 		return;
 	}
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
@@ -2880,6 +2894,7 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 					   link);
 	list_del(&rx_pkt_expected->link);
 	sys->len--;
+	spin_unlock_bh(&sys->spinlock);
 	if (size)
 		rx_pkt_expected->len = size;
 	rx_skb = rx_pkt_expected->data.skb;
@@ -2900,8 +2915,10 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	struct ipa_rx_pkt_wrapper *rx_pkt_expected;
 	struct sk_buff *rx_skb;
 
+	spin_lock_bh(&sys->spinlock);
 	if (unlikely(list_empty(&sys->head_desc_list))) {
 		WARN_ON(1);
+		spin_unlock_bh(&sys->spinlock);
 		return;
 	}
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
@@ -2909,6 +2926,7 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 					   link);
 	list_del(&rx_pkt_expected->link);
 	sys->len--;
+	spin_unlock_bh(&sys->spinlock);
 
 	if (size)
 		rx_pkt_expected->len = size;
