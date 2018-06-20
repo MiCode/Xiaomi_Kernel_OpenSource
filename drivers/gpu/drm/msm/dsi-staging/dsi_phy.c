@@ -117,7 +117,8 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 
 	phy->hw.base = ptr;
 
-	pr_debug("[%s] map dsi_phy registers to %p\n", phy->name, phy->hw.base);
+	pr_debug("[%s] map dsi_phy registers to %pK\n",
+		phy->name, phy->hw.base);
 
 	return rc;
 }
@@ -773,6 +774,18 @@ void dsi_phy_toggle_resync_fifo(struct msm_dsi_phy *phy)
 		return;
 
 	phy->hw.ops.toggle_resync_fifo(&phy->hw);
+}
+
+
+void dsi_phy_reset_clk_en_sel(struct msm_dsi_phy *phy)
+{
+	if (!phy)
+		return;
+
+	if (!phy->hw.ops.reset_clk_en_sel)
+		return;
+
+	phy->hw.ops.reset_clk_en_sel(&phy->hw);
 }
 
 int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,

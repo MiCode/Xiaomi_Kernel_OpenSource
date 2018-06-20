@@ -466,7 +466,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	}
 
 	ctrl->hw.base = ptr;
-	pr_debug("[%s] map dsi_ctrl registers to %p\n", ctrl->name,
+	pr_debug("[%s] map dsi_ctrl registers to %pK\n", ctrl->name,
 		 ctrl->hw.base);
 
 	switch (ctrl->version) {
@@ -2851,10 +2851,10 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 }
 
 /**
- * _dsi_ctrl_cache_misr - Cache frame MISR value
+ * dsi_ctrl_cache_misr - Cache frame MISR value
  * @dsi_ctrl: Pointer to associated dsi_ctrl structure
  */
-static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
+void dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 {
 	u32 misr;
 
@@ -2869,8 +2869,8 @@ static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 
 	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
 		dsi_ctrl->misr_cache);
-
 }
+
 /**
  * dsi_ctrl_get_host_engine_init_state() - Return host init state
  * @dsi_ctrl:          DSI controller handle.
@@ -2968,9 +2968,6 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			goto error;
 		}
 	} else if (state == DSI_CTRL_POWER_VREG_OFF) {
-		if (dsi_ctrl->misr_enable)
-			_dsi_ctrl_cache_misr(dsi_ctrl);
-
 		rc = dsi_ctrl_enable_supplies(dsi_ctrl, false);
 		if (rc) {
 			pr_err("[%d]failed to disable vreg supplies, rc=%d\n",

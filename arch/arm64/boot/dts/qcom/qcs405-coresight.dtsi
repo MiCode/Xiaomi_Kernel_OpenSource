@@ -12,6 +12,19 @@
 
 &soc {
 
+	csr: csr@0x6001000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x6001000 0x1000>;
+		reg-names = "csr-base";
+
+		coresight-name = "coresight-csr";
+		qcom,usb-bam-support;
+		qcom,hwctrl-set-support;
+		qcom,set-byte-cntr-support;
+
+		qcom,blk-size = <1>;
+	};
+
 	replicator_qdss: replicator@6046000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b909>;
@@ -60,6 +73,7 @@
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0>;
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -86,6 +100,7 @@
 		coresight-name = "coresight-tmc-etf";
 		coresight-ctis = <&cti0>;
 		arm,default-sink;
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -301,6 +316,15 @@
 			};
 
 			port@2 {
+				reg = <4>;
+				funnel_in2_in_wlan_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&wlan_etm0_out_funnel_in2>;
+				};
+			};
+
+			port@3 {
 				reg = <7>;
 				funnel_in2_in_funnel_apss: endpoint {
 					slave-mode;
@@ -531,21 +555,15 @@
 		};
 	};
 
-	tpdm_wcss: tpdm@1440000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b968>;
-		reg = <0x1440000 0x1000>;
-		reg-names = "tpdm-base";
+	tpdm_wcss {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-tpdm-west-dl";
 
-		coresight-name = "coresight-tpdm-wcss";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "apb_pclk", "core_a_clk";
-
+		qcom,dummy-source;
 		port {
 			tpdm_wcss_out_tpda: endpoint {
-				remote-endpoint = <&tpda_in_tpdm_wcss>;
+				remote-endpoint =
+					<&tpda_in_tpdm_wcss>;
 			};
 		};
 	};
@@ -922,6 +940,20 @@
 			audio_etm0_out_funnel_in1: endpoint {
 				remote-endpoint =
 					<&funnel_in1_in_audio_etm0>;
+			};
+		};
+	};
+
+	wlan_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-wlan-etm0";
+		qcom,inst-id = <3>;
+
+		port{
+			wlan_etm0_out_funnel_in2: endpoint {
+				remote-endpoint =
+					<&funnel_in2_in_wlan_etm0>;
 			};
 		};
 	};

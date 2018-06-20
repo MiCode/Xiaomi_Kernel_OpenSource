@@ -179,6 +179,7 @@ struct dsi_panel {
 
 	bool panel_initialized;
 	bool te_using_watchdog_timer;
+	u32 qsync_min_fps;
 
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
@@ -267,6 +268,11 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
 
+int dsi_panel_send_qsync_on_dcs(struct dsi_panel *panel,
+		int ctrl_idx);
+int dsi_panel_send_qsync_off_dcs(struct dsi_panel *panel,
+		int ctrl_idx);
+
 int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		struct dsi_rect *roi);
 
@@ -275,5 +281,13 @@ int dsi_panel_switch(struct dsi_panel *panel);
 int dsi_panel_post_switch(struct dsi_panel *panel);
 
 void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
+
+struct dsi_panel *dsi_panel_ext_bridge_get(struct device *parent,
+				struct device_node *of_node,
+				int topology_override);
+
+int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel);
+
+void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
 
 #endif /* _DSI_PANEL_H_ */

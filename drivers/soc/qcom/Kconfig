@@ -2,6 +2,25 @@
 # QCOM Soc drivers
 #
 menu "Qualcomm SoC drivers"
+config QCOM_MEM_OFFLINE
+	bool "Dynamic Memory Region Offline driver"
+	help
+	  Add support for DDR Self-Refresh power management through the dynamic
+	  memory offline framework. This driver interfaces between the memory
+	  hotplug subsystem and AOP which hot adds or removes memory blocks and
+	  controls the start/stop of self-refresh of these DDR regions. This
+	  helps reduce power consumption during idle mode of the system.
+	  If unsure, say N
+
+config OVERRIDE_MEMORY_LIMIT
+	bool "Override memory limit set by the kernel boot parameter"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Override any memory limit set by the kernel boot parameter with
+	  limit set by mem-offline dt entry so that memory offline framework
+	  can initialize remaining memory with movable pages for memory
+	  hot-plugging.
+	  If unsure, say N
 
 config QCOM_CPUSS_DUMP
 	bool "CPU Subsystem Dumping support"
@@ -75,6 +94,14 @@ config QCOM_SM6150_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SDMMAGPIE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDMMAGPIE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SDMMAGPIE. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
@@ -92,6 +119,16 @@ config QCOM_LLCC_AMON_PANIC
 	  errors. Say yes here to enable deadlock detection mode of AMON. In
 	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
 	  ages out.
+
+config QCOM_LLCC_PERFMON
+	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for LLCC Performance monitor block. Using
+	  this various events in different LLCC sub block ports can be monitored.
+	  This is used for performance and debug activity and exports SYSFS
+	  interface. SYSFS interface used for configure and dump the LLCC
+	  performance events.
 
 config QCOM_PM
 	bool "Qualcomm Power Management"
@@ -111,6 +148,26 @@ config QCOM_QMI_HELPERS
 	  messages are used in communication between the majority of QRTR
 	  clients and this helpers provide the common functionality needed for
 	  doing this from a kernel driver.
+
+config QCOM_QMI_DFC
+	bool "Enable burst mode flow control"
+	depends on QCOM_QMI_HELPERS
+	depends on RMNET
+	help
+	  Say y here to enable support for burst mode data flow control.
+	  DFC client provides an interface to the modem dfc service and
+	  does burst mode flow control. It enables the flow on receiving flow
+	  status indication and disables flows while grant size is reached.
+	  If unsure or not use burst mode flow control, say 'N'.
+
+config QCOM_QMI_POWER_COLLAPSE
+	bool "Enable power collapse feature"
+	depends on QCOM_QMI_DFC
+	help
+	  Say y here to enable support for power collapse.
+	  It is to register/unregister the flow status indication callback
+	  based on detected flow status.
+	  If unsure or not use power collapse feature, say 'N'.
 
 config QCOM_SMEM
 	tristate "Qualcomm Shared Memory Manager (SMEM)"
@@ -557,7 +614,7 @@ config MSM_JTAGV8
 
 config QCOM_QDSS_BRIDGE
 	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
-	depends on MSM_MHI
+	depends on MHI_BUS
 	help
 	  The driver will help route diag traffic from modem side over the QDSS
 	  sub-system to USB on APSS side. The driver acts as a bridge between the

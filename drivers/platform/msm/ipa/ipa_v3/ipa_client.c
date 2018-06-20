@@ -521,15 +521,23 @@ static bool ipa3_is_legal_params(struct ipa_request_gsi_channel_params *params)
 		return true;
 }
 
-int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
+int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
+	enum ipa_smmu_cb_type cb_type)
 {
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
-		return 0;
+	if (cb_type >= IPA_SMMU_CB_MAX) {
+		IPAERR("invalid cb_type\n");
+		return -EINVAL;
+	}
 
-	smmu_domain = ipa3_get_smmu_domain();
+	if (ipa3_ctx->s1_bypass_arr[cb_type]) {
+		IPADBG("CB# %d is set to s1 bypass\n", cb_type);
+		return 0;
+	}
+
+	smmu_domain = ipa3_get_smmu_domain_by_type(cb_type);
 	if (!smmu_domain) {
 		IPAERR("invalid smmu domain\n");
 		return -EINVAL;
@@ -553,7 +561,8 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 	return 0;
 }
 
-int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
+int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
+	enum ipa_smmu_cb_type cb_type)
 {
 	struct iommu_domain *smmu_domain;
 	int res;
@@ -565,10 +574,17 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
 	int i;
 	struct page *page;
 
-	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
-		return 0;
+	if (cb_type >= IPA_SMMU_CB_MAX) {
+		IPAERR("invalid cb_type\n");
+		return -EINVAL;
+	}
 
-	smmu_domain = ipa3_get_smmu_domain();
+	if (ipa3_ctx->s1_bypass_arr[cb_type]) {
+		IPADBG("CB# %d is set to s1 bypass\n", cb_type);
+		return 0;
+	}
+
+	smmu_domain = ipa3_get_smmu_domain_by_type(cb_type);
 	if (!smmu_domain) {
 		IPAERR("invalid smmu domain\n");
 		return -EINVAL;
@@ -624,6 +640,69 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
 	return 0;
 }
 
+void ipa3_register_lock_unlock_callback(int (*client_cb)(bool is_lock),
+						u32 ipa_ep_idx)
+{
+	struct ipa3_ep_context *ep;
+
+	IPADBG("entry\n");
+
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+
+	if (!ep->valid) {
+		IPAERR("Invalid EP\n");
+		return;
+	}
+
+	if (client_cb == NULL) {
+		IPAERR("Bad Param");
+		return;
+	}
+
+	ep->client_lock_unlock = client_cb;
+	IPADBG("exit\n");
+}
+
+void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx)
+{
+	struct ipa3_ep_context *ep;
+
+	IPADBG("entry\n");
+
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+
+	if (!ep->valid) {
+		IPAERR("Invalid EP\n");
+		return;
+	}
+
+	if (ep->client_lock_unlock == NULL) {
+		IPAERR("client_lock_unlock is already NULL");
+		return;
+	}
+
+	ep->client_lock_unlock = NULL;
+	IPADBG("exit\n");
+}
+
+static void client_lock_unlock_cb(u32 ipa_ep_idx, bool is_lock)
+{
+	struct ipa3_ep_context *ep;
+
+	IPADBG("entry\n");
+
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+
+	if (!ep->valid) {
+		IPAERR("Invalid EP\n");
+		return;
+	}
+
+	if (ep->client_lock_unlock)
+		ep->client_lock_unlock(is_lock);
+
+	IPADBG("exit\n");
+}
 
 int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 			     struct ipa_req_chan_out_params *out_params)
@@ -1247,6 +1326,46 @@ exit:
 	}
 	IPADBG("exit\n");
 	return result;
+}
+
+/*
+ * Set USB PROD pipe delay for MBIM/RMNET config
+ * Clocks, should be voted before calling this API
+ * locks should be taken before calling this API
+ */
+
+void ipa3_set_usb_prod_pipe_delay(void)
+{
+	int result;
+	int pipe_idx;
+	struct ipa3_ep_context *ep;
+	struct ipa_ep_cfg_ctrl ep_ctrl;
+
+	memset(&ep_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+	ep_ctrl.ipa_ep_delay = true;
+
+
+	pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
+
+	if (pipe_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAERR("client (%d) not valid\n", IPA_CLIENT_USB_PROD);
+		return;
+	}
+
+	ep = &ipa3_ctx->ep[pipe_idx];
+
+	/* Setting delay on USB_PROD with skip_ep_cfg */
+	client_lock_unlock_cb(pipe_idx, true);
+	if (ep->valid && ep->skip_ep_cfg) {
+		ep->ep_delay_set = ep_ctrl.ipa_ep_delay;
+		result = ipa3_cfg_ep_ctrl(pipe_idx, &ep_ctrl);
+		if (result)
+			IPAERR("client (ep: %d) failed result=%d\n",
+				pipe_idx, result);
+		else
+			IPADBG("client (ep: %d) success\n", pipe_idx);
+	}
+	client_lock_unlock_cb(pipe_idx, false);
 }
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl)

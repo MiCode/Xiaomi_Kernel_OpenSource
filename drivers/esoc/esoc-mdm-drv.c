@@ -16,7 +16,18 @@
 #include <linux/of.h>
 #include <linux/esoc_client.h>
 #include "esoc.h"
+#include "esoc-mdm.h"
 #include "mdm-dbg.h"
+
+/* Maximum number of powerup trial requests per session */
+#define ESOC_MAX_PON_REQ	2
+
+enum esoc_pon_state {
+	PON_INIT,
+	PON_SUCCESS,
+	PON_RETRY,
+	PON_FAIL
+};
 
 enum {
 	 PWR_OFF = 0x1,
@@ -33,10 +44,10 @@ enum {
 struct mdm_drv {
 	unsigned int mode;
 	struct esoc_eng cmd_eng;
-	struct completion boot_done;
+	struct completion pon_done;
 	struct completion req_eng_wait;
 	struct esoc_clink *esoc_clink;
-	bool boot_fail;
+	enum esoc_pon_state pon_state;
 	struct workqueue_struct *mdm_queue;
 	struct work_struct ssr_work;
 	struct notifier_block esoc_restart;
@@ -66,18 +77,22 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 
 	switch (evt) {
 	case ESOC_INVALID_STATE:
-		mdm_drv->boot_fail = true;
-		complete(&mdm_drv->boot_done);
+		mdm_drv->pon_state = PON_FAIL;
+		complete(&mdm_drv->pon_done);
 		break;
 	case ESOC_RUN_STATE:
-		mdm_drv->boot_fail = false;
+		mdm_drv->pon_state = PON_SUCCESS;
 		mdm_drv->mode = RUN,
-		complete(&mdm_drv->boot_done);
+		complete(&mdm_drv->pon_done);
+		break;
+	case ESOC_RETRY_PON_EVT:
+		mdm_drv->pon_state = PON_RETRY;
+		complete(&mdm_drv->pon_done);
 		break;
 	case ESOC_UNEXPECTED_RESET:
 	case ESOC_ERR_FATAL:
 		/*
-		 * Modem can crash while we are waiting for boot_done during
+		 * Modem can crash while we are waiting for pon_done during
 		 * a subsystem_get(). Setting mode to CRASH will prevent a
 		 * subsequent subsystem_get() from entering poweron ops. Avoid
 		 * this by seting mode to CRASH only if device was up and
@@ -205,6 +220,18 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 	return 0;
 }
 
+static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink)
+{
+	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
+	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
+
+	esoc_client_link_power_off(esoc_clink, false);
+	mdm_disable_irqs(mdm);
+	mdm_drv->pon_state = PON_INIT;
+	reinit_completion(&mdm_drv->pon_done);
+	reinit_completion(&mdm_drv->req_eng_wait);
+}
+
 static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 {
 	int ret;
@@ -213,49 +240,65 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 								subsys);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
+	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
 	int timeout = INT_MAX;
+	u8 pon_trial = 1;
 
-	if (!esoc_clink->auto_boot && !esoc_req_eng_enabled(esoc_clink)) {
-		dev_dbg(&esoc_clink->dev, "Wait for req eng registration\n");
-		wait_for_completion(&mdm_drv->req_eng_wait);
-	}
-	if (mdm_drv->mode == PWR_OFF) {
-		if (mdm_dbg_stall_cmd(ESOC_PWR_ON))
-			return -EBUSY;
-		ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
-		if (ret) {
-			dev_err(&esoc_clink->dev, "pwr on fail\n");
-			return ret;
+	do {
+		if (!esoc_clink->auto_boot &&
+			!esoc_req_eng_enabled(esoc_clink)) {
+			dev_dbg(&esoc_clink->dev,
+					"Wait for req eng registration\n");
+			wait_for_completion(&mdm_drv->req_eng_wait);
 		}
-		esoc_client_link_power_on(esoc_clink, false);
-	} else if (mdm_drv->mode == IN_DEBUG) {
-		ret = clink_ops->cmd_exe(ESOC_EXIT_DEBUG, esoc_clink);
-		if (ret) {
-			dev_err(&esoc_clink->dev, "cannot exit debug mode\n");
-			return ret;
+		if (mdm_drv->mode == PWR_OFF) {
+			if (mdm_dbg_stall_cmd(ESOC_PWR_ON))
+				return -EBUSY;
+			ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
+			if (ret) {
+				dev_err(&esoc_clink->dev, "pwr on fail\n");
+				return ret;
+			}
+			esoc_client_link_power_on(esoc_clink, false);
+		} else if (mdm_drv->mode == IN_DEBUG) {
+			ret = clink_ops->cmd_exe(ESOC_EXIT_DEBUG, esoc_clink);
+			if (ret) {
+				dev_err(&esoc_clink->dev,
+						"cannot exit debug mode\n");
+				return ret;
+			}
+			mdm_drv->mode = PWR_OFF;
+			ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
+			if (ret) {
+				dev_err(&esoc_clink->dev, "pwr on fail\n");
+				return ret;
+			}
+			esoc_client_link_power_on(esoc_clink, true);
 		}
-		mdm_drv->mode = PWR_OFF;
-		ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
-		if (ret) {
-			dev_err(&esoc_clink->dev, "pwr on fail\n");
-			return ret;
-		}
-		esoc_client_link_power_on(esoc_clink, true);
-	}
 
-	/*
-	 * In autoboot case, it is possible that we can forever wait for
-	 * boot completion, when esoc fails to boot. This is because there
-	 * is no helper application which can alert esoc driver about boot
-	 * failure. Prevent going to wait forever in such case.
-	 */
-	if (esoc_clink->auto_boot)
-		timeout = 10 * HZ;
-	ret = wait_for_completion_timeout(&mdm_drv->boot_done, timeout);
-	if (mdm_drv->boot_fail || ret <= 0) {
-		dev_err(&esoc_clink->dev, "booting failed\n");
-		return -EIO;
-	}
+		/*
+		 * In autoboot case, it is possible that we can forever wait for
+		 * boot completion, when esoc fails to boot. This is because
+		 * there is no helper application which can alert esoc driver
+		 * about boot failure. Prevent going to wait forever in such
+		 * case.
+		 */
+		if (esoc_clink->auto_boot)
+			timeout = 10 * HZ;
+		ret = wait_for_completion_timeout(&mdm_drv->pon_done, timeout);
+		if (mdm_drv->pon_state == PON_FAIL || ret <= 0) {
+			dev_err(&esoc_clink->dev, "booting failed\n");
+			mdm_subsys_retry_powerup_cleanup(esoc_clink);
+			mdm_power_down(mdm);
+			return -EIO;
+		} else if (mdm_drv->pon_state == PON_RETRY) {
+			pon_trial++;
+			mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		} else if (mdm_drv->pon_state == PON_SUCCESS) {
+			break;
+		}
+	} while (pon_trial <= ESOC_MAX_PON_REQ);
+
 	return 0;
 }
 
@@ -314,12 +357,12 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 		goto queue_err;
 	}
 	esoc_set_drv_data(esoc_clink, mdm_drv);
-	init_completion(&mdm_drv->boot_done);
+	init_completion(&mdm_drv->pon_done);
 	init_completion(&mdm_drv->req_eng_wait);
 	INIT_WORK(&mdm_drv->ssr_work, mdm_ssr_fn);
 	mdm_drv->esoc_clink = esoc_clink;
 	mdm_drv->mode = PWR_OFF;
-	mdm_drv->boot_fail = false;
+	mdm_drv->pon_state = PON_INIT;
 	mdm_drv->esoc_restart.notifier_call = esoc_msm_restart_handler;
 	ret = register_reboot_notifier(&mdm_drv->esoc_restart);
 	if (ret)

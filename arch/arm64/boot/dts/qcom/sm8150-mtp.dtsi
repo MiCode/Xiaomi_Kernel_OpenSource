@@ -44,6 +44,18 @@
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
 	};
+
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pm8150_gpios 10 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>;
+		vbus-out-gpio = <&pm8150_gpios 9 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_det_default
+			     &usb2_id_det_default
+			     &usb2_vbus_boost_default>;
+	};
 };
 
 &qupv3_se13_4uart {
@@ -64,18 +76,7 @@
 		label = "gpio-keys";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&key_home_default
-			     &key_vol_up_default>;
-
-		home {
-			label = "home";
-			gpios = <&pm8150_gpios 1 GPIO_ACTIVE_LOW>;
-			linux,input-type = <1>;
-			linux,code = <KEY_HOME>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-			linux,can-disable;
-		};
+		pinctrl-0 = <&key_vol_up_default>;
 
 		vol_up {
 			label = "volume_up";
@@ -93,6 +94,8 @@
 		clock-names = "core", "iface";
 		clock-frequency = <25000000>;
 		qcom,ipc-gpio = <&tlmm 118 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_home_default>;
 		qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
 	};
 };
@@ -276,6 +279,10 @@
 	status = "ok";
 };
 
+&spmi_debug_bus {
+	status = "ok";
+};
+
 &pm8150l_wled {
 	qcom,string-cfg= <7>;
 	status = "ok";
@@ -287,6 +294,8 @@
 
 &pm8150b_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
 };
 
 &sdhc_2 {
@@ -437,7 +446,6 @@
 
 &mhi_0 {
 	mhi,fw-name = "debug.mbn";
-	status = "okay";
 };
 
 &pm8150b_adc_tm {
@@ -550,6 +558,7 @@
 
 &pm8150b_charger {
 	qcom,sec-charger-config = <1>;
+	qcom,auto-recharge-soc = <98>;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 		      <&pm8150b_vadc ADC_USB_IN_I>,
 		      <&pm8150b_vadc ADC_CHG_TEMP>;
@@ -566,4 +575,8 @@
 
 &smb1390_charger {
 	status = "ok";
+};
+
+&usb1 {
+	extcon = <&extcon_usb1>;
 };

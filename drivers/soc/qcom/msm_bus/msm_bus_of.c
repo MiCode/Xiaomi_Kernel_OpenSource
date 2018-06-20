@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@ static int get_num(const char *const str[], const char *name)
 	return -EINVAL;
 }
 
-static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
+static struct msm_bus_scale_pdata *get_pdata(struct device *dev,
 	struct device_node *of_node)
 {
 	struct msm_bus_scale_pdata *pdata = NULL;
@@ -51,12 +51,12 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	const uint32_t *vec_arr = NULL;
 	bool mem_err = false;
 
-	if (!pdev) {
-		pr_err("Error: Null Platform device\n");
+	if (!dev) {
+		pr_err("Error: Null device\n");
 		return NULL;
 	}
 
-	pdata = devm_kzalloc(&pdev->dev, sizeof(struct msm_bus_scale_pdata),
+	pdata = devm_kzalloc(dev, sizeof(struct msm_bus_scale_pdata),
 		GFP_KERNEL);
 	if (!pdata) {
 		mem_err = true;
@@ -89,7 +89,7 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	pdata->alc = of_property_read_bool(of_node, "qcom,msm-bus,alc-voter");
 
 	if (pdata->alc) {
-		usecase_lat = devm_kzalloc(&pdev->dev,
+		usecase_lat = devm_kzalloc(dev,
 				(sizeof(struct msm_bus_lat_vectors) *
 				pdata->num_usecases), GFP_KERNEL);
 		if (!usecase_lat) {
@@ -122,7 +122,7 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 		return pdata;
 	}
 
-	usecase = devm_kzalloc(&pdev->dev, (sizeof(struct msm_bus_paths) *
+	usecase = devm_kzalloc(dev, (sizeof(struct msm_bus_paths) *
 		pdata->num_usecases), GFP_KERNEL);
 	if (!usecase) {
 		mem_err = true;
@@ -149,7 +149,7 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 
 	for (i = 0; i < num_usecases; i++) {
 		usecase[i].num_paths = num_paths;
-		usecase[i].vectors = devm_kzalloc(&pdev->dev, num_paths *
+		usecase[i].vectors = devm_kzalloc(dev, num_paths *
 			sizeof(struct msm_bus_vectors), GFP_KERNEL);
 		if (!usecase[i].vectors) {
 			mem_err = true;
@@ -206,7 +206,7 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 	}
 
 	of_node = pdev->dev.of_node;
-	pdata = get_pdata(pdev, of_node);
+	pdata = get_pdata(&pdev->dev, of_node);
 	if (!pdata) {
 		pr_err("client has to provide missing entry for successful registration\n");
 		return NULL;
@@ -215,6 +215,37 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 	return pdata;
 }
 EXPORT_SYMBOL(msm_bus_cl_get_pdata);
+
+/**
+ * msm_bus_cl_get_pdata_from_dev() - Generate bus client data from device tree
+ * provided by clients.
+ *
+ * of_node: Device tree node to extract information from
+ *
+ * The function returns a valid pointer to the allocated bus-scale-pdata
+ * if the vectors were correctly read from the client's device node.
+ * Any error in reading or parsing the device node will return NULL
+ * to the caller.
+ */
+struct msm_bus_scale_pdata *msm_bus_cl_get_pdata_from_dev(struct device *dev)
+{
+	struct device_node *of_node;
+	struct msm_bus_scale_pdata *pdata = NULL;
+
+	of_node = dev->of_node;
+
+	if (!of_node)
+		return NULL;
+
+	pdata = get_pdata(dev, of_node);
+	if (!pdata) {
+		pr_err("client has to provide missing entry for successful registration\n");
+		return NULL;
+	}
+
+	return pdata;
+}
+EXPORT_SYMBOL(msm_bus_cl_get_pdata_from_dev);
 
 /**
  * msm_bus_cl_pdata_from_node() - Generate bus client data from device tree
@@ -247,7 +278,7 @@ struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
 		return NULL;
 	}
 
-	pdata = get_pdata(pdev, of_node);
+	pdata = get_pdata(&pdev->dev, of_node);
 	if (!pdata) {
 		pr_err("client has to provide missing entry for successful registration\n");
 		return NULL;

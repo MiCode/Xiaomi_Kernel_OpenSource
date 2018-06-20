@@ -255,13 +255,103 @@
 	};
 };
 
-/* Stub regulators */
-/ {
-	/* VDD_APC supply */
-	apc_vreg_corner: regulator-apc-corner {
-		compatible = "qcom,stub-regulator";
+&spmi_bus {
+	qcom,pms405@1 {
+		/* PMS405 S3 = VDD_APC_supply */
+		pms405_s3: spm-regulator@1a00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x1a00 0x100>;
+			regulator-name = "pms405_s3";
+			regulator-min-microvolt = <1048000>;
+			regulator-max-microvolt = <1352000>;
+		};
+	};
+};
+
+&soc {
+	/* APC CPR and MEM ACC regulators */
+	mem_acc_vreg_corner: regulator@1942120 {
+		compatible = "qcom,mem-acc-regulator";
+		regulator-name = "mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+
+		qcom,acc-reg-addr-list =
+			<0x01942138 0x01942130 0x01942120 0x01942124>;
+
+		qcom,acc-init-reg-config = <1 0xff>, <2 0x5555>;
+
+		qcom,num-acc-corners = <2>;
+		qcom,boot-acc-corner = <2>;
+		qcom,corner1-reg-config =
+			/* INT2 => INT2 */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* INT2 => NOM */
+			<  3 0x0>,       <  4  0x0>;
+
+		qcom,corner2-reg-config =
+			/* NOM => INT2 */
+			<  3 0x1041041>, <  4  0x41>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>;
+	};
+
+	apc_vreg_corner: regulator@b018000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xb018000 0x1000>, <0xb011064 4>, <0xa4000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
+
+		qcom,cpr-fuse-corners = <3>;
+		qcom,cpr-voltage-ceiling = <1224000 1288000 1352000>;
+		qcom,cpr-voltage-floor =   <1048000 1048000 1088000>;
+		vdd-apc-supply = <&pms405_s3>;
+
+		mem-acc-supply = <&mem_acc_vreg_corner>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <25>;
+		qcom,cpr-up-threshold = <1>;
+		qcom,cpr-down-threshold = <3>;
+		qcom,cpr-idle-clocks = <15>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <8000>;
+
+		qcom,cpr-fuse-row = <69 0>;
+		qcom,cpr-fuse-target-quot = <30 42 64>;
+		qcom,cpr-fuse-ro-sel = <0 4 8>;
+		qcom,cpr-init-voltage-ref = <1224000 1288000 1352000>;
+		qcom,cpr-fuse-init-voltage =
+					<69 12 6 0>,
+					<69 18 6 0>,
+					<69 24 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<70 12 7 0>,
+					<70 19 7 0>,
+					<70 26 7 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-corner-map = <1 2 3>;
+		qcom,mem-acc-corner-map = <1 2 2>;
+		qcom,cpr-corner-frequency-map =
+				<1 1094400000>,
+				<2 1248000000>,
+				<3 1401600000>;
+		qcom,speed-bin-fuse-sel = <39 34 3 0>;
+		qcom,cpr-fuse-revision = <67 3 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<(-1) (-1) 1 2 3>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
 	};
 };

@@ -300,7 +300,7 @@ static void stm_generic_unlink(struct stm_data *stm_data,
 	if (!drvdata || !drvdata->csdev)
 		return;
 	/* If any OST entity is enabled do not disable the device */
-	if (drvdata->entities == NULL)
+	if (!bitmap_empty(drvdata->entities, OST_ENTITY_MAX))
 		return;
 	coresight_disable(drvdata->csdev);
 }
@@ -870,11 +870,6 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 				 BYTES_PER_CHANNEL), resource_size(res));
 	}
 	bitmap_size = BITS_TO_LONGS(drvdata->numsp) * sizeof(long);
-	/* Store the driver data pointer for use in exported functions */
-	ret = stm_set_ost_params(drvdata, bitmap_size);
-	if (ret)
-		return ret;
-
 
 	guaranteed = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
 	if (!guaranteed)
@@ -903,6 +898,11 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 		ret = PTR_ERR(drvdata->csdev);
 		goto stm_unregister;
 	}
+
+	/* Store the driver data pointer for use in exported functions */
+	ret = stm_set_ost_params(drvdata, bitmap_size);
+	if (ret)
+		goto stm_unregister;
 
 	pm_runtime_put(&adev->dev);
 

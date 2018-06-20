@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -28,6 +28,7 @@
 #define PLL_OUTCTRL		BIT(0)
 #define PLL_BYPASSNL		BIT(1)
 #define PLL_RESET_N		BIT(2)
+#define XO_RATE			19200000
 
 static int clk_pll_enable(struct clk_hw *hw)
 {
@@ -138,9 +139,11 @@ clk_pll_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 
 	f = find_freq(pll->freq_tbl, req->rate);
 	if (!f)
-		req->rate = clk_pll_recalc_rate(hw, req->best_parent_rate);
+		req->rate = DIV_ROUND_UP_ULL(req->rate, req->best_parent_rate)
+							* req->best_parent_rate;
+
 	else
-		req->rate = f->freq;
+		req->rate = req->rate = f->freq;
 
 	return 0;
 }
@@ -342,3 +345,63 @@ const struct clk_ops clk_pll_sr2_ops = {
 	.determine_rate = clk_pll_determine_rate,
 };
 EXPORT_SYMBOL_GPL(clk_pll_sr2_ops);
+
+static int
+clk_pll_hf_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long prate)
+{
+	struct clk_pll *pll = to_clk_pll(hw);
+	bool enabled;
+	u32 mode, l_val;
+	u32 enable_mask = PLL_OUTCTRL | PLL_BYPASSNL | PLL_RESET_N;
+
+	l_val = rate / XO_RATE;
+
+	regmap_read(pll->clkr.regmap, pll->mode_reg, &mode);
+	enabled = (mode & enable_mask) == enable_mask;
+
+	if (enabled)
+		clk_pll_disable(hw);
+
+	regmap_update_bits(pll->clkr.regmap, pll->l_reg, 0x3ff, l_val);
+	regmap_update_bits(pll->clkr.regmap, pll->m_reg, 0x7ffff, 0);
+	regmap_update_bits(pll->clkr.regmap, pll->n_reg, 0x7ffff, 1);
+
+	if (enabled)
+		clk_pll_sr2_enable(hw);
+
+	return 0;
+}
+
+static void clk_pll_hf_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_pll *pll = to_clk_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_M_VAL", 0x8},
+		{"PLL_N_VAL", 0xC},
+		{"PLL_USER_CTL", 0x10},
+		{"PLL_CONFIG_CTL", 0x14},
+		{"PLL_STATUS_CTL", 0x1C},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->mode_reg + data[i].offset,
+									&val);
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+}
+
+const struct clk_ops clk_pll_hf_ops = {
+	.enable = clk_pll_sr2_enable,
+	.disable = clk_pll_disable,
+	.set_rate = clk_pll_hf_set_rate,
+	.recalc_rate = clk_pll_recalc_rate,
+	.determine_rate = clk_pll_determine_rate,
+	.list_registers = clk_pll_hf_list_registers,
+};
+EXPORT_SYMBOL(clk_pll_hf_ops);

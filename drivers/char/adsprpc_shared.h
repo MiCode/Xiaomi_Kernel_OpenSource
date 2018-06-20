@@ -47,6 +47,9 @@
 /* Fastrpc attribute for keeping the map persistent */
 #define FASTRPC_ATTR_KEEP_MAP	0x8
 
+/* Fastrpc attribute for no mapping of fd  */
+#define FASTRPC_ATTR_NOMAP (16)
+
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
 

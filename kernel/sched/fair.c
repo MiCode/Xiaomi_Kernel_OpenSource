@@ -6418,7 +6418,7 @@ boosted_task_util(struct task_struct *task)
 
 static unsigned long capacity_spare_wake(int cpu, struct task_struct *p)
 {
-	return capacity_orig_of(cpu) - cpu_util_wake(cpu, p);
+	return max_t(long, capacity_of(cpu) - cpu_util_wake(cpu, p), 0);
 }
 
 /*
@@ -7000,8 +7000,9 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 		return true;
 
 	if (sched_boost_policy() == SCHED_BOOST_ON_BIG &&
-					task_sched_boost(p))
-		return !is_min_capacity_cpu(cpu);
+					task_sched_boost(p) &&
+					is_min_capacity_cpu(cpu))
+		return false;
 
 	return task_fits_capacity(p, capacity, cpu);
 }
@@ -7052,6 +7053,13 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	/* Are all CPUs isolated in this group? */
 	if (!sg->group_weight)
 		return true;
+
+	/*
+	 * Don't skip a group if a task affinity allows it
+	 * to run only on that group.
+	 */
+	if (cpumask_subset(&p->cpus_allowed, sched_group_span(sg)))
+		return false;
 
 	if (!task_fits_max(p, fcpu))
 		return true;

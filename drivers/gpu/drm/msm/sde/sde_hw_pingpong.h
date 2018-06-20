@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,12 @@ struct sde_hw_pingpong_ops {
 	 */
 	int (*enable_tearcheck)(struct sde_hw_pingpong *pp,
 			bool enable);
+
+	/**
+	 * updates tearcheck configuration
+	 */
+	void (*update_tearcheck)(struct sde_hw_pingpong *pp,
+			struct sde_hw_tear_check *cfg);
 
 	/**
 	 * read, modify, write to either set or clear listening to external TE
@@ -122,6 +128,11 @@ struct sde_hw_pingpong_ops {
 	 */
 	void (*setup_3d_mode)(struct sde_hw_pingpong *pp,
 			enum sde_3d_blend_mode cfg);
+
+	/**
+	 * reset 3d blend configuration
+	 */
+	void (*reset_3d_mode)(struct sde_hw_pingpong *pp);
 };
 
 struct sde_hw_merge_3d_ops {
@@ -130,6 +141,11 @@ struct sde_hw_merge_3d_ops {
 	 */
 	void (*setup_blend_mode)(struct sde_hw_merge_3d *id,
 			enum sde_3d_blend_mode cfg);
+
+	/**
+	 * reset 3d blend mode configuration
+	 */
+	void (*reset_blend_mode)(struct sde_hw_merge_3d *id);
 };
 
 struct sde_hw_merge_3d {

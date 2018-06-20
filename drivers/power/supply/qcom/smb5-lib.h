@@ -72,23 +72,12 @@ enum print_reason {
 
 #define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
 
+#define ADC_CHG_TERM_MASK	32767
+
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
 	NUM_MODES,
-};
-
-enum sec_charger_config {
-	MAIN_STANDALONE = 0,
-	SEC_CHG_CP_ONLY,
-	SEC_CHG_PL_ONLY,
-	SEC_CHG_CP_AND_PL,
-};
-
-enum sec_charger_type {
-	SEC_CHG_NONE = 0,
-	SEC_CHG_CP,
-	SEC_CHG_PL,
 };
 
 enum sink_src_mode {
@@ -182,6 +171,12 @@ enum float_options {
 	FLOAT_SDP		= 2,
 	DISABLE_CHARGING	= 3,
 	SUSPEND_INPUT		= 4,
+};
+
+enum chg_term_config_src {
+	ITERM_SRC_UNSPECIFIED,
+	ITERM_SRC_ADC,
+	ITERM_SRC_ANALOG
 };
 
 struct smb_irq_info {
@@ -279,6 +274,7 @@ struct smb_charger {
 	int			smb_version;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
+	bool			pd_not_supported;
 
 	/* locks */
 	struct mutex		lock;
@@ -471,6 +467,8 @@ int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_batt_iterm(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
@@ -540,6 +538,8 @@ int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_ship_mode(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
+				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
@@ -554,6 +554,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

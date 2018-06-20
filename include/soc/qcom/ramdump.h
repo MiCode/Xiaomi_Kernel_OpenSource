@@ -29,6 +29,8 @@ extern int do_ramdump(void *handle, struct ramdump_segment *segments,
 		int nsegments);
 extern int do_elf_ramdump(void *handle, struct ramdump_segment *segments,
 		int nsegments);
+extern int do_minidump(void *handle, struct ramdump_segment *segments,
+		       int nsegments);
 
 #else
 static inline void *create_ramdump_device(const char *dev_name,

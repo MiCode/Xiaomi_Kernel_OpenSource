@@ -215,6 +215,7 @@ enum hal_property {
 	HAL_PARAM_SECURE,
 	HAL_PARAM_VENC_HDR10_PQ_SEI,
 	HAL_PARAM_VIDEO_WORK_ROUTE,
+	HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
 };
 
 enum hal_domain {
@@ -1404,6 +1405,10 @@ struct hal_cmd_sys_get_property_packet {
 struct hal_hdr10_pq_sei {
 	struct msm_vidc_mastering_display_colour_sei_payload disp_color_sei;
 	struct msm_vidc_content_light_level_sei_payload cll_sei;
+};
+
+struct hal_vbv_hdr_buf_size {
+	u32 vbv_hdr_buf_size;
 };
 
 #define call_hfi_op(q, op, args...)			\

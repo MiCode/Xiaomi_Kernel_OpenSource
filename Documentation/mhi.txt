@@ -137,6 +137,47 @@ Example Operation for data transfer:
 8. Host wakes up and check event ring for completion event
 9. Host update the Event[i].ctxt.WP to indicate processed of completion event.
 
+Time sync
+---------
+To synchronize two applications between host and external modem, MHI provide
+native support to get external modems free running timer value in a fast
+reliable method. MHI clients do not need to create client specific methods to
+get modem time.
+
+When client requests modem time, MHI host will automatically capture host time
+at that moment so clients are able to do accurate drift adjustment.
+
+Example:
+
+Client request time @ time T1
+
+Host Time: Tx
+Modem Time: Ty
+
+Client request time @ time T2
+Host Time: Txx
+Modem Time: Tyy
+
+Then drift is:
+Tyy - Ty + <drift> == Txx - Tx
+
+Clients are free to implement their own drift algorithms, what MHI host provide
+is a way to accurately correlate host time with external modem time.
+
+To avoid link level latencies, controller must support capabilities to disable
+any link level latency.
+
+During Time capture host will:
+	1. Capture host time
+	2. Trigger doorbell to capture modem time
+
+It's important time between Step 2 to Step 1 is deterministic as possible.
+Therefore, MHI host will:
+	1. Disable any MHI related to low power modes.
+	2. Disable preemption
+	3. Request bus master to disable any link level latencies. Controller
+	should disable all low power modes such as L0s, L1, L1ss.
+
 MHI States
 ----------
 

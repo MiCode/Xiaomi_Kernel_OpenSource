@@ -1138,8 +1138,9 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		pstate->pixel_ext.num_ext_pxls_left[i] =
 			scale_cfg->src_width[i];
 	}
-	if (!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
-		&& (src_w == dst_w))
+
+	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
+		&& (src_w == dst_w)) || pstate->multirect_mode)
 		return;
 
 	scale_cfg->dst_width = dst_w;
@@ -4581,7 +4582,8 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	if (!usr) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
-		return;
+		cfg->enable = 0;
+		goto end;
 	}
 
 	if (copy_from_user(&scale_v2, usr, sizeof(scale_v2))) {
@@ -4592,12 +4594,9 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	/* detach/ignore user data if 'disabled' */
 	if (!scale_v2.enable) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
-		return;
+		cfg->enable = 0;
+		goto end;
 	}
-
-	/* force property to be dirty, even if the pointer didn't change */
-	msm_property_set_dirty(&psde->property_info,
-			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
 	sde_set_scaler_v2(cfg, &scale_v2);
@@ -4619,6 +4618,11 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		pe->roi_h[i] = scale_v2.pe.num_ext_pxls_tb[i];
 	}
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2_CHECK;
+
+end:
+	/* force property to be dirty, even if the pointer didn't change */
+	msm_property_set_dirty(&psde->property_info,
+			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	SDE_EVT32_VERBOSE(DRMID(&psde->base), cfg->enable, cfg->de.enable,
 			cfg->src_width[0], cfg->src_height[0],

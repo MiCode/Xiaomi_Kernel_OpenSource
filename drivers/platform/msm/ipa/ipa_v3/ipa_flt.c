@@ -61,8 +61,10 @@ static int ipa3_generate_flt_hw_rule(enum ipa_ip_type ip,
 	gen_params.rule = (const struct ipa_flt_rule *)&entry->rule;
 
 	res = ipahal_flt_generate_hw_rule(&gen_params, &entry->hw_len, buf);
-	if (res)
+	if (res) {
 		IPAERR_RL("failed to generate flt h/w rule\n");
+		return res;
+	}
 
 	return 0;
 }
@@ -559,27 +561,36 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		goto fail_size_valid;
 	}
 
-	/* flushing ipa internal hashable flt rules cache */
-	memset(&flush, 0, sizeof(flush));
-	if (ip == IPA_IP_v4)
-		flush.v4_flt = true;
-	else
-		flush.v6_flt = true;
-	ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
-	reg_write_cmd.skip_pipeline_clear = false;
-	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
-	reg_write_cmd.value = valmask.val;
-	reg_write_cmd.value_mask = valmask.mask;
-	cmd_pyld[0] = ipahal_construct_imm_cmd(
-		IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd, false);
-	if (!cmd_pyld[0]) {
-		IPAERR("fail construct register_write imm cmd: IP %d\n", ip);
-		rc = -EFAULT;
-		goto fail_reg_write_construct;
+	/*
+	 * SRAM memory not allocated to hash tables. Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+		/* flushing ipa internal hashable flt rules cache */
+		memset(&flush, 0, sizeof(flush));
+		if (ip == IPA_IP_v4)
+			flush.v4_flt = true;
+		else
+			flush.v6_flt = true;
+		ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
+		reg_write_cmd.skip_pipeline_clear = false;
+		reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_cmd.offset = ipahal_get_reg_ofst(
+					IPA_FILT_ROUT_HASH_FLUSH);
+		reg_write_cmd.value = valmask.val;
+		reg_write_cmd.value_mask = valmask.mask;
+		cmd_pyld[0] = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd,
+							false);
+		if (!cmd_pyld[0]) {
+			IPAERR(
+			"fail construct register_write imm cmd: IP %d\n", ip);
+			rc = -EFAULT;
+			goto fail_reg_write_construct;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 	}
-	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-	++num_cmd;
 
 	hdr_idx = 0;
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
@@ -622,25 +633,33 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		++num_cmd;
 
-		mem_cmd.is_read = false;
-		mem_cmd.skip_pipeline_clear = false;
-		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-		mem_cmd.size = tbl_hdr_width;
-		mem_cmd.system_addr = alloc_params.hash_hdr.phys_base +
-			hdr_idx * tbl_hdr_width;
-		mem_cmd.local_addr = lcl_hash_hdr +
-			hdr_idx * tbl_hdr_width;
-		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
-		if (!cmd_pyld[num_cmd]) {
-			IPAERR("fail construct dma_shared_mem cmd: IP = %d\n",
-				ip);
-			rc = -ENOMEM;
-			goto fail_imm_cmd_construct;
+		/*
+		 * SRAM memory not allocated to hash tables. Sending command
+		 * to hash tables(filer/routing) operation not supported.
+		 */
+		if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+			mem_cmd.is_read = false;
+			mem_cmd.skip_pipeline_clear = false;
+			mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+			mem_cmd.size = tbl_hdr_width;
+			mem_cmd.system_addr = alloc_params.hash_hdr.phys_base +
+				hdr_idx * tbl_hdr_width;
+			mem_cmd.local_addr = lcl_hash_hdr +
+				hdr_idx * tbl_hdr_width;
+			cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+					IPA_IMM_CMD_DMA_SHARED_MEM,
+						&mem_cmd, false);
+			if (!cmd_pyld[num_cmd]) {
+				IPAERR(
+				"fail construct dma_shared_mem cmd: IP = %d\n",
+						ip);
+				rc = -ENOMEM;
+				goto fail_imm_cmd_construct;
+			}
+			ipa3_init_imm_cmd_desc(&desc[num_cmd],
+						cmd_pyld[num_cmd]);
+			++num_cmd;
 		}
-		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-		++num_cmd;
-
 		++hdr_idx;
 	}
 
@@ -1014,40 +1033,11 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 		goto error;
 	}
 
+	if (__ipa_validate_flt_rule(&frule->rule, &rt_tbl, ip))
+		goto error;
+
 	if (entry->rt_tbl)
 		entry->rt_tbl->ref_cnt--;
-
-	if (frule->rule.action != IPA_PASS_TO_EXCEPTION) {
-		if (!frule->rule.eq_attrib_type) {
-			if (!frule->rule.rt_tbl_hdl) {
-				IPAERR_RL("invalid RT tbl\n");
-				goto error;
-			}
-
-			rt_tbl = ipa3_id_find(frule->rule.rt_tbl_hdl);
-			if (rt_tbl == NULL) {
-				IPAERR_RL("RT tbl not found\n");
-				goto error;
-			}
-
-			if (rt_tbl->cookie != IPA_RT_TBL_COOKIE) {
-				IPAERR_RL("RT table cookie is invalid\n");
-				goto error;
-			}
-		} else {
-			if (frule->rule.rt_tbl_idx > ((ip == IPA_IP_v4) ?
-				IPA_MEM_PART(v4_modem_rt_index_hi) :
-				IPA_MEM_PART(v6_modem_rt_index_hi))) {
-				IPAERR_RL("invalid RT tbl\n");
-				goto error;
-			}
-		}
-	} else {
-		if (frule->rule.rt_tbl_idx > 0) {
-			IPAERR_RL("invalid RT tbl\n");
-			goto error;
-		}
-	}
 
 	entry->rule = frule->rule;
 	entry->rt_tbl = rt_tbl;
@@ -1124,12 +1114,17 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
-		if (!rules->global)
+		if (!rules->global) {
+			/* if hashing not supported, all table entry
+			 * are non-hash tables
+			 */
+			if (ipa3_ctx->ipa_fltrt_not_hashable)
+				rules->rules[i].rule.hashable = false;
 			result = __ipa_add_ep_flt_rule(rules->ip, rules->ep,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
 					&rules->rules[i].flt_rule_hdl);
-		else
+		} else
 			result = -1;
 
 		if (result) {
@@ -1231,6 +1226,9 @@ int ipa3_add_flt_rule_after(struct ipa_ioc_add_flt_rule_after *rules)
 	 */
 
 	for (i = 0; i < rules->num_rules; i++) {
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			rules->rules[i].rule.hashable = false;
 		result = __ipa_add_flt_rule_after(tbl,
 				&rules->rules[i].rule,
 				&rules->rules[i].flt_rule_hdl,
@@ -1318,6 +1316,9 @@ int ipa3_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < hdls->num_rules; i++) {
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			hdls->rules[i].rule.hashable = false;
 		if (__ipa_mdfy_flt_rule(&hdls->rules[i], hdls->ip)) {
 			IPAERR_RL("failed to mdfy flt rule %i\n", i);
 			hdls->rules[i].status = IPA_FLT_STATUS_OF_MDFY_FAILED;
@@ -1561,6 +1562,16 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx, enum ipa_ip_type ip_type,
 
 	IPADBG("pipe_idx=%d ip=%d hashable=%d entry=0x%pK num_entry=0x%pK\n",
 		pipe_idx, ip_type, hashable, entry, num_entry);
+
+	/*
+	 * SRAM memory not allocated to hash tables. Reading of hash table
+	 * rules operation not supported
+	 */
+	if (hashable && ipa3_ctx->ipa_fltrt_not_hashable) {
+		IPADBG("Reading hashable rules not supported\n");
+		*num_entry = 0;
+		return 0;
+	}
 
 	if (pipe_idx >= ipa3_ctx->ipa_num_pipes || ip_type >= IPA_IP_MAX ||
 	    !entry || !num_entry) {

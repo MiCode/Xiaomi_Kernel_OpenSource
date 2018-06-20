@@ -108,6 +108,8 @@ Optional properties:
  - qcom,core-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner.
+ - qcom,link-training-reset: This property indicates to start link training
+   timer to reset the elastic buffer based on rx equalization value.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

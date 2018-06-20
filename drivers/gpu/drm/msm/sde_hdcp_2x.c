@@ -389,6 +389,15 @@ static void sde_hdcp_2x_query_stream_work(struct kthread_work *work)
 	sde_hdcp_2x_stream(hdcp);
 }
 
+static void sde_hdcp_2x_initialize_command(struct sde_hdcp_2x_ctrl *hdcp,
+		enum hdcp_transport_wakeup_cmd cmd,
+		struct hdcp_transport_wakeup_data *cdata)
+{
+		cdata->cmd = cmd;
+		cdata->timeout = hdcp->timeout_left;
+		cdata->buf = hdcp->app_data.request.data + 1;
+}
+
 static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	struct hdcp_transport_wakeup_data cdata = {
@@ -406,12 +415,14 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 		}
 
 		/* poll for link check */
-		cdata.cmd = HDCP_TRANSPORT_CMD_LINK_POLL;
+		sde_hdcp_2x_initialize_command(hdcp,
+				HDCP_TRANSPORT_CMD_LINK_POLL, &cdata);
 		break;
 	case SKE_SEND_EKS:
 		if (hdcp->repeater_flag && !atomic_read(&hdcp->hdcp_off)) {
 			/* poll for link check */
-			cdata.cmd = HDCP_TRANSPORT_CMD_LINK_POLL;
+			sde_hdcp_2x_initialize_command(hdcp,
+					HDCP_TRANSPORT_CMD_LINK_POLL, &cdata);
 		} else {
 			hdcp->app_data.response.data[0] = SKE_SEND_TYPE_ID;
 			hdcp->app_data.response.length = 2;
@@ -427,7 +438,8 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 			HDCP_2X_EXECUTE(stream);
 			hdcp->update_stream = false;
 		} else {
-			cdata.cmd = HDCP_TRANSPORT_CMD_LINK_POLL;
+			sde_hdcp_2x_initialize_command(hdcp,
+					HDCP_TRANSPORT_CMD_LINK_POLL, &cdata);
 		}
 		break;
 	default:
@@ -583,12 +595,13 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 				cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
 				sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 			} else {
-				pr_debug("failed to enable encryption (%d)\n",
+				pr_err("failed to enable encryption (%d)\n",
 						rc);
 			}
 		}
 
-		cdata.cmd = HDCP_TRANSPORT_CMD_LINK_POLL;
+		sde_hdcp_2x_initialize_command(hdcp,
+				HDCP_TRANSPORT_CMD_LINK_POLL, &cdata);
 		goto exit;
 	}
 

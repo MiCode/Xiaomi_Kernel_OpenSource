@@ -118,6 +118,7 @@ struct gmu_core_ops {
 	int (*get_idle_level)(struct kgsl_device *device);
 	void (*set_idle_level)(struct kgsl_device *device, unsigned int val);
 	bool (*regulator_isenabled)(struct kgsl_device *device);
+	int (*suspend)(struct kgsl_device *device);
 };
 
 struct gmu_dev_ops {
@@ -165,6 +166,7 @@ int gmu_core_probe(struct kgsl_device *device);
 void gmu_core_remove(struct kgsl_device *device);
 int gmu_core_start(struct kgsl_device *device);
 void gmu_core_stop(struct kgsl_device *device);
+int gmu_core_suspend(struct kgsl_device *device);
 void gmu_core_snapshot(struct kgsl_device *device);
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);

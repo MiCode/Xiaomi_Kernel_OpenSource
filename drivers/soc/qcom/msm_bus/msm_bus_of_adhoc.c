@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -606,11 +606,6 @@ static int get_bus_node_device_data(
 			}
 			of_node_put(qos_clk_node);
 		}
-
-		if (msmbus_coresight_init_adhoc(pdev, dev_node))
-			dev_warn(&pdev->dev,
-				 "Coresight support absent for bus: %d\n",
-				  node_device->node_info->id);
 	} else {
 		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");

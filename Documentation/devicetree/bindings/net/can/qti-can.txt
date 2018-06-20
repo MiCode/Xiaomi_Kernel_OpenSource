@@ -1,0 +1,48 @@
+* QTI CAN driver *
+
+Required properties:
+  - compatible: Should be "qcom,renesas,rh850" or "qcom,nxp,mpc5746c".
+  - reg: Should contain SPI chip select.
+  - interrupt-parent: Should specify interrupt controller for the interrupt.
+  - interrupts: Should contain IRQ line for the CAN controller.
+  - spi-max-frequency: Should contain maximum spi clock frequency for slave device
+  - qcom,clk-freq-mhz : The frequency at which the CAN clock should be configured.
+  - qcom,max-can-channels : Maximum number of CAN channels supported by the controller.
+
+Optional properties:
+  - qcom,reset-gpio: Reference to the GPIO connected to the reset input.
+  - pinctrl-names : Names corresponding to the numbered pinctrl states.
+  - pinctrl-0 : This explains the active state of the GPIO line.
+  - pinctrl-1 : This explains the suspend state of the GPIO line.
+  - qcom,bits-per-word: Indicate how many bits are in a SPI frame. e.g.: 8, 16, 32.
+                   Default to 16.
+  - qcom,reset-delay-msec: Delay in milliseconds to be applied after resetting the chip.
+    This is applicable only if the reset-gpio is specified. Default value is 1 ms.
+  - qcom,support-can-fd: Whether CAN FD mode is supported or not.
+  - qcom,can-fw-cmd-timeout-req: Whether a timeout is required if we don't get a response from
+    the firmware after flash write.
+  - qcom,can-fw-cmd-timeout-ms: The duration after which timeout will happen if we don't get a
+    response from the firmware.
+  - qcom,rem-all-buffering-timeout-ms: The duration after which timeout will happen if we don't get a
+    response from the firmware while trying to remove all the buffered frames IDs from flash.
+
+Example:
+
+can-controller@0 {
+	compatible = "qcom,nxp,mpc5746c";
+	reg = <0>;
+	spi-max-frequency = <9600000>;
+	interrupt-parent = <&tlmm_pinmux>;
+	interrupts = <87 0>;
+	qcom,reset-gpio = <&tlmm_pinmux 89 0x1>;
+	qcom,clk-freq-mhz = <20000000>;
+	qcom,max-can-channels = <2>;
+	qcom,bits-per-word = <8>;
+	qcom,reset-delay-msec = <150>;
+	qcom,can-fw-cmd-timeout-req;
+	qcom,can-fw-cmd-timeout-ms = <400>;
+	qcom,rem-all-buffering-timeout-ms = <2000>;
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&can_rst_on>;
+	pinctrl-1 = <&can_rst_off>;
+};

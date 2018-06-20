@@ -35,6 +35,7 @@
 #include <linux/memblock.h>
 #include <linux/bootmem.h>
 #include <linux/compaction.h>
+#include <linux/device.h>
 
 #include <asm/tlbflush.h>
 
@@ -64,7 +65,11 @@ void put_online_mems(void)
 	percpu_up_read(&mem_hotplug_lock);
 }
 
+#ifndef CONFIG_MEMORY_HOTPLUG_MOVABLE_NODE
 bool movable_node_enabled = false;
+#else
+bool movable_node_enabled = true;
+#endif
 
 #ifndef CONFIG_MEMORY_HOTPLUG_DEFAULT_ONLINE
 bool memhp_auto_online;
@@ -1087,6 +1092,37 @@ int try_online_node(int nid)
 out:
 	mem_hotplug_done();
 	return ret;
+}
+
+static int online_memory_one_block(struct memory_block *mem, void *arg)
+{
+	bool *onlined_block = (bool *)arg;
+	int ret;
+
+	if (*onlined_block || !is_memblock_offlined(mem))
+		return 0;
+
+	ret = device_online(&mem->dev);
+	if (!ret)
+		*onlined_block = true;
+
+	return 0;
+}
+
+bool try_online_one_block(int nid)
+{
+	struct zone *zone = &NODE_DATA(nid)->node_zones[ZONE_MOVABLE];
+	bool onlined_block = false;
+	int ret = lock_device_hotplug_sysfs();
+
+	if (ret)
+		return false;
+
+	walk_memory_range(zone->zone_start_pfn, zone_end_pfn(zone),
+			  &onlined_block, online_memory_one_block);
+
+	unlock_device_hotplug();
+	return onlined_block;
 }
 
 static int check_hotplug_memory_range(u64 start, u64 size)

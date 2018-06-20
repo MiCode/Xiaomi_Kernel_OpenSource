@@ -417,7 +417,6 @@ struct fg_dev {
 	int			last_msoc;
 	int			last_recharge_volt_mv;
 	bool			profile_available;
-	bool			profile_loaded;
 	enum prof_load_status	profile_load_status;
 	bool			battery_missing;
 	bool			fg_restarting;

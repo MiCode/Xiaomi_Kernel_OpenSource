@@ -43,6 +43,7 @@
 		qcom,mdss-dsi-te-using-wd;
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,panel-ack-disabled;
+		qcom,mdss-dsi-qsync-min-refresh-rate = <45>;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{
@@ -69,6 +70,14 @@
 					[05 01 00 00 00 00 02 28 00
 					05 01 00 00 00 00 02 10 00];
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-qsync-on-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-on-commands-state =
+					"dsi_hs_mode";
+				qcom,mdss-dsi-qsync-off-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-off-commands-state =
+					"dsi_hs_mode";
 			};
 			timing@1{
 				qcom,mdss-dsi-panel-width = <1280>;
@@ -94,6 +103,14 @@
 					[05 01 00 00 00 00 02 28 00
 					05 01 00 00 00 00 02 10 00];
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-qsync-on-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-on-commands-state =
+					"dsi_hs_mode";
+				qcom,mdss-dsi-qsync-off-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-off-commands-state =
+					"dsi_hs_mode";
 			};
 			timing@2{
 				qcom,mdss-dsi-panel-width = <1080>;
@@ -115,6 +132,14 @@
 					[05 01 00 00 00 00 02 28 00
 					05 01 00 00 00 00 02 10 00];
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+				qcom,mdss-dsi-qsync-on-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-on-commands-state =
+					"dsi_hs_mode";
+				qcom,mdss-dsi-qsync-off-commands =
+					[15 01 00 00 00 00 02 51 00];
+				qcom,mdss-dsi-qsync-off-commands-state =
+					"dsi_hs_mode";
 			};
 		};
 	};

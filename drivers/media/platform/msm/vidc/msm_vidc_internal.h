@@ -75,6 +75,12 @@
 #define NUM_MBS_PER_FRAME(__height, __width) \
 	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
 
+#define call_core_op(c, op, args...)			\
+	(((c) && (c)->core_ops && (c)->core_ops->op) ? \
+	((c)->core_ops->op(args)) : 0)
+
+struct msm_vidc_inst;
+
 enum vidc_ports {
 	OUTPUT_PORT,
 	CAPTURE_PORT,
@@ -215,6 +221,17 @@ struct msm_vidc_efuse_data {
 	enum efuse_purpose purpose;
 };
 
+enum vpu_version {
+	VPU_VERSION_4 = 1,
+	VPU_VERSION_5,
+};
+
+#define IS_VPU_4(ver) \
+	(ver == VPU_VERSION_4)
+
+#define IS_VPU_5(ver) \
+	(ver == VPU_VERSION_5)
+
 struct msm_vidc_platform_data {
 	struct msm_vidc_common_data *common_data;
 	unsigned int common_data_length;
@@ -224,6 +241,9 @@ struct msm_vidc_platform_data {
 	struct msm_vidc_efuse_data *efuse_data;
 	unsigned int efuse_data_length;
 	unsigned int sku_version;
+	phys_addr_t gcc_register_base;
+	uint32_t gcc_register_size;
+	uint32_t vpu_ver;
 };
 
 struct msm_vidc_format {
@@ -345,6 +365,12 @@ enum msm_vidc_modes {
 	VIDC_REALTIME = BIT(4),
 };
 
+struct msm_vidc_core_ops {
+	unsigned long (*calc_freq)(struct msm_vidc_inst *inst, u32 filled_len);
+	int (*decide_work_route)(struct msm_vidc_inst *inst);
+	int (*decide_work_mode)(struct msm_vidc_inst *inst);
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex lock;
@@ -364,11 +390,14 @@ struct msm_vidc_core {
 	u32 codec_count;
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
+	struct work_struct ssr_work;
+	enum hal_ssr_trigger_type ssr_type;
 	bool smmu_fault_handled;
 	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
 	struct vidc_bus_vote_data *vote_data;
+	struct msm_vidc_core_ops *core_ops;
 };
 
 struct msm_vidc_inst {
@@ -486,6 +515,7 @@ int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 struct dma_buf *msm_smem_get_dma_buf(int fd);
 void msm_smem_put_dma_buf(void *dma_buf);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
+void msm_vidc_ssr_handler(struct work_struct *work);
 /*
  * XXX: normally should be in msm_vidc.h, but that's meant for public APIs,
  * whereas this is private

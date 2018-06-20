@@ -292,6 +292,13 @@ struct sde_connector_ops {
 	 * Returns: Zero on success, negative error code for failures
 	 */
 	void (*pre_destroy)(struct drm_connector *connector, void *display);
+
+	/**
+	 * cont_splash_config - initialize splash resources
+	 * @display: Pointer to private display handle
+	 * Returns: zero for success, negetive for failure
+	 */
+	int (*cont_splash_config)(void *display);
 };
 
 /**
@@ -350,9 +357,12 @@ struct sde_connector_evt {
  * @bl_device: backlight device node
  * @status_work: work object to perform status checks
  * @force_panel_dead: variable to trigger forced ESD recovery
+ * @esd_status_interval: variable to change ESD check interval in millisec
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
  * @bl_scale_ad: BL scale value for AD feature
+ * @qsync_mode: Qsync mode, where 0: disabled 1: continuous mode
+ * @qsync_updated: Qsync settings were updated
  * last_cmd_tx_sts: status of the last command transfer
  */
 struct sde_connector {
@@ -392,10 +402,16 @@ struct sde_connector {
 	struct backlight_device *bl_device;
 	struct delayed_work status_work;
 	u32 force_panel_dead;
+	u32 esd_status_interval;
+
+	bool esd_status_check;
 
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+
+	u32 qsync_mode;
+	bool qsync_updated;
 
 	bool last_cmd_tx_sts;
 };
@@ -430,6 +446,14 @@ struct sde_connector {
  */
 #define sde_connector_get_encoder(C) \
 	((C) ? to_sde_connector((C))->encoder : NULL)
+
+/**
+ * sde_connector_qsync_updated - indicates if connector updated qsync
+ * @C: Pointer to drm connector structure
+ * Returns: True if qsync is updated; false otherwise
+ */
+#define sde_connector_qsync_updated(C) \
+	((C) ? to_sde_connector((C))->qsync_updated : 0)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -792,5 +816,15 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector);
  * @connector: Pointer to DRM connector object
  */
 void sde_connector_destroy(struct drm_connector *connector);
+
+/**
+ * sde_connector_event_notify - signal hw recovery event to client
+ * @connector: pointer to connector
+ * @type:     event type
+ * @len:     length of the value of the event
+ * @val:     value
+ */
+int sde_connector_event_notify(struct drm_connector *connector, uint32_t type,
+		uint32_t len, uint32_t val);
 
 #endif /* _SDE_CONNECTOR_H_ */

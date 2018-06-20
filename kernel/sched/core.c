@@ -5819,6 +5819,9 @@ int do_isolation_work_cpu_stop(void *data)
 	}
 
 	migrate_tasks(rq, &rf, false);
+
+	if (rq->rd)
+		set_rq_online(rq);
 	raw_spin_unlock(&rq->lock);
 
 	clear_walt_request(cpu);

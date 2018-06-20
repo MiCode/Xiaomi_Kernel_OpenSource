@@ -306,6 +306,46 @@ u8 *ipa_pad_to_32(u8 *dest)
 	return dest;
 }
 
+int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
+	struct sg_table *in_sgt_ptr)
+{
+	unsigned int nents;
+
+	if (in_sgt_ptr != NULL) {
+		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+		if (*out_ch_ptr == NULL)
+			return -ENOMEM;
+
+		nents = in_sgt_ptr->nents;
+
+		(*out_ch_ptr)->sgl =
+			kcalloc(nents, sizeof(struct scatterlist),
+				GFP_KERNEL);
+		if ((*out_ch_ptr)->sgl == NULL) {
+			kfree(*out_ch_ptr);
+			*out_ch_ptr = NULL;
+			return -ENOMEM;
+		}
+
+		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
+			nents*sizeof((*out_ch_ptr)->sgl));
+		(*out_ch_ptr)->nents = nents;
+		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
+	}
+	return 0;
+}
+
+int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr)
+{
+	if (*out_sgt_ptr != NULL) {
+		kfree((*out_sgt_ptr)->sgl);
+		(*out_sgt_ptr)->sgl = NULL;
+		kfree(*out_sgt_ptr);
+		*out_sgt_ptr = NULL;
+	}
+	return 0;
+}
+
 /**
  * ipa_clear_endpoint_delay() - Clear ep_delay.
  * @clnt_hdl:	[in] IPA client handle
@@ -2757,6 +2797,13 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 		break;
 	case IPA_HW_v4_1:
 		str = "4.1";
+		break;
+	case IPA_HW_v4_2:
+		str = "4.2";
+		break;
+	case IPA_HW_v4_5:
+		str = "4.5";
+		break;
 	default:
 		str = "Invalid version";
 		break;
@@ -2812,6 +2859,8 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v3_5_1:
 	case IPA_HW_v4_0:
 	case IPA_HW_v4_1:
+	case IPA_HW_v4_2:
+	case IPA_HW_v4_5:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;
@@ -3071,12 +3120,12 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
  * ipa_tear_down_uc_offload_pipes() - tear down uc offload pipes
  */
 int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
-		int ipa_ep_idx_dl)
+		int ipa_ep_idx_dl, struct ipa_ntn_conn_in_params *params)
 {
 	int ret;
 
 	IPA_API_DISPATCH_RETURN(ipa_tear_down_uc_offload_pipes, ipa_ep_idx_ul,
-		ipa_ep_idx_dl);
+		ipa_ep_idx_dl, params);
 
 	return ret;
 }

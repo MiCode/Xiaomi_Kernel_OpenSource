@@ -1372,6 +1372,10 @@ TRACE_EVENT(sched_isolate,
 		__entry->time, __entry->isolate)
 );
 
+#include "walt.h"
+
+#endif /* CONFIG_SMP */
+
 TRACE_EVENT(sched_preempt_disable,
 
 	TP_PROTO(u64 delta, bool irqs_disabled,
@@ -1404,9 +1408,6 @@ TRACE_EVENT(sched_preempt_disable,
 				__entry->caddr2, __entry->caddr3)
 );
 
-#include "walt.h"
-
-#endif /* CONFIG_SMP */
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

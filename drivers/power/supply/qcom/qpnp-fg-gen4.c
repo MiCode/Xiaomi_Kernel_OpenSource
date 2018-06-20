@@ -148,6 +148,7 @@ struct fg_gen4_chip {
 	struct ttf		ttf;
 	struct delayed_work	ttf_work;
 	char			batt_profile[PROFILE_LEN];
+	int			recharge_soc_thr;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
 };
@@ -1031,9 +1032,6 @@ done:
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
 
-	if (fg->profile_load_status == PROFILE_LOADED)
-		fg->profile_loaded = true;
-
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
 	fg->soc_reporting_ready = true;
@@ -1046,6 +1044,7 @@ out:
 
 static void get_batt_psy_props(struct fg_dev *fg)
 {
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	union power_supply_propval prop = {0, };
 	int rc;
 
@@ -1084,6 +1083,67 @@ static void get_batt_psy_props(struct fg_dev *fg)
 	}
 
 	fg->health = prop.intval;
+
+	if (!chip->recharge_soc_thr) {
+		rc = power_supply_get_property(fg->batt_psy,
+			POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+		if (rc < 0) {
+			pr_err("Error in getting recharge SOC, rc=%d\n", rc);
+			return;
+		}
+
+		if (prop.intval < 0)
+			pr_debug("Recharge SOC not configured %d\n",
+				prop.intval);
+		else
+			chip->recharge_soc_thr = prop.intval;
+	}
+}
+
+static int fg_gen4_update_maint_soc(struct fg_dev *fg)
+{
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc = 0, msoc;
+
+	if (!chip->dt.linearize_soc)
+		return 0;
+
+	mutex_lock(&fg->charge_full_lock);
+	if (fg->delta_soc <= 0)
+		goto out;
+
+	rc = fg_get_msoc(fg, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting msoc, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (msoc > fg->maint_soc) {
+		/*
+		 * When the monotonic SOC goes above maintenance SOC, we should
+		 * stop showing the maintenance SOC.
+		 */
+		fg->delta_soc = 0;
+		fg->maint_soc = 0;
+	} else if (fg->maint_soc && msoc <= fg->last_msoc) {
+		/* MSOC is decreasing. Decrease maintenance SOC as well */
+		fg->maint_soc -= 1;
+		if (!(msoc % 10)) {
+			/*
+			 * Reduce the maintenance SOC additionally by 1 whenever
+			 * it crosses a SOC multiple of 10.
+			 */
+			fg->maint_soc -= 1;
+			fg->delta_soc -= 1;
+		}
+	}
+
+	fg_dbg(fg, FG_STATUS, "msoc: %d last_msoc: %d maint_soc: %d delta_soc: %d\n",
+		msoc, fg->last_msoc, fg->maint_soc, fg->delta_soc);
+	fg->last_msoc = msoc;
+out:
+	mutex_unlock(&fg->charge_full_lock);
+	return rc;
 }
 
 static int fg_gen4_configure_full_soc(struct fg_dev *fg, int bsoc)
@@ -1110,6 +1170,99 @@ static int fg_gen4_configure_full_soc(struct fg_dev *fg, int bsoc)
 		return rc;
 	}
 
+	return 0;
+}
+
+static int fg_gen4_set_recharge_soc(struct fg_dev *fg, int recharge_soc)
+{
+	union power_supply_propval prop = {0, };
+	int rc;
+
+	if (recharge_soc < 0 || recharge_soc > FULL_CAPACITY || !fg->batt_psy)
+		return 0;
+
+	prop.intval = recharge_soc;
+	rc = power_supply_set_property(fg->batt_psy,
+		POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+	if (rc < 0) {
+		pr_err("Error in setting recharge SOC, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, msoc, recharge_soc, new_recharge_soc = 0;
+	bool recharge_soc_status;
+
+	if (!chip->recharge_soc_thr)
+		return 0;
+
+	recharge_soc = chip->recharge_soc_thr;
+	recharge_soc_status = fg->recharge_soc_adjusted;
+
+	/*
+	 * If the input is present and charging had been terminated, adjust
+	 * the recharge SOC threshold based on the monotonic SOC at which
+	 * the charge termination had happened.
+	 */
+	if (is_input_present(fg)) {
+		if (fg->charge_done) {
+			if (!fg->recharge_soc_adjusted) {
+				/* Get raw monotonic SOC for calculation */
+				rc = fg_get_msoc(fg, &msoc);
+				if (rc < 0) {
+					pr_err("Error in getting msoc, rc=%d\n",
+						rc);
+					return rc;
+				}
+
+				/* Adjust the recharge_soc threshold */
+				new_recharge_soc = msoc - (FULL_CAPACITY -
+								recharge_soc);
+				fg->recharge_soc_adjusted = true;
+			} else {
+				/* adjusted already, do nothing */
+				return 0;
+			}
+		} else {
+			if (!fg->recharge_soc_adjusted)
+				return 0;
+
+			/*
+			 * If we are here, then it means that recharge SOC
+			 * had been adjusted already and it could be probably
+			 * because of early termination. We shouldn't restore
+			 * the original recharge SOC threshold if the health is
+			 * not good, which means battery is in JEITA zone.
+			 */
+			if (fg->health != POWER_SUPPLY_HEALTH_GOOD)
+				return 0;
+
+			/* Restore the default value */
+			new_recharge_soc = recharge_soc;
+			fg->recharge_soc_adjusted = false;
+		}
+	} else {
+		/* Restore the default value */
+		new_recharge_soc = recharge_soc;
+		fg->recharge_soc_adjusted = false;
+	}
+
+	if (recharge_soc_status == fg->recharge_soc_adjusted)
+		return 0;
+
+	rc = fg_gen4_set_recharge_soc(fg, new_recharge_soc);
+	if (rc < 0) {
+		fg->recharge_soc_adjusted = recharge_soc_status;
+		pr_err("Couldn't set recharge SOC, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_dbg(fg, FG_STATUS, "recharge soc set to %d\n", new_recharge_soc);
 	return 0;
 }
 
@@ -1284,7 +1437,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 
 	if (fg->battery_missing) {
 		fg->profile_available = false;
-		fg->profile_loaded = false;
 		fg->profile_load_status = PROFILE_NOT_LOADED;
 		fg->soc_reporting_ready = false;
 		fg->batt_id_ohms = -EINVAL;
@@ -1395,6 +1547,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_gen4_update_maint_soc(fg);
+	if (rc < 0)
+		pr_err("Error in updating maint_soc, rc=%d\n", rc);
 
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
@@ -1675,6 +1831,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_gen4_adjust_recharge_soc(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge SOC, rc=%d\n", rc);
 
 	fg_ttf_update(fg);
 	fg->prev_charge_status = fg->charge_status;
@@ -2941,9 +3101,9 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 
 	rc = of_property_read_u32(node, "qcom,cl-start-capacity", &temp);
 	if (rc < 0)
-		chip->cl->dt.start_soc = DEFAULT_CL_START_SOC;
+		chip->cl->dt.max_start_soc = DEFAULT_CL_START_SOC;
 	else
-		chip->cl->dt.start_soc = temp;
+		chip->cl->dt.max_start_soc = temp;
 
 	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
 	if (rc < 0)

@@ -590,6 +590,7 @@ struct pending_cmd {
 
 /**
  * struct kgsl_hfi - HFI control structure
+ * @kgsldev: Point to the kgsl device
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
  * @msglock: spinlock to protect access to outstanding command message list
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
@@ -601,6 +602,7 @@ struct pending_cmd {
  *	value of the counter is used as sequence number for HFI message
  */
 struct kgsl_hfi {
+	struct kgsl_device *kgsldev;
 	int hfi_interrupt_num;
 	spinlock_t msglock;
 	struct mutex cmdq_mutex;

@@ -32,7 +32,7 @@
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
 
-#define PP_TIMEOUT_MAX_TRIALS	2
+#define PP_TIMEOUT_MAX_TRIALS	4
 
 /*
  * Tearcheck sync start and continue thresholds are empirically found
@@ -490,16 +490,20 @@ static void sde_encoder_phys_cmd_mode_set(
 }
 
 static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		bool recovery_events)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
+	struct drm_connector *conn;
+	int event;
 
 	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl)
 		return -EINVAL;
 
+	conn = phys_enc->connector;
 	cmd_enc->pp_timeout_report_cnt++;
 
 	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
@@ -518,21 +522,31 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 			atomic_read(&phys_enc->pending_kickoff_cnt),
 			frame_event);
 
-	if (cmd_enc->pp_timeout_report_cnt >= PP_TIMEOUT_MAX_TRIALS) {
-		cmd_enc->pp_timeout_report_cnt = PP_TIMEOUT_MAX_TRIALS;
-		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
-
-		SDE_DBG_DUMP("panic");
-	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
-		/* to avoid flooding, only log first time, and "dead" time */
+	/* to avoid flooding, only log first time, and "dead" time */
+	if (cmd_enc->pp_timeout_report_cnt == 1) {
 		SDE_ERROR_CMDENC(cmd_enc,
-				"pp:%d kickoff timed out ctl %d cnt %d koff_cnt %d\n",
+				"pp:%d kickoff timed out ctl %d koff_cnt %d\n",
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				phys_enc->hw_ctl->idx - CTL_0,
-				cmd_enc->pp_timeout_report_cnt,
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
+	}
+
+	/*
+	 * if the recovery event is registered by user, don't panic
+	 * trigger panic on first timeout if no listener registered
+	 */
+	if (recovery_events) {
+		event = cmd_enc->pp_timeout_report_cnt > PP_TIMEOUT_MAX_TRIALS ?
+			SDE_RECOVERY_HARD_RESET : SDE_RECOVERY_CAPTURE;
+		sde_connector_event_notify(conn, DRM_EVENT_SDE_HW_RECOVERY,
+				sizeof(uint8_t), event);
+	} else if (cmd_enc->pp_timeout_report_cnt) {
+		SDE_DBG_DUMP("panic");
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -677,6 +691,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_encoder_wait_info wait_info;
+	bool recovery_events;
 	int ret;
 
 	if (!phys_enc) {
@@ -687,6 +702,8 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_kickoff_cnt;
 	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
+	recovery_events = sde_encoder_recovery_events_enabled(
+			phys_enc->parent);
 
 	/* slave encoder doesn't enable for ppsplit */
 	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
@@ -694,10 +711,20 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_PINGPONG,
 			&wait_info);
-	if (ret == -ETIMEDOUT)
-		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc);
-	else if (!ret)
+	if (ret == -ETIMEDOUT) {
+		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc,
+				recovery_events);
+	} else if (!ret) {
+		if (cmd_enc->pp_timeout_report_cnt && recovery_events) {
+			struct drm_connector *conn = phys_enc->connector;
+
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t),
+					SDE_RECOVERY_SUCCESS);
+		}
 		cmd_enc->pp_timeout_report_cnt = 0;
+	}
 
 	return ret;
 }
@@ -835,6 +862,76 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 	}
 }
 
+static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
+{
+	struct drm_connector *conn = phys_enc->connector;
+	u32 qsync_mode;
+	struct drm_display_mode *mode;
+	u32 threshold_lines = 0;
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+
+	if (!conn || !conn->state)
+		return 0;
+
+	mode = &phys_enc->cached_mode;
+	qsync_mode = sde_connector_get_property(
+			conn->state, CONNECTOR_PROP_QSYNC_MODE);
+
+	if (mode && (qsync_mode == SDE_RM_QSYNC_CONTINUOUS_MODE)) {
+		u32 qsync_min_fps = 0;
+		u32 default_fps = mode->vrefresh;
+		u32 yres = mode->vdisplay;
+		u32 slow_time_ns;
+		u32 default_time_ns;
+		u32 extra_time_ns;
+		u32 total_extra_lines;
+		u32 default_line_time_ns;
+
+		if (phys_enc->parent_ops.get_qsync_fps)
+			phys_enc->parent_ops.get_qsync_fps(
+				phys_enc->parent, &qsync_min_fps);
+
+		if (!qsync_min_fps || !default_fps || !yres) {
+			SDE_ERROR_CMDENC(cmd_enc,
+				"wrong qsync params %d %d %d\n",
+				qsync_min_fps, default_fps, yres);
+			goto exit;
+		}
+
+		if (qsync_min_fps >= default_fps) {
+			SDE_ERROR_CMDENC(cmd_enc,
+				"qsync fps:%d must be less than default:%d\n",
+				qsync_min_fps, default_fps);
+			goto exit;
+		}
+
+		/* Calculate the number of extra lines*/
+		slow_time_ns = (1 * 1000000000) / qsync_min_fps;
+		default_time_ns = (1 * 1000000000) / default_fps;
+		extra_time_ns = slow_time_ns - default_time_ns;
+		default_line_time_ns = (1 * 1000000000) / (default_fps * yres);
+
+		total_extra_lines = extra_time_ns / default_line_time_ns;
+		threshold_lines += total_extra_lines;
+
+		SDE_DEBUG_CMDENC(cmd_enc, "slow:%d default:%d extra:%d(ns)\n",
+			slow_time_ns, default_time_ns, extra_time_ns);
+		SDE_DEBUG_CMDENC(cmd_enc, "extra_lines:%d threshold:%d\n",
+			total_extra_lines, threshold_lines);
+		SDE_DEBUG_CMDENC(cmd_enc, "min_fps:%d fps:%d yres:%d\n",
+			qsync_min_fps, default_fps, yres);
+
+		SDE_EVT32(qsync_mode, qsync_min_fps, extra_time_ns, default_fps,
+			yres, threshold_lines);
+	}
+
+exit:
+	threshold_lines += DEFAULT_TEARCHECK_SYNC_THRESH_START;
+
+	return threshold_lines;
+}
+
 static void sde_encoder_phys_cmd_tearcheck_config(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -907,7 +1004,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 */
 	tc_cfg.sync_cfg_height = 0xFFF0;
 	tc_cfg.vsync_init_val = mode->vdisplay;
-	tc_cfg.sync_threshold_start = DEFAULT_TEARCHECK_SYNC_THRESH_START;
+	tc_cfg.sync_threshold_start = _get_tearcheck_threshold(phys_enc);
 	tc_cfg.sync_threshold_continue = DEFAULT_TEARCHECK_SYNC_THRESH_CONTINUE;
 	tc_cfg.start_pos = mode->vdisplay;
 	tc_cfg.rd_ptr_irq = mode->vdisplay + 1;
@@ -1201,6 +1298,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
+	struct sde_hw_tear_check tc_cfg = {0};
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
@@ -1226,6 +1324,20 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		SDE_EVT32(DRMID(phys_enc->parent),
 				phys_enc->hw_pp->idx - PINGPONG_0);
 		SDE_ERROR("failed wait_for_idle: %d\n", ret);
+	}
+
+	if (sde_connector_qsync_updated(phys_enc->connector)) {
+		tc_cfg.sync_threshold_start =
+			_get_tearcheck_threshold(phys_enc);
+		if (phys_enc->has_intf_te &&
+				phys_enc->hw_intf->ops.update_tearcheck)
+			phys_enc->hw_intf->ops.update_tearcheck(
+					phys_enc->hw_intf, &tc_cfg);
+		else if (phys_enc->hw_pp->ops.update_tearcheck)
+			phys_enc->hw_pp->ops.update_tearcheck(
+					phys_enc->hw_pp, &tc_cfg);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				tc_cfg.sync_threshold_start);
 	}
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",

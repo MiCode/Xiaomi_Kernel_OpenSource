@@ -1365,6 +1365,19 @@ int create_pkt_cmd_session_set_property(
 		memcpy(hfi, (struct hfi_intra_period *) pdata,
 				sizeof(struct hfi_intra_period));
 		pkt->size += sizeof(struct hfi_intra_period);
+
+		if (hfi->bframes) {
+			struct hfi_enable *hfi_enable;
+			u32 *prop_type;
+
+			prop_type = (u32 *)((u8 *)&pkt->rg_property_data[0] +
+				sizeof(u32) + sizeof(struct hfi_intra_period));
+			*prop_type =  HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B;
+			hfi_enable = (struct hfi_enable *)(prop_type + 1);
+			hfi_enable->enable = true;
+			pkt->num_properties = 2;
+			pkt->size += sizeof(struct hfi_enable) + sizeof(u32);
+		}
 		break;
 	}
 	case HAL_CONFIG_VENC_IDR_PERIOD:
@@ -1911,6 +1924,21 @@ int create_pkt_cmd_session_set_property(
 
 		memcpy(hfi, prop, sizeof(*hfi));
 		pkt->size += sizeof(struct hfi_hdr10_pq_sei);
+		break;
+	}
+	case HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE:
+	{
+		struct hfi_vbv_hdr_buf_size *hfi;
+		struct hal_vbv_hdr_buf_size *prop =
+			(struct hal_vbv_hdr_buf_size *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_VBV_HRD_BUF_SIZE;
+		hfi = (struct hfi_vbv_hdr_buf_size *)
+			&pkt->rg_property_data[1];
+
+		hfi->vbv_hdr_buf_size = prop->vbv_hdr_buf_size;
+		pkt->size += sizeof(struct hfi_vbv_hdr_buf_size);
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */

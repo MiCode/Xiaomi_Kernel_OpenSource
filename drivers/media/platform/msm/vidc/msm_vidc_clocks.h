@@ -44,4 +44,5 @@ void msm_comm_update_input_cr(struct msm_vidc_inst *inst, u32 index,
 	u32 cr);
 void update_recon_stats(struct msm_vidc_inst *inst,
 	struct recon_stats_type *recon_stats);
+void msm_vidc_init_core_clk_ops(struct msm_vidc_core *core);
 #endif

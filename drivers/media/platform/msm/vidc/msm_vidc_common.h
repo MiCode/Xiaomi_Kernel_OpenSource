@@ -18,6 +18,7 @@
 #define MAX_DEC_BATCH_SIZE                     6
 #define MAX_DEC_BATCH_WIDTH                    1920
 #define MAX_DEC_BATCH_HEIGHT                   1088
+#define SKIP_BATCH_WINDOW                      100
 
 struct vb2_buf_entry {
 	struct list_head list;
