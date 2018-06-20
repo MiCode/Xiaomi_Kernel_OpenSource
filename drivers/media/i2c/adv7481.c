@@ -411,7 +411,7 @@ static int adv7481_set_irq(struct adv7481_state *state)
 			ADV_REG_SETFIELD(AD_MID_DRIVE_STRNGTH, IO_DRV_LLC_PAD));
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 			IO_REG_INT1_CONF_ADDR,
-			ADV_REG_SETFIELD(AD_ACTIVE_UNTIL_CLR,
+			ADV_REG_SETFIELD(AD_4_XTAL_PER,
 				IO_INTRQ_DUR_SEL) |
 			ADV_REG_SETFIELD(AD_OP_DRIVE_LOW, IO_INTRQ_OP_SEL));
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
