@@ -62,8 +62,8 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
-		rmnet_egress_handler(skb);
 		qmi_rmnet_burst_fc_check(dev, skb);
+		rmnet_egress_handler(skb);
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
