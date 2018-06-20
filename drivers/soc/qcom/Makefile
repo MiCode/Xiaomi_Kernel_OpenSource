@@ -28,3 +28,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += ramdump.o
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
+obj-$(CONFIG_SOC_BUS) += socinfo.o
