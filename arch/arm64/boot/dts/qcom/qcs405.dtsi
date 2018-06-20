@@ -439,6 +439,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
@@ -477,6 +478,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <18>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <601>;
@@ -515,6 +517,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <6>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <422>;
 		qcom,sysmon-id = <0>;
