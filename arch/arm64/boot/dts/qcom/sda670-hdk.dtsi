@@ -17,6 +17,10 @@
 	/delete-property/ qcom,dsi-display-active;
 };
 
+&qrd_batterydata {
+	#include "fg-gen3-batterydata-mlp466076-3250mah.dtsi"
+};
+
 &dsi_hx8399_truly_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
