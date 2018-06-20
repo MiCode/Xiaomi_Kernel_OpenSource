@@ -728,6 +728,7 @@ static void diagfwd_cntl_read_done(struct diagfwd_info *fwd_info,
 				   unsigned char *buf, int len)
 {
 	if (!fwd_info) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "diag: Invalid fwd_info\n");
 		diag_ws_release();
 		return;
 	}
@@ -748,8 +749,12 @@ static void diagfwd_cntl_read_done(struct diagfwd_info *fwd_info,
 	 */
 	diag_ws_on_copy_fail(DIAG_WS_MUX);
 	/* Reset the buffer in_busy value after processing the data */
-	if (fwd_info->buf_1)
+	if (fwd_info->buf_1) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+	}
 
 	diagfwd_queue_read(fwd_info);
 	diagfwd_queue_read(&peripheral_info[TYPE_DATA][fwd_info->peripheral]);
@@ -774,8 +779,12 @@ static void diagfwd_dci_read_done(struct diagfwd_info *fwd_info,
 
 	diag_dci_process_peripheral_data(fwd_info, (void *)buf, len);
 	/* Reset the buffer in_busy value after processing the data */
-	if (fwd_info->buf_1)
+	if (fwd_info->buf_1) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
+		DIAG_LOG(DIAG_DEBUG_DCI,
+		"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+	}
 
 	diagfwd_queue_read(fwd_info);
 }
@@ -1548,13 +1557,15 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 	struct diagfwd_buf_t *temp_buf = NULL;
 
 	if (!fwd_info) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "diag: Invalid fwd_info\n");
 		diag_ws_release();
 		return;
 	}
 
 	if (!fwd_info->inited || !atomic_read(&fwd_info->opened)) {
-		pr_debug("diag: In %s, p: %d, t: %d, inited: %d, opened: %d  ch_open: %d\n",
-			 __func__, fwd_info->peripheral, fwd_info->type,
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: p: %d, t: %d, inited: %d, opened: %d, ch_open: %d\n",
+			 fwd_info->peripheral, fwd_info->type,
 			 fwd_info->inited, atomic_read(&fwd_info->opened),
 			 fwd_info->ch_open);
 		diag_ws_release();
@@ -1590,8 +1601,9 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 			atomic_set(&temp_buf->in_busy, 1);
 		}
 	} else {
-		pr_debug("diag: In %s, both buffers are empty for p: %d, t: %d\n",
-			 __func__, fwd_info->peripheral, fwd_info->type);
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: both buffers are busy for p: %d, t: %d\n",
+			 fwd_info->peripheral, fwd_info->type);
 	}
 
 	if (!read_buf) {
