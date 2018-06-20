@@ -920,6 +920,7 @@
 		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
+		qcom,wlan-ce-db-over-pcie;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
 		qcom,bandwidth-vote-for-ipa;
