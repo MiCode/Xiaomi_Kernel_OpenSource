@@ -86,7 +86,8 @@
 #define ILIM_VOTER	"ILIM_VOTER"
 #define FCC_VOTER	"FCC_VOTER"
 #define ICL_VOTER	"ICL_VOTER"
-#define USB_VOTER	"USB_VOTER"
+#define WIRELESS_VOTER	"WIRELESS_VOTER"
+#define SRC_VOTER	"SRC_VOTER"
 
 enum {
 	SWITCHER_OFF_WINDOW_IRQ = 0,
@@ -126,6 +127,7 @@ struct smb1390 {
 	/* power supplies */
 	struct power_supply	*usb_psy;
 	struct power_supply	*batt_psy;
+	struct power_supply	*dc_psy;
 
 	int			irqs[NUM_IRQS];
 	bool			status_change_running;
@@ -180,6 +182,14 @@ static bool is_psy_voter_available(struct smb1390 *chip)
 		chip->usb_psy = power_supply_get_by_name("usb");
 		if (!chip->usb_psy) {
 			pr_debug("Couldn't find usb psy\n");
+			return false;
+		}
+	}
+
+	if (!chip->dc_psy) {
+		chip->dc_psy = power_supply_get_by_name("dc");
+		if (!chip->dc_psy) {
+			pr_debug("Couldn't find dc psy\n");
 			return false;
 		}
 	}
@@ -479,19 +489,39 @@ static void smb1390_status_change_work(struct work_struct *work)
 	}
 
 	if (pval.intval == POWER_SUPPLY_CHARGER_SEC_CP) {
-		vote(chip->disable_votable, USB_VOTER, false, 0);
+		rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_SMB_EN_REASON, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get cp reason rc=%d\n", rc);
+			goto out;
+		}
+
+		vote(chip->disable_votable, SRC_VOTER, false, 0);
 
 		/*
 		 * ILIM is set based on the primary chargers AICL result. This
 		 * ensures VBUS does not collapse due to the current drawn via
 		 * MID.
 		 */
-		rc = power_supply_get_property(chip->usb_psy,
+		if (pval.intval == POWER_SUPPLY_CP_WIRELESS) {
+			vote(chip->ilim_votable, ICL_VOTER, false, 0);
+			rc = power_supply_get_property(chip->dc_psy,
+					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+			if (rc < 0)
+				pr_err("Couldn't get dc icl rc=%d\n", rc);
+			else
+				vote(chip->ilim_votable, WIRELESS_VOTER, true,
+								pval.intval);
+		} else { /* QC3 or PPS */
+			vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
+			rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
-		if (rc < 0)
-			pr_err("Couldn't get usb icl rc=%d\n", rc);
-		else
-			vote(chip->ilim_votable, ICL_VOTER, true, pval.intval);
+			if (rc < 0)
+				pr_err("Couldn't get usb icl rc=%d\n", rc);
+			else
+				vote(chip->ilim_votable, ICL_VOTER, true,
+								pval.intval);
+		}
 
 		/* input current is always half the charge current */
 		vote(chip->ilim_votable, FCC_VOTER, true,
@@ -522,7 +552,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 			}
 		}
 	} else {
-		vote(chip->disable_votable, USB_VOTER, true, 0);
+		vote(chip->disable_votable, SRC_VOTER, true, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 	}
 
