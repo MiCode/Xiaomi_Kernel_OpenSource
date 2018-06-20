@@ -32,6 +32,8 @@
 #define NPU_IPC_CMD_CONFIG_PERFORMANCE  0x00000005
 #define NPU_IPC_CMD_CONFIG_DEBUG        0x00000006
 #define NPU_IPC_CMD_SHUTDOWN            0x00000007
+/* npu_ipc_cmd_loopback_packet_t */
+#define NPU_IPC_CMD_LOOPBACK            0x00000008
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -45,6 +47,8 @@
 #define NPU_IPC_MSG_EXECUTE_DONE        0x00010003
 /* ipc_msg_event_notify_pkt */
 #define NPU_IPC_MSG_EVENT_NOTIFY        0x00010004
+/* npu_ipc_msg_loopback_packet_t */
+#define NPU_IPC_MSG_LOOPBACK_DONE       0x00010005
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -192,6 +196,14 @@ struct ipc_cmd_execute_pkt {
 };
 
 /*
+ * Loopback packet definition
+ */
+struct ipc_cmd_loopback_pkt {
+	struct ipc_cmd_header_pkt header;
+	uint32_t loopbackParams;
+};
+
+/*
  * LOAD response packet definition
  */
 struct ipc_msg_load_pkt {
@@ -255,6 +267,14 @@ struct ipc_execute_stats {
 struct ipc_msg_execute_pkt {
 	struct ipc_msg_header_pkt header;
 	struct ipc_execute_stats stats;
+};
+
+/*
+ * LOOPBACK response packet definition
+ */
+struct ipc_msg_loopback_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t loopbackParams;
 };
 
 /* Logging Related */
