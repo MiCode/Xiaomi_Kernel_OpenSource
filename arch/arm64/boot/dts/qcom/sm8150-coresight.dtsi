@@ -1099,6 +1099,28 @@
 					<&tpda_dl_north_out_funnel_dl_north>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_dl_north_in_tpdm_wcss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpdm_wcss_out_funnel_dl_north>;
+				};
+			};
+		};
+	};
+
+	tpdm_wcss: tpdm@699c000 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-wcss";
+		qcom,dummy-source;
+
+		port {
+			tpdm_wcss_out_funnel_dl_north: endpoint {
+				remote-endpoint = <&funnel_dl_north_in_tpdm_wcss>;
+			};
 		};
 	};
 
