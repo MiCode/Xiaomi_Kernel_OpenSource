@@ -1797,6 +1797,7 @@ static struct platform_driver dsi_ctrl_driver = {
 	.driver = {
 		.name = "drm_dsi_ctrl",
 		.of_match_table = msm_dsi_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
