@@ -40,7 +40,7 @@ static int hab_shmm_throughput_test(void)
 
 	register int sum;
 	register int *pp, *lastone;
-	int throughput[3][2] = {0};
+	int throughput[3][2] = { {0} };
 	int latency[6][PERF_TEST_ITERATION];
 	int ret = 0, tmp, size;
 
