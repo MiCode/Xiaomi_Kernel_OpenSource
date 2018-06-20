@@ -26,6 +26,7 @@ enum print_reason {
 	PR_MISC		= BIT(2),
 	PR_PARALLEL	= BIT(3),
 	PR_OTG		= BIT(4),
+	PR_WLS		= BIT(5),
 };
 
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
@@ -282,6 +283,7 @@ struct smb_charger {
 	struct power_supply		*bms_psy;
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
+	struct power_supply		*wls_psy;
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -392,6 +394,9 @@ struct smb_charger {
 	u32			headroom_mode;
 	bool			flash_init_done;
 	bool			flash_active;
+
+	/* wireless */
+	int			wireless_vout;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -494,6 +499,12 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 int smblib_get_prop_dc_current_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);

@@ -1978,6 +1978,72 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_get_prop_dc_current_max(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	return smblib_get_charge_param(chg, &chg->param.dc_icl, &val->intval);
+}
+
+int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	val->intval = MICRO_12V;
+	return 0;
+}
+
+int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->wls_psy) {
+		chg->wls_psy = power_supply_get_by_name("wireless");
+		if (!chg->wls_psy)
+			return -ENODEV;
+	}
+
+	rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX,
+				val);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't get POWER_SUPPLY_PROP_VOLTAGE_MAX, rc=%d\n",
+				rc);
+	return rc;
+}
+
+/*******************
+ * DC PSY SETTERS *
+ *******************/
+
+int smblib_set_prop_dc_current_max(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	return smblib_set_charge_param(chg, &chg->param.dc_icl, val->intval);
+}
+
+int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->wls_psy) {
+		chg->wls_psy = power_supply_get_by_name("wireless");
+		if (!chg->wls_psy)
+			return -ENODEV;
+	}
+
+	rc = power_supply_set_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+				val);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_VOLTAGE_REGULATION, rc=%d\n",
+				rc);
+
+	smblib_dbg(chg, PR_WLS, "Set WLS output voltage %d\n", val->intval);
+
+	return rc;
+}
+
 /*******************
  * USB PSY GETTERS *
  *******************/
