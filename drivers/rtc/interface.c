@@ -2,6 +2,7 @@
  * RTC subsystem, interface functions
  *
  * Copyright (C) 2005 Tower Technologies
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Author: Alessandro Zummo <a.zummo@towertech.it>
  *
  * based on arch/arm/common/rtctime.c
@@ -386,9 +387,13 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 
 	rtc->aie_timer.node.expires = rtc_tm_to_ktime(alarm->time);
 	rtc->aie_timer.period = ktime_set(0, 0);
-	if (alarm->enabled)
+	if (alarm->enabled) {
+		printk("function: %s line %d alarm->enabled %d \n", __func__, __LINE__, alarm->enabled);
 		err = rtc_timer_enqueue(rtc, &rtc->aie_timer);
-
+	} else {
+		printk("function: %s line %d alarm->enabled %d \n", __func__, __LINE__, alarm->enabled);
+		schedule_work(&rtc->irqwork);
+	}
 	mutex_unlock(&rtc->ops_lock);
 	return err;
 }

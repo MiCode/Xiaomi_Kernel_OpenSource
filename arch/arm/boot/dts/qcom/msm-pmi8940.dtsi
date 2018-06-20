@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,17 +175,27 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
-			qcom,resume-delta-mv = <200>;
+			qcom,iterm-ma = <200>;
+			qcom,float-voltage-mv = <4400>;
+			qcom,resume-delta-mv = <50>;
 			qcom,chg-inhibit-fg;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,thermal-mitigation = <2000 1200 900 600 300 0>;
 			qcom,pmic-revid = <&pmi8940_revid>;
 			qcom,force-aicl-rerun;
-			qcom,aicl-rerun-period-s = <180>;
-			qcom,autoadjust-vfloat;
+			qcom,aicl-rerun-period-s = <180>;/*default 180*/
+			qcom,float-voltage-comp = <0x10>;/*add comp to 4.1v*/
+			qcom,fastchg-current-ma = <2000>;
+			qcom,dc-psy-type = "Mains";
+			qcom,dc-psy-ma = <2000>;
+			qcom,low-volt-dcin;
+			qcom,bmd-pin-src = "bpd_thm_id";
+			qcom,charge-unknown-battery;
+			/*xiaomi-jeita*/
+			qcom,jeita-temp-hard-limit = <1>;
+			qcom,cool-xiaomi-bat-decidegc = <50>;
+			qcom,override-usb-current;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -286,16 +297,28 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
 			status = "okay";
+			qcom,resume-soc = <99>;
+			qcom,resume-soc-raw = <254>;
+			qcom,hold-soc-while-full;
+			qcom,fg-delta-soc = <1>;
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <150>;
-			qcom,fg-chg-iterm-ma = <100>;
+			qcom,fg-iterm-ma = <350>;
+			qcom,fg-chg-iterm-ma = <200>;/*default 100ma*/
 			qcom,pmic-revid = <&pmi8940_revid>;
-			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
 			qcom,cycle-counter-en;
-			qcom,capacity-learning-on;
+			qcom,fg-cc-cv-threshold-mv = <4390>;
+			qcom,vbat-estimate-diff-mv = <150>;
+			qcom,thermal-coefficients = [C8 86 C1 50 D3 37];/*R=10K B25/85 = 3435*/
+			qcom,cold-hot-jeita-hysteresis = <10 20>;
+			/*xiaomi-jeita*/
+			qcom,hot-bat-decidegc = <600>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <150>;
+			qcom,cold-bat-decidegc = <0>;
+
 
 			qcom,fg-soc@4000 {
 			status = "okay";
@@ -495,6 +518,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,en-cabc;
 			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
@@ -526,10 +550,10 @@
 				qcom,led-name = "led:flash_0";
 				qcom,default-led-trigger =
 						"flash0_trigger";
-				qcom,max-current = <1000>;
+				qcom,max-current = <1200>;
 				qcom,duration = <1280>;
 				qcom,id = <0>;
-				qcom,current = <625>;
+				qcom,current = <1200>;
 			};
 
 			pmi8940_flash1: qcom,flash_1 {
@@ -537,10 +561,10 @@
 				qcom,led-name = "led:flash_1";
 				qcom,default-led-trigger =
 						"flash1_trigger";
-				qcom,max-current = <1000>;
+				qcom,max-current = <1200>;
 				qcom,duration = <1280>;
 				qcom,id = <1>;
-				qcom,current = <625>;
+				qcom,current = <90>;
 			};
 
 			pmi8940_torch0: qcom,torch_0 {
@@ -560,12 +584,12 @@
 						"torch1_trigger";
 				qcom,max-current = <200>;
 				qcom,id = <1>;
-				qcom,current = <120>;
+				qcom,current = <90>;
 			};
 
 			pmi8940_switch: qcom,switch {
 				label = "switch";
-				qcom,led-name = "led:switch";
+				qcom,led-name = "flashlight";
 				qcom,default-led-trigger =
 						"switch_trigger";
 				qcom,max-current = <1000>;
@@ -590,7 +614,7 @@
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";
 			qcom,wave-shape = "square";
-			qcom,vmax-mv = <2000>;
+			qcom,vmax-mv = <3000>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,int-pwm-freq-khz = <505>;

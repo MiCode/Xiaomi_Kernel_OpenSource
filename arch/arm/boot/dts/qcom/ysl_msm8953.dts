@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+#include "msm-pmi8940.dtsi"
+#include "msm8953-mtp.dtsi"
+#include "msm8953-pmi8940.dtsi"
+#include "msm8953-camera-sensor-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8940 MTP";
+	compatible = "qcom,msm8953-mtp", "qcom,msm8953", "qcom,mtp";
+	qcom,board-id= <8 0>;
+	qcom,pmic-id = <0x010016 0x020040 0x0 0x0>;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+        	#include "batterydata-coslight-3000mah.dtsi"
+        	#include "batterydata-sunwoda-3000mah.dtsi"
+        	#include "batterydata-share-3000mah.dtsi"
+	};
+};
+
+&pmi8940_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi8940_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+};
+
+&i2c_2 { /* BLSP1 QUP2 */
+	/delete-node/ adv7533@39;
+};
+
+&pm8953_vadc {
+	/delete-node/ chan@13;
+};
+
+&i2c_2 {//E6
+	status = "ok";
+	awinic@45 { // Breath Light-Driven
+		compatible = "awinic,aw2023_led";
+		reg = <0x45>;
+		vdd-supply = <&pm8953_l10>;
+		vcc-supply = <&pm8953_l5>;
+
+		aw2023,red {
+			aw2023,name = "red";
+			aw2023,id = <0>;
+			aw2023,imax = <3>;
+			aw2023,led-current = <7>;
+			aw2023,max-brightness = <255>;
+			aw2023,rise-time-ms = <6>;
+			aw2023,hold-time-ms = <0>;
+			aw2023,fall-time-ms = <6>;
+			aw2023,off-time-ms = <4>;
+
+			aw2013,max-current = <1>;
+			aw2013,max-brightness = <150>;
+			aw2013,rise-time-ms = <4>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <4>;
+			aw2013,off-time-ms = <1>;
+		};
+	};
+};
+

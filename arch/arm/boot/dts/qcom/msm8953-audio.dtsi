@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,8 @@
 	qcom,msm-hs-micbias-type = "internal";
 	qcom,msm-micbias1-ext-cap;
 
+	qcom,msm-ext-pa = "primary";
+	qcom,msm-mclk-freq = <9600000>;
 	qcom,msm-gpios =
 		"pri_i2s",
 		"us_eu_gpio",
@@ -115,9 +118,6 @@
 	asoc-codec = <&stub_codec>, <&pm8953_diangu_dig>, <&hdmi_dba>;
 	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
 						"msm-hdmi-dba-codec-rx";
-	asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
-	asoc-wsa-codec-prefixes = "SpkrMono";
-
 	msm-vdd-wsa-switch-supply = <&pm8953_l5>;
 	qcom,msm-vdd-wsa-switch-voltage = <1800000>;
 	qcom,msm-vdd-wsa-switch-current = <10000>;

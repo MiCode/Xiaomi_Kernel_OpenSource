@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,22 +47,6 @@
 		pinctrl-0 = <&gpio_key_active>;
 		pinctrl-1 = <&gpio_key_suspend>;
 
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&tlmm 128 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			debounce-interval = <15>;
-		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&tlmm 127 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			debounce-interval = <15>;
-		};
-
 		vol_up {
 			label = "volume_up";
 			gpios = <&tlmm 91 0x1>;
@@ -71,38 +56,19 @@
 		};
 	};
 
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		vcc_ana-supply = <&pm8917_l10>;
-		vcc_dig-supply = <&pm8917_l5>;
-		qcom,afe-load = <50000>;
-		qcom,afe-vtg-min = <2850000>;
-		qcom,afe-vtg-max = <2850000>;
-		qcom,dig-load = <15000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
+	vibrator_gpio {
+		compatible = "qcom,vibrator-gpio";
+		qcom,vibrator-timeout-ms = <15000>;
+		qcom,vib-gpio_one = <&tlmm 9 0x00>;
+		label = "vibrator";
 	};
-};
 
-&flash_led {
-	compatible = "qcom,qpnp-flash-led";
-	reg = <0xd300 0x100>;
-	pinctrl-names = "flash_led_enable","flash_led_disable";
-	pinctrl-0 = <&rear_flash_led_enable>;
-	pinctrl-1 = <&rear_flash_led_disable>;
-	qcom,follow-otst2-rb-disabled;
-};
-
-&wled {
-	qcom,cons-sync-write-delay-us = <1000>;
-};
-
-&pmi_haptic{
-	qcom,actuator-type = "lra";
-	qcom,wave-play-rate-us = <4165>;
-	qcom,lra-auto-res-mode="qwd";
-	qcom,lra-high-z="opt1";
-	qcom,lra-res-cal-period = <0>;
+	ant_check {
+		compatible = "ant_check";
+	    ant_check_gpio = <&tlmm 127 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ant_check_default>;
+	};
 };
 
 &blsp1_uart2 {
@@ -122,20 +88,21 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_720_vid>;
+	qcom,regulator-ldo-mode;
+	qcom,dsi-pref-prim-pan = <&dsi_sc_ili9881c_hd720_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
 };
 
-&dsi_truly_720_vid {
+&dsi_truly_hd720_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+&dsi_sc_ili9881c_hd720_video{
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_truly_720_cmd {
@@ -200,7 +167,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 67 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 67 0x1>;
+	cd-gpios = <&tlmm 67 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;

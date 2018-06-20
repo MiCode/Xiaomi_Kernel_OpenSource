@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,39 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 
+enum __camera_vendor_module_id{
+	MID_NULL = 0,
+	MID_SUNNY,
+	MID_TRULY,
+	MID_A_KERR,
+	MID_LITEARRAY,
+	MID_DARLING,
+	MID_QTECH,
+	MID_OFILM,
+	MID_HUAQUAN,
+	MID_KINGCOM = MID_HUAQUAN,
+	MID_BOOYI,
+	MID_LAIMU,
+	MID_E6S = 21,
+	MID_WDSEN,
+	MID_SUNRISE,
+	MID_PRIMAX = 0x17,
+	MID_MAX
+};
+typedef enum __camera_vendor_module_id camera_vendor_module_id;
+enum camera_sensor_id{
+	SENSOR_NULL = 0,
+	SENSOR_S5K5E8 = 0x09,
+	SENSOR_S5K3P8SP = 0x13,
+	SENSOR_MAX
+};
+struct vendor_eeprom{
+		char eeprom_name[128];
+		uint8_t module_id;
+};
+
+#define CAMERA_VENDOR_EEPROM_COUNT_MAX 12
+#define MAX_SPECIAL_SUPPORT_SIZE 10
 
 enum msm_camera_device_type_t {
 	MSM_CAMERA_I2C_DEVICE,

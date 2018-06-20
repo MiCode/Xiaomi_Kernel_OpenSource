@@ -994,7 +994,12 @@ static int _gpiod_direction_output_raw(struct gpio_desc *desc, int value)
 		gpiod_err(desc,
 			  "%s: tried to set a GPIO tied to an IRQ as output\n",
 			  __func__);
-		return -EIO;
+
+		if (desc_to_gpio(desc) != 65){
+			return -EIO;
+		} else {
+			printk("likang (tp-INT)gpio value = %d permit to set as output\n", desc_to_gpio(desc));
+		}
 	}
 
 	/* Open drain pin should not be driven to 1 */

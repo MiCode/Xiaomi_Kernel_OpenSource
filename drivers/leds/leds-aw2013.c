@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,12 +239,15 @@ static void aw2013_brightness_work(struct work_struct *work)
 	 * all off. So we need to power it off.
 	 */
 	if (val == 0) {
+		aw2013_write(led, AW_REG_GLOBAL_CONTROL,
+			AW_LED_FADE_OFF_MASK);
 		if (aw2013_power_on(led->pdata->led, false)) {
 			dev_err(&led->pdata->led->client->dev,
 				"power off failed");
 			mutex_unlock(&led->pdata->led->lock);
 			return;
 		}
+		mdelay(10);
 	}
 
 	mutex_unlock(&led->pdata->led->lock);
@@ -290,11 +294,15 @@ static void aw2013_led_blink_set(struct aw2013_led *led, unsigned long blinking)
 	 * all off. So we need to power it off.
 	 */
 	if (val == 0) {
+		aw2013_write(led, AW_REG_GLOBAL_CONTROL,
+			AW_LED_FADE_OFF_MASK);
+
 		if (aw2013_power_on(led->pdata->led, false)) {
 			dev_err(&led->pdata->led->client->dev,
 				"power off failed");
 			return;
 		}
+		mdelay(10);
 	}
 }
 
@@ -328,12 +336,30 @@ static ssize_t aw2013_store_blink(struct device *dev,
 	return len;
 }
 
+static ssize_t aw2013_led_status_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	u8 val_status;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct aw2013_led *led =
+			container_of(led_cdev, struct aw2013_led, cdev);
+
+	aw2013_read(led, AW_REG_LED_ENABLE, &val_status);
+	pr_info("%s: aw2013 leds status show:0x%2x\n", __func__, val_status);
+
+	return snprintf(buf, PAGE_SIZE, "0x%2x\n", val_status);
+}
+
 static ssize_t aw2013_led_time_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct aw2013_led *led =
 			container_of(led_cdev, struct aw2013_led, cdev);
+
+	pr_info("%s:: aw2013 leds time show %d %d %d %d\n", __func__,
+					    led->pdata->rise_time_ms, led->pdata->hold_time_ms,
+					    led->pdata->fall_time_ms, led->pdata->off_time_ms);
 
 	return snprintf(buf, PAGE_SIZE, "%d %d %d %d\n",
 			led->pdata->rise_time_ms, led->pdata->hold_time_ms,
@@ -369,10 +395,12 @@ static ssize_t aw2013_led_time_store(struct device *dev,
 
 static DEVICE_ATTR(blink, 0664, NULL, aw2013_store_blink);
 static DEVICE_ATTR(led_time, 0664, aw2013_led_time_show, aw2013_led_time_store);
+static DEVICE_ATTR(led_status, 0664, aw2013_led_status_show, NULL);
 
 static struct attribute *aw2013_led_attributes[] = {
 	&dev_attr_blink.attr,
 	&dev_attr_led_time.attr,
+	&dev_attr_led_status.attr,
 	NULL,
 };
 
@@ -385,8 +413,9 @@ static int aw_2013_check_chipid(struct aw2013_led *led)
 	u8 val;
 
 	aw2013_write(led, AW_REG_RESET, AW_LED_RESET_MASK);
-	usleep(AW_LED_RESET_DELAY);
+
 	aw2013_read(led, AW_REG_RESET, &val);
+	pr_info("%s : chipid val:0x%2x \n", __func__, val);
 	if (val == AW2013_CHIPID)
 		return 0;
 	else
@@ -559,18 +588,32 @@ static int aw2013_led_probe(struct i2c_client *client,
 
 	led_array = devm_kzalloc(&client->dev,
 			(sizeof(struct aw2013_led) * num_leds), GFP_KERNEL);
-	if (!led_array)
+	if (!led_array) {
+		dev_err(&client->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
+	}
 
 	led_array->client = client;
 	led_array->num_leds = num_leds;
 
 	mutex_init(&led_array->lock);
 
+	ret = aw2013_power_init(led_array, true);
+	if (ret) {
+		dev_err(&client->dev, "power init failed");
+		goto free_led_arry;
+	}
+
+	ret = aw2013_power_on(led_array, true);
+	if (ret){
+		pr_info("aw2013 chip power_on fail\n");
+		goto power_init_failed;
+	}
+
 	ret = aw_2013_check_chipid(led_array);
 	if (ret) {
 		dev_err(&client->dev, "Check chip id error\n");
-		goto free_led_arry;
+		goto power_init_failed;
 	}
 
 	ret = aw2013_led_parse_child_node(led_array, node);
@@ -581,9 +624,9 @@ static int aw2013_led_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, led_array);
 
-	ret = aw2013_power_init(led_array, true);
+	ret = aw2013_power_on(led_array, false);
 	if (ret) {
-		dev_err(&client->dev, "power init failed");
+		dev_err(&client->dev, "power off failed");
 		goto fail_parsed_node;
 	}
 
@@ -591,6 +634,8 @@ static int aw2013_led_probe(struct i2c_client *client,
 
 fail_parsed_node:
 	aw2013_led_err_handle(led_array, num_leds);
+power_init_failed:
+	aw2013_power_init(led_array, false);
 free_led_arry:
 	mutex_destroy(&led_array->lock);
 	devm_kfree(&client->dev, led_array);

@@ -88,6 +88,7 @@ operational simplification. For backward compatibility purpose, switch node can 
 			  integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
 - qcom,pmic-revid	: PMIC revision id source. This property is needed for PMI8996
 			revision check.
+- qcom,max-total-current-limit : This enables the driver to limit the maximum current to the value specified.
 
 Optional properties inside child node:
 - qcom,current		: default current intensity for LED. Accepted values should be

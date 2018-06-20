@@ -4,6 +4,7 @@
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  SD support Copyright (C) 2004 Ian Molton, All Rights Reserved.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1155,6 +1156,12 @@ static void mmc_sd_detect(struct mmc_host *host)
 		pm_runtime_put_autosuspend(&host->card->dev);
 		return;
 	}
+
+	#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+			 if (mmc_bus_needs_resume(host)) {
+				mmc_resume_bus(host);
+			 }
+	#endif
 
 	/*
 	 * Just check if our card has been removed.

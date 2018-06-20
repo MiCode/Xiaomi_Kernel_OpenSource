@@ -863,6 +863,7 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		goto out;
 	sdcardfs_copy_and_fix_attrs(dentry->d_inode,
 			      lower_path.dentry->d_inode);
+	fsstack_copy_inode_size(dentry->d_inode, lower_path.dentry->d_inode);
 	err = sdcardfs_fillattr(mnt, dentry->d_inode, stat);
 	stat->blocks = lower_stat.blocks;
 out:

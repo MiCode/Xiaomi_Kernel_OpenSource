@@ -1,0 +1,15 @@
+ menu "Fingerprint Drivers"
+
+config GOODIX_FINGERPRINT
+	tristate "generic goodix fingerprint driver"
+	default y
+	help
+	add support for goodix fingerprint driver.
+
+config FINGERPRINT_FPC1020
+	tristate "fpc fpc1020 fingerprint drvier support"
+	help
+	  say y here to enable fpc fingerprint driver support!
+
+
+endmenu

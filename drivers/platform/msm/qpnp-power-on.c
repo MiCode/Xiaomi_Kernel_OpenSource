@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -843,7 +844,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
-	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
+	pr_info("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
@@ -2113,13 +2114,13 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	cold_boot = !qpnp_pon_is_warm_reset();
 	if (index >= ARRAY_SIZE(qpnp_pon_reason) || index < 0) {
 		dev_info(&pon->spmi->dev,
-			"PMIC@SID%d Power-on reason: Unknown and '%s' boot\n",
-			pon->spmi->sid, cold_boot ? "cold" : "warm");
+			"PMIC@SID%d PON register value (0x%02x) Power-on reason: Unknown and '%s' boot\n",
+			pon->spmi->sid, pon_sts, cold_boot ? "cold" : "warm");
 	} else {
 		pon->pon_trigger_reason = index;
 		dev_info(&pon->spmi->dev,
-			"PMIC@SID%d Power-on reason: %s and '%s' boot\n",
-			pon->spmi->sid, qpnp_pon_reason[index],
+			"PMIC@SID%d PON register value (0x%02x) Power-on reason: %s and '%s' boot\n",
+			pon->spmi->sid, pon_sts, qpnp_pon_reason[index],
 			cold_boot ? "cold" : "warm");
 	}
 
@@ -2143,13 +2144,13 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	index = ffs(poff_sts) - 1 + reason_index_offset;
 	if (index >= ARRAY_SIZE(qpnp_poff_reason) || index < 0) {
 		dev_info(&pon->spmi->dev,
-				"PMIC@SID%d: Unknown power-off reason\n",
-				pon->spmi->sid);
+				"PMIC@SID%d: POFF register value (0x%04x) Unknown power-off reason\n",
+				pon->spmi->sid, poff_sts);
 	} else {
 		pon->pon_power_off_reason = index;
 		dev_info(&pon->spmi->dev,
-				"PMIC@SID%d: Power-off reason: %s\n",
-				pon->spmi->sid,
+				"PMIC@SID%d: POFF register value (0x%04x) Power-off reason: %s\n",
+				pon->spmi->sid, poff_sts,
 				qpnp_poff_reason[index]);
 	}
 

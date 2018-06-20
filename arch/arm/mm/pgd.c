@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/pgd.c
  *
  *  Copyright (C) 1998-2005 Russell King
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,6 +12,7 @@
 #include <linux/gfp.h>
 #include <linux/highmem.h>
 #include <linux/slab.h>
+#include <linux/rtmm.h>
 
 #include <asm/cp15.h>
 #include <asm/pgalloc.h>

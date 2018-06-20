@@ -2,6 +2,7 @@
  * Core driver for the pin muxing portions of the pin control subsystem
  *
  * Copyright (C) 2011-2012 ST-Ericsson SA
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Written on behalf of Linaro for ST-Ericsson
  * Based on bits of regulator core, gpio core and clk core
  *
@@ -510,6 +511,8 @@ void pinmux_disable_setting(struct pinctrl_setting const *setting)
 
 			gname = pctlops->get_group_name(pctldev,
 						setting->data.mux.group);
+			if (strcmp(desc->name, "GPIO_65") || strcmp(desc->name, "GPIO_64"))
+				WARN_ON(1);
 			dev_warn(pctldev->dev,
 				 "not freeing pin %d (%s) as part of "
 				 "deactivating group %s - it is already "

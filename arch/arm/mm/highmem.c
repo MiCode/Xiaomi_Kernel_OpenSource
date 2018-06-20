@@ -115,6 +115,7 @@ void __kunmap_atomic(void *kvaddr)
 		set_fixmap_pte(idx, __pte(0));
 #else
 		(void) idx;  /* to kill a warning */
+		set_fixmap_pte(idx, __pte(0));
 #endif
 		kmap_atomic_idx_pop();
 	} else if (vaddr >= PKMAP_ADDR(0) && vaddr < PKMAP_ADDR(LAST_PKMAP)) {

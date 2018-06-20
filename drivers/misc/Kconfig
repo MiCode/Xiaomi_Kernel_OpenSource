@@ -591,6 +591,11 @@ config TI_DRV2667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
 
+config VIB_GPIO
+	tristate "Vibrator timed gpio driver"
+	depends on GPIOLIB && ANDROID_TIMED_OUTPUT
+	default n
+
 config QPNP_MISC
 	tristate "QPNP Misc Peripheral"
 	depends on SPMI || MSM_SPMI
@@ -612,6 +617,13 @@ config MEMORY_STATE_TIME
 	depends on PROFILING
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
+
+config ANT_CHECK
+	tristate "ant check gpio"
+	depends on GPIOLIB
+	help
+	  Say 'y' here to include support for An gpio detect Ant connect Machine
+	default n
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

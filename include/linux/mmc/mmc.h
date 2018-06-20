@@ -2,6 +2,7 @@
  * Header for MultiMediaCard (MMC)
  *
  * Copyright 2002 Hewlett-Packard Company
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Use consistent with the GNU GPL is permitted,
  * provided that this copyright notice is
@@ -286,6 +287,8 @@ struct _mmc_csd {
 #define EXT_CSD_FW_VERSION		254	/* RO */
 #define EXT_CSD_CMDQ_DEPTH		307	/* RO */
 #define EXT_CSD_CMDQ_SUPPORT		308	/* RO */
+#define EXT_CSD_LIFE_TIME_EST_TYP_A     268     /* RO */
+#define EXT_CSD_LIFE_TIME_EST_TYP_B     269     /* RO */
 #define EXT_CSD_BARRIER_SUPPORT		486	/* RO */
 #define EXT_CSD_PRE_EOL_INFO		267	/* RO */
 #define EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A	268	/* RO */

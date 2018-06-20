@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,23 +12,34 @@
  * GNU General Public License for more details.
  */
 
-#include "msm-pmi8937.dtsi"
 #include "msm8917-mtp.dtsi"
 #include "msm8917-audio-mtp.dtsi"
 
 &soc {
-	led_flash0: qcom,camera-flash {
-		cell-index = <0>;
-		compatible = "qcom,camera-flash";
-		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi8937_flash0 &pmi8937_flash1>;
-		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
-		qcom,switch-source = <&pmi8937_switch>;
-	};
-
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&tlmm 129 0>; /* BT_EN */
+	};
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <124 0x0>;
+		fpc,gpio_rst    = <&tlmm 132 0x0>;
+		fpc,gpio_irq    = <&tlmm 124 0x0>;
+
+		vcc_spi-supply  = <&pm8917_l6>;
+		vdd_io-supply   = <&pm8917_l6>;
+		vdd_ana-supply  = <&pm8917_l6>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_132>;
+		pinctrl-1 = <&msm_gpio_132_output_high>;
+		pinctrl-2 = <&msm_gpio_124>;
 	};
 };
 
@@ -37,14 +49,4 @@
 		#include "batterydata-itech-3000mah.dtsi"
 		#include "batterydata-ascent-3450mAh.dtsi"
 	};
-};
-
-&pmi8937_fg {
-	qcom,battery-data = <&mtp_batterydata>;
-};
-
-&pmi8937_charger {
-	qcom,battery-data = <&mtp_batterydata>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
 };

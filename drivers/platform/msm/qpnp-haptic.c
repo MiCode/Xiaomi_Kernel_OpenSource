@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1378,6 +1379,27 @@ static ssize_t qpnp_hap_ramp_test_data_show(struct device *dev,
 	return count;
 
 }
+static int vibrator_on_value;
+static ssize_t qpnp_hap_vibrator_on_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val = 0;
+	int ret = 0;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	vibrator_on_value = !!val;
+
+	return count;
+}
+
+static ssize_t qpnp_hap_vibrator_on_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, 2, "%d\n", vibrator_on_value);
+}
 
 /* sysfs attributes */
 static struct device_attribute qpnp_hap_attrs[] = {
@@ -1426,6 +1448,9 @@ static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(min_max_test, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_min_max_test_data_show,
 			qpnp_hap_min_max_test_data_store),
+	__ATTR(vibrator_on, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_vibrator_on_show,
+			qpnp_hap_vibrator_on_store),
 };
 
 static int calculate_lra_code(struct qpnp_hap *hap)
@@ -1696,6 +1721,8 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 		}
 		hap->state = 0;
 	} else {
+
+		if (!vibrator_on_value)
 		value = (value > hap->timeout_ms ?
 				 hap->timeout_ms : value);
 		hap->state = 1;

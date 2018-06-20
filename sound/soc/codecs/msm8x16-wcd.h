@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +229,15 @@ struct msm8916_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
 	int spk_ext_pa_gpio;
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	int spk_ext_pa_gpio_lc;
+	int spk_hs_switch_gpio;
+	struct delayed_work pa_gpio_work;
+	struct delayed_work pa_gpio_work_close;
+	struct delayed_work hs_gpio_work;
+	unsigned char pa_is_on;
+	unsigned char hs_is_on;
+#endif
 	int mclk_freq;
 	int lb_mode;
 	int afe_clk_ver;
