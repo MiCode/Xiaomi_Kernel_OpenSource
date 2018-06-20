@@ -120,7 +120,7 @@ void hab_ctx_free(struct kref *ref)
 	write_lock(&ctx->exp_lock);
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->exp_whse, node) {
 		list_del(&exp->node);
-		pr_err("potential leak exp %d vcid %X recovered\n",
+		pr_debug("potential leak exp %d vcid %X recovered\n",
 				exp->export_id, exp->vcid_local);
 		habmem_hyp_revoke(exp->payload, exp->payload_count);
 		habmem_remove_export(exp);
@@ -131,7 +131,7 @@ void hab_ctx_free(struct kref *ref)
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
 		list_del(&exp->node);
 		ctx->import_total--;
-		pr_warn("leaked imp %d vcid %X for ctx is collected total %d\n",
+		pr_debug("leaked imp %d vcid %X for ctx is collected total %d\n",
 			exp->export_id, exp->vcid_local,
 			ctx->import_total);
 		habmm_imp_hyp_unmap(ctx->import_ctx, exp, ctx->kernel);
@@ -329,7 +329,8 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 				   vchan->id);
 		hab_open_pending_exit(ctx, pchan, &pending_open);
 
-		ret = -EINVAL;
+		if (ret != -EINTR)
+			ret = -EINVAL;
 		goto err;
 	}
 
