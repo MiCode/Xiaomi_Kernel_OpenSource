@@ -5150,6 +5150,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
+	ipa3_ctx->wdi_over_pcie = resource_p->wdi_over_pcie;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 	ipa3_ctx->ipa_config_is_mhi = resource_p->ipa_mhi_dynamic_config;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
@@ -5977,6 +5978,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPAERR("failed to get pm info from dts %d\n", result);
 		return result;
 	}
+
+	ipa_drv_res->wdi_over_pcie =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-ce-db-over-pcie");
+	IPADBG("Is wdi_over_pcie ? (%s)\n",
+		ipa3_ctx->wdi_over_pcie ? "Yes":"No");
 
 	return 0;
 }

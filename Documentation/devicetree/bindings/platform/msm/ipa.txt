@@ -89,6 +89,8 @@ memory allocation over a PCIe bridge
                                 monitoring of holb via IPA uc is required.
 -qcom,ipa-fltrt-not-hashable:   Boolean context flag to indicate filter/route rules
 				hashing not supported.
+- qcom,wlan-ce-db-over-pcie: Boolean context flag to represent WLAN CE DB
+				over pcie bus or not.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
