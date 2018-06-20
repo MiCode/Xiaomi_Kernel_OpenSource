@@ -20,13 +20,13 @@
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-panel-width = <720>;
 		qcom,mdss-dsi-panel-height = <1440>;
-		qcom,mdss-dsi-h-front-porch = <24>;
-		qcom,mdss-dsi-h-back-porch = <24>;
+		qcom,mdss-dsi-h-front-porch = <48>;
+		qcom,mdss-dsi-h-back-porch = <48>;
 		qcom,mdss-dsi-h-pulse-width = <16>;
 		qcom,mdss-dsi-h-sync-skew = <0>;
 		qcom,mdss-dsi-v-back-porch = <40>;
-		qcom,mdss-dsi-v-front-porch = <36>;
-		qcom,mdss-dsi-v-pulse-width = <2>;
+		qcom,mdss-dsi-v-front-porch = <60>;
+		qcom,mdss-dsi-v-pulse-width = <4>;
 		qcom,mdss-dsi-h-left-border = <0>;
 		qcom,mdss-dsi-h-right-border = <0>;
 		qcom,mdss-dsi-v-top-border = <0>;
