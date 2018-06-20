@@ -756,16 +756,21 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		return -EINVAL;
 	}
 
-	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
-		if (in->u.dl.comp_ring_base_pa % IPA_WDI_RING_ALIGNMENT ||
-			in->u.dl.ce_ring_base_pa % IPA_WDI_RING_ALIGNMENT) {
-			IPAERR("alignment failure on TX\n");
-			return -EINVAL;
-		}
-	} else {
-		if (in->u.ul.rdy_ring_base_pa % IPA_WDI_RING_ALIGNMENT) {
-			IPAERR("alignment failure on RX\n");
-			return -EINVAL;
+	if (!in->smmu_enabled) {
+		if (IPA_CLIENT_IS_CONS(in->sys.client)) {
+			if (in->u.dl.comp_ring_base_pa %
+				IPA_WDI_RING_ALIGNMENT ||
+				in->u.dl.ce_ring_base_pa %
+				IPA_WDI_RING_ALIGNMENT) {
+				IPAERR("alignment failure on TX\n");
+					return -EINVAL;
+			}
+		} else {
+			if (in->u.ul.rdy_ring_base_pa %
+				IPA_WDI_RING_ALIGNMENT) {
+				IPAERR("alignment failure on RX\n");
+				return -EINVAL;
+			}
 		}
 	}
 
@@ -795,43 +800,73 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			cmd.size = sizeof(*tx_2);
 		else
 			cmd.size = sizeof(*tx);
-		IPADBG("comp_ring_base_pa=0x%pa\n",
-				&in->u.dl.comp_ring_base_pa);
-		IPADBG("comp_ring_size=%d\n", in->u.dl.comp_ring_size);
-		IPADBG("ce_ring_base_pa=0x%pa\n", &in->u.dl.ce_ring_base_pa);
-		IPADBG("ce_ring_size=%d\n", in->u.dl.ce_ring_size);
-		IPADBG("ce_ring_doorbell_pa=0x%pa\n",
-				&in->u.dl.ce_door_bell_pa);
-		IPADBG("num_tx_buffers=%d\n", in->u.dl.num_tx_buffers);
+		if (in->smmu_enabled) {
+			IPADBG("comp_ring_size=%d\n",
+				in->u.dl_smmu.comp_ring_size);
+			IPADBG("ce_ring_size=%d\n", in->u.dl_smmu.ce_ring_size);
+			IPADBG("ce_ring_doorbell_pa=0x%pa\n",
+					&in->u.dl_smmu.ce_door_bell_pa);
+			IPADBG("num_tx_buffers=%d\n",
+				in->u.dl_smmu.num_tx_buffers);
+		} else {
+			IPADBG("comp_ring_base_pa=0x%pa\n",
+					&in->u.dl.comp_ring_base_pa);
+			IPADBG("comp_ring_size=%d\n", in->u.dl.comp_ring_size);
+			IPADBG("ce_ring_base_pa=0x%pa\n",
+				&in->u.dl.ce_ring_base_pa);
+			IPADBG("ce_ring_size=%d\n", in->u.dl.ce_ring_size);
+			IPADBG("ce_ring_doorbell_pa=0x%pa\n",
+					&in->u.dl.ce_door_bell_pa);
+			IPADBG("num_tx_buffers=%d\n", in->u.dl.num_tx_buffers);
+		}
 	} else {
 		if (ipa3_ctx->ipa_wdi2)
 			cmd.size = sizeof(*rx_2);
 		else
 			cmd.size = sizeof(*rx);
-		IPADBG("rx_ring_base_pa=0x%pa\n",
-			&in->u.ul.rdy_ring_base_pa);
-		IPADBG("rx_ring_size=%d\n",
-			in->u.ul.rdy_ring_size);
-		IPADBG("rx_ring_rp_pa=0x%pa\n",
-			&in->u.ul.rdy_ring_rp_pa);
-		IPADBG("rx_comp_ring_base_pa=0x%pa\n",
-			&in->u.ul.rdy_comp_ring_base_pa);
-		IPADBG("rx_comp_ring_size=%d\n",
-			in->u.ul.rdy_comp_ring_size);
-		IPADBG("rx_comp_ring_wp_pa=0x%pa\n",
-			&in->u.ul.rdy_comp_ring_wp_pa);
-		ipa3_ctx->uc_ctx.rdy_ring_base_pa =
-			in->u.ul.rdy_ring_base_pa;
-		ipa3_ctx->uc_ctx.rdy_ring_rp_pa =
-			in->u.ul.rdy_ring_rp_pa;
-		ipa3_ctx->uc_ctx.rdy_ring_size =
-			in->u.ul.rdy_ring_size;
-		ipa3_ctx->uc_ctx.rdy_comp_ring_base_pa =
-			in->u.ul.rdy_comp_ring_base_pa;
-		ipa3_ctx->uc_ctx.rdy_comp_ring_wp_pa =
-			in->u.ul.rdy_comp_ring_wp_pa;
-		ipa3_ctx->uc_ctx.rdy_comp_ring_size =
-			in->u.ul.rdy_comp_ring_size;
+		if (in->smmu_enabled) {
+			IPADBG("rx_ring_size=%d\n",
+				in->u.ul_smmu.rdy_ring_size);
+			IPADBG("rx_ring_rp_pa=0x%pa\n",
+				&in->u.ul_smmu.rdy_ring_rp_pa);
+			IPADBG("rx_comp_ring_size=%d\n",
+				in->u.ul_smmu.rdy_comp_ring_size);
+			IPADBG("rx_comp_ring_wp_pa=0x%pa\n",
+				&in->u.ul_smmu.rdy_comp_ring_wp_pa);
+			ipa3_ctx->uc_ctx.rdy_ring_rp_pa =
+				in->u.ul_smmu.rdy_ring_rp_pa;
+			ipa3_ctx->uc_ctx.rdy_ring_size =
+				in->u.ul_smmu.rdy_ring_size;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_wp_pa =
+				in->u.ul_smmu.rdy_comp_ring_wp_pa;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_size =
+				in->u.ul_smmu.rdy_comp_ring_size;
+		} else {
+			IPADBG("rx_ring_base_pa=0x%pa\n",
+				&in->u.ul.rdy_ring_base_pa);
+			IPADBG("rx_ring_size=%d\n",
+				in->u.ul.rdy_ring_size);
+			IPADBG("rx_ring_rp_pa=0x%pa\n",
+				&in->u.ul.rdy_ring_rp_pa);
+			IPADBG("rx_comp_ring_base_pa=0x%pa\n",
+				&in->u.ul.rdy_comp_ring_base_pa);
+			IPADBG("rx_comp_ring_size=%d\n",
+				in->u.ul.rdy_comp_ring_size);
+			IPADBG("rx_comp_ring_wp_pa=0x%pa\n",
+				&in->u.ul.rdy_comp_ring_wp_pa);
+			ipa3_ctx->uc_ctx.rdy_ring_base_pa =
+				in->u.ul.rdy_ring_base_pa;
+			ipa3_ctx->uc_ctx.rdy_ring_rp_pa =
+				in->u.ul.rdy_ring_rp_pa;
+			ipa3_ctx->uc_ctx.rdy_ring_size =
+				in->u.ul.rdy_ring_size;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_base_pa =
+				in->u.ul.rdy_comp_ring_base_pa;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_wp_pa =
+				in->u.ul.rdy_comp_ring_wp_pa;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_size =
+				in->u.ul.rdy_comp_ring_size;
+		}
 	}
 
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
@@ -945,10 +980,11 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			tx->comp_ring_size = len;
 			len = in->smmu_enabled ? in->u.dl_smmu.ce_ring_size :
 				in->u.dl.ce_ring_size;
-			IPADBG("TX CE ring smmu_en=%d ring_size=%d %d\n",
+			IPADBG("TX CE ring smmu_en=%d ring_size=%d %d 0x%lx\n",
 					in->smmu_enabled,
 					in->u.dl_smmu.ce_ring_size,
-					in->u.dl.ce_ring_size);
+					in->u.dl.ce_ring_size,
+					va);
 			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
 						in->smmu_enabled,
 						in->u.dl.ce_ring_base_pa,
@@ -975,8 +1011,19 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				result = -ENOMEM;
 				goto uc_timeout;
 			}
-			tx->ce_ring_doorbell_pa = va;
-			tx->num_tx_buffers = in->u.dl.num_tx_buffers;
+
+			IPADBG("CE doorbell pa: 0x%pa va:0x%lx\n", &pa, va);
+			IPADBG("Is wdi_over_pcie ? (%s)\n",
+				ipa3_ctx->wdi_over_pcie ? "Yes":"No");
+
+			if (ipa3_ctx->wdi_over_pcie)
+				tx->ce_ring_doorbell_pa = pa;
+			else
+				tx->ce_ring_doorbell_pa = va;
+
+			tx->num_tx_buffers = in->smmu_enabled ?
+				in->u.dl_smmu.num_tx_buffers :
+				in->u.dl.num_tx_buffers;
 			tx->ipa_pipe_number = ipa_ep_idx;
 		}
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
