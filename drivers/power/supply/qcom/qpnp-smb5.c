@@ -1735,8 +1735,9 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 
 static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 {
+	u8 *buf;
 	int rc = 0;
-	int raw_hi_thresh, raw_lo_thresh;
+	s16 raw_hi_thresh, raw_lo_thresh;
 	struct smb_charger *chg = &chip->chg;
 
 	if (chip->dt.term_current_thresh_hi_ma < -10000 ||
@@ -1749,13 +1750,16 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 
 	/*
 	 * Conversion:
-	 * raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 *	raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 * Note: raw needs to be converted to big-endian format.
 	 */
 
 	if (chip->dt.term_current_thresh_hi_ma) {
 		raw_hi_thresh = ((chip->dt.term_current_thresh_hi_ma *
 						ADC_CHG_TERM_MASK) / 10000);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
+		buf = (u8 *)&raw_hi_thresh;
+		raw_hi_thresh = buf[1] | (buf[0] << 8);
 
 		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
 				(u8 *)&raw_hi_thresh, 2);
@@ -1770,6 +1774,8 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 		raw_lo_thresh = ((chip->dt.term_current_thresh_lo_ma *
 					ADC_CHG_TERM_MASK) / 10000);
 		raw_lo_thresh = sign_extend32(raw_lo_thresh, 15);
+		buf = (u8 *)&raw_lo_thresh;
+		raw_lo_thresh = buf[1] | (buf[0] << 8);
 
 		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_LO_THD_MSB_REG,
 				(u8 *)&raw_lo_thresh, 2);
