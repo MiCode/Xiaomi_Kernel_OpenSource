@@ -128,6 +128,7 @@ static struct platform_driver edp_driver = {
 	.driver = {
 		.name = "msm_edp",
 		.of_match_table = dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

@@ -4515,6 +4515,7 @@ static struct platform_driver dsi_display_driver = {
 	.driver = {
 		.name = "msm-dsi-display",
 		.of_match_table = dsi_display_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

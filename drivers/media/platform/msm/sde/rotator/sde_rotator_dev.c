@@ -3707,6 +3707,7 @@ static struct platform_driver rotator_driver = {
 		.name = SDE_ROTATOR_DRV_NAME,
 		.of_match_table = sde_rotator_dt_match,
 		.pm = &sde_rotator_pm_ops,
+		.suppress_bind_attrs = true,
 	},
 };
 

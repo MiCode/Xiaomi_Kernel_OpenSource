@@ -1472,6 +1472,7 @@ static struct platform_driver sde_rsc_platform_driver = {
 	.driver     = {
 		.name   = "sde_rsc",
 		.of_match_table = dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
