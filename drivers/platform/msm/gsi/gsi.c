@@ -905,6 +905,11 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_ERROR;
 	}
 
+	if (gsi_ctx->max_ev > GSI_EVT_RING_MAX) {
+		GSIERR("max event rings are beyond absolute maximum\n");
+		return -GSI_STATUS_ERROR;
+	}
+
 	if (props->mhi_er_id_limits_valid &&
 	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
 		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
@@ -1847,7 +1852,7 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	}
 
 	if (props->evt_ring_hdl != ~0) {
-		if (props->evt_ring_hdl >= GSI_EVT_RING_MAX) {
+		if (props->evt_ring_hdl >= gsi_ctx->max_ev) {
 			GSIERR("invalid evt ring=%lu\n", props->evt_ring_hdl);
 			return -GSI_STATUS_INVALID_PARAMS;
 		}
