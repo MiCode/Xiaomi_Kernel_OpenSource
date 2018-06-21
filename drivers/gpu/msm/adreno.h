@@ -1869,7 +1869,7 @@ static inline int adreno_perfcntr_active_oob_get(
 	if (ret)
 		return ret;
 
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
 		if (ret)
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
@@ -1884,7 +1884,7 @@ static inline void adreno_perfcntr_active_oob_put(
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));

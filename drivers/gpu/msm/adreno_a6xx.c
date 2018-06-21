@@ -917,7 +917,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	 * 3. HFI
 	 * At this point, we are guaranteed all.
 	 */
-	if (gmu_dev_ops->enable_lm)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, enable_lm))
 		gmu_dev_ops->enable_lm(device);
 }
 
@@ -1336,7 +1336,10 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	return gmu_dev_ops->load_firmware(device);
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, load_firmware))
+		return gmu_dev_ops->load_firmware(device);
+
+	return 0;
 }
 
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
