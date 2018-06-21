@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,6 +462,31 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
+static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
+{
+	EP_PCIE_DBG(dev,
+		"Initial version of MMIO is:0x%x\n",
+		readl_relaxed(dev->mmio + PCIE20_MHIVER));
+
+	if (dev->config_mmio_init) {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: MMIO already initialized, return\n",
+				dev->rev);
+		return;
+	}
+
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHICTRL, 0x0);
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHISTATUS, 0x0);
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHIVER, 0x1000000);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_LOWER, 0x2);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_UPPER, 0x1);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_INTVEC, 0xffffffff);
+
+	dev->config_mmio_init = true;
+}
+
 static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 {
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
@@ -591,9 +616,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 
 		/* Configure BARs */
 		ep_pcie_bar_init(dev);
-
-		ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
-		ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
 	}
 
 	/* Configure IRQ events */
@@ -621,6 +643,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 	}
+
+	/* Configure MMIO */
+	ep_pcie_config_mmio(dev);
 }
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
