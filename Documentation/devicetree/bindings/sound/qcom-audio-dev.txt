@@ -1273,6 +1273,10 @@ Optional properties:
 - qcom,va_bolero_codec : Property to specify if VA macro in Bolero codec is used for this target
 - qcom,tasha_codec : Property to specify if Tasha codec is used for this target
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
+- qcom,csra-codec : Property to specify if CSRA66x0 is used for this target
+- qcom,csra-max-devs : Maximum number of CSRA66x0 devices present in the target
+- qcom,csra-devs : List of phandles of all possible CSRA66x0 devices supported for the target
+- qcom,csra-aux-dev-prefix : Name prefix in multi-channel configuration for CSRA66x0 device
 Example:
 
 	qcs405_snd {
