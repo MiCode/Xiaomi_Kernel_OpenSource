@@ -949,7 +949,7 @@ int adm_get_pp_params(int port_id, int copp_idx, uint32_t client_id,
 	copp_stat = &this_adm.copp.stat[port_idx][copp_idx];
 	atomic_set(copp_stat, -1);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) &adm_get_params);
-	if (ret) {
+	if (ret < 0) {
 		pr_err("%s: Get params APR send failed port = 0x%x ret %d\n",
 		       __func__, port_id, ret);
 		ret = -EINVAL;
@@ -1064,7 +1064,7 @@ int adm_get_pp_topo_module_list_v2(int port_id, int copp_idx,
 	copp_stat = &this_adm.copp.stat[port_idx][copp_idx];
 	atomic_set(copp_stat, -1);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) &adm_get_module_list);
-	if (ret) {
+	if (ret < 0) {
 		pr_err("%s: APR send pkt failed for port_id: 0x%x failed ret %d\n",
 		       __func__, port_id, ret);
 		ret = -EINVAL;
