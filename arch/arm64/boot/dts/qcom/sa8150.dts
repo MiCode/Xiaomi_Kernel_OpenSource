@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-#include "sm8150-auto.dtsi"
+#include "sa8150.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM8150 AUTO SoC";
-	compatible = "qcom,sm8150";
+	model = "Qualcomm Technologies, Inc. SA8150 SoC";
+	compatible = "qcom,sa8150";
 	qcom,pmic-name = "PM8150";
 	qcom,board-id = <0 0>;
 };
