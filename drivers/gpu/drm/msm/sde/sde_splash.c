@@ -856,17 +856,13 @@ int sde_splash_free_resource(struct msm_kms *kms,
 }
 
 /*
- * In below function, it will
- * 1. Notify LK to stop display splash.
- * 2. Set DOMAIN_ATTR_EARLY_MAP to 1 to enable stage 1 translation in iommu.
+ * Below function will notify LK to stop display splash.
  */
 int sde_splash_lk_stop_splash(struct msm_kms *kms,
 				struct drm_atomic_state *state)
 {
 	struct sde_splash_info *sinfo;
-	struct msm_mmu *mmu;
 	struct sde_kms *sde_kms = to_sde_kms(kms);
-	int ret;
 
 	sinfo = &sde_kms->splash_info;
 
@@ -885,27 +881,6 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
 		sinfo->display_splash_enabled = false;
 	}
 	mutex_unlock(&sde_splash_lock);
-
-	if (!sde_kms->aspace[0] || !sde_kms->aspace[0]->mmu) {
-		/* We do not return fault value here, to ensure
-		 * flag "lk_is_exited" is set.
-		 */
-		SDE_ERROR("invalid mmu\n");
-		WARN_ON(1);
-	} else {
-		mmu = sde_kms->aspace[0]->mmu;
-		/* After LK has exited, set early domain map attribute
-		 * to 1 to enable stage 1 translation in iommu driver.
-		 */
-		if (mmu->funcs && mmu->funcs->set_property) {
-			ret = mmu->funcs->set_property(mmu,
-				DOMAIN_ATTR_EARLY_MAP,
-				&sinfo->display_splash_enabled);
-
-			if (ret)
-				SDE_ERROR("set_property failed\n");
-		}
-	}
 
 	return 0;
 }
