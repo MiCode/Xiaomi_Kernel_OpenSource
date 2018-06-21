@@ -1,0 +1,63 @@
+QTI PDC interrupt controller
+
+PDC is QTI's platform parent interrupt controller that serves as wakeup source.
+
+Newer QTI SOCs are replacing MPM (MSM sleep Power Manager) with PDC (Power
+Domain Controller) to manage subsystem wakeups and resources during sleep.
+This driver marks the wakeup interrupts in APSS PDC such that it monitors the
+interrupts when the system is asleep, wakes up the APSS when one of these
+interrupts occur and replays it to the subsystem interrupt controller after it
+becomes operational.
+
+Earlier MPM architecture used arch-extension of GIC interrupt
+controller to mark enabled wake-up interrupts and monitor these when the
+system goes to sleep. Since the arch-extensions are no-longer available
+on newer kernel versions, this driver is implemented as hierarchical irq
+domain.  GIC is parent interrupt controller at the highest level.
+Platform interrupt controller PDC is next in hierarchy, followed by others.
+This driver only configures the interrupts, does not handle them.
+
+PDC interrupt configuration involves programming of 2 set of registers:
+IRQ_ENABLE_BANK    - Enable the irq
+IRQ_i_CFG          - Configure the interrupt i
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should contain "qcom,pdc-<target>"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Specifies the base physical address for PDC hardware
+			block for DRV2.
+
+- interrupt-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: Specifies the number of cells needed to encode an interrupt source.
+			Value must be 3.
+			The encoding of these cells are same as described in
+			Documentation/devicetree/bindings/interrupt-controller/arm,gic-v3.txt
+
+- interrupt-parent:
+	Usage: required
+	Value type: <phandle>
+	Definition: Specifies the interrupt parent necessary for hierarchical domain to operate.
+
+- interrupt-controller:
+	Usage: required
+	Value type: <bool>
+	Definition: Identifies the node as an interrupt controller.
+
+Example:
+
+pdcgic: interrupt-controller@0xb220000{
+	compatible = "qcom,pdc-sdmmagpie";
+	reg = <0xb220000 0x30000>;
+	#interrupt-cells = <3>;
+	interrupt-parent = <&intc>;
+	interrupt-controller;
+};
