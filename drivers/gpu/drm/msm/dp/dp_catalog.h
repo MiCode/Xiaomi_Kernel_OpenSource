@@ -125,6 +125,8 @@ struct dp_catalog_ctrl {
 			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
 	void (*update_rg)(struct dp_catalog_ctrl *ctrl, u32 ch, u32 x_int,
 			u32 y_frac_enum);
+	void (*channel_dealloc)(struct dp_catalog_ctrl *ctrl,
+			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
 };
 
 #define HEADER_BYTE_2_BIT	 0

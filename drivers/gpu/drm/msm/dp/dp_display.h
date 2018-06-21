@@ -87,7 +87,7 @@ struct dp_display {
 			struct dp_mst_caps *mst_caps);
 	int (*set_stream_info)(struct dp_display *dp_display,
 			void *panel, u32 ch_id, u32 ch_start_slot,
-			u32 ch_tot_slots);
+			u32 ch_tot_slots, u32 pbn);
 };
 
 int dp_display_get_num_of_displays(void);

@@ -58,6 +58,10 @@ struct dp_drm_mst_fw_helper_ops {
 				     int slots);
 	int (*get_ch_start_slot)(struct drm_dp_mst_topology_mgr *mgr,
 			struct drm_dp_mst_port *port, int channel_id);
+	void (*reset_vcpi_slots)(struct drm_dp_mst_topology_mgr *mgr,
+			struct drm_dp_mst_port *port);
+	void (*deallocate_vcpi)(struct drm_dp_mst_topology_mgr *mgr,
+			struct drm_dp_mst_port *port);
 };
 
 struct dp_mst_sim_port {
@@ -192,6 +196,16 @@ static int drm_dp_sim_update_payload_part2(struct drm_dp_mst_topology_mgr *mgr)
 	return 0;
 }
 
+static void drm_dp_sim_reset_vcpi_slots(struct drm_dp_mst_topology_mgr *mgr,
+			struct drm_dp_mst_port *port)
+{
+}
+
+static void drm_dp_sim_deallocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
+			struct drm_dp_mst_port *port)
+{
+}
+
 static enum drm_connector_status drm_dp_sim_mst_detect_port(
 		struct drm_connector *connector,
 		struct drm_dp_mst_topology_mgr *mgr,
@@ -268,6 +282,8 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
 	.topology_mgr_set_mst      = drm_dp_mst_topology_mgr_set_mst,
 	.get_ch_start_slot         = _drm_dp_mst_get_ch_start_slot,
 	.atomic_release_vcpi_slots = drm_dp_atomic_release_vcpi_slots,
+	.reset_vcpi_slots          = drm_dp_mst_reset_vcpi_slots,
+	.deallocate_vcpi           = drm_dp_mst_deallocate_vcpi,
 };
 
 static const struct dp_drm_mst_fw_helper_ops drm_dp_sim_mst_fw_helper_ops = {
@@ -282,6 +298,8 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_sim_mst_fw_helper_ops = {
 	.topology_mgr_set_mst      = drm_dp_sim_mst_topology_mgr_set_mst,
 	.get_ch_start_slot         = _drm_dp_sim_mst_get_ch_start_slot,
 	.atomic_release_vcpi_slots = drm_dp_sim_atomic_release_vcpi_slots,
+	.reset_vcpi_slots          = drm_dp_sim_reset_vcpi_slots,
+	.deallocate_vcpi           = drm_dp_sim_deallocate_vcpi,
 };
 
 /* DP MST Bridge OPs */
@@ -352,7 +370,7 @@ static bool _dp_mst_compute_config(struct dp_mst_bridge *dp_bridge)
 
 	DP_MST_DEBUG("enter\n");
 
-	bpp = 24;
+	bpp = dp_bridge->dp_mode.timing.bpp;
 
 	mst_pbn = mst->mst_fw_cbs->calc_pbn_mode(
 			dp_bridge->drm_mode.crtc_clock, bpp);
@@ -425,6 +443,44 @@ static void _dp_mst_bridge_pre_enable_part2(struct dp_mst_bridge *dp_bridge)
 			dp_bridge->id);
 }
 
+static void _dp_mst_bridge_pre_disable_part1(struct dp_mst_bridge *dp_bridge)
+{
+	struct dp_display *dp_display = dp_bridge->display;
+	struct sde_connector *c_conn =
+		to_sde_connector(dp_bridge->connector);
+	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
+	struct drm_dp_mst_port *port = c_conn->mst_port;
+
+	DP_MST_DEBUG("enter\n");
+
+	mst->mst_fw_cbs->reset_vcpi_slots(&mst->mst_mgr, port);
+
+	mst->mst_fw_cbs->update_payload_part1(&mst->mst_mgr);
+
+	DP_MST_DEBUG("mst bridge [%d] _pre disable part-1 complete\n",
+			dp_bridge->id);
+}
+
+static void _dp_mst_bridge_pre_disable_part2(struct dp_mst_bridge *dp_bridge)
+{
+	struct dp_display *dp_display = dp_bridge->display;
+	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
+	struct sde_connector *c_conn =
+		to_sde_connector(dp_bridge->connector);
+	struct drm_dp_mst_port *port = c_conn->mst_port;
+
+	DP_MST_DEBUG("enter\n");
+
+	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
+
+	mst->mst_fw_cbs->update_payload_part2(&mst->mst_mgr);
+
+	mst->mst_fw_cbs->deallocate_vcpi(&mst->mst_mgr, port);
+
+	DP_MST_DEBUG("mst bridge [%d] _pre disable part-2 complete\n",
+			dp_bridge->id);
+}
+
 static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 {
 	int rc = 0;
@@ -454,9 +510,6 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 		return;
 	}
 
-	_dp_mst_compute_config(bridge);
-	_dp_mst_bridge_pre_enable_part1(bridge);
-
 	rc = dp->prepare(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display prepare failed, rc=%d\n",
@@ -464,8 +517,11 @@ static void dp_mst_bridge_pre_enable(struct drm_bridge *drm_bridge)
 		return;
 	}
 
+	_dp_mst_compute_config(bridge);
+	_dp_mst_bridge_pre_enable_part1(bridge);
+
 	dp->set_stream_info(dp, bridge->dp_panel, bridge->id,
-			bridge->start_slot, bridge->slots);
+			bridge->start_slot, bridge->slots, bridge->pbn);
 
 	rc = dp->enable(dp, bridge->dp_panel);
 	if (rc) {
@@ -533,12 +589,16 @@ static void dp_mst_bridge_disable(struct drm_bridge *drm_bridge)
 
 	sde_connector_helper_bridge_disable(bridge->connector);
 
+	_dp_mst_bridge_pre_disable_part1(bridge);
+
 	rc = dp->pre_disable(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display pre disable failed, rc=%d\n",
 		       bridge->id, rc);
 		return;
 	}
+
+	_dp_mst_bridge_pre_disable_part2(bridge);
 
 	DP_MST_DEBUG("mst bridge [%d] disable complete\n", bridge->id);
 }
