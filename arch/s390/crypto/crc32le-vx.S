@@ -13,6 +13,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/nospec-insn.h>
 #include <asm/vx-insn.h>
 
 /* Vector register range containing CRC-32 constants */
@@ -75,6 +76,7 @@
 
 .previous
 
+	GEN_BR_THUNK %r14
 
 .text
 
@@ -263,6 +265,6 @@ crc32_le_vgfm_generic:
 
 .Ldone:
 	VLGVF	%r2,%v2,2
-	br	%r14
+	BR_EX	%r14
 
 .previous
