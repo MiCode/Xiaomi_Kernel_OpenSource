@@ -603,7 +603,11 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 
 void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl)
 {
-	int rc;
+	int rc = 0;
+	struct cam_actuator_soc_private  *soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	struct cam_sensor_power_ctrl_t *power_info =
+		&soc_private->power_info;
 
 	if (a_ctrl->cam_act_state == CAM_ACTUATOR_INIT)
 		return;
@@ -612,6 +616,7 @@ void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl)
 		rc = cam_actuator_power_down(a_ctrl);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
+		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
 	}
 
 	if (a_ctrl->cam_act_state >= CAM_ACTUATOR_ACQUIRE) {
@@ -622,6 +627,12 @@ void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl)
 		a_ctrl->bridge_intf.link_hdl = -1;
 		a_ctrl->bridge_intf.session_hdl = -1;
 	}
+
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
+
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 }
 
