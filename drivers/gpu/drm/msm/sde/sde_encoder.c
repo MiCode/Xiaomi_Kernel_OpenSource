@@ -2937,6 +2937,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			"input handler registration failed, rc = %d\n", ret);
 	}
 
+	sde_enc->delayed_off_work.work.worker = NULL;
+
 	ret = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (ret) {
 		SDE_ERROR_ENC(sde_enc, "sde resource control failed: %d\n",
