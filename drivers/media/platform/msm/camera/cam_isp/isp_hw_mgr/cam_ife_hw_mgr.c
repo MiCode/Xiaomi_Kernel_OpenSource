@@ -2948,6 +2948,52 @@ static int cam_ife_mgr_resume_hw(struct cam_ife_hw_mgr_ctx *ctx)
 	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_INCLUDE);
 }
 
+static int cam_ife_mgr_sof_irq_debug(
+	struct cam_ife_hw_mgr_ctx *ctx,
+	uint32_t sof_irq_enable)
+{
+	int rc = 0;
+	uint32_t i = 0;
+	struct cam_ife_hw_mgr_res     *hw_mgr_res = NULL;
+	struct cam_hw_intf            *hw_intf = NULL;
+	struct cam_isp_resource_node  *rsrc_node = NULL;
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf->hw_ops.process_cmd) {
+				rc |= hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_IFE_CSID_SOF_IRQ_DEBUG,
+					&sof_irq_enable,
+					sizeof(sof_irq_enable));
+			}
+		}
+	}
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			rsrc_node = hw_mgr_res->hw_res[i];
+			if (rsrc_node->process_cmd && (rsrc_node->res_id ==
+				CAM_ISP_HW_VFE_IN_CAMIF)) {
+				rc |= hw_mgr_res->hw_res[i]->process_cmd(
+					hw_mgr_res->hw_res[i],
+					CAM_ISP_HW_CMD_SOF_IRQ_DEBUG,
+					&sof_irq_enable,
+					sizeof(sof_irq_enable));
+			}
+		}
+	}
+
+	return rc;
+}
+
 static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
 	int rc = 0;
@@ -2978,6 +3024,9 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 		break;
 	case CAM_ISP_HW_MGR_CMD_RESUME_HW:
 		cam_ife_mgr_resume_hw(ctx);
+		break;
+	case CAM_ISP_HW_MGR_CMD_SOF_DEBUG:
+		cam_ife_mgr_sof_irq_debug(ctx, hw_cmd_args->u.sof_irq_enable);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",
