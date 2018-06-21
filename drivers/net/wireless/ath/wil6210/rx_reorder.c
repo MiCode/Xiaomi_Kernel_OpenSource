@@ -314,7 +314,10 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	 * bits 6..15: buffer size
 	 */
 	u16 req_agg_wsize = WIL_GET_BITS(param_set, 6, 15);
-	bool agg_amsdu = !!(param_set & BIT(0));
+	bool agg_amsdu = wil->use_enhanced_dma_hw &&
+		use_rx_hw_reordering &&
+		test_bit(WMI_FW_CAPABILITY_AMSDU, wil->fw_capabilities) &&
+		wil->amsdu_en && (param_set & BIT(0));
 	int ba_policy = param_set & BIT(1);
 	u16 status = WLAN_STATUS_SUCCESS;
 	u16 ssn = seq_ctrl >> 4;
