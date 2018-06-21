@@ -26,6 +26,8 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/spinlock.h>
 
+#include <linux/ipc_logging.h>
+
 /*
  * The Shared Memory Point to Point (SMP2P) protocol facilitates communication
  * of a single 32-bit value between two processors.  Each value has a single
@@ -160,6 +162,14 @@ struct qcom_smp2p {
 	struct list_head outbound;
 };
 
+static void *ilc;
+#define SMP2P_LOG_PAGE_CNT 2
+#define SMP2P_INFO(x, ...)	\
+do {	\
+	if (ilc) \
+		ipc_log_string(ilc, "[%s]: "x, __func__, ##__VA_ARGS__); \
+} while (0)
+
 static void qcom_smp2p_kick(struct qcom_smp2p *smp2p)
 {
 	/* Make sure any updated data is written before the kick */
@@ -179,6 +189,7 @@ static bool qcom_smp2p_check_ssr(struct qcom_smp2p *smp2p)
 	if (restart == smp2p->ssr_ack)
 		return false;
 
+	SMP2P_INFO("%d: SSR DETECTED\n", smp2p->remote_pid);
 	return true;
 }
 
@@ -212,6 +223,8 @@ static void qcom_smp2p_negotiate(struct qcom_smp2p *smp2p)
 			smp2p->ssr_ack_enabled = true;
 
 		smp2p->open = true;
+		SMP2P_INFO("%d: state=open ssr_ack=%d\n", smp2p->remote_pid,
+			   smp2p->ssr_ack_enabled);
 	}
 }
 
@@ -252,6 +265,9 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 		/* No changes of this entry? */
 		if (!status)
 			continue;
+
+		SMP2P_INFO("%d: %s: status:%0x val:%0x\n",
+			   smp2p->remote_pid, entry->name, status, val);
 
 		for_each_set_bit(i, &status, 32) {
 			if ((val & BIT(i) && test_bit(i, entry->irq_rising)) ||
@@ -523,6 +539,9 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 	struct qcom_smp2p *smp2p;
 	const char *key;
 	int ret;
+
+	if (!ilc)
+		ilc = ipc_log_context_create(SMP2P_LOG_PAGE_CNT, "smp2p", 0);
 
 	smp2p = devm_kzalloc(&pdev->dev, sizeof(*smp2p), GFP_KERNEL);
 	if (!smp2p)
