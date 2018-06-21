@@ -3532,7 +3532,6 @@ static int __init_bus(struct venus_hfi_device *device)
 		devfreq_suspend_device(bus->devfreq);
 	}
 
-	device->bus_vote = DEFAULT_BUS_VOTE;
 	return 0;
 
 err_add_dev:
