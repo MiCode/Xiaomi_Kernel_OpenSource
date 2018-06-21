@@ -1895,20 +1895,22 @@ static int __qseecom_process_blocked_on_listener_legacy(
 	ptr_app->blocked_on_listener_id = resp->data;
 
 	/* sleep until listener is available */
-	qseecom.app_block_ref_cnt++;
-	ptr_app->app_blocked = true;
-	mutex_unlock(&app_access_lock);
-	if (wait_event_freezable(
+	do {
+		qseecom.app_block_ref_cnt++;
+		ptr_app->app_blocked = true;
+		mutex_unlock(&app_access_lock);
+		if (wait_event_freezable(
 			list_ptr->listener_block_app_wq,
 			!list_ptr->listener_in_use)) {
-		pr_err("Interrupted: listener_id %d, app_id %d\n",
+			pr_err("Interrupted: listener_id %d, app_id %d\n",
 				resp->data, ptr_app->app_id);
-		ret = -ERESTARTSYS;
-		goto exit;
-	}
-	mutex_lock(&app_access_lock);
-	ptr_app->app_blocked = false;
-	qseecom.app_block_ref_cnt--;
+			ret = -ERESTARTSYS;
+			goto exit;
+		}
+		mutex_lock(&app_access_lock);
+		ptr_app->app_blocked = false;
+		qseecom.app_block_ref_cnt--;
+	}  while (list_ptr->listener_in_use);
 
 	ptr_app->blocked_on_listener_id = 0;
 	/* notify the blocked app that listener is available */
@@ -1959,18 +1961,20 @@ static int __qseecom_process_blocked_on_listener_smcinvoke(
 	pr_debug("lsntr %d in_use = %d\n",
 			resp->data, list_ptr->listener_in_use);
 	/* sleep until listener is available */
-	qseecom.app_block_ref_cnt++;
-	mutex_unlock(&app_access_lock);
-	if (wait_event_freezable(
+	do {
+		qseecom.app_block_ref_cnt++;
+		mutex_unlock(&app_access_lock);
+		if (wait_event_freezable(
 			list_ptr->listener_block_app_wq,
 			!list_ptr->listener_in_use)) {
-		pr_err("Interrupted: listener_id %d, session_id %d\n",
+			pr_err("Interrupted: listener_id %d, session_id %d\n",
 				resp->data, session_id);
-		ret = -ERESTARTSYS;
-		goto exit;
-	}
-	mutex_lock(&app_access_lock);
-	qseecom.app_block_ref_cnt--;
+			ret = -ERESTARTSYS;
+			goto exit;
+		}
+		mutex_lock(&app_access_lock);
+		qseecom.app_block_ref_cnt--;
+	}  while (list_ptr->listener_in_use);
 
 	/* notify TZ that listener is available */
 	pr_warn("Lsntr %d is available, unblock session(%d) in TZ\n",
