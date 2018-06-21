@@ -7044,31 +7044,6 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 	return (estimated_capacity <= capacity_curr_of(target_cpu));
 }
 
-static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
-			   struct cpumask *rtg_target,
-			   unsigned long target_capacity)
-{
-	/* Are all CPUs isolated in this group? */
-	if (!sg->group_weight)
-		return true;
-
-	/*
-	 * Don't skip a group if a task affinity allows it
-	 * to run only on that group.
-	 */
-	if (cpumask_subset(&p->cpus_allowed, sched_group_span(sg)))
-		return false;
-
-	/*
-	 * if we have found a target cpu within a group, don't bother checking
-	 * other groups
-	 */
-	if (target_capacity != ULONG_MAX)
-		return true;
-
-	return false;
-}
-
 static int start_cpu(struct task_struct *p, bool boosted,
 		     struct cpumask *rtg_target)
 {
@@ -7142,9 +7117,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	/* Scan CPUs in all SDs */
 	sg = sd->groups;
 	do {
-		if (skip_sg(p, sg, fbt_env->rtg_target, target_capacity))
-			continue;
-
 		for_each_cpu_and(i, &p->cpus_allowed, sched_group_span(sg)) {
 			unsigned long capacity_curr = capacity_curr_of(i);
 			unsigned long capacity_orig = capacity_orig_of(i);
@@ -7382,6 +7354,13 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		if (fbt_env->placement_boost &&
 			!is_max_capacity_cpu(group_first_cpu(sg)))
 			target_capacity = ULONG_MAX;
+
+		/*
+		 * if we have found a target cpu within a group, don't bother
+		 * checking other groups
+		 */
+		if (target_capacity != ULONG_MAX)
+			break;
 
 	} while (sg = sg->next, sg != sd->groups);
 
