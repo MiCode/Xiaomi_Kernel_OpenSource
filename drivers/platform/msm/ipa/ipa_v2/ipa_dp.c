@@ -2985,6 +2985,7 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	spin_lock_bh(&sys->spinlock);
 	if (unlikely(list_empty(&sys->head_desc_list))) {
 		WARN_ON(1);
+		spin_unlock_bh(&sys->spinlock);
 		return;
 	}
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
@@ -3016,6 +3017,7 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	spin_lock_bh(&sys->spinlock);
 	if (unlikely(list_empty(&sys->head_desc_list))) {
 		WARN_ON(1);
+		spin_unlock_bh(&sys->spinlock);
 		return;
 	}
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
