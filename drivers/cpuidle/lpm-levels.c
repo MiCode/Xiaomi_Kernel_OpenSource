@@ -159,7 +159,7 @@ static uint32_t least_cluster_latency(struct lpm_cluster *cluster,
 	uint32_t latency = 0;
 	int i;
 
-	if (!cluster->list.next) {
+	if (list_empty(&cluster->list)) {
 		for (i = 0; i < cluster->nlevels; i++) {
 			level = &cluster->levels[i];
 			pwr_params = &level->pwr;
