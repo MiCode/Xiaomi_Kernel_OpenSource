@@ -138,7 +138,7 @@
 		ranges;
 
 		external_image_mem: external_image__region@0 {
-			reg = <0x0 0x87a00000 0x0 0x0600000>;
+			reg = <0x0 0x87900000 0x0 0x0700000>;
 			compatible = "removed-dma-pool";
 			no-map;
 		};
@@ -1891,9 +1891,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@87a00000 {
+	qcom_seecom: qseecom@87900000 {
 		compatible = "qcom,qseecom";
-		reg = <0x87a00000 0x200000>;
+		reg = <0x87900000 0x300000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <0>;
