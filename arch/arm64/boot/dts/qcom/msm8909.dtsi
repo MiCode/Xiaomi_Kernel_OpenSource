@@ -353,6 +353,7 @@
 		reg = <0x1800000 0x80000>,
 		      <0xb016000 0x00040>;
 		reg-names = "cc_base", "apcs_base";
+		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
 		vdd_dig-supply = <&pm8909_s1_corner>;
 		vdd_sr2_dig-supply = <&pm8909_s1_corner_ao>;
 		vdd_sr2_pll-supply = <&pm8909_l7_ao>;
