@@ -564,7 +564,12 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->link->process_request(dp->link);
 	dp->panel->handle_sink_request(dp->panel);
 
-	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+	if (dp->debug->max_pclk_khz)
+		dp->dp_display.max_pclk_khz = dp->debug->max_pclk_khz;
+	else
+		dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+
+	pr_debug("dp max_pclk_khz = %d\n", dp->dp_display.max_pclk_khz);
 
 	dp_display_process_mst_hpd_high(dp);
 notify:
@@ -1269,8 +1274,10 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
-	if (!rc)
-		dp->power_on = true;
+	if (rc)
+		goto end;
+
+	dp->power_on = true;
 
 stream_setup:
 	rc = dp_display_stream_enable(dp, panel);
@@ -1285,7 +1292,6 @@ static void dp_display_stream_post_enable(struct dp_display_private *dp,
 {
 	dp_panel->spd_config(dp_panel);
 	dp_panel->setup_hdr(dp_panel, NULL);
-	dp_panel->hw_cfg(dp_panel);
 
 	dp_panel->audio->register_ext_disp(dp_panel->audio);
 }
