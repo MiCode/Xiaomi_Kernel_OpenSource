@@ -612,6 +612,7 @@
 
 		coresight-name = "coresight-cti-cpu0";
 		cpu = <&CPU0>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -627,6 +628,7 @@
 
 		coresight-name = "coresight-cti-cpu1";
 		cpu = <&CPU1>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -642,6 +644,7 @@
 
 		coresight-name = "coresight-cti-cpu2";
 		cpu = <&CPU2>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -657,6 +660,7 @@
 
 		coresight-name = "coresight-cti-cpu3";
 		cpu = <&CPU3>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
