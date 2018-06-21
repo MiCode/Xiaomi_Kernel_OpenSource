@@ -1640,6 +1640,10 @@
 		qcom,has-vsys-adc-channel;
 		qcom,wcnss-adc_tm = <&pm8937_adc_tm>;
 	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
 };
 
 #include "pm8937-rpm-regulator.dtsi"
