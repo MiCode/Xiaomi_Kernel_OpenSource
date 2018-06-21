@@ -453,11 +453,12 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 
 #define MIN_FIFO_FULL_TIME_MS			12000
 static int process_rt_fifo_data(struct qpnp_qg *chip,
-				bool vbat_low, bool update_smb)
+			bool update_vbat_low, bool update_smb)
 {
 	int rc = 0;
 	ktime_t now = ktime_get();
 	s64 time_delta;
+	u8 fifo_length;
 
 	/*
 	 * Reject the FIFO read event if there are back-to-back requests
@@ -466,10 +467,11 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 	 */
 	time_delta = ktime_ms_delta(now, chip->last_user_update_time);
 
-	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms vbat_low=%d\n",
-				time_delta, vbat_low);
+	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms update_vbat_low=%d update_smb=%d\n",
+				time_delta, update_vbat_low, update_smb);
 
-	if (time_delta > MIN_FIFO_FULL_TIME_MS || vbat_low || update_smb) {
+	if (time_delta > MIN_FIFO_FULL_TIME_MS || update_vbat_low
+						|| update_smb) {
 		rc = qg_master_hold(chip, true);
 		if (rc < 0) {
 			pr_err("Failed to hold master, rc=%d\n", rc);
@@ -482,17 +484,18 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 			goto done;
 		}
 
-		if (vbat_low) {
+		if (update_vbat_low) {
 			/* change FIFO length */
-			rc = qg_update_fifo_length(chip,
-					chip->dt.s2_vbat_low_fifo_length);
+			fifo_length = chip->vbat_low ?
+					chip->dt.s2_vbat_low_fifo_length :
+					chip->dt.s2_fifo_length;
+			rc = qg_update_fifo_length(chip, fifo_length);
 			if (rc < 0)
 				goto done;
 
 			qg_dbg(chip, QG_DEBUG_STATUS,
 				"FIFO length updated to %d vbat_low=%d\n",
-					chip->dt.s2_vbat_low_fifo_length,
-					vbat_low);
+					fifo_length, chip->vbat_low);
 		}
 
 		if (update_smb) {
@@ -1165,7 +1168,7 @@ static irqreturn_t qg_vbat_low_handler(int irq, void *data)
 
 	chip->vbat_low = !!(status & VBAT_LOW_INT_RT_STS_BIT);
 
-	rc = process_rt_fifo_data(chip, chip->vbat_low, false);
+	rc = process_rt_fifo_data(chip, true, false);
 	if (rc < 0)
 		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
@@ -1377,7 +1380,7 @@ static int qg_get_learned_capacity(void *data, int64_t *learned_cap_uah)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	rc = qg_sdam_multibyte_read(QG_SDAM_LEARNED_CAPACITY_OFFSET,
 					(u8 *)&cc_mah, 2);
@@ -1402,7 +1405,7 @@ static int qg_store_learned_capacity(void *data, int64_t learned_cap_uah)
 		return -ENODEV;
 
 	if (chip->battery_missing || !learned_cap_uah)
-		return -EPERM;
+		return -ENODEV;
 
 	cc_mah = div64_s64(learned_cap_uah, 1000);
 	rc = qg_sdam_multibyte_write(QG_SDAM_LEARNED_CAPACITY_OFFSET,
@@ -1442,7 +1445,7 @@ static int qg_restore_cycle_count(void *data, u16 *buf, int length)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	if (!buf || length > BUCKET_COUNT)
 		return -EINVAL;
@@ -1470,7 +1473,7 @@ static int qg_store_cycle_count(void *data, u16 *buf, int id, int length)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	if (!buf || length > BUCKET_COUNT * 2 || id < 0 ||
 		id > BUCKET_COUNT - 1 ||
@@ -1612,7 +1615,7 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	switch (param) {
 	case TTF_MSOC:
@@ -1675,7 +1678,7 @@ static int qg_ttf_awake_voter(void *data, bool val)
 		return -ENODEV;
 
 	if (chip->battery_missing || !chip->profile_loaded)
-		return -EPERM;
+		return -ENODEV;
 
 	vote(chip->awake_votable, TTF_AWAKE_VOTER, val, 0);
 
