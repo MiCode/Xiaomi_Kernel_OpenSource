@@ -48,7 +48,6 @@ enum mmc_drv_op {
 };
 
 struct mmc_queue_req {
-	struct request		*req;
 	struct mmc_blk_request	brq;
 	struct scatterlist	*sg;
 	struct mmc_async_req	areq;
@@ -75,17 +74,11 @@ struct mmc_queue {
 	bool			asleep;
 	struct mmc_blk_data	*blkdata;
 	struct request_queue	*queue;
-	struct mmc_queue_req	mqrq[2];
-	struct mmc_queue_req	*mqrq_cur;
-	struct mmc_queue_req	*mqrq_prev;
-	struct mmc_queue_req	*mqrq_cmdq;
 	struct work_struct	cmdq_err_work;
 
 	struct completion	cmdq_pending_req_done;
 	struct completion	cmdq_shutdown_complete;
 	struct request		*cmdq_req_peeked;
-	enum mmc_blk_status (*err_check_fn)(struct mmc_card *,
-				struct mmc_async_req *);
 	void (*cmdq_shutdown)(struct mmc_queue *);
 	/*
 	 * FIXME: this counter is not a very reliable way of keeping

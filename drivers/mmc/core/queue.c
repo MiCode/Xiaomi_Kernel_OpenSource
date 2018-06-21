@@ -220,43 +220,23 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, gfp_t gfp)
 
 int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 {
-	int i, ret = 0;
+	int ret = 0;
 	/* one slot is reserved for dcmd requests */
 	int q_depth = card->ext_csd.cmdq_depth - 1;
 
 	card->cmdq_init = false;
 	if (!(card->host->caps2 & MMC_CAP2_CMD_QUEUE)) {
-		ret = -ENOTSUPP;
-		goto out;
+		return -ENOTSUPP;
 	}
 
 	init_waitqueue_head(&card->host->cmdq_ctx.queue_empty_wq);
 	init_waitqueue_head(&card->host->cmdq_ctx.wait);
 
-	mq->mqrq_cmdq = kcalloc(q_depth,
-				sizeof(struct mmc_queue_req), GFP_KERNEL);
-	if (!mq->mqrq_cmdq) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	/* sg is allocated for data request slots only */
-	for (i = 0; i < q_depth; i++) {
-		mq->mqrq_cmdq[i].sg =
-			mmc_alloc_sg(card->host->max_segs, GFP_KERNEL);
-		if (ret) {
-			pr_warn("%s: unable to allocate cmdq sg of size %d\n",
-				mmc_card_name(card),
-				card->host->max_segs);
-			goto free_mqrq_sg;
-		}
-	}
-
 	ret = blk_queue_init_tags(mq->queue, q_depth, NULL, BLK_TAG_ALLOC_FIFO);
 	if (ret) {
 		pr_warn("%s: unable to allocate cmdq tags %d\n",
 				mmc_card_name(card), q_depth);
-		goto free_mqrq_sg;
+		return ret;
 	}
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
@@ -268,30 +248,14 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	blk_queue_rq_timeout(mq->queue, 120 * HZ);
 	card->cmdq_init = true;
 
-	goto out;
-
-free_mqrq_sg:
-	for (i = 0; i < q_depth; i++)
-		kfree(mq->mqrq_cmdq[i].sg);
-	kfree(mq->mqrq_cmdq);
-	mq->mqrq_cmdq = NULL;
-out:
 	return ret;
 }
 
 void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card)
 {
-	int i;
-	int q_depth = card->ext_csd.cmdq_depth - 1;
-
 	blk_free_tags(mq->queue->queue_tags);
 	mq->queue->queue_tags = NULL;
 	blk_queue_free_tags(mq->queue);
-
-	for (i = 0; i < q_depth; i++)
-		kfree(mq->mqrq_cmdq[i].sg);
-	kfree(mq->mqrq_cmdq);
-	mq->mqrq_cmdq = NULL;
 }
 
 static int mmc_queue_thread(void *d)
@@ -430,9 +394,21 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	mq->card = card;
 	if (card->ext_csd.cmdq_support &&
 	    (area_type == MMC_BLK_DATA_AREA_MAIN)) {
-		mq->queue = blk_init_queue(mmc_cmdq_dispatch_req, lock);
+		mq->queue = blk_alloc_queue(GFP_KERNEL);
 		if (!mq->queue)
 			return -ENOMEM;
+		mq->queue->queue_lock = lock;
+		mq->queue->request_fn = mmc_cmdq_dispatch_req;
+		mq->queue->init_rq_fn = mmc_init_request;
+		mq->queue->exit_rq_fn = mmc_exit_request;
+		mq->queue->cmd_size = sizeof(struct mmc_queue_req);
+		mq->queue->queuedata = mq;
+		ret = blk_init_allocated_queue(mq->queue);
+		if (ret) {
+			blk_cleanup_queue(mq->queue);
+			return ret;
+		}
+
 		mmc_cmdq_setup_queue(mq, card);
 		ret = mmc_cmdq_init(mq, card);
 		if (ret) {
@@ -444,7 +420,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			/* hook for pm qos cmdq init */
 			if (card->host->cmdq_ops->init)
 				card->host->cmdq_ops->init(card->host);
-			mq->queue->queuedata = mq;
 			mq->thread = kthread_run(mmc_cmdq_thread, mq,
 						 "mmc-cmdqd/%d%s",
 						 host->index,
