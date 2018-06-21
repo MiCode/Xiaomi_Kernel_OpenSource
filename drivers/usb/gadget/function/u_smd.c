@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -495,7 +495,7 @@ static unsigned int convert_uart_sigs_to_acm(unsigned uart_sig)
 	unsigned int acm_sig = 0;
 
 	/* should this needs to be in calling functions ??? */
-	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR);
+	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR | TIOCM_CTS);
 
 	if (uart_sig & TIOCM_RI)
 		acm_sig |= SMD_ACM_CTRL_RI;
@@ -503,6 +503,8 @@ static unsigned int convert_uart_sigs_to_acm(unsigned uart_sig)
 		acm_sig |= SMD_ACM_CTRL_DCD;
 	if (uart_sig & TIOCM_DSR)
 		acm_sig |= SMD_ACM_CTRL_DSR;
+	if (uart_sig & TIOCM_CTS)
+		acm_sig |= SMD_ACM_CTRL_BRK;
 
 	return acm_sig;
 }

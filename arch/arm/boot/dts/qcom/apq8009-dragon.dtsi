@@ -1,0 +1,110 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#include "msm8909-mtp.dtsi"
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pm8916-mtp.dtsi"
+#include "apq8009-audio-external_codec.dtsi"
+
+&soc {
+	ext-codec {
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+	};
+
+	sound-9335 {
+		status = "disabled";
+	};
+
+	i2c@78b8000 {
+		wcd9xxx_codec@d {
+		  status = "disabled";
+		};
+	};
+
+	vph_pwr_vreg: vph_pwr_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "vph_pwr";
+		regulator-always-on;
+	};
+
+	mdss_mdp: qcom,mdss_mdp@1a00000 {
+		status = "disabled";
+	};
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&usb_otg {
+		interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
+		interrupt-names = "core_irq", "async_irq", "phy_irq";
+	qcom,hsusb-otg-mode = <3>;
+		qcom,switch-vbus-w-id;
+	vbus_otg-supply = <&vph_pwr_vreg>;
+};
+
+&external_image_mem {
+	reg = <0x0 0x87a00000 0x0 0x0600000>;
+};
+
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x01e00000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x89e00000 0x0 0x0700000>;
+};
+
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <58 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,charging-disabled;
+		qcom,empty-soc-disabled;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <200>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		regulator-name = "smb1360_otg_vreg";
+		status= "disabled";
+	};
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};

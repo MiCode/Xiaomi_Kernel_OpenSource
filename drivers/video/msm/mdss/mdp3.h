@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #define MDP_CORE_CLK_RATE_SVS	160000000
 #define MDP_CORE_CLK_RATE_SUPER_SVS	200000000
 #define MDP_CORE_CLK_RATE_MAX	307200000
+#define SEC_DEVICE_MDP3         1
 
 #define CLK_FUDGE_NUM		12
 #define CLK_FUDGE_DEN		10
@@ -92,6 +93,12 @@ enum {
 	DI_PARTITION_NUM = 0,
 	DI_DOMAIN_NUM = 1,
 	DI_MAX,
+};
+
+enum mdp3_sd_transition {
+	NO_TRANSITION,
+	NONSECURE_TO_SECURE,
+	SECURE_TO_NONSECURE,
 };
 
 struct mdp3_bus_handle_map {
@@ -253,6 +260,7 @@ int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 int mdp3_put_img(struct mdp3_img_data *data, int client);
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
 		int client);
+int mdp3_map_layer(struct mdp3_img_data *data, int client);
 int mdp3_iommu_enable(int client);
 int mdp3_iommu_disable(int client);
 int mdp3_iommu_is_attached(void);

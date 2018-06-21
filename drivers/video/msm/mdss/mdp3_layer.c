@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,6 @@ static int __mdp3_map_layer_buffer(struct msm_fb_data_type *mfd,
 		struct mdp_input_layer *input_layer)
 {
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
-	struct mdp3_dma *dma = mdp3_session->dma;
 	struct mdp_input_layer *layer = NULL;
 	struct mdp_layer_buffer *buffer;
 	struct msmfb_data img;
@@ -221,18 +220,12 @@ static int __mdp3_map_layer_buffer(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	if (layer->flags & MDP_LAYER_SECURE_DISPLAY_SESSION)
+		data.flags |=  MDP_SECURE_DISPLAY_OVERLAY_SESSION;
+
 	rc = mdp3_get_img(&img, &data, MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
-		goto err;
-	}
-
-	if (data.len < dma->source_config.stride * dma->source_config.height) {
-		pr_err("buf size(0x%lx) is smaller than dma config(0x%x)\n",
-			data.len, (dma->source_config.stride *
-			dma->source_config.height));
-		mdp3_put_img(&data, MDP3_CLIENT_DMA_P);
-		rc = -EINVAL;
 		goto err;
 	}
 
@@ -247,6 +240,23 @@ err:
 	if (is_panel_type_cmd)
 		mdp3_iommu_disable(MDP3_CLIENT_DMA_P);
 	return rc;
+}
+
+static void mdp3_validate_secure_layer(struct msm_fb_data_type *mfd,
+		 struct mdp_input_layer *input_layer)
+{
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct mdp_input_layer *layer = &input_layer[0];
+
+	if (!atomic_read(&mdp3_session->secure_display) &&
+			(layer->flags & MDP_LAYER_SECURE_DISPLAY_SESSION)) {
+		mdp3_session->transition_state = NONSECURE_TO_SECURE;
+	} else if (atomic_read(&mdp3_session->secure_display) &&
+			!(layer->flags & MDP_LAYER_SECURE_DISPLAY_SESSION)) {
+		mdp3_session->transition_state = SECURE_TO_NONSECURE;
+	} else {
+		mdp3_session->transition_state = NO_TRANSITION;
+	}
 }
 
 int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
@@ -295,6 +305,8 @@ int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
 		mutex_unlock(&mdp3_session->lock);
 		return ret;
 	}
+
+	mdp3_validate_secure_layer(mfd, layer);
 
 	ret = __mdp3_map_layer_buffer(mfd, layer);
 	if (ret) {

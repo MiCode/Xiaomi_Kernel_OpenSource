@@ -1,5 +1,5 @@
 /* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -301,7 +301,7 @@ struct mdp3_dma {
 	int (*dma_sync_config)(struct mdp3_dma *dma, struct mdp3_dma_source
 				*source_config, struct mdp3_tear_check *te);
 
-	void (*dma_config_source)(struct mdp3_dma *dma);
+	void (*dma_config_source)(struct mdp3_dma *dma, bool enable_secure);
 
 	int (*start)(struct mdp3_dma *dma, struct mdp3_intf *intf);
 
@@ -318,8 +318,8 @@ struct mdp3_dma {
 			struct mdp3_dma_lut_config *config,
 			struct fb_cmap *cmap);
 
-	int (*update)(struct mdp3_dma *dma,
-			void *buf, struct mdp3_intf *intf, void *data);
+	int (*update)(struct mdp3_dma *dma, void *buf, struct mdp3_intf *intf,
+			void *data, bool secure);
 
 	int (*update_cursor)(struct mdp3_dma *dma, int x, int y);
 
@@ -338,6 +338,10 @@ struct mdp3_dma {
 
 	void (*dma_done_notifier)(struct mdp3_dma *dma,
 			struct mdp3_notification *dma_client);
+
+	int (*wait_for_dma)(struct mdp3_dma *dma, struct mdp3_intf *intf);
+
+	int (*handle_null_commit)(struct mdp3_dma *dma, struct mdp3_intf *intf);
 };
 
 struct mdp3_video_intf_cfg {

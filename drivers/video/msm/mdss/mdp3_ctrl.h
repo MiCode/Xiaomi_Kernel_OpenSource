@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2014, 2016-2017 The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,12 +77,16 @@ struct mdp3_session_data {
 
 	bool dma_active;
 	struct completion dma_completion;
+	struct completion secure_completion;
+
 	int (*wait_for_dma_done)(struct mdp3_session_data *session);
 
 	/* For retire fence */
 	struct sw_sync_timeline *vsync_timeline;
 	int retire_cnt;
 	struct work_struct retire_work;
+	atomic_t secure_display;
+	int transition_state;
 };
 
 void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq);
@@ -91,5 +96,6 @@ int mdp3_bufq_push(struct mdp3_buffer_queue *bufq,
 int mdp3_ctrl_get_source_format(u32 imgType);
 int mdp3_ctrl_get_pack_pattern(u32 imgType);
 int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
+int config_secure_display(struct mdp3_session_data *mdp3_session);
 
 #endif /* MDP3_CTRL_H */

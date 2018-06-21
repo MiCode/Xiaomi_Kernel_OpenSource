@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2013-2014, 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -30,6 +30,7 @@
 #include "mdp3_hwio.h"
 #include "mdp3.h"
 #include "mdss_debug.h"
+#include "mdp3_ctrl.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
 #define MDP_RELEASE_BW_TIMEOUT 50
@@ -1492,7 +1493,7 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 static void mdp3_ppp_blit_handler(struct kthread_work *work)
 {
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
-	struct blit_req_list *req;
+	struct blit_req_list *req = NULL;
 	int i, rc = 0;
 	bool smart_blit = false;
 	int smart_blit_fg_index = -1;
@@ -1512,7 +1513,20 @@ static void mdp3_ppp_blit_handler(struct kthread_work *work)
 			return;
 		}
 	}
+
 	while (req) {
+		for (i = 0; i < req->count; i++) {
+			rc = mdp3_map_layer(&req->src_data[i], MDP3_CLIENT_PPP);
+			if (rc < 0 || req->src_data[i].len == 0) {
+				pr_err("mdp_ppp: couldn't retrieve src img from mem\n");
+				goto map_err;
+			}
+			rc = mdp3_map_layer(&req->dst_data[i], MDP3_CLIENT_PPP);
+			if (rc < 0 || req->dst_data[i].len == 0) {
+				pr_err("mdp_ppp: couldn't retrieve dest img from mem\n");
+				goto map_err;
+			}
+		}
 		mdp3_ppp_wait_for_fence(req);
 		mdp3_calc_ppp_res(mfd, req);
 		if (ppp_res.clk_rate != ppp_stat->mdp_clk) {
@@ -1575,6 +1589,14 @@ static void mdp3_ppp_blit_handler(struct kthread_work *work)
 	mod_timer(&ppp_stat->free_bw_timer, jiffies +
 		msecs_to_jiffies(MDP_RELEASE_BW_TIMEOUT));
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
+	return;
+
+map_err:
+	 for (i = 0; i < req->count; i++) {
+		mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
+		mdp3_put_img(&req->dst_data[i], MDP3_CLIENT_PPP);
+	}
+	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
 int mdp3_ppp_parse_req(void __user *p,
@@ -1583,6 +1605,8 @@ int mdp3_ppp_parse_req(void __user *p,
 {
 	struct blit_req_list *req;
 	struct blit_req_queue *req_q = &ppp_stat->req_q;
+	struct msm_fb_data_type *mfd = ppp_stat->mfd;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 	struct sync_fence *fence = NULL;
 	int count, rc, idx, i;
 	count = req_list_header->count;
@@ -1623,15 +1647,14 @@ int mdp3_ppp_parse_req(void __user *p,
 	for (i = 0; i < count; i++) {
 		rc = mdp3_ppp_get_img(&req->req_list[i].src,
 				&req->req_list[i], &req->src_data[i]);
-		if (rc < 0 || req->src_data[i].len == 0) {
+		if (rc) {
 			pr_err("mdp_ppp: couldn't retrieve src img from mem\n");
 			goto parse_err_1;
 		}
 
 		rc = mdp3_ppp_get_img(&req->req_list[i].dst,
 				&req->req_list[i], &req->dst_data[i]);
-		if (rc < 0 || req->dst_data[i].len == 0) {
-			mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
+		if (rc) {
 			pr_err("mdp_ppp: couldn't retrieve dest img from mem\n");
 			goto parse_err_1;
 		}
@@ -1653,6 +1676,31 @@ int mdp3_ppp_parse_req(void __user *p,
 		}
 	} else {
 		fence = req->cur_rel_fence;
+	}
+
+	/*
+	 * Whenever we get a blit request after a secure session, we need
+	 * to wait for the previous secure dma transfer to complete for command
+	 * mode panels. Since blit requests are always non-secure, add support
+	 * for transition from secure to non-secure after the secure dma is
+	 * completed.
+	 */
+
+	if (atomic_read(&mdp3_session->secure_display) &&
+			(mfd->panel.type == MDP3_DMA_OUTPUT_SEL_DSI_CMD)) {
+		rc = mdp3_session->dma->wait_for_dma(mdp3_session->dma,
+					mdp3_session->intf);
+		if (!rc) {
+			pr_err("secure dma done not completed\n");
+			rc = -ETIMEDOUT;
+			goto parse_err_2;
+		}
+		mdp3_session->transition_state = SECURE_TO_NONSECURE;
+		rc = config_secure_display(mdp3_session);
+		if (rc) {
+			pr_err("Configuring secure display failed\n");
+			goto parse_err_2;
+		}
 	}
 
 	mdp3_ppp_req_push(req_q, req);

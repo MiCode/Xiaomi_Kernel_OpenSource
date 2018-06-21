@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,9 +56,9 @@
 
 
 #define IPA_MHI_FUNC_ENTRY() \
-	IPA_MHI_DBG_LOW("ENTRY\n")
+	IPA_MHI_DBG("ENTRY\n")
 #define IPA_MHI_FUNC_EXIT() \
-	IPA_MHI_DBG_LOW("EXIT\n")
+	IPA_MHI_DBG("EXIT\n")
 
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
@@ -537,6 +537,7 @@ int ipa3_mhi_resume_channels_internal(enum ipa_client_type client,
 	int res;
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
+	union __packed gsi_channel_scratch gsi_ch_scratch;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -551,11 +552,34 @@ int ipa3_mhi_resume_channels_internal(enum ipa_client_type client,
 		/*
 		 * set polling mode bit to DB mode before
 		 * resuming the channel
+		 *
+		 * For MHI-->IPA pipes:
+		 * when resuming due to transition to M0,
+		 * set the polling mode bit to 0.
+		 * In other cases, restore it's value form
+		 * when you stopped the channel.
+		 * Here, after successful resume client move to M0 state.
+		 * So, by default setting polling mode bit to 0.
+		 *
+		 * For IPA-->MHI pipe:
+		 * always restore the polling mode bit.
 		 */
-		res = gsi_write_channel_scratch(
-			ep->gsi_chan_hdl, ch_scratch);
+
+		res = gsi_read_channel_scratch(
+			ep->gsi_chan_hdl, &gsi_ch_scratch);
 		if (res) {
-			IPA_MHI_ERR("write ch scratch fail %d\n"
+			IPA_MHI_ERR("Read ch scratch fail %d\n"
+				, res);
+			return res;
+		}
+
+		if (IPA_CLIENT_IS_PROD(client))
+			gsi_ch_scratch.mhi.polling_mode = false;
+
+		res = gsi_write_channel_scratch(
+			ep->gsi_chan_hdl, gsi_ch_scratch);
+		if (res) {
+			IPA_MHI_ERR("Write ch scratch fail %d\n"
 				, res);
 			return res;
 		}

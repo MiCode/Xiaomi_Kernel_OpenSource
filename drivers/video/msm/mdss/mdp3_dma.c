@@ -1,5 +1,5 @@
 /* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -17,6 +17,7 @@
 #include "mdp3_dma.h"
 #include "mdp3_hwio.h"
 #include "mdss_debug.h"
+#include "mdp3_ctrl.h"
 
 #define DMA_STOP_POLL_SLEEP_US 1000
 #define DMA_STOP_POLL_TIMEOUT_US 200000
@@ -349,7 +350,7 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-static void mdp3_dmap_config_source(struct mdp3_dma *dma)
+static void mdp3_dmap_config_source(struct mdp3_dma *dma, bool enable_secure)
 {
 	struct mdp3_dma_source *source_config = &dma->source_config;
 	u32 dma_p_cfg_reg, dma_p_size;
@@ -361,6 +362,11 @@ static void mdp3_dmap_config_source(struct mdp3_dma *dma)
 	dma_p_cfg_reg |= dma->output_config.pack_pattern << 8;
 
 	dma_p_size = dma->roi.w | (dma->roi.h << 16);
+
+	if (enable_secure)
+		dma_p_cfg_reg |= BIT(21);
+	else
+		dma_p_cfg_reg &= ~BIT(21);
 
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
@@ -404,7 +410,7 @@ static int mdp3_dmas_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-static void mdp3_dmas_config_source(struct mdp3_dma *dma)
+static void mdp3_dmas_config_source(struct mdp3_dma *dma, bool enable_secure)
 {
 	struct mdp3_dma_source *source_config = &dma->source_config;
 	u32 dma_s_cfg_reg, dma_s_size;
@@ -652,45 +658,118 @@ int dma_bpp(int format)
 	return bpp;
 }
 
+static int mdp3_handle_null_commit(struct mdp3_dma *dma, struct mdp3_intf *intf)
+{
+	int rc = 0;
+	int retry_count = 2;
+	unsigned long flag;
+	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
+
+	if (!dma->source_config.format && !dma->source_config.stride) {
+		pr_debug("Null commit already handled\n");
+		return 0;
+	}
+
+	/*
+	 * Size and stride are set to 0 to ensure that DMA pipe does not
+	 * fetch anything whenever we get a null commit. The values will be
+	 * reconfigured to the correct values in the next commit.
+	 */
+
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, 0);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE, 0);
+
+	spin_lock_irqsave(&dma->dma_lock, flag);
+	dma->source_config.format = 0;
+	dma->source_config.stride = 0;
+	mdp3_irq_disable(MDP3_INTR_LCDC_UNDERFLOW);
+	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_UNDERFLOW_CTL, 0x80000000);
+
+	if (!intf->active) {
+		pr_debug("%s start interface\n", __func__);
+		intf->start(intf);
+	}
+
+	/*
+	 * Make sure that all the configurations required for
+	 * null commit is done before waiting for the vsync.
+	 */
+	mb();
+	dma->vsync_status = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
+		(1 << MDP3_INTR_LCDC_START_OF_FRAME);
+	init_completion(&dma->vsync_comp);
+	spin_unlock_irqrestore(&dma->dma_lock, flag);
+	mdp3_dma_callback_enable(dma, cb_type);
+
+retry_vsync:
+	pr_debug("wait for vsync_comp started\n");
+	rc = wait_for_completion_timeout(&dma->vsync_comp,
+			KOFF_TIMEOUT);
+	if (rc <= 0 && --retry_count) {
+		int vsync = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
+				(1 << MDP3_INTR_LCDC_START_OF_FRAME);
+		if (!vsync) {
+			pr_err("%s trying again count = %d\n",
+				__func__, retry_count);
+			goto retry_vsync;
+		}
+		rc = -1;
+	}
+	pr_debug("wait for vsync_comp done\n");
+
+return rc;
+
+}
+
+static int mdp3_wait_for_dma_comp(struct mdp3_dma *dma, struct mdp3_intf *intf)
+{
+	int vsync_status;
+	int rc = 1;
+	int retry_count = 2;
+
+	if (intf->active) {
+		ATRACE_BEGIN("mdp3_wait_for_dma_comp");
+retry_dma_done:
+		rc = wait_for_completion_timeout(&dma->dma_comp,
+			KOFF_TIMEOUT);
+		if (rc <= 0 && --retry_count) {
+			vsync_status = (1 << MDP3_INTR_DMA_P_DONE) &
+					MDP3_REG_READ(MDP3_REG_INTR_STATUS);
+			if (!vsync_status) {
+				pr_err("%s: cmd timeout retry cnt %d\n",
+					__func__, retry_count);
+				goto retry_dma_done;
+			} else {
+				rc = 1;
+			}
+		}
+		ATRACE_END("mdp3_wait_for_dma_comp");
+	}
+	return rc;
+}
+
 static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
-				struct mdp3_intf *intf, void *data)
+				struct mdp3_intf *intf, void *data, bool secure)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
 	struct mdss_panel_data *panel;
 	int rc = 0;
 	int retry_count = 2;
+	int vsync = 0;
 
 	ATRACE_BEGIN(__func__);
 	pr_debug("mdp3_dmap_update\n");
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		cb_type = MDP3_DMA_CALLBACK_TYPE_DMA_DONE;
-		if (intf->active) {
-			ATRACE_BEGIN("mdp3_wait_for_dma_comp");
-retry_dma_done:
-			rc = wait_for_completion_timeout(&dma->dma_comp,
-				KOFF_TIMEOUT);
-			if (rc <= 0 && --retry_count) {
-				int  vsync_status;
-
-				vsync_status = (1 << MDP3_INTR_DMA_P_DONE) &
-					MDP3_REG_READ(MDP3_REG_INTR_STATUS);
-				if (!vsync_status) {
-					pr_err("%s: cmd timeout retry cnt %d\n",
-						__func__, retry_count);
-					goto retry_dma_done;
-				}
-				rc = -1;
-			}
-				ATRACE_END("mdp3_wait_for_dma_comp");
-		}
 	}
+
 	if (dma->update_src_cfg) {
 		if (dma->output_config.out_sel ==
 			MDP3_DMA_OUTPUT_SEL_DSI_VIDEO && intf->active)
 			pr_err("configuring dma source while it is active\n");
-		dma->dma_config_source(dma);
+		dma->dma_config_source(dma, secure);
 		if (data) {
 			panel = (struct mdss_panel_data *)data;
 			if (panel->event_handler) {
@@ -734,7 +813,7 @@ retry_vsync:
 		rc = wait_for_completion_timeout(&dma->vsync_comp,
 			KOFF_TIMEOUT);
 		if (rc <= 0 && --retry_count) {
-			int vsync = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
+			vsync = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
 					(1 << MDP3_INTR_LCDC_START_OF_FRAME);
 
 			if (!vsync) {
@@ -745,6 +824,9 @@ retry_vsync:
 			rc = -1;
 		}
 		ATRACE_END("mdp3_wait_for_vsync_comp");
+
+		if (!mdp3_res->irq_ref_count[MDP3_INTR_LCDC_UNDERFLOW])
+			mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
 	}
 	pr_debug("$%s wait for vsync_comp out\n", __func__);
 	ATRACE_END(__func__);
@@ -752,7 +834,7 @@ retry_vsync:
 }
 
 static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
-				struct mdp3_intf *intf, void *data)
+				struct mdp3_intf *intf, void *data, bool secure)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
@@ -1076,6 +1158,8 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->config_histo = mdp3_dmap_histo_config;
 		dma->config_lut = mdp3_dmap_lut_config;
 		dma->update = mdp3_dmap_update;
+		dma->handle_null_commit = mdp3_handle_null_commit;
+		dma->wait_for_dma = mdp3_wait_for_dma_comp;
 		dma->update_cursor = mdp3_dmap_cursor_update;
 		dma->get_histo = mdp3_dmap_histo_get;
 		dma->histo_op = mdp3_dmap_histo_op;
@@ -1094,6 +1178,7 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->config_ccs = NULL;
 		dma->config_histo = NULL;
 		dma->config_lut = NULL;
+		dma->handle_null_commit = NULL;
 		dma->update = mdp3_dmas_update;
 		dma->update_cursor = NULL;
 		dma->get_histo = NULL;

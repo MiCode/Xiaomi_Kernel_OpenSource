@@ -125,7 +125,6 @@ enum ipa3_usb_state {
 	IPA_USB_CONNECTED,
 	IPA_USB_STOPPED,
 	IPA_USB_SUSPEND_REQUESTED,
-	IPA_USB_SUSPEND_IN_PROGRESS,
 	IPA_USB_SUSPENDED,
 	IPA_USB_SUSPENDED_NO_RWAKEUP,
 	IPA_USB_RESUME_IN_PROGRESS
@@ -146,13 +145,6 @@ enum ipa3_usb_transport_type {
 #define IPA3_USB_IS_TTYPE_DPL(__ttype) \
 	((__ttype) == IPA_USB_TRANSPORT_DPL)
 
-struct finish_suspend_work_context {
-	struct work_struct work;
-	enum ipa3_usb_transport_type ttype;
-	u32 dl_clnt_hdl;
-	u32 ul_clnt_hdl;
-};
-
 struct ipa3_usb_teth_prot_conn_params {
 	u32 usb_to_ipa_clnt_hdl;
 	u32 ipa_to_usb_clnt_hdl;
@@ -168,7 +160,6 @@ struct ipa3_usb_transport_type_ctx {
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *user_data);
 	void *user_data;
 	enum ipa3_usb_state state;
-	struct finish_suspend_work_context finish_suspend_work;
 	struct ipa_usb_xdci_chan_params ch_params;
 	struct ipa3_usb_teth_prot_conn_params teth_conn_params;
 };
@@ -221,16 +212,10 @@ struct ipa3_usb_status_dbg_info {
 
 static void ipa3_usb_wq_notify_remote_wakeup(struct work_struct *work);
 static void ipa3_usb_wq_dpl_notify_remote_wakeup(struct work_struct *work);
-static void ipa3_usb_wq_notify_suspend_completed(struct work_struct *work);
-static void ipa3_usb_wq_dpl_notify_suspend_completed(struct work_struct *work);
 static DECLARE_WORK(ipa3_usb_notify_remote_wakeup_work,
 	ipa3_usb_wq_notify_remote_wakeup);
 static DECLARE_WORK(ipa3_usb_dpl_notify_remote_wakeup_work,
 	ipa3_usb_wq_dpl_notify_remote_wakeup);
-static DECLARE_WORK(ipa3_usb_notify_suspend_completed_work,
-	ipa3_usb_wq_notify_suspend_completed);
-static DECLARE_WORK(ipa3_usb_dpl_notify_suspend_completed_work,
-	ipa3_usb_wq_dpl_notify_suspend_completed);
 
 struct ipa3_usb_context *ipa3_usb_ctx;
 
@@ -273,8 +258,6 @@ static char *ipa3_usb_state_to_string(enum ipa3_usb_state state)
 		return "IPA_USB_STOPPED";
 	case IPA_USB_SUSPEND_REQUESTED:
 		return "IPA_USB_SUSPEND_REQUESTED";
-	case IPA_USB_SUSPEND_IN_PROGRESS:
-		return "IPA_USB_SUSPEND_IN_PROGRESS";
 	case IPA_USB_SUSPENDED:
 		return "IPA_USB_SUSPENDED";
 	case IPA_USB_SUSPENDED_NO_RWAKEUP:
@@ -330,17 +313,11 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 			 * In case of failure during suspend request
 			 * handling, state is reverted to connected.
 			 */
-			(err_permit && state == IPA_USB_SUSPEND_REQUESTED) ||
-			/*
-			 * In case of failure during suspend completing
-			 * handling, state is reverted to connected.
-			 */
-			(err_permit && state == IPA_USB_SUSPEND_IN_PROGRESS))
+			(err_permit && state == IPA_USB_SUSPEND_REQUESTED))
 			state_legal = true;
 		break;
 	case IPA_USB_STOPPED:
-		if (state == IPA_USB_SUSPEND_IN_PROGRESS ||
-			state == IPA_USB_CONNECTED ||
+		if (state == IPA_USB_CONNECTED ||
 			state == IPA_USB_SUSPENDED ||
 			state == IPA_USB_SUSPENDED_NO_RWAKEUP)
 			state_legal = true;
@@ -349,19 +326,8 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 		if (state == IPA_USB_CONNECTED)
 			state_legal = true;
 		break;
-	case IPA_USB_SUSPEND_IN_PROGRESS:
-		if (state == IPA_USB_SUSPEND_REQUESTED ||
-			/*
-			 * In case of failure during resume, state is reverted
-			 * to original, which could be suspend_in_progress.
-			 * Allow it.
-			 */
-			(err_permit && state == IPA_USB_RESUME_IN_PROGRESS))
-			state_legal = true;
-		break;
 	case IPA_USB_SUSPENDED:
 		if (state == IPA_USB_SUSPEND_REQUESTED ||
-			state == IPA_USB_SUSPEND_IN_PROGRESS ||
 			/*
 			 * In case of failure during resume, state is reverted
 			 * to original, which could be suspended. Allow it
@@ -374,8 +340,7 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 			state_legal = true;
 		break;
 	case IPA_USB_RESUME_IN_PROGRESS:
-		if (state == IPA_USB_SUSPEND_IN_PROGRESS ||
-			state == IPA_USB_SUSPENDED)
+		if (state == IPA_USB_SUSPENDED)
 			state_legal = true;
 		break;
 	default:
@@ -452,7 +417,6 @@ static bool ipa3_usb_check_legal_op(enum ipa3_usb_op op,
 		break;
 	case IPA_USB_OP_DISCONNECT:
 		if  (state == IPA_USB_CONNECTED ||
-			state == IPA_USB_SUSPEND_IN_PROGRESS ||
 			state == IPA_USB_SUSPENDED ||
 			state == IPA_USB_SUSPENDED_NO_RWAKEUP)
 			is_legal = true;
@@ -483,7 +447,6 @@ static bool ipa3_usb_check_legal_op(enum ipa3_usb_op op,
 		break;
 	case IPA_USB_OP_RESUME:
 		if (state == IPA_USB_SUSPENDED ||
-			state == IPA_USB_SUSPEND_IN_PROGRESS ||
 			state == IPA_USB_SUSPENDED_NO_RWAKEUP)
 			is_legal = true;
 		break;
@@ -582,71 +545,6 @@ static void ipa3_usb_wq_dpl_notify_remote_wakeup(struct work_struct *work)
 	ipa3_usb_notify_do(IPA_USB_TRANSPORT_DPL, IPA_USB_REMOTE_WAKEUP);
 }
 
-static void ipa3_usb_wq_notify_suspend_completed(struct work_struct *work)
-{
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_TETH, IPA_USB_SUSPEND_COMPLETED);
-}
-
-static void ipa3_usb_wq_dpl_notify_suspend_completed(struct work_struct *work)
-{
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_DPL, IPA_USB_SUSPEND_COMPLETED);
-}
-
-static void ipa3_usb_wq_finish_suspend_work(struct work_struct *work)
-{
-	struct finish_suspend_work_context *finish_suspend_work_ctx;
-	unsigned long flags;
-	int result = -EFAULT;
-	struct ipa3_usb_transport_type_ctx *tctx;
-
-	mutex_lock(&ipa3_usb_ctx->general_mutex);
-	IPA_USB_DBG_LOW("entry\n");
-	finish_suspend_work_ctx = container_of(work,
-		struct finish_suspend_work_context, work);
-	tctx = &ipa3_usb_ctx->ttype_ctx[finish_suspend_work_ctx->ttype];
-
-	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
-	if (tctx->state != IPA_USB_SUSPEND_IN_PROGRESS) {
-		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-		mutex_unlock(&ipa3_usb_ctx->general_mutex);
-		return;
-	}
-	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-
-	/* Stop DL/DPL channel */
-	result = ipa3_stop_gsi_channel(finish_suspend_work_ctx->dl_clnt_hdl);
-	if (result) {
-		IPAERR("Error stopping DL/DPL channel: %d, resuming channel\n",
-			result);
-		ipa3_xdci_resume(finish_suspend_work_ctx->ul_clnt_hdl,
-			finish_suspend_work_ctx->dl_clnt_hdl,
-			IPA3_USB_IS_TTYPE_DPL(finish_suspend_work_ctx->ttype));
-		/* Change state back to CONNECTED */
-		if (!ipa3_usb_set_state(IPA_USB_CONNECTED, true,
-			finish_suspend_work_ctx->ttype))
-			IPA_USB_ERR("failed to change state to connected\n");
-		queue_work(ipa3_usb_ctx->wq,
-			IPA3_USB_IS_TTYPE_DPL(finish_suspend_work_ctx->ttype) ?
-			&ipa3_usb_dpl_notify_remote_wakeup_work :
-			&ipa3_usb_notify_remote_wakeup_work);
-		mutex_unlock(&ipa3_usb_ctx->general_mutex);
-		return;
-	}
-
-	/* Change ipa_usb state to SUSPENDED */
-	if (!ipa3_usb_set_state(IPA_USB_SUSPENDED, false,
-		finish_suspend_work_ctx->ttype))
-		IPA_USB_ERR("failed to change state to suspended\n");
-
-	queue_work(ipa3_usb_ctx->wq,
-		IPA3_USB_IS_TTYPE_DPL(finish_suspend_work_ctx->ttype) ?
-		&ipa3_usb_dpl_notify_suspend_completed_work :
-		&ipa3_usb_notify_suspend_completed_work);
-
-	IPA_USB_DBG_LOW("exit\n");
-	mutex_unlock(&ipa3_usb_ctx->general_mutex);
-}
-
 static int ipa3_usb_cons_request_resource_cb_do(
 	enum ipa3_usb_transport_type ttype,
 	struct work_struct *remote_wakeup_work)
@@ -673,17 +571,6 @@ static int ipa3_usb_cons_request_resource_cb_do(
 			result = 0;
 		else
 			result = -EINPROGRESS;
-		break;
-	case IPA_USB_SUSPEND_IN_PROGRESS:
-		/*
-		 * This case happens due to suspend interrupt.
-		 * CONS is granted
-		 */
-		if (!rm_ctx->cons_requested) {
-			rm_ctx->cons_requested = true;
-			queue_work(ipa3_usb_ctx->wq, remote_wakeup_work);
-		}
-		result = 0;
 		break;
 	case IPA_USB_SUSPENDED:
 		if (!rm_ctx->cons_requested) {
@@ -727,15 +614,10 @@ static int ipa3_usb_cons_release_resource_cb_do(
 			ipa3_usb_state_to_string(
 			ipa3_usb_ctx->ttype_ctx[ttype].state));
 	switch (ipa3_usb_ctx->ttype_ctx[ttype].state) {
-	case IPA_USB_SUSPEND_IN_PROGRESS:
+	case IPA_USB_SUSPENDED:
 		/* Proceed with the suspend if no DL/DPL data */
 		if (rm_ctx->cons_requested)
 			rm_ctx->cons_requested_released = true;
-		else {
-			queue_work(ipa3_usb_ctx->wq,
-				&ipa3_usb_ctx->ttype_ctx[ttype].
-				finish_suspend_work.work);
-		}
 		break;
 	case IPA_USB_SUSPEND_REQUESTED:
 		if (rm_ctx->cons_requested)
@@ -2331,8 +2213,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
 	orig_state = ipa3_usb_ctx->ttype_ctx[ttype].state;
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-		if (orig_state != IPA_USB_SUSPEND_IN_PROGRESS &&
-			orig_state != IPA_USB_SUSPENDED) {
+		if (orig_state != IPA_USB_SUSPENDED) {
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
 			/* Stop UL channel */
@@ -2360,8 +2241,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (result)
 		goto bad_params;
 
-	if (orig_state != IPA_USB_SUSPEND_IN_PROGRESS &&
-		orig_state != IPA_USB_SUSPENDED) {
+	if (orig_state != IPA_USB_SUSPENDED) {
 		result = ipa3_usb_release_prod(ttype);
 		if (result) {
 			IPA_USB_ERR("failed to release PROD.\n");
@@ -2567,7 +2447,6 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 {
 	int result = 0;
 	unsigned long flags;
-	enum ipa3_usb_cons_state curr_cons_state;
 	enum ipa3_usb_transport_type ttype;
 
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
@@ -2622,49 +2501,20 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto release_prod_fail;
 	}
 
+	/* Check if DL/DPL data pending */
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
-	curr_cons_state = ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_state;
+	if (ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_state ==
+		IPA_USB_CONS_GRANTED &&
+		ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_requested) {
+
+		IPA_USB_DBG("DL/DPL data pending, invoke remote wakeup\n");
+		queue_work(ipa3_usb_ctx->wq,
+			IPA3_USB_IS_TTYPE_DPL(ttype) ?
+			&ipa3_usb_dpl_notify_remote_wakeup_work :
+			&ipa3_usb_notify_remote_wakeup_work);
+	}
 	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-	if (curr_cons_state == IPA_USB_CONS_GRANTED) {
-		/* Change state to SUSPEND_IN_PROGRESS */
-		if (!ipa3_usb_set_state(IPA_USB_SUSPEND_IN_PROGRESS,
-			false, ttype))
-			IPA_USB_ERR("fail set state to suspend_in_progress\n");
 
-		/* Check if DL/DPL data pending */
-		spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
-		if (ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_requested) {
-			IPA_USB_DBG(
-				"DL/DPL data pending, invoke remote wakeup\n");
-			queue_work(ipa3_usb_ctx->wq,
-				IPA3_USB_IS_TTYPE_DPL(ttype) ?
-				&ipa3_usb_dpl_notify_remote_wakeup_work :
-				&ipa3_usb_notify_remote_wakeup_work);
-		}
-		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-
-		ipa3_usb_ctx->ttype_ctx[ttype].finish_suspend_work.ttype =
-			ttype;
-		ipa3_usb_ctx->ttype_ctx[ttype].finish_suspend_work.dl_clnt_hdl =
-			dl_clnt_hdl;
-		ipa3_usb_ctx->ttype_ctx[ttype].finish_suspend_work.ul_clnt_hdl =
-			ul_clnt_hdl;
-		INIT_WORK(&ipa3_usb_ctx->ttype_ctx[ttype].
-			finish_suspend_work.work,
-			ipa3_usb_wq_finish_suspend_work);
-
-		result = -EINPROGRESS;
-		IPA_USB_DBG("exit with suspend_in_progress\n");
-		goto bad_params;
-	}
-
-	/* Stop DL channel */
-	result = ipa3_stop_gsi_channel(dl_clnt_hdl);
-	if (result) {
-		IPAERR("Error stopping DL/DPL channel: %d\n", result);
-		result = -EFAULT;
-		goto release_prod_fail;
-	}
 	/* Change state to SUSPENDED */
 	if (!ipa3_usb_set_state(IPA_USB_SUSPENDED, false, ttype))
 		IPA_USB_ERR("failed to change state to suspended\n");
@@ -2823,13 +2673,11 @@ int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		}
 	}
 
-	if (prev_state != IPA_USB_SUSPEND_IN_PROGRESS) {
-		/* Start DL/DPL channel */
-		result = ipa3_start_gsi_channel(dl_clnt_hdl);
-		if (result) {
-			IPA_USB_ERR("failed to start DL/DPL channel.\n");
-			goto start_dl_fail;
-		}
+	/* Start DL/DPL channel */
+	result = ipa3_start_gsi_channel(dl_clnt_hdl);
+	if (result) {
+		IPA_USB_ERR("failed to start DL/DPL channel.\n");
+		goto start_dl_fail;
 	}
 
 	/* Change state to CONNECTED */
@@ -2844,12 +2692,10 @@ int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	return 0;
 
 state_change_connected_fail:
-	if (prev_state != IPA_USB_SUSPEND_IN_PROGRESS) {
-		result = ipa3_stop_gsi_channel(dl_clnt_hdl);
-		if (result)
-			IPA_USB_ERR("Error stopping DL/DPL channel: %d\n",
-				result);
-	}
+	result = ipa3_stop_gsi_channel(dl_clnt_hdl);
+	if (result)
+		IPA_USB_ERR("Error stopping DL/DPL channel: %d\n",
+			result);
 start_dl_fail:
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
 		result = ipa3_stop_gsi_channel(ul_clnt_hdl);

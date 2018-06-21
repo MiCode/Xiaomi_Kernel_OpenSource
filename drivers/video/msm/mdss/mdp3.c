@@ -47,6 +47,7 @@
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <linux/vmalloc.h>
+#include <soc/qcom/scm.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -153,6 +154,18 @@ struct mdp3_iommu_ctx_map mdp3_iommu_contexts[MDP3_IOMMU_CTX_MAX] = {
 		.attached = 0,
 	},
 };
+
+static int mdp3_get_domain(u32 flags)
+{
+	int domain;
+
+	if (flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+		domain =  MDSS_IOMMU_DOMAIN_SECURE;
+	else
+		domain = MDSS_IOMMU_DOMAIN_UNSECURE;
+
+	return domain;
+}
 
 static irqreturn_t mdp3_irq_handler(int irq, void *ptr)
 {
@@ -1820,7 +1833,7 @@ out:
 int mdp3_put_img(struct mdp3_img_data *data, int client)
 {
 	struct ion_client *iclient = mdp3_res->ion_client;
-	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
+	int dom = mdp3_get_domain(data->flags);
 	int dir = DMA_BIDIRECTIONAL;
 
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
@@ -1828,8 +1841,9 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		fdput(data->srcp_f);
 		memset(&data->srcp_f, 0, sizeof(struct fd));
 	} else if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		pr_debug("ion hdl = %pK buf=0x%pa\n", data->srcp_dma_buf,
-							&data->addr);
+		pr_debug("ion hdl = %pK buf=0x%pa domain = %d\n",
+			data->srcp_dma_buf, &data->addr, dom);
+
 		if (!iclient) {
 			pr_err("invalid ion client\n");
 			return -ENOMEM;
@@ -1863,15 +1877,69 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 	return 0;
 }
 
+int mdp3_map_layer(struct mdp3_img_data *data, int client)
+{
+	int ret = 0;
+	int dom = mdp3_get_domain(data->flags);
+
+	if (client == MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
+			data->tab_clone, dom,
+			&data->addr, &data->len,
+			DMA_BIDIRECTIONAL);
+	} else {
+		ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
+			data->srcp_table, dom, &data->addr,
+			&data->len, DMA_BIDIRECTIONAL);
+	}
+
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("smmu map dma buf failed: (%d)\n", ret);
+		goto err_unmap;
+	}
+
+	data->mapped = true;
+
+	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		data->addr  += data->tab_clone->sgl->length;
+		data->len   -= data->tab_clone->sgl->length;
+	}
+
+	if (!ret && (data->offset < data->len)) {
+		data->addr += data->offset;
+		data->len -= data->offset;
+		pr_debug("ihdl=%pK buf=0x%pa len=0x%lx domain = %d\n",
+			data->srcp_dma_buf, &data->addr, data->len, dom);
+	} else {
+		mdp3_put_img(data, client);
+		return -EINVAL;
+	}
+
+	return ret;
+
+err_unmap:
+	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
+			mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
+	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
+	dma_buf_put(data->srcp_dma_buf);
+
+	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		vfree(data->tab_clone->sgl);
+		kfree(data->tab_clone);
+	}
+	return ret;
+}
+
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 {
 	struct fd f;
-	int ret = -EINVAL;
+	int ret = 0;
 	int fb_num;
 	struct ion_client *iclient = mdp3_res->ion_client;
-	int dom = (mdp3_res->domains + MDP3_IOMMU_DOMAIN_UNSECURE)->domain_idx;
+	int dom = mdp3_get_domain(data->flags);
 
-	data->flags = img->flags;
+	data->flags |= img->flags;
+	data->offset = img->offset;
 
 	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
 		f = fdget(img->memory_id);
@@ -1934,29 +2002,13 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 						ret = PTR_ERR(data->tab_clone);
 					goto clone_err;
 				}
-				ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
-					data->tab_clone, dom,
-					&data->addr, &data->len,
-					DMA_BIDIRECTIONAL);
-			} else {
-				ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
-					data->srcp_table, dom, &data->addr,
-					&data->len, DMA_BIDIRECTIONAL);
+				data->mapped = false;
+				data->skip_detach = false;
+				return ret;
 			}
+		}
 
-			if (IS_ERR_VALUE(ret)) {
-				pr_err("smmu map dma buf failed: (%d)\n", ret);
-				goto err_unmap;
-			}
-
-		data->mapped = true;
-		data->skip_detach = false;
-	}
 done:
-	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		data->addr  += data->tab_clone->sgl->length;
-		data->len   -= data->tab_clone->sgl->length;
-	}
 	if (!ret && (img->offset < data->len)) {
 		data->addr += img->offset;
 		data->len -= img->offset;
@@ -1979,18 +2031,6 @@ err_detach:
 err_put:
 	dma_buf_put(data->srcp_dma_buf);
 	return ret;
-err_unmap:
-	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
-			mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
-	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
-	dma_buf_put(data->srcp_dma_buf);
-
-	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		vfree(data->tab_clone->sgl);
-		kfree(data->tab_clone);
-	}
-	return ret;
-
 }
 
 int mdp3_iommu_enable(int client)
@@ -2835,7 +2875,7 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 
 static int mdp3_probe(struct platform_device *pdev)
 {
-	int rc;
+	int rc, scm_ret = 0;
 	static struct msm_mdp_interface mdp3_interface = {
 	.init_fnc = mdp3_init,
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
@@ -2953,6 +2993,10 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("mdss smmu init failed\n");
 
 	__mdp3_set_supported_formats();
+
+	rc = scm_restore_sec_cfg(SEC_DEVICE_MDP3, 0, &scm_ret);
+	if (rc)
+		pr_err("Restore secure cfg failed\n");
 
 	mdp3_res->mdss_util->mdp_probe_done = true;
 	pr_debug("%s: END\n", __func__);
