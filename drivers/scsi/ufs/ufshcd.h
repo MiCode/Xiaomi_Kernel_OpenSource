@@ -357,7 +357,6 @@ struct ufs_hba_variant_ops {
 	int	(*full_reset)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba, bool no_sleep);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
-	int	(*phy_wa)(struct ufs_hba *hba, u8 flags);
 	u32	(*get_scale_down_gear)(struct ufs_hba *);
 	int	(*set_bus_vote)(struct ufs_hba *, bool);
 	int	(*phy_initialization)(struct ufs_hba *);
@@ -1442,13 +1441,7 @@ static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
 		return hba->var->vops->update_sec_cfg(hba, restore_sec_cfg);
 	return 0;
 }
-static inline int ufshcd_vops_phy_wa(struct ufs_hba *hba,
-						u8 flags)
-{
-	if (hba->var && hba->var->vops && hba->var->vops->phy_wa)
-		return hba->var->vops->phy_wa(hba, flags);
-	return 0;
-}
+
 static inline u32 ufshcd_vops_get_scale_down_gear(struct ufs_hba *hba)
 {
 	if (hba->var && hba->var->vops && hba->var->vops->get_scale_down_gear)

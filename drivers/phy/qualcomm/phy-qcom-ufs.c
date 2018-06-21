@@ -660,17 +660,6 @@ int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B)
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_calibrate_phy);
 
-int ufs_qcom_phy_workaround(struct phy *generic_phy, u8 flags)
-{
-	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
-	int ret = 0;
-	ret = ufs_qcom_phy->phy_spec_ops->
-			phy_wa(ufs_qcom_phy, flags);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(ufs_qcom_phy_workaround);
-
 const char *ufs_qcom_phy_name(struct phy *phy)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(phy);

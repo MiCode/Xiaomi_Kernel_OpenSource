@@ -5397,8 +5397,6 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 	if (ret)
 		return ret;
 
-	/* set AC_JTAG = 0 */
-	ufshcd_vops_phy_wa(hba, 0);
 	/*
 	 * Configure attributes for power mode change with below.
 	 * - PA_RXGEAR, PA_ACTIVERXDATALANES, PA_RXTERMINATION,
@@ -5459,9 +5457,6 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			sizeof(struct ufs_pa_layer_attr));
 		hba->ufs_stats.power_mode_change_cnt++;
 	}
-
-	/* set AC_JTAG = 1 */
-	ufshcd_vops_phy_wa(hba, 1);
 
 	return ret;
 }

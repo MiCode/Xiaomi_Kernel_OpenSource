@@ -167,7 +167,6 @@ struct ufs_qcom_phy_specific_ops {
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
 	int (*configure_lpm)(struct ufs_qcom_phy *phy, bool enable);
 	void (*dbg_register_dump)(struct ufs_qcom_phy *phy);
-	int (*phy_wa)(struct ufs_qcom_phy *phy, u8 flags);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
