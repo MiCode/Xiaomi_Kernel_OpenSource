@@ -900,13 +900,6 @@ alloc:
 	return 0;
 }
 
-static inline bool f2fs_force_buffered_io(struct inode *inode, int rw)
-{
-	return (f2fs_post_read_required(inode) ||
-			(rw == WRITE && test_opt(F2FS_I_SB(inode), LFS)) ||
-			F2FS_I_SB(inode)->s_ndevs);
-}
-
 int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 				size_t count, bool direct_io)
 {
