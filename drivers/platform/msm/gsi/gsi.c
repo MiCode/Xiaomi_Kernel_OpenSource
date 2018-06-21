@@ -2678,7 +2678,7 @@ int gsi_start_xfer(unsigned long chan_hdl)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	if (ctx->state != GSI_CHAN_STATE_STARTED) {
+	if (ctx->state == GSI_CHAN_STATE_NOT_ALLOCATED) {
 		GSIERR("bad state %d\n", ctx->state);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
