@@ -1954,6 +1954,26 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 			gsi_ctx->per.ee));
 }
 
+static void __gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch * val)
+{
+	val->data.word1 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word2 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word3 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word4 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+}
+
 static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
 	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
 {
@@ -2045,6 +2065,39 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_write_channel_scratch);
+
+int gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch *val)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	if (gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_ALLOCATED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STARTED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STOPPED) {
+		GSIERR("bad state %d\n",
+				gsi_ctx->chan[chan_hdl].state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+	__gsi_read_channel_scratch(chan_hdl, val);
+	mutex_unlock(&ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_read_channel_scratch);
 
 int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
 		struct __packed gsi_mhi_channel_scratch mscr)
