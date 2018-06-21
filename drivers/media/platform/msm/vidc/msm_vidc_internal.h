@@ -396,7 +396,6 @@ struct msm_vidc_core {
 	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
-	struct vidc_bus_vote_data *vote_data;
 	struct msm_vidc_core_ops *core_ops;
 };
 

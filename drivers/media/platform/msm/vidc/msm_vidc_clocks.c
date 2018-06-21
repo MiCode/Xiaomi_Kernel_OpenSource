@@ -194,19 +194,23 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
 	}
-
 	hdev = core->device;
 
-	mutex_lock(&core->lock);
-	vote_data = core->vote_data;
+	vote_data = kzalloc(sizeof(struct vidc_bus_vote_data) *
+			MAX_SUPPORTED_INSTANCES, GFP_ATOMIC);
 	if (!vote_data) {
-		dprintk(VIDC_PROF,
-			"Failed to get vote_data for inst %pK\n",
-				inst);
-		mutex_unlock(&core->lock);
-		return -EINVAL;
+		dprintk(VIDC_DBG,
+			"vote_data allocation with GFP_ATOMIC failed\n");
+		vote_data = kzalloc(sizeof(struct vidc_bus_vote_data) *
+			MAX_SUPPORTED_INSTANCES, GFP_KERNEL);
+		if (!vote_data) {
+			dprintk(VIDC_DBG,
+				"vote_data allocation failed\n");
+			return -EINVAL;
+		}
 	}
 
+	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0;
 		struct msm_vidc_buffer *temp, *next;
@@ -328,6 +332,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data,
 			vote_data, vote_data_count);
 
+	kfree(vote_data);
 	return rc;
 }
 
