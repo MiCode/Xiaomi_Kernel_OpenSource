@@ -2053,11 +2053,11 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		/* enable all the irq */
 		_sde_encoder_irq_control(drm_enc, true);
 
-		if (is_cmd_mode && is_primary)
+		if (is_cmd_mode)
 			_sde_encoder_pm_qos_add_request(drm_enc);
 
 	} else {
-		if (is_cmd_mode && is_primary)
+		if (is_cmd_mode)
 			_sde_encoder_pm_qos_remove_request(drm_enc);
 
 		/* disable all the irq */
