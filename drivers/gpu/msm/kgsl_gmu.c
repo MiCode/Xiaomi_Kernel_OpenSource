@@ -1416,7 +1416,7 @@ static int gmu_probe(struct kgsl_device *device,
 	disable_irq(gmu->gmu_interrupt_num);
 	disable_irq(hfi->hfi_interrupt_num);
 
-	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)gmu);
+	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)device);
 	INIT_LIST_HEAD(&hfi->msglist);
 	spin_lock_init(&hfi->msglock);
 
