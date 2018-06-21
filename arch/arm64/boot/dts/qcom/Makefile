@@ -327,7 +327,8 @@ dtbo-$(CONFIG_ARCH_SDM632) += sdm632-rumi-overlay.dtbo \
 dtbo-$(CONFIG_ARCH_SDM439) += sdm439-mtp-overlay.dtbo \
 	sdm439-cdp-overlay.dtbo \
 	sdm439-qrd-overlay.dtbo \
-	sdm439-external-codec-mtp-overlay.dtbo
+	sdm439-external-codec-mtp-overlay.dtbo \
+	sdm439-rcm-overlay.dtbo
 
 dtbo-$(CONFIG_ARCH_SDM429) += sdm429-mtp-overlay.dtbo \
 	sdm429-cdp-overlay.dtbo \
@@ -395,6 +396,7 @@ sdm439-cdp-overlay.dtbo-base := sdm439.dtb \
 sdm439-qrd-overlay.dtbo-base := sdm439.dtb \
 	msm8937-interposer-sdm439.dtb
 sdm439-external-codec-mtp-overlay.dtbo-base := sdm439.dtb
+sdm439-rcm-overlay.dtbo-base := sdm439.dtb
 sdm429-mtp-overlay.dtbo-base := sdm429.dtb \
 	sda429.dtb \
 	msm8937-interposer-sdm429.dtb
@@ -504,7 +506,8 @@ dtb-$(CONFIG_ARCH_SDM439) += sdm439-mtp.dtb \
 	sdm439-qrd.dtb \
 	sda439-mtp.dtb \
 	sda439-cdp.dtb \
-	sdm439-external-codec-mtp.dtb
+	sdm439-external-codec-mtp.dtb \
+	sdm439-rcm.dtb
 
 dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
 	sdm429-cdp.dtb \
