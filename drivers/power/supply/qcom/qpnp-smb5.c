@@ -611,7 +611,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		if (chg->connector_health == -EINVAL)
-			rc = smblib_get_prop_connector_health(chg, val);
+			val->intval = smblib_get_prop_connector_health(chg);
 		else
 			val->intval = chg->connector_health;
 		break;
