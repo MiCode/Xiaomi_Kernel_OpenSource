@@ -13,12 +13,12 @@
 #include "sm8150.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM8150 AUTO";
-	qcom,msm-name = "SM8150 AUTO";
+	model = "Qualcomm Technologies, Inc. SA8150";
+	qcom,msm-name = "SA8150";
 	qcom,msm-id = <362 0x10000>;
 };
 
-/* Remove regulator nodes specific to SM8150 */
+/* Remove regulator nodes specific to SA8150 */
 &soc {
 	/delete-node/ regulator-pm8150-s4;
 	/delete-node/ rpmh-regulator-msslvl;
@@ -67,8 +67,8 @@
 	/delete-node/ rpmh-regulator-ldof6;
 };
 
-/* Add regulator nodes specific to SM8150 Auto */
-#include "sm8150-auto-regulator.dtsi"
+/* Add regulator nodes specific to SA8150 */
+#include "sa8150-regulator.dtsi"
 
 &cam_csiphy0 {
 	mipi-csi-vdd-supply = <&pm8150_2_l8>;
