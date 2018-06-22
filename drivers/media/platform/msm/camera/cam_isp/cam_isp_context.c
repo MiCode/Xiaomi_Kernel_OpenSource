@@ -503,6 +503,18 @@ static void __cam_isp_ctx_send_sof_timestamp(
 
 }
 
+static int __cam_isp_ctx_reg_upd_in_epoch_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	if (ctx_isp->frame_id == 1)
+		CAM_DBG(CAM_ISP, "Reg update for early PCR");
+	else
+		CAM_WARN(CAM_ISP,
+			"Unexpected reg update in activated substate:%d for frame_id:%lld",
+			ctx_isp->substate_activated, ctx_isp->frame_id);
+	return 0;
+}
+
 static int __cam_isp_ctx_reg_upd_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
@@ -1118,7 +1130,7 @@ static struct cam_isp_ctx_irq_ops
 		.irq_ops = {
 			__cam_isp_ctx_handle_error,
 			__cam_isp_ctx_sof_in_epoch,
-			NULL,
+			__cam_isp_ctx_reg_upd_in_epoch_state,
 			__cam_isp_ctx_notify_sof_in_activated_state,
 			__cam_isp_ctx_notify_eof_in_activated_state,
 			__cam_isp_ctx_buf_done_in_epoch,
@@ -2378,7 +2390,9 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
-		CAM_ISP_CTX_ACTIVATED_APPLIED : CAM_ISP_CTX_ACTIVATED_SOF;
+		CAM_ISP_CTX_ACTIVATED_APPLIED :
+		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_EPOCH :
+		CAM_ISP_CTX_ACTIVATED_SOF;
 
 	/*
 	 * Only place to change state before calling the hw due to
@@ -2396,6 +2410,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		goto end;
 	}
 	CAM_DBG(CAM_ISP, "start device success");
+
+	if (req_isp->num_fence_map_out) {
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->active_req_list);
+	}
 end:
 	return rc;
 }

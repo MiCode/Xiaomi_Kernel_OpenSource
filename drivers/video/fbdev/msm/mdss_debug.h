@@ -227,7 +227,7 @@ void mdss_mdp_debug_mid(u32 mid);
 int mdss_dump_misr_data(char **buf, u32 size);
 
 static inline int mdss_debug_register_io(const char *name,
-		struct mdss_io_data *io_data, struct mdss_debug_base **dbg_blk)
+		struct dss_io_data *io_data, struct mdss_debug_base **dbg_blk)
 {
 	return mdss_debug_register_base(name, io_data->base, io_data->len,
 		dbg_blk);

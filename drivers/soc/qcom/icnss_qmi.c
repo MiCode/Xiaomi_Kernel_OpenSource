@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define pr_fmt(fmt) "icnss_qmi: " fmt
 
 #include <linux/export.h>
 #include <linux/err.h>
@@ -58,6 +60,11 @@ void icnss_ignore_fw_timeout(bool ignore)
 void icnss_ignore_fw_timeout(bool ignore) { }
 #endif
 
+#define icnss_qmi_fatal_err(_fmt, ...) do {		\
+	icnss_pr_err("fatal: "_fmt, ##__VA_ARGS__);	\
+	ICNSS_QMI_ASSERT();				\
+	} while (0)
+
 int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 {
 	int ret;
@@ -89,7 +96,7 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_msa_info_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for MSA Mem info resp %d\n",
+		icnss_qmi_fatal_err("Fail to init txn for MSA Mem info resp %d\n",
 			     ret);
 		goto out;
 	}
@@ -100,16 +107,17 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 			       wlfw_msa_info_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send MSA Mem info req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send MSA Mem info req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("MSA Mem info resp wait failed ret %d\n", ret);
+		icnss_qmi_fatal_err("MSA Mem info resp wait failed ret %d\n",
+				    ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI MSA Mem info request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI MSA Mem info request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -119,7 +127,7 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 		     resp->mem_region_info_len);
 
 	if (resp->mem_region_info_len > QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01) {
-		icnss_pr_err("Invalid memory region length received: %d\n",
+		icnss_qmi_fatal_err("Invalid memory region length received: %d\n",
 			     resp->mem_region_info_len);
 		ret = -EINVAL;
 		goto out;
@@ -148,7 +156,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.msa_info_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -180,7 +187,7 @@ int wlfw_msa_ready_send_sync_msg(struct icnss_priv *priv)
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_msa_ready_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for MSA Mem Ready resp %d\n",
+		icnss_qmi_fatal_err("Fail to init txn for MSA Mem Ready resp %d\n",
 			     ret);
 		goto out;
 	}
@@ -191,17 +198,17 @@ int wlfw_msa_ready_send_sync_msg(struct icnss_priv *priv)
 			       wlfw_msa_ready_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send MSA Mem Ready req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send MSA Mem Ready req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("MSA Mem Ready resp wait failed with ret %d\n",
+		icnss_qmi_fatal_err("MSA Mem Ready resp wait failed with ret %d\n",
 			     ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI MSA Mem Ready request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI MSA Mem Ready request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -217,7 +224,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.msa_ready_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -262,7 +268,7 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_ind_register_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for Ind Register resp %d\n",
+		icnss_qmi_fatal_err("Fail to init txn for Ind Register resp %d\n",
 			     ret);
 		goto out;
 	}
@@ -273,17 +279,17 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 			       wlfw_ind_register_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send Ind Register req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send Ind Register req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("Ind Register resp wait failed with ret %d\n",
+		icnss_qmi_fatal_err("Ind Register resp wait failed with ret %d\n",
 			     ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI Ind Register request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI Ind Register request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -299,7 +305,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.ind_register_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -329,7 +334,8 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 
 	ret = qmi_txn_init(&priv->qmi, &txn, wlfw_cap_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for Capability resp %d\n", ret);
+		icnss_qmi_fatal_err("Fail to init txn for Capability resp %d\n",
+				    ret);
 		goto out;
 	}
 
@@ -339,20 +345,21 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 			       wlfw_cap_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send Capability req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send Capability req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("Capability resp wait failed with ret %d\n", ret);
+		icnss_qmi_fatal_err("Capability resp wait failed with ret %d\n",
+				    ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI Capability request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI Capability request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED)
-			icnss_pr_err("RF card not present\n");
+			icnss_qmi_fatal_err("RF card not present\n");
 		goto out;
 	}
 
@@ -394,7 +401,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.cap_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -438,7 +444,7 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_wlan_mode_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for Mode resp %d\n", ret);
+		icnss_qmi_fatal_err("Fail to init txn for Mode resp %d\n", ret);
 		goto out;
 	}
 
@@ -448,16 +454,16 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 			       wlfw_wlan_mode_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send Mode req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send Mode req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("Mode resp wait failed with ret %d\n", ret);
+		icnss_qmi_fatal_err("Mode resp wait failed with ret %d\n", ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI Mode request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI Mode request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -473,7 +479,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.mode_req_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -507,7 +512,8 @@ int wlfw_wlan_cfg_send_sync_msg(struct icnss_priv *priv,
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_wlan_cfg_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for Config resp %d\n", ret);
+		icnss_qmi_fatal_err("Fail to init txn for Config resp %d\n",
+				    ret);
 		goto out;
 	}
 
@@ -517,16 +523,17 @@ int wlfw_wlan_cfg_send_sync_msg(struct icnss_priv *priv,
 			       wlfw_wlan_cfg_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send Config req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send Config req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("Config resp wait failed with ret %d\n", ret);
+		icnss_qmi_fatal_err("Config resp wait failed with ret %d\n",
+				    ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI Config request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI Config request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -542,7 +549,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.cfg_req_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -576,7 +582,7 @@ int wlfw_ini_send_sync_msg(struct icnss_priv *priv, uint8_t fw_log_mode)
 
 	ret = qmi_txn_init(&priv->qmi, &txn, wlfw_ini_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for INI resp %d\n", ret);
+		icnss_qmi_fatal_err("Fail to init txn for INI resp %d\n", ret);
 		goto out;
 	}
 
@@ -586,16 +592,16 @@ int wlfw_ini_send_sync_msg(struct icnss_priv *priv, uint8_t fw_log_mode)
 			       wlfw_ini_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send INI req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send INI req %d\n", ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("INI resp wait failed with ret %d\n", ret);
+		icnss_qmi_fatal_err("INI resp wait failed with ret %d\n", ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI INI request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI INI request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -611,7 +617,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.ini_req_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -783,7 +788,7 @@ int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_rejuvenate_ack_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		icnss_pr_err("Fail to init txn for Rejuvenate Ack resp %d\n",
+		icnss_qmi_fatal_err("Fail to init txn for Rejuvenate Ack resp %d\n",
 			     ret);
 		goto out;
 	}
@@ -794,17 +799,18 @@ int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
 			       wlfw_rejuvenate_ack_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		icnss_pr_err("Fail to send Rejuvenate Ack req %d\n", ret);
+		icnss_qmi_fatal_err("Fail to send Rejuvenate Ack req %d\n",
+				    ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
 	if (ret < 0) {
-		icnss_pr_err("Rejuvenate Ack resp wait failed with ret %d\n",
+		icnss_qmi_fatal_err("Rejuvenate Ack resp wait failed with ret %d\n",
 			     ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI Rejuvenate Ack request rejected, result:%d error:%d\n",
+		icnss_qmi_fatal_err("QMI Rejuvenate Ack request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
@@ -820,7 +826,6 @@ out:
 	kfree(resp);
 	kfree(req);
 	priv->stats.rejuvenate_ack_err++;
-	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1123,7 +1128,15 @@ static int wlfw_new_server(struct qmi_handle *qmi,
 static void wlfw_del_server(struct qmi_handle *qmi,
 			    struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("WLFW server delete\n");
+
+	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+	}
+
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
 				0, NULL);
 }

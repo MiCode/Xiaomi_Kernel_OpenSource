@@ -110,6 +110,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_usb_hs_inactivity_timers_clk",
 	"gcc_usb_hs_phy_cfg_ahb_clk",
 	"gcc_usb_hs_system_clk",
+	"apcs_mux_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -277,6 +278,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 		0x64, 0x1FF, 0, 0xF000, 12, 4, 0x74000, 0x74000, 0x74000 },
 		{ "gcc_usb_hs_system_clk", 0x60, 4, GCC,
 		0x60, 0x1FF, 0, 0xF000, 12, 4, 0x74000, 0x74000, 0x74000 },
+		{ "apcs_mux_clk", 0x16A, CPU_CC, 0x000, 0x3, 8, 0x0FF },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -328,6 +330,10 @@ static int clk_debug_qcs405_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = map_debug_bases(pdev, "qcom,gcc", GCC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 

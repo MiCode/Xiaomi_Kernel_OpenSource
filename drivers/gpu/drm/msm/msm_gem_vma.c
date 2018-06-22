@@ -68,6 +68,7 @@ static void smmu_aspace_add_to_active(
 {
 	WARN_ON(!mutex_is_locked(&aspace->list_lock));
 	list_move_tail(&msm_obj->iova_list, &aspace->active_list);
+	msm_obj->in_active_list = true;
 }
 
 static void smmu_aspace_remove_from_active(
@@ -81,6 +82,7 @@ static void smmu_aspace_remove_from_active(
 	list_for_each_entry_safe(msm_obj, next, &aspace->active_list,
 			iova_list) {
 		if (msm_obj == obj) {
+			msm_obj->in_active_list = false;
 			list_del(&msm_obj->iova_list);
 			break;
 		}

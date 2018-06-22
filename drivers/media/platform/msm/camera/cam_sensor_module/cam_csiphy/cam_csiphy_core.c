@@ -613,6 +613,13 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		if (csiphy_dev->acquire_count == 0)
 			csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
+
+		if (csiphy_dev->config_count == 0) {
+			CAM_DBG(CAM_CSIPHY, "reset csiphy_info");
+			csiphy_dev->csiphy_info.lane_mask = 0;
+			csiphy_dev->csiphy_info.lane_cnt = 0;
+			csiphy_dev->csiphy_info.combo_mode = 0;
+		}
 	}
 		break;
 	case CAM_CONFIG_DEV: {

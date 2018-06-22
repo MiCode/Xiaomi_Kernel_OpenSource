@@ -78,5 +78,18 @@ config ARCH_MDM9615
 	select CLKSRC_OF
 	select COMMON_CLK
 
+config ARCH_SDXPRAIRIE
+	bool "Enable support for SDXPRAIRIE"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PCI
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
 endmenu
 endif

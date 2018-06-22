@@ -24,5 +24,15 @@
 
 int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current);
+#ifdef CONFIG_BACKLIGHT_QCOM_SPMI_WLED
+int wled_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current);
+#else
+static inline int wled_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
+{
+	return -EINVAL;
+}
+#endif
 
 #endif

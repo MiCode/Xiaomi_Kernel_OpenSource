@@ -154,6 +154,7 @@ struct se_geni_rsc {
 /* FW_REVISION_RO fields */
 #define FW_REV_PROTOCOL_MSK	(GENMASK(15, 8))
 #define FW_REV_PROTOCOL_SHFT	(8)
+#define FW_REV_VERSION_MSK	(GENMASK(7, 0))
 
 /* GENI_CLK_SEL fields */
 #define CLK_SEL_MSK		(GENMASK(2, 0))
@@ -403,6 +404,22 @@ void geni_write_reg(unsigned int value, void __iomem *base, int offset);
  * Return:	Protocol value as configured in the serial engine.
  */
 int get_se_proto(void __iomem *base);
+
+/**
+ * get_se_m_fw() - Read the Firmware ver for the Main seqeuncer engine
+ * @base:	Base address of the serial engine's register block.
+ *
+ * Return:	Firmware version for the Main seqeuncer engine
+ */
+int get_se_m_fw(void __iomem *base);
+
+/**
+ * get_se_s_fw() - Read the Firmware ver for the Secondry seqeuncer engine
+ * @base:	Base address of the serial engine's register block.
+ *
+ * Return:	Firmware version for the Secondry seqeuncer engine
+ */
+int get_se_s_fw(void __iomem *base);
 
 /**
  * geni_se_init() - Initialize the GENI Serial Engine

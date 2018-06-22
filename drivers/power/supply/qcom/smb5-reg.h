@@ -73,6 +73,11 @@ enum {
 
 #define CHGR_FAST_CHARGE_CURRENT_CFG_REG	(CHGR_BASE + 0x61)
 
+#define CHGR_ADC_ITERM_UP_THD_MSB_REG		(CHGR_BASE + 0x67)
+#define CHGR_ADC_ITERM_UP_THD_LSB_REG		(CHGR_BASE + 0x68)
+#define CHGR_ADC_ITERM_LO_THD_MSB_REG		(CHGR_BASE + 0x69)
+#define CHGR_ADC_ITERM_LO_THD_LSB_REG		(CHGR_BASE + 0x6A)
+
 #define CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG	(CHGR_BASE + 0x6B)
 #define NO_OF_SAMPLE_FOR_RCHG_SHIFT		2
 #define NO_OF_SAMPLE_FOR_RCHG			GENMASK(3, 2)
@@ -102,6 +107,10 @@ enum {
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
 
 #define CHGR_JEITA_THRESHOLD_BASE_REG(i)	(CHGR_BASE + 0x94 + (i * 4))
+
+#define CHGR_ENG_CHARGING_CFG_REG		(CHGR_BASE + 0xC0)
+#define CHGR_ITERM_USE_ANALOG_BIT		BIT(3)
+
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
@@ -128,6 +137,8 @@ enum {
 
 #define DCDC_OTG_CFG_REG			(DCDC_BASE + 0x53)
 #define OTG_EN_SRC_CFG_BIT			BIT(1)
+
+#define DCDC_CFG_REF_MAX_PSNS_REG		(DCDC_BASE + 0x8C)
 
 /********************************
  *  BATIF Peripheral Registers  *
@@ -252,10 +263,11 @@ enum {
  *  TYPEC Peripheral Registers  *
  ********************************/
 #define TYPE_C_SNK_STATUS_REG			(TYPEC_BASE + 0x06)
-#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 1)
+#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 0)
 #define SNK_RP_STD_BIT				BIT(3)
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)
+#define SNK_RP_SHORT_BIT			BIT(0)
 
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)
@@ -283,7 +295,8 @@ enum {
 #define U_USB_GROUND_BIT			BIT(4)
 
 #define TYPE_C_MODE_CFG_REG			(TYPEC_BASE + 0x44)
-#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 0)
+#define TYPEC_POWER_ROLE_CMD_MASK		GENMASK(2, 1)
+#define EN_TRY_SNK_BIT				BIT(4)
 #define EN_SRC_ONLY_BIT				BIT(2)
 #define EN_SNK_ONLY_BIT				BIT(1)
 #define TYPEC_DISABLE_CMD_BIT			BIT(0)
@@ -327,7 +340,7 @@ enum {
 #define TYPEC_U_USB_CFG_REG			(TYPEC_BASE + 0x70)
 #define EN_MICRO_USB_MODE_BIT			BIT(0)
 
-#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x70)
+#define TYPEC_MICRO_USB_MODE_REG		(TYPEC_BASE + 0x73)
 #define MICRO_USB_MODE_ONLY_BIT			BIT(0)
 /********************************
  *  MISC Peripheral Registers  *
@@ -341,6 +354,12 @@ enum {
 #define TEMP_WITHIN_RANGE_BIT			BIT(2)
 #define TEMP_BELOW_RANGE_BIT			BIT(1)
 #define THERMREG_DISABLED_BIT			BIT(0)
+
+#define CONNECTOR_TEMP_STATUS_REG		(MISC_BASE + 0x09)
+#define CONNECTOR_TEMP_SHDN_BIT			BIT(3)
+#define CONNECTOR_TEMP_RST_BIT			BIT(2)
+#define CONNECTOR_TEMP_UB_BIT			BIT(1)
+#define CONNECTOR_TEMP_LB_BIT			BIT(0)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
@@ -374,5 +393,9 @@ enum {
 #define STAT_POLARITY_CFG_BIT			BIT(2)
 #define STAT_FUNCTION_CFG_BIT			BIT(1)
 #define STAT_IRQ_PULSING_EN_BIT			BIT(0)
+
+#define DIE_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0xA0)
+
+#define SMB_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0XBC)
 
 #endif /* __SMB5_CHARGER_REG_H */

@@ -369,6 +369,8 @@ uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
 static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		uint64_t addr2)
 {
+	uint32_t addr_diff;
+
 	WARN(addr1 < ctx->base || addr1 >= ctx->end,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr1);
@@ -376,10 +378,11 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
 		ctx->base, ctx->end, addr2);
 
+	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
-		return (addr2 - addr1) / ctx->elem_sz;
+		return addr_diff / ctx->elem_sz;
 	else
-		return (addr2 - addr1 + ctx->len) / ctx->elem_sz;
+		return (addr_diff + ctx->len) / ctx->elem_sz;
 }
 
 static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
@@ -709,6 +712,20 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
 			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
 		break;
+	case GSI_VER_2_2:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_5:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+		break;
 	}
 
 	GSIDBG("max channels %d\n", reg);
@@ -751,6 +768,20 @@ static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 		reg = (reg &
 			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
 			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_2:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_5:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
 		break;
 	}
 
@@ -1595,14 +1626,86 @@ int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
 }
 EXPORT_SYMBOL(gsi_set_evt_ring_cfg);
 
+static void gsi_program_chan_ctx_qos(struct gsi_chan_props *props,
+	unsigned int ee)
+{
+	uint32_t val;
+
+	val =
+	(((props->low_weight <<
+		GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
+		GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
+	((props->max_prefetch <<
+		 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
+		 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
+	((props->use_db_eng <<
+		GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
+		 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
+	if (gsi_ctx->per.ver >= GSI_VER_2_0)
+		val |= ((props->prefetch_mode <<
+			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
+			& GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK);
+
+	gsi_writel(val, gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+}
+
+static void gsi_program_chan_ctx_qos_v2_5(struct gsi_chan_props *props,
+	unsigned int ee)
+{
+	uint32_t val;
+
+	val =
+	(((props->low_weight <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
+	((props->max_prefetch <<
+		 GSI_V2_5_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
+		 GSI_V2_5_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
+	((props->use_db_eng <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK) |
+	((props->prefetch_mode <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_BMSK) |
+	((props->empty_lvl_threshold <<
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_BMSK));
+
+	gsi_writel(val, gsi_ctx->base +
+			GSI_V2_5_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+}
+
 static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 		uint8_t erindex)
 {
 	uint32_t val;
+	uint32_t prot;
+	uint32_t prot_msb;
 
-	val = (((props->prot << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT)
-			& GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK) |
-		((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
+	switch (props->prot) {
+	case GSI_CHAN_PROT_MHI:
+	case GSI_CHAN_PROT_XHCI:
+	case GSI_CHAN_PROT_GPI:
+	case GSI_CHAN_PROT_XDCI:
+		prot = props->prot;
+		prot_msb = 0;
+		break;
+	default:
+		GSIERR("Unsupported protocol %d\n", props->prot);
+		WARN_ON(1);
+		return;
+	}
+	val = ((prot <<
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_SHFT) &
+		GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_BMSK);
+	if (gsi_ctx->per.ver >= GSI_VER_2_5) {
+		val |= ((prot_msb <<
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_SHFT) &
+		GSI_V2_5_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_PROTOCOL_MSB_BMSK);
+	}
+
+	val |= (((props->dir << GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_CHTYPE_DIR_BMSK) |
 		((erindex << GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_SHFT) &
 			 GSI_EE_n_GSI_CH_k_CNTXT_0_ERINDEX_BMSK) |
@@ -1628,19 +1731,10 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_CNTXT_3_OFFS(props->ch_id, ee));
 
-	val = (((props->low_weight << GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
-				GSI_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
-		((props->max_prefetch <<
-			 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
-			 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
-		((props->use_db_eng << GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
-			 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
-	if (gsi_ctx->per.ver >= GSI_VER_2_0)
-		val |= ((props->prefetch_mode <<
-			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
-			& GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK);
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_5)
+		gsi_program_chan_ctx_qos_v2_5(props, ee);
+	else
+		gsi_program_chan_ctx_qos(props, ee);
 }
 
 static void gsi_init_chan_ring(struct gsi_chan_props *props,
@@ -1840,8 +1934,6 @@ EXPORT_SYMBOL(gsi_alloc_channel);
 static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
 {
-	uint32_t reg;
-
 	gsi_writel(val.data.word1, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
@@ -1851,17 +1943,69 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 	gsi_writel(val.data.word3, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+
+	gsi_writel(val.data.word4, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+}
+
+static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
+	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
+{
+	union __packed gsi_channel_scratch scr;
+
 	/* below sequence is not atomic. assumption is sequencer specific fields
 	 * will remain unchanged across this sequence
 	 */
-	reg = gsi_readl(gsi_ctx->base +
+
+	/* READ */
+	scr.data.word1 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word2 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word3 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word4 = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
-	reg &= 0xFFFF;
-	reg |= (val.data.word4 & 0xFFFF0000);
-	gsi_writel(reg, gsi_ctx->base +
+
+	/* UPDATE */
+	scr.mhi.mhi_host_wp_addr = mscr.mhi_host_wp_addr;
+	scr.mhi.assert_bit40 = mscr.assert_bit40;
+	scr.mhi.polling_configuration = mscr.polling_configuration;
+	scr.mhi.burst_mode_enabled = mscr.burst_mode_enabled;
+	scr.mhi.polling_mode = mscr.polling_mode;
+	scr.mhi.oob_mod_threshold = mscr.oob_mod_threshold;
+
+	if (gsi_ctx->per.ver < GSI_VER_2_5) {
+		scr.mhi.max_outstanding_tre = mscr.max_outstanding_tre;
+		scr.mhi.outstanding_threshold = mscr.outstanding_threshold;
+	}
+
+	/* WRITE */
+	gsi_writel(scr.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word2, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word3, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word4, gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
 			gsi_ctx->per.ee));
+
+	return scr;
 }
 
 int gsi_write_channel_scratch(unsigned long chan_hdl,
@@ -1896,6 +2040,38 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_write_channel_scratch);
+
+int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
+		struct __packed gsi_mhi_channel_scratch mscr)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	if (gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_ALLOCATED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STOPPED) {
+		GSIERR("bad state %d\n",
+				gsi_ctx->chan[chan_hdl].state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+	ctx->scratch = __gsi_update_mhi_channel_scratch(chan_hdl, mscr);
+	mutex_unlock(&ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_update_mhi_channel_scratch);
 
 int gsi_query_channel_db_addr(unsigned long chan_hdl,
 		uint32_t *db_addr_wp_lsb, uint32_t *db_addr_wp_msb)
@@ -2040,6 +2216,20 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	res = wait_for_completion_timeout(&ctx->compl,
 			msecs_to_jiffies(GSI_STOP_CMD_TIMEOUT_MS));
 	if (res == 0) {
+		/*
+		 * check channel state here in case the channel is stopped but
+		 * the interrupt was not handled yet.
+		 */
+		val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+		ctx->state = (val &
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+		if (ctx->state == GSI_CHAN_STATE_STOPPED) {
+			res = GSI_STATUS_SUCCESS;
+			goto free_lock;
+		}
 		GSIDBG("chan_hdl=%lu timed out\n", chan_hdl);
 		res = -GSI_STATUS_TIMED_OUT;
 		goto free_lock;
@@ -2198,6 +2388,10 @@ revrfy_chnlstate:
 		 */
 		BUG();
 	}
+
+	/* Hardware issue fixed from GSI 2.0 and no need for the WA */
+	if (gsi_ctx->per.ver >= GSI_VER_2_0)
+		reset_done = true;
 
 	/* workaround: reset GSI producers again */
 	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && !reset_done) {
@@ -2712,21 +2906,27 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	spin_lock_irqsave(&gsi_ctx->slock, flags);
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
+		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
+		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
+		spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		ctx->stats.callback_to_poll++;
 	}
 
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
+		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
+		spin_unlock_irqrestore(&ctx->ring.slock, flags);
+		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
+		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 		ctx->stats.poll_to_callback++;
 	}
-	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 
 	return GSI_STATUS_SUCCESS;
 }
@@ -2817,7 +3017,7 @@ int gsi_set_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
 }
 EXPORT_SYMBOL(gsi_set_channel_cfg);
 
-static void gsi_configure_ieps(void *base)
+static void gsi_configure_ieps(void *base, enum gsi_ver ver)
 {
 	void __iomem *gsi_base = base;
 
@@ -2834,6 +3034,10 @@ static void gsi_configure_ieps(void *base)
 	gsi_writel(11, gsi_base + GSI_GSI_IRAM_PTR_NEW_RE_OFFS);
 	gsi_writel(12, gsi_base + GSI_GSI_IRAM_PTR_READ_ENG_COMP_OFFS);
 	gsi_writel(13, gsi_base + GSI_GSI_IRAM_PTR_TIMER_EXPIRED_OFFS);
+
+	if (ver >= GSI_VER_2_5)
+		gsi_writel(17,
+			gsi_base + GSI_V2_5_GSI_IRAM_PTR_TLV_CH_NOT_FULL_OFFS);
 }
 
 static void gsi_configure_bck_prs_matrix(void *base)
@@ -2876,9 +3080,19 @@ static void gsi_configure_bck_prs_matrix(void *base)
 }
 
 int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr)
+		phys_addr_t per_base_addr, enum gsi_ver ver)
 {
 	void __iomem *gsi_base;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (ver <= GSI_VER_ERR || ver >= GSI_VER_MAX) {
+		GSIERR("Incorrect version %d\n", ver);
+		return -GSI_STATUS_ERROR;
+	}
 
 	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
 	if (!gsi_base) {
@@ -2889,7 +3103,7 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 	gsi_writel(per_base_addr,
 			gsi_base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
 	gsi_configure_bck_prs_matrix((void *)gsi_base);
-	gsi_configure_ieps(gsi_base);
+	gsi_configure_ieps(gsi_base, ver);
 	iounmap(gsi_base);
 
 	return 0;
@@ -2951,13 +3165,46 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 EXPORT_SYMBOL(gsi_enable_fw);
 
 void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
-		unsigned long *size)
+		unsigned long *size, enum gsi_ver ver)
 {
-	if (base_offset)
-		*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
+	unsigned long maxn;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return;
+	}
+
+	switch (ver) {
+	case GSI_VER_1_0:
+	case GSI_VER_1_2:
+	case GSI_VER_1_3:
+		maxn = GSI_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_0:
+		maxn = GSI_V2_0_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_2:
+		maxn = GSI_V2_2_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_5:
+		maxn = GSI_V2_5_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_ERR:
+	case GSI_VER_MAX:
+	default:
+		GSIERR("GSI version is not supported %d\n", ver);
+		WARN_ON(1);
+		return;
+	}
 	if (size)
-		*size = GSI_GSI_INST_RAM_n_WORD_SZ *
-			(GSI_GSI_INST_RAM_n_MAXn + 1);
+		*size = GSI_GSI_INST_RAM_n_WORD_SZ * (maxn + 1);
+
+	if (base_offset) {
+		if (ver < GSI_VER_2_5)
+			*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
+		else
+			*base_offset = GSI_V2_5_GSI_INST_RAM_n_OFFS(0);
+	}
 }
 EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 

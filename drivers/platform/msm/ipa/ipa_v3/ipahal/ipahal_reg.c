@@ -1158,6 +1158,21 @@ static void ipareg_construct_endp_init_hol_block_timer_n(
 		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_TIMER_BMSK);
 }
 
+
+static void ipareg_construct_endp_init_hol_block_timer_n_v4_2(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_holb *ep_holb =
+		(struct ipa_ep_cfg_holb *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_holb->scale,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_SCALE_SHFT_V_4_2,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_SCALE_BMSK_V_4_2);
+	IPA_SETFIELD_IN_REG(*val, ep_holb->base_val,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_BASE_VALUE_SHFT_V_4_2,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_BASE_VALUE_BMSK_V_4_2);
+}
+
 static void ipareg_construct_endp_init_ctrl_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -2256,9 +2271,16 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_0][IPA_ENDP_YELLOW_RED_MARKER] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000CC0, 0x70, 10, 23, 1},
+	[IPA_HW_v4_2][IPA_IDLE_INDICATION_CFG] = {
+		ipareg_construct_idle_indication_cfg, ipareg_parse_dummy,
+		0x00000240, 0, 0, 0, 0},
+	[IPA_HW_v4_2][IPA_ENDP_INIT_HOL_BLOCK_TIMER_n] = {
+		ipareg_construct_endp_init_hol_block_timer_n_v4_2,
+		ipareg_parse_dummy,
+		0x00000830, 0x70, 8, 17, 1},
 };
 
-int ipahal_print_all_regs(void)
+int ipahal_print_all_regs(bool print_to_dmesg)
 {
 	int i, j;
 
@@ -2272,14 +2294,21 @@ int ipahal_print_all_regs(void)
 	}
 
 	for (i = 0; i < IPA_REG_MAX ; i++) {
-		if (!ipahal_reg_objs[IPA_HW_v4_0][i].en_print)
+		if (!ipahal_reg_objs[ipahal_ctx->hw_type][i].en_print)
 			continue;
 
 		j = ipahal_reg_objs[ipahal_ctx->hw_type][i].n_start;
 
-		if (j == ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end)
-			IPAHAL_DBG_REG("%s=0x%x\n", ipahal_reg_name_str(i),
-				ipahal_read_reg_n(i, j));
+		if (j == ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end) {
+			if (print_to_dmesg)
+				IPAHAL_DBG_REG("%s=0x%x\n",
+					ipahal_reg_name_str(i),
+					ipahal_read_reg_n(i, j));
+			else
+				IPAHAL_DBG_REG_IPC_ONLY("%s=0x%x\n",
+					ipahal_reg_name_str(i),
+					ipahal_read_reg_n(i, j));
+		}
 
 		for (; j < ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end; j++)
 			IPAHAL_DBG_REG("%s_%u=0x%x\n", ipahal_reg_name_str(i),

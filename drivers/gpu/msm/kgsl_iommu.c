@@ -1869,9 +1869,10 @@ static int kgsl_iommu_sparse_dummy_map(struct kgsl_pagetable *pt,
 	struct page **pages = NULL;
 	struct sg_table sgt;
 	int count = size >> PAGE_SHIFT;
+	unsigned int map_flags;
 
 	/* verify the offset is within our range */
-	if (size + offset > memdesc->size)
+	if (size + offset > kgsl_memdesc_footprint(memdesc))
 		return -EINVAL;
 
 	if (kgsl_dummy_page == NULL) {
@@ -1880,6 +1881,10 @@ static int kgsl_iommu_sparse_dummy_map(struct kgsl_pagetable *pt,
 		if (kgsl_dummy_page == NULL)
 			return -ENOMEM;
 	}
+
+	map_flags = MMU_FEATURE(pt->mmu, KGSL_MMU_PAD_VA) ?
+				_get_protection_flags(pt, memdesc) :
+				IOMMU_READ | IOMMU_NOEXEC;
 
 	pages = kcalloc(count, sizeof(struct page *), GFP_KERNEL);
 	if (pages == NULL)
@@ -1892,7 +1897,7 @@ static int kgsl_iommu_sparse_dummy_map(struct kgsl_pagetable *pt,
 			0, size, GFP_KERNEL);
 	if (ret == 0) {
 		ret = _iommu_map_sg_sync_pc(pt, memdesc->gpuaddr + offset,
-				sgt.sgl, sgt.nents, IOMMU_READ | IOMMU_NOEXEC);
+				sgt.sgl, sgt.nents, map_flags);
 		sg_free_table(&sgt);
 	}
 
@@ -2472,7 +2477,8 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 
 	size = kgsl_memdesc_footprint(memdesc);
 
-	align = 1 << kgsl_memdesc_get_align(memdesc);
+	align = max_t(uint64_t, 1 << kgsl_memdesc_get_align(memdesc),
+			memdesc->pad_to);
 
 	if (memdesc->flags & KGSL_MEMFLAGS_FORCE_32BIT) {
 		start = pt->compat_va_start;
@@ -2661,7 +2667,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 		return -EINVAL;
 	}
 	iommu->protect.base = reg_val[0] / sizeof(u32);
-	iommu->protect.range = ilog2(reg_val[1] / sizeof(u32));
+	iommu->protect.range = reg_val[1] / sizeof(u32);
 
 	of_property_for_each_string(node, "clock-names", prop, cname) {
 		struct clk *c = devm_clk_get(&pdev->dev, cname);

@@ -34,18 +34,30 @@ struct __packed dtr_ctrl_msg {
 
 #define CTRL_MAGIC (0x4C525443)
 #define CTRL_MSG_DTR BIT(0)
-#define CTRL_MSG_ID (0x10)
+#define CTRL_MSG_RTS BIT(1)
+#define CTRL_MSG_DCD BIT(0)
+#define CTRL_MSG_DSR BIT(1)
+#define CTRL_MSG_RI BIT(3)
+#define CTRL_HOST_STATE (0x10)
+#define CTRL_DEVICE_STATE (0x11)
+#define CTRL_GET_CHID(dtr) (dtr->dest_id & 0xFF)
 
 static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
-			    struct mhi_chan *mhi_chan,
+			    struct mhi_device *mhi_dev,
 			    u32 tiocm)
 {
 	struct dtr_ctrl_msg *dtr_msg = NULL;
 	struct mhi_chan *dtr_chan = mhi_cntrl->dtr_dev->ul_chan;
+	spinlock_t *res_lock = &mhi_dev->dev.devres_lock;
+	u32 cur_tiocm;
 	int ret = 0;
 
-	tiocm &= TIOCM_DTR;
-	if (mhi_chan->tiocm == tiocm)
+	cur_tiocm = mhi_dev->tiocm & ~(TIOCM_CD | TIOCM_DSR | TIOCM_RI);
+
+	tiocm &= (TIOCM_DTR | TIOCM_RTS);
+
+	/* state did not changed */
+	if (cur_tiocm == tiocm)
 		return 0;
 
 	mutex_lock(&dtr_chan->mutex);
@@ -57,11 +69,13 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 	}
 
 	dtr_msg->preamble = CTRL_MAGIC;
-	dtr_msg->msg_id = CTRL_MSG_ID;
-	dtr_msg->dest_id = mhi_chan->chan;
+	dtr_msg->msg_id = CTRL_HOST_STATE;
+	dtr_msg->dest_id = mhi_dev->ul_chan_id;
 	dtr_msg->size = sizeof(u32);
 	if (tiocm & TIOCM_DTR)
 		dtr_msg->msg |= CTRL_MSG_DTR;
+	if (tiocm & TIOCM_RTS)
+		dtr_msg->msg |= CTRL_MSG_RTS;
 
 	reinit_completion(&dtr_chan->completion);
 	ret = mhi_queue_transfer(mhi_cntrl->dtr_dev, DMA_TO_DEVICE, dtr_msg,
@@ -71,7 +85,6 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 
 	ret = wait_for_completion_timeout(&dtr_chan->completion,
 				msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
 	if (!ret) {
 		MHI_ERR("Failed to receive transfer callback\n");
 		ret = -EIO;
@@ -79,7 +92,10 @@ static int mhi_dtr_tiocmset(struct mhi_controller *mhi_cntrl,
 	}
 
 	ret = 0;
-	mhi_chan->tiocm = tiocm;
+	spin_lock_irq(res_lock);
+	mhi_dev->tiocm &= ~(TIOCM_DTR | TIOCM_RTS);
+	mhi_dev->tiocm |= tiocm;
+	spin_unlock_irq(res_lock);
 
 tiocm_exit:
 	kfree(dtr_msg);
@@ -91,7 +107,6 @@ tiocm_exit:
 long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	struct mhi_chan *mhi_chan = mhi_dev->ul_chan;
 	int ret;
 
 	/* ioctl not supported by this controller */
@@ -100,7 +115,7 @@ long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case TIOCMGET:
-		return mhi_chan->tiocm;
+		return mhi_dev->tiocm;
 	case TIOCMSET:
 	{
 		u32 tiocm;
@@ -109,7 +124,7 @@ long mhi_ioctl(struct mhi_device *mhi_dev, unsigned int cmd, unsigned long arg)
 		if (ret)
 			return ret;
 
-		return mhi_dtr_tiocmset(mhi_cntrl, mhi_chan, tiocm);
+		return mhi_dtr_tiocmset(mhi_cntrl, mhi_dev, tiocm);
 	}
 	default:
 		break;
@@ -122,6 +137,42 @@ EXPORT_SYMBOL(mhi_ioctl);
 static void mhi_dtr_dl_xfer_cb(struct mhi_device *mhi_dev,
 			       struct mhi_result *mhi_result)
 {
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct dtr_ctrl_msg *dtr_msg = mhi_result->buf_addr;
+	u32 chan;
+	spinlock_t *res_lock;
+
+	if (mhi_result->bytes_xferd != sizeof(*dtr_msg)) {
+		MHI_ERR("Unexpected length %zu received\n",
+			mhi_result->bytes_xferd);
+		return;
+	}
+
+	MHI_VERB("preamble:0x%x msg_id:%u dest_id:%u msg:0x%x\n",
+		 dtr_msg->preamble, dtr_msg->msg_id, dtr_msg->dest_id,
+		 dtr_msg->msg);
+
+	chan = CTRL_GET_CHID(dtr_msg);
+	if (chan >= mhi_cntrl->max_chan)
+		return;
+
+	mhi_dev = mhi_cntrl->mhi_chan[chan].mhi_dev;
+	if (!mhi_dev)
+		return;
+
+	res_lock = &mhi_dev->dev.devres_lock;
+	spin_lock_irq(res_lock);
+	mhi_dev->tiocm &= ~(TIOCM_CD | TIOCM_DSR | TIOCM_RI);
+
+	if (dtr_msg->msg & CTRL_MSG_DCD)
+		mhi_dev->tiocm |= TIOCM_CD;
+
+	if (dtr_msg->msg & CTRL_MSG_DSR)
+		mhi_dev->tiocm |= TIOCM_DSR;
+
+	if (dtr_msg->msg & CTRL_MSG_RI)
+		mhi_dev->tiocm |= TIOCM_RI;
+	spin_unlock_irq(res_lock);
 }
 
 static void mhi_dtr_ul_xfer_cb(struct mhi_device *mhi_dev,

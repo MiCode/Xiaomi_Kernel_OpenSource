@@ -220,8 +220,13 @@ static ssize_t gsi_dump_ch(struct file *file,
 		GSI_EE_n_GSI_CH_k_RE_FETCH_WRITE_PTR_OFFS(arg1,
 			gsi_ctx->per.ee));
 	TERR("CH%2d REFWP 0x%x\n", arg1, val);
-	val = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_QOS_OFFS(arg1, gsi_ctx->per.ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_5) {
+		val = gsi_readl(gsi_ctx->base +
+			GSI_V2_5_EE_n_GSI_CH_k_QOS_OFFS(arg1, gsi_ctx->per.ee));
+	} else {
+		val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_QOS_OFFS(arg1, gsi_ctx->per.ee));
+	}
 	TERR("CH%2d QOS   0x%x\n", arg1, val);
 	val = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(arg1, gsi_ctx->per.ee));

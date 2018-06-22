@@ -19,9 +19,11 @@ Required properties :
 			"qcom,gcc-msm8996"
 			"qcom,gcc-mdm9615"
 			"qcom,gcc-sm8150"
+			"qcom,gcc-sm8150-v2"
 			"qcom,gcc-sdmshrike"
 			"qcom,gcc-qcs405"
 			"qcom,gcc-mdss-qcs405"
+			"qcom,gcc-sm6150"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

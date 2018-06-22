@@ -21,14 +21,12 @@
 #include <linux/module.h>
 #include <linux/msm-bus.h>
 #include <linux/msm_pcie.h>
-#include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
 struct arch_info {
-	bool initialized;
 	struct mhi_dev *mhi_dev;
 	struct esoc_desc *esoc_client;
 	struct esoc_client_hook esoc_ops;
@@ -80,24 +78,6 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 			pm_runtime_put_noidle(&pci_dev->dev);
 		}
 	}
-}
-
-int mhi_arch_platform_init(struct mhi_dev *mhi_dev)
-{
-	struct arch_info *arch_info = kzalloc(sizeof(*arch_info), GFP_KERNEL);
-
-	if (!arch_info)
-		return -ENOMEM;
-
-	mhi_dev->arch_info = arch_info;
-
-	return 0;
-}
-
-void mhi_arch_platform_deinit(struct mhi_dev *mhi_dev)
-{
-	kfree(mhi_dev->arch_info);
-	mhi_dev->arch_info = NULL;
 }
 
 static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
@@ -169,8 +149,15 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 	char node[32];
 	int ret;
 
-	if (!arch_info->initialized) {
+	if (!arch_info) {
 		struct msm_pcie_register_event *reg_event;
+
+		arch_info = devm_kzalloc(&mhi_dev->pci_dev->dev,
+					 sizeof(*arch_info), GFP_KERNEL);
+		if (!arch_info)
+			return -ENOMEM;
+
+		mhi_dev->arch_info = arch_info;
 
 		snprintf(node, sizeof(node), "mhi_%04x_%02u.%02u.%02u",
 			 mhi_cntrl->dev_id, mhi_cntrl->domain, mhi_cntrl->bus,
@@ -180,7 +167,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->log_lvl = mhi_ipc_log_lvl;
 
 		/* register bus scale */
-		arch_info->msm_bus_pdata = msm_bus_cl_get_pdata(mhi_dev->pdev);
+		arch_info->msm_bus_pdata = msm_bus_cl_get_pdata_from_dev(
+							&mhi_dev->pci_dev->dev);
 		if (!arch_info->msm_bus_pdata)
 			return -EINVAL;
 
@@ -200,7 +188,7 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 			MHI_LOG("Failed to reg. for link up notification\n");
 
 		arch_info->esoc_client = devm_register_esoc_client(
-						&mhi_dev->pdev->dev, "mdm");
+						&mhi_dev->pci_dev->dev, "mdm");
 		if (IS_ERR_OR_NULL(arch_info->esoc_client)) {
 			MHI_ERR("Failed to register esoc client\n");
 		} else {
@@ -224,8 +212,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		/* save reference state for pcie config space */
 		arch_info->ref_pcie_state = pci_store_saved_state(
 							mhi_dev->pci_dev);
-
-		arch_info->initialized = true;
 	}
 
 	return mhi_arch_set_bus_request(mhi_cntrl, 1);

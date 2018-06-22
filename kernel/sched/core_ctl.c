@@ -600,23 +600,27 @@ static int prev_cluster_nr_need_assist(int index)
 	int need = 0;
 	int cpu;
 	struct cluster_data *prev_cluster;
-	unsigned int prev_cluster_available_cpus;
 
 	if (index == 0)
 		return 0;
 
 	index--;
 	prev_cluster = &cluster_state[index];
-	prev_cluster_available_cpus = prev_cluster->active_cpus +
-					prev_cluster->nr_isolated_cpus;
+
+	/*
+	 * Next cluster should not assist, while there are isolated cpus
+	 * in this cluster.
+	 */
+	if (prev_cluster->nr_isolated_cpus)
+		return 0;
 
 	for_each_cpu(cpu, &prev_cluster->cpu_mask)
 		need += nr_stats[cpu].nr;
 
 	need += compute_prev_cluster_misfit_need(index);
 
-	if (need > prev_cluster_available_cpus)
-		need = need - prev_cluster_available_cpus;
+	if (need > prev_cluster->active_cpus)
+		need = need - prev_cluster->active_cpus;
 	else
 		need = 0;
 
@@ -672,8 +676,7 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	 * unisolate as many cores as the previous cluster
 	 * needs assistance with.
 	 */
-	if (cluster->nr_prev_assist_thresh != 0 &&
-		cluster->nr_prev_assist >= cluster->nr_prev_assist_thresh)
+	if (cluster->nr_prev_assist >= cluster->nr_prev_assist_thresh)
 		new_need = new_need + cluster->nr_prev_assist;
 
 	/* only unisolate more cores if there are tasks to run */
@@ -761,7 +764,12 @@ static bool eval_need(struct cluster_data *cluster)
 	if (new_need > cluster->active_cpus) {
 		ret = 1;
 	} else {
-		if (new_need == last_need) {
+		/*
+		 * When there is no change in need and there are no more
+		 * active CPUs than currently needed, just update the
+		 * need time stamp and return.
+		 */
+		if (new_need == last_need && new_need == cluster->active_cpus) {
 			cluster->need_ts = now;
 			spin_unlock_irqrestore(&state_lock, flags);
 			return 0;
@@ -903,6 +911,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
 	unsigned int nr_isolated = 0;
+	bool first_pass = cluster->nr_not_preferred_cpus;
 
 	/*
 	 * Protect against entry being removed (and added at tail) by other
@@ -948,6 +957,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
+again:
 	/*
 	 * If the number of active CPUs is within the limits, then
 	 * don't force isolation of any busy CPUs.
@@ -967,6 +977,9 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (cluster->active_cpus <= cluster->max_cpus)
 			break;
 
+		if (first_pass && !c->not_preferred)
+			continue;
+
 		spin_unlock_irqrestore(&state_lock, flags);
 
 		pr_debug("Trying to isolate CPU%u\n", c->cpu);
@@ -983,6 +996,10 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
+	if (first_pass && cluster->active_cpus > cluster->max_cpus) {
+		first_pass = false;
+		goto again;
+	}
 }
 
 static void __try_to_unisolate(struct cluster_data *cluster,
@@ -1195,7 +1212,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->offline_delay_ms = 100;
 	cluster->task_thres = UINT_MAX;
-	cluster->nr_prev_assist_thresh = 0;
+	cluster->nr_prev_assist_thresh = UINT_MAX;
 	cluster->nrrun = cluster->num_cpus;
 	cluster->enable = true;
 	cluster->nr_not_preferred_cpus = 0;
@@ -1228,8 +1245,8 @@ static int cluster_init(const struct cpumask *mask)
 
 static int __init core_ctl_init(void)
 {
-	unsigned int cpu;
-	struct cpumask cpus = *cpu_possible_mask;
+	struct sched_cluster *cluster;
+	int ret;
 
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 			"core_ctl/isolation:online",
@@ -1239,15 +1256,12 @@ static int __init core_ctl_init(void)
 			"core_ctl/isolation:dead",
 			NULL, core_ctl_isolation_dead_cpu);
 
-	for_each_cpu(cpu, &cpus) {
-		int ret;
-		const struct cpumask *cluster_cpus = cpu_coregroup_mask(cpu);
-
-		ret = cluster_init(cluster_cpus);
+	for_each_sched_cluster(cluster) {
+		ret = cluster_init(&cluster->cpus);
 		if (ret)
 			pr_warn("unable to create core ctl group: %d\n", ret);
-		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 	}
+
 	initialized = true;
 	return 0;
 }

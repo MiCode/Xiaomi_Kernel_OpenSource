@@ -244,6 +244,7 @@ static void dsi_catalog_phy_4_0_init(struct dsi_phy_hw *phy)
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v4_0;
 	phy->ops.phy_lane_reset = dsi_phy_hw_v4_0_lane_reset;
 	phy->ops.toggle_resync_fifo = dsi_phy_hw_v4_0_toggle_resync_fifo;
+	phy->ops.reset_clk_en_sel = dsi_phy_hw_v4_0_reset_clk_en_sel;
 }
 
 /**

@@ -32,6 +32,7 @@
 #include "venus_boot.h"
 #include "vidc_hfi_api.h"
 #include "msm_v4l2_private.h"
+#include "msm_vidc_clocks.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -252,6 +253,14 @@ static int msm_v4l2_queryctrl(struct file *file, void *fh,
 	return msm_vidc_query_ctrl((void *)vidc_inst, ctrl);
 }
 
+static long msm_v4l2_default(struct file *file, void *fh,
+	bool valid_prio, unsigned int cmd, void *arg)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+
+	return msm_vidc_private((void *)vidc_inst, cmd, arg);
+}
+
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -278,6 +287,7 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_g_parm = msm_v4l2_g_parm,
 	.vidioc_g_crop = msm_v4l2_g_crop,
 	.vidioc_enum_framesizes = msm_v4l2_enum_framesizes,
+	.vidioc_default = msm_v4l2_default,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {
@@ -352,6 +362,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	}
 
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
+	INIT_WORK(&core->ssr_work, msm_vidc_ssr_handler);
 
 	mutex_lock(&core->lock);
 	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
@@ -360,6 +371,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 	mutex_unlock(&core->lock);
 
+	msm_vidc_init_core_clk_ops(core);
 	return rc;
 }
 
@@ -488,7 +500,7 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{.compatible = "qcom,msm-vidc"},
 	{.compatible = "qcom,msm-vidc,context-bank"},
 	{.compatible = "qcom,msm-vidc,bus"},
-	{.compatible = "qcom,msm-vidc,mem-adsp"},
+	{.compatible = "qcom,msm-vidc,mem-cdsp"},
 	{}
 };
 
@@ -680,9 +692,9 @@ err_core_init:
 	return rc;
 }
 
-static int msm_vidc_probe_mem_adsp(struct platform_device *pdev)
+static int msm_vidc_probe_mem_cdsp(struct platform_device *pdev)
 {
-	return read_mem_adsp_resources_from_dt(pdev);
+	return read_mem_cdsp_resources_from_dt(pdev);
 }
 
 static int msm_vidc_probe_context_bank(struct platform_device *pdev)
@@ -711,8 +723,8 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		"qcom,msm-vidc,context-bank")) {
 		return msm_vidc_probe_context_bank(pdev);
 	} else if (of_device_is_compatible(pdev->dev.of_node,
-		"qcom,msm-vidc,mem-adsp")) {
-		return msm_vidc_probe_mem_adsp(pdev);
+		"qcom,msm-vidc,mem-cdsp")) {
+		return msm_vidc_probe_mem_cdsp(pdev);
 	}
 
 	/* How did we end up here? */

@@ -64,6 +64,7 @@
 #define ULPI_STP_CTRL           (1 << 30) /* Block communication with PHY */
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
 #define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
+#define PHY_CLAMP_DPDMSE_EN	(1 << 21) /* PHY mpm DP DM clamp enable */
 
 /* OTG definitions */
 #define OTGSC_INTSTS_MASK	(0x7f << 16)
@@ -73,5 +74,30 @@
 #define OTGSC_BSVIS		(1 << 19)
 #define OTGSC_IDIE		(1 << 24)
 #define OTGSC_BSVIE		(1 << 27)
+
+/* USB PHY CSR registers and bit definitions */
+
+#define USB_PHY_CSR_PHY_CTRL_COMMON0 (MSM_USB_PHY_CSR_BASE + 0x078)
+#define SIDDQ BIT(2)
+
+#define USB_PHY_CSR_PHY_CTRL1 (MSM_USB_PHY_CSR_BASE + 0x08C)
+#define ID_HV_CLAMP_EN_N BIT(1)
+
+#define USB_PHY_CSR_PHY_CTRL3 (MSM_USB_PHY_CSR_BASE + 0x094)
+#define CLAMP_MPM_DPSE_DMSE_EN_N BIT(2)
+
+#define USB2_PHY_USB_PHY_IRQ_CMD (MSM_USB_PHY_CSR_BASE + 0x0D0)
+#define USB2_PHY_USB_PHY_INTERRUPT_SRC_STATUS (MSM_USB_PHY_CSR_BASE + 0x05C)
+
+#define USB2_PHY_USB_PHY_INTERRUPT_CLEAR0 (MSM_USB_PHY_CSR_BASE + 0x0DC)
+#define USB2_PHY_USB_PHY_INTERRUPT_CLEAR1 (MSM_USB_PHY_CSR_BASE + 0x0E0)
+
+#define USB2_PHY_USB_PHY_INTERRUPT_MASK1 (MSM_USB_PHY_CSR_BASE + 0x0D8)
+
+#define USB_PHY_IDDIG_1_0 BIT(7)
+
+#define USB_PHY_IDDIG_RISE_MASK BIT(0)
+#define USB_PHY_IDDIG_FALL_MASK BIT(1)
+#define USB_PHY_ID_MASK (USB_PHY_IDDIG_RISE_MASK | USB_PHY_IDDIG_FALL_MASK)
 
 #endif /* __LINUX_USB_GADGET_MSM72K_UDC_H__ */

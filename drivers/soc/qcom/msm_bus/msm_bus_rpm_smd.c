@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,6 +159,7 @@ static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
 				cd->mas_arb[i].hw_id,
 				cd->mas_arb[i].bw);
 			break;
+		}
 		cd->mas_arb[i].dirty = false;
 	}
 
@@ -179,8 +180,9 @@ static int msm_bus_rpm_commit_arb(struct msm_bus_fabric_registration
 				cd->slv_arb[i].hw_id,
 				cd->slv_arb[i].bw);
 			break;
-		cd->slv_arb[i].dirty = false;
 		}
+		cd->slv_arb[i].dirty = false;
+	}
 
 	return status;
 }

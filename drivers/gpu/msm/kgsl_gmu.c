@@ -10,16 +10,14 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/module.h>
-#include <linux/types.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/pm_opp.h>
-#include <linux/io.h>
 #include <soc/qcom/cmd-db.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
@@ -593,7 +591,7 @@ err_ret:
 
 /*
  * gmu_dcvs_set() - request GMU to change GPU frequency and/or bandwidth.
- * @gmu: Pointer to GMU device
+ * @device: Pointer to the device
  * @gpu_pwrlevel: index to GPU DCVS table used by KGSL
  * @bus_level: index to GPU bus table used by KGSL
  *
@@ -618,9 +616,10 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 	if (bus_level < gmu->num_bwlevels && bus_level > 0)
 		req.bw = bus_level;
 
+	/* GMU will vote for slumber levels through the sleep sequence */
 	if ((req.freq == INVALID_DCVS_IDX) &&
 		(req.bw == INVALID_DCVS_IDX))
-		return -EINVAL;
+		return 0;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		int ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
@@ -637,6 +636,9 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 
 		return ret;
 	}
+
+	if (!test_bit(GMU_HFI_ON, &gmu->flags))
+		return 0;
 
 	return hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
 }
@@ -1029,35 +1031,6 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t hfi_irq_handler(int irq, void *data)
-{
-	struct kgsl_device *device = data;
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct kgsl_hfi *hfi = &gmu->hfi;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int status = 0;
-
-	adreno_read_gmureg(ADRENO_DEVICE(device),
-			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
-	adreno_write_gmureg(ADRENO_DEVICE(device),
-			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
-
-	if (status & HFI_IRQ_MSGQ_MASK)
-		tasklet_hi_schedule(&hfi->tasklet);
-	if (status & HFI_IRQ_CM3_FAULT_MASK) {
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"GMU CM3 fault interrupt received\n");
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
-	}
-	if (status & ~HFI_IRQ_MASK)
-		dev_err_ratelimited(&gmu->pdev->dev,
-				"Unhandled HFI interrupts 0x%lx\n",
-				status & ~HFI_IRQ_MASK);
-
-	return IRQ_HANDLED;
-}
-
 static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
 {
 	int ret;
@@ -1302,52 +1275,6 @@ static int gmu_irq_probe(struct kgsl_device *device, struct gmu_device *gmu)
 	return ret;
 }
 
-static void gmu_irq_enable(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct kgsl_hfi *hfi = &gmu->hfi;
-
-	/* Clear any pending IRQs before unmasking on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
-			0xFFFFFFFF);
-
-	/* Unmask needed IRQs on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			(unsigned int) ~HFI_IRQ_MASK);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-			(unsigned int) ~GMU_AO_INT_MASK);
-
-	/* Enable all IRQs on host */
-	enable_irq(hfi->hfi_interrupt_num);
-	enable_irq(gmu->gmu_interrupt_num);
-}
-
-static void gmu_irq_disable(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct kgsl_hfi *hfi = &gmu->hfi;
-
-	/* Disable all IRQs on host */
-	disable_irq(gmu->gmu_interrupt_num);
-	disable_irq(hfi->hfi_interrupt_num);
-
-	/* Mask all IRQs on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			0xFFFFFFFF);
-
-	/* Clear any pending IRQs before disabling */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-			0xFFFFFFFF);
-}
-
 /* Do not access any GMU registers in GMU probe function */
 static int gmu_probe(struct kgsl_device *device,
 		struct device_node *node, unsigned long flags)
@@ -1408,13 +1335,14 @@ static int gmu_probe(struct kgsl_device *device,
 		goto error;
 
 	/* Don't enable GMU interrupts until GMU started */
-	/* We cannot use gmu_irq_disable because it writes registers */
+	/* We cannot use irq_disable because it writes registers */
 	disable_irq(gmu->gmu_interrupt_num);
 	disable_irq(hfi->hfi_interrupt_num);
 
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)gmu);
 	INIT_LIST_HEAD(&hfi->msglist);
 	spin_lock_init(&hfi->msglock);
+	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/
 	ret = gmu_pwrlevel_probe(gmu, node);
@@ -1582,7 +1510,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	/* Pending message in all queues are abandoned */
 	hfi_stop(gmu);
 	clear_bit(GMU_HFI_ON, &gmu->flags);
-	gmu_irq_disable(device);
+	gmu_dev_ops->irq_disable(device);
 
 	if (gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
 		return -EINVAL;
@@ -1596,6 +1524,7 @@ static int gmu_suspend(struct kgsl_device *device)
 static void gmu_snapshot(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	/* Mask so there's no interrupt caused by NMI */
@@ -1618,35 +1547,9 @@ static void gmu_snapshot(struct kgsl_device *device)
 			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
 	adreno_write_gmureg(adreno_dev,
 			ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			(unsigned int) ~HFI_IRQ_MASK);
+			~(gmu_dev_ops->gmu2host_intr_mask));
 
 	gmu->fault_count++;
-}
-
-static void gmu_change_gpu_pwrlevel(struct kgsl_device *device,
-	unsigned int new_level)
-{
-
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned int old_level = pwr->active_pwrlevel;
-
-	/*
-	 * Update the level according to any thermal,
-	 * max/min, or power constraints.
-	 */
-	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
-
-	/*
-	 * If thermal cycling is required and the new level hits the
-	 * thermal limit, kick off the cycling.
-	 */
-	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
-
-	pwr->active_pwrlevel = new_level;
-	pwr->previous_pwrlevel = old_level;
-
-	/* Request adjusted DCVS level */
-	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
 }
 
 /* To be called to power on both GPU and GMU */
@@ -1664,7 +1567,7 @@ static int gmu_start(struct kgsl_device *device)
 		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
-		gmu_irq_enable(device);
+		gmu_dev_ops->irq_enable(device);
 
 		/* Vote for 300MHz DDR for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
@@ -1683,7 +1586,7 @@ static int gmu_start(struct kgsl_device *device)
 			goto error_gmu;
 
 		/* Request default DCVS level */
-		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
+		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 		msm_bus_scale_client_update_request(gmu->pcl, 0);
 		break;
 
@@ -1691,7 +1594,7 @@ static int gmu_start(struct kgsl_device *device)
 		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
-		gmu_irq_enable(device);
+		gmu_dev_ops->irq_enable(device);
 
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_COLD_BOOT, 0);
@@ -1702,7 +1605,7 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
+		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 		break;
 
 	case KGSL_STATE_RESET:
@@ -1711,7 +1614,7 @@ static int gmu_start(struct kgsl_device *device)
 			gmu_suspend(device);
 			gmu_enable_gdsc(gmu);
 			gmu_enable_clks(gmu);
-			gmu_irq_enable(device);
+			gmu_dev_ops->irq_enable(device);
 
 			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
 				adreno_dev, GMU_FW_START, GMU_COLD_BOOT, 0);
@@ -1724,8 +1627,7 @@ static int gmu_start(struct kgsl_device *device)
 				goto error_gmu;
 
 			/* Send DCVS level prior to reset*/
-			gmu_change_gpu_pwrlevel(device,
-				pwr->default_pwrlevel);
+			kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 		} else {
 			/* GMU fast boot */
 			hfi_stop(gmu);
@@ -1781,7 +1683,7 @@ static void gmu_stop(struct kgsl_device *device)
 	/* Pending message in all queues are abandoned */
 	hfi_stop(gmu);
 	clear_bit(GMU_HFI_ON, &gmu->flags);
-	gmu_irq_disable(device);
+	gmu_dev_ops->irq_disable(device);
 
 	gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(gmu);
@@ -1975,4 +1877,5 @@ struct gmu_core_ops gmu_ops = {
 	.dcvs_set = gmu_dcvs_set,
 	.snapshot = gmu_snapshot,
 	.regulator_isenabled = gmu_regulator_isenabled,
+	.suspend = gmu_suspend,
 };

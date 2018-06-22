@@ -183,6 +183,25 @@ config MEMORY_HOTPLUG_DEFAULT_ONLINE
 	  Say N here if you want the default policy to keep all hot-plugged
 	  memory blocks in 'offline' state.
 
+config MEMORY_HOTPLUG_MOVABLE_NODE
+        bool "Add hot-added memory blocks to ZONE_MOVABLE type"
+        default n
+        depends on MEMORY_HOTPLUG
+        depends on QCOM_MEM_OFFLINE
+        help
+	  When onlining memory blocks, this option helps to add the target
+	  memory block to ZONE_MOVABLE zone type. For successful offlining,
+	  these memory blocks should belong to 'ZONE_MOVABLE' since it carries
+	  only movable pages. When this option is not set, the default zone
+	  policy is to add the blocks to 'ZONE_NORMAL' which may pin pages.
+
+	  See Documentation/memory-hotplug.txt for more information.
+
+	  Say Y here if you want all hot-added memory blocks to be added to
+	  'ZONE_MOVABLE' type.state by default.
+	  Say N here if you want the default policy to add all hot-added
+	  memory blocks in 'ZONE_NORMAL' type.
+
 config MEMORY_HOTREMOVE
 	bool "Allow for memory hot remove"
 	select MEMORY_ISOLATION
@@ -650,6 +669,7 @@ config DEFERRED_STRUCT_PAGE_INIT
 	depends on ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
 	depends on NO_BOOTMEM && MEMORY_HOTPLUG
 	depends on !FLATMEM
+	depends on !NEED_PER_CPU_KM
 	help
 	  Ordinarily all struct pages are initialised during early boot in a
 	  single thread. On very large machines this can take a considerable
@@ -757,3 +777,33 @@ config PERCPU_STATS
 	  This feature collects and exposes statistics via debugfs. The
 	  information includes global and per chunk statistics, which can
 	  be used to help understand percpu memory usage.
+
+config ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+       def_bool n
+
+config SPECULATIVE_PAGE_FAULT
+       bool "Speculative page faults"
+       default y
+       depends on ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+       depends on MMU && SMP
+       help
+         Try to handle user space page faults without holding the mmap_sem.
+
+	 This should allow better concurrency for massively threaded process
+	 since the page fault handler will not wait for other threads memory
+	 layout change to be done, assuming that this change is done in another
+	 part of the process's memory space. This type of page fault is named
+	 speculative page fault.
+
+	 If the speculative page fault fails because of a concurrency is
+	 detected or because underlying PMD or PTE tables are not yet
+	 allocating, it is failing its processing and a classic page fault
+	 is then tried.
+
+config HAVE_LOW_MEMORY_KILLER
+	bool "Have user/kernel space low memory killer"
+	default n
+	help
+	  Say 'y' if you have a user/kernel low memory killer and thus you
+	  want page allocator to provide sufficient time before it triggers
+	  Out of Memory killer.

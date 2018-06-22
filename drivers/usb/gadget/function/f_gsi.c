@@ -676,6 +676,11 @@ static void ipa_work_handler(struct work_struct *w)
 			log_event_dbg("%s: ST_CON_IN_PROG_EVT_HOST_READY",
 					 __func__);
 		} else if (event == EVT_CONNECTED) {
+			if (peek_event(d_port) == EVT_SUSPEND) {
+				log_event_dbg("%s: ST_CON_IN_PROG_EVT_SUSPEND",
+					 __func__);
+				break;
+			}
 			ipa_data_path_enable(d_port);
 			d_port->sm_state = STATE_CONNECTED;
 			log_event_dbg("%s: ST_CON_IN_PROG_EVT_CON %d",

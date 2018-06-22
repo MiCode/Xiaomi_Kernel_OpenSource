@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include <linux/pmic-voter.h>
 #include "step-chg-jeita.h"
 
-#define MAX_STEP_CHG_ENTRIES	8
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
 
@@ -29,12 +28,6 @@
 			&& (value) >= (right)) \
 		|| ((left) <= (right) && (left) <= (value) \
 			&& (value) <= (right)))
-
-struct range_data {
-	u32 low_threshold;
-	u32 high_threshold;
-	u32 value;
-};
 
 struct step_chg_cfg {
 	u32			psy_prop;
@@ -118,11 +111,16 @@ static bool is_bms_available(struct step_chg_info *chip)
 	return true;
 }
 
-static int read_range_data_from_node(struct device_node *node,
+int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
 		u32 max_threshold, u32 max_value)
 {
 	int rc = 0, i, length, per_tuple_length, tuples;
+
+	if (!node || !prop_str || !ranges) {
+		pr_err("Invalid parameters passed\n");
+		return -EINVAL;
+	}
 
 	rc = of_property_count_elems_of_size(node, prop_str, sizeof(u32));
 	if (rc < 0) {
@@ -184,6 +182,7 @@ clean:
 	memset(ranges, 0, tuples * sizeof(struct range_data));
 	return rc;
 }
+EXPORT_SYMBOL(read_range_data_from_node);
 
 static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 {

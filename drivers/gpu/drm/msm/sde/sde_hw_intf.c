@@ -62,14 +62,14 @@
 #define   INTF_PROG_FETCH_START         0x170
 #define   INTF_PROG_ROT_START           0x174
 
-#define   INTF_FRAME_LINE_COUNT_EN      0x0A8
-#define   INTF_FRAME_COUNT              0x0AC
-#define   INTF_LINE_COUNT               0x0B0
-
 #define INTF_MISR_CTRL			0x180
 #define INTF_MISR_SIGNATURE		0x184
 
 #define INTF_MUX                        0x25C
+#define INTF_AVR_CONTROL                0x270
+#define INTF_AVR_MODE                   0x274
+#define INTF_AVR_TRIGGER                0x278
+#define INTF_AVR_VTOTAL                 0x27C
 #define INTF_TEAR_MDP_VSYNC_SEL         0x280
 #define INTF_TEAR_TEAR_CHECK_EN         0x284
 #define INTF_TEAR_SYNC_CONFIG_VSYNC     0x288
@@ -85,6 +85,9 @@
 #define INTF_TEAR_LINE_COUNT            0x2B0
 #define INTF_TEAR_AUTOREFRESH_CONFIG    0x2B4
 #define INTF_TEAR_TEAR_DETECT_CTRL      0x2B8
+
+#define AVR_CONTINUOUS_MODE   1
+#define AVR_ONE_SHOT_MODE     2
 
 static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 		struct sde_mdss_cfg *m,
@@ -107,6 +110,75 @@ static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 
 	return ERR_PTR(-EINVAL);
 }
+
+static void sde_hw_intf_avr_trigger(struct sde_hw_intf *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!ctx)
+		return;
+
+	c = &ctx->hw;
+	SDE_REG_WRITE(c, INTF_AVR_TRIGGER, 0x1);
+	SDE_DEBUG("AVR Triggered\n");
+}
+
+static int sde_hw_intf_avr_setup(struct sde_hw_intf *ctx,
+	const struct intf_timing_params *params,
+	const struct intf_avr_params *avr_params)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 hsync_period, vsync_period;
+	u32 min_fps, default_fps, diff_fps;
+	u32 vsync_period_slow;
+	u32 avr_vtotal;
+	u32 add_porches;
+
+	if (!ctx || !params || !avr_params) {
+		SDE_ERROR("invalid input parameter(s)\n");
+		return -EINVAL;
+	}
+
+	c = &ctx->hw;
+	min_fps = avr_params->min_fps;
+	default_fps = avr_params->default_fps;
+	diff_fps = default_fps - min_fps;
+	hsync_period = params->hsync_pulse_width +
+			params->h_back_porch + params->width +
+			params->h_front_porch;
+	vsync_period = params->vsync_pulse_width +
+			params->v_back_porch + params->height +
+			params->v_front_porch;
+	add_porches = mult_frac(vsync_period, diff_fps, min_fps);
+	vsync_period_slow = vsync_period + add_porches;
+	avr_vtotal = vsync_period_slow * hsync_period;
+
+	SDE_REG_WRITE(c, INTF_AVR_VTOTAL, avr_vtotal);
+
+	return 0;
+}
+
+static void sde_hw_intf_avr_ctrl(struct sde_hw_intf *ctx,
+	const struct intf_avr_params *avr_params)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 avr_mode = 0;
+	u32 avr_ctrl = 0;
+
+	if (!ctx || !avr_params)
+		return;
+
+	c = &ctx->hw;
+	if (avr_params->avr_mode) {
+		avr_ctrl = BIT(0);
+		avr_mode = (avr_params->avr_mode == AVR_ONE_SHOT_MODE) ?
+			(BIT(1) | BIT(8)) : 0x0;
+	}
+
+	SDE_REG_WRITE(c, INTF_AVR_CONTROL, avr_ctrl);
+	SDE_REG_WRITE(c, INTF_AVR_MODE, avr_mode);
+}
+
 
 static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 		const struct intf_timing_params *p,
@@ -435,6 +507,22 @@ static int sde_hw_intf_enable_te(struct sde_hw_intf *intf, bool enable)
 	return 0;
 }
 
+static void sde_hw_intf_update_te(struct sde_hw_intf *intf,
+		struct sde_hw_tear_check *te)
+{
+	struct sde_hw_blk_reg_map *c;
+	int cfg;
+
+	if (!intf || !te)
+		return;
+
+	c = &intf->hw;
+	cfg = SDE_REG_READ(c, INTF_TEAR_SYNC_THRESH);
+	cfg &= ~0xFFFF;
+	cfg |= te->sync_threshold_start;
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_THRESH, cfg);
+}
+
 static int sde_hw_intf_connect_external_te(struct sde_hw_intf *intf,
 		bool enable_external_te)
 {
@@ -504,6 +592,9 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->setup_misr = sde_hw_intf_setup_misr;
 	ops->collect_misr = sde_hw_intf_collect_misr;
 	ops->get_line_count = sde_hw_intf_get_line_count;
+	ops->avr_setup = sde_hw_intf_avr_setup;
+	ops->avr_trigger = sde_hw_intf_avr_trigger;
+	ops->avr_ctrl = sde_hw_intf_avr_ctrl;
 	if (cap & BIT(SDE_INTF_ROT_START))
 		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
 
@@ -513,6 +604,7 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	if (cap & BIT(SDE_INTF_TE)) {
 		ops->setup_tearcheck = sde_hw_intf_setup_te_config;
 		ops->enable_tearcheck = sde_hw_intf_enable_te;
+		ops->update_tearcheck = sde_hw_intf_update_te;
 		ops->connect_external_te = sde_hw_intf_connect_external_te;
 		ops->get_vsync_info = sde_hw_intf_get_vsync_info;
 		ops->setup_autorefresh = sde_hw_intf_setup_autorefresh_config;

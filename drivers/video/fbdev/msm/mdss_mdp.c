@@ -276,12 +276,6 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
 
-static int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
-{
-	/* This function doesn't seem to be applicbale for 4.14 */
-	return 0;
-}
-
 static inline u32 is_mdp_irq_enabled(void)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -2751,7 +2745,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
 
-	rc = msm_mdss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
+	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
 		pr_err("unable to map MDP base\n");
 		goto probe_done;
@@ -2760,7 +2754,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		(int) (unsigned long) mdata->mdss_io.base,
 		mdata->mdss_io.len);
 
-	rc = msm_mdss_ioremap_byname(pdev, &mdata->vbif_io, "vbif_phys");
+	rc = msm_dss_ioremap_byname(pdev, &mdata->vbif_io, "vbif_phys");
 	if (rc) {
 		pr_err("unable to map MDSS VBIF base\n");
 		goto probe_done;
@@ -2769,7 +2763,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		(int) (unsigned long) mdata->vbif_io.base,
 		mdata->vbif_io.len);
 
-	rc = msm_mdss_ioremap_byname(pdev, &mdata->vbif_nrt_io,
+	rc = msm_dss_ioremap_byname(pdev, &mdata->vbif_nrt_io,
 				     "vbif_nrt_phys");
 	if (rc)
 		pr_debug("unable to map MDSS VBIF non-realtime base\n");
@@ -2971,7 +2965,7 @@ probe_done:
 }
 
 static void mdss_mdp_parse_dt_regs_array(const u32 *arr,
-	struct mdss_io_data *io, struct mdss_hw_settings *hws, int count)
+	struct dss_io_data *io, struct mdss_hw_settings *hws, int count)
 {
 	u32 len, reg;
 	int i;

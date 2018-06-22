@@ -307,7 +307,7 @@ boot := arch/arm/boot
 ifeq ($(CONFIG_XIP_KERNEL),y)
 KBUILD_IMAGE := $(boot)/xipImage
 else ifeq ($(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE),y)
-KBUILD_IMAGE := $(boot)/zImage-dtb
+KBUILD_IMAGE := $(boot)/$(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_KERNEL_IMAGE_NAME))
 else
 KBUILD_IMAGE := $(boot)/zImage
 endif
@@ -360,6 +360,10 @@ endif
 
 zImage-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) DTSSUBDIR=$(DTSSUBDIR) $(boot)/$@
+
+Image-dtb: vmlinux scripts dtbs
+	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) DTSSUBDIR=$(DTSSUBDIR) $(boot)/$@
+
 
 # We use MRPROPER_FILES and CLEAN_FILES now
 archclean:

@@ -115,6 +115,8 @@ struct msm_kms_funcs {
 #endif
 	/* handle continuous splash  */
 	int (*cont_splash_config)(struct msm_kms *kms);
+	/* check for continuous splash status */
+	bool (*check_for_splash)(struct msm_kms *kms);
 };
 
 struct msm_kms {

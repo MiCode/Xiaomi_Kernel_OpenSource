@@ -1148,7 +1148,8 @@ static int ipa3_usb_smmu_map_xdci_channel(
 		if (ipa3_usb_ctx->smmu_reg_map.cnt == 0) {
 			ipa3_usb_ctx->smmu_reg_map.addr = gevntcount_r;
 			result = ipa3_smmu_map_peer_reg(
-				ipa3_usb_ctx->smmu_reg_map.addr, true);
+				ipa3_usb_ctx->smmu_reg_map.addr, true,
+				IPA_SMMU_CB_AP);
 			if (result) {
 				IPA_USB_ERR("failed to map USB regs %d\n",
 					result);
@@ -1171,7 +1172,8 @@ static int ipa3_usb_smmu_map_xdci_channel(
 
 		if (ipa3_usb_ctx->smmu_reg_map.cnt == 1) {
 			result = ipa3_smmu_map_peer_reg(
-				ipa3_usb_ctx->smmu_reg_map.addr, false);
+				ipa3_usb_ctx->smmu_reg_map.addr, false,
+				IPA_SMMU_CB_AP);
 			if (result) {
 				IPA_USB_ERR("failed to unmap USB regs %d\n",
 					result);
@@ -1183,56 +1185,21 @@ static int ipa3_usb_smmu_map_xdci_channel(
 
 
 	result = ipa3_smmu_map_peer_buff(params->xfer_ring_base_addr_iova,
-		params->xfer_ring_len, map, params->sgt_xfer_rings);
+		params->xfer_ring_len, map, params->sgt_xfer_rings,
+		IPA_SMMU_CB_AP);
 	if (result) {
 		IPA_USB_ERR("failed to map Xfer ring %d\n", result);
 		return result;
 	}
 
 	result = ipa3_smmu_map_peer_buff(params->data_buff_base_addr_iova,
-		params->data_buff_base_len, map, params->sgt_data_buff);
+		params->data_buff_base_len, map, params->sgt_data_buff,
+		IPA_SMMU_CB_AP);
 	if (result) {
 		IPA_USB_ERR("failed to map TRBs buff %d\n", result);
 		return result;
 	}
 
-	return 0;
-}
-
-static int ipa3_usb_smmu_store_sgt(struct sg_table **out_ch_ptr,
-	struct sg_table *in_sgt_ptr)
-{
-	unsigned int nents;
-
-	if (in_sgt_ptr != NULL) {
-		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
-		if (*out_ch_ptr == NULL)
-			return -ENOMEM;
-
-		nents = in_sgt_ptr->nents;
-
-		(*out_ch_ptr)->sgl =
-			kcalloc(nents, sizeof(struct scatterlist),
-				GFP_KERNEL);
-		if ((*out_ch_ptr)->sgl == NULL)
-			return -ENOMEM;
-
-		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
-			nents*sizeof((*out_ch_ptr)->sgl));
-		(*out_ch_ptr)->nents = nents;
-		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
-	}
-	return 0;
-}
-
-static int ipa3_usb_smmu_free_sgt(struct sg_table **out_sgt_ptr)
-{
-	if (*out_sgt_ptr != NULL) {
-		kfree((*out_sgt_ptr)->sgl);
-		(*out_sgt_ptr)->sgl = NULL;
-		kfree(*out_sgt_ptr);
-		*out_sgt_ptr = NULL;
-	}
 	return 0;
 }
 
@@ -1321,18 +1288,17 @@ static int ipa3_usb_request_xdci_channel(
 		xdci_ch_params = &ipa3_usb_ctx->ttype_ctx[ttype].dl_ch_params;
 
 	*xdci_ch_params = *params;
-	result = ipa3_usb_smmu_store_sgt(
+	result = ipa_smmu_store_sgt(
 		&xdci_ch_params->sgt_xfer_rings,
 		params->sgt_xfer_rings);
-	if (result) {
-		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
+	if (result)
 		return result;
-	}
-	result = ipa3_usb_smmu_store_sgt(
+
+	result = ipa_smmu_store_sgt(
 		&xdci_ch_params->sgt_data_buff,
 		params->sgt_data_buff);
 	if (result) {
-		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_data_buff);
+		ipa_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
 		return result;
 	}
 	chan_params.keep_ipa_awake = params->keep_ipa_awake;
@@ -1385,14 +1351,20 @@ static int ipa3_usb_request_xdci_channel(
 		params->xfer_scratch.depcmd_low_addr;
 	chan_params.chan_scratch.xdci.depcmd_hi_addr =
 		params->xfer_scratch.depcmd_hi_addr;
-	chan_params.chan_scratch.xdci.outstanding_threshold =
+
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		chan_params.chan_scratch.xdci.outstanding_threshold =
 		((params->teth_prot == IPA_USB_MBIM) ? 1 : 2) *
 		chan_params.chan_params.re_size;
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
-		chan_params.chan_scratch.xdci.outstanding_threshold = 0;
-
+	}
 	/* max_outstanding_tre is set in ipa3_request_gsi_channel() */
+
 	result = ipa3_request_gsi_channel(&chan_params, out_params);
 	if (result) {
 		IPA_USB_ERR("failed to allocate GSI channel\n");
@@ -1437,9 +1409,9 @@ static int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
 	result = ipa3_usb_smmu_map_xdci_channel(xdci_ch_params, false);
 
 	if (xdci_ch_params->sgt_xfer_rings != NULL)
-		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
+		ipa_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
 	if (xdci_ch_params->sgt_data_buff != NULL)
-		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_data_buff);
+		ipa_smmu_free_sgt(&xdci_ch_params->sgt_data_buff);
 
 	/* Change ipa_usb state to INITIALIZED */
 	if (!ipa3_usb_set_state(IPA_USB_INITIALIZED, false, ttype))
@@ -2181,6 +2153,18 @@ static void ipa_usb_debugfs_init(void){}
 static void ipa_usb_debugfs_remove(void){}
 #endif /* CONFIG_DEBUG_FS */
 
+static int ipa_usb_set_lock_unlock(bool is_lock)
+{
+	IPA_USB_DBG("entry\n");
+	if (is_lock)
+		mutex_lock(&ipa3_usb_ctx->general_mutex);
+	else
+		mutex_unlock(&ipa3_usb_ctx->general_mutex);
+	IPA_USB_DBG("exit\n");
+
+	return 0;
+}
+
 
 
 int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
@@ -2243,6 +2227,16 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 		IPA_USB_ERR("failed to connect\n");
 		goto connect_fail;
 	}
+
+	/*
+	 * Register for xdci lock/unlock callback with ipa core driver.
+	 * As per use case, only register for IPA_CONS end point for now.
+	 * If needed we can include the same for IPA_PROD ep.
+	 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
+	 */
+	if (connect_params->teth_prot != IPA_USB_DIAG)
+		ipa3_register_lock_unlock_callback(&ipa_usb_set_lock_unlock,
+			ul_out_params->clnt_hdl);
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2320,6 +2314,15 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			return result;
 		}
 	}
+
+	/*
+	 * Deregister for xdci lock/unlock callback from ipa core driver.
+	 * As per use case, only deregister for IPA_CONS end point for now.
+	 * If needed we can include the same for IPA_PROD ep.
+	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
+	 */
+	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
+		ipa3_deregister_lock_unlock_callback(ul_clnt_hdl);
 
 	/* Change state to STOPPED */
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED, false, ttype))
@@ -2940,6 +2943,7 @@ static int __init ipa3_usb_init(void)
 	int i;
 	unsigned long flags;
 	int res;
+	struct ipa3_usb_pm_context *pm_ctx;
 
 	pr_debug("entry\n");
 	ipa3_usb_ctx = kzalloc(sizeof(struct ipa3_usb_context), GFP_KERNEL);
@@ -2959,19 +2963,13 @@ static int __init ipa3_usb_init(void)
 	ipa3_usb_ctx->dl_data_pending = false;
 	mutex_init(&ipa3_usb_ctx->general_mutex);
 
-	if (ipa_pm_is_used()) {
-		struct ipa3_usb_pm_context *pm_ctx;
-
-		pm_ctx =
-			&ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].pm_ctx;
-		pm_ctx->hdl = ~0;
-		pm_ctx->remote_wakeup_work =
-			&ipa3_usb_notify_remote_wakeup_work;
-		pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].pm_ctx;
-		pm_ctx->hdl = ~0;
-		pm_ctx->remote_wakeup_work =
-			&ipa3_usb_dpl_notify_remote_wakeup_work;
-	}
+	/* init PM related members */
+	pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].pm_ctx;
+	pm_ctx->hdl = ~0;
+	pm_ctx->remote_wakeup_work = &ipa3_usb_notify_remote_wakeup_work;
+	pm_ctx = &ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].pm_ctx;
+	pm_ctx->hdl = ~0;
+	pm_ctx->remote_wakeup_work = &ipa3_usb_dpl_notify_remote_wakeup_work;
 
 	for (i = 0; i < IPA_USB_TRANSPORT_MAX; i++) {
 		ipa3_usb_ctx->ttype_ctx[i].rm_ctx.prod_valid = false;

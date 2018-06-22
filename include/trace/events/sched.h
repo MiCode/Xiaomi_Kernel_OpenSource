@@ -82,7 +82,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->cpu		= task_cpu(p);
 		__entry->enqueue	= enqueue;
 		__entry->nr_running	= task_rq(p)->nr_running;
-		__entry->cpu_load	= cpu_util(task_cpu(p));
+		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
 		__entry->cpus_allowed	= cpus_allowed;
 		__entry->demand		= task_load(p);
@@ -1372,6 +1372,10 @@ TRACE_EVENT(sched_isolate,
 		__entry->time, __entry->isolate)
 );
 
+#include "walt.h"
+
+#endif /* CONFIG_SMP */
+
 TRACE_EVENT(sched_preempt_disable,
 
 	TP_PROTO(u64 delta, bool irqs_disabled,
@@ -1404,9 +1408,6 @@ TRACE_EVENT(sched_preempt_disable,
 				__entry->caddr2, __entry->caddr3)
 );
 
-#include "walt.h"
-
-#endif /* CONFIG_SMP */
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

@@ -263,7 +263,7 @@ int msm_gem_fault(struct vm_fault *vmf)
 
 	pfn = page_to_pfn(pages[pgoff]);
 
-	VERB("Inserting %p pfn %lx, pa %lx", (void *)vmf->address,
+	VERB("Inserting %pK pfn %lx, pa %lx", (void *)vmf->address,
 			pfn, pfn << PAGE_SHIFT);
 
 	ret = vm_insert_mixed(vma, vmf->address, __pfn_to_pfn_t(pfn, PFN_DEV));
@@ -490,7 +490,7 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 
 	*iova = vma->iova;
 
-	if (aspace && aspace->domain_attached) {
+	if (aspace &&  !msm_obj->in_active_list) {
 		mutex_lock(&aspace->list_lock);
 		msm_gem_add_obj_to_aspace_active_list(aspace, obj);
 		mutex_unlock(&aspace->list_lock);
@@ -880,7 +880,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 		break;
 	}
 
-	seq_printf(m, "%08x: %c %2d (%2d) %08llx %p\t",
+	seq_printf(m, "%08x: %c %2d (%2d) %08llx %pK\t",
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			obj->name, kref_read(&obj->refcount),
 			off, msm_obj->vaddr);
@@ -1035,6 +1035,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	INIT_LIST_HEAD(&msm_obj->vmas);
 	INIT_LIST_HEAD(&msm_obj->iova_list);
 	msm_obj->aspace = NULL;
+	msm_obj->in_active_list = false;
 
 	if (struct_mutex_locked) {
 		WARN_ON(!mutex_is_locked(&dev->struct_mutex));

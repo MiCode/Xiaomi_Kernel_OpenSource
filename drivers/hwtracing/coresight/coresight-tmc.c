@@ -708,8 +708,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	pm_runtime_put(&adev->dev);
-
 	ret = tmc_iommu_init(drvdata);
 	if (ret) {
 		dev_err(dev, "TMC SMMU init failed, err =%d\n", ret);
@@ -721,12 +719,18 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		dev_err(dev, "invalid cti data\n");
 	} else if (ctidata && ctidata->nr_ctis == 2) {
 		drvdata->cti_flush = coresight_cti_get(ctidata->names[0]);
-		if (IS_ERR(drvdata->cti_flush))
-			dev_err(dev, "failed to get flush cti\n");
+		if (IS_ERR(drvdata->cti_flush)) {
+			dev_err(dev, "failed to get flush cti, defer probe\n");
+			tmc_iommu_deinit(drvdata);
+			return -EPROBE_DEFER;
+		}
 
 		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
-		if (IS_ERR(drvdata->cti_reset))
-			dev_err(dev, "failed to get reset cti\n");
+		if (IS_ERR(drvdata->cti_reset)) {
+			dev_err(dev, "failed to get reset cti, defer probe\n");
+			tmc_iommu_deinit(drvdata);
+			return -EPROBE_DEFER;
+		}
 	}
 
 	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
@@ -792,6 +796,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		tmc_iommu_deinit(drvdata);
 		coresight_unregister(drvdata->csdev);
 	}
+
+	if (!ret)
+		pm_runtime_put(&adev->dev);
+
 	return ret;
 
 out_iommu_deinit:

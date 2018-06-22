@@ -19,12 +19,16 @@
 #include <linux/ktime.h>
 #include <linux/kernel.h>
 #include <linux/backlight.h>
+#include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/regmap.h>
+#include <linux/spinlock.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/leds-qpnp-flash.h>
+#include "../../leds/leds.h"
 
 /* General definitions */
 #define WLED_DEFAULT_BRIGHTNESS		2048
@@ -96,23 +100,29 @@
 #define WLED_SINK_BRIGHT_LSB_REG(n)	(0x57 + (n * 0x10))
 #define WLED_SINK_BRIGHT_MSB_REG(n)	(0x58 + (n * 0x10))
 
-enum wled_version {
-	WLED_PMI8998 = 4,
-	WLED_PM660L,
-	WLED_PM8150L,
-};
-
-static const int version_table[] = {
-	[0] = WLED_PMI8998,
-	[1] = WLED_PM660L,
-	[2] = WLED_PM8150L,
-};
-
 /* WLED5 specific control registers */
+#define WLED5_CTRL_STATUS		0x07
+
+#define WLED5_CTRL_SH_FOR_SOFTSTART_REG	0x58
+#define  WLED5_SOFTSTART_EN_SH_SS	BIT(0)
+
 #define WLED5_CTRL_OVP_INT_CTL_REG	0x5f
 #define  WLED5_OVP_INT_N_MASK		GENMASK(6, 4)
 #define  WLED5_OVP_INT_N_SHIFT		4
 #define  WLED5_OVP_INT_TIMER_MASK	GENMASK(2, 0)
+
+#define WLED5_CTRL_PRE_FLASH_BRT_REG	0x61
+#define WLED5_CTRL_PRE_FLASH_SYNC_REG	0x62
+#define WLED5_CTRL_FLASH_BRT_REG	0x63
+#define WLED5_CTRL_FLASH_SYNC_REG	0x64
+
+#define WLED5_CTRL_FLASH_STEP_CTL_REG	0x65
+#define  WLED5_CTRL_FLASH_STEP_MASK	GENMASK(2, 0)
+
+#define WLED5_CTRL_FLASH_HDRM_REG	0x69
+
+#define WLED5_CTRL_TEST4_REG		0xe5
+#define  WLED5_TEST4_EN_SH_SS		BIT(5)
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -149,6 +159,45 @@ static const int version_table[] = {
 #define  WLED5_SINK_SRC_SEL_MODB	1
 #define  WLED5_SINK_SRC_SEL_MASK	GENMASK(1, 0)
 
+#define WLED5_SINK_FLASH_CTL_REG	0xb0
+#define  WLED5_SINK_FLASH_EN		BIT(7)
+#define  WLED5_SINK_PRE_FLASH_EN	BIT(6)
+
+#define WLED5_SINK_FLASH_SINK_EN_REG	0xb1
+
+#define WLED5_SINK_FLASH_FSC_REG	0xb2
+#define  WLED5_SINK_FLASH_FSC_MASK	GENMASK(3, 0)
+
+#define  WLED5_SINK_FLASH_SYNC_BIT_REG	0xb3
+#define  WLED5_SINK_FLASH_FSC_SYNC_EN	BIT(0)
+
+#define  WLED5_SINK_FLASH_TIMER_CTL_REG	0xb5
+#define   WLED5_DIS_PRE_FLASH_TIMER	BIT(7)
+#define   WLED5_PRE_FLASH_SAFETY_TIME	GENMASK(6, 4)
+#define   WLED5_PRE_FLASH_SAFETY_SHIFT	4
+#define   WLED5_DIS_FLASH_TIMER		BIT(3)
+#define   WLED5_FLASH_SAFETY_TIME	GENMASK(2, 0)
+
+#define  WLED5_SINK_FLASH_SHDN_CLR_REG	0xb6
+
+enum wled_version {
+	WLED_PMI8998 = 4,
+	WLED_PM660L,
+	WLED_PM8150L,
+};
+
+enum wled_flash_mode {
+	WLED_FLASH_OFF,
+	WLED_PRE_FLASH,
+	WLED_FLASH,
+};
+
+static const int version_table[] = {
+	[0] = WLED_PMI8998,
+	[1] = WLED_PM660L,
+	[2] = WLED_PM8150L,
+};
+
 struct wled_config {
 	int boost_i_limit;
 	int ovp;
@@ -160,6 +209,12 @@ struct wled_config {
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 	bool auto_calib_enabled;
+};
+
+struct wled_flash_config {
+	int fs_current;
+	int step_delay;
+	int safety_timer;
 };
 
 struct wled {
@@ -180,12 +235,23 @@ struct wled {
 	const int *version;
 	int sc_irq;
 	int ovp_irq;
+	int flash_irq;
+	int pre_flash_irq;
 	bool prev_state;
 	bool ovp_irq_disabled;
 	bool auto_calib_done;
 	bool force_mod_disable;
 	bool cabc_disabled;
 	int (*cabc_config)(struct wled *wled, bool enable);
+
+	struct led_classdev flash_cdev;
+	struct led_classdev torch_cdev;
+	struct led_classdev switch_cdev;
+	struct wled_flash_config fparams;
+	struct wled_flash_config tparams;
+	spinlock_t flash_lock;
+	enum wled_flash_mode flash_mode;
+	u8 num_strings;
 };
 
 enum wled5_mod_sel {
@@ -284,6 +350,54 @@ static int wled_sync_toggle(struct wled *wled)
 	return rc;
 }
 
+static int wled5_sample_hold_control(struct wled *wled, u16 brightness,
+					bool enable)
+{
+	int rc;
+	u16 offset, threshold;
+	u8 val, mask;
+
+	/*
+	 * Control S_H only when module was disabled and a lower brightness
+	 * of < 1% is set.
+	 */
+	if (wled->prev_state)
+		return 0;
+
+	/* If CABC is enabled, then don't do anything for now */
+	if (!wled->cabc_disabled)
+		return 0;
+
+	/* 1 % threshold to enable the workaround */
+	threshold = DIV_ROUND_UP(wled->max_brightness, 100);
+
+	/* If brightness is > 1%, don't do anything */
+	if (brightness > threshold)
+		return 0;
+
+	/* Wait for ~5ms before enabling S_H */
+	if (enable)
+		usleep_range(5000, 5010);
+
+	/* Disable S_H if brightness is < 1% */
+	if (wled->pmic_rev_id->rev4 == PM8150L_V3P0_REV4) {
+		offset = WLED5_CTRL_SH_FOR_SOFTSTART_REG;
+		val = enable ? WLED5_SOFTSTART_EN_SH_SS : 0;
+		mask = WLED5_SOFTSTART_EN_SH_SS;
+	} else {
+		offset = WLED5_CTRL_TEST4_REG;
+		val = enable ? WLED5_TEST4_EN_SH_SS : 0;
+		mask = WLED5_TEST4_EN_SH_SS;
+	}
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + offset, mask, val);
+	if (rc < 0)
+		pr_err("Error in writing offset 0x%02X rc=%d\n", offset, rc);
+
+	return rc;
+}
+
 static int wled5_set_brightness(struct wled *wled, u16 brightness)
 {
 	int rc, offset;
@@ -376,10 +490,28 @@ static int wled_update_status(struct backlight_device *bl)
 			goto unlock_mutex;
 		}
 
+		if (is_wled5(wled)) {
+			rc = wled5_sample_hold_control(wled, brightness, false);
+			if (rc < 0) {
+				pr_err("wled disabling sample and hold failed rc:%d\n",
+					rc);
+				goto unlock_mutex;
+			}
+		}
+
 		if (!!brightness != wled->prev_state) {
 			rc = wled_module_enable(wled, !!brightness);
 			if (rc < 0) {
 				pr_err("wled enable failed rc:%d\n", rc);
+				goto unlock_mutex;
+			}
+		}
+
+		if (is_wled5(wled)) {
+			rc = wled5_sample_hold_control(wled, brightness, true);
+			if (rc < 0) {
+				pr_err("wled enabling sample and hold failed rc:%d\n",
+					rc);
 				goto unlock_mutex;
 			}
 		}
@@ -886,6 +1018,42 @@ static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t wled_flash_irq_handler(int irq, void *_wled)
+{
+	struct wled *wled = _wled;
+	int rc;
+	u32 val;
+
+	if (irq == wled->flash_irq)
+		pr_debug("flash irq fired\n");
+	else if (irq == wled->pre_flash_irq)
+		pr_debug("pre_flash irq fired\n");
+
+	rc = regmap_read(wled->regmap,
+		wled->ctrl_addr + WLED_CTRL_FAULT_STATUS, &val);
+	if (!rc)
+		pr_debug("WLED_FAULT_STATUS: 0x%x\n", val);
+
+	rc = regmap_read(wled->regmap,
+		wled->ctrl_addr + WLED5_CTRL_STATUS, &val);
+	if (!rc)
+		pr_debug("WLED_STATUS: 0x%x\n", val);
+
+	return IRQ_HANDLED;
+}
+
+static inline u8 get_wled_safety_time(int time_ms)
+{
+	int i, table[8] = {50, 100, 200, 400, 600, 800, 1000, 1200};
+
+	for (i = 0; i < ARRAY_SIZE(table); i++) {
+		if (time_ms == table[i])
+			return i;
+	}
+
+	return 0;
+}
+
 static int wled5_setup(struct wled *wled)
 {
 	int rc, temp, i;
@@ -1001,6 +1169,24 @@ static int wled5_setup(struct wled *wled)
 		}
 	}
 
+	if (wled->flash_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev,
+				wled->flash_irq, NULL, wled_flash_irq_handler,
+				IRQF_ONESHOT, "wled_flash_irq", wled);
+		if (rc < 0)
+			pr_err("Unable to request flash(%d) IRQ(err:%d)\n",
+				wled->flash_irq, rc);
+	}
+
+	if (wled->pre_flash_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev,
+				wled->pre_flash_irq, NULL,
+				wled_flash_irq_handler, IRQF_ONESHOT,
+				"wled_pre_flash_irq", wled);
+		if (rc < 0)
+			pr_err("Unable to request pre_flash(%d) IRQ(err:%d)\n",
+				wled->pre_flash_irq, rc);
+	}
 	return 0;
 }
 
@@ -1249,6 +1435,528 @@ static u32 wled_values(const struct wled_var_cfg *cfg, u32 idx)
 	return idx;
 }
 
+static int wled_get_max_current(struct led_classdev *led_cdev,
+					int *max_current)
+{
+	struct wled *wled;
+	bool flash;
+
+	if (!strcmp(led_cdev->name, "wled_flash")) {
+		wled = container_of(led_cdev, struct wled, flash_cdev);
+		flash = true;
+	} else if (!strcmp(led_cdev->name, "wled_torch")) {
+		wled = container_of(led_cdev, struct wled, torch_cdev);
+		flash = false;
+	} else {
+		return -ENODEV;
+	}
+
+	if (flash)
+		*max_current = wled->flash_cdev.max_brightness;
+	else
+		*max_current = wled->torch_cdev.max_brightness;
+
+	return 0;
+}
+
+static int wled_get_max_avail_current(struct led_classdev *led_cdev,
+					int *max_current)
+{
+	struct wled *wled;
+
+	if (!strcmp(led_cdev->name, "wled_switch"))
+		wled = container_of(led_cdev, struct wled, switch_cdev);
+	else
+		return -ENODEV;
+
+	/*
+	 * For now, return the max brightness. Later this will be replaced with
+	 * the available current predicted based on battery parameters.
+	 */
+
+	*max_current = max(wled->flash_cdev.max_brightness,
+			wled->torch_cdev.max_brightness);
+	return 0;
+}
+
+static ssize_t wled_flash_max_avail_current_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	int rc, max_current = 0;
+
+	rc = wled_get_max_avail_current(led_cdev, &max_current);
+	if (rc < 0)
+		pr_err("query max current failed, rc=%d\n", rc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", max_current);
+}
+
+static struct device_attribute wled_flash_attrs[] = {
+	__ATTR(max_avail_current, 0664, wled_flash_max_avail_current_show,
+		NULL),
+};
+
+int wled_flash_led_prepare(struct led_trigger *trig, int options,
+				int *max_current)
+{
+	struct led_classdev *led_cdev;
+	int rc;
+
+	if (!(options & FLASH_LED_PREPARE_OPTIONS_MASK)) {
+		pr_err("Invalid options %d\n", options);
+		return -EINVAL;
+	}
+
+	if (!trig) {
+		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
+		return -EINVAL;
+	}
+
+	switch (options) {
+	case QUERY_MAX_CURRENT:
+		rc = wled_get_max_current(led_cdev, max_current);
+		if (rc < 0) {
+			pr_err("Error in getting max_current for %s\n",
+				led_cdev->name);
+			return rc;
+		}
+		break;
+	case QUERY_MAX_AVAIL_CURRENT:
+		rc = wled_get_max_avail_current(led_cdev, max_current);
+		if (rc < 0) {
+			pr_err("Error in getting max_avail_current for %s\n",
+				led_cdev->name);
+			return rc;
+		}
+		break;
+	case ENABLE_REGULATOR:
+	case DISABLE_REGULATOR:
+		/* Not supported */
+		return 0;
+	default:
+		return -EINVAL;
+	};
+
+	return 0;
+}
+EXPORT_SYMBOL(wled_flash_led_prepare);
+
+static int wled_flash_set_step_delay(struct wled *wled, int step_delay)
+{
+	int rc, table[8] = {50, 100, 150, 200, 250, 300, 350, 400};
+	u8 val;
+
+	if (step_delay < table[0])
+		val = 0;
+	else if (step_delay > table[7])
+		val = 7;
+	else
+		val = DIV_ROUND_CLOSEST(step_delay, 50) - 1;
+
+	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
+			WLED5_CTRL_FLASH_STEP_CTL_REG,
+			WLED5_CTRL_FLASH_STEP_MASK, val);
+	if (rc < 0)
+		pr_err("Error in configuring step delay, rc:%d\n", rc);
+
+	return rc;
+}
+
+static int wled_flash_set_fsc(struct wled *wled, enum led_brightness brightness,
+				int fs_current_max)
+{
+	int rc, fs_current;
+	u8 val;
+
+	if (!wled->num_strings) {
+		pr_err("Incorrect number of strings\n");
+		return -EINVAL;
+	}
+
+	fs_current = (int)brightness / wled->num_strings;
+	if (fs_current > fs_current_max)
+		fs_current = fs_current_max;
+
+	/* Each LSB is 5 mA */
+	val = DIV_ROUND_CLOSEST(fs_current, 5);
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_FSC_REG,
+			WLED5_SINK_FLASH_FSC_MASK, val);
+	if (rc < 0) {
+		pr_err("Error in configuring flash_fsc, rc:%d\n", rc);
+		return rc;
+	}
+
+	/* Write 0 followed by 1 to sync FSC */
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_SYNC_BIT_REG, 0);
+	if (rc < 0) {
+		pr_err("Error in configuring flash_sync, rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_SYNC_BIT_REG,
+			WLED5_SINK_FLASH_FSC_SYNC_EN);
+	if (rc < 0)
+		pr_err("Error in configuring flash_sync, rc:%d\n", rc);
+
+	return rc;
+}
+
+static void wled_flash_brightness_set(struct led_classdev *cdev,
+					enum led_brightness brightness)
+{
+	struct wled *wled = container_of(cdev, struct wled, flash_cdev);
+	int rc;
+
+	spin_lock(&wled->flash_lock);
+	if (brightness) {
+		rc = wled_flash_set_step_delay(wled, wled->fparams.step_delay);
+		if (rc < 0)
+			goto out;
+	}
+
+	rc = wled_flash_set_fsc(wled, brightness, wled->fparams.fs_current);
+	if (rc < 0)
+		goto out;
+
+	wled->flash_mode = brightness ? WLED_FLASH : WLED_FLASH_OFF;
+out:
+	spin_unlock(&wled->flash_lock);
+}
+
+static void wled_torch_brightness_set(struct led_classdev *cdev,
+					enum led_brightness brightness)
+{
+	struct wled *wled = container_of(cdev, struct wled, torch_cdev);
+	int rc;
+
+	spin_lock(&wled->flash_lock);
+	if (brightness) {
+		rc = wled_flash_set_step_delay(wled, wled->tparams.step_delay);
+		if (rc < 0)
+			goto out;
+	}
+
+	rc = wled_flash_set_fsc(wled, brightness, wled->tparams.fs_current);
+	if (rc < 0)
+		goto out;
+
+	wled->flash_mode = brightness ? WLED_PRE_FLASH : WLED_FLASH_OFF;
+out:
+	spin_unlock(&wled->flash_lock);
+}
+
+static void wled_switch_brightness_set(struct led_classdev *cdev,
+					enum led_brightness brightness)
+{
+	struct wled *wled = container_of(cdev, struct wled, switch_cdev);
+	int rc;
+	u8 val;
+
+	if (brightness && wled->flash_mode == WLED_FLASH_OFF)
+		return;
+
+	spin_lock(&wled->flash_lock);
+	if (wled->flash_mode == WLED_PRE_FLASH)
+		val = brightness ? WLED5_SINK_PRE_FLASH_EN : 0;
+	else
+		val = brightness ? WLED5_SINK_FLASH_EN : 0;
+
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_CTL_REG, val);
+	if (rc < 0)
+		pr_err("Error in configuring flash_ctl, rc:%d\n", rc);
+
+	if (!brightness) {
+		rc = regmap_write(wled->regmap,
+				wled->sink_addr + WLED5_SINK_FLASH_SHDN_CLR_REG,
+				1);
+		if (rc < 0)
+			pr_err("Error in configuring flash_shdn_clr, rc:%d\n",
+				rc);
+	}
+
+	spin_unlock(&wled->flash_lock);
+}
+
+static int wled_flash_device_register(struct wled *wled)
+{
+	int rc, i, max_brightness = 0;
+
+	/* Not supported */
+	if (is_wled4(wled))
+		return 0;
+
+	spin_lock_init(&wled->flash_lock);
+
+	/* flash */
+	for (i = 0; (wled->cfg.string_cfg >> i) != 0; i++)
+		max_brightness += wled->fparams.fs_current;
+
+	wled->flash_cdev.name = "wled_flash";
+	wled->flash_cdev.max_brightness = max_brightness;
+	wled->flash_cdev.brightness_set = wled_flash_brightness_set;
+	rc = devm_led_classdev_register(&wled->pdev->dev, &wled->flash_cdev);
+	if (rc < 0)
+		return rc;
+
+	/* torch */
+	for (max_brightness = 0, i = 0; (wled->cfg.string_cfg >> i) != 0; i++)
+		max_brightness += wled->tparams.fs_current;
+
+	wled->torch_cdev.name = "wled_torch";
+	wled->torch_cdev.max_brightness = max_brightness;
+	wled->torch_cdev.brightness_set = wled_torch_brightness_set;
+	rc = devm_led_classdev_register(&wled->pdev->dev, &wled->torch_cdev);
+	if (rc < 0)
+		return rc;
+
+	/* switch */
+	wled->switch_cdev.name = "wled_switch";
+	wled->switch_cdev.brightness_set = wled_switch_brightness_set;
+	wled->switch_cdev.flags |= LED_KEEP_TRIGGER;
+	rc = devm_led_classdev_register(&wled->pdev->dev, &wled->switch_cdev);
+	if (rc < 0)
+		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(wled_flash_attrs); i++) {
+		rc = sysfs_create_file(&wled->switch_cdev.dev->kobj,
+				&wled_flash_attrs[i].attr);
+		if (rc < 0) {
+			pr_err("sysfs creation failed, rc=%d\n", rc);
+			goto sysfs_fail;
+		}
+	}
+
+	return 0;
+
+sysfs_fail:
+	for (--i; i >= 0; i--)
+		sysfs_remove_file(&wled->switch_cdev.dev->kobj,
+				&wled_flash_attrs[i].attr);
+
+	return rc;
+}
+
+static int wled_flash_configure(struct wled *wled)
+{
+	int rc;
+	struct device_node *temp;
+	struct device *dev = &wled->pdev->dev;
+	const char *cdev_name;
+
+	/* Not supported */
+	if (is_wled4(wled))
+		return 0;
+
+	for_each_available_child_of_node(wled->pdev->dev.of_node, temp) {
+		rc = of_property_read_string(temp, "label", &cdev_name);
+		if (rc < 0)
+			continue;
+
+		if (!strcmp(cdev_name, "flash")) {
+			/* Value read in mA */
+			wled->fparams.fs_current = 40;
+			rc = of_property_read_u32(temp, "qcom,wled-flash-fsc",
+						&wled->fparams.fs_current);
+			if (!rc) {
+				if (wled->fparams.fs_current <= 0 ||
+					wled->fparams.fs_current > 60) {
+					dev_err(dev, "Incorrect WLED flash FSC rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			/*
+			 * As per the hardware recommendation, FS current should
+			 * be limited to 20 mA for PM8150L v1.0.
+			 */
+			if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4)
+				wled->fparams.fs_current = 20;
+
+			/* Value read in us */
+			wled->fparams.step_delay = 200;
+			rc = of_property_read_u32(temp, "qcom,wled-flash-step",
+						&wled->fparams.step_delay);
+			if (!rc) {
+				if (wled->fparams.step_delay < 50 ||
+					wled->fparams.step_delay > 400) {
+					dev_err(dev, "Incorrect WLED flash step delay rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			/* Value read in ms */
+			wled->fparams.safety_timer = 100;
+			rc = of_property_read_u32(temp, "qcom,wled-flash-timer",
+						&wled->fparams.safety_timer);
+			if (!rc) {
+				if (wled->fparams.safety_timer < 50 ||
+					wled->fparams.safety_timer > 1200) {
+					dev_err(dev, "Incorrect WLED flash safety time rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			rc = of_property_read_string(temp,
+					"qcom,default-led-trigger",
+					&wled->flash_cdev.default_trigger);
+			if (rc < 0)
+				wled->flash_cdev.default_trigger = "wled_flash";
+		} else if (!strcmp(cdev_name, "torch")) {
+			/* Value read in mA */
+			wled->tparams.fs_current = 30;
+			rc = of_property_read_u32(temp, "qcom,wled-torch-fsc",
+						&wled->tparams.fs_current);
+			if (!rc) {
+				if (wled->tparams.fs_current <= 0 ||
+					wled->tparams.fs_current > 60) {
+					dev_err(dev, "Incorrect WLED torch FSC rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			/*
+			 * As per the hardware recommendation, FS current should
+			 * be limited to 20 mA for PM8150L v1.0.
+			 */
+			if (wled->pmic_rev_id->rev4 == PM8150L_V1P0_REV4)
+				wled->tparams.fs_current = 20;
+
+			/* Value read in us */
+			wled->tparams.step_delay = 200;
+			rc = of_property_read_u32(temp, "qcom,wled-torch-step",
+						&wled->tparams.step_delay);
+			if (!rc) {
+				if (wled->tparams.step_delay < 50 ||
+					wled->tparams.step_delay > 400) {
+					dev_err(dev, "Incorrect WLED torch step delay rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			/* Value read in ms */
+			wled->tparams.safety_timer = 600;
+			rc = of_property_read_u32(temp, "qcom,wled-torch-timer",
+						&wled->tparams.safety_timer);
+			if (!rc) {
+				if (wled->tparams.safety_timer < 50 ||
+					wled->tparams.safety_timer > 1200) {
+					dev_err(dev, "Incorrect WLED torch safety time rc:%d\n",
+						rc);
+					return rc;
+				}
+			}
+
+			rc = of_property_read_string(temp,
+					"qcom,default-led-trigger",
+					&wled->torch_cdev.default_trigger);
+			if (rc < 0)
+				wled->torch_cdev.default_trigger = "wled_torch";
+		} else if (!strcmp(cdev_name, "switch")) {
+			rc = of_property_read_string(temp,
+					"qcom,default-led-trigger",
+					&wled->switch_cdev.default_trigger);
+			if (rc < 0)
+				wled->switch_cdev.default_trigger =
+					"wled_switch";
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int wled_flash_setup(struct wled *wled)
+{
+	int rc, i;
+	u8 val;
+
+	/* Not supported */
+	if (is_wled4(wled))
+		return 0;
+
+	/* Set FLASH_VREF_ADIM_HDIM to maximum */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_FLASH_HDRM_REG, 0xF);
+	if (rc < 0)
+		return rc;
+
+	/* Write a full brightness value */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_PRE_FLASH_BRT_REG, 0xFF);
+	if (rc < 0)
+		return rc;
+
+	/* Sync the brightness by writing a 0 followed by 1 */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_PRE_FLASH_SYNC_REG, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_PRE_FLASH_SYNC_REG, 1);
+	if (rc < 0)
+		return rc;
+
+	/* Write a full brightness value */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_FLASH_BRT_REG, 0xFF);
+	if (rc < 0)
+		return rc;
+
+	/* Sync the brightness by writing a 0 followed by 1 */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_FLASH_SYNC_REG, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED5_CTRL_FLASH_SYNC_REG, 1);
+	if (rc < 0)
+		return rc;
+
+	for (val = 0, i = 0; (wled->cfg.string_cfg >> i) != 0; i++) {
+		if (wled->cfg.string_cfg & BIT(i)) {
+			val |= 1 << (i + WLED_SINK_CURR_SINK_SHFT);
+			wled->num_strings++;
+		}
+	}
+
+	/* Enable current sinks for flash */
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_SINK_EN_REG,
+			WLED_SINK_CURR_SINK_MASK, val);
+	if (rc < 0)
+		return rc;
+
+	/* Enable flash and pre_flash safety timers */
+	val = get_wled_safety_time(wled->tparams.safety_timer) <<
+			WLED5_PRE_FLASH_SAFETY_SHIFT;
+	val |= get_wled_safety_time(wled->fparams.safety_timer);
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED5_SINK_FLASH_TIMER_CTL_REG, val);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 static int wled_configure(struct wled *wled, struct device *dev)
 {
 	struct wled_config *cfg = &wled->cfg;
@@ -1427,6 +2135,15 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	if (wled->ovp_irq < 0)
 		dev_dbg(&wled->pdev->dev, "ovp irq is not used\n");
 
+	wled->flash_irq = platform_get_irq_byname(wled->pdev, "flash-irq");
+	if (wled->flash_irq < 0)
+		dev_dbg(&wled->pdev->dev, "flash irq is not used\n");
+
+	wled->pre_flash_irq = platform_get_irq_byname(wled->pdev,
+				"pre-flash-irq");
+	if (wled->pre_flash_irq < 0)
+		dev_dbg(&wled->pdev->dev, "pre_flash irq is not used\n");
+
 	return 0;
 }
 
@@ -1465,7 +2182,13 @@ static int wled_probe(struct platform_device *pdev)
 
 	rc = wled_configure(wled, &pdev->dev);
 	if (rc < 0) {
-		pr_err("wled configure failed rc:%d\n", rc);
+		dev_err(&pdev->dev, "wled configure failed rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = wled_flash_configure(wled);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "wled configure failed rc:%d\n", rc);
 		return rc;
 	}
 
@@ -1494,7 +2217,7 @@ static int wled_probe(struct platform_device *pdev)
 	else
 		rc = wled5_setup(wled);
 	if (rc < 0) {
-		pr_err("wled setup failed rc:%d\n", rc);
+		dev_err(&pdev->dev, "wled setup failed rc:%d\n", rc);
 		return rc;
 	}
 
@@ -1508,7 +2231,27 @@ static int wled_probe(struct platform_device *pdev)
 	bl = devm_backlight_device_register(&pdev->dev, wled->name,
 					    &pdev->dev, wled,
 					    &wled_ops, &props);
-	return PTR_ERR_OR_ZERO(bl);
+	if (IS_ERR_OR_NULL(bl)) {
+		rc = PTR_ERR_OR_ZERO(bl);
+		if (!rc)
+			rc = -ENODEV;
+		dev_err(&pdev->dev, "failed to register backlight rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = wled_flash_device_register(wled);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "failed to register WLED flash/torch rc:%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = wled_flash_setup(wled);
+	if (rc < 0)
+		dev_err(&pdev->dev, "failed to setup WLED flash/torch rc:%d\n",
+			rc);
+
+	return rc;
 }
 
 static const struct of_device_id wled_match_table[] = {

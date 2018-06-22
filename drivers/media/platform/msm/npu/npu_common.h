@@ -185,6 +185,13 @@ struct npu_thermalctrl {
 	uint32_t pwr_level;
 };
 
+#define NPU_MAX_IRQ		3
+
+struct npu_irq {
+	char *name;
+	int irq;
+};
+
 struct npu_device {
 	struct mutex ctx_lock;
 
@@ -205,7 +212,7 @@ struct npu_device {
 	uint32_t regulator_num;
 	struct npu_regulator regulators[NPU_MAX_DT_NAME_LEN];
 
-	uint32_t irq;
+	struct npu_irq irq[NPU_MAX_IRQ];
 
 	struct npu_ion_buf mapped_buffers;
 
@@ -242,6 +249,6 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
 
 int fw_init(struct npu_device *npu_dev);
-void fw_deinit(struct npu_device *npu_dev);
+void fw_deinit(struct npu_device *npu_dev, bool fw_alive);
 
 #endif /* _NPU_COMMON_H */

@@ -3239,15 +3239,6 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	int rc = 0;
 	struct ipa_quota_stats_all *con_stats;
 
-	if (reset) {
-		IPAWANERR("only reset the pipe stats without returning stats");
-		rc = ipa_get_teth_stats();
-		if (rc) {
-			IPAWANERR("ipa_get_teth_stats failed %d,\n", rc);
-			return rc;
-		}
-		return 0;
-	}
 	/* qet HW-stats */
 	rc = ipa_get_teth_stats();
 	if (rc) {

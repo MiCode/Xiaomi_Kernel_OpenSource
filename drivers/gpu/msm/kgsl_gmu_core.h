@@ -13,16 +13,6 @@
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
 
-#define GMU_INT_WDOG_BITE		BIT(0)
-#define GMU_INT_RSCC_COMP		BIT(1)
-#define GMU_INT_FENCE_ERR		BIT(3)
-#define GMU_INT_DBD_WAKEUP		BIT(4)
-#define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
-#define GMU_AO_INT_MASK		\
-		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_HOST_AHB_BUS_ERR |	\
-		GMU_INT_FENCE_ERR)
-
 /* GMU_DEVICE - Given an KGSL device return the GMU specific struct */
 #define GMU_DEVICE_OPS(_a) ((_a)->gmu_core.dev_ops)
 #define GMU_CORE_OPS(_a) ((_a)->gmu_core.core_ops)
@@ -80,6 +70,25 @@ enum oob_request {
 	oob_dcvs = 7, /* reserved special case */
 };
 
+enum gmu_pwrctrl_mode {
+	GMU_FW_START,
+	GMU_FW_STOP,
+	GMU_SUSPEND,
+	GMU_DCVS_NOHFI,
+	GMU_NOTIFY_SLUMBER,
+	INVALID_POWER_CTRL
+};
+
+enum gpu_idle_level {
+	GPU_HW_ACTIVE = 0x0,
+	GPU_HW_SPTP_PC = 0x2,
+	GPU_HW_IFPC = 0x3,
+	GPU_HW_NAP = 0x4,
+	GPU_HW_MIN_VOLT = 0x5,
+	GPU_HW_MIN_DDR = 0x6,
+	GPU_HW_SLUMBER = 0xF
+};
+
 /*
  * Wait time before trying to write the register again.
  * Hopefully the GMU has finished waking up during this delay.
@@ -118,6 +127,7 @@ struct gmu_core_ops {
 	int (*get_idle_level)(struct kgsl_device *device);
 	void (*set_idle_level)(struct kgsl_device *device, unsigned int val);
 	bool (*regulator_isenabled)(struct kgsl_device *device);
+	int (*suspend)(struct kgsl_device *device);
 };
 
 struct gmu_dev_ops {
@@ -126,18 +136,20 @@ struct gmu_dev_ops {
 			enum oob_request req);
 	void (*oob_clear)(struct adreno_device *adreno_dev,
 			enum oob_request req);
+	void (*irq_enable)(struct kgsl_device *device);
+	void (*irq_disable)(struct kgsl_device *device);
 	int (*hfi_start_msg)(struct adreno_device *adreno_dev);
 	void (*enable_lm)(struct kgsl_device *device);
 	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
 			unsigned int arg1, unsigned int arg2);
 	int (*wait_for_lowest_idle)(struct adreno_device *);
 	int (*wait_for_gmu_idle)(struct adreno_device *);
-	int (*sptprac_enable)(struct adreno_device *adreno_dev);
-	void (*sptprac_disable)(struct adreno_device *adreno_dev);
 	int (*ifpc_store)(struct adreno_device *adreno_dev,
 			unsigned int val);
 	unsigned int (*ifpc_show)(struct adreno_device *adreno_dev);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
+	const unsigned int gmu2host_intr_mask;
+	const unsigned int gmu_ao_intr_mask;
 };
 
 /**
@@ -165,6 +177,7 @@ int gmu_core_probe(struct kgsl_device *device);
 void gmu_core_remove(struct kgsl_device *device);
 int gmu_core_start(struct kgsl_device *device);
 void gmu_core_stop(struct kgsl_device *device);
+int gmu_core_suspend(struct kgsl_device *device);
 void gmu_core_snapshot(struct kgsl_device *device);
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);

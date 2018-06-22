@@ -1045,6 +1045,7 @@ struct sde_perf_cfg {
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
+ * @has_qsync	       Supports qsync feature
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1088,6 +1089,7 @@ struct sde_mdss_cfg {
 	u32 macrotile_mode;
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
+	bool has_qsync;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;

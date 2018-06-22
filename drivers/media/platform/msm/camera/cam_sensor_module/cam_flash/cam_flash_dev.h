@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/leds-qpnp-flash.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
@@ -123,6 +124,7 @@ struct cam_flash_frame_setting {
  * @torch_trigger_name  : Torch trigger name array
  * @torch_op_current    : Torch operational current
  * @torch_max_current   : Max supported current for LED in torch mode
+ * @is_wled_flash       : Detection between WLED/LED flash
  */
 
 struct cam_flash_private_soc {
@@ -134,6 +136,7 @@ struct cam_flash_private_soc {
 	const char   *torch_trigger_name[CAM_FLASH_MAX_LED_TRIGGERS];
 	uint32_t     torch_op_current[CAM_FLASH_MAX_LED_TRIGGERS];
 	uint32_t     torch_max_current[CAM_FLASH_MAX_LED_TRIGGERS];
+	bool         is_wled_flash;
 };
 
 /**

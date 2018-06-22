@@ -270,6 +270,11 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 		return -ENOMEM;
 	}
 
+	if ((dwc->revision == DWC3_USB31_REVISION_170A) &&
+		(dwc->versiontype == DWC3_USB31_VER_TYPE_EA06) &&
+		usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		fifo_size |= DWC31_GTXFIFOSIZ_TXFRAMNUM;
+
 	dwc3_writel(dwc->regs, DWC3_GTXFIFOSIZ(dep->endpoint.ep_num),
 							fifo_size);
 	return 0;
@@ -3141,6 +3146,8 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
 
+	usb_phy_start_link_training(dwc->usb3_phy);
+
 	dwc->connected = true;
 
 	/*
@@ -3226,6 +3233,7 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	u8			speed;
 
 	dbg_event(0xFF, "CONNECT DONE", 0);
+	usb_phy_stop_link_training(dwc->usb3_phy);
 	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 	speed = reg & DWC3_DSTS_CONNECTSPD;
 	dwc->speed = speed;

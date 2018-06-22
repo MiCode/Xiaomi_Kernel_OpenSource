@@ -135,6 +135,9 @@ struct dsi_display_clk_info {
  * @is_cont_splash_enabled:  Is continuous splash enabled
  * @sw_te_using_wd:   Is software te enabled
  * @display_lock:     Mutex for dsi_display interface.
+ * @disp_te_gpio:     GPIO for panel TE interrupt.
+ * @is_te_irq_enabled:bool to specify whether TE interrupt is enabled.
+ * @esd_te_gate:      completion gate to signal TE interrupt.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
@@ -178,6 +181,9 @@ struct dsi_display {
 	bool is_cont_splash_enabled;
 	bool sw_te_using_wd;
 	struct mutex display_lock;
+	int disp_te_gpio;
+	bool is_te_irq_enabled;
+	struct completion esd_te_gate;
 
 	u32 ctrl_count;
 	struct dsi_display_ctrl ctrl[MAX_DSI_CTRLS_PER_DISPLAY];
@@ -622,4 +628,11 @@ enum dsi_pixel_format dsi_display_get_dst_format(
 		struct drm_connector *connector,
 		void *display);
 
+/**
+ * dsi_display_cont_splash_config() - initialize splash resources
+ * @display:         Handle to display
+ *
+ * Return: Zero on Success
+ */
+int dsi_display_cont_splash_config(void *display);
 #endif /* _DSI_DISPLAY_H_ */

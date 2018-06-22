@@ -27,6 +27,7 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
+#include "kgsl_gmu_core.h"
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -226,12 +227,10 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 
 	/* GMU scales BW */
 	if (gmu_core_gpmu_isenabled(device))
-		return 0;
-
-	if (pwr->pcl) {
+		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
+	else if (pwr->pcl)
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
-	}
 
 	if (ret)
 		KGSL_PWR_ERR(device, "GPU BW scaling failure: %d\n", ret);
@@ -2811,6 +2810,24 @@ _aware(struct kgsl_device *device)
 				WARN_ONCE(1, "Failed to recover GMU\n");
 				if (device->snapshot)
 					device->snapshot->recovered = false;
+				/*
+				 * On recovery failure, we are clearing
+				 * GMU_FAULT bit and also not keeping
+				 * the state as RESET to make sure any
+				 * attempt to wake GMU/GPU after this
+				 * is treated as a fresh start. But on
+				 * recovery failure, GMU HS, clocks and
+				 * IRQs are still ON/enabled because of
+				 * which next GMU/GPU wakeup results in
+				 * multiple warnings from GMU start as HS,
+				 * clocks and IRQ were ON while doing a
+				 * fresh start i.e. wake from SLUMBER.
+				 *
+				 * Suspend the GMU on recovery failure
+				 * to make sure next attempt to wake up
+				 * GMU/GPU is indeed a fresh start.
+				 */
+				gmu_core_suspend(device);
 				kgsl_pwrctrl_set_state(device, state);
 			} else {
 				if (device->snapshot)
@@ -3344,3 +3361,32 @@ unsigned int kgsl_pwr_limits_get_freq(enum kgsl_deviceid id)
 	return freq;
 }
 EXPORT_SYMBOL(kgsl_pwr_limits_get_freq);
+
+/**
+ * kgsl_pwrctrl_set_default_gpu_pwrlevel() - Set GPU to default power level
+ * @device: Pointer to the kgsl_device struct
+ */
+void kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int new_level = pwr->default_pwrlevel;
+	unsigned int old_level = pwr->active_pwrlevel;
+
+	/*
+	 * Update the level according to any thermal,
+	 * max/min, or power constraints.
+	 */
+	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
+
+	/*
+	 * If thermal cycling is required and the new level hits the
+	 * thermal limit, kick off the cycling.
+	 */
+	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
+
+	pwr->active_pwrlevel = new_level;
+	pwr->previous_pwrlevel = old_level;
+
+	/* Request adjusted DCVS level */
+	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
+}

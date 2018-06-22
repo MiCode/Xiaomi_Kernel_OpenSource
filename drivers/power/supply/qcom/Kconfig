@@ -19,6 +19,15 @@ config QPNP_FG_GEN4
 	  reported through a BMS power supply property and also sends uevents
 	  when the capacity is updated.
 
+config QPNP_QG
+	bool "QPNP Qgauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qualcomm Technologies, Inc. QGauge driver
+	  which uses the periodic sampling of the battery voltage and current
+	  to determine the battery state-of-charge (SOC) and supports other
+	  battery management features.
+
 config SMB1351_USB_CHARGER
 	tristate "smb1351 usb charger (with VBUS detection)"
 	depends on I2C
@@ -84,6 +93,15 @@ config QPNP_QNOVO
 	  accepts pulse parameters via sysfs entries and programs the hardware
 	  module. It also allows userspace code to read diagnostics of voltage
 	  and current measured during certain phases of the pulses.
+
+config QPNP_QNOVO5
+	bool "QPNP QNOVO5 driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qnovo5 PBS-based pulse charging engine.
+	  Qnovo5 driver accepts pulse parameters via sysfs entries and programs
+	  the hardware module. It also allows userspace code to read diagnostics
+	  of voltage and current measured during certain phases of the pulses.
 
 config SMB1390_CHARGE_PUMP
 	tristate "SMB1390 Charge Pump"

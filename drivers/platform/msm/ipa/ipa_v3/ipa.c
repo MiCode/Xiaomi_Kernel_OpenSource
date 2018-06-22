@@ -24,7 +24,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
-#include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
@@ -60,9 +59,6 @@
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
 
-#define IPA_GPIO_IN_QUERY_CLK_IDX 0
-#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
-#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
 #define IPA_SMP2P_SMEM_STATE_MASK 3
 
 
@@ -506,6 +502,19 @@ struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 	return NULL;
 }
 
+struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
+{
+
+	if (cb_type == IPA_SMMU_CB_WLAN && smmu_cb[IPA_SMMU_CB_WLAN].valid)
+		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
+
+	if (smmu_cb[cb_type].valid)
+		return smmu_cb[cb_type].mapping->domain;
+
+	IPAERR("CB#%d not valid\n", cb_type);
+
+	return NULL;
+}
 
 struct device *ipa3_get_dma_dev(void)
 {
@@ -606,10 +615,15 @@ static void ipa3_vlan_l2tp_msg_free_cb(void *buff, u32 len, u32 type)
 		return;
 	}
 
-	if (type != ADD_VLAN_IFACE &&
-	    type != DEL_VLAN_IFACE &&
-	    type != ADD_L2TP_VLAN_MAPPING &&
-		type != DEL_L2TP_VLAN_MAPPING) {
+	switch (type) {
+	case ADD_VLAN_IFACE:
+	case DEL_VLAN_IFACE:
+	case ADD_L2TP_VLAN_MAPPING:
+	case DEL_L2TP_VLAN_MAPPING:
+	case ADD_BRIDGE_VLAN_MAPPING:
+	case DEL_BRIDGE_VLAN_MAPPING:
+		break;
+	default:
 		IPAERR("Wrong type given. buff %pK type %d\n", buff, type);
 		return;
 	}
@@ -622,10 +636,17 @@ static int ipa3_send_vlan_l2tp_msg(unsigned long usr_param, uint8_t msg_type)
 	int retval;
 	struct ipa_ioc_vlan_iface_info *vlan_info;
 	struct ipa_ioc_l2tp_vlan_mapping_info *mapping_info;
+	struct ipa_ioc_bridge_vlan_mapping_info *bridge_vlan_info;
 	struct ipa_msg_meta msg_meta;
+	void *buff;
 
-	if (msg_type == ADD_VLAN_IFACE ||
-		msg_type == DEL_VLAN_IFACE) {
+	IPADBG("type %d\n", msg_type);
+
+	memset(&msg_meta, 0, sizeof(msg_meta));
+	msg_meta.msg_type = msg_type;
+
+	if ((msg_type == ADD_VLAN_IFACE) ||
+		(msg_type == DEL_VLAN_IFACE)) {
 		vlan_info = kzalloc(sizeof(struct ipa_ioc_vlan_iface_info),
 			GFP_KERNEL);
 		if (!vlan_info)
@@ -637,18 +658,10 @@ static int ipa3_send_vlan_l2tp_msg(unsigned long usr_param, uint8_t msg_type)
 			return -EFAULT;
 		}
 
-		memset(&msg_meta, 0, sizeof(msg_meta));
-		msg_meta.msg_type = msg_type;
 		msg_meta.msg_len = sizeof(struct ipa_ioc_vlan_iface_info);
-		retval = ipa3_send_msg(&msg_meta, vlan_info,
-			ipa3_vlan_l2tp_msg_free_cb);
-		if (retval) {
-			IPAERR("ipa3_send_msg failed: %d\n", retval);
-			kfree(vlan_info);
-			return retval;
-		}
-	} else if (msg_type == ADD_L2TP_VLAN_MAPPING ||
-		msg_type == DEL_L2TP_VLAN_MAPPING) {
+		buff = vlan_info;
+	} else if ((msg_type == ADD_L2TP_VLAN_MAPPING) ||
+		(msg_type == DEL_L2TP_VLAN_MAPPING)) {
 		mapping_info = kzalloc(sizeof(struct
 			ipa_ioc_l2tp_vlan_mapping_info), GFP_KERNEL);
 		if (!mapping_info)
@@ -661,21 +674,43 @@ static int ipa3_send_vlan_l2tp_msg(unsigned long usr_param, uint8_t msg_type)
 			return -EFAULT;
 		}
 
-		memset(&msg_meta, 0, sizeof(msg_meta));
-		msg_meta.msg_type = msg_type;
 		msg_meta.msg_len = sizeof(struct
 			ipa_ioc_l2tp_vlan_mapping_info);
-		retval = ipa3_send_msg(&msg_meta, mapping_info,
-			ipa3_vlan_l2tp_msg_free_cb);
-		if (retval) {
-			IPAERR("ipa3_send_msg failed: %d\n", retval);
-			kfree(mapping_info);
-			return retval;
+		buff = mapping_info;
+	} else if ((msg_type == ADD_BRIDGE_VLAN_MAPPING) ||
+		(msg_type == DEL_BRIDGE_VLAN_MAPPING)) {
+		bridge_vlan_info = kzalloc(
+			sizeof(struct ipa_ioc_bridge_vlan_mapping_info),
+			GFP_KERNEL);
+		if (!bridge_vlan_info)
+			return -ENOMEM;
+
+		if (copy_from_user((u8 *)bridge_vlan_info,
+			(void __user *)usr_param,
+			sizeof(struct ipa_ioc_bridge_vlan_mapping_info))) {
+			kfree(bridge_vlan_info);
+			IPAERR("copy from user failed\n");
+			return -EFAULT;
 		}
+
+		msg_meta.msg_len = sizeof(struct
+			ipa_ioc_bridge_vlan_mapping_info);
+		buff = bridge_vlan_info;
 	} else {
 		IPAERR("Unexpected event\n");
 		return -EFAULT;
 	}
+
+	retval = ipa3_send_msg(&msg_meta, buff,
+		ipa3_vlan_l2tp_msg_free_cb);
+	if (retval) {
+		IPAERR("ipa3_send_msg failed: %d, msg_type %d\n",
+			retval,
+			msg_type);
+		kfree(buff);
+		return retval;
+	}
+	IPADBG("exit\n");
 
 	return 0;
 }
@@ -1826,7 +1861,18 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
-
+	case IPA_IOC_ADD_BRIDGE_VLAN_MAPPING:
+		if (ipa3_send_vlan_l2tp_msg(arg, ADD_BRIDGE_VLAN_MAPPING)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_DEL_BRIDGE_VLAN_MAPPING:
+		if (ipa3_send_vlan_l2tp_msg(arg, DEL_BRIDGE_VLAN_MAPPING)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
 	case IPA_IOC_ADD_L2TP_VLAN_MAPPING:
 		if (ipa3_send_vlan_l2tp_msg(arg, ADD_L2TP_VLAN_MAPPING)) {
 			retval = -EFAULT;
@@ -2109,6 +2155,9 @@ static void ipa3_q6_avoid_holb(void)
 	ep_holb.tmr_val = 0;
 	ep_holb.en = 1;
 
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2)
+		ipa3_cal_ep_holb_scale_base_val(ep_holb.tmr_val, &ep_holb);
+
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
 			ep_idx = ipa3_get_ep_mapping(client_idx);
@@ -2211,6 +2260,15 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	if ((ip >= IPA_IP_MAX) || (rlt >= IPA_RULE_TYPE_MAX)) {
 		IPAERR("Input Err: ip=%d ; rlt=%d\n", ip, rlt);
 		return -EINVAL;
+	}
+
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (rlt == IPA_RULE_HASHABLE && ipa3_ctx->ipa_fltrt_not_hashable) {
+		IPADBG("Clean hashable rules not supported\n");
+		return retval;
 	}
 
 	/* Up to filtering pipes we have filtering tables */
@@ -2331,6 +2389,15 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 		return -EINVAL;
 	}
 
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (rlt == IPA_RULE_HASHABLE && ipa3_ctx->ipa_fltrt_not_hashable) {
+		IPADBG("Clean hashable rules not supported\n");
+		return retval;
+	}
+
 	if (ip == IPA_IP_v4) {
 		modem_rt_index_lo = IPA_MEM_PART(v4_modem_rt_index_lo);
 		modem_rt_index_hi = IPA_MEM_PART(v4_modem_rt_index_hi);
@@ -2404,7 +2471,7 @@ static int ipa3_q6_clean_q6_tables(void)
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
-	int retval;
+	int retval = 0;
 	struct ipahal_reg_fltrt_hash_flush flush;
 	struct ipahal_reg_valmask valmask;
 
@@ -2445,6 +2512,12 @@ static int ipa3_q6_clean_q6_tables(void)
 		return -EFAULT;
 	}
 
+	/*
+	 * SRAM memory not allocated to hash tables. Cleaning the of hash table
+	 * operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable)
+		return retval;
 	/* Flush rules cache */
 	desc = kzalloc(sizeof(struct ipa3_desc), GFP_KERNEL);
 	if (!desc)
@@ -2509,9 +2582,12 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 		/* disable statuses for all modem controlled prod pipes */
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx) ||
 			(ipa3_ctx->ep[ep_idx].valid &&
-			ipa3_ctx->ep[ep_idx].skip_ep_cfg)) {
+			ipa3_ctx->ep[ep_idx].skip_ep_cfg) ||
+			(ipa3_ctx->ep[ep_idx].client == IPA_CLIENT_APPS_WAN_PROD
+			&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
 			ipa_assert_on(num_descs >= ipa3_ctx->ipa_num_pipes);
 
+			ipa3_ctx->ep[ep_idx].status.status_en = false;
 			reg_write.skip_pipeline_clear = false;
 			reg_write.pipeline_clear_options =
 				IPAHAL_HPS_CLEAR;
@@ -2590,6 +2666,8 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	 * on pipe reset procedure
 	 */
 	ipa3_q6_pipe_delay(false);
+
+	ipa3_set_usb_prod_pipe_delay();
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -2841,10 +2919,21 @@ int _ipa_init_rt4_v3(void)
 		return rc;
 	}
 
-	v4_cmd.hash_rules_addr = mem.phys_base;
-	v4_cmd.hash_rules_size = mem.size;
-	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_rt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v4_cmd.hash_rules_addr = 0;
+		v4_cmd.hash_rules_size = 0;
+		v4_cmd.hash_local_addr = 0;
+	} else {
+		v4_cmd.hash_rules_addr = mem.phys_base;
+		v4_cmd.hash_rules_size = mem.size;
+		v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v4_rt_hash_ofst);
+	}
+
 	v4_cmd.nhash_rules_addr = mem.phys_base;
 	v4_cmd.nhash_rules_size = mem.size;
 	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2904,10 +2993,21 @@ int _ipa_init_rt6_v3(void)
 		return rc;
 	}
 
-	v6_cmd.hash_rules_addr = mem.phys_base;
-	v6_cmd.hash_rules_size = mem.size;
-	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_rt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v6_cmd.hash_rules_addr = 0;
+		v6_cmd.hash_rules_size = 0;
+		v6_cmd.hash_local_addr = 0;
+	} else {
+		v6_cmd.hash_rules_addr = mem.phys_base;
+		v6_cmd.hash_rules_size = mem.size;
+		v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v6_rt_hash_ofst);
+	}
+
 	v6_cmd.nhash_rules_addr = mem.phys_base;
 	v6_cmd.nhash_rules_size = mem.size;
 	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2961,10 +3061,21 @@ int _ipa_init_flt4_v3(void)
 		return rc;
 	}
 
-	v4_cmd.hash_rules_addr = mem.phys_base;
-	v4_cmd.hash_rules_size = mem.size;
-	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_flt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v4_cmd.hash_rules_addr = 0;
+		v4_cmd.hash_rules_size = 0;
+		v4_cmd.hash_local_addr = 0;
+	} else {
+		v4_cmd.hash_rules_addr = mem.phys_base;
+		v4_cmd.hash_rules_size = mem.size;
+		v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v4_flt_hash_ofst);
+	}
+
 	v4_cmd.nhash_rules_addr = mem.phys_base;
 	v4_cmd.nhash_rules_size = mem.size;
 	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -3018,10 +3129,21 @@ int _ipa_init_flt6_v3(void)
 		return rc;
 	}
 
-	v6_cmd.hash_rules_addr = mem.phys_base;
-	v6_cmd.hash_rules_size = mem.size;
-	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_flt_hash_ofst);
+	/*
+	 * SRAM memory not allocated to hash tables. Initializing/Sending
+	 * command to hash tables(filer/routing) operation not supported.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable) {
+		v6_cmd.hash_rules_addr = 0;
+		v6_cmd.hash_rules_size = 0;
+		v6_cmd.hash_local_addr = 0;
+	} else {
+		v6_cmd.hash_rules_addr = mem.phys_base;
+		v6_cmd.hash_rules_size = mem.size;
+		v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v6_flt_hash_ofst);
+	}
+
 	v6_cmd.nhash_rules_addr = mem.phys_base;
 	v6_cmd.nhash_rules_size = mem.size;
 	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -3158,20 +3280,21 @@ static int ipa3_setup_apps_pipes(void)
 	ipa3_ctx->ctrl->ipa_init_flt6();
 	IPADBG("V6 FLT initialized\n");
 
-	if (ipa3_setup_flt_hash_tuple()) {
-		IPAERR(":fail to configure flt hash tuple\n");
-		result = -EPERM;
-		goto fail_flt_hash_tuple;
-	}
-	IPADBG("flt hash tuple is configured\n");
+	if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+		if (ipa3_setup_flt_hash_tuple()) {
+			IPAERR(":fail to configure flt hash tuple\n");
+			result = -EPERM;
+			goto fail_flt_hash_tuple;
+		}
+		IPADBG("flt hash tuple is configured\n");
 
-	if (ipa3_setup_rt_hash_tuple()) {
-		IPAERR(":fail to configure rt hash tuple\n");
-		result = -EPERM;
-		goto fail_flt_hash_tuple;
+		if (ipa3_setup_rt_hash_tuple()) {
+			IPAERR(":fail to configure rt hash tuple\n");
+			result = -EPERM;
+			goto fail_flt_hash_tuple;
+		}
+		IPADBG("rt hash tuple is configured\n");
 	}
-	IPADBG("rt hash tuple is configured\n");
-
 	if (ipa3_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");
 		result = -EPERM;
@@ -4266,7 +4389,7 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
 			BIT(IPA_SMP2P_SMEM_STATE_MASK),
-			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1<<1)));
+			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
 
 	ipa3_ctx->smp2p_info.res_sent = true;
 	IPADBG("IPA clocks are %s\n",
@@ -4281,10 +4404,9 @@ void ipa3_reset_freeze_vote(void)
 	if (ipa3_ctx->smp2p_info.ipa_clk_on)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("FREEZE_VOTE");
 
-	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-		IPA_GPIO_OUT_CLK_VOTE_IDX, 0);
-	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-		IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 0);
+	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
+		BIT(IPA_SMP2P_SMEM_STATE_MASK),
+		BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;
@@ -4303,7 +4425,7 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 		IPAERR("uC panic handler failed %d\n", res);
 
 	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
-		ipahal_print_all_regs();
+		ipahal_print_all_regs(false);
 
 	return NOTIFY_DONE;
 }
@@ -4334,21 +4456,6 @@ static void ipa3_trigger_ipa_ready_cbs(void)
 	mutex_unlock(&ipa3_ctx->lock);
 }
 
-static int ipa3_gsi_pre_fw_load_init(void)
-{
-	int result;
-
-	result = gsi_configure_regs(ipa3_res.transport_mem_base,
-		ipa3_res.transport_mem_size,
-		ipa3_res.ipa_mem_base);
-	if (result) {
-		IPAERR("Failed to configure GSI registers\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static void ipa3_uc_is_loaded(void)
 {
 	IPADBG("\n");
@@ -4374,6 +4481,12 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	case IPA_HW_v4_1:
 		gsi_ver = GSI_VER_2_0;
 		break;
+	case IPA_HW_v4_2:
+		gsi_ver = GSI_VER_2_2;
+		break;
+	case IPA_HW_v4_5:
+		gsi_ver = GSI_VER_2_5;
+		break;
 	default:
 		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
 		WARN_ON(1);
@@ -4383,6 +4496,22 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	IPADBG("GSI version %d\n", gsi_ver);
 
 	return gsi_ver;
+}
+
+static int ipa3_gsi_pre_fw_load_init(void)
+{
+	int result;
+
+	result = gsi_configure_regs(ipa3_res.transport_mem_base,
+		ipa3_res.transport_mem_size,
+		ipa3_res.ipa_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
+	if (result) {
+		IPAERR("Failed to configure GSI registers\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -4433,7 +4562,6 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* move proxy vote for modem on ipa3_post_init */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
-
 	/* SMMU was already attached if used, safe to do allocations */
 	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
 		ipa3_ctx->pdev)) {
@@ -4557,8 +4685,8 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	/*
-	 * IPAv3.5 and above requires to disable prefetch for USB in order
-	 * to allow MBIM to work.
+	 * Disable prefetch for USB or MHI at IPAv3.5/IPA.3.5.1
+	 * This is to allow MBIM to work.
 	 */
 	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
 		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
@@ -4690,7 +4818,8 @@ static int ipa3_manual_load_ipa_fws(void)
 
 	IPADBG("FWs are available for loading\n");
 
-	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
+	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base,
+		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
 	if (result) {
 		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);
@@ -4811,18 +4940,20 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		if (count && (dbg_buff[count - 1] == '\n'))
 			dbg_buff[count - 1] = '\0';
 
+		/*
+		 * This logic enforeces MHI mode based on userspace input.
+		 * Note that MHI mode could be already determined due
+		 *  to previous logic.
+		 */
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
-			pr_info(
-				"IPA is loading with MHI configuration\n");
-		} else if (!strcmp(dbg_buff, "1")) {
-			pr_info(
-				"IPA is loading with non MHI configuration\n");
-		} else {
+		} else if (strcmp(dbg_buff, "1")) {
 			IPAERR("got invalid string %s not loading FW\n",
 				dbg_buff);
 			return count;
 		}
+		pr_info("IPA is loading with %sMHI configuration\n",
+			ipa3_ctx->ipa_config_is_mhi ? "" : "non ");
 	}
 
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
@@ -5002,6 +5133,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
+	ipa3_ctx->ipa_fltrt_not_hashable = resource_p->ipa_fltrt_not_hashable;
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
@@ -5551,6 +5683,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_tz_unlock_reg = NULL;
 	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
+	ipa_drv_res->ipa_fltrt_not_hashable = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -5563,6 +5696,11 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	if (ipa_drv_res->ipa_hw_type < IPA_HW_v3_0) {
 		IPAERR(":IPA version below 3.0 not supported\n");
+		return -ENODEV;
+	}
+
+	if (ipa_drv_res->ipa_hw_type >= IPA_HW_MAX) {
+		IPAERR(":IPA version is greater than the MAX\n");
 		return -ENODEV;
 	}
 
@@ -5622,6 +5760,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2");
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
+			? "True" : "False");
+
+	ipa_drv_res->ipa_fltrt_not_hashable =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-fltrt-not-hashable");
+	IPADBG(": IPA filter/route rule hashable = %s\n",
+			ipa_drv_res->ipa_fltrt_not_hashable
 			? "True" : "False");
 
 	ipa_drv_res->use_64_bit_dma_mask =
@@ -6121,15 +6266,17 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 		IPADBG("AP/USB SMMU atomic set\n");
 
-		if (iommu_domain_set_attr(cb->mapping->domain,
+		if (smmu_info.fast_map) {
+			if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_FAST,
 				&fast)) {
-			IPAERR("couldn't set fast map\n");
-			arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
+				IPAERR("couldn't set fast map\n");
+				arm_iommu_release_mapping(cb->mapping);
+				cb->valid = false;
+				return -EIO;
+			}
+			IPADBG("SMMU fast map set\n");
 		}
-		IPADBG("SMMU fast map set\n");
 	}
 
 	pr_info("IPA smmu_info.s1_bypass_arr[AP]=%d smmu_info.fast_map=%d\n",
@@ -6199,7 +6346,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->mapping->domain,
 				iova_p, pa_p, size_p,
-				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+				IOMMU_READ | IOMMU_WRITE);
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;

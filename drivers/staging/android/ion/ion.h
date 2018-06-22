@@ -43,6 +43,8 @@
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 #define ION_AUDIO_HEAP_NAME    "audio"
 
+#define ION_IS_CACHED(__flags)  ((__flags) & ION_FLAG_CACHED)
+
 /**
  * Debug feature. Make ION allocations DMA
  * ready to help identify clients who are wrongly
@@ -385,9 +387,20 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data);
 void ion_chunk_heap_destroy(struct ion_heap *heap);
 
 #ifdef CONFIG_CMA
+struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data);
+void ion_secure_cma_heap_destroy(struct ion_heap *heap);
+
 struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data);
 void ion_cma_heap_destroy(struct ion_heap *heap);
 #else
+static inline struct ion_heap
+			*ion_secure_cma_heap_create(struct ion_platform_heap *h)
+{
+	return NULL;
+}
+
+static inline void ion_cma_heap_destroy(struct ion_heap *h) {}
+
 static inline struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *h)
 {
 	return NULL;

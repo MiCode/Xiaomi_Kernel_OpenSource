@@ -1025,7 +1025,35 @@ int create_pkt_cmd_session_set_property(
 		break;
 	}
 	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO:
+	{
+		struct hfi_uncompressed_plane_actual_constraints_info *hfi;
+		struct hal_uncompressed_plane_actual_constraints_info *prop =
+		(struct hal_uncompressed_plane_actual_constraints_info *) pdata;
+		u32 buffer_type;
+		u32 num_plane = prop->num_planes;
+		u32 hfi_pkt_size =
+			2 * sizeof(u32)
+			+ num_plane
+			* sizeof(struct hal_uncompressed_plane_constraints);
+
+		pkt->rg_property_data[0] =
+		HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO;
+
+		hfi = (struct hfi_uncompressed_plane_actual_constraints_info *)
+					&pkt->rg_property_data[1];
+		buffer_type = get_hfi_buffer(prop->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+
+		hfi->num_planes = prop->num_planes;
+		memcpy(hfi->rg_plane_format, prop->rg_plane_format,
+			hfi->num_planes
+			*sizeof(struct hal_uncompressed_plane_constraints));
+		pkt->size += hfi_pkt_size;
 		break;
+	}
 	case HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_INFO:
 		break;
 	case HAL_PARAM_FRAME_SIZE:
@@ -1365,6 +1393,19 @@ int create_pkt_cmd_session_set_property(
 		memcpy(hfi, (struct hfi_intra_period *) pdata,
 				sizeof(struct hfi_intra_period));
 		pkt->size += sizeof(struct hfi_intra_period);
+
+		if (hfi->bframes) {
+			struct hfi_enable *hfi_enable;
+			u32 *prop_type;
+
+			prop_type = (u32 *)((u8 *)&pkt->rg_property_data[0] +
+				sizeof(u32) + sizeof(struct hfi_intra_period));
+			*prop_type =  HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B;
+			hfi_enable = (struct hfi_enable *)(prop_type + 1);
+			hfi_enable->enable = true;
+			pkt->num_properties = 2;
+			pkt->size += sizeof(struct hfi_enable) + sizeof(u32);
+		}
 		break;
 	}
 	case HAL_CONFIG_VENC_IDR_PERIOD:
@@ -1911,6 +1952,21 @@ int create_pkt_cmd_session_set_property(
 
 		memcpy(hfi, prop, sizeof(*hfi));
 		pkt->size += sizeof(struct hfi_hdr10_pq_sei);
+		break;
+	}
+	case HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE:
+	{
+		struct hfi_vbv_hdr_buf_size *hfi;
+		struct hal_vbv_hdr_buf_size *prop =
+			(struct hal_vbv_hdr_buf_size *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_VBV_HRD_BUF_SIZE;
+		hfi = (struct hfi_vbv_hdr_buf_size *)
+			&pkt->rg_property_data[1];
+
+		hfi->vbv_hdr_buf_size = prop->vbv_hdr_buf_size;
+		pkt->size += sizeof(struct hfi_vbv_hdr_buf_size);
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */

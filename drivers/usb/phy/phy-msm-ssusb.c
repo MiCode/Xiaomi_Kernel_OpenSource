@@ -59,15 +59,16 @@ MODULE_PARM_DESC(ss_phy_override_deemphasis, "Override SSPHY demphasis value");
 struct msm_ssphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
-	struct clk		*core_clk;	/* USB3 master clock */
+	struct clk		*ref_clk;
 	struct reset_control	*phy_com_reset;
 	struct reset_control	*phy_reset;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
-	atomic_t		active_count;	/* num of active instances */
 	bool			suspended;
 	int			vdd_levels[3]; /* none, low, high */
 	int			deemphasis_val;
+
+	int			power_enabled;
 };
 
 static int msm_ssusb_config_vdd(struct msm_ssphy *phy, int high)
@@ -93,47 +94,80 @@ static int msm_ssusb_ldo_enable(struct msm_ssphy *phy, int on)
 
 	dev_dbg(phy->phy.dev, "reg (%s)\n", on ? "HPM" : "LPM");
 
+	if (phy->power_enabled == on) {
+		dev_dbg(phy->phy.dev, "LDOs are already %s\n",
+							on ? "ON" : "OFF");
+		return 0;
+	}
+
 	if (!on)
 		goto disable_regulators;
 
+	rc = msm_ssusb_config_vdd(phy, 1);
+	if (rc) {
+		dev_err(phy->phy.dev, "Unable to config vdd: %d\n", rc);
+		return rc;
+	}
+
+	rc = regulator_enable(phy->vdd);
+	if (rc) {
+		dev_err(phy->phy.dev, "Unable to enable vdd: %d\n", rc);
+		goto unset_vdd;
+	}
 
 	rc = regulator_set_load(phy->vdda18, USB_SSPHY_1P8_HPM_LOAD);
 	if (rc < 0) {
-		dev_err(phy->phy.dev, "Unable to set HPM of vdda18\n");
-		return rc;
+		dev_err(phy->phy.dev, "Unable to set HPM of vdda18: %d\n", rc);
+		goto disable_vdd;
 	}
 
 	rc = regulator_set_voltage(phy->vdda18, USB_SSPHY_1P8_VOL_MIN,
 						USB_SSPHY_1P8_VOL_MAX);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
+		dev_err(phy->phy.dev, "unable to set voltage for vdda18: %d\n",
+									rc);
 		goto put_vdda18_lpm;
 	}
 
 	rc = regulator_enable(phy->vdda18);
 	if (rc) {
-		dev_err(phy->phy.dev, "Unable to enable vdda18\n");
+		dev_err(phy->phy.dev, "Unable to enable vdda18: %d\n", rc);
 		goto unset_vdda18;
 	}
+
+	phy->power_enabled = 1;
 
 	return 0;
 
 disable_regulators:
 	rc = regulator_disable(phy->vdda18);
 	if (rc)
-		dev_err(phy->phy.dev, "Unable to disable vdda18\n");
+		dev_err(phy->phy.dev, "Unable to disable vdda18: %d\n", rc);
 
 unset_vdda18:
 	rc = regulator_set_voltage(phy->vdda18, 0, USB_SSPHY_1P8_VOL_MAX);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
+		dev_err(phy->phy.dev, "unable to set min voltage for vdda18: %d\n",
+									rc);
 
 put_vdda18_lpm:
 	rc = regulator_set_load(phy->vdda18, 0);
 	if (rc < 0)
-		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
+		dev_err(phy->phy.dev, "Unable to set LPM of vdda18: %d\n", rc);
 
-	return rc < 0 ? rc : 0;
+disable_vdd:
+	rc = regulator_disable(phy->vdd);
+	if (rc)
+		dev_err(phy->phy.dev, "Unable to disable vdd: %d\n", rc);
+unset_vdd:
+	rc = msm_ssusb_config_vdd(phy, 0);
+	if (rc)
+		dev_err(phy->phy.dev, "unable to set min voltage for vdd: %d\n",
+									rc);
+
+	phy->power_enabled = 0;
+
+	return rc;
 }
 
 static void msm_usb_write_readback(void *base, u32 offset,
@@ -285,8 +319,9 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
 	u32 val;
 
-	/* Ensure clock is on before accessing QSCRATCH registers */
-	clk_prepare_enable(phy->core_clk);
+	msm_ssusb_ldo_enable(phy, 1);
+
+	clk_prepare_enable(phy->ref_clk);
 
 	/* read initial value */
 	val = readl_relaxed(phy->base + SS_PHY_CTRL_REG);
@@ -320,8 +355,6 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 	 */
 	msm_ssphy_set_params(uphy);
 
-	clk_disable_unprepare(phy->core_clk);
-
 	return 0;
 }
 
@@ -329,24 +362,17 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 {
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
 	void __iomem *base = phy->base;
-	int count;
 
-	/* Ensure clock is on before accessing QSCRATCH registers */
-	clk_prepare_enable(phy->core_clk);
+	dev_dbg(uphy->dev, "%s: phy->suspended:%d suspend:%d", __func__,
+					phy->suspended, suspend);
+
+	if (phy->suspended == suspend) {
+		dev_dbg(uphy->dev, "PHY is already %s\n",
+					suspend ? "suspended" : "resumed");
+		return 0;
+	}
 
 	if (suspend) {
-		count = atomic_dec_return(&phy->active_count);
-		if (count > 0 || phy->suspended) {
-			dev_dbg(uphy->dev, "Skipping suspend, active_count=%d phy->suspended=%d\n",
-					count, phy->suspended);
-			goto done;
-		}
-
-		if (count < 0) {
-			dev_WARN(uphy->dev, "Suspended too many times!  active_count=%d\n",
-					count);
-			atomic_set(&phy->active_count, 0);
-		}
 
 		/* Clear REF_SS_PHY_EN */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, REF_SS_PHY_EN, 0);
@@ -362,24 +388,17 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 			reset_control_assert(phy->phy_reset);
 		}
 
+		clk_disable_unprepare(phy->ref_clk);
 		msm_ssusb_ldo_enable(phy, 0);
-		msm_ssusb_config_vdd(phy, 0);
 		phy->suspended = true;
 	} else {
-		count = atomic_inc_return(&phy->active_count);
-		if (count > 1 || !phy->suspended) {
-			dev_dbg(uphy->dev, "Skipping resume, active_count=%d phy->suspended=%d\n",
-					count, phy->suspended);
-			goto done;
-		}
 
-		phy->suspended = false;
-		msm_ssusb_config_vdd(phy, 1);
 		msm_ssusb_ldo_enable(phy, 1);
+		clk_prepare_enable(phy->ref_clk);
 
 		if (phy->phy.flags & ENABLE_SECONDARY_PHY) {
 			dev_err(uphy->dev, "secondary PHY, skipping reset\n");
-			goto done;
+			return 0;
 		}
 
 		if (phy->phy_com_reset) {
@@ -405,10 +424,10 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 			msm_usb_write_readback(base, SS_PHY_CTRL_REG,
 						SS_PHY_RESET, 0);
 		}
+
+		phy->suspended = false;
 	}
 
-done:
-	clk_disable_unprepare(phy->core_clk);
 	return 0;
 }
 
@@ -467,10 +486,10 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	phy->core_clk = devm_clk_get(dev, "core_clk");
-	if (IS_ERR(phy->core_clk)) {
-		dev_err(dev, "unable to get core_clk\n");
-		return PTR_ERR(phy->core_clk);
+	phy->ref_clk = devm_clk_get(dev, "ref_clk");
+	if (IS_ERR(phy->ref_clk)) {
+		dev_err(dev, "unable to get ref_clk\n");
+		return PTR_ERR(phy->ref_clk);
 	}
 
 	phy->phy_com_reset = devm_reset_control_get(dev, "phy_com_reset");
@@ -513,24 +532,6 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 		return PTR_ERR(phy->vdda18);
 	}
 
-	ret = msm_ssusb_config_vdd(phy, 1);
-	if (ret) {
-		dev_err(dev, "ssusb vdd_dig configuration failed\n");
-		return ret;
-	}
-
-	ret = regulator_enable(phy->vdd);
-	if (ret) {
-		dev_err(dev, "unable to enable the ssusb vdd_dig\n");
-		goto unconfig_ss_vdd;
-	}
-
-	ret = msm_ssusb_ldo_enable(phy, 1);
-	if (ret) {
-		dev_err(dev, "ssusb vreg enable failed\n");
-		goto disable_ss_vdd;
-	}
-
 	platform_set_drvdata(pdev, phy);
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
@@ -548,18 +549,9 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
-		goto disable_ss_ldo;
+		return ret;
 
 	return 0;
-
-disable_ss_ldo:
-	msm_ssusb_ldo_enable(phy, 0);
-disable_ss_vdd:
-	regulator_disable(phy->vdd);
-unconfig_ss_vdd:
-	msm_ssusb_config_vdd(phy, 0);
-
-	return ret;
 }
 
 static int msm_ssphy_remove(struct platform_device *pdev)
@@ -569,10 +561,9 @@ static int msm_ssphy_remove(struct platform_device *pdev)
 	if (!phy)
 		return 0;
 
+	msm_ssphy_set_suspend(&phy->phy, 0);
 	usb_remove_phy(&phy->phy);
-	msm_ssusb_ldo_enable(phy, 0);
-	regulator_disable(phy->vdd);
-	msm_ssusb_config_vdd(phy, 0);
+	msm_ssphy_set_suspend(&phy->phy, 1);
 	kfree(phy);
 
 	return 0;

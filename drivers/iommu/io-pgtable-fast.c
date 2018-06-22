@@ -255,16 +255,17 @@ void av8l_fast_unmap_public(av8l_fast_iopte *ptep, size_t size)
 	__av8l_fast_unmap(ptep, size, true);
 }
 
-/* upper layer must take care of TLB invalidation */
 static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			      size_t size)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = &data->iop;
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
 	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	__av8l_fast_unmap(ptep, size, false);
 	dmac_clean_range(ptep, ptep + nptes);
+	io_pgtable_tlb_flush_all(iop);
 
 	return size;
 }

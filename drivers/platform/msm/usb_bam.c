@@ -632,7 +632,7 @@ int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
 				&ctx->usb_bam_connections[idx];
 	unsigned long peer_bam_handle;
 
-	ret = sps_phy2h(pipe_connect->dst_phy_addr, &peer_bam_handle);
+	ret = sps_phy2h(pipe_connect->src_phy_addr, &peer_bam_handle);
 	if (ret) {
 		log_event_err("%s: sps_phy2h failed (src BAM) %d\n",
 						__func__, ret);
@@ -962,7 +962,6 @@ int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx)
 static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 {
 	int i;
-	int bam;
 	struct usb_bam_ctx_type *ctx = user;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct usb_bam_event_info *event_info;
@@ -976,8 +975,6 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 		spin_lock(&ctx->usb_bam_lock);
 
 		ctx->is_bam_inactivity = true;
-		log_event_dbg("%s: Inactivity happened on bam=%s,%d\n",
-				__func__, (char *)user, bam);
 
 		for (i = 0; i < ctx->max_connections; i++) {
 			pipe_connect = &ctx->usb_bam_connections[i];

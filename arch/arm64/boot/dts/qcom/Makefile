@@ -7,8 +7,16 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8992-bullhead-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
-		qcs405-mtp.dtb \
-		qcs405-cdp.dtb
+		qcs405-iot-sku1.dtb \
+		qcs405-iot-sku2.dtb \
+		qcs405-iot-sku3.dtb \
+		qcs405-iot-sku4.dtb \
+		qcs405-iot-sku5.dtb \
+		qcs405-iot-sku6.dtb \
+		qcs405-iot-sku7.dtb \
+		qcs405-iot-sku8.dtb \
+		qcs403-iot-sku1.dtb \
+		qcs403-iot-sku2.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \
@@ -16,20 +24,26 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm8150-mtp-overlay.dtbo \
 		sm8150-rumi-overlay.dtbo \
 		sm8150-qrd-overlay.dtbo \
+		sm8150-qrd-dvt-overlay.dtbo \
 		sm8150-auto-adp-star-overlay.dtbo \
 		sm8150p-cdp-overlay.dtbo \
 		sm8150p-mtp-overlay.dtbo \
 		sm8150p-qrd-overlay.dtbo \
 		sm8150-sdx50m-cdp-overlay.dtbo \
-		sm8150-sdx50m-mtp-overlay.dtbo
+		sm8150-sdx50m-mtp-overlay.dtbo \
+		sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo \
+		sm8150-sdx50m-qrd-overlay.dtbo
 
 sm8150-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-rumi-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
+sm8150-qrd-dvt-overlay.dtbo-base := sm8150-v2.dtb
 sm8150-auto-adp-star-overlay.dtbo-base := sm8150-auto.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
+sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
+sm8150-sdx50m-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150p-mtp-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
 sm8150p-qrd-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
 else
@@ -42,6 +56,7 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-v2-mtp.dtb \
 	sm8150-v2-cdp.dtb \
 	sm8150-v2-qrd.dtb \
+	sm8150-v2-qrd-dvt.dtb \
 	sm8150p-mtp.dtb \
 	sm8150p-cdp.dtb \
 	sm8150p-qrd.dtb \
@@ -83,6 +98,25 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-qrd.dtb \
 	sm6150-idp.dtb
 endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
+		sdmmagpie-idp-overlay.dtbo \
+		sdmmagpie-rumi-overlay.dtbo \
+		sdmmagpie-qrd-overlay.dtbo \
+
+sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
+sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
+else
+dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
+	sdmmagpie-idp.dtb \
+	sdmmagpie-qrd.dtb
+endif
+
+dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
+	sdxprairie-cdp.dtb \
+	sdxprairie-mtp.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)

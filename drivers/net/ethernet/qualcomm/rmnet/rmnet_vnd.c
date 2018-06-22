@@ -23,6 +23,8 @@
 #include "rmnet_map.h"
 #include "rmnet_vnd.h"
 
+#include <soc/qcom/qmi_rmnet.h>
+
 /* RX/TX Fixup */
 
 void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
@@ -61,6 +63,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
 		rmnet_egress_handler(skb);
+		qmi_rmnet_burst_fc_check(dev, skb);
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
@@ -108,6 +111,9 @@ static void rmnet_vnd_uninit(struct net_device *dev)
 
 	gro_cells_destroy(&priv->gro_cells);
 	free_percpu(priv->pcpu_stats);
+
+	qmi_rmnet_qos_exit(dev);
+	priv->qos_info = NULL;
 }
 
 static void rmnet_get_stats64(struct net_device *dev,
@@ -221,6 +227,10 @@ void rmnet_vnd_setup(struct net_device *rmnet_dev)
 
 	rmnet_dev->needs_free_netdev = true;
 	rmnet_dev->ethtool_ops = &rmnet_ethtool_ops;
+
+	/* This perm addr will be used as interface identifier by IPv6 */
+	rmnet_dev->addr_assign_type = NET_ADDR_RANDOM;
+	eth_random_addr(rmnet_dev->perm_addr);
 }
 
 /* Exposed API */
@@ -254,6 +264,7 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 		priv = netdev_priv(rmnet_dev);
 		priv->mux_id = id;
 		priv->real_dev = real_dev;
+		priv->qos_info = qmi_rmnet_qos_init(real_dev, id);
 
 		netdev_dbg(rmnet_dev, "rmnet dev created\n");
 	}

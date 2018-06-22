@@ -12,15 +12,6 @@
  */
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/device.h>
-#include <linux/iommu.h>
-#include <linux/io.h>
-#include <linux/of_platform.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
-#include <linux/pm_opp.h>
-#include <linux/io.h>
-#include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"
 #include "kgsl_gmu_core.h"
@@ -121,6 +112,16 @@ void gmu_core_stop(struct kgsl_device *device)
 
 	if (gmu_core_ops && gmu_core_ops->stop)
 		gmu_core_ops->stop(device);
+}
+
+int gmu_core_suspend(struct kgsl_device *device)
+{
+	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+
+	if (gmu_core_ops && gmu_core_ops->suspend)
+		return gmu_core_ops->suspend(device);
+
+	return -EINVAL;
 }
 
 void gmu_core_snapshot(struct kgsl_device *device)

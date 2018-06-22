@@ -33,10 +33,6 @@
 				     0x0 0x4>;
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	timer {
 		clock-frequency = <0x100000>;
 	};
@@ -46,7 +42,12 @@
 	};
 };
 
-&usb0 {
+&usb3 {
+	/delete-property/ extcon;
+};
+
+&usb2s {
+	/delete-property/ extcon;
 	dwc3@78c0000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
@@ -75,6 +76,9 @@
 
 &soc {
 	/delete-node/ qcom,spmi@200f000;
+	/delete-node/ regulator@1942120;
+	/delete-node/ regulator@b018000;
+	/delete-node/ usb3_extcon;
 };
 
 &rpm_bus {
@@ -118,5 +122,9 @@
 	qcom,clk-rates = <400000 20000000 25000000 50000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
 
+	status = "disabled";
+};
+
+&smb1351_otg_supply {
 	status = "disabled";
 };

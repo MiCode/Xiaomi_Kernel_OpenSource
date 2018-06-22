@@ -255,6 +255,13 @@ config DEVFREQ_SPDM
 	  This driver allows any SPDM based client to vote for bandwidth.
 	  Used with the QTI SPDM Hypervisor Governor.
 
+config DEVFREQ_GOV_CDSPL3
+	bool "QTI DEVFREQ governor for CDSP L3 requests"
+	depends on QCOM_CDSP_RM
+	help
+	  CDSP resource manager will use this governor to vote for L3 clock
+	  for IO-coherent traffic generated from CDSP
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ

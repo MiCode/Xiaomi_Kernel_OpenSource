@@ -3342,6 +3342,7 @@ int sde_rotator_pm_resume(struct device *dev)
 	 */
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
+	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 
 	sde_rot_mgr_lock(mgr);

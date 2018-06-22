@@ -252,6 +252,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
+#define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 7)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -268,7 +269,7 @@ struct arm_smmu_device {
 	struct arm_smmu_smr		*smrs;
 	struct arm_smmu_s2cr		*s2crs;
 	struct mutex			stream_map_mutex;
-
+	struct mutex			iommu_group_mutex;
 	unsigned long			va_size;
 	unsigned long			ipa_size;
 	unsigned long			pa_size;
@@ -358,6 +359,7 @@ struct arm_smmu_domain {
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
+	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	struct io_pgtable_cfg		pgtbl_cfg;
 	u32 attributes;
 	bool				slave_side_secure;
@@ -387,6 +389,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
+	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ 0, NULL},
 };
 
@@ -1000,10 +1003,10 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 	void __iomem *base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 	unsigned long flags;
 
-	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
+	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
 	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
 			    base + ARM_SMMU_CB_TLBSTATUS);
-	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+	spin_unlock_irqrestore(&smmu_domain->sync_lock, flags);
 }
 
 static void arm_smmu_tlb_sync_vmid(void *cookie)
@@ -1999,6 +2002,7 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->cb_lock);
+	spin_lock_init(&smmu_domain->sync_lock);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	mutex_init(&smmu_domain->assign_lock);
@@ -2175,6 +2179,7 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	struct iommu_group *group;
 	int i, idx, ret;
 
+	mutex_lock(&smmu->iommu_group_mutex);
 	mutex_lock(&smmu->stream_map_mutex);
 	/* Figure out a viable stream map entry allocation */
 	for_each_cfg_sme(fwspec, i, idx) {
@@ -2183,12 +2188,12 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 
 		if (idx != INVALID_SMENDX) {
 			ret = -EEXIST;
-			goto out_err;
+			goto sme_err;
 		}
 
 		ret = arm_smmu_find_sme(smmu, sid, mask);
 		if (ret < 0)
-			goto out_err;
+			goto sme_err;
 
 		idx = ret;
 		if (smrs && smmu->s2crs[idx].count == 0) {
@@ -2199,13 +2204,14 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 		smmu->s2crs[idx].count++;
 		cfg->smendx[i] = (s16)idx;
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 
 	group = iommu_group_get_for_dev(dev);
 	if (!group)
 		group = ERR_PTR(-ENOMEM);
 	if (IS_ERR(group)) {
 		ret = PTR_ERR(group);
-		goto out_err;
+		goto iommu_group_err;
 	}
 	iommu_group_put(group);
 
@@ -2213,15 +2219,19 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	for_each_cfg_sme(fwspec, i, idx)
 		smmu->s2crs[idx].group = group;
 
-	mutex_unlock(&smmu->stream_map_mutex);
+	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
 
-out_err:
+iommu_group_err:
+	mutex_lock(&smmu->stream_map_mutex);
+
+sme_err:
 	while (i--) {
 		arm_smmu_free_sme(smmu, cfg->smendx[i]);
 		cfg->smendx[i] = INVALID_SMENDX;
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
+	mutex_unlock(&smmu->iommu_group_mutex);
 	return ret;
 }
 
@@ -2541,6 +2551,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	unsigned long flags;
 
 	if (!ops)
 		return 0;
@@ -2554,7 +2565,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
+	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size);
+	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	/*
@@ -2709,6 +2722,10 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	phys_addr_t ret = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+
+	if (smmu->options & ARM_SMMU_OPT_DISABLE_ATOS)
+		return 0;
 
 	if (arm_smmu_power_on(smmu_domain->smmu->pwr))
 		return 0;
@@ -4196,6 +4213,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	smmu->num_mapping_groups = size;
 	mutex_init(&smmu->stream_map_mutex);
+	mutex_init(&smmu->iommu_group_mutex);
 	spin_lock_init(&smmu->global_sync_lock);
 
 	if (smmu->version < ARM_SMMU_V2 || !(id & ID0_PTFS_NO_AARCH32)) {
@@ -5259,7 +5277,11 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	pdev = container_of(dev, struct platform_device, dev);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
-	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (!res) {
+		dev_err(dev, "Unable to get the tcu-base\n");
+		return -EINVAL;
+	}
+	data->tcu_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (IS_ERR(data->tcu_base))
 		return PTR_ERR(data->tcu_base);
 

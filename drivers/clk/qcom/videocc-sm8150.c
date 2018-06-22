@@ -75,6 +75,20 @@ static const struct alpha_pll_config video_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
+};
+
+static const struct alpha_pll_config video_pll0_config_sm8150_v2 = {
+	.l = 0x14,
+	.alpha = 0xD555,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -109,6 +123,16 @@ static const struct freq_tbl ftbl_video_cc_iris_clk_src[] = {
 	F(365000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(432000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(480000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_iris_clk_src_sm8150_v2[] = {
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(240000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(338000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(365000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -249,9 +273,37 @@ static const struct qcom_cc_desc video_cc_sm8150_desc = {
 
 static const struct of_device_id video_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,videocc-sm8150" },
+	{ .compatible = "qcom,videocc-sm8150-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_sm8150_match_table);
+
+static void video_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
+{
+	clk_trion_pll_configure(&video_pll0, regmap,
+		&video_pll0_config_sm8150_v2);
+	video_cc_iris_clk_src.freq_tbl = ftbl_video_cc_iris_clk_src_sm8150_v2;
+	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOWER] = 240000000;
+	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 338000000;
+	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 444000000;
+	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 533000000;
+}
+
+static int video_cc_sm8150_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,videocc-sm8150-v2"))
+		video_cc_sm8150_fixup_sm8150v2(regmap);
+
+	return 0;
+}
 
 static int video_cc_sm8150_probe(struct platform_device *pdev)
 {
@@ -279,6 +331,10 @@ static int video_cc_sm8150_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
+
+	ret = video_cc_sm8150_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	clk_trion_pll_configure(&video_pll0, regmap, &video_pll0_config);
 

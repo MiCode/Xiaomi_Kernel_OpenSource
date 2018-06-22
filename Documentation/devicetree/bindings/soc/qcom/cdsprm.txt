@@ -1,0 +1,43 @@
+Qualcomm Technologies, Inc. CDSP Request Manager driver
+
+CDSP Request Manager driver implements an rpmsg interface with
+CDSP subsystem to serve L3 frequency and CPU QoS requests from CDSP.
+
+Required properties:
+- compatible: Must be "qcom,msm-cdsprm-rpmsg"
+- qcom,glink-channels: Glink channel for communication with CDSP
+- qcom,intents: A list of <number of intents, size of each intent>
+
+- qcom,msm-cdsp-rm: A sub-device node to define CDSPM RM configuration
+		parameters
+	Required properties:
+	- compatible: Must be "qcom,msm-cdsp-rm"
+	- qcom,qos-latency-us: pm_qos latency vote to be applied on CDSP request in
+				micro seconds
+	- qcom,qos-maxhold-ms: Maximum hold time for pm_qos latency vote from CDSP
+				in milli seconds
+
+- qcom,cdsp-l3: A sub-device node to define CDSP L3 target device for L3
+		clock voting
+	Required properties:
+	- compatible: Must be "qcom,cdsp-l3"
+	- qcom,target-dev: The DT device that corresponds to the CDSP L3
+			devfreq-simple-dev
+
+Example:
+	qcom,msm_cdsprm_rpmsg {
+		compatible = "qcom,msm-cdsprm-rpmsg";
+		qcom,glink-channels = "cdsprmglink-apps-dsp";
+		qcom,intents = <0x14 64>;
+
+		qcom,cdsp-l3 {
+			compatible = "qcom,cdsp-l3";
+			qcom,target-dev = <&cdsp-cdsp-l3-lat>;
+		};
+
+		qcom,msm_cdsp_rm {
+			compatible = "qcom,msm-cdsp-rm";
+			qcom,qos-latency-us = <100>;
+			qcom,qos-maxhold-ms = <20>;
+		};
+	};

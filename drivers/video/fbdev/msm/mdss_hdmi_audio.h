@@ -62,7 +62,7 @@ struct hdmi_audio_ops {
  * Defines the data needed to be provided while initializing audio module
  */
 struct hdmi_audio_init_data {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct hdmi_audio_ops *ops;
 };
 

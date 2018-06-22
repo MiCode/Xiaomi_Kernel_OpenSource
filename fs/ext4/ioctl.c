@@ -939,11 +939,13 @@ resizefs_out:
 	case EXT4_IOC_PRECACHE_EXTENTS:
 		return ext4_ext_precache(inode);
 
-	case EXT4_IOC_SET_ENCRYPTION_POLICY:
-		if (!ext4_has_feature_encrypt(sb))
-			return -EOPNOTSUPP;
+	case EXT4_IOC_SET_ENCRYPTION_POLICY: {
+#ifdef CONFIG_EXT4_FS_ENCRYPTION
 		return fscrypt_ioctl_set_policy(filp, (const void __user *)arg);
-
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
 	case EXT4_IOC_GET_ENCRYPTION_PWSALT: {
 #ifdef CONFIG_EXT4_FS_ENCRYPTION
 		int err, err2;

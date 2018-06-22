@@ -36,7 +36,7 @@ struct governor {
  * bandwidth for.  This means that anything bandwidth(0, 0) ==
  * bandwidth(BASELINE_DIMENSIONS.width, BASELINE_DIMENSIONS.height)
  */
-const struct {
+static const struct {
 	int height, width;
 } BASELINE_DIMENSIONS = {
 	.width = 1280,

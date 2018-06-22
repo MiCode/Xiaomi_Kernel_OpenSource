@@ -298,13 +298,18 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 			params->channel_context_addr +
 			offsetof(struct ipa_mhi_ch_ctx, wp));
 	ch_scratch.mhi.assert_bit40 = params->assert_bit40;
-	ch_scratch.mhi.max_outstanding_tre =
-		ep_cfg->ipa_if_tlv * ch_props.re_size;
-	ch_scratch.mhi.outstanding_threshold =
-		min(ep_cfg->ipa_if_tlv / 2, 8) * ch_props.re_size;
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		ch_scratch.mhi.max_outstanding_tre = 0;
-		ch_scratch.mhi.outstanding_threshold = 0;
+
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		ch_scratch.mhi.max_outstanding_tre =
+			ep_cfg->ipa_if_tlv * ch_props.re_size;
+		ch_scratch.mhi.outstanding_threshold =
+			min(ep_cfg->ipa_if_tlv / 2, 8) * ch_props.re_size;
 	}
 	ch_scratch.mhi.oob_mod_threshold = 4;
 	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
@@ -564,8 +569,13 @@ int ipa3_mhi_resume_channels_internal(enum ipa_client_type client,
 		 * set polling mode bit to DB mode before
 		 * resuming the channel
 		 */
-		res = gsi_write_channel_scratch(
-			ep->gsi_chan_hdl, ch_scratch);
+		ch_scratch.mhi.polling_mode = IPA_MHI_POLLING_MODE_DB_MODE;
+
+		/* Use GSI update API to not affect non-SWI fields
+		 * inside the scratch while in suspend-resume operation
+		 */
+		res = gsi_update_mhi_channel_scratch(
+			ep->gsi_chan_hdl, ch_scratch.mhi);
 		if (res) {
 			IPA_MHI_ERR("write ch scratch fail %d\n"
 				, res);

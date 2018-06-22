@@ -44,7 +44,7 @@
 #define MAX_CSIPHY_CMN_REG_ARRAY    5
 
 #define MAX_LANES             5
-#define MAX_SETTINGS_PER_LANE 42
+#define MAX_SETTINGS_PER_LANE 43
 
 #define MAX_REGULATOR         5
 #define CAMX_CSIPHY_DEV_NAME "cam-csiphy-driver"

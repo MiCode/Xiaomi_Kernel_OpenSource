@@ -22,6 +22,8 @@
 #include "rmnet_vnd.h"
 #include "rmnet_private.h"
 #include "rmnet_map.h"
+#include <soc/qcom/rmnet_qmi.h>
+#include <soc/qcom/qmi_rmnet.h>
 
 /* Locking scheme -
  * The shared resource which needs to be protected is realdev->rx_handler_data.
@@ -44,9 +46,10 @@
 
 /* Local Definitions and Declarations */
 
-static const struct nla_policy rmnet_policy[IFLA_RMNET_MAX + 1] = {
+static const struct nla_policy rmnet_policy[IFLA_RMNET_MAX + 2] = {
 	[IFLA_RMNET_MUX_ID]	= { .type = NLA_U16 },
 	[IFLA_RMNET_FLAGS]	= { .len = sizeof(struct ifla_rmnet_flags) },
+	[IFLA_VLAN_EGRESS_QOS]	= { .len = sizeof(struct tcmsg) },
 };
 
 static int rmnet_is_real_dev_registered(const struct net_device *real_dev)
@@ -253,6 +256,8 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	rcu_read_unlock();
 	unregister_netdevice_many(&list);
 
+	qmi_rmnet_qmi_exit(port->qmi_info, port);
+
 	rmnet_unregister_real_device(real_dev, port);
 }
 
@@ -286,12 +291,15 @@ static int rmnet_rtnl_validate(struct nlattr *tb[], struct nlattr *data[],
 {
 	u16 mux_id;
 
-	if (!data || !data[IFLA_RMNET_MUX_ID])
+	if (!data) {
 		return -EINVAL;
-
-	mux_id = nla_get_u16(data[IFLA_RMNET_MUX_ID]);
-	if (mux_id > (RMNET_MAX_LOGICAL_EP - 1))
-		return -ERANGE;
+	} else {
+		if (data[IFLA_RMNET_MUX_ID]) {
+			mux_id = nla_get_u16(data[IFLA_RMNET_MUX_ID]);
+			if (mux_id > (RMNET_MAX_LOGICAL_EP - 1))
+				return -ERANGE;
+		}
+	}
 
 	return 0;
 }
@@ -334,6 +342,13 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 		port->data_format = flags->flags & flags->mask;
 	}
 
+	if (data[IFLA_VLAN_EGRESS_QOS]) {
+		struct tcmsg *tcm;
+
+		tcm = nla_data(data[IFLA_VLAN_EGRESS_QOS]);
+		qmi_rmnet_change_link(dev, port, tcm);
+	}
+
 	return 0;
 }
 
@@ -343,7 +358,8 @@ static size_t rmnet_get_size(const struct net_device *dev)
 		/* IFLA_RMNET_MUX_ID */
 		nla_total_size(2) +
 		/* IFLA_RMNET_FLAGS */
-		nla_total_size(sizeof(struct ifla_rmnet_flags));
+		nla_total_size(sizeof(struct ifla_rmnet_flags)) +
+		nla_total_size(sizeof(struct tcmsg));
 }
 
 static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
@@ -462,6 +478,72 @@ int rmnet_del_bridge(struct net_device *rmnet_dev,
 	netdev_dbg(slave_dev, "removed from rmnet as slave\n");
 	return 0;
 }
+
+#ifdef CONFIG_QCOM_QMI_DFC
+void *rmnet_get_qmi_pt(void *port)
+{
+	if (port)
+		return ((struct rmnet_port *)port)->qmi_info;
+
+	return NULL;
+}
+EXPORT_SYMBOL(rmnet_get_qmi_pt);
+
+void *rmnet_get_qos_pt(struct net_device *dev)
+{
+	if (dev)
+		return ((struct rmnet_priv *)netdev_priv(dev))->qos_info;
+
+	return NULL;
+}
+EXPORT_SYMBOL(rmnet_get_qos_pt);
+
+void *rmnet_get_rmnet_port(struct net_device *dev)
+{
+	struct rmnet_priv *priv;
+
+	if (dev) {
+		priv = netdev_priv(dev);
+		return (void *)rmnet_get_port(priv->real_dev);
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(rmnet_get_rmnet_port);
+
+struct net_device *rmnet_get_rmnet_dev(void *port, u8 mux_id)
+{
+	struct rmnet_endpoint *ep;
+
+	if (port) {
+		struct net_device *dev;
+
+		ep = rmnet_get_endpoint((struct rmnet_port *)port, mux_id);
+		if (ep) {
+			dev = ep->egress_dev;
+
+			return dev;
+		}
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(rmnet_get_rmnet_dev);
+
+void rmnet_reset_qmi_pt(void *port)
+{
+	if (port)
+		((struct rmnet_port *)port)->qmi_info = NULL;
+}
+EXPORT_SYMBOL(rmnet_reset_qmi_pt);
+
+void rmnet_init_qmi_pt(void *port, void *qmi)
+{
+	if (port)
+		((struct rmnet_port *)port)->qmi_info = qmi;
+}
+EXPORT_SYMBOL(rmnet_init_qmi_pt);
+#endif
 
 /* Startup/Shutdown */
 

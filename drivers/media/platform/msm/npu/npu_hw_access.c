@@ -111,8 +111,25 @@ void *npu_ipc_addr(void)
  */
 void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 {
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	uint32_t wdg_irq_sts = 0, error_irq_sts = 0;
+
 	/* Clear irq state */
 	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
+
+	wdg_irq_sts = REGR(npu_dev, NPU_MASTERn_WDOG_IRQ_STATUS(0));
+	if (wdg_irq_sts != 0) {
+		pr_err("wdg irq %x\n", wdg_irq_sts);
+		host_ctx->wdg_irq_sts |= wdg_irq_sts;
+	}
+
+	error_irq_sts = REGR(npu_dev, NPU_MASTERn_ERROR_IRQ_STATUS(0));
+	error_irq_sts &= REGR(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0));
+	if (error_irq_sts != 0) {
+		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), error_irq_sts);
+		pr_err("error irq %x\n", error_irq_sts);
+		host_ctx->err_irq_sts |= error_irq_sts;
+	}
 }
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)

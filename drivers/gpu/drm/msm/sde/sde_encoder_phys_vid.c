@@ -341,6 +341,54 @@ static bool sde_encoder_phys_vid_mode_fixup(
 	return true;
 }
 
+/* vid_enc timing_params must be configured before calling this function */
+static void _sde_encoder_phys_vid_setup_avr(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+	struct drm_display_mode mode;
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	mode = phys_enc->cached_mode;
+	if (vid_enc->base.hw_intf->ops.avr_setup) {
+		struct intf_avr_params avr_params = {0};
+		u32 qsync_min_fps = 0;
+		u32 default_fps = mode.vrefresh;
+		int ret;
+
+		if (phys_enc->parent_ops.get_qsync_fps)
+			phys_enc->parent_ops.get_qsync_fps(
+				phys_enc->parent, &qsync_min_fps);
+
+		if (!qsync_min_fps || !default_fps) {
+			SDE_ERROR_VIDENC(vid_enc,
+					"wrong qsync params %d %d\n",
+					qsync_min_fps, default_fps);
+			return;
+		}
+
+		if (qsync_min_fps >= default_fps) {
+			SDE_ERROR_VIDENC(vid_enc,
+				"qsync fps %d must be less than default %d\n",
+				qsync_min_fps, default_fps);
+			return;
+		}
+
+		avr_params.default_fps = default_fps;
+		avr_params.min_fps = qsync_min_fps;
+
+		ret = vid_enc->base.hw_intf->ops.avr_setup(
+				vid_enc->base.hw_intf,
+				&vid_enc->timing_params, &avr_params);
+		if (ret)
+			SDE_ERROR_VIDENC(vid_enc,
+				"bad settings, can't configure AVR\n");
+
+		SDE_EVT32(DRMID(phys_enc->parent), default_fps,
+				qsync_min_fps, ret);
+	}
+}
+
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -387,7 +435,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG_VIDENC(vid_enc,
 			"skipping intf programming since cont splash is enabled\n");
-		return;
+		goto exit;
 	}
 
 	fmt = sde_get_sde_format(fmt_fourcc);
@@ -412,6 +460,9 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	}
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 	programmable_fetch_config(phys_enc, &timing_params);
+
+exit:
+	_sde_encoder_phys_vid_setup_avr(phys_enc);
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -846,7 +897,11 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 {
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_ctl *ctl;
+	bool recovery_events;
+	struct drm_connector *conn;
+	int event;
 	int rc;
+	struct intf_avr_params avr_params;
 
 	if (!phys_enc || !params || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid encoder/parameters\n");
@@ -858,6 +913,9 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 	if (!ctl->ops.wait_reset_status)
 		return 0;
 
+	conn = phys_enc->connector;
+	recovery_events = sde_encoder_recovery_events_enabled(
+			phys_enc->parent);
 	/*
 	 * hw supports hardware initiated ctl reset, so before we kickoff a new
 	 * frame, need to check and wait for hw initiated ctl reset completion
@@ -868,18 +926,57 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 				ctl->idx, rc);
 
 		++vid_enc->error_count;
-		if (vid_enc->error_count >= KICKOFF_MAX_ERRORS) {
-			vid_enc->error_count = KICKOFF_MAX_ERRORS;
 
-			SDE_DBG_DUMP("panic");
-		} else if (vid_enc->error_count == 1) {
+		/* to avoid flooding, only log first time, and "dead" time */
+		if (vid_enc->error_count == 1) {
 			SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		}
+
+		/*
+		 * if the recovery event is registered by user, don't panic
+		 * trigger panic on first timeout if no listener registered
+		 */
+		if (recovery_events) {
+			event = vid_enc->error_count > KICKOFF_MAX_ERRORS ?
+				SDE_RECOVERY_HARD_RESET : SDE_RECOVERY_CAPTURE;
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t), event);
+		} else {
+			SDE_DBG_DUMP("panic");
 		}
 
 		/* request a ctl reset before the next flush */
 		phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
 	} else {
+		if (recovery_events && vid_enc->error_count)
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t),
+					SDE_RECOVERY_SUCCESS);
 		vid_enc->error_count = 0;
+	}
+
+	if (sde_connector_qsync_updated(phys_enc->connector)) {
+		avr_params.avr_mode = sde_connector_get_property(
+				phys_enc->connector->state,
+				CONNECTOR_PROP_QSYNC_MODE);
+
+		if (vid_enc->base.hw_intf->ops.avr_ctrl) {
+			vid_enc->base.hw_intf->ops.avr_ctrl(
+					vid_enc->base.hw_intf,
+					&avr_params);
+		}
+
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_intf->idx - INTF_0,
+				avr_params.avr_mode);
 	}
 
 	programmable_rot_fetch_config(phys_enc,
@@ -959,6 +1056,20 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 		}
 		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
+
+	if (phys_enc->hw_intf->ops.bind_pingpong_blk)
+		phys_enc->hw_intf->ops.bind_pingpong_blk(phys_enc->hw_intf,
+				false, phys_enc->hw_pp->idx - PINGPONG_0);
+
+	if (phys_enc->hw_pp && phys_enc->hw_pp->ops.reset_3d_mode)
+		phys_enc->hw_pp->ops.reset_3d_mode(phys_enc->hw_pp);
+
+	if (phys_enc->hw_pp && phys_enc->hw_pp->merge_3d &&
+			phys_enc->hw_ctl->ops.reset_post_te_disable)
+		phys_enc->hw_ctl->ops.reset_post_te_disable(
+				phys_enc->hw_ctl, &phys_enc->intf_cfg_v1,
+				phys_enc->hw_pp->merge_3d->idx);
+
 exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
@@ -968,6 +1079,7 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 {
 	unsigned long lock_flags;
 	struct sde_encoder_phys_vid *vid_enc;
+	u32 avr_mode;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -988,6 +1100,17 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		phys_enc->hw_intf->ops.enable_timing(phys_enc->hw_intf, 1);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 		phys_enc->enable_state = SDE_ENC_ENABLED;
+	}
+
+	avr_mode = sde_connector_get_property(
+			phys_enc->connector->state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (avr_mode && vid_enc->base.hw_intf->ops.avr_trigger) {
+		vid_enc->base.hw_intf->ops.avr_trigger(vid_enc->base.hw_intf);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_intf->idx - INTF_0,
+				SDE_EVTLOG_FUNC_CASE9);
 	}
 }
 

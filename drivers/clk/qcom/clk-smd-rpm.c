@@ -409,7 +409,7 @@ static int clk_smd_rpm_enable_scaling(void)
 		.length = sizeof(value),
 	};
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_SLEEP_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_SLEEP_STATE,
 			QCOM_SMD_RPM_MISC_CLK,
 			QCOM_RPM_SCALING_ENABLE_ID, &req, 1);
 	if (ret) {
@@ -417,7 +417,7 @@ static int clk_smd_rpm_enable_scaling(void)
 		return ret;
 	}
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_ACTIVE_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_ACTIVE_STATE,
 			QCOM_SMD_RPM_MISC_CLK,
 			QCOM_RPM_SCALING_ENABLE_ID, &req, 1);
 	if (ret) {
@@ -439,7 +439,7 @@ static int clk_vote_bimc(struct clk_hw *hw, uint32_t rate)
 		.length = sizeof(rate),
 	};
 
-	ret = msm_rpm_send_message_noirq(QCOM_SMD_RPM_ACTIVE_STATE,
+	ret = msm_rpm_send_message(QCOM_SMD_RPM_ACTIVE_STATE,
 		r->rpm_res_type, r->rpm_clk_id, &req, 1);
 	if (ret < 0) {
 		if (ret != -EPROBE_DEFER)
@@ -605,14 +605,14 @@ DEFINE_CLK_SMD_RPM_QDSS(qcs405, qdss_clk, qdss_a_clk,
 						QCOM_SMD_RPM_MISC_CLK, 1);
 DEFINE_CLK_SMD_RPM(qcs405, qpic_clk, qpic_a_clk, QCOM_SMD_RPM_QPIC_CLK, 0);
 DEFINE_CLK_SMD_RPM(qcs405, ce1_clk, ce1_a_clk, QCOM_SMD_RPM_CE_CLK, 0);
-
+DEFINE_CLK_SMD_RPM(qcs405, bimc_gpu_clk, bimc_gpu_a_clk,
+						QCOM_SMD_RPM_MEM_CLK, 0);
 /* SMD_XO_BUFFER */
-DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, bb_clk1, bb_clk1_a, 1);
-DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, bb_clk2, bb_clk2_a, 2);
-DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, rf_clk2, rf_clk2_a, 5);
-DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, div_clk2, div_clk2_a, 0xc);
-DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(qcs405, bb_clk1_pin, bb_clk1_a_pin, 1);
-DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(qcs405, bb_clk2_pin, bb_clk2_a_pin, 2);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, ln_bb_clk, ln_bb_clk_a, 8);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, rf_clk1, rf_clk1_a, 4);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, div_clk1, div_clk1_a, 0xb);
+DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(qcs405, ln_bb_clk_pin, ln_bb_clk_a_pin, 8);
+DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(qcs405, rf_clk1_pin, rf_clk1_a_pin, 4);
 
 /* Voter clocks */
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, pnoc_clk, LONG_MAX);
@@ -648,6 +648,7 @@ static DEFINE_CLK_BRANCH_VOTER(cxo_pil_pronto_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_wlan_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_cdsp_clk, cxo);
 
 static struct clk_hw *qcs405_clks[] = {
 	[RPM_SMD_XO_CLK_SRC]		= &qcs405_cxo.hw,
@@ -658,24 +659,24 @@ static struct clk_hw *qcs405_clks[] = {
 	[RPM_SMD_BIMC_A_CLK]		= &qcs405_bimc_a_clk.hw,
 	[RPM_SMD_QDSS_CLK]		= &qcs405_qdss_clk.hw,
 	[RPM_SMD_QDSS_A_CLK]		= &qcs405_qdss_a_clk.hw,
-	[RPM_SMD_BB_CLK1]		= &qcs405_bb_clk1.hw,
-	[RPM_SMD_BB_CLK1_A]		= &qcs405_bb_clk1_a.hw,
-	[RPM_SMD_BB_CLK2]		= &qcs405_bb_clk2.hw,
-	[RPM_SMD_BB_CLK2_A]		= &qcs405_bb_clk2_a.hw,
-	[RPM_SMD_RF_CLK2]		= &qcs405_rf_clk2.hw,
-	[RPM_SMD_RF_CLK2_A]		= &qcs405_rf_clk2_a.hw,
-	[RPM_SMD_BB_CLK1_PIN]		= &qcs405_bb_clk1_pin.hw,
-	[RPM_SMD_BB_CLK1_A_PIN]		= &qcs405_bb_clk1_a_pin.hw,
-	[RPM_SMD_BB_CLK2_PIN]		= &qcs405_bb_clk2_pin.hw,
-	[RPM_SMD_BB_CLK2_A_PIN]		= &qcs405_bb_clk2_a_pin.hw,
-	[RPM_SMD_DIV_CLK2]		= &qcs405_div_clk2.hw,
-	[RPM_SMD_DIV_A_CLK2]		= &qcs405_div_clk2_a.hw,
+	[RPM_SMD_RF_CLK1]		= &qcs405_rf_clk1.hw,
+	[RPM_SMD_RF_CLK1_A]		= &qcs405_rf_clk1_a.hw,
+	[RPM_SMD_RF_CLK1_PIN]		= &qcs405_rf_clk1_pin.hw,
+	[RPM_SMD_RF_CLK1_A_PIN]		= &qcs405_rf_clk1_a_pin.hw,
+	[RPM_SMD_LN_BB_CLK]		= &qcs405_ln_bb_clk.hw,
+	[RPM_SMD_LN_BB_CLK_A]		= &qcs405_ln_bb_clk_a.hw,
+	[RPM_SMD_LN_BB_CLK_PIN]		= &qcs405_ln_bb_clk_pin.hw,
+	[RPM_SMD_LN_BB_CLK_A_PIN]	= &qcs405_ln_bb_clk_a_pin.hw,
+	[RPM_SMD_DIV_CLK1]		= &qcs405_div_clk1.hw,
+	[RPM_SMD_DIV_A_CLK1]		= &qcs405_div_clk1_a.hw,
 	[RPM_SMD_PNOC_CLK]		= &qcs405_pnoc_clk.hw,
 	[RPM_SMD_PNOC_A_CLK]		= &qcs405_pnoc_a_clk.hw,
 	[RPM_SMD_CE1_CLK]		= &qcs405_ce1_clk.hw,
 	[RPM_SMD_CE1_A_CLK]		= &qcs405_ce1_a_clk.hw,
 	[RPM_SMD_QPIC_CLK]		= &qcs405_qpic_clk.hw,
 	[RPM_SMD_QPIC_A_CLK]		= &qcs405_qpic_a_clk.hw,
+	[RPM_SMD_BIMC_GPU_CLK]		= &qcs405_bimc_gpu_clk.hw,
+	[RPM_SMD_BIMC_GPU_A_CLK]	= &qcs405_bimc_gpu_a_clk.hw,
 	[PNOC_MSMBUS_CLK]		= &pnoc_msmbus_clk.hw,
 	[PNOC_MSMBUS_A_CLK]		= &pnoc_msmbus_a_clk.hw,
 	[PNOC_KEEPALIVE_A_CLK]		= &pnoc_keepalive_a_clk.hw,
@@ -702,11 +703,12 @@ static struct clk_hw *qcs405_clks[] = {
 	[CXO_SMD_PIL_MSS_CLK]		= &cxo_pil_mss_clk.hw,
 	[CXO_SMD_WLAN_CLK]		= &cxo_wlan_clk.hw,
 	[CXO_SMD_PIL_LPASS_CLK]		= &cxo_pil_lpass_clk.hw,
+	[CXO_SMD_PIL_CDSP_CLK]		= &cxo_pil_cdsp_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_qcs405 = {
 	.clks = qcs405_clks,
-	.num_rpm_clks = RPM_SMD_CE1_A_CLK,
+	.num_rpm_clks = RPM_SMD_BIMC_GPU_A_CLK,
 	.num_clks = ARRAY_SIZE(qcs405_clks),
 };
 

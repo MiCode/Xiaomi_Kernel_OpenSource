@@ -123,18 +123,6 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
 
-int of_led_classdev_register(struct device *parent, struct device_node *np,
-				struct led_classdev *led_cdev)
-{
-	/* Stub out till LEDS CLASS defconfig is enabled */
-	return 0;
-}
-
-void led_classdev_unregister(struct led_classdev *led_cdev)
-{
-	/* Stub out till LEDS CLASS defconfig is enabled */
-}
-
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -2152,7 +2140,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc = 0, fd = 0;
+	int rc = 0;
 	void *vaddr;
 	int domain;
 
@@ -2171,14 +2159,6 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	}
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		fd = dma_buf_fd(mfd->fbmem_buf, 0);
-		if (IS_ERR(mfd->fbmem_buf)) {
-			rc = PTR_ERR(mfd->fbmem_buf);
-			goto fb_mmap_failed;
-		}
-
-		mfd->fbmem_buf = dma_buf_get(fd);
-
 		domain = mfd->mdp.fb_mem_get_iommu_domain();
 
 		mfd->fb_attachment = mdss_smmu_dma_buf_attach(mfd->fbmem_buf,

@@ -18,6 +18,7 @@
 #include "adreno_snapshot.h"
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
+#include "kgsl_gmu_core.h"
 
 #define A6XX_NUM_CTXTS 2
 #define A6XX_NUM_AXI_ARB_BLOCKS 2
@@ -1491,12 +1492,14 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
 	unsigned int i;
 
 	/* GMU TCM data dumped through AHB */
-	a6xx_gmu_snapshot(adreno_dev, snapshot);
+	if (gmu_dev_ops->snapshot)
+		gmu_dev_ops->snapshot(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 

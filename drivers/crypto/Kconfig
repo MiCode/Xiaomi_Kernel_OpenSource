@@ -770,4 +770,7 @@ config CRYPTO_DEV_ARTPEC6
 
 	  To compile this driver as a module, choose M here.
 
+if ARCH_QCOM
+source drivers/crypto/msm/Kconfig
+endif
 endif # CRYPTO_HW

@@ -37,6 +37,25 @@
 			power-source = <1>;
 		};
 	};
+
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio9";
+			function = "normal";
+			output-low;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio10";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
 };
 
 &pm8150l_gpios {
@@ -69,8 +88,8 @@
 };
 
 &pm8150b_gpios {
-	smb1390_stat {
-		smb1390_stat_default: smb1390_stat_default {
+	smb_stat {
+		smb_stat_default: smb_stat_default {
 			pins = "gpio6";
 			function = "normal";
 			input-enable;

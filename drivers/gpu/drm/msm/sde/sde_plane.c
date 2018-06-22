@@ -1077,22 +1077,25 @@ static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
 }
 
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
-		struct sde_plane_state *pstate,
-		uint32_t src_w, uint32_t src_h, uint32_t dst_w, uint32_t dst_h,
-		struct sde_hw_scaler3_cfg *scale_cfg,
-		const struct sde_format *fmt,
+		struct sde_plane_state *pstate, const struct sde_format *fmt,
 		uint32_t chroma_subsmpl_h, uint32_t chroma_subsmpl_v)
 {
-	uint32_t decimated, i;
+	uint32_t decimated, i, src_w, src_h, dst_w, dst_h;
+	struct sde_hw_scaler3_cfg *scale_cfg;
 
-	if (!psde || !pstate || !scale_cfg || !fmt || !chroma_subsmpl_h ||
-			!chroma_subsmpl_v) {
-		SDE_ERROR(
-			"psde %d pstate %d scale_cfg %d fmt %d smp_h %d smp_v %d\n",
-			!!psde, !!pstate, !!scale_cfg, !!fmt, chroma_subsmpl_h,
-			chroma_subsmpl_v);
+	if (!psde || !pstate || !fmt ||
+			!chroma_subsmpl_h || !chroma_subsmpl_v) {
+		SDE_ERROR("psde %d pstate %d fmt %d smp_h %d smp_v %d\n",
+				!!psde, !!pstate, !!fmt, chroma_subsmpl_h,
+				chroma_subsmpl_v);
 		return;
 	}
+
+	scale_cfg = &pstate->scaler3_cfg;
+	src_w = psde->pipe_cfg.src_rect.w;
+	src_h = psde->pipe_cfg.src_rect.h;
+	dst_w = psde->pipe_cfg.dst_rect.w;
+	dst_h = psde->pipe_cfg.dst_rect.h;
 
 	memset(scale_cfg, 0, sizeof(*scale_cfg));
 	memset(&pstate->pixel_ext, 0, sizeof(struct sde_hw_pixel_ext));
@@ -1138,8 +1141,9 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		pstate->pixel_ext.num_ext_pxls_left[i] =
 			scale_cfg->src_width[i];
 	}
-	if (!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
-		&& (src_w == dst_w))
+
+	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
+		&& (src_w == dst_w)) || pstate->multirect_mode)
 		return;
 
 	scale_cfg->dst_width = dst_w;
@@ -1500,12 +1504,7 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		if (rc || pstate->scaler_check_state !=
 			SDE_PLANE_SCLCHECK_SCALER_V2) {
 			/* calculate default config for QSEED3 */
-			_sde_plane_setup_scaler3(psde, pstate,
-					psde->pipe_cfg.src_rect.w,
-					psde->pipe_cfg.src_rect.h,
-					psde->pipe_cfg.dst_rect.w,
-					psde->pipe_cfg.dst_rect.h,
-					&pstate->scaler3_cfg, fmt,
+			_sde_plane_setup_scaler3(psde, pstate, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
 	} else if (pstate->scaler_check_state != SDE_PLANE_SCLCHECK_SCALER_V1 ||
@@ -4581,7 +4580,8 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	if (!usr) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
-		return;
+		cfg->enable = 0;
+		goto end;
 	}
 
 	if (copy_from_user(&scale_v2, usr, sizeof(scale_v2))) {
@@ -4592,12 +4592,9 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	/* detach/ignore user data if 'disabled' */
 	if (!scale_v2.enable) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
-		return;
+		cfg->enable = 0;
+		goto end;
 	}
-
-	/* force property to be dirty, even if the pointer didn't change */
-	msm_property_set_dirty(&psde->property_info,
-			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
 	sde_set_scaler_v2(cfg, &scale_v2);
@@ -4619,6 +4616,11 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		pe->roi_h[i] = scale_v2.pe.num_ext_pxls_tb[i];
 	}
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2_CHECK;
+
+end:
+	/* force property to be dirty, even if the pointer didn't change */
+	msm_property_set_dirty(&psde->property_info,
+			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	SDE_EVT32_VERBOSE(DRMID(&psde->base), cfg->enable, cfg->de.enable,
 			cfg->src_width[0], cfg->src_height[0],

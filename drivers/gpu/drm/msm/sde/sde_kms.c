@@ -1260,6 +1260,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = dsi_display_check_status,
 		.enable_event = dsi_conn_enable_event,
 		.cmd_transfer = dsi_display_cmd_transfer,
+		.cont_splash_config = dsi_display_cont_splash_config,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -1273,6 +1274,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_dst_format = NULL,
 		.check_status = NULL,
 		.cmd_transfer = NULL,
+		.cont_splash_config = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1285,6 +1287,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = NULL,
 		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
+		.cont_splash_config = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1796,8 +1799,8 @@ int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only)
 		aspace->mmu->funcs->attach(mmu, (const char **)iommu_ports,
 			ARRAY_SIZE(iommu_ports));
 
-		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 		aspace->domain_attached = true;
+		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 	}
 
 	return 0;
@@ -2272,6 +2275,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	struct list_head *connector_list = NULL;
 	struct drm_connector *conn_iter = NULL;
 	struct drm_connector *connector = NULL;
+	struct sde_connector *sde_conn = NULL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -2383,7 +2387,24 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 
 	sde_crtc_update_cont_splash_mixer_settings(crtc);
 
+	sde_conn = to_sde_connector(connector);
+	if (sde_conn && sde_conn->ops.cont_splash_config)
+		sde_conn->ops.cont_splash_config(sde_conn->display);
+
 	return rc;
+}
+
+static bool sde_kms_check_for_splash(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return false;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	return sde_kms->splash_data.cont_splash_en;
 }
 
 static int sde_kms_pm_suspend(struct device *dev)
@@ -2609,6 +2630,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
 	.postopen = _sde_kms_post_open,
+	.check_for_splash = sde_kms_check_for_splash,
 };
 
 /* the caller api needs to turn on clock before calling it */
@@ -2896,7 +2918,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_kms->mmio = NULL;
 		goto error;
 	}
-	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+	DRM_INFO("mapped mdp address space @%pK\n", sde_kms->mmio);
 	sde_kms->mmio_len = msm_iomap_size(platformdev, "mdp_phys");
 
 	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,

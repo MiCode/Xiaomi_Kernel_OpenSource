@@ -14,6 +14,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
 #include <dt-bindings/clock/qcom,camcc-sm6150.h>
 #include <dt-bindings/clock/qcom,cpucc-sm6150.h>
@@ -341,7 +342,7 @@
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/7c4000.sdhci/by-name/vendor";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
@@ -478,8 +479,8 @@
 			size = <0 0x5c00000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9d400000 {
-			reg = <0x0 0x9d400000 0x0 0x02400000>;
+		cont_splash_memory: cont_splash_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "cont_splash_region";
 		};
 
@@ -596,8 +597,9 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpm_clocks";
+		compatible = "qcom,rpmh-clk-sm6150";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
@@ -608,15 +610,20 @@
 	};
 
 	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sm6150", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_cx_ao-supply = <&pm6150_s1_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+		compatible = "qcom,videocc-sm6150", "syscon";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -636,8 +643,11 @@
 	};
 
 	clock_gpucc: qcom,gpupcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+		compatible = "qcom,gpucc-sm6150", "syscon";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_mx-supply = <&pm6150_s3_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -708,7 +718,7 @@
 			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		iommus = <&apps_smmu 0x00d6 0x0>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
@@ -724,7 +734,7 @@
 			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>;
 		qcom,ev-factor = <2>;
 		qcom,max-num-gpii = <8>;
-		qcom,gpii-mask = <0x1f>;
+		qcom,gpii-mask = <0x0f>;
 		qcom,smmu-cfg = <0x1>;
 		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		iommus = <&apps_smmu 0x0376 0x0>;
@@ -946,6 +956,15 @@
 		reg = <0xc3f000c 8>;
 	};
 
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+		      <0x10ae000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
@@ -1109,9 +1128,15 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
 	qcom,msm-adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
+		restrict-access;
 	};
 
 	qcom,msm_fastrpc {
@@ -1462,6 +1487,93 @@
 		#thermal-sensor-cells = <1>;
 	};
 
+	qcom,lpass@62400000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x62400000 0x00100>;
+
+		vdd_cx-supply = <&L8A_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,proxy-reg-names = "vdd_cx";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <1>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
+		qcom,ssctl-instance-id = <0x14>;
+		qcom,firmware-name = "adsp";
+		memory-region = <&pil_adsp_mem>;
+
+		/* Inputs from lpass */
+		interrupts-extended = <&pdc 0 162 1>,
+				<&adsp_smp2p_in 0 0>,
+				<&adsp_smp2p_in 2 0>,
+				<&adsp_smp2p_in 1 0>,
+				<&adsp_smp2p_in 3 0>;
+
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
+
+		/* Outputs to lpass */
+		qcom,smem-states = <&adsp_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "adsp-pil";
+	};
+
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x4080000 0x100>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mss-supply = <&VDD_MSS_LEVEL>;
+		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
+
+		qcom,firmware-name = "modem";
+		memory-region = <&pil_modem_mem>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,pas-id = <4>;
+		qcom,smem-id = <421>;
+		qcom,complete-ramdump;
+
+		/* Inputs from mss */
+		interrupts-extended = <&pdc 0 266 1>,
+				<&modem_smp2p_in 0 0>,
+				<&modem_smp2p_in 2 0>,
+				<&modem_smp2p_in 1 0>,
+				<&modem_smp2p_in 3 0>,
+				<&modem_smp2p_in 7 0>;
+
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack",
+				"qcom,shutdown-ack";
+
+		/* Outputs to mss */
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "mss-pil";
+	};
+
 };
 
 #include "pm6150.dtsi"
@@ -1521,14 +1633,6 @@
 	status = "ok";
 };
 
-&hlos1_vote_turing_mmu_tbu0_gdsc {
-	status = "ok";
-};
-
-&hlos1_vote_turing_mmu_tbu1_gdsc {
-	status = "ok";
-};
-
 &bps_gdsc {
 	status = "ok";
 };
@@ -1558,6 +1662,10 @@
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&pm6150_s1_level>;
 	status = "ok";
 };
 
@@ -1571,3 +1679,5 @@
 
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
+#include "sm6150-coresight.dtsi"
+#include "sm6150-bus.dtsi"

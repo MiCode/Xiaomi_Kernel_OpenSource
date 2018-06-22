@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,6 +284,17 @@ u64 sde_power_clk_get_max_rate(struct sde_power_handle *pdata,
  */
 struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
 		char *clock_name);
+
+/**
+ * sde_power_clk_set_flags() - set the clock flags
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name to get the clk pointer.
+ * @flags: flags to set
+ *
+ * Return: error code.
+ */
+int sde_power_clk_set_flags(struct sde_power_handle *pdata,
+		char *clock_name, unsigned long flags);
 
 /**
  * sde_power_data_bus_set_quota() - set data bus quota for power client

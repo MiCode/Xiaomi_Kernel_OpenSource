@@ -23,6 +23,18 @@
 #include <linux/spinlock.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <linux/ipc_logging.h>
+
+#define ESOC_MDM_IPC_PAGES	10
+
+extern void *ipc_log;
+
+#define esoc_mdm_log(__msg, ...) \
+do { \
+	if (ipc_log) \
+		ipc_log_string(ipc_log, \
+			"[%s]: "__msg, __func__, ##__VA_ARGS__); \
+} while (0)
 
 #define ESOC_DEV_MAX		4
 #define ESOC_NAME_LEN		20

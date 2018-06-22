@@ -14,6 +14,7 @@
 
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = 6,
+	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
 	ION_HEAP_TYPE_HYP_CMA,
 };
@@ -64,6 +65,12 @@ enum ion_heap_ids {
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
 #define ION_FLAGS_CP_MASK	0x7FFF0000
+
+/**
+ * Flag to allow non continguous allocation of memory from secure
+ * heap
+ */
+#define ION_FLAG_ALLOW_NON_CONTIG       ION_BIT(28)
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.
