@@ -240,7 +240,7 @@ struct sde_encoder_virt {
 	struct mutex enc_lock;
 	DECLARE_BITMAP(frame_busy_mask, MAX_PHYS_ENCODERS_PER_VIRTUAL);
 	void (*crtc_frame_event_cb)(void *, u32 event);
-	void *crtc_frame_event_cb_data;
+	struct sde_crtc_frame_event_cb_data crtc_frame_event_cb_data;
 
 	struct timer_list vsync_event_timer;
 
@@ -423,6 +423,14 @@ bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
 		return true;
 
 	return false;
+}
+
+int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+
+	return sde_enc && sde_enc->cur_master &&
+		sde_enc->cur_master->in_clone_mode;
 }
 
 static inline int _sde_encoder_power_enable(struct sde_encoder_virt *sde_enc,
@@ -1768,6 +1776,7 @@ static int _sde_encoder_update_rsc_client(
 	 * only primary command mode panel without Qsync can request CMD state.
 	 * all other panels/displays can request for VID state including
 	 * secondary command mode panel.
+	 * Clone mode encoder can request CLK STATE only.
 	 */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
@@ -1780,13 +1789,17 @@ static int _sde_encoder_update_rsc_client(
 		}
 	}
 
-	rsc_state = enable ?
-		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
-				disp_info->is_primary && !qsync_mode) ?
-				SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE) :
-				SDE_RSC_IDLE_STATE;
+	if (sde_encoder_in_clone_mode(drm_enc))
+		rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
+	else
+		rsc_state = enable ?
+			(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
+			  && disp_info->is_primary && !qsync_mode) ?
+			 SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE) :
+			SDE_RSC_IDLE_STATE;
 
 	SDE_EVT32(rsc_state, qsync_mode);
+
 	prefill_lines = config ? mode_info.prefill_lines +
 		config->inline_rotate_prefill : mode_info.prefill_lines;
 
@@ -3066,8 +3079,8 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
-		void (*frame_event_cb)(void *, u32 event),
-		void *frame_event_cb_data)
+			void (*frame_event_cb)(void *, u32 event),
+			struct drm_crtc *crtc)
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned long lock_flags;
@@ -3084,7 +3097,7 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
 
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 	sde_enc->crtc_frame_event_cb = frame_event_cb;
-	sde_enc->crtc_frame_event_cb_data = frame_event_cb_data;
+	sde_enc->crtc_frame_event_cb_data.crtc = crtc;
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
@@ -3094,6 +3107,9 @@ static void sde_encoder_frame_done_callback(
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
+
+	sde_enc->crtc_frame_event_cb_data.connector =
+				sde_enc->cur_master->connector;
 
 	if (event & (SDE_ENCODER_FRAME_EVENT_DONE
 			| SDE_ENCODER_FRAME_EVENT_ERROR
@@ -3123,13 +3139,13 @@ static void sde_encoder_frame_done_callback(
 
 			if (sde_enc->crtc_frame_event_cb)
 				sde_enc->crtc_frame_event_cb(
-					sde_enc->crtc_frame_event_cb_data,
+					&sde_enc->crtc_frame_event_cb_data,
 					event);
 		}
 	} else {
 		if (sde_enc->crtc_frame_event_cb)
 			sde_enc->crtc_frame_event_cb(
-				sde_enc->crtc_frame_event_cb_data, event);
+				&sde_enc->crtc_frame_event_cb_data, event);
 	}
 }
 
@@ -3276,6 +3292,9 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 		SDE_ERROR("invalid parent\n");
 		return;
 	}
+	/* avoid ctrl start for encoder in clone mode */
+	if (phys->in_clone_mode)
+		return;
 
 	ctl = phys->hw_ctl;
 	sde_enc = to_sde_encoder_virt(phys->parent);
