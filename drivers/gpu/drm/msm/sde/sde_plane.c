@@ -2055,19 +2055,19 @@ static void _sde_plane_rot_get_fb(struct drm_plane *plane,
 		return;
 
 	fbo = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-			(u64) &rstate->rot_hw->base);
+			(u64)(uintptr_t) &rstate->rot_hw->base);
 	fb = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-			(u64) &rstate->rot_hw->base);
+			(u64)(uintptr_t) &rstate->rot_hw->base);
 	if (fb && fbo) {
 		SDE_DEBUG("plane%d.%d get fb/fbo\n", plane->base.id,
 				rstate->sequence_id);
 	} else if (fbo) {
 		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-				(u64) &rstate->rot_hw->base);
+				(u64)(uintptr_t) &rstate->rot_hw->base);
 		fbo = NULL;
 	} else if (fb) {
 		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-				(u64) &rstate->rot_hw->base);
+				(u64)(uintptr_t) &rstate->rot_hw->base);
 		fb = NULL;
 	}
 
@@ -2136,7 +2136,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 		}
 
 		ret = sde_crtc_res_add(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-				(u64) &new_rstate->rot_hw->base,
+				(u64)(uintptr_t) &new_rstate->rot_hw->base,
 				new_rstate->out_fbo, &fbo_res_ops);
 		if (ret) {
 			SDE_ERROR("failed to add crtc resource\n");
@@ -2154,7 +2154,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 				new_rstate->out_fb->base.id);
 
 		ret = sde_crtc_res_add(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-				(u64) &new_rstate->rot_hw->base,
+				(u64)(uintptr_t) &new_rstate->rot_hw->base,
 				new_rstate->out_fb, &fb_res_ops);
 		if (ret) {
 			SDE_ERROR("failed to add crtc resource %d\n", ret);
@@ -2197,12 +2197,12 @@ error_prepare_output_buffer:
 	msm_framebuffer_cleanup(new_state->fb, new_pstate->aspace);
 error_prepare_input_buffer:
 	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-			(u64) &new_rstate->rot_hw->base);
+			(u64)(uintptr_t) &new_rstate->rot_hw->base);
 error_create_fb_res:
 	new_rstate->out_fb = NULL;
 error_create_fb:
 	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-			(u64) &new_rstate->rot_hw->base);
+			(u64)(uintptr_t) &new_rstate->rot_hw->base);
 error_create_fbo_res:
 	new_rstate->out_fbo = NULL;
 error_create_fbo:
@@ -2252,10 +2252,10 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 			msm_framebuffer_cleanup(old_rstate->out_fb,
 					old_pstate->aspace);
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-					(u64) &old_rstate->rot_hw->base);
+				(u64)(uintptr_t) &old_rstate->rot_hw->base);
 			old_rstate->out_fb = NULL;
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-					(u64) &old_rstate->rot_hw->base);
+				(u64)(uintptr_t) &old_rstate->rot_hw->base);
 			old_rstate->out_fbo = NULL;
 		}
 
@@ -2318,7 +2318,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -2334,7 +2334,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			SDE_ERROR("plane%d.%d invalid rotator ops\n",
 					plane->base.id, rstate->sequence_id);
 			sde_crtc_res_put(cstate,
-					SDE_HW_BLK_ROT, (u64) state->fb);
+				SDE_HW_BLK_ROT, (u64)(uintptr_t) state->fb);
 			rstate->rot_hw = NULL;
 			return -EINVAL;
 		}
@@ -2385,10 +2385,10 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 					rstate->sequence_id, fb_id);
 
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-					(u64) &rstate->rot_hw->base);
+					(u64)(uintptr_t) &rstate->rot_hw->base);
 			rstate->out_fb = NULL;
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-					(u64) &rstate->rot_hw->base);
+					(u64)(uintptr_t) &rstate->rot_hw->base);
 			rstate->out_fbo = NULL;
 		}
 
@@ -3029,7 +3029,7 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -4666,19 +4666,20 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				_sde_plane_set_input_fence(psde, pstate, val);
 				break;
 			case PLANE_PROP_CSC_V1:
-				_sde_plane_set_csc_v1(psde, (void *)val);
+				_sde_plane_set_csc_v1(psde,
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, pstate,
-						(void *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-						(void *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
-						(void *)val);
+						(void *)(uintptr_t)val);
 				break;
 			default:
 				/* nothing to do */

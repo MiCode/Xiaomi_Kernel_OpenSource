@@ -669,7 +669,7 @@ static ssize_t dp_debug_write_hdr(struct file *file,
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
 	struct dp_debug_private *debug = file->private_data;
-	char buf[SZ_1K];
+	char buf[SZ_512];
 	size_t len = 0;
 
 	if (!debug)
@@ -683,7 +683,7 @@ static ssize_t dp_debug_write_hdr(struct file *file,
 	c_state = to_sde_connector_state(connector->state);
 
 	/* Leave room for termination char */
-	len = min_t(size_t, count, SZ_1K - 1);
+	len = min_t(size_t, count, SZ_512 - 1);
 	if (copy_from_user(buf, user_buff, len))
 		goto end;
 

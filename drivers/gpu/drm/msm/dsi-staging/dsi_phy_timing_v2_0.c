@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ int32_t dsi_phy_hw_v2_0_calc_clk_zero(s64 rec_temp1, s64 mult)
 	s64 rec_temp2, rec_temp3;
 
 	rec_temp2 = (rec_temp1 - (11 * mult));
-	rec_temp3 = roundup(div_s64(rec_temp2, 8), mult);
+	rec_temp3 = roundup64(div_s64(rec_temp2, 8), mult);
 	return (div_s64(rec_temp3, mult) - 3);
 }
 
@@ -42,7 +42,7 @@ int32_t dsi_phy_hw_v2_0_calc_clk_trail_rec_min(s64 temp_mul,
 
 	rec_temp1 = temp_mul + frac + (3 * mult);
 	rec_temp2 = div_s64(rec_temp1, 8);
-	rec_temp3 = roundup(rec_temp2, mult);
+	rec_temp3 = roundup64(rec_temp2, mult);
 
 	return div_s64(rec_temp3, mult);
 }
@@ -62,7 +62,7 @@ int32_t dsi_phy_hw_v2_0_calc_hs_zero(s64 temp1, s64 mult)
 	s64 rec_temp2, rec_temp3, rec_min;
 
 	rec_temp2 = temp1 - (11 * mult);
-	rec_temp3 = roundup((rec_temp2 / 8), mult);
+	rec_temp3 = roundup64((rec_temp2 / 8), mult);
 	rec_min = rec_temp3 - (3 * mult);
 	return div_s64(rec_min, mult);
 }
@@ -80,7 +80,8 @@ void dsi_phy_hw_v2_0_calc_hs_trail(struct phy_clk_params *clk_params,
 
 	rec_temp1 = ((t->mipi_max * clk_params->bitclk_mbps) +
 		     (3 * clk_params->tlpx_numer_ns));
-	t->rec_max = (rec_temp1 / (8 * clk_params->tlpx_numer_ns));
+	t->rec_max = DIV_ROUND_UP_ULL(rec_temp1,
+				      (8 * clk_params->tlpx_numer_ns));
 }
 
 void dsi_phy_hw_v2_0_update_timing_params(
