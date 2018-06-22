@@ -107,6 +107,9 @@ struct phy_timing_ops {
 		struct phy_timing_desc *desc);
 };
 
+#define roundup64(x, y) \
+	({ u64 _tmp = (x)+(y)-1; do_div(_tmp, y); _tmp * y; })
+
 /* DSI PHY timing functions for 14nm */
 void dsi_phy_hw_v2_0_get_default_phy_params(struct phy_clk_params *params);
 
