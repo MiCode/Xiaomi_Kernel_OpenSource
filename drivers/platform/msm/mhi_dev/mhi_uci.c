@@ -27,7 +27,7 @@
 #include <linux/msm_ipa.h>
 #include <linux/ipa.h>
 #include <uapi/linux/mhi.h>
-#include "mhi.h"
+#include <linux/msm_mhi_dev.h>
 
 #define MHI_DEV_NODE_NAME_LEN		13
 #define MHI_MAX_NR_OF_CLIENTS		23
