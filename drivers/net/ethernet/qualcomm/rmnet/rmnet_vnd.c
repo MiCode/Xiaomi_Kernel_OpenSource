@@ -62,8 +62,8 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
-		rmnet_egress_handler(skb);
 		qmi_rmnet_burst_fc_check(dev, skb);
+		rmnet_egress_handler(skb);
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
@@ -170,12 +170,29 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Checksum computed in software",
 };
 
+static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"DL header last seen sequence",
+	"DL header last seen bytes",
+	"DL header last seen packets",
+	"DL header last seen flows",
+	"DL header pkts received",
+	"DL header total bytes received",
+	"DL header total pkts received",
+	"DL header average bytes",
+	"DL header average packets",
+	"DL trailer last seen sequence",
+	"DL trailer pkts received",
+};
+
 static void rmnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
 {
 	switch (stringset) {
 	case ETH_SS_STATS:
 		memcpy(buf, &rmnet_gstrings_stats,
 		       sizeof(rmnet_gstrings_stats));
+		memcpy(buf + sizeof(rmnet_gstrings_stats),
+		       &rmnet_port_gstrings_stats,
+		       sizeof(rmnet_port_gstrings_stats));
 		break;
 	}
 }
@@ -184,7 +201,8 @@ static int rmnet_get_sset_count(struct net_device *dev, int sset)
 {
 	switch (sset) {
 	case ETH_SS_STATS:
-		return ARRAY_SIZE(rmnet_gstrings_stats);
+		return ARRAY_SIZE(rmnet_gstrings_stats) +
+		       ARRAY_SIZE(rmnet_port_gstrings_stats);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -195,11 +213,19 @@ static void rmnet_get_ethtool_stats(struct net_device *dev,
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_priv_stats *st = &priv->stats;
+	struct rmnet_port_priv_stats *stp;
+	struct rmnet_port *port;
 
-	if (!data)
+	port = rmnet_get_port(priv->real_dev);
+
+	if (!data || !port)
 		return;
 
+	stp = &port->stats;
+
 	memcpy(data, st, ARRAY_SIZE(rmnet_gstrings_stats) * sizeof(u64));
+	memcpy(data + ARRAY_SIZE(rmnet_gstrings_stats), stp,
+	       ARRAY_SIZE(rmnet_port_gstrings_stats) * sizeof(u64));
 }
 
 static const struct ethtool_ops rmnet_ethtool_ops = {

@@ -1498,7 +1498,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	unsigned int i;
 
 	/* GMU TCM data dumped through AHB */
-	if (gmu_dev_ops->snapshot)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
 		gmu_dev_ops->snapshot(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);

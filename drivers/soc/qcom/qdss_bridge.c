@@ -421,7 +421,7 @@ err:
 
 static const struct mhi_device_id qdss_mhi_match_table[] = {
 	{ .chan = "QDSS" },
-	{ NULL },
+	{},
 };
 
 static struct mhi_driver qdss_mhi_driver = {

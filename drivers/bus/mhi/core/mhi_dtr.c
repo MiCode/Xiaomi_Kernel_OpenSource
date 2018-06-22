@@ -212,7 +212,7 @@ static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 
 static const struct mhi_device_id mhi_dtr_table[] = {
 	{ .chan = "IP_CTRL" },
-	{ NULL },
+	{},
 };
 
 static struct mhi_driver mhi_dtr_driver = {

@@ -4,6 +4,7 @@ Required properties:
 
  - compatible : "qcom,pahu-slim-pgd" or "qcom,pahu-i2c" for pahu Codec
                 "qcom,tavil-slim-pgd" or "qcom,tavil-i2c-pgd" for Tavil codec
+		"qcom,tasha-slim-pgd" or "qcom,tasha-i2c-pgd" for Tasha Codec
  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
 
  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
@@ -437,5 +438,47 @@ msm_sdw_codec: qcom,msm-sdw-codec@152c1000 {
 			reg = <0x00 0x20170212>;
 			qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
 		};
+	};
+};
+
+WSA macro in Bolero codec
+
+Required properties:
+ - compatible = "qcom,wsa-macro";
+ - reg: Specifies the WSA macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+
+Example:
+
+&bolero {
+	wsa_macro: wsa-macro {
+		compatible = "qcom,wsa-macro";
+		reg = <0x0C2C0000 0x0>;
+		clock-names = "wsa_core_clk", "wsa_npl_clk";
+		clocks = <&clock_audio_wsa_1 AUDIO_LPASS_MCLK>,
+		<&clock_audio_wsa_2 AUDIO_LPASS_MCLK>;
+		qcom,wsa-swr-gpios = &wsa_swr_gpios;
+	};
+};
+
+VA macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,va-macro";
+ - reg: Specifies the VA macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+
+Example:
+
+&bolero {
+	va_macro: va-macro {
+		compatible = "qcom,va-macro";
+		reg = <0x0C490000 0x0>;
+		clock-names = "va_core_clk";
+		clocks = <&clock_audio_va AUDIO_LPASS_MCLK>;
 	};
 };

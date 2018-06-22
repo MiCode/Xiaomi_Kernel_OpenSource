@@ -210,6 +210,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
+	ADRENO_REV_A608 = 608,
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
@@ -1254,6 +1255,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 700;
 }
 
+ADRENO_TARGET(a608, ADRENO_REV_A608)
 ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
@@ -1867,7 +1869,7 @@ static inline int adreno_perfcntr_active_oob_get(
 	if (ret)
 		return ret;
 
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
 		if (ret)
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
@@ -1882,7 +1884,7 @@ static inline void adreno_perfcntr_active_oob_put(
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));

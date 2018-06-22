@@ -12,6 +12,7 @@
 
 
 #include "skeleton.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sdxprairie.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -30,6 +31,19 @@
 			no-map;
 			reg = <0x8fd00000 0x300000>;
 			label = "peripheral2_mem";
+		};
+
+		hyp_mem: hyp_region@8fc00000 {
+			no-map;
+			reg = <0x8fc00000 0x80000>;
+			label = "hyp_mem";
+		};
+
+		mpss_adsp_mem: mpss_adsp_region@84000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x84000000 0xb700000>;
+			label = "mpss_adsp_mem";
 		};
 	};
 
@@ -135,6 +149,26 @@
 			status = "disabled";
 		};
 	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+	};
+
+	serial_uart: serial@831000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x831000 0x200>;
+		interrupts = <0 26 0>;
+		clocks = <&clock_gcc GCC_BLSP1_UART3_APPS_CLK>,
+			<&clock_gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&uart3_console_active>;
+		pinctrl-1 = <&uart3_console_sleep>;
+		status = "ok";
+	};
 };
 
 #include "sdxprairie-pinctrl.dtsi"
+#include "sdxprairie-ion.dtsi"
