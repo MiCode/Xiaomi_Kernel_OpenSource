@@ -488,6 +488,13 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 		}
 	}
 
+	if (!client->dev->dma_parms)
+		client->dev->dma_parms = devm_kzalloc(client->dev,
+				sizeof(*client->dev->dma_parms), GFP_KERNEL);
+
+	dma_set_max_seg_size(client->dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(client->dev, DMA_BIT_MASK(64));
+
 	iommu_set_fault_handler(client->mmu_mapping->domain,
 			msm_smmu_fault_handler, (void *)client);
 
