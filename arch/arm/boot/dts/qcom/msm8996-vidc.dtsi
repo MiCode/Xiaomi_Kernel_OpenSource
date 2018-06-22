@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 			<0x0818C000 0x2000>,
 			<0x0818E000 0x2000>;
 		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+		qcom,power-conf = <8294400>; /* WxH - 3840*2160 */
 		qcom,firmware-name = "venus";
 		qcom,imem-size = <524288>; /* 512 kB */
 		qcom,never-unload-fw;
