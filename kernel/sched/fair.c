@@ -7015,6 +7015,7 @@ struct find_best_target_env {
 	struct cpumask *rtg_target;
 	bool placement_boost;
 	bool need_idle;
+	int fastpath;
 };
 
 static bool is_packing_eligible(struct task_struct *p, int target_cpu,
@@ -7080,6 +7081,12 @@ static int start_cpu(struct task_struct *p, bool boosted,
 	return start_cpu;
 }
 
+enum fastpaths {
+	NONE = 0,
+	SYNC_WAKEUP,
+	PREV_CPU_FASTPATH,
+};
+
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool prefer_idle,
 				   struct find_best_target_env *fbt_env)
@@ -7115,6 +7122,26 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	sd = rcu_dereference(per_cpu(sd_ea, cpu));
 	if (!sd)
 		return -1;
+
+	/* fast path for prev_cpu */
+	if ((capacity_orig_of(prev_cpu) == capacity_orig_of(cpu)) &&
+		!cpu_isolated(prev_cpu) && cpu_online(prev_cpu) &&
+		idle_cpu(prev_cpu)) {
+
+		if (idle_get_state_idx(cpu_rq(prev_cpu)) <= 1) {
+			/*
+			 * Since target_cpu and backup_cpu are both -1s the
+			 * caller will choose prev_cpu and importantly skip
+			 * energy evaluation
+			 */
+			target_cpu = -1;
+
+			fbt_env->fastpath = PREV_CPU_FASTPATH;
+			trace_sched_find_best_target(p, prefer_idle, min_util,
+					cpu, -1, -1, -1, target_cpu, -1);
+			goto out;
+		}
+	}
 
 	/* Scan CPUs in all SDs */
 	sg = sd->groups;
@@ -7437,7 +7464,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		target_cpu = *backup_cpu;
 		*backup_cpu = -1;
 	}
-
+out:
 	return target_cpu;
 }
 
@@ -7605,39 +7632,6 @@ static inline int wake_to_idle(struct task_struct *p)
 		 (p->flags & PF_WAKE_UP_IDLE);
 }
 
-#define SCHED_SELECT_PREV_CPU_NSEC	2000000
-#define SCHED_FORCE_CPU_SELECTION_NSEC	20000000
-
-static inline bool
-bias_to_prev_cpu(struct task_struct *p, struct cpumask *rtg_target)
-{
-	int prev_cpu = task_cpu(p);
-#ifdef CONFIG_SCHED_WALT
-	u64 ms = p->ravg.mark_start;
-#else
-	u64 ms = sched_clock();
-#endif
-
-	if (cpu_isolated(prev_cpu) || !idle_cpu(prev_cpu))
-		return false;
-
-	if (!ms)
-		return false;
-
-	if (ms - p->last_cpu_selected_ts >= SCHED_SELECT_PREV_CPU_NSEC) {
-		p->last_cpu_selected_ts = ms;
-		return false;
-	}
-
-	if (ms - p->last_sleep_ts >= SCHED_SELECT_PREV_CPU_NSEC)
-		return false;
-
-	if (rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))
-		return false;
-
-	return true;
-}
-
 #ifdef CONFIG_SCHED_WALT
 static inline struct cpumask *find_rtg_target(struct task_struct *p)
 {
@@ -7668,12 +7662,6 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 }
 #endif
 
-enum fastpaths {
-	NONE = 0,
-	SYNC_WAKEUP,
-	PREV_CPU_BIAS,
-};
-
 /*
  * Needs to be called inside rcu_read_lock critical section.
  * sd is a pointer to the sched domain we wish to use for an
@@ -7693,8 +7681,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	bool need_idle = wake_to_idle(p);
 	bool placement_boost = task_placement_boost_enabled(p);
 	u64 start_t = 0;
-	int fastpath = 0;
 	int next_cpu = -1, backup_cpu = -1;
+
+	fbt_env.fastpath = 0;
 
 	if (trace_sched_task_util_enabled())
 		start_t = sched_clock();
@@ -7705,7 +7694,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	if (sysctl_sched_sync_hint_enable && sync &&
 				bias_to_waker_cpu(p, cpu, rtg_target)) {
 		energy_cpu = cpu;
-		fastpath = SYNC_WAKEUP;
+		fbt_env.fastpath = SYNC_WAKEUP;
 		goto out;
 	}
 
@@ -7754,11 +7743,6 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 */
 		prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 				(schedtune_prefer_idle(p) > 0) : 0;
-
-		if (bias_to_prev_cpu(p, rtg_target)) {
-			fastpath = PREV_CPU_BIAS;
-			goto out;
-		}
 
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 
@@ -7810,7 +7794,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 
 out:
 	trace_sched_task_util(p, next_cpu, backup_cpu, energy_cpu, sync,
-			need_idle, fastpath, placement_boost,
+			need_idle, fbt_env.fastpath, placement_boost,
 			rtg_target ? cpumask_first(rtg_target) : -1, start_t);
 	return energy_cpu;
 }
