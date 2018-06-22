@@ -1178,7 +1178,7 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 
 	/* allocate gem tracking object */
 	nplanes = drm_format_num_planes(pixel_format);
-	if (nplanes > SDE_MAX_PLANES) {
+	if (nplanes >= SDE_MAX_PLANES) {
 		SDE_ERROR("requested format has too many planes\n");
 		return -EINVAL;
 	}

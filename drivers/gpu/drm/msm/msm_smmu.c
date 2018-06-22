@@ -173,13 +173,12 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	size_t ret;
-
-	ret = iommu_map_sg(client->mmu_mapping->domain, iova, sgt->sgl,
-			sgt->nents, prot);
-	WARN_ON(ret < 0);
+	size_t ret = 0;
 
 	if (sgt && sgt->sgl) {
+		ret = iommu_map_sg(client->mmu_mapping->domain, iova, sgt->sgl,
+				sgt->nents, prot);
+		WARN_ON(ret < 0);
 		DRM_DEBUG("%pad/0x%x/0x%x/\n", &sgt->sgl->dma_address,
 				sgt->sgl->dma_length, prot);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,

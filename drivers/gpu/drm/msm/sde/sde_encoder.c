@@ -1195,7 +1195,7 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct msm_mode_info mode_info;
 	struct msm_display_dsc_info *dsc = NULL;
-	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_hw_ctl *hw_ctl;
 	struct sde_ctl_dsc_cfg cfg;
 	int rc;
 
@@ -1209,6 +1209,8 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
 		return -EINVAL;
 	}
+
+	hw_ctl = enc_master->hw_ctl;
 
 	memset(&cfg, 0, sizeof(cfg));
 	dsc = &mode_info.comp_info.dsc_info;
@@ -1582,6 +1584,8 @@ void sde_encoder_helper_vsync_config(struct sde_encoder_phys *phys_enc,
 	struct sde_encoder_virt *sde_enc;
 	int i, rc = 0;
 
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
+
 	if (!sde_enc) {
 		SDE_ERROR("invalid param sde_enc:%d\n", sde_enc != NULL);
 		return;
@@ -1591,8 +1595,6 @@ void sde_encoder_helper_vsync_config(struct sde_encoder_phys *phys_enc,
 				(int) ARRAY_SIZE(sde_enc->hw_pp));
 		return;
 	}
-
-	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 
 	drm_enc = &sde_enc->base;
 	/* this pointers are checked in virt_enable_helper */
