@@ -1607,6 +1607,15 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	/* Disable SMB Temperature ADC INT */
+	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
+				rc);
+		return rc;
+	}
+
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 		HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
