@@ -53,7 +53,8 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
-static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display)
+static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
+			u32 mask, bool enable)
 {
 	int i;
 	struct dsi_display_ctrl *ctrl;
@@ -66,7 +67,25 @@ static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display)
 		ctrl = &display->ctrl[i];
 		if (!ctrl)
 			continue;
-		dsi_ctrl_mask_error_status_interrupts(ctrl->ctrl);
+		dsi_ctrl_mask_error_status_interrupts(ctrl->ctrl, mask, enable);
+	}
+}
+
+static void dsi_display_set_ctrl_esd_check_flag(struct dsi_display *display,
+			bool enable)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display)
+		return;
+
+	for (i = 0; (i < display->ctrl_count) &&
+			(i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl)
+			continue;
+		ctrl->ctrl->esd_check_underway = enable;
 	}
 }
 
@@ -653,14 +672,6 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 		}
 	}
 exit:
-	/* mask only error interrupts */
-	if (rc <= 0) {
-		dsi_display_mask_ctrl_error_interrupts(display);
-
-		/* Handle Panel failures during display disable sequence */
-		display->panel->esd_recovery_pending = true;
-	}
-
 	dsi_display_cmd_engine_disable(display);
 done:
 	return rc;
@@ -702,6 +713,7 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	struct dsi_panel *panel;
 	u32 status_mode;
 	int rc = 0x1;
+	u32 mask;
 
 	if (!dsi_display || !dsi_display->panel)
 		return -EINVAL;
@@ -724,6 +736,11 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
 
+	/* Mask error interrupts before attempting ESD read */
+	mask = BIT(DSI_FIFO_OVERFLOW) | BIT(DSI_FIFO_UNDERFLOW);
+	dsi_display_set_ctrl_esd_check_flag(dsi_display, true);
+	dsi_display_mask_ctrl_error_interrupts(dsi_display, mask, true);
+
 	if (status_mode == ESD_MODE_REG_READ) {
 		rc = dsi_display_status_reg_read(dsi_display);
 	} else if (status_mode == ESD_MODE_SW_BTA) {
@@ -733,6 +750,16 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	} else {
 		pr_warn("unsupported check status mode\n");
 		panel->esd_config.esd_enabled = false;
+	}
+
+	/* Unmask error interrupts */
+	if (rc > 0) {
+		dsi_display_set_ctrl_esd_check_flag(dsi_display, false);
+		dsi_display_mask_ctrl_error_interrupts(dsi_display, mask,
+							false);
+	} else {
+		/* Handle Panel failures during display disable sequence */
+		panel->esd_recovery_pending = true;
 	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
@@ -5947,6 +5974,8 @@ int dsi_display_prepare(struct dsi_display *display)
 	mutex_lock(&display->display_lock);
 
 	mode = display->panel->cur_mode;
+
+	dsi_display_set_ctrl_esd_check_flag(display, false);
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
