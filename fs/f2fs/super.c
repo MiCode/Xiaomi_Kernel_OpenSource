@@ -1088,9 +1088,9 @@ static int sanity_check_raw_super(struct super_block *sb,
 		return 1;
 	}
 
-	if (secs_per_zone > total_sections) {
+	if (secs_per_zone > total_sections || !secs_per_zone) {
 		f2fs_msg(sb, KERN_INFO,
-			"Wrong secs_per_zone (%u > %u)",
+			"Wrong secs_per_zone / total_sections (%u, %u)",
 			secs_per_zone, total_sections);
 		return 1;
 	}
