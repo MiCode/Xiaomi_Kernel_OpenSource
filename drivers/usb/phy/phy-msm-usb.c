@@ -1835,8 +1835,11 @@ static int get_psy_type(struct msm_otg *motg)
 	union power_supply_propval pval = {0};
 
 	if (!psy) {
-		dev_err(motg->phy.dev, "no usb power supply registered\n");
-		return -ENODEV;
+		psy = power_supply_get_by_name("usb");
+		if (!psy) {
+			dev_err(motg->phy.dev, "Could not get usb power_supply\n");
+			return -ENODEV;
+		}
 	}
 
 	power_supply_get_property(psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
@@ -1868,11 +1871,6 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	else
 		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 
-	if (!psy) {
-		dev_err(motg->phy.dev, "no usb power supply registered\n");
-		return -ENODEV;
-	}
-
 	pr_debug("Trying to set usb power supply type %d\n", charger_type);
 
 	propval.intval = charger_type;
@@ -1896,6 +1894,10 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned int mA)
 		return;
 
 	dev_dbg(motg->phy.dev, "Requested curr from USB = %u\n", mA);
+
+	psy_type = get_psy_type(motg);
+	if (psy_type == -ENODEV)
+		return;
 
 	if (msm_otg_notify_chg_type(motg))
 		dev_dbg(motg->phy.dev, "Failed notifying %d charger type to PMIC\n",
@@ -4473,12 +4475,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 
 	psy = power_supply_get_by_name("usb");
-	if (!psy) {
-		dev_dbg(&pdev->dev, "Could not get usb power_supply\n");
-		ret = -EPROBE_DEFER;
-		goto otg_remove_devices;
-	}
-
+	if (!psy)
+		dev_warn(&pdev->dev, "Could not get usb power_supply\n");
 
 	ret = msm_otg_extcon_register(motg);
 	if (ret)
@@ -4533,7 +4531,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 put_psy:
 	if (psy)
 		power_supply_put(psy);
-otg_remove_devices:
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 remove_cdev:
