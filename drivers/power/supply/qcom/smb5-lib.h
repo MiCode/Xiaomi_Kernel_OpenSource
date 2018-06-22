@@ -362,6 +362,7 @@ struct smb_charger {
 	enum sink_src_mode	sink_src_mode;
 	bool			jeita_configured;
 	int			charger_temp_max;
+	int			smb_temp_max;
 
 	/* workaround flag */
 	u32			wa_flags;

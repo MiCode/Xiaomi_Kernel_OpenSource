@@ -52,6 +52,18 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
+- qcom,charger-temp-max
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the charger temp REG_H_THRESHOLD for PM8150B in deciDegC.
+		If the value is not present, use the setting read from the device.
+
+- qcom,smb-temp-max
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the charger temp REG_H_THRESHOLD for SMB1355 in deciDegC.
+		If the value is not present, use the setting read from the device.
+
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>

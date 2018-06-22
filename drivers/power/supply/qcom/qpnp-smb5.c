@@ -376,6 +376,16 @@ static int smb5_parse_dt(struct smb5 *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,charger-temp-max",
+			&chg->charger_temp_max);
+	if (rc < 0)
+		chg->charger_temp_max = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,smb-temp-max",
+			&chg->smb_temp_max);
+	if (rc < 0)
+		chg->smb_temp_max = -EINVAL;
+
 	rc = of_property_read_u32(node, "qcom,float-option",
 						&chip->dt.float_option);
 	if (!rc && (chip->dt.float_option < 0 || chip->dt.float_option > 4)) {
@@ -1600,11 +1610,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
 
-	rc = smblib_get_thermal_threshold(chg, DIE_REG_H_THRESHOLD_MSB_REG,
-				&chg->charger_temp_max);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
-		return rc;
+	if (chg->charger_temp_max == -EINVAL) {
+		rc = smblib_get_thermal_threshold(chg,
+					DIE_REG_H_THRESHOLD_MSB_REG,
+					&chg->charger_temp_max);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	/* Disable SMB Temperature ADC INT */
