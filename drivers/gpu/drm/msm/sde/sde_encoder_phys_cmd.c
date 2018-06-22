@@ -131,7 +131,7 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 	struct sde_hw_ctl *ctl;
 	bool merge_3d_enable = false;
 
-	if (!phys_enc && !phys_enc->hw_intf && !phys_enc->hw_pp)
+	if (!phys_enc || !phys_enc->hw_intf || !phys_enc->hw_pp)
 		return;
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);

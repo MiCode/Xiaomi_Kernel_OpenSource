@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,18 @@ struct sde_fence_context {
 	u64 context;
 	struct list_head fence_list_head;
 	char name[SDE_FENCE_NAME_SIZE];
+};
+
+/**
+ * enum sde_fence_event - sde fence event as hint fence operation
+ * @SDE_FENCE_SIGNAL: Signal the fence cleanly with current timeline
+ * @SDE_FENCE_RESET_TIMELINE: Reset timeline of the fence context
+ * @SDE_FENCE_SIGNAL: Signal the fence but indicate error throughfence status
+ */
+enum sde_fence_event {
+	SDE_FENCE_SIGNAL,
+	SDE_FENCE_RESET_TIMELINE,
+	SDE_FENCE_SIGNAL_ERROR
 };
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
@@ -128,10 +140,10 @@ int sde_fence_create(struct sde_fence_context *fence, uint64_t *val,
  * sde_fence_signal - advance fence timeline to signal outstanding fences
  * @fence: Pointer fence container
  * @ts: fence timestamp
- * @reset_timeline: reset the fence timeline to done count equal to commit count
+ * @fence_event: fence event to indicate nature of fence signal.
  */
 void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
-		bool reset_timeline);
+		enum sde_fence_event fence_event);
 
 /**
  * sde_fence_timeline_status - prints fence timeline status
