@@ -887,16 +887,11 @@ static int cnss_pci_suspend(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	pm_message_t state = { .event = PM_EVENT_SUSPEND };
 
 	if (!pci_priv)
-		goto out;
-
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
 		goto out;
 
 	driver_ops = pci_priv->driver_ops;
@@ -910,7 +905,7 @@ static int cnss_pci_suspend(struct device *dev)
 		}
 	}
 
-	if (pci_priv->pci_link_state) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP) {
 		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
 		if (ret) {
 			if (driver_ops && driver_ops->resume)
@@ -942,29 +937,27 @@ static int cnss_pci_resume(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
 		goto out;
 
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
-		goto out;
-
 	if (pci_priv->pci_link_down_ind)
 		goto out;
 
-	ret = pci_enable_device(pci_dev);
-	if (ret)
-		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
+	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+		ret = pci_enable_device(pci_dev);
+		if (ret)
+			cnss_pr_err("Failed to enable PCI device, err = %d\n",
+				    ret);
 
-	if (pci_priv->saved_state)
-		cnss_set_pci_config_space(pci_priv,
-					  RESTORE_PCI_CONFIG_SPACE);
+		if (pci_priv->saved_state)
+			cnss_set_pci_config_space(pci_priv,
+						  RESTORE_PCI_CONFIG_SPACE);
 
-	pci_set_master(pci_dev);
-	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+		pci_set_master(pci_dev);
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+	}
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->resume) {
@@ -985,19 +978,19 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
 		goto out;
 
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
-		goto out;
-
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
+
+	ret = cnss_set_pci_link(pci_priv, PCI_LINK_DOWN);
+	if (ret)
+		goto out;
+	pci_priv->pci_link_state = PCI_LINK_DOWN;
 
 out:
 	return ret;
@@ -1008,15 +1001,15 @@ static int cnss_pci_resume_noirq(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
 		goto out;
 
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
+	ret = cnss_set_pci_link(pci_priv, PCI_LINK_UP);
+	if (ret)
 		goto out;
+	pci_priv->pci_link_state = PCI_LINK_UP;
 
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->resume_noirq &&
@@ -1032,14 +1025,9 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
-		return -EAGAIN;
-
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
 		return -EAGAIN;
 
 	if (pci_priv->pci_link_down_ind) {
@@ -1064,14 +1052,9 @@ static int cnss_pci_runtime_resume(struct device *dev)
 	int ret = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv;
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
-		return -EAGAIN;
-
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
 		return -EAGAIN;
 
 	if (pci_priv->pci_link_down_ind) {
