@@ -639,3 +639,13 @@
 &mdss_mdp {
 	qcom,vbif-settings = <0xd0 0x20>;
 };
+
+&thermal_zones {
+	hexa-cpu-max-step {
+		trips {
+			cpu-trip {
+				temperature = <95000>;
+			};
+		};
+	};
+};
