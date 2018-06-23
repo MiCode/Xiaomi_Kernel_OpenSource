@@ -1,0 +1,49 @@
+Qualcomm Technologies, Inc. SoundWire Master controller
+
+* swr_master
+
+Required properties:
+
+- compatible : should be "qcom,swr-mstr"
+- #address-cells: must be 2
+- #size-cells: must be 0
+- qcom,swr-num-ports: number of ports in the master.
+- qcom,swr-port-mapping: contains codec port_type and
+	corresponding ch-mask entries for possible port types
+	of the master port.
+
+* wsa881x
+
+Required properties:
+
+- compatible : should be "qcom,wsa881x"
+- reg : Unique device ID(48 bits) of Soundwire slave device node.
+	In the below example, wsa881x is soundwire slave device for
+	which the swr-devid is <0x0 0x032000> where 0x03 represents
+	device Unique_ID, 0x20 represents Part_Id1 and 0x00
+	represents part_Id2.
+
+ Example:
+
+swr0: swr_master {
+		compatible = "qcom,swr-mstr";
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,swr-num-ports = <8>;
+		qcom,swr-port-mapping = <1 SPKR_L 0x1>,
+		<2 SPKR_L_COMP 0xF>, <3 SPKR_L_BOOST 0x3>,
+		<4 SPKR_R 0x1>, <5 SPKR_R_COMP 0xF>,
+		<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
+		<8 SPKR_R_VI 0x3>;
+
+		wsa881x@32000 {
+			compatible = "qcom,wsa881x";
+			reg = <0x00 0x032000>;
+		};
+
+		wsa881x@42000 {
+			compatible = "qcom,wsa881x";
+			reg = <0x00 0x042000>;
+		};
+	};
