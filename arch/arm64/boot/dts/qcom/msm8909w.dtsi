@@ -193,4 +193,39 @@
 			};
 		};
 	};
+	mdm-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	camera-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	gpu-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu0-2-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu1-3-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
 };

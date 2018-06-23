@@ -52,6 +52,13 @@
 			qcom,init-voltage = <1>;
 			qcom,use-voltage-corner;
 		};
+
+		pm660_cx_cdev: regulator-cx-cdev {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm660_s2_floor_corner>;
+			regulator-levels = <5 1>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	/* MX supply */
