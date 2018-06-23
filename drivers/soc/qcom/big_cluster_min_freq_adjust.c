@@ -125,8 +125,13 @@ static int cpu_pm_callback(struct notifier_block *self,
 
 	cancel_delayed_work(&p->min_freq_work);
 
-	if (p->min_freq_state != p->min_freq_request)
-		schedule_delayed_work(&p->min_freq_work, delay);
+	if (p->min_freq_state != p->min_freq_request) {
+		if (p->min_freq_request == ADJUST_MIN_FLOOR) {
+			if (p->min_freq_floor > cpufreq_quick_get(cpu))
+				delay = 0;
+		}
+		queue_delayed_work(system_unbound_wq, &p->min_freq_work, delay);
+	}
 	spin_unlock(&p->lock);
 
 	return NOTIFY_OK;
