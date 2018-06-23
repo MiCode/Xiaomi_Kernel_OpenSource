@@ -1429,12 +1429,14 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 				data->srcp_dma_buf = NULL;
 				return ret;
 			}
-			data->srcp_ihdl = ion_import_dma_buf(iclient,
-				data->srcp_dma_buf);
-			if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
-				pr_err("error on ion_import_fd\n");
-				data->srcp_ihdl = NULL;
-				return -EIO;
+			if (client == MDP3_CLIENT_SPI) {
+				data->srcp_ihdl = ion_import_dma_buf(iclient,
+					data->srcp_dma_buf);
+				if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
+					pr_err("error on ion_import_fd\n");
+					data->srcp_ihdl = NULL;
+					return -EIO;
+				}
 			}
 			data->srcp_attachment =
 			mdss_smmu_dma_buf_attach(data->srcp_dma_buf,
