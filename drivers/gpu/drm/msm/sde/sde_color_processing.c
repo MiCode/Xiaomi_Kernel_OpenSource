@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -78,7 +78,7 @@ enum {
 	SDE_CP_CRTC_DSPP_IGC,
 	SDE_CP_CRTC_DSPP_PCC,
 	SDE_CP_CRTC_DSPP_GC,
-	SDE_CP_CRTC_DSPP_HUE,
+	SDE_CP_CRTC_DSPP_HSIC,
 	SDE_CP_CRTC_DSPP_SAT,
 	SDE_CP_CRTC_DSPP_VAL,
 	SDE_CP_CRTC_DSPP_CONT,
@@ -484,33 +484,12 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			}
 			hw_dspp->ops.setup_gc(hw_dspp, &hw_cfg);
 			break;
-		case SDE_CP_CRTC_DSPP_HUE:
-			if (!hw_dspp || !hw_dspp->ops.setup_hue) {
+		case SDE_CP_CRTC_DSPP_HSIC:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_hsic) {
 				ret = -EINVAL;
 				continue;
 			}
-			hw_dspp->ops.setup_hue(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_SAT:
-			if (!hw_dspp || !hw_dspp->ops.setup_sat) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_sat(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_VAL:
-			if (!hw_dspp || !hw_dspp->ops.setup_val) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_val(hw_dspp, &hw_cfg);
-			break;
-		case SDE_CP_CRTC_DSPP_CONT:
-			if (!hw_dspp || !hw_dspp->ops.setup_cont) {
-				ret = -EINVAL;
-				continue;
-			}
-			hw_dspp->ops.setup_cont(hw_dspp, &hw_cfg);
+			hw_dspp->ops.setup_pa_hsic(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_MEMCOLOR:
 			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcolor)
@@ -907,9 +886,9 @@ static void dspp_hsic_install_property(struct drm_crtc *crtc)
 	switch (version) {
 	case 1:
 		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
-			"SDE_DSPP_HUE_V", version);
-		sde_cp_crtc_install_range_property(crtc, feature_name,
-			SDE_CP_CRTC_DSPP_HUE, 0, U32_MAX, 0);
+			"SDE_DSPP_PA_HSIC_V", version);
+		sde_cp_crtc_create_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_HSIC);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
