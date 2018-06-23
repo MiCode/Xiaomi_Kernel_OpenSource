@@ -179,6 +179,7 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_FSRRESTORE		0x5c
 #define ARM_SMMU_CB_FAR			0x60
 #define ARM_SMMU_CB_FSYNR0		0x68
+#define ARM_SMMU_CB_FSYNR1		0x6c
 #define ARM_SMMU_CB_S1_TLBIVA		0x600
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
 #define ARM_SMMU_CB_S1_TLBIALL		0x618
