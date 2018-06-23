@@ -82,9 +82,13 @@ static void msm_sensor_misc_regulator(
 
 int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl)
 {
+	struct msm_camera_sensor_slave_info *slave_info = NULL;
+
 	if (!s_ctrl->pdev && !s_ctrl->sensor_i2c_client->client)
 		return 0;
 	kfree(s_ctrl->sensordata->slave_info);
+	slave_info = s_ctrl->sensordata->cam_slave_info;
+	kfree(slave_info->sensor_id_info.setting.reg_setting);
 	kfree(s_ctrl->sensordata->cam_slave_info);
 	kfree(s_ctrl->sensordata->actuator_info);
 	kfree(s_ctrl->sensordata->power_info.gpio_conf->gpio_num_info);
@@ -259,6 +263,17 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 			__func__, __LINE__, sensor_i2c_client, slave_info,
 			sensor_name);
 		return -EINVAL;
+	}
+
+	if (slave_info->setting && slave_info->setting->size > 0) {
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_table(s_ctrl->sensor_i2c_client,
+			slave_info->setting);
+		if (rc < 0)
+			pr_err("Write array failed prior to probe\n");
+
+	} else {
+		CDBG("No writes needed for this sensor before probe\n");
 	}
 
 	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
