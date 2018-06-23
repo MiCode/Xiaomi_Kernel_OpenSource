@@ -426,7 +426,7 @@ led_brightness qpnp_flash_led_brightness_get(struct led_classdev *led_cdev)
 static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 {
 	int rc, i, addr_offset;
-	u8 val = 0, mask, strobe_mask = 0;
+	u8 val = 0, mask, strobe_mask = 0, strobe_ctrl;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		addr_offset = led->fnode[i].id;
@@ -448,6 +448,26 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		if (led->fnode[i].id == LED3 &&
 				led->fnode[i].strobe_sel == LPG_STROBE)
 			strobe_mask |= LED3_FLASH_ONCE_ONLY_BIT;
+		/*
+		 * As per the hardware recommendation, to use LED2/LED3 in HW
+		 * strobe mode, LED1 should be set to HW strobe mode as well.
+		 */
+		if (led->fnode[i].strobe_sel == HW_STROBE &&
+		      (led->fnode[i].id == LED2 || led->fnode[i].id == LED3)) {
+			mask = FLASH_HW_STROBE_MASK;
+			addr_offset = led->fnode[LED1].id;
+			/*
+			 * HW_STROBE: enable, TRIGGER: level,
+			 * POLARITY: active high
+			 */
+			strobe_ctrl = BIT(2) | BIT(0);
+			rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_STROBE_CTRL(
+				led->base + addr_offset),
+				mask, strobe_ctrl);
+			if (rc < 0)
+				return rc;
+		}
 	}
 
 	rc = qpnp_flash_led_masked_write(led,
