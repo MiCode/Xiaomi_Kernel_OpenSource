@@ -444,6 +444,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	struct sde_hw_cp_cfg hw_cfg;
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_dspp *hw_dspp;
+	struct drm_msm_pa_hsic *hsic_cfg;
 	u32 num_mixers = sde_crtc->num_mixers;
 	int i = 0;
 	bool feature_enabled = false;
@@ -488,6 +489,22 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			if (!hw_dspp || !hw_dspp->ops.setup_pa_hsic) {
 				ret = -EINVAL;
 				continue;
+			}
+			if (hw_cfg.payload && (hw_cfg.len ==
+				sizeof(struct drm_msm_pa_hsic))) {
+				/* hw_cfg is valid, check for feature flag */
+				hsic_cfg = (struct drm_msm_pa_hsic *)
+						hw_cfg.payload;
+				if ((hsic_cfg->flags &
+					PA_HSIC_LEFT_DISPLAY_ONLY) && (i > 0)) {
+					/* skip right side programming */
+					continue;
+				} else if ((hsic_cfg->flags &
+					PA_HSIC_RIGHT_DISPLAY_ONLY)
+					&& (i == 0)) {
+					/* skip left side programming */
+					continue;
+				}
 			}
 			hw_dspp->ops.setup_pa_hsic(hw_dspp, &hw_cfg);
 			break;
