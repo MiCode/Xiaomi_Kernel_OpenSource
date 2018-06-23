@@ -275,6 +275,25 @@ static void _sde_splash_destroy_splash_node(struct sde_splash_info *sinfo)
 	sinfo->splash_mem_size = NULL;
 }
 
+static void _sde_splash_update_display_splash_status(struct sde_kms *sde_kms)
+{
+	struct dsi_display *dsi_display;
+	struct sde_hdmi *sde_hdmi;
+	int i = 0;
+
+	for (i = 0; i < sde_kms->dsi_display_count; i++) {
+		dsi_display = (struct dsi_display *)sde_kms->dsi_displays[i];
+
+		dsi_display->cont_splash_enabled = false;
+	}
+
+	for (i = 0; i < sde_kms->hdmi_display_count; i++) {
+		sde_hdmi = (struct sde_hdmi *)sde_kms->hdmi_displays[i];
+
+		sde_hdmi->cont_splash_enabled = false;
+	}
+}
+
 static void _sde_splash_sent_pipe_update_uevent(struct sde_kms *sde_kms)
 {
 	char *event_string;
@@ -346,29 +365,6 @@ static int _sde_splash_free_module_resource(struct msm_mmu *mmu,
 	}
 
 	return 0;
-}
-
-static bool _sde_splash_validate_commit(struct sde_kms *sde_kms,
-					struct drm_atomic_state *state)
-{
-	int i, nplanes;
-	struct drm_plane *plane;
-	struct drm_device *dev = sde_kms->dev;
-
-	nplanes = dev->mode_config.num_total_plane;
-
-	for (i = 0; i < nplanes; i++) {
-		plane = state->planes[i];
-
-		/*
-		 * As plane state has been swapped, we need to check
-		 * fb in state->planes, not fb in state->plane_state.
-		 */
-		if (plane && plane->fb)
-			return true;
-	}
-
-	return false;
 }
 
 __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
@@ -737,6 +733,7 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
 	intr = sde_kms->hw_intr;
 
 	if (sde_kms->splash_info.handoff &&
+		!sde_kms->splash_info.display_splash_enabled &&
 		SDE_LK_EXIT_VALUE == SDE_REG_READ(&intr->hw,
 					SCRATCH_REGISTER_1)) {
 		SDE_DEBUG("LK totoally exits\n");
@@ -816,6 +813,9 @@ int sde_splash_free_resource(struct msm_kms *kms,
 		/* send uevent to notify user to recycle resource */
 		_sde_splash_sent_pipe_update_uevent(sde_kms);
 
+		/* set display's splash status to false after handoff is done */
+		_sde_splash_update_display_splash_status(sde_kms);
+
 		/* Finally mark handoff flag to false to say
 		 * handoff is complete.
 		 */
@@ -860,8 +860,7 @@ int sde_splash_free_resource(struct msm_kms *kms,
  * 1. Notify LK to stop display splash.
  * 2. Set DOMAIN_ATTR_EARLY_MAP to 1 to enable stage 1 translation in iommu.
  */
-int sde_splash_lk_stop_splash(struct msm_kms *kms,
-				struct drm_atomic_state *state)
+int sde_splash_lk_stop_splash(struct msm_kms *kms)
 {
 	struct sde_splash_info *sinfo;
 	struct msm_mmu *mmu;
@@ -877,8 +876,7 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
 
 	/* Monitor LK's status and tell it to exit. */
 	mutex_lock(&sde_splash_lock);
-	if (_sde_splash_validate_commit(sde_kms, state) &&
-			sinfo->display_splash_enabled) {
+	if (sinfo->display_splash_enabled) {
 		if (_sde_splash_lk_check(sde_kms->hw_intr))
 			_sde_splash_notify_lk_stop_splash(sde_kms->hw_intr);
 
