@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,6 +377,17 @@ int mdss_mdp_cdm_destroy(struct mdss_mdp_cdm *cdm)
 		pr_err("%s: invalid parameters\n", __func__);
 		return -EINVAL;
 	}
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	mutex_lock(&cdm->lock);
+	/* Disable HDMI packer */
+	writel_relaxed(0x0, cdm->base + MDSS_MDP_REG_CDM_HDMI_PACK_OP_MODE);
+
+	/* Put CDM in bypass */
+	writel_relaxed(0x0, cdm->mdata->mdp_base + MDSS_MDP_MDP_OUT_CTL_0);
+
+	mutex_unlock(&cdm->lock);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	kref_put(&cdm->kref, mdss_mdp_cdm_free);
 

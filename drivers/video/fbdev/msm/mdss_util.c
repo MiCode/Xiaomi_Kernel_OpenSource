@@ -23,6 +23,7 @@ int mdss_register_irq(struct mdss_hw *hw)
 {
 	unsigned long irq_flags;
 	u32 ndx_bit;
+	bool err = false;
 
 	if (!hw || hw->hw_ndx >= MDSS_MAX_HW_BLK)
 		return -EINVAL;
@@ -33,10 +34,12 @@ int mdss_register_irq(struct mdss_hw *hw)
 	if (!mdss_irq_handlers[hw->hw_ndx])
 		mdss_irq_handlers[hw->hw_ndx] = hw;
 	else
-		pr_err("panel %d's irq at %pK is already registered\n",
-			hw->hw_ndx, hw->irq_handler);
+		err = true;
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
 
+	if (err)
+		pr_err("panel %d's irq at %pK is already registered\n",
+			hw->hw_ndx, hw->irq_handler);
 	return 0;
 }
 
@@ -76,6 +79,7 @@ void mdss_disable_irq(struct mdss_hw *hw)
 {
 	unsigned long irq_flags;
 	u32 ndx_bit;
+	bool err = false;
 
 	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
 		return;
@@ -87,7 +91,7 @@ void mdss_disable_irq(struct mdss_hw *hw)
 
 	spin_lock_irqsave(&mdss_lock, irq_flags);
 	if (!(hw->irq_info->irq_mask & ndx_bit)) {
-		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
+		err = true;
 	} else {
 		hw->irq_info->irq_mask &= ~ndx_bit;
 		if (hw->irq_info->irq_mask == 0) {
@@ -96,12 +100,16 @@ void mdss_disable_irq(struct mdss_hw *hw)
 		}
 	}
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
+
+	if (err)
+		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 }
 
 /* called from interrupt context */
 void mdss_disable_irq_nosync(struct mdss_hw *hw)
 {
 	u32 ndx_bit;
+	bool err = false;
 
 	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
 		return;
@@ -113,7 +121,7 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 
 	spin_lock(&mdss_lock);
 	if (!(hw->irq_info->irq_mask & ndx_bit)) {
-		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
+		err = true;
 	} else {
 		hw->irq_info->irq_mask &= ~ndx_bit;
 		if (hw->irq_info->irq_mask == 0) {
@@ -122,6 +130,9 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 		}
 	}
 	spin_unlock(&mdss_lock);
+
+	if (err)
+		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 }
 
 int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
@@ -176,6 +187,7 @@ void mdss_disable_irq_wake(struct mdss_hw *hw)
 {
 	unsigned long irq_flags;
 	u32 ndx_bit;
+	bool err = false;
 
 	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
 		return;
@@ -188,7 +200,7 @@ void mdss_disable_irq_wake(struct mdss_hw *hw)
 
 	spin_lock_irqsave(&mdss_lock, irq_flags);
 	if (!(hw->irq_info->irq_wake_mask & ndx_bit)) {
-		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
+		err = true;
 	} else {
 		hw->irq_info->irq_wake_mask &= ~ndx_bit;
 		if (hw->irq_info->irq_wake_ena) {
@@ -197,6 +209,9 @@ void mdss_disable_irq_wake(struct mdss_hw *hw)
 		}
 	}
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
+
+	if (err)
+		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 }
 
 static bool check_display(char *param_string)

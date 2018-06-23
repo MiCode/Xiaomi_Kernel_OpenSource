@@ -295,6 +295,42 @@ TRACE_EVENT(mdp_perf_update_bus,
 			__entry->ib_quota)
 );
 
+TRACE_EVENT(mdp_compare_bw,
+	TP_PROTO(unsigned long long new_ab, unsigned long long new_ib,
+		unsigned long long new_wb,
+		unsigned long long old_ab, unsigned long long old_ib,
+		unsigned long long old_wb,
+		u32 params_changed, bool update_bw),
+	TP_ARGS(new_ab, new_ib, new_wb,
+					old_ab, old_ib, old_wb,
+					params_changed, update_bw),
+	TP_STRUCT__entry(
+			__field(u64, new_ab)
+			__field(u64, new_ib)
+			__field(u64, new_wb)
+			__field(u64, old_ab)
+			__field(u64, old_ib)
+			__field(u64, old_wb)
+			__field(u32, params_changed)
+			__field(bool, update_bw)
+	),
+	TP_fast_assign(
+			__entry->new_ab = new_ab;
+			__entry->new_ib = new_ib;
+			__entry->new_wb = new_wb;
+			__entry->old_ab = old_ab;
+			__entry->old_ib = old_ib;
+			__entry->old_wb = old_wb;
+			__entry->params_changed = params_changed;
+			__entry->update_bw = update_bw;
+	),
+	TP_printk("[ab,ib,wb]new[%llu,%llu,%llu]old[%llu,%llu,%llu]chgd:%d %d",
+		__entry->new_ab, __entry->new_ib, __entry->new_wb,
+		__entry->old_ab, __entry->old_ib,
+		__entry->old_wb, __entry->params_changed,
+		__entry->update_bw)
+);
+
 TRACE_EVENT(mdp_misr_crc,
 	TP_PROTO(u32 block_id, u32 vsync_cnt, u32 crc),
 	TP_ARGS(block_id, vsync_cnt, crc),
@@ -329,6 +365,22 @@ TRACE_EVENT(mdp_cmd_pingpong_done,
 	),
 	TP_printk("ctl num:%d intf_num:%d ctx:%d kickoff:%d",
 			__entry->ctl_num, __entry->intf_num, __entry->pp_num,
+			__entry->koff_cnt)
+);
+
+TRACE_EVENT(mdp_cmd_readptr_done,
+	TP_PROTO(u32 ctl_num, int koff_cnt),
+	TP_ARGS(ctl_num, koff_cnt),
+	TP_STRUCT__entry(
+			__field(u32, ctl_num)
+			__field(int, koff_cnt)
+	),
+	TP_fast_assign(
+			__entry->ctl_num = ctl_num;
+			__entry->koff_cnt = koff_cnt;
+	),
+	TP_printk("ctl num:%d kickoff:%d",
+			__entry->ctl_num,
 			__entry->koff_cnt)
 );
 
