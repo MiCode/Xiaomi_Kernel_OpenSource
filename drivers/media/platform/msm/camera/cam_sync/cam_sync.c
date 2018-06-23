@@ -46,6 +46,7 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 	}
 
 	*sync_obj = idx;
+	CAM_DBG(CAM_SYNC, "sync_obj: %i", *sync_obj);
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return rc;
@@ -170,21 +171,24 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	INIT_LIST_HEAD(&sync_list);
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0) {
-		CAM_ERR(CAM_SYNC, "Error: Out of range sync obj");
+		CAM_ERR(CAM_SYNC, "Error: Out of range sync obj (0 <= %d < %d)",
+			sync_obj, CAM_SYNC_MAX_OBJS);
 		return -EINVAL;
 	}
 	row = sync_dev->sync_table + sync_obj;
+	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	if (row->state == CAM_SYNC_STATE_INVALID) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: accessing an uninitialized sync obj = %d",
 			sync_obj);
 		return -EINVAL;
 	}
 
-	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	if (row->type == CAM_SYNC_TYPE_GROUP) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-		CAM_ERR(CAM_SYNC, "Error: Signaling a GROUP sync object = %d",
+		CAM_ERR(CAM_SYNC,
+			"Error: Signaling a GROUP sync object = %d",
 			sync_obj);
 		return -EINVAL;
 	}
@@ -368,6 +372,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 
 int cam_sync_destroy(int32_t sync_obj)
 {
+	CAM_DBG(CAM_SYNC, "sync_obj: %i", sync_obj);
 	return cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
 }
 
