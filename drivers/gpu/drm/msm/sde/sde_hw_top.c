@@ -413,6 +413,18 @@ static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
 	SDE_REG_WRITE(c, HDMI_DP_CORE_SELECT, 0x1);
 }
 
+static void sde_hw_program_cwb_ppb_ctrl(struct sde_hw_mdp *mdp,
+		bool dual, bool dspp_out)
+{
+	u32 value = dspp_out ? 0x4 : 0x0;
+
+	SDE_REG_WRITE(&mdp->hw, PPB2_CNTL, value);
+	if (dual) {
+		value |= 0x1;
+		SDE_REG_WRITE(&mdp->hw, PPB3_CNTL, value);
+	}
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -422,6 +434,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 	ops->get_danger_status = sde_hw_get_danger_status;
 	ops->setup_vsync_source = sde_hw_setup_vsync_source;
+	ops->set_cwb_ppb_cntl = sde_hw_program_cwb_ppb_ctrl;
 	ops->get_safe_status = sde_hw_get_safe_status;
 	ops->get_split_flush_status = sde_hw_get_split_flush;
 	ops->setup_dce = sde_hw_setup_dce;
