@@ -1471,6 +1471,19 @@ static struct clk_branch gcc_blsp1_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_dcc_clk = {
+	.halt_reg = 0x77004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x77004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_dcc_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_blsp1_qup0_i2c_apps_clk = {
 	.halt_reg = 0x6028,
 	.halt_check = BRANCH_HALT,
@@ -2819,15 +2832,16 @@ static struct clk_regmap *gcc_qcs405_clocks[] = {
 	[GCC_CRYPTO_CLK] = &gcc_crypto_clk.clkr,
 	[GCC_MDP_TBU_CLK] = &gcc_mdp_tbu_clk.clkr,
 	[GCC_QDSS_DAP_CLK] = &gcc_qdss_dap_clk.clkr,
+	[GCC_DCC_CLK] = &gcc_dcc_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_qcs405_resets[] = {
 	[GCC_GENI_IR_BCR] = {0x0F000},
 	[GCC_USB_HS_BCR] = {0x41000},
-	[GCC_USB2_HS_PHY_ONLY_BCR] = {0x41034},
+	[GCC_USB2_HS_PHY_ONLY_BCR] = {0x0000C, 0},
 	[GCC_QUSB2_PHY_BCR] = {0x4103C},
 	[GCC_USB_HS_PHY_CFG_AHB_BCR] = {0x41038},
-	[GCC_USB2A_PHY_BCR] = {0x41028},
+	[GCC_USB2A_PHY_BCR] = {0x0000C, 1},
 	[GCC_USB3_PHY_BCR] = {0x39004},
 	[GCC_USB_30_BCR] = {0x39000},
 	[GCC_USB3PHY_PHY_BCR] = {0x39008},
