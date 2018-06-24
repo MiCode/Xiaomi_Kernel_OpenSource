@@ -1199,7 +1199,14 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	} else if (mdp5_data->sd_enabled && !sd_pipes) {
 		mdp5_data->sd_transition_state =
 			SD_TRANSITION_SECURE_TO_NON_SECURE;
+	} else if (mdp5_data->ctl->is_video_mode &&
+		((sd_pipes && !mdp5_data->sd_enabled) ||
+		(!sd_pipes && mdp5_data->sd_enabled)) &&
+		!mdp5_data->cache_null_commit) {
+		pr_err("NULL commit missing before display secure session entry/exit\n");
+		ret = -EINVAL;
 	}
+
 	return ret;
 }
 
