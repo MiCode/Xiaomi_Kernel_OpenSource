@@ -237,6 +237,13 @@ Required properties:
                             Value is from 45056 to 45061.
                             VA codec dma port ID Value is from 45089 to 45091.
 
+Optional properties:
+
+- qcom,msm-dai-is-island-supported:       Defines whether this dai supported in
+                                          island mode or not.
+                                          0 - Unsupported
+                                          1 - Supported
+
 * msm-auxpcm
 
 Required properties:
@@ -303,6 +310,10 @@ Optional properties:
                                           interface to be used for enabling
                                           PCM clock. If not defined, selects
                                           default AFE clock interface.
+- qcom,msm-dai-is-island-supported:       Defines whether this dai supported in
+                                          island mode or not.
+                                          0 - Unsupported
+                                          1 - Supported
 
 * msm-pcm-hostless
 
@@ -791,9 +802,13 @@ Required properties:
 
 Optional properties:
 
-- pinctrl-names:		Pinctrl state names for each pin group
-				configuration.
-- pinctrl-x: 			Defines pinctrl state for each pin group
+- pinctrl-names:		          Pinctrl state names for each pin group
+				          configuration.
+- pinctrl-x: 			          Defines pinctrl state for each pin group
+- qcom,msm-dai-is-island-supported:       Defines whether this dai supported in
+                                          island mode or not.
+                                          0 - Unsupported
+                                          1 - Supported
 
 Example:
 
@@ -976,6 +991,11 @@ Optional properties:
 				configuration.
 
  - pinctrl-x: Defines pinctrl state for each pin group.
+
+ - qcom,msm-dai-is-island-supported:      Defines whether this dai supported in
+                                          island mode or not.
+                                          0 - Unsupported
+                                          1 - Supported
 
 Example:
 
