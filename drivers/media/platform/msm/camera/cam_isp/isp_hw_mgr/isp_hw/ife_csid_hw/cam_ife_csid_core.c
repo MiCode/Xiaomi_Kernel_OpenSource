@@ -1851,8 +1851,8 @@ static int cam_ife_csid_disable_rdi_path(
 	soc_info = &csid_hw->hw_info->soc_info;
 	id = res->res_id;
 
-	if (res->res_id >= CAM_IFE_PIX_PATH_RES_MAX ||
-		!csid_reg->rdi_reg[res->res_id]) {
+	if ((res->res_id > CAM_IFE_PIX_PATH_RES_RDI_3) ||
+		(!csid_reg->rdi_reg[res->res_id])) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d Invalid res id%d",
 			csid_hw->hw_intf->hw_idx, res->res_id);
 		return -EINVAL;
