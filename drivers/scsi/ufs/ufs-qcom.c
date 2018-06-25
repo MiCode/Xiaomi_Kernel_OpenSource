@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2086,8 +2086,22 @@ static int ufs_qcom_parse_reg_info(struct ufs_qcom_host *host, char *name,
 		dev_err(dev, "%s: %s get failed, err=%d\n",
 			__func__, vreg->name, ret);
 	}
-	vreg->min_uV = VDDP_REF_CLK_MIN_UV;
-	vreg->max_uV = VDDP_REF_CLK_MAX_UV;
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-min-uV", name);
+	ret = of_property_read_u32(np, prop_name, &vreg->min_uV);
+	if (ret) {
+		dev_dbg(dev, "%s: unable to find %s err %d, using default\n",
+			__func__, prop_name, ret);
+		vreg->min_uV = VDDP_REF_CLK_MIN_UV;
+	}
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-uV", name);
+	ret = of_property_read_u32(np, prop_name, &vreg->max_uV);
+	if (ret) {
+		dev_dbg(dev, "%s: unable to find %s err %d, using default\n",
+			__func__, prop_name, ret);
+		vreg->max_uV = VDDP_REF_CLK_MAX_UV;
+	}
 
 out:
 	if (!ret)
