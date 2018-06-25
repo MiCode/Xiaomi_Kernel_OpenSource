@@ -1841,6 +1841,15 @@ static inline int hrtick_enabled(struct rq *rq)
 
 #endif /* CONFIG_SCHED_HRTICK */
 
+#ifdef CONFIG_SCHED_WALT
+u64 sched_ktime_clock(void);
+#else
+static inline u64 sched_ktime_clock(void)
+{
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_SMP
 extern void sched_avg_update(struct rq *rq);
 extern unsigned long sched_get_rt_rq_util(int cpu);
@@ -2479,7 +2488,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
 					cpu_of(rq)));
 	if (data)
-		data->func(data, ktime_get_ns(), flags);
+		data->func(data, sched_ktime_clock(), flags);
 }
 #else
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
