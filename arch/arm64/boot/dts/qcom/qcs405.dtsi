@@ -19,6 +19,7 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/mdss-28nm-pll-clk.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -279,6 +280,15 @@
 		clock-names = "cxo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-qcs405";
+		reg = <0x1800000 0x80000>;
+		clocks = <&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll BYTECLK_SRC_0_CLK>;
+		clock-names = "pclk0_src", "byte0_src";
+		#clock-cells = <1>;
 	};
 
 	clock_debugcc: qcom,cc-debug {
