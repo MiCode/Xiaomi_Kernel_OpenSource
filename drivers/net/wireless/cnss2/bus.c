@@ -218,7 +218,7 @@ int cnss_bus_call_driver_remove(struct cnss_plat_data *plat_priv)
 
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
-		return cnss_bus_call_driver_remove(plat_priv->bus_priv);
+		return cnss_pci_call_driver_remove(plat_priv->bus_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
