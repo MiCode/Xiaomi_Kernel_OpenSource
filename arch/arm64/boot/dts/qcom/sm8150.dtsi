@@ -2286,6 +2286,7 @@
 
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
+		qcom,fastrpc-adsp-audio-pdr;
 		qcom,rpc-latency-us = <611>;
 
 		qcom,msm_fastrpc_compute_cb1 {
