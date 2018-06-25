@@ -343,6 +343,10 @@
 		compatible = "qcom,dcc-v2";
 		reg = <0x000b2000 0x1000>,
 		      <0x000bf800 0x800>;
+
+		clocks = <&clock_gcc GCC_DCC_CLK>;
+		clock-names = "dcc_clk";
+
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
 	};
