@@ -1464,8 +1464,10 @@
 
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>;
-		reg-names = "hc_mem", "core_mem", "cmdq_mem";
+		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>,
+			<0x0119d000 0x4>;
+		reg-names = "hc_mem", "core_mem", "cmdq_mem",
+				"tlmm_mem";
 
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
