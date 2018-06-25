@@ -3424,8 +3424,8 @@ static int smb1360_regulator_init(struct smb1360_chip *chip)
 	chip->otg_vreg.rdesc.owner = THIS_MODULE;
 	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
 	chip->otg_vreg.rdesc.ops = &smb1360_otg_reg_ops;
-	chip->otg_vreg.rdesc.of_match = chip->dev->of_node->name;
-	chip->otg_vreg.rdesc.name = chip->dev->of_node->name;
+	chip->otg_vreg.rdesc.of_match = "qcom,smb1360-vbus";
+	chip->otg_vreg.rdesc.name = "qcom,smb1360-vbus";
 
 	cfg.dev = chip->dev;
 	cfg.driver_data = chip;
