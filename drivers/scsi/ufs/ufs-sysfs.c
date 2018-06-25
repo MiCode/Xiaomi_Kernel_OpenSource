@@ -50,6 +50,7 @@ static inline ssize_t ufs_sysfs_pm_lvl_store(struct device *dev,
 		hba->rpm_lvl = value;
 	else
 		hba->spm_lvl = value;
+	ufshcd_apply_pm_quirks(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return count;
 }
