@@ -384,6 +384,9 @@ Optional properties:
 
  - qcom,mclk-clk-reg:                       Indicate the register address for mclk.
 
+ - qcom,use-pinctrl:                        Indicates pinctrl required or not for this
+                                            clock node.
+
 * audio_slimslave
 
 Required properties:
