@@ -35,7 +35,6 @@ struct rmnet_bearer_map {
 	u8 bearer_id;
 	int flow_ref;
 	u32 grant_size;
-	u32 counter;
 	u16 seq;
 	u8  ack_req;
 };
