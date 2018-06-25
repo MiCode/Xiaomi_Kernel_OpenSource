@@ -359,7 +359,7 @@ struct ep_pcie_dev_t {
 	ulong                        global_irq_counter;
 
 	bool                         dump_conf;
-
+	bool                         config_mmio_init;
 	bool                         enumerated;
 	enum ep_pcie_link_status     link_status;
 	bool                         perst_deast;

@@ -602,6 +602,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* SDM710 ID */
 	[360] = {MSM_CPU_SDM710, "SDM710"},
 
+	/* SXR1120 ID */
+	[370] = {MSM_CPU_SXR1120, "SXR1120"},
+
 	/* 8953 ID */
 	[293] = {MSM_CPU_8953, "MSM8953"},
 	[304] = {MSM_CPU_8953, "APQ8053"},
@@ -617,6 +620,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/*MSM8937 ID  */
 	[294] = {MSM_CPU_8937, "MSM8937"},
 	[295] = {MSM_CPU_8937, "APQ8937"},
+
+	/* MSM8917 IDs */
+	[303] = {MSM_CPU_8917, "MSM8917"},
+	[307] = {MSM_CPU_8917, "APQ8017"},
+	[308] = {MSM_CPU_8917, "MSM8217"},
+	[309] = {MSM_CPU_8917, "MSM8617"},
 
 	/* SDM429 and SDM439 ID*/
 	[353] = {MSM_CPU_SDM439, "SDM439"},
@@ -1551,6 +1560,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 347;
 		strlcpy(dummy_socinfo.build_id, "qcs605 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sxr1120()) {
+		dummy_socinfo.id = 370;
+		strlcpy(dummy_socinfo.build_id, "sxr1120 - ",
+			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_mdm9650()) {
 		dummy_socinfo.id = 286;
 		strlcpy(dummy_socinfo.build_id, "mdm9650 - ",
@@ -1566,6 +1579,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msm8937()) {
 		dummy_socinfo.id = 294;
 		strlcpy(dummy_socinfo.build_id, "msm8937 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8917()) {
+		dummy_socinfo.id = 303;
+		strlcpy(dummy_socinfo.build_id, "msm8917 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdm450()) {
 		dummy_socinfo.id = 338;

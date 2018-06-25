@@ -348,6 +348,12 @@
 #include "smb1355.dtsi"
 };
 
+&pmi632_vadc {
+	chan@4a {
+		qcom,scale-function = <22>;
+	};
+};
+
 &pmi632_gpios {
 	smb_en {
 		smb_en_default: smb_en_default {
@@ -370,11 +376,11 @@
 &tlmm {
 	smb_int_default: smb_int_default {
 		mux {
-			pins = "gpio59";
+			pins = "gpio61";
 			function = "gpio";
 		};
 		config {
-			pins = "gpio59";
+			pins = "gpio61";
 			drive-strength = <2>;
 			bias-pull-up;
 			input-enable;
@@ -387,7 +393,7 @@
 	pinctrl-0 = <&smb_int_default
 		&smb_en_default &pmi632_sense_default>;
 	interrupt-parent = <&tlmm>;
-	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
+	interrupts = <61 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_0: qcom,smb1355-charger@1000 {
 		status ="ok";
 		/delete-property/ io-channels;
@@ -401,7 +407,7 @@
 	pinctrl-0 = <&smb_int_default
 		&smb_en_default &pmi632_sense_default>;
 	interrupt-parent = <&tlmm>;
-	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
+	interrupts = <61 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_1: qcom,smb1355-charger@1000 {
 		status ="ok";
 		/delete-property/ io-channels;

@@ -1548,10 +1548,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_IMG_GRID_DIMENSION:
 	{
-		int i = 0, j = 0;
-		u32 width = 0, height = 0;
-		u32 trows, tcols;
-
 		property_id = HAL_CONFIG_HEIC_GRID_ENABLE;
 		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
 			dprintk(VIDC_ERR, "Grid is supported only for HEVC\n");
@@ -1566,38 +1562,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		grid_enable.grid_enable = ctrl->val;
 		inst->img_grid_dimension = ctrl->val;
 		pdata = &grid_enable;
-
-		/* Update tile info table */
-		width = inst->prop.width[OUTPUT_PORT];
-		height = inst->prop.height[OUTPUT_PORT];
-		tcols = (width + inst->img_grid_dimension - 1) /
-					inst->img_grid_dimension;
-		trows = (height + inst->img_grid_dimension - 1) /
-					inst->img_grid_dimension;
-		inst->tinfo.count = trows * tcols;
-		if (inst->tinfo.count > MAX_HEIC_TILES_COUNT) {
-			dprintk(VIDC_ERR, "Tiles count exceeds maximum\n");
-			rc = -ENOTSUPP;
-			break;
-		}
-
-		dprintk(VIDC_DBG,
-			"Grid dimension %d width %d height %d row %d col %d\n",
-			inst->img_grid_dimension, width, height,
-			trows, tcols);
-
-		for (j = 0; j < trows; ++j) {
-			for (i = 0; i < tcols; ++i) {
-				inst->tinfo.tile_rects[j*tcols+i].left =
-					(i * inst->img_grid_dimension);
-				inst->tinfo.tile_rects[j*tcols+i].top =
-					(j * inst->img_grid_dimension);
-				inst->tinfo.tile_rects[j*tcols+i].width =
-					inst->img_grid_dimension;
-				inst->tinfo.tile_rects[j*tcols+i].height =
-					inst->img_grid_dimension;
-			}
-		}
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:

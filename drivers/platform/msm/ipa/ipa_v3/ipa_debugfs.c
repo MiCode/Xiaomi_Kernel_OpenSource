@@ -1952,7 +1952,7 @@ static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	ipahal_print_all_regs();
+	ipahal_print_all_regs(true);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;

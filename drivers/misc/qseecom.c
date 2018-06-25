@@ -4061,8 +4061,11 @@ static int __qseecom_allocate_img_data(struct ion_handle **pihandle,
 	int retry = 0;
 
 	do {
-		if (retry++)
+		if (retry++) {
+			mutex_unlock(&app_access_lock);
 			msleep(QSEECOM_TA_ION_ALLOCATE_DELAY);
+			mutex_lock(&app_access_lock);
+		}
 		ihandle = ion_alloc(qseecom.ion_clnt, fw_size,
 			SZ_4K, ION_HEAP(ION_QSECOM_TA_HEAP_ID), 0);
 	} while (IS_ERR_OR_NULL(ihandle) &&
@@ -4212,8 +4215,12 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname,
 	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf, cmd_len,
 			&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call to load failed : ret %d\n", ret);
-		ret = -EIO;
+		pr_err("scm_call to load failed : ret %d, result %x\n",
+			ret, resp.result);
+		if (resp.result == QSEOS_RESULT_FAIL_APP_ALREADY_LOADED)
+			ret = -EEXIST;
+		else
+			ret = -EIO;
 		goto exit_disable_clk_vote;
 	}
 
@@ -4465,6 +4472,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	}
 	mutex_lock(&app_access_lock);
 
+recheck:
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	strlcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq, &app_id);
@@ -4494,7 +4502,10 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		pr_debug("%s: Loading app for the first time'\n",
 				qseecom.pdev->init_name);
 		ret = __qseecom_load_fw(data, app_name, &app_id);
-		if (ret < 0)
+		if (ret == -EEXIST) {
+			pr_err("recheck if TA %s is loaded\n", app_name);
+			goto recheck;
+		} else if (ret < 0)
 			goto exit_ion_free;
 	}
 	data->client.app_id = app_id;

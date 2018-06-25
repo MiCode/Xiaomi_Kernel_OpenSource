@@ -4279,7 +4279,7 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 		IPAERR("uC panic handler failed %d\n", res);
 
 	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
-		ipahal_print_all_regs();
+		ipahal_print_all_regs(false);
 
 	return NOTIFY_DONE;
 }
@@ -6270,7 +6270,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			iova_p, &pa_p, size_p);
 		ipa3_iommu_map(cb->mapping->domain,
 			iova_p, pa_p, size_p,
-			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+			IOMMU_READ | IOMMU_WRITE);
 	}
 
 
