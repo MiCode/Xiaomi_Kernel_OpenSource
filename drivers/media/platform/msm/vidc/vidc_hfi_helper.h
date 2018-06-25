@@ -247,6 +247,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_COMMON_START + 0x001)
 #define HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE				\
 	(HFI_PROPERTY_CONFIG_COMMON_START + 0x002)
+#define HFI_PROPERTY_CONFIG_OPERATING_RATE				\
+	(HFI_PROPERTY_CONFIG_COMMON_START + 0x003)
 
 #define HFI_PROPERTY_PARAM_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x3000)
@@ -477,6 +479,10 @@ struct hfi_h264_entropy_control {
 struct hfi_frame_rate {
 	u32 buffer_type;
 	u32 frame_rate;
+};
+
+struct hfi_operating_rate {
+	u32 operating_rate;
 };
 
 #define HFI_INTRA_REFRESH_NONE				(HFI_COMMON_BASE + 0x1)

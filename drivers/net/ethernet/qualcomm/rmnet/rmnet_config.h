@@ -68,7 +68,6 @@ struct rmnet_port {
 	void *qmi_info;
 
 	/* dl marker elements */
-	spinlock_t dl_list_lock;
 	struct list_head dl_list;
 	struct rmnet_port_priv_stats stats;
 };

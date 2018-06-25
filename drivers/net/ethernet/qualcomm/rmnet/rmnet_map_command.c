@@ -99,12 +99,8 @@ static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
 {
 	struct rmnet_map_dl_ind *tmp;
 
-	spin_lock(&port->dl_list_lock);
-
 	list_for_each_entry(tmp, &port->dl_list, list)
 		tmp->dl_hdr_handler(dlhdr);
-
-	spin_unlock(&port->dl_list_lock);
 }
 
 static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
@@ -112,12 +108,8 @@ static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
 {
 	struct rmnet_map_dl_ind *tmp;
 
-	spin_lock(&port->dl_list_lock);
-
 	list_for_each_entry(tmp, &port->dl_list, list)
 		tmp->dl_trl_handler(dltrl);
-
-	spin_unlock(&port->dl_list_lock);
 }
 
 static void rmnet_map_process_flow_start(struct sk_buff *skb,
@@ -229,18 +221,13 @@ void rmnet_map_cmd_exit(struct rmnet_port *port)
 {
 	struct rmnet_map_dl_ind *tmp, *idx;
 
-	spin_lock(&port->dl_list_lock);
-
 	list_for_each_entry_safe(tmp, idx, &port->dl_list, list)
 		list_del_rcu(&tmp->list);
-
-	spin_unlock(&port->dl_list_lock);
 }
 
 void rmnet_map_cmd_init(struct rmnet_port *port)
 {
 	INIT_LIST_HEAD(&port->dl_list);
-	spin_lock_init(&port->dl_list_lock);
 }
 
 int rmnet_map_dl_ind_register(struct rmnet_port *port,
@@ -250,9 +237,7 @@ int rmnet_map_dl_ind_register(struct rmnet_port *port,
 	    !dl_ind->dl_trl_handler)
 		return -EINVAL;
 
-	spin_lock(&port->dl_list_lock);
 	list_add_rcu(&dl_ind->list, &port->dl_list);
-	spin_unlock(&port->dl_list_lock);
 
 	return 0;
 }
@@ -265,8 +250,6 @@ int rmnet_map_dl_ind_deregister(struct rmnet_port *port,
 	if (!port || !dl_ind)
 		return -EINVAL;
 
-	spin_lock(&port->dl_list_lock);
-
 	list_for_each_entry(tmp, &port->dl_list, list) {
 		if (tmp == dl_ind) {
 			list_del_rcu(&dl_ind->list);
@@ -275,7 +258,5 @@ int rmnet_map_dl_ind_deregister(struct rmnet_port *port,
 	}
 
 done:
-	spin_unlock(&port->dl_list_lock);
-
 	return 0;
 }

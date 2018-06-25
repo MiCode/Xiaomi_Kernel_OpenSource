@@ -13,6 +13,7 @@
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
+#include "kgsl_gmu_core.h"
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x2000	/* in bytes */

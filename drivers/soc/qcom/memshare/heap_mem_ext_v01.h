@@ -14,10 +14,11 @@
 #ifndef HEAP_MEM_EXT_SERVICE_01_H
 #define HEAP_MEM_EXT_SERVICE_01_H
 
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 
 #define MEM_ALLOC_REQ_MAX_MSG_LEN_V01 255
 #define MEM_FREE_REQ_MAX_MSG_LEN_V01 255
+#define MEM_QUERY_MAX_MSG_LEN_V01 255
 #define MAX_ARR_CNT_V01 64
 
 struct dhms_mem_alloc_addr_info_type_v01 {
@@ -81,83 +82,6 @@ enum dhms_mem_block_align_enum_v01 {
 	/* To force a 32 bit signed enum.  Do not change or use
 	 */
 };
-
-/* Request Message; This command is used for getting
- * the multiple physically contiguous
- * memory blocks from the server memory subsystem
- */
-struct mem_alloc_req_msg_v01 {
-
-	/* Mandatory */
-	/*requested size*/
-	uint32_t num_bytes;
-
-	/* Optional */
-	/* Must be set to true if block_alignment
-	 * is being passed
-	 */
-	uint8_t block_alignment_valid;
-	/* The block alignment for the memory block to be allocated
-	 */
-	enum dhms_mem_block_align_enum_v01 block_alignment;
-};  /* Message */
-
-/* Response Message; This command is used for getting
- * the multiple physically contiguous memory blocks
- * from the server memory subsystem
- */
-struct mem_alloc_resp_msg_v01 {
-
-	/* Mandatory */
-	/*  Result Code */
-	/* The result of the requested memory operation
-	 */
-	enum qmi_result_type_v01 resp;
-	/* Optional */
-	/*  Memory Block Handle
-	 */
-	/* Must be set to true if handle is being passed
-	 */
-	uint8_t handle_valid;
-	/* The physical address of the memory allocated on the HLOS
-	 */
-	uint64_t handle;
-	/* Optional */
-	/* Memory block size */
-	/* Must be set to true if num_bytes is being passed
-	 */
-	uint8_t num_bytes_valid;
-	/* The number of bytes actually allocated for the request.
-	 * This value can be smaller than the size requested in
-	 * QMI_DHMS_MEM_ALLOC_REQ_MSG.
-	 */
-	uint32_t num_bytes;
-};  /* Message */
-
-/* Request Message; This command is used for releasing
- * the multiple physically contiguous
- * memory blocks to the server memory subsystem
- */
-struct mem_free_req_msg_v01 {
-
-	/* Mandatory */
-	/* Physical address of memory to be freed
-	 */
-	uint32_t handle;
-};  /* Message */
-
-/* Response Message; This command is used for releasing
- * the multiple physically contiguous
- * memory blocks to the server memory subsystem
- */
-struct mem_free_resp_msg_v01 {
-
-	/* Mandatory */
-	/* Result of the requested memory operation, todo,
-	 * need to check the async operation for free
-	 */
-	enum qmi_result_type_v01 resp;
-};  /* Message */
 
 /* Request Message; This command is used for getting
  * the multiple physically contiguous
@@ -330,22 +254,14 @@ struct mem_query_size_rsp_msg_v01 {
 };  /* Message */
 
 
-extern struct elem_info mem_alloc_req_msg_data_v01_ei[];
-extern struct elem_info mem_alloc_resp_msg_data_v01_ei[];
-extern struct elem_info mem_free_req_msg_data_v01_ei[];
-extern struct elem_info mem_free_resp_msg_data_v01_ei[];
-extern struct elem_info mem_alloc_generic_req_msg_data_v01_ei[];
-extern struct elem_info mem_alloc_generic_resp_msg_data_v01_ei[];
-extern struct elem_info mem_free_generic_req_msg_data_v01_ei[];
-extern struct elem_info mem_free_generic_resp_msg_data_v01_ei[];
-extern struct elem_info mem_query_size_req_msg_data_v01_ei[];
-extern struct elem_info mem_query_size_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_alloc_generic_req_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_alloc_generic_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_free_generic_req_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_free_generic_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_query_size_req_msg_data_v01_ei[];
+extern struct qmi_elem_info mem_query_size_resp_msg_data_v01_ei[];
 
 /*Service Message Definition*/
-#define MEM_ALLOC_REQ_MSG_V01 0x0020
-#define MEM_ALLOC_RESP_MSG_V01 0x0020
-#define MEM_FREE_REQ_MSG_V01 0x0021
-#define MEM_FREE_RESP_MSG_V01 0x0021
 #define MEM_ALLOC_GENERIC_REQ_MSG_V01 0x0022
 #define MEM_ALLOC_GENERIC_RESP_MSG_V01 0x0022
 #define MEM_FREE_GENERIC_REQ_MSG_V01 0x0023

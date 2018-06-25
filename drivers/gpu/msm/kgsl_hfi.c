@@ -312,7 +312,13 @@ static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
 	if (rc)
 		return rc;
 
-	return ret_cmd.results[2];
+	if (ret_cmd.results[2])
+		dev_err(&gmu->pdev->dev,
+				"HFI ACK failure: Req 0x%8.8X Error 0x%X\n",
+				ret_cmd.results[1],
+				ret_cmd.results[2]);
+
+	return ret_cmd.results[2] ? -EINVAL : 0;
 }
 
 static int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)
@@ -364,36 +370,37 @@ static int hfi_send_core_fw_start(struct gmu_device *gmu)
 	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
-static struct hfi_feature {
-	uint32_t feature;
-	uint32_t enable;
-	uint32_t data;
-} hfi_features[] = {
-	{ HFI_FEATURE_ECP, 0, 0},
+static const char * const hfi_features[] = {
+	[HFI_FEATURE_ECP] = "ECP",
 };
 
-static int hfi_send_feature_ctrls(struct gmu_device *gmu)
+static const char *feature_to_string(uint32_t feature)
 {
-	struct hfi_feature_ctrl_cmd cmd;
-	int ret = 0, i;
+	if (feature < ARRAY_SIZE(hfi_features) && hfi_features[feature])
+		return hfi_features[feature];
 
-	for (i = 0; i < ARRAY_SIZE(hfi_features); i++) {
-		cmd.hdr = CMD_MSG_HDR(H2F_MSG_FEATURE_CTRL, sizeof(cmd));
-		cmd.feature = hfi_features[i].feature;
-		cmd.enable = hfi_features[i].enable;
-		cmd.data = hfi_features[i].data;
+	return "unknown";
+}
 
-		ret = hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
-		if (ret) {
-			pr_err("KGSL: setfeature fail:%d [%d:%d:0x%x]\n", ret,
-					hfi_features[i].feature,
-					hfi_features[i].enable,
-					hfi_features[i].data);
-			return ret;
-		}
-	}
+static int hfi_send_feature_ctrl(struct gmu_device *gmu,
+		uint32_t feature, uint32_t enable, uint32_t data)
+{
+	struct hfi_feature_ctrl_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_FEATURE_CTRL, sizeof(cmd)),
+		.feature = feature,
+		.enable = enable,
+		.data = data,
+	};
+	int ret;
 
-	return 0;
+	ret = hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+	if (ret)
+		dev_err(&gmu->pdev->dev,
+				"Unable to %s feature %s (%d)\n",
+				enable ? "enable" : "disable",
+				feature_to_string(feature),
+				feature);
+	return ret;
 }
 
 static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
@@ -663,9 +670,8 @@ int hfi_start(struct kgsl_device *device,
 	 * we are sending no more HFIs until the next boot otherwise
 	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
-
 	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
-		result = hfi_send_feature_ctrls(gmu);
+		result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ECP, 0, 0);
 		if (result)
 			return result;
 

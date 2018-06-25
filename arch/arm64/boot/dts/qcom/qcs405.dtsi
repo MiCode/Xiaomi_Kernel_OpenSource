@@ -596,6 +596,7 @@
 		qcom,rpc-latency-us = <611>;
 		qcom,fastrpc-adsp-audio-pdr;
 		qcom,fastrpc-adsp-sensors-pdr;
+		qcom,fastrpc-legacy-remote-heap;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -892,7 +893,19 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,nonremovable;
-		status = "disabled";
+
+		/* VDD external regulator is enabled/disabled by pms405_l6 */
+		vdd-io-supply = <&pms405_l6>;
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1704000 1800000>;
+		qcom,vdd-io-current-level = <0 325000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+		status = "ok";
 	};
 
 	sdhc_2: sdhci@7844000 {
@@ -907,17 +920,26 @@
 		qcom,large-address-bus;
 
 		qcom,clk-rates = <400000 20000000 25000000
-					50000000 100000000 201500000>;
+					50000000 100000000 200000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
-		qcom,devfreq,freq-table = <50000000 201500000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
-		status = "disabled";
+		/* VDD is an external regulator eLDO5 */
+		vdd-io-supply = <&pms405_l11>;
+		qcom,vdd-io-voltage-level = <2696000 3304000>;
+		qcom,vdd-io-current-level = <0 22000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+		status = "ok";
 	};
 
 	qnand_1: nand@4c0000 {
@@ -942,6 +964,7 @@
 #include "qcs405-regulator.dtsi"
 #include "qcs405-thermal.dtsi"
 #include "qcs405-bus.dtsi"
+#include "qcs405-audio.dtsi"
 
 &gdsc_mdss {
 	status = "ok";

@@ -676,7 +676,7 @@ Example:
                 q6core {
                         compatible = "qcom,q6core-audio";
                         bolero: bolero-cdc {
-                                compatible = "qcom,bolero-cdc";
+                                compatible = "qcom,bolero-codec";
                         };
                 };
 	};

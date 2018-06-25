@@ -1076,7 +1076,7 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 		offset = 0;
 	}
 
-	rc = fg_direct_mem_release(fg);
+	ret = fg_direct_mem_release(fg);
 	if (ret < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n", rc);
 		return ret;
