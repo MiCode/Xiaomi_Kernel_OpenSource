@@ -471,6 +471,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
@@ -506,6 +507,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_prop_usb_voltage_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		rc = smblib_get_prop_usb_voltage_max_design(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
 		val->intval = get_client_vote(chg->usb_icl_votable, PD_VOTER);

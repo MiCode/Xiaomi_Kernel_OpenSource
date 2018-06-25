@@ -492,6 +492,8 @@ int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
