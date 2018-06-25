@@ -1015,6 +1015,7 @@ static unsigned num_emulated_msrs;
 static u32 msr_based_features[] = {
 	MSR_F10H_DECFG,
 	MSR_IA32_UCODE_REV,
+	MSR_IA32_ARCH_CAPABILITIES,
 };
 
 static unsigned int num_msr_based_features;
@@ -1023,7 +1024,8 @@ static int kvm_get_msr_feature(struct kvm_msr_entry *msr)
 {
 	switch (msr->index) {
 	case MSR_IA32_UCODE_REV:
-		rdmsrl(msr->index, msr->data);
+	case MSR_IA32_ARCH_CAPABILITIES:
+		rdmsrl_safe(msr->index, &msr->data);
 		break;
 	default:
 		if (kvm_x86_ops->get_msr_feature(msr))
