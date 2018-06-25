@@ -2527,7 +2527,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 
 end:
 	if (sspp->layout.format) {
-		if (SDE_FORMAT_IS_DX(sspp->layout.format))
+		if (!SDE_FORMAT_IS_DX(sspp->layout.format))
 			op_mode |= BIT(14);
 		if (sspp->layout.format->alpha_enable) {
 			op_mode |= BIT(10);
