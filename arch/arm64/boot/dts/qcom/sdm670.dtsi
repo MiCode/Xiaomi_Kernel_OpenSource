@@ -560,7 +560,15 @@
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0xc00000>;
+			size = <0 0x800000>;
+		};
+
+		sdsp_mem: sdsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
 		};
 
 		qseecom_ta_mem: qseecom_ta_region {
