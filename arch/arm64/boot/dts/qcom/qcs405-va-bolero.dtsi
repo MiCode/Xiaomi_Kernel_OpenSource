@@ -32,3 +32,7 @@
 		#clock-cells = <1>;
 	};
 };
+
+&va_cdc_dma_0_tx {
+	qcom,msm-dai-is-island-supported = <1>;
+};
