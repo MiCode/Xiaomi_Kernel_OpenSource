@@ -24,7 +24,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 
-#include <linux/msm_mhi_dev.h>
+#include "mhi.h"
 
 static uint32_t mhi_dev_ring_addr2ofst(struct mhi_dev_ring *ring, uint64_t p)
 {
