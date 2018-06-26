@@ -90,8 +90,8 @@
 	lmh-dcvs-00 {
 		trips {
 			active-config {
-				temperature = <105000>;
-				hysteresis = <40000>;
+				temperature = <100000>;
+				hysteresis = <35000>;
 			};
 		};
 	};
@@ -99,8 +99,8 @@
 	lmh-dcvs-01 {
 		trips {
 			active-config {
-				temperature = <105000>;
-				hysteresis = <40000>;
+				temperature = <100000>;
+				hysteresis = <35000>;
 			};
 		};
 	};
