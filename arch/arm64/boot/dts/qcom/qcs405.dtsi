@@ -88,6 +88,14 @@
 			size = <0 0x7000000>;
 		};
 
+		mdf_mem: mdf_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
+		};
+
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -729,6 +737,37 @@
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x806 0x0>;
 			shared-cb = <5>;
+		};
+	};
+
+	qcom,msm-mdf-mem {
+		compatible = "qcom,msm-mdf-mem-region";
+		qcom,msm-mdf-mem-data-size = <0x200000>;
+		memory-region = <&mdf_mem>;
+	};
+
+	qcom,msm-mdf {
+		compatible = "qcom,msm-mdf";
+
+		qcom,msm_mdf_cb1 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "adsp";
+			qcom,smmu-enabled;
+		};
+
+		qcom,msm_mdf_cb2 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "dsps";
+		};
+
+		qcom,msm_mdf_cb3 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "modem";
+		};
+
+		qcom,msm_mdf_cb4 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "cdsp";
 		};
 	};
 
