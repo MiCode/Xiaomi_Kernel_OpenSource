@@ -229,10 +229,6 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
-&dsi_sharp_4k_dsc_cmd_display {
-	qcom,dsi-display-active;
-};
-
 &qupv3_se9_i2c {
 	status = "ok";
 	nq@28 {

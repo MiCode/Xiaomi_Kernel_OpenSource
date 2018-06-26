@@ -2574,7 +2574,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.ss_desc_hdr = gsi_eth_ss_function;
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
-		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
+		info.in_req_buf_len = GSI_IN_RNDIS_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
 		info.in_req_num_buf = GSI_NUM_IN_RNDIS_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
@@ -2763,8 +2763,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
-		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
+		info.in_req_buf_len = GSI_IN_RMNET_BUFF_SIZE;
+		info.in_req_num_buf = GSI_NUM_IN_RMNET_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_RMNET_BUF_LEN;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;

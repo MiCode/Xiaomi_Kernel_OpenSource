@@ -731,6 +731,8 @@ struct root_domain {
 
 	/* First cpu with maximum and minimum original capacity */
 	int max_cap_orig_cpu, min_cap_orig_cpu;
+	/* First cpu with mid capacity */
+	int mid_cap_orig_cpu;
 };
 
 extern struct root_domain def_root_domain;
@@ -2899,6 +2901,14 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
+{
+	bool boost_on_big = task_sched_boost(p) &&
+				sched_boost_policy() == SCHED_BOOST_ON_BIG;
+
+	return boost_on_big;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -2911,6 +2921,11 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
 {
 	return false;
 }

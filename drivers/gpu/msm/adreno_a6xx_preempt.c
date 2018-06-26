@@ -48,8 +48,13 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 
 		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 			status = gmu_dev_ops->oob_set(adreno_dev, oob_preempt);
-			if (status)
+			if (status) {
+				adreno_set_gpu_fault(adreno_dev,
+					ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(
+					KGSL_DEVICE(adreno_dev));
 				return;
+			}
 		}
 	}
 

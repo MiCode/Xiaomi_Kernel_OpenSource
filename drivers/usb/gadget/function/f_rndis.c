@@ -752,6 +752,27 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis_data_intf.bInterfaceNumber = status;
 	rndis_union_desc.bSlaveInterface0 = status;
 
+	if (rndis_opts->wceis) {
+		/* "Wireless" RNDIS; auto-detected by Windows */
+		rndis_iad_descriptor.bFunctionClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_iad_descriptor.bFunctionProtocol = 0x03;
+		rndis_control_intf.bInterfaceClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_control_intf.bInterfaceSubClass =	 0x01;
+		rndis_control_intf.bInterfaceProtocol =	 0x03;
+	} else {
+		rndis_iad_descriptor.bFunctionClass = USB_CLASS_COMM;
+		rndis_iad_descriptor.bFunctionSubClass =
+						USB_CDC_SUBCLASS_ETHERNET;
+		rndis_iad_descriptor.bFunctionProtocol = USB_CDC_PROTO_NONE;
+		rndis_control_intf.bInterfaceClass = USB_CLASS_COMM;
+		rndis_control_intf.bInterfaceSubClass =	USB_CDC_SUBCLASS_ACM;
+		rndis_control_intf.bInterfaceProtocol =
+						USB_CDC_ACM_PROTO_VENDOR;
+	}
+
 	status = -ENODEV;
 
 	/* allocate instance-specific endpoints */
@@ -890,6 +911,9 @@ USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, subclass);
 /* f_rndis_opts_protocol */
 USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, protocol);
 
+/* f_rndis_opts_wceis */
+USB_ETHERNET_CONFIGFS_ITEM_ATTR_WCEIS(rndis);
+
 static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_dev_addr,
 	&rndis_opts_attr_host_addr,
@@ -898,6 +922,7 @@ static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_class,
 	&rndis_opts_attr_subclass,
 	&rndis_opts_attr_protocol,
+	&rndis_opts_attr_wceis,
 	NULL,
 };
 
@@ -961,6 +986,9 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 		return ERR_CAST(rndis_interf_group);
 	}
 	opts->rndis_interf_group = rndis_interf_group;
+
+	/* Enable "Wireless" RNDIS by default */
+	opts->wceis = true;
 
 	return &opts->func_inst;
 }

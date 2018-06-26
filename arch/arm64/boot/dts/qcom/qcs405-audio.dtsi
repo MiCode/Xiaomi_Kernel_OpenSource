@@ -139,3 +139,15 @@
 		};
 	};
 };
+
+&dai_mi2s4 {
+	qcom,msm-dai-is-island-supported = <1>;
+};
+
+&dai_quin_auxpcm {
+	qcom,msm-dai-is-island-supported = <1>;
+};
+
+&dai_quin_tdm_tx_0 {
+	qcom,msm-dai-is-island-supported = <1>;
+};
