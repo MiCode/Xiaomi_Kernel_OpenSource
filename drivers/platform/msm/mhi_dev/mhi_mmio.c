@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 
-#include "mhi.h"
+#include <linux/msm_mhi_dev.h>
 #include "mhi_hwio.h"
 
 int mhi_dev_mmio_read(struct mhi_dev *dev, uint32_t offset,
