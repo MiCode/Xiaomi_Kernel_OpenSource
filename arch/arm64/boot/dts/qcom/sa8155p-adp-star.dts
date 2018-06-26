@@ -11,12 +11,12 @@
  */
 
 /dts-v1/;
-
-#include "sa8150p.dtsi"
+#include "sa8155p.dtsi"
+#include "sa8155-adp-star.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8150P SoC";
-	compatible = "qcom,sa8150p";
-	qcom,pmic-name = "PM8150";
-	qcom,board-id = <0 0>;
+	model = "Qualcomm Technologies, Inc. SA8155P ADP-STAR";
+	compatible = "qcom,sa8155p-adp-star", "qcom,sa8155p",
+		"qcom,adp-star";
+	qcom,board-id = <25 0>;
 };
