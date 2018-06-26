@@ -545,6 +545,33 @@
 			};
 		};
 
+		imu {
+			imu_int_active: imu_int_active{
+				mux {
+					pins = "gpio12";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio12";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			imu_int_suspend: imu_int_suspend{
+				mux {
+					pins = "gpio12";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio12";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+		};
+
 		nfc {
 			nfcw_int_active: nfcw_int_active {
 				mux {
