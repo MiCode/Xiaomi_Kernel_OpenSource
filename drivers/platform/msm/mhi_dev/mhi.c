@@ -29,7 +29,7 @@
 #include <linux/ipa_mhi.h>
 #include <linux/vmalloc.h>
 
-#include <linux/msm_mhi_dev.h>
+#include "mhi.h"
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 

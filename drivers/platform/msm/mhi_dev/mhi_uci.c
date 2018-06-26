@@ -27,7 +27,7 @@
 #include <linux/msm_ipa.h>
 #include <linux/ipa.h>
 #include <uapi/linux/mhi.h>
-#include <linux/msm_mhi_dev.h>
+#include "mhi.h"
 
 #define MHI_SOFTWARE_CLIENT_START	0
 #define MHI_SOFTWARE_CLIENT_LIMIT	(MHI_MAX_SOFTWARE_CHANNELS/2)
