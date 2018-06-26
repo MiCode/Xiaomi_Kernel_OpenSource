@@ -394,19 +394,33 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 static u32 get_frame_size_compressed_full_yuv(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
+	u32 frame_size;
+
 	if (max_mbs_per_frame > MAX_4K_MBPF)
-		return (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
+		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
 	else
-		return (max_mbs_per_frame * size_per_mb * 3 / 2);
+		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2);
+
+	/* multiply by 10/8 (1.25) to get size for 10 bit case */
+	frame_size = frame_size + (frame_size >> 2);
+
+	return frame_size;
 }
 
 static u32 get_frame_size_compressed(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
+	u32 frame_size;
+
 	if (max_mbs_per_frame > MAX_4K_MBPF)
-		return (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
+		frame_size = (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
 	else
-		return (max_mbs_per_frame * size_per_mb * 3/2)/2;
+		frame_size = (max_mbs_per_frame * size_per_mb * 3/2)/2;
+
+	/* multiply by 10/8 (1.25) to get size for 10 bit case */
+	frame_size = frame_size + (frame_size >> 2);
+
+	return frame_size;
 }
 
 static u32 get_frame_size(struct msm_vidc_inst *inst,
