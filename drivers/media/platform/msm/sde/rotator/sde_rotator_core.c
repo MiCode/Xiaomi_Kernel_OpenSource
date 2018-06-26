@@ -418,9 +418,6 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			if (ret)
 				goto error_rot_sub;
 
-			/* reinitialize static vbif setting */
-			sde_mdp_init_vbif();
-
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
 				mgr->data_bus.bus_hdl, false,
