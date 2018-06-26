@@ -149,7 +149,8 @@ size_t ion_system_secure_heap_page_pool_total(struct ion_heap *heap,
 	return total << PAGE_SHIFT;
 }
 
-static void process_one_shrink(struct ion_heap *sys_heap,
+static void process_one_shrink(struct ion_system_secure_heap *secure_heap,
+			       struct ion_heap *sys_heap,
 			       struct prefetch_info *info)
 {
 	struct ion_buffer buffer;
@@ -157,7 +158,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	int ret;
 
 	memset(&buffer, 0, sizeof(struct ion_buffer));
-	buffer.heap = sys_heap;
+	buffer.heap = &secure_heap->heap;
 	buffer.flags = info->vmid;
 
 	pool_size = ion_system_secure_heap_page_pool_total(sys_heap,
@@ -171,6 +172,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	}
 
 	buffer.private_flags = ION_PRIV_FLAG_SHRINKER_FREE;
+	buffer.heap = sys_heap;
 	sys_heap->ops->free(&buffer);
 }
 
@@ -190,7 +192,7 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 		if (info->shrink)
-			process_one_shrink(sys_heap, info);
+			process_one_shrink(secure_heap, sys_heap, info);
 		else
 			process_one_prefetch(sys_heap, info);
 
@@ -205,7 +207,7 @@ static int alloc_prefetch_info(struct ion_prefetch_regions __user *
 			       struct list_head *items)
 {
 	struct prefetch_info *info;
-	u64 __user *user_sizes;
+	u64 user_sizes;
 	int err;
 	unsigned int nr_sizes, vmid, i;
 
@@ -226,7 +228,7 @@ static int alloc_prefetch_info(struct ion_prefetch_regions __user *
 		if (!info)
 			return -ENOMEM;
 
-		err = get_user(info->size, &user_sizes[i]);
+		err = get_user(info->size, ((u64 __user *)user_sizes + i));
 		if (err)
 			goto out_free;
 
@@ -260,7 +262,10 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		return -EINVAL;
 
 	for (i = 0; i < data->nr_regions; i++) {
-		ret = alloc_prefetch_info(&data->regions[i], shrink, &items);
+		struct ion_prefetch_regions *r;
+
+		r = (struct ion_prefetch_regions *)data->regions + i;
+		ret = alloc_prefetch_info(r, shrink, &items);
 		if (ret)
 			goto out_free;
 	}
@@ -270,9 +275,9 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 		goto out_free;
 	}
-	list_splice_init(&items, &secure_heap->prefetch_list);
-	schedule_delayed_work(&secure_heap->prefetch_work,
-			      shrink ? msecs_to_jiffies(SHRINK_DELAY) : 0);
+	list_splice_tail_init(&items, &secure_heap->prefetch_list);
+	queue_delayed_work(system_unbound_wq, &secure_heap->prefetch_work,
+			   shrink ?  msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 	return 0;
@@ -449,7 +454,10 @@ int ion_secure_page_pool_shrink(struct ion_system_heap *sys_heap,
 		sg = sg_next(sg);
 	}
 
-	if (ion_hyp_unassign_sg(&sgt, &vmid, 1, true))
+	ret = ion_hyp_unassign_sg(&sgt, &vmid, 1, true, true);
+	if (ret == -EADDRNOTAVAIL)
+		goto out3;
+	else if (ret < 0)
 		goto out2;
 
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -460,6 +468,8 @@ int ion_secure_page_pool_shrink(struct ion_system_heap *sys_heap,
 	sg_free_table(&sgt);
 	return freed;
 
+out2:
+	sg_free_table(&sgt);
 out1:
 	/* Restore pages to secure pool */
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
@@ -467,7 +477,7 @@ out1:
 		ion_page_pool_free(pool, page);
 	}
 	return 0;
-out2:
+out3:
 	/*
 	 * The security state of the pages is unknown after a failure;
 	 * They can neither be added back to the secure pool nor buddy system.

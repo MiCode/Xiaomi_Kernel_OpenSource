@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -39,6 +39,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_CP_MM_HEAP_ID,
 		.name	= ION_MM_HEAP_NAME,
+	},
+	{
+		.id	= ION_USER_CONTIG_HEAP_ID,
+		.name	= ION_USER_CONTIG_HEAP_NAME,
 	},
 	{
 		.id	= ION_QSECOM_HEAP_ID,
@@ -160,6 +164,10 @@ static int msm_ion_get_heap_dt_data(struct device_node *node,
 			if (dev->cma_area) {
 				base = cma_get_base(dev->cma_area);
 				size = cma_get_size(dev->cma_area);
+				ret = 0;
+			} else if (dev->dma_mem) {
+				base = dma_get_device_base(dev, dev->dma_mem);
+				size = dma_get_size(dev->dma_mem);
 				ret = 0;
 			}
 		} else {

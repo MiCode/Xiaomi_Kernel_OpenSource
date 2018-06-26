@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -158,6 +158,9 @@ alloc_from_pool_preferred(struct ion_system_heap *heap,
 	struct page_info *info;
 	int i;
 
+	if (buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)
+		goto force_alloc;
+
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return ERR_PTR(-ENOMEM);
@@ -189,6 +192,7 @@ alloc_from_pool_preferred(struct ion_system_heap *heap,
 	}
 
 	kfree(info);
+force_alloc:
 	return alloc_largest_available(heap, buffer, size, max_order);
 }
 
@@ -325,8 +329,10 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		goto err;
 
 	table = kzalloc(sizeof(*table), GFP_KERNEL);
-	if (!table)
+	if (!table) {
+		ret = -ENOMEM;
 		goto err_free_data_pages;
+	}
 
 	ret = sg_alloc_table(table, i, GFP_KERNEL);
 	if (ret)
@@ -388,7 +394,7 @@ err_free_sg2:
 	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
-		ion_hyp_unassign_sg(table, &vmid, 1, true);
+		ion_hyp_unassign_sg(table, &vmid, 1, true, false);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
@@ -429,7 +435,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 		if (vmid < 0)
 			ion_heap_buffer_zero(buffer);
 	} else if (vmid > 0) {
-		if (ion_hyp_unassign_sg(table, &vmid, 1, true))
+		if (ion_hyp_unassign_sg(table, &vmid, 1, true, false))
 			return;
 	}
 
