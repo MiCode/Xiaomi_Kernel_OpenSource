@@ -36,3 +36,11 @@
 	/delete-property/ qcom,devfreq,freq-table;
 	/delete-property/ cd-gpios;
 };
+
+&soc {
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pmxpoorwills_gpios 4 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&vreg_wlan>;
+	};
+};
