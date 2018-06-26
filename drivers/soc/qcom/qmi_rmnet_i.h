@@ -90,7 +90,7 @@ qmi_rmnet_get_flow_map(struct qos_info *qos_info,
 struct rmnet_bearer_map *
 qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id);
 
-int dfc_qmi_client_init(void *port, int modem, struct qmi_info *qmi);
+int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
 
 void dfc_qmi_client_exit(void *dfc_data);
 

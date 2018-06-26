@@ -17,6 +17,7 @@
 #include <linux/rtnetlink.h>
 #include <uapi/linux/rtnetlink.h>
 #include "qmi_rmnet_i.h"
+#include <trace/events/dfc.h>
 
 #define NLMSG_FLOW_ACTIVATE 1
 #define NLMSG_FLOW_DEACTIVATE 2
@@ -148,6 +149,8 @@ static int qmi_rmnet_add_flow(struct net_device *dev, struct tcmsg *tcm)
 	new_map.flow_id = tcm->tcm_parent;
 	new_map.ip_type = tcm->tcm_ifindex;
 	new_map.tcm_handle = tcm->tcm_handle;
+	trace_dfc_flow_info(new_map.bearer_id, new_map.flow_id,
+			    new_map.ip_type, new_map.tcm_handle, 1);
 
 	itm = qmi_rmnet_get_flow_map(qos_info, new_map.flow_id,
 				     new_map.ip_type);
@@ -202,8 +205,11 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm)
 	new_map.ip_type = tcm->tcm_ifindex;
 	itm = qmi_rmnet_get_flow_map(qos_info, new_map.flow_id,
 				     new_map.ip_type);
-	if (itm)
+	if (itm) {
+		trace_dfc_flow_info(new_map.bearer_id, new_map.flow_id,
+				    new_map.ip_type, itm->tcm_handle, 0);
 		list_del(&itm->list);
+	}
 
 	/*clear bearer map*/
 	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
