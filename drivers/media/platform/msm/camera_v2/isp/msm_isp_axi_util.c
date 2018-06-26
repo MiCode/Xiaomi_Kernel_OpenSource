@@ -528,6 +528,12 @@ static void msm_isp_cfg_framedrop_reg(
 	enum msm_vfe_input_src frame_src = SRC_TO_INTF(stream_info->stream_src);
 	int i;
 
+	if (vfe_dev == NULL) {
+		pr_err("%s %d returning vfe_dev is NULL\n",
+			__func__,  __LINE__);
+		return;
+	}
+
 	if (vfe_dev->axi_data.src_info[frame_src].frame_id >=
 		stream_info->init_frame_drop)
 		runtime_init_frame_drop = 0;
