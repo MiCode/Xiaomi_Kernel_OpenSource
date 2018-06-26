@@ -611,7 +611,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		if (chg->connector_health == -EINVAL)
-			rc = smblib_get_prop_connector_health(chg, val);
+			val->intval = smblib_get_prop_connector_health(chg);
 		else
 			val->intval = chg->connector_health;
 		break;
@@ -1610,6 +1610,15 @@ static int smb5_init_hw(struct smb5 *chip)
 				&chg->charger_temp_max);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable SMB Temperature ADC INT */
+	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
+				rc);
 		return rc;
 	}
 
