@@ -6840,12 +6840,11 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 {
 	int ret, i;
 	unsigned int *data = (unsigned int *)table->data;
-	unsigned int old_val;
+	unsigned int *old_val;
 	static DEFINE_MUTEX(mutex);
 	static int cap_margin_levels = -1;
 
 	mutex_lock(&mutex);
-	old_val = *data;
 
 	if (cap_margin_levels == -1 ||
 		table->maxlen != (sizeof(unsigned int) * cap_margin_levels)) {
@@ -6854,9 +6853,17 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 	}
 
 	if (cap_margin_levels <= 0) {
-		mutex_unlock(&mutex);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock_mutex;
 	}
+
+	old_val = kzalloc(table->maxlen, GFP_KERNEL);
+	if (!old_val) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
+
+	memcpy(old_val, data, table->maxlen);
 
 	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
 
@@ -6864,15 +6871,18 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 		for (i = 0; i < cap_margin_levels; i++) {
 			if (sysctl_sched_capacity_margin_up[i] >
 					sysctl_sched_capacity_margin_down[i]) {
-				*data = old_val;
-				mutex_unlock(&mutex);
-				return -EINVAL;
+				memcpy(data, old_val, table->maxlen);
+				ret = -EINVAL;
+				goto free_old_val;
 			}
 		}
 
 		ret = sched_update_updown_migrate_values(data,
 						cap_margin_levels, ret);
 	}
+free_old_val:
+	kfree(old_val);
+unlock_mutex:
 	mutex_unlock(&mutex);
 
 	return ret;
