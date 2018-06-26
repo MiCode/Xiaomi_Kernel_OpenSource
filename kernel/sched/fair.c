@@ -6930,6 +6930,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int cpu, i;
 	unsigned int active_cpus_count = 0;
 	int isolated_candidate = -1;
+	int prev_cpu = task_cpu(p);
 
 	*backup_cpu = -1;
 
@@ -6982,7 +6983,7 @@ retry:
 
 			isolated_candidate = i;
 
-			if (avoid_prev_cpu && i == task_cpu(p))
+			if (avoid_prev_cpu && i == prev_cpu)
 				continue;
 
 			if (walt_cpu_high_irqload(i) || is_reserved(i))
@@ -7234,7 +7235,7 @@ retry:
 
 	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
 					active_cpus_count, best_idle_cstate)) {
-		if (target_cpu == task_cpu(p))
+		if (target_cpu == prev_cpu)
 			fbt_env->avoid_prev_cpu = true;
 
 		target_cpu = best_idle_cpu;
@@ -7270,10 +7271,26 @@ retry:
 		? best_active_cpu
 		: best_idle_cpu;
 
-	if (target_cpu == -1 && cpu_isolated(task_cpu(p)) &&
+	if (target_cpu == -1 && cpu_isolated(prev_cpu) &&
 			isolated_candidate != -1) {
 		target_cpu = isolated_candidate;
 		fbt_env->avoid_prev_cpu = true;
+	}
+
+	/*
+	 * - It is possible for target and backup
+	 *   to select same CPU - if so, drop backup
+	 *
+	 * - The next step of energy evaluation includes
+	 *   prev_cpu. Drop target or backup if it is
+	 *   same as prev_cpu.
+	 */
+	if (*backup_cpu == target_cpu || *backup_cpu == prev_cpu)
+		*backup_cpu = -1;
+
+	if (target_cpu == prev_cpu) {
+		target_cpu = *backup_cpu;
+		*backup_cpu = -1;
 	}
 
 	trace_sched_find_best_target(p, prefer_idle, min_util, cpu,
