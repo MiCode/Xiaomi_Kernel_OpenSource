@@ -254,10 +254,6 @@
 	};
 };
 
-&dsi_sharp_4k_dsc_cmd_display {
-	qcom,dsi-display-active;
-};
-
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 
