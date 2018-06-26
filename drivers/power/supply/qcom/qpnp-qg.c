@@ -1614,10 +1614,10 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 	if (!chip)
 		return -ENODEV;
 
-	if (chip->battery_missing || !chip->profile_loaded)
-		return -ENODEV;
-
 	switch (param) {
+	case TTF_VALID:
+		*val = (!chip->battery_missing && chip->profile_loaded);
+		break;
 	case TTF_MSOC:
 		rc = qg_get_battery_capacity(chip, val);
 		break;
@@ -2526,6 +2526,7 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 		qg_dbg(chip, QG_DEBUG_PROFILE, "Battery Missing!\n");
 		chip->battery_missing = true;
 		chip->profile_loaded = false;
+		chip->soc_reporting_ready = true;
 	} else {
 		/* battery present */
 		rc = get_batt_id_ohm(chip, &chip->batt_id_ohm);
@@ -2534,11 +2535,14 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 			chip->profile_loaded = false;
 		} else {
 			rc = qg_load_battery_profile(chip);
-			if (rc < 0)
+			if (rc < 0) {
 				pr_err("Failed to load battery-profile rc=%d\n",
 								rc);
-			else
+				chip->profile_loaded = false;
+				chip->soc_reporting_ready = true;
+			} else {
 				chip->profile_loaded = true;
+			}
 		}
 	}
 

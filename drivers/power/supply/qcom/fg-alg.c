@@ -803,8 +803,30 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		i, soc_per_step, msoc_this_step, msoc_next_step,
 		ibatt_this_step, t_predicted_this_step, ttf_slope,
 		t_predicted_cv, t_predicted = 0, charge_type = 0,
-		float_volt_uv = 0;
+		float_volt_uv = 0, valid = 0, charge_status = 0;
 	s64 delta_ms;
+
+	rc = ttf->get_ttf_param(ttf->data, TTF_VALID, &valid);
+	if (rc < 0) {
+		pr_err("failed to get ttf_valid rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!valid) {
+		*val = -EINVAL;
+		return 0;
+	}
+
+	rc =  ttf->get_ttf_param(ttf->data, TTF_CHG_STATUS, &charge_status);
+	if (rc < 0) {
+		pr_err("failed to get charge-status rc=%d\n", rc);
+		return rc;
+	}
+
+	if (charge_status != POWER_SUPPLY_STATUS_CHARGING) {
+		*val = -EINVAL;
+		return 0;
+	}
 
 	rc = ttf->get_ttf_param(ttf->data, TTF_MSOC, &msoc);
 	if (rc < 0) {
@@ -1103,7 +1125,30 @@ end_work:
  */
 int ttf_get_time_to_empty(struct ttf *ttf, int *val)
 {
-	int rc, ibatt_avg, msoc, act_cap_mah, divisor;
+	int rc, ibatt_avg, msoc, act_cap_mah, divisor, valid = 0,
+		charge_status = 0;
+
+	rc = ttf->get_ttf_param(ttf->data, TTF_VALID, &valid);
+	if (rc < 0) {
+		pr_err("failed to get ttf_valid rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!valid) {
+		*val = -EINVAL;
+		return 0;
+	}
+
+	rc =  ttf->get_ttf_param(ttf->data, TTF_CHG_STATUS, &charge_status);
+	if (rc < 0) {
+		pr_err("failed to get charge-status rc=%d\n", rc);
+		return rc;
+	}
+
+	if (charge_status == POWER_SUPPLY_STATUS_CHARGING) {
+		*val = -EINVAL;
+		return 0;
+	}
 
 	rc = ttf_circ_buf_median(&ttf->ibatt, &ibatt_avg);
 	if (rc < 0) {
@@ -1136,6 +1181,10 @@ int ttf_get_time_to_empty(struct ttf *ttf, int *val)
 	divisor = ibatt_avg * divisor / 100;
 	divisor = max(100, divisor);
 	*val = act_cap_mah * msoc * HOURS_TO_SECONDS / divisor;
+
+	pr_debug("TTF: ibatt_avg=%d msoc=%d act_cap_mah=%d TTE=%d\n",
+			ibatt_avg, msoc, act_cap_mah, *val);
+
 	return 0;
 }
 
