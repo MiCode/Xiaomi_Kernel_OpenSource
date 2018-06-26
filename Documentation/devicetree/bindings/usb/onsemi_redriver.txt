@@ -1,0 +1,29 @@
+ON Semiconductor USB Type-C and display port 10Gbps Linear Re-Driver
+
+Required properties:
+- compatible: Must be "onnn,redriver".
+- reg: I2C address on the selected bus.
+- extcon: phandles to external connector devices. The first phandle
+	should point to the external connector which provides
+	both "USB" cable events and "USB-HOST" cable events.
+	An optional second phandle may be specified for DP
+	lane events.
+
+Optional properties:
+- eq: Equalization value of re-driver channel A/B/C/D, 8 bit.
+- flat-gain: Flat gain control value of re-driver channel A/B/C/D, 8 bit.
+- output-comp: Output compression value of re-driver channel A/B/C/D,
+	8 bit.
+- loss-match: Loss profile matching control value of re-driver channel
+	A/B/C/D, 8 bit.
+
+Example:
+	redriver@19 {
+		compatible = "onnn,redriver";
+		reg = <0x19>;
+		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
+		eq = /bits/ 8 <0x5 0x4 0x4 0x5>;
+		flat-gain = /bits/ 8 <0x3 0x1 0x1 0x3>;
+		output-comp = /bits/ 8 <0x2 0x2 0x2 0x2>;
+		loss-match = /bits/ 8 <0x0 0x3 0x3 0x0>;
+	};
