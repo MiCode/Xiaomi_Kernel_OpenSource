@@ -3093,6 +3093,11 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 	extra_buff_count = msm_vidc_get_extra_buff_count(inst,
 				HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
+	/* batching needs minimum batch size count of input buffers */
+	if (inst->core->resources.decode_batching &&
+		is_decode_session(inst) &&
+		bufreq->buffer_count_min < inst->batch.size)
+		bufreq->buffer_count_min = inst->batch.size;
 	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
 				bufreq->buffer_count_min + extra_buff_count;
 
