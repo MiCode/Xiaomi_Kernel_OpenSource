@@ -43,6 +43,9 @@ MODULE_PARM_DESC(ignore_reg_hints, " Ignore OTA regulatory hints (Default: true)
 	.max_power		= 40,				\
 }
 
+#define WIL_BRP_ANT_LIMIT_MIN	(1)
+#define WIL_BRP_ANT_LIMIT_MAX	(27)
+
 static struct ieee80211_channel wil_60ghz_channels[] = {
 	CHAN60G(1, 0),
 	CHAN60G(2, 0),
@@ -63,7 +66,7 @@ static struct ieee80211_channel wil_60ghz_channels[] = {
 #define WIL_MAX_RF_SECTORS (128)
 #define WIL_CID_ALL (0xff)
 
-enum qca_wlan_vendor_attr_rf_sector {
+enum qca_wlan_vendor_attr_wil {
 	QCA_ATTR_MAC_ADDR = 6,
 	QCA_ATTR_PAD = 13,
 	QCA_ATTR_TSF = 29,
@@ -71,7 +74,9 @@ enum qca_wlan_vendor_attr_rf_sector {
 	QCA_ATTR_DMG_RF_SECTOR_TYPE = 31,
 	QCA_ATTR_DMG_RF_MODULE_MASK = 32,
 	QCA_ATTR_DMG_RF_SECTOR_CFG = 33,
-	QCA_ATTR_DMG_RF_SECTOR_MAX,
+	QCA_ATTR_BRP_ANT_LIMIT_MODE = 38,
+	QCA_ATTR_BRP_ANT_NUM_LIMIT = 39,
+	QCA_ATTR_WIL_MAX,
 };
 
 enum qca_wlan_vendor_attr_dmg_rf_sector_type {
@@ -96,8 +101,22 @@ enum qca_wlan_vendor_attr_dmg_rf_sector_cfg {
 	QCA_ATTR_DMG_RF_SECTOR_CFG_AFTER_LAST - 1
 };
 
+enum qca_wlan_vendor_attr_brp_ant_limit_mode {
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_DISABLE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_EFFECTIVE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_FORCE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODES_NUM
+};
+
 static const struct
-nla_policy wil_rf_sector_policy[QCA_ATTR_DMG_RF_SECTOR_MAX + 1] = {
+nla_policy wil_brp_ant_limit_policy[QCA_ATTR_WIL_MAX + 1] = {
+	[QCA_ATTR_MAC_ADDR] = { .len = ETH_ALEN },
+	[QCA_ATTR_BRP_ANT_NUM_LIMIT] = { .type = NLA_U8 },
+	[QCA_ATTR_BRP_ANT_LIMIT_MODE] = { .type = NLA_U8 },
+};
+
+static const struct
+nla_policy wil_rf_sector_policy[QCA_ATTR_WIL_MAX + 1] = {
 	[QCA_ATTR_MAC_ADDR] = { .len = ETH_ALEN },
 	[QCA_ATTR_DMG_RF_SECTOR_INDEX] = { .type = NLA_U16 },
 	[QCA_ATTR_DMG_RF_SECTOR_TYPE] = { .type = NLA_U8 },
@@ -130,6 +149,7 @@ enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG = 140,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR = 141,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SELECTED_SECTOR = 142,
+	QCA_NL80211_VENDOR_SUBCMD_BRP_SET_ANT_LIMIT = 153,
 };
 
 static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
@@ -144,6 +164,8 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 				      struct wireless_dev *wdev,
 				      const void *data, int data_len);
+static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len);
 
 /* vendor specific commands */
 static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
@@ -218,6 +240,13 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = wil_rf_sector_set_selected
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_BRP_SET_ANT_LIMIT,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_brp_set_ant_limit
 	},
 };
 
@@ -2409,7 +2438,7 @@ static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u16 sector_index;
 	u8 sector_type;
 	u32 rf_modules_vec;
@@ -2428,7 +2457,7 @@ static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
 		       wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -2530,7 +2559,7 @@ static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc, tmp;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	struct nlattr *tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1];
 	u16 sector_index, rf_module_index;
 	u8 sector_type;
@@ -2548,7 +2577,7 @@ static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
 		       wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -2640,7 +2669,7 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u8 sector_type, mac_addr[ETH_ALEN];
 	int cid = 0;
 	struct wmi_get_selected_rf_sector_index_cmd cmd;
@@ -2655,7 +2684,7 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
 		       wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -2755,7 +2784,7 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u16 sector_index;
 	u8 sector_type, mac_addr[ETH_ALEN], i;
 	int cid = 0;
@@ -2763,7 +2792,7 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
 		       wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -2844,4 +2873,95 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	}
 
 	return rc;
+}
+
+static int
+wil_brp_wmi_set_ant_limit(struct wil6210_priv *wil, u8 mid, u8 cid,
+			  u8 limit_mode, u8 antenna_num_limit)
+{
+	int rc;
+	struct wmi_brp_set_ant_limit_cmd cmd = {
+		.cid = cid,
+		.limit_mode = limit_mode,
+		.ant_limit = antenna_num_limit,
+	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_brp_set_ant_limit_event evt;
+	} __packed reply;
+
+	reply.evt.status = WMI_FW_STATUS_FAILURE;
+
+	rc = wmi_call(wil, WMI_BRP_SET_ANT_LIMIT_CMDID, mid, &cmd, sizeof(cmd),
+		      WMI_BRP_SET_ANT_LIMIT_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc)
+		return rc;
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "brp set antenna limit failed with status %d\n",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
+	u8 mac_addr[ETH_ALEN];
+	u8 antenna_num_limit = 0;
+	u8 limit_mode;
+	int cid = 0;
+	int rc;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -ENOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
+		       wil_brp_ant_limit_policy, NULL);
+	if (rc) {
+		wil_err(wil, "Invalid ant limit ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_BRP_ANT_LIMIT_MODE] || !tb[QCA_ATTR_MAC_ADDR]) {
+		wil_err(wil, "Invalid antenna limit spec\n");
+		return -EINVAL;
+	}
+
+	limit_mode = nla_get_u8(tb[QCA_ATTR_BRP_ANT_LIMIT_MODE]);
+	if (limit_mode >= QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODES_NUM) {
+		wil_err(wil, "Invalid limit mode %d\n", limit_mode);
+		return -EINVAL;
+	}
+
+	if (limit_mode != QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_DISABLE) {
+		if (!tb[QCA_ATTR_BRP_ANT_NUM_LIMIT]) {
+			wil_err(wil, "Invalid limit number\n");
+			return -EINVAL;
+		}
+
+		antenna_num_limit = nla_get_u8(tb[QCA_ATTR_BRP_ANT_NUM_LIMIT]);
+		if (antenna_num_limit > WIL_BRP_ANT_LIMIT_MAX ||
+		    antenna_num_limit < WIL_BRP_ANT_LIMIT_MIN) {
+			wil_err(wil, "Invalid number of antenna limit: %d\n",
+				antenna_num_limit);
+			return -EINVAL;
+		}
+	}
+
+	ether_addr_copy(mac_addr, nla_data(tb[QCA_ATTR_MAC_ADDR]));
+	cid = wil_find_cid(wil, vif->mid, mac_addr);
+	if (cid < 0) {
+		wil_err(wil, "invalid MAC address %pM\n", mac_addr);
+		return -ENOENT;
+	}
+
+	return wil_brp_wmi_set_ant_limit(wil, vif->mid, cid, limit_mode,
+					 antenna_num_limit);
 }
