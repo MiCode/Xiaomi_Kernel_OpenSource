@@ -460,4 +460,80 @@ struct drm_msm_ad4_roi_cfg {
 	__u32 factor_in;
 	__u32 factor_out;
 };
+
+#define LTM_DATA_SIZE_0 32
+#define LTM_DATA_SIZE_1 128
+#define LTM_DATA_SIZE_2 256
+#define LTM_DATA_SIZE_3 33
+#define LTM_BUFFER_SIZE 5
+
+#define LTM_STATS_SAT (1 << 1)
+#define LTM_STATS_MERGE_SAT (1 << 2)
+
+/*
+ * struct drm_msm_ltm_stats_data - LTM stats data structure
+ */
+struct drm_msm_ltm_stats_data {
+	__u32 stats_01[LTM_DATA_SIZE_0][LTM_DATA_SIZE_1];
+	__u32 stats_02[LTM_DATA_SIZE_2];
+	__u32 stats_03[LTM_DATA_SIZE_0];
+	__u32 stats_04[LTM_DATA_SIZE_0];
+	__u32 stats_05[LTM_DATA_SIZE_0];
+	__u32 status_flag;
+};
+
+/*
+ * struct drm_msm_ltm_init_param - LTM init param structure
+ */
+struct drm_msm_ltm_init_param {
+	__u32 init_param_01;
+	__u32 init_param_02;
+	__u32 init_param_03;
+	__u32 init_param_04;
+};
+
+/*
+ * struct drm_msm_ltm_cfg_param - LTM config param structure
+ */
+struct  drm_msm_ltm_cfg_param {
+	__u32 cfg_param_01;
+	__u32 cfg_param_02;
+	__u32 cfg_param_03;
+	__u32 cfg_param_04;
+	__u32 cfg_param_05;
+	__u32 cfg_param_06;
+};
+
+/*
+ * struct drm_msm_ltm_data - LTM data structure
+ */
+struct drm_msm_ltm_data {
+	__u32 data[LTM_DATA_SIZE_0][LTM_DATA_SIZE_3];
+};
+
+/*
+ * struct drm_msm_ltm_buffers_crtl - LTM buffer control structure.
+ *                                   This struct will be used to init and
+ *                                   de-init the LTM buffers in driver.
+ * @num_of_buffers: valid number of buffers used
+ * @fds: fd array to for all the valid buffers
+ */
+struct drm_msm_ltm_buffers_ctrl {
+	__u32 num_of_buffers;
+	__u32 fds[LTM_BUFFER_SIZE];
+};
+
+/*
+ * struct drm_msm_ltm_buffer - LTM buffer structure.
+ *                             This struct will be passed from driver to user
+ *                             space for LTM stats data notification.
+ * @fd: fd assicated with the buffer that has LTM stats data
+ * @offset: offset from base address that used for alignment
+ * @status status flag for error indication
+ */
+struct drm_msm_ltm_buffer {
+	__u32 fd;
+	__u32 offset;
+	__u32 status;
+};
 #endif /* _MSM_DRM_PP_H_ */
