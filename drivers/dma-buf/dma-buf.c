@@ -36,6 +36,9 @@
 #include <linux/mm.h>
 #include <linux/kernel.h>
 #include <linux/atomic.h>
+#include <linux/sched/signal.h>
+#include <linux/fdtable.h>
+#include <linux/list_sort.h>
 
 #include <uapi/linux/dma-buf.h>
 
@@ -46,6 +49,19 @@ static inline int is_dma_buf_file(struct file *);
 struct dma_buf_list {
 	struct list_head head;
 	struct mutex lock;
+};
+
+struct dma_info {
+	struct dma_buf *dmabuf;
+	struct list_head head;
+};
+
+struct dma_proc {
+	char name[TASK_COMM_LEN];
+	pid_t pid;
+	size_t size;
+	struct list_head dma_bufs;
+	struct list_head head;
 };
 
 static struct dma_buf_list db_list;
@@ -458,6 +474,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	dmabuf->cb_excl.poll = dmabuf->cb_shared.poll = &dmabuf->poll;
 	dmabuf->cb_excl.active = dmabuf->cb_shared.active = 0;
 	dmabuf->name = bufname;
+	getnstimeofday(&dmabuf->ctime);
 
 	if (!resv) {
 		resv = (struct reservation_object *)&dmabuf[1];
@@ -1272,6 +1289,155 @@ static const struct file_operations dma_buf_debug_fops = {
 	.release        = single_release,
 };
 
+static bool list_contains(struct list_head *list, struct dma_buf *info)
+{
+	struct dma_info *curr;
+
+	list_for_each_entry(curr, list, head)
+		if (curr->dmabuf == info)
+			return true;
+
+	return false;
+}
+
+static int get_dma_info(const void *data, struct file *file, unsigned int n)
+{
+	struct dma_proc *dma_proc;
+	struct dma_info *dma_info;
+
+	dma_proc = (struct dma_proc *)data;
+	if (!is_dma_buf_file(file))
+		return 0;
+
+	if (list_contains(&dma_proc->dma_bufs, file->private_data))
+		return 0;
+
+	dma_info = kzalloc(sizeof(*dma_info), GFP_ATOMIC);
+	if (!dma_info)
+		return -ENOMEM;
+
+	get_file(file);
+	dma_info->dmabuf = file->private_data;
+	dma_proc->size += dma_info->dmabuf->size / SZ_1K;
+	list_add(&dma_info->head, &dma_proc->dma_bufs);
+	return 0;
+}
+
+static void write_proc(struct seq_file *s, struct dma_proc *proc)
+{
+	struct dma_info *tmp;
+	struct timespec curr_time;
+
+	getnstimeofday(&curr_time);
+	seq_printf(s, "\n%s (PID %ld) size: %ld\nDMA Buffers:\n",
+		proc->name, proc->pid, proc->size);
+	seq_printf(s, "%-8s\t%-8s\t%-8s\n",
+		"Name", "Size (KB)", "Time Alive (sec)");
+
+	list_for_each_entry(tmp, &proc->dma_bufs, head) {
+		struct dma_buf *dmabuf;
+		struct timespec mtime;
+		__kernel_time_t elap_mtime;
+
+		dmabuf = tmp->dmabuf;
+		mtime = dmabuf->ctime;
+		elap_mtime = curr_time.tv_sec - mtime.tv_sec;
+		seq_printf(s, "%-8s\t%-8ld\t%-8ld\n",
+			dmabuf->name, dmabuf->size / SZ_1K, elap_mtime);
+	}
+}
+
+static void free_proc(struct dma_proc *proc)
+{
+	struct dma_info *tmp, *n;
+
+	list_for_each_entry_safe(tmp, n, &proc->dma_bufs, head) {
+		dma_buf_put(tmp->dmabuf);
+		list_del(&tmp->head);
+		kfree(tmp);
+	}
+	kfree(proc);
+}
+
+static int dmacmp(void *unused, struct list_head *a, struct list_head *b)
+{
+	struct dma_info *a_buf, *b_buf;
+
+	a_buf = list_entry(a, struct dma_info, head);
+	b_buf = list_entry(b, struct dma_info, head);
+	return b_buf->dmabuf->size - a_buf->dmabuf->size;
+}
+
+static int proccmp(void *unused, struct list_head *a, struct list_head *b)
+{
+	struct dma_proc *a_proc, *b_proc;
+
+	a_proc = list_entry(a, struct dma_proc, head);
+	b_proc = list_entry(b, struct dma_proc, head);
+	return b_proc->size - a_proc->size;
+}
+
+static int dma_procs_debug_show(struct seq_file *s, void *unused)
+{
+	struct task_struct *task, *thread;
+	struct files_struct *files;
+	int ret = 0;
+	struct dma_proc *tmp, *n;
+	LIST_HEAD(plist);
+
+	read_lock(&tasklist_lock);
+	for_each_process(task) {
+		tmp = kzalloc(sizeof(*tmp), GFP_ATOMIC);
+		if (!tmp) {
+			ret = -ENOMEM;
+			read_unlock(&tasklist_lock);
+			goto mem_err;
+		}
+		INIT_LIST_HEAD(&tmp->dma_bufs);
+		for_each_thread(task, thread) {
+			files = get_files_struct(task);
+			if (!files)
+				continue;
+			ret = iterate_fd(files, 0, get_dma_info, tmp);
+			put_files_struct(files);
+		}
+		if (ret || list_empty(&tmp->dma_bufs))
+			goto skip;
+		list_sort(NULL, &tmp->dma_bufs, dmacmp);
+		get_task_comm(tmp->name, task);
+		tmp->pid = task->tgid;
+		list_add(&tmp->head, &plist);
+		continue;
+skip:
+		free_proc(tmp);
+	}
+	read_unlock(&tasklist_lock);
+
+	list_sort(NULL, &plist, proccmp);
+	list_for_each_entry(tmp, &plist, head)
+		write_proc(s, tmp);
+
+	ret = 0;
+mem_err:
+	list_for_each_entry_safe(tmp, n, &plist, head) {
+		list_del(&tmp->head);
+		free_proc(tmp);
+	}
+	return ret;
+}
+
+static int dma_procs_debug_open(struct inode *f_inode, struct file *file)
+{
+	return single_open(file, dma_procs_debug_show, NULL);
+}
+
+static const struct file_operations dma_procs_debug_fops = {
+	.open           = dma_procs_debug_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release
+};
+
 static struct dentry *dma_buf_debugfs_dir;
 
 static int dma_buf_init_debugfs(void)
@@ -1289,6 +1455,17 @@ static int dma_buf_init_debugfs(void)
 				NULL, &dma_buf_debug_fops);
 	if (IS_ERR(d)) {
 		pr_debug("dma_buf: debugfs: failed to create node bufinfo\n");
+		debugfs_remove_recursive(dma_buf_debugfs_dir);
+		dma_buf_debugfs_dir = NULL;
+		err = PTR_ERR(d);
+		return err;
+	}
+
+	d = debugfs_create_file("dmaprocs", 0444, dma_buf_debugfs_dir,
+				NULL, &dma_procs_debug_fops);
+
+	if (IS_ERR(d)) {
+		pr_debug("dma_buf: debugfs: failed to create node dmaprocs\n");
 		debugfs_remove_recursive(dma_buf_debugfs_dir);
 		dma_buf_debugfs_dir = NULL;
 		err = PTR_ERR(d);
