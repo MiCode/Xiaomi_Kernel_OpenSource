@@ -167,6 +167,7 @@ struct cnss_pin_connect_result {
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
+	enum cnss_dev_bus_type bus_type;
 	struct cnss_vreg_info *vreg_info;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
