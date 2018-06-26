@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -417,6 +417,7 @@ enum qca_nl80211_vendor_events_index {
 	QCA_NL80211_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX,
 	QCA_NL80211_VENDOR_EVENT_FTM_SESSION_DONE_INDEX,
 	QCA_NL80211_VENDOR_EVENT_AOA_MEAS_RESULT_INDEX,
+	QCA_NL80211_VENDOR_EVENT_UNSPEC_INDEX,
 };
 
 /* measurement parameters. Specified for each peer as part
