@@ -1129,6 +1129,60 @@ Example of child node that would have qcom,wdsp-cmpnt-dev-name property
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
 	};
 
+* msm-mdf
+
+Required properties:
+ - compatible : "qcom,msm-mdf"
+
+Optional subnodes:
+ - qcom,msm_mdf_cb : Child nodes representing the compute context banks.
+
+Subnode Required properties:
+ - compatible : "qcom,msm-mdf-cb"
+ - label: Label describing the subsystem this context bank belongs to.
+
+Subnode Optional properties:
+ - qcom,smmu-enabled:
+		It is possible that some MSM subsystems have SMMU, while other MSM
+		subsystems do not. MDF platform driver needs to handle SMMU APIs
+		differently according to the availability of SMMU.
+		Presence of this property means the subsystem has SMMU in it.
+ - iommus : A list of phandle and IOMMU specifier pairs that describe the
+		IOMMU master interfaces of the device.
+
+Example:
+	qcom,msm-mdf {
+		compatible = "qcom,msm-mdf";
+
+		qcom,msm_mdf_cb1 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "adsp";
+			qcom,smmu-enabled;
+		};
+		qcom,msm_mdf_cb2 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "dsps";
+		};
+		qcom,msm_mdf_cb3 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "modem";
+		};
+	};
+
+* msm-mdf-mem
+
+Required properties:
+ - compatible : "qcom,msm-mdf-mem-region"
+ - qcom,msm-mdf-mem-data-size: indicates the size of memory
+				for MDF purpose
+ - memory-region : CMA region which is owned by this device.
+
+Example:
+	qcom,msm-mdf-mem {
+		compatible = "qcom,msm-mdf-mem-region";
+		memory-region = <&mdf_mem>;
+	};
+
 * SM8150 ASoC Machine driver
 
 Required properties:
