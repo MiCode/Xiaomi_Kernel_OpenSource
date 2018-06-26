@@ -251,6 +251,11 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
 		break;
+	case PM6150_SUBTYPE:
+		chip->chg.smb_version = PM6150_SUBTYPE;
+		chg->param = smb5_pm8150b_params;
+		chg->name = "pm6150_charger";
+		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
 		chg->param = smb5_pmi632_params;
