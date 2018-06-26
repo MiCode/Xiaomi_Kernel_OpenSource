@@ -14,10 +14,10 @@
 
 &soc {
 	timer {
-		clock-frequency = <96000>;
+		clock-frequency = <48000>;
 	};
 
 	timer@17820000 {
-		clock-frequency = <96000>;
+		clock-frequency = <48000>;
 	};
 };
