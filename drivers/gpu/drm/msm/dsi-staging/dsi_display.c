@@ -4821,6 +4821,10 @@ static int dsi_display_drm_ext_get_modes(
 	struct drm_display_mode *pmode, *pt;
 	int count;
 
+	/* if there are modes defined in panel, ignore external modes */
+	if (display->panel->num_timing_nodes)
+		return dsi_connector_get_modes(connector, disp);
+
 	count = display->ext_conn->helper_private->get_modes(
 			display->ext_conn);
 
@@ -4840,6 +4844,12 @@ static enum drm_mode_status dsi_display_drm_ext_mode_valid(
 		void *disp)
 {
 	struct dsi_display *display = disp;
+	enum drm_mode_status status;
+
+	/* always do internal mode_valid check */
+	status = dsi_conn_mode_valid(connector, mode, disp);
+	if (status != MODE_OK)
+		return status;
 
 	return display->ext_conn->helper_private->mode_valid(
 			display->ext_conn, mode);
@@ -5056,18 +5066,18 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 	}
 
 	/* otherwise, hook up the functions to use external connector */
-	sde_conn->ops.detect =
-		display->ext_conn->funcs->detect ?
-			dsi_display_drm_ext_detect : NULL;
-	sde_conn->ops.get_modes =
-		display->ext_conn->helper_private->get_modes ?
-			dsi_display_drm_ext_get_modes : NULL;
-	sde_conn->ops.mode_valid =
-		display->ext_conn->helper_private->mode_valid ?
-			dsi_display_drm_ext_mode_valid : NULL;
-	sde_conn->ops.atomic_check =
-		display->ext_conn->helper_private->atomic_check ?
-			dsi_display_drm_ext_atomic_check : NULL;
+	if (display->ext_conn->funcs->detect)
+		sde_conn->ops.detect = dsi_display_drm_ext_detect;
+
+	if (display->ext_conn->helper_private->get_modes)
+		sde_conn->ops.get_modes = dsi_display_drm_ext_get_modes;
+
+	if (display->ext_conn->helper_private->mode_valid)
+		sde_conn->ops.mode_valid = dsi_display_drm_ext_mode_valid;
+
+	if (display->ext_conn->helper_private->atomic_check)
+		sde_conn->ops.atomic_check = dsi_display_drm_ext_atomic_check;
+
 	sde_conn->ops.get_info =
 			dsi_display_ext_get_info;
 	sde_conn->ops.get_mode_info =

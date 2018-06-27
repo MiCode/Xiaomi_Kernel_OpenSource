@@ -3048,14 +3048,16 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 	}
 
 	count = utils->get_child_count(timings_np);
-	if (!count || count > DSI_MODE_MAX) {
+	if ((!count && !panel->host_config.ext_bridge_mode) ||
+		count > DSI_MODE_MAX) {
 		pr_err("invalid count of timing nodes: %d\n", count);
 		rc = -EINVAL;
 		goto error;
 	}
 
 	/* No multiresolution support is available for video mode panels */
-	if (panel->panel_mode != DSI_OP_CMD_MODE)
+	if (panel->panel_mode != DSI_OP_CMD_MODE &&
+		!panel->host_config.ext_bridge_mode)
 		count = SINGLE_MODE_SUPPORT;
 
 	panel->num_timing_nodes = count;
