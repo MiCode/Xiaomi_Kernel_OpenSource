@@ -28,6 +28,9 @@
 #define FLAG_DFC_MASK 0x0001
 #define FLAG_POWERSAVE_MASK 0x0010
 
+#define PS_INTERVAL (0x0004 * HZ)
+#define NO_DELAY (0x0000 * HZ)
+
 struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 	{
 		.data_type	= QMI_SIGNED_4_BYTE_ENUM,
@@ -470,11 +473,18 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 				rmnet_reset_qmi_pt(port);
 			}
 		}
+		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+			qmi_rmnet_work_init(port);
+			rmnet_set_powersave_format(port);
+		}
 		break;
 	case NLMSG_CLIENT_DELETE:
 		if (!qmi)
 			return;
-
+		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+			rmnet_clear_powersave_format(port);
+			qmi_rmnet_work_exit(port);
+		}
 		qmi_rmnet_delete_client(port, qmi, tcm);
 		break;
 	default:
@@ -498,6 +508,8 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 		wda_qmi_client_exit(qmi->wda_client);
 		qmi->wda_client = NULL;
 	}
+
+	qmi_rmnet_work_exit(port);
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
 		if (!__qmi_rmnet_delete_client(port, qmi, i))
@@ -555,6 +567,16 @@ EXPORT_SYMBOL(qmi_rmnet_qos_exit);
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
+static struct workqueue_struct  *rmnet_ps_wq;
+static struct rmnet_powersave_work *rmnet_work;
+
+struct rmnet_powersave_work {
+	struct delayed_work work;
+	void *port;
+	u64 old_rx_pkts;
+	u64 old_tx_pkts;
+};
+
 int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 {
 	int rc = -EINVAL;
@@ -575,4 +597,105 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 	return 0;
 }
 EXPORT_SYMBOL(qmi_rmnet_set_powersave_mode);
+
+void qmi_rmnet_work_restart(void *port)
+{
+	if (!rmnet_ps_wq || !rmnet_work)
+		return;
+	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, NO_DELAY);
+}
+EXPORT_SYMBOL(qmi_rmnet_work_restart);
+
+static void qmi_rmnet_check_stats(struct work_struct *work)
+{
+	struct rmnet_powersave_work *real_work;
+	u64 rxd, txd;
+	u64 rx, tx;
+
+	real_work = container_of(to_delayed_work(work),
+				 struct rmnet_powersave_work, work);
+
+	if (unlikely(!real_work || !real_work->port))
+		return;
+
+	if (!rtnl_trylock()) {
+		queue_delayed_work(rmnet_ps_wq, &real_work->work, PS_INTERVAL);
+		return;
+	}
+	if (!qmi_rmnet_work_get_active(real_work->port)) {
+		qmi_rmnet_work_set_active(real_work->port, 1);
+		qmi_rmnet_set_powersave_mode(real_work->port, 0);
+		goto end;
+	}
+
+	rmnet_get_packets(real_work->port, &rx, &tx);
+	rxd = rx - real_work->old_rx_pkts;
+	txd = tx - real_work->old_tx_pkts;
+	real_work->old_rx_pkts = rx;
+	real_work->old_tx_pkts = tx;
+
+	if (!rxd && !txd) {
+		qmi_rmnet_work_set_active(real_work->port, 0);
+		qmi_rmnet_set_powersave_mode(real_work->port, 1);
+		rtnl_unlock();
+		return;
+	}
+end:
+	rtnl_unlock();
+	queue_delayed_work(rmnet_ps_wq, &real_work->work, PS_INTERVAL);
+}
+
+void qmi_rmnet_work_init(void *port)
+{
+	if (rmnet_ps_wq)
+		return;
+
+	rmnet_ps_wq = alloc_workqueue("rmnet_powersave_work",
+					WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+
+	rmnet_work = kmalloc(sizeof(*rmnet_work), GFP_ATOMIC);
+	if (!rmnet_work) {
+		destroy_workqueue(rmnet_ps_wq);
+		rmnet_ps_wq = NULL;
+		return;
+	}
+
+	INIT_DEFERRABLE_WORK(&rmnet_work->work, qmi_rmnet_check_stats);
+	rmnet_work->port = port;
+	rmnet_get_packets(rmnet_work->port, &rmnet_work->old_rx_pkts,
+			  &rmnet_work->old_tx_pkts);
+
+	qmi_rmnet_work_set_active(rmnet_work->port, 1);
+	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, PS_INTERVAL);
+}
+EXPORT_SYMBOL(qmi_rmnet_work_init);
+
+void qmi_rmnet_work_set_active(void *port, int status)
+{
+	if (!port)
+		return;
+	((struct qmi_info *)rmnet_get_qmi_pt(port))->active = status;
+}
+EXPORT_SYMBOL(qmi_rmnet_work_set_active);
+
+int qmi_rmnet_work_get_active(void *port)
+{
+	if (!port)
+		return 0;
+	return ((struct qmi_info *)rmnet_get_qmi_pt(port))->active;
+}
+EXPORT_SYMBOL(qmi_rmnet_work_get_active);
+
+void qmi_rmnet_work_exit(void *port)
+{
+	qmi_rmnet_work_set_active(port, 0);
+	if (!rmnet_ps_wq || !rmnet_work)
+		return;
+	cancel_delayed_work_sync(&rmnet_work->work);
+	destroy_workqueue(rmnet_ps_wq);
+	rmnet_ps_wq = NULL;
+	kfree(rmnet_work);
+	rmnet_work = NULL;
+}
+EXPORT_SYMBOL(qmi_rmnet_work_exit);
 #endif

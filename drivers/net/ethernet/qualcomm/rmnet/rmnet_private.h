@@ -22,6 +22,9 @@
 #define RMNET_EGRESS_FORMAT_AGGREGATION         BIT(31)
 #define RMNET_INGRESS_FORMAT_DL_MARKER          BIT(30)
 
+/* Power save feature*/
+#define RMNET_INGRESS_FORMAT_PS                 BIT(27)
+
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)
 /* Pass the frame directly to another device with dev_queue_xmit() */

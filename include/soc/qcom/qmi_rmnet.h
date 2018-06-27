@@ -54,10 +54,35 @@ qmi_rmnet_burst_fc_check(struct net_device *dev, struct sk_buff *skb)
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
 int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable);
+void qmi_rmnet_work_init(void *port);
+void qmi_rmnet_work_exit(void *port);
+int qmi_rmnet_work_get_active(void *port);
+void qmi_rmnet_work_set_active(void *port, int status);
+void qmi_rmnet_work_restart(void *port);
 #else
 static inline int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 {
 	return 0;
+}
+static inline void qmi_rmnet_work_init(void *port)
+{
+}
+static inline void qmi_rmnet_work_restart(void *port)
+{
+
+}
+static inline void qmi_rmnet_work_exit(void *port)
+{
+}
+
+static inline int  qmi_rmnet_work_get_active(void *port)
+{
+	return 0;
+
+}
+static inline void qmi_rmnet_work_set_active(void *port, int status)
+{
+
 }
 #endif
 #endif /*_QMI_RMNET_H*/

@@ -72,6 +72,7 @@ struct qmi_info {
 	struct flow_info flow[MAX_FLOW_NUM];
 	void *wda_client;
 	struct fc_info fc_info[MAX_CLIENT_NUM];
+	int active;
 };
 
 enum data_ep_type_enum_v01 {
