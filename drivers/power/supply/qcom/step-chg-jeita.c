@@ -349,17 +349,46 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	int i;
 
 	*new_index = -EINVAL;
-	/* first find the matching index without hysteresis */
-	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
+
+	/*
+	 * If the threshold is lesser than the minimum allowed range,
+	 * return -ENODATA.
+	 */
+	if (threshold < range[0].low_threshold)
+		return -ENODATA;
+
+	/* First try to find the matching index without hysteresis */
+	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++) {
+		if (!range[i].high_threshold && !range[i].low_threshold) {
+			/* First invalid table entry; exit loop */
+			break;
+		}
+
 		if (is_between(range[i].low_threshold,
 			range[i].high_threshold, threshold)) {
 			*new_index = i;
 			*val = range[i].value;
+			break;
+		}
+	}
+
+	/*
+	 * If nothing was found, the threshold exceeds the max range for sure
+	 * as the other case where it is lesser than the min range is handled
+	 * at the very beginning of this function. Therefore, clip it to the
+	 * max allowed range value, which is the one corresponding to the last
+	 * valid entry in the battery profile data array.
+	 */
+	if (*new_index == -EINVAL) {
+		if (i == 0) {
+			/* Battery profile data array is completely invalid */
+			return -ENODATA;
 		}
 
-	/* if nothing was found, return -ENODATA */
-	if (*new_index == -EINVAL)
-		return -ENODATA;
+		*new_index = (i - 1);
+		*val = range[*new_index].value;
+	}
+
 	/*
 	 * If we don't have a current_index return this
 	 * newfound value. There is no hysterisis from out of range
