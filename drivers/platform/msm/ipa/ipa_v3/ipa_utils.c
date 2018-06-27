@@ -147,6 +147,17 @@
 #define IPA_v4_2_GROUP_UL_DL		(0)
 #define IPA_v4_2_SRC_GROUP_MAX		(1)
 #define IPA_v4_2_DST_GROUP_MAX		(1)
+
+#define IPA_v4_5_MHI_GROUP_PCIE		(0)
+#define IPA_v4_5_ETHERNET		(0)
+#define IPA_v4_5_GROUP_UL_DL		(1)
+#define IPA_v4_5_MHI_GROUP_DDR		(1)
+#define IPA_v4_5_MHI_GROUP_DMA		(2)
+#define IPA_v4_5_MHI_GROUP_QDSS		(3)
+#define IPA_v4_5_GROUP_UC_RX_Q		(4)
+#define IPA_v4_5_SRC_GROUP_MAX		(5)
+#define IPA_v4_5_DST_GROUP_MAX		(5)
+
 #define IPA_GROUP_MAX IPA_v3_0_GROUP_MAX
 
 enum ipa_rsrc_grp_type_src {
@@ -334,7 +345,34 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{5, 5}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
-
+	[IPA_4_5] = {
+		/* not used  UL_DL  not used  not used  UC_RX_Q
+		 * other are invalid
+		 */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{0, 0}, {1, 63}, {0, 0}, {0, 0}, {1, 63}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{0, 0}, {14, 14}, {0, 0}, {0, 0}, {3, 3}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{0, 0}, {18, 18}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 0}, {0, 63}, {0, 0}, {0, 0},  {0, 63}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{0, 0}, {24, 24}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE  DDR  DMA  QDSS  not used  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{3, 8}, {4, 11}, {1, 1}, {1, 1}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{9, 9}, {12, 12}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{9, 9}, {14, 14}, {4, 4}, {4, 4}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{22, 22}, {16, 16}, {6, 6}, {2, 2}, {0, 0}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
@@ -397,6 +435,20 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{1, 63}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_5] = {
+		/* ETH  UL/DL/DPL  not used   not used  uC  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{16, 16}, {5, 5}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 63}, {1, 63}, {0, 0}, {0, 0}, {0, 2}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE/DPL  DDR  DMA  QDSS  uC  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{16, 16}, {5, 5}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 63}, {1, 63}, {1, 2}, {1, 2}, {0, 2}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
@@ -441,6 +493,18 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
 		{4, 4}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_5] = {
+		/* not used  UL_DL  not used  not used  UC_RX_Q
+		 * other are invalid
+		 */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{0, 0}, {3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE  DDR  DMA  QDSS  not used  other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{ 3, 3 }, {3, 3}, {3, 3}, {3, 3}, {0, 0}, { 0, 0 } },
+	},
 
 };
 
@@ -473,10 +537,6 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 	[IPA_4_1] = {
 		/* LWA_DL UL_DL	not used UC_RX_Q, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 1, 1, 1, 0, 0 },
-	},
-	[IPA_4_2] = {
-		/* UL_DL, other are invalid */
-		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 0, 0, 0, 0, 0 },
 	},
 };
 
@@ -5458,9 +5518,21 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	case IPA_4_5_MHI:
 		if (src) {
 			switch (group_index) {
-			case IPA_v4_2_GROUP_UL_DL:
+			case IPA_v4_5_MHI_GROUP_PCIE:
+			case IPA_v4_5_GROUP_UL_DL:
 				ipahal_write_reg_n_fields(
 					IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_MHI_GROUP_DMA:
+			case IPA_v4_5_MHI_GROUP_QDSS:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_GROUP_UC_RX_Q:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
@@ -5471,9 +5543,21 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 			}
 		} else {
 			switch (group_index) {
-			case IPA_v4_2_GROUP_UL_DL:
+			case IPA_v4_5_MHI_GROUP_PCIE:
+			case IPA_v4_5_GROUP_UL_DL:
 				ipahal_write_reg_n_fields(
 					IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_MHI_GROUP_DMA:
+			case IPA_v4_5_MHI_GROUP_QDSS:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_GROUP_UC_RX_Q:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_45_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
@@ -5492,7 +5576,8 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	}
 }
 
-static void ipa3_configure_rx_hps_clients(int depth, bool min)
+static void ipa3_configure_rx_hps_clients(int depth,
+	int max_clnt_in_depth, int base_index, bool min)
 {
 	int i;
 	struct ipahal_reg_rx_hps_clients val;
@@ -5500,23 +5585,19 @@ static void ipa3_configure_rx_hps_clients(int depth, bool min)
 
 	hw_type_idx = ipa3_get_hw_type_index();
 
-	/*
-	 * depth 0 contains 4 first clients out of 6
-	 * depth 1 contains 2 last clients out of 6
-	 */
-	for (i = 0 ; i < (depth ? 2 : 4) ; i++) {
+	for (i = 0 ; i < max_clnt_in_depth ; i++) {
 		if (min)
 			val.client_minmax[i] =
 				ipa3_rsrc_rx_grp_config
 				[hw_type_idx]
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
-				[!depth ? i : 4 + i].min;
+				[i + base_index].min;
 		else
 			val.client_minmax[i] =
 				ipa3_rsrc_rx_grp_config
 				[hw_type_idx]
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
-				[!depth ? i : 4 + i].max;
+				[i + base_index].max;
 	}
 	if (depth) {
 		ipahal_write_reg_fields(min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_1 :
@@ -5566,9 +5647,9 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	int dst_grp_idx_max;
 	struct ipahal_reg_rsrc_grp_cfg val;
 	u8 hw_type_idx;
+	int rx_hps_max_clnt_in_depth0;
 
 	IPADBG("ENTER\n");
-	IPADBG("Assign source rsrc groups min-max limits\n");
 
 	hw_type_idx = ipa3_get_hw_type_index();
 	switch (hw_type_idx) {
@@ -5604,8 +5685,8 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	case IPA_4_5_MHI:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
-		src_grp_idx_max = IPA_v4_2_SRC_GROUP_MAX;
-		dst_grp_idx_max = IPA_v4_2_DST_GROUP_MAX;
+		src_grp_idx_max = IPA_v4_5_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_5_DST_GROUP_MAX;
 		break;
 	default:
 		IPAERR("invalid hw type index\n");
@@ -5613,6 +5694,7 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		return;
 	}
 
+	IPADBG("Assign source rsrc groups min-max limits\n");
 	for (i = 0; i < src_rsrc_type_max; i++) {
 		for (j = 0; j < src_grp_idx_max; j = j + 2) {
 			val.x_min =
@@ -5628,7 +5710,6 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	}
 
 	IPADBG("Assign destination rsrc groups min-max limits\n");
-
 	for (i = 0; i < dst_rsrc_type_max; i++) {
 		for (j = 0; j < dst_grp_idx_max; j = j + 2) {
 			val.x_min =
@@ -5643,7 +5724,7 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		}
 	}
 
-	/* move resource group configuration from HLOS to TZ */
+	/* move rx_hps resource group configuration from HLOS to TZ */
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1) {
 		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
 		return;
@@ -5651,18 +5732,29 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 
 	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
 
-	ipa3_configure_rx_hps_clients(0, true);
-	ipa3_configure_rx_hps_clients(0, false);
+	/* Starting IPA4.5 have 5 RX_HPS_CMDQ */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5)
+		rx_hps_max_clnt_in_depth0 = 4;
+	else
+		rx_hps_max_clnt_in_depth0 = 5;
 
-	/* only hw_type v3_0\3_1 have 6 RX_HPS_CMDQ and needs depth 1*/
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, true);
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, false);
+
+	/*
+	 * IPA 3.0/3.1 uses 6 RX_HPS_CMDQ and needs depths1 for that
+	 * which has two clients
+	 */
 	if (ipa3_ctx->ipa_hw_type <= IPA_HW_v3_1) {
-		ipa3_configure_rx_hps_clients(1, true);
-		ipa3_configure_rx_hps_clients(1, false);
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			true);
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			false);
 	}
 
-	/* In IPA4.2 no support to HPS weight config*/
+	/* Starting IPA4.2 no support to HPS weight config */
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5 &&
-		(ipa3_ctx->ipa_hw_type != IPA_HW_v4_2))
+		(ipa3_ctx->ipa_hw_type < IPA_HW_v4_2))
 		ipa3_configure_rx_hps_weight();
 
 	IPADBG("EXIT\n");
