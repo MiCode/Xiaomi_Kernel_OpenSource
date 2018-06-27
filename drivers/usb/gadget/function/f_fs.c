@@ -1025,7 +1025,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			data_len = usb_ep_align_maybe(gadget, ep->ep, data_len);
 		spin_unlock_irq(&epfile->ffs->eps_lock);
 
-		extra_buf_alloc = ffs->gadget->extra_buf_alloc;
+		extra_buf_alloc = gadget->extra_buf_alloc;
 		if (!io_data->read)
 			data = kmalloc(data_len + extra_buf_alloc,
 					GFP_KERNEL);
