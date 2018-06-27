@@ -1856,7 +1856,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	mutex_lock(&link->lock);
 	spin_lock_bh(&link->link_state_spin_lock);
-	if (link->state != CAM_CRM_LINK_STATE_READY) {
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
 		rc = -EPERM;
 		spin_unlock_bh(&link->link_state_spin_lock);
@@ -1993,7 +1993,7 @@ static int cam_req_mgr_cb_notify_trigger(
 	}
 
 	spin_lock_bh(&link->link_state_spin_lock);
-	if (link->state != CAM_CRM_LINK_STATE_READY) {
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
 		spin_unlock_bh(&link->link_state_spin_lock);
 		rc = -EPERM;
