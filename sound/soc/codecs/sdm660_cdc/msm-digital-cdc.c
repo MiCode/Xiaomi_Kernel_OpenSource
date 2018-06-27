@@ -2157,6 +2157,10 @@ static int msm_dig_suspend(struct device *dev)
 		pr_debug("%s:digcodec not initialized, return\n", __func__);
 		return 0;
 	}
+	if (!registered_digcodec->component.card) {
+		pr_debug("%s:component not initialized, return\n", __func__);
+		return 0;
+	}
 	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
 	if (!pdata) {
 		pr_debug("%s:card not initialized, return\n", __func__);
