@@ -13,13 +13,6 @@
 #ifndef _CAM_CDM_UTIL_H_
 #define _CAM_CDM_UTIL_H_
 
-#define CAM_CDM_SW_CMD_COUNT    2
-#define CAM_CMD_LENGTH_MASK     0xFFFF
-#define CAM_CDM_COMMAND_OFFSET  24
-
-#define CAM_CDM_DMI_DATA_HI_OFFSET   8
-#define CAM_CDM_DMI_DATA_LO_OFFSET   12
-
 enum cam_cdm_command {
 	CAM_CDM_CMD_UNUSED = 0x0,
 	CAM_CDM_CMD_DMI = 0x1,
@@ -157,5 +150,19 @@ void (*cdm_write_genirq)(
 	uint32_t *pCmdBuffer,
 	uint32_t  userdata);
 };
+
+/**
+ * cam_cdm_util_log_cmd_bufs()
+ *
+ * @brief:            Util function to log cdm command buffers
+ *
+ * @cmd_buffer_start: Pointer to start of cmd buffer
+ * @cmd_buffer_end:   Pointer to end of cmd buffer
+ *
+ */
+void cam_cdm_util_dump_cmd_buf(
+	uint32_t *cmd_buffer_start, uint32_t *cmd_buffer_end);
+
+
 
 #endif /* _CAM_CDM_UTIL_H_ */
