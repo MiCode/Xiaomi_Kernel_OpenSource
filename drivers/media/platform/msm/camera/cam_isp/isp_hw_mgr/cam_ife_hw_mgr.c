@@ -940,9 +940,13 @@ static int cam_ife_mgr_acquire_cid_res(
 				hw_intf->hw_idx);
 
 			if (in_port->usage_type && acquired_cnt == 1 &&
-				((csid_path == CAM_IFE_PIX_PATH_RES_IPP) ||
-				(csid_path == CAM_IFE_PIX_PATH_RES_PPP)))
-				/* Continue to acquire Right */
+				csid_path == CAM_IFE_PIX_PATH_RES_IPP)
+				/*
+				 * Continue to acquire Right for IPP.
+				 * Dual IFE for RDI and PPP is not currently
+				 * supported.
+				 */
+
 				continue;
 
 			if (acquired_cnt)
@@ -990,8 +994,7 @@ acquire_successful:
 
 	/*
 	 * Acquire Right if not already acquired.
-	 * Dual IFE for RDI is not currently supported.
-	 * Only one IFE should be used for 2PD data.
+	 * Dual IFE for RDI and PPP is not currently supported.
 	 */
 	if (cid_res_temp->is_dual_vfe && csid_path
 		== CAM_IFE_PIX_PATH_RES_IPP && acquired_cnt == 1) {
@@ -1077,7 +1080,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 
 	csid_res->res_id = path_res_id;
 
-	if (in_port->usage_type)
+	if (in_port->usage_type && is_ipp)
 		csid_res->is_dual_vfe = 1;
 	else {
 		csid_res->is_dual_vfe = 0;
