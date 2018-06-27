@@ -989,7 +989,8 @@ int cam_lrme_mgr_register_device(
 	CAM_DBG(CAM_LRME, "Create submit workq for %s", buf);
 	rc = cam_req_mgr_workq_create(buf,
 		CAM_LRME_WORKQ_NUM_TASK,
-		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ);
+		&hw_device->work, CRM_WORKQ_USAGE_NON_IRQ,
+		0);
 	if (rc) {
 		CAM_ERR(CAM_LRME,
 			"Unable to create a worker, rc=%d", rc);

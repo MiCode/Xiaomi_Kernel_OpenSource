@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,15 @@
 #include <linux/timer.h>
 
 #include "cam_req_mgr_core.h"
+
+/* Flag to create a high priority workq */
+#define CAM_WORKQ_FLAG_HIGH_PRIORITY             (1 << 0)
+
+/* This flag ensures only one task from a given
+ * workq will execute at any given point on any
+ * given CPU.
+ */
+#define CAM_WORKQ_FLAG_SERIAL                    (1 << 1)
 
 /* Task priorities, lower the number higher the priority*/
 enum crm_task_priority {
@@ -101,11 +110,14 @@ struct cam_req_mgr_core_workq {
  * @num_task : Num_tasks to be allocated for workq
  * @workq    : Double pointer worker
  * @in_irq   : Set to one if workq might be used in irq context
+ * @flags    : Bitwise OR of Flags for workq behavior.
+ *             e.g. CAM_REQ_MGR_WORKQ_HIGH_PRIORITY | CAM_REQ_MGR_WORKQ_SERIAL
  * This function will allocate and create workqueue and pass
  * the workq pointer to caller.
  */
 int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
-	struct cam_req_mgr_core_workq **workq, enum crm_workq_context in_irq);
+	struct cam_req_mgr_core_workq **workq, enum crm_workq_context in_irq,
+	int flags);
 
 /**
  * cam_req_mgr_workq_destroy()
