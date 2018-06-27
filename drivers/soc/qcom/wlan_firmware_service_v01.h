@@ -30,6 +30,7 @@
 #define QMI_WLFW_XO_CAL_IND_V01 0x003D
 #define QMI_WLFW_INI_RESP_V01 0x002F
 #define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
+#define QMI_WLFW_SHUTDOWN_RESP_V01 0x0043
 #define QMI_WLFW_MAC_ADDR_RESP_V01 0x0033
 #define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
 #define QMI_WLFW_HOST_CAP_RESP_V01 0x0034
@@ -57,6 +58,7 @@
 #define QMI_WLFW_CAP_RESP_V01 0x0024
 #define QMI_WLFW_REJUVENATE_ACK_REQ_V01 0x003A
 #define QMI_WLFW_ATHDIAG_READ_RESP_V01 0x0030
+#define QMI_WLFW_SHUTDOWN_REQ_V01 0x0043
 #define QMI_WLFW_VBATT_REQ_V01 0x0032
 #define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
 #define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
@@ -607,5 +609,18 @@ struct wlfw_xo_cal_ind_msg_v01 {
 };
 #define WLFW_XO_CAL_IND_MSG_V01_MAX_MSG_LEN 4
 extern struct qmi_elem_info wlfw_xo_cal_ind_msg_v01_ei[];
+
+struct wlfw_shutdown_req_msg_v01 {
+	u8 shutdown_valid;
+	u8 shutdown;
+};
+#define WLFW_SHUTDOWN_REQ_MSG_V01_MAX_MSG_LEN 4
+extern struct qmi_elem_info wlfw_shutdown_req_msg_v01_ei[];
+
+struct wlfw_shutdown_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_SHUTDOWN_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_shutdown_resp_msg_v01_ei[];
 
 #endif

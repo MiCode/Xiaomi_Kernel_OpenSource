@@ -2283,3 +2283,47 @@ struct qmi_elem_info wlfw_xo_cal_ind_msg_v01_ei[] = {
 	},
 };
 
+struct qmi_elem_info wlfw_shutdown_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_shutdown_req_msg_v01,
+					   shutdown_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_shutdown_req_msg_v01,
+					   shutdown),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct qmi_elem_info wlfw_shutdown_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct wlfw_shutdown_resp_msg_v01,
+					   resp),
+		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
