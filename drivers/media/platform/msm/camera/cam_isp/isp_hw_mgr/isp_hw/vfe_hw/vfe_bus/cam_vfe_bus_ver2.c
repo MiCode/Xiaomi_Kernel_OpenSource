@@ -1127,7 +1127,7 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 
 static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 {
-	int rc = 0;
+	int rc = 0, val = 0;
 	struct cam_vfe_bus_ver2_wm_resource_data   *rsrc_data =
 		wm_res->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
@@ -1184,7 +1184,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				(struct
 				cam_vfe_bus_ver2_reg_offset_ubwc_client *)
 				rsrc_data->hw_regs->ubwc_regs;
-			cam_io_w_mb(0x1, common_data->mem_base +
+			val = cam_io_r_mb(common_data->mem_base +
+				ubwc_regs->mode_cfg_0);
+			val |= 0x1;
+			cam_io_w_mb(val, common_data->mem_base +
 				ubwc_regs->mode_cfg_0);
 		} else if ((camera_hw_version == CAM_CPAS_TITAN_175_V100) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V101)) {
@@ -1195,7 +1198,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				(struct
 				cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
 				rsrc_data->hw_regs->ubwc_regs;
-			cam_io_w_mb(0x1, common_data->mem_base +
+			val = cam_io_r_mb(common_data->mem_base +
+				ubwc_regs->mode_cfg_0);
+			val |= 0x1;
+			cam_io_w_mb(val, common_data->mem_base +
 				ubwc_regs->mode_cfg_0);
 		} else {
 			CAM_ERR(CAM_ISP, "Invalid HW version: %d",
