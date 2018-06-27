@@ -333,11 +333,13 @@ struct ipa_mhi_connect_params_internal {
  * @link: entry's link in global header offset entries list
  * @offset: the offset
  * @bin: bin
+ * @ipacm_installed: indicate if installed by ipacm
  */
 struct ipa_hdr_offset_entry {
 	struct list_head link;
 	u32 offset;
 	u32 bin;
+	bool ipacm_installed;
 };
 
 extern const char *ipa_clients_strings[];

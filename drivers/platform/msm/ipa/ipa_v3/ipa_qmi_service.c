@@ -585,6 +585,14 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	int rc;
 	int i;
 
+	/* check if modem up */
+	if (!ipa3_qmi_indication_fin ||
+		!ipa3_qmi_modem_init_fin ||
+		!ipa_q6_clnt) {
+		IPAWANDBG("modem QMI haven't up yet\n");
+		return -EINVAL;
+	}
+
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_spec_list_len == 0) {
 		IPAWANDBG("IPACM pass zero rules to Q6\n");
@@ -675,6 +683,14 @@ int ipa3_qmi_filter_request_ex_send(
 	struct ipa_msg_desc req_desc, resp_desc;
 	int rc;
 	int i;
+
+	/* check if modem up */
+	if (!ipa3_qmi_indication_fin ||
+		!ipa3_qmi_modem_init_fin ||
+		!ipa_q6_clnt) {
+		IPAWANDBG("modem QMI haven't up yet\n");
+		return -EINVAL;
+	}
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_spec_ex_list_len == 0) {
