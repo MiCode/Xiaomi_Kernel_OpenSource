@@ -730,6 +730,7 @@
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
 		interrupt-parent = <&intc>;
+		ignored-save-restore-irqs = <38>;
 	};
 
 	pdc: interrupt-controller@b220000{
@@ -1866,6 +1867,7 @@
 		ufs-qcom-crypto = <&ufs_ice>;
 
 		lanes-per-direction = <1>;
+		spm-level = <5>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		clock-names =
@@ -1879,7 +1881,7 @@
 			"rx_lane0_sync_clk";
 		clocks =
 			<&clock_gcc GCC_UFS_PHY_AXI_HW_CTL_CLK>,
-			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK>,
+			<&clock_gcc UFS_PHY_AXI_UFS_VOTE_CLK>,
 			<&clock_gcc GCC_UFS_PHY_AHB_CLK>,
 			<&clock_gcc GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK>,
 			<&clock_gcc GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK>,
@@ -2216,6 +2218,7 @@
 		status = "ok";
 		memory-region = <&pil_modem_mem>;
 		qcom,mem-protect-id = <0xF>;
+		qcom,complete-ramdump;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
@@ -2382,7 +2385,7 @@
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>,
 			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
-			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>;
+			<&clock_gcc UFS_PHY_AXI_EMMC_VOTE_CLK>;
 		clock-names = "iface_clk", "core_clk", "ice_core_clk",
 			"bus_aggr_clk";
 

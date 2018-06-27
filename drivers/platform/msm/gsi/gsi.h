@@ -137,6 +137,7 @@ struct gsi_chan_ctx {
 	bool allocated;
 	atomic_t poll_mode;
 	union __packed gsi_channel_scratch scratch;
+	union __packed gsi_channel_scratch restore_scratch;
 	struct gsi_chan_stats stats;
 	bool enable_dp_stats;
 	bool print_dp_stats;

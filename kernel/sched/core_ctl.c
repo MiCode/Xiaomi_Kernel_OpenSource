@@ -789,6 +789,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
 	unsigned int nr_isolated = 0;
+	bool first_pass = cluster->nr_not_preferred_cpus;
 
 	/*
 	 * Protect against entry being removed (and added at tail) by other
@@ -834,6 +835,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
+again:
 	/*
 	 * If the number of active CPUs is within the limits, then
 	 * don't force isolation of any busy CPUs.
@@ -853,6 +855,9 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (cluster->active_cpus <= cluster->max_cpus)
 			break;
 
+		if (first_pass && !c->not_preferred)
+			continue;
+
 		spin_unlock_irqrestore(&state_lock, flags);
 
 		pr_debug("Trying to isolate CPU%u\n", c->cpu);
@@ -869,6 +874,10 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
+	if (first_pass && cluster->active_cpus > cluster->max_cpus) {
+		first_pass = false;
+		goto again;
+	}
 }
 
 static void __try_to_unisolate(struct cluster_data *cluster,

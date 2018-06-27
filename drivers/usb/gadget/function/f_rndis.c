@@ -386,9 +386,30 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 					struct sk_buff *skb)
 {
 	struct sk_buff *skb2;
+	struct rndis_packet_msg_type *header = NULL;
+	struct f_rndis *rndis = func_to_rndis(&port->func);
 
 	if (!skb)
 		return NULL;
+
+	if (rndis->port.multi_pkt_xfer) {
+		if (port->header) {
+			header = port->header;
+			header->MessageType = cpu_to_le32(RNDIS_MSG_PACKET);
+			header->MessageLength = cpu_to_le32(skb->len +
+							sizeof(*header));
+			header->DataOffset = cpu_to_le32(36);
+			header->DataLength = cpu_to_le32(skb->len);
+			pr_debug("MessageLength:%d DataLength:%d\n",
+						header->MessageLength,
+						header->DataLength);
+			return skb;
+		}
+
+		dev_kfree_skb(skb);
+		pr_err("RNDIS header is NULL.\n");
+		return NULL;
+	}
 
 	skb2 = skb_realloc_headroom(skb, sizeof(struct rndis_packet_msg_type));
 	rndis_add_hdr(skb2);
@@ -818,6 +839,27 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis_data_intf.bInterfaceNumber = status;
 	rndis_union_desc.bSlaveInterface0 = status;
 
+	if (rndis_opts->wceis) {
+		/* "Wireless" RNDIS; auto-detected by Windows */
+		rndis_iad_descriptor.bFunctionClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_iad_descriptor.bFunctionProtocol = 0x03;
+		rndis_control_intf.bInterfaceClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_control_intf.bInterfaceSubClass =	 0x01;
+		rndis_control_intf.bInterfaceProtocol =	 0x03;
+	} else {
+		rndis_iad_descriptor.bFunctionClass = USB_CLASS_COMM;
+		rndis_iad_descriptor.bFunctionSubClass =
+						USB_CDC_SUBCLASS_ETHERNET;
+		rndis_iad_descriptor.bFunctionProtocol = USB_CDC_PROTO_NONE;
+		rndis_control_intf.bInterfaceClass = USB_CLASS_COMM;
+		rndis_control_intf.bInterfaceSubClass =	USB_CDC_SUBCLASS_ACM;
+		rndis_control_intf.bInterfaceProtocol =
+						USB_CDC_ACM_PROTO_VENDOR;
+	}
+
 	status = -ENODEV;
 
 	/* allocate instance-specific endpoints */
@@ -950,11 +992,15 @@ USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(rndis);
 /* f_rndis_opts_ifname */
 USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(rndis);
 
+/* f_rndis_opts_wceis */
+USB_ETHERNET_CONFIGFS_ITEM_ATTR_WCEIS(rndis);
+
 static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_dev_addr,
 	&rndis_opts_attr_host_addr,
 	&rndis_opts_attr_qmult,
 	&rndis_opts_attr_ifname,
+	&rndis_opts_attr_wceis,
 	NULL,
 };
 
@@ -1007,6 +1053,9 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 		return ERR_CAST(rndis_interf_group);
 	}
 	opts->rndis_interf_group = rndis_interf_group;
+
+	/* Enable "Wireless" RNDIS by default */
+	opts->wceis = true;
 
 	return &opts->func_inst;
 }

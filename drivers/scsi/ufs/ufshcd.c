@@ -5433,7 +5433,7 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* REPORT SUPPORTED OPERATION CODES is not supported */
 	sdev->no_report_opcodes = 1;
 
-	/* WRITE_SAME command is not supported*/
+	/* WRITE_SAME command is not supported */
 	sdev->no_write_same = 1;
 
 	ufshcd_set_queue_depth(sdev);
@@ -6559,8 +6559,8 @@ static void ufshcd_rls_handler(struct work_struct *work)
 	u32 mode;
 
 	hba = container_of(work, struct ufs_hba, rls_work);
-	ufshcd_scsi_block_requests(hba);
 	pm_runtime_get_sync(hba->dev);
+	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	if (ret) {
@@ -7090,7 +7090,10 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	 * To avoid these unnecessary/illegal step we skip to the last error
 	 * handling stage: reset and restore.
 	 */
-	if (lrbp->lun == UFS_UPIU_UFS_DEVICE_WLUN)
+	if ((lrbp->lun == UFS_UPIU_UFS_DEVICE_WLUN) ||
+	    (lrbp->lun == UFS_UPIU_REPORT_LUNS_WLUN) ||
+	    (lrbp->lun == UFS_UPIU_BOOT_WLUN) ||
+	    (lrbp->lun == UFS_UPIU_RPMB_WLUN))
 		return ufshcd_eh_host_reset_handler(cmd);
 
 	ufshcd_hold_all(hba);
@@ -8093,9 +8096,16 @@ out:
 	/*
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
+	 * In cases when there's both ufs and emmc present and regualtors
+	 * are shared b/w the two, this shouldn't turn-off the regulators
+	 * w/o giving emmc a chance to send PON.
+	 * Hence schedule a delayed suspend, thus giving enough time to
+	 * emmc to vote for the shared regulator.
 	 */
-	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress)
-		pm_runtime_put_sync(hba->dev);
+	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
+		pm_runtime_put_noidle(hba->dev);
+		pm_schedule_suspend(hba->dev, MSEC_PER_SEC * 10);
+	}
 
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),

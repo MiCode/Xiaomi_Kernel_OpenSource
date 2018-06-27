@@ -45,6 +45,9 @@
 #define FUNC_SUSPEND_OPT_SUSP_MASK BIT(0)
 #define FUNC_SUSPEND_OPT_RW_EN_MASK BIT(1)
 
+#define FUNC_WAKEUP_CAPABLE_SHIFT  0
+#define FUNC_WAKEUP_ENABLE_SHIFT   1
+
 /*
  * USB function drivers should return USB_GADGET_DELAYED_STATUS if they
  * wish to delay the data/status stages of the control transfer till they
@@ -56,6 +59,9 @@
 
 /* big enough to hold our biggest descriptor */
 #define USB_COMP_EP0_BUFSIZ	4096
+
+/* OS feature descriptor length <= 4kB */
+#define USB_COMP_EP0_OS_DESC_BUFSIZ	4096
 
 #define USB_MS_TO_HS_INTERVAL(x)	(ilog2((x * 1000 / 125)) + 1)
 struct usb_configuration;

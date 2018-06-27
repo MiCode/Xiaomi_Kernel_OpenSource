@@ -468,7 +468,7 @@
 
 	dsi_hx8399_truly_cmd_display: qcom,dsi-display@16 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_hx8399_truly_cmd_display";
+		label = "dsi_hx8399_truly_fhd_video_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0>;
@@ -858,6 +858,7 @@
 	qcom,mdss-dsi-panel-status-value = <0x9c>;
 	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-panel-cmds-only-by-right;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1f 08 08 24 23 08

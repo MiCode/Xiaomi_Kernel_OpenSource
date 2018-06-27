@@ -910,6 +910,21 @@ int dwc3_core_init(struct dwc3 *dwc)
 	}
 
 	/*
+	 * Workaround for STAR 9001285599 which affects dwc3 core version 3.20a
+	 * only. If the PM TIMER ECN is enabled thru GUCTL2[19], then link
+	 * compliance test (TD7.21) may fail. If the ECN is not enabled
+	 * GUCTL2[19] = 0), the controller will use the old timer value (5us),
+	 * which is still fine for Link Compliance test. Hence Do not enable
+	 * PM TIMER ECN in V3.20a by setting GUCTL2[19] by default,
+	 * instead use GUCTL2[19] = 0.
+	 */
+	if (dwc->revision == DWC3_REVISION_320A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL2);
+		reg &= ~DWC3_GUCTL2_LC_TIMER;
+		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
+	}
+
+	/*
 	 * Enable hardware control of sending remote wakeup in HS when
 	 * the device is in the L1 state.
 	 */
@@ -1567,6 +1582,19 @@ static int dwc3_suspend(struct device *dev)
 	return 0;
 }
 
+static int dwc3_pm_restore(struct device *dev)
+{
+	/*
+	 * Set the core as runtime active to prevent the runtime
+	 * PM ops being called before the PM restore is completed.
+	 */
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
 static int dwc3_resume(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
@@ -1591,7 +1619,12 @@ static int dwc3_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
+	.suspend	= dwc3_suspend,
+	.resume		= dwc3_resume,
+	.freeze		= dwc3_suspend,
+	.thaw		= dwc3_pm_restore,
+	.poweroff	= dwc3_suspend,
+	.restore	= dwc3_pm_restore,
 	SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume,
 			dwc3_runtime_idle)
 };

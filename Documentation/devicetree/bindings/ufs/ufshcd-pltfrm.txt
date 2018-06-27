@@ -74,6 +74,7 @@ Optional properties:
 			  Defaults to 26 MHz if not specified.
 - extcon:       phandle to external connector (Refer Documentation/devicetree/bindings/extcon/extcon-gpio.txt for more details).
 - non-removable		: defines if the connected ufs device is not removable
+- force-ufshc-probe	: For force probing UFS device (non removable) even if it is not the boot device.
 
 
 Note: If above properties are not defined it can be assumed that the supply

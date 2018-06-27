@@ -148,8 +148,17 @@ static inline u64 arch_counter_get_cntpct(void)
 
 static inline u64 arch_counter_get_cntvct(void)
 {
+	u64 cval;
 	isb();
-	return arch_timer_reg_read_stable(cntvct_el0);
+#if IS_ENABLED(CONFIG_MSM_TIMER_LEAP)
+#define L32_BITS       0x00000000FFFFFFFF
+	do {
+		cval = arch_timer_reg_read_stable(cntvct_el0);
+	} while ((cval & L32_BITS) == L32_BITS);
+#else
+		cval = arch_timer_reg_read_stable(cntvct_el0);
+#endif
+	return cval;
 }
 
 static inline int arch_timer_arch_init(void)

@@ -182,7 +182,7 @@ int8_t VL_device_read_strobe(struct vl_data *Dev)
 			Status = VL_RdByte(Dev, 0x83, &strobe);
 			if ((strobe != 0x00) || Status != VL_ERROR_NONE)
 				break;
-				LoopNb = LoopNb + 1;
+			LoopNb = LoopNb + 1;
 		} while (LoopNb < VL_DEFAULT_MAX_LOOP);
 
 		if (LoopNb >= VL_DEFAULT_MAX_LOOP)

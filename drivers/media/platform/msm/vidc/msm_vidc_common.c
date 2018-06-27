@@ -2361,6 +2361,17 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	return 0;
 }
 
+static bool is_heic_encode_session(struct msm_vidc_inst *inst)
+{
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		(get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+		HAL_VIDEO_CODEC_HEVC) &&
+		(inst->img_grid_dimension > 0))
+		return true;
+	else
+		return false;
+}
+
 static bool is_eos_buffer(struct msm_vidc_inst *inst, u32 device_addr)
 {
 	struct eos_buf *temp, *next;
@@ -2406,9 +2417,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
-	if ((get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
-		HAL_VIDEO_CODEC_HEVC) &&
-		(inst->img_grid_dimension > 0) &&
+	if (is_heic_encode_session(inst) &&
 		(empty_buf_done->input_tag < inst->tinfo.count - 1)) {
 		dprintk(VIDC_DBG, "Wait for last tile. Current tile no: %d\n",
 		empty_buf_done->input_tag);
@@ -3153,10 +3162,11 @@ exit:
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 {
 	struct msm_vidc_inst *temp;
+	int op_rate = 0;
 
 	dprintk(VIDC_ERR, "Running instances:\n");
-	dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s|%4s\n",
-			"type", "w", "h", "fps", "prop");
+	dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s|%6s|%4s\n",
+			"type", "w", "h", "fps", "opr", "prop");
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
@@ -3170,13 +3180,21 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (msm_comm_turbo_session(temp))
 				strlcat(properties, "T", sizeof(properties));
 
-			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
+			if (is_realtime_session(temp))
+				strlcat(properties, "R", sizeof(properties));
+
+			if (temp->clk_data.operating_rate)
+				op_rate = temp->clk_data.operating_rate >> 16;
+			else
+				op_rate = temp->prop.fps;
+
+			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%6d|%4s\n",
 					temp->session_type,
 					max(temp->prop.width[CAPTURE_PORT],
 						temp->prop.width[OUTPUT_PORT]),
 					max(temp->prop.height[CAPTURE_PORT],
 						temp->prop.height[OUTPUT_PORT]),
-					temp->prop.fps, properties);
+					temp->prop.fps, op_rate, properties);
 		}
 	}
 	mutex_unlock(&core->lock);
@@ -4424,9 +4442,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		for (c = 0; c < etbs.count; ++c) {
 			struct vidc_frame_data *frame_data = &etbs.data[c];
 
-			if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
-				HAL_VIDEO_CODEC_HEVC &&
-				(inst->img_grid_dimension > 0)) {
+			if (is_heic_encode_session(inst)) {
 				rc = msm_comm_qbuf_heic_tiles(inst, frame_data);
 				if (rc) {
 					dprintk(VIDC_ERR,
@@ -5503,6 +5519,11 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	u32 x_min, x_max, y_min, y_max;
 	u32 input_height, input_width, output_height, output_width;
 	u32 rotation;
+
+	if (is_heic_encode_session(inst)) {
+		dprintk(VIDC_DBG, "Skip downscale check for HEIC\n");
+		return 0;
+	}
 
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];

@@ -462,7 +462,7 @@ static void _sde_enc_phys_wb_detect_cwb(struct sde_encoder_phys *phys_enc,
 	phys_enc->in_clone_mode = false;
 
 	/* Check if WB has CWB support */
-	if (!(wb_cfg->features & SDE_WB_HAS_CWB))
+	if (!(wb_cfg->features & BIT(SDE_WB_HAS_CWB)))
 		return;
 
 	/* Count the number of connectors on the given crtc */

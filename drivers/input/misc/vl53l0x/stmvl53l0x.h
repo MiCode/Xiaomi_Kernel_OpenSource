@@ -34,6 +34,7 @@
 /* #define INT_POLLING_DELAY	20 */
 
 /* if don't want to have output from dbg, comment out #DEBUG macro */
+#define DEBUG
 #ifdef DEBUG
 #define dbg(fmt, ...)	\
 	printk(fmt, ##__VA_ARGS__)
@@ -51,6 +52,8 @@ enum init_mode_e {
 	NORMAL_MODE = 0,
 	OFFSETCALIB_MODE = 1,
 	XTALKCALIB_MODE = 2,
+	SPADCALIB_MODE = 3,
+	REFCALIB_MODE = 4,
 };
 
 enum parameter_name_e {
@@ -167,6 +170,8 @@ struct vl_data {
 	/* Debug */
 	unsigned int enableDebug;
 	uint8_t interrupt_received;
+	int32_t default_offset_calibration;
+	unsigned int default_xtalk_Compensation;
 };
 
 /*

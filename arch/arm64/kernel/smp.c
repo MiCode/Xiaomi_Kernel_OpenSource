@@ -602,16 +602,6 @@ acpi_parse_gic_cpu_interface(struct acpi_subtable_header *header,
 void (*__smp_cross_call)(const struct cpumask *, unsigned int);
 DEFINE_PER_CPU(bool, pending_ipi);
 
-void smp_cross_call_common(const struct cpumask *cpumask, unsigned int func)
-{
-	unsigned int cpu;
-
-	for_each_cpu(cpu, cpumask)
-		per_cpu(pending_ipi, cpu) = true;
-
-	__smp_cross_call(cpumask, func);
-}
-
 /*
  * Enumerate the possible CPU set from the device tree and build the
  * cpu logical map array containing MPIDR values related to logical
@@ -779,6 +769,17 @@ static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
 	__smp_cross_call(target, ipinr);
 }
 
+static void smp_cross_call_common(const struct cpumask *cpumask,
+				  unsigned int func)
+{
+	unsigned int cpu;
+
+	for_each_cpu(cpu, cpumask)
+		per_cpu(pending_ipi, cpu) = true;
+
+	smp_cross_call(cpumask, func);
+}
+
 void show_ipi_list(struct seq_file *p, int prec)
 {
 	unsigned int cpu, i;
@@ -825,7 +826,8 @@ void arch_send_wakeup_ipi_mask(const struct cpumask *mask)
 void arch_irq_work_raise(void)
 {
 	if (__smp_cross_call)
-		smp_cross_call(cpumask_of(smp_processor_id()), IPI_IRQ_WORK);
+		smp_cross_call_common(cpumask_of(smp_processor_id()),
+				      IPI_IRQ_WORK);
 }
 #endif
 

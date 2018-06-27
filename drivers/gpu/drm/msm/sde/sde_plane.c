@@ -3449,6 +3449,25 @@ static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 				src_w, src_h);
 			return -EINVAL;
 		}
+
+		/*
+		 * SSPP fetch , unpack output and QSEED3 input lines need
+		 * to match for Y plane
+		 */
+		if (i == 0 &&
+			(sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
+			BIT(SDE_DRM_DEINTERLACE)) &&
+			((pstate->scaler3_cfg.src_height[i] != (src_h/2)) ||
+			(pstate->pixel_ext.roi_h[i] != (src_h/2)))) {
+			SDE_ERROR_PLANE(psde,
+				"de-interlace fail roi[%d] %d/%d, src %dx%d, src %dx%d\n",
+				i, pstate->pixel_ext.roi_w[i],
+				pstate->pixel_ext.roi_h[i],
+				pstate->scaler3_cfg.src_width[i],
+				pstate->scaler3_cfg.src_height[i],
+				src_w, src_h);
+			return -EINVAL;
+		}
 	}
 
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2;

@@ -13,13 +13,7 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/qcom,gcc-sdm845.h>
-#include <dt-bindings/clock/qcom,camcc-sdm845.h>
-#include <dt-bindings/clock/qcom,dispcc-sdm845.h>
-#include <dt-bindings/clock/qcom,rpmh.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sdm670-qrd.dtsi"
+#include "sdm670-qrd-sku2.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660L QRD SKU2";
@@ -29,23 +23,4 @@
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 		       <0x0001001b 0x0102001a 0x0 0x0>,
 		       <0x0001001b 0x0201011a 0x0 0x0>;
-};
-
-&dsi_dual_nt36850_truly_cmd_display {
-	/delete-property/ qcom,dsi-display-active;
-};
-
-&dsi_hx8399_truly_cmd {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,panel-mode-gpio = <&tlmm 76 0>;
-	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
-	qcom,platform-reset-gpio = <&tlmm 75 0>;
-	qcom,platform-te-gpio = <&tlmm 10 0>;
-};
-
-&dsi_hx8399_truly_cmd_display {
-	qcom,dsi-display-active;
 };

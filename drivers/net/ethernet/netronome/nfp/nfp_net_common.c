@@ -854,6 +854,8 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 
 	netdev_tx_sent_queue(nd_q, txbuf->real_len);
 
+	skb_tx_timestamp(skb);
+
 	tx_ring->wr_p += nr_frags + 1;
 	if (nfp_net_tx_ring_should_stop(tx_ring))
 		nfp_net_tx_ring_stop(nd_q, tx_ring);
@@ -865,8 +867,6 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 		nfp_qcp_wr_ptr_add(tx_ring->qcp_q, tx_ring->wr_ptr_add);
 		tx_ring->wr_ptr_add = 0;
 	}
-
-	skb_tx_timestamp(skb);
 
 	return NETDEV_TX_OK;
 

@@ -146,6 +146,16 @@
 };
 
 &soc {
+	devfreq_spdm_cpu {
+		status = "disabled";
+	};
+
+	devfreq_spdm_gov {
+		status = "disabled";
+	};
+};
+
+&soc {
 	/delete-node/ qcom,cpu-clock-8939@b111050;
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
 		compatible = "qcom,cpu-clock-sdm429";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,13 +217,46 @@ static void __pll_config_reg(void __iomem *pll_config, struct pll_freq_tbl *f,
 	writel_relaxed(regval, pll_config);
 }
 
+static void pll_wait_for_lock(struct pll_clk *pll)
+{
+	int count;
+	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
+	u32 status_reg, user_reg, l_reg, m_reg, n_reg, config_reg;
+
+	/* Wait for pll to lock. */
+	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)
+			break;
+		udelay(1);
+	}
+
+	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)) {
+		mode = readl_relaxed(PLL_MODE_REG(pll));
+		status_reg = readl_relaxed(PLL_STATUS_REG(pll));
+		user_reg = readl_relaxed(PLL_CONFIG_REG(pll));
+		config_reg = readl_relaxed(PLL_CFG_CTL_REG(pll));
+		l_reg = readl_relaxed(PLL_L_REG(pll));
+		m_reg = readl_relaxed(PLL_M_REG(pll));
+		n_reg = readl_relaxed(PLL_N_REG(pll));
+		pr_err("count = %d\n", (int)count);
+		pr_err("mode register is 0x%x\n", mode);
+		pr_err("status register is 0x%x\n", status_reg);
+		pr_err("user control register is 0x%x\n", user_reg);
+		pr_err("config control register is 0x%x\n", config_reg);
+		pr_err("L value register is 0x%x\n", l_reg);
+		pr_err("M value register is 0x%x\n", m_reg);
+		pr_err("N value control register is 0x%x\n", n_reg);
+		panic("PLL %s didn't lock after enabling it!\n",
+				pll->c.dbg_name);
+	}
+}
+
 static int sr2_pll_clk_enable(struct clk *c)
 {
 	unsigned long flags;
 	struct pll_clk *pll = to_pll_clk(c);
-	int ret = 0, count;
 	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
-	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 
@@ -245,15 +278,7 @@ static int sr2_pll_clk_enable(struct clk *c)
 	mode |= PLL_RESET_N;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
-	/* Wait for pll to lock. */
-	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
-		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)
-			break;
-		udelay(1);
-	}
-
-	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
-		pr_err("PLL %s didn't lock after enabling it!\n", c->dbg_name);
+	pll_wait_for_lock(pll);
 
 	/* Enable PLL output. */
 	mode |= PLL_OUTCTRL;
@@ -263,7 +288,50 @@ static int sr2_pll_clk_enable(struct clk *c)
 	mb();
 
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
-	return ret;
+	return 0;
+}
+
+static int acpu_pll_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(c);
+	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+
+	spm_event(pll->spm_ctrl.spm_base, pll->spm_ctrl.offset,
+				pll->spm_ctrl.event_bit, false);
+
+	/* Disable PLL bypass mode. */
+	mode |= PLL_BYPASSNL;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
+	udelay(10);
+
+	/* De-assert active-low PLL reset. */
+	mode |= PLL_RESET_N;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* PLL H/W requires a 50uSec delay before polling lock_detect. */
+	mb();
+	udelay(50);
+
+	pll_wait_for_lock(pll);
+
+	/* Enable PLL output. */
+	mode |= PLL_OUTCTRL;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+	return 0;
 }
 
 void __variable_rate_pll_init(struct clk *c)
@@ -879,6 +947,15 @@ const struct clk_ops clk_ops_local_pll = {
 
 const struct clk_ops clk_ops_sr2_pll = {
 	.enable = sr2_pll_clk_enable,
+	.disable = local_pll_clk_disable,
+	.set_rate = local_pll_clk_set_rate,
+	.round_rate = local_pll_clk_round_rate,
+	.handoff = local_pll_clk_handoff,
+	.list_registers = local_pll_clk_list_registers,
+};
+
+const struct clk_ops clk_ops_acpu_pll = {
+	.enable = acpu_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
 	.round_rate = local_pll_clk_round_rate,

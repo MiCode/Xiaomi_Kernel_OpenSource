@@ -269,7 +269,6 @@ config PAGE_OWNER_ENABLE_DEFAULT
 
 config DEBUG_FS
 	bool "Debug Filesystem"
-	select SRCU
 	help
 	  debugfs is a virtual file system that kernel developers use to put
 	  debugging files into.  Enable this option to be able to read and
@@ -706,6 +705,19 @@ config DEBUG_STACKOVERFLOW
 source "lib/Kconfig.kmemcheck"
 
 source "lib/Kconfig.kasan"
+
+config DEBUG_REFCOUNT
+	bool "Verbose refcount checks"
+	help
+	  Say Y here if you want reference counters (refcount_t and kref) to
+	  generate WARNs on dubious usage. Without this refcount_t will still
+	  be a saturating counter and avoid Use-After-Free by turning it into
+	  a resource leak Denial-Of-Service.
+
+	  Use of this option will increase kernel text size but will alert the
+	  admin of potential abuse.
+
+	  If in doubt, say "N".
 
 endmenu # "Memory Debugging"
 

@@ -50,6 +50,7 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
+			 <  960000 >,
 			 < 1305600 >,
 			 < 1497600 >,
 			 < 1708800 >,
@@ -279,6 +280,7 @@
 
 	qcom,speed0-bin-v0-c1 =
 		<          0 0>,
+		<  960000000 1>,
 		< 1305600000 1>,
 		< 1497600000 2>,
 		< 1708800000 3>,
@@ -299,6 +301,7 @@
 
 	qcom,speed1-bin-v0-c1 =
 		<          0 0>,
+		<  960000000 1>,
 		< 1305600000 1>,
 		< 1497600000 2>,
 		< 1708800000 3>,
@@ -323,6 +326,16 @@
 	vdd_sr2_pll-supply = <&pm8953_l7_ao>;
 	vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
 	vdd_hf_pll-supply = <&pm8953_l7_ao>;
+};
+
+&soc {
+	devfreq_spdm_cpu {
+		status = "disabled";
+	};
+
+	devfreq_spdm_gov {
+		status = "disabled";
+	};
 };
 
 &clock_gcc_mdss {
@@ -621,4 +634,8 @@
 			};
 		};
 	};
+};
+
+&mdss_mdp {
+	qcom,vbif-settings = <0xd0 0x20>;
 };

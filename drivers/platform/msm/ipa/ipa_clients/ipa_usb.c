@@ -1336,7 +1336,12 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.ring_base_addr =
 		params->xfer_ring_base_addr_iova;
 	chan_params.chan_params.ring_base_vaddr = NULL;
-	chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		chan_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	else
+		chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
+	chan_params.chan_params.prefetch_mode =
+		ipa_get_ep_prefetch_mode(chan_params.client);
 	chan_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	if (params->dir == GSI_CHAN_DIR_FROM_GSI)
 		chan_params.chan_params.low_weight =
@@ -2153,6 +2158,18 @@ static void ipa_usb_debugfs_init(void){}
 static void ipa_usb_debugfs_remove(void){}
 #endif /* CONFIG_DEBUG_FS */
 
+static int ipa_usb_set_lock_unlock(bool is_lock)
+{
+	IPA_USB_DBG("entry\n");
+	if (is_lock)
+		mutex_lock(&ipa3_usb_ctx->general_mutex);
+	else
+		mutex_unlock(&ipa3_usb_ctx->general_mutex);
+	IPA_USB_DBG("exit\n");
+
+	return 0;
+}
+
 
 
 int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
@@ -2215,6 +2232,16 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 		IPA_USB_ERR("failed to connect.\n");
 		goto connect_fail;
 	}
+
+	/*
+	 * Register for xdci lock/unlock callback with ipa core driver.
+	 * As per use case, only register for IPA_CONS end point for now.
+	 * If needed we can include the same for IPA_PROD ep.
+	 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
+	 */
+	if (connect_params->teth_prot != IPA_USB_DIAG)
+		ipa3_register_lock_unlock_callback(&ipa_usb_set_lock_unlock,
+			ul_out_params->clnt_hdl);
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2292,6 +2319,15 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			return result;
 		}
 	}
+
+	/*
+	 * Deregister for xdci lock/unlock callback from ipa core driver.
+	 * As per use case, only deregister for IPA_CONS end point for now.
+	 * If needed we can include the same for IPA_PROD ep.
+	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
+	 */
+	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
+		ipa3_deregister_lock_unlock_callback(ul_clnt_hdl);
 
 	/* Change state to STOPPED */
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED, false, ttype))

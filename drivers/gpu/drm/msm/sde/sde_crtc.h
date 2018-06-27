@@ -136,6 +136,12 @@ struct sde_crtc_event {
 	void *usr;
 };
 
+struct sde_crtc_fps_info {
+	u32 frame_count;
+	ktime_t last_sampled_time_us;
+	u32 measured_fps;
+};
+
 /*
  * Maximum number of free event structures to cache
  */
@@ -184,7 +190,6 @@ struct sde_crtc_event {
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
- * @frame_done_comp    : for frame_event_done synchronization
  * @event_thread  : Pointer to event handler thread
  * @event_worker  : Event worker queue
  * @event_cache   : Local cache of event worker structures
@@ -232,6 +237,7 @@ struct sde_crtc {
 	u64 play_count;
 	ktime_t vblank_cb_time;
 	ktime_t vblank_last_cb_time;
+	struct sde_crtc_fps_info fps_info;
 	struct device *sysfs_dev;
 	struct kernfs_node *vsync_event_sf;
 	bool vblank_requested;
@@ -255,7 +261,6 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
-	struct completion frame_done_comp;
 
 	/* for handling internal event thread */
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];

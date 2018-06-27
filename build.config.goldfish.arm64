@@ -10,3 +10,4 @@ arch/arm64/boot/Image
 vmlinux
 System.map
 "
+STOP_SHIP_TRACEPRINTK=1

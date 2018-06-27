@@ -35,6 +35,9 @@
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 
+#define IPA_GSB_AGGR_BYTE_LIMIT 14
+#define IPA_GSB_RX_BUFF_BASE_SZ 16384
+
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
 #define IPA_REAL_GENERIC_RX_BUFF_SZ(X) (SKB_DATA_ALIGN(\
 		(X) + NET_SKB_PAD) +\
@@ -1110,11 +1113,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_disable_data_path(clnt_hdl);
-	if (ep->napi_enabled) {
-		do {
-			usleep_range(95, 105);
-		} while (atomic_read(&ep->sys->curr_polling_state));
-	}
 
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		do {
@@ -1128,9 +1126,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
-	if (IPA_CLIENT_IS_CONS(ep->client))
-		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
-	flush_workqueue(ep->sys->wq);
 	/* channel stop might fail on timeout if IPA is busy */
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		result = ipa3_stop_gsi_channel(clnt_hdl);
@@ -1138,7 +1133,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 			break;
 
 		if (result != -GSI_STATUS_AGAIN &&
-		    result != -GSI_STATUS_TIMED_OUT)
+			result != -GSI_STATUS_TIMED_OUT)
 			break;
 	}
 
@@ -1147,6 +1142,17 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		ipa_assert();
 		return result;
 	}
+
+	if (ep->napi_enabled) {
+		do {
+			usleep_range(95, 105);
+		} while (atomic_read(&ep->sys->curr_polling_state));
+	}
+
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+	flush_workqueue(ep->sys->wq);
+
 	result = ipa3_reset_gsi_channel(clnt_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to reset chan: %d.\n", result);
@@ -2933,7 +2939,6 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			INIT_DELAYED_WORK(&sys->replenish_rx_work,
 				ipa3_replenish_rx_work_func);
 			atomic_set(&sys->curr_polling_state, 0);
-			sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
 			sys->rx_pool_sz = in->desc_fifo_sz /
 				IPA_FIFO_ELEMENT_SIZE - 1;
 			if (sys->rx_pool_sz > IPA_ODU_RX_POOL_SZ)
@@ -2941,8 +2946,23 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			sys->pyld_hdlr = ipa3_odu_rx_pyld_hdlr;
 			sys->get_skb = ipa3_get_skb_ipa_rx;
 			sys->free_skb = ipa3_free_skb_rx;
-			sys->free_rx_wrapper = ipa3_free_rx_wrapper;
-			sys->repl_hdlr = ipa3_replenish_rx_cache;
+			/* recycle skb for GSB use case */
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+				sys->free_rx_wrapper =
+					ipa3_free_rx_wrapper;
+				sys->repl_hdlr =
+					ipa3_replenish_rx_cache;
+				/* Overwrite buffer size & aggr limit for GSB */
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
+					IPA_GSB_RX_BUFF_BASE_SZ);
+				in->ipa_ep_cfg.aggr.aggr_byte_limit =
+					IPA_GSB_AGGR_BYTE_LIMIT;
+			} else {
+				sys->free_rx_wrapper =
+					ipa3_free_rx_wrapper;
+				sys->repl_hdlr = ipa3_replenish_rx_cache;
+				sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
+			}
 		} else if (in->client ==
 				IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
 			IPADBG("assigning policy to client:%d",
@@ -3681,8 +3701,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	ep->gsi_mem_info.chan_ring_base_vaddr =
 		gsi_channel_props.ring_base_vaddr;
 
-	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		gsi_channel_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	else
+		gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
+	gsi_channel_props.prefetch_mode =
+		ipa_get_ep_prefetch_mode(ep->client);
 	if (ep->client == IPA_CLIENT_APPS_CMD_PROD)
 		gsi_channel_props.low_weight = IPA_GSI_MAX_CH_LOW_WEIGHT;
 	else
@@ -3921,7 +3946,12 @@ int ipa_gsi_ch20_wa(void)
 		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
 		&dma_addr, 0);
 	gsi_channel_props.ring_base_addr = dma_addr;
-	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		gsi_channel_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	else
+		gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
+
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	gsi_channel_props.low_weight = 1;
 	gsi_channel_props.err_cb = ipa_gsi_chan_err_cb;

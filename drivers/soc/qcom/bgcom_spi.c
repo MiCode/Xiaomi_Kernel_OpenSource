@@ -25,6 +25,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
+#include <linux/dma-mapping.h>
 #include "bgcom.h"
 #include "bgrsb.h"
 #include "bgcom_interface.h"
@@ -43,12 +44,11 @@
 
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
-#define SLEEP_IN_STATE_CHNG 2000
 #define HED_EVENT_ID_LEN (0x02)
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 
-#define MAX_RETRY 200
+#define MAX_RETRY 500
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -63,6 +63,7 @@ enum bgcom_req_type {
 	BGCOM_READ_REG = 0,
 	BGCOM_READ_FIFO = 1,
 	BGCOM_READ_AHB = 2,
+	BGCOM_WRITE_REG = 3,
 };
 
 struct bg_spi_priv {
@@ -112,6 +113,17 @@ static DECLARE_WORK(input_work, send_input_events);
 
 static struct mutex bg_resume_mutex;
 
+static atomic_t  bg_is_spi_active;
+static int bg_irq;
+
+static struct spi_device *get_spi_device(void)
+{
+	struct bg_spi_priv *bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
+	struct spi_device *spi = bg_spi->spi;
+	return spi;
+}
+
 static void augmnt_fifo(uint8_t *data, int pos)
 {
 	data[pos] = '\0';
@@ -149,8 +161,6 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 
 	mutex_lock(&bg_spi->xfer_mutex);
 	spi_state = state;
-	if (spi_state == BGCOM_SPI_BUSY)
-		msleep(SLEEP_IN_STATE_CHNG);
 	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;
 }
@@ -197,6 +207,10 @@ static int read_bg_locl(enum bgcom_req_type req_type,
 	case BGCOM_READ_FIFO:
 		ret = bgcom_fifo_read(&clnt_handle, no_of_words, buf);
 		break;
+	case BGCOM_WRITE_REG:
+		ret = bgcom_reg_write(&clnt_handle, BG_CMND_REG,
+					no_of_words, buf);
+		break;
 	case BGCOM_READ_AHB:
 		break;
 	}
@@ -231,6 +245,9 @@ static int bgcom_transfer(void *handle, uint8_t *tx_buf,
 
 	tx_xfer = &bg_spi->xfer1;
 	spi = bg_spi->spi;
+
+	if (!atomic_read(&bg_is_spi_active))
+		return -ECANCELED;
 
 	mutex_lock(&bg_spi->xfer_mutex);
 	bg_spi_reinit_xfer(tx_xfer);
@@ -443,6 +460,7 @@ static void bg_irq_tasklet_hndlr_l(void)
 int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	uint32_t num_words, void *read_buf)
 {
+	dma_addr_t dma_hndl_tx, dma_hndl_rx;
 	uint32_t txn_len;
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
@@ -450,6 +468,7 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	int ret;
 	uint8_t cmnd = 0;
 	uint32_t ahb_addr = 0;
+	struct spi_device *spi = get_spi_device();
 
 	if (!handle || !read_buf || num_words == 0
 		|| num_words > BG_SPI_MAX_WORDS) {
@@ -472,15 +491,16 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_READ_CMD_LEN + size;
 
-	tx_buf = kzalloc(txn_len, GFP_KERNEL);
 
+	tx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
+					&dma_hndl_tx, GFP_KERNEL);
 	if (!tx_buf)
 		return -ENOMEM;
 
-	rx_buf = kzalloc(txn_len, GFP_KERNEL);
-
+	rx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
+					&dma_hndl_rx, GFP_KERNEL);
 	if (!rx_buf) {
-		kfree(tx_buf);
+		dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
 		return -ENOMEM;
 	}
 
@@ -495,8 +515,8 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	if (!ret)
 		memcpy(read_buf, rx_buf+BG_SPI_AHB_READ_CMD_LEN, size);
 
-	kfree(tx_buf);
-	kfree(rx_buf);
+	dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
+	dma_free_coherent(&spi->dev, txn_len, rx_buf, dma_hndl_rx);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_ahb_read);
@@ -504,12 +524,14 @@ EXPORT_SYMBOL(bgcom_ahb_read);
 int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 	uint32_t num_words, void *write_buf)
 {
+	dma_addr_t dma_hndl;
 	uint32_t txn_len;
 	uint8_t *tx_buf;
 	uint32_t size;
 	int ret;
 	uint8_t cmnd = 0;
 	uint32_t ahb_addr = 0;
+	struct spi_device *spi = get_spi_device();
 
 	if (!handle || !write_buf || num_words == 0
 		|| num_words > BG_SPI_MAX_WORDS) {
@@ -532,9 +554,7 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_CMD_LEN + size;
-
-	tx_buf = kzalloc(txn_len, GFP_KERNEL);
-
+	tx_buf = dma_zalloc_coherent(&spi->dev, txn_len, &dma_hndl, GFP_KERNEL);
 	if (!tx_buf)
 		return -ENOMEM;
 
@@ -546,7 +566,7 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 	memcpy(tx_buf+BG_SPI_AHB_CMD_LEN, write_buf, size);
 
 	ret = bgcom_transfer(handle, tx_buf, NULL, txn_len);
-	kfree(tx_buf);
+	dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_ahb_write);
@@ -621,6 +641,11 @@ int bgcom_fifo_read(void *handle, uint32_t num_words,
 		return -EBUSY;
 	}
 
+	if (bgcom_resume(handle)) {
+		pr_err("Failed to resume\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_READ_LEN + size;
 	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
@@ -668,6 +693,11 @@ int bgcom_reg_write(void *handle, uint8_t reg_start_addr,
 
 	if (spi_state == BGCOM_SPI_BUSY) {
 		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
+	if (bgcom_resume(handle)) {
+		pr_err("Failed to resume\n");
 		return -EBUSY;
 	}
 
@@ -749,11 +779,18 @@ static int is_bg_resume(void *handle)
 	uint8_t rx_buf[8] = {0};
 	uint32_t cmnd_reg = 0;
 
+	if (spi_state == BGCOM_SPI_BUSY) {
+		printk_ratelimited("SPI is held by TZ\n");
+		goto ret_err;
+	}
+
 	txn_len = 0x08;
 	tx_buf[0] = 0x05;
 	ret = bgcom_transfer(handle, tx_buf, rx_buf, txn_len);
 	if (!ret)
 		memcpy(&cmnd_reg, rx_buf+BG_SPI_READ_LEN, 0x04);
+
+ret_err:
 	return cmnd_reg & BIT(31);
 }
 
@@ -765,6 +802,9 @@ int bgcom_resume(void *handle)
 
 	if (handle == NULL)
 		return -EINVAL;
+
+	if (!atomic_read(&bg_is_spi_active))
+		return -ECANCELED;
 
 	cntx = (struct bg_context *)handle;
 	bg_spi = cntx->bg_spi;
@@ -789,36 +829,15 @@ unlock:
 		bg_soft_reset();
 		return -ETIMEDOUT;
 	}
-	pr_info("BG retries for wake up : %d\n", retry);
 	return 0;
 }
 EXPORT_SYMBOL(bgcom_resume);
 
 int bgcom_suspend(void *handle)
 {
-	struct bg_spi_priv *bg_spi;
-	struct bg_context *cntx;
-	uint32_t cmnd_reg = 0;
-	int ret = 0;
-
-	if (handle == NULL)
+	if (!handle)
 		return -EINVAL;
-
-	cntx = (struct bg_context *)handle;
-	bg_spi = cntx->bg_spi;
-	mutex_lock(&bg_resume_mutex);
-	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
-		goto unlock;
-
-	cmnd_reg |= BIT(31);
-	ret = bgcom_reg_write(handle, BG_CMND_REG, 1, &cmnd_reg);
-	if (ret == 0)
-		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
-
-unlock:
-	mutex_unlock(&bg_resume_mutex);
-	pr_info("suspended with : %d\n", ret);
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(bgcom_suspend);
 
@@ -931,7 +950,6 @@ static int bg_spi_probe(struct spi_device *spi)
 	struct bg_spi_priv *bg_spi;
 	struct device_node *node;
 	int irq_gpio = 0;
-	int bg_irq = 0;
 	int ret;
 
 	bg_spi = devm_kzalloc(&spi->dev, sizeof(*bg_spi),
@@ -969,6 +987,8 @@ static int bg_spi_probe(struct spi_device *spi)
 	if (ret)
 		goto err_ret;
 
+	atomic_set(&bg_is_spi_active, 1);
+	dma_set_coherent_mask(&spi->dev, DMA_BIT_MASK(64));
 	pr_info("Bgcom Probed successfully\n");
 	return ret;
 
@@ -990,6 +1010,46 @@ static int bg_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+static int bgcom_pm_suspend(struct device *dev)
+{
+	uint32_t cmnd_reg = 0;
+	struct spi_device *s_dev = to_spi_device(dev);
+	struct bg_spi_priv *bg_spi = spi_get_drvdata(s_dev);
+	int ret = 0;
+
+	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
+		return 0;
+
+	cmnd_reg |= BIT(31);
+	ret = read_bg_locl(BGCOM_WRITE_REG, 1, &cmnd_reg);
+	if (ret == 0) {
+		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
+		atomic_set(&bg_is_spi_active, 0);
+	}
+	pr_info("suspended with : %d\n", ret);
+	return ret;
+}
+
+static int bgcom_pm_resume(struct device *dev)
+{
+	struct bg_context clnt_handle;
+	int ret;
+	struct bg_spi_priv *spi =
+		container_of(bg_com_drv, struct bg_spi_priv, lhandle);
+
+	clnt_handle.bg_spi = spi;
+	atomic_set(&bg_is_spi_active, 1);
+	ret = bgcom_resume(&clnt_handle);
+	if (ret == 0)
+		pr_info("Bgcom resumed\n");
+	return ret;
+}
+
+static const struct dev_pm_ops bgcom_pm = {
+	.suspend = bgcom_pm_suspend,
+	.resume = bgcom_pm_resume,
+};
+
 static const struct of_device_id bg_spi_of_match[] = {
 	{ .compatible = "qcom,bg-spi", },
 	{ }
@@ -1000,6 +1060,7 @@ static struct spi_driver bg_spi_driver = {
 	.driver = {
 		.name = "bg-spi",
 		.of_match_table = bg_spi_of_match,
+		.pm = &bgcom_pm,
 	},
 	.probe = bg_spi_probe,
 	.remove = bg_spi_remove,

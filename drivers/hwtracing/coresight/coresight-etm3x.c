@@ -712,10 +712,6 @@ static void etm_init_arch_data(void *info)
 
 	CS_UNLOCK(drvdata->base);
 
-	/* check the state of the fuse */
-	if (!coresight_authstatus_enabled(drvdata->base))
-		goto out;
-
 	/* First dummy read */
 	(void)etm_readl(drvdata, ETMPDSR);
 	/* Provide power to ETM: ETMPDCR[3] == 1 */
@@ -725,6 +721,11 @@ static void etm_init_arch_data(void *info)
 	 * certain registers might be ignored.
 	 */
 	etm_clr_pwrdwn(drvdata);
+
+	/* check the state of the fuse */
+	if (!coresight_authstatus_enabled(drvdata->base))
+		goto out;
+
 	/*
 	 * Set prog bit. It will be set from reset but this is included to
 	 * ensure it is set

@@ -216,6 +216,7 @@ static struct pll_clk a53ss_c0_pll = {
 	.config_reg = (void __iomem *)APCS_C0_PLL_USER_CTL,
 	.status_reg = (void __iomem *)APCS_C0_PLL_STATUS,
 	.freq_tbl = apcs_c0_pll_freq,
+	.config_ctl_reg = (void __iomem *)APCS_C0_PLL_CONFIG_CTL,
 	.masks = {
 		.vco_mask = BM(29, 28),
 		.pre_div_mask = BIT(12),
@@ -283,6 +284,7 @@ static struct pll_clk a53ss_c1_pll = {
 	.config_reg = (void __iomem *)APCS_C1_PLL_USER_CTL,
 	.status_reg = (void __iomem *)APCS_C1_PLL_STATUS,
 	.freq_tbl = apcs_c1_pll_freq,
+	.config_ctl_reg = (void __iomem *)APCS_C1_PLL_CONFIG_CTL,
 	.masks = {
 		.vco_mask = BM(29, 28),
 		.pre_div_mask = BIT(12),
@@ -4406,6 +4408,11 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	if (compat_bin2 || compat_bin4 || compat_bin5)
 		nbases = APCS_C0_PLL_BASE;
+
+	if (compat_bin5 || compat_bin6) {
+		a53ss_c0_pll.c.ops = &clk_ops_acpu_pll;
+		a53ss_c1_pll.c.ops = &clk_ops_acpu_pll;
+	}
 
 	ret = get_mmio_addr(pdev, nbases);
 	if (ret)

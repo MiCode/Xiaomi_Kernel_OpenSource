@@ -149,7 +149,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	int rc, ret;
+	int ret;
 
 	/*
 	 * iommu dynamic attach for following conditions.
@@ -166,26 +166,41 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	rc = mdss_smmu_map(MDSS_IOMMU_DOMAIN_UNSECURE,
+	/*
+	 * Putting handoff pending to false to ensure smmu attach happens
+	 * with early flag attribute
+	 */
+	mdata->handoff_pending = false;
+
+	ret = mdss_smmu_set_attribute(MDSS_IOMMU_DOMAIN_UNSECURE, EARLY_MAP, 1);
+	if (ret) {
+		pr_debug("mdss set attribute failed for early map\n");
+		goto end;
+	}
+
+	ret = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE((unsigned long)ret)) {
+		pr_err("mdss iommu attach failed\n");
+		goto end;
+	}
+
+	ret = mdss_smmu_map(MDSS_IOMMU_DOMAIN_UNSECURE,
 				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_size,
 				IOMMU_READ | IOMMU_NOEXEC);
-	if (rc) {
-		pr_debug("iommu memory mapping failed rc=%d\n", rc);
+	if (ret) {
+		pr_err("iommu memory mapping failed ret=%d\n", ret);
 	} else {
-		ret = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE((unsigned long)ret)) {
-			pr_err("mdss iommu attach failed\n");
-			mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
-					mdp5_data->splash_mem_addr,
-					mdp5_data->splash_mem_size);
-		} else {
-			mfd->splash_info.iommu_dynamic_attached = true;
-		}
+		pr_debug("iommu map passed for PA=VA\n");
+		mfd->splash_info.iommu_dynamic_attached = true;
 	}
 
-	return rc;
+	ret = mdss_smmu_set_attribute(MDSS_IOMMU_DOMAIN_UNSECURE, EARLY_MAP, 0);
+end:
+	mdata->handoff_pending = true;
+
+	return ret;
 }
 
 static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
@@ -193,12 +208,10 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
 	if (mfd->splash_info.iommu_dynamic_attached) {
-
 		mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
 				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_size);
 		mdss_iommu_ctrl(0);
-
 		mfd->splash_info.iommu_dynamic_attached = false;
 	}
 }

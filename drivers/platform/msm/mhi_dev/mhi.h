@@ -605,6 +605,8 @@ struct mhi_dev {
 
 	/*Register for interrupt */
 	bool				mhi_int;
+	bool				mhi_int_en;
+
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
 
@@ -712,6 +714,7 @@ enum mhi_client_channel {
 	MHI_CLIENT_RESERVED_2_LOWER = 102,
 	MHI_CLIENT_RESERVED_2_UPPER = 127,
 	MHI_MAX_CHANNELS = 102,
+	MHI_CLIENT_INVALID = 0xFFFFFFFF
 };
 
 /* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 is used for internal only */

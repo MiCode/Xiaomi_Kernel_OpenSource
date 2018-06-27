@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,17 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef __MDSS_SPI_CLINET_H__
+#define __MDSS_SPI_CLINET_H__
 
-#include "apq8053-lite-lge-v1.0.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite LGE v1.0 Board";
-	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
-			"qcom,dragonboard";
-	qcom,board-id= <0x01030020 0>;
-};
-
-&blsp2_uart0 {
-	status = "okay";
-};
+int mdss_spi_tx_command(const void *buf);
+int mdss_spi_tx_parameter(const void *buf, size_t len);
+int mdss_spi_tx_pixel(const void *buf, size_t len);
+int mdss_spi_read_data(u8 reg_addr, u8 *data, u8 len);
+#endif /* End of __MDSS_SPI_CLINET_H__ */

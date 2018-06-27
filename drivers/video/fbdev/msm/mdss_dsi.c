@@ -383,6 +383,14 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		ret = 0;
 	}
 
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
+		ret = gpio_direction_output(
+			ctrl_pdata->vdd_ext_gpio, 0);
+		if (ret)
+			pr_err("%s: unable to set dir for vdd gpio\n",
+					__func__);
+	}
+
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
 
@@ -409,6 +417,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
+		ret = gpio_direction_output(
+				ctrl_pdata->vdd_ext_gpio, 1);
+		usleep_range(3000, 4000); /* h/w recommended delay */
+		if (ret)
+			pr_err("%s: unable to set dir for vdd gpio\n",
+					__func__);
+	}
 
 	ret = msm_mdss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
@@ -2751,7 +2768,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		power_state = (int) (unsigned long) arg;
-		disable_esd_thread();
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
@@ -3264,6 +3280,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	struct mdss_util_intf *util;
 	static int te_irq_registered;
 	struct mdss_panel_data *pdata;
+	struct mdss_panel_cfg *pan_cfg = NULL;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("%s: pdev not found for DSI controller\n", __func__);
@@ -3293,6 +3310,14 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	util = mdss_get_util_intf();
 	if (util == NULL) {
 		pr_err("Failed to get mdss utility functions\n");
+		return -ENODEV;
+	}
+
+	pan_cfg = util->panel_intf_type(MDSS_PANEL_INTF_SPI);
+	if (IS_ERR(pan_cfg)) {
+		return PTR_ERR(pan_cfg);
+	} else if (pan_cfg) {
+		pr_debug("%s: SPI is primary\n", __func__);
 		return -ENODEV;
 	}
 
@@ -4183,6 +4208,11 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	ctrl_pdata->bklt_en_gpio_invert =
 			of_property_read_bool(ctrl_pdev->dev.of_node,
 				"qcom,platform-bklight-en-gpio-invert");
+
+	ctrl_pdata->vdd_ext_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,ext-vdd-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->vdd_ext_gpio))
+		pr_info("%s: ext vdd gpio not specified\n", __func__);
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);

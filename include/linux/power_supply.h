@@ -125,6 +125,12 @@ enum {
 	POWER_SUPPLY_PL_NON_STACKED_BATFET,
 };
 
+enum {
+	POWER_SUPPLY_PD_INACTIVE = 0,
+	POWER_SUPPLY_PD_ACTIVE,
+	POWER_SUPPLY_PD_PPS_ACTIVE,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
@@ -286,6 +292,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_BATTERY_INFO,
 	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
 	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
+	POWER_SUPPLY_PROP_ESR_ACTUAL,
+	POWER_SUPPLY_PROP_ESR_NOMINAL,
+	POWER_SUPPLY_PROP_SOH,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */

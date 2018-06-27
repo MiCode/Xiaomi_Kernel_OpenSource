@@ -132,7 +132,7 @@
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x2400000>;
+			size = <0x400000>;
 		};
 	};
 
@@ -998,7 +998,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9760>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		status = "okay";

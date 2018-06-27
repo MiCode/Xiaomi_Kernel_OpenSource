@@ -30,9 +30,21 @@
 		bootargs = "core_ctl_disable_cpumask=0-7 kpti=0";
 	};
 
+	vendor: vendor {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+		compatible = "simple-bus";
+	};
+
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+			};
+
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -40,7 +52,7 @@
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 				system {
@@ -48,7 +60,7 @@
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 
@@ -143,7 +155,7 @@
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x2400000>;
+			size = <0x400000>;
 		};
 	};
 
@@ -1230,7 +1242,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9760>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		qcom,scandump-size = <0x40000>;

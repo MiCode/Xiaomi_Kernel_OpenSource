@@ -777,18 +777,18 @@ static ssize_t stmvl53l0x_store_enable_ps_sensor(struct device *dev,
 				size_t count)
 {
 	struct vl_data *data = dev_get_drvdata(dev);
-
+	int ret;
 	unsigned int val;
 
-	kstrtoint(buf, 10, &val);
+	ret = kstrtoint(buf, 10, &val);
 	if ((val != 0) && (val != 1)) {
-		err("store unvalid value=%ld\n", val);
+		err("store unvalid value=%d\n", val);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
 	dbg("Enter, enable_ps_sensor flag:%d\n",
 		data->enable_ps_sensor);
-	dbg("enable ps senosr ( %ld)\n", val);
+	dbg("enable ps senosr ( %d)\n", val);
 
 	if (val == 1) {
 		/* turn on tof sensor */
@@ -831,10 +831,11 @@ static ssize_t stmvl53l0x_store_enable_debug(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int on;
+	int ret;
 
-	kstrtoint(buf, 10, &on);
+	ret = kstrtoint(buf, 10, &on);
 	if ((on != 0) &&  (on != 1)) {
-		err("set debug=%ld\n", on);
+		err("set debug=%d\n", on);
 		return count;
 	}
 	data->enableDebug = on;
@@ -862,10 +863,11 @@ static ssize_t stmvl53l0x_store_set_delay_ms(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int delay_ms;
+	int ret;
 
-	kstrtoint(buf, 10, &delay_ms);
+	ret = kstrtoint(buf, 10, &delay_ms);
 	if (delay_ms == 0) {
-		err("set delay_ms=%ld\n", delay_ms);
+		err("set delay_ms=%d\n", delay_ms);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
@@ -895,10 +897,11 @@ static ssize_t stmvl53l0x_store_set_timing_budget(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int timingBudget;
+	int ret;
 
-	kstrtoint(buf, 10, &timingBudget);
+	ret = kstrtoint(buf, 10, &timingBudget);
 	if (timingBudget == 0) {
-		err("set timingBudget=%ld\n", timingBudget);
+		err("set timingBudget=%d\n", timingBudget);
 		return count;
 	}
 	mutex_lock(&data->work_mutex);
@@ -929,10 +932,11 @@ static ssize_t stmvl53l0x_store_set_long_range(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	int useLongRange;
+	int ret;
 
-	kstrtoint(buf, 10, &useLongRange);
+	ret = kstrtoint(buf, 10, &useLongRange);
 	if ((useLongRange != 0) &&  (useLongRange != 1)) {
-		err("set useLongRange=%ld\n", useLongRange);
+		err("set useLongRange=%d\n", useLongRange);
 		return count;
 	}
 
@@ -960,7 +964,6 @@ static ssize_t stmvl53l0x_show_meter(struct device *dev,
 	struct VL_RangingMeasurementData_t Measure;
 
 	papi_func_tbl->PerformSingleRangingMeasurement(data, &Measure);
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
 	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
 }
 
@@ -972,11 +975,7 @@ static DEVICE_ATTR(show_meter, 0660/*S_IWUGO | S_IRUGO*/,
 static ssize_t stmvl53l0x_show_xtalk(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	struct vl_data *data = dev_get_drvdata(dev);
-	struct VL_RangingMeasurementData_t Measure;
-
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
-	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
+	return 0;
 }
 
 static ssize_t stmvl53l0x_set_xtalk(struct device *dev,
@@ -985,8 +984,9 @@ static ssize_t stmvl53l0x_set_xtalk(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	unsigned int targetDistance;
+	int ret;
 
-	kstrtoint(buf, 10, &targetDistance);
+	ret = kstrtoint(buf, 10, &targetDistance);
 	data->xtalkCalDistance = targetDistance;
 	stmvl53l0x_start(data, 3, XTALKCALIB_MODE);
 	return count;
@@ -1004,7 +1004,6 @@ static ssize_t stmvl53l0x_show_offset(struct device *dev,
 	struct VL_RangingMeasurementData_t Measure;
 
 	papi_func_tbl->PerformSingleRangingMeasurement(data, &Measure);
-	dbg("Measure = %d\n", Measure.RangeMilliMeter);
 	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
 }
 
@@ -1014,8 +1013,9 @@ static ssize_t stmvl53l0x_set_offset(struct device *dev,
 {
 	struct vl_data *data = dev_get_drvdata(dev);
 	unsigned int targetDistance;
+	int ret;
 
-	kstrtoint(buf, 10, &targetDistance);
+	ret = kstrtoint(buf, 10, &targetDistance);
 	data->offsetCalDistance = targetDistance;
 	stmvl53l0x_start(data, 3, OFFSETCALIB_MODE);
 	return count;
@@ -1026,6 +1026,109 @@ static DEVICE_ATTR(offset_cal, 0660/*S_IWUGO | S_IRUGO*/,
 				   stmvl53l0x_show_offset,
 				   stmvl53l0x_set_offset);
 
+static ssize_t stmvl53l0x_set_spad(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+
+	stmvl53l0x_start(data, 3, SPADCALIB_MODE);
+	return count;
+}
+
+/* DEVICE_ATTR(name,mode,show,store) */
+static DEVICE_ATTR(spad_cal, 0660/*S_IWUGO | S_IRUGO*/,
+					NULL,
+					stmvl53l0x_set_spad);
+
+static ssize_t stmvl53l0x_set_ref(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+
+	stmvl53l0x_start(data, 3, REFCALIB_MODE);
+	return count;
+}
+
+/* DEVICE_ATTR(name,mode,show,store) */
+static DEVICE_ATTR(ref_cal, 0660/*S_IWUGO | S_IRUGO*/,
+					NULL,
+					stmvl53l0x_set_ref);
+
+
+static ssize_t stmvl53l0x_show_OffsetCalibrationData(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+	int32_t offset_calibration_data;
+
+	papi_func_tbl->GetOffsetCalibrationDataMicroMeter(data,
+					&offset_calibration_data);
+	dbg("GetOffsetCalibrationDataMicroMeter = %d\n",
+					offset_calibration_data);
+	return snprintf(buf, 2, "%d\n",
+			offset_calibration_data);
+}
+
+static ssize_t stmvl53l0x_set_OffsetCalibrationData(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+	int32_t offset_calibration_data;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &offset_calibration_data);
+	papi_func_tbl->SetOffsetCalibrationDataMicroMeter(data,
+			offset_calibration_data);
+	return count;
+}
+
+/* DEVICE_ATTR(name,mode,show,store) */
+static DEVICE_ATTR(set_offsetdata, 0660/*S_IWUGO | S_IRUGO*/,
+					stmvl53l0x_show_OffsetCalibrationData,
+					stmvl53l0x_set_OffsetCalibrationData);
+
+static ssize_t stmvl53l0x_show_XTalkCompensationRateMegaCps(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+	int32_t xtalk_compensation_rate;
+
+	papi_func_tbl->GetXTalkCompensationRateMegaCps(data,
+					&xtalk_compensation_rate);
+	dbg("xtalk_compensation_rate = %d\n",
+					xtalk_compensation_rate);
+	return snprintf(buf, 2, "%d\n", xtalk_compensation_rate);
+
+}
+
+static ssize_t stmvl53l0x_set_XTalkCompensationRateMegaCps(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	struct vl_data *data = dev_get_drvdata(dev);
+	unsigned int xtalk_compensation_rate;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &xtalk_compensation_rate);
+	papi_func_tbl->SetXTalkCompensationRateMegaCps(data,
+						xtalk_compensation_rate);
+	return count;
+
+}
+
+/* DEVICE_ATTR(name,mode,show,store) */
+static DEVICE_ATTR(set_xtalkdata, 0660/*S_IWUGO | S_IRUGO*/,
+				stmvl53l0x_show_XTalkCompensationRateMegaCps,
+				stmvl53l0x_set_XTalkCompensationRateMegaCps);
+
+
+
 static struct attribute *stmvl53l0x_attributes[] = {
 	&dev_attr_enable_ps_sensor.attr,
 	&dev_attr_enable_debug.attr,
@@ -1035,6 +1138,10 @@ static struct attribute *stmvl53l0x_attributes[] = {
 	&dev_attr_show_meter.attr,
 	&dev_attr_xtalk_cal.attr,
 	&dev_attr_offset_cal.attr,
+	&dev_attr_spad_cal.attr,
+	&dev_attr_ref_cal.attr,
+	&dev_attr_set_offsetdata.attr,
+	&dev_attr_set_xtalkdata.attr,
 	NULL,
 };
 
@@ -1568,13 +1675,36 @@ static int stmvl53l0x_start(struct vl_data *data, uint8_t scaling,
 		dbg("Offset calibration:%u\n", OffsetMicroMeter);
 		return rc;
 	} else if (mode == XTALKCALIB_MODE) {
-		unsigned int XTalkCompensationRateMegaCps;
+		unsigned int xtalk_compensation_rate_mega_cps;
 		/*caltarget distance : 100mm and convert to */
 		/* fixed point 16 16 format */
 		papi_func_tbl->PerformXTalkCalibration(vl53l0x_dev,
 			(data->xtalkCalDistance<<16),
-			&XTalkCompensationRateMegaCps);
-		dbg("Xtalk calibration:%u\n", XTalkCompensationRateMegaCps);
+			&xtalk_compensation_rate_mega_cps);
+		dbg("Xtalk calibration:%u\n", xtalk_compensation_rate_mega_cps);
+		return rc;
+	} else if (mode == SPADCALIB_MODE) {
+		uint32_t ref_spad_count;
+		uint8_t is_aperture_spads;
+
+		papi_func_tbl->PerformRefSpadManagement(
+			vl53l0x_dev,
+			&ref_spad_count,
+			&is_aperture_spads);
+		dbg("SPAD calibration:%d,%d\n", ref_spad_count,
+					(unsigned int)is_aperture_spads);
+		return rc;
+	} else if (mode == REFCALIB_MODE) {
+		uint8_t vhv_settings;
+		uint8_t phase_cal;
+
+		papi_func_tbl->PerformRefCalibration(
+			vl53l0x_dev,
+			&vhv_settings,
+			&phase_cal);
+		dbg("Ref calibration:%u,%u\n",
+		(unsigned int)vhv_settings,
+		(unsigned int)phase_cal);
 		return rc;
 	}
 	/* set up device parameters */

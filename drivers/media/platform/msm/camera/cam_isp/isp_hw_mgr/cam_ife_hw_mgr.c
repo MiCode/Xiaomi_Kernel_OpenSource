@@ -210,7 +210,8 @@ static int cam_ife_hw_mgr_start_hw_res(
 	int rc = -1;
 	struct cam_hw_intf      *hw_intf;
 
-	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+	/* Start slave (which is right split) first */
+	for (i = CAM_ISP_HW_SPLIT_MAX - 1; i >= 0; i--) {
 		if (!isp_hw_res->hw_res[i])
 			continue;
 		hw_intf = isp_hw_res->hw_res[i]->hw_intf;
@@ -959,6 +960,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 {
 	int rc = -1;
 	int i;
+	int master_idx = -1;
 
 	struct cam_ife_hw_mgr               *ife_hw_mgr;
 	struct cam_ife_hw_mgr_res           *csid_res;
@@ -1010,18 +1012,27 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 			if (!cid_res->hw_res[i])
 				continue;
 
-			csid_acquire.node_res = NULL;
-			if (csid_res->is_dual_vfe) {
-				if (i == CAM_ISP_HW_SPLIT_LEFT)
-					csid_acquire.sync_mode =
-						CAM_ISP_HW_SYNC_MASTER;
-				else
-					csid_acquire.sync_mode =
-						CAM_ISP_HW_SYNC_SLAVE;
-			}
-
 			hw_intf = ife_hw_mgr->csid_devices[
 				cid_res->hw_res[i]->hw_intf->hw_idx];
+
+			csid_acquire.node_res = NULL;
+			if (csid_res->is_dual_vfe) {
+				if (i == CAM_ISP_HW_SPLIT_LEFT) {
+					master_idx = hw_intf->hw_idx;
+					csid_acquire.sync_mode =
+						CAM_ISP_HW_SYNC_MASTER;
+				} else {
+					if (master_idx == -1) {
+						CAM_ERR(CAM_ISP,
+							"No Master found");
+						goto err;
+					}
+					csid_acquire.sync_mode =
+						CAM_ISP_HW_SYNC_SLAVE;
+					csid_acquire.master_idx = master_idx;
+				}
+			}
+
 			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 				&csid_acquire, sizeof(csid_acquire));
 			if (rc) {
@@ -1356,6 +1367,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	uint32_t                           num_rdi_port_per_in = 0;
 	uint32_t                           total_pix_port = 0;
 	uint32_t                           total_rdi_port = 0;
+	uint32_t                           in_port_length = 0;
 
 	CAM_DBG(CAM_ISP, "Enter...");
 
@@ -1416,9 +1428,27 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			isp_resource[i].res_hdl,
 			isp_resource[i].length);
 
+		in_port_length = sizeof(struct cam_isp_in_port_info);
+
+		if (in_port_length > isp_resource[i].length) {
+			CAM_ERR(CAM_ISP, "buffer size is not enough");
+			rc = -EINVAL;
+			goto free_res;
+		}
+
 		in_port = memdup_user((void __user *)isp_resource[i].res_hdl,
 			isp_resource[i].length);
 		if (!IS_ERR(in_port)) {
+			in_port_length = sizeof(struct cam_isp_in_port_info) +
+				(in_port->num_out_res - 1) *
+				sizeof(struct cam_isp_out_port_info);
+			if (in_port_length > isp_resource[i].length) {
+				CAM_ERR(CAM_ISP, "buffer size is not enough");
+				rc = -EINVAL;
+				kfree(in_port);
+				goto free_res;
+			}
+
 			rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx, in_port,
 				&num_pix_port_per_in, &num_rdi_port_per_in);
 			total_pix_port += num_pix_port_per_in;

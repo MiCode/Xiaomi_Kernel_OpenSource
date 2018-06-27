@@ -326,6 +326,15 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto bklt_en_gpio_err;
 		}
 	}
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
+		rc = gpio_request(ctrl_pdata->vdd_ext_gpio,
+						"vdd_enable");
+		if (rc) {
+			pr_err("request vdd enable gpio failed, rc=%d\n",
+				rc);
+			goto vdd_en_gpio_err;
+		}
+	}
 	if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
 		rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
 		if (rc) {
@@ -337,6 +346,9 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return rc;
 
 mode_gpio_err:
+	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio))
+		gpio_free(ctrl_pdata->vdd_ext_gpio);
+vdd_en_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		gpio_free(ctrl_pdata->bklt_en_gpio);
 bklt_en_gpio_err:

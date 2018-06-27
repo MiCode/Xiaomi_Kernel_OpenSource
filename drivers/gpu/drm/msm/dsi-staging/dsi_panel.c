@@ -2776,6 +2776,9 @@ int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel,
 				esd_config->groups * status_len);
 	}
 
+	esd_config->cmd_channel = of_property_read_bool(of_node,
+		"qcom,mdss-dsi-panel-cmds-only-by-right");
+
 	return 0;
 
 error4:

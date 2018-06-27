@@ -1731,5 +1731,19 @@
 				bias-disable;
 			};
 		};
+
+		ssusb_mode_sel: ssusb_mode_sel {
+			mux {
+				pins = "gpio12";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio12";
+				drive-strength = <2>;
+				bias-disable;
+				input-disable;
+			};
+		};
 	};
 };
