@@ -194,16 +194,6 @@ config IPA_UT
 	  The user interface to run and control the tests is debugfs file
 	  system.
 
-config SSM
-	tristate "QTI Secure Service Module"
-	depends on QSEECOM
-	depends on MSM_SMD
-	help
-	  Provides an interface for OEM driver to communicate with Trustzone
-	  and modem for key exchange and mode change.
-	  This driver uses Secure Channel Manager interface for trustzone
-	  communication and communicates with modem over SMD channel.
-
 config MSM_MHI
 	tristate "Modem Host Interface Driver"
 	help
