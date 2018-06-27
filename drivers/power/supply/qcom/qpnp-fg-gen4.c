@@ -142,8 +142,28 @@
 #define CC_SOC_SW_OFFSET		0
 #define CC_SOC_WORD			460
 #define CC_SOC_OFFSET			0
-#define MONOTONIC_SOC_WORD		455
+#define MONOTONIC_SOC_WORD		463
 #define MONOTONIC_SOC_OFFSET		0
+
+/* v2 SRAM address and offset in ascending order */
+#define ACT_BATT_CAP_v2_WORD		287
+#define ACT_BATT_CAP_v2_OFFSET		0
+#define RSLOW_v2_WORD			371
+#define RSLOW_v2_OFFSET			0
+#define OCV_v2_WORD			425
+#define OCV_v2_OFFSET			0
+#define VOLTAGE_PRED_v2_WORD		440
+#define VOLTAGE_PRED_v2_OFFSET		0
+#define BATT_SOC_v2_WORD		455
+#define BATT_SOC_v2_OFFSET		0
+#define FULL_SOC_v2_WORD		461
+#define FULL_SOC_v2_OFFSET		0
+#define CC_SOC_SW_v2_WORD		464
+#define CC_SOC_SW_v2_OFFSET		0
+#define CC_SOC_v2_WORD			466
+#define CC_SOC_v2_OFFSET		0
+#define MONOTONIC_SOC_v2_WORD		469
+#define MONOTONIC_SOC_v2_OFFSET		0
 
 static struct fg_irq_info fg_irqs[FG_GEN4_IRQ_MAX];
 
@@ -232,11 +252,13 @@ static int fg_restart_mp;
 static bool fg_sram_dump;
 static bool fg_esr_fast_cal_en;
 
-static struct fg_sram_param pm8150_sram_params[] = {
+static struct fg_sram_param pm8150b_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
-	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
-		fg_decode_default),
+	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0,
+		fg_encode_default, fg_decode_default),
+	PARAM(MONOTONIC_SOC, MONOTONIC_SOC_WORD, MONOTONIC_SOC_OFFSET, 2, 1, 1,
+		0, NULL, fg_decode_default),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 1000,
 		244141, 0, NULL, fg_decode_voltage_15b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 1000, 244141, 0, NULL,
@@ -254,6 +276,91 @@ static struct fg_sram_param pm8150_sram_params[] = {
 	PARAM(CC_SOC_SW, CC_SOC_SW_WORD, CC_SOC_SW_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_cc_soc),
 	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_WORD, ACT_BATT_CAP_OFFSET, 2,
+		1, 1, 0, NULL, fg_decode_default),
+	/* Entries below here are configurable during initialization */
+	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
+		244141, 0, fg_encode_voltage, NULL),
+	PARAM(VBATT_LOW, VBATT_LOW_WORD, VBATT_LOW_OFFSET, 1, 1000,
+		15625, -2000, fg_encode_voltage, NULL),
+	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000,
+		244141, 0, fg_encode_voltage, fg_decode_voltage_15b),
+	PARAM(CUTOFF_CURR, CUTOFF_CURR_WORD, CUTOFF_CURR_OFFSET, 2,
+		100000, 48828, 0, fg_encode_current, NULL),
+	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 2,
+		100000, 48828, 0, fg_encode_current, NULL),
+	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_WORD, DELTA_MSOC_THR_OFFSET,
+		1, 2048, 100, 0, fg_encode_default, NULL),
+	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_WORD, DELTA_BSOC_THR_OFFSET,
+		1, 2048, 100, 0, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
+		ESR_TIMER_DISCHG_MAX_OFFSET, 1, 1, 1, 0, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_DISCHG_INIT, ESR_TIMER_DISCHG_INIT_WORD,
+		ESR_TIMER_DISCHG_INIT_OFFSET, 1, 1, 1, 0, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_CHG_MAX, ESR_TIMER_CHG_MAX_WORD,
+		ESR_TIMER_CHG_MAX_OFFSET, 1, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
+		ESR_TIMER_CHG_INIT_OFFSET, 1, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
+		1, 1000, 15625, 0, fg_encode_default, NULL),
+	PARAM(DELTA_ESR_THR, DELTA_ESR_THR_WORD, DELTA_ESR_THR_OFFSET, 2, 1000,
+		61036, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_LOW_DISCHG, KI_COEFF_LOW_DISCHG_WORD,
+		KI_COEFF_LOW_DISCHG_OFFSET, 1, 1000, 61035, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_WORD,
+		KI_COEFF_MED_DISCHG_OFFSET, 1, 1000, 61035, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
+		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 61035, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_LOW_CHG, KI_COEFF_LOW_CHG_WORD, KI_COEFF_LOW_CHG_OFFSET,
+		1, 1000, 61035, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_CHG, KI_COEFF_MED_CHG_WORD, KI_COEFF_MED_CHG_OFFSET,
+		1, 1000, 61035, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_HI_CHG, KI_COEFF_HI_CHG_WORD, KI_COEFF_HI_CHG_OFFSET, 1,
+		1000, 61035, 0, fg_encode_default, NULL),
+	PARAM(SLOPE_LIMIT, SLOPE_LIMIT_WORD, SLOPE_LIMIT_OFFSET, 1, 8192,
+		1000000, 0, fg_encode_default, NULL),
+	PARAM(BATT_TEMP_COLD, BATT_TEMP_CONFIG_WORD, BATT_TEMP_COLD_OFFSET, 1,
+		1, 1, 0, fg_encode_default, NULL),
+	PARAM(BATT_TEMP_HOT, BATT_TEMP_CONFIG_WORD, BATT_TEMP_HOT_OFFSET, 1,
+		1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_CAL_SOC_MIN, BATT_TEMP_CONFIG2_WORD, ESR_CAL_SOC_MIN_OFFSET,
+		1, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_CAL_SOC_MAX, ESR_CAL_THRESH_WORD, ESR_CAL_SOC_MAX_OFFSET,
+		1, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_CAL_TEMP_MIN, ESR_CAL_THRESH_WORD, ESR_CAL_TEMP_MIN_OFFSET,
+		1, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_CAL_TEMP_MAX, ESR_PULSE_THRESH_WORD, ESR_CAL_TEMP_MAX_OFFSET,
+		1, 1, 1, 0, fg_encode_default, NULL),
+};
+
+static struct fg_sram_param pm8150b_v2_sram_params[] = {
+	PARAM(BATT_SOC, BATT_SOC_v2_WORD, BATT_SOC_v2_OFFSET, 4, 1, 1, 0, NULL,
+		fg_decode_default),
+	PARAM(FULL_SOC, FULL_SOC_v2_WORD, FULL_SOC_v2_OFFSET, 2, 1, 1, 0, NULL,
+		fg_decode_default),
+	PARAM(MONOTONIC_SOC, MONOTONIC_SOC_v2_WORD, MONOTONIC_SOC_v2_OFFSET, 2,
+		1, 1, 0, NULL, fg_decode_default),
+	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_v2_WORD, VOLTAGE_PRED_v2_OFFSET, 2,
+		1000, 244141, 0, NULL, fg_decode_voltage_15b),
+	PARAM(OCV, OCV_v2_WORD, OCV_v2_OFFSET, 2, 1000, 244141, 0, NULL,
+		fg_decode_voltage_15b),
+	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
+		fg_decode_value_16b),
+	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
+	PARAM(ESR_ACT, ESR_ACT_WORD, ESR_ACT_OFFSET, 2, 1000, 244141, 0,
+		fg_encode_default, fg_decode_value_16b),
+	PARAM(RSLOW, RSLOW_v2_WORD, RSLOW_v2_OFFSET, 2, 1000, 244141, 0, NULL,
+		fg_decode_value_16b),
+	PARAM(CC_SOC, CC_SOC_v2_WORD, CC_SOC_v2_OFFSET, 4, 1, 1, 0, NULL,
+		fg_decode_cc_soc),
+	PARAM(CC_SOC_SW, CC_SOC_SW_v2_WORD, CC_SOC_SW_v2_OFFSET, 4, 1, 1, 0,
+		NULL, fg_decode_cc_soc),
+	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_v2_WORD, ACT_BATT_CAP_v2_OFFSET, 2,
 		1, 1, 0, NULL, fg_decode_default),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
@@ -1612,22 +1719,25 @@ out:
 static int fg_gen4_configure_full_soc(struct fg_dev *fg, int bsoc)
 {
 	int rc;
-	u8 full_soc[2] = {0xFF, 0xFF};
+	u8 full_soc[2] = {0xFF, 0xFF}, buf[2];
 
 	/*
 	 * Once SOC masking condition is cleared, FULL_SOC and MONOTONIC_SOC
 	 * needs to be updated to reflect the same. Write battery SOC to
 	 * FULL_SOC and write a full value to MONOTONIC_SOC.
 	 */
-	rc = fg_sram_write(fg, FULL_SOC_WORD, FULL_SOC_OFFSET,
-			(u8 *)&bsoc, 2, FG_IMA_ATOMIC);
+	fg_encode(fg->sp, FG_SRAM_FULL_SOC, bsoc, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_FULL_SOC].addr_word,
+			fg->sp[FG_SRAM_FULL_SOC].addr_byte, buf,
+			fg->sp[FG_SRAM_FULL_SOC].len, FG_IMA_ATOMIC);
 	if (rc < 0) {
 		pr_err("failed to write full_soc rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = fg_sram_write(fg, MONOTONIC_SOC_WORD, MONOTONIC_SOC_OFFSET,
-			full_soc, 2, FG_IMA_ATOMIC);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_MONOTONIC_SOC].addr_word,
+			fg->sp[FG_SRAM_MONOTONIC_SOC].addr_byte, full_soc,
+			fg->sp[FG_SRAM_MONOTONIC_SOC].len, FG_IMA_ATOMIC);
 	if (rc < 0) {
 		pr_err("failed to write monotonic_soc rc=%d\n", rc);
 		return rc;
@@ -3631,8 +3741,9 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	case PM8150B_SUBTYPE:
 		fg->version = GEN4_FG;
 		fg->use_dma = true;
-		fg->sp = pm8150_sram_params;
+		fg->sp = pm8150b_v2_sram_params;
 		if (fg->pmic_rev_id->rev4 == PM8150B_V1P0_REV4) {
+			fg->sp = pm8150b_v1_sram_params;
 			fg->wa_flags |= PM8150B_V1_DMA_WA;
 			fg->wa_flags |= PM8150B_V1_RSLOW_COMP_WA;
 		}
