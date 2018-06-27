@@ -829,7 +829,7 @@ static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa3_sys_context, switch_to_intr_work);
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		/* interrupt mode is done in ipa3_rx_poll context */
 		ipa_assert();
 	} else
@@ -1004,7 +1004,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->valid = 1;
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
-	ep->napi_enabled = sys_in->napi_enabled;
+	ep->sys->napi_obj = sys_in->napi_obj;
 	ep->priv = sys_in->priv;
 	ep->keep_ipa_awake = sys_in->keep_ipa_awake;
 	atomic_set(&ep->avail_fifo_desc,
@@ -1168,7 +1168,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		return result;
 	}
 
-	if (ep->napi_enabled) {
+	if (ep->sys->napi_obj) {
 		do {
 			usleep_range(95, 105);
 		} while (atomic_read(&ep->sys->curr_polling_state));
@@ -1523,13 +1523,12 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 
 	sys = container_of(work, struct ipa3_sys_context, work);
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		if (!ipa3_ctx->use_ipa_pm)
 			IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
 		else
 			ipa_pm_activate_sync(sys->pm_hdl);
-		sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+		napi_schedule(sys->napi_obj);
 	} else
 		ipa3_handle_rx(sys);
 }
@@ -2988,7 +2987,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					sys->repl_hdlr =
 					   ipa3_replenish_rx_cache;
 				}
-				if (in->napi_enabled && in->recycle_enabled)
+				if (in->napi_obj && in->recycle_enabled)
 					sys->repl_hdlr =
 					 ipa3_replenish_rx_cache_recycle;
 				in->ipa_ep_cfg.aggr.aggr_sw_eof_active
@@ -3556,24 +3555,22 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	 */
 	if (ipa3_ctx->use_ipa_pm) {
 		clk_off = ipa_pm_activate(sys->pm_hdl);
-		if (!clk_off && sys->ep->napi_enabled) {
-			sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+		if (!clk_off && sys->napi_obj) {
+			napi_schedule(sys->napi_obj);
 			return;
 		}
 		queue_work(sys->wq, &sys->work);
 		return;
 	}
 
-	if (sys->ep->napi_enabled) {
+	if (sys->napi_obj) {
 		struct ipa_active_client_logging_info log;
 
 		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
 		clk_off = ipa3_inc_client_enable_clks_no_block(
 			&log);
 		if (!clk_off) {
-			sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+			napi_schedule(sys->napi_obj);
 			return;
 		}
 	}
@@ -3775,7 +3772,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		ep->gsi_mem_info.evt_ring_base_vaddr =
 			gsi_evt_ring_props.ring_base_vaddr;
 
-		if (ep->napi_enabled) {
+		if (ep->sys->napi_obj) {
 			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
 			gsi_evt_ring_props.int_modc = IPA_GSI_EVT_RING_INT_MODC;
 		} else {
@@ -4088,7 +4085,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	if (cnt < weight) {
-		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
+		napi_complete(ep->sys->napi_obj);
 		ipa3_rx_switch_to_intr_mode(ep->sys);
 		if (ipa3_ctx->use_ipa_pm)
 			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
