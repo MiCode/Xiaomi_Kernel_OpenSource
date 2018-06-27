@@ -294,6 +294,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	u32 mem_flag = GFP_ATOMIC;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
 	bool send_nop = false;
+	unsigned int max_desc;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -311,13 +312,17 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		return -EPERM;
 	}
 
-	if (unlikely(num_desc > gsi_ep_cfg->ipa_if_tlv)) {
+	max_desc = gsi_ep_cfg->ipa_if_tlv;
+	if (gsi_ep_cfg->prefetch_mode == GSI_SMART_PRE_FETCH ||
+		gsi_ep_cfg->prefetch_mode == GSI_FREE_PRE_FETCH)
+		max_desc -= gsi_ep_cfg->prefetch_threshold;
+
+	if (unlikely(num_desc > max_desc)) {
 		IPAERR("Too many chained descriptors need=%d max=%d\n",
-			num_desc, gsi_ep_cfg->ipa_if_tlv);
+			num_desc, max_desc);
 		WARN_ON(1);
 		return -EPERM;
 	}
-
 
 	/* initialize only the xfers we use */
 	memset(gsi_xfer, 0, sizeof(gsi_xfer[0]) * num_desc);
@@ -1302,6 +1307,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	int num_frags, f;
 	const struct ipa_gsi_ep_config *gsi_ep;
 	int data_idx;
+	unsigned int max_desc;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA3 driver was not initialized\n");
@@ -1356,7 +1362,15 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 * 1 descriptor needed for the linear portion of skb.
 	 */
 	gsi_ep = ipa3_get_gsi_ep_info(ipa3_ctx->ep[src_ep_idx].client);
-	if (gsi_ep && (num_frags + 3 > gsi_ep->ipa_if_tlv)) {
+	if (unlikely(gsi_ep == NULL)) {
+		IPAERR("failed to get EP %d GSI info\n", src_ep_idx);
+		goto fail_gen;
+	}
+	max_desc =  gsi_ep->ipa_if_tlv;
+	if (gsi_ep->prefetch_mode == GSI_SMART_PRE_FETCH ||
+		gsi_ep->prefetch_mode == GSI_FREE_PRE_FETCH)
+		max_desc -= gsi_ep->prefetch_threshold;
+	if (num_frags + 3 > max_desc) {
 		if (skb_linearize(skb)) {
 			IPAERR("Failed to linear skb with %d frags\n",
 				num_frags);
@@ -3250,7 +3264,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 			desc[1].callback = ipa3_tx_client_rx_pkt_status;
 		}
 
-		IPADBG_LOW("calling ipa3_send_one()\n");
+		IPADBG_LOW("calling ipa3_send()\n");
 		if (ipa3_send(sys, 2, desc, true)) {
 			IPAERR("fail to send skb\n");
 			sys->ep->wstats.rx_pkt_leak += (cnt-1);
