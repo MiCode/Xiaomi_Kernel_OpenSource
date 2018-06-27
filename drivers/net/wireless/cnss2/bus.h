@@ -27,6 +27,8 @@
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev);
 enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id);
+void *cnss_bus_dev_to_bus_priv(struct device *dev);
+struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev);
 int cnss_bus_init(struct cnss_plat_data *plat_priv);
 void cnss_bus_deinit(struct cnss_plat_data *plat_priv);
 int cnss_bus_load_m3(struct cnss_plat_data *plat_priv);
@@ -35,5 +37,15 @@ u32 cnss_bus_get_wake_irq(struct cnss_plat_data *plat_priv);
 int cnss_bus_force_fw_assert_hdlr(struct cnss_plat_data *plat_priv);
 void cnss_bus_fw_boot_timeout_hdlr(unsigned long data);
 void cnss_bus_collect_dump_info(struct cnss_plat_data *plat_priv);
-
+int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv);
+int cnss_bus_call_driver_remove(struct cnss_plat_data *plat_priv);
+int cnss_bus_dev_powerup(struct cnss_plat_data *plat_priv);
+int cnss_bus_dev_shutdown(struct cnss_plat_data *plat_priv);
+int cnss_bus_dev_crash_shutdown(struct cnss_plat_data *plat_priv);
+int cnss_bus_dev_ramdump(struct cnss_plat_data *plat_priv);
+int cnss_bus_register_driver_hdlr(struct cnss_plat_data *plat_priv, void *data);
+int cnss_bus_unregister_driver_hdlr(struct cnss_plat_data *plat_priv);
+int cnss_bus_call_driver_modem_status(struct cnss_plat_data *plat_priv,
+				      int modem_current_status);
+int cnss_bus_recovery_update_status(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_BUS_H */
