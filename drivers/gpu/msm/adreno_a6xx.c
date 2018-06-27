@@ -1201,7 +1201,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
  */
 static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 {
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
+	if (adreno_is_a608(adreno_dev))
 		return 0;
 
 	return a6xx_gmu_sptprac_enable(adreno_dev);
@@ -1213,7 +1213,7 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
  */
 static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 {
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
+	if (adreno_is_a608(adreno_dev))
 		return;
 
 	a6xx_gmu_sptprac_disable(adreno_dev);
@@ -1384,7 +1384,7 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	/* Clear GBIF client halt and CX arbiter halt */
 	adreno_deassert_gbif_halt(adreno_dev);
 
-	a6xx_gmu_sptprac_enable(adreno_dev);
+	a6xx_sptprac_enable(adreno_dev);
 
 	return 0;
 }
