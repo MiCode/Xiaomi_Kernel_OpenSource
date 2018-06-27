@@ -1,0 +1,101 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+	apps_smmu: apps-smmu@0x15000000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x15000000 0x20000>,
+			<0x15022000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,use-3-lvl-tables;
+		#global-interrupts = <1>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+
+		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+
+		qcom,msm-bus,name = "apps_smmu";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_QDSS_BAM>,
+			<MSM_BUS_SLAVE_OCIMEM>,
+			<0 0>,
+			<MSM_BUS_MASTER_QDSS_BAM>,
+			<MSM_BUS_SLAVE_OCIMEM>,
+			<0 1000>;
+
+		periph_tbu: periph_tbu@0x15025000 {
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x15025000 0x1000>,
+				<0x15022200 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,stream-id-range = <0x0 0x400>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_QDSS_BAM>,
+				<MSM_BUS_SLAVE_OCIMEM>,
+				<0 0>,
+				<MSM_BUS_MASTER_QDSS_BAM>,
+				<MSM_BUS_SLAVE_OCIMEM>,
+				<0 1000>;
+		};
+		ipa_tbu: ipa_tbu@0x15029000 {
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x15029000 0x1000>,
+				<0x15022208 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,stream-id-range = <0x400 0x400>;
+			qcom,msm-bus,name = "apps_smmu";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_QDSS_BAM>,
+				<MSM_BUS_SLAVE_OCIMEM>,
+				<0 0>,
+				<MSM_BUS_MASTER_QDSS_BAM>,
+				<MSM_BUS_SLAVE_OCIMEM>,
+				<0 1000>;
+		};
+	};
+
+	apps_iommu_test_device {
+		compatible = "iommu-debug-test";
+		iommus = <&apps_smmu 0x100 0x0>;
+	};
+};
