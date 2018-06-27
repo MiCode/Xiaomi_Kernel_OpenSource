@@ -4562,12 +4562,19 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* move proxy vote for modem on ipa3_post_init */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
-	/* SMMU was already attached if used, safe to do allocations */
-	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
-		ipa3_ctx->pdev)) {
-		IPAERR("fail to init ipahal\n");
-		result = -EFAULT;
-		goto fail_ipahal;
+
+	/*
+	 * In Virtual mode, IPAHAL initialized at pre_init as
+	 * there is no SMMU. In normal mode need to wait until
+	 * SMMU is attached and thus initialization done here.
+	 */
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
+			ipa3_ctx->pdev)) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal;
+		}
 	}
 
 	result = ipa3_init_hw();
@@ -4797,9 +4804,9 @@ fail_nat_ipv6ct_init_dev:
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
 fail_init_hw:
-	ipahal_destroy();
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
+		ipahal_destroy();
 fail_ipahal:
-
 	return result;
 }
 
@@ -5252,6 +5259,20 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_remap;
 	}
 
+	/*
+	 * In Virtual mode, IPAHAL used to load the firmwares
+	 * and there is no SMMU so IPAHAL is initialized here.
+	 */
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type,
+				ipa3_ctx->mmio,
+				&(ipa3_ctx->master_pdev->dev))) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal_init;
+		}
+	}
+
 	mutex_init(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "PROXY_CLK_VOTE");
@@ -5538,6 +5559,9 @@ fail_flt_rule_cache:
 fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 fail_init_hw:
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL)
+		ipahal_destroy();
+fail_ipahal_init:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
