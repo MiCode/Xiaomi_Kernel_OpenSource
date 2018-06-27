@@ -1134,7 +1134,7 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, i;
 	u8 buf, therm_coeffs[BATT_THERM_NUM_COEFFS * 2];
-	u8 rslow_coeffs[RSLOW_NUM_COEFFS];
+	u8 rslow_coeffs[RSLOW_NUM_COEFFS], val, mask;
 
 	if (fg->bp.vbatt_full_mv > 0) {
 		rc = fg_set_constant_chg_voltage(fg,
@@ -1188,6 +1188,23 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 			}
 		}
 		fg_dbg(fg, FG_STATUS, "Rslow_low: %d\n", chip->rslow_low);
+	}
+
+	/*
+	 * Since this SRAM word falls inside profile region, configure it after
+	 * the profile is loaded. This parameter doesn't come from battery
+	 * profile DT property.
+	 */
+	if (fg->wa_flags & PM8150B_V1_RSLOW_COMP_WA) {
+		val = 0;
+		mask = BIT(1);
+		rc = fg_sram_masked_write(fg, RSLOW_CONFIG_WORD,
+				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	if (fg->bp.therm_pull_up_kohms > 0) {
@@ -2960,18 +2977,6 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 			FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in writing ki_coeff_hi_chg, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	if (fg->wa_flags & PM8150B_V1_RSLOW_COMP_WA) {
-		val = 0;
-		mask = BIT(1);
-		rc = fg_sram_masked_write(fg, RSLOW_CONFIG_WORD,
-				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
-				rc);
 			return rc;
 		}
 	}
