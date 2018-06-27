@@ -198,6 +198,15 @@
 			bias-disable;		/* no-pull */
 		};
 	};
+
+	pmi632_ctm {
+		/* Disable GPIO1 for h/w base mitigation */
+		pmi632_ctm_default: pmi632_ctm_default {
+			pins = "gpio1";
+			bias-high-impedance;	/* disable the GPIO */
+			bias-disable;		/* no-pull */
+		};
+	};
 };
 
 &tlmm {
@@ -211,15 +220,6 @@
 			drive-strength = <2>;
 			bias-pull-up;
 			input-enable;
-		};
-	};
-
-	pmi632_ctm {
-		/* Disable GPIO1 for h/w base mitigation */
-		pmi632_ctm_default: pmi632_ctm_default {
-			pins = "gpio1";
-			bias-high-impedance;	/* disable the GPIO */
-			bias-disable;		/* no-pull */
 		};
 	};
 };
