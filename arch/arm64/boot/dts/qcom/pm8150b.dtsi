@@ -169,6 +169,9 @@
 
 			qcom,pmic-revid = <&pm8150b_revid>;
 
+			qcom,charger-temp-max = <800>;
+			qcom,smb-temp-max = <800>;
+
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =

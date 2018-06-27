@@ -3855,13 +3855,18 @@ static void pl_update_work(struct work_struct *work)
 						pl_update_work);
 	int rc;
 
-	rc = smblib_get_thermal_threshold(chg, SMB_REG_H_THRESHOLD_MSB_REG,
-				&prop_val.intval);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
-		return;
+	if (chg->smb_temp_max == -EINVAL) {
+		rc = smblib_get_thermal_threshold(chg,
+					SMB_REG_H_THRESHOLD_MSB_REG,
+					&chg->smb_temp_max);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+					rc);
+			return;
+		}
 	}
 
+	prop_val.intval = chg->smb_temp_max;
 	rc = power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 				&prop_val);
@@ -4174,15 +4179,18 @@ int smblib_init(struct smb_charger *chg)
 					}
 				}
 
-				rc = smblib_get_thermal_threshold(chg,
+				if (chg->smb_temp_max == -EINVAL) {
+					rc = smblib_get_thermal_threshold(chg,
 						SMB_REG_H_THRESHOLD_MSB_REG,
-						&prop_val.intval);
-				if (rc < 0) {
-					dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
-							rc);
-					return rc;
+						&chg->smb_temp_max);
+					if (rc < 0) {
+						dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+								rc);
+						return rc;
+					}
 				}
 
+				prop_val.intval = chg->smb_temp_max;
 				rc = power_supply_set_property(chg->pl.psy,
 					POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 					&prop_val);
