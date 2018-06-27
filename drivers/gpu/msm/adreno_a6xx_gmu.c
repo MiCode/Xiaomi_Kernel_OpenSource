@@ -1424,6 +1424,37 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	}
 }
 
+static int a6xx_gmu_wait_for_active_transition(
+	struct adreno_device *adreno_dev)
+{
+	unsigned int reg, num_retries;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	if (!gmu_core_isenabled(device))
+		return 0;
+
+	gmu_core_regread(device,
+		A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+
+	for (num_retries = 0; reg != GPU_HW_ACTIVE && num_retries < 100;
+		num_retries++) {
+		/* Wait for small time before trying again */
+		udelay(5);
+		gmu_core_regread(device,
+			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+	}
+
+	if (reg == GPU_HW_ACTIVE)
+		return 0;
+
+	dev_err(&gmu->pdev->dev,
+		"GMU failed to move to ACTIVE state, Current state: 0x%x\n",
+		reg);
+
+	return -ETIMEDOUT;
+}
+
 struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
@@ -1439,6 +1470,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.ifpc_store = a6xx_gmu_ifpc_store,
 	.ifpc_show = a6xx_gmu_ifpc_show,
 	.snapshot = a6xx_gmu_snapshot,
+	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
 };

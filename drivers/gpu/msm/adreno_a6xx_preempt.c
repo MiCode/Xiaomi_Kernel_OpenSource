@@ -239,6 +239,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	unsigned int contextidr, cntl;
 	unsigned long flags;
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 
 	cntl = (((preempt->preempt_level << 6) & 0xC0) |
 		((preempt->skipsaverestore << 9) & 0x200) |
@@ -358,6 +359,26 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
 		upper_32_bits(gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	/*
+	 * Above fence writes will make sure GMU comes out of
+	 * IFPC state if its was in IFPC state but it doesn't
+	 * guarantee that GMU FW actually moved to ACTIVE state
+	 * i.e. wake-up from IFPC is complete.
+	 * Wait for GMU to move to ACTIVE state before triggering
+	 * preemption. This is require to make sure CP doesn't
+	 * interrupt GMU during wake-up from IFPC.
+	 */
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, wait_for_active_transition)) {
+		if (gmu_dev_ops->wait_for_active_transition(adreno_dev)) {
+			adreno_set_preempt_state(adreno_dev,
+				ADRENO_PREEMPT_NONE);
+
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_dispatcher_schedule(device);
+			return;
+		}
+	}
 
 	adreno_dev->next_rb = next;
 
