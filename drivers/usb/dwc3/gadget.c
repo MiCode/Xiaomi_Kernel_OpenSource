@@ -3088,7 +3088,8 @@ void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 	dep->flags &= ~DWC3_EP_BUSY;
 
 	if (dwc3_is_usb31(dwc) || dwc->revision < DWC3_REVISION_310A) {
-		dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
+		if (dep->endpoint.ep_type != EP_TYPE_GSI)
+			dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
 		udelay(100);
 	}
 }
