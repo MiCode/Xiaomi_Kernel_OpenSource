@@ -746,6 +746,12 @@ int dsi_display_check_status(void *display, bool te_check_override)
 	}
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
+	/* Prevent another ESD check,when ESD recovery is underway */
+	if (panel->esd_recovery_pending) {
+		dsi_panel_release_panel_lock(panel);
+		return rc;
+	}
+
 	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
 		status_mode = ESD_MODE_PANEL_TE;
 	else
