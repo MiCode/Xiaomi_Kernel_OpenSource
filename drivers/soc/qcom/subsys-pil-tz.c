@@ -1031,7 +1031,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 {
 	struct pil_tz_data *d;
 	struct resource *res;
-	u32 proxy_timeout;
+	struct device_node *crypto_node;
+	u32 proxy_timeout, crypto_id;
 	int len, rc;
 
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
@@ -1087,7 +1088,16 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 									rc);
 			return rc;
 		}
-		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE_0);
+
+		crypto_id = MSM_BUS_MASTER_CRYPTO_CORE_0;
+		crypto_node = of_parse_phandle(pdev->dev.of_node,
+						"qcom,mas-crypto", 0);
+		if (!IS_ERR_OR_NULL(crypto_node)) {
+			of_property_read_u32(crypto_node, "cell-id",
+				&crypto_id);
+		}
+		of_node_put(crypto_node);
+		scm_pas_init((int)crypto_id);
 	}
 
 	rc = pil_desc_init(&d->desc);
