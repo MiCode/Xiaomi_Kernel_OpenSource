@@ -4505,6 +4505,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 			vdd_hf_pll.num_levels = VDD_HF_PLL_NUM_439;
 			vdd_hf_pll.cur_level = VDD_HF_PLL_NUM_439;
 
+			gpll3_clk_src.test_ctl_hi_val = 0x400000;
 			gpll3_clk_src.vco_tbl = p_vco;
 			gpll3_clk_src.num_vco = ARRAY_SIZE(p_vco);
 			gpll3_clk_src.c.fmax[VDD_DIG_LOW] = 800000000;
