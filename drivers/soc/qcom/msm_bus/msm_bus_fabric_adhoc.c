@@ -1273,4 +1273,4 @@ int __init msm_bus_device_init_driver(void)
 	}
 	return platform_driver_register(&msm_bus_rules_driver);
 }
-subsys_initcall(msm_bus_device_init_driver);
+fs_initcall(msm_bus_device_init_driver);
