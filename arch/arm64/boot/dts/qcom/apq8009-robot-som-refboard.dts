@@ -17,6 +17,8 @@
 #include "8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
+#include "msm8909-pm8916-camera.dtsi"
+#include "msm8909-pm8916-camera-sensor-robot-som.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Robot SOM refboard";
@@ -89,6 +91,10 @@
 			<79 512 6250 200000>,     /* 50 Mbps */
 			<79 512 25000 200000>,    /* 200 Mbps */
 			<79 512 2048000 4096000>; /* MAX */
+	};
+
+	gpio_keys {
+		status = "disable";
 	};
 };
 
