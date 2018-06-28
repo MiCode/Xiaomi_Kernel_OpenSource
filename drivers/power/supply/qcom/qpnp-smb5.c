@@ -1060,6 +1060,10 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 					pr_err("Failed to force 5V\n");
 				else
 					chg->pulse_cnt = 0;
+			} else {
+				/* USB absent & flash not-active - vote 100mA */
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
+							true, SDP_100_MA);
 			}
 
 			pr_debug("flash active VBUS 5V restriction %s\n",

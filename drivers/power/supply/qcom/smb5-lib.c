@@ -16,6 +16,7 @@
 #include "smb5-lib.h"
 #include "smb5-reg.h"
 #include "battery.h"
+#include "schgm-flash.h"
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
 
@@ -1021,7 +1022,6 @@ int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 	return 0;
 }
 
-#define SDP_100_MA			100000
 static void smblib_uusb_removal(struct smb_charger *chg)
 {
 	int rc;
@@ -1052,7 +1052,8 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
+			is_flash_active(chg) ? SDP_CURRENT_UA : SDP_100_MA);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 
@@ -3469,13 +3470,6 @@ int smblib_get_prop_connector_health(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-#define SDP_CURRENT_UA			500000
-#define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
-#define TYPEC_DEFAULT_CURRENT_UA	900000
-#define TYPEC_MEDIUM_CURRENT_UA		1500000
-#define TYPEC_HIGH_CURRENT_UA		3000000
 static int get_rp_based_dcp_current(struct smb_charger *chg, int typec_mode)
 {
 	int rp_ua;
@@ -3515,6 +3509,7 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 					int usb_current)
 {
 	int rc = 0, rp_ua, typec_mode;
+	union power_supply_propval val = {0, };
 
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		if (usb_current == -ETIMEDOUT) {
@@ -3569,8 +3564,16 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				return rc;
 		}
 	} else {
-		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-					true, usb_current);
+		rc = smblib_get_prop_usb_present(chg, &val);
+		if (!rc && !val.intval)
+			return 0;
+
+		/* if flash is active force 500mA */
+		if ((usb_current < SDP_CURRENT_UA) && is_flash_active(chg))
+			usb_current = SDP_CURRENT_UA;
+
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, true,
+							usb_current);
 		if (rc < 0) {
 			pr_err("Couldn't vote ICL USB_PSY_VOTER rc=%d\n", rc);
 			return rc;
@@ -4525,9 +4528,12 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 		 * enumeration is done.
 		 */
 		if (!is_client_vote_enabled(chg->usb_icl_votable,
-								USB_PSY_VOTER))
+						USB_PSY_VOTER)) {
+			/* if flash is active force 500mA */
 			vote(chg->usb_icl_votable, USB_PSY_VOTER, true,
-					SDP_100_MA);
+					is_flash_active(chg) ?
+					SDP_CURRENT_UA : SDP_100_MA);
+		}
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
 		break;
 	case POWER_SUPPLY_TYPE_USB_CDP:
@@ -4818,7 +4824,8 @@ static void typec_src_removal(struct smb_charger *chg)
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
 	/* reset input current limit voters */
-	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
+			is_flash_active(chg) ? SDP_CURRENT_UA : SDP_100_MA);
 	vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	vote(chg->usb_icl_votable, DCP_VOTER, false, 0);

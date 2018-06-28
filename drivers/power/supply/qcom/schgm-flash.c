@@ -94,6 +94,11 @@ static void schgm_flash_parse_dt(struct smb_charger *chg)
 	}
 }
 
+bool is_flash_active(struct smb_charger *chg)
+{
+	return chg->flash_active ? true : false;
+}
+
 int schgm_flash_get_vreg_ok(struct smb_charger *chg, int *val)
 {
 	int rc, vreg_state;

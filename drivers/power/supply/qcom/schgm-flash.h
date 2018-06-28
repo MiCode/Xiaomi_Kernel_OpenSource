@@ -40,6 +40,7 @@
 
 int schgm_flash_get_vreg_ok(struct smb_charger *chg, int *val);
 int schgm_flash_init(struct smb_charger *chg);
+bool is_flash_active(struct smb_charger *chg);
 
 irqreturn_t schgm_flash_default_irq_handler(int irq, void *data);
 irqreturn_t schgm_flash_ilim2_irq_handler(int irq, void *data);
