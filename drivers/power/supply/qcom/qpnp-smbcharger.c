@@ -632,6 +632,18 @@ static void smbchg_relax(struct smbchg_chip *chip, int reason)
 	mutex_unlock(&chip->pm_lock);
 };
 
+static bool is_bms_psy_present(struct smbchg_chip *chip)
+{
+	if (chip->bms_psy)
+		return true;
+
+	if (chip->bms_psy_name)
+		chip->bms_psy = power_supply_get_by_name(
+					(char *)chip->bms_psy_name);
+
+	return chip->bms_psy ? true : false;
+}
+
 enum pwr_path_type {
 	UNKNOWN = 0,
 	PWR_PATH_BATTERY = 1,
@@ -3748,17 +3760,11 @@ static void check_battery_type(struct smbchg_chip *chip)
 static void smbchg_external_power_changed(struct power_supply *psy)
 {
 	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
-	union power_supply_propval prop = {0,};
-	int rc, current_limit = 0, soc;
-	enum power_supply_type usb_supply_type;
-	char *usb_type_name = "null";
-
-	if (chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
+	int rc, soc;
 
 	smbchg_aicl_deglitch_wa_check(chip);
-	if (chip->bms_psy) {
+
+	if (is_bms_psy_present(chip)) {
 		check_battery_type(chip);
 		soc = get_prop_batt_capacity(chip);
 		if (chip->previous_soc != soc) {
@@ -3773,37 +3779,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 									rc);
 	}
 
-	rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
-	if (rc == 0)
-		vote(chip->usb_suspend_votable, POWER_SUPPLY_EN_VOTER,
-				!prop.intval, 0);
-
-	current_limit = chip->usb_current_max / 1000;
-
-	/* Override if type-c charger used */
-	if (chip->typec_current_ma > 500 &&
-			current_limit < chip->typec_current_ma)
-		current_limit = chip->typec_current_ma;
-
-	read_usb_type(chip, &usb_type_name, &usb_supply_type);
-
-	if (usb_supply_type != POWER_SUPPLY_TYPE_USB)
-		goto  skip_current_for_non_sdp;
-
-	pr_smb(PR_MISC, "usb type = %s current_limit = %d\n",
-			usb_type_name, current_limit);
-
-	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
-				current_limit);
-	if (rc < 0)
-		pr_err("Couldn't update USB PSY ICL vote rc=%d\n", rc);
-
-skip_current_for_non_sdp:
+	/* adjust vfloat */
 	smbchg_vfloat_adjust_check(chip);
-
-	if (chip->batt_psy)
-		power_supply_changed(chip->batt_psy);
 }
 
 static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
@@ -5754,6 +5731,21 @@ static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 	}
 }
 
+static int smbchg_set_sdp_current(struct smbchg_chip *chip, int current_ma)
+{
+	if (chip->usb_supply_type == POWER_SUPPLY_TYPE_USB) {
+		/* Override if type-c charger used */
+		if (chip->typec_current_ma > 500 &&
+				current_ma < chip->typec_current_ma) {
+			current_ma = chip->typec_current_ma;
+		}
+		pr_smb(PR_MISC, "from USB current_ma = %d\n", current_ma);
+		vote(chip->usb_icl_votable, PSY_ICL_VOTER, true, current_ma);
+	}
+
+	return 0;
+}
+
 static int smbchg_usb_get_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -5762,7 +5754,12 @@ static int smbchg_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = chip->usb_current_max;
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+		if (chip->usb_icl_votable)
+			val->intval = get_client_vote(chip->usb_icl_votable,
+						PSY_ICL_VOTER) * 1000;
+		else
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = chip->usb_present;
@@ -5792,17 +5789,16 @@ static int smbchg_usb_set_property(struct power_supply *psy,
 	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		chip->usb_current_max = val->intval;
-		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		chip->usb_online = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+		smbchg_set_sdp_current(chip, val->intval / 1000);
 	default:
 		return -EINVAL;
 	}
 
-	power_supply_changed(psy);
 	return 0;
 }
 
@@ -5812,6 +5808,7 @@ smbchg_usb_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		return 1;
 	default:
 		break;
@@ -5833,6 +5830,7 @@ static enum power_supply_property smbchg_usb_properties[] = {
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 };
 
 #define CHARGE_OUTPUT_VTG_RATIO		840
