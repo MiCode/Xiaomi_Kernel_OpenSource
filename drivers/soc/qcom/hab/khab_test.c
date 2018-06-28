@@ -13,7 +13,9 @@
 #include "hab.h"
 #include "khab_test.h"
 #include "hab_pipe.h"
+#ifdef CONFIG_MSM_GVM_QUIN
 #include "hab_qvm.h"
+#endif
 #include <asm/cacheflush.h>
 #include <linux/list.h>
 
@@ -30,8 +32,10 @@ enum hab_perf_test_type {
 static int hab_shmm_throughput_test(void)
 {
 	struct hab_device *habDev;
+#ifdef CONFIG_MSM_GVM_QUIN
 	struct qvm_channel *dev;
-	struct hab_shared_buf *sh_buf;
+#endif
+	struct hab_shared_buf *sh_buf = NULL;
 	struct physical_channel *pchan;
 	struct timeval tv1, tv2;
 	int i, counter;
@@ -52,6 +56,7 @@ static int hab_shmm_throughput_test(void)
 
 	pchan = list_first_entry(&(habDev->pchannels),
 		struct physical_channel, node);
+#ifdef CONFIG_MSM_GVM_QUIN
 	dev = pchan->hyp_data;
 	if (!dev) {
 		ret = -EPERM;
@@ -59,6 +64,8 @@ static int hab_shmm_throughput_test(void)
 	}
 
 	sh_buf = dev->pipe_ep->tx_info.sh_buf;
+#endif
+
 	/* pChannel is of 128k, we use 64k to test */
 	size = 0x10000;
 

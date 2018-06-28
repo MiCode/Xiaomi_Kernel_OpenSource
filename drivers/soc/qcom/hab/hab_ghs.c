@@ -40,7 +40,7 @@ static const char * const dt_gipc_path_name[] = {
 };
 
 static struct ghs_vmm_plugin_info_s {
-	const char **dt_name;
+	const char * const *dt_name;
 	int curr;
 	int probe_cnt;
 } ghs_vmm_plugin_info = {
