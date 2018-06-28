@@ -292,7 +292,7 @@ static inline int walt_start_cpu(int prev_cpu)
 
 static inline void walt_update_last_enqueue(struct task_struct *p)
 {
-	p->last_enqueued_ts = ktime_get_ns();
+	p->last_enqueued_ts = sched_ktime_clock();
 }
 extern void walt_rotate_work_init(void);
 extern void walt_rotation_checkpoint(int nr_big);
