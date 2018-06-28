@@ -392,6 +392,13 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 	if (!rq->window_start || sched_disable_window_stats)
 		return;
 
+	/*
+	 * We don’t have to note down an irqstart event when cycle
+	 * counter is not used.
+	 */
+	if (!use_cycle_counter)
+		return;
+
 	if (is_idle_task(curr)) {
 		/* We're here without rq->lock held, IRQ disabled */
 		raw_spin_lock(&rq->lock);
