@@ -217,6 +217,7 @@ static void __qrtr_node_release(struct kref *kref)
 		kfree(*slot);
 	}
 
+	flush_work(&node->work);
 	skb_queue_purge(&node->rx_queue);
 	kfree(node);
 }
