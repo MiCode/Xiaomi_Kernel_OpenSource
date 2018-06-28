@@ -312,6 +312,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* sdmmagpie ID */
 	[365] = {MSM_CPU_SDMMAGPIE, "SDMMAGPIE"},
 
+	/* kona ID */
+	[356] = {MSM_CPU_KONA, "KONA"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1170,6 +1173,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sa8150()) {
 		dummy_socinfo.id = 362;
 		strlcpy(dummy_socinfo.build_id, "sa8150 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_kona()) {
+		dummy_socinfo.id = 356;
+		strlcpy(dummy_socinfo.build_id, "kona - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;

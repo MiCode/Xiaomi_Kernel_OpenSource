@@ -44,6 +44,9 @@ SoCs:
 - SM8150
   compatible = "qcom,sm8150"
 
+- KONA
+  compatible = "qcom,kona"
+
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 
@@ -152,6 +155,10 @@ compatible = "qcom,sm8150-qrd"
 compatible = "qcom,sm8150p-cdp"
 compatible = "qcom,sm8150p-mtp"
 compatible = "qcom,sm8150p-qrd"
+compatible = "qcom,kona-rumi"
+compatible = "qcom,kona-mtp"
+compatible = "qcom,kona-cdp"
+compatible = "qcom,kona-qrd"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
