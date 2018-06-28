@@ -314,8 +314,13 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	hdr->type = cpu_to_le32(type);
 	hdr->src_node_id = cpu_to_le32(from->sq_node);
 	hdr->src_port_id = cpu_to_le32(from->sq_port);
-	hdr->dst_node_id = cpu_to_le32(to->sq_node);
-	hdr->dst_port_id = cpu_to_le32(to->sq_port);
+	if (to->sq_port == QRTR_PORT_CTRL) {
+		hdr->dst_node_id = cpu_to_le32(node->nid);
+		hdr->dst_port_id = cpu_to_le32(QRTR_NODE_BCAST);
+	} else {
+		hdr->dst_node_id = cpu_to_le32(to->sq_node);
+		hdr->dst_port_id = cpu_to_le32(to->sq_port);
+	}
 
 	hdr->size = cpu_to_le32(len);
 	hdr->confirm_rx = !!confirm_rx;
@@ -829,14 +834,10 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 		if (!skbn)
 			break;
 		skb_set_owner_w(skbn, skb->sk);
-		to->sq_node = cpu_to_le32(node->nid);
-		to->sq_port = QRTR_NODE_BCAST;
 		qrtr_node_enqueue(node, skbn, type, from, to);
 	}
 	mutex_unlock(&qrtr_node_lock);
 
-	to->sq_node = QRTR_NODE_BCAST;
-	to->sq_port = QRTR_PORT_CTRL;
 	qrtr_local_enqueue(node, skb, type, from, to);
 
 	return 0;
