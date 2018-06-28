@@ -13,6 +13,7 @@ provides the reserved RAM dump memory location and size.
 Required properties:
   - compatible: "qcom,cnss" for QCA6174 device
                 "qcom,cnss-qca6290" for QCA6290 device
+                "qcom,cnss-qca6390" for QCA6390 device
   - wlan-en-gpio: WLAN_EN GPIO signal specified by the chip specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
   - pinctrl-names: Names corresponding to the numbered pinctrl states
