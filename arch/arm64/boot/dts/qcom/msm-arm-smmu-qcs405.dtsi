@@ -13,7 +13,7 @@
 
 &soc {
 	gfx_iommu: qcom,iommu@1f00000 {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1f00000 0x10000>,
 			<0x1ee2000 0x20>;
