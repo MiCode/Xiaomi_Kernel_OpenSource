@@ -404,6 +404,7 @@
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
 			usb-core-id = <1>;
+			dr_mode = "host";
 		};
 	};
 
@@ -429,7 +430,8 @@
 			 0x254 /* QUSB2PHY_TEST1 */
 			 0x198 /* PLL_BIAS_CONTROL_2 */
 			 0x228 /* QUSB2PHY_SQ_CTRL1 */
-			 0x22c>; /* QUSB2PHY_SQ_CTRL2 */
+			 0x22c /* QUSB2PHY_SQ_CTRL2 */
+			 0x27c>; /* QUSB2PHY_DEBUG_CTRL1 */
 
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
