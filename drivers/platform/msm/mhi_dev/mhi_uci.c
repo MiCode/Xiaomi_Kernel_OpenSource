@@ -29,8 +29,6 @@
 #include <uapi/linux/mhi.h>
 #include "mhi.h"
 
-#define MHI_DEV_NODE_NAME_LEN		13
-#define MHI_MAX_NR_OF_CLIENTS		23
 #define MHI_SOFTWARE_CLIENT_START	0
 #define MHI_SOFTWARE_CLIENT_LIMIT	(MHI_MAX_SOFTWARE_CHANNELS/2)
 #define MHI_UCI_IPC_LOG_PAGES		(100)
@@ -40,6 +38,7 @@
 #define MAX_NR_TRBS_PER_CHAN		9
 #define MHI_QTI_IFACE_ID		4
 #define DEVICE_NAME			"mhi"
+#define MAX_DEVICE_NAME_SIZE		80
 
 #define MHI_UCI_ASYNC_READ_TIMEOUT	msecs_to_jiffies(100)
 
@@ -76,6 +75,8 @@ struct chan_attr {
 	enum mhi_chan_dir dir;
 	/* need to register mhi channel state change callback */
 	bool register_cb;
+	/* Name of char device */
+	char *device_name;
 };
 
 /* UCI channel attributes table */
@@ -85,119 +86,144 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_LOOPBACK_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_SAHARA_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_SAHARA_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_EFS_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_EFS_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_MBIM_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_MBIM_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_QMI_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_QMI_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_IP_CTRL_0_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_IP_CTRL_0_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_IP_CTRL_1_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_IP_CTRL_1_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_DUN_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		false
+		false,
+		NULL
 	},
 	{
 		MHI_CLIENT_DUN_IN,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		false
+		false,
+		NULL
 	},
-	{ /* Must be the last */
-		MHI_CLIENT_INVALID,
-		0,
-		0,
-		MHI_DIR_INVALID,
-		false
+	{
+		MHI_CLIENT_ADB_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		true,
+		NULL
+	},
+	{
+		MHI_CLIENT_ADB_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		true,
+		"android_adb"
 	},
 };
 
@@ -1070,31 +1096,6 @@ static ssize_t mhi_uci_client_write(struct file *file,
 	return ret_val;
 }
 
-static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
-{
-	u32 i;
-	u32 index;
-	struct uci_client *client;
-	const struct chan_attr *chan_attrib;
-
-	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i += 2) {
-		chan_attrib = &uci_chan_attr_table[i];
-		if (chan_attrib->chan_id == MHI_CLIENT_INVALID)
-			break;
-		index = CHAN_TO_CLIENT(i);
-		client = &uci_ctxt->client_handles[index];
-		client->out_chan_attr = chan_attrib;
-		client->in_chan_attr = ++chan_attrib;
-		client->in_buf_list =
-			kcalloc(chan_attrib->nr_trbs,
-					sizeof(struct mhi_dev_iov),
-					GFP_KERNEL);
-		if (!client->in_buf_list)
-			return -ENOMEM;
-	}
-	return 0;
-}
-
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
 {
 	struct uci_ctrl *uci_ctrl_handle = NULL;
@@ -1215,6 +1216,109 @@ static const struct file_operations mhi_uci_client_fops = {
 #endif
 };
 
+static int uci_device_create(struct uci_client *client)
+{
+	int r;
+	int n;
+	ssize_t dst_size;
+	unsigned int client_index;
+	static char device_name[MAX_DEVICE_NAME_SIZE];
+
+	client_index = CHAN_TO_CLIENT(client->out_chan);
+	if (uci_ctxt.client_handles[client_index].dev)
+		return -EEXIST;
+
+	cdev_init(&uci_ctxt.cdev[client_index], &mhi_uci_client_fops);
+	uci_ctxt.cdev[client_index].owner = THIS_MODULE;
+	r = cdev_add(&uci_ctxt.cdev[client_index],
+		uci_ctxt.start_ctrl_nr + client_index, 1);
+	if (IS_ERR_VALUE(r)) {
+		uci_log(UCI_DBG_ERROR,
+			"Failed to add cdev for client %d, ret 0x%x\n",
+			client_index, r);
+		return r;
+	}
+	if (!client->in_chan_attr->device_name) {
+		n = snprintf(device_name, sizeof(device_name),
+			DEVICE_NAME "_pipe_%d", CLIENT_TO_CHAN(client_index));
+		if (n >= sizeof(device_name)) {
+			uci_log(UCI_DBG_ERROR, "Device name buf too short\n");
+			r = -E2BIG;
+			goto error;
+		}
+	} else {
+		dst_size = strscpy(device_name,
+				client->in_chan_attr->device_name,
+				sizeof(device_name));
+		if (dst_size <= 0) {
+			uci_log(UCI_DBG_ERROR, "Device name buf too short\n");
+			r = dst_size;
+			goto error;
+		}
+	}
+
+	uci_ctxt.client_handles[client_index].dev =
+		device_create(uci_ctxt.mhi_uci_class, NULL,
+				uci_ctxt.start_ctrl_nr + client_index,
+				NULL, device_name);
+	if (IS_ERR(uci_ctxt.client_handles[client_index].dev)) {
+		uci_log(UCI_DBG_ERROR,
+			"Failed to create device for client %d\n",
+			client_index);
+		r = -EIO;
+		goto error;
+	}
+
+	uci_log(UCI_DBG_INFO,
+		"Created device with class 0x%pK and ctrl number %d\n",
+		uci_ctxt.mhi_uci_class,
+		uci_ctxt.start_ctrl_nr + client_index);
+
+	return 0;
+
+error:
+	cdev_del(&uci_ctxt.cdev[client_index]);
+	return r;
+}
+
+static void mhi_uci_client_cb(struct mhi_dev_client_cb_data *cb_data)
+{
+	struct uci_client *client = cb_data->user_data;
+
+	uci_log(UCI_DBG_VERBOSE, " Rcvd MHI cb for channel %d, state %d\n",
+		cb_data->channel, cb_data->ctrl_info);
+
+	if (cb_data->ctrl_info == MHI_STATE_CONNECTED)
+		uci_device_create(client);
+}
+
+static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
+{
+	u32 i;
+	u32 index;
+	struct uci_client *client;
+	const struct chan_attr *chan_attrib;
+
+	for (i = 0; i < ARRAY_SIZE(uci_chan_attr_table); i += 2) {
+		chan_attrib = &uci_chan_attr_table[i];
+		index = CHAN_TO_CLIENT(i);
+		client = &uci_ctxt->client_handles[index];
+		client->out_chan_attr = chan_attrib;
+		client->in_chan_attr = ++chan_attrib;
+		client->in_buf_list =
+			kcalloc(chan_attrib->nr_trbs,
+			sizeof(struct mhi_dev_iov),
+			GFP_KERNEL);
+		if (!client->in_buf_list)
+			return -ENOMEM;
+		/* Register callback with MHI if requested */
+		if (client->out_chan_attr->register_cb)
+			mhi_register_state_cb(mhi_uci_client_cb, client,
+						client->out_chan);
+	}
+	return 0;
+}
+
 int mhi_uci_init(void)
 {
 	u32 i = 0;
@@ -1287,28 +1391,16 @@ int mhi_uci_init(void)
 		mhi_client = &uci_ctxt.client_handles[i];
 		if (!mhi_client->in_chan_attr)
 			continue;
-		cdev_init(&uci_ctxt.cdev[i], &mhi_uci_client_fops);
-		uci_ctxt.cdev[i].owner = THIS_MODULE;
-		r = cdev_add(&uci_ctxt.cdev[i],
-				uci_ctxt.start_ctrl_nr + i, 1);
-		if (IS_ERR_VALUE(r)) {
-			uci_log(UCI_DBG_ERROR,
-				"Failed to add cdev %d, ret 0x%x\n",
-				i, r);
-			goto failed_char_add;
-		}
-
-		uci_ctxt.client_handles[i].dev =
-			device_create(uci_ctxt.mhi_uci_class, NULL,
-					uci_ctxt.start_ctrl_nr + i,
-					NULL, DEVICE_NAME "_pipe_%d",
-					i * 2);
-		if (IS_ERR(uci_ctxt.client_handles[i].dev)) {
-			uci_log(UCI_DBG_ERROR,
-					"Failed to add cdev %d\n", i);
-			cdev_del(&uci_ctxt.cdev[i]);
+		/*
+		 * Delay device node creation until the callback for
+		 * this client's channels is called by the MHI driver,
+		 * if one is registered.
+		 */
+		if (mhi_client->in_chan_attr->register_cb)
+			continue;
+		ret_val = uci_device_create(mhi_client);
+		if (ret_val)
 			goto failed_device_create;
-		}
 	}
 
 	/* Control node */
@@ -1345,7 +1437,6 @@ int mhi_uci_init(void)
 
 	return 0;
 
-failed_char_add:
 failed_device_create:
 	while (--i >= 0) {
 		cdev_del(&uci_ctxt.cdev[i]);
