@@ -1307,6 +1307,26 @@ sd_init(struct sched_domain_topology_level *tl,
 	sd_id = cpumask_first(sched_domain_span(sd));
 
 	/*
+	 * Check if cpu_map eclipses cpu capacity asymmetry.
+	 */
+
+	if (sd->flags & SD_ASYM_CPUCAPACITY) {
+		long capacity = arch_scale_cpu_capacity(NULL, sd_id);
+		bool disable = true;
+		int i;
+
+		for_each_cpu(i, sched_domain_span(sd)) {
+			if (capacity != arch_scale_cpu_capacity(NULL, i)) {
+				disable = false;
+				break;
+			}
+		}
+
+		if (disable)
+			sd->flags &= ~SD_ASYM_CPUCAPACITY;
+	}
+
+	/*
 	 * Convert topological properties into behaviour.
 	 */
 
@@ -2085,4 +2105,3 @@ match2:
 
 	mutex_unlock(&sched_domains_mutex);
 }
-
