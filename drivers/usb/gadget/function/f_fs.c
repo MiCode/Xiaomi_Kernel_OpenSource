@@ -4295,11 +4295,8 @@ DECLARE_USB_FUNCTION_INIT(ffs, ffs_alloc_inst, ffs_alloc);
 static int ffs_init(void)
 {
 	ffs_ipc_log = ipc_log_context_create(NUM_PAGES, "f_fs", 0);
-	if (IS_ERR_OR_NULL(ffs_ipc_log)) {
+	if (IS_ERR_OR_NULL(ffs_ipc_log))
 		ffs_ipc_log =  NULL;
-		pr_err("%s: Create IPC log context failure\n",
-				__func__);
-	}
 
 	return 0;
 }
