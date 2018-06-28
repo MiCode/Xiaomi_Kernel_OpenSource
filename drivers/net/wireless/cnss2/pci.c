@@ -1927,7 +1927,10 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 			return 0;
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
-		return 0;
+		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) &&
+		    !test_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state))
+			return 0;
+		break;
 	default:
 		cnss_pr_err("Unhandled MHI state: %s(%d)\n",
 			    cnss_mhi_state_to_str(mhi_state), mhi_state);
