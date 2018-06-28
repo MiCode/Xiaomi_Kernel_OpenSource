@@ -889,8 +889,11 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 			DRM_DEBUG_DRIVER("Dirty list is empty\n");
 			goto exit;
 		}
-		sde_cp_ad_set_prop(sde_crtc, AD_IPC_RESET);
 		set_dspp_flush = true;
+	}
+
+	if (!list_empty(&sde_crtc->ad_active)) {
+		sde_cp_ad_set_prop(sde_crtc, AD_IPC_RESET);
 	}
 
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->dirty_list,
