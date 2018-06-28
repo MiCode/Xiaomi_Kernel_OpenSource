@@ -41,7 +41,7 @@
  */
 static void host_irq_wq(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
-static int wait_for_fw_ready(struct npu_device *npu_dev);
+static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx);
 static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
 	uint32_t hdl);
@@ -99,9 +99,17 @@ int fw_init(struct npu_device *npu_dev)
 
 	/* Clear control/status registers */
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
-	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, 0x0);
 	REGW(npu_dev, REG_NPU_HOST_CTRL_VALUE, 0x0);
 	REGW(npu_dev, REG_FW_TO_HOST_EVENT, 0x0);
+	if (host_ctx->fw_dbg_mode & FW_DBG_MODE_PAUSE) {
+		pr_debug("fw_dbg_mode %x\n", host_ctx->fw_dbg_mode);
+		REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS,
+			HOST_CTRL_STATUS_FW_PAUSE_VAL);
+	} else {
+		REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, 0x0);
+	}
+	/* Read back to flush all registers for fw to read */
+	REGR(npu_dev, REG_NPU_HOST_CTRL_STATUS);
 
 	/* Post PIL clocks */
 	if (npu_enable_post_pil_clocks(npu_dev)) {
@@ -127,7 +135,8 @@ int fw_init(struct npu_device *npu_dev)
 	/* Keep reading ctrl status until NPU is ready */
 	pr_debug("waiting for status ready from fw\n");
 
-	if (wait_for_fw_ready(npu_dev)) {
+	if (wait_for_fw_ready(npu_dev,
+		FW_CTRL_STATUS_MAIN_THREAD_READY_BIT)) {
 		ret = -EPERM;
 		goto wait_fw_ready_fail;
 	}
@@ -184,6 +193,8 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive)
 	host_ctx->fw_state = FW_DISABLING;
 	spin_unlock_irqrestore(&host_ctx->lock, flags);
 
+	npu_disable_irq(npu_dev);
+
 	if (fw_alive) {
 		/* Command header */
 		cmd_shutdown_pkt.header.cmd_type = NPU_IPC_CMD_SHUTDOWN;
@@ -196,11 +207,19 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive)
 
 		pr_debug("NPU_IPC_CMD_SHUTDOWN sent status: %d\n", ret);
 
-		if (ret)
+		if (ret) {
 			pr_err("npu_host_ipc_send_cmd failed\n");
+		} else {
+			/* Keep reading ctrl status until NPU shuts down */
+			pr_debug("waiting for shutdown status from fw\n");
+			if (wait_for_fw_ready(npu_dev,
+				FW_CTRL_STATUS_SHUTDOWN_DONE_VAL)) {
+				pr_err("wait for fw shutdown timedout\n");
+				ret = -ETIMEDOUT;
+			}
+		}
 	}
 
-	npu_disable_irq(npu_dev);
 	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
 	subsystem_put_local(host_ctx->subsystem_handle);
@@ -223,6 +242,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	host_ctx->fw_state = FW_DISABLED;
 	host_ctx->fw_ref_cnt = 0;
 	host_ctx->exec_flags_override = 0;
+	host_ctx->fw_dbg_mode = 0;
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
 	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
@@ -334,22 +354,27 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 		pr_err("npu_host_ipc_send_cmd failed\n");
 }
 
-static int wait_for_fw_ready(struct npu_device *npu_dev)
+static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits)
 {
 	uint32_t ctrl_sts = 0;
-	uint32_t wait_cnt = 0;
+	uint32_t wait_cnt = 0, max_wait_ms;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	max_wait_ms = (host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT_MS : NPU_FW_TIMEOUT_MS;
 
 	/* keep reading ctrl status until NPU is ready */
-	while (!(ctrl_sts & FW_CTRL_STATUS_MAIN_THREAD_READY_VAL)) {
+	while ((ctrl_sts & status_bits) != status_bits) {
 		ctrl_sts = REGR(npu_dev, REG_NPU_FW_CTRL_STATUS);
 		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
-		if (wait_cnt >= NPU_FW_TIMEOUT_MS) {
-			pr_err("timeout in %s\n", __func__);
+		if (wait_cnt >= max_wait_ms) {
+			pr_err("timeout wait for status %x in %s\n",
+				status_bits, __func__);
 			return -EPERM;
 		}
 	}
-	pr_debug("status ready from fw received\n");
+	pr_debug("status %x ready from fw received\n", status_bits);
 	return 0;
 }
 
@@ -761,7 +786,9 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	}
 
 	if (!wait_for_completion_interruptible_timeout(
-		&network->cmd_done, NW_LOAD_TIMEOUT)) {
+		&network->cmd_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
 		goto error_free_network;
@@ -859,7 +886,9 @@ int32_t npu_host_load_network_v2(struct npu_device *npu_dev,
 	}
 
 	if (!wait_for_completion_interruptible_timeout(
-		&network->cmd_done, NW_LOAD_TIMEOUT)) {
+		&network->cmd_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
 		goto error_free_network;
@@ -918,7 +947,8 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 	}
 
 	if (!wait_for_completion_interruptible_timeout(&network->cmd_done,
-		NW_UNLOAD_TIMEOUT)) {
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_UNLOAD time out\n");
 		ret = -ETIMEDOUT;
 	} else if (network->fw_error) {
@@ -946,7 +976,6 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	uint64_t input_off, output_off;
 	int32_t ret;
 	struct npu_network *network;
-	uint32_t timeout = NW_SMALL_EXEC_TIMEOUT;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int i = 0;
 
@@ -989,14 +1018,10 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 
 	pr_debug("NPU_IPC_CMD_EXECUTE sent status: %d\n", ret);
 
-	/*
-	 * If this is a large network set the excecution timeout accordingly
-	 */
-	if (network->size > LARGE_NETWORK_SIZE_THRESHOLD)
-		timeout = NW_LARGE_EXEC_TIMEOUT;
-
 	if (!wait_for_completion_interruptible_timeout(
-		&network->cmd_done, timeout)) {
+		&network->cmd_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE time out\n");
 		/* dump debug stats */
 		npu_dump_debug_timeout_stats(npu_dev);
@@ -1024,7 +1049,6 @@ int32_t npu_host_exec_network_v2(struct npu_device *npu_dev,
 	struct ipc_cmd_execute_pkt_v2 *exec_packet;
 	int32_t ret;
 	struct npu_network *network;
-	uint32_t timeout = NW_SMALL_EXEC_TIMEOUT;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_patch_params, pkt_size;
 	int i;
@@ -1080,14 +1104,10 @@ int32_t npu_host_exec_network_v2(struct npu_device *npu_dev,
 
 	pr_debug("NPU_IPC_CMD_EXECUTE_V2 sent status: %d\n", ret);
 
-	/*
-	 * If this is a large network set the excecution timeout accordingly
-	 */
-	if (network->size > LARGE_NETWORK_SIZE_THRESHOLD)
-		timeout = NW_LARGE_EXEC_TIMEOUT;
-
 	if (!wait_for_completion_interruptible_timeout(
-		&network->cmd_done, timeout)) {
+		&network->cmd_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE_V2 time out\n");
 		/* dump debug stats */
 		npu_dump_debug_timeout_stats(npu_dev);
@@ -1136,7 +1156,9 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 	if (ret) {
 		pr_err("NPU_IPC_CMD_LOOPBACK sent failed: %d\n", ret);
 	} else if (!wait_for_completion_interruptible_timeout(
-		&host_ctx->loopback_done, NW_LOAD_TIMEOUT)) {
+		&host_ctx->loopback_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOOPBACK time out\n");
 		ret = -ETIMEDOUT;
 	}
