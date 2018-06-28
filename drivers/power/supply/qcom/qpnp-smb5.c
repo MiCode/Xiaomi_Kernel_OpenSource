@@ -457,8 +457,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 				union power_supply_propval *val)
 {
-	int rc;
+	int rc, ret = 0;
 	struct qpnp_vadc_result result;
+	u8 reg;
 
 	if (!chg->vadc_dev) {
 		if (of_find_property(chg->dev->of_node, "qcom,chg-vadc",
@@ -484,13 +485,43 @@ static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 
 	switch (channel) {
 	case USBIN_VOLTAGE:
+		/* Store ADC channel config */
+		rc = smblib_read(chg, BATIF_ADC_CHANNEL_EN_REG, &reg);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read ADC config rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Disable all ADC channels except IBAT channel */
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG,
+				IBATT_CHANNEL_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't write ADC config rc=%d\n", rc);
+			return rc;
+		}
+
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_V_DIV_16_PM5,
 				&result);
 		if (rc < 0) {
 			pr_err("Failed to read USBIN_V over vadc, rc=%d\n", rc);
-			return rc;
+			ret = rc;
+			goto restore;
 		}
 		val->intval = result.physical;
+
+restore:
+		/* Restore ADC channel config */
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't write ADC config rc=%d\n", rc);
+			return rc;
+		}
+		/* If ADC read failed return ADC error */
+		if (ret < 0)
+			rc = ret;
 		break;
 	case USBIN_CURRENT:
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_I_PM5, &result);
@@ -1643,7 +1674,7 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 			CONN_THM_CHANNEL_EN_BIT | DIE_TEMP_CHANNEL_EN_BIT,
 			chan);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable ADC channelrc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't enable ADC channel rc=%d\n", rc);
 		return rc;
 	}
 
