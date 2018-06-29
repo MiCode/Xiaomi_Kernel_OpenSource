@@ -1391,6 +1391,28 @@ int sde_connector_helper_reset_custom_properties(
 	return 0;
 }
 
+int sde_connector_get_panel_vfp(struct drm_connector *connector,
+	struct drm_display_mode *mode)
+{
+	struct sde_connector *c_conn;
+	int vfp = -EINVAL;
+
+	if (!connector || !mode) {
+		SDE_ERROR("invalid connector\n");
+		return vfp;
+	}
+	c_conn = to_sde_connector(connector);
+	if (!c_conn->ops.get_panel_vfp)
+		return vfp;
+
+	vfp = c_conn->ops.get_panel_vfp(c_conn->display,
+		mode->hdisplay, mode->vdisplay);
+	if (vfp <= 0)
+		SDE_ERROR("Failed get_panel_vfp %d\n", vfp);
+
+	return vfp;
+}
+
 static int _sde_debugfs_conn_cmd_tx_open(struct inode *inode, struct file *file)
 {
 	/* non-seekable */

@@ -25,6 +25,18 @@
 #define to_dsi_bridge(x)     container_of((x), struct dsi_bridge, base)
 #define to_dsi_state(x)      container_of((x), struct dsi_connector_state, base)
 
+#define DEFAULT_PANEL_JITTER_NUMERATOR		2
+#define DEFAULT_PANEL_JITTER_DENOMINATOR	1
+#define DEFAULT_PANEL_JITTER_ARRAY_SIZE		2
+#define DEFAULT_PANEL_PREFILL_LINES	25
+
+static struct dsi_display_mode_priv_info default_priv_info = {
+	.panel_jitter_numer = DEFAULT_PANEL_JITTER_NUMERATOR,
+	.panel_jitter_denom = DEFAULT_PANEL_JITTER_DENOMINATOR,
+	.panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES,
+	.dsc_enabled = false,
+};
+
 static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 				struct dsi_display_mode *dsi_mode)
 {
@@ -63,6 +75,11 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 	if (msm_is_mode_seamless_vrr(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
+
+	dsi_mode->timing.h_sync_polarity =
+			!!(drm_mode->flags & DRM_MODE_FLAG_PHSYNC);
+	dsi_mode->timing.v_sync_polarity =
+			!!(drm_mode->flags & DRM_MODE_FLAG_PVSYNC);
 }
 
 void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
@@ -100,6 +117,11 @@ void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DMS;
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_VRR)
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_VRR;
+
+	if (dsi_mode->timing.h_sync_polarity)
+		drm_mode->flags |= DRM_MODE_FLAG_PHSYNC;
+	if (dsi_mode->timing.v_sync_polarity)
+		drm_mode->flags |= DRM_MODE_FLAG_PVSYNC;
 
 	drm_mode_set_name(drm_mode);
 }
@@ -284,6 +306,17 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	if (!display) {
 		pr_err("Invalid params\n");
 		return false;
+	}
+
+	/*
+	 * if no timing defined in panel, it must be external mode
+	 * and we'll use empty priv info to populate the mode
+	 */
+	if (display->panel && !display->panel->num_timing_nodes) {
+		*adjusted_mode = *mode;
+		adjusted_mode->private = (int *)&default_priv_info;
+		adjusted_mode->private_flags = 0;
+		return true;
 	}
 
 	convert_to_dsi_mode(mode, &dsi_mode);

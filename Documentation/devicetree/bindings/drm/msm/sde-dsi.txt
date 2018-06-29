@@ -105,3 +105,8 @@ Optional properties:
 					only with simulator panel. It should not be enabled for
 					normal DSI panels.
 - - qcom,null-insertion-enabled:	A boolean to enable NULL packet insertion feature for DSI controller.
+- ports:				This video port is used when external bridge is present.
+					The connection is modeled using the OF graph bindings
+					specified in Documentation/devicetree/bindings/graph.txt.
+					Video port 0 reg 0 is for the bridge output. The remote
+					endpoint phandle should be mipi_dsi_device device node.

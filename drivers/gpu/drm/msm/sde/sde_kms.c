@@ -1263,6 +1263,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.enable_event = dsi_conn_enable_event,
 		.cmd_transfer = dsi_display_cmd_transfer,
 		.cont_splash_config = dsi_display_cont_splash_config,
+		.get_panel_vfp = dsi_display_get_panel_vfp,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -1277,6 +1278,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = NULL,
 		.cmd_transfer = NULL,
 		.cont_splash_config = NULL,
+		.get_panel_vfp = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1290,6 +1292,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
 		.cont_splash_config = NULL,
+		.get_panel_vfp = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -2228,6 +2231,7 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 	struct drm_connector *connector = NULL;
 	struct drm_connector_list_iter conn_iter;
 	struct sde_connector *sde_conn = NULL;
+	int i;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -2244,6 +2248,18 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 	if (!dev->mode_config.poll_enabled)
 		return;
+
+	/* init external dsi bridge here to make sure ext bridge is probed*/
+	for (i = 0; i < sde_kms->dsi_display_count; ++i) {
+		struct dsi_display *dsi_display;
+
+		dsi_display = sde_kms->dsi_displays[i];
+		if (dsi_display->bridge) {
+			dsi_display_drm_ext_bridge_init(dsi_display,
+				dsi_display->bridge->base.encoder,
+				dsi_display->drm_conn);
+		}
+	}
 
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
