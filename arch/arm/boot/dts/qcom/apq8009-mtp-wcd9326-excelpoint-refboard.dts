@@ -178,7 +178,7 @@
 			label = "action";
 			gpios = <&msm_gpio 87 0x1>;
 			linux,input-type = <1>;
-			linux,code = <315>;
+			linux,code = <148>;
 			debounce-interval = <15>;
 		};
 
