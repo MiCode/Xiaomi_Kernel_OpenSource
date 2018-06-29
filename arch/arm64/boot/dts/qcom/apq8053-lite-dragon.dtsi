@@ -319,7 +319,7 @@
 			pins = "gpio75";
 			drive-strength = <10>;
 			bias-pull-up;
-			output-low;
+			output-high;
 		};
 	};
 	sdc2_wlan_gpio_off: sdc2_wlan_gpio_off {
