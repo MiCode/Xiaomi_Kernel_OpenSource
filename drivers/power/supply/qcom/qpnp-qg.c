@@ -3412,9 +3412,6 @@ static int process_suspend(struct qpnp_qg *chip)
 		return 0;
 
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
-	/* disable GOOD_OCV IRQ in sleep */
-	vote(chip->good_ocv_irq_disable_votable,
-			QG_INIT_STATE_IRQ_DISABLE, true, 0);
 
 	chip->suspend_data = false;
 
@@ -3486,10 +3483,6 @@ static int process_resume(struct qpnp_qg *chip)
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
 		return 0;
-
-	/* enable GOOD_OCV IRQ when awake */
-	vote(chip->good_ocv_irq_disable_votable,
-			QG_INIT_STATE_IRQ_DISABLE, false, 0);
 
 	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status2, 1);
 	if (rc < 0) {
@@ -3581,9 +3574,41 @@ static int qpnp_qg_resume_noirq(struct device *dev)
 	return 0;
 }
 
+static int qpnp_qg_suspend(struct device *dev)
+{
+	struct qpnp_qg *chip = dev_get_drvdata(dev);
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
+
+	/* disable GOOD_OCV IRQ in sleep */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, true, 0);
+
+	return 0;
+}
+
+static int qpnp_qg_resume(struct device *dev)
+{
+	struct qpnp_qg *chip = dev_get_drvdata(dev);
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
+
+	/* enable GOOD_OCV IRQ when active */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, false, 0);
+
+	return 0;
+}
+
 static const struct dev_pm_ops qpnp_qg_pm_ops = {
 	.suspend_noirq	= qpnp_qg_suspend_noirq,
 	.resume_noirq	= qpnp_qg_resume_noirq,
+	.suspend	= qpnp_qg_suspend,
+	.resume		= qpnp_qg_resume,
 };
 
 static int qpnp_qg_probe(struct platform_device *pdev)
