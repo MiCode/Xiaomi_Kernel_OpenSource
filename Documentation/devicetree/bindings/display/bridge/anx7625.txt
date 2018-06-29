@@ -1,0 +1,40 @@
+Analogix ANX7625 SlimPort (Full-HD Transmitter)
+-----------------------------------------------
+
+The ANX7625 is DSI to DisplayPort bridge.
+
+Required properties:
+
+ - compatible		: "analogix,anx7625"
+ - reg			: I2C address of the device
+ - interrupt-parent	: Should be the phandle of the interrupt controller
+			  that services interrupts for this device
+ - interrupts		: Should contain the INTP interrupt
+ - cbl_det-gpios	: Which GPIO to use for cable detection
+ - power_en-gpios	: Which GPIO to use for power enable
+ - reset_n-gpios	: Which GPIO to use for reset
+ - ports		: Port 0 for DSI input, should be a reference to a
+			  valid mipi_dsi_host device
+
+Example:
+
+	anx7625: anx7625@ee {
+		compatible = "analogix,anx7625";
+		reg = <0xee>;
+		interrupt-parent = <&qup15>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;   /* INTP */
+		cbl_det-gpio = <&qup15 1 GPIO_ACTIVE_HIGH>;
+		power_en-gpio = <&pio 27 GPIO_ACTIVE_HIGH>;
+		reset_n-gpio = <&pio 49 GPIO_ACTIVE_HIGH>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				anx7625_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
