@@ -26,6 +26,8 @@
 
 /* Indicate backport support for processing user cell base hint */
 #define CFG80211_USER_HINT_CELL_BASE_SELF_MANAGED 1
+/* Backport support for DFS offload */
+#define CFG80211_DFS_OFFLOAD_BACKPORT 1
 
 /* Indicate backport support for external authentication*/
 #define CFG80211_EXTERNAL_AUTH_SUPPORT 1
