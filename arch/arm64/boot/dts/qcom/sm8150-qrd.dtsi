@@ -520,6 +520,8 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,sw-jeita-enable;
 };
 
 &smb1390 {
