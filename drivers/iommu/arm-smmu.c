@@ -1270,6 +1270,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	void __iomem *gr1_base;
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
+	uint64_t pte;
 	bool non_fatal_fault = !!(smmu_domain->attributes &
 					(1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 
@@ -1331,15 +1332,18 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			dev_err(smmu->dev, "FAR    = %016lx\n",
 				(unsigned long)iova);
 			dev_err(smmu->dev,
-				"FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n",
+				"FSR    = %08x [%s%s%s%s%s%s%s%s%s%s]\n",
 				fsr,
-				(fsr & 0x02) ? "TF " : "",
+				(fsr & 0x02) ?  (fsynr0 & 0x10 ?
+						"TF W " : "TF R ") : "",
 				(fsr & 0x04) ? "AFF " : "",
-				(fsr & 0x08) ? "PF " : "",
+				(fsr & 0x08) ? (fsynr0 & 0x10 ?
+						"PF W " : "PF R ") : "",
 				(fsr & 0x10) ? "EF " : "",
 				(fsr & 0x20) ? "TLBMCF " : "",
 				(fsr & 0x40) ? "TLBLKF " : "",
 				(fsr & 0x80) ? "MHF " : "",
+				(fsr & 0x100) ? "UUT " : "",
 				(fsr & 0x40000000) ? "SS " : "",
 				(fsr & 0x80000000) ? "MULTI " : "");
 			dev_err(smmu->dev,
@@ -1348,6 +1352,10 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				dev_err(smmu->dev,
 					"SOFTWARE TABLE WALK FAILED! Looks like %s accessed an unmapped address!\n",
 					dev_name(smmu->dev));
+			else {
+				pte = arm_smmu_iova_to_pte(domain, iova);
+				dev_err(smmu->dev, "PTE = %016llx\n", pte);
+			}
 			if (phys_atos)
 				dev_err(smmu->dev, "hard iova-to-phys (ATOS)=%pa\n",
 					&phys_atos);
@@ -5053,8 +5061,8 @@ redo:
 	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
-		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
-				fsr);
+		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx, SID=0x%x\n",
+				fsr, sid);
 
 		/* Clear pending interrupts */
 		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
