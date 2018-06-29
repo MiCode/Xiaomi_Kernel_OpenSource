@@ -88,6 +88,13 @@
 			size = <0 0x1000000>;
 		};
 
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
+		};
+
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -963,6 +970,21 @@
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe9>;
 		};
+	};
+
+	qcom_seecom: qseecom@85800000 {
+		compatible = "qcom,qseecom";
+		reg = <0x85800000 0x600000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	sdhc_1: sdhci@7804000 {
