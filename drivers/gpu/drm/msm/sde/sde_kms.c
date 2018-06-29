@@ -3020,6 +3020,32 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms->splash_data.resource_handoff_pending = true;
 
+	/* initialize power domain if defined */
+	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
+		sde_kms->genpd.name = dev->unique;
+		sde_kms->genpd.power_off = sde_kms_pd_disable;
+		sde_kms->genpd.power_on = sde_kms_pd_enable;
+
+		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
+		if (rc < 0) {
+			SDE_ERROR("failed to init genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			goto genpd_err;
+		}
+
+		rc = of_genpd_add_provider_simple(dev->dev->of_node,
+				&sde_kms->genpd);
+		if (rc < 0) {
+			SDE_ERROR("failed to add genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			pm_genpd_remove(&sde_kms->genpd);
+			goto genpd_err;
+		}
+
+		sde_kms->genpd_init = true;
+		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
+	}
+
 	rc = _sde_kms_mmu_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
@@ -3127,32 +3153,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			SDE_POWER_EVENT_POST_ENABLE |
 			SDE_POWER_EVENT_PRE_DISABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
-
-	/* initialize power domain if defined */
-	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
-		sde_kms->genpd.name = dev->unique;
-		sde_kms->genpd.power_off = sde_kms_pd_disable;
-		sde_kms->genpd.power_on = sde_kms_pd_enable;
-
-		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
-		if (rc < 0) {
-			SDE_ERROR("failed to init genpd provider %s: %d\n",
-					sde_kms->genpd.name, rc);
-			goto genpd_err;
-		}
-
-		rc = of_genpd_add_provider_simple(dev->dev->of_node,
-				&sde_kms->genpd);
-		if (rc < 0) {
-			SDE_ERROR("failed to add genpd provider %s: %d\n",
-					sde_kms->genpd.name, rc);
-			pm_genpd_remove(&sde_kms->genpd);
-			goto genpd_err;
-		}
-
-		sde_kms->genpd_init = true;
-		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
-	}
 
 	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("Skipping MDP Resources disable\n");
