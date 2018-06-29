@@ -412,6 +412,9 @@ static int dsi_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	int rc = 0;
 	struct pinctrl_state *state;
 
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
+
 	if (enable)
 		state = panel->pinctrl.active;
 	else
@@ -552,6 +555,9 @@ static int dsi_panel_pinctrl_init(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
+
 	/* TODO:  pinctrl is defined in dsi dt node */
 	panel->pinctrl.pinctrl = devm_pinctrl_get(panel->parent);
 	if (IS_ERR_OR_NULL(panel->pinctrl.pinctrl)) {
@@ -643,6 +649,9 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
 
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
+
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		rc = dsi_panel_wled_register(panel, bl);
@@ -663,6 +672,9 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	if (panel->host_config.ext_bridge_mode)
+		return 0;
 
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
@@ -998,6 +1010,9 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 
 	host->append_tx_eot = utils->read_bool(utils->data,
 						"qcom,mdss-dsi-tx-eot-append");
+
+	host->ext_bridge_mode = utils->read_bool(utils->data,
+					"qcom,mdss-dsi-ext-bridge-mode");
 
 	return 0;
 }
@@ -1791,7 +1806,8 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 
 	panel->reset_config.reset_gpio = utils->get_named_gpio(utils->data,
 					      "qcom,platform-reset-gpio", 0);
-	if (!gpio_is_valid(panel->reset_config.reset_gpio)) {
+	if (!gpio_is_valid(panel->reset_config.reset_gpio) &&
+		!panel->host_config.ext_bridge_mode) {
 		pr_err("[%s] failed get reset gpio, rc=%d\n", panel->name, rc);
 		rc = -EINVAL;
 		goto error;
@@ -2178,7 +2194,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 		priv_info->phy_timing_len = len;
 	};
 
-	mode->pixel_clk_khz = (mode->timing.h_active *
+	mode->pixel_clk_khz = (DSI_H_TOTAL(&mode->timing) *
 			DSI_V_TOTAL(&mode->timing) *
 			mode->timing.refresh_rate) / 1000;
 	return rc;
@@ -3025,7 +3041,7 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 
 	timings_np = utils->get_child_by_name(utils->data,
 			"qcom,mdss-dsi-display-timings");
-	if (!timings_np) {
+	if (!timings_np && !panel->host_config.ext_bridge_mode) {
 		pr_err("no display timing nodes defined\n");
 		rc = -EINVAL;
 		goto error;

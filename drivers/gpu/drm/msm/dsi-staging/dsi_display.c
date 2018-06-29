@@ -3321,6 +3321,9 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	/* Parse TE gpio */
 	dsi_display_parse_te_gpio(display);
 
+	/* Parse external bridge from port 0, reg 0 */
+	display->ext_bridge_of = of_graph_get_remote_node(of_node, 0, 0);
+
 	pr_debug("success\n");
 error:
 	return rc;
@@ -4798,6 +4801,285 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display)
 	return rc;
 }
 
+/* Hook functions to call external connector, pointer validation is
+ * done in dsi_display_drm_ext_bridge_init.
+ */
+static enum drm_connector_status dsi_display_drm_ext_detect(
+		struct drm_connector *connector,
+		bool force,
+		void *disp)
+{
+	struct dsi_display *display = disp;
+
+	return display->ext_conn->funcs->detect(display->ext_conn, force);
+}
+
+static int dsi_display_drm_ext_get_modes(
+		struct drm_connector *connector, void *disp)
+{
+	struct dsi_display *display = disp;
+	struct drm_display_mode *pmode, *pt;
+	int count;
+
+	count = display->ext_conn->helper_private->get_modes(
+			display->ext_conn);
+
+	list_for_each_entry_safe(pmode, pt,
+			&display->ext_conn->probed_modes, head) {
+		list_move_tail(&pmode->head, &connector->probed_modes);
+	}
+
+	connector->display_info = display->ext_conn->display_info;
+
+	return count;
+}
+
+static enum drm_mode_status dsi_display_drm_ext_mode_valid(
+		struct drm_connector *connector,
+		struct drm_display_mode *mode,
+		void *disp)
+{
+	struct dsi_display *display = disp;
+
+	return display->ext_conn->helper_private->mode_valid(
+			display->ext_conn, mode);
+}
+
+static int dsi_display_drm_ext_atomic_check(struct drm_connector *connector,
+		void *disp,
+		struct drm_connector_state *c_state)
+{
+	struct dsi_display *display = disp;
+
+	return display->ext_conn->helper_private->atomic_check(
+			display->ext_conn, c_state);
+}
+
+static int dsi_display_ext_get_info(struct drm_connector *connector,
+	struct msm_display_info *info, void *disp)
+{
+	struct dsi_display *display;
+	int i;
+
+	if (!info || !disp) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	display = disp;
+	if (!display->panel) {
+		pr_err("invalid display panel\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	memset(info, 0, sizeof(struct msm_display_info));
+
+	info->intf_type = DRM_MODE_CONNECTOR_DSI;
+	info->num_of_h_tiles = display->ctrl_count;
+	for (i = 0; i < info->num_of_h_tiles; i++)
+		info->h_tile_instance[i] = display->ctrl[i].ctrl->cell_index;
+
+	info->is_connected = connector->status != connector_status_disconnected;
+	info->is_primary = true;
+	info->capabilities |= (MSM_DISPLAY_CAP_VID_MODE |
+		MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_HOT_PLUG);
+
+	mutex_unlock(&display->display_lock);
+	return 0;
+}
+
+static int dsi_display_ext_get_mode_info(struct drm_connector *connector,
+	const struct drm_display_mode *drm_mode,
+	struct msm_mode_info *mode_info,
+	u32 max_mixer_width, void *display)
+{
+	struct msm_display_topology *topology;
+
+	if (!drm_mode || !mode_info)
+		return -EINVAL;
+
+	memset(mode_info, 0, sizeof(*mode_info));
+	mode_info->frame_rate = drm_mode->vrefresh;
+	mode_info->vtotal = drm_mode->vtotal;
+
+	topology = &mode_info->topology;
+	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ? 2 : 1;
+	topology->num_enc = 0;
+	topology->num_intf = topology->num_lm;
+
+	mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
+
+	return 0;
+}
+
+static int dsi_host_ext_attach(struct mipi_dsi_host *host,
+			   struct mipi_dsi_device *dsi)
+{
+	struct dsi_display *display = to_dsi_display(host);
+	struct dsi_panel *panel;
+
+	if (!host || !dsi || !display->panel) {
+		pr_err("Invalid param\n");
+		return -EINVAL;
+	}
+
+	pr_debug("DSI[%s]: channel=%d, lanes=%d, format=%d, mode_flags=%lx\n",
+		dsi->name, dsi->channel, dsi->lanes,
+		dsi->format, dsi->mode_flags);
+
+	panel = display->panel;
+	panel->host_config.data_lanes = 0;
+	if (dsi->lanes > 0)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_0;
+	if (dsi->lanes > 1)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_1;
+	if (dsi->lanes > 2)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_2;
+	if (dsi->lanes > 3)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_3;
+
+	switch (dsi->format) {
+	case MIPI_DSI_FMT_RGB888:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB888;
+		break;
+	case MIPI_DSI_FMT_RGB666:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB666_LOOSE;
+		break;
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB666;
+		break;
+	case MIPI_DSI_FMT_RGB565:
+	default:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB565;
+		break;
+	}
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		panel->panel_mode = DSI_OP_VIDEO_MODE;
+
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_BURST_MODE;
+		else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_SYNC_PULSES;
+		else
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_SYNC_START_EVENTS;
+
+		panel->video_config.hsa_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSA;
+		panel->video_config.hbp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HBP;
+		panel->video_config.hfp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HFP;
+		panel->video_config.pulse_mode_hsa_he =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSE;
+		panel->video_config.bllp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BLLP;
+		panel->video_config.eof_bllp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_EOF_BLLP;
+	} else {
+		panel->panel_mode = DSI_OP_CMD_MODE;
+		pr_err("command mode not supported by ext bridge\n");
+		return -ENOTSUPP;
+	}
+
+	panel->bl_config.type = DSI_BACKLIGHT_UNKNOWN;
+
+	return 0;
+}
+
+static struct mipi_dsi_host_ops dsi_host_ext_ops = {
+	.attach = dsi_host_ext_attach,
+	.detach = dsi_host_detach,
+	.transfer = dsi_host_transfer,
+};
+
+int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
+		struct drm_encoder *encoder, struct drm_connector *connector)
+{
+	struct drm_device *drm = encoder->dev;
+	struct drm_bridge *bridge = encoder->bridge;
+	struct drm_bridge *ext_bridge;
+	struct drm_connector *ext_conn;
+	struct sde_connector *sde_conn = to_sde_connector(connector);
+	int rc;
+
+	/* check if ext_bridge is already attached */
+	if (display->ext_bridge)
+		return 0;
+
+	/* check if there is no external bridge defined */
+	if (!display->ext_bridge_of)
+		return 0;
+
+	ext_bridge = of_drm_find_bridge(display->ext_bridge_of);
+	if (IS_ERR_OR_NULL(ext_bridge)) {
+		rc = PTR_ERR(ext_bridge);
+		pr_err("failed to find ext bridge\n");
+		goto error;
+	}
+
+	rc = drm_bridge_attach(bridge->encoder, ext_bridge, bridge);
+	if (rc) {
+		pr_err("[%s] ext brige attach failed, %d\n",
+			display->name, rc);
+		goto error;
+	}
+
+	display->ext_bridge = ext_bridge;
+
+	/* ext bridge will init its own connector during attach,
+	 * we need to extract it out of the connector list
+	 */
+	spin_lock_irq(&drm->mode_config.connector_list_lock);
+	ext_conn = list_last_entry(&drm->mode_config.connector_list,
+		struct drm_connector, head);
+	if (ext_conn && ext_conn != connector &&
+		ext_conn->encoder_ids[0] == bridge->encoder->base.id) {
+		list_del_init(&ext_conn->head);
+		display->ext_conn = ext_conn;
+	}
+	spin_unlock_irq(&drm->mode_config.connector_list_lock);
+
+	/* if there is no valid external connector created, we'll use default
+	 * setting from panel defined in DT file.
+	 */
+	if (!display->ext_conn ||
+	    !display->ext_conn->funcs ||
+	    !display->ext_conn->helper_private) {
+		display->ext_conn = NULL;
+		return 0;
+	}
+
+	/* otherwise, hook up the functions to use external connector */
+	sde_conn->ops.detect =
+		display->ext_conn->funcs->detect ?
+			dsi_display_drm_ext_detect : NULL;
+	sde_conn->ops.get_modes =
+		display->ext_conn->helper_private->get_modes ?
+			dsi_display_drm_ext_get_modes : NULL;
+	sde_conn->ops.mode_valid =
+		display->ext_conn->helper_private->mode_valid ?
+			dsi_display_drm_ext_mode_valid : NULL;
+	sde_conn->ops.atomic_check =
+		display->ext_conn->helper_private->atomic_check ?
+			dsi_display_drm_ext_atomic_check : NULL;
+	sde_conn->ops.get_info =
+			dsi_display_ext_get_info;
+	sde_conn->ops.get_mode_info =
+			dsi_display_ext_get_mode_info;
+
+	/* add support to attach/detach */
+	display->host.ops = &dsi_host_ext_ops;
+	return 0;
+error:
+	return rc;
+}
+
 int dsi_display_get_info(struct drm_connector *connector,
 		struct msm_display_info *info, void *disp)
 {
@@ -5093,6 +5375,14 @@ int dsi_display_find_mode(struct dsi_display *display,
 	rc = dsi_display_get_mode_count(display, &count);
 	if (rc)
 		return rc;
+
+	if (!display->modes) {
+		struct dsi_display_mode *m;
+
+		rc = dsi_display_get_modes(display, &m);
+		if (rc)
+			return rc;
+	}
 
 	mutex_lock(&display->display_lock);
 	for (i = 0; i < count; i++) {
