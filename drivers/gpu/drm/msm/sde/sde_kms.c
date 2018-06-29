@@ -1128,6 +1128,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 {
 	struct msm_mmu *mmu;
 	int i, ret;
+	int data = 0;
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
 		struct msm_gem_address_space *aspace;
@@ -1185,6 +1186,20 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 					&sde_kms->splash_info);
 			if (ret) {
 				SDE_ERROR("map rsv mem failed: %d\n", ret);
+				msm_gem_address_space_put(aspace);
+				goto fail;
+			}
+
+			/*
+			 * Enable stage 1 smmu after user has finished early
+			 * mapping of splash memory.
+			 */
+			ret = mmu->funcs->set_property(mmu,
+					DOMAIN_ATTR_EARLY_MAP,
+					&data);
+			if (ret) {
+				SDE_ERROR("failed to set map att(%d): %d\n",
+								data, ret);
 				msm_gem_address_space_put(aspace);
 				goto fail;
 			}
