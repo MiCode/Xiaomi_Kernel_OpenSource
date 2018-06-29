@@ -250,6 +250,14 @@ struct sde_hw_ctl_ops {
 	int (*reset_post_te_disable)(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg_v1 *cfg, u32 merge_3d_idx);
 
+	/** update cwb  for ctl_path
+	 * @ctx       : ctl path ctx pointer
+	 * @cfg    : interface config structure pointer
+	 * @Return: error code
+	 */
+	int (*update_cwb_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg_v1 *cfg);
+
 	/**
 	 * Setup ctl_path interface config for SDE_CTL_ACTIVE_CFG
 	 * @ctx   : ctl path ctx pointer
