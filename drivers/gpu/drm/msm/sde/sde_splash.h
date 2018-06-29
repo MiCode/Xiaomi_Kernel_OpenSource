@@ -120,7 +120,8 @@ void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
  *
  * Tell LK to stop display splash once one valid user commit arrives.
  */
-int sde_splash_lk_stop_splash(struct msm_kms *kms);
+int sde_splash_lk_stop_splash(struct msm_kms *kms,
+				struct drm_atomic_state *state);
 
 /**
  * sde_splash_free_resource.
