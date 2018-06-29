@@ -6913,26 +6913,21 @@ static int start_cpu(struct task_struct *p, bool boosted,
 	if (boosted)
 		return rd->max_cap_orig_cpu;
 
+	/* A task always fits on its rtg_target */
+	if (rtg_target) {
+		int rtg_target_cpu = cpumask_first_and(rtg_target,
+						cpu_online_mask);
+
+		if (rtg_target_cpu < nr_cpu_ids)
+			return rtg_target_cpu;
+	}
+
 	/* Where the task should land based on its demand */
 	if (rd->min_cap_orig_cpu != -1
 			&& task_fits_max(p, rd->min_cap_orig_cpu))
 		start_cpu = rd->min_cap_orig_cpu;
 	else
 		start_cpu = rd->max_cap_orig_cpu;
-
-	/*
-	 * start it up to its preferred cluster if the preferred cluster is
-	 * higher capacity
-	 */
-	if (start_cpu != -1 && rtg_target &&
-			!cpumask_test_cpu(start_cpu, rtg_target)) {
-		int rtg_target_cpu = cpumask_first(rtg_target);
-
-		if (capacity_orig_of(start_cpu) <
-			capacity_orig_of(rtg_target_cpu)) {
-			start_cpu = rtg_target_cpu;
-		}
-	}
 
 	return walt_start_cpu(start_cpu);
 }
