@@ -209,5 +209,6 @@ struct gmu_device {
 };
 
 struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);
+unsigned int gmu_get_memtype_base(enum gmu_mem_type type);
 
 #endif /* __KGSL_GMU_H */
