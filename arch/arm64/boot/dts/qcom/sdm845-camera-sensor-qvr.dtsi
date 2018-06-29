@@ -493,6 +493,48 @@
 		clock-rates = <24000000>;
 	};
 
+	eeprom_depth: qcom,eeprom@4 {
+		cell-index = <4>;
+		reg = <0x4>;
+		compatible = "qcom,eeprom";
+		cam_vio-supply = <&pm8998_lvs1>; /* checked, MTP845 */
+		cam_vana-supply = <&pmi8998_bob>;
+		cam_vdig-supply = <&camera_eyetracking_force>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana", "cam_vdig", "cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 3312000 1050000 0>;
+		rgltr-max-voltage = <0 3600000 1050000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk1_active
+				&cam_sensor_depth_active>;
+		pinctrl-1 = <&cam_sensor_mclk1_suspend
+				&cam_sensor_depth_suspend>;
+		gpios = <&tlmm 14 0>,
+			<&tlmm 28 0>,
+			<&tlmm 23 0>,
+			<&tlmm 24 0>;
+		gpio-reset = <1>;   //RESET
+		gpio-vana = <2>;
+		gpio-vdig = <3>;
+		gpio-req-tbl-num = <0 1 2 3> ;
+		gpio-req-tbl-flags = <1 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK1",
+					"CAM_RESET1",
+					"CAM_VANA1",
+					"CAM_VDIG1";
+		sensor-position = <0>;
+		sensor-mode = <0>;
+		cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
 	qcom,cam-sensor@4 {
 		cell-index = <4>;
 		compatible = "qcom,cam-sensor";
@@ -501,6 +543,7 @@
 		sensor-position-roll = <270>; /* checked, MTP845 */
 		sensor-position-pitch = <0>; /* checked, MTP845 */
 		sensor-position-yaw = <180>; /* checked, MTP845 */
+		eeprom-src = <&eeprom_depth>;
 		cam_vio-supply = <&pm8998_lvs1>; /* checked, MTP845 */
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_eyetracking_force>;
