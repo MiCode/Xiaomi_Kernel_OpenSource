@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,12 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc);
  * @crtc: Pointer to crtc.
  */
 void sde_cp_crtc_resume(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_crtc_clear: Clear the active list and dirty list of crtc features
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_clear(struct drm_crtc *crtc);
 
 /**
  * sde_cp_ad_interrupt: Api to enable/disable ad interrupt
