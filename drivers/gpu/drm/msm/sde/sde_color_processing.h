@@ -116,6 +116,12 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc);
 void sde_cp_crtc_resume(struct drm_crtc *crtc);
 
 /**
+ * sde_cp_crtc_clear: Clear the active list and dirty list of crtc features
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_clear(struct drm_crtc *crtc);
+
+/**
  * sde_cp_ad_interrupt: Api to enable/disable ad interrupt
  * @crtc: Pointer to crtc.
  * @en: Variable to enable/disable interrupt.
