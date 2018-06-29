@@ -455,6 +455,11 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	/* Disable Timing double buffering */
 	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x0);
 
+	if (cfg->force_clk_lane_hs) {
+		reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+		reg |= BIT(28);
+		DSI_W32(ctrl, DSI_LANE_CTRL, reg);
+	}
 
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
 }
