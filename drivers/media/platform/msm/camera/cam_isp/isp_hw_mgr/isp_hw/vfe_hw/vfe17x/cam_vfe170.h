@@ -151,9 +151,14 @@ static struct cam_vfe_rdi_reg_data  vfe_170_rdi_2_data = {
 static struct cam_vfe_top_ver2_hw_info vfe170_top_hw_info = {
 	.common_reg = &vfe170_top_common_reg,
 	.camif_hw_info = {
-		.common_reg = &vfe170_top_common_reg,
-		.camif_reg =  &vfe170_camif_reg,
-		.reg_data  =  &vfe_170_camif_reg_data,
+		.common_reg     = &vfe170_top_common_reg,
+		.camif_reg      = &vfe170_camif_reg,
+		.reg_data       = &vfe_170_camif_reg_data,
+		},
+	.camif_lite_hw_info = {
+		.common_reg     = NULL,
+		.camif_lite_reg = NULL,
+		.reg_data       = NULL,
 		},
 	.rdi_hw_info = {
 		.common_reg = &vfe170_top_common_reg,
@@ -831,6 +836,9 @@ struct cam_vfe_hw_info cam_vfe170_hw_info = {
 
 	.camif_version                 = CAM_VFE_CAMIF_VER_2_0,
 	.camif_reg                     = &vfe170_camif_reg,
+
+	.camif_lite_version            = 0,
+	.camif_reg                     = NULL,
 
 };
 
