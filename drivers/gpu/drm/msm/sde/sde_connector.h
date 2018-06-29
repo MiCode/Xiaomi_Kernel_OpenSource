@@ -299,6 +299,15 @@ struct sde_connector_ops {
 	 * Returns: zero for success, negetive for failure
 	 */
 	int (*cont_splash_config)(void *display);
+
+	/**
+	 * get_panel_vfp - returns original panel vfp
+	 * @display: Pointer to private display handle
+	 * @h_active: width
+	 * @v_active: height
+	 * Returns: v_front_porch on success error-code on failure
+	 */
+	int (*get_panel_vfp)(void *display, int h_active, int v_active);
 };
 
 /**
@@ -829,4 +838,13 @@ void sde_connector_destroy(struct drm_connector *connector);
 int sde_connector_event_notify(struct drm_connector *connector, uint32_t type,
 		uint32_t len, uint32_t val);
 
+/**
+ * sde_connector_get_panel_vfp - helper to get panel vfp
+ * @connector: pointer to drm connector
+ * @h_active: panel width
+ * @v_active: panel heigth
+ * Returns: v_front_porch on success error-code on failure
+ */
+int sde_connector_get_panel_vfp(struct drm_connector *connector,
+	struct drm_display_mode *mode);
 #endif /* _SDE_CONNECTOR_H_ */
