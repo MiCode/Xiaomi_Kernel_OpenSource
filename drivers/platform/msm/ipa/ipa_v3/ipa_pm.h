@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <linux/msm_ipa.h>
 
 /* internal to ipa */
-#define IPA_PM_MAX_CLIENTS 12 /* actual max is value -1 since we start from 1*/
+#define IPA_PM_MAX_CLIENTS 32 /* actual max is value -1 since we start from 1*/
 #define IPA_PM_MAX_EX_CL 64
 #define IPA_PM_THRESHOLD_MAX 5
 #define IPA_PM_EXCEPTION_MAX 2

@@ -721,10 +721,10 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 		break;
 	case GSI_VER_2_5:
 		reg = gsi_readl(gsi_ctx->base +
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
 		reg = (reg &
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
 		break;
 	}
 
@@ -778,10 +778,10 @@ static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 		break;
 	case GSI_VER_2_5:
 		reg = gsi_readl(gsi_ctx->base +
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
 		reg = (reg &
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
-			GSI_V2_2_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
 		break;
 	}
 
@@ -1954,6 +1954,26 @@ static void __gsi_write_channel_scratch(unsigned long chan_hdl,
 			gsi_ctx->per.ee));
 }
 
+static void __gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch * val)
+{
+	val->data.word1 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word2 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word3 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	val->data.word4 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+}
+
 static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
 	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
 {
@@ -2045,6 +2065,39 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_write_channel_scratch);
+
+int gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch *val)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	if (gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_ALLOCATED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STARTED &&
+		gsi_ctx->chan[chan_hdl].state != GSI_CHAN_STATE_STOPPED) {
+		GSIERR("bad state %d\n",
+				gsi_ctx->chan[chan_hdl].state);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+	__gsi_read_channel_scratch(chan_hdl, val);
+	mutex_unlock(&ctx->mlock);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_read_channel_scratch);
 
 int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
 		struct __packed gsi_mhi_channel_scratch mscr)
@@ -3032,13 +3085,16 @@ static void gsi_configure_ieps(void *base, enum gsi_ver ver)
 	gsi_writel(4, gsi_base + GSI_GSI_IRAM_PTR_CH_EMPTY_OFFS);
 	gsi_writel(5, gsi_base + GSI_GSI_IRAM_PTR_EE_GENERIC_CMD_OFFS);
 	gsi_writel(6, gsi_base + GSI_GSI_IRAM_PTR_EVENT_GEN_COMP_OFFS);
-	gsi_writel(7, gsi_base + GSI_GSI_IRAM_PTR_INT_MOD_STOPPED_OFFS);
+	gsi_writel(7, gsi_base + GSI_GSI_IRAM_PTR_INT_MOD_STOPED_OFFS);
 	gsi_writel(8, gsi_base + GSI_GSI_IRAM_PTR_PERIPH_IF_TLV_IN_0_OFFS);
 	gsi_writel(9, gsi_base + GSI_GSI_IRAM_PTR_PERIPH_IF_TLV_IN_2_OFFS);
 	gsi_writel(10, gsi_base + GSI_GSI_IRAM_PTR_PERIPH_IF_TLV_IN_1_OFFS);
 	gsi_writel(11, gsi_base + GSI_GSI_IRAM_PTR_NEW_RE_OFFS);
 	gsi_writel(12, gsi_base + GSI_GSI_IRAM_PTR_READ_ENG_COMP_OFFS);
 	gsi_writel(13, gsi_base + GSI_GSI_IRAM_PTR_TIMER_EXPIRED_OFFS);
+	gsi_writel(14, gsi_base + GSI_GSI_IRAM_PTR_EV_DB_OFFS);
+	gsi_writel(15, gsi_base + GSI_GSI_IRAM_PTR_UC_GP_INT_OFFS);
+	gsi_writel(16, gsi_base + GSI_GSI_IRAM_PTR_WRITE_ENG_COMP_OFFS);
 
 	if (ver >= GSI_VER_2_5)
 		gsi_writel(17,
@@ -3149,7 +3205,6 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 				GSI_GSI_CFG_GSI_PWR_CLPS_BMSK) |
 			((0 << GSI_GSI_CFG_BP_MTRIX_DISABLE_SHFT) &
 				GSI_GSI_CFG_BP_MTRIX_DISABLE_BMSK));
-		gsi_writel(value, gsi_base + GSI_GSI_CFG_OFFS);
 	} else {
 		value = (((1 << GSI_GSI_CFG_GSI_ENABLE_SHFT) &
 				GSI_GSI_CFG_GSI_ENABLE_BMSK) |
@@ -3159,9 +3214,13 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 				GSI_GSI_CFG_DOUBLE_MCS_CLK_FREQ_BMSK) |
 			((0 << GSI_GSI_CFG_UC_IS_MCS_SHFT) &
 				GSI_GSI_CFG_UC_IS_MCS_BMSK));
-		gsi_writel(value, gsi_base + GSI_GSI_CFG_OFFS);
 	}
 
+	/* GSI frequency is peripheral frequency divided by 3 (2+1) */
+	if (ver >= GSI_VER_2_5)
+		value |= ((2 << GSI_V2_5_GSI_CFG_SLEEP_CLK_DIV_SHFT) &
+			GSI_V2_5_GSI_CFG_SLEEP_CLK_DIV_BMSK);
+	gsi_writel(value, gsi_base + GSI_GSI_CFG_OFFS);
 	iounmap(gsi_base);
 
 	return 0;

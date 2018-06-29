@@ -376,6 +376,16 @@ static int smb5_parse_dt(struct smb5 *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,charger-temp-max",
+			&chg->charger_temp_max);
+	if (rc < 0)
+		chg->charger_temp_max = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,smb-temp-max",
+			&chg->smb_temp_max);
+	if (rc < 0)
+		chg->smb_temp_max = -EINVAL;
+
 	rc = of_property_read_u32(node, "qcom,float-option",
 						&chip->dt.float_option);
 	if (!rc && (chip->dt.float_option < 0 || chip->dt.float_option > 4)) {
@@ -611,7 +621,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		if (chg->connector_health == -EINVAL)
-			rc = smblib_get_prop_connector_health(chg, val);
+			val->intval = smblib_get_prop_connector_health(chg);
 		else
 			val->intval = chg->connector_health;
 		break;
@@ -1606,10 +1616,23 @@ static int smb5_init_hw(struct smb5 *chip)
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
 
-	rc = smblib_get_thermal_threshold(chg, DIE_REG_H_THRESHOLD_MSB_REG,
-				&chg->charger_temp_max);
+	if (chg->charger_temp_max == -EINVAL) {
+		rc = smblib_get_thermal_threshold(chg,
+					DIE_REG_H_THRESHOLD_MSB_REG,
+					&chg->charger_temp_max);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
+	/* Disable SMB Temperature ADC INT */
+	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
+				rc);
 		return rc;
 	}
 

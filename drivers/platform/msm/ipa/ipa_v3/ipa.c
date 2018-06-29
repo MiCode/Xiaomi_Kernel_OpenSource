@@ -369,6 +369,43 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 	return cnt;
 }
 
+static int ipa3_clean_modem_rule(void)
+{
+	struct ipa_install_fltr_rule_req_msg_v01 *req;
+	struct ipa_install_fltr_rule_req_ex_msg_v01 *req_ex;
+	int val = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v3_0) {
+		req = kzalloc(
+			sizeof(struct ipa_install_fltr_rule_req_msg_v01),
+			GFP_KERNEL);
+		if (!req) {
+			IPAERR("mem allocated failed!\n");
+			return -ENOMEM;
+		}
+		req->filter_spec_list_valid = false;
+		req->filter_spec_list_len = 0;
+		req->source_pipe_index_valid = 0;
+		val = ipa3_qmi_filter_request_send(req);
+		kfree(req);
+	} else {
+		req_ex = kzalloc(
+			sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01),
+			GFP_KERNEL);
+		if (!req_ex) {
+			IPAERR("mem allocated failed!\n");
+			return -ENOMEM;
+		}
+		req_ex->filter_spec_ex_list_valid = false;
+		req_ex->filter_spec_ex_list_len = 0;
+		req_ex->source_pipe_index_valid = 0;
+		val = ipa3_qmi_filter_request_ex_send(req_ex);
+		kfree(req_ex);
+	}
+
+	return val;
+}
+
 static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
@@ -941,7 +978,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_hdr((struct ipa_ioc_add_hdr *)param)) {
+		if (ipa3_add_hdr_usr((struct ipa_ioc_add_hdr *)param,
+			true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1021,7 +1059,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_rt_rule((struct ipa_ioc_add_rt_rule *)param)) {
+		if (ipa3_add_rt_rule_usr((struct ipa_ioc_add_rt_rule *)param,
+				true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1225,7 +1264,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
+		if (ipa3_add_flt_rule_usr((struct ipa_ioc_add_flt_rule *)param,
+				true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1362,19 +1402,19 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = ipa3_commit_hdr();
 		break;
 	case IPA_IOC_RESET_HDR:
-		retval = ipa3_reset_hdr();
+		retval = ipa3_reset_hdr(false);
 		break;
 	case IPA_IOC_COMMIT_RT:
 		retval = ipa3_commit_rt(arg);
 		break;
 	case IPA_IOC_RESET_RT:
-		retval = ipa3_reset_rt(arg);
+		retval = ipa3_reset_rt(arg, false);
 		break;
 	case IPA_IOC_COMMIT_FLT:
 		retval = ipa3_commit_flt(arg);
 		break;
 	case IPA_IOC_RESET_FLT:
-		retval = ipa3_reset_flt(arg);
+		retval = ipa3_reset_flt(arg, false);
 		break;
 	case IPA_IOC_GET_RT_TBL:
 		if (copy_from_user(header, (const void __user *)arg,
@@ -1762,7 +1802,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa3_add_hdr_proc_ctx(
-			(struct ipa_ioc_add_hdr_proc_ctx *)param)) {
+			(struct ipa_ioc_add_hdr_proc_ctx *)param, true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1885,6 +1925,21 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+		break;
+
+	case IPA_IOC_CLEANUP:
+		/*Route and filter rules will also be clean*/
+		IPADBG("Got IPA_IOC_CLEANUP\n");
+		retval = ipa3_reset_hdr(true);
+		memset(&nat_del, 0, sizeof(nat_del));
+		nat_del.table_index = 0;
+		retval = ipa3_nat_del_cmd(&nat_del);
+		retval = ipa3_clean_modem_rule();
+		break;
+
+	case IPA_IOC_QUERY_WLAN_CLIENT:
+		IPADBG("Got IPA_IOC_QUERY_WLAN_CLIENT\n");
+		retval = ipa3_resend_wlan_msg();
 		break;
 
 	default:
@@ -4562,12 +4617,19 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* move proxy vote for modem on ipa3_post_init */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
-	/* SMMU was already attached if used, safe to do allocations */
-	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
-		ipa3_ctx->pdev)) {
-		IPAERR("fail to init ipahal\n");
-		result = -EFAULT;
-		goto fail_ipahal;
+
+	/*
+	 * In Virtual mode, IPAHAL initialized at pre_init as
+	 * there is no SMMU. In normal mode need to wait until
+	 * SMMU is attached and thus initialization done here.
+	 */
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
+			ipa3_ctx->pdev)) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal;
+		}
 	}
 
 	result = ipa3_init_hw();
@@ -4797,9 +4859,9 @@ fail_nat_ipv6ct_init_dev:
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
 fail_init_hw:
-	ipahal_destroy();
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
+		ipahal_destroy();
 fail_ipahal:
-
 	return result;
 }
 
@@ -5143,6 +5205,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
+	ipa3_ctx->wdi_over_pcie = resource_p->wdi_over_pcie;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 	ipa3_ctx->ipa_config_is_mhi = resource_p->ipa_mhi_dynamic_config;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
@@ -5250,6 +5313,20 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa-base ioremap err\n");
 		result = -EFAULT;
 		goto fail_remap;
+	}
+
+	/*
+	 * In Virtual mode, IPAHAL used to load the firmwares
+	 * and there is no SMMU so IPAHAL is initialized here.
+	 */
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type,
+				ipa3_ctx->mmio,
+				&(ipa3_ctx->master_pdev->dev))) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal_init;
+		}
 	}
 
 	mutex_init(&ipa3_ctx->ipa3_active_clients.mutex);
@@ -5380,6 +5457,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->pull_msg_list);
 	init_waitqueue_head(&ipa3_ctx->msg_waitq);
 	mutex_init(&ipa3_ctx->msg_lock);
+
+	/* store wlan client-connect-msg-list */
+	INIT_LIST_HEAD(&ipa3_ctx->msg_wlan_client_list);
+	mutex_init(&ipa3_ctx->msg_wlan_client_lock);
 
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
@@ -5538,6 +5619,9 @@ fail_flt_rule_cache:
 fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 fail_init_hw:
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL)
+		ipahal_destroy();
+fail_ipahal_init:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -5953,6 +6037,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPAERR("failed to get pm info from dts %d\n", result);
 		return result;
 	}
+
+	ipa_drv_res->wdi_over_pcie =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-ce-db-over-pcie");
+	IPADBG("Is wdi_over_pcie ? (%s)\n",
+		ipa3_ctx->wdi_over_pcie ? "Yes":"No");
 
 	return 0;
 }

@@ -25,6 +25,7 @@ int ion_hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				   bool set_page_private);
 int ion_hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				 bool set_page_private);
+int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags);
 
 bool hlos_accessible_buffer(struct ion_buffer *buffer);
 

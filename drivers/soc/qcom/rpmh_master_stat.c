@@ -265,6 +265,7 @@ static int msm_rpmh_master_stats_remove(struct platform_device *pdev)
 	kobject_put(prvdata->kobj);
 	platform_set_drvdata(pdev, NULL);
 	iounmap(rpmh_unit_base);
+	rpmh_unit_base = NULL;
 
 	return 0;
 }

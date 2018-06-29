@@ -310,6 +310,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* sa8150 ID */
 	[362] = {MSM_CPU_SA8150, "SA8150"},
 
+	/* sa8150P ID */
+	[367] = {MSM_CPU_SA8150P, "SA8150P"},
+
 	/* sdmshrike ID */
 	[340] = {MSM_CPU_SDMSHRIKE, "SDMSHRIKE"},
 
@@ -1183,6 +1186,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sa8150()) {
 		dummy_socinfo.id = 362;
 		strlcpy(dummy_socinfo.build_id, "sa8150 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sa8150p()) {
+		dummy_socinfo.id = 367;
+		strlcpy(dummy_socinfo.build_id, "sa8150p - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;

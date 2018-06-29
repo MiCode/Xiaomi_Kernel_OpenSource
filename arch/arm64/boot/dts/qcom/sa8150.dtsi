@@ -14,6 +14,7 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8150";
+	compatible = "qcom,sa8150";
 	qcom,msm-name = "SA8150";
 	qcom,msm-id = <362 0x10000>;
 };

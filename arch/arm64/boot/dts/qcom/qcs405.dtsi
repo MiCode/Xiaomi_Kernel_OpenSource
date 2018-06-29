@@ -343,6 +343,10 @@
 		compatible = "qcom,dcc-v2";
 		reg = <0x000b2000 0x1000>,
 		      <0x000bf800 0x800>;
+
+		clocks = <&clock_gcc GCC_DCC_CLK>;
+		clock-names = "dcc_clk";
+
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
 	};
@@ -387,10 +391,12 @@
 
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
+		label = "gold";
 		qcom,threshold-arr = <0xb088094 0xb098094 0xb0a8094
-			0xb0b8094 0xb188094 0xb198094 0xb1a8094 0xb1a8094>;
+			0xb0b8094>;
 		qcom,config-arr = <0xb08809c 0xb09809c 0xb0a809c
-			0xb0b809c 0xb18809c 0xb19809c 0xb1a809c 0xb1b809c>;
+			0xb0b809c>;
+		staus = "disabled";
 	};
 
 	qcom,msm-imem@8600000 {
@@ -424,6 +430,11 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	qcom,lpass@c000000 {
@@ -439,6 +450,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
@@ -477,6 +489,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <18>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <601>;
@@ -515,6 +528,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <6>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <422>;
 		qcom,sysmon-id = <0>;

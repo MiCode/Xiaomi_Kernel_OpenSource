@@ -3835,47 +3835,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	return res;
 }
 
-int fts_chip_power_switch(struct fts_ts_info *info, int on)
-{
-	int error = 0;
-
-	logError(0, "%s %s:will set power mode %d...\n", tag, __func__, on);
-	if (on == 0) {
-		if (info->pwr_reg) {
-			error = regulator_disable(info->pwr_reg);
-			if (error < 0)
-				logError(1, "%s %s: Failed to disable DVDD\n",
-					tag, __func__);
-		}
-
-		if (info->bus_reg) {
-			error = regulator_disable(info->bus_reg);
-			if (error < 0)
-				logError(1, "%s %s: Failed to disable AVDD\n",
-					tag, __func__);
-
-		}
-		if (info->bdata->reset_gpio != GPIO_NOT_DEFINED)
-			gpio_set_value(info->bdata->reset_gpio, 0);
-	} else if (on == 1) {
-		if (info->bus_reg) {
-			error = regulator_enable(info->bus_reg);
-			if (error < 0)
-				logError(1, "%s %s: Failed to enable AVDD\n",
-					tag, __func__);
-		}
-		if (info->pwr_reg) {
-			error = regulator_enable(info->pwr_reg);
-			if (error < 0)
-				logError(1, "%s %s: Failed to enable DVDD\n",
-					tag, __func__);
-		}
-
-	}
-
-	return error;
-}
-
 
 static void fts_resume_work(struct work_struct *work)
 {
@@ -3886,19 +3845,22 @@ static void fts_resume_work(struct work_struct *work)
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
 	info->resume_bit = 1;
-	fts_chip_power_switch(info, 1);
 #ifdef USE_NOISE_PARAM
 	readNoiseParameters(noise_params);
 #endif
-	cleanUp(1);
+	fts_system_reset();
+
 #ifdef USE_NOISE_PARAM
 	writeNoiseParameters(noise_params);
 #endif
 
 	release_all_touches(info);
+
 	fts_mode_handler(info, 0);
 
 	info->sensor_sleep = false;
+
+	fts_enableInterrupt();
 }
 
 
@@ -3913,12 +3875,11 @@ static void fts_suspend_work(struct work_struct *work)
 	info->resume_bit = 0;
 
 	fts_mode_handler(info, 0);
+
 	release_all_touches(info);
 	info->sensor_sleep = true;
 
-	fts_disableInterrupt();
-	fts_chip_power_switch(info, 0);
-
+	fts_enableInterrupt();
 }
 
 
