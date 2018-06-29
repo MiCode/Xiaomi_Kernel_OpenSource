@@ -1081,10 +1081,12 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 		chan_attrib = &uci_chan_attr_table[i];
 		if (chan_attrib->chan_id == MHI_CLIENT_INVALID)
 			break;
-		index = CHAN_TO_CLIENT(i);
+		index = CHAN_TO_CLIENT(chan_attrib->chan_id);
 		client = &uci_ctxt->client_handles[index];
 		client->out_chan_attr = chan_attrib;
 		client->in_chan_attr = ++chan_attrib;
+		client->in_chan = index * 2;
+		client->out_chan = index * 2 + 1;
 		client->in_buf_list =
 			kcalloc(chan_attrib->nr_trbs,
 					sizeof(struct mhi_dev_iov),
@@ -1139,8 +1141,6 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 {
 	init_waitqueue_head(&mhi_client->read_wq);
 	init_waitqueue_head(&mhi_client->write_wq);
-	mhi_client->out_chan = index * 2 + 1;
-	mhi_client->in_chan = index * 2;
 	mhi_client->client_index = index;
 
 	mutex_init(&mhi_client->in_chan_lock);
