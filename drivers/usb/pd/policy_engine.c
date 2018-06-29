@@ -1106,6 +1106,47 @@ static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+static void log_decoded_request(struct usbpd *pd, u32 rdo)
+{
+	const u32 *pdos;
+	int pos = PD_RDO_OBJ_POS(rdo);
+	int type;
+
+	usbpd_dbg(&pd->dev, "RDO: 0x%08x\n", pd->rdo);
+
+	if (pd->current_pr == PR_SINK)
+		pdos = pd->received_pdos;
+	else
+		pdos = default_src_caps;
+
+	type = PD_SRC_PDO_TYPE(pdos[pos - 1]);
+
+	switch (type) {
+	case PD_SRC_PDO_TYPE_FIXED:
+	case PD_SRC_PDO_TYPE_VARIABLE:
+		usbpd_dbg(&pd->dev, "Request Fixed/Variable PDO:%d Volt:%dmV OpCurr:%dmA Curr:%dmA\n",
+				pos,
+				PD_SRC_PDO_FIXED_VOLTAGE(pdos[pos - 1]) * 50,
+				PD_RDO_FIXED_CURR(rdo) * 10,
+				PD_RDO_FIXED_CURR_MINMAX(rdo) * 10);
+		break;
+
+	case PD_SRC_PDO_TYPE_BATTERY:
+		usbpd_dbg(&pd->dev, "Request Battery PDO:%d OpPow:%dmW Pow:%dmW\n",
+				pos,
+				PD_RDO_FIXED_CURR(rdo) * 250,
+				PD_RDO_FIXED_CURR_MINMAX(rdo) * 250);
+		break;
+
+	case PD_SRC_PDO_TYPE_AUGMENTED:
+		usbpd_dbg(&pd->dev, "Request PPS PDO:%d Volt:%dmV Curr:%dmA\n",
+				pos,
+				PD_RDO_PROG_VOLTAGE(rdo) * 20,
+				PD_RDO_PROG_CURR(rdo) * 50);
+		break;
+	}
+}
+
 /* Enters new state and executes actions on entry */
 static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 {
@@ -1229,6 +1270,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
+		log_decoded_request(pd, pd->rdo);
 		pd->peer_usb_comm = PD_RDO_USB_COMM(pd->rdo);
 
 		if (PD_RDO_OBJ_POS(pd->rdo) != 1 ||
@@ -1418,6 +1460,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		/* fall-through */
 
 	case PE_SNK_SELECT_CAPABILITY:
+		log_decoded_request(pd, pd->rdo);
+
 		ret = pd_send_msg(pd, MSG_REQUEST, &pd->rdo, 1, SOP_MSG);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending Request\n");
