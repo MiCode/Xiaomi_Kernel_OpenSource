@@ -995,8 +995,8 @@
 #include "qcs405-usb.dtsi"
 
 &i2c_5 {
-	status = "ok";
 	smb1351_otg_supply: smb1351-charger@55 {
+		status = "disabled";
 		compatible = "qcom,smb1351-charger";
 		reg = <0x55>;
 		interrupt-parent = <&tlmm>;

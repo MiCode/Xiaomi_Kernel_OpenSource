@@ -21,3 +21,11 @@
 	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
 	qcom,board-id = <0x010020 0>;
 };
+
+&i2c_5 {
+	status = "ok";
+};
+
+&smb1351_otg_supply {
+	status = "ok";
+};
