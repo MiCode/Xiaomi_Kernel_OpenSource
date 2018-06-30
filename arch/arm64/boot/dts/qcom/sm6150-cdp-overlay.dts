@@ -20,5 +20,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SM6150 CDP";
 	compatible = "qcom,sm6150-cdp", "qcom,sm6150", "qcom,cdp";
+	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <1 0>;
 };

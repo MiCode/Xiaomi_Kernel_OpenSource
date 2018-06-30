@@ -20,5 +20,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SM6150 RUMI";
 	compatible = "qcom,sm6150-rumi", "qcom,sm6150", "qcom,rumi";
+	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <15 0>;
 };
