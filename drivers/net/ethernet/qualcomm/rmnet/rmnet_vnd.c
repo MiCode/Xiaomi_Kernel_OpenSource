@@ -24,6 +24,8 @@
 #include "rmnet_vnd.h"
 
 #include <soc/qcom/qmi_rmnet.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/rmnet.h>
 
 /* RX/TX Fixup */
 
@@ -62,6 +64,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
+		trace_rmnet_xmit_skb(skb);
 		qmi_rmnet_burst_fc_check(dev, skb);
 		rmnet_egress_handler(skb);
 	} else {
