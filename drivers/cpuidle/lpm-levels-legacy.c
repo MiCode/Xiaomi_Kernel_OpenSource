@@ -643,9 +643,11 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		cpumask_copy(&cpumask, cpumask_of(cpu));
 		nextcpu = level->disable_dynamic_routing ? NULL : &cpumask;
 
-		if (sys_pm_ops && sys_pm_ops->enter)
-			if ((sys_pm_ops->enter(nextcpu)))
-				return -EBUSY;
+		if (sys_pm_ops && sys_pm_ops->enter) {
+			ret = sys_pm_ops->enter(nextcpu);
+			if (ret)
+				goto failed_set_mode;
+		}
 
 		if (cluster->no_saw_devices && !use_psci)
 			msm_spm_set_rpm_hs(true);
