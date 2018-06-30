@@ -1426,8 +1426,8 @@ static int npu_remove(struct platform_device *pdev)
 	thermal_cooling_device_unregister(npu_dev->tcdev);
 	npu_debugfs_deinit(npu_dev);
 	npu_host_deinit(npu_dev);
-	arm_iommu_release_mapping(npu_dev->smmu_ctx.mmu_mapping);
 	arm_iommu_detach_device(&(npu_dev->pdev->dev));
+	arm_iommu_release_mapping(npu_dev->smmu_ctx.mmu_mapping);
 	sysfs_remove_group(&npu_dev->device->kobj, &npu_fs_attr_group);
 	cdev_del(&npu_dev->cdev);
 	device_destroy(npu_dev->class, npu_dev->dev_num);
