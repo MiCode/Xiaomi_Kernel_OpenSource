@@ -1706,10 +1706,8 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (csiphy_dev->csiphy_state == CSIPHY_POWER_UP) {
-		pr_err("%s: csiphy invalid state %d\n", __func__,
+		pr_err("%s: csiphy current state %d\n", __func__,
 			csiphy_dev->csiphy_state);
-		rc = -EINVAL;
-		return rc;
 	}
 
 	CDBG("%s:%d called\n", __func__, __LINE__);
