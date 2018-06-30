@@ -883,6 +883,11 @@
 		};
 	};
 
+	qcom_tzlog: tz-log@8600720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08600720 0x2000>;
+	};
+
 	thermal_zones: thermal-zones {};
 
 	sdhc_1: sdhci@7804000 {
