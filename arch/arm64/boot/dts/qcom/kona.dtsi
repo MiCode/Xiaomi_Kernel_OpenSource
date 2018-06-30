@@ -16,6 +16,8 @@
 #include <dt-bindings/clock/qcom,videocc-kona.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include "kona-regulators.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. kona";
 	compatible = "qcom,kona";
