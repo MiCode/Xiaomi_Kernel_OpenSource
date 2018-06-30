@@ -299,7 +299,7 @@ static const struct of_device_id match_table[] = {
 	{}
 };
 
-static const struct regmap_config cpu_regmap_config = {
+static struct regmap_config cpu_regmap_config = {
 	.reg_bits	= 32,
 	.reg_stride	= 4,
 	.val_bits	= 32,
@@ -477,8 +477,6 @@ static void cpucc_clk_print_opp_table(int cpu)
 	apc_fmax = apcs_mux_clk.clkr.hw.init->rate_max[max_cpuss_index - 1];
 	apc_fmin = apcs_mux_clk.clkr.hw.init->rate_max[1];
 
-	rcu_read_lock();
-
 	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(cpu),
 					apc_fmax, true);
 	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(cpu),
@@ -488,7 +486,6 @@ static void cpucc_clk_print_opp_table(int cpu)
 	pr_info("Clock_cpu:(cpu %d) OPP voltage for %lu: %ld\n", cpu, apc_fmax,
 		dev_pm_opp_get_voltage(oppfmax));
 
-	rcu_read_unlock();
 }
 
 static void cpucc_clk_populate_opp_table(struct platform_device *pdev)
@@ -535,34 +532,6 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_pll");
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base)) {
-		dev_err(&pdev->dev, "Failed to map apcs_cpu_pll register base\n");
-		return PTR_ERR(base);
-	}
-
-	apcs_cpu_pll.clkr.regmap = devm_regmap_init_mmio(dev, base,
-							&cpu_regmap_config);
-	if (IS_ERR(apcs_cpu_pll.clkr.regmap)) {
-		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cpu_pll\n");
-		return PTR_ERR(apcs_cpu_pll.clkr.regmap);
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_cmd");
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base)) {
-		dev_err(&pdev->dev, "Failed to map apcs_cmd register base\n");
-		return PTR_ERR(base);
-	}
-
-	apcs_mux_clk.clkr.regmap = devm_regmap_init_mmio(dev, base,
-							&cpu_regmap_config);
-	if (IS_ERR(apcs_mux_clk.clkr.regmap)) {
-		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cmd\n");
-		return PTR_ERR(apcs_mux_clk.clkr.regmap);
-	}
-
 	 /* Rail Regulator for apcs_pll */
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig_ao");
 	if (IS_ERR(vdd_cx.regulator[0])) {
@@ -579,6 +548,36 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get cpu-vdd regulator\n");
 		return PTR_ERR(vdd_cpu.regulator[0]);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_pll");
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		dev_err(&pdev->dev, "Failed to map apcs_cpu_pll register base\n");
+		return PTR_ERR(base);
+	}
+
+	cpu_regmap_config.name = "apcs_pll";
+	apcs_cpu_pll.clkr.regmap = devm_regmap_init_mmio(dev, base,
+							&cpu_regmap_config);
+	if (IS_ERR(apcs_cpu_pll.clkr.regmap)) {
+		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cpu_pll\n");
+		return PTR_ERR(apcs_cpu_pll.clkr.regmap);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_cmd");
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		dev_err(&pdev->dev, "Failed to map apcs_cmd register base\n");
+		return PTR_ERR(base);
+	}
+
+	cpu_regmap_config.name = "apcs_cmd";
+	apcs_mux_clk.clkr.regmap = devm_regmap_init_mmio(dev, base,
+							&cpu_regmap_config);
+	if (IS_ERR(apcs_mux_clk.clkr.regmap)) {
+		dev_err(&pdev->dev, "Couldn't get regmap for apcs_cmd\n");
+		return PTR_ERR(apcs_mux_clk.clkr.regmap);
 	}
 
 	/* Get speed bin information */
