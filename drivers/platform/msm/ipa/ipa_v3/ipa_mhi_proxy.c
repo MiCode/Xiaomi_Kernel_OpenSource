@@ -771,7 +771,6 @@ static int imp_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 	mutex_unlock(&imp_ctx->mutex);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-	mhi_device_get_sync(imp_ctx->md.mhi_dev);
 
 
 	IMP_FUNC_EXIT();
