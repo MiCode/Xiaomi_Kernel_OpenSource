@@ -1464,9 +1464,17 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
 
-		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
-			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
-			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
+		if (rpra && rpra[i].buf.len && ctx->overps[oix]->mstart) {
+			if (map && map->handle) {
+				dma_buf_begin_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+				dma_buf_end_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+			} else
+				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
+					uint64_to_ptr(rpra[i].buf.pv
+						+ rpra[i].buf.len));
+		}
 	}
 	PERF_END);
 	for (i = bufs; rpra && i < bufs + handles; i++) {
@@ -1475,11 +1483,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 
-	if (!ctx->fl->sctx->smmu.coherent) {
-		PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_FLUSH),
-		dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
-		PERF_END);
-	}
  bail:
 	return err;
 }
@@ -1565,14 +1568,31 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv))
 			continue;
-		if (!IS_CACHE_ALIGNED((uintptr_t)uint64_to_ptr(rpra[i].buf.pv)))
-			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
-				(char *)(uint64_to_ptr(rpra[i].buf.pv + 1)));
+		if (!IS_CACHE_ALIGNED((uintptr_t)
+				uint64_to_ptr(rpra[i].buf.pv))) {
+			if (map && map->handle) {
+				dma_buf_begin_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+				dma_buf_end_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+			} else
+				dmac_flush_range(
+					uint64_to_ptr(rpra[i].buf.pv), (char *)
+					uint64_to_ptr(rpra[i].buf.pv + 1));
+		}
+
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
 							rpra[i].buf.len);
-		if (!IS_CACHE_ALIGNED(end))
-			dmac_flush_range((char *)end,
-				(char *)end + 1);
+		if (!IS_CACHE_ALIGNED(end)) {
+			if (map && map->handle) {
+				dma_buf_begin_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+				dma_buf_end_cpu_access(map->buf,
+					DMA_BIDIRECTIONAL);
+			} else
+				dmac_flush_range((char *)end,
+					(char *)end + 1);
+		}
 	}
 }
 
@@ -1581,7 +1601,6 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 	int i, inbufs, outbufs;
 	uint32_t sc = ctx->sc;
 	remote_arg64_t *rpra = ctx->rpra;
-	int used = ctx->used;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
@@ -1603,17 +1622,16 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		}
 		if (map && map->buf) {
-			dma_buf_begin_cpu_access(map->buf, DMA_BIDIRECTIONAL);
-			dma_buf_end_cpu_access(map->buf, DMA_BIDIRECTIONAL);
-		}
-		else
+			dma_buf_begin_cpu_access(map->buf,
+				DMA_BIDIRECTIONAL);
+			dma_buf_end_cpu_access(map->buf,
+				DMA_BIDIRECTIONAL);
+		} else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
 				(char *)uint64_to_ptr(rpra[i].buf.pv
 						 + rpra[i].buf.len));
 	}
 
-	if (rpra)
-		dmac_inv_range(rpra, (char *)rpra + used);
 }
 
 static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
