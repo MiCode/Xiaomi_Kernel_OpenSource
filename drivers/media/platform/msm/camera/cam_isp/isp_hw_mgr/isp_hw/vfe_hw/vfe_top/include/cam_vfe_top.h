@@ -22,6 +22,8 @@
 #define CAM_VFE_CAMIF_VER_1_0 0x10
 #define CAM_VFE_CAMIF_VER_2_0 0x20
 
+#define CAM_VFE_CAMIF_LITE_VER_2_0 0x02
+
 #define CAM_VFE_RDI_VER_1_0 0x1000
 
 struct cam_vfe_top {

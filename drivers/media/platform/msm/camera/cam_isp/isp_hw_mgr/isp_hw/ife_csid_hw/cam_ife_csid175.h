@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CAM_IFE_CSID_170_H_
-#define _CAM_IFE_CSID_170_H_
+#ifndef _CAM_IFE_CSID_175_H_
+#define _CAM_IFE_CSID_175_H_
 
 #include "cam_ife_csid_core.h"
 
-static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_170_ipp_reg_offset = {
+static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ipp_reg_offset = {
 	.csid_pxl_irq_status_addr            = 0x30,
 	.csid_pxl_irq_mask_addr              = 0x34,
 	.csid_pxl_irq_clear_addr             = 0x38,
@@ -54,7 +54,47 @@ static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_170_ipp_reg_offset = {
 	.pix_store_en_shift_val              = 7,
 };
 
-static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_0_reg_offset = {
+static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ppp_reg_offset = {
+	.csid_pxl_irq_status_addr            = 0xa0,
+	.csid_pxl_irq_mask_addr              = 0xa4,
+	.csid_pxl_irq_clear_addr             = 0xa8,
+	.csid_pxl_irq_set_addr               = 0xac,
+
+	.csid_pxl_cfg0_addr                  = 0x700,
+	.csid_pxl_cfg1_addr                  = 0x704,
+	.csid_pxl_ctrl_addr                  = 0x708,
+	.csid_pxl_frm_drop_pattern_addr      = 0x70c,
+	.csid_pxl_frm_drop_period_addr       = 0x710,
+	.csid_pxl_irq_subsample_pattern_addr = 0x714,
+	.csid_pxl_irq_subsample_period_addr  = 0x718,
+	.csid_pxl_hcrop_addr                 = 0x71c,
+	.csid_pxl_vcrop_addr                 = 0x720,
+	.csid_pxl_pix_drop_pattern_addr      = 0x724,
+	.csid_pxl_pix_drop_period_addr       = 0x728,
+	.csid_pxl_line_drop_pattern_addr     = 0x72c,
+	.csid_pxl_line_drop_period_addr      = 0x730,
+	.csid_pxl_rst_strobes_addr           = 0x740,
+	.csid_pxl_status_addr                = 0x754,
+	.csid_pxl_misr_val_addr              = 0x758,
+	.csid_pxl_format_measure_cfg0_addr   = 0x770,
+	.csid_pxl_format_measure_cfg1_addr   = 0x774,
+	.csid_pxl_format_measure0_addr       = 0x778,
+	.csid_pxl_format_measure1_addr       = 0x77c,
+	.csid_pxl_format_measure2_addr       = 0x780,
+	.csid_pxl_timestamp_curr0_sof_addr   = 0x790,
+	.csid_pxl_timestamp_curr1_sof_addr   = 0x794,
+	.csid_pxl_timestamp_perv0_sof_addr   = 0x798,
+	.csid_pxl_timestamp_perv1_sof_addr   = 0x79c,
+	.csid_pxl_timestamp_curr0_eof_addr   = 0x7a0,
+	.csid_pxl_timestamp_curr1_eof_addr   = 0x7a4,
+	.csid_pxl_timestamp_perv0_eof_addr   = 0x7a8,
+	.csid_pxl_timestamp_perv1_eof_addr   = 0x7ac,
+	/* configurations */
+	.pix_store_en_shift_val              = 7,
+};
+
+
+static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_175_rdi_0_reg_offset = {
 	.csid_rdi_irq_status_addr                 = 0x40,
 	.csid_rdi_irq_mask_addr                   = 0x44,
 	.csid_rdi_irq_clear_addr                  = 0x48,
@@ -95,7 +135,7 @@ static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_0_reg_offset = {
 	.csid_rdi_byte_cntr_pong_addr             = 0x3e4,
 };
 
-static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_1_reg_offset = {
+static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_175_rdi_1_reg_offset = {
 	.csid_rdi_irq_status_addr                 = 0x50,
 	.csid_rdi_irq_mask_addr                   = 0x54,
 	.csid_rdi_irq_clear_addr                  = 0x58,
@@ -136,7 +176,7 @@ static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_1_reg_offset = {
 	.csid_rdi_byte_cntr_pong_addr             = 0x4e4,
 };
 
-static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_2_reg_offset = {
+static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_175_rdi_2_reg_offset = {
 	.csid_rdi_irq_status_addr                 = 0x60,
 	.csid_rdi_irq_mask_addr                   = 0x64,
 	.csid_rdi_irq_clear_addr                  = 0x68,
@@ -179,7 +219,7 @@ static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_2_reg_offset = {
 };
 
 static struct cam_ife_csid_csi2_rx_reg_offset
-			cam_ife_csid_170_csi2_reg_offset = {
+			cam_ife_csid_175_csi2_reg_offset = {
 	.csid_csi2_rx_irq_status_addr                 = 0x20,
 	.csid_csi2_rx_irq_mask_addr                   = 0x24,
 	.csid_csi2_rx_irq_clear_addr                  = 0x28,
@@ -224,7 +264,7 @@ static struct cam_ife_csid_csi2_rx_reg_offset
 };
 
 static struct cam_ife_csid_csi2_tpg_reg_offset
-			cam_ife_csid_170_tpg_reg_offset = {
+			cam_ife_csid_175_tpg_reg_offset = {
 	/*CSID TPG control */
 	.csid_tpg_ctrl_addr                           = 0x600,
 	.csid_tpg_vc_cfg0_addr                        = 0x604,
@@ -251,7 +291,7 @@ static struct cam_ife_csid_csi2_tpg_reg_offset
 };
 
 static struct cam_ife_csid_common_reg_offset
-			cam_ife_csid_170_cmn_reg_offset = {
+			cam_ife_csid_175_cmn_reg_offset = {
 	.csid_hw_version_addr                         = 0x0,
 	.csid_cfg0_addr                               = 0x4,
 	.csid_ctrl_addr                               = 0x8,
@@ -271,7 +311,7 @@ static struct cam_ife_csid_common_reg_offset
 	.version_incr                                 = 0,
 	.num_rdis                                     = 3,
 	.num_pix                                      = 1,
-	.num_ppp                                      = 0,
+	.num_ppp                                      = 1,
 	.csid_rst_stb                                 = 0x1e,
 	.csid_rst_stb_sw_all                          = 0x1f,
 	.path_rst_stb_all                             = 0x7f,
@@ -287,21 +327,21 @@ static struct cam_ife_csid_common_reg_offset
 	.crop_shift                                   = 16,
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,
-	.ppp_irq_mask_all                             = 0x0,
+	.ppp_irq_mask_all                             = 0xFFFF,
 };
 
-static struct cam_ife_csid_reg_offset cam_ife_csid_170_reg_offset = {
-	.cmn_reg          = &cam_ife_csid_170_cmn_reg_offset,
-	.csi2_reg         = &cam_ife_csid_170_csi2_reg_offset,
-	.ipp_reg          = &cam_ife_csid_170_ipp_reg_offset,
-	.ppp_reg          = NULL,
+static struct cam_ife_csid_reg_offset cam_ife_csid_175_reg_offset = {
+	.cmn_reg          = &cam_ife_csid_175_cmn_reg_offset,
+	.csi2_reg         = &cam_ife_csid_175_csi2_reg_offset,
+	.ipp_reg          = &cam_ife_csid_175_ipp_reg_offset,
+	.ppp_reg          = &cam_ife_csid_175_ppp_reg_offset,
 	.rdi_reg = {
-		&cam_ife_csid_170_rdi_0_reg_offset,
-		&cam_ife_csid_170_rdi_1_reg_offset,
-		&cam_ife_csid_170_rdi_2_reg_offset,
+		&cam_ife_csid_175_rdi_0_reg_offset,
+		&cam_ife_csid_175_rdi_1_reg_offset,
+		&cam_ife_csid_175_rdi_2_reg_offset,
 		NULL,
 		},
-	.tpg_reg = &cam_ife_csid_170_tpg_reg_offset,
+	.tpg_reg = &cam_ife_csid_175_tpg_reg_offset,
 };
 
-#endif /*_CAM_IFE_CSID_170_H_ */
+#endif /*_CAM_IFE_CSID_175_H_ */

@@ -28,6 +28,7 @@ enum cam_ife_pix_path_res_id {
 	CAM_IFE_PIX_PATH_RES_RDI_2,
 	CAM_IFE_PIX_PATH_RES_RDI_3,
 	CAM_IFE_PIX_PATH_RES_IPP,
+	CAM_IFE_PIX_PATH_RES_PPP,
 	CAM_IFE_PIX_PATH_RES_MAX,
 };
 
@@ -44,16 +45,18 @@ enum cam_ife_cid_res_id {
 
 /**
  * struct cam_ife_csid_hw_caps- get the CSID hw capability
- * @no_rdis :       number of rdis supported by CSID HW device
- * @no_pix:         number of pixel path supported by CSID HW device
+ * @num_rdis:       number of rdis supported by CSID HW device
+ * @num_pix:        number of pxl paths supported by CSID HW device
+ * @num_ppp:        number of ppp paths supported by CSID HW device
  * @major_version : major version
  * @minor_version:  minor version
  * @version_incr:   version increment
  *
  */
 struct cam_ife_csid_hw_caps {
-	uint32_t      no_rdis;
-	uint32_t      no_pix;
+	uint32_t      num_rdis;
+	uint32_t      num_pix;
+	uint32_t      num_ppp;
 	uint32_t      major_version;
 	uint32_t      minor_version;
 	uint32_t      version_incr;
