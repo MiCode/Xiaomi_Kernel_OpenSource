@@ -1043,7 +1043,3 @@
 			     &usb3_vbus_boost_default>;
 	};
 };
-
-&usb2s {
-	extcon = <&smb1351_otg_supply>;
-};
