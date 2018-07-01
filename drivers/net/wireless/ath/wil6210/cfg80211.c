@@ -424,6 +424,86 @@ int wil_iftype_nl2wmi(enum nl80211_iftype type)
 	return -EOPNOTSUPP;
 }
 
+int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch)
+{
+	switch (spec_ch) {
+	case 1:
+		*wmi_ch = WMI_CHANNEL_1;
+		break;
+	case 2:
+		*wmi_ch = WMI_CHANNEL_2;
+		break;
+	case 3:
+		*wmi_ch = WMI_CHANNEL_3;
+		break;
+	case 4:
+		*wmi_ch = WMI_CHANNEL_4;
+		break;
+	case 5:
+		*wmi_ch = WMI_CHANNEL_5;
+		break;
+	case 6:
+		*wmi_ch = WMI_CHANNEL_6;
+		break;
+	case 9:
+		*wmi_ch = WMI_CHANNEL_9;
+		break;
+	case 10:
+		*wmi_ch = WMI_CHANNEL_10;
+		break;
+	case 11:
+		*wmi_ch = WMI_CHANNEL_11;
+		break;
+	case 12:
+		*wmi_ch = WMI_CHANNEL_12;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch)
+{
+	switch (wmi_ch) {
+	case WMI_CHANNEL_1:
+		*spec_ch = 1;
+		break;
+	case WMI_CHANNEL_2:
+		*spec_ch = 2;
+		break;
+	case WMI_CHANNEL_3:
+		*spec_ch = 3;
+		break;
+	case WMI_CHANNEL_4:
+		*spec_ch = 4;
+		break;
+	case WMI_CHANNEL_5:
+		*spec_ch = 5;
+		break;
+	case WMI_CHANNEL_6:
+		*spec_ch = 6;
+		break;
+	case WMI_CHANNEL_9:
+		*spec_ch = 9;
+		break;
+	case WMI_CHANNEL_10:
+		*spec_ch = 10;
+		break;
+	case WMI_CHANNEL_11:
+		*spec_ch = 11;
+		break;
+	case WMI_CHANNEL_12:
+		*spec_ch = 12;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int wil_cid_fill_sinfo(struct wil6210_vif *vif, int cid,
 		       struct station_info *sinfo)
 {
@@ -1170,6 +1250,16 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 		goto out;
 	}
 	conn.channel = ch - 1;
+
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &conn.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
 
 	ether_addr_copy(conn.bssid, bss->bssid);
 	ether_addr_copy(conn.dst_mac, bss->bssid);

@@ -969,6 +969,7 @@ struct wil6210_priv {
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
+	u8 force_edmg_channel;
 	bool tx_latency; /* collect TX latency measurements */
 	size_t tx_latency_res; /* bin resolution in usec */
 
@@ -1390,6 +1391,9 @@ int wmi_stop_sched_scan(struct wil6210_priv *wil);
 int wmi_mgmt_tx(struct wil6210_vif *vif, const u8 *buf, size_t len);
 int wmi_mgmt_tx_ext(struct wil6210_vif *vif, const u8 *buf, size_t len,
 		    u8 channel, u16 duration_ms);
+
+int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch);
+int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
 
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 
