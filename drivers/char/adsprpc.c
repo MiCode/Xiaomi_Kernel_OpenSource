@@ -2154,7 +2154,7 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 	if (map->flags == ADSP_MMAP_HEAP_ADDR) {
 		struct fastrpc_ioctl_invoke_crc ioctl;
 		struct scm_desc desc = {0};
-		remote_arg_t ra[1];
+		remote_arg_t ra[2];
 		int err = 0;
 		struct {
 			uint8_t skey;
