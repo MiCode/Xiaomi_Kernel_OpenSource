@@ -30,7 +30,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wakelock.h>
 
-#include <linux/msm_mhi_dev.h>
+#include "mhi.h"
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 

@@ -26,7 +26,7 @@
 #include <linux/errno.h>
 #include <linux/ktime.h>
 
-#include <linux/msm_mhi_dev.h>
+#include "mhi.h"
 
 #define MHI_NET_DRIVER_NAME  "mhi_dev_net_drv"
 #define MHI_NET_DEV_NAME     "mhi_dev_net%d"
