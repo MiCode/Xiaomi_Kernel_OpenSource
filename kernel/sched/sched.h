@@ -2906,6 +2906,17 @@ static inline bool task_boost_on_big_eligible(struct task_struct *p)
 	bool boost_on_big = task_sched_boost(p) &&
 				sched_boost_policy() == SCHED_BOOST_ON_BIG;
 
+	if (boost_on_big) {
+		/*
+		 * Filter out tasks less than min task util threshold
+		 * under conservative boost.
+		 */
+		if (sysctl_sched_boost == CONSERVATIVE_BOOST &&
+				task_util(p) <=
+				sysctl_sched_min_task_util_for_boost_colocation)
+			boost_on_big = false;
+	}
+
 	return boost_on_big;
 }
 
