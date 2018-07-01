@@ -202,7 +202,9 @@ struct sde_encoder_phys_ops {
  * @INTR_IDX_RDPTR:    Readpointer done unterrupt for cmd mode panel
  * @INTR_IDX_WB_DONE:  Writeback done interrupt for WB
  * @INTR_IDX_PP2_OVFL: Pingpong overflow interrupt on PP2 for Concurrent WB
- * @INTR_IDX_PP2_OVFL: Pingpong overflow interrupt on PP3 for Concurrent WB
+ * @INTR_IDX_PP3_OVFL: Pingpong overflow interrupt on PP3 for Concurrent WB
+ * @INTR_IDX_PP4_OVFL: Pingpong overflow interrupt on PP4 for Concurrent WB
+ * @INTR_IDX_PP5_OVFL: Pingpong overflow interrupt on PP5 for Concurrent WB
  * @INTR_IDX_AUTOREFRESH_DONE:  Autorefresh done for cmd mode panel meaning
  *                              autorefresh has triggered a double buffer flip
  */
@@ -216,6 +218,8 @@ enum sde_intr_idx {
 	INTR_IDX_WB_DONE,
 	INTR_IDX_PP2_OVFL,
 	INTR_IDX_PP3_OVFL,
+	INTR_IDX_PP4_OVFL,
+	INTR_IDX_PP5_OVFL,
 	INTR_IDX_MAX,
 };
 
@@ -281,6 +285,8 @@ struct sde_encoder_irq {
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
  * @cont_splash_settings	Variable to store continuous splash settings.
  * @in_clone_mode		Indicates if encoder is in clone mode ref@CWB
+ * @vfp_cached:			cached vertical front porch to be used for
+ *				programming ROT and MDP fetch start
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -315,6 +321,7 @@ struct sde_encoder_phys {
 	u32 cont_splash_single_flush;
 	bool cont_splash_settings;
 	bool in_clone_mode;
+	int vfp_cached;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)

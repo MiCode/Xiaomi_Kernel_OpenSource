@@ -329,6 +329,7 @@ enum {
  * @SDE_WB_INPUT_CTRL       Writeback supports from which pp block input pixel
  *                          data arrives.
  * @SDE_WB_HAS_CWB          Writeback block supports concurrent writeback
+ * @SDE_WB_CWB_CTRL         Separate CWB control is available for configuring
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -349,6 +350,7 @@ enum {
 	SDE_WB_CDP,
 	SDE_WB_INPUT_CTRL,
 	SDE_WB_HAS_CWB,
+	SDE_WB_CWB_CTRL,
 	SDE_WB_MAX
 };
 

@@ -25,6 +25,15 @@ config DRM_ANALOGIX_ANX78XX
 	  the HDMI output of an application processor to MyDP
 	  or DisplayPort.
 
+config DRM_ANALOGIX_ANX7625
+	tristate "Analogix ANX7625 bridge"
+	select DRM_KMS_HELPER
+	---help---
+	  ANX7625 is DSI to DisplayPort bridge transmitter
+	  driver. The driver can support direct Display port
+	  only, USB type C interface is not supported in
+	  this driver.
+
 config DRM_DUMB_VGA_DAC
 	tristate "Dumb VGA DAC Bridge support"
 	depends on OF

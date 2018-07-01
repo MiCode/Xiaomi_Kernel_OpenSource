@@ -311,6 +311,9 @@ static int dsi_phy_settings_init(struct platform_device *pdev,
 			"qcom,dsi-phy-regulator-min-datarate-bps",
 			&phy->regulator_min_datarate_bps);
 
+	phy->cfg.force_clk_lane_hs = of_property_read_bool(pdev->dev.of_node,
+			"qcom,panel-force-clock-lane-hs");
+
 	return 0;
 err:
 	lane->count_per_lane = 0;
