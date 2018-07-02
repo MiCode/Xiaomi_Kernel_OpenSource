@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -384,12 +384,27 @@ struct ipa_api_controller {
 #ifdef CONFIG_IPA
 int ipa_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match);
+int ipa_plat_drv_shutdown(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match);
+void ipa_platform_shutdown(void);
 #else
 static inline int ipa_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match)
 {
 	return -ENODEV;
 }
+static inline int ipa_plat_drv_shutdown(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match)
+{
+	return -ENODEV;
+}
+static inline int ipa_platform_shutdown(void)
+{
+	return -ENODEV;
+}
+
 #endif /* (CONFIG_IPA) */
 
 #ifdef CONFIG_IPA3

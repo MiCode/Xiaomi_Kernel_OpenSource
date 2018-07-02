@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1207,6 +1207,8 @@ struct ipa_context {
 	struct ipa_cne_evt ipa_cne_evt_req_cache[IPA_MAX_NUM_REQ_CACHE];
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
+	int (*q6_cleanup_cb)(void);
+	bool is_apps_shutdown_support;
 };
 
 /**
@@ -1263,6 +1265,7 @@ struct ipa_plat_drv_res {
 	u32 ipa_rx_polling_sleep_msec;
 	u32 ipa_polling_iteration;
 	bool ipa_uc_monitor_holb;
+	bool is_apps_shutdown_support;
 };
 
 struct ipa_mem_partition {
@@ -1387,6 +1390,8 @@ int ipa2_disconnect(u32 clnt_hdl);
  * Resume / Suspend
  */
 int ipa2_reset_endpoint(u32 clnt_hdl);
+
+void ipa2_apps_shutdown_apps_ep_reset(void);
 
 /*
  * Remove ep delay
@@ -1781,7 +1786,7 @@ static inline u32 ipa_read_reg_field(void *base, u32 offset,
 	return (ipa_read_reg(base, offset) & mask) >> shift;
 }
 
-static inline void ipa_write_reg(void *base, u32 offset, u32 val)
+static inline void ipa_write_reg(void __iomem *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
 }
@@ -1868,6 +1873,8 @@ int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
 
 int ipa_q6_pre_shutdown_cleanup(void);
+int ipa_apps_shutdown_cleanup(void);
+int register_ipa_platform_cb(int (*cb)(void));
 int ipa_q6_post_shutdown_cleanup(void);
 int ipa_init_q6_smem(void);
 int ipa_q6_monitor_holb_mitigation(bool enable);
