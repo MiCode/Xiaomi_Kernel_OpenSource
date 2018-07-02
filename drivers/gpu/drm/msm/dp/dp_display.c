@@ -798,11 +798,16 @@ static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
 	int idx;
 	struct dp_panel *dp_panel;
 
+	mutex_lock(&dp->session_lock);
+
 	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
 		if (!dp->active_panels[idx])
 			continue;
 
 		dp_panel = dp->active_panels[idx];
+
+		dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
+		dp->ctrl->stream_off(dp->ctrl, dp_panel);
 
 		mutex_lock(&dp_panel->audio->ops_lock);
 
@@ -818,11 +823,15 @@ static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
+		dp->ctrl->stream_on(dp->ctrl, dp_panel);
+
 		if (dp_panel->audio_supported)
 			dp_panel->audio->on(dp_panel->audio);
 
 		mutex_unlock(&dp_panel->audio->ops_lock);
 	}
+
+	mutex_unlock(&dp->session_lock);
 }
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
@@ -1048,6 +1057,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	panel_in.catalog = &dp->catalog->panel;
 	panel_in.link = dp->link;
 	panel_in.connector = dp->dp_display.base_connector;
+	panel_in.base_panel = NULL;
 
 	dp->panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp->panel)) {
@@ -1198,14 +1208,45 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 	return 0;
 }
 
-static int dp_display_prepare(struct dp_display *dp, void *panel)
+static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 {
+	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
+
+	if (!dp_display || !panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_panel = panel;
+	if (!dp_panel->connector) {
+		pr_err("invalid connector input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+
+	if (atomic_read(&dp->aborted))
+		goto end;
+
+	dp->aux->init(dp->aux, dp->parser->aux_cfg);
+
+	if (dp->debug->psm_enabled) {
+		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
+		dp->debug->psm_enabled = false;
+	}
+
+end:
+	mutex_unlock(&dp->session_lock);
+
 	return 0;
 }
 
 static int dp_display_set_stream_info(struct dp_display *dp_display,
 			void *panel, u32 ch_id, u32 ch_start_slot,
-			u32 ch_tot_slots)
+			u32 ch_tot_slots, u32 pbn)
 {
 	int rc = 0;
 	struct dp_panel *dp_panel;
@@ -1217,7 +1258,7 @@ static int dp_display_set_stream_info(struct dp_display *dp_display,
 
 	dp_panel = panel;
 	dp_panel->set_stream_info(dp_panel, ch_id,
-			ch_start_slot, ch_tot_slots);
+			ch_start_slot, ch_tot_slots, pbn);
 
 	return rc;
 }
@@ -1264,13 +1305,6 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	if (atomic_read(&dp->aborted)) {
 		pr_err("aborted\n");
 		goto end;
-	}
-
-	dp->aux->init(dp->aux, dp->parser->aux_cfg);
-
-	if (dp->debug->psm_enabled) {
-		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
-		dp->debug->psm_enabled = false;
 	}
 
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
@@ -1355,9 +1389,8 @@ end:
 static int dp_display_stream_pre_disable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
-	dp->ctrl->push_idle(dp->ctrl, dp_panel->stream_id);
-
 	dp_panel->audio->deregister_ext_disp(dp_panel->audio);
+	dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
 
 	return 0;
 }
@@ -1390,16 +1423,16 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 			dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
-	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
-			dp->usbpd->alt_mode_cfg_done) {
-		if (dp_panel->audio_supported)
-			dp_panel->audio->off(dp_panel->audio);
+	if (dp_panel->audio_supported)
+		dp_panel->audio->off(dp_panel->audio);
 
+	rc = dp_display_stream_pre_disable(dp, dp_panel);
+
+	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
+			dp->usbpd->alt_mode_cfg_done && !dp->mst.mst_active) {
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 		dp->debug->psm_enabled = true;
 	}
-
-	rc = dp_display_stream_pre_disable(dp, dp_panel);
 
 end:
 	mutex_unlock(&dp->session_lock);
@@ -1455,10 +1488,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 		dp->dp_display.is_sst_connected = false;
 	}
 
-	dp->aux->deinit(dp->aux);
 	dp->power_on = false;
-	dp->aux->state = DP_STATE_CTRL_POWERED_OFF;
-	complete_all(&dp->notification_comp);
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
@@ -1509,8 +1539,35 @@ static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
 	return dp->debug;
 }
 
-static int dp_display_unprepare(struct dp_display *dp, void *panel)
+static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 {
+	struct dp_display_private *dp;
+
+	if (!dp_display || !panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+
+	if (dp->active_stream_cnt)
+		goto end;
+
+	if (atomic_read(&dp->aborted))
+		goto end;
+
+	if (!dp->mst.mst_active) {
+		dp->aux->deinit(dp->aux);
+		dp->aux->state = DP_STATE_CTRL_POWERED_OFF;
+	}
+
+	complete_all(&dp->notification_comp);
+
+end:
+	mutex_unlock(&dp->session_lock);
+
 	return 0;
 }
 
@@ -1739,6 +1796,7 @@ static int dp_display_mst_connector_install(struct dp_display *dp_display,
 	panel_in.catalog = &dp->catalog->panel;
 	panel_in.link = dp->link;
 	panel_in.connector = connector;
+	panel_in.base_panel = dp->panel;
 
 	dp_panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp_panel)) {
