@@ -2780,14 +2780,16 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	touchId = event[1] & 0x0F;
 	touchcount = (event[1] & 0xF0) >> 4;
 	touchsize = (event[5] & 0xC0) >> 6;
-	major = (event[5] & 0x1F);	// bit0-bit4: major
-	minor = event[6];		// event6:minor
+	major = (event[5] & 0x1F); // bit0-bit4: major
+	minor = event[6]; // event6:minor
 
 	__set_bit(touchId, &info->touch_id);
 
 	x = (event[2] << 4) | (event[4] & 0xF0) >> 4;
 	y = (event[3] << 4) | (event[4] & 0x0F);
 	z = (event[5] & 0x3F);
+	if (z == 0)
+		z = 10;
 
 	if (x == X_AXIS_MAX)
 		x--;
@@ -2796,54 +2798,31 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 		y--;
 
 	input_mt_slot(info->input_dev, touchId);
-/*#ifdef STYLUS_MODE*/
-	/**
-	 * TODO: check with ST how FW report a
-	 * stylus touch in the touch event,
-	 * this is an example code
-	 */
-	/*if (info->stylus_enabled == 1 && touchsize == STYLUS_SIZE) {*/
-		/*__set_bit(touchId, &info->stylus_id);*/
-		/*input_mt_report_slot_state(info->input_dev, MT_TOOL_PEN, 1);*/
-		/*logError(0, "%s  %s : It is a stylus!\n",tag,__func__); */
-	/*} else*/
-	/*input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);*/
-/*#else*/
-	/*input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);*/
-/*#endif*/
 	input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);
-	/*logError(0,*/
-	/*"%s %s:TouchID = %d, Touchcount = %d, minor:%d, major:%d\n",*/
-		/*tag, __func__, touchId, touchcount, minor, major);*/
-	/*logError(0,*/
-		/*"%s  %s : TouchID = %d,Touchcount = %d\n",*/
-		/*tag, __func__, touchId,touchcount);*/
-	/*if (touchcount == 1) {*/
-	input_report_key(info->input_dev, BTN_TOUCH, 1);
-	input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
-	/*}*/
-	/* input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, touchId);*/
+
+	logError(0, "%s %s : TouchID = %d,Touchcount = %d,minor:%d,major:%d\n",
+		tag, __func__, touchId, touchcount, minor, major);
+
+	if (touchcount == 1) {
+		input_report_key(info->input_dev, BTN_TOUCH, 1);
+		input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
+	}
 	input_report_abs(info->input_dev, ABS_MT_POSITION_X, x);
 	input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
-	/*input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, z);*/
-	/*input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, z);*/
-	/*input_report_abs(info->input_dev, ABS_MT_PRESSURE, z);*/
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, major);
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, minor);
+	input_report_abs(info->input_dev, ABS_MT_PRESSURE, z);
 	input_report_abs(info->input_dev, ABS_MT_DISTANCE, distance);
-	/*logError(0,*/
-		/*"%s%s:Event 0x%02x - ID[%d], (x, y, z) = (%3d, %3d, %3d)\n",*/
-		/*tag, __func__, *event, touchId, x, y, z);*/
-
 no_report:
 	return;
-	/* return fts_next_event(event); */
+
 }
 
 /* EventId : 0x04 */
 static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
-		unsigned char *event)
+			unsigned char *event)
 {
+
 	unsigned char touchId, touchcount;
 	u8 touchsize;
 
@@ -2851,37 +2830,18 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 	touchcount = (event[1] & 0xF0) >> 4;
 	touchsize = (event[5] & 0xC0) >> 6;
 
-	__clear_bit(touchId, &info->touch_id);
-
 	input_mt_slot(info->input_dev, touchId);
-/*#ifdef STYLUS_MODE*/
-	/**
-	 * TODO: check with ST how FW report a stylus touch
-	 * in the touch event, this is an example code
-	 */
-	/*if (info->stylus_enabled == 1 && touchsize == STYLUS_SIZE) {*/
-	/*	__clear_bit(touchId, &info->stylus_id);*/
-	/*	input_mt_report_slot_state(info->input_dev, MT_TOOL_PEN, 0);*/
-		/*logError(0, "%s  %s : It is a stylus!\n",tag,__func__);*/
-	/*} else*/
-	/*input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);*/
-/*#else*/
-	/*input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);*/
-/*#endif*/
+
+	__clear_bit(touchId, &info->touch_id);
 	input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);
-	/* input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);*/
-	/*logError(0, "%s  %s : TouchID = %d, Touchcount = %d\n",*/
-	/*tag,__func__,touchId,touchcount);*/
-	/*if (touchcount == 0) {*/
-	input_report_key(info->input_dev, BTN_TOUCH, 0);
-	input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
-	/*}*/
+
+	if (touchcount == 0) {
+		input_report_key(info->input_dev, BTN_TOUCH, 0);
+		input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
+	}
 
 	input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, -1);
-	/*logError(0, "%s  %s : Event 0x%02x - release ID[%d]\n",*/
-	/*tag, __func__, event[0], touchId);*/
 
-	/*return fts_next_event(event);*/
 }
 
 /* EventId : 0x05 */
@@ -3893,12 +3853,15 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 	struct fb_event *evdata = data;
 	unsigned int blank;
 
+	if (!evdata || (evdata->id != 0))
+		return 0;
+
 	if (val != FB_EVENT_BLANK)
 		return 0;
 
 	logError(0, "%s %s: fts notifier begin!\n", tag, __func__);
 
-	if (evdata && evdata->data && val == FB_EVENT_BLANK && info) {
+	if (evdata->data && val == FB_EVENT_BLANK && info) {
 
 		blank = *(int *) (evdata->data);
 
@@ -3939,11 +3902,14 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 	struct msm_drm_notifier *evdata = data;
 	unsigned int blank;
 
+	if (!evdata || (evdata->id != 0))
+		return 0;
+
 	if (val != MSM_DRM_EVENT_BLANK)
 		return 0;
 	logError(0, "%s %s: fts notifier begin!\n", tag, __func__);
 
-	if (evdata && evdata->data && val == MSM_DRM_EVENT_BLANK && info) {
+	if (evdata->data && val == MSM_DRM_EVENT_BLANK && info) {
 		blank = *(int *) (evdata->data);
 
 		switch (blank) {
