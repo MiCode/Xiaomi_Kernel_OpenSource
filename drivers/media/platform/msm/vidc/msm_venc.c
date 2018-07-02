@@ -2751,7 +2751,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			f->fmt.pix_mp.pixelformat);
 
 		if (!fmt_constraint) {
-			dprintk(VIDC_ERR,
+			dprintk(VIDC_INFO,
 				"Format constraint not required for %d on OUTPUT port\n",
 				f->fmt.pix_mp.pixelformat);
 		} else {
