@@ -234,23 +234,23 @@
 &i2c_3 {
 	status = "okay";
 	synaptics@22 {
-		compatible = "synaptics,dsx";
+		compatible = "synaptics,dsx-i2c";
 		reg = <0x22>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <65 0x2008>;
-		avdd-supply = <&pm8937_l10>;
-		vdd-supply = <&pm8937_l5>;
-		synaptics,vdd-voltage = <1880000 1880000>;
-		synaptics,avdd-voltage = <3008000 3008000>;
-		synaptics,vdd-current = <40000>;
-		synaptics,avdd-current = <20000>;
+		vdd_ana-supply = <&pm8937_l10>;
+		vcc_i2c-supply = <&pm8937_l5>;
+		synaptics,pwr-reg-name = "vdd_ana";
+		synaptics,bus-reg-name = "vcc_i2c";
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		synaptics,display-coords = <0 0 719 1439>;
-		synaptics,panel-coords  = <0 0 719 1439>;
-		synaptics,reset-gpio = <&tlmm 64 0x00>;
 		synaptics,irq-gpio = <&tlmm 65 0x2008>;
-		synaptics,disable-gpios;
+		synaptics,irq-on-state = <0>;
+		synaptics,irq-flags = <0x2008>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,max-y-for-2d = <1439>;
+		synaptics,resume-in-workqueue;
 	};
 };
