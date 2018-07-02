@@ -525,6 +525,15 @@ config LEDS_QPNP_WLED
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-qpnp-wled.
 
+config LEDS_MSM_GPIO_FLASH
+	tristate "Support for GPIO Flash LEDs"
+	help
+	  This driver supports the leds functionality of GPIO Flash LED.
+          It includes flash mode and torch mode.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-gpio-flash.
+
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"
 	depends on LEDS_CLASS=y
