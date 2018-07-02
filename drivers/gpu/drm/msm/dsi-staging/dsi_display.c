@@ -236,6 +236,12 @@ static int dsi_display_phy_power_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *ctrl;
 
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip phy power on\n");
+		return rc;
+	}
+
 	/* Sequence does not matter for split dsi usecases */
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -292,6 +298,12 @@ static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip core clk on calling\n");
+		return rc;
+	}
+
 	/*
 	 * In case of split DSI usecases, the clock for master controller should
 	 * be enabled before the other controller. Master controller in the
@@ -333,6 +345,12 @@ static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	/* early return for splash enabled case */
+	if (display->cont_splash_enabled) {
+		pr_debug("skip ctrl link clk on calling\n");
+		return rc;
+	}
 
 	/*
 	 * In case of split DSI usecases, the clock for master controller should
@@ -1164,6 +1182,13 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		pr_err("Number of controllers does not match PHYs\n");
 		rc = -ENODEV;
 		goto error;
+	}
+
+	/* Only read swap property in split case */
+	if (display->ctrl_count > 1) {
+		display->dsi_split_swap =
+			of_property_read_bool(display->pdev->dev.of_node,
+					"qcom,dsi-split-swap");
 	}
 
 	if (of_get_property(display->pdev->dev.of_node, "qcom,dsi-panel",
@@ -2281,6 +2306,14 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	for (i = 0; i < info->num_of_h_tiles; i++)
 		info->h_tile_instance[i] = display->ctrl[i].ctrl->index;
 
+	/*
+	 * h_tile_instance[2] = {0, 1} means DSI0 left(master), DSI1 right
+	 * h_tile_instance[2] = {1, 0} means DSI1 left(master), DSI0 right
+	 * So in case of split case and swap property is set, swap two DSIs.
+	 */
+	if (info->num_of_h_tiles > 1 && display->dsi_split_swap)
+		swap(info->h_tile_instance[0], info->h_tile_instance[1]);
+
 	info->is_connected = true;
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
@@ -2827,28 +2860,12 @@ int dsi_dsiplay_setup_splash_resource(struct dsi_display *display)
 		if (!ctrl)
 			return -EINVAL;
 
-		dsi_pwr_enable_regulator(&ctrl->ctrl->pwr_info.host_pwr, true);
-		dsi_pwr_enable_regulator(&ctrl->ctrl->pwr_info.digital, true);
-		dsi_pwr_enable_regulator(&ctrl->phy->pwr_info.phy_pwr, true);
-
-		ret = dsi_clk_enable_core_clks(&ctrl->ctrl->clk_info.core_clks,
-						true);
-		if (ret) {
-			SDE_ERROR("failed to set core clk for dsi, ret = %d\n",
-						ret);
-			return -EINVAL;
-		}
-
-		ret = dsi_clk_enable_link_clks(&ctrl->ctrl->clk_info.link_clks,
-						true);
-		if (ret) {
-			SDE_ERROR("failed to set link clk for dsi, ret = %d\n",
-						ret);
-			return -EINVAL;
-		}
-
-		dsi_ctrl_update_power_state(ctrl->ctrl,
+		ret = dsi_ctrl_set_power_state(ctrl->ctrl,
 					DSI_CTRL_POWER_LINK_CLK_ON);
+		if (ret) {
+			SDE_ERROR("calling dsi_ctrl_set_power_state failed\n");
+			return ret;
+		}
 	}
 
 	return ret;

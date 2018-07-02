@@ -132,6 +132,7 @@
 		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
 		pinctrl-0 = <&cnss_bootstrap_active>;
 		pinctrl-1 = <&cnss_bootstrap_sleep>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
 
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;

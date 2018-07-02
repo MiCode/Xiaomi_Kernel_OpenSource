@@ -1956,7 +1956,8 @@ static void msm_isp_handle_done_buf_frame_id_mismatch(
 
 static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
-	struct timeval *time_stamp, uint32_t frame_id)
+	struct timeval *time_stamp, struct timeval *time_stamp_system,
+	uint32_t frame_id)
 {
 	int rc;
 	unsigned long flags;
@@ -2037,7 +2038,13 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	}
 
 	buf_event.frame_id = frame_id;
+	/* timestamp stores monotonic time */
 	buf_event.timestamp = *time_stamp;
+	/* for buf_event, mono_timestamp is unused attribute
+	 * reuse this to store system time and propagate to
+	 * userspace
+	 */
+	buf_event.mono_timestamp = *time_stamp_system;
 	buf_event.u.buf_done.session_id = stream_info->session_id;
 	buf_event.u.buf_done.stream_id = stream_info->stream_id;
 	buf_event.u.buf_done.handle = buf->bufq_handle;
@@ -2831,7 +2838,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 
 		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		spin_lock_irqsave(&stream_info->lock, flags);
-		msm_isp_reset_framedrop(vfe_dev, stream_info);
 		rc = msm_isp_init_stream_ping_pong_reg(vfe_dev, stream_info);
 		if (rc < 0) {
 			pr_err("%s: No buffer for stream%d\n", __func__,
@@ -3579,6 +3585,11 @@ int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg)
 					pstream_info, plane_idx);
 		}
 
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(
+			vfe_dev->vfe_base, pstream_info,
+			pCmd->output_path_cfg[axi_src_idx].framedrop_pattern,
+			pCmd->output_path_cfg[axi_src_idx].framedrop_period);
+
 		if (axi_src_idx <= PIX_ENCODER && axi_src_idx <= IDEAL_RAW) {
 			if (axi_src_idx == CAMIF_RAW) {
 				vfe_dev->axi_data.src_info[VFE_PIX_0].
@@ -3619,6 +3630,29 @@ int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
+void msm_isp_framedrop_update(struct vfe_device *vfe_dev, void *arg)
+{
+	struct msm_vfe_axi_framedrop_update *pCmd = arg;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_axi_stream *pstream_info;
+
+	pr_debug("%s: entry\n", __func__);
+
+	if (pCmd->stream_src < VFE_AXI_SRC_MAX) {
+
+		pstream_info = &axi_data->stream_info[pCmd->stream_src];
+
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(
+			vfe_dev->vfe_base, pstream_info,
+			pCmd->framedrop_pattern,
+			pCmd->framedrop_period);
+
+		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(
+			vfe_dev, SRC_TO_INTF(pstream_info->stream_src));
+	}
+
+	pr_debug("%s: exit\n", __func__);
+}
 
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
@@ -3934,6 +3968,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer *done_buf = NULL;
 	unsigned long flags;
 	struct timeval *time_stamp;
+	struct timeval *time_stamp_system;
 	uint32_t frame_id, buf_index = -1;
 	struct msm_vfe_axi_stream *temp_stream;
 
@@ -3947,6 +3982,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		time_stamp = &ts->vt_time;
 	} else {
 		time_stamp = &ts->buf_time;
+		/* store system time */
+		time_stamp_system = &ts->event_time;
 	}
 
 	frame_id = vfe_dev->axi_data.
@@ -4089,7 +4126,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	}
 
 	msm_isp_process_done_buf(vfe_dev, stream_info,
-			done_buf, time_stamp, frame_id);
+			done_buf, time_stamp, time_stamp_system, frame_id);
 }
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,

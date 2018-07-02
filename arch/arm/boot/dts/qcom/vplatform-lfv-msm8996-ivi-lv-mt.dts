@@ -98,18 +98,3 @@
 			label = "ion_system_mem";
 		};
 };
-
-#include "vplatform-lfv-msm8996-usb.dtsi"
-
-&usb3 {
-	status = "okay";
-	qcom,no-wakeup-src-in-hostmode;
-};
-
-&qusb_phy0 {
-	status = "okay";
-};
-
-&ssphy {
-	status = "okay";
-};

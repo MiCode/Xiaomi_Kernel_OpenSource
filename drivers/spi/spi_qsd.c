@@ -44,6 +44,7 @@
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <soc/qcom/boot_stats.h>
 #include "spi_qsd.h"
 
 #define SPI_MAX_BYTES_PER_WORD			(4)
@@ -2581,6 +2582,7 @@ static int msm_spi_probe(struct platform_device *pdev)
 	int			i = 0;
 	int                     rc = -ENXIO;
 	struct msm_spi_platform_data *pdata;
+	char boot_marker[40];
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct msm_spi));
 	if (!master) {
@@ -2648,6 +2650,10 @@ static int msm_spi_probe(struct platform_device *pdev)
 							resource->start : -1;
 		}
 	}
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER MSM SPI_%d Init", pdev->id);
+	place_marker(boot_marker);
 
 	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
 		dd->cs_gpios[i].valid = 0;
@@ -2739,6 +2745,10 @@ skip_dma_resources:
 	}
 	rc = sysfs_create_file(&(dd->dev->kobj), &dev_attr_spi_qup_state.attr);
 	spi_debugfs_init(dd);
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER MSM SPI_%d Ready", pdev->id);
+	place_marker(boot_marker);
 
 	return 0;
 

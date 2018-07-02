@@ -1435,8 +1435,26 @@ err_usb2phy_init:
 	return ret;
 }
 
+static int dwc3_pm_restore(struct device *dev)
+{
+	/*
+	 * Set the core as runtime active to prevent the runtime
+	 * PM ops being called before the PM restore is completed.
+	 */
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
+	.suspend	= dwc3_suspend,
+	.resume		= dwc3_resume,
+	.freeze		= dwc3_suspend,
+	.thaw		= dwc3_pm_restore,
+	.poweroff	= dwc3_suspend,
+	.restore	= dwc3_pm_restore,
 };
 
 #define DWC3_PM_OPS	&(dwc3_dev_pm_ops)

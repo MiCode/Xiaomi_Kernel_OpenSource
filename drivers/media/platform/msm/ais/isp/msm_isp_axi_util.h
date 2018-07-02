@@ -84,6 +84,7 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 
 int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg);
 
+void msm_isp_framedrop_update(struct vfe_device *vfe_dev, void *arg);
 
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src);

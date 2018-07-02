@@ -31,9 +31,14 @@ struct boot_stats {
 int boot_stats_init(void);
 int boot_stats_exit(void);
 unsigned long long int msm_timer_get_sclk_ticks(void);
+phys_addr_t msm_timer_get_pa(void);
 #else
 static inline int boot_stats_init(void) { return 0; }
-unsigned long long int msm_timer_get_sclk_ticks(void) { return 0; }
+static inline unsigned long long int msm_timer_get_sclk_ticks(void)
+{
+	return 0;
+}
+static inline phys_addr_t msm_timer_get_pa(void) { return 0; }
 #endif
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER

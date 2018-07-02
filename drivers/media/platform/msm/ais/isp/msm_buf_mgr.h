@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,16 +42,6 @@ enum msm_isp_buffer_src_t {
 	MSM_ISP_BUFFER_SRC_NATIVE,
 	MSM_ISP_BUFFER_SRC_SCRATCH,
 	MSM_ISP_BUFFER_SRC_MAX,
-};
-
-enum msm_isp_buffer_state {
-	MSM_ISP_BUFFER_STATE_UNUSED,         /* not used */
-	MSM_ISP_BUFFER_STATE_INITIALIZED,    /* REQBUF done */
-	MSM_ISP_BUFFER_STATE_PREPARED,       /* BUF mapped */
-	MSM_ISP_BUFFER_STATE_QUEUED,         /* buf queued */
-	MSM_ISP_BUFFER_STATE_DEQUEUED,       /* in use in VFE */
-	MSM_ISP_BUFFER_STATE_DIVERTED,       /* Sent to other hardware*/
-	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* Sent to HAL*/
 };
 
 enum msm_isp_buffer_put_state {
@@ -182,6 +172,9 @@ struct msm_isp_buf_ops {
 	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t id, uint32_t bufq_handle, int32_t buf_index,
 	struct timeval *tv, uint32_t frame_id, uint32_t pingpong_bit);
+
+	int (*get_bufq_state)(struct msm_isp_buf_mgr *buf_mgr,
+		struct msm_vfe_bufq_state *bufq_state);
 };
 
 struct msm_isp_buf_mgr {

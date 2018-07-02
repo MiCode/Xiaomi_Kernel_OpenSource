@@ -30,7 +30,7 @@ static int fill_vmid_mmid_tbl(struct vmid_mmid_desc *tbl, int32_t vm_start,
 		for (j = mmid_start; j < mmid_start + mmid_range; j++) {
 			/* sanity check */
 			if (tbl[i].mmid[j] != HABCFG_VMID_INVALID) {
-				pr_err("overwrite previous setting, i %d, j %d, be %d\n",
+				pr_err("overwrite previous setting vmid %d, mmid %d, be %d\n",
 					i, j, tbl[i].is_listener[j]);
 			}
 			tbl[i].mmid[j] = j;
@@ -43,28 +43,23 @@ static int fill_vmid_mmid_tbl(struct vmid_mmid_desc *tbl, int32_t vm_start,
 
 void dump_settings(struct local_vmid *settings)
 {
-	int i, j;
-
 	pr_debug("self vmid is %d\n", settings->self);
-	for (i = 0; i < HABCFG_VMID_MAX; i++) {
-		pr_debug("remote vmid %d\n",
-			settings->vmid_mmid_list[i].vmid);
-		for (j = 0; j <= HABCFG_MMID_AREA_MAX; j++) {
-			pr_debug("mmid %d, is_be %d\n",
-				settings->vmid_mmid_list[i].mmid[j],
-				settings->vmid_mmid_list[i].is_listener[j]);
-		}
-	}
 }
 
 int fill_default_gvm_settings(struct local_vmid *settings, int vmid_local,
-				  int mmid_start, int mmid_end) {
+		int mmid_start, int mmid_end)
+{
+	int32_t be = HABCFG_BE_FALSE;
+	int32_t range = 1;
+	int32_t vmremote = 0; /* default to host[0] as local is guest[2] */
+
 	settings->self = vmid_local;
 	/* default gvm always talks to host as vm0 */
-	return fill_vmid_mmid_tbl(settings->vmid_mmid_list, 0, 1,
-		mmid_start/100, (mmid_end-mmid_start)/100+1, HABCFG_BE_FALSE);
+	return fill_vmid_mmid_tbl(settings->vmid_mmid_list, vmremote, range,
+		mmid_start/100, (mmid_end-mmid_start)/100+1, be);
 }
 
+/* device tree based parser */
 static int hab_parse_dt(struct local_vmid *settings)
 {
 	int result, i;
@@ -151,6 +146,10 @@ static int hab_parse_dt(struct local_vmid *settings)
 	return 0;
 }
 
+/*
+ * 0: successful
+ * negative: various failure core
+ */
 int hab_parse(struct local_vmid *settings)
 {
 	int ret;

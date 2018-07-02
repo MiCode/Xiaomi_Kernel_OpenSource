@@ -91,6 +91,7 @@
 enum {
 	HW_OFF,
 	HW_LEN,
+	HW_DISP,
 	HW_PROP_MAX,
 };
 
@@ -201,6 +202,7 @@ enum {
 	MIXER_OFF,
 	MIXER_LEN,
 	MIXER_BLOCKS,
+	MIXER_DISP,
 	MIXER_PROP_MAX,
 };
 
@@ -320,12 +322,15 @@ static struct sde_prop_type rgb_prop[] = {
 static struct sde_prop_type ctl_prop[] = {
 	{HW_OFF, "qcom,sde-ctl-off", true, PROP_TYPE_U32_ARRAY},
 	{HW_LEN, "qcom,sde-ctl-size", false, PROP_TYPE_U32},
+	{HW_DISP, "qcom,sde-ctl-display-pref", false, PROP_TYPE_STRING_ARRAY},
 };
 
 static struct sde_prop_type mixer_prop[] = {
 	{MIXER_OFF, "qcom,sde-mixer-off", true, PROP_TYPE_U32_ARRAY},
 	{MIXER_LEN, "qcom,sde-mixer-size", false, PROP_TYPE_U32},
 	{MIXER_BLOCKS, "qcom,sde-mixer-blocks", false, PROP_TYPE_NODE},
+	{MIXER_DISP, "qcom,sde-mixer-display-pref", false,
+		PROP_TYPE_STRING_ARRAY},
 };
 
 static struct sde_prop_type mixer_blocks_prop[] = {
@@ -1102,6 +1107,7 @@ static int sde_ctl_parse_dt(struct device_node *np,
 		goto end;
 
 	for (i = 0; i < off_count; i++) {
+		const char *disp_pref = NULL;
 		ctl = sde_cfg->ctl + i;
 		ctl->base = PROP_VALUE_ACCESS(prop_value, HW_OFF, i);
 		ctl->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
@@ -1109,6 +1115,16 @@ static int sde_ctl_parse_dt(struct device_node *np,
 		snprintf(ctl->name, SDE_HW_BLK_NAME_LEN, "ctl_%u",
 				ctl->id - CTL_0);
 
+		of_property_read_string_index(np,
+			ctl_prop[HW_DISP].prop_name, i, &disp_pref);
+		if (disp_pref) {
+			if (!strcmp(disp_pref, "primary"))
+				set_bit(SDE_CTL_PRIMARY_PREF, &ctl->features);
+			else if (!strcmp(disp_pref, "secondary"))
+				set_bit(SDE_CTL_SECONDARY_PREF, &ctl->features);
+			else if (!strcmp(disp_pref, "tertiary"))
+				set_bit(SDE_CTL_TERTIARY_PREF, &ctl->features);
+		}
 		if (i < MAX_SPLIT_DISPLAY_CTL)
 			set_bit(SDE_CTL_SPLIT_DISPLAY, &ctl->features);
 		if (i < MAX_PP_SPLIT_DISPLAY_CTL)
@@ -1187,6 +1203,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	}
 
 	for (i = 0, pp_idx = 0, dspp_idx = 0; i < off_count; i++) {
+		const char *disp_pref = NULL;
 		mixer = sde_cfg->mixer + i;
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
 		if (!sblk) {
@@ -1215,6 +1232,21 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			ARRAY_SIZE(blend_reg_base), max_blendstages)));
 		if (sde_cfg->has_src_split)
 			set_bit(SDE_MIXER_SOURCESPLIT, &mixer->features);
+
+		of_property_read_string_index(np,
+			mixer_prop[MIXER_DISP].prop_name, i, &disp_pref);
+
+		if (disp_pref) {
+			if (!strcmp(disp_pref, "primary"))
+				set_bit(SDE_DISP_PRIMARY_PREF,
+					&mixer->features);
+			else if (!strcmp(disp_pref, "secondary"))
+				set_bit(SDE_DISP_SECONDARY_PREF,
+					&mixer->features);
+			else if (!strcmp(disp_pref, "tertiary"))
+				set_bit(SDE_DISP_TERTIARY_PREF,
+					&mixer->features);
+		}
 
 		if ((i < ROT_LM_OFFSET) || (i >= LINE_LM_OFFSET)) {
 			mixer->pingpong = pp_count > 0 ? pp_idx + PINGPONG_0

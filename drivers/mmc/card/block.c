@@ -1301,8 +1301,25 @@ static int mmc_blk_ioctl_multi_cmd(struct block_device *bdev,
 
 	mmc_get_card(card);
 
+	if (mmc_card_cmdq(card)) {
+		err = mmc_cmdq_halt(card->host, true);
+		if (err) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+					mmc_hostname(card->host),
+					__func__, err);
+			mmc_put_card(card);
+			goto cmd_done;
+		}
+	}
+
 	for (i = 0; i < num_of_cmds && !ioc_err; i++)
 		ioc_err = __mmc_blk_ioctl_cmd(card, md, idata[i]);
+
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
 
 	mmc_put_card(card);
 
@@ -3978,6 +3995,7 @@ cmdq_switch:
 		pr_err("%s: %s: mmc_blk_cmdq_switch failed: %d\n",
 			mmc_hostname(host), __func__,  err);
 		ret = err;
+		goto out;
 	}
 cmdq_unhalt:
 	err = mmc_cmdq_halt(host, false);

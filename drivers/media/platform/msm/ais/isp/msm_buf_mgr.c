@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1144,6 +1144,43 @@ static void msm_isp_release_all_bufq(
 	}
 }
 
+static int msm_isp_get_bufq_state(struct msm_isp_buf_mgr *buf_mgr,
+		struct msm_vfe_bufq_state *bufq_state)
+{
+	int rc = 0;
+	struct msm_isp_bufq *bufq = NULL;
+	uint32_t i = 0;
+	int32_t *k_bufq_states = NULL;
+	uint32_t size = 0;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_state->handle);
+	if (bufq) {
+		bufq_state->nbufs = bufq->num_bufs;
+		size = bufq->num_bufs*sizeof(int32_t);
+		k_bufq_states = kzalloc(size, GFP_KERNEL);
+		if (!k_bufq_states) {
+			rc = -ENOMEM;
+			goto alloc_states_failed;
+		}
+
+		for (i = 0; i < bufq_state->nbufs; ++i)
+			k_bufq_states[i] = bufq->bufs[i].state;
+
+		if (copy_to_user(bufq_state->buf_state,
+				k_bufq_states,
+				sizeof(int32_t) * bufq->num_bufs)) {
+			rc = -EFAULT;
+			pr_err("%s copy_to_user fail\n", __func__);
+			goto copy_failed;
+		}
+
+copy_failed:
+		kfree(k_bufq_states);
+	}
+
+alloc_states_failed:
+	return rc;
+}
 
 /**
  * msm_isp_buf_put_scratch() - Release scratch buffers
@@ -1357,6 +1394,14 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 		rc = buf_mgr->ops->unmap_buf(buf_mgr, unmap_req->fd);
 		break;
 	}
+	case VIDIOC_MSM_ISP_CMD_EXT: {
+		struct msm_vfe_cmd_ext *cmd_ext = (struct msm_vfe_cmd_ext *)arg;
+
+		if (cmd_ext->type == VFE_GET_BUFQ_STATE)
+			rc = buf_mgr->ops->get_bufq_state(buf_mgr,
+					&cmd_ext->data.bufq_state);
+		break;
+	}
 	}
 	return rc;
 }
@@ -1507,6 +1552,7 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.buf_mgr_debug = msm_isp_buf_mgr_debug,
 	.get_bufq = msm_isp_get_bufq,
 	.update_put_buf_cnt = msm_isp_update_put_buf_cnt,
+	.get_bufq_state = msm_isp_get_bufq_state,
 };
 
 int msm_isp_create_isp_buf_mgr(

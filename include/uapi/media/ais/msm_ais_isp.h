@@ -619,6 +619,33 @@ struct msm_vfe_axi_src_state {
 	uint32_t src_frame_id;
 };
 
+enum msm_vfe_cmd_ext_type_t {
+	VFE_GET_BUFQ_STATE,
+};
+
+enum msm_isp_buffer_state {
+	MSM_ISP_BUFFER_STATE_UNUSED,         /* not used */
+	MSM_ISP_BUFFER_STATE_INITIALIZED,    /* REQBUF done */
+	MSM_ISP_BUFFER_STATE_PREPARED,       /* BUF mapped */
+	MSM_ISP_BUFFER_STATE_QUEUED,         /* buf queued */
+	MSM_ISP_BUFFER_STATE_DEQUEUED,       /* in use in VFE */
+	MSM_ISP_BUFFER_STATE_DIVERTED,       /* Sent to other hardware*/
+	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* Sent to HAL*/
+};
+
+struct msm_vfe_bufq_state {
+	uint32_t handle;
+	uint32_t nbufs;
+	int32_t __user *buf_state;
+};
+
+struct msm_vfe_cmd_ext {
+	enum msm_vfe_cmd_ext_type_t type;
+	union {
+		struct msm_vfe_bufq_state bufq_state;
+	} data;
+};
+
 enum msm_isp_event_mask_index {
 	ISP_EVENT_MASK_INDEX_STATS_NOTIFY		= 0,
 	ISP_EVENT_MASK_INDEX_ERROR			= 1,
@@ -909,6 +936,13 @@ struct msm_vfe_axi_output_plane_cfg {
 	uint32_t frame_increment;
 };
 
+struct msm_vfe_axi_framedrop_update {
+	enum msm_vfe_axi_stream_src stream_src;
+
+	uint8_t framedrop_period;
+	uint32_t framedrop_pattern;
+};
+
 struct msm_vfe_axi_output_path_cfg {
 	uint8_t enable;
 
@@ -975,6 +1009,8 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_STOP,
 
 	MSM_ISP_SET_CLK_STATUS,
+	MSM_ISP_CMD_EXT,
+	MSM_ISP_FRAMEDROP_UPDATE,
 };
 
 
@@ -1102,6 +1138,10 @@ enum msm_isp_ioctl_cmd_code {
 	_IOWR('V', MSM_ISP_AXI_OUTPUT_CFG, \
 		struct msm_vfe_axi_output_cfg)
 
+#define VIDIOC_MSM_ISP_FRAMEDROP_UPDATE \
+	_IOWR('V', MSM_ISP_FRAMEDROP_UPDATE, \
+		struct msm_vfe_axi_output_cfg)
+
 #define VIDIOC_MSM_ISP_CAMIF_CFG \
 	_IOWR('V', MSM_ISP_CAMIF_CFG, \
 		struct msm_vfe_camif_cfg)
@@ -1109,5 +1149,9 @@ enum msm_isp_ioctl_cmd_code {
 #define VIDIOC_MSM_ISP_SET_CLK_STATUS \
 	_IOWR('V', MSM_ISP_SET_CLK_STATUS, \
 		unsigned int)
+
+#define VIDIOC_MSM_ISP_CMD_EXT \
+	_IOWR('V', MSM_ISP_CMD_EXT, \
+		struct msm_vfe_cmd_ext)
 
 #endif /* __UAPI_MSM_AIS_ISP__ */

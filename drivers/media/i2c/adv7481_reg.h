@@ -342,6 +342,12 @@
 #define HDMI_EDID_A_ENABLE_BMSK                 0x0001
 #define HDMI_EDID_A_ENABLE_SHFT                 0
 
+/* HDMI RX INFOFRAME Map Registers (Read Only) */
+#define HDMI_REG_AVI_INF_PB_ADDR                0x00
+#define HDMI_REG_AVI_PACKET_ID_ADDR             0xE0
+#define HDMI_REG_AVI_INF_VERS_ADDR              0xE1
+#define HDMI_REG_AVI_INF_LEN_ADDR               0xE2
+
 /* CEC Map Registers */
 #define CEC_REG_LOG_ADDR_MASK_ADDR              0x27
 #define CEC_REG_LOG_ADDR_MASK2_BMSK             0x0040
@@ -410,6 +416,13 @@
 #define SDP_RO_MAIN_LOST_LOCK_SHFT              1
 #define SDP_RO_MAIN_IN_LOCK_BMSK                0x0001
 #define SDP_RO_MAIN_IN_LOCK_SHFT                0
+#define SDP_RO_MAIN_INTERLACE_STATE_ADDR	0x13
+#define SDP_RO_MAIN_INTERLACE_STATE_BMSK	0x0040
+#define SDP_RO_MAIN_INTERLACE_STATE_SHFT	6
+#define SDP_RO_MAIN_FIELD_LEN_BMSK		0x0020
+#define SDP_RO_MAIN_FIELD_LEN_SHFT		5
+#define SDP_RO_MAIN_SD_FIELD_RATE_BMSK		0x0004
+#define SDP_RO_MAIN_SD_FIELD_RATE_SHFT		2
 
 /* SDP R/O Map 1 Registers */
 #define SDP_RO_MAP_1_FIELD_ADDR                 0x45

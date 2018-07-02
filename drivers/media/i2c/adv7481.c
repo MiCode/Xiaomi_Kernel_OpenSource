@@ -41,16 +41,17 @@
 #include "msm_camera_i2c.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
+#include "linux/hdmi.h"
 
 #define DRIVER_NAME "adv7481"
 
-#define I2C_RW_DELAY		1
-#define I2C_SW_RST_DELAY	5000
+#define I2C_RW_DELAY			1
+#define I2C_SW_RST_DELAY		5000
 #define GPIO_HW_RST_DELAY_HI	10000
 #define GPIO_HW_RST_DELAY_LOW	10000
 #define SDP_MIN_SLEEP		5000
 #define SDP_MAX_SLEEP		6000
-#define SDP_NUM_TRIES		30
+#define SDP_NUM_TRIES		50
 #define LOCK_MIN_SLEEP		5000
 #define LOCK_MAX_SLEEP		6000
 #define LOCK_NUM_TRIES		200
@@ -60,9 +61,12 @@
 #define MAX_DEFAULT_FRAME_RATE  60
 #define MAX_DEFAULT_PIX_CLK_HZ  74240000
 
-#define ONE_MHZ_TO_HZ		1000000
-#define I2C_BLOCK_WRITE_SIZE    1024
-#define ADV_REG_STABLE_DELAY    70      /* ms*/
+#define ONE_MHZ_TO_HZ			1000000
+#define I2C_BLOCK_WRITE_SIZE	1024
+#define ADV_REG_STABLE_DELAY	70		/* ms*/
+
+#define AVI_INFOFRAME_SIZE		31
+#define INFOFRAME_DATA_SIZE		28
 
 enum adv7481_gpio_t {
 
@@ -120,6 +124,7 @@ struct adv7481_state {
 	uint8_t i2c_csi_txa_addr;
 	uint8_t i2c_csi_txb_addr;
 	uint8_t i2c_hdmi_addr;
+	uint8_t i2c_hdmi_inf_addr;
 	uint8_t i2c_edid_addr;
 	uint8_t i2c_cp_addr;
 	uint8_t i2c_sdp_addr;
@@ -140,6 +145,9 @@ struct adv7481_state {
 	int csia_src;
 	int csib_src;
 	int mode;
+
+	/* AVI Infoframe Params */
+	struct avi_infoframe_params hdmi_avi_infoframe;
 
 	/* resolution configuration */
 	struct resolution_config res_configs[RES_MAX];
@@ -185,19 +193,20 @@ const uint8_t adv7481_default_edid_data[] = {
 /* Display Parameters */
 0x80, 0x10, 0x09, 0x78, 0x0A,
 /* Color characteristics */
-0x0D, 0xC9, 0xA0, 0x57, 0x47, 0x98, 0x27, 0x12, 0x48, 0x4C,
+0x0D, 0xC9, 0xA0, 0x57, 0x47, 0x98, 0x27, 0x12,
+0x48, 0x4C,
 /* Established Timings */
 0x21, 0x08, 0x00,
 /* Standard Timings */
-0x81, 0xC0, 0x81, 0x40, 0x3B, 0xC0, 0x3B, 0x40,
-0x31, 0xC0, 0x31, 0x40, 0x01, 0x01, 0x01, 0x01,
+0xD1, 0xC0, 0xD1, 0x40, 0x81, 0xC0, 0x81, 0x40,
+0x3B, 0xC0, 0x3B, 0x40, 0x31, 0xC0, 0x31, 0x40,
 /* Detailed Timings Block */
-0x01, 0x1D, 0x00, 0xBC, 0x52, 0xD0, 0x1E, 0x20,
-0xB8, 0x28, 0x55, 0x40, 0xA0, 0x5A, 0x00, 0x00,
+0x1A, 0x36, 0x80, 0xA0, 0x70, 0x38, 0x1F, 0x40,
+0x30, 0x20, 0x35, 0x00, 0x40, 0x44, 0x21, 0x00,
 0x00, 0x1E,
 /* Monitor Descriptor Block 2 */
-0x8C, 0x0A, 0xD0, 0xB4, 0x20, 0xE0, 0x14, 0x10,
-0x12, 0x48, 0x3A, 0x00, 0xD8, 0xA2, 0x00, 0x00,
+0x00, 0x19, 0x00, 0xA0, 0x50, 0xD0, 0x15, 0x20,
+0x30, 0x20, 0x35, 0x00, 0x80, 0xD8, 0x10, 0x00,
 0x00, 0x1E,
 /* Monitor Descriptor Block 3 */
 0x00, 0x00, 0x00, 0xFD, 0x00, 0x17, 0x4B, 0x0F,
@@ -210,16 +219,16 @@ const uint8_t adv7481_default_edid_data[] = {
 /* Extension Flag CEA */
 0x01,
 /* Checksum */
-0x5B,
+0x16,
 
 /* Block 1 (Extension Block) */
 /* Extension Header */
-0x02, 0x03, 0x1E,
+0x02, 0x03, 0x22,
 /* Display supports */
 0x71,
-/* Video Data Bock */
-0x48, 0x84, 0x13, 0x3C, 0x03, 0x02, 0x11, 0x12,
-0x01,
+/* Video Data Block */
+0x4C, 0x84, 0x13, 0x3C, 0x03, 0x02, 0x11, 0x12,
+0x01, 0x90, 0x1F, 0x20, 0x22,
 /* HDMI VSDB */
 /* Deep color All, Max_TMDS_Clock = 150 MHz */
 0x68, 0x03, 0x0C, 0x00, 0x10, 0x00, 0x80,
@@ -231,17 +240,17 @@ const uint8_t adv7481_default_edid_data[] = {
 /* Speaker Allocation Data Block */
 0x83, 0x01, 0x00, 0x00,
 /* Detailed Timing Descriptor */
-0x01, 0x1D, 0x00, 0x72, 0x51, 0xD0, 0x1E, 0x20,
-0x6E, 0x28, 0x55, 0x00, 0xA0, 0x2A, 0x53, 0x00,
+0x1A, 0x36, 0x80, 0xA0, 0x70, 0x38, 0x1F, 0x40,
+0x30, 0x20, 0x35, 0x00, 0x40, 0x44, 0x21, 0x00,
 0x00, 0x1E,
 /* Detailed Timing Descriptor */
-0x8C, 0x0A, 0xD0, 0xB4, 0x20, 0xE0, 0x14, 0x10,
-0x12, 0x48, 0x3A, 0x00, 0xD8, 0xA2, 0x00, 0x00,
+0x00, 0x19, 0x00, 0xA0, 0x50, 0xD0, 0x15, 0x20,
+0x30, 0x20, 0x35, 0x00, 0x80, 0xD8, 0x10, 0x00,
 0x00, 0x1E,
 /* Detailed Timing Descriptor */
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00,
+0x41, 0x0A, 0xD0, 0xA0, 0x20, 0xE0, 0x13, 0x10,
+0x30, 0x20, 0x3A, 0x00, 0xD8, 0x90, 0x00, 0x00,
+0x00, 0x18,
 /* Detailed Timing Descriptor */
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -251,9 +260,9 @@ const uint8_t adv7481_default_edid_data[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00,
 /* DTD padding */
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00,
 /* Checksum */
-0xC6
+0x8C
 };
 
 #define ADV7481_EDID_SIZE ARRAY_SIZE(adv7481_default_edid_data)
@@ -304,6 +313,14 @@ static int32_t adv7481_cci_i2c_read(struct msm_camera_i2c_client *i2c_client,
 				data, data_type);
 }
 
+static int32_t adv7481_cci_i2c_read_seq(
+	struct msm_camera_i2c_client *i2c_client,
+	uint8_t reg, uint8_t *data, uint32_t size)
+{
+	return i2c_client->i2c_func_tbl->i2c_read_seq(i2c_client, reg,
+				data, size);
+}
+
 static int32_t adv7481_wr_byte(struct msm_camera_i2c_client *c_i2c_client,
 	uint8_t sid, uint8_t reg, uint8_t data)
 {
@@ -330,6 +347,20 @@ static int32_t adv7481_wr_block(struct msm_camera_i2c_client *c_i2c_client,
 	ret = adv7481_cci_i2c_write_seq(c_i2c_client, reg, data, size);
 	if (ret < 0)
 		pr_err("Error %d writing cci i2c block data\n", ret);
+
+	return ret;
+}
+
+static int32_t adv7481_rd_block(struct msm_camera_i2c_client *c_i2c_client,
+	uint8_t sid, uint8_t reg, uint8_t *data, uint32_t size)
+{
+	int ret = 0;
+
+	c_i2c_client->cci_client->sid = sid;
+
+	ret = adv7481_cci_i2c_read_seq(c_i2c_client, reg, data, size);
+	if (ret < 0)
+		pr_err("Error %d reading cci i2c block data\n", ret);
 
 	return ret;
 }
@@ -380,7 +411,7 @@ static int adv7481_set_irq(struct adv7481_state *state)
 			ADV_REG_SETFIELD(AD_MID_DRIVE_STRNGTH, IO_DRV_LLC_PAD));
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 			IO_REG_INT1_CONF_ADDR,
-			ADV_REG_SETFIELD(AD_ACTIVE_UNTIL_CLR,
+			ADV_REG_SETFIELD(AD_4_XTAL_PER,
 				IO_INTRQ_DUR_SEL) |
 			ADV_REG_SETFIELD(AD_OP_DRIVE_LOW, IO_INTRQ_OP_SEL));
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
@@ -392,6 +423,7 @@ static int adv7481_set_irq(struct adv7481_state *state)
 			ADV_REG_SETFIELD(1, IO_CP_UNLOCK_CP_MB1) |
 			ADV_REG_SETFIELD(1, IO_VMUTE_REQUEST_HDMI_MB1) |
 			ADV_REG_SETFIELD(1, IO_INT_SD_MB1));
+
 	/* Set cable detect */
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 			IO_HDMI_LVL_INT_MASKB_3_ADDR,
@@ -581,7 +613,8 @@ static void adv7481_irq_delay_work(struct work_struct *work)
 			pr_debug("%s: dev: %d got datapath raw status: 0x%x\n",
 				__func__, state->device_num, raw_status);
 
-			if (ADV_REG_GETFIELD(int_status, IO_INT_SD_ST) &&
+			if ((state->mode == ADV7481_IP_CVBS_1) &&
+				ADV_REG_GETFIELD(int_status, IO_INT_SD_ST) &&
 				ADV_REG_GETFIELD(raw_status, IO_INT_SD_RAW)) {
 				uint8_t sdp_sts = 0;
 
@@ -617,7 +650,7 @@ static void adv7481_irq_delay_work(struct work_struct *work)
 				adv7481_wr_byte(&state->i2c_client,
 					state->i2c_sdp_addr, SDP_RW_MAP_REG,
 					0x00);
-			} else {
+			} else if (state->mode == ADV7481_IP_HDMI) {
 				if (ADV_REG_GETFIELD(int_status,
 						IO_CP_LOCK_CP_ST) &&
 					ADV_REG_GETFIELD(raw_status,
@@ -801,6 +834,7 @@ static int adv7481_dev_init(struct adv7481_state *state)
 	state->i2c_csi_txb_addr = IO_REG_CSI_TXB_SADDR >> 1;
 	state->i2c_cp_addr = IO_REG_CP_SADDR >> 1;
 	state->i2c_hdmi_addr = IO_REG_HDMI_SADDR >> 1;
+	state->i2c_hdmi_inf_addr = IO_REG_HDMI_INF_SADDR >> 1;
 	state->i2c_edid_addr = IO_REG_EDID_SADDR >> 1;
 	state->i2c_sdp_addr = IO_REG_SDP_SADDR >> 1;
 	state->i2c_rep_addr = IO_REG_HDMI_REP_SADDR >> 1;
@@ -1035,10 +1069,16 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	struct adv7481_vid_params vid_params;
 	struct adv7481_hdmi_params hdmi_params;
 
+	struct device *dev = state->dev;
+	union hdmi_infoframe hdmi_info_frame;
+	uint8_t inf_buffer[AVI_INFOFRAME_SIZE];
+
 	pr_debug("Enter %s with command: 0x%x", __func__, cmd);
 
 	memset(&vid_params, 0, sizeof(struct adv7481_vid_params));
 	memset(&hdmi_params, 0, sizeof(struct adv7481_hdmi_params));
+	memset(&hdmi_info_frame, 0, sizeof(union hdmi_infoframe));
+	memset(inf_buffer, 0, AVI_INFOFRAME_SIZE);
 
 	if (!sd)
 		return -EINVAL;
@@ -1091,6 +1131,58 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		}
 		break;
 	}
+	case VIDIOC_G_AVI_INFOFRAME: {
+		int int_raw = adv7481_rd_byte(&state->i2c_client,
+			state->i2c_io_addr,
+			IO_HDMI_EDG_RAW_STATUS_1_ADDR);
+		adv7481_wr_byte(&state->i2c_client,
+			state->i2c_io_addr,
+			IO_HDMI_EDG_INT_CLEAR_1_ADDR, int_raw);
+		if (ADV_REG_GETFIELD(int_raw, IO_NEW_AVI_INFO_RAW)) {
+			inf_buffer[0] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_PACKET_ID_ADDR);
+			inf_buffer[1] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_VERS_ADDR);
+			inf_buffer[2] = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_LEN_ADDR);
+			ret = adv7481_rd_block(&state->i2c_client,
+				state->i2c_hdmi_inf_addr,
+				HDMI_REG_AVI_INF_PB_ADDR,
+				&inf_buffer[3],
+				INFOFRAME_DATA_SIZE);
+			if (ret) {
+				pr_err("%s:Error in VIDIOC_G_AVI_INFOFRAME\n",
+						__func__);
+				return -EINVAL;
+			}
+			if (hdmi_infoframe_unpack(&hdmi_info_frame,
+					(void *)inf_buffer) < 0) {
+				pr_err("%s: infoframe unpack fail\n", __func__);
+				return -EINVAL;
+			}
+			hdmi_infoframe_log(KERN_ERR, dev, &hdmi_info_frame);
+			state->hdmi_avi_infoframe.picture_aspect =
+				(enum picture_aspect_ratio)
+					hdmi_info_frame.avi.picture_aspect;
+			state->hdmi_avi_infoframe.active_aspect =
+				(enum active_format_aspect_ratio)
+					hdmi_info_frame.avi.active_aspect;
+			state->hdmi_avi_infoframe.video_code =
+				hdmi_info_frame.avi.video_code;
+		} else {
+			pr_err("%s: No new AVI Infoframe\n", __func__);
+		}
+		if (copy_to_user((void __user *)adv_arg.ptr,
+				(void *)&state->hdmi_avi_infoframe,
+				sizeof(struct avi_infoframe_params))) {
+			pr_err("%s: Failed to copy Infoframe\n", __func__);
+			return -EINVAL;
+		}
+		break;
+	}
 	case VIDIOC_G_FIELD_INFO:
 		/* Select SDP read-only Map 1 */
 		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
@@ -1121,10 +1213,12 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	return ret;
 }
 
-static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
+static int adv7481_get_sd_timings(struct adv7481_state *state,
+		int *sd_standard, struct adv7481_vid_params *vid_params)
 {
 	int ret = 0;
 	int sdp_stat, sdp_stat2;
+	int interlace_reg = 0;
 	int timeout = 0;
 
 	if (sd_standard == NULL)
@@ -1141,6 +1235,25 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 		sdp_stat2 = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
 	} while ((sdp_stat != sdp_stat2) && (timeout < SDP_NUM_TRIES));
+
+	interlace_reg = adv7481_rd_byte(&state->i2c_client,
+			state->i2c_sdp_addr, SDP_RO_MAIN_INTERLACE_STATE_ADDR);
+
+	if (ADV_REG_GETFIELD(interlace_reg, SDP_RO_MAIN_INTERLACE_STATE))
+		pr_debug("%s: Interlaced video detected\n", __func__);
+	else
+		pr_debug("%s: Interlaced video not detected\n", __func__);
+
+	if (ADV_REG_GETFIELD(interlace_reg, SDP_RO_MAIN_FIELD_LEN))
+		pr_debug("%s: Field length is correct\n", __func__);
+	else
+		pr_debug("%s: Field length is not correct\n", __func__);
+
+	if (ADV_REG_GETFIELD(interlace_reg, SDP_RO_MAIN_SD_FIELD_RATE))
+		pr_debug("%s: SD 50 Hz detected\n", __func__);
+	else
+		pr_debug("%s: SD 60 Hz detected\n", __func__);
+
 	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 				SDP_RW_MAP_REG, 0x00);
 
@@ -1154,36 +1267,58 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 				__func__, __LINE__, sdp_stat);
 		return -EBUSY;
 	}
+	vid_params->act_pix = 720;
+	vid_params->intrlcd = 1;
 
 	switch (ADV_REG_GETFIELD(sdp_stat, SDP_RO_MAIN_AD_RESULT)) {
 	case AD_NTSM_M_J:
 		*sd_standard = V4L2_STD_NTSC;
+		pr_debug("%s, V4L2_STD_NTSC\n", __func__);
+		vid_params->act_lines = 507;
 		break;
 	case AD_NTSC_4_43:
 		*sd_standard = V4L2_STD_NTSC_443;
+		pr_debug("%s, V4L2_STD_NTSC_443\n", __func__);
+		vid_params->act_lines = 507;
 		break;
 	case AD_PAL_M:
 		*sd_standard = V4L2_STD_PAL_M;
+		pr_debug("%s, V4L2_STD_PAL_M\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	case AD_PAL_60:
 		*sd_standard = V4L2_STD_PAL_60;
+		pr_debug("%s, V4L2_STD_PAL_60\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	case AD_PAL_B_G:
 		*sd_standard = V4L2_STD_PAL;
+		pr_debug("%s, V4L2_STD_PAL\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	case AD_SECAM:
 		*sd_standard = V4L2_STD_SECAM;
+		pr_debug("%s, V4L2_STD_SECAM\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	case AD_PAL_COMB_N:
 		*sd_standard = V4L2_STD_PAL_Nc | V4L2_STD_PAL_N;
+		pr_debug("%s, V4L2_STD_PAL_Nc | V4L2_STD_PAL_N\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	case AD_SECAM_525:
 		*sd_standard = V4L2_STD_SECAM;
+		pr_debug("%s, V4L2_STD_SECAM (AD_SECAM_525)\n", __func__);
+		vid_params->act_lines = 576;
 		break;
 	default:
 		*sd_standard = V4L2_STD_UNKNOWN;
+		pr_debug("%s, V4L2_STD_UNKNOWN\n", __func__);
+		vid_params->act_lines = 507;
 		break;
 	}
+	pr_debug("%s(%d), adv7481 TMDS Resolution: %d x %d\n",
+		__func__, __LINE__, vid_params->act_pix, vid_params->act_lines);
 	return ret;
 }
 
@@ -1802,6 +1937,8 @@ static int adv7481_get_hdmi_timings(struct adv7481_state *state,
 
 	vid_params->pix_clk = hdmi_params->tmds_freq;
 
+	vid_params->act_lines = vid_params->act_lines * fieldfactor;
+
 	switch (hdmi_params->color_depth) {
 	case CD_10BIT:
 		vid_params->pix_clk = ((vid_params->pix_clk*4)/5);
@@ -1902,6 +2039,9 @@ static int adv7481_query_sd_std(struct v4l2_subdev *sd, v4l2_std_id *std)
 	struct adv7481_state *state = to_state(sd);
 	uint8_t tStatus = 0x0;
 	uint32_t count = 0;
+	struct adv7481_vid_params vid_params;
+
+	memset(&vid_params, 0, sizeof(vid_params));
 
 	pr_debug("Enter %s\n", __func__);
 	/* Select SDP read-only main Map */
@@ -1942,7 +2082,7 @@ static int adv7481_query_sd_std(struct v4l2_subdev *sd, v4l2_std_id *std)
 	case ADV7481_IP_CVBS_6_HDMI_SIM:
 	case ADV7481_IP_CVBS_7_HDMI_SIM:
 	case ADV7481_IP_CVBS_8_HDMI_SIM:
-		ret = adv7481_get_sd_timings(state, &temp);
+		ret = adv7481_get_sd_timings(state, &temp, &vid_params);
 		break;
 	default:
 		return -EINVAL;
@@ -1972,6 +2112,7 @@ static int adv7481_get_fmt(struct v4l2_subdev *sd,
 		struct v4l2_subdev_format *format)
 {
 	int ret;
+	int sd_standard;
 	struct adv7481_vid_params vid_params;
 	struct adv7481_hdmi_params hdmi_params;
 	struct adv7481_state *state = to_state(sd);
@@ -1996,8 +2137,9 @@ static int adv7481_get_fmt(struct v4l2_subdev *sd,
 		if (!ret) {
 			fmt->width = vid_params.act_pix;
 			fmt->height = vid_params.act_lines;
+			fmt->field = V4L2_FIELD_NONE;
 			if (vid_params.intrlcd)
-				fmt->height /= 2;
+				fmt->field = V4L2_FIELD_INTERLACED;
 		} else {
 			pr_err("%s: Error %d in adv7481_get_hdmi_timings\n",
 				__func__, ret);
@@ -2006,8 +2148,14 @@ static int adv7481_get_fmt(struct v4l2_subdev *sd,
 	case ADV7481_IP_CVBS_1:
 		fmt->code = MEDIA_BUS_FMT_UYVY8_2X8;
 		fmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
-		fmt->width = 720;
-		fmt->height = 507;
+		ret = adv7481_get_sd_timings(state, &sd_standard, &vid_params);
+		if (!ret) {
+			fmt->width = vid_params.act_pix;
+			fmt->height = vid_params.act_lines;
+			fmt->field = V4L2_FIELD_INTERLACED;
+		} else {
+			pr_err("%s: Unable to get sd_timings\n", __func__);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -2628,7 +2776,7 @@ static int adv7481_probe(struct platform_device *pdev)
 		goto err_media_entity;
 	}
 	enable_irq(state->irq);
-	pr_debug("Probe successful!\n");
+	pr_info("ADV7481 Probe successful!\n");
 
 	return ret;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,8 @@
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
 #include "cam_soc_api.h"
+#include "msm_camera_diag_util.h"
+#include <linux/clk/msm-clock-generic.h>
 
 struct msm_cam_bus_pscale_data {
 	struct msm_bus_scale_pdata *pdata;
@@ -361,6 +363,7 @@ int msm_camera_clk_enable(struct device *dev,
 						   clk_info[i].clk_name);
 					goto cam_clk_set_err;
 				}
+				clk_ptr[i]->flags |= CLKFLAG_NO_RATE_CACHE;
 				rc = clk_set_rate(clk_ptr[i],
 					clk_rate);
 				if (rc < 0) {
@@ -374,12 +377,15 @@ int msm_camera_clk_enable(struct device *dev,
 				if (clk_rate == 0) {
 					clk_rate =
 						  clk_round_rate(clk_ptr[i], 0);
+
+
 					if (clk_rate < 0) {
 						pr_err("%s round rate failed\n",
 							  clk_info[i].clk_name);
 						goto cam_clk_set_err;
 					}
 				}
+				clk_ptr[i]->flags |= CLKFLAG_NO_RATE_CACHE;
 				rc = clk_set_rate(clk_ptr[i],
 							clk_rate);
 				if (rc < 0) {
@@ -410,6 +416,8 @@ int msm_camera_clk_enable(struct device *dev,
 			}
 		}
 	}
+
+	msm_camera_diag_update_clklist(clk_info, clk_ptr, num_clk, enable);
 	return rc;
 
 cam_clk_enable_err:

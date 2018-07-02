@@ -1069,6 +1069,68 @@ qcom,msm-adsp-loader {
 	qcom,proc-img-to-load = "modem";
 };
 
+* msm-lpass-resource-manager
+
+Required properties:
+ - compatible : "qcom,lpass-resource-manager"
+ - qcom,lpass-lpaif-reg:
+	The physical base address and size of the LPASS LPAIF registers
+	should be specified here.
+ - qcom,lpass-max-rddma:
+	The maximum number of LPASS read DMA indices for the chipset.
+ - qcom,lpass-max-wrdma:
+	The maximum number of LPASS write DMA indices for the chipset.
+ - qcom,num-reserved-rddma:
+	The number of LPASS read DMA indices to be reserved. The value
+	must be less than the value given in lpass-max-rddma.
+ - qcom,num-reserved-wrdma:
+	The number of LPASS write DMA indices to be reserved. The value
+	must be less than the value given in lpass-max-wrdma.
+ - qcom,reserved-rddma:
+	The specific LPASS read DMA indices reserved by HLOS in an array.
+	The number of values in this field should be equal to
+	num-reserved-rddma. If num-reserved-rddma is 0, this property won't
+	be read. The values themselves should be less than
+	lpass-max-rddma.
+ - qcom,reserved-wrdma:
+	The specific LPASS write DMA indices reserved by HLOS in an array.
+	The number of values in this field should be equal to
+	num-reserved-wrdma. If num-reserved-wrdma is 0, this property won't
+	be read. The values themselves should be less than
+	lpass-max-wrdma.
+
+Optional properties:
+ - qcom,early-audio-enabled:
+	It is possible that early audio is enabled in the bootloader. A value
+	of 0 indicates that early audio is not being used. A value of 1
+	will launch a thread that will check the LPASS to see if
+	early audio playback is active.  If it is not, the thread will
+	then check the state of the LPASS.  Once all services are up,
+	the thread will reserve the DMA index used by early audio.
+ - qcom,max-num-pcm-intf:
+	The number of PCM interfaces present in the LPASS for the
+	chipset.
+ - qcom,early-audio-pcm:
+	Must be included if early-audio-enabled is of value 1. This
+	specifies the PCM interface index used by the Early Audio
+	feature. The value must be less than max-num-pcm-intf.
+
+Example:
+
+qcom,msm-lpass-resource-manager {
+	compatible = "qcom,lpass-resource-manager";
+	qcom,lpass-lpaif-reg = <0x09100000 0x20000>;
+	qcom,lpass-max-rddma = <5>;
+	qcom,lpass-max-wrdma = <4>;
+	qcom,num-reserved-rddma = <2>;
+	qcom,num-reserved-wrdma = <1>;
+	qcom,reserved-rddma = <0>, <1>;
+	qcom,reserved-wrdma = <0>;
+	qcom,early-audio-enabled = <1>;
+	qcom,max-num-pcm-intf = <4>;
+	qcom,early-audio-pcm = <2>;
+};
+
 * msm-audio-ion
 
 Required properties:

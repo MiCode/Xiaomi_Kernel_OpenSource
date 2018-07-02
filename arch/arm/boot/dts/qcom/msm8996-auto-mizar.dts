@@ -336,7 +336,6 @@
 };
 
 &pcie2 {
-	qcom,boot-option = <0x0>;
 	perst-gpio = <&tlmm 90 0>;
 	wake-gpio = <&tlmm 54 0>;
 };

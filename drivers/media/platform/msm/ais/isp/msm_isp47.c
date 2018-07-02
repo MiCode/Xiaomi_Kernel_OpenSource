@@ -22,6 +22,7 @@
 #include "cam_hw_ops.h"
 #include "msm_isp47.h"
 #include "cam_soc_api.h"
+#include "msm_camera_diag_util.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -2396,6 +2397,8 @@ int msm_vfe47_update_bandwidth(
 		ab, ib,
 		isp_bandwidth_mgr->client_info,
 		sched_clock());
+	msm_camera_diag_update_isp_state(
+		isp_bandwidth_mgr->bus_vector_active_idx, ab, ib);
 	return 0;
 }
 
