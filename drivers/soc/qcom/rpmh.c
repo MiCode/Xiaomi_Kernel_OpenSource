@@ -258,21 +258,28 @@ existing:
 	switch (state) {
 	case RPMH_ACTIVE_ONLY_STATE:
 	case RPMH_AWAKE_STATE:
-		if (req->sleep_val != UINT_MAX)
+		if (req->sleep_val != UINT_MAX) {
 			req->wake_val = cmd->data;
+			rpm->dirty = true;
+		}
 		break;
 	case RPMH_WAKE_ONLY_STATE:
-		req->wake_val = cmd->data;
+		if (req->wake_val != cmd->data) {
+			req->wake_val = cmd->data;
+			rpm->dirty = true;
+		}
 		break;
 	case RPMH_SLEEP_STATE:
-		req->sleep_val = cmd->data;
+		if (req->sleep_val != cmd->data) {
+			req->sleep_val = cmd->data;
+			rpm->dirty = true;
+		}
 		break;
 	default:
 		break;
 	};
 
 unlock:
-	rpm->dirty = true;
 	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	return req;
