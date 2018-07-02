@@ -79,6 +79,8 @@
 
 #define IPA_SEND_MAX_DESC (20)
 
+#define IPA_EOT_THRESH 32
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -236,18 +238,19 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 	}
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
 	sys->nop_pending = false;
-	spin_unlock_bh(&sys->spinlock);
 
 	memset(&nop_xfer, 0, sizeof(nop_xfer));
 	nop_xfer.type = GSI_XFER_ELEM_NOP;
 	nop_xfer.flags = GSI_XFER_FLAG_EOT;
 	nop_xfer.xfer_user_data = tx_pkt;
 	if (gsi_queue_xfer(sys->ep->gsi_chan_hdl, 1, &nop_xfer, true)) {
+		spin_unlock_bh(&sys->spinlock);
 		IPAERR("gsi_queue_xfer for ch:%lu failed\n",
 			sys->ep->gsi_chan_hdl);
 		queue_work(sys->wq, &sys->work);
 		return;
 	}
+	spin_unlock_bh(&sys->spinlock);
 
 	/* make sure TAG process is sent before clocks are gated */
 	ipa3_ctx->tag_process_before_gating = true;
@@ -406,11 +409,14 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 
 		if (i == (num_desc - 1)) {
-			if (!sys->use_comm_evt_ring) {
+			if (!sys->use_comm_evt_ring ||
+			    (sys->pkt_sent % IPA_EOT_THRESH == 0)) {
 				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_EOT;
 				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_BEI;
+			} else {
+				send_nop = true;
 			}
 			gsi_xfer[i].xfer_user_data =
 				tx_pkt_first;
@@ -429,11 +435,12 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		goto failure;
 	}
 
-
-	if (sys->use_comm_evt_ring && !sys->nop_pending) {
+	if (send_nop && !sys->nop_pending)
 		sys->nop_pending = true;
-		send_nop = true;
-	}
+	else
+		send_nop = false;
+
+	sys->pkt_sent++;
 	spin_unlock_bh(&sys->spinlock);
 
 	/* set the timer for sending the NOP descriptor */
