@@ -10,5 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include "sm6150-thermal-overlay.dtsi"
+
 &soc {
 };
