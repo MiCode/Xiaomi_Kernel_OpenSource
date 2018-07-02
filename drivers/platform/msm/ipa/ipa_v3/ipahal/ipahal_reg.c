@@ -2237,7 +2237,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x00000CC0, 0x70, 10, 23, 1},
 };
 
-int ipahal_print_all_regs(bool print_to_dmesg)
+void ipahal_print_all_regs(bool print_to_dmesg)
 {
 	int i, j;
 
@@ -2247,7 +2247,7 @@ int ipahal_print_all_regs(bool print_to_dmesg)
 	if ((ipahal_ctx->hw_type < IPA_HW_v4_0) ||
 		(ipahal_ctx->hw_type >= IPA_HW_MAX)) {
 		IPAHAL_ERR("invalid IPA HW type (%d)\n", ipahal_ctx->hw_type);
-		return -EINVAL;
+		return;
 	}
 
 	for (i = 0; i < IPA_REG_MAX ; i++) {
@@ -2267,11 +2267,17 @@ int ipahal_print_all_regs(bool print_to_dmesg)
 					ipahal_read_reg_n(i, j));
 		}
 
-		for (; j < ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end; j++)
-			IPAHAL_DBG_REG("%s_%u=0x%x\n", ipahal_reg_name_str(i),
-				j, ipahal_read_reg_n(i, j));
+		for (; j < ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end; j++) {
+			if (print_to_dmesg)
+				IPAHAL_DBG_REG("%s_%u=0x%x\n",
+					ipahal_reg_name_str(i),
+					j, ipahal_read_reg_n(i, j));
+			else
+				IPAHAL_DBG_REG_IPC_ONLY("%s_%u=0x%x\n",
+					ipahal_reg_name_str(i),
+					j, ipahal_read_reg_n(i, j));
+		}
 	}
-	return 0;
 }
 
 /*
