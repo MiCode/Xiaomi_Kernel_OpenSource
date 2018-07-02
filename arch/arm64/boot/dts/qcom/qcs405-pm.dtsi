@@ -26,6 +26,8 @@
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
+		qcom,vctl-port-ub = <0x1>;
+		qcom,pfm-port = <0x02>;
 	};
 
 	qcom,lpm-levels {
