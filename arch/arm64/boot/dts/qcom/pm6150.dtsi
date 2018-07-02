@@ -66,6 +66,9 @@
 			qcom,pmic-revid = <&pm6150_revid>;
 			qcom,auto-recharge-soc = <98>;
 
+			qcom,thermal-mitigation = <4200000 3500000 3000000
+					2500000 2000000 1500000 1000000 500000>;
+
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =
