@@ -925,6 +925,11 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	if (!vco->priv)
 		pr_err("vco priv is null\n");
 
+	if (!pll) {
+		pr_err("pll is null\n");
+		return 0;
+	}
+
 	/*
 	 * Calculate the vco rate from HW registers only for handoff cases.
 	 * For other cases where a vco_10nm_set_rate() has already been
