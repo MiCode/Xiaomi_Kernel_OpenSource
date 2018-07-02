@@ -94,7 +94,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l1";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
+		regulator-min-microvolt = <1174000>;
 		regulator-max-microvolt = <1252000>;
 	};
 
@@ -102,7 +102,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l2";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1000000>;
+		regulator-min-microvolt = <944000>;
 		regulator-max-microvolt = <1050000>;
 	};
 
@@ -110,7 +110,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l3";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1000000>;
+		regulator-min-microvolt = <968000>;
 		regulator-max-microvolt = <1060000>;
 	};
 
@@ -118,24 +118,24 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l4";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <875000>;
-		regulator-max-microvolt = <975000>;
+		regulator-min-microvolt = <824000>;
+		regulator-max-microvolt = <920000>;
 	};
 
 	L5A: pm6150_l5: regulator-pm6150-l5 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l5";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2970000>;
+		regulator-min-microvolt = <2600000>;
+		regulator-max-microvolt = <2800000>;
 	};
 
 	L6A: pm6150_l6: regulator-pm6150-l6 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l6";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
+		regulator-min-microvolt = <1096000>;
+		regulator-max-microvolt = <1304000>;
 	};
 
 	/* pm6150 L7 = LPI_MX supply */
@@ -164,64 +164,64 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l9";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <400000>;
-		regulator-max-microvolt = <728000>;
+		regulator-min-microvolt = <624000>;
+		regulator-max-microvolt = <760000>;
 	};
 
 	L10A: pm6150_l10: regulator-pm6150-l10 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l10";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1829000>;
+		regulator-min-microvolt = <1720000>;
+		regulator-max-microvolt = <1832000>;
 	};
 
 	L11A: pm6150_l11: regulator-pm6150-l11 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l11";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1890000>;
+		regulator-min-microvolt = <1616000>;
+		regulator-max-microvolt = <1984000>;
 	};
 
 	L12A: pm6150_l12: regulator-pm6150-l12 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l12";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1950000>;
+		regulator-min-microvolt = <1696000>;
+		regulator-max-microvolt = <1952000>;
 	};
 
 	L13A: pm6150_l13: regulator-pm6150-l13 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l13";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1900000>;
+		regulator-min-microvolt = <1696000>;
+		regulator-max-microvolt = <1904000>;
 	};
 
 	L14A: pm6150_l14: regulator-pm6150-l14 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l14";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1850000>;
+		regulator-min-microvolt = <1720000>;
+		regulator-max-microvolt = <1856000>;
 	};
 
 	L15A: pm6150_l15: regulator-pm6150-l15 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l15";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1900000>;
+		regulator-min-microvolt = <1696000>;
+		regulator-max-microvolt = <1904000>;
 	};
 
 	L16A: pm6150_l16: regulator-pm6150-l16 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l16";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2430000>;
-		regulator-max-microvolt = <2970000>;
+		regulator-min-microvolt = <2424000>;
+		regulator-max-microvolt = <2976000>;
 	};
 
 	L17A: pm6150_l17: regulator-pm6150-l17 {
@@ -229,7 +229,7 @@
 		regulator-name = "pm6150_l17";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3230000>;
+		regulator-max-microvolt = <3232000>;
 	};
 
 	L18A: pm6150_l18: regulator-pm6150-l18 {
@@ -237,46 +237,46 @@
 		regulator-name = "pm6150_l18";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3300000>;
+		regulator-max-microvolt = <3008000>;
 	};
 
 	L19A: pm6150_l19: regulator-pm6150-l19 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150_l19";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2700000>;
-		regulator-max-microvolt = <3008000>;
+		regulator-min-microvolt = <2944000>;
+		regulator-max-microvolt = <3304000>;
 	};
 
 	L1C: pm6150l_l1: regulator-pm6150l-l1 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l1";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1900000>;
+		regulator-min-microvolt = <1616000>;
+		regulator-max-microvolt = <1984000>;
 	};
 
 	L2C: pm6150l_l2: regulator-pm6150l-l2 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l2";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1304000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1352000>;
 	};
 
 	L3C: pm6150l_l3: regulator-pm6150l-l3 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l3";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1260000>;
+		regulator-min-microvolt = <1144000>;
+		regulator-max-microvolt = <1256000>;
 	};
 
 	L4C: pm6150l_l4: regulator-pm6150l-l4 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l4";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1650000>;
+		regulator-min-microvolt = <1648000>;
 		regulator-max-microvolt = <2950000>;
 	};
 
@@ -284,7 +284,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l5";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1650000>;
+		regulator-min-microvolt = <1648000>;
 		regulator-max-microvolt = <2950000>;
 	};
 
@@ -292,7 +292,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l6";
 		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1650000>;
+		regulator-min-microvolt = <1648000>;
 		regulator-max-microvolt = <3100000>;
 	};
 
@@ -333,7 +333,7 @@
 		regulator-name = "pm6150l_l11";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <2950000>;
-		regulator-max-microvolt = <3312000>;
+		regulator-max-microvolt = <3400000>;
 	};
 
 	BOB: pm6150l_bob: regulator-pm6150l-bob {

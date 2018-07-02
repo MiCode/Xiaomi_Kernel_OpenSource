@@ -262,6 +262,45 @@ First Level Node - QGAUGE device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,esr-disable
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to disable ESR estimation. If not defined
+		    ESR estimation stays enabled for charge-cycles.
+
+- qcom,esr-discharge-enable
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to enable ESR estimation during discharge.
+		    Only valid if 'qcom,esr-disable' is not defined.
+
+- qcom,esr-qual-current-ua
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum current differential in uA to qualify an ESR
+		    reading as valid. If not defined the value defaults
+		    to 130mA.
+
+- qcom,esr-qual-vbatt-uv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum vbatt differential in uV to qualify an ESR
+		    reading as valid. If not defined the value defaults
+		    to 7mV.
+
+- qcom,esr-disable-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum battery SOC below which ESR will not be
+		    attempted by QG. If not defined the value defaults
+		    to 10%.
+
+- qcom,qg-ext-sns
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to support external-rsense based
+		    configuration.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

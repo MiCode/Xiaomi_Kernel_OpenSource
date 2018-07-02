@@ -125,6 +125,7 @@
 		qcom,codec-ext-clk-src = <2>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <278>;
+		qcom,use-pinctrl = <1>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&quin_mi2s_mclk_active>;
 		pinctrl-1 = <&quin_mi2s_mclk_sleep>;

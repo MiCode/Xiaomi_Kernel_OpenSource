@@ -908,7 +908,8 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 	struct net_device *ndev = vif_to_ndev(vif);
 	struct wireless_dev *wdev = vif_to_wdev(vif);
 	struct wmi_connect_event *evt = d;
-	int ch; /* channel number */
+	int ch; /* channel number (primary) */
+	u8 spec_ch = 0; /* spec channel number */
 	struct station_info sinfo;
 	u8 *assoc_req_ie, *assoc_resp_ie;
 	size_t assoc_req_ielen, assoc_resp_ielen;
@@ -936,8 +937,16 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 	}
 
 	ch = evt->channel + 1;
-	wil_info(wil, "Connect %pM channel [%d] cid %d aid %d\n",
-		 evt->bssid, ch, evt->cid, evt->aid);
+	if (evt->edmg_channel &&
+	    test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		wil_wmi2spec_ch(evt->edmg_channel, &spec_ch);
+	if (spec_ch)
+		wil_info(wil, "Connect %pM EDMG channel [%d] primary channel [%d] cid %d aid %d\n",
+			 evt->bssid, spec_ch, ch, evt->cid, evt->aid);
+	else
+		wil_info(wil, "Connect %pM channel [%d] cid %d aid %d\n",
+			 evt->bssid, ch, evt->cid, evt->aid);
+
 	wil_hex_dump_wmi("connect AI : ", DUMP_PREFIX_OFFSET, 16, 1,
 			 evt->assoc_info, len - sizeof(*evt), true);
 
@@ -1682,6 +1691,16 @@ int wmi_pcp_start(struct wil6210_vif *vif,
 	} __packed reply = {
 		.evt = {.status = WMI_FW_STATUS_FAILURE},
 	};
+
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &cmd.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
 
 	if (!vif->privacy)
 		cmd.disable_sec = 1;

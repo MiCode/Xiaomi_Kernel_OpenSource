@@ -85,6 +85,7 @@ enum wmi_fw_capability {
 	WMI_FW_CAPABILITY_LO_POWER_CALIB_FROM_OTP	= 14,
 	WMI_FW_CAPABILITY_PNO				= 15,
 	WMI_FW_CAPABILITY_CONNECT_SNR_THR		= 16,
+	WMI_FW_CAPABILITY_CHANNEL_BONDING		= 17,
 	WMI_FW_CAPABILITY_REF_CLOCK_CONTROL		= 18,
 	WMI_FW_CAPABILITY_AP_SME_OFFLOAD_NONE		= 19,
 	WMI_FW_CAPABILITY_AMSDU				= 23,
@@ -314,6 +315,19 @@ enum wmi_connect_ctrl_flag_bits {
 
 #define WMI_MAX_SSID_LEN	(32)
 
+enum wmi_channel {
+	WMI_CHANNEL_1	= 0x00,
+	WMI_CHANNEL_2	= 0x01,
+	WMI_CHANNEL_3	= 0x02,
+	WMI_CHANNEL_4	= 0x03,
+	WMI_CHANNEL_5	= 0x04,
+	WMI_CHANNEL_6	= 0x05,
+	WMI_CHANNEL_9	= 0x06,
+	WMI_CHANNEL_10	= 0x07,
+	WMI_CHANNEL_11	= 0x08,
+	WMI_CHANNEL_12	= 0x09,
+};
+
 /* WMI_CONNECT_CMDID */
 struct wmi_connect_cmd {
 	u8 network_type;
@@ -325,8 +339,12 @@ struct wmi_connect_cmd {
 	u8 group_crypto_len;
 	u8 ssid_len;
 	u8 ssid[WMI_MAX_SSID_LEN];
+	/* enum wmi_channel WMI_CHANNEL_1..WMI_CHANNEL_6; for EDMG this is
+	 * the primary channel number
+	 */
 	u8 channel;
-	u8 reserved0;
+	/* enum wmi_channel WMI_CHANNEL_9..WMI_CHANNEL_12 */
+	u8 edmg_channel;
 	u8 bssid[WMI_MAC_LEN];
 	__le32 ctrl_flags;
 	u8 dst_mac[WMI_MAC_LEN];
@@ -644,12 +662,17 @@ struct wmi_pcp_start_cmd {
 	u8 pcp_max_assoc_sta;
 	u8 hidden_ssid;
 	u8 is_go;
-	u8 reserved0[5];
+	/* enum wmi_channel WMI_CHANNEL_9..WMI_CHANNEL_12 */
+	u8 edmg_channel;
+	u8 reserved[4];
 	/* A-BFT length override if non-0 */
 	u8 abft_len;
 	/* enum wmi_ap_sme_offload_mode_e */
 	u8 ap_sme_offload_mode;
 	u8 network_type;
+	/* enum wmi_channel WMI_CHANNEL_1..WMI_CHANNEL_6; for EDMG this is
+	 * the primary channel number
+	 */
 	u8 channel;
 	u8 disable_sec_offload;
 	u8 disable_sec;
@@ -1899,8 +1922,12 @@ struct wmi_notify_req_done_event {
 
 /* WMI_CONNECT_EVENTID */
 struct wmi_connect_event {
+	/* enum wmi_channel WMI_CHANNEL_1..WMI_CHANNEL_6; for EDMG this is
+	 * the primary channel number
+	 */
 	u8 channel;
-	u8 reserved0;
+	/* enum wmi_channel WMI_CHANNEL_9..WMI_CHANNEL_12 */
+	u8 edmg_channel;
 	u8 bssid[WMI_MAC_LEN];
 	__le16 listen_interval;
 	__le16 beacon_interval;

@@ -802,11 +802,8 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 
 	list_for_each_entry_safe(cfg_req, req_temp,
 		&hw_mgr->hw_config_req_list, list) {
-		if (!cfg_req)
-			return -EINVAL;
-
-		if ((cfg_req) && ((struct cam_jpeg_hw_ctx_data *)
-			cfg_req->hw_cfg_args.ctxt_to_hw_map != ctx_data))
+		if ((struct cam_jpeg_hw_ctx_data *)
+			cfg_req->hw_cfg_args.ctxt_to_hw_map != ctx_data)
 			continue;
 
 		list_del_init(&cfg_req->list);
@@ -823,7 +820,8 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 	struct cam_hw_flush_args *flush_args)
 {
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
-	struct cam_jpeg_hw_cfg_req *cfg_req, *req_temp;
+	struct cam_jpeg_hw_cfg_req *cfg_req = NULL;
+	struct cam_jpeg_hw_cfg_req *req_temp = NULL;
 	int64_t request_id;
 
 	CAM_DBG(CAM_JPEG, "E: JPEG flush req");
@@ -839,11 +837,8 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 	request_id = *(int64_t *)flush_args->flush_req_active[0];
 	list_for_each_entry_safe(cfg_req, req_temp,
 		&hw_mgr->hw_config_req_list, list) {
-		if (!cfg_req)
-			return -EINVAL;
-
-		if ((cfg_req) && (cfg_req->hw_cfg_args.ctxt_to_hw_map
-			!= ctx_data))
+		if ((struct cam_jpeg_hw_ctx_data *)
+			cfg_req->hw_cfg_args.ctxt_to_hw_map != ctx_data)
 			continue;
 
 		if (cfg_req->req_id != request_id)
@@ -995,7 +990,7 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 
 static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 {
-	int rc;
+	int rc = 0;
 	int32_t ctx_id = 0;
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;

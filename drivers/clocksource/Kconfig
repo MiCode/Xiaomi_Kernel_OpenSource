@@ -374,6 +374,14 @@ config ARM64_ERRATUM_858921
 	  The workaround will be dynamically enabled when an affected
 	  core is detected.
 
+config ARM_ARCH_TIMER_VCT_ACCESS
+	bool "Support for ARM architected timer virtual counter access in userspace"
+	default !ARM64
+	depends on ARM_ARCH_TIMER
+	help
+	  This option enables support for reading the ARM architected timer's
+	  virtual counter in userspace.
+
 config ARM_GLOBAL_TIMER
 	bool "Support for the ARM global timer" if COMPILE_TEST
 	select TIMER_OF if OF

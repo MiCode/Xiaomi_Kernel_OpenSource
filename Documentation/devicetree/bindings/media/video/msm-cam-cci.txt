@@ -323,6 +323,11 @@ Image sensor node contains properties of camera image sensor
   Value type: <phandle>
   Definition: should contain regulator from which IO voltage is supplied
 
+- cam_bob-supply
+  Usage: optional
+  Value type: <phandle>
+  Definition: should contain regulator from which BoB voltage is supplied
+
 - regulator-names
   Usage: required
   Value type: <string>
@@ -386,6 +391,11 @@ Image sensor node contains properties of camera image sensor
   Usage: optional
   Value type: <u32>
   Definition: should contain regulator from which AF voltage is supplied
+
+- pwm-switch
+  Usage: optional
+  Value type: <boolean>
+  Definition: This property is required for regulator to switch into PWM mode.
 
 - gpios
   Usage: required
@@ -764,14 +774,18 @@ Example:
          actuator-src = <&actuator0>;
          ois-src = <&ois0>;
          eeprom-src = <&eeprom0>;
-         cam_vdig-supply = <&pm845_s3>;
-         cam_vio-supply = <&pm845_lvs1>;
-         cam_vana-supply = <&pmi8998_bob>;
-         regulator-names = "cam_vdig", "cam_vio", "cam_vana";
+         cam_vdig-supply = <&pm8009_l2>;
+         cam_vio-supply = <&pm8009l_l1>;
+         cam_vana-supply = <&pm8009l_l5>;
+         cam_bob-supply = <&pm8150l_bob>;
+         cam_clk-supply = <&tital_top_gdsc>;
+         regulator-names = "cam_vio", "cam_vana", "cam_vdig",
+                "cam_clk", "cam_bob";
          rgltr-cntrl-support;
-         rgltr-min-voltage = <0 3312000 1352000>;
-         rgltr-max-voltage = <0 3312000 1352000>;
-         rgltr-load-current = <0 80000 105000>;
+         pwm-switch;
+         rgltr-min-voltage = <0 2800000 1200000 0 3008000>;
+         rgltr-max-voltage = <0 2800000 1200000 0 4000000>;
+         rgltr-load-current = <0 80000 1200000 0 2000000>;
          gpio-no-mux = <0>;
          pinctrl-names = "cam_default", "cam_suspend";
          pinctrl-0 = <&cam_sensor_mclk0_active

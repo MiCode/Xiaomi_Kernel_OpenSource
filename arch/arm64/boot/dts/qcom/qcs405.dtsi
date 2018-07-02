@@ -119,6 +119,7 @@
 #include "qcs405-pm.dtsi"
 #include "msm-arm-smmu-qcs405.dtsi"
 #include "qcs405-gpu.dtsi"
+#include "qcs405-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -916,8 +917,10 @@
 		qcom,vdd-io-current-level = <0 325000>;
 
 		pinctrl-names = "active", "sleep";
-		pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on>;
-		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+		pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on
+			&sdc1_rclk_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+			&sdc1_rclk_off>;
 
 		status = "ok";
 	};
@@ -1042,8 +1045,4 @@
 			     &usb3_id_det_default
 			     &usb3_vbus_boost_default>;
 	};
-};
-
-&usb2s {
-	extcon = <&smb1351_otg_supply>;
 };

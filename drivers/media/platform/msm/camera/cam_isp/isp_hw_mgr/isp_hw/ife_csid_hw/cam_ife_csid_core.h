@@ -96,42 +96,42 @@ enum cam_csid_path_timestamp_stb_sel {
 	CSID_TIMESTAMP_STB_MAX,
 };
 
-struct cam_ife_csid_ipp_reg_offset {
-	/*Image pixel path register offsets*/
-	uint32_t csid_ipp_irq_status_addr;
-	uint32_t csid_ipp_irq_mask_addr;
-	uint32_t csid_ipp_irq_clear_addr;
-	uint32_t csid_ipp_irq_set_addr;
+struct cam_ife_csid_pxl_reg_offset {
+	/* Pxl path register offsets*/
+	uint32_t csid_pxl_irq_status_addr;
+	uint32_t csid_pxl_irq_mask_addr;
+	uint32_t csid_pxl_irq_clear_addr;
+	uint32_t csid_pxl_irq_set_addr;
 
-	uint32_t csid_ipp_cfg0_addr;
-	uint32_t csid_ipp_cfg1_addr;
-	uint32_t csid_ipp_ctrl_addr;
-	uint32_t csid_ipp_frm_drop_pattern_addr;
-	uint32_t csid_ipp_frm_drop_period_addr;
-	uint32_t csid_ipp_irq_subsample_pattern_addr;
-	uint32_t csid_ipp_irq_subsample_period_addr;
-	uint32_t csid_ipp_hcrop_addr;
-	uint32_t csid_ipp_vcrop_addr;
-	uint32_t csid_ipp_pix_drop_pattern_addr;
-	uint32_t csid_ipp_pix_drop_period_addr;
-	uint32_t csid_ipp_line_drop_pattern_addr;
-	uint32_t csid_ipp_line_drop_period_addr;
-	uint32_t csid_ipp_rst_strobes_addr;
-	uint32_t csid_ipp_status_addr;
-	uint32_t csid_ipp_misr_val_addr;
-	uint32_t csid_ipp_format_measure_cfg0_addr;
-	uint32_t csid_ipp_format_measure_cfg1_addr;
-	uint32_t csid_ipp_format_measure0_addr;
-	uint32_t csid_ipp_format_measure1_addr;
-	uint32_t csid_ipp_format_measure2_addr;
-	uint32_t csid_ipp_timestamp_curr0_sof_addr;
-	uint32_t csid_ipp_timestamp_curr1_sof_addr;
-	uint32_t csid_ipp_timestamp_perv0_sof_addr;
-	uint32_t csid_ipp_timestamp_perv1_sof_addr;
-	uint32_t csid_ipp_timestamp_curr0_eof_addr;
-	uint32_t csid_ipp_timestamp_curr1_eof_addr;
-	uint32_t csid_ipp_timestamp_perv0_eof_addr;
-	uint32_t csid_ipp_timestamp_perv1_eof_addr;
+	uint32_t csid_pxl_cfg0_addr;
+	uint32_t csid_pxl_cfg1_addr;
+	uint32_t csid_pxl_ctrl_addr;
+	uint32_t csid_pxl_frm_drop_pattern_addr;
+	uint32_t csid_pxl_frm_drop_period_addr;
+	uint32_t csid_pxl_irq_subsample_pattern_addr;
+	uint32_t csid_pxl_irq_subsample_period_addr;
+	uint32_t csid_pxl_hcrop_addr;
+	uint32_t csid_pxl_vcrop_addr;
+	uint32_t csid_pxl_pix_drop_pattern_addr;
+	uint32_t csid_pxl_pix_drop_period_addr;
+	uint32_t csid_pxl_line_drop_pattern_addr;
+	uint32_t csid_pxl_line_drop_period_addr;
+	uint32_t csid_pxl_rst_strobes_addr;
+	uint32_t csid_pxl_status_addr;
+	uint32_t csid_pxl_misr_val_addr;
+	uint32_t csid_pxl_format_measure_cfg0_addr;
+	uint32_t csid_pxl_format_measure_cfg1_addr;
+	uint32_t csid_pxl_format_measure0_addr;
+	uint32_t csid_pxl_format_measure1_addr;
+	uint32_t csid_pxl_format_measure2_addr;
+	uint32_t csid_pxl_timestamp_curr0_sof_addr;
+	uint32_t csid_pxl_timestamp_curr1_sof_addr;
+	uint32_t csid_pxl_timestamp_perv0_sof_addr;
+	uint32_t csid_pxl_timestamp_perv1_sof_addr;
+	uint32_t csid_pxl_timestamp_curr0_eof_addr;
+	uint32_t csid_pxl_timestamp_curr1_eof_addr;
+	uint32_t csid_pxl_timestamp_perv0_eof_addr;
+	uint32_t csid_pxl_timestamp_perv1_eof_addr;
 
 	/* configuration */
 	uint32_t  pix_store_en_shift_val;
@@ -268,8 +268,9 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t major_version;
 	uint32_t minor_version;
 	uint32_t version_incr;
-	uint32_t no_rdis;
-	uint32_t no_pix;
+	uint32_t num_rdis;
+	uint32_t num_pix;
+	uint32_t num_ppp;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;
@@ -285,6 +286,7 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t crop_shift;
 	uint32_t ipp_irq_mask_all;
 	uint32_t rdi_irq_mask_all;
+	uint32_t ppp_irq_mask_all;
 };
 
 /**
@@ -292,13 +294,15 @@ struct cam_ife_csid_common_reg_offset {
  *
  * @cmn_reg:  csid common registers info
  * @ipp_reg:  ipp register offset information
+ * @ppp_reg:  ppp register offset information
  * @rdi_reg:  rdi register offser information
  *
  */
 struct cam_ife_csid_reg_offset {
 	const struct cam_ife_csid_common_reg_offset   *cmn_reg;
 	const struct cam_ife_csid_csi2_rx_reg_offset  *csi2_reg;
-	const struct cam_ife_csid_ipp_reg_offset      *ipp_reg;
+	const struct cam_ife_csid_pxl_reg_offset      *ipp_reg;
+	const struct cam_ife_csid_pxl_reg_offset      *ppp_reg;
 	const struct cam_ife_csid_rdi_reg_offset *rdi_reg[CAM_IFE_CSID_RDI_MAX];
 	const struct cam_ife_csid_csi2_tpg_reg_offset *tpg_reg;
 };
@@ -426,11 +430,13 @@ struct cam_ife_csid_path_cfg {
  * @csi2_cfg_cnt:             csi2 configuration count
  * @tpg_start_cnt:            tpg start count
  * @ipp_res:                  image pixel path resource
+ * @ppp_res:                  phase pxl path resource
  * @rdi_res:                  raw dump image path resources
  * @cid_res:                  cid resources state
  * @csid_top_reset_complete:  csid top reset completion
  * @csid_csi2_reset_complete: csi2 reset completion
  * @csid_ipp_reset_complete:  ipp reset completion
+ * @csid_ppp_complete:        ppp reset completion
  * @csid_rdin_reset_complete: rdi n completion
  * @csid_debug:               csid debug information to enable the SOT, EOT,
  *                            SOF, EOF, measure etc in the csid hw
@@ -448,11 +454,13 @@ struct cam_ife_csid_hw {
 	uint32_t                         csi2_cfg_cnt;
 	uint32_t                         tpg_start_cnt;
 	struct cam_isp_resource_node     ipp_res;
+	struct cam_isp_resource_node     ppp_res;
 	struct cam_isp_resource_node     rdi_res[CAM_IFE_CSID_RDI_MAX];
 	struct cam_isp_resource_node     cid_res[CAM_IFE_CSID_CID_RES_MAX];
 	struct completion                csid_top_complete;
 	struct completion                csid_csi2_complete;
 	struct completion                csid_ipp_complete;
+	struct completion                csid_ppp_complete;
 	struct completion    csid_rdin_complete[CAM_IFE_CSID_RDI_MAX];
 	uint64_t                         csid_debug;
 	uint64_t                         clk_rate;

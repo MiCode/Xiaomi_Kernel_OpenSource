@@ -75,9 +75,11 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 	 * counts of error, active and success states of all children objects
 	 */
 	for (i = 0; i < num_objs; i++) {
+		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 		child_row = table + sync_objs[i];
 		switch (child_row->state) {
 		case CAM_SYNC_STATE_SIGNALED_ERROR:
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			return CAM_SYNC_STATE_SIGNALED_ERROR;
 		case CAM_SYNC_STATE_SIGNALED_SUCCESS:
 			success_count++;
@@ -88,8 +90,10 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 		default:
 			CAM_ERR(CAM_SYNC,
 				"Invalid state of child object during merge");
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			return CAM_SYNC_STATE_SIGNALED_ERROR;
 		}
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 	}
 
 	if (active_count)

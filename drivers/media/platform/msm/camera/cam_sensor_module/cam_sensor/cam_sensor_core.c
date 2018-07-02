@@ -17,7 +17,6 @@
 #include "cam_soc_util.h"
 #include "cam_trace.h"
 
-
 static void cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
 	struct cam_packet *csl_packet)
@@ -654,7 +653,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		CAM_INFO(CAM_SENSOR,
-			"Probe Succees,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
+			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
 			s_ctrl->soc_info.index,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr,
 			s_ctrl->sensordata->slave_info.sensor_id);
@@ -962,6 +961,16 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
+	if (s_ctrl->bob_pwm_switch) {
+		rc = cam_sensor_bob_pwm_mode_switch(soc_info,
+			s_ctrl->bob_reg_index, true);
+		if (rc) {
+			CAM_WARN(CAM_SENSOR,
+			"BoB PWM setup failed rc: %d", rc);
+			rc = 0;
+		}
+	}
+
 	rc = cam_sensor_core_power_up(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
@@ -997,6 +1006,16 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
 		return rc;
+	}
+
+	if (s_ctrl->bob_pwm_switch) {
+		rc = cam_sensor_bob_pwm_mode_switch(soc_info,
+			s_ctrl->bob_reg_index, false);
+		if (rc) {
+			CAM_WARN(CAM_SENSOR,
+				"BoB PWM setup failed rc: %d", rc);
+			rc = 0;
+		}
 	}
 
 	camera_io_release(&(s_ctrl->io_master_info));

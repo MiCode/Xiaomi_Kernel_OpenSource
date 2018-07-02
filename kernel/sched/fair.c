@@ -196,6 +196,11 @@ unsigned int sched_capacity_margin_up[NR_CPUS] = {
 unsigned int sched_capacity_margin_down[NR_CPUS] = {
 			[0 ... NR_CPUS-1] = 1205}; /* ~15% margin */
 
+#ifdef CONFIG_SCHED_WALT
+/* 1ms default for 20ms window size scaled to 1024 */
+unsigned int sysctl_sched_min_task_util_for_boost_colocation = 51;
+#endif
+
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
 	lw->weight += inc;
@@ -7053,6 +7058,15 @@ static int start_cpu(struct task_struct *p, bool boosted,
 	if (boosted)
 		return rd->max_cap_orig_cpu;
 
+	/* A task always fits on its rtg_target */
+	if (rtg_target) {
+		int rtg_target_cpu = cpumask_first_and(rtg_target,
+						cpu_online_mask);
+
+		if (rtg_target_cpu < nr_cpu_ids)
+			return rtg_target_cpu;
+	}
+
 	/* Where the task should land based on its demand */
 	if (rd->min_cap_orig_cpu != -1
 			&& task_fits_max(p, rd->min_cap_orig_cpu))
@@ -7062,20 +7076,6 @@ static int start_cpu(struct task_struct *p, bool boosted,
 		start_cpu = rd->mid_cap_orig_cpu;
 	else
 		start_cpu = rd->max_cap_orig_cpu;
-
-	/*
-	 * start it up to its preferred cluster if the preferred clusteris
-	 * higher capacity
-	 */
-	if (start_cpu != -1 && rtg_target &&
-			!cpumask_test_cpu(start_cpu, rtg_target)) {
-		int rtg_target_cpu = cpumask_first(rtg_target);
-
-		if (capacity_orig_of(start_cpu) <
-			capacity_orig_of(rtg_target_cpu)) {
-			start_cpu = rtg_target_cpu;
-		}
-	}
 
 	return start_cpu;
 }
@@ -7091,6 +7091,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	unsigned long target_util = ULONG_MAX;
 	unsigned long best_active_util = ULONG_MAX;
 	unsigned long best_active_cuml_util = ULONG_MAX;
+	unsigned long best_idle_cuml_util = ULONG_MAX;
 	int best_idle_cstate = INT_MAX;
 	struct sched_domain *sd;
 	struct sched_group *sg;
@@ -7101,6 +7102,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	long spare_cap, most_spare_cap = 0;
 	int most_spare_cap_cpu = -1;
 	unsigned int active_cpus_count = 0;
+	int prev_cpu = task_cpu(p);
 
 	*backup_cpu = -1;
 
@@ -7297,12 +7299,19 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				 * shallow idle big CPU.
 				 */
 				if (sysctl_sched_cstate_aware &&
-				    best_idle_cstate <= idle_idx)
+				    best_idle_cstate < idle_idx)
+					continue;
+
+				if (best_idle_cstate == idle_idx &&
+					(best_idle_cpu == prev_cpu ||
+					(i != prev_cpu &&
+					new_util_cuml > best_idle_cuml_util)))
 					continue;
 
 				/* Keep track of best idle CPU */
 				target_capacity = capacity_orig;
 				best_idle_cstate = idle_idx;
+				best_idle_cuml_util = new_util_cuml;
 				best_idle_cpu = i;
 				continue;
 			}
@@ -7415,6 +7424,19 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	 */
 	if (*backup_cpu == target_cpu)
 		*backup_cpu = -1;
+
+	/*
+	 * The next step of energy evaluation includes
+	 * prev_cpu. Drop target or backup if it is
+	 * same as prev_cpu
+	 */
+	if (*backup_cpu == prev_cpu)
+		*backup_cpu = -1;
+
+	if (target_cpu == prev_cpu) {
+		target_cpu = *backup_cpu;
+		*backup_cpu = -1;
+	}
 
 	return target_cpu;
 }
@@ -7625,7 +7647,9 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 	rcu_read_lock();
 
 	grp = task_related_thread_group(p);
-	if (grp && grp->preferred_cluster) {
+	if (grp && grp->preferred_cluster &&
+			(task_util(p) >
+			sysctl_sched_min_task_util_for_boost_colocation)) {
 		rtg_target = &grp->preferred_cluster->cpus;
 		if (!task_fits_max(p, cpumask_first(rtg_target)))
 			rtg_target = NULL;

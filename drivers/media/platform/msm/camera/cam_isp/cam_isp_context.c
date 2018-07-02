@@ -240,6 +240,8 @@ static const char *__cam_isp_resource_handle_id_to_type(
 		return "FD";
 	case CAM_ISP_IFE_OUT_RES_PDAF:
 		return "PDAF";
+	case CAM_ISP_IFE_OUT_RES_2PD:
+		return "2PD";
 	case CAM_ISP_IFE_OUT_RES_RDI_0:
 		return "RDI_0";
 	case CAM_ISP_IFE_OUT_RES_RDI_1:

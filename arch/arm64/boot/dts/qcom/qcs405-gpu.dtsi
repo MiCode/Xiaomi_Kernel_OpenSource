@@ -180,7 +180,7 @@
 		qcom,retention;
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
-			iommus = <&gfx_iommu 0>;
+			iommus = <&gfx_iommu 0 1>;
 			qcom,gpu-offset = <0xa000>;
 		};
 	};

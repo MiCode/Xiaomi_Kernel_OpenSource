@@ -10,14 +10,12 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
+#ifndef _UAPI_NTAGINFO_H_
+#define _UAPI_NTAGINFO_H_
 
-#include "sa8150-adp-star.dtsi"
+#include <linux/ioctl.h>
 
-/ {
-	model = "ADP-STAR";
-	compatible = "qcom,sa8150-adp-star", "qcom,sa8150",
-		"qcom,adp-star";
-	qcom,board-id = <25 0>;
-};
+#define NTAG_FD_STATE           _IOW(0xE9, 0x01, unsigned int)
+#define NTAG_SET_OFFSET         _IOW(0xE9, 0x02, unsigned int)
+
+#endif

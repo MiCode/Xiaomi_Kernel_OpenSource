@@ -30,6 +30,9 @@ struct cam_vfe_hw_info {
 	uint32_t                          camif_version;
 	void                             *camif_reg;
 
+	uint32_t                          camif_lite_version;
+	void                             *camif_lite_reg;
+
 	uint32_t                          testgen_version;
 	void                             *testgen_reg;
 

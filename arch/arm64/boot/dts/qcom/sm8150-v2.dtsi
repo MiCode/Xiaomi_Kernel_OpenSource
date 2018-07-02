@@ -18,6 +18,10 @@
 	qcom,msm-id = <339 0x20000>;
 };
 
+/* Remove smmu nodes specific to SM8150 */
+/delete-node/ &apps_smmu;
+/delete-node/ &kgsl_smmu;
+
 &clock_gcc {
 	compatible = "qcom,gcc-sm8150-v2", "syscon";
 };
@@ -37,3 +41,4 @@
 &clock_npucc {
 	compatible = "qcom,npucc-sm8150-v2", "syscon";
 };
+#include "msm-arm-smmu-sm8150-v2.dtsi"

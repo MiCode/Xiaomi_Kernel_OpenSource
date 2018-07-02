@@ -373,6 +373,15 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &one,
 	},
+	{
+		.procname	= "sched_min_task_util_for_boost_colocation",
+		.data		= &sysctl_sched_min_task_util_for_boost_colocation,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one_thousand,
+	},
 #endif
 	{
 		.procname	= "sched_upmigrate",
@@ -1480,6 +1489,15 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
 		.extra2		= &one_hundred,
+	},
+	{
+		.procname       = "want_old_faultaround_pte",
+		.data           = &want_old_faultaround_pte,
+		.maxlen         = sizeof(want_old_faultaround_pte),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1         = &zero,
+		.extra2         = &one,
 	},
 #ifdef CONFIG_HUGETLB_PAGE
 	{

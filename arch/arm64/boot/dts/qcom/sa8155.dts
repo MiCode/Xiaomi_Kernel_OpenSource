@@ -10,11 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#include "sa8150.dtsi"
+/dts-v1/;
+
+#include "sa8155.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8150P ";
-	qcom,msm-name = "SA8150P";
-	compatible = "qcom,sa8150p";
-	qcom,msm-id = <367 0x10000>;
+	model = "Qualcomm Technologies, Inc. SA8155 SoC";
+	compatible = "qcom,sa8155";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
 };

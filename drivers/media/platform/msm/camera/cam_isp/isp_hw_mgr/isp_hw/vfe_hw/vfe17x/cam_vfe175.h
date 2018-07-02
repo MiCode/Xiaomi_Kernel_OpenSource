@@ -14,6 +14,7 @@
 #define _CAM_VFE175_H_
 
 #include "cam_vfe_camif_ver2.h"
+#include "cam_vfe_camif_lite_ver2.h"
 #include "cam_vfe_bus_ver2.h"
 #include "cam_irq_controller.h"
 #include "cam_vfe_top_ver2.h"
@@ -79,6 +80,28 @@ static struct cam_vfe_camif_reg_data vfe_175_camif_reg_data = {
 	.eof_irq_mask                    = 0x00000002,
 	.error_irq_mask0                 = 0x0003FC00,
 	.error_irq_mask1                 = 0xEFFF7E80,
+};
+
+static struct cam_vfe_camif_lite_ver2_reg vfe175_camif_lite_reg = {
+	.camif_lite_cmd                = 0x00000FC0,
+	.camif_lite_config             = 0x00000FC4,
+	.lite_skip_period              = 0x00000FC8,
+	.lite_irq_subsample_pattern    = 0x00000FCC,
+	.lite_epoch_irq                = 0x00000FD0,
+	.reg_update_cmd                = 0x000004AC,
+};
+
+static struct cam_vfe_camif_lite_ver2_reg_data vfe175_camif_lite_reg_data = {
+	.dual_pd_reg_update_cmd_data     = 0x20,
+	.lite_epoch_line_cfg             = 0x00140014,
+	.lite_sof_irq_mask               = 0x00040000,
+	.lite_epoch0_irq_mask            = 0x00100000,
+	.dual_pd_reg_upd_irq_mask        = 0x04000000,
+	.lite_eof_irq_mask               = 0x00080000,
+	.lite_error_irq_mask0            = 0x00400000,
+	.lite_error_irq_mask1            = 0x00004100,
+	.extern_reg_update_shift         = 4,
+	.dual_pd_path_sel_shift          = 24,
 };
 
 struct cam_vfe_top_ver2_reg_offset_module_ctrl lens_175_reg = {
@@ -151,9 +174,14 @@ static struct cam_vfe_rdi_reg_data  vfe_175_rdi_2_data = {
 static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 	.common_reg = &vfe175_top_common_reg,
 	.camif_hw_info = {
-		.common_reg = &vfe175_top_common_reg,
-		.camif_reg =  &vfe175_camif_reg,
-		.reg_data  =  &vfe_175_camif_reg_data,
+		.common_reg     = &vfe175_top_common_reg,
+		.camif_reg      = &vfe175_camif_reg,
+		.reg_data       = &vfe_175_camif_reg_data,
+		},
+	.camif_lite_hw_info = {
+		.common_reg     = &vfe175_top_common_reg,
+		.camif_lite_reg = &vfe175_camif_lite_reg,
+		.reg_data       = &vfe175_camif_lite_reg_data,
 		},
 	.rdi_hw_info = {
 		.common_reg = &vfe175_top_common_reg,
@@ -170,6 +198,7 @@ static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 		CAM_VFE_RDI_VER_1_0,
 		CAM_VFE_RDI_VER_1_0,
 		CAM_VFE_RDI_VER_1_0,
+		CAM_VFE_CAMIF_LITE_VER_2_0,
 	},
 };
 
@@ -830,7 +859,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 			.addr_sync_mask               = 0x0000209C,
 		},
 	},
-	.num_out = 21,
+	.num_out = 22,
 	.vfe_out_hw_info = {
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
@@ -946,6 +975,11 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
+		{
+			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_2PD,
+			.max_width     = 1920,
+			.max_height    = 1080,
+		},
 	},
 };
 
@@ -960,6 +994,9 @@ struct cam_vfe_hw_info cam_vfe175_hw_info = {
 
 	.camif_version                 = CAM_VFE_CAMIF_VER_2_0,
 	.camif_reg                     = &vfe175_camif_reg,
+
+	.camif_lite_version            = CAM_VFE_CAMIF_LITE_VER_2_0,
+	.camif_lite_reg                = &vfe175_camif_lite_reg,
 
 };
 
