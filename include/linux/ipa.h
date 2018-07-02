@@ -160,6 +160,11 @@ struct ipa_ep_cfg_conn_track {
  *			correctly the length field within the header
  *			(valid only in case Hdr_Ofst_Pkt_Size_Valid=1)
  *			Valid for Output Pipes (IPA Producer)
+ *			Starting IPA4.5, this field in H/W requires more bits
+ *			to support larger range, but no spare bits to use.
+ *			So the MSB part is done thourgh the EXT register.
+ *			When accessing this register, need to access the EXT
+ *			register as well.
  * @hdr_ofst_pkt_size_valid:	0: Hdr_Ofst_Pkt_Size  value is invalid, i.e., no
  *			length field within the inserted header
  *			1: Hdr_Ofst_Pkt_Size  value is valid, i.e., a
@@ -170,6 +175,11 @@ struct ipa_ep_cfg_conn_track {
  *			header with the packet length . Assumption is that
  *			header length field size is constant and is 2Bytes
  *			Valid for Output Pipes (IPA Producer)
+ *			Starting IPA4.5, this field in H/W requires more bits
+ *			to support larger range, but no spare bits to use.
+ *			So the MSB part is done thourgh the EXT register.
+ *			When accessing this register, need to access the EXT
+ *			register as well.
  * @hdr_a5_mux:	Determines whether A5 Mux header should be added to the packet.
  *			This bit is valid only when Hdr_En=01(Header Insertion)
  *			SW should set this bit for IPA-to-A5 pipes.
@@ -182,6 +192,8 @@ struct ipa_ep_cfg_conn_track {
  * @hdr_metadata_reg_valid:	bool switch, metadata from
  *			register INIT_HDR_METADATA_n is valid.
  *			(relevant only for IPA Consumer pipes)
+ *			Starting IPA4.5, this parameter is irrelevant and H/W
+ *			assumes it is always valid.
  */
 struct ipa_ep_cfg_hdr {
 	u32  hdr_len;
@@ -213,6 +225,8 @@ struct ipa_ep_cfg_hdr {
  * @hdr_total_len_or_pad_valid: 0-Ignore TOTAL_LEN_OR_PAD field, 1-Process
  *	TOTAL_LEN_OR_PAD field
  * @hdr_little_endian: 0-Big Endian, 1-Little Endian
+ * @hdr: The header structure. Used starting IPA4.5 where part of the info
+ *	at the header structure is implemented via the EXT register at the H/W
  */
 struct ipa_ep_cfg_hdr_ext {
 	u32 hdr_pad_to_alignment;
@@ -221,6 +235,7 @@ struct ipa_ep_cfg_hdr_ext {
 	enum hdr_total_len_or_pad_type hdr_total_len_or_pad;
 	bool hdr_total_len_or_pad_valid;
 	bool hdr_little_endian;
+	struct ipa_ep_cfg_hdr *hdr;
 };
 
 /**
