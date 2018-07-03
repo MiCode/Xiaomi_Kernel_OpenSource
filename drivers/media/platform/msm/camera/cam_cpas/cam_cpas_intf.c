@@ -619,6 +619,7 @@ static int cam_cpas_dev_remove(struct platform_device *dev)
 	}
 
 	mutex_lock(&g_cpas_intf->intf_lock);
+	g_cpas_intf->probe_done = false;
 	cam_unregister_subdev(&g_cpas_intf->subdev);
 	cam_cpas_hw_remove(g_cpas_intf->hw_intf);
 	mutex_unlock(&g_cpas_intf->intf_lock);
