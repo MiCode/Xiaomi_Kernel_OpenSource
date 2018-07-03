@@ -615,3 +615,11 @@ config MSM_RDBG
 
 endmenu
 
+config OKL4_PIPE
+      bool "OKL4 Pipe Driver"
+      depends on OKL4_GUEST
+      default n
+      help
+        Virtual pipe driver for the OKL4 Microvisor. This driver allows
+        OKL4 Microvisor pipes to be exposed directly to user level as
+        character devices.
