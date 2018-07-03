@@ -15,7 +15,7 @@
 #define _RMNET_QMI_H
 
 #include <linux/netdevice.h>
-#ifdef CONFIG_QCOM_QMI_DFC
+#ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port);
 void *rmnet_get_qos_pt(struct net_device *dev);
 void *rmnet_get_rmnet_port(struct net_device *dev);
@@ -51,5 +51,5 @@ static inline void rmnet_reset_qmi_pt(void *port)
 static inline void rmnet_init_qmi_pt(void *port, void *qmi)
 {
 }
-#endif /* CONFIG_QCOM_QMI_DFC */
+#endif /* CONFIG_QCOM_QMI_RMNET */
 #endif /*_RMNET_QMI_H*/

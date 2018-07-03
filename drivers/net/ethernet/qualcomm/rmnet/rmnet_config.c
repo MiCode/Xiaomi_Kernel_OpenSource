@@ -481,7 +481,7 @@ int rmnet_del_bridge(struct net_device *rmnet_dev,
 	return 0;
 }
 
-#ifdef CONFIG_QCOM_QMI_DFC
+#ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port)
 {
 	if (port)
