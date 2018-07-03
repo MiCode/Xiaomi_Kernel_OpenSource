@@ -32,6 +32,7 @@ struct mipi_dsi_device;
  * @type: payload data type
  * @flags: flags controlling this message transmission
  * @ctrl: ctrl index to transmit on
+ * @wait_ms: duration in ms to wait after message transmission
  * @tx_len: length of @tx_buf
  * @tx_buf: data to be written
  * @rx_len: length of @rx_buf
@@ -42,6 +43,7 @@ struct mipi_dsi_msg {
 	u8 type;
 	u16 flags;
 	u32 ctrl;
+	u32 wait_ms;
 
 	size_t tx_len;
 	const void *tx_buf;

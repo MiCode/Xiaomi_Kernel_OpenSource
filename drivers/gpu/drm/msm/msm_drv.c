@@ -979,9 +979,7 @@ static int msm_disable_all_modes(
 		drm_modeset_backoff(ctx);
 	}
 
-	/* on successful atomic commit state ownership transfers to framework */
-	if (ret != 0)
-		drm_atomic_state_put(state);
+	drm_atomic_state_put(state);
 
 	return ret;
 }
@@ -2046,6 +2044,7 @@ static struct platform_driver msm_platform_driver = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,
 		.pm     = &msm_pm_ops,
+		.suppress_bind_attrs = true,
 	},
 };
 

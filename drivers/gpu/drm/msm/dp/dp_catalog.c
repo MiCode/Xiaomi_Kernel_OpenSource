@@ -1573,6 +1573,57 @@ static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
 	dp_write(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off, slot_reg_2);
 }
 
+static void dp_catalog_ctrl_channel_dealloc(struct dp_catalog_ctrl *ctrl,
+			u32 ch, u32 ch_start_slot, u32 tot_slot_cnt)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 i, slot_reg_1, slot_reg_2, slot;
+	u32 reg_off = 0;
+
+	if (!ctrl || ch >= DP_STREAM_MAX) {
+		pr_err("invalid input. ch %d\n", ch);
+		return;
+	}
+
+	if (ch_start_slot > DP_MAX_TIME_SLOTS ||
+			(ch_start_slot + tot_slot_cnt > DP_MAX_TIME_SLOTS)) {
+		pr_err("invalid slots start %d, tot %d\n",
+			ch_start_slot, tot_slot_cnt);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	pr_debug("dealloc ch %d, start_slot %d, tot_slot %d\n",
+			ch, ch_start_slot, tot_slot_cnt);
+
+	if (ch == DP_STREAM_1)
+		reg_off = DP_DP1_TIMESLOT_1_32 - DP_DP0_TIMESLOT_1_32;
+
+	slot_reg_1 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_1_32 + reg_off);
+	slot_reg_2 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off);
+
+	ch_start_slot = ch_start_slot - 1;
+	for (i = 0; i < tot_slot_cnt; i++) {
+		if (ch_start_slot < 33) {
+			slot_reg_1 &= ~BIT(ch_start_slot);
+		} else {
+			slot = ch_start_slot - 33;
+			slot_reg_2 &= ~BIT(slot);
+		}
+		ch_start_slot++;
+	}
+
+	pr_debug("dealloc ch:%d slot_reg_1:%d, slot_reg_2:%d\n", ch,
+			slot_reg_1, slot_reg_2);
+
+	dp_write(catalog, io_data, DP_DP0_TIMESLOT_1_32 + reg_off, slot_reg_1);
+	dp_write(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off, slot_reg_2);
+}
+
 static void dp_catalog_ctrl_update_rg(struct dp_catalog_ctrl *ctrl, u32 ch,
 		u32 x_int, u32 y_frac_enum)
 {
@@ -2111,6 +2162,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.read_act_complete_sts = dp_catalog_ctrl_read_act_complete_sts,
 		.channel_alloc = dp_catalog_ctrl_channel_alloc,
 		.update_rg = dp_catalog_ctrl_update_rg,
+		.channel_dealloc = dp_catalog_ctrl_channel_dealloc,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,
