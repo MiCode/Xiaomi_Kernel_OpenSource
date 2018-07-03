@@ -842,7 +842,8 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
 
-		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) {
+		if ((s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) &&
+				(s_ctrl->sensor_state != MSM_SENSOR_CCI_DOWN)) {
 			pr_err("%s:%d failed: invalid state %d\n", __func__,
 				__LINE__, s_ctrl->sensor_state);
 			rc = -EFAULT;
@@ -1403,7 +1404,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void *argp)
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
 
-		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) {
+		if ((s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) &&
+				(s_ctrl->sensor_state != MSM_SENSOR_CCI_DOWN)) {
 			pr_err("%s:%d failed: invalid state %d\n", __func__,
 				__LINE__, s_ctrl->sensor_state);
 			rc = -EFAULT;

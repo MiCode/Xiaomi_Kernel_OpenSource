@@ -121,6 +121,8 @@ struct dsi_display_clk_info {
  * @bridge:           Pointer to DRM bridge object.
  * @cmd_engine_refcount:  Reference count enforcing single instance of cmd eng
  * @root:                 Debugfs root directory
+ * @cont_splash_enabled:  Early splash status.
+ * @dsi_split_swap:       Swap dsi output in split mode.
  */
 struct dsi_display {
 	struct platform_device *pdev;
@@ -160,6 +162,7 @@ struct dsi_display {
 	struct dentry *root;
 
 	bool cont_splash_enabled;
+	bool dsi_split_swap;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

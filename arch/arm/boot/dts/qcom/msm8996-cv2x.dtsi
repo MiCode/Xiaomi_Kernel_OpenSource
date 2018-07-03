@@ -486,7 +486,7 @@
 
 &pm8994_mpps {
 	mpp@a100 { /* MPP 2 */
-		/* MDM PON conrol*/
+		/* MDM_RESIN_N control */
 		qcom,mode = <1>;		/* Digital output */
 		qcom,output-type = <0>;		/* CMOS logic */
 		qcom,vin-sel = <2>;		/* S4 1.8V */
@@ -502,6 +502,17 @@
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
+	mpp@a700 { /* MPP 8 */
+		/* MDM_PON_1 control */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		qcom,invert = <1>;		/* Output high */
 		status = "okay";
 	};
 };

@@ -1037,7 +1037,11 @@ void remove_pagetable(unsigned long start, unsigned long end, bool direct)
 	unsigned long addr;
 	pgd_t *pgd;
 	pud_t *pud;
+	int cpu;
 
+	for_each_possible_cpu(cpu)
+		if (current->cpu != cpu)
+			sched_isolate_cpu(cpu);
 	for (addr = start; addr < end; addr = next) {
 		next = pgd_addr_end(addr, end);
 
@@ -1058,6 +1062,9 @@ void remove_pagetable(unsigned long start, unsigned long end, bool direct)
 	}
 
 	flush_tlb_all();
+	for_each_possible_cpu(cpu)
+		if (current->cpu != cpu)
+			sched_unisolate_cpu_unlocked(cpu);
 }
 
 

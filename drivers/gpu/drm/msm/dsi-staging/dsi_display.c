@@ -1184,6 +1184,13 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 
+	/* Only read swap property in split case */
+	if (display->ctrl_count > 1) {
+		display->dsi_split_swap =
+			of_property_read_bool(display->pdev->dev.of_node,
+					"qcom,dsi-split-swap");
+	}
+
 	if (of_get_property(display->pdev->dev.of_node, "qcom,dsi-panel",
 			&size)) {
 		display->panel_count = size / sizeof(int);
@@ -2298,6 +2305,14 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->num_of_h_tiles = display->ctrl_count;
 	for (i = 0; i < info->num_of_h_tiles; i++)
 		info->h_tile_instance[i] = display->ctrl[i].ctrl->index;
+
+	/*
+	 * h_tile_instance[2] = {0, 1} means DSI0 left(master), DSI1 right
+	 * h_tile_instance[2] = {1, 0} means DSI1 left(master), DSI0 right
+	 * So in case of split case and swap property is set, swap two DSIs.
+	 */
+	if (info->num_of_h_tiles > 1 && display->dsi_split_swap)
+		swap(info->h_tile_instance[0], info->h_tile_instance[1]);
 
 	info->is_connected = true;
 	info->width_mm = phy_props.panel_width_mm;

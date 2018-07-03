@@ -247,7 +247,19 @@ Optional properties:
 				applied in scenarios where panel interface can
 				be more tolerant to memory latency such as
 				command mode panels.
+- qcom,sde-mixer-display-pref: A string array indicating the preferred display type
+				for the mixer block. Possible values:
+				"primary" - preferred for primary display
+				"secondary" - preferred for secondary display
+				"tertiary" - preferred for tertiary display
+				"none" - no preference for display
 
+- qcom,sde-ctl-display-pref:    A string array indicating the preferred display type
+				for the ctl block. Possible values:
+				"primary" - preferred for primary display
+				"secondary" - preferred for secondary display
+				"tertiary" - preferred for tertiary display
+				"none" - no preference for display
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
 				mdss blocks.

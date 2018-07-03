@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016,2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -254,6 +254,47 @@ void sde_setup_pipe_pa_cont_v1_7(struct sde_hw_pipe *ctx, void *cfg)
 	uint32_t contrast = *((uint32_t *)cfg);
 
 	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic_blk, contrast, SSPP);
+}
+
+void sde_setup_dspp_pa_hsic_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_pa_hsic *hsic_cfg;
+	u32 hue = 0;
+	u32 sat = 0;
+	u32 val = 0;
+	u32 cont = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	if (hw_cfg->payload &&
+		(hw_cfg->len != sizeof(struct drm_msm_pa_hsic))) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_pa_hsic));
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable pa hsic feature\n");
+	} else {
+		hsic_cfg = hw_cfg->payload;
+		if (hsic_cfg->flags & PA_HSIC_HUE_ENABLE)
+			hue = hsic_cfg->hue;
+		if (hsic_cfg->flags & PA_HSIC_SAT_ENABLE)
+			sat = hsic_cfg->saturation;
+		if (hsic_cfg->flags & PA_HSIC_VAL_ENABLE)
+			val = hsic_cfg->value;
+		if (hsic_cfg->flags & PA_HSIC_CONT_ENABLE)
+			cont = hsic_cfg->contrast;
+	}
+
+	__setup_pa_hue(&ctx->hw, &ctx->cap->sblk->hsic, hue, DSPP);
+	__setup_pa_sat(&ctx->hw, &ctx->cap->sblk->hsic, sat, DSPP);
+	__setup_pa_val(&ctx->hw, &ctx->cap->sblk->hsic, val, DSPP);
+	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic, cont, DSPP);
 }
 
 void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,

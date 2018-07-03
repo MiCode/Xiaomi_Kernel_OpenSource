@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1349,7 +1349,7 @@ static int send_rtac_afe_apr(void __user *buf, uint32_t opcode)
 		if (copy_from_user(rtac_cal[AFE_RTAC_CAL].cal_data.kvaddr,
 				   (void __user *) buf +
 					   offsetof(struct rtac_afe_user_data,
-						    v3_get.param_hdr),
+						    v3_set.param_hdr),
 				   payload_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);

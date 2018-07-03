@@ -40,7 +40,7 @@ static const char * const dt_gipc_path_name[] = {
 };
 
 static struct ghs_vmm_plugin_info_s {
-	const char **dt_name;
+	const char * const *dt_name;
 	int curr;
 	int probe_cnt;
 } ghs_vmm_plugin_info = {
@@ -184,9 +184,6 @@ int habhyp_commdev_dealloc(void *commdev)
 	struct ghs_vdev *dev = pchan->hyp_data;
 
 	kgipc_endpoint_free(dev->endpoint);
-
-	spin_lock_destroy(&dev->io_lock);
-
 	kfree(dev->read_data);
 	kfree(dev);
 

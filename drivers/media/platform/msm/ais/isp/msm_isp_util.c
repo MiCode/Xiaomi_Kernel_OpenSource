@@ -1073,6 +1073,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_camif_cfg(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+	case VIDIOC_MSM_ISP_FRAMEDROP_UPDATE:
+		mutex_lock(&vfe_dev->core_mutex);
+		msm_isp_framedrop_update(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		vfe_dev->isp_sof_debug = 0;
 		vfe_dev->isp_raw0_debug = 0;

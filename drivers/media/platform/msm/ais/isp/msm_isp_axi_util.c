@@ -2838,7 +2838,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 
 		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		spin_lock_irqsave(&stream_info->lock, flags);
-		msm_isp_reset_framedrop(vfe_dev, stream_info);
 		rc = msm_isp_init_stream_ping_pong_reg(vfe_dev, stream_info);
 		if (rc < 0) {
 			pr_err("%s: No buffer for stream%d\n", __func__,
@@ -3586,6 +3585,11 @@ int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg)
 					pstream_info, plane_idx);
 		}
 
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(
+			vfe_dev->vfe_base, pstream_info,
+			pCmd->output_path_cfg[axi_src_idx].framedrop_pattern,
+			pCmd->output_path_cfg[axi_src_idx].framedrop_period);
+
 		if (axi_src_idx <= PIX_ENCODER && axi_src_idx <= IDEAL_RAW) {
 			if (axi_src_idx == CAMIF_RAW) {
 				vfe_dev->axi_data.src_info[VFE_PIX_0].
@@ -3626,6 +3630,29 @@ int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
+void msm_isp_framedrop_update(struct vfe_device *vfe_dev, void *arg)
+{
+	struct msm_vfe_axi_framedrop_update *pCmd = arg;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_axi_stream *pstream_info;
+
+	pr_debug("%s: entry\n", __func__);
+
+	if (pCmd->stream_src < VFE_AXI_SRC_MAX) {
+
+		pstream_info = &axi_data->stream_info[pCmd->stream_src];
+
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(
+			vfe_dev->vfe_base, pstream_info,
+			pCmd->framedrop_pattern,
+			pCmd->framedrop_period);
+
+		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(
+			vfe_dev, SRC_TO_INTF(pstream_info->stream_src));
+	}
+
+	pr_debug("%s: exit\n", __func__);
+}
 
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1078,20 +1078,29 @@ static int cpr3_mmss_init_controller(struct cpr3_controller *ctrl)
 	return 0;
 }
 
-static int cpr3_mmss_regulator_suspend(struct platform_device *pdev,
-				pm_message_t state)
+#if CONFIG_PM
+static int cpr3_mmss_regulator_suspend(struct device *dev)
 {
-	struct cpr3_controller *ctrl = platform_get_drvdata(pdev);
+	struct cpr3_controller *ctrl = dev_get_drvdata(dev);
 
 	return cpr3_regulator_suspend(ctrl);
 }
 
-static int cpr3_mmss_regulator_resume(struct platform_device *pdev)
+static int cpr3_mmss_regulator_resume(struct device *dev)
 {
-	struct cpr3_controller *ctrl = platform_get_drvdata(pdev);
+	struct cpr3_controller *ctrl = dev_get_drvdata(dev);
 
 	return cpr3_regulator_resume(ctrl);
 }
+#else
+#define cpr3_mmss_regulator_suspend NULL
+#define cpr3_mmss_regulator_resume NULL
+#endif
+
+static const struct dev_pm_ops cpr3_mmss_regulator_pm_ops = {
+	.suspend	= cpr3_mmss_regulator_suspend,
+	.resume		= cpr3_mmss_regulator_resume,
+};
 
 /* Data corresponds to the SoC revision */
 static const struct of_device_id cpr_regulator_match_table[] = {
@@ -1233,11 +1242,10 @@ static struct platform_driver cpr3_mmss_regulator_driver = {
 		.name		= "qcom,cpr3-mmss-regulator",
 		.of_match_table	= cpr_regulator_match_table,
 		.owner		= THIS_MODULE,
+		.pm             = &cpr3_mmss_regulator_pm_ops,
 	},
 	.probe		= cpr3_mmss_regulator_probe,
 	.remove		= cpr3_mmss_regulator_remove,
-	.suspend	= cpr3_mmss_regulator_suspend,
-	.resume		= cpr3_mmss_regulator_resume,
 };
 
 static int cpr_regulator_init(void)

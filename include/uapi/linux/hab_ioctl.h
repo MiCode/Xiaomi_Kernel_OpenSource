@@ -69,7 +69,6 @@ struct hab_info {
 };
 
 #define HAB_IOC_TYPE 0x0A
-#define HAB_MAX_MSG_SIZEBYTES 0x1000
 
 #define IOCTL_HAB_SEND \
 	_IOW(HAB_IOC_TYPE, 0x2, struct hab_send)

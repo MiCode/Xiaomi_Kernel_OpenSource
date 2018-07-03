@@ -233,7 +233,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_display(C) \
-	((C) ? to_sde_connector((C))->display : 0)
+	((C) ? to_sde_connector((C))->display : NULL)
 
 /**
  * sde_connector_get_panel - get sde connector's private panel pointer
@@ -241,7 +241,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_panel(C) \
-	((C) ? to_sde_connector((C))->panel : 0)
+	((C) ? to_sde_connector((C))->panel : NULL)
 
 /**
  * sde_connector_get_encoder - get sde connector's private encoder pointer
@@ -249,7 +249,7 @@ struct sde_connector {
  * Returns: Pointer to associated private encoder structure
  */
 #define sde_connector_get_encoder(C) \
-	((C) ? to_sde_connector((C))->encoder : 0)
+	((C) ? to_sde_connector((C))->encoder : NULL)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -257,7 +257,7 @@ struct sde_connector {
  * Returns: Pointer to associated private property info structure
  */
 #define sde_connector_get_propinfo(C) \
-	((C) ? &to_sde_connector((C))->property_info : 0)
+	((C) ? &to_sde_connector((C))->property_info : NULL)
 
 /**
  * struct sde_connector_state - private connector status structure
@@ -300,7 +300,7 @@ struct sde_connector_state {
  * Returns: Integer value of requested property
  */
 #define sde_connector_get_property_values(S) \
-	((S) ? (to_sde_connector_state((S))->property_values) : 0)
+	((S) ? (to_sde_connector_state((S))->property_values) : NULL)
 
 /**
  * sde_connector_get_out_fb - query out_fb value from sde connector state
@@ -308,7 +308,7 @@ struct sde_connector_state {
  * Returns: Output fb associated with specified connector state
  */
 #define sde_connector_get_out_fb(S) \
-	((S) ? to_sde_connector_state((S))->out_fb : 0)
+	((S) ? to_sde_connector_state((S))->out_fb : NULL)
 
 /**
  * sde_connector_get_topology_name - helper accessor to retrieve topology_name
