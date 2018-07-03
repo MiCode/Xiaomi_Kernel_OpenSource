@@ -1048,6 +1048,8 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	host->ext_bridge_mode = utils->read_bool(utils->data,
 					"qcom,mdss-dsi-ext-bridge-mode");
 
+	host->force_hs_clk_lane = utils->read_bool(utils->data,
+					"qcom,mdss-dsi-force-clock-lane-hs");
 	return 0;
 }
 
