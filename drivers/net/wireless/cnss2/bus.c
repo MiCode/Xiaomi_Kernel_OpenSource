@@ -41,6 +41,38 @@ enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id)
 	}
 }
 
+void *cnss_bus_dev_to_bus_priv(struct device *dev)
+{
+	if (!dev)
+		return NULL;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_PCI:
+		return cnss_get_pci_priv(to_pci_dev(dev));
+	default:
+		return NULL;
+	}
+}
+
+struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev)
+{
+	void *bus_priv;
+
+	if (!dev)
+		return cnss_get_plat_priv(NULL);
+
+	bus_priv = cnss_bus_dev_to_bus_priv(dev);
+	if (!bus_priv)
+		return NULL;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_priv_to_plat_priv(bus_priv);
+	default:
+		return NULL;
+	}
+}
+
 int cnss_bus_init(struct cnss_plat_data *plat_priv)
 {
 	if (!plat_priv)
@@ -161,5 +193,142 @@ void cnss_bus_collect_dump_info(struct cnss_plat_data *plat_priv, bool in_panic)
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
 		return;
+	}
+}
+
+int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_call_driver_probe(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_call_driver_remove(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_call_driver_remove(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_dev_powerup(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_dev_powerup(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_dev_shutdown(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_dev_shutdown(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_dev_crash_shutdown(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_dev_crash_shutdown(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_dev_ramdump(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_dev_ramdump(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_register_driver_hdlr(struct cnss_plat_data *plat_priv, void *data)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_register_driver_hdlr(plat_priv->bus_priv, data);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_unregister_driver_hdlr(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_call_driver_modem_status(struct cnss_plat_data *plat_priv,
+				      int modem_current_status)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_call_driver_modem_status(plat_priv->bus_priv,
+							 modem_current_status);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
 	}
 }

@@ -3734,7 +3734,7 @@ static int ffs_func_setup(struct usb_function *f,
 
 	ffs_log("exit");
 
-	return 0;
+	return USB_GADGET_DELAYED_STATUS;
 }
 
 static bool ffs_func_req_match(struct usb_function *f,

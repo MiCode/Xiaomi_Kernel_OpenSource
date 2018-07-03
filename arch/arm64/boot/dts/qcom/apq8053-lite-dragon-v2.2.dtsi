@@ -18,6 +18,41 @@
 	/delete-node/ himax_ts@48;
 };
 
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_boent51021_1200p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	vdd-supply = <&pm8953_l10>;
+	vddio-supply = <&pm8953_l6>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,ext-vdd-gpio = <&tlmm 100 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 95 0>;
+
+	qcom,platform-lane-config = [00 00 ff 0f
+				00 00 ff 0f
+				00 00 ff 0f
+				00 00 ff 0f
+				00 00 ff 8f];
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
 &eeprom0 {
 	gpios = <&tlmm 26 0>,
 		<&tlmm 40 0>,

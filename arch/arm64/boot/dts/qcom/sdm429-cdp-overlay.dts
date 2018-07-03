@@ -14,9 +14,6 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/clock/msm-clocks-8953.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "sdm429-cdp.dtsi"
 
 / {

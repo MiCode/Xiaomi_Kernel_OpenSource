@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sxr1120-lc.dtsi"
+#include "sxr1120-lc-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SXR1120 LC Groot+PM8005 Ext. Audio Codec MTP";
+	compatible = "qcom,sxr1120-mtp", "qcom,sxr1120", "qcom,mtp";
+	qcom,board-id = <8 1>;
+};

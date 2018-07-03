@@ -506,7 +506,7 @@ int8_t count_enabled_spads(uint8_t spadArray[],
 					*pIsAperture = 1;
 					if ((byteIndex < 2) && (bitIndex < 4))
 						*pIsAperture = 0;
-						spadTypeIdentified = 1;
+					spadTypeIdentified = 1;
 				}
 			}
 			tempByte >>= 1;

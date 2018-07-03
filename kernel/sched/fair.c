@@ -6929,6 +6929,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int target_cpu = -1;
 	int cpu, i;
 	unsigned int active_cpus_count = 0;
+	int isolated_candidate = -1;
 
 	*backup_cpu = -1;
 
@@ -6974,13 +6975,16 @@ retry:
 			unsigned long wake_util, new_util, min_capped_util;
 
 			cpumask_clear_cpu(i, &search_cpus);
+
+			if (!cpu_online(i) || cpu_isolated(i))
+				continue;
+
+			isolated_candidate = i;
+
 			if (avoid_prev_cpu && i == task_cpu(p))
 				continue;
 
-			if (!cpu_online(i) || cpu_isolated(i) || is_reserved(i))
-				continue;
-
-			if (walt_cpu_high_irqload(i))
+			if (walt_cpu_high_irqload(i) || is_reserved(i))
 				continue;
 
 			trace_sched_cpu_util(i);
@@ -7265,6 +7269,12 @@ retry:
 		*backup_cpu = prefer_idle
 		? best_active_cpu
 		: best_idle_cpu;
+
+	if (target_cpu == -1 && cpu_isolated(task_cpu(p)) &&
+			isolated_candidate != -1) {
+		target_cpu = isolated_candidate;
+		fbt_env->avoid_prev_cpu = true;
+	}
 
 	trace_sched_find_best_target(p, prefer_idle, min_util, cpu,
 				     best_idle_cpu, best_active_cpu,

@@ -113,6 +113,7 @@ Optional properties:
 - qcom,platform-bklight-en-gpio-invert:	Invert the gpio used to enable display back-light
 - qcom,panel-mode-gpio:			Specifies the GPIO to select video/command/single-port/dual-port
 					mode of panel through gpio when it supports these modes.
+- qcom,ext-vdd-gpio:			Specifies the GPIO to enable external VDD supply.
 - pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
 					Refer to pinctrl-bindings.txt
 - pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin

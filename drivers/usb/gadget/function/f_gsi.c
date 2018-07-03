@@ -2480,8 +2480,12 @@ static void gsi_suspend(struct usb_function *f)
 	bool block_db;
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	/* Check if function is already suspended in gsi_func_suspend() */
-	if (f->func_is_suspended) {
+	/* Check if function is already suspended in gsi_func_suspend()
+	 * Or func_suspend would have bailed out earlier if func_remote_wakeup
+	 * wasn't enabled.
+	 */
+	if (f->func_is_suspended && (gsi->d_port.sm_state == STATE_SUSPENDED ||
+			gsi->d_port.sm_state == STATE_SUSPEND_IN_PROGRESS)) {
 		log_event_dbg("%s: func already suspended, return\n", __func__);
 		return;
 	}
@@ -2544,6 +2548,14 @@ static void gsi_resume(struct usb_function *f)
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 
 	log_event_dbg("%s: completed", __func__);
+}
+
+static int gsi_get_status(struct usb_function *f)
+{
+	unsigned int remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+
+	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
+		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
 }
 
 static int gsi_func_suspend(struct usb_function *f, u8 options)
@@ -3313,6 +3325,7 @@ static int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.disable = gsi_disable;
 	gsi->function.free_func = gsi_free_func;
 	gsi->function.suspend = gsi_suspend;
+	gsi->function.get_status = gsi_get_status;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 

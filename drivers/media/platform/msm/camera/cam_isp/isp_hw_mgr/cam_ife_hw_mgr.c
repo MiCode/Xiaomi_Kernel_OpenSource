@@ -1367,6 +1367,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	uint32_t                           num_rdi_port_per_in = 0;
 	uint32_t                           total_pix_port = 0;
 	uint32_t                           total_rdi_port = 0;
+	uint32_t                           in_port_length = 0;
 
 	CAM_DBG(CAM_ISP, "Enter...");
 
@@ -1427,9 +1428,27 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			isp_resource[i].res_hdl,
 			isp_resource[i].length);
 
+		in_port_length = sizeof(struct cam_isp_in_port_info);
+
+		if (in_port_length > isp_resource[i].length) {
+			CAM_ERR(CAM_ISP, "buffer size is not enough");
+			rc = -EINVAL;
+			goto free_res;
+		}
+
 		in_port = memdup_user((void __user *)isp_resource[i].res_hdl,
 			isp_resource[i].length);
 		if (!IS_ERR(in_port)) {
+			in_port_length = sizeof(struct cam_isp_in_port_info) +
+				(in_port->num_out_res - 1) *
+				sizeof(struct cam_isp_out_port_info);
+			if (in_port_length > isp_resource[i].length) {
+				CAM_ERR(CAM_ISP, "buffer size is not enough");
+				rc = -EINVAL;
+				kfree(in_port);
+				goto free_res;
+			}
+
 			rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx, in_port,
 				&num_pix_port_per_in, &num_rdi_port_per_in);
 			total_pix_port += num_pix_port_per_in;

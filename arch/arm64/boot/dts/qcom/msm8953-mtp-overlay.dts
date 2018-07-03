@@ -21,7 +21,7 @@
 	qcom,board-id = <8 0>;
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-itech-3000mah.dtsi"
@@ -31,6 +31,13 @@
 
 &qpnp_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi_haptic{
+	qcom,lra-auto-res-mode="qwd";
+	qcom,lra-high-z="opt1";
+	qcom,lra-res-cal-period = <0>;
+	qcom,wave-play-rate-us = <4165>;
 };
 
 &qpnp_smbcharger {

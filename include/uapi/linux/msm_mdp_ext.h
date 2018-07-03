@@ -34,9 +34,9 @@
  * To allow proper structure padding for 64bit/32bit target
  */
 #ifdef __LP64
-#define MDP_LAYER_COMMIT_V1_PAD 2
+#define MDP_LAYER_COMMIT_V1_PAD 1
 #else
-#define MDP_LAYER_COMMIT_V1_PAD 3
+#define MDP_LAYER_COMMIT_V1_PAD 2
 #endif
 
 /*
@@ -146,6 +146,9 @@
  * Default mode is continuous mode.
  */
 #define MDP_COMMIT_AVR_ONE_SHOT_MODE		0x10
+
+/* Flag to update brightness when commit */
+#define MDP_COMMIT_UPDATE_BRIGHTNESS		0x40
 
 /* Flag to enable concurrent writeback for the frame */
 #define MDP_COMMIT_CWB_EN 0x800
@@ -484,6 +487,9 @@ struct mdp_layer_commit_v1 {
 
 	/* FRC info per device which contains frame count and timestamp */
 	struct mdp_frc_info __user *frc_info;
+
+	/* Backlight level that would update when display commit */
+	uint32_t		bl_level;
 
 	/* 32-bits reserved value for future usage. */
 	uint32_t		reserved[MDP_LAYER_COMMIT_V1_PAD];

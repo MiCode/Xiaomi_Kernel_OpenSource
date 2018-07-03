@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/clock/msm-clocks-8952.h>
+
 &cci {
 	actuator0: qcom,actuator@0 {
 		cell-index = <0>;

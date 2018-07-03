@@ -1520,6 +1520,47 @@ static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
 	return chip->parallel.psy;
 }
 
+static int smbchg_request_dpdm(struct smbchg_chip *chip, bool enable)
+{
+	int rc = 0;
+
+	/* fetch the DPDM regulator */
+	if (!chip->dpdm_reg && of_get_property(chip->dev->of_node,
+				"dpdm-supply", NULL)) {
+		chip->dpdm_reg = devm_regulator_get(chip->dev, "dpdm");
+		if (IS_ERR(chip->dpdm_reg)) {
+			rc = PTR_ERR(chip->dpdm_reg);
+			dev_err(chip->dev, "Couldn't get dpdm regulator rc=%d\n",
+					rc);
+			chip->dpdm_reg = NULL;
+			return rc;
+		}
+	}
+
+	if (!chip->dpdm_reg)
+		return -ENODEV;
+
+	if (enable) {
+		if (!regulator_is_enabled(chip->dpdm_reg)) {
+			pr_smb(PR_STATUS, "enabling DPDM regulator\n");
+			rc = regulator_enable(chip->dpdm_reg);
+			if (rc < 0)
+				dev_err(chip->dev, "Couldn't enable dpdm regulator rc=%d\n",
+					rc);
+		}
+	} else {
+		if (regulator_is_enabled(chip->dpdm_reg)) {
+			pr_smb(PR_STATUS, "disabling DPDM regulator\n");
+			rc = regulator_disable(chip->dpdm_reg);
+			if (rc < 0)
+				dev_err(chip->dev, "Couldn't disable dpdm regulator rc=%d\n",
+					rc);
+		}
+	}
+
+	return rc;
+}
+
 static void smbchg_usb_update_online_work(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work,
@@ -4590,8 +4631,11 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 	if (!rc && !(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_MISC, "overwriting state = %d with %d\n",
 				state, POWER_SUPPLY_DP_DM_DPF_DMF);
-		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
-			return regulator_enable(chip->dpdm_reg);
+		rc = smbchg_request_dpdm(chip, true);
+		if (rc < 0) {
+			pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
+			return rc;
+		}
 	}
 	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
 	pval.intval = state;
@@ -4697,8 +4741,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	smbchg_relax(chip, PM_DETECT_HVDCP);
 	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 	extcon_set_cable_state_(chip->extcon, EXTCON_USB, chip->usb_present);
-	if (chip->dpdm_reg)
-		regulator_disable(chip->dpdm_reg);
+	smbchg_request_dpdm(chip, false);
 	schedule_work(&chip->usb_set_online_work);
 
 	pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
@@ -5248,8 +5291,7 @@ static int smbchg_unprepare_for_pulsing(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
-	if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
-		rc = regulator_enable(chip->dpdm_reg);
+	rc = smbchg_request_dpdm(chip, true);
 	if (rc < 0) {
 		pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
 		return rc;
@@ -6481,8 +6523,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	 */
 	if (!(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_MISC, "setting usb dp=f dm=f\n");
-		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
-			rc = regulator_enable(chip->dpdm_reg);
+		rc = smbchg_request_dpdm(chip, true);
 		if (rc < 0) {
 			pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
 			return rc;
@@ -6731,15 +6772,8 @@ static int determine_initial_status(struct smbchg_chip *chip)
 	chip->dc_present = is_dc_present(chip);
 
 	if (chip->usb_present) {
-		int rc = 0;
-
 		pr_smb(PR_MISC, "setting usb dp=f dm=f\n");
-		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
-			rc = regulator_enable(chip->dpdm_reg);
-		if (rc < 0) {
-			pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
-			return rc;
-		}
+		smbchg_request_dpdm(chip, true);
 		handle_usb_insertion(chip);
 	} else {
 		handle_usb_removal(chip);
@@ -8370,14 +8404,6 @@ static int smbchg_probe(struct platform_device *pdev)
 			PTR_ERR(chip->usb_psy));
 		rc = PTR_ERR(chip->usb_psy);
 		goto votables_cleanup;
-	}
-
-	if (of_find_property(chip->dev->of_node, "dpdm-supply", NULL)) {
-		chip->dpdm_reg = devm_regulator_get(chip->dev, "dpdm");
-		if (IS_ERR(chip->dpdm_reg)) {
-			rc = PTR_ERR(chip->dpdm_reg);
-			goto votables_cleanup;
-		}
 	}
 
 	rc = smbchg_hw_init(chip);

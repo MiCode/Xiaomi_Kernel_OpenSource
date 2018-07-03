@@ -1066,12 +1066,14 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 	seq_puts(s, "\n");
 }
 
-static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
+static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe,
+		struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_data *buf;
 	int format;
 	int smps[4];
 	int i;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
 	seq_printf(s, "\nSSPP #%d type=%s ndx=%x flags=0x%08x play_cnt=%u xin_id=%d\n",
 			pipe->num, mdss_mdp_pipetype2str(pipe->type),
@@ -1126,11 +1128,14 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 
 	seq_puts(s, "Data:\n");
 
+	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(buf, &pipe->buf_queue, pipe_list)
 		__print_buf(s, buf, false);
+	mutex_unlock(&mdp5_data->list_lock);
 }
 
-static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
+static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer,
+		struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe;
 	int i, cnt = 0;
@@ -1147,7 +1152,7 @@ static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
 	for (i = 0; i < ARRAY_SIZE(mixer->stage_pipe); i++) {
 		pipe = mixer->stage_pipe[i];
 		if (pipe) {
-			__dump_pipe(s, pipe);
+			__dump_pipe(s, pipe, mfd);
 			cnt++;
 		}
 	}
@@ -1224,8 +1229,8 @@ static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 	seq_printf(s, "Play Count=%u  Underrun Count=%u\n",
 			ctl->play_cnt, ctl->underrun_cnt);
 
-	__dump_mixer(s, ctl->mixer_left);
-	__dump_mixer(s, ctl->mixer_right);
+	__dump_mixer(s, ctl->mixer_left, ctl->mfd);
+	__dump_mixer(s, ctl->mixer_right, ctl->mfd);
 }
 
 static int __dump_mdp(struct seq_file *s, struct mdss_data_type *mdata)
@@ -1419,7 +1424,7 @@ static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 		seq_printf(s, "vsync: %08u \tunderrun: %08u\n",
 				ctl->vsync_cnt, ctl->underrun_cnt);
 		if (ctl->mfd) {
-			seq_printf(s, "user_bl: %08llu \tmod_bl: %08u\n",
+			seq_printf(s, "user_bl: %llu \tmod_bl: %08u\n",
 				ctl->mfd->bl_level, ctl->mfd->bl_level_scaled);
 		}
 	} else {

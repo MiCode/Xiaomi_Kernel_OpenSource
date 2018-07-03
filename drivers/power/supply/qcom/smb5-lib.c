@@ -1894,6 +1894,28 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 	switch (chg->real_charger_type) {
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		if (chg->smb_version == PMI632_SUBTYPE)
+			val->intval = MICRO_9V;
+		else
+			val->intval = MICRO_12V;
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		val->intval = chg->voltage_max_uv;
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 	case POWER_SUPPLY_TYPE_USB_PD:
 		if (chg->smb_version == PMI632_SUBTYPE)
 			val->intval = MICRO_9V;
@@ -2109,7 +2131,7 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 	int rc;
 	u8 stat;
 
-	rc = smblib_read(chg, TEMP_RANGE_STATUS_REG, &stat);
+	rc = smblib_read(chg, MISC_TEMP_RANGE_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TEMP_RANGE_STATUS_REG rc=%d\n",
 									rc);
@@ -2691,6 +2713,24 @@ irqreturn_t icl_change_irq_handler(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	if (chg->mode == PARALLEL_MASTER) {
+		/*
+		 * Ignore if change in ICL is due to DIE temp mitigation.
+		 * This is to prevent any further ICL split.
+		 */
+		if (chg->hw_die_temp_mitigation) {
+			rc = smblib_read(chg, MISC_DIE_TEMP_STATUS_REG, &stat);
+			if (rc < 0) {
+				smblib_err(chg,
+					"Couldn't read DIE_TEMP rc=%d\n", rc);
+				return IRQ_HANDLED;
+			}
+			if (stat & (DIE_TEMP_UB_BIT | DIE_TEMP_LB_BIT)) {
+				smblib_dbg(chg, PR_PARALLEL,
+					"skip ICL change DIE_TEMP %x\n", stat);
+				return IRQ_HANDLED;
+			}
+		}
+
 		rc = smblib_read(chg, AICL_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't read AICL_STATUS rc=%d\n",

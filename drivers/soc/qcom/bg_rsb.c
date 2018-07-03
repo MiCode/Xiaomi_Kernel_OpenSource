@@ -122,6 +122,8 @@ struct bgrsb_priv {
 
 	struct device *ldev;
 
+	struct wakeup_source bgrsb_ws;
+
 	wait_queue_head_t link_state_wait;
 
 	uint32_t calbrtion_intrvl;
@@ -462,6 +464,7 @@ static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 	if (!dev->chnl_state)
 		return -ENODEV;
 
+	__pm_stay_awake(&dev->bgrsb_ws);
 	mutex_lock(&dev->glink_mutex);
 	init_completion(&dev->tx_done);
 	init_completion(&dev->bg_resp_cmplt);
@@ -507,6 +510,7 @@ static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 
 err_ret:
 	mutex_unlock(&dev->glink_mutex);
+	__pm_relax(&dev->bgrsb_ws);
 	return rc;
 }
 
@@ -904,6 +908,9 @@ static int bg_rsb_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	/* Add wake lock for PM suspend */
+	wakeup_source_init(&dev->bgrsb_ws, "BGRSB_wake_lock");
+
 	dev->bgrsb_current_state = BGRSB_STATE_UNKNOWN;
 	rc = bgrsb_init(dev);
 	if (rc)
@@ -964,6 +971,7 @@ static int bg_rsb_remove(struct platform_device *pdev)
 	destroy_workqueue(dev->bgrsb_event_wq);
 	destroy_workqueue(dev->bgrsb_wq);
 	input_free_device(dev->input);
+	wakeup_source_trash(&dev->bgrsb_ws);
 
 	return 0;
 }

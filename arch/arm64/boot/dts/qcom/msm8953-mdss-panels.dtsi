@@ -25,6 +25,7 @@
 #include "dsi-panel-lt8912-1080p-video.dtsi"
 #include "dsi-panel-hx8399c-fhd-plus-video.dtsi"
 #include "dsi-panel-hx83100a-800p-video.dtsi"
+#include "dsi-panel-boent51021-1200p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -168,4 +169,12 @@
 		1f 1c 05 06 03 03 04 a0
 		1f 1c 05 06 03 03 04 a0
 		1f 10 05 06 03 03 04 a0];
+};
+
+&dsi_boent51021_1200p_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [25 20 08 0a 06 03 04 a0
+		25 20 08 0a 06 03 04 a0
+		25 20 08 0a 06 03 04 a0
+		25 20 08 0a 06 03 04 a0
+		25 1d 08 0a 06 03 04 a0];
 };

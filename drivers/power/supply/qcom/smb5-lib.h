@@ -360,6 +360,9 @@ struct smb_charger {
 	int			auto_recharge_soc;
 	bool			jeita_configured;
 	enum sink_src_mode	sink_src_mode;
+	bool			hw_die_temp_mitigation;
+	bool			hw_connector_mitigation;
+	int			connector_pull_up;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -491,6 +494,8 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);

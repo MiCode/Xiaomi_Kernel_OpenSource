@@ -365,6 +365,7 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 	res.start = readl_relaxed(dict);
 	res.end = res.start + readl_relaxed(dict + 0x4);
 	res.flags = IORESOURCE_MEM;
+	res.name = NULL;
 	iounmap(dict);
 
 	start_addr = devm_ioremap_resource(&pdev->dev, &res);

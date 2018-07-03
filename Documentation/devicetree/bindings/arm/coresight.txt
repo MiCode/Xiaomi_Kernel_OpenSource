@@ -110,6 +110,9 @@ its hardware characteristcs.
 	* cpu: the cpu phandle this ETM/PTM is affined to. When omitted the
 	  source is considered to belong to CPU0.
 
+	* qcom,tupwr-disable: For ETM, don't keep trace unit powered across power
+	  collapse.
+
 * Optional property for TMC:
 
 	* arm,buffer-size: size of contiguous buffer space for TMC ETR

@@ -167,6 +167,8 @@
 #define PM660_BST_HEADROOM_DEFAULT_MV	200
 #define BST_HEADROOM_DEFAULT_MV		150
 
+#define PMIC5_LCDB_OFF_ON_DELAY_US	20000
+
 struct ldo_regulator {
 	struct regulator_desc		rdesc;
 	struct regulator_dev		*rdev;
@@ -1340,22 +1342,27 @@ static struct regulator_ops qpnp_lcdb_ncp_ops = {
 
 static int qpnp_lcdb_regulator_register(struct qpnp_lcdb *lcdb, u8 type)
 {
-	int rc = 0;
+	int rc = 0, off_on_delay = 0;
 	struct regulator_init_data *init_data;
 	struct regulator_config cfg = {};
 	struct regulator_desc *rdesc;
 	struct regulator_dev *rdev;
 	struct device_node *node;
 
+	if (lcdb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE)
+		off_on_delay = PMIC5_LCDB_OFF_ON_DELAY_US;
+
 	if (type == LDO) {
 		node			= lcdb->ldo.node;
 		rdesc			= &lcdb->ldo.rdesc;
 		rdesc->ops		= &qpnp_lcdb_ldo_ops;
+		rdesc->off_on_delay	= off_on_delay;
 		rdev			= lcdb->ldo.rdev;
 	} else if (type == NCP) {
 		node			= lcdb->ncp.node;
 		rdesc			= &lcdb->ncp.rdesc;
 		rdesc->ops		= &qpnp_lcdb_ncp_ops;
+		rdesc->off_on_delay	= off_on_delay;
 		rdev			= lcdb->ncp.rdev;
 	} else {
 		pr_err("Invalid regulator type %d\n", type);

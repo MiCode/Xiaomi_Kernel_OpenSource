@@ -92,6 +92,28 @@
 	};
 };
 
+&i2c_1 {
+	status = "okay";
+	icm20602@68 {
+		compatible = "invensense,icm20602";
+		reg = <0x68>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <12 0>;
+		invensense,icm20602-gpio = <&msm_gpio 12 0x0>;
+		vdd-ldo-supply = <&pm8916_l6>;
+		interrupt-names = "icm20602_irq";
+		pinctrl-names = "imu_active","imu_suspend";
+		pinctrl-0 = <&imu_int_active>;
+		pinctrl-1 = <&imu_int_suspend>;
+		status = "ok";
+	};
+	vl53l0x@29 {
+		compatible = "st,stmvl53l0";
+		reg = <0x29>;
+		status = "ok";
+	};
+};
+
 &wcnss {
 	status = "disabled";
 };

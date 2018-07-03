@@ -492,6 +492,7 @@ struct hfi_frame_rate {
 
 struct hfi_heic_frame_quality {
 	u32 frame_quality;
+	u32 reserved[3];
 };
 
 struct hfi_heic_grid_enable {

@@ -295,6 +295,12 @@ First Level Node - QGAUGE device
 		    attempted by QG. If not defined the value defaults
 		    to 10%.
 
+- qcom,qg-ext-sns
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to support external-rsense based
+		    configuration.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

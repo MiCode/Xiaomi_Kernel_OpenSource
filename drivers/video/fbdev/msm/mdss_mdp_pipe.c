@@ -934,17 +934,18 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 		data = readl_relaxed(mdata->mdp_base +
 			MDSS_MDP_REG_SMP_ALLOC_W0 + off);
 		client_id = (data >> s) & 0xFF;
-		if (test_bit(i, mdata->mmb_alloc_map)) {
-			/*
-			 * Certain pipes may have a dedicated set of
-			 * SMP MMBs statically allocated to them. In
-			 * such cases, we do not need to do anything
-			 * here.
-			 */
-			pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)\n"
-				, i, pipe ? pipe->num : -1, client_id);
-			continue;
-		}
+		if (i < ARRAY_SIZE(mdata->mmb_alloc_map))
+			if (test_bit(i, mdata->mmb_alloc_map)) {
+				/*
+				 * Certain pipes may have a dedicated set of
+				 * SMP MMBs statically allocated to them. In
+				 * such cases, we do not need to do anything
+				 * here.
+				 */
+				pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)\n"
+					, i, pipe ? pipe->num : -1, client_id);
+				continue;
+			}
 
 		if (client_id) {
 			if (client_id != prev_id) {
@@ -1011,8 +1012,10 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 	u32 mask, reg_val, reg_val_lvl, i, vbif_qos;
 	u32 reg_high;
 	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
+	u32 *vbif_qos_ptr = is_realtime ? mdata->vbif_rt_qos :
+		mdata->vbif_nrt_qos;
 
-	if (mdata->npriority_lvl == 0)
+	if ((mdata->npriority_lvl == 0) || !vbif_qos_ptr)
 		return;
 
 	if (test_bit(MDSS_QOS_REMAPPER, mdata->mdss_qos_map)) {
@@ -1028,8 +1031,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 				is_nrt_vbif);
 
 			mask = 0x3 << (pipe->xin_id * 4);
-			vbif_qos = is_realtime ?
-				mdata->vbif_rt_qos[i] : mdata->vbif_nrt_qos[i];
+			vbif_qos = vbif_qos_ptr[i];
 
 			reg_val &= ~(mask);
 			reg_val |= vbif_qos << (pipe->xin_id * 4);
@@ -1053,8 +1055,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 
 			mask = 0x3 << (pipe->xin_id * 2);
 			reg_val &= ~(mask);
-			vbif_qos = is_realtime ?
-				mdata->vbif_rt_qos[i] : mdata->vbif_nrt_qos[i];
+			vbif_qos = vbif_qos_ptr[i];
 			reg_val |= vbif_qos << (pipe->xin_id * 2);
 			MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4,
 				reg_val, is_nrt_vbif);
@@ -2072,8 +2073,9 @@ static void mdss_mdp_set_pipe_cdp(struct mdss_mdp_pipe *pipe)
 	u32 cdp_settings = 0x0;
 	bool is_rotator = (pipe->mixer_left && pipe->mixer_left->rotator_mode);
 
-	/* Disable CDP for rotator pipe in v1 */
-	if (is_rotator && mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP))
+	/* Disable CDP for rotator pipe or if not requested for the target */
+	if (!mdata->enable_cdp || (is_rotator &&
+			mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP)))
 		goto exit;
 
 	cdp_settings = MDSS_MDP_CDP_ENABLE;
@@ -2290,6 +2292,9 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC3_ADDR, addr[2]);
 	}
 
+	MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
+		pipe->play_cnt, addr[0], addr[1], addr[2], addr[3]);
+
 	return 0;
 }
 
@@ -2311,7 +2316,7 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 
 	/* support ARGB color format only */
 	unpack = (C3_ALPHA << 24) | (C2_R_Cr << 16) |
-		(C1_B_Cb << 8) | (C0_G_Y << 0);
+		(C0_G_Y << 8) | (C1_B_Cb << 0);
 	if (pipe->scaler.enable)
 		opmode |= (1 << 31);
 
@@ -2676,9 +2681,6 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 		goto update_nobuf;
 	}
-
-	MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
-						pipe->play_cnt, 0x222);
 
 	if (params_changed) {
 		pipe->params_changed = 0;

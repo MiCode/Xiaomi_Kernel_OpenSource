@@ -845,7 +845,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	}
 
 	drvdata->enable = true;
-	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)

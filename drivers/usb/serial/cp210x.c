@@ -745,7 +745,7 @@ static void cp210x_get_termios_port(struct usb_serial_port *port,
 	unsigned int cflag;
 	struct cp210x_flow_ctl flow_ctl;
 	u32 baud;
-	u16 bits;
+	u16 bits = 0;
 	u32 ctl_hs;
 
 	cp210x_read_u32_reg(port, CP210X_GET_BAUDRATE, &baud);

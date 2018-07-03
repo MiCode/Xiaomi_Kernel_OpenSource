@@ -49,7 +49,7 @@
 /*
  * External function declarations
  */
-extern void queued_read_lock_slowpath(struct qrwlock *lock, u32 cnts);
+extern void queued_read_lock_slowpath(struct qrwlock *lock);
 extern void queued_write_lock_slowpath(struct qrwlock *lock);
 
 /**
@@ -118,7 +118,7 @@ static inline void queued_read_lock(struct qrwlock *lock)
 		return;
 
 	/* The slowpath will decrement the reader count, if necessary. */
-	queued_read_lock_slowpath(lock, cnts);
+	queued_read_lock_slowpath(lock);
 }
 
 /**
@@ -147,22 +147,12 @@ static inline void queued_read_unlock(struct qrwlock *lock)
 }
 
 /**
- * __qrwlock_write_byte - retrieve the write byte address of a queue rwlock
- * @lock : Pointer to queue rwlock structure
- * Return: the write byte address of a queue rwlock
- */
-static inline u8 *__qrwlock_write_byte(struct qrwlock *lock)
-{
-	return (u8 *)lock + 3 * IS_BUILTIN(CONFIG_CPU_BIG_ENDIAN);
-}
-
-/**
  * queued_write_unlock - release write lock of a queue rwlock
  * @lock : Pointer to queue rwlock structure
  */
 static inline void queued_write_unlock(struct qrwlock *lock)
 {
-	smp_store_release(__qrwlock_write_byte(lock), 0);
+	smp_store_release(&lock->wmode, 0);
 }
 
 /*

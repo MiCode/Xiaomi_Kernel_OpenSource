@@ -1604,6 +1604,7 @@ struct ipa3_context {
 	struct mutex ipa_cne_evt_lock;
 	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
+	bool wdi_over_pcie;
 };
 
 struct ipa3_plat_drv_res {
@@ -1638,6 +1639,7 @@ struct ipa3_plat_drv_res {
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
+	bool wdi_over_pcie;
 };
 
 /**
@@ -2257,6 +2259,8 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt);
  * Miscellaneous
  */
 int ipa3_get_ep_mapping(enum ipa_client_type client);
+
+enum gsi_prefetch_mode ipa_get_ep_prefetch_mode(enum ipa_client_type client);
 
 bool ipa3_is_ready(void);
 
