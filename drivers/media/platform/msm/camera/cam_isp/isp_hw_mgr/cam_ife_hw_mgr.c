@@ -2666,7 +2666,7 @@ static int cam_ife_mgr_resume_hw(struct cam_ife_hw_mgr_ctx *ctx)
 
 static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
 	struct cam_isp_hw_cmd_args  *hw_cmd_args  = cmd_args;
 	struct cam_ife_hw_mgr_ctx   *ctx;
 
@@ -2694,6 +2694,12 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 		break;
 	case CAM_ISP_HW_MGR_CMD_RESUME_HW:
 		cam_ife_mgr_resume_hw(ctx);
+		break;
+	case CAM_ISP_HW_MGR_CMD_STOP_OUT_RSC:
+	//@005
+	/* IFE out resources */
+		for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++)
+			cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",

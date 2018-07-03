@@ -394,6 +394,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 				req_isp->fence_map_out[j].resource_handle,
 				req_isp->fence_map_out[j].sync_id);
 
+
 			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
 				CAM_SYNC_STATE_SIGNALED_ERROR);
 			if (rc)
@@ -438,6 +439,13 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		CAM_DBG(CAM_ISP,
 			"Move active request %lld to free list(cnt = %d)",
 			 req->request_id, ctx_isp->active_req_cnt);
+
+		if (atomic_read(&ctx_isp->flush_pending) &&
+			(ctx_isp->active_req_cnt > 0)) {
+			CAM_ERR(CAM_ISP,
+				"Active request is pending. Asking flush to go ahead");
+			complete(&ctx_isp->active_buf_done);
+		}
 	}
 
 end:
@@ -1329,18 +1337,29 @@ static int __cam_isp_ctx_apply_req_in_bubble(
 static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct list_head *req_list, struct cam_req_mgr_flush_request *flush_req)
 {
-	int i, rc;
+	int i, rc = 0;
 	uint32_t cancel_req_id_found = 0;
 	struct cam_ctx_request           *req;
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
 	struct list_head                  flush_list;
+	struct cam_isp_context           *ctx_isp;
+	int wait_rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
 
+	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	INIT_LIST_HEAD(&flush_list);
+	CAM_ERR(CAM_ISP, "Flush type:%d  request id:%lld",flush_req->type,  flush_req->req_id);
 	if (list_empty(req_list)) {
-		CAM_DBG(CAM_ISP, "request list is empty");
-		return 0;
+		CAM_ERR(CAM_ISP, "Flush type:%d pending list is empty", flush_req->type);
+		rc = 0;
+		if (flush_req->type ==
+			CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ )
+			return rc;
+		else
+			goto checkActive;
 	}
+
 
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
 		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
@@ -1361,14 +1380,14 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
-				CAM_DBG(CAM_ISP, "Flush req 0x%llx, fence %d",
-					 req->request_id,
+				CAM_ERR(CAM_ISP, "Pending Flush req 0x%llx, fence %d",
+					req->request_id,
 					req_isp->fence_map_out[i].sync_id);
 				rc = cam_sync_signal(
 					req_isp->fence_map_out[i].sync_id,
 					CAM_SYNC_STATE_SIGNALED_ERROR);
 				if (rc)
-					CAM_ERR_RATE_LIMIT(CAM_ISP,
+					CAM_ERR(CAM_ISP,
 						"signal fence failed\n");
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
@@ -1376,13 +1395,76 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
 
-	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
-		!cancel_req_id_found) {
-		CAM_INFO(CAM_ISP,
-			"Flush request id:%lld is not found in the list",
-			flush_req->req_id);
-		return -EINVAL;
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ ) {
+		if(!cancel_req_id_found) {
+			CAM_ERR(CAM_ISP,
+				"Flush request id:%lld is not found in the list",
+				flush_req->req_id);
+			return -EINVAL;
+		}
+		else {
+			return rc;
+		}
 	}
+checkActive:
+	CAM_INFO(CAM_ISP, "Active req cnt %d", ctx_isp->active_req_cnt);
+	//spin_lock_bh(&ctx->lock);
+	if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) &&
+		(ctx_isp->active_req_cnt > 0)) {
+
+		atomic_set(&ctx_isp->flush_pending, 1);
+		//spin_unlock_bh(&ctx->lock);
+		reinit_completion(&ctx_isp->active_buf_done);
+		CAM_WARN(CAM_ISP, "Active queue is not empty, Starting timer (%d msec)",
+			CAM_ISP_FLUSH_ALL_TIMEOUT);
+		wait_rc = wait_for_completion_timeout(&ctx_isp->active_buf_done,
+			msecs_to_jiffies(CAM_ISP_FLUSH_ALL_TIMEOUT));
+
+		if (wait_rc <= 0)
+			CAM_ERR(CAM_ISP, "Flush active list timeout rc :%d",
+				wait_rc);
+
+		if (list_empty(&ctx->active_req_list)) {
+			CAM_ERR(CAM_ISP, "Active list empty");
+			return 0;
+		}
+
+		// spin_lock_bh(&ctx->lock);
+		/*Stop the WMs*/
+		hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+        	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_STOP_OUT_RSC;
+		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+			&hw_cmd_args);
+
+		/*Flush active queue*/
+		 while (!list_empty(&ctx->active_req_list)) {
+			req = list_first_entry(&ctx->active_req_list,
+				struct cam_ctx_request, list);
+			list_del_init(&req->list);
+
+			req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+			CAM_INFO(CAM_ISP, "signal fence in active list. fence num %d",
+				req_isp->num_fence_map_out);
+
+			for (i = 0; i < req_isp->num_fence_map_out; i++)
+				if (req_isp->fence_map_out[i].sync_id != -1) {
+					CAM_DBG(CAM_ISP, "Active Flush req 0x%llx, fence %d",
+						req->request_id,
+						req_isp->fence_map_out[i].sync_id);
+					rc = cam_sync_signal(
+						req_isp->fence_map_out[i].sync_id,
+						CAM_SYNC_STATE_SIGNALED_ERROR);
+					if (rc)
+						CAM_ERR(CAM_ISP,
+							"signal fence failed\n");
+					req_isp->fence_map_out[i].sync_id = -1;
+
+				}
+			list_add_tail(&req->list, &ctx->free_req_list);
+		}
+		atomic_set(&ctx_isp->flush_pending, 0);
+	}
+	//spin_unlock_bh(&ctx->lock);
 
 	return 0;
 }
@@ -2749,6 +2831,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	ctx->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 	ctx->substate_machine = cam_isp_ctx_activated_state_machine;
 	ctx->substate_machine_irq = cam_isp_ctx_activated_state_machine_irq;
+	atomic_set(&ctx->flush_pending, 0);
+	init_completion(&ctx->active_buf_done);
 
 	for (i = 0; i < CAM_CTX_REQ_MAX; i++) {
 		ctx->req_base[i].req_priv = &ctx->req_isp[i];

@@ -1453,7 +1453,7 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	flush_info  = (struct cam_req_mgr_flush_info *)&task_data->u;
-	CAM_DBG(CAM_CRM, "link_hdl %x req_id %lld type %d",
+	CAM_INFO(CAM_CRM, "link_hdl %x req_id %lld type %d",
 		flush_info->link_hdl,
 		flush_info->req_id,
 		flush_info->flush_type);

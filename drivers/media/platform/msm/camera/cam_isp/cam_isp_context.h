@@ -38,6 +38,9 @@
  */
 #define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   20
 
+/* ISP context flush all timeout*/
+#define CAM_ISP_FLUSH_ALL_TIMEOUT               100
+
 /* forward declaration */
 struct cam_isp_context;
 
@@ -185,6 +188,8 @@ struct cam_isp_context {
 	struct cam_isp_context_state_monitor cam_isp_ctx_state_monitor[
 		CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES];
 	bool                             rdi_only_context;
+	struct completion                active_buf_done;
+	atomic_t                         flush_pending;
 };
 
 /**

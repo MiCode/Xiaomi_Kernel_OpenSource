@@ -599,6 +599,7 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 {
 	int rc;
 
+	CAM_ERR(CAM_CRM, "enter");
 	rc = cam_v4l2_device_setup(&pdev->dev);
 	if (rc)
 		return rc;
@@ -724,6 +725,7 @@ create_fail:
 
 static int __init cam_req_mgr_init(void)
 {
+	CAM_ERR(CAM_CRM, "init");
 	return platform_driver_register(&cam_req_mgr_driver);
 }
 
