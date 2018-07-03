@@ -40,7 +40,6 @@
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
 #include <linux/iommu.h>
-#include <linux/kref.h>
 #include <linux/sort.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include <asm/dma-iommu.h>
@@ -251,19 +250,20 @@ struct fastrpc_static_pd {
 	int pdrcount;
 	int prevpdrcount;
 	int ispdup;
+	int cid;
 };
 
 struct fastrpc_channel_ctx {
 	char *name;
 	char *subsys;
-	struct rpmsg_device *chan;
+	struct rpmsg_device *rpdev;
 	struct device *dev;
 	struct fastrpc_session_ctx session[NUM_SESSIONS];
 	struct fastrpc_static_pd spd[NUM_SESSIONS];
 	struct completion work;
 	struct completion workport;
 	struct notifier_block nb;
-	struct kref kref;
+	struct mutex smd_mutex;
 	int sesscount;
 	int ssrcount;
 	void *handle;
@@ -281,7 +281,6 @@ struct fastrpc_apps {
 	struct fastrpc_channel_ctx *channel;
 	struct cdev cdev;
 	struct class *class;
-	struct mutex smd_mutex;
 	struct smq_phy_page range;
 	struct hlist_head maps;
 	uint32_t staticpd_flags;
@@ -386,26 +385,43 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				.pdrnb.notifier_call =
 						fastrpc_pdr_notifier_cb,
+				.cid = ADSP_DOMAIN_ID,
 			},
 			{
 				.spdname =
 				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				.pdrnb.notifier_call =
 						fastrpc_pdr_notifier_cb,
+				.cid = ADSP_DOMAIN_ID,
 			}
 		},
 	},
 	{
 		.name = "mdsprpc-smd",
 		.subsys = "modem",
+		.spd = {
+			{
+				.cid = MDSP_DOMAIN_ID,
+			}
+		},
 	},
 	{
 		.name = "sdsprpc-smd",
 		.subsys = "slpi",
+		.spd = {
+			{
+				.cid = SDSP_DOMAIN_ID,
+			}
+		},
 	},
 	{
 		.name = "cdsprpc-smd",
 		.subsys = "cdsp",
+		.spd = {
+			{
+				.cid = CDSP_DOMAIN_ID,
+			}
+		},
 	},
 };
 
@@ -1660,9 +1676,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	struct fastrpc_channel_ctx *channel_ctx = &fl->apps->channel[fl->cid];
 	int err = 0;
 
-	VERIFY(err, NULL != channel_ctx->chan);
-	if (err)
-		goto bail;
+	mutex_lock(&channel_ctx->smd_mutex);
 	msg->pid = fl->tgid;
 	msg->tid = current->pid;
 	if (fl->sessionid)
@@ -1679,13 +1693,14 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		err = -ECONNRESET;
 		goto bail;
 	}
-	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->chan));
+	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
 	if (err) {
 		err = -ECONNRESET;
 		goto bail;
 	}
-	err = rpmsg_send(channel_ctx->chan->ept, (void *)msg, sizeof(*msg));
+	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
  bail:
+	mutex_unlock(&channel_ctx->smd_mutex);
 	return err;
 }
 
@@ -1697,7 +1712,6 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
 	spin_lock_init(&me->ctxlock);
-	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
@@ -1705,6 +1719,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].sesscount = 0;
 		/* All channels are secure by default except CDSP */
 		me->channel[i].secure = SECURE_CHANNEL;
+		mutex_init(&me->channel[i].smd_mutex);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -2084,7 +2099,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	VERIFY(err, fl->apps->channel[fl->cid].chan != NULL);
+	VERIFY(err, fl->apps->channel[fl->cid].rpdev != NULL);
 	if (err)
 		goto bail;
 	tgid = fl->tgid;
@@ -2477,7 +2492,6 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	int err = 0;
 	int cid = -1;
-	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
 	if (err)
@@ -2495,11 +2509,11 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&me->smd_mutex);
-	gcinfo[cid].chan = rpdev;
-	mutex_unlock(&me->smd_mutex);
-	pr_debug("adsprpc: rpmsg probe of %s cid %d successful\n",
-		rpdev->dev.parent->of_node->name, cid);
+	mutex_lock(&gcinfo[cid].smd_mutex);
+	gcinfo[cid].rpdev = rpdev;
+	mutex_unlock(&gcinfo[cid].smd_mutex);
+	pr_info("adsprpc: %s: opened rpmsg channel for %s\n",
+		__func__, gcinfo[cid].subsys);
 bail:
 	if (err)
 		pr_err("adsprpc: rpmsg probe of %s cid %d failed\n",
@@ -2529,12 +2543,12 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	mutex_lock(&me->smd_mutex);
-	gcinfo[cid].chan = NULL;
-	mutex_unlock(&me->smd_mutex);
+	mutex_lock(&gcinfo[cid].smd_mutex);
+	gcinfo[cid].rpdev = NULL;
+	mutex_unlock(&gcinfo[cid].smd_mutex);
 	fastrpc_notify_drivers(me, cid);
-	pr_debug("adsprpc: rpmsg remove of %s cid %d successful\n",
-		rpdev->dev.parent->of_node->name, cid);
+	pr_info("adsprpc: %s: closed rpmsg channel of %s\n",
+		__func__, gcinfo[cid].subsys);
 bail:
 	if (err)
 		pr_err("adsprpc: rpmsg remove of %s cid %d failed\n",
@@ -2579,23 +2593,20 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 					struct fastrpc_session_ctx **session)
 {
 	int err = 0;
-	struct fastrpc_apps *me = &gfa;
 
-	mutex_lock(&me->smd_mutex);
+	mutex_lock(&chan->smd_mutex);
 	if (!*session)
 		err = fastrpc_session_alloc_locked(chan, secure, session);
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&chan->smd_mutex);
 	return err;
 }
 
 static void fastrpc_session_free(struct fastrpc_channel_ctx *chan,
 				struct fastrpc_session_ctx *session)
 {
-	struct fastrpc_apps *me = &gfa;
-
-	mutex_lock(&me->smd_mutex);
+	mutex_lock(&chan->smd_mutex);
 	session->used = 0;
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&chan->smd_mutex);
 }
 
 static int fastrpc_file_free(struct fastrpc_file *fl)
@@ -2800,15 +2811,16 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	struct fastrpc_apps *me = &gfa;
 	int cid, err = 0;
 
-	mutex_lock(&me->smd_mutex);
 
 	VERIFY(err, fl && fl->sctx);
 	if (err)
-		goto bail;
+		return err;
 	cid = fl->cid;
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
-		goto bail;
+		return err;
+
+	mutex_lock(&me->channel[cid].smd_mutex);
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 		if (!me->channel[cid].issubsystemup) {
@@ -2820,25 +2832,24 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
-	if (1) {
-		VERIFY(err, NULL != me->channel[cid].chan);
-		if (err) {
-			err = -ENOTCONN;
-			goto bail;
-		}
-		if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
-				 me->channel[cid].prevssrcount) {
-			mutex_lock(&fl->map_mutex);
-			if (fastrpc_mmap_remove_ssr(fl))
-				pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
-			mutex_unlock(&fl->map_mutex);
-			me->channel[cid].prevssrcount =
-						me->channel[cid].ssrcount;
-		}
+	VERIFY(err, NULL != me->channel[cid].rpdev);
+	if (err) {
+		err = -ENOTCONN;
+		goto bail;
+	}
+	if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
+			 me->channel[cid].prevssrcount) {
+		mutex_lock(&fl->map_mutex);
+		if (fastrpc_mmap_remove_ssr(fl))
+			pr_err("adsprpc: %s: SSR: Failed to unmap remote heap for %s\n",
+				__func__, me->channel[cid].name);
+		mutex_unlock(&fl->map_mutex);
+		me->channel[cid].prevssrcount =
+					me->channel[cid].ssrcount;
 	}
 
 bail:
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&me->channel[cid].smd_mutex);
 	return err;
 }
 
@@ -2923,8 +2934,10 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		}
 		fl->cid = cid;
 		fl->ssrcount = fl->apps->channel[cid].ssrcount;
+		mutex_lock(&fl->apps->channel[cid].smd_mutex);
 		VERIFY(err, !fastrpc_session_alloc_locked(
 				&fl->apps->channel[cid], 0, &fl->sctx));
+		mutex_unlock(&fl->apps->channel[cid].smd_mutex);
 		if (err)
 			goto bail;
 	}
@@ -3197,10 +3210,10 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
-		mutex_lock(&me->smd_mutex);
+		mutex_lock(&me->channel[cid].smd_mutex);
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
-		mutex_unlock(&me->smd_mutex);
+		mutex_unlock(&me->channel[cid].smd_mutex);
 		if (cid == 0)
 			me->staticpd_flags = 0;
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
@@ -3225,12 +3238,12 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
-		mutex_lock(&me->smd_mutex);
+		mutex_lock(&me->channel[spd->cid].smd_mutex);
 		spd->pdrcount++;
 		spd->ispdup = 0;
+		mutex_unlock(&me->channel[spd->cid].smd_mutex);
 		pr_info("ADSPRPC: Audio PDR notifier %d %s\n",
 					MAJOR(me->dev_no), spd->spdname);
-		mutex_unlock(&me->smd_mutex);
 		if (!strcmp(spd->spdname,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
