@@ -470,4 +470,21 @@ config VCC
 	depends on SUN_LDOMS
 	help
 	  Support for Sun logical domain consoles.
+
+config OKL4_VTTY
+	bool "Virtual TTY on the OKL4 Microvisor"
+	depends on OKL4_GUEST
+	select TTY_FLUSH_LOCAL_ECHO
+	default y
+	---help---
+	  This device provides character-level read-write access
+	  to the virtual console, usually connected to a serial-server which
+	  multiplexes output on a physical UART.
+
+config OKL4_VTTY_CONSOLE
+	bool "Console on OKL4 VTTY"
+	depends on OKL4_VTTY
+	default y
+	help
+	  Console support for OKL4 Microvisor virtual ttys.
 endif # TTY
