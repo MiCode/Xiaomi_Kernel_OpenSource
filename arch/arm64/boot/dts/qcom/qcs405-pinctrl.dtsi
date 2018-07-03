@@ -14,7 +14,7 @@
 &soc {
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,qcs405-pinctrl";
-		reg = <0x1000000 0x300000>;
+		reg = <0x1000000 0x500000>;
 		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -22,30 +22,43 @@
 		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 
-		pmx-uartconsole {
-			uart_console_active: uart_console_active {
+		blsp1_uart2_console {
+			blsp_uart_tx_a2_active: blsp_uart_tx_a2_active {
+				mux {
+					pins = "gpio17";
+					function = "blsp_uart_tx_a2";
+				};
+
+				config {
+					pins = "gpio17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp_uart_rx_a2_active: blsp_uart_rx_a2_active {
+				mux {
+					pins = "gpio18";
+					function = "blsp_uart_rx_a2";
+				};
+
+				config {
+					pins = "gpio18";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp_uart_tx_rx_a2_sleep: blsp_uart_tx_rx_a2_sleep {
 				mux {
 					pins = "gpio17", "gpio18";
-					function = "blsp1_uart2";
+					function = "gpio";
 				};
 
 				config {
 					pins = "gpio17", "gpio18";
 					drive-strength = <2>;
 					bias-disable;
-				};
-			};
-
-			uart_console_sleep: uart_console_sleep {
-				mux {
-					pins = "gpio17", "gpio18";
-					function = "blsp1_uart2";
-				};
-
-				config {
-					pins = "gpio17", "gpio18";
-					drive-strength = <2>;
-					bias-pull-down;
 				};
 			};
 		};

@@ -348,14 +348,17 @@
 		status = "disabled";
 	};
 
-	blsp1_uart1: serial@78b0000 {
+	blsp1_uart2_console: serial@78b1000 {
 		compatible = "qcom,msm-uartdm", "qcom,msm-uartdm-v1.4";
-		reg = <0x78b0000 0x200>;
-		interrupts = <0 108 0>;
-
-		clocks = <&clock_gcc GCC_BLSP1_UART1_APPS_CLK>,
+		reg = <0x78b1000 0x200>;
+		interrupts = <0 118 0>;
+		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&blsp_uart_tx_a2_active
+			     &blsp_uart_rx_a2_active>;
+		pinctrl-1 = <&blsp_uart_tx_rx_a2_sleep>;
 		status = "okay";
 	};
 
