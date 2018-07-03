@@ -24,6 +24,8 @@
 #define QCA6290_DEVICE_ID		0x1100
 #define QCA6290_EMULATION_VENDOR_ID	0x168C
 #define QCA6290_EMULATION_DEVICE_ID	0xABCD
+#define QCN7605_VENDOR_ID		0x17CB
+#define QCN7605_DEVICE_ID		0x1102
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev);
 enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id);
