@@ -621,6 +621,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -659,6 +660,7 @@
 			<0 0 0 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
 		clock-rates-option = <600000000>;
@@ -707,6 +709,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -745,6 +748,7 @@
 			<0 0 0 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
 		clock-rates-option = <600000000>;
@@ -790,6 +794,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -825,6 +830,7 @@
 			<0 0 0 0 0 0 600000000 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -892,6 +898,7 @@
 			"ipe_0_clk",
 			"ipe_0_clk_src";
 		src-clock-name = "ipe_0_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_IPE_0_AHB_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_AREG_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_AXI_CLK>,
@@ -922,6 +929,7 @@
 			"ipe_1_clk",
 			"ipe_1_clk_src";
 		src-clock-name = "ipe_1_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_IPE_1_AHB_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_AREG_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_AXI_CLK>,
@@ -952,6 +960,7 @@
 			"bps_clk",
 			"bps_clk_src";
 		src-clock-name = "bps_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_BPS_AHB_CLK>,
 				<&clock_camcc CAM_CC_BPS_AREG_CLK>,
 				<&clock_camcc CAM_CC_BPS_AXI_CLK>,
@@ -1074,6 +1083,7 @@
 			<&clock_camcc CAM_CC_FD_CORE_CLK>,
 			<&clock_camcc CAM_CC_FD_CORE_UAR_CLK>;
 		src-clock-name = "fd_core_clk_src";
+		clock-control-debugfs = "true";
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		clock-rates =
 			<0 0 0 0 0 400000000 0 0>,
