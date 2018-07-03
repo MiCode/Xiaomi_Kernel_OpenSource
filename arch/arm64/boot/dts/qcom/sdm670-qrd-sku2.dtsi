@@ -9,8 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "sdm670-qrd.dtsi"
 #include "sdm670-audio-overlay.dtsi"
+#include "sdm670-qrd.dtsi"
 
 &dsi_dual_nt36850_truly_cmd_display {
 	/delete-property/ qcom,dsi-display-active;

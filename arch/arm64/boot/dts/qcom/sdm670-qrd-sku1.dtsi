@@ -10,5 +10,5 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm670-qrd.dtsi"
 #include "sdm670-audio-overlay.dtsi"
+#include "sdm670-qrd.dtsi"
