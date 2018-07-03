@@ -531,7 +531,7 @@
 		qcom,pas-id = <6>;
 		qcom,mas-crypto = <&mas_crypto>;
 		qcom,proxy-timeout-ms = <10000>;
-		qcom,smem-id = <422>;
+		qcom,smem-id = <421>;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,firmware-name = "wcnss";
