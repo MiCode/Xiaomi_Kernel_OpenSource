@@ -838,6 +838,21 @@ end:
 	return rc;
 }
 
+static void _dsi_display_continuous_clk_ctrl(struct dsi_display *display,
+					     bool enable)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display || !display->panel->host_config.force_hs_clk_lane)
+		return;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_ctrl_set_continuous_clk(ctrl->ctrl, enable);
+	}
+}
+
 int dsi_display_soft_reset(void *display)
 {
 	struct dsi_display *dsi_display;
@@ -3044,6 +3059,12 @@ int dsi_pre_clkoff_cb(void *priv,
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
 		(l_type && DSI_LINK_LP_CLK)) {
 		/*
+		 * If continuous clock is enabled then disable it
+		 * before entering into ULPS Mode.
+		 */
+		if (display->panel->host_config.force_hs_clk_lane)
+			_dsi_display_continuous_clk_ctrl(display, false);
+		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
 		 * only if ULPS during suspend feature is enabled.
@@ -3174,6 +3195,9 @@ int dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+
+		if (display->panel->host_config.force_hs_clk_lane)
+			_dsi_display_continuous_clk_ctrl(display, true);
 	}
 
 	/* enable dsi to serve irqs */

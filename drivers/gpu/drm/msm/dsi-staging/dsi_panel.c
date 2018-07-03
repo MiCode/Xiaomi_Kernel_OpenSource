@@ -1076,6 +1076,8 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	host->append_tx_eot = of_property_read_bool(of_node,
 						"qcom,mdss-dsi-tx-eot-append");
 
+	host->force_hs_clk_lane = of_property_read_bool(of_node,
+					"qcom,mdss-dsi-force-clock-lane-hs");
 	return 0;
 }
 

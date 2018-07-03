@@ -772,4 +772,10 @@ int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
  */
 int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
 
+/**
+ * dsi_ctrl_set_continuous_clk() - API to set/unset force clock lane HS request.
+ * @dsi_ctrl:                      DSI controller handle.
+ * @enable:			   variable to control continuous clock.
+ */
+void dsi_ctrl_set_continuous_clk(struct dsi_ctrl *dsi_ctrl, bool enable);
 #endif /* _DSI_CTRL_H_ */
