@@ -137,19 +137,19 @@
 	};
 
 	wakegic: wake-gic {
-		compatible = "qcom,mpm-gic-msm8937", "qcom,mpm-gic";
+		compatible = "qcom,mpm-gic-qcs405", "qcom,mpm-gic";
 		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
-		reg = <0x601d0 0x1000>,
+		reg = <0x601b8 0x1000>,
 			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
-		qcom,num-mpm-irqs = <64>;
+		qcom,num-mpm-irqs = <96>;
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
 	};
 
 	wakegpio: wake-gpio {
-		compatible = "qcom,mpm-gpio-msm8937", "qcom,mpm-gpio";
+		compatible = "qcom,mpm-gpio-qcs405", "qcom,mpm-gpio";
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <2>;
