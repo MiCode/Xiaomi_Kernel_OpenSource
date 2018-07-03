@@ -3968,7 +3968,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer *done_buf = NULL;
 	unsigned long flags;
 	struct timeval *time_stamp;
-	struct timeval *time_stamp_system;
+	struct timeval *time_stamp_system = NULL;
 	uint32_t frame_id, buf_index = -1;
 	struct msm_vfe_axi_stream *temp_stream;
 
@@ -4124,9 +4124,10 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			stream_info, done_buf, time_stamp, frame_id);
 		return;
 	}
-
-	msm_isp_process_done_buf(vfe_dev, stream_info,
-			done_buf, time_stamp, time_stamp_system, frame_id);
+	if (time_stamp_system != NULL) {
+		msm_isp_process_done_buf(vfe_dev, stream_info,
+		done_buf, time_stamp, time_stamp_system, frame_id);
+	}
 }
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
