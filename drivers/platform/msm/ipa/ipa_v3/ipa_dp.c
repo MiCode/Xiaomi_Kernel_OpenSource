@@ -752,27 +752,24 @@ static int ipa3_handle_rx_core(struct ipa3_sys_context *sys, bool process_all,
 /**
  * ipa3_rx_switch_to_intr_mode() - Operate the Rx data path in interrupt mode
  */
-static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
+static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 {
 	int ret;
 
-	if (!atomic_read(&sys->curr_polling_state)) {
-		IPAERR("already in intr mode\n");
-		goto fail;
-	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
 	if (ret != GSI_STATUS_SUCCESS) {
-		IPAERR("Failed to switch to intr mode.\n");
-		goto fail;
+		if (ret == -GSI_STATUS_PENDING_IRQ) {
+			ipa3_inc_acquire_wakelock();
+			atomic_set(&sys->curr_polling_state, 1);
+		} else {
+			IPAERR("Failed to switch to intr mode.\n");
+		}
 	}
-	return;
 
-fail:
-	queue_delayed_work(sys->wq, &sys->switch_to_intr_work,
-			msecs_to_jiffies(1));
+	return ret;
 }
 
 /**
@@ -785,13 +782,16 @@ fail:
  */
 static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 {
-	int inactive_cycles = 0;
+	int inactive_cycles;
 	int cnt;
+	int ret;
 
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_activate_sync(sys->pm_hdl);
 	else
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+start_poll:
+	inactive_cycles = 0;
 	do {
 		cnt = ipa3_handle_rx_core(sys, true, true);
 		if (cnt == 0)
@@ -814,7 +814,10 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
 	trace_poll_to_intr3(sys->ep->client);
-	ipa3_rx_switch_to_intr_mode(sys);
+	ret = ipa3_rx_switch_to_intr_mode(sys);
+	if (ret == -GSI_STATUS_PENDING_IRQ)
+		goto start_poll;
+
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deferred_deactivate(sys->pm_hdl);
 	else
@@ -4059,6 +4062,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
+start_poll:
 	while (remain_aggr_weight > 0 &&
 			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
@@ -4086,7 +4090,11 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	if (cnt < weight) {
 		napi_complete(ep->sys->napi_obj);
-		ipa3_rx_switch_to_intr_mode(ep->sys);
+		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
+		if (ret == -GSI_STATUS_PENDING_IRQ &&
+				napi_reschedule(ep->sys->napi_obj))
+			goto start_poll;
+
 		if (ipa3_ctx->use_ipa_pm)
 			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 		else

@@ -6694,6 +6694,15 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
+		/*
+		 * move the channel to callback mode.
+		 * This needs to happen before starting the channel to make
+		 * sure we don't loose any interrupt
+		 */
+		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
+
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
 				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -6713,9 +6722,6 @@ void ipa3_suspend_apps_pipes(bool suspend)
 		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
-		else if (!atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
 	}
 
 	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
@@ -6728,6 +6734,14 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
+		/*
+		 * move the channel to callback mode.
+		 * This needs to happen before starting the channel to make
+		 * sure we don't loose any interrupt
+		 */
+		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
 				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -6747,9 +6761,6 @@ void ipa3_suspend_apps_pipes(bool suspend)
 		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
-		else if (!atomic_read(&ep->sys->curr_polling_state))
-			gsi_config_channel_mode(ep->gsi_chan_hdl,
-				GSI_CHAN_MODE_CALLBACK);
 	}
 }
 
