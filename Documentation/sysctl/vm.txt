@@ -64,6 +64,7 @@ Currently, these files are in /proc/sys/vm:
 - vfs_cache_pressure
 - watermark_scale_factor
 - zone_reclaim_mode
+- want_old_faultaround_pte
 
 ==============================================================
 
@@ -890,5 +891,26 @@ of other processes running on other nodes will not be affected.
 Allowing regular swap effectively restricts allocations to the local
 node unless explicitly overridden by memory policies or cpuset
 configurations.
+
+=============================================================
+
+want_old_faultaround_pte:
+
+By default faultaround code produces young pte. When want_old_faultaround_pte is
+set to 1, faultaround produces old ptes.
+
+During sparse file access faultaround gets more pages mapped and when all of
+them are young (default), under memory pressure, this makes vmscan swap out anon
+pages instead, or to drop other page cache pages which otherwise stay resident.
+Setting want_old_faultaround_pte to 1 avoids this.
+
+Making the faultaround ptes old can result in performance regression on some
+architectures. This is due to cycles spent in micro-faults which would take page
+walk to set young bit in the pte. One such known test that shows a regression on
+x86 is unixbench shell8. Set want_old_faultaround_pte to 1 on architectures
+which does not show this regression or if the workload shows overall performance
+benefit with old faultaround ptes.
+
+The default value is 0.
 
 ============ End of Document =================================

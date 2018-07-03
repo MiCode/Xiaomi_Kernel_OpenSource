@@ -286,6 +286,7 @@ extern pgprot_t protection_map[16];
 #define FAULT_FLAG_INSTRUCTION  0x100	/* The fault was during an instruction fetch */
 /* Speculative fault, not holding mmap_sem */
 #define FAULT_FLAG_SPECULATIVE	0x200
+#define FAULT_FLAG_PREFAULT_OLD 0x400   /* Make faultaround ptes old */
 
 /*
  * vm_fault is filled by the the pagefault handler and passed to the vma's
@@ -323,6 +324,7 @@ struct vm_fault {
 struct fault_env {
 	struct vm_area_struct *vma;	/* Target VMA */
 	unsigned long address;		/* Faulting virtual address */
+	unsigned long fault_address;    /* Saved faulting virtual address */
 	unsigned int flags;		/* FAULT_FLAG_xxx flags */
 	pmd_t *pmd;			/* Pointer to pmd entry matching
 					 * the 'address'
@@ -2583,6 +2585,8 @@ void __init setup_nr_node_ids(void);
 #else
 static inline void setup_nr_node_ids(void) {}
 #endif
+
+extern int want_old_faultaround_pte;
 
 #ifdef CONFIG_PROCESS_RECLAIM
 struct reclaim_param {

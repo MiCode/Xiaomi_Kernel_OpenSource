@@ -47,6 +47,8 @@
 
 #include <asm/mman.h>
 
+int want_old_faultaround_pte = 1;
+
 /*
  * Shared mappings implemented 30.11.1994. It's not fully working yet,
  * though.
@@ -2287,6 +2289,14 @@ repeat:
 		if (fe->pte)
 			fe->pte += iter.index - last_pgoff;
 		last_pgoff = iter.index;
+
+		if (want_old_faultaround_pte) {
+			if (fe->address == fe->fault_address)
+				fe->flags &= ~FAULT_FLAG_PREFAULT_OLD;
+			else
+				fe->flags |= FAULT_FLAG_PREFAULT_OLD;
+		}
+
 		if (alloc_set_pte(fe, NULL, page))
 			goto unlock;
 		unlock_page(page);
