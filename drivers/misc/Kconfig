@@ -626,6 +626,17 @@ config QCOM_LIQUID_DOCK
 	  the docking station of various models of Qualcomm Technology's
 	  LiQUID Mobile Development Platforms.
 
+config STM32_FW_UPDATER
+	tristate "STM32 firmware flasher"
+	depends on I2C
+	help
+	  Say yes here if you need support for firmware updates for STM32F
+	  based peripherals. These peripherals (mainly sensor hubs) have
+	  a specific bootloader protocol that this driver supports.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called stm32fwu.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -636,4 +647,5 @@ source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/qcom/Kconfig"
+source "drivers/misc/type-c/Kconfig"
 endmenu

@@ -17,6 +17,8 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/kmod.h>
+#include <linux/suspend.h>
+
 #include <linux/wakeup_reason.h>
 /* 
  * Timeout for stopping processes
@@ -72,6 +74,9 @@ static int try_to_freeze_tasks(bool user_only)
 			log_suspend_abort_reason(suspend_abort);
 #endif
 			wakeup = true;
+#ifdef CONFIG_PM_SLEEP_TRACE
+			suspend_failed_ws_update();
+#endif
 			break;
 		}
 
@@ -100,6 +105,9 @@ static int try_to_freeze_tasks(bool user_only)
 		       " (%d tasks refusing to freeze, wq_busy=%d):\n",
 		       elapsed_msecs / 1000, elapsed_msecs % 1000,
 		       todo - wq_busy, wq_busy);
+#ifdef CONFIG_PM_SLEEP_TRACE
+		suspend_failed_freeze_inc(wakeup ? 1 : 0);
+#endif
 
 		read_lock(&tasklist_lock);
 		do_each_thread(g, p) {

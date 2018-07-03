@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,9 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		qcom,gdscr-vdd-supply = <&gdsc_camss_top>;
 		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi0_clk_src>,
@@ -48,6 +52,9 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		qcom,gdscr-vdd-supply = <&gdsc_camss_top>;
 		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi1_clk_src>,
@@ -70,6 +77,9 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		qcom,gdscr-vdd-supply = <&gdsc_camss_top>;
 		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi2_clk_src>,

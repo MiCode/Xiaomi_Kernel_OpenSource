@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define SENSOR_MAX_MOUNTANGLE (360)
+#define CAMERA_MODULE_INFO
 
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
 
@@ -103,7 +105,11 @@ static int32_t msm_sensor_driver_create_i2c_v4l_subdev
 	s_ctrl->msm_sd.sd.entity.name =	s_ctrl->msm_sd.sd.name;
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
-	msm_sd_register(&s_ctrl->msm_sd);
+	rc = msm_sd_register(&s_ctrl->msm_sd);
+	if (rc < 0) {
+		pr_err("failed: msm_sd_register rc %d", rc);
+		return rc;
+	}
 	CDBG("%s:%d\n", __func__, __LINE__);
 	return rc;
 }
@@ -133,7 +139,11 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
-	msm_sd_register(&s_ctrl->msm_sd);
+	rc = msm_sd_register(&s_ctrl->msm_sd);
+	if (rc < 0) {
+		pr_err("failed: msm_sd_register rc %d", rc);
+		return rc;
+	}
 	msm_sensor_v4l2_subdev_fops = v4l2_subdev_fops;
 #ifdef CONFIG_COMPAT
 	msm_sensor_v4l2_subdev_fops.compat_ioctl32 =
@@ -623,7 +633,69 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 
 	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
 }
+#ifdef CAMERA_MODULE_INFO
+#define CAMERA_NAME_SIZE 100
+static char back_camera_module_name[CAMERA_NAME_SIZE];
+static char front_camera_module_name[CAMERA_NAME_SIZE];
+static int camera_name_sysfs_inited;
+static struct kobject *camera_name_kobj;
 
+static ssize_t back_camera_module_name_show(struct kobject *d,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, CAMERA_NAME_SIZE, "%s\n", back_camera_module_name);
+
+}
+static ssize_t front_camera_module_name_show(struct kobject *d,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, CAMERA_NAME_SIZE, "%s\n", front_camera_module_name);
+
+}
+static ssize_t back_camera_module_name_store(struct kobject *d, struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	memcpy(back_camera_module_name, buf, count);
+	back_camera_module_name[count] = '\0';
+	return count;
+}
+static ssize_t front_camera_module_name_store(struct kobject *d, struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	memcpy(front_camera_module_name, buf, count);
+	front_camera_module_name[count] = '\0';
+	return count;
+}
+
+static struct kobj_attribute backcamera_module_name_attr = {
+	.attr = {
+	.name = "backcamera_module_name",
+	.mode = S_IRWXG|S_IRWXU|S_IROTH,
+	},
+	.show = back_camera_module_name_show,
+	.store = back_camera_module_name_store,
+};
+static struct kobj_attribute frontcamera_module_name_attr = {
+	.attr = {
+	.name = "frontcamera_module_name",
+	.mode = S_IRWXG|S_IRWXU|S_IROTH,
+	},
+	.show = front_camera_module_name_show,
+	.store = front_camera_module_name_store,
+};
+static struct attribute *camera_name_attrs[] = {
+	&backcamera_module_name_attr.attr,
+	&frontcamera_module_name_attr.attr,
+	NULL,
+};
+static struct attribute_group camera_name_attrs_group = {
+	.attrs = camera_name_attrs,
+};
+#endif
+extern int x7_get_back_sensor_name(char*);
+extern int x11_get_back_sensor_name(char*);
+extern int x11_get_front_sensor_name(char*);
+extern int x7_get_front_sensor_name(char*);
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -635,6 +707,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_camera_slave_info        *camera_info = NULL;
 
 	unsigned long                        mount_pos = 0;
+	char x7_back_sensor_name[32];
+	char x11_back_sensor_name[32];
+	char x7_front_sensor_name[32];
+	char x11_front_sensor_name[32];
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -713,6 +789,51 @@ int32_t msm_sensor_driver_probe(void *setting,
 		if (copy_from_user(slave_info,
 					(void *)setting, sizeof(*slave_info))) {
 			pr_err("failed: copy_from_user");
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+
+	if (strcmp(slave_info->eeprom_name, "sony_imx214") == 0) {
+		x7_get_back_sensor_name(x7_back_sensor_name);
+		CDBG("slave_info sensor_name = %s, back_sensor_name - %s\n",
+				slave_info->sensor_name, x7_back_sensor_name);
+		if (strcmp(slave_info->sensor_name, x7_back_sensor_name) != 0) {
+			CDBG("%s %d: x7 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if ((strncmp(slave_info->eeprom_name, "imx258",
+				strlen("imx258")) == 0) ||
+	    (strncmp(slave_info->eeprom_name, "s5k3m2xm",
+				strlen("s5k3m2xm")) == 0)) {
+		x11_get_back_sensor_name(x11_back_sensor_name);
+		CDBG("slave_info sensor_name = %s, back_sensor_name - %s\n",
+				slave_info->sensor_name, x11_back_sensor_name);
+		if (strcmp(slave_info->sensor_name, x11_back_sensor_name) != 0) {
+			CDBG("%s %d: x11 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if (strcmp(slave_info->eeprom_name, "ov4688") == 0) {
+		x7_get_front_sensor_name(x7_front_sensor_name);
+		CDBG("slave_info sensor_name = %s, front_sensor_name - %s\n",
+				slave_info->sensor_name, x7_front_sensor_name);
+		if (strcmp(slave_info->sensor_name, x7_front_sensor_name) != 0) {
+			CDBG("%s %d: x7 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if (strncmp(slave_info->eeprom_name, "ov5670",
+				strlen("ov5670")) == 0) {
+		x11_get_front_sensor_name(x11_front_sensor_name);
+		CDBG("slave_info sensor_name = %s, front_sensor_name - %s\n",
+				slave_info->sensor_name, x11_front_sensor_name);
+		if (strcmp(slave_info->sensor_name, x11_front_sensor_name) != 0) {
+			CDBG("%s %d: x11 sensor name not match!\n", __func__, __LINE__);
 			rc = -EFAULT;
 			goto free_slave_info;
 		}
@@ -890,12 +1011,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 	pr_err("%s probe succeeded", slave_info->sensor_name);
 
 	/*
-	  Set probe succeeded flag to 1 so that no other camera shall
-	 * probed on this slot
-	 */
-	s_ctrl->is_probe_succeed = 1;
-
-	/*
 	 * Update the subdevice id of flash-src based on availability in kernel.
 	 */
 	if (slave_info->is_flash_supported == 0) {
@@ -933,6 +1048,15 @@ int32_t msm_sensor_driver_probe(void *setting,
 			slave_info->sensor_name);
 		goto free_camera_info;
 	}
+#ifdef CAMERA_MODULE_INFO
+	if (s_ctrl->sensordata->sensor_info->position == BACK_CAMERA_B) {
+		snprintf(back_camera_module_name, sizeof(back_camera_module_name), "%s",
+		s_ctrl->sensordata->sensor_name);
+	} else if (s_ctrl->sensordata->sensor_info->position == FRONT_CAMERA_B) {
+		snprintf(front_camera_module_name, sizeof(front_camera_module_name), "%s",
+			s_ctrl->sensordata->sensor_name);
+	}
+#endif
 	/* Update sensor mount angle and position in media entity flag */
 	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
 	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
@@ -944,6 +1068,11 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
+	/*
+	 * Set probe succeeded flag to 1 so that no other camera shall
+	 * probed on this slot
+	 */
+	s_ctrl->is_probe_succeed = 1;
 	return rc;
 
 camera_power_down:
@@ -1324,6 +1453,17 @@ static int __init msm_sensor_driver_init(void)
 	int32_t rc = 0;
 
 	CDBG("Enter");
+#ifdef CAMERA_MODULE_INFO
+	if (!camera_name_sysfs_inited) {
+		int rc_local;
+		camera_name_kobj = kobject_create_and_add("camera_name", NULL);
+		if (camera_name_kobj)
+			rc_local = sysfs_create_group(camera_name_kobj, &camera_name_attrs_group);
+		if (!camera_name_kobj || rc_local)
+			pr_err("%s:%d failed create camera_name_kobj\n", __func__, __LINE__);
+		camera_name_sysfs_inited = 1;
+	}
+#endif
 	rc = platform_driver_probe(&msm_sensor_platform_driver,
 		msm_sensor_driver_platform_probe);
 	if (!rc) {

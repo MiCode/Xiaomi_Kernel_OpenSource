@@ -3340,7 +3340,7 @@ int wm8994_mic_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 		dev_warn(codec->dev, "Failed to configure MICBIAS%d: %d\n",
 			 micbias, ret);
 
-	dev_dbg(codec->dev, "Configuring microphone detection on %d %p\n",
+	dev_dbg(codec->dev, "Configuring microphone detection on %d %pK\n",
 		micbias, jack);
 
 	/* Store the configuration */

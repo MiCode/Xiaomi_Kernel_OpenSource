@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -321,6 +322,15 @@ static int cpu_power_select(struct cpuidle_device *dev,
 
 	return best_level;
 }
+
+/*
+ *  Set the sleep time for suspend.  0 means infinite sleep time.
+ */
+void msm_pm_set_max_sleep_time(int max_sleep_time)
+{
+       msm_pm_sleep_time_override = max_sleep_time;
+}
+EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
 static uint64_t get_cluster_sleep_time(struct lpm_cluster *cluster,
 		struct cpumask *mask, bool from_idle)

@@ -1372,7 +1372,9 @@ long diagchar_ioctl(struct file *filp,
 		result = diag_ioctl_dci_log_status(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_EVENT_STATUS:
+		mutex_lock(&driver->dci_mutex);
 		result = diag_ioctl_dci_event_status(ioarg);
+		mutex_unlock(&driver->dci_mutex);
 		break;
 	case DIAG_IOCTL_DCI_CLEAR_LOGS:
 		if (copy_from_user((void *)&client_id, (void __user *)ioarg,

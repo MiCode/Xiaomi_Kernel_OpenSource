@@ -123,7 +123,9 @@ static int dwc3_init_usb_phys(struct dwc3 *dwc)
 		return ret;
 	}
 	ret = usb_phy_init(dwc->usb3_phy);
-	if (ret) {
+	if (ret == -EBUSY) {
+		dwc->maximum_speed = USB_SPEED_HIGH;
+	} else if (ret) {
 		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
 				__func__, ret);
 		return ret;

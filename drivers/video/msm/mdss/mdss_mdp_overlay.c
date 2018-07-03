@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1033,7 +1033,6 @@ exit_fail:
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
 			continue;
-
 		pr_debug("freeing allocations for pipe %d\n", pipe->num);
 		mdss_mdp_smp_unreserve(pipe);
 		pipe->params_changed = 0;
@@ -2692,7 +2691,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	if (!rc) {
 		pr_debug("%s: configured to '%d' FPS\n", __func__, dfps);
 	} else {
-		pr_err("Failed to configure '%d' FPS. rc = %d\n",
+		pr_debug("Failed to configure '%d' FPS. rc = %d\n",
 							dfps, rc);
 		mutex_unlock(&mdp5_data->dfps_lock);
 		return rc;
@@ -3524,6 +3523,10 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
 		u32 cursor_addr;
+		if (img->width * img->height * 4 > cursor_frame_size) {
+		pr_err("cursor image size is too large\n");
+		return -EINVAL;
+		}
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
 		if (ret) {
@@ -3954,12 +3957,16 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
 		break;
 	case metadata_op_get_ion_fd:
-		if (mfd->fb_ion_handle) {
+		if (mfd->fb_ion_handle && mfd->fb_ion_client) {
+			get_dma_buf(mfd->fbmem_buf);
 			metadata->data.fbmem_ionfd =
-				dma_buf_fd(mfd->fbmem_buf, 0);
-			if (metadata->data.fbmem_ionfd < 0)
+				ion_share_dma_buf_fd(mfd->fb_ion_client,
+					mfd->fb_ion_handle);
+			if (metadata->data.fbmem_ionfd < 0) {
+				dma_buf_put(mfd->fbmem_buf);
 				pr_err("fd allocation failed. fd = %d\n",
 						metadata->data.fbmem_ionfd);
+			}
 		}
 		break;
 	case metadata_op_crc:

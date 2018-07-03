@@ -67,7 +67,7 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
 		.function = __func__,				\
 		.filename = __FILE__,				\
 		.format = (fmt),				\
-		.lineno = __LINE__,				\
+		.lineno = __LINE__,		\
 		.flags =  _DPRINTK_FLAGS_DEFAULT,		\
 	}
 

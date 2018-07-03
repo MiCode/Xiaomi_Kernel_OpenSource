@@ -1,4 +1,5 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,7 +79,7 @@ struct glink_pkt_dev {
 
 	wait_queue_head_t ch_read_wait_queue;
 	struct list_head pkt_list;
-	struct mutex pkt_list_lock;
+	spinlock_t pkt_list_lock;
 
 	struct wakeup_source pa_ws;	/* Packet Arrival Wakeup Source */
 	struct work_struct packet_arrival_work;
@@ -147,7 +148,7 @@ module_param_named(debug_mask, msm_glink_pkt_debug_mask,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static void glink_pkt_queue_rx_intent_worker(struct work_struct *work);
-
+static bool glink_pkt_read_avail(struct glink_pkt_dev *devp);
 
 #define DEBUG
 
@@ -228,7 +229,7 @@ void glink_pkt_notify_rx(void *handle, const void *priv,
 	GLINK_PKT_INFO("%s(): priv[%p] data[%p] size[%zu]\n",
 		   __func__, pkt_priv, (char *)ptr, size);
 
-	pkt = kzalloc(sizeof(struct glink_rx_pkt), GFP_KERNEL);
+	pkt = kzalloc(sizeof(*pkt), GFP_ATOMIC);
 	if (!pkt) {
 		GLINK_PKT_ERR("%s: memory allocation failed\n", __func__);
 		return;
@@ -237,9 +238,9 @@ void glink_pkt_notify_rx(void *handle, const void *priv,
 	pkt->data = ptr;
 	pkt->pkt_priv = pkt_priv;
 	pkt->size = size;
-	mutex_lock(&devp->pkt_list_lock);
+	spin_lock_irqsave(&devp->pkt_list_lock, flags);
 	list_add_tail(&pkt->list, &devp->pkt_list);
-	mutex_unlock(&devp->pkt_list_lock);
+	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
 
 	spin_lock_irqsave(&devp->pa_spinlock, flags);
 	__pm_stay_awake(&devp->pa_ws);
@@ -347,6 +348,17 @@ static void glink_pkt_queue_rx_intent_worker(struct work_struct *work)
 	return;
 }
 
+static bool glink_pkt_read_avail(struct glink_pkt_dev *devp)
+{
+	bool list_is_empty;
+	unsigned long flags;
+
+	spin_lock_irqsave(&devp->pkt_list_lock, flags);
+	list_is_empty = list_empty(&devp->pkt_list);
+	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
+	return !list_is_empty;
+}
+
 /**
  * glink_pkt_read() - read() syscall for the glink_pkt device
  * file:	Pointer to the file structure.
@@ -384,8 +396,8 @@ ssize_t glink_pkt_read(struct file *file,
 		__func__, devp->i, count);
 
 	ret = wait_event_interruptible(devp->ch_read_wait_queue,
-				     !devp->handle ||
-				     !list_empty(&devp->pkt_list));
+				!devp->handle ||devp->in_reset ||
+				glink_pkt_read_avail(devp));
 	if (!devp->handle) {
 		GLINK_PKT_ERR("%s on a closed glink_pkt_dev id:%d\n",
 			__func__, devp->i);
@@ -401,15 +413,16 @@ ssize_t glink_pkt_read(struct file *file,
 		return ret;
 	}
 
+	spin_lock_irqsave(&devp->pkt_list_lock, flags);
 	pkt = list_first_entry(&devp->pkt_list, struct glink_rx_pkt, list);
-
 	if (pkt->size > count) {
 		GLINK_PKT_ERR("%s: Small Buff on dev Id:%d-[%zu > %zu]\n",
 				__func__, devp->i, pkt->size, count);
+		spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
 		return -ETOOSMALL;
 	}
-
 	list_del(&pkt->list);
+	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
 
 	ret = copy_to_user(buf, pkt->data, pkt->size);
 	BUG_ON(ret != 0);
@@ -420,7 +433,7 @@ ssize_t glink_pkt_read(struct file *file,
 
 	mutex_lock(&devp->ch_lock);
 	spin_lock_irqsave(&devp->pa_spinlock, flags);
-	if (devp->poll_mode && list_empty(&devp->pkt_list)) {
+	if (devp->poll_mode && !glink_pkt_read_avail(devp)) {
 		__pm_relax(&devp->pa_ws);
 		devp->ws_locked = 0;
 		devp->poll_mode = 0;
@@ -516,7 +529,7 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 		return POLLERR;
 	}
 
-	if (!list_empty(&devp->pkt_list)) {
+	if (glink_pkt_read_avail(devp)) {
 		mask |= POLLIN | POLLRDNORM;
 		GLINK_PKT_INFO("%s sets POLLIN for glink_pkt_dev id: %d\n",
 			__func__, devp->i);
@@ -792,7 +805,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	init_waitqueue_head(&devp->ch_read_wait_queue);
 	spin_lock_init(&devp->pa_spinlock);
 	INIT_LIST_HEAD(&devp->pkt_list);
-	mutex_init(&devp->pkt_list_lock);
+	spin_lock_init(&devp->pkt_list_lock);
 
 	cdev_init(&devp->cdev, &glink_pkt_fops);
 	devp->cdev.owner = THIS_MODULE;

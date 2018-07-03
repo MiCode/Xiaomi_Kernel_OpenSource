@@ -15,6 +15,7 @@
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  2003-10-10 Written by Simon Derr.
  *  2003-10-22 Updates by Stephen Hemminger.
@@ -62,6 +63,7 @@
 #include <linux/kthread.h>
 
 #include <linux/atomic.h>
+#include <linux/freezer.h>
 
 /* css deactivation bias, makes css->refcnt negative to deny new trygets */
 #define CSS_DEACT_BIAS		INT_MIN
@@ -311,6 +313,35 @@ static bool cgroup_lock_live_group(struct cgroup *cgrp)
 	}
 	return true;
 }
+
+#ifdef CONFIG_FROZEN_APP
+void cgroup_thawed_by_pid(int pid_nr)
+{
+	struct task_struct *ptask;
+	struct cgroup *pcgroup;
+
+	rcu_read_lock();
+	ptask = find_task_by_vpid(pid_nr);
+	if (ptask) {
+		get_task_struct(ptask);
+		rcu_read_unlock();
+		if (frozen(ptask)) {
+			task_lock(ptask);
+			pcgroup = task_cgroup(ptask, freezer_subsys_id);
+			task_unlock(ptask);
+			if (pcgroup && cgroup_lock_live_group(pcgroup)) {
+				freezer_change_state_to_thawed(pcgroup);
+				mutex_unlock(&cgroup_mutex);
+				pr_info("comm=%s CGROUP_THAWED\n", ptask->comm);
+			}
+		}
+		put_task_struct(ptask);
+		return;
+	}
+	rcu_read_unlock();
+	return;
+}
+#endif
 
 /* the list of cgroups eligible for automatic release. Protected by
  * release_list_lock */
@@ -2172,6 +2203,7 @@ retry_find_task:
 		 */
 		tcred = __task_cred(tsk);
 		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
+		    !uid_eq(cred->euid, GLOBAL_SYSTEM_UID) &&
 		    !uid_eq(cred->euid, tcred->uid) &&
 		    !uid_eq(cred->euid, tcred->suid)) {
 			/*
@@ -5468,7 +5500,7 @@ static int cgroup_css_links_read(struct cgroup *cont,
 		struct css_set *cg = link->cg;
 		struct task_struct *task;
 		int count = 0;
-		seq_printf(seq, "css_set %p\n", cg);
+		seq_printf(seq, "css_set %pK\n", cg);
 		list_for_each_entry(task, &cg->tasks, cg_list) {
 			if (count++ > MAX_TASKS_SHOWN_PER_CSS) {
 				seq_puts(seq, "  ...\n");

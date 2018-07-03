@@ -35,6 +35,7 @@
 #include <linux/eventfd.h>
 #include <linux/blkdev.h>
 #include <linux/compat.h>
+#include <linux/personality.h>
 
 #include <asm/kmap_types.h>
 #include <asm/uaccess.h>
@@ -152,6 +153,9 @@ static int aio_setup_ring(struct kioctx *ctx)
 	struct mm_struct *mm = current->mm;
 	unsigned long size, populate;
 	int nr_pages;
+
+	if (current->personality & READ_IMPLIES_EXEC)
+		return -EPERM;
 
 	/* Compensate for the ring buffer's head/tail overlap entry */
 	nr_events += 2;	/* 1 is required, 2 for good luck */

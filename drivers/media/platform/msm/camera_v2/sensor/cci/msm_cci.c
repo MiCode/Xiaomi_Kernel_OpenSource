@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,15 +48,21 @@ static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_CASES][CCI_NUM_CLK_MAX];
 
-static void msm_cci_set_clk_param(struct cci_device *cci_dev,
+static int32_t msm_cci_set_clk_param(struct cci_device *cci_dev,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	struct msm_cci_clk_params_t *clk_params = NULL;
 	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 	enum i2c_freq_mode_t i2c_freq_mode = c_ctrl->cci_info->i2c_freq_mode;
+	int32_t rc = 0;
 
+	if ((i2c_freq_mode >= I2C_MAX_MODES) || (i2c_freq_mode < 0)){
+		pr_err("%s:%d Invalid i2c_freq_mode =%d\n",
+			__func__, __LINE__, i2c_freq_mode);
+		return -EINVAL;
+	}
 	if (cci_dev->master_clk_init[master])
-		return;
+		return rc;
 	clk_params = &cci_dev->cci_clk_params[i2c_freq_mode];
 
 	if (MASTER_0 == master) {
@@ -90,7 +97,7 @@ static void msm_cci_set_clk_param(struct cci_device *cci_dev,
 			cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
 	}
 	cci_dev->master_clk_init[master] = 1;
-	return;
+	return rc;
 }
 
 static void msm_cci_flush_queue(struct cci_device *cci_dev,
@@ -238,11 +245,10 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		data[i++] = CCI_I2C_WRITE_CMD;
 
 		/* in case of multiple command
-		* MSM_CCI_I2C_WRITE : address is not continuous, so update
-		*			address for a new packet.
-		* MSM_CCI_I2C_WRITE_SEQ : address is continuous, need to keep
-		*			the incremented address for a
-		*			new packet */
+		MSM_CCI_I2C_WRITE : address is not continuous, so update address
+					for a new packet.
+		MSM_CCI_I2C_WRITE_SEQ : address is continuous, need to keep
+					the incremented address for a new packet */
 		if (c_ctrl->cmd == MSM_CCI_I2C_WRITE)
 			reg_addr = i2c_cmd->reg_addr;
 
@@ -352,10 +358,17 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	enum cci_i2c_queue_t queue = QUEUE_1;
 	struct cci_device *cci_dev = NULL;
 	struct msm_camera_cci_i2c_read_cfg *read_cfg = NULL;
+
 	CDBG("%s line %d\n", __func__, __LINE__);
 	cci_dev = v4l2_get_subdevdata(sd);
 	master = c_ctrl->cci_info->cci_i2c_master;
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
+	if (master >= MASTER_MAX || master < 0) {
+		pr_err("%s:%d Invalid I2C master %d\n",
+			__func__, __LINE__, master);
+		return -EINVAL;
+}
+
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 
 	/*
@@ -749,6 +762,13 @@ static struct msm_cam_clk_info *msm_cci_get_clk(struct cci_device *cci_dev,
 	struct msm_cci_clk_params_t *clk_params = NULL;
 	enum i2c_freq_mode_t i2c_freq_mode = c_ctrl->cci_info->i2c_freq_mode;
 	struct device_node *of_node = cci_dev->pdev->dev.of_node;
+
+	if ((i2c_freq_mode >= I2C_MAX_MODES) || (i2c_freq_mode < 0)){
+		pr_err("%s:%d Invalid i2c_freq_mode =%d\n",
+			__func__, __LINE__, i2c_freq_mode);
+		return NULL;
+	}
+
 	clk_params = &cci_dev->cci_clk_params[i2c_freq_mode];
 	cci_clk_src = clk_params->cci_clk_src;
 
@@ -797,7 +817,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
-		msm_cci_set_clk_param(cci_dev, c_ctrl);
+		rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+		if (rc < 0) {
+			pr_err("%s:%d msm_cci_set_clk_parm failed rc = %d\n",
+				__func__, __LINE__, rc);
+			return rc;
+		}
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			/* Set reset pending flag to TRUE */
@@ -897,7 +922,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	}
 	for (i = 0; i < MASTER_MAX; i++)
 		cci_dev->master_clk_init[i] = 0;
-	msm_cci_set_clk_param(cci_dev, c_ctrl);
+	rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+	if (rc < 0) {
+		pr_err("%s:%d msm_cci_set_clk_parm failed rc = %d\n",
+			__func__, __LINE__, rc);
+		return rc;
+	}
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,
 		cci_dev->base + CCI_IRQ_MASK_0_ADDR);
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,

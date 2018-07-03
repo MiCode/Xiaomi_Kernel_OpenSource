@@ -452,14 +452,15 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 	struct sched_params __user *argp = (struct sched_params __user *)arg;
 	int i, cpu = num_possible_cpus();
 	int mpidr;
-	int cpumask;
+	int cluster, cpumask;
 
 	if (!argp)
 		return -EINVAL;
 
-	mpidr = (argp->cluster << (MAX_CORES_PER_CLUSTER *
+	get_user(cluster, &argp->cluster);
+	mpidr = (cluster << (MAX_CORES_PER_CLUSTER *
 			MAX_NUM_OF_CLUSTERS));
-	cpumask = argp->cpumask;
+	get_user(cpumask, &argp->cpumask);
 
 	switch (cmd) {
 	case EA_LEAKAGE:
@@ -981,6 +982,7 @@ static int uio_init(struct platform_device *pdev)
 		return ret;
 	}
 	dev_set_drvdata(&pdev->dev, info);
+	pr_info("Device created for client '%s'\n", clnt_res->name);
 
 	return 0;
 }

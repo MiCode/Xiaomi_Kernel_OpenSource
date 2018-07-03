@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 
 /*
@@ -432,6 +433,12 @@ void input_event(struct input_dev *dev,
 		spin_lock_irqsave(&dev->event_lock, flags);
 		input_handle_event(dev, type, code, value);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+		if (code == BTN_TOUCH) {
+			if (!mod_timer(&dev->counter, jiffies + 1 * HZ))
+				dev->input_active_start = get_jiffies_64();
+		}
+#endif
 	}
 }
 EXPORT_SYMBOL(input_event);
@@ -1382,12 +1389,28 @@ static ssize_t input_dev_show_properties(struct device *dev,
 }
 static DEVICE_ATTR(properties, S_IRUGO, input_dev_show_properties, NULL);
 
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+static ssize_t input_dev_show_active(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct input_dev *input_dev = to_input_dev(dev);
+	return snprintf(buf, PAGE_SIZE, "Active %lld seconds\n",
+				input_dev->input_active_count / HZ);
+}
+
+static DEVICE_ATTR(active, S_IRUGO, input_dev_show_active, NULL);
+#endif
+
 static struct attribute *input_dev_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_phys.attr,
 	&dev_attr_uniq.attr,
 	&dev_attr_modalias.attr,
 	&dev_attr_properties.attr,
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+	&dev_attr_active.attr,
+#endif
 	NULL
 };
 
@@ -1989,6 +2012,9 @@ static void __input_unregister_device(struct input_dev *dev)
 	WARN_ON(!list_empty(&dev->h_list));
 
 	del_timer_sync(&dev->timer);
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+	del_timer_sync(&dev->counter);
+#endif
 	list_del_init(&dev->node);
 
 	input_wakeup_procfs_readers();
@@ -2007,6 +2033,14 @@ static void devm_input_device_unregister(struct device *dev, void *res)
 		__func__, dev_name(&input->dev));
 	__input_unregister_device(input);
 }
+
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+static void input_active_counter(unsigned long data)
+{
+	struct input_dev *dev = (void *) data;
+	dev->input_active_count += get_jiffies_64() - dev->input_active_start;
+}
+#endif
 
 /**
  * input_register_device - register device with input core
@@ -2080,6 +2114,14 @@ int input_register_device(struct input_dev *dev)
 		dev->rep[REP_DELAY] = 250;
 		dev->rep[REP_PERIOD] = 33;
 	}
+
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+	init_timer(&dev->counter);
+	dev->input_active_count = 0;
+	dev->input_active_start = 0;
+	dev->counter.data = (long) dev;
+	dev->counter.function = input_active_counter;
+#endif
 
 	if (!dev->getkeycode)
 		dev->getkeycode = input_default_getkeycode;

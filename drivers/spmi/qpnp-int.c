@@ -28,6 +28,8 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/irqchip/qpnp-int.h>
+#include <linux/wakeup_reason.h>
+#include <linux/suspend.h>
 
 #include <asm/irq.h>
 
@@ -641,6 +643,10 @@ static int __qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 
 		pr_warn("%d triggered [0x%01x, 0x%02x,0x%01x] %s\n",
 				irq, spec->slave, spec->per, spec->irq, name);
+#ifdef CONFIG_PM_SLEEP_TRACE
+		suspend_resume_irq_inc(irq, name);
+#endif
+		log_wakeup_reason(irq);
 	} else {
 		generic_handle_irq(irq);
 	}

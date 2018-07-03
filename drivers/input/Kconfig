@@ -200,6 +200,13 @@ config SENSORS_HALL
 	 Say y here if you want to use this hall sensor driver, it
 	 is like a switch. For example, lid.
 
+config COLLECT_TOUCH_ACTIVE_INFO
+	bool "Collect touch active info"
+	default n
+	depends on INPUT
+	---help---
+	 Say y here if you want to collect touch active info.
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"

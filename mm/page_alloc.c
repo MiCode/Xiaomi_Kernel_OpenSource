@@ -1082,9 +1082,11 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 			 * MIGRATE_CMA areas.
 			 */
 			if (!is_migrate_cma(migratetype) &&
-			    (unlikely(current_order >= pageblock_order / 2) ||
-			     start_migratetype == MIGRATE_RECLAIMABLE ||
-			     page_group_by_mobility_disabled)) {
+				((start_migratetype != MIGRATE_UNMOVABLE && current_order >= pageblock_order / 2) ||
+				(start_migratetype == MIGRATE_UNMOVABLE && migratetype != MIGRATE_MOVABLE && current_order >= pageblock_order / 2) ||
+				start_migratetype == MIGRATE_RECLAIMABLE ||
+				(start_migratetype == MIGRATE_UNMOVABLE && order >= 5) ||
+				page_group_by_mobility_disabled)) {
 				int pages;
 				pages = move_freepages_block(zone, page,
 								start_migratetype);

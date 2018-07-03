@@ -2202,6 +2202,12 @@ void resume_console(void)
 	console_unlock();
 }
 
+void emergency_unlock_console(void)
+{
+	resume_console();
+}
+EXPORT_SYMBOL(emergency_unlock_console);
+
 static void __cpuinit console_flush(struct work_struct *work)
 {
 	console_lock();

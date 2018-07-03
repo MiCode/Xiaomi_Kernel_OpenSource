@@ -1173,6 +1173,9 @@ static int smb135x_set_high_usb_chg_current(struct smb135x_chg *chip,
 		dev_err(chip->dev, "Couldn't write cfg 5 rc = %d\n", rc);
 	else
 		chip->real_usb_psy_ma = chip->usb_current_table[i];
+
+	pr_info("usb current %d ma\n", chip->usb_current_table[i]);
+
 	return rc;
 }
 
@@ -1190,7 +1193,7 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 {
 	int rc;
 
-	pr_debug("USB current_ma = %d\n", current_ma);
+	pr_info("USB current_ma = %d\n", current_ma);
 
 	if (chip->workaround_flags & WRKARND_USB100_BIT) {
 		pr_info("USB requested = %dmA using %dmA\n", current_ma,

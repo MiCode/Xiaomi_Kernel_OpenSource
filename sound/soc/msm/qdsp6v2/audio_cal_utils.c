@@ -536,7 +536,6 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 
 	memset(cal_block, 0, sizeof(*cal_block));
 	INIT_LIST_HEAD(&cal_block->list);
-	list_add_tail(&cal_block->list, &cal_type->cal_blocks);
 
 	cal_block->map_data.ion_map_handle = basic_cal->cal_data.mem_handle;
 	if (basic_cal->cal_data.mem_handle > 0) {
@@ -568,6 +567,7 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 		goto err;
 	}
 	cal_block->buffer_number = basic_cal->cal_hdr.buffer_number;
+	list_add_tail(&cal_block->list, &cal_type->cal_blocks);
 	pr_debug("%s: created block for cal type %d, buf num %d, map handle %d, map size %zd paddr 0x%pa!\n",
 		__func__, cal_type->info.reg.cal_type,
 		cal_block->buffer_number,
@@ -577,6 +577,10 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 done:
 	return cal_block;
 err:
+	kfree(cal_block->cal_info);
+	cal_block->cal_info = NULL;
+	kfree(cal_block->client_info);
+	cal_block->client_info = NULL;
 	kfree(cal_block);
 	cal_block = NULL;
 	return cal_block;

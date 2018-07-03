@@ -275,7 +275,7 @@ static int __ref bcl_cpu_ctrl_callback(struct notifier_block *nfb,
 			pr_debug("BCL online Mask: %u\n",
 				cpumask_weight(bcl_cpu_online_mask));
 		if (bcl_hotplug_request & BIT(cpu)) {
-			pr_info("preventing CPU%d from coming online\n", cpu);
+			pr_debug("preventing CPU%d from coming online\n", cpu);
 			return NOTIFY_BAD;
 		} else {
 			pr_debug("voting for CPU%d to be online\n", cpu);

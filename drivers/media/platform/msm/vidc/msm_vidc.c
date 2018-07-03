@@ -258,9 +258,9 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 		for (i = 0; (i < temp->num_planes)
 			&& (i < VIDEO_MAX_PLANES); i++) {
-                        bool ion_hndl_matches =
-                                msm_smem_compare_buffers(inst->mem_client, fd,
-                                temp->handle[i]->smem_priv);
+			bool ion_hndl_matches = temp->handle[i] ?
+						msm_smem_compare_buffers(inst->mem_client, fd,
+						temp->handle[i]->smem_priv) : false;
 			if (temp &&
 				(ion_hndl_matches ||
 				(device_addr == temp->device_addr[i])) &&
@@ -1424,7 +1424,8 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		debugfs_remove_recursive(inst->debugfs_root);
 
 		mutex_lock(&inst->pending_getpropq.lock);
-		WARN_ON(!list_empty(&inst->pending_getpropq.list));
+		WARN_ON(!list_empty(&inst->pending_getpropq.list)
+			&& (msm_vidc_debug & VIDC_INFO));
 		mutex_unlock(&inst->pending_getpropq.lock);
 	}
 }

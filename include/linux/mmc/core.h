@@ -173,6 +173,15 @@ extern int mmc_flush_cache(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);
 
+extern void mmc_prepare_mrq(struct mmc_card *card,
+struct mmc_request *mrq, struct scatterlist *sg, unsigned sg_len,
+unsigned dev_addr, unsigned blocks, unsigned blksz, int write);
+extern int mmc_wait_busy(struct mmc_card *card);
+extern int mmc_check_result(struct mmc_request *mrq);
+extern int mmc_simple_transfer(struct mmc_card *card,
+struct scatterlist *sg, unsigned sg_len, unsigned dev_addr,
+unsigned blocks, unsigned blksz, int write);
+
 extern void mmc_blk_init_bkops_statistics(struct mmc_card *card);
 extern void mmc_rpm_hold(struct mmc_host *host, struct device *dev);
 extern void mmc_rpm_release(struct mmc_host *host, struct device *dev);

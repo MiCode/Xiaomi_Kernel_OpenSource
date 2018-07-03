@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -517,9 +518,16 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, size_t offset,
 	void *addr = (memdesc->hostptr) ?
 		memdesc->hostptr : (void *) memdesc->useraddr;
 
-	/* Make sure that size is non-zero */
-	if (!size)
+	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
+
+	/* Make sure that the offset + size does not overflow */
+	if ((offset + size < offset) || (offset + size < size))
+		return -ERANGE;
+
+	/* Make sure the offset + size do not overflow the address */
+	if ((addr + offset + size) < addr)
+		return -ERANGE;
 
 	/* Check that offset+length does not exceed memdesc->size */
 	if ((offset + size) > memdesc->size)

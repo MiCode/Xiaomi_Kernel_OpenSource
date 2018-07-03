@@ -557,6 +557,8 @@ struct input_keymap_entry {
 #define BTN_GEAR_DOWN		0x150
 #define BTN_GEAR_UP		0x151
 
+#define BTN_TOOL_EDGE_TOUCH	0x152	/* For edge touch */
+
 #define KEY_OK			0x160
 #define KEY_SELECT		0x161
 #define KEY_GOTO		0x162

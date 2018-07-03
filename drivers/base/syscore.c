@@ -2,6 +2,7 @@
  *  syscore.c - Execution of system core operations.
  *
  *  Copyright (C) 2011 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  This file is released under the GPLv2.
  */
@@ -10,6 +11,7 @@
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/suspend.h>
 #include <linux/wakeup_reason.h>
 
 static LIST_HEAD(syscore_ops_list);
@@ -77,6 +79,9 @@ int syscore_suspend(void)
 	log_suspend_abort_reason("System core suspend callback %pF failed",
 		ops->suspend);
 	pr_err("PM: System core suspend callback %pF failed.\n", ops->suspend);
+#ifdef CONFIG_PM_SLEEP_TRACE
+	suspend_failed_cb_inc((void *)ops->suspend);
+#endif
 
 	list_for_each_entry_continue(ops, &syscore_ops_list, node)
 		if (ops->resume)

@@ -158,7 +158,7 @@ static int handle_install_filter_rule_req(void *req_h, void *req)
 			resp.filter_handle_list_len = MAX_NUM_Q6_RULE;
 			IPAWANERR("installed (%d) max Q6-UL rules ",
 			MAX_NUM_Q6_RULE);
-			IPAWANERR("but modem gives total (%d)\n",
+			IPAWANERR("but modem gives total (%u)\n",
 			rule_req->filter_spec_list_len);
 		} else {
 			resp.filter_handle_list_len =

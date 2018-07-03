@@ -2,6 +2,7 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: Sarah Sharp
  * Some code borrowed from the Linux EHCI driver.
@@ -1347,13 +1348,14 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 	temp &= ~CMD_EIE;
 	xhci_writel(xhci, temp, &xhci->op_regs->command);
 
-	if ((xhci->quirks & XHCI_RESET_RS_ON_RESUME_QUIRK) &&
-			HC_IS_SUSPENDED(xhci->main_hcd->state) &&
-				HC_IS_SUSPENDED(xhci->shared_hcd->state)) {
-		xhci_halt(xhci);
-		if (!xhci_start(xhci))
-			xhci->cmd_ring_state = CMD_RING_STATE_RUNNING;
-	}
+	if (xhci->main_hcd && xhci->shared_hcd)
+		if ((xhci->quirks & XHCI_RESET_RS_ON_RESUME_QUIRK) &&
+				HC_IS_SUSPENDED(xhci->main_hcd->state) &&
+					HC_IS_SUSPENDED(xhci->shared_hcd->state)) {
+			xhci_halt(xhci);
+			if (!xhci_start(xhci))
+				xhci->cmd_ring_state = CMD_RING_STATE_RUNNING;
+		}
 
 	port_index = max_ports;
 	while (port_index--) {

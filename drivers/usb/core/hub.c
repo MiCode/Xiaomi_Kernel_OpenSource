@@ -115,6 +115,7 @@ EXPORT_SYMBOL_GPL(ehci_cf_port_reset_rwsem);
 
 static void hub_release(struct kref *kref);
 static int usb_reset_and_verify_device(struct usb_device *udev);
+static void hub_release(struct kref *kref);
 
 static inline char *portspeed(struct usb_hub *hub, int portstatus)
 {

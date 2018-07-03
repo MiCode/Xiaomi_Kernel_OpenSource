@@ -1308,8 +1308,6 @@ how overcommitment threshold is defined and also notes on
 'sched_upmigrate_min_nice' tunable.
 
 =========================
-8. HMP SCHEDULER TRACE POINTS
-=========================
 
 *** 8.1 sched_enq_deq_task
 

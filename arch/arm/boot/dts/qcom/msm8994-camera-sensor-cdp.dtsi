@@ -338,7 +338,7 @@
 	};
 
 	eeprom4: qcom,eeprom@4 {
-		cell-index = <4>;
+		cell-index = <0>;
 		reg = <0x4>;
 		qcom,eeprom-name = "dw9761b";
 		compatible = "qcom,eeprom";

@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -275,6 +276,9 @@ int suspend_devices_and_enter(suspend_state_t state)
 	suspend_test_start();
 	error = dpm_suspend_start(PMSG_SUSPEND);
 	if (error) {
+#ifdef CONFIG_PM_SLEEP_TRACE
+		suspend_trace_stats.failed_suspend_devices_start++;
+#endif
 		printk(KERN_ERR "PM: Some devices failed to suspend\n");
 		log_suspend_abort_reason("Some devices failed to suspend");
 		goto Recover_platform;
@@ -288,6 +292,10 @@ int suspend_devices_and_enter(suspend_state_t state)
 	} while (!error && !wakeup && need_suspend_ops(state)
 		&& suspend_ops->suspend_again && suspend_ops->suspend_again());
 
+#ifdef CONFIG_PM_SLEEP_TRACE
+	if (error)
+		suspend_trace_stats.failed_suspend_devices_enter++;
+#endif
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
@@ -363,6 +371,10 @@ static int enter_state(suspend_state_t state)
 	pr_debug("PM: Entering %s sleep\n", pm_states[state].label);
 	pm_restrict_gfp_mask();
 	error = suspend_devices_and_enter(state);
+#ifdef CONFIG_PM_SLEEP_TRACE
+	if (error)
+		suspend_trace_stats.failed_suspend_devices++;
+#endif
 	pm_restore_gfp_mask();
 
  Finish:
@@ -377,12 +389,21 @@ static void pm_suspend_marker(char *annotation)
 {
 	struct timespec ts;
 	struct rtc_time tm;
+	static struct timespec old_ts;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
 	pr_info("PM: suspend %s %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 		annotation, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+	if (!strncmp(annotation, "entry", strlen("entry"))) {
+		old_ts.tv_sec = ts.tv_sec;
+		old_ts.tv_nsec = ts.tv_nsec;
+	} else {
+		pr_info("PM: suspend lasts %lu seconds\n",
+			ts.tv_sec - old_ts.tv_sec);
+	}
 }
 
 /**
@@ -395,17 +416,27 @@ static void pm_suspend_marker(char *annotation)
 int pm_suspend(suspend_state_t state)
 {
 	int error;
+#ifdef CONFIG_PM_SLEEP_TRACE
+	struct timespec ts_suspend_start, ts_suspend_success_end;
+#endif
 
 	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+#ifdef CONFIG_PM_SLEEP_TRACE
+	getnstimeofday(&ts_suspend_start);
+#endif
 	error = enter_state(state);
 	if (error) {
 		suspend_stats.fail++;
 		dpm_save_failed_errno(error);
 	} else {
 		suspend_stats.success++;
+#ifdef CONFIG_PM_SLEEP_TRACE
+		getnstimeofday(&ts_suspend_success_end);
+		update_suspend_trace_stats_time(ts_suspend_success_end.tv_sec - ts_suspend_start.tv_sec);
+#endif
 	}
 	pm_suspend_marker("exit");
 	return error;

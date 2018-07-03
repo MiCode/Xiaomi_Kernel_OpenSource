@@ -696,6 +696,12 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
+config INPUT_FPC1020
+	tristate "Fpc1020 fingerprint sensor support"
+	depends on SPI
+	help
+	  Say Y here if you have Fpc1020 sensor hooked to an SPI bus.
+
 config BMP18X
        tristate "BMP18X digital pressure sensor"
        depends on (I2C ) && SYSFS

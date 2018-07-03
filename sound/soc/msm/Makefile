@@ -85,6 +85,10 @@ obj-$(CONFIG_SND_SOC_MSM8X16) += snd-soc-msm8x16.o
 snd-soc-msm8909-objs := msm8x16.o
 obj-$(CONFIG_SND_SOC_MSM8909) += snd-soc-msm8909.o
 
+# for MSM 8992 sound card driver
+snd-soc-msm8992-objs := msm8994.o
+obj-$(CONFIG_SND_SOC_MSM8992) += snd-soc-msm8992.o
+
 # for MSM 8994 sound card driver
 snd-soc-msm8994-objs := msm8994.o
 obj-$(CONFIG_SND_SOC_MSM8994) += snd-soc-msm8994.o

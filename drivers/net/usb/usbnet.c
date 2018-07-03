@@ -1639,6 +1639,8 @@ out3:
 	if (info->unbind)
 		info->unbind (dev, udev);
 out1:
+	cancel_work_sync(&dev->kevent);
+	del_timer_sync(&dev->delay);
 	free_netdev(net);
 out:
 	return status;

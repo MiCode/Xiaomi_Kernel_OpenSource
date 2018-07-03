@@ -826,7 +826,7 @@ static int mdss_mdp_video_dfps_check_line_cnt(struct mdss_mdp_ctl *ctl)
 
 	line_cnt = mdss_mdp_video_line_count(ctl);
 	if (line_cnt >=	pdata->panel_info.yres/2) {
-		pr_err("Too few lines left line_cnt=%d yres/2=%d\n",
+		pr_debug("Too few lines left line_cnt=%d yres/2=%d\n",
 			line_cnt,
 			pdata->panel_info.yres/2);
 		return -EPERM;
@@ -933,11 +933,9 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			spin_lock_irqsave(&ctx->dfps_lock, flags);
 
-			if (mdata->mdp_rev < MDSS_MDP_HW_REV_105) {
-				rc = mdss_mdp_video_dfps_check_line_cnt(ctl);
-				if (rc < 0)
-					goto exit_dfps;
-			}
+			rc = mdss_mdp_video_dfps_check_line_cnt(ctl);
+			if (rc < 0)
+				goto exit_dfps;
 
 			rc = mdss_mdp_video_fps_update(ctx, pdata, new_fps);
 			if (rc < 0) {

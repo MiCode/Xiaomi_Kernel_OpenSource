@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,8 @@
 #include <linux/spinlock.h>
 #include <linux/spmi.h>
 #include <linux/alarmtimer.h>
+#include <linux/wakeup_reason.h>
+#include <linux/wakelock.h>
 
 /* RTC/ALARM Register offsets */
 #define REG_OFFSET_ALARM_RW	0x40
@@ -63,6 +66,7 @@ struct qpnp_rtc {
 	struct device *rtc_dev;
 	struct rtc_device *rtc;
 	struct spmi_device *spmi;
+	struct wake_lock wl;
 	spinlock_t alarm_ctrl_lock;
 };
 
@@ -607,6 +611,7 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 		goto fail_req_irq;
 	}
 
+	wake_lock_init(&rtc_dd->wl, WAKE_LOCK_SUSPEND, "qpnp-rtc");
 	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
@@ -628,6 +633,7 @@ static int qpnp_rtc_remove(struct spmi_device *spmi)
 
 	device_init_wakeup(&spmi->dev, 0);
 	free_irq(rtc_dd->rtc_alarm_irq, rtc_dd);
+	wake_lock_destroy(&rtc_dd->wl);
 	rtc_device_unregister(rtc_dd->rtc);
 	dev_set_drvdata(&spmi->dev, NULL);
 
@@ -679,6 +685,34 @@ fail_alarm_disable:
 	}
 }
 
+#ifdef CONFIG_PM
+extern bool alarm_fired;
+static int qpnp_rtc_resume(struct device *dev)
+{
+	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+
+	if(alarm_fired == true) {
+		wake_lock_timeout(&rtc_dd->wl, HZ / 3);
+		pr_info("Alarm event generated during suspend\n");
+		log_wakeup_reason(rtc_dd->rtc_alarm_irq);
+	}
+
+	return 0;
+}
+
+static int qpnp_rtc_suspend(struct device *dev)
+{
+	alarm_fired = false;
+
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_rtc_pm_ops = {
+	.suspend = qpnp_rtc_suspend,
+	.resume = qpnp_rtc_resume,
+};
+#endif
+
 static struct of_device_id spmi_match_table[] = {
 	{
 		.compatible = "qcom,qpnp-rtc",
@@ -694,6 +728,9 @@ static struct spmi_driver qpnp_rtc_driver = {
 		.name   = "qcom,qpnp-rtc",
 		.owner  = THIS_MODULE,
 		.of_match_table = spmi_match_table,
+#ifdef CONFIG_PM
+		.pm = &qpnp_rtc_pm_ops,
+#endif
 	},
 };
 

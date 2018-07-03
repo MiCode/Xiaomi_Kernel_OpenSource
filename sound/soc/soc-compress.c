@@ -2,6 +2,7 @@
  * soc-compress.c  --  ALSA SoC Compress
  *
  * Copyright (C) 2012 Intel Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors: Namarta Kohli <namartax.kohli@intel.com>
  *          Ramesh Babu K V <ramesh.babu@linux.intel.com>
@@ -22,6 +23,7 @@
 #include <sound/core.h>
 #include <sound/compress_params.h>
 #include <sound/compress_driver.h>
+#include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/initval.h>
 #include <sound/soc-dpcm.h>
@@ -499,11 +501,51 @@ static void dpcm_be_hw_params_prepare_async(void *data, async_cookie_t cookie)
 	dpcm_be_hw_params_prepare(data);
 }
 
+static unsigned int soc_compr_get_format(unsigned int id, unsigned int format)
+{
+	return id == SND_AUDIOCODEC_PCM ? format : SNDRV_PCM_FORMAT_S24_LE;
+}
+
+static unsigned int soc_compr_get_rate(unsigned int sample_rate)
+{
+	switch (sample_rate) {
+	case SNDRV_PCM_RATE_5512:
+		return 5512;
+	case SNDRV_PCM_RATE_8000:
+		return 8000;
+	case SNDRV_PCM_RATE_11025:
+		return 11025;
+	case SNDRV_PCM_RATE_16000:
+		return 16000;
+	case SNDRV_PCM_RATE_22050:
+		return 22050;
+	case SNDRV_PCM_RATE_32000:
+		return 32000;
+	case SNDRV_PCM_RATE_44100:
+		return 44100;
+	case SNDRV_PCM_RATE_48000:
+		return 48000;
+	case SNDRV_PCM_RATE_64000:
+		return 64000;
+	case SNDRV_PCM_RATE_88200:
+		return 88200;
+	case SNDRV_PCM_RATE_96000:
+		return 96000;
+	case SNDRV_PCM_RATE_176400:
+		return 176400;
+	case SNDRV_PCM_RATE_192000:
+		return 192000;
+	default:
+		return 48000;
+	}
+}
+
 static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 					struct snd_compr_params *params)
 {
 	struct snd_soc_pcm_runtime *fe = cstream->private_data;
 	struct snd_pcm_substream *fe_substream = fe->pcm->streams[0].substream;
+	struct snd_pcm_hw_params *fe_params = &fe->dpcm[fe_substream->stream].hw_params;
 	struct snd_soc_platform *platform = fe->platform;
 	struct snd_soc_pcm_runtime *be_list[DPCM_MAX_BE_USERS];
 	struct snd_soc_dpcm *dpcm;
@@ -540,8 +582,25 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				goto out;
 		}
 
-		memset(&fe->dpcm[fe_substream->stream].hw_params, 0,
-				sizeof(struct snd_pcm_hw_params));
+		memset(fe_params, 0, sizeof(struct snd_pcm_hw_params));
+
+		snd_mask_set(hw_param_mask(fe_params, SNDRV_PCM_HW_PARAM_FORMAT),
+			soc_compr_get_format(params->codec.id, params->codec.format));
+
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_RATE)->min =
+			soc_compr_get_rate(params->codec.sample_rate);
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_RATE)->max =
+			soc_compr_get_rate(params->codec.sample_rate);
+
+#ifdef CONFIG_SND_COMPR_PARAMS_CODEC_CH_OUT
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->min =
+			params->codec.ch_out;
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->max =
+			params->codec.ch_out;
+#else
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->min = 2;
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->max = 2;
+#endif
 
 		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
@@ -553,8 +612,25 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 		if (ret < 0)
 			goto out;
 	} else {
-		memset(&fe->dpcm[fe_substream->stream].hw_params, 0,
-				sizeof(struct snd_pcm_hw_params));
+		memset(fe_params, 0, sizeof(struct snd_pcm_hw_params));
+
+		snd_mask_set(hw_param_mask(fe_params, SNDRV_PCM_HW_PARAM_FORMAT),
+			soc_compr_get_format(params->codec.id, params->codec.format));
+
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_RATE)->min =
+			soc_compr_get_rate(params->codec.sample_rate);
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_RATE)->max =
+			soc_compr_get_rate(params->codec.sample_rate);
+
+#ifdef CONFIG_SND_COMPR_PARAMS_CODEC_CH_OUT
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->min =
+			params->codec.ch_out;
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->max =
+			params->codec.ch_out;
+#else
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->min = 2;
+		hw_param_interval(fe_params, SNDRV_PCM_HW_PARAM_CHANNELS)->max = 2;
+#endif
 
 		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
@@ -569,6 +645,11 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+						"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {
@@ -866,7 +947,7 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 		}
 	}
 
-	printk(KERN_INFO "compress asoc: %s <-> %s mapping ok\n", codec_dai->name,
+	printk(KERN_DEBUG "compress asoc: %s <-> %s mapping ok\n", codec_dai->name,
 		cpu_dai->name);
 	return ret;
 

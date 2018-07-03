@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is released under the GPLv2
  *
@@ -15,10 +16,31 @@
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/uaccess.h>
+#include <linux/rtc.h>
+#include <linux/proc_fs.h>
+#include <linux/spinlock.h>
 
 #include "power.h"
 
 DEFINE_MUTEX(pm_mutex);
+
+#ifdef CONFIG_PM_SLEEP_TRACE
+spinlock_t pm_trace_lock;
+#define TRACE_TIME_WINDOWS (MAX_SUSPEND_TIME_CNT - 1)
+struct suspend_trace_stats suspend_trace_stats;
+int suspend_trace_time_windows[TRACE_TIME_WINDOWS] = {1, 5, 10, 60, 200};
+static const char *time_tags[MAX_SUSPEND_TIME_CNT] =
+{
+	[0] = "0~1",
+	[1] = "1~5",
+	[2] = "5~10",
+	[3] = "10~60",
+	[4] = "60~200",
+	[5] = ">200",
+};
+
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -70,6 +92,15 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(pm_async);
+
+#ifdef CONFIG_PM_SLEEP_TRACE
+static unsigned long get_rt_sec(void)
+{
+	struct timespec ts;
+	getnstimeofday(&ts);
+	return ts.tv_sec;
+}
+#endif
 
 #ifdef CONFIG_PM_DEBUG
 int pm_test_level = TEST_NONE;
@@ -144,10 +175,14 @@ static char *suspend_step_name(enum suspend_stat_step step)
 		return "prepare";
 	case SUSPEND_SUSPEND:
 		return "suspend";
+	case SUSPEND_SUSPEND_LATE:
+		return "suspend_late";
 	case SUSPEND_SUSPEND_NOIRQ:
 		return "suspend_noirq";
 	case SUSPEND_RESUME_NOIRQ:
 		return "resume_noirq";
+	case SUSPEND_RESUME_EARLY:
+		return "resume_early";
 	case SUSPEND_RESUME:
 		return "resume";
 	default:
@@ -216,6 +251,451 @@ static int suspend_stats_open(struct inode *inode, struct file *file)
 	return single_open(file, suspend_stats_show, NULL);
 }
 
+#ifdef CONFIG_PM_SLEEP_TRACE
+void suspend_trace_lock(void)
+{
+	spin_lock(&pm_trace_lock);
+}
+
+void suspend_trace_unlock(void)
+{
+	spin_unlock(&pm_trace_lock);
+}
+
+static void suspend_trace_stats_init(void)
+{
+	suspend_trace_lock();
+	memset(&suspend_trace_stats, 0, sizeof(struct suspend_trace_stats));
+	suspend_trace_stats.success = suspend_stats.success;
+	suspend_trace_stats.fail = suspend_stats.fail;
+	suspend_trace_stats.start_time = get_rt_sec();
+	INIT_LIST_HEAD(&suspend_trace_stats.dev_info);
+	INIT_LIST_HEAD(&suspend_trace_stats.irq_info);
+	INIT_LIST_HEAD(&suspend_trace_stats.irq_pending_info);
+	INIT_LIST_HEAD(&suspend_trace_stats.ws_info);
+	INIT_LIST_HEAD(&suspend_trace_stats.cb_info);
+	suspend_trace_unlock();
+}
+
+static void suspend_trace_stats_reset(void)
+{
+	struct dev_info_list *dev_list, *tmp_dev;
+	struct irq_info_list *irq_list, *tmp_irq;
+	struct ws_info_list *ws_list, *tmp_ws;
+	struct cb_info_list *cb_list, *tmp_cb;
+
+	suspend_trace_lock();
+	list_for_each_entry_safe(dev_list, tmp_dev, &suspend_trace_stats.dev_info, list) {
+		list_del(&dev_list->list);
+		kfree(dev_list->dev_name);
+		kfree(dev_list);
+	}
+
+	list_for_each_entry_safe(irq_list, tmp_irq, &suspend_trace_stats.irq_info, list) {
+		list_del(&irq_list->list);
+		kfree(irq_list);
+	}
+
+	list_for_each_entry_safe(irq_list, tmp_irq, &suspend_trace_stats.irq_pending_info, list) {
+		list_del(&irq_list->list);
+		kfree(irq_list);
+	}
+
+	list_for_each_entry_safe(ws_list, tmp_ws, &suspend_trace_stats.ws_info, list) {
+		list_del(&ws_list->list);
+		kfree(ws_list->ws_name);
+		kfree(ws_list);
+	}
+
+	list_for_each_entry_safe(cb_list, tmp_cb, &suspend_trace_stats.cb_info, list) {
+		list_del(&cb_list->list);
+		kfree(cb_list);
+	}
+	suspend_trace_unlock();
+}
+
+static void suspend_trace_stats_start(void)
+{
+	suspend_trace_stats.flag = 0;
+	suspend_trace_stats_reset();
+	suspend_trace_stats_init();
+	suspend_trace_stats.flag = 1;
+	return;
+}
+
+static void suspend_trace_stats_stop(void)
+{
+	suspend_trace_stats.flag = 0;
+	suspend_trace_stats_reset();
+	suspend_trace_stats_init();
+	return;
+}
+void suspend_failed_freeze_inc(int type)
+{
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	switch (type) {
+	case 1:
+		suspend_trace_stats.freeze_aborted++;
+		break;
+	case 0:
+		suspend_trace_stats.freeze_failed++;
+		break;
+	default:
+		break;
+	}
+	suspend_trace_unlock();
+	return;
+}
+
+void suspend_failed_step_inc(enum suspend_stat_step step)
+{
+	if (!suspend_trace_stats.flag)
+		return;
+	suspend_trace_lock();
+	suspend_trace_stats.suspend_failed_count[step - 1] += 1;
+	suspend_trace_unlock();
+}
+
+void suspend_failed_step_dev(enum suspend_stat_step step, const char *dev_name)
+{
+	struct dev_info_list *dev_list;
+
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_dev_count++;
+	list_for_each_entry(dev_list, &suspend_trace_stats.dev_info, list) {
+		if (!strcmp(dev_list->dev_name, dev_name)) {
+			dev_list->count[step] += 1;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	dev_list = kmalloc(sizeof(struct dev_info_list), GFP_ATOMIC);
+	if (!dev_list) {
+		suspend_trace_unlock();
+		suspend_trace_stats_start();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		return;
+	}
+
+	memset(dev_list, 0 , sizeof(struct dev_info_list));
+	dev_list->dev_name = kmalloc(strlen(dev_name) + 1, GFP_ATOMIC);
+	if (!dev_list->dev_name) {
+		kfree(dev_list);
+		suspend_trace_unlock();
+		suspend_trace_stats_start();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		return;
+	}
+
+	strcpy(dev_list->dev_name, dev_name);
+	dev_list->count[step] = 1;
+	list_add(&dev_list->list, &suspend_trace_stats.dev_info);
+	suspend_trace_unlock();
+	return;
+}
+
+void suspend_failed_cb_inc(void *func)
+{
+	struct cb_info_list *cb_list;
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_cb_count++;
+	list_for_each_entry(cb_list, &suspend_trace_stats.cb_info, list) {
+		if (cb_list->func == func) {
+			cb_list->count += 1;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	cb_list = kmalloc(sizeof(struct cb_info_list), GFP_ATOMIC);
+	if (!cb_list) {
+		suspend_trace_unlock();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		suspend_trace_stats_start();
+		return;
+	}
+
+	cb_list->func = func;
+	cb_list->count = 1;
+	list_add(&cb_list->list, &suspend_trace_stats.cb_info);
+	suspend_trace_unlock();
+	return;
+}
+
+void suspend_pending_irq_inc(unsigned int irq, const char *irq_name)
+{
+
+	struct irq_info_list *irq_list;
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_pending_irq_count++;
+	list_for_each_entry(irq_list, &suspend_trace_stats.irq_pending_info, list) {
+		if (irq_list->irq == irq) {
+			irq_list->count += 1;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	irq_list = kmalloc(sizeof(struct irq_info_list), GFP_ATOMIC);
+	if (!irq_list) {
+		suspend_trace_unlock();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		suspend_trace_stats_start();
+		return;
+	}
+
+	irq_list->irq = irq;
+	irq_list->count = 1;
+	irq_list->irq_name = irq_name;
+	list_add(&irq_list->list, &suspend_trace_stats.irq_pending_info);
+	suspend_trace_unlock();
+	return;
+}
+
+void suspend_resume_irq_inc(unsigned int irq, const char *irq_name)
+{
+	struct irq_info_list *irq_list;
+	if (!suspend_trace_stats.flag)
+		return;
+
+	/* ignor rpm spmi pinctrl mpm, since they were counted at the other place
+	 * or not needed when debugging
+	 */
+	if (irq == 200 || irq == 203 || irq == 222 || irq == 240)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_irq_count++;
+	list_for_each_entry(irq_list, &suspend_trace_stats.irq_info, list) {
+		if (irq_list->irq == irq) {
+			irq_list->count += 1;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	irq_list = kmalloc(sizeof(struct irq_info_list), GFP_ATOMIC);
+
+	if (!irq_list) {
+		suspend_trace_unlock();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		suspend_trace_stats_start();
+		return;
+	}
+
+	irq_list->irq = irq;
+	irq_list->count = 1;
+	irq_list->irq_name = irq_name;
+	list_add(&irq_list->list, &suspend_trace_stats.irq_info);
+	suspend_trace_unlock();
+	return;
+}
+
+void suspend_freeze_failed_ws(const char *ws_name)
+{
+	struct ws_info_list *ws_list;
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_ws_count++;
+	list_for_each_entry(ws_list, &suspend_trace_stats.ws_info, list) {
+		if (!strcmp(ws_list->ws_name, ws_name)) {
+			ws_list->count += 1;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	ws_list = kmalloc(sizeof(struct ws_info_list), GFP_ATOMIC);
+	if (!ws_list) {
+		suspend_trace_unlock();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		suspend_trace_stats_start();
+		return;
+	}
+
+	ws_list->ws_name = kmalloc(strlen(ws_name) + 1, GFP_ATOMIC);
+	if (!ws_list->ws_name) {
+		kfree(ws_list);
+		suspend_trace_unlock();
+		pr_err("%s Counld allocate memory.!\n", __func__);
+		suspend_trace_stats_start();
+		return;
+	}
+	strcpy(ws_list->ws_name, ws_name);
+	ws_list->count = 1;
+	list_add(&ws_list->list, &suspend_trace_stats.ws_info);
+	suspend_trace_unlock();
+	return;
+}
+
+static ssize_t suspend_trace_stats_write(struct file *filp, const char __user *ubuf,
+			size_t cnt, loff_t *ppos)
+{
+	size_t ret;
+	unsigned long val;
+
+	ret = kstrtoul_from_user(ubuf, cnt, 10, &val);
+
+	if (ret)
+		return ret;
+
+	switch (val) {
+	case 1:
+		suspend_trace_stats_start();
+		break;
+	case 0:
+		suspend_trace_stats_stop();
+		break;
+	default:
+		break;
+	}
+	return cnt;
+}
+
+void update_suspend_trace_stats_time(unsigned long sec)
+{
+	int i;
+	if (!suspend_trace_stats.flag)
+		return;
+
+	suspend_trace_lock();
+	suspend_trace_stats.total_suspend_count++;
+	suspend_trace_stats.suspend_time += sec;
+	for( i = 0; i < TRACE_TIME_WINDOWS; i++) {
+		if (sec <= suspend_trace_time_windows[i]) {
+			suspend_trace_stats.suspend_times[i].cnt += 1;
+			suspend_trace_stats.suspend_times[i].time += sec;
+			suspend_trace_unlock();
+			return;
+		}
+	}
+
+	suspend_trace_stats.suspend_times[TRACE_TIME_WINDOWS].cnt += 1;
+	suspend_trace_stats.suspend_times[TRACE_TIME_WINDOWS].time += sec;
+	suspend_trace_unlock();
+	return;
+}
+
+static int suspend_trace_stats_show(struct seq_file *s, void *unused)
+{
+	int i, success, fail;
+	unsigned long time;
+	int tmp;
+	struct dev_info_list *dev_list;
+	struct irq_info_list *irq_list;
+	struct ws_info_list *ws_list;
+	struct cb_info_list *cb_list;
+
+	suspend_trace_lock();
+	if (suspend_trace_stats.flag) {
+		success = suspend_stats.success - suspend_trace_stats.success;
+		fail = suspend_stats.fail - suspend_trace_stats.fail;
+		time = get_rt_sec() - suspend_trace_stats.start_time;
+	} else {
+		success = 0;
+		fail = 0;
+		time = 0;
+	}
+
+	seq_printf(s, "suspend success count:    %-d\n", success);
+	seq_printf(s, "suspend failed count:     %-d\n", fail);
+	seq_printf(s, "total   time(s):          %-lu\n", time);
+	seq_printf(s, "suspend time(s):          %-lu\n", suspend_trace_stats.suspend_time);
+
+	seq_printf(s, "\n---------------------\n");
+	seq_printf(s, "time(s):\n");
+
+	for (i = 0; i < MAX_SUSPEND_TIME_CNT; i++) {
+		seq_printf(s, "  ");
+		seq_printf(s, "%-9s %-6lu  %-5d", time_tags[i],
+						suspend_trace_stats.suspend_times[i].time,
+						suspend_trace_stats.suspend_times[i].cnt);
+		if (!suspend_trace_stats.suspend_time)
+			seq_printf(s, "\n");
+		else
+			seq_printf(s, "%3d%%\n",
+						100 * suspend_trace_stats.suspend_times[i].cnt / suspend_trace_stats.total_suspend_count);
+	}
+
+	seq_printf(s, "\nfailures:\n");
+	seq_printf(s, "  freeze_aborted   %-d\n", suspend_trace_stats.freeze_aborted);
+	seq_printf(s, "  freeze_failed    %-d\n", suspend_trace_stats.freeze_failed);
+	seq_printf(s, "  %-15s  %-d\n", suspend_step_name(2), suspend_trace_stats.suspend_failed_count[1]);
+	seq_printf(s, "  suspend_devices  %-d\n", suspend_trace_stats.failed_suspend_devices);
+	seq_printf(s, "  suspend_other    %-d\n", suspend_trace_stats.failed_suspend_devices_enter);
+	for (i = 3; i < SUSPEND_RESUME; i++)
+		seq_printf(s, "  %-15s  %-d\n", suspend_step_name(i + 1), suspend_trace_stats.suspend_failed_count[i]);
+
+	seq_printf(s, "\nwakeup reasons:\n");
+	list_for_each_entry(ws_list, &suspend_trace_stats.ws_info, list)
+		seq_printf(s, "  %-5d  %3d%%  %s\n", ws_list->count,
+						100 * ws_list->count / suspend_trace_stats.total_ws_count,
+						ws_list->ws_name);
+
+	seq_printf(s, "\nfailed devices:\n");
+	list_for_each_entry(dev_list, &suspend_trace_stats.dev_info, list) {
+		tmp = 0;
+		seq_printf(s, "  ");
+		for (i = 1; i < SUSPEND_RESUME + 1; i++) {
+			seq_printf(s, "%-5d  ", dev_list->count[i]);
+			tmp += dev_list->count[i];
+		}
+		seq_printf(s, "%3d%%  ",
+						100 * tmp / suspend_trace_stats.total_dev_count);
+		seq_printf(s, "%s", dev_list->dev_name);
+		seq_printf(s, "\n");
+	}
+
+	seq_printf(s, "\npending interrupts:\n");
+	list_for_each_entry(irq_list, &suspend_trace_stats.irq_pending_info, list)
+		seq_printf(s, "  %-5d  %-5d  %3d%%\n", irq_list->irq, irq_list->count,
+						100 * irq_list->count / suspend_trace_stats.total_pending_irq_count);
+
+	seq_printf(s, "\nfailed suspend callbacks:\n");
+	list_for_each_entry(cb_list, &suspend_trace_stats.cb_info, list)
+		seq_printf(s, "  %-5d  %3d%%  %pF\n", cb_list->count,
+						100 * cb_list->count / suspend_trace_stats.total_cb_count,
+						cb_list->func);
+
+	seq_printf(s, "\nresume reasons:\n");
+	list_for_each_entry(irq_list, &suspend_trace_stats.irq_info, list)
+		seq_printf(s, "  %-5d  %-5d  %3d%%   %s\n", irq_list->irq, irq_list->count,
+                    100 * irq_list->count / suspend_trace_stats.total_irq_count,
+					irq_list->irq_name);
+
+	suspend_trace_unlock();
+	return 0;
+}
+
+static int suspend_trace_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, suspend_trace_stats_show, NULL);
+}
+
+static const struct file_operations suspend_trace_stats_operations = {
+	.open           = suspend_trace_stats_open,
+	.read           = seq_read,
+	.write          = suspend_trace_stats_write,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+#endif
+
 static const struct file_operations suspend_stats_operations = {
 	.open           = suspend_stats_open,
 	.read           = seq_read,
@@ -225,6 +705,11 @@ static const struct file_operations suspend_stats_operations = {
 
 static int __init pm_debugfs_init(void)
 {
+#ifdef CONFIG_PM_SLEEP_TRACE
+	spin_lock_init(&pm_trace_lock);
+	suspend_trace_stats_init();
+	proc_create("suspend_trace_stats", 0, NULL, &suspend_trace_stats_operations);
+#endif
 	debugfs_create_file("suspend_stats", S_IFREG | S_IRUGO,
 			NULL, NULL, &suspend_stats_operations);
 	return 0;

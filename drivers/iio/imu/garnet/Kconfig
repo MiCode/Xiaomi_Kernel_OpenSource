@@ -1,0 +1,14 @@
+#
+# inv-mpu-iio driver for Invensense MPU
+#
+
+config INV_MPU_IIO
+	tristate "Invensense MPU devices"
+	depends on I2C && SYSFS && IIO
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	default n
+	help
+	  This driver supports the Invensense mpu devices.
+	  This driver can be built as a module. The module will be called
+	  inv-mpu-iio.

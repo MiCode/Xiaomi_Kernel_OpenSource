@@ -118,6 +118,12 @@ Parent node optional properties:
 					present, then the following properties
 					to specify low and high soc thresholds
 					should be defined.
+- qcom,cycle-counter-low-soc:		Low SOC threshold which will be compared
+					against the battery SOC before starting
+					the cycle counter algorithm.
+- qcom,cycle-counter-high-soc:		High SOC threshold which will be compared
+					against the battery SOC before incrementing
+					the cycle counter.
 - qcom,capacity-learning-on:		A boolean property to have the fuel
 					gauge driver attempt to learn the
 					battery capacity when charging. Takes

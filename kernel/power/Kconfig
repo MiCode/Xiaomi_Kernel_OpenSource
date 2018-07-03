@@ -164,6 +164,12 @@ config PM_DEBUG
 	code. This is helpful when debugging and reporting PM bugs, like
 	suspend support.
 
+config PM_SLEEP_TRACE
+	bool "Power Management sleep tracing support"
+	depends on PM_SLEEP
+	---help---
+	This option enable PM sleep tracing.
+
 config PM_ADVANCED_DEBUG
 	bool "Extra PM attributes in sysfs for low-level debugging/testing"
 	depends on PM_DEBUG

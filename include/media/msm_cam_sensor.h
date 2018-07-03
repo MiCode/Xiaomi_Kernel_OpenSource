@@ -281,7 +281,7 @@ struct msm_eeprom_cfg_data {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
 	union {
-		char eeprom_name[MAX_SENSOR_NAME];
+		char eeprom_name[MAX_EEPROM_NAME];
 		struct eeprom_get_t get_data;
 		struct eeprom_read_t read_data;
 		struct eeprom_write_t write_data;
@@ -309,8 +309,8 @@ struct msm_sensor_power_setting_array32 {
 };
 
 struct msm_camera_sensor_slave_info32 {
-	char sensor_name[32];
-	char eeprom_name[32];
+	char sensor_name[MAX_SENSOR_NAME];
+	char eeprom_name[MAX_EEPROM_NAME];
 	char actuator_name[32];
 	char ois_name[32];
 	char flash_name[32];
@@ -367,7 +367,7 @@ struct msm_eeprom_cfg_data32 {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
 	union {
-		char eeprom_name[MAX_SENSOR_NAME];
+		char eeprom_name[MAX_EEPROM_NAME];
 		struct eeprom_get_t get_data;
 		struct eeprom_read_t32 read_data;
 		struct eeprom_write_t32 write_data;

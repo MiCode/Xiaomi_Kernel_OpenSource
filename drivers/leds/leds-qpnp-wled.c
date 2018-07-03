@@ -62,6 +62,8 @@
 #define QPNP_WLED_BOOST_DUTY_MAX_NS	156
 #define QPNP_WLED_DEF_BOOST_DUTY_NS	104
 #define QPNP_WLED_SWITCH_FREQ_MASK	0xF0
+#define QPNP_WLED_SWITCH_FREQ_OVERWRITE	0x80
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ	600
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ	800
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
 #define QPNP_WLED_OVP_MASK		0xFC
@@ -127,6 +129,7 @@
 #define QPNP_WLED_SINK_TEST5_HYB	0x14
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
 
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE	0x0F
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
 
@@ -845,6 +848,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_1600_KHZ)
 		temp = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	else if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_600_KHZ)
+		temp = QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE;
 	else
 		temp = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 
@@ -854,6 +859,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 	reg &= QPNP_WLED_SWITCH_FREQ_MASK;
 	reg |= temp;
+	reg |= QPNP_WLED_SWITCH_FREQ_OVERWRITE;
 	rc = qpnp_wled_write_reg(wled, &reg,
 			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base));
 	if (rc)

@@ -152,6 +152,11 @@ struct input_dev {
 
 	unsigned int repeat_key;
 	struct timer_list timer;
+#ifdef CONFIG_COLLECT_TOUCH_ACTIVE_INFO
+	u64 input_active_start;
+	u64 input_active_count;
+	struct timer_list counter;
+#endif
 
 	int rep[REP_CNT];
 

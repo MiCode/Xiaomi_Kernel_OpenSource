@@ -2472,7 +2472,6 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				HANDLE_TO_IDX(update_info->stream_handle)];
 		if (SRC_TO_INTF(stream_info->stream_src) >= VFE_SRC_MAX)
 			continue;
-
 		if (stream_info->state != ACTIVE &&
 			stream_info->state != INACTIVE &&
 			update_cmd->update_type !=
@@ -2570,6 +2569,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			break;
 		}
 		case UPDATE_STREAM_REQUEST_FRAMES: {
+			if (stream_info == NULL) {
+				pr_err_ratelimited("%s: stream_info is NULL\n",
+					__func__);
+				rc = -EINVAL;
+				break;
+			}
 			rc = msm_isp_request_frame(vfe_dev, stream_info,
 				update_info->user_stream_id,
 				update_info->frame_id);

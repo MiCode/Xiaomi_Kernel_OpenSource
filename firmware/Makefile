@@ -135,6 +135,21 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mxt_336t_biel_config.fw \
+	mxt_336t_tpk_config.fw \
+	mxt_640t_config.fw \
+	mxt_874u_tpk_config.fw \
+	mxt_336u_ofilm_config.fw \
+	mXT336T21AA.fw mxT640T15AA.fw mXT874U10EC.fw mXT336U10AA.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_CYTTSP_BUTTON) += cyttsp_button_no_shielding.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_jdi_incell_hw1.fw \
+	synaptics_jdi_incell_hw2.fw \
+	synaptics_tpk_update.fw \
+	synaptics_biel_sharp_update.fw \
+	synaptics_biel_lgd_update.fw \
+	synaptics_biel_auo_update.fw
+fw-shipped-$(CONFIG_STM32_FW_UPDATER) += st_mve_shub.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_FT5X46) += ft5346_lens.fw ft5346_biel.fw
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

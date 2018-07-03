@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2012, 2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2014, 2016 The Linux Foundation. All rights
+ * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -309,7 +310,7 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 				(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s:audio[%p]: Could not allocate memory for audio"
+		pr_err("%s:audio[%pK]: Could not allocate memory for audio"
 			"client\n", __func__, audio);
 		kfree(audio->enc_cfg);
 		kfree(audio);

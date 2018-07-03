@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -414,7 +415,7 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	struct sysmon_qmi_data *data = NULL, *temp;
 	const char *dest_ss = dest_desc->name;
 	char req = 0;
-	int ret;
+	int ret, shutdown_ack_ret;
 
 	if (dest_ss == NULL)
 		return -EINVAL;
@@ -469,6 +470,13 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 							data->name);
 		ret = -ETIMEDOUT;
 	}
+
+	shutdown_ack_ret = wait_for_shutdown_ack(dest_desc);
+	if (shutdown_ack_ret < 0) {
+		pr_err("shutdown_ack SMP2P bit for %s not set\n", data->name);
+		ret = shutdown_ack_ret;
+	} else if (shutdown_ack_ret > 0)
+		ret = 0;
 out:
 	mutex_unlock(&sysmon_lock);
 	return ret;

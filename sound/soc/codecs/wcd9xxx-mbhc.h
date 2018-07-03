@@ -393,6 +393,7 @@ struct wcd9xxx_mbhc {
 	bool impedance_detect;
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;
+	uint32_t impedance_offset;
 
 	u32 rco_clk_rate;
 
@@ -414,6 +415,8 @@ struct wcd9xxx_mbhc {
 #endif
 
 	struct mutex mbhc_lock;
+
+	bool vddio_on;
 };
 
 #define WCD9XXX_MBHC_CAL_SIZE(buttons, rload) ( \
@@ -489,4 +492,5 @@ void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const enum wcd9xxx_mbhc_btn_det_mem mem);
 int wcd9xxx_mbhc_get_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 			       uint32_t *zr);
+void wcd9xxx_mbhc_enable_vddio(struct wcd9xxx_mbhc *mbhc, bool on);
 #endif /* __WCD9XXX_MBHC_H__ */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,9 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 static void *g_fctrl;
+extern int32_t msm_led_flashlight_create_classdev(
+					 struct platform_device *pdev, void *data);
+
 int32_t msm_led_i2c_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
 	void *arg)
 {
@@ -133,8 +137,8 @@ static int msm_flash_pinctrl_init(struct msm_led_flash_ctrl_t *ctrl)
 		return -EINVAL;
 	}
 	flash_pctrl->gpio_state_active = pinctrl_lookup_state(
-					       flash_pctrl->pinctrl,
-					       CAM_FLASH_PINCTRL_STATE_DEFAULT);
+					  flash_pctrl->pinctrl,
+					  CAM_FLASH_PINCTRL_STATE_DEFAULT);
 
 	if (IS_ERR_OR_NULL(flash_pctrl->gpio_state_active)) {
 		pr_err("%s:%d Failed to get the active state pinctrl handle\n",
@@ -199,6 +203,7 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 	msleep(20);
 
 	CDBG("before FL_RESET\n");
+#if 0
 	if (power_info->gpio_conf->gpio_num_info->
 			valid[SENSOR_GPIO_FL_RESET] == 1)
 		gpio_set_value_cansleep(
@@ -215,6 +220,8 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
 		GPIO_OUT_HIGH);
+#endif
+		gpio_direction_output(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN], GPIO_OUT_HIGH);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
@@ -245,6 +252,7 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+#if 0
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_EN],
@@ -259,6 +267,8 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 			power_info->gpio_conf->gpio_num_info->
 			gpio_num[SENSOR_GPIO_FL_RESET],
 			GPIO_OUT_LOW);
+#endif
+		gpio_direction_output(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN], GPIO_OUT_LOW);
 
 	if (fctrl->pinctrl_info.use_pinctrl == true) {
 		ret = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
@@ -302,6 +312,10 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
+
+	if(!gpio_get_value_cansleep(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN]))
+		return 0; /* already released */
+
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
 			fctrl->flash_i2c_client,
@@ -647,7 +661,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 };
 
 #ifdef CONFIG_DEBUG_FS
-static int set_led_status(void *data, u64 val)
+int set_led_status(void *data, u64 val)
 {
 	struct msm_led_flash_ctrl_t *fctrl =
 		 (struct msm_led_flash_ctrl_t *)data;
@@ -787,6 +801,7 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 			&msm_sensor_qup_func_tbl;
 
 	rc = msm_led_i2c_flash_create_v4lsubdev(fctrl);
+
 #ifdef CONFIG_DEBUG_FS
 	dentry = debugfs_create_file("ledflash", S_IRUGO, NULL, (void *)fctrl,
 		&ledflashdbg_fops);
@@ -867,6 +882,8 @@ int msm_flash_probe(struct platform_device *pdev,
 			&msm_sensor_cci_func_tbl;
 
 	rc = msm_led_flash_create_v4lsubdev(pdev, fctrl);
+		if (!rc)
+			msm_led_flashlight_create_classdev(pdev, fctrl);
 
 	CDBG("%s: probe success\n", __func__);
 	return 0;

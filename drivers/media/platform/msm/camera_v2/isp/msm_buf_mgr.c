@@ -1057,6 +1057,7 @@ static int msm_isp_release_bufq(struct msm_isp_buf_mgr *buf_mgr,
 		pr_err("Invalid bufq release\n");
 		mutex_unlock(&buf_mgr->lock);
 		return rc;
+		mutex_unlock(&buf_mgr->lock);
 	}
 
 	msm_isp_buf_unprepare_all(buf_mgr, bufq_handle);

@@ -1961,6 +1961,9 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 			((fbc->lossy_rgb_thd) << 4) | fbc->lossy_mode_idx;
 	}
 
+	pr_info("%s:mode 0x%x ctl 0x%x lossy 0x%x\n",
+			__func__, mode, budget_ctl, lossy_mode);
+
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_FBC_MODE, mode);
 	mdss_mdp_pingpong_write(mixer->pingpong_base,

@@ -190,4 +190,5 @@ source "drivers/soc/Kconfig"
 
 source "drivers/firmware/Kconfig"
 
+source "drivers/tspdrv/Kconfig"
 endmenu

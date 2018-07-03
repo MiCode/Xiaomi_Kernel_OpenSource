@@ -78,7 +78,9 @@ int mdss_mdp_rot_mgr_init(void)
 	mutex_init(&rot_mgr->session_lock);
 	mutex_init(&rot_mgr->pipe_lock);
 	INIT_LIST_HEAD(&rot_mgr->queue);
-	rot_mgr->rot_work_queue = create_workqueue("rot_commit_workq");
+	rot_mgr->rot_work_queue = alloc_workqueue("rot_commit_workq",
+			WQ_UNBOUND | WQ_HIGHPRI | WQ_MEM_RECLAIM,
+						MAX_ROTATOR_PIPE_COUNT);
 	if (!rot_mgr->rot_work_queue) {
 		pr_err("fail to create rot commit work queue\n");
 		kfree(rot_mgr);
@@ -836,6 +838,7 @@ static int mdss_mdp_rotator_config(struct msm_fb_data_type *mfd,
 	req->src.format = mdss_mdp_get_rotator_dst_format(req->src.format,
 		req->flags & MDP_ROT_90, req->flags & MDP_BWC_EN);
 
+	rot->req_data = *req;
 	rot->params_changed++;
 
 	return 0;

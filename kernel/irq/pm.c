@@ -2,6 +2,7 @@
  * linux/kernel/irq/pm.c
  *
  * Copyright (C) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file contains power management functions related to interrupts.
  */
@@ -10,6 +11,8 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/syscore_ops.h>
+#include <linux/suspend.h>
+
 #include <linux/wakeup_reason.h>
 #include "internals.h"
 
@@ -113,6 +116,9 @@ int check_wakeup_irqs(void)
 					irq,
 					desc->action && desc->action->name ?
 					desc->action->name : "");
+#ifdef CONFIG_PM_SLEEP_TRACE
+				suspend_pending_irq_inc(irq, desc->action && desc->action->name ? desc->action->name : "");
+#endif
 				return -EBUSY;
 			}
 			continue;

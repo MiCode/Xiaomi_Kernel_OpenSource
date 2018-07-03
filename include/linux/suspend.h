@@ -7,6 +7,7 @@
 #include <linux/pm.h>
 #include <linux/mm.h>
 #include <linux/freezer.h>
+#include <linux/list.h>
 #include <asm/errno.h>
 
 #ifdef CONFIG_VT
@@ -51,6 +52,65 @@ enum suspend_stat_step {
 	SUSPEND_RESUME
 };
 
+#ifdef CONFIG_PM_SLEEP_TRACE
+#define MAX_SUSPEND_TIME_CNT 6
+struct suspend_time_statistic {
+		int cnt;
+		unsigned long time;
+};
+
+struct dev_info_list {
+	struct list_head list;
+	char *dev_name;
+	int count[SUSPEND_RESUME + 1];
+};
+
+struct irq_info_list {
+	struct list_head list;
+	unsigned int irq;
+	const char *irq_name;
+	int count;
+};
+
+struct ws_info_list {
+	struct list_head list;
+	char *ws_name;
+	int count;
+};
+
+struct cb_info_list {
+	struct list_head list;
+	void *func;
+	int count;
+};
+
+struct suspend_trace_stats {
+	int flag;
+	int success;
+	int fail;
+	int freeze_aborted;
+	int freeze_failed;
+	int failed_suspend_devices;
+	int failed_suspend_devices_start;
+	int failed_suspend_devices_enter;
+	unsigned long start_time;  /* second */
+	unsigned long suspend_time;
+	int suspend_failed_count[SUSPEND_RESUME];
+	struct suspend_time_statistic suspend_times[MAX_SUSPEND_TIME_CNT];
+	struct list_head dev_info;
+	struct list_head irq_info;
+	struct list_head irq_pending_info;
+	struct list_head ws_info;
+	struct list_head cb_info;
+	int total_suspend_count;
+	int total_irq_count;
+	int total_dev_count;
+	int total_cb_count;
+	int total_pending_irq_count;
+	int total_ws_count;
+};
+#endif
+
 struct suspend_stats {
 	int	success;
 	int	fail;
@@ -64,7 +124,7 @@ struct suspend_stats {
 	int	failed_resume_noirq;
 #define	REC_FAILED_NUM	2
 	int	last_failed_dev;
-	char	failed_devs[REC_FAILED_NUM][40];
+	char failed_devs[REC_FAILED_NUM][40];
 	int	last_failed_errno;
 	int	errno[REC_FAILED_NUM];
 	int	last_failed_step;
@@ -72,6 +132,20 @@ struct suspend_stats {
 };
 
 extern struct suspend_stats suspend_stats;
+extern struct suspend_trace_stats suspend_trace_stats;
+
+#ifdef CONFIG_PM_SLEEP_TRACE
+extern void update_suspend_trace_stats_time(unsigned long sec);
+extern void suspend_failed_step_inc(enum suspend_stat_step step);
+extern void suspend_failed_step_dev(enum suspend_stat_step step, const char *dev_name);
+extern void suspend_freeze_failed_ws( const char *ws_name);
+extern void suspend_resume_irq_inc(unsigned int irq, const char* irq_name);
+extern void suspend_pending_irq_inc(unsigned int irq, const char* irq_name);
+extern void suspend_failed_cb_inc(void *func);
+extern void suspend_failed_freeze_inc(int type);
+extern void suspend_trace_lock(void);
+extern void suspend_trace_unlock(void);
+#endif
 
 static inline void dpm_save_failed_dev(const char *name)
 {
@@ -94,6 +168,9 @@ static inline void dpm_save_failed_step(enum suspend_stat_step step)
 	suspend_stats.failed_steps[suspend_stats.last_failed_step] = step;
 	suspend_stats.last_failed_step++;
 	suspend_stats.last_failed_step %= REC_FAILED_NUM;
+#ifdef CONFIG_PM_SLEEP_TRACE
+	suspend_failed_step_inc(step);
+#endif
 }
 
 /**
@@ -363,6 +440,10 @@ extern bool pm_wakeup_pending(void);
 extern bool pm_get_wakeup_count(unsigned int *count, bool block);
 extern bool pm_save_wakeup_count(unsigned int count);
 extern void pm_wakep_autosleep_enabled(bool set);
+#ifdef CONFIG_PM_SLEEP_TRACE
+extern void suspend_failed_ws_update(void);
+#endif
+
 extern void pm_get_active_wakeup_sources(char *pending_sources, size_t max);
 static inline void lock_system_sleep(void)
 {

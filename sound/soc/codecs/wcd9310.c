@@ -36,6 +36,7 @@
 #include <linux/irq.h>
 #include <linux/wakelock.h>
 #include <linux/suspend.h>
+#include <linux/spinlock.h>
 #include "wcd9310.h"
 
 static int cfilt_adjust_ms = 10;
@@ -433,6 +434,8 @@ struct tabla_priv {
 
 	bool gpio_irq_resend;
 	struct wake_lock irq_resend_wlock;
+
+	spinlock_t read_lock;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
@@ -8874,6 +8877,7 @@ static ssize_t codec_debug_write(struct file *filp,
 	return cnt;
 }
 
+
 static ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 				     size_t count, loff_t *pos)
 {
@@ -8885,6 +8889,8 @@ static ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 	const struct mbhc_internal_cal_data *p = &tabla->mbhc_data;
 	const s16 v_ins_hu_cur = tabla_get_current_v_ins(tabla, true);
 	const s16 v_ins_h_cur = tabla_get_current_v_ins(tabla, false);
+
+	spin_lock(&tabla->read_lock);
 
 	n = scnprintf(buffer, size - n, "dce_z = %x(%dmv)\n",  p->dce_z,
 		     tabla_codec_sta_dce_v(codec, 1, p->dce_z));
@@ -8938,6 +8944,8 @@ static ssize_t codec_mbhc_debug_read(struct file *file, char __user *buf,
 		n += scnprintf(buffer + n, size - n, "GPIO insert = %d\n",
 			       tabla_hs_gpio_level_remove(tabla));
 	buffer[n] = 0;
+
+	spin_unlock(&tabla->read_lock);
 
 	return simple_read_from_buffer(buf, count, pos, buffer, n);
 }
@@ -9001,6 +9009,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 	tabla->no_mic_headset_override = false;
 	tabla->hs_polling_irq_prepared = false;
 	mutex_init(&tabla->codec_resource_lock);
+	spin_lock_init(&tabla->read_lock);
 	tabla->codec = codec;
 	tabla->mbhc_state = MBHC_STATE_NONE;
 	tabla->mbhc_last_resume = 0;

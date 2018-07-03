@@ -30,6 +30,27 @@
 
 #define DEBUGFS_DEFAULT_MODE	0755
 
+#ifndef CONFIG_DEBUG_FS_DIGEST0
+#define CONFIG_DEBUG_FS_DIGEST0 0
+#endif
+
+#ifndef CONFIG_DEBUG_FS_DIGEST1
+#define CONFIG_DEBUG_FS_DIGEST1 0
+#endif
+
+#ifndef CONFIG_DEBUG_FS_DIGEST2
+#define CONFIG_DEBUG_FS_DIGEST2 0
+#endif
+
+#ifndef CONFIG_DEBUG_FS_DIGEST3
+#define CONFIG_DEBUG_FS_DIGEST3 0
+#endif
+
+#ifndef CONFIG_DEBUG_FS_DIGEST4
+#define CONFIG_DEBUG_FS_DIGEST4 0
+#endif
+
+static struct kmem_cache *debugfs_inode_cachep;
 static struct vfsmount *debugfs_mount;
 static int debugfs_mount_count;
 static bool debugfs_registered;
@@ -39,6 +60,7 @@ static struct inode *debugfs_get_inode(struct super_block *sb, umode_t mode, dev
 
 {
 	struct inode *inode = new_inode(sb);
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
 
 	if (inode) {
 		inode->i_ino = get_next_ino();
@@ -49,16 +71,19 @@ static struct inode *debugfs_get_inode(struct super_block *sb, umode_t mode, dev
 			init_special_inode(inode, mode, dev);
 			break;
 		case S_IFREG:
-			inode->i_fop = fops ? fops : &debugfs_file_operations;
+			inode->i_fop =  &debugfs_file_operations;
+			dinode->pfops = (void *)fops;
 			inode->i_private = data;
 			break;
 		case S_IFLNK:
 			inode->i_op = &debugfs_link_operations;
+			inode->i_fop = fops;
 			inode->i_private = data;
 			break;
 		case S_IFDIR:
 			inode->i_op = &simple_dir_inode_operations;
-			inode->i_fop = &simple_dir_operations;
+			inode->i_fop = fops ? fops : &debugfs_dir_operations;
+			inode->i_private = data;
 
 			/* directory inodes start off with i_nlink == 2
 			 * (for "." entry) */
@@ -126,16 +151,11 @@ static inline int debugfs_positive(struct dentry *dentry)
 	return dentry->d_inode && !d_unhashed(dentry);
 }
 
-struct debugfs_mount_opts {
-	kuid_t uid;
-	kgid_t gid;
-	umode_t mode;
-};
-
 enum {
 	Opt_uid,
 	Opt_gid,
 	Opt_mode,
+	Opt_passwd,
 	Opt_err
 };
 
@@ -143,11 +163,8 @@ static const match_table_t tokens = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%o"},
+	{Opt_passwd, "passwd=%s"},
 	{Opt_err, NULL}
-};
-
-struct debugfs_fs_info {
-	struct debugfs_mount_opts mount_opts;
 };
 
 static int debugfs_parse_options(char *data, struct debugfs_mount_opts *opts)
@@ -188,6 +205,10 @@ static int debugfs_parse_options(char *data, struct debugfs_mount_opts *opts)
 				return -EINVAL;
 			opts->mode = option & S_IALLUGO;
 			break;
+		case Opt_passwd:
+			memset(opts->passwd, 0, sizeof(opts->passwd));
+			match_strlcpy(opts->passwd, &args[0], sizeof(opts->passwd));
+			break;
 		/*
 		 * We might like to report bad mount options here;
 		 * but traditionally debugfs has ignored all mount options
@@ -198,11 +219,46 @@ static int debugfs_parse_options(char *data, struct debugfs_mount_opts *opts)
 	return 0;
 }
 
+static bool debugfs_check_passwd(const char *passwd)
+{
+	__u32 tmp[SHA_WORKSPACE_WORDS];
+	__u32 digest[SHA_DIGEST_WORDS];
+
+	if (!CONFIG_DEBUG_FS_DIGEST0)
+		return true;
+
+	/* calculate option's sha1 digest */
+	sha_init(digest);
+	sha_transform(digest, passwd, tmp);
+
+#ifdef CONFIG_DEBUG_FS_PRINT_DIGEST
+	printk(KERN_INFO "debugfs passwd: %s\n", passwd);
+	print_hex_dump(KERN_INFO, "debugfs digest: ", DUMP_PREFIX_NONE,
+		32, sizeof(digest[0]), digest, sizeof(digest), false);
+#endif
+
+	/* verify the digest against the magic number */
+	if (digest[0] != CONFIG_DEBUG_FS_DIGEST0)
+		return false;
+	if (digest[1] != CONFIG_DEBUG_FS_DIGEST1)
+		return false;
+	if (digest[2] != CONFIG_DEBUG_FS_DIGEST2)
+		return false;
+	if (digest[3] != CONFIG_DEBUG_FS_DIGEST3)
+		return false;
+	if (digest[4] != CONFIG_DEBUG_FS_DIGEST4)
+		return false;
+
+	return true;
+}
+
 static int debugfs_apply_options(struct super_block *sb)
 {
 	struct debugfs_fs_info *fsi = sb->s_fs_info;
 	struct inode *inode = sb->s_root->d_inode;
 	struct debugfs_mount_opts *opts = &fsi->mount_opts;
+
+	opts->privilege = debugfs_check_passwd(opts->passwd);
 
 	inode->i_mode &= ~S_IALLUGO;
 	inode->i_mode |= opts->mode;
@@ -242,8 +298,28 @@ static int debugfs_show_options(struct seq_file *m, struct dentry *root)
 			   from_kgid_munged(&init_user_ns, opts->gid));
 	if (opts->mode != DEBUGFS_DEFAULT_MODE)
 		seq_printf(m, ",mode=%o", opts->mode);
+	if (opts->privilege)
+		seq_printf(m, ",privilege=%d", opts->privilege);
 
 	return 0;
+}
+
+static struct inode *debugfs_alloc_inode(struct super_block *sb)
+{
+	struct debugfs_inode *dinode;
+	struct inode *inode;
+	dinode = (struct debugfs_inode *)kmem_cache_alloc(debugfs_inode_cachep, GFP_KERNEL);
+	if (!dinode)
+		return NULL;
+	inode = &dinode->vfs_inode;
+	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
+	return inode;
+}
+
+static void debugfs_destroy_inode(struct inode *inode)
+{
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	kmem_cache_free(debugfs_inode_cachep, dinode);
 }
 
 static void debugfs_evict_inode(struct inode *inode)
@@ -258,6 +334,8 @@ static const struct super_operations debugfs_super_operations = {
 	.statfs		= simple_statfs,
 	.remount_fs	= debugfs_remount,
 	.show_options	= debugfs_show_options,
+	.alloc_inode	= debugfs_alloc_inode,
+	.destroy_inode	= debugfs_destroy_inode,
 	.evict_inode	= debugfs_evict_inode,
 };
 
@@ -285,6 +363,7 @@ static int debug_fill_super(struct super_block *sb, void *data, int silent)
 		goto fail;
 
 	sb->s_op = &debugfs_super_operations;
+	sb->s_root->d_inode->i_fop = &debugfs_dir_operations;
 
 	debugfs_apply_options(sb);
 
@@ -653,6 +732,12 @@ EXPORT_SYMBOL_GPL(debugfs_initialized);
 
 static struct kobject *debug_kobj;
 
+static void init_once(void *foo)
+{
+	struct debugfs_inode *ei = (struct debugfs_inode *) foo;
+
+	inode_init_once(&ei->vfs_inode);
+}
 static int __init debugfs_init(void)
 {
 	int retval;
@@ -660,6 +745,12 @@ static int __init debugfs_init(void)
 	debug_kobj = kobject_create_and_add("debug", kernel_kobj);
 	if (!debug_kobj)
 		return -EINVAL;
+
+	debugfs_inode_cachep = kmem_cache_create("debugfs_inode_cachep",
+					     sizeof(struct debugfs_inode),
+					     0, (SLAB_RECLAIM_ACCOUNT|
+						SLAB_MEM_SPREAD|SLAB_PANIC),
+					     init_once);
 
 	retval = register_filesystem(&debug_fs_type);
 	if (retval)

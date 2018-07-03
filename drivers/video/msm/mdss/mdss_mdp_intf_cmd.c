@@ -1432,7 +1432,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 	ctl->intf_ctx[MASTER_CTX] = ctx;
 
-	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, session, false);
+	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, is_pingpong_split(ctl->mfd) ? session : mixer->num, false);
 	if (ret) {
 		pr_err("mdss_mdp_cmd_ctx_setup failed for ping ping: %d\n",
 				mixer->num);

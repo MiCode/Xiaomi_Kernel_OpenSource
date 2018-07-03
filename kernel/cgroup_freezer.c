@@ -2,6 +2,7 @@
  * cgroup_freezer.c -  control group freezer subsystem
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
  *
@@ -393,7 +394,11 @@ static void freezer_apply_state(struct freezer *freezer, bool freeze,
  * Freeze or thaw @freezer according to @freeze.  The operations are
  * recursive - all descendants of @freezer will be affected.
  */
+#ifdef CONFIG_FROZEN_APP
+void freezer_change_state(struct freezer *freezer, bool freeze)
+#else
 static void freezer_change_state(struct freezer *freezer, bool freeze)
+#endif
 {
 	struct cgroup *pos;
 
@@ -424,6 +429,17 @@ static void freezer_change_state(struct freezer *freezer, bool freeze)
 	}
 	rcu_read_unlock();
 }
+
+#ifdef CONFIG_FROZEN_APP
+void freezer_change_state_to_thawed(struct cgroup *cgroup)
+{
+	struct freezer *freezer;
+	freezer = cgroup_freezer(cgroup);
+	if (freezer->state & CGROUP_FROZEN)
+		freezer_change_state(freezer, false);
+	return;
+}
+#endif
 
 static int freezer_write(struct cgroup *cgroup, struct cftype *cft,
 			 const char *buffer)

@@ -236,7 +236,7 @@
 	};
 
 	eeprom2: qcom,eeprom@2 {
-		cell-index = <2>;
+		cell-index = <0>;
 		reg = <0x2>;
 		qcom,eeprom-name = "onsemi_cat24c32";
 		compatible = "qcom,eeprom";
@@ -261,7 +261,7 @@
 	};
 
 	eeprom3: qcom,eeprom@3 {
-		cell-index = <3>;
+		cell-index = <0>;
 		reg = <0x3>;
 		qcom,eeprom-name = "dw9761b";
 		compatible = "qcom,eeprom";

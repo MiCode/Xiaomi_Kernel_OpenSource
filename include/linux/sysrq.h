@@ -18,7 +18,7 @@
 #include <linux/types.h>
 
 /* Enable/disable SYSRQ support by default (0==no, 1==yes). */
-#define SYSRQ_DEFAULT_ENABLE	1
+#define SYSRQ_DEFAULT_ENABLE	0
 
 /* Possible values of bitmask for enabling sysrq functions */
 /* 0x0001 is reserved for enable everything */
@@ -45,6 +45,7 @@ struct sysrq_key_op {
  * are available -- else NULL's).
  */
 
+bool sysrq_on(void);
 void handle_sysrq(int key);
 void __handle_sysrq(int key, bool check_mask);
 int register_sysrq_key(int key, struct sysrq_key_op *op);
