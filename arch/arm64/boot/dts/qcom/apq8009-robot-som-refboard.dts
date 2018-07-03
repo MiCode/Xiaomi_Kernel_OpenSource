@@ -27,36 +27,147 @@
 	qcom,board-id = <8 0x15>;
 };
 
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&i2c_4 {
+	status= "okay";
+};
+
+&pm8916_gpios {
+	wcd_vdd_en { /* GPIO 4 */
+		wcd_vdd_en_active: wcd_vdd_en_active {
+			status = "ok";
+			pins = "gpio4";
+			function = "normal";
+			output-high;
+			qcom,drive-strength = <2>;
+		};
+		wcd_vdd_en_sleep: wcd_vdd_en_sleep {
+			status = "ok";
+			pins = "gpio4";
+			function = "normal";
+			output-low;
+			qcom,drive-strength = <2>;
+		};
+
+	};
+};
+
 &soc {
-	ext-codec {
-		qcom,msm-mbhc-hphl-swh = <0>;
+	ext_codec: sound-9335 {
+		compatible = "qcom,apq8009-audio-i2s-codec";
+		qcom,model = "apq8009-tashalite-snd-card-tdm";
+
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
-			"AMIC2", "MIC BIAS2",
-			"MIC BIAS2", "Headset Mic",
-			"DMIC0", "MIC BIAS1",
-			"MIC BIAS1", "Digital Mic0",
-			"DMIC1", "MIC BIAS1",
-			"MIC BIAS1", "Digital Mic1",
-			"DMIC2", "MIC BIAS3",
-			"MIC BIAS3", "Digital Mic2",
-			"DMIC3", "MIC BIAS3",
-			"MIC BIAS3", "Digital Mic3",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,tdm-i2s-switch-enable = <&msm_gpio 88 0>;
+		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
+		qcom,quat-mi2s-gpios = <&cdc_quat_tdm_gpios>;
 	};
 
-	sound-9335 {
-		status = "disabled";
+	clock_audio: audio_ext_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-mclk-clk-freq = <9600000>;
+		qcom,lpass-clock = <1>;
+		reg = <0x07702004 0x4>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&i2s_mclk_sleep>;
+		pinctrl-1 = <&i2s_mclk_active>;
+		#clock-cells = <1>;
 	};
 
 	i2c@78b8000 {
 		wcd9xxx_codec@d {
-		  status = "disabled";
+			status = "okay";
+			compatible = "qcom,tasha-i2c-pgd";
+			reg = <0x0d>;
+
+			interrupt-parent = <&wcd9xxx_intc>;
+			interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+				17 18 19 20 21 22 23 24 25 26 27 28 29
+				30>;
+
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+			qcom,has-buck-vsel-gpio;
+			qcom,buck-vsel-gpio-node = <&wcd_vdd_gpio>;
+			swr_master {
+				compatible = "qcom,swr-wcd";
+				qcom,swr-num-dev = <2>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				wsa881x_211:wsa881x@21170211 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x21170211>;
+					qcom,spkr-sd-n-node = <&wsa_spkr>;
+				};
+
+				wsa881x_212:wsa881x@21170212 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x21170212>;
+					qcom,spkr-sd-n-node = <&wsa_spkr>;
+				};
+
+				wsa881x_213:wsa881x@21170213 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x21170213>;
+					qcom,spkr-sd-n-node = <&wsa_spkr>;
+				};
+
+				wsa881x_214:wsa881x@21170214 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x21170214>;
+					qcom,spkr-sd-n-node = <&wsa_spkr>;
+				};
+			};
 		};
 	};
+
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_active &pri_mi2s_ws_active
+		     &pri_mi2s_dout_active &pri_mi2s_din_active>;
+		pinctrl-1 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+		     &pri_mi2s_dout_sleep &pri_mi2s_din_sleep>;
+	};
+
+	cdc_quat_tdm_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+	};
+
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset1_active>;
+		pinctrl-1 = <&cdc_reset1_sleep>;
+	};
+
+	wcd_vdd_gpio: wcd_vdd_gpio_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_vdd_en_active>;
+		pinctrl-1 = <&wcd_vdd_en_sleep>;
+	};
+
+	wsa_spkr: msm_cdc_pinctrll {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spkr_en_active>;
+		pinctrl-1 = <&spkr_en_sleep>;
+	};
+
 
 	vph_pwr_vreg: vph_pwr_vreg {
 		compatible = "regulator-fixed";
@@ -222,4 +333,17 @@
 		reg = <0x29>;
 		status = "ok";
 	};
+};
+
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	status = "okay";
+};
+
+&blsp1_uart2_hs {
+	status = "disabled";
 };
