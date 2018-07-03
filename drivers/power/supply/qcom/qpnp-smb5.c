@@ -95,6 +95,22 @@ static struct smb_params smb5_pmi632_params = {
 		.step_u	= 400,
 		.set_proc = smblib_set_chg_freq,
 	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 8800,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
+	},
 };
 
 static struct smb_params smb5_pm855b_params = {
@@ -163,6 +179,22 @@ static struct smb_params smb5_pm855b_params = {
 		.max_u	= 2400,
 		.step_u	= 400,
 		.set_proc = NULL,
+	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 1180,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
 	},
 };
 
@@ -247,6 +279,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
+		chg->wa_flags |= WEAK_ADAPTER_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -457,8 +490,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 				union power_supply_propval *val)
 {
-	int rc;
+	int rc, ret = 0;
 	struct qpnp_vadc_result result;
+	u8 reg;
 
 	if (!chg->vadc_dev) {
 		if (of_find_property(chg->dev->of_node, "qcom,chg-vadc",
@@ -484,13 +518,43 @@ static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 
 	switch (channel) {
 	case USBIN_VOLTAGE:
+		/* Store ADC channel config */
+		rc = smblib_read(chg, BATIF_ADC_CHANNEL_EN_REG, &reg);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read ADC config rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Disable all ADC channels except IBAT channel */
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG,
+				IBATT_CHANNEL_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't write ADC config rc=%d\n", rc);
+			return rc;
+		}
+
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_V_DIV_16_PM5,
 				&result);
 		if (rc < 0) {
 			pr_err("Failed to read USBIN_V over vadc, rc=%d\n", rc);
-			return rc;
+			ret = rc;
+			goto restore;
 		}
 		val->intval = result.physical;
+
+restore:
+		/* Restore ADC channel config */
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't write ADC config rc=%d\n", rc);
+			return rc;
+		}
+		/* If ADC read failed return ADC error */
+		if (ret < 0)
+			rc = ret;
 		break;
 	case USBIN_CURRENT:
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_I_PM5, &result);
@@ -1342,7 +1406,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_RERUN_AICL:
-		rc = smblib_rerun_aicl(chg);
+		rc = smblib_run_aicl(chg, RERUN_AICL);
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		if (!chg->flash_active)
@@ -1643,7 +1707,7 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 			CONN_THM_CHANNEL_EN_BIT | DIE_TEMP_CHANNEL_EN_BIT,
 			chan);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable ADC channelrc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't enable ADC channel rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1669,6 +1733,12 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
+	smblib_get_charge_param(chg, &chg->param.aicl_5v_threshold,
+				&chg->default_aicl_5v_threshold_mv);
+	chg->aicl_5v_threshold_mv = chg->default_aicl_5v_threshold_mv;
+	smblib_get_charge_param(chg, &chg->param.aicl_cont_threshold,
+				&chg->default_aicl_cont_threshold_mv);
+	chg->aicl_cont_threshold_mv = chg->default_aicl_cont_threshold_mv;
 
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
@@ -2154,6 +2224,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= usbin_uv_irq_handler,
+		.wake		= true,
+		.storm_data	= {true, 3000, 5},
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
