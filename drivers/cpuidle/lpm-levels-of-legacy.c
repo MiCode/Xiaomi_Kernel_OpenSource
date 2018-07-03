@@ -863,8 +863,11 @@ static struct lpm_cluster *parse_cluster(struct device_node *node,
 			continue;
 		key = "qcom,pm-cluster-level";
 		if (!of_node_cmp(n->name, key)) {
-			if (parse_cluster_level(n, c))
+			if (parse_cluster_level(n, c)) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
+			of_node_put(n);
 			continue;
 		}
 
@@ -877,14 +880,16 @@ static struct lpm_cluster *parse_cluster(struct device_node *node,
 					__func__);
 
 			child = parse_cluster(n, c);
-			if (!child)
+			if (!child) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
 
-			of_node_put(n);
 			list_add(&child->list, &c->child);
 			cpumask_or(&c->child_cpus, &c->child_cpus,
 					&child->child_cpus);
 			c->aff_level = child->aff_level + 1;
+			of_node_put(n);
 			continue;
 		}
 
@@ -898,10 +903,13 @@ static struct lpm_cluster *parse_cluster(struct device_node *node,
 			if (get_cpumask_for_node(node, &c->child_cpus))
 				goto failed_parse_cluster;
 
-			if (parse_cpu_levels(n, c))
+			if (parse_cpu_levels(n, c)) {
+				of_node_put(n);
 				goto failed_parse_cluster;
+			}
 
 			c->aff_level = 1;
+			of_node_put(n);
 
 			for_each_cpu(i, &c->child_cpus) {
 				per_cpu(max_residency, i) = devm_kzalloc(
