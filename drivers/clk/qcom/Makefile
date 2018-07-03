@@ -37,6 +37,7 @@ obj-$(CONFIG_MSM_DEBUGCC_SM6150) += debugcc-sm6150.o
 obj-$(CONFIG_MSM_DEBUGCC_SM8150) += debugcc-sm8150.o
 obj-$(CONFIG_MSM_DISPCC_SM6150) += dispcc-sm6150.o
 obj-$(CONFIG_MSM_DISPCC_SM8150) += dispcc-sm8150.o
+obj-$(CONFIG_MSM_DISPCC_SDMMAGPIE) += dispcc-sdmmagpie.o
 obj-$(CONFIG_MDM_DEBUGCC_QCS405) += debugcc-qcs405.o
 obj-$(CONFIG_MSM_GCC_8660) += gcc-msm8660.o
 obj-$(CONFIG_MSM_GCC_8916) += gcc-msm8916.o
