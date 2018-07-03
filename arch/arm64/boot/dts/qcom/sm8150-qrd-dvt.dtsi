@@ -11,3 +11,8 @@
  */
 
 #include "sm8150-qrd.dtsi"
+
+&usb_qmp_dp_phy {
+	vdd-supply = <&pm8150_l18>;
+	qcom,vdd-voltage-level = <0 912000 912000>;
+};
