@@ -231,6 +231,9 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 
 	IPADBG_LOW("offset = %d size = %d\n", offset.offset, offset.size);
 
+	if (offset.size == 0)
+		return 0;
+
 	mem.size = offset.size;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
 		mem.size,
@@ -541,6 +544,9 @@ int ipa_get_teth_stats(void)
 	}
 
 	IPADBG_LOW("offset = %d size = %d\n", offset.offset, offset.size);
+
+	if (offset.size == 0)
+		return 0;
 
 	mem.size = offset.size;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
@@ -1086,6 +1092,11 @@ static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
 
 	IPADBG_LOW("offset = %d size = %d\n", offset.offset, offset.size);
 
+	if (offset.size == 0) {
+		ret = 0;
+		goto free_offset;
+	}
+
 	mem.size = offset.size;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
 		mem.size,
@@ -1354,6 +1365,9 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 	}
 
 	IPADBG_LOW("offset = %d size = %d\n", offset.offset, offset.size);
+
+	if (offset.size == 0)
+		return 0;
 
 	mem.size = offset.size;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
