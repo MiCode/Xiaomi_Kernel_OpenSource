@@ -1131,6 +1131,9 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->common_data;
 
 	/* Disble WM */
+	cam_io_w_mb(0x0,
+		common_data->mem_base + rsrc_data->hw_regs->cfg);
+
 	/* Disable all register access, reply on global reset */
 	CAM_DBG(CAM_ISP, "WM res %d irq_enabled %d",
 		rsrc_data->index, rsrc_data->irq_enabled);
