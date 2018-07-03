@@ -196,7 +196,7 @@
 		qcom,sde-cdp-setting = <1 1>, <1 0>;
 
 		qcom,sde-qos-cpu-mask = <0x3>;
-		qcom,sde-qos-cpu-dma-latency = <300>;
+		qcom,sde-qos-cpu-dma-latency = <44>;
 
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 

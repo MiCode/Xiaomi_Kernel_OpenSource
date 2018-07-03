@@ -2288,7 +2288,7 @@
 
 		/* PM QoS */
 		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-cpu-group-latency-us = <70 70>;
+		qcom,pm-qos-cpu-group-latency-us = <44 44>;
 		qcom,pm-qos-default-cpu = <0>;
 
 		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
@@ -2487,9 +2487,9 @@
 
 		/* PM QoS */
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-irq-latency = <44 44>;
 		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
-		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
 
 		status = "disabled";
 	};
@@ -2709,7 +2709,7 @@
 
 				qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
-					qcom,qos-latency-us = <100>;
+					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
 				};
 			};
