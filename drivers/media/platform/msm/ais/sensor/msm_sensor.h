@@ -136,4 +136,6 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 	unsigned int cmd,
 	unsigned long arg);
 #endif
+void msm_sensor_misc_regulator(
+	struct msm_sensor_ctrl_t *sctrl, uint32_t enable);
 #endif
