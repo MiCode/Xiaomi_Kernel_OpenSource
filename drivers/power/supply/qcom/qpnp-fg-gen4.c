@@ -1474,7 +1474,7 @@ static void profile_load_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
 	int64_t nom_cap_uah;
-	u8 val;
+	u8 val, buf[2];
 	int rc;
 
 	vote(fg->awake_votable, PROFILE_LOAD, true, 0);
@@ -1537,6 +1537,24 @@ static void profile_load_work(struct work_struct *work)
 
 	if (fg->wa_flags & PM8150B_V1_DMA_WA)
 		msleep(1000);
+
+	/*
+	 * Whenever battery profile is loaded, read nominal capacity and write
+	 * it to actual (or aged) capacity as it is outside the profile region
+	 * and might contain OTP values.
+	 */
+	rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
+			NOM_CAP_OFFSET, rc);
+	} else {
+		rc = fg_sram_write(fg, fg->sp[FG_SRAM_ACT_BATT_CAP].addr_word,
+			fg->sp[FG_SRAM_ACT_BATT_CAP].addr_byte, buf,
+			fg->sp[FG_SRAM_ACT_BATT_CAP].len, FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
+	}
 done:
 	rc = fg_gen4_bp_params_config(fg);
 	if (rc < 0)
