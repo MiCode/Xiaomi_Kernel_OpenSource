@@ -4057,6 +4057,8 @@
 
 &mdss_core_gdsc {
 	status = "ok";
+	qcom,en-few-wait-val = <6>;
+	qcom,en-rest-wait-val = <5>;
 };
 
 &gpu_cx_gdsc {
