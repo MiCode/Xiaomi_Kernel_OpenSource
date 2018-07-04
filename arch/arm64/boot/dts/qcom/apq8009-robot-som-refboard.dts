@@ -207,6 +207,18 @@
 	gpio_keys {
 		status = "disable";
 	};
+
+	spi@78ba000 {
+		reg = <0x78ba000 0x600>;
+		spi-max-frequency = <50000000>;
+		status = "okay";
+
+		spi@0 {
+			compatible = "qcom,spi-msm-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
 };
 
 &i2c_1 {
