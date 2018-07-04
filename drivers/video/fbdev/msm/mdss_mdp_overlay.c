@@ -3367,6 +3367,9 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 {
 	if (!pdata->panel_info.default_fps) {
 
+		pdata->panel_info.default_prg_fet =
+			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
+
 		/*
 		 * This value will change dynamically once the
 		 * actual dfps update happen in hw.
@@ -3439,8 +3442,13 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 
 		dfps_update_fps(&pdata->panel_info, new_fps);
 
+		/*
+		 * Fetch start is pinned to default fps.
+		 * Adjust programmable fetch accordingly.
+		 */
 		pdata->panel_info.prg_fet =
-			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
+			(pdata->panel_info.default_prg_fet) ?
+			(pdata->panel_info.default_prg_fet + add_v_lines) : 0;
 
 	} else if (pdata->panel_info.dfps_update ==
 			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
