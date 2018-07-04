@@ -86,6 +86,7 @@
 		reset-names = "phy_reset", "phy_por_reset";
 
 		qcom,snps-hs-phy-init-seq =
+			<0xc0 0x01 0>,
 			<0xe8 0x0d 0>,
 			<0x74 0x12 0>,
 			<0x98 0x63 0>,
@@ -190,6 +191,7 @@
 		reset-names = "phy_reset", "phy_por_reset";
 
 		qcom,snps-hs-phy-init-seq =
+			<0xc0 0x01 0>,
 			<0xe8 0x0d 0>,
 			<0x74 0x12 0>,
 			<0x98 0x63 0>,
