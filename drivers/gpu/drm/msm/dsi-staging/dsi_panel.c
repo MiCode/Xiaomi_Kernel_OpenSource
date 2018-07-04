@@ -1490,7 +1490,7 @@ static int dsi_panel_create_cmd_packets(const char *data,
 		cmd[i].msg.channel = data[2];
 		cmd[i].msg.flags |= (data[3] == 1 ? MIPI_DSI_MSG_REQ_ACK : 0);
 		cmd[i].msg.ctrl = 0;
-		cmd[i].post_wait_ms = data[4];
+		cmd[i].post_wait_ms = cmd[i].msg.wait_ms = data[4];
 		cmd[i].msg.tx_len = ((data[5] << 8) | (data[6]));
 
 		size = cmd[i].msg.tx_len * sizeof(u8);
@@ -2030,9 +2030,8 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	int final_value, final_scale;
 	int ratio_index;
 
-	dsc->version = 0x11;
-	dsc->scr_rev = 0;
 	dsc->rc_model_size = 8192;
+
 	if (dsc->version == 0x11 && dsc->scr_rev == 0x1)
 		dsc->first_line_bpg_offset = 15;
 	else
@@ -2223,6 +2222,36 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	if (!priv_info->dsc_enabled) {
 		pr_debug("dsc compression is not enabled for the mode");
 		return 0;
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-version", &data);
+	if (rc) {
+		priv_info->dsc.version = 0x11;
+		rc = 0;
+	} else {
+		priv_info->dsc.version = data & 0xff;
+		/* only support DSC 1.1 rev */
+		if (priv_info->dsc.version != 0x11) {
+			pr_err("%s: DSC version:%d not supported\n", __func__,
+					priv_info->dsc.version);
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-scr-version", &data);
+	if (rc) {
+		priv_info->dsc.scr_rev = 0x0;
+		rc = 0;
+	} else {
+		priv_info->dsc.scr_rev = data & 0xff;
+		/* only one scr rev supported */
+		if (priv_info->dsc.scr_rev > 0x1) {
+			pr_err("%s: DSC scr version:%d not supported\n",
+					__func__, priv_info->dsc.scr_rev);
+			rc = -EINVAL;
+			goto error;
+		}
 	}
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-slice-height", &data);
@@ -3074,11 +3103,7 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(phy_props, &panel->phy_props, sizeof(*phy_props));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -3092,11 +3117,7 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(dfps_caps, &panel->dfps_caps, sizeof(*dfps_caps));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -3450,6 +3471,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[0].msg.tx_buf = caset;
 	set->cmds[0].msg.rx_len = 0;
 	set->cmds[0].msg.rx_buf = 0;
+	set->cmds[0].msg.wait_ms = 0;
 	set->cmds[0].last_command = 0;
 	set->cmds[0].post_wait_ms = 0;
 
@@ -3461,6 +3483,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[1].msg.tx_buf = paset;
 	set->cmds[1].msg.rx_len = 0;
 	set->cmds[1].msg.rx_buf = 0;
+	set->cmds[1].msg.wait_ms = 0;
 	set->cmds[1].last_command = 1;
 	set->cmds[1].post_wait_ms = 0;
 
@@ -3674,11 +3697,14 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
-	if (rc) {
-		pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
-		       panel->name, rc);
-		goto error;
+	 /* Avoid sending panel off commands when ESD recovery is underway */
+	if (!panel->esd_recovery_pending) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
+					panel->name, rc);
+			goto error;
+		}
 	}
 	panel->panel_initialized = false;
 
