@@ -747,7 +747,7 @@ int dsi_display_check_status(void *display, bool te_check_override)
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	/* Prevent another ESD check,when ESD recovery is underway */
-	if (panel->esd_recovery_pending) {
+	if (atomic_read(&panel->esd_recovery_pending)) {
 		dsi_panel_release_panel_lock(panel);
 		return rc;
 	}
@@ -783,7 +783,7 @@ int dsi_display_check_status(void *display, bool te_check_override)
 							false);
 	} else {
 		/* Handle Panel failures during display disable sequence */
-		panel->esd_recovery_pending = true;
+		atomic_set(&panel->esd_recovery_pending, 1);
 	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
@@ -2775,11 +2775,19 @@ static int dsi_host_detach(struct mipi_dsi_host *host,
 static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
-	struct dsi_display *display = to_dsi_display(host);
+	struct dsi_display *display;
 	int rc = 0, ret = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
+		return 0;
+	}
+
+	display = to_dsi_display(host);
+
+	/* Avoid sending DCS commands when ESD recovery is pending */
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("ESD recovery pending\n");
 		return 0;
 	}
 
