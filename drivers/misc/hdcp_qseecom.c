@@ -72,6 +72,9 @@
  */
 #define SLEEP_SET_HW_KEY_MS 300
 
+/* Wait 200ms after authentication */
+#define SLEEP_FORCE_ENCRYPTION_MS 200
+
 /* hdcp command status */
 #define HDCP_SUCCESS                    0
 #define HDCP_FAIL                       1
@@ -111,6 +114,7 @@
 #define HDCP_KEY_ALREADY_PROVISIONED    35
 #define HDCP_KEY_NOT_PROVISIONED        36
 #define HDCP_CALL_TOO_SOON              37
+#define HDCP_FORCE_ENCRYPTION_FAILED    38
 
 /* flags set by tz in response message */
 #define HDCP_TXMTR_SUBSTATE_INIT                              0
@@ -179,6 +183,7 @@ enum {
 	hdcp_cmd_session_init      = SERVICE_CREATE_CMD(16),
 	hdcp_cmd_session_deinit    = SERVICE_CREATE_CMD(17),
 	hdcp_cmd_start_auth        = SERVICE_CREATE_CMD(18),
+	hdcp_cmd_force_encryption  = SERVICE_CREATE_CMD(22),
 };
 
 enum hdcp_state {
@@ -450,6 +455,17 @@ struct __attribute__ ((__packed__)) hdcp_start_auth_rsp {
 	uint8_t message[MAX_TX_MESSAGE_SIZE];
 };
 
+struct __attribute__ ((__packed__)) hdcp_force_encryption_req {
+	uint32_t commandid;
+	uint32_t ctxhandle;
+	uint32_t enable;
+};
+
+struct __attribute__ ((__packed__)) hdcp_force_encryption_rsp {
+	uint32_t status;
+	uint32_t commandid;
+};
+
 struct hdcp2_handle {
 	struct hdcp2_app_data app_data;
 	uint32_t tz_ctxhandle;
@@ -555,6 +571,8 @@ static const char *hdcp_cmd_status_to_str(uint32_t err)
 		return HDCP_CMD_STATUS_TO_STR(HDCP_KEY_NOT_PROVISIONED);
 	case HDCP_CALL_TOO_SOON:
 		return HDCP_CMD_STATUS_TO_STR(HDCP_CALL_TOO_SOON);
+	case HDCP_FORCE_ENCRYPTION_FAILED:
+		return HDCP_CMD_STATUS_TO_STR(HDCP_FORCE_ENCRYPTION_FAILED);
 	default:
 		return "";
 	}
@@ -1103,6 +1121,48 @@ static int hdcp2_app_enable_encryption(struct hdcp2_handle *handle)
 	pr_debug("success\n");
 	return rc;
 error:
+	return rc;
+}
+
+int hdcp2_force_encryption_utility(struct hdcp2_handle *handle, uint32_t enable)
+{
+	int rc = 0;
+
+	hdcp2_app_init_var(force_encryption);
+	if (handle->hdcp_state == HDCP_STATE_AUTHENTICATED)
+		msleep(SLEEP_FORCE_ENCRYPTION_MS);
+
+	req_buf->ctxhandle = handle->tz_ctxhandle;
+	req_buf->enable = enable;
+
+	rc = hdcp2_app_process_cmd(force_encryption);
+	if (rc || (rsp_buf->commandid != hdcp_cmd_force_encryption))
+		goto error;
+
+	return 0;
+error:
+	return rc;
+}
+
+int hdcp2_force_encryption(void *ctx, uint32_t enable)
+{
+	int rc = 0;
+	struct hdcp2_handle *handle = NULL;
+
+	if (!ctx) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	handle = ctx;
+	rc = hdcp2_force_encryption_utility(handle, enable);
+	if (rc)
+		goto error;
+
+	pr_debug("success\n");
+	return 0;
+error:
+	pr_err("failed, rc=%d\n", rc);
 	return rc;
 }
 
