@@ -223,6 +223,79 @@
 		himax,irq-gpio = <&tlmm 65 0x2008>;
 		report_type = <1>;
 	};
+
+	gt9xx-i2c@14 {
+		compatible = "goodix,gt9xx";
+		reg = <0x14>;
+		vdd_ana-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2008>;
+		pinctrl-names = "gdix_ts_int_default", "gdix_ts_int_output_low",
+			"gdix_ts_int_output_high", "gdix_ts_int_input",
+			"gdix_ts_rst_default", "gdix_ts_rst_output_low",
+			"gdix_ts_rst_output_high", "gdix_ts_rst_input";
+		pinctrl-0 = <&ts_int_default>;
+		pinctrl-1 = <&ts_int_output_low>;
+		pinctrl-2 = <&ts_int_output_high>;
+		pinctrl-3 = <&ts_int_input>;
+		pinctrl-4 = <&ts_rst_default>;
+		pinctrl-5 = <&ts_rst_output_low>;
+		pinctrl-6 = <&ts_rst_output_high>;
+		pinctrl-7 = <&ts_rst_input>;
+
+		reset-gpios = <&tlmm 64 0x00>;
+		irq-gpios = <&tlmm 65 0x2008>;
+		irq-flags = <2>;
+
+		touchscreen-max-id = <11>;
+		touchscreen-size-x = <1200>;
+		touchscreen-size-y = <1920>;
+		touchscreen-max-w = <1024>;
+		touchscreen-max-p = <1024>;
+
+		goodix,type-a-report = <0>;
+		goodix,driver-send-cfg = <1>;
+		goodix,wakeup-with-reset = <0>;
+		goodix,resume-in-workqueue = <0>;
+		goodix,int-sync = <1>;
+		goodix,swap-x2y = <0>;
+		goodix,esd-protect = <1>;
+		goodix,pen-suppress-finger = <0>;
+		goodix,auto-update = <1>;
+		goodix,auto-update-cfg = <0>;
+		goodix,power-off-sleep = <0>;
+
+		goodix,cfg-group0 = [
+			5A B0 04 80 07 0A 35 10 22 08 32 0D 50 3C 0A 04
+			01 01 00 B4 11 11 44 15 19 1B 14 95 35 FF 3A 3C
+			39 13 00 00 00 98 03 1C 00 00 00 00 03 00 00 00
+			00 80 0A 37 46 40 E5 52 23 28 00 04 81 38 00 7F
+			3B 00 7D 3E 00 7C 41 00 7A 44 0C 7A 00 50 33 50
+			0B 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 55 00 01 00 00 02 00 00 00
+			1D 1C 1B 1A 19 18 17 16 15 14 13 12 11 10 0F 0E
+			0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00 2A 29
+			28 27 26 25 24 23 22 21 20 1F 1E 1D 1C 1B 19 18
+			17 16 15 14 13 12 11 10 0F 0E 0D 0C 0B 0A 09 08
+			07 06 05 04 03 02 01 00 08 01
+		];
+
+		goodix,cfg-group2 = [
+			5B B0 04 80 07 0A 35 10 22 08 32 0D 50 32 0A 04
+			01 01 00 B4 11 11 44 2B 31 36 28 95 35 FF 3E 40
+			39 13 00 00 00 DA 03 1C 00 00 00 00 03 00 00 00
+			00 80 0A 32 42 40 E5 52 23 28 00 04 7D 33 00 7D
+			36 00 7E 39 00 7F 3C 00 80 40 0C 80 00 50 33 50
+			0B 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 55 00 01 00 00 02 00 00 00
+			1D 1C 1B 1A 19 18 17 16 15 14 13 12 11 10 0F 0E
+			0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00 2A 29
+			28 27 26 25 24 23 22 21 20 1F 1E 1D 1C 1B 19 18
+			17 16 15 14 13 12 11 10 0F 0E 0D 0C 0B 0A 09 08
+			07 06 05 04 03 02 01 00 81 01
+		];
+	};
 };
 
 &soc {

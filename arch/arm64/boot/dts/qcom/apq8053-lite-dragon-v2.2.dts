@@ -25,3 +25,12 @@
 &blsp2_uart0 {
 	status = "okay";
 };
+
+&i2c_3 {
+	status = "okay";
+	/delete-node/ himax_ts@48;
+	gt9xx-i2c@14 {
+		status = "okay";
+	};
+};
+
