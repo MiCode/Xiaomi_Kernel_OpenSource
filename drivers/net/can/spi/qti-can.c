@@ -1323,7 +1323,7 @@ static int qti_can_probe(struct spi_device *spi)
 	}
 
 	priv_data->support_can_fd = of_property_read_bool(spi->dev.of_node,
-							  "support-can-fd");
+							  "qcom,support-can-fd");
 
 	if (of_device_is_compatible(spi->dev.of_node, "qcom,nxp,mpc5746c"))
 		qti_can_bittiming_const = flexcan_bittiming_const;
