@@ -1028,6 +1028,9 @@ __cpufreq_cooling_register(struct device_node *np,
 			pr_debug("%s: freq:%u KHz\n", __func__, freq);
 	}
 
+	/* Max level index is for core isolation, set this level as zero */
+	cpufreq_cdev->freq_table[cpufreq_cdev->max_level].frequency = 0;
+
 	if (capacitance) {
 		cpufreq_cdev->plat_get_static_power = plat_static_func;
 
