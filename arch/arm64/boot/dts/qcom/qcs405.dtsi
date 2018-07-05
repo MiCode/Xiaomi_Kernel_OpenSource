@@ -95,6 +95,11 @@
 			size = <0 0x400000>;
 		};
 
+		dump_mem: mem_dump_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x400000>;
+		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
@@ -927,6 +932,31 @@
 	};
 
 	thermal_zones: thermal-zones {};
+
+	mem_dump {
+		compatible = "qcom,mem-dump";
+		memory-region = <&dump_mem>;
+
+		rpm_sw_dump {
+			qcom,dump-size = <0x28000>;
+			qcom,dump-id = <0xea>;
+		};
+
+		pmic_dump {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xe4>;
+		};
+
+		misc_data_dump {
+			qcom,dump-size = <0x1000>;
+			qcom,dump-id = <0xe8>;
+		};
+
+		vsense_dump {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xe9>;
+		};
+	};
 
 	sdhc_1: sdhci@7804000 {
 		compatible = "qcom,sdhci-msm-v5";
