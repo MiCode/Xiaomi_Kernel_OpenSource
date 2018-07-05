@@ -46,7 +46,7 @@
 };
 
 &soc {
-	cdc_dmic01_gpios: cdc_dmic_pinctrl {
+	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
@@ -54,7 +54,7 @@
 		qcom,lpi-gpios;
 	};
 
-	cdc_dmic23_gpios: cdc_dmic_pinctrl {
+	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
@@ -62,7 +62,7 @@
 		qcom,lpi-gpios;
 	};
 
-	cdc_dmic45_gpios: cdc_dmic_pinctrl {
+	cdc_dmic45_gpios: cdc_dmic45_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic45_clk_active &cdc_dmic45_data_active>;
@@ -70,7 +70,7 @@
 		qcom,lpi-gpios;
 	};
 
-	cdc_dmic67_gpios: cdc_dmic_pinctrl {
+	cdc_dmic67_gpios: cdc_dmic67_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic67_clk_active &cdc_dmic67_data_active>;
