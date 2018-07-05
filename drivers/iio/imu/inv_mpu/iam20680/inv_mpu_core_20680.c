@@ -311,6 +311,26 @@ static int _misc_attr_store(struct device *dev,
 	return result;
 }
 
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static inline int inv_check_acc_gyro_early_buff_enable_flag(
+		struct iio_dev *indio_dev)
+{
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
+	if (st->acc_buffer_inv_samples == true ||
+			st->gyro_buffer_inv_samples == true)
+		return 1;
+	else
+		return 0;
+}
+#else
+static inline int inv_check_acc_gyro_early_buff_enable_flag(
+		struct iio_dev *indio_dev)
+{
+	return 0;
+}
+#endif
+
 /*
  * inv_misc_attr_store() -  calling this function
  */
@@ -320,6 +340,9 @@ static ssize_t inv_misc_attr_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	int result;
+
+	if (inv_check_acc_gyro_early_buff_enable_flag(indio_dev))
+		return count;
 
 	mutex_lock(&indio_dev->mlock);
 	result = _misc_attr_store(dev, attr, buf, count);
@@ -350,6 +373,9 @@ static ssize_t inv_sensor_rate_store(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int data, rate, ind;
 	int result;
+
+	if (inv_check_acc_gyro_early_buff_enable_flag(indio_dev))
+		return count;
 
 	result = kstrtoint(buf, 10, &data);
 	if (result)
@@ -397,6 +423,9 @@ static ssize_t inv_sensor_on_store(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int data, on, ind;
 	int result;
+
+	if (inv_check_acc_gyro_early_buff_enable_flag(indio_dev))
+		return count;
 
 	result = kstrtoint(buf, 10, &data);
 	if (result)
@@ -493,7 +522,7 @@ static int _basic_attr_store(struct device *dev,
 			p1[0] = ((power_on_data >> 16) & 0xff);
 			p1[1] = ((power_on_data >> 24) & 0xff);
 
-			if (st->bus_type == BUS_SPI) {
+			if (st->bus_type == BUS_IIO_SPI) {
 				struct spi_transfer power_on;
 				struct spi_message msg;
 
@@ -508,7 +537,7 @@ static int _basic_attr_store(struct device *dev,
 				spi_message_add_tail(&power_on, &msg);
 				spi_sync(to_spi_device(st->dev), &msg);
 
-			} else if (st->bus_type == BUS_I2C) {
+			} else if (st->bus_type == BUS_IIO_I2C) {
 				struct i2c_msg msgs[2];
 
 				p0[0] &= 0x7f;
@@ -771,6 +800,169 @@ static ssize_t inv_flush_batch_store(struct device *dev,
 	return count;
 }
 
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static int inv_gyro_read_bootsampl(struct inv_mpu_state *st,
+		unsigned long enable_read)
+{
+	int i = 0;
+
+	if (enable_read) {
+		st->gyro_buffer_inv_samples = false;
+		for (i = 0; i < st->gyro_bufsample_cnt; i++) {
+			dev_dbg(st->dev, "gyro_cnt=%d,x=%d,y=%d,z=%d,tsec=%d,nsec=%lld\n",
+					i, st->inv_gyro_samplist[i]->xyz[0],
+					st->inv_gyro_samplist[i]->xyz[1],
+					st->inv_gyro_samplist[i]->xyz[2],
+					st->inv_gyro_samplist[i]->tsec,
+					st->inv_gyro_samplist[i]->tnsec);
+			input_report_abs(st->gyrobuf_dev, ABS_X,
+					st->inv_gyro_samplist[i]->xyz[0]);
+			input_report_abs(st->gyrobuf_dev, ABS_Y,
+					st->inv_gyro_samplist[i]->xyz[1]);
+			input_report_abs(st->gyrobuf_dev, ABS_Z,
+					st->inv_gyro_samplist[i]->xyz[2]);
+			input_report_abs(st->gyrobuf_dev, ABS_RX,
+					st->inv_gyro_samplist[i]->tsec);
+			input_report_abs(st->gyrobuf_dev, ABS_RY,
+					st->inv_gyro_samplist[i]->tnsec);
+			input_sync(st->gyrobuf_dev);
+		}
+	} else {
+		/* clean up */
+		if (st->gyro_bufsample_cnt != 0) {
+			for (i = 0; i < INV_GYRO_MAXSAMPLE; i++)
+				kmem_cache_free(st->inv_gyro_cachepool,
+						st->inv_gyro_samplist[i]);
+			kmem_cache_destroy(st->inv_gyro_cachepool);
+			st->gyro_bufsample_cnt = 0;
+		}
+
+	}
+	/*SYN_CONFIG indicates end of data*/
+	input_event(st->gyrobuf_dev, EV_SYN, SYN_CONFIG, 0xFFFFFFFF);
+	input_sync(st->gyrobuf_dev);
+	dev_dbg(st->dev, "End of gyro samples bufsample_cnt=%d\n",
+			st->gyro_bufsample_cnt);
+	return 0;
+}
+static int inv_acc_read_bootsampl(struct inv_mpu_state *st,
+		unsigned long enable_read)
+{
+	int i = 0;
+
+	if (enable_read) {
+		st->acc_buffer_inv_samples = false;
+		for (i = 0; i < st->acc_bufsample_cnt; i++) {
+			dev_dbg(st->dev, "acc_cnt=%d,x=%d,y=%d,z=%d,tsec=%d,nsec=%lld\n",
+					i, st->inv_acc_samplist[i]->xyz[0],
+					st->inv_acc_samplist[i]->xyz[1],
+					st->inv_acc_samplist[i]->xyz[2],
+					st->inv_acc_samplist[i]->tsec,
+					st->inv_acc_samplist[i]->tnsec);
+			input_report_abs(st->accbuf_dev, ABS_X,
+					st->inv_acc_samplist[i]->xyz[0]);
+			input_report_abs(st->accbuf_dev, ABS_Y,
+					st->inv_acc_samplist[i]->xyz[1]);
+			input_report_abs(st->accbuf_dev, ABS_Z,
+					st->inv_acc_samplist[i]->xyz[2]);
+			input_report_abs(st->accbuf_dev, ABS_RX,
+					st->inv_acc_samplist[i]->tsec);
+			input_report_abs(st->accbuf_dev, ABS_RY,
+					st->inv_acc_samplist[i]->tnsec);
+			input_sync(st->accbuf_dev);
+		}
+	} else {
+		/* clean up */
+		if (st->acc_bufsample_cnt != 0) {
+			for (i = 0; i < INV_ACC_MAXSAMPLE; i++)
+				kmem_cache_free(st->inv_acc_cachepool,
+						st->inv_acc_samplist[i]);
+			kmem_cache_destroy(st->inv_acc_cachepool);
+			st->acc_bufsample_cnt = 0;
+		}
+
+	}
+	/*SYN_CONFIG indicates end of data*/
+	input_event(st->accbuf_dev, EV_SYN, SYN_CONFIG, 0xFFFFFFFF);
+	input_sync(st->accbuf_dev);
+	dev_dbg(st->dev, "End of acc samples bufsample_cnt=%d\n",
+			st->acc_bufsample_cnt);
+	return 0;
+}
+
+static ssize_t read_gyro_boot_sample_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
+	return snprintf(buf, MAX_WR_SZ, "%d\n",
+			st->read_gyro_boot_sample);
+}
+
+static ssize_t read_gyro_boot_sample_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int err;
+	unsigned long enable = 0;
+
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
+	err = kstrtoul(buf, 10, &enable);
+	if (err)
+		return err;
+	if (enable > 1) {
+		err = dev_err(st->dev,
+				"Invalid value of input, input=%ld\n", enable);
+		return -EINVAL;
+	}
+	err = inv_gyro_read_bootsampl(st, enable);
+	if (err)
+		return err;
+	st->read_gyro_boot_sample = enable;
+	return count;
+
+}
+
+static ssize_t read_acc_boot_sample_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
+	return snprintf(buf, MAX_WR_SZ, "%d\n",
+			st->read_acc_boot_sample);
+}
+static ssize_t read_acc_boot_sample_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int err;
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
+	unsigned long enable = 0;
+
+	err = kstrtoul(buf, 10, &enable);
+	if (err)
+		return err;
+	if (enable > 1) {
+		err = dev_err(st->dev,
+				"Invalid value of input, input=%ld\n", enable);
+		return -EINVAL;
+	}
+	err = inv_acc_read_bootsampl(st, enable);
+	if (err)
+		return err;
+	st->read_acc_boot_sample = enable;
+	return count;
+}
+#endif
+
 static const struct iio_chan_spec inv_mpu_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(INV_MPU_SCAN_TIMESTAMP),
 };
@@ -780,6 +972,12 @@ static DEVICE_ATTR(debug_reg_dump, S_IRUGO | S_IWUSR, inv_reg_dump_show, NULL);
 static DEVICE_ATTR(out_temperature, S_IRUGO | S_IWUSR,
 			inv_temperature_show, NULL);
 static DEVICE_ATTR(misc_self_test, S_IRUGO | S_IWUSR, inv_self_test, NULL);
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static IIO_DEVICE_ATTR(read_acc_boot_sample, S_IRUGO | S_IWUSR,
+	read_acc_boot_sample_show, read_acc_boot_sample_store, SENSOR_L_ACCEL);
+static IIO_DEVICE_ATTR(read_gyro_boot_sample, S_IRUGO | S_IWUSR,
+	read_gyro_boot_sample_show, read_gyro_boot_sample_store, SENSOR_L_GYRO);
+#endif
 
 static IIO_DEVICE_ATTR(info_anglvel_matrix, S_IRUGO, inv_attr_show, NULL,
 			ATTR_GYRO_MATRIX);
@@ -913,6 +1111,10 @@ static const struct attribute *inv_raw_attributes[] = {
 	&dev_attr_misc_self_test.attr,
 #ifndef SUPPORT_ONLY_BASIC_FEATURES
 	&iio_dev_attr_in_power_on.dev_attr.attr,
+#endif
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+	&iio_dev_attr_read_acc_boot_sample.dev_attr.attr,
+	&iio_dev_attr_read_gyro_boot_sample.dev_attr.attr,
 #endif
 	&iio_dev_attr_in_accel_enable.dev_attr.attr,
 	&iio_dev_attr_in_accel_wake_enable.dev_attr.attr,
