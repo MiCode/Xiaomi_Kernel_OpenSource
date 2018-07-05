@@ -64,6 +64,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_notif.o
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
+       obj-y += microdump_collector.o
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
