@@ -772,8 +772,8 @@ static int dsi_display_cmd_prepare(const char *cmd_buf, u32 cmd_buf_len,
 	cmd->msg.tx_len = ((cmd_buf[5] << 8) | (cmd_buf[6]));
 
 	if (cmd->msg.tx_len > payload_len) {
-		pr_err("Incorrect payload length tx_len %ld, payload_len %d\n",
-				cmd->msg.tx_len, payload_len);
+		pr_err("Incorrect payload length tx_len %zu, payload_len %d\n",
+		       cmd->msg.tx_len, payload_len);
 		return -EINVAL;
 	}
 
