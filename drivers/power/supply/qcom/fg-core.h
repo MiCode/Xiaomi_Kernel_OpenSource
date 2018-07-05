@@ -167,6 +167,7 @@ enum fg_irq_index {
 enum fg_sram_param_id {
 	FG_SRAM_BATT_SOC = 0,
 	FG_SRAM_FULL_SOC,
+	FG_SRAM_MONOTONIC_SOC,
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
 	FG_SRAM_ESR,

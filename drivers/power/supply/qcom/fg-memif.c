@@ -1200,7 +1200,7 @@ static struct fg_dma_address fg_gen4_addr_map[6] = {
 	/* wk/scratch pad partition continued */
 	{
 		.partition_start = 406,
-		.partition_end =  480,
+		.partition_end =  486,
 		.spmi_addr_base = GEN4_FG_DMA5_BASE + SRAM_ADDR_OFFSET,
 	},
 };
@@ -1219,7 +1219,7 @@ static int fg_dma_init(struct fg_dev *fg)
 		fg->sram.addr_map = fg_gen4_addr_map;
 		fg->sram.num_partitions = 6;
 		fg->sram.num_bytes_per_word = 2;
-		fg->sram.address_max = 479;
+		fg->sram.address_max = 485;
 	} else {
 		pr_err("Unknown FG version %d\n", fg->version);
 		return -ENXIO;
