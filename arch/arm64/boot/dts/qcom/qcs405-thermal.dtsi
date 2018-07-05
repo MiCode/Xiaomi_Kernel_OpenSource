@@ -355,6 +355,10 @@
 				trip = <&aoss_lowf>;
 				cooling-device = <&cx_cdev 0 0>;
 			};
+			mx_vdd_cdev {
+				trip = <&aoss_lowf>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
 			modem_vdd_cdev {
 				trip = <&aoss_lowf>;
 				cooling-device = <&modem_vdd 0 0>;
