@@ -589,6 +589,29 @@ static int smblib_set_adapter_allowance(struct smb_charger *chg,
 #define MICRO_5V	5000000
 #define MICRO_9V	9000000
 #define MICRO_12V	12000000
+static int smblib_set_usb_pd_fsw(struct smb_charger *chg, int voltage)
+{
+	int rc = 0;
+
+	switch (voltage) {
+	case MICRO_5V:
+		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_5V);
+		break;
+	case MICRO_9V:
+		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_9V);
+		break;
+	case MICRO_12V:
+		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_12V);
+		break;
+	default:
+		smblib_err(chg, "Couldn't set Fsw: invalid voltage %d\n",
+				voltage);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
 static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 					int min_allowed_uv, int max_allowed_uv)
 {
@@ -597,13 +620,10 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 
 	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
-		smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_5V);
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
-		smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_9V);
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
-		smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_12V);
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
@@ -1795,16 +1815,111 @@ static int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
 	return rc;
 }
 
+static void smblib_hvdcp_set_fsw(struct smb_charger *chg, int bit)
+{
+	switch (bit) {
+	case QC_5V_BIT:
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_5V);
+		break;
+	case QC_9V_BIT:
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_9V);
+		break;
+	case QC_12V_BIT:
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_12V);
+		break;
+	default:
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_removal);
+		break;
+	}
+}
+
+#define QC3_PULSES_FOR_6V	5
+#define QC3_PULSES_FOR_9V	20
+#define QC3_PULSES_FOR_12V	35
+static int smblib_hvdcp3_set_fsw(struct smb_charger *chg)
+{
+	int pulse_count, rc;
+
+	rc = smblib_get_pulse_cnt(chg, &pulse_count);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read QC_PULSE_COUNT rc=%d\n", rc);
+		return rc;
+	}
+
+	if (pulse_count < QC3_PULSES_FOR_6V)
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_5V);
+	else if (pulse_count < QC3_PULSES_FOR_9V)
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_6V_8V);
+	else if (pulse_count < QC3_PULSES_FOR_12V)
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_9V);
+	else
+		smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_12V);
+
+	return 0;
+}
+
+static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
+		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't read QC_CHANGE_STATUS rc=%d\n", rc);
+			return;
+		}
+
+		smblib_hvdcp_set_fsw(chg, stat & QC_2P0_STATUS_MASK);
+	}
+
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+		rc = smblib_hvdcp3_set_fsw(chg);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't set QC3.0 Fsw rc=%d\n", rc);
+	}
+
+	power_supply_changed(chg->usb_main_psy);
+}
+
 int smblib_dp_dm(struct smb_charger *chg, int val)
 {
 	int target_icl_ua, rc = 0;
 	union power_supply_propval pval;
+	u8 stat;
 
 	switch (val) {
 	case POWER_SUPPLY_DP_DM_DP_PULSE:
+		/*
+		 * Pre-emptively increment pulse count to enable the setting
+		 * of FSW prior to increasing voltage.
+		 */
+		chg->pulse_cnt++;
+
+		rc = smblib_hvdcp3_set_fsw(chg);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't set QC3.0 Fsw rc=%d\n", rc);
+
 		rc = smblib_dp_pulse(chg);
-		if (!rc)
-			chg->pulse_cnt++;
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't increase pulse count rc=%d\n",
+				rc);
+			/*
+			 * Increment pulse count failed;
+			 * reset to former value.
+			 */
+			chg->pulse_cnt--;
+		}
+
 		smblib_dbg(chg, PR_PARALLEL, "DP_DM_DP_PULSE rc=%d cnt=%d\n",
 				rc, chg->pulse_cnt);
 		break;
@@ -1856,6 +1971,17 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			return -EINVAL;
 		}
 
+		/* If we are increasing voltage to get to 9V, set FSW first */
+		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read QC_CHANGE_STATUS_REG rc=%d\n",
+					rc);
+			break;
+		}
+
+		if (stat & QC_5V_BIT)
+			smblib_hvdcp_set_fsw(chg, QC_9V_BIT);
+
 		rc = smblib_force_vbus_voltage(chg, FORCE_9V_BIT);
 		if (rc < 0)
 			pr_err("Failed to force 9V\n");
@@ -1865,6 +1991,17 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			smblib_err(chg, "Couldn't set 12V: unsupported\n");
 			return -EINVAL;
 		}
+
+		/* If we are increasing voltage to get to 12V, set FSW first */
+		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read QC_CHANGE_STATUS_REG rc=%d\n",
+					rc);
+			break;
+		}
+
+		if ((stat & QC_9V_BIT) || (stat & QC_5V_BIT))
+			smblib_hvdcp_set_fsw(chg, QC_12V_BIT);
 
 		rc = smblib_force_vbus_voltage(chg, FORCE_12V_BIT);
 		if (rc < 0)
@@ -2797,7 +2934,7 @@ int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
 	rc = smblib_set_usb_pd_allowed_voltage(chg, min_uv,
 					       chg->voltage_max_uv);
 	if (rc < 0) {
-		smblib_err(chg, "invalid max voltage %duV rc=%d\n",
+		smblib_err(chg, "invalid min voltage %duV rc=%d\n",
 			val->intval, rc);
 		return rc;
 	}
@@ -2814,10 +2951,18 @@ int smblib_set_prop_pd_voltage_max(struct smb_charger *chg,
 	int rc, max_uv;
 
 	max_uv = max(val->intval, chg->voltage_min_uv);
+
+	rc = smblib_set_usb_pd_fsw(chg, max_uv);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set FSW for voltage %duV rc=%d\n",
+			val->intval, rc);
+		return rc;
+	}
+
 	rc = smblib_set_usb_pd_allowed_voltage(chg, chg->voltage_min_uv,
 					       max_uv);
 	if (rc < 0) {
-		smblib_err(chg, "invalid min voltage %duV rc=%d\n",
+		smblib_err(chg, "invalid max voltage %duV rc=%d\n",
 			val->intval, rc);
 		return rc;
 	}
@@ -3381,67 +3526,6 @@ static void smblib_handle_sdp_enumeration_done(struct smb_charger *chg,
 {
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: sdp-enumeration-done %s\n",
 		   rising ? "rising" : "falling");
-}
-
-#define QC3_PULSES_FOR_6V	5
-#define QC3_PULSES_FOR_9V	20
-#define QC3_PULSES_FOR_12V	35
-static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
-{
-	int rc;
-	u8 stat;
-	int pulses;
-
-	power_supply_changed(chg->usb_main_psy);
-	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
-		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't read QC_CHANGE_STATUS rc=%d\n", rc);
-			return;
-		}
-
-		switch (stat & QC_2P0_STATUS_MASK) {
-		case QC_5V_BIT:
-			smblib_set_opt_switcher_freq(chg,
-					chg->chg_freq.freq_5V);
-			break;
-		case QC_9V_BIT:
-			smblib_set_opt_switcher_freq(chg,
-					chg->chg_freq.freq_9V);
-			break;
-		case QC_12V_BIT:
-			smblib_set_opt_switcher_freq(chg,
-					chg->chg_freq.freq_12V);
-			break;
-		default:
-			smblib_set_opt_switcher_freq(chg,
-					chg->chg_freq.freq_removal);
-			break;
-		}
-	}
-
-	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
-		rc = smblib_get_pulse_cnt(chg, &pulses);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't read QC_PULSE_COUNT rc=%d\n", rc);
-			return;
-		}
-
-		if (pulses < QC3_PULSES_FOR_6V)
-			smblib_set_opt_switcher_freq(chg,
-				chg->chg_freq.freq_5V);
-		else if (pulses < QC3_PULSES_FOR_9V)
-			smblib_set_opt_switcher_freq(chg,
-				chg->chg_freq.freq_6V_8V);
-		else if (pulses < QC3_PULSES_FOR_12V)
-			smblib_set_opt_switcher_freq(chg,
-				chg->chg_freq.freq_9V);
-		else
-			smblib_set_opt_switcher_freq(chg,
-				chg->chg_freq.freq_12V);
-	}
 }
 
 /* triggers when HVDCP 3.0 authentication has finished */
