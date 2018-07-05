@@ -61,9 +61,6 @@ int analog_postdiv_reg_read(void *context, unsigned int reg,
 	int rc = 0;
 	struct mdss_pll_resources *rsc = context;
 
-	if (is_gdsc_disabled(rsc))
-		return 0;
-
 	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
@@ -71,13 +68,6 @@ int analog_postdiv_reg_read(void *context, unsigned int reg,
 	}
 
 	*div = MDSS_PLL_REG_R(rsc->pll_base, reg);
-
-	/**
-	 * Common clock framework the divider value is interpreted as one less
-	 * hence we return one less for all dividers except when zero
-	 */
-	if (*div != 0)
-		*div -= 1;
 
 	pr_debug("analog_postdiv div = %d\n", *div);
 
@@ -99,13 +89,6 @@ int analog_postdiv_reg_write(void *context, unsigned int reg,
 
 	pr_debug("analog_postdiv div = %d\n", div);
 
-	/**
-	 * In common clock framework the divider value provided is one less and
-	 * and hence adjusting the divider value by one prior to writing it to
-	 * hardware
-	 */
-	div++;
-
 	MDSS_PLL_REG_W(rsc->pll_base, reg, div);
 
 	(void)mdss_pll_resource_enable(rsc, false);
@@ -118,16 +101,13 @@ int byteclk_mux_read_sel(void *context, unsigned int reg,
 	int rc = 0;
 	struct mdss_pll_resources *rsc = context;
 
-	if (is_gdsc_disabled(rsc))
-		return 0;
-
 	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
 		return rc;
 	}
 
-	*val = ((MDSS_PLL_REG_R(rsc->pll_base, reg) & BIT(1)) >> 1);
+	*val = (MDSS_PLL_REG_R(rsc->pll_base, reg) & BIT(1));
 	pr_debug("byteclk mux mode = %s", *val ? "indirect" : "direct");
 
 	(void)mdss_pll_resource_enable(rsc, false);
@@ -151,7 +131,7 @@ int byteclk_mux_write_sel(void *context, unsigned int reg,
 
 	reg_val = MDSS_PLL_REG_R(rsc->pll_base, reg);
 	reg_val &= ~0x02;
-	reg_val |= (val << 1);
+	reg_val |= val;
 
 	MDSS_PLL_REG_W(rsc->pll_base, reg, reg_val);
 
@@ -166,9 +146,6 @@ int pixel_clk_get_div(void *context, unsigned int reg,
 	int rc = 0;
 	struct mdss_pll_resources *rsc = context;
 
-	if (is_gdsc_disabled(rsc))
-		return 0;
-
 	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
@@ -176,13 +153,6 @@ int pixel_clk_get_div(void *context, unsigned int reg,
 	}
 
 	*div = MDSS_PLL_REG_R(rsc->pll_base, reg);
-
-	/**
-	 *Common clock framework the divider value is interpreted as one less
-	 * hence we return one less for all dividers except when zero
-	 */
-	if (*div != 0)
-		*div -= 1;
 
 	pr_debug("pclk_src div = %d\n", *div);
 
@@ -203,13 +173,6 @@ int pixel_clk_set_div(void *context, unsigned int reg,
 	}
 
 	pr_debug("pclk_src div = %d\n", div);
-
-	/**
-	 * In common clock framework the divider value provided is one less and
-	 * and hence adjusting the divider value by one prior to writing it to
-	 * hardware
-	 */
-	div++;
 
 	MDSS_PLL_REG_W(rsc->pll_base, reg, div);
 
@@ -414,6 +377,8 @@ static void pll_28nm_vco_config(struct dsi_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG11,
 		(u32)(vco_calc->cal_cfg11 & 0xff));
 	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_EFUSE_CFG, 0x20);
+	MDSS_PLL_REG_W(pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_POSTDIV2_CFG, 0x3); /* Fixed div-4 */
 }
 
 static int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
@@ -441,9 +406,6 @@ static unsigned long vco_get_rate(struct dsi_pll_vco_clk *vco)
 	u64 vco_rate;
 	u32 sdm_dc_off, sdm_freq_seed, sdm2, sdm3;
 	u64 ref_clk = vco->ref_clk_rate;
-
-	if (is_gdsc_disabled(rsc))
-		return 0;
 
 	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
@@ -576,6 +538,7 @@ int vco_28nm_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1000);
 
 	rc = vco_set_rate(vco, rate);
+	rsc->vco_current_rate = rate;
 
 	mdss_pll_resource_enable(rsc, false);
 
@@ -610,6 +573,9 @@ unsigned long vco_28nm_recalc_rate(struct clk_hw *hw,
 		pr_err("dsi pll resources not available\n");
 		return 0;
 	}
+
+	if (rsc->vco_current_rate)
+		return (unsigned long)rsc->vco_current_rate;
 
 	if (is_gdsc_disabled(rsc))
 		return 0;
