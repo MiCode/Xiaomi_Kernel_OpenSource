@@ -2909,13 +2909,13 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	bool check_vbus_state, check_id_state, phandle_found = false;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if (!of_property_read_bool(node, "extcon") &&
-				(dwc->dr_mode == USB_DR_MODE_OTG)) {
-		dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+	if (!of_property_read_bool(node, "extcon")) {
+		if (dwc->dr_mode == USB_DR_MODE_OTG) {
+			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
 								__func__);
-		mdwc->vbus_active = true;
-		dwc->vbus_active = true;
-		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+			mdwc->vbus_active = true;
+			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+		}
 		return 0;
 	}
 
