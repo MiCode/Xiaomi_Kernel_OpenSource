@@ -138,3 +138,93 @@ Example:
 				"phy_phy_reset";
 
 	};
+
+QUSB2 High-Speed PHY
+
+Required properties:
+ - compatible: Should be "qcom,qusb2phy" or "qcom,qusb2phy-v2"
+ - reg: Address and length of the QUSB2 PHY register set
+ - reg-names: Should be "qusb_phy_base".
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required supplies are:
+	"vdd" : vdd supply for digital circuit operation
+	"vdda18" : 1.8v high-voltage analog supply
+	"vdda33" : 3.3v high-voltage analog supply
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "ref_clk_src" is a mandatory clock.
+ - qcom,vdd-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner
+ - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
+ - resets: reset specifier pair consists of phandle for the reset controller
+   and reset lines used by this controller.
+ - reset-names: reset signal name strings sorted in the same order as the resets
+   property.
+ - qcom,qusb-phy-reg-offset: Provides important phy register offsets in an order defined in phy driver.
+
+Optional properties:
+ - reg-names: Additional registers corresponding with the following:
+   "efuse_addr": EFUSE address to read and update analog tune parameter.
+   "emu_phy_base" : phy base address used for programming emulation target phy.
+   "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
+   "tcsr_clamp_dig_n" : To enable/disable digital clamp to the phy. When
+   de-asserted, it will prevent random leakage from qusb2 phy resulting from
+   out of sequence turn on/off of 1p8, 3p3 and DVDD regulators.
+   "refgen_north_bg_reg" : address used to read REFGEN status for overriding QUSB PHY register.
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "cfg_ahb_clk" and "ref_clk" are optional clocks.
+ - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
+ - qcom,qusb-phy-host-init-seq: QUSB PHY initialization sequence for host mode
+   with value,reg pair.
+ - qcom,emu-init-seq : emulation initialization sequence with value,reg pair.
+ - qcom,phy-pll-reset-seq : emulation PLL reset sequence with value,reg pair.
+ - qcom,emu-dcm-reset-seq : emulation DCM reset sequence with value,reg pair.
+ - qcom,efuse-bit-pos: start bit position within EFUSE register
+ - qcom,efuse-num-bits: Number of bits to read from EFUSE register
+ - qcom,emulation: Indicates that we are running on emulation platform.
+ - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
+ - qcom,phy-clk-scheme: Should be one of "cml" or "cmos" if ref_clk_addr is provided.
+ - qcom,major-rev: provide major revision number to differentiate power up sequence. default is 2.0
+ - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Names represents "active"
+   state when attached in host mode and "suspend" state when detached.
+ - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
+   improved rise/fall times.
+ - qcom,host-chirp-erratum: Indicates host chirp fix is required.
+ - qcom,override-bias-ctrl2: Indicates override is done from driver for
+   BIAS_CTRL2 register.
+ - nvmem-cells: specifies the handle to represent the SoC revision.
+   usually it is defined by qfprom device node.
+ - nvmem-cell-names: specifies the given nvmem cell name as defined in
+   qfprom node.
+
+Example:
+	qusb_phy: qusb@f9b39000 {
+		compatible = "qcom,qusb2phy";
+		reg = <0x00079000 0x7000>;
+		reg-names = "qusb_phy_base";
+		vdd-supply = <&pm8994_s2_corner>;
+		vdda18-supply = <&pm8994_l6>;
+		vdda33-supply = <&pm8994_l24>;
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,qusb-phy-reg-offset =
+			<0x240 /* QUSB2PHY_PORT_TUNE1 */
+			 0x1a0 /* QUSB2PHY_PLL_COMMON_STATUS_ONE */
+			 0x210 /* QUSB2PHY_PWR_CTRL1 */
+			 0x230 /* QUSB2PHY_INTR_CTRL */
+			 0x0a8 /* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE */
+			 0x254 /* QUSB2PHY_TEST1 */
+			 0x198>; /* QUSB2PHY_PLL_BIAS_CONTROL_2 */
+		qcom,efuse-bit-pos = <21>;
+		qcom,efuse-num-bits = <3>;
+
+		clocks = <&clock_rpm clk_ln_bb_clk>,
+			 <&clock_gcc clk_gcc_rx2_usb1_clkref_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>;
+		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk";
+		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
+	};
