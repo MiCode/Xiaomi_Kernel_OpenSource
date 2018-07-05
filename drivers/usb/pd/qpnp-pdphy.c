@@ -713,7 +713,7 @@ static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 		goto done;
 
 	frame_type = rx_status & RX_FRAME_TYPE;
-	if (frame_type != SOP_MSG) {
+	if (frame_type == SOPII_MSG) {
 		dev_err(pdphy->dev, "%s:unsupported frame type %d\n",
 			__func__, frame_type);
 		goto done;
