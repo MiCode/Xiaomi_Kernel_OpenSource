@@ -84,7 +84,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENDP_INIT_PROD_CFG_n),
 	__stringify(IPA_ENDP_INIT_RSRC_GRP_n),
 	__stringify(IPA_SHARED_MEM_SIZE),
-	__stringify(IPA_SRAM_DIRECT_ACCESS_n),
+	__stringify(IPA_SW_AREA_RAM_DIRECT_ACCESS_n),
 	__stringify(IPA_DEBUG_CNT_CTRL_n),
 	__stringify(IPA_UC_MAILBOX_m_n),
 	__stringify(IPA_FILT_ROUT_HASH_FLUSH),
@@ -2320,7 +2320,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_SHARED_MEM_SIZE] = {
 		ipareg_construct_dummy, ipareg_parse_shared_mem_size,
 		0x00000054, 0, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_SRAM_DIRECT_ACCESS_n] = {
+	[IPA_HW_v3_0][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00007000, 0x4, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_DEBUG_CNT_CTRL_n] = {
@@ -2924,6 +2924,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_aggr_n_v4_5,
 		ipareg_parse_endp_init_aggr_n_v4_5,
 		0x00000824, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000010000, 0x4, 0, 0, 0},
 };
 
 /*

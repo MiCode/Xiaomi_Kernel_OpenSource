@@ -85,7 +85,7 @@ enum ipahal_reg_name {
 	IPA_ENDP_INIT_PROD_CFG_n,
 	IPA_ENDP_INIT_RSRC_GRP_n,
 	IPA_SHARED_MEM_SIZE,
-	IPA_SRAM_DIRECT_ACCESS_n,
+	IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 	IPA_DEBUG_CNT_CTRL_n,
 	IPA_UC_MAILBOX_m_n,
 	IPA_FILT_ROUT_HASH_FLUSH,
@@ -204,12 +204,12 @@ struct ipahal_reg_endp_init_mode {
 };
 
 /*
- * struct ipahal_reg_shared_mem_size - IPA SHARED_MEM_SIZE register
+ * struct ipahal_reg_shared_mem_size - IPA_SHARED_MEM_SIZE register
  * @shared_mem_sz: Available size [in 8Bytes] of SW partition within
  *	IPA shared memory.
  * @shared_mem_baddr: Offset of SW partition within IPA
  *	shared memory[in 8Bytes]. To get absolute address of SW partition,
- *	add this offset to IPA_SRAM_DIRECT_ACCESS_n baddr.
+ *	add this offset to IPA_SW_AREA_RAM_DIRECT_ACCESS_n baddr.
  */
 struct ipahal_reg_shared_mem_size {
 	u32 shared_mem_sz;
