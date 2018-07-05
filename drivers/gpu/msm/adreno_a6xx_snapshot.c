@@ -184,9 +184,9 @@ static struct a6xx_cluster_dbgahb_registers {
 		ARRAY_SIZE(a6xx_sp_ps_tp_2d_cluster) / 2 },
 	{ CP_CLUSTER_SP_PS, 0x0002E000, 0x42, a6xx_hlsq_duplicate_cluster,
 		ARRAY_SIZE(a6xx_hlsq_duplicate_cluster) / 2 },
-	{ CP_CLUSTER_SP_VS, 0x0002A000, 0x22, a6xx_sp_duplicate_cluster,
+	{ CP_CLUSTER_SP_PS, 0x0002A000, 0x22, a6xx_sp_duplicate_cluster,
 		ARRAY_SIZE(a6xx_sp_duplicate_cluster) / 2 },
-	{ CP_CLUSTER_SP_VS, 0x0002C000, 0x2, a6xx_tp_duplicate_cluster,
+	{ CP_CLUSTER_SP_PS, 0x0002C000, 0x2, a6xx_tp_duplicate_cluster,
 		ARRAY_SIZE(a6xx_tp_duplicate_cluster) / 2 },
 };
 
