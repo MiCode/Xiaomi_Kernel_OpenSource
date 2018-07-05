@@ -7687,6 +7687,9 @@ static int nl80211_crypto_settings(struct cfg80211_registered_device *rdev,
 		if (settings->n_ciphers_pairwise > cipher_limit)
 			return -EINVAL;
 
+		if (len > sizeof(u32) * NL80211_MAX_NR_CIPHER_SUITES)
+			return -EINVAL;
+
 		memcpy(settings->ciphers_pairwise, data, len);
 
 		for (i = 0; i < settings->n_ciphers_pairwise; i++)
