@@ -493,6 +493,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	u32 reset_status = 0;
 	int new_cnt = -1, old_cnt = -1;
 	u32 event = 0;
+	int pend_ret_fence_cnt;
 
 	if (!phys_enc)
 		return;
@@ -519,6 +520,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		goto not_flushed;
 
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	pend_ret_fence_cnt = atomic_read(&phys_enc->pending_retire_fence_cnt);
 
 	/* signal only for master, where there is a pending kickoff */
 	if (sde_encoder_phys_vid_is_master(phys_enc)) {
@@ -544,7 +546,8 @@ not_flushed:
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), phys_enc->hw_intf->idx - INTF_0,
 			old_cnt, new_cnt, reset_status ? SDE_EVTLOG_ERROR : 0,
-			flush_register, event);
+			flush_register, event,
+			pend_ret_fence_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
@@ -822,6 +825,8 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
 		ctl->idx - CTL_0, intf->idx);
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
 
 	/* ctl_flush & timing engine enable will be triggered by framework */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)
@@ -1097,6 +1102,8 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 				phys_enc->hw_pp->merge_3d->idx);
 
 exit:
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
 	phys_enc->vfp_cached = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }

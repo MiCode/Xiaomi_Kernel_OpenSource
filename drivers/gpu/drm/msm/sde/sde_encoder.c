@@ -3329,6 +3329,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	struct sde_hw_ctl *ctl;
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
+	int pend_ret_fence_cnt;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -3363,6 +3364,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
+	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
+
 	if ((extra_flush && extra_flush->pending_flush_mask)
 			&& ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush);
@@ -3377,10 +3380,12 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
 				ctl->idx - CTL_0,
-				pending_flush.pending_flush_mask);
+				pending_flush.pending_flush_mask,
+				pend_ret_fence_cnt);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				ctl->idx - CTL_0);
+				ctl->idx - CTL_0,
+				pend_ret_fence_cnt);
 	}
 }
 
