@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/msm_kgsl.h>
+#include <linux/clk/qcom.h>
 
 #include "kgsl.h"
 #include "adreno.h"
@@ -1904,6 +1905,29 @@ int a3xx_microcode_load(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
+	const char *name, struct clk *clk, bool on)
+{
+	if (!adreno_is_a306a(adreno_dev))
+		return;
+
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
+}
+
 struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = &a3xx_reg_offsets,
 	.int_bits = a3xx_int_bits,
@@ -1924,4 +1948,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
 	.coresight = {&a3xx_coresight},
+	.clk_set_options = a3xx_clk_set_options,
 };
