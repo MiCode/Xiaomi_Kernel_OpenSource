@@ -162,6 +162,10 @@
 #define QPNP_VADC_HC1_CONV_TIME_MAX_US				214
 #define QPNP_VADC_HC1_ERR_COUNT					1600
 
+#define QPNP_VADC_CAL_DELAY_CTL_1					0x3744
+#define QPNP_VADC_CAL_DELAY_MEAS_SLOW					0x73
+#define QPNP_VADC_CAL_DELAY_MEAS_DEFAULT				0x3
+
 struct qpnp_vadc_mode_state {
 	bool				meas_int_mode;
 	bool				meas_int_request_in_queue;
@@ -489,7 +493,8 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 				struct qpnp_vadc_result *result)
 {
 	int rc = 0, scale_type, amux_prescaling, dt_index = 0, calib_type = 0;
-	struct qpnp_adc_amux_properties amux_prop;
+	u8 val = QPNP_VADC_CAL_DELAY_MEAS_SLOW;
+	struct qpnp_adc_amux_properties amux_prop, conv;
 
 	if (qpnp_vadc_is_valid(vadc))
 		return -EPROBE_DEFER;
@@ -525,6 +530,31 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 		goto fail_unlock;
 	}
 
+	if (channel == VADC_USB_IN_V_DIV_16_PM5 &&
+			vadc->adc->adc_prop->is_pmic_5) {
+		rc = regmap_bulk_write(vadc->adc->regmap,
+				QPNP_VADC_CAL_DELAY_CTL_1, &val, 1);
+		if (rc < 0) {
+			pr_err("qpnp adc write cal_delay failed with %d\n", rc);
+			return rc;
+		}
+		msleep(20);
+
+		conv.amux_channel = VADC_VREF_GND;
+		conv.decimation = DECIMATION_TYPE2;
+		conv.mode_sel = ADC_OP_NORMAL_MODE << QPNP_VADC_OP_MODE_SHIFT;
+		conv.hw_settle_time = ADC_CHANNEL_HW_SETTLE_DELAY_0US;
+		conv.fast_avg_setup = ADC_FAST_AVG_SAMPLE_1;
+		conv.cal_val = ADC_HC_ABS_CAL;
+
+		rc = qpnp_vadc_hc_configure(vadc, &conv);
+		if (rc) {
+			pr_err("qpnp_vadc configure failed with %d\n", rc);
+			goto fail_unlock;
+		}
+
+	}
+
 	amux_prop.decimation =
 			vadc->adc->adc_channels[dt_index].adc_decimation;
 	amux_prop.calib_type = vadc->adc->adc_channels[dt_index].calib_type;
@@ -558,6 +588,18 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 				goto fail_unlock;
 			}
 			pr_debug("End of conversion status set\n");
+		}
+	}
+
+	val = QPNP_VADC_CAL_DELAY_MEAS_DEFAULT;
+
+	if (channel == VADC_USB_IN_V_DIV_16_PM5 &&
+			vadc->adc->adc_prop->is_pmic_5) {
+		rc = regmap_bulk_write(vadc->adc->regmap,
+				QPNP_VADC_CAL_DELAY_CTL_1, &val, 1);
+		if (rc < 0) {
+			pr_err("qpnp adc write cal_delay failed with %d\n", rc);
+			return rc;
 		}
 	}
 
