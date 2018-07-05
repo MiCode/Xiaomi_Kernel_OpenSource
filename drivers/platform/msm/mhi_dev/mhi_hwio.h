@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,5 +191,7 @@
 #define BHI_EXECENV					(0x228)
 #define BHI_EXECENV_MASK				0xFFFFFFFF
 #define BHI_EXECENV_SHIFT				0
+
+#define BHI_IMGTXDB					(0x218)
 
 #endif
