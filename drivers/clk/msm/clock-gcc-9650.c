@@ -1734,6 +1734,11 @@ static int msm_gcc_9650_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-9650")) {
+		vdd_dig.use_max_uV = true;
+		vdd_dig_ao.use_max_uV = true;
+	}
+
 	for_sdx20 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-sdx20");
 
