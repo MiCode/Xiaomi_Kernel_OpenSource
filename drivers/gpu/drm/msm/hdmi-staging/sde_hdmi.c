@@ -3069,6 +3069,8 @@ static int _sde_hdmi_parse_dt(struct device_node *node,
 {
 	int rc = 0;
 
+	struct hdmi *hdmi = display->ctrl.ctrl;
+
 	display->name = of_get_property(node, "label", NULL);
 
 	display->display_type = of_get_property(node,
@@ -3078,6 +3080,11 @@ static int _sde_hdmi_parse_dt(struct device_node *node,
 
 	display->non_pluggable = of_property_read_bool(node,
 						"qcom,non-pluggable");
+
+	display->skip_ddc = of_property_read_bool(node,
+						"qcom,skip_ddc");
+	if (!display->non_pluggable)
+		hdmi_i2c_destroy(hdmi->i2c);
 
 	rc = _sde_hdmi_parse_dt_modes(node, &display->mode_list,
 					&display->num_of_modes);

@@ -512,8 +512,8 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 		}
 		hdmi->power_on = true;
 	}
-
-	_sde_hdmi_bridge_setup_scrambler(hdmi, &display->mode);
+	if (!display->skip_ddc)
+		_sde_hdmi_bridge_setup_scrambler(hdmi, &display->mode);
 
 	if (phy)
 		phy->funcs->powerup(phy, hdmi->pixclock);
@@ -822,6 +822,8 @@ static u32 _sde_hdmi_choose_best_format(struct hdmi *hdmi,
 	 */
 	int dc_format;
 	struct drm_connector *connector = hdmi->connector;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 
 	dc_format = sde_hdmi_sink_dc_support(connector, mode);
 	if (dc_format & MSM_MODE_FLAG_RGB444_DC_ENABLE)
@@ -835,7 +837,8 @@ static u32 _sde_hdmi_choose_best_format(struct hdmi *hdmi,
 	else if (mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV)
 		return MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420;
 
-	SDE_ERROR("Can't get available best display format\n");
+	if (display && !display->non_pluggable)
+		SDE_ERROR("Can't get available best display format\n");
 
 	return MSM_MODE_FLAG_COLOR_FORMAT_RGB444;
 }
