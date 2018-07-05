@@ -7781,7 +7781,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		delta = task_util(p);
 #endif
 	if (use_fbt && (fbt_env.placement_boost || fbt_env.need_idle ||
-		(rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target)) ||
+		(rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
+			cpumask_test_cpu(next_cpu, rtg_target))) ||
 		 __cpu_overutilized(prev_cpu, delta) ||
 		 !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))) {
 		energy_cpu = eenv->cpu[EAS_CPU_NXT].cpu_id;
