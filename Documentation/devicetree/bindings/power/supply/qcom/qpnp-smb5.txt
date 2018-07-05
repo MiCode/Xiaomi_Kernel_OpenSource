@@ -220,6 +220,12 @@ Charger specific properties:
 		    connector THERM, only valid values are (0/30/100/400).
 		    If not specified 100K is used as default pull-up.
 
+- qcom,moisture-protection-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Boolean flag which when present enables mositure protection
+		    feature.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
