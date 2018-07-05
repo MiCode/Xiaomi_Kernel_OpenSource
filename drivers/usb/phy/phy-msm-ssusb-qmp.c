@@ -1081,7 +1081,6 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 	usb_remove_phy(&phy->phy);
 	msm_ssphy_qmp_enable_clks(phy, false);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
-	kfree(phy);
 	return 0;
 }
 
