@@ -31,14 +31,6 @@
 #define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
 #define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
 
-#define HFI_VER_MAJOR(hfi) (((hfi)->version >> 28) & 0xF)
-#define HFI_VER_MINOR(hfi) (((hfi)->version >> 5) & 0x7FFFFF)
-#define HFI_VER_BRANCH(hfi) ((hfi)->version & 0x1F)
-#define HFI_VERSION(major, minor, branch) \
-	((((major) & 0xF) << 28) | \
-	 (((minor) & 0x7FFFFF) << 5) | \
-	 ((branch) & 0x1F))
-
 static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx,
 	struct pending_cmd *ret_cmd);
 
@@ -95,7 +87,7 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		result = -ENODATA;
 	}
 
-	if (HFI_VER_MAJOR(&gmu->hfi) >= 2)
+	if (GMU_VER_MAJOR(gmu->ver.hfi) >= 2)
 		read = ALIGN(read, SZ_4) % hdr->queue_size;
 
 	hdr->read_index = read;
@@ -154,7 +146,7 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 	}
 
 	/* Cookify any non used data at the end of the write buffer */
-	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
+	if (GMU_VER_MAJOR(gmu->ver.hfi) >= 2) {
 		for (; write % 4; write = (write + 1) % hdr->queue_size)
 			queue[write] = 0xFAFAFAFA;
 	}
@@ -586,7 +578,7 @@ static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx,
 
 	while (hfi_queue_read(gmu, queue_idx, rcvd, sizeof(rcvd)) > 0) {
 		/* Special case if we're v1 */
-		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
+		if (GMU_VER_MAJOR(gmu->ver.hfi) < 2) {
 			hfi_v1_receiver(gmu, rcvd, ret_cmd);
 			continue;
 		}
@@ -620,11 +612,6 @@ void hfi_receiver(unsigned long data)
 	hfi_process_queue((struct gmu_device *) data, HFI_DBG_ID, NULL);
 }
 
-#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
-#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
-#define GMU_VERSION(major, minor) \
-	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
-
 static int hfi_verify_fw_version(struct kgsl_device *device,
 		struct gmu_device *gmu)
 {
@@ -633,12 +620,8 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	unsigned int ver, major, minor;
 
 	/* GMU version is already known, so don't waste time finding again */
-	if (gmu->ver != ~0U)
+	if (gmu->ver.core != 0)
 		return 0;
-
-	/* Read the HFI version from the register */
-	adreno_read_gmureg(adreno_dev,
-		ADRENO_REG_GMU_HFI_VERSION_INFO, &gmu->hfi.version);
 
 	major = adreno_dev->gpucore->gpmu_major;
 	minor = adreno_dev->gpucore->gpmu_minor;
@@ -662,7 +645,7 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 				GMU_VER_MINOR(ver), minor);
 
 	/* Save the gmu version information */
-	gmu->ver = ver;
+	gmu->ver.core = ver;
 
 	return 0;
 }
@@ -717,7 +700,7 @@ int hfi_start(struct kgsl_device *device,
 	if (result)
 		return result;
 
-	if (HFI_VER_MAJOR(&gmu->hfi) < 2)
+	if (GMU_VER_MAJOR(gmu->ver.hfi) < 2)
 		result = hfi_send_dcvstbl_v1(gmu);
 	else
 		result = hfi_send_dcvstbl(gmu);
@@ -733,7 +716,7 @@ int hfi_start(struct kgsl_device *device,
 	 * we are sending no more HFIs until the next boot otherwise
 	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
-	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
+	if (GMU_VER_MAJOR(gmu->ver.hfi) >= 2) {
 		if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
 			result = hfi_send_feature_ctrl(gmu,
 					HFI_FEATURE_ECP, 1, 0);

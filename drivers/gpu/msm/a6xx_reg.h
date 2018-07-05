@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -994,6 +994,7 @@
 #define A6XX_GMU_HOST2GMU_INTR_INFO_1		0x1F99C
 #define A6XX_GMU_HOST2GMU_INTR_INFO_2		0x1F99D
 #define A6XX_GMU_HOST2GMU_INTR_INFO_3		0x1F99E
+#define A6XX_GMU_GENERAL_0			0x1F9C5
 #define A6XX_GMU_GENERAL_1			0x1F9C6
 #define A6XX_GMU_GENERAL_6			0x1F9CB
 #define A6XX_GMU_GENERAL_7			0x1F9CC

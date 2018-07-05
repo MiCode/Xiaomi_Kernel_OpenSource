@@ -1304,7 +1304,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	device->gmu_core.ptr = (void *)gmu;
 	hfi = &gmu->hfi;
 	gmu->load_mode = TCM_BOOT;
-	gmu->ver = ~0U;
 
 	gmu->pdev = of_find_device_by_node(node);
 	of_dma_configure(&gmu->pdev->dev, node, true);

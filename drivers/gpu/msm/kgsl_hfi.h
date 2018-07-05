@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_HFI_H
 #define __KGSL_HFI_H
@@ -607,7 +607,6 @@ struct pending_cmd {
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
  * @tasklet: the thread handling received messages from GMU
- * @version: HFI version number provided
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
  * @bwtbl_cmd: HFI BW table buffer
@@ -618,7 +617,6 @@ struct kgsl_hfi {
 	int hfi_interrupt_num;
 	struct mutex cmdq_mutex;
 	struct tasklet_struct tasklet;
-	uint32_t version;
 	atomic_t seqnum;
 	struct hfi_bwtable_cmd bwtbl_cmd;
 	struct hfi_acd_table_cmd acd_tbl_cmd;
