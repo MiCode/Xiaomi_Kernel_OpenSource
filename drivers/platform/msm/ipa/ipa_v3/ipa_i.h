@@ -693,6 +693,7 @@ struct ipa3_sys_context {
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
 	struct ipa3_repl_ctx repl;
+	u32 pkt_sent;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
