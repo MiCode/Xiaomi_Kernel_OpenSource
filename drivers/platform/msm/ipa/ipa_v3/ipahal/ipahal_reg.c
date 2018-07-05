@@ -3036,6 +3036,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_hdr_metadata_mask_n,
 		ipareg_parse_dummy,
 		0x00000818, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_UC_MAILBOX_m_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00082000, 0x4, 0, 0, 0},
 };
 
 /*

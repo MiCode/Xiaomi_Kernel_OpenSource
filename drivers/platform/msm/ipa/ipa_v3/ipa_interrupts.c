@@ -73,7 +73,8 @@ static void ipa3_deferred_interrupt_work(struct work_struct *work)
 			container_of(work,
 			struct ipa3_interrupt_work_wrap,
 			interrupt_work);
-	IPADBG("call handler from workq...\n");
+	IPADBG("call handler from workq... interrupt=%d\n",
+		work_data->interrupt);
 	work_data->handler(work_data->interrupt, work_data->private_data,
 			work_data->interrupt_data);
 	kfree(work_data->interrupt_data);
@@ -111,7 +112,7 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 
 	switch (interrupt_info.interrupt) {
 	case IPA_TX_SUSPEND_IRQ:
-		IPADBG_LOW("processing TX_SUSPEND interrupt work-around\n");
+		IPADBG_LOW("processing TX_SUSPEND interrupt\n");
 		ipa3_tx_suspend_interrupt_wa();
 		suspend_data = ipahal_read_reg_n(IPA_IRQ_SUSPEND_INFO_EE_n,
 			ipa_ee);
@@ -154,6 +155,8 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 
 	/* Force defer processing if in ISR context. */
 	if (interrupt_info.deferred_flag || isr_context) {
+		IPADBG_LOW("Defer handling interrupt %d\n",
+			interrupt_info.interrupt);
 		work_data = kzalloc(sizeof(struct ipa3_interrupt_work_wrap),
 				GFP_ATOMIC);
 		if (!work_data) {
@@ -170,6 +173,7 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 		queue_work(ipa_interrupt_wq, &work_data->interrupt_work);
 
 	} else {
+		IPADBG_LOW("Handle interrupt %d\n", interrupt_info.interrupt);
 		interrupt_info.handler(interrupt_info.interrupt,
 			interrupt_info.private_data,
 			interrupt_data);
@@ -261,15 +265,18 @@ static void ipa3_process_interrupts(bool isr_context)
 	unsigned long flags;
 	bool uc_irq;
 
-	IPADBG_LOW("Enter\n");
+	IPADBG_LOW("Enter isr_context=%d\n", isr_context);
 
 	spin_lock_irqsave(&suspend_wa_lock, flags);
 	en = ipahal_read_reg_n(IPA_IRQ_EN_EE_n, ipa_ee);
 	reg = ipahal_read_reg_n(IPA_IRQ_STTS_EE_n, ipa_ee);
 	while (en & reg) {
+		IPADBG_LOW("en=0x%x reg=0x%x\n", en, reg);
 		bmsk = 1;
 		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
+			IPADBG_LOW("Check irq num %d\n", i);
 			if (en & reg & bmsk) {
+				IPADBG_LOW("irq num %d asserted\n", i);
 				uc_irq = is_uc_irq(i);
 
 				/*
