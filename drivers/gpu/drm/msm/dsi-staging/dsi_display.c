@@ -1166,6 +1166,9 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	if (user_len > sizeof(u32))
 		return -EINVAL;
 
+	if (!user_len || !user_buf)
+		return -EINVAL;
+
 	buf = kzalloc(user_len, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
