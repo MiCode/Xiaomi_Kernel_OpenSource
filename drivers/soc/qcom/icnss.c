@@ -1205,6 +1205,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
+		if (wlfw_send_modem_shutdown_msg(priv))
+			icnss_pr_dbg("Fail to send modem shutdown Indication\n");
+	}
+
 	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
