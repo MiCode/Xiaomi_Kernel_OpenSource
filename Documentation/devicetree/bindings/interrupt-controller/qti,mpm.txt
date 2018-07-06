@@ -17,7 +17,11 @@ Properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: Should contain "qcom,mpm-gic" and the respective target compatible flag.
+	Definition: Should contain "qcom,mpm-gic" and the respective target compatible flag
+	from below ones.
+		"qcom,mpm-gic-msm8953",
+		"qcom,mpm-gic-msm8937",
+		"qcom,mpm-gic-qcs405"
 
 - interrupts:
 	Usage: required
@@ -52,7 +56,7 @@ Properties:
 Example:
 
 wakegic: wake-gic@7781b8 {
-	compatible = "qcom,mpm-gic", "qcom,mpm-gic-msm8953", "qcom,mpm-gic-msm8937";
+	compatible = "qcom,mpm-gic", "qcom,mpm-gic-msm8953";
 	interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
 	reg = <0x601d4 0x1000>,
 	    <0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
@@ -70,7 +74,11 @@ properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: Should contain "qcom,mpm-gpio" and the respective target compatible flag.
+	Definition: Should contain "qcom,mpm-gpio" and the respective target compatible flag
+	from below ones.
+		"qcom,mpm-gpio-msm8953",
+		"qcom,mpm-gpio-msm8937",
+		"qcom,mpm-gpio-qcs405"
 
 - interrupt-parent:
 	Usage: required
@@ -85,7 +93,7 @@ properties:
 Example:
 
 wakegpio: wake-gpio {
-	compatible = "qcom,mpm-gpio", "qcom,mpm-gpio-msm8953", "qcom,mpm-gpio-msm8937";
+	compatible = "qcom,mpm-gpio", "qcom,mpm-gpio-msm8953";
 	interrupt-controller;
 	interrupt-parent = <&tlmm>;
 	#interrupt-cells = <2>;
