@@ -156,4 +156,13 @@ config PINCTRL_SDM845
          Qualcomm Technologies Inc TLMM block found on the Qualcomm
          Technologies Inc SDM845 platform.
 
+config PINCTRL_KONA
+	tristate "Qualcomm Technologies Inc KONA pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	  Technologies Inc KONA platform.
+
 endif
