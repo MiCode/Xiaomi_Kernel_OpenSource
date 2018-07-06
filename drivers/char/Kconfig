@@ -623,3 +623,41 @@ config OKL4_PIPE
         Virtual pipe driver for the OKL4 Microvisor. This driver allows
         OKL4 Microvisor pipes to be exposed directly to user level as
         character devices.
+
+config VSERVICES_SERIAL
+	tristate
+
+config VSERVICES_SERIAL_SERVER
+	tristate "Virtual Services serial server"
+	depends on VSERVICES_SUPPORT && VSERVICES_SERVER
+	select VSERVICES_SERIAL
+	select VSERVICES_PROTOCOL_SERIAL_SERVER
+	default y
+	help
+	  Select this option if you want support for server side Virtual
+	  Services serial. A virtual serial service behaves similarly to
+	  a UNIX pseudo terminal (pty), and does not require any physical
+	  serial hardware. Virtual serial devices are typically called
+	  /dev/ttyVS0, /dev/ttyVS1, etc.
+
+config VSERVICES_SERIAL_CLIENT
+	tristate "Virtual Services serial client"
+	depends on VSERVICES_SUPPORT && VSERVICES_CLIENT
+	select VSERVICES_SERIAL
+	select VSERVICES_PROTOCOL_SERIAL_CLIENT
+	default y
+	help
+	  Select this option if you want support for client side Virtual
+	  Services serial. A virtual serial service behaves similarly to
+	  a UNIX pseudo terminal (pty), and does not require any physical
+	  serial hardware. Virtual serial devices are typically called
+	  /dev/ttyVS0, /dev/ttyVS1, etc.
+
+config VSERVICES_VTTY_COUNT
+	int "Maximum number of Virtual Services serial devices"
+	depends on VSERVICES_SERIAL
+	range 0 256
+	default "8"
+	help
+	  The maximum number of Virtual Services serial devices to support.
+	  This limit applies to both the client and server.
