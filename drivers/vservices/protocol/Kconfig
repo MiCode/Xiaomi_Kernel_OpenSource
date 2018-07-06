@@ -5,6 +5,23 @@
 if VSERVICES_SERVER || VSERVICES_CLIENT
 
 menu "Protocol drivers"
+config VSERVICES_PROTOCOL_BLOCK
+	bool
+
+config VSERVICES_PROTOCOL_BLOCK_SERVER
+	tristate "Block server protocol"
+	depends on VSERVICES_SUPPORT && VSERVICES_SERVER
+	select VSERVICES_PROTOCOL_BLOCK
+	help
+	  This option adds support for Virtual Services block protocol server.
+
+config VSERVICES_PROTOCOL_BLOCK_CLIENT
+	tristate "Block client protocol"
+	depends on VSERVICES_SUPPORT && VSERVICES_CLIENT
+	select VSERVICES_PROTOCOL_BLOCK
+	help
+	  This option adds support for Virtual Services block protocol client.
+
 config VSERVICES_PROTOCOL_SERIAL
 	bool
 
