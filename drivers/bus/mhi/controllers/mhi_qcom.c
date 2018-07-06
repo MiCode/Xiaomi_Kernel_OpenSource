@@ -37,6 +37,9 @@ static const struct firmware_info firmware_table[] = {
 	{.fw_image = "debug.mbn"},
 };
 
+static int debug_mode;
+module_param_named(debug_mode, debug_mode, int, 0644);
+
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -420,7 +423,9 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 
 	for (i = 0; i < ARRAY_SIZE(firmware_table); i++) {
 		firmware_info = firmware_table + i;
-		if (mhi_cntrl->dev_id == firmware_info->dev_id)
+
+		/* debug mode always use default */
+		if (!debug_mode && mhi_cntrl->dev_id == firmware_info->dev_id)
 			break;
 	}
 
@@ -470,9 +475,11 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 		goto error_init_pci;
 
 	/* start power up sequence */
-	ret = mhi_async_power_up(mhi_cntrl);
-	if (ret)
-		goto error_power_up;
+	if (!debug_mode) {
+		ret = mhi_async_power_up(mhi_cntrl);
+		if (ret)
+			goto error_power_up;
+	}
 
 	pm_runtime_mark_last_busy(&pci_dev->dev);
 	pm_runtime_allow(&pci_dev->dev);
