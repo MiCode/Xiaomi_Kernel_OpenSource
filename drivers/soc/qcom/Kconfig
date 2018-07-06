@@ -240,4 +240,12 @@ config MSM_CORE_HANG_DETECT
 	  for hang. By using sysfs entries core hang detection can be
 	  enabled or disabled dynamically.
 
+config QCOM_WATCHDOG_V2
+	bool "Qualcomm Watchdog Support"
+	depends on ARCH_QCOM
+	help
+	  This enables the watchdog module. It causes kernel panic if the
+	  watchdog times out. It allows for detection of cpu hangs and
+	  deadlocks. It does not run during the bootup process, so it will
+	  not catch any early lockups.
 endmenu
