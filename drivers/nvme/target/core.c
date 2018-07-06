@@ -743,9 +743,6 @@ u16 nvmet_alloc_ctrl(const char *subsysnqn, const char *hostnqn,
 	memcpy(ctrl->subsysnqn, subsysnqn, NVMF_NQN_SIZE);
 	memcpy(ctrl->hostnqn, hostnqn, NVMF_NQN_SIZE);
 
-	/* generate a random serial number as our controllers are ephemeral: */
-	get_random_bytes(&ctrl->serial, sizeof(ctrl->serial));
-
 	kref_init(&ctrl->ref);
 	ctrl->subsys = subsys;
 
@@ -904,6 +901,8 @@ struct nvmet_subsys *nvmet_subsys_alloc(const char *subsysnqn,
 		return NULL;
 
 	subsys->ver = NVME_VS(1, 2, 1); /* NVMe 1.2.1 */
+	/* generate a random serial number as our controllers are ephemeral: */
+	get_random_bytes(&subsys->serial, sizeof(subsys->serial));
 
 	switch (type) {
 	case NVME_NQN_NVME:
