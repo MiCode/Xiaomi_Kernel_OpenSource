@@ -410,7 +410,7 @@
 
 &pm8150b_adc_tm {
 	wp_therm {
-		reg = <ADC_AMUX_THM2_PU2>;
+		reg = <ADC_AMUX_THM1_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
@@ -449,7 +449,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "user_space";
-		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM2_PU2>;
+		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM1_PU2>;
 		trips {
 			active-config0 {
 				temperature = <125000>;

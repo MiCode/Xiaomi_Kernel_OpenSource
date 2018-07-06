@@ -158,8 +158,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#thermal-sensor-cells = <1>;
-			io-channels = <&pm8150b_vadc ADC_AMUX_THM2_PU2>;
-			status = "disabled";
+			io-channels = <&pm8150b_vadc ADC_AMUX_THM1_PU2>;
+			qcom,pmic-revid = <&pm8150b_revid>;
 		};
 
 		pm8150b_charger: qcom,qpnp-smb5 {
