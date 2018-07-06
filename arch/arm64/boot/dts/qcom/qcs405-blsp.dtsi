@@ -348,8 +348,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 0 107 0
-			    1 &intc 0 0 238 0
+		interrupt-map = <0 &intc 0 107 0
+			    1 &intc 0 238 0
 			    2 &tlmm 31 0>;
 
 		qcom,inject-rx-on-wakeup;
@@ -385,8 +385,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 0 108 0
-			    1 &intc 0 0 238 0
+		interrupt-map = <0 &intc 0 108 0
+			    1 &intc 0 238 0
 			    2 &tlmm 23 0>;
 
 		qcom,inject-rx-on-wakeup;
@@ -422,8 +422,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 0 118 0
-			    1 &intc 0 0 238 0
+		interrupt-map = <0 &intc 0 118 0
+			    1 &intc 0 238 0
 			    2 &tlmm 18 0>;
 
 		qcom,inject-rx-on-wakeup;
@@ -459,8 +459,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 0 119 0
-			    1 &intc 0 0 238 0
+		interrupt-map = <0 &intc 0 119 0
+			    1 &intc 0 238 0
 			    2 &tlmm 83 0>;
 
 		qcom,inject-rx-on-wakeup;
@@ -498,8 +498,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 0 297 0
-			    1 &intc 0 0 239 0
+		interrupt-map = <0 &intc 0 297 0
+			    1 &intc 0 239 0
 			    2 &tlmm 27 0>;
 
 		qcom,inject-rx-on-wakeup;
