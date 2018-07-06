@@ -96,6 +96,9 @@ struct msm_hsphy {
 	void __iomem		*phy_rcal_reg;
 	u32			rcal_mask;
 
+	void __iomem		*phy_rcal_reg;
+	u32			rcal_mask;
+
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
 	int			*emu_init_seq;
