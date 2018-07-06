@@ -49,6 +49,10 @@
 #define UPPER_CUTOFF 50
 #define LOWER_CUTOFF 10
 
+#define MAX_RETRY_ALLOC 10
+#define ALLOC_MIN_SLEEP_RX 100000
+#define ALLOC_MAX_SLEEP_RX 200000
+
 #define IPA_DEFAULT_SYS_YELLOW_WM 32
 
 #define IPA_AGGR_BYTE_LIMIT (\
@@ -4626,6 +4630,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	int res;
 	struct ipa_tag_completion *comp;
 	int ep_idx;
+	u32 retry_cnt = 0;
 	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	/* Not enough room for the required descriptors for the tag process */
@@ -4742,9 +4747,22 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc[desc_idx].user1 = dummy_skb;
 	desc_idx++;
 
+retry_alloc:
+
 	/* send all descriptors to IPA with single EOT */
 	res = ipa_send(sys, desc_idx, tag_desc, true);
 	if (res) {
+		if (res == -ENOMEM) {
+			if (retry_cnt < MAX_RETRY_ALLOC) {
+				IPADBG(
+				"Failed to alloc memory retry count %d\n",
+				retry_cnt);
+				retry_cnt++;
+				usleep_range(ALLOC_MIN_SLEEP_RX,
+					ALLOC_MAX_SLEEP_RX);
+				goto retry_alloc;
+			}
+		}
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
 		goto fail_send;
