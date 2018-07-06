@@ -50,8 +50,11 @@
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
 		mhi0 = &mhi_0;
+		mhi1 = &mhi_1;
 		mhi_netdev0 = &mhi_netdev_0;
 		mhi_netdev1 = &mhi_netdev_1;
+		mhi_netdev2 = &mhi_netdev_2;
+		mhi_netdev3 = &mhi_netdev_3;
 	};
 
 	aliases {
