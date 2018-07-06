@@ -767,7 +767,8 @@ static int wil_check_bar(struct wil6210_priv *wil, void *msg, int cid,
 	wil_dbg_txrx(wil,
 		     "Non-data frame FC[7:0] 0x%02x MID %d CID %d TID %d Seq 0x%03x\n",
 		     fc1, mid, cid, tid, seq);
-	stats->rx_non_data_frame++;
+	if (stats)
+		stats->rx_non_data_frame++;
 	if (wil_is_back_req(fc1)) {
 		wil_dbg_txrx(wil,
 			     "BAR: MID %d CID %d TID %d Seq 0x%03x\n",
@@ -860,7 +861,7 @@ static struct sk_buff *wil_sring_reap_rx_edma(struct wil6210_priv *wil,
 	struct wil_ring_rx_data *rxdata = &sring->rx_data;
 	unsigned int sz = wil->rx_buf_len + ETH_HLEN +
 		WIL_EDMA_MAX_DATA_OFFSET;
-	struct wil_net_stats *stats;
+	struct wil_net_stats *stats = NULL;
 	u16 dmalen;
 	int cid;
 	int rc;
@@ -995,9 +996,11 @@ skipping:
 	rxdata->skb = NULL;
 	rxdata->skipping = false;
 
-	stats->last_mcs_rx = wil_rx_status_get_mcs(msg);
-	if (stats->last_mcs_rx < ARRAY_SIZE(stats->rx_per_mcs))
-		stats->rx_per_mcs[stats->last_mcs_rx]++;
+	if (stats) {
+		stats->last_mcs_rx = wil_rx_status_get_mcs(msg);
+		if (stats->last_mcs_rx < ARRAY_SIZE(stats->rx_per_mcs))
+			stats->rx_per_mcs[stats->last_mcs_rx]++;
+	}
 
 	if (!wil->use_rx_hw_reordering && !wil->use_compressed_rx_status &&
 	    wil_check_bar(wil, msg, cid, skb, stats) == -EAGAIN) {
