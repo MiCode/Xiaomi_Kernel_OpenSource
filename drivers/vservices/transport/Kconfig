@@ -1,0 +1,7 @@
+#
+# vServices Transport driver configuration
+#
+
+menu "Transport drivers"
+
+endmenu
