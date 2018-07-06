@@ -123,6 +123,7 @@
 #include "msm-arm-smmu-qcs405.dtsi"
 #include "qcs405-gpu.dtsi"
 #include "qcs405-mdss-pll.dtsi"
+#include "qcs405-mdss.dtsi"
 
 &i2c_5 { /* BLSP (NTAG) */
 	status = "ok";
