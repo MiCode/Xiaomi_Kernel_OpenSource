@@ -45,7 +45,7 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gpucc GPU_CC_AHB_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_CX_SNOC_DVM_CLK>,
+			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
 			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
 
 		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
@@ -199,7 +199,7 @@
 		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_CX_SNOC_DVM_CLK>;
+			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>;
 
 		clock-names = "iface_clk", "mem_clk", "mem_iface_clk",
 				"alt_mem_iface_clk";
