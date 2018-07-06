@@ -91,6 +91,11 @@ int fw_init(struct npu_device *npu_dev)
 
 	/* Boot the NPU subsystem */
 	host_ctx->subsystem_handle = subsystem_get_local("npu");
+	if (IS_ERR(host_ctx->subsystem_handle)) {
+		pr_err("pil load npu fw failed\n");
+		ret = -ENODEV;
+		goto subsystem_get_fail;
+	}
 
 	/* Clear control/status registers */
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
@@ -149,8 +154,10 @@ int fw_init(struct npu_device *npu_dev)
 	return ret;
 
 wait_fw_ready_fail:
-	subsystem_put_local(host_ctx->subsystem_handle);
+	npu_disable_post_pil_clocks(npu_dev);
 enable_post_clk_fail:
+	subsystem_put_local(host_ctx->subsystem_handle);
+subsystem_get_fail:
 	npu_disable_sys_cache(npu_dev);
 enable_sys_cache_fail:
 	npu_disable_core_power(npu_dev);
@@ -194,6 +201,7 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive)
 	}
 
 	npu_disable_irq(npu_dev);
+	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
 	subsystem_put_local(host_ctx->subsystem_handle);
 	host_ctx->fw_state = FW_DISABLED;
