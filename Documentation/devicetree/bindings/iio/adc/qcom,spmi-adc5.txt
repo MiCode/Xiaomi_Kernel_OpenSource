@@ -47,6 +47,12 @@ ADC node:
     Value type: <prop-encoded-array>
     Definition: End of conversion interrupt.
 
+- qcom,pmic-revid:
+    Usage: optional
+    Value type:<u32>
+    Definition: phandle pointing to the revision peripheral node. Use it to query the
+                PMIC type and revision.
+
 Channel node properties:
 
 - reg:
