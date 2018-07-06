@@ -485,3 +485,23 @@ config BLK_DEV_RSXX
 	  module will be called rsxx.
 
 endif # BLK_DEV
+
+config VSERVICES_BLOCK_SERVER
+	tristate "Virtual Services block server"
+	depends on BLOCK && VSERVICES_SUPPORT && VSERVICES_SERVER
+	default y
+	select VSERVICES_PROTOCOL_BLOCK_SERVER
+	help
+	  Select this option if you want support for server side Virtual
+	  Services block. This allows any Linux block device to be
+	  virtualized and exported as a virtual service.
+
+config VSERVICES_BLOCK_CLIENT
+	tristate "Virtual Services Block client device"
+	depends on BLOCK && VSERVICES_SUPPORT && VSERVICES_CLIENT
+	default y
+	select VSERVICES_PROTOCOL_BLOCK_CLIENT
+	help
+	  Select this option if you want support for client side Virtual
+	  Services block devices. The virtual block devices are typically
+	  named /dev/vblock0, /dev/vblock1, etc.
