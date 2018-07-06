@@ -3884,7 +3884,9 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			update_cmd->update_type !=
 			UPDATE_STREAM_REMOVE_BUFQ &&
 			update_cmd->update_type !=
-			UPDATE_STREAM_SW_FRAME_DROP) {
+			UPDATE_STREAM_SW_FRAME_DROP &&
+			update_cmd->update_type !=
+			UPDATE_STREAM_REQUEST_FRAMES_VER2) {
 			pr_err("%s: Invalid stream state %d, update cmd %d\n",
 				__func__, stream_info->state,
 				stream_info->stream_id);
