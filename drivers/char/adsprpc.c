@@ -2905,9 +2905,6 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 			 */
 			if (fl->apps->channel[cid].secure == SECURE_CHANNEL) {
 				err = -EPERM;
-				pr_err("adsprpc: GetInfo failed dev %d, cid %d, secure %d\n",
-				  fl->dev_minor, cid,
-					fl->apps->channel[cid].secure);
 				goto bail;
 			}
 		}
