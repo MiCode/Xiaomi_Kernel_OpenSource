@@ -395,7 +395,8 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 				tm->sensor[i].hw_id,
 				code_to_degc((status &
 				TSENS_SN_STATUS_TEMP_MASK),
-				tm->sensor));
+				(tm->sensor + i)));
+			of_thermal_handle_trip(tm->sensor[i].tzd);
 		}
 	}
 
