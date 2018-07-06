@@ -560,7 +560,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 					cam_vfe_irq_top_half,
 					cam_ife_mgr_do_tasklet,
 					isp_res->tasklet_info,
-					cam_tasklet_enqueue_cmd);
+					&tasklet_bh_api);
 			if (isp_res->irq_handle < 1)
 				rc = -ENOMEM;
 		} else if (isp_res->rdi_only_ctx) {
@@ -573,7 +573,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 					cam_vfe_irq_top_half,
 					cam_ife_mgr_do_tasklet,
 					isp_res->tasklet_info,
-					cam_tasklet_enqueue_cmd);
+					&tasklet_bh_api);
 			if (isp_res->irq_handle < 1)
 				rc = -ENOMEM;
 		}
@@ -606,7 +606,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 				cam_vfe_irq_err_top_half,
 				cam_ife_mgr_do_tasklet,
 				core_info->tasklet_info,
-				cam_tasklet_enqueue_cmd);
+				&tasklet_bh_api);
 		if (core_info->irq_err_handle < 1) {
 			CAM_ERR(CAM_ISP, "Error handle subscribe failure");
 			rc = -ENOMEM;
