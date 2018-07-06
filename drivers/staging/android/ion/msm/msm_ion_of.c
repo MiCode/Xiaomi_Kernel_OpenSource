@@ -20,7 +20,6 @@
 #include <linux/of_address.h>
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
-#include <linux/module.h>
 #include "../ion.h"
 
 #define ION_COMPAT_STR	"qcom,msm-ion"
@@ -358,19 +357,6 @@ out:
 	return err;
 }
 
-static int msm_ion_remove(struct platform_device *pdev)
-{
-	struct ion_device *idev = platform_get_drvdata(pdev);
-	int i;
-
-	for (i = 0; i < num_heaps; i++)
-		ion_heap_destroy(heaps[i]);
-
-	ion_device_destroy(idev);
-	kfree(heaps);
-	return 0;
-}
-
 static const struct of_device_id msm_ion_match_table[] = {
 	{.compatible = ION_COMPAT_STR},
 	{},
@@ -378,7 +364,6 @@ static const struct of_device_id msm_ion_match_table[] = {
 
 static struct platform_driver msm_ion_driver = {
 	.probe = msm_ion_probe,
-	.remove = msm_ion_remove,
 	.driver = {
 		.name = "ion-msm",
 		.of_match_table = msm_ion_match_table,
@@ -390,9 +375,4 @@ static int __init msm_ion_init(void)
 	return platform_driver_register(&msm_ion_driver);
 }
 
-static void __exit msm_ion_exit(void)
-{
-	platform_driver_unregister(&msm_ion_driver);
-}
 subsys_initcall(msm_ion_init);
-module_exit(msm_ion_exit);
