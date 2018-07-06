@@ -249,6 +249,20 @@ struct mdp3_img_data {
 
 extern struct mdp3_hw_resource *mdp3_res;
 
+/*
+ * mdp3_is_idle_pc: - checks if a panel is idle
+ */
+static inline bool mdp3_is_idle_pc(void)
+{
+	bool ret = 0;
+
+	mutex_lock(&mdp3_res->fs_idle_pc_lock);
+	ret = mdp3_res->idle_pc;
+	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
+
+	return ret;
+}
+
 struct mdp3_dma *mdp3_get_dma_pipe(int capability);
 struct mdp3_intf *mdp3_get_display_intf(int type);
 void mdp3_irq_enable(int type);
