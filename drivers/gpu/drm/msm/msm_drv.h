@@ -163,6 +163,8 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_DEST_SCALER,
 	CRTC_PROP_CAPTURE_OUTPUT,
 
+	CRTC_PROP_IDLE_PC_STATE,
+
 	/* total # of properties */
 	CRTC_PROP_COUNT
 };
