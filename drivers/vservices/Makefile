@@ -11,4 +11,6 @@ obj-$(CONFIG_VSERVICES_SERVER) += core_server.o
 obj-$(CONFIG_VSERVICES_SKELETON_DRIVER) += vservices_skeleton_driver.o
 vservices_skeleton_driver-objs = skeleton_driver.o
 
+obj-$(CONFIG_VSERVICES_SUPPORT) += transport/
+
 obj-$(CONFIG_VSERVICES_SUPPORT) += protocol/
