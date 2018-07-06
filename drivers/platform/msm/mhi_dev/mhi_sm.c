@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/ipa_mhi.h>
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
+#include <linux/interrupt.h>
 
 #define MHI_SM_DBG(fmt, args...) \
 	mhi_log(MHI_MSG_DBG, fmt, ##args)
@@ -398,15 +399,18 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
 		res = ((curr_mstate == MHI_DEV_M3_STATE ||
-			curr_mstate == MHI_DEV_READY_STATE) &&
+			curr_mstate == MHI_DEV_READY_STATE ||
+			curr_mstate == MHI_DEV_RESET_STATE) &&
 			curr_dstate != MHI_SM_EP_PCIE_LINK_DISABLE);
 		break;
 	case EP_PCIE_EVENT_PM_D3_COLD:
 		res = (curr_dstate == MHI_SM_EP_PCIE_D3_HOT_STATE ||
-			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE);
+			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE ||
+			curr_dstate == MHI_SM_EP_PCIE_D0_STATE);
 		break;
 	case EP_PCIE_EVENT_PM_RST_DEAST:
 		res = (curr_dstate == MHI_SM_EP_PCIE_D0_STATE ||
+			curr_dstate == MHI_SM_EP_PCIE_D3_HOT_STATE ||
 			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE);
 		break;
 	case EP_PCIE_EVENT_PM_D0:
@@ -776,6 +780,7 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 	struct mhi_sm_ep_pcie_event *chg_event = container_of(work,
 		struct mhi_sm_ep_pcie_event, work);
 	enum ep_pcie_event pcie_event = chg_event->event;
+	unsigned long flags;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -846,6 +851,15 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 		}
 
 		mhi_dev_restore_mmio(mhi_sm_ctx->mhi_dev);
+
+		spin_lock_irqsave(&mhi_sm_ctx->mhi_dev->lock, flags);
+		if ((mhi_sm_ctx->mhi_dev->mhi_int) &&
+				(!mhi_sm_ctx->mhi_dev->mhi_int_en)) {
+			enable_irq(mhi_sm_ctx->mhi_dev->mhi_irq);
+			mhi_sm_ctx->mhi_dev->mhi_int_en = true;
+			MHI_SM_DBG("Enable MHI IRQ during PCIe DEAST");
+		}
+		spin_unlock_irqrestore(&mhi_sm_ctx->mhi_dev->lock, flags);
 
 		res = ep_pcie_enable_endpoint(mhi_sm_ctx->mhi_dev->phandle,
 			EP_PCIE_OPT_ENUM);
@@ -1142,6 +1156,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 {
 	struct mhi_sm_ep_pcie_event *dstate_change_evt;
 	enum ep_pcie_event event;
+	unsigned long flags;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -1174,6 +1189,16 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
 		mhi_sm_ctx->stats.d3_hot_event_cnt++;
+
+		spin_lock_irqsave(&mhi_sm_ctx->mhi_dev->lock, flags);
+		if ((mhi_sm_ctx->mhi_dev->mhi_int) &&
+				(mhi_sm_ctx->mhi_dev->mhi_int_en)) {
+			disable_irq(mhi_sm_ctx->mhi_dev->mhi_irq);
+			mhi_sm_ctx->mhi_dev->mhi_int_en = false;
+			MHI_SM_DBG("Disable MHI IRQ during D3 HOT");
+		}
+		spin_unlock_irqrestore(&mhi_sm_ctx->mhi_dev->lock, flags);
+
 		mhi_dev_backup_mmio(mhi_sm_ctx->mhi_dev);
 		break;
 	case EP_PCIE_EVENT_PM_RST_DEAST:
@@ -1181,6 +1206,15 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		break;
 	case EP_PCIE_EVENT_PM_D0:
 		mhi_sm_ctx->stats.d0_event_cnt++;
+
+		spin_lock_irqsave(&mhi_sm_ctx->mhi_dev->lock, flags);
+		if ((mhi_sm_ctx->mhi_dev->mhi_int) &&
+				(!mhi_sm_ctx->mhi_dev->mhi_int_en)) {
+			enable_irq(mhi_sm_ctx->mhi_dev->mhi_irq);
+			mhi_sm_ctx->mhi_dev->mhi_int_en = true;
+			MHI_SM_DBG("Enable MHI IRQ during D0");
+		}
+		spin_unlock_irqrestore(&mhi_sm_ctx->mhi_dev->lock, flags);
 		break;
 	case EP_PCIE_EVENT_LINKDOWN:
 		mhi_sm_ctx->stats.linkdown_event_cnt++;

@@ -4,7 +4,7 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This software is distributed under the terms of the GNU General
  * Public License ("GPL") as published by the Free Software Foundation,
@@ -44,7 +44,7 @@
 #define GSERIAL_SET_XPORT_TYPE_SMD 1
 
 #define GSERIAL_BUF_LEN  256
-#define GSERIAL_NO_PORTS 3
+#define GSERIAL_NO_PORTS 6
 
 struct ioctl_smd_write_arg_type {
 	char		*buf;
@@ -1176,35 +1176,66 @@ int gserial_init_port(int port_num, const char *name,
 {
 	enum transport_type transport;
 	int ret = 0;
+	bool reuse_transports_for_config2 = false;
+	u8 client_port_num;
+
+	transport = str_to_xport(name);
+
+	/* port_num is reset by gadget when initializing ports in 2nd config */
+	if (port_num < nr_ports) {
+		/* ports in different configurations share same transport */
+		transport = gserial_ports[port_num].transport;
+		reuse_transports_for_config2 = true;
+		/* Skip ports already claimed by previous configuration */
+		port_num += nr_ports;
+	}
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
 
-	transport = str_to_xport(name);
-	pr_debug("%s, port:%d, transport:%s\n", __func__,
-			port_num, xport_to_str(transport));
+	pr_debug("%s: nr_ports:%d, port:%d, transport:%s\n", __func__,
+				nr_ports, port_num, xport_to_str(transport));
 
 	gserial_ports[port_num].transport = transport;
 	gserial_ports[port_num].port_num = port_num;
 
 	switch (transport) {
 	case USB_GADGET_XPORT_TTY:
-		no_tty_ports++;
+		if (!reuse_transports_for_config2)
+			no_tty_ports++;
 		break;
 	case USB_GADGET_XPORT_SMD:
-		gserial_ports[port_num].client_port_num = no_smd_ports;
-		no_smd_ports++;
+		if (reuse_transports_for_config2) {
+			client_port_num =
+			     gserial_ports[port_num - nr_ports].client_port_num;
+		} else {
+			client_port_num = no_smd_ports;
+		}
+		gserial_ports[port_num].client_port_num = client_port_num;
+		/* transport port is shared between different configurations */
+		if (!reuse_transports_for_config2)
+			no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
-		gserial_ports[port_num].client_port_num = no_char_bridge_ports;
-		no_char_bridge_ports++;
+		if (reuse_transports_for_config2) {
+			client_port_num =
+			     gserial_ports[port_num - nr_ports].client_port_num;
+		} else {
+			client_port_num = no_char_bridge_ports;
+		}
+
+		gserial_ports[port_num].client_port_num = client_port_num;
+		/* transport port is shared between different configurations */
+		if (!reuse_transports_for_config2)
+			no_char_bridge_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_ctrl_set_port_name(port_name, name);
 		ghsic_data_set_port_name(port_name, name);
 
 		/*client port number will be updated in gport_setup*/
-		no_hsic_sports++;
+		if (!reuse_transports_for_config2)
+			no_hsic_sports++;
 		break;
 	default:
 		pr_err("%s: Un-supported transport transport: %u\n",
@@ -1212,7 +1243,9 @@ int gserial_init_port(int port_num, const char *name,
 		return -ENODEV;
 	}
 
-	nr_ports++;
+	/* transport ports are shared between different configurations */
+	if (!reuse_transports_for_config2)
+		nr_ports++;
 
 	return ret;
 }

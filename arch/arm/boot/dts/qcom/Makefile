@@ -142,21 +142,13 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-v2-pmk8001-mtp.dtb \
 
 
-dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-sim.dtb \
-	mdm9650-rumi.dtb \
-	mdm9650-emmc-cdp.dtb \
-	mdm9650-nand-cdp.dtb \
-	mdm9650-emmc-mtp.dtb \
-	mdm9650-nand-mtp.dtb \
-	mdm9650-ttp.dtb \
+dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-ttp.dtb \
 	mdm9650-pcie-ep-ttp.dtb \
 	mdm9650-nand-dualwifi-mtp.dtb \
 	mdm9650-v1.1-emmc-cdp.dtb \
 	mdm9650-v1.1-nand-cdp.dtb \
 	mdm9650-v1.1-emmc-mtp.dtb \
 	mdm9650-v1.1-nand-mtp.dtb \
-	mdm9650-v1.1-nand-dualwifi-mtp.dtb \
-	mdm9650-v1.1-nand-ccard.dtb \
 	mdm9650-v1.1-nand-ccard-v2.dtb \
 	mdm9650-v1.1-emmc-pcie-ep-mtp.dtb \
 	mdm9650-v1.1-nand-pcie-ep-mtp.dtb \

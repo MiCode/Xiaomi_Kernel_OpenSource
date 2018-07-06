@@ -1,0 +1,40 @@
+Qualcomm Technologies GPIO Flash Leds
+
+Qualcomm Technologies GPIO flash LEDs driver is used for
+controlling flash LEDs that are connected with 2 GPIOs.  The 2 GPIOs are name
+flash_en and flash now.
+
+
+The flash LEDs has torch mode and flash mode. The flash mode is used for camera.
+The torch mode is used for torch.
+
+
+Required properties for each node:
+- compatible		: should be "qcom,leds-gpio-flash"
+- qcom,flash-en		: the GPIO pin number of flash-en function
+- qcom,flash-now	: the GPIO pin number of flash-now function
+- linux,name		: name of the led that is used in led framework
+- linux,default-trigger	: name of the led trigger event
+- qcom,op-seq       : GPIO config name
+- qcom,torch-seq-val: GPIO config value for torch mode
+- qcom,flash-seq-val: GPIO config value for flash mode
+- pinctrl-names     : pinctrl name
+- pinctrl-0         : default gpio stats
+
+No other optional properties for it.
+
+Example:
+
+	flashlight {
+		compatible = "leds-gpio-flash";
+		status = "okay";
+		pinctrl-names = "flash_default";
+		pinctrl-0 = <&flash_default>;
+		qcom,flash-en = <&msmgpio 18 0>;
+		qcom,flash-now = <&msmgpio 19 0>;
+		qcom,op-seq = "flash_en", "flash_now";
+		qcom,torch-seq-val = <1, 0>;
+		qcom,flash-seq-val = <0, 1>;
+		linux,name = "flashlight";
+		linux,default-trigger = "flashlight-trigger";
+	};

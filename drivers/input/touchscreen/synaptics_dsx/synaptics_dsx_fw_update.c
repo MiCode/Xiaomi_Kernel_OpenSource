@@ -681,10 +681,12 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 			goto exit;
 		}
 
-		while (strptr[index] >= '0' && strptr[index] <= '9') {
+		while ((index < MAX_FIRMWARE_ID_LEN - 1) && strptr[index] >= '0'
+						&& strptr[index] <= '9') {
 			firmware_id[index] = strptr[index];
 			index++;
 		}
+		firmware_id[index] = '\0';
 
 		retval = sstrtoul(firmware_id, 10, &image_fw_id);
 		kfree(firmware_id);
