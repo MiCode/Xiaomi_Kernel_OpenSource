@@ -2732,7 +2732,7 @@ err_pcie_link_up:
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	if (penv->pdev) {
 		if (wdrv && wdrv->update_status)
-			wdrv->update_status(penv->pdev, CNSS_WLAN_SSR_FAIL);
+			wdrv->update_status(penv->pdev, CNSS_SSR_FAIL);
 		if (!penv->recovery_in_progress) {
 			pr_err("%d: Unregistering pci device\n", __LINE__);
 			pci_unregister_driver(&cnss_wlan_pci_driver);
