@@ -4,4 +4,17 @@
 
 menu "Transport drivers"
 
+config VSERVICES_OKL4_AXON
+	tristate "OKL4 Microvisor Axon driver"
+	depends on VSERVICES_SUPPORT && OKL4_GUEST
+	default y
+	help
+	  This option adds support for Virtual Services sessions using an OKL4
+	  Microvisor Axon object as a transport.
+
+	  If this driver is to be used in a Cell that has multiple
+	  discontiguous regions in its physical memory pool, the
+	  CONFIG_DMA_CMA option must also be selected (or CONFIG_CMA
+	  in older kernels that do not have CONFIG_DMA_CMA).
+
 endmenu
