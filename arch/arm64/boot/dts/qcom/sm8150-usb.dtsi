@@ -125,8 +125,10 @@
 	/* Primary USB port related High Speed PHY */
 	usb2_phy0: hsphy@88e2000 {
 		compatible = "qcom,usb-hsphy-snps-femto";
-		reg = <0x88e2000 0x110>;
-		reg-names = "hsusb_phy_base";
+		reg = <0x88e2000 0x110>,
+		    <0x007801f8 0x4>;
+		reg-names = "hsusb_phy_base",
+			"phy_rcal_reg";
 
 		vdd-supply = <&pm8150_l5>;
 		vdda18-supply = <&pm8150_l12>;
@@ -139,6 +141,7 @@
 		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
 		reset-names = "phy_reset";
 		qcom,param-override-seq = <0x43 0x70>;
+		qcom,rcal-mask = <0x1e00000>;
 	};
 
 	/* Primary USB port related QMP USB DP Combo PHY */
@@ -404,8 +407,10 @@
 	/* Primary USB port related High Speed PHY */
 	usb2_phy1: hsphy@88e3000 {
 		compatible = "qcom,usb-hsphy-snps-femto";
-		reg = <0x88e3000 0x110>;
-		reg-names = "hsusb_phy_base";
+		reg = <0x88e3000 0x110>,
+		   <0x007801f8 0x4>;
+		reg-names = "hsusb_phy_base",
+			"phy_rcal_reg";
 
 		vdd-supply = <&pm8150_l5>;
 		vdda18-supply = <&pm8150_l12>;
@@ -417,6 +422,7 @@
 
 		resets = <&clock_gcc GCC_QUSB2PHY_SEC_BCR>;
 		reset-names = "phy_reset";
+		qcom,rcal-mask = <0x1e00000>;
 
 		status = "disabled";
 	};
