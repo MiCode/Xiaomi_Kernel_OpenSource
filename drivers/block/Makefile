@@ -44,3 +44,8 @@ null_blk-$(CONFIG_BLK_DEV_ZONED) += null_blk_zoned.o
 
 skd-y		:= skd_main.o
 swim_mod-y	:= swim.o swim_asm.o
+
+obj-$(CONFIG_VSERVICES_BLOCK_SERVER)     += vs_block_server.o
+CFLAGS_vs_block_server.o += -Werror
+obj-$(CONFIG_VSERVICES_BLOCK_CLIENT)     += vs_block_client.o
+CFLAGS_vs_block_client.o += -Werror
