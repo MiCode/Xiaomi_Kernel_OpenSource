@@ -177,7 +177,7 @@ irqreturn_t cam_csiphy_irq(int irq_num, void *data)
 
 	if (!csiphy_dev) {
 		CAM_ERR(CAM_CSIPHY, "Invalid Args");
-		return -EINVAL;
+		return IRQ_NONE;
 	}
 
 	soc_info = &csiphy_dev->soc_info;
