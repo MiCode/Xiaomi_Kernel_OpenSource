@@ -343,6 +343,62 @@ DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m0_fops, NULL,
 DEFINE_SIMPLE_ATTRIBUTE(debugfs_trigger_m3_fops, NULL,
 			mhi_debugfs_trigger_m3, "%llu\n");
 
+static ssize_t timeout_ms_show(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	/* buffer provided by sysfs has a minimum size of PAGE_SIZE */
+	return snprintf(buf, PAGE_SIZE, "%u\n", mhi_cntrl->timeout_ms);
+}
+
+static ssize_t timeout_ms_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf,
+				size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 timeout_ms;
+
+	if (kstrtou32(buf, 0, &timeout_ms) < 0)
+		return -EINVAL;
+
+	mhi_cntrl->timeout_ms = timeout_ms;
+
+	return count;
+}
+static DEVICE_ATTR_RW(timeout_ms);
+
+static ssize_t power_up_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t count)
+{
+	int ret;
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	ret = mhi_async_power_up(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	return count;
+}
+static DEVICE_ATTR_WO(power_up);
+
+static struct attribute *mhi_qcom_attrs[] = {
+	&dev_attr_timeout_ms.attr,
+	&dev_attr_power_up.attr,
+	NULL
+};
+
+static const struct attribute_group mhi_qcom_group = {
+	.attrs = mhi_qcom_attrs,
+};
+
 static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 {
 	struct mhi_controller *mhi_cntrl;
@@ -431,6 +487,8 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 
 	mhi_cntrl->fw_image = firmware_info->fw_image;
 	mhi_cntrl->edl_image = firmware_info->edl_image;
+
+	sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group);
 
 	return mhi_cntrl;
 
