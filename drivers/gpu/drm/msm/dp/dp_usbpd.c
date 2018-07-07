@@ -446,6 +446,7 @@ static int dp_usbpd_simulate_connect(struct dp_usbpd *dp_usbpd, bool hpd,
 	dp_usbpd->hpd_high = hpd;
 	pd->forced_disconnect = !hpd;
 	pd->dp_usbpd.orientation = orientation;
+	pd->dp_usbpd.alt_mode_cfg_done = hpd;
 
 	pr_debug("hpd_high=%d, forced_disconnect=%d, orientation=%d\n",
 			dp_usbpd->hpd_high, pd->forced_disconnect,
