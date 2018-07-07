@@ -1114,3 +1114,7 @@
 			     &usb3_vbus_boost_default>;
 	};
 };
+
+&usb3 {
+	extcon = <&usb3_extcon>;
+};
