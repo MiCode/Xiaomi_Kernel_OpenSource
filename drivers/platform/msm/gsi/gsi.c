@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include "gsi.h"
 #include "gsi_reg.h"
+#include "gsi_emulation.h"
 
 #define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_STOP_CMD_TIMEOUT_MS 50
@@ -41,6 +42,13 @@ static const struct of_device_id msm_gsi_match[] = {
 	{ .compatible = "qcom,msm_gsi", },
 	{ },
 };
+
+
+#if defined(CONFIG_IPA_EMULATION)
+static bool running_emulation = true;
+#else
+static bool running_emulation;
+#endif
 
 struct gsi_ctx *gsi_ctx;
 
@@ -624,7 +632,7 @@ static void gsi_handle_irq(void)
 		if (!type)
 			break;
 
-		GSIDBG_LOW("type %x\n", type);
+		GSIDBG_LOW("type 0x%x\n", type);
 
 		if (type & GSI_EE_n_CNTXT_TYPE_IRQ_CH_CTRL_BMSK)
 			gsi_handle_ch_ctrl(ee);
@@ -859,17 +867,57 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 			GSIERR("bad irq specified %u\n", props->irq);
 			return -GSI_STATUS_INVALID_PARAMS;
 		}
-
-		res = devm_request_irq(gsi_ctx->dev, props->irq,
+		/*
+		 * On a real UE, there are two separate interrupt
+		 * vectors that get directed toward the GSI/IPA
+		 * drivers.  They are handled by gsi_isr() and
+		 * (ipa_isr() or ipa3_isr()) respectively.  In the
+		 * emulation environment, this is not the case;
+		 * instead, interrupt vectors are routed to the
+		 * emualation hardware's interrupt controller, which
+		 * in turn, forwards a single interrupt to the GSI/IPA
+		 * driver.  When the new interrupt vector is received,
+		 * the driver needs to probe the interrupt
+		 * controller's registers so see if one, the other, or
+		 * both interrupts have occurred.  Given the above, we
+		 * now need to handle both situations, namely: the
+		 * emulator's and the real UE.
+		 */
+		if (running_emulation) {
+			/*
+			 * New scheme involving the emulator's
+			 * interrupt controller.
+			 */
+			res = devm_request_threaded_irq(
+				gsi_ctx->dev,
+				props->irq,
+				/* top half handler to follow */
+				emulator_hard_irq_isr,
+				/* threaded bottom half handler to follow */
+				emulator_soft_irq_isr,
+				IRQF_SHARED,
+				"emulator_intcntrlr",
+				gsi_ctx);
+		} else {
+			/*
+			 * Traditional scheme used on the real UE.
+			 */
+			res = devm_request_irq(gsi_ctx->dev, props->irq,
 				gsi_isr,
 				props->req_clk_cb ? IRQF_TRIGGER_RISING :
 					IRQF_TRIGGER_HIGH,
 				"gsi",
 				gsi_ctx);
+		}
 		if (res) {
-			GSIERR("failed to register isr for %u\n", props->irq);
+			GSIERR(
+			 "failed to register isr for %u\n",
+			 props->irq);
 			return -GSI_STATUS_ERROR;
 		}
+		GSIDBG(
+			"succeeded to register isr for %u\n",
+			props->irq);
 
 		res = enable_irq_wake(props->irq);
 		if (res)
@@ -889,6 +937,41 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_RES_ALLOC_FAILURE;
 	}
 
+	GSIDBG("GSI base(%pa) mapped to (%pK) with len (0x%lx)\n",
+	       &(props->phys_addr),
+	       gsi_ctx->base,
+	       props->size);
+
+	if (running_emulation) {
+		GSIDBG("GSI SW ver register value 0x%x\n",
+		       gsi_readl(gsi_ctx->base +
+		       GSI_EE_n_GSI_SW_VERSION_OFFS(0)));
+		gsi_ctx->intcntrlr_mem_size =
+		    props->emulator_intcntrlr_size;
+		gsi_ctx->intcntrlr_base =
+		    devm_ioremap_nocache(
+			gsi_ctx->dev,
+			props->emulator_intcntrlr_addr,
+			props->emulator_intcntrlr_size);
+		if (!gsi_ctx->intcntrlr_base) {
+			GSIERR(
+			  "failed to remap emulator's interrupt controller HW\n");
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
+			return -GSI_STATUS_RES_ALLOC_FAILURE;
+		}
+
+		GSIDBG(
+		    "Emulator's interrupt controller base(%pa) mapped to (%pK) with len (0x%lx)\n",
+		    &(props->emulator_intcntrlr_addr),
+		    gsi_ctx->intcntrlr_base,
+		    props->emulator_intcntrlr_size);
+
+		gsi_ctx->intcntrlr_gsi_isr = gsi_isr;
+		gsi_ctx->intcntrlr_client_isr =
+		    props->emulator_intcntrlr_client_isr;
+	}
+
 	gsi_ctx->per = *props;
 	gsi_ctx->per_registered = true;
 	mutex_init(&gsi_ctx->mlock);
@@ -896,11 +979,21 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	atomic_set(&gsi_ctx->num_evt_ring, 0);
 	gsi_ctx->max_ch = gsi_get_max_channels(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ch == 0) {
+		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		if (running_emulation)
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
+		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
+		devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
 		GSIERR("failed to get max channels\n");
 		return -GSI_STATUS_ERROR;
 	}
 	gsi_ctx->max_ev = gsi_get_max_event_rings(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ev == 0) {
+		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		if (running_emulation)
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
+		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
+		devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
 		GSIERR("failed to get max event rings\n");
 		return -GSI_STATUS_ERROR;
 	}
@@ -913,7 +1006,9 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	if (props->mhi_er_id_limits_valid &&
 	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
 		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
-		gsi_ctx->base = NULL;
+		if (running_emulation)
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
+		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
 		devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
 		GSIERR("MHI event ring start id %u is beyond max %u\n",
 			props->mhi_er_id_limits[0], gsi_ctx->max_ev);
@@ -953,6 +1048,22 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	if (gsi_ctx->per.ver >= GSI_VER_1_2)
 		gsi_writel(0, gsi_ctx->base +
 			GSI_EE_n_ERROR_LOG_OFFS(gsi_ctx->per.ee));
+
+	if (running_emulation) {
+		/*
+		 * Set up the emulator's interrupt controller...
+		 */
+		res = setup_emulator_cntrlr(
+		    gsi_ctx->intcntrlr_base, gsi_ctx->intcntrlr_mem_size);
+		if (res != 0) {
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
+			gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
+			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
+			GSIERR("setup_emulator_cntrlr() failed\n");
+			return res;
+		}
+	}
 
 	*dev_hdl = (uintptr_t)gsi_ctx;
 
@@ -3103,7 +3214,8 @@ static void gsi_configure_ieps(void *base, enum gsi_ver ver)
 
 static void gsi_configure_bck_prs_matrix(void *base)
 {
-	void __iomem *gsi_base = base;
+	void __iomem *gsi_base = (void __iomem *) base;
+
 	/*
 	 * For now, these are default values. In the future, GSI FW image will
 	 * produce optimized back-pressure values based on the FW image.
@@ -3372,16 +3484,45 @@ static struct platform_driver msm_gsi_driver = {
 	},
 };
 
+static struct platform_device *pdev;
+
 /**
  * Module Init.
  */
 static int __init gsi_init(void)
 {
-	pr_debug("%s\n", __func__);
-	return platform_driver_register(&msm_gsi_driver);
-}
+	int ret;
 
+	pr_debug("gsi_init\n");
+
+	ret = platform_driver_register(&msm_gsi_driver);
+	if (ret < 0)
+		goto out;
+
+	if (running_emulation) {
+		pdev = platform_device_register_simple("gsi", -1, NULL, 0);
+		if (IS_ERR(pdev)) {
+			ret = PTR_ERR(pdev);
+			platform_driver_unregister(&msm_gsi_driver);
+			goto out;
+		}
+	}
+
+out:
+	return ret;
+}
 arch_initcall(gsi_init);
+
+/*
+ * Module exit.
+ */
+static void __exit gsi_exit(void)
+{
+	if (running_emulation && pdev)
+		platform_device_unregister(pdev);
+	platform_driver_unregister(&msm_gsi_driver);
+}
+module_exit(gsi_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Generic Software Interface (GSI)");

@@ -20,6 +20,13 @@
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_nat.h"
 
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if defined(CONFIG_IPA_EMULATION)
+# include "ipa_emulation_stubs.h"
+#endif
+
 #define IPA_NAT_PHYS_MEM_OFFSET  0
 #define IPA_IPV6CT_PHYS_MEM_OFFSET  0
 #define IPA_NAT_PHYS_MEM_SIZE  IPA_RAM_NAT_SIZE

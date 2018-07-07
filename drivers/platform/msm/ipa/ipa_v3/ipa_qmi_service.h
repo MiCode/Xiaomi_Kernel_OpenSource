@@ -433,7 +433,11 @@ static inline int ipa3_qmi_send_mhi_cleanup_request(
 	return -EPERM;
 }
 
-static inline int ipa3_wwan_set_modem_perf_profile(int throughput);
+static inline int ipa3_wwan_set_modem_perf_profile(
+	int throughput)
+{
+	return -EPERM;
+}
 static inline int ipa3_qmi_enable_per_client_stats(
 	struct ipa_enable_per_client_stats_req_msg_v01 *req,
 	struct ipa_enable_per_client_stats_resp_msg_v01 *resp)
