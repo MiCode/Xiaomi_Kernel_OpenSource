@@ -342,7 +342,7 @@ static void _gic_v3_dist_restore_set_reg(u32 offset)
 }
 
 #define _gic_v3_dist_restore_isenabler()		\
-		_gic_v3_dist_restore_set_reg(GICD_ISENABLER)
+		_gic_v3_dist_restore_reg(SAVED_IS_ENABLER)
 
 #define _gic_v3_dist_restore_ispending()		\
 		_gic_v3_dist_restore_set_reg(GICD_ISPENDR)
@@ -420,7 +420,7 @@ static void _gic_v3_dist_clear_reg(u32 offset)
  *
  * 5. Set pending for the interrupt.
  *
- * 6. Enable interrupt and wait for its completion.
+ * 6. Restore Enable bit of interrupt and wait for its completion.
  *
  */
 void gic_v3_dist_restore(void)
