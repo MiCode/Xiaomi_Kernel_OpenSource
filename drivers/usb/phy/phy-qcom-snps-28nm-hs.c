@@ -426,17 +426,14 @@ static int msm_snps_dpdm_regulator_enable(struct regulator_dev *rdev)
 	int ret = 0;
 	struct msm_snps_hsphy *phy = rdev_get_drvdata(rdev);
 
-	mutex_lock(&phy->phy_lock);
 	if (phy->dpdm_enable) {
 		dev_dbg(phy->phy.dev, "%s: DP DM regulator already enabled\n",
 								__func__);
-		mutex_unlock(&phy->phy_lock);
 		return 0;
 	}
 
 	msm_snps_hsphy_enable_regulators(phy);
 	phy->dpdm_enable = true;
-	mutex_unlock(&phy->phy_lock);
 
 	return ret;
 }
@@ -446,17 +443,14 @@ static int msm_snps_dpdm_regulator_disable(struct regulator_dev *rdev)
 	int ret = 0;
 	struct msm_snps_hsphy *phy = rdev_get_drvdata(rdev);
 
-	mutex_lock(&phy->phy_lock);
 	if (!phy->dpdm_enable) {
 		dev_dbg(phy->phy.dev, "%s: DP DM regulator already enabled\n",
 								__func__);
-		mutex_unlock(&phy->phy_lock);
 		return 0;
 	}
 
 	msm_snps_hsphy_disable_regulators(phy);
 	phy->dpdm_enable = false;
-	mutex_unlock(&phy->phy_lock);
 
 	return ret;
 }
