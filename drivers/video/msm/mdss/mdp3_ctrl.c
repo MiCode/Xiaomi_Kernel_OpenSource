@@ -1573,6 +1573,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	int stride;
 	bool null_commit = false;
 	bool is_panel_type_cmd = false;
+	int prev_bl;
 
 	if (!mfd || !mfd->mdp.private1)
 		return -EINVAL;
@@ -1617,21 +1618,6 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		return 0;
 	}
 
-	if (panel_info->partial_update_enabled &&
-		is_roi_valid(mdp3_session->dma->source_config, cmt_data->l_roi)
-		&& update_roi(mdp3_session->dma->roi, cmt_data->l_roi)) {
-			mdp3_session->dma->roi.x = cmt_data->l_roi.x;
-			mdp3_session->dma->roi.y = cmt_data->l_roi.y;
-			mdp3_session->dma->roi.w = cmt_data->l_roi.w;
-			mdp3_session->dma->roi.h = cmt_data->l_roi.h;
-			mdp3_session->dma->update_src_cfg = true;
-			pr_debug("%s: ROI: x=%d y=%d w=%d h=%d\n", __func__,
-				mdp3_session->dma->roi.x,
-				mdp3_session->dma->roi.y,
-				mdp3_session->dma->roi.w,
-				mdp3_session->dma->roi.h);
-	}
-
 	panel = mdp3_session->panel;
 	if (mdp3_session->in_splash_screen ||
 		mdp3_is_idle_pc()) {
@@ -1656,6 +1642,21 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 
 	if (mfd->panel.type == MIPI_CMD_PANEL || client == MDP3_CLIENT_SPI)
 		is_panel_type_cmd = true;
+
+	if (panel_info->partial_update_enabled &&
+		is_roi_valid(mdp3_session->dma->source_config, cmt_data->l_roi)
+		&& update_roi(mdp3_session->dma->roi, cmt_data->l_roi)) {
+			mdp3_session->dma->roi.x = cmt_data->l_roi.x;
+			mdp3_session->dma->roi.y = cmt_data->l_roi.y;
+			mdp3_session->dma->roi.w = cmt_data->l_roi.w;
+			mdp3_session->dma->roi.h = cmt_data->l_roi.h;
+			mdp3_session->dma->update_src_cfg = true;
+			pr_debug("%s: ROI: x=%d y=%d w=%d h=%d\n", __func__,
+				mdp3_session->dma->roi.x,
+				mdp3_session->dma->roi.y,
+				mdp3_session->dma->roi.w,
+				mdp3_session->dma->roi.h);
+	}
 
 	mdp3_ctrl_notify(mdp3_session, MDP_NOTIFY_FRAME_BEGIN);
 	data = mdp3_bufq_pop(&mdp3_session->bufq_in);
@@ -1782,9 +1783,15 @@ frame_done:
 	}
 
 	mdp3_session->vsync_before_commit = 0;
+	prev_bl = mfd->bl_level;
 	if (!splash_done || mdp3_session->esd_recovery == true) {
-		if (panel && panel->set_backlight)
-			panel->set_backlight(panel, panel->panel_info.bl_max);
+		if (panel && panel->set_backlight) {
+			if (mdp3_session->esd_recovery == true && prev_bl > 0)
+				panel->set_backlight(panel, prev_bl);
+			else
+				panel->set_backlight(panel,
+					panel->panel_info.bl_max);
+		}
 		splash_done = true;
 		mdp3_session->esd_recovery = false;
 	}
