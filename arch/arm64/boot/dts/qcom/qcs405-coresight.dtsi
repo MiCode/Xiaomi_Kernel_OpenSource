@@ -79,7 +79,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "apb_pclk", "core_a_clk";
 
-		interrupts = <GIC_SPI 198 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "byte-cntr-irq";
 
 		port {
