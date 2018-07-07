@@ -23,7 +23,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 25 0>, <0 24 0>;
+		interrupts = <0 25 0>, <0 319 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
 
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
@@ -132,7 +132,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 32 0>, <0 31 0>;
+		interrupts = <0 32 0>, <0 318 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
 
 		clocks = <&clock_gcc GCC_USB_HS_SYSTEM_CLK>,
