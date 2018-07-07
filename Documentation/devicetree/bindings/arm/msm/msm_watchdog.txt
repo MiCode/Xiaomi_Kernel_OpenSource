@@ -33,6 +33,9 @@ Optional properties:
 - qcom,ipi-ping : (boolean) send keep alive ping to other cpus if present
 - qcom,wakeup-enable : (boolean) enable non secure watchdog to freeze / unfreeze
                         automatically across suspend / resume path.
+- qcom,scandump-sizes : an array of 32-bit values that contains the size of the
+                        scandump memory region for each CPU, such that the nth
+                        32 bit value maps to the scandump size for CPU n.
 
 Example:
 
@@ -45,4 +48,5 @@ Example:
                 qcom,pet-time = <10000>;
                 qcom,ipi-ping;
                 qcom,wakeup-enable;
+                qcom,scandump-size = <0x10100 0x10100 0x10100 0x10100>;
         };
