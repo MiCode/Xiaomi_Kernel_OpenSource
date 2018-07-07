@@ -486,7 +486,7 @@ int extcon_sync(struct extcon_dev *edev, unsigned int id)
 }
 EXPORT_SYMBOL_GPL(extcon_sync);
 
-int extcon_blocking_sync(struct extcon_dev *edev, unsigned int id, bool val)
+int extcon_blocking_sync(struct extcon_dev *edev, unsigned int id, u8 val)
 {
 	int index;
 
