@@ -1027,8 +1027,10 @@ static noinline int cow_file_range(struct inode *inode,
 				  ram_size, /* ram_bytes */
 				  BTRFS_COMPRESS_NONE, /* compress_type */
 				  BTRFS_ORDERED_REGULAR /* type */);
-		if (IS_ERR(em))
+		if (IS_ERR(em)) {
+			ret = PTR_ERR(em);
 			goto out_reserve;
+		}
 		free_extent_map(em);
 
 		ret = btrfs_add_ordered_extent(inode, start, ins.objectid,
@@ -9767,6 +9769,7 @@ static int btrfs_rename_exchange(struct inode *old_dir,
 	u64 new_idx = 0;
 	u64 root_objectid;
 	int ret;
+	int ret2;
 	bool root_log_pinned = false;
 	bool dest_log_pinned = false;
 
@@ -9963,7 +9966,8 @@ out_fail:
 			dest_log_pinned = false;
 		}
 	}
-	ret = btrfs_end_transaction(trans);
+	ret2 = btrfs_end_transaction(trans);
+	ret = ret ? ret : ret2;
 out_notrans:
 	if (new_ino == BTRFS_FIRST_FREE_OBJECTID)
 		up_read(&fs_info->subvol_sem);
