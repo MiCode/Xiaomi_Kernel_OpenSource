@@ -1608,8 +1608,7 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	spin_lock_init(&msm_rpm_data.smd_lock_read);
 
 skip_init:
-	probe_status = of_platform_populate(rpdev->dev.of_node,
-						NULL, NULL, &rpdev->dev);
+	probe_status = of_platform_populate(p, NULL, NULL, &rpdev->dev);
 
 	if (standalone)
 		pr_info("RPM running in standalone mode\n");
