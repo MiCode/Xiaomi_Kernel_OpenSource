@@ -45,8 +45,23 @@
 &mhi_0 {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm3>;
-	qcom,smmu-cfg = <0x1d>;
-	qcom,addr-win = <0x0 0x20000000 0x0 0x3fffffff>;
+	qcom,smmu-cfg = <0>;
+	memory-region = <&mhi_mem>;
+	mhi,use-bb;
+	mhi,buffer-len = <0x8000>;
+	qcom,addr-win = <0x0 0xa0000000 0x0 0xa4bfffff>;
+
+	mhi_chan@1 {
+		mhi,num-elements = <32>;
+	};
+
+	mhi_chan@11 {
+		mhi,num-elements = <32>;
+	};
+
+	mhi_chan@21 {
+		mhi,num-elements = <32>;
+	};
 };
 
 &tlmm {
@@ -67,8 +82,6 @@
 };
 
 &pcie1 {
-	dma-coherent;
-
 	pinctrl-0 = <&pcie1_clkreq_default
 		&pcie1_perst_default
 		&pcie1_sdx50m_wake_default>;
@@ -77,8 +90,6 @@
 &soc {
 	imp: qcom,ipa-mhi-proxy {
 		compatible = "qcom,ipa-mhi-proxy";
-		qcom,ctrl-iova = <0x00010000 0x0FFF0000>;
-		qcom,data-iova = <0x10000000 0x0FFFFFFF>;
 		qcom,mhi-chdb-base = <0x40300300>;
 		qcom,mhi-erdb-base = <0x40300700>;
 	};
@@ -97,9 +108,11 @@
 		reg = <0x0 0xa1000000 0x0 0x02c00000>;
 	};
 
-	pil_pcie_mem: pil_pcie_mem_region@a3c00000 {
-		compatible = "removed-dma-pool";
-		no-map;
-		reg = <0x0 0xa3c00000 0x0 0x01000000>;
+	mhi_mem: mhi_region {
+		 compatible = "shared-dma-pool";
+		 alloc-ranges = <0x0 0xa3c00000 0x0 0x01000000>;
+		 alignment = <0x0 0x400000>;
+		 size = <0x0 0x01000000>;
+		 no-map;
 	};
 };
