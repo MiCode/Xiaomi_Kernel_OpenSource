@@ -102,7 +102,8 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	u16 hseq;
 	int index;
 
-	wil->txrx_ops.get_reorder_params(skb, &tid, &cid, &mid, &seq, &mcast);
+	wil->txrx_ops.get_reorder_params(wil, skb, &tid, &cid, &mid, &seq,
+					 &mcast);
 	sta = &wil->sta[cid];
 
 	wil_dbg_txrx(wil, "MID %d CID %d TID %d Seq 0x%03x mcast %01x\n",
@@ -315,7 +316,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	 */
 	u16 req_agg_wsize = WIL_GET_BITS(param_set, 6, 15);
 	bool agg_amsdu = wil->use_enhanced_dma_hw &&
-		use_rx_hw_reordering &&
+		wil->use_rx_hw_reordering &&
 		test_bit(WMI_FW_CAPABILITY_AMSDU, wil->fw_capabilities) &&
 		wil->amsdu_en && (param_set & BIT(0));
 	int ba_policy = param_set & BIT(1);
