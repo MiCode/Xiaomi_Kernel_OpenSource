@@ -1247,6 +1247,7 @@ static int qti_can_probe(struct spi_device *spi)
 	int err, retry = 0, query_err = -1, i;
 	struct qti_can *priv_data = NULL;
 	struct device *dev;
+	u32 irq_type;
 
 	dev = &spi->dev;
 	dev_info(dev, "qti_can_probe");
@@ -1353,8 +1354,11 @@ static int qti_can_probe(struct spi_device *spi)
 		}
 	}
 
+	irq_type = irq_get_trigger_type(spi->irq);
+	if (irq_type == IRQ_TYPE_NONE)
+		irq_type = IRQ_TYPE_EDGE_FALLING;
 	err = request_threaded_irq(spi->irq, NULL, qti_can_irq,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				   irq_type | IRQF_ONESHOT,
 				   "qti-can", priv_data);
 	if (err) {
 		LOGDE("Failed to request irq: %d", err);
