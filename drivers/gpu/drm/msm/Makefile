@@ -49,6 +49,7 @@ msm_drm-y := \
 	sde/sde_color_processing.o \
 	sde/sde_vbif.o \
 	sde/sde_splash.o \
+	sde/sde_recovery_manager.o \
 	sde_dbg.o \
 	sde_dbg_evtlog.o \
 	sde_io_util.o \
