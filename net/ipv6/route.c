@@ -3583,10 +3583,15 @@ struct fib6_info *rt6_add_dflt_router(struct net *net,
 	return rt6_get_dflt_router(net, gwaddr, dev);
 }
 
-int rt6_addrconf_purge(struct rt6_info *rt, void *arg) {
-	if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
-	    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2))
+int rt6_addrconf_purge(struct fib6_info *rt, void *arg)
+{
+	struct net_device *dev = fib6_info_nh_dev(rt);
+	struct inet6_dev *idev = dev ? __in6_dev_get(dev) : NULL;
+
+	if (rt->fib6_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
+	    (!idev || idev->cnf.accept_ra != 2))
 		return -1;
+
 	return 0;
 }
 
