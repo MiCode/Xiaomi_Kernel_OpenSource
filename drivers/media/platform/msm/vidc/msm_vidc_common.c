@@ -163,6 +163,12 @@ int msm_comm_hal_to_v4l2(int id, int value)
 			return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
 		case HAL_H264_LEVEL_52:
 			return V4L2_MPEG_VIDEO_H264_LEVEL_5_2;
+		case HAL_H264_LEVEL_6:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_6_0;
+		case HAL_H264_LEVEL_61:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_6_1;
+		case HAL_H264_LEVEL_62:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_6_2;
 		default:
 			goto unknown_value;
 		}
@@ -386,6 +392,12 @@ int msm_comm_v4l2_to_hal(int id, int value)
 			return HAL_H264_LEVEL_51;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
 			return HAL_H264_LEVEL_52;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_6_0:
+			return HAL_H264_LEVEL_6;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_6_1:
+			return HAL_H264_LEVEL_61;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_6_2:
+			return HAL_H264_LEVEL_62;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN:
 			return HAL_H264_LEVEL_UNKNOWN;
 		default:
