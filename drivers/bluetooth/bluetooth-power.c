@@ -666,7 +666,7 @@ static int bt_power_remove(struct platform_device *pdev)
 
 	bluetooth_power_rfkill_remove(pdev);
 
-	if (bt_power_pdata->bt_chip_pwd->reg)
+	if (bt_power_pdata->bt_chip_pwd)
 		regulator_put(bt_power_pdata->bt_chip_pwd->reg);
 
 	kfree(bt_power_pdata);
