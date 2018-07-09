@@ -973,7 +973,7 @@ static int msm_disable_all_modes(
 
 	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
 		ret = msm_disable_all_modes_commit(dev, state);
-		if (ret != -EDEADLK)
+		if (ret != -EDEADLK || ret != -ERESTARTSYS)
 			break;
 		drm_atomic_state_clear(state);
 		drm_modeset_backoff(ctx);
