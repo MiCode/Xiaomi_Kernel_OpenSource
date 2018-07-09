@@ -345,7 +345,15 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 191 0>, <0 63 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
 	};
 
 	blsp1_uart2_console: serial@78b1000 {
@@ -1040,6 +1048,18 @@
 			< 1267200 MHZ_TO_MBPS( 597, 4) >,
 			< 1401600 MHZ_TO_MBPS( 710, 4) >;
 	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pms405_l5>;
+		qca,bt-vdd-pa-supply = <&pms405_l1>;
+
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-pa-voltage-level = <1300000 1300000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+	};
 };
 
 #include "qcs405-gdsc.dtsi"
@@ -1055,6 +1075,10 @@
 };
 
 &gdsc_oxili_gx {
+	status = "ok";
+};
+
+&blsp1_uart4_hs {
 	status = "ok";
 };
 
