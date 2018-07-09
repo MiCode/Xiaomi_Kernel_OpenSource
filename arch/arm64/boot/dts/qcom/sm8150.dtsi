@@ -2319,7 +2319,7 @@
 		memory-region = <&adsp_mem>;
 	};
 
-	qcom,msm_fastrpc {
+	msm_fastrpc: qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,fastrpc-adsp-audio-pdr;
 		qcom,rpc-latency-us = <611>;
