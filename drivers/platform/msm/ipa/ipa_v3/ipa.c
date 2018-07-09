@@ -3491,8 +3491,8 @@ static const struct file_operations ipa3_drv_fops = {
 
 static int ipa3_get_clks(struct device *dev)
 {
-	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
-		IPADBG("No clock manipulation when running emulation\n");
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPADBG("not supported in this HW mode\n");
 		ipa3_clk = NULL;
 		return 0;
 	}
