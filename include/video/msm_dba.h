@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,9 @@
  * @MSM_DBA_CB_POST_RESET: This callback is called after device reset is
  *			   complete and the driver has applied back all the
  *			   properties.
+ * @MSM_DBA_CB_DDC_I2C_ERROR: Detected a failure in DDC block for i2c error.
+ * @MSM_DBA_CB_DDC_TIMEOUT: Detected a failure in DDC block for timed out
+ *				waiting for downstream receiver.
  *
  * Clients for this driver can register for receiving callbacks for specific
  * events. This enum defines the type of events supported by the driver. An
@@ -71,6 +74,8 @@ enum msm_dba_callback_event {
 	MSM_DBA_CB_CEC_READ_PENDING = BIT(9),
 	MSM_DBA_CB_PRE_RESET = BIT(10),
 	MSM_DBA_CB_POST_RESET = BIT(11),
+	MSM_DBA_CB_DDC_I2C_ERROR = BIT(12),
+	MSM_DBA_CB_DDC_TIMEOUT = BIT(13),
 };
 
 /**
