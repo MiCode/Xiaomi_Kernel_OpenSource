@@ -118,15 +118,26 @@ static struct inode *proc_uid_make_inode(struct super_block *sb, kuid_t kuid)
 	return inode;
 }
 
-static int proc_uident_instantiate(struct inode *dir, struct dentry *dentry,
+static struct dentry *proc_uident_instantiate(struct dentry *dentry,
 				   struct task_struct *unused, const void *ptr)
 {
 	const struct uid_entry *u = ptr;
 	struct inode *inode;
 
-	inode = proc_uid_make_inode(dir->i_sb, dir->i_uid);
-	if (!inode)
-		return -ENOENT;
+	uid_t uid = name_to_int(&dentry->d_name);
+	kuid_t kuid;
+	bool uid_exists;
+	rt_mutex_lock(&proc_uid_lock);
+	uid_exists = uid_hash_entry_exists_locked(uid);
+	rt_mutex_unlock(&proc_uid_lock);
+	if (uid_exists) {
+		kuid = make_kuid(current_user_ns(), uid);
+		inode = proc_uid_make_inode(dentry->d_sb, kuid);
+		if (!inode)
+			return ERR_PTR(-ENOENT);
+	} else {
+		return ERR_PTR(-ENOENT);
+	}
 
 	inode->i_mode = u->mode;
 	if (S_ISDIR(inode->i_mode))
@@ -135,8 +146,8 @@ static int proc_uident_instantiate(struct inode *dir, struct dentry *dentry,
 		inode->i_op = u->iop;
 	if (u->fop)
 		inode->i_fop = u->fop;
-	d_add(dentry, inode);
-	return 0;
+
+	return d_splice_alias(inode, dentry);
 }
 
 static struct dentry *proc_uid_base_lookup(struct inode *dir,
@@ -159,7 +170,7 @@ static struct dentry *proc_uid_base_lookup(struct inode *dir,
 	if (u > last)
 		return ERR_PTR(-ENOENT);
 
-	return ERR_PTR(proc_uident_instantiate(dir, dentry, NULL, u));
+	return proc_uident_instantiate(dentry, NULL, u);
 }
 
 static int proc_uid_base_readdir(struct file *file, struct dir_context *ctx)
@@ -195,16 +206,16 @@ static const struct file_operations proc_uid_base_operations = {
 	.llseek		= default_llseek,
 };
 
-static int proc_uid_instantiate(struct inode *dir, struct dentry *dentry,
+static struct dentry *proc_uid_instantiate(struct dentry *dentry,
 				struct task_struct *unused, const void *ptr)
 {
 	unsigned int i, len;
 	nlink_t nlinks;
 	kuid_t *kuid = (kuid_t *)ptr;
-	struct inode *inode = proc_uid_make_inode(dir->i_sb, *kuid);
+	struct inode *inode = proc_uid_make_inode(dentry->d_sb, *kuid);
 
 	if (!inode)
-		return -ENOENT;
+		return ERR_PTR(-ENOENT);
 
 	inode->i_mode = S_IFDIR | 0555;
 	inode->i_op = &proc_uid_base_inode_operations;
@@ -219,9 +230,7 @@ static int proc_uid_instantiate(struct inode *dir, struct dentry *dentry,
 	}
 	set_nlink(inode, nlinks);
 
-	d_add(dentry, inode);
-
-	return 0;
+	return d_splice_alias(inode, dentry);
 }
 
 static int proc_uid_readdir(struct file *file, struct dir_context *ctx)
@@ -267,7 +276,7 @@ static struct dentry *proc_uid_lookup(struct inode *dir, struct dentry *dentry,
 	if (uid_exists) {
 		kuid_t kuid = make_kuid(current_user_ns(), uid);
 
-		result = proc_uid_instantiate(dir, dentry, NULL, &kuid);
+		return proc_uid_instantiate(dentry, NULL, &kuid);
 	}
 	return ERR_PTR(result);
 }
