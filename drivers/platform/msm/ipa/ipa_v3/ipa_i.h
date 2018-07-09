@@ -1580,6 +1580,7 @@ struct ipa3_context {
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
+	u32 enable_napi_chain;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	struct mutex q6_proxy_clk_vote_mutex;
