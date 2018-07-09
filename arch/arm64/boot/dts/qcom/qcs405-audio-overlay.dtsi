@@ -25,6 +25,7 @@
 	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
 	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
 		"AMIC3", "MIC BIAS3",
 		"AMIC4", "MIC BIAS4",
 		"MIC BIAS3", "Analog Mic3",
