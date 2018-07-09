@@ -42,7 +42,7 @@
 #define dcc_sram_readl(drvdata, off)					\
 	__raw_readl(drvdata->ram_base + off)
 
-#define HLOS_LIST_START			1
+#define HLOS_LIST_START			0
 
 /* DCC registers */
 #define DCC_HW_VERSION			(0x00)
@@ -600,7 +600,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		dcc_writel(drvdata, ram_cfg_base +
 			   drvdata->ram_offset/4, DCC_LL_BASE(list));
 		dcc_writel(drvdata, drvdata->ram_start +
-			   drvdata->ram_offset/4, DCC_FD_BASE(list));
+				drvdata->ram_offset/4, DCC_FD_BASE(list));
 		dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
 
 		/* 4. Configure trigger, data sink and function type */
