@@ -2967,7 +2967,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
-	if (sde_enc->input_handler) {
+	/* register input handler if not already registered */
+	if (sde_enc->input_handler && !msm_is_mode_seamless_dms(cur_mode)) {
 		ret = _sde_encoder_input_handler_register(
 				sde_enc->input_handler);
 		if (ret)
