@@ -738,7 +738,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0x7800000>;
+			size = <0x0 0xA000000>;
 		};
 
 		dump_mem: mem_dump_region {
