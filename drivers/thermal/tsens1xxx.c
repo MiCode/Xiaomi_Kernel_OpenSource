@@ -144,6 +144,10 @@ static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	*temp = code_to_degc(last_temp, sensor);
 	*temp = *temp * TSENS_SCALE_MILLIDEG;
 
+	if (tmdev->ops->dbg)
+		tmdev->ops->dbg(tmdev, (u32)sensor->hw_id,
+			TSENS_DBG_LOG_TEMP_READS, temp);
+
 	return 0;
 }
 
@@ -403,6 +407,9 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 	/* Disable monitoring sensor trip threshold for triggered sensor */
 	mb();
 
+	if (tm->ops->dbg)
+		tm->ops->dbg(tm, 0, TSENS_DBG_LOG_INTERRUPT_TIMESTAMP, NULL);
+
 	return IRQ_HANDLED;
 }
 
@@ -437,6 +444,10 @@ static int tsens1xxx_hw_init(struct tsens_device *tmdev)
 			TSENS_UPPER_LOWER_INTERRUPT_CTRL(tmdev->tsens_tm_addr));
 
 	spin_lock_init(&tmdev->tsens_upp_low_lock);
+	if (tmdev->ctrl_data->mtc) {
+		if (tmdev->ops->dbg)
+			tmdev->ops->dbg(tmdev, 0, TSENS_DBG_MTC_DATA, NULL);
+	}
 
 	return 0;
 }
@@ -487,6 +498,7 @@ static const struct tsens_ops ops_tsens1xxx = {
 	.interrupts_reg = tsens1xxx_register_interrupts,
 	.sensor_en = tsens1xxx_hw_sensor_en,
 	.calibrate = calibrate_8937,
+	.dbg = tsens2xxx_dbg,
 };
 
 const struct tsens_data data_tsens14xx = {
@@ -505,6 +517,7 @@ static const struct tsens_ops ops_tsens1xxx_405 = {
 	.interrupts_reg = tsens1xxx_register_interrupts,
 	.sensor_en = tsens1xxx_hw_sensor_en,
 	.calibrate = calibrate_405,
+	.dbg = tsens2xxx_dbg,
 };
 
 const struct tsens_data data_tsens14xx_405 = {
