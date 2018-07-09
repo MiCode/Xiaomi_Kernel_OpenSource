@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -741,6 +741,7 @@ void q6lsm_sm_set_param_data(struct lsm_client *client,
 	param_hdr.instance_id = INSTANCE_ID_0;
 	param_hdr.param_id = p_info->param_id;
 	param_hdr.param_size = client->sound_model.size;
+	*offset = sizeof(struct param_hdr_v3);
 
 	ret = q6lsm_pack_params((u8 *) client->sound_model.data, &param_hdr,
 				NULL, offset, LSM_SESSION_CMD_SET_PARAMS_V2);
