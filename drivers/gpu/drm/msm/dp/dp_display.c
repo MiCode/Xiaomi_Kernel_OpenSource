@@ -798,6 +798,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	/* Reset abort value to allow future connections */
 	atomic_set(&dp->aborted, 0);
+
+	dp->dp_display.post_open = NULL;
 end:
 	return rc;
 }
