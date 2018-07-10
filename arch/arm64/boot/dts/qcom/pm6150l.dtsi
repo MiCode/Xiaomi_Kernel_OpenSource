@@ -47,6 +47,8 @@
 			clock-output-names = "pm6150l_div_clk1";
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
+			assigned-clocks = <&pm6150l_clkdiv 1>;
+			assigned-clock-rates = <9600000>;
 		};
 
 		pm6150l_gpios: pinctrl@c000 {
