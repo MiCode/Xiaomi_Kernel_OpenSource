@@ -5874,10 +5874,10 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	}
 
 	ipa_drv_res->wdi_over_pcie =
-			of_property_read_bool(pdev->dev.of_node,
-			"qcom,wlan-ce-db-over-pcie");
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-ce-db-over-pcie");
 	IPADBG("Is wdi_over_pcie ? (%s)\n",
-				ipa3_ctx->wdi_over_pcie ? "Yes":"No");
+		ipa_drv_res->wdi_over_pcie ? "Yes":"No");
 
 	/*
 	 * If we're on emulator, get its interrupt controller's mem
