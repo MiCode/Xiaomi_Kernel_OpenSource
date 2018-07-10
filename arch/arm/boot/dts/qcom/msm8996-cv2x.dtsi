@@ -190,6 +190,11 @@
 		qcom,mhi = <&mhi>;
 		status = "okay";
 	};
+
+	qcom,diagfwd-usb {
+		compatible = "qcom,diagfwd-usb";
+		status = "okay";
+	};
 };
 
 /delete-node/ &mdss_mdp;
