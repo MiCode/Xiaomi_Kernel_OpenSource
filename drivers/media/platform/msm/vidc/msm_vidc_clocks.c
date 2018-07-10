@@ -1463,7 +1463,8 @@ static u32 get_core_load(struct msm_vidc_core *core,
 		}
 		current_inst_mbs_per_sec = msm_comm_get_inst_load_per_core(inst,
 				LOAD_CALC_NO_QUIRKS);
-		load += current_inst_mbs_per_sec * cycles;
+		load += current_inst_mbs_per_sec * cycles /
+			inst->clk_data.work_route;
 	}
 	mutex_unlock(&core->lock);
 
