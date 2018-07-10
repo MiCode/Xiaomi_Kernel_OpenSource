@@ -981,6 +981,23 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		return rc;
 	}
 
+	/* enable/disable charging by suspending usb */
+	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
+	if (rc) {
+		pr_err("Unable to %ssuspend usb. rc=%d\n",
+			chip->usb_suspended_status ? "" : "un-", rc);
+		return rc;
+	}
+
+	/* enable/disable battery charging */
+	rc = smb1351_battchg_disable(chip, USER, chip->battchg_disabled_status);
+	if (rc) {
+		pr_err("Unable to %s battery charging. rc=%d\n",
+			chip->battchg_disabled_status ? "disable" : "enable",
+									rc);
+		return rc;
+	}
+
 	/* setup battery missing source */
 	reg = BATT_MISSING_THERM_PIN_SOURCE_BIT;
 	mask = BATT_MISSING_THERM_PIN_SOURCE_BIT;
@@ -1106,14 +1123,6 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 			pr_err("Couldn't disable auto-rechg rc = %d\n", rc);
 			return rc;
 		}
-	}
-
-	/* enable/disable charging by suspending usb */
-	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
-	if (rc) {
-		pr_err("Unable to %s battery charging. rc=%d\n",
-			chip->usb_suspended_status ? "disable" : "enable",
-									rc);
 	}
 
 	return rc;
@@ -1313,6 +1322,8 @@ static enum power_supply_property smb1351_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 };
 
 static int smb1351_usb_get_property(struct power_supply *psy,
@@ -1323,6 +1334,7 @@ static int smb1351_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		val->intval = chip->usb_psy_ma * 1000;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -1333,6 +1345,14 @@ static int smb1351_usb_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chip->charger_type;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		if (chip->charger_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+			val->intval = POWER_SUPPLY_TYPE_USB_DCP;
+		else if (chip->charger_type == POWER_SUPPLY_TYPE_UNKNOWN)
+			val->intval = POWER_SUPPLY_TYPE_USB;
+		else
+			val->intval = chip->charger_type;
 		break;
 	default:
 		return -EINVAL;
@@ -1348,6 +1368,7 @@ static int smb1351_usb_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		chip->usb_psy_ma = val->intval / 1000;
 		smb1351_enable_volatile_writes(chip);
 		smb1351_set_usb_chg_current(chip, chip->usb_psy_ma);
@@ -1927,7 +1948,11 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 
 	} else if (!chip->apsd_rerun) {
 		/* Handle Charger removal */
+		chip->chg_present = 0;
 		chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		val.intval = false;
+		extcon_set_property(chip->extcon, EXTCON_USB,
+						EXTCON_PROP_USB_SS, val);
 		extcon_set_state_sync(chip->extcon, EXTCON_USB, false);
 		smb1351_request_dpdm(chip, false);
 	}
@@ -2303,29 +2328,6 @@ static irqreturn_t smb1351_chg_stat_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void smb1351_external_power_changed(struct power_supply *psy)
-{
-	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
-	union power_supply_propval prop = {0,};
-	int rc, current_limit = 0;
-
-	if (chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-
-	rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
-	if (rc)
-		pr_err("Couldn't read USB current_max property, rc=%d\n", rc);
-	else
-		current_limit = prop.intval / 1000;
-
-	pr_debug("current_limit = %d\n", current_limit);
-
-
-	pr_debug("updating batt psy\n");
-}
-
 #define LAST_CNFG_REG	0x16
 static int show_cnfg_regs(struct seq_file *m, void *data)
 {
@@ -2551,6 +2553,9 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 
 	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");
+
+	chip->battchg_disabled_status = of_property_read_bool(node,
+				"qcom,batt-charging-disabled");
 
 	chip->chg_autonomous_mode = of_property_read_bool(node,
 					"qcom,chg-autonomous-mode");
@@ -2818,8 +2823,6 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->batt_psy_d.properties	= smb1351_battery_properties;
 	chip->batt_psy_d.num_properties	=
 				ARRAY_SIZE(smb1351_battery_properties);
-	chip->batt_psy_d.external_power_changed =
-					smb1351_external_power_changed;
 
 	chip->resume_completed = true;
 	mutex_init(&chip->irq_complete);
