@@ -5413,22 +5413,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		rc = -ENOTSUPP;
 	}
 
-	output_height = inst->prop.height[CAPTURE_PORT];
-	output_width = inst->prop.width[CAPTURE_PORT];
-	input_height = inst->prop.height[OUTPUT_PORT];
-	input_width = inst->prop.width[OUTPUT_PORT];
-
-	if (input_width % 2 != 0 || input_height % 2 != 0 ||
-			output_width % 2 != 0 || output_height % 2 != 0) {
-		dprintk(VIDC_ERR,
-			"Height and Width should be even numbers for NV12\n");
-		dprintk(VIDC_ERR,
-			"Input WxH = (%u)x(%u), Output WxH = (%u)x(%u)\n",
-			input_width, input_height,
-			output_width, output_height);
-		rc = -ENOTSUPP;
-	}
-
 	rotation =  msm_comm_g_ctrl_for_id(inst,
 					V4L2_CID_ROTATE);
 
