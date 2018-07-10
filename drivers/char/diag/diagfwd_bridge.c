@@ -18,14 +18,10 @@
 #include <linux/workqueue.h>
 #include <linux/ratelimit.h>
 #include <linux/platform_device.h>
-#ifdef USB_QCOM_DIAG_BRIDGE
-#include <linux/smux.h>
-#endif
 #include "diag_mux.h"
 #include "diagfwd_bridge.h"
 #ifdef USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
-#include "diagfwd_smux.h"
 #endif
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
@@ -48,18 +44,6 @@ struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV] = {
 		.ctxt = 0,
 		.dev_ops = NULL,
 		.dci_read_ptr = NULL,
-		.dci_read_buf = NULL,
-		.dci_read_len = 0,
-		.dci_wq = NULL,
-	},
-	{
-		.id = DIAGFWD_SMUX,
-		.type = DIAG_DATA_TYPE,
-		.name = "SMUX",
-		.inited = 0,
-		.ctxt = 0,
-		.dci_read_ptr = NULL,
-		.dev_ops = NULL,
 		.dci_read_buf = NULL,
 		.dci_read_len = 0,
 		.dci_wq = NULL,
@@ -260,11 +244,6 @@ int diagfwd_bridge_init(void)
 	err = diag_mdm_init();
 	if (err)
 		goto fail;
-	#ifdef USB_QCOM_DIAG_BRIDGE
-	err = diag_smux_init();
-	if (err)
-		goto fail;
-	#endif
 	return 0;
 
 fail:
@@ -276,7 +255,6 @@ void diagfwd_bridge_exit(void)
 {
 	#ifdef USB_QCOM_DIAG_BRIDGE
 	diag_hsic_exit();
-	diag_smux_exit();
 	#endif
 }
 
