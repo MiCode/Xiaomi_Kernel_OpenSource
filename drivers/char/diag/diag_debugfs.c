@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,6 @@
 #endif
 #ifdef CONFIG_USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
-#include "diagfwd_smux.h"
 #endif
 #ifdef CONFIG_MSM_MHI
 #include "diagfwd_mhi.h"

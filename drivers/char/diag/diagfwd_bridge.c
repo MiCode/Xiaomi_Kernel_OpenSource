@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,14 +18,10 @@
 #include <linux/workqueue.h>
 #include <linux/ratelimit.h>
 #include <linux/platform_device.h>
-#ifdef USB_QCOM_DIAG_BRIDGE
-#include <linux/smux.h>
-#endif
 #include "diag_mux.h"
 #include "diagfwd_bridge.h"
 #ifdef USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
-#include "diagfwd_smux.h"
 #endif
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
@@ -272,11 +268,6 @@ int diagfwd_bridge_init()
 	err = diag_mdm_init();
 	if (err)
 		goto fail;
-	#ifdef USB_QCOM_DIAG_BRIDGE
-	err = diag_smux_init();
-	if (err)
-		goto fail;
-	#endif
 	return 0;
 
 fail:
@@ -288,7 +279,6 @@ void diagfwd_bridge_exit()
 {
 	#ifdef USB_QCOM_DIAG_BRIDGE
 	diag_hsic_exit();
-	diag_smux_exit();
 	#endif
 }
 
