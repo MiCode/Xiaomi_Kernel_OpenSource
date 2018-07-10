@@ -237,7 +237,7 @@ int arch_skip_callchain_idx(struct machine *machine, struct thread *thread,
 	if (!chain || chain->nr < 3)
 		return skip_slot;
 
-	ip = chain->ips[2];
+	ip = chain->ips[1];
 
 	thread__find_addr_location(thread, machine, PERF_RECORD_MISC_USER,
 			MAP__FUNCTION, ip, &al);
