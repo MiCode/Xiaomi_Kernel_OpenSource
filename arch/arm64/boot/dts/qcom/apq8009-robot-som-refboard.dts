@@ -168,12 +168,28 @@
 		pinctrl-1 = <&spkr_en_sleep>;
 	};
 
-
 	vph_pwr_vreg: vph_pwr_vreg {
 		compatible = "regulator-fixed";
 		status = "ok";
 		regulator-name = "vph_pwr";
 		regulator-always-on;
+	};
+
+	otg_vreg_5p0: otg_vreg_5p0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sbc_vreg_5p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		status = "ok";
+		enable-active-low;
+		vin-supply = <&vph_pwr_vreg>;
+	};
+
+	vbus_otg_vreg: vbus_otg_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vbus_otg_vreg";
+		gpio = <&msm_gpio 74 0>;
+		vin-supply = <&otg_vreg_5p0>;
 	};
 
 	mdss_mdp: qcom,mdss_mdp@1a00000 {
@@ -310,8 +326,8 @@
 	interrupt-names = "core_irq", "async_irq", "phy_irq";
 	qcom,hsusb-otg-mode = <3>;
 	qcom,switch-vbus-w-id;
-	vbus_otg-supply = <&vph_pwr_vreg>;
-	extcon = <&pm8916_chg>;
+	qcom,phy-id-high-as-peripheral;
+	vbus_otg-supply = <&vbus_otg_vreg>;
 };
 
 &external_image_mem {
