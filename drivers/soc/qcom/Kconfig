@@ -315,6 +315,15 @@ config QCOM_MEMORY_DUMP_V2
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
 
+config MSM_DEBUG_LAR_UNLOCK
+	bool "MSM Debug LAR Unlock Support"
+	depends on QCOM_MEMORY_DUMP_V2
+	help
+	  This allows unlocking Core Debug lock to allow capture
+	  of upper 32 bits of program counter at the time of
+	  system crash. This is useful in getting correct crash
+	  location.
+
 config QCOM_SMEM_STATE
 	bool
 
