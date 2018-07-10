@@ -24,6 +24,16 @@ static bool qti_packet_debug;
 module_param(qti_packet_debug, bool, 0644);
 MODULE_PARM_DESC(qti_packet_debug, "Print QTI Packet's Raw Data");
 
+/* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
+static char *gsi_dev_addr;
+module_param(gsi_dev_addr, charp, 0644);
+MODULE_PARM_DESC(gsi_dev_addr, "QC Device Ethernet Address");
+
+/* this address is invisible to ifconfig */
+static char *gsi_host_addr;
+module_param(gsi_host_addr, charp, 0644);
+MODULE_PARM_DESC(gsi_host_addr, "QC Host Ethernet Address");
+
 static struct workqueue_struct *ipa_usb_wq;
 static struct f_gsi *__gsi[USB_PROT_MAX];
 static void *ipc_log_ctxt;
@@ -211,26 +221,23 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	return ret;
 }
 
-static void debugfs_rw_timer_func(unsigned long arg)
+static void gsi_rw_timer_func(unsigned long arg)
 {
-	struct f_gsi *gsi;
-
-	gsi = (struct f_gsi *)arg;
+	struct f_gsi *gsi = (struct f_gsi *)arg;
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_dbg("%s: gsi not connected..del timer\n", __func__);
-		gsi->debugfs_rw_enable = 0;
-		del_timer(&gsi->debugfs_rw_timer);
+		log_event_dbg("%s: gsi not connected.. bail-out\n", __func__);
+		gsi->debugfs_rw_timer_enable = 0;
 		return;
 	}
 
 	log_event_dbg("%s: calling gsi_wakeup_host\n", __func__);
 	gsi_wakeup_host(gsi);
 
-	if (gsi->debugfs_rw_enable) {
+	if (gsi->debugfs_rw_timer_enable) {
 		log_event_dbg("%s: re-arm the timer\n", __func__);
-		mod_timer(&gsi->debugfs_rw_timer,
-			jiffies + msecs_to_jiffies(gsi->debugfs_rw_interval));
+		mod_timer(&gsi->gsi_rw_timer,
+			jiffies + msecs_to_jiffies(gsi->gsi_rw_timer_interval));
 	}
 }
 
@@ -279,7 +286,7 @@ static ssize_t usb_gsi_rw_write(struct file *file,
 		goto err;
 	}
 
-	if (gsi->debugfs_rw_enable == !!input) {
+	if (gsi->debugfs_rw_timer_enable == !!input) {
 		if (!!input)
 			log_event_dbg("%s: RW already enabled\n", __func__);
 		else
@@ -287,21 +294,14 @@ static ssize_t usb_gsi_rw_write(struct file *file,
 		goto err;
 	}
 
-	gsi->debugfs_rw_enable = !!input;
-	if (gsi->debugfs_rw_enable) {
-		init_timer(&gsi->debugfs_rw_timer);
-		gsi->debugfs_rw_timer.data = (unsigned long) gsi;
-		gsi->debugfs_rw_timer.function = debugfs_rw_timer_func;
+	gsi->debugfs_rw_timer_enable = !!input;
 
-		/* Use default remote wakeup timer interval if it is not set */
-		if (!gsi->debugfs_rw_interval)
-			gsi->debugfs_rw_interval = DEFAULT_RW_TIMER_INTERVAL;
-		gsi->debugfs_rw_timer.expires = jiffies +
-				msecs_to_jiffies(gsi->debugfs_rw_interval);
-		add_timer(&gsi->debugfs_rw_timer);
+	if (gsi->debugfs_rw_timer_enable) {
+		mod_timer(&gsi->gsi_rw_timer, jiffies +
+			  msecs_to_jiffies(gsi->gsi_rw_timer_interval));
 		log_event_dbg("%s: timer initialized\n", __func__);
 	} else {
-		del_timer_sync(&gsi->debugfs_rw_timer);
+		del_timer_sync(&gsi->gsi_rw_timer);
 		log_event_dbg("%s: timer deleted\n", __func__);
 	}
 
@@ -320,7 +320,7 @@ static int usb_gsi_rw_show(struct seq_file *s, void *unused)
 		return 0;
 	}
 
-	seq_printf(s, "%d\n", gsi->debugfs_rw_enable);
+	seq_printf(s, "%d\n", gsi->debugfs_rw_timer_enable);
 
 	return 0;
 }
@@ -368,7 +368,7 @@ static ssize_t usb_gsi_rw_timer_write(struct file *file,
 		goto err;
 	}
 
-	gsi->debugfs_rw_interval = timer_val;
+	gsi->gsi_rw_timer_interval = timer_val;
 err:
 	return count;
 }
@@ -376,7 +376,6 @@ err:
 static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
 {
 	struct f_gsi *gsi;
-	unsigned int timer_interval;
 
 	gsi = get_connected_gsi();
 	if (!gsi) {
@@ -384,11 +383,7 @@ static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
 		return 0;
 	}
 
-	timer_interval = DEFAULT_RW_TIMER_INTERVAL;
-	if (gsi->debugfs_rw_interval)
-		timer_interval = gsi->debugfs_rw_interval;
-
-	seq_printf(s, "%ums\n", timer_interval);
+	seq_printf(s, "%ums\n", gsi->gsi_rw_timer_interval);
 
 	return 0;
 }
@@ -2435,6 +2430,9 @@ static void gsi_disable(struct usb_function *f)
 
 	atomic_set(&gsi->connected, 0);
 
+	del_timer(&gsi->gsi_rw_timer);
+	gsi->debugfs_rw_timer_enable = 0;
+
 	if (gsi->prot_id == USB_PROT_RNDIS_IPA)
 		rndis_uninit(gsi->params);
 
@@ -2505,6 +2503,16 @@ static void gsi_suspend(struct usb_function *f)
 	post_event(&gsi->d_port, EVT_SUSPEND);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 	log_event_dbg("gsi suspended");
+
+	/*
+	 * If host suspended bus without receiving notification request then
+	 * initiate remote-wakeup. As driver won't be able to do it later since
+	 * notification request is already queued.
+	 */
+	if (gsi->c_port.notify_req_queued && usb_gsi_remote_wakeup_allowed(f)) {
+		mod_timer(&gsi->gsi_rw_timer, jiffies + msecs_to_jiffies(2000));
+		log_event_dbg("%s: pending response, arm rw_timer\n", __func__);
+	}
 }
 
 static void gsi_resume(struct usb_function *f)
@@ -2521,6 +2529,10 @@ static void gsi_resume(struct usb_function *f)
 	if ((cdev->gadget->speed == USB_SPEED_SUPER) &&
 		f->func_is_suspended)
 		return;
+
+	/* Keep timer enabled if user enabled using debugfs */
+	if (!gsi->debugfs_rw_timer_enable)
+		del_timer(&gsi->gsi_rw_timer);
 
 	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
 		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
@@ -2595,10 +2607,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 	struct usb_function *f = &gsi->function;
 	int status;
 
-	/* maybe allocate device-global string IDs */
-	if (info->string_defs[0].id != 0)
-		goto skip_string_id_alloc;
-
 	if (info->ctrl_str_idx >= 0 && info->ctrl_desc) {
 		/* ctrl interface label */
 		status = usb_string_id(cdev);
@@ -2635,7 +2643,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 		info->cdc_eth_desc->iMACAddress = status;
 	}
 
-skip_string_id_alloc:
 	if (info->ctrl_desc)
 		info->ctrl_desc->bInterfaceNumber = gsi->ctrl_id;
 
@@ -2812,6 +2819,26 @@ static void ipa_ready_callback(void *user_data)
 	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
 }
 
+static void gsi_get_ether_addr(const char *str, u8 *dev_addr)
+{
+	if (str) {
+		unsigned int i;
+
+		for (i = 0; i < ETH_ALEN; i++) {
+			unsigned char num;
+
+			if ((*str == '.') || (*str == ':'))
+				str++;
+			num = hex_to_bin(*str++) << 4;
+			num |= hex_to_bin(*str++);
+			dev_addr[i] = num;
+		}
+		if (is_valid_ether_addr(dev_addr))
+			return;
+	}
+	random_ether_addr(dev_addr);
+}
+
 static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
@@ -2884,11 +2911,15 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		rndis_set_param_medium(gsi->params, RNDIS_MEDIUM_802_3, 0);
 
 		/* export host's Ethernet address in CDC format */
-		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
-		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
+		gsi_get_ether_addr(gsi_dev_addr,
+				   gsi->d_port.ipa_init_params.device_ethaddr);
+
+		gsi_get_ether_addr(gsi_host_addr,
+				   gsi->d_port.ipa_init_params.host_ethaddr);
+
 		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
-		gsi->d_port.ipa_init_params.host_ethaddr,
-		gsi->d_port.ipa_init_params.device_ethaddr);
+				gsi->d_port.ipa_init_params.host_ethaddr,
+				gsi->d_port.ipa_init_params.device_ethaddr);
 		memcpy(gsi->ethaddr, &gsi->d_port.ipa_init_params.host_ethaddr,
 				ETH_ALEN);
 		rndis_set_host_mac(gsi->params, gsi->ethaddr);
@@ -3097,11 +3128,15 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.notify_buf_len = GSI_CTRL_NOTIFY_BUFF_LEN;
 
 		/* export host's Ethernet address in CDC format */
-		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
-		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
+		gsi_get_ether_addr(gsi_dev_addr,
+				   gsi->d_port.ipa_init_params.device_ethaddr);
+
+		gsi_get_ether_addr(gsi_host_addr,
+				   gsi->d_port.ipa_init_params.host_ethaddr);
+
 		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
-		gsi->d_port.ipa_init_params.host_ethaddr,
-		gsi->d_port.ipa_init_params.device_ethaddr);
+				gsi->d_port.ipa_init_params.host_ethaddr,
+				gsi->d_port.ipa_init_params.device_ethaddr);
 
 		snprintf(gsi->ethaddr, sizeof(gsi->ethaddr),
 		"%02X%02X%02X%02X%02X%02X",
@@ -3353,6 +3388,9 @@ static struct f_gsi *gsi_function_init(void)
 	gsi->d_port.out_channel_handle = -EINVAL;
 
 	gsi->d_port.ipa_usb_wq = ipa_usb_wq;
+
+	gsi->gsi_rw_timer_interval = DEFAULT_RW_TIMER_INTERVAL;
+	setup_timer(&gsi->gsi_rw_timer, gsi_rw_timer_func, (unsigned long) gsi);
 
 	return gsi;
 }

@@ -410,8 +410,12 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 			pr_err("%s: Fetch engine config failed\n", __func__);
 			return -EINVAL;
 		}
-		for (i = 0; i < stream_info->num_planes; i++)
+		for (i = 0; i < stream_info->num_planes; i++) {
+			vfe_dev->hw_info->vfe_ops.axi_ops.enable_wm(
+				vfe_dev->vfe_base,
+				stream_info->wm[vfe_idx][i], 1);
 			wm_reload_mask |= (1 << stream_info->wm[vfe_idx][i]);
+		}
 		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 			VFE_SRC_MAX);
 		vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,

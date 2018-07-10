@@ -87,6 +87,8 @@ memory allocation over a PCIe bridge
                                 need to be unlocked by TZ.
 - qcom,ipa-uc-monitor-holb:   	Boolean context flag to indicate whether
                                 monitoring of holb via IPA uc is required.
+- qcom,wlan-ce-db-over-pcie: Boolean context flag to represent WLAN CE DB
+				over pcie bus or not.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

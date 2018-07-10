@@ -211,6 +211,7 @@
 
 &pm8916_chg {
 	status = "ok";
+	qcom,use-default-batt-values;
 };
 
 &pm8916_bms {

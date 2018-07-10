@@ -76,6 +76,7 @@ enum ttf_param {
 	TTF_VFLOAT,
 	TTF_CHG_TYPE,
 	TTF_CHG_STATUS,
+	TTF_VALID,
 };
 
 struct ttf_circ_buf {

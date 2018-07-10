@@ -350,6 +350,9 @@ struct mdss_mdp_ctl_intfs_ops {
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
+
+	/* to wait for vsync */
+	int (*wait_for_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 };
 
 /* FRC info used for Deterministic Frame Rate Control */
@@ -648,6 +651,7 @@ struct mdss_mdp_ctl {
 
 	/* vsync handler for FRC */
 	struct mdss_mdp_vsync_handler frc_vsync_handler;
+	bool need_vsync_on;
 };
 
 struct mdss_mdp_mixer {
@@ -664,6 +668,8 @@ struct mdss_mdp_mixer {
 	bool valid_roi;
 	bool roi_changed;
 	struct mdss_rect roi;
+	bool dsc_enabled;
+	bool dsc_merge_enabled;
 
 	u8 cursor_enabled;
 	u16 cursor_hotx;
@@ -738,6 +744,7 @@ struct mdss_mdp_img_data {
 	struct dma_buf *srcp_dma_buf;
 	struct dma_buf_attachment *srcp_attachment;
 	struct sg_table *srcp_table;
+	struct ion_handle *ihandle;
 };
 
 enum mdss_mdp_data_state {
@@ -1026,6 +1033,8 @@ struct mdss_overlay_private {
 	struct kthread_worker worker;
 	struct kthread_work vsync_work;
 	struct task_struct *thread;
+
+	bool cache_null_commit; /* Cache if preceding commit was NULL */
 };
 
 struct mdss_mdp_set_ot_params {
@@ -1620,7 +1629,7 @@ u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num);
 
 void mdss_mdp_footswitch_ctrl_splash(int on);
 void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable);
-void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
+void mdss_mdp_set_clk_rate(unsigned long min_clk_rate, bool locked);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked);
 int mdss_mdp_vsync_clk_enable(int enable, bool locked);
 void mdss_mdp_clk_ctrl(int enable);
@@ -1730,7 +1739,7 @@ void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
 void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl);
-u32 apply_comp_ratio_factor(u32 quota, struct mdss_mdp_format_params *fmt,
+u64 apply_comp_ratio_factor(u64 quota, struct mdss_mdp_format_params *fmt,
 	struct mult_factor *factor);
 
 int mdss_mdp_scan_pipes(void);

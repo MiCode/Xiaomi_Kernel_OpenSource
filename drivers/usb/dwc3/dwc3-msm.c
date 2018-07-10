@@ -3748,7 +3748,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 	of_platform_depopulate(&pdev->dev);
 
-	dbg_event(0xFF, "Remov put", 0);
 	pm_runtime_disable(mdwc->dev);
 	pm_runtime_barrier(mdwc->dev);
 	pm_runtime_put_sync(mdwc->dev);

@@ -265,6 +265,10 @@
 	/delete-property/ vdd_mx-supply;
 };
 
+&gpu_cx_gdsc {
+	/delete-property/ parent-supply;
+};
+
 &gpu_gx_gdsc {
 	/delete-property/ parent-supply;
 };

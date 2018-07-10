@@ -48,13 +48,16 @@ static LIST_HEAD(dsi_display_list);
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY];
-static struct device_node *default_active_node;
+static struct device_node *primary_active_node;
+static struct device_node *secondary_active_node;
+
 static const struct of_device_id dsi_display_dt_match[] = {
 	{.compatible = "qcom,dsi-display"},
 	{}
 };
 
-static struct dsi_display *main_display;
+static struct dsi_display *primary_display;
+static struct dsi_display *secondary_display;
 
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display)
 {
@@ -568,6 +571,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
+		if (config->status_cmd.state == DSI_CMD_SET_STATE_LP)
+			cmds[i].msg.flags |= MIPI_DSI_MSG_USE_LPM;
 		if (cmds[i].last_command) {
 			cmds[i].msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
 			flags |= DSI_CTRL_CMD_LAST_COMMAND;
@@ -767,8 +772,8 @@ static int dsi_display_cmd_prepare(const char *cmd_buf, u32 cmd_buf_len,
 	cmd->msg.tx_len = ((cmd_buf[5] << 8) | (cmd_buf[6]));
 
 	if (cmd->msg.tx_len > payload_len) {
-		pr_err("Incorrect payload length tx_len %ld, payload_len %d\n",
-				cmd->msg.tx_len, payload_len);
+		pr_err("Incorrect payload length tx_len %zu, payload_len %d\n",
+		       cmd->msg.tx_len, payload_len);
 		return -EINVAL;
 	}
 
@@ -1163,7 +1168,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
-			return rc;
+			goto error;
 		}
 	}
 
@@ -2017,11 +2022,9 @@ static int dsi_display_parse_boot_display_selection(void)
 			boot_displays[i].name[j] = *(disp_buf + j);
 		boot_displays[i].name[j] = '\0';
 
-		if (i == DSI_PRIMARY) {
+		if (i == DSI_PRIMARY)
 			boot_displays[i].is_primary = true;
-			/* Currently, secondary DSI display is not supported */
-			boot_displays[i].boot_disp_en = true;
-		}
+		boot_displays[i].boot_disp_en = true;
 	}
 	return 0;
 }
@@ -2044,6 +2047,8 @@ static bool validate_dsi_display_selection(void)
 
 	for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
 		node = boot_displays[i].node;
+		if (!node)
+			continue;
 		ctrl_count = of_count_phandle_with_args(node, "qcom,dsi-ctrl",
 								NULL);
 
@@ -2085,11 +2090,12 @@ struct device_node *dsi_display_get_boot_display(int index)
 
 	pr_err("index = %d\n", index);
 
-	if (boot_displays[index].node)
-		return boot_displays[index].node;
-	else if ((index == (MAX_DSI_ACTIVE_DISPLAY - 1))
-			&& (default_active_node))
-		return default_active_node;
+	if ((index == DSI_PRIMARY)
+			&& (primary_active_node))
+		return primary_active_node;
+	else if ((index == DSI_SECONDARY)
+			&& (secondary_active_node))
+		return secondary_active_node;
 	else
 		return NULL;
 }
@@ -4639,6 +4645,7 @@ static struct platform_driver dsi_display_driver = {
 	.driver = {
 		.name = "msm-dsi-display",
 		.of_match_table = dsi_display_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
@@ -4646,8 +4653,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct dsi_display *display;
-	static bool display_from_cmdline, boot_displays_parsed;
-	static bool comp_add_success;
+	static bool boot_displays_parsed;
 	static struct device_node *primary_np, *secondary_np;
 
 	if (!pdev || !pdev->dev.of_node) {
@@ -4676,55 +4682,53 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	display->cmdline_topology = NO_OVERRIDE;
 	display->cmdline_timing = 0;
 
-	if ((!display_from_cmdline) &&
-			(boot_displays[DSI_PRIMARY].boot_disp_en)) {
-		display->is_active = dsi_display_name_compare(pdev->dev.of_node,
-						display->name, DSI_PRIMARY);
-		if (display->is_active) {
-			if (comp_add_success) {
-				(void)_dsi_display_dev_deinit(main_display);
-				component_del(&main_display->pdev->dev,
-					      &dsi_display_comp_ops);
-				mutex_lock(&dsi_display_list_lock);
-				list_del(&main_display->list);
-				mutex_unlock(&dsi_display_list_lock);
-				comp_add_success = false;
-				default_active_node = NULL;
-				pr_debug("removed the existing comp ops\n");
-			}
-			/*
-			 * Need to add component for
-			 * the secondary DSI display
-			 * when more than one DSI display
-			 * is supported.
-			 */
-			pr_debug("cmdline primary dsi: %s\n",
-						display->name);
-			display_from_cmdline = true;
-			dsi_display_parse_cmdline_topology(display,
-					DSI_PRIMARY);
-			primary_np = pdev->dev.of_node;
+	if (boot_displays[DSI_PRIMARY].boot_disp_en && !primary_np &&
+		dsi_display_name_compare(pdev->dev.of_node,
+			display->name, DSI_PRIMARY)) {
+		if (primary_display) {
+			(void)_dsi_display_dev_deinit(primary_display);
+			component_del(&primary_display->pdev->dev,
+					&dsi_display_comp_ops);
+			mutex_lock(&dsi_display_list_lock);
+			list_del(&primary_display->list);
+			mutex_unlock(&dsi_display_list_lock);
+			primary_active_node = NULL;
+			pr_debug("removed the existing comp ops\n");
 		}
+		/*
+		 * Need to add component for
+		 * the secondary DSI display
+		 * when more than one DSI display
+		 * is supported.
+		 */
+		pr_debug("cmdline primary dsi: %s\n", display->name);
+		display->is_active = true;
+		dsi_display_parse_cmdline_topology(display, DSI_PRIMARY);
+		primary_np = pdev->dev.of_node;
 	}
 
-	if (boot_displays[DSI_SECONDARY].boot_disp_en) {
-		if (!secondary_np) {
-			if (dsi_display_name_compare(pdev->dev.of_node,
-				display->name, DSI_SECONDARY)) {
-				pr_debug("cmdline secondary dsi: %s\n",
-							display->name);
-				secondary_np = pdev->dev.of_node;
-				if (primary_np) {
-					if (validate_dsi_display_selection()) {
-					display->is_active = true;
-					dsi_display_parse_cmdline_topology
-						(display, DSI_SECONDARY);
-					} else {
-						boot_displays[DSI_SECONDARY]
-							.boot_disp_en = false;
-					}
-				}
+	if (boot_displays[DSI_SECONDARY].boot_disp_en && !secondary_np &&
+		dsi_display_name_compare(pdev->dev.of_node,
+			display->name, DSI_SECONDARY)) {
+		pr_debug("cmdline secondary dsi: %s\n", display->name);
+		if (validate_dsi_display_selection()) {
+			if (secondary_display) {
+				(void)_dsi_display_dev_deinit(
+						secondary_display);
+				component_del(&secondary_display->pdev->dev,
+						&dsi_display_comp_ops);
+				mutex_lock(&dsi_display_list_lock);
+				list_del(&secondary_display->list);
+				mutex_unlock(&dsi_display_list_lock);
+				secondary_active_node = NULL;
+				pr_debug("removed the existing comp ops\n");
 			}
+			display->is_active = true;
+			dsi_display_parse_cmdline_topology(display,
+					DSI_SECONDARY);
+			secondary_np = pdev->dev.of_node;
+		} else {
+			boot_displays[DSI_SECONDARY].boot_disp_en = false;
 		}
 	}
 	display->display_type = of_get_property(pdev->dev.of_node,
@@ -4739,12 +4743,18 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	list_add(&display->list, &dsi_display_list);
 	mutex_unlock(&dsi_display_list_lock);
 
-	if (!display_from_cmdline)
+	if (!strcmp(display->display_type, "primary") && !primary_np)
+		display->is_active = of_property_read_bool(pdev->dev.of_node,
+						"qcom,dsi-display-active");
+	else if (strcmp(display->display_type, "primary") && !secondary_np)
 		display->is_active = of_property_read_bool(pdev->dev.of_node,
 						"qcom,dsi-display-active");
 
 	if (display->is_active) {
-		main_display = display;
+		if (!strcmp(display->display_type, "primary"))
+			primary_display = display;
+		else
+			secondary_display = display;
 		rc = _dsi_display_dev_init(display);
 		if (rc) {
 			pr_err("device init failed, rc=%d\n", rc);
@@ -4755,10 +4765,11 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		if (rc)
 			pr_err("component add failed, rc=%d\n", rc);
 
-		comp_add_success = true;
 		pr_debug("Component_add success: %s\n", display->name);
-		if (!display_from_cmdline)
-			default_active_node = pdev->dev.of_node;
+		if (!strcmp(display->display_type, "primary"))
+			primary_active_node = pdev->dev.of_node;
+		else
+			secondary_active_node = pdev->dev.of_node;
 	}
 	return rc;
 }
@@ -4997,7 +5008,10 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		info->h_tile_instance[i] = display->ctrl[i].ctrl->cell_index;
 
 	info->is_connected = true;
-	info->is_primary = true;
+	info->is_primary = false;
+	if (!strcmp(display->display_type, "primary"))
+		info->is_primary = true;
+
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;

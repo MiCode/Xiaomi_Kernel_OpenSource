@@ -177,6 +177,40 @@ config ARCH_SDM632
 	select CPU_FREQ_QCOM
 	select COMMON_CLK_MSM
 
+config ARCH_SDM670
+        bool "Enable Support for SDM670"
+	select CPU_V7
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select PINCTRL_MSM_TLMM
+	select PCI
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select GENERIC_IRQ_MIGRATION
+
 config ARCH_MDM9650
 	bool "MDM9650"
 	select ARM_GIC

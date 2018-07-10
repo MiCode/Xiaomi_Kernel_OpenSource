@@ -1435,6 +1435,8 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
+	case QCA6390_EMULATION_DEVICE_ID:
+	case QCA6390_DEVICE_ID:
 		ret = cnss_register_ramdump_v2(plat_priv);
 		break;
 	default:
@@ -1453,6 +1455,8 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
+	case QCA6390_EMULATION_DEVICE_ID:
+	case QCA6390_DEVICE_ID:
 		cnss_unregister_ramdump_v2(plat_priv);
 		break;
 	default:
@@ -1523,6 +1527,8 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	switch (plat_priv->device_id) {
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
+	case QCA6390_EMULATION_DEVICE_ID:
+	case QCA6390_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Not supported for device ID 0x%lx\n",
@@ -1585,6 +1591,7 @@ static void cnss_event_work_deinit(struct cnss_plat_data *plat_priv)
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
+	{ .name = "qca6390", .driver_data = QCA6390_DEVICE_ID, },
 };
 
 static const struct of_device_id cnss_of_match_table[] = {
@@ -1594,6 +1601,9 @@ static const struct of_device_id cnss_of_match_table[] = {
 	{
 		.compatible = "qcom,cnss-qca6290",
 		.data = (void *)&cnss_platform_id_table[1]},
+	{
+		.compatible = "qcom,cnss-qca6390",
+		.data = (void *)&cnss_platform_id_table[2]},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, cnss_of_match_table);

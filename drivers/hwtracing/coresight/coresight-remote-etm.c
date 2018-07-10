@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +362,10 @@ static int remote_etm_remove(struct platform_device *pdev)
 {
 	struct remote_etm_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	qmi_svc_event_notifier_unregister(CORESIGHT_QMI_SVC_ID,
+					  CORESIGHT_QMI_VERSION,
+					  drvdata->inst_id,
+					  &drvdata->nb);
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }

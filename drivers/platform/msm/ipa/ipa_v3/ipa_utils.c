@@ -1972,6 +1972,29 @@ static void ipa_comp_cfg(void)
 		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
 				comp_cfg.ipa_qmb_select_by_address_cons_en);
 	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("gsi_multi_inorder_rd_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_rd_dis);
+
+		IPADBG("gsi_multi_inorder_wr_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_wr_dis);
+
+		comp_cfg.gsi_multi_inorder_rd_dis = true;
+		comp_cfg.gsi_multi_inorder_wr_dis = true;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("gsi_multi_inorder_rd_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_rd_dis);
+
+		IPADBG("gsi_multi_inorder_wr_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_wr_dis);
+	}
 }
 
 /**

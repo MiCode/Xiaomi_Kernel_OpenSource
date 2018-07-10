@@ -3847,7 +3847,7 @@ static int msm_isp_stream_axi_cfg_update(struct vfe_device *vfe_dev,
 
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
-	int rc = 0, i;
+	int rc = 0, i, j, k;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_stream_update_cmd *update_cmd = arg;
 	struct msm_vfe_axi_stream_cfg_update_info *update_info = NULL;
@@ -3884,7 +3884,9 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			update_cmd->update_type !=
 			UPDATE_STREAM_REMOVE_BUFQ &&
 			update_cmd->update_type !=
-			UPDATE_STREAM_SW_FRAME_DROP) {
+			UPDATE_STREAM_SW_FRAME_DROP &&
+			update_cmd->update_type !=
+			UPDATE_STREAM_REQUEST_FRAMES_VER2) {
 			pr_err("%s: Invalid stream state %d, update cmd %d\n",
 				__func__, stream_info->state,
 				stream_info->stream_id);
@@ -4126,8 +4128,16 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			}
 			vfe_idx = msm_isp_get_vfe_idx_for_stream(
 				vfe_dev, stream_info);
-			msm_isp_stream_axi_cfg_update(vfe_dev, stream_info,
-				update_info);
+			for (j = 0; j < stream_info->num_planes; j++) {
+				stream_info->plane_cfg[vfe_idx][j] =
+					update_info->plane_cfg[j];
+				for (k = 0; k < stream_info->num_isp; k++) {
+					vfe_dev = stream_info->vfe_dev[k];
+					vfe_dev->hw_info->vfe_ops.axi_ops.
+						cfg_wm_reg(vfe_dev,
+						stream_info, j);
+				}
+			}
 		}
 		break;
 	}

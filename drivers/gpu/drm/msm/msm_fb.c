@@ -151,8 +151,8 @@ static int msm_framebuffer_kmap(struct drm_framebuffer *fb)
 		}
 		dma_buf_begin_cpu_access(bo->dma_buf, DMA_BIDIRECTIONAL);
 		msm_fb->vaddr[i] = dma_buf_kmap(bo->dma_buf, 0);
-		DRM_INFO("FB[%u]: vaddr[%d]:%ux%u:0x%llx\n", fb->base.id, i,
-				fb->width, fb->height, (u64) msm_fb->vaddr[i]);
+		DRM_INFO("FB[%u]: vaddr[%d]:%ux%u\n", fb->base.id, i,
+			fb->width, fb->height);
 	}
 
 	return 0;

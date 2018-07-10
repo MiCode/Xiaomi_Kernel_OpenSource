@@ -25,3 +25,8 @@
 &blsp2_uart0 {
 	status = "okay";
 };
+
+&blsp2_uart1 { /* UART6 */
+	status = "okay";
+};
+

@@ -424,6 +424,7 @@ static inline void cpufreq_resume(void) {}
 #define CPUFREQ_START			(2)
 #define CPUFREQ_CREATE_POLICY		(3)
 #define CPUFREQ_REMOVE_POLICY		(4)
+#define CPUFREQ_STOP			(5)
 
 /* Govinfo Notifiers */
 #define CPUFREQ_LOAD_CHANGE		(0)

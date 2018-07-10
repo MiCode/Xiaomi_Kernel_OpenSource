@@ -278,10 +278,12 @@ struct f_gsi {
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
 	bool rmnet_dtr_status;
+
 	/* To test remote wakeup using debugfs */
-	struct timer_list debugfs_rw_timer;
-	u8 debugfs_rw_enable;
-	u16 debugfs_rw_interval;
+	struct timer_list gsi_rw_timer;
+	u8 debugfs_rw_timer_enable;
+	u16 gsi_rw_timer_interval;
+
 	bool host_supports_flow_control;
 };
 

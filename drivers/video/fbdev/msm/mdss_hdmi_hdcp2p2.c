@@ -666,7 +666,7 @@ static void hdmi_hdcp2p2_link_cb(void *data)
 
 static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
-	int rc = 0, timeout_hsync;
+	int timeout_hsync = 0, rc = 0;
 	char *recvd_msg_buf = NULL;
 	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
@@ -1077,7 +1077,7 @@ error:
 
 static bool hdmi_hdcp2p2_supported(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
-	u8 hdcp2version;
+	u8 hdcp2version = 0;
 
 	int rc = hdmi_hdcp2p2_read_version(ctrl, &hdcp2version);
 

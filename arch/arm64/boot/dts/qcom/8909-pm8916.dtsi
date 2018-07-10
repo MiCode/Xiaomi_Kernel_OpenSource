@@ -185,16 +185,6 @@
 	qcom,mdss_dsi_pll@1ac8300 {
 		vddio-supply = <&pm8916_l6>;
 	};
-
-	qcom,msm-thermal {
-		vdd-dig-supply = <&pm8916_s1_floor_corner>;
-
-		qcom,vdd-apps-rstr {
-			qcom,vdd-rstr-reg = "vdd-apps";
-			qcom,levels = <800000>;
-			qcom,freq-req;
-		};
-	};
 };
 
 
@@ -370,7 +360,6 @@
 			};
 		};
 
-
 		xo-therm-adc {
 			polling-delay-passive = <0>;
 			polling-delay = <1000>;
@@ -397,6 +386,41 @@
 					temperature = <65000>;
 					hysteresis = <1000>;
 					type = "passive";
+				};
+			};
+		};
+		mdm-lowf {
+			cooling-maps {
+				cx_vdd_cdev {
+					cooling-device = <&pm8916_cx_cdev 0 0>;
+				};
+			};
+		};
+		camera-lowf {
+			cooling-maps {
+				cx_vdd_cdev {
+					cooling-device = <&pm8916_cx_cdev 0 0>;
+				};
+			};
+		};
+		gpu-lowf {
+			cooling-maps {
+				cx_vdd_cdev {
+					cooling-device = <&pm8916_cx_cdev 0 0>;
+				};
+			};
+		};
+		cpu0-2-lowf {
+			cooling-maps {
+				cx_vdd_cdev {
+					cooling-device = <&pm8916_cx_cdev 0 0>;
+				};
+			};
+		};
+		cpu1-3-lowf {
+			cooling-maps {
+				cx_vdd_cdev {
+					cooling-device = <&pm8916_cx_cdev 0 0>;
 				};
 			};
 		};

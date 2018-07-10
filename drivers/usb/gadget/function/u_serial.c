@@ -1305,9 +1305,13 @@ gs_port_alloc(unsigned port_num, struct usb_cdc_line_coding *coding)
 	}
 
 	tty_port_init(&port->port);
+	tty_buffer_set_limit(&port->port, 8388608);
 	spin_lock_init(&port->port_lock);
 	init_waitqueue_head(&port->drain_wait);
 	init_waitqueue_head(&port->close_wait);
+
+	pr_debug("%s open:ttyGS%d and set 8388608, avail:%d\n", __func__,
+		port_num, tty_buffer_space_avail(&port->port));
 
 	tasklet_init(&port->push, gs_rx_push, (unsigned long) port);
 

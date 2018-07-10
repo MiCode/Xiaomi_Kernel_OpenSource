@@ -17,6 +17,10 @@
 	/delete-property/ qcom,dsi-display-active;
 };
 
+&qrd_batterydata {
+	#include "fg-gen3-batterydata-mlp466076-3250mah.dtsi"
+};
+
 &dsi_hx8399_truly_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
@@ -30,6 +34,29 @@
 
 &dsi_hx8399_truly_cmd_display {
 	qcom,dsi-display-active;
+};
+
+&tavil_snd {
+	qcom,model = "sdm670-tavil-hdk-snd-card";
+	com,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC4", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic4",
+		"SpkrLeft IN", "SPK1 OUT";
+
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };
 
 &ufsphy_mem {
@@ -56,4 +83,47 @@
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-host-init-seq =
+			/* <value reg_offset> */
+			   <0x23 0x210 /* PWR_CTRL1 */
+			    0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+			    0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+			    0x80 0x2c  /* PLL_CMODE */
+			    0x0a 0x184 /* PLL_LOCK_DELAY */
+			    0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+			    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+			    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+			    0x21 0x214 /* PWR_CTRL2 */
+			    0x00 0x220 /* IMP_CTRL1 */
+			    0x58 0x224 /* IMP_CTRL2 */
+			    0x77 0x240 /* TUNE1 */
+			    0x29 0x244 /* TUNE2 */
+			    0xca 0x248 /* TUNE3 */
+			    0x04 0x24c /* TUNE4 */
+			    0x03 0x250 /* TUNE5 */
+			    0x00 0x23c /* CHG_CTRL2 */
+			    0x22 0x210>; /* PWR_CTRL1 */
+	qcom,qusb-phy-init-seq =
+			/* <value reg_offset> */
+			   <0x23 0x210 /* PWR_CTRL1 */
+			    0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+			    0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+			    0x80 0x2c  /* PLL_CMODE */
+			    0x0a 0x184 /* PLL_LOCK_DELAY */
+			    0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+			    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+			    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+			    0x21 0x214 /* PWR_CTRL2 */
+			    0x25 0x220 /* IMP_CTRL1 */
+			    0x58 0x224 /* IMP_CTRL2 */
+			    0x65 0x240 /* TUNE1 */
+			    0x29 0x244 /* TUNE2 */
+			    0xca 0x248 /* TUNE3 */
+			    0x04 0x24c /* TUNE4 */
+			    0x03 0x250 /* TUNE5 */
+			    0x00 0x23c /* CHG_CTRL2 */
+			    0x22 0x210>; /* PWR_CTRL1 */
 };

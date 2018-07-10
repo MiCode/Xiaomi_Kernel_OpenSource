@@ -77,6 +77,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu0_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU1: cpu@1 {
@@ -86,6 +87,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU2: cpu@2 {
@@ -95,6 +97,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
+			#cooling-cells = <2>;
 		};
 
 		CPU3: cpu@3 {
@@ -104,6 +107,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu3_slp_sts>;
+			#cooling-cells = <2>;
 		};
 	};
 
@@ -556,6 +560,18 @@
 
 	};
 
+	tsens0: tsens@4a8000 {
+		compatible = "qcom,msm8909-tsens";
+		reg = <0x4a8000 0x1000>,
+			<0x4a9000 0x1000>,
+			<0x5c000  0x1000>;
+		reg-names = "tsens_srot_physical",
+			"tsens_tm_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		#thermal-sensor-cells = <1>;
+	};
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
@@ -823,6 +839,7 @@
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
 		qcom,dp-manual-pullup;
 		qcom,phy-dvdd-always-on;
+		qcom,hsusb-otg-delay-lpm;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 
@@ -1336,7 +1353,7 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_1_active>;
@@ -1927,3 +1944,4 @@
 	clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>;
 	status = "okay";
 };
+#include "msm8909-thermal.dtsi"

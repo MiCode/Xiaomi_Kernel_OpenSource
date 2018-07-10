@@ -3,6 +3,7 @@ dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
 	sdxpoorwills-cdp.dtb \
 	sdxpoorwills-mtp.dtb \
 	sdxpoorwills-atp.dtb \
+	sdxpoorwills-ttp.dtb \
 	sdxpoorwills-cdp-256.dtb \
 	sdxpoorwills-mtp-256.dtb \
 	sdxpoorwills-dualwifi-cdp.dtb \

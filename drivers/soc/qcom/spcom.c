@@ -2764,7 +2764,7 @@ static int spcom_probe(struct platform_device *pdev)
 	ret = spcom_register_chardev();
 	if (ret) {
 		pr_err("create character device failed.\n");
-		goto fail_reg_chardev;
+		goto fail_while_chardev_reg;
 	}
 
 	link_info.glink_link_state_notif_cb = spcom_link_state_notif_cb;
@@ -2802,6 +2802,7 @@ fail_ion_client:
 fail_reg_chardev:
 	pr_err("Failed to init driver.\n");
 	spcom_unregister_chrdev();
+fail_while_chardev_reg:
 	kfree(dev);
 	spcom_dev = NULL;
 

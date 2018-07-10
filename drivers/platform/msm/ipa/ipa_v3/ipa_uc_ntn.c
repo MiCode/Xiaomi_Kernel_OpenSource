@@ -508,6 +508,8 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		result = -EFAULT;
 		goto fail_smmu_map_dl;
 	}
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG("client %d (ep: %d) connected\n", in->dl.client,
 		ipa_ep_idx_dl);
 

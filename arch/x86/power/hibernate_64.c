@@ -149,7 +149,7 @@ static int relocate_restore_code(void)
 	return 0;
 }
 
-int swsusp_arch_resume(void)
+asmlinkage int swsusp_arch_resume(void)
 {
 	int error;
 

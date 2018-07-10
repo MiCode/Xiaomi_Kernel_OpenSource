@@ -16,7 +16,7 @@
 &qpnp_smbcharger {
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
-	/delete-property/ dpdm-supply;
+	dpdm-supply = <&usb_otg>;
 };
 
 &usb_otg {

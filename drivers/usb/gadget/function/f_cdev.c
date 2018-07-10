@@ -349,6 +349,23 @@ static inline struct f_cdev *cser_to_port(struct cserial *cser)
 	return container_of(cser, struct f_cdev, port_usb);
 }
 
+static unsigned int convert_uart_sigs_to_acm(unsigned int uart_sig)
+{
+	unsigned int acm_sig = 0;
+
+	/* should this needs to be in calling functions ??? */
+	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR);
+
+	if (uart_sig & TIOCM_RI)
+		acm_sig |= ACM_CTRL_RI;
+	if (uart_sig & TIOCM_CD)
+		acm_sig |= ACM_CTRL_DCD;
+	if (uart_sig & TIOCM_DSR)
+		acm_sig |= ACM_CTRL_DSR;
+
+	return acm_sig;
+}
+
 static unsigned int convert_acm_sigs_to_uart(unsigned int acm_sig)
 {
 	unsigned int uart_sig = 0;
@@ -1333,6 +1350,12 @@ static int f_cdev_tiocmget(struct f_cdev *port)
 
 	if (cser->serial_state & TIOCM_RI)
 		result |= TIOCM_RI;
+
+	if (cser->serial_state & TIOCM_DSR)
+		result |= TIOCM_DSR;
+
+	if (cser->serial_state & TIOCM_CTS)
+		result |= TIOCM_CTS;
 	return result;
 }
 
@@ -1373,6 +1396,24 @@ static int f_cdev_tiocmset(struct f_cdev *port,
 		}
 	}
 
+	if (set & TIOCM_DSR)
+		cser->serial_state |= TIOCM_DSR;
+
+	if (clear & TIOCM_DSR)
+		cser->serial_state &= ~TIOCM_DSR;
+
+	if (set & TIOCM_CTS) {
+		if (cser->send_break) {
+			cser->serial_state |= TIOCM_CTS;
+			status = cser->send_break(cser, 0);
+		}
+	}
+	if (clear & TIOCM_CTS) {
+		if (cser->send_break) {
+			cser->serial_state &= ~TIOCM_CTS;
+			status = cser->send_break(cser, 1);
+		}
+	}
 	return status;
 }
 
@@ -1423,7 +1464,9 @@ static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 {
 	int temp;
 	struct f_cdev *port = fport;
+	struct cserial *cser;
 
+	cser = &port->port_usb;
 	if (!port) {
 		pr_err("port is null\n");
 		return;
@@ -1438,6 +1481,17 @@ static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 
 	port->cbits_to_modem = temp;
 	port->cbits_updated = true;
+
+	 /* if DTR is high, update latest modem info to laptop */
+	if (port->cbits_to_modem & TIOCM_DTR) {
+		unsigned int result;
+		unsigned int cbits_to_laptop;
+
+		result = f_cdev_tiocmget(port);
+		cbits_to_laptop = convert_uart_sigs_to_acm(result);
+		if (cser->send_modem_ctrl_bits)
+			cser->send_modem_ctrl_bits(cser, cbits_to_laptop);
+	}
 
 	wake_up(&port->read_wq);
 }
@@ -1488,8 +1542,10 @@ int usb_cser_connect(struct f_cdev *port)
 
 void usb_cser_disconnect(struct f_cdev *port)
 {
+	struct cserial *cser;
 	unsigned long flags;
 
+	cser = &port->port_usb;
 	usb_cser_stop_io(port);
 
 	/* lower DTR to modem */
@@ -1497,6 +1553,7 @@ void usb_cser_disconnect(struct f_cdev *port)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
+	cser->notify_modem = NULL;
 	port->nbytes_from_host = port->nbytes_to_host = 0;
 	port->nbytes_to_port_bridge = 0;
 	spin_unlock_irqrestore(&port->port_lock, flags);

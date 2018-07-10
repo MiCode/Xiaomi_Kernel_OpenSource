@@ -341,20 +341,11 @@
 };
 
 &usb1 {
-	status = "okay";
 	extcon = <&extcon_usb1>;
-};
-
-&qusb_phy1 {
-	status = "okay";
 };
 
 &ext_5v_boost {
 	status = "ok";
-};
-
-&usb_qmp_phy {
-	status = "okay";
 };
 
 &pm8998_vadc {

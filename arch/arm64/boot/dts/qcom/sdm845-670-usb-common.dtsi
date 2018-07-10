@@ -129,6 +129,7 @@
 		vdd-supply = <&pm8998_l1>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
+		qcom,override-bias-ctrl2;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-reg-offset =
 			<0x240 /* QUSB2PHY_PORT_TUNE1 */
@@ -403,6 +404,7 @@
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
 			usb-core-id = <1>;
+			dr_mode = "host";
 		};
 	};
 
@@ -417,6 +419,7 @@
 		vdd-supply = <&pm8998_l1>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
+		qcom,override-bias-ctrl2;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-reg-offset =
 			<0x240 /* QUSB2PHY_PORT_TUNE1 */
@@ -427,7 +430,8 @@
 			 0x254 /* QUSB2PHY_TEST1 */
 			 0x198 /* PLL_BIAS_CONTROL_2 */
 			 0x228 /* QUSB2PHY_SQ_CTRL1 */
-			 0x22c>; /* QUSB2PHY_SQ_CTRL2 */
+			 0x22c /* QUSB2PHY_SQ_CTRL2 */
+			 0x27c>; /* QUSB2PHY_DEBUG_CTRL1 */
 
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */

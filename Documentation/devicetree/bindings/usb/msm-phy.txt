@@ -191,6 +191,8 @@ Optional properties:
  - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
    improved rise/fall times.
  - qcom,host-chirp-erratum: Indicates host chirp fix is required.
+ - qcom,override-bias-ctrl2: Indicates override is done from driver for
+   BIAS_CTRL2 register.
  - nvmem-cells: specifies the handle to represent the SoC revision.
    usually it is defined by qfprom device node.
  - nvmem-cell-names: specifies the given nvmem cell name as defined in

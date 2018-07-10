@@ -1602,6 +1602,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, 0xF);
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
 	msm_isp_update_rdi_output_count(vfe_dev, stream_cfg_cmd);
+	/*Configure UB*/
+	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
 	if (camif_update == ENABLE_CAMIF) {
 		atomic_set(&vfe_dev->error_info.overflow_state,
 				NO_OVERFLOW);
@@ -1735,7 +1737,6 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd = arg;
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	enum msm_isp_camif_update_state camif_update;
 
 	rc = msm_isp_axi_check_stream_state(vfe_dev, stream_cfg_cmd);
@@ -1744,10 +1745,6 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		return rc;
 	}
 
-	if (axi_data->num_active_stream == 0) {
-		/*Configure UB*/
-		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
-	}
 	camif_update = msm_isp_get_camif_update_state(vfe_dev, stream_cfg_cmd);
 
 	if (stream_cfg_cmd->cmd == START_STREAM) {

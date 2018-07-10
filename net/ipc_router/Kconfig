@@ -23,3 +23,22 @@ config IPC_ROUTER_SECURITY
 	  once configured with the security rules will ensure that the
 	  sender of the message to a service belongs to the relevant
 	  Linux group as configured by the security script.
+
+config IPC_ROUTER_NODE_ID
+	depends on IPC_ROUTER
+	int "IPC router local NODE ID"
+	default 1
+	help
+	  This option allows to configure the IPC Router NODE ID dynamically.
+	  The NODE defined here is used as the local NODE ID by IPC Router
+	  core and publish the same NODE ID to other NODES present in the
+	  network.
+
+config IPC_ROUTER_FIFO_XPRT
+	depends on IPC_ROUTER
+	bool "IPC Router FIFO Transport"
+	help
+	  FIFO Transport Layer that enables IPC Router communication between
+	  two virtual machines. When the Shared FIFO becomes available, this
+	  layer registers the transport with IPC Router and enable message
+	  exchange.

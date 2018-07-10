@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,7 +102,8 @@
 		pm8005_s1_level: regulator-pm8005-s1-level {
 			regulator-name = "pm8005_s1_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+			regulator-min-microvolt
+				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};
@@ -110,7 +111,8 @@
 		pm8005_s1_level_ao: regulator-pm8005-s1-level-ao {
 			regulator-name = "pm8005_s1_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
-			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+			regulator-min-microvolt
+				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};

@@ -125,8 +125,13 @@ static int cpu_pm_callback(struct notifier_block *self,
 
 	cancel_delayed_work(&p->min_freq_work);
 
-	if (p->min_freq_state != p->min_freq_request)
-		schedule_delayed_work(&p->min_freq_work, delay);
+	if (p->min_freq_state != p->min_freq_request) {
+		if (p->min_freq_request == ADJUST_MIN_FLOOR) {
+			if (p->min_freq_floor > cpufreq_quick_get(cpu))
+				delay = 0;
+		}
+		queue_delayed_work(system_unbound_wq, &p->min_freq_work, delay);
+	}
 	spin_unlock(&p->lock);
 
 	return NOTIFY_OK;
@@ -160,13 +165,12 @@ static int enable_big_min_freq_adjust(void)
 	if (p->big_min_freq_on == true)
 		return 0;
 
-	INIT_DEFERRABLE_WORK(&p->min_freq_work, cpufreq_min_freq_work);
+	if (!cpumask_weight(&p->cluster_cpumask)) {
+		pr_err("Cluster CPU IDs not set\n");
+		return -EPERM;
+	}
 
-	cpumask_clear(&p->cluster_cpumask);
-	cpumask_set_cpu(4, &p->cluster_cpumask);
-	cpumask_set_cpu(5, &p->cluster_cpumask);
-	cpumask_set_cpu(6, &p->cluster_cpumask);
-	cpumask_set_cpu(7, &p->cluster_cpumask);
+	INIT_DEFERRABLE_WORK(&p->min_freq_work, cpufreq_min_freq_work);
 
 	if (!big_min_down_delay_ms) {
 		big_min_down_delay_ms = MIN_DOWN_DELAY_MSEC;
@@ -266,6 +270,48 @@ static const struct kernel_param_ops param_ops_big_min_down_delay_ms = {
 };
 module_param_cb(min_down_delay_ms, &param_ops_big_min_down_delay_ms,
 		&big_min_down_delay_ms, 0644);
+
+#define MAX_STR_LEN 16
+static char big_min_freq_cluster[MAX_STR_LEN];
+static struct kparam_string big_min_freq_cluster_kps = {
+	.string = big_min_freq_cluster,
+	.maxlen = MAX_STR_LEN,
+};
+
+static int set_big_min_freq_cluster(const char *buf,
+		const struct kernel_param *kp)
+{
+	struct big_min_freq_adjust_data *p = &big_min_freq_adjust_data;
+	int ret;
+
+	if (p->big_min_freq_on == true) {
+		ret = -EPERM;
+		goto err;
+	}
+
+	ret = param_set_copystring(buf, kp);
+	if (ret)
+		goto err;
+
+	ret = cpulist_parse(big_min_freq_cluster_kps.string,
+			&p->cluster_cpumask);
+	if (ret) {
+		cpumask_clear(&p->cluster_cpumask);
+		goto err;
+	}
+
+	return 0;
+err:
+	pr_err("Unable to set big_min_freq_cluster: %d\n", ret);
+	return ret;
+}
+
+static const struct kernel_param_ops param_ops_big_min_freq_cluster = {
+	.set = set_big_min_freq_cluster,
+	.get = param_get_string,
+};
+module_param_cb(min_freq_cluster, &param_ops_big_min_freq_cluster,
+		&big_min_freq_cluster_kps, 0644);
 
 static int __init big_min_freq_adjust_init(void)
 {

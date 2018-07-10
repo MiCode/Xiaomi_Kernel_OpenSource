@@ -163,6 +163,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_NEED_SECURE_MAP,
 	MDSS_QUIRK_SRC_SPLIT_ALWAYS,
 	MDSS_QUIRK_HDR_SUPPORT_ENABLED,
+	MDSS_QUIRK_MDP_CLK_SET_RATE,
 	MDSS_QUIRK_MAX,
 };
 
@@ -289,6 +290,7 @@ struct mdss_data_type {
 	u32 max_mdp_clk_rate;
 	struct mdss_util_intf *mdss_util;
 	struct mdss_panel_data *pdata;
+	unsigned long mdp_clk_rate;
 
 	struct platform_device *pdev;
 	struct mdss_io_data mdss_io;
@@ -414,6 +416,7 @@ struct mdss_data_type {
 	u32 enable_gate;
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
+	u32 enable_cdp;
 	u32 serialize_wait4pp;
 	u32 wait4autorefresh;
 	u32 lines_before_active;
@@ -466,6 +469,7 @@ struct mdss_data_type {
 	u32 nmax_concurrent_ad_hw;
 	struct workqueue_struct *ad_calc_wq;
 	u32 ad_debugen;
+	bool mem_retain;
 
 	struct mdss_intr hist_intr;
 
@@ -522,6 +526,7 @@ struct mdss_data_type {
 
 	u32 splash_intf_sel;
 	u32 splash_split_disp;
+	struct mult_factor bus_throughput_factor;
 };
 
 extern struct mdss_data_type *mdss_res;

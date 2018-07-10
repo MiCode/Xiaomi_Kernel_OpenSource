@@ -398,15 +398,18 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
 		res = ((curr_mstate == MHI_DEV_M3_STATE ||
-			curr_mstate == MHI_DEV_READY_STATE) &&
+			curr_mstate == MHI_DEV_READY_STATE ||
+			curr_mstate == MHI_DEV_RESET_STATE) &&
 			curr_dstate != MHI_SM_EP_PCIE_LINK_DISABLE);
 		break;
 	case EP_PCIE_EVENT_PM_D3_COLD:
 		res = (curr_dstate == MHI_SM_EP_PCIE_D3_HOT_STATE ||
-			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE);
+			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE ||
+			curr_dstate == MHI_SM_EP_PCIE_D0_STATE);
 		break;
 	case EP_PCIE_EVENT_PM_RST_DEAST:
 		res = (curr_dstate == MHI_SM_EP_PCIE_D0_STATE ||
+			curr_dstate == MHI_SM_EP_PCIE_D3_HOT_STATE ||
 			curr_dstate == MHI_SM_EP_PCIE_D3_COLD_STATE);
 		break;
 	case EP_PCIE_EVENT_PM_D0:

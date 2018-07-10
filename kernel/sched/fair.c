@@ -6271,7 +6271,7 @@ boosted_task_util(struct task_struct *p)
 
 static unsigned long capacity_spare_wake(int cpu, struct task_struct *p)
 {
-	return capacity_orig_of(cpu) - cpu_util_wake(cpu, p);
+	return max_t(long, capacity_of(cpu) - cpu_util_wake(cpu, p), 0);
 }
 
 /*
@@ -6929,6 +6929,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int target_cpu = -1;
 	int cpu, i;
 	unsigned int active_cpus_count = 0;
+	int isolated_candidate = -1;
 
 	*backup_cpu = -1;
 
@@ -6974,13 +6975,16 @@ retry:
 			unsigned long wake_util, new_util, min_capped_util;
 
 			cpumask_clear_cpu(i, &search_cpus);
+
+			if (!cpu_online(i) || cpu_isolated(i))
+				continue;
+
+			isolated_candidate = i;
+
 			if (avoid_prev_cpu && i == task_cpu(p))
 				continue;
 
-			if (!cpu_online(i) || cpu_isolated(i) || is_reserved(i))
-				continue;
-
-			if (walt_cpu_high_irqload(i))
+			if (walt_cpu_high_irqload(i) || is_reserved(i))
 				continue;
 
 			trace_sched_cpu_util(i);
@@ -7265,6 +7269,12 @@ retry:
 		*backup_cpu = prefer_idle
 		? best_active_cpu
 		: best_idle_cpu;
+
+	if (target_cpu == -1 && cpu_isolated(task_cpu(p)) &&
+			isolated_candidate != -1) {
+		target_cpu = isolated_candidate;
+		fbt_env->avoid_prev_cpu = true;
+	}
 
 	trace_sched_find_best_target(p, prefer_idle, min_util, cpu,
 				     best_idle_cpu, best_active_cpu,
@@ -9699,8 +9709,11 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (busiest->group_type == group_imbalanced)
 		goto force_balance;
 
-	/* SD_BALANCE_NEWIDLE trumps SMP nice when underutilized */
-	if (env->idle == CPU_NEWLY_IDLE && group_has_capacity(env, local) &&
+	/*
+	 * When dst_cpu is idle, prevent SMP nice and/or asymmetric group
+	 * capacities from resulting in underutilization due to avg_load.
+	 */
+	if (env->idle != CPU_NOT_IDLE && group_has_capacity(env, local) &&
 	    busiest->group_no_capacity)
 		goto force_balance;
 
@@ -11810,7 +11823,7 @@ static void walt_check_for_rotation(struct rq *src_rq)
 	if (is_max_capacity_cpu(src_cpu))
 		return;
 
-	wc = ktime_get_ns();
+	wc = sched_ktime_clock();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 

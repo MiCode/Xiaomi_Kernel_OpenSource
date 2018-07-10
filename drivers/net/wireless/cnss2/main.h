@@ -220,6 +220,7 @@ struct cnss_plat_data {
 	u32 diag_reg_read_len;
 	u8 *diag_reg_read_buf;
 	bool cal_done;
+	char firmware_name[13];
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
