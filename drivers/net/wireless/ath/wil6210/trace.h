@@ -188,8 +188,9 @@ TRACE_EVENT(wil6210_rx,
 );
 
 TRACE_EVENT(wil6210_rx_status,
-	    TP_PROTO(u8 use_compressed, u16 buff_id, void *msg),
-	    TP_ARGS(use_compressed, buff_id, msg),
+	    TP_PROTO(struct wil6210_priv *wil, u8 use_compressed, u16 buff_id,
+		     void *msg),
+	    TP_ARGS(wil, use_compressed, buff_id, msg),
 	    TP_STRUCT__entry(__field(u8, use_compressed)
 			     __field(u16, buff_id)
 			     __field(unsigned int, len)
@@ -207,9 +208,10 @@ TRACE_EVENT(wil6210_rx_status,
 			   __entry->mid = wil_rx_status_get_mid(msg);
 			   __entry->cid = wil_rx_status_get_cid(msg);
 			   __entry->tid = wil_rx_status_get_tid(msg);
-			   __entry->type = wil_rx_status_get_frame_type(msg);
-			   __entry->subtype = wil_rx_status_get_fc1(msg);
-			   __entry->seq = wil_rx_status_get_seq(msg);
+			   __entry->type = wil_rx_status_get_frame_type(wil,
+									msg);
+			   __entry->subtype = wil_rx_status_get_fc1(wil, msg);
+			   __entry->seq = wil_rx_status_get_seq(wil, msg);
 			   __entry->mcs = wil_rx_status_get_mcs(msg);
 	    ),
 	    TP_printk(

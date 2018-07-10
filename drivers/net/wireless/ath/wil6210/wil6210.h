@@ -38,8 +38,6 @@ extern bool rx_align_2;
 extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
-extern bool use_rx_hw_reordering;
-extern bool use_compressed_rx_status;
 extern bool ftm_mode;
 
 struct wil6210_priv;
@@ -550,6 +548,27 @@ struct wil_status_ring {
 	struct wil_ring_rx_data rx_data;
 };
 
+#define WIL_STA_TID_NUM (16)
+#define WIL_MCS_MAX (12) /* Maximum MCS supported */
+
+struct wil_net_stats {
+	unsigned long	rx_packets;
+	unsigned long	tx_packets;
+	unsigned long	rx_bytes;
+	unsigned long	tx_bytes;
+	unsigned long	tx_errors;
+	unsigned long	rx_dropped;
+	unsigned long	rx_non_data_frame;
+	unsigned long	rx_short_frame;
+	unsigned long	rx_large_frame;
+	unsigned long	rx_replay;
+	unsigned long	rx_mic_error;
+	unsigned long	rx_key_error; /* eDMA specific */
+	unsigned long	rx_amsdu_error; /* eDMA specific */
+	u16 last_mcs_rx;
+	u64 rx_per_mcs[WIL_MCS_MAX + 1];
+};
+
 /**
  * struct tx_rx_ops - different TX/RX ops for legacy and enhanced
  * DMA flow
@@ -577,11 +596,14 @@ struct wil_txrx_ops {
 	int (*wmi_addba_rx_resp)(struct wil6210_priv *wil, u8 mid, u8 cid,
 				 u8 tid, u8 token, u16 status, bool amsdu,
 				 u16 agg_wsize, u16 timeout);
-	void (*get_reorder_params)(struct sk_buff *skb, int *tid, int *cid,
-				   int *mid, u16 *seq, int *mcast);
+	void (*get_reorder_params)(struct wil6210_priv *wil,
+				   struct sk_buff *skb, int *tid, int *cid,
+				   int *mid, u16 *seq, int *mcast, int *retry);
 	void (*get_netif_rx_params)(struct sk_buff *skb,
 				    int *cid, int *security);
 	int (*rx_crypto_check)(struct wil6210_priv *wil, struct sk_buff *skb);
+	int (*rx_error_check)(struct wil6210_priv *wil, struct sk_buff *skb,
+			      struct wil_net_stats *stats);
 	bool (*is_rx_idle)(struct wil6210_priv *wil);
 	irqreturn_t (*irq_rx)(int irq, void *cookie);
 };
@@ -631,6 +653,8 @@ struct pci_dev;
  * @drop_dup: duplicate frames dropped for this reorder buffer
  * @drop_old: old frames dropped for this reorder buffer
  * @first_time: true when this buffer used 1-st time
+ * @mcast_last_seq: sequence number (SN) of last received multicast packet
+ * @drop_dup_mcast: duplicate multicast frames dropped for this reorder buffer
  */
 struct wil_tid_ampdu_rx {
 	struct sk_buff **reorder_buf;
@@ -644,6 +668,8 @@ struct wil_tid_ampdu_rx {
 	unsigned long long drop_dup;
 	unsigned long long drop_old;
 	bool first_time; /* is it 1-st time this buffer used? */
+	u16 mcast_last_seq; /* multicast dup detection */
+	unsigned long long drop_dup_mcast;
 };
 
 /**
@@ -676,27 +702,6 @@ enum wil_sta_status {
 	wil_sta_unused = 0,
 	wil_sta_conn_pending = 1,
 	wil_sta_connected = 2,
-};
-
-#define WIL_STA_TID_NUM (16)
-#define WIL_MCS_MAX (12) /* Maximum MCS supported */
-
-struct wil_net_stats {
-	unsigned long	rx_packets;
-	unsigned long	tx_packets;
-	unsigned long	rx_bytes;
-	unsigned long	tx_bytes;
-	unsigned long	tx_errors;
-	unsigned long	rx_dropped;
-	unsigned long	rx_non_data_frame;
-	unsigned long	rx_short_frame;
-	unsigned long	rx_large_frame;
-	unsigned long	rx_replay;
-	unsigned long	rx_mic_error; /* eDMA specific */
-	unsigned long	rx_key_error; /* eDMA specific */
-	unsigned long	rx_amsdu_error; /* eDMA specific */
-	u16 last_mcs_rx;
-	u64 rx_per_mcs[WIL_MCS_MAX + 1];
 };
 
 /**
@@ -1001,7 +1006,12 @@ struct wil6210_priv {
 	bool force_wmi_send; /* allow WMI command while FW in sysassert */
 
 	/* relevant only for eDMA */
+	bool use_compressed_rx_status;
+	u32 rx_status_ring_order;
+	u32 tx_status_ring_order;
+	u32 rx_buff_id_count;
 	bool amsdu_en;
+	bool use_rx_hw_reordering;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
