@@ -1,0 +1,9 @@
+QTI Diag Forward USB Driver
+
+Required properties:
+-compatible : should be "qcom,diagfwd-usb".
+
+Example:
+	qcom,diag {
+		compatible = "qcom,diagfwd-usb";
+	};

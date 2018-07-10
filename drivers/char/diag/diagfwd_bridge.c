@@ -20,16 +20,24 @@
 #include <linux/platform_device.h>
 #include "diag_mux.h"
 #include "diagfwd_bridge.h"
-#ifdef USB_QCOM_DIAG_BRIDGE
+#ifdef CONFIG_USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
 #endif
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
 
-#ifdef CONFIG_MSM_MHI
-#define diag_mdm_init		diag_mhi_init
-#else
-#define diag_mdm_init		diag_hsic_init
+#ifndef CONFIG_USB_QCOM_DIAG_BRIDGE
+static int diag_hsic_init(void)
+{
+	return -EINVAL;
+}
+#endif
+
+#ifndef CONFIG_MSM_MHI
+static int diag_mhi_init(void)
+{
+	return -EINVAL;
+}
 #endif
 
 #define BRIDGE_TO_MUX(x)	(x + DIAG_MUX_BRIDGE_BASE)
@@ -261,11 +269,14 @@ int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt)
 	return err;
 }
 
-int diagfwd_bridge_init()
+int diagfwd_bridge_init(bool use_mhi)
 {
 	int err = 0;
 
-	err = diag_mdm_init();
+	if (use_mhi)
+		err = diag_mhi_init();
+	else
+		err = diag_hsic_init();
 	if (err)
 		goto fail;
 	return 0;
