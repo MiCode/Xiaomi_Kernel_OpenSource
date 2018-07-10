@@ -10,6 +10,7 @@
  */
 
 struct clk_hw;
+struct clk_core;
 
 #if defined(CONFIG_OF) && defined(CONFIG_COMMON_CLK)
 struct clk *__of_clk_get_from_provider(struct of_phandle_args *clkspec,
@@ -53,4 +54,5 @@ static struct clk_hw *__clk_get_hw(struct clk *clk)
 	return (struct clk_hw *)clk;
 }
 
+void clock_debug_print_enabled(void) {}
 #endif

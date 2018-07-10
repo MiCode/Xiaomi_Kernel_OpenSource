@@ -47,6 +47,7 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
+#include "../clk/clk.h"
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
@@ -1044,6 +1045,15 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	if (level->notify_rpm) {
+		/*
+		 * Print the clocks which are enabled during system suspend
+		 * This debug information is useful to know which are the
+		 * clocks that are enabled and preventing the system level
+		 * LPMs(XO and Vmin).
+		 */
+		if (!from_idle)
+			clock_debug_print_enabled();
+
 		cpu = get_next_online_cpu(from_idle);
 		cpumask_copy(&cpumask, cpumask_of(cpu));
 		clear_predict_history();
@@ -1617,13 +1627,6 @@ static int lpm_suspend_enter(suspend_state_t state)
 	}
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
-
-	/*
-	 * Print the clocks which are enabled during system suspend
-	 * This debug information is useful to know which are the
-	 * clocks that are enabled and preventing the system level
-	 * LPMs(XO and Vmin).
-	 */
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 
