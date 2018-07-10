@@ -22,7 +22,7 @@
 
 #include "sdx50m-external-soc.dtsi"
 #include "sm8150-sdx50m.dtsi"
-#include "sm8150-qrd-audio-overlay.dtsi"
+#include "sm8150-sdx50m-audio-overlay.dtsi"
 
 / {
 	model = "SDX50M QRD";
