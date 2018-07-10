@@ -232,6 +232,9 @@ static void _dba_bridge_post_disable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (d_bridge->cont_splash_enabled)
+		d_bridge->cont_splash_enabled = false;
+
 	if (d_bridge->ops.power_on) {
 		rc = d_bridge->ops.power_on(d_bridge->dba_ctx, false, 0);
 		if (rc)
