@@ -3,8 +3,14 @@
  *
  * Logs the reasons which caused the kernel to resume from
  * the suspend mode.
+ * Sends uevent to user space when enter or out of suspend,
+ * the modules of user space can use it to do some necessary
+ * operation. for example, sending a special signal to modem
+ * or controling the brightness of a lamp before or after suspend.
  *
  * Copyright (C) 2014 Google, Inc.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -26,7 +32,8 @@
 #include <linux/spinlock.h>
 #include <linux/notifier.h>
 #include <linux/suspend.h>
-
+#include <linux/kobject.h>
+#include <linux/suspend.h>
 
 #define MAX_WAKEUP_REASON_IRQS 32
 static int irq_list[MAX_WAKEUP_REASON_IRQS];
@@ -40,6 +47,9 @@ static ktime_t last_monotime; /* monotonic time before last suspend */
 static ktime_t curr_monotime; /* monotonic time after last suspend */
 static ktime_t last_stime; /* monotonic boottime offset before last suspend */
 static ktime_t curr_stime; /* monotonic boottime offset after last suspend */
+
+static struct class *wake_uevent_class;
+static struct device *wake_uevent_device;
 
 static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
@@ -168,12 +178,22 @@ void log_suspend_abort_reason(const char *fmt, ...)
 static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		unsigned long pm_event, void *unused)
 {
+	int ret = 0;
+	static char envp[32] = {0};
+	static const char * const evp[] = {envp, NULL};
+
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		spin_lock(&resume_reason_lock);
 		irqcount = 0;
 		suspend_abort = false;
 		spin_unlock(&resume_reason_lock);
+		/* send the uevent to userspace */
+		snprintf(envp, 32, "STATE=%s", "suspend start");
+		ret = kobject_uevent_env(&wake_uevent_device->kobj,
+				KOBJ_CHANGE, (char **)evp);
+		if (ret)
+			pr_warn("Send uevent failed");
 		/* monotonic time since boot */
 		last_monotime = ktime_get();
 		/* monotonic time since boot including the time spent in suspend */
@@ -184,6 +204,12 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		curr_monotime = ktime_get();
 		/* monotonic time since boot including the time spent in suspend */
 		curr_stime = ktime_get_boottime();
+		/* send the uevent to userspace */
+		snprintf(envp, 32, "STATE=%s", "resume complete");
+		ret = kobject_uevent_env(&wake_uevent_device->kobj,
+				KOBJ_CHANGE, (char **)evp);
+		if (ret)
+			pr_warn("Send uevent failed");
 		break;
 	default:
 		break;
@@ -195,12 +221,18 @@ static struct notifier_block wakeup_reason_pm_notifier_block = {
 	.notifier_call = wakeup_reason_pm_event,
 };
 
+static const struct file_operations wakeup_uevent = {
+	.owner  = THIS_MODULE,
+};
+
 /* Initializes the sysfs parameter
  * registers the pm_event notifier
+ * register the wake_uevent device
  */
 int __init wakeup_reason_init(void)
 {
 	int retval;
+	int major;
 
 	retval = register_pm_notifier(&wakeup_reason_pm_notifier_block);
 	if (retval)
@@ -218,8 +250,36 @@ int __init wakeup_reason_init(void)
 		kobject_put(wakeup_reason);
 		printk(KERN_WARNING "[%s] failed to create a sysfs group %d\n",
 				__func__, retval);
+		return retval;
 	}
+	major = register_chrdev(0, "wake_uevent", &wakeup_uevent);
+	if (major < 0) {
+		sysfs_remove_group(wakeup_reason, &attr_group);
+		kobject_put(wakeup_reason);
+		return major;
+	}
+	wake_uevent_class = class_create(THIS_MODULE, "wake_uevent");
+	if (IS_ERR(wake_uevent_class)) {
+		retval = PTR_ERR(wake_uevent_class);
+		goto fail_class;
+	}
+	wake_uevent_device = device_create(wake_uevent_class, NULL,
+				MKDEV(major, 0),
+				NULL, "wake_uevent");
+	if (IS_ERR(wake_uevent_device)) {
+		retval = PTR_ERR(wake_uevent_device);
+		goto fail_device;
+	}
+
 	return 0;
+
+fail_device:
+	class_destroy(wake_uevent_class);
+fail_class:
+	unregister_chrdev(major, "wake_uevent");
+	sysfs_remove_group(wakeup_reason, &attr_group);
+	kobject_put(wakeup_reason);
+	return retval;
 }
 
 late_initcall(wakeup_reason_init);
