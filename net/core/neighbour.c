@@ -1294,17 +1294,14 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
 	struct neighbour *neigh = __neigh_lookup(tbl, saddr, dev,
 						 lladdr || !dev->addr_len);
 	if (neigh) {
+		neigh_update(neigh, lladdr, NUD_STALE,
+			     NEIGH_UPDATE_F_OVERRIDE);
 		if (neigh_probe_enable) {
 			if (!(neigh->nud_state == NUD_REACHABLE)) {
-				neigh_update(neigh, lladdr, NUD_STALE,
-					     NEIGH_UPDATE_F_OVERRIDE);
 				write_lock(&neigh->lock);
 				neigh_probe(neigh);
 				neigh_update_notify(neigh);
 			}
-		} else {
-			neigh_update(neigh, lladdr, NUD_STALE,
-				     NEIGH_UPDATE_F_OVERRIDE);
 		}
 	}
 	return neigh;

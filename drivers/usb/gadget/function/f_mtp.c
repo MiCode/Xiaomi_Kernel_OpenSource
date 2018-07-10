@@ -135,6 +135,9 @@ struct mtp_dev {
 	} perf[MAX_ITERATION];
 	unsigned dbg_read_index;
 	unsigned dbg_write_index;
+	unsigned int mtp_rx_req_len;
+	unsigned int mtp_tx_req_len;
+	unsigned int mtp_tx_reqs;
 	bool is_ptp;
 };
 
@@ -553,16 +556,16 @@ retry_tx_alloc:
 		mtp_tx_reqs = 4;
 
 	/* now allocate requests for our endpoints */
-	for (i = 0; i < mtp_tx_reqs; i++) {
+	for (i = 0; i < dev->mtp_tx_reqs; i++) {
 		req = mtp_request_new(dev->ep_in,
-				mtp_tx_req_len + extra_buf_alloc);
+				dev->mtp_tx_req_len + extra_buf_alloc);
 		if (!req) {
-			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
+			if (dev->mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
 			while ((req = mtp_req_get(dev, &dev->tx_idle)))
 				mtp_request_free(req, dev->ep_in);
-			mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;
-			mtp_tx_reqs = MTP_TX_REQ_MAX;
+			dev->mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;
+			dev->mtp_tx_reqs = MTP_TX_REQ_MAX;
 			goto retry_tx_alloc;
 		}
 		req->complete = mtp_complete_in;
@@ -575,18 +578,18 @@ retry_tx_alloc:
 	 * operational speed.  Hence assuming super speed max
 	 * packet size.
 	 */
-	if (mtp_rx_req_len % 1024)
-		mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
+	if (dev->mtp_rx_req_len % 1024)
+		dev->mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 
 retry_rx_alloc:
 	for (i = 0; i < RX_REQ_MAX; i++) {
-		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
+		req = mtp_request_new(dev->ep_out, dev->mtp_rx_req_len);
 		if (!req) {
-			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
+			if (dev->mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
 			for (--i; i >= 0; i--)
 				mtp_request_free(dev->rx_req[i], dev->ep_out);
-			mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
+			dev->mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 			goto retry_rx_alloc;
 		}
 		req->complete = mtp_complete_out;
@@ -631,7 +634,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	}
 	len = ALIGN(count, dev->ep_out->maxpacket);
 
-	if (len > mtp_rx_req_len)
+	if (len > dev->mtp_rx_req_len)
 		return -EINVAL;
 
 	spin_lock_irq(&dev->lock);
@@ -755,8 +758,8 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 			break;
 		}
 
-		if (count > mtp_tx_req_len)
-			xfer = mtp_tx_req_len;
+		if (count > dev->mtp_tx_req_len)
+			xfer = dev->mtp_tx_req_len;
 		else
 			xfer = count;
 		if (xfer && copy_from_user(req->buf, buf, xfer)) {
@@ -852,8 +855,8 @@ static void send_file_work(struct work_struct *data)
 			break;
 		}
 
-		if (count > mtp_tx_req_len)
-			xfer = mtp_tx_req_len;
+		if (count > dev->mtp_tx_req_len)
+			xfer = dev->mtp_tx_req_len;
 		else
 			xfer = count;
 
@@ -946,7 +949,7 @@ static void receive_file_work(struct work_struct *data)
 			cur_buf = (cur_buf + 1) % RX_REQ_MAX;
 
 			/* some h/w expects size to be aligned to ep's MTU */
-			read_req->length = mtp_rx_req_len;
+			read_req->length = dev->mtp_rx_req_len;
 
 			dev->rx_done = 0;
 			ret = usb_ep_queue(dev->ep_out, read_req, GFP_KERNEL);
@@ -1395,6 +1398,9 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->cdev = cdev;
 	DBG(cdev, "mtp_function_bind dev: %pK\n", dev);
 
+	dev->mtp_rx_req_len = mtp_rx_req_len;
+	dev->mtp_tx_req_len = mtp_tx_req_len;
+	dev->mtp_tx_reqs = mtp_tx_reqs;
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
 	if (id < 0)
@@ -1577,7 +1583,7 @@ static int debug_mtp_read_stats(struct seq_file *s, void *unused)
 		seq_printf(s, "vfs write: bytes:%ld\t\t time:%d\n",
 				dev->perf[i].vfs_wbytes,
 				dev->perf[i].vfs_wtime);
-		if (dev->perf[i].vfs_wbytes == mtp_rx_req_len) {
+		if (dev->perf[i].vfs_wbytes == dev->mtp_rx_req_len) {
 			sum += dev->perf[i].vfs_wtime;
 			if (min > dev->perf[i].vfs_wtime)
 				min = dev->perf[i].vfs_wtime;
@@ -1599,7 +1605,7 @@ static int debug_mtp_read_stats(struct seq_file *s, void *unused)
 		seq_printf(s, "vfs read: bytes:%ld\t\t time:%d\n",
 				dev->perf[i].vfs_rbytes,
 				dev->perf[i].vfs_rtime);
-		if (dev->perf[i].vfs_rbytes == mtp_tx_req_len) {
+		if (dev->perf[i].vfs_rbytes == dev->mtp_tx_req_len) {
 			sum += dev->perf[i].vfs_rtime;
 			if (min > dev->perf[i].vfs_rtime)
 				min = dev->perf[i].vfs_rtime;

@@ -1,0 +1,83 @@
+The IAM20680 sensor is 6-axis gyroscope+accelerometer combo
+device which is made by InvenSense Inc.
+
+Required properties:
+
+ - compatible   : Should be "invn,iam20680".
+ - reg          : the I2C address which depends on the AD0 pin.
+ - gpios        : INVENSENSE GPIO in the format described by ../gpio/gpio.txt
+
+Optional properties:
+ - inven,vdd_ana-supply :
+ - inven,vcc_i2c-supply :
+ - inven,gpio_int1 :
+ - axis_map_x :
+ - axis_map_y :
+ - axis_map_z :
+ - negate_x   :
+ - negate_y   :
+ - negate_z   :
+ - fs_range :
+ - poll_interval :
+ - min_interval :
+ - inven,secondary_reg :
+ - inven,secondary_type :
+ - inven,secondary_name :
+ - inven,secondary_axis_map_x :
+ - inven,secondary_axis_map_y :
+ - inven,secondary_axis_map_z :
+ - inven,secondary_negate_x :
+ - inven,secondary_negate_y :
+ - inven,secondary_negate_z :
+ - inven,aux_type :
+ - inven,aux_name :
+ - inven,aux_reg :
+ - inven,read_only_slave_type :
+ - inven,read_only_slave_name :
+ - inven,read_only_slave_reg :
+
+Example:
+	iam20680@69 {
+		compatible = "inven,iam20680";
+		reg = <0x69>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&int1_default>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+		inven,vdd_ana-supply = <&pm8941_l17>;
+		inven,vcc_i2c-supply = <&pm8941_lvs1>;
+		inven,gpio_int1 = <&msmgpio 73 0x00>;
+		axis_map_x = <1>;
+		axis_map_y = <0>;
+		axis_map_z = <2>;
+		negate_x = <1>;
+		negate_y = <0>;
+		negate_z = <0>;
+		fs_range = <0x00>;
+		poll_interval = <200>;
+		min_interval = <5>;
+		inven,secondary_reg = <0x0c>;
+		/* If no compass sensor,
+		 * replace "compass" with "none"
+		 */
+		inven,secondary_type = "compass";
+		inven,secondary_name = "ak09911";
+		inven,secondary_axis_map_x = <1>;
+		inven,secondary_axis_map_y = <0>;
+		inven,secondary_axis_map_z = <2>;
+		inven,secondary_negate_x = <1>;
+		inven,secondary_negate_y = <1>;
+		inven,secondary_negate_z = <1>;
+		/* If no pressure sensor,
+		 * replace "pressure" with "none"
+		 */
+		inven,aux_type = "pressure";
+		inven,aux_name = "bmp280";
+		inven,aux_reg = <0x76>;
+		/* If no ALS sensor
+		 * replace "als" with "none"
+		 */
+		inven,read_only_slave_type = "als";
+		inven,read_only_slave_name = "apds9930";
+		inven,read_only_slave_reg = <0x39>;
+	};

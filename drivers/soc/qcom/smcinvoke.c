@@ -22,6 +22,8 @@
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include "smcinvoke_object.h"
+#include <soc/qcom/qseecomi.h>
+#include "../../misc/qseecom_kernel.h"
 
 #define SMCINVOKE_TZ_PARAM_ID		0x224
 #define SMCINVOKE_TZ_CMD		0x32000600
@@ -198,6 +200,12 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 	dmac_flush_range(out_buf, out_buf + outbuf_flush_size);
 
 	ret = scm_call2(SMCINVOKE_TZ_CMD, &desc);
+
+	/* process listener request */
+	if (!ret && (desc.ret[0] == QSEOS_RESULT_INCOMPLETE ||
+		desc.ret[0] == QSEOS_RESULT_BLOCKED_ON_LISTENER))
+		ret = qseecom_process_listener_from_smcinvoke(&desc);
+
 	*smcinvoke_result = (int32_t)desc.ret[1];
 	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0]) {
 		pr_err("SCM call failed with ret val = %d %d %d %d\n",

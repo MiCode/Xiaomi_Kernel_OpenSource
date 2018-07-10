@@ -65,6 +65,15 @@
 		interrupts = <0x0 0x0d 0x0>; /* PMD9655 VBUS DETECT */
 		interrupt-names = "vbus_det_irq";
 	};
+
+	qcom,ipc_router_external_ap_xprt {
+		compatible = "qcom,ipc-router-mhi-dev-xprt";
+		qcom,out-chan-id = <20>;
+		qcom,in-chan-id = <21>;
+		qcom,xprt-remote = "external-ap";
+		qcom,xprt-linkid = <2>;
+		qcom,xprt-version = <1>;
+	};
 };
 
 &usb3 {

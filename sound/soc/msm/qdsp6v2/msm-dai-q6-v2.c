@@ -5651,22 +5651,28 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			}
 		}
 		/*
-		 * 8909 HW has a dependency where for Rx/Tx to work in TDM mode
-		 * We need to start a Tx or Rx port in the same group.
-		 * Hence for BG use TDM_TX when a RX session is requested and
-		 * use TDM_RX port when a TX session is requested as these ports
-		 * are unused as of now.
+		* 8909 HW and 9x50 HW have a dependency where for Rx/Tx to
+		* work in TDM mode
+		* We need to start a Tx or Rx port in the same group.
+		* Hence for BG use TDM_TX when a RX session is requested and
+		* use TDM_RX port when a TX session is requested as these ports
+		* are unused as of now.
 		*/
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
-				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+				sec_port_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_RX) ? (
+					AFE_PORT_ID_SECONDARY_TDM_TX) : (
+					AFE_PORT_ID_PRIMARY_TDM_TX);
 				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 			if ((dai_data->num_group_ports > 1) &&
 			    (dai_data->sec_port_enable)) {
-				sec_group_id =
-					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
+				sec_group_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_RX) ? (
+				AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX) : (
+				AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX);
 				sec_group_idx =
 					msm_dai_q6_get_group_idx(sec_group_id);
 				if (sec_group_idx < 0) {
@@ -5693,13 +5699,18 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 		} else {
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
-				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+				sec_port_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_TX) ? (
+					AFE_PORT_ID_SECONDARY_TDM_RX) : (
+					AFE_PORT_ID_PRIMARY_TDM_RX);
 				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 			if ((dai_data->num_group_ports > 1) &&
 			    (dai_data->sec_port_enable)) {
-				sec_group_id =
-					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
+				sec_group_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_TX) ? (
+				AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX) : (
+				AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX);
 				sec_group_idx =
 					msm_dai_q6_get_group_idx(sec_group_id);
 				if (sec_group_idx < 0) {
@@ -5825,13 +5836,18 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
-				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+				sec_port_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_RX) ? (
+					AFE_PORT_ID_SECONDARY_TDM_TX) : (
+					AFE_PORT_ID_PRIMARY_TDM_TX);
 				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 			if ((dai_data->num_group_ports > 1) &&
 			    (dai_data->sec_port_enable)) {
-				sec_group_id =
-					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
+				sec_group_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_RX) ? (
+				AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX) : (
+				AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX);
 				sec_group_idx =
 					msm_dai_q6_get_group_idx(sec_group_id);
 				if (sec_group_idx < 0) {
@@ -5844,13 +5860,18 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 		} else {
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
-				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+				sec_port_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_TX) ? (
+					AFE_PORT_ID_SECONDARY_TDM_RX) : (
+					AFE_PORT_ID_PRIMARY_TDM_RX);
 				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 			if ((dai_data->num_group_ports > 1) &&
 			    (dai_data->sec_port_enable)) {
-				sec_group_id =
-					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
+				sec_group_id = (dai->id ==
+					AFE_PORT_ID_SECONDARY_TDM_TX) ? (
+				AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX) : (
+				AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX);
 				sec_group_idx =
 					msm_dai_q6_get_group_idx(sec_group_id);
 				if (sec_group_idx < 0) {
@@ -7285,6 +7306,8 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	if (tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_1 ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_2 ||
+		tdm_dev_id == AFE_PORT_ID_SECONDARY_TDM_TX ||
+		tdm_dev_id == AFE_PORT_ID_SECONDARY_TDM_TX_1 ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_3) {
 		memcpy(&group_cfg_tx.group_cfg,
 			&dai_data->group_cfg.group_cfg ,
@@ -7302,6 +7325,8 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	if (tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_RX ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_RX_1 ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_RX_2 ||
+		tdm_dev_id == AFE_PORT_ID_SECONDARY_TDM_RX ||
+		tdm_dev_id == AFE_PORT_ID_SECONDARY_TDM_RX_1 ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_RX_3) {
 		memcpy(&group_cfg_rx.group_cfg,
 			&dai_data->group_cfg.group_cfg ,

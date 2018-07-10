@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2651,6 +2651,16 @@ static int qpnp_haptic_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static void qpnp_haptic_shutdown(struct spmi_device *spmi)
+{
+	struct qpnp_hap *hap = dev_get_drvdata(&spmi->dev);
+
+	cancel_work_sync(&hap->work);
+
+	/* disable haptics */
+	qpnp_hap_mod_enable(hap, false);
+}
+
 static struct of_device_id spmi_match_table[] = {
 	{ .compatible = "qcom,qpnp-haptic", },
 	{ },
@@ -2664,6 +2674,7 @@ static struct spmi_driver qpnp_haptic_driver = {
 	},
 	.probe		= qpnp_haptic_probe,
 	.remove		= qpnp_haptic_remove,
+	.shutdown	= qpnp_haptic_shutdown,
 };
 
 static int __init qpnp_haptic_init(void)
