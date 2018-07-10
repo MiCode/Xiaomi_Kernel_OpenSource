@@ -1696,8 +1696,6 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 					"config done Success for req_id=%llu",
 					cfg->request_id);
 			}
-
-			rc = 0;
 		}
 	} else {
 		CAM_ERR(CAM_ISP, "No commands to config");
