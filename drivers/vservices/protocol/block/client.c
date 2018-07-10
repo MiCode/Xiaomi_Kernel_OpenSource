@@ -93,7 +93,7 @@ static void block_handle_start(struct vs_service_device *service)
 	    to_client_driver(vsdrv)->client;
 
 	vs_service_state_lock(service);
-	state->state = VSERVICE_BLOCK_RESET_STATE;
+	memset(&(state->state), 0, sizeof(state->state));
 
 	_vs_client_block_req_open(state);
 
@@ -119,7 +119,7 @@ static void block_handle_reset(struct vs_service_device *service)
 	if (client->closed)
 		client->closed(state);
 
-	state->state = VSERVICE_BLOCK_RESET_STATE;
+	memset(&(state->state), 0, sizeof(state->state));
 
 	vs_service_state_unlock(service);
 }
@@ -134,7 +134,7 @@ static void block_handle_start_bh(struct vs_service_device *service)
 	    to_client_driver(vsdrv)->client;
 
 	vs_service_state_lock_bh(service);
-	state->state = VSERVICE_BLOCK_RESET_STATE;
+	memset(&(state->state), 0, sizeof(state->state));
 
 	_vs_client_block_req_open(state);
 
@@ -160,7 +160,7 @@ static void block_handle_reset_bh(struct vs_service_device *service)
 	if (client->closed)
 		client->closed(state);
 
-	state->state = VSERVICE_BLOCK_RESET_STATE;
+	memset(&(state->state), 0, sizeof(state->state));
 
 	vs_service_state_unlock_bh(service);
 }
@@ -265,7 +265,7 @@ static int block_client_probe(struct vs_service_device *service)
 		return PTR_ERR(state);
 
 	state->service = vs_get_service(service);
-	state->state = VSERVICE_BLOCK_RESET_STATE;
+	memset(&(state->state), 0, sizeof(state->state));
 
 	dev_set_drvdata(&service->dev, state);
 
