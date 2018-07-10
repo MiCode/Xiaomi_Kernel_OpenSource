@@ -2375,6 +2375,7 @@
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
 		qcom,dynamic-wakeup-source;
+		qcom,low-latency-xprt;
 	};
 
 	qcom,ipc_router_cdsp_xprt {
