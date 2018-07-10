@@ -563,4 +563,13 @@
 
 &usb1 {
 	extcon = <&extcon_usb1>;
+	status = "ok";
+};
+
+&usb2_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
 };
