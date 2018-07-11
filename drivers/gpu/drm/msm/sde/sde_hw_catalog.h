@@ -1040,6 +1040,8 @@ struct sde_perf_cfg {
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
+ * @has_cursor    indicates if hardware cursor is supported
+ * @has_vig_p010  indicates if vig pipe supports p010 format
  * @mdss_irqs	  bitmap with the irqs supported by the target
  */
 struct sde_mdss_cfg {
@@ -1086,6 +1088,8 @@ struct sde_mdss_cfg {
 	u32 sui_supported_blendstage;
 
 	bool has_hdr;
+	bool has_cursor;
+	bool has_vig_p010;
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 

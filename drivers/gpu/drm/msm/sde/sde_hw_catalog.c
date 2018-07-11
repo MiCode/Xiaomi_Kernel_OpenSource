@@ -3324,7 +3324,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	uint32_t cursor_list_size = 0;
 	uint32_t index = 0;
 
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300)) {
+
+	if (sde_cfg->has_cursor) {
 		cursor_list_size = ARRAY_SIZE(cursor_formats);
 		sde_cfg->cursor_formats = kcalloc(cursor_list_size,
 			sizeof(struct sde_format_extended), GFP_KERNEL);
@@ -3347,9 +3348,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		+ ARRAY_SIZE(tp10_ubwc_formats)
 		+ ARRAY_SIZE(p010_formats);
 	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+
+	if (sde_cfg->has_vig_p010)
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -3384,12 +3384,6 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		goto end;
 	}
 
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410) ||
-	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500))
-		sde_cfg->has_hdr = true;
-
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		0, plane_formats, ARRAY_SIZE(plane_formats));
 	index += sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
@@ -3403,9 +3397,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		ARRAY_SIZE(rgb_10bit_formats));
 	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+	if (sde_cfg->has_vig_p010)
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -3438,8 +3430,6 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	if (!sde_cfg)
 		return -EINVAL;
 
-	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
-
 	for (i = 0; i < MDSS_INTR_MAX; i++)
 		set_bit(i, sde_cfg->mdss_irqs);
 
@@ -3456,6 +3446,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
 		sde_cfg->has_decimation = true;
+		sde_cfg->has_cursor = true;
+		sde_cfg->has_hdr = true;
 	} else if (IS_SDM845_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_cwb_support = true;
@@ -3467,6 +3459,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
 		sde_cfg->has_decimation = true;
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 	} else if (IS_SDM670_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
@@ -3475,10 +3469,14 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
 		sde_cfg->has_decimation = true;
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 	} else if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_qsync = true;
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
@@ -3501,6 +3499,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
 		sde_cfg->has_decimation = true;
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 	} else if (IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3515,6 +3515,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_block_xin_mask = 0x2EE1;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 	} else if (IS_KONA_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3530,11 +3532,16 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_3d_merge_reset = true;
 		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_hdr = true;
+		sde_cfg->has_vig_p010 = true;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
 		rc = -ENODEV;
 	}
+
+	if (!rc)
+		rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 
 	return rc;
 }
