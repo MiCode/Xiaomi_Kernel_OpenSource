@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2138,6 +2138,7 @@ static struct platform_driver msm_rpm_device_driver = {
 	.driver = {
 		.name = "rpm-smd",
 		.owner = THIS_MODULE,
+		.suppress_bind_attrs = true,
 		.of_match_table = msm_rpm_match_table,
 	},
 };
