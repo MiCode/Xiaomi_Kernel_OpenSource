@@ -886,7 +886,7 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
 	if (mode && (qsync_mode == SDE_RM_QSYNC_CONTINUOUS_MODE)) {
 		u32 qsync_min_fps = 0;
 		u32 default_fps = mode->vrefresh;
-		u32 yres = mode->vdisplay;
+		u32 yres = mode->vtotal;
 		u32 slow_time_ns;
 		u32 default_time_ns;
 		u32 extra_time_ns;
