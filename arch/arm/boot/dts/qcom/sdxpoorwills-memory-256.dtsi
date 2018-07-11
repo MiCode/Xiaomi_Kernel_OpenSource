@@ -10,15 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxpoorwills-mtp.dtsi"
-#include "sdxpoorwills-memory-256.dtsi"
-
-&soc {
-	vreg_sd_mmc: vreg_sd_mmc {
-		gpio = <&tlmm 76 GPIO_ACTIVE_HIGH>;
-	};
+&peripheral2_mem {
+	reg = <0x8fe00000 0x200000>;
 };
 
-&sdhc_1 {
-	cd-gpios = <&tlmm 21 0x1>;
+&mss_mem {
+	reg = <0x87000000 0x8300000>;
 };
