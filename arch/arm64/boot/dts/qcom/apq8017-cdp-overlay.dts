@@ -19,6 +19,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017-CDP";
 	qcom,board-id = <1 0>;
+	qcom,msm-id = <307 0x0>;
 };
 
 &mdss_fb0 {

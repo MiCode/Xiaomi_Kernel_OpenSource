@@ -304,7 +304,10 @@ dtbo-$(CONFIG_ARCH_MSM8917) += msm8917-mtp-overlay.dtbo \
 	msm8917-cdp-overlay.dtbo \
 	msm8917-cdp-ext-codec-overlay.dtbo \
 	msm8917-cdp-ml-touch-overlay.dtbo \
-	msm8917-rcm-overlay.dtbo
+	msm8917-rcm-overlay.dtbo \
+	apq8017-mtp-overlay.dtbo \
+	apq8017-cdp-overlay.dtbo \
+	apq8017-cdp-wcd-rome-overlay.dtbo
 
 dtbo-$(CONFIG_ARCH_MSM8953) += msm8953-mtp-overlay.dtbo \
 	msm8953-cdp-overlay.dtbo \
