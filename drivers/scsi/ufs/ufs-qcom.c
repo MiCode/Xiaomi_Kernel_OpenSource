@@ -2722,7 +2722,7 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 		return;
 
 	host->testbus.select_major = TSTBUS_UTP_HCI;
-	for (i = 0; i <= nminor; i++) {
+	for (i = 0; i < nminor; i++) {
 		host->testbus.select_minor = i;
 		ufs_qcom_testbus_config(host);
 		testbus[i] = ufshcd_readl(hba, UFS_TEST_BUS);
