@@ -511,3 +511,7 @@
 &ipa_hw {
 	status = "disabled";
 };
+
+&msm_gpu {
+	/delete-node/ qcom,gpu-mempools;
+};
