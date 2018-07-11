@@ -1121,6 +1121,7 @@
 		pinctrl-0 = <&smb_stat>;
 		qcom,switch-freq = <2>;
 		dpdm-supply = <&usb2_phy0>;
+		qcom,otg-enable;
 	};
 };
 
