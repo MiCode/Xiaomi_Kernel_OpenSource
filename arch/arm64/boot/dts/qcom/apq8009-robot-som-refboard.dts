@@ -371,7 +371,3 @@
 &ext_codec {
 	status = "okay";
 };
-
-&blsp1_uart2_hs {
-	status = "disabled";
-};
