@@ -10,9 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#include "msm8917-pinctrl.dtsi"
 #include "msm8917-camera-sensor-qrd.dtsi"
+#include "msm8937-mdss-panels.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
