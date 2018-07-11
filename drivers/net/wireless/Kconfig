@@ -135,6 +135,7 @@ config CLD_LL_CORE
 	  Select Y to compile the driver in order to have WLAN functionality
 	  support.
 
+source "drivers/net/wireless/cnss2/Kconfig"
 source "drivers/net/wireless/cnss_utils/Kconfig"
 source "drivers/net/wireless/cnss_genl/Kconfig"
 
