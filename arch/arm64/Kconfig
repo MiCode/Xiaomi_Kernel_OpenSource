@@ -250,7 +250,6 @@ config HOTPLUG_SIZE_BITS
 	int "Memory hotplug block size(29 => 512MB 30 => 1GB)"
 	depends on SPARSEMEM
 	depends on MEMORY_HOTPLUG
-	depends on QCOM_MEM_OFFLINE
 	default 30
 	help
 	 Selects granularity of hotplug memory. Block
