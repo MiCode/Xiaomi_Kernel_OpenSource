@@ -49,6 +49,7 @@
 #define   CTL_CWB_FLUSH                0x10C
 #define   CTL_INTF_FLUSH               0x110
 #define   CTL_CDM_FLUSH                0x114
+#define   CTL_PERIPH_FLUSH             0x128
 
 #define  CTL_INTF_MASTER               0x134
 
@@ -149,6 +150,7 @@ static const u32 cwb_flush_tbl[CWB_MAX] = {SDE_NONE, SDE_NONE, SDE_NONE, 2, 3,
 #define  MERGE_3D_IDX   23
 #define  CDM_IDX        26
 #define  CWB_IDX        28
+#define  PERIPH_IDX     30
 #define  INTF_IDX       31
 
 static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
@@ -450,6 +452,26 @@ static inline int sde_hw_ctl_update_bitmask_intf_v1(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
+static inline int sde_hw_ctl_update_bitmask_periph_v1(struct sde_hw_ctl *ctx,
+		enum sde_intf intf, bool enable)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	if (!(intf > SDE_NONE) || !(intf < INTF_MAX)) {
+		SDE_ERROR("Unsupported intf %d\n", intf);
+		return -EINVAL;
+	}
+
+	UPDATE_MASK(ctx->flush.pending_periph_flush_mask, intf_flush_tbl[intf],
+			enable);
+	if (ctx->flush.pending_periph_flush_mask)
+		UPDATE_MASK(ctx->flush.pending_flush_mask, PERIPH_IDX, 1);
+	else
+		UPDATE_MASK(ctx->flush.pending_flush_mask, PERIPH_IDX, 0);
+	return 0;
+}
+
 static inline int sde_hw_ctl_update_bitmask_dsc_v1(struct sde_hw_ctl *ctx,
 		enum sde_dsc dsc, bool enable)
 {
@@ -545,6 +567,7 @@ static inline int sde_hw_ctl_update_pending_flush_v1(
 	ctx->flush.pending_merge_3d_flush_mask |=
 		cfg->pending_merge_3d_flush_mask;
 	ctx->flush.pending_cwb_flush_mask |= cfg->pending_cwb_flush_mask;
+	ctx->flush.pending_periph_flush_mask |= cfg->pending_periph_flush_mask;
 	return 0;
 }
 
@@ -571,6 +594,9 @@ static inline int sde_hw_ctl_trigger_flush_v1(struct sde_hw_ctl *ctx)
 	if (ctx->flush.pending_flush_mask & BIT(INTF_IDX))
 		SDE_REG_WRITE(&ctx->hw, CTL_INTF_FLUSH,
 				ctx->flush.pending_intf_flush_mask);
+	if (ctx->flush.pending_flush_mask & BIT(PERIPH_IDX))
+		SDE_REG_WRITE(&ctx->hw, CTL_PERIPH_FLUSH,
+				ctx->flush.pending_periph_flush_mask);
 
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->flush.pending_flush_mask);
 	return 0;
@@ -1141,6 +1167,8 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->update_bitmask_merge3d =
 			sde_hw_ctl_update_bitmask_merge3d_v1;
 		ops->update_bitmask_cwb = sde_hw_ctl_update_bitmask_cwb_v1;
+		ops->update_bitmask_periph =
+			sde_hw_ctl_update_bitmask_periph_v1;
 		ops->get_ctl_intf = sde_hw_ctl_get_intf_v1;
 		ops->reset_post_te_disable = sde_hw_ctl_reset_post_te_disable;
 	} else {
