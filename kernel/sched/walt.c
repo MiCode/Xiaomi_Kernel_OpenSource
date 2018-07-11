@@ -3274,6 +3274,49 @@ void walt_rotation_checkpoint(int nr_big)
 	walt_rotation_enabled = nr_big >= num_possible_cpus();
 }
 
+unsigned int walt_get_default_coloc_group_load(void)
+{
+	struct related_thread_group *grp;
+	unsigned long flags;
+	u64 total_demand = 0, wallclock;
+	struct task_struct *p;
+	int min_cap_cpu, scale = 1024;
+
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
+
+	raw_spin_lock_irqsave(&grp->lock, flags);
+	if (list_empty(&grp->tasks)) {
+		raw_spin_unlock_irqrestore(&grp->lock, flags);
+		return 0;
+	}
+
+	wallclock = sched_ktime_clock();
+
+	list_for_each_entry(p, &grp->tasks, grp_list) {
+		if (p->ravg.mark_start < wallclock -
+		    (sched_ravg_window * sched_ravg_hist_size))
+			continue;
+
+		total_demand += p->ravg.coloc_demand;
+	}
+
+	raw_spin_unlock_irqrestore(&grp->lock, flags);
+
+	/*
+	 * Scale the total demand to the lowest capacity CPU and
+	 * convert into percentage.
+	 *
+	 * P = total_demand/sched_ravg_window * 1024/scale * 100
+	 */
+
+	min_cap_cpu = this_rq()->rd->min_cap_orig_cpu;
+	if (min_cap_cpu != -1)
+		scale = arch_scale_cpu_capacity(NULL, min_cap_cpu);
+
+	return div64_u64(total_demand * 1024 * 100,
+			(u64)sched_ravg_window * scale);
+}
+
 int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
