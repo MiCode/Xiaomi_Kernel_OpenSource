@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +64,9 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_0_slv_axi_clk", 0, true},
 	{NULL, "pcie_0_aux_clk", 1000000, true},
 	{NULL, "pcie_0_ldo", 0, true},
-	{NULL, "pcie_0_phy_reset", 0, false}
+	{NULL, "pcie_0_phy_reset", 0, false},
+	{NULL, "pcie_0_phy_cfg_ahb_clk", 0, false},
+	{NULL, "pcie_0_phy_aux_clk", 0, false}
 };
 
 static struct ep_pcie_clk_info_t
@@ -131,11 +133,18 @@ static int ep_pcie_gpio_init(struct ep_pcie_dev_t *dev)
 		info = &dev->gpio[i];
 
 		if (!info->num) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d:  the number of gpio %s is invalid\n",
-				dev->rev, info->name);
-			rc = -EINVAL;
-			break;
+			if (i == EP_PCIE_GPIO_MDM2AP) {
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: gpio %s does not exist.\n",
+					dev->rev, info->name);
+				continue;
+			} else  {
+				EP_PCIE_ERR(dev,
+					"PCIe V%d:  the number of gpio %s is invalid\n",
+					dev->rev, info->name);
+				rc = -EINVAL;
+				break;
+			}
 		}
 
 		rc = gpio_request(info->num, info->name);
@@ -451,6 +460,109 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
+#ifdef CONFIG_ARCH_MSM8996
+static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
+{
+	u32 regval;
+
+	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
+
+	/* Configure PCIe to endpoint mode */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
+
+	/* adjust DBI base address */
+	writel_relaxed(0x0C000000, dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+
+	/* Configure PCIe core to support 1GB aperture */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
+			0x40000000);
+
+	/* Disable the debouncers */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DB_CTRL, 0x73);
+
+	/* Enable Auxiliary Power Detect */
+	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, 0x10, BIT(4));
+
+	/* Enable the bit to exit l1ss when sending LTR and MSI */
+	ep_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS, 0x2, BIT(1));
+
+	/* Enable CS for RO(CS) register writes */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
+
+	/* Set the INT_LINE Register field to 0 */
+	ep_pcie_write_mask(dev->dm_core +
+		PCIE20_BRIDGE_CTRL_INT_PIN_INT_LINE_REG, 0xff, 0);
+
+	/* Set the PMC Register - to support PME in D0, D3hot and D3cold */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR,
+			0xF8000000, BIT(31) | BIT(30) | BIT(27));
+
+	/* Set the frequency for the AUX clock to 19.2MHz */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_AUX_CLK_FREQ_REG,
+			0x3FF, BIT(4) | BIT(2));
+
+	/* Set the Endpoint L0s Acceptable Latency to 1us (max) */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_DEVICE_CAPABILITIES,
+			0x1C0, BIT(8) | BIT(7) | BIT(6));
+
+	/* Set the Endpoint L1 Acceptable Latency to 2 us (max) */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_DEVICE_CAPABILITIES,
+			0xE00, BIT(11) | BIT(10) | BIT(9));
+
+	/* Set the L0s Exit Latency to 2us-4us = 0x6 */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CAPABILITIES,
+			0x38000, BIT(17) | BIT(16));
+
+	/* Set the L1 Exit Latency to be 32us-64 us = 0x6 */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CAPABILITIES,
+			0x7000, BIT(14) | BIT(13));
+
+	/* Enable Clock Power Management */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CAPABILITIES,
+			0x40000, BIT(18));
+
+	/* Disable CS for RO(CS) register writes */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
+
+	/* Enable writes for RO(CS2) */
+	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
+
+	/* Set the Common Clock L0s Exit Latency to 2us-4us = 0x6 */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CAPABILITIES,
+			0x38000, BIT(17) | BIT(16));
+
+	/* Set the Common Clock L1 Exit Latency to be 32us-64 us = 0x6 */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CAPABILITIES,
+			0x7000, BIT(14) | BIT(13));
+
+	/* Disable writes for RO(CS2) */
+	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0), 0);
+
+	/* T_Power_Off */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_L1_SUBSTATES_REG,
+			BIT(1) | BIT(0), 0);
+
+	/* Set Device ID and Vendor ID */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
+	ep_pcie_write_reg(dev->dm_core, PCIE20_DEVICE_ID_VENDOR_ID_REG,
+			0x030217cb);
+	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
+
+	/* Configure link speed */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CONTROL2_LINK_STATUS2,
+				0xf, dev->link_speed);
+
+	/* Configure BARs */
+	ep_pcie_bar_init(dev);
+
+	/* Enable MHI clocks */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_MHI_CLOCK_RESET_CTRL,
+					BIT(1) | BIT(0));
+
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHISTATUS, 0x0);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
+}
+#else
 static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 {
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
@@ -578,6 +690,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 }
+#endif
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
 {
@@ -694,6 +807,32 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
+	of_get_property(pdev->dev.of_node, "qcom,phy-sequence", &cnt);
+	if (cnt) {
+		dev->phy_sequence = (struct ep_pcie_phy_info_t *)
+			devm_kzalloc(&pdev->dev, cnt, GFP_KERNEL);
+
+		if (dev->phy_sequence) {
+			dev->phy_len =
+				cnt / sizeof(*dev->phy_sequence);
+
+			of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,phy-sequence",
+				(unsigned int *)dev->phy_sequence,
+				cnt / sizeof(dev->phy_sequence->offset));
+		} else {
+			EP_PCIE_ERR(dev,
+					"PCIe V%d: Failed to alloc mem for phy seq.\n",
+					dev->rev);
+			ret = -ENOMEM;
+			goto out;
+		}
+	} else {
+		EP_PCIE_DBG(dev,
+				"PCIe V%d: phy sequence is not present in DT.\n",
+				dev->rev);
+	}
+
 	cnt = of_property_count_strings((&pdev->dev)->of_node,
 			"clock-names");
 	if (cnt > 0) {
@@ -782,6 +921,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			EP_PCIE_DBG(dev,
 				"GPIO %s is not supported in this configuration.\n",
 				gpio_info->name);
+			ret = 0;
 		}
 	}
 
@@ -1070,6 +1210,9 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		EP_PCIE_INFO(dev, "PCIe V%d: PCIe  PHY is ready!\n", dev->rev);
 	}
 
+#ifdef CONFIG_ARCH_MSM8996
+	ep_pcie_phy_bringup_port(dev);
+#endif
 	ep_pcie_core_init(dev);
 	ep_pcie_config_inbound_iatu(dev);
 
@@ -1976,6 +2119,17 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	else
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-link-speed:%d.\n",
 			ep_pcie_dev.rev, ep_pcie_dev.link_speed);
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,phy-status-reg",
+				&ep_pcie_dev.phy_status_reg);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: phy-status-reg does not exist.\n",
+			ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg:0x%x.\n",
+			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
 
 	ep_pcie_dev.phy_rev = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,

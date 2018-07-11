@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -460,4 +460,34 @@
 #define PCIE_PHY_LFPS_PER_TIMER_VAL                    0x9EC
 #define PCIE_PHY_SIGDET_STARTUP_TIMER_VAL              0x9F0
 #define PCIE_PHY_LOCK_DETECT_CONFIG4                   0x9F4
+#ifdef CONFIG_ARCH_MSM8996
+#define QSERDES_TX_RES_CODE_LANE_OFFSET                0x1054
+#define QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN    0x1068
+#define QSERDES_TX_LANE_MODE                           0x1094
+#define QSERDES_TX_RCV_DETECT_LVL_2                    0x10AC
+#define QSERDES_RX_UCDR_FO_GAIN_HALF                   0x1200
+#define QSERDES_RX_UCDR_FO_GAIN                        0x120C
+#define QSERDES_RX_UCDR_SO_GAIN_HALF                   0x1210
+#define QSERDES_RX_UCDR_SO_GAIN                        0x121C
+#define QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE       0x1248
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL1               0x12D4
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2               0x12D8
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3               0x12DC
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4               0x12E0
+#define QSERDES_RX_RX_OFFSET_ADAPTOR_CNTRL2            0x130C
+#define QSERDES_RX_SIGDET_ENABLES                      0x1310
+#define QSERDES_RX_SIGDET_CNTRL                        0x1314
+#define QSERDES_RX_SIGDET_LVL                          0x1318
+#define QSERDES_RX_SIGDET_DEGLITCH_CNTRL               0x131C
+#define PCIE_PHY_SW_RESET                              0x400
+#define PCIE_PHY_POWER_DOWN_CONTROL                    0x404
+#define PCIE_PHY_START_CONTROL                         0x408
+#define PCIE_PHY_ENDPOINT_REFCLK_DRIVE                 0x1454
+#define PCIE_PHY_PWRUP_RESET_DLY_TIME_AUXCLK           0x14A0
+#define PCIE_PORT_ENDPOINT_REFCLK_DRIVE                0x1454
+#define PCIE_PORT_POWER_DOWN_CONTROL                   0x1404
+#define PCIE_PORT_SW_RESET                             0x1400
+#define PCIE_PORT_START_CONTROL                        0x1408
+#define PCIE_COM_PCS_READY_STATUS                      0x448
+#endif
 #endif
