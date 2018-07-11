@@ -410,6 +410,8 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
+	memset(mode_info, 0, sizeof(*mode_info));
+
 	topology = &mode_info->topology;
 	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
 							dual_lm : single_lm;
@@ -418,7 +420,6 @@ int dp_connector_get_mode_info(struct drm_connector *connector,
 
 	mode_info->frame_rate = drm_mode->vrefresh;
 	mode_info->vtotal = drm_mode->vtotal;
-	mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
 
 	return 0;
 }
