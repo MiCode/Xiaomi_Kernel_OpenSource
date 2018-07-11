@@ -76,6 +76,8 @@ Optional Properties:
 				used for charge current sensing.
 - qcom,stacked-batfet:		Boolean flag. Specifies if parallel charger has stacked BATFET
 				cofiguration.
+- qcom,otg-enable:		Boolean value which enables OTG(On-The-Go)
+				functionality.
 
 Example for standalone charger:
 

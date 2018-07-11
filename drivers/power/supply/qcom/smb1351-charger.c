@@ -394,6 +394,15 @@
 #define CHG_ITERM_600MA				0x10
 #define CHG_ITERM_700MA				0x14
 
+#define OTG_ID_PIN_CTRL_SHIFT			6
+
+enum otg_control {
+	RID_DISABLED_OTG_I2C = 0,
+	RID_DISABLED_OTG_PIN,
+	RID_ENABLED_OTG_I2C,
+	RID_ENABLED_OTG_AUTO,
+};
+
 enum reason {
 	USER	= BIT(0),
 	THERMAL = BIT(1),
@@ -499,6 +508,7 @@ struct smb1351_charger {
 	struct extcon_dev       *extcon;
 	struct regulator	*dpdm_reg;
 	enum power_supply_type	charger_type;
+	bool			otg_enable;
 };
 
 struct smb_irq_info {
@@ -898,6 +908,7 @@ static int smb1351_regulator_init(struct smb1351_charger *chip)
 {
 	int rc = 0;
 	struct regulator_config cfg = {};
+	struct regulator_init_data *init_data;
 
 	chip->otg_vreg.rdesc.owner = THIS_MODULE;
 	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
@@ -907,8 +918,17 @@ static int smb1351_regulator_init(struct smb1351_charger *chip)
 	chip->otg_vreg.rdesc.of_match =
 		chip->dev->of_node->name;
 
+	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node,
+					&chip->otg_vreg.rdesc);
+	if (!init_data) {
+		pr_err("regulator init data is missing\n");
+		return -EINVAL;
+	}
+
 	cfg.dev = chip->dev;
 	cfg.driver_data = chip;
+	cfg.init_data = init_data;
+	cfg.of_node = chip->dev->of_node;
 
 	chip->otg_vreg.rdev = regulator_register(
 					&chip->otg_vreg.rdesc, &cfg);
@@ -1046,6 +1066,8 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 	reg = CHG_OR_PRECHG_TIMEOUT_BIT | BATT_OVP_BIT |
 		FAST_TERM_TAPER_RECHG_INHIBIT_BIT |
 		BATT_MISSING_BIT | BATT_LOW_BIT;
+	if (chip->otg_enable)
+		reg = reg | RID_CHANGE_BIT;
 	rc = smb1351_write_reg(chip, STATUS_INT_REG, reg);
 	if (rc) {
 		pr_err("Couldn't set STATUS_INT_REG rc=%d\n", rc);
@@ -1121,6 +1143,17 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 				AUTO_RECHG_DISABLE);
 		if (rc) {
 			pr_err("Couldn't disable auto-rechg rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->otg_enable) {
+		/* Configure OTG/ID pin control: RID enabled, OTG I2C control */
+		rc = smb1351_masked_write(chip, OTG_USBIN_AICL_CTRL_REG,
+				OTG_ID_PIN_CTRL_MASK,
+				RID_ENABLED_OTG_I2C << OTG_ID_PIN_CTRL_SHIFT);
+		if (rc) {
+			pr_err("Couldn't configure RID enable rc = %d\n", rc);
 			return rc;
 		}
 	}
@@ -1931,6 +1964,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 			extcon_set_property(chip->extcon, EXTCON_USB,
 						EXTCON_PROP_USB_SS, val);
 			extcon_set_state_sync(chip->extcon, EXTCON_USB, true);
+			pr_debug("extcon notify: EXTCON_USB present = 1\n");
 		}
 		chip->apsd_rerun = false;
 
@@ -1954,6 +1988,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		extcon_set_property(chip->extcon, EXTCON_USB,
 						EXTCON_PROP_USB_SS, val);
 		extcon_set_state_sync(chip->extcon, EXTCON_USB, false);
+		pr_debug("extcon notify: EXTCON_USB present = 0\n");
 		smb1351_request_dpdm(chip, false);
 	}
 
@@ -2030,8 +2065,10 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	if (status != 0) {
 		chip->usbin_ov = true;
 		chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
-		if (chip->chg_present)
+		if (chip->chg_present) {
 			extcon_set_state_sync(chip->extcon, EXTCON_USB, false);
+			pr_debug("extcon notify: EXTCON_USB present = 0\n");
+		}
 		chip->chg_present = false;
 
 	} else {
@@ -2114,14 +2151,24 @@ static int smb1351_rid_handler(struct smb1351_charger *chip,
 						u8 status)
 {
 	union extcon_property_value val;
+	bool rid_status;
+	u8 reg = 0;
+	int rc;
 
-	if (!!status) {
+	rc = smb1351_read_reg(chip, STATUS_6_REG, &reg);
+	if (rc < 0)
+		pr_err("Couldn't read status_6_reg, rc=%d\n", rc);
+	pr_debug("rt_status = 0x%02x, status_6_reg=0x%x\n", status, reg);
+
+	rid_status = (!!status) || !(reg & STATUS_RID_FLOAT_STATE_MACHINE_BIT);
+	if (rid_status) {
 		val.intval = true;
 		extcon_set_property(chip->extcon, EXTCON_USB_HOST,
 					EXTCON_PROP_USB_SS, val);
 	}
 
-	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, !!status);
+	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, rid_status);
+	pr_debug("extcon notify: EXTCON_USB_HOST present = %d\n", rid_status);
 
 	return 0;
 }
@@ -2598,6 +2645,7 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 					"qcom,recharge-disabled");
 
 	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
+	chip->otg_enable = of_property_read_bool(node, "qcom,otg-enable");
 
 	return 0;
 }
