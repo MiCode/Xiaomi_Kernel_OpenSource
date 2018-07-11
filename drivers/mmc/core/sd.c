@@ -1303,6 +1303,8 @@ static int _mmc_sd_resume(struct mmc_host *host)
 			mmc_hostname(host), __func__, err);
 		mmc_card_set_removed(host->card);
 		mmc_detect_change(host, msecs_to_jiffies(200));
+	} else if (err) {
+		goto out;
 	}
 	mmc_card_clr_suspended(host->card);
 

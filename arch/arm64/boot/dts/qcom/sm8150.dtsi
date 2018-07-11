@@ -2830,9 +2830,9 @@
 
 	qmp_npu0: qcom,qmp-npu-low@9818000 {
 		compatible = "qcom,qmp-mbox";
-		reg = <0x9818000 0x8000>, <0x17c00010 0x4>;
+		reg = <0x9818000 0x8000>, <0x9901008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
-		qcom,irq-mask = <0x20>;
+		qcom,irq-mask = <0x12>;
 		interrupts = <GIC_SPI 369 IRQ_TYPE_EDGE_RISING>;
 
 		label = "npu_qmp_low";
@@ -2841,11 +2841,11 @@
 		#mbox-cells = <1>;
 	};
 
-	qmp_npu1: qcom,qmp-npu-high@981a000 {
+	qmp_npu1: qcom,qmp-npu-high@9818000 {
 		compatible = "qcom,qmp-mbox";
-		reg = <0x9818000 0x8000>, <0x17c00010 0x4>;
+		reg = <0x9818000 0x8000>, <0x9901008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
-		qcom,irq-mask = <0x40>;
+		qcom,irq-mask = <0x14>;
 		interrupts = <GIC_SPI 370 IRQ_TYPE_EDGE_RISING>;
 
 		label = "npu_qmp_high";
@@ -2883,6 +2883,12 @@
 		qcom,appsbl-qseecom-support;
 		qcom,commonlib64-loaded-by-uefi;
 		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_smcinvoke: smcinvoke@87900000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x87900000 0x2200000>;
+		reg-names = "secapp-region";
 	};
 
 	qcom_rng: qrng@793000 {

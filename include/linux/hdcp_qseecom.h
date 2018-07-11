@@ -68,6 +68,7 @@ void hdcp2_deinit(void *ctx);
 bool hdcp2_feature_supported(void *ctx);
 int hdcp2_app_comm(void *ctx, enum hdcp2_app_cmd cmd,
 		struct hdcp2_app_data *app_data);
+int hdcp2_force_encryption(void *ctx, uint32_t enable);
 #else
 static inline void *hdcp1_init(void)
 {
@@ -110,6 +111,11 @@ static inline bool hdcp2_feature_supported(void *ctx)
 
 static inline int hdcp2_app_comm(void *ctx, enum hdcp2_app_cmd cmd,
 		struct hdcp2_app_data *app_data)
+{
+	return 0;
+}
+
+static inline int hdcp2_force_encryption(void *ctx, uint32_t enable)
 {
 	return 0;
 }

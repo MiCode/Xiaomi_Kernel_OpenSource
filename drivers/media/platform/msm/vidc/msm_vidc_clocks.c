@@ -100,6 +100,19 @@ int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
 	return NUM_MBS_PER_FRAME(height, width);
 }
 
+static int msm_vidc_get_fps(struct msm_vidc_inst *inst)
+{
+	int fps;
+
+	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
+		fps = (inst->clk_data.operating_rate >> 16) ?
+			(inst->clk_data.operating_rate >> 16) : 1;
+	else
+		fps = inst->prop.fps;
+
+	return fps;
+}
+
 void update_recon_stats(struct msm_vidc_inst *inst,
 	struct recon_stats_type *recon_stats)
 {
@@ -284,12 +297,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES) != 0;
 
-		if (inst->clk_data.operating_rate)
-			vote_data[i].fps =
-				(inst->clk_data.operating_rate >> 16) ?
-				inst->clk_data.operating_rate >> 16 : 1;
-		else
-			vote_data[i].fps = inst->prop.fps;
+		vote_data[i].fps = msm_vidc_get_fps(inst);
 
 		vote_data[i].power_mode = 0;
 		if (msm_vidc_clock_voting || is_turbo ||
@@ -609,7 +617,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 	struct msm_vidc_core *core = NULL;
 	int i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
-	u64 rate = 0;
+	u64 rate = 0, fps;
 	struct clock_data *dcvs = NULL;
 
 	core = inst->core;
@@ -617,6 +625,8 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 
 	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
+
+	fps = msm_vidc_get_fps(inst);
 
 	/*
 	 * Calculate vpp, vsp cycles separately for encoder and decoder.
@@ -640,7 +650,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
+		vsp_cycles += ((fps * filled_len * 8) * 10) / 7;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
@@ -681,7 +691,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	struct msm_vidc_core *core = NULL;
 	int i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
-	u64 rate = 0;
+	u64 rate = 0, fps;
 	struct clock_data *dcvs = NULL;
 	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 7;
 
@@ -690,6 +700,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
+
+	fps = msm_vidc_get_fps(inst);
 
 	/*
 	 * Calculate vpp, vsp cycles separately for encoder and decoder.
@@ -726,7 +738,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
+		vsp_cycles += ((fps * filled_len * 8) * 10) / 7;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
@@ -1283,12 +1295,11 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 
 	hdev = inst->core->device;
 
-	if (inst->clk_data.low_latency_mode) {
-		pdata.video_work_mode = VIDC_WORK_MODE_1;
-		goto decision_done;
-	}
-
 	if (inst->session_type == MSM_VIDC_DECODER) {
+		if (inst->clk_data.low_latency_mode) {
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			goto decision_done;
+		}
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
 		switch (inst->fmts[OUTPUT_PORT].fourcc) {
 		case V4L2_PIX_FMT_MPEG2:
@@ -1311,6 +1322,14 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 		u32 width = inst->prop.width[OUTPUT_PORT];
 
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
+
+		if (codec == V4L2_PIX_FMT_H264 && width > 3840)
+			goto decision_done;
+
+		if (inst->clk_data.low_latency_mode) {
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			goto decision_done;
+		}
 
 		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
@@ -1373,7 +1392,7 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	}
 	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
 	if (mbs_per_frame > inst->core->resources.max_hq_mbs_per_frame ||
-		inst->prop.fps > inst->core->resources.max_hq_fps) {
+		msm_vidc_get_fps(inst) > inst->core->resources.max_hq_fps) {
 		enable = true;
 	}
 

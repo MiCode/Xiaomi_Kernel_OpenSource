@@ -368,7 +368,7 @@ struct ipahal_reg_debug_cnt_ctrl {
 };
 
 /*
- * struct ipahal_reg_rsrc_grp_cfg - Mix/Max values for two rsrc groups
+ * struct ipahal_reg_rsrc_grp_cfg - Min/Max values for two rsrc groups
  * @x_min - first group min value
  * @x_max - first group max value
  * @y_min - second group min value
@@ -383,11 +383,11 @@ struct ipahal_reg_rsrc_grp_cfg {
 
 /*
  * struct ipahal_reg_rx_hps_clients - Min or Max values for RX HPS clients
- * @client_minmax - Min or Max values. In case of depth 0 the 4 values
+ * @client_minmax - Min or Max values. In case of depth 0 the 4 or 5 values
  *	are used. In case of depth 1, only the first 2 values are used
  */
 struct ipahal_reg_rx_hps_clients {
-	u32 client_minmax[4];
+	u32 client_minmax[5];
 };
 
 /*

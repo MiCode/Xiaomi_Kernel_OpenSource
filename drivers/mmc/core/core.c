@@ -3249,7 +3249,22 @@ int mmc_resume_bus(struct mmc_host *host)
 	if (host->bus_ops && !host->bus_dead && host->card) {
 		mmc_power_up(host, host->card->ocr);
 		BUG_ON(!host->bus_ops->resume);
-		host->bus_ops->resume(host);
+		err = host->bus_ops->resume(host);
+		if (err) {
+			pr_err("%s: %s: resume failed: %d\n",
+				       mmc_hostname(host), __func__, err);
+			/*
+			 * If we have cd-gpio based detection mechanism and
+			 * deferred resume is supported, we will not detect
+			 * card removal event when system is suspended. So if
+			 * resume fails after a system suspend/resume,
+			 * schedule the work to detect card presence.
+			 */
+			if (mmc_card_is_removable(host) &&
+					!(host->caps & MMC_CAP_NEEDS_POLL)) {
+				mmc_detect_change(host, 0);
+			}
+		}
 		if (mmc_card_cmdq(host->card)) {
 			err = mmc_cmdq_halt(host, false);
 			if (err)

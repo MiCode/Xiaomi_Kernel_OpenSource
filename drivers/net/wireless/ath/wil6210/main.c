@@ -1528,6 +1528,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 	wmi_event_flush(wil);
 
+	wil->force_wmi_send = false;
+
 	flush_workqueue(wil->wq_service);
 	flush_workqueue(wil->wmi_wq);
 
