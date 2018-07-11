@@ -248,8 +248,6 @@ int cnss_wlan_enable(struct device *dev,
 		     const char *host_version)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct wlfw_wlan_cfg_req_msg_v01 req;
-	u32 i;
 	int ret = 0;
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
@@ -269,48 +267,7 @@ int cnss_wlan_enable(struct device *dev,
 	if (mode == CNSS_WALTEST || mode == CNSS_CCPM)
 		goto skip_cfg;
 
-	memset(&req, 0, sizeof(req));
-
-	req.host_version_valid = 1;
-	strlcpy(req.host_version, host_version,
-		QMI_WLFW_MAX_STR_LEN_V01 + 1);
-
-	req.tgt_cfg_valid = 1;
-	if (config->num_ce_tgt_cfg > QMI_WLFW_MAX_NUM_CE_V01)
-		req.tgt_cfg_len = QMI_WLFW_MAX_NUM_CE_V01;
-	else
-		req.tgt_cfg_len = config->num_ce_tgt_cfg;
-	for (i = 0; i < req.tgt_cfg_len; i++) {
-		req.tgt_cfg[i].pipe_num = config->ce_tgt_cfg[i].pipe_num;
-		req.tgt_cfg[i].pipe_dir = config->ce_tgt_cfg[i].pipe_dir;
-		req.tgt_cfg[i].nentries = config->ce_tgt_cfg[i].nentries;
-		req.tgt_cfg[i].nbytes_max = config->ce_tgt_cfg[i].nbytes_max;
-		req.tgt_cfg[i].flags = config->ce_tgt_cfg[i].flags;
-	}
-
-	req.svc_cfg_valid = 1;
-	if (config->num_ce_svc_pipe_cfg > QMI_WLFW_MAX_NUM_SVC_V01)
-		req.svc_cfg_len = QMI_WLFW_MAX_NUM_SVC_V01;
-	else
-		req.svc_cfg_len = config->num_ce_svc_pipe_cfg;
-	for (i = 0; i < req.svc_cfg_len; i++) {
-		req.svc_cfg[i].service_id = config->ce_svc_cfg[i].service_id;
-		req.svc_cfg[i].pipe_dir = config->ce_svc_cfg[i].pipe_dir;
-		req.svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
-	}
-
-	req.shadow_reg_v2_valid = 1;
-	if (config->num_shadow_reg_v2_cfg >
-	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
-		req.shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
-	else
-		req.shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
-
-	memcpy(req.shadow_reg_v2, config->shadow_reg_v2_cfg,
-	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
-	       * req.shadow_reg_v2_len);
-
-	ret = cnss_wlfw_wlan_cfg_send_sync(plat_priv, &req);
+	ret = cnss_wlfw_wlan_cfg_send_sync(plat_priv, config, host_version);
 	if (ret)
 		goto out;
 
@@ -331,7 +288,7 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 	if (qmi_bypass)
 		return 0;
 
-	return cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
+	return cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 }
 EXPORT_SYMBOL(cnss_wlan_disable);
 
@@ -349,13 +306,6 @@ int cnss_athdiag_read(struct device *dev, u32 offset, u32 mem_type,
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
-
-	if (!output || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
-		cnss_pr_err("Invalid parameters for athdiag read: output %p, data_len %u\n",
-			    output, data_len);
-		ret = -EINVAL;
-		goto out;
-	}
 
 	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
 		cnss_pr_err("Invalid state for athdiag read: 0x%lx\n",
@@ -385,13 +335,6 @@ int cnss_athdiag_write(struct device *dev, u32 offset, u32 mem_type,
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
-
-	if (!input || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
-		cnss_pr_err("Invalid parameters for athdiag write: input %p, data_len %u\n",
-			    input, data_len);
-		ret = -EINVAL;
-		goto out;
-	}
 
 	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
 		cnss_pr_err("Invalid state for athdiag write: 0x%lx\n",
@@ -491,10 +434,10 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 
 	if (enable_waltest) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
-						    QMI_WLFW_WALTEST_V01);
+						    CNSS_WALTEST);
 	} else if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
-						    QMI_WLFW_CALIBRATION_V01);
+						    CNSS_CALIBRATION);
 	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
 		   test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		ret = cnss_bus_call_driver_probe(plat_priv);
@@ -625,6 +568,12 @@ out:
 	return ret;
 }
 
+unsigned int cnss_get_boot_timeout(struct device *dev)
+{
+	return cnss_get_qmi_timeout();
+}
+EXPORT_SYMBOL(cnss_get_boot_timeout);
+
 int cnss_power_up(struct device *dev)
 {
 	int ret = 0;
@@ -647,7 +596,7 @@ int cnss_power_up(struct device *dev)
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto out;
 
-	timeout = cnss_get_qmi_timeout();
+	timeout = cnss_get_boot_timeout(dev);
 
 	reinit_completion(&plat_priv->power_up_complete);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
@@ -1101,7 +1050,7 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 {
 	plat_priv->cal_done = true;
-	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
+	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
 	cnss_bus_dev_shutdown(plat_priv);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 

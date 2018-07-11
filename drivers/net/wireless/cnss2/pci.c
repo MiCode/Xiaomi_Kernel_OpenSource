@@ -433,7 +433,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		goto power_off;
 	}
 
-	timeout = cnss_get_qmi_timeout();
+	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
 
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
@@ -1714,7 +1714,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
 	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
-		if (fw_mem[i].type == QMI_WLFW_MEM_TYPE_DDR_V01) {
+		if (fw_mem[i].type == CNSS_MEM_TYPE_DDR) {
 			dump_seg->address = fw_mem[i].pa;
 			dump_seg->v_address = fw_mem[i].va;
 			dump_seg->size = fw_mem[i].size;
