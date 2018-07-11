@@ -61,12 +61,19 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
 	}
 }
 
+/* Shs hook handler */
+
+int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
+			   struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_shs_skb_entry);
+
 /* Generic handler */
 
 static void
-rmnet_deliver_skb(struct sk_buff *skb)
+rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
+	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
@@ -74,6 +81,10 @@ rmnet_deliver_skb(struct sk_buff *skb)
 
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
+
+	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
+	if (rmnet_shs_stamp)
+		rmnet_shs_stamp(skb, port);
 
 	if (!rmnet_check_skb_can_gro(skb))
 		gro_cells_receive(&priv->gro_cells, skb);
@@ -126,7 +137,7 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	skb_trim(skb, len);
-	rmnet_deliver_skb(skb);
+	rmnet_deliver_skb(skb, port);
 	return;
 
 free_skb:
