@@ -58,7 +58,7 @@ MODULE_PARM_DESC(outstanding_low, "Outstanding low");
 
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
-#define WWAN_DATA_LEN 2000
+#define WWAN_DATA_LEN 9216
 #define IPA_RM_INACTIVITY_TIMER 100 /* IPA_RM */
 #define HEADROOM_FOR_QMAP   8 /* for mux header */
 #define TAILROOM            0 /* for padding by mux layer */
