@@ -118,6 +118,10 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
 };
 
 &firmware {
@@ -501,4 +505,8 @@
 		bias-disable = <0>; /* no pull */
 		status = "okay";
 	};
+};
+
+&ipa_hw {
+	status = "disabled";
 };
