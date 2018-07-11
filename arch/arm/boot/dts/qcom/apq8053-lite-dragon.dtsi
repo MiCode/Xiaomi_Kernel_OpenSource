@@ -408,7 +408,8 @@
 		2 &tlmm 133 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 
-	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+				177770000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
 	status = "ok";
