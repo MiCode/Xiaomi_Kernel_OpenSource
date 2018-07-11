@@ -42,6 +42,7 @@
 
 &i2c_3 {
 	status = "okay";
+	/delete-node/ focaltech@38;
 	/delete-node/ himax_ts@48;
 	focaltech_ts@38 {
 		compatible = "focaltech,fts";
@@ -64,6 +65,7 @@
 };
 
 &wled {
+	qcom,cons-sync-write-delay-us = <1000>;
 	qcom,led-strings-list = [00 01 02];
 };
 
@@ -77,4 +79,20 @@
 
 &camera2{
 	qcom,mount-angle = <90>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_kingdisplay_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 100 0>;
 };
