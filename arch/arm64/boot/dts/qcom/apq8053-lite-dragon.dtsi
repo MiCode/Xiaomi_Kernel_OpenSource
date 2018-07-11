@@ -16,6 +16,7 @@
 #include "apq8053-camera-sensor-dragon.dtsi"
 #include "pmi8950.dtsi"
 #include "msm8953-pmi8950.dtsi"
+#include "apq8053-dragon-memory.dtsi"
 
 &soc {
 	vreg_5p0: vreg_5p0 {
