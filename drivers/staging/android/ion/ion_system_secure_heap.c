@@ -368,31 +368,6 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	return &heap->heap;
 }
 
-void ion_system_secure_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_system_secure_heap *secure_heap = container_of(heap,
-						struct ion_system_secure_heap,
-						heap);
-	unsigned long flags;
-	LIST_HEAD(items);
-	struct prefetch_info *info, *tmp;
-
-	/* Stop any pending/future work */
-	spin_lock_irqsave(&secure_heap->work_lock, flags);
-	secure_heap->destroy_heap = true;
-	list_splice_init(&secure_heap->prefetch_list, &items);
-	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-
-	cancel_delayed_work_sync(&secure_heap->prefetch_work);
-
-	list_for_each_entry_safe(info, tmp, &items, list) {
-		list_del(&info->list);
-		kfree(info);
-	}
-
-	kfree(heap);
-}
-
 struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
 					  struct ion_buffer *buffer,
 					  unsigned long order)
