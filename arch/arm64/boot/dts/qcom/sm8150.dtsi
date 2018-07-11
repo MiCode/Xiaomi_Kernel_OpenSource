@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,camcc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/clock/qcom,videocc-sm8150.h>
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,npucc-sm8150.h>
@@ -1461,6 +1462,14 @@
 		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_scc: qcom,scc@2b10000 {
+		compatible = "qcom,scc-sm8150";
+		reg = <0x2b10000 0x30000>;
+		vdd_scc_cx-supply = <&pm8150_l8_level>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {

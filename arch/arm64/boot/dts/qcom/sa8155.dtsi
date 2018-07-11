@@ -175,6 +175,11 @@
 	vdda-phy-supply = <&pm8150_2_l18>;
 };
 
+&clock_scc {
+	vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
 &thermal_zones {
 	aoss0-lowf {
 		cooling-maps {

@@ -69,6 +69,11 @@
 &clock_npucc {
 	compatible = "qcom,npucc-sm8150-v2", "syscon";
 };
+
+&clock_scc {
+	compatible = "qcom,scc-sm8150-v2";
+};
+
 #include "msm-arm-smmu-sm8150-v2.dtsi"
 
 &pcie0 {
