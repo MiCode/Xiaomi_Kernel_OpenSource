@@ -116,8 +116,8 @@ static struct platform_driver aop_qmp_msg_driver = {
 	.driver = {
 		.name = "debugfs-qmp-client",
 		.owner = THIS_MODULE,
+		.suppress_bind_attrs = true,
 		.of_match_table = aop_qmp_match_tbl,
 	},
 };
-
 builtin_platform_driver(aop_qmp_msg_driver);
