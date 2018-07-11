@@ -385,6 +385,7 @@
 		reg = <0x000b2000 0x1000>,
 		      <0x000bfc00 0x400>;
 
+		clk-enable;
 		clocks = <&clock_gcc GCC_DCC_CLK>;
 		clock-names = "dcc_clk";
 
