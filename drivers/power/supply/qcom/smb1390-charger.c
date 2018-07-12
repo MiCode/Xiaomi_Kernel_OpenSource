@@ -76,6 +76,11 @@
 #define WINDOW_DETECTION_DELTA_X1P0	0
 #define WINDOW_DETECTION_DELTA_X1P5	1
 
+#define CORE_ATEST1_SEL_REG		0x10E2
+#define ATEST1_OUTPUT_ENABLE_BIT	BIT(7)
+#define ATEST1_SEL_MASK			GENMASK(6, 0)
+#define ISNS_INT_VAL			0x09
+
 #define CP_VOTER	"CP_VOTER"
 #define USER_VOTER	"USER_VOTER"
 #define ILIM_VOTER	"ILIM_VOTER"
@@ -111,6 +116,7 @@ struct smb1390 {
 
 	/* mutexes */
 	spinlock_t		status_change_lock;
+	struct mutex		die_chan_lock;
 
 	/* votables */
 	struct votable		*disable_votable;
@@ -305,18 +311,66 @@ static ssize_t die_temp_show(struct class *c, struct class_attribute *attr,
 	int die_temp_deciC = 0;
 	int rc;
 
+	mutex_lock(&chip->die_chan_lock);
 	rc = iio_read_channel_processed(chip->iio.die_temp_chan,
 			&die_temp_deciC);
+	mutex_unlock(&chip->die_chan_lock);
+
+	if (rc < 0) {
+		pr_err("Couldn't read die chan, rc = %d\n", rc);
+		return -EINVAL;
+	}
 
 	return snprintf(buf, PAGE_SIZE, "%d\n", die_temp_deciC / 100);
 }
 static CLASS_ATTR_RO(die_temp);
+
+static ssize_t isns_show(struct class *c, struct class_attribute *attr,
+			     char *buf)
+{
+	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
+	int isns_ma, temp = 0;
+	int rc;
+
+	mutex_lock(&chip->die_chan_lock);
+	rc = smb1390_masked_write(chip, CORE_ATEST1_SEL_REG,
+				ATEST1_OUTPUT_ENABLE_BIT | ATEST1_SEL_MASK,
+				ATEST1_OUTPUT_ENABLE_BIT | ISNS_INT_VAL);
+	if (rc < 0) {
+		pr_err("Couldn't set CORE_ATEST1_SEL_REG, rc = %d\n", rc);
+		goto unlock;
+	}
+
+	rc = iio_read_channel_processed(chip->iio.die_temp_chan,
+			&temp);
+	if (rc < 0) {
+		pr_err("Couldn't read die chan for isns, rc = %d\n", rc);
+		goto unlock;
+	}
+
+	rc = smb1390_masked_write(chip, CORE_ATEST1_SEL_REG,
+				ATEST1_OUTPUT_ENABLE_BIT | ATEST1_SEL_MASK, 0);
+	if (rc < 0)
+		pr_err("Couldn't set CORE_ATEST1_SEL_REG, rc = %d\n", rc);
+
+unlock:
+	mutex_unlock(&chip->die_chan_lock);
+
+	if (rc < 0)
+		return -EINVAL;
+
+	/* ISNS = 2 * (1496 - 1390_therm_input * 0.00356) * 1000 uA */
+	isns_ma = (1496 * 1000 - div_s64((s64)temp * 3560, 1000)) * 2;
+	return snprintf(buf, PAGE_SIZE, "%d\n", isns_ma);
+}
+static CLASS_ATTR_RO(isns);
 
 static struct attribute *cp_class_attrs[] = {
 	&class_attr_stat1.attr,
 	&class_attr_stat2.attr,
 	&class_attr_enable.attr,
 	&class_attr_die_temp.attr,
+	&class_attr_isns.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(cp_class);
@@ -668,6 +722,7 @@ static int smb1390_probe(struct platform_device *pdev)
 
 	chip->dev = &pdev->dev;
 	spin_lock_init(&chip->status_change_lock);
+	mutex_init(&chip->die_chan_lock);
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
