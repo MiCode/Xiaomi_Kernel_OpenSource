@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,7 @@ struct iommu_debug_device {
 	size_t len;
 	struct list_head list;
 	struct mutex clk_lock;
+	struct mutex dev_lock;
 	unsigned int clk_count;
 };
 
@@ -1239,6 +1240,7 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 	ssize_t retval = -EINVAL;
 	int val;
 
+	mutex_lock(&ddev->dev_lock);
 	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
 		pr_err("Invalid format. Expected a hex or decimal integer");
 		retval = -EFAULT;
@@ -1282,12 +1284,14 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 		arm_iommu_release_mapping(dev->archdata.mapping);
 		pr_err("Detached\n");
 	}
+	mutex_unlock(&ddev->dev_lock);
 	retval = count;
 	return retval;
 
 out_release_mapping:
 	arm_iommu_release_mapping(dma_mapping);
 out:
+	mutex_unlock(&ddev->dev_lock);
 	return retval;
 }
 
@@ -1300,6 +1304,7 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 	ssize_t retval;
 	int val;
 
+	mutex_lock(&ddev->dev_lock);
 	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
 		pr_err("Invalid format. Expected a hex or decimal integer");
 		retval = -EFAULT;
@@ -1336,6 +1341,7 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 
 	retval = count;
 out:
+	mutex_unlock(&ddev->dev_lock);
 	return retval;
 }
 
@@ -2112,6 +2118,7 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!ddev)
 		return -ENODEV;
 	mutex_init(&ddev->clk_lock);
+	mutex_init(&ddev->dev_lock);
 	ddev->dev = dev;
 	dir = debugfs_create_dir(name, debugfs_tests_dir);
 	if (!dir) {
