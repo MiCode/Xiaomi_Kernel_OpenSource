@@ -1631,6 +1631,8 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			return -EINVAL;
 		}
 		ctrl->val = bufreq->buffer_count_min_host;
+		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
+			hash32_ptr(inst->session), buffer_type, ctrl->val);
 		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
@@ -1651,6 +1653,8 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				MIN_NUM_OUTPUT_BUFFERS_VP9;
 
 		ctrl->val = bufreq->buffer_count_min_host;
+		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
+			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:
 		ctrl->val = inst->capability.tme_version;

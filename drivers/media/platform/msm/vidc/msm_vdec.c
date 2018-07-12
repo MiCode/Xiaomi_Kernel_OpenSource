@@ -799,6 +799,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
+	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
 	/* To start with, both ports are 1 plane each */
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
@@ -1082,20 +1083,31 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
 				pdata);
-			if (rc)
+			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed:Disabling OUTPUT2 port : %d\n",
 					rc);
-
-			bufreq_out2 = get_buff_req_buffer(inst,
-					HAL_BUFFER_OUTPUT2);
-			if (!bufreq_out2)
 				break;
+			}
+			/*
+			 * If stream output mode was secondary earlier then
+			 * populate output bufreqs with output2 bufreqs
+			 */
+			if (is_secondary_output_mode(inst)) {
+				msm_comm_copy_bufreqs(inst, HAL_BUFFER_OUTPUT2,
+					HAL_BUFFER_OUTPUT);
+				msm_comm_copy_bufreqs(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT2,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+			}
 
-			bufreq_out2->buffer_count_min =
-				bufreq_out2->buffer_count_min_host =
-				bufreq_out2->buffer_count_actual = 0;
+			/* reset output2 buffer requirements */
+			msm_comm_reset_bufreqs(inst, HAL_BUFFER_OUTPUT2);
+			msm_comm_reset_bufreqs(inst,
+				HAL_BUFFER_EXTRADATA_OUTPUT2);
 
+			msm_comm_set_stream_output_mode(inst,
+				HAL_VIDEO_DECODER_PRIMARY);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
 			switch (inst->bit_depth) {
@@ -1158,23 +1170,25 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				frame_sz.height);
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, HAL_PARAM_FRAME_SIZE, pdata);
-			if (rc)
+			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
-			/* Populate output2 bufreqs with output bufreqs */
-			bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-			if (!bufreq)
 				break;
+			}
+
+			/* Populate output2 bufreqs with output bufreqs */
+			msm_comm_copy_bufreqs(inst, HAL_BUFFER_OUTPUT,
+				HAL_BUFFER_OUTPUT2);
+			msm_comm_copy_bufreqs(inst,
+				HAL_BUFFER_EXTRADATA_OUTPUT,
+				HAL_BUFFER_EXTRADATA_OUTPUT2);
 
 			bufreq_out2 = get_buff_req_buffer(inst,
 						HAL_BUFFER_OUTPUT2);
 			if (!bufreq_out2)
 				break;
 
-			memcpy(bufreq_out2, bufreq,
-				sizeof(struct hal_buffer_requirements));
-			bufreq_out2->buffer_type = HAL_BUFFER_OUTPUT2;
 			rc = msm_comm_set_buffer_count(inst,
 				bufreq_out2->buffer_count_min_host,
 				bufreq_out2->buffer_count_actual,
@@ -1182,23 +1196,11 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"%s: Failed to set opb buffer count to FW\n");
-				return -EINVAL;
+				break;
 			}
-			/* Do the same for extradata but no set is required */
-			bufreq = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
-			if (!bufreq)
-				break;
 
-			bufreq_out2 = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT2);
-			if (!bufreq_out2)
-				break;
-
-			memcpy(bufreq_out2, bufreq,
-				sizeof(struct hal_buffer_requirements));
-			bufreq_out2->buffer_type =
-				HAL_BUFFER_EXTRADATA_OUTPUT2;
+			msm_comm_set_stream_output_mode(inst,
+				HAL_VIDEO_DECODER_SECONDARY);
 			break;
 		default:
 			dprintk(VIDC_ERR,
@@ -1292,8 +1294,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: Name = %s, ID = 0x%x Value = %d\n",
-				ctrl->name, ctrl->id, ctrl->val);
+			"Control: %x : Name = %s, ID = 0x%x Value = %d\n",
+			hash32_ptr(inst->session), ctrl->name,
+			ctrl->id, ctrl->val);
 		rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
 	}
