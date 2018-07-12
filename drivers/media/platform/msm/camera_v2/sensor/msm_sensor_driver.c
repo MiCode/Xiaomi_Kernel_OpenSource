@@ -1155,7 +1155,7 @@ static uint16_t msm_sensor_get_sensor_id_samsung_2L7(struct msm_sensor_ctrl_t *s
 static struct kobject *msm_sensorid_device;
 static char sensor_fusion_id[512] = {0};
 
-void msm_sensor_set_sesnor_id(struct msm_sensor_ctrl_t *s_ctrl)
+void msm_sensor_set_sensor_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	char  sensor_fusion_id_tmp[90] = {0};
 	int rc = 0;
@@ -1645,7 +1645,7 @@ CSID_TG:
 	msm_sensor_init_device_name();
 	msm_sensor_set_module_info(s_ctrl);
 	msm_sensorid_init_device_name();
-	msm_sensor_set_sesnor_id(s_ctrl);
+	msm_sensor_set_sensor_id(s_ctrl);
 
 	/* Power down */
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
