@@ -628,6 +628,7 @@ static void qrtr_port_put(struct qrtr_sock *ipc);
 static void qrtr_node_rx_work(struct work_struct *work)
 {
 	struct qrtr_node *node = container_of(work, struct qrtr_node, work);
+	struct qrtr_ctrl_pkt *pkt;
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&node->rx_queue)) != NULL) {
@@ -636,6 +637,12 @@ static void qrtr_node_rx_work(struct work_struct *work)
 
 		cb = (struct qrtr_cb *)skb->cb;
 		qrtr_node_assign(node, cb->src_node);
+
+		if (cb->type == QRTR_TYPE_NEW_SERVER &&
+		    skb->len == sizeof(*pkt)) {
+			pkt = (void *)skb->data;
+			qrtr_node_assign(node, le32_to_cpu(pkt->server.node));
+		}
 
 		if (cb->type == QRTR_TYPE_RESUME_TX) {
 			qrtr_tx_resume(node, skb);
