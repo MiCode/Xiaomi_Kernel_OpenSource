@@ -39,7 +39,8 @@
 
 	mem-offline {
 		compatible = "qcom,mem-offline";
-		mem-percent = "35";
+		/* 1 Gb out of 6 Gb*/
+		mem-percent = "17";
 		granule = <512>;
 		mboxes = <&qmp_aop 0>;
 	};
