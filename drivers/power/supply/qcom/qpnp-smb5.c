@@ -1123,8 +1123,6 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
-	union power_supply_propval pval = {0, };
-
 	int rc = 0;
 
 	switch (psp) {
@@ -1153,13 +1151,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_system_temp_level_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblib_get_prop_usb_present(chg, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't get usb present rc=%d\n", rc);
-			break;
-		}
-		if (pval.intval)
-			rc = smblib_get_prop_charger_temp(chg, val);
+		rc = smblib_get_prop_charger_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		val->intval = chg->charger_temp_max;

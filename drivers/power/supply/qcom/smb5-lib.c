@@ -2058,16 +2058,35 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				 union power_supply_propval *val)
 {
-	int rc;
+	union power_supply_propval pval = {0, };
+	bool usb_present, dc_present;
+	int temp, rc;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+	usb_present = pval.intval;
+
+	rc = smblib_get_prop_dc_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get dc presence status rc=%d\n", rc);
+		return rc;
+	}
+	dc_present = pval.intval;
+
+	if (!usb_present && !dc_present)
+		return -ENODATA;
 
 	if (chg->iio.temp_chan) {
 		rc = iio_read_channel_processed(chg->iio.temp_chan,
-				&val->intval);
+				&temp);
 		if (rc < 0) {
 			pr_err("Error in reading temp channel, rc=%d", rc);
 			return rc;
 		}
-		val->intval /= 100;
+		val->intval = temp / 100;
 	} else {
 		return -ENODATA;
 	}
