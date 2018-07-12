@@ -436,7 +436,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	 * rb_tree.
 	 */
 	limit = min_t(dma_addr_t, DMA_BIT_MASK(32) >> shift,
-						iovad->dma_32bit_pfn);
+						iovad->dma_32bit_pfn - 1);
 
 	/* Try to get PCI devices a SAC address */
 	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
@@ -444,7 +444,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 
 	if (!iova) {
 		limit = min_t(dma_addr_t, dma_limit >> shift,
-						iovad->dma_32bit_pfn);
+						iovad->dma_32bit_pfn - 1);
 
 		iova = alloc_iova_fast(iovad, iova_len, limit);
 	}
