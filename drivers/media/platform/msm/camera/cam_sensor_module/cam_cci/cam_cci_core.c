@@ -1409,7 +1409,7 @@ static int32_t cam_cci_read_bytes(struct v4l2_subdev *sd,
 		else
 			rc = cam_cci_read(sd, c_ctrl);
 
-		if (!rc) {
+		if (rc) {
 			CAM_ERR(CAM_CCI, "failed to read rc:%d", rc);
 			goto ERROR;
 		}
