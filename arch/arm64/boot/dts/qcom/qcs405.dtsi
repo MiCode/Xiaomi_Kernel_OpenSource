@@ -306,7 +306,6 @@
 	};
 
 	clock_cpu: qcom,clock-cpu@0b011050 {
-		status = "disabled";
 		compatible = "qcom,cpu-qcs405";
 		clocks = <&clock_rpmcc RPM_SMD_XO_A_CLK_SRC>,
 			<&clock_gcc GPLL0_AO_OUT_MAIN>;
