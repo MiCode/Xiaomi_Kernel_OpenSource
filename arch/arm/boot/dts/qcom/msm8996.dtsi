@@ -2560,6 +2560,132 @@
 		qcom,ipa-advertise-sg-support;
 	};
 
+	pcie_ep: qcom,pcie-ep@00600000 {
+		compatible = "qcom,pcie-ep";
+
+		reg = <0x0c001000 0x1000>,
+			<0x0c000000 0xf1d>,
+			<0x0c000f20 0xa8>,
+			<0x00600000 0x2000>,
+			<0x00034000 0x4000>,
+			<0x00607000 0x1000>;
+		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie_ep>;
+		interrupts = <0 1 2 3 4>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 0 247 0
+			    1 &intc 0 0 249 0
+			    2 &intc 0 0 253 0
+			    3 &intc 0 0 254 0
+			    4 &intc 0 0 49 0>;
+
+		interrupt-names ="int_pm_turnoff", "int_dstate_change",
+			"int_link_up", "int_link_down", "int_global";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default
+			&pcie0_wake_default>;
+
+		clkreq-gpio = <&tlmm 36 0>;
+		perst-gpio = <&tlmm 35 0>;
+		wake-gpio = <&tlmm 37 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pm8994_l12>;
+		vreg-0.9-supply = <&pm8994_l28>;
+
+		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
+			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_0_aux_clk>,
+			<&clock_gcc clk_gcc_pcie_clkref_clk>,
+			<&clock_gcc clk_gcc_pcie_phy_reset>,
+			<&clock_gcc clk_gcc_pcie_phy_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_phy_aux_clk>;
+
+		clock-names =  "pcie_0_pipe_clk", "pcie_0_cfg_ahb_clk",
+			"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+			"pcie_0_aux_clk", "pcie_0_ldo", "pcie_0_phy_reset",
+			"pcie_0_phy_cfg_ahb_clk", "pcie_0_phy_aux_clk";
+
+		resets = <&clock_gcc PCIE_PHY_BCR>,
+			<&clock_gcc PCIE_PHY_COM_BCR>,
+			<&clock_gcc PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+			"pcie_phy_nocsr_com_phy_reset","pcie_0_phy_reset";
+
+		max-clock-frequency-hz = <0>, <0>, <0>, <0>, <1010526>,
+			<0>, <0>, <0>, <0>;
+
+		qcom,msm-bus,name = "pcie-ep";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		qcom,pcie-link-speed = <0>;
+		qcom,pcie-phy-ver = <4>;
+		qcom,pcie-perst-enum;
+
+		qcom,phy-status-reg = <0x448>;
+		qcom,phy-sequence = <0x400 0x01 0x00
+					0x404 0x01 0x00
+					0x00AC 0x00 0x00
+					0x0034 0x18 0x00
+					0x0174 0x30 0x00
+					0x00B4 0x20 0x00
+					0x1094 0x06 0x00
+					0x00D0 0x19 0x00
+					0x0078 0x3F 0x00
+					0x0084 0x1A 0x00
+					0x0090 0x00 0x00
+					0x010C 0x00 0x00
+					0x0108 0xFF 0x00
+					0x019C 0x01 0x00
+					0x018C 0x00 0x00
+					0x0050 0x04 0x00
+					0x004C 0xff 0x00
+					0x00C8 0x42 0x00
+					0x0128 0x00 0x00
+					0x0148 0x3f 0x00
+					0x0144 0xff 0x00
+					0x000C 0x01 0x00
+					0x0070 0x0f 0x00
+					0x0048 0x0f 0x00
+					0x1248 0x4B 0x00
+					0x120C 0x0A 0x00
+					0x1200 0x0A 0x00
+					0x121C 0x04 0x00
+					0x1210 0x04 0x00
+					0x12D8 0x01 0x00
+					0x12DC 0x00 0x00
+					0x12E0 0xDB 0x00
+					0x12D4 0x77 0x00
+					0x130C 0x80 0x00
+					0x1310 0x1C 0x00
+					0x1314 0x03 0x00
+					0x131C 0x14 0x00
+					0x1054 0x02 0x00
+					0x1068 0x45 0x00
+					0x10AC 0x12 0x00
+					0x0194 0x06 0x00
+					0x1454 0x00 0x00
+					0x1404 0x00 0x00
+					0x400 0x00 0x00
+					0x408 0x03 0x00>;
+
+		status = "disabled";
+	};
+
 	qcom_rng: qrng@83000 {
 		compatible = "qcom,msm-rng";
 		reg = <0x83000 0x1000>;
