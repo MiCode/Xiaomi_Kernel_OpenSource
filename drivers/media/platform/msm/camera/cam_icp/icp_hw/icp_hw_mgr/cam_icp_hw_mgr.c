@@ -2033,6 +2033,7 @@ static void cam_icp_free_hfi_mem(void)
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.cmd_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.msg_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.dbg_q);
+	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.sfr_buf);
 }
 
 static int cam_icp_alloc_secheap_mem(struct cam_mem_mgr_memory_desc *secheap)
