@@ -1359,6 +1359,8 @@
 		vreg_emac_phy-supply =  <&vreg_emac_phy>;
 		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
 		gdsc_emac-supply = <&gdsc_emac>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "emac_aop";
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
