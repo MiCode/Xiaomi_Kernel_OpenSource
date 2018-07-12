@@ -3590,6 +3590,7 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&pil_wlan_fw_mem>;
 		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
 		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
