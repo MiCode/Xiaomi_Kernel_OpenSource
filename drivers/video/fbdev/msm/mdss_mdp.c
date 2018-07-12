@@ -2432,8 +2432,9 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
 	for (i = 0; i < pipe_cnt && pipe; i++) {
-		SPRINT("pipe num:%d type:%s ndx:%d rect:%d handoff:%d id:%d ",
-			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
+		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d ",
+			pipe->num, type, pipe->ndx, pipe->multirect.max_rects);
+		SPRINT("pipe_is_handoff:%d display_id:%d ",
 			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
 		for (j = 0; j < num_bytes; j++)
