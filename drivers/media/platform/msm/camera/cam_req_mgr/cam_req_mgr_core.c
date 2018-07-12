@@ -1113,6 +1113,32 @@ static int __cam_req_mgr_reset_in_q(struct cam_req_mgr_req_data *req)
 }
 
 /**
+ * __cam_req_mgr_notify_sof_freeze()
+ *
+ * @brief : Notify devices on link on detecting a SOF freeze
+ * @link  : link on which the sof freeze was detected
+ *
+ */
+static void __cam_req_mgr_notify_sof_freeze(
+	struct cam_req_mgr_core_link *link)
+{
+	int                                  i = 0;
+	struct cam_req_mgr_link_evt_data     evt_data;
+	struct cam_req_mgr_connected_device *dev = NULL;
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		evt_data.evt_type = CAM_REQ_MGR_LINK_EVT_SOF_FREEZE;
+		evt_data.dev_hdl = dev->dev_hdl;
+		evt_data.link_hdl =  link->link_hdl;
+		evt_data.req_id = 0;
+		evt_data.u.error = CRM_KMD_ERR_FATAL;
+		if (dev->ops && dev->ops->process_evt)
+			dev->ops->process_evt(&evt_data);
+	}
+}
+
+/**
  * __cam_req_mgr_sof_freeze()
  *
  * @brief : Apoptosis - Handles case when connected devices are not responding
@@ -1136,6 +1162,7 @@ static void __cam_req_mgr_sof_freeze(unsigned long data)
 	CAM_ERR(CAM_CRM, "SOF freeze for session %d link 0x%x",
 		session->session_hdl, link->link_hdl);
 
+	__cam_req_mgr_notify_sof_freeze(link);
 	memset(&msg, 0, sizeof(msg));
 
 	msg.session_hdl = session->session_hdl;
