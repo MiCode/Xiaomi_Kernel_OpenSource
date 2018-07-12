@@ -210,8 +210,10 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 				pr_debug("iommu v2 domain[%i] attached\n", i);
 			}
 		} else {
-			pr_err("iommu device not attached for domain[%d]\n", i);
-			return -ENODEV;
+			/* Possible that target does not support secure cb */
+			pr_debug("iommu device not present for domain[%d]\n",
+							 i);
+			return 0;
 		}
 	}
 
@@ -288,23 +290,27 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 		struct sg_table *table, int domain, dma_addr_t *iova,
 		unsigned long *size, int dir)
 {
-	int rc;
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
+	struct scatterlist *sg;
+	unsigned int i;
 
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return -EINVAL;
 	}
-	ATRACE_BEGIN("map_buffer");
-	rc = msm_dma_map_sg_lazy(mdss_smmu->dev, table->sgl, table->nents, dir,
-		dma_buf);
-	if (rc != table->nents) {
-		pr_err("dma map sg failed\n");
-		return -ENOMEM;
+
+	if (!table || !table->sgl) {
+		pr_err("Invalid table and scattergather list for dma buf\n");
+		return -EINVAL;
 	}
-	ATRACE_END("map_buffer");
+
+	ATRACE_BEGIN("map_buffer");
 	*iova = table->sgl->dma_address;
-	*size = sg_dma_len(table->sgl);
+
+	*size = 0;
+	for_each_sg(table->sgl, sg, table->nents, i)
+		*size += sg->length;
+	ATRACE_END("map_buffer");
 	return 0;
 }
 

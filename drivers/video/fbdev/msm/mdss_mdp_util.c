@@ -941,9 +941,6 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 		if (data->mapped) {
 			domain = mdss_smmu_get_domain_type(data->flags,
 				rotator);
-			mdss_smmu_unmap_dma_buf(data->srcp_table,
-						domain, dir,
-						data->srcp_dma_buf);
 			data->mapped = false;
 		}
 		if (!data->skip_detach) {
@@ -1021,10 +1018,15 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 			data->srcp_attachment =
 				mdss_smmu_dma_buf_attach(data->srcp_dma_buf,
 							 dev, domain);
-			if (IS_ERR(data->srcp_attachment)) {
+			if (IS_ERR_OR_NULL(data->srcp_attachment)) {
 				ret = PTR_ERR(data->srcp_attachment);
+				pr_err("error during dma buf attach\n");
 				goto err_put;
 			}
+
+
+			data->srcp_attachment->dma_map_attrs |=
+					DMA_ATTR_DELAYED_UNMAP;
 
 			data->srcp_table =
 				dma_buf_map_attachment(data->srcp_attachment,
