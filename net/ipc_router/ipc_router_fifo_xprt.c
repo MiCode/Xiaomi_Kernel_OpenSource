@@ -12,6 +12,7 @@
 #include <linux/types.h>
 #include <linux/skbuff.h>
 #include <linux/sched.h>
+#include <microvisor/microvisor.h>
 
 #define MODULE_NAME "ipc_router_fifo_xprt"
 #define XPRT_NAME_LEN 32
