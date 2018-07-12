@@ -295,6 +295,7 @@ struct smb_charger {
 	/* locks */
 	struct mutex		lock;
 	struct mutex		ps_change_lock;
+	struct mutex		vadc_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;

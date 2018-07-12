@@ -490,7 +490,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 				union power_supply_propval *val)
 {
-	int rc, ret = 0;
+	int rc = 0;
 	struct qpnp_vadc_result result;
 	u8 reg;
 
@@ -516,6 +516,8 @@ static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 	if (IS_ERR(chg->vadc_dev))
 		return PTR_ERR(chg->vadc_dev);
 
+	mutex_lock(&chg->vadc_lock);
+
 	switch (channel) {
 	case USBIN_VOLTAGE:
 		/* Store ADC channel config */
@@ -523,7 +525,7 @@ static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't read ADC config rc=%d\n", rc);
-			return rc;
+			goto done;
 		}
 
 		/* Disable all ADC channels except IBAT channel */
@@ -532,44 +534,40 @@ static int smb5_get_adc_data(struct smb_charger *chg, int channel,
 		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't write ADC config rc=%d\n", rc);
-			return rc;
+			goto done;
 		}
 
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_V_DIV_16_PM5,
 				&result);
-		if (rc < 0) {
+		if (rc < 0)
 			pr_err("Failed to read USBIN_V over vadc, rc=%d\n", rc);
-			ret = rc;
-			goto restore;
-		}
-		val->intval = result.physical;
+		else
+			val->intval = result.physical;
 
-restore:
 		/* Restore ADC channel config */
-		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
-		if (rc < 0) {
+		rc |= smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
+		if (rc < 0)
 			dev_err(chg->dev,
 				"Couldn't write ADC config rc=%d\n", rc);
-			return rc;
-		}
-		/* If ADC read failed return ADC error */
-		if (ret < 0)
-			rc = ret;
+
 		break;
 	case USBIN_CURRENT:
 		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_I_PM5, &result);
 		if (rc < 0) {
 			pr_err("Failed to read USBIN_I over vadc, rc=%d\n", rc);
-			return rc;
+			goto done;
 		}
 		val->intval = result.physical;
 		break;
 	default:
 		pr_debug("Invalid channel\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
 
-	return 0;
+done:
+	mutex_unlock(&chg->vadc_lock);
+	return rc;
 }
 
 
@@ -2602,6 +2600,7 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->irq_info = smb5_irqs;
 	chg->die_health = -EINVAL;
 	chg->otg_present = false;
+	mutex_init(&chg->vadc_lock);
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
