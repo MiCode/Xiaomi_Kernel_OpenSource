@@ -119,9 +119,9 @@
 };
 
 &slim_aud {
-	status = "disabled";
+	status = "okay";
 	msm_dai_slim {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,msm-dai-slim";
 		elemental-addr = [ff ff ff fe 17 02];
 	};
@@ -131,7 +131,7 @@
 	tasha_mclk {
 		tasha_mclk_default: tasha_mclk_default{
 			pins = "gpio8";
-			function = "func1";
+			function = "func2";
 			qcom,drive-strength = <2>;
 			power-source = <0>;
 			bias-disable;
