@@ -873,16 +873,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		if (!iopte_tblcnt(*ptep)) {
 			/* no valid mappings left under this table. free it. */
 			__arm_lpae_set_pte(ptep, 0, &iop->cfg);
-			io_pgtable_tlb_add_flush(iop, iova,
-						 entries * entry_size,
-						 ARM_LPAE_GRANULE(data),
-						 false);
 			__arm_lpae_free_pgtable(data, lvl + 1, table_base);
-		} else {
-			io_pgtable_tlb_add_flush(iop, iova,
-						 entries * entry_size,
-						 ARM_LPAE_GRANULE(data),
-						 true);
 		}
 
 		return entries * entry_size;
