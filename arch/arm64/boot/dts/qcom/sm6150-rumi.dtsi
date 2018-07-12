@@ -150,4 +150,23 @@
 	/delete-node/ rpmh-regulator-bobc1;
 };
 
+&thermal_zones {
+	/delete-node/ aoss-lowf;
+	/delete-node/ cpuss-0-lowf;
+	/delete-node/ cpuss-1-lowf;
+	/delete-node/ cpuss-2-lowf;
+	/delete-node/ cpuss-3-lowf;
+	/delete-node/ cpu-1-0-lowf;
+	/delete-node/ cpu-1-1-lowf;
+	/delete-node/ cpu-1-2-lowf;
+	/delete-node/ cpu-1-3-lowf;
+	/delete-node/ gpu-lowf;
+	/delete-node/ q6-hvx-lowf;
+	/delete-node/ mdm-core-lowf;
+	/delete-node/ camera-lowf;
+	/delete-node/ wlan-lowf;
+	/delete-node/ display-lowf;
+	/delete-node/ video-lowf;
+};
+
 #include "sm6150-stub-regulator.dtsi"
