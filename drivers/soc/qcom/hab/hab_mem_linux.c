@@ -361,17 +361,18 @@ static int hab_map_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct page *page;
 	struct pages_list *pglist;
-
-	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
-
-	/* PHY address */
-	unsigned long fault_offset =
-		(unsigned long)vmf->virtual_address - vma->vm_start + offset;
-	unsigned long fault_index = fault_offset>>PAGE_SHIFT;
+	unsigned long offset, fault_offset, fault_index;
 	int page_idx;
 
 	if (vma == NULL)
 		return VM_FAULT_SIGBUS;
+
+	offset = vma->vm_pgoff << PAGE_SHIFT;
+
+	/* PHY address */
+	fault_offset =
+		(unsigned long)vmf->virtual_address - vma->vm_start + offset;
+	fault_index = fault_offset>>PAGE_SHIFT;
 
 	pglist  = vma->vm_private_data;
 
@@ -463,6 +464,7 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	int i, j, k = 0;
 	pgprot_t prot = PAGE_KERNEL;
 	int32_t fd, size;
+	int ret;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
 	if (!pfn_table || !priv)
@@ -505,9 +507,10 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	exp_info.priv = pglist;
 	pglist->dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR(pglist->dmabuf)) {
+		ret = PTR_ERR(pglist->dmabuf);
 		kfree(pages);
 		kfree(pglist);
-		return PTR_ERR(pglist->dmabuf);
+		return ret;
 	}
 
 	fd = dma_buf_fd(pglist->dmabuf, O_CLOEXEC);
@@ -579,8 +582,8 @@ static int habmem_imp_hyp_map_kva(void *imp_ctx,
 	pglist->kva = vmap(pglist->pages, pglist->npages, VM_MAP, prot);
 	if (pglist->kva == NULL) {
 		kfree(pages);
-		kfree(pglist);
 		pr_err("%ld pages vmap failed\n", pglist->npages);
+		kfree(pglist);
 		return -ENOMEM;
 	}
 
