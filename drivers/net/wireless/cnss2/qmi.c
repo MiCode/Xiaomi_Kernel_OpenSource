@@ -514,17 +514,17 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 			 BDF_FILE_NAME_PREFIX "%02x",
 			 plat_priv->board_info.board_id);
 
+	if (bdf_bypass) {
+		cnss_pr_info("bdf_bypass is enabled, sending dummy BDF\n");
+		temp = filename;
+		remaining = MAX_BDF_FILE_NAME;
+		goto bypass_bdf;
+	}
+
 	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
 	if (ret) {
 		cnss_pr_err("Failed to load BDF: %s\n", filename);
-		if (bdf_bypass) {
-			cnss_pr_info("bdf_bypass is enabled, sending dummy BDF\n");
-			temp = filename;
-			remaining = MAX_BDF_FILE_NAME;
-			goto bypass_bdf;
-		} else {
-			goto err_req_fw;
-		}
+		goto err_req_fw;
 	}
 
 	temp = fw_entry->data;
