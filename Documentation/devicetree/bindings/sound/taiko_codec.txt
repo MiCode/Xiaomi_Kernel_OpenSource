@@ -536,6 +536,10 @@ Tasha audio CODEC in I2C mode
 
  - qcom,cdc-dmic-sample-rate - Specifies dmic sample rate.
  - qcom,cdc-variant - Specifies codec variant.
+ - qcom,wcd9xxx-mic-tristate: For chipsets where I2S TX line is shared between
+			      the Codec and TDM mics, tristate the WCD mics to
+			      avoid PCM interference as the end product uses
+			      only TDM mics.
 
 Example:
 i2c_3: i2c@78B7000 { /* BLSP1 QUP3 */
