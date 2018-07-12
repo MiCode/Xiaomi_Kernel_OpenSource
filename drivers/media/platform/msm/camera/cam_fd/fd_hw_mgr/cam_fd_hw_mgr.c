@@ -1884,7 +1884,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 	}
 
 	rc = cam_req_mgr_workq_create("cam_fd_worker", CAM_FD_WORKQ_NUM_TASK,
-		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ);
+		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Unable to create a worker, rc=%d", rc);
 		goto detach_smmu;

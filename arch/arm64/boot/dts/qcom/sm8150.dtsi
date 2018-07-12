@@ -3701,6 +3701,7 @@
 	qcom,msm-bus,vectors-KBps =
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3715,6 +3716,7 @@
 	qcom,msm-bus,vectors-KBps =
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3729,6 +3731,7 @@
 	qcom,msm-bus,vectors-KBps =
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 

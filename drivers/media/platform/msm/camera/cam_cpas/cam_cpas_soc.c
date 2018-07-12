@@ -56,18 +56,6 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_private->hw_version);
 
-
-	soc_private->hw_version = 0;
-	rc = of_property_read_u32(of_node,
-		"qcom,cpas-hw-ver", &soc_private->hw_version);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "device %s failed to read cpas-hw-ver",
-			pdev->name);
-		return rc;
-	}
-
-	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_private->hw_version);
-
 	soc_private->camnoc_axi_min_ib_bw = 0;
 	rc = of_property_read_u64(of_node,
 		"camnoc-axi-min-ib-bw",
@@ -137,35 +125,6 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 
 	soc_private->axi_camnoc_based = of_property_read_bool(of_node,
 		"client-bus-camnoc-based");
-
-	soc_private->control_camnoc_axi_clk = of_property_read_bool(of_node,
-		"control-camnoc-axi-clk");
-
-	if (soc_private->control_camnoc_axi_clk == true) {
-		rc = of_property_read_u32(of_node, "camnoc-bus-width",
-			&soc_private->camnoc_bus_width);
-		if (rc || (soc_private->camnoc_bus_width == 0)) {
-			CAM_ERR(CAM_CPAS, "Bus width not found rc=%d, %d",
-				rc, soc_private->camnoc_bus_width);
-			return rc;
-		}
-
-		rc = of_property_read_u32(of_node,
-			"camnoc-axi-clk-bw-margin-perc",
-			&soc_private->camnoc_axi_clk_bw_margin);
-
-		if (rc) {
-			/* this is not fatal, overwrite rc */
-			rc = 0;
-			soc_private->camnoc_axi_clk_bw_margin = 0;
-		}
-	}
-
-	CAM_DBG(CAM_CPAS,
-		"control_camnoc_axi_clk=%d, width=%d, margin=%d",
-		soc_private->control_camnoc_axi_clk,
-		soc_private->camnoc_bus_width,
-		soc_private->camnoc_axi_clk_bw_margin);
 
 	soc_private->control_camnoc_axi_clk = of_property_read_bool(of_node,
 		"control-camnoc-axi-clk");

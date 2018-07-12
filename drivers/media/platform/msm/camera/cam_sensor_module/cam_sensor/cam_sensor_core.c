@@ -499,8 +499,8 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 		&s_ctrl->sensordata->power_info;
 	int rc = 0;
 
-	s_ctrl->is_probe_succeed = 0;
-	if (s_ctrl->sensor_state == CAM_SENSOR_INIT)
+	if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) &&
+		(s_ctrl->is_probe_succeed == 0))
 		return;
 
 	cam_sensor_release_resource(s_ctrl);
@@ -514,14 +514,15 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->bridge_intf.device_hdl = -1;
 	s_ctrl->bridge_intf.link_hdl = -1;
 	s_ctrl->bridge_intf.session_hdl = -1;
-
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
 	power_info->power_setting = NULL;
 	power_info->power_down_setting = NULL;
-
+	power_info->power_setting_size = 0;
+	power_info->power_down_setting_size = 0;
 	s_ctrl->streamon_count = 0;
 	s_ctrl->streamoff_count = 0;
+	s_ctrl->is_probe_succeed = 0;
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
@@ -560,8 +561,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 {
 	int rc = 0;
 	struct cam_control *cmd = (struct cam_control *)arg;
-	struct cam_sensor_power_setting *pu = NULL;
-	struct cam_sensor_power_setting *pd = NULL;
 	struct cam_sensor_power_ctrl_t *power_info =
 		&s_ctrl->sensordata->power_info;
 	if (!s_ctrl || !arg) {
@@ -591,8 +590,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = cam_handle_mem_ptr(cmd->handle, s_ctrl);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR, "Get Buffer Handle Failed");
-				kfree(pu);
-				kfree(pd);
 				goto release_mutex;
 			}
 		} else {
@@ -601,9 +598,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EINVAL;
 			goto release_mutex;
 		}
-
-		pu = power_info->power_setting;
-		pd = power_info->power_down_setting;
 
 		/* Parse and fill vreg params for powerup settings */
 		rc = msm_camera_fill_vreg_params(
@@ -614,9 +608,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR,
 				"Fail in filling vreg params for PUP rc %d",
 				 rc);
-			kfree(pu);
-			kfree(pd);
-			goto release_mutex;
+			goto free_power_settings;
 		}
 
 		/* Parse and fill vreg params for powerdown settings*/
@@ -628,18 +620,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR,
 				"Fail in filling vreg params for PDOWN rc %d",
 				 rc);
-			kfree(pu);
-			kfree(pd);
-			goto release_mutex;
+			goto free_power_settings;
 		}
 
 		/* Power up and probe sensor */
 		rc = cam_sensor_power_up(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "power up failed");
-			kfree(pu);
-			kfree(pd);
-			goto release_mutex;
+			goto free_power_settings;
 		}
 
 		/* Match sensor ID */
@@ -647,9 +635,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		if (rc < 0) {
 			cam_sensor_power_down(s_ctrl);
 			msleep(20);
-			kfree(pu);
-			kfree(pd);
-			goto release_mutex;
+			goto free_power_settings;
 		}
 
 		CAM_INFO(CAM_SENSOR,
@@ -661,9 +647,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "fail in Sensor Power Down");
-			kfree(pu);
-			kfree(pd);
-			goto release_mutex;
+			goto free_power_settings;
 		}
 		/*
 		 * Set probe succeeded flag to 1 so that no other camera shall
@@ -676,6 +660,15 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	case CAM_ACQUIRE_DEV: {
 		struct cam_sensor_acquire_dev sensor_acq_dev;
 		struct cam_create_dev_hdl bridge_params;
+
+		if ((s_ctrl->is_probe_succeed == 0) ||
+			(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
+			CAM_WARN(CAM_SENSOR,
+				"Not in right state to aquire %d",
+				s_ctrl->sensor_state);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
 
 		if (s_ctrl->bridge_intf.device_hdl != -1) {
 			CAM_ERR(CAM_SENSOR, "Device is already acquired");
@@ -883,6 +876,16 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 release_mutex:
+	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+	return rc;
+
+free_power_settings:
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
+	power_info->power_down_setting_size = 0;
+	power_info->power_setting_size = 0;
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 	return rc;
 }
@@ -1171,6 +1174,11 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		cam_get_device_priv(flush_req->dev_hdl);
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	if (s_ctrl->i2c_data.per_frame == NULL) {
+		CAM_ERR(CAM_SENSOR, "i2c frame data is NULL");
 		return -EINVAL;
 	}
 

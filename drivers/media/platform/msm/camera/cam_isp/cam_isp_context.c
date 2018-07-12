@@ -525,11 +525,11 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	struct cam_context      *ctx = ctx_isp->base;
 	struct cam_isp_ctx_req  *req_isp;
 
-	if (list_empty(&ctx->pending_req_list)) {
-		CAM_ERR(CAM_ISP, "Reg upd ack with no pending request");
+	if (list_empty(&ctx->wait_req_list)) {
+		CAM_ERR(CAM_ISP, "Reg upd ack with no waiting request");
 		goto end;
 	}
-	req = list_first_entry(&ctx->pending_req_list,
+	req = list_first_entry(&ctx->wait_req_list,
 			struct cam_ctx_request, list);
 	list_del_init(&req->list);
 
@@ -1079,30 +1079,6 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	return rc;
 }
 
-static int __cam_isp_ctx_sof_in_flush(
-	struct cam_isp_context *ctx_isp, void *evt_data)
-{
-	int rc = 0;
-	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
-
-	if (!evt_data) {
-		CAM_ERR(CAM_ISP, "in valid sof event data");
-		return -EINVAL;
-	}
-	ctx_isp->frame_id++;
-	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	ctx_isp->boot_timestamp = sof_event_data->boot_time;
-	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
-		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
-
-	if (--ctx_isp->frame_skip_count == 0)
-		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
-	else
-		CAM_ERR(CAM_ISP, "Skip currect SOF");
-
-	return rc;
-}
-
 static struct cam_isp_ctx_irq_ops
 	cam_isp_ctx_activated_state_machine_irq[CAM_ISP_CTX_ACTIVATED_MAX] = {
 	/* SOF */
@@ -1173,17 +1149,6 @@ static struct cam_isp_ctx_irq_ops
 	},
 	/* HALT */
 	{
-	},
-	/* FLUSH */
-	{
-		.irq_ops = {
-			NULL,
-			__cam_isp_ctx_sof_in_flush,
-			NULL,
-			NULL,
-			NULL,
-			__cam_isp_ctx_buf_done_in_applied,
-		},
 	},
 };
 
@@ -1266,6 +1231,8 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		spin_lock_bh(&ctx->lock);
 		ctx_isp->substate_activated = next_state;
 		ctx_isp->last_applied_req_id = apply->request_id;
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->wait_req_list);
 		CAM_DBG(CAM_ISP, "new substate state %d, applied req %lld",
 			next_state, ctx_isp->last_applied_req_id);
 		spin_unlock_bh(&ctx->lock);
@@ -1340,7 +1307,11 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	INIT_LIST_HEAD(&flush_list);
 	if (list_empty(req_list)) {
 		CAM_DBG(CAM_ISP, "request list is empty");
-		return 0;
+		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+			CAM_ERR(CAM_ISP, "no request to cancel");
+			return -EINVAL;
+		} else
+			return 0;
 	}
 
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
@@ -1398,24 +1369,6 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	spin_unlock_bh(&ctx->lock);
 	CAM_DBG(CAM_ISP, "Flush request in top state %d",
 		 ctx->state);
-	return rc;
-}
-
-static int __cam_isp_ctx_flush_req_in_activated(
-	struct cam_context *ctx,
-	struct cam_req_mgr_flush_request *flush_req)
-{
-	int rc = 0;
-	struct cam_isp_context *ctx_isp;
-
-	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
-	spin_lock_bh(&ctx->lock);
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_FLUSH;
-	ctx_isp->frame_skip_count = 2;
-
-	CAM_DBG(CAM_ISP, "Flush request in state %d", ctx->state);
-	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
-	spin_unlock_bh(&ctx->lock);
 	return rc;
 }
 
@@ -1486,12 +1439,6 @@ static struct cam_ctx_ops
 		.irq_ops = NULL,
 	},
 	/* HALT */
-	{
-		.ioctl_ops = {},
-		.crm_ops = {},
-		.irq_ops = NULL,
-	},
-	/* FLUSH */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
@@ -1881,17 +1828,6 @@ static struct cam_isp_ctx_irq_ops
 	/* HALT */
 	{
 	},
-	/* FLUSH */
-	{
-		.irq_ops = {
-			NULL,
-			__cam_isp_ctx_sof_in_flush,
-			NULL,
-			NULL,
-			NULL,
-			__cam_isp_ctx_buf_done_in_applied,
-		},
-	},
 };
 
 static int __cam_isp_ctx_rdi_only_apply_req_top_state(
@@ -1954,12 +1890,6 @@ static struct cam_ctx_ops
 		.irq_ops = NULL,
 	},
 	/* HALT */
-	{
-		.ioctl_ops = {},
-		.crm_ops = {},
-		.irq_ops = NULL,
-	},
-	/* FLUSHED */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
@@ -2710,7 +2640,7 @@ static struct cam_ctx_ops
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
-			.flush_req = __cam_isp_ctx_flush_req_in_activated,
+			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
 			.process_evt = __cam_isp_ctx_process_evt,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
