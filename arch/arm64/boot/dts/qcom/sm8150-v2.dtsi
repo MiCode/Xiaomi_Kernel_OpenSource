@@ -22,6 +22,17 @@
 /delete-node/ &apps_smmu;
 /delete-node/ &kgsl_smmu;
 
+&mdss_rotator {
+	smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
+		compatible = "qcom,smmu_sde_rot_unsec";
+		iommus = <&apps_smmu 0x2040 0x0>;
+	};
+	smmu_rot_sec: qcom,smmu_rot_sec_cb {
+		compatible = "qcom,smmu_sde_rot_sec";
+		iommus = <&apps_smmu 0x2041 0x0>;
+	};
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sm8150-v2", "syscon";
 };
