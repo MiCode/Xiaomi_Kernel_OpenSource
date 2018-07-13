@@ -74,6 +74,8 @@
 				<100 512 0 0>,
 				<100 512 207108 14432000>;
 		qcom,ntn-pcierst-resx;
+		qcom,txc-skew-ps = <1860>;
+		qcom,rxc-skew-ps = <1860>;
 	};
 
 	usb_detect: usb_detect {
