@@ -54,12 +54,6 @@
 #include <trace/events/almk.h>
 #include <linux/show_mem_notifier.h>
 
-#ifdef CONFIG_HIGHMEM
-#define _ZONE ZONE_HIGHMEM
-#else
-#define _ZONE ZONE_NORMAL
-#endif
-
 #define CREATE_TRACE_POINTS
 #include "trace/lowmemorykiller.h"
 
@@ -87,6 +81,14 @@ static int lowmem_minfree_size = 4;
 static int lmk_fast_run = 1;
 
 static unsigned long lowmem_deathpending_timeout;
+
+/*
+ * The index of the highest zone containing nonzero pages.
+ * Used during kswapd reclaim to require that the preferred zone
+ * be above minfree by at least the amount of lowmem_reserve[high_zoneidx]
+ * DEBUG: IS THIS RIGHT???? 
+ */
+static int high_zoneidx;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -390,17 +392,17 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 			tune_lmk_zone_param(zonelist, classzone_idx, other_free,
 				       NULL, use_cma_pages);
 
-		if (zone_watermark_ok(preferred_zone, 0, 0, _ZONE, 0)) {
+		if (zone_watermark_ok(preferred_zone, 0, 0, high_zoneidx, 0)) {
 			if (!use_cma_pages) {
 				*other_free -= min(
-				  preferred_zone->lowmem_reserve[_ZONE]
+				  preferred_zone->lowmem_reserve[high_zoneidx]
 				  + zone_page_state(
 				    preferred_zone, NR_FREE_CMA_PAGES),
 				  zone_page_state(
 				    preferred_zone, NR_FREE_PAGES));
 			} else {
 				*other_free -=
-				  preferred_zone->lowmem_reserve[_ZONE];
+				  preferred_zone->lowmem_reserve[high_zoneidx];
 			}
 		} else {
 			*other_free -= zone_page_state(preferred_zone,
@@ -644,6 +646,17 @@ static struct shrinker lowmem_shrinker = {
 
 static int __init lowmem_init(void)
 {
+	struct zoneref *z;
+	struct zone *zone;
+	struct zonelist *zonelist = node_zonelist(0, GFP_KERNEL);
+
+	for_each_zone_zonelist(zone, z, zonelist, MAX_NR_ZONES) {
+		if (!managed_zone(zone))
+			continue;
+		if (zonelist_zone_idx(z) > high_zoneidx)
+			high_zoneidx = zonelist_zone_idx(z);
+	}
+
 	register_shrinker(&lowmem_shrinker);
 	vmpressure_notifier_register(&lmk_vmpr_nb);
 	return 0;
