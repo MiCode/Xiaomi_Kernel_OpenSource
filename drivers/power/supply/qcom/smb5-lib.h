@@ -12,6 +12,8 @@
 
 #ifndef __SMB5_CHARGER_H
 #define __SMB5_CHARGER_H
+#include <linux/alarmtimer.h>
+#include <linux/ktime.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
@@ -59,6 +61,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
 #define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
+#define LPD_VOTER			"LPD_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -318,6 +321,9 @@ struct smb_charger {
 	struct delayed_work	pl_enable_work;
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
+	struct delayed_work	lpd_ra_open_work;
+
+	struct alarm		lpd_recheck_timer;
 
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -368,6 +374,7 @@ struct smb_charger {
 	bool			jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
+	bool			lpd_in_progress;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -567,6 +574,8 @@ int smblib_get_prop_from_bms(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, bool override);
+enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
+				ktime_t time);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
