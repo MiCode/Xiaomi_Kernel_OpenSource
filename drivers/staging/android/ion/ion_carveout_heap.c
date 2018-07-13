@@ -24,7 +24,7 @@ struct ion_carveout_heap {
 };
 
 static phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
-					 unsigned long size)
+					     unsigned long size)
 {
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
@@ -55,6 +55,7 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	struct sg_table *table;
 	phys_addr_t paddr;
 	int ret;
+	struct device *dev = heap->priv;
 
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
@@ -72,6 +73,10 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), size, 0);
 	buffer->sg_table = table;
 
+	if (ion_buffer_cached(buffer))
+		ion_pages_sync_for_device(dev, sg_page(table->sgl),
+					  buffer->size, DMA_FROM_DEVICE);
+
 	return 0;
 
 err_free_table:
@@ -86,9 +91,14 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	struct ion_heap *heap = buffer->heap;
 	struct sg_table *table = buffer->sg_table;
 	struct page *page = sg_page(table->sgl);
-	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
+	phys_addr_t paddr = page_to_phys(page);
+	struct device *dev = (struct device *)heap->priv;
 
 	ion_heap_buffer_zero(buffer);
+
+	if (ion_buffer_cached(buffer))
+		ion_pages_sync_for_device(dev, page, buffer->size,
+					  DMA_BIDIRECTIONAL);
 
 	ion_carveout_free(heap, paddr, buffer->size);
 	sg_free_table(table);
@@ -110,9 +120,12 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 
 	struct page *page;
 	size_t size;
+	struct device *dev = (struct device *)heap_data->priv;
 
 	page = pfn_to_page(PFN_DOWN(heap_data->base));
 	size = heap_data->size;
+
+	ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
 
 	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
@@ -135,4 +148,14 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
 	return &carveout_heap->heap;
+}
+
+void ion_carveout_heap_destroy(struct ion_heap *heap)
+{
+	struct ion_carveout_heap *carveout_heap =
+	     container_of(heap, struct  ion_carveout_heap, heap);
+
+	gen_pool_destroy(carveout_heap->pool);
+	kfree(carveout_heap);
+	carveout_heap = NULL;
 }

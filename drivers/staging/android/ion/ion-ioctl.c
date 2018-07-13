@@ -9,10 +9,12 @@
 #include <linux/uaccess.h>
 
 #include "ion.h"
+#include "ion_system_secure_heap.h"
 
 union ion_ioctl_arg {
 	struct ion_allocation_data allocation;
 	struct ion_heap_query query;
+	struct ion_prefetch_data prefetch_data;
 };
 
 static int validate_ioctl_arg(unsigned int cmd, union ion_ioctl_arg *arg)
@@ -73,9 +75,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		int fd;
 
-		fd = ion_alloc(data.allocation.len,
-			       data.allocation.heap_id_mask,
-			       data.allocation.flags);
+		fd = ion_alloc_fd(data.allocation.len,
+				  data.allocation.heap_id_mask,
+				  data.allocation.flags);
 		if (fd < 0)
 			return fd;
 
@@ -86,6 +88,33 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_HEAP_QUERY:
 		ret = ion_query_heaps(&data.query);
 		break;
+	case ION_IOC_PREFETCH:
+	{
+		int ret;
+
+		ret = ion_walk_heaps(data.prefetch_data.heap_id,
+				     (enum ion_heap_type)
+				     ION_HEAP_TYPE_SYSTEM_SECURE,
+				     (void *)&data.prefetch_data,
+				     ion_system_secure_heap_prefetch);
+		if (ret)
+			return ret;
+		break;
+	}
+	case ION_IOC_DRAIN:
+	{
+		int ret;
+
+		ret = ion_walk_heaps(data.prefetch_data.heap_id,
+				     (enum ion_heap_type)
+				     ION_HEAP_TYPE_SYSTEM_SECURE,
+				     (void *)&data.prefetch_data,
+				     ion_system_secure_heap_drain);
+
+		if (ret)
+			return ret;
+		break;
+	}
 	default:
 		return -ENOTTY;
 	}

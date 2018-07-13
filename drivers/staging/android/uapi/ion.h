@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * drivers/staging/android/uapi/ion.h
- *
  * Copyright (C) 2011 Google, Inc.
  */
 
@@ -114,7 +112,6 @@ struct ion_heap_query {
  */
 #define ION_IOC_ALLOC		_IOWR(ION_IOC_MAGIC, 0, \
 				      struct ion_allocation_data)
-
 /**
  * DOC: ION_IOC_HEAP_QUERY - information about available heaps
  *
