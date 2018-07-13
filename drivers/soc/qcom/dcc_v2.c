@@ -628,10 +628,13 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
 		if (!drvdata->enable[curr_list])
 			continue;
-
+		dcc_writel(drvdata, 0, DCC_LL_CFG(curr_list));
+		dcc_writel(drvdata, 0, DCC_LL_BASE(curr_list));
+		dcc_writel(drvdata, 0, DCC_FD_BASE(curr_list));
 		dcc_writel(drvdata, 0, DCC_LL_LOCK(curr_list));
 		drvdata->enable[curr_list] = 0;
 	}
+	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
 
