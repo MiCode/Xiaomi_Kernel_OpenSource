@@ -286,12 +286,6 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 
 	for_each_zone_zonelist(zone, zoneref, zonelist, MAX_NR_ZONES) {
 		zone_idx = zonelist_zone_idx(zoneref);
-		if (zone_idx == ZONE_MOVABLE) {
-			if (!use_cma_pages && other_free)
-				*other_free -=
-				    zone_page_state(zone, NR_FREE_CMA_PAGES);
-			continue;
-		}
 
 		if (zone_idx > classzone_idx) {
 			if (other_free != NULL)
@@ -423,6 +417,25 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
+/*
+ * Return the percent of memory which gfp_mask is allowed to allocate from.
+ * CMA memory is assumed to be a small percent and is not considered.
+ * The goal is to apply a margin of minfree over all zones, rather than to
+ * each zone individually.
+ */
+static int get_minfree_scalefactor(gfp_t gfp_mask)
+{
+	struct zonelist *zonelist = node_zonelist(0, gfp_mask);
+	struct zoneref *z;
+	struct zone *zone;
+	unsigned long nr_usable = 0;
+
+	for_each_zone_zonelist(zone, z, zonelist, gfp_zone(gfp_mask))
+		nr_usable += zone->managed_pages;
+
+	return max_t(int, 1, mult_frac(100, nr_usable, totalram_pages));
+}
+
 static void mark_lmk_victim(struct task_struct *tsk)
 {
 	struct mm_struct *mm = tsk->mm;
@@ -443,6 +456,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int ret = 0;
 	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
 	int minfree = 0;
+	int scale_percent;
 	int selected_tasksize = 0;
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
@@ -466,12 +480,13 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	tune_lmk_param(&other_free, &other_file, sc);
 
+	scale_percent = get_minfree_scalefactor(sc->gfp_mask);
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
 	for (i = 0; i < array_size; i++) {
-		minfree = lowmem_minfree[i];
+		minfree = mult_frac(lowmem_minfree[i], scale_percent, 100);
 		if (other_free < minfree && other_file < minfree) {
 			min_score_adj = lowmem_adj[i];
 			break;
