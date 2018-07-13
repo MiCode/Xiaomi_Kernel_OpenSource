@@ -2603,6 +2603,16 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
+void dsi_ctrl_set_continuous_clk(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.set_continuous_clk(&dsi_ctrl->hw, enable);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+}
+
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
 {
 	if (!dsi_ctrl)

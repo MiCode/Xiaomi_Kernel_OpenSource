@@ -404,6 +404,7 @@ struct dsi_mode_info {
  * @ignore_rx_eot:       Ignore Rx EOT packets if set to true.
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
+ * @force_hs_clk_lane:   Send continuous clock to the panel.
  */
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
@@ -422,6 +423,7 @@ struct dsi_host_common_cfg {
 	u32 t_clk_pre;
 	bool ignore_rx_eot;
 	bool append_tx_eot;
+	bool force_hs_clk_lane;
 };
 
 /**
