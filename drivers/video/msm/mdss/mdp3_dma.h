@@ -26,6 +26,7 @@
 #define MDP_HISTOGRAM_CSC_VECTOR_MAX 0x200
 #define MDP_HISTOGRAM_BIN_NUM	32
 #define MDP_LUT_SIZE 256
+#define VSYNC_EXPIRE_TICK     4
 
 enum {
 	MDP3_DMA_P,
@@ -256,6 +257,7 @@ struct mdp3_dma {
 	u32 capability;
 	int in_use;
 	int available;
+	int vsync_period;
 
 	spinlock_t dma_lock;
 	spinlock_t histo_lock;
@@ -388,6 +390,14 @@ struct mdp3_intf {
 	int (*start)(struct mdp3_intf *intf);
 	int (*stop)(struct mdp3_intf *intf);
 };
+
+static inline unsigned long dma_timeout_value(struct mdp3_dma *dma)
+{
+	if (dma->vsync_period)
+		return msecs_to_jiffies(VSYNC_EXPIRE_TICK * dma->vsync_period);
+	else
+		return msecs_to_jiffies(84);
+}
 
 int mdp3_dma_init(struct mdp3_dma *dma);
 
