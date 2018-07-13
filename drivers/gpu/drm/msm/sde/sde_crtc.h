@@ -132,6 +132,12 @@ struct sde_crtc_event {
 	void *usr;
 };
 
+struct sde_crtc_fps_info {
+	u32 frame_count;
+	ktime_t last_sampled_time_us;
+	u32 measured_fps;
+};
+
 /*
  * Maximum number of free event structures to cache
  */
@@ -222,6 +228,7 @@ struct sde_crtc {
 	u64 play_count;
 	ktime_t vblank_cb_time;
 	ktime_t vblank_last_cb_time;
+	struct sde_crtc_fps_info fps_info;
 	struct device *sysfs_dev;
 	struct kernfs_node *vsync_event_sf;
 	bool vblank_requested;
