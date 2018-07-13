@@ -514,6 +514,8 @@ static int cam_vfe_bus_get_num_wm(
 		case CAM_FORMAT_TP10:
 		case CAM_FORMAT_PLAIN16_10:
 			return 2;
+		case CAM_FORMAT_Y_ONLY:
+			return 1;
 		default:
 			break;
 		}
@@ -832,6 +834,7 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_NV12:
 	case CAM_FORMAT_UBWC_NV12:
 	case CAM_FORMAT_UBWC_NV12_4R:
+	case CAM_FORMAT_Y_ONLY:
 		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
 	case CAM_FORMAT_PLAIN16_16:
 		return PACKER_FMT_PLAIN_16_16BPP;
@@ -990,6 +993,7 @@ static int cam_vfe_bus_acquire_wm(
 			/* Fall through for NV12 */
 		case CAM_FORMAT_NV21:
 		case CAM_FORMAT_NV12:
+		case CAM_FORMAT_Y_ONLY:
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;
