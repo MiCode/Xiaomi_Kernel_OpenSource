@@ -33,3 +33,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_SOC_BUS) += socinfo.o
+obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
