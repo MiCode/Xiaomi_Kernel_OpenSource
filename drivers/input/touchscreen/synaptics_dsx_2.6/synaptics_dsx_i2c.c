@@ -5,7 +5,8 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (C) 2016, The Linux Foundation.  All rights reserved.
+ * Copyright (C) 2016, 2018 The Linux Foundation.  All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -214,6 +215,12 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 	} else {
 		bdata->ub_i2c_addr = -1;
 	}
+
+	retval = of_property_read_string(np, "synaptics,fw-name", &name);
+	if (retval < 0)
+		bdata->fw_name = NULL;
+	else
+		bdata->fw_name = name;
 
 	prop = of_find_property(np, "synaptics,cap-button-codes", NULL);
 	if (prop && prop->length) {
