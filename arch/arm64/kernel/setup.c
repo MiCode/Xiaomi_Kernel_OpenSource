@@ -342,7 +342,7 @@ static int __init topology_init(void)
 
 	return 0;
 }
-subsys_initcall(topology_init);
+postcore_initcall(topology_init);
 
 /*
  * Dump out kernel offset information on panic.
