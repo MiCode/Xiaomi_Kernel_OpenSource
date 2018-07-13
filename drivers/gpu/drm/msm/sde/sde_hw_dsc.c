@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@ static void sde_hw_dsc_config(struct sde_hw_dsc *hw_dsc,
 		initial_lines += 1;
 
 	data |= (initial_lines << 20);
-	data |= ((dsc->slice_last_group_size - 1) << 18);
+	data |= (dsc->slice_last_group_size << 18);
 	/* bpp is 6.4 format, 4 LSBs bits are for fractional part */
 	lsb = dsc->bpp % 4;
 	bpp = dsc->bpp / 4;
