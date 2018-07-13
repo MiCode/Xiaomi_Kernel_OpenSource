@@ -613,7 +613,7 @@
 		reg = <0>;
 		spi-max-frequency = <9600000>;
 		interrupt-parent = <&tlmm_pinmux>;
-		interrupts = <87 0>;
+		interrupts = <87 2>;
 		qcom,reset-gpio = <&tlmm_pinmux 89 0x1>;
 		qcom,clk-freq-mhz = <20000000>;
 		qcom,max-can-channels = <1>;
