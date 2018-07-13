@@ -255,6 +255,7 @@ struct dwc3_msm {
 	struct notifier_block	id_nb;
 	struct notifier_block	eud_event_nb;
 	struct notifier_block	host_restart_nb;
+	struct notifier_block	self_power_nb;
 
 	struct notifier_block	host_nb;
 	bool			xhci_ss_compliance_enable;
@@ -296,6 +297,8 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 						unsigned int value);
 static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 					unsigned long event, void *ptr);
+static int dwc3_notify_pd_status(struct notifier_block *nb,
+				unsigned long event, void *ptr);
 
 /**
  *
@@ -3041,11 +3044,18 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc, int start_idx)
 	if (!IS_ERR(edev)) {
 		mdwc->extcon_vbus = edev;
 		mdwc->vbus_nb.notifier_call = dwc3_msm_vbus_notifier;
+		mdwc->self_power_nb.notifier_call = dwc3_notify_pd_status;
 		ret = extcon_register_notifier(edev, EXTCON_USB,
 				&mdwc->vbus_nb);
 		if (ret < 0) {
 			dev_err(mdwc->dev, "failed to register notifier for USB\n");
 			return ret;
+		}
+		ret = extcon_register_blocking_notifier(edev, EXTCON_USB,
+							&mdwc->self_power_nb);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "failed to register blocking notifier\n");
+			goto err1;
 		}
 	}
 
@@ -4147,6 +4157,28 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		atomic_read(&mdwc->dev->power.usage_count));
 
 	return 0;
+}
+
+static int dwc3_notify_pd_status(struct notifier_block *nb,
+				unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc;
+	struct dwc3 *dwc;
+	int ret = 0;
+	union extcon_property_value val;
+
+	mdwc = container_of(nb, struct dwc3_msm, self_power_nb);
+	dwc = platform_get_drvdata(mdwc->dwc3);
+
+	ret = extcon_get_property(mdwc->extcon_vbus, EXTCON_USB,
+					EXTCON_PROP_USB_PD_CONTRACT, &val);
+
+	if (!ret)
+		dwc->gadget.self_powered = val.intval;
+	else
+		dwc->gadget.self_powered = 0;
+
+	return ret;
 }
 
 /* speed: 0 - USB_SPEED_HIGH, 1 - USB_SPEED_SUPER */
