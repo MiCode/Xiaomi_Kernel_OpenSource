@@ -20,6 +20,7 @@
 #include <asm/cputype.h>
 #include <asm/cpufeature.h>
 #include <asm/fpsimd.h>
+#include <asm/elf.h>
 
 #include <linux/bitops.h>
 #include <linux/bug.h>
@@ -132,6 +133,8 @@ static int c_show(struct seq_file *m, void *v)
 	int i, j;
 	bool compat = personality(current->personality) == PER_LINUX32;
 
+	seq_printf(m, "Processor\t: AArch64 Processor rev %d (%s)\n",
+		read_cpuid_id() & 15, ELF_PLATFORM);
 	for_each_online_cpu(i) {
 		struct cpuinfo_arm64 *cpuinfo = &per_cpu(cpu_data, i);
 		u32 midr = cpuinfo->reg_midr;
