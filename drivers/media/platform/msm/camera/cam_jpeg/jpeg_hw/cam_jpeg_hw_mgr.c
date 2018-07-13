@@ -729,15 +729,59 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 	return rc;
 }
 
+static void cam_jpeg_mgr_stop_deinit_dev(struct cam_jpeg_hw_mgr *hw_mgr,
+	struct cam_jpeg_hw_cfg_req *p_cfg_req, uint32_t dev_type)
+{
+	int rc = 0;
+	struct cam_jpeg_set_irq_cb irq_cb;
+
+	/* stop reset Unregister CB and deinit */
+	irq_cb.jpeg_hw_mgr_cb = cam_jpeg_hw_mgr_cb;
+	irq_cb.data = NULL;
+	irq_cb.b_set_cb = false;
+	if (hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			CAM_JPEG_CMD_SET_IRQ_CB,
+			&irq_cb, sizeof(irq_cb));
+		if (rc)
+			CAM_ERR(CAM_JPEG, "SET_IRQ_CB fail %d", rc);
+	} else {
+		CAM_ERR(CAM_JPEG, "process_cmd null %d", dev_type);
+	}
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.stop) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.stop(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_JPEG, "stop fail %d", rc);
+	} else {
+		CAM_ERR(CAM_JPEG, "op stop null %d", dev_type);
+	}
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.deinit) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.deinit(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_JPEG, "Failed to Deinit %d HW %d",
+				dev_type, rc);
+	} else {
+		CAM_ERR(CAM_JPEG, "op deinit null %d", dev_type);
+	}
+
+	hw_mgr->device_in_use[dev_type][0] = false;
+	hw_mgr->dev_hw_cfg_args[dev_type][0] = NULL;
+}
+
 static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 	struct cam_jpeg_hw_ctx_data *ctx_data)
 {
-	int rc = 0;
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	uint32_t dev_type;
 	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
 	struct cam_jpeg_hw_cfg_req *cfg_req = NULL, *req_temp = NULL;
-	struct cam_jpeg_set_irq_cb irq_cb;
 
 	CAM_DBG(CAM_JPEG, "E: JPEG flush ctx");
 
@@ -753,51 +797,12 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 		p_cfg_req != NULL) {
 		if ((struct cam_jpeg_hw_ctx_data *)
 			p_cfg_req->hw_cfg_args.ctxt_to_hw_map == ctx_data) {
-			/* stop reset Unregister CB and deinit */
-			irq_cb.jpeg_hw_mgr_cb = cam_jpeg_hw_mgr_cb;
-			irq_cb.data = NULL;
-			irq_cb.b_set_cb = false;
-			if (hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
-				rc = hw_mgr->devices[dev_type][0]->
-					hw_ops.process_cmd(
-				hw_mgr->devices[dev_type][0]->hw_priv,
-				CAM_JPEG_CMD_SET_IRQ_CB,
-				&irq_cb, sizeof(irq_cb));
-			if (rc)
-				CAM_ERR(CAM_JPEG,
-					"CMD_SET_IRQ_CB failed %d", rc);
-
-			} else {
-				CAM_ERR(CAM_JPEG, "process_cmd null ");
-			}
-
-			if (hw_mgr->devices[dev_type][0]->hw_ops.stop) {
-				rc = hw_mgr->devices[dev_type][0]->hw_ops.stop(
-					hw_mgr->devices[dev_type][0]->hw_priv,
-					NULL, 0);
-				if (rc)
-					CAM_ERR(CAM_JPEG, "stop fail %d", rc);
-			} else {
-				CAM_ERR(CAM_JPEG, "op stop null ");
-			}
-
-			if (hw_mgr->devices[dev_type][0]->hw_ops.deinit) {
-				rc = hw_mgr->devices[dev_type][0]
-					->hw_ops.deinit(
-					hw_mgr->devices[dev_type][0]->hw_priv,
-					NULL, 0);
-				if (rc)
-					CAM_ERR(CAM_JPEG,
-						"Failed to Deinit %d HW",
-						dev_type);
-			} else {
-				CAM_ERR(CAM_JPEG, "op deinit null");
-			}
+			cam_jpeg_mgr_stop_deinit_dev(hw_mgr, p_cfg_req,
+				dev_type);
+			list_del_init(&p_cfg_req->list);
+			list_add_tail(&p_cfg_req->list,
+				&hw_mgr->free_req_list);
 		}
-
-		hw_mgr->device_in_use[dev_type][0] = false;
-		p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
-		hw_mgr->dev_hw_cfg_args[dev_type][0] = NULL;
 	}
 
 	list_for_each_entry_safe(cfg_req, req_temp,
@@ -807,13 +812,13 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 			continue;
 
 		list_del_init(&cfg_req->list);
+		list_add_tail(&cfg_req->list, &hw_mgr->free_req_list);
 	}
 
-	CAM_DBG(CAM_JPEG, "X: JPEG flush ctx with rc: %d", rc);
+	CAM_DBG(CAM_JPEG, "X: JPEG flush ctx");
 
-	return rc;
+	return 0;
 }
-
 
 static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 	struct cam_jpeg_hw_ctx_data *ctx_data,
@@ -822,7 +827,10 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_jpeg_hw_cfg_req *cfg_req = NULL;
 	struct cam_jpeg_hw_cfg_req *req_temp = NULL;
-	int64_t request_id;
+	int64_t request_id = 0;
+	uint32_t dev_type;
+	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
+	bool b_req_found = false;
 
 	CAM_DBG(CAM_JPEG, "E: JPEG flush req");
 
@@ -834,7 +842,33 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 	if (flush_args->num_req_pending)
 		return 0;
 
-	request_id = *(int64_t *)flush_args->flush_req_active[0];
+	request_id = (int64_t)flush_args->flush_req_active[0];
+
+	if (!flush_args->num_req_active)
+		return 0;
+
+	if (request_id <= 0) {
+		CAM_ERR(CAM_JPEG, "Invalid red id %lld", request_id);
+		return -EINVAL;
+	}
+
+	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
+
+	p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+	if (hw_mgr->device_in_use[dev_type][0] == true &&
+		p_cfg_req != NULL) {
+		if (((struct cam_jpeg_hw_ctx_data *)
+			p_cfg_req->hw_cfg_args.ctxt_to_hw_map == ctx_data) &&
+			(p_cfg_req->req_id == request_id)) {
+			cam_jpeg_mgr_stop_deinit_dev(hw_mgr, p_cfg_req,
+				dev_type);
+			list_del_init(&p_cfg_req->list);
+			list_add_tail(&p_cfg_req->list,
+				&hw_mgr->free_req_list);
+			b_req_found = true;
+		}
+	}
+
 	list_for_each_entry_safe(cfg_req, req_temp,
 		&hw_mgr->hw_config_req_list, list) {
 		if ((struct cam_jpeg_hw_ctx_data *)
@@ -845,10 +879,17 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 			continue;
 
 		list_del_init(&cfg_req->list);
+		list_add_tail(&cfg_req->list, &hw_mgr->free_req_list);
+		b_req_found = true;
+		break;
+	}
+
+	if (!b_req_found) {
+		CAM_ERR(CAM_JPEG, "req not found %lld", request_id);
+		return -EINVAL;
 	}
 
 	CAM_DBG(CAM_JPEG, "X: JPEG flush req");
-
 	return 0;
 }
 
@@ -888,7 +929,6 @@ static int cam_jpeg_mgr_hw_flush(void *hw_mgr_priv, void *flush_hw_args)
 		break;
 	case CAM_FLUSH_TYPE_REQ:
 		rc = cam_jpeg_mgr_flush_req(hw_mgr_priv, ctx_data, flush_args);
-		CAM_ERR(CAM_JPEG, "Flush per request is not supported");
 		break;
 	default:
 		CAM_ERR(CAM_JPEG, "Invalid flush type: %d",
