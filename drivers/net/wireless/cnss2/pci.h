@@ -152,5 +152,8 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 int cnss_pm_request_resume(struct cnss_pci_data *pci_priv);
+u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);
+int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv);
+void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv);
 
 #endif /* _CNSS_PCI_H */
