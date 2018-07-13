@@ -4046,6 +4046,10 @@ int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT) &
 		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK;
 
+	/* mark tethering bit for remote modem */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)
+		qmap_id |= IPA_QMAP_TETH_BIT;
+
 	ep_md_reg_wrt.qmap_id = qmap_id;
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_METADATA_n, clnt_hdl,
 		&ep_md_reg_wrt);

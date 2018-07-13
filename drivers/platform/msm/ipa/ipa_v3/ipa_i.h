@@ -220,6 +220,9 @@ enum {
 #define IPA_WDI_TX_DB_RES			7
 #define IPA_WDI_MAX_RES				8
 
+/* use QMAP header reserved bit to identify tethered traffic */
+#define IPA_QMAP_TETH_BIT (1 << 30)
+
 #ifdef CONFIG_ARM64
 /* Outer caches unsupported on ARM64 platforms */
 # define outer_flush_range(x, y)
