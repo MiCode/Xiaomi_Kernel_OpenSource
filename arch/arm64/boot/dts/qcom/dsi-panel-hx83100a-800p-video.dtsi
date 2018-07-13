@@ -41,16 +41,6 @@
 			39 01 00 00 78 00 02 11 00
 			/*set display on and delay 20ms*/
 			39 01 00 00 14 00 02 29 00
-			/*enable extended command set*/
-			39 01 00 00 00 00 04 b9 83 10 0a
-			/*32KHZ PWM*/
-			39 01 00 00 00 00 08 c9 1f 00 08 1e 81 1e 00
-			/*backlight enable*/
-			39 01 00 00 00 00 02 53 24
-			/*still picture and delay 5ms*/
-			39 01 00 00 05 00 02 55 02
-			/*about 80% duty ratio*/
-			39 01 00 00 00 00 0a ca 40 3c 38 34 33 32 30 2c 28
 		];
 		qcom,mdss-dsi-off-command = [05 01 00 00 96 00 02 28 00
 					     05 01 00 00 00 00 02 10 00];
