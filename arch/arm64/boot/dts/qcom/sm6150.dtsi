@@ -1471,9 +1471,9 @@
 		interrupts = <0 129 0>;
 		#mbox-cells = <1>;
 		qcom,drv-id = <0>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   1>,
+		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
+				  <ACTIVE_TCS  2>,
 				  <CONTROL_TCS 0>;
 	};
 
@@ -2673,3 +2673,5 @@
 #include "sm6150-bus.dtsi"
 #include "sm6150-vidc.dtsi"
 #include "sm6150-audio.dtsi"
+#include "sm6150-sde-pll.dtsi"
+#include "sm6150-sde.dtsi"
