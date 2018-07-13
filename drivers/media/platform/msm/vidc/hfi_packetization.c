@@ -1234,6 +1234,32 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME;
 		break;
+	case HAL_CONFIG_HEIC_FRAME_QUALITY:
+	{
+		struct hfi_heic_frame_quality *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_HEIC_FRAME_QUALITY;
+		hfi =
+		(struct hfi_heic_frame_quality *) &pkt->rg_property_data[1];
+		hfi->frame_quality =
+			((struct hal_heic_frame_quality *)pdata)->frame_quality;
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_heic_frame_quality);
+		break;
+	}
+	case HAL_CONFIG_HEIC_GRID_ENABLE:
+	{
+		struct hfi_heic_grid_enable *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_HEIC_GRID_ENABLE;
+		hfi = (struct hfi_heic_grid_enable *) &pkt->rg_property_data[1];
+		hfi->grid_enable =
+			((struct hal_heic_grid_enable *)pdata)->grid_enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_heic_grid_enable);
+		break;
+	}
 	case HAL_CONFIG_VENC_TARGET_BITRATE:
 	{
 		struct hfi_bitrate *hfi;
@@ -1314,6 +1340,9 @@ int create_pkt_cmd_session_set_property(
 			break;
 		case HAL_RATE_CONTROL_MBR_VFR:
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_MBR_VFR;
+			break;
+		case HAL_RATE_CONTROL_CQ:
+			pkt->rg_property_data[1] = HFI_RATE_CONTROL_CQ;
 			break;
 		default:
 			dprintk(VIDC_ERR,

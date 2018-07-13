@@ -2323,6 +2323,50 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	return 0;
 }
 
+bool heic_encode_session_supported(struct msm_vidc_inst *inst)
+{
+	u32 slice_mode;
+	u32 idr_period;
+	u32 n_bframes;
+	u32 n_pframes;
+
+	slice_mode =  msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+	idr_period =  msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD);
+	n_bframes =  msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
+	n_pframes =  msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES);
+
+	/*
+	 * HEIC Encode is supported for Constant Quality RC mode only.
+	 * All configurations below except grid_enable are required for any
+	 * HEIC session including FWK tiled HEIC encode.
+	 * grid_enable flag along with dimension check enables HW tiling.
+	 */
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_HEVC &&
+		inst->frame_quality >= MIN_FRAME_QUALITY &&
+		inst->frame_quality <= MAX_FRAME_QUALITY &&
+		slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE &&
+		idr_period == 1 &&
+		n_bframes == 0 &&
+		n_pframes == 0) {
+		if (inst->grid_enable > 0) {
+			if (!(inst->prop.height[CAPTURE_PORT] ==
+				inst->prop.width[CAPTURE_PORT] &&
+				inst->prop.width[CAPTURE_PORT] ==
+					HEIC_GRID_DIMENSION))
+				return false;
+			}
+		return true;
+	} else {
+		return false;
+	}
+}
+
 static bool is_eos_buffer(struct msm_vidc_inst *inst, u32 device_addr)
 {
 	struct eos_buf *temp, *next;
@@ -5278,6 +5322,11 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	u32 x_min, x_max, y_min, y_max;
 	u32 input_height, input_width, output_height, output_width;
 	u32 rotation;
+
+	if (inst->grid_enable > 0) {
+		dprintk(VIDC_DBG, "Skip scaling check for HEIC\n");
+		return 0;
+	}
 
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];

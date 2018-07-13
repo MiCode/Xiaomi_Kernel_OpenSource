@@ -217,6 +217,8 @@ enum hal_property {
 	HAL_PARAM_VENC_HDR10_PQ_SEI,
 	HAL_PARAM_VIDEO_WORK_ROUTE,
 	HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
+	HAL_CONFIG_HEIC_FRAME_QUALITY,
+	HAL_CONFIG_HEIC_GRID_ENABLE,
 };
 
 enum hal_domain {
@@ -590,6 +592,7 @@ enum hal_rate_control {
 	HAL_RATE_CONTROL_OFF,
 	HAL_RATE_CONTROL_CBR_VFR,
 	HAL_RATE_CONTROL_MBR_VFR,
+	HAL_RATE_CONTROL_CQ,
 	HAL_UNUSED_RC = 0x10000000,
 };
 
@@ -635,6 +638,14 @@ struct hal_intra_period {
 
 struct hal_idr_period {
 	u32 idr_period;
+};
+
+struct hal_heic_frame_quality {
+	u32 frame_quality;
+};
+
+struct hal_heic_grid_enable {
+	u32 grid_enable;
 };
 
 enum hal_flip {

@@ -49,6 +49,7 @@ static const char *const mpeg_video_rate_control[] = {
 	"RC OFF",
 	"CBR VFR",
 	"MBR VFR",
+	"CQ",
 	NULL
 };
 
@@ -350,7 +351,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Video Framerate and Bitrate Control",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
-		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR,
+		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
 		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF,
 		.step = 0,
 		.menu_skip_mask = ~(
@@ -359,9 +360,32 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_MBR) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) |
-		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) |
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		),
 		.qmenu = mpeg_video_rate_control,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QUALITY,
+		.name = "Frame quality",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = MIN_FRAME_QUALITY,
+		.maximum = MAX_FRAME_QUALITY,
+		.default_value = DEFAULT_FRAME_QUALITY,
+		.step = FRAME_QUALITY_STEP,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_IMG_GRID_ENABLE,
+		.name = "Image grid enable",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_BITRATE,
@@ -1275,6 +1299,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	enum hal_iframesize_type iframesize_type = HAL_IFRAMESIZE_TYPE_DEFAULT;
 	u32 color_primaries, custom_matrix;
 	struct hal_nal_stream_format_select stream_format;
+	struct hal_heic_frame_quality frame_quality;
+	struct hal_heic_grid_enable grid_enable;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1377,9 +1403,56 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
+		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) &&
+			inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
+			dprintk(VIDC_ERR, "CQ supported only for HEVC\n");
+			rc = -ENOTSUPP;
+			break;
+		}
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
 		property_val = ctrl->val;
 		pdata = &property_val;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QUALITY:
+	{
+		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
+			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
+			dprintk(VIDC_ERR,
+				"Frame quality supported only for CQ\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+		if (ctrl->val < MIN_FRAME_QUALITY ||
+			ctrl->val > MAX_FRAME_QUALITY) {
+			dprintk(VIDC_ERR,
+				"Frame quality value %d is not supported\n",
+				ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+		property_id = HAL_CONFIG_HEIC_FRAME_QUALITY;
+		frame_quality.frame_quality = ctrl->val;
+		inst->frame_quality = ctrl->val;
+		pdata = &frame_quality;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_IMG_GRID_ENABLE:
+	{
+		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
+			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ &&
+			ctrl->val) {
+			dprintk(VIDC_ERR,
+				"Grid enable supported only for CQ\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+		property_id = HAL_CONFIG_HEIC_GRID_ENABLE;
+		grid_enable.grid_enable = ctrl->val;
+		inst->grid_enable = ctrl->val;
+		pdata = &grid_enable;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
