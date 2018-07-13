@@ -1239,9 +1239,10 @@ kickoff:
 			}
 		}
 
-		if (dsi_ctrl->hw.ops.mask_error_intr)
+		if (dsi_ctrl->hw.ops.mask_error_intr &&
+		    !dsi_ctrl->esd_check_underway)
 			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
-					BIT(DSI_FIFO_OVERFLOW), false);
+						BIT(DSI_FIFO_OVERFLOW), false);
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
 
 		/*
@@ -2898,7 +2899,8 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 						dsi_ctrl->cell_index);
 			}
 		}
-		if (dsi_ctrl->hw.ops.mask_error_intr)
+		if (dsi_ctrl->hw.ops.mask_error_intr &&
+				!dsi_ctrl->esd_check_underway)
 			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), false);
 
@@ -3396,7 +3398,8 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 	return misr;
 }
 
-void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl)
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl, u32 idx,
+		bool mask_enable)
 {
 	if (!dsi_ctrl || !dsi_ctrl->hw.ops.error_intr_ctrl
 			|| !dsi_ctrl->hw.ops.clear_error_status) {
@@ -3409,9 +3412,23 @@ void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl)
 	 * register
 	 */
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-	dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
-	dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+	if (idx & BIT(DSI_ERR_INTR_ALL)) {
+		/*
+		 * The behavior of mask_enable is different in ctrl register
+		 * and mask register and hence mask_enable is manipulated for
+		 * selective error interrupt masking vs total error interrupt
+		 * masking.
+		 */
+
+		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, !mask_enable);
+		dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
 					DSI_ERROR_INTERRUPT_COUNT);
+	} else {
+		dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw, idx,
+								mask_enable);
+		dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					DSI_ERROR_INTERRUPT_COUNT);
+	}
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 

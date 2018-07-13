@@ -3722,11 +3722,14 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
-	if (rc) {
-		pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
-		       panel->name, rc);
-		goto error;
+	/* Avoid sending panel off commands when ESD recovery is underway */
+	if (!atomic_read(&panel->esd_recovery_pending)) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
+					panel->name, rc);
+			goto error;
+		}
 	}
 	panel->panel_initialized = false;
 
