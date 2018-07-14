@@ -3594,6 +3594,17 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
+	} else if (IS_SM6150_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x2EE3;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3612,7 +3623,7 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 	if (!sde_cfg)
 		return -EINVAL;
 
-	if (IS_SM8150_TARGET(hw_rev)) {
+	if (IS_SM8150_TARGET(hw_rev) || IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->sui_supported_blendstage =
 			sde_cfg->max_mixer_blendstages - SDE_STAGE_0;
 
