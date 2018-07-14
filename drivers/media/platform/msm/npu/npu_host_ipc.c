@@ -33,9 +33,6 @@
 
 #define QUEUE_TBL_VERSION 0x87654321
 
-static DEFINE_SPINLOCK(hfi_rd_lock);
-static DEFINE_SPINLOCK(hfi_wr_lock);
-
 /* -------------------------------------------------------------------------
  * Data Structures
  * -------------------------------------------------------------------------
@@ -210,15 +207,12 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 	uint32_t packet_size, new_read_idx;
 	size_t read_ptr;
 	size_t offset = 0;
-	unsigned long flags;
 
 	offset = (size_t)IPC_ADDR + sizeof(struct hfi_queue_tbl_header) +
 		target_que * sizeof(struct hfi_queue_header);
 
 	if ((packet == NULL) || (is_tx_req_set == NULL))
 		return -EINVAL;
-
-	spin_lock_irqsave(&hfi_rd_lock, flags);
 
 	/* Read the queue */
 	MEMR(npu_dev, (void *)((size_t)offset), (uint8_t *)&queue,
@@ -294,8 +288,6 @@ exit:
 		(size_t)&(queue.qhdr_read_idx) - (size_t)&queue)),
 		(uint8_t *)&queue.qhdr_read_idx, sizeof(queue.qhdr_read_idx));
 
-	spin_unlock_irqrestore(&hfi_rd_lock, flags);
-
 	return status;
 }
 
@@ -309,7 +301,6 @@ static int ipc_queue_write(struct npu_device *npu_dev,
 	uint32_t empty_space;
 	void *write_ptr;
 	uint32_t read_idx;
-	unsigned long flags;
 
 	size_t offset = (size_t)IPC_ADDR +
 		sizeof(struct hfi_queue_tbl_header) +
@@ -317,8 +308,6 @@ static int ipc_queue_write(struct npu_device *npu_dev,
 
 	if ((packet == NULL) || (is_rx_req_set == NULL))
 		return -EINVAL;
-
-	spin_lock_irqsave(&hfi_wr_lock, flags);
 
 	MEMR(npu_dev, (void *)((size_t)offset), (uint8_t *)&queue,
 		HFI_QUEUE_HEADER_SIZE);
@@ -394,8 +383,6 @@ exit:
 	MEMW(npu_dev, (void *)((size_t)(offset + (uint32_t)(
 		(size_t)&(queue.qhdr_write_idx) - (size_t)&queue))),
 		&queue.qhdr_write_idx, sizeof(queue.qhdr_write_idx));
-
-	spin_unlock_irqrestore(&hfi_wr_lock, flags);
 
 	return status;
 }
