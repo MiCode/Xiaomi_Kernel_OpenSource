@@ -76,6 +76,38 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 		hw_caps->cpas_version.major, hw_caps->cpas_version.minor,
 		hw_caps->cpas_version.incr, hw_caps->camera_capability);
 
+	soc_info->hw_version = CAM_CPAS_TITAN_NONE;
+
+	if ((hw_caps->camera_version.major == 1) &&
+		(hw_caps->camera_version.minor == 7) &&
+		(hw_caps->camera_version.incr == 0)) {
+		if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 0) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_170_V100;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 1) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_170_V110;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 2) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_170_V120;
+	} else if ((hw_caps->camera_version.major == 1) &&
+		(hw_caps->camera_version.minor == 7) &&
+		(hw_caps->camera_version.incr == 5)) {
+		if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 0) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_175_V100;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 0) &&
+			(hw_caps->cpas_version.incr == 1))
+			soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
+	}
+
+	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
+
 	return 0;
 }
 
@@ -521,12 +553,11 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_hw_caps *hw_caps)
 {
 	int rc = 0;
-	struct cam_cpas_private_soc *soc_private =
-		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
+	struct cam_hw_soc_info *soc_info = &cpas_hw->soc_info;
 
 	CAM_DBG(CAM_CPAS,
 		"hw_version=0x%x Camera Version %d.%d.%d, cpas version %d.%d.%d",
-		soc_private->hw_version,
+		soc_info->hw_version,
 		hw_caps->camera_version.major,
 		hw_caps->camera_version.minor,
 		hw_caps->camera_version.incr,
@@ -534,7 +565,7 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 		hw_caps->cpas_version.minor,
 		hw_caps->cpas_version.incr);
 
-	switch (soc_private->hw_version) {
+	switch (soc_info->hw_version) {
 	case CAM_CPAS_TITAN_170_V100:
 		camnoc_info = &cam170_cpas100_camnoc_info;
 		break;
