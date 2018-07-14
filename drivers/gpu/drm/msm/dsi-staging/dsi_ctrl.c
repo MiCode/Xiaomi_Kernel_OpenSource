@@ -2724,6 +2724,20 @@ int dsi_ctrl_vid_engine_en(struct dsi_ctrl *dsi_ctrl, bool on)
 	return rc;
 }
 
+int dsi_ctrl_setup_avr(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) {
+		mutex_lock(&dsi_ctrl->ctrl_lock);
+		dsi_ctrl->hw.ops.setup_avr(&dsi_ctrl->hw, enable);
+		mutex_unlock(&dsi_ctrl->ctrl_lock);
+	}
+
+	return 0;
+}
+
 /**
  * dsi_ctrl_host_deinit() - De-Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.

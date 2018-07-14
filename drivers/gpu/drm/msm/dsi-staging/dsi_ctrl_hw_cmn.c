@@ -421,6 +421,27 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 }
 
 /**
+ * setup_avr() - set the AVR_SUPPORT_ENABLE bit in DSI_VIDEO_MODE_CTRL
+ * @ctrl:          Pointer to controller host hardware.
+ * @enable:        Controls whether this bit is set or cleared
+ *
+ * Set or clear the AVR_SUPPORT_ENABLE bit in DSI_VIDEO_MODE_CTRL.
+ */
+void dsi_ctrl_hw_cmn_setup_avr(struct dsi_ctrl_hw *ctrl, bool enable)
+{
+	u32 reg = DSI_R32(ctrl, DSI_VIDEO_MODE_CTRL);
+
+	if (enable)
+		reg |= BIT(29);
+	else
+		reg &= ~BIT(29);
+
+	DSI_W32(ctrl, DSI_VIDEO_MODE_CTRL, reg);
+	pr_debug("ctrl %d AVR %s\n", ctrl->index,
+			enable ? "enabled" : "disabled");
+}
+
+/**
  * video_engine_setup() - Setup dsi host controller for video mode
  * @ctrl:          Pointer to controller host hardware.
  * @common_cfg:    Common configuration parameters.

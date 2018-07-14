@@ -151,6 +151,9 @@ void dsi_ctrl_hw_cmn_video_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
 void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 				       struct dsi_host_common_cfg *common_cfg,
 				       struct dsi_video_engine_cfg *cfg);
+
+void dsi_ctrl_hw_cmn_setup_avr(struct dsi_ctrl_hw *ctrl, bool enable);
+
 void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 			 struct dsi_mode_info *mode);
 void dsi_ctrl_hw_cmn_set_timing_db(struct dsi_ctrl_hw *ctrl,

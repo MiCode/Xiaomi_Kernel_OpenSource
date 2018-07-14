@@ -714,6 +714,13 @@ int dsi_ctrl_get_hw_version(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_vid_engine_en(struct dsi_ctrl *dsi_ctrl, bool on);
 
 /**
+ * dsi_ctrl_setup_avr() - Set/Clear the AVR_SUPPORT_ENABLE bit
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:          variable to control AVR support ON/OFF.
+ */
+int dsi_ctrl_setup_avr(struct dsi_ctrl *dsi_ctrl, bool enable);
+
+/**
  * @dsi_ctrl:        DSI controller handle.
  * cmd_len:	     Length of command.
  * flags:	     Config mode flags.

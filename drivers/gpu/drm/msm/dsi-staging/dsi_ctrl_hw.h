@@ -387,6 +387,13 @@ struct dsi_ctrl_hw_ops {
 	void (*video_engine_en)(struct dsi_ctrl_hw *ctrl, bool on);
 
 	/**
+	 * setup_avr() - set the AVR_SUPPORT_ENABLE bit in DSI_VIDEO_MODE_CTRL
+	 * @ctrl:	   Pointer to controller host hardware.
+	 * @enable:	   Controls whether this bit is set or cleared
+	 */
+	void (*setup_avr)(struct dsi_ctrl_hw *ctrl, bool enable);
+
+	/**
 	 * video_engine_setup() - Setup dsi host controller for video mode
 	 * @ctrl:          Pointer to controller host hardware.
 	 * @common_cfg:    Common configuration parameters.

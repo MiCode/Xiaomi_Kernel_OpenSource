@@ -6134,6 +6134,8 @@ static int dsi_display_qsync(struct dsi_display *display, bool enable)
 				goto exit;
 			}
 		}
+
+		dsi_ctrl_setup_avr(display->ctrl[i].ctrl, enable);
 	}
 
 exit:
