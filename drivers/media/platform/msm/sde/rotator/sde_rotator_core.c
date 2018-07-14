@@ -3125,12 +3125,12 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 			SDE_MDP_HW_REV_400) ||
 		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_410) ||
-		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+		IS_SDE_MAJOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_500)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
 
-		if (!IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+		if (!IS_SDE_MAJOR_SAME(mdata->mdss_version,
 					SDE_MDP_HW_REV_500) &&
 				!sde_rotator_get_clk(mgr,
 					SDE_ROTATOR_CLK_MDSS_AXI)) {
