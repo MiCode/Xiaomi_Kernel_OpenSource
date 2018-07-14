@@ -35,6 +35,7 @@ enum debug_cc {
 	GPU_CC,
 	VIDEO_CC,
 	CPU_CC,
+	MC_CC,
 	MAX_NUM_CC,
 };
 
@@ -101,6 +102,8 @@ struct clk_src {
 			mux.
  * @post_div_shift:	indicates the shift required for post divider
 			selection in primary mux.
+ * @period_offset:	offset of the period register used to read to determine
+			the mc clock period
  * @hw:			handle between common and hardware-specific interfaces.
  */
 struct clk_debug_mux {
@@ -116,6 +119,7 @@ struct clk_debug_mux {
 	u32 src_sel_shift;
 	u32 post_div_mask;
 	u32 post_div_shift;
+	u32 period_offset;
 	struct clk_hw hw;
 };
 
