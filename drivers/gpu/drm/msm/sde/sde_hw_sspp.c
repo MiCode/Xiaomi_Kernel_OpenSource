@@ -376,6 +376,25 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(c, SSPP_UBWC_ERROR_STATUS + idx, BIT(31));
 }
 
+static void sde_hw_sspp_clear_ubwc_error(struct sde_hw_pipe *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	c = &ctx->hw;
+	SDE_REG_WRITE(c, SSPP_UBWC_ERROR_STATUS, BIT(31));
+}
+
+static u32 sde_hw_sspp_get_ubwc_error(struct sde_hw_pipe *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg_code;
+
+	c = &ctx->hw;
+	reg_code = SDE_REG_READ(c, SSPP_UBWC_ERROR_STATUS);
+
+	return reg_code;
+}
+
 static void sde_hw_sspp_setup_secure(struct sde_hw_pipe *ctx,
 		enum sde_sspp_multirect_index rect_mode,
 		bool enable)
@@ -1130,6 +1149,9 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_inverse_pma = sde_hw_sspp_setup_dgm_inverse_pma;
 	else if (test_bit(SDE_SSPP_INVERSE_PMA, &features))
 		c->ops.setup_inverse_pma = sde_hw_sspp_setup_inverse_pma;
+
+	c->ops.get_ubwc_error = sde_hw_sspp_get_ubwc_error;
+	c->ops.clear_ubwc_error = sde_hw_sspp_clear_ubwc_error;
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
