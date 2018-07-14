@@ -4331,6 +4331,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 	}
 
 	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
+			sde_enc->disp_info.is_primary &&
 			!_sde_encoder_wakeup_time(drm_enc, &wakeup_time)) {
 		SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
 		mod_timer(&sde_enc->vsync_event_timer,
