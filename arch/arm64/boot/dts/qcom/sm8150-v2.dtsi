@@ -33,6 +33,12 @@
 	};
 };
 
+&spss_utils {
+	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
+	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
+	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sm8150-v2", "syscon";
 };
