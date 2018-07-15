@@ -50,7 +50,7 @@ static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 	}
 }
 
-static void msm_sensor_misc_regulator(
+void msm_sensor_misc_regulator(
 	struct msm_sensor_ctrl_t *sctrl, uint32_t enable)
 {
 	int32_t rc = 0;

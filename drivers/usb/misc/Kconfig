@@ -278,3 +278,14 @@ config USB_QTI_KS_BRIDGE
 	  boot images, ram-dumps and efs sync.
 	  To compile this driver as a module, choose M here: the module
 	  will be called ks_bridge. If unsure, choose N.
+
+config USB_QCOM_DIAG_BRIDGE
+	tristate "USB QTI diagnostic bridge driver"
+	depends on USB
+	help
+	  Say Y here if you have a QTI modem device connected via USB that
+	  will be bridged in kernel space. This driver communicates with the
+	  diagnostic and QMI interfaces and allows for bridging with the diag
+	  forwarding driver for diag interface and IPC router for QMI interface.
+	  To compile this driver as a module, choose M here: the
+	  module will be called diag_bridge.  If unsure, choose N.

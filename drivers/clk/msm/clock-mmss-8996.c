@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1517,6 +1517,7 @@ static struct rcg_clk extpclk_clk_src = {
 		.dbg_name = "extpclk_clk_src",
 		.parent = &ext_extpclk_clk_src.c,
 		.ops = &clk_ops_byte,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 150000000, LOW, 300000000,
 							NOMINAL, 600000000),
 		CLK_INIT(extpclk_clk_src.c),
@@ -2532,6 +2533,7 @@ static struct branch_clk mdss_extpclk_clk = {
 		.dbg_name = "mdss_extpclk_clk",
 		.parent = &extpclk_clk_src.c,
 		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(mdss_extpclk_clk.c),
 	},
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1901,7 +1901,6 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdata = ctl->mdata;
 
-	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(pinfo);
 	if (!pinfo->prg_fet) {
 		pr_debug("programmable fetch is not needed/supported\n");
 
@@ -2207,6 +2206,8 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 				ctx->intf_num);
 			return -EINVAL;
 		}
+
+		pinfo->prg_fet = mdss_mdp_get_prefetch_lines(pinfo);
 		mdss_mdp_fetch_start_config(ctx, ctl);
 
 		if (test_bit(MDSS_QOS_VBLANK_PANIC_CTRL, mdata->mdss_qos_map))

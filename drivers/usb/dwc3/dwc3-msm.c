@@ -2162,10 +2162,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool hibernation)
 	 * case of host bus suspend and device bus suspend.
 	 */
 	if (mdwc->vbus_active || mdwc->in_host_mode) {
-		enable_irq_wake(mdwc->hs_phy_irq);
+		if (!mdwc->no_wakeup_src_in_hostmode)
+			enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
 		if (mdwc->ss_phy_irq) {
-			enable_irq_wake(mdwc->ss_phy_irq);
+			if (!mdwc->no_wakeup_src_in_hostmode)
+				enable_irq_wake(mdwc->ss_phy_irq);
 			enable_irq(mdwc->ss_phy_irq);
 		}
 		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
@@ -2287,10 +2289,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Disable wakeup capable for HS_PHY IRQ & SS_PHY_IRQ if enabled */
 	if (mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY) {
-		disable_irq_wake(mdwc->hs_phy_irq);
+		if (!mdwc->no_wakeup_src_in_hostmode)
+			disable_irq_wake(mdwc->hs_phy_irq);
 		disable_irq_nosync(mdwc->hs_phy_irq);
 		if (mdwc->ss_phy_irq) {
-			disable_irq_wake(mdwc->ss_phy_irq);
+			if (!mdwc->no_wakeup_src_in_hostmode)
+				disable_irq_wake(mdwc->ss_phy_irq);
 			disable_irq_nosync(mdwc->ss_phy_irq);
 		}
 		mdwc->lpm_flags &= ~MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
