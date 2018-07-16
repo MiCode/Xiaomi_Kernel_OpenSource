@@ -2480,8 +2480,8 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 	}
 
 	if (en) {
-		/* Set ESR fast calibration timer to 300 seconds as default */
-		esr_fast_cal_ms = 300000;
+		/* Set ESR fast calibration timer to 50 seconds as default */
+		esr_fast_cal_ms = 50000;
 		if (chip->dt.esr_timer_chg_fast > 0 &&
 			chip->dt.delta_esr_disable_count > 0)
 			esr_fast_cal_ms = 3 * chip->dt.delta_esr_disable_count *
@@ -3640,7 +3640,7 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	return 0;
 }
 
-#define DEFAULT_ESR_DISABLE_COUNT	10
+#define DEFAULT_ESR_DISABLE_COUNT	5
 #define DEFAULT_ESR_FILTER_FACTOR	2
 #define DEFAULT_DELTA_ESR_THR		1832
 static int fg_parse_esr_cal_params(struct fg_dev *fg)
