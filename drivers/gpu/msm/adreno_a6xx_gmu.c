@@ -1136,8 +1136,7 @@ static void a6xx_isense_disable(struct kgsl_device *device)
 
 static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
-	/* Max GX clients on A6xx is 2: GMU and KMD */
-	int ret = 0, max_client_num = 2;
+	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
@@ -1156,8 +1155,13 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
 
+	/*
+	 * This is based on the assumption that GMU is the only one controlling
+	 * the GX HS. This code path is the only client voting for GX through
+	 * the regulator interface.
+	 */
 	if (gmu->gx_gdsc) {
-		if (regulator_is_enabled(gmu->gx_gdsc)) {
+		if (a6xx_gmu_gx_is_on(adreno_dev)) {
 			/* Switch gx gdsc control from GMU to CPU
 			 * force non-zero reference count in clk driver
 			 * so next disable call will turn
@@ -1166,18 +1170,16 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 			ret = regulator_enable(gmu->gx_gdsc);
 			if (ret)
 				dev_err(&gmu->pdev->dev,
-					"suspend fail: gx enable\n");
+					"suspend fail: gx enable %d\n", ret);
 
-			while ((max_client_num)) {
-				ret = regulator_disable(gmu->gx_gdsc);
-				if (!regulator_is_enabled(gmu->gx_gdsc))
-					break;
-				max_client_num -= 1;
-			}
-
-			if (!max_client_num)
+			ret = regulator_disable(gmu->gx_gdsc);
+			if (ret)
 				dev_err(&gmu->pdev->dev,
-					"suspend fail: cannot disable gx\n");
+					"suspend fail: gx disable %d\n", ret);
+
+			if (a6xx_gmu_gx_is_on(adreno_dev))
+				dev_err(&gmu->pdev->dev,
+					"gx is stuck on\n");
 		}
 	}
 
