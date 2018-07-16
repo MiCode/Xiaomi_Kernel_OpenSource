@@ -311,17 +311,17 @@
 				iova-mem-region-io {
 					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd911000>;
-					iova-region-len = <0xd26ef000>;
+					iova-region-start = <0xda00000>;
+					iova-region-len = <0xd2500000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
 
 				iova-mem-qdss-region {
-					/* qdss region is approximately 64K */
+					/* qdss region is approximately 1MB */
 					iova-region-name = "qdss";
 					iova-region-start = <0xd900000>;
-					iova-region-len = <0x10000>;
+					iova-region-len = <0x100000>;
 					iova-region-id = <0x5>;
 					qdss-phy-addr = <0x16790000>;
 					status = "ok";
@@ -881,6 +881,9 @@
 	cam_ipe0: qcom,ipe0 {
 		cell-index = <0>;
 		compatible = "qcom,cam-ipe";
+		reg = <0xac87000 0x3000>;
+		reg-names = "ipe0_top";
+		reg-cam-base = <0x87000>;
 		regulator-names = "ipe0-vdd";
 		ipe0-vdd-supply = <&ipe_0_gdsc>;
 		clock-names = "ipe_0_ahb_clk",
@@ -908,6 +911,9 @@
 	cam_ipe1: qcom,ipe1 {
 		cell-index = <1>;
 		compatible = "qcom,cam-ipe";
+		reg = <0xac91000 0x3000>;
+		reg-names = "ipe1_top";
+		reg-cam-base = <0x91000>;
 		regulator-names = "ipe1-vdd";
 		ipe1-vdd-supply = <&ipe_1_gdsc>;
 		clock-names = "ipe_1_ahb_clk",
@@ -935,6 +941,9 @@
 	cam_bps: qcom,bps {
 		cell-index = <0>;
 		compatible = "qcom,cam-bps";
+		reg = <0xac6f000 0x3000>;
+		reg-names = "bps_top";
+		reg-cam-base = <0x6f000>;
 		regulator-names = "bps-vdd";
 		bps-vdd-supply = <&bps_gdsc>;
 		clock-names = "bps_ahb_clk",

@@ -126,6 +126,19 @@ struct clk_work_data {
 };
 
 /**
+  * struct icp_frame_info
+  * @request_id: request id
+  * @io_config: the address of io config
+  * @hfi_cfg_io_cmd: command struct to be sent to hfi
+  */
+struct icp_frame_info {
+	uint64_t request_id;
+	uint64_t io_config;
+	struct hfi_cmd_ipebps_async hfi_cfg_io_cmd;
+};
+
+
+/**
  * struct hfi_frame_process_info
  * @hfi_frame_cmd: Frame process command info
  * @bitmap: Bitmap for hfi_frame_cmd
@@ -136,6 +149,7 @@ struct clk_work_data {
  * @out_resource: Out sync info
  * @fw_process_flag: Frame process flag
  * @clk_info: Clock information for a request
+ * @frame_info: information needed to process request
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -149,6 +163,7 @@ struct hfi_frame_process_info {
 	uint32_t in_free_resource[CAM_FRAME_CMD_MAX];
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
+	struct icp_frame_info frame_info[CAM_FRAME_CMD_MAX];
 };
 
 /**
@@ -189,6 +204,7 @@ struct cam_ctx_clk_info {
  * @clk_info: Current clock info of a context
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
+ * @icp_dev_io_info: io config resource
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -208,16 +224,19 @@ struct cam_icp_hw_ctx_data {
 	struct cam_ctx_clk_info clk_info;
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;
+	struct cam_icp_acquire_dev_info icp_dev_io_info;
 };
 
 /**
  * struct icp_cmd_generic_blob
  * @ctx: Current context info
  * @frame_info_idx: Index used for frame process info
+ * @io_buf_addr: pointer to io buffer address
  */
 struct icp_cmd_generic_blob {
 	struct cam_icp_hw_ctx_data *ctx;
 	uint32_t frame_info_idx;
+	uint64_t *io_buf_addr;
 };
 
 /**
