@@ -182,7 +182,7 @@ extern int cnss_wlan_enable(struct device *dev,
 			    enum cnss_driver_mode mode,
 			    const char *host_version);
 extern int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode);
-extern unsigned int cnss_get_qmi_timeout(void);
+extern unsigned int cnss_get_boot_timeout(struct device *dev);
 extern int cnss_athdiag_read(struct device *dev, uint32_t offset,
 			     uint32_t mem_type, uint32_t data_len,
 			     uint8_t *output);
