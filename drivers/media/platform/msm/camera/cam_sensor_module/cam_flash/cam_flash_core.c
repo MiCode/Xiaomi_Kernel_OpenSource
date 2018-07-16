@@ -494,8 +494,14 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 					"Flash off failed %d", rc);
 				goto apply_setting_err;
 			}
+		} else if (flash_data->opcode == CAM_PKT_NOP_OPCODE) {
+			flash_data->opcode = 0;
+			CAM_DBG(CAM_FLASH, "NOP Packet");
 		} else {
-			CAM_DBG(CAM_FLASH, "NOP opcode: req_id: %u", req_id);
+			rc = -EINVAL;
+			CAM_ERR(CAM_FLASH, "Invalid opcode: %d req_id: %llu",
+				flash_data->opcode, req_id);
+			goto apply_setting_err;
 		}
 	}
 
@@ -766,17 +772,20 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
+		frm_offset = csl_packet->header.request_id %
+			MAX_PER_FRAME_ARRAY;
 		if ((fctrl->flash_state == CAM_FLASH_STATE_INIT) ||
 			(fctrl->flash_state == CAM_FLASH_STATE_ACQUIRE)) {
 			CAM_WARN(CAM_FLASH,
 				"Rxed NOP packets without linking");
-			frm_offset = csl_packet->header.request_id %
-				MAX_PER_FRAME_ARRAY;
 			fctrl->per_frame[frm_offset].cmn_attr.is_settings_valid
 				= false;
 			return 0;
 		}
 
+		fctrl->per_frame[frm_offset].cmn_attr.is_settings_valid = false;
+		fctrl->per_frame[frm_offset].cmn_attr.request_id = 0;
+		fctrl->per_frame[frm_offset].opcode = CAM_PKT_NOP_OPCODE;
 		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
 			csl_packet->header.request_id);
 		goto update_req_mgr;
@@ -926,19 +935,15 @@ int cam_flash_apply_request(struct cam_req_mgr_apply_request *apply)
 	fctrl = (struct cam_flash_ctrl *) cam_get_device_priv(apply->dev_hdl);
 	if (!fctrl) {
 		CAM_ERR(CAM_FLASH, "Device data is NULL");
-		rc = -EINVAL;
-		goto free_resource;
+		return -EINVAL;
 	}
 
-	if (!(apply->report_if_bubble)) {
-		mutex_lock(&fctrl->flash_wq_mutex);
-		rc = cam_flash_apply_setting(fctrl, apply->request_id);
-		if (rc)
-			CAM_ERR(CAM_FLASH, "apply_setting failed with rc=%d",
-				rc);
-		mutex_unlock(&fctrl->flash_wq_mutex);
-	}
+	mutex_lock(&fctrl->flash_wq_mutex);
+	rc = cam_flash_apply_setting(fctrl, apply->request_id);
+	if (rc)
+		CAM_ERR(CAM_FLASH, "apply_setting failed with rc=%d",
+			rc);
+	mutex_unlock(&fctrl->flash_wq_mutex);
 
-free_resource:
 	return rc;
 }
