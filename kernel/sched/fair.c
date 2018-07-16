@@ -7382,18 +7382,27 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		}
 
 		/*
-		 * We start with group where the task should be placed. When
-		 * placement boost is active reset the target_capacity to keep
-		 * traversing the other higher clusters. Don't reset it if we
-		 * are already at the highest cluster.
+		 * For placement boost (or otherwise), we start with group
+		 * where the task should be placed. When
+		 * placement boost is active, and we are not at the highest
+		 * capacity group reset the target_capacity to keep
+		 * traversing to other higher clusters.
+		 * If we already are at the highest capacity cluster we skip
+		 * going around to the lower capacity cluster if we've found
+		 * a cpu.
 		 */
-		if (fbt_env->placement_boost &&
-			!is_max_capacity_cpu(group_first_cpu(sg)))
-			target_capacity = ULONG_MAX;
+		if (fbt_env->placement_boost) {
+			if (capacity_orig_of(group_first_cpu(sg)) <
+				capacity_orig_of(group_first_cpu(sg->next)))
+				target_capacity = ULONG_MAX;
+			else
+				if (target_cpu != -1 || best_idle_cpu != -1)
+					break;
+		}
 
 		/*
 		 * if we have found a target cpu within a group, don't bother
-		 * checking other groups
+		 * checking other groups, provided we are not in placement boost
 		 */
 		if (target_capacity != ULONG_MAX)
 			break;
