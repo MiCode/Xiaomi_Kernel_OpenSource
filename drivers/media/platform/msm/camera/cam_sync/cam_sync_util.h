@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,12 +41,11 @@ int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
  * @param idx   : Index of row to initialize
  * @param name  : Optional string representation of the sync object. Should be
  *                63 characters or less
- *
+ * @param type  : type of row to be initialized
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_sync_init_object(struct sync_table_row *table,
-	uint32_t idx,
-	const char *name);
+int cam_sync_init_row(struct sync_table_row *table,
+	uint32_t idx, const char *name, uint32_t type);
 
 /**
  * @brief: Function to uninitialize a row in the sync table
@@ -104,16 +103,6 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	int len);
 
 /**
- * @brief: Function to validate sync merge arguments
- *
- * @param sync_obj : Array of sync objects to merge
- * @param num_objs : Number of sync objects in the array
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs);
-
-/**
  * @brief: Function which adds sync object information to the signalable list
  *
  * @param sync_obj : Sync object to add
@@ -135,7 +124,7 @@ int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
  *
  * @return Next state of the sync object
  */
-int cam_sync_util_get_state(int current_state,
+int cam_sync_util_update_parent_state(struct sync_table_row *parent_row,
 	int new_state);
 
 /**
