@@ -739,3 +739,16 @@
 		};
 	};
 };
+
+&dsi_sharp_1080_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x16>;
+	qcom,mdss-dsi-t-clk-pre = <0x16>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
+			       07 04 03 04 00 16 16];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
