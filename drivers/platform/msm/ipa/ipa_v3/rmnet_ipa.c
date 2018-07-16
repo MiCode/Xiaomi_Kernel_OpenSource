@@ -693,7 +693,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
 	req->source_pipe_index =
-		ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 	if (req->source_pipe_index == IPA_EP_NOT_ALLOCATED) {
 		IPAWANERR("ep mapping failed\n");
 		retval = -EFAULT;
@@ -1293,7 +1293,7 @@ static int handle3_ingress_format(struct net_device *dev,
 
 	IPAWANDBG("Get RMNET_IOCTL_SET_INGRESS_DATA_FORMAT\n");
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	if (ep_idx == IPA_EP_NOT_ALLOCATED) {
 		IPAWANDBG("Embedded datapath not supported\n");
 		return -EFAULT;
@@ -1616,14 +1616,14 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		case RMNET_IOCTL_GET_EP_PAIR:
 			IPAWANDBG("get ioctl: RMNET_IOCTL_GET_EP_PAIR\n");
 			wan_cons_ep =
-				ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+				ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 			if (wan_cons_ep == IPA_EP_NOT_ALLOCATED) {
 				IPAWANERR("Embedded datapath not supported\n");
 				rc = -EFAULT;
 				break;
 			}
 			ext_ioctl_data.u.ipa_ep_pair.consumer_pipe_num =
-			ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 			ext_ioctl_data.u.ipa_ep_pair.producer_pipe_num =
 			wan_cons_ep;
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
@@ -2314,7 +2314,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct net_device *dev;
-	int wan_cons_ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	int wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 
 	pr_info("rmnet_ipa3 started initialization\n");
 
@@ -2529,7 +2529,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	/* No need to remove wwan_ioctl during SSR */
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
 		ipa3_wan_ioctl_deinit();
-	if (ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) !=
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
 		ipa3_del_dflt_wan_rt_tables();
 		ipa3_del_a7_qmap_hdr();
@@ -3764,7 +3764,7 @@ int rmnet_ipa3_set_lan_client_info(
 
 	/* Update the Source pipe. */
 	rmnet_ipa3_ctx->tether_device[data->device_type].ul_src_pipe =
-			ipa_get_ep_mapping(data->ul_src_pipe);
+			ipa3_get_ep_mapping(data->ul_src_pipe);
 
 	/* Update the header length if not set. */
 	if (!rmnet_ipa3_ctx->tether_device[data->device_type].hdr_len)
