@@ -299,8 +299,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		return;
 	pwr->pwr_vote_num--;
 	if (!pwr->pwr_vote_num) {
-		if (npu_dev->host_ctx.fw_state == FW_DISABLED)
-			npu_suspend_devbw(npu_dev);
+		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
 	}

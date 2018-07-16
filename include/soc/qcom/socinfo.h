@@ -69,6 +69,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sm6150")
 #define early_machine_is_qcs405()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs405")
+#define early_machine_is_qcs403()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs403")
+#define early_machine_is_qcs401()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs401")
 #define early_machine_is_sdxprairie()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxprairie")
 #define early_machine_is_sdmmagpie()	\
@@ -97,6 +101,8 @@
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sm6150()	0
 #define early_machine_is_qcs405()	0
+#define early_machine_is_qcs403()	0
+#define early_machine_is_qcs401()	0
 #define early_machine_is_sdxprairie()	0
 #define early_machine_is_sdmmagpie()	0
 #endif
@@ -125,6 +131,8 @@ enum msm_cpu {
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SM6150,
 	MSM_CPU_QCS405,
+	MSM_CPU_QCS403,
+	MSM_CPU_QCS401,
 	SDX_CPU_SDXPRAIRIE,
 	MSM_CPU_SDMMAGPIE,
 };

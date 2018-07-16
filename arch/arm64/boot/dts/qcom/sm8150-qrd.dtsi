@@ -225,6 +225,15 @@
 
 &qupv3_se4_i2c {
 	status = "ok";
+	redriver@19 {
+		compatible = "onnn,redriver";
+		reg = <0x19>;
+		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
+		eq = /bits/ 8 <0x5 0x4 0x4 0x5>;
+		flat-gain = /bits/ 8 <0x3 0x1 0x1 0x3>;
+		output-comp = /bits/ 8 <0x2 0x2 0x2 0x2>;
+		loss-match = /bits/ 8 <0x0 0x3 0x3 0x0>;
+	};
 };
 
 &ufsphy_mem {

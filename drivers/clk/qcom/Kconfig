@@ -318,6 +318,7 @@ config MSM_CAMCC_SDMSHRIKE
 
 config MDM_GCC_QCS405
 	tristate "QCS405 Global Clock Controller"
+	select QCOM_GDSC
 	depends on COMMON_CLK_QCOM
 	help
 	 Support for the global clock controller on Qualcomm Technologies, Inc

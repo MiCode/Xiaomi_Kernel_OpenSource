@@ -14,7 +14,7 @@
 &soc {
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,qcs405-pinctrl";
-		reg = <0x1000000 0x300000>;
+		reg = <0x1000000 0x500000>;
 		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -22,30 +22,43 @@
 		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 
-		pmx-uartconsole {
-			uart_console_active: uart_console_active {
+		blsp1_uart2_console {
+			blsp_uart_tx_a2_active: blsp_uart_tx_a2_active {
+				mux {
+					pins = "gpio17";
+					function = "blsp_uart_tx_a2";
+				};
+
+				config {
+					pins = "gpio17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp_uart_rx_a2_active: blsp_uart_rx_a2_active {
+				mux {
+					pins = "gpio18";
+					function = "blsp_uart_rx_a2";
+				};
+
+				config {
+					pins = "gpio18";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp_uart_tx_rx_a2_sleep: blsp_uart_tx_rx_a2_sleep {
 				mux {
 					pins = "gpio17", "gpio18";
-					function = "blsp1_uart2";
+					function = "gpio";
 				};
 
 				config {
 					pins = "gpio17", "gpio18";
 					drive-strength = <2>;
 					bias-disable;
-				};
-			};
-
-			uart_console_sleep: uart_console_sleep {
-				mux {
-					pins = "gpio17", "gpio18";
-					function = "blsp1_uart2";
-				};
-
-				config {
-					pins = "gpio17", "gpio18";
-					drive-strength = <2>;
-					bias-pull-down;
 				};
 			};
 		};
@@ -85,14 +98,12 @@
 		blsp1_uart2 {
 			blsp1_uart2_active: blsp1_uart2_active {
 				mux {
-					pins = "gpio22", "gpio23",
-						"gpio24", "gpio25";
+					pins = "gpio22", "gpio23";
 					function = "blsp_uart1";
 				};
 
 				config {
-					pins = "gpio22", "gpio23",
-						"gpio24", "gpio25";
+					pins = "gpio22", "gpio23";
 					drive-strength = <2>;
 					bias-disable;
 				};
@@ -100,14 +111,12 @@
 
 			blsp1_uart2_sleep: blsp1_uart2_sleep {
 				mux {
-					pins = "gpio22", "gpio23",
-						"gpio24", "gpio25";
+					pins = "gpio22", "gpio23";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio22", "gpio23",
-						"gpio24", "gpio25";
+					pins = "gpio22", "gpio23";
 					drive-strength = <2>;
 					bias-disable;
 				};
@@ -643,6 +652,39 @@
 					bias-disable;
 				};
 			};
+		};
+
+		ntag {
+			ntag_int_active: ntag_int_active {
+				/* active state */
+				mux {
+					/* GPIO 53 Field Detect Interrupt */
+					pins = "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			ntag_int_suspend: ntag_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 53 Field Detect Interrupt */
+					pins = "gpio53";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
 		};
 
 		/* SDC pin type */

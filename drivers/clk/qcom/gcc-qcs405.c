@@ -823,7 +823,7 @@ static struct clk_rcg2 byte0_clk_src = {
 		.name = "byte0_clk_src",
 		.parent_names = gcc_parent_names_5,
 		.num_parents = 4,
-		.flags = CLK_GET_RATE_NOCACHE,
+		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		.ops = &clk_byte2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -926,17 +926,12 @@ static struct clk_rcg2 gfx3d_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_7,
 	.freq_tbl = ftbl_gfx3d_clk_src,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gfx3d_clk_src",
 		.parent_names = gcc_parent_names_7,
 		.num_parents = 6,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOW] = 270000000,
-			[VDD_NOMINAL] = 484800000,
-			[VDD_HIGH] = 598000000},
 	},
 };
 
@@ -1132,7 +1127,7 @@ static struct clk_rcg2 pclk0_clk_src = {
 		.name = "pclk0_clk_src",
 		.parent_names = gcc_parent_names_12,
 		.num_parents = 4,
-		.flags = CLK_GET_RATE_NOCACHE,
+		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		.ops = &clk_pixel_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -2152,8 +2147,8 @@ static struct clk_branch gcc_mdss_mdp_clk = {
 	},
 };
 
-static DEFINE_CLK_VOTER(mdss_mdp_vote_clk, &gcc_mdss_mdp_clk.c, 0);
-static DEFINE_CLK_VOTER(mdss_rotator_vote_clk, &gcc_mdss_mdp_clk.c, 0);
+static DEFINE_CLK_VOTER(mdss_mdp_vote_clk, gcc_mdss_mdp_clk, 0);
+static DEFINE_CLK_VOTER(mdss_rotator_vote_clk, gcc_mdss_mdp_clk, 0);
 
 static struct clk_branch gcc_mdss_pclk0_clk = {
 	.halt_reg = 0x4d084,
@@ -2218,6 +2213,12 @@ static struct clk_branch gcc_oxili_gfx3d_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+			.vdd_class = &vdd_cx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOW] = 270000000,
+				[VDD_NOMINAL] = 484800000,
+				[VDD_HIGH] = 598000000},
 		},
 	},
 };
@@ -2651,8 +2652,7 @@ static struct clk_branch gcc_usb3_phy_aux_clk = {
 };
 
 static struct clk_branch gcc_usb3_phy_pipe_clk = {
-	.halt_reg = 0x39018,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x39018,
 		.enable_mask = BIT(0),
@@ -2958,6 +2958,8 @@ static const struct qcom_cc_desc mdss_qcs405_desc = {
 	.config = &gcc_qcs405_regmap_config,
 	.clks = mdss_qcs405_clocks,
 	.num_clks = ARRAY_SIZE(mdss_qcs405_clocks),
+	.hwclks = mdss_qcs405_hws,
+	.num_hwclks = ARRAY_SIZE(mdss_qcs405_hws),
 };
 
 static const struct of_device_id mdss_qcs405_match_table[] = {
@@ -2970,7 +2972,10 @@ MODULE_DEVICE_TABLE(of, mdss_qcs405_match_table);
 static int mdss_qcs405_probe(struct platform_device *pdev)
 {
 	struct clk *clk;
-	int ret = 0, i;
+	struct regmap *regmap;
+	struct resource *res;
+	void __iomem *base;
+	int ret = 0;
 
 	clk = devm_clk_get(&pdev->dev, "pclk0_src");
 	if (IS_ERR(clk)) {
@@ -2986,16 +2991,22 @@ static int mdss_qcs405_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
-	/* register hardware clocks */
-	for (i = 0; i < ARRAY_SIZE(mdss_qcs405_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, mdss_qcs405_hws[i]);
-		if (IS_ERR(clk)) {
-			dev_err(&pdev->dev, "Unable to register hardware clocks\n");
-			return PTR_ERR(clk);
-		}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
+		dev_err(&pdev->dev, "Failed to get resources\n");
+		return -EINVAL;
 	}
 
-	ret = qcom_cc_probe(pdev, &mdss_qcs405_desc);
+	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	regmap = devm_regmap_init_mmio(&pdev->dev, base,
+					mdss_qcs405_desc.config);
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
+
+	ret = qcom_cc_really_probe(pdev, &mdss_qcs405_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register MDSS clocks\n");
 		return ret;

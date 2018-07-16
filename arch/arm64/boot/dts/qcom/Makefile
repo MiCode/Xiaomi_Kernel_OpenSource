@@ -83,21 +83,15 @@ endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM6150) += \
-		sm6150-cdp-overlay.dtbo \
-		sm6150-mtp-overlay.dtbo \
 		sm6150-rumi-overlay.dtbo \
 		sm6150-qrd-overlay.dtbo \
 		sm6150-idp-overlay.dtbo \
 
-sm6150-cdp-overlay.dtbo-base := sm6150.dtb
-sm6150-mtp-overlay.dtbo-base := sm6150.dtb
 sm6150-rumi-overlay.dtbo-base := sm6150.dtb
 sm6150-qrd-overlay.dtbo-base := sm6150.dtb
 sm6150-idp-overlay.dtbo-base := sm6150.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
-	sm6150-mtp.dtb \
-	sm6150-cdp.dtb \
 	sm6150-qrd.dtb \
 	sm6150-idp.dtb
 endif

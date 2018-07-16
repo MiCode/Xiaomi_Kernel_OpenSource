@@ -434,8 +434,19 @@ struct ipa_api_controller {
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl,
 	const struct of_device_id *pdrv_match);
+int ipa3_pci_drv_probe(
+	struct pci_dev            *pci_dev,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match);
 #else
 static inline int ipa3_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match)
+{
+	return -ENODEV;
+}
+static inline int ipa3_pci_drv_probe(
+	struct pci_dev            *pci_dev,
 	struct ipa_api_controller *api_ctrl,
 	const struct of_device_id *pdrv_match)
 {

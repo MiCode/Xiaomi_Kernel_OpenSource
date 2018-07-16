@@ -10,13 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#if !defined(_GSI_EMULATION_STUBS_H_)
+# define _GSI_EMULATION_STUBS_H_
 
-#include "sm6150.dtsi"
-#include "sm6150-cdp.dtsi"
+# include <asm/barrier.h>
+# define __iormb()       rmb() /* used in gsi.h */
+# define __iowmb()       wmb() /* used in gsi.h */
 
-/ {
-	model = "Qualcomm Technologies, Inc. SM6150 CDP";
-	compatible = "qcom,sm6150-cdp", "qcom,sm6150", "qcom,cdp";
-	qcom,board-id = <1 0>;
-};
+#endif /* #if !defined(_GSI_EMULATION_STUBS_H_) */

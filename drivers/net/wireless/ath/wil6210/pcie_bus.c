@@ -32,10 +32,6 @@ bool ftm_mode;
 module_param(ftm_mode, bool, 0444);
 MODULE_PARM_DESC(ftm_mode, " Set factory test mode, default - false");
 
-static bool use_enhanced_dma_hw = true;
-module_param(use_enhanced_dma_hw, bool, 0444);
-MODULE_PARM_DESC(use_enhanced_dma_hw, " Use enhanced or legacy DMA HW. Default: true when available");
-
 #ifdef CONFIG_PM
 #ifdef CONFIG_PM_SLEEP
 static int wil6210_pm_notify(struct notifier_block *notify_block,
@@ -114,7 +110,8 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		wil->rgf_fw_assert_code_addr = TALYN_RGF_FW_ASSERT_CODE;
 		wil->rgf_ucode_assert_code_addr = TALYN_RGF_UCODE_ASSERT_CODE;
 		set_bit(hw_capa_no_flash, wil->hw_capa);
-		wil->use_enhanced_dma_hw = use_enhanced_dma_hw;
+		wil->use_enhanced_dma_hw = true;
+		wil->use_rx_hw_reordering = true;
 		wil_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
 			      WIL_FW_NAME_TALYN;
 		if (wil_fw_verify_file_exists(wil, wil_fw_name))

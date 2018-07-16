@@ -26,7 +26,7 @@
 		/delete-node/ cpu@103;
 
 		cpu-map {
-			cluster1 {
+			cluster0 {
 				/delete-node/ core2;
 				/delete-node/ core3;
 			};

@@ -715,6 +715,11 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	restart@c264000 {
@@ -1628,6 +1633,7 @@
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -1671,6 +1677,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
+		qcom,signal-aop;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -1715,6 +1722,7 @@
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc 0 578 1>,
@@ -1915,3 +1923,4 @@
 #include "msm-arm-smmu-sm6150.dtsi"
 #include "sm6150-coresight.dtsi"
 #include "sm6150-bus.dtsi"
+#include "sm6150-vidc.dtsi"

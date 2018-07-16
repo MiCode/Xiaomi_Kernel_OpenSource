@@ -92,7 +92,8 @@ static u8 clk_rcg2_get_parent(struct clk_hw *hw)
 	u32 cfg;
 	int i, ret;
 
-	ret = regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	ret = regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off +
+				CFG_REG, &cfg);
 	if (ret)
 		goto err;
 
@@ -147,13 +148,14 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	u32 old_cfg;
 
 	/* Read back the old configuration */
-	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off + CFG_REG,
+		       &old_cfg);
 
 	if (rcg->flags & DFS_ENABLE_RCG)
 		return 0;
 
-	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG,
-				 CFG_SRC_SEL_MASK, cfg);
+	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr +
+			rcg->cfg_off + CFG_REG, CFG_SRC_SEL_MASK, cfg);
 	if (ret)
 		return ret;
 
@@ -272,13 +274,16 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		return rcg->current_freq;
 	}
 
-	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off + CFG_REG,
+			&cfg);
 
 	if (rcg->mnd_width) {
 		mask = BIT(rcg->mnd_width) - 1;
-		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + M_REG, &m);
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off +
+				M_REG, &m);
 		m &= mask;
-		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + N_REG, &n);
+		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off +
+				N_REG, &n);
 		n =  ~n;
 		n &= mask;
 		n += m;
@@ -389,22 +394,26 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 		return index;
 
 	/* Read back the old configuration */
-	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off + CFG_REG,
+							&old_cfg);
 
 	if (rcg->mnd_width && f->n) {
 		mask = BIT(rcg->mnd_width) - 1;
 		ret = regmap_update_bits(rcg->clkr.regmap,
-				rcg->cmd_rcgr + M_REG, mask, f->m);
+				rcg->cmd_rcgr + rcg->cfg_off + M_REG,
+				mask, f->m);
 		if (ret)
 			return ret;
 
 		ret = regmap_update_bits(rcg->clkr.regmap,
-				rcg->cmd_rcgr + N_REG, mask, ~(f->n - f->m));
+				rcg->cmd_rcgr + rcg->cfg_off + N_REG,
+				mask, ~(f->n - f->m));
 		if (ret)
 			return ret;
 
 		ret = regmap_update_bits(rcg->clkr.regmap,
-				rcg->cmd_rcgr + D_REG, mask, ~f->n);
+				rcg->cmd_rcgr + rcg->cfg_off + D_REG,
+				mask, ~f->n);
 		if (ret)
 			return ret;
 	}
@@ -416,7 +425,7 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 	if (rcg->mnd_width && f->n && (f->m != f->n))
 		cfg |= CFG_MODE_DUAL_EDGE;
 	ret = regmap_update_bits(rcg->clkr.regmap,
-			rcg->cmd_rcgr + CFG_REG, mask, cfg);
+			rcg->cmd_rcgr + rcg->cfg_off + CFG_REG, mask, cfg);
 	if (ret)
 		return ret;
 
@@ -445,7 +454,7 @@ static void clk_rcg2_list_registers(struct seq_file *f, struct clk_hw *hw)
 		size = ARRAY_SIZE(data1);
 		for (i = 0; i < size; i++) {
 			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
-					data1[i].offset), &val);
+					rcg->cfg_off + data1[i].offset), &val);
 			clock_debug_output(f, false, "%20s: 0x%.8x\n",
 						data1[i].name, val);
 		}
@@ -453,7 +462,7 @@ static void clk_rcg2_list_registers(struct seq_file *f, struct clk_hw *hw)
 		size = ARRAY_SIZE(data);
 		for (i = 0; i < size; i++) {
 			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
-				data[i].offset), &val);
+					rcg->cfg_off + data[i].offset), &val);
 			clock_debug_output(f, false, "%20s: 0x%.8x\n",
 						data[i].name, val);
 		}

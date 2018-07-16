@@ -2203,7 +2203,7 @@ int wmi_disconnect_sta(struct wil6210_vif *vif, const u8 *mac,
 int wmi_addba(struct wil6210_priv *wil, u8 mid,
 	      u8 ringid, u8 size, u16 timeout)
 {
-	u8 amsdu = wil->use_enhanced_dma_hw && use_rx_hw_reordering &&
+	u8 amsdu = wil->use_enhanced_dma_hw && wil->use_rx_hw_reordering &&
 		test_bit(WMI_FW_CAPABILITY_AMSDU, wil->fw_capabilities) &&
 		wil->amsdu_en;
 	struct wmi_ring_ba_en_cmd cmd = {
@@ -3285,7 +3285,7 @@ int wil_wmi_rx_sring_add(struct wil6210_priv *wil, u16 ring_id)
 			.ring_size = cpu_to_le16(sring->size),
 			.ring_id = ring_id,
 		},
-		.rx_msg_type = use_compressed_rx_status ?
+		.rx_msg_type = wil->use_compressed_rx_status ?
 			WMI_RX_MSG_TYPE_COMPRESSED :
 			WMI_RX_MSG_TYPE_EXTENDED,
 		.irq_index = WIL_RX_STATUS_IRQ_IDX,

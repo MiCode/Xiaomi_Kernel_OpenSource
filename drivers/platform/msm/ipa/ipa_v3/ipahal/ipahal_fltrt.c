@@ -11,6 +11,7 @@
  */
 
 #include <linux/ipa.h>
+#include <linux/errno.h>
 #include <linux/ipc_logging.h>
 #include <linux/debugfs.h>
 #include "ipahal.h"
