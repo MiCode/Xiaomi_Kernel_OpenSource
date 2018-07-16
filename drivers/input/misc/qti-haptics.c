@@ -969,6 +969,22 @@ static int qti_haptics_erase(struct input_dev *dev, int effect_id)
 	return rc;
 }
 
+static void qti_haptics_set_gain(struct input_dev *dev, u16 gain)
+{
+	struct qti_hap_chip *chip = input_get_drvdata(dev);
+	struct qti_hap_config *config = &chip->config;
+	struct qti_hap_play_info *play = &chip->play;
+
+	if (gain == 0)
+		return;
+
+	if (gain > 0x7fff)
+		gain = 0x7fff;
+
+	play->vmax_mv = ((u32)(gain * config->vmax_mv)) / 0x7fff;
+	qti_haptics_config_vmax(chip, play->vmax_mv);
+}
+
 static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 {
 	struct qti_hap_config *config = &chip->config;
@@ -1429,6 +1445,7 @@ static int qti_haptics_probe(struct platform_device *pdev)
 	chip->input_dev = input_dev;
 
 	input_set_capability(input_dev, EV_FF, FF_CONSTANT);
+	input_set_capability(input_dev, EV_FF, FF_GAIN);
 	if (chip->effects_count != 0) {
 		input_set_capability(input_dev, EV_FF, FF_PERIODIC);
 		input_set_capability(input_dev, EV_FF, FF_CUSTOM);
@@ -1449,6 +1466,7 @@ static int qti_haptics_probe(struct platform_device *pdev)
 	ff->upload = qti_haptics_upload_effect;
 	ff->playback = qti_haptics_playback;
 	ff->erase = qti_haptics_erase;
+	ff->set_gain = qti_haptics_set_gain;
 
 	rc = input_register_device(input_dev);
 	if (rc < 0) {
