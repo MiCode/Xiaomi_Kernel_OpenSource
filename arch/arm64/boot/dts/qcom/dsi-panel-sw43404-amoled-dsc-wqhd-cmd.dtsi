@@ -40,6 +40,11 @@
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{
@@ -57,7 +62,7 @@
 				qcom,mdss-dsi-h-right-border = <0>;
 				qcom,mdss-dsi-v-top-border = <0>;
 				qcom,mdss-dsi-v-bottom-border = <0>;
-				qcom,mdss-dsi-panel-jitter = <0x1 0x1>;
+				qcom,mdss-dsi-panel-jitter = <0x4 0x1>;
 				qcom,mdss-dsi-on-command = [
 					39 01 00 00 00 00 03 b0 a5 00
 					07 01 00 00 00 00 02 01 00

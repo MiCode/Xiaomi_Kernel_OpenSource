@@ -566,6 +566,18 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*setup_dgm_csc)(struct sde_hw_pipe *ctx,
 		enum sde_sspp_multirect_index index, struct sde_csc_cfg *data);
+
+	/**
+	 * clear_ubwc_error - clear the ubwc error-code registers
+	 * @ctx: Pointer to pipe context
+	 */
+	void (*clear_ubwc_error)(struct sde_hw_pipe *ctx);
+
+	/**
+	 * get_ubwc_error - get the ubwc error-code
+	 * @ctx: Pointer to pipe context
+	 */
+	u32 (*get_ubwc_error)(struct sde_hw_pipe *ctx);
 };
 
 /**
