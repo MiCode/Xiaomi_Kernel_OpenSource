@@ -17,6 +17,18 @@
 		qcom,firmware-name = "a608_zap";
 	};
 
+	msm_bus: qcom,kgsl-busmon {
+		label = "kgsl-busmon";
+		compatible = "qcom,kgsl-busmon";
+	};
+
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_vbif";
+		qcom,src-dst-ports = <26 512>;
+		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
+	};
+
 	msm_gpu: qcom,kgsl-3d0@5000000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
@@ -59,7 +71,10 @@
 				"alt_mem_iface_clk", "gmu_clk";
 
 		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
+		qcom,bus-control;
 		qcom,msm-bus,name = "grp3d";
+		qcom,bus-width = <32>;
 		qcom,msm-bus,num-cases = <12>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
