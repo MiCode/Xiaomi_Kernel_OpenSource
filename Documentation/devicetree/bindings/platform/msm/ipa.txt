@@ -91,6 +91,8 @@ memory allocation over a PCIe bridge
 				hashing not supported.
 - qcom,wlan-ce-db-over-pcie: Boolean context flag to represent WLAN CE DB
 				over pcie bus or not.
+- qcom,ipa-wdi2_over_gsi: Boolean context flag to indicate WDI2 offload over GSI
+				supported or not.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
