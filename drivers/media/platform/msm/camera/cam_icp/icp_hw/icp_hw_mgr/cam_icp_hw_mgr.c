@@ -3940,8 +3940,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	if ((!hw_mgr->bps_ctxt_cnt || !hw_mgr->ipe_ctxt_cnt))
 		cam_icp_device_timer_stop(hw_mgr);
 
-	CAM_DBG(CAM_ICP, "Release done for ctx_id %d dev %d", ctx_id,
-		ctx_data->icp_dev_acquire_info->dev_type);
+	CAM_DBG(CAM_ICP, "Release done for ctx_id %d", ctx_id);
 	return rc;
 }
 
