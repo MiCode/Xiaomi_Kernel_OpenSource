@@ -1030,11 +1030,23 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_FULL_SOC].valid)
 		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
 
-	if (chip->udata.param[QG_SOC].valid) {
-		qg_dbg(chip, QG_DEBUG_SOC, "udata SOC=%d last SOC=%d\n",
-			chip->udata.param[QG_SOC].data, chip->catch_up_soc);
+	if (chip->udata.param[QG_SOC].valid ||
+			chip->udata.param[QG_SYS_SOC].valid) {
 
-		chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		qg_dbg(chip, QG_DEBUG_SOC, "udata update: QG_SOC=%d QG_SYS_SOC=%d last_catchup_soc=%d\n",
+				chip->udata.param[QG_SOC].valid ?
+				chip->udata.param[QG_SOC].data : -EINVAL,
+				chip->udata.param[QG_SYS_SOC].valid ?
+				chip->udata.param[QG_SYS_SOC].data : -EINVAL,
+				chip->catch_up_soc);
+
+		if (chip->udata.param[QG_SYS_SOC].valid) {
+			chip->sys_soc = chip->udata.param[QG_SYS_SOC].data;
+			chip->catch_up_soc = qg_adjust_sys_soc(chip);
+		} else {
+			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		}
+
 		qg_scale_soc(chip, false);
 
 		/* update parameters to SDAM */
@@ -1499,28 +1511,6 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 	}
 
 	return DEFAULT_BATT_TYPE;
-}
-
-static int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
-{
-	int rc = 0;
-	u64 last_vbat = 0;
-
-	if (chip->battery_missing) {
-		*vbat_uv = 3700000;
-		return 0;
-	}
-
-	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_V_DATA0_REG,
-				(u8 *)&last_vbat, 2);
-	if (rc < 0) {
-		pr_err("Failed to read LAST_ADV_V reg, rc=%d\n", rc);
-		return rc;
-	}
-
-	*vbat_uv = V_RAW_TO_UV(last_vbat);
-
-	return rc;
 }
 
 #define DEBUG_BATT_SOC		67
@@ -2620,7 +2610,7 @@ done:
 		return rc;
 	}
 
-	chip->pon_soc = chip->catch_up_soc = chip->msoc = soc;
+	chip->last_adj_ssoc = chip->catch_up_soc = chip->msoc = soc;
 	chip->kdata.param[QG_PON_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_PON_OCV_UV].valid = true;
 
@@ -3617,6 +3607,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->maint_soc = -EINVAL;
 	chip->batt_soc = INT_MIN;
 	chip->cc_soc = INT_MIN;
+	chip->sys_soc = INT_MIN;
 	chip->full_soc = QG_SOC_FULL;
 	chip->chg_iterm_ma = INT_MIN;
 	chip->soh = -EINVAL;
