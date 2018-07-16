@@ -80,7 +80,7 @@
 				<&apps_smmu 0x10a0 0x8>,
 				<&apps_smmu 0x10b0 0x0>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x6f800000>;
+			virtual-addr-pool = <0x79000000 0x28000000>;
 		};
 
 		secure_bitstream_cb {
@@ -90,7 +90,7 @@
 				<&apps_smmu 0x10a1 0x8>,
 				<&apps_smmu 0x10a5 0x8>;
 			buffer-types = <0x241>;
-			virtual-addr-pool = <0x4b000000 0x25800000>;
+			virtual-addr-pool = <0x51000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -100,7 +100,7 @@
 			iommus =
 				<&apps_smmu 0x10a3 0x8>;
 			buffer-types = <0x106>;
-			virtual-addr-pool = <0x25800000 0x25800000>;
+			virtual-addr-pool = <0x29000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -111,7 +111,7 @@
 				<&apps_smmu 0x10a4 0x8>,
 				<&apps_smmu 0x10b4 0x0>;
 			buffer-types = <0x480>;
-			virtual-addr-pool = <0x1000000 0x24800000>;
+			virtual-addr-pool = <0x1000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 	};
@@ -180,7 +180,7 @@
 				<&apps_smmu 0x10a0 0x8>,
 				<&apps_smmu 0x10b0 0x0>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x6f800000>;
+			virtual-addr-pool = <0x79000000 0x28000000>;
 		};
 
 		secure_bitstream_cb {
@@ -190,7 +190,7 @@
 				<&apps_smmu 0x10a1 0x8>,
 				<&apps_smmu 0x10a5 0x8>;
 			buffer-types = <0x241>;
-			virtual-addr-pool = <0x4b000000 0x25800000>;
+			virtual-addr-pool = <0x51000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -200,7 +200,7 @@
 			iommus =
 				<&apps_smmu 0x10a3 0x8>;
 			buffer-types = <0x106>;
-			virtual-addr-pool = <0x25800000 0x25800000>;
+			virtual-addr-pool = <0x29000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -211,7 +211,7 @@
 				<&apps_smmu 0x10a4 0x8>,
 				<&apps_smmu 0x10b4 0x0>;
 			buffer-types = <0x480>;
-			virtual-addr-pool = <0x1000000 0x24800000>;
+			virtual-addr-pool = <0x1000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 	};
