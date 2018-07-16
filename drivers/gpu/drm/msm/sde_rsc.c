@@ -983,9 +983,6 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	rsc = s->private;
 
 	mutex_lock(&rsc->client_lock);
-	ret = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (ret)
-		goto end;
 
 	seq_printf(s, "rsc current state:%d\n", rsc->current_state);
 	seq_printf(s, "wraper backoff time(ns):%d\n",
@@ -1011,12 +1008,17 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		seq_printf(s, "\t client:%s state:%d\n",
 				client->name, client->current_state);
 
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		seq_puts(s, "hw state is not supported during idle pc\n");
+		goto end;
+	}
+
 	if (rsc->hw_ops.debug_show) {
 		ret = rsc->hw_ops.debug_show(s, rsc);
 		if (ret)
 			pr_err("sde rsc: hw debug failed ret:%d\n", ret);
 	}
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1040,20 +1042,21 @@ static ssize_t _sde_debugfs_mode_ctrl_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0, rc;
+	int blen = 0;
 
 	if (*ppos || !rsc || !rsc->hw_ops.mode_ctrl)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		blen = snprintf(buffer, MAX_BUFFER_SIZE,
+				"hw state is not supported during idle pc\n");
 		goto end;
+	}
 
 	blen = rsc->hw_ops.mode_ctrl(rsc, MODE_READ, buffer,
 							MAX_BUFFER_SIZE, 0);
-
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1106,14 +1109,14 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	}
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
-		goto clk_enable_fail;
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		goto state_check;
+	}
 
 	rsc->hw_ops.mode_ctrl(rsc, MODE_UPDATE, NULL, 0, mode_state);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
-clk_enable_fail:
+state_check:
 	mutex_unlock(&rsc->client_lock);
 end:
 	kfree(input);
@@ -1132,20 +1135,21 @@ static ssize_t _sde_debugfs_vsync_mode_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0, rc;
+	int blen = 0;
 
 	if (*ppos || !rsc || !rsc->hw_ops.hw_vsync)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		blen = snprintf(buffer, MAX_BUFFER_SIZE,
+				"hw state is not supported during idle pc\n");
 		goto end;
+	}
 
 	blen = rsc->hw_ops.hw_vsync(rsc, VSYNC_READ, buffer,
 						MAX_BUFFER_SIZE, 0);
-
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -1191,9 +1195,10 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	vsync_state &= 0x7;
 
 	mutex_lock(&rsc->client_lock);
-	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-	if (rc)
-		goto clk_en_fail;
+	if (rsc->current_state == SDE_RSC_IDLE_STATE) {
+		pr_debug("debug node is not supported during idle state\n");
+		goto state_check;
+	}
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -1201,9 +1206,7 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	else
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_DISABLE, NULL, 0, 0);
 
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-
-clk_en_fail:
+state_check:
 	mutex_unlock(&rsc->client_lock);
 end:
 	kfree(input);
