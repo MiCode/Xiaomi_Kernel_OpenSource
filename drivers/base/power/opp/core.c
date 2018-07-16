@@ -651,7 +651,7 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 	rcu_read_unlock();
 
 	/* Scaling up? Scale voltage before frequency */
-	if (freq > old_freq) {
+	if (freq >= old_freq) {
 		ret = _set_opp_voltage(dev, reg, u_volt, u_volt_min,
 				       u_volt_max);
 		if (ret)
