@@ -835,6 +835,8 @@ static struct clk_rcg2 byte0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_emac_clk_src[] = {
+	F(5000000,   P_GPLL1_OUT_MAIN, 100, 0, 0),
+	F(50000000,  P_GPLL1_OUT_MAIN, 10, 0, 0),
 	F(125000000, P_GPLL1_OUT_MAIN, 4, 0, 0),
 	F(250000000, P_GPLL1_OUT_MAIN, 2, 0, 0),
 	{ }
