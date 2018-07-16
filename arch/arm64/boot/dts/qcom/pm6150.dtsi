@@ -228,6 +228,35 @@
 			};
 		};
 
+		pm6150_pdphy: qcom,usb-pdphy@1700 {
+			compatible = "qcom,qpnp-pdphy";
+			reg = <0x1700 0x100>;
+			vdd-pdphy-supply = <&pm6150_l17>;
+			vbus-supply = <&smb5_vbus>;
+			vconn-supply = <&smb5_vconn>;
+			interrupts = <0x0 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x2 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x4 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x6 IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x17 0x7 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "sig-tx",
+					  "sig-rx",
+					  "msg-tx",
+					  "msg-rx",
+					  "msg-tx-failed",
+					  "msg-tx-discarded",
+					  "msg-rx-discarded",
+					  "fr-swap";
+
+			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+						 <9000 3000>, /* 9V @ 3A */
+						 <12000 2250>; /* 12V @ 2.25A */
+		};
+
 		pm6150_bcl: bcl@1d00 {
 			compatible = "qcom,bcl-v5";
 			reg = <0x1d00 0x100>;
