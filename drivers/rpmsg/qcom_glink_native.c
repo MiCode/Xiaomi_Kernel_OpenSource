@@ -1851,8 +1851,10 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
 	/* Release any defunct local channels, waiting for close-ack */
-	idr_for_each_entry(&glink->lcids, channel, cid)
-		kref_put(&channel->refcount, qcom_glink_channel_release);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		if (kref_put(&channel->refcount, qcom_glink_channel_release))
+			idr_remove(&glink->lcids, cid);
+	}
 
 	/* Release any defunct local channels, waiting for close-req */
 	idr_for_each_entry(&glink->lcids, channel, cid)
