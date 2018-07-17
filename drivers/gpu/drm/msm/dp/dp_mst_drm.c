@@ -71,15 +71,18 @@ struct dp_mst_sim_port {
 	int start_slot;
 	struct drm_connector *connector;
 	struct edid *edid;
+	enum drm_connector_status status;
 };
 
 struct dp_mst_sim_mode {
 	bool mst_state;
 	struct dp_mst_sim_port sim_port[DP_MST_SIM_MAX_PORTS];
+	int free_slot_id;
 	struct edid *edid;
 	struct work_struct probe_work;
 	struct work_struct conn_destroy_work;
 	const struct drm_dp_mst_topology_cbs *cbs;
+	int pbn_div;
 };
 
 struct dp_mst_bridge {
@@ -122,13 +125,41 @@ static void drm_dp_mst_sim_link_probe_work(struct work_struct *work)
 {
 	struct dp_mst_sim_mode *sim;
 	struct dp_mst_private *mst;
-	u8 cnt;
+	u8 cnt, dp_link_count;
+	u8 dpcd[DP_RECEIVER_CAP_SIZE];
 	char pathprop[] = "0.1";
+	int rc;
 
 	DP_MST_DEBUG("enter\n");
 
 	sim = container_of(work, struct dp_mst_sim_mode, probe_work);
 	mst = container_of(sim, struct dp_mst_private, simulator);
+
+	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_DPCD_REV,
+		dpcd, DP_RECEIVER_CAP_SIZE);
+	if (rc != DP_RECEIVER_CAP_SIZE) {
+		pr_err("dpcd sync read failed, rlen=%d\n", rc);
+		return;
+	}
+
+	dp_link_count = dpcd[2] & DP_MAX_LANE_COUNT_MASK;
+
+	switch (dpcd[1]) {
+	default:
+		pr_err("invalid link bandwidth in DPCD: %x (link count: %d)\n",
+			      dpcd[1], dp_link_count);
+		return;
+
+	case DP_LINK_BW_1_62:
+		sim->pbn_div = 3 * dp_link_count;
+		break;
+	case DP_LINK_BW_2_7:
+		sim->pbn_div = 5 * dp_link_count;
+		break;
+	case DP_LINK_BW_5_4:
+		sim->pbn_div = 10 * dp_link_count;
+		break;
+	}
 
 	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
 		sim->sim_port[cnt].port_id = cnt;
@@ -138,8 +169,14 @@ static void drm_dp_mst_sim_link_probe_work(struct work_struct *work)
 				&sim->sim_port[cnt].port,
 				pathprop);
 
+		sim->sim_port[cnt].status = connector_status_connected;
+
 		sim->cbs->register_connector(sim->sim_port[cnt].connector);
 	}
+
+	sim->free_slot_id = 0;
+	mst->mst_mgr.cbs->hotplug(&mst->mst_mgr);
+
 	DP_MST_DEBUG("completed\n");
 }
 
@@ -155,9 +192,14 @@ static void drm_dp_mst_sim_conn_destroy_work(struct work_struct *work)
 	mst = container_of(sim, struct dp_mst_private, simulator);
 
 	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+
+		sim->sim_port[cnt].status = connector_status_disconnected;
+
 		sim->cbs->destroy_connector(&mst->mst_mgr,
 				sim->sim_port[cnt].connector);
 	}
+
+	mst->mst_mgr.cbs->hotplug(&mst->mst_mgr);
 
 	DP_MST_DEBUG("completed\n");
 }
@@ -165,12 +207,40 @@ static void drm_dp_mst_sim_conn_destroy_work(struct work_struct *work)
 static int drm_dp_sim_find_vcpi_slots(struct drm_dp_mst_topology_mgr *mgr,
 			   int pbn)
 {
-	return 7;
+	int num_slots;
+	struct dp_mst_private *mst = container_of(mgr,
+			struct dp_mst_private, mst_mgr);
+
+	DP_MST_DEBUG("enter\n");
+
+	num_slots = DIV_ROUND_UP(pbn, mst->simulator.pbn_div);
+	DP_MST_DEBUG("num_slots:%d\n", num_slots);
+
+	DP_MST_DEBUG("completed\n");
+
+	return num_slots;
 }
 
 static bool drm_dp_sim_mst_allocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
 			      struct drm_dp_mst_port *port, int pbn, int slots)
 {
+	struct dp_mst_private *mst = container_of(mgr,
+			struct dp_mst_private, mst_mgr);
+	struct dp_mst_sim_port *sim_port = container_of(port,
+						struct dp_mst_sim_port, port);
+
+	DP_MST_DEBUG("enter\n");
+
+	sim_port->slots = slots;
+	sim_port->start_slot = mst->simulator.free_slot_id;
+	mst->simulator.free_slot_id = mst->simulator.free_slot_id + slots;
+
+	DP_MST_DEBUG("ch:%d, start_slot:%d, slots:%d\n",
+			sim_port->port_id, sim_port->start_slot,
+			sim_port->start_slot);
+
+	DP_MST_DEBUG("completed\n");
+
 	return true;
 }
 
@@ -211,7 +281,14 @@ static enum drm_connector_status drm_dp_sim_mst_detect_port(
 		struct drm_dp_mst_topology_mgr *mgr,
 		struct drm_dp_mst_port *port)
 {
-	return connector_status_connected;
+	struct dp_mst_sim_port *sim_port;
+
+	if (!port)
+		return connector_status_disconnected;
+
+	sim_port = container_of(port, struct dp_mst_sim_port, port);
+
+	return sim_port->status;
 }
 
 static struct edid *drm_dp_sim_mst_get_edid(struct drm_connector *connector,
@@ -255,13 +332,7 @@ static int _drm_dp_sim_mst_get_ch_start_slot(
 	struct dp_mst_sim_port *sim_port = container_of(port,
 			struct dp_mst_sim_port, port);
 
-	if (sim_port->port_id == 0)
-		return 0;
-
-	if (sim_port->port_id == 1)
-		return 7;
-
-	return 0;
+	return sim_port->start_slot;
 }
 
 static int _drm_dp_mst_get_ch_start_slot(struct drm_dp_mst_topology_mgr *mgr,
@@ -765,12 +836,16 @@ dp_mst_connector_detect(struct drm_connector *connector, bool force,
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	enum drm_connector_status status;
 
+	DP_MST_DEBUG("enter:\n");
+
 	status = mst->mst_fw_cbs->detect_port(connector,
 			&mst->mst_mgr,
 			c_conn->mst_port);
 
 	DP_MST_DEBUG("mst connector:%d detect, status:%d\n",
 			connector->base.id, status);
+
+	DP_MST_DEBUG("exit:\n");
 
 	return status;
 }
@@ -784,6 +859,8 @@ static int dp_mst_connector_get_modes(struct drm_connector *connector,
 	struct edid *edid;
 	int rc = 0;
 
+	DP_MST_DEBUG("enter:\n");
+
 	edid = mst->mst_fw_cbs->get_edid(connector, &mst->mst_mgr,
 			c_conn->mst_port);
 
@@ -792,6 +869,8 @@ static int dp_mst_connector_get_modes(struct drm_connector *connector,
 				connector, edid);
 
 	DP_MST_DEBUG("mst connector get modes. id: %d\n", connector->base.id);
+
+	DP_MST_DEBUG("exit:\n");
 
 	return rc;
 }
@@ -803,10 +882,14 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 {
 	enum drm_mode_status status;
 
+	DP_MST_DEBUG("enter:\n");
+
 	status = dp_connector_mode_valid(connector, mode, display);
 
 	DP_MST_DEBUG("mst connector:%d mode:%s valid status:%d\n",
 			connector->base.id, mode->name, status);
+
+	DP_MST_DEBUG("exit:\n");
 
 	return status;
 }
@@ -817,6 +900,8 @@ int dp_mst_connector_get_info(struct drm_connector *connector,
 {
 	int rc;
 	enum drm_connector_status status = connector_status_unknown;
+
+	DP_MST_DEBUG("enter:\n");
 
 	rc = dp_connector_get_info(connector, info, display);
 
@@ -832,6 +917,8 @@ int dp_mst_connector_get_info(struct drm_connector *connector,
 	DP_MST_DEBUG("mst connector:%d get info:%d, rc:%d\n",
 			connector->base.id, status, rc);
 
+	DP_MST_DEBUG("exit:\n");
+
 	return rc;
 }
 
@@ -842,11 +929,15 @@ int dp_mst_connector_get_mode_info(struct drm_connector *connector,
 {
 	int rc;
 
+	DP_MST_DEBUG("enter:\n");
+
 	rc = dp_connector_get_mode_info(connector, drm_mode, mode_info,
 			max_mixer_width, display);
 
 	DP_MST_DEBUG("mst connector:%d get mode info. rc:%d\n",
 			connector->base.id, rc);
+
+	DP_MST_DEBUG("exit:\n");
 
 	return rc;
 }
@@ -919,6 +1010,8 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 	struct dp_display *dp_display = display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 
+	DP_MST_DEBUG("enter:\n");
+
 	old_conn_state = drm_atomic_get_old_connector_state(state, connector);
 
 	if (!old_conn_state)
@@ -947,6 +1040,8 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	DP_MST_DEBUG("mst connector:%d atomic check\n", connector->base.id);
 
+	DP_MST_DEBUG("exit:\n");
+
 	return ret;
 }
 
@@ -955,10 +1050,14 @@ static int dp_mst_connector_config_hdr(struct drm_connector *connector,
 {
 	int rc;
 
+	DP_MST_DEBUG("enter:\n");
+
 	rc = dp_connector_config_hdr(connector, display, c_state);
 
 	DP_MST_DEBUG("mst connector:%d cfg hdr. rc:%d\n",
 			connector->base.id, rc);
+
+	DP_MST_DEBUG("exit:\n");
 
 	return rc;
 }
@@ -1098,12 +1197,15 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
 
+	DP_MST_DEBUG("enter:\n");
+
 	if (!hpd_status)
 		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
 				hpd_status);
 
 	if (info && !info->mst_protocol) {
-		mst->simulator.edid = (struct edid *)info->edid;
+		if (hpd_status)
+			mst->simulator.edid = (struct edid *)info->edid;
 		mst->mst_fw_cbs = &drm_dp_sim_mst_fw_helper_ops;
 	} else {
 		mst->mst_fw_cbs = &drm_dp_mst_fw_helper_ops;
@@ -1114,6 +1216,8 @@ static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
 				hpd_status);
 
 	DP_MST_DEBUG("mst display hpd:%d, rc:%d\n", hpd_status, rc);
+
+	DP_MST_DEBUG("exit:\n");
 }
 
 static void dp_mst_display_hpd_irq(void *dp_display)
@@ -1125,11 +1229,13 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	unsigned int esi_res = DP_SINK_COUNT_ESI + 1;
 	bool handled;
 
+	DP_MST_DEBUG("enter:\n");
+
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
 		esi, 14);
 	if (rc != 14) {
 		pr_err("dpcd sync status read failed, rlen=%d\n", rc);
-		return;
+		goto end;
 	}
 
 	for (idx = 0; idx < 14; idx++)
@@ -1146,6 +1252,9 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	}
 
 	DP_MST_DEBUG("mst display hpd_irq handled:%d rc:%d\n", handled, rc);
+
+end:
+	DP_MST_DEBUG("exit:\n");
 }
 
 /* DP MST APIs */
