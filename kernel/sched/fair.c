@@ -9115,9 +9115,12 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 
 	/*
 	 * Don't try to pull misfit tasks we can't help.
+	 * We can use max_capacity here as reduction in capacity on some
+	 * cpus in the group should either be possible to resolve
+	 * internally or be covered by avg_load imbalance (eventually).
 	 */
 	if (sgs->group_type == group_misfit_task &&
-	    (!group_smaller_min_cpu_capacity(sg, sds->local) ||
+	    (!group_smaller_max_cpu_capacity(sg, sds->local) ||
 	     !group_has_capacity(env, &sds->local_stat)))
 		return false;
 
@@ -9150,6 +9153,13 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 */
 	if (sgs->group_type == group_other &&
 		!group_similar_cpu_capacity(sds->local, sg))
+		return false;
+
+	/*
+	 * If we have more than one misfit sg go with the biggest misfit.
+	 */
+	if (sgs->group_type == group_misfit_task &&
+	    sgs->group_misfit_task_load < busiest->group_misfit_task_load)
 		return false;
 
 asym_packing:
@@ -9626,7 +9636,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	    busiest->group_no_capacity)
 		goto force_balance;
 
-	/* Misfitting tasks should be dealt with regardless of the avg load */
+	/* Misfit tasks should be dealt with regardless of the avg load */
 	if (busiest->group_type == group_misfit_task)
 		goto force_balance;
 
@@ -9716,12 +9726,16 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 			continue;
 
 		/*
-		 * For ASYM_CPUCAPACITY domains with misfit tasks we ignore
-		 * load.
+		 * For ASYM_CPUCAPACITY domains with misfit tasks we simply
+		 * seek the "biggest" misfit task.
 		 */
-		if (env->src_grp_type == group_misfit_task &&
-		    rq->misfit_task_load)
-			return rq;
+		if (env->src_grp_type == group_misfit_task) {
+			if (rq->misfit_task_load > busiest_load) {
+				busiest_load = rq->misfit_task_load;
+				busiest = rq;
+			}
+			continue;
+		}
 
 		capacity = capacity_of(i);
 
@@ -9799,6 +9813,9 @@ static int need_active_balance(struct lb_env *env)
 				!cpu_overutilized(env->dst_cpu)) {
 			return 1;
 	}
+
+	if (env->src_grp_type == group_misfit_task)
+		return 1;
 
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
