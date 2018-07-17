@@ -270,6 +270,13 @@
 	qcom,init-voltage = <3312000>;
 };
 
+&pm8998_l19 {
+	regulator-min-microvolt = <3104000>;
+	regulator-max-microvolt = <3104000>;
+	qcom,init-voltage = <3104000>;
+};
+
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 

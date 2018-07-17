@@ -27,6 +27,7 @@ generic-y += mutex.h
 generic-y += poll.h
 generic-y += preempt.h
 generic-y += resource.h
+generic-y += qrwlock.h
 generic-y += rwsem.h
 generic-y += segment.h
 generic-y += sembuf.h

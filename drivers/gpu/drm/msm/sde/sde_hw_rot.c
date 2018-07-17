@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -567,9 +567,14 @@ static int sde_hw_rot_adjust_prefill_bw(struct sde_hw_rot *hw,
 	}
 
 	/* adjust bw for scaling */
-	if (data->dst_rect_h)
-		*prefill_bw = mult_frac(data->prefill_bw, data->crtc_h,
+	if (data->dst_rect_h) {
+		u64 temp;
+
+		temp = DIV_ROUND_UP_ULL(data->prefill_bw,
 				data->dst_rect_h);
+		*prefill_bw = temp * data->crtc_h;
+	}
+
 	return 0;
 }
 

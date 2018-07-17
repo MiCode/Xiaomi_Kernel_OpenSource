@@ -1480,12 +1480,36 @@ static void etm_os_lock_init(struct etm_ctx *etmdata)
 		etmdata->os_lock_present = false;
 }
 
+static bool coresight_authstatus_enabled(void __iomem *addr)
+{
+	int ret;
+	unsigned int auth_val;
+
+	if (!addr)
+		return false;
+
+	auth_val = readl_relaxed(addr + TRCAUTHSTATUS);
+
+	if ((BMVAL(auth_val, 0, 1) == 0x2) ||
+	    (BMVAL(auth_val, 2, 3) == 0x2) ||
+	    (BMVAL(auth_val, 4, 5) == 0x2) ||
+	    (BMVAL(auth_val, 6, 7) == 0x2))
+		ret = false;
+	else
+		ret = true;
+
+	return ret;
+}
+
 static void etm_init_arch_data(void *info)
 {
 	uint32_t val;
 	struct etm_ctx  *etmdata = info;
 
 	ETM_UNLOCK(etmdata);
+
+	if (!coresight_authstatus_enabled(etmdata->base))
+		goto out;
 
 	etm_os_lock_init(etmdata);
 
@@ -1505,6 +1529,7 @@ static void etm_init_arch_data(void *info)
 	etmdata->nr_seq_state = BMVAL(val, 25, 27);
 	etmdata->nr_cntr = BMVAL(val, 28, 30);
 
+out:
 	ETM_LOCK(etmdata);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,14 +182,14 @@ static int cpufreq_policy_notifier(struct notifier_block *nb,
 	struct cpufreq_policy *policy = data;
 
 	switch (event) {
-	case CPUFREQ_CREATE_POLICY:
+	case CPUFREQ_START:
 		mutex_lock(&state_lock);
 		add_policy(policy);
 		update_all_devfreqs();
 		mutex_unlock(&state_lock);
 		break;
 
-	case CPUFREQ_REMOVE_POLICY:
+	case CPUFREQ_STOP:
 		mutex_lock(&state_lock);
 		if (state[policy->cpu]) {
 			state[policy->cpu]->on = false;

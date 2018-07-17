@@ -195,14 +195,6 @@
 				<79 512 2048000 4096000>; /* MAX */
 	};
 
-	vbus_otg_supply: vbus_otg_supply {
-		compatible = "regulator-fixed";
-		regulator-name = "vbus_otg";
-		status = "ok";
-		enable-active-high;
-		gpio = <&pm8916_gpios 3 0>;
-	};
-
 	usb_detect: qcom,gpio-usbdetect {
 		compatible = "qcom,gpio-usbdetect";
 		interrupt-parent = <&msm_gpio>;
@@ -325,12 +317,18 @@
 		qcom,iterm-ma = <200>;
 		qcom,recharge-thresh-mv = <100>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
-		regulator-name = "smb1360_otg_vreg";
 		status= "okay";
+		smb1360_vbus: qcom,smb1360-vbus {
+			regulator-name = "qcom,smb1360-vbus";
+		};
 	};
 };
 
 &usb_otg {
+	interrupts = <0 134 0>, <0 140 0>, <0 136 0>;
+	interrupt-names = "core_irq", "async_irq", "phy_irq";
+	qcom,hsusb-otg-mode = <3>;
+	vbus_otg-supply = <&smb1360_vbus>;
 	extcon = <&smb1360_otg_supply>;
 };
 

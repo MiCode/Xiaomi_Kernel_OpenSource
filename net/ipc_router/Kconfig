@@ -33,3 +33,12 @@ config IPC_ROUTER_NODE_ID
 	  The NODE defined here is used as the local NODE ID by IPC Router
 	  core and publish the same NODE ID to other NODES present in the
 	  network.
+
+config IPC_ROUTER_FIFO_XPRT
+	depends on IPC_ROUTER
+	bool "IPC Router FIFO Transport"
+	help
+	  FIFO Transport Layer that enables IPC Router communication between
+	  two virtual machines. When the Shared FIFO becomes available, this
+	  layer registers the transport with IPC Router and enable message
+	  exchange.

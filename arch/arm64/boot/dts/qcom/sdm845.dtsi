@@ -4057,9 +4057,12 @@
 
 &mdss_core_gdsc {
 	status = "ok";
+	qcom,en-few-wait-val = <6>;
+	qcom,en-rest-wait-val = <5>;
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&pm8998_s9_level>;
 	status = "ok";
 };
 

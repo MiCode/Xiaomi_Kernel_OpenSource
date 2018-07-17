@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -532,7 +532,7 @@ int dsi_phy_hw_calculate_timing_params(struct dsi_phy_hw *phy,
 	/* local vars */
 	int rc = 0;
 	u32 h_total, v_total;
-	u64 inter_num;
+	u32 inter_num;
 	u32 num_of_lanes = 0;
 	u32 bpp;
 	u64 x, y;
@@ -561,7 +561,7 @@ int dsi_phy_hw_calculate_timing_params(struct dsi_phy_hw *phy,
 	x = mult_frac(v_total * h_total, inter_num, num_of_lanes);
 	y = rounddown(x, 1);
 
-	clk_params.bitclk_mbps = rounddown(mult_frac(y, 1, 1000000), 1);
+	clk_params.bitclk_mbps = rounddown(DIV_ROUND_UP_ULL(y, 1000000), 1);
 	clk_params.escclk_numer = esc_clk_mhz;
 	clk_params.escclk_denom = esc_clk_mmss_cc_prediv;
 	clk_params.tlpx_numer_ns = tlpx_numer;

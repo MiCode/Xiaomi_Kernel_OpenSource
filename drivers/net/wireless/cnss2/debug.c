@@ -147,6 +147,8 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		return -ENODEV;
 
 	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv)
+		return -ENODEV;
 
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))

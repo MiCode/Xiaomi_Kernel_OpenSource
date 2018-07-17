@@ -218,6 +218,7 @@ struct qpnp_lcdb {
 	struct regmap			*regmap;
 	struct pmic_revid_data		*pmic_rev_id;
 	u32				base;
+	u32				wa_flags;
 	int				sc_irq;
 
 	/* TTW params */
@@ -286,6 +287,10 @@ enum lcdb_settings_index {
 	LCDB_BST_SS_CTL,
 	LCDB_LDO_VREG_OK_CTL,
 	LCDB_SETTING_MAX,
+};
+
+enum lcdb_wa_flags {
+	NCP_SCP_DISABLE_WA = BIT(0),
 };
 
 static u32 soft_start_us[] = {
@@ -747,9 +752,7 @@ static int qpnp_lcdb_enable_wa(struct qpnp_lcdb *lcdb)
 		return rc;
 	}
 
-	/* execute the below for rev1.1 */
-	if (lcdb->pmic_rev_id->rev3 == PM660L_V1P1_REV3 &&
-		lcdb->pmic_rev_id->rev4 == PM660L_V1P1_REV4) {
+	if (lcdb->wa_flags & NCP_SCP_DISABLE_WA) {
 		/*
 		 * delay to make sure that the MID pin – ie the
 		 * output of the LCDB boost – returns to 0V
@@ -1914,10 +1917,26 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 	return 0;
 }
 
+static void qpnp_lcdb_pmic_config(struct qpnp_lcdb *lcdb)
+{
+	switch (lcdb->pmic_rev_id->pmic_subtype) {
+	case PM660L_SUBTYPE:
+		if (lcdb->pmic_rev_id->rev4 < PM660L_V2P0_REV4)
+			lcdb->wa_flags |= NCP_SCP_DISABLE_WA;
+		break;
+	default:
+		break;
+	}
+
+	pr_debug("LCDB wa_flags = 0x%2x\n", lcdb->wa_flags);
+}
+
 static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 {
 	int rc = 0;
 	u8 val = 0;
+
+	qpnp_lcdb_pmic_config(lcdb);
 
 	rc = qpnp_lcdb_init_bst(lcdb);
 	if (rc < 0) {
@@ -1937,8 +1956,7 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 		return rc;
 	}
 
-	if (lcdb->sc_irq >= 0 &&
-		lcdb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE) {
+	if (lcdb->sc_irq >= 0 && !(lcdb->wa_flags & NCP_SCP_DISABLE_WA)) {
 		lcdb->sc_count = 0;
 		rc = devm_request_threaded_irq(lcdb->dev, lcdb->sc_irq,
 				NULL, qpnp_lcdb_sc_irq_handler, IRQF_ONESHOT,

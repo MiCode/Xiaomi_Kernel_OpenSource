@@ -97,6 +97,7 @@
 		compatible = "qcom,rpm-stats";
 		reg = <0xC300000 0x1000>, <0xC370004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
+		qcom,num-records = <3>;
 	};
 
 	qcom,rpmh-master-stats@b211200 {

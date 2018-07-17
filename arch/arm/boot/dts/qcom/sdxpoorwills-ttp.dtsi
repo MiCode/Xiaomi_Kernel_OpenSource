@@ -12,3 +12,12 @@
 
 #include "sdxpoorwills-mtp.dtsi"
 
+&vbus_detect {
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+	qcom,connector-type-uAB;
+	extcon = <0>, <0>, <0>, <&vbus_detect>;
+};
