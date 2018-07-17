@@ -7683,19 +7683,19 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 #define SMBCHG_LITE_MISC_SUBTYPE	0x57
 static int smbchg_request_irq(struct smbchg_chip *chip,
 				struct device_node *child,
-				int irq_num, char *irq_name,
+				int *irq_num, char *irq_name,
 				irqreturn_t (irq_handler)(int irq, void *_chip),
 				int flags)
 {
 	int rc;
 
-	irq_num = of_irq_get_byname(child, irq_name);
-	if (irq_num < 0) {
+	*irq_num = of_irq_get_byname(child, irq_name);
+	if (*irq_num < 0) {
 		dev_err(chip->dev, "Unable to get %s irqn", irq_name);
 		rc = -ENXIO;
 	}
 	rc = devm_request_threaded_irq(chip->dev,
-			irq_num, NULL, irq_handler, flags, irq_name,
+			*irq_num, NULL, irq_handler, flags, irq_name,
 			chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Unable to request %s irq: %dn",
@@ -7737,26 +7737,28 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		case SMBCHG_CHGR_SUBTYPE:
 		case SMBCHG_LITE_CHGR_SUBTYPE:
 			rc = smbchg_request_irq(chip, child,
-				chip->chg_error_irq, "chg-error",
+				&chip->chg_error_irq, "chg-error",
 				chg_error_handler, flags);
 			if (rc < 0)
 				return rc;
-			rc = smbchg_request_irq(chip, child, chip->taper_irq,
+			rc = smbchg_request_irq(chip, child, &chip->taper_irq,
 				"chg-taper-thr", taper_handler,
 				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 			if (rc < 0)
 				return rc;
 			disable_irq_nosync(chip->taper_irq);
-			rc = smbchg_request_irq(chip, child, chip->chg_term_irq,
+			rc = smbchg_request_irq(chip, child,
+				&chip->chg_term_irq,
 				"chg-tcc-thr", chg_term_handler,
 				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 			if (rc < 0)
 				return rc;
-			rc = smbchg_request_irq(chip, child, chip->recharge_irq,
+			rc = smbchg_request_irq(chip, child,
+				&chip->recharge_irq,
 				"chg-rechg-thr", recharge_handler, flags);
 			if (rc < 0)
 				return rc;
-			rc = smbchg_request_irq(chip, child, chip->fastchg_irq,
+			rc = smbchg_request_irq(chip, child, &chip->fastchg_irq,
 				"chg-p2f-thr", fastchg_handler, flags);
 			if (rc < 0)
 				return rc;
@@ -7766,32 +7768,33 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 		case SMBCHG_LITE_BAT_IF_SUBTYPE:
-			rc = smbchg_request_irq(chip, child, chip->batt_hot_irq,
+			rc = smbchg_request_irq(chip, child,
+				&chip->batt_hot_irq,
 				"batt-hot", batt_hot_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->batt_warm_irq,
+				&chip->batt_warm_irq,
 				"batt-warm", batt_warm_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->batt_cool_irq,
+				&chip->batt_cool_irq,
 				"batt-cool", batt_cool_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->batt_cold_irq,
+				&chip->batt_cold_irq,
 				"batt-cold", batt_cold_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->batt_missing_irq,
+				&chip->batt_missing_irq,
 				"batt-missing", batt_pres_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->vbat_low_irq,
+				&chip->vbat_low_irq,
 				"batt-low", vbat_low_handler, flags);
 			if (rc < 0)
 				return rc;
@@ -7806,24 +7809,24 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_USB_CHGPTH_SUBTYPE:
 			rc = smbchg_request_irq(chip, child,
-				chip->usbin_uv_irq,
+				&chip->usbin_uv_irq,
 				"usbin-uv", usbin_uv_handler,
 				flags | IRQF_EARLY_RESUME);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->usbin_ov_irq,
+				&chip->usbin_ov_irq,
 				"usbin-ov", usbin_ov_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->src_detect_irq,
+				&chip->src_detect_irq,
 				"usbin-src-det",
 				src_detect_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->aicl_done_irq,
+				&chip->aicl_done_irq,
 				"aicl-done",
 				aicl_done_handler,
 				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
@@ -7832,18 +7835,18 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 
 			if (chip->schg_version != QPNP_SCHG_LITE) {
 				rc = smbchg_request_irq(chip, child,
-					chip->otg_fail_irq, "otg-fail",
+					&chip->otg_fail_irq, "otg-fail",
 					otg_fail_handler, flags);
 				if (rc < 0)
 					return rc;
 				rc = smbchg_request_irq(chip, child,
-					chip->otg_oc_irq, "otg-oc",
+					&chip->otg_oc_irq, "otg-oc",
 					otg_oc_handler,
 					(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 				if (rc < 0)
 					return rc;
 				rc = smbchg_request_irq(chip, child,
-					chip->usbid_change_irq, "usbid-change",
+					&chip->usbid_change_irq, "usbid-change",
 					usbid_change_handler,
 					(IRQF_TRIGGER_FALLING | IRQF_ONESHOT));
 				if (rc < 0)
@@ -7862,7 +7865,7 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_DC_CHGPTH_SUBTYPE:
-			rc = smbchg_request_irq(chip, child, chip->dcin_uv_irq,
+			rc = smbchg_request_irq(chip, child, &chip->dcin_uv_irq,
 				"dcin-uv", dcin_uv_handler, flags);
 			if (rc < 0)
 				return rc;
@@ -7870,16 +7873,17 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_MISC_SUBTYPE:
 		case SMBCHG_LITE_MISC_SUBTYPE:
-			rc = smbchg_request_irq(chip, child, chip->power_ok_irq,
+			rc = smbchg_request_irq(chip, child,
+				&chip->power_ok_irq,
 				"power-ok", power_ok_handler, flags);
 			if (rc < 0)
 				return rc;
-			rc = smbchg_request_irq(chip, child, chip->chg_hot_irq,
+			rc = smbchg_request_irq(chip, child, &chip->chg_hot_irq,
 				"temp-shutdown", chg_hot_handler, flags);
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->wdog_timeout_irq, "wdog-timeout",
+				&chip->wdog_timeout_irq, "wdog-timeout",
 				wdog_timeout_handler, flags);
 			if (rc < 0)
 				return rc;
@@ -7890,19 +7894,19 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_LITE_OTG_SUBTYPE:
 			rc = smbchg_request_irq(chip, child,
-				chip->usbid_change_irq, "usbid-change",
+				&chip->usbid_change_irq, "usbid-change",
 				usbid_change_handler,
 				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT));
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->otg_oc_irq, "otg-oc",
+				&chip->otg_oc_irq, "otg-oc",
 				otg_oc_handler,
 				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 			if (rc < 0)
 				return rc;
 			rc = smbchg_request_irq(chip, child,
-				chip->otg_fail_irq, "otg-fail",
+				&chip->otg_fail_irq, "otg-fail",
 				otg_fail_handler, flags);
 			if (rc < 0)
 				return rc;
