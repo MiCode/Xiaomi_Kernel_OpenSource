@@ -822,6 +822,50 @@ int gsi_complete_clk_grant(unsigned long dev_hdl)
 }
 EXPORT_SYMBOL(gsi_complete_clk_grant);
 
+int gsi_map_base(phys_addr_t gsi_base_addr, u32 gsi_size)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	gsi_ctx->base = devm_ioremap_nocache(
+		gsi_ctx->dev, gsi_base_addr, gsi_size);
+
+	if (!gsi_ctx->base) {
+		GSIERR("failed to map access to GSI HW\n");
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+
+	GSIDBG("GSI base(%pa) mapped to (%pK) with len (0x%x)\n",
+		&gsi_base_addr,
+		gsi_ctx->base,
+		gsi_size);
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_map_base);
+
+int gsi_unmap_base(void)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+
+	gsi_ctx->base = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_unmap_base);
+
 int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 {
 	int res;
@@ -926,17 +970,15 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	gsi_ctx->base = devm_ioremap_nocache(gsi_ctx->dev, props->phys_addr,
-				props->size);
+	/*
+	 * If base not previously mapped via gsi_map_base(), map it
+	 * now...
+	 */
 	if (!gsi_ctx->base) {
-		GSIERR("failed to remap GSI HW\n");
-		return -GSI_STATUS_RES_ALLOC_FAILURE;
+		res = gsi_map_base(props->phys_addr, props->size);
+		if (res)
+			return res;
 	}
-
-	GSIDBG("GSI base(%pa) mapped to (%pK) with len (0x%lx)\n",
-	       &(props->phys_addr),
-	       gsi_ctx->base,
-	       props->size);
 
 	if (running_emulation) {
 		GSIDBG("GSI SW ver register value 0x%x\n",
@@ -952,7 +994,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		if (!gsi_ctx->intcntrlr_base) {
 			GSIERR(
 			  "failed to remap emulator's interrupt controller HW\n");
-			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			gsi_unmap_base();
 			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
 			return -GSI_STATUS_RES_ALLOC_FAILURE;
 		}
@@ -975,7 +1017,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	atomic_set(&gsi_ctx->num_evt_ring, 0);
 	gsi_ctx->max_ch = gsi_get_max_channels(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ch == 0) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -985,7 +1027,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	}
 	gsi_ctx->max_ev = gsi_get_max_event_rings(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ev == 0) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -1001,7 +1043,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 
 	if (props->mhi_er_id_limits_valid &&
 	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -1052,7 +1094,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		res = setup_emulator_cntrlr(
 		    gsi_ctx->intcntrlr_base, gsi_ctx->intcntrlr_mem_size);
 		if (res != 0) {
-			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			gsi_unmap_base();
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 			gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
 			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
@@ -1149,7 +1191,7 @@ int gsi_deregister_device(unsigned long dev_hdl, bool force)
 	__gsi_config_gen_irq(gsi_ctx->per.ee, ~0, 0);
 
 	devm_free_irq(gsi_ctx->dev, gsi_ctx->per.irq, gsi_ctx);
-	devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+	gsi_unmap_base();
 	memset(gsi_ctx, 0, sizeof(*gsi_ctx));
 
 	return GSI_STATUS_SUCCESS;
@@ -3240,14 +3282,16 @@ static void gsi_configure_bck_prs_matrix(void *base)
 		gsi_base + GSI_IC_UCONTROLLER_GPR_BCK_PRS_MSB_OFFS);
 }
 
-int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr, enum gsi_ver ver)
+int gsi_configure_regs(phys_addr_t per_base_addr, enum gsi_ver ver)
 {
-	void __iomem *gsi_base;
-
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
 		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
 	if (ver <= GSI_VER_ERR || ver >= GSI_VER_MAX) {
@@ -3255,17 +3299,11 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 		return -GSI_STATUS_ERROR;
 	}
 
-	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
-	if (!gsi_base) {
-		GSIERR("ioremap failed\n");
-		return -GSI_STATUS_RES_ALLOC_FAILURE;
-	}
-	gsi_writel(0, gsi_base + GSI_GSI_PERIPH_BASE_ADDR_MSB_OFFS);
+	gsi_writel(0, gsi_ctx->base + GSI_GSI_PERIPH_BASE_ADDR_MSB_OFFS);
 	gsi_writel(per_base_addr,
-			gsi_base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
-	gsi_configure_bck_prs_matrix((void *)gsi_base);
-	gsi_configure_ieps(gsi_base, ver);
-	iounmap(gsi_base);
+			gsi_ctx->base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
+	gsi_configure_bck_prs_matrix((void *)gsi_ctx->base);
+	gsi_configure_ieps(gsi_ctx->base, ver);
 
 	return 0;
 }
@@ -3439,6 +3477,26 @@ free_lock:
 	return res;
 }
 EXPORT_SYMBOL(gsi_halt_channel_ee);
+
+int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	gsi_writel(per_ep_index,
+		gsi_ctx->base +
+		GSI_V2_5_GSI_MAP_EE_n_CH_k_VP_TABLE_OFFS(chan_num, ee));
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_map_virtual_ch_to_per_ep);
 
 static int msm_gsi_probe(struct platform_device *pdev)
 {

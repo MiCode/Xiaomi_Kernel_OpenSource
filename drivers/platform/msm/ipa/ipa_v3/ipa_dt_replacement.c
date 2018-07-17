@@ -26,6 +26,7 @@
 enum dtsi_index_e {
 	DTSI_INDEX_3_5_1 = 0,
 	DTSI_INDEX_4_0   = 1,
+	DTSI_INDEX_4_5   = 2,
 };
 
 struct dtsi_replacement_u32 {
@@ -65,12 +66,28 @@ struct dtsi_replacement_resource_table {
 };
 
 /*
+ * Any of the data below with _4_5 in the name represent data taken
+ * from the 4.5 dtsi file.
+ *
  * Any of the data below with _4_0 in the name represent data taken
  * from the 4.0 dtsi file.
  *
  * Any of the data below with _3_5_1 in the name represent data taken
  * from the 3.5.1 dtsi file.
  */
+static struct dtsi_replacement_bool ipa3_plat_drv_bool_4_5[] = {
+	{"qcom,use-ipa-tethering-bridge",       true},
+	{"qcom,modem-cfg-emb-pipe-flt",         true},
+	{"qcom,ipa-wdi2",                       false},
+	{"qcom,use-64-bit-dma-mask",            false},
+	{"qcom,bandwidth-vote-for-ipa",         true},
+	{"qcom,skip-uc-pipe-reset",             false},
+	{"qcom,tethered-flow-control",          false},
+	{"qcom,use-rg10-limitation-mitigation", false},
+	{"qcom,do-not-use-ch-gsi-20",           false},
+	{"qcom,use-ipa-pm",                     true},
+};
+
 static struct dtsi_replacement_bool ipa3_plat_drv_bool_4_0[] = {
 	{"qcom,use-ipa-tethering-bridge",       true},
 	{"qcom,modem-cfg-emb-pipe-flt",         true},
@@ -103,6 +120,18 @@ ipa3_plat_drv_bool_table[] = {
 	  ARRAY_SIZE(ipa3_plat_drv_bool_3_5_1) },
 	{ ipa3_plat_drv_bool_4_0,
 	  ARRAY_SIZE(ipa3_plat_drv_bool_4_0) },
+	{ ipa3_plat_drv_bool_4_5,
+	  ARRAY_SIZE(ipa3_plat_drv_bool_4_5) },
+};
+
+static struct dtsi_replacement_u32 ipa3_plat_drv_u32_4_5[] = {
+	{"qcom,ipa-hw-ver",                     IPA_HW_v4_5},
+	{"qcom,ipa-hw-mode",                    3},
+	{"qcom,wan-rx-ring-size",               192},
+	{"qcom,lan-rx-ring-size",               192},
+	{"qcom,ee",                             0},
+	{"qcom,msm-bus,num-cases",              5},
+	{"emulator-bar0-offset",                0x01C00000},
 };
 
 static struct dtsi_replacement_u32 ipa3_plat_drv_u32_4_0[] = {
@@ -128,6 +157,12 @@ static struct dtsi_replacement_u32_table ipa3_plat_drv_u32_table[] = {
 	  ARRAY_SIZE(ipa3_plat_drv_u32_3_5_1) },
 	{ ipa3_plat_drv_u32_4_0,
 	  ARRAY_SIZE(ipa3_plat_drv_u32_4_0) },
+	{ ipa3_plat_drv_u32_4_5,
+	  ARRAY_SIZE(ipa3_plat_drv_u32_4_5) },
+};
+
+static u32 mhi_event_ring_id_limits_array_4_5[] = {
+	9, 10
 };
 
 static u32 mhi_event_ring_id_limits_array_4_0[] = {
@@ -138,6 +173,14 @@ static u32 mhi_event_ring_id_limits_array_3_5_1[] = {
 	IPA_MHI_GSI_EVENT_RING_ID_START, IPA_MHI_GSI_EVENT_RING_ID_END
 };
 
+static u32 ipa_tz_unlock_reg_array_4_5[] = {
+	0x04043583c, 0x00001000
+};
+
+static u32 ipa_throughput_thresh_array_4_5[] = {
+	310, 600, 1000
+};
+
 static u32 ipa_tz_unlock_reg_array_4_0[] = {
 	0x04043583c, 0x00001000
 };
@@ -146,43 +189,16 @@ static u32 ipa_tz_unlock_reg_array_3_5_1[] = {
 	0x04043583c, 0x00001000
 };
 
-static u32 ipa_ram_mmap_array_4_0[] = {
-	0x00000280, 0x00000000, 0x00000000, 0x00000288, 0x00000078,
-	0x00004000, 0x00000308, 0x00000078, 0x00004000, 0x00000388,
-	0x00000078, 0x00004000, 0x00000408, 0x00000078, 0x00004000,
-	0x0000000F, 0x00000000, 0x00000007, 0x00000008, 0x0000000E,
-	0x00000488, 0x00000078, 0x00004000, 0x00000508, 0x00000078,
-	0x00004000, 0x0000000F, 0x00000000, 0x00000007, 0x00000008,
-	0x0000000E, 0x00000588, 0x00000078, 0x00004000, 0x00000608,
-	0x00000078, 0x00004000, 0x00000688, 0x00000140, 0x000007C8,
-	0x00000000, 0x00000800, 0x000007D0, 0x00000200, 0x000009D0,
-	0x00000200, 0x00000000, 0x00000000, 0x00000000, 0x000013F0,
-	0x0000100C, 0x000023FC, 0x00000000, 0x000023FC, 0x00000000,
-	0x000023FC, 0x00000000, 0x000023FC, 0x00000000, 0x00000080,
-	0x00000200, 0x00002800, 0x000023FC, 0x00000000, 0x000023FC,
-	0x00000000, 0x000023FC, 0x00000000, 0x000023FC, 0x00000000,
-	0x00002400, 0x00000400, 0x00000BD8, 0x00000050, 0x00000C30,
-	0x00000060, 0x00000C90, 0x00000140, 0x00000DD0, 0x00000180,
-	0x00000F50, 0x00000180, 0x000010D0, 0x00000180, 0x00001250,
-	0x00000180, 0x000013D0, 0x00000020
-};
-
-static u32 ipa_ram_mmap_array_3_5_1[] = {
-	0x00000280, 0x00000000, 0x00000000, 0x00000288, 0x00000078,
-	0x00004000, 0x00000308, 0x00000078, 0x00004000, 0x00000388,
-	0x00000078, 0x00004000, 0x00000408, 0x00000078, 0x00004000,
-	0x0000000F, 0x00000000, 0x00000007, 0x00000008, 0x0000000E,
-	0x00000488, 0x00000078, 0x00004000, 0x00000508, 0x00000078,
-	0x00004000, 0x0000000F, 0x00000000, 0x00000007, 0x00000008,
-	0x0000000E, 0x00000588, 0x00000078, 0x00004000, 0x00000608,
-	0x00000078, 0x00004000, 0x00000688, 0x00000140, 0x000007C8,
-	0x00000000, 0x00000800, 0x000007D0, 0x00000200, 0x000009D0,
-	0x00000200, 0x00000000, 0x00000000, 0x00000000, 0x00000BD8,
-	0x00001024, 0x00002000, 0x00000000, 0x00002000, 0x00000000,
-	0x00002000, 0x00000000, 0x00002000, 0x00000000, 0x00000080,
-	0x00000200, 0x00002000, 0x00002000, 0x00000000, 0x00002000,
-	0x00000000, 0x00002000, 0x00000000, 0x00002000, 0x00000000,
-	0x00001C00, 0x00000400
+struct dtsi_replacement_u32_array ipa3_plat_drv_u32_array_4_5[] = {
+	{"qcom,mhi-event-ring-id-limits",
+	 mhi_event_ring_id_limits_array_4_5,
+	 ARRAY_SIZE(mhi_event_ring_id_limits_array_4_5) },
+	{"qcom,ipa-tz-unlock-reg",
+	 ipa_tz_unlock_reg_array_4_5,
+	 ARRAY_SIZE(ipa_tz_unlock_reg_array_4_5) },
+	{"qcom,throughput-threshold",
+	 ipa_throughput_thresh_array_4_5,
+	 ARRAY_SIZE(ipa_throughput_thresh_array_4_5) },
 };
 
 struct dtsi_replacement_u32_array ipa3_plat_drv_u32_array_4_0[] = {
@@ -192,9 +208,6 @@ struct dtsi_replacement_u32_array ipa3_plat_drv_u32_array_4_0[] = {
 	{"qcom,ipa-tz-unlock-reg",
 	 ipa_tz_unlock_reg_array_4_0,
 	 ARRAY_SIZE(ipa_tz_unlock_reg_array_4_0) },
-	{"qcom,ipa-ram-mmap",
-	 ipa_ram_mmap_array_4_0,
-	 ARRAY_SIZE(ipa_ram_mmap_array_4_0) },
 };
 
 struct dtsi_replacement_u32_array ipa3_plat_drv_u32_array_3_5_1[] = {
@@ -204,9 +217,6 @@ struct dtsi_replacement_u32_array ipa3_plat_drv_u32_array_3_5_1[] = {
 	{"qcom,ipa-tz-unlock-reg",
 	 ipa_tz_unlock_reg_array_3_5_1,
 	 ARRAY_SIZE(ipa_tz_unlock_reg_array_3_5_1) },
-	{"qcom,ipa-ram-mmap",
-	 ipa_ram_mmap_array_3_5_1,
-	 ARRAY_SIZE(ipa_ram_mmap_array_3_5_1) },
 };
 
 struct dtsi_replacement_u32_array_table
@@ -215,10 +225,98 @@ ipa3_plat_drv_u32_array_table[] = {
 	  ARRAY_SIZE(ipa3_plat_drv_u32_array_3_5_1) },
 	{ ipa3_plat_drv_u32_array_4_0,
 	  ARRAY_SIZE(ipa3_plat_drv_u32_array_4_0) },
+	{ ipa3_plat_drv_u32_array_4_5,
+	  ARRAY_SIZE(ipa3_plat_drv_u32_array_4_5) },
 };
 
 #define INTCTRL_OFFSET       0x083C0000
 #define INTCTRL_SIZE         0x00000110
+
+#define IPA_BASE_OFFSET_4_5  0x01e00000
+#define IPA_BASE_SIZE_4_5    0x000c0000
+#define GSI_BASE_OFFSET_4_5  0x01e04000
+#define GSI_BASE_SIZE_4_5    0x00023000
+
+struct resource ipa3_plat_drv_resource_4_5[] = {
+	/*
+	 * PLEASE NOTE: The following offset values below ("ipa-base",
+	 * "gsi-base", and "intctrl-base") are used to calculate
+	 * offsets relative to the PCI BAR0 address provided by the
+	 * PCI probe.  After their use to calculate the offsets, they
+	 * are not used again, since PCI ultimately dictates where
+	 * things live.
+	 */
+	{
+		IPA_BASE_OFFSET_4_5,
+		(IPA_BASE_OFFSET_4_5 + IPA_BASE_SIZE_4_5),
+		"ipa-base",
+		IORESOURCE_MEM,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+
+	{
+		GSI_BASE_OFFSET_4_5,
+		(GSI_BASE_OFFSET_4_5 + GSI_BASE_SIZE_4_5),
+		"gsi-base",
+		IORESOURCE_MEM,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+
+	/*
+	 * The following entry is germane only to the emulator
+	 * environment.  It is needed to locate the emulator's PCI
+	 * interrupt controller...
+	 */
+	{
+		INTCTRL_OFFSET,
+		(INTCTRL_OFFSET + INTCTRL_SIZE),
+		"intctrl-base",
+		IORESOURCE_MEM,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+
+	{
+		IPA_PIPE_MEM_START_OFST,
+		(IPA_PIPE_MEM_START_OFST + IPA_PIPE_MEM_SIZE),
+		"ipa-pipe-mem",
+		IORESOURCE_MEM,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+
+	{
+		0,
+		0,
+		"gsi-irq",
+		IORESOURCE_IRQ,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+
+	{
+		0,
+		0,
+		"ipa-irq",
+		IORESOURCE_IRQ,
+		0,
+		NULL,
+		NULL,
+		NULL
+	},
+};
 
 #define IPA_BASE_OFFSET_4_0  0x01e00000
 #define IPA_BASE_SIZE_4_0    0x00034000
@@ -227,12 +325,12 @@ ipa3_plat_drv_u32_array_table[] = {
 
 struct resource ipa3_plat_drv_resource_4_0[] = {
 	/*
-	 * PLEASE NOTE WELL: The following offset values below
-	 * ("ipa-base", "gsi-base", and "intctrl-base") are used to
-	 * calculate offsets relative to the PCI BAR0 address provided
-	 * by the PCI probe.  After their use to calculate the
-	 * offsets, they are not used again, since PCI ultimately
-	 * dictates where things live.
+	 * PLEASE NOTE: The following offset values below ("ipa-base",
+	 * "gsi-base", and "intctrl-base") are used to calculate
+	 * offsets relative to the PCI BAR0 address provided by the
+	 * PCI probe.  After their use to calculate the offsets, they
+	 * are not used again, since PCI ultimately dictates where
+	 * things live.
 	 */
 	{
 		IPA_BASE_OFFSET_4_0,
@@ -313,12 +411,12 @@ struct resource ipa3_plat_drv_resource_4_0[] = {
 
 struct resource ipa3_plat_drv_resource_3_5_1[] = {
 	/*
-	 * PLEASE NOTE WELL: The following offset values below
-	 * ("ipa-base", "gsi-base", and "intctrl-base") are used to
-	 * calculate offsets relative to the PCI BAR0 address provided
-	 * by the PCI probe.  After their use to calculate the
-	 * offsets, they are not used again, since PCI ultimately
-	 * dictates where things live.
+	 * PLEASE NOTE: The following offset values below ("ipa-base",
+	 * "gsi-base", and "intctrl-base") are used to calculate
+	 * offsets relative to the PCI BAR0 address provided by the
+	 * PCI probe.  After their use to calculate the offsets, they
+	 * are not used again, since PCI ultimately dictates where
+	 * things live.
 	 */
 	{
 		IPA_BASE_OFFSET_3_5_1,
@@ -398,6 +496,8 @@ ipa3_plat_drv_resource_table[] = {
 	  ARRAY_SIZE(ipa3_plat_drv_resource_3_5_1) },
 	{ ipa3_plat_drv_resource_4_0,
 	  ARRAY_SIZE(ipa3_plat_drv_resource_4_0) },
+	{ ipa3_plat_drv_resource_4_5,
+	  ARRAY_SIZE(ipa3_plat_drv_resource_4_5) },
 };
 
 /*
@@ -419,6 +519,9 @@ static u32 emulator_type_to_index(void)
 		break;
 	case IPA_HW_v4_0:
 		index = DTSI_INDEX_4_0;
+		break;
+	case IPA_HW_v4_5:
+		index = DTSI_INDEX_4_5;
 		break;
 	default:
 		break;

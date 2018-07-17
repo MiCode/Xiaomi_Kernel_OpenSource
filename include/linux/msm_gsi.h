@@ -1133,15 +1133,12 @@ int gsi_start_xfer(unsigned long chan_hdl);
  * to configure the GSI registers before/after the FW is
  * loaded but before it is enabled.
  *
- * @gsi_base_addr: Base address of GSI register space
- * @gsi_size: Mapping size of the GSI register space
  * @per_base_addr: Base address of the peripheral using GSI
  * @ver: GSI core version
  *
  * @Return gsi_status
  */
-int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr, enum gsi_ver ver);
+int gsi_configure_regs(phys_addr_t per_base_addr, enum gsi_ver ver);
 
 /**
  * gsi_enable_fw - Peripheral should call this function
@@ -1180,6 +1177,37 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
  * @Return gsi_status
  */
 int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
+
+/**
+ * gsi_map_base - Peripheral should call this function to configure
+ * access to the GSI registers.
+
+ * @gsi_base_addr: Base address of GSI register space
+ * @gsi_size: Mapping size of the GSI register space
+ *
+ * @Return gsi_status
+ */
+int gsi_map_base(phys_addr_t gsi_base_addr, u32 gsi_size);
+
+/**
+ * gsi_unmap_base - Peripheral should call this function to undo the
+ * effects of gsi_map_base
+ *
+ * @Return gsi_status
+ */
+int gsi_unmap_base(void);
+
+/**
+ * gsi_map_virtual_ch_to_per_ep - Peripheral should call this function
+ * to configure each GSI virtual channel with the per endpoint index.
+ *
+ * @ee: The ee to be used
+ * @chan_num: The channel to be used
+ * @per_ep_index: value to assign
+ *
+ * @Return gsi_status
+ */
+int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index);
 
 /*
  * Here is a typical sequence of calls
@@ -1389,8 +1417,8 @@ static inline int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
-static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr, enum gsi_ver ver)
+static inline int gsi_configure_regs(
+	phys_addr_t per_base_addr, enum gsi_ver ver)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1411,5 +1439,22 @@ static inline int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee,
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
+
+static inline int gsi_map_base(phys_addr_t gsi_base_addr, u32 gsi_size)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_unmap_base(void)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_map_virtual_ch_to_per_ep(
+	u32 ee, u32 chan_num, u32 per_ep_index)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
 #endif
 #endif

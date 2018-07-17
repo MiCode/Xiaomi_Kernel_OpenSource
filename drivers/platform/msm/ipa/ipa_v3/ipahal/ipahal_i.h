@@ -730,8 +730,4 @@ struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq {
 	struct ipa_hw_hdr_proc_ctx_tlv end;
 };
 
-/* IPA HW DPS/HPS image memory sizes */
-#define IPA_HW_DPS_IMG_MEM_SIZE_V3_0 128
-#define IPA_HW_HPS_IMG_MEM_SIZE_V3_0 320
-
 #endif /* _IPAHAL_I_H_ */

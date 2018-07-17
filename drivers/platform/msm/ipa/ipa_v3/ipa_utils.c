@@ -6542,28 +6542,75 @@ static int ipa3_load_single_fw(const struct firmware *firmware,
 	return 0;
 }
 
+struct ipa3_hps_dps_areas_info {
+	u32 dps_abs_addr;
+	u32 dps_sz;
+	u32 hps_abs_addr;
+	u32 hps_sz;
+};
+
+static void ipa3_get_hps_dps_areas_absolute_addr_and_sz(
+	struct ipa3_hps_dps_areas_info *info)
+{
+	u32 dps_area_start;
+	u32 dps_area_end;
+	u32 hps_area_start;
+	u32 hps_area_end;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		dps_area_start = ipahal_get_reg_ofst(IPA_DPS_SEQUENCER_FIRST);
+		dps_area_end = ipahal_get_reg_ofst(IPA_DPS_SEQUENCER_LAST);
+		hps_area_start = ipahal_get_reg_ofst(IPA_HPS_SEQUENCER_FIRST);
+		hps_area_end = ipahal_get_reg_ofst(IPA_HPS_SEQUENCER_LAST);
+
+		info->dps_abs_addr = ipa3_ctx->ipa_wrapper_base +
+			ipahal_get_reg_base() + dps_area_start;
+		info->hps_abs_addr = ipa3_ctx->ipa_wrapper_base +
+			ipahal_get_reg_base() + hps_area_start;
+	} else {
+		dps_area_start = ipahal_read_reg(IPA_DPS_SEQUENCER_FIRST);
+		dps_area_end = ipahal_read_reg(IPA_DPS_SEQUENCER_LAST);
+		hps_area_start = ipahal_read_reg(IPA_HPS_SEQUENCER_FIRST);
+		hps_area_end = ipahal_read_reg(IPA_HPS_SEQUENCER_LAST);
+
+		info->dps_abs_addr = ipa3_ctx->ipa_wrapper_base +
+			dps_area_start;
+		info->hps_abs_addr = ipa3_ctx->ipa_wrapper_base +
+			hps_area_start;
+	}
+
+	info->dps_sz = dps_area_end - dps_area_start + sizeof(u32);
+	info->hps_sz = hps_area_end - hps_area_start + sizeof(u32);
+
+	IPADBG("dps area: start offset=0x%x end offset=0x%x\n",
+		dps_area_start, dps_area_end);
+	IPADBG("hps area: start offset=0x%x end offset=0x%x\n",
+		hps_area_start, hps_area_end);
+}
+
 /**
  * emulator_load_single_fw() - load firmware into emulator's memory
  *
  * @firmware: Structure which contains the FW data from the user space.
  * @phdr: ELF program header
- * @fw_base: memory location to which firmware should get loaded
- * @offset_from_base: offset to start relative to fw_base
+ * @loc_to_map: physical location to map into virtual space
+ * @size_to_map: the size of memory to map into virtual space
  *
  * Return value: 0 on success, negative otherwise
  */
 static int emulator_load_single_fw(
 	const struct firmware   *firmware,
 	const struct elf32_phdr *phdr,
-	void __iomem            *fw_base,
-	uint32_t                offset_from_base)
+	u32                      loc_to_map,
+	u32                      size_to_map)
 {
 	int index;
 	uint32_t ofb;
 	const uint32_t *elf_data_ptr;
+	void __iomem *fw_base;
 
-	IPADBG("firmware(%pK) phdr(%pK) fw_base(%pK) offset_from_base(0x%x)\n",
-	       firmware, phdr, fw_base, offset_from_base);
+	IPADBG("firmware(%pK) phdr(%pK) loc_to_map(0x%X) size_to_map(%u)\n",
+	       firmware, phdr, loc_to_map, size_to_map);
 
 	if (phdr->p_offset > firmware->size) {
 		IPAERR("Invalid ELF: offset=%u is beyond elf_size=%zu\n",
@@ -6593,8 +6640,20 @@ static int emulator_load_single_fw(
 	       (uint32_t) phdr->p_filesz,
 	       (uint32_t) (phdr->p_filesz/sizeof(uint32_t)));
 
+	fw_base = ioremap(loc_to_map, size_to_map);
+	if (!fw_base) {
+		IPAERR("Failed to map 0x%X for the size of %u\n",
+		       loc_to_map, size_to_map);
+		return -ENOMEM;
+	}
+
+	IPADBG("Physical base(0x%X) mapped to virtual (%pK) with len (%u)\n",
+	       loc_to_map,
+	       fw_base,
+	       size_to_map);
+
 	/* Set the entire region to 0s */
-	ofb = offset_from_base;
+	ofb = 0;
 	for (index = 0; index < phdr->p_memsz/sizeof(uint32_t); index++) {
 		writel_relaxed(0, fw_base + ofb);
 		ofb += sizeof(uint32_t);
@@ -6603,12 +6662,14 @@ static int emulator_load_single_fw(
 	elf_data_ptr = (uint32_t *)(firmware->data + phdr->p_offset);
 
 	/* Write the FW */
-	ofb = offset_from_base;
+	ofb = 0;
 	for (index = 0; index < phdr->p_filesz/sizeof(uint32_t); index++) {
 		writel_relaxed(*elf_data_ptr, fw_base + ofb);
 		elf_data_ptr++;
 		ofb += sizeof(uint32_t);
 	}
+
+	iounmap(fw_base);
 
 	return 0;
 }
@@ -6630,9 +6691,8 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
 	const struct elf32_phdr *phdr;
 	unsigned long gsi_iram_ofst;
 	unsigned long gsi_iram_size;
-	phys_addr_t ipa_reg_mem_base;
-	u32 ipa_reg_ofst;
 	int rc;
+	struct ipa3_hps_dps_areas_info dps_hps_info;
 
 	if (gsi_ver == GSI_VER_ERR) {
 		IPAERR("Invalid GSI Version\n");
@@ -6687,19 +6747,18 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
 		return rc;
 
 	phdr++;
-	ipa_reg_mem_base = ipa3_ctx->ipa_wrapper_base + ipahal_get_reg_base();
+	ipa3_get_hps_dps_areas_absolute_addr_and_sz(&dps_hps_info);
 
 	/* Load IPA DPS FW image */
-	ipa_reg_ofst = ipahal_get_reg_ofst(IPA_DPS_SEQUENCER_FIRST);
-	if (phdr->p_vaddr != (ipa_reg_mem_base + ipa_reg_ofst)) {
+	if (phdr->p_vaddr != dps_hps_info.dps_abs_addr) {
 		IPAERR(
-			"Invalid IPA DPS img load addr vaddr=0x%x ipa_reg_mem_base=%pa ipa_reg_ofst=%u\n"
-			, phdr->p_vaddr, &ipa_reg_mem_base, ipa_reg_ofst);
+			"Invalid IPA DPS img load addr vaddr=0x%x dps_abs_addr=0x%x\n"
+			, phdr->p_vaddr, dps_hps_info.dps_abs_addr);
 		return -EINVAL;
 	}
-	if (phdr->p_memsz > ipahal_get_dps_img_mem_size()) {
-		IPAERR("Invalid IPA DPS img size memsz=%d dps_mem_size=%u\n",
-			phdr->p_memsz, ipahal_get_dps_img_mem_size());
+	if (phdr->p_memsz > dps_hps_info.dps_sz) {
+		IPAERR("Invalid IPA DPS img size memsz=%d dps_area_size=%u\n",
+			phdr->p_memsz, dps_hps_info.dps_sz);
 		return -EINVAL;
 	}
 	rc = ipa3_load_single_fw(firmware, phdr);
@@ -6709,16 +6768,15 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
 	phdr++;
 
 	/* Load IPA HPS FW image */
-	ipa_reg_ofst = ipahal_get_reg_ofst(IPA_HPS_SEQUENCER_FIRST);
-	if (phdr->p_vaddr != (ipa_reg_mem_base + ipa_reg_ofst)) {
+	if (phdr->p_vaddr != dps_hps_info.hps_abs_addr) {
 		IPAERR(
-			"Invalid IPA HPS img load addr vaddr=0x%x ipa_reg_mem_base=%pa ipa_reg_ofst=%u\n"
-			, phdr->p_vaddr, &ipa_reg_mem_base, ipa_reg_ofst);
+			"Invalid IPA HPS img load addr vaddr=0x%x hps_abs_addr=0x%x\n"
+			, phdr->p_vaddr, dps_hps_info.hps_abs_addr);
 		return -EINVAL;
 	}
-	if (phdr->p_memsz > ipahal_get_hps_img_mem_size()) {
-		IPAERR("Invalid IPA HPS img size memsz=%d dps_mem_size=%u\n",
-			phdr->p_memsz, ipahal_get_hps_img_mem_size());
+	if (phdr->p_memsz > dps_hps_info.hps_sz) {
+		IPAERR("Invalid IPA HPS img size memsz=%d hps_area_size=%u\n",
+			phdr->p_memsz, dps_hps_info.hps_sz);
 		return -EINVAL;
 	}
 	rc = ipa3_load_single_fw(firmware, phdr);
@@ -6744,9 +6802,6 @@ static void ipa_gsi_setup_reg(void)
 
 	IPADBG("Setting up registers in preparation for firmware download\n");
 
-	/* enable GSI interface */
-	ipahal_write_reg(IPA_GSI_CONF, 1);
-
 	/* setup IPA_ENDP_GSI_CFG_TLV_n reg */
 	start = 0;
 	ipa3_ctx->ipa_num_pipes = ipa3_get_num_pipes();
@@ -6755,25 +6810,39 @@ static void ipa_gsi_setup_reg(void)
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		type = ipa3_get_client_by_pipe(i);
 		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
-		IPADBG("for ep %d client is %d\n", i, type);
+		IPAERR("for ep %d client is %d gsi_ep_info_cfg=%pK\n",
+			i, type, gsi_ep_info_cfg);
 		if (!gsi_ep_info_cfg)
 			continue;
-		IPADBG("Config is true");
-		reg_val = (gsi_ep_info_cfg->ipa_if_tlv << 16) + start;
+		reg_val = ((gsi_ep_info_cfg->ipa_if_tlv << 16) & 0x00FF0000);
+		reg_val += (start & 0xFFFF);
 		start += gsi_ep_info_cfg->ipa_if_tlv;
 		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_TLV_n, i, reg_val);
 	}
 
 	/* setup IPA_ENDP_GSI_CFG_AOS_n reg */
-	start = 0;
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		type = ipa3_get_client_by_pipe(i);
 		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
 		if (!gsi_ep_info_cfg)
 			continue;
-		reg_val = (gsi_ep_info_cfg->ipa_if_aos << 16) + start;
+		reg_val = ((gsi_ep_info_cfg->ipa_if_aos << 16) & 0x00FF0000);
+		reg_val += (start & 0xFFFF);
 		start += gsi_ep_info_cfg->ipa_if_aos;
 		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_AOS_n, i, reg_val);
+	}
+
+	/* setup GSI_MAP_EE_n_CH_k_VP_TABLE reg */
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
+		if (!gsi_ep_info_cfg)
+			continue;
+		reg_val = i & 0x1F;
+		gsi_map_virtual_ch_to_per_ep(
+			gsi_ep_info_cfg->ee,
+			gsi_ep_info_cfg->ipa_gsi_chan_num,
+			reg_val);
 	}
 
 	/* setup IPA_ENDP_GSI_CFG1_n reg */
@@ -6782,25 +6851,10 @@ static void ipa_gsi_setup_reg(void)
 		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
 		if (!gsi_ep_info_cfg)
 			continue;
-		reg_val = (1 << 16) +
-			((u32)gsi_ep_info_cfg->ipa_gsi_chan_num << 8) +
-			gsi_ep_info_cfg->ee;
+		reg_val = (1 << 31) + (1 << 16);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_n, i, 1<<16);
 		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_n, i, reg_val);
-	}
-
-	/*
-	 * Setup IPA_ENDP_GSI_CFG2_n reg: this register must be setup
-	 * as last one
-	 */
-	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
-		type = ipa3_get_client_by_pipe(i);
-		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
-		if (!gsi_ep_info_cfg)
-			continue;
-		reg_val = 1 << 31;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
-		reg_val = 0;
-		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_n, i, 1<<16);
 	}
 }
 
@@ -6822,9 +6876,8 @@ int emulator_load_fws(
 {
 	const struct elf32_hdr *ehdr;
 	const struct elf32_phdr *phdr;
-	void __iomem *gsi_base;
-	uint32_t hps_seq_offs, dps_seq_offs;
-	unsigned long gsi_offset;
+	unsigned long gsi_offset, gsi_ram_size;
+	struct ipa3_hps_dps_areas_info dps_hps_info;
 	int rc;
 
 	IPADBG("Loading firmware(%pK)\n", firmware);
@@ -6851,8 +6904,7 @@ int emulator_load_fws(
 		return -EINVAL;
 	}
 
-	hps_seq_offs = ipahal_get_reg_ofst(IPA_HPS_SEQUENCER_FIRST);
-	dps_seq_offs = ipahal_get_reg_ofst(IPA_DPS_SEQUENCER_FIRST);
+	ipa3_get_hps_dps_areas_absolute_addr_and_sz(&dps_hps_info);
 
 	/*
 	 * Each ELF program header represents a FW image and contains:
@@ -6876,14 +6928,15 @@ int emulator_load_fws(
 	/*
 	 * Attempt to load IPA HPS FW image
 	 */
-	if (phdr->p_memsz > ipahal_get_hps_img_mem_size()) {
-		IPAERR("Invalid IPA HPS img size memsz=%d dps_mem_size=%u\n",
-		       phdr->p_memsz, ipahal_get_hps_img_mem_size());
+	if (phdr->p_memsz > dps_hps_info.hps_sz) {
+		IPAERR("Invalid IPA HPS img size memsz=%d hps_size=%u\n",
+		       phdr->p_memsz, dps_hps_info.hps_sz);
 		return -EINVAL;
 	}
 	IPADBG("Loading HPS FW\n");
 	rc = emulator_load_single_fw(
-	    firmware, phdr, ipa3_ctx->mmio, hps_seq_offs);
+		firmware, phdr,
+		dps_hps_info.hps_abs_addr, dps_hps_info.hps_sz);
 	if (rc)
 		return rc;
 	IPADBG("Loading HPS FW complete\n");
@@ -6893,14 +6946,15 @@ int emulator_load_fws(
 	/*
 	 * Attempt to load IPA DPS FW image
 	 */
-	if (phdr->p_memsz > ipahal_get_dps_img_mem_size()) {
-		IPAERR("Invalid IPA DPS img size memsz=%d dps_mem_size=%u\n",
-		       phdr->p_memsz, ipahal_get_dps_img_mem_size());
+	if (phdr->p_memsz > dps_hps_info.dps_sz) {
+		IPAERR("Invalid IPA DPS img size memsz=%d dps_size=%u\n",
+		       phdr->p_memsz, dps_hps_info.dps_sz);
 		return -EINVAL;
 	}
 	IPADBG("Loading DPS FW\n");
 	rc = emulator_load_single_fw(
-	    firmware, phdr, ipa3_ctx->mmio, dps_seq_offs);
+		firmware, phdr,
+		dps_hps_info.dps_abs_addr, dps_hps_info.dps_sz);
 	if (rc)
 		return rc;
 	IPADBG("Loading DPS FW complete\n");
@@ -6911,37 +6965,23 @@ int emulator_load_fws(
 	 */
 	ipa_gsi_setup_reg();
 
-	/*
-	 * Map to the GSI base...
-	 */
-	gsi_base = ioremap_nocache(transport_mem_base, transport_mem_size);
-
-	IPADBG("GSI base(0x%x) mapped to (%pK) with len (0x%x)\n",
-	       transport_mem_base,
-	       gsi_base,
-	       transport_mem_size);
-
-	if (!gsi_base) {
-		IPAERR("ioremap_nocache failed\n");
-		return -EFAULT;
-	}
-
 	--phdr;
+
+	gsi_get_inst_ram_offset_and_size(&gsi_offset, &gsi_ram_size, gsi_ver);
 
 	/*
 	 * Attempt to load GSI FW image
 	 */
-	if (phdr->p_memsz > transport_mem_size) {
+	if (phdr->p_memsz > gsi_ram_size) {
 		IPAERR(
-		    "Invalid GSI FW img size memsz=%d transport_mem_size=%u\n",
-		    phdr->p_memsz, transport_mem_size);
+		    "Invalid GSI FW img size memsz=%d gsi_ram_size=%u\n",
+		    phdr->p_memsz, gsi_ram_size);
 		return -EINVAL;
 	}
 	IPADBG("Loading GSI FW\n");
-	gsi_get_inst_ram_offset_and_size(&gsi_offset, NULL, gsi_ver);
 	rc = emulator_load_single_fw(
-	    firmware, phdr, gsi_base, (uint32_t) gsi_offset);
-	iounmap(gsi_base);
+		firmware, phdr,
+		transport_mem_base + (u32) gsi_offset, gsi_ram_size);
 	if (rc)
 		return rc;
 	IPADBG("Loading GSI FW complete\n");

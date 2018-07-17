@@ -112,7 +112,9 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_TX_CFG),
 	__stringify(IPA_IDLE_INDICATION_CFG),
 	__stringify(IPA_DPS_SEQUENCER_FIRST),
+	__stringify(IPA_DPS_SEQUENCER_LAST),
 	__stringify(IPA_HPS_SEQUENCER_FIRST),
+	__stringify(IPA_HPS_SEQUENCER_LAST),
 	__stringify(IPA_CLKON_CFG),
 	__stringify(IPA_STAT_QUOTA_BASE_n),
 	__stringify(IPA_STAT_QUOTA_MASK_n),
@@ -2148,9 +2150,15 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_DPS_SEQUENCER_FIRST] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0001e000, 0, 0, 0, 0},
+	[IPA_HW_v3_0][IPA_DPS_SEQUENCER_LAST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e07c, 0, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_HPS_SEQUENCER_FIRST] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0001e080, 0, 0, 0, 0},
+	[IPA_HW_v3_0][IPA_HPS_SEQUENCER_LAST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e26c, 0, 0, 0, 0},
 
 
 	/* IPAv3.1 */
@@ -2235,6 +2243,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_ENDP_GSI_CFG_TLV_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00002924, 0x4, 0, 0, 0 },
+	[IPA_HW_v3_5][IPA_HPS_SEQUENCER_LAST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e1fc, 0, 0, 0, 0},
 
 	/* IPAv4.0 */
 	[IPA_HW_v4_0][IPA_IRQ_SUSPEND_INFO_EE_n] = {
@@ -2630,6 +2641,18 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV6_END_ID] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_DPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00002570, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_DPS_SEQUENCER_LAST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00002574, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_HPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00002578, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_HPS_SEQUENCER_LAST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0000257c, 0, 0, 0, 0},
 };
 
 /*

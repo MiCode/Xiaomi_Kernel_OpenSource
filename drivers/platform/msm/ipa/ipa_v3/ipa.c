@@ -4426,10 +4426,10 @@ static int ipa3_gsi_pre_fw_load_init(void)
 {
 	int result;
 
-	result = gsi_configure_regs(ipa3_res.transport_mem_base,
-		ipa3_res.transport_mem_size,
+	result = gsi_configure_regs(
 		ipa3_res.ipa_mem_base,
 		ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
+
 	if (result) {
 		IPAERR("Failed to configure GSI registers\n");
 		return -EINVAL;
@@ -4760,6 +4760,9 @@ static int ipa3_manual_load_ipa_fws(void)
 			break;
 		case IPA_HW_v4_0:
 			path = IPA_FWS_PATH_4_0;
+			break;
+		case IPA_HW_v4_5:
+			path = IPA_FWS_PATH_4_5;
 			break;
 		default:
 			break;
@@ -5234,9 +5237,23 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->ipa_mem_size);
 
 	/*
+	 * Since we now know where the transport's registers live,
+	 * let's set up access to them.  This is done since subseqent
+	 * functions, that deal with the transport, require the
+	 * access.
+	 */
+	if (gsi_map_base(
+		ipa3_res.transport_mem_base,
+		ipa3_res.transport_mem_size) != 0) {
+		IPAERR("Allocation of gsi base failed\n");
+		result = -EFAULT;
+		goto fail_gsi_map;
+	}
+
+	/*
 	 * In Virtual and Emulation mode, IPAHAL used to load the
 	 * firmwares and there is no SMMU so IPAHAL is initialized
-	 * here
+	 * here.
 	 */
 	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
 	    ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
@@ -5546,6 +5563,8 @@ fail_init_hw:
 	    ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION)
 		ipahal_destroy();
 fail_ipahal_init:
+	gsi_unmap_base();
+fail_gsi_map:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -6981,10 +7000,11 @@ MODULE_DESCRIPTION("IPA HW device driver");
 
 /*
  * Module parameter. Invoke as follows:
- *     insmod ipat.ko emulation_type=[13|14|...|N]
+ *     insmod ipat.ko emulation_type=[13|14|17|...|N]
  * Examples:
  *   insmod ipat.ko emulation_type=13 # for IPA 3.5.1
  *   insmod ipat.ko emulation_type=14 # for IPA 4.0
+ *   insmod ipat.ko emulation_type=17 # for IPA 4.5
  *
  * NOTE: The emulation_type values need to come from: enum ipa_hw_type
  *
@@ -6993,4 +7013,4 @@ MODULE_DESCRIPTION("IPA HW device driver");
 module_param(emulation_type, uint, 0000);
 MODULE_PARM_DESC(
 	emulation_type,
-	"IPA emulation type (Use 13 for IPA 3.5.1, 14 for IPA 4.0)");
+	"emulation_type=N N can be 13 for IPA 3.5.1, 14 for IPA 4.0, 17 for IPA 4.5");
