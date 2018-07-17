@@ -283,7 +283,7 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 		pr_err("vchan alloc failed\n");
 		ret = -ENOMEM;
 		goto err;
-	} else
+	}
 
 	/* Send Init sequence */
 	hab_open_request_init(&request, HAB_PAYLOAD_TYPE_INIT, pchan,
@@ -667,6 +667,7 @@ int hab_vchan_open(struct uhab_context *ctx,
 			}
 		} else {
 			pr_err("failed to find device, mmid %d\n", mmid);
+			return -ENODEV;
 		}
 	}
 

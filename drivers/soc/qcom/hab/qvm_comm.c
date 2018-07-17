@@ -70,9 +70,14 @@ int physical_channel_send(struct physical_channel *pchan,
 		struct habmm_xing_vm_stat *pstat =
 			(struct habmm_xing_vm_stat *)payload;
 
-		do_gettimeofday(&tv);
-		pstat->tx_sec = tv.tv_sec;
-		pstat->tx_usec = tv.tv_usec;
+		if (pstat) {
+			do_gettimeofday(&tv);
+			pstat->tx_sec = tv.tv_sec;
+			pstat->tx_usec = tv.tv_usec;
+		} else {
+			spin_unlock_bh(&dev->io_lock);
+			return -EINVAL;
+		}
 	}
 
 	if (sizebytes) {
