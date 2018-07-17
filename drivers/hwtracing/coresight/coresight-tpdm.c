@@ -2993,6 +2993,7 @@ static ssize_t tpdm_store_dsb_edge_ctrl(struct device *dev,
 		bit = bit * 2;
 
 		val = drvdata->dsb->edge_ctrl[reg];
+		val = val & ~BM(bit, (bit + 1));
 		val = val | (edge_ctrl << bit);
 		drvdata->dsb->edge_ctrl[reg] = val;
 	}
