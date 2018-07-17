@@ -5633,6 +5633,10 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+				sec_group_ref = &tdm_group_ref[sec_group_idx];
+			}
+			if ((dai_data->num_group_ports > 1) &&
+			    (dai_data->sec_port_enable)) {
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
 				sec_group_idx =
@@ -5643,7 +5647,6 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 						sec_group_id);
 					goto rtn;
 				}
-				sec_group_ref = &tdm_group_ref[sec_group_idx];
 				if (atomic_read(sec_group_ref) == 0) {
 					rc = afe_port_group_enable(
 							sec_group_id,
@@ -5663,6 +5666,10 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+				sec_group_ref = &tdm_group_ref[sec_group_idx];
+			}
+			if ((dai_data->num_group_ports > 1) &&
+			    (dai_data->sec_port_enable)) {
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
 				sec_group_idx =
@@ -5673,7 +5680,6 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 						sec_group_id);
 						goto rtn;
 				}
-				sec_group_ref = &tdm_group_ref[sec_group_idx];
 				if (atomic_read(sec_group_ref) == 0) {
 					rc = afe_port_group_enable(
 								  sec_group_id,
@@ -5792,6 +5798,10 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+				sec_group_ref = &tdm_group_ref[sec_group_idx];
+			}
+			if ((dai_data->num_group_ports > 1) &&
+			    (dai_data->sec_port_enable)) {
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
 				sec_group_idx =
@@ -5802,12 +5812,15 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 						__func__, sec_group_id);
 					return;
 				}
-				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 		} else {
 			prim_port_id = dai->id;
 			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+				sec_group_ref = &tdm_group_ref[sec_group_idx];
+			}
+			if ((dai_data->num_group_ports > 1) &&
+			    (dai_data->sec_port_enable)) {
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
 				sec_group_idx =
@@ -5818,7 +5831,6 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 						__func__, sec_group_id);
 					return;
 				}
-				sec_group_ref = &tdm_group_ref[sec_group_idx];
 			}
 		}
 		rc = afe_close(prim_port_id);
@@ -5859,7 +5871,8 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 				}
 			}
 		}
-		if (dai_data->sec_port_enable) {
+		if ((dai_data->num_group_ports > 1) &&
+		    (dai_data->sec_port_enable)) {
 			if (atomic_read(sec_group_ref) == 0) {
 				rc = afe_port_group_enable(sec_group_id,
 							NULL, false);
