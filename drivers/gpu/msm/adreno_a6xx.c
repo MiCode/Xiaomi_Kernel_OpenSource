@@ -970,7 +970,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
-	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -987,20 +986,28 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 		return 0;
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_handle_ptr) {
+		adreno_dev->zap_handle_ptr =
+				subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
+		if (IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+			ret = (adreno_dev->zap_handle_ptr == NULL) ?
+				-ENODEV : PTR_ERR(adreno_dev->zap_handle_ptr);
+			adreno_dev->zap_handle_ptr = NULL;
+		}
 	}
 
 	return ret;
 }
 
+static void a6xx_zap_shader_unload(struct adreno_device *adreno_dev)
+{
+	if (!IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+		subsystem_put(adreno_dev->zap_handle_ptr);
+		adreno_dev->zap_handle_ptr = NULL;
+	}
+}
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -3266,4 +3273,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 	.clk_set_options = a6xx_clk_set_options,
 	.snapshot_preemption = a6xx_snapshot_preemption,
+	.zap_shader_unload = a6xx_zap_shader_unload,
 };

@@ -1851,7 +1851,7 @@ int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
 	}
 
 	/* GPU comes up in secured mode, make it unsecured by default */
-	if (adreno_dev->zap_loaded)
+	if (adreno_dev->zap_handle_ptr)
 		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
 	else
 		adreno_writereg(adreno_dev,
@@ -4022,6 +4022,28 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
+static void adreno_suspend_device(struct kgsl_device *device,
+				pm_message_t pm_state)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int pm_event = pm_state.event;
+
+	adreno_dispatcher_halt(device);
+
+	if ((pm_event != PM_EVENT_SUSPEND) &&
+		(gpudev->zap_shader_unload != NULL))
+		gpudev->zap_shader_unload(adreno_dev);
+}
+
+static int adreno_resume_device(struct kgsl_device *device,
+				pm_message_t pm_state)
+{
+	adreno_dispatcher_unhalt(device);
+
+	return 0;
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -4063,8 +4085,8 @@ static const struct kgsl_functable adreno_functable = {
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
-	.dispatcher_halt = adreno_dispatcher_halt,
-	.dispatcher_unhalt = adreno_dispatcher_unhalt,
+	.suspend_device = adreno_suspend_device,
+	.resume_device = adreno_resume_device,
 };
 
 static struct platform_driver adreno_platform_driver = {
