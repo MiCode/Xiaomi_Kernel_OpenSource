@@ -1211,6 +1211,13 @@ static struct msm_vidc_format venc_formats[] = {
 		.get_frame_size = get_frame_size_p010,
 		.type = OUTPUT_PORT,
 	},
+	{
+		.name = "YCbCr Semiplanar 4:2:0 512 aligned",
+		.description = "Y/CbCr 4:2:0 512 aligned",
+		.fourcc = V4L2_PIX_FMT_NV12_512,
+		.get_frame_size = get_frame_size_nv12_512,
+		.type = OUTPUT_PORT,
+	},
 };
 
 struct msm_vidc_format_constraint enc_pix_format_constraints[] = {

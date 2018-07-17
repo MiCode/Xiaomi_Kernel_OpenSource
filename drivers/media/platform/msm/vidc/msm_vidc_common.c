@@ -5876,6 +5876,10 @@ u32 get_frame_size_p010(int plane, u32 height, u32 width)
 	return VENUS_BUFFER_SIZE(COLOR_FMT_P010, width, height);
 }
 
+u32 get_frame_size_nv12_512(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_512, width, height);
+}
 
 void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
