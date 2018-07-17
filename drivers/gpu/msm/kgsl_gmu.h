@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
@@ -80,6 +80,7 @@ enum gmu_mem_type {
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
  * @mem_type: memory type for this memory
+ * @ctx_idx: GMU IOMMU context idx
  */
 struct gmu_memdesc {
 	void *hostptr;
@@ -87,6 +88,7 @@ struct gmu_memdesc {
 	phys_addr_t physaddr;
 	uint64_t size;
 	enum gmu_mem_type mem_type;
+	uint32_t ctx_idx;
 };
 
 struct gmu_bw_votes {
