@@ -117,6 +117,7 @@ int msm_comm_session_continue(void *instance);
 int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst);
 enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc);
 u32 get_frame_size_nv12(int plane, u32 height, u32 width);
+u32 get_frame_size_nv12_512(int plane, u32 height, u32 width);
 u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width);
 u32 get_frame_size_rgba(int plane, u32 height, u32 width);
 u32 get_frame_size_nv21(int plane, u32 height, u32 width);
