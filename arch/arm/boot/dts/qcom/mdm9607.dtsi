@@ -571,7 +571,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
 			interrupt-parent = <&tlmm_pinmux>;
-			interrupts = <78 IRQ_TYPE_EDGE_FALLING>;
+			interrupts = <78 IRQ_TYPE_EDGE_RISING>;
 		};
 
 	};
