@@ -13,6 +13,15 @@
 
 #include "apq8053-lite-dragon.dtsi"
 
+&soc {
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_tlmm_lines_act>;
+		pinctrl-1 = <&sec_tlmm_lines_sus>;
+	};
+};
+
 &pm8953_l4 {
 	status = "okay";
 	regulator-always-on;
