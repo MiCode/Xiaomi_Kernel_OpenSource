@@ -1591,9 +1591,6 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 	sde_connector_get_info(connector, &info);
 	if (sde_connector->ops.check_status &&
 		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
-		debugfs_create_u32("force_panel_dead", 0600,
-				connector->debugfs_entry,
-				&sde_connector->force_panel_dead);
 		debugfs_create_u32("esd_status_interval", 0600,
 				connector->debugfs_entry,
 				&sde_connector->esd_status_interval);
@@ -1859,12 +1856,6 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	rc = conn->ops.check_status(&conn->base, conn->display, false);
 	mutex_unlock(&conn->lock);
 
-	if (conn->force_panel_dead) {
-		conn->force_panel_dead--;
-		if (!conn->force_panel_dead)
-			goto status_dead;
-	}
-
 	if (rc > 0) {
 		u32 interval;
 
@@ -1879,7 +1870,6 @@ static void sde_connector_check_status_work(struct work_struct *work)
 		return;
 	}
 
-status_dead:
 	_sde_connector_report_panel_dead(conn);
 }
 
