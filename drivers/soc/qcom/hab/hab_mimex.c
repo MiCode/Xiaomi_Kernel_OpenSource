@@ -239,7 +239,7 @@ int hab_mem_export(struct uhab_context *ctx,
 	int page_count;
 	int compressed = 0;
 
-	if (!ctx || !param)
+	if (!ctx || !param || !param->buffer)
 		return -EINVAL;
 
 	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);
