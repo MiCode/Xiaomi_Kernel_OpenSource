@@ -794,6 +794,7 @@ struct adreno_gpudev {
 	void (*enable_64bit)(struct adreno_device *);
 	void (*clk_set_options)(struct adreno_device *,
 				const char *, struct clk *, bool on);
+	void (*zap_shader_unload)(struct adreno_device *);
 };
 
 /**

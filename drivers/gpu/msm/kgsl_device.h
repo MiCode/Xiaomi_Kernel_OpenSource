@@ -15,6 +15,7 @@
 
 #include <linux/slab.h>
 #include <linux/idr.h>
+#include <linux/pm.h>
 #include <linux/pm_qos.h>
 #include <linux/sched.h>
 
@@ -171,8 +172,9 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
-	void (*dispatcher_halt)(struct kgsl_device *device);
-	void (*dispatcher_unhalt)(struct kgsl_device *device);
+	void (*suspend_device)(struct kgsl_device *device,
+		pm_message_t pm_state);
+	void (*resume_device)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
