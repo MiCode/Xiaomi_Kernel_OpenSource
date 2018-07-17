@@ -708,22 +708,33 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
  */
 void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
 {
+	struct radix_tree_iter iter;
 	struct qrtr_node *node = ep->node;
 	struct sockaddr_qrtr src = {AF_QIPCRTR, node->nid, QRTR_PORT_CTRL};
 	struct sockaddr_qrtr dst = {AF_QIPCRTR, qrtr_local_nid, QRTR_PORT_CTRL};
 	struct qrtr_ctrl_pkt *pkt;
 	struct sk_buff *skb;
+	void __rcu **slot;
 
 	mutex_lock(&node->ep_lock);
 	node->ep = NULL;
 	mutex_unlock(&node->ep_lock);
 
 	/* Notify the local controller about the event */
-	skb = qrtr_alloc_ctrl_packet(&pkt);
-	if (skb) {
+	down_read(&qrtr_node_lock);
+	radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
+		if (node != *slot)
+			continue;
+
+		skb = qrtr_alloc_ctrl_packet(&pkt);
+		if (!skb)
+			continue;
+
+		src.sq_node = iter.index;
 		pkt->cmd = cpu_to_le32(QRTR_TYPE_BYE);
 		qrtr_local_enqueue(NULL, skb, QRTR_TYPE_BYE, &src, &dst);
 	}
+	up_read(&qrtr_node_lock);
 
 	/* Wake up any transmitters waiting for resume-tx from the node */
 	wake_up_interruptible_all(&node->resume_tx);
