@@ -110,8 +110,8 @@ struct uaudio_qmi_dev {
 	unsigned long curr_xfer_buf_iova;
 	/* bit fields representing pcm card enabled */
 	unsigned long card_slot;
-	/* cache event ring phys addr */
-	u64 er_phys_addr;
+	/* indicate event ring mapped or not */
+	bool er_mapped;
 };
 
 static struct uaudio_qmi_dev *uaudio_qdev;
@@ -295,7 +295,7 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 	case MEM_EVENT_RING:
 		va = IOVA_BASE;
 		/* er already mapped */
-		if (uaudio_qdev->er_phys_addr == pa)
+		if (uaudio_qdev->er_mapped)
 			map = false;
 		break;
 	case MEM_XFER_RING:
@@ -407,8 +407,8 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 
 	switch (mtype) {
 	case MEM_EVENT_RING:
-		if (uaudio_qdev->er_phys_addr)
-			uaudio_qdev->er_phys_addr = 0;
+		if (uaudio_qdev->er_mapped)
+			uaudio_qdev->er_mapped = false;
 		else
 			unmap = false;
 		break;
@@ -637,7 +637,7 @@ skip_sync_ep:
 						uaudio_qdev->sid);
 	resp->xhci_mem_info.evt_ring.pa = dma;
 	resp->xhci_mem_info.evt_ring.size = PAGE_SIZE;
-	uaudio_qdev->er_phys_addr = xhci_pa;
+	uaudio_qdev->er_mapped = true;
 
 	resp->speed_info = get_speed_info(subs->dev->speed);
 	if (resp->speed_info == USB_AUDIO_DEVICE_SPEED_INVALID_V01)
