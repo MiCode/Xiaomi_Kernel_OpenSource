@@ -244,6 +244,10 @@ static void __free_fw_priv(struct kref *ref)
 		 (unsigned int)fw_priv->size);
 
 	list_del(&fw_priv->list);
+#ifdef CONFIG_FW_LOADER_USER_HELPER
+	list_del(&fw_priv->pending_list);
+#endif
+
 	spin_unlock(&fwc->lock);
 
 #ifdef CONFIG_FW_LOADER_USER_HELPER
