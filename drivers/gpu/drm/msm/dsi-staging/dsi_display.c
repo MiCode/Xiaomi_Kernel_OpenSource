@@ -728,20 +728,25 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+		goto release_panel_lock;
 	}
 
 	/* Prevent another ESD check,when ESD recovery is underway */
-	if (atomic_read(&panel->esd_recovery_pending)) {
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+	if (atomic_read(&panel->esd_recovery_pending))
+		goto release_panel_lock;
+
+	status_mode = panel->esd_config.status_mode;
+
+	if (status_mode == ESD_MODE_SW_SIM_SUCCESS)
+		goto release_panel_lock;
+
+	if (status_mode == ESD_MODE_SW_SIM_FAILURE) {
+		rc = -EINVAL;
+		goto release_panel_lock;
 	}
 
 	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
 		status_mode = ESD_MODE_PANEL_TE;
-	else
-		status_mode = panel->esd_config.status_mode;
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -774,6 +779,8 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+
+release_panel_lock:
 	dsi_panel_release_panel_lock(panel);
 
 	return rc;
@@ -1262,6 +1269,12 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		if (dsi_display_is_te_based_esd(display))
 			dsi_display_change_te_irq_status(display, false);
 	}
+
+	if (!strcmp(buf, "esd_sw_sim_success\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_SUCCESS;
+
+	if (!strcmp(buf, "esd_sw_sim_failure\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_FAILURE;
 
 	rc = len;
 error:
