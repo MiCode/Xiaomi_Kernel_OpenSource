@@ -347,3 +347,5 @@
 		#clock-cells = <1>;
 	};
 };
+
+#include "msm-arm-smmu-kona.dtsi"
