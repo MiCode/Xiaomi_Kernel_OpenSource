@@ -200,12 +200,14 @@ struct msm_dai_q6_tdm_dai_data {
 	u32 bitwidth;
 	u32 num_group_ports;
 	bool afe_ebit_unsupported;
+	bool sec_port_enable;
 	struct afe_clk_set clk_set; /* hold LPASS clock config. */
 	union afe_port_group_config group_cfg; /* hold tdm group config */
 	struct afe_tdm_port_config port_cfg; /* hold tdm config */
 };
 
 static bool afe_ebit_unsupported;
+static bool tdm_sec_port_enable;
 
 /* MI2S format field for AFE_PORT_CMD_I2S_CONFIG command
  *  0: linear PCM
@@ -4142,6 +4144,11 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "afe_ebit_unsupported %d\n", afe_ebit_unsupported);
 
+	tdm_sec_port_enable = of_property_read_bool(pdev->dev.of_node,
+				"qcom,msm-cpudai-tdm-sec-port-enable");
+
+	dev_dbg(&pdev->dev, "tdm_sec_port_enable %d\n", tdm_sec_port_enable);
+
 	/* other initializations within device group */
 	atomic_set(&tdm_group_ref[group_idx], 0);
 
@@ -5624,7 +5631,7 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 		*/
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			prim_port_id = dai->id;
-			if (dai_data->afe_ebit_unsupported) {
+			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
@@ -5654,7 +5661,7 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			}
 		} else {
 			prim_port_id = dai->id;
-			if (dai_data->afe_ebit_unsupported) {
+			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
@@ -5713,7 +5720,6 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 
 		dai_data->port_cfg.tdm.num_channels = 1;
 		dai_data->port_cfg.tdm.slot_mask = 1;
-		dai_data->port_cfg.tdm.nslots_per_frame = 4;
 
 		dev_dbg(dai->dev, "\n%s:open sec port id %d TDM rate: %d\n"
 			"dai_data->port_cfg.tdm.slot_mask %x\n"
@@ -5725,7 +5731,8 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 		if (sec_port_id != 0) {
 			rc = afe_tdm_port_start(sec_port_id,
 						&dai_data->port_cfg,
-						dai_data->rate, 4);
+						dai_data->rate,
+						dai_data->num_group_ports);
 			if (IS_ERR_VALUE(rc)) {
 				if (atomic_read(group_ref) == 0) {
 					afe_port_group_enable(group_id,
@@ -5783,7 +5790,7 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			prim_port_id = dai->id;
-			if (dai_data->afe_ebit_unsupported) {
+			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX;
@@ -5799,7 +5806,7 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 			}
 		} else {
 			prim_port_id = dai->id;
-			if (dai_data->afe_ebit_unsupported) {
+			if (dai_data->sec_port_enable) {
 				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
 				sec_group_id =
 					AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX;
@@ -5852,7 +5859,7 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 				}
 			}
 		}
-		if (dai_data->afe_ebit_unsupported) {
+		if (dai_data->sec_port_enable) {
 			if (atomic_read(sec_group_ref) == 0) {
 				rc = afe_port_group_enable(sec_group_id,
 							NULL, false);
@@ -7232,6 +7239,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 				tdm_dev_id);
 
 	dai_data->afe_ebit_unsupported = afe_ebit_unsupported;
+	dai_data->sec_port_enable = tdm_sec_port_enable;
 
 	if (tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX ||
 		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_1 ||
