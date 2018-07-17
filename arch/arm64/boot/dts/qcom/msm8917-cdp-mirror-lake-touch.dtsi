@@ -131,7 +131,6 @@
 		synaptics,irq-flags = <0x2008>;
 		synaptics,power-delay-ms = <200>;
 		synaptics,reset-delay-ms = <200>;
-		synaptics,max-y-for-2d = <1439>;
 		synaptics,resume-in-workqueue;
 	};
 };
