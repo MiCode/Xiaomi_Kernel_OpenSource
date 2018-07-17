@@ -501,6 +501,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	apq8053-lite-dragon-v2.2.dtb \
 	apq8053-lite-dragon-v2.3.dtb \
 	apq8053-lite-dragon-v2.4.dtb \
+	apq8053-lat-concam-dev.dtb \
+	apq8053-lat-concam-proto.dtb \
 	msm8953-pmi8940-cdp.dtb \
 	msm8953-pmi8940-mtp.dtb \
 	msm8953-pmi8937-cdp.dtb \

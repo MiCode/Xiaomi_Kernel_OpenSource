@@ -1,0 +1,580 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953.dtsi"
+#include "msm8953-pinctrl.dtsi"
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8953";
+	compatible = "qcom,apq8053";
+	qcom,msm-id = <304 0x0>;
+};
+
+/ {
+	/delete-property/ aliases;
+
+	aliases {
+		/* smdtty devices */
+		smd1 = &smdtty_apps_fm;
+		smd2 = &smdtty_apps_riva_bt_acl;
+		smd3 = &smdtty_apps_riva_bt_cmd;
+		smd4 = &smdtty_mbalbridge;
+		smd5 = &smdtty_apps_riva_ant_cmd;
+		smd6 = &smdtty_apps_riva_ant_data;
+		smd7 = &smdtty_data1;
+		smd8 = &smdtty_data4;
+		smd11 = &smdtty_data11;
+		smd21 = &smdtty_data21;
+		smd36 = &smdtty_loopback;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 for SD card */
+		i2c1 = &i2c_1;
+		i2c2 = &i2c_2;
+		i2c3 = &i2c_3;
+		i2c4 = &i2c_4;
+		i2c5 = &i2c_5;
+		i2c7 = &i2c_7;
+		i2c8 = &i2c_8;
+		spi3 = &spi_3;
+	};
+
+};
+
+&sdhc_2 {
+	nest,workaround-ocr-add-vio = "VIO_3_3";
+};
+
+&soc {
+	i2c_4: i2c@78b8000 { /* BLSP1 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b8000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 98 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup4_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_4_active>;
+		pinctrl-1 = <&i2c_4_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <86>;
+		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
+			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		status = "disabled";
+	};
+
+	i2c_7: i2c@7AF7000 { /* BLSP2 QUP2 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7AF7000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 301 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup3_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_7_active>;
+		pinctrl-1 = <&i2c_7_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <84>;
+		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+			<&dma_blsp1 9 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		status = "disabled";
+	};
+
+	i2c_8: i2c@7AF8000 { /* BLSP2 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7AF8000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 302 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <84>;
+		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
+			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		status = "disabled";
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&tlmm 87 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 86 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 85 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+		};
+	};
+
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		vcc_ana-supply = <&pm8953_l10>;
+		vcc_dig-supply = <&pm8953_l5>;
+		qcom,afe-load = <50000>;
+		qcom,afe-vtg-min = <2850000>;
+		qcom,afe-vtg-max = <2850000>;
+		qcom,dig-load = <15000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+	};
+};
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
+
+&secure_mem {
+	status = "disabled";
+};
+
+&tlmm {
+	i2c_4 {
+		i2c_4_active: i2c_4_active {
+			/* active state */
+			mux {
+				pins = "gpio14", "gpio15";
+				function = "blsp_i2c4";
+			};
+
+			config {
+				pins = "gpio14", "gpio15";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		i2c_4_sleep: i2c_4_sleep {
+			/* suspended state */
+			mux {
+				pins = "gpio14", "gpio15";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio14", "gpio15";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
+	i2c_7 {
+		i2c_7_active: i2c_7_active {
+			/* active state */
+			mux {
+				pins = "gpio135", "gpio136";
+				function = "blsp_i2c7";
+			};
+
+			config {
+				pins = "gpio135", "gpio136";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		i2c_7_sleep: i2c_7_sleep {
+			/* suspended state */
+			mux {
+				pins = "gpio135", "gpio136";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio135", "gpio136";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
+	i2c_8 {
+		i2c_8_active: i2c_8_active {
+			/* active state */
+			mux {
+				pins = "gpio98", "gpio99";
+				function = "blsp_i2c8";
+			};
+
+			config {
+				pins = "gpio98", "gpio99";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		i2c_8_sleep: i2c_8_sleep {
+			/* suspended state */
+			mux {
+				pins = "gpio98", "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio98", "gpio99";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+&blsp1_uart0 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&i2c_4 {
+	status = "ok";
+
+	opt3001@44 {
+		compatible = "ti,opt3001";
+		reg = <0x44>; /* ALS_ADDR connected to ground */
+		status = "okay";
+	};
+
+	ina231@40 {
+		compatible = "ti,ina231";
+		reg = <0x40>;
+		shunt-resistor = <10000>;
+	};
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm8953_l8>;
+	qcom,vdd-voltage-level = <2900000 2900000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8953_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on  &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000
+								384000000>;
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS200_1p8v";
+
+	status = "ok";
+};
+
+&i2c_8 {
+	status = "ok";
+
+	tlc59108@42 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+		enable-gpio = <&tlmm 61 GPIO_ACTIVE_HIGH>;
+		compatible = "ti,tlc59108";
+		label = "tlc59108";
+		reg = <0x42>;
+
+		chan0@0 {
+			label = "tlc59108:chan0";
+			reg = <0x0>;
+		};
+
+		chan1@1 {
+			label = "tlc59108:chan1";
+			reg = <0x1>;
+		};
+
+		chan2@2 {
+			label = "tlc59108:chan2";
+			reg = <0x2>;
+		};
+
+		chan3@3 {
+			label = "tlc59108:chan3";
+			reg = <0x3>;
+		};
+
+		chan4@4 {
+			label = "tlc59108:chan4";
+			reg = <0x4>;
+		};
+
+		chan5@5 {
+			label = "tlc59108:chan5";
+			reg = <0x5>;
+		};
+
+		chan6@6 {
+			label = "tlc59108:chan6";
+			reg = <0x6>;
+		};
+
+		chan7@7 {
+			label = "tlc59108:chan7";
+			reg = <0x7>;
+		};
+	};
+
+	tlc59116@68 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+		enable-gpio = <&tlmm 61 GPIO_ACTIVE_HIGH>;
+		compatible = "ti,tlc59116";
+		label = "tlc59116";
+		reg = <0x68>;
+
+		chan0@0 {
+			label = "tlc59116:chan0";
+			reg = <0x0>;
+		};
+
+		chan1@1 {
+			label = "tlc59116:chan1";
+			reg = <0x1>;
+		};
+
+		chan2@2 {
+			label = "tlc59116:chan2";
+			reg = <0x2>;
+		};
+
+		chan3@3 {
+			label = "tlc59116:chan3";
+			reg = <0x3>;
+		};
+
+		chan4@4 {
+			label = "tlc59116:chan4";
+			reg = <0x4>;
+		};
+
+		chan5@5 {
+			label = "tlc59116:chan5";
+			reg = <0x5>;
+		};
+
+		chan6@6 {
+			label = "tlc59116:chan6";
+			reg = <0x6>;
+		};
+
+		chan7@7 {
+			label = "tlc59116:chan7";
+			reg = <0x7>;
+		};
+
+		chan8@8 {
+			label = "tlc59116:chan8";
+			reg = <0x8>;
+		};
+
+		chan9@9 {
+			label = "tlc59116:chan9";
+			reg = <0x9>;
+		};
+
+		chan10@10 {
+			label = "tlc59116:chan10";
+			reg = <0xa>;
+		};
+
+		chan11@11 {
+			label = "tlc59116:chan11";
+			reg = <0xb>;
+		};
+
+		chan12@12 {
+			label = "tlc59116:chan12";
+			reg = <0xc>;
+		};
+
+		chan13@13 {
+			label = "tlc59116:chan13";
+			reg = <0xd>;
+		};
+
+		chan14@14 {
+			label = "tlc59116:chan14";
+			reg = <0xe>;
+		};
+
+		chan15@15 {
+			label = "tlc59116:chan15";
+			reg = <0xf>;
+		};
+	};
+
+};
+
+&i2c_3 {
+	status = "ok";
+	eeprom0: qcom,eeprom@0 {
+		cell-index = <0>;
+		reg = <0x56>;
+		qcom,eeprom-name = "cat24c512";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0x56>;
+		qcom,cci-master = <0>;
+		/* For 512 Kb eeprom chip
+		 * add 8 logic eeprom blcoks each is 8KB
+		 */
+		qcom,num-blocks = <8>;
+
+		qcom,page0 = <0 0 0 0 0 0>;
+		qcom,poll0 = <0 0 0 0 0 0>;
+		qcom,saddr0 = <0x56>;
+		qcom,mem0 = <8192 0x0000 2 0 1 0>;
+
+		qcom,page1 = <0 0 0 0 0 0>;
+		qcom,poll1 = <0 0 0 0 0 0>;
+		qcom,saddr1 = <0x56>;
+		qcom,mem1 = <8192 0x2000 2 0 1 0>;
+
+		qcom,page2 = <0 0 0 0 0 0>;
+		qcom,poll2 = <0 0 0 0 0 0>;
+		qcom,saddr2 = <0x56>;
+		qcom,mem2 = <8192 0x4000 2 0 1 0>;
+
+		qcom,page3 = <0 0 0 0 0 0>;
+		qcom,poll3 = <0 0 0 0 0 0>;
+		qcom,saddr3 = <0x56>;
+		qcom,mem3 = <8192 0x6000 2 0 1 0>;
+
+		qcom,page4 = <0 0 0 0 0 0>;
+		qcom,poll4 = <0 0 0 0 0 0>;
+		qcom,saddr4 = <0x56>;
+		qcom,mem4 = <8192 0x8000 2 0 1 0>;
+
+		qcom,page5 = <0 0 0 0 0 0>;
+		qcom,poll5 = <0 0 0 0 0 0>;
+		qcom,saddr5 = <0x56>;
+		qcom,mem5 = <8192 0xA000 2 0 1 0>;
+
+		qcom,page6 = <0 0 0 0 0 0>;
+		qcom,poll6 = <0 0 0 0 0 0>;
+		qcom,saddr6 = <0x56>;
+		qcom,mem6 = <8192 0xC000 2 0 1 0>;
+
+		qcom,page7 = <0 0 0 0 0 0>;
+		qcom,poll7 = <0 0 0 0 0 0>;
+		qcom,saddr7 = <0x56>;
+		qcom,mem7 = <8192 0xE000 2 0 1 0>;
+
+		cam_vio-supply = <&pm8953_l6>;
+		qcom,cam-vreg-name = "cam_vio";
+		qcom,cam-vreg-min-voltage = <0>;
+		qcom,cam-vreg-max-voltage = <0>;
+		qcom,cam-vreg-op-mode = <0>;
+		qcom,cam-power-seq-type = "sensor_vreg";
+		qcom,cam-power-seq-val = "cam_vio";
+		qcom,cam-power-seq-cfg-val = <1>;
+		qcom,cam-power-seq-delay = <1>;
+		status = "ok";
+	};
+};
+
+&sdhc_2 {
+	/* device core power supply */
+	vdd-supply = <&pm8953_l10>;
+	qcom,vdd-voltage-level = <18000000 1800000>;
+	qcom,vdd-current-level = <200 22000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8953_l12>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+		1 &intc 0 221 0
+		2 &tlmm 45 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+	/*cd-gpios = <&tlmm 45 0x1>;*/
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+								200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	status = "ok";
+};
+
+&pm8953_typec {
+	status = "disabled";
+};
