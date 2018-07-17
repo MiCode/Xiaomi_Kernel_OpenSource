@@ -224,6 +224,12 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 			return -ENOMEM;
 	}
 
+	if ((port->data_format & RMNET_INGRESS_FORMAT_PS) &&
+	    !qmi_rmnet_work_get_active(port)) {
+		/* register for powersave indications*/
+		qmi_rmnet_work_restart(port);
+	}
+
 	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV4)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev);
 
