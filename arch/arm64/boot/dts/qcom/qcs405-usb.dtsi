@@ -76,7 +76,7 @@
 		vdd-supply = <&pms405_l4>;
 		vdda18-supply = <&pms405_l5>;
 		vdda33-supply = <&pms405_l12>;
-		qcom,vdd-voltage-level = <0 1144000 1144000>;
+		qcom,vdd-voltage-level = <0 1144000 1200000>;
 
 		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
 			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>;
@@ -181,7 +181,7 @@
 		vdd-supply = <&pms405_l4>;
 		vdda18-supply = <&pms405_l5>;
 		vdda33-supply = <&pms405_l12>;
-		qcom,vdd-voltage-level = <0 1144000 1144000>;
+		qcom,vdd-voltage-level = <0 1144000 1200000>;
 
 		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
 			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>;
