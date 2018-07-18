@@ -105,7 +105,6 @@ enum gmu_load_mode {
  * @reg_phys: GMU CSR physical address
  * @reg_virt: GMU CSR virtual address
  * @reg_len: GMU CSR range
- * @pdc_reg_virt: starting kernel virtual address for RPMh PDC registers
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: descriptor of GMU memory that has GMU image in it
  * @hfi_mem: pointer to HFI shared memory
@@ -142,7 +141,6 @@ struct gmu_device {
 	unsigned long reg_phys;
 	void __iomem *reg_virt;
 	unsigned int reg_len;
-	void __iomem *pdc_reg_virt;
 	unsigned int gmu_interrupt_num;
 	struct gmu_memdesc cached_fw_image;
 	struct gmu_memdesc *fw_image;
