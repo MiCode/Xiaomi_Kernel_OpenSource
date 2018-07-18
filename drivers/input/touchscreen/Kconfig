@@ -1291,16 +1291,4 @@ config TOUCHSCREEN_GT9XX_v28
 
 source "drivers/input/touchscreen/gt9xx_v2.8/Kconfig"
 
-config TOUCHSCREEN_HIMAX_CHIPSET
-	bool "Himax touchpanel CHIPSET"
-	depends on I2C
-	help
-	  Say Y here if you have a Himax CHIPSET touchscreen.
-	  HIMAX controllers are multi touch controllers which can
-	  report 10 touches at a time.
-
-	  If unsure, say N.
-
-source "drivers/input/touchscreen/hxchipset/Kconfig"
-
 endif
