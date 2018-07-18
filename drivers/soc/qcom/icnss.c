@@ -1205,6 +1205,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
+		if (wlfw_send_modem_shutdown_msg(priv))
+			icnss_pr_dbg("Fail to send modem shutdown Indication\n");
+	}
+
 	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
@@ -1238,7 +1243,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	event_data->crashed = notif->crashed;
 
 	fw_down_data.crashed = !!notif->crashed;
-	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
+	if (test_bit(ICNSS_FW_READY, &priv->state) &&
+	    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+		icnss_call_driver_uevent(priv,
+					 ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);

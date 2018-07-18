@@ -13,7 +13,7 @@
 
 &soc {
 	gfx_iommu: qcom,iommu@1f00000 {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1f00000 0x10000>,
 			<0x1ee2000 0x20>;
@@ -21,22 +21,23 @@
 		#iommu-cells = <2>;
 		qcom,tz-device-id = "GPU";
 		qcom,skip-init;
+		qcom,disable-atos;
 		qcom,dynamic;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <0>;
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;
-		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clock_gcc GCC_SMMU_CFG_CLK>,
 				<&clock_gcc GCC_GFX_TCU_CLK>;
 		clock-names = "iface_clk", "core_clk";
 	};
 
-	apps_iommu: qcom,iommu@1e00000 {
+	apps_smmu: qcom,iommu@1e00000 {
 		status = "okay";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1e00000 0x40000>,
@@ -45,6 +46,7 @@
 		#iommu-cells = <2>;
 		qcom,tz-device-id = "APPS";
 		qcom,skip-init;
+		qcom,disable-atos;
 		qcom,enable-static-cb;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <0>;

@@ -1,0 +1,86 @@
+#
+# Himax Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_HIMAX_I2C
+	tristate "HIMAX chipset i2c touchscreen"
+	depends on TOUCHSCREEN_HIMAX_CHIPSET
+	help
+	  This enables support for HIMAX CHIPSET over I2C based touchscreens.
+
+
+# ***************** On-cell Start *****************
+config TOUCHSCREEN_HIMAX_ONCELL
+	tristate "HIMAX chipset on-cell function"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX CHIPSET of on-cell function.
+
+config TOUCHSCREEN_HIMAX_IC_HX852xH
+	tristate "HIMAX chipset HX852xH function"
+	depends on TOUCHSCREEN_HIMAX_ONCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX852xH.
+
+config TOUCHSCREEN_HIMAX_IC_HX852xG
+	tristate "HIMAX chipset HX852xG function"
+	depends on TOUCHSCREEN_HIMAX_ONCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX852xG.
+# ***************** On-cell End *******************
+
+# ***************** In-cell Start *****************
+config TOUCHSCREEN_HIMAX_INCELL
+	tristate "HIMAX chipset in-cell function"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX CHIPSET of in-cell function.
+
+config TOUCHSCREEN_HIMAX_IC_HX83191
+	tristate "HIMAX chipset HX83191 function"
+	depends on TOUCHSCREEN_HIMAX_INCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX83191.
+
+config TOUCHSCREEN_HIMAX_IC_HX83112
+	tristate "HIMAX chipset HX83112 function"
+	depends on TOUCHSCREEN_HIMAX_INCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX83112.
+
+config TOUCHSCREEN_HIMAX_IC_HX83111
+	tristate "HIMAX chipset HX83111 function"
+	depends on TOUCHSCREEN_HIMAX_INCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX83111.
+
+config TOUCHSCREEN_HIMAX_IC_HX83103
+	tristate "HIMAX chipset HX83103 function"
+	depends on TOUCHSCREEN_HIMAX_INCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX83103.
+
+config TOUCHSCREEN_HIMAX_IC_HX83102
+	tristate "HIMAX chipset HX83102 function"
+	depends on TOUCHSCREEN_HIMAX_INCELL
+	help
+	  This enables support for HIMAX CHIPSET of HX83102.
+# ***************** In-cell End *******************
+
+config TOUCHSCREEN_HIMAX_DEBUG
+	tristate "HIMAX debug function"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX debug function.
+
+config TOUCHSCREEN_HIMAX_INSPECT
+	tristate "HIMAX inspect function"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX debug function.
+
+config HMX_DB
+	tristate "HIMAX driver test over Dragon Board"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX driver test over Dragon Board.

@@ -33,10 +33,6 @@
 				     0x0 0x4>;
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	timer {
 		clock-frequency = <0x100000>;
 	};
@@ -46,7 +42,13 @@
 	};
 };
 
-&usb0 {
+&usb3 {
+	/delete-property/ extcon;
+	status = "disabled";
+};
+
+&usb2s {
+	/delete-property/ extcon;
 	dwc3@78c0000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
@@ -77,6 +79,7 @@
 	/delete-node/ qcom,spmi@200f000;
 	/delete-node/ regulator@1942120;
 	/delete-node/ regulator@b018000;
+	/delete-node/ usb3_extcon;
 };
 
 &rpm_bus {

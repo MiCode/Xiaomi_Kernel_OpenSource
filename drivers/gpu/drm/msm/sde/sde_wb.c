@@ -818,6 +818,7 @@ static struct platform_driver sde_wb_driver = {
 	.driver = {
 		.name = "sde_wb",
 		.of_match_table = dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

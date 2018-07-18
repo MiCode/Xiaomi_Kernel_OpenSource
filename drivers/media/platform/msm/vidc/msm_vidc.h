@@ -21,7 +21,7 @@
 #include <media/msm_vidc_private.h>
 #include <media/msm_vidc_utils.h>
 
-#define HAL_BUFFER_MAX 0xd
+#define HAL_BUFFER_MAX 0xe
 
 enum smem_type {
 	SMEM_DMA = 1,
@@ -133,5 +133,4 @@ int msm_vidc_g_crop(void *instance, struct v4l2_crop *a);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
 int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 		struct msm_vidc_arg *arg);
-
 #endif

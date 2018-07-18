@@ -18,6 +18,7 @@
 #include "adreno_snapshot.h"
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
+#include "kgsl_gmu_core.h"
 
 #define A6XX_NUM_CTXTS 2
 #define A6XX_NUM_AXI_ARB_BLOCKS 2
@@ -1491,12 +1492,18 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
-	unsigned int i;
+	unsigned int i, roq_size;
+
+	/* ROQ size is 0x800 DW on a640 and a680 */
+	roq_size = adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev) ?
+		(snap_data->sect_sizes->roq * 2) : snap_data->sect_sizes->roq;
 
 	/* GMU TCM data dumped through AHB */
-	a6xx_gmu_snapshot(adreno_dev, snapshot);
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
+		gmu_dev_ops->snapshot(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
@@ -1544,8 +1551,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* CP ROQ */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, adreno_snapshot_cp_roq,
-		&snap_data->sect_sizes->roq);
+		snapshot, adreno_snapshot_cp_roq, &roq_size);
 
 	/* SQE Firmware */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,

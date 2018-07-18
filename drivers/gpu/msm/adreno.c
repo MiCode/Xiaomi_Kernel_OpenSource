@@ -1832,16 +1832,16 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Send OOB request to turn on the GX */
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		status = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (status)
 			goto error_mmu_off;
 	}
 
-	if (gmu_dev_ops->hfi_start_msg) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, hfi_start_msg)) {
 		status = gmu_dev_ops->hfi_start_msg(adreno_dev);
 		if (status)
-			goto error_mmu_off;
+			goto error_oob_clear;
 	}
 
 	/* Enable 64 bit gpu addr if feature is set */
@@ -1967,6 +1967,17 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		}
 	}
 
+	if (gmu_core_isenabled(device) && adreno_dev->perfctr_ifpc_lo == 0) {
+		ret = adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 4,
+				&adreno_dev->perfctr_ifpc_lo, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
+		if (ret) {
+			WARN_ONCE(1, "Unable to get perf counter for IFPC\n");
+			adreno_dev->perfctr_ifpc_lo = 0;
+		}
+	}
+
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.bif_ram_cycles = 0;
@@ -1975,6 +1986,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
 	adreno_dev->busy_data.bif_starved_ram = 0;
 	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
+	adreno_dev->busy_data.num_ifpc = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2016,7 +2028,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 				pmqos_active_vote);
 
 	/* Send OOB request to allow IFPC */
-	if (gmu_dev_ops->oob_clear) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear)) {
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 		/* If we made it this far, the BOOT OOB was sent to the GMU */
@@ -2027,7 +2039,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	return 0;
 
 error_oob_clear:
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 error_mmu_off:
@@ -2080,9 +2092,9 @@ static int adreno_stop(struct kgsl_device *device)
 		return 0;
 
 	/* Turn the power on one last time before stopping */
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		error = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
-		if (error) {
+		if (error && GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear)) {
 			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 			if (gmu_core_regulator_isenabled(device)) {
 				/* GPU is on. Try recovery */
@@ -2116,7 +2128,7 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	/*
@@ -2125,7 +2137,7 @@ static int adreno_stop(struct kgsl_device *device)
 	 * GMU to return to the lowest idle level. This is
 	 * because some idle level transitions require VBIF and MMU.
 	 */
-	if (!error && gmu_dev_ops->wait_for_lowest_idle &&
+	if (!error && GMU_DEV_OP_VALID(gmu_dev_ops, wait_for_lowest_idle) &&
 			gmu_dev_ops->wait_for_lowest_idle(adreno_dev)) {
 
 		gmu_core_setbit(device, GMU_FAULT);
@@ -2206,13 +2218,17 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		/* since device is officially off now clear start bit */
 		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-		/* Keep trying to start the device until it works */
-		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-			ret = adreno_start(device, 0);
-			if (!ret)
-				break;
+		/* Try to reset the device */
+		ret = adreno_start(device, 0);
 
-			msleep(20);
+		/* On some GPUS, keep trying until it works */
+		if (ret && ADRENO_GPUREV(adreno_dev) < 600) {
+			for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+				msleep(20);
+				ret = adreno_start(device, 0);
+				if (!ret)
+					break;
+			}
 		}
 	}
 	if (ret)
@@ -2777,7 +2793,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int ret;
 
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (ret)
 			return ret;
@@ -2801,7 +2817,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	else
 		ret = _soft_reset(adreno_dev);
 	if (ret) {
-		if (gmu_dev_ops->oob_clear)
+		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 		return ret;
 	}
@@ -2855,7 +2871,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	return ret;
@@ -3111,9 +3127,50 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
+/**
+ * adreno_gmu_clear_and_unmask_irqs() - Clear pending IRQs and Unmask IRQs
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
+ */
+void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+
+	/* Clear any pending IRQs before unmasking on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+
+	/* Unmask needed IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~(gmu_dev_ops->gmu2host_intr_mask));
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			(unsigned int) ~(gmu_dev_ops->gmu_ao_intr_mask));
+}
+
+/**
+ * adreno_gmu_mask_and_clear_irqs() - Mask all IRQs and clear pending IRQs
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
+ */
+void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev)
+{
+	/* Mask all IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			0xFFFFFFFF);
+
+	/* Clear any pending IRQs before disabling */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+}
+
 /*
  * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
- * @adreno_dev: Pointer to the Adreno device device that owns the GMU
+ * @adreno_dev: Pointer to the Adreno device that owns the GMU
  * @offset: 32bit register enum that is to be written
  * @val: The value to be written to the register
  * @fence_mask: The value to poll the fence status register
@@ -3162,7 +3219,7 @@ unsigned int adreno_gmu_ifpc_show(struct adreno_device *adreno_dev)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->ifpc_show)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, ifpc_show))
 		return gmu_dev_ops->ifpc_show(adreno_dev);
 
 	return 0;
@@ -3173,7 +3230,7 @@ int adreno_gmu_ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->ifpc_store)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, ifpc_store))
 		return gmu_dev_ops->ifpc_store(adreno_dev, val);
 
 	return -EINVAL;
@@ -3456,6 +3513,17 @@ static void adreno_power_stats(struct kgsl_device *device,
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;
 	}
+
+	if (adreno_dev->perfctr_ifpc_lo != 0) {
+		uint32_t num_ifpc;
+
+		num_ifpc = counter_delta(device, adreno_dev->perfctr_ifpc_lo,
+				&busy->num_ifpc);
+		adreno_dev->ifpc_count += num_ifpc;
+		if (num_ifpc > 0)
+			trace_adreno_ifpc_count(adreno_dev->ifpc_count);
+	}
+
 	if (adreno_dev->lm_threshold_count &&
 			gpudev->count_throttles)
 		gpudev->count_throttles(adreno_dev, adj);

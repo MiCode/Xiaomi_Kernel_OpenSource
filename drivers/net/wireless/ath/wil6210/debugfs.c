@@ -1335,6 +1335,8 @@ static int wil_bf_debugfs_show(struct seq_file *s, void *data)
 		struct wmi_notify_req_done_event evt;
 	} __packed reply;
 
+	memset(&reply, 0, sizeof(reply));
+
 	for (i = 0; i < ARRAY_SIZE(wil->sta); i++) {
 		u32 status;
 
@@ -1678,8 +1680,7 @@ static void wil_print_rxtid(struct seq_file *s, struct wil_tid_ampdu_rx *r)
 	u16 index = ((r->head_seq_num - r->ssn) & 0xfff) % r->buf_size;
 	unsigned long long drop_dup = r->drop_dup, drop_old = r->drop_old;
 
-	seq_printf(s, "([%2d] %3d TU) 0x%03x [", r->buf_size, r->timeout,
-		   r->head_seq_num);
+	seq_printf(s, "([%2d]) 0x%03x [", r->buf_size, r->head_seq_num);
 	for (i = 0; i < r->buf_size; i++) {
 		if (i == index)
 			seq_printf(s, "%c", r->reorder_buf[i] ? 'O' : '|');
@@ -2165,6 +2166,8 @@ static const struct dbg_off dbg_wil_off[] = {
 	WIL_FIELD(wakeup_trigger, 0644,		doff_u8),
 	WIL_FIELD(ring_idle_trsh, 0644,	doff_u32),
 	WIL_FIELD(num_rx_status_rings, 0644,	doff_u8),
+	WIL_FIELD(amsdu_en, 0644,	doff_u8),
+	WIL_FIELD(force_edmg_channel, 0644,	doff_u8),
 	{},
 };
 

@@ -369,6 +369,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(recharge_soc),
 	POWER_SUPPLY_ATTR(hvdcp_opti_allowed),
 	POWER_SUPPLY_ATTR(smb_en_mode),
+	POWER_SUPPLY_ATTR(esr_actual),
+	POWER_SUPPLY_ATTR(esr_nominal),
+	POWER_SUPPLY_ATTR(soh),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

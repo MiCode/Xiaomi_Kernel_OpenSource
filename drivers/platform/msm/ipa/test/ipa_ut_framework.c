@@ -1035,9 +1035,10 @@ static void ipa_ut_ipa_ready_cb(void *user_data)
  * If IPA driver already ready, continue initialization immediately.
  * if not, wait for IPA ready notification by IPA driver context
  */
-static int __init ipa_ut_module_init(void)
+int __init ipa_ut_module_init(void)
 {
-	int ret;
+	int ret = 0;
+	bool init_framewok = true;
 
 	IPA_UT_INFO("Loading IPA test module...\n");
 
@@ -1049,14 +1050,34 @@ static int __init ipa_ut_module_init(void)
 	mutex_init(&ipa_ut_ctx->lock);
 
 	if (!ipa_is_ready()) {
+		init_framewok = false;
+
 		IPA_UT_DBG("IPA driver not ready, registering callback\n");
+
 		ret = ipa_register_ipa_ready_cb(ipa_ut_ipa_ready_cb, NULL);
 
 		/*
-		 * If we received -EEXIST, IPA has initialized. So we need
-		 * to continue the initing process.
+		 * If the call to ipa_register_ipa_ready_cb() above
+		 * returns 0, this means that we've succeeded in
+		 * queuing up a future call to ipa_ut_framework_init()
+		 * and that the call to it will be made once the IPA
+		 * becomes ready.  If this is the case, the call to
+		 * ipa_ut_framework_init() below need not be made.
+		 *
+		 * If the call to ipa_register_ipa_ready_cb() above
+		 * returns -EEXIST, it means that during the call to
+		 * ipa_register_ipa_ready_cb(), the IPA has become
+		 * ready, and hence, no indirect call to
+		 * ipa_ut_framework_init() will be made, so we need to
+		 * call it ourselves below.
+		 *
+		 * If the call to ipa_register_ipa_ready_cb() above
+		 * return something other than 0 or -EEXIST, that's a
+		 * hard error.
 		 */
-		if (ret != -EEXIST) {
+		if (ret == -EEXIST) {
+			init_framewok = true;
+		} else {
 			if (ret) {
 				IPA_UT_ERR("IPA CB reg failed - %d\n", ret);
 				kfree(ipa_ut_ctx);
@@ -1066,12 +1087,15 @@ static int __init ipa_ut_module_init(void)
 		}
 	}
 
-	ret = ipa_ut_framework_init();
-	if (ret) {
-		IPA_UT_ERR("framework init failed\n");
-		kfree(ipa_ut_ctx);
-		ipa_ut_ctx = NULL;
+	if (init_framewok) {
+		ret = ipa_ut_framework_init();
+		if (ret) {
+			IPA_UT_ERR("framework init failed\n");
+			kfree(ipa_ut_ctx);
+			ipa_ut_ctx = NULL;
+		}
 	}
+
 	return ret;
 }
 
@@ -1080,7 +1104,7 @@ static int __init ipa_ut_module_init(void)
  *
  * Destroys the Framework and removes its context
  */
-static void ipa_ut_module_exit(void)
+void ipa_ut_module_exit(void)
 {
 	IPA_UT_DBG("Entry\n");
 
@@ -1092,8 +1116,9 @@ static void ipa_ut_module_exit(void)
 	ipa_ut_ctx = NULL;
 }
 
+#if !defined(CONFIG_IPA_EMULATION) /* On real UE, we have a module */
 module_init(ipa_ut_module_init);
 module_exit(ipa_ut_module_exit);
-
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA Unit Test module");
+#endif

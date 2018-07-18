@@ -20,7 +20,7 @@
 #define IP_VER_4 4
 #define IP_VER_6 6
 
-#define MAX_MODEM_NUM 2
+#define MAX_CLIENT_NUM 2
 
 struct rmnet_flow_map {
 	struct list_head list;
@@ -35,7 +35,6 @@ struct rmnet_bearer_map {
 	u8 bearer_id;
 	int flow_ref;
 	u32 grant_size;
-	u32 counter;
 	u16 seq;
 	u8  ack_req;
 };
@@ -52,18 +51,18 @@ struct fc_info {
 };
 
 struct qos_info {
-	uint8_t mux_id;
+	u8 mux_id;
 	struct net_device *real_dev;
-	rwlock_t flow_map_lock;
 	struct list_head flow_head;
 	struct list_head bearer_head;
-	uint32_t default_grant;
-	uint32_t tran_num;
+	u32 default_grant;
+	u32 tran_num;
 };
 
 struct qmi_info {
-	int modem_count;
-	struct fc_info fc_info[MAX_MODEM_NUM];
+	int client_count;
+	int flag;
+	struct fc_info fc_info[MAX_CLIENT_NUM];
 };
 
 enum data_ep_type_enum_v01 {
@@ -79,21 +78,23 @@ enum data_ep_type_enum_v01 {
 struct data_ep_id_type_v01 {
 
 	enum data_ep_type_enum_v01 ep_type;
-	uint32_t iface_id;
+	u32 iface_id;
 };
 
 extern struct qmi_elem_info data_ep_id_type_v01_ei[];
 
 struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
-		       uint32_t flow_id, int ip_type);
+		       u32 flow_id, int ip_type);
 
 struct rmnet_bearer_map *
-qmi_rmnet_get_bearer_map(struct qos_info *qos_info, uint8_t bearer_id);
+qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id);
 
-int dfc_qmi_client_init(void *port, int modem);
+int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
 
 void dfc_qmi_client_exit(void *dfc_data);
+
+void dfc_reset_port_pt(void *dfc_data);
 
 void dfc_qmi_burst_check(struct net_device *dev,
 			 struct qos_info *qos, struct sk_buff *skb);

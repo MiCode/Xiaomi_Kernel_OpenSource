@@ -108,7 +108,7 @@ struct hdmi_video_config {
 };
 
 struct hdmi_panel {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct hdmi_util_ds_data *ds_data;
 	struct hdmi_panel_data *data;
 	struct hdmi_video_config vid_cfg;
@@ -275,7 +275,7 @@ static int hdmi_panel_setup_video(struct hdmi_panel *panel)
 	u32 total_h, start_h, end_h;
 	u32 total_v, start_v, end_v;
 	u32 div = 0;
-	struct mdss_io_data *io = panel->io;
+	struct dss_io_data *io = panel->io;
 	struct msm_hdmi_mode_timing_info *timing;
 
 	timing = panel->vid_cfg.timing;
@@ -342,7 +342,7 @@ static void hdmi_panel_set_avi_infoframe(struct hdmi_panel *panel)
 	u8  avi_iframe[AVI_MAX_DATA_BYTES] = {0};
 	u8 checksum;
 	u32 sum, reg_val;
-	struct mdss_io_data *io = panel->io;
+	struct dss_io_data *io = panel->io;
 	struct hdmi_avi_infoframe_config *avi;
 	struct msm_hdmi_mode_timing_info *timing;
 
@@ -477,7 +477,7 @@ static void hdmi_panel_set_vendor_specific_infoframe(void *input)
 	u32 sum, reg_val;
 	u32 hdmi_vic, hdmi_video_format, s3d_struct = 0;
 	struct hdmi_panel *panel = input;
-	struct mdss_io_data *io = panel->io;
+	struct dss_io_data *io = panel->io;
 
 	/* HDMI Spec 1.4a Table 8-10 */
 	vs_iframe[0] = 0x81; /* type */
@@ -564,7 +564,7 @@ static void hdmi_panel_set_spd_infoframe(struct hdmi_panel *panel)
 	u32 packet_control = 0;
 	u8 *vendor_name = NULL;
 	u8 *product_description = NULL;
-	struct mdss_io_data *io = panel->io;
+	struct dss_io_data *io = panel->io;
 
 	vendor_name = panel->spd_vendor_name;
 	product_description = panel->spd_product_description;

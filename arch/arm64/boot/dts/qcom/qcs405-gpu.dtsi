@@ -110,9 +110,9 @@
 			/* TURBO */
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <650000000>;
+				qcom,gpu-freq = <598000000>;
 				qcom,bus-freq = <8>;
-				qcom,bus-min = <8>;
+				qcom,bus-min = <7>;
 				qcom,bus-max = <8>;
 			};
 
@@ -180,7 +180,7 @@
 		qcom,retention;
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
-			iommus = <&gfx_iommu 0>;
+			iommus = <&gfx_iommu 0 1>;
 			qcom,gpu-offset = <0xa000>;
 		};
 	};

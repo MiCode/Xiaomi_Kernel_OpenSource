@@ -2225,7 +2225,7 @@ static void mmc_blk_data_prep(struct mmc_queue *mq, struct mmc_queue_req *mqrq,
 	}
 
 	mqrq->areq.mrq = &brq->mrq;
-	mqrq->areq.mrq->req = mqrq->req;
+	mqrq->areq.mrq->req = req;
 	mqrq->areq.err_check = mmc_blk_err_check;
 }
 
@@ -2388,14 +2388,14 @@ out:
 static struct mmc_cmdq_req *mmc_cmdq_prep_dcmd(
 		struct mmc_queue_req *mqrq, struct mmc_queue *mq)
 {
-	struct request *req = mqrq->req;
+	struct request *req = mmc_queue_req_to_req(mqrq);
 	struct mmc_cmdq_req *cmdq_req = &mqrq->cmdq_req;
 
 	memset(&mqrq->cmdq_req, 0, sizeof(struct mmc_cmdq_req));
 
 	cmdq_req->mrq.data = NULL;
 	cmdq_req->cmd_flags = req->cmd_flags;
-	cmdq_req->mrq.req = mqrq->req;
+	cmdq_req->mrq.req = req;
 	req->special = mqrq;
 	cmdq_req->cmdq_req_flags |= DCMD;
 	cmdq_req->mrq.cmdq_req = cmdq_req;
@@ -2418,8 +2418,7 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_prep_discard_req(struct mmc_queue *mq,
 
 	set_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
 
-	active_mqrq = &mq->mqrq_cmdq[req->tag];
-	active_mqrq->req = req;
+	active_mqrq = req_to_mmc_queue_req(req);
 
 	cmdq_req = mmc_cmdq_prep_dcmd(active_mqrq, mq);
 	cmdq_req->cmdq_req_flags |= QBR;
@@ -2553,7 +2552,7 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 		struct mmc_queue_req *mqrq, struct mmc_queue *mq)
 {
 	struct mmc_card *card = mq->card;
-	struct request *req = mqrq->req;
+	struct request *req = mmc_queue_req_to_req(mqrq);
 	struct mmc_blk_data *md = mq->blkdata;
 	bool do_rel_wr = mmc_req_rel_wr(req) && (md->flags & MMC_BLK_REL_WR);
 	bool do_data_tag;
@@ -2615,14 +2614,14 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 	}
 
 	mqrq->cmdq_req.cmd_flags = req->cmd_flags;
-	mqrq->cmdq_req.mrq.req = mqrq->req;
+	mqrq->cmdq_req.mrq.req = req;
 	mqrq->cmdq_req.mrq.cmdq_req = &mqrq->cmdq_req;
 	mqrq->cmdq_req.mrq.data = &mqrq->cmdq_req.data;
-	mqrq->req->special = mqrq;
+	req->special = mqrq;
 
 	pr_debug("%s: %s: mrq: 0x%p req: 0x%p mqrq: 0x%p bytes to xf: %d\n",
 		mmc_hostname(card->host), __func__, &mqrq->cmdq_req.mrq,
-		mqrq->req, mqrq, (cmdq_rq->data.blocks * cmdq_rq->data.blksz));
+		req, mqrq, (cmdq_rq->data.blocks * cmdq_rq->data.blksz));
 	pr_debug("%s: %s: mmc_cmdq_req: 0x%p card-addr: 0x%08x dir(r-1/w-0): %d\n",
 		mmc_hostname(card->host), __func__,
 		cmdq_rq, cmdq_rq->blk_addr,
@@ -2658,8 +2657,7 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	BUG_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.data_active_reqs));
 	BUG_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.active_reqs));
 
-	active_mqrq = &mq->mqrq_cmdq[req->tag];
-	active_mqrq->req = req;
+	active_mqrq = req_to_mmc_queue_req(req);
 
 	mc_rq = mmc_blk_cmdq_rw_prep(active_mqrq, mq);
 
@@ -2722,8 +2720,7 @@ int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
 
 	set_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
 
-	active_mqrq = &mq->mqrq_cmdq[req->tag];
-	active_mqrq->req = req;
+	active_mqrq = req_to_mmc_queue_req(req);
 
 	cmdq_req = mmc_cmdq_prep_dcmd(active_mqrq, mq);
 	cmdq_req->cmdq_req_flags |= QBR;

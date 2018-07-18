@@ -16,3 +16,12 @@
 &qupv3_se0_2uart {
 	status = "ok";
 };
+
+&pm6150l_wled {
+	qcom,string-cfg= <7>;
+	status = "ok";
+};
+
+&pm6150l_lcdb {
+	status = "ok";
+};

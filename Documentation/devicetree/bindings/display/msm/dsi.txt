@@ -127,6 +127,7 @@ Optional properties:
 					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
 					idle screen (footswitch control off) when this property is enabled.
 - qcom,dsi-phy-regulator-min-datarate-bps:  Minimum per lane data rate (bps) to turn on PHY regulator.
+- qcom,panel-force-clock-lane-hs:	A boolean property indicates that panel needs clock lanes in HS mode only
 
 [1] Documentation/devicetree/bindings/clock/clock-bindings.txt
 [2] Documentation/devicetree/bindings/graph.txt
@@ -237,4 +238,5 @@ Example:
 		qcom,dsi-phy-regulator-ldo-mode;
 		qcom,panel-allow-phy-poweroff;
 		qcom,dsi-phy-regulator-min-datarate-bps = <1200000000>;
+		qcom,panel-force-clock-lane-hs;
 	};

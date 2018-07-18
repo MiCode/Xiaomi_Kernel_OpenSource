@@ -118,6 +118,7 @@ enum hal_extradata_id {
 
 enum hal_property {
 	HAL_CONFIG_FRAME_RATE = 0x04000001,
+	HAL_CONFIG_OPERATING_RATE,
 	HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
 	HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
 	HAL_PARAM_UNCOMPRESSED_PLANE_ACTUAL_INFO,
@@ -406,6 +407,10 @@ enum hal_vp9_level {
 struct hal_frame_rate {
 	enum hal_buffer buffer_type;
 	u32 frame_rate;
+};
+
+struct hal_operating_rate {
+	u32 operating_rate;
 };
 
 enum hal_uncompressed_format {

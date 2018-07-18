@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <drm/drm_fixed.h>
 
 #include "dp_ctrl.h"
 
@@ -147,7 +148,7 @@ trigger_idle:
 
 	if (!wait_for_completion_timeout(&ctrl->idle_comp,
 			idle_pattern_completion_timeout_ms))
-		pr_warn("PUSH_IDLE pattern timedout\n");
+		pr_warn("PUSH_IDLE time out\n");
 
 	pr_debug("mainlink off done\n");
 }
@@ -179,11 +180,11 @@ static int dp_ctrl_wait4video_ready(struct dp_ctrl_private *ctrl)
 
 	ret = wait_for_completion_timeout(&ctrl->video_comp, HZ / 2);
 	if (ret <= 0) {
-		pr_err("Link Train timedout\n");
-		ret = -EINVAL;
+		pr_err("SEND_VIDEO time out (%d)\n", ret);
+		return -EINVAL;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
@@ -838,20 +839,96 @@ static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
 	ctrl->catalog->reset(ctrl->catalog);
 }
 
+static void dp_ctrl_send_video(struct dp_ctrl_private *ctrl)
+{
+	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+}
+
+static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
+		struct dp_panel *panel, u32 *p_x_int, u32 *p_y_frac_enum)
+{
+	u64 min_slot_cnt, max_slot_cnt;
+	u64 raw_target_sc, target_sc_fixp;
+	u64 ts_denom, ts_enum, ts_int;
+	u64 pclk = panel->pinfo.pixel_clk_khz;
+	u64 lclk = panel->link_info.rate;
+	u64 lanes = panel->link_info.num_lanes;
+	u64 bpp = panel->pinfo.bpp;
+	u64 pbn = panel->pbn;
+	u64 numerator, denominator, temp, temp1, temp2;
+	u32 x_int = 0, y_frac_enum = 0;
+	u64 target_strm_sym, ts_int_fixp, ts_frac_fixp, y_frac_enum_fixp;
+
+	/* min_slot_cnt */
+	numerator = pclk * bpp * 64 * 1000;
+	denominator = lclk * lanes * 8 * 1000;
+	min_slot_cnt = drm_fixp_from_fraction(numerator, denominator);
+
+	/* max_slot_cnt */
+	numerator = pbn * 54 * 1000;
+	denominator = lclk * lanes;
+	max_slot_cnt = drm_fixp_from_fraction(numerator, denominator);
+
+	/* raw_target_sc */
+	numerator = max_slot_cnt + min_slot_cnt;
+	denominator = drm_fixp_from_fraction(2, 1);
+	raw_target_sc = drm_fixp_div(numerator, denominator);
+
+	/* target_sc */
+	temp = drm_fixp_from_fraction(256 * lanes, 1);
+	numerator = drm_fixp_mul(raw_target_sc, temp);
+	denominator = drm_fixp_from_fraction(256 * lanes, 1);
+	target_sc_fixp = drm_fixp_div(numerator, denominator);
+
+	ts_enum = 256 * lanes;
+	ts_denom = drm_fixp_from_fraction(256 * lanes, 1);
+	ts_int = drm_fixp2int(target_sc_fixp);
+
+	temp = drm_fixp2int_ceil(raw_target_sc);
+	if (temp != ts_int) {
+		temp = drm_fixp_from_fraction(ts_int, 1);
+		temp1 = raw_target_sc - temp;
+		temp2 = drm_fixp_mul(temp1, ts_denom);
+		ts_enum = drm_fixp2int(temp2);
+	}
+
+	/* target_strm_sym */
+	ts_int_fixp = drm_fixp_from_fraction(ts_int, 1);
+	ts_frac_fixp = drm_fixp_from_fraction(ts_enum, drm_fixp2int(ts_denom));
+	temp = ts_int_fixp + ts_frac_fixp;
+	temp1 = drm_fixp_from_fraction(lanes, 1);
+	target_strm_sym = drm_fixp_mul(temp, temp1);
+
+	/* x_int */
+	x_int = drm_fixp2int(target_strm_sym);
+
+	/* y_enum_frac */
+	temp = drm_fixp_from_fraction(x_int, 1);
+	temp1 = target_strm_sym - temp;
+	temp2 = drm_fixp_from_fraction(256, 1);
+	y_frac_enum_fixp = drm_fixp_mul(temp1, temp2);
+
+	temp1 = drm_fixp2int(y_frac_enum_fixp);
+	temp2 = drm_fixp2int_ceil(y_frac_enum_fixp);
+
+	y_frac_enum = (u32)((temp1 == temp2) ? temp1 : temp1 + 1);
+
+	*p_x_int = x_int;
+	*p_y_frac_enum = y_frac_enum;
+
+	pr_debug("x_int: %d, y_frac_enum: %d\n", x_int, y_frac_enum);
+}
+
 static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 		struct dp_panel *panel)
 {
 	u32 x_int, y_frac_enum, lanes, bw_code;
 	bool act_complete;
 
-	if (!ctrl->mst_mode) {
-		ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+	if (!ctrl->mst_mode)
 		return 0;
-	}
 
 	DP_MST_DEBUG("mst stream channel allocation\n");
-
-	panel->hw_cfg(panel);
 
 	ctrl->catalog->channel_alloc(ctrl->catalog,
 				panel->stream_id,
@@ -861,9 +938,7 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 	lanes = ctrl->link->link_params.lane_count;
 	bw_code = ctrl->link->link_params.bw_code;
 
-	x_int = (u32)(lanes * panel->channel_total_slots);
-	y_frac_enum = (u32)(256 * ((lanes * lanes *
-				panel->channel_total_slots) - x_int));
+	dp_ctrl_mst_calculate_rg(ctrl, panel, &x_int, &y_frac_enum);
 
 	ctrl->catalog->update_rg(ctrl->catalog, panel->stream_id,
 			x_int, y_frac_enum);
@@ -874,8 +949,6 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 
 	DP_MST_DEBUG("mst lane_cnt:%d, bw:%d, x_int:%d, y_frac:%d\n",
 			lanes, bw_code, x_int, y_frac_enum);
-
-	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
 
 	ctrl->catalog->trigger_act(ctrl->catalog);
 	msleep(20); /* needs 1 frame time */
@@ -897,8 +970,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	struct dp_ctrl_private *ctrl;
 
 	if (!dp_ctrl || !panel) {
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
@@ -906,7 +978,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	rc = dp_ctrl_enable_stream_clocks(ctrl, panel);
 	if (rc) {
 		pr_err("failure on stream clock enable\n");
-		goto end;
+		return rc;
 	}
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
@@ -914,16 +986,63 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return 0;
 	}
 
+	rc = panel->hw_cfg(panel);
+	if (rc)
+		return rc;
+
+	dp_ctrl_send_video(ctrl);
+
 	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
 	if (rc)
-		goto end;
+		return rc;
 
-	dp_ctrl_wait4video_ready(ctrl);
+	rc = dp_ctrl_wait4video_ready(ctrl);
+	if (rc)
+		return rc;
+
 	link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
 	pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
 
-end:
 	return rc;
+}
+
+static void dp_ctrl_mst_stream_pre_off(struct dp_ctrl *dp_ctrl,
+		struct dp_panel *panel)
+{
+	struct dp_ctrl_private *ctrl;
+	bool act_complete;
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	if (!ctrl->mst_mode)
+		return;
+
+	ctrl->catalog->channel_dealloc(ctrl->catalog,
+				panel->stream_id,
+				panel->channel_start_slot,
+				panel->channel_total_slots);
+
+	ctrl->catalog->trigger_act(ctrl->catalog);
+	msleep(20); /* needs 1 frame time */
+	ctrl->catalog->read_act_complete_sts(ctrl->catalog, &act_complete);
+
+	if (!act_complete)
+		pr_err("mst stream_off act trigger complete failed\n");
+	else
+		DP_MST_DEBUG("mst stream_off ACT trigger complete SUCCESS\n");
+}
+
+static void dp_ctrl_stream_pre_off(struct dp_ctrl *dp_ctrl,
+		struct dp_panel *panel)
+{
+	if (!dp_ctrl || !panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_ctrl_push_idle(dp_ctrl, panel->stream_id);
+
+	dp_ctrl_mst_stream_pre_off(dp_ctrl, panel);
 }
 
 static void dp_ctrl_stream_off(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
@@ -1101,6 +1220,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->process_phy_test_request = dp_ctrl_process_phy_test_request;
 	dp_ctrl->stream_on = dp_ctrl_stream_on;
 	dp_ctrl->stream_off = dp_ctrl_stream_off;
+	dp_ctrl->stream_pre_off = dp_ctrl_stream_pre_off;
 
 	return dp_ctrl;
 error:

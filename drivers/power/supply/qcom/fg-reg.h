@@ -35,6 +35,12 @@
 #define ADC_RR_BATT_ID_LO_BIAS_LSB(chip)	(chip->rradc_base + 0x76)
 #define ADC_RR_BATT_ID_LO_BIAS_MSB(chip)	(chip->rradc_base + 0x77)
 
+#define ADC_RR_BATT_THERM_BASE_CFG1(chip)	(chip->rradc_base + 0x81)
+#define BATT_THERM_PULL_UP_30K			1
+#define BATT_THERM_PULL_UP_100K			2
+#define BATT_THERM_PULL_UP_400K			3
+#define BATT_THERM_PULL_UP_MASK			GENMASK(1, 0)
+
 #define ADC_RR_BATT_TEMP_LSB(chip)		(chip->rradc_base + 0x88)
 #define ADC_RR_BATT_TEMP_MSB(chip)		(chip->rradc_base + 0x89)
 #define GEN4_BATT_TEMP_MSB_MASK			GENMASK(1, 0)
@@ -275,6 +281,12 @@
 #define ESR_REQ_CTL_BIT				BIT(1)
 #define ESR_REQ_CTL_EN_BIT			BIT(0)
 
+#define BATT_INFO_PEEK_MUX4(chip)		(chip->batt_info_base + 0xEE)
+#define ALG_ACTIVE_PEEK_CFG			0xAC
+
+#define BATT_INFO_PEEK_RD(chip)			(chip->batt_info_base + 0xEF)
+#define ALG_ACTIVE_BIT				BIT(3)
+
 /* FG_MEM_IF register and bit definitions */
 #define MEM_IF_INT_RT_STS(chip)			((chip->mem_if_base) + 0x10)
 #define MEM_XCP_BIT				BIT(1)
@@ -284,6 +296,7 @@
 #define GEN4_MEM_ATTN_BIT			BIT(4)
 
 #define MEM_IF_MEM_ARB_CFG(chip)		((chip->mem_if_base) + 0x40)
+#define MEM_CLR_LOG_BIT				BIT(2)
 #define MEM_ARB_LO_LATENCY_EN_BIT		BIT(1)
 #define MEM_ARB_REQ_BIT				BIT(0)
 

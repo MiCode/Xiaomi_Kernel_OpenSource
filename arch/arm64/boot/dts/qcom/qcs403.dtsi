@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs405.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS403";
+	qcom,msm-name = "QCS403";
+	qcom,msm-id = <373 0x0>;
+};
+
+&soc {
+	/delete-node/ qcom,cpu0-computemon;
+
+	cpu0_computemon: qcom,cpu0-computemon {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0 &CPU1>;
+		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
+		qcom,core-dev-table =
+			< 1113600 MHZ_TO_MBPS( 297, 4) >,
+			< 1267200 MHZ_TO_MBPS( 597, 4) >,
+			< 1401600 MHZ_TO_MBPS( 710, 4) >;
+	};
+};

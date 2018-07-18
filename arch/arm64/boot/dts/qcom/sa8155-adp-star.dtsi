@@ -1,0 +1,193 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "sa8155-pmic-overlay.dtsi"
+
+&qupv3_se0_spi {
+	status = "ok";
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <38 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <16000000>;
+		qcom,max-can-channels = <4>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&qupv3_se3_spi {
+	status = "ok";
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+};
+&pil_modem {
+	status = "disabled";
+};
+
+
+&soc {
+	qcom,lpass@17300000 {
+		status = "disabled";
+	};
+
+	qcom,ssc@5c00000 {
+		status = "disabled";
+	};
+
+	qcom,glink {
+		modem {
+			status = "disabled";
+		};
+	};
+
+	qcom,turing@8300000 {
+		status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+		status = "ok";
+	};
+
+	qcom,spss@1880000 {
+		status = "ok";
+	};
+
+	qcom,npu@0x9800000 {
+		status = "ok";
+	};
+
+	qcom,rmnet-ipa {
+		status = "ok";
+	};
+
+	qcom,ipa_fws {
+		status = "ok";
+	};
+
+	qcom,msm-cdsp-loader {
+		status = "ok";
+	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		status = "ok";
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_home_default
+			     &key_vol_up_default>;
+
+		home {
+			label = "home";
+			gpios = <&pm8150_1_gpios 1 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_HOME>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8150_1_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+
+	vdda-phy-supply = <&pm8150_2_l18>;
+	vdda-pll-supply = <&pm8150_2_l8>;
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_1_l10>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm8150_1_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_2_l5>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,disable-lpm;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8150_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8150_2_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on
+		&sdc2_cmd_on &sdc2_data_on &storage_cd_default>;
+	pinctrl-1 = <&sdc2_clk_off
+		&sdc2_cmd_off &sdc2_data_off &storage_cd_default>;
+
+	cd-gpios = <&pm8150_1_gpios 4 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&usb0 {
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb1 {
+	status = "ok";
+	dwc3@a800000 {
+		dr_mode = "host";
+	};
+};

@@ -437,35 +437,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 	return 0;
 }
 
-static int __maybe_unused xhci_plat_suspend(struct device *dev)
-{
-	struct usb_hcd	*hcd = dev_get_drvdata(dev);
-	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
-
-	/*
-	 * xhci_suspend() needs `do_wakeup` to know whether host is allowed
-	 * to do wakeup during suspend. Since xhci_plat_suspend is currently
-	 * only designed for system suspend, device_may_wakeup() is enough
-	 * to dertermine whether host is allowed to do wakeup. Need to
-	 * reconsider this when xhci_plat_suspend enlarges its scope, e.g.,
-	 * also applies to runtime suspend.
-	 */
-	return xhci_suspend(xhci, device_may_wakeup(dev));
-}
-
-static int __maybe_unused xhci_plat_resume(struct device *dev)
-{
-	struct usb_hcd	*hcd = dev_get_drvdata(dev);
-	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
-	int ret;
-
-	ret = xhci_priv_resume_quirk(hcd);
-	if (ret)
-		return ret;
-
-	return xhci_resume(xhci, 0);
-}
-
 static int __maybe_unused xhci_plat_runtime_idle(struct device *dev)
 {
 	/*
@@ -507,6 +478,10 @@ static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat runtime resume\n");
 
+	ret = xhci_priv_resume_quirk(hcd);
+	if (ret)
+		return ret;
+
 	ret = xhci_resume(xhci, false);
 	pm_runtime_mark_last_busy(dev);
 
@@ -514,7 +489,7 @@ static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(xhci_plat_suspend, xhci_plat_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, NULL)
 
 	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend,
 			   xhci_plat_runtime_resume,

@@ -42,6 +42,7 @@
 #include <linux/init.h>
 #include <linux/mmu_notifier.h>
 #include <linux/memory_hotplug.h>
+#include <linux/show_mem_notifier.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -205,13 +206,6 @@ unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 	points = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS) +
 		atomic_long_read(&p->mm->nr_ptes) + mm_nr_pmds(p->mm);
 	task_unlock(p);
-
-	/*
-	 * Root processes get 3% bonus, just like the __vm_enough_memory()
-	 * implementation used by LSMs.
-	 */
-	if (has_capability_noaudit(p, CAP_SYS_ADMIN))
-		points -= (points * 3) / 100;
 
 	/* Normalize to oom_score_adj units */
 	adj *= totalpages / 1000;
@@ -424,8 +418,11 @@ static void dump_header(struct oom_control *oc, struct task_struct *p)
 	dump_stack();
 	if (oc->memcg)
 		mem_cgroup_print_oom_info(oc->memcg, p);
-	else
+	else {
 		show_mem(SHOW_MEM_FILTER_NODES, oc->nodemask);
+		show_mem_call_notifiers();
+	}
+
 	if (sysctl_oom_dump_tasks)
 		dump_tasks(oc->memcg, oc->nodemask);
 }
@@ -625,7 +622,7 @@ static int oom_reaper(void *unused)
 	return 0;
 }
 
-static void wake_oom_reaper(struct task_struct *tsk)
+void wake_oom_reaper(struct task_struct *tsk)
 {
 	if (!oom_reaper_th)
 		return;
@@ -1128,8 +1125,35 @@ void pagefault_out_of_memory(void)
 	mutex_unlock(&oom_lock);
 }
 
+/* Call this function with task_lock being held as we're accessing ->mm */
+void dump_killed_info(struct task_struct *selected)
+{
+	int selected_tasksize = get_mm_rss(selected->mm);
+
+	pr_info("Killing '%s' (%d), adj %hd,\n"
+		"   to free %ldkB on behalf of '%s' (%d)\n"
+		"   Free CMA is %ldkB\n"
+		"   Total reserve is %ldkB\n"
+		"   Total free pages is %ldkB\n"
+		"   Total file cache is %ldkB\n",
+		selected->comm, selected->pid,
+		selected->signal->oom_score_adj,
+		selected_tasksize * (long)(PAGE_SIZE / 1024),
+		current->comm, current->pid,
+		global_zone_page_state(NR_FREE_CMA_PAGES) *
+		(long)(PAGE_SIZE / 1024),
+		totalreserve_pages * (long)(PAGE_SIZE / 1024),
+		global_zone_page_state(NR_FREE_PAGES) *
+		(long)(PAGE_SIZE / 1024),
+		global_node_page_state(NR_FILE_PAGES) *
+		(long)(PAGE_SIZE / 1024));
+}
+
 void add_to_oom_reaper(struct task_struct *p)
 {
+	static DEFINE_RATELIMIT_STATE(reaper_rs, DEFAULT_RATELIMIT_INTERVAL,
+						 DEFAULT_RATELIMIT_BURST);
+
 	if (!sysctl_reap_mem_on_sigkill)
 		return;
 
@@ -1142,6 +1166,16 @@ void add_to_oom_reaper(struct task_struct *p)
 		__mark_oom_victim(p);
 		wake_oom_reaper(p);
 	}
+
+	dump_killed_info(p);
 	task_unlock(p);
+
+	if (__ratelimit(&reaper_rs) && p->signal->oom_score_adj == 0) {
+		show_mem(SHOW_MEM_FILTER_NODES, NULL);
+		show_mem_call_notifiers();
+		if (sysctl_oom_dump_tasks)
+			dump_tasks(NULL, NULL);
+	}
+
 	put_task_struct(p);
 }

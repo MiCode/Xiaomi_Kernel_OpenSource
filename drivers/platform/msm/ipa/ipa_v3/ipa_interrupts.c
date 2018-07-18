@@ -347,6 +347,12 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 	ipa3_dec_client_disable_clks_no_block(&log_info);
 	return IRQ_HANDLED;
 }
+
+irq_handler_t ipa3_get_isr(void)
+{
+	return ipa3_isr;
+}
+
 /**
  * ipa3_add_interrupt_handler() - Adds handler to an interrupt type
  * @interrupt:		Interrupt type
@@ -494,21 +500,35 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 		return -ENOMEM;
 	}
 
-	res = request_irq(ipa_irq, (irq_handler_t) ipa3_isr,
-				IRQF_TRIGGER_RISING, "ipa", ipa_dev);
-	if (res) {
-		IPAERR("fail to register IPA IRQ handler irq=%d\n", ipa_irq);
-		return -ENODEV;
+	/*
+	 * NOTE:
+	 *
+	 *  We'll only register an isr on non-emulator (ie. real UE)
+	 *  systems.
+	 *
+	 *  On the emulator, emulator_soft_irq_isr() will be calling
+	 *  ipa3_isr, so hence, no isr registration here, and instead,
+	 *  we'll pass the address of ipa3_isr to the gsi layer where
+	 *  emulator interrupts are handled...
+	 */
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
+		res = request_irq(ipa_irq, (irq_handler_t) ipa3_isr,
+					IRQF_TRIGGER_RISING, "ipa", ipa_dev);
+		if (res) {
+			IPAERR(
+			    "fail to register IPA IRQ handler irq=%d\n",
+			    ipa_irq);
+			return -ENODEV;
+		}
+		IPADBG("IPA IRQ handler irq=%d registered\n", ipa_irq);
+
+		res = enable_irq_wake(ipa_irq);
+		if (res)
+			IPAERR("fail to enable IPA IRQ wakeup irq=%d res=%d\n",
+				   ipa_irq, res);
+		else
+			IPADBG("IPA IRQ wakeup enabled irq=%d\n", ipa_irq);
 	}
-	IPADBG("IPA IRQ handler irq=%d registered\n", ipa_irq);
-
-	res = enable_irq_wake(ipa_irq);
-	if (res)
-		IPAERR("fail to enable IPA IRQ wakeup irq=%d res=%d\n",
-				ipa_irq, res);
-	else
-		IPADBG("IPA IRQ wakeup enabled irq=%d\n", ipa_irq);
-
 	spin_lock_init(&suspend_wa_lock);
 	return 0;
 }

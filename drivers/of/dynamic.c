@@ -16,6 +16,11 @@
 
 #include "of_private.h"
 
+static struct device_node *kobj_to_device_node(struct kobject *kobj)
+{
+	return container_of(kobj, struct device_node, kobj);
+}
+
 /**
  * of_node_get() - Increment refcount of a node
  * @node:	Node to inc refcount, NULL is supported to simplify writing of
@@ -42,28 +47,6 @@ void of_node_put(struct device_node *node)
 		kobject_put(&node->kobj);
 }
 EXPORT_SYMBOL(of_node_put);
-
-void __of_detach_node_sysfs(struct device_node *np)
-{
-	struct property *pp;
-
-	if (!IS_ENABLED(CONFIG_SYSFS))
-		return;
-
-	BUG_ON(!of_node_is_initialized(np));
-	if (!of_kset)
-		return;
-
-	/* only remove properties if on sysfs */
-	if (of_node_is_attached(np)) {
-		for_each_property_of_node(np, pp)
-			__of_sysfs_remove_bin_file(np, pp);
-		kobject_del(&np->kobj);
-	}
-
-	/* finally remove the kobj_init ref */
-	of_node_put(np);
-}
 
 static BLOCKING_NOTIFIER_HEAD(of_reconfig_chain);
 

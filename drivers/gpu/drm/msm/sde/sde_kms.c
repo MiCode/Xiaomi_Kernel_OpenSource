@@ -1096,6 +1096,8 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 			SDE_ERROR("wait for commit done returned %d\n", ret);
 			break;
 		}
+
+		sde_crtc_complete_flip(crtc, NULL);
 	}
 }
 
@@ -1261,6 +1263,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.enable_event = dsi_conn_enable_event,
 		.cmd_transfer = dsi_display_cmd_transfer,
 		.cont_splash_config = dsi_display_cont_splash_config,
+		.get_panel_vfp = dsi_display_get_panel_vfp,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -1275,6 +1278,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = NULL,
 		.cmd_transfer = NULL,
 		.cont_splash_config = NULL,
+		.get_panel_vfp = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1288,6 +1292,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
 		.cont_splash_config = NULL,
+		.get_panel_vfp = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1799,8 +1804,8 @@ int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only)
 		aspace->mmu->funcs->attach(mmu, (const char **)iommu_ports,
 			ARRAY_SIZE(iommu_ports));
 
-		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 		aspace->domain_attached = true;
+		msm_gem_aspace_domain_attach_detach_update(aspace, false);
 	}
 
 	return 0;
@@ -1928,8 +1933,9 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 	struct drm_modeset_acquire_ctx ctx;
 	int ret = 0;
 
+	/* cancel pending flip event */
 	for (i = 0; i < priv->num_crtcs; i++)
-		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
+		sde_crtc_complete_flip(priv->crtcs[i], file);
 
 	drm_modeset_acquire_init(&ctx, 0);
 retry:
@@ -2225,6 +2231,7 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 	struct drm_connector *connector = NULL;
 	struct drm_connector_list_iter conn_iter;
 	struct sde_connector *sde_conn = NULL;
+	int i;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -2241,6 +2248,18 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 	if (!dev->mode_config.poll_enabled)
 		return;
+
+	/* init external dsi bridge here to make sure ext bridge is probed*/
+	for (i = 0; i < sde_kms->dsi_display_count; ++i) {
+		struct dsi_display *dsi_display;
+
+		dsi_display = sde_kms->dsi_displays[i];
+		if (dsi_display->bridge) {
+			dsi_display_drm_ext_bridge_init(dsi_display,
+				dsi_display->bridge->base.encoder,
+				dsi_display->drm_conn);
+		}
+	}
 
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
@@ -2340,7 +2359,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		 * configuration.
 		 */
 		if (conn_iter &&
-			conn_iter->encoder_ids[0] == encoder->base.id) {
+			(conn_iter->encoder_ids[0] == encoder->base.id)) {
 			connector = conn_iter;
 			break;
 		}
@@ -3017,6 +3036,32 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms->splash_data.resource_handoff_pending = true;
 
+	/* initialize power domain if defined */
+	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
+		sde_kms->genpd.name = dev->unique;
+		sde_kms->genpd.power_off = sde_kms_pd_disable;
+		sde_kms->genpd.power_on = sde_kms_pd_enable;
+
+		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
+		if (rc < 0) {
+			SDE_ERROR("failed to init genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			goto genpd_err;
+		}
+
+		rc = of_genpd_add_provider_simple(dev->dev->of_node,
+				&sde_kms->genpd);
+		if (rc < 0) {
+			SDE_ERROR("failed to add genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			pm_genpd_remove(&sde_kms->genpd);
+			goto genpd_err;
+		}
+
+		sde_kms->genpd_init = true;
+		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
+	}
+
 	rc = _sde_kms_mmu_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
@@ -3124,32 +3169,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			SDE_POWER_EVENT_POST_ENABLE |
 			SDE_POWER_EVENT_PRE_DISABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
-
-	/* initialize power domain if defined */
-	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
-		sde_kms->genpd.name = dev->unique;
-		sde_kms->genpd.power_off = sde_kms_pd_disable;
-		sde_kms->genpd.power_on = sde_kms_pd_enable;
-
-		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
-		if (rc < 0) {
-			SDE_ERROR("failed to init genpd provider %s: %d\n",
-					sde_kms->genpd.name, rc);
-			goto genpd_err;
-		}
-
-		rc = of_genpd_add_provider_simple(dev->dev->of_node,
-				&sde_kms->genpd);
-		if (rc < 0) {
-			SDE_ERROR("failed to add genpd provider %s: %d\n",
-					sde_kms->genpd.name, rc);
-			pm_genpd_remove(&sde_kms->genpd);
-			goto genpd_err;
-		}
-
-		sde_kms->genpd_init = true;
-		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
-	}
 
 	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("Skipping MDP Resources disable\n");

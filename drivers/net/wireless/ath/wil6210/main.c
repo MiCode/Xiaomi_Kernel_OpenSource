@@ -397,6 +397,8 @@ void wil_disconnect_worker(struct work_struct *work)
 		/* already disconnected */
 		return;
 
+	memset(&reply, 0, sizeof(reply));
+
 	rc = wmi_call(wil, WMI_DISCONNECT_CMDID, vif->mid, NULL, 0,
 		      WMI_DISCONNECT_EVENTID, &reply, sizeof(reply),
 		      WIL6210_DISCONNECT_TO_MS);
@@ -652,6 +654,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	/* num of rx srings can be updated via debugfs before allocation */
 	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
+
+	wil->amsdu_en = 1;
 
 	return 0;
 
@@ -1523,6 +1527,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	wil_mask_irq(wil);
 
 	wmi_event_flush(wil);
+
+	wil->force_wmi_send = false;
 
 	flush_workqueue(wil->wq_service);
 	flush_workqueue(wil->wmi_wq);

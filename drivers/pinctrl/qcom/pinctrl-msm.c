@@ -161,6 +161,10 @@ static int msm_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	val = readl(pctrl->regs + g->ctl_reg);
 	val &= ~mask;
 	val |= i << g->mux_bit;
+	/* Check if egpio present and enable that feature */
+	if (val & BIT(g->egpio_present))
+		val |= BIT(g->egpio_enable);
+
 	writel(val, pctrl->regs + g->ctl_reg);
 
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
@@ -881,16 +885,21 @@ static int msm_gpio_domain_translate(struct irq_domain *d,
 static int msm_gpio_domain_alloc(struct irq_domain *domain, unsigned int virq,
 					unsigned int nr_irqs, void *arg)
 {
-	int ret;
+	int ret = 0;
 	irq_hw_number_t hwirq;
-	struct irq_fwspec *fwspec = arg;
+	struct irq_fwspec *fwspec = arg, parent_fwspec;
 
 	ret = msm_gpio_domain_translate(domain, fwspec, &hwirq, NULL);
 	if (ret)
 		return ret;
 
 	msm_gpio_domain_set_info(domain, virq, hwirq);
-	return ret;
+
+	parent_fwspec = *fwspec;
+	parent_fwspec.fwnode = domain->parent->fwnode;
+
+	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
+					&parent_fwspec);
 }
 
 static const struct irq_domain_ops msm_gpio_domain_ops = {
@@ -1335,11 +1344,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	chip->parent = pctrl->dev;
 	chip->owner = THIS_MODULE;
 	chip->of_node = pctrl->dev->of_node;
-	chip->irqchip = &msm_gpio_irq_chip;
-	chip->irq_handler = handle_fasteoi_irq;
-	chip->irq_default_type = IRQ_TYPE_NONE;
-	chip->to_irq = msm_gpiochip_to_irq;
-	chip->lock_key = NULL;
 
 	ret = gpiochip_add_data(&pctrl->chip, pctrl);
 	if (ret) {

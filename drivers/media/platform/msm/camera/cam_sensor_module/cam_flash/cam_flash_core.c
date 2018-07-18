@@ -20,38 +20,72 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 	bool regulator_enable)
 {
 	int rc = 0;
+	struct cam_flash_private_soc *soc_private =
+		(struct cam_flash_private_soc *)
+		flash_ctrl->soc_info.soc_private;
 
 	if (!(flash_ctrl->switch_trigger)) {
 		CAM_ERR(CAM_FLASH, "Invalid argument");
 		return -EINVAL;
 	}
 
-	if (regulator_enable &&
-		(flash_ctrl->is_regulator_enabled == false)) {
-		rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
-			ENABLE_REGULATOR, NULL);
-		if (rc) {
-			CAM_ERR(CAM_FLASH, "regulator enable failed rc = %d",
-				rc);
-			return rc;
-		}
-		flash_ctrl->is_regulator_enabled = true;
-	} else if ((!regulator_enable) &&
-		(flash_ctrl->is_regulator_enabled == true)) {
-		rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
-			DISABLE_REGULATOR, NULL);
-		if (rc) {
-			CAM_ERR(CAM_FLASH, "regulator disable failed rc = %d",
-				rc);
-			return rc;
-		}
-		flash_ctrl->is_regulator_enabled = false;
-	} else {
-		CAM_ERR(CAM_FLASH, "Wrong Flash State : %d",
-			flash_ctrl->flash_state);
-		rc = -EINVAL;
-	}
+	if (soc_private->is_wled_flash) {
+		if (regulator_enable &&
+			flash_ctrl->is_regulator_enabled == false) {
+			rc = wled_flash_led_prepare(flash_ctrl->switch_trigger,
+				ENABLE_REGULATOR, NULL);
+			if (rc) {
+				CAM_ERR(CAM_FLASH, "enable reg failed: rc: %d",
+					rc);
+				return rc;
+			}
 
+			flash_ctrl->is_regulator_enabled = true;
+		} else if (!regulator_enable &&
+				flash_ctrl->is_regulator_enabled == true) {
+			rc = wled_flash_led_prepare(flash_ctrl->switch_trigger,
+				DISABLE_REGULATOR, NULL);
+			if (rc) {
+				CAM_ERR(CAM_FLASH, "disalbe reg fail: rc: %d",
+					rc);
+				return rc;
+			}
+
+			flash_ctrl->is_regulator_enabled = false;
+		} else {
+			CAM_ERR(CAM_FLASH, "Wrong Wled flash state: %d",
+				flash_ctrl->flash_state);
+			rc = -EINVAL;
+		}
+	} else {
+		if (regulator_enable &&
+			(flash_ctrl->is_regulator_enabled == false)) {
+			rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
+				ENABLE_REGULATOR, NULL);
+			if (rc) {
+				CAM_ERR(CAM_FLASH,
+					"Regulator enable failed rc = %d", rc);
+				return rc;
+			}
+
+			flash_ctrl->is_regulator_enabled = true;
+		} else if ((!regulator_enable) &&
+			(flash_ctrl->is_regulator_enabled == true)) {
+			rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
+				DISABLE_REGULATOR, NULL);
+			if (rc) {
+				CAM_ERR(CAM_FLASH,
+					"Regulator disable failed rc = %d", rc);
+				return rc;
+			}
+
+			flash_ctrl->is_regulator_enabled = false;
+		} else {
+			CAM_ERR(CAM_FLASH, "Wrong Flash State : %d",
+				flash_ctrl->flash_state);
+			rc = -EINVAL;
+		}
+	}
 	return rc;
 }
 
@@ -144,37 +178,31 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 		for (i = 0; i < flash_ctrl->torch_num_sources; i++) {
 			if (flash_ctrl->torch_trigger[i]) {
 				max_current = soc_private->torch_max_current[i];
-
 				if (flash_data->led_current_ma[i] <=
 					max_current)
 					curr = flash_data->led_current_ma[i];
 				else
-					curr = soc_private->torch_op_current[i];
-
-				CAM_DBG(CAM_PERF,
-					"Led_Current[%d] = %d", i, curr);
-				cam_res_mgr_led_trigger_event(
-					flash_ctrl->torch_trigger[i],
-					curr);
+					curr = max_current;
 			}
+			CAM_DBG(CAM_FLASH, "Led_Torch[%d]: Current: %d",
+				i, curr);
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->torch_trigger[i], curr);
 		}
 	} else if (op == CAMERA_SENSOR_FLASH_OP_FIREHIGH) {
 		for (i = 0; i < flash_ctrl->flash_num_sources; i++) {
 			if (flash_ctrl->flash_trigger[i]) {
 				max_current = soc_private->flash_max_current[i];
-
 				if (flash_data->led_current_ma[i] <=
 					max_current)
 					curr = flash_data->led_current_ma[i];
 				else
-					curr = soc_private->flash_op_current[i];
-
-				CAM_DBG(CAM_PERF, "LED flash_current[%d]: %d",
-					i, curr);
-				cam_res_mgr_led_trigger_event(
-					flash_ctrl->flash_trigger[i],
-					curr);
+					curr = max_current;
 			}
+			CAM_DBG(CAM_FLASH, "LED_Flash[%d]: Current: %d",
+				i, curr);
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->flash_trigger[i], curr);
 		}
 	} else {
 		CAM_ERR(CAM_FLASH, "Wrong Operation: %d", op);
@@ -523,11 +551,16 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	struct cam_flash_set_on_off *flash_operation_info = NULL;
 	struct cam_flash_query_curr *flash_query_info = NULL;
 	struct cam_flash_frame_setting *flash_data = NULL;
+	struct cam_flash_private_soc *soc_private = NULL;
 
 	if (!fctrl || !arg) {
 		CAM_ERR(CAM_FLASH, "fctrl/arg is NULL");
 		return -EINVAL;
 	}
+
+	soc_private = (struct cam_flash_private_soc *)
+		fctrl->soc_info.soc_private;
+
 	/* getting CSL Packet */
 	ioctl_ctrl = (struct cam_control *)arg;
 
@@ -716,8 +749,17 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			flash_query_info =
 				(struct cam_flash_query_curr *)cmd_buf;
 
-			rc = qpnp_flash_led_prepare(fctrl->switch_trigger,
-				QUERY_MAX_AVAIL_CURRENT, &query_curr_ma);
+			if (soc_private->is_wled_flash)
+				rc = wled_flash_led_prepare(
+					fctrl->switch_trigger,
+					QUERY_MAX_AVAIL_CURRENT,
+					&query_curr_ma);
+			else
+				rc = qpnp_flash_led_prepare(
+					fctrl->switch_trigger,
+					QUERY_MAX_AVAIL_CURRENT,
+					&query_curr_ma);
+
 			CAM_DBG(CAM_FLASH, "query_curr_ma = %d",
 				query_curr_ma);
 			if (rc) {

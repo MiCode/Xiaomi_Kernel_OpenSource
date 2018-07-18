@@ -35,12 +35,6 @@ extern struct mutex of_mutex;
 extern struct list_head aliases_lookup;
 extern struct kset *of_kset;
 
-
-static inline struct device_node *kobj_to_device_node(struct kobject *kobj)
-{
-	return container_of(kobj, struct device_node, kobj);
-}
-
 #if defined(CONFIG_OF_DYNAMIC)
 extern int of_property_notify(int action, struct device_node *np,
 			      struct property *prop, struct property *old_prop);
@@ -54,6 +48,29 @@ static inline int of_property_notify(int action, struct device_node *np,
 	return 0;
 }
 #endif /* CONFIG_OF_DYNAMIC */
+
+#if defined(CONFIG_OF_KOBJ)
+int of_node_is_attached(struct device_node *node);
+int __of_add_property_sysfs(struct device_node *np, struct property *pp);
+void __of_remove_property_sysfs(struct device_node *np, struct property *prop);
+void __of_update_property_sysfs(struct device_node *np, struct property *newprop,
+		struct property *oldprop);
+int __of_attach_node_sysfs(struct device_node *np);
+void __of_detach_node_sysfs(struct device_node *np);
+#else
+static inline int __of_add_property_sysfs(struct device_node *np, struct property *pp)
+{
+	return 0;
+}
+static inline void __of_remove_property_sysfs(struct device_node *np, struct property *prop) {}
+static inline void __of_update_property_sysfs(struct device_node *np,
+		struct property *newprop, struct property *oldprop) {}
+static inline int __of_attach_node_sysfs(struct device_node *np)
+{
+	return 0;
+}
+static inline void __of_detach_node_sysfs(struct device_node *np) {}
+#endif
 
 #if defined(CONFIG_OF_UNITTEST) && defined(CONFIG_OF_OVERLAY)
 extern void __init unittest_unflatten_overlay_base(void);

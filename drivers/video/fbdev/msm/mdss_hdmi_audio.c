@@ -63,7 +63,7 @@ enum hdmi_audio_sample_rates {
 };
 
 struct hdmi_audio {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct msm_hdmi_audio_setup_params params;
 	struct extcon_dev sdev;
 	u32 pclk;
@@ -143,7 +143,7 @@ static void hdmi_audio_get_acr_param(u32 pclk, u32 fs,
 
 static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 {
-	struct mdss_io_data *io;
+	struct dss_io_data *io;
 	struct hdmi_audio_acr acr;
 	struct msm_hdmi_audio_setup_params *params;
 	u32 pclk, layout, multiplier = 1, sample_rate;
@@ -260,7 +260,7 @@ static void hdmi_audio_acr_setup(struct hdmi_audio *audio, bool on)
 
 static void hdmi_audio_infoframe_setup(struct hdmi_audio *audio, bool enabled)
 {
-	struct mdss_io_data *io = NULL;
+	struct dss_io_data *io = NULL;
 	u32 channels, channel_allocation, level_shift, down_mix, layout;
 	u32 hdmi_debug_reg = 0, audio_info_0_reg = 0, audio_info_1_reg = 0;
 	u32 audio_info_ctrl_reg, aud_pck_ctrl_2_reg;

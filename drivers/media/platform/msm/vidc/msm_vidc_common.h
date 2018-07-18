@@ -92,6 +92,11 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);
 struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 	struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type);
+struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
+	struct msm_vidc_format_constraint fmt[], int size, int fourcc);
+int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type,
+		struct msm_vidc_format_constraint *pix_constraint);
 struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
@@ -103,6 +108,8 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst,
 int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
+int msm_comm_set_buffer_count(struct msm_vidc_inst *inst,
+	int host_count, int act_count, enum hal_buffer type);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
@@ -119,7 +126,6 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 int msm_comm_suspend(int core_id);
-int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	enum v4l2_mpeg_vidc_extradata index);
 struct hal_buffer_requirements *get_buff_req_buffer(
@@ -203,9 +209,9 @@ bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 		u32 *planes);
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
-		struct v4l2_buffer *b);
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
-			struct v4l2_buffer *b);
+		struct msm_vidc_buffer *mbuf);
 void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,

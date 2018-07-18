@@ -17,6 +17,7 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
 	ION_HEAP_TYPE_HYP_CMA,
+	ION_HEAP_TYPE_SECURE_CARVEOUT,
 };
 
 /**
@@ -44,6 +45,7 @@ enum ion_heap_ids {
  * Newly added heap ids have to be #define(d) since all API changes must
  * include a new #define.
  */
+#define ION_SECURE_CARVEOUT_HEAP_ID	14
 #define ION_QSECOM_TA_HEAP_ID		19
 #define ION_AUDIO_HEAP_ID		28
 #define ION_CAMERA_HEAP_ID		20
@@ -62,6 +64,8 @@ enum ion_heap_ids {
 #define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
 #define ION_FLAG_CP_APP			ION_BIT(26)
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
+/* ION_FLAG_ALLOW_NON_CONTIG uses ION_BIT(28) */
+#define ION_FLAG_CP_CDSP		ION_BIT(29)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
 #define ION_FLAGS_CP_MASK	0x7FFF0000
@@ -92,15 +96,15 @@ enum ion_heap_ids {
 #define ION_IOC_MSM_MAGIC 'M'
 
 struct ion_prefetch_regions {
+	__u64 sizes;
 	__u32 vmid;
-	__u64 __user *sizes;
 	__u32 nr_sizes;
 };
 
 struct ion_prefetch_data {
-	__u32 heap_id;
 	__u64 len;
-	struct ion_prefetch_regions __user *regions;
+	__u64 regions;
+	__u32 heap_id;
 	__u32 nr_regions;
 };
 

@@ -181,7 +181,7 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	if (counters == NULL)
 		return;
 
-	if (gmu_dev_ops->oob_set)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set))
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
 
 	/* if oob_set timeout, clear the mask and return */
@@ -209,7 +209,7 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	}
 
 done:
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 }
 

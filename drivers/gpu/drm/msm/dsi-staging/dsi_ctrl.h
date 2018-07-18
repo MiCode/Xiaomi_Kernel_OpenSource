@@ -204,6 +204,7 @@ struct dsi_ctrl_interrupts {
  * @cmd_buffer_size:     Size of command buffer.
  * @vaddr:               CPU virtual address of cmd buffer.
  * @secure_mode:         Indicates if secure-session is in progress
+ * @esd_check_underway:  Indicates if esd status check is in progress
  * @debugfs_root:        Root for debugfs entries.
  * @misr_enable:         Frame MISR enable/disable
  * @misr_cache:          Cached Frame MISR value
@@ -211,6 +212,7 @@ struct dsi_ctrl_interrupts {
  *                          dsi controller and run only dsi controller.
  * @null_insertion_enabled:  A boolean property to allow dsi controller to
  *                           insert null packet.
+ * @modeupdated:	  Boolean to send new roi if mode is updated.
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
@@ -248,6 +250,7 @@ struct dsi_ctrl {
 	u32 cmd_len;
 	void *vaddr;
 	bool secure_mode;
+	bool esd_check_underway;
 
 	/* Debug Information */
 	struct dentry *debugfs_root;
@@ -256,8 +259,13 @@ struct dsi_ctrl {
 	bool misr_enable;
 	u32 misr_cache;
 
+	/* Check for spurious interrupts */
+	unsigned long jiffies_start;
+	unsigned int error_interrupt_count;
+
 	bool phy_isolation_enabled;
 	bool null_insertion_enabled;
+	bool modeupdated;
 };
 
 /**
@@ -730,8 +738,11 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable);
  * dsi_ctrl_mask_error_status_interrupts() - API to mask dsi ctrl error status
  *                                           interrupts
  * @dsi_ctrl:              DSI controller handle.
+ * @idx:                   id indicating which interrupts to enable/disable.
+ * @mask_enable:           boolean to enable/disable masking.
  */
-void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl);
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl, u32 idx,
+						bool mask_enable);
 
 /**
  * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
@@ -753,5 +764,9 @@ int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
  * @dsi_ctrl:                     DSI controller handle.
  */
 int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
+/**
+ * dsi_ctrl_update_host_init_state() - Set the host initialization state
+ */
+int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
 
 #endif /* _DSI_CTRL_H_ */

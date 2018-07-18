@@ -398,10 +398,8 @@ int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, bool charging)
 {
 	u8 table_index = charging ? TABLE_SOC_OCV1 : TABLE_SOC_OCV2;
 
-	if (!the_battery || !the_battery->profile_node) {
-		pr_err("Battery profile not loaded\n");
+	if (!the_battery || !the_battery->profile_node)
 		return -ENODEV;
-	}
 
 	*soc = interpolate_soc(&the_battery->profile[table_index],
 				batt_temp, UV_TO_DECIUV(ocv_uv));
@@ -416,10 +414,8 @@ int qg_get_nominal_capacity(u32 *nom_cap_uah, int batt_temp, bool charging)
 	u8 table_index = charging ? TABLE_FCC1 : TABLE_FCC2;
 	u32 fcc_mah;
 
-	if (!the_battery || !the_battery->profile_node) {
-		pr_err("Battery profile not loaded\n");
+	if (!the_battery || !the_battery->profile_node)
 		return -ENODEV;
-	}
 
 	fcc_mah = interpolate_single_row_lut(
 				&the_battery->profile[table_index],

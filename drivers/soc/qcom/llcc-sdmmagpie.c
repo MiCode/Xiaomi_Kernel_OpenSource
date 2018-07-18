@@ -60,7 +60,8 @@ static struct llcc_slice_config sdmmagpie_data[] =  {
 	SCT_ENTRY("cpuss",       1,  1, 512, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 1),
 	SCT_ENTRY("modem",       8,  8, 512, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modemhw",     9,  9, 512, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("mmuhwt",     13, 13, 512, 1, 0, 0xF, 0x0, 0, 0, 0, 0, 1),
+	SCT_ENTRY("gpuhtw",     11, 11, 128, 0, 1, 0xF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("gpu",        12, 12, 384, 0, 1, 0xF, 0x0, 0, 0, 0, 1, 0),
 };
 
 static int sdmmagpie_qcom_llcc_probe(struct platform_device *pdev)

@@ -23,6 +23,8 @@
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/scm.h>
 #include <dt-bindings/soc/qcom,dcc_v2.h>
+#include <linux/clk.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 
 #define TIMEOUT_US		(100)
 
@@ -887,7 +889,8 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 		goto err;
 	}
 
-	if (!len) {
+	/* Check the len to avoid allocate huge memory */
+	if (!len || len > (drvdata->ram_size / 8)) {
 		dev_err(drvdata->dev, "DCC: Invalid length\n");
 		ret = -EINVAL;
 		goto err;
@@ -1549,6 +1552,7 @@ static int dcc_probe(struct platform_device *pdev)
 	struct dcc_drvdata *drvdata;
 	struct resource *res;
 	const char *data_sink;
+	struct clk *pclk;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -1556,6 +1560,16 @@ static int dcc_probe(struct platform_device *pdev)
 
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dcc_clk");
+	if (res) {
+		pclk = devm_clk_get(dev, "dcc_clk");
+		if (!IS_ERR(pclk)) {
+			ret = clk_set_rate(pclk, QDSS_CLK_LEVEL_DYNAMIC);
+			if (ret)
+				dev_err(dev, "clk set rate failed\n");
+		}
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dcc-base");
 	if (!res)

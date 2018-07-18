@@ -1,0 +1,231 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#include "skeleton.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sdxprairie.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPRAIRIE";
+	compatible = "qcom,sdxprairie";
+	qcom,msm-id = <357 0x0>;
+	interrupt-parent = <&intc>;
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		peripheral2_mem: peripheral2_region@8fd00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8fd00000 0x300000>;
+			label = "peripheral2_mem";
+		};
+
+		hyp_mem: hyp_region@8fc00000 {
+			no-map;
+			reg = <0x8fc00000 0x80000>;
+			label = "hyp_mem";
+		};
+
+		mpss_adsp_mem: mpss_adsp_region@84000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x84000000 0xb700000>;
+			label = "mpss_adsp_mem";
+		};
+	};
+
+	cpus {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0x0>;
+		};
+	};
+
+	soc: soc { };
+};
+
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	intc: interrupt-controller@17800000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x17800000 0x1000>,
+		      <0x17802000 0x1000>;
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf08>,
+			<1 12 0xf08>,
+			<1 10 0xf08>,
+			<1 11 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	timer@17820000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0x17820000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@17821000 {
+			frame-number = <0>;
+			interrupts = <0 7 0x4>,
+				     <0 6 0x4>;
+			reg = <0x17821000 0x1000>,
+			      <0x17822000 0x1000>;
+		};
+
+		frame@17823000 {
+			frame-number = <1>;
+			interrupts = <0 8 0x4>;
+			reg = <0x17823000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17824000 {
+			frame-number = <2>;
+			interrupts = <0 9 0x4>;
+			reg = <0x17824000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17825000 {
+			frame-number = <3>;
+			interrupts = <0 10 0x4>;
+			reg = <0x17825000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17826000 {
+			frame-number = <4>;
+			interrupts = <0 11 0x4>;
+			reg = <0x17826000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17827000 {
+			frame-number = <5>;
+			interrupts = <0 12 0x4>;
+			reg = <0x17827000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17828000 {
+			frame-number = <6>;
+			interrupts = <0 13 0x4>;
+			reg = <0x17828000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17829000 {
+			frame-number = <7>;
+			interrupts = <0 14 0x4>;
+			reg = <0x17829000 0x1000>;
+			status = "disabled";
+		};
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+	};
+
+	serial_uart: serial@831000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x831000 0x200>;
+		interrupts = <0 26 0>;
+		clocks = <&clock_gcc GCC_BLSP1_UART3_APPS_CLK>,
+			<&clock_gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&uart3_console_active>;
+		pinctrl-1 = <&uart3_console_sleep>;
+		status = "ok";
+	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	ipa_hw: qcom,ipa@01e00000 {
+		compatible = "qcom,ipa";
+		reg = <0x1e00000 0xc0000>,
+		      <0x1e04000 0x23000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts =
+			<0 241 IRQ_TYPE_NONE>,
+			<0 47 IRQ_TYPE_NONE>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <17>; /* IPA core version = IPAv4.5 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,use-ipa-pm;
+		qcom,bandwidth-vote-for-ipa;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <5>;
+		qcom,msm-bus,num-paths = <4>;
+		qcom,msm-bus,vectors-KBps =
+		/* No vote */
+			<90 512 0 0>,
+			<90 585 0 0>,
+			<1 676 0 0>,
+			<143 777 0 0>,
+		/* SVS2 */
+			<90 512 900000 1800000>,
+			<90 585 300000 600000>,
+			<1 676 90000 179000>, /*gcc_config_noc_clk_src */
+			<143 777 0 120>, /* IB defined for IPA2X_clk in MHz*/
+		/* SVS */
+			<90 512 1530000 3060000>,
+			<90 585 400000 800000>,
+			<1 676 100000 199000>,
+			<143 777 0 250>, /* IB defined for IPA2X_clk in MHz*/
+		/* NOMINAL */
+			<90 512 2592000 5184000>,
+			<90 585 800000 1600000>,
+			<1 676 200000 399000>,
+			<143 777 0 440>, /* IB defined for IPA2X_clk in MHz*/
+		/* TURBO */
+			<90 512 2592000 5184000>,
+			<90 585 960000 1920000>,
+			<1 676 266000 531000>,
+			<143 777 0 500>; /* IB defined for IPA clk in MHz*/
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+		"TURBO";
+		qcom,throughput-threshold = <310 600 1000>;
+		qcom,scaling-exceptions = <>;
+	};
+};
+
+#include "sdxprairie-pinctrl.dtsi"
+#include "sdxprairie-ion.dtsi"
+#include "msm-arm-smmu-sdxprairie.dtsi"

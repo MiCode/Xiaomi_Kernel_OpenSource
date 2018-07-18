@@ -113,6 +113,7 @@
 #define DWC3_GPRTBIMAP_FS0	0xc188
 #define DWC3_GPRTBIMAP_FS1	0xc18c
 #define DWC3_GUCTL2		0xc19c
+#define DWC3_GUCTL3		0xc60c
 
 #define DWC3_VER_NUMBER		0xc1a0
 #define DWC3_VER_TYPE		0xc1a4
@@ -160,6 +161,11 @@
 #define DWC3_OSTS		0xcc10
 
 /* DWC 3.1 Link Registers */
+#define DWC31_LINK_LU3LFPSRXTIM(n)	(0xd010 + ((n) * 0x80))
+#define GEN2_U3_EXIT_RSP_RX_CLK(n)	((n) << 16)
+#define GEN2_U3_EXIT_RSP_RX_CLK_MASK	GEN2_U3_EXIT_RSP_RX_CLK(0xff)
+#define GEN1_U3_EXIT_RSP_RX_CLK(n)	(n)
+#define GEN1_U3_EXIT_RSP_RX_CLK_MASK	GEN1_U3_EXIT_RSP_RX_CLK(0xff)
 #define DWC31_LINK_GDBGLTSSM	0xd050
 
 /* Bit fields */
@@ -320,6 +326,12 @@
 
 /* Global User Control Register 2 */
 #define DWC3_GUCTL2_RST_ACTBITLATER		BIT(14)
+#define DWC3_GUCTL2_HP_TIMER(n)			((n) << 21)
+#define DWC3_GUCTL2_HP_TIMER_MASK		DWC3_GUCTL2_HP_TIMER(0x1f)
+#define DWC3_GUCTL2_LC_TIMER			(1 << 19)
+
+/* Global User Control Register 3 */
+#define DWC3_GUCTL3_USB20_RETRY_DISABLE		BIT(16)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
@@ -1053,6 +1065,7 @@ struct dwc3 {
 #define DWC3_REVISION_290A	0x5533290a
 #define DWC3_REVISION_300A	0x5533300a
 #define DWC3_REVISION_310A	0x5533310a
+#define DWC3_REVISION_320A	0x5533320a
 
 /*
  * NOTICE: we're using bit 31 as a "is usb 3.1" flag. This is really
@@ -1061,6 +1074,12 @@ struct dwc3 {
 #define DWC3_REVISION_IS_DWC31		0x80000000
 #define DWC3_USB31_REVISION_110A	(0x3131302a | DWC3_REVISION_IS_DWC31)
 #define DWC3_USB31_REVISION_120A	(0x3132302a | DWC3_REVISION_IS_DWC31)
+#define DWC3_USB31_REVISION_170A	(0x3137302a | DWC3_REVISION_IS_DWC31)
+
+	/* valid only for dwc31 configuraitons */
+	u32			versiontype;
+#define DWC3_USB31_VER_TYPE_EA06	0x65613036
+#define DWC3_USB31_VER_TYPE_GA		0x67612a2a
 
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
@@ -1322,6 +1341,8 @@ struct dwc3_gadget_ep_cmd_params {
 
 /* prototypes */
 void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode);
+void dwc3_en_sleep_mode(struct dwc3 *dwc);
+void dwc3_dis_sleep_mode(struct dwc3 *dwc);
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type);
 

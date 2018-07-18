@@ -719,8 +719,6 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 
 		if (device->ftbl->snapshot)
 			device->ftbl->snapshot(device, snapshot, context);
-		if (device->ftbl->snapshot_gmu)
-			device->ftbl->snapshot_gmu(device, snapshot);
 	}
 
 	/*

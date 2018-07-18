@@ -100,7 +100,8 @@ static irqreturn_t qsee_intr(int irq, void *data)
 
 		irq_pin = irq_find_mapping(qirq->domain, to_hwirq(i, j));
 		desc = irq_to_desc(irq_pin);
-		handle_simple_irq(desc);
+		if (desc)
+			handle_simple_irq(desc);
 		regmap_write(qirq->regmap, bank->data->clear, BIT(j));
 	}
 

@@ -138,6 +138,8 @@ enum {
 #define DCDC_OTG_CFG_REG			(DCDC_BASE + 0x53)
 #define OTG_EN_SRC_CFG_BIT			BIT(1)
 
+#define DCDC_CFG_REF_MAX_PSNS_REG		(DCDC_BASE + 0x8C)
+
 /********************************
  *  BATIF Peripheral Registers  *
  ********************************/
@@ -353,6 +355,12 @@ enum {
 #define TEMP_BELOW_RANGE_BIT			BIT(1)
 #define THERMREG_DISABLED_BIT			BIT(0)
 
+#define CONNECTOR_TEMP_STATUS_REG		(MISC_BASE + 0x09)
+#define CONNECTOR_TEMP_SHDN_BIT			BIT(3)
+#define CONNECTOR_TEMP_RST_BIT			BIT(2)
+#define CONNECTOR_TEMP_UB_BIT			BIT(1)
+#define CONNECTOR_TEMP_LB_BIT			BIT(0)
+
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
 
@@ -379,11 +387,18 @@ enum {
 #define AICL_RERUN_TIME_CFG_REG			(MISC_BASE + 0x61)
 #define AICL_RERUN_TIME_12S_VAL			0x01
 
+#define MISC_THERMREG_SRC_CFG_REG		(MISC_BASE + 0x70)
+#define THERMREG_SMB_ADC_SRC_EN_BIT		BIT(5)
+
 #define MISC_SMB_CFG_REG			(MISC_BASE + 0x90)
 #define SMB_EN_SEL_BIT				BIT(4)
 #define CP_EN_POLARITY_CFG_BIT			BIT(3)
 #define STAT_POLARITY_CFG_BIT			BIT(2)
 #define STAT_FUNCTION_CFG_BIT			BIT(1)
 #define STAT_IRQ_PULSING_EN_BIT			BIT(0)
+
+#define DIE_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0xA0)
+
+#define SMB_REG_H_THRESHOLD_MSB_REG		(MISC_BASE + 0XBC)
 
 #endif /* __SMB5_CHARGER_REG_H */

@@ -37,7 +37,7 @@ struct __packed dtr_ctrl_msg {
 #define CTRL_MSG_RTS BIT(1)
 #define CTRL_MSG_DCD BIT(0)
 #define CTRL_MSG_DSR BIT(1)
-#define CTRL_MSG_RI BIT(2)
+#define CTRL_MSG_RI BIT(3)
 #define CTRL_HOST_STATE (0x10)
 #define CTRL_DEVICE_STATE (0x11)
 #define CTRL_GET_CHID(dtr) (dtr->dest_id & 0xFF)
@@ -212,7 +212,7 @@ static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 
 static const struct mhi_device_id mhi_dtr_table[] = {
 	{ .chan = "IP_CTRL" },
-	{ NULL },
+	{},
 };
 
 static struct mhi_driver mhi_dtr_driver = {

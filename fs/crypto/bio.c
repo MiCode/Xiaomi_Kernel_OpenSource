@@ -25,6 +25,7 @@
 #include <linux/bio.h>
 #include <linux/namei.h>
 #include "fscrypt_private.h"
+#include "ext4_ice.h"
 
 static void __fscrypt_decrypt_bio(struct bio *bio, bool done)
 {
@@ -33,14 +34,18 @@ static void __fscrypt_decrypt_bio(struct bio *bio, bool done)
 
 	bio_for_each_segment_all(bv, bio, i) {
 		struct page *page = bv->bv_page;
-		int ret = fscrypt_decrypt_page(page->mapping->host, page,
-				PAGE_SIZE, 0, page->index);
-
-		if (ret) {
-			WARN_ON_ONCE(1);
-			SetPageError(page);
-		} else if (done) {
+		if (ext4_should_be_processed_by_ice(page->mapping->host)) {
 			SetPageUptodate(page);
+		} else {
+			int ret = fscrypt_decrypt_page(page->mapping->host,
+					page, PAGE_SIZE, 0, page->index);
+
+			if (ret) {
+				WARN_ON_ONCE(1);
+				SetPageError(page);
+			} else if (done) {
+				SetPageUptodate(page);
+			}
 		}
 		if (done)
 			unlock_page(page);

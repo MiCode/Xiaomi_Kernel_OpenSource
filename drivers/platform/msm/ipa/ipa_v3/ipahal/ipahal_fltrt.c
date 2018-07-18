@@ -11,6 +11,7 @@
  */
 
 #include <linux/ipa.h>
+#include <linux/errno.h>
 #include <linux/ipc_logging.h>
 #include <linux/debugfs.h>
 #include "ipahal.h"
@@ -579,6 +580,49 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 		},
 	},
 
+	/* IPAv4.5 */
+	[IPA_HW_v4_5] = {
+		true,
+		IPA3_0_HW_TBL_WIDTH,
+		IPA3_0_HW_TBL_SYSADDR_ALIGNMENT,
+		IPA3_0_HW_TBL_LCLADDR_ALIGNMENT,
+		IPA3_0_HW_TBL_BLK_SIZE_ALIGNMENT,
+		IPA3_0_HW_RULE_START_ALIGNMENT,
+		IPA3_0_HW_TBL_HDR_WIDTH,
+		IPA3_0_HW_TBL_ADDR_MASK,
+		IPA3_0_RULE_MAX_PRIORITY,
+		IPA3_0_RULE_MIN_PRIORITY,
+		IPA3_0_LOW_RULE_ID,
+		IPA3_0_RULE_ID_BIT_LEN,
+		IPA3_0_HW_RULE_BUF_SIZE,
+		ipa_write_64,
+		ipa_fltrt_create_flt_bitmap,
+		ipa_fltrt_create_tbl_addr,
+		ipa_fltrt_parse_tbl_addr,
+		ipa_rt_gen_hw_rule,
+		ipa_flt_gen_hw_rule_ipav4,
+		ipa_flt_generate_eq,
+		ipa_rt_parse_hw_rule,
+		ipa_flt_parse_hw_rule_ipav4,
+		{
+			[IPA_TOS_EQ] = 0,
+			[IPA_PROTOCOL_EQ] = 1,
+			[IPA_TC_EQ] = 2,
+			[IPA_OFFSET_MEQ128_0] = 3,
+			[IPA_OFFSET_MEQ128_1] = 4,
+			[IPA_OFFSET_MEQ32_0] = 5,
+			[IPA_OFFSET_MEQ32_1] = 6,
+			[IPA_IHL_OFFSET_MEQ32_0] = 7,
+			[IPA_IHL_OFFSET_MEQ32_1] = 8,
+			[IPA_METADATA_COMPARE] = 9,
+			[IPA_IHL_OFFSET_RANGE16_0] = 10,
+			[IPA_IHL_OFFSET_RANGE16_1] = 11,
+			[IPA_IHL_OFFSET_EQ_32] = 12,
+			[IPA_IHL_OFFSET_EQ_16] = 13,
+			[IPA_FL_EQ] = 14,
+			[IPA_IS_FRAG] = 15,
+		},
+	},
 };
 
 static int ipa_flt_generate_eq(enum ipa_ip_type ipt,

@@ -59,6 +59,7 @@
 #define DFPS_DATA_MAX_FPS 0x7fffffff
 #define DFPS_DATA_MAX_CLK_RATE 250000
 
+struct mdp_overlay tmp;
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
@@ -5354,7 +5355,9 @@ static int __mdss_overlay_map(struct mdp_overlay *ovs,
 
 static inline void __overlay_swap_func(void *a, void *b, int size)
 {
-	swap(*(struct mdp_overlay *)a, *(struct mdp_overlay *)b);
+	tmp = *(struct mdp_overlay *)a;
+	*(struct mdp_overlay *)a = *(struct mdp_overlay *)b;
+	*(struct mdp_overlay *)b = tmp;
 }
 
 static inline int __zorder_dstx_cmp_func(const void *a, const void *b)

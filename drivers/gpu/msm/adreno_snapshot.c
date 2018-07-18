@@ -13,7 +13,6 @@
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
-#include "kgsl_gmu_core.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
@@ -961,7 +960,7 @@ void adreno_snapshot_gmu(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/* Add GMU specific sections */
-	if (gmu_dev_ops && gmu_dev_ops->snapshot)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
 		gmu_dev_ops->snapshot(adreno_dev, snapshot);
 
 	if (gpudev->snapshot_debugbus)

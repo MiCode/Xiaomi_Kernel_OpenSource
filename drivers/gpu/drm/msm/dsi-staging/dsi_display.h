@@ -128,6 +128,7 @@ struct dsi_display_clk_info {
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
  * @drm_conn:         Pointer to DRM connector associated with the display
+ * @ext_conn:         Pointer to external connector attached to DSI connector
  * @name:             Name of the display.
  * @display_type:     Display type as defined in device tree.
  * @list:             List pointer.
@@ -142,6 +143,7 @@ struct dsi_display_clk_info {
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
  * @panel_of:         pHandle to DSI panel.
+ * @ext_bridge_of:    pHandle to external DSI bridge.
  * @modes:            Array of probed DSI modes
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
@@ -161,6 +163,7 @@ struct dsi_display_clk_info {
  * @phy_idle_power_off:   PHY power state.
  * @host:             DRM MIPI DSI Host.
  * @bridge:           Pointer to DRM bridge object.
+ * @ext_bridge:       Pointer to external bridge object attached to DSI bridge.
  * @cmd_engine_refcount:  Reference count enforcing single instance of cmd eng
  * @clk_mngr:         DSI clock manager.
  * @dsi_clk_handle:   DSI clock handle.
@@ -174,6 +177,7 @@ struct dsi_display {
 	struct platform_device *pdev;
 	struct drm_device *drm_dev;
 	struct drm_connector *drm_conn;
+	struct drm_connector *ext_conn;
 
 	const char *name;
 	const char *display_type;
@@ -193,6 +197,7 @@ struct dsi_display {
 	struct device_node *disp_node;
 	struct device_node *panel_of;
 	struct device_node *parser_node;
+	struct device_node *ext_bridge_of;
 
 	struct dsi_display_mode *modes;
 
@@ -222,6 +227,7 @@ struct dsi_display {
 
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;
+	struct drm_bridge    *ext_bridge;
 	u32 cmd_engine_refcount;
 
 	struct sde_power_handle *phandle;
@@ -301,6 +307,19 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
  * Return: error code.
  */
 int dsi_display_drm_bridge_deinit(struct dsi_display *display);
+
+/**
+ * dsi_display_drm_ext_bridge_init() - initializes DRM bridge for ext bridge
+ * @display:            Handle to the display.
+ * @enc:                Pointer to the encoder object which is connected to the
+ *                      display.
+ * @connector:          Pointer to the connector object which is connected to
+ *                      the display.
+ *
+ * Return: error code.
+ */
+int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
+		struct drm_encoder *enc, struct drm_connector *connector);
 
 /**
  * dsi_display_get_info() - returns the display properties
@@ -562,8 +581,10 @@ int dsi_display_set_backlight(struct drm_connector *connector,
  * dsi_display_check_status() - check if panel is dead or alive
  * @connector:          Pointer to drm connector structure
  * @display:            Handle to display.
+ * @te_check_override:	Whether check for TE from panel or default check
  */
-int dsi_display_check_status(struct drm_connector *connector, void *display);
+int dsi_display_check_status(struct drm_connector *connector, void *display,
+				bool te_check_override);
 
 /**
  * dsi_display_cmd_transfer() - transfer command to the panel
@@ -635,4 +656,14 @@ enum dsi_pixel_format dsi_display_get_dst_format(
  * Return: Zero on Success
  */
 int dsi_display_cont_splash_config(void *display);
+/*
+ * dsi_display_get_panel_vfp - get panel vsync
+ * @display: Pointer to private display structure
+ * @h_active: width
+ * @v_active: height
+ * Returns: v_front_porch on success error code on failure
+ */
+int dsi_display_get_panel_vfp(void *display,
+	int h_active, int v_active);
+
 #endif /* _DSI_DISPLAY_H_ */

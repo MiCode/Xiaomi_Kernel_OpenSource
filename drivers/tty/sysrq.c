@@ -58,10 +58,11 @@
 static int __read_mostly sysrq_enabled = CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE;
 static bool __read_mostly sysrq_always_enabled;
 
-static bool sysrq_on(void)
+bool sysrq_on(void)
 {
 	return sysrq_enabled || sysrq_always_enabled;
 }
+EXPORT_SYMBOL(sysrq_on);
 
 /*
  * A value of 1 means 'all', other nonzero values are an op mask:

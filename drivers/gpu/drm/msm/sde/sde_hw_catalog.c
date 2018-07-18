@@ -1876,6 +1876,12 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_WB_INPUT_CTRL, &wb->features);
 
+		if (sde_cfg->has_cwb_support) {
+			set_bit(SDE_WB_HAS_CWB, &wb->features);
+			if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+				set_bit(SDE_WB_CWB_CTRL, &wb->features);
+		}
+
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
 				PROP_BITVALUE_ACCESS(prop_value,
@@ -3552,6 +3558,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 1;
 	} else if (IS_SDM845_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->has_cwb_support = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
@@ -3563,6 +3570,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
 	} else if (IS_SM8150_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_qsync = true;
 		sde_cfg->perf.min_prefill_lines = 24;

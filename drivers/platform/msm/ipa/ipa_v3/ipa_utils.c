@@ -24,6 +24,13 @@
 #include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_rm_i.h"
 
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if defined(CONFIG_IPA_EMULATION)
+# include "ipa_emulation_stubs.h"
+#endif
+
 #define IPA_V3_0_CLK_RATE_SVS2 (37.5 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
@@ -147,6 +154,17 @@
 #define IPA_v4_2_GROUP_UL_DL		(0)
 #define IPA_v4_2_SRC_GROUP_MAX		(1)
 #define IPA_v4_2_DST_GROUP_MAX		(1)
+
+#define IPA_v4_5_MHI_GROUP_PCIE		(0)
+#define IPA_v4_5_ETHERNET		(0)
+#define IPA_v4_5_GROUP_UL_DL		(1)
+#define IPA_v4_5_MHI_GROUP_DDR		(1)
+#define IPA_v4_5_MHI_GROUP_DMA		(2)
+#define IPA_v4_5_MHI_GROUP_QDSS		(3)
+#define IPA_v4_5_GROUP_UC_RX_Q		(4)
+#define IPA_v4_5_SRC_GROUP_MAX		(5)
+#define IPA_v4_5_DST_GROUP_MAX		(5)
+
 #define IPA_GROUP_MAX IPA_v3_0_GROUP_MAX
 
 enum ipa_rsrc_grp_type_src {
@@ -334,7 +352,34 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{5, 5}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
-
+	[IPA_4_5] = {
+		/* not used  UL_DL  not used  not used  UC_RX_Q
+		 * other are invalid
+		 */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{0, 0}, {1, 63}, {0, 0}, {0, 0}, {1, 63}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{0, 0}, {14, 14}, {0, 0}, {0, 0}, {3, 3}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{0, 0}, {18, 18}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 0}, {0, 63}, {0, 0}, {0, 0},  {0, 63}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{0, 0}, {24, 24}, {0, 0}, {0, 0}, {8, 8}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE  DDR  DMA  QDSS  not used  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{3, 8}, {4, 11}, {1, 1}, {1, 1}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{9, 9}, {12, 12}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{9, 9}, {14, 14}, {4, 4}, {4, 4}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{22, 22}, {16, 16}, {6, 6}, {2, 2}, {0, 0}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
@@ -397,6 +442,20 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{1, 63}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_5] = {
+		/* ETH  UL/DL/DPL  not used   not used  uC  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{16, 16}, {5, 5}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 63}, {1, 63}, {0, 0}, {0, 0}, {0, 2}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE/DPL  DDR  DMA  QDSS  uC  other are invalid */
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{16, 16}, {5, 5}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
+		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{2, 63}, {1, 63}, {1, 2}, {1, 2}, {0, 2}, {0, 0} },
+	},
 };
 
 static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
@@ -441,6 +500,18 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
 		{4, 4}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
+	[IPA_4_5] = {
+		/* not used  UL_DL  not used  not used  UC_RX_Q
+		 * other are invalid
+		 */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{0, 0}, {3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+	},
+	[IPA_4_5_MHI] = {
+		/* PCIE  DDR  DMA  QDSS  not used  other are invalid */
+		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{ 3, 3 }, {3, 3}, {3, 3}, {3, 3}, {0, 0}, { 0, 0 } },
+	},
 
 };
 
@@ -473,10 +544,6 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 	[IPA_4_1] = {
 		/* LWA_DL UL_DL	not used UC_RX_Q, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 1, 1, 1, 0, 0 },
-	},
-	[IPA_4_2] = {
-		/* UL_DL, other are invalid */
-		[IPA_RSRC_GRP_TYPE_RX_HPS_WEIGHT_CONFIG] = { 1, 0, 0, 0, 0, 0 },
 	},
 };
 
@@ -2585,6 +2652,29 @@ static void ipa_comp_cfg(void)
 		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
 				comp_cfg.ipa_qmb_select_by_address_cons_en);
 	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("gsi_multi_inorder_rd_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_rd_dis);
+
+		IPADBG("gsi_multi_inorder_wr_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_wr_dis);
+
+		comp_cfg.gsi_multi_inorder_rd_dis = true;
+		comp_cfg.gsi_multi_inorder_wr_dis = true;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("gsi_multi_inorder_rd_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_rd_dis);
+
+		IPADBG("gsi_multi_inorder_wr_dis = %d\n",
+			comp_cfg.gsi_multi_inorder_wr_dis);
+	}
 }
 
 /**
@@ -2959,6 +3049,32 @@ enum ipa_client_type ipa3_get_client_mapping(int pipe_idx)
 	}
 
 	return ipa3_ctx->ep[pipe_idx].client;
+}
+
+/**
+ * ipa3_get_client_by_pipe() - return client type relative to pipe
+ * index
+ * @pipe_idx: IPA end-point number
+ *
+ * Return value: client type
+ */
+static enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx)
+{
+	int j = 0;
+
+	for (j = 0; j < IPA_CLIENT_MAX; j++) {
+		const struct ipa_ep_configuration *iec_ptr =
+			&(ipa3_ep_mapping[ipa3_get_hw_type_index()][j]);
+		if (iec_ptr->valid &&
+		    iec_ptr->ipa_gsi_ep_info.ipa_ep_num == pipe_idx)
+			break;
+	}
+
+	if (j == IPA_CLIENT_MAX)
+		IPADBG("Got to IPA_CLIENT_MAX (%d) while searching for (%d)\n",
+		       j, pipe_idx);
+
+	return j;
 }
 
 /**
@@ -5061,6 +5177,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_cfg_ep_holb_by_client = ipa3_cfg_ep_holb_by_client;
 	api_ctrl->ipa_cfg_ep_ctrl = ipa3_cfg_ep_ctrl;
 	api_ctrl->ipa_add_hdr = ipa3_add_hdr;
+	api_ctrl->ipa_add_hdr_usr = ipa3_add_hdr_usr;
 	api_ctrl->ipa_del_hdr = ipa3_del_hdr;
 	api_ctrl->ipa_commit_hdr = ipa3_commit_hdr;
 	api_ctrl->ipa_reset_hdr = ipa3_reset_hdr;
@@ -5070,6 +5187,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
 	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
 	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_add_rt_rule_usr = ipa3_add_rt_rule_usr;
 	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
 	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
 	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
@@ -5078,6 +5196,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
 	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
 	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_add_flt_rule_usr = ipa3_add_flt_rule_usr;
 	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
@@ -5432,9 +5551,21 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	case IPA_4_5_MHI:
 		if (src) {
 			switch (group_index) {
-			case IPA_v4_2_GROUP_UL_DL:
+			case IPA_v4_5_MHI_GROUP_PCIE:
+			case IPA_v4_5_GROUP_UL_DL:
 				ipahal_write_reg_n_fields(
 					IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_MHI_GROUP_DMA:
+			case IPA_v4_5_MHI_GROUP_QDSS:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_GROUP_UC_RX_Q:
+				ipahal_write_reg_n_fields(
+					IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
@@ -5445,9 +5576,21 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 			}
 		} else {
 			switch (group_index) {
-			case IPA_v4_2_GROUP_UL_DL:
+			case IPA_v4_5_MHI_GROUP_PCIE:
+			case IPA_v4_5_GROUP_UL_DL:
 				ipahal_write_reg_n_fields(
 					IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_MHI_GROUP_DMA:
+			case IPA_v4_5_MHI_GROUP_QDSS:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_5_GROUP_UC_RX_Q:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_45_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
@@ -5466,7 +5609,8 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	}
 }
 
-static void ipa3_configure_rx_hps_clients(int depth, bool min)
+static void ipa3_configure_rx_hps_clients(int depth,
+	int max_clnt_in_depth, int base_index, bool min)
 {
 	int i;
 	struct ipahal_reg_rx_hps_clients val;
@@ -5474,23 +5618,19 @@ static void ipa3_configure_rx_hps_clients(int depth, bool min)
 
 	hw_type_idx = ipa3_get_hw_type_index();
 
-	/*
-	 * depth 0 contains 4 first clients out of 6
-	 * depth 1 contains 2 last clients out of 6
-	 */
-	for (i = 0 ; i < (depth ? 2 : 4) ; i++) {
+	for (i = 0 ; i < max_clnt_in_depth ; i++) {
 		if (min)
 			val.client_minmax[i] =
 				ipa3_rsrc_rx_grp_config
 				[hw_type_idx]
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
-				[!depth ? i : 4 + i].min;
+				[i + base_index].min;
 		else
 			val.client_minmax[i] =
 				ipa3_rsrc_rx_grp_config
 				[hw_type_idx]
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
-				[!depth ? i : 4 + i].max;
+				[i + base_index].max;
 	}
 	if (depth) {
 		ipahal_write_reg_fields(min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_1 :
@@ -5540,9 +5680,9 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	int dst_grp_idx_max;
 	struct ipahal_reg_rsrc_grp_cfg val;
 	u8 hw_type_idx;
+	int rx_hps_max_clnt_in_depth0;
 
 	IPADBG("ENTER\n");
-	IPADBG("Assign source rsrc groups min-max limits\n");
 
 	hw_type_idx = ipa3_get_hw_type_index();
 	switch (hw_type_idx) {
@@ -5578,8 +5718,8 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	case IPA_4_5_MHI:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
-		src_grp_idx_max = IPA_v4_2_SRC_GROUP_MAX;
-		dst_grp_idx_max = IPA_v4_2_DST_GROUP_MAX;
+		src_grp_idx_max = IPA_v4_5_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_5_DST_GROUP_MAX;
 		break;
 	default:
 		IPAERR("invalid hw type index\n");
@@ -5587,6 +5727,7 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		return;
 	}
 
+	IPADBG("Assign source rsrc groups min-max limits\n");
 	for (i = 0; i < src_rsrc_type_max; i++) {
 		for (j = 0; j < src_grp_idx_max; j = j + 2) {
 			val.x_min =
@@ -5602,7 +5743,6 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	}
 
 	IPADBG("Assign destination rsrc groups min-max limits\n");
-
 	for (i = 0; i < dst_rsrc_type_max; i++) {
 		for (j = 0; j < dst_grp_idx_max; j = j + 2) {
 			val.x_min =
@@ -5617,26 +5757,38 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		}
 	}
 
-	/* move resource group configuration from HLOS to TZ */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1) {
+	/* move rx_hps resource group configuration from HLOS to TZ */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1 &&
+	    ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
 		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
 		return;
 	}
 
 	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
 
-	ipa3_configure_rx_hps_clients(0, true);
-	ipa3_configure_rx_hps_clients(0, false);
+	/* Starting IPA4.5 have 5 RX_HPS_CMDQ */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5)
+		rx_hps_max_clnt_in_depth0 = 4;
+	else
+		rx_hps_max_clnt_in_depth0 = 5;
 
-	/* only hw_type v3_0\3_1 have 6 RX_HPS_CMDQ and needs depth 1*/
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, true);
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, false);
+
+	/*
+	 * IPA 3.0/3.1 uses 6 RX_HPS_CMDQ and needs depths1 for that
+	 * which has two clients
+	 */
 	if (ipa3_ctx->ipa_hw_type <= IPA_HW_v3_1) {
-		ipa3_configure_rx_hps_clients(1, true);
-		ipa3_configure_rx_hps_clients(1, false);
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			true);
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			false);
 	}
 
-	/* In IPA4.2 no support to HPS weight config*/
+	/* Starting IPA4.2 no support to HPS weight config */
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5 &&
-		(ipa3_ctx->ipa_hw_type != IPA_HW_v4_2))
+		(ipa3_ctx->ipa_hw_type < IPA_HW_v4_2))
 		ipa3_configure_rx_hps_weight();
 
 	IPADBG("EXIT\n");
@@ -5929,15 +6081,88 @@ static int ipa3_load_single_fw(const struct firmware *firmware,
 }
 
 /**
+ * emulator_load_single_fw() - load firmware into emulator's memory
+ *
+ * @firmware: Structure which contains the FW data from the user space.
+ * @phdr: ELF program header
+ * @fw_base: memory location to which firmware should get loaded
+ * @offset_from_base: offset to start relative to fw_base
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+static int emulator_load_single_fw(
+	const struct firmware   *firmware,
+	const struct elf32_phdr *phdr,
+	void __iomem            *fw_base,
+	uint32_t                offset_from_base)
+{
+	int index;
+	uint32_t ofb;
+	const uint32_t *elf_data_ptr;
+
+	IPADBG("firmware(%pK) phdr(%pK) fw_base(%pK) offset_from_base(0x%x)\n",
+	       firmware, phdr, fw_base, offset_from_base);
+
+	if (phdr->p_offset > firmware->size) {
+		IPAERR("Invalid ELF: offset=%u is beyond elf_size=%zu\n",
+			phdr->p_offset, firmware->size);
+		return -EINVAL;
+	}
+	if ((firmware->size - phdr->p_offset) < phdr->p_filesz) {
+		IPAERR("Invalid ELF: offset=%u filesz=%u elf_size=%zu\n",
+			phdr->p_offset, phdr->p_filesz, firmware->size);
+		return -EINVAL;
+	}
+
+	if (phdr->p_memsz % sizeof(uint32_t)) {
+		IPAERR("FW mem size %u doesn't align to 32bit\n",
+			phdr->p_memsz);
+		return -EFAULT;
+	}
+
+	if (phdr->p_filesz > phdr->p_memsz) {
+		IPAERR("FW image too big src_size=%u dst_size=%u\n",
+			phdr->p_filesz, phdr->p_memsz);
+		return -EFAULT;
+	}
+
+	IPADBG("ELF: p_memsz(0x%x) p_filesz(0x%x) p_filesz/4(0x%x)\n",
+	       (uint32_t) phdr->p_memsz,
+	       (uint32_t) phdr->p_filesz,
+	       (uint32_t) (phdr->p_filesz/sizeof(uint32_t)));
+
+	/* Set the entire region to 0s */
+	ofb = offset_from_base;
+	for (index = 0; index < phdr->p_memsz/sizeof(uint32_t); index++) {
+		writel_relaxed(0, fw_base + ofb);
+		ofb += sizeof(uint32_t);
+	}
+
+	elf_data_ptr = (uint32_t *)(firmware->data + phdr->p_offset);
+
+	/* Write the FW */
+	ofb = offset_from_base;
+	for (index = 0; index < phdr->p_filesz/sizeof(uint32_t); index++) {
+		writel_relaxed(*elf_data_ptr, fw_base + ofb);
+		elf_data_ptr++;
+		ofb += sizeof(uint32_t);
+	}
+
+	return 0;
+}
+
+/**
  * ipa3_load_fws() - Load the IPAv3 FWs into IPA&GSI SRAM.
  *
  * @firmware: Structure which contains the FW data from the user space.
  * @gsi_mem_base: GSI base address
+ * @gsi_ver: GSI Version
  *
  * Return value: 0 on success, negative otherwise
  *
  */
-int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
+int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
+	enum gsi_ver gsi_ver)
 {
 	const struct elf32_hdr *ehdr;
 	const struct elf32_phdr *phdr;
@@ -5946,6 +6171,11 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
 	phys_addr_t ipa_reg_mem_base;
 	u32 ipa_reg_ofst;
 	int rc;
+
+	if (gsi_ver == GSI_VER_ERR) {
+		IPAERR("Invalid GSI Version\n");
+		return -EINVAL;
+	}
 
 	if (!gsi_mem_base) {
 		IPAERR("Invalid GSI base address\n");
@@ -5977,7 +6207,8 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
 	 */
 
 	/* Load GSI FW image */
-	gsi_get_inst_ram_offset_and_size(&gsi_iram_ofst, &gsi_iram_size);
+	gsi_get_inst_ram_offset_and_size(&gsi_iram_ofst, &gsi_iram_size,
+		gsi_ver);
 	if (phdr->p_vaddr != (gsi_mem_base + gsi_iram_ofst)) {
 		IPAERR(
 			"Invalid GSI FW img load addr vaddr=0x%x gsi_mem_base=%pa gsi_iram_ofst=0x%lx\n"
@@ -6033,6 +6264,243 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base)
 		return rc;
 
 	IPADBG("IPA FWs (GSI FW, DPS and HPS) loaded successfully\n");
+	return 0;
+}
+
+/*
+ * The following needed for the EMULATION system. On a non-emulation
+ * system (ie. the real UE), this is functionality is done in the
+ * TZ...
+ */
+#define IPA_SPARE_REG_1_VAL (0xC0000805)
+
+static void ipa_gsi_setup_reg(void)
+{
+	u32 reg_val, start;
+	int i;
+	const struct ipa_gsi_ep_config *gsi_ep_info_cfg;
+	enum ipa_client_type type;
+
+	IPADBG("Setting up registers in preparation for firmware download\n");
+
+	/* enable GSI interface */
+	ipahal_write_reg(IPA_GSI_CONF, 1);
+
+	/*
+	 * Before configuring the FIFOs need to unset bit 30 in the
+	 * spare register
+	 */
+	ipahal_write_reg(IPA_SPARE_REG_1,
+			 (IPA_SPARE_REG_1_VAL & (~(1 << 30))));
+
+	/* setup IPA_ENDP_GSI_CFG_TLV_n reg */
+	start = 0;
+	ipa3_ctx->ipa_num_pipes = ipa3_get_num_pipes();
+	IPADBG("ipa_num_pipes=%u\n", ipa3_ctx->ipa_num_pipes);
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
+		IPADBG("for ep %d client is %d\n", i, type);
+		if (!gsi_ep_info_cfg)
+			continue;
+		IPADBG("Config is true");
+		reg_val = (gsi_ep_info_cfg->ipa_if_tlv << 16) + start;
+		start += gsi_ep_info_cfg->ipa_if_tlv;
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_TLV_n, i, reg_val);
+	}
+
+	/* setup IPA_ENDP_GSI_CFG_AOS_n reg */
+	start = 0;
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
+		if (!gsi_ep_info_cfg)
+			continue;
+		reg_val = (gsi_ep_info_cfg->ipa_if_aos << 16) + start;
+		start += gsi_ep_info_cfg->ipa_if_aos;
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG_AOS_n, i, reg_val);
+	}
+
+	/* setup IPA_ENDP_GSI_CFG1_n reg */
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
+		if (!gsi_ep_info_cfg)
+			continue;
+		reg_val = (1 << 16) +
+			((u32)gsi_ep_info_cfg->ipa_gsi_chan_num << 8) +
+			gsi_ep_info_cfg->ee;
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG1_n, i, reg_val);
+	}
+
+	/*
+	 * Setup IPA_ENDP_GSI_CFG2_n reg: this register must be setup
+	 * as last one
+	 */
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_info_cfg = ipa3_get_gsi_ep_info(type);
+		if (!gsi_ep_info_cfg)
+			continue;
+		reg_val = 1 << 31;
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
+		reg_val = 0;
+		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
+	}
+
+	/*
+	 * After configuring the FIFOs need to set bit 30 in the spare
+	 * register
+	 */
+	ipahal_write_reg(IPA_SPARE_REG_1,
+			 (IPA_SPARE_REG_1_VAL | (1 << 30)));
+}
+
+/**
+ * emulator_load_fws() - Load the IPAv3 FWs into IPA&GSI SRAM.
+ *
+ * @firmware: Structure which contains the FW data from the user space.
+ * @transport_mem_base: Where to load
+ * @transport_mem_size: Space available to load into
+ * @gsi_ver: Version of the gsi
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int emulator_load_fws(
+	const struct firmware *firmware,
+	u32 transport_mem_base,
+	u32 transport_mem_size,
+	enum gsi_ver gsi_ver)
+{
+	const struct elf32_hdr *ehdr;
+	const struct elf32_phdr *phdr;
+	void __iomem *gsi_base;
+	uint32_t hps_seq_offs, dps_seq_offs;
+	unsigned long gsi_offset;
+	int rc;
+
+	IPADBG("Loading firmware(%pK)\n", firmware);
+
+	if (!firmware) {
+		IPAERR("firmware pointer passed to function is NULL\n");
+		return -EINVAL;
+	}
+
+	/* One program header per FW image: GSI, DPS and HPS */
+	if (firmware->size < (sizeof(*ehdr) + 3 * sizeof(*phdr))) {
+		IPAERR(
+		    "Missing ELF and Program headers firmware size=%zu\n",
+		    firmware->size);
+		return -EINVAL;
+	}
+
+	ehdr = (struct elf32_hdr *) firmware->data;
+
+	ipa_assert_on(!ehdr);
+
+	if (ehdr->e_phnum != 3) {
+		IPAERR("Unexpected number of ELF program headers\n");
+		return -EINVAL;
+	}
+
+	hps_seq_offs = ipahal_get_reg_ofst(IPA_HPS_SEQUENCER_FIRST);
+	dps_seq_offs = ipahal_get_reg_ofst(IPA_DPS_SEQUENCER_FIRST);
+
+	/*
+	 * Each ELF program header represents a FW image and contains:
+	 *  p_vaddr : The starting address to which the FW needs to loaded.
+	 *  p_memsz : The size of the IRAM (where the image loaded)
+	 *  p_filesz: The size of the FW image embedded inside the ELF
+	 *  p_offset: Absolute offset to the image from the head of the ELF
+	 *
+	 * NOTE WELL: On the emulation platform, the p_vaddr address
+	 *            is not relevant and is unused.  This is because
+	 *            on the emulation platform, the registers'
+	 *            address location is mutable, since it's mapped
+	 *            in via a PCIe probe.  Given this, it is the
+	 *            mapped address info that's used while p_vaddr is
+	 *            ignored.
+	 */
+	phdr = (struct elf32_phdr *)(firmware->data + sizeof(*ehdr));
+
+	phdr += 2;
+
+	/*
+	 * Attempt to load IPA HPS FW image
+	 */
+	if (phdr->p_memsz > ipahal_get_hps_img_mem_size()) {
+		IPAERR("Invalid IPA HPS img size memsz=%d dps_mem_size=%u\n",
+		       phdr->p_memsz, ipahal_get_hps_img_mem_size());
+		return -EINVAL;
+	}
+	IPADBG("Loading HPS FW\n");
+	rc = emulator_load_single_fw(
+	    firmware, phdr, ipa3_ctx->mmio, hps_seq_offs);
+	if (rc)
+		return rc;
+	IPADBG("Loading HPS FW complete\n");
+
+	--phdr;
+
+	/*
+	 * Attempt to load IPA DPS FW image
+	 */
+	if (phdr->p_memsz > ipahal_get_dps_img_mem_size()) {
+		IPAERR("Invalid IPA DPS img size memsz=%d dps_mem_size=%u\n",
+		       phdr->p_memsz, ipahal_get_dps_img_mem_size());
+		return -EINVAL;
+	}
+	IPADBG("Loading DPS FW\n");
+	rc = emulator_load_single_fw(
+	    firmware, phdr, ipa3_ctx->mmio, dps_seq_offs);
+	if (rc)
+		return rc;
+	IPADBG("Loading DPS FW complete\n");
+
+	/*
+	 * Run gsi register setup which is normally done in TZ on
+	 * non-EMULATION systems...
+	 */
+	ipa_gsi_setup_reg();
+
+	/*
+	 * Map to the GSI base...
+	 */
+	gsi_base = ioremap_nocache(transport_mem_base, transport_mem_size);
+
+	IPADBG("GSI base(0x%x) mapped to (%pK) with len (0x%x)\n",
+	       transport_mem_base,
+	       gsi_base,
+	       transport_mem_size);
+
+	if (!gsi_base) {
+		IPAERR("ioremap_nocache failed\n");
+		return -EFAULT;
+	}
+
+	--phdr;
+
+	/*
+	 * Attempt to load GSI FW image
+	 */
+	if (phdr->p_memsz > transport_mem_size) {
+		IPAERR(
+		    "Invalid GSI FW img size memsz=%d transport_mem_size=%u\n",
+		    phdr->p_memsz, transport_mem_size);
+		return -EINVAL;
+	}
+	IPADBG("Loading GSI FW\n");
+	gsi_get_inst_ram_offset_and_size(&gsi_offset, NULL, gsi_ver);
+	rc = emulator_load_single_fw(
+	    firmware, phdr, gsi_base, (uint32_t) gsi_offset);
+	iounmap(gsi_base);
+	if (rc)
+		return rc;
+	IPADBG("Loading GSI FW complete\n");
+
+	IPADBG("IPA FWs (GSI FW, DPS and HPS) loaded successfully\n");
+
 	return 0;
 }
 
@@ -6132,4 +6600,3 @@ void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
 	desc->len = cmd_pyld->len;
 	desc->type = IPA_IMM_CMD_DESC;
 }
-

@@ -278,8 +278,8 @@ static ssize_t mhi_uci_write(struct file *file,
 			(nr_avail = mhi_get_no_free_descriptors(mhi_dev,
 							DMA_TO_DEVICE)) > 0);
 
-		if (ret == -ERESTARTSYS) {
-			MSG_LOG("Exit signal caught for node\n");
+		if (ret == -ERESTARTSYS || !uci_dev->enabled) {
+			MSG_LOG("Exit signal caught for node or not enabled\n");
 			return -ERESTARTSYS;
 		}
 
@@ -540,8 +540,8 @@ static void mhi_uci_remove(struct mhi_device *mhi_dev)
 		return;
 	}
 
-	mutex_unlock(&uci_dev->mutex);
 	MSG_LOG("Exit\n");
+	mutex_unlock(&uci_dev->mutex);
 }
 
 static int mhi_uci_probe(struct mhi_device *mhi_dev,
@@ -655,7 +655,7 @@ static const struct mhi_device_id mhi_uci_match_table[] = {
 	{ .chan = "TF", .driver_data = 0x1000 },
 	{ .chan = "BL", .driver_data = 0x1000 },
 	{ .chan = "DUN", .driver_data = 0x1000 },
-	{ NULL },
+	{},
 };
 
 static struct mhi_driver mhi_uci_driver = {

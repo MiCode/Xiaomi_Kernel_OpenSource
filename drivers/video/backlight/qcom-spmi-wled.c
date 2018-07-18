@@ -1527,6 +1527,7 @@ int wled_flash_led_prepare(struct led_trigger *trig, int options,
 				led_cdev->name);
 			return rc;
 		}
+		break;
 	case QUERY_MAX_AVAIL_CURRENT:
 		rc = wled_get_max_avail_current(led_cdev, max_current);
 		if (rc < 0) {

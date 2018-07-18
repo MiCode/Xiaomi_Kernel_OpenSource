@@ -140,13 +140,16 @@ void esoc_udev_handle_clink_req(enum esoc_req req, struct esoc_eng *eng)
 	struct esoc_clink *esoc_clink = eng->esoc_clink;
 	struct esoc_udev *esoc_udev = esoc_udev_get_by_minor(esoc_clink->id);
 
-	if (!esoc_udev)
+	if (!esoc_udev) {
+		esoc_mdm_log("esoc_udev not found\n");
 		return;
+	}
 	clink_req = (u32)req;
 	err = kfifo_in_spinlocked(&esoc_udev->req_fifo, &clink_req,
 						sizeof(clink_req),
 						&esoc_udev->req_fifo_lock);
 	if (err != sizeof(clink_req)) {
+		esoc_mdm_log("Unable to queue request %d; err: %d\n", req, err);
 		pr_err("unable to queue request for %s\n", esoc_clink->name);
 		return;
 	}
@@ -160,13 +163,16 @@ void esoc_udev_handle_clink_evt(enum esoc_evt evt, struct esoc_eng *eng)
 	struct esoc_clink *esoc_clink = eng->esoc_clink;
 	struct esoc_udev *esoc_udev = esoc_udev_get_by_minor(esoc_clink->id);
 
-	if (!esoc_udev)
+	if (!esoc_udev) {
+		esoc_mdm_log("esoc_udev not found\n");
 		return;
+	}
 	clink_evt = (u32)evt;
 	err = kfifo_in_spinlocked(&esoc_udev->evt_fifo, &clink_evt,
 						sizeof(clink_evt),
 						&esoc_udev->evt_fifo_lock);
 	if (err != sizeof(clink_evt)) {
+		esoc_mdm_log("Unable to queue event %d; err: %d\n", evt, err);
 		pr_err("unable to queue event for %s\n", esoc_clink->name);
 		return;
 	}
@@ -230,25 +236,39 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case ESOC_REG_REQ_ENG:
+		esoc_mdm_log("ESOC_REG_REQ_ENG\n");
 		err = esoc_clink_register_req_eng(esoc_clink, &uhandle->eng);
-		if (err)
+		if (err) {
+			esoc_mdm_log("ESOC_REG_REQ_ENG failed: %d\n", err);
 			return err;
+		}
 		uhandle->req_eng_reg = true;
 		break;
 	case ESOC_REG_CMD_ENG:
+		esoc_mdm_log("ESOC_REG_CMD_ENG\n");
 		err = esoc_clink_register_cmd_eng(esoc_clink, &uhandle->eng);
-		if (err)
+		if (err) {
+			esoc_mdm_log("ESOC_REG_CMD_ENG failed: %d\n", err);
 			return err;
+		}
 		uhandle->cmd_eng_reg = true;
 		break;
 	case ESOC_CMD_EXE:
-		if (esoc_clink->cmd_eng != &uhandle->eng)
+		if (esoc_clink->cmd_eng != &uhandle->eng) {
+			esoc_mdm_log("ESOC_CMD_EXE failed to access\n");
 			return -EACCES;
+		}
 		get_user(esoc_cmd, (u32 __user *)arg);
+		esoc_mdm_log("ESOC_CMD_EXE: Executing esoc command: %u\n",
+				esoc_cmd);
 		return clink_ops->cmd_exe(esoc_cmd, esoc_clink);
 	case ESOC_WAIT_FOR_REQ:
-		if (esoc_clink->req_eng != &uhandle->eng)
+		if (esoc_clink->req_eng != &uhandle->eng) {
+			esoc_mdm_log("ESOC_WAIT_FOR_REQ: Failed to access\n");
 			return -EACCES;
+		}
+		esoc_mdm_log(
+		"ESOC_WAIT_FOR_REQ: Waiting for req event to arrive.\n");
 		err = wait_event_interruptible(esoc_udev->req_wait,
 					!kfifo_is_empty(&esoc_udev->req_fifo));
 		if (!err) {
@@ -256,27 +276,40 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 								sizeof(req),
 						&esoc_udev->req_fifo_lock);
 			if (err != sizeof(req)) {
+				esoc_mdm_log(
+				"ESOC_WAIT_FOR_REQ: Failed to read the event\n");
 				pr_err("read from clink %s req q failed\n",
 							esoc_clink->name);
 				return -EIO;
 			}
 			put_user(req, (unsigned int __user *)uarg);
+			esoc_mdm_log(
+			"ESOC_WAIT_FOR_REQ: Event arrived: %u\n", req);
 
 		}
 		return err;
 	case ESOC_NOTIFY:
 		get_user(esoc_cmd, (u32 __user *)arg);
+		esoc_mdm_log("ESOC_NOTIFY: Notifying esoc about cmd: %u\n",
+				esoc_cmd);
 		clink_ops->notify(esoc_cmd, esoc_clink);
 		break;
 	case ESOC_GET_STATUS:
 		clink_ops->get_status(&status, esoc_clink);
+		esoc_mdm_log(
+		"ESOC_GET_STATUS: Sending the status from esoc: %u\n", status);
 		put_user(status, (unsigned int __user *)uarg);
 		break;
 	case ESOC_GET_ERR_FATAL:
 		clink_ops->get_err_fatal(&status, esoc_clink);
+		esoc_mdm_log(
+		"ESOC_GET_ERR_FATAL: Sending err_fatal status from esoc: %u\n",
+		status);
 		put_user(status, (unsigned int __user *)uarg);
 		break;
 	case ESOC_WAIT_FOR_CRASH:
+		esoc_mdm_log(
+		"ESOC_WAIT_FOR_CRASH: Waiting for evt to arrive..\n");
 		err = wait_event_interruptible(esoc_udev->evt_wait,
 					!kfifo_is_empty(&esoc_udev->evt_fifo));
 		if (!err) {
@@ -284,11 +317,15 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 								sizeof(evt),
 						&esoc_udev->evt_fifo_lock);
 			if (err != sizeof(evt)) {
+				esoc_mdm_log(
+				"ESOC_WAIT_FOR_CRASH: Failed to read event\n");
 				pr_err("read from clink %s evt q failed\n",
 							esoc_clink->name);
 				return -EIO;
 			}
 			put_user(evt, (unsigned int __user *)uarg);
+			esoc_mdm_log("ESOC_WAIT_FOR_CRASH: Event arrived: %u\n",
+					req);
 		}
 		return err;
 	case ESOC_GET_LINK_ID:
@@ -309,12 +346,14 @@ static int esoc_dev_open(struct inode *inode, struct file *file)
 
 	esoc_udev = esoc_udev_get_by_minor(minor);
 	if (!esoc_udev) {
+		esoc_mdm_log("failed to get udev\n");
 		pr_err("failed to get udev\n");
 		return -ENOMEM;
 	}
 
 	esoc_clink = get_esoc_clink(esoc_udev->clink->id);
 	if (!esoc_clink) {
+		esoc_mdm_log("failed to get clink\n");
 		pr_err("failed to get clink\n");
 		return -ENOMEM;
 	}
@@ -330,6 +369,8 @@ static int esoc_dev_open(struct inode *inode, struct file *file)
 	eng->handle_clink_req = esoc_udev_handle_clink_req;
 	eng->handle_clink_evt = esoc_udev_handle_clink_evt;
 	file->private_data = uhandle;
+	esoc_mdm_log(
+		"%s successfully attached to esoc driver\n", current->comm);
 	return 0;
 }
 
@@ -339,14 +380,23 @@ static int esoc_dev_release(struct inode *inode, struct file *file)
 	struct esoc_uhandle *uhandle = file->private_data;
 
 	esoc_clink = uhandle->esoc_clink;
-	if (uhandle->req_eng_reg)
+	if (uhandle->req_eng_reg) {
+		esoc_mdm_log("Unregistering req_eng\n");
 		esoc_clink_unregister_req_eng(esoc_clink, &uhandle->eng);
-	if (uhandle->cmd_eng_reg)
+	} else {
+		esoc_mdm_log("No req_eng to unregister\n");
+	}
+	if (uhandle->cmd_eng_reg) {
+		esoc_mdm_log("Unregistering cmd_eng\n");
 		esoc_clink_unregister_cmd_eng(esoc_clink, &uhandle->eng);
+	} else {
+		esoc_mdm_log("No cmd_eng to unregister\n");
+	}
 	uhandle->req_eng_reg = false;
 	uhandle->cmd_eng_reg = false;
 	put_esoc_clink(esoc_clink);
 	kfree(uhandle);
+	esoc_mdm_log("%s Unregistered with esoc\n", current->comm);
 	return 0;
 }
 static const struct file_operations esoc_dev_fops = {

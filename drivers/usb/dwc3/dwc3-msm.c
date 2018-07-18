@@ -148,6 +148,14 @@ enum msm_usb_irq {
 	USB_MAX_IRQ
 };
 
+enum bus_vote {
+	BUS_VOTE_NONE,
+	BUS_VOTE_NOMINAL,
+	BUS_VOTE_SVS,
+	BUS_VOTE_MIN,
+	BUS_VOTE_MAX
+};
+
 struct usb_irq {
 	char *name;
 	int irq;
@@ -224,6 +232,7 @@ struct dwc3_msm {
 	unsigned int		max_power;
 	bool			charging_disabled;
 	enum usb_otg_state	otg_state;
+	enum bus_vote		override_bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	*usb_psy;
@@ -2113,60 +2122,39 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 	}
 }
 
-enum bus_vote {
-	BUS_VOTE_INVALID,
-	BUS_VOTE_SUSPEND,
-	BUS_VOTE_NOMINAL,
-	BUS_VOTE_SVS
-};
-
 static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 {
 	int ret = 0;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	unsigned int bv_index = mdwc->override_bus_vote ?: bv;
 
 	if (!mdwc->bus_perf_client)
 		return 0;
 
 	dbg_event(0xFF, "bus_vote_start", bv);
 
-	switch (bv) {
-	case BUS_VOTE_SVS:
-		/* On some platforms SVS does not have separate vote. Vote for
-		 * nominal if svs usecase does not exist
-		 */
-		if (mdwc->bus_scale_table->num_usecases == 2)
-			goto nominal_vote;
+	/* On some platforms SVS does not have separate vote.
+	 * Vote for nominal if svs usecase does not exist.
+	 * If the request is to set the bus_vote to _NONE,
+	 * set it to _NONE irrespective of the requested vote
+	 * from userspace.
+	 */
+	if (bv >= mdwc->bus_scale_table->num_usecases)
+		bv_index = BUS_VOTE_NOMINAL;
+	else if (bv == BUS_VOTE_NONE)
+		bv_index = BUS_VOTE_NONE;
 
-		/* index starts from zero */
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 2);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	case BUS_VOTE_NOMINAL:
-nominal_vote:
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 1);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	case BUS_VOTE_SUSPEND:
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 0);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-		break;
-	default:
-		dev_err(mdwc->dev, "Unsupported bus vote:%d\n", bv);
-		ret = -EINVAL;
-	}
+	ret = msm_bus_scale_client_update_request(
+			mdwc->bus_perf_client, bv_index);
+	if (ret)
+		dev_err(mdwc->dev, "bus bw voting %d failed %d\n",
+				bv_index, ret);
 
-	dbg_event(0xFF, "bus_vote_end", bv);
+	dbg_event(0xFF, "bus_vote_end", bv_index);
 
 	return ret;
-
 }
+
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
@@ -2298,7 +2286,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SUSPEND);
+	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
 	/*
 	 * release wakeup source with timeout to defer system suspend to
@@ -2468,8 +2456,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
-				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
-					DWC3_GUSB2PHYCFG_SUSPHY));
+				~DWC3_GUSB2PHYCFG_SUSPHY);
 
 	/* Disable wakeup capable for HS_PHY IRQ & SS_PHY_IRQ if enabled */
 	if (mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY) {
@@ -2725,8 +2712,11 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	int ret;
 
 	mdwc->dwc3_gdsc = devm_regulator_get(mdwc->dev, "USB3_GDSC");
-	if (IS_ERR(mdwc->dwc3_gdsc))
+	if (IS_ERR(mdwc->dwc3_gdsc)) {
+		if (PTR_ERR(mdwc->dwc3_gdsc) == -EPROBE_DEFER)
+			return PTR_ERR(mdwc->dwc3_gdsc);
 		mdwc->dwc3_gdsc = NULL;
+	}
 
 	mdwc->xo_clk = devm_clk_get(mdwc->dev, "xo");
 	if (IS_ERR(mdwc->xo_clk)) {
@@ -2917,9 +2907,17 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	struct extcon_dev *edev;
 	int idx, extcon_cnt, ret = 0;
 	bool check_vbus_state, check_id_state, phandle_found = false;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if (!of_property_read_bool(node, "extcon"))
+	if (!of_property_read_bool(node, "extcon")) {
+		if (dwc->dr_mode == USB_DR_MODE_OTG) {
+			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+								__func__);
+			mdwc->vbus_active = true;
+			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+		}
 		return 0;
+	}
 
 	extcon_cnt = of_count_phandle_with_args(node, "extcon", NULL);
 	if (extcon_cnt < 0) {
@@ -3146,6 +3144,65 @@ static ssize_t usb_compliance_mode_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(usb_compliance_mode);
 
+static ssize_t bus_vote_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (mdwc->override_bus_vote == BUS_VOTE_MIN)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Fixed bus vote: min");
+	else if (mdwc->override_bus_vote == BUS_VOTE_MAX)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Fixed bus vote: max");
+	else
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+			"Do not have fixed bus vote");
+}
+
+static ssize_t bus_vote_store(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	bool bv_fixed = false;
+	enum bus_vote bv;
+
+	if (sysfs_streq(buf, "min")
+			&& (mdwc->bus_scale_table->num_usecases
+			>= (BUS_VOTE_MIN + 1))) {
+		bv_fixed = true;
+		mdwc->override_bus_vote = BUS_VOTE_MIN;
+	} else if (sysfs_streq(buf, "max")
+			&& (mdwc->bus_scale_table->num_usecases
+			>= (BUS_VOTE_MAX + 1))) {
+		bv_fixed = true;
+		mdwc->override_bus_vote = BUS_VOTE_MAX;
+	} else if (sysfs_streq(buf, "cancel")) {
+		bv_fixed = false;
+		mdwc->override_bus_vote = BUS_VOTE_NONE;
+	} else {
+		dev_err(dev, "min/max/cancel only.\n");
+		return -EINVAL;
+	}
+
+	/* Update bus vote value only when not suspend */
+	if (!atomic_read(&dwc->in_lpm)) {
+		if (bv_fixed)
+			bv = mdwc->override_bus_vote;
+		else if (mdwc->in_host_mode
+			&& (mdwc->max_rh_port_speed == USB_SPEED_HIGH))
+			bv = BUS_VOTE_SVS;
+		else
+			bv = BUS_VOTE_NOMINAL;
+
+		dwc3_msm_update_bus_bw(mdwc, bv);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(bus_vote);
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -3411,6 +3468,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
+	device_create_file(&pdev->dev, &dev_attr_bus_vote);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	if (host_mode) {
@@ -3664,6 +3722,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		usb_register_notify(&mdwc->host_nb);
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
+		dwc3_en_sleep_mode(dwc);
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
 		ret = dwc3_host_init(dwc);
@@ -3685,6 +3744,21 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		mdwc->in_host_mode = true;
 		dwc3_usb3_phy_suspend(dwc, true);
+
+		/* Reduce the U3 exit handshake timer from 8us to approximately
+		 * 300ns to avoid lfps handshake interoperability issues
+		 */
+		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+			dev_dbg(mdwc->dev, "LU3:%08x\n",
+				dwc3_msm_read_reg(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0)));
+		}
 
 		/* xHCI should have incremented child count as necessary */
 		dbg_event(0xFF, "StrtHost psync",
@@ -3791,7 +3865,24 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 */
 		dwc3_msm_block_reset(mdwc, false);
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		dwc3_dis_sleep_mode(dwc);
 		mdwc->in_device_mode = true;
+
+		/* Reduce the U3 exit handshake timer from 8us to approximately
+		 * 300ns to avoid lfps handshake interoperability issues
+		 */
+		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+			dwc3_msm_write_reg_field(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0),
+					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+			dev_dbg(mdwc->dev, "LU3:%08x\n",
+				dwc3_msm_read_reg(mdwc->base,
+					DWC31_LINK_LU3LFPSRXTIM(0)));
+		}
+
 		usb_gadget_vbus_connect(&dwc->gadget);
 #ifdef CONFIG_SMP
 		mdwc->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;

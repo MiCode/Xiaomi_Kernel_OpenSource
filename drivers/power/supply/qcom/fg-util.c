@@ -26,6 +26,7 @@
 					CHARS_PER_ITEM) + 1)		\
 
 #define VOLTAGE_15BIT_MASK	GENMASK(14, 0)
+#define MAX_READ_TRIES		5
 
 int fg_decode_voltage_15b(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
@@ -826,13 +827,12 @@ out:
 
 /* All fg_get_* , fg_set_* functions here */
 
-#define MAX_TRIES_SOC		5
 int fg_get_msoc_raw(struct fg_dev *fg, int *val)
 {
 	u8 cap[2];
 	int rc, tries = 0;
 
-	while (tries < MAX_TRIES_SOC) {
+	while (tries < MAX_READ_TRIES) {
 		rc = fg_read(fg, BATT_SOC_FG_MONOTONIC_SOC(fg), cap, 2);
 		if (rc < 0) {
 			pr_err("failed to read addr=0x%04x, rc=%d\n",
@@ -846,8 +846,8 @@ int fg_get_msoc_raw(struct fg_dev *fg, int *val)
 		tries++;
 	}
 
-	if (tries == MAX_TRIES_SOC) {
-		pr_err("shadow registers do not match\n");
+	if (tries == MAX_READ_TRIES) {
+		pr_err("MSOC: shadow registers do not match\n");
 		return -EINVAL;
 	}
 
@@ -934,15 +934,32 @@ int fg_get_battery_resistance(struct fg_dev *fg, int *val)
 #define BATT_CURRENT_DENR	1000
 int fg_get_battery_current(struct fg_dev *fg, int *val)
 {
-	int rc = 0;
+	int rc = 0, tries = 0;
 	int64_t temp = 0;
-	u8 buf[2];
+	u8 buf[2], buf_cp[2];
 
-	rc = fg_read(fg, BATT_INFO_IBATT_LSB(fg), buf, 2);
-	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			BATT_INFO_IBATT_LSB(fg), rc);
-		return rc;
+	while (tries++ < MAX_READ_TRIES) {
+		rc = fg_read(fg, BATT_INFO_IBATT_LSB(fg), buf, 2);
+		if (rc < 0) {
+			pr_err("failed to read addr=0x%04x, rc=%d\n",
+				BATT_INFO_IBATT_LSB(fg), rc);
+			return rc;
+		}
+
+		rc = fg_read(fg, BATT_INFO_IBATT_LSB_CP(fg), buf_cp, 2);
+		if (rc < 0) {
+			pr_err("failed to read addr=0x%04x, rc=%d\n",
+				BATT_INFO_IBATT_LSB_CP(fg), rc);
+			return rc;
+		}
+
+		if (buf[0] == buf_cp[0] && buf[1] == buf_cp[1])
+			break;
+	}
+
+	if (tries == MAX_READ_TRIES) {
+		pr_err("IBATT: shadow registers do not match\n");
+		return -EINVAL;
 	}
 
 	if (fg->wa_flags & PMI8998_V1_REV_WA)
@@ -961,15 +978,32 @@ int fg_get_battery_current(struct fg_dev *fg, int *val)
 #define BATT_VOLTAGE_DENR	1000
 int fg_get_battery_voltage(struct fg_dev *fg, int *val)
 {
-	int rc = 0;
+	int rc = 0, tries = 0;
 	u16 temp = 0;
-	u8 buf[2];
+	u8 buf[2], buf_cp[2];
 
-	rc = fg_read(fg, BATT_INFO_VBATT_LSB(fg), buf, 2);
-	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			BATT_INFO_VBATT_LSB(fg), rc);
-		return rc;
+	while (tries++ < MAX_READ_TRIES) {
+		rc = fg_read(fg, BATT_INFO_VBATT_LSB(fg), buf, 2);
+		if (rc < 0) {
+			pr_err("failed to read addr=0x%04x, rc=%d\n",
+				BATT_INFO_VBATT_LSB(fg), rc);
+			return rc;
+		}
+
+		rc = fg_read(fg, BATT_INFO_VBATT_LSB_CP(fg), buf_cp, 2);
+		if (rc < 0) {
+			pr_err("failed to read addr=0x%04x, rc=%d\n",
+				BATT_INFO_VBATT_LSB_CP(fg), rc);
+			return rc;
+		}
+
+		if (buf[0] == buf_cp[0] && buf[1] == buf_cp[1])
+			break;
+	}
+
+	if (tries == MAX_READ_TRIES) {
+		pr_err("VBATT: shadow registers do not match\n");
+		return -EINVAL;
 	}
 
 	if (fg->wa_flags & PMI8998_V1_REV_WA)

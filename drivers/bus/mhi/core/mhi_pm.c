@@ -777,6 +777,9 @@ void mhi_pm_st_worker(struct work_struct *work)
 		case MHI_ST_TRANSITION_AMSS:
 			mhi_pm_amss_transition(mhi_cntrl);
 			break;
+		case MHI_ST_TRANSITION_READY:
+			mhi_ready_state_transition(mhi_cntrl);
+			break;
 		default:
 			break;
 		}
@@ -787,7 +790,7 @@ void mhi_pm_st_worker(struct work_struct *work)
 int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	u32 bhi_offset;
+	u32 val;
 	enum MHI_EE current_ee;
 	enum MHI_ST_TRANSITION next_state;
 
@@ -822,14 +825,27 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 
 	/* setup bhi offset & intvec */
 	write_lock_irq(&mhi_cntrl->pm_lock);
-	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIOFF, &bhi_offset);
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIOFF, &val);
 	if (ret) {
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		MHI_ERR("Error getting bhi offset\n");
 		goto error_bhi_offset;
 	}
 
-	mhi_cntrl->bhi = mhi_cntrl->regs + bhi_offset;
+	mhi_cntrl->bhi = mhi_cntrl->regs + val;
+
+	/* setup bhie offset */
+	if (mhi_cntrl->fbc_download) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF, &val);
+		if (ret) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_ERR("Error getting bhie offset\n");
+			goto error_bhi_offset;
+		}
+
+		mhi_cntrl->bhie = mhi_cntrl->regs + val;
+	}
+
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	mhi_cntrl->pm_state = MHI_PM_POR;
 	mhi_cntrl->ee = MHI_EE_MAX;

@@ -14,6 +14,9 @@ Optional properties:
 - qcom,rpc-latency-us:	FastRPC QoS latency vote
 - qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID list
 - qcom,secure-context-bank		:	Bool indicating secure FastRPC context bank.
+- qcom,fastrpc-legacy-remote-heap	:	Bool indicating hypervisor is not supported.
+- qcom,fastrpc-adsp-audio-pdr:  Flag to enable ADSP Audio PDR
+- qcom,secure-domains:  FastRPC secure domain configuration
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context

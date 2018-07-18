@@ -11,46 +11,58 @@
  * GNU General Public License for more details.
  */
 
-qcom,alium_860_89032_0000_3600mah_averaged_masterslave_feb7th2018 {
-	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Feb7th2018*/
+qcom,alium_860_89032_0000_3600mah_averaged_masterslave_jun15th2018 {
+	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Jun15th2018*/
 	qcom,max-voltage-uv = <4350000>;
-	qcom,fastchg-current-ma = <3600>;
+	qcom,fastchg-current-ma = <5400>;
+	qcom,jeita-fcc-ranges = <0  100  2500000
+				110 400  5400000
+				410 450  2500000>;
+	qcom,jeita-fv-ranges = <0   100  4250000
+				110 400  4350000
+				410 450  4250000>;
+	qcom,step-chg-ranges = <3600000  4200000  5400000
+				4201000  4300000  3600000
+				4301000  4350000  2500000>;
 	qcom,batt-id-kohm = <107>;
 	qcom,battery-beta = <4250>;
 	qcom,therm-room-temp = <100000>;
 	qcom,fg-cc-cv-threshold-mv = <4340>;
-	qcom,battery-type = "alium_860_89032_0000_3600mah_feb7th2018";
+	qcom,battery-type = "alium_860_89032_0000_3600mah_jun15th2018";
 	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
 	qcom,therm-center-offset = <0x70>;
-	qcom,checksum = <0xB126>;
-	qcom,gui-version = "PM8150GUI - 0.0.0.26";
+	qcom,therm-pull-up = <100>;
+	qcom,rslow-normal-coeffs = <0xa4 0x01 0x24 0x13>;
+	qcom,rslow-low-coeffs = <0xa7 0xd5 0x0e 0x13>;
+	qcom,checksum = <0xCDFB>;
+	qcom,gui-version = "PM8150GUI - 1.0.0.7";
 	qcom,fg-profile-data = [
 		09 00 B5 EA
-		40 CC 19 AA
-		EA C2 00 00
+		3F CC 33 AA
+		E7 C2 00 00
 		13 BC 83 8A
-		03 80 D3 92
-		AA 9D 47 80
-		18 00 07 02
-		58 13 47 FD
+		03 80 D1 92
+		AB 9D 47 80
+		18 00 A4 01
+		24 13 47 FD
 		A9 F2 CE 07
-		00 00 A6 00
-		36 F5 07 FD
-		64 0D 0B 23
-		34 2A BE 23
-		B4 43 5C 4B
+		32 00 A6 00
+		EF F5 CB FD
+		11 0D 4A 23
+		60 2A C1 23
+		6F 42 F8 43
 		40 00 3A 00
-		3F 00 47 00
-		3A 00 33 00
-		36 00 37 00
-		47 00 41 00
+		40 00 48 00
+		3B 00 34 00
+		38 00 38 00
+		48 00 42 00
 		40 00 40 00
 		3B 00 30 00
 		32 00 39 00
 		32 00 42 00
 		5C 64 47 00
 		3B 08 40 10
-		40 00 3A 00
+		40 00 3B 00
 		35 00 36 00
 		3C 00 35 00
 		44 20 53 40

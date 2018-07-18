@@ -63,28 +63,6 @@ config USB_BAM
 	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
 	  transfers between the USB and other peripheral.
 
-config IPA
-	tristate "IPA support"
-	depends on SPS && NET
-	help
-	  This driver supports the Internet Packet Accelerator (IPA) core.
-	  IPA is a programmable protocol processor HW block.
-	  It is designed to support generic HW processing of UL/DL IP packets
-	  for various use cases independent of radio technology.
-	  The driver support client connection and configuration
-	  for the IPA core.
-	  Kernel and user-space processes can call the IPA driver
-	  to configure IPA core.
-
-config RMNET_IPA
-	tristate "IPA RMNET WWAN Network Device"
-	depends on IPA && MSM_QMI_INTERFACE
-	help
-	  This WWAN Network Driver implements network stack class device.
-	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
-	  for RmNet Data Driver and also exchange of QMI messages between
-	  A7 and Q6 IPA-driver.
-
 config GSI
 	bool "GSI support"
 	help
@@ -131,7 +109,7 @@ config RMNET_IPA3
 
 config ECM_IPA
 	tristate "STD ECM LAN Driver support"
-	depends on IPA || IPA3
+	depends on IPA3
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the STD ECM protocol.
@@ -140,7 +118,7 @@ config ECM_IPA
 
 config RNDIS_IPA
 	tristate "RNDIS_IPA Network Interface Driver support"
-	depends on IPA || IPA3
+	depends on IPA3
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the RNDIS protocol.
@@ -188,4 +166,10 @@ config SEEMP_CORE
 	  a log and rates the actions according to whether a typical user would
 	  use the tools.
 
+config IPA_EMULATION
+	bool "IPA on X86 Linux (IPA emulation support)"
+	depends on X86 && IPA3
+	help
+	  This option is used only when building the X86 version of
+	  the IPA/GSI driver. Never set this when building for ARM.
 endmenu

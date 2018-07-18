@@ -605,9 +605,10 @@ static int crc32_threadfn(void *data)
 		}
 		atomic_set(&d->ready, 0);
 
-		for (i = 0; i < d->run_threads; i++)
-			*d->crc32 = crc32_le(*d->crc32,
-			                     d->unc[i], *d->unc_len[i]);
+		if (!IS_ENABLED(CONFIG_HIBERNATION_SKIP_CRC))
+			for (i = 0; i < d->run_threads; i++)
+				*d->crc32 = crc32_le(*d->crc32,
+						d->unc[i], *d->unc_len[i]);
 		atomic_set(&d->stop, 1);
 		wake_up(&d->done);
 	}
@@ -1453,7 +1454,8 @@ out_finish:
 		if (!snapshot_image_loaded(snapshot))
 			ret = -ENODATA;
 		if (!ret) {
-			if (swsusp_header->flags & SF_CRC32_MODE) {
+			if ((swsusp_header->flags & SF_CRC32_MODE) &&
+			    (!IS_ENABLED(CONFIG_HIBERNATION_SKIP_CRC))) {
 				if(handle->crc32 != swsusp_header->crc32) {
 					printk(KERN_ERR
 					       "PM: Invalid image CRC32!\n");
@@ -1540,10 +1542,12 @@ int swsusp_check(void)
 
 		if (!memcmp(HIBERNATE_SIG, swsusp_header->sig, 10)) {
 			memcpy(swsusp_header->sig, swsusp_header->orig_sig, 10);
+#ifndef CONFIG_HIBERNATION_IMAGE_REUSE
 			/* Reset swap signature now */
 			error = hib_submit_io(REQ_OP_WRITE, REQ_SYNC,
 						swsusp_resume_block,
 						swsusp_header, NULL);
+#endif
 		} else {
 			error = -EINVAL;
 		}

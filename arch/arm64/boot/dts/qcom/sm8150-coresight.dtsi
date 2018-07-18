@@ -325,7 +325,7 @@
 		arm,buffer-size = <0x400000>;
 
 		coresight-name = "coresight-tmc-etr";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -350,7 +350,7 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
 		arm,default-sink;
 
@@ -1099,6 +1099,28 @@
 					<&tpda_dl_north_out_funnel_dl_north>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_dl_north_in_tpdm_wcss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpdm_wcss_out_funnel_dl_north>;
+				};
+			};
+		};
+	};
+
+	tpdm_wcss: tpdm@699c000 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-wcss";
+		qcom,dummy-source;
+
+		port {
+			tpdm_wcss_out_funnel_dl_north: endpoint {
+				remote-endpoint = <&funnel_dl_north_in_tpdm_wcss>;
+			};
 		};
 	};
 
@@ -1730,18 +1752,42 @@
 
 		coresight-name = "coresight-tpdm-npu";
 
-		clocks = <&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
-			 <&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
-			 <&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>;
+		clocks = <&clock_aop QDSS_CLK>,
+			<&clock_gcc GCC_NPU_TRIG_CLK>,
+			<&clock_gcc GCC_NPU_AT_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_CLK_SRC>,
+			<&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>;
 
-		com,tpdm-clks = "npu_cc_npu_core_apb_clk",
-				"npu_cc_npu_core_atb_clk",
-				"npu_cc_npu_core_cti_clk";
-		com,tpdm-regs  = <&npu_core_gdsc>;
+		clock-names = "apb_pclk",
+			"gcc_npu_trig_clk",
+			"gcc_npu_at_clk",
+			"npu_core_apb_clk",
+			"npu_core_atb_clk",
+			"npu_core_clk",
+			"npu_core_clk_src",
+			"npu_core_cti_clk";
+
+		qcom,tpdm-clks = "apb_pclk",
+			"gcc_npu_trig_clk",
+			"gcc_npu_at_clk",
+			"npu_core_apb_clk",
+			"npu_core_atb_clk",
+			"npu_core_clk",
+			"npu_core_clk_src",
+			"npu_core_cti_clk";
+
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,tpdm-regs  = "vdd", "vdd_cx";
 
 		port{
 			tpdm_npu_out_tpda: endpoint {
-			remote-endpoint = <&tpda_in_tpdm_npu>;
+				remote-endpoint = <&tpda_in_tpdm_npu>;
 			};
 		};
 	};

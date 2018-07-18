@@ -135,6 +135,11 @@ enum ipahal_reg_name {
 	IPA_FEC_ATTR_EE_n,
 	IPA_MBIM_DEAGGR_FEC_ATTR_EE_n,
 	IPA_GEN_DEAGGR_FEC_ATTR_EE_n,
+	IPA_GSI_CONF,
+	IPA_ENDP_GSI_CFG1_n,
+	IPA_ENDP_GSI_CFG2_n,
+	IPA_ENDP_GSI_CFG_AOS_n,
+	IPA_ENDP_GSI_CFG_TLV_n,
 	IPA_REG_MAX,
 };
 
@@ -368,7 +373,7 @@ struct ipahal_reg_debug_cnt_ctrl {
 };
 
 /*
- * struct ipahal_reg_rsrc_grp_cfg - Mix/Max values for two rsrc groups
+ * struct ipahal_reg_rsrc_grp_cfg - Min/Max values for two rsrc groups
  * @x_min - first group min value
  * @x_max - first group max value
  * @y_min - second group min value
@@ -383,11 +388,11 @@ struct ipahal_reg_rsrc_grp_cfg {
 
 /*
  * struct ipahal_reg_rx_hps_clients - Min or Max values for RX HPS clients
- * @client_minmax - Min or Max values. In case of depth 0 the 4 values
+ * @client_minmax - Min or Max values. In case of depth 0 the 4 or 5 values
  *	are used. In case of depth 1, only the first 2 values are used
  */
 struct ipahal_reg_rx_hps_clients {
-	u32 client_minmax[4];
+	u32 client_minmax[5];
 };
 
 /*
@@ -535,7 +540,7 @@ struct ipahal_ep_cfg_ctrl_scnd {
 };
 
 
-int ipahal_print_all_regs(void);
+void ipahal_print_all_regs(bool print_to_dmesg);
 
 /*
  * ipahal_reg_name_str() - returns string that represent the register
@@ -656,4 +661,3 @@ void ipahal_get_fltrt_hash_flush_valmask(
 	struct ipahal_reg_valmask *valmask);
 
 #endif /* _IPAHAL_REG_H_ */
-

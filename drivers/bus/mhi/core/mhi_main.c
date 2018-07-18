@@ -559,6 +559,10 @@ int mhi_destroy_device(struct device *dev, void *data)
 	mhi_dev = to_mhi_device(dev);
 	mhi_cntrl = mhi_dev->mhi_cntrl;
 
+	/* only destroying virtual devices thats attached to bus */
+	if (mhi_dev->dev_type ==  MHI_CONTROLLER_TYPE)
+		return 0;
+
 	MHI_LOG("destroy device for chan:%s\n", mhi_dev->chan_name);
 
 	/* notify the client and remove the device from mhi bus */
@@ -1722,19 +1726,41 @@ int mhi_get_no_free_descriptors(struct mhi_device *mhi_dev,
 }
 EXPORT_SYMBOL(mhi_get_no_free_descriptors);
 
+static int __mhi_bdf_to_controller(struct device *dev, void *tmp)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_device *match = tmp;
+
+	/* return any none-zero value if match */
+	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE &&
+	    mhi_dev->domain == match->domain && mhi_dev->bus == match->bus &&
+	    mhi_dev->slot == match->slot && mhi_dev->dev_id == match->dev_id)
+		return 1;
+
+	return 0;
+}
+
 struct mhi_controller *mhi_bdf_to_controller(u32 domain,
 					     u32 bus,
 					     u32 slot,
 					     u32 dev_id)
 {
-	struct mhi_controller *itr, *tmp;
+	struct mhi_device tmp, *mhi_dev;
+	struct device *dev;
 
-	list_for_each_entry_safe(itr, tmp, &mhi_bus.controller_list, node)
-		if (itr->domain == domain && itr->bus == bus &&
-		    itr->slot == slot && itr->dev_id == dev_id)
-			return itr;
+	tmp.domain = domain;
+	tmp.bus = bus;
+	tmp.slot = slot;
+	tmp.dev_id = dev_id;
 
-	return NULL;
+	dev = bus_find_device(&mhi_bus_type, NULL, &tmp,
+			      __mhi_bdf_to_controller);
+	if (!dev)
+		return NULL;
+
+	mhi_dev = to_mhi_device(dev);
+
+	return mhi_dev->mhi_cntrl;
 }
 EXPORT_SYMBOL(mhi_bdf_to_controller);
 

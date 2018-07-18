@@ -2046,7 +2046,7 @@ static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
 		return -EINVAL;
 	*len -= sizeof(vnet_hdr);
 
-	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le(), true))
+	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le(), true, 0))
 		return -EINVAL;
 
 	return memcpy_to_msg(msg, (void *)&vnet_hdr, sizeof(vnet_hdr));
@@ -2313,7 +2313,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (do_vnet) {
 		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
 					    sizeof(struct virtio_net_hdr),
-					    vio_le(), true)) {
+					    vio_le(), true, 0)) {
 			spin_lock(&sk->sk_receive_queue.lock);
 			goto drop_n_account;
 		}
@@ -2920,7 +2920,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
 		if (unlikely(offset < 0))
 			goto out_free;
 	} else if (reserve) {
-		skb_push(skb, reserve);
+		skb_reserve(skb, -reserve);
 	}
 
 	/* Returns -EFAULT on error */
@@ -4293,7 +4293,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
 			goto out;
 		if (po->tp_version >= TPACKET_V3 &&
 		    req->tp_block_size <=
-			  BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv))
+		    BLK_PLUS_PRIV((u64)req_u->req3.tp_sizeof_priv) + sizeof(struct tpacket3_hdr))
 			goto out;
 		if (unlikely(req->tp_frame_size < po->tp_hdrlen +
 					po->tp_reserve))

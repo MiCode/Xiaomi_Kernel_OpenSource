@@ -1,0 +1,690 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sm8150.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155";
+	compatible = "qcom,sa8155";
+	qcom,msm-name = "SA8155";
+	qcom,msm-id = <362 0x10000>;
+};
+
+/* Remove regulator nodes specific to SA8155 */
+&soc {
+	/delete-node/ regulator-pm8150-s4;
+	/delete-node/ rpmh-regulator-msslvl;
+	/delete-node/ rpmh-regulator-smpa2;
+	/delete-node/ rpmh-regulator-ebilvl;
+	/delete-node/ rpmh-regulator-smpa5;
+	/delete-node/ rpmh-regulator-smpa6;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-smpc1;
+	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-mmcxlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-smpc8;
+	/delete-node/ rpmh-regulator-ldoc1;
+	/delete-node/ rpmh-regulator-ldoc2;
+	/delete-node/ rpmh-regulator-ldoc3;
+	/delete-node/ rpmh-regulator-ldoc4;
+	/delete-node/ rpmh-regulator-ldoc5;
+	/delete-node/ rpmh-regulator-ldoc6;
+	/delete-node/ rpmh-regulator-ldoc7;
+	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc9;
+	/delete-node/ rpmh-regulator-ldoc10;
+	/delete-node/ rpmh-regulator-ldoc11;
+	/delete-node/ rpmh-regulator-bobc1;
+	/delete-node/ rpmh-regulator-smpf2;
+	/delete-node/ rpmh-regulator-ldof2;
+	/delete-node/ rpmh-regulator-ldof5;
+	/delete-node/ rpmh-regulator-ldof6;
+};
+
+/* Add regulator nodes specific to SA8155 */
+#include "sa8155-regulator.dtsi"
+
+&cam_csiphy0 {
+	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+};
+
+&cam_csiphy1 {
+	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+};
+
+&cam_csiphy2 {
+	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+};
+
+&cam_csiphy3 {
+	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+};
+
+&pcie0 {
+	vreg-1.8-supply = <&pm8150_2_l8>;
+	vreg-0.9-supply = <&pm8150_2_l18>;
+};
+
+&pcie1 {
+	vreg-1.8-supply = <&pm8150_2_l8>;
+	vreg-0.9-supply = <&pm8150_2_l18>;
+};
+
+&mdss_dsi_phy0 {
+		vdda-0p9-supply = <&pm8150_2_l18>;
+};
+
+&mdss_dsi_phy1 {
+		vdda-0p9-supply = <&pm8150_2_l18>;
+};
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&pm8150_2_l8>;
+};
+
+&mdss_dsi1 {
+	vdda-1p2-supply = <&pm8150_2_l8>;
+};
+
+&sde_dp {
+	vdda-1p2-supply = <&pm8150_2_l8>;
+	vdda-0p9-supply = <&pm8150_2_l18>;
+};
+
+&lmh_dcvs1 {
+	isens_vref_0p8-supply = <&pm8150_1_l5_ao>;
+	isens_vref_1p8-supply = <&pm8150_1_l12_ao>;
+};
+
+&usb2_phy0 {
+	vdd-supply = <&pm8150_1_l5>;
+	vdda18-supply = <&pm8150_1_l12>;
+	vdda33-supply = <&pm8150_1_l2>;
+};
+
+&usb_qmp_dp_phy {
+	vdd-supply = <&pm8150_1_l5>;
+	core-supply = <&pm8150_2_l8>;
+};
+
+&usb2_phy1 {
+	vdd-supply = <&pm8150_1_l5>;
+	vdda18-supply = <&pm8150_1_l12>;
+	vdda33-supply = <&pm8150_1_l2>;
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	vdd-supply = <&pm8150_1_l5>;
+	core-supply = <&pm8150_2_l8>;
+	status = "ok";
+};
+
+&icnss {
+	vdd-cx-mx-supply = <&pm8150_1_l1>;
+	vdd-1.8-xo-supply = <&pm8150_1_l7>;
+	vdd-1.3-rfa-supply = <&pm8150_2_l1>;
+	/delete-property/ vdd-3.3-ch0-supply;
+};
+
+&pil_ssc {
+	vdd_cx-supply = <&VDD_CX_LEVEL>;
+	vdd_mx-supply = <&VDD_MX_LEVEL>;
+};
+
+&pil_modem {
+	vdd_mss-supply = <&pm8150_1_s8_level>;
+};
+
+&wil6210 {
+	/delete-property/ vddio-supply;
+};
+
+&gpu_gx_gdsc {
+	parent-supply = <&pm8150_2_s3_level>;
+	vdd_parent-supply = <&pm8150_2_s3_level>;
+};
+
+&thermal_zones {
+	aoss0-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-0-0-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-0-1-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-0-2-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-0-3-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpuss-0-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpuss-1-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-0-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-1-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-2-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-3-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-4-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-5-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-6-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cpu-1-7-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	gpuss-0-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	aoss-1-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cwlan-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	video-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	ddr-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	q6-hvx-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	camera-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	cmpss-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	mdm-core-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	npu-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	mdm-vec-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	mdm-scl-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+	gpuss-1-lowf {
+		cooling-maps {
+			/delete-node/ mmcx_vdd_cdev;
+		};
+	};
+};
+
+&tlmm {
+	ioexp_intr_active: ioexp_intr_active {
+		mux {
+			pins = "gpio48";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio48";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	ioexp_reset_active: ioexp_reset_active {
+		mux {
+			pins = "gpio30";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio30";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+&sde_dp {
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-hpd-gpio = <&ioexp 8 0>;
+
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&dp_hpd_cfg_pins>;
+	pinctrl-1 = <&dp_hpd_cfg_pins>;
+
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&qupv3_se15_i2c {
+	status = "ok";
+
+	pinctrl-0 = <&qupv3_se15_i2c_active
+		&ioexp_intr_active
+		&ioexp_reset_active>;
+
+	ioexp: gpio@3e {
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		compatible = "semtech,sx1509q";
+		reg = <0x3e>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0>;
+		gpio-controller;
+		interrupt-controller;
+		semtech,probe-reset;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&dsi1_hpd_cfg_pins
+			&dsi1_cdet_cfg_pins
+			&dsi2_hpd_cfg_pins
+			&dsi2_cdet_cfg_pins>;
+
+		dsi1_hpd_cfg_pins: gpio0-cfg {
+			pins = "gpio0";
+			bias-pull-up;
+		};
+
+		dsi1_cdet_cfg_pins: gpio1-cfg {
+			pins = "gpio1";
+			bias-pull-down;
+		};
+
+		dsi2_hpd_cfg_pins: gpio2-cfg {
+			pins = "gpio2";
+			bias-pull-up;
+		};
+
+		dsi2_cdet_cfg_pins: gpio3-cfg {
+			pins = "gpio3";
+			bias-pull-down;
+		};
+
+		dp_hpd_cfg_pins: gpio8-cfg {
+			pins = "gpio8";
+			bias-pull-down;
+		};
+	};
+
+	i2c-mux@77 {
+		compatible = "nxp,pca9542";
+		reg = <0x77>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			anx_7625_1: anx7625@2c {
+				compatible = "analogix,anx7625";
+				reg = <0x2c>;
+				interrupt-parent = <&ioexp>;
+				interrupts = <0 0>;
+				cbl_det-gpio = <&ioexp 1 0>;
+				power_en-gpio = <&tlmm 47 0>;
+				reset_n-gpio = <&tlmm 49 0>;
+			};
+		};
+
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			anx_7625_2: anx7625@2c {
+				compatible = "analogix,anx7625";
+				reg = <0x2c>;
+				interrupt-parent = <&ioexp>;
+				interrupts = <2 0>;
+				cbl_det-gpio = <&ioexp 3 0>;
+				power_en-gpio = <&tlmm 87 0>;
+				reset_n-gpio = <&tlmm 29 0>;
+			};
+		};
+	};
+};
+
+&anx_7625_1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			anx_7625_1_in: endpoint {
+				remote-endpoint = <&dsi_anx_7625_1_out>;
+			};
+		};
+	};
+};
+
+&anx_7625_2 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			anx_7625_2_in: endpoint {
+				remote-endpoint = <&dsi_anx_7625_2_out>;
+			};
+		};
+	};
+};
+
+#include "dsi-panel-ext-bridge-1080p.dtsi"
+
+&soc {
+	dsi_anx_7625_1: qcom,dsi-display@17 {
+		label = "dsi_anx_7625_1";
+		qcom,dsi-display-active;
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
+	};
+
+	dsi_anx_7625_2: qcom,dsi-display@18 {
+		label = "dsi_anx_7625_2";
+		qcom,dsi-display-active;
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
+	};
+
+	dsi_dp1: qcom,dsi-display@1 {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+		clock-names = "src_byte_clk0", "src_pixel_clk0",
+			      "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-display-list =
+			<&dsi_anx_7625_1>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dsi_anx_7625_1_out: endpoint {
+					remote-endpoint = <&anx_7625_1_in>;
+				};
+			};
+		};
+	};
+
+	dsi_dp2: qcom,dsi-display@2 {
+		compatible = "qcom,dsi-display";
+		label = "secondary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+		clock-names = "src_byte_clk0", "src_pixel_clk0",
+			      "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-display-list =
+			<&dsi_anx_7625_2>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dsi_anx_7625_2_out: endpoint {
+					remote-endpoint = <&anx_7625_2_in>;
+				};
+			};
+		};
+	};
+
+	refgen: refgen-regulator@88e7000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0x88e7000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+};
+
+&mdss_dsi_phy0 {
+	qcom,panel-force-clock-lane-hs;
+};
+
+&mdss_dsi_phy1 {
+	qcom,panel-force-clock-lane-hs;
+};
+
+&mdss_mdp {
+	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+};
+
+#include <dt-bindings/gpio/gpio.h>
+
+&soc {
+	emac_hw: qcom,emac@00020000 {
+		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
+		emac-core-version = <2>;
+		reg = <0x20000 0x10000>,
+			<0x36000 0x100>,
+			<0x3D00000 0x300000>;
+		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
+		interrupts-extended = <&pdc 0 689 4>, <&pdc 0 699 4>,
+			<&tlmm 124 2>, <&pdc 0 691 4>,
+			<&pdc 0 692 4>, <&pdc 0 693 4>,
+			<&pdc 0 694 4>, <&pdc 0 695 4>,
+			<&pdc 0 696 4>, <&pdc 0 697 4>,
+			<&pdc 0 698 4>, <&pdc 0 699 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"phy-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>, /* No vote */
+			<98 512 1250 0>, <1 781 0 40000>, /* 10Mbps vote */
+			<98 512 12500 0>, <1 781 0 40000>, /* 100Mbps vote */
+			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "10", "100", "1000";
+		clocks = <&clock_gcc GCC_EMAC_AXI_CLK>,
+			<&clock_gcc GCC_EMAC_PTP_CLK>,
+			<&clock_gcc GCC_EMAC_RGMII_CLK>,
+			<&clock_gcc GCC_EMAC_SLV_AHB_CLK>;
+		clock-names = "emac_axi_clk", "emac_ptp_clk",
+			"emac_rgmii_clk", "emac_slv_ahb_clk";
+		qcom,phy-reset = <&tlmm 79 GPIO_ACTIVE_HIGH>;
+		qcom,phy-intr-redirect = <&tlmm 124 GPIO_ACTIVE_LOW>;
+		gdsc_emac-supply = <&emac_gdsc>;
+		pinctrl-names = "dev-emac-mdc",
+			"dev-emac-mdio",
+			"dev-emac-rgmii_txd0_state",
+			"dev-emac-rgmii_txd1_state",
+			"dev-emac-rgmii_txd2_state",
+			"dev-emac-rgmii_txd3_state",
+			"dev-emac-rgmii_txc_state",
+			"dev-emac-rgmii_tx_ctl_state",
+			"dev-emac-rgmii_rxd0_state",
+			"dev-emac-rgmii_rxd1_state",
+			"dev-emac-rgmii_rxd2_state",
+			"dev-emac-rgmii_rxd3_state",
+			"dev-emac-rgmii_rxc_state",
+			"dev-emac-rgmii_rx_ctl_state";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+
+		pinctrl-2 = <&emac_rgmii_txd0>;
+		pinctrl-3 = <&emac_rgmii_txd1>;
+		pinctrl-4 = <&emac_rgmii_txd2>;
+		pinctrl-5 = <&emac_rgmii_txd3>;
+		pinctrl-6 = <&emac_rgmii_txc>;
+		pinctrl-7 = <&emac_rgmii_tx_ctl>;
+
+		pinctrl-8 = <&emac_rgmii_rxd0>;
+		pinctrl-9 = <&emac_rgmii_rxd1>;
+		pinctrl-10 = <&emac_rgmii_rxd2>;
+		pinctrl-11 = <&emac_rgmii_rxd3>;
+		pinctrl-12 = <&emac_rgmii_rxc>;
+		pinctrl-13 = <&emac_rgmii_rx_ctl>;
+
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			qcom,smmu-s1-bypass;
+			iommus = <&apps_smmu 0x3C0 0x0>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
+		};
+	};
+};

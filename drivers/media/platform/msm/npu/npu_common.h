@@ -67,7 +67,7 @@
 #define ROW_BYTES 16
 #define GROUP_BYTES 4
 
-#define NUM_TOTAL_CLKS          19
+#define NUM_TOTAL_CLKS          20
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		7

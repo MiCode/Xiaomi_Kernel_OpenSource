@@ -552,6 +552,69 @@ out:
 	return ret;
 }
 
+int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv)
+{
+	int ret;
+	struct wlfw_shutdown_req_msg_v01 *req;
+	struct wlfw_shutdown_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	icnss_pr_dbg("Sending modem shutdown request, state: 0x%lx\n",
+		     priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->shutdown_valid = 1;
+	req->shutdown = 1;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_shutdown_resp_msg_v01_ei, resp);
+
+	if (ret < 0) {
+		icnss_pr_err("Fail to init txn for shutdown resp %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_SHUTDOWN_REQ_V01,
+			       WLFW_SHUTDOWN_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_shutdown_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send Shutdown req %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, WLFW_TIMEOUT);
+	if (ret < 0) {
+		icnss_pr_err("Shutdown resp wait failed with ret %d\n",
+			     ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI modem shutdown request rejected result:%d error:%d\n",
+			     resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+out:
+	kfree(resp);
+	kfree(req);
+	return ret;
+}
+
 int wlfw_ini_send_sync_msg(struct icnss_priv *priv, uint8_t fw_log_mode)
 {
 	int ret;
@@ -1128,7 +1191,15 @@ static int wlfw_new_server(struct qmi_handle *qmi,
 static void wlfw_del_server(struct qmi_handle *qmi,
 			    struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("WLFW server delete\n");
+
+	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+	}
+
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
 				0, NULL);
 }

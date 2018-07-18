@@ -333,7 +333,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 		er_ctxt->msivec = mhi_event->msi;
 		mhi_event->db_cfg.db_mode = true;
 
-		ring->el_size = sizeof(struct __packed mhi_tre);
+		ring->el_size = sizeof(struct mhi_tre);
 		ring->len = ring->el_size * ring->elements;
 		ret = mhi_alloc_aligned_ring(mhi_cntrl, ring, ring->len);
 		if (ret)
@@ -358,7 +358,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 	for (i = 0; i < NR_OF_CMD_RINGS; i++, mhi_cmd++, cmd_ctxt++) {
 		struct mhi_ring *ring = &mhi_cmd->ring;
 
-		ring->el_size = sizeof(struct __packed mhi_tre);
+		ring->el_size = sizeof(struct mhi_tre);
 		ring->elements = CMD_EL_PER_RING;
 		ring->len = ring->el_size * ring->elements;
 		ret = mhi_alloc_aligned_ring(mhi_cntrl, ring, ring->len);
@@ -643,7 +643,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	buf_ring = &mhi_chan->buf_ring;
 	tre_ring = &mhi_chan->tre_ring;
-	tre_ring->el_size = sizeof(struct __packed mhi_tre);
+	tre_ring->el_size = sizeof(struct mhi_tre);
 	tre_ring->len = tre_ring->el_size * tre_ring->elements;
 	chan_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[mhi_chan->chan];
 	ret = mhi_alloc_aligned_ring(mhi_cntrl, tre_ring, tre_ring->len);
@@ -736,7 +736,6 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	return 0;
 }
 
-#if defined(CONFIG_OF)
 static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			   struct device_node *of_node)
 {
@@ -992,15 +991,6 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	int ret;
 	struct mhi_timesync *mhi_tsync;
 
-	/* parse firmware image info (optional parameters) */
-	of_property_read_string(of_node, "mhi,fw-name", &mhi_cntrl->fw_image);
-	of_property_read_string(of_node, "mhi,edl-name", &mhi_cntrl->fw_image);
-	mhi_cntrl->fbc_download = of_property_read_bool(of_node, "mhi,dl-fbc");
-	of_property_read_u32(of_node, "mhi,sbl-size",
-			     (u32 *)&mhi_cntrl->sbl_size);
-	of_property_read_u32(of_node, "mhi,seg-len",
-			     (u32 *)&mhi_cntrl->seg_len);
-
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
 	if (ret)
@@ -1055,13 +1045,6 @@ error_ev_cfg:
 
 	return ret;
 }
-#else
-static int of_parse_dt(struct mhi_controller *mhi_cntrl,
-		       struct device_node *of_node)
-{
-	return -EINVAL;
-}
-#endif
 
 int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
@@ -1070,6 +1053,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
+	struct mhi_device *mhi_dev;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1091,8 +1075,10 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->mhi_cmd = kcalloc(NR_OF_CMD_RINGS,
 				     sizeof(*mhi_cntrl->mhi_cmd), GFP_KERNEL);
-	if (!mhi_cntrl->mhi_cmd)
+	if (!mhi_cntrl->mhi_cmd) {
+		ret = -ENOMEM;
 		goto error_alloc_cmd;
+	}
 
 	INIT_LIST_HEAD(&mhi_cntrl->transition_list);
 	mutex_init(&mhi_cntrl->pm_mutex);
@@ -1147,30 +1133,58 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
 	}
 
-	mhi_cntrl->parent = mhi_bus.dentry;
+	/* register controller with mhi_bus */
+	mhi_dev = mhi_alloc_device(mhi_cntrl);
+	if (!mhi_dev) {
+		ret = -ENOMEM;
+		goto error_alloc_dev;
+	}
+
+	mhi_dev->dev_type = MHI_CONTROLLER_TYPE;
+	mhi_dev->mhi_cntrl = mhi_cntrl;
+	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u", mhi_dev->dev_id,
+		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot);
+	ret = device_add(&mhi_dev->dev);
+	if (ret)
+		goto error_add_dev;
+
+	mhi_cntrl->mhi_dev = mhi_dev;
+
+	mhi_cntrl->parent = debugfs_lookup(mhi_bus_type.name, NULL);
 	mhi_cntrl->klog_lvl = MHI_MSG_LVL_ERROR;
 
-	/* add to list */
+	/* adding it to this list only for debug purpose */
 	mutex_lock(&mhi_bus.lock);
 	list_add_tail(&mhi_cntrl->node, &mhi_bus.controller_list);
 	mutex_unlock(&mhi_bus.lock);
 
 	return 0;
 
+error_add_dev:
+	mhi_dealloc_device(mhi_cntrl, mhi_dev);
+
+error_alloc_dev:
+	kfree(mhi_cntrl->mhi_cmd);
+
 error_alloc_cmd:
 	kfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_event);
 
-	return -ENOMEM;
+	return ret;
 };
 EXPORT_SYMBOL(of_register_mhi_controller);
 
 void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
+
 	kfree(mhi_cntrl->mhi_cmd);
 	kfree(mhi_cntrl->mhi_event);
 	kfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_tsync);
+
+	device_del(&mhi_dev->dev);
+	put_device(&mhi_dev->dev);
 
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_cntrl->node);
@@ -1265,7 +1279,11 @@ static int mhi_match(struct device *dev, struct device_driver *drv)
 	struct mhi_driver *mhi_drv = to_mhi_driver(drv);
 	const struct mhi_device_id *id;
 
-	for (id = mhi_drv->id_table; id->chan; id++)
+	/* if controller type there is no client driver associated with it */
+	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
+		return 0;
+
+	for (id = mhi_drv->id_table; id->chan[0]; id++)
 		if (!strcmp(mhi_dev->chan_name, id->chan)) {
 			mhi_dev->id = id;
 			return 1;
@@ -1356,6 +1374,10 @@ static int mhi_driver_remove(struct device *dev)
 		MHI_CH_STATE_DISABLED
 	};
 	int dir;
+
+	/* control device has no work to do */
+	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
+		return 0;
 
 	MHI_LOG("Removing device for chan:%s\n", mhi_dev->chan_name);
 
@@ -1463,14 +1485,13 @@ struct mhi_device *mhi_alloc_device(struct mhi_controller *mhi_cntrl)
 
 static int __init mhi_init(void)
 {
-	struct dentry *dentry;
 	int ret;
 
 	mutex_init(&mhi_bus.lock);
 	INIT_LIST_HEAD(&mhi_bus.controller_list);
-	dentry = debugfs_create_dir("mhi", NULL);
-	if (!IS_ERR_OR_NULL(dentry))
-		mhi_bus.dentry = dentry;
+
+	/* parent directory */
+	debugfs_create_dir(mhi_bus_type.name, NULL);
 
 	ret = bus_register(&mhi_bus_type);
 

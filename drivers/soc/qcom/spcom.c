@@ -362,7 +362,7 @@ static int spcom_rx(struct spcom_channel *ch,
 {
 	unsigned long jiffies = msecs_to_jiffies(timeout_msec);
 	long timeleft = 1;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&ch->lock);
 
@@ -374,10 +374,10 @@ static int spcom_rx(struct spcom_channel *ch,
 		/* wait for rx response */
 		pr_debug("wait for rx done, timeout_msec=%d\n", timeout_msec);
 		if (timeout_msec)
-			timeleft = wait_for_completion_timeout(&ch->rx_done,
-							       jiffies);
+			timeleft = wait_for_completion_interruptible_timeout(
+						     &ch->rx_done, jiffies);
 		else
-			wait_for_completion(&ch->rx_done);
+			ret = wait_for_completion_interruptible(&ch->rx_done);
 
 		mutex_lock(&ch->lock);
 		if (timeout_msec && timeleft == 0) {
@@ -387,6 +387,12 @@ static int spcom_rx(struct spcom_channel *ch,
 		} else if (ch->rpmsg_abort) {
 			pr_warn("rpmsg channel is closing\n");
 			ret = -ERESTART;
+			goto exit_err;
+		} else if (ret < 0 || timeleft == -ERESTARTSYS) {
+			pr_debug("wait interrupted: ret=%d, timeleft=%ld\n",
+				 ret, timeleft);
+			if (timeleft == -ERESTARTSYS)
+				ret = -ERESTARTSYS;
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
 			pr_debug("actual_rx_size is [%zu]\n",
@@ -439,6 +445,7 @@ exit_err:
 static int spcom_get_next_request_size(struct spcom_channel *ch)
 {
 	int size = -1;
+	int ret = 0;
 
 	/* NOTE: Remote clients might not be connected yet.*/
 	mutex_lock(&ch->lock);
@@ -448,18 +455,26 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 	if (ch->actual_rx_size) {
 		pr_debug("next-req-size already ready ch [%s] size [%zu]\n",
 			 ch->name, ch->actual_rx_size);
+		ret = -EFAULT;
 		goto exit_ready;
 	}
 	mutex_unlock(&ch->lock); /* unlock while waiting */
 
 	pr_debug("Wait for Rx Done, ch [%s].\n", ch->name);
-	wait_for_completion(&ch->rx_done);
+	ret = wait_for_completion_interruptible(&ch->rx_done);
+	if (ret < 0) {
+		pr_debug("ch [%s]:interrupted wait ret=%d\n",
+			 ret, ch->name);
+		goto exit_error;
+	}
 
 	mutex_lock(&ch->lock); /* re-lock after waiting */
 
 	if (ch->actual_rx_size == 0) {
 		pr_err("invalid rx size [%zu] ch [%s]\n",
 		       ch->actual_rx_size, ch->name);
+		mutex_unlock(&ch->lock);
+		ret = -EFAULT;
 		goto exit_error;
 	}
 
@@ -470,6 +485,8 @@ exit_ready:
 		size -= sizeof(struct spcom_msg_hdr);
 	} else {
 		pr_err("rx size [%d] too small.\n", size);
+		ret = -EFAULT;
+		mutex_unlock(&ch->lock);
 		goto exit_error;
 	}
 
@@ -477,10 +494,7 @@ exit_ready:
 	return size;
 
 exit_error:
-	mutex_unlock(&ch->lock);
-	return -EFAULT;
-
-
+	return ret;
 }
 
 /*======================================================================*/
@@ -532,7 +546,7 @@ static int spcom_handle_restart_sp_command(void)
 {
 	void *subsystem_get_retval = NULL;
 
-	pr_err("restart - PIL FW loading process initiated\n");
+	pr_debug("restart - PIL FW loading process initiated\n");
 
 	subsystem_get_retval = subsystem_get("spss");
 	if (!subsystem_get_retval) {
@@ -540,7 +554,7 @@ static int spcom_handle_restart_sp_command(void)
 		return -EINVAL;
 	}
 
-	pr_err("restart - PIL FW loading process is complete\n");
+	pr_debug("restart - PIL FW loading process is complete\n");
 	return 0;
 }
 
@@ -882,7 +896,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	/* Check if this shared buffer is already locked */
 	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
 		if (ch->dmabuf_handle_table[i] == dma_buf) {
-			pr_err("fd [%d] shared buf is already locked.\n", fd);
+			pr_debug("fd [%d] shared buf is already locked.\n", fd);
 			/* decrement back the ref count */
 			mutex_unlock(&ch->lock);
 			dma_buf_put(dma_buf);
@@ -1293,8 +1307,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	const char *name = file_to_filename(filp);
 	int ret = 0;
 
-	pr_err("close file [%s].\n", name);
-
 	if (strcmp(name, "unknown") == 0) {
 		pr_err("name is unknown\n");
 		return -EINVAL;
@@ -1467,7 +1479,8 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 
 	ret = spcom_handle_read(ch, buf, buf_size);
 	if (ret < 0) {
-		pr_err("read error [%d].\n", ret);
+		if (ret != -ERESTARTSYS)
+			pr_err("read error [%d].\n", ret);
 		kfree(buf);
 		return ret;
 	}
@@ -1893,7 +1906,7 @@ static int spcom_rpdev_cb(struct rpmsg_device *rpdev,
 	spin_lock_irqsave(&spcom_dev->rx_lock, flags);
 	list_add(&rx_item->list, &spcom_dev->rx_list_head);
 	spin_unlock_irqrestore(&spcom_dev->rx_lock, flags);
-	pr_err("signaling rx item for %s, received %d bytes\n",
+	pr_debug("signaling rx item for %s, received %d bytes\n",
 	       rpdev->id.name, len);
 
 	schedule_work(&rpmsg_rx_consumer);
@@ -1935,16 +1948,26 @@ static int spcom_rpdev_probe(struct rpmsg_device *rpdev)
 static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 {
 	struct spcom_channel *ch;
+	int i;
 
 	if (!rpdev) {
 		pr_err("rpdev is NULL\n");
 		return;
 	}
 
+	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 	ch = dev_get_drvdata(&rpdev->dev);
 	if (!ch) {
 		pr_err("channel %s not found\n", rpdev->id.name);
 		return;
+	}
+	/* release all ion buffers locked by the channel */
+	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
+		if (ch->dmabuf_handle_table[i]) {
+			dma_buf_put(ch->dmabuf_handle_table[i]);
+			ch->dmabuf_handle_table[i] = NULL;
+			dev_info(&rpdev->dev, "dma_buf_put(%d)\n", i);
+		}
 	}
 	mutex_lock(&ch->lock);
 	ch->rpdev = NULL;
@@ -1956,7 +1979,6 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	if (atomic_dec_and_test(&spcom_dev->rpmsg_dev_count))
 		complete_all(&spcom_dev->rpmsg_state_change);
 
-	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 }
 
 /* register rpmsg driver to match with channel ch_name */
@@ -2064,7 +2086,7 @@ static int spcom_probe(struct platform_device *pdev)
 	ret = spcom_register_chardev();
 	if (ret) {
 		pr_err("create character device failed.\n");
-		goto fail_reg_chardev;
+		goto fail_while_chardev_reg;
 	}
 
 	ret = spcom_parse_dt(np);
@@ -2082,6 +2104,7 @@ static int spcom_probe(struct platform_device *pdev)
 fail_reg_chardev:
 	pr_err("failed to init driver\n");
 	spcom_unregister_chrdev();
+fail_while_chardev_reg:
 	kfree(dev);
 	spcom_dev = NULL;
 

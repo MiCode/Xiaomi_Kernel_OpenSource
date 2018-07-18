@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 	if (!ctrl->dev.of_node)
 		return -EINVAL;
 
-	for_each_child_of_node(ctrl->dev.of_node, node) {
+	for_each_available_child_of_node(ctrl->dev.of_node, node) {
 		struct property *prop;
 		struct slim_device *slim;
 		char *name;

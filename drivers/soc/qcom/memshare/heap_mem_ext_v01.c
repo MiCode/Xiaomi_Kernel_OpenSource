@@ -11,133 +11,10 @@
  *
  */
 
-#include <linux/qmi_encdec.h>
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 #include "heap_mem_ext_v01.h"
 
-struct elem_info mem_alloc_req_msg_data_v01_ei[] = {
-	{
-		.data_type      = QMI_UNSIGNED_4_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint32_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x01,
-		.offset         = offsetof(struct mem_alloc_req_msg_v01,
-					num_bytes),
-	},
-	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x10,
-		.offset         = offsetof(struct mem_alloc_req_msg_v01,
-					block_alignment_valid),
-	},
-	{
-		.data_type      = QMI_UNSIGNED_4_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint32_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x10,
-		.offset         = offsetof(struct mem_alloc_req_msg_v01,
-					block_alignment),
-	},
-	{
-		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.tlv_type       = QMI_COMMON_TLV_TYPE,
-	},
-};
-
-struct elem_info mem_alloc_resp_msg_data_v01_ei[] = {
-	{
-		.data_type      = QMI_SIGNED_2_BYTE_ENUM,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint16_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x01,
-		.offset         = offsetof(struct mem_alloc_resp_msg_v01,
-					resp),
-	},
-	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x10,
-		.offset         = offsetof(struct mem_alloc_resp_msg_v01,
-					handle_valid),
-	},
-	{
-		.data_type      = QMI_UNSIGNED_8_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint64_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x10,
-		.offset         = offsetof(struct mem_alloc_resp_msg_v01,
-					handle),
-	},
-	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x11,
-		.offset         = offsetof(struct mem_alloc_resp_msg_v01,
-					num_bytes_valid),
-	},
-	{
-		.data_type      = QMI_UNSIGNED_4_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint32_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x11,
-		.offset         = offsetof(struct mem_alloc_resp_msg_v01,
-					num_bytes),
-	},
-	{
-		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.tlv_type       = QMI_COMMON_TLV_TYPE,
-	},
-};
-
-struct elem_info mem_free_req_msg_data_v01_ei[] = {
-	{
-		.data_type      = QMI_UNSIGNED_8_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint64_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x01,
-		.offset         = offsetof(struct mem_free_req_msg_v01,
-					handle),
-	},
-	{
-		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.tlv_type       = QMI_COMMON_TLV_TYPE,
-	},
-};
-
-struct elem_info mem_free_resp_msg_data_v01_ei[] = {
-	{
-		.data_type      = QMI_SIGNED_2_BYTE_ENUM,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint16_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x01,
-		.offset         = offsetof(struct mem_free_resp_msg_v01,
-					resp),
-	},
-	{
-		.data_type      = QMI_EOTI,
-		.is_array       = NO_ARRAY,
-		.tlv_type       = QMI_COMMON_TLV_TYPE,
-	},
-};
-
-struct elem_info dhms_mem_alloc_addr_info_type_v01_ei[] = {
+struct qmi_elem_info dhms_mem_alloc_addr_info_type_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_8_BYTE,
 		.elem_len       = 1,
@@ -165,7 +42,7 @@ struct elem_info dhms_mem_alloc_addr_info_type_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_alloc_generic_req_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_alloc_generic_req_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_4_BYTE,
 		.elem_len       = 1,
@@ -245,7 +122,7 @@ struct elem_info mem_alloc_generic_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_alloc_generic_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_alloc_generic_resp_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -255,7 +132,7 @@ struct elem_info mem_alloc_generic_resp_msg_data_v01_ei[] = {
 		.offset         = offsetof(struct
 						mem_alloc_generic_resp_msg_v01,
 					resp),
-		.ei_array		= get_qmi_response_type_v01_ei(),
+		.ei_array		= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -316,7 +193,7 @@ struct elem_info mem_alloc_generic_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_free_generic_req_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_free_generic_req_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_DATA_LEN,
 		.elem_len       = 1,
@@ -380,7 +257,7 @@ struct elem_info mem_free_generic_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_free_generic_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_free_generic_resp_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -390,7 +267,7 @@ struct elem_info mem_free_generic_resp_msg_data_v01_ei[] = {
 		.offset         = offsetof(struct
 						mem_free_generic_resp_msg_v01,
 					resp),
-		.ei_array		= get_qmi_response_type_v01_ei(),
+		.ei_array		= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -399,7 +276,7 @@ struct elem_info mem_free_generic_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_query_size_req_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_query_size_req_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_4_BYTE,
 		.elem_len       = 1,
@@ -434,7 +311,7 @@ struct elem_info mem_query_size_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info mem_query_size_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info mem_query_size_resp_msg_data_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -444,7 +321,7 @@ struct elem_info mem_query_size_resp_msg_data_v01_ei[] = {
 		.offset         = offsetof(struct
 						mem_query_size_rsp_msg_v01,
 					resp),
-		.ei_array		= get_qmi_response_type_v01_ei(),
+		.ei_array		= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,

@@ -30,8 +30,6 @@
 
 static int try_get_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *ctrl);
-static int msm_vidc_get_count(struct msm_vidc_inst *inst,
-	struct v4l2_ctrl *ctrl);
 
 static int get_poll_flags(void *instance)
 {
@@ -376,7 +374,6 @@ int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
 {
 	struct msm_vidc_inst *inst = instance;
 	struct v4l2_ext_control *ext_control;
-	struct v4l2_ctrl ctrl;
 	int i = 0, rc = 0;
 
 	if (!inst || !control)
@@ -386,19 +383,10 @@ int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
 
 	for (i = 0; i < control->count; i++) {
 		switch (ext_control[i].id) {
-		case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
-		case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
-			ctrl.id = ext_control[i].id;
-			ctrl.val = ext_control[i].value;
-
-			msm_vidc_get_count(inst, &ctrl);
-			ext_control->value = ctrl.val;
-			break;
 		default:
 			dprintk(VIDC_ERR,
 				"This control %x is not supported yet\n",
 					ext_control[i].id);
-			rc = -EINVAL;
 			break;
 		}
 	}
@@ -742,29 +730,6 @@ static void msm_vidc_cleanup_buffer(struct vb2_buffer *vb)
 			__func__, rc);
 }
 
-static int set_buffer_count(struct msm_vidc_inst *inst,
-	int host_count, int act_count, enum hal_buffer type)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct hal_buffer_count_actual buf_count;
-
-	hdev = inst->core->device;
-
-	buf_count.buffer_type = type;
-	buf_count.buffer_count_actual = act_count;
-	buf_count.buffer_count_min_host = host_count;
-	dprintk(VIDC_DBG, "%s : Act count = %d Host count = %d\n",
-		__func__, act_count, host_count);
-	rc = call_hfi_op(hdev, session_set_property,
-		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"Failed to set actual buffer count %d for buffer type %d\n",
-			act_count, type);
-	return rc;
-}
-
 static int msm_vidc_queue_setup(struct vb2_queue *q,
 	unsigned int *num_buffers, unsigned int *num_planes,
 	unsigned int sizes[], struct device *alloc_devs[])
@@ -811,7 +776,8 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[OUTPUT_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+		rc = msm_comm_set_buffer_count(inst,
+			bufreq->buffer_count_min_host,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
 		break;
@@ -844,7 +810,8 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[CAPTURE_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+		rc = msm_comm_set_buffer_count(inst,
+			bufreq->buffer_count_min_host,
 			bufreq->buffer_count_actual, buffer_type);
 		}
 		break;
@@ -913,7 +880,11 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	struct hal_vbv_hdr_buf_size hrd_buf_size;
 	struct hal_enable latency;
 	struct hfi_device *hdev;
+	struct hal_multi_slice_control multi_slice_control;
 	u32 codec;
+	u32 mbps, mb_per_frame, fps, bitrate;
+	u32 slice_val, slice_mode, max_avg_slicesize;
+	u32 output_width, output_height;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -965,6 +936,61 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 		inst->clk_data.low_latency_mode = latency.enable;
 	}
 
+	/* Update Slice Config */
+	slice_mode =  msm_comm_g_ctrl_for_id(inst,
+		 V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+
+	if ((codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC) &&
+		slice_mode != V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) {
+
+		output_height = inst->prop.height[CAPTURE_PORT];
+		output_width = inst->prop.width[CAPTURE_PORT];
+		fps = inst->prop.fps;
+		bitrate = inst->clk_data.bitrate;
+		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
+		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
+
+		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF &&
+			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
+			slice_mode = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+			slice_val = 0;
+		} else if (slice_mode ==
+				    V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
+			if (output_width > 3840 || output_height > 3840 ||
+				mb_per_frame > NUM_MBS_PER_FRAME(3840, 2160) ||
+				fps > 60) {
+				slice_mode =
+					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+				slice_val = 0;
+			} else {
+				slice_val = msm_comm_g_ctrl_for_id(inst,
+				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB);
+				slice_val = max(slice_val, mb_per_frame / 10);
+			}
+		} else {
+			if (output_width > 1920 || output_height > 1920 ||
+				mb_per_frame > NUM_MBS_PER_FRAME(1920, 1088) ||
+				 fps > 30) {
+				slice_mode =
+					V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE;
+				slice_val = 0;
+			} else {
+				slice_val = msm_comm_g_ctrl_for_id(inst,
+				   V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES);
+				max_avg_slicesize = ((bitrate / fps) / 8) / 10;
+				slice_val =
+					max(slice_val, max_avg_slicesize);
+			}
+		}
+
+		multi_slice_control.multi_slice = slice_mode;
+		multi_slice_control.slice_size = slice_val;
+
+		rc = call_hfi_op(hdev, session_set_property,
+		 (void *)inst->session, HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
+		 (void *)&multi_slice_control);
+	}
 	return rc;
 }
 
@@ -1555,114 +1581,6 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 				inst, v4l2_ctrl_get_name(ctrl->id));
 	return rc;
 }
-
-static int msm_vidc_get_count(struct msm_vidc_inst *inst,
-	struct v4l2_ctrl *ctrl)
-{
-	int rc = 0;
-	struct hal_buffer_requirements *bufreq;
-	enum hal_buffer buffer_type;
-
-	if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_OUTPUT) {
-		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
-		if (!bufreq) {
-			dprintk(VIDC_ERR,
-				"Failed to find bufreqs for buffer type = %d\n",
-					HAL_BUFFER_INPUT);
-			return 0;
-		}
-		if (inst->bufq[OUTPUT_PORT].vb2_bufq.streaming) {
-			ctrl->val = bufreq->buffer_count_min_host;
-			return 0;
-		}
-		if (ctrl->val > bufreq->buffer_count_min_host &&
-			ctrl->val <= MAX_NUM_OUTPUT_BUFFERS) {
-			dprintk(VIDC_DBG,
-				"Buffer count Host changed from %d to %d\n",
-					bufreq->buffer_count_min_host,
-					ctrl->val);
-			bufreq->buffer_count_actual =
-			bufreq->buffer_count_min =
-			bufreq->buffer_count_min_host =
-				ctrl->val;
-		} else {
-			ctrl->val = bufreq->buffer_count_min_host;
-		}
-		rc = set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
-			bufreq->buffer_count_actual,
-			HAL_BUFFER_INPUT);
-
-		msm_vidc_update_host_buff_counts(inst);
-		ctrl->val = bufreq->buffer_count_min_host;
-		dprintk(VIDC_DBG,
-			"g_count: %x : OUTPUT:  min %d min_host %d actual %d\n",
-			hash32_ptr(inst->session),
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_min_host,
-			bufreq->buffer_count_actual);
-		return rc;
-
-	} else if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_CAPTURE) {
-
-		buffer_type = msm_comm_get_hal_output_buffer(inst);
-		bufreq = get_buff_req_buffer(inst,
-			buffer_type);
-		if (!bufreq) {
-			dprintk(VIDC_ERR,
-				"Failed to find bufreqs for buffer type = %d\n",
-					buffer_type);
-			return 0;
-		}
-		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming) {
-			if (ctrl->val != bufreq->buffer_count_min_host)
-				return -EINVAL;
-			else
-				return 0;
-		}
-
-		if (inst->session_type == MSM_VIDC_DECODER &&
-				!inst->in_reconfig &&
-			inst->state < MSM_VIDC_LOAD_RESOURCES_DONE) {
-			dprintk(VIDC_DBG,
-				"Clients updates Buffer count from %d to %d\n",
-				bufreq->buffer_count_min_host, ctrl->val);
-			bufreq->buffer_count_actual =
-			bufreq->buffer_count_min =
-			bufreq->buffer_count_min_host =
-				ctrl->val;
-		}
-		if (ctrl->val > bufreq->buffer_count_min_host &&
-			ctrl->val <= MAX_NUM_CAPTURE_BUFFERS) {
-			dprintk(VIDC_DBG,
-				"Buffer count Host changed from %d to %d\n",
-				bufreq->buffer_count_min_host,
-				ctrl->val);
-			bufreq->buffer_count_actual =
-			bufreq->buffer_count_min =
-			bufreq->buffer_count_min_host =
-				ctrl->val;
-		} else {
-			ctrl->val = bufreq->buffer_count_min_host;
-		}
-		rc = set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
-			bufreq->buffer_count_actual,
-			HAL_BUFFER_OUTPUT);
-
-		msm_vidc_update_host_buff_counts(inst);
-		ctrl->val = bufreq->buffer_count_min_host;
-		dprintk(VIDC_DBG,
-			"g_count: %x : CAPTURE:  min %d min_host %d actual %d\n",
-			hash32_ptr(inst->session),
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_min_host,
-			bufreq->buffer_count_actual);
-		return rc;
-	}
-	return -EINVAL;
-}
-
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1703,8 +1621,6 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
-		if (inst->in_reconfig)
-			msm_vidc_update_host_buff_counts(inst);
 		buffer_type = msm_comm_get_hal_output_buffer(inst);
 		bufreq = get_buff_req_buffer(inst,
 			buffer_type);

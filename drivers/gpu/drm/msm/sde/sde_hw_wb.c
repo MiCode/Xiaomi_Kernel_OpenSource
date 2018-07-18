@@ -55,6 +55,11 @@
 #define WB_OUT_IMAGE_SIZE		0x2C0
 #define WB_OUT_XY			0x2C4
 
+#define CWB_CTRL_SRC_SEL		0x0
+#define CWB_CTRL_MODE			0x4
+#define CWB_CTRL_BLK_SIZE		0x100
+#define CWB_CTRL_BASE_OFFSET		0x83000
+
 /* WB_QOS_CTRL */
 #define WB_QOS_CTRL_DANGER_SAFE_EN	BIT(0)
 
@@ -76,6 +81,18 @@ static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 		}
 	}
 	return ERR_PTR(-EINVAL);
+}
+
+static void _sde_hw_cwb_ctrl_init(struct sde_mdss_cfg *m,
+		void __iomem *addr, struct sde_hw_blk_reg_map *b)
+{
+	if (b) {
+		b->base_off = addr;
+		b->blk_off = CWB_CTRL_BASE_OFFSET;
+		b->length = CWB_CTRL_BLK_SIZE * m->pingpong_count;
+		b->hwversion = m->hwversion;
+		b->log_mask = SDE_DBG_MASK_WB;
+	}
 }
 
 static void sde_hw_wb_setup_outaddress(struct sde_hw_wb *ctx,
@@ -262,6 +279,23 @@ static void sde_hw_wb_bind_pingpong_blk(
 	SDE_REG_WRITE(c, WB_MUX, mux_cfg);
 }
 
+static void sde_hw_wb_program_cwb_ctrl(struct sde_hw_wb *ctx,
+		const enum sde_cwb cur_idx,
+		const enum sde_cwb data_src, bool dspp_out)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 blk_base;
+
+	if (!ctx)
+		return;
+
+	c = &ctx->cwb_hw;
+	blk_base = CWB_CTRL_BLK_SIZE * (cur_idx - CWB_0);
+
+	SDE_REG_WRITE(c, blk_base + CWB_CTRL_SRC_SEL, data_src - CWB_0);
+	SDE_REG_WRITE(c, blk_base + CWB_CTRL_MODE, dspp_out);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -283,6 +317,9 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 
 	if (test_bit(SDE_WB_INPUT_CTRL, &features))
 		ops->bind_pingpong_blk = sde_hw_wb_bind_pingpong_blk;
+
+	if (test_bit(SDE_WB_CWB_CTRL, &features))
+		ops->program_cwb_ctrl = sde_hw_wb_program_cwb_ctrl;
 }
 
 static struct sde_hw_blk_ops sde_hw_ops = {
@@ -329,6 +366,9 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+
+	if (test_bit(SDE_WB_CWB_CTRL, &cfg->features))
+		_sde_hw_cwb_ctrl_init(m, addr, &c->cwb_hw);
 
 	return c;
 

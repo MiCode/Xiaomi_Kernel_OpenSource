@@ -29,6 +29,8 @@
 #include <linux/syscalls.h>
 #include <linux/irq.h>
 
+#include <linux/kthread.h>
+
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
 #ifdef CONFIG_PARAVIRT
@@ -2786,20 +2788,21 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 	fire_sched_in_preempt_notifiers(current);
 	if (mm)
 		mmdrop(mm);
-	if (unlikely(prev_state == TASK_DEAD)) {
-		if (prev->sched_class->task_dead)
-			prev->sched_class->task_dead(prev);
+	if (unlikely(prev_state  == TASK_DEAD)) {
+			if (prev->sched_class->task_dead)
+				prev->sched_class->task_dead(prev);
 
-		/*
-		 * Remove function-return probe instances associated with this
-		 * task and put them back on the free list.
-		 */
-		kprobe_flush_task(prev);
+			/*
+			 * Remove function-return probe instances associated with this
+			 * task and put them back on the free list.
+			 */
+			kprobe_flush_task(prev);
 
-		/* Task is done with its stack. */
-		put_task_stack(prev);
+			/* Task is done with its stack. */
+			put_task_stack(prev);
 
-		put_task_struct(prev);
+			put_task_struct(prev);
+
 	}
 
 	tick_nohz_task_switch();
@@ -3571,23 +3574,8 @@ static void __sched notrace __schedule(bool preempt)
 
 void __noreturn do_task_dead(void)
 {
-	/*
-	 * The setting of TASK_RUNNING by try_to_wake_up() may be delayed
-	 * when the following two conditions become true.
-	 *   - There is race condition of mmap_sem (It is acquired by
-	 *     exit_mm()), and
-	 *   - SMI occurs before setting TASK_RUNINNG.
-	 *     (or hypervisor of virtual machine switches to other guest)
-	 *  As a result, we may become TASK_RUNNING after becoming TASK_DEAD
-	 *
-	 * To avoid it, we have to wait for releasing tsk->pi_lock which
-	 * is held by try_to_wake_up()
-	 */
-	raw_spin_lock_irq(&current->pi_lock);
-	raw_spin_unlock_irq(&current->pi_lock);
-
 	/* Causes final put_task_struct in finish_task_switch(): */
-	__set_current_state(TASK_DEAD);
+	set_special_state(TASK_DEAD);
 
 	/* Tell freezer to ignore us: */
 	current->flags |= PF_NOFREEZE;
@@ -6852,12 +6840,11 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 {
 	int ret, i;
 	unsigned int *data = (unsigned int *)table->data;
-	unsigned int old_val;
+	unsigned int *old_val;
 	static DEFINE_MUTEX(mutex);
 	static int cap_margin_levels = -1;
 
 	mutex_lock(&mutex);
-	old_val = *data;
 
 	if (cap_margin_levels == -1 ||
 		table->maxlen != (sizeof(unsigned int) * cap_margin_levels)) {
@@ -6866,9 +6853,17 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 	}
 
 	if (cap_margin_levels <= 0) {
-		mutex_unlock(&mutex);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock_mutex;
 	}
+
+	old_val = kzalloc(table->maxlen, GFP_KERNEL);
+	if (!old_val) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
+
+	memcpy(old_val, data, table->maxlen);
 
 	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
 
@@ -6876,15 +6871,18 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 		for (i = 0; i < cap_margin_levels; i++) {
 			if (sysctl_sched_capacity_margin_up[i] >
 					sysctl_sched_capacity_margin_down[i]) {
-				*data = old_val;
-				mutex_unlock(&mutex);
-				return -EINVAL;
+				memcpy(data, old_val, table->maxlen);
+				ret = -EINVAL;
+				goto free_old_val;
 			}
 		}
 
 		ret = sched_update_updown_migrate_values(data,
 						cap_margin_levels, ret);
 	}
+free_old_val:
+	kfree(old_val);
+unlock_mutex:
 	mutex_unlock(&mutex);
 
 	return ret;

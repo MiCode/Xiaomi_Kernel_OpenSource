@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,21 +189,12 @@ static inline bool msm_spm_pmic_arb_present(struct msm_spm_driver_data *dev)
 }
 
 static inline void msm_spm_drv_set_vctl2(struct msm_spm_driver_data *dev,
-		uint32_t vlevel)
+				uint32_t vlevel, uint32_t vctl_port)
 {
 	unsigned int pmic_data = 0;
 
-	/**
-	 * VCTL_PORT has to be 0, for PMIC_STS register to be updated.
-	 * Ensure that vctl_port is always set to 0.
-	 */
-	if (dev->vctl_port) {
-		__WARN();
-		return;
-	}
-
 	pmic_data |= vlevel;
-	pmic_data |= (dev->vctl_port & 0x7) << 16;
+	pmic_data |= (vctl_port & 0x7) << 16;
 
 	dev->reg_shadow[MSM_SPM_REG_SAW_VCTL] &= ~0x700FF;
 	dev->reg_shadow[MSM_SPM_REG_SAW_VCTL] |= pmic_data;
@@ -512,10 +503,46 @@ static void msm_spm_drv_set_avs_vlevel(struct msm_spm_driver_data *dev,
 }
 #endif
 
+static inline int msm_spm_drv_validate_data(struct msm_spm_driver_data *dev,
+					unsigned int vlevel, int vctl_port)
+{
+	int timeout_us = dev->vctl_timeout_us;
+	uint32_t new_level;
+
+	/* Confirm the voltage we set was what hardware sent and
+	 * FSM is idle.
+	 */
+	do {
+		udelay(1);
+		new_level = msm_spm_drv_get_sts_curr_pmic_data(dev);
+
+		/**
+		 * VCTL_PORT has to be 0, for vlevel to be updated.
+		 * If port is not 0, check for PMIC_STATE only.
+		 */
+
+		if (((new_level & 0x30000) == MSM_SPM_PMIC_STATE_IDLE) &&
+				(vctl_port || ((new_level & 0xFF) == vlevel)))
+			break;
+	} while (--timeout_us);
+
+	if (!timeout_us) {
+		pr_err("Wrong level %#x\n", new_level);
+		return -EIO;
+	}
+
+	if (msm_spm_debug_mask & MSM_SPM_DEBUG_VCTL)
+		pr_info("%s: done, remaining timeout %u us\n",
+			__func__, timeout_us);
+
+	return 0;
+}
+
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 {
-	uint32_t timeout_us, new_level;
+	uint32_t vlevel_set = vlevel;
 	bool avs_enabled;
+	int ret = 0;
 
 	if (!dev)
 		return -EINVAL;
@@ -531,45 +558,63 @@ int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 	if (avs_enabled)
 		msm_spm_drv_disable_avs(dev);
 
+	if (dev->vctl_port_ub >= 0) {
+		/**
+		 * VCTL can send 8bit voltage level at once.
+		 * Send lower 8bit first, vlevel change happens
+		 * when upper 8bit is sent.
+		 */
+		vlevel = vlevel_set & 0xFF;
+	}
+
 	/* Kick the state machine back to idle */
 	dev->reg_shadow[MSM_SPM_REG_SAW_RST] = 1;
 	msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW_RST);
 
-	msm_spm_drv_set_vctl2(dev, vlevel);
+	msm_spm_drv_set_vctl2(dev, vlevel, dev->vctl_port);
 
-	timeout_us = dev->vctl_timeout_us;
-	/* Confirm the voltage we set was what hardware sent */
-	do {
-		udelay(1);
-		new_level = msm_spm_drv_get_sts_curr_pmic_data(dev);
-		/* FSM is idle */
-		if (((new_level & 0x30000) == 0) &&
-				((new_level & 0xFF) == vlevel))
-			break;
-	} while (--timeout_us);
-	if (!timeout_us) {
-		pr_info("Wrong level %#x\n", new_level);
+	ret = msm_spm_drv_validate_data(dev, vlevel, dev->vctl_port);
+	if (ret)
 		goto set_vdd_bail;
-	}
 
-	if (msm_spm_debug_mask & MSM_SPM_DEBUG_VCTL)
-		pr_info("%s: done, remaining timeout %u us\n",
-			__func__, timeout_us);
+	if (dev->vctl_port_ub >= 0) {
+		/* Send upper 8bit of voltage level */
+		vlevel = (vlevel_set >> 8) & 0xFF;
+
+		/* Kick the state machine back to idle */
+		dev->reg_shadow[MSM_SPM_REG_SAW_RST] = 1;
+		msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW_RST);
+
+		/*
+		 * Steps for sending for vctl port other than '0'
+		 * Write VCTL register with pmic data and address index
+		 * Perform system barrier
+		 * Wait for 1us
+		 * Read PMIC_STS register to make sure operation is complete
+		 */
+		msm_spm_drv_set_vctl2(dev, vlevel, dev->vctl_port_ub);
+
+		mb(); /* To make sure data is sent before checking status */
+
+		ret = msm_spm_drv_validate_data(dev, vlevel, dev->vctl_port_ub);
+		if (ret)
+			goto set_vdd_bail;
+	}
 
 	/* Set AVS min/max */
 	if (avs_enabled) {
-		msm_spm_drv_set_avs_vlevel(dev, vlevel);
+		msm_spm_drv_set_avs_vlevel(dev, vlevel_set);
 		msm_spm_drv_enable_avs(dev);
 	}
 
-	return 0;
+	return ret;
 
 set_vdd_bail:
 	if (avs_enabled)
 		msm_spm_drv_enable_avs(dev);
 
-	pr_err("%s: failed %#x, remaining timeout %uus, vlevel %#x\n",
-		__func__, vlevel, timeout_us, new_level);
+	pr_err("%s: failed %#x vlevel setting in timeout %uus\n",
+			__func__, vlevel_set, dev->vctl_timeout_us);
 	return -EIO;
 }
 
@@ -699,6 +744,7 @@ int msm_spm_drv_init(struct msm_spm_driver_data *dev,
 		return -ENODEV;
 
 	dev->vctl_port = data->vctl_port;
+	dev->vctl_port_ub = data->vctl_port_ub;
 	dev->phase_port = data->phase_port;
 	dev->pfm_port = data->pfm_port;
 	dev->reg_base_addr = data->reg_base_addr;

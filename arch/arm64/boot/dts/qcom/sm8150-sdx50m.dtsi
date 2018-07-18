@@ -47,7 +47,6 @@
 	esoc-0 = <&mdm3>;
 	qcom,smmu-cfg = <0x1d>;
 	qcom,addr-win = <0x0 0x20000000 0x0 0x3fffffff>;
-	mhi,fw-name = "sdx50m/sbl1.mbn";
 };
 
 &tlmm {

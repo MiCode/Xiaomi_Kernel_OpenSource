@@ -33,22 +33,13 @@ enum print_reason {
 #define PD_VOTER			"PD_VOTER"
 #define DCP_VOTER			"DCP_VOTER"
 #define QC_VOTER			"QC_VOTER"
-#define PL_USBIN_USBIN_VOTER		"PL_USBIN_USBIN_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
-#define PL_QNOVO_VOTER			"PL_QNOVO_VOTER"
 #define USBIN_V_VOTER			"USBIN_V_VOTER"
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
-#define TYPEC_SRC_VOTER			"TYPEC_SRC_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
-#define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
-#define APSD_VOTER			"APSD_VOTER"
-#define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
-#define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
-#define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
-#define USBIN_USBIN_BOOST_VOTER		"USBIN_USBIN_BOOST_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
@@ -66,6 +57,7 @@ enum print_reason {
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
+#define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -243,6 +235,7 @@ struct smb_params {
 	struct smb_chg_param	icl_max_stat;
 	struct smb_chg_param	icl_stat;
 	struct smb_chg_param	otg_cl;
+	struct smb_chg_param	dc_icl;
 	struct smb_chg_param	jeita_cc_comp_hot;
 	struct smb_chg_param	jeita_cc_comp_cold;
 	struct smb_chg_param	freq_switcher;
@@ -368,6 +361,8 @@ struct smb_charger {
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
 	bool			jeita_configured;
+	int			charger_temp_max;
+	int			smb_temp_max;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -384,6 +379,7 @@ struct smb_charger {
 	int			pulse_cnt;
 
 	int			die_health;
+	int			connector_health;
 
 	/* flash */
 	u32			flash_derating_soc;
@@ -522,6 +518,7 @@ int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg,
 			       union power_supply_propval *val);
+int smblib_get_prop_connector_health(struct smb_charger *chg);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
@@ -544,6 +541,7 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_thermal_threshold(struct smb_charger *chg, u16 addr, int *val);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable);
 int smblib_rerun_aicl(struct smb_charger *chg);
@@ -555,6 +553,7 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
+int smblib_icl_override(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

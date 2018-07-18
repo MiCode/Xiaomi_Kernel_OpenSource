@@ -793,36 +793,91 @@ out:
 	return rc;
 }
 
-#define MEM_GNT_WAIT_TIME_US	10000
-#define MEM_GNT_RETRIES		50
-static int fg_direct_mem_request(struct fg_dev *fg, bool request)
+static int fg_poll_alg_active(struct fg_dev *fg)
 {
-	int rc, ret, i = 0;
-	u8 val, mask, poll_bit;
+	u32 retries = 35, poll_time_us = 10000;
+	int rc;
+	u8 val;
+
+	/*
+	 * ALG active should be asserted low within ~164 ms mostly however
+	 * during ESR pulsing, a worst case delay of ~320 ms is needed.
+	 */
+	while (retries--) {
+		rc = fg_read(fg, BATT_INFO_PEEK_RD(fg), &val, 1);
+		if (rc < 0) {
+			pr_err("failed to read PEEK_MUX rc=%d\n", rc);
+			return rc;
+		}
+
+		if (!(val & ALG_ACTIVE_BIT))
+			break;
+
+		usleep_range(poll_time_us, poll_time_us + 1);
+	}
+
+	if (val & ALG_ACTIVE_BIT)
+		return -ETIMEDOUT;
+
+	/* Wait for 1 ms after ALG active is asserted low */
+	usleep_range(1000, 1001);
+	return rc;
+}
+
+static int fg_direct_mem_release(struct fg_dev *fg)
+{
+	int rc;
+	u8 val = 0, mask;
 
 	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
-	val = request ? MEM_ACCESS_REQ_BIT : 0;
 	rc = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
 		return rc;
 	}
 
-	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
-	val = request ? mask : 0;
+	mask = MEM_ARB_REQ_BIT;
 	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("released access\n");
+	return rc;
+}
+
+#define MEM_GNT_WAIT_TIME_US	10000
+#define MEM_GNT_RETRIES		50
+static int fg_direct_mem_request(struct fg_dev *fg)
+{
+	int rc, ret, i = 0;
+	u8 val, mask, poll_bit;
+
+	if (fg->wa_flags & PM8150B_V1_DMA_WA) {
+		rc = fg_poll_alg_active(fg);
+		if (rc < 0) {
+			pr_err("Failed to assert ALG active rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	val = mask = MEM_ARB_REQ_BIT;
+	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return rc;
+	}
+
+	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
+	val = MEM_ACCESS_REQ_BIT;
+	rc = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
 		goto release;
 	}
 
-	if (request)
-		pr_debug("requesting access\n");
-	else
-		pr_debug("releasing access\n");
-
-	if (!request)
-		return 0;
+	pr_debug("requesting access\n");
 
 	/*
 	 * HW takes 5 cycles (200 KHz clock) to grant access after requesting
@@ -858,20 +913,9 @@ static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 	fg_dump_regs(fg);
 
 release:
-	val = 0;
-	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
-	ret = fg_masked_write(fg, MEM_IF_MEM_INTF_CFG(fg), mask, val);
-	if (ret < 0) {
-		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
+	ret = fg_direct_mem_release(fg);
+	if (ret < 0)
 		return ret;
-	}
-
-	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
-	ret = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg), mask, val);
-	if (ret < 0) {
-		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
-		return ret;
-	}
 
 	return rc;
 }
@@ -987,7 +1031,7 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 
 	pr_debug("number of partitions: %d\n", num_partitions);
 
-	rc = fg_direct_mem_request(fg, true);
+	rc = fg_direct_mem_request(fg);
 	if (rc < 0) {
 		pr_err("Error in requesting direct_mem access rc=%d\n", rc);
 		return rc;
@@ -1032,7 +1076,7 @@ static int __fg_direct_mem_rw(struct fg_dev *fg, u16 sram_addr, u8 offset,
 		offset = 0;
 	}
 
-	ret = fg_direct_mem_request(fg, false);
+	ret = fg_direct_mem_release(fg);
 	if (ret < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n", rc);
 		return ret;
@@ -1156,7 +1200,7 @@ static struct fg_dma_address fg_gen4_addr_map[6] = {
 	/* wk/scratch pad partition continued */
 	{
 		.partition_start = 406,
-		.partition_end =  480,
+		.partition_end =  486,
 		.spmi_addr_base = GEN4_FG_DMA5_BASE + SRAM_ADDR_OFFSET,
 	},
 };
@@ -1164,6 +1208,7 @@ static struct fg_dma_address fg_gen4_addr_map[6] = {
 static int fg_dma_init(struct fg_dev *fg)
 {
 	int rc;
+	u8 val;
 
 	if (fg->version == GEN3_FG) {
 		fg->sram.addr_map = fg_gen3_addr_map;
@@ -1174,7 +1219,7 @@ static int fg_dma_init(struct fg_dev *fg)
 		fg->sram.addr_map = fg_gen4_addr_map;
 		fg->sram.num_partitions = 6;
 		fg->sram.num_bytes_per_word = 2;
-		fg->sram.address_max = 479;
+		fg->sram.address_max = 485;
 	} else {
 		pr_err("Unknown FG version %d\n", fg->version);
 		return -ENXIO;
@@ -1196,11 +1241,31 @@ static int fg_dma_init(struct fg_dev *fg)
 	}
 
 	/* Release the DMA initially so that request can happen */
-	rc = fg_direct_mem_request(fg, false);
+	rc = fg_direct_mem_release(fg);
 	if (rc < 0) {
 		pr_err("Error in releasing direct_mem access rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	/* Set low latency always and clear log bit */
+	rc = fg_masked_write(fg, MEM_IF_MEM_ARB_CFG(fg),
+		MEM_ARB_LO_LATENCY_EN_BIT | MEM_CLR_LOG_BIT,
+		MEM_ARB_LO_LATENCY_EN_BIT);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return rc;
+	}
+
+	/* Configure PEEK_MUX only for PM8150B v1.0 */
+	if (fg->wa_flags & PM8150B_V1_DMA_WA) {
+		val = ALG_ACTIVE_PEEK_CFG;
+		rc = fg_write(fg, BATT_INFO_PEEK_MUX4(fg), &val, 1);
+		if (rc < 0) {
+			pr_err("failed to configure batt_info_peek_mux4 rc:%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	return 0;

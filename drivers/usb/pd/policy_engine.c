@@ -43,6 +43,7 @@ enum usbpd_state {
 	PE_ERROR_RECOVERY,
 	PE_SRC_DISABLED,
 	PE_SRC_STARTUP,
+	PE_SRC_STARTUP_WAIT_FOR_VDM_RESP,
 	PE_SRC_SEND_CAPABILITIES,
 	PE_SRC_SEND_CAPABILITIES_WAIT, /* substate to wait for Request */
 	PE_SRC_NEGOTIATE_CAPABILITY,
@@ -79,6 +80,7 @@ static const char * const usbpd_state_strings[] = {
 	"ERROR_RECOVERY",
 	"SRC_Disabled",
 	"SRC_Startup",
+	"SRC_Startup_Wait_for_VDM_Resp",
 	"SRC_Send_Capabilities",
 	"SRC_Send_Capabilities (Wait for Request)",
 	"SRC_Negotiate_Capability",
@@ -316,11 +318,12 @@ static void *usbpd_ipc_log;
 #define ID_HDR_USB_HOST		BIT(31)
 #define ID_HDR_USB_DEVICE	BIT(30)
 #define ID_HDR_MODAL_OPR	BIT(26)
-#define ID_HDR_PRODUCT_TYPE(n)	((n) >> 27)
+#define ID_HDR_PRODUCT_TYPE(n)	(((n) >> 27) & 0x7)
 #define ID_HDR_PRODUCT_PER_MASK	(2 << 27)
 #define ID_HDR_PRODUCT_HUB	1
 #define ID_HDR_PRODUCT_PER	2
 #define ID_HDR_PRODUCT_AMA	5
+#define ID_HDR_PRODUCT_VPD	6
 #define ID_HDR_VID		0x05c6 /* qcom */
 #define PROD_VDO_PID		0x0a00 /* TBD */
 
@@ -371,7 +374,6 @@ struct usbpd {
 	struct rx_msg		*rx_ext_msg;
 
 	u32			received_pdos[PD_MAX_DATA_OBJ];
-	u32			received_ado;
 	u16			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
@@ -432,6 +434,7 @@ struct usbpd {
 
 	struct list_head	instance;
 
+	bool		has_dp;
 	u16			ss_lane_svid;
 
 	/* ext msg support */
@@ -439,6 +442,7 @@ struct usbpd {
 	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
 	bool			send_get_pps_status;
 	u32			pps_status_db;
+	bool			send_get_status;
 	u8			status_db[PD_STATUS_DB_LEN];
 	bool			send_get_battery_cap;
 	u8			get_battery_cap_db;
@@ -453,8 +457,11 @@ static LIST_HEAD(_usbpd);	/* useful for debugging */
 static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
+	EXTCON_DISP_DP,
 	EXTCON_NONE,
 };
+
+static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type);
 
 enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 {
@@ -574,6 +581,13 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 	}
 
 	pd->ss_lane_svid = hdlr->svid;
+
+	/* DP 4 Lane mode  */
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 4);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) for notify DP 4 Lane", ret);
+		goto err_exit;
+	}
 
 err_exit:
 	return ret;
@@ -1000,9 +1014,8 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 	unsigned long flags;
 	u16 header;
 
-	if (sop != SOP_MSG) {
-		usbpd_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
-				sop);
+	if (sop == SOPII_MSG) {
+		usbpd_err(&pd->dev, "only SOP/SOP' supported\n");
 		return;
 	}
 
@@ -1101,6 +1114,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.msg_rx_cb		= phy_msg_received,
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
+					  FRAME_FILTER_EN_SOPI |
 					  FRAME_FILTER_EN_HARD_RESET,
 	};
 	union power_supply_propval val = {0};
@@ -1181,6 +1195,20 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 					POWER_SUPPLY_PROP_PR_SWAP, &val);
 		}
 
+		if (pd->vconn_enabled) {
+			/*
+			 * wait for tVCONNStable (50ms), until SOPI becomes
+			 * ready for communication.
+			 */
+			usleep_range(50000, 51000);
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+			handle_vdm_tx(pd, SOPI_MSG);
+			pd->current_state = PE_SRC_STARTUP_WAIT_FOR_VDM_RESP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+			return;
+		}
 		/*
 		 * A sink might remove its terminations (during some Type-C
 		 * compliance tests or a sink attempting to do Try.SRC)
@@ -1522,7 +1550,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 {
 	struct vdm_tx *vdm_tx;
 
-	if (!pd->in_explicit_contract || pd->vdm_tx)
+	if (pd->vdm_tx)
 		return -EBUSY;
 
 	vdm_tx = kzalloc(sizeof(*vdm_tx), GFP_KERNEL);
@@ -1538,7 +1566,8 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 	pd->vdm_tx = vdm_tx;
 
 	/* slight delay before queuing to prioritize handling of incoming VDM */
-	kick_sm(pd, 2);
+	if (pd->in_explicit_contract)
+		kick_sm(pd, 2);
 
 	return 0;
 }
@@ -1559,6 +1588,7 @@ EXPORT_SYMBOL(usbpd_send_svdm);
 
 static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 {
+	int ret;
 	u32 vdm_hdr =
 	rx_msg->data_len >= sizeof(u32) ? ((u32 *)rx_msg->payload)[0] : 0;
 
@@ -1568,11 +1598,19 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	u8 i, num_vdos = PD_MSG_HDR_COUNT(rx_msg->hdr) - 1;
 	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
 	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
-	bool has_dp = false;
 	struct usbpd_svid_handler *handler;
 
-	usbpd_dbg(&pd->dev, "VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x\n",
-			svid, cmd, cmd_type, vdm_hdr);
+	usbpd_dbg(&pd->dev,
+			"VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x has_dp: %s\n",
+			svid, cmd, cmd_type, vdm_hdr,
+			pd->has_dp ? "true" : "false");
+
+	if ((svid == 0xFF01) && (pd->has_dp == false)) {
+		pd->has_dp = true;
+
+		/* Set to USB and DP cocurrency mode */
+		extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 2);
+	}
 
 	/* if it's a supported SVID, pass the message to the handler */
 	handler = find_svid_handler(pd, svid);
@@ -1629,6 +1667,24 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		case USBPD_SVDM_DISCOVER_IDENTITY:
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
+
+			if (num_vdos && ID_HDR_PRODUCT_TYPE(vdos[0]) ==
+					ID_HDR_PRODUCT_VPD) {
+
+				usbpd_dbg(&pd->dev, "VPD detected turn off vbus\n");
+
+				if (pd->vbus_enabled) {
+					ret = regulator_disable(pd->vbus);
+					if (ret)
+						usbpd_err(&pd->dev, "Err disabling vbus (%d)\n",
+								ret);
+					else
+						pd->vbus_enabled = false;
+				}
+			}
+
+			if (!pd->in_explicit_contract)
+				break;
 
 			pd->vdm_state = DISCOVERED_ID;
 			usbpd_send_svdm(pd, USBPD_SID,
@@ -1718,9 +1774,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 						handler->discovered = true;
 					}
 				}
-
-				if (svid == 0xFF01)
-					has_dp = true;
 			}
 			break;
 
@@ -1767,7 +1820,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	}
 }
 
-static void handle_vdm_tx(struct usbpd *pd)
+static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 {
 	int ret;
 	unsigned long flags;
@@ -1785,13 +1838,13 @@ static void handle_vdm_tx(struct usbpd *pd)
 		spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
-				pd->vdm_tx->size, SOP_MSG);
+				pd->vdm_tx->size, sop_type);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
 					ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 
 			/* retry when hitting PE_SRC/SNK_Ready again */
-			if (ret != -EBUSY)
+			if (ret != -EBUSY && sop_type == SOP_MSG)
 				usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
@@ -1966,7 +2019,7 @@ static void usbpd_sm(struct work_struct *w)
 {
 	struct usbpd *pd = container_of(w, struct usbpd, sm_work);
 	union power_supply_propval val = {0};
-	int ret;
+	int ret, ms;
 	struct rx_msg *rx_msg = NULL;
 	unsigned long flags;
 
@@ -2063,6 +2116,13 @@ static void usbpd_sm(struct work_struct *w)
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		dual_role_instance_changed(pd->dual_role);
 
+		if (pd->has_dp) {
+			pd->has_dp = false;
+
+			/* Set to USB only mode when cable disconnected */
+			extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 0);
+		}
+
 		goto sm_done;
 	}
 
@@ -2140,6 +2200,21 @@ static void usbpd_sm(struct work_struct *w)
 
 			usbpd_set_state(pd, PE_SRC_STARTUP);
 		}
+		break;
+
+	case PE_SRC_STARTUP_WAIT_FOR_VDM_RESP:
+		if (IS_DATA(rx_msg, MSG_VDM))
+			handle_vdm_rx(pd, rx_msg);
+
+		/* tVCONNStable (50ms) elapsed */
+		ms = FIRST_SOURCE_CAP_TIME - 50;
+
+		/* if no vdm msg received SENDER_RESPONSE_TIME elapsed */
+		if (!rx_msg)
+			ms -= SENDER_RESPONSE_TIME;
+
+		pd->current_state = PE_SRC_SEND_CAPABILITIES;
+		kick_sm(pd, ms);
 		break;
 
 	case PE_SRC_STARTUP:
@@ -2256,7 +2331,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending PR Swap\n");
+				usbpd_err(&pd->dev, "Error sending PR Swap\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -2267,7 +2342,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_dr_swap = false;
 			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending DR Swap\n");
+				usbpd_err(&pd->dev, "Error sending DR Swap\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -2275,7 +2350,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else {
-			handle_vdm_tx(pd);
+			handle_vdm_tx(pd, SOP_MSG);
 		}
 		break;
 
@@ -2549,8 +2624,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_GET_SOURCE_CAP_EXTENDED, NULL,
 				0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev,
-					"Error sending get_src_cap_ext\n");
+				usbpd_err(&pd->dev, "Error sending get_src_cap_ext\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2569,8 +2643,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_GET_PPS_STATUS, NULL,
 				0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev,
-					"Error sending get_pps_status\n");
+				usbpd_err(&pd->dev, "Error sending get_pps_status\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2585,23 +2658,32 @@ static void usbpd_sm(struct work_struct *w)
 				sizeof(pd->pps_status_db));
 			complete(&pd->is_ready);
 		} else if (IS_DATA(rx_msg, MSG_ALERT)) {
-			if (rx_msg->data_len != sizeof(pd->received_ado)) {
+			u32 ado;
+
+			if (rx_msg->data_len != sizeof(ado)) {
 				usbpd_err(&pd->dev, "Invalid ado\n");
 				break;
 			}
-			memcpy(&pd->received_ado, rx_msg->payload,
-				sizeof(pd->received_ado));
-			ret = pd_send_msg(pd, MSG_GET_STATUS, NULL,
-				0, SOP_MSG);
+			memcpy(&ado, rx_msg->payload, sizeof(ado));
+			usbpd_dbg(&pd->dev, "Received Alert 0x%08x\n", ado);
+
+			/*
+			 * Don't send Get_Status right away so we can coalesce
+			 * multiple Alerts. 150ms should be enough to not get
+			 * in the way of any other AMS that might happen.
+			 */
+			pd->send_get_status = true;
+			kick_sm(pd, 150);
+		} else if (pd->send_get_status && is_sink_tx_ok(pd)) {
+			pd->send_get_status = false;
+			ret = pd_send_msg(pd, MSG_GET_STATUS, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev,
-					"Error sending get_status\n");
+				usbpd_err(&pd->dev, "Error sending get_status\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg &&
-			IS_EXT(rx_msg, MSG_STATUS)) {
+		} else if (rx_msg && IS_EXT(rx_msg, MSG_STATUS)) {
 			if (rx_msg->data_len != PD_STATUS_DB_LEN) {
 				usbpd_err(&pd->dev, "Invalid status db\n");
 				break;
@@ -2614,8 +2696,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_CAP,
 				&pd->get_battery_cap_db, 1, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev,
-					"Error sending get_battery_cap\n");
+				usbpd_err(&pd->dev, "Error sending get_battery_cap\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2634,8 +2715,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_STATUS,
 				&pd->get_battery_status_db, 1, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev,
-					"Error sending get_battery_status\n");
+				usbpd_err(&pd->dev, "Error sending get_battery_status\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2665,7 +2745,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending PR Swap\n");
+				usbpd_err(&pd->dev, "Error sending PR Swap\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2676,7 +2756,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_dr_swap = false;
 			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending DR Swap\n");
+				usbpd_err(&pd->dev, "Error sending DR Swap\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -2684,7 +2764,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else if (is_sink_tx_ok(pd)) {
-			handle_vdm_tx(pd);
+			handle_vdm_tx(pd, SOP_MSG);
 		}
 		break;
 
@@ -3293,9 +3373,9 @@ static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
 				"explicit" : "implicit");
 	add_uevent_var(env, "ALT_MODE=%d", pd->vdm_state == MODE_ENTERED);
 
-	add_uevent_var(env, "ADO=%08x", pd->received_ado);
-	for (i = 0; i < PD_STATUS_DB_LEN; i++)
-		add_uevent_var(env, "SDB%d=%08x", i, pd->status_db[i]);
+	add_uevent_var(env, "SDB=%02x %02x %02x %02x %02x", pd->status_db[0],
+			pd->status_db[1], pd->status_db[2], pd->status_db[3],
+			pd->status_db[4]);
 
 	return 0;
 }
@@ -3686,11 +3766,39 @@ static ssize_t get_src_cap_ext_show(struct device *dev,
 		return ret;
 
 	for (i = 0; i < PD_SRC_CAP_EXT_DB_LEN; i++)
-		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
-			pd->src_cap_ext_db[i]);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s0x%02x",
+				i ? " " : "", pd->src_cap_ext_db[i]);
+
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
 	return len;
 }
 static DEVICE_ATTR_RO(get_src_cap_ext);
+
+static ssize_t get_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i, ret, len = 0;
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	if (pd->spec_rev == USBPD_REV_20)
+		return -EINVAL;
+
+	ret = trigger_tx_msg(pd, &pd->send_get_status);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < PD_STATUS_DB_LEN; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s0x%02x",
+				i ? " " : "", pd->status_db[i]);
+
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
+	return len;
+}
+static DEVICE_ATTR_RO(get_status);
 
 static ssize_t get_pps_status_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -3705,19 +3813,9 @@ static ssize_t get_pps_status_show(struct device *dev,
 	if (ret)
 		return ret;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", pd->pps_status_db);
+	return snprintf(buf, PAGE_SIZE, "0x%08x\n", pd->pps_status_db);
 }
 static DEVICE_ATTR_RO(get_pps_status);
-
-static ssize_t rx_ado_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	struct usbpd *pd = dev_get_drvdata(dev);
-
-	/* dump the ADO as a hex string */
-	return snprintf(buf, PAGE_SIZE, "%08x\n", pd->received_ado);
-}
-static DEVICE_ATTR_RO(rx_ado);
 
 static ssize_t get_battery_cap_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -3747,8 +3845,12 @@ static ssize_t get_battery_cap_show(struct device *dev,
 		return -EINVAL;
 
 	for (i = 0; i < PD_BATTERY_CAP_DB_LEN; i++)
-		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
-			pd->battery_cap_db[i]);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s0x%02x",
+				i ? " " : "", pd->battery_cap_db[i]);
+
+	buf[len++] = '\n';
+	buf[len] = '\0';
+
 	return len;
 }
 static DEVICE_ATTR_RW(get_battery_cap);
@@ -3779,7 +3881,7 @@ static ssize_t get_battery_status_show(struct device *dev,
 	if (pd->get_battery_status_db == -EINVAL)
 		return -EINVAL;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", pd->battery_sts_dobj);
+	return snprintf(buf, PAGE_SIZE, "0x%08x\n", pd->battery_sts_dobj);
 }
 static DEVICE_ATTR_RW(get_battery_status);
 
@@ -3803,8 +3905,8 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_rdo_h.attr,
 	&dev_attr_hard_reset.attr,
 	&dev_attr_get_src_cap_ext.attr,
+	&dev_attr_get_status.attr,
 	&dev_attr_get_pps_status.attr,
-	&dev_attr_rx_ado.attr,
 	&dev_attr_get_battery_cap.attr,
 	&dev_attr_get_battery_status.attr,
 	NULL,

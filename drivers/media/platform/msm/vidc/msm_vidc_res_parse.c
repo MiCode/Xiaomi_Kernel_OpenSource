@@ -789,6 +789,8 @@ int read_platform_resources_from_drv_data(
 			"qcom,domain-attr-cache-pagetables");
 	res->decode_batching = find_key_value(platform_data,
 			"qcom,decode-batching");
+	res->dcvs = find_key_value(platform_data,
+			"qcom,dcvs");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 
@@ -978,6 +980,17 @@ static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 			__func__);
 		goto release_mapping;
 	}
+
+	/*
+	 * configure device segment size and segment boundary to ensure
+	 * iommu mapping returns one mapping (which is required for partial
+	 * cache operations)
+	 */
+	if (!dev->dma_parms)
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,

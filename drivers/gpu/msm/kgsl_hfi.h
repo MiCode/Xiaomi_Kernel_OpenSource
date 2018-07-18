@@ -38,6 +38,9 @@
 #define HFI_DSP_IDX_BASE 3
 #define HFI_DSP_IDX_0 3
 
+#define HFI_QUEUE_STATUS_DISABLED 0
+#define HFI_QUEUE_STATUS_ENABLED  1
+
 /* HTOF queue priority, 1 is highest priority */
 #define HFI_CMD_PRI 10
 #define HFI_MSG_PRI 10
@@ -128,7 +131,7 @@ struct hfi_queue_table_header {
 
 /**
  * struct hfi_queue_header - HFI queue header structure
- * @enabled: active: 1; inactive: 0
+ * @status: active: 1; inactive: 0
  * @start_addr: starting address of the queue in GMU VA space
  * @type: queue type encoded the priority, ID and send/recevie types
  * @queue_size: size of the queue
@@ -143,7 +146,7 @@ struct hfi_queue_table_header {
  * @write_index: write index of the queue
  */
 struct hfi_queue_header {
-	uint32_t enabled;
+	uint32_t status;
 	uint32_t start_addr;
 	uint32_t type;
 	uint32_t queue_size;
@@ -249,10 +252,24 @@ struct hfi_bwbuf {
 	uint32_t arr[NUM_BW_LEVELS];
 };
 
-struct opp_desc {
+struct opp_gx_desc {
 	uint32_t vote;
 	uint32_t acd;
 	uint32_t freq;
+};
+
+struct opp_desc {
+	uint32_t vote;
+	uint32_t freq;
+};
+
+/* H2F */
+struct hfi_dcvstable_v1_cmd {
+	uint32_t hdr;
+	uint32_t gpu_level_num;
+	uint32_t gmu_level_num;
+	struct opp_desc gx_votes[MAX_GX_LEVELS];
+	struct opp_desc cx_votes[MAX_CX_LEVELS];
 };
 
 /* H2F */
@@ -260,7 +277,7 @@ struct hfi_dcvstable_cmd {
 	uint32_t hdr;
 	uint32_t gpu_level_num;
 	uint32_t gmu_level_num;
-	struct opp_desc gx_votes[MAX_GX_LEVELS];
+	struct opp_gx_desc gx_votes[MAX_GX_LEVELS];
 	struct opp_desc cx_votes[MAX_CX_LEVELS];
 };
 
@@ -406,7 +423,7 @@ struct hfi_prep_slumber_cmd {
 struct hfi_err_cmd {
 	uint32_t hdr;
 	uint32_t error_code;
-	uint32_t data[2];
+	uint32_t data[16];
 };
 
 /* F2H */
@@ -615,6 +632,7 @@ struct kgsl_hfi {
 struct gmu_device;
 struct gmu_memdesc;
 
+irqreturn_t hfi_irq_handler(int irq, void *data);
 int hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
 		uint32_t boot_state);
 void hfi_stop(struct gmu_device *gmu);

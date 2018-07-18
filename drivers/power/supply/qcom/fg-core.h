@@ -63,9 +63,13 @@
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
 #define TTF_PRIMING		"fg_ttf_priming"
+#define ESR_CALIB		"fg_esr_calib"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
+
+/* Delta ESR irq votable reasons */
+#define DELTA_ESR_IRQ_VOTER	"fg_delta_esr_irq"
 
 /* Battery missing irq votable reasons */
 #define BATT_MISS_IRQ_VOTER	"fg_batt_miss_irq"
@@ -82,6 +86,7 @@
 
 #define DEBUG_BATT_SOC			67
 #define BATT_MISS_SOC			50
+#define ESR_SOH_SOC			50
 #define EMPTY_SOC			0
 
 enum prof_load_status {
@@ -162,9 +167,12 @@ enum fg_irq_index {
 enum fg_sram_param_id {
 	FG_SRAM_BATT_SOC = 0,
 	FG_SRAM_FULL_SOC,
+	FG_SRAM_MONOTONIC_SOC,
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
 	FG_SRAM_ESR,
+	FG_SRAM_ESR_MDL,
+	FG_SRAM_ESR_ACT,
 	FG_SRAM_RSLOW,
 	FG_SRAM_ALG_FLAGS,
 	FG_SRAM_CC_SOC,
@@ -190,14 +198,23 @@ enum fg_sram_param_id {
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
 	FG_SRAM_RECHARGE_VBATT_THR,
+	FG_SRAM_KI_COEFF_LOW_DISCHG,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_LOW_CHG,
+	FG_SRAM_KI_COEFF_MED_CHG,
+	FG_SRAM_KI_COEFF_HI_CHG,
 	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_SLOPE_LIMIT,
 	FG_SRAM_BATT_TEMP_COLD,
 	FG_SRAM_BATT_TEMP_HOT,
+	FG_SRAM_ESR_CAL_SOC_MIN,
+	FG_SRAM_ESR_CAL_SOC_MAX,
+	FG_SRAM_ESR_CAL_TEMP_MIN,
+	FG_SRAM_ESR_CAL_TEMP_MAX,
+	FG_SRAM_DELTA_ESR_THR,
 	FG_SRAM_MAX,
 };
 
@@ -253,6 +270,7 @@ enum wa_flags {
 	PMI8998_V1_REV_WA = BIT(0),
 	PM660_TSMC_OSC_WA = BIT(1),
 	PM8150B_V1_DMA_WA = BIT(2),
+	PM8150B_V1_RSLOW_COMP_WA = BIT(3),
 };
 
 enum slope_limit_status {
@@ -269,9 +287,9 @@ enum esr_timer_config {
 	NUM_ESR_TIMERS,
 };
 
-enum ttf_mode {
-	TTF_MODE_NORMAL = 0,
-	TTF_MODE_QNOVO,
+enum fg_ttf_mode {
+	FG_TTF_MODE_NORMAL = 0,
+	FG_TTF_MODE_QNOVO,
 };
 
 /* parameters from battery profile */
@@ -283,6 +301,9 @@ struct fg_batt_props {
 	int		fastchg_curr_ma;
 	int		*therm_coeffs;
 	int		therm_ctr_offset;
+	int		therm_pull_up_kohms;
+	int		*rslow_normal_coeffs;
+	int		*rslow_low_coeffs;
 };
 
 struct fg_cyc_ctr_data {
@@ -327,7 +348,7 @@ struct fg_pt {
 	s32 y;
 };
 
-struct ttf {
+struct fg_ttf {
 	struct fg_circ_buf	ibatt;
 	struct fg_circ_buf	vbatt;
 	struct fg_cc_step_data	cc_step;

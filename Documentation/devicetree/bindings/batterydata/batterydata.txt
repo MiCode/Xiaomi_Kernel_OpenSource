@@ -69,6 +69,14 @@ Profile data node optional properties:
 			size 5.
 - qcom,therm-center-offset: Specifies the resistor divide ratio between pull-up
 			resistor and the thermistor for GEN4 FG.
+- qcom,therm-pull-up: Specifies the thermistor pull-up resistor value in
+			KOhms.
+- qcom,rslow-normal-coeffs: Array of Rslow coefficients that will be applied
+			when the battery temperature is greater than 0 degree
+			Celsius for GEN4 FG. This should be exactly of size 4.
+- qcom,rslow-low-coeffs: Array of Rslow coefficients that will be applied
+			when the battery temperature is lower than 0 degree
+			Celsius for GEN4 FG. This should be exactly of size 4.
 - qcom,soc-based-step-chg: A bool property to indicate if the battery will
 			perform SoC (State of Charge) based step charging.
 			If yes, the low and high thresholds defined in

@@ -19,31 +19,6 @@ Main node properties:
   Value type: <u32>
   Definition: Maximum timeout in ms wait for state and cmd completion
 
-- mhi,fw-name
-  Usage: optional
-  Value type: <string>
-  Definition: Firmware image name to upload
-
-- mhi,edl-name
-  Usage: optional
-  Value type: <string>
-  Definition: Firmware image name for emergency download
-
-- mhi,fbc-download
-  Usage: optional
-  Value type: <bool>
-  Definition: If set true, image specified by fw-name is for full image
-
-- mhi,sbl-size
-  Usage: optional
-  Value type: <u32>
-  Definition: Size of SBL image in bytes
-
-- mhi,seg-len
-  Usage: optional
-  Value type: <u32>
-  Definition: Size of each segment to allocate for BHIe vector table
-
 - mhi,time-sync
   Usage: optional
   Value type: <bool>
@@ -281,7 +256,6 @@ mhi_controller {
 		mhi,bstmode = <2>;
 	};
 
-	mhi,fw-name = "sbl1.mbn";
 	mhi,timeout = <500>;
 
 	children_node {
@@ -316,11 +290,21 @@ MHI netdev properties
   Value type: <bool>
   Definition: Set true if interface support recycling buffers.
 
+- aliases
+  Usage: required
+  Value type: <string>
+  Definition: mhi net_device should have numbered alias in the alias node,
+	in the form of mhi_netdevN, N = 0, 1..n for each network interface.
+
 ========
 Example:
 ========
 
-mhi_rmnet@0 {
+aliases {
+	mhi_netdev0 = &mhi_netdev_0;
+};
+
+mhi_netdev_0: mhi_rmnet@0 {
 	mhi,chan = "IP_HW0";
 	mhi,interface-name = "rmnet_mhi";
 	mhi,mru = <0x4000>;

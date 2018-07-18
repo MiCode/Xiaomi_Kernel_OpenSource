@@ -111,6 +111,22 @@ out:
 	return rc;
 }
 
+int qg_read_raw_data(struct qpnp_qg *chip, int addr, u32 *data)
+{
+	int rc;
+	u8 reg[2] = {0};
+
+	rc = qg_read(chip, chip->qg_base + addr, &reg[0], 2);
+	if (rc < 0) {
+		pr_err("Failed to read QG addr %d rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	*data = reg[0] | (reg[1] << 8);
+
+	return rc;
+}
+
 int get_fifo_length(struct qpnp_qg *chip, u32 *fifo_length, bool rt)
 {
 	int rc;

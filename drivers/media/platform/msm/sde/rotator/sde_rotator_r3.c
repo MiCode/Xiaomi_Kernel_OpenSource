@@ -1492,6 +1492,8 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 				((ctx->rot->ubwc_malsize & 0x3) << 8) |
 				((ctx->rot->highest_bank & 0x3) << 4) |
 				((ctx->rot->ubwc_swizzle & 0x1) << 0));
+	else if (test_bit(SDE_CAPS_UBWC_3, mdata->sde_caps_map))
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL, BIT(30));
 
 	/* setup source buffer plane security status */
 	if (flags & (SDE_ROT_FLAG_SECURE_OVERLAY_SESSION |
@@ -2795,6 +2797,9 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			item->input.format, item->output.format,
 			entry->perf->config.frame_rate);
 
+	/* initialize static vbif setting */
+	sde_mdp_init_vbif();
+
 	if (!ctx->sbuf_mode && mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
@@ -3075,7 +3080,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_500)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
-		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_UBWC_3,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map);
 		rot->inpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
