@@ -52,10 +52,11 @@ static const struct nla_policy rmnet_policy[IFLA_RMNET_MAX + 2] = {
 	[IFLA_VLAN_EGRESS_QOS]	= { .len = sizeof(struct tcmsg) },
 };
 
-static int rmnet_is_real_dev_registered(const struct net_device *real_dev)
+int rmnet_is_real_dev_registered(const struct net_device *real_dev)
 {
 	return rcu_access_pointer(real_dev->rx_handler) == rmnet_rx_handler;
 }
+EXPORT_SYMBOL(rmnet_is_real_dev_registered);
 
 /* Needs rtnl lock */
 static struct rmnet_port*
@@ -416,6 +417,7 @@ struct rmnet_port *rmnet_get_port(struct net_device *real_dev)
 	else
 		return NULL;
 }
+EXPORT_SYMBOL(rmnet_get_port);
 
 struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 {
@@ -428,6 +430,7 @@ struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 
 	return NULL;
 }
+EXPORT_SYMBOL(rmnet_get_endpoint);
 
 int rmnet_add_bridge(struct net_device *rmnet_dev,
 		     struct net_device *slave_dev)

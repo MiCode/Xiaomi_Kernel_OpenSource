@@ -20,9 +20,8 @@
 #include "rmnet_config.h"
 #include "rmnet_map.h"
 #include "rmnet_private.h"
+#include "rmnet_handlers.h"
 
-#define RMNET_MAP_DEAGGR_SPACING  64
-#define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
 #define RMNET_MAP_PKT_COPY_THRESHOLD 64
 
 static __sum16 *rmnet_map_get_csum_field(unsigned char protocol,
@@ -424,6 +423,7 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len)
 
 	return 0;
 }
+EXPORT_SYMBOL(rmnet_map_checksum_downlink_packet);
 
 /* Generates UL checksum meta info header for IPv4 and IPv6 over TCP and UDP
  * packets that are supported for UL checksum offload.
