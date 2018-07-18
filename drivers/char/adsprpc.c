@@ -876,6 +876,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				goto bail;
 		}
 		map->phys = sg_dma_address(map->table->sgl);
+
 		if (sess->smmu.cb) {
 			if (fl->cid != SDSP_DOMAIN_ID)
 				map->phys += ((uint64_t)sess->smmu.cb << 32);
@@ -885,7 +886,18 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		} else {
 			map->size = buf_page_size(len);
 		}
+
 		vmid = fl->apps->channel[fl->cid].vmid;
+		if (!sess->smmu.enabled && !vmid) {
+			VERIFY(err, map->phys >= me->range.addr &&
+			map->phys + map->size <=
+			me->range.addr + me->range.size);
+			if (err) {
+				pr_err("adsprpc: %s: phys addr 0x%llx (size 0x%zx) out of CMA heap range\n",
+					__func__, map->phys, map->size);
+				goto bail;
+			}
+		}
 		if (vmid) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[2] = {VMID_HLOS, vmid};
@@ -3718,6 +3730,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 					srcVM, 1, destVM, destVMperm, 4));
 			if (err)
 				goto bail;
+			me->range.addr = range.addr;
+			me->range.size = range.size;
 		}
 		return 0;
 	}
