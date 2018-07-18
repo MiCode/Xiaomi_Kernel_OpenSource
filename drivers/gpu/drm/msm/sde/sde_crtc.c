@@ -2369,7 +2369,7 @@ static void sde_crtc_vblank_cb(void *data)
 }
 
 static void _sde_crtc_retire_event(struct drm_connector *connector,
-		ktime_t ts, bool is_error)
+		ktime_t ts, enum sde_fence_event fence_event)
 {
 	if (!connector) {
 		SDE_ERROR("invalid param\n");
@@ -2377,7 +2377,7 @@ static void _sde_crtc_retire_event(struct drm_connector *connector,
 	}
 
 	SDE_ATRACE_BEGIN("signal_retire_fence");
-	sde_connector_complete_commit(connector, ts, is_error);
+	sde_connector_complete_commit(connector, ts, fence_event);
 	SDE_ATRACE_END("signal_retire_fence");
 }
 
