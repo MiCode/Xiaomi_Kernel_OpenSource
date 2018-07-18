@@ -35,6 +35,7 @@ struct hfi_mem {
  * @cmd_q: command queue hfi memory for host to firmware communication
  * @msg_q: message queue hfi memory for firmware to host communication
  * @dbg_q: debug queue hfi memory for firmware debug information
+ * @sfr_buf: buffer for subsystem failure reason[SFR]
  * @sec_heap: secondary heap hfi memory for firmware
  * @qdss: qdss mapped memory for fw
  * @icp_base: icp base address
@@ -44,6 +45,7 @@ struct hfi_mem_info {
 	struct hfi_mem cmd_q;
 	struct hfi_mem msg_q;
 	struct hfi_mem dbg_q;
+	struct hfi_mem sfr_buf;
 	struct hfi_mem sec_heap;
 	struct hfi_mem shmem;
 	struct hfi_mem qdss;
@@ -152,5 +154,11 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
  */
 int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 	void __iomem *icp_base, bool debug);
+
+/**
+ * cam_hfi_queue_dump() - utility function to dump hfi queues
+ */
+void cam_hfi_queue_dump(void);
+
 
 #endif /* _HFI_INTF_H_ */

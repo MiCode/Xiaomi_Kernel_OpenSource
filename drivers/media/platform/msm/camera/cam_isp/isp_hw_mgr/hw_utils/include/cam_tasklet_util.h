@@ -76,6 +76,7 @@ void cam_tasklet_stop(void    *tasklet);
  * @brief:               Enqueue the tasklet_cmd to used list
  *
  * @bottom_half:         Tasklet info to enqueue onto
+ * @bh_cmd:              Tasklet cmd used to enqueue task
  * @handler_priv:        Private Handler data that will be passed to the
  *                       handler function
  * @evt_payload_priv:    Event payload that will be passed to the handler
@@ -83,13 +84,40 @@ void cam_tasklet_stop(void    *tasklet);
  * @bottom_half_handler: Callback function that will be called by tasklet
  *                       for handling event
  *
- * @return:              0: Success
- *                       Negative: Failure
+ * @return:              Void
  */
-int cam_tasklet_enqueue_cmd(
+void cam_tasklet_enqueue_cmd(
 	void                              *bottom_half,
+	void                              *bh_cmd,
 	void                              *handler_priv,
 	void                              *evt_payload_priv,
 	CAM_IRQ_HANDLER_BOTTOM_HALF        bottom_half_handler);
+
+/**
+ * cam_tasklet_get_cmd()
+ *
+ * @brief:              Get free cmd from tasklet
+ *
+ * @bottom_half:        Tasklet Info structure to get cmd from
+ * @bh_cmd:             Return tasklet_cmd pointer if successful
+ *
+ * @return:             0: Success
+ *                      Negative: Failure
+ */
+int cam_tasklet_get_cmd(void *bottom_half, void **bh_cmd);
+
+/**
+ * cam_tasklet_put_cmd()
+ *
+ * @brief:              Put back cmd to free list
+ *
+ * @bottom_half:        Tasklet Info structure to put cmd into
+ * @bh_cmd:             tasklet_cmd pointer that needs to be put back
+ *
+ * @return:             Void
+ */
+void cam_tasklet_put_cmd(void *bottom_half, void **bh_cmd);
+
+extern struct cam_irq_bh_api tasklet_bh_api;
 
 #endif /* _CAM_TASKLET_UTIL_H_ */
