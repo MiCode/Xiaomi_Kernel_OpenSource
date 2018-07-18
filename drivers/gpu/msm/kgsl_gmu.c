@@ -1585,8 +1585,9 @@ static int gmu_suspend(struct kgsl_device *device)
 		return 0;
 
 	/* Pending message in all queues are abandoned */
-	gmu_irq_disable(device);
 	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+	gmu_irq_disable(device);
 
 	if (gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
 		return -EINVAL;
@@ -1783,8 +1784,9 @@ static void gmu_stop(struct kgsl_device *device)
 		goto error;
 
 	/* Pending message in all queues are abandoned */
-	gmu_irq_disable(device);
 	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+	gmu_irq_disable(device);
 
 	gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(gmu);
