@@ -50,6 +50,7 @@ struct msm_snps_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*phy_csr_regs;
 
+	struct clk		*sleep_clk;
 	struct clk		*phy_csr_clk;
 	struct clk		*ref_clk;
 	struct reset_control	*phy_reset;
@@ -548,6 +549,15 @@ static int msm_snps_hsphy_probe(struct platform_device *pdev)
 						__func__, ret);
 		return PTR_ERR(phy->phy_por_reset);
 	}
+
+	phy->sleep_clk = devm_clk_get(dev, "sleep_clk");
+	if (IS_ERR(phy->sleep_clk)) {
+		dev_err(dev, "%s failed to get sleep_clk %d",
+					__func__, PTR_ERR(phy->sleep_clk));
+		return PTR_ERR(phy->sleep_clk);
+	}
+
+	clk_prepare_enable(phy->sleep_clk);
 
 	phy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(phy->ref_clk)) {
