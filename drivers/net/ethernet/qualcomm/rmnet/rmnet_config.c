@@ -105,7 +105,6 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 		kfree(port);
 		return -EBUSY;
 	}
-
 	/* hold on to real dev for MAP data */
 	dev_hold(real_dev);
 
@@ -484,7 +483,7 @@ int rmnet_del_bridge(struct net_device *rmnet_dev,
 	return 0;
 }
 
-#ifdef CONFIG_QCOM_QMI_DFC
+#ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port)
 {
 	if (port)
@@ -548,6 +547,50 @@ void rmnet_init_qmi_pt(void *port, void *qmi)
 		((struct rmnet_port *)port)->qmi_info = qmi;
 }
 EXPORT_SYMBOL(rmnet_init_qmi_pt);
+
+void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
+{
+	struct rmnet_priv *priv;
+	struct rmnet_pcpu_stats *ps;
+	unsigned int cpu, start;
+
+	struct rmnet_endpoint *ep;
+	unsigned long bkt;
+
+	if (!port || !tx || !rx)
+		return;
+
+	*tx = 0;
+	*rx = 0;
+	hash_for_each(((struct rmnet_port *)port)->muxed_ep, bkt, ep, hlnode) {
+		priv = netdev_priv(ep->egress_dev);
+		for_each_possible_cpu(cpu) {
+			ps = per_cpu_ptr(priv->pcpu_stats, cpu);
+			do {
+				start = u64_stats_fetch_begin_irq(&ps->syncp);
+				*tx += ps->stats.tx_pkts;
+				*rx += ps->stats.rx_pkts;
+			} while (u64_stats_fetch_retry_irq(&ps->syncp, start));
+		}
+	}
+}
+EXPORT_SYMBOL(rmnet_get_packets);
+
+void  rmnet_set_powersave_format(void *port)
+{
+	if (!port)
+		return;
+	((struct rmnet_port *)port)->data_format |= RMNET_INGRESS_FORMAT_PS;
+}
+EXPORT_SYMBOL(rmnet_set_powersave_format);
+
+void  rmnet_clear_powersave_format(void *port)
+{
+	if (!port)
+		return;
+	((struct rmnet_port *)port)->data_format &= ~RMNET_INGRESS_FORMAT_PS;
+}
+EXPORT_SYMBOL(rmnet_clear_powersave_format);
 #endif
 
 /* Startup/Shutdown */

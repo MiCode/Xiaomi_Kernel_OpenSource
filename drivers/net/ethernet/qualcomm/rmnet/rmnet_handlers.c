@@ -24,6 +24,10 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
+#ifdef CONFIG_QCOM_QMI_HELPERS
+#include <soc/qcom/rmnet_qmi.h>
+#include <soc/qcom/qmi_rmnet.h>
+#endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
@@ -136,6 +140,12 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
 		if (!rmnet_map_checksum_downlink_packet(skb, len + pad))
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+	}
+
+	if ((port->data_format & RMNET_INGRESS_FORMAT_PS) &&
+	    !qmi_rmnet_work_get_active(port)) {
+		/* register for powersave indications*/
+		qmi_rmnet_work_restart(port);
 	}
 
 	skb_trim(skb, len);
