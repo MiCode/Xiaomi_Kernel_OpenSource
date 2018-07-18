@@ -213,11 +213,10 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	if (!mhi_info->enabled)
 		return -ENODEV;
 
-	if (close_flag == CLOSE_CHANNELS) {
-		atomic_set(&(mhi_info->read_ch.opened), 0);
-		atomic_set(&(mhi_info->write_ch.opened), 0);
+	atomic_set(&(mhi_info->read_ch.opened), 0);
+	atomic_set(&(mhi_info->write_ch.opened), 0);
+	if (close_flag == CLOSE_CHANNELS)
 		mhi_unprepare_from_transfer(mhi_info->mhi_dev);
-	}
 
 	if (!(atomic_read(&(mhi_info->read_ch.opened))))
 		flush_workqueue(mhi_info->mhi_wq);
@@ -270,6 +269,9 @@ static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
 	if (!mhi_info->enabled)
 		return -ENODEV;
 	if (open_flag == OPEN_CHANNELS) {
+		if ((atomic_read(&(mhi_info->read_ch.opened))) &&
+			(atomic_read(&(mhi_info->write_ch.opened))))
+			return 0;
 		err = mhi_prepare_for_transfer(mhi_info->mhi_dev);
 		if (err) {
 			pr_err("diag: In %s, unable to open ch, err: %d\n",
@@ -598,14 +600,10 @@ static void diag_mhi_remove(struct mhi_device *mhi_dev)
 		return;
 	if (!mhi_info->enabled)
 		return;
+	__mhi_close(mhi_info, CHANNELS_CLOSED);
 	spin_lock_irqsave(&mhi_info->lock, flags);
 	mhi_info->enabled = 0;
 	spin_unlock_irqrestore(&mhi_info->lock, flags);
-	atomic_set(&(mhi_info->read_ch.opened), 0);
-	atomic_set(&(mhi_info->write_ch.opened), 0);
-	flush_workqueue(mhi_info->mhi_wq);
-	mhi_buf_tbl_clear(mhi_info);
-	diag_remote_dev_close(mhi_info->dev_id);
 }
 
 static int diag_mhi_probe(struct mhi_device *mhi_dev,
@@ -620,23 +618,12 @@ static int diag_mhi_probe(struct mhi_device *mhi_dev,
 		"received probe for %d\n",
 		index);
 	diag_mhi[index].mhi_dev = mhi_dev;
-	ret = diag_remote_init();
-	if (ret) {
-		diag_remote_exit();
-		return ret;
-	}
-	ret = diagfwd_bridge_init();
-	if (ret) {
-		diagfwd_bridge_exit();
-		diag_remote_exit();
-		return ret;
-	}
 	DIAG_LOG(DIAG_DEBUG_BRIDGE,
 		"diag: mhi device is ready to open\n");
 	spin_lock_irqsave(&mhi_info->lock, flags);
 	mhi_info->enabled = 1;
 	spin_unlock_irqrestore(&mhi_info->lock, flags);
-	__mhi_open(&diag_mhi[index], CHANNELS_OPENED);
+	__mhi_open(&diag_mhi[index], OPEN_CHANNELS);
 	queue_work(diag_mhi[index].mhi_wq,
 			   &(diag_mhi[index].open_work));
 	return ret;
@@ -737,5 +724,20 @@ static struct mhi_driver diag_mhi_driver = {
 
 void diag_register_with_mhi(void)
 {
+	int ret = 0;
+
+	ret = diag_remote_init();
+	if (ret) {
+		diag_remote_exit();
+		return;
+	}
+
+	ret = diagfwd_bridge_init();
+	if (ret) {
+		diagfwd_bridge_exit();
+		diag_remote_exit();
+		return;
+	}
+
 	mhi_driver_register(&diag_mhi_driver);
 }
