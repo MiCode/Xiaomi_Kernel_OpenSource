@@ -1233,6 +1233,18 @@ struct msm_vidc_format_constraint enc_pix_format_constraints[] = {
 		.uv_min_plane_buffer_height_multiple = 16,
 		.uv_buffer_alignment = 256,
 	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV12_512,
+		.num_planes = 2,
+		.y_stride_multiples = 512,
+		.y_max_stride = 8192,
+		.y_min_plane_buffer_height_multiple = 512,
+		.y_buffer_alignment = 512,
+		.uv_stride_multiples = 512,
+		.uv_max_stride = 8192,
+		.uv_min_plane_buffer_height_multiple = 256,
+		.uv_buffer_alignment = 256,
+	},
 };
 
 
