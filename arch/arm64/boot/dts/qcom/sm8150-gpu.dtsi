@@ -99,11 +99,12 @@
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
+			<&clock_gpucc GPU_CC_AHB_CLK>,
+			<&clock_cpucc L3_GPU_VOTE_CLK>;
 
 		clock-names = "rbbmtimer_clk", "mem_clk",
 				"mem_iface_clk", "gmu_clk",
-				"gpu_cc_ahb";
+				"gpu_cc_ahb", "l3_vote";
 
 		qcom,isense-clk-on-level = <1>;
 
@@ -142,6 +143,28 @@
 		/* GPU related llc slices */
 		cache-slice-names = "gpu", "gpuhtw";
 		cache-slices = <&llcc 12>, <&llcc 11>;
+
+		qcom,l3-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,l3-pwrlevels";
+
+			qcom,l3-pwrlevel@0 {
+				reg = <0>;
+				qcom,l3-freq = <0>;
+			};
+
+			qcom,l3-pwrlevel@1 {
+				reg = <1>;
+				qcom,l3-freq = <864000000>;
+			};
+
+			qcom,l3-pwrlevel@2 {
+				reg = <2>;
+				qcom,l3-freq = <1344000000>;
+			};
+		};
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {
