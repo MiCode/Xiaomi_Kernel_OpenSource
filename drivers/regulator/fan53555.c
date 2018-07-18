@@ -20,6 +20,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
@@ -40,7 +41,10 @@
 /* VSEL bit definitions */
 #define VSEL_BUCK_EN	(1 << 7)
 #define VSEL_MODE		(1 << 6)
-#define VSEL_NSEL_MASK	0x3F
+#define HL7503_VSEL0_MODE	BIT(0)
+#define HL7503_VSEL1_MODE	BIT(1)
+#define VSEL_NSEL_MASK		0x3F
+#define HL7503_VSEL_NSEL_MASK	0x7F
 /* Chip ID and Verison */
 #define DIE_ID		0x0F	/* ID1 */
 #define DIE_REV		0x0F	/* ID2 */
@@ -51,11 +55,13 @@
 #define CTL_RESET			(1 << 2)
 
 #define FAN53555_NVOLTAGES	64	/* Numbers of voltages */
+#define HL7503_NVOLTAGES	128
 
 enum fan53555_vendor {
 	FAN53555_VENDOR_FAIRCHILD = 0,
 	FAN53555_VENDOR_SILERGY,
 	HALO_HL7509,
+	HALO_HL7503,
 };
 
 /* IC Type */
@@ -106,6 +112,7 @@ struct fan53555_device_info {
 static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 {
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+	u8 vsel_mask;
 	int ret;
 
 	if (di->disable_suspend)
@@ -115,8 +122,10 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	ret = regulator_map_voltage_linear(rdev, uV, uV);
 	if (ret < 0)
 		return ret;
-	ret = regmap_update_bits(di->regmap, di->sleep_reg,
-					VSEL_NSEL_MASK, ret);
+
+	vsel_mask = (di->vendor == HALO_HL7503) ? HL7503_VSEL_NSEL_MASK
+						 : VSEL_NSEL_MASK;
+	ret = regmap_update_bits(di->regmap, di->sleep_reg, vsel_mask, ret);
 	if (ret < 0)
 		return ret;
 	/* Cache the sleep voltage setting.
@@ -130,6 +139,9 @@ static int fan53555_set_suspend_enable(struct regulator_dev *rdev)
 {
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
 
+	if (di->disable_suspend)
+		return 0;
+
 	return regmap_update_bits(di->regmap, di->sleep_reg,
 				  VSEL_BUCK_EN, VSEL_BUCK_EN);
 }
@@ -138,6 +150,9 @@ static int fan53555_set_suspend_disable(struct regulator_dev *rdev)
 {
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
 
+	if (di->disable_suspend)
+		return 0;
+
 	return regmap_update_bits(di->regmap, di->sleep_reg,
 				  VSEL_BUCK_EN, 0);
 }
@@ -145,14 +160,23 @@ static int fan53555_set_suspend_disable(struct regulator_dev *rdev)
 static int fan53555_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+	unsigned int reg, mask;
+
+	reg = di->vol_reg;
+	mask = VSEL_MODE;
+	if (di->vendor == HALO_HL7503) {
+		/* uses control register for mode control */
+		reg = FAN53555_CONTROL;
+		mask = (di->vol_reg = FAN53555_VSEL0) ? HL7503_VSEL0_MODE
+						      : HL7503_VSEL1_MODE;
+	}
 
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
-		regmap_update_bits(di->regmap, di->vol_reg,
-				VSEL_MODE, VSEL_MODE);
+		regmap_update_bits(di->regmap, reg, mask, mask);
 		break;
 	case REGULATOR_MODE_NORMAL:
-		regmap_update_bits(di->regmap, di->vol_reg, VSEL_MODE, 0);
+		regmap_update_bits(di->regmap, reg, mask, 0);
 		break;
 	default:
 		return -EINVAL;
@@ -163,13 +187,22 @@ static int fan53555_set_mode(struct regulator_dev *rdev, unsigned int mode)
 static unsigned int fan53555_get_mode(struct regulator_dev *rdev)
 {
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
-	unsigned int val;
+	unsigned int val, reg, mask;
 	int ret = 0;
 
-	ret = regmap_read(di->regmap, di->vol_reg, &val);
+	reg = di->vol_reg;
+	mask = VSEL_MODE;
+	if (di->vendor == HALO_HL7503) {
+		/* uses control register for mode control */
+		reg = FAN53555_CONTROL;
+		mask = (di->vol_reg = FAN53555_VSEL0) ? HL7503_VSEL0_MODE
+						      : HL7503_VSEL1_MODE;
+	}
+
+	ret = regmap_read(di->regmap, reg, &val);
 	if (ret < 0)
 		return ret;
-	if (val & VSEL_MODE)
+	if (val & mask)
 		return REGULATOR_MODE_FAST;
 	else
 		return REGULATOR_MODE_NORMAL;
@@ -282,6 +315,23 @@ static int fan53555_voltages_setup_silergy(struct fan53555_device_info *di)
 	return 0;
 }
 
+static int hl7503_voltages_setup_halo(struct fan53555_device_info *di)
+{
+	/* Init voltage range and step */
+	switch (di->chip_id) {
+	case FAN53555_CHIP_ID_08:
+		di->vsel_min = 600000;
+		di->vsel_step = 6250;
+		break;
+	default:
+		dev_err(di->dev,
+			"Chip ID %d not supported!\n", di->chip_id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* For 00,01,03,05 options:
  * VOUT = 0.60V + NSELx * 10mV, from 0.60 to 1.23V.
  * For 04 option:
@@ -317,6 +367,9 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 	case HALO_HL7509:
 		ret = fan53555_voltages_setup_fairchild(di);
 		break;
+	case HALO_HL7503:
+		ret = hl7503_voltages_setup_halo(di);
+		break;
 	default:
 		dev_err(di->dev, "vendor %d not supported!\n", di->vendor);
 		return -EINVAL;
@@ -334,14 +387,20 @@ static int fan53555_regulator_register(struct fan53555_device_info *di,
 	rdesc->supply_name = "vin";
 	rdesc->ops = &fan53555_regulator_ops;
 	rdesc->type = REGULATOR_VOLTAGE;
-	rdesc->n_voltages = FAN53555_NVOLTAGES;
 	rdesc->enable_reg = di->vol_reg;
 	rdesc->enable_mask = VSEL_BUCK_EN;
 	rdesc->min_uV = di->vsel_min;
 	rdesc->uV_step = di->vsel_step;
 	rdesc->vsel_reg = di->vol_reg;
-	rdesc->vsel_mask = VSEL_NSEL_MASK;
 	rdesc->owner = THIS_MODULE;
+
+	if (di->vendor == HALO_HL7503) {
+		rdesc->n_voltages = HL7503_NVOLTAGES;
+		rdesc->vsel_mask = HL7503_VSEL_NSEL_MASK;
+	} else {
+		rdesc->n_voltages = FAN53555_NVOLTAGES;
+		rdesc->vsel_mask = VSEL_NSEL_MASK;
+	}
 
 	di->rdev = devm_regulator_register(di->dev, &di->desc, config);
 	return PTR_ERR_OR_ZERO(di->rdev);
@@ -350,7 +409,53 @@ static int fan53555_regulator_register(struct fan53555_device_info *di,
 static const struct regmap_config fan53555_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.max_register = 0x05,
 };
+
+static int fan53555_parse_vsel_gpio(struct fan53555_device_info *di)
+{
+	struct device_node *np = di->dev->of_node;
+	unsigned int val;
+	int ret = 0, gpio;
+	enum of_gpio_flags flags;
+
+	if (!of_find_property(np, "fcs,vsel-gpio", NULL))
+		return ret;
+
+	ret = regmap_read(di->regmap, di->sleep_reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(di->regmap, di->vol_reg, val);
+	if (ret < 0)
+		return ret;
+
+	/* Get GPIO connected to vsel and set its output */
+	gpio = of_get_named_gpio_flags(np, "fcs,vsel-gpio", 0, &flags);
+	if (!gpio_is_valid(gpio)) {
+		if (gpio != -EPROBE_DEFER)
+			dev_err(di->dev, "Could not get vsel, ret = %d\n",
+				gpio);
+		return gpio;
+	}
+
+	ret = devm_gpio_request(di->dev, gpio, "fan53555_vsel");
+	if (ret) {
+		dev_err(di->dev, "Failed to obtain gpio %d ret = %d\n",
+				gpio, ret);
+			return ret;
+	}
+
+	ret = gpio_direction_output(gpio, flags & OF_GPIO_ACTIVE_LOW ? 0 : 1);
+	if (ret) {
+		dev_err(di->dev, "Failed to set GPIO %d to: %s, ret = %d",
+				gpio, flags & OF_GPIO_ACTIVE_LOW ?
+				"GPIO_LOW" : "GPIO_HIGH", ret);
+		return ret;
+	}
+
+	return ret;
+}
 
 static int fan53555_parse_dt(struct fan53555_device_info *di,
 				struct fan53555_platform_data *pdata,
@@ -390,6 +495,9 @@ static const struct of_device_id fan53555_dt_ids[] = {
 	}, {
 		.compatible = "halo,hl7509",
 		.data = (void *)HALO_HL7509,
+	}, {
+		.compatible = "halo,hl7503",
+		.data = (void *)HALO_HL7503,
 	},
 	{ }
 };
@@ -466,6 +574,13 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to setup device!\n");
 		return ret;
 	}
+
+	ret = fan53555_parse_vsel_gpio(di);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to parse gpio!\n");
+		return ret;
+	}
+
 	/* Register regulator */
 	config.dev = di->dev;
 	config.init_data = di->regulator;
