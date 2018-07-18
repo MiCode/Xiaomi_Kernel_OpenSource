@@ -1443,16 +1443,23 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		}
 	}
 
-	if (!debugfs_create_bool("ulps_enable", 0600, dir,
-			&display->panel->ulps_enabled)) {
-		pr_err("[%s] debugfs create ulps enable file failed\n",
+	if (!debugfs_create_bool("ulps_feature_enable", 0600, dir,
+			&display->panel->ulps_feature_enabled)) {
+		pr_err("[%s] debugfs create ulps feature enable file failed\n",
 		       display->name);
 		goto error_remove_dir;
 	}
 
-	if (!debugfs_create_bool("ulps_suspend_enable", 0600, dir,
+	if (!debugfs_create_bool("ulps_suspend_feature_enable", 0600, dir,
 			&display->panel->ulps_suspend_enabled)) {
-		pr_err("[%s] debugfs create ulps-suspend enable file failed\n",
+		pr_err("[%s] debugfs create ulps-suspend feature enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
+	if (!debugfs_create_bool("ulps_status", 0400, dir,
+			&display->ulps_enabled)) {
+		pr_err("[%s] debugfs create ulps status file failed\n",
 		       display->name);
 		goto error_remove_dir;
 	}
