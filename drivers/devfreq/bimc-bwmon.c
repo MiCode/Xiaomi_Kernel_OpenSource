@@ -97,7 +97,6 @@ struct bwmon_spec {
 struct bwmon {
 	void __iomem *base;
 	void __iomem *global_base;
-	void __iomem *base_GCC_DNOC_CFG_CBCR;
 	unsigned int mport;
 	int irq;
 	const struct bwmon_spec *spec;
@@ -348,14 +347,8 @@ static void mon_glb_irq_clear(struct bwmon *m)
 	 * before the local interrupt, causing the global interrupt
 	 * to be retriggered by the local interrupt still being high.
 	 */
-	if (m->base_GCC_DNOC_CFG_CBCR)
-		trace_printk("mon_glb_irq_clear0: GCC_DNOC_CFG_CBCR=%x \n", readl_relaxed(m->base_GCC_DNOC_CFG_CBCR));
 	mb();
-	if (m->base_GCC_DNOC_CFG_CBCR)
-		trace_printk("mon_glb_irq_clear1: GCC_DNOC_CFG_CBCR=%x \n", readl_relaxed(m->base_GCC_DNOC_CFG_CBCR));
 	writel_relaxed(1 << m->mport, GLB_INT_CLR(m));
-	if (m->base_GCC_DNOC_CFG_CBCR)
-		trace_printk("mon_glb_irq_clear2: GCC_DNOC_CFG_CBCR=%x \n", readl_relaxed(m->base_GCC_DNOC_CFG_CBCR));
 	/*
 	 * Similarly, because the global registers are in a different
 	 * region than the local registers, we need to ensure any register
@@ -364,8 +357,6 @@ static void mon_glb_irq_clear(struct bwmon *m)
 	 * interrupt is cleared.
 	 */
 	mb();
-	if (m->base_GCC_DNOC_CFG_CBCR)
-		trace_printk("mon_glb_irq_clear3: GCC_DNOC_CFG_CBCR=%x \n", readl_relaxed(m->base_GCC_DNOC_CFG_CBCR));
 }
 
 static __always_inline
@@ -1074,17 +1065,6 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 		}
 		m->mport = data;
 	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gcc_dnoc_cfg");
-	if (res) {
-		m->base_GCC_DNOC_CFG_CBCR = devm_ioremap(dev, res->start,
-						resource_size(res));
-		if (!m->base_GCC_DNOC_CFG_CBCR)
-			pr_err("Unable map GCC_DNOC_CFG_CBCR register\n");
-		else
-			pr_err("Able to map GCC_DNOC_CFG_CBCR register\n");
-	} else
-		pr_err("GCC_DNOC_CFG_CBCR resource is missing\n");
 
 	m->irq = platform_get_irq(pdev, 0);
 	if (m->irq < 0) {
