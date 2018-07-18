@@ -27,7 +27,7 @@
 #define YEAR_BASE 1900
 
 #define EL2_SCM_ID 0x02001902
-#define KP_EL2_REPORT_REVISION 0x01000101
+#define KP_EL2_REPORT_REVISION 0x01000110
 #define INVALID_PID -1
 
 #define EL2_SCM_ID2 0x02001905
@@ -65,7 +65,6 @@ static long seemp_logk_reserve_rdblks(
 static long seemp_logk_set_mask(unsigned long arg);
 static long seemp_logk_set_mapping(unsigned long arg);
 static long seemp_logk_check_filter(unsigned long arg);
-static pid_t seemp_logk_get_pid(struct task_struct *t);
 static int seemp_logk_rtic_thread(void *data);
 
 void* (*seemp_logk_kernel_begin)(char **buf);
@@ -605,71 +604,38 @@ static const struct file_operations seemp_logk_fops = {
 	.mmap = seemp_logk_mmap,
 };
 
-static pid_t seemp_logk_get_pid(struct task_struct *t)
-{
-	struct task_struct *task;
-	pid_t pid;
-
-	if (t == NULL)
-		return INVALID_PID;
-
-	rcu_read_lock();
-	for_each_process(task) {
-		if (task == t) {
-			pid = task->pid;
-			rcu_read_unlock();
-			return pid;
-		}
-	}
-	rcu_read_unlock();
-	return INVALID_PID;
-}
-
 static int seemp_logk_rtic_thread(void *data)
 {
 	struct el2_report_header_t *header;
-	__u64 last_sequence_number = 0;
-	int last_pos = -1;
 	int i;
-	int num_entries = (PAGE_SIZE - sizeof(struct el2_report_header_t))
-		/ sizeof(struct el2_report_data_t);
 	header = (struct el2_report_header_t *) el2_shared_mem;
 
 	if (header->report_version < KP_EL2_REPORT_REVISION)
 		return -EINVAL;
 
 	while (!kthread_should_stop()) {
-		for (i = 1; i < num_entries + 1; i++) {
-			struct el2_report_data_t *report;
-			int cur_pos = last_pos + i;
+		struct el2_actor_report_t *report;
 
-			if (cur_pos >= num_entries)
-				cur_pos -= num_entries;
+		report = el2_shared_mem +
+			sizeof(struct el2_report_header_t);
 
-			report = el2_shared_mem +
+		for (i = 0; i < report->actor_count; i++) {
+			struct el2_actor_data_t *actor;
+
+			actor = el2_shared_mem +
 				sizeof(struct el2_report_header_t) +
-				cur_pos * sizeof(struct el2_report_data_t);
+				sizeof(struct el2_actor_report_t) +
+				i * (sizeof(struct el2_actor_data_t));
 
-			/* determine legitimacy of report */
-			if (report->report_valid &&
-				(last_sequence_number == 0
-					|| report->sequence_number >
-						last_sequence_number)) {
-				seemp_logk_rtic(report->report_type,
-					seemp_logk_get_pid(
-						(struct task_struct *)
-						report->actor),
-					/* leave this empty until
-					 * asset id is provided
-					 */
-					"",
-					report->asset_category,
-					report->response);
-				last_sequence_number = report->sequence_number;
-			} else {
-				last_pos = cur_pos - 1;
-				break;
-			}
+			seemp_logk_rtic(report->report_type,
+				actor->pid,
+				/*
+				 * leave this empty until
+				 * asset id is provided
+				 */
+				"",
+				report->asset_category,
+				report->response);
 		}
 
 		/* periodically check el2 report every second */
