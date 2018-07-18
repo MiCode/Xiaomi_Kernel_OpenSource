@@ -10,8 +10,10 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/iio/iio.h>
 #include <linux/iio/kfifo_buf.h>
 #include <linux/iio/events.h>
+#include <linux/iio/buffer.h>
 #include <asm/unaligned.h>
 #include <linux/of.h>
 
