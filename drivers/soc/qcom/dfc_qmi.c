@@ -605,6 +605,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 		return;
 	}
 
+	local_bh_disable();
 	/* This will drop some messages but that is
 	 * unavoidable for now since the notifier callback is
 	 * protected by rtnl_lock() and destroy_workqueue()
@@ -613,6 +614,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 	if (!rtnl_trylock()) {
 		kfree(ind);
 		kfree(svc_ind);
+		local_bh_enable();
 		return;
 	}
 
@@ -644,6 +646,7 @@ clean_out:
 	kfree(ind);
 	kfree(svc_ind);
 	rtnl_unlock();
+	local_bh_enable();
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
