@@ -36,7 +36,7 @@
 		peripheral2_mem: peripheral2_region@8fe00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x8fe00000 0x200000>;
+			reg = <0x8fe00000 0xe00000>;
 			label = "peripheral2_mem";
 		};
 
@@ -65,7 +65,7 @@
 		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87400000 0x8300000>;
+			reg = <0x87000000 0x8700000>;
 			label = "mss_mem";
 		};
 
