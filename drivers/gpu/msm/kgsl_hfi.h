@@ -615,6 +615,7 @@ struct kgsl_hfi {
 struct gmu_device;
 struct gmu_memdesc;
 
+irqreturn_t hfi_irq_handler(int irq, void *data);
 int hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
 		uint32_t boot_state);
 void hfi_stop(struct gmu_device *gmu);

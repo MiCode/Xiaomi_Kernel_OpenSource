@@ -13,7 +13,6 @@
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
-#include "kgsl_gmu_core.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
