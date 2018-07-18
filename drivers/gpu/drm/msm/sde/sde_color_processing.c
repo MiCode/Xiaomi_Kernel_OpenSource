@@ -49,6 +49,8 @@ static void dspp_sixzone_install_property(struct drm_crtc *crtc);
 
 static void dspp_ad_install_property(struct drm_crtc *crtc);
 
+static void dspp_ltm_install_property(struct drm_crtc *crtc);
+
 static void dspp_vlut_install_property(struct drm_crtc *crtc);
 
 static void dspp_gamut_install_property(struct drm_crtc *crtc);
@@ -85,6 +87,7 @@ do { \
 	func[SDE_DSPP_MEMCOLOR] = dspp_memcolor_install_property; \
 	func[SDE_DSPP_SIXZONE] = dspp_sixzone_install_property; \
 	func[SDE_DSPP_AD] = dspp_ad_install_property; \
+	func[SDE_DSPP_LTM] = dspp_ltm_install_property; \
 	func[SDE_DSPP_VLUT] = dspp_vlut_install_property; \
 	func[SDE_DSPP_GAMUT] = dspp_gamut_install_property; \
 	func[SDE_DSPP_GC] = dspp_gc_install_property; \
@@ -128,6 +131,14 @@ enum {
 	SDE_CP_CRTC_DSPP_AD_BACKLIGHT,
 	SDE_CP_CRTC_DSPP_AD_STRENGTH,
 	SDE_CP_CRTC_DSPP_AD_ROI,
+	SDE_CP_CRTC_DSPP_LTM,
+	SDE_CP_CRTC_DSPP_LTM_INIT,
+	SDE_CP_CRTC_DSPP_LTM_ROI,
+	SDE_CP_CRTC_DSPP_LTM_HIST_CTL,
+	SDE_CP_CRTC_DSPP_LTM_HIST_THRESH,
+	SDE_CP_CRTC_DSPP_LTM_SET_BUF,
+	SDE_CP_CRTC_DSPP_LTM_QUEUE_BUF,
+	SDE_CP_CRTC_DSPP_LTM_VLUT,
 	SDE_CP_CRTC_DSPP_MAX,
 	/* DSPP features end */
 
@@ -1431,6 +1442,64 @@ static void dspp_ad_install_property(struct drm_crtc *crtc)
 			SDE_CP_CRTC_DSPP_AD_ROI, 0, U64_MAX, 0);
 		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_AD_ROI,
 			sizeof(struct drm_msm_ad4_roi_cfg));
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_ltm_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->ltm.version >> 16;
+	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+		"SDE_DSPP_LTM_V", version);
+	switch (version) {
+	case 1:
+		sde_cp_crtc_install_immutable_property(crtc,
+			feature_name, SDE_CP_CRTC_DSPP_LTM);
+
+		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_LTM_INIT_V1",
+			SDE_CP_CRTC_DSPP_LTM_INIT, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_LTM_INIT,
+			sizeof(struct drm_msm_ltm_init_param));
+
+		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_LTM_ROI_V1",
+			SDE_CP_CRTC_DSPP_LTM_ROI, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_LTM_ROI,
+			sizeof(struct drm_msm_ltm_cfg_param));
+
+		sde_cp_crtc_install_enum_property(crtc,
+			SDE_CP_CRTC_DSPP_LTM_HIST_CTL, sde_ltm_hist_modes,
+			ARRAY_SIZE(sde_ltm_hist_modes),
+			"SDE_DSPP_LTM_HIST_CTRL_V1");
+
+		sde_cp_crtc_install_range_property(crtc,
+			"SDE_DSPP_LTM_HIST_THRESH_V1",
+			SDE_CP_CRTC_DSPP_LTM_HIST_THRESH, 0, (BIT(10) - 1), 0);
+
+		sde_cp_crtc_install_range_property(crtc,
+			"SDE_DSPP_LTM_SET_BUF_V1",
+			SDE_CP_CRTC_DSPP_LTM_SET_BUF, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_LTM_SET_BUF,
+			sizeof(struct drm_msm_ltm_buffers_ctrl));
+
+		sde_cp_crtc_install_range_property(crtc,
+			"SDE_DSPP_LTM_QUEUE_BUF_V1",
+			SDE_CP_CRTC_DSPP_LTM_QUEUE_BUF, 0, U64_MAX, 0);
+
+		sde_cp_crtc_install_range_property(crtc,
+			"SDE_DSPP_LTM_VLUT_V1",
+			SDE_CP_CRTC_DSPP_LTM_VLUT, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_LTM_VLUT,
+			sizeof(struct drm_msm_ltm_data));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);

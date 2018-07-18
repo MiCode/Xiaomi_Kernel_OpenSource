@@ -248,6 +248,7 @@ enum {
  * @SDE_DSPP_HIST            Histogram block
  * @SDE_DSPP_VLUT            PA VLUT block
  * @SDE_DSPP_AD              AD block
+ * @SDE_DSPP_LTM             LTM block
  * @SDE_DSPP_MAX             maximum value
  */
 enum {
@@ -262,6 +263,7 @@ enum {
 	SDE_DSPP_HIST,
 	SDE_DSPP_VLUT,
 	SDE_DSPP_AD,
+	SDE_DSPP_LTM,
 	SDE_DSPP_MAX
 };
 
@@ -584,6 +586,7 @@ struct sde_dspp_sub_blks {
 	struct sde_pp_blk dither;
 	struct sde_pp_blk hist;
 	struct sde_pp_blk ad;
+	struct sde_pp_blk ltm;
 	struct sde_pp_blk vlut;
 };
 
@@ -1181,6 +1184,7 @@ struct sde_mdss_cfg {
 	struct sde_reg_dma_cfg dma_cfg;
 
 	u32 ad_count;
+	u32 ltm_count;
 
 	u32 merge_3d_count;
 	struct sde_merge_3d_cfg merge_3d[MAX_BLOCKS];
@@ -1220,6 +1224,7 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_INTF(s) ((s)->intf)
 #define BLK_WB(s) ((s)->wb)
 #define BLK_AD(s) ((s)->ad)
+#define BLK_LTM(s) ((s)->ltm)
 
 /**
  * sde_hw_catalog_init - sde hardware catalog init API parses dtsi property
