@@ -1076,42 +1076,33 @@ static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
 	return 0;
 }
 
-static int gmu_reg_probe(struct gmu_device *gmu, const char *name, bool is_gmu)
+static int gmu_reg_probe(struct gmu_device *gmu)
 {
 	struct resource *res;
 
-	res = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM, name);
+	res = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_reg");
 	if (res == NULL) {
 		dev_err(&gmu->pdev->dev,
-				"platform_get_resource %s failed\n", name);
+			"platform_get_resource kgsl_gmu_reg failed\n");
 		return -EINVAL;
 	}
 
 	if (res->start == 0 || resource_size(res) == 0) {
 		dev_err(&gmu->pdev->dev,
-				"dev %d %s invalid register region\n",
-				gmu->pdev->dev.id, name);
+				"dev %d kgsl_gmu_reg invalid register region\n",
+				gmu->pdev->dev.id);
 		return -EINVAL;
 	}
 
-	if (is_gmu) {
-		gmu->reg_phys = res->start;
-		gmu->reg_len = resource_size(res);
-		gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-				resource_size(res));
+	gmu->reg_phys = res->start;
+	gmu->reg_len = resource_size(res);
 
-		if (gmu->reg_virt == NULL) {
-			dev_err(&gmu->pdev->dev, "GMU regs ioremap failed\n");
-			return -ENODEV;
-		}
-
-	} else {
-		gmu->pdc_reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-				resource_size(res));
-		if (gmu->pdc_reg_virt == NULL) {
-			dev_err(&gmu->pdev->dev, "PDC regs ioremap failed\n");
-			return -ENODEV;
-		}
+	gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
+			resource_size(res));
+	if (gmu->reg_virt == NULL) {
+		dev_err(&gmu->pdev->dev, "kgsl_gmu_reg ioremap failed\n");
+		return -ENODEV;
 	}
 
 	return 0;
@@ -1314,11 +1305,7 @@ static int gmu_probe(struct kgsl_device *device,
 	mem_addr = gmu->hfi_mem;
 
 	/* Map and reserve GMU CSRs registers */
-	ret = gmu_reg_probe(gmu, "kgsl_gmu_reg", true);
-	if (ret)
-		goto error;
-
-	ret = gmu_reg_probe(gmu, "kgsl_gmu_pdc_reg", false);
+	ret = gmu_reg_probe(gmu);
 	if (ret)
 		goto error;
 
@@ -1738,11 +1725,6 @@ static void gmu_remove(struct kgsl_device *device)
 	if (gmu->pcl) {
 		msm_bus_scale_unregister_client(gmu->pcl);
 		gmu->pcl = 0;
-	}
-
-	if (gmu->pdc_reg_virt) {
-		devm_iounmap(&gmu->pdev->dev, gmu->pdc_reg_virt);
-		gmu->pdc_reg_virt = NULL;
 	}
 
 	if (gmu->reg_virt) {
