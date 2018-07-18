@@ -1376,7 +1376,7 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	 * check connector array cached at modeset time since incoming atomic
 	 * state may not include any connectors if they aren't modified
 	 */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc_state->connectors); i++) {
+	for (i = 0; i < sde_crtc_state->num_connectors; i++) {
 		struct drm_connector *conn = sde_crtc_state->connectors[i];
 
 		if (!conn || !conn->state)
@@ -4655,6 +4655,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
+	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
@@ -4671,10 +4672,15 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	const struct drm_plane_state *pipe_staged[SSPP_MAX];
 	int left_zpos_cnt = 0, right_zpos_cnt = 0;
 
+	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
+
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
 		return -EINVAL;
 	}
+
+	dev = crtc->dev;
 
 	kms = _sde_crtc_get_kms(crtc);
 
@@ -4719,6 +4725,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			crtc->base.id, rc);
 		goto end;
 	}
+
+	/* identify connectors attached to this crtc */
+	cstate->num_connectors = 0;
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			cstate->connectors[cstate->num_connectors++] = conn;
+		}
+	drm_connector_list_iter_end(&conn_iter);
 
 	mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 
