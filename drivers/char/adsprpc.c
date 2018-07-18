@@ -707,8 +707,8 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			return;
 		}
 		if (map->phys) {
-			dma_free_coherent(me->dev, map->size,
-				(void *)map->va, (dma_addr_t)map->phys);
+			dma_free_attrs(me->dev, map->size, (void *)map->va,
+			(dma_addr_t)map->phys, (unsigned long)map->attr);
 		}
 	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
 		if (!IS_ERR_OR_NULL(map->table))
@@ -781,8 +781,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->apps = me;
 		map->fl = NULL;
+		map->attr |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
 		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
-						 len, 0));
+					len, (unsigned long) map->attr));
 		if (err)
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
