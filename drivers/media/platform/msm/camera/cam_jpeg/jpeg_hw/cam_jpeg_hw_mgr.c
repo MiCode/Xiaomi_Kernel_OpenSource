@@ -957,7 +957,6 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 0) {
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		CAM_ERR(CAM_JPEG, "Error Unbalanced deinit");
-		kfree(ctx_data->cdm_cmd);
 		return -EFAULT;
 	}
 
@@ -979,10 +978,13 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		CAM_ERR(CAM_JPEG, "JPEG release ctx failed");
 		kfree(ctx_data->cdm_cmd);
+		ctx_data->cdm_cmd = NULL;
+
 		return -EINVAL;
 	}
 
 	kfree(ctx_data->cdm_cmd);
+	ctx_data->cdm_cmd = NULL;
 	CAM_DBG(CAM_JPEG, "handle %llu", ctx_data);
 
 	return rc;
