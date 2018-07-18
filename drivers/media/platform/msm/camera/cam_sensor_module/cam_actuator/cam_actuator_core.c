@@ -53,7 +53,6 @@ int32_t cam_actuator_construct_default_power_setting(
 
 free_power_settings:
 	kfree(power_info->power_setting);
-	power_info->power_setting = NULL;
 	return rc;
 }
 
