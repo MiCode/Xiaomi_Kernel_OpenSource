@@ -70,6 +70,7 @@
 		reg-names = "tmc-base", "bam-base";
 
 		arm,buffer-size = <0x400000>;
+		qcom,force-reg-dump;
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti0>;
@@ -100,6 +101,8 @@
 		coresight-name = "coresight-tmc-etf";
 		coresight-ctis = <&cti0 &cti0>;
 		arm,default-sink;
+		qcom,force-reg-dump;
+
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
