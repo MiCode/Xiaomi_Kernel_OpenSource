@@ -61,6 +61,44 @@
 	};
 };
 
+&msm_fastrpc {
+	qcom,msm_fastrpc_compute_cb1 {
+		iommus = <&apps_smmu 0x1001 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb2 {
+		iommus = <&apps_smmu 0x1002 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb3 {
+		iommus = <&apps_smmu 0x1003 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb4 {
+		iommus = <&apps_smmu 0x1004 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb5 {
+		iommus = <&apps_smmu 0x1005 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb6 {
+		iommus = <&apps_smmu 0x1006 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb7 {
+		iommus = <&apps_smmu 0x1007 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb8 {
+		iommus = <&apps_smmu 0x1008 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb9 {
+		iommus = <&apps_smmu 0x1009 0x0460>;
+	};
+};
+
 &energy_costs {
 	CPU_COST_0: core-cost0 {
 		busy-cost-data = <
