@@ -325,7 +325,8 @@ static struct snd_soc_dapm_route wcd9335_audio_paths[] = {
 	{"MIC BIAS4", NULL, "MCLK"},
 };
 
-static char const *rx_bit_format_text[] = {"S16_LE", "S24_3LE", "S24_LE"};
+static char const *rx_bit_format_text[] = {"S16_LE", "S24_3LE", "S24_LE",
+					"S32_LE"};
 static const char *const mi2s_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 static char const *pri_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 					"KHZ_192", "KHZ_8",
@@ -633,6 +634,10 @@ static int mi2s_tx_bit_format_get(struct snd_kcontrol *kcontrol,
 {
 
 	switch (mi2s_tx_bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
+
 	case SNDRV_PCM_FORMAT_S24_LE:
 		ucontrol->value.integer.value[0] = 2;
 		break;
@@ -658,6 +663,10 @@ static int mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		tx_bits_per_sample = 32;
+		break;
 	case 2:
 		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
 		tx_bits_per_sample = 32;
@@ -1209,7 +1218,8 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 }
 
 static const struct soc_enum msm_snd_enum[] = {
-	SOC_ENUM_SINGLE_EXT(3, rx_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rx_bit_format_text),
+			rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(4, mi2s_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(6, pri_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tdm_ch_text),
