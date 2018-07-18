@@ -280,7 +280,7 @@ static int dp_config_vco_rate_7nm(struct dp_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CLK_SEL, 0x30);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 		QSERDES_COM_HSCLK_SEL, pdb->hsclk_sel);
-	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_PLL_IVCO, 0x07);
+	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_PLL_IVCO, 0x0f);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 		QSERDES_COM_LOCK_CMP_EN, pdb->lock_cmp_en);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_PLL_CCTRL_MODE0, 0x36);
@@ -312,7 +312,7 @@ static int dp_config_vco_rate_7nm(struct dp_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BG_TIMER, 0x0a);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CORECLK_DIV_MODE0, 0x0a);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_VCO_TUNE_CTRL, 0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x1d);
+	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x17);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CORE_CLK_EN, 0x1f);
 	/* Make sure the PHY register writes are done */
 	wmb();
@@ -488,10 +488,10 @@ static int dp_pll_enable_7nm(struct clk_hw *hw)
 	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_TX_DRV_LVL, 0x3f);
 	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_TX_EMP_POST1_LVL, 0x23);
 	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_TX_EMP_POST1_LVL, 0x23);
-	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_RES_CODE_LANE_OFFSET_TX, 0x06);
-	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_RES_CODE_LANE_OFFSET_TX, 0x06);
-	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_RES_CODE_LANE_OFFSET_RX, 0x07);
-	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_RES_CODE_LANE_OFFSET_RX, 0x07);
+	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_RES_CODE_LANE_OFFSET_TX, 0x11);
+	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_RES_CODE_LANE_OFFSET_TX, 0x11);
+	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_RES_CODE_LANE_OFFSET_RX, 0x11);
+	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_RES_CODE_LANE_OFFSET_RX, 0x11);
 	MDSS_PLL_REG_W(dp_res->ln_tx0_base, TXn_INTERFACE_SELECT, 0x3b);
 	MDSS_PLL_REG_W(dp_res->ln_tx1_base, TXn_INTERFACE_SELECT, 0x3b);
 	/* Make sure the PHY register writes are done */
