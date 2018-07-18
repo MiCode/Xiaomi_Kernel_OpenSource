@@ -704,4 +704,10 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
+
+	/* Rome 3.3V supply */
+	vreg_wlan: vreg_wlan {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "vreg_wlan";
+	};
 };
