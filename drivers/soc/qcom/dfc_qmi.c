@@ -735,20 +735,9 @@ static void dfc_svc_exit(struct qmi_handle *qmi, struct qmi_service *svc)
 {
 	struct dfc_qmi_data *data = container_of(qmi, struct dfc_qmi_data,
 						 handle);
-	struct qmi_info *qmi_pt;
-	int client;
 
-	trace_dfc_client_state_down(data->index, 1);
-	qmi_pt = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
-	if (qmi_pt) {
-		for (client = 0; client < MAX_CLIENT_NUM; client++) {
-			if (qmi_pt->fc_info[client].dfc_client == (void *)data)
-				qmi_pt->fc_info[client].dfc_client = NULL;
-			break;
-		}
-	}
-	destroy_workqueue(data->dfc_wq);
-	kfree(data);
+	if (!data)
+		pr_debug("%s() data is null\n", __func__);
 }
 
 static struct qmi_ops server_ops = {
@@ -817,10 +806,14 @@ void dfc_qmi_client_exit(void *dfc_data)
 {
 	struct dfc_qmi_data *data = (struct dfc_qmi_data *)dfc_data;
 
-	/* Skip this call for now due to error in qmi layer
-	 * qmi_handle_release(&data->handle);
-	 */
+	if (!data) {
+		pr_err("%s() data is null\n", __func__);
+		return;
+	}
+
 	trace_dfc_client_state_down(data->index, 0);
+	qmi_handle_release(&data->handle);
+
 	drain_workqueue(data->dfc_wq);
 	destroy_workqueue(data->dfc_wq);
 	kfree(data);
