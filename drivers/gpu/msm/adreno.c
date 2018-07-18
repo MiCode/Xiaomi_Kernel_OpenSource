@@ -1841,7 +1841,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (gmu_dev_ops->hfi_start_msg) {
 		status = gmu_dev_ops->hfi_start_msg(adreno_dev);
 		if (status)
-			goto error_oob_clear;
+			goto error_mmu_off;
 	}
 
 	/* Enable 64 bit gpu addr if feature is set */
