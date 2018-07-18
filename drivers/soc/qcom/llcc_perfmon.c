@@ -398,6 +398,11 @@ static ssize_t perfmon_filter_config_store(struct device *dev,
 	char *token, *delim = DELIM_CHAR;
 	enum filter_type filter = UNKNOWN;
 
+	if (llcc_priv->configured_counters) {
+		pr_err("remove configured events and try\n");
+		return count;
+	}
+
 	mutex_lock(&llcc_priv->mutex);
 
 	token = strsep((char **)&buf, delim);
