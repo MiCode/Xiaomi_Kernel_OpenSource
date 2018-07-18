@@ -139,14 +139,8 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
-	else
-		_regwrite(gmu->pdc_reg_virt,
+	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
@@ -163,14 +157,8 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
-	else
-		_regwrite(gmu->pdc_reg_virt,
+	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
