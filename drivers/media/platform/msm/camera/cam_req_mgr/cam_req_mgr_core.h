@@ -135,9 +135,6 @@ enum cam_req_mgr_link_state {
  * @apply_data       : pointer which various tables will update during traverse
  * @in_q             : input request queue pointer
  * @validate_only    : Whether to validate only and/or update settings
- * @self_link        : To indicate whether the check is for the given link or
- *                     the other sync link
- * @inject_delay_chk : if inject delay has been validated for all pd devices
  * @open_req_cnt     : Count of open requests yet to be serviced in the kernel.
  */
 struct cam_req_mgr_traverse {
@@ -147,8 +144,6 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_apply     *apply_data;
 	struct cam_req_mgr_req_queue *in_q;
 	bool                          validate_only;
-	bool                          self_link;
-	bool                          inject_delay_chk;
 	int32_t                       open_req_cnt;
 };
 
@@ -308,10 +303,6 @@ struct cam_req_mgr_connected_device {
  *                         notification to CRM at those hw events.
  * @trigger_mask         : mask on which irq the req is already applied
  * @sync_link            : pointer to the sync link for synchronization
- * @sof_counter          : sof counter during sync_mode
- * @sync_self_ref        : reference sync count against which the difference
- *                         between sync_counts for a given link is checked
- * @frame_skip_flag      : flag that determines if a frame needs to be skipped
  * @sync_link_sof_skip   : flag determines if a pkt is not available for a given
  *                         frame in a particular link skip corresponding
  *                         frame in sync link as well.
@@ -319,6 +310,10 @@ struct cam_req_mgr_connected_device {
  *                         to be serviced in the kernel.
  * @last_flush_id        : Last request to flush
  * @is_used              : 1 if link is in use else 0
+ * @is_master            : Based on pd among links, the link with the highest pd
+ *                         is assigned as master
+ * @initial_skip         : Flag to determine if slave has started streaming in
+ *                         master-slave sync
  *
  */
 struct cam_req_mgr_core_link {
@@ -338,13 +333,12 @@ struct cam_req_mgr_core_link {
 	uint32_t                             subscribe_event;
 	uint32_t                             trigger_mask;
 	struct cam_req_mgr_core_link        *sync_link;
-	int64_t                              sof_counter;
-	int64_t                              sync_self_ref;
-	bool                                 frame_skip_flag;
 	bool                                 sync_link_sof_skip;
 	int32_t                              open_req_cnt;
 	uint32_t                             last_flush_id;
 	atomic_t                             is_used;
+	bool                                 is_master;
+	bool                                 initial_skip;
 };
 
 /**
