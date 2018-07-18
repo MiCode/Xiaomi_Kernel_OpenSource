@@ -610,6 +610,7 @@
 
 &sde_hdmi {
 	qcom,non-pluggable;
+	qcom,skip_ddc;
 	qcom,customize-modes {
 		qcom,customize-mode-id@0 {
 			qcom,mode-name = "1920x1080@60Hz";
