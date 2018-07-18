@@ -7005,7 +7005,8 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 	if (capacity == max_capacity)
 		return true;
 
-	if (task_boost_on_big_eligible(p) && is_min_capacity_cpu(cpu))
+	if (task_boost_policy(p) == SCHED_BOOST_ON_BIG
+			&& is_min_capacity_cpu(cpu))
 		return false;
 
 	return task_fits_capacity(p, capacity, cpu);
@@ -7013,7 +7014,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 
 struct find_best_target_env {
 	struct cpumask *rtg_target;
-	bool placement_boost;
+	int placement_boost;
 	bool need_idle;
 	int fastpath;
 };
@@ -7025,7 +7026,7 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 {
 	unsigned long tutil, estimated_capacity;
 
-	if (fbt_env->placement_boost || fbt_env->need_idle)
+	if (task_placement_boost_enabled(p) || fbt_env->need_idle)
 		return false;
 
 	if (best_idle_cstate == -1)
@@ -7384,14 +7385,14 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		/*
 		 * For placement boost (or otherwise), we start with group
 		 * where the task should be placed. When
-		 * placement boost is active, and we are not at the highest
+		 * boost is active, and we are not at the highest
 		 * capacity group reset the target_capacity to keep
 		 * traversing to other higher clusters.
 		 * If we already are at the highest capacity cluster we skip
 		 * going around to the lower capacity cluster if we've found
 		 * a cpu.
 		 */
-		if (fbt_env->placement_boost) {
+		if (fbt_env->placement_boost == SCHED_BOOST_ON_BIG) {
 			if (capacity_orig_of(group_first_cpu(sg)) <
 				capacity_orig_of(group_first_cpu(sg->next)))
 				target_capacity = ULONG_MAX;
@@ -7688,7 +7689,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	struct cpumask *rtg_target = find_rtg_target(p);
 	struct find_best_target_env fbt_env;
 	bool need_idle = wake_to_idle(p);
-	bool placement_boost = task_placement_boost_enabled(p);
+	int placement_boost = task_boost_policy(p);
 	u64 start_t = 0;
 	int next_cpu = -1, backup_cpu = -1;
 
@@ -7789,7 +7790,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 			p->state == TASK_WAKING)
 		delta = task_util(p);
 #endif
-	if (use_fbt && (fbt_env.placement_boost || fbt_env.need_idle ||
+	if (use_fbt && (task_placement_boost_enabled(p) || fbt_env.need_idle ||
 		(rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
 			cpumask_test_cpu(next_cpu, rtg_target))) ||
 		 __cpu_overutilized(prev_cpu, delta) ||
