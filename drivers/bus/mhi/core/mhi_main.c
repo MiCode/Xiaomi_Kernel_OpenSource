@@ -363,8 +363,8 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in activate state, pm_state:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		MHI_VERB("MHI is not in activate state, pm_state:%s\n",
+			 to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 
 		return -EIO;
@@ -498,8 +498,8 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 	 * which is not fatal so we do not need to hold pm_lock
 	 */
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in active state, pm_state:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		MHI_VERB("MHI is not in active state, pm_state:%s\n",
+			 to_mhi_pm_state_str(mhi_cntrl->pm_state));
 
 		return -EIO;
 	}
