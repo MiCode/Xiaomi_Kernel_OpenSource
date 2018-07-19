@@ -9165,7 +9165,7 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	max_capacity = mcc->val;
 	max_cap_cpu = mcc->cpu;
 
-	if (max_capacity > capacity && max_cap_cpu == cpu ||
+	if ((max_capacity > capacity && max_cap_cpu == cpu) ||
 	    max_capacity < capacity) {
 		mcc->val = capacity;
 		mcc->cpu = cpu;
