@@ -1329,6 +1329,15 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	}
 
 	mutex_lock(&mhi_chan->mutex);
+
+	/* if channel is not disable state do not allow to start */
+	if (mhi_chan->ch_state != MHI_CH_STATE_DISABLED) {
+		ret = -EIO;
+		MHI_LOG("channel:%d is not in disabled state, ch_state%d\n",
+			mhi_chan->chan, mhi_chan->ch_state);
+		goto error_init_chan;
+	}
+
 	/* client manages channel context for offload channels */
 	if (!mhi_chan->offload_ch) {
 		ret = mhi_init_chan_ctxt(mhi_cntrl, mhi_chan);
