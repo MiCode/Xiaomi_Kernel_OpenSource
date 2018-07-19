@@ -504,12 +504,6 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		return -EIO;
 	}
 
-	/* we're in M3 or transitioning to M3 */
-	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
-		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
-	}
-
 	tre_ring = &mhi_chan->tre_ring;
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -519,6 +513,12 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		return ret;
 
 	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+
+	/* we're in M3 or transitioning to M3 */
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+	}
 
 	/*
 	 * For UL channels always assert WAKE until work is done,
