@@ -828,6 +828,32 @@ qcom,msm-dai-mi2s {
 		};
 };
 
+* msm-dai-spdif
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-spdif"
+
+ [Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-spdif"
+ - qcom,msm-dai-q6-dev-id: The SPDIF port ID
+                            Value is from 20480 to 20483.
+
+Example:
+
+qcom,msm-dai-spdif {
+	compatible = "qcom,msm-dai-spdif";
+	qcom,msm-dai-q6-spdif-pri-rx {
+		compatible = "qcom,msm-dai-q6-spdif";
+		qcom,msm-dai-q6-dev-id = <20480>;
+	};
+};
+
 * msm-adsp-loader
 
 Required properties:

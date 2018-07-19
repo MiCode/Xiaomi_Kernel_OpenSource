@@ -1008,6 +1008,7 @@
 					pins = "gpio89";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1037,6 +1038,7 @@
 					pins = "gpio90";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1065,6 +1067,7 @@
 					pins = "gpio91";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1094,6 +1097,7 @@
 					pins = "gpio92";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1122,6 +1126,7 @@
 					pins = "gpio93";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1151,6 +1156,7 @@
 					pins = "gpio94";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+					output-high;
 				};
 			};
 		};
@@ -1179,7 +1185,6 @@
 					pins = "gpio97";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
-					output-high;
 				};
 			};
 		};
@@ -1209,7 +1214,6 @@
 					pins = "gpio98";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
-					output-high;
 				};
 			};
 		};
@@ -1325,6 +1329,23 @@
 					pins = "gpio102";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
+				};
+			};
+		};
+
+		/* SPDIF optical input pin */
+		spdifrx_opt {
+			spdifrx_opt_default: spdifrx_opt_default{
+				mux {
+					pins = "gpio119";
+					function = "spdifrx_opt";
+				};
+
+				config {
+					pins = "gpio119";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
 				};
 			};
 		};
