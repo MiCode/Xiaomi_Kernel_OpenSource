@@ -19,6 +19,7 @@
 #define __ASM_TRAP_H
 
 #include <linux/list.h>
+#include <asm/sections.h>
 
 struct pt_regs;
 
@@ -36,17 +37,12 @@ void unregister_undef_hook(struct undef_hook *hook);
 
 static inline int __in_irqentry_text(unsigned long ptr)
 {
-	extern char __irqentry_text_start[];
-	extern char __irqentry_text_end[];
-
 	return ptr >= (unsigned long)&__irqentry_text_start &&
 	       ptr < (unsigned long)&__irqentry_text_end;
 }
 
 static inline int in_exception_text(unsigned long ptr)
 {
-	extern char __exception_text_start[];
-	extern char __exception_text_end[];
 	int in;
 
 	in = ptr >= (unsigned long)&__exception_text_start &&
