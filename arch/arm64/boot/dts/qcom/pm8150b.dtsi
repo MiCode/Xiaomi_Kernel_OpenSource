@@ -81,7 +81,8 @@
 
 		pm8150b_vadc: vadc@3100 {
 			compatible = "qcom,spmi-adc5";
-			reg = <0x3100 0x100>;
+			reg = <0x3100 0x100>, <0x3700 0x100>;
+			reg-names = "adc5-usr-base", "adc5-cal-base";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
@@ -157,8 +158,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#thermal-sensor-cells = <1>;
-			io-channels = <&pm8150b_vadc ADC_AMUX_THM2_PU2>;
-			status = "disabled";
+			io-channels = <&pm8150b_vadc ADC_AMUX_THM1_PU2>;
+			qcom,pmic-revid = <&pm8150b_revid>;
 		};
 
 		pm8150b_charger: qcom,qpnp-smb5 {
