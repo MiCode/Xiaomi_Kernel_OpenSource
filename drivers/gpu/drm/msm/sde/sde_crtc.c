@@ -736,7 +736,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
 
-	sde_fence_deinit(&sde_crtc->output_fence);
+	sde_fence_deinit(sde_crtc->output_fence);
 	_sde_crtc_deinit_events(sde_crtc);
 
 	drm_crtc_cleanup(crtc);
@@ -2066,7 +2066,7 @@ void sde_crtc_timeline_status(struct drm_crtc *crtc)
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
-	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
+	sde_fence_timeline_status(sde_crtc->output_fence, &crtc->base);
 }
 
 static int _sde_validate_hw_resources(struct sde_crtc *sde_crtc)
@@ -2292,7 +2292,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	drm_connector_list_iter_end(&conn_iter);
 
 	/* prepare main output fence */
-	sde_fence_prepare(&sde_crtc->output_fence);
+	sde_fence_prepare(sde_crtc->output_fence);
 }
 
 /**
@@ -2461,7 +2461,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
 		SDE_ATRACE_BEGIN("signal_release_fence");
-		sde_fence_signal(&sde_crtc->output_fence, fevent->ts,
+		sde_fence_signal(sde_crtc->output_fence, fevent->ts,
 				(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)
 				? SDE_FENCE_SIGNAL_ERROR : SDE_FENCE_SIGNAL);
 		SDE_ATRACE_END("signal_release_fence");
@@ -4293,7 +4293,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	 * reset the fence timeline if crtc will not be enabled for this commit
 	 */
 	if (!crtc->state->active || !crtc->state->enable) {
-		sde_fence_signal(&sde_crtc->output_fence,
+		sde_fence_signal(sde_crtc->output_fence,
 				ktime_get(), SDE_FENCE_RESET_TIMELINE);
 		for (i = 0; i < cstate->num_connectors; ++i)
 			sde_connector_commit_reset(cstate->connectors[i],
@@ -5318,7 +5318,7 @@ static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 	 */
 	offset++;
 
-	return sde_fence_create(&sde_crtc->output_fence, val, offset);
+	return sde_fence_create(sde_crtc->output_fence, val, offset);
 }
 
 /**
@@ -5913,7 +5913,7 @@ static int _sde_debugfs_fence_status_show(struct seq_file *s, void *data)
 	/* Dump release fence info */
 	seq_puts(s, "\n");
 	seq_puts(s, "===Release fence===\n");
-	ctx = &sde_crtc->output_fence;
+	ctx = sde_crtc->output_fence;
 	drm_obj = &crtc->base;
 	sde_debugfs_timeline_dump(ctx, drm_obj, &s);
 	seq_puts(s, "\n");
@@ -5927,7 +5927,7 @@ static int _sde_debugfs_fence_status_show(struct seq_file *s, void *data)
 			struct sde_connector *c_conn;
 
 			c_conn = to_sde_connector(conn);
-			ctx = &c_conn->retire_fence;
+			ctx = c_conn->retire_fence;
 			drm_obj = &conn->base;
 			sde_debugfs_timeline_dump(ctx, drm_obj, &s);
 		}
@@ -6227,7 +6227,15 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	}
 
 	/* initialize output fence support */
-	sde_fence_init(&sde_crtc->output_fence, sde_crtc->name, crtc->base.id);
+	sde_crtc->output_fence = sde_fence_init(sde_crtc->name, crtc->base.id);
+
+	if (IS_ERR(sde_crtc->output_fence)) {
+		rc = PTR_ERR(sde_crtc->output_fence);
+		SDE_ERROR("failed to init fence, %d\n", rc);
+		drm_crtc_cleanup(crtc);
+		kfree(sde_crtc);
+		return ERR_PTR(rc);
+	}
 
 	/* create CRTC properties */
 	msm_property_init(&sde_crtc->property_info, &crtc->base, dev,

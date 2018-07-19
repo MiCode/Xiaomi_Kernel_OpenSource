@@ -98,6 +98,15 @@ struct sde_fence {
 
 static void sde_fence_destroy(struct kref *kref)
 {
+	struct sde_fence_context *ctx;
+
+	if (!kref) {
+		SDE_ERROR("received invalid kref\n");
+		return;
+	}
+
+	ctx = container_of(kref, struct sde_fence_context, kref);
+	kfree(ctx);
 }
 
 static inline struct sde_fence *to_sde_fence(struct dma_fence *fence)
@@ -141,6 +150,7 @@ static void sde_fence_release(struct dma_fence *fence)
 
 	if (fence) {
 		f = to_sde_fence(fence);
+		kref_put(&f->ctx->kref, sde_fence_destroy);
 		kfree(f);
 	}
 }
@@ -235,14 +245,21 @@ exit:
 	return fd;
 }
 
-int sde_fence_init(struct sde_fence_context *ctx,
-		const char *name, uint32_t drm_id)
+struct sde_fence_context *sde_fence_init(const char *name, uint32_t drm_id)
 {
-	if (!ctx || !name) {
+	struct sde_fence_context *ctx;
+
+	if (!name) {
 		SDE_ERROR("invalid argument(s)\n");
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
-	memset(ctx, 0, sizeof(*ctx));
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+
+	if (!ctx) {
+		SDE_ERROR("failed to alloc fence ctx\n");
+		return ERR_PTR(-ENOMEM);
+	}
 
 	strlcpy(ctx->name, name, ARRAY_SIZE(ctx->name));
 	ctx->drm_id = drm_id;
@@ -253,7 +270,7 @@ int sde_fence_init(struct sde_fence_context *ctx,
 	spin_lock_init(&ctx->list_lock);
 	INIT_LIST_HEAD(&ctx->fence_list_head);
 
-	return 0;
+	return ctx;
 }
 
 void sde_fence_deinit(struct sde_fence_context *ctx)
@@ -310,7 +327,6 @@ static void _sde_fence_trigger(struct sde_fence_context *ctx,
 		if (is_signaled) {
 			list_del_init(&fc->fence_list);
 			dma_fence_put(&fc->base);
-			kref_put(&ctx->kref, sde_fence_destroy);
 		} else {
 			spin_lock(&ctx->list_lock);
 			list_move(&fc->fence_list, &ctx->fence_list_head);
