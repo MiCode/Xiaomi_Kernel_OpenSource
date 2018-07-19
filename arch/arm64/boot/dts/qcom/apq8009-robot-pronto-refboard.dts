@@ -1,0 +1,380 @@
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
+#include "8909-pm8916.dtsi"
+#include "msm8909-pm8916-mtp.dtsi"
+#include "apq8009-audio-external_codec.dtsi"
+#include "apq8009-memory.dtsi"
+#include <dt-bindings/pinctrl/qcom,pmic-mpp.h>
+#include "msm8909-pm8916-camera.dtsi"
+#include "msm8909-pm8916-camera-sensor-robot.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8009 Robot-pronto RefBoard";
+	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
+	qcom,msm-id = <265 2>;
+	qcom,board-id= <8 0xE>;
+};
+
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&pm8916_gpios {
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			status = "okay";
+		};
+	};
+};
+
+&msm_gpio {
+	hsuart_active: default {
+		mux {
+			pins = "gpio20", "gpio21", "gpio111", "gpio112";
+			function = "blsp_uart2";
+		};
+
+		config {
+			pins = "gpio20", "gpio21", "gpio111", "gpio112";
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	hsuart_sleep: sleep {
+		mux {
+			pins = "gpio20", "gpio21", "gpio111", "gpio112";
+			function = "blsp_uart2";
+		};
+
+		config {
+			pins = "gpio20", "gpio21", "gpio111", "gpio112";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	usb_vbus_detect: usb_vbus_detect {
+		mux {
+			pins = "gpio97";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio97";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	usb_id_detect: usb_id_detect {
+		mux {
+			pins = "gpio110";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio110";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};
+
+&soc {
+	ext_codec: sound-9335 {
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-gpios =
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-0 = <&cross_conn_det_sus>;
+		pinctrl-1 = <&cross_conn_det_act>;
+		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
+		qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
+	};
+
+	i2c@78b9000 {
+		synaptics@20 {
+			status = "disabled";
+		};
+	};
+
+	blsp1_uart2_hs: uart@78b0000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78b0000 0x200>,
+			<0x7884000 0x1f000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart2_hs>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 108 0
+				1 &intc 0 238 0
+				2 &msm_gpio 21 0>;
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xfd>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+				<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&hsuart_sleep>;
+		pinctrl-1 = <&hsuart_active>;
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,msm-bus,name = "blsp1_uart2_hs";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
+		status = "ok";
+	};
+
+	bluetooth: bt_qca9379 {
+		compatible = "qca,qca9379";
+		qca,bt-reset-gpio = <&msm_gpio 47 0>; /* BT_EN */
+	};
+
+	cnss_sdio: qcom,cnss_sdio {
+		compatible = "qcom,cnss_sdio";
+		subsys-name = "AR6320";
+		/**
+		 * There is no vdd-wlan on board and this is not for DSRC.
+		 * IO and XTAL share the same vreg.
+		 **/
+		vdd-wlan-io-supply = <&pm8916_l5>;
+		qcom,cap-tsf-gpio = <&msm_gpio 42 1>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<79 512 0 0>,             /* No vote */
+				<79 512 6250 200000>,     /* 50 Mbps */
+				<79 512 25000 200000>,    /* 200 Mbps */
+				<79 512 2048000 4096000>; /* MAX */
+	};
+
+	usb_detect: qcom,gpio-usbdetect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <97 0>;
+		interrupt-names = "vbus_det_irq";
+		pinctrl-names = "usb_vbus_detect", "usb_id_detect";
+		pinctrl-0 = <&usb_vbus_detect>;
+		pinctrl-1 = <&usb_id_detect>;
+		qcom,gpio-mode-sel = <&msm_gpio 97 0>;
+		qcom,id-det-gpio = <&msm_gpio 110 0>;
+		qcom,dpdm_switch_gpio = <&pm8916_gpios 3 0>;
+	};
+
+	i2c@78b8000 {
+		wcd9xxx_codec@d {
+			status = "okay";
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+		};
+	};
+
+	cdc_pri_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_active &pri_mi2s_ws_active
+		     &pri_mi2s_dout_active &pri_mi2s_din_active>;
+		pinctrl-1 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+		     &pri_mi2s_dout_sleep &pri_mi2s_din_sleep>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+	};
+
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+};
+
+&wcnss {
+	status = "disabled";
+};
+
+&msm_gpio {
+	sdc2_wlan_gpio_on: sdc2_wlan_gpio_on {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <10>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	sdc2_wlan_gpio_off: sdc2_wlan_gpio_off {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/cd-gpios;
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &msm_gpio 38 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	qcom,vdd-voltage-level = <1800000 2950000>;
+	qcom,vdd-current-level = <15000 400000>;
+
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 50000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+	&sdc2_wlan_gpio_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+	&sdc2_wlan_gpio_off>;
+	qcom,nonremovable;
+	qcom,core_3_0v_support;
+	status = "ok";
+};
+
+&i2c_4 {
+	status= "okay";
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <58 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,charging-disabled;
+		qcom,empty-soc-disabled;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <200>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		status= "okay";
+		smb1360_vbus: qcom,smb1360-vbus {
+			regulator-name = "qcom,smb1360-vbus";
+		};
+	};
+};
+
+&usb_otg {
+	interrupts = <0 134 0>, <0 140 0>, <0 136 0>;
+	interrupt-names = "core_irq", "async_irq", "phy_irq";
+	qcom,hsusb-otg-mode = <3>;
+	vbus_otg-supply = <&smb1360_vbus>;
+	extcon = <&smb1360_otg_supply>;
+};
+
+&mdss_fb0 {
+	status = "disabled";
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&mdss_dsi0_pll {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&i2c_1 {
+	status = "disabled";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&i2c_5 {
+	status = "disabled";
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	status = "okay";
+};
+
+&blsp1_uart2_hs {
+	status = "disabled";
+};
+
+/delete-node/ &cont_splash_mem;
