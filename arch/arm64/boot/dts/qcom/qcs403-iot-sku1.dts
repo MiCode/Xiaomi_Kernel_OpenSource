@@ -14,6 +14,7 @@
 /dts-v1/;
 
 #include "qcs403.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 EVB2 1000 IOT";
@@ -25,7 +26,7 @@
 		/delete-node/ cpu@103;
 
 		cpu-map {
-			cluster1 {
+			cluster0 {
 				/delete-node/ core2;
 				/delete-node/ core3;
 			};

@@ -23,16 +23,17 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 25 0>, <0 24 0>;
+		interrupts = <0 25 0>, <0 319 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
 
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			 <&clock_gcc GCC_SYS_NOC_USB3_CLK>,
 			 <&clock_gcc GCC_USB30_SLEEP_CLK>,
 			 <&clock_gcc GCC_USB30_MOCK_UTMI_CLK>,
-			 <&clock_rpmcc CXO_SMD_OTG_CLK>;
+			 <&clock_rpmcc CXO_SMD_OTG_CLK>,
+			 <&clock_gcc GCC_PCNOC_USB3_CLK>;
 		clock-names = "core_clk", "iface_clk", "sleep_clk",
-				"utmi_clk", "xo";
+				"utmi_clk", "xo", "noc_aggr_clk";
 
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-hs = <10000000>;
@@ -86,6 +87,7 @@
 		reset-names = "phy_reset", "phy_por_reset";
 
 		qcom,snps-hs-phy-init-seq =
+			<0xc0 0x01 0>,
 			<0xe8 0x0d 0>,
 			<0x74 0x12 0>,
 			<0x98 0x63 0>,
@@ -130,7 +132,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 32 0>, <0 31 0>;
+		interrupts = <0 32 0>, <0 318 0>;
 		interrupt-names = "pwr_event_irq", "hs_phy_irq";
 
 		clocks = <&clock_gcc GCC_USB_HS_SYSTEM_CLK>,
@@ -190,6 +192,7 @@
 		reset-names = "phy_reset", "phy_por_reset";
 
 		qcom,snps-hs-phy-init-seq =
+			<0xc0 0x01 0>,
 			<0xe8 0x0d 0>,
 			<0x74 0x12 0>,
 			<0x98 0x63 0>,

@@ -384,6 +384,7 @@ static bool cam_vfe_bus_can_be_secure(uint32_t out_type)
 		return true;
 
 	case CAM_VFE_BUS_VER2_VFE_OUT_PDAF:
+	case CAM_VFE_BUS_VER2_VFE_OUT_2PD:
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE:
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST:
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG:
@@ -414,6 +415,8 @@ static enum cam_vfe_bus_ver2_vfe_out_type
 		return CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP;
 	case CAM_ISP_IFE_OUT_RES_PDAF:
 		return CAM_VFE_BUS_VER2_VFE_OUT_PDAF;
+	case CAM_ISP_IFE_OUT_RES_2PD:
+		return CAM_VFE_BUS_VER2_VFE_OUT_2PD;
 	case CAM_ISP_IFE_OUT_RES_RDI_0:
 		return CAM_VFE_BUS_VER2_VFE_OUT_RDI0;
 	case CAM_ISP_IFE_OUT_RES_RDI_1:
@@ -550,6 +553,19 @@ static int cam_vfe_bus_get_num_wm(
 			break;
 		}
 		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_2PD:
+		switch (format) {
+		case CAM_FORMAT_PLAIN16_8:
+		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_PLAIN64:
+			return 1;
+		default:
+			break;
+		}
+		break;
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE:
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST:
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG:
@@ -678,6 +694,7 @@ static int cam_vfe_bus_get_wm_idx(
 		}
 		break;
 	case CAM_VFE_BUS_VER2_VFE_OUT_PDAF:
+	case CAM_VFE_BUS_VER2_VFE_OUT_2PD:
 		switch (plane) {
 		case PLANE_Y:
 			wm_idx = 10;
@@ -880,8 +897,13 @@ static int cam_vfe_bus_acquire_wm(
 	}
 
 	wm_res_local = &ver2_bus_priv->bus_client[wm_idx];
-	wm_res_local->tasklet_info = tasklet;
+	if (wm_res_local->res_state != CAM_ISP_RESOURCE_STATE_AVAILABLE) {
+		CAM_ERR(CAM_ISP, "WM res not available state:%d",
+			wm_res_local->res_state);
+		return -EALREADY;
+	}
 	wm_res_local->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+	wm_res_local->tasklet_info = tasklet;
 
 	rsrc_data = wm_res_local->res_priv;
 	rsrc_data->irq_enabled = subscribe_irq;
@@ -1027,13 +1049,13 @@ static int cam_vfe_bus_acquire_wm(
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
-	} else if ((rsrc_data->index >= 11) && (rsrc_data->index < 20)) {
-		/* Write master 11-19  stats */
+	} else if ((rsrc_data->index >= 10) && (rsrc_data->index < 20)) {
+		/* Write master 10-19 stats */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
-	}  else if (rsrc_data->index == 9 || rsrc_data->index == 10) {
+	}  else if (rsrc_data->index == 9) {
 		/* Write master 9 - Raw dump */
 		rsrc_data->width = rsrc_data->width * 2;
 		rsrc_data->stride = rsrc_data->width;
@@ -1105,7 +1127,7 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 
 static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 {
-	int rc = 0;
+	int rc = 0, val = 0;
 	struct cam_vfe_bus_ver2_wm_resource_data   *rsrc_data =
 		wm_res->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
@@ -1162,7 +1184,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				(struct
 				cam_vfe_bus_ver2_reg_offset_ubwc_client *)
 				rsrc_data->hw_regs->ubwc_regs;
-			cam_io_w_mb(0x1, common_data->mem_base +
+			val = cam_io_r_mb(common_data->mem_base +
+				ubwc_regs->mode_cfg_0);
+			val |= 0x1;
+			cam_io_w_mb(val, common_data->mem_base +
 				ubwc_regs->mode_cfg_0);
 		} else if ((camera_hw_version == CAM_CPAS_TITAN_175_V100) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V101)) {
@@ -1173,7 +1198,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				(struct
 				cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
 				rsrc_data->hw_regs->ubwc_regs;
-			cam_io_w_mb(0x1, common_data->mem_base +
+			val = cam_io_r_mb(common_data->mem_base +
+				ubwc_regs->mode_cfg_0);
+			val |= 0x1;
+			cam_io_w_mb(val, common_data->mem_base +
 				ubwc_regs->mode_cfg_0);
 		} else {
 			CAM_ERR(CAM_ISP, "Invalid HW version: %d",
@@ -1293,7 +1321,8 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 			~BIT(rsrc_data->index);
 		rc = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
-	CAM_DBG(CAM_ISP, "status_reg %x rc %d", status_reg, rc);
+	CAM_DBG(CAM_ISP, "status_reg %x rc %d wm_idx %d",
+		status_reg, rc, rsrc_data->index);
 
 	if (rc == CAM_VFE_IRQ_STATUS_SUCCESS)
 		cam_vfe_bus_put_evt_payload(rsrc_data->common_data,
@@ -2220,7 +2249,6 @@ static int cam_vfe_bus_handle_vfe_out_done_bottom_half(
 	struct cam_isp_resource_node         *vfe_out = handler_priv;
 	struct cam_vfe_bus_ver2_vfe_out_data *rsrc_data = vfe_out->res_priv;
 
-	CAM_DBG(CAM_ISP, "vfe_out %d", rsrc_data->out_type);
 	/*
 	 * If this resource has Composite Group then we only handle
 	 * Composite done. We acquire Composite if number of WM > 1.
@@ -2233,6 +2261,8 @@ static int cam_vfe_bus_handle_vfe_out_done_bottom_half(
 		rc = rsrc_data->wm_res[0]->bottom_half_handler(
 			rsrc_data->wm_res[0], evt_payload_priv);
 	}
+
+	CAM_DBG(CAM_ISP, "vfe_out %d rc %d", rsrc_data->out_type, rc);
 
 	return rc;
 }

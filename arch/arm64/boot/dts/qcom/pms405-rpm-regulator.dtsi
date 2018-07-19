@@ -15,7 +15,7 @@
 	rpm-regulator-smpa1 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwmx";
-		qcom,resource-id = <1>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";
@@ -32,7 +32,7 @@
 	rpm-regulator-smpa2 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwlc";
-		qcom,resource-id = <2>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";

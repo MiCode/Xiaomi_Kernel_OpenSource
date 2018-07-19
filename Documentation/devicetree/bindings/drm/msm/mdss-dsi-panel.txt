@@ -528,6 +528,7 @@ Optional properties:
 					to identify the default topology for the
 					display. The first set is indexed by the
 					value 0.
+- qcom,mdss-dsi-ext-bridge-mode:	External bridge chip is connected instead of panel.
 
 Required properties for sub-nodes:	None
 Optional properties:

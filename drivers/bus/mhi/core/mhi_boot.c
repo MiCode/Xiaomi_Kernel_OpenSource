@@ -394,7 +394,7 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 
 		/* last entry is for vector table */
 		if (i == segments - 1)
-			vec_size = sizeof(struct __packed bhi_vec_entry) * i;
+			vec_size = sizeof(struct bhi_vec_entry) * i;
 
 		mhi_buf->len = vec_size;
 		mhi_buf->buf = mhi_alloc_coherent(mhi_cntrl, vec_size,
@@ -506,7 +506,7 @@ void mhi_fw_load_worker(struct work_struct *work)
 	if (size > firmware->size)
 		size = firmware->size;
 
-	buf = kmalloc(size, GFP_KERNEL);
+	buf = kmemdup(firmware->data, size, GFP_KERNEL);
 	if (!buf) {
 		MHI_ERR("Could not allocate memory for image\n");
 		release_firmware(firmware);
@@ -514,7 +514,6 @@ void mhi_fw_load_worker(struct work_struct *work)
 	}
 
 	/* load sbl image */
-	memcpy(buf, firmware->data, size);
 	ret = mhi_fw_load_sbl(mhi_cntrl, buf, size);
 	kfree(buf);
 

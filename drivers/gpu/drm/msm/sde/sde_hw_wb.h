@@ -137,6 +137,16 @@ struct sde_hw_wb_ops {
 	void (*bind_pingpong_blk)(struct sde_hw_wb *ctx,
 			bool enable,
 			const enum sde_pingpong pp);
+
+	/**
+	 * program_cwb_ctrl - program cwb block configp
+	 * @ctx: Pointer to wb context
+	 * @pp_idx: Current CWB block index to poram
+	 * @data_src: Source CWB/PingPong block index
+	 * @dspp_out: Tap dspp output or default LM output
+	 */
+	void (*program_cwb_ctrl)(struct sde_hw_wb *ctx, const enum sde_cwb cwb,
+			const enum sde_cwb data_src, bool dspp_out);
 };
 
 /**
@@ -149,6 +159,7 @@ struct sde_hw_wb_ops {
  * @wb_hw_caps: hardware capabilities
  * @ops: function pointers
  * @hw_mdp: MDP top level hardware block
+ * @cwb_hw: CWB control hwio details
  */
 struct sde_hw_wb {
 	struct sde_hw_blk base;
@@ -164,6 +175,7 @@ struct sde_hw_wb {
 	struct sde_hw_wb_ops ops;
 
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_hw_blk_reg_map cwb_hw;
 };
 
 /**

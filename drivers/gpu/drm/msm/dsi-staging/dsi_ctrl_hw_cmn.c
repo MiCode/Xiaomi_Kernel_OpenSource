@@ -455,6 +455,11 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	/* Disable Timing double buffering */
 	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x0);
 
+	if (cfg->force_clk_lane_hs) {
+		reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+		reg |= BIT(28);
+		DSI_W32(ctrl, DSI_LANE_CTRL, reg);
+	}
 
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
 }
@@ -1418,17 +1423,20 @@ void dsi_ctrl_hw_cmn_mask_error_intr(struct dsi_ctrl_hw *ctrl, u32 idx, bool en)
 	reg = DSI_R32(ctrl, 0x10c);
 
 	if (idx & BIT(DSI_FIFO_OVERFLOW)) {
-		if (en)
-			reg |= (0xf << 16);
-		else
-			reg &= ~(0xf << 16);
+		if (en) {
+			reg |= (0x1f << 16);
+			reg |= BIT(9);
+		} else {
+			reg &= ~(0x1f << 16);
+			reg &= ~BIT(9);
+		}
 	}
 
 	if (idx & BIT(DSI_FIFO_UNDERFLOW)) {
 		if (en)
-			reg |= (0xf << 26);
+			reg |= (0x1b << 26);
 		else
-			reg &= ~(0xf << 26);
+			reg &= ~(0x1b << 26);
 	}
 
 	if (idx & BIT(DSI_LP_Rx_TIMEOUT)) {

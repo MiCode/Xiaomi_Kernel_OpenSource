@@ -48,6 +48,7 @@
 #define STM_RSP_SUPPORTED_INDEX		7
 #define STM_RSP_STATUS_INDEX		8
 #define STM_RSP_NUM_BYTES		9
+#define RETRY_MAX_COUNT		1000
 
 struct diag_md_hdlc_reset_work {
 	int pid;
@@ -248,28 +249,22 @@ static void pack_rsp_and_send(unsigned char *buf, int len,
 	 * if its supporting qshrink4 feature.
 	 */
 	if (info && info->peripheral_mask) {
-		if (info->peripheral_mask == DIAG_CON_ALL ||
-			(info->peripheral_mask & (1 << APPS_DATA)) ||
-			(info->peripheral_mask & (1 << PERIPHERAL_MODEM))) {
-			rsp_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
-		} else {
-			for (i = 0; i < NUM_MD_SESSIONS; i++) {
-				if (info->peripheral_mask & (1 << i))
-					break;
-			}
-		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
+		for (i = 0; i < NUM_MD_SESSIONS; i++) {
+			if (info->peripheral_mask & (1 << i))
+				break;
 		}
+		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, TYPE_CMD);
 	} else
 		rsp_ctxt = driver->rsp_buf_ctxt;
 	mutex_unlock(&driver->md_session_lock);
 
 	/*
 	 * Keep trying till we get the buffer back. It should probably
-	 * take one or two iterations. When this loops till UINT_MAX, it
+	 * take one or two iterations. When this loops till RETRY_MAX_COUNT, it
 	 * means we did not get a write complete for the previous
 	 * response.
 	 */
-	while (retry_count < UINT_MAX) {
+	while (retry_count < RETRY_MAX_COUNT) {
 		if (!driver->rsp_buf_busy)
 			break;
 		/*
@@ -347,27 +342,21 @@ static void encode_rsp_and_send(unsigned char *buf, int len,
 	 * if its supporting qshrink4 feature.
 	 */
 	if (info && info->peripheral_mask) {
-		if (info->peripheral_mask == DIAG_CON_ALL ||
-			(info->peripheral_mask & (1 << APPS_DATA)) ||
-			(info->peripheral_mask & (1 << PERIPHERAL_MODEM))) {
-			rsp_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
-		} else {
-			for (i = 0; i < NUM_MD_SESSIONS; i++) {
-				if (info->peripheral_mask & (1 << i))
-					break;
-			}
-		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
+		for (i = 0; i < NUM_MD_SESSIONS; i++) {
+			if (info->peripheral_mask & (1 << i))
+				break;
 		}
+		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, TYPE_CMD);
 	} else
 		rsp_ctxt = driver->rsp_buf_ctxt;
 	mutex_unlock(&driver->md_session_lock);
 	/*
 	 * Keep trying till we get the buffer back. It should probably
-	 * take one or two iterations. When this loops till UINT_MAX, it
+	 * take one or two iterations. When this loops till RETRY_MAX_COUNT, it
 	 * means we did not get a write complete for the previous
 	 * response.
 	 */
-	while (retry_count < UINT_MAX) {
+	while (retry_count < RETRY_MAX_COUNT) {
 		if (!driver->rsp_buf_busy)
 			break;
 		/*
@@ -1803,14 +1792,18 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 		}
 		break;
 	case TYPE_CMD:
-		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
+		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS &&
+			num != TYPE_CMD) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
-				peripheral, type, num);
+			peripheral, type, num);
 			diagfwd_write_done(peripheral, type, num);
-		}
-		if (peripheral == APPS_DATA ||
-				ctxt == DIAG_MEMORY_DEVICE_MODE) {
+		} else if (peripheral == APPS_DATA ||
+			(peripheral >= 0 && peripheral < NUM_PERIPHERALS &&
+			num == TYPE_CMD)) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Marking APPS response buffer free after write done for p: %d, t: %d, buf_num: %d\n",
+			peripheral, type, num);
 			spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
 			driver->rsp_buf_busy = 0;
 			driver->encoded_rsp_len = 0;

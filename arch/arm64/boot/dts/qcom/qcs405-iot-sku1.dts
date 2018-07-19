@@ -14,9 +14,23 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 1000 IOT";
 	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
 	qcom,board-id = <0x010020 0>;
+};
+
+&i2c_5 {
+	status = "ok";
+};
+
+&smb1351_otg_supply {
+	status = "ok";
+};
+
+&usb2s {
+	extcon = <&smb1351_otg_supply>;
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
 };

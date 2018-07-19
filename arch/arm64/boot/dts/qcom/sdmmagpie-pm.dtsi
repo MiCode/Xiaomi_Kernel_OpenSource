@@ -1,0 +1,173 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			label = "L3";
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xfff>;
+
+			qcom,pm-cluster-level@0 { /* D1 */
+				reg = <0>;
+				label = "l3-wfi";
+				qcom,psci-mode = <0x1>;
+				qcom,latency-us = <600>;
+				qcom,ss-power = <420>;
+				qcom,energy-overhead = <4254140>;
+				qcom,time-overhead = <1260>;
+			};
+
+			qcom,pm-cluster-level@1 { /* D4 */
+				reg = <1>;
+				label = "l3-pc";
+				qcom,psci-mode = <0x4>;
+				qcom,latency-us = <3048>;
+				qcom,ss-power = <329>;
+				qcom,energy-overhead = <6189829>;
+				qcom,time-overhead = <5800>;
+				qcom,min-child-idx = <2>;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cluster-level@2 { /* Cx Off */
+				reg = <2>;
+				label = "cx-off";
+				qcom,psci-mode = <0x224>;
+				qcom,latency-us = <4562>;
+				qcom,ss-power = <290>;
+				qcom,energy-overhead = <6989829>;
+				qcom,time-overhead = <8200>;
+				qcom,min-child-idx = <2>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+			};
+
+			qcom,pm-cluster-level@3 { /* LLCC off, AOSS sleep */
+				reg = <3>;
+				label = "llcc-off";
+				qcom,psci-mode = <0xC24>;
+				qcom,latency-us = <6562>;
+				qcom,ss-power = <165>;
+				qcom,energy-overhead = <7000029>;
+				qcom,time-overhead = <9825>;
+				qcom,min-child-idx = <2>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+			};
+
+			qcom,pm-cpu@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4
+									&CPU5>;
+
+				qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					label = "wfi";
+					qcom,psci-cpu-mode = <0x1>;
+					qcom,latency-us = <60>;
+					qcom,ss-power = <383>;
+					qcom,energy-overhead = <64140>;
+					qcom,time-overhead = <121>;
+				};
+
+				qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					label = "pc";
+					qcom,psci-cpu-mode = <0x3>;
+					qcom,latency-us = <901>;
+					qcom,ss-power = <364>;
+					qcom,energy-overhead = <579285>;
+					qcom,time-overhead = <1450>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					label = "rail-pc";
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,latency-us = <915>;
+					qcom,ss-power = <353>;
+					qcom,energy-overhead = <666292>;
+					qcom,time-overhead = <1617>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+
+			qcom,pm-cpu@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU6 &CPU7>;
+
+				qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					label = "wfi";
+					qcom,psci-cpu-mode = <0x1>;
+					qcom,latency-us = <66>;
+					qcom,ss-power = <427>;
+					qcom,energy-overhead = <68410>;
+					qcom,time-overhead = <121>;
+				};
+
+				qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					label = "pc";
+					qcom,psci-cpu-mode = <0x3>;
+					qcom,latency-us = <1244>;
+					qcom,ss-power = <373>;
+					qcom,energy-overhead = <795006>;
+					qcom,time-overhead = <1767>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					label = "rail-pc";
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,latency-us = <1854>;
+					qcom,ss-power = <359>;
+					qcom,energy-overhead = <1068095>;
+					qcom,time-overhead = <2380>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+		};
+	};
+
+	qcom,rpm-stats@c300000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xc300000 0x1000>, <0xc3f0004 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+		qcom,num-records = <3>;
+	};
+
+	qcom,rpmh-master-stats@b221200 {
+		compatible = "qcom,rpmh-master-stats-v1";
+		reg = <0xb221200 0x60>;
+	};
+};

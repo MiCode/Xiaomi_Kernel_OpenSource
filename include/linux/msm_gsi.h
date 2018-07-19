@@ -12,6 +12,7 @@
 #ifndef MSM_GSI_H
 #define MSM_GSI_H
 #include <linux/types.h>
+#include <linux/interrupt.h>
 
 enum gsi_ver {
 	GSI_VER_ERR = 0,
@@ -84,6 +85,9 @@ enum gsi_intr_type {
  * @irq:        IRQ number
  * @phys_addr:  physical address of GSI block
  * @size:       register size of GSI block
+ * @emulator_intcntrlr_addr: the location of emulator's interrupt control block
+ * @emulator_intcntrlr_size: the sise of emulator_intcntrlr_addr
+ * @emulator_intcntrlr_client_isr: client's isr. Called by the emulator's isr
  * @mhi_er_id_limits_valid: valid flag for mhi_er_id_limits
  * @mhi_er_id_limits: MHI event ring start and end ids
  * @notify_cb:  general notification callback
@@ -109,6 +113,9 @@ struct gsi_per_props {
 	unsigned int irq;
 	phys_addr_t phys_addr;
 	unsigned long size;
+	phys_addr_t emulator_intcntrlr_addr;
+	unsigned long emulator_intcntrlr_size;
+	irq_handler_t emulator_intcntrlr_client_isr;
 	bool mhi_er_id_limits_valid;
 	uint32_t mhi_er_id_limits[2];
 	void (*notify_cb)(struct gsi_per_notify *notify);
@@ -881,6 +888,19 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val);
 
 /**
+ * gsi_read_channel_scratch - Peripheral should call this function to
+ * read to the scratch area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Read value
+ *
+ * @Return gsi_status
+ */
+int gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch *val);
+
+/**
  * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
  * function to update the scratch area of the channel context. Updating
  * will be by read-modify-write method, so non SWI fields will not be
@@ -1174,6 +1194,7 @@ int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
  * gsi_alloc_channel (for as many channels as needed; channels can have
  * no event ring, an exclusive event ring or a shared event ring)
  * gsi_write_channel_scratch
+ * gsi_read_channel_scratch
  * gsi_start_channel
  * gsi_queue_xfer/gsi_start_xfer
  * gsi_config_channel_mode/gsi_poll_channel (if clients wants to poll on
@@ -1254,6 +1275,12 @@ static inline int gsi_alloc_channel(struct gsi_chan_props *props,
 
 static inline int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_read_channel_scratch(unsigned long chan_hdl,
+		union __packed gsi_channel_scratch *val)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1368,7 +1395,8 @@ static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
-static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
+static inline int gsi_enable_fw(
+	phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

@@ -91,7 +91,7 @@ static DEFINE_RWLOCK(policy_rwlock);
 
 static struct sidtab sidtab;
 struct policydb policydb;
-int ss_initialized;
+int ss_initialized __rticdata;
 
 /*
  * The largest sequence number that has been used when

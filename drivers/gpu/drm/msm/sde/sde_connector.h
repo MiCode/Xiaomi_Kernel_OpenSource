@@ -236,9 +236,11 @@ struct sde_connector_ops {
 	 * check_status - check status of connected display panel
 	 * @connector: Pointer to drm connector structure
 	 * @display: Pointer to private display handle
+	 * @te_check_override: Whether check TE from panel or default check
 	 * Returns: positive value for success, negetive or zero for failure
 	 */
-	int (*check_status)(struct drm_connector *connector, void *display);
+	int (*check_status)(struct drm_connector *connector, void *display,
+					bool te_check_override);
 
 	/**
 	 * cmd_transfer - Transfer command to the connected display panel
@@ -299,6 +301,15 @@ struct sde_connector_ops {
 	 * Returns: zero for success, negetive for failure
 	 */
 	int (*cont_splash_config)(void *display);
+
+	/**
+	 * get_panel_vfp - returns original panel vfp
+	 * @display: Pointer to private display handle
+	 * @h_active: width
+	 * @v_active: height
+	 * Returns: v_front_porch on success error-code on failure
+	 */
+	int (*get_panel_vfp)(void *display, int h_active, int v_active);
 };
 
 /**
@@ -358,6 +369,8 @@ struct sde_connector_evt {
  * @status_work: work object to perform status checks
  * @force_panel_dead: variable to trigger forced ESD recovery
  * @esd_status_interval: variable to change ESD check interval in millisec
+ * @panel_dead: Flag to indicate if panel has gone bad
+ * @esd_status_check: Flag to indicate if ESD thread is scheduled or not
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
  * @bl_scale_ad: BL scale value for AD feature
@@ -403,7 +416,7 @@ struct sde_connector {
 	struct delayed_work status_work;
 	u32 force_panel_dead;
 	u32 esd_status_interval;
-
+	bool panel_dead;
 	bool esd_status_check;
 
 	bool bl_scale_dirty;
@@ -632,8 +645,10 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
  * sde_connector_complete_commit - signal completion of current commit
  * @connector: Pointer to drm connector object
  * @ts: timestamp to be updated in the fence signalling
+ * @fence_event: enum value to indicate nature of fence event
  */
-void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
+void sde_connector_complete_commit(struct drm_connector *connector,
+		ktime_t ts, enum sde_fence_event fence_event);
 
 /**
  * sde_connector_commit_reset - reset the completion signal
@@ -826,5 +841,25 @@ void sde_connector_destroy(struct drm_connector *connector);
  */
 int sde_connector_event_notify(struct drm_connector *connector, uint32_t type,
 		uint32_t len, uint32_t val);
+/**
+ * sde_connector_helper_bridge_enable - helper function for drm bridge enable
+ * @connector: Pointer to DRM connector object
+ */
+void sde_connector_helper_bridge_enable(struct drm_connector *connector);
+
+/**
+ * sde_connector_get_panel_vfp - helper to get panel vfp
+ * @connector: pointer to drm connector
+ * @h_active: panel width
+ * @v_active: panel heigth
+ * Returns: v_front_porch on success error-code on failure
+ */
+int sde_connector_get_panel_vfp(struct drm_connector *connector,
+	struct drm_display_mode *mode);
+/**
+ * sde_connector_esd_status - helper function to check te status
+ * @connector: Pointer to DRM connector object
+ */
+int sde_connector_esd_status(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */

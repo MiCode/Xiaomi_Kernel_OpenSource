@@ -1188,7 +1188,7 @@ static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 
 static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 		enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots)
+			u32 ch_tot_slots, u32 pbn)
 {
 	if (!dp_panel || stream_id > DP_STREAM_MAX) {
 		pr_err("invalid input. stream_id: %d\n", stream_id);
@@ -1198,6 +1198,7 @@ static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 	dp_panel->stream_id = stream_id;
 	dp_panel->channel_start_slot = ch_start_slot;
 	dp_panel->channel_total_slots = ch_tot_slots;
+	dp_panel->pbn = pbn;
 
 	return 0;
 }
@@ -1257,7 +1258,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 	if (!panel->custom_edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
-	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0);
+	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
 	memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 	panel->panel_on = false;
@@ -1642,6 +1643,13 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 	dp_panel->stream_id = DP_STREAM_MAX;
 	dp_panel->connector = in->connector;
+
+	if (in->base_panel) {
+		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
+				DP_RECEIVER_CAP_SIZE + 1);
+		memcpy(&dp_panel->link_info, &in->base_panel->link_info,
+				sizeof(dp_panel->link_info));
+	}
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;

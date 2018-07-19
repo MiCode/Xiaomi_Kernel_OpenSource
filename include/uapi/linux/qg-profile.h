@@ -55,6 +55,8 @@ struct battery_params {
 #define QG_MAX_FCC_MAH				16000
 #define QG_MIN_SLOPE				1
 #define QG_MAX_SLOPE				50000
+#define QG_ESR_SF_MIN				5000
+#define QG_ESR_SF_MAX				20000
 
 /*  IOCTLs to query battery profile data */
 #define BPIOCXSOC	_IOWR('B', 0x01, struct battery_params) /* SOC */

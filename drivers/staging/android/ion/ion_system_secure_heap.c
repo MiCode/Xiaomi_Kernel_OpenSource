@@ -215,7 +215,7 @@ static int alloc_prefetch_info(
 			bool shrink, struct list_head *items)
 {
 	struct prefetch_info *info;
-	u64 __user *user_sizes;
+	u64 user_sizes;
 	int err;
 	unsigned int nr_sizes, vmid, i;
 
@@ -236,7 +236,7 @@ static int alloc_prefetch_info(
 		if (!info)
 			return -ENOMEM;
 
-		err = get_user(info->size, &user_sizes[i]);
+		err = get_user(info->size, ((u64 __user *)user_sizes + i));
 		if (err)
 			goto out_free;
 
@@ -270,7 +270,9 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		return -EINVAL;
 
 	for (i = 0; i < data->nr_regions; i++) {
-		ret = alloc_prefetch_info(&data->regions[i], shrink, &items);
+		ret = alloc_prefetch_info(
+			(struct ion_prefetch_regions *)data->regions + i,
+			shrink, &items);
 		if (ret)
 			goto out_free;
 	}
@@ -364,31 +366,6 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	INIT_DELAYED_WORK(&heap->prefetch_work,
 			  ion_system_secure_heap_prefetch_work);
 	return &heap->heap;
-}
-
-void ion_system_secure_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_system_secure_heap *secure_heap = container_of(heap,
-						struct ion_system_secure_heap,
-						heap);
-	unsigned long flags;
-	LIST_HEAD(items);
-	struct prefetch_info *info, *tmp;
-
-	/* Stop any pending/future work */
-	spin_lock_irqsave(&secure_heap->work_lock, flags);
-	secure_heap->destroy_heap = true;
-	list_splice_init(&secure_heap->prefetch_list, &items);
-	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-
-	cancel_delayed_work_sync(&secure_heap->prefetch_work);
-
-	list_for_each_entry_safe(info, tmp, &items, list) {
-		list_del(&info->list);
-		kfree(info);
-	}
-
-	kfree(heap);
 }
 
 struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,

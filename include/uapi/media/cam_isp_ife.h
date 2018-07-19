@@ -26,8 +26,9 @@
 #define CAM_ISP_IFE_OUT_RES_FULL_DISP          (CAM_ISP_IFE_OUT_RES_BASE + 19)
 #define CAM_ISP_IFE_OUT_RES_DS4_DISP           (CAM_ISP_IFE_OUT_RES_BASE + 20)
 #define CAM_ISP_IFE_OUT_RES_DS16_DISP          (CAM_ISP_IFE_OUT_RES_BASE + 21)
+#define CAM_ISP_IFE_OUT_RES_2PD                (CAM_ISP_IFE_OUT_RES_BASE + 22)
 
-#define CAM_ISP_IFE_OUT_RES_MAX                (CAM_ISP_IFE_OUT_RES_BASE + 22)
+#define CAM_ISP_IFE_OUT_RES_MAX                (CAM_ISP_IFE_OUT_RES_BASE + 23)
 
 
 /* IFE input port resource type (global unique) */

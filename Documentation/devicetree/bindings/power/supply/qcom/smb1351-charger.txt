@@ -28,7 +28,10 @@ Optional Properties:
 - qcom,disable-apsd		This is a bool property which disables automatic
 				power source detection (APSD). If this is set
 				charger detection is done by DCIN UV irq.
-- qcom,charging-disabled	This is a bool property which disables charging.
+- qcom,charging-disabled	This is a bool property which disables charging
+				by suspending usb.
+- qcom,batt-charging-disabled	This is a bool property which disables battery
+				charging.
 - qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
 - qcom,bms-psy-name		This is a string and it points to the bms
 				power supply name.
@@ -73,6 +76,8 @@ Optional Properties:
 				used for charge current sensing.
 - qcom,stacked-batfet:		Boolean flag. Specifies if parallel charger has stacked BATFET
 				cofiguration.
+- qcom,otg-enable:		Boolean value which enables OTG(On-The-Go)
+				functionality.
 
 Example for standalone charger:
 

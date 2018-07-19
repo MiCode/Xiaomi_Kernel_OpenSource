@@ -705,6 +705,8 @@ struct fsl_mc_device_id {
 	const char obj_type[16];
 };
 
+#define MHI_NAME_SIZE 32
+
 /**
  * struct mhi_device_id - MHI device identification
  * @chan: MHI channel name
@@ -712,7 +714,7 @@ struct fsl_mc_device_id {
  */
 
 struct mhi_device_id {
-	const char *chan;
+	const char chan[MHI_NAME_SIZE];
 	kernel_ulong_t driver_data;
 };
 

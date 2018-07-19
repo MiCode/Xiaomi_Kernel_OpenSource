@@ -394,6 +394,15 @@
 #define CHG_ITERM_600MA				0x10
 #define CHG_ITERM_700MA				0x14
 
+#define OTG_ID_PIN_CTRL_SHIFT			6
+
+enum otg_control {
+	RID_DISABLED_OTG_I2C = 0,
+	RID_DISABLED_OTG_PIN,
+	RID_ENABLED_OTG_I2C,
+	RID_ENABLED_OTG_AUTO,
+};
+
 enum reason {
 	USER	= BIT(0),
 	THERMAL = BIT(1),
@@ -499,6 +508,7 @@ struct smb1351_charger {
 	struct extcon_dev       *extcon;
 	struct regulator	*dpdm_reg;
 	enum power_supply_type	charger_type;
+	bool			otg_enable;
 };
 
 struct smb_irq_info {
@@ -898,6 +908,7 @@ static int smb1351_regulator_init(struct smb1351_charger *chip)
 {
 	int rc = 0;
 	struct regulator_config cfg = {};
+	struct regulator_init_data *init_data;
 
 	chip->otg_vreg.rdesc.owner = THIS_MODULE;
 	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
@@ -907,8 +918,17 @@ static int smb1351_regulator_init(struct smb1351_charger *chip)
 	chip->otg_vreg.rdesc.of_match =
 		chip->dev->of_node->name;
 
+	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node,
+					&chip->otg_vreg.rdesc);
+	if (!init_data) {
+		pr_err("regulator init data is missing\n");
+		return -EINVAL;
+	}
+
 	cfg.dev = chip->dev;
 	cfg.driver_data = chip;
+	cfg.init_data = init_data;
+	cfg.of_node = chip->dev->of_node;
 
 	chip->otg_vreg.rdev = regulator_register(
 					&chip->otg_vreg.rdesc, &cfg);
@@ -981,6 +1001,23 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		return rc;
 	}
 
+	/* enable/disable charging by suspending usb */
+	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
+	if (rc) {
+		pr_err("Unable to %ssuspend usb. rc=%d\n",
+			chip->usb_suspended_status ? "" : "un-", rc);
+		return rc;
+	}
+
+	/* enable/disable battery charging */
+	rc = smb1351_battchg_disable(chip, USER, chip->battchg_disabled_status);
+	if (rc) {
+		pr_err("Unable to %s battery charging. rc=%d\n",
+			chip->battchg_disabled_status ? "disable" : "enable",
+									rc);
+		return rc;
+	}
+
 	/* setup battery missing source */
 	reg = BATT_MISSING_THERM_PIN_SOURCE_BIT;
 	mask = BATT_MISSING_THERM_PIN_SOURCE_BIT;
@@ -1029,6 +1066,8 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 	reg = CHG_OR_PRECHG_TIMEOUT_BIT | BATT_OVP_BIT |
 		FAST_TERM_TAPER_RECHG_INHIBIT_BIT |
 		BATT_MISSING_BIT | BATT_LOW_BIT;
+	if (chip->otg_enable)
+		reg = reg | RID_CHANGE_BIT;
 	rc = smb1351_write_reg(chip, STATUS_INT_REG, reg);
 	if (rc) {
 		pr_err("Couldn't set STATUS_INT_REG rc=%d\n", rc);
@@ -1108,12 +1147,15 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		}
 	}
 
-	/* enable/disable charging by suspending usb */
-	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
-	if (rc) {
-		pr_err("Unable to %s battery charging. rc=%d\n",
-			chip->usb_suspended_status ? "disable" : "enable",
-									rc);
+	if (chip->otg_enable) {
+		/* Configure OTG/ID pin control: RID enabled, OTG I2C control */
+		rc = smb1351_masked_write(chip, OTG_USBIN_AICL_CTRL_REG,
+				OTG_ID_PIN_CTRL_MASK,
+				RID_ENABLED_OTG_I2C << OTG_ID_PIN_CTRL_SHIFT);
+		if (rc) {
+			pr_err("Couldn't configure RID enable rc = %d\n", rc);
+			return rc;
+		}
 	}
 
 	return rc;
@@ -1313,6 +1355,8 @@ static enum power_supply_property smb1351_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 };
 
 static int smb1351_usb_get_property(struct power_supply *psy,
@@ -1323,6 +1367,7 @@ static int smb1351_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		val->intval = chip->usb_psy_ma * 1000;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -1333,6 +1378,14 @@ static int smb1351_usb_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chip->charger_type;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		if (chip->charger_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+			val->intval = POWER_SUPPLY_TYPE_USB_DCP;
+		else if (chip->charger_type == POWER_SUPPLY_TYPE_UNKNOWN)
+			val->intval = POWER_SUPPLY_TYPE_USB;
+		else
+			val->intval = chip->charger_type;
 		break;
 	default:
 		return -EINVAL;
@@ -1348,6 +1401,7 @@ static int smb1351_usb_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
 		chip->usb_psy_ma = val->intval / 1000;
 		smb1351_enable_volatile_writes(chip);
 		smb1351_set_usb_chg_current(chip, chip->usb_psy_ma);
@@ -1910,6 +1964,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 			extcon_set_property(chip->extcon, EXTCON_USB,
 						EXTCON_PROP_USB_SS, val);
 			extcon_set_state_sync(chip->extcon, EXTCON_USB, true);
+			pr_debug("extcon notify: EXTCON_USB present = 1\n");
 		}
 		chip->apsd_rerun = false;
 
@@ -1927,8 +1982,13 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 
 	} else if (!chip->apsd_rerun) {
 		/* Handle Charger removal */
+		chip->chg_present = 0;
 		chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		val.intval = false;
+		extcon_set_property(chip->extcon, EXTCON_USB,
+						EXTCON_PROP_USB_SS, val);
 		extcon_set_state_sync(chip->extcon, EXTCON_USB, false);
+		pr_debug("extcon notify: EXTCON_USB present = 0\n");
 		smb1351_request_dpdm(chip, false);
 	}
 
@@ -2005,8 +2065,10 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	if (status != 0) {
 		chip->usbin_ov = true;
 		chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
-		if (chip->chg_present)
+		if (chip->chg_present) {
 			extcon_set_state_sync(chip->extcon, EXTCON_USB, false);
+			pr_debug("extcon notify: EXTCON_USB present = 0\n");
+		}
 		chip->chg_present = false;
 
 	} else {
@@ -2089,14 +2151,24 @@ static int smb1351_rid_handler(struct smb1351_charger *chip,
 						u8 status)
 {
 	union extcon_property_value val;
+	bool rid_status;
+	u8 reg = 0;
+	int rc;
 
-	if (!!status) {
+	rc = smb1351_read_reg(chip, STATUS_6_REG, &reg);
+	if (rc < 0)
+		pr_err("Couldn't read status_6_reg, rc=%d\n", rc);
+	pr_debug("rt_status = 0x%02x, status_6_reg=0x%x\n", status, reg);
+
+	rid_status = (!!status) || !(reg & STATUS_RID_FLOAT_STATE_MACHINE_BIT);
+	if (rid_status) {
 		val.intval = true;
 		extcon_set_property(chip->extcon, EXTCON_USB_HOST,
 					EXTCON_PROP_USB_SS, val);
 	}
 
-	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, !!status);
+	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST, rid_status);
+	pr_debug("extcon notify: EXTCON_USB_HOST present = %d\n", rid_status);
 
 	return 0;
 }
@@ -2301,29 +2373,6 @@ static irqreturn_t smb1351_chg_stat_handler(int irq, void *dev_id)
 	mutex_unlock(&chip->irq_complete);
 
 	return IRQ_HANDLED;
-}
-
-static void smb1351_external_power_changed(struct power_supply *psy)
-{
-	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
-	union power_supply_propval prop = {0,};
-	int rc, current_limit = 0;
-
-	if (chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-
-	rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
-	if (rc)
-		pr_err("Couldn't read USB current_max property, rc=%d\n", rc);
-	else
-		current_limit = prop.intval / 1000;
-
-	pr_debug("current_limit = %d\n", current_limit);
-
-
-	pr_debug("updating batt psy\n");
 }
 
 #define LAST_CNFG_REG	0x16
@@ -2552,6 +2601,9 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");
 
+	chip->battchg_disabled_status = of_property_read_bool(node,
+				"qcom,batt-charging-disabled");
+
 	chip->chg_autonomous_mode = of_property_read_bool(node,
 					"qcom,chg-autonomous-mode");
 
@@ -2593,6 +2645,7 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 					"qcom,recharge-disabled");
 
 	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
+	chip->otg_enable = of_property_read_bool(node, "qcom,otg-enable");
 
 	return 0;
 }
@@ -2818,8 +2871,6 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->batt_psy_d.properties	= smb1351_battery_properties;
 	chip->batt_psy_d.num_properties	=
 				ARRAY_SIZE(smb1351_battery_properties);
-	chip->batt_psy_d.external_power_changed =
-					smb1351_external_power_changed;
 
 	chip->resume_completed = true;
 	mutex_init(&chip->irq_complete);

@@ -173,13 +173,12 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	size_t ret;
-
-	ret = iommu_map_sg(client->mmu_mapping->domain, iova, sgt->sgl,
-			sgt->nents, prot);
-	WARN_ON(ret < 0);
+	size_t ret = 0;
 
 	if (sgt && sgt->sgl) {
+		ret = iommu_map_sg(client->mmu_mapping->domain, iova, sgt->sgl,
+				sgt->nents, prot);
+		WARN_ON(ret < 0);
 		DRM_DEBUG("%pad/0x%x/0x%x/\n", &sgt->sgl->dma_address,
 				sgt->sgl->dma_length, prot);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
@@ -489,6 +488,13 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 		}
 	}
 
+	if (!client->dev->dma_parms)
+		client->dev->dma_parms = devm_kzalloc(client->dev,
+				sizeof(*client->dev->dma_parms), GFP_KERNEL);
+
+	dma_set_max_seg_size(client->dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(client->dev, DMA_BIT_MASK(64));
+
 	iommu_set_fault_handler(client->mmu_mapping->domain,
 			msm_smmu_fault_handler, (void *)client);
 
@@ -565,6 +571,7 @@ static struct platform_driver msm_smmu_driver = {
 	.driver = {
 		.name = "msmdrm_smmu",
 		.of_match_table = msm_smmu_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

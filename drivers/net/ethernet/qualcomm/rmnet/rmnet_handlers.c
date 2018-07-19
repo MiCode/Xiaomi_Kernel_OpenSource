@@ -92,6 +92,11 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	u8 mux_id;
 
 	if (RMNET_MAP_GET_CD_BIT(skb)) {
+		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
+			if (!rmnet_map_flow_command(skb, port))
+				return;
+		}
+
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_COMMANDS)
 			return rmnet_map_command(skb, port);
 

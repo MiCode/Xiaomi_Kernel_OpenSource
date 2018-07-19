@@ -19,6 +19,10 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/mdss-28nm-pll-clk.h>
+
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+#define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
@@ -119,6 +123,23 @@
 #include "qcs405-pm.dtsi"
 #include "msm-arm-smmu-qcs405.dtsi"
 #include "qcs405-gpu.dtsi"
+#include "qcs405-mdss-pll.dtsi"
+
+&i2c_5 { /* BLSP (NTAG) */
+	status = "ok";
+	nq@55 {
+		compatible = "qcom,nq-ntag";
+		reg = <0x55>;
+		qcom,nq-ntagfd = <&tlmm 53 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <53 0>;
+		interrupt-names = "ntag_fd";
+		pinctrl-names = "ntag_active", "ntag_suspend";
+		pinctrl-0 = <&ntag_int_active>;
+		pinctrl-1 = <&ntag_int_suspend>;
+	};
+};
+
 
 &soc {
 	#address-cells = <1>;
@@ -136,19 +157,19 @@
 	};
 
 	wakegic: wake-gic {
-		compatible = "qcom,mpm-gic-msm8937", "qcom,mpm-gic";
+		compatible = "qcom,mpm-gic-qcs405", "qcom,mpm-gic";
 		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
-		reg = <0x601d0 0x1000>,
+		reg = <0x601b8 0x1000>,
 			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
-		qcom,num-mpm-irqs = <64>;
+		qcom,num-mpm-irqs = <96>;
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
 	};
 
 	wakegpio: wake-gpio {
-		compatible = "qcom,mpm-gpio-msm8937", "qcom,mpm-gpio";
+		compatible = "qcom,mpm-gpio-qcs405", "qcom,mpm-gpio";
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <2>;
@@ -261,6 +282,15 @@
 		#reset-cells = <1>;
 	};
 
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-qcs405";
+		reg = <0x1800000 0x80000>;
+		clocks = <&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll BYTECLK_SRC_0_CLK>;
+		clock-names = "pclk0_src", "byte0_src";
+		#clock-cells = <1>;
+	};
+
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-qcs405";
 		qcom,gcc = <&clock_gcc>;
@@ -276,7 +306,6 @@
 	};
 
 	clock_cpu: qcom,clock-cpu@0b011050 {
-		status = "disabled";
 		compatible = "qcom,cpu-qcs405";
 		clocks = <&clock_rpmcc RPM_SMD_XO_A_CLK_SRC>,
 			<&clock_gcc GPLL0_AO_OUT_MAIN>;
@@ -300,7 +329,7 @@
 	};
 
 	qcom,sps {
-		compatible = "qcom,msm_sps_4k";
+		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
 	};
 
@@ -325,24 +354,40 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 191 0>, <0 63 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
 	};
 
-	blsp1_uart1: serial@78b0000 {
+	blsp1_uart2_console: serial@78b1000 {
 		compatible = "qcom,msm-uartdm", "qcom,msm-uartdm-v1.4";
-		reg = <0x78b0000 0x200>;
-		interrupts = <0 108 0>;
-
-		clocks = <&clock_gcc GCC_BLSP1_UART1_APPS_CLK>,
+		reg = <0x78b1000 0x200>;
+		interrupts = <0 118 0>;
+		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&blsp_uart_tx_a2_active
+			     &blsp_uart_rx_a2_active>;
+		pinctrl-1 = <&blsp_uart_tx_rx_a2_sleep>;
 		status = "okay";
 	};
 
 	dcc: dcc_v2@b2000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x000b2000 0x1000>,
-		      <0x000bf800 0x800>;
+		      <0x000bfc00 0x400>;
+
+		clk-enable;
+		clocks = <&clock_gcc GCC_DCC_CLK>;
+		clock-names = "dcc_clk";
+
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
 	};
@@ -350,6 +395,7 @@
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
+		interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
@@ -365,8 +411,8 @@
 		interrupts = <GIC_SPI 190 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
@@ -386,10 +432,12 @@
 
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
+		label = "gold";
 		qcom,threshold-arr = <0xb088094 0xb098094 0xb0a8094
-			0xb0b8094 0xb188094 0xb198094 0xb1a8094 0xb1a8094>;
+			0xb0b8094>;
 		qcom,config-arr = <0xb08809c 0xb09809c 0xb0a809c
-			0xb0b809c 0xb18809c 0xb19809c 0xb1a809c 0xb1b809c>;
+			0xb0b809c>;
+		staus = "disabled";
 	};
 
 	qcom,msm-imem@8600000 {
@@ -423,6 +471,11 @@
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	qcom,lpass@c000000 {
@@ -438,6 +491,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
@@ -476,6 +530,7 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <18>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <601>;
@@ -514,8 +569,9 @@
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <6>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,proxy-timeout-ms = <10000>;
-		qcom,smem-id = <422>;
+		qcom,smem-id = <421>;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,firmware-name = "wcnss";
@@ -590,58 +646,57 @@
 		memory-region = <&adsp_mem>;
 	};
 
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+	};
+
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,rpc-latency-us = <611>;
 		qcom,fastrpc-adsp-audio-pdr;
 		qcom,fastrpc-adsp-sensors-pdr;
+		qcom,fastrpc-legacy-remote-heap;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1001 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1002 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1003 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1004 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb5 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1005 0x0>;
-			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x804 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x805 0x0>;
-			dma-coherent;
 		};
 
 		qcom,msm_fastrpc_compute_cb8 {
@@ -649,7 +704,6 @@
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x806 0x0>;
 			shared-cb = <5>;
-			dma-coherent;
 		};
 	};
 
@@ -845,6 +899,11 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	qcom,smp2p-cdsp {
@@ -891,7 +950,21 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,nonremovable;
-		status = "disabled";
+
+		/* VDD external regulator is enabled/disabled by pms405_l6 */
+		vdd-io-supply = <&pms405_l6>;
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1704000 1800000>;
+		qcom,vdd-io-current-level = <0 325000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on
+			&sdc1_rclk_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+			&sdc1_rclk_off>;
+
+		status = "ok";
 	};
 
 	sdhc_2: sdhci@7844000 {
@@ -906,17 +979,26 @@
 		qcom,large-address-bus;
 
 		qcom,clk-rates = <400000 20000000 25000000
-					50000000 100000000 201500000>;
+					50000000 100000000 200000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
-		qcom,devfreq,freq-table = <50000000 201500000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
-		status = "disabled";
+		/* VDD is an external regulator eLDO5 */
+		vdd-io-supply = <&pms405_l11>;
+		qcom,vdd-io-voltage-level = <2696000 3304000>;
+		qcom,vdd-io-current-level = <0 22000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+		status = "ok";
 	};
 
 	qnand_1: nand@4c0000 {
@@ -933,6 +1015,96 @@
 
 		status = "disabled";
 	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk";
+		clocks = <&clock_cpu APCS_MUX_CLK>;
+
+		qcom,cpufreq-table =
+			 < 1113600 >,
+			 < 1267200 >,
+			 < 1401600 >;
+	};
+
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 297, 4); /* 1132 MB/s */
+		BW_OPP_ENTRY( 595, 4); /* 2269 MB/s */
+		BW_OPP_ENTRY( 710, 4); /* 2708 MB/s */
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		operating-points-v2 = <&ddr_bw_opp_table>;
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		operating-points-v2 = <&ddr_bw_opp_table>;
+	};
+
+	cpu0_computemon: qcom,cpu0-computemon {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
+		qcom,core-dev-table =
+			< 1113600 MHZ_TO_MBPS( 297, 4) >,
+			< 1267200 MHZ_TO_MBPS( 597, 4) >,
+			< 1401600 MHZ_TO_MBPS( 710, 4) >;
+	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pms405_l5>;
+		qca,bt-vdd-pa-supply = <&pms405_l1>;
+
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-pa-voltage-level = <1300000 1300000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+	};
+
+	qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x0A000000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 277 0 /* CE0 */ >,
+		      <0 278 0 /* CE1 */ >,
+		      <0 279 0 /* CE2 */ >,
+		      <0 280 0 /* CE3 */ >,
+		      <0 281 0 /* CE4 */ >,
+		      <0 282 0 /* CE5 */ >,
+		      <0 283 0 /* CE6 */ >,
+		      <0 284 0 /* CE7 */ >,
+		      <0 285 0 /* CE8 */ >,
+		      <0 286 0 /* CE9 */ >,
+		      <0 287 0 /* CE10 */ >,
+		      <0 288 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+		vdd-cx-mx-supply = <&pms405_l2>;
+		vdd-1.8-xo-supply = <&pms405_l5>;
+		vdd-1.3-rfa-supply = <&pms405_l1>;
+		qcom,vdd-cx-mx-config = <1224000 1224000>;
+		qcom,smmu-s1-bypass;
+		qcom,hyp_disabled;
+	};
 };
 
 #include "qcs405-gdsc.dtsi"
@@ -941,6 +1113,7 @@
 #include "qcs405-regulator.dtsi"
 #include "qcs405-thermal.dtsi"
 #include "qcs405-bus.dtsi"
+#include "qcs405-audio.dtsi"
 
 &gdsc_mdss {
 	status = "ok";
@@ -950,12 +1123,16 @@
 	status = "ok";
 };
 
+&blsp1_uart4_hs {
+	status = "ok";
+};
+
 #include "qcs405-coresight.dtsi"
 #include "qcs405-usb.dtsi"
 
 &i2c_5 {
-	status = "ok";
 	smb1351_otg_supply: smb1351-charger@55 {
+		status = "disabled";
 		compatible = "qcom,smb1351-charger";
 		reg = <0x55>;
 		interrupt-parent = <&tlmm>;
@@ -968,6 +1145,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&smb_stat>;
 		qcom,switch-freq = <2>;
+		dpdm-supply = <&usb2_phy0>;
+		qcom,otg-enable;
 	};
 };
 
@@ -1006,6 +1185,6 @@
 	};
 };
 
-&usb2s {
-	extcon = <&smb1351_otg_supply>;
+&usb3 {
+	extcon = <&usb3_extcon>;
 };

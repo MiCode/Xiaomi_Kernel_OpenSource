@@ -17,6 +17,10 @@
 #define GMU_DEVICE_OPS(_a) ((_a)->gmu_core.dev_ops)
 #define GMU_CORE_OPS(_a) ((_a)->gmu_core.core_ops)
 
+#define GMU_DEV_OP_VALID(_devops, _field) \
+	(((_devops) != NULL) && \
+	 ((_devops)->_field != NULL))
+
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
 #define MAX_CX_LEVELS		4
@@ -124,8 +128,6 @@ struct gmu_core_ops {
 	int (*start)(struct kgsl_device *device);
 	void (*stop)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device);
-	int (*get_idle_level)(struct kgsl_device *device);
-	void (*set_idle_level)(struct kgsl_device *device, unsigned int val);
 	bool (*regulator_isenabled)(struct kgsl_device *device);
 	int (*suspend)(struct kgsl_device *device);
 };
@@ -144,6 +146,7 @@ struct gmu_dev_ops {
 			unsigned int arg1, unsigned int arg2);
 	int (*wait_for_lowest_idle)(struct adreno_device *);
 	int (*wait_for_gmu_idle)(struct adreno_device *);
+	bool (*gx_is_on)(struct adreno_device *);
 	int (*ifpc_store)(struct adreno_device *adreno_dev,
 			unsigned int val);
 	unsigned int (*ifpc_show)(struct adreno_device *adreno_dev);

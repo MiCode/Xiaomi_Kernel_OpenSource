@@ -34,6 +34,7 @@
 #define GOOD_OCV_VOTER			"GOOD_OCV_VOTER"
 #define PROFILE_IRQ_DISABLE		"NO_PROFILE_IRQ_DISABLE"
 #define QG_INIT_STATE_IRQ_DISABLE	"QG_INIT_STATE_IRQ_DISABLE"
+#define TTF_AWAKE_VOTER			"TTF_AWAKE_VOTER"
 
 #define V_RAW_TO_UV(V_RAW)		div_u64(194637ULL * (u64)V_RAW, 1000)
 #define I_RAW_TO_UA(I_RAW)		div_s64(152588LL * (s64)I_RAW, 1000)
@@ -43,6 +44,9 @@
 #define DEGC_SCALE			10
 #define UV_TO_DECIUV(a)			(a / 100)
 #define DECIUV_TO_UV(a)			(a * 100)
+
+#define QG_MAX_ESR_COUNT		10
+#define QG_MIN_ESR_COUNT		2
 
 #define CAP(min, max, value)			\
 		((min > value) ? min : ((value > max) ? max : value))

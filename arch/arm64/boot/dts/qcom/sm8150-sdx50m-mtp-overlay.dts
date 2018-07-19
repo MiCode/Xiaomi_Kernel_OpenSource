@@ -26,5 +26,5 @@
 / {
 	model = "SDX50M MTP";
 	compatible = "qcom,sm8150-mtp", "qcom,sm8150", "qcom,mtp";
-	qcom,board-id = <8 1>;
+	qcom,board-id = <0x01010008 0x1>;
 };

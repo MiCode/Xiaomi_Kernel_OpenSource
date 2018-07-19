@@ -92,7 +92,8 @@ int hfi_write_cmd(void *cmd_ptr)
 		(q->qhdr_q_size - (q->qhdr_write_idx - read_idx)) :
 		(read_idx - q->qhdr_write_idx);
 	if (empty_space <= size_in_words) {
-		CAM_ERR(CAM_HFI, "failed");
+		CAM_ERR(CAM_HFI, "failed: empty space %u, size_in_words %u",
+			empty_space, size_in_words);
 		rc = -EIO;
 		goto err;
 	}

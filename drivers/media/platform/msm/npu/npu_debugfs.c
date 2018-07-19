@@ -351,6 +351,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 	char buf[24];
 	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
+	int32_t rc = 0;
 
 	pr_debug("npu_dev %pK %pK\n", npu_dev, g_npu_dev);
 	npu_dev = g_npu_dev;
@@ -381,6 +382,10 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 
 		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_SET(0), 2);
 		npu_disable_core_power(npu_dev);
+	} else if (strcmp(buf, "loopback") == 0) {
+		pr_debug("loopback test\n");
+		rc = npu_host_loopback_test(npu_dev);
+		pr_debug("loopback test end: %d\n", rc);
 	} else if (strcmp(buf, "0") == 0) {
 		pr_info("setting power state to 0\n");
 		npu_dev->pwrctrl.active_pwrlevel = 0;
@@ -456,13 +461,19 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 
 	if (!debugfs_create_u32("fw_state", 0444,
 		debugfs->root, &(host_ctx->fw_state))) {
-		pr_err("debugfs_creat_bool fail for fw_state\n");
+		pr_err("debugfs_create_u32 fail for fw_state\n");
 		goto err;
 	}
 
 	if (!debugfs_create_u32("pwr_level", 0444,
 		debugfs->root, &(pwr->active_pwrlevel))) {
-		pr_err("debugfs_creat_bool fail for power level\n");
+		pr_err("debugfs_create_u32 fail for pwr_level\n");
+		goto err;
+	}
+
+	if (!debugfs_create_u32("exec_flags", 0644,
+		debugfs->root, &(host_ctx->exec_flags_override))) {
+		pr_err("debugfs_create_u32 fail for exec_flags\n");
 		goto err;
 	}
 

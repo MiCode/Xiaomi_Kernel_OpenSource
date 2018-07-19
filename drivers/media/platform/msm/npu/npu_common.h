@@ -35,30 +35,6 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-/* get npu info */
-#define MSM_NPU_GET_INFO_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 1, compat_caddr_t)
-
-/* map buf */
-#define MSM_NPU_MAP_BUF_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 2, compat_caddr_t)
-
-/* map buf */
-#define MSM_NPU_UNMAP_BUF_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 3, compat_caddr_t)
-
-/* load network */
-#define MSM_NPU_LOAD_NETWORK_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 4, compat_caddr_t)
-
-/* unload network */
-#define MSM_NPU_UNLOAD_NETWORK_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 5, compat_caddr_t)
-
-/* exec network */
-#define MSM_NPU_EXEC_NETWORK_32 \
-	_IOWR(MSM_NPU_IOCTL_MAGIC, 6, compat_caddr_t)
-
 #define NPU_MAX_MBOX_NUM	    2
 #define NPU_MBOX_LOW_PRI	    0
 #define NPU_MBOX_HIGH_PRI	    1
@@ -67,7 +43,7 @@
 #define ROW_BYTES 16
 #define GROUP_BYTES 4
 
-#define NUM_TOTAL_CLKS          19
+#define NUM_TOTAL_CLKS          20
 #define NPU_MAX_REGULATOR_NUM	2
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		7
@@ -229,6 +205,7 @@ struct npu_device {
 	struct npu_thermalctrl thermalctrl;
 
 	struct llcc_slice_desc *sys_cache;
+	uint32_t execute_v2_flag;
 };
 
 

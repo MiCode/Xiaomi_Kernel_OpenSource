@@ -27,6 +27,20 @@ struct rmnet_endpoint {
 	struct hlist_node hlnode;
 };
 
+struct rmnet_port_priv_stats {
+	u64 dl_hdr_last_seq;
+	u64 dl_hdr_last_bytes;
+	u64 dl_hdr_last_pkts;
+	u64 dl_hdr_last_flows;
+	u64 dl_hdr_count;
+	u64 dl_hdr_total_bytes;
+	u64 dl_hdr_total_pkts;
+	u64 dl_hdr_avg_bytes;
+	u64 dl_hdr_avg_pkts;
+	u64 dl_trl_last_seq;
+	u64 dl_trl_count;
+};
+
 /* One instance of this structure is instantiated for each real_dev associated
  * with rmnet.
  */
@@ -52,6 +66,10 @@ struct rmnet_port {
 	struct hrtimer hrtimer;
 
 	void *qmi_info;
+
+	/* dl marker elements */
+	struct list_head dl_list;
+	struct rmnet_port_priv_stats stats;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;

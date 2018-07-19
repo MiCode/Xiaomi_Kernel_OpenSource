@@ -143,6 +143,12 @@ static void dsi_phy_hw_v4_0_lane_settings(struct dsi_phy_hw *phy,
 		DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(i), tx_dctrl[i]);
 	}
 
+	if (cfg->force_clk_lane_hs) {
+		u32 reg = DSI_R32(phy, DSIPHY_CMN_LANE_CTRL1);
+
+		reg |= BIT(5) | BIT(6);
+		DSI_W32(phy, DSIPHY_CMN_LANE_CTRL1, reg);
+	}
 }
 
 /**
@@ -335,6 +341,9 @@ void dsi_phy_hw_v4_0_ulps_request(struct dsi_phy_hw *phy,
 	if (lanes & DSI_DATA_LANE_3)
 		reg |= BIT(3);
 
+	if (cfg->force_clk_lane_hs)
+		reg |= BIT(5) | BIT(6);
+
 	/*
 	 * ULPS entry request. Wait for short time to make sure
 	 * that the lanes enter ULPS. Recommended as per HPG.
@@ -409,6 +418,11 @@ void dsi_phy_hw_v4_0_ulps_exit(struct dsi_phy_hw *phy,
 	DSI_W32(phy, DSIPHY_CMN_LANE_CTRL3, reg);
 	DSI_W32(phy, DSIPHY_CMN_LANE_CTRL3, 0);
 	usleep_range(100, 110);
+
+	if (cfg->force_clk_lane_hs) {
+		reg = BIT(5) | BIT(6);
+		DSI_W32(phy, DSIPHY_CMN_LANE_CTRL1, reg);
+	}
 }
 
 u32 dsi_phy_hw_v4_0_get_lanes_in_ulps(struct dsi_phy_hw *phy)

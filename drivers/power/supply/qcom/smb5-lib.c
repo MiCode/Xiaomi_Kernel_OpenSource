@@ -990,9 +990,21 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc = 0;
 	bool hc_mode = false, override = false;
+	/* suspend if 25mA or less is requested */
+	bool suspend = (icl_ua <= USBIN_25MA);
 
-	/* suspend and return if 25mA or less is requested */
-	if (icl_ua <= USBIN_25MA)
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) {
+		rc = smblib_masked_write(chg, USB_CMD_PULLDOWN_REG,
+				EN_PULLDOWN_USB_IN_BIT,
+				suspend ? 0 : EN_PULLDOWN_USB_IN_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't write %s to EN_PULLDOWN_USB_IN_BIT rc=%d\n",
+				suspend ? "disable" : "enable", rc);
+			goto out;
+		}
+	}
+
+	if (suspend)
 		return smblib_set_usb_suspend(chg, true);
 
 	if (icl_ua == INT_MAX)
@@ -1561,7 +1573,7 @@ int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 		union power_supply_propval *val)
 {
 	int rc, temp;
-	u8 stat;
+	u8 stat, buf[2];
 
 	/*
 	 * Currently, only ADC comparator-based termination is supported,
@@ -1580,8 +1592,7 @@ int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 		return 0;
 	}
 
-	rc = smblib_batch_read(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
-			(u8 *)&temp, 2);
+	rc = smblib_batch_read(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG, buf, 2);
 
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read CHGR_ADC_ITERM_UP_THD_MSB_REG rc=%d\n",
@@ -1589,6 +1600,7 @@ int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 		return rc;
 	}
 
+	temp = buf[1] | (buf[0] << 8);
 	temp = sign_extend32(temp, 15);
 	temp = DIV_ROUND_CLOSEST(temp * 10000, ADC_CHG_TERM_MASK);
 	val->intval = temp;
@@ -2046,16 +2058,35 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				 union power_supply_propval *val)
 {
-	int rc;
+	union power_supply_propval pval = {0, };
+	bool usb_present, dc_present;
+	int temp, rc;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+	usb_present = pval.intval;
+
+	rc = smblib_get_prop_dc_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get dc presence status rc=%d\n", rc);
+		return rc;
+	}
+	dc_present = pval.intval;
+
+	if (!usb_present && !dc_present)
+		return -ENODATA;
 
 	if (chg->iio.temp_chan) {
 		rc = iio_read_channel_processed(chg->iio.temp_chan,
-				&val->intval);
+				&temp);
 		if (rc < 0) {
 			pr_err("Error in reading temp channel, rc=%d", rc);
 			return rc;
 		}
-		val->intval /= 100;
+		val->intval = temp / 100;
 	} else {
 		return -ENODATA;
 	}
@@ -2324,8 +2355,7 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 	return 0;
 }
 
-int smblib_get_prop_connector_health(struct smb_charger *chg,
-						union power_supply_propval *val)
+int smblib_get_prop_connector_health(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
@@ -2334,28 +2364,19 @@ int smblib_get_prop_connector_health(struct smb_charger *chg,
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read CONNECTOR_TEMP_STATUS_REG, rc=%d\n",
 									rc);
-		return rc;
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 
-	/* Thermal status bits are mutually exclusive */
-	switch (stat) {
-	case CONNECTOR_TEMP_LB_BIT:
-		val->intval = POWER_SUPPLY_HEALTH_COOL;
-		break;
-	case CONNECTOR_TEMP_UB_BIT:
-		val->intval = POWER_SUPPLY_HEALTH_WARM;
-		break;
-	case CONNECTOR_TEMP_RST_BIT:
-		val->intval = POWER_SUPPLY_HEALTH_HOT;
-		break;
-	case CONNECTOR_TEMP_SHDN_BIT:
-		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
-		break;
-	default:
-		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
+	if (stat & CONNECTOR_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
 
-	return 0;
+	if (stat & CONNECTOR_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & CONNECTOR_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
 }
 
 #define SDP_CURRENT_UA			500000
@@ -3865,13 +3886,18 @@ static void pl_update_work(struct work_struct *work)
 						pl_update_work);
 	int rc;
 
-	rc = smblib_get_thermal_threshold(chg, SMB_REG_H_THRESHOLD_MSB_REG,
-				&prop_val.intval);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
-		return;
+	if (chg->smb_temp_max == -EINVAL) {
+		rc = smblib_get_thermal_threshold(chg,
+					SMB_REG_H_THRESHOLD_MSB_REG,
+					&chg->smb_temp_max);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+					rc);
+			return;
+		}
 	}
 
+	prop_val.intval = chg->smb_temp_max;
 	rc = power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 				&prop_val);
@@ -4184,15 +4210,18 @@ int smblib_init(struct smb_charger *chg)
 					}
 				}
 
-				rc = smblib_get_thermal_threshold(chg,
+				if (chg->smb_temp_max == -EINVAL) {
+					rc = smblib_get_thermal_threshold(chg,
 						SMB_REG_H_THRESHOLD_MSB_REG,
-						&prop_val.intval);
-				if (rc < 0) {
-					dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
-							rc);
-					return rc;
+						&chg->smb_temp_max);
+					if (rc < 0) {
+						dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+								rc);
+						return rc;
+					}
 				}
 
+				prop_val.intval = chg->smb_temp_max;
 				rc = power_supply_set_property(chg->pl.psy,
 					POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 					&prop_val);

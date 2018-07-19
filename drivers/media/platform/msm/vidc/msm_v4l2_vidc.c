@@ -364,13 +364,6 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
 	INIT_WORK(&core->ssr_work, msm_vidc_ssr_handler);
 
-	mutex_lock(&core->lock);
-	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
-		sizeof(*core->vote_data), GFP_KERNEL);
-	if (!core->vote_data)
-		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
-	mutex_unlock(&core->lock);
-
 	msm_vidc_init_core_clk_ops(core);
 	return rc;
 }
@@ -764,7 +757,6 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&core->v4l2_dev);
 
 	msm_vidc_free_platform_resources(&core->resources);
-	kfree(core->vote_data);
 	sysfs_remove_group(&pdev->dev.kobj, &msm_vidc_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);

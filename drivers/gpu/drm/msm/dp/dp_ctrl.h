@@ -36,6 +36,7 @@ struct dp_ctrl {
 	int (*link_maintenance)(struct dp_ctrl *dp_ctrl);
 	int (*stream_on)(struct dp_ctrl *dp_ctrl, struct dp_panel *panel);
 	void (*stream_off)(struct dp_ctrl *dp_ctrl, struct dp_panel *panel);
+	void (*stream_pre_off)(struct dp_ctrl *dp_ctrl, struct dp_panel *panel);
 };
 
 struct dp_ctrl_in {

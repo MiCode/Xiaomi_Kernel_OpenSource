@@ -225,13 +225,14 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
 
-	if (dep->endpoint.ep_type == EP_TYPE_GSI || dep->endpoint.endless)
-		mult = 3;
-
 	if (((dep->endpoint.maxburst > 1) &&
 			usb_endpoint_xfer_bulk(dep->endpoint.desc))
 			|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 		mult = 3;
+
+	if ((dep->endpoint.maxburst > 2) &&
+			dep->endpoint.ep_type == EP_TYPE_GSI)
+		mult = 6;
 
 	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
 	fifo_size = DIV_ROUND_UP(tmp, mdwidth);
@@ -2188,7 +2189,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	 * Per databook, when we want to stop the gadget, if a control transfer
 	 * is still in process, complete it and get the core into setup phase.
 	 */
-	if (!is_on && dwc->ep0state != EP0_SETUP_PHASE) {
+	if (!is_on && (dwc->ep0state != EP0_SETUP_PHASE ||
+				dwc->ep0_next_event != DWC3_EP0_COMPLETE)) {
 		reinit_completion(&dwc->ep0_in_setup);
 
 		ret = wait_for_completion_timeout(&dwc->ep0_in_setup,
@@ -3087,7 +3089,8 @@ void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 	dep->flags &= ~DWC3_EP_BUSY;
 
 	if (dwc3_is_usb31(dwc) || dwc->revision < DWC3_REVISION_310A) {
-		dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
+		if (dep->endpoint.ep_type != EP_TYPE_GSI)
+			dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
 		udelay(100);
 	}
 }

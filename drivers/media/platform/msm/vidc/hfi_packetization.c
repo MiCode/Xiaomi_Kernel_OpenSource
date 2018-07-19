@@ -1001,6 +1001,18 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(struct hfi_frame_rate);
 		break;
 	}
+	case HAL_CONFIG_OPERATING_RATE:
+	{
+		struct hfi_operating_rate *hfi;
+		struct hal_operating_rate *prop =
+			(struct hal_operating_rate *) pdata;
+
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_OPERATING_RATE;
+		hfi = (struct hfi_operating_rate *) &pkt->rg_property_data[1];
+		hfi->operating_rate = prop->operating_rate;
+		pkt->size += sizeof(struct hfi_operating_rate);
+		break;
+	}
 	case HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT:
 	{
 		u32 buffer_type;

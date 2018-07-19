@@ -1219,6 +1219,24 @@ int msm_camera_pinctrl_init(
 	return 0;
 }
 
+int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
+	int bob_reg_idx, bool flag)
+{
+	int rc = 0;
+	uint32_t op_current =
+		(flag == true) ? soc_info->rgltr_op_mode[bob_reg_idx] : 0;
+
+	if (soc_info->rgltr[bob_reg_idx] != NULL) {
+		rc = regulator_set_load(soc_info->rgltr[bob_reg_idx],
+			op_current);
+		if (rc)
+			CAM_WARN(CAM_SENSOR,
+				"BoB PWM SetLoad failed rc: %d", rc);
+	}
+
+	return rc;
+}
+
 int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	struct msm_camera_gpio_num_info *gpio_num_info, int val)
 {

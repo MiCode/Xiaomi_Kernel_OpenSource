@@ -397,6 +397,8 @@ void wil_disconnect_worker(struct work_struct *work)
 		/* already disconnected */
 		return;
 
+	memset(&reply, 0, sizeof(reply));
+
 	rc = wmi_call(wil, WMI_DISCONNECT_CMDID, vif->mid, NULL, 0,
 		      WMI_DISCONNECT_EVENTID, &reply, sizeof(reply),
 		      WIL6210_DISCONNECT_TO_MS);
@@ -650,8 +652,22 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->reply_mid = U8_MAX;
 	wil->max_vifs = 1;
 
-	/* num of rx srings can be updated via debugfs before allocation */
+	/* edma configuration can be updated via debugfs before allocation */
 	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
+	wil->use_compressed_rx_status = true;
+	wil->use_rx_hw_reordering = true;
+	wil->tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
+
+	/* Rx status ring size should be bigger than the number of RX buffers
+	 * in order to prevent backpressure on the status ring, which may
+	 * cause HW freeze.
+	 */
+	wil->rx_status_ring_order = WIL_RX_SRING_SIZE_ORDER_DEFAULT;
+	/* Number of RX buffer IDs should be bigger than the RX descriptor
+	 * ring size as in HW reorder flow, the HW can consume additional
+	 * buffers before releasing the previous ones.
+	 */
+	wil->rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
 
 	wil->amsdu_en = 1;
 
@@ -1526,6 +1542,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 	wmi_event_flush(wil);
 
+	wil->force_wmi_send = false;
+
 	flush_workqueue(wil->wq_service);
 	flush_workqueue(wil->wmi_wq);
 
@@ -1612,6 +1630,13 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		}
 
 		wil->txrx_ops.configure_interrupt_moderation(wil);
+
+		/* Enable OFU rdy valid bug fix, to prevent hang in oful34_rx
+		 * while there is back-pressure from Host during RX
+		 */
+		if (wil->hw_version >= HW_VER_TALYN_MB)
+			wil_s(wil, RGF_DMA_MISC_CTL,
+			      BIT_OFUL34_RDY_VALID_BUG_FIX_EN);
 
 		rc = wil_restore_vifs(wil);
 		if (rc) {

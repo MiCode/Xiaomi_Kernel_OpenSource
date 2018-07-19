@@ -421,7 +421,7 @@ int sde_rm_init(struct sde_rm *rm,
 		void __iomem *mmio,
 		struct drm_device *dev)
 {
-	int rc, i;
+	int i, rc = 0;
 	enum sde_hw_blk_type type;
 
 	if (!rm || !cat || !mmio || !dev) {

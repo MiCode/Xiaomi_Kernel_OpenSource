@@ -3307,6 +3307,7 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 
 	if (cb->is_secure) {
 		/* increment count to next bank */
+		cb->dev = dev;
 		iommu_cb_set.cb_init_count++;
 		return 0;
 	}

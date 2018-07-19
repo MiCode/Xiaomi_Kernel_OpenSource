@@ -18,10 +18,18 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/msm_gsi.h>
+#include <linux/errno.h>
 #include <linux/ipc_logging.h>
 
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if defined(CONFIG_IPA_EMULATION)
+# include "gsi_emulation_stubs.h"
+#endif
+
 #define GSI_CHAN_MAX      31
-#define GSI_EVT_RING_MAX  23
+#define GSI_EVT_RING_MAX  24
 #define GSI_NO_EVT_ERINDEX 31
 
 #define gsi_readl(c)	({ u32 __v = readl_relaxed(c); __iormb(); __v; })
@@ -204,6 +212,13 @@ struct gsi_ctx {
 	struct completion gen_ee_cmd_compl;
 	void *ipc_logbuf;
 	void *ipc_logbuf_low;
+	/*
+	 * The following used only on emulation systems.
+	 */
+	void __iomem *intcntrlr_base;
+	u32 intcntrlr_mem_size;
+	irq_handler_t intcntrlr_gsi_isr;
+	irq_handler_t intcntrlr_client_isr;
 };
 
 enum gsi_re_type {

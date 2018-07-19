@@ -1146,6 +1146,12 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		&& (src_w == dst_w)) || pstate->multirect_mode)
 		return;
 
+	SDE_DEBUG_PLANE(psde,
+		"setting bilinear: src:%dx%d dst:%dx%d chroma:%dx%d fmt:%x\n",
+			src_w, src_h, dst_w, dst_h,
+			chroma_subsmpl_v, chroma_subsmpl_h,
+			fmt->base.pixel_format);
+
 	scale_cfg->dst_width = dst_w;
 	scale_cfg->dst_height = dst_h;
 	scale_cfg->y_rgb_filter_cfg = SDE_SCALE_BIL;
@@ -1502,7 +1508,16 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		else
 			rc = -EINVAL;
 		if (rc || pstate->scaler_check_state !=
-			SDE_PLANE_SCLCHECK_SCALER_V2) {
+					SDE_PLANE_SCLCHECK_SCALER_V2) {
+			SDE_EVT32(DRMID(&psde->base), color_fill,
+					pstate->scaler_check_state,
+					psde->debugfs_default_scale, rc,
+					psde->pipe_cfg.src_rect.w,
+					psde->pipe_cfg.src_rect.h,
+					psde->pipe_cfg.dst_rect.w,
+					psde->pipe_cfg.dst_rect.h,
+					pstate->multirect_mode);
+
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde, pstate, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
@@ -3452,6 +3467,25 @@ static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 				src_w, src_h);
 			return -EINVAL;
 		}
+
+		/*
+		 * SSPP fetch , unpack output and QSEED3 input lines need
+		 * to match for Y plane
+		 */
+		if (i == 0 &&
+			(sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
+			BIT(SDE_DRM_DEINTERLACE)) &&
+			((pstate->scaler3_cfg.src_height[i] != (src_h/2)) ||
+			(pstate->pixel_ext.roi_h[i] != (src_h/2)))) {
+			SDE_ERROR_PLANE(psde,
+				"de-interlace fail roi[%d] %d/%d, src %dx%d, src %dx%d\n",
+				i, pstate->pixel_ext.roi_w[i],
+				pstate->pixel_ext.roi_h[i],
+				pstate->scaler3_cfg.src_width[i],
+				pstate->scaler3_cfg.src_height[i],
+				src_w, src_h);
+			return -EINVAL;
+		}
 	}
 
 	pstate->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2;
@@ -3558,17 +3592,16 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		ret = -EINVAL;
 
 	/* decimation validation */
-	} else if (deci_w || deci_h) {
-		if ((deci_w > psde->pipe_sblk->maxhdeciexp) ||
-			(deci_h > psde->pipe_sblk->maxvdeciexp)) {
-			SDE_ERROR_PLANE(psde,
-					"too much decimation requested\n");
-			ret = -EINVAL;
-		} else if (fmt->fetch_mode != SDE_FETCH_LINEAR) {
-			SDE_ERROR_PLANE(psde,
-					"decimation requires linear fetch\n");
-			ret = -EINVAL;
-		}
+	} else if ((deci_w || deci_h)
+			&& ((deci_w > psde->pipe_sblk->maxhdeciexp)
+				|| (deci_h > psde->pipe_sblk->maxvdeciexp))) {
+		SDE_ERROR_PLANE(psde, "too much decimation requested\n");
+		ret = -EINVAL;
+
+	} else if ((deci_w || deci_h)
+			&& (fmt->fetch_mode != SDE_FETCH_LINEAR)) {
+		SDE_ERROR_PLANE(psde, "decimation requires linear fetch\n");
+		ret = -EINVAL;
 
 	} else if (!(psde->features & SDE_SSPP_SCALER) &&
 		((src.w != dst.w) || (src.h != dst.h))) {

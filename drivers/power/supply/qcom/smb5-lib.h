@@ -362,6 +362,7 @@ struct smb_charger {
 	enum sink_src_mode	sink_src_mode;
 	bool			jeita_configured;
 	int			charger_temp_max;
+	int			smb_temp_max;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -517,8 +518,7 @@ int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg,
 			       union power_supply_propval *val);
-int smblib_get_prop_connector_health(struct smb_charger *chg,
-			       union power_supply_propval *val);
+int smblib_get_prop_connector_health(struct smb_charger *chg);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,

@@ -71,6 +71,7 @@ Optional properties:
 - qcom,signal-aop: Boolean. If set, when subsystem is brought up, pil will send a notification
 			to AOP through qmp mailbox driver.
 
+- qcom,mas-crypto: phandle to the bus master of crypto core.
 
 Example:
 	qcom,venus@fdce0000 {

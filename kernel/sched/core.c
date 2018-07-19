@@ -911,6 +911,33 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
 }
 
 #ifdef CONFIG_SMP
+
+static inline bool is_per_cpu_kthread(struct task_struct *p)
+{
+	if (!(p->flags & PF_KTHREAD))
+		return false;
+
+	if (p->nr_cpus_allowed != 1)
+		return false;
+
+	return true;
+}
+
+/*
+ * Per-CPU kthreads are allowed to run on !actie && online CPUs, see
+ * __set_cpus_allowed_ptr() and select_fallback_rq().
+ */
+static inline bool is_cpu_allowed(struct task_struct *p, int cpu)
+{
+	if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
+		return false;
+
+	if (is_per_cpu_kthread(p))
+		return cpu_online(cpu);
+
+	return cpu_active(cpu);
+}
+
 /*
  * This is how migration works:
  *
@@ -969,16 +996,8 @@ struct migration_arg {
 static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				 struct task_struct *p, int dest_cpu)
 {
-	if (p->flags & PF_KTHREAD) {
-		if (unlikely(!cpu_online(dest_cpu)))
-			return rq;
-	} else {
-		if (unlikely(!cpu_active(dest_cpu)))
-			return rq;
-	}
-
 	/* Affinity changed (again). */
-	if (!cpumask_test_cpu(dest_cpu, &p->cpus_allowed))
+	if (!is_cpu_allowed(p, dest_cpu))
 		return rq;
 
 	update_rq_clock(rq);
@@ -1520,9 +1539,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 	for (;;) {
 		/* Any allowed, online CPU? */
 		for_each_cpu(dest_cpu, &p->cpus_allowed) {
-			if (!(p->flags & PF_KTHREAD) && !cpu_active(dest_cpu))
-				continue;
-			if (!cpu_online(dest_cpu))
+			if (!is_cpu_allowed(p, dest_cpu))
 				continue;
 			if (cpu_isolated(dest_cpu)) {
 				if (allow_iso)
@@ -1605,9 +1622,8 @@ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags,
 	 * [ this allows ->select_task() to simply return task_cpu(p) and
 	 *   not worry about this generic constraint ]
 	 */
-	if (unlikely(!cpumask_test_cpu(cpu, &p->cpus_allowed) ||
-		     !cpu_online(cpu)) ||
-		     (cpu_isolated(cpu) && !allow_isolated))
+	if (unlikely(!is_cpu_allowed(p, cpu)) || (cpu_isolated(cpu) &&
+						 !allow_isolated))
 		cpu = select_fallback_rq(task_cpu(p), p, allow_isolated);
 
 	return cpu;
@@ -6840,12 +6856,11 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 {
 	int ret, i;
 	unsigned int *data = (unsigned int *)table->data;
-	unsigned int old_val;
+	unsigned int *old_val;
 	static DEFINE_MUTEX(mutex);
 	static int cap_margin_levels = -1;
 
 	mutex_lock(&mutex);
-	old_val = *data;
 
 	if (cap_margin_levels == -1 ||
 		table->maxlen != (sizeof(unsigned int) * cap_margin_levels)) {
@@ -6854,9 +6869,17 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 	}
 
 	if (cap_margin_levels <= 0) {
-		mutex_unlock(&mutex);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock_mutex;
 	}
+
+	old_val = kzalloc(table->maxlen, GFP_KERNEL);
+	if (!old_val) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
+
+	memcpy(old_val, data, table->maxlen);
 
 	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
 
@@ -6864,15 +6887,18 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 		for (i = 0; i < cap_margin_levels; i++) {
 			if (sysctl_sched_capacity_margin_up[i] >
 					sysctl_sched_capacity_margin_down[i]) {
-				*data = old_val;
-				mutex_unlock(&mutex);
-				return -EINVAL;
+				memcpy(data, old_val, table->maxlen);
+				ret = -EINVAL;
+				goto free_old_val;
 			}
 		}
 
 		ret = sched_update_updown_migrate_values(data,
 						cap_margin_levels, ret);
 	}
+free_old_val:
+	kfree(old_val);
+unlock_mutex:
 	mutex_unlock(&mutex);
 
 	return ret;

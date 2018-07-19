@@ -333,7 +333,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 		er_ctxt->msivec = mhi_event->msi;
 		mhi_event->db_cfg.db_mode = true;
 
-		ring->el_size = sizeof(struct __packed mhi_tre);
+		ring->el_size = sizeof(struct mhi_tre);
 		ring->len = ring->el_size * ring->elements;
 		ret = mhi_alloc_aligned_ring(mhi_cntrl, ring, ring->len);
 		if (ret)
@@ -358,7 +358,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 	for (i = 0; i < NR_OF_CMD_RINGS; i++, mhi_cmd++, cmd_ctxt++) {
 		struct mhi_ring *ring = &mhi_cmd->ring;
 
-		ring->el_size = sizeof(struct __packed mhi_tre);
+		ring->el_size = sizeof(struct mhi_tre);
 		ring->elements = CMD_EL_PER_RING;
 		ring->len = ring->el_size * ring->elements;
 		ret = mhi_alloc_aligned_ring(mhi_cntrl, ring, ring->len);
@@ -643,7 +643,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	buf_ring = &mhi_chan->buf_ring;
 	tre_ring = &mhi_chan->tre_ring;
-	tre_ring->el_size = sizeof(struct __packed mhi_tre);
+	tre_ring->el_size = sizeof(struct mhi_tre);
 	tre_ring->len = tre_ring->el_size * tre_ring->elements;
 	chan_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[mhi_chan->chan];
 	ret = mhi_alloc_aligned_ring(mhi_cntrl, tre_ring, tre_ring->len);
@@ -736,7 +736,6 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	return 0;
 }
 
-#if defined(CONFIG_OF)
 static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			   struct device_node *of_node)
 {
@@ -1046,13 +1045,6 @@ error_ev_cfg:
 
 	return ret;
 }
-#else
-static int of_parse_dt(struct mhi_controller *mhi_cntrl,
-		       struct device_node *of_node)
-{
-	return -EINVAL;
-}
-#endif
 
 int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
@@ -1291,7 +1283,7 @@ static int mhi_match(struct device *dev, struct device_driver *drv)
 	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
 		return 0;
 
-	for (id = mhi_drv->id_table; id->chan; id++)
+	for (id = mhi_drv->id_table; id->chan[0]; id++)
 		if (!strcmp(mhi_dev->chan_name, id->chan)) {
 			mhi_dev->id = id;
 			return 1;

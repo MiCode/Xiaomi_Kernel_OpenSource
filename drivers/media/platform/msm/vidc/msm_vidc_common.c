@@ -733,18 +733,13 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	if (inst->clk_data.operating_rate) {
+	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
 		fps = (inst->clk_data.operating_rate >> 16) ?
 			inst->clk_data.operating_rate >> 16 : 1;
-		/*
-		 * Check if operating rate is less than fps.
-		 * If Yes, then use fps to scale clocks
-		 */
-		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
-		return max(output_port_mbs, capture_port_mbs) * fps;
-	} else {
-		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
-	}
+	else
+		fps = inst->prop.fps;
+
+	return max(output_port_mbs, capture_port_mbs) * fps;
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
@@ -1621,7 +1616,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 		planes[0] = event_notify->packet_buffer;
 		planes[1] = event_notify->extra_data_buffer;
-		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		mbuf = msm_comm_get_buffer_using_device_planes(inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes);
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
@@ -2381,7 +2377,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	planes[0] = empty_buf_done->packet_buffer;
 	planes[1] = empty_buf_done->extra_data_buffer;
 
-	mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+	mbuf = msm_comm_get_buffer_using_device_planes(inst,
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, planes);
 	if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 		dprintk(VIDC_ERR,
 			"%s: data_addr %x, extradata_addr %x not found\n",
@@ -2527,7 +2524,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type) {
-		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		mbuf = msm_comm_get_buffer_using_device_planes(inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes);
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
@@ -3093,6 +3091,11 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 	extra_buff_count = msm_vidc_get_extra_buff_count(inst,
 				HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
+	/* batching needs minimum batch size count of input buffers */
+	if (inst->core->resources.decode_batching &&
+		is_decode_session(inst) &&
+		bufreq->buffer_count_min < inst->batch.size)
+		bufreq->buffer_count_min = inst->batch.size;
 	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
 				bufreq->buffer_count_min + extra_buff_count;
 
@@ -6049,7 +6052,7 @@ bool msm_comm_compare_dma_planes(struct msm_vidc_inst *inst,
 
 
 bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
-		u32 *planes, u32 i)
+		u32 type, u32 *planes, u32 i)
 {
 	if (!mbuf || !planes) {
 		dprintk(VIDC_ERR, "%s: invalid params, %pK %pK\n",
@@ -6057,14 +6060,15 @@ bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
 		return false;
 	}
 
-	if (mbuf->smem[i].device_addr == planes[i])
+	if (mbuf->vvb.vb2_buf.type == type &&
+		mbuf->smem[i].device_addr == planes[i])
 		return true;
 
 	return false;
 }
 
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
-		u32 *planes)
+		u32 type, u32 *planes)
 {
 	int i = 0;
 
@@ -6072,7 +6076,7 @@ bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 		return false;
 
 	for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
-		if (!msm_comm_compare_device_plane(mbuf, planes, i))
+		if (!msm_comm_compare_device_plane(mbuf, type, planes, i))
 			return false;
 	}
 
@@ -6080,7 +6084,7 @@ bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 }
 
 struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
-		struct msm_vidc_inst *inst, u32 *planes)
+		struct msm_vidc_inst *inst, u32 type, u32 *planes)
 {
 	struct msm_vidc_buffer *mbuf;
 	bool found = false;
@@ -6088,7 +6092,7 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_planes(mbuf, planes)) {
+		if (msm_comm_compare_device_planes(mbuf, type, planes)) {
 			found = true;
 			break;
 		}
@@ -6529,7 +6533,8 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	 */
 	found = false;
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_plane(temp, planes, 0)) {
+		if (msm_comm_compare_device_plane(temp,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes, 0)) {
 			mbuf = temp;
 			found = true;
 			break;

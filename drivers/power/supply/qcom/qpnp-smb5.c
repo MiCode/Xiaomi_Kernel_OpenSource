@@ -376,6 +376,16 @@ static int smb5_parse_dt(struct smb5 *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,charger-temp-max",
+			&chg->charger_temp_max);
+	if (rc < 0)
+		chg->charger_temp_max = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,smb-temp-max",
+			&chg->smb_temp_max);
+	if (rc < 0)
+		chg->smb_temp_max = -EINVAL;
+
 	rc = of_property_read_u32(node, "qcom,float-option",
 						&chip->dt.float_option);
 	if (!rc && (chip->dt.float_option < 0 || chip->dt.float_option > 4)) {
@@ -611,7 +621,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		if (chg->connector_health == -EINVAL)
-			rc = smblib_get_prop_connector_health(chg, val);
+			val->intval = smblib_get_prop_connector_health(chg);
 		else
 			val->intval = chg->connector_health;
 		break;
@@ -1113,8 +1123,6 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
-	union power_supply_propval pval = {0, };
-
 	int rc = 0;
 
 	switch (psp) {
@@ -1143,13 +1151,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_system_temp_level_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblib_get_prop_usb_present(chg, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't get usb present rc=%d\n", rc);
-			break;
-		}
-		if (pval.intval)
-			rc = smblib_get_prop_charger_temp(chg, val);
+		rc = smblib_get_prop_charger_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		val->intval = chg->charger_temp_max;
@@ -1516,8 +1518,9 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 
 static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 {
+	u8 *buf;
 	int rc = 0;
-	int raw_hi_thresh, raw_lo_thresh;
+	s16 raw_hi_thresh, raw_lo_thresh;
 	struct smb_charger *chg = &chip->chg;
 
 	if (chip->dt.term_current_thresh_hi_ma < -10000 ||
@@ -1530,13 +1533,16 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 
 	/*
 	 * Conversion:
-	 * raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 *	raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 * Note: raw needs to be converted to big-endian format.
 	 */
 
 	if (chip->dt.term_current_thresh_hi_ma) {
 		raw_hi_thresh = ((chip->dt.term_current_thresh_hi_ma *
 						ADC_CHG_TERM_MASK) / 10000);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
+		buf = (u8 *)&raw_hi_thresh;
+		raw_hi_thresh = buf[1] | (buf[0] << 8);
 
 		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
 				(u8 *)&raw_hi_thresh, 2);
@@ -1551,6 +1557,8 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 		raw_lo_thresh = ((chip->dt.term_current_thresh_lo_ma *
 					ADC_CHG_TERM_MASK) / 10000);
 		raw_lo_thresh = sign_extend32(raw_lo_thresh, 15);
+		buf = (u8 *)&raw_lo_thresh;
+		raw_lo_thresh = buf[1] | (buf[0] << 8);
 
 		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_LO_THD_MSB_REG,
 				(u8 *)&raw_lo_thresh, 2);
@@ -1600,10 +1608,23 @@ static int smb5_init_hw(struct smb5 *chip)
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
 
-	rc = smblib_get_thermal_threshold(chg, DIE_REG_H_THRESHOLD_MSB_REG,
-				&chg->charger_temp_max);
+	if (chg->charger_temp_max == -EINVAL) {
+		rc = smblib_get_thermal_threshold(chg,
+					DIE_REG_H_THRESHOLD_MSB_REG,
+					&chg->charger_temp_max);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
+	/* Disable SMB Temperature ADC INT */
+	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
+					 THERMREG_SMB_ADC_SRC_EN_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get charger_temp_max rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't configure SMB thermal regulation  rc=%d\n",
+				rc);
 		return rc;
 	}
 

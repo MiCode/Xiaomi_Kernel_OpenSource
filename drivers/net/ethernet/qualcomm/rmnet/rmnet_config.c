@@ -70,6 +70,7 @@ static int rmnet_unregister_real_device(struct net_device *real_dev,
 	if (port->nr_rmnet_devs)
 		return -EINVAL;
 
+	rmnet_map_cmd_exit(port);
 	rmnet_map_tx_aggregate_exit(port);
 
 	kfree(port);
@@ -111,6 +112,7 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 		INIT_HLIST_HEAD(&port->muxed_ep[entry]);
 
 	rmnet_map_tx_aggregate_init(port);
+	rmnet_map_cmd_init(port);
 
 	netdev_dbg(real_dev, "registered with rmnet\n");
 	return 0;

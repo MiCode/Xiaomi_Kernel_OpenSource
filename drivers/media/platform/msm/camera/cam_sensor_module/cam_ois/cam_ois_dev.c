@@ -240,6 +240,8 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl);
 
@@ -341,6 +343,8 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl->io_master_info.cci_client);
 	kfree(o_ctrl);

@@ -143,7 +143,7 @@ clk_pll_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 							* req->best_parent_rate;
 
 	else
-		req->rate = req->rate = f->freq;
+		req->rate = f->freq;
 
 	return 0;
 }

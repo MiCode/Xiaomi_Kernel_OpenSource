@@ -281,6 +281,12 @@ static int wil_vring_alloc_skb(struct wil6210_priv *wil, struct wil_ring *vring,
 	skb_reserve(skb, headroom);
 	skb_put(skb, sz);
 
+	/**
+	 * Make sure that the network stack calculates checksum for packets
+	 * which failed the HW checksum calculation
+	 */
+	skb->ip_summed = CHECKSUM_NONE;
+
 	pa = dma_map_single(dev, skb->data, skb->len, DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(dev, pa))) {
 		kfree_skb(skb);
@@ -569,6 +575,8 @@ again:
 		 * mis-calculates TCP checksum - if it should be 0x0,
 		 * it writes 0xffff in violation of RFC 1624
 		 */
+		else
+			stats->rx_csum_err++;
 	}
 
 	if (snaplen) {
@@ -608,8 +616,8 @@ static int wil_rx_refill(struct wil6210_priv *wil, int count)
 	     v->swtail = next_tail) {
 		rc = wil_vring_alloc_skb(wil, v, v->swtail, headroom);
 		if (unlikely(rc)) {
-			wil_err(wil, "Error %d in wil_rx_refill[%d]\n",
-				rc, v->swtail);
+			wil_err_ratelimited(wil, "Error %d in rx refill[%d]\n",
+					    rc, v->swtail);
 			break;
 		}
 	}
@@ -678,6 +686,21 @@ static int wil_rx_crypto_check(struct wil6210_priv *wil, struct sk_buff *skb)
 	return 0;
 }
 
+static int wil_rx_error_check(struct wil6210_priv *wil, struct sk_buff *skb,
+			      struct wil_net_stats *stats)
+{
+	struct vring_rx_desc *d = wil_skb_rxdesc(skb);
+
+	if ((d->dma.status & RX_DMA_STATUS_ERROR) &&
+	    (d->dma.error & RX_DMA_ERROR_MIC)) {
+		stats->rx_mic_error++;
+		wil_dbg_txrx(wil, "MIC error, dropping packet\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static void wil_get_netif_rx_params(struct sk_buff *skb, int *cid,
 				    int *security)
 {
@@ -736,7 +759,20 @@ void wil_netif_rx_any(struct sk_buff *skb, struct net_device *ndev)
 		goto stats;
 	}
 
-	if (wdev->iftype == NL80211_IFTYPE_AP && !vif->ap_isolate) {
+	/* check errors reported by HW and update statistics */
+	if (unlikely(wil->txrx_ops.rx_error_check(wil, skb, stats))) {
+		dev_kfree_skb(skb);
+		return;
+	}
+
+	if (wdev->iftype == NL80211_IFTYPE_STATION) {
+		if (mcast && ether_addr_equal(eth->h_source, ndev->dev_addr)) {
+			/* mcast packet looped back to us */
+			rc = GRO_DROP;
+			dev_kfree_skb(skb);
+			goto stats;
+		}
+	} else if (wdev->iftype == NL80211_IFTYPE_AP && !vif->ap_isolate) {
 		if (mcast) {
 			/* send multicast frames both to higher layers in
 			 * local net stack and back to the wireless medium
@@ -956,7 +992,9 @@ static int wil_vring_init_tx(struct wil6210_vif *vif, int id, int size,
 	struct {
 		struct wmi_cmd_hdr wmi;
 		struct wmi_vring_cfg_done_event cmd;
-	} __packed reply;
+	} __packed reply = {
+		.cmd = {.status = WMI_FW_STATUS_FAILURE},
+	};
 	struct wil_ring *vring = &wil->ring_tx[id];
 	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[id];
 
@@ -1039,7 +1077,9 @@ int wil_vring_init_bcast(struct wil6210_vif *vif, int id, int size)
 	struct {
 		struct wmi_cmd_hdr wmi;
 		struct wmi_vring_cfg_done_event cmd;
-	} __packed reply;
+	} __packed reply = {
+		.cmd = {.status = WMI_FW_STATUS_FAILURE},
+	};
 	struct wil_ring *vring = &wil->ring_tx[id];
 	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[id];
 
@@ -2174,8 +2214,9 @@ static inline int wil_tx_init(struct wil6210_priv *wil)
 
 static inline void wil_tx_fini(struct wil6210_priv *wil) {}
 
-static void wil_get_reorder_params(struct sk_buff *skb, int *tid, int *cid,
-				   int *mid, u16 *seq, int *mcast)
+static void wil_get_reorder_params(struct wil6210_priv *wil,
+				   struct sk_buff *skb, int *tid, int *cid,
+				   int *mid, u16 *seq, int *mcast, int *retry)
 {
 	struct vring_rx_desc *d = wil_skb_rxdesc(skb);
 
@@ -2184,6 +2225,7 @@ static void wil_get_reorder_params(struct sk_buff *skb, int *tid, int *cid,
 	*mid = wil_rxdesc_mid(d);
 	*seq = wil_rxdesc_seq(d);
 	*mcast = wil_rxdesc_mcast(d);
+	*retry = wil_rxdesc_retry(d);
 }
 
 void wil_init_txrx_ops_legacy_dma(struct wil6210_priv *wil)
@@ -2206,6 +2248,7 @@ void wil_init_txrx_ops_legacy_dma(struct wil6210_priv *wil)
 	wil->txrx_ops.get_netif_rx_params =
 		wil_get_netif_rx_params;
 	wil->txrx_ops.rx_crypto_check = wil_rx_crypto_check;
+	wil->txrx_ops.rx_error_check = wil_rx_error_check;
 	wil->txrx_ops.is_rx_idle = wil_is_rx_idle;
 	wil->txrx_ops.rx_fini = wil_rx_fini;
 }

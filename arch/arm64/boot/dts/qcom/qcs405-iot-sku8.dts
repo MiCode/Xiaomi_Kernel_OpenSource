@@ -14,6 +14,7 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
+#include "qcs405-amic-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 AMIC IOT";

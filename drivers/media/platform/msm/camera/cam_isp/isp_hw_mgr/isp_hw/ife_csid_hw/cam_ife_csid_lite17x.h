@@ -284,8 +284,8 @@ static const struct cam_ife_csid_common_reg_offset
 	.major_version                                = 1,
 	.minor_version                                = 7,
 	.version_incr                                 = 0,
-	.no_rdis                                      = 4,
-	.no_pix                                       = 0,
+	.num_rdis                                     = 4,
+	.num_pix                                      = 0,
 	.csid_rst_stb                                 = 0x1e,
 	.csid_rst_stb_sw_all                          = 0x1f,
 	.path_rst_stb_all                             = 0x7f,
@@ -301,6 +301,7 @@ static const struct cam_ife_csid_common_reg_offset
 	.crop_shift                                   = 16,
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,
+	.ppp_irq_mask_all                             = 0xFFFF,
 };
 
 static const struct cam_ife_csid_reg_offset cam_ife_csid_lite_17x_reg_offset = {

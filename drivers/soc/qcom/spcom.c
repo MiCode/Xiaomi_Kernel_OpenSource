@@ -2086,7 +2086,7 @@ static int spcom_probe(struct platform_device *pdev)
 	ret = spcom_register_chardev();
 	if (ret) {
 		pr_err("create character device failed.\n");
-		goto fail_reg_chardev;
+		goto fail_while_chardev_reg;
 	}
 
 	ret = spcom_parse_dt(np);
@@ -2104,6 +2104,7 @@ static int spcom_probe(struct platform_device *pdev)
 fail_reg_chardev:
 	pr_err("failed to init driver\n");
 	spcom_unregister_chrdev();
+fail_while_chardev_reg:
 	kfree(dev);
 	spcom_dev = NULL;
 

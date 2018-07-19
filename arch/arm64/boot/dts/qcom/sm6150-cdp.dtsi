@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sm6150-thermal-overlay.dtsi"
+
 &soc {
 };
 
@@ -19,4 +21,13 @@
 
 &pm6150_charger {
 	qcom,batteryless-platform;
+};
+
+&pm6150l_wled {
+	qcom,string-cfg= <7>;
+	status = "ok";
+};
+
+&pm6150l_lcdb {
+	status = "ok";
 };

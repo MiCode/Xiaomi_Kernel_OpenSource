@@ -160,6 +160,11 @@ static int icnss_assign_msa_perm(struct icnss_mem_region_info
 	enum icnss_msa_perm cur_perm = mem_region->perm;
 	struct icnss_msa_perm_list_t *new_perm_list, *old_perm_list;
 
+	if (penv && penv->is_hyp_disabled) {
+		icnss_pr_err("hyperviser disabled");
+		return 0;
+	}
+
 	addr = mem_region->reg_addr;
 	size = mem_region->size;
 
@@ -1205,6 +1210,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
+		if (wlfw_send_modem_shutdown_msg(priv))
+			icnss_pr_dbg("Fail to send modem shutdown Indication\n");
+	}
+
 	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
@@ -1238,7 +1248,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	event_data->crashed = notif->crashed;
 
 	fw_down_data.crashed = !!notif->crashed;
-	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
+	if (test_bit(ICNSS_FW_READY, &priv->state) &&
+	    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+		icnss_call_driver_uevent(priv,
+					 ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
@@ -2946,6 +2960,11 @@ static int icnss_probe(struct platform_device *pdev)
 		priv->bypass_s1_smmu = true;
 
 	icnss_pr_dbg("SMMU S1 BYPASS = %d\n", priv->bypass_s1_smmu);
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,hyp_disabled"))
+		priv->is_hyp_disabled = true;
+
+	icnss_pr_dbg("Hypervisor disabled = %d\n", priv->is_hyp_disabled);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
 	if (!res) {

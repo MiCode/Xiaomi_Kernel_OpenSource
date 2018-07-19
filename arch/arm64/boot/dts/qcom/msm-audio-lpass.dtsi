@@ -129,6 +129,44 @@
 		};
 	};
 
+	msm_dai_cdc_dma: qcom,msm-dai-cdc-dma {
+		compatible = "qcom,msm-dai-cdc-dma";
+		wsa_cdc_dma_0_rx: qcom,msm-dai-wsa-cdc-dma-0-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45056>;
+		};
+
+		wsa_cdc_dma_0_tx: qcom,msm-dai-wsa-cdc-dma-0-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45057>;
+		};
+
+		wsa_cdc_dma_1_rx: qcom,msm-dai-wsa-cdc-dma-1-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45058>;
+		};
+
+		wsa_cdc_dma_1_tx: qcom,msm-dai-wsa-cdc-dma-1-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45059>;
+		};
+
+		wsa_cdc_dma_2_tx: qcom,msm-dai-wsa-cdc-dma-2-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45061>;
+		};
+
+		va_cdc_dma_0_tx: qcom,msm-dai-va-cdc-dma-0-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45089>;
+		};
+
+		va_cdc_dma_1_tx: qcom,msm-dai-va-cdc-dma-1-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45091>;
+		};
+	};
+
 	lsm: qcom,msm-lsm-client {
 		compatible = "qcom,msm-lsm-client";
 	};
