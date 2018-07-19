@@ -40,6 +40,19 @@
 	};
 };
 
+&i2c_3 {
+	status = "okay";
+	qcom,clk-freq-out = <100000>;
+
+	ep92a6_hdmi_64: ep92a6@64 {
+		status = "okay";
+		compatible = "explore,ep92a6";
+		reg = <0x64>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <107 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
 &q6core {
 	qcs405_snd: sound {
 		compatible = "qcom,qcs405-asoc-snd";
@@ -47,6 +60,11 @@
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
 		qcom,spdif-audio-intf = <1>;
+		qcom,msm-mi2s-master = <1>, <0>, <1>, <1>, <1>;
+
+		qcom,ep92-name = "ep92.3-0064";
+		qcom,ep92-busnum  = <3>;
+		qcom,ep92-reg  = <0x64>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
