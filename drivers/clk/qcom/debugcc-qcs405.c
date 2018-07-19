@@ -320,7 +320,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 		0xEC, 0x1FF, 0, 0xF000, 12, 1, 0x74000, 0x74000, 0x74000 },
 		{ "gcc_dcc_xo_clk", 0x1B8, 1, GCC,
 		0x1B8, 0x1FF, 0, 0xF000, 12, 1, 0x74000, 0x74000, 0x74000 },
-		{ "apcs_mux_clk", 0x16A, CPU_CC, 0x000, 0x3, 8, 0x0FF },
+		{ "apcs_mux_clk", 0x16A, 1, CPU_CC,
+		0x000, 0x3, 8, 0xF, 11, 1, 0, 0, U32_MAX, 1 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
