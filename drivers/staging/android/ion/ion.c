@@ -180,7 +180,7 @@ err2:
 
 void ion_buffer_destroy(struct ion_buffer *buffer)
 {
-	if (WARN_ON(buffer->kmap_cnt > 0))
+	if (WARN_ON_ONCE(buffer->kmap_cnt > 0))
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	buffer->heap->ops->free(buffer);
 	kfree(buffer);
@@ -364,8 +364,10 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					 map_attrs);
 	}
 
-	if (count <= 0)
+	if (count <= 0) {
+		mutex_unlock(&buffer->lock);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	a->dma_mapped = true;
 	mutex_unlock(&buffer->lock);

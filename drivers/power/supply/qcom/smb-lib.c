@@ -350,7 +350,7 @@ static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
 		 * PROP_BUCK_FREQ property - they could be running
 		 * with a fixed frequency
 		 */
-		power_supply_set_property(chg->pl.psy,
+		rc = power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
 	}
 

@@ -19,6 +19,10 @@
 	qcom,msm-id = <339 0x20000>;
 };
 
+/* Remove smmu nodes specific to SM8150 */
+/delete-node/ &apps_smmu;
+/delete-node/ &kgsl_smmu;
+
 &clock_gcc {
 	compatible = "qcom,gcc-sm8150-v2", "syscon";
 };
@@ -37,4 +41,23 @@
 
 &clock_npucc {
 	compatible = "qcom,npucc-sm8150-v2", "syscon";
+};
+#include "msm-arm-smmu-sm8150-v2.dtsi"
+
+&msm_vidc {
+	qcom,allowed-clock-rates = <240000000 338000000
+		365000000 444000000 533000000>;
+
+	non_secure_cb {
+		iommus = <&apps_smmu 0x2300 0x60>;
+	};
+	secure_bitstream_cb {
+		iommus = <&apps_smmu 0x2301 0x4>;
+	};
+	secure_pixel_cb {
+		iommus = <&apps_smmu 0x2303 0x20>;
+	};
+	secure_non_pixel_cb {
+		iommus = <&apps_smmu 0x2304 0x60>;
+	};
 };

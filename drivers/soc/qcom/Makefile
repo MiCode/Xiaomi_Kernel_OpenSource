@@ -64,6 +64,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_notif.o
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
+       obj-y += microdump_collector.o
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
@@ -84,9 +85,9 @@ ifdef CONFIG_MSM_RPM_SMD
 endif
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
-obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_SMP2P_SLEEPSTATE) += smp2p_sleepstate.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
+obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o

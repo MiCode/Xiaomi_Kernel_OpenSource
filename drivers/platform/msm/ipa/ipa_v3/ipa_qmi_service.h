@@ -421,19 +421,23 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
 
-static int ipa3_qmi_send_mhi_ready_indication(
+static inline int ipa3_qmi_send_mhi_ready_indication(
 	struct ipa_mhi_ready_indication_msg_v01 *req)
 {
 	return -EPERM;
 }
 
-static int ipa3_qmi_send_mhi_cleanup_request(
+static inline int ipa3_qmi_send_mhi_cleanup_request(
 	struct ipa_mhi_cleanup_req_msg_v01 *req)
 {
 	return -EPERM;
 }
 
-static inline int ipa3_wwan_set_modem_perf_profile(int throughput);
+static inline int ipa3_wwan_set_modem_perf_profile(
+	int throughput)
+{
+	return -EPERM;
+}
 static inline int ipa3_qmi_enable_per_client_stats(
 	struct ipa_enable_per_client_stats_req_msg_v01 *req,
 	struct ipa_enable_per_client_stats_resp_msg_v01 *resp)

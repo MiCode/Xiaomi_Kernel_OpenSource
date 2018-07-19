@@ -53,6 +53,9 @@ SoCs:
 - QCS405
   compatible = "qcom,qcs405"
 
+- QCS403
+  compatible = "qcom,qcs403"
+
 - SDXPRAIRIE
   compatible = "qcom,sdxprairie"
 
@@ -100,6 +103,8 @@ Generic board variants:
 - RUMI device:
   compatible = "qcom,rumi"
 
+- IOT device:
+  compatible = "qcom,iot"
 
 
 Boards (SoC type + board variant):
@@ -156,10 +161,11 @@ compatible = "qcom,sm6150-cdp"
 compatible = "qcom,sm6150-qrd"
 compatible = "qcom,sm6150-idp"
 compatible = "qcom,qcs405-rumi"
-compatible = "qcom,qcs405-mtp"
-compatible = "qcom,qcs405-cdp"
-compatible = "qcom,sm8150-auto-adp-star"
-compatible = "qcom,auto-adp-star"
+compatible = "qcom,qcs405-iot"
+compatible = "qcom,qcs403-iot"
+compatible = "qcom,sa8155-adp-star"
+compatible = "qcom,sa8155p-adp-star"
+compatible = "qcom,adp-star"
 compatible = "qcom,sdxprairie-rumi"
 compatible = "qcom,sdxprairie-mtp"
 compatible = "qcom,sdxprairie-cdp"

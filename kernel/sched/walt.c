@@ -1610,6 +1610,13 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 		return 0;
 
 	/*
+	 * The idle exit time is not accounted for the first task _picked_ up to
+	 * run on the idle CPU.
+	 */
+	if (event == PICK_NEXT_TASK && rq->curr == rq->idle)
+		return 0;
+
+	/*
 	 * TASK_UPDATE can be called on sleeping task, when its moved between
 	 * related groups
 	 */
@@ -2529,7 +2536,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 {
 	struct task_struct *p;
 	u64 combined_demand = 0;
-	bool boost_on_big = sched_boost_policy() == SCHED_BOOST_ON_BIG;
 	bool group_boost = false;
 	u64 wallclock;
 
@@ -2548,7 +2554,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		return;
 
 	list_for_each_entry(p, &grp->tasks, grp_list) {
-		if (boost_on_big && task_sched_boost(p)) {
+		if (task_boost_on_big_eligible(p)) {
 			group_boost = true;
 			break;
 		}
@@ -2558,7 +2564,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 			continue;
 
 		combined_demand += p->ravg.coloc_demand;
-
 	}
 
 	grp->preferred_cluster = best_cluster(grp,

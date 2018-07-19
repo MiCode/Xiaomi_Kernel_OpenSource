@@ -1251,6 +1251,7 @@ ssize_t f_cdev_write(struct file *file,
 		ret = -EFAULT;
 	} else {
 		req->length = xfer_size;
+		req->zero = 1;
 		ret = usb_ep_queue(in, req, GFP_KERNEL);
 		if (ret) {
 			pr_err("EP QUEUE failed:%d\n", ret);

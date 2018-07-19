@@ -40,6 +40,22 @@
 
 #include "ipa_trace.h"
 
+#define OUTSTANDING_HIGH_DEFAULT 256
+#define OUTSTANDING_HIGH_CTL_DEFAULT (OUTSTANDING_HIGH_DEFAULT + 32)
+#define OUTSTANDING_LOW_DEFAULT 128
+
+static unsigned int outstanding_high = OUTSTANDING_HIGH_DEFAULT;
+module_param(outstanding_high, uint, 0644);
+MODULE_PARM_DESC(outstanding_high, "Outstanding high");
+
+static unsigned int outstanding_high_ctl = OUTSTANDING_HIGH_CTL_DEFAULT;
+module_param(outstanding_high_ctl, uint, 0644);
+MODULE_PARM_DESC(outstanding_high_ctl, "Outstanding high control");
+
+static unsigned int outstanding_low = OUTSTANDING_LOW_DEFAULT;
+module_param(outstanding_low, uint, 0644);
+MODULE_PARM_DESC(outstanding_low, "Outstanding low");
+
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
 #define WWAN_DATA_LEN 2000
@@ -48,9 +64,6 @@
 #define TAILROOM            0 /* for padding by mux layer */
 #define MAX_NUM_OF_MUX_CHANNEL  15 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
-#define DEFAULT_OUTSTANDING_HIGH 128
-#define DEFAULT_OUTSTANDING_HIGH_CTL (DEFAULT_OUTSTANDING_HIGH+32)
-#define DEFAULT_OUTSTANDING_LOW 64
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_UPSTEAM_WLAN_IFACE_NAME "wlan0"
@@ -102,8 +115,6 @@ struct ipa3_rmnet_plat_drv_res {
  * @net: network interface struct implemented by this driver
  * @stats: iface statistics
  * @outstanding_pkts: number of packets sent to IPA without TX complete ACKed
- * @outstanding_high: number of outstanding packets allowed
- * @outstanding_low: number of outstanding packets which shall cause
  * @ch_id: channel id
  * @lock: spinlock for mutual exclusion
  * @device_status: holds device status
@@ -114,9 +125,6 @@ struct ipa3_wwan_private {
 	struct net_device *net;
 	struct net_device_stats stats;
 	atomic_t outstanding_pkts;
-	int outstanding_high_ctl;
-	int outstanding_high;
-	int outstanding_low;
 	uint32_t ch_id;
 	spinlock_t lock;
 	struct completion resource_granted_completion;
@@ -1085,7 +1093,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (netif_queue_stopped(dev)) {
 		if (qmap_check &&
 			atomic_read(&wwan_ptr->outstanding_pkts) <
-					wwan_ptr->outstanding_high_ctl) {
+					outstanding_high_ctl) {
 			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
 			goto send;
 		} else {
@@ -1096,11 +1104,11 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	/* checking High WM hit */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) >=
-					wwan_ptr->outstanding_high) {
+					outstanding_high) {
 		if (!qmap_check) {
 			IPAWANDBG_LOW("pending(%d)/(%d)- stop(%d)\n",
 				atomic_read(&wwan_ptr->outstanding_pkts),
-				wwan_ptr->outstanding_high,
+				outstanding_high,
 				netif_queue_stopped(dev));
 			IPAWANDBG_LOW("qmap_chk(%d)\n", qmap_check);
 			netif_stop_queue(dev);
@@ -1203,10 +1211,9 @@ static void apps_ipa_tx_complete_notify(void *priv,
 	__netif_tx_lock_bh(netdev_get_tx_queue(dev, 0));
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 		netif_queue_stopped(wwan_ptr->net) &&
-		atomic_read(&wwan_ptr->outstanding_pkts) <
-					(wwan_ptr->outstanding_low)) {
+		atomic_read(&wwan_ptr->outstanding_pkts) < outstanding_low) {
 		IPAWANDBG_LOW("Outstanding low (%d) - waking up queue\n",
-				wwan_ptr->outstanding_low);
+				outstanding_low);
 		netif_wake_queue(wwan_ptr->net);
 	}
 
@@ -2375,8 +2382,6 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		sizeof(*(rmnet_ipa3_ctx->wwan_priv)));
 	IPAWANDBG("wwan_ptr (private) = %pK", rmnet_ipa3_ctx->wwan_priv);
 	rmnet_ipa3_ctx->wwan_priv->net = dev;
-	rmnet_ipa3_ctx->wwan_priv->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
-	rmnet_ipa3_ctx->wwan_priv->outstanding_low = DEFAULT_OUTSTANDING_LOW;
 	atomic_set(&rmnet_ipa3_ctx->wwan_priv->outstanding_pkts, 0);
 	spin_lock_init(&rmnet_ipa3_ctx->wwan_priv->lock);
 	init_completion(
@@ -3239,15 +3244,6 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	int rc = 0;
 	struct ipa_quota_stats_all *con_stats;
 
-	if (reset) {
-		IPAWANERR("only reset the pipe stats without returning stats");
-		rc = ipa_get_teth_stats();
-		if (rc) {
-			IPAWANERR("ipa_get_teth_stats failed %d,\n", rc);
-			return rc;
-		}
-		return 0;
-	}
 	/* qet HW-stats */
 	rc = ipa_get_teth_stats();
 	if (rc) {

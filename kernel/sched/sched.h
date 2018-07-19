@@ -731,6 +731,8 @@ struct root_domain {
 
 	/* First cpu with maximum and minimum original capacity */
 	int max_cap_orig_cpu, min_cap_orig_cpu;
+	/* First cpu with mid capacity */
+	int mid_cap_orig_cpu;
 };
 
 extern struct root_domain def_root_domain;
@@ -2332,8 +2334,9 @@ extern bool sched_debug_enabled;
 extern void print_cfs_stats(struct seq_file *m, int cpu);
 extern void print_rt_stats(struct seq_file *m, int cpu);
 extern void print_dl_stats(struct seq_file *m, int cpu);
-extern void
-print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
+extern void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
+extern void print_rt_rq(struct seq_file *m, int cpu, struct rt_rq *rt_rq);
+extern void print_dl_rq(struct seq_file *m, int cpu, struct dl_rq *dl_rq);
 #ifdef CONFIG_NUMA_BALANCING
 extern void
 show_numa_stats(struct task_struct *p, struct seq_file *m);
@@ -2899,6 +2902,25 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
+{
+	bool boost_on_big = task_sched_boost(p) &&
+				sched_boost_policy() == SCHED_BOOST_ON_BIG;
+
+	if (boost_on_big) {
+		/*
+		 * Filter out tasks less than min task util threshold
+		 * under conservative boost.
+		 */
+		if (sysctl_sched_boost == CONSERVATIVE_BOOST &&
+				task_util(p) <=
+				sysctl_sched_min_task_util_for_boost_colocation)
+			boost_on_big = false;
+	}
+
+	return boost_on_big;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -2911,6 +2933,11 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool task_boost_on_big_eligible(struct task_struct *p)
 {
 	return false;
 }

@@ -53,12 +53,15 @@ struct dp_display_mode {
 	u32 capabilities;
 };
 
+struct dp_panel;
+
 struct dp_panel_in {
 	struct device *dev;
 	struct dp_aux *aux;
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
 	struct drm_connector *connector;
+	struct dp_panel *base_panel;
 };
 
 struct dp_audio;
@@ -87,6 +90,7 @@ struct dp_panel {
 
 	u32 channel_start_slot;
 	u32 channel_total_slots;
+	u32 pbn;
 
 	/* DRM connector assosiated with this panel */
 	struct drm_connector *connector;
@@ -115,7 +119,7 @@ struct dp_panel {
 
 	int (*set_stream_info)(struct dp_panel *dp_panel,
 			enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots);
+			u32 ch_tot_slots, u32 pbn);
 
 	int (*read_sink_status)(struct dp_panel *dp_panel, u8 *sts, u32 size);
 	int (*update_edid)(struct dp_panel *dp_panel, struct edid *edid);

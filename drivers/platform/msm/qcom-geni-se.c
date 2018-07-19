@@ -157,6 +157,38 @@ int get_se_proto(void __iomem *base)
 }
 EXPORT_SYMBOL(get_se_proto);
 
+/**
+ * get_se_m_fw() - Read the Firmware ver for the Main seqeuncer engine
+ * @base:	Base address of the serial engine's register block.
+ *
+ * Return:	Firmware version for the Main seqeuncer engine
+ */
+int get_se_m_fw(void __iomem *base)
+{
+	int fw_ver_m;
+
+	fw_ver_m = ((geni_read_reg(base, GENI_FW_REVISION_RO)
+			& FW_REV_VERSION_MSK));
+	return fw_ver_m;
+}
+EXPORT_SYMBOL(get_se_m_fw);
+
+/**
+ * get_se_s_fw() - Read the Firmware ver for the Secondry seqeuncer engine
+ * @base:	Base address of the serial engine's register block.
+ *
+ * Return:	Firmware version for the Secondry seqeuncer engine
+ */
+int get_se_s_fw(void __iomem *base)
+{
+	int fw_ver_s;
+
+	fw_ver_s = ((geni_read_reg(base, GENI_FW_S_REVISION_RO)
+			& FW_REV_VERSION_MSK));
+	return fw_ver_s;
+}
+EXPORT_SYMBOL(get_se_s_fw);
+
 static int se_geni_irq_en(void __iomem *base)
 {
 	unsigned int common_geni_m_irq_en;

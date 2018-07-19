@@ -59,6 +59,14 @@ $(obj)/xipImage: FORCE
 $(obj)/Image: vmlinux FORCE
 	$(call if_changed,objcopy)
 
+$(obj)/Image-dtb-hdr: $(obj)/Image FORCE
+	echo -n 'UNCOMPRESSED_IMG' > $@ && \
+	$(call size_append, $(filter-out FORCE,$^)) >> $@
+
+$(obj)/Image-dtb: $(obj)/Image-dtb-hdr $(obj)/Image $(DTB_OBJS) FORCE
+	$(call if_changed,cat)
+	@echo '  Kernel: $@ is ready'
+
 $(obj)/compressed/vmlinux: $(obj)/Image FORCE
 	$(Q)$(MAKE) $(build)=$(obj)/compressed $@
 

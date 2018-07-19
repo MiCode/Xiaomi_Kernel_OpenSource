@@ -19,6 +19,7 @@
 #include "sm8150-camera-sensor-mtp.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
 #include "smb1390.dtsi"
+#include "smb1355.dtsi"
 
 &qupv3_se12_2uart {
 	status = "ok";
@@ -228,10 +229,6 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
-&dsi_sharp_4k_dsc_cmd_display {
-	qcom,dsi-display-active;
-};
-
 &qupv3_se9_i2c {
 	status = "ok";
 	nq@28 {
@@ -296,6 +293,13 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	/* ESR fast calibration */
+	qcom,fg-esr-timer-chg-fast = <0 10>;
+	qcom,fg-esr-timer-dischg-fast = <0 10>;
+	qcom,fg-esr-timer-chg-slow = <0 96>;
+	qcom,fg-esr-timer-dischg-slow = <0 96>;
+	qcom,fg-esr-cal-soc-thresh = <26 230>;
+	qcom,fg-esr-cal-temp-thresh = <10 40>;
 };
 
 &sdhc_2 {
@@ -557,7 +561,7 @@
 };
 
 &pm8150b_charger {
-	qcom,sec-charger-config = <1>;
+	qcom,sec-charger-config = <3>;
 	qcom,auto-recharge-soc = <98>;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 		      <&pm8150b_vadc ADC_USB_IN_I>,
@@ -565,11 +569,14 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,step-charging-enable;
+	qcom,sw-jeita-enable;
 };
 
 &smb1390 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&smb1390_stat_default>;
+	pinctrl-0 = <&smb_stat_default>;
 	status = "ok";
 };
 
@@ -579,4 +586,14 @@
 
 &usb1 {
 	extcon = <&extcon_usb1>;
+};
+
+&smb1355 {
+	status = "ok";
+};
+
+&smb1355_charger {
+	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+	io-channel-names = "charger_temp";
+	status = "ok";
 };

@@ -39,7 +39,9 @@ struct property {
 	struct property *next;
 	unsigned long _flags;
 	unsigned int unique_id;
+#if defined(CONFIG_OF_KOBJ)
 	struct bin_attribute attr;
+#endif
 };
 
 #if defined(CONFIG_SPARC)
@@ -58,7 +60,9 @@ struct device_node {
 	struct	device_node *parent;
 	struct	device_node *child;
 	struct	device_node *sibling;
+#if defined(CONFIG_OF_KOBJ)
 	struct	kobject kobj;
+#endif
 	unsigned long _flags;
 	void	*data;
 #if defined(CONFIG_SPARC)
@@ -103,21 +107,17 @@ extern struct kobj_type of_node_ktype;
 extern const struct fwnode_operations of_fwnode_ops;
 static inline void of_node_init(struct device_node *node)
 {
+#if defined(CONFIG_OF_KOBJ)
 	kobject_init(&node->kobj, &of_node_ktype);
+#endif
 	node->fwnode.ops = &of_fwnode_ops;
 }
 
-/* true when node is initialized */
-static inline int of_node_is_initialized(struct device_node *node)
-{
-	return node && node->kobj.state_initialized;
-}
-
-/* true when node is attached (i.e. present on sysfs) */
-static inline int of_node_is_attached(struct device_node *node)
-{
-	return node && node->kobj.state_in_sysfs;
-}
+#if defined(CONFIG_OF_KOBJ)
+#define of_node_kobj(n) (&(n)->kobj)
+#else
+#define of_node_kobj(n) NULL
+#endif
 
 #ifdef CONFIG_OF_DYNAMIC
 extern struct device_node *of_node_get(struct device_node *node);

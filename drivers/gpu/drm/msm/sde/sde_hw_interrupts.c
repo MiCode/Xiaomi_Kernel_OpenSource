@@ -130,6 +130,8 @@
  */
 #define SDE_INTR_CWB_2_OVERFLOW BIT(14)
 #define SDE_INTR_CWB_3_OVERFLOW BIT(15)
+#define SDE_INTR_CWB_4_OVERFLOW BIT(20)
+#define SDE_INTR_CWB_5_OVERFLOW BIT(21)
 
 /**
  * Histogram VIG done interrupt status bit definitions
@@ -390,9 +392,10 @@ static const struct sde_irq_type sde_irq_map[] = {
 		SDE_INTR_PING_PONG_2_TEAR_DETECTED, 1},
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_3,
 		SDE_INTR_PING_PONG_3_TEAR_DETECTED, 1},
-	/* irq_idx: 53-55 */
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
+	/* irq_idx: 53-54 */
+	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_4, SDE_INTR_CWB_4_OVERFLOW, 1},
+	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_5, SDE_INTR_CWB_5_OVERFLOW, 1},
+	/* irq_idx: 55 */
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_TEAR_DETECTED, 1},
 	/* irq_idx: 56-59 */

@@ -48,6 +48,10 @@ extern struct bus_type mhi_bus_type;
 #define BHIOFF_BHIOFF_MASK (0xFFFFFFFF)
 #define BHIOFF_BHIOFF_SHIFT (0)
 
+#define BHIEOFF (0x2C)
+#define BHIEOFF_BHIEOFF_MASK (0xFFFFFFFF)
+#define BHIEOFF_BHIEOFF_SHIFT (0)
+
 #define DEBUGOFF (0x30)
 #define DEBUGOFF_DEBUGOFF_MASK (0xFFFFFFFF)
 #define DEBUGOFF_DEBUGOFF_SHIFT (0)
@@ -186,15 +190,14 @@ extern struct bus_type mhi_bus_type;
 #define BHI_STATUS_RESET (0)
 
 /* MHI BHIE offsets */
-#define BHIE_OFFSET (0x0124) /* BHIE register space offset from BHI base */
-#define BHIE_MSMSOCID_OFFS (BHIE_OFFSET + 0x0000)
-#define BHIE_TXVECADDR_LOW_OFFS (BHIE_OFFSET + 0x002C)
-#define BHIE_TXVECADDR_HIGH_OFFS (BHIE_OFFSET + 0x0030)
-#define BHIE_TXVECSIZE_OFFS (BHIE_OFFSET + 0x0034)
-#define BHIE_TXVECDB_OFFS (BHIE_OFFSET + 0x003C)
+#define BHIE_MSMSOCID_OFFS (0x0000)
+#define BHIE_TXVECADDR_LOW_OFFS (0x002C)
+#define BHIE_TXVECADDR_HIGH_OFFS (0x0030)
+#define BHIE_TXVECSIZE_OFFS (0x0034)
+#define BHIE_TXVECDB_OFFS (0x003C)
 #define BHIE_TXVECDB_SEQNUM_BMSK (0x3FFFFFFF)
 #define BHIE_TXVECDB_SEQNUM_SHFT (0)
-#define BHIE_TXVECSTATUS_OFFS (BHIE_OFFSET + 0x0044)
+#define BHIE_TXVECSTATUS_OFFS (0x0044)
 #define BHIE_TXVECSTATUS_SEQNUM_BMSK (0x3FFFFFFF)
 #define BHIE_TXVECSTATUS_SEQNUM_SHFT (0)
 #define BHIE_TXVECSTATUS_STATUS_BMSK (0xC0000000)
@@ -202,13 +205,13 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_TXVECSTATUS_STATUS_RESET (0x00)
 #define BHIE_TXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_TXVECSTATUS_STATUS_ERROR (0x03)
-#define BHIE_RXVECADDR_LOW_OFFS (BHIE_OFFSET + 0x0060)
-#define BHIE_RXVECADDR_HIGH_OFFS (BHIE_OFFSET + 0x0064)
-#define BHIE_RXVECSIZE_OFFS (BHIE_OFFSET + 0x0068)
-#define BHIE_RXVECDB_OFFS (BHIE_OFFSET + 0x0070)
+#define BHIE_RXVECADDR_LOW_OFFS (0x0060)
+#define BHIE_RXVECADDR_HIGH_OFFS (0x0064)
+#define BHIE_RXVECSIZE_OFFS (0x0068)
+#define BHIE_RXVECDB_OFFS (0x0070)
 #define BHIE_RXVECDB_SEQNUM_BMSK (0x3FFFFFFF)
 #define BHIE_RXVECDB_SEQNUM_SHFT (0)
-#define BHIE_RXVECSTATUS_OFFS (BHIE_OFFSET + 0x0078)
+#define BHIE_RXVECSTATUS_OFFS (0x0078)
 #define BHIE_RXVECSTATUS_SEQNUM_BMSK (0x3FFFFFFF)
 #define BHIE_RXVECSTATUS_SEQNUM_SHFT (0)
 #define BHIE_RXVECSTATUS_STATUS_BMSK (0xC0000000)
@@ -217,47 +220,47 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
 
-struct __packed mhi_event_ctxt {
+struct mhi_event_ctxt {
 	u32 reserved : 8;
 	u32 intmodc : 8;
 	u32 intmodt : 16;
 	u32 ertype;
 	u32 msivec;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_chan_ctxt {
+struct mhi_chan_ctxt {
 	u32 chstate : 8;
 	u32 brstmode : 2;
 	u32 pollcfg : 6;
 	u32 reserved : 16;
 	u32 chtype;
 	u32 erindex;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_cmd_ctxt {
+struct mhi_cmd_ctxt {
 	u32 reserved0;
 	u32 reserved1;
 	u32 reserved2;
-	u64 rbase;
-	u64 rlen;
-	u64 rp;
-	u64 wp;
+	u64 rbase __packed __aligned(4);
+	u64 rlen __packed __aligned(4);
+	u64 rp __packed __aligned(4);
+	u64 wp __packed __aligned(4);
 };
 
-struct __packed mhi_tre {
+struct mhi_tre {
 	u64 ptr;
 	u32 dword[2];
 };
 
-struct __packed bhi_vec_entry {
+struct bhi_vec_entry {
 	u64 dma_addr;
 	u64 size;
 };
@@ -623,7 +626,6 @@ struct mhi_timesync {
 struct mhi_bus {
 	struct list_head controller_list;
 	struct mutex lock;
-	struct dentry *dentry;
 };
 
 /* default MHI timeout */

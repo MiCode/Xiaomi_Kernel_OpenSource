@@ -67,6 +67,15 @@
 #define CORE_FTRIM_ILIM_REG		0x1030
 #define CFG_ILIM_MASK			GENMASK(4, 0)
 
+#define CORE_FTRIM_LVL_REG		0x1033
+#define CFG_WIN_HI_MASK			GENMASK(3, 2)
+#define WIN_OV_LVL_1000MV		0x08
+
+#define CORE_FTRIM_MISC_REG		0x1034
+#define TR_WIN_1P5X_BIT			BIT(0)
+#define WINDOW_DETECTION_DELTA_X1P0	0
+#define WINDOW_DETECTION_DELTA_X1P5	1
+
 #define CP_VOTER	"CP_VOTER"
 #define USER_VOTER	"USER_VOTER"
 #define ILIM_VOTER	"ILIM_VOTER"
@@ -550,11 +559,30 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 
 static int smb1390_init_hw(struct smb1390 *chip)
 {
+	int rc;
+
 	/*
 	 * charge pump is initially disabled; this indirectly votes to allow
 	 * traditional parallel charging if present
 	 */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+
+	/*
+	 * Improve ILIM accuracy:
+	 *  - Configure window (Vin - 2Vout) OV level to 1000mV
+	 *  - Configure VOUT tracking value to 1.0
+	 */
+	rc = smb1390_masked_write(chip, CORE_FTRIM_LVL_REG,
+			CFG_WIN_HI_MASK, WIN_OV_LVL_1000MV);
+	if (rc < 0)
+		return rc;
+
+	rc = smb1390_masked_write(chip, CORE_FTRIM_MISC_REG,
+			TR_WIN_1P5X_BIT, WINDOW_DETECTION_DELTA_X1P0);
+	if (rc < 0)
+		return rc;
+
+
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include <linux/pmic-voter.h>
 #include "step-chg-jeita.h"
 
-#define MAX_STEP_CHG_ENTRIES	8
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
 
@@ -29,12 +28,6 @@
 			&& (value) >= (right)) \
 		|| ((left) <= (right) && (left) <= (value) \
 			&& (value) <= (right)))
-
-struct range_data {
-	u32 low_threshold;
-	u32 high_threshold;
-	u32 value;
-};
 
 struct step_chg_cfg {
 	u32			psy_prop;
@@ -118,11 +111,16 @@ static bool is_bms_available(struct step_chg_info *chip)
 	return true;
 }
 
-static int read_range_data_from_node(struct device_node *node,
+int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
 		u32 max_threshold, u32 max_value)
 {
 	int rc = 0, i, length, per_tuple_length, tuples;
+
+	if (!node || !prop_str || !ranges) {
+		pr_err("Invalid parameters passed\n");
+		return -EINVAL;
+	}
 
 	rc = of_property_count_elems_of_size(node, prop_str, sizeof(u32));
 	if (rc < 0) {
@@ -184,6 +182,7 @@ clean:
 	memset(ranges, 0, tuples * sizeof(struct range_data));
 	return rc;
 }
+EXPORT_SYMBOL(read_range_data_from_node);
 
 static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 {
@@ -348,17 +347,46 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	int i;
 
 	*new_index = -EINVAL;
-	/* first find the matching index without hysteresis */
-	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
+
+	/*
+	 * If the threshold is lesser than the minimum allowed range,
+	 * return -ENODATA.
+	 */
+	if (threshold < range[0].low_threshold)
+		return -ENODATA;
+
+	/* First try to find the matching index without hysteresis */
+	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++) {
+		if (!range[i].high_threshold && !range[i].low_threshold) {
+			/* First invalid table entry; exit loop */
+			break;
+		}
+
 		if (is_between(range[i].low_threshold,
 			range[i].high_threshold, threshold)) {
 			*new_index = i;
 			*val = range[i].value;
+			break;
+		}
+	}
+
+	/*
+	 * If nothing was found, the threshold exceeds the max range for sure
+	 * as the other case where it is lesser than the min range is handled
+	 * at the very beginning of this function. Therefore, clip it to the
+	 * max allowed range value, which is the one corresponding to the last
+	 * valid entry in the battery profile data array.
+	 */
+	if (*new_index == -EINVAL) {
+		if (i == 0) {
+			/* Battery profile data array is completely invalid */
+			return -ENODATA;
 		}
 
-	/* if nothing was found, return -ENODATA */
-	if (*new_index == -EINVAL)
-		return -ENODATA;
+		*new_index = (i - 1);
+		*val = range[*new_index].value;
+	}
+
 	/*
 	 * If we don't have a current_index return this
 	 * newfound value. There is no hysterisis from out of range

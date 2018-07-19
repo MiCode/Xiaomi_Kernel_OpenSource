@@ -87,7 +87,7 @@
 		pms405_pon: qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
-			interrupts = <0x0 0x8 0x0>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>;
 			interrupt-names = "kpdpwr";
 			qcom,pon-dbc-delay = <15625>;
 
@@ -101,6 +101,19 @@
 		pms405_misc: qcom,misc@900 {
 			compatible = "qcom,qpnp-misc";
 			reg = <0x900 0x100>;
+		};
+
+		pms405_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pms405_div_clk1";
+			clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
+			clock-names = "xo";
+
+			assigned-clocks = <&pms405_clkdiv 1>;
+			assigned-clock-rates = <9600000>;
 		};
 
 		/* QCS405 + PMS405 GPIO configuration */

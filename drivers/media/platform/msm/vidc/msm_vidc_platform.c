@@ -196,7 +196,12 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 4147200,	/* 4096x2160/256 MBs@120fps */
+		.value = 3916800,       /*
+					 * 1920x1088/256 MBs@480fps. It is less
+					 * any other usecases (ex:
+					 * 3840x2160@120fps, 4096x2160@96ps,
+					 * 7680x4320@30fps)
+					 */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
@@ -232,6 +237,10 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 	},
 	{
 		.key = "qcom,decode-batching",
+		.value = 1,
+	},
+	{
+		.key = "qcom,dcvs",
 		.value = 1,
 	},
 };
@@ -289,6 +298,10 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 		.key = "qcom,debug-timeout",
 		.value = 0,
 	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
 };
 
 static struct msm_vidc_common_data sdm670_common_data_v0[] = {
@@ -336,6 +349,10 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 		.key = "qcom,hw-resp-timeout",
 		.value = 250,
 	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
 };
 
 static struct msm_vidc_common_data sdm670_common_data_v1[] = {
@@ -382,6 +399,10 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 	{
 		.key = "qcom,hw-resp-timeout",
 		.value = 250,
+	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
 	},
 };
 

@@ -373,6 +373,15 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &one,
 	},
+	{
+		.procname	= "sched_min_task_util_for_boost_colocation",
+		.data		= &sysctl_sched_min_task_util_for_boost_colocation,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one_thousand,
+	},
 #endif
 	{
 		.procname	= "sched_upmigrate",
@@ -380,6 +389,8 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0644,
 		.proc_handler	= sched_updown_migrate_handler,
+		.extra1		= &one,
+		.extra2		= &sysctl_sched_capacity_margin_down,
 	},
 	{
 		.procname	= "sched_downmigrate",
@@ -387,6 +398,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0644,
 		.proc_handler	= sched_updown_migrate_handler,
+		.extra1		= &sysctl_sched_capacity_margin_up,
 	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
@@ -1477,6 +1489,15 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
 		.extra2		= &one_hundred,
+	},
+	{
+		.procname       = "want_old_faultaround_pte",
+		.data           = &want_old_faultaround_pte,
+		.maxlen         = sizeof(want_old_faultaround_pte),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1         = &zero,
+		.extra2         = &one,
 	},
 #ifdef CONFIG_HUGETLB_PAGE
 	{
@@ -3249,10 +3270,20 @@ int proc_do_large_bitmap(struct ctl_table *table, int write,
 static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 					   int *valp, int write, void *data)
 {
+	struct do_proc_douintvec_minmax_conv_param *param = data;
+
 	if (write) {
+		int val;
+
 		if (*negp)
 			return -EINVAL;
-		*valp = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
+
+		val = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
+		if ((param->min && *param->min > val) ||
+		    (param->max && *param->max < val))
+			return -ERANGE;
+
+		*valp = val;
 	} else {
 		*negp = false;
 		*lvalp = SCHED_FIXEDPOINT_SCALE * 100 / *valp;
@@ -3275,8 +3306,13 @@ static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 int proc_douintvec_capacity(struct ctl_table *table, int write,
 			    void __user *buffer, size_t *lenp, loff_t *ppos)
 {
+	struct do_proc_douintvec_minmax_conv_param param = {
+		.min = (unsigned int *) table->extra1,
+		.max = (unsigned int *) table->extra2,
+	};
+
 	return do_proc_dointvec(table, write, buffer, lenp, ppos,
-				do_proc_douintvec_capacity_conv, NULL);
+				do_proc_douintvec_capacity_conv, &param);
 }
 
 #else /* CONFIG_PROC_SYSCTL */

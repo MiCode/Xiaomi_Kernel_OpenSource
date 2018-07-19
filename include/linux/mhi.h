@@ -64,10 +64,12 @@ enum MHI_FLAGS {
  * enum mhi_device_type - Device types
  * @MHI_XFER_TYPE: Handles data transfer
  * @MHI_TIMESYNC_TYPE: Use for timesync feature
+ * @MHI_CONTROLLER_TYPE: Control device
  */
 enum mhi_device_type {
 	MHI_XFER_TYPE,
 	MHI_TIMESYNC_TYPE,
+	MHI_CONTROLLER_TYPE,
 };
 
 /**
@@ -87,6 +89,7 @@ struct image_info {
  * @of_node: DT that has MHI configuration information
  * @regs: Points to base of MHI MMIO register space
  * @bhi: Points to base of MHI BHI register space
+ * @bhie: Points to base of MHI BHIe register space
  * @wake_db: MHI WAKE doorbell register address
  * @dev_id: PCIe device id of the external device
  * @domain: PCIe domain the device connected to
@@ -129,6 +132,7 @@ struct image_info {
  */
 struct mhi_controller {
 	struct list_head node;
+	struct mhi_device *mhi_dev;
 
 	/* device node for iommu ops */
 	struct device *dev;
@@ -137,6 +141,7 @@ struct mhi_controller {
 	/* mmio base */
 	void __iomem *regs;
 	void __iomem *bhi;
+	void __iomem *bhie;
 	void __iomem *wake_db;
 
 	/* device topology */

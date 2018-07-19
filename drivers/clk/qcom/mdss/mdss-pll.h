@@ -12,7 +12,7 @@
 
 #ifndef __MDSS_PLL_H
 #define __MDSS_PLL_H
-#include <linux/sde_io_util.h>
+
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -22,6 +22,11 @@
 #include "../clk-regmap-divider.h"
 #include "../clk-regmap-mux.h"
 
+#if defined(CONFIG_DRM)
+#include <linux/sde_io_util.h>
+#else
+#include <linux/mdss_io_util.h>
+#endif
 
 #define MDSS_PLL_REG_W(base, offset, data)	\
 				writel_relaxed((data), (base) + (offset))
@@ -40,6 +45,7 @@ enum {
 	MDSS_DP_PLL_10NM,
 	MDSS_DSI_PLL_7NM,
 	MDSS_DP_PLL_7NM,
+	MDSS_DSI_PLL_28LPM,
 	MDSS_UNKNOWN_PLL,
 };
 
@@ -102,6 +108,10 @@ struct mdss_pll_resources {
 	u32		cached_cfg0;
 	u32		cached_cfg1;
 	u32		cached_outdiv;
+
+	u32		cached_postdiv1;
+	u32		cached_postdiv3;
+	u32		cached_vreg_cfg;
 
 	/* dsi/edp/hmdi pll interface type */
 	u32		pll_interface_type;

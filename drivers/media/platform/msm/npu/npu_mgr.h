@@ -73,6 +73,7 @@ struct npu_host_ctx {
 	struct completion exec_done;
 	struct completion load_done;
 	struct completion unload_done;
+	struct completion loopback_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
@@ -111,6 +112,7 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 	struct msm_npu_unload_network_ioctl *unload);
 int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	struct msm_npu_exec_network_ioctl *exec_ioctl);
+int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 void npu_dump_cal_state(struct npu_device *npu_dev);

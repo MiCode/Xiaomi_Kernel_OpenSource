@@ -23,6 +23,7 @@ Required properties :
 			"qcom,gcc-sdmshrike"
 			"qcom,gcc-qcs405"
 			"qcom,gcc-mdss-qcs405"
+			"qcom,gcc-sm6150"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

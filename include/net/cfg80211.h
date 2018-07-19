@@ -26,6 +26,11 @@
 
 /* Indicate backport support for processing user cell base hint */
 #define CFG80211_USER_HINT_CELL_BASE_SELF_MANAGED 1
+/* Backport support for DFS offload */
+#define CFG80211_DFS_OFFLOAD_BACKPORT 1
+
+/* Indicate backport support for external authentication*/
+#define CFG80211_EXTERNAL_AUTH_SUPPORT 1
 
 /**
  * DOC: Introduction
@@ -1778,6 +1783,8 @@ enum cfg80211_signal_type {
  *	by %parent_bssid.
  * @parent_bssid: the BSS according to which %parent_tsf is set. This is set to
  *	the BSS that requested the scan in which the beacon/probe was received.
+ * @chains: bitmask for filled values in @chain_signal.
+ * @chain_signal: per-chain signal strength of last received BSS in dBm.
  */
 struct cfg80211_inform_bss {
 	struct ieee80211_channel *chan;
@@ -1786,6 +1793,8 @@ struct cfg80211_inform_bss {
 	u64 boottime_ns;
 	u64 parent_tsf;
 	u8 parent_bssid[ETH_ALEN] __aligned(2);
+	u8 chains;
+	s8 chain_signal[IEEE80211_MAX_CHAINS];
 };
 
 /**
@@ -1829,6 +1838,8 @@ struct cfg80211_bss_ies {
  *	that holds the beacon data. @beacon_ies is still valid, of course, and
  *	points to the same data as hidden_beacon_bss->beacon_ies in that case.
  * @signal: signal strength value (type depends on the wiphy's signal_type)
+ * @chains: bitmask for filled values in @chain_signal.
+ * @chain_signal: per-chain signal strength of last received BSS in dBm.
  * @priv: private area for driver use, has at least wiphy->bss_priv_size bytes
  */
 struct cfg80211_bss {
@@ -1847,6 +1858,8 @@ struct cfg80211_bss {
 	u16 capability;
 
 	u8 bssid[ETH_ALEN];
+	u8 chains;
+	s8 chain_signal[IEEE80211_MAX_CHAINS];
 
 	u8 priv[0] __aligned(sizeof(void *));
 };
@@ -1900,11 +1913,16 @@ struct cfg80211_auth_request {
  * @ASSOC_REQ_DISABLE_HT:  Disable HT (802.11n)
  * @ASSOC_REQ_DISABLE_VHT:  Disable VHT
  * @ASSOC_REQ_USE_RRM: Declare RRM capability in this association
+ * @CONNECT_REQ_EXTERNAL_AUTH_SUPPORT: User space indicates external
+ *	authentication capability. Drivers can offload authentication to
+ *	userspace if this flag is set. Only applicable for cfg80211_connect()
+ *	request (connect callback).
  */
 enum cfg80211_assoc_req_flags {
-	ASSOC_REQ_DISABLE_HT		= BIT(0),
-	ASSOC_REQ_DISABLE_VHT		= BIT(1),
-	ASSOC_REQ_USE_RRM		= BIT(2),
+	ASSOC_REQ_DISABLE_HT			= BIT(0),
+	ASSOC_REQ_DISABLE_VHT			= BIT(1),
+	ASSOC_REQ_USE_RRM			= BIT(2),
+	CONNECT_REQ_EXTERNAL_AUTH_SUPPORT	= BIT(3),
 };
 
 /**
@@ -2591,6 +2609,33 @@ struct cfg80211_pmk_conf {
 };
 
 /**
+ * struct cfg80211_external_auth_params - Trigger External authentication.
+ *
+ * Commonly used across the external auth request and event interfaces.
+ *
+ * @action: action type / trigger for external authentication. Only significant
+ *	for the authentication request event interface (driver to user space).
+ * @bssid: BSSID of the peer with which the authentication has
+ *	to happen. Used by both the authentication request event and
+ *	authentication response command interface.
+ * @ssid: SSID of the AP.  Used by both the authentication request event and
+ *	authentication response command interface.
+ * @key_mgmt_suite: AKM suite of the respective authentication. Used by the
+ *	authentication request event interface.
+ * @status: status code, %WLAN_STATUS_SUCCESS for successful authentication,
+ *	use %WLAN_STATUS_UNSPECIFIED_FAILURE if user space cannot give you
+ *	the real status code for failures. Used only for the authentication
+ *	response command interface (user space to driver).
+ */
+struct cfg80211_external_auth_params {
+	enum nl80211_external_auth_action action;
+	u8 bssid[ETH_ALEN] __aligned(2);
+	struct cfg80211_ssid ssid;
+	unsigned int key_mgmt_suite;
+	u16 status;
+};
+
+/**
  * struct cfg80211_ops - backend description for wireless configuration
  *
  * This struct is registered by fullmac card drivers and/or wireless stacks
@@ -2913,6 +2958,9 @@ struct cfg80211_pmk_conf {
  *	(invoked with the wireless_dev mutex held)
  * @del_pmk: delete the previously configured PMK for the given authenticator.
  *	(invoked with the wireless_dev mutex held)
+ *
+ * @external_auth: indicates result of offloaded authentication processing from
+ *     user space
  */
 struct cfg80211_ops {
 	int	(*suspend)(struct wiphy *wiphy, struct cfg80211_wowlan *wow);
@@ -3206,6 +3254,8 @@ struct cfg80211_ops {
 			   const struct cfg80211_pmk_conf *conf);
 	int	(*del_pmk)(struct wiphy *wiphy, struct net_device *dev,
 			   const u8 *aa);
+	int     (*external_auth)(struct wiphy *wiphy, struct net_device *dev,
+				 struct cfg80211_external_auth_params *params);
 };
 
 /*
@@ -3254,7 +3304,6 @@ struct cfg80211_ops {
  *	beaconing mode (AP, IBSS, Mesh, ...).
  * @WIPHY_FLAG_HAS_STATIC_WEP: The device supports static WEP key installation
  *	before connection.
- * @WIPHY_FLAG_DFS_OFFLOAD: The driver handles all the DFS related operations.
  */
 enum wiphy_flags {
 	/* use hole at 0 */
@@ -3281,7 +3330,6 @@ enum wiphy_flags {
 	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
 	WIPHY_FLAG_HAS_STATIC_WEP		= BIT(24),
-	WIPHY_FLAG_DFS_OFFLOAD                  = BIT(25)
 };
 
 /**
@@ -6235,6 +6283,17 @@ void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
  * a proxy service.
  */
 bool cfg80211_is_gratuitous_arp_unsolicited_na(struct sk_buff *skb);
+
+/**
+ * cfg80211_external_auth_request - userspace request for authentication
+ * @netdev: network device
+ * @params: External authentication parameters
+ * @gfp: allocation flags
+ * Returns: 0 on success, < 0 on error
+ */
+int cfg80211_external_auth_request(struct net_device *netdev,
+				   struct cfg80211_external_auth_params *params,
+				   gfp_t gfp);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 

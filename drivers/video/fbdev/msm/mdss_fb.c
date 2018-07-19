@@ -1329,7 +1329,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (!lcd_backlight_registered) {
 		backlight_led.brightness = mfd->panel_info->brightness_max;
 		backlight_led.max_brightness = mfd->panel_info->brightness_max;
-		lcd_backlight_registered = 1;
+		if (led_classdev_register(&pdev->dev, &backlight_led))
+			pr_err("led_classdev_register failed\n");
+		else
+			lcd_backlight_registered = 1;
 	}
 
 	mdss_fb_init_panel_modes(mfd, pdata);
@@ -1426,6 +1429,7 @@ static int mdss_fb_remove(struct platform_device *pdev)
 
 	if (lcd_backlight_registered) {
 		lcd_backlight_registered = 0;
+		led_classdev_unregister(&backlight_led);
 	}
 
 	return 0;
@@ -2136,7 +2140,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc = 0, fd = 0;
+	int rc = 0;
 	void *vaddr;
 	int domain;
 

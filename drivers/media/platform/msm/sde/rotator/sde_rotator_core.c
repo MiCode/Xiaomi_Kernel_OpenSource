@@ -418,9 +418,6 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			if (ret)
 				goto error_rot_sub;
 
-			/* reinitialize static vbif setting */
-			sde_mdp_init_vbif();
-
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
 				mgr->data_bus.bus_hdl, false,
@@ -587,17 +584,21 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 static int sde_rotator_secure_session_ctrl(bool enable)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-	uint32_t sid_info;
+	uint32_t *sid_info = NULL;
 	struct scm_desc desc = {0};
 	unsigned int resp = 0;
 	int ret = 0;
 
-	if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
-		mdata->sde_caps_map)) {
-		sid_info = mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].sid;
+	if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU, mdata->sde_caps_map)) {
+
+		sid_info = kzalloc(sizeof(uint32_t), GFP_KERNEL);
+		if (!sid_info)
+			return -ENOMEM;
+
+		sid_info[0] = mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].sid;
 		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 		desc.args[0] = SDE_ROTATOR_DEVICE;
-		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
+		desc.args[1] = SCM_BUFFER_PHYS(sid_info);
 		desc.args[2] = sizeof(uint32_t);
 
 		if (!mdata->sec_cam_en && enable) {
@@ -611,7 +612,7 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 			mdata->sec_cam_en = 1;
 			sde_smmu_secure_ctrl(0);
 
-			dmac_flush_range(&sid_info, &sid_info + 1);
+			dmac_flush_range(sid_info, sid_info + 1);
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 					MEM_PROTECT_SD_CTRL_SWITCH), &desc);
 			resp = desc.ret[0];
@@ -621,14 +622,16 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 				/* failure, attach smmu */
 				mdata->sec_cam_en = 0;
 				sde_smmu_secure_ctrl(1);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			SDEROT_DBG(
 			  "scm(1) sid0x%x dev0x%llx vmid0x%llx ret%d resp%x\n",
-				sid_info, desc.args[0], desc.args[3],
+				sid_info[0], desc.args[0], desc.args[3],
 				ret, resp);
-			SDEROT_EVTLOG(1, sid_info, desc.args[0], desc.args[3],
+			SDEROT_EVTLOG(1, sid_info, sid_info[0],
+					desc.args[0], desc.args[3],
 					ret, resp);
 		} else if (mdata->sec_cam_en && !enable) {
 			/*
@@ -639,25 +642,30 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 			desc.args[3] = VMID_CP_PIXEL;
 			mdata->sec_cam_en = 0;
 
-			dmac_flush_range(&sid_info, &sid_info + 1);
+			dmac_flush_range(sid_info, sid_info + 1);
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				MEM_PROTECT_SD_CTRL_SWITCH), &desc);
 			resp = desc.ret[0];
 
 			SDEROT_DBG(
 			  "scm(0) sid0x%x dev0x%llx vmid0x%llx ret%d resp%d\n",
-				sid_info, desc.args[0], desc.args[3],
+				sid_info[0], desc.args[0], desc.args[3],
 				ret, resp);
 
 			/* force smmu to reattach */
 			sde_smmu_secure_ctrl(1);
 
-			SDEROT_EVTLOG(0, sid_info, desc.args[0], desc.args[3],
+			SDEROT_EVTLOG(0, sid_info, sid_info[0],
+					desc.args[0], desc.args[3],
 					ret, resp);
 		}
 	} else {
 		return 0;
 	}
+
+end:
+	kfree(sid_info);
+
 	if (ret)
 		return ret;
 
@@ -3342,6 +3350,7 @@ int sde_rotator_pm_resume(struct device *dev)
 	 */
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
+	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 
 	sde_rot_mgr_lock(mgr);

@@ -14,12 +14,15 @@
 #include <soc/qcom/qmi_rmnet.h>
 #include <soc/qcom/rmnet_qmi.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/rtnetlink.h>
 #include <uapi/linux/rtnetlink.h>
 #include "qmi_rmnet_i.h"
+#include <trace/events/dfc.h>
 
-#define MODEM_0_INSTANCE 0
-#define MODEM_0 0
-#define MODEM_1 1
+#define NLMSG_FLOW_ACTIVATE 1
+#define NLMSG_FLOW_DEACTIVATE 2
+#define NLMSG_CLIENT_SETUP 4
+#define NLMSG_CLIENT_DELETE 5
 
 struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 	{
@@ -35,7 +38,7 @@ struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
-		.elem_size	= sizeof(uint32_t),
+		.elem_size	= sizeof(u32),
 		.is_array	= NO_ARRAY,
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct data_ep_id_type_v01,
@@ -54,19 +57,41 @@ struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 };
 EXPORT_SYMBOL(data_ep_id_type_v01_ei);
 
-static void *qmi_rmnet_qmi_init(void)
+static struct qmi_info *qmi_rmnet_qmi_init(void)
 {
 	struct qmi_info *qmi_info;
+	int i;
 
 	qmi_info = kzalloc(sizeof(*qmi_info), GFP_KERNEL);
 	if (!qmi_info)
 		return NULL;
 
-	return (void *)qmi_info;
+	for (i = 0; i < MAX_CLIENT_NUM; i++)
+		qmi_info->fc_info[i].dfc_client = NULL;
+
+	return qmi_info;
+}
+
+static void qmi_rmnet_clean_flow_list(struct qos_info *qos)
+{
+	struct rmnet_bearer_map *bearer, *br_tmp;
+	struct rmnet_flow_map *itm, *fl_tmp;
+
+	ASSERT_RTNL();
+
+	list_for_each_entry_safe(itm, fl_tmp, &qos->flow_head, list) {
+		list_del(&itm->list);
+		kfree(itm);
+	}
+
+	list_for_each_entry_safe(bearer, br_tmp, &qos->bearer_head, list) {
+		list_del(&bearer->list);
+		kfree(bearer);
+	}
 }
 
 struct rmnet_flow_map *
-qmi_rmnet_get_flow_map(struct qos_info *qos, uint32_t flow_id, int ip_type)
+qmi_rmnet_get_flow_map(struct qos_info *qos, u32 flow_id, int ip_type)
 {
 	struct rmnet_flow_map *itm;
 
@@ -74,9 +99,6 @@ qmi_rmnet_get_flow_map(struct qos_info *qos, uint32_t flow_id, int ip_type)
 		return NULL;
 
 	list_for_each_entry(itm, &qos->flow_head, list) {
-		if (unlikely(!itm))
-			return NULL;
-
 		if ((itm->flow_id == flow_id) && (itm->ip_type == ip_type))
 			return itm;
 	}
@@ -92,9 +114,6 @@ qmi_rmnet_get_bearer_map(struct qos_info *qos, uint8_t bearer_id)
 		return NULL;
 
 	list_for_each_entry(itm, &qos->bearer_head, list) {
-		if (unlikely(!itm))
-			return NULL;
-
 		if (itm->bearer_id == bearer_id)
 			return itm;
 	}
@@ -110,84 +129,94 @@ static void qmi_rmnet_update_flow_map(struct rmnet_flow_map *itm,
 	itm->tcm_handle = new_map->tcm_handle;
 }
 
-static int qmi_rmnet_add_flow(struct net_device *dev, struct qmi_info *qmi,
-			      struct rmnet_flow_map *new_map)
+static int qmi_rmnet_add_flow(struct net_device *dev, struct tcmsg *tcm)
 {
 	struct qos_info *qos_info = (struct qos_info *)rmnet_get_qos_pt(dev);
-	struct rmnet_flow_map *itm;
+	struct rmnet_flow_map new_map, *itm;
 	struct rmnet_bearer_map *bearer;
-	unsigned long flags;
 
 	if (!qos_info)
 		return -EINVAL;
 
-	pr_debug("%s() bearer[%u], flow[%u], ip[%u]\n", __func__,
-		new_map->bearer_id, new_map->flow_id, new_map->ip_type);
+	ASSERT_RTNL();
 
-	write_lock_irqsave(&qos_info->flow_map_lock, flags);
-	itm = qmi_rmnet_get_flow_map(qos_info, new_map->flow_id,
-				     new_map->ip_type);
+	/* flow activate
+	 * tcm->tcm__pad1 - bearer_id, tcm->tcm_parent - flow_id,
+	 * tcm->tcm_ifindex - ip_type, tcm->tcm_handle - tcm_handle
+	 */
+
+	new_map.bearer_id = tcm->tcm__pad1;
+	new_map.flow_id = tcm->tcm_parent;
+	new_map.ip_type = tcm->tcm_ifindex;
+	new_map.tcm_handle = tcm->tcm_handle;
+	trace_dfc_flow_info(new_map.bearer_id, new_map.flow_id,
+			    new_map.ip_type, new_map.tcm_handle, 1);
+
+	itm = qmi_rmnet_get_flow_map(qos_info, new_map.flow_id,
+				     new_map.ip_type);
 	if (itm) {
-		qmi_rmnet_update_flow_map(itm, new_map);
+		qmi_rmnet_update_flow_map(itm, &new_map);
 	} else {
-		write_unlock_irqrestore(&qos_info->flow_map_lock, flags);
 		itm = kzalloc(sizeof(*itm), GFP_KERNEL);
 		if (!itm)
 			return -ENOMEM;
 
-		qmi_rmnet_update_flow_map(itm, new_map);
-		write_lock_irqsave(&qos_info->flow_map_lock, flags);
+		qmi_rmnet_update_flow_map(itm, &new_map);
 		list_add(&itm->list, &qos_info->flow_head);
 	}
 
-	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map->bearer_id);
+	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
 	if (bearer) {
 		bearer->flow_ref++;
 	} else {
-		write_unlock_irqrestore(&qos_info->flow_map_lock, flags);
 		bearer = kzalloc(sizeof(*bearer), GFP_KERNEL);
 		if (!bearer)
 			return -ENOMEM;
 
-		bearer->bearer_id = new_map->bearer_id;
+		bearer->bearer_id = new_map.bearer_id;
 		bearer->flow_ref = 1;
 		bearer->grant_size = qos_info->default_grant;
-		write_lock_irqsave(&qos_info->flow_map_lock, flags);
 		list_add(&bearer->list, &qos_info->bearer_head);
 	}
-	write_unlock_irqrestore(&qos_info->flow_map_lock, flags);
+
 	return 0;
 }
 
 static int
-qmi_rmnet_del_flow(struct net_device *dev, struct rmnet_flow_map *new_map)
+qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm)
 {
 	struct qos_info *qos_info = (struct qos_info *)rmnet_get_qos_pt(dev);
-	struct rmnet_flow_map *itm;
+	struct rmnet_flow_map new_map, *itm;
 	struct rmnet_bearer_map *bearer;
-	unsigned long flags;
 	int bearer_removed = 0;
 
-	if (!qos_info) {
-		pr_err("%s() NULL qos info\n", __func__);
+	if (!qos_info)
 		return -EINVAL;
-	}
-	pr_debug("%s() bearer[%u], flow[%u], ip[%u]\n", __func__,
-		new_map->bearer_id, new_map->flow_id, new_map->ip_type);
 
-	write_lock_irqsave(&qos_info->flow_map_lock, flags);
-	itm = qmi_rmnet_get_flow_map(qos_info, new_map->flow_id,
-				     new_map->ip_type);
-	if (itm)
+	ASSERT_RTNL();
+
+	/* flow deactivate
+	 * tcm->tcm__pad1 - bearer_id, tcm->tcm_parent - flow_id,
+	 * tcm->tcm_ifindex - ip_type
+	 */
+
+	new_map.bearer_id = tcm->tcm__pad1;
+	new_map.flow_id = tcm->tcm_parent;
+	new_map.ip_type = tcm->tcm_ifindex;
+	itm = qmi_rmnet_get_flow_map(qos_info, new_map.flow_id,
+				     new_map.ip_type);
+	if (itm) {
+		trace_dfc_flow_info(new_map.bearer_id, new_map.flow_id,
+				    new_map.ip_type, itm->tcm_handle, 0);
 		list_del(&itm->list);
+	}
 
 	/*clear bearer map*/
-	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map->bearer_id);
+	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
 	if (bearer && --bearer->flow_ref == 0) {
 		list_del(&bearer->list);
 		bearer_removed = 1;
 	}
-	write_unlock_irqrestore(&qos_info->flow_map_lock, flags);
 
 	kfree(itm);
 	if (bearer_removed)
@@ -239,111 +268,110 @@ out:
 EXPORT_SYMBOL(qmi_rmnet_reg_dereg_fc_ind);
 #endif
 
-void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
+static int
+qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
-	struct tcmsg *tcm = (struct tcmsg *)tcm_pt;
-	struct qmi_info *qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
-	struct rmnet_flow_map new_map;
 	int idx;
 
-	if (!dev || !port || !tcm_pt)
-		return;
+	ASSERT_RTNL();
+
+	/* client setup
+	 * tcm->tcm_handle - instance, tcm->tcm_info - ep_type,
+	 * tcm->tcm_parent - iface_id, tcm->tcm_ifindex - flags
+	 */
+	idx = (tcm->tcm_handle == 0) ? 0 : 1;
+
+	if (!qmi) {
+		qmi = qmi_rmnet_qmi_init();
+		if (!qmi)
+			return -ENOMEM;
+
+		rmnet_init_qmi_pt(port, qmi);
+	}
+
+	if (!qmi->fc_info[idx].dfc_client) {
+		qmi->client_count++;
+
+		/* we may receive multiple client setup events if userspace
+		 * creates a new dfc client.
+		 */
+		qmi->flag = tcm->tcm_ifindex;
+
+		qmi->fc_info[idx].svc.instance = tcm->tcm_handle;
+		qmi->fc_info[idx].svc.ep_type = tcm->tcm_info;
+		qmi->fc_info[idx].svc.iface_id = tcm->tcm_parent;
+
+		return dfc_qmi_client_init(port, idx, qmi);
+	}
+
+	return 0;
+}
+
+static int
+__qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
+{
+
+	ASSERT_RTNL();
+
+	/* dfc_client can be deleted by service request before
+	 * client delete event arrival. Decrease client_count here always
+	 */
+
+	if (qmi->fc_info[idx].dfc_client) {
+		qmi->client_count--;
+		dfc_qmi_client_exit(qmi->fc_info[idx].dfc_client);
+		qmi->fc_info[idx].dfc_client = NULL;
+
+		if (qmi->client_count == 0) {
+			rmnet_reset_qmi_pt(port);
+			kfree(qmi);
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+static void
+qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
+{
+	int idx;
+
+	/* client delete: tcm->tcm_handle - instance*/
+	idx = (tcm->tcm_handle == 0) ? 0 : 1;
+
+	__qmi_rmnet_delete_client(port, qmi, idx);
+}
+
+void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
+{
+	struct qmi_info *qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
+	struct tcmsg *tcm = (struct tcmsg *)tcm_pt;
 
 	switch (tcm->tcm_family) {
-	case 1:
-		/*
-		 * flow activate
-		 * tcm->tcm__pad1 - bearer_id, tcm->tcm_parent - flow_id,
-		 * tcm->tcm_ifindex - ip_type, tcm->tcm_handle - tcm_handle
-		 */
+	case NLMSG_FLOW_ACTIVATE:
+		if (!qmi || !(qmi->flag & 0x01))
+			return;
+
+		qmi_rmnet_add_flow(dev, tcm);
+		break;
+	case NLMSG_FLOW_DEACTIVATE:
+		if (!qmi || !(qmi->flag & 0x01))
+			return;
+
+		qmi_rmnet_del_flow(dev, tcm);
+		break;
+	case NLMSG_CLIENT_SETUP:
+		if (!(tcm->tcm_ifindex & 0x01))
+			return;
+
+		qmi_rmnet_setup_client(port, qmi, tcm);
+		break;
+	case NLMSG_CLIENT_DELETE:
 		if (!qmi)
 			return;
 
-		new_map.bearer_id = tcm->tcm__pad1;
-		new_map.flow_id = tcm->tcm_parent;
-		new_map.ip_type = tcm->tcm_ifindex;
-		new_map.tcm_handle = tcm->tcm_handle;
-		qmi_rmnet_add_flow(dev, qmi, &new_map);
-		break;
-	case 2:
-		/*
-		 * flow deactivate
-		 * tcm->tcm__pad1 - bearer_id, tcm->tcm_parent - flow_id,
-		 * tcm->tcm_ifindex - ip_type
-		 */
-		if (!qmi)
-			return;
-
-		new_map.bearer_id = tcm->tcm__pad1;
-		new_map.flow_id = tcm->tcm_parent;
-		new_map.ip_type = tcm->tcm_ifindex;
-		qmi_rmnet_del_flow(dev, &new_map);
-		break;
-	case 4:
-		/*
-		 * modem up
-		 * tcm->tcm_handle - instance, tcm->tcm_info - ep_type,
-		 * tcm->tcm_parent - iface_id, tcm->tcm_ifindex - flags
-		 */
-		pr_debug("%s() instance[%u], ep_type[%u], iface[%u]\n",
-			__func__, tcm->tcm_handle, tcm->tcm_info,
-			tcm->tcm_parent);
-
-		if (tcm->tcm_ifindex != 1)
-			return;
-
-		if (tcm->tcm_handle == MODEM_0_INSTANCE)
-			idx = MODEM_0;
-		else
-			idx = MODEM_1;
-
-		if (!qmi) {
-			qmi = (struct qmi_info *)qmi_rmnet_qmi_init();
-			if (!qmi)
-				return;
-			qmi->modem_count = 1;
-			rmnet_init_qmi_pt(port, qmi);
-		} else if (!qmi->fc_info[idx].dfc_client) {
-			/*
-			 * dfc_client is per modem, we may receive multiple
-			 * modem up events due to netmagrd restarts so only
-			 * increase modem_count when we need to create a new
-			 * dfc client.
-			 */
-			qmi->modem_count++;
-		}
-		if (qmi->fc_info[idx].dfc_client == NULL) {
-			qmi->fc_info[idx].svc.instance = tcm->tcm_handle;
-			qmi->fc_info[idx].svc.ep_type = tcm->tcm_info;
-			qmi->fc_info[idx].svc.iface_id = tcm->tcm_parent;
-			if (dfc_qmi_client_init(port, idx) < 0)
-				pr_err("%s failed[%d]\n", __func__, idx);
-		}
-		break;
-	case 5:
-		/* modem down: tcm->tcm_handle - instance*/
-		pr_debug("%s() instance[%u]\n", __func__, tcm->tcm_handle);
-		if (!qmi)
-			return;
-
-		if (tcm->tcm_handle == MODEM_0_INSTANCE)
-			idx = MODEM_0;
-		else
-			idx = MODEM_1;
-
-		/*
-		 * dfc_client can be deleted by service request before
-		 * modem down event arrival. Decrease modem_count here always
-		 */
-		qmi->modem_count--;
-		if (qmi->fc_info[idx].dfc_client) {
-			dfc_qmi_client_exit(qmi->fc_info[idx].dfc_client);
-			qmi->fc_info[idx].dfc_client = NULL;
-		}
-		if (qmi->modem_count == 0) {
-			kfree(qmi);
-			rmnet_reset_qmi_pt(port);
-		}
+		qmi_rmnet_delete_client(port, qmi, tcm);
 		break;
 	default:
 		pr_debug("%s(): No handler\n", __func__);
@@ -352,23 +380,22 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 }
 EXPORT_SYMBOL(qmi_rmnet_change_link);
 
-void *qmi_rmnet_qos_init(struct net_device *real_dev, uint8_t mux_id)
+void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
 {
-	struct qos_info *qos_info;
+	struct qos_info *qos;
 
-	qos_info = kmalloc(sizeof(struct qos_info), GFP_KERNEL);
-	if (!qos_info)
+	qos = kmalloc(sizeof(*qos), GFP_KERNEL);
+	if (!qos)
 		return NULL;
 
-	qos_info->mux_id = mux_id;
-	qos_info->real_dev = real_dev;
-	qos_info->default_grant = 10240;
-	qos_info->tran_num = 0;
-	rwlock_init(&qos_info->flow_map_lock);
-	INIT_LIST_HEAD(&qos_info->flow_head);
-	INIT_LIST_HEAD(&qos_info->bearer_head);
+	qos->mux_id = mux_id;
+	qos->real_dev = real_dev;
+	qos->default_grant = 10240;
+	qos->tran_num = 0;
+	INIT_LIST_HEAD(&qos->flow_head);
+	INIT_LIST_HEAD(&qos->bearer_head);
 
-	return (void *)qos_info;
+	return qos;
 }
 EXPORT_SYMBOL(qmi_rmnet_qos_init);
 
@@ -376,6 +403,22 @@ void qmi_rmnet_qos_exit(struct net_device *dev)
 {
 	struct qos_info *qos = (struct qos_info *)rmnet_get_qos_pt(dev);
 
+	qmi_rmnet_clean_flow_list(qos);
 	kfree(qos);
 }
 EXPORT_SYMBOL(qmi_rmnet_qos_exit);
+
+void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
+{
+	struct qmi_info *qmi = (struct qmi_info *)qmi_pt;
+	int i;
+
+	if (!qmi)
+		return;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		if (!__qmi_rmnet_delete_client(port, qmi, i))
+			return;
+	}
+}
+EXPORT_SYMBOL(qmi_rmnet_qmi_exit);

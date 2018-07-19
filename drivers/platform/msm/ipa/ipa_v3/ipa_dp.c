@@ -79,6 +79,8 @@
 
 #define IPA_SEND_MAX_DESC (20)
 
+#define IPA_EOT_THRESH 32
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -236,18 +238,19 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 	}
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
 	sys->nop_pending = false;
-	spin_unlock_bh(&sys->spinlock);
 
 	memset(&nop_xfer, 0, sizeof(nop_xfer));
 	nop_xfer.type = GSI_XFER_ELEM_NOP;
 	nop_xfer.flags = GSI_XFER_FLAG_EOT;
 	nop_xfer.xfer_user_data = tx_pkt;
 	if (gsi_queue_xfer(sys->ep->gsi_chan_hdl, 1, &nop_xfer, true)) {
+		spin_unlock_bh(&sys->spinlock);
 		IPAERR("gsi_queue_xfer for ch:%lu failed\n",
 			sys->ep->gsi_chan_hdl);
 		queue_work(sys->wq, &sys->work);
 		return;
 	}
+	spin_unlock_bh(&sys->spinlock);
 
 	/* make sure TAG process is sent before clocks are gated */
 	ipa3_ctx->tag_process_before_gating = true;
@@ -406,11 +409,14 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 
 		if (i == (num_desc - 1)) {
-			if (!sys->use_comm_evt_ring) {
+			if (!sys->use_comm_evt_ring ||
+			    (sys->pkt_sent % IPA_EOT_THRESH == 0)) {
 				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_EOT;
 				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_BEI;
+			} else {
+				send_nop = true;
 			}
 			gsi_xfer[i].xfer_user_data =
 				tx_pkt_first;
@@ -429,11 +435,12 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		goto failure;
 	}
 
-
-	if (sys->use_comm_evt_ring && !sys->nop_pending) {
+	if (send_nop && !sys->nop_pending)
 		sys->nop_pending = true;
-		send_nop = true;
-	}
+	else
+		send_nop = false;
+
+	sys->pkt_sent++;
 	spin_unlock_bh(&sys->spinlock);
 
 	/* set the timer for sending the NOP descriptor */
@@ -3792,15 +3799,20 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		goto fail_alloc_channel;
 
 	memset(&ch_scratch, 0, sizeof(ch_scratch));
-	ch_scratch.gpi.max_outstanding_tre = gsi_ep_info->ipa_if_tlv *
-		GSI_CHAN_RE_SIZE_16B;
-	ch_scratch.gpi.outstanding_threshold = 2 * GSI_CHAN_RE_SIZE_16B;
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		ch_scratch.gpi.max_outstanding_tre = 0;
-		ch_scratch.gpi.outstanding_threshold = 0;
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		ch_scratch.gpi.max_outstanding_tre =
+			gsi_ep_info->ipa_if_tlv * GSI_CHAN_RE_SIZE_16B;
+		ch_scratch.gpi.outstanding_threshold =
+			2 * GSI_CHAN_RE_SIZE_16B;
 	}
-
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ch_scratch.gpi.dl_nlo_channel = 0;
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write scratch %d\n", result);

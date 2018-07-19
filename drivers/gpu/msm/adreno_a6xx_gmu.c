@@ -11,9 +11,8 @@
  *
  */
 #include <linux/firmware.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <linux/pm_opp.h>
 #include <linux/jiffies.h>
+#include <linux/interrupt.h>
 
 #include "kgsl_gmu_core.h"
 #include "kgsl_gmu.h"
@@ -171,47 +170,12 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	wmb();
 }
 
+/* GMU timeouts */
+#define GMU_IDLE_TIMEOUT	100	/* ms */
 #define GMU_START_TIMEOUT	100	/* ms */
 #define GPU_START_TIMEOUT	100	/* ms */
 #define GPU_RESET_TIMEOUT	1	/* ms */
 #define GPU_RESET_TIMEOUT_US	10	/* us */
-
-/*
- * timed_poll_check() - polling *gmu* register at given offset until
- * its value changed to match expected value. The function times
- * out and returns after given duration if register is not updated
- * as expected.
- *
- * @device: Pointer to KGSL device
- * @offset: Register offset
- * @expected_ret: expected register value that stops polling
- * @timout: number of jiffies to abort the polling
- * @mask: bitmask to filter register value to match expected_ret
- */
-static int timed_poll_check(struct kgsl_device *device,
-		unsigned int offset, unsigned int expected_ret,
-		unsigned int timeout, unsigned int mask)
-{
-	unsigned long t;
-	unsigned int value;
-
-	t = jiffies + msecs_to_jiffies(timeout);
-
-	do {
-		gmu_core_regread(device, offset, &value);
-		if ((value & mask) == expected_ret)
-			return 0;
-		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		usleep_range(10, 100);
-	} while (!time_after(jiffies, t));
-
-	/* Double check one last time */
-	gmu_core_regread(device, offset, &value);
-	if ((value & mask) == expected_ret)
-		return 0;
-
-	return -EINVAL;
-}
 
 /*
  * The lowest 16 bits of this value are the number of XO clock cycles
@@ -332,26 +296,6 @@ static int a6xx_gmu_hfi_start(struct kgsl_device *device)
 	}
 
 	return 0;
-}
-
-static uint64_t read_AO_counter(struct kgsl_device *device)
-{
-	unsigned int l, h, h1;
-
-	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
-	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
-	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
-
-	/*
-	 * If there's no change in COUNTER_H we have no overflow so return,
-	 * otherwise read COUNTER_L again
-	 */
-
-	if (h == h1)
-		return (uint64_t) l | ((uint64_t) h << 32);
-
-	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
-	return (uint64_t) l | ((uint64_t) h1 << 32);
 }
 
 static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
@@ -621,6 +565,32 @@ static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 	trace_kgsl_gmu_oob_clear(clear);
 }
 
+static void a6xx_gmu_irq_enable(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi = &gmu->hfi;
+
+	/* Clear pending IRQs and Unmask needed IRQs */
+	adreno_gmu_clear_and_unmask_irqs(ADRENO_DEVICE(device));
+
+	/* Enable all IRQs on host */
+	enable_irq(hfi->hfi_interrupt_num);
+	enable_irq(gmu->gmu_interrupt_num);
+}
+
+static void a6xx_gmu_irq_disable(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi = &gmu->hfi;
+
+	/* Disable all IRQs on host */
+	disable_irq(gmu->gmu_interrupt_num);
+	disable_irq(hfi->hfi_interrupt_num);
+
+	/* Mask all IRQs and clear pending IRQs */
+	adreno_gmu_mask_and_clear_irqs(ADRENO_DEVICE(device));
+}
+
 static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -701,10 +671,8 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!gmu_core_gpmu_isenabled(device))
-		return -EINVAL;
-
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
+	if (!gmu_core_gpmu_isenabled(device) ||
+			!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
 
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
@@ -731,10 +699,8 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!adreno_has_sptprac_gdsc(adreno_dev))
-		return;
-
-	if (!gmu_core_gpmu_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device) ||
+			!adreno_has_sptprac_gdsc(adreno_dev))
 		return;
 
 	/* Ensure that retention is on */
@@ -786,7 +752,7 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (!gmu_core_isenabled(device) || !adreno_has_sptprac_gdsc(adreno_dev))
+	if (!gmu_core_isenabled(device))
 		return true;
 
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
@@ -901,6 +867,9 @@ static int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/* A6xx GMU FENCE RANGE MASK */
+#define GMU_FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
+
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -958,7 +927,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_INFO, 1);
 
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
-			FENCE_RANGE_MASK);
+			GMU_FENCE_RANGE_MASK);
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
 
@@ -1389,7 +1358,7 @@ static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
  * This is where all of the A6XX GMU specific bits and pieces are grabbed
  * into the snapshot memory
  */
-void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
+static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1432,14 +1401,16 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
 	.oob_clear = a6xx_gmu_oob_clear,
+	.irq_enable = a6xx_gmu_irq_enable,
+	.irq_disable = a6xx_gmu_irq_disable,
 	.hfi_start_msg = a6xx_gmu_hfi_start_msg,
 	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
-	.sptprac_enable  = a6xx_gmu_sptprac_enable,
-	.sptprac_disable = a6xx_gmu_sptprac_disable,
 	.ifpc_store = a6xx_gmu_ifpc_store,
 	.ifpc_show = a6xx_gmu_ifpc_show,
 	.snapshot = a6xx_gmu_snapshot,
+	.gmu2host_intr_mask = HFI_IRQ_MASK,
+	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
 };

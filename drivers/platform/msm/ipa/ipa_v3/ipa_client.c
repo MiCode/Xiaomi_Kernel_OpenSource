@@ -823,11 +823,17 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 
 	memcpy(&ep->chan_scratch, &params->chan_scratch,
 		sizeof(union __packed gsi_channel_scratch));
-	ep->chan_scratch.xdci.max_outstanding_tre =
-		params->chan_params.re_size * gsi_ep_cfg_ptr->ipa_if_tlv;
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
-		ep->chan_scratch.xdci.max_outstanding_tre = 0;
+	/*
+	 * Update scratch for MCS smart prefetch:
+	 * Starting IPA4.5, smart prefetch implemented by H/W.
+	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
+	 *  so keep the fields zero.
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		ep->chan_scratch.xdci.max_outstanding_tre =
+		params->chan_params.re_size * gsi_ep_cfg_ptr->ipa_if_tlv;
+	}
 
 	gsi_res = gsi_write_channel_scratch(ep->gsi_chan_hdl,
 		params->chan_scratch);

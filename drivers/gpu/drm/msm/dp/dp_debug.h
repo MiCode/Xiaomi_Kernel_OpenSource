@@ -27,6 +27,7 @@
  * @hdisplay: used to filter out hdisplay value
  * @vrefresh: used to filter out vrefresh value
  * @tpg_state: specifies whether tpg feature is enabled
+ * @max_pclk_khz: max pclk supported
  */
 struct dp_debug {
 	bool debug_en;
@@ -37,6 +38,7 @@ struct dp_debug {
 	int hdisplay;
 	int vrefresh;
 	bool tpg_state;
+	u32 max_pclk_khz;
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
 };

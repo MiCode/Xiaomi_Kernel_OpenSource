@@ -20,6 +20,13 @@
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_nat.h"
 
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if defined(CONFIG_IPA_EMULATION)
+# include "ipa_emulation_stubs.h"
+#endif
+
 #define IPA_NAT_PHYS_MEM_OFFSET  0
 #define IPA_IPV6CT_PHYS_MEM_OFFSET  0
 #define IPA_NAT_PHYS_MEM_SIZE  IPA_RAM_NAT_SIZE
@@ -1476,12 +1483,6 @@ static int ipa3_ipv6ct_send_del_table_cmd(uint8_t tbl_index)
 int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 {
 	struct ipa_ioc_nat_ipv6ct_table_del tmp;
-
-	if ((ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
-		(del->public_ip_addr == 0)) {
-		IPAERR_RL("Bad Parameter public IP address\n");
-		return -EPERM;
-	}
 
 	tmp.table_index = del->table_index;
 

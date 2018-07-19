@@ -50,6 +50,13 @@
 			clock-names = "xo";
 		};
 
+		pm8150b_qnovo: qcom,sdam-qnovo@b000 {
+			compatible = "qcom,qpnp-qnovo5";
+			reg = <0xb000 0x100>;
+			interrupts = <0x2 0xb0 0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "ptrain-done";
+		};
+
 		pm8150b_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xc00>;
@@ -161,6 +168,9 @@
 			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pm8150b_revid>;
+
+			qcom,charger-temp-max = <800>;
+			qcom,smb-temp-max = <800>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -462,23 +472,54 @@
 		};
 
 		pm8150b_haptics: qcom,haptics@c000 {
-			compatible = "qcom,qpnp-haptics";
+			compatible = "qcom,haptics";
 			reg = <0xc000 0x100>;
 			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
 				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "hap-sc-irq", "hap-play-irq";
-			qcom,pmic-revid = <&pm8150b_revid>;
-			qcom,actuator-type = <0>;
-			qcom,play-mode = "direct";
-			qcom,vmax-mv = <3200>;
-			qcom,ilim-ma = <800>;
-			qcom,sc-dbc-cycles = <8>;
-			qcom,wave-play-rate-us = <6667>;
-			qcom,en-brake;
-			qcom,lra-high-z = "opt0";
-			qcom,lra-auto-res-mode = "qwd";
-			qcom,lra-res-cal-period = <4>;
-			status = "ok";
+			qcom,actuator-type = "lra";
+			qcom,vmax-mv = <3600>;
+			qcom,play-rate-us = <6667>;
+			qcom,lra-resonance-sig-shape = "sine";
+			qcom,lra-auto-resonance-mode = "qwd";
+			qcom,lra-allow-variable-play-rate;
+
+			wf_0 {
+				/* CLICK */
+				qcom,effect-id = <0>;
+				qcom,wf-pattern = [3e 3e 3e];
+				qcom,wf-play-rate-us = <6667>;
+			};
+			wf_1 {
+				/* DOUBLE CLICK */
+				qcom,effect-id = <1>;
+				qcom,wf-pattern = [7e 7e 02 02 02 02 7e 7e];
+				qcom,wf-play-rate-us = <7143>;
+			};
+			wf_2 {
+				/* TICK */
+				qcom,effect-id = <2>;
+				qcom,wf-pattern = [7e 7e];
+				qcom,wf-play-rate-us = <4000>;
+			};
+			wf_3 {
+				/* THUD */
+				qcom,effect-id = <3>;
+				qcom,wf-pattern = [7e 7e 7e];
+				qcom,wf-play-rate-us = <5714>;
+			};
+			wf_4 {
+				/* POP */
+				qcom,effect-id = <4>;
+				qcom,wf-pattern = [7e 7e];
+				qcom,wf-play-rate-us = <5000>;
+			};
+			wf_5 {
+				/* HEAVY CLICK */
+				qcom,effect-id = <5>;
+				qcom,wf-pattern = [7e 7e 7e];
+				qcom,wf-play-rate-us = <6667>;
+			};
 		};
 	};
 };

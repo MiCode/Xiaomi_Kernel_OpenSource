@@ -359,7 +359,7 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 	if (!cq_host->desc_base || !cq_host->trans_desc_base)
 		return -ENOMEM;
 
-	pr_info("desc-base: 0x%p trans-base: 0x%p\n desc_dma 0x%llx trans_dma: 0x%llx\n",
+	pr_debug("desc-base: 0x%pK trans-base: 0x%pK\n desc_dma 0x%llx trans_dma: 0x%llx\n",
 		 cq_host->desc_base, cq_host->trans_desc_base,
 		(unsigned long long)cq_host->desc_dma_base,
 		(unsigned long long) cq_host->trans_desc_dma_base);

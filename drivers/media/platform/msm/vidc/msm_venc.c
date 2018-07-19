@@ -1160,6 +1160,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_H264,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "VP8",
@@ -1167,6 +1169,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_VP8,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "HEVC",
@@ -1174,6 +1178,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_HEVC,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "YCrCb Semiplanar 4:2:0",
@@ -1195,6 +1201,8 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_TME,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+		.input_min_count = 4,
+		.output_min_count = 4,
 	},
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
@@ -1204,6 +1212,22 @@ static struct msm_vidc_format venc_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 };
+
+struct msm_vidc_format_constraint enc_pix_format_constraints[] = {
+	{
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
+		.num_planes = 2,
+		.y_stride_multiples = 256,
+		.y_max_stride = 8192,
+		.y_min_plane_buffer_height_multiple = 32,
+		.y_buffer_alignment = 256,
+		.uv_stride_multiples = 256,
+		.uv_max_stride = 8192,
+		.uv_min_plane_buffer_height_multiple = 16,
+		.uv_buffer_alignment = 256,
+	},
+};
+
 
 static int msm_venc_set_csc(struct msm_vidc_inst *inst,
 					u32 color_primaries, u32 custom_matrix);
@@ -1224,6 +1248,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	int rc = 0;
 	struct hal_request_iframe request_iframe;
 	struct hal_bitrate bitrate;
+	struct hal_operating_rate operating_rate;
 	struct hal_profile_level profile_level;
 	enum hal_h264_entropy h264_entropy;
 	struct hal_intra_period intra_period;
@@ -1506,33 +1531,21 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: {
 		int temp = 0;
-
-		enable.enable = false;
+		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC &&
+			inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264) {
+			return rc;
+		}
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB:
 			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
 			break;
 		case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES:
 			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-			enable.enable = true;
 			break;
 		case V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE:
 		default:
 			temp = 0;
 			break;
-		}
-
-		temp_ctrl =
-			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
-		if (!temp_ctrl->val) {
-			rc = msm_comm_try_set_prop(inst,
-				   HAL_PARAM_VENC_LOW_LATENCY, &enable.enable);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"SliceMode Low Latency enable fail\n");
-			else
-				inst->clk_data.low_latency_mode =
-							(bool) enable.enable;
 		}
 
 		if (temp)
@@ -1547,6 +1560,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC &&
+			inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264) {
+			return rc;
+		}
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 
 		property_id = HAL_PARAM_VENC_MULTI_SLICE_CONTROL;
@@ -1909,6 +1926,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				ctrl->val >> 16);
 			inst->clk_data.operating_rate = ctrl->val;
 			inst->clk_data.turbo_mode = false;
+			property_id = HAL_CONFIG_OPERATING_RATE;
+			operating_rate.operating_rate =
+				inst->clk_data.operating_rate;
+			pdata = &operating_rate;
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE:
@@ -2414,6 +2435,20 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[2].buffer_count_min_host =
 	inst->buff_req.buffer[2].buffer_count_actual =
 		MIN_NUM_ENC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[3].buffer_type = HAL_BUFFER_OUTPUT2;
+	inst->buff_req.buffer[3].buffer_count_min_host =
+	inst->buff_req.buffer[3].buffer_count_actual =
+		MIN_NUM_ENC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[4].buffer_type = HAL_BUFFER_EXTRADATA_INPUT;
+	inst->buff_req.buffer[5].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT;
+	inst->buff_req.buffer[6].buffer_type = HAL_BUFFER_EXTRADATA_OUTPUT2;
+	inst->buff_req.buffer[7].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+	inst->buff_req.buffer[8].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_1;
+	inst->buff_req.buffer[9].buffer_type = HAL_BUFFER_INTERNAL_SCRATCH_2;
+	inst->buff_req.buffer[10].buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+	inst->buff_req.buffer[11].buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
+	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
+	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
 
 	/* By default, initialize OUTPUT port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
@@ -2521,6 +2556,7 @@ static int msm_venc_set_csc(struct msm_vidc_inst *inst,
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
+	struct msm_vidc_format_constraint *fmt_constraint = NULL;
 	int rc = 0;
 	struct hfi_device *hdev;
 	int extra_idx = 0, i = 0;
@@ -2708,6 +2744,29 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 
 		msm_comm_set_color_format(inst, HAL_BUFFER_INPUT, fmt->fourcc);
+
+		fmt_constraint =
+		msm_comm_get_pixel_fmt_constraints(enc_pix_format_constraints,
+			ARRAY_SIZE(enc_pix_format_constraints),
+			f->fmt.pix_mp.pixelformat);
+
+		if (!fmt_constraint) {
+			dprintk(VIDC_INFO,
+				"Format constraint not required for %d on OUTPUT port\n",
+				f->fmt.pix_mp.pixelformat);
+		} else {
+			rc = msm_comm_set_color_format_constraints(inst,
+				HAL_BUFFER_INPUT,
+				fmt_constraint);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Set constraint for %d failed on CAPTURE port\n",
+					f->fmt.pix_mp.pixelformat);
+				rc = -EINVAL;
+				goto exit;
+			}
+		}
+
 	} else {
 		dprintk(VIDC_ERR, "%s - Unsupported buf type: %d\n",
 			__func__, f->type);

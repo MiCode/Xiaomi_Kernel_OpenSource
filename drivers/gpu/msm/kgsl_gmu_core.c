@@ -12,15 +12,6 @@
  */
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/device.h>
-#include <linux/iommu.h>
-#include <linux/io.h>
-#include <linux/of_platform.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
-#include <linux/pm_opp.h>
-#include <linux/io.h>
-#include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"
 #include "kgsl_gmu_core.h"
@@ -202,6 +193,11 @@ void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
 
+	if (!gmu_core_is_register_offset(device, offsetwords)) {
+		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
+		return;
+	}
+
 	if (gmu_core_ops && gmu_core_ops->regread)
 		gmu_core_ops->regread(device, offsetwords, value);
 	else
@@ -213,6 +209,11 @@ void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
 
+	if (!gmu_core_is_register_offset(device, offsetwords)) {
+		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
+		return;
+	}
+
 	if (gmu_core_ops && gmu_core_ops->regwrite)
 		gmu_core_ops->regwrite(device, offsetwords, value);
 }
@@ -222,6 +223,11 @@ void gmu_core_regrmw(struct kgsl_device *device,
 		unsigned int mask, unsigned int bits)
 {
 	unsigned int val = 0;
+
+	if (!gmu_core_is_register_offset(device, offsetwords)) {
+		WARN(1, "Out of bounds register rmw: 0x%x\n", offsetwords);
+		return;
+	}
 
 	gmu_core_regread(device, offsetwords, &val);
 	val &= ~mask;

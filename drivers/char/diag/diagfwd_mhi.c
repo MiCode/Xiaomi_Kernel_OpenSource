@@ -720,7 +720,7 @@ void diag_mhi_exit(void)
 static const struct mhi_device_id diag_mhi_match_table[] = {
 	{ .chan = "DIAG", .driver_data = MHI_1 },
 	{ .chan = "DCI", .driver_data = MHI_DCI_1 },
-	{NULL},
+	{},
 };
 
 static struct mhi_driver diag_mhi_driver = {

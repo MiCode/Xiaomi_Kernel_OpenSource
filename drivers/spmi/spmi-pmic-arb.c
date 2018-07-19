@@ -1369,6 +1369,7 @@ static struct platform_driver spmi_pmic_arb_driver = {
 	.driver		= {
 		.name	= "spmi_pmic_arb",
 		.of_match_table = spmi_pmic_arb_match_table,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 

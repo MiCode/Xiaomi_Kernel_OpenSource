@@ -70,6 +70,7 @@ static int rmnet_unregister_real_device(struct net_device *real_dev,
 	if (port->nr_rmnet_devs)
 		return -EINVAL;
 
+	rmnet_map_cmd_exit(port);
 	rmnet_map_tx_aggregate_exit(port);
 
 	kfree(port);
@@ -111,6 +112,7 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 		INIT_HLIST_HEAD(&port->muxed_ep[entry]);
 
 	rmnet_map_tx_aggregate_init(port);
+	rmnet_map_cmd_init(port);
 
 	netdev_dbg(real_dev, "registered with rmnet\n");
 	return 0;
@@ -255,6 +257,8 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 
 	rcu_read_unlock();
 	unregister_netdevice_many(&list);
+
+	qmi_rmnet_qmi_exit(port->qmi_info, port);
 
 	rmnet_unregister_real_device(real_dev, port);
 }
@@ -501,7 +505,7 @@ void *rmnet_get_rmnet_port(struct net_device *dev)
 	struct rmnet_priv *priv;
 
 	if (dev) {
-		priv = (struct rmnet_priv *)netdev_priv(dev);
+		priv = netdev_priv(dev);
 		return (void *)rmnet_get_port(priv->real_dev);
 	}
 
@@ -509,13 +513,20 @@ void *rmnet_get_rmnet_port(struct net_device *dev)
 }
 EXPORT_SYMBOL(rmnet_get_rmnet_port);
 
-struct net_device *rmnet_get_rmnet_dev(void *port, uint8_t mux_id)
+struct net_device *rmnet_get_rmnet_dev(void *port, u8 mux_id)
 {
 	struct rmnet_endpoint *ep;
 
-	ep = rmnet_get_endpoint((struct rmnet_port *)port, mux_id);
-	if (ep)
-		return ep->egress_dev;
+	if (port) {
+		struct net_device *dev;
+
+		ep = rmnet_get_endpoint((struct rmnet_port *)port, mux_id);
+		if (ep) {
+			dev = ep->egress_dev;
+
+			return dev;
+		}
+	}
 
 	return NULL;
 }

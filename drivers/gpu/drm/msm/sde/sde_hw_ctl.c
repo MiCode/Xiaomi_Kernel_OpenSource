@@ -954,6 +954,39 @@ static int sde_hw_ctl_reset_post_te_disable(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
+static int sde_hw_ctl_update_cwb_cfg(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg_v1 *cfg)
+{
+	int i;
+	u32 cwb_active = 0;
+	u32 merge_3d_active = 0;
+	u32 wb_active = 0;
+	struct sde_hw_blk_reg_map *c;
+
+	if (!ctx)
+		return -EINVAL;
+
+	c = &ctx->hw;
+	cwb_active = SDE_REG_READ(c, CTL_CWB_ACTIVE);
+	for (i = 0; i < cfg->cwb_count; i++) {
+		if (cfg->cwb[i])
+			cwb_active |= BIT(cfg->cwb[i] - CWB_0);
+	}
+
+	merge_3d_active = SDE_REG_READ(c, CTL_MERGE_3D_ACTIVE);
+	for (i = 0; i < cfg->merge_3d_count; i++) {
+		if (cfg->merge_3d[i])
+			merge_3d_active |= BIT(cfg->merge_3d[i] - MERGE_3D_0);
+	}
+
+	wb_active = BIT(2);
+	SDE_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+	SDE_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
+	SDE_REG_WRITE(c, CTL_CWB_ACTIVE, cwb_active);
+
+	return 0;
+}
+
 static int sde_hw_ctl_dsc_cfg(struct sde_hw_ctl *ctx,
 		struct sde_ctl_dsc_cfg *cfg)
 {
@@ -1009,6 +1042,24 @@ static int sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 
 	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
 	return 0;
+}
+
+static void sde_hw_ctl_update_wb_cfg(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg *cfg, bool enable)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 intf_cfg = 0;
+
+	if (!cfg->wb)
+		return;
+
+	intf_cfg = SDE_REG_READ(c, CTL_TOP);
+	if (enable)
+		intf_cfg |= (cfg->wb & 0x3) + 2;
+	else
+		intf_cfg &= ~((cfg->wb & 0x3) + 2);
+
+	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
 }
 
 static inline u32 sde_hw_ctl_read_ctl_top(struct sde_hw_ctl *ctx)
@@ -1080,6 +1131,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->trigger_flush = sde_hw_ctl_trigger_flush_v1;
 
 		ops->setup_intf_cfg_v1 = sde_hw_ctl_intf_cfg_v1;
+		ops->update_cwb_cfg = sde_hw_ctl_update_cwb_cfg;
 		ops->setup_dsc_cfg = sde_hw_ctl_dsc_cfg;
 
 		ops->update_bitmask_cdm = sde_hw_ctl_update_bitmask_cdm_v1;
@@ -1109,6 +1161,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->trigger_pending = sde_hw_ctl_trigger_pending;
 	ops->read_ctl_top = sde_hw_ctl_read_ctl_top;
 	ops->read_ctl_layers = sde_hw_ctl_read_ctl_layers;
+	ops->update_wb_cfg = sde_hw_ctl_update_wb_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
 	ops->get_reset = sde_hw_ctl_get_reset_status;
 	ops->hard_reset = sde_hw_ctl_hard_reset;

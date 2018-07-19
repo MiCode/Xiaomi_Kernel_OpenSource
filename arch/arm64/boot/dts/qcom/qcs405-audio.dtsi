@@ -1,0 +1,153 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,audio-ext-clk.h>
+#include "qcs405-lpi.dtsi"
+#include "msm-audio-lpass.dtsi"
+
+&msm_audio_ion {
+	iommus = <&apps_smmu 0x0801 0x0>;
+	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+};
+
+&soc {
+	qcom,avtimer@C10000C {
+		compatible = "qcom,avtimer";
+		reg = <0x0C10000C 0x4>,
+		      <0x0C100010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+		qcom,clk-div = <192>;
+		qcom,clk-mult = <10>;
+	};
+
+	audio_apr: qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		q6core: q6core {
+			compatible = "qcom,q6core-audio";
+			bolero: bolero-cdc {
+				compatible = "qcom,bolero-codec";
+			};
+		};
+	};
+};
+
+&q6core {
+	qcs405_snd: sound {
+		compatible = "qcom,qcs405-asoc-snd";
+		qcom,model = "qcs405-snd-card";
+		qcom,mi2s-audio-intf = <1>;
+		qcom,auxpcm-audio-intf = <1>;
+
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&pcm_noirq>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-dsp-noirq";
+		asoc-cpu = <&dai_dp>, <&dai_mi2s0>, <&dai_mi2s1>,
+			<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>, <&dai_mi2s5>,
+			<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+			<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
+			<&dai_quin_auxpcm>,
+			<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+			<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+			<&sb_4_rx>, <&sb_4_tx>, <&sb_5_rx>, <&sb_5_tx>,
+			<&sb_6_rx>, <&sb_7_rx>, <&sb_7_tx>,
+			<&sb_8_rx>, <&sb_8_tx>,
+			<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+			<&afe_proxy_tx>, <&incall_record_rx>,
+			<&incall_record_tx>, <&incall_music_rx>,
+			<&incall_music_2_rx>,
+			<&usb_audio_rx>, <&usb_audio_tx>,
+			<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+			<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+			<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+			<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>,
+			<&wsa_cdc_dma_0_rx>, <&wsa_cdc_dma_0_tx>,
+			<&wsa_cdc_dma_1_rx>, <&wsa_cdc_dma_1_tx>,
+			<&wsa_cdc_dma_2_tx>,
+			<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>;
+		asoc-cpu-names = "msm-dai-q6-dp.24608",
+			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+			"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.5",
+			"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+			"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
+			"msm-dai-q6-auxpcm.5",
+			"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+			"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+			"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+			"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+			"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+			"msm-dai-q6-dev.16394", "msm-dai-q6-dev.16395",
+			"msm-dai-q6-dev.16396",
+			"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+			"msm-dai-q6-dev.16400", "msm-dai-q6-dev.16401",
+			"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+			"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+			"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+			"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+			"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+			"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+			"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+			"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+			"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929",
+			"msm-dai-cdc-dma-dev.45056",
+			"msm-dai-cdc-dma-dev.45057",
+			"msm-dai-cdc-dma-dev.45058",
+			"msm-dai-cdc-dma-dev.45059",
+			"msm-dai-cdc-dma-dev.45061",
+			"msm-dai-cdc-dma-dev.45089",
+			"msm-dai-cdc-dma-dev.45091";
+	};
+};
+
+&slim_aud {
+	status = "disabled";
+	msm_dai_slim {
+		status = "disabled";
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+};
+
+&pms405_gpios {
+	tasha_mclk {
+		tasha_mclk_default: tasha_mclk_default{
+			pins = "gpio8";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&dai_mi2s4 {
+	qcom,msm-dai-is-island-supported = <1>;
+};
+
+&dai_quin_auxpcm {
+	qcom,msm-dai-is-island-supported = <1>;
+};
+
+&dai_quin_tdm_tx_0 {
+	qcom,msm-dai-is-island-supported = <1>;
+};

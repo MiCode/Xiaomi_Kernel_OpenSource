@@ -250,6 +250,14 @@ struct sde_hw_ctl_ops {
 	int (*reset_post_te_disable)(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg_v1 *cfg, u32 merge_3d_idx);
 
+	/** update cwb  for ctl_path
+	 * @ctx       : ctl path ctx pointer
+	 * @cfg    : interface config structure pointer
+	 * @Return: error code
+	 */
+	int (*update_cwb_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg_v1 *cfg);
+
 	/**
 	 * Setup ctl_path interface config for SDE_CTL_ACTIVE_CFG
 	 * @ctx   : ctl path ctx pointer
@@ -267,6 +275,14 @@ struct sde_hw_ctl_ops {
 	 */
 	int (*setup_dsc_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_dsc_cfg *cfg);
+
+	/** Update the interface selection with input WB config
+	 * @ctx       : ctl path ctx pointer
+	 * @cfg       : pointer to input wb config
+	 * @enable    : set if true, clear otherwise
+	 */
+	void (*update_wb_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg *cfg, bool enable);
 
 	int (*reset)(struct sde_hw_ctl *c);
 

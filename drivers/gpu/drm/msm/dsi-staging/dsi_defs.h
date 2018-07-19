@@ -408,6 +408,7 @@ struct dsi_mode_info {
  * @ignore_rx_eot:       Ignore Rx EOT packets if set to true.
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
+ * @ext_bridge_mode:     External bridge is connected.
  */
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
@@ -426,6 +427,7 @@ struct dsi_host_common_cfg {
 	u32 t_clk_pre;
 	bool ignore_rx_eot;
 	bool append_tx_eot;
+	bool ext_bridge_mode;
 };
 
 /**
@@ -451,6 +453,7 @@ struct dsi_video_engine_cfg {
 	bool hsa_lp11_en;
 	bool eof_bllp_lp11_en;
 	bool bllp_lp11_en;
+	bool force_clk_lane_hs;
 	enum dsi_video_traffic_mode traffic_mode;
 	u32 vc_id;
 };
@@ -599,6 +602,7 @@ enum dsi_error_status {
 	DSI_FIFO_OVERFLOW = 1,
 	DSI_FIFO_UNDERFLOW,
 	DSI_LP_Rx_TIMEOUT,
+	DSI_ERR_INTR_ALL,
 };
 
 #endif /* _DSI_DEFS_H_ */

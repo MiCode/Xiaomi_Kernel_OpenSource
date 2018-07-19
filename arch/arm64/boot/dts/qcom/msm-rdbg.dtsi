@@ -1,0 +1,35 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+  /* smp2p information */
+	qcom,smp2p_interrupt_rdbg_2_out {
+		compatible = "qcom,smp2p-interrupt-rdbg-2-out";
+		qcom,smem-states = <&smp2p_rdbg2_out 0>;
+		qcom,smem-state-names = "rdbg-smp2p-out";
+	};
+	qcom,smp2p_interrupt_rdbg_2_in {
+		compatible = "qcom,smp2p-interrupt-rdbg-2-in";
+		interrupts-extended = <&smp2p_rdbg2_in 0 0>;
+		interrupt-names = "rdbg-smp2p-in";
+	};
+	qcom,smp2p_interrupt_rdbg_5_out {
+		compatible = "qcom,smp2p-interrupt-rdbg-5-out";
+		qcom,smem-states = <&smp2p_rdbg5_out 0>;
+		qcom,smem-state-names = "rdbg-smp2p-out";
+	};
+	qcom,smp2p_interrupt_rdbg_5_in {
+		compatible = "qcom,smp2p-interrupt-rdbg-5-in";
+		interrupts-extended = <&smp2p_rdbg5_in 0 0>;
+		interrupt-names = "rdbg-smp2p-in";
+	};
+};

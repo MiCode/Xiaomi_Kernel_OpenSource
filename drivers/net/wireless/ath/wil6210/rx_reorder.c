@@ -205,7 +205,6 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 
 	/* put the frame in the reordering buffer */
 	r->reorder_buf[index] = skb;
-	r->reorder_time[index] = jiffies;
 	r->stored_mpdu_num++;
 	wil_reorder_release(ndev, r);
 
@@ -251,11 +250,8 @@ struct wil_tid_ampdu_rx *wil_tid_ampdu_rx_alloc(struct wil6210_priv *wil,
 
 	r->reorder_buf =
 		kcalloc(size, sizeof(struct sk_buff *), GFP_KERNEL);
-	r->reorder_time =
-		kcalloc(size, sizeof(unsigned long), GFP_KERNEL);
-	if (!r->reorder_buf || !r->reorder_time) {
+	if (!r->reorder_buf) {
 		kfree(r->reorder_buf);
-		kfree(r->reorder_time);
 		kfree(r);
 		return NULL;
 	}
@@ -285,7 +281,6 @@ void wil_tid_ampdu_rx_free(struct wil6210_priv *wil,
 		kfree_skb(r->reorder_buf[i]);
 
 	kfree(r->reorder_buf);
-	kfree(r->reorder_time);
 	kfree(r);
 }
 
@@ -319,7 +314,10 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	 * bits 6..15: buffer size
 	 */
 	u16 req_agg_wsize = WIL_GET_BITS(param_set, 6, 15);
-	bool agg_amsdu = !!(param_set & BIT(0));
+	bool agg_amsdu = wil->use_enhanced_dma_hw &&
+		use_rx_hw_reordering &&
+		test_bit(WMI_FW_CAPABILITY_AMSDU, wil->fw_capabilities) &&
+		wil->amsdu_en && (param_set & BIT(0));
 	int ba_policy = param_set & BIT(1);
 	u16 status = WLAN_STATUS_SUCCESS;
 	u16 ssn = seq_ctrl >> 4;

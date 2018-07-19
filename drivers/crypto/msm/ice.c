@@ -1397,8 +1397,8 @@ static void qcom_ice_debug(struct platform_device *pdev)
 	qcom_ice_dump_test_bus(ice_dev);
 	pr_err("%s: ICE reset start time: %llu ICE reset done time: %llu\n",
 			ice_dev->ice_instance_type,
-		(unsigned long long)ice_dev->ice_reset_start_time.tv64,
-		(unsigned long long)ice_dev->ice_reset_complete_time.tv64);
+		(unsigned long long)ice_dev->ice_reset_start_time,
+		(unsigned long long)ice_dev->ice_reset_complete_time);
 
 	if (ktime_to_us(ktime_sub(ice_dev->ice_reset_complete_time,
 				  ice_dev->ice_reset_start_time)) > 0)
@@ -1430,9 +1430,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		struct request *req,
 		struct ice_data_setting *setting, bool async)
 {
-	struct ice_crypto_setting *crypto_data;
 	struct ice_crypto_setting pfk_crypto_data = {0};
-	union map_info *info;
 	int ret = 0;
 	bool is_pfe = false;
 
@@ -1455,7 +1453,6 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		/* It is not an error to have a request with no  bio */
 		return 0;
 	}
-    //pr_err("%s bio is %pK\n", __func__, req->bio);
 
 	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
 	if (is_pfe) {
@@ -1468,30 +1465,6 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 
 		return qti_ice_setting_config(req, pdev,
 				&pfk_crypto_data, setting);
-	}
-
-	/*
-	 * info field in req->end_io_data could be used by mulitple dm or
-	 * non-dm entities. To ensure that we are running operation on dm
-	 * based request, check BIO_DONT_FREE flag
-	 */
-	if (bio_flagged(req->bio, BIO_INLINECRYPT)) {
-		info = dm_get_rq_mapinfo(req);
-		if (!info) {
-			pr_debug("%s info not available in request\n",
-				 __func__);
-			return 0;
-		}
-
-		crypto_data = (struct ice_crypto_setting *)info->ptr;
-		if (!crypto_data) {
-			pr_err("%s crypto_data not available in request\n",
-				 __func__);
-			return -EINVAL;
-		}
-
-		return qti_ice_setting_config(req, pdev,
-				crypto_data, setting);
 	}
 
 	/*

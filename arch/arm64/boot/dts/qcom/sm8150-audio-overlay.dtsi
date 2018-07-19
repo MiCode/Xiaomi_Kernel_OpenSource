@@ -46,7 +46,7 @@
 	asoc-codec-names = "msm-stub-codec.1",
 			   "msm-ext-disp-audio-codec-rx";
 
-	qcom,wsa-max-devs = <2>;
+	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 			<&wsa881x_0213>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
@@ -120,6 +120,7 @@
 		qcom,codec-ext-clk-src = <2>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <278>;
+		qcom,use-pinctrl = <1>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&quin_mi2s_mclk_active>;
 		pinctrl-1 = <&quin_mi2s_mclk_sleep>;

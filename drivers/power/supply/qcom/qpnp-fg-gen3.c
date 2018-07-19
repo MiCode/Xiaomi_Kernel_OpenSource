@@ -214,7 +214,7 @@ struct fg_gen3_chip {
 	struct mutex		qnovo_esr_ctrl_lock;
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct fg_cap_learning	cl;
-	struct ttf		ttf;
+	struct fg_ttf		ttf;
 	struct delayed_work	ttf_work;
 	struct delayed_work	pl_enable_work;
 	enum slope_limit_status	slope_limit_sts;
@@ -1693,13 +1693,13 @@ static int fg_adjust_recharge_soc(struct fg_dev *fg)
 	if (!chip->dt.auto_recharge_soc)
 		return 0;
 
-	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
+	rc = power_supply_get_property(fg->batt_psy, POWER_SUPPLY_PROP_HEALTH,
 		&prop);
 	if (rc < 0) {
 		pr_err("Error in getting battery health, rc=%d\n", rc);
 		return rc;
 	}
-	chip->health = prop.intval;
+	fg->health = prop.intval;
 
 	recharge_soc = chip->dt.recharge_soc_thr;
 	recharge_soc_status = fg->recharge_soc_adjusted;
@@ -1731,7 +1731,7 @@ static int fg_adjust_recharge_soc(struct fg_dev *fg)
 			if (!fg->recharge_soc_adjusted)
 				return 0;
 
-			if (chip->health != POWER_SUPPLY_HEALTH_GOOD)
+			if (fg->health != POWER_SUPPLY_HEALTH_GOOD)
 				return 0;
 
 			/* Restore the default value */
@@ -2727,9 +2727,9 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 	}
 
 	if (is_qnovo_en(fg))
-		ttf_mode = TTF_MODE_QNOVO;
+		ttf_mode = FG_TTF_MODE_QNOVO;
 	else
-		ttf_mode = TTF_MODE_NORMAL;
+		ttf_mode = FG_TTF_MODE_NORMAL;
 
 	/* when switching TTF algorithms the TTF needs to be reset */
 	if (chip->ttf.mode != ttf_mode) {
@@ -2795,11 +2795,11 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 
 	/* estimated battery current at the CC to CV transition */
 	switch (chip->ttf.mode) {
-	case TTF_MODE_NORMAL:
+	case FG_TTF_MODE_NORMAL:
 		i_cc2cv = ibatt_avg * vbatt_avg /
 			max(MILLI_UNIT, fg->bp.float_volt_uv / MILLI_UNIT);
 		break;
-	case TTF_MODE_QNOVO:
+	case FG_TTF_MODE_QNOVO:
 		i_cc2cv = min(
 			chip->ttf.cc_step.arr[MAX_CC_STEPS - 1] / MILLI_UNIT,
 			ibatt_avg * vbatt_avg /
@@ -2821,7 +2821,7 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 	fg_dbg(fg, FG_TTF, "soc_cc2cv=%d\n", soc_cc2cv);
 
 	switch (chip->ttf.mode) {
-	case TTF_MODE_NORMAL:
+	case FG_TTF_MODE_NORMAL:
 		if (soc_cc2cv - msoc <= 0)
 			goto cv_estimate;
 
@@ -2829,7 +2829,7 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 		t_predicted = div_s64((s64)act_cap_mah * (soc_cc2cv - msoc) *
 						HOURS_TO_SECONDS, divisor);
 		break;
-	case TTF_MODE_QNOVO:
+	case FG_TTF_MODE_QNOVO:
 		soc_per_step = 100 / MAX_CC_STEPS;
 		for (i = msoc / soc_per_step; i < MAX_CC_STEPS - 1; ++i) {
 			msoc_next_step = (i + 1) * soc_per_step;

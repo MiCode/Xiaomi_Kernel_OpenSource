@@ -19,6 +19,7 @@
 #include "sm8150-camera-sensor-qrd.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
 #include "smb1390.dtsi"
+#include "smb1355.dtsi"
 
 &vendor {
 	bluetooth: bt_wcn3990 {
@@ -170,7 +171,32 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_no_labibb>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <1023>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,panel-mode-gpio = <&tlmm 7 0>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sw43404_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <1023>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,panel-mode-gpio = <&tlmm 7 0>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sw43404_amoled_fhd_plus_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <1023>;
 	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
 	qcom,panel-mode-gpio = <&tlmm 7 0>;
 	qcom,platform-te-gpio = <&tlmm 8 0>;
@@ -199,6 +225,15 @@
 
 &qupv3_se4_i2c {
 	status = "ok";
+	redriver@19 {
+		compatible = "onnn,redriver";
+		reg = <0x19>;
+		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
+		eq = /bits/ 8 <0x5 0x4 0x4 0x5>;
+		flat-gain = /bits/ 8 <0x3 0x1 0x1 0x3>;
+		output-comp = /bits/ 8 <0x2 0x2 0x2 0x2>;
+		loss-match = /bits/ 8 <0x0 0x3 0x3 0x0>;
+	};
 };
 
 &ufsphy_mem {
@@ -494,11 +529,13 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,sw-jeita-enable;
 };
 
 &smb1390 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&smb1390_stat_default>;
+	pinctrl-0 = <&smb_stat_default>;
 	status = "ok";
 };
 

@@ -18,9 +18,9 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
+#include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/msm_qmi_interface.h>
 #include <soc/qcom/scm.h>
 #include "msm_memshare.h"
 #include "heap_mem_ext_v01.h"
@@ -34,8 +34,6 @@
 static unsigned long(attrs);
 
 static struct qmi_handle *mem_share_svc_handle;
-static void mem_share_svc_recv_msg(struct work_struct *work);
-static DECLARE_DELAYED_WORK(work_recv_msg, mem_share_svc_recv_msg);
 static struct workqueue_struct *mem_share_svc_workqueue;
 static uint64_t bootup_request;
 static bool ramdump_event;
@@ -58,65 +56,6 @@ static struct memshare_driver *memsh_drv;
 static struct memshare_child *memsh_child;
 static struct mem_blocks memblock[MAX_CLIENTS];
 static uint32_t num_clients;
-static struct msg_desc mem_share_svc_alloc_req_desc = {
-	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_ALLOC_REQ_MSG_V01,
-	.ei_array = mem_alloc_req_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_alloc_resp_desc = {
-	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_ALLOC_RESP_MSG_V01,
-	.ei_array = mem_alloc_resp_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_free_req_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_FREE_REQ_MSG_V01,
-	.ei_array = mem_free_req_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_free_resp_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_FREE_RESP_MSG_V01,
-	.ei_array = mem_free_resp_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_alloc_generic_req_desc = {
-	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_ALLOC_GENERIC_REQ_MSG_V01,
-	.ei_array = mem_alloc_generic_req_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_alloc_generic_resp_desc = {
-	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_ALLOC_GENERIC_RESP_MSG_V01,
-	.ei_array = mem_alloc_generic_resp_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_free_generic_req_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_FREE_GENERIC_REQ_MSG_V01,
-	.ei_array = mem_free_generic_req_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_free_generic_resp_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_FREE_GENERIC_RESP_MSG_V01,
-	.ei_array = mem_free_generic_resp_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_size_query_req_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_QUERY_SIZE_REQ_MSG_V01,
-	.ei_array = mem_query_size_req_msg_data_v01_ei,
-};
-
-static struct msg_desc mem_share_svc_size_query_resp_desc = {
-	.max_msg_len = MEM_FREE_REQ_MAX_MSG_LEN_V01,
-	.msg_id = MEM_QUERY_SIZE_RESP_MSG_V01,
-	.ei_array = mem_query_size_resp_msg_data_v01_ei,
-};
 
 /*
  *  This API creates ramdump dev handlers
@@ -406,6 +345,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 				memblock[i].peripheral ==
 				DHMS_MEM_PROC_MPSS_V01 &&
 				!memblock[i].guarantee &&
+				!memblock[i].client_request &&
 				memblock[i].allotted &&
 				!memblock[i].alloc_request) {
 				pr_debug("memshare: hypervisor unmapping  for client id: %d\n",
@@ -488,49 +428,8 @@ static void shared_hyp_mapping(int client_id)
 	memblock[client_id].hyp_mapping = 1;
 }
 
-static int handle_alloc_req(void *req_h, void *req, void *conn_h)
-{
-	struct mem_alloc_req_msg_v01 *alloc_req;
-	struct mem_alloc_resp_msg_v01 alloc_resp;
-	int rc = 0;
-
-	mutex_lock(&memsh_drv->mem_share);
-	alloc_req = (struct mem_alloc_req_msg_v01 *)req;
-	pr_debug("memshare: %s: Received Alloc Request: alloc_req->num_bytes = %d\n",
-		__func__, alloc_req->num_bytes);
-	if (!memblock[GPS].size) {
-		memset(&alloc_resp, 0, sizeof(alloc_resp));
-		alloc_resp.resp = QMI_RESULT_FAILURE_V01;
-		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
-					&memblock[GPS]);
-	}
-	alloc_resp.num_bytes_valid = 1;
-	alloc_resp.num_bytes =  alloc_req->num_bytes;
-	alloc_resp.handle_valid = 1;
-	alloc_resp.handle = memblock[GPS].phy_addr;
-	if (rc) {
-		alloc_resp.resp = QMI_RESULT_FAILURE_V01;
-		memblock[GPS].size = 0;
-	} else {
-		alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
-	}
-
-	mutex_unlock(&memsh_drv->mem_share);
-
-	pr_debug("memshare: %s, alloc_resp.num_bytes :%d, alloc_resp.resp :%lx\n",
-			  __func__, alloc_resp.num_bytes,
-			  (unsigned long int)alloc_resp.resp);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
-			&mem_share_svc_alloc_resp_desc, &alloc_resp,
-			sizeof(alloc_resp));
-	if (rc < 0)
-		pr_err("memshare: %s, Error sending the alloc request: %d\n",
-					__func__, rc);
-
-	return rc;
-}
-
-static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
+static void handle_alloc_generic_req(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq, struct qmi_txn *txn, const void *decoded_msg)
 {
 	struct mem_alloc_generic_req_msg_v01 *alloc_req;
 	struct mem_alloc_generic_resp_msg_v01 *alloc_resp;
@@ -539,14 +438,14 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	uint32_t size = 0;
 
 	mutex_lock(&memsh_drv->mem_share);
-	alloc_req = (struct mem_alloc_generic_req_msg_v01 *)req;
+	alloc_req = (struct mem_alloc_generic_req_msg_v01 *)decoded_msg;
 	pr_debug("memshare: alloc request client id: %d proc _id: %d\n",
 			alloc_req->client_id, alloc_req->proc_id);
 	alloc_resp = kzalloc(sizeof(*alloc_resp),
 					GFP_KERNEL);
 	if (!alloc_resp) {
 		mutex_unlock(&memsh_drv->mem_share);
-		return -ENOMEM;
+		return;
 	}
 	alloc_resp->resp.result = QMI_RESULT_FAILURE_V01;
 	alloc_resp->resp.error = QMI_ERR_NO_MEMORY_V01;
@@ -560,7 +459,7 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		kfree(alloc_resp);
 		alloc_resp = NULL;
 		mutex_unlock(&memsh_drv->mem_share);
-		return -EINVAL;
+		return;
 	}
 
 	if (!memblock[client_id].allotted) {
@@ -601,47 +500,22 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	pr_debug("memshare: alloc_resp.num_bytes :%d, alloc_resp.resp.result :%lx\n",
 			  alloc_resp->dhms_mem_alloc_addr_info[0].num_bytes,
 			  (unsigned long int)alloc_resp->resp.result);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
-			&mem_share_svc_alloc_generic_resp_desc, alloc_resp,
-			sizeof(alloc_resp));
 
+	rc = qmi_send_response(mem_share_svc_handle, sq, txn,
+			  MEM_ALLOC_GENERIC_RESP_MSG_V01,
+			  sizeof(struct mem_alloc_generic_resp_msg_v01),
+			  mem_alloc_generic_resp_msg_data_v01_ei, alloc_resp);
 	if (rc < 0)
-		pr_err("memshare: %s, Error sending the alloc request: %d\n",
+		pr_err("memshare: %s, Error sending the alloc response: %d\n",
 							__func__, rc);
 
 	kfree(alloc_resp);
 	alloc_resp = NULL;
-	return rc;
+	return;
 }
 
-static int handle_free_req(void *req_h, void *req, void *conn_h)
-{
-	struct mem_free_req_msg_v01 *free_req;
-	struct mem_free_resp_msg_v01 free_resp;
-	int rc;
-
-	mutex_lock(&memsh_drv->mem_free);
-	if (!memblock[GPS].guarantee) {
-		free_req = (struct mem_free_req_msg_v01 *)req;
-		pr_debug("memshare: %s: Received Free Request\n", __func__);
-		memset(&free_resp, 0, sizeof(free_resp));
-		dma_free_coherent(memsh_drv->dev, memblock[GPS].size,
-			memblock[GPS].virtual_addr,
-				free_req->handle);
-	}
-	free_resp.resp = QMI_RESULT_SUCCESS_V01;
-	mutex_unlock(&memsh_drv->mem_free);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
-			&mem_share_svc_free_resp_desc, &free_resp,
-			sizeof(free_resp));
-	if (rc < 0)
-		pr_err("memshare: %s, Error sending the free request: %d\n",
-					__func__, rc);
-
-	return rc;
-}
-
-static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
+static void handle_free_generic_req(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq, struct qmi_txn *txn, const void *decoded_msg)
 {
 	struct mem_free_generic_req_msg_v01 *free_req;
 	struct mem_free_generic_resp_msg_v01 free_resp;
@@ -652,7 +526,7 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 
 	mutex_lock(&memsh_drv->mem_free);
-	free_req = (struct mem_free_generic_req_msg_v01 *)req;
+	free_req = (struct mem_free_generic_req_msg_v01 *)decoded_msg;
 	pr_debug("memshare: %s: Received Free Request\n", __func__);
 	memset(&free_resp, 0, sizeof(free_resp));
 	free_resp.resp.error = QMI_ERR_INTERNAL_V01;
@@ -665,9 +539,10 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 					__func__);
 		flag = 1;
 	} else if (!memblock[client_id].guarantee &&
-					memblock[client_id].allotted) {
-		pr_debug("memshare: %s: size: %d",
-				__func__, memblock[client_id].size);
+				!memblock[client_id].client_request &&
+				memblock[client_id].allotted) {
+		pr_debug("memshare: %s:client_id:%d - size: %d",
+				__func__, client_id, memblock[client_id].size);
 		ret = hyp_assign_phys(memblock[client_id].phy_addr,
 				memblock[client_id].size, source_vmlist, 1,
 				dest_vmids, dest_perms, 1);
@@ -676,8 +551,8 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 		 * This is an error case as hyp mapping was successful
 		 * earlier but during unmap it lead to failure.
 		 */
-			pr_err("memshare: %s, failed to unmap the region\n",
-				__func__);
+			pr_err("memshare: %s, failed to unmap the region for client id:%d\n",
+				__func__, client_id);
 		}
 		size = memblock[client_id].size;
 		if (memblock[client_id].client_id == 1) {
@@ -696,8 +571,8 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 			attrs);
 		free_client(client_id);
 	} else {
-		pr_err("memshare: %s, Request came for a guaranteed client cannot free up the memory\n",
-						__func__);
+		pr_err("memshare: %s, Request came for a guaranteed client (client_id: %d) cannot free up the memory\n",
+						__func__, client_id);
 	}
 
 	if (flag) {
@@ -709,30 +584,31 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 	}
 
 	mutex_unlock(&memsh_drv->mem_free);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
-		&mem_share_svc_free_generic_resp_desc, &free_resp,
-		sizeof(free_resp));
-
+	rc = qmi_send_response(mem_share_svc_handle, sq, txn,
+			  MEM_FREE_GENERIC_RESP_MSG_V01,
+			  sizeof(struct mem_free_generic_resp_msg_v01),
+			  mem_free_generic_resp_msg_data_v01_ei, &free_resp);
 	if (rc < 0)
-		pr_err("memshare: %s, Error sending the free request: %d\n",
+		pr_err("memshare: %s, Error sending the free response: %d\n",
 					__func__, rc);
 
-	return rc;
+	return;
 }
 
-static int handle_query_size_req(void *req_h, void *req, void *conn_h)
+static void handle_query_size_req(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq, struct qmi_txn *txn, const void *decoded_msg)
 {
 	int rc, client_id;
 	struct mem_query_size_req_msg_v01 *query_req;
 	struct mem_query_size_rsp_msg_v01 *query_resp;
 
 	mutex_lock(&memsh_drv->mem_share);
-	query_req = (struct mem_query_size_req_msg_v01 *)req;
+	query_req = (struct mem_query_size_req_msg_v01 *)decoded_msg;
 	query_resp = kzalloc(sizeof(*query_resp),
 					GFP_KERNEL);
 	if (!query_resp) {
 		mutex_unlock(&memsh_drv->mem_share);
-		return -ENOMEM;
+		return;
 	}
 	pr_debug("memshare: query request client id: %d proc _id: %d\n",
 		query_req->client_id, query_req->proc_id);
@@ -746,7 +622,7 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		kfree(query_resp);
 		query_resp = NULL;
 		mutex_unlock(&memsh_drv->mem_share);
-		return -EINVAL;
+		return;
 	}
 
 	if (memblock[client_id].size) {
@@ -763,148 +639,51 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 	pr_debug("memshare: query_resp.size :%d, query_resp.resp.result :%lx\n",
 			  query_resp->size,
 			  (unsigned long int)query_resp->resp.result);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
-			&mem_share_svc_size_query_resp_desc, query_resp,
-			sizeof(query_resp));
-
+	rc = qmi_send_response(mem_share_svc_handle, sq, txn,
+			  MEM_QUERY_SIZE_RESP_MSG_V01,
+			  MEM_QUERY_MAX_MSG_LEN_V01,
+			  mem_query_size_resp_msg_data_v01_ei, query_resp);
 	if (rc < 0)
-		pr_err("memshare: %s, Error sending the query request: %d\n",
+		pr_err("memshare: %s, Error sending the query response: %d\n",
 							__func__, rc);
 
 	kfree(query_resp);
 	query_resp = NULL;
-	return rc;
+	return;
 }
 
-static int mem_share_svc_connect_cb(struct qmi_handle *handle,
-			       void *conn_h)
+static void mem_share_svc_disconnect_cb(struct qmi_handle *qmi,
+				  unsigned int node, unsigned int port)
 {
-	if (mem_share_svc_handle != handle || !conn_h)
-		return -EINVAL;
-
-	return 0;
+	pr_debug("memshare: Received QMI client disconnect event\n");
 }
 
-static int mem_share_svc_disconnect_cb(struct qmi_handle *handle,
-				  void *conn_h)
-{
-	if (mem_share_svc_handle != handle || !conn_h)
-		return -EINVAL;
+static struct qmi_ops server_ops = {
+	.del_client = mem_share_svc_disconnect_cb,
+};
 
-	return 0;
-}
-
-static int mem_share_svc_req_desc_cb(unsigned int msg_id,
-				struct msg_desc **req_desc)
-{
-	int rc;
-
-	pr_debug("memshare: %s\n", __func__);
-	switch (msg_id) {
-	case MEM_ALLOC_REQ_MSG_V01:
-		*req_desc = &mem_share_svc_alloc_req_desc;
-		rc = sizeof(struct mem_alloc_req_msg_v01);
-		break;
-
-	case MEM_FREE_REQ_MSG_V01:
-		*req_desc = &mem_share_svc_free_req_desc;
-		rc = sizeof(struct mem_free_req_msg_v01);
-		break;
-
-	case MEM_ALLOC_GENERIC_REQ_MSG_V01:
-		*req_desc = &mem_share_svc_alloc_generic_req_desc;
-		rc = sizeof(struct mem_alloc_generic_req_msg_v01);
-		break;
-
-	case MEM_FREE_GENERIC_REQ_MSG_V01:
-		*req_desc = &mem_share_svc_free_generic_req_desc;
-		rc = sizeof(struct mem_free_generic_req_msg_v01);
-		break;
-
-	case MEM_QUERY_SIZE_REQ_MSG_V01:
-		*req_desc = &mem_share_svc_size_query_req_desc;
-		rc = sizeof(struct mem_query_size_req_msg_v01);
-		break;
-
-	default:
-		rc = -ENOTSUPP;
-		break;
-	}
-	return rc;
-}
-
-static int mem_share_svc_req_cb(struct qmi_handle *handle, void *conn_h,
-			void *req_h, unsigned int msg_id, void *req)
-{
-	int rc;
-
-	pr_debug("memshare: %s\n", __func__);
-	if (mem_share_svc_handle != handle || !conn_h)
-		return -EINVAL;
-
-	switch (msg_id) {
-	case MEM_ALLOC_REQ_MSG_V01:
-		rc = handle_alloc_req(req_h, req, conn_h);
-		break;
-
-	case MEM_FREE_REQ_MSG_V01:
-		rc = handle_free_req(req_h, req, conn_h);
-		break;
-
-	case MEM_ALLOC_GENERIC_REQ_MSG_V01:
-		rc = handle_alloc_generic_req(req_h, req, conn_h);
-		break;
-
-	case MEM_FREE_GENERIC_REQ_MSG_V01:
-		rc = handle_free_generic_req(req_h, req, conn_h);
-		break;
-
-	case MEM_QUERY_SIZE_REQ_MSG_V01:
-		rc = handle_query_size_req(req_h, req, conn_h);
-		break;
-
-	default:
-		rc = -ENOTSUPP;
-		break;
-	}
-	return rc;
-}
-
-static void mem_share_svc_recv_msg(struct work_struct *work)
-{
-	int rc;
-
-	pr_debug("memshare: %s\n", __func__);
-	do {
-		rc = qmi_recv_msg(mem_share_svc_handle);
-		pr_debug("memshare: %s: Notified about a Receive Event",
-			__func__);
-	} while (!rc);
-
-	if (rc != -ENOMSG)
-		pr_err("memshare: %s: Error = %d while receiving message\n",
-			__func__, rc);
-}
-
-static void qmi_mem_share_svc_ntfy(struct qmi_handle *handle,
-		enum qmi_event_type event, void *priv)
-{
-	pr_debug("memshare: %s\n", __func__);
-
-	if (event == QMI_RECV_MSG)
-		queue_delayed_work(mem_share_svc_workqueue,
-				   &work_recv_msg, 0);
-}
-
-static struct qmi_svc_ops_options mem_share_svc_ops_options = {
-	.version = 1,
-	.service_id = MEM_SHARE_SERVICE_SVC_ID,
-	.service_vers = MEM_SHARE_SERVICE_VERS,
-	.service_ins = MEM_SHARE_SERVICE_INS_ID,
-	.connect_cb = mem_share_svc_connect_cb,
-	.disconnect_cb = mem_share_svc_disconnect_cb,
-	.req_desc_cb = mem_share_svc_req_desc_cb,
-	.req_cb = mem_share_svc_req_cb,
+static struct qmi_msg_handler qmi_memshare_handlers[] = {
+	{
+		.type = QMI_REQUEST,
+		.msg_id = MEM_ALLOC_GENERIC_REQ_MSG_V01,
+		.ei = mem_alloc_generic_req_msg_data_v01_ei,
+		.decoded_size = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
+		.fn = handle_alloc_generic_req,
+	},
+	{
+		.type = QMI_REQUEST,
+		.msg_id = MEM_FREE_GENERIC_REQ_MSG_V01,
+		.ei = mem_free_generic_req_msg_data_v01_ei,
+		.decoded_size = MEM_FREE_REQ_MAX_MSG_LEN_V01,
+		.fn = handle_free_generic_req,
+	},
+	{
+		.type = QMI_REQUEST,
+		.msg_id = MEM_QUERY_SIZE_REQ_MSG_V01,
+		.ei = mem_query_size_req_msg_data_v01_ei,
+		.decoded_size = MEM_QUERY_MAX_MSG_LEN_V01,
+		.fn = handle_query_size_req,
+	},
 };
 
 int memshare_alloc(struct device *dev,
@@ -937,18 +716,30 @@ static void memshare_init_worker(struct work_struct *work)
 	if (!mem_share_svc_workqueue)
 		return;
 
-	mem_share_svc_handle = qmi_handle_create(qmi_mem_share_svc_ntfy, NULL);
+	mem_share_svc_handle = kzalloc(sizeof(struct qmi_handle),
+					  GFP_KERNEL);
 	if (!mem_share_svc_handle) {
-		pr_err("memshare: %s: Creating mem_share_svc qmi handle failed\n",
-			__func__);
 		destroy_workqueue(mem_share_svc_workqueue);
 		return;
 	}
-	rc = qmi_svc_register(mem_share_svc_handle, &mem_share_svc_ops_options);
+
+	rc = qmi_handle_init(mem_share_svc_handle,
+		sizeof(struct qmi_elem_info),
+		&server_ops, qmi_memshare_handlers);
+	if (rc < 0) {
+		pr_err("memshare: %s: Creating mem_share_svc qmi handle failed\n",
+			__func__);
+		kfree(mem_share_svc_handle);
+		destroy_workqueue(mem_share_svc_workqueue);
+		return;
+	}
+	rc = qmi_add_server(mem_share_svc_handle, MEM_SHARE_SERVICE_SVC_ID,
+		MEM_SHARE_SERVICE_VERS, MEM_SHARE_SERVICE_INS_ID);
 	if (rc < 0) {
 		pr_err("memshare: %s: Registering mem share svc failed %d\n",
 			__func__, rc);
-		qmi_handle_destroy(mem_share_svc_handle);
+		qmi_handle_release(mem_share_svc_handle);
+		kfree(mem_share_svc_handle);
 		destroy_workqueue(mem_share_svc_workqueue);
 		return;
 	}
@@ -991,6 +782,10 @@ static int memshare_child_probe(struct platform_device *pdev)
 	memblock[num_clients].guarantee = of_property_read_bool(
 							pdev->dev.of_node,
 							"qcom,allocate-boot-time");
+
+	memblock[num_clients].client_request = of_property_read_bool(
+							pdev->dev.of_node,
+							"qcom,allocate-on-request");
 
 	rc = of_property_read_string(pdev->dev.of_node, "label",
 						&name);
@@ -1094,11 +889,10 @@ static int memshare_remove(struct platform_device *pdev)
 	if (!memsh_drv)
 		return 0;
 
-	qmi_svc_unregister(mem_share_svc_handle);
 	flush_workqueue(mem_share_svc_workqueue);
-	qmi_handle_destroy(mem_share_svc_handle);
+	qmi_handle_release(mem_share_svc_handle);
+	kfree(mem_share_svc_handle);
 	destroy_workqueue(mem_share_svc_workqueue);
-
 	return 0;
 }
 

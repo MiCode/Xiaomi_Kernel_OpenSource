@@ -111,6 +111,46 @@ First Level Node - FG Gen4 device
 		    Element 0 - Retry value for timer
 		    Element 1 - Maximum value for timer
 
+- qcom,fg-esr-cal-soc-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: SOC thresholds applied when ESR fast calibration is done.
+		    Array of 2 elements if specified. This should be specified
+		    if ESR fast calibration algorithm is needed.
+		    Element 0 - Minimum SOC threshold in percentage
+		    Element 1 - Maximum SOC threshold in percentage
+
+- qcom,fg-esr-cal-temp-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Battery temperature thresholds applied when ESR fast
+		    calibration is done. Array of 2 elements if specified.
+		    This should be specified if ESR fast calibration algorithm
+		    is needed.
+		    Element 0 - Minimum temperature threshold in Celsius
+		    Element 1 - Maximum temperature threshold in Celsius
+
+- qcom,fg-delta-esr-disable-count
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value after which delta ESR interrupt will be disabled.
+		    This is applicable only when ESR fast calibration is
+		    enabled. Default value is 10.
+
+- qcom,fg-delta-esr-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold for delta ESR interrupt in uOhms. Default value
+		    is 1832. If ESR fast calibration algorithm is enabled, this
+		    will be overridden with a maximum value.
+
+- qcom,fg-esr-filter-factor
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR filter factor used in ESR fast calibration algorithm.
+		    This factor will be used when ESR correction delta is
+		    applied after the calculation. Default value is 2.
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
@@ -229,6 +269,17 @@ First Level Node - FG Gen4 device
 		    This should be defined in the ascending order and in the
 		    range of 0-100. Array limit is set to 3.
 
+- qcom,ki-coeff-low-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of ki coefficient values for low discharge current
+		    during discharge. These values will be applied when the
+		    monotonic SOC goes below the SOC threshold specified under
+		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
+		    property should be specified if qcom,ki-coeff-soc-dischg
+		    is specified to make it fully functional. Value has no
+		    unit. Allowed range is 62 to 15564 in micro units.
+
 - qcom,ki-coeff-med-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
@@ -250,6 +301,27 @@ First Level Node - FG Gen4 device
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 62 to 15564 in micro units.
+
+- qcom,ki-coeff-low-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for low charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
+
+- qcom,ki-coeff-med-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for medium charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
+
+- qcom,ki-coeff-hi-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for high charge current during
+		    charging. Value has no unit. Allowed range is 62 to 15564
+		    in micro units.
 
 - qcom,fg-rconn-uohms
 	Usage:      optional

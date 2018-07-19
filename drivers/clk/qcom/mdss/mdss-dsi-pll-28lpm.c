@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,21 +16,20 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-#include <linux/clk/msm-clk.h>
-#include <linux/clk/msm-clock-generic.h>
-#include <linux/clk/msm-clk-provider.h>
-#include <dt-bindings/clock/msm-clocks-8916.h>
+#include <dt-bindings/clock/mdss-28nm-pll-clk.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
+#include "mdss-dsi-pll-28nm.h"
 
 #define VCO_DELAY_USEC			1000
 
-static struct clk_div_ops fixed_2div_ops;
-static const struct clk_ops byte_mux_clk_ops;
-static const struct clk_ops pixel_clk_src_ops;
-static const struct clk_ops byte_clk_src_ops;
-static const struct clk_ops analog_postdiv_clk_ops;
+enum {
+	DSI_PLL_0,
+	DSI_PLL_1,
+	DSI_PLL_MAX
+};
+
 static struct lpfr_cfg lpfr_lut_struct[] = {
 	{479500000, 8},
 	{480000000, 11},
@@ -44,263 +43,519 @@ static struct lpfr_cfg lpfr_lut_struct[] = {
 	{750000000, 11},
 };
 
-static int vco_set_rate_lpm(struct clk *c, unsigned long rate)
+static void dsi_pll_sw_reset(struct mdss_pll_resources *rsc)
 {
-	int rc;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
-	struct mdss_pll_resources *dsi_pll_res = vco->priv;
-
-	rc = mdss_pll_resource_enable(dsi_pll_res, true);
-	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
-		return rc;
-	}
-
 	/*
 	 * DSI PLL software reset. Add HW recommended delays after toggling
 	 * the software reset bit off and back on.
 	 */
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+	MDSS_PLL_REG_W(rsc->pll_base,
 			DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x01);
-	udelay(1000);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+	ndelay(500);
+	MDSS_PLL_REG_W(rsc->pll_base,
 			DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x00);
-	udelay(1000);
-
-	rc = vco_set_rate(vco, rate);
-
-	mdss_pll_resource_enable(dsi_pll_res, false);
-	return rc;
 }
 
-static int dsi_pll_enable_seq_8916(struct mdss_pll_resources *dsi_pll_res)
+static void dsi_pll_toggle_lock_detect(
+				struct mdss_pll_resources *rsc)
 {
-	int pll_locked = 0;
-
-	/*
-	 * DSI PLL software reset. Add HW recommended delays after toggling
-	 * the software reset bit off and back on.
-	 */
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x01);
-	ndelay(500);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x00);
-
-	/*
-	 * PLL power up sequence.
-	 * Add necessary delays recommended by hardware.
-	 */
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
-	ndelay(500);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
-	ndelay(500);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
-	ndelay(500);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	ndelay(500);
-
 	/* DSI PLL toggle lock detect setting */
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+	MDSS_PLL_REG_W(rsc->pll_base,
 			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x04);
 	ndelay(500);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+	MDSS_PLL_REG_W(rsc->pll_base,
 			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x05);
 	udelay(512);
+}
 
-	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+static int dsi_pll_check_lock_status(
+				struct mdss_pll_resources *rsc)
+{
+	int rc = 0;
 
-	if (pll_locked)
+	rc = dsi_pll_lock_status(rsc);
+	if (rc)
 		pr_debug("PLL Locked\n");
 	else
 		pr_err("PLL failed to lock\n");
 
+	return rc;
+}
+
+
+static int dsi_pll_enable_seq_gf2(struct mdss_pll_resources *rsc)
+{
+	int pll_locked = 0;
+
+	dsi_pll_sw_reset(rsc);
+
+	/*
+	 * GF PART 2 PLL power up sequence.
+	 * Add necessary delays recommended by hardware.
+	 */
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x04);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(3);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(500);
+
+	dsi_pll_toggle_lock_detect(rsc);
+
+	pll_locked = dsi_pll_check_lock_status(rsc);
 	return pll_locked ? 0 : -EINVAL;
 }
 
-/* Op structures */
+static int dsi_pll_enable_seq_gf1(struct mdss_pll_resources *rsc)
+{
+	int pll_locked = 0;
 
-static const struct clk_ops clk_ops_dsi_vco = {
-	.set_rate = vco_set_rate_lpm,
-	.round_rate = vco_round_rate,
-	.handoff = vco_handoff,
-	.prepare = vco_prepare,
-	.unprepare = vco_unprepare,
+	dsi_pll_sw_reset(rsc);
+	/*
+	 * GF PART 1 PLL power up sequence.
+	 * Add necessary delays recommended by hardware.
+	 */
+
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x14);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(3);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(500);
+
+	dsi_pll_toggle_lock_detect(rsc);
+
+	pll_locked = dsi_pll_check_lock_status(rsc);
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static int dsi_pll_enable_seq_tsmc(struct mdss_pll_resources *rsc)
+{
+	int pll_locked = 0;
+
+	dsi_pll_sw_reset(rsc);
+	/*
+	 * TSMC PLL power up sequence.
+	 * Add necessary delays recommended by hardware.
+	 */
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	MDSS_PLL_REG_W(rsc->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(500);
+
+	dsi_pll_toggle_lock_detect(rsc);
+
+	pll_locked = dsi_pll_check_lock_status(rsc);
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static struct regmap_config dsi_pll_28lpm_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = 0xF4,
 };
 
-
-static struct clk_div_ops fixed_4div_ops = {
-	.set_div = fixed_4div_set_div,
-	.get_div = fixed_4div_get_div,
+static struct regmap_bus analog_postdiv_regmap_bus = {
+	.reg_write = analog_postdiv_reg_write,
+	.reg_read = analog_postdiv_reg_read,
 };
 
-static struct clk_div_ops analog_postdiv_ops = {
-	.set_div = analog_set_div,
-	.get_div = analog_get_div,
+static struct regmap_bus byteclk_src_mux_regmap_bus = {
+	.reg_write = byteclk_mux_write_sel,
+	.reg_read = byteclk_mux_read_sel,
 };
 
-static struct clk_div_ops digital_postdiv_ops = {
-	.set_div = digital_set_div,
-	.get_div = digital_get_div,
+static struct regmap_bus pclk_src_regmap_bus = {
+	.reg_write = pixel_clk_set_div,
+	.reg_read = pixel_clk_get_div,
 };
 
-static struct clk_mux_ops byte_mux_ops = {
-	.set_mux_sel = set_byte_mux_sel,
-	.get_mux_sel = get_byte_mux_sel,
+static const struct clk_ops clk_ops_vco_28lpm = {
+	.recalc_rate = vco_28nm_recalc_rate,
+	.set_rate = vco_28nm_set_rate,
+	.round_rate = vco_28nm_round_rate,
+	.prepare = vco_28nm_prepare,
+	.unprepare = vco_28nm_unprepare,
 };
 
-static struct dsi_pll_vco_clk dsi_vco_clk_8916 = {
-	.ref_clk_rate = 19200000,
-	.min_rate = 350000000,
-	.max_rate = 750000000,
-	.pll_en_seq_cnt = 1,
-	.pll_enable_seqs[0] = dsi_pll_enable_seq_8916,
+static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
+	.ref_clk_rate = 19200000UL,
+	.min_rate = 350000000UL,
+	.max_rate = 750000000UL,
+	.pll_en_seq_cnt = 9,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[1] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[2] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[3] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[4] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[5] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[6] = dsi_pll_enable_seq_gf2,
+	.pll_enable_seqs[7] = dsi_pll_enable_seq_gf2,
+	.pll_enable_seqs[8] = dsi_pll_enable_seq_gf2,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
-	.c = {
-		.dbg_name = "dsi_vco_clk_8916",
-		.ops = &clk_ops_dsi_vco,
-		CLK_INIT(dsi_vco_clk_8916.c),
+	.hw.init = &(struct clk_init_data){
+			.name = "dsi0pll_vco_clk",
+			.parent_names = (const char *[]){"bi_tcxo"},
+			.num_parents = 1,
+			.ops = &clk_ops_vco_28lpm,
+			.flags = CLK_GET_RATE_NOCACHE,
 	},
 };
 
-static struct div_clk analog_postdiv_clk_8916 = {
-	.data = {
-		.max_div = 255,
-		.min_div = 1,
-	},
-	.ops = &analog_postdiv_ops,
-	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "analog_postdiv_clk",
-		.ops = &analog_postdiv_clk_ops,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(analog_postdiv_clk_8916.c),
-	},
-};
-
-static struct div_clk indirect_path_div2_clk_8916 = {
-	.ops = &fixed_2div_ops,
-	.data = {
-		.div = 2,
-		.min_div = 2,
-		.max_div = 2,
-	},
-	.c = {
-		.parent = &analog_postdiv_clk_8916.c,
-		.dbg_name = "indirect_path_div2_clk",
-		.ops = &clk_ops_div,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(indirect_path_div2_clk_8916.c),
+static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
+	.ref_clk_rate = 19200000UL,
+	.min_rate = 350000000UL,
+	.max_rate = 750000000UL,
+	.pll_en_seq_cnt = 9,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[1] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[2] = dsi_pll_enable_seq_tsmc,
+	.pll_enable_seqs[3] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[4] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[5] = dsi_pll_enable_seq_gf1,
+	.pll_enable_seqs[6] = dsi_pll_enable_seq_gf2,
+	.pll_enable_seqs[7] = dsi_pll_enable_seq_gf2,
+	.pll_enable_seqs[8] = dsi_pll_enable_seq_gf2,
+	.lpfr_lut_size = 10,
+	.lpfr_lut = lpfr_lut_struct,
+	.hw.init = &(struct clk_init_data){
+			.name = "dsi1pll_vco_clk",
+			.parent_names = (const char *[]){"bi_tcxo"},
+			.num_parents = 1,
+			.ops = &clk_ops_vco_28lpm,
+			.flags = CLK_GET_RATE_NOCACHE,
 	},
 };
 
-static struct div_clk pixel_clk_src = {
-	.data = {
-		.max_div = 255,
-		.min_div = 1,
-	},
-	.ops = &digital_postdiv_ops,
-	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "pixel_clk_src_8916",
-		.ops = &pixel_clk_src_ops,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(pixel_clk_src.c),
-	},
-};
-
-static struct mux_clk byte_mux_8916 = {
-	.num_parents = 2,
-	.parents = (struct clk_src[]){
-		{&dsi_vco_clk_8916.c, 0},
-		{&indirect_path_div2_clk_8916.c, 1},
-	},
-	.ops = &byte_mux_ops,
-	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "byte_mux_8916",
-		.ops = &byte_mux_clk_ops,
-		CLK_INIT(byte_mux_8916.c),
+static struct clk_regmap_div dsi0pll_analog_postdiv = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_POSTDIV1_CFG,
+	.shift = 0,
+	.width = 4,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi0pll_analog_postdiv",
+			.parent_names = (const char *[]){"dsi0pll_vco_clk"},
+			.num_parents = 1,
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+			.ops = &clk_regmap_div_ops,
+		},
 	},
 };
 
-static struct div_clk byte_clk_src = {
-	.ops = &fixed_4div_ops,
-	.data = {
-		.min_div = 4,
-		.max_div = 4,
-	},
-	.c = {
-		.parent = &byte_mux_8916.c,
-		.dbg_name = "byte_clk_src_8916",
-		.ops = &byte_clk_src_ops,
-		CLK_INIT(byte_clk_src.c),
+static struct clk_regmap_div dsi1pll_analog_postdiv = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_POSTDIV1_CFG,
+	.shift = 0,
+	.width = 4,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi1pll_analog_postdiv",
+			.parent_names = (const char *[]){"dsi1pll_vco_clk"},
+			.num_parents = 1,
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+			.ops = &clk_regmap_div_ops,
+		},
 	},
 };
 
-static struct clk_lookup mdss_dsi_pllcc_8916[] = {
-	CLK_LIST(pixel_clk_src),
-	CLK_LIST(byte_clk_src),
+static struct clk_fixed_factor dsi0pll_indirect_path_src = {
+	.div = 2,
+	.mult = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "dsi0pll_indirect_path_src",
+		.parent_names = (const char *[]){"dsi0pll_analog_postdiv"},
+		.num_parents = 1,
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+		.ops = &clk_fixed_factor_ops,
+	},
 };
 
-int dsi_pll_clock_register_lpm(struct platform_device *pdev,
+static struct clk_fixed_factor dsi1pll_indirect_path_src = {
+	.div = 2,
+	.mult = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "dsi1pll_indirect_path_src",
+		.parent_names = (const char *[]){"dsi1pll_analog_postdiv"},
+		.num_parents = 1,
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
+static struct clk_regmap_mux dsi0pll_byteclk_src_mux = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_VREG_CFG,
+	.shift = 1,
+	.width = 1,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi0pll_byteclk_src_mux",
+			.parent_names = (const char *[]){
+				"dsi0pll_vco_clk",
+				"dsi0pll_indirect_path_src"},
+			.num_parents = 2,
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_regmap_mux dsi1pll_byteclk_src_mux = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_VREG_CFG,
+	.shift = 1,
+	.width = 1,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi1pll_byteclk_src_mux",
+			.parent_names = (const char *[]){
+				"dsi1pll_vco_clk",
+				"dsi1pll_indirect_path_src"},
+			.num_parents = 2,
+			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_fixed_factor dsi0pll_byteclk_src = {
+	.div = 4,
+	.mult = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "dsi0pll_byteclk_src",
+		.parent_names = (const char *[]){
+				"dsi0pll_byteclk_src_mux"},
+		.num_parents = 1,
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
+static struct clk_fixed_factor dsi1pll_byteclk_src = {
+	.div = 4,
+	.mult = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "dsi1pll_byteclk_src",
+		.parent_names = (const char *[]){
+				"dsi1pll_byteclk_src_mux"},
+		.num_parents = 1,
+		.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
+static struct clk_regmap_div dsi0pll_pclk_src = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_POSTDIV3_CFG,
+	.shift = 0,
+	.width = 8,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi0pll_pclk_src",
+			.parent_names = (const char *[]){"dsi0pll_vco_clk"},
+			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
+			.ops = &clk_regmap_div_ops,
+		},
+	},
+};
+
+static struct clk_regmap_div dsi1pll_pclk_src = {
+	.reg = DSI_PHY_PLL_UNIPHY_PLL_POSTDIV3_CFG,
+	.shift = 0,
+	.width = 8,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "dsi1pll_pclk_src",
+			.parent_names = (const char *[]){"dsi1pll_vco_clk"},
+			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
+			.ops = &clk_regmap_div_ops,
+		},
+	},
+};
+
+static struct clk_hw *mdss_dsi_pllcc_28lpm[] = {
+	[VCO_CLK_0] = &dsi0pll_vco_clk.hw,
+	[ANALOG_POSTDIV_0_CLK] = &dsi0pll_analog_postdiv.clkr.hw,
+	[INDIRECT_PATH_SRC_0_CLK] = &dsi0pll_indirect_path_src.hw,
+	[BYTECLK_SRC_MUX_0_CLK] = &dsi0pll_byteclk_src_mux.clkr.hw,
+	[BYTECLK_SRC_0_CLK] = &dsi0pll_byteclk_src.hw,
+	[PCLK_SRC_0_CLK] = &dsi0pll_pclk_src.clkr.hw,
+	[VCO_CLK_1] = &dsi1pll_vco_clk.hw,
+	[ANALOG_POSTDIV_1_CLK] = &dsi1pll_analog_postdiv.clkr.hw,
+	[INDIRECT_PATH_SRC_1_CLK] = &dsi1pll_indirect_path_src.hw,
+	[BYTECLK_SRC_MUX_1_CLK] = &dsi1pll_byteclk_src_mux.clkr.hw,
+	[BYTECLK_SRC_1_CLK] = &dsi1pll_byteclk_src.hw,
+	[PCLK_SRC_1_CLK] = &dsi1pll_pclk_src.clkr.hw,
+};
+
+int dsi_pll_clock_register_28lpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
-	int rc;
+	int rc = 0, ndx, i;
+	struct clk *clk;
+	struct clk_onecell_data *clk_data;
+	int num_clks = ARRAY_SIZE(mdss_dsi_pllcc_28lpm);
+	struct regmap *rmap;
 
-	if (!pdev || !pdev->dev.of_node) {
-		pr_err("Invalid input parameters\n");
+	int const ssc_freq_min = 30000; /* min. recommended freq. value */
+	int const ssc_freq_max = 33000; /* max. recommended freq. value */
+	int const ssc_ppm_max = 5000; /* max. recommended ppm */
+
+	if (!pdev || !pdev->dev.of_node ||
+		!pll_res || !pll_res->pll_base) {
+		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
-	if (!pll_res || !pll_res->pll_base) {
-		pr_err("Invalid PLL resources\n");
-		return -EPROBE_DEFER;
+	ndx = pll_res->index;
+
+	if (ndx >= DSI_PLL_MAX) {
+		pr_err("pll index(%d) NOT supported\n", ndx);
+		return -EINVAL;
 	}
 
-	/* Set client data to mux, div and vco clocks */
-	byte_clk_src.priv = pll_res;
-	pixel_clk_src.priv = pll_res;
-	byte_mux_8916.priv = pll_res;
-	indirect_path_div2_clk_8916.priv = pll_res;
-	analog_postdiv_clk_8916.priv = pll_res;
-	dsi_vco_clk_8916.priv = pll_res;
 	pll_res->vco_delay = VCO_DELAY_USEC;
 
-	/* Set clock source operations */
-	pixel_clk_src_ops = clk_ops_slave_div;
-	pixel_clk_src_ops.prepare = dsi_pll_div_prepare;
-
-	analog_postdiv_clk_ops = clk_ops_div;
-	analog_postdiv_clk_ops.prepare = dsi_pll_div_prepare;
-
-	byte_clk_src_ops = clk_ops_div;
-	byte_clk_src_ops.prepare = dsi_pll_div_prepare;
-
-	byte_mux_clk_ops = clk_ops_gen_mux;
-	byte_mux_clk_ops.prepare = dsi_pll_mux_prepare;
-
-	if (pll_res->target_id == MDSS_PLL_TARGET_8916 ||
-		pll_res->target_id == MDSS_PLL_TARGET_8939 ||
-		pll_res->target_id == MDSS_PLL_TARGET_8909) {
-		rc = of_msm_clock_register(pdev->dev.of_node,
-			mdss_dsi_pllcc_8916, ARRAY_SIZE(mdss_dsi_pllcc_8916));
-		if (rc) {
-			pr_err("Clock register failed\n");
-			rc = -EPROBE_DEFER;
+	if (pll_res->ssc_en) {
+		if (!pll_res->ssc_freq || (pll_res->ssc_freq < ssc_freq_min) ||
+			(pll_res->ssc_freq > ssc_freq_max)) {
+			pll_res->ssc_freq = ssc_freq_min;
+			pr_debug("SSC frequency out of recommended range. Set to default=%d\n",
+				pll_res->ssc_freq);
 		}
-	} else {
-		pr_err("Invalid target ID\n");
-		rc = -EINVAL;
+
+		if (!pll_res->ssc_ppm || (pll_res->ssc_ppm > ssc_ppm_max)) {
+			pll_res->ssc_ppm = ssc_ppm_max;
+			pr_debug("SSC PPM out of recommended range. Set to default=%d\n",
+				pll_res->ssc_ppm);
+		}
 	}
 
-	if (!rc)
-		pr_info("Registered DSI PLL clocks successfully\n");
+	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
+					GFP_KERNEL);
+	if (!clk_data)
+		return -ENOMEM;
 
+	clk_data->clks = devm_kzalloc(&pdev->dev, (num_clks *
+				sizeof(struct clk *)), GFP_KERNEL);
+	if (!clk_data->clks) {
+		devm_kfree(&pdev->dev, clk_data);
+		return -ENOMEM;
+	}
+	clk_data->clk_num = num_clks;
+
+	/* Establish client data */
+	if (ndx == 0) {
+		rmap = devm_regmap_init(&pdev->dev, &byteclk_src_mux_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi0pll_byteclk_src_mux.clkr.regmap = rmap;
+
+		rmap = devm_regmap_init(&pdev->dev, &analog_postdiv_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi0pll_analog_postdiv.clkr.regmap = rmap;
+
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi0pll_pclk_src.clkr.regmap = rmap;
+
+		dsi0pll_vco_clk.priv = pll_res;
+		for (i = VCO_CLK_0; i <= PCLK_SRC_0_CLK; i++) {
+			clk = devm_clk_register(&pdev->dev,
+						mdss_dsi_pllcc_28lpm[i]);
+			if (IS_ERR(clk)) {
+				pr_err("clk registration failed for DSI clock:%d\n",
+							pll_res->index);
+				rc = -EINVAL;
+				goto clk_register_fail;
+			}
+			clk_data->clks[i] = clk;
+
+		}
+
+		rc = of_clk_add_provider(pdev->dev.of_node,
+				of_clk_src_onecell_get, clk_data);
+
+	} else {
+		rmap = devm_regmap_init(&pdev->dev, &byteclk_src_mux_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi1pll_byteclk_src_mux.clkr.regmap = rmap;
+
+		rmap = devm_regmap_init(&pdev->dev, &analog_postdiv_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi1pll_analog_postdiv.clkr.regmap = rmap;
+
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_regmap_bus,
+				pll_res, &dsi_pll_28lpm_config);
+		if (IS_ERR(rmap)) {
+			pr_err("regmap init failed for DSI clock:%d\n",
+					pll_res->index);
+			return -EINVAL;
+		}
+		dsi1pll_pclk_src.clkr.regmap = rmap;
+
+		dsi1pll_vco_clk.priv = pll_res;
+		for (i = VCO_CLK_1; i <= PCLK_SRC_1_CLK; i++) {
+			clk = devm_clk_register(&pdev->dev,
+						mdss_dsi_pllcc_28lpm[i]);
+			if (IS_ERR(clk)) {
+				pr_err("clk registration failed for DSI clock:%d\n",
+							pll_res->index);
+				rc = -EINVAL;
+				goto clk_register_fail;
+			}
+			clk_data->clks[i] = clk;
+
+		}
+
+		rc = of_clk_add_provider(pdev->dev.of_node,
+				of_clk_src_onecell_get, clk_data);
+	}
+	if (!rc) {
+		pr_info("Registered DSI PLL ndx=%d, clocks successfully", ndx);
+
+		return rc;
+	}
+
+clk_register_fail:
+	devm_kfree(&pdev->dev, clk_data->clks);
+	devm_kfree(&pdev->dev, clk_data);
 	return rc;
 }

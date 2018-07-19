@@ -34,6 +34,8 @@ enum rmnet_map_commands {
 	RMNET_MAP_COMMAND_NONE,
 	RMNET_MAP_COMMAND_FLOW_DISABLE,
 	RMNET_MAP_COMMAND_FLOW_ENABLE,
+	RMNET_MAP_COMMAND_FLOW_START = 7,
+	RMNET_MAP_COMMAND_FLOW_END = 8,
 	/* These should always be the last 2 elements */
 	RMNET_MAP_COMMAND_UNKNOWN,
 	RMNET_MAP_COMMAND_ENUM_LENGTH
@@ -62,6 +64,60 @@ struct rmnet_map_ul_csum_header {
 	u16 udp_ip4_ind:1;
 	u16 csum_enabled:1;
 } __aligned(1);
+
+struct rmnet_map_control_command_header {
+	u8  command_name;
+	u8  cmd_type:2;
+	u8  reserved:6;
+	u16 reserved2;
+	u32 transaction_id;
+}  __aligned(1);
+
+struct rmnet_map_flow_info_le {
+	__be32 mux_id;
+	__be32 flow_id;
+	__be32 bytes;
+	__be32 pkts;
+} __aligned(1);
+
+struct rmnet_map_flow_info_be {
+	u32 mux_id;
+	u32 flow_id;
+	u32 bytes;
+	u32 pkts;
+} __aligned(1);
+
+struct rmnet_map_dl_ind_hdr {
+	union {
+		struct {
+			u32 seq;
+			u32 bytes;
+			u32 pkts;
+			u32 flows;
+			struct rmnet_map_flow_info_le flow[0];
+		} le __aligned(1);
+		struct {
+			__be32 seq;
+			__be32 bytes;
+			__be32 pkts;
+			__be32 flows;
+			struct rmnet_map_flow_info_be flow[0];
+		} be __aligned(1);
+	} __aligned(1);
+} __aligned(1);
+
+struct rmnet_map_dl_ind_trl {
+	union {
+		__be32 seq_be;
+		u32 seq_le;
+	} __aligned(1);
+} __aligned(1);
+
+struct rmnet_map_dl_ind {
+	void (*dl_hdr_handler)(struct rmnet_map_dl_ind_hdr *);
+	void (*dl_trl_handler)(struct rmnet_map_dl_ind_trl *);
+	struct list_head list;
+};
 
 #define RMNET_MAP_GET_MUX_ID(Y) (((struct rmnet_map_header *) \
 				 (Y)->data)->mux_id)
@@ -95,5 +151,11 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
-
+int rmnet_map_flow_command(struct sk_buff *skb, struct rmnet_port *port);
+void rmnet_map_cmd_init(struct rmnet_port *port);
+int rmnet_map_dl_ind_register(struct rmnet_port *port,
+			      struct rmnet_map_dl_ind *dl_ind);
+int rmnet_map_dl_ind_deregister(struct rmnet_port *port,
+				struct rmnet_map_dl_ind *dl_ind);
+void rmnet_map_cmd_exit(struct rmnet_port *port);
 #endif /* _RMNET_MAP_H_ */

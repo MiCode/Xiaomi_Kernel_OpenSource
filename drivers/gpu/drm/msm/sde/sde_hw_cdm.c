@@ -223,13 +223,15 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 		struct sde_hw_cdm_cfg *cdm)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	const struct sde_format *fmt = cdm->output_fmt;
+	const struct sde_format *fmt;
 	struct cdm_output_cfg cdm_cfg = { 0 };
 	u32 opmode = 0;
 	u32 csc = 0;
 
 	if (!ctx || !cdm)
 		return -EINVAL;
+
+	fmt = cdm->output_fmt;
 
 	if (!SDE_FORMAT_IS_YUV(fmt))
 		return -EINVAL;

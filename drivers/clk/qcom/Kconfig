@@ -318,6 +318,7 @@ config MSM_CAMCC_SDMSHRIKE
 
 config MDM_GCC_QCS405
 	tristate "QCS405 Global Clock Controller"
+	select QCOM_GDSC
 	depends on COMMON_CLK_QCOM
 	help
 	 Support for the global clock controller on Qualcomm Technologies, Inc
@@ -341,3 +342,29 @@ config CLOCK_CPU_QCS405
 	 based devices.
 	 Say Y if you want to support CPU clock scaling using
 	 CPUfreq drivers for dynamic power management.
+
+config MSM_GCC_SM6150
+	tristate "SM6150 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_GPUCC_SM6150
+	tristate "SM6150 graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SM6150 devices.
+	  Say Y if you want to support graphics clocks.
+
+config MSM_VIDEOCC_SM6150
+	tristate "SM6150 Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SM6150 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.

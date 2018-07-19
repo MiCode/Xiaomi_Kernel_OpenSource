@@ -72,14 +72,14 @@
 		arm,buffer-size = <0x400000>;
 
 		coresight-name = "coresight-tmc-etr";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "apb_pclk", "core_a_clk";
 
-		interrupts = <GIC_SPI 198 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "byte-cntr-irq";
 
 		port {
@@ -98,7 +98,7 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf";
-		coresight-ctis = <&cti0>;
+		coresight-ctis = <&cti0 &cti0>;
 		arm,default-sink;
 		coresight-csr = <&csr>;
 
@@ -340,7 +340,7 @@
 		arm,primecell-periphid = <0x0003b962>;
 
 		reg =   <0x6002000 0x1000>,
-			<0x09000000 0x1000000>;
+			<0x09280000 0x180000>;
 		reg-names = "stm-base", "stm-stimulus-base";
 
 		coresight-name = "coresight-stm";

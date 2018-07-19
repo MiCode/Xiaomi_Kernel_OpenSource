@@ -3043,6 +3043,8 @@ static inline void inode_dio_end(struct inode *inode)
 		wake_up_bit(&inode->i_state, __I_DIO_WAKEUP);
 }
 
+struct inode *dio_bio_get_inode(struct bio *bio);
+
 extern void inode_set_flags(struct inode *inode, unsigned int flags,
 			    unsigned int mask);
 

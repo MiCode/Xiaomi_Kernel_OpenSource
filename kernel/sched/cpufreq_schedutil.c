@@ -153,7 +153,9 @@ static void sugov_track_cycles(struct sugov_policy *sg_policy,
 
 	/* Track cycles in current window */
 	delta_ns = upto - sg_policy->last_cyc_update_time;
-	cycles = (prev_freq * delta_ns) / (NSEC_PER_SEC / KHZ);
+	delta_ns *= prev_freq;
+	do_div(delta_ns, (NSEC_PER_SEC / KHZ));
+	cycles = delta_ns;
 	sg_policy->curr_cycles += cycles;
 	sg_policy->last_cyc_update_time = upto;
 }

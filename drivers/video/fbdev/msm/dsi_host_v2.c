@@ -1114,7 +1114,7 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 
 	if (!pdata->panel_info.dynamic_switch_pending) {
 		for (i = 0; !ret && (i < DSI_MAX_PM); i++) {
-			ret = msm_mdss_enable_vreg(
+			ret = msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 1);
 			if (ret) {
@@ -1215,7 +1215,7 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 error_vreg:
 	if (ret) {
 		for (; i >= 0; i--)
-			msm_mdss_enable_vreg(
+			msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 0);
 	}
@@ -1250,7 +1250,7 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 
 	if (!pdata->panel_info.dynamic_switch_pending) {
 		for (i = DSI_MAX_PM - 1; i >= 0; i--) {
-			ret = msm_mdss_enable_vreg(
+			ret = msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 0);
 			if (ret)
@@ -1287,7 +1287,7 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	pinfo = &pdata->panel_info;
 	mutex_lock(&ctrl_pdata->mutex);
 	for (i = 0; !ret && (i < DSI_MAX_PM); i++) {
-		ret = msm_mdss_enable_vreg(
+		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data[i].vreg_config,
 			ctrl_pdata->power_data[i].num_vreg, 1);
 		if (ret) {
@@ -1314,7 +1314,7 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 error_vreg:
 	if (ret) {
 		for (; i >= 0; i--)
-			msm_mdss_enable_vreg(
+			msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 0);
 	}

@@ -14,7 +14,7 @@
 qcom,mlp466076_3250mah_averaged_masterslave_mar27th2018 {
 	/* #mlp466076_3250mAh_averaged_MasterSlave_Mar27th2018 */
 	qcom,max-voltage-uv = <4400000>;
-	qcom,fastchg-current-ma = <6000000>;
+	qcom,fastchg-current-ma = <6000>;
 	qcom,jeita-fcc-ranges = <0  150  650000
 				151 450  4875000
 				451 550  1625000>;

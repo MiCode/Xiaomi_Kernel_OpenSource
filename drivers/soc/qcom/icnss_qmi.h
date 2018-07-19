@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,10 @@ static inline int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
 	return 0;
 }
 static inline void icnss_ignore_fw_timeout(bool ignore) {}
-
+static int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv)
+{
+	return 0;
+}
 static inline int wlfw_ini_send_sync_msg(struct icnss_priv *priv,
 		uint8_t fw_log_mode)
 {
@@ -103,6 +106,7 @@ int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
 int icnss_clear_server(struct icnss_priv *priv);
 int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv);
 void icnss_ignore_fw_timeout(bool ignore);
+int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv);
 int wlfw_ini_send_sync_msg(struct icnss_priv *priv, uint8_t fw_log_mode);
 int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
 					   uint32_t offset, uint32_t mem_type,

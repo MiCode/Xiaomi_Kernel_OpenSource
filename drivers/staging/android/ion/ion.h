@@ -37,6 +37,7 @@
 #define ION_SYSTEM_HEAP_NAME	"system"
 #define ION_MM_HEAP_NAME	"mm"
 #define ION_SPSS_HEAP_NAME	"spss"
+#define ION_SECURE_CARVEOUT_HEAP_NAME	"secure_carveout"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
@@ -414,6 +415,10 @@ void ion_system_secure_heap_destroy(struct ion_heap *heap);
 
 struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *heap);
 void ion_cma_secure_heap_destroy(struct ion_heap *heap);
+
+struct ion_heap *ion_secure_carveout_heap_create(
+			struct ion_platform_heap *heap);
+void ion_secure_carveout_heap_destroy(struct ion_heap *heap);
 
 /**
  * functions for creating and destroying a heap pool -- allows you

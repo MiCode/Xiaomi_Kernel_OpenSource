@@ -253,6 +253,21 @@ struct msm_vidc_format {
 	int type;
 	u32 (*get_frame_size)(int plane, u32 height, u32 width);
 	bool defer_outputs;
+	u32 input_min_count;
+	u32 output_min_count;
+};
+
+struct msm_vidc_format_constraint {
+	u32 fourcc;
+	u32 num_planes;
+	u32 y_stride_multiples;
+	u32 y_max_stride;
+	u32 y_min_plane_buffer_height_multiple;
+	u32 y_buffer_alignment;
+	u32 uv_stride_multiples;
+	u32 uv_max_stride;
+	u32 uv_min_plane_buffer_height_multiple;
+	u32 uv_buffer_alignment;
 };
 
 struct msm_vidc_drv {
@@ -320,8 +335,6 @@ struct clock_data {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	unsigned int extra_capture_buffer_count;
-	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
 	bool dcvs_mode;
 	unsigned long bitrate;
@@ -396,7 +409,6 @@ struct msm_vidc_core {
 	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
-	struct vidc_bus_vote_data *vote_data;
 	struct msm_vidc_core_ops *core_ops;
 };
 
@@ -514,6 +526,8 @@ int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 struct dma_buf *msm_smem_get_dma_buf(int fd);
 void msm_smem_put_dma_buf(void *dma_buf);
+int msm_smem_cache_operations(struct dma_buf *dbuf,
+	enum smem_cache_ops cache_op, unsigned long offset, unsigned long size);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
 void msm_vidc_ssr_handler(struct work_struct *work);
 /*

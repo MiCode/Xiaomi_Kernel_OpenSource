@@ -46,10 +46,15 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	if (in_interrupt() == 0) {
 		int status;
 
-		if (gmu_dev_ops->oob_set) {
+		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 			status = gmu_dev_ops->oob_set(adreno_dev, oob_preempt);
-			if (status)
+			if (status) {
+				adreno_set_gpu_fault(adreno_dev,
+					ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(
+					KGSL_DEVICE(adreno_dev));
 				return;
+			}
 		}
 	}
 
@@ -75,7 +80,7 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
 	if (in_interrupt() == 0) {
-		if (gmu_dev_ops->oob_clear)
+		if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 			gmu_dev_ops->oob_clear(adreno_dev, oob_preempt);
 	}
 }

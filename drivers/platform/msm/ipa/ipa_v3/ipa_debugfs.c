@@ -73,6 +73,8 @@ const char *ipa3_event_name[] = {
 	__stringify(DEL_L2TP_VLAN_MAPPING),
 	__stringify(IPA_PER_CLIENT_STATS_CONNECT_EVENT),
 	__stringify(IPA_PER_CLIENT_STATS_DISCONNECT_EVENT),
+	__stringify(ADD_BRIDGE_VLAN_MAPPING),
+	__stringify(DEL_BRIDGE_VLAN_MAPPING),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -1945,7 +1947,7 @@ static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	ipahal_print_all_regs();
+	ipahal_print_all_regs(true);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;

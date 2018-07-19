@@ -51,6 +51,11 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 		soft_reset_direction_assert = 1;
 		soft_reset_direction_de_assert = 0;
 	}
+
+	esoc_mdm_log("RESET GPIO value (before doing a reset): %d\n",
+			gpio_get_value(MDM_GPIO(mdm, AP2MDM_SOFT_RESET)));
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+				soft_reset_direction_assert);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			soft_reset_direction_assert);
 	/*
@@ -64,6 +69,9 @@ static int sdx50m_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 		 * panic handler, which has to executed atomically.
 		 */
 		mdelay(100);
+
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+				soft_reset_direction_de_assert);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			soft_reset_direction_de_assert);
 	return 0;
@@ -75,6 +83,7 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	int pblrdy;
 	struct device *dev = mdm->dev;
 
+	esoc_mdm_log("Powering on modem for the first time\n");
 	dev_dbg(dev, "Powering on modem for the first time\n");
 	if (mdm->esoc->auto_boot)
 		return 0;
@@ -82,6 +91,7 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	mdm_toggle_soft_reset(mdm, false);
 	/* Add a delay to allow PON sequence to complete*/
 	msleep(150);
+	esoc_mdm_log("Setting AP2MDM_STATUS = 1\n");
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
 	if (gpio_is_valid(MDM_GPIO(mdm, MDM2AP_PBLRDY))) {
 		for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
@@ -98,8 +108,10 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	 * Send request for image. Let userspace confirm establishment of
 	 * link to external modem.
 	 */
-	else
+	else {
+		esoc_mdm_log("Queueing the request: ESOC_REQ_IMG\n");
 		esoc_clink_queue_request(ESOC_REQ_IMG, mdm->esoc);
+	}
 	return 0;
 }
 
@@ -134,6 +146,7 @@ static int sdx50m_power_down(struct mdm_ctrl *mdm)
 	struct device *dev = mdm->dev;
 	int soft_reset_direction = mdm->soft_reset_inverted ? 1 : 0;
 	/* Assert the soft reset line whether mdm2ap_status went low or not */
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n", soft_reset_direction);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 					soft_reset_direction);
 	dev_dbg(dev, "Doing a hard reset\n");
@@ -152,6 +165,7 @@ static int sdx50m_power_down(struct mdm_ctrl *mdm)
 static void mdm9x55_cold_reset(struct mdm_ctrl *mdm)
 {
 	dev_dbg(mdm->dev, "Triggering mdm cold reset");
+
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			!!mdm->soft_reset_inverted);
 
@@ -168,6 +182,8 @@ static void mdm9x55_cold_reset(struct mdm_ctrl *mdm)
 static void sdx50m_cold_reset(struct mdm_ctrl *mdm)
 {
 	dev_dbg(mdm->dev, "Triggering mdm cold reset");
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+					!!mdm->soft_reset_inverted);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			!!mdm->soft_reset_inverted);
 
@@ -177,6 +193,8 @@ static void sdx50m_cold_reset(struct mdm_ctrl *mdm)
 	 */
 	mdelay(600);
 
+	esoc_mdm_log("Setting AP2MDM_SOFT_RESET = %d\n",
+					!!mdm->soft_reset_inverted);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			!mdm->soft_reset_inverted);
 }

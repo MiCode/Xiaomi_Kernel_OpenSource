@@ -175,8 +175,9 @@ static int stp_master_alloc(struct stm_device *stm, unsigned int idx)
 {
 	struct stp_master *master;
 	size_t size;
+	unsigned long align = sizeof(unsigned long);
 
-	size = ALIGN(stm->data->sw_nchannels, 8) / 8;
+	size = ALIGN(stm->data->sw_nchannels, align) / align;
 	size += sizeof(struct stp_master);
 	master = kzalloc(size, GFP_ATOMIC);
 	if (!master)

@@ -140,6 +140,7 @@ config ARM64
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
 	select THREAD_INFO_IN_TASK
+	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -941,6 +942,14 @@ config PRINT_VMEMLAYOUT
 	  virtual memory layout during boot up.
 
 	  If unsure, say N.
+
+config ARM64_SSBD
+	bool "Speculative Store Bypass Disable" if EXPERT
+	help
+	  This enables mitigation of the bypassing of previous stores
+	  by speculative loads.
+
+	  If unsure, say Y.
 
 menuconfig ARMV8_DEPRECATED
 	bool "Emulate deprecated/obsolete ARMv8 instructions"

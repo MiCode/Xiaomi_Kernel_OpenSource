@@ -13,12 +13,22 @@
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
+#include "kgsl_gmu_core.h"
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x2000	/* in bytes */
-#define FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
+
+#define GMU_INT_WDOG_BITE		BIT(0)
+#define GMU_INT_RSCC_COMP		BIT(1)
+#define GMU_INT_FENCE_ERR		BIT(3)
+#define GMU_INT_DBD_WAKEUP		BIT(4)
+#define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
+#define GMU_AO_INT_MASK		\
+		(GMU_INT_WDOG_BITE |	\
+		GMU_INT_FENCE_ERR |	\
+		GMU_INT_HOST_AHB_BUS_ERR)
 
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
@@ -40,9 +50,6 @@
 				MX_VOTE_ENABLE		| \
 				CX_VOTE_ENABLE		| \
 				GFX_VOTE_ENABLE)
-
-/* GMU timeouts */
-#define GMU_IDLE_TIMEOUT        100 /* ms */
 
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
@@ -90,25 +97,6 @@ enum gmu_load_mode {
 	TCM_BOOT,
 	TCM_LOAD_BOOT,
 	INVALID_LOAD
-};
-
-enum gmu_pwrctrl_mode {
-	GMU_FW_START,
-	GMU_FW_STOP,
-	GMU_SUSPEND,
-	GMU_DCVS_NOHFI,
-	GMU_NOTIFY_SLUMBER,
-	INVALID_POWER_CTRL
-};
-
-enum gpu_idle_level {
-	GPU_HW_ACTIVE = 0x0,
-	GPU_HW_SPTP_PC = 0x2,
-	GPU_HW_IFPC = 0x3,
-	GPU_HW_NAP = 0x4,
-	GPU_HW_MIN_VOLT = 0x5,
-	GPU_HW_MIN_DDR = 0x6,
-	GPU_HW_SLUMBER = 0xF
 };
 
 /**

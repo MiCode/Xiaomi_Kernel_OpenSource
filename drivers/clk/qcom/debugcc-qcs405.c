@@ -110,6 +110,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_usb_hs_inactivity_timers_clk",
 	"gcc_usb_hs_phy_cfg_ahb_clk",
 	"gcc_usb_hs_system_clk",
+	"gcc_dcc_clk",
 	"apcs_mux_clk",
 };
 
@@ -278,6 +279,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 		0x64, 0x1FF, 0, 0xF000, 12, 4, 0x74000, 0x74000, 0x74000 },
 		{ "gcc_usb_hs_system_clk", 0x60, 4, GCC,
 		0x60, 0x1FF, 0, 0xF000, 12, 4, 0x74000, 0x74000, 0x74000 },
+		{ "gcc_dcc_clk", 0x1B9, 4, GCC,
+		0x1B9, 0x1FF, 0, 0xF000, 12, 4, 0x74000, 0x74000, 0x74000 },
 		{ "apcs_mux_clk", 0x16A, CPU_CC, 0x000, 0x3, 8, 0x0FF },
 	),
 	.hw.init = &(struct clk_init_data){

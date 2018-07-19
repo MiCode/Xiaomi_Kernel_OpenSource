@@ -171,8 +171,8 @@
 #define KGSL_END_OF_PROFILE_IDENTIFIER	0x2DEFADE2
 #define KGSL_PWRON_FIXUP_IDENTIFIER	0x2AFAFAFA
 
-/* Number of times to try hard reset */
-#define NUM_TIMES_RESET_RETRY 5
+/* Number of times to try hard reset for pre-a6xx GPUs */
+#define NUM_TIMES_RESET_RETRY 4
 
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
@@ -210,6 +210,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
+	ADRENO_REV_A608 = 608,
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
@@ -306,6 +307,7 @@ struct adreno_busy_data {
 	unsigned int bif_ram_cycles_write_ch1;
 	unsigned int bif_starved_ram;
 	unsigned int bif_starved_ram_ch1;
+	unsigned int num_ifpc;
 	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
@@ -443,6 +445,7 @@ enum gpu_coresight_sources {
  * stall cycles in case of GBIF)
  * @starved_ram_lo_ch1: Number of cycles GBIF is stalled by DDR channel 1
  * @perfctr_pwr_lo: GPU busy cycles
+ * @perfctr_ifpc_lo: IFPC count
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
@@ -460,6 +463,7 @@ enum gpu_coresight_sources {
  * @lm_limit: limiting value for LM
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
+ * @ifpc_count: Number of times the GPU went into IFPC
  * @speed_bin: Indicate which power level set to use
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
@@ -509,6 +513,7 @@ struct adreno_device {
 	unsigned int starved_ram_lo;
 	unsigned int starved_ram_lo_ch1;
 	unsigned int perfctr_pwr_lo;
+	unsigned int perfctr_ifpc_lo;
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
 	struct dentry *ctx_d_debugfs;
@@ -528,6 +533,7 @@ struct adreno_device {
 	uint32_t lm_limit;
 	uint32_t lm_threshold_count;
 	uint32_t lm_threshold_cross;
+	uint32_t ifpc_count;
 
 	unsigned int speed_bin;
 	unsigned int quirks;
@@ -1249,6 +1255,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 700;
 }
 
+ADRENO_TARGET(a608, ADRENO_REV_A608)
 ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
@@ -1270,6 +1277,12 @@ static inline int adreno_is_a640v1(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
+}
+
+static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
 
 /*
@@ -1862,10 +1875,13 @@ static inline int adreno_perfcntr_active_oob_get(
 	if (ret)
 		return ret;
 
-	if (gmu_dev_ops->oob_set) {
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_set)) {
 		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
-		if (ret)
+		if (ret) {
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
+		}
 	}
 
 	return ret;
@@ -1877,7 +1893,7 @@ static inline void adreno_perfcntr_active_oob_put(
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
 			KGSL_DEVICE(adreno_dev));
 
-	if (gmu_dev_ops->oob_clear)
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, oob_clear))
 		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
@@ -1935,7 +1951,8 @@ static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 	if (adreno_has_gbif(adreno_dev))
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
 }
-
+void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
+void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);

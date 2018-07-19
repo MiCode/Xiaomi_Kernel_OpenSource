@@ -479,14 +479,6 @@ config MINIDUMP_MAX_ENTRIES
 	help
 	  This defines maximum number of entries to be allocated for application
 	  subsytem in Minidump table.
-config MSM_RPM_SMD
-	bool "RPM driver using SMD protocol"
-	help
-	  RPM is the dedicated hardware engine for managing shared SoC
-	  resources. This config adds driver support for using SMD as a
-	  transport layer communication with RPM hardware. It also selects
-	  the MSM_MPM config that programs the MPM module to monitor interrupts
-	  during sleep modes.
 
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
@@ -768,4 +760,13 @@ config QCOM_SMP2P_SLEEPSTATE
 	  When this option is enabled, notifications are sent to remote procs
 	  for the power state changes on the local processor. The notifications
 	  are sent through the smp2p framework.
+
+config QCOM_CDSP_RM
+	bool "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency.
 endmenu

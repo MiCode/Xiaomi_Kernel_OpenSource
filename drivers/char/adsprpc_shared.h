@@ -19,6 +19,8 @@
 #define FASTRPC_IOCTL_INVOKE	_IOWR('R', 1, struct fastrpc_ioctl_invoke)
 #define FASTRPC_IOCTL_MMAP	_IOWR('R', 2, struct fastrpc_ioctl_mmap)
 #define FASTRPC_IOCTL_MUNMAP	_IOWR('R', 3, struct fastrpc_ioctl_munmap)
+#define FASTRPC_IOCTL_MMAP_64	_IOWR('R', 14, struct fastrpc_ioctl_mmap_64)
+#define FASTRPC_IOCTL_MUNMAP_64	_IOWR('R', 15, struct fastrpc_ioctl_munmap_64)
 #define FASTRPC_IOCTL_INVOKE_FD	_IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
 #define FASTRPC_IOCTL_SETMODE	_IOWR('R', 5, uint32_t)
 #define FASTRPC_IOCTL_INIT	_IOWR('R', 6, struct fastrpc_ioctl_init)
@@ -34,6 +36,7 @@
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
+#define DEVICE_NAME_SECURE "adsprpc-smd-secure"
 
 /* Set for buffers that have no virtual mapping in userspace */
 #define FASTRPC_ATTR_NOVA 0x1
@@ -203,12 +206,25 @@ struct fastrpc_ioctl_munmap {
 	size_t size;		/* size */
 };
 
+struct fastrpc_ioctl_munmap_64 {
+	uint64_t vaddrout;	/* address to unmap */
+	size_t size;		/* size */
+};
+
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
 	uintptr_t vaddrin;		/* optional virtual address */
 	size_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
+};
+
+struct fastrpc_ioctl_mmap_64 {
+	int fd;				/* ion fd */
+	uint32_t flags;			/* flags for dsp to map with */
+	uint64_t vaddrin;		/* optional virtual address */
+	size_t size;			/* size */
+	uint64_t vaddrout;		/* dsps virtual address */
 };
 
 struct fastrpc_ioctl_munmap_fd {

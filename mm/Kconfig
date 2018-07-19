@@ -799,3 +799,27 @@ config SPECULATIVE_PAGE_FAULT
 	 detected or because underlying PMD or PTE tables are not yet
 	 allocating, it is failing its processing and a classic page fault
 	 is then tried.
+
+config HAVE_LOW_MEMORY_KILLER
+	bool "Have user/kernel space low memory killer"
+	default n
+	help
+	  Say 'y' if you have a user/kernel low memory killer and thus you
+	  want page allocator to provide sufficient time before it triggers
+	  Out of Memory killer.
+
+config PROCESS_RECLAIM
+	bool "Enable process reclaim"
+	depends on PROC_FS
+	default y
+	help
+	 It allows to reclaim pages of the process by /proc/pid/reclaim.
+
+	 (echo file > /proc/PID/reclaim) reclaims file-backed pages only.
+	 (echo anon > /proc/PID/reclaim) reclaims anonymous pages only.
+	 (echo all > /proc/PID/reclaim) reclaims all pages.
+
+	 (echo addr size-byte > /proc/PID/reclaim) reclaims pages in
+	 (addr, addr + size-bytes) of the process.
+
+	 Any other value is ignored.
