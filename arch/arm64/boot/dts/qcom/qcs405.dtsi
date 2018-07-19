@@ -132,8 +132,8 @@
 #include "qcs405-mdss.dtsi"
 
 &i2c_5 { /* BLSP (NTAG) */
-	status = "ok";
 	nq@55 {
+		status = "disabled";
 		compatible = "qcom,nq-ntag";
 		reg = <0x55>;
 		qcom,nq-ntagfd = <&tlmm 53 GPIO_ACTIVE_LOW>;

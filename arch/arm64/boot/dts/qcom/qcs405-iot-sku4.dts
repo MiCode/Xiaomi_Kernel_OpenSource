@@ -48,3 +48,10 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&i2c_5 { /* BLSP (NTAG) */
+	status = "ok";
+	nq@55 {
+		status = "ok";
+	};
+};
