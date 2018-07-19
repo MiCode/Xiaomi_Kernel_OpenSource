@@ -3460,10 +3460,10 @@ static int process_resume(struct qpnp_qg *chip)
 			return rc;
 		}
 
-		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
-		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		 /* Clear suspend data as there has been a GOOD OCV */
 		memset(&chip->kdata, 0, sizeof(chip->kdata));
+		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
+		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		chip->suspend_data = false;
 
 		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV\n",
