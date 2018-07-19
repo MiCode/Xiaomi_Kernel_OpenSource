@@ -53,6 +53,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
+#include <trace/events/iommu.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
 
 #include <linux/amba/bus.h>
@@ -1153,6 +1154,7 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
 		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
 		/* pages will be freed later (after being unassigned) */
+		list_del(&it->list);
 		kfree(it);
 	}
 }
@@ -2628,6 +2630,8 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		return ret;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	__saved_iova_start = iova;
 	idx_start = idx_end = 0;
 	sg_start = sg_end = sg;
@@ -2665,6 +2669,7 @@ out:
 		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
 		iova = __saved_iova_start;
 	}
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return iova - __saved_iova_start;
 }
@@ -4732,10 +4737,12 @@ static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
+	ktime_t cur;
 
 	if (registered)
 		return 0;
 
+	cur = ktime_get();
 	ret = platform_driver_register(&qsmmuv500_tbu_driver);
 	if (ret)
 		return ret;
@@ -4745,6 +4752,8 @@ static int __init arm_smmu_init(void)
 	ret = register_iommu_sec_ptbl();
 #endif
 	registered = !ret;
+	trace_smmu_init(ktime_us_delta(ktime_get(), cur));
+
 	return ret;
 }
 
