@@ -2977,7 +2977,7 @@ int ipa3_resume_resource(enum ipa_rm_resource_name resource)
  *
  * Return value: HW type index
  */
-u8 ipa3_get_hw_type_index(void)
+static u8 ipa3_get_hw_type_index(void)
 {
 	u8 hw_type_index;
 
@@ -3221,6 +3221,7 @@ int ipa3_init_hw(void)
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipahal_read_reg(IPA_VERSION);
+	IPADBG("IPA_VERSION=%u\n", ipa_version);
 	if (ipa_version == 0)
 		return -EFAULT;
 
@@ -3246,7 +3247,8 @@ int ipa3_init_hw(void)
 		break;
 	}
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0 &&
+		ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
 		struct ipahal_reg_clkon_cfg clkon_cfg;
 		struct ipahal_reg_tx_cfg tx_cfg;
 
@@ -6124,6 +6126,38 @@ static void ipa3_configure_rx_hps_weight(void)
 	ipahal_write_reg_fields(IPA_HPS_FTCH_ARB_QUEUE_WEIGHT, &val);
 }
 
+static void ipa3_configure_rx_hps(void)
+{
+	int rx_hps_max_clnt_in_depth0;
+
+	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
+
+	/* Starting IPA4.5 we have 5 RX_HPS_CMDQ */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5)
+		rx_hps_max_clnt_in_depth0 = 4;
+	else
+		rx_hps_max_clnt_in_depth0 = 5;
+
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, true);
+	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, false);
+
+	/*
+	 * IPA 3.0/3.1 uses 6 RX_HPS_CMDQ and needs depths1 for that
+	 * which has two clients
+	 */
+	if (ipa3_ctx->ipa_hw_type <= IPA_HW_v3_1) {
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			true);
+		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
+			false);
+	}
+
+	/* Starting IPA4.2 no support to HPS weight config */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5 &&
+		(ipa3_ctx->ipa_hw_type < IPA_HW_v4_2))
+		ipa3_configure_rx_hps_weight();
+}
+
 void ipa3_set_resorce_groups_min_max_limits(void)
 {
 	int i;
@@ -6134,7 +6168,6 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	int dst_grp_idx_max;
 	struct ipahal_reg_rsrc_grp_cfg val;
 	u8 hw_type_idx;
-	int rx_hps_max_clnt_in_depth0;
 
 	IPADBG("ENTER\n");
 
@@ -6211,39 +6244,14 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		}
 	}
 
-	/* move rx_hps resource group configuration from HLOS to TZ */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1 &&
-	    ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
-		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
-		return;
-	}
-
-	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
-
-	/* Starting IPA4.5 have 5 RX_HPS_CMDQ */
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5)
-		rx_hps_max_clnt_in_depth0 = 4;
-	else
-		rx_hps_max_clnt_in_depth0 = 5;
-
-	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, true);
-	ipa3_configure_rx_hps_clients(0, rx_hps_max_clnt_in_depth0, 0, false);
-
-	/*
-	 * IPA 3.0/3.1 uses 6 RX_HPS_CMDQ and needs depths1 for that
-	 * which has two clients
+	/* move rx_hps resource group configuration from HLOS to TZ
+	 * on real platform with IPA 3.1 or later
 	 */
-	if (ipa3_ctx->ipa_hw_type <= IPA_HW_v3_1) {
-		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
-			true);
-		ipa3_configure_rx_hps_clients(1, 2, rx_hps_max_clnt_in_depth0,
-			false);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v3_1 ||
+		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		ipa3_configure_rx_hps();
 	}
-
-	/* Starting IPA4.2 no support to HPS weight config */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5 &&
-		(ipa3_ctx->ipa_hw_type < IPA_HW_v4_2))
-		ipa3_configure_rx_hps_weight();
 
 	IPADBG("EXIT\n");
 }
@@ -6723,10 +6731,9 @@ int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base,
 
 /*
  * The following needed for the EMULATION system. On a non-emulation
- * system (ie. the real UE), this is functionality is done in the
+ * system (ie. the real UE), this functionality is done in the
  * TZ...
  */
-#define IPA_SPARE_REG_1_VAL (0xC0000805)
 
 static void ipa_gsi_setup_reg(void)
 {
@@ -6739,13 +6746,6 @@ static void ipa_gsi_setup_reg(void)
 
 	/* enable GSI interface */
 	ipahal_write_reg(IPA_GSI_CONF, 1);
-
-	/*
-	 * Before configuring the FIFOs need to unset bit 30 in the
-	 * spare register
-	 */
-	ipahal_write_reg(IPA_SPARE_REG_1,
-			 (IPA_SPARE_REG_1_VAL & (~(1 << 30))));
 
 	/* setup IPA_ENDP_GSI_CFG_TLV_n reg */
 	start = 0;
@@ -6802,13 +6802,6 @@ static void ipa_gsi_setup_reg(void)
 		reg_val = 0;
 		ipahal_write_reg_n(IPA_ENDP_GSI_CFG2_n, i, reg_val);
 	}
-
-	/*
-	 * After configuring the FIFOs need to set bit 30 in the spare
-	 * register
-	 */
-	ipahal_write_reg(IPA_SPARE_REG_1,
-			 (IPA_SPARE_REG_1_VAL | (1 << 30)));
 }
 
 /**
