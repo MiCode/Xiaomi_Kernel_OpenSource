@@ -213,9 +213,11 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
-		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_6_2,
 		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = (
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN)
+		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
