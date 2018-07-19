@@ -403,11 +403,11 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	struct i2c_msg msg[2];
 
+	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
+
 	retval = synaptics_rmi4_i2c_alloc_buf(rmi4_data, length + 1);
 	if (retval < 0)
-		return retval;
-
-	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
+		goto exit;
 
 	retval = synaptics_rmi4_i2c_set_page(rmi4_data, addr);
 	if (retval != PAGE_SELECT_LEN) {
