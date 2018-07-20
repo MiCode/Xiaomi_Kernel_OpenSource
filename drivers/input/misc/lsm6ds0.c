@@ -2801,7 +2801,7 @@ err_dis_comp:
 
 #ifdef CONFIG_OF
 static const struct of_device_id lsm6dx0_acc_gyr_dt_id[] = {
-	{.compatible = "st, lsm6ds0", },
+	{.compatible = "st,lsm6ds0", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, lsm6dx0_acc_gyr_dt_id);

@@ -641,21 +641,21 @@ static int aw2013_led_parse_dt(struct device *dev,
 	struct device_node *np = dev->of_node;
 	int rc;
 
-	rc = aw2013_led_parse_dt_platform(np, "awinic, ledr-parameter_array", &led->pdata[RED]);
+	rc = aw2013_led_parse_dt_platform(np, "awinic,ledr-parameter_array", &led->pdata[RED]);
 	if (rc) {
 		pr_err("%s:%d, error reading RED light, rc = %d\n",
 			__func__, __LINE__, rc);
 		return -ENODEV;
 	}
 
-	rc = aw2013_led_parse_dt_platform(np, "awinic, ledg-parameter_array", &led->pdata[GREEN]);
+	rc = aw2013_led_parse_dt_platform(np, "awinic,ledg-parameter_array", &led->pdata[GREEN]);
 	if (rc) {
 		pr_err("%s:%d, error reading GREEN light, rc = %d\n",
 			__func__, __LINE__, rc);
 		return -ENODEV;
 	}
 
-	rc = aw2013_led_parse_dt_platform(np, "awinic, ledb-parameter_array", &led->pdata[BLUE]);
+	rc = aw2013_led_parse_dt_platform(np, "awinic,ledb-parameter_array", &led->pdata[BLUE]);
 	if (rc) {
 		pr_err("%s:%d, error reading BLUE light, rc = %d\n",
 			__func__, __LINE__, rc);
@@ -781,7 +781,7 @@ static const struct i2c_device_id aw2013_id[] = {
 
 
 static struct of_device_id bd_match_table[] = {
-		{ .compatible = "awinic, aw2013", },
+		{ .compatible = "awinic,aw2013", },
 		{ },
 };
 

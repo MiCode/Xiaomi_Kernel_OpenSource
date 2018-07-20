@@ -386,7 +386,7 @@ static int isa1000_vibrator_probe(struct platform_device *pdev)
 	if (rc)
 		pr_err("%s:set state failed!\n", __func__);
 
-	vib->isa1000_chip_en_pin = of_get_named_gpio(node, "imagis, chip-en", 0);
+	vib->isa1000_chip_en_pin = of_get_named_gpio(node, "imagis,chip-en", 0);
 	if (vib->isa1000_chip_en_pin < 0) {
 		dev_err(&pdev->dev,
 			"Looking up %s property in node %s failed. rc =  %d\n",
@@ -394,7 +394,7 @@ static int isa1000_vibrator_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	vib->isa1000_vdd_en_pin = of_get_named_gpio(node, "imagis, vdd-en", 0);
+	vib->isa1000_vdd_en_pin = of_get_named_gpio(node, "imagis,vdd-en", 0);
 	if (vib->isa1000_vdd_en_pin < 0) {
 		dev_err(&pdev->dev,
 			"Looking up %s property in node %s failed. rc =  %d\n",
@@ -403,7 +403,7 @@ static int isa1000_vibrator_probe(struct platform_device *pdev)
 	}
 
 	vib->timeout = ISA1000_VIB_DEFAULT_TIMEOUT;
-	rc = of_property_read_u32(node, "imagis, max-timeout", &temp_val);
+	rc = of_property_read_u32(node, "imagis,max-timeout", &temp_val);
 	if (!rc) {
 		vib->timeout = temp_val;
 	} else if (rc != -EINVAL) {
@@ -411,7 +411,7 @@ static int isa1000_vibrator_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	rc = of_property_read_u32(node, "imagis, pwm-frequency", &temp_val);
+	rc = of_property_read_u32(node, "imagis,pwm-frequency", &temp_val);
 	if (rc) {
 		pr_err("%s:%d, Error, isa1000 pwm input pwm_period\n", __func__, __LINE__);
 		goto error;
@@ -419,21 +419,21 @@ static int isa1000_vibrator_probe(struct platform_device *pdev)
 	vib->pwm_info.period_us = NSEC_PER_SEC / temp_val;
 
 
-	rc = of_property_read_u32(node, "imagis, duty_us", &temp_val);
+	rc = of_property_read_u32(node, "imagis,duty_us", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(&pdev->dev, "Unable to read duty cycle\n");
 		goto error;
 	}
 	vib->pwm_info.duty_us = temp_val * vib->pwm_info.period_us / 100;
 
-	rc = of_property_read_u32(node, "imagis, pwm-ch-id", &temp_val);
+	rc = of_property_read_u32(node, "imagis,pwm-ch-id", &temp_val);
 	if (rc) {
 		pr_err("%s:%d, Error, isa1000 pwm input lpg channel\n", __func__, __LINE__);
 		goto error;
 	}
 	vib->pwm_info.pwm_channel = temp_val;
 
-	temp_val = of_get_named_gpio(node, "imagis, pwm-gpio", 0);
+	temp_val = of_get_named_gpio(node, "imagis,pwm-gpio", 0);
 	vib->pwm_pmic_gpio = temp_val;
 	if (vib->pwm_pmic_gpio < 0) {
 		dev_err(&pdev->dev,
@@ -526,14 +526,14 @@ static int isa1000_vibrator_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id isa_match_table[] = {
-	{	.compatible = "imagis, isa1000-vibrator",
+	{	.compatible = "imagis,isa1000-vibrator",
 	},
 	{}
 };
 
 static struct platform_driver isa1000_vibrator_driver = {
 	.driver		= {
-		.name	= "imagis, isa1000-vibrator",
+		.name	= "imagis,isa1000-vibrator",
 		.of_match_table = isa_match_table,
 		.pm	= &isa1000_vibrator_pm_ops,
 	},
