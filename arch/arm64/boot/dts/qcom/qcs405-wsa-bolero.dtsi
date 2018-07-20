@@ -17,14 +17,14 @@
 		clock-names = "wsa_core_clk", "wsa_npl_clk";
 		clocks = <&clock_audio_wsa_1 0>,
 		<&clock_audio_wsa_2 0>;
-		qcom,wsa-swr-gpios = &wsa_swr_gpios;
+		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
 	};
 };
 
 &soc {
 	clock_audio_wsa_1: wsa_core_clk {
 		compatible = "qcom,audio-ref-clk";
-		qcom,codec-ext-clk-src = <2>;
+		qcom,codec-ext-clk-src = <3>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <0x309>;
 		#clock-cells = <1>;
@@ -32,7 +32,7 @@
 
 	clock_audio_wsa_2: wsa_npl_clk {
 		compatible = "qcom,audio-ref-clk";
-		qcom,codec-ext-clk-src = <2>;
+		qcom,codec-ext-clk-src = <4>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <0x30A>;
 		#clock-cells = <1>;
