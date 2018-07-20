@@ -3060,7 +3060,7 @@
 
 		dcc-ram-offset = <0x6000>;
 
-		qcom,curr-link-list = <2>;
+		qcom,curr-link-list = <3>;
 		qcom,link-list = <DCC_READ 0x18220d14 3 0>,
 				 <DCC_READ 0x18220d30 4 0>,
 				 <DCC_READ 0x18220d44 4 0>,
