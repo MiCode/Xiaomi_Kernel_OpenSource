@@ -419,6 +419,7 @@ struct mmc_host {
 #define MMC_CAP_HW_RESET	(1 << 31)	/* Hardware reset */
 
 	u32			caps2;		/* More host capabilities */
+	u32			cached_caps2;
 
 #define MMC_CAP2_BOOTPART_NOACC	(1 << 0)	/* Boot partition no access */
 #define MMC_CAP2_FULL_PWR_CYCLE	(1 << 2)	/* Can do full power cycle */
@@ -642,6 +643,7 @@ static inline void *mmc_cmdq_private(struct mmc_host *host)
 #define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & \
 				MMC_BUSRESUME_MANUAL_RESUME)
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
 	if (manual)
@@ -649,6 +651,11 @@ static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 	else
 		host->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 }
+#else
+static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
+{
+}
+#endif
 
 extern int mmc_resume_bus(struct mmc_host *host);
 

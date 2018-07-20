@@ -185,9 +185,26 @@
 
 #include "vplatform-lfv-msm8996-usb.dtsi"
 
+&pm8994_l12 {
+	qcom,init-voltage = <1800000>;
+	proxy-supply = <&pm8994_l12>;
+	qcom,proxy-consumer-enable;
+	qcom,proxy-consumer-current = <10000>;
+	qcom,set = <3>;
+	status = "okay";
+};
+
+&pm8994_s2_corner {
+	qcom,set = <3>;
+	qcom,use-voltage-corner;
+	status = "okay";
+};
+
 &usb3 {
-	qcom,disable-host-mode-pm;
-	qcom,disable-dev-mode-pm;
+	qcom,no-wakeup-src-in-hostmode;
+	vbus_dwc3-supply = <&usb_otg_switch>;
+	vdda33-supply = <&pm8994_l24>;
+	vdda18-supply = <&pm8994_l12>;
 	status = "okay";
 };
 
@@ -200,7 +217,12 @@
 };
 
 &usb_detect {
-	qcom,force-vbus-status-off; /*on - adb , off - MTMD*/
+	qcom,vbus-det-gpio = <&pm8994_gpios 17 0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x0 0x9 0x0 IRQ_TYPE_NONE>;
+	interrupt-names ="pmic_id_irq";
+	/delete-property/qcom,skip-vbus-detect;
+	status = "okay";
 };
 
 &android_usb {
@@ -217,10 +239,20 @@
 
 &ssphy {
 	status = "okay";
+	reg = <0x07410000 0x7a8>,
+		<0x007ab244 0x4>;
+	reg-names = "qmp_phy_base",
+		"vls_clamp_reg";
 };
 
 &dbm_1p5 {
 	status = "okay";
+};
+&usb_otg_switch {
+	gpio = <&pm8994_gpios 11 0>;
+	enable-active-high;
+	status = "okay";
+	/delete-property/ vin-supply;
 };
 
 &pm8994_gpios {
@@ -228,7 +260,7 @@
 		qcom,mode = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@c800 { /* GPIO 9 - Rome 3.3V control */
@@ -239,7 +271,7 @@
 		qcom,src-sel = <0>;             /* Constant */
 		qcom,out-strength = <1>;        /* High drive strength */
 		qcom,master-en = <1>;           /* Enable GPIO */
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@c900 { /* GPIO 10 - NFC CLK _REQ*/
@@ -247,7 +279,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@cd00 { /* GPIO 14 - lcd_bklt_reg_en */
@@ -258,35 +290,35 @@
 		qcom,src-sel = <0>;     /* CONSTANT */
 		qcom,out-strength = <1>;        /* Low drive strength */
 		qcom,master-en = <1>;   /* ENABLE GPIO */
-		status = "okay";
+		status = "disabled";
 	};
 	gpio@c100 { /* GPIO 2 */
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
-		status = "okay";
+		status = "disabled";
 	};
 	gpio@c300 { /* GPIO 4 - adv7481 RST */
 		qcom,mode = <1>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
 		qcom,mode = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
 		qcom,mode = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@ca00 { /* GPIO 11 - USB enb1 (otg switch) */
@@ -305,7 +337,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <0>; /* GPIO */
 		qcom,master-en = <1>; /* Enable GPIO */
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@ce00 { /* GPIO 15 */
@@ -316,7 +348,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
-		status = "okay";
+		status = "disabled";
 	};
 	gpio@d000 { /* GPIO 17 - USB1 VBUS detect */
 		qcom,mode = <0>;        /* Digital Input*/
@@ -335,7 +367,7 @@
 		qcom,src-sel = <3>;             /* Function 2 */
 		qcom,out-strength = <2>;        /* Medium */
 		qcom,master-en = <1>;           /* Enable GPIO */
-		status = "okay";
+		status = "disabled";
 	};
 
 	gpio@d200 { /* GPIO 19 - Rome BT Reset */
@@ -347,6 +379,14 @@
 		qcom,master-en = <1>;           /* Enable GPIO */
 		status = "okay";
 	};
+};
+
+&pm8994_adc_tm {
+	status = "disabled";
+};
+
+&pm8994_vadc {
+	status = "disabled";
 };
 
 &sde_kms_hyp {

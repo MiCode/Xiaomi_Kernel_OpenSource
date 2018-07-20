@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,7 @@ struct iommu_debug_device {
 	size_t len;
 	struct list_head list;
 	struct mutex clk_lock;
+	struct mutex dev_lock;
 	unsigned int clk_count;
 };
 
@@ -1239,6 +1240,7 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 	ssize_t retval = -EINVAL;
 	int val;
 
+	mutex_lock(&ddev->dev_lock);
 	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
 		pr_err("Invalid format. Expected a hex or decimal integer");
 		retval = -EFAULT;
@@ -1282,12 +1284,14 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 		arm_iommu_release_mapping(dev->archdata.mapping);
 		pr_err("Detached\n");
 	}
+	mutex_unlock(&ddev->dev_lock);
 	retval = count;
 	return retval;
 
 out_release_mapping:
 	arm_iommu_release_mapping(dma_mapping);
 out:
+	mutex_unlock(&ddev->dev_lock);
 	return retval;
 }
 
@@ -1300,6 +1304,7 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 	ssize_t retval;
 	int val;
 
+	mutex_lock(&ddev->dev_lock);
 	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
 		pr_err("Invalid format. Expected a hex or decimal integer");
 		retval = -EFAULT;
@@ -1336,6 +1341,7 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 
 	retval = count;
 out:
+	mutex_unlock(&ddev->dev_lock);
 	return retval;
 }
 
@@ -1714,6 +1720,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	if (kstrtoint(comma3 + 1, 0, &prot))
 		goto invalid_format;
 
+	mutex_lock(&ddev->dev_lock);
 	ret = iommu_map(ddev->domain, iova, phys, size, prot);
 	if (ret) {
 		pr_err("iommu_map failed with %d\n", ret);
@@ -1725,6 +1732,7 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	pr_err("Mapped %pa to %pa (len=0x%zx, prot=0x%x)\n",
 	       &iova, &phys, size, prot);
 out:
+	mutex_unlock(&ddev->dev_lock);
 	return retval;
 
 invalid_format:
@@ -1812,14 +1820,17 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	else
 		goto invalid_format;
 
+	mutex_lock(&ddev->dev_lock);
 	iova = dma_map_single_attrs(dev, v_addr, size,
 					DMA_TO_DEVICE, dma_attrs);
 
 	if (dma_mapping_error(dev, iova)) {
 		pr_err("Failed to perform dma_map_single\n");
 		ret = -EINVAL;
+		mutex_unlock(&ddev->dev_lock);
 		goto out;
 	}
+	mutex_unlock(&ddev->dev_lock);
 
 	retval = count;
 	pr_err("Mapped 0x%p to %pa (len=0x%zx)\n",
@@ -1926,12 +1937,15 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	if (kstrtosize_t(comma1 + 1, 0, &size))
 		goto invalid_format;
 
+	mutex_lock(&ddev->dev_lock);
 	unmapped = iommu_unmap(ddev->domain, iova, size);
 	if (unmapped != size) {
 		pr_err("iommu_unmap failed. Expected to unmap: 0x%zx, unmapped: 0x%zx",
 		       size, unmapped);
+		mutex_unlock(&ddev->dev_lock);
 		return -EIO;
 	}
+	mutex_unlock(&ddev->dev_lock);
 
 	retval = count;
 	pr_err("Unmapped %pa (len=0x%zx)\n", &iova, size);
@@ -2017,7 +2031,9 @@ static ssize_t iommu_debug_dma_unmap_write(struct file *file,
 	else
 		goto invalid_format;
 
+	mutex_lock(&ddev->dev_lock);
 	dma_unmap_single_attrs(dev, iova, size, DMA_TO_DEVICE, dma_attrs);
+	mutex_unlock(&ddev->dev_lock);
 
 	retval = count;
 	pr_err("Unmapped %pa (len=0x%zx)\n", &iova, size);
@@ -2112,6 +2128,7 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!ddev)
 		return -ENODEV;
 	mutex_init(&ddev->clk_lock);
+	mutex_init(&ddev->dev_lock);
 	ddev->dev = dev;
 	dir = debugfs_create_dir(name, debugfs_tests_dir);
 	if (!dir) {

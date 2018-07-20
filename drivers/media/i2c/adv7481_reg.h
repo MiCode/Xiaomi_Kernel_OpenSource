@@ -73,6 +73,10 @@
 #define IO_CTRL_MASTER_PWDN_REG_VALUE           0x01
 
 /* Interrupts */
+#define IO_HDMI_LVL_RAW_STATUS_1_ADDR           0x67
+#define IO_AVI_INFO_RAW_BMSK                    0x0001
+#define IO_AVI_INFO_RAW_SHFT                    0
+
 #define IO_HDMI_LVL_INT_CLEAR_1_ADDR            0x69
 
 #define IO_HDMI_LVL_INT_MASKB_1_ADDR            0x6B

@@ -1134,11 +1134,12 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	case VIDIOC_G_AVI_INFOFRAME: {
 		int int_raw = adv7481_rd_byte(&state->i2c_client,
 			state->i2c_io_addr,
-			IO_HDMI_EDG_RAW_STATUS_1_ADDR);
+			IO_HDMI_LVL_RAW_STATUS_1_ADDR);
 		adv7481_wr_byte(&state->i2c_client,
 			state->i2c_io_addr,
-			IO_HDMI_EDG_INT_CLEAR_1_ADDR, int_raw);
-		if (ADV_REG_GETFIELD(int_raw, IO_NEW_AVI_INFO_RAW)) {
+			IO_HDMI_LVL_INT_CLEAR_1_ADDR, int_raw);
+		pr_debug("%s: VIDIOC_G_AVI_INFOFRAME\n", __func__);
+		if (ADV_REG_GETFIELD(int_raw, IO_AVI_INFO_RAW)) {
 			inf_buffer[0] = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_hdmi_inf_addr,
 				HDMI_REG_AVI_PACKET_ID_ADDR);
@@ -1154,13 +1155,13 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				&inf_buffer[3],
 				INFOFRAME_DATA_SIZE);
 			if (ret) {
-				pr_err("%s:Error in VIDIOC_G_AVI_INFOFRAME\n",
+				pr_err("%s: Error in reading AVI Infoframe\n",
 						__func__);
 				return -EINVAL;
 			}
 			if (hdmi_infoframe_unpack(&hdmi_info_frame,
 					(void *)inf_buffer) < 0) {
-				pr_err("%s: infoframe unpack fail\n", __func__);
+				pr_err("%s: Infoframe unpack fail\n", __func__);
 				return -EINVAL;
 			}
 			hdmi_infoframe_log(KERN_ERR, dev, &hdmi_info_frame);
@@ -1173,12 +1174,13 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			state->hdmi_avi_infoframe.video_code =
 				hdmi_info_frame.avi.video_code;
 		} else {
-			pr_err("%s: No new AVI Infoframe\n", __func__);
+			pr_err("%s: No AVI Infoframe\n", __func__);
+			return -EINVAL;
 		}
 		if (copy_to_user((void __user *)adv_arg.ptr,
 				(void *)&state->hdmi_avi_infoframe,
 				sizeof(struct avi_infoframe_params))) {
-			pr_err("%s: Failed to copy Infoframe\n", __func__);
+			pr_err("%s: Failed to copy AVI Infoframe\n", __func__);
 			return -EINVAL;
 		}
 		break;

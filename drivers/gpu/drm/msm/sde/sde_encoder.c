@@ -21,6 +21,7 @@
 #include <linux/seq_file.h>
 
 #include "msm_drv.h"
+#include "sde_recovery_manager.h"
 #include "sde_kms.h"
 #include "drm_crtc.h"
 #include "drm_crtc_helper.h"
@@ -603,6 +604,7 @@ static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 	atomic_inc(&phy_enc->underrun_cnt);
 	SDE_EVT32(DRMID(drm_enc), atomic_read(&phy_enc->underrun_cnt));
 
+	sde_recovery_set_events(SDE_UNDERRUN);
 	trace_sde_encoder_underrun(DRMID(drm_enc),
 		atomic_read(&phy_enc->underrun_cnt));
 	SDE_DBG_CTRL("stop_ftrace");

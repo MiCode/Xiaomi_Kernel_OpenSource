@@ -88,6 +88,7 @@
 		pinctrl-0 = <&i2c_8_active>;
 		pinctrl-1 = <&i2c_8_sleep>;
 		pinctrl-2 = <&i2c_8_bitbang>;
+		status = "disabled";
 	};
 
 	blsp1_uart2: uart@07570000 { /* BLSP1 UART2 */

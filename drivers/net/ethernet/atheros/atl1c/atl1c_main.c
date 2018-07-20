@@ -2181,21 +2181,20 @@ static int atl1c_tx_map(struct atl1c_adapter *adapter,
 		use_tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
 		use_tpd->buffer_len  = cpu_to_le16(buffer_info->length);
 	}
-
-	/* The last tpd */
-	use_tpd->word1 |= 1 << TPD_EOP_SHIFT;
-	/* The last buffer info contain the skb address,
-	   so it will be free after unmap */
-	buffer_info->skb = skb;
-
-	return 0;
-
+	if (use_tpd && buffer_info) {
+		/*The last tpd*/
+		use_tpd->word1 |= 1 << TPD_EOP_SHIFT;
+		/*The last buffer info contain the skb address,
+		*so it will be free after unmap
+		*/
+		buffer_info->skb = skb;
+		return 0;
+	}
 err_dma:
 	buffer_info->dma = 0;
 	buffer_info->length = 0;
 	return -1;
 }
-
 static void atl1c_tx_queue(struct atl1c_adapter *adapter, struct sk_buff *skb,
 			   struct atl1c_tpd_desc *tpd, enum atl1c_trans_queue type)
 {

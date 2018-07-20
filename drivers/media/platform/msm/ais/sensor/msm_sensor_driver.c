@@ -17,6 +17,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include "msm_early_cam.h"
 
 /* Logging macro */
 #undef CDBG
@@ -59,12 +60,124 @@ static const struct of_device_id msm_sensor_driver_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, msm_sensor_driver_dt_match);
 
+static int msm_sensor_suspend(struct device *dev)
+{
+	struct msm_sensor_ctrl_t *s_ctrl = NULL;
+	int rc = 0;
+
+	s_ctrl = (struct msm_sensor_ctrl_t *)dev_get_drvdata(dev);
+
+	if (!s_ctrl) {
+		pr_err("%s:%d Invalid platform data\n", __func__,
+			__LINE__);
+		return -EFAULT;
+	}
+
+	if (s_ctrl->is_csid_tg_mode)
+		return 0;
+
+	if (s_ctrl->sensor_state == MSM_SENSOR_CCI_DOWN) {
+
+		/* Turning on cci clock to retain previous state */
+		if (!msm_camera_cci_power_up(s_ctrl->sensor_device_type,
+				s_ctrl->sensor_i2c_client)) {
+			s_ctrl->sensor_state = MSM_SENSOR_CCI_UP;
+		}
+
+		kfree(s_ctrl->stop_setting.reg_setting);
+		s_ctrl->stop_setting.reg_setting = NULL;
+		if (s_ctrl->func_tbl->sensor_power_down) {
+			if (s_ctrl->sensordata->misc_regulator)
+				msm_sensor_misc_regulator(s_ctrl, 0);
+
+			rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s:%d failed rc %d\n", __func__,
+					__LINE__, rc);
+				rc = -EFAULT;
+				return rc;
+			}
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+		} else {
+			rc = -EFAULT;
+		}
+	} else if (s_ctrl->sensor_state == MSM_SENSOR_POWER_DOWN) {
+		pr_debug("just returning success since sensor is already off %d\n",
+			 s_ctrl->sensor_state);
+		return 0;
+	} else {
+		pr_err("%s:%d invalid state\n", __func__,
+			__LINE__);
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
+
+static int msm_sensor_resume(struct device *dev)
+{
+	struct msm_sensor_ctrl_t *s_ctrl = NULL;
+	int rc = 0;
+
+	s_ctrl = (struct msm_sensor_ctrl_t *)dev_get_drvdata(dev);
+
+	if (!s_ctrl) {
+		pr_err("%s:%d Invalid platform data\n", __func__,
+			__LINE__);
+		return -EFAULT;
+	}
+	if (s_ctrl->is_csid_tg_mode)
+		return 0;
+
+	if (s_ctrl->sensor_state == MSM_SENSOR_POWER_DOWN) {
+
+		if (s_ctrl->func_tbl->sensor_power_up) {
+			if (s_ctrl->sensordata->misc_regulator)
+				msm_sensor_misc_regulator(s_ctrl, 1);
+
+			rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s:%d failed rc %d\n", __func__,
+					__LINE__, rc);
+				rc = -EFAULT;
+				return rc;
+			}
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
+			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
+				s_ctrl->sensor_state);
+		} else {
+			rc = -EFAULT;
+		}
+
+		/* Turning off cci clock to retain previous state */
+		if (!msm_camera_cci_power_down(s_ctrl->sensor_device_type,
+			s_ctrl->sensor_i2c_client)) {
+			s_ctrl->sensor_state = MSM_SENSOR_CCI_DOWN;
+		}
+	} else if (s_ctrl->sensor_state == MSM_SENSOR_CCI_DOWN) {
+		pr_debug("just returning success since sensor is already on %d\n",
+			s_ctrl->sensor_state);
+		rc = 0;
+	} else {
+		pr_err("%s:%d invalid state\n", __func__,
+			__LINE__);
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
+
+static SIMPLE_DEV_PM_OPS(msm_sensor_pm_ops, msm_sensor_suspend,
+			msm_sensor_resume);
+#define MSM_SENSOR_PM_OPS (&msm_sensor_pm_ops)
+
 static struct platform_driver msm_sensor_platform_driver = {
 	.probe = msm_sensor_driver_platform_probe,
 	.driver = {
 		.name = "qcom,camera",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_sensor_driver_dt_match,
+		.pm = MSM_SENSOR_PM_OPS,
 	},
 	.remove = msm_sensor_platform_remove,
 };
