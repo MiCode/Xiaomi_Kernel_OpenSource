@@ -314,10 +314,7 @@ int hab_hypervisor_register(void)
 
 void hab_hypervisor_unregister(void)
 {
-	hab_hypervisor_unregister_common();
-
-	qvm_priv_info.probe_cnt = 0;
-	qvm_priv_info.curr = 0;
+	pr_info("unregistration is called, but do nothing\n");
 }
 
 /* this happens before hypervisor register */
