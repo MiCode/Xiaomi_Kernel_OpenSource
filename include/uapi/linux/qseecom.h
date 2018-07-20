@@ -268,6 +268,10 @@ struct qseecom_ce_pipe_entry {
 	unsigned int ce_pipe_pair;
 };
 
+struct qseecom_ice_data_t {
+	int flag;
+};
+
 #define MAX_CE_INFO_HANDLE_SIZE 32
 struct qseecom_ce_info_req {
 	unsigned char handle[MAX_CE_INFO_HANDLE_SIZE];
@@ -385,5 +389,7 @@ struct file;
 #define QSEECOM_IOCTL_QUERY_CE_PIPE_INFO \
 	_IOWR(QSEECOM_IOC_MAGIC, 42, struct qseecom_ce_info_req)
 
+#define QSEECOM_IOCTL_SET_ICE_INFO \
+	_IOWR(QSEECOM_IOC_MAGIC, 43, struct qseecom_ice_data_t)
 
 #endif /* _UAPI_QSEECOM_H_ */
