@@ -221,6 +221,7 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	devm_kfree(&pdev->dev, array);
 	vdd->num_levels = prop_len;
 	vdd->cur_level = prop_len;
+	vdd->use_max_uV = true;
 	c->num_fmax = prop_len;
 	return 0;
 }

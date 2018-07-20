@@ -1058,8 +1058,8 @@
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
-		qcom,vdd-restriction-temp = <5>;
-		qcom,vdd-restriction-temp-hysteresis = <10>;
+		qcom,vdd-restriction-temp = <10>;
+		qcom,vdd-restriction-temp-hysteresis = <15>;
 		vdd-dig-supply = <&pmd9650_s5_floor_level>;
 		qcom,disable-cx-phase-ctrl;
 		qcom,disable-gfx-phase-ctrl;
@@ -1069,9 +1069,9 @@
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
-			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM
-					RPM_SMD_REGULATOR_LEVEL_TURBO
-					RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_TURBO_NO_CPR
+					RPM_SMD_REGULATOR_LEVEL_BINNING
+					RPM_SMD_REGULATOR_LEVEL_BINNING>;
 			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		};
 	};
