@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1661,8 +1661,7 @@ static struct mdss_mdp_pipe *__find_layer_in_validate_q(
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
 		if ((pipe->ndx == layer->pipe_ndx) &&
 		    (pipe->multirect.num == vinfo->multirect.num)) {
-			if (!pipe->dirty &&
-				__compare_layer_config(layer, pipe))
+			if (__compare_layer_config(layer, pipe))
 				found = true;
 			break;
 		}
