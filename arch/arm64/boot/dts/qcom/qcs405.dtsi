@@ -1144,8 +1144,7 @@
 
 		qcom,cpufreq-table =
 			 < 1113600 >,
-			 < 1267200 >,
-			 < 1401600 >;
+			 < 1267200 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1186,8 +1185,7 @@
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
 			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >,
-			< 1401600 MHZ_TO_MBPS( 710, 4) >;
+			< 1267200 MHZ_TO_MBPS( 597, 4) >;
 	};
 
 	bluetooth: bt_wcn3990 {
