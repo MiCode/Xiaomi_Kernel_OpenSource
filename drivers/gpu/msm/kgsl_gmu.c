@@ -24,9 +24,7 @@
 #include "kgsl_device.h"
 #include "kgsl_gmu.h"
 #include "kgsl_hfi.h"
-#include "a6xx_reg.h"
 #include "adreno.h"
-#include "kgsl_trace.h"
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
@@ -625,7 +623,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, req.freq, req.bw);
-	else if (test_bit(GMU_HFI_ON, &gmu->flags))
+	else if (test_bit(GMU_HFI_ON, &device->gmu_core.flags))
 		ret = hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
 
 	if (ret) {
@@ -1076,8 +1074,9 @@ static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
 	return 0;
 }
 
-static int gmu_reg_probe(struct gmu_device *gmu)
+static int gmu_reg_probe(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct resource *res;
 
 	res = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
@@ -1097,10 +1096,9 @@ static int gmu_reg_probe(struct gmu_device *gmu)
 
 	gmu->reg_phys = res->start;
 	gmu->reg_len = resource_size(res);
-
-	gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-			resource_size(res));
-	if (gmu->reg_virt == NULL) {
+	device->gmu_core.reg_virt = devm_ioremap(&gmu->pdev->dev,
+			res->start, resource_size(res));
+	if (device->gmu_core.reg_virt == NULL) {
 		dev_err(&gmu->pdev->dev, "kgsl_gmu_reg ioremap failed\n");
 		return -ENODEV;
 	}
@@ -1264,8 +1262,7 @@ static int gmu_irq_probe(struct kgsl_device *device, struct gmu_device *gmu)
 }
 
 /* Do not access any GMU registers in GMU probe function */
-static int gmu_probe(struct kgsl_device *device,
-		struct device_node *node, unsigned long flags)
+static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 {
 	struct gmu_device *gmu;
 	struct gmu_memdesc *mem_addr = NULL;
@@ -1279,11 +1276,10 @@ static int gmu_probe(struct kgsl_device *device,
 	if (gmu == NULL)
 		return -ENOMEM;
 
+	device->gmu_core.ptr = (void *)gmu;
 	hfi = &gmu->hfi;
 	gmu->load_mode = TCM_BOOT;
-
 	gmu->ver = ~0U;
-	gmu->flags = flags;
 
 	gmu->pdev = of_find_device_by_node(node);
 	of_dma_configure(&gmu->pdev->dev, node);
@@ -1305,7 +1301,7 @@ static int gmu_probe(struct kgsl_device *device,
 	mem_addr = gmu->hfi_mem;
 
 	/* Map and reserve GMU CSRs registers */
-	ret = gmu_reg_probe(gmu);
+	ret = gmu_reg_probe(device);
 	if (ret)
 		goto error;
 
@@ -1372,9 +1368,8 @@ static int gmu_probe(struct kgsl_device *device,
 
 	/* disable LM during boot time */
 	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-	set_bit(GMU_ENABLED, &gmu->flags);
+	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 
-	device->gmu_core.ptr = (void *)gmu;
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 
 	return 0;
@@ -1384,8 +1379,9 @@ error:
 	return ret;
 }
 
-static int gmu_enable_clks(struct gmu_device *gmu)
+static int gmu_enable_clks(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret, j = 0;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
@@ -1409,12 +1405,13 @@ static int gmu_enable_clks(struct gmu_device *gmu)
 		j++;
 	}
 
-	set_bit(GMU_CLK_ON, &gmu->flags);
+	set_bit(GMU_CLK_ON, &device->gmu_core.flags);
 	return 0;
 }
 
-static int gmu_disable_clks(struct gmu_device *gmu)
+static int gmu_disable_clks(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int j = 0;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
@@ -1425,7 +1422,7 @@ static int gmu_disable_clks(struct gmu_device *gmu)
 		j++;
 	}
 
-	clear_bit(GMU_CLK_ON, &gmu->flags);
+	clear_bit(GMU_CLK_ON, &device->gmu_core.flags);
 	return 0;
 
 }
@@ -1488,7 +1485,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!test_bit(GMU_CLK_ON, &gmu->flags))
+	if (!test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return 0;
 
 	/* Pending message in all queues are abandoned */
@@ -1498,7 +1495,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	if (gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
 		return -EINVAL;
 
-	gmu_disable_clks(gmu);
+	gmu_disable_clks(device);
 	gmu_disable_gdsc(gmu);
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
 	return 0;
@@ -1547,9 +1544,9 @@ static int gmu_start(struct kgsl_device *device)
 	switch (device->state) {
 	case KGSL_STATE_INIT:
 	case KGSL_STATE_SUSPEND:
-		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 		gmu_enable_gdsc(gmu);
-		gmu_enable_clks(gmu);
+		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
 
 		/* Vote for 300MHz DDR for GMU to init */
@@ -1574,9 +1571,9 @@ static int gmu_start(struct kgsl_device *device)
 		break;
 
 	case KGSL_STATE_SLUMBER:
-		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 		gmu_enable_gdsc(gmu);
-		gmu_enable_clks(gmu);
+		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
 
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
@@ -1593,10 +1590,10 @@ static int gmu_start(struct kgsl_device *device)
 
 	case KGSL_STATE_RESET:
 		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
-			test_bit(GMU_FAULT, &gmu->flags)) {
+			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			gmu_suspend(device);
 			gmu_enable_gdsc(gmu);
-			gmu_enable_clks(gmu);
+			gmu_enable_clks(device);
 			gmu_dev_ops->irq_enable(device);
 
 			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
@@ -1646,7 +1643,7 @@ static void gmu_stop(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int ret = 0;
 
-	if (!test_bit(GMU_CLK_ON, &gmu->flags))
+	if (!test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return;
 
 	/* Wait for the lowest idle level we requested */
@@ -1668,7 +1665,7 @@ static void gmu_stop(struct kgsl_device *device)
 	hfi_stop(gmu);
 
 	gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
-	gmu_disable_clks(gmu);
+	gmu_disable_clks(device);
 	gmu_disable_gdsc(gmu);
 
 	msm_bus_scale_client_update_request(gmu->pcl, 0);
@@ -1680,7 +1677,7 @@ error:
 	 * Set GMU_FAULT flag to indicate to power contrller
 	 * that hang recovery is needed to power on GPU
 	 */
-	set_bit(GMU_FAULT, &gmu->flags);
+	set_bit(GMU_FAULT, &device->gmu_core.flags);
 	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
 	gmu_core_snapshot(device);
 }
@@ -1727,11 +1724,6 @@ static void gmu_remove(struct kgsl_device *device)
 		gmu->pcl = 0;
 	}
 
-	if (gmu->reg_virt) {
-		devm_iounmap(&gmu->pdev->dev, gmu->reg_virt);
-		gmu->reg_virt = NULL;
-	}
-
 	gmu_memory_close(gmu);
 
 	for (i = 0; i < MAX_GMU_CLKS; i++) {
@@ -1751,84 +1743,10 @@ static void gmu_remove(struct kgsl_device *device)
 		gmu->cx_gdsc = NULL;
 	}
 
-	gmu->flags = 0;
+	device->gmu_core.flags = 0;
+	device->gmu_core.ptr = NULL;
 	gmu->pdev = NULL;
 	kfree(gmu);
-}
-
-static void gmu_regwrite(struct kgsl_device *device,
-				unsigned int offsetwords, unsigned int value)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	void __iomem *reg;
-
-	trace_kgsl_regwrite(device, offsetwords, value);
-
-	offsetwords -= device->gmu_core.gmu2gpu_offset;
-	reg = gmu->reg_virt + (offsetwords << 2);
-
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, reg);
-}
-
-static void gmu_regread(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int *value)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	void __iomem *reg;
-
-	offsetwords -= device->gmu_core.gmu2gpu_offset;
-
-	reg = gmu->reg_virt + (offsetwords << 2);
-
-	*value = __raw_readl(reg);
-
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
-}
-
-/* Check if GPMU is in charge of power features */
-static bool gmu_gpmu_isenabled(struct kgsl_device *device)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	return test_bit(GMU_GPMU, &gmu->flags);
-}
-
-/* Check if GMU is enabled. Only set once GMU is fully initialized */
-static bool gmu_isenabled(struct kgsl_device *device)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	return test_bit(GMU_ENABLED, &gmu->flags);
-}
-
-static void gmu_set_bit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	set_bit(flag, &gmu->flags);
-}
-
-static void gmu_clear_bit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	clear_bit(flag, &gmu->flags);
-}
-
-static int gmu_test_bit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	return test_bit(flag, &gmu->flags);
 }
 
 static bool gmu_regulator_isenabled(struct kgsl_device *device)
@@ -1838,19 +1756,11 @@ static bool gmu_regulator_isenabled(struct kgsl_device *device)
 	return (gmu->gx_gdsc &&	regulator_is_enabled(gmu->gx_gdsc));
 }
 
-
 struct gmu_core_ops gmu_ops = {
 	.probe = gmu_probe,
 	.remove = gmu_remove,
-	.regread = gmu_regread,
-	.regwrite = gmu_regwrite,
-	.isenabled = gmu_isenabled,
-	.gpmu_isenabled = gmu_gpmu_isenabled,
 	.start = gmu_start,
 	.stop = gmu_stop,
-	.set_bit = gmu_set_bit,
-	.clear_bit = gmu_clear_bit,
-	.test_bit = gmu_test_bit,
 	.dcvs_set = gmu_dcvs_set,
 	.snapshot = gmu_snapshot,
 	.regulator_isenabled = gmu_regulator_isenabled,

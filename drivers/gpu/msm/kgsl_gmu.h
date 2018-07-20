@@ -103,7 +103,6 @@ enum gmu_load_mode {
  * struct gmu_device - GMU device structure
  * @ver: GMU FW version, read from GMU
  * @reg_phys: GMU CSR physical address
- * @reg_virt: GMU CSR virtual address
  * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: descriptor of GMU memory that has GMU image in it
@@ -127,7 +126,6 @@ enum gmu_load_mode {
  * @gx_gdsc: GX headswitch that controls power of GPU subsystem
  * @clks: GPU subsystem clocks required for GMU functionality
  * @load_mode: GMU FW load/boot mode
- * @flags: GMU flags
  * @wakeup_pwrlevel: GPU wake up power/DCVS level in case different
  *		than default power level
  * @pcl: GPU BW scaling client
@@ -139,7 +137,6 @@ struct gmu_device {
 	unsigned int ver;
 	struct platform_device *pdev;
 	unsigned long reg_phys;
-	void __iomem *reg_virt;
 	unsigned int reg_len;
 	unsigned int gmu_interrupt_num;
 	struct gmu_memdesc cached_fw_image;
@@ -165,7 +162,6 @@ struct gmu_device {
 	struct regulator *gx_gdsc;
 	struct clk *clks[MAX_GMU_CLKS];
 	enum gmu_load_mode load_mode;
-	unsigned long flags;
 	unsigned int wakeup_pwrlevel;
 	unsigned int pcl;
 	unsigned int ccl;
