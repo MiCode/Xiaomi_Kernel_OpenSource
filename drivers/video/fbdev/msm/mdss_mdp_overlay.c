@@ -5818,7 +5818,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	int rc;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_mixer *mixer;
-	struct mdss_mdp_pipe *pipe, *tmp;
 	int need_cleanup;
 	int retire_cnt;
 	bool destroy_ctl = false;
@@ -5874,13 +5873,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		mixer->cursor_enabled = 0;
 
 	mutex_lock(&mdp5_data->list_lock);
-	if (!list_empty(&mdp5_data->pipes_used)) {
-		list_for_each_entry_safe(
-			pipe, tmp, &mdp5_data->pipes_used, list) {
-			pipe->file = NULL;
-			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
-		}
-	}
 	need_cleanup = !list_empty(&mdp5_data->pipes_cleanup);
 	mutex_unlock(&mdp5_data->list_lock);
 	mutex_unlock(&mdp5_data->ov_lock);
