@@ -286,7 +286,8 @@ struct dwc3_msm {
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event);
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
+						unsigned int value);
 static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 					unsigned long event, void *ptr);
 
@@ -440,6 +441,16 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 		return dwc3_msm_is_host_superspeed(mdwc);
 
 	return dwc3_msm_is_dev_superspeed(mdwc);
+}
+
+static int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+	dwc3_dbm_disable_update_xfer(mdwc->dbm, usb_ep);
+
+	return 0;
 }
 
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
@@ -1754,7 +1765,8 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
 }
 
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
+							unsigned int value)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_event_buffer *evt;
@@ -1939,6 +1951,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 				dma_free_coherent(dwc->sysdev, evt->length,
 							evt->buf, evt->dma);
 		}
+		break;
+	case DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER:
+		dwc3_msm_dbm_disable_updxfer(dwc, value);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
