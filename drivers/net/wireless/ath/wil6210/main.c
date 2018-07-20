@@ -652,8 +652,22 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->reply_mid = U8_MAX;
 	wil->max_vifs = 1;
 
-	/* num of rx srings can be updated via debugfs before allocation */
+	/* edma configuration can be updated via debugfs before allocation */
 	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
+	wil->use_compressed_rx_status = true;
+	wil->use_rx_hw_reordering = true;
+	wil->tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
+
+	/* Rx status ring size should be bigger than the number of RX buffers
+	 * in order to prevent backpressure on the status ring, which may
+	 * cause HW freeze.
+	 */
+	wil->rx_status_ring_order = WIL_RX_SRING_SIZE_ORDER_DEFAULT;
+	/* Number of RX buffer IDs should be bigger than the RX descriptor
+	 * ring size as in HW reorder flow, the HW can consume additional
+	 * buffers before releasing the previous ones.
+	 */
+	wil->rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
 
 	wil->amsdu_en = 1;
 

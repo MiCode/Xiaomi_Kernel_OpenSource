@@ -66,6 +66,9 @@
 			qcom,pmic-revid = <&pm6150_revid>;
 			qcom,auto-recharge-soc = <98>;
 
+			qcom,thermal-mitigation = <4200000 3500000 3000000
+					2500000 2000000 1500000 1000000 500000>;
+
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =
@@ -225,6 +228,27 @@
 			};
 		};
 
+		pm6150_bcl: bcl@1d00 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x1d00 0x100>;
+			interrupts = <0x0 0x1d 0x0 IRQ_TYPE_NONE>,
+					<0x0 0x1d 0x1 IRQ_TYPE_NONE>,
+					<0x0 0x1d 0x0 IRQ_TYPE_NONE>,
+					<0x0 0x1d 0x1 IRQ_TYPE_NONE>,
+					<0x0 0x1d 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-ibat-lvl0",
+						"bcl-ibat-lvl1",
+						"bcl-vbat-lvl0",
+						"bcl-vbat-lvl1",
+						"bcl-vbat-lvl2";
+			#thermal-sensor-cells = <1>;
+		};
+
+		bcl_soc:bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+			#thermal-sensor-cells = <0>;
+		};
+
 		pm6150_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
@@ -241,6 +265,8 @@
 			clock-output-names = "pm6150_div_clk1";
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
+			assigned-clocks = <&pm6150_clkdiv 1>;
+			assigned-clock-rates = <9600000>;
 		};
 
 		pm6150_gpios: pinctrl@c000 {
@@ -259,6 +285,23 @@
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <5 6 9 10>;
 		};
+
+		pm6150_rtc: qcom,pm6150_rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm6150_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+
+			qcom,pm6150_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
 	};
 
 	qcom,pm6150@1 {
@@ -276,3 +319,123 @@
 	};
 };
 
+&thermal_zones {
+	pm6150_temp_alarm: pm6150-tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_tz>;
+
+		trips {
+			pm6150_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm6150_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-ibat-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_bcl 0>;
+
+		trips {
+			ibat_lvl0:ibat-lvl0 {
+				temperature = <5500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-ibat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_bcl 1>;
+
+		trips {
+			ibat_lvl1:ibat-lvl1 {
+				temperature = <6000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-vbat-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150_bcl 2>;
+		tracks-low;
+
+		trips {
+			vbat_lvl0: vbat-lvl0 {
+				temperature = <3000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-vbat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150_bcl 3>;
+		tracks-low;
+
+		trips {
+			vbat_lvl1:vbat-lvl1 {
+				temperature = <2800>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-vbat-lvl2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm6150_bcl 4>;
+		tracks-low;
+
+		trips {
+			vbat_lvl2:vbat-lvl2 {
+				temperature = <2600>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_soc>;
+		tracks-low;
+
+		trips {
+			soc_trip:soc-trip {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

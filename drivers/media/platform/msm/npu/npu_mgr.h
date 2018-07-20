@@ -48,11 +48,14 @@ struct npu_network {
 	uint32_t size;
 	uint32_t first_block_size;
 	uint32_t network_hdl;
-	uint32_t ipc_trans_id;
 	uint32_t priority;
 	uint32_t perf_mode;
-
-	bool cmd_error;
+	uint32_t num_layers;
+	void *stats_buf;
+	uint32_t stats_buf_size;
+	bool is_valid;
+	bool fw_error;
+	struct completion cmd_done;
 };
 
 enum fw_state {
@@ -70,13 +73,12 @@ struct npu_host_ctx {
 	int32_t power_vote_num;
 	struct work_struct irq_work;
 	struct workqueue_struct *wq;
-	struct completion exec_done;
-	struct completion load_done;
-	struct completion unload_done;
 	struct completion loopback_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
+	uint32_t exec_flags_override;
+	atomic_t ipc_trans_id;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
@@ -108,10 +110,16 @@ int32_t npu_host_unmap_buf(struct npu_device *npu_dev,
 	struct msm_npu_unmap_buf_ioctl *unmap_ioctl);
 int32_t npu_host_load_network(struct npu_device *npu_dev,
 	struct msm_npu_load_network_ioctl *load_ioctl);
+int32_t npu_host_load_network_v2(struct npu_device *npu_dev,
+	struct msm_npu_load_network_ioctl_v2 *load_ioctl,
+	struct msm_npu_patch_info_v2 *patch_info);
 int32_t npu_host_unload_network(struct npu_device *npu_dev,
 	struct msm_npu_unload_network_ioctl *unload);
 int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	struct msm_npu_exec_network_ioctl *exec_ioctl);
+int32_t npu_host_exec_network_v2(struct npu_device *npu_dev,
+	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
+	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);

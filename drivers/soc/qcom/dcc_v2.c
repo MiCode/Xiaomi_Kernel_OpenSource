@@ -138,6 +138,7 @@ struct dcc_drvdata {
 	struct mutex		mutex;
 	void __iomem		*ram_base;
 	uint32_t		ram_size;
+	struct clk		*clk;
 	uint32_t		ram_offset;
 	enum dcc_data_sink	data_sink;
 	enum dcc_func_type	func_type[DCC_MAX_LINK_LIST];
@@ -201,6 +202,15 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
+	if (drvdata->clk) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret) {
+			dev_err(drvdata->dev, "DCC clk enable failed\n");
+			mutex_unlock(&drvdata->mutex);
+			return ret;
+		}
+	}
+
 	if (!dcc_ready(drvdata)) {
 		dev_err(drvdata->dev, "DCC is not ready\n");
 		ret = -EBUSY;
@@ -224,6 +234,8 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 	ret = dcc_read_status(drvdata);
 
 err:
+	if (drvdata->clk)
+		clk_disable_unprepare(drvdata->clk);
 	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
@@ -539,6 +551,13 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
+	if (drvdata->clk) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret) {
+			dev_info(drvdata->dev, "DCC clk enable failed\n");
+			goto err;
+		}
+	}
 	memset_io(drvdata->ram_base, 0xDE, drvdata->ram_size);
 
 	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
@@ -554,6 +573,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		ret = __dcc_ll_cfg(drvdata, list);
 		if (ret) {
 			dev_info(drvdata->dev, "DCC ram programming failed\n");
+			if (drvdata->clk && !drvdata->enable[list])
+				clk_disable_unprepare(drvdata->clk);
 			goto err;
 		}
 
@@ -614,6 +635,8 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
 
+	if (drvdata->clk)
+		clk_disable_unprepare(drvdata->clk);
 	mutex_unlock(&drvdata->mutex);
 }
 
@@ -632,6 +655,17 @@ static ssize_t dcc_curr_list(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->clk) {
+		int ret = clk_prepare_enable(drvdata->clk);
+
+		if (ret) {
+			dev_err(drvdata->dev, "DCC clk enable failed\n");
+			mutex_unlock(&drvdata->mutex);
+			return -EINVAL;
+		}
+	}
+
 	lock_reg = dcc_readl(drvdata, DCC_LL_LOCK(val));
 	if (lock_reg & 0x1) {
 		dev_err(drvdata->dev, "DCC linked list is already configured\n");
@@ -639,6 +673,8 @@ static ssize_t dcc_curr_list(struct device *dev,
 		return -EINVAL;
 	}
 	drvdata->curr_list = val;
+	if (drvdata->clk)
+		clk_disable_unprepare(drvdata->clk);
 	mutex_unlock(&drvdata->mutex);
 
 	return size;
@@ -1373,6 +1409,7 @@ static int dcc_sram_open(struct inode *inode, struct file *file)
 static ssize_t dcc_sram_read(struct file *file, char __user *data,
 			     size_t len, loff_t *ppos)
 {
+	int ret = 0;
 	unsigned char *buf;
 	struct dcc_drvdata *drvdata = file->private_data;
 
@@ -1387,7 +1424,18 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 	if (!buf)
 		return -ENOMEM;
 
+	if (drvdata->clk) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret) {
+			kfree(buf);
+			return ret;
+		}
+	}
+
 	memcpy_fromio(buf, (drvdata->ram_base + *ppos), len);
+
+	if (drvdata->clk)
+		clk_disable_unprepare(drvdata->clk);
 
 	if (copy_to_user(data, buf, len)) {
 		dev_err(drvdata->dev,
@@ -1552,7 +1600,6 @@ static int dcc_probe(struct platform_device *pdev)
 	struct dcc_drvdata *drvdata;
 	struct resource *res;
 	const char *data_sink;
-	struct clk *pclk;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -1561,13 +1608,16 @@ static int dcc_probe(struct platform_device *pdev)
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dcc_clk");
-	if (res) {
-		pclk = devm_clk_get(dev, "dcc_clk");
-		if (!IS_ERR(pclk)) {
-			ret = clk_set_rate(pclk, QDSS_CLK_LEVEL_DYNAMIC);
-			if (ret)
-				dev_err(dev, "clk set rate failed\n");
+	if (of_property_read_bool(pdev->dev.of_node, "clk-enable")) {
+		drvdata->clk = devm_clk_get(dev, "dcc_clk");
+		if (IS_ERR(drvdata->clk)) {
+			dev_info(dev, "devm_clk_get failed, probing deffered\n");
+			return -EPROBE_DEFER;
+		}
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret) {
+			dev_err(dev, "clk prepare enable failed\n");
+			return -EINVAL;
 		}
 	}
 
@@ -1603,6 +1653,9 @@ static int dcc_probe(struct platform_device *pdev)
 	}
 
 	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+
+	if (of_property_read_bool(pdev->dev.of_node, "clk-enable"))
+		clk_disable_unprepare(drvdata->clk);
 
 	drvdata->data_sink = DCC_DATA_SINK_SRAM;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,data-sink",

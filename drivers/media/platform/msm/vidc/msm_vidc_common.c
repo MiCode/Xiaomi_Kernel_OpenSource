@@ -1616,7 +1616,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 		planes[0] = event_notify->packet_buffer;
 		planes[1] = event_notify->extra_data_buffer;
-		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		mbuf = msm_comm_get_buffer_using_device_planes(inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes);
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
@@ -2376,7 +2377,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	planes[0] = empty_buf_done->packet_buffer;
 	planes[1] = empty_buf_done->extra_data_buffer;
 
-	mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+	mbuf = msm_comm_get_buffer_using_device_planes(inst,
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, planes);
 	if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 		dprintk(VIDC_ERR,
 			"%s: data_addr %x, extradata_addr %x not found\n",
@@ -2522,7 +2524,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type) {
-		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		mbuf = msm_comm_get_buffer_using_device_planes(inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes);
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
@@ -6049,7 +6052,7 @@ bool msm_comm_compare_dma_planes(struct msm_vidc_inst *inst,
 
 
 bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
-		u32 *planes, u32 i)
+		u32 type, u32 *planes, u32 i)
 {
 	if (!mbuf || !planes) {
 		dprintk(VIDC_ERR, "%s: invalid params, %pK %pK\n",
@@ -6057,14 +6060,15 @@ bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
 		return false;
 	}
 
-	if (mbuf->smem[i].device_addr == planes[i])
+	if (mbuf->vvb.vb2_buf.type == type &&
+		mbuf->smem[i].device_addr == planes[i])
 		return true;
 
 	return false;
 }
 
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
-		u32 *planes)
+		u32 type, u32 *planes)
 {
 	int i = 0;
 
@@ -6072,7 +6076,7 @@ bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 		return false;
 
 	for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
-		if (!msm_comm_compare_device_plane(mbuf, planes, i))
+		if (!msm_comm_compare_device_plane(mbuf, type, planes, i))
 			return false;
 	}
 
@@ -6080,7 +6084,7 @@ bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
 }
 
 struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
-		struct msm_vidc_inst *inst, u32 *planes)
+		struct msm_vidc_inst *inst, u32 type, u32 *planes)
 {
 	struct msm_vidc_buffer *mbuf;
 	bool found = false;
@@ -6088,7 +6092,7 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_planes(mbuf, planes)) {
+		if (msm_comm_compare_device_planes(mbuf, type, planes)) {
 			found = true;
 			break;
 		}
@@ -6529,7 +6533,8 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	 */
 	found = false;
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_plane(temp, planes, 0)) {
+		if (msm_comm_compare_device_plane(temp,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, planes, 0)) {
 			mbuf = temp;
 			found = true;
 			break;

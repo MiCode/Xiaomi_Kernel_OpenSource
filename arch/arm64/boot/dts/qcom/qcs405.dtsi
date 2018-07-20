@@ -19,6 +19,7 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/mdss-28nm-pll-clk.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -281,6 +282,15 @@
 		#reset-cells = <1>;
 	};
 
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-qcs405";
+		reg = <0x1800000 0x80000>;
+		clocks = <&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll BYTECLK_SRC_0_CLK>;
+		clock-names = "pclk0_src", "byte0_src";
+		#clock-cells = <1>;
+	};
+
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-qcs405";
 		qcom,gcc = <&clock_gcc>;
@@ -296,7 +306,6 @@
 	};
 
 	clock_cpu: qcom,clock-cpu@0b011050 {
-		status = "disabled";
 		compatible = "qcom,cpu-qcs405";
 		clocks = <&clock_rpmcc RPM_SMD_XO_A_CLK_SRC>,
 			<&clock_gcc GPLL0_AO_OUT_MAIN>;
@@ -345,7 +354,15 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 191 0>, <0 63 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
 	};
 
 	blsp1_uart2_console: serial@78b1000 {
@@ -365,8 +382,9 @@
 	dcc: dcc_v2@b2000 {
 		compatible = "qcom,dcc-v2";
 		reg = <0x000b2000 0x1000>,
-		      <0x000bf800 0x800>;
+		      <0x000bfc00 0x400>;
 
+		clk-enable;
 		clocks = <&clock_gcc GCC_DCC_CLK>;
 		clock-names = "dcc_clk";
 
@@ -393,8 +411,8 @@
 		interrupts = <GIC_SPI 190 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
@@ -626,6 +644,11 @@
 	qcom,msm-adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
+	};
+
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
 	};
 
 	qcom,msm_fastrpc {
@@ -876,6 +899,11 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	qcom,smp2p-cdsp {
@@ -1040,6 +1068,18 @@
 			< 1267200 MHZ_TO_MBPS( 597, 4) >,
 			< 1401600 MHZ_TO_MBPS( 710, 4) >;
 	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pms405_l5>;
+		qca,bt-vdd-pa-supply = <&pms405_l1>;
+
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-pa-voltage-level = <1300000 1300000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+	};
 };
 
 #include "qcs405-gdsc.dtsi"
@@ -1055,6 +1095,10 @@
 };
 
 &gdsc_oxili_gx {
+	status = "ok";
+};
+
+&blsp1_uart4_hs {
 	status = "ok";
 };
 
@@ -1077,6 +1121,7 @@
 		pinctrl-0 = <&smb_stat>;
 		qcom,switch-freq = <2>;
 		dpdm-supply = <&usb2_phy0>;
+		qcom,otg-enable;
 	};
 };
 

@@ -1130,23 +1130,23 @@ void dump_killed_info(struct task_struct *selected)
 {
 	int selected_tasksize = get_mm_rss(selected->mm);
 
-	pr_info("Killing '%s' (%d), adj %hd,\n"
-		"   to free %ldkB on behalf of '%s' (%d)\n"
-		"   Free CMA is %ldkB\n"
-		"   Total reserve is %ldkB\n"
-		"   Total free pages is %ldkB\n"
-		"   Total file cache is %ldkB\n",
-		selected->comm, selected->pid,
-		selected->signal->oom_score_adj,
-		selected_tasksize * (long)(PAGE_SIZE / 1024),
-		current->comm, current->pid,
-		global_zone_page_state(NR_FREE_CMA_PAGES) *
-		(long)(PAGE_SIZE / 1024),
-		totalreserve_pages * (long)(PAGE_SIZE / 1024),
-		global_zone_page_state(NR_FREE_PAGES) *
-		(long)(PAGE_SIZE / 1024),
-		global_node_page_state(NR_FILE_PAGES) *
-		(long)(PAGE_SIZE / 1024));
+	pr_info_ratelimited("Killing '%s' (%d), adj %hd,\n"
+			"   to free %ldkB on behalf of '%s' (%d)\n"
+			"   Free CMA is %ldkB\n"
+			"   Total reserve is %ldkB\n"
+			"   Total free pages is %ldkB\n"
+			"   Total file cache is %ldkB\n",
+			selected->comm, selected->pid,
+			selected->signal->oom_score_adj,
+			selected_tasksize * (long)(PAGE_SIZE / 1024),
+			current->comm, current->pid,
+			global_zone_page_state(NR_FREE_CMA_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			totalreserve_pages * (long)(PAGE_SIZE / 1024),
+			global_zone_page_state(NR_FREE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			global_node_page_state(NR_FILE_PAGES) *
+				(long)(PAGE_SIZE / 1024));
 }
 
 void add_to_oom_reaper(struct task_struct *p)

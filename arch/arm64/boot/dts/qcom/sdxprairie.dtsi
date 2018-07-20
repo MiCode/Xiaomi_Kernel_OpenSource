@@ -150,6 +150,14 @@
 		};
 	};
 
+	restart@c264000 {
+		compatible = "qcom,pshold";
+		reg = <0xc264000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+		qcom,force-warm-reboot;
+	};
+
 	clock_gcc: qcom,gcc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "gcc_clocks";
