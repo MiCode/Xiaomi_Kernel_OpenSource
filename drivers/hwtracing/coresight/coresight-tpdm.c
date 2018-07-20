@@ -690,7 +690,12 @@ static int tpdm_enable(struct coresight_device *csdev,
 		       struct perf_event *event, u32 mode)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
-	int ret;
+	int ret = 0;
+
+	if (drvdata->enable) {
+		dev_err(drvdata->dev, "TPDM setup already enabled,Skipping enable");
+		return ret;
+	}
 
 	ret = tpdm_setup_enable(drvdata);
 	if (ret) {
@@ -702,8 +707,6 @@ static int tpdm_enable(struct coresight_device *csdev,
 	__tpdm_enable(drvdata);
 	drvdata->enable = true;
 	mutex_unlock(&drvdata->lock);
-
-	tpdm_setup_disable(drvdata);
 
 	dev_info(drvdata->dev, "TPDM tracing enabled\n");
 	return 0;
@@ -773,8 +776,8 @@ static void tpdm_disable(struct coresight_device *csdev,
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
-	if (tpdm_setup_enable(drvdata)) {
-		dev_err(drvdata->dev, "TPDM setup failed. Skipping disable");
+	if (!drvdata->enable) {
+		dev_err(drvdata->dev, "TPDM setup already disabled, Skipping disable");
 		return;
 	}
 	mutex_lock(&drvdata->lock);
