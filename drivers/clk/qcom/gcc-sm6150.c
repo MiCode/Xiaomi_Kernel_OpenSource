@@ -37,7 +37,6 @@
 #define GCC_CAMERA_MISC		0x0b084
 #define GCC_VIDEO_MISC		0x9b000
 #define GCC_GPU_MISC		0x71028
-#define GCC_EMAC_MISC		0x06040
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -3505,7 +3504,6 @@ static int gcc_sm6150_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, GCC_DISPLAY_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_CAMERA_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_VIDEO_MISC, 0x1, 0x1);
-	regmap_update_bits(regmap, GCC_EMAC_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sm6150_desc, regmap);
