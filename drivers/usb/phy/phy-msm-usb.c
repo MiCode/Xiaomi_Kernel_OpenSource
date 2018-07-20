@@ -35,6 +35,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/reset.h>
 #include <linux/extcon.h>
+#include <linux/power_supply.h>
 #include <soc/qcom/scm.h>
 
 #include <linux/usb.h>
@@ -1688,6 +1689,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 	}
 
 	disable_irq(motg->irq);
+	if (motg->phy_irq)
+		disable_irq(motg->phy_irq);
 	pm_stay_awake(&motg->pdev->dev);
 
 	/*
@@ -1806,6 +1809,8 @@ skip_phy_resume:
 		enable_irq(motg->async_int);
 		motg->async_int = 0;
 	}
+	if (motg->phy_irq)
+		enable_irq(motg->phy_irq);
 	enable_irq(motg->irq);
 
 	/* Enable ASYNC_IRQ only during LPM */
@@ -2837,11 +2842,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_start_peripheral(otg, 0);
 			msm_otg_dbg_log_event(phy, "RT PM: B_PERI A PUT",
 				get_pm_runtime_counter(dev), 0);
+			/* Schedule work to finish cable disconnect processing*/
+			otg->state = OTG_STATE_B_IDLE;
 			/* _put for _get done on cable connect in B_IDLE */
 			pm_runtime_mark_last_busy(dev);
 			pm_runtime_put_autosuspend(dev);
-			/* Schedule work to finish cable disconnect processing*/
-			otg->state = OTG_STATE_B_IDLE;
 			work = 1;
 		} else if (test_bit(A_BUS_SUSPEND, &motg->inputs)) {
 			pr_debug("a_bus_suspend\n");
@@ -3717,6 +3722,46 @@ err:
 	return ret;
 }
 
+static void msm_otg_handle_initial_extcon(struct msm_otg *motg)
+{
+	if (motg->extcon_vbus && extcon_get_cable_state_(motg->extcon_vbus,
+							EXTCON_USB))
+		msm_otg_vbus_notifier(&motg->vbus_nb, true, motg->extcon_vbus);
+
+	if (motg->extcon_id && extcon_get_cable_state_(motg->extcon_id,
+							EXTCON_USB_HOST))
+		msm_otg_id_notifier(&motg->id_nb, true, motg->extcon_id);
+}
+
+static void msm_otg_extcon_register_work(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg,
+						extcon_register_work);
+
+	power_supply_unreg_notifier(&motg->psy_nb);
+
+	if (msm_otg_extcon_register(motg)) {
+		dev_err(&motg->pdev->dev, "failed to register extcon\n");
+		return;
+	}
+
+	msm_otg_handle_initial_extcon(motg);
+}
+
+static int msm_otg_psy_changed(struct notifier_block *nb, unsigned long evt,
+							void *ptr)
+{
+	struct msm_otg *motg = container_of(nb, struct msm_otg, psy_nb);
+
+	if (strcmp(((struct power_supply *)ptr)->desc->name, "usb") ||
+						evt != PSY_EVENT_PROP_CHANGED)
+		return 0;
+
+	queue_work(motg->otg_wq, &motg->extcon_register_work);
+
+	return 0;
+}
+
 struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -4266,6 +4311,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&motg->perf_vote_work, msm_otg_perf_vote_work);
 	INIT_DELAYED_WORK(&motg->sdp_check, check_for_sdp_connection);
 	INIT_WORK(&motg->notify_charger_work, msm_otg_notify_charger_work);
+	INIT_WORK(&motg->extcon_register_work, msm_otg_extcon_register_work);
 	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
 	if (!motg->otg_wq) {
 		pr_err("%s: Unable to create workqueue otg_wq\n",
@@ -4474,21 +4520,20 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
-	psy = power_supply_get_by_name("usb");
-	if (!psy)
-		dev_warn(&pdev->dev, "Could not get usb power_supply\n");
-
+	/*
+	 * Try to register extcon handle from probe; by this time USB psy may or
+	 * may not have been registered. If this fails, then wait for the USB
+	 * psy to get registered which will again try to register extcon via
+	 * notifier call.
+	 */
 	ret = msm_otg_extcon_register(motg);
-	if (ret)
-		goto put_psy;
-
-	if (motg->extcon_vbus && extcon_get_cable_state_(motg->extcon_vbus,
-							EXTCON_USB))
-		msm_otg_vbus_notifier(&motg->vbus_nb, true, motg->extcon_vbus);
-
-	if (motg->extcon_id && extcon_get_cable_state_(motg->extcon_id,
-							EXTCON_USB_HOST))
-		msm_otg_id_notifier(&motg->id_nb, true, motg->extcon_id);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Registering PSY notifier for extcon\n");
+		motg->psy_nb.notifier_call = msm_otg_psy_changed;
+		power_supply_reg_notifier(&motg->psy_nb);
+	} else {
+		msm_otg_handle_initial_extcon(motg);
+	}
 
 	if (gpio_is_valid(motg->pdata->hub_reset_gpio)) {
 		ret = devm_gpio_request(&pdev->dev,
@@ -4528,11 +4573,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 	return 0;
 
-put_psy:
-	if (psy)
-		power_supply_put(psy);
-	if (pdev->dev.of_node)
-		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 remove_cdev:
 	pm_runtime_disable(&pdev->dev);
 	device_remove_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
@@ -4600,7 +4640,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 		return -EBUSY;
 
 	unregister_pm_notifier(&motg->pm_notify);
-
+	power_supply_unreg_notifier(&motg->psy_nb);
 	extcon_unregister_notifier(motg->extcon_id, EXTCON_USB_HOST,
 							&motg->id_nb);
 	extcon_unregister_notifier(motg->extcon_vbus, EXTCON_USB,
@@ -4618,6 +4658,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	msm_otg_perf_vote_update(motg, false);
 	cancel_work_sync(&motg->sm_work);
 	cancel_work_sync(&motg->notify_charger_work);
+	cancel_work_sync(&motg->extcon_register_work);
 	destroy_workqueue(motg->otg_wq);
 
 	pm_runtime_resume(&pdev->dev);

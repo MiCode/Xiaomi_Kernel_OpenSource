@@ -18,6 +18,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 
@@ -78,6 +79,20 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			size = <0x400000>;
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x1000000>;
 		};
 	};
 
@@ -920,38 +935,49 @@
 		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
+		qcom,wlan-ce-db-over-pcie;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
-		qcom,msm-bus,num-paths = <4>;
+		qcom,msm-bus,num-paths = <5>;
 		qcom,msm-bus,vectors-KBps =
 		/* No vote */
-			<90 512 0 0>,
-			<90 585 0 0>,
-			<1 676 0 0>,
-			<143 777 0 0>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_MEM_NOC_GC 0 0>,
+		<MSM_BUS_MASTER_SNOC_GC_MEM_NOC MSM_BUS_SLAVE_EBI_CH0 0 0>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 0 0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 0 0>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 0>,
+
 		/* SVS2 */
-			<90 512 900000 1800000>,
-			<90 585 300000 600000>,
-			<1 676 90000 179000>, /*gcc_config_noc_clk_src */
-			<143 777 0 120>, /* IB defined for IPA2X_clk in MHz*/
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_MEM_NOC_GC 240000 480000>,
+		<MSM_BUS_MASTER_SNOC_GC_MEM_NOC MSM_BUS_SLAVE_EBI_CH0 900000 1800000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 300000 600000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 90000 179000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 120>,
+
 		/* SVS */
-			<90 512 1530000 3060000>,
-			<90 585 400000 800000>,
-			<1 676 100000 199000>,
-			<143 777 0 250>, /* IB defined for IPA2X_clk in MHz*/
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_MEM_NOC_GC 360000 720000>,
+		<MSM_BUS_MASTER_SNOC_GC_MEM_NOC MSM_BUS_SLAVE_EBI_CH0 1530000 3060000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 400000 800000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 100000 199000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 250>,
+
 		/* NOMINAL */
-			<90 512 2592000 5184000>,
-			<90 585 800000 1600000>,
-			<1 676 200000 399000>,
-			<143 777 0 440>, /* IB defined for IPA2X_clk in MHz*/
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_MEM_NOC_GC 780000 1560000>,
+		<MSM_BUS_MASTER_SNOC_GC_MEM_NOC MSM_BUS_SLAVE_EBI_CH0 2592000 5184000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 800000 1600000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 200000 399000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 440>,
+
 		/* TURBO */
-			<90 512 2592000 5184000>,
-			<90 585 960000 1920000>,
-			<1 676 266000 531000>,
-			<143 777 0 500>; /* IB defined for IPA clk in MHz*/
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_MEM_NOC_GC 960000 1920000>,
+		<MSM_BUS_MASTER_SNOC_GC_MEM_NOC MSM_BUS_SLAVE_EBI_CH0 2592000 5184000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 960000 1920000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 266000 531000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>;
+
 		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
 		"TURBO";
 		qcom,throughput-threshold = <310 600 1000>;
@@ -1140,6 +1166,33 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_seecom: qseecom@90000000{
+		compatible = "qcom,qseecom";
+		reg = <0x90000000 0x600000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		clocks = <&clock_gcc GCC_CE1_CLK>,
+			<&clock_gcc GCC_CE1_CLK>,
+			<&clock_gcc GCC_CE1_AHB_CLK>,
+			<&clock_gcc GCC_CE1_AXI_CLK>;
+		qcom,msm-bus,vectors-KBps =
+			<125 512 0 0>,
+			<125 512 20000 40000>,
+			<125 512 30000 80000>,
+			<125 512 40000 100000>;
+		clock-names = "core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
+		status = "disabled";
+	};
+
 	qcom_cedev: qcedev@1de0000 {
 		compatible = "qcom,qcedev";
 		reg = <0x1de0000 0x20000>,
@@ -1268,6 +1321,7 @@
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
+		emac-core-version = <1>;
 		reg = <0x20000 0x10000>,
 			<0x36000 0x100>,
 			<0x3900000 0x300000>;
@@ -1305,6 +1359,8 @@
 		vreg_emac_phy-supply =  <&vreg_emac_phy>;
 		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
 		gdsc_emac-supply = <&gdsc_emac>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "emac_aop";
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
@@ -1323,15 +1379,15 @@
 			compatible = "qcom,ess-switch-qca83xx";
 			qcom,switch-access-mode = "mdio";
 			qcom,ar8327-initvals = <
-				0x0000c 0x7600000   /* PAD6_MODE */
+				0x00004 0x7600000   /* PAD0_MODE */
 				0x00008 0x0         /* PAD5_MODE */
 				0x000e4 0xaa545     /* MAC_POWER_SEL */
 				0x000e0 0xc74164de  /* SGMII_CTRL */
 				0x0007c 0x4e        /* PORT0_STATUS */
 				0x00094 0x4e        /* PORT6_STATUS */
 			>;
-			qcom,link-intr-gpio = <2>;
-			qcom,switch-cpu-bmp = <0x40>;    /* cpu port bitmap */
+			qcom,link-intr-gpio = <84>;
+			qcom,switch-cpu-bmp = <0x01>;    /* cpu port bitmap */
 			qcom,switch-lan-bmp = <0x3e>;    /* lan port bitmap */
 			qcom,switch-wan-bmp = <0x0>;     /* wan port bitmap */
 		};

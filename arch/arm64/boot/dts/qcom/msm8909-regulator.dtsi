@@ -48,6 +48,12 @@
 			qcom,init-voltage = <1>;
 			qcom,use-voltage-corner;
 		};
+		pm8909_cx_cdev: regulator-cx-cdev {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm8909_s1_floor_corner>;
+			regulator-levels = <5 1>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpm-regulator-smpa2 {

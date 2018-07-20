@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,5 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include "pmi8940.dtsi"
-#include "msm8917-mtp.dtsi"
+/dts-v1/;
+
+#include "msm8917.dtsi"
+#include "msm8917-pmi8950.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8917 + PMI8950 SOC ";
+	compatible = "qcom,msm8917";
+	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+	qcom,pmic-name = "PMI8950";
+};

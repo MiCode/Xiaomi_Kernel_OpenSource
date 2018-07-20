@@ -61,6 +61,12 @@ Optional properties:
 			in conjunction with "hw-ctrl-addr".
  - qcom,toggle-sw-collapse-in-disable: If set, SW_COLLAPSE bit is toggled
 			in disable call.
+ - qcom,en-few-wait-val: Input value for EN_FEW_WAIT controls state transition
+			 delay after receiving ack signal (gds_enf_ack) from the
+			 longest en_few power switch chain.
+ - qcom,en-rest-wait-val: Input value for EN_REST_WAIT controls state transition
+			  delay after receiving ack signal (gds_enr_ack) from the
+			  longest en_rest power switch chain.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

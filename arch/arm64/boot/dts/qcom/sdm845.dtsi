@@ -1550,6 +1550,7 @@
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 		qcom,signal-aop;
@@ -2375,6 +2376,7 @@
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
 		qcom,dynamic-wakeup-source;
+		qcom,low-latency-xprt;
 	};
 
 	qcom,ipc_router_cdsp_xprt {
@@ -2975,7 +2977,6 @@
 				 <DCC_READ 0x011360b0 1 0>,
 				 <DCC_READ 0x0113e030 2 0>,
 				 <DCC_READ 0x01141000 1 0>,
-				 <DCC_READ 0x01142028 1 0>,
 				 <DCC_READ 0x01148058 4 0>,
 				 <DCC_READ 0x01160410 3 0>,
 				 <DCC_READ 0x011604a0 1 0>,
@@ -2986,7 +2987,6 @@
 				 <DCC_READ 0x011b6044 4 0>,
 				 <DCC_READ 0x011be030 2 0>,
 				 <DCC_READ 0x011c1000 1 0>,
-				 <DCC_READ 0x011c2028 1 0>,
 				 <DCC_READ 0x011c8058 4 0>,
 				 <DCC_READ 0x011e0410 3 0>,
 				 <DCC_READ 0x011e04a0 1 0>,
@@ -2998,7 +2998,6 @@
 				 <DCC_READ 0x012360B0 1 0>,
 				 <DCC_READ 0x0123E030 2 0>,
 				 <DCC_READ 0x01241000 1 0>,
-				 <DCC_READ 0x01242028 1 0>,
 				 <DCC_READ 0x01248058 4 0>,
 				 <DCC_READ 0x01260410 3 0>,
 				 <DCC_READ 0x012604a0 1 0>,
@@ -3011,7 +3010,6 @@
 				 <DCC_READ 0x012b60b0 1 0>,
 				 <DCC_READ 0x012be030 2 0>,
 				 <DCC_READ 0x012c1000 1 0>,
-				 <DCC_READ 0x012c2028 1 0>,
 				 <DCC_READ 0x012c8058 4 0>,
 				 <DCC_READ 0x012e0410 3 0>,
 				 <DCC_READ 0x012e04a0 1 0>,
@@ -3020,7 +3018,6 @@
 				 <DCC_READ 0x012e6418 1 0>,
 				 <DCC_READ 0x01380900 8 0>,
 				 <DCC_READ 0x01380d00 5 0>,
-				 <DCC_READ 0x01350110 4 0>,
 				 <DCC_READ 0x01430280 1 0>,
 				 <DCC_READ 0x01430288 1 0>,
 				 <DCC_READ 0x0143028c 7 0>,
@@ -3029,7 +3026,6 @@
 				 <DCC_READ 0x011360b0 1 0>,
 				 <DCC_READ 0x0113e030 2 0>,
 				 <DCC_READ 0x01141000 1 0>,
-				 <DCC_READ 0x01142028 1 0>,
 				 <DCC_READ 0x01148058 4 0>,
 				 <DCC_READ 0x01160410 3 0>,
 				 <DCC_READ 0x011604a0 1 0>,
@@ -3040,7 +3036,6 @@
 				 <DCC_READ 0x011b6044 4 0>,
 				 <DCC_READ 0x011be030 2 0>,
 				 <DCC_READ 0x011c1000 1 0>,
-				 <DCC_READ 0x011c2028 1 0>,
 				 <DCC_READ 0x011c8058 4 0>,
 				 <DCC_READ 0x011e0410 3 0>,
 				 <DCC_READ 0x011e04a0 1 0>,
@@ -3052,7 +3047,6 @@
 				 <DCC_READ 0x012360b0 1 0>,
 				 <DCC_READ 0x0123e030 2 0>,
 				 <DCC_READ 0x01241000 1 0>,
-				 <DCC_READ 0x01242028 1 0>,
 				 <DCC_READ 0x01248058 4 0>,
 				 <DCC_READ 0x01260410 3 0>,
 				 <DCC_READ 0x012604a0 1 0>,
@@ -3065,7 +3059,6 @@
 				 <DCC_READ 0x012b60b0 1 0>,
 				 <DCC_READ 0x012be030 2 0>,
 				 <DCC_READ 0x012C1000 1 0>,
-				 <DCC_READ 0x012C2028 1 0>,
 				 <DCC_READ 0x012C8058 4 0>,
 				 <DCC_READ 0x012e0410 3 0>,
 				 <DCC_READ 0x012e04a0 1 0>,
@@ -3074,7 +3067,6 @@
 				 <DCC_READ 0x012e6418 1 0>,
 				 <DCC_READ 0x01380900 8 0>,
 				 <DCC_READ 0x01380d00 5 0>,
-				 <DCC_READ 0x01350110 4 0>,
 				 <DCC_READ 0x01430280 1 0>,
 				 <DCC_READ 0x01430288 1 0>,
 				 <DCC_READ 0x0143028c 7 0>,
@@ -4067,9 +4059,12 @@
 
 &mdss_core_gdsc {
 	status = "ok";
+	qcom,en-few-wait-val = <6>;
+	qcom,en-rest-wait-val = <5>;
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&pm8998_s9_level>;
 	status = "ok";
 };
 

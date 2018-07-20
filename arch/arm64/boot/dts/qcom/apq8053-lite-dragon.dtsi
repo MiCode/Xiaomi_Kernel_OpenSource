@@ -16,6 +16,7 @@
 #include "apq8053-camera-sensor-dragon.dtsi"
 #include "pmi8950.dtsi"
 #include "msm8953-pmi8950.dtsi"
+#include "apq8053-dragon-memory.dtsi"
 
 &soc {
 	vreg_5p0: vreg_5p0 {
@@ -103,6 +104,25 @@
 		pinctrl-1 = <&sec_tlmm_lines_sus>;
 	};
 
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_key_active>;
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 85 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+	};
+
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
 };
 
 &firmware {
@@ -319,7 +339,7 @@
 			pins = "gpio75";
 			drive-strength = <10>;
 			bias-pull-up;
-			output-low;
+			output-high;
 		};
 	};
 	sdc2_wlan_gpio_off: sdc2_wlan_gpio_off {
@@ -358,14 +378,6 @@
 };
 
 &spmi_bus {
-	qcom,pm8953@0 {
-		qcom,power-on@800 {
-			qcom,resin-gpiobase = <1019>;
-			qcom,pon_2 {
-				/delete-property/ linux,code;
-			};
-		};
-	};
 	qcom,pmi8950@2 {
 		qcom,leds@a100 {
 			compatible = "qcom,leds-qpnp";
@@ -494,4 +506,12 @@
 		bias-disable = <0>; /* no pull */
 		status = "okay";
 	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
+
+&msm_gpu {
+	/delete-node/ qcom,gpu-mempools;
 };

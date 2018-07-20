@@ -1634,7 +1634,8 @@ int ncm_ctrlrequest(struct usb_composite_dev *cdev,
 {
 	int value = -EOPNOTSUPP;
 
-	if (ctrl->bRequestType == 0x40 && ctrl->bRequest == 0xF0) {
+	if (ctrl->bRequestType == 0x40 && ctrl->bRequest == 0xF0
+			&& _ncm_setup_desc) {
 		_ncm_setup_desc->minor = (uint8_t)(ctrl->wValue >> 8);
 		_ncm_setup_desc->major = (uint8_t)(ctrl->wValue & 0xFF);
 		schedule_work(&_ncm_setup_desc->work);

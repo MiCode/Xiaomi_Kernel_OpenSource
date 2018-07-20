@@ -295,6 +295,19 @@ First Level Node - QGAUGE device
 		    attempted by QG. If not defined the value defaults
 		    to 10%.
 
+- qcom,esr-chg-min-ibat-ua
+	Usage:      optional
+	Value type: <int>
+	Definition: Minimun charge current (IBAT) in uA at which ESR will
+		    be attempted. If not specified the default value is
+		    in -450mA.
+
+- qcom,qg-ext-sns
+	Usage:      optional
+	Value type: <bool>
+	Definition: Boolean property to support external-rsense based
+		    configuration.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

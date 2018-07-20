@@ -44,8 +44,8 @@
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
 				"cfg_ahb_clk", "xo";
 
-		qcom,core-clk-rate = <133333333>;
-		qcom,core-clk-rate-hs = <66666667>;
+		qcom,core-clk-rate = <120000000>; /* MAX SVS */
+		qcom,core-clk-rate-hs = <75000000>; /* MAX LOW SVS */
 
 		resets = <&clock_gcc GCC_USB30_BCR>;
 		reset-names = "core_reset";
@@ -76,6 +76,7 @@
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
+			snps,xhci-imod-value = <4000>;
 		};
 
 		qcom,usbbam@a704000 {

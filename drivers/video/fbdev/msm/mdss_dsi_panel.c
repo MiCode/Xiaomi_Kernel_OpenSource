@@ -1064,6 +1064,48 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 	return 0;
 }
 
+static void mdss_dsi_parse_mdp_kickoff_threshold(struct device_node *np,
+	struct mdss_panel_info *pinfo)
+{
+	int len, rc;
+	const u32 *src;
+	u32 tmp;
+	u32 max_delay_us;
+
+	pinfo->mdp_koff_thshold = false;
+	src = of_get_property(np, "qcom,mdss-mdp-kickoff-threshold", &len);
+	if (!src || (len == 0))
+		return;
+
+	rc = of_property_read_u32(np, "qcom,mdss-mdp-kickoff-delay", &tmp);
+	if (!rc)
+		pinfo->mdp_koff_delay = tmp;
+	else
+		return;
+
+	if (pinfo->mipi.frame_rate == 0) {
+		pr_err("cannot enable guard window, unexpected panel fps\n");
+		return;
+	}
+
+	pinfo->mdp_koff_thshold_low = be32_to_cpu(src[0]);
+	pinfo->mdp_koff_thshold_high = be32_to_cpu(src[1]);
+	max_delay_us = 1000000 / pinfo->mipi.frame_rate;
+
+	/* enable the feature if threshold is valid */
+	if ((pinfo->mdp_koff_thshold_low < pinfo->mdp_koff_thshold_high) &&
+	   ((pinfo->mdp_koff_delay > 0) ||
+	    (pinfo->mdp_koff_delay < max_delay_us)))
+		pinfo->mdp_koff_thshold = true;
+
+	pr_debug("panel kickoff thshold:[%d, %d] delay:%d (max:%d) enable:%d\n",
+		pinfo->mdp_koff_thshold_low,
+		pinfo->mdp_koff_thshold_high,
+		pinfo->mdp_koff_delay,
+		max_delay_us,
+		pinfo->mdp_koff_thshold);
+}
+
 static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 		char *trigger_key)
 {
@@ -2844,6 +2886,8 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	rc = of_property_read_u32(np, "qcom,mdss-mdp-transfer-time-us", &tmp);
 	pinfo->mdp_transfer_time_us = (!rc ? tmp : DEFAULT_MDP_TRANSFER_TIME);
+
+	mdss_dsi_parse_mdp_kickoff_threshold(np, pinfo);
 
 	pinfo->mipi.lp11_init = of_property_read_bool(np,
 					"qcom,mdss-dsi-lp11-init");

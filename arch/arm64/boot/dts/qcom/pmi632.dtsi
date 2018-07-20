@@ -289,20 +289,20 @@
 		pmi632_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0x800>;
-			interrupts = <0x2 0xc1 0 IRQ_TYPE_NONE>,
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+					<0x2 0xc1 0 IRQ_TYPE_NONE>,
 					<0x2 0xc2 0 IRQ_TYPE_NONE>,
 					<0x2 0xc3 0 IRQ_TYPE_NONE>,
 					<0x2 0xc4 0 IRQ_TYPE_NONE>,
 					<0x2 0xc5 0 IRQ_TYPE_NONE>,
 					<0x2 0xc6 0 IRQ_TYPE_NONE>,
 					<0x2 0xc7 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pmi632_gpio2", "pmi632_gpio3",
-					"pmi632_gpio4", "pmi632_gpio5",
-					"pmi632_gpio6", "pmi632_gpio7",
-					"pmi632_gpio8";
+			interrupt-names = "pmi632_gpio1", "pmi632_gpio2",
+					"pmi632_gpio3", "pmi632_gpio4",
+					"pmi632_gpio5", "pmi632_gpio6",
+					"pmi632_gpio7", "pmi632_gpio8";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <1>;
 		};
 
 		pmi632_charger: qcom,qpnp-smb5 {
@@ -318,6 +318,9 @@
 			qcom,flash-disable-soc = <10>;
 			qcom,sw-jeita-enable;
 			qcom,step-charging-enable;
+			qcom,hw-die-temp-mitigation;
+			qcom,hw-connector-mitigation;
+			qcom,connector-internal-pull-kohm = <100>;
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
@@ -394,7 +397,7 @@
 				interrupts =
 					<0x2 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
 					<0x2 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
-					<0x2 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x2 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
 					<0x2 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
 					<0x2 0x13 0x5 IRQ_TYPE_EDGE_BOTH>,
@@ -549,7 +552,7 @@
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5700 0x100>;
 			qcom,vib-ldo-volt-uv = <3000000>;
-			qcom,vib-overdrive-volt-uv = <3544000>;
+			qcom,disable-overdrive;
 		};
 
 		pmi632_pwm: qcom,pwms@b300 {

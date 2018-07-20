@@ -222,4 +222,7 @@
 &msm_gpu {
 	/* Update GPU chip ID*/
 	qcom,chipid = <0x05000400>;
+
+	/* disable mem pools */
+	/delete-node/qcom,gpu-mempools;
 };

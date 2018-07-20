@@ -208,7 +208,7 @@
 
 &dsi_hx8399c_hd_vid {
 	/delete-property/ qcom,mdss-dsi-panel-timings;
-	qcom,mdss-dsi-panel-timings-phy-12nm = [08 06 0a 02 00 04 02 08];
+	qcom,mdss-dsi-panel-timings-phy-12nm = [09 06 0a 02 00 05 02 08];
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
@@ -544,6 +544,30 @@
 	/delete-node/ qcom,mdss-dsi-display-timings;
 };
 
+&dsi_truly_1080_vid {
+	/delete-property/ qcom,mdss-dsi-panel-timings;
+	qcom,mdss-dsi-panel-timings-phy-12nm = [17 0a 0f 06 02 08 06 0e];
+	qcom,mdss-dsi-t-clk-post = <0x02>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8953_gpios 8 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_truly_1080_cmd {
+	/delete-property/ qcom,mdss-dsi-panel-timings;
+	qcom,mdss-dsi-panel-timings-phy-12nm = [17 0a 0f 06 02 08 06 0e];
+	qcom,mdss-dsi-t-clk-post = <0x02>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8953_gpios 8 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
 &i2c_2 {
 #include "smb1355.dtsi"
 };
@@ -561,6 +585,15 @@
 		/* GPIO 7 and 8 are external-sense pins for PMI632 */
 		pmi632_sense_default: pmi632_sense_default {
 			pins = "gpio7", "gpio8";
+			bias-high-impedance;	/* disable the GPIO */
+			bias-disable;		/* no-pull */
+		};
+	};
+
+	pmi632_ctm {
+		/* Disable GPIO1 for h/w base mitigation */
+		pmi632_ctm_default: pmi632_ctm_default {
+			pins = "gpio1";
 			bias-high-impedance;	/* disable the GPIO */
 			bias-disable;		/* no-pull */
 		};
@@ -585,7 +618,7 @@
 &smb1355_0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-		&smb_en_default &pmi632_sense_default>;
+		&smb_en_default &pmi632_sense_default &pmi632_ctm_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <61 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_0: qcom,smb1355-charger@1000 {
@@ -593,13 +626,15 @@
 		/delete-property/ io-channels;
 		/delete-property/ io-channels-names;
 		qcom,parallel-mode = <1>;
+		qcom,disable-ctm;
+		qcom,hw-die-temp-mitigation;
 	};
 };
 
 &smb1355_1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-		&smb_en_default &pmi632_sense_default>;
+		&smb_en_default &pmi632_sense_default &pmi632_ctm_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <61 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_1: qcom,smb1355-charger@1000 {
@@ -607,5 +642,7 @@
 		/delete-property/ io-channels;
 		/delete-property/ io-channels-names;
 		qcom,parallel-mode = <1>;
+		qcom,disable-ctm;
+		qcom,hw-die-temp-mitigation;
 	};
 };

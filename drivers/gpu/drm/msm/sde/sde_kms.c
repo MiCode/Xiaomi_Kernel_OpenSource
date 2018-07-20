@@ -1686,6 +1686,16 @@ void sde_kms_timeline_status(struct drm_device *dev)
 	drm_for_each_crtc(crtc, dev)
 		sde_crtc_timeline_status(crtc);
 
+	if (mutex_is_locked(&dev->mode_config.mutex)) {
+		/*
+		 *Probably locked from last close dumping status anyway
+		 */
+		SDE_ERROR("dumping conn_timeline without mode_config lock\n");
+		drm_for_each_connector(conn, dev)
+			sde_conn_timeline_status(conn);
+		return;
+	}
+
 	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(conn, dev)
 		sde_conn_timeline_status(conn);
@@ -3293,6 +3303,22 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	sde_kms->splash_data.resource_handoff_pending = true;
+
+	rc = _sde_kms_mmu_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
+		goto power_error;
+	}
+
+	/* Initialize reg dma block which is a singleton */
+	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
+			sde_kms->dev);
+	if (rc) {
+		SDE_ERROR("failed: reg dma init failed\n");
+		goto power_error;
+	}
+
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
 	rm = &sde_kms->rm;
@@ -3322,21 +3348,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					&sde_kms->splash_data,
 					sde_kms->catalog);
 
-	sde_kms->splash_data.resource_handoff_pending = true;
-
-	/* Initialize reg dma block which is a singleton */
-	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
-			sde_kms->dev);
-	if (rc) {
-		SDE_ERROR("failed: reg dma init failed\n");
-		goto power_error;
-	}
-
-	rc = _sde_kms_mmu_init(sde_kms);
-	if (rc) {
-		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
-		goto power_error;
-	}
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);

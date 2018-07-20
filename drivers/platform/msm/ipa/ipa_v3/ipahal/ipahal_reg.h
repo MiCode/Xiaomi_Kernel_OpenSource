@@ -524,7 +524,7 @@ struct ipahal_ep_cfg_ctrl_scnd {
 };
 
 
-int ipahal_print_all_regs(void);
+void ipahal_print_all_regs(bool print_to_dmesg);
 
 /*
  * ipahal_reg_name_str() - returns string that represent the register

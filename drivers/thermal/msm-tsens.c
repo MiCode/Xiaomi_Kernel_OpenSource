@@ -90,6 +90,9 @@ static const struct of_device_id tsens_table[] = {
 	{	.compatible = "qcom,msm8937-tsens",
 		.data = &data_tsens14xx,
 	},
+	{	.compatible = "qcom,msm8909-tsens",
+		.data = &data_tsens1xxx_8909,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, tsens_table);
@@ -217,6 +220,10 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 
 static int tsens_tm_remove(struct platform_device *pdev)
 {
+	struct tsens_device *tmdev = platform_get_drvdata(pdev);
+
+	if (tmdev)
+		list_del(&tmdev->list);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
@@ -275,6 +282,7 @@ static struct platform_driver tsens_tm_driver = {
 		.name = "msm-tsens",
 		.owner = THIS_MODULE,
 		.of_match_table = tsens_table,
+		.suppress_bind_attrs = true,
 	},
 };
 

@@ -105,3 +105,127 @@
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
 };
+
+&thermal_zones {
+	gpu-step {
+		trips {
+			gpu-step-trip {
+				temperature = <70000>;
+			};
+		};
+	};
+	cpu0-2-step {
+		trips {
+			cpu0-2-step-trip {
+				temperature = <60000>;
+			};
+		};
+	};
+	cpu1-3-step {
+		trips {
+			cpu1-3-step-trip {
+				temperature = <60000>;
+			};
+		};
+	};
+
+	case-therm-step {
+		polling-delay-passive = <5000>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x51>;
+		thermal-governor = "step_wise";
+		trips {
+			cpu_freq_trip: cpu-freq-trip {
+				temperature = <40000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			modem_mon_trip0: modem-mon-trip0 {
+				temperature = <47000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			modem_mon_trip1: modem-mon-trip1 {
+				temperature = <55000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			cpu1_hotplug_trip: cpu1-hotplug-trip {
+				temperature = <49000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cpu0_cdev {
+				trip = <&cpu_freq_trip>;
+				cooling-device =
+					<&CPU0 THERMAL_NO_LIMIT 2>;
+			};
+			cpu1_cdev {
+				trip = <&cpu_freq_trip>;
+				cooling-device =
+					<&CPU1 THERMAL_NO_LIMIT 2>;
+			};
+			cpu2_cdev {
+				trip = <&cpu_freq_trip>;
+				cooling-device =
+					<&CPU2 THERMAL_NO_LIMIT 2>;
+			};
+			cpu3_cdev {
+				trip = <&cpu_freq_trip>;
+				cooling-device =
+					<&CPU3 THERMAL_NO_LIMIT 2>;
+			};
+			modem_lvl1 {
+				trip = <&modem_mon_trip0>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+			modem_lvl2 {
+				trip = <&modem_mon_trip1>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+			hotplug_cpu1_cdev {
+				trip = <&cpu1_hotplug_trip>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+	mdm-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	camera-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	gpu-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu0-2-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpu1-3-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm660_cx_cdev 0 0>;
+			};
+		};
+	};
+};

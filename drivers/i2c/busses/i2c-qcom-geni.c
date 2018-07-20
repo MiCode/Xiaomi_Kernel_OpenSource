@@ -799,6 +799,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 	gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 	if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
 		ret = PTR_ERR(gi2c->i2c_rsc.se_clk);

@@ -158,7 +158,7 @@ enum dsi_status_int_type {
  * @DSI_EINT_DLN0_ESC_ENTRY_ERR:         Incorrect LP Rx escape entry.
  * @DSI_EINT_DLN0_ESC_SYNC_ERR:          LP Rx data is not byte aligned.
  * @DSI_EINT_DLN0_LP_CONTROL_ERR:        Incorrect LP Rx state sequence.
- * @DSI_EINT_PENDING_HS_TX_TIMEOUT:      Pending High-speed transfer timeout.
+ * @DSI_EINT_PANEL_SPECIFIC_ERR:         DSI Protocol violation error.
  * @DSI_EINT_INTERLEAVE_OP_CONTENTION:   Interleave operation contention.
  * @DSI_EINT_CMD_DMA_FIFO_UNDERFLOW:     Command mode DMA FIFO underflow.
  * @DSI_EINT_CMD_MDP_FIFO_UNDERFLOW:     Command MDP FIFO underflow (failed to
@@ -179,7 +179,6 @@ enum dsi_status_int_type {
  * @DSI_EINT_DLN1_LP1_CONTENTION:        PHY level contention while lane 1 high.
  * @DSI_EINT_DLN2_LP1_CONTENTION:        PHY level contention while lane 2 high.
  * @DSI_EINT_DLN3_LP1_CONTENTION:        PHY level contention while lane 3 high.
- * @DSI_EINT_PANEL_SPECIFIC_ERR:         DSI Protocol violation error.
  */
 enum dsi_error_int_index {
 	DSI_EINT_RDBK_SINGLE_ECC_ERR = 0,
@@ -194,7 +193,7 @@ enum dsi_error_int_index {
 	DSI_EINT_DLN0_ESC_ENTRY_ERR = 9,
 	DSI_EINT_DLN0_ESC_SYNC_ERR = 10,
 	DSI_EINT_DLN0_LP_CONTROL_ERR = 11,
-	DSI_EINT_PENDING_HS_TX_TIMEOUT = 12,
+	DSI_EINT_PANEL_SPECIFIC_ERR = 12,
 	DSI_EINT_INTERLEAVE_OP_CONTENTION = 13,
 	DSI_EINT_CMD_DMA_FIFO_UNDERFLOW = 14,
 	DSI_EINT_CMD_MDP_FIFO_UNDERFLOW = 15,
@@ -214,7 +213,6 @@ enum dsi_error_int_index {
 	DSI_EINT_DLN1_LP1_CONTENTION = 29,
 	DSI_EINT_DLN2_LP1_CONTENTION = 30,
 	DSI_EINT_DLN3_LP1_CONTENTION = 31,
-	DSI_EINT_PANEL_SPECIFIC_ERR = 32,
 
 	DSI_ERROR_INTERRUPT_COUNT
 };
@@ -233,7 +231,7 @@ enum dsi_error_int_index {
  * @DSI_DLN0_ESC_ENTRY_ERR:         Incorrect LP Rx escape entry.
  * @DSI_DLN0_ESC_SYNC_ERR:          LP Rx data is not byte aligned.
  * @DSI_DLN0_LP_CONTROL_ERR:        Incorrect LP Rx state sequence.
- * @DSI_PENDING_HS_TX_TIMEOUT:      Pending High-speed transfer timeout.
+ * @DSI_PANEL_SPECIFIC_ERR:         DSI Protocol violation.
  * @DSI_INTERLEAVE_OP_CONTENTION:   Interleave operation contention.
  * @DSI_CMD_DMA_FIFO_UNDERFLOW:     Command mode DMA FIFO underflow.
  * @DSI_CMD_MDP_FIFO_UNDERFLOW:     Command MDP FIFO underflow (failed to
@@ -254,7 +252,6 @@ enum dsi_error_int_index {
  * @DSI_DLN1_LP1_CONTENTION:        PHY level contention while lane 1 is high.
  * @DSI_DLN2_LP1_CONTENTION:        PHY level contention while lane 2 is high.
  * @DSI_DLN3_LP1_CONTENTION:        PHY level contention while lane 3 is high.
- * @DSI_PANEL_SPECIFIC_ERR:         DSI Protocol violation.
  */
 enum dsi_error_int_type {
 	DSI_RDBK_SINGLE_ECC_ERR = BIT(DSI_EINT_RDBK_SINGLE_ECC_ERR),
@@ -269,7 +266,7 @@ enum dsi_error_int_type {
 	DSI_DLN0_ESC_ENTRY_ERR = BIT(DSI_EINT_DLN0_ESC_ENTRY_ERR),
 	DSI_DLN0_ESC_SYNC_ERR = BIT(DSI_EINT_DLN0_ESC_SYNC_ERR),
 	DSI_DLN0_LP_CONTROL_ERR = BIT(DSI_EINT_DLN0_LP_CONTROL_ERR),
-	DSI_PENDING_HS_TX_TIMEOUT = BIT(DSI_EINT_PENDING_HS_TX_TIMEOUT),
+	DSI_PANEL_SPECIFIC_ERR = BIT(DSI_EINT_PANEL_SPECIFIC_ERR),
 	DSI_INTERLEAVE_OP_CONTENTION = BIT(DSI_EINT_INTERLEAVE_OP_CONTENTION),
 	DSI_CMD_DMA_FIFO_UNDERFLOW = BIT(DSI_EINT_CMD_DMA_FIFO_UNDERFLOW),
 	DSI_CMD_MDP_FIFO_UNDERFLOW = BIT(DSI_EINT_CMD_MDP_FIFO_UNDERFLOW),
@@ -289,7 +286,6 @@ enum dsi_error_int_type {
 	DSI_DLN1_LP1_CONTENTION = BIT(DSI_EINT_DLN1_LP1_CONTENTION),
 	DSI_DLN2_LP1_CONTENTION = BIT(DSI_EINT_DLN2_LP1_CONTENTION),
 	DSI_DLN3_LP1_CONTENTION = BIT(DSI_EINT_DLN3_LP1_CONTENTION),
-	DSI_PANEL_SPECIFIC_ERR = BIT(DSI_EINT_PANEL_SPECIFIC_ERR),
 };
 
 /**
@@ -807,6 +803,13 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	int (*wait_for_cmd_mode_mdp_idle)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * hw.ops.set_continuous_clk() - Set continuous clock
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @enable:	  Bool to control continuous clock request.
+	 */
+	void (*set_continuous_clk)(struct dsi_ctrl_hw *ctrl, bool enable);
 };
 
 /*

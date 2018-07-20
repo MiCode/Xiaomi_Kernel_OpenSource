@@ -14,6 +14,8 @@
 /dts-v1/;
 
 #include "msm8917.dtsi"
+#include "msm8917-pmi8950.dtsi"
+#include "msm8917-cdp.dtsi"
 #include "msm8917-pmi8950-cdp-mirror-lake-touch.dtsi"
 
 / {

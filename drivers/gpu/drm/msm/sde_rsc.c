@@ -579,8 +579,12 @@ static int sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc,
 			msecs_to_jiffies(PRIMARY_VBLANK_WORST_CASE_MS*2));
 		if (!rc) {
 			pr_err("Timeout waiting for vsync\n");
-			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait),
+			rc = -ETIMEDOUT;
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc,
 				SDE_EVTLOG_ERROR);
+		} else {
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc);
+			rc = 0;
 		}
 	}
 end:
@@ -635,8 +639,12 @@ static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 			msecs_to_jiffies(PRIMARY_VBLANK_WORST_CASE_MS*2));
 		if (!rc) {
 			pr_err("Timeout waiting for vsync\n");
-			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait),
+			rc = -ETIMEDOUT;
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc,
 				SDE_EVTLOG_ERROR);
+		} else {
+			SDE_EVT32(atomic_read(&rsc->rsc_vsync_wait), rc);
+			rc = 0;
 		}
 	}
 
@@ -1446,6 +1454,7 @@ static struct platform_driver sde_rsc_platform_driver = {
 	.driver     = {
 		.name   = "sde_rsc",
 		.of_match_table = dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

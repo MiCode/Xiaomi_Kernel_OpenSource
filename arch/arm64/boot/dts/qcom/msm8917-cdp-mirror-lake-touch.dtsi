@@ -11,16 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8917-pinctrl.dtsi"
 /* #include "msm8917-camera-sensor-cdp.dtsi"*/
 
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active", "tlmm_gpio_key_suspend";
+		pinctrl-names = "default";
 		pinctrl-0 = <&gpio_key_active>;
-		pinctrl-1 = <&gpio_key_suspend>;
 
 		camera_focus {
 			label = "camera_focus";
@@ -28,6 +26,8 @@
 			linux,input-type = <1>;
 			linux,code = <0x210>;
 			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
 		};
 
 		camera_snapshot {
@@ -36,6 +36,8 @@
 			linux,input-type = <1>;
 			linux,code = <0x2fe>;
 			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
 		};
 
 		vol_up {
@@ -44,6 +46,8 @@
 			linux,input-type = <1>;
 			linux,code = <115>;
 			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
 		};
 
 		home {
@@ -52,6 +56,8 @@
 			linux,input-type = <1>;
 			linux,code = <102>;
 			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
 		};
 	};
 
@@ -106,151 +112,25 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
 };
-
-#include "msm8937-mdss-panels.dtsi"
-
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&mdss_dsi {
-	hw-config = "single_dsi";
-};
-
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_720_vid>;
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
-	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-reset-gpio = <&tlmm 60 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
-};
-
-&dsi_truly_720_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
-};
-
-&dsi_truly_720_cmd {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,ulps-enabled;
-	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <2 2 2 2 2 2>;
-};
-
-&dsi_icn9706_720_1440_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
-};
-
-&tlmm {
-	tlmm_gpio_key {
-		gpio_key_active: gpio_key_active {
-			mux {
-				pins = "gpio86", "gpio91", "gpio127", "gpio128";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio86", "gpio91", "gpio127", "gpio128";
-			};
-		};
-
-		gpio_key_suspend: gpio_key_suspend {
-			mux {
-				pins = "gpio86", "gpio91", "gpio127", "gpio128";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio86", "gpio91", "gpio127", "gpio128";
-			};
-		};
-	};
-};
-
-&sdhc_1 {
-	/* device core power supply */
-	vdd-supply = <&pm8937_l8>;
-	qcom,vdd-voltage-level = <2900000 2900000>;
-	qcom,vdd-current-level = <200 570000>;
-
-	/* device communication power supply */
-	vdd-io-supply = <&pm8937_l5>;
-	qcom,vdd-io-always-on;
-	qcom,vdd-io-lpm-sup;
-	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <200 325000>;
-
-	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on  &sdc1_rclk_on>;
-	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
-
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000
-								384000000>;
-	qcom,nonremovable;
-	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
-
-	status = "ok";
-};
-
-&sdhc_2 {
-	/* device core power supply */
-	vdd-supply = <&pm8937_l11>;
-	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <15000 800000>;
-
-	/* device communication power supply */
-	vdd-io-supply = <&pm8937_l12>;
-	qcom,vdd-io-voltage-level = <1800000 2950000>;
-	qcom,vdd-io-current-level = <200 22000>;
-
-	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
-
-	#address-cells = <0>;
-	interrupt-parent = <&sdhc_2>;
-	interrupts = <0 1 2>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-		1 &intc 0 221 0
-		2 &tlmm 67 0>;
-	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 67 0x1>;
-
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
-								200000000>;
-	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-
-	status = "ok";
-};
-
 &i2c_3 {
 	status = "okay";
 	synaptics@22 {
-		compatible = "synaptics,dsx";
+		compatible = "synaptics,dsx-i2c";
 		reg = <0x22>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <65 0x2008>;
-		avdd-supply = <&pm8937_l10>;
-		vdd-supply = <&pm8937_l5>;
-		synaptics,vdd-voltage = <1880000 1880000>;
-		synaptics,avdd-voltage = <3008000 3008000>;
-		synaptics,vdd-current = <40000>;
-		synaptics,avdd-current = <20000>;
+		vdd_ana-supply = <&pm8937_l10>;
+		vcc_i2c-supply = <&pm8937_l5>;
+		synaptics,pwr-reg-name = "vdd_ana";
+		synaptics,bus-reg-name = "vcc_i2c";
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-		synaptics,display-coords = <0 0 719 1439>;
-		synaptics,panel-coords  = <0 0 719 1439>;
-		synaptics,reset-gpio = <&tlmm 64 0x00>;
 		synaptics,irq-gpio = <&tlmm 65 0x2008>;
-		synaptics,disable-gpios;
+		synaptics,irq-on-state = <0>;
+		synaptics,irq-flags = <0x2008>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,resume-in-workqueue;
 	};
 };

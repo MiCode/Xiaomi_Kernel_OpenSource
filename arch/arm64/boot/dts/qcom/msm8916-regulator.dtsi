@@ -141,6 +141,12 @@
 			qcom,use-voltage-floor-corner;
 			qcom,always-send-voltage;
 		};
+		pm8916_cx_cdev: regulator-cx-cdev {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm8916_s1_floor_corner>;
+			regulator-levels = <5 1>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpm-regulator-smpa3 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -827,6 +827,7 @@ static struct platform_driver mdp5_driver = {
 	.driver = {
 		.name = "msm_mdp",
 		.of_match_table = mdp5_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

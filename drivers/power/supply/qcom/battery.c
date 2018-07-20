@@ -79,6 +79,7 @@ struct pl_data {
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
 	bool			pl_disable;
+	int			taper_entry_fv;
 };
 
 struct pl_data *the_chip;
@@ -452,6 +453,7 @@ static void pl_taper_work(struct work_struct *work)
 	int eff_fcc_ua;
 	int total_fcc_ua, master_fcc_ua, slave_fcc_ua = 0;
 
+	chip->taper_entry_fv = get_effective_result(chip->fv_votable);
 	chip->taper_work_running = true;
 	while (true) {
 		if (get_effective_result(chip->pl_disable_votable)) {
@@ -498,7 +500,25 @@ static void pl_taper_work(struct work_struct *work)
 			vote(chip->fcc_votable, TAPER_STEPPER_VOTER,
 					true, eff_fcc_ua);
 		} else {
-			pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+			/*
+			 * Due to reduction of float voltage in JEITA condition
+			 * taper charging can be initiated at a lower FV. On
+			 * removal of JEITA condition, FV readjusts itself.
+			 * However, once taper charging is initiated, it doesn't
+			 * exits until parallel chaging is disabled due to which
+			 * FCC doesn't scale back to its original value, leading
+			 * to slow charging thereafter.
+			 * Check if FV increases in comparison to FV at which
+			 * taper charging was initiated, and if yes, exit taper
+			 * charging.
+			 */
+			if (get_effective_result(chip->fv_votable) >
+						chip->taper_entry_fv) {
+				pl_dbg(chip, PR_PARALLEL, "Float voltage increased. Exiting taper\n");
+				goto done;
+			} else {
+				pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+			}
 		}
 		/* wait for the charger state to deglitch after FCC change */
 		msleep(PL_TAPER_WORK_DELAY_MS);
@@ -997,6 +1017,16 @@ static void handle_main_charge_type(struct pl_data *chip)
 	/* handle fast/taper charge entry */
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
 			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
+		/*
+		 * Undo parallel charging termination if entered taper in
+		 * reduced float voltage condition due to jeita mitigation.
+		 */
+		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST &&
+			(chip->taper_entry_fv <
+			get_effective_result(chip->fv_votable))) {
+			vote(chip->pl_disable_votable, TAPER_END_VOTER,
+				false, 0);
+		}
 		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
 		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
 		chip->charge_type = pval.intval;

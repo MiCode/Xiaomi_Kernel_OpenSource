@@ -229,16 +229,21 @@ void gic_v3_dist_save(void)
 	void __iomem *base = gic_data.dist_base;
 	int reg, i;
 
+	bitmap_zero(irqs_restore, MAX_IRQ);
+
 	for (reg = SAVED_ICFGR; reg < NUM_SAVED_GICD_REGS; reg++) {
 		for_each_spi_irq_word(i, reg) {
 			saved_spi_regs_start[reg][i] =
 				read_spi_word_offset(base, reg, i);
+			changed_spi_regs_start[reg][i] = 0;
 		}
 	}
 
-	for (i = 32; i < IRQ_NR_BOUND(gic_data.irq_nr); i++)
+	for (i = 32; i < IRQ_NR_BOUND(gic_data.irq_nr); i++) {
 		gic_data.saved_spi_router[i] =
 			gic_read_irouter(base + GICD_IROUTER + i * 8);
+		gic_data.changed_spi_router[i] = 0;
+	}
 }
 
 static void _gicd_check_reg(enum gicd_save_restore_reg reg)
@@ -337,7 +342,7 @@ static void _gic_v3_dist_restore_set_reg(u32 offset)
 }
 
 #define _gic_v3_dist_restore_isenabler()		\
-		_gic_v3_dist_restore_set_reg(GICD_ISENABLER)
+		_gic_v3_dist_restore_reg(SAVED_IS_ENABLER)
 
 #define _gic_v3_dist_restore_ispending()		\
 		_gic_v3_dist_restore_set_reg(GICD_ISPENDR)
@@ -415,7 +420,7 @@ static void _gic_v3_dist_clear_reg(u32 offset)
  *
  * 5. Set pending for the interrupt.
  *
- * 6. Enable interrupt and wait for its completion.
+ * 6. Restore Enable bit of interrupt and wait for its completion.
  *
  */
 void gic_v3_dist_restore(void)
@@ -1019,7 +1024,7 @@ static void gic_send_sgi(u64 cluster_id, u16 tlist, unsigned int irq)
 	       MPIDR_TO_SGI_AFFINITY(cluster_id, 1)	|
 	       tlist << ICC_SGI1R_TARGET_LIST_SHIFT);
 
-	pr_debug("CPU%d: ICC_SGI1R_EL1 %llx\n", smp_processor_id(), val);
+	pr_devel("CPU%d: ICC_SGI1R_EL1 %llx\n", smp_processor_id(), val);
 	gic_write_sgi1r(val);
 }
 

@@ -296,6 +296,13 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_MSM8917) += msm8917-mtp-overlay.dtbo \
+	msm8917-qrd-overlay.dtbo \
+	msm8917-cdp-overlay.dtbo \
+	msm8917-cdp-ext-codec-overlay.dtbo \
+	msm8917-cdp-ml-touch-overlay.dtbo \
+	msm8917-rcm-overlay.dtbo
+
 dtbo-$(CONFIG_ARCH_MSM8953) += msm8953-mtp-overlay.dtbo \
 	msm8953-cdp-overlay.dtbo \
 	msm8953-rcm-overlay.dtbo \
@@ -333,6 +340,33 @@ dtbo-$(CONFIG_ARCH_SDM439) += sdm439-mtp-overlay.dtbo \
 dtbo-$(CONFIG_ARCH_SDM429) += sdm429-mtp-overlay.dtbo \
 	sdm429-cdp-overlay.dtbo \
 	sdm429-qrd-overlay.dtbo
+
+msm8917-mtp-overlay.dtbo-base := msm8917-pmi8950.dtb \
+	msm8917-pmi8937.dtb \
+	msm8917-pmi8940.dtb
+
+msm8917-qrd-overlay.dtbo-base := msm8917-pmi8937.dtb
+
+msm8917-cdp-ext-codec-overlay.dtbo-base := msm8917-pmi8950.dtb
+
+msm8917-cdp-ml-touch-overlay.dtbo-base := msm8917-pmi8950.dtb
+
+msm8917-cdp-overlay.dtbo-base := msm8917-pmi8950.dtb \
+	msm8917-pmi8937.dtb \
+	msm8917-pmi8940.dtb
+
+msm8917-rcm-overlay.dtbo-base := msm8917-pmi8950.dtb \
+	msm8917-pmi8937.dtb \
+	msm8917-pmi8940.dtb
+
+apq8017-mtp-overlay.dtbo-base := apq8017-pmi8950.dtb \
+	apq8017-pmi8937.dtb
+
+apq8017-cdp-overlay.dtbo-base := apq8017-pmi8950.dtb \
+	apq8017-pmi8937.dtb
+
+apq8017-cdp-wcd-rome-overlay.dtbo-base := apq8017-pmi8950.dtb \
+	apq8017-pmi8937.dtb
 
 msm8953-mtp-overlay.dtbo-base := sdm450.dtb \
 	msm8953.dtb \
@@ -468,7 +502,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-robot-som-refboard.dtb \
 	apq8009-dragon.dtb \
-	apq8009-lat-v1.0.dtb
+	apq8009-lat-v1.0.dtb \
+	sdw3100-msm8909w-1gb-wtp.dtb
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \

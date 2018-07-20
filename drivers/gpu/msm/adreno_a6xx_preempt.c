@@ -49,8 +49,13 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 				OOB_PREEMPTION_SET_MASK,
 				OOB_PREEMPTION_CHECK_MASK,
 				OOB_PREEMPTION_CLEAR_MASK);
-			if (status)
+			if (status) {
+				adreno_set_gpu_fault(adreno_dev,
+					ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(
+					KGSL_DEVICE(adreno_dev));
 				return;
+			}
 		}
 	}
 

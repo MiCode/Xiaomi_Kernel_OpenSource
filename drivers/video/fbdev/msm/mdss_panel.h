@@ -672,6 +672,10 @@ struct mdss_panel_info {
 	u32 saved_fporch;
 	/* current fps, once is programmed in hw */
 	int current_fps;
+	u32 mdp_koff_thshold_low;
+	u32 mdp_koff_thshold_high;
+	bool mdp_koff_thshold;
+	u32 mdp_koff_delay;
 
 	int panel_max_fps;
 	int panel_max_vtotal;

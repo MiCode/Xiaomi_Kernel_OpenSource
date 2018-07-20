@@ -143,11 +143,6 @@ static struct clk_alpha_pll gpll0 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_trion_fixed_pll_ops,
-			VDD_CX_FMAX_MAP4(
-				MIN, 615000000,
-				LOW, 1066000000,
-				LOW_L1, 1600000000,
-				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -757,7 +752,7 @@ static struct clk_rcg2 gcc_spmi_fetcher_clk_src = {
 static const struct freq_tbl ftbl_gcc_usb30_master_clk_src[] = {
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(75000000, P_GPLL0_OUT_EVEN, 4, 0, 0),
-	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(120000000, P_GPLL0_OUT_MAIN, 5, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(240000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
@@ -777,7 +772,7 @@ static struct clk_rcg2 gcc_usb30_master_clk_src = {
 		VDD_CX_FMAX_MAP5(
 			MIN, 50000000,
 			LOWER, 75000000,
-			LOW, 100000000,
+			LOW, 120000000,
 			NOMINAL, 200000000,
 			HIGH, 240000000),
 	},

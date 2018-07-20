@@ -198,6 +198,15 @@
 			bias-disable;		/* no-pull */
 		};
 	};
+
+	pmi632_ctm {
+		/* Disable GPIO1 for h/w base mitigation */
+		pmi632_ctm_default: pmi632_ctm_default {
+			pins = "gpio1";
+			bias-high-impedance;	/* disable the GPIO */
+			bias-disable;		/* no-pull */
+		};
+	};
 };
 
 &tlmm {
@@ -218,7 +227,7 @@
 &smb1355_0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-		&smb_en_default &pmi632_sense_default>;
+		&smb_en_default &pmi632_sense_default &pmi632_ctm_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_0: qcom,smb1355-charger@1000 {
@@ -226,13 +235,15 @@
 		/delete-property/ io-channels;
 		/delete-property/ io-channels-names;
 		qcom,parallel-mode = <1>;
+		qcom,disable-ctm;
+		qcom,hw-die-temp-mitigation;
 	};
 };
 
 &smb1355_1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&smb_int_default
-		&smb_en_default &pmi632_sense_default>;
+		&smb_en_default &pmi632_sense_default &pmi632_ctm_default>;
 	interrupt-parent = <&tlmm>;
 	interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
 	smb1355_charger_1: qcom,smb1355-charger@1000 {
@@ -240,5 +251,12 @@
 		/delete-property/ io-channels;
 		/delete-property/ io-channels-names;
 		qcom,parallel-mode = <1>;
+		qcom,disable-ctm;
+		qcom,hw-die-temp-mitigation;
 	};
+};
+
+&pmi632_charger {
+	qcom,thermal-mitigation = <4200000 3500000 3000000 2500000
+				2000000 1500000 1000000 500000>;
 };

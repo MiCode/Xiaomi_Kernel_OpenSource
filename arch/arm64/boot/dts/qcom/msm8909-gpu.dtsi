@@ -81,6 +81,9 @@
 		qcom,pm-qos-active-latency = <701>;
 		qcom,pm-qos-wakeup-latency = <701>;
 
+		/* Enable gpu cooling device */
+		#cooling-cells = <2>;
+
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;

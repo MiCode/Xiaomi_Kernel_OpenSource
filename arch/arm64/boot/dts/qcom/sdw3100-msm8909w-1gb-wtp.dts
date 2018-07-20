@@ -1,0 +1,355 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
+#include "msm8909w-gpu.dtsi"
+#include "msm8909w.dtsi"
+#include "msm8909w-bg-memory.dtsi"
+#include "8909w-pm660.dtsi"
+#include "msm8909-audio-bg_codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8909W BG 1GB WTP SDW3100";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,msm-id =   <245 0>,
+			<258 0>,
+			<275 0>,
+			<300 0>;
+	qcom,board-id = <8 0xf>;
+	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
+			<0x0001011b 0x0 0x0 0x0>;
+};
+
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@20 {
+			compatible = "synaptics,dsx-i2c";
+			reg = <0x20>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <98 0x2008>;
+			vdd_ana-supply = <&pm660_l18>;
+			vcc_i2c-supply = <&pm660_l13>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+							"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,irq-gpio = <&msm_gpio 98 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,max-y-for-2d = <389>;
+			synaptics,bus-lpm-cur-uA = <450>;
+			synaptics,do-not-disable-regulators;
+			synaptics,wakeup-gestures-en;
+			synaptics,resume-in-workqueue;
+			synaptics,x-flip;
+			synaptics,y-flip;
+			/delete-property/ synaptics,reset-gpio;
+			/delete-property/ synaptics,display-coords;
+			/delete-property/ synaptics,panel-coords;
+			/delete-property/ synaptics,power-down;
+			/delete-property/ synaptics,disable-gpios;
+			/delete-property/ synaptics,is_wake;
+		};
+
+		/delete-node/ it7260@46;
+	};
+
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+
+		qcom,pil-force-shutdown;
+		qcom,firmware-name = "bg-wear";
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
+		qcom,bg2ap-errfatal-gpio = <&msm_gpio 95 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&msm_gpio 17 0>;
+		qcom,ap2bg-errfatal-gpio = <&msm_gpio 23 0>;
+	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,glink-bgcom-xprt-bg {
+		compatible = "qcom,glink-bgcom-xprt";
+		label = "bg";
+		qcom,qos-config = <&glink_qos_bg>;
+		qcom,ramp-time = <0x10>,
+				     <0x20>,
+				     <0x30>,
+				     <0x40>;
+	};
+
+	glink_qos_bg: qcom,glink-qos-config-bg {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x80 0x0>,
+				 <0x70 0x1>,
+				 <0x60 0x2>,
+				 <0x50 0x3>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+	};
+
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-bg-daemon {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "bg-daemon";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_daemon";
+		};
+
+		qcom,glinkpkt-bg-display-ctrl {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "display-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_ctrl";
+		};
+
+		qcom,glinkpkt-bg-display-data {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "display-data";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_data";
+		};
+
+		qcom,glinkpkt-bg-rsb-ctrl {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "RSB_CTRL";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_rsb_ctrl";
+		};
+	};
+
+	spi@78B8000 {  /* BLSP1 QUP4 */
+		status = "ok";
+		qcom,bg-spi {
+			compatible = "qcom,bg-spi";
+			reg = <0>;
+			spi-max-frequency = <16000000>;
+			interrupt-parent = <&msm_gpio>;
+			qcom,irq-gpio = <&msm_gpio 110 1>;
+		};
+	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm660_s2_floor_corner>;
+
+		msm_thermal_freq: qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1094400>;
+			qcom,freq-req;
+		};
+	};
+
+	qcom,bg-rsb {
+		compatible = "qcom,bg-rsb";
+		vdd-ldo1-supply = <&pm660_l11>;
+		vdd-ldo2-supply = <&pm660_l15>;
+	};
+
+	qcom,bg-daemon {
+		compatible = "qcom,bg-daemon";
+		qcom,bg-reset-gpio = <&pm660_gpios 5 0>;
+		ssr-reg1-supply = <&pm660_l3>;
+		ssr-reg2-supply = <&pm660_l9>;
+	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <1000000>;
+			qcom,high-threshold-uamp = <2000000>;
+			qcom,mitigation-freq-khz = <1094400>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+};
+
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&audio_codec_bg {
+	status = "ok";
+};
+
+&bg_cdc {
+	status = "ok";
+	vdd-spkr-supply = <&pm660_l11>;
+};
+
+&i2c_1 {
+	status = "okay";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&msm_gpio 50 0x00>;
+		qcom,nq-ven = <&msm_gpio 36 0x00>;
+		qcom,nq-firm = <&msm_gpio 38 0x00>;
+		qcom,nq-esepwr = <&msm_gpio 49 0x00>;
+		qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
+		qcom,clk-src = "BBCLK3";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <50 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active","nfc_suspend";
+		pinctrl-0 = <&nfcw_int_active &nfcw_disable_active
+						&nfc_clk_default>;
+		pinctrl-1 = <&nfcw_int_suspend &nfcw_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
+		clock-names = "ref_clk";
+	};
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_3 {
+	status = "disabled";
+};
+
+&i2c_4 {
+	status = "disabled";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&sdc1_clk_off {
+	config {
+		pins = "sdc1_clk";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_cmd_off {
+	config {
+		pins = "sdc1_cmd";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_data_off {
+	config {
+		pins = "sdc1_data";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+/* Pinctrl dt nodes for interrupt & reset gpio for Synaptics touch controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+		/delete-property/ bias-pull-down;
+		bias-disable; /* No PULL */
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_reset_suspend {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio16";
+	};
+
+	config {
+		pins = "gpio98", "gpio16";
+	};
+};
+
+&spi4_cs0_active {
+	mux {
+		pins = "gpio14";
+		function = "blsp_spi4";
+	};
+	config {
+		pins = "gpio14";
+		drive-strength = <2>;
+		bias-disable; /* No PULL */
+		output-high;
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 52 0>;
+	qcom,platform-enable-gpio = <&msm_gpio 59 0>;
+};

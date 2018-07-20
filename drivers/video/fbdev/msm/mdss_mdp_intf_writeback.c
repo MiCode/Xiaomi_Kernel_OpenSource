@@ -518,7 +518,9 @@ static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl,
 	}
 
 	if (ctl->cdm) {
-		mdss_mdp_cdm_destroy(ctl->cdm);
+		if (!mdss_mdp_cdm_destroy(ctl->cdm))
+			mdss_mdp_ctl_write(ctl,
+				MDSS_MDP_REG_CTL_FLUSH, BIT(26));
 		ctl->cdm = NULL;
 	}
 	return 0;

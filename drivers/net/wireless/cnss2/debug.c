@@ -147,6 +147,8 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		return -ENODEV;
 
 	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv)
+		return -ENODEV;
 
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))
@@ -302,10 +304,6 @@ static ssize_t cnss_reg_read_debug_write(struct file *fp,
 		return -EINVAL;
 
 	if (kstrtou32(token, 0, &data_len))
-		return -EINVAL;
-
-	if (data_len == 0 ||
-	    data_len > QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01)
 		return -EINVAL;
 
 	mutex_lock(&plat_priv->dev_lock);

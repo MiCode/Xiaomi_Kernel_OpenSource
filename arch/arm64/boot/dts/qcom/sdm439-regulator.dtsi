@@ -378,12 +378,12 @@
 			reg = <0x2000 0x100>;
 			regulator-name = "pm8953_s5";
 			regulator-min-microvolt = <490000>;
-			regulator-max-microvolt = <910000>;
+			regulator-max-microvolt = <960000>;
 
 			pm8953_s5_limit: avs-limit-regulator {
 				regulator-name = "pm8953_s5_avs_limit";
 				regulator-min-microvolt = <490000>;
-				regulator-max-microvolt = <910000>;
+				regulator-max-microvolt = <960000>;
 			};
 		};
 	};
@@ -421,7 +421,7 @@
 		regulator-max-microvolt = <5>;
 
 		qcom,cpr-fuse-corners = <3>;
-		qcom,cpr-voltage-ceiling = <760000 795000 910000>;
+		qcom,cpr-voltage-ceiling = <810000 845000 960000>;
 		qcom,cpr-voltage-floor =   <700000 700000 790000>;
 		vdd-apc-supply = <&pm8953_s5>;
 		mem-acc-supply = <&apc_mem_acc_vreg>;

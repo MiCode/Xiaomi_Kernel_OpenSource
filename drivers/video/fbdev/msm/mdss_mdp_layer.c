@@ -103,14 +103,15 @@ static int __cursor_layer_check(struct msm_fb_data_type *mfd,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if ((layer->z_order != HW_CURSOR_STAGE(mdata))
+			|| layer->flags & MDP_LAYER_FLIP_LR
 			|| layer->src_rect.w > mdata->max_cursor_size
 			|| layer->src_rect.h > mdata->max_cursor_size
 			|| layer->src_rect.w != layer->dst_rect.w
 			|| layer->src_rect.h != layer->dst_rect.h
 			|| !mdata->ncursor_pipes) {
-		pr_err("Incorrect cursor configs for pipe:%d, cursor_pipes:%d, z_order:%d\n",
+		pr_err("Incorrect cursor configs for pipe:0x%x, ncursor_pipes:%d, z_order:%d, flags:0x%x\n",
 				layer->pipe_ndx, mdata->ncursor_pipes,
-				layer->z_order);
+				layer->z_order, layer->flags);
 		pr_err("src:{%d,%d,%d,%d}, dst:{%d,%d,%d,%d}\n",
 				layer->src_rect.x, layer->src_rect.y,
 				layer->src_rect.w, layer->src_rect.h,
@@ -344,12 +345,18 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 	 */
 	if (pipe->csc_coeff_set != layer->color_space) {
 		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
-		if (pipe->src_fmt->is_yuv && src_fmt && src_fmt->is_yuv) {
-			status = -EPERM;
-			pr_err("csc change is not permitted on used pipe\n");
+		if (!src_fmt) {
+			pr_err("Invalid layer format %d\n",
+						layer->buffer.format);
+			status = -EINVAL;
+		} else {
+			if (pipe->src_fmt->is_yuv && src_fmt &&
+							src_fmt->is_yuv) {
+				status = -EPERM;
+				pr_err("csc change is not permitted on used pipe\n");
+			}
 		}
 	}
-
 	return status;
 }
 
@@ -484,9 +491,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->comp_ratio = layer->buffer.comp_ratio;
 
-	if (mfd->panel_orientation)
-		layer->flags ^= mfd->panel_orientation;
-
 	pipe->mixer_left = mixer;
 	pipe->mfd = mfd;
 	pipe->play_cnt = 0;
@@ -561,6 +565,15 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
+	/* scaling is not allowed for solid_fill layers */
+	if ((pipe->flags & MDP_SOLID_FILL) &&
+		((pipe->src.w != pipe->dst.w) ||
+			(pipe->src.h != pipe->dst.h))) {
+		pr_err("solid fill pipe:%d cannot have scaling\n", pipe->num);
+		ret = -EINVAL;
+		goto end;
+	}
+
 	/*
 	 * unstage the pipe if it's current z_order does not match with new
 	 * z_order because client may only call the validate.
@@ -624,13 +637,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->multirect.mode = vinfo->multirect.mode;
 	pipe->mixer_stage = layer->z_order;
-
-	if (mfd->panel_orientation & MDP_FLIP_LR)
-		pipe->dst.x = pipe->mixer_left->width - pipe->dst.x -
-			pipe->dst.w;
-	if (mfd->panel_orientation & MDP_FLIP_UD)
-		pipe->dst.y = pipe->mixer_left->height - pipe->dst.y -
-			pipe->dst.h;
 
 	memcpy(&pipe->layer, layer, sizeof(struct mdp_input_layer));
 
@@ -1175,6 +1181,11 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
 		sd_pipes, nonsd_pipes);
 
+	if (mdss_get_sd_client_cnt() && !mdp5_data->sd_enabled) {
+		pr_err("Secure session already enabled for other client\n");
+		return -EINVAL;
+	}
+
 	mdp5_data->sd_transition_state = SD_TRANSITION_NONE;
 	if (!__is_sd_state_valid(sd_pipes, nonsd_pipes, panel_type,
 		mdp5_data->sd_enabled)) {
@@ -1188,7 +1199,14 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	} else if (mdp5_data->sd_enabled && !sd_pipes) {
 		mdp5_data->sd_transition_state =
 			SD_TRANSITION_SECURE_TO_NON_SECURE;
+	} else if (mdp5_data->ctl->is_video_mode &&
+		((sd_pipes && !mdp5_data->sd_enabled) ||
+		(!sd_pipes && mdp5_data->sd_enabled)) &&
+		!mdp5_data->cache_null_commit) {
+		pr_err("NULL commit missing before display secure session entry/exit\n");
+		ret = -EINVAL;
 	}
+
 	return ret;
 }
 

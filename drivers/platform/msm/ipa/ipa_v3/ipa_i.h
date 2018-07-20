@@ -1604,6 +1604,7 @@ struct ipa3_context {
 	struct mutex ipa_cne_evt_lock;
 	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
+	bool wdi_over_pcie;
 };
 
 struct ipa3_plat_drv_res {
@@ -1638,6 +1639,7 @@ struct ipa3_plat_drv_res {
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
+	bool wdi_over_pcie;
 };
 
 /**

@@ -711,6 +711,10 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &msm_vidc_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);
+
+	mutex_lock(&vidc_driver->lock);
+	list_del(&core->list);
+	mutex_unlock(&vidc_driver->lock);
 	kfree(core);
 	return rc;
 }

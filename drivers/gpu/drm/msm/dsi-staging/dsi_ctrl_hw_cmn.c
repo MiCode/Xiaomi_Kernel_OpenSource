@@ -1420,17 +1420,20 @@ void dsi_ctrl_hw_cmn_mask_error_intr(struct dsi_ctrl_hw *ctrl, u32 idx, bool en)
 	reg = DSI_R32(ctrl, 0x10c);
 
 	if (idx & BIT(DSI_FIFO_OVERFLOW)) {
-		if (en)
-			reg |= (0xf << 16);
-		else
-			reg &= ~(0xf << 16);
+		if (en) {
+			reg |= (0x1f << 16);
+			reg |= BIT(9);
+		} else {
+			reg &= ~(0x1f << 16);
+			reg &= ~BIT(9);
+		}
 	}
 
 	if (idx & BIT(DSI_FIFO_UNDERFLOW)) {
 		if (en)
-			reg |= (0xf << 26);
+			reg |= (0x1b << 26);
 		else
-			reg &= ~(0xf << 26);
+			reg &= ~(0x1b << 26);
 	}
 
 	if (idx & BIT(DSI_LP_Rx_TIMEOUT)) {
@@ -1492,4 +1495,17 @@ int dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl_hw *ctrl)
 		pr_err("%s: timed out waiting for idle\n", __func__);
 
 	return rc;
+}
+
+void dsi_ctrl_hw_cmn_set_continuous_clk(struct dsi_ctrl_hw *ctrl, bool enable)
+{
+	u32 reg = 0;
+
+	reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+	if (enable)
+		reg |= BIT(28);
+	else
+		reg &= ~BIT(28);
+	DSI_W32(ctrl, DSI_LANE_CTRL, reg);
+	wmb(); /* make sure request is set */
 }

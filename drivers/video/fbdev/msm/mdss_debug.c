@@ -1109,7 +1109,7 @@ static ssize_t mdss_debug_perf_bw_limit_read(struct file *file,
 	struct mdss_data_type *mdata = file->private_data;
 	struct mdss_max_bw_settings *temp_settings;
 	int len = 0, i;
-	char buf[256];
+	char buf[256] = {'\0'};
 
 	if (!mdata)
 		return -ENODEV;

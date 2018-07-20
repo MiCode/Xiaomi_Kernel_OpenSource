@@ -107,6 +107,27 @@ Charger specific properties:
 		then charge inhibit will be disabled by default.
 		Allowed values are: 50, 100, 200, 300.
 
+- qcom,chg-term-src
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specify either the ADC or analog comparators to be used in order
+		to set threshold values for charge termination current.
+		0 - Unspecified
+		1 - Select ADC comparator
+		2 - Select ANALOG comparator
+
+- qcom,chg-term-current-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: When ADC comparator is selected as qcom,chg-term-src, this
+		parameter should be set to the desired upper threshold.
+
+- qcom,chg-term-base-current-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: When ADC comparator is selected as qcom,chg-term-src, this
+		parameter should be set to the desired lower threshold.
+
 - qcom,auto-recharge-soc
   Usage:      optional
   Value type: <u32>
@@ -200,6 +221,25 @@ Charger specific properties:
 	Value type: <phandle>
 	Definition: Phandle for the VADC node, it is used to obtain USBIN_V
 		    and USBIN_I readings on PMIC632 based platform.
+
+- qcom,hw-die-temp-mitigation
+	Usage:      optional
+	Value type: bool
+	Definition: Boolean flag which when present enables h/w based thermal
+		    mitigation.
+
+- qcom,hw-connector-mitigation
+	Usage:      optional
+	Value type: bool
+	Definition: Boolean flag which when present enables h/w based
+		    connector temperature mitigation.
+
+- qcom,connector-internal-pull-kohm
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies internal pull-up configuration to be applied to
+		    connector THERM, only valid values are (0/30/100/400).
+		    If not specified 100K is used as default pull-up.
 
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals

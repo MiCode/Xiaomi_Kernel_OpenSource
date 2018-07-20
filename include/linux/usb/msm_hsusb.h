@@ -180,6 +180,8 @@ enum usb_id_state {
 		nominal mode.
  * @sdp_check: SDP detection work in case of USB_FLOAT power supply
  * @notify_charger_work: Charger notification work.
+ * @extcon_register_work: Extcon registration work.
+ * @psy_nb: Notification callback for PSY registration.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -313,6 +315,8 @@ struct msm_otg {
 	struct delayed_work perf_vote_work;
 	struct delayed_work sdp_check;
 	struct work_struct notify_charger_work;
+	struct work_struct extcon_register_work;
+	struct notifier_block psy_nb;
 };
 
 struct ci13xxx_platform_data {

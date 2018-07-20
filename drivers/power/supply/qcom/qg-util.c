@@ -332,3 +332,38 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 
 	return rc;
 }
+
+int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
+{
+	int rc = 0, last_ibat = 0;
+
+	if (chip->battery_missing) {
+		*ibat_ua = 0;
+		return 0;
+	}
+
+	/* hold data */
+	rc = qg_masked_write(chip, chip->qg_base + QG_DATA_CTL2_REG,
+				BURST_AVG_HOLD_FOR_READ_BIT,
+				BURST_AVG_HOLD_FOR_READ_BIT);
+	if (rc < 0) {
+		pr_err("Failed to hold burst-avg data rc=%d\n", rc);
+		goto release;
+	}
+
+	rc = qg_read(chip, chip->qg_base + QG_LAST_BURST_AVG_I_DATA0_REG,
+				(u8 *)&last_ibat, 2);
+	if (rc < 0) {
+		pr_err("Failed to read LAST_BURST_AVG_I reg, rc=%d\n", rc);
+		goto release;
+	}
+
+	last_ibat = sign_extend32(last_ibat, 15);
+	*ibat_ua = I_RAW_TO_UA(last_ibat);
+
+release:
+	/* release */
+	qg_masked_write(chip, chip->qg_base + QG_DATA_CTL2_REG,
+				BURST_AVG_HOLD_FOR_READ_BIT, 0);
+	return rc;
+}

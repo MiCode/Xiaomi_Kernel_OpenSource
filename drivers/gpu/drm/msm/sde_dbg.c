@@ -2129,7 +2129,8 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 
 	if (in_log)
 		dev_info(sde_dbg_base.dev, "%s: start_offset 0x%lx len 0x%zx\n",
-				dump_name, addr - base_addr, len_bytes);
+				dump_name, (unsigned long)(addr - base_addr),
+					len_bytes);
 
 	len_align = (len_bytes + REG_DUMP_ALIGN - 1) / REG_DUMP_ALIGN;
 	len_padded = len_align * REG_DUMP_ALIGN;
@@ -2147,7 +2148,7 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 			dev_info(sde_dbg_base.dev,
 				"%s: start_addr:0x%pK len:0x%x reg_offset=0x%lx\n",
 				dump_name, dump_addr, len_padded,
-				addr - base_addr);
+				(unsigned long)(addr - base_addr));
 		} else {
 			in_mem = 0;
 			pr_err("dump_mem: kzalloc fails!\n");
@@ -2173,7 +2174,8 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 		if (in_log)
 			dev_info(sde_dbg_base.dev,
 					"0x%lx : %08x %08x %08x %08x\n",
-					addr - base_addr, x0, x4, x8, xc);
+					(unsigned long)(addr - base_addr),
+					x0, x4, x8, xc);
 
 		if (dump_addr) {
 			dump_addr[i * 4] = x0;

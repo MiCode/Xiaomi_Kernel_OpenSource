@@ -46,15 +46,6 @@
 			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
-#define IPAHAL_DBG_REG(fmt, args...) \
-	do { \
-		pr_err(fmt, ## args); \
-		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
-			" %s:%d " fmt, ## args); \
-		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
-			" %s:%d " fmt, ## args); \
-	} while (0)
-
 #define IPAHAL_ERR_RL(fmt, args...) \
 		do { \
 			pr_err_ratelimited_ipa(IPAHAL_DRV_NAME " %s:%d " fmt, \
@@ -65,8 +56,23 @@
 				IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 		} while (0)
 
+#define IPAHAL_DBG_REG(fmt, args...) \
+	do { \
+		pr_err(fmt, ## args); \
+		IPA_IPC_LOGGING(ipahal_ctx->regdumpbuf, \
+			" %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAHAL_DBG_REG_IPC_ONLY(fmt, args...) \
+	do { \
+		IPA_IPC_LOGGING(ipahal_ctx->regdumpbuf, \
+			" %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
 	(kzalloc((__size), ((__is_atomic_ctx) ? GFP_ATOMIC : GFP_KERNEL)))
+
+#define IPAHAL_IPC_LOG_PAGES 50
 
 /*
  * struct ipahal_context - HAL global context data
@@ -84,6 +90,7 @@ struct ipahal_context {
 	struct dentry *dent;
 	struct device *ipa_pdev;
 	struct ipa_mem_buffer empty_fltrt_tbl;
+	void *regdumpbuf;
 };
 
 extern struct ipahal_context *ipahal_ctx;

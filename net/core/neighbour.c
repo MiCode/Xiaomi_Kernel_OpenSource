@@ -889,9 +889,12 @@ static void neigh_timer_handler(unsigned long arg)
 	now = jiffies;
 	next = now + HZ;
 
-	if (!(state & NUD_IN_TIMER))
-		goto out;
-
+	if (!(state & NUD_IN_TIMER)) {
+		if (neigh_probe_enable && (state & NUD_STALE))
+			neigh_dbg(2, "neigh %pK is still alive\n", neigh);
+		else
+			goto out;
+	}
 	if (state & NUD_REACHABLE) {
 		if (time_before_eq(now,
 				   neigh->confirmed + neigh->parms->reachable_time)) {
@@ -1182,7 +1185,10 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 		neigh_del_timer(neigh);
 		if (new & NUD_PROBE)
 			atomic_set(&neigh->probes, 0);
-		if (new & NUD_IN_TIMER)
+		if (new & NUD_IN_TIMER || (
+			neigh_probe_enable &&
+			(neigh->tbl->family == AF_INET6) &&
+			(new & NUD_STALE)))
 			neigh_add_timer(neigh, (jiffies +
 						((new & NUD_REACHABLE) ?
 						 neigh->parms->reachable_time :

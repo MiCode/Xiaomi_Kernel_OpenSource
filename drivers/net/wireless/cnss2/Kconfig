@@ -16,6 +16,16 @@ config CNSS2_DEBUG
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
 
+config CNSS2_QMI
+	bool "CNSS2 Platform Driver QMI support"
+	depends on CNSS2
+	---help---
+	  CNSS2 platform driver uses QMI framework to communicate with WLAN
+	  firmware. It sends and receives boot handshake messages to WLAN
+	  firmware, which includes hardware and software capabilities and
+	  configurations. It also sends WLAN on/off control message to
+	  firmware over QMI channel.
+
 config CNSS_ASYNC
 	bool "Enable/disable CNSS platform driver asynchronous probe"
 	depends on CNSS2
@@ -38,3 +48,27 @@ config BUS_AUTO_SUSPEND
 	  during system pm.
 	  This config flag controls the feature per target based. The feature
 	  requires CNSS driver support.
+
+config CNSS_QCA6290
+	bool "Enable CNSS QCA6290 chipset specific changes"
+	---help---
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6290 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6290 chipset.
+
+config CNSS_QCA6390
+	bool "Enable CNSS QCA6390 chipset specific changes"
+	---help---
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6390 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6390 chipset.
+
+config CNSS_EMULATION
+	bool "Enable specific changes for emulation hardware"
+	---help---
+	  This enables the changes from WLAN drivers that are specific to
+	  emulation hardware.
+	  These changes are needed for WLAN drivers to support and meet the
+	  requirement of emulation hardware.

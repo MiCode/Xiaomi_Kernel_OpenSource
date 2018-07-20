@@ -18,3 +18,8 @@
 	qcom,redrive-voltage-level = <0 1800000 1900000>;
 	qcom,redrive-load = <105000>;
 };
+
+&pmi632_charger {
+	qcom,thermal-mitigation = <4200000 3500000 3000000 2500000
+				2000000 1500000 1000000 500000>;
+};
