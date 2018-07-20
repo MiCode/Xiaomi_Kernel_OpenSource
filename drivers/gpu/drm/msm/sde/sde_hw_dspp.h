@@ -178,6 +178,37 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_ltm_vlut)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_ltm_hist_ctrl - setup LTM histogram control
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 * @enable: feature enable/disable value
+	 * @iova: aligned hist buffer address
+	 */
+	void (*setup_ltm_hist_ctrl)(struct sde_hw_dspp *ctx, void *cfg,
+				    bool enable, u64 iova);
+
+	/**
+	 * setup_ltm_hist_buffer - setup LTM histogram buffer
+	 * @ctx: Pointer to dspp context
+	 * @iova: aligned hist buffer address
+	 */
+	void (*setup_ltm_hist_buffer)(struct sde_hw_dspp *ctx, u64 iova);
+
+	/**
+	 * setup_ltm_thresh - setup LTM histogram thresh
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_ltm_thresh)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * ltm_read_intr_status - function to read ltm interrupt status
+	 * @ctx: Pointer to dspp context
+	 * @status: Pointer to u32 where ltm status value is dumped.
+	 */
+	void (*ltm_read_intr_status)(struct sde_hw_dspp *ctx, u32 *status);
 };
 
 /**

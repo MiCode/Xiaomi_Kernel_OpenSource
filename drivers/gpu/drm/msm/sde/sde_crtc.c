@@ -64,6 +64,8 @@ static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler},
 	{DRM_EVENT_HISTOGRAM, sde_cp_hist_interrupt},
 	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
+	{DRM_EVENT_LTM_HIST, sde_cp_ltm_hist_interrupt},
+	{DRM_EVENT_LTM_WB_PB, sde_cp_ltm_wb_pb_interrupt},
 };
 
 /* default input fence timeout, in ms */

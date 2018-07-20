@@ -162,6 +162,28 @@ struct sde_crtc_fps_info {
 	u32 next_time_index;
 };
 
+/**
+ * struct sde_ltm_buffer - defines LTM buffer structure.
+ * @fb: frm framebuffer for the buffer
+ * @gem: drm gem handle for the buffer
+ * @asapce : pointer to address space
+ * @drm_fb_id: framebuffer id associated with this buffer
+ * @offset: offset for alignment
+ * @iova: device address
+ * @kva: kernel virtual address
+ * @node: list node for LTM buffer list;
+ */
+struct sde_ltm_buffer {
+	struct drm_framebuffer *fb;
+	struct drm_gem_object *gem;
+	struct msm_gem_address_space *aspace;
+	u32 drm_fb_id;
+	u32 offset;
+	u64 iova;
+	void *kva;
+	struct list_head node;
+};
+
 /*
  * Maximum number of free event structures to cache
  */
@@ -200,8 +222,8 @@ struct sde_crtc_fps_info {
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
- * @ad_dirty: list containing ad properties that are dirty
- * @ad_active: list containing ad properties that are active
+ * @ad_dirty      : list containing ad properties that are dirty
+ * @ad_active     : list containing ad properties that are active
  * @crtc_lock     : crtc lock around create, destroy and access.
  * @frame_pending : Whether or not an update is pending
  * @frame_events  : static allocation of in-flight frame events
@@ -220,6 +242,13 @@ struct sde_crtc_fps_info {
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @plane_mask_old: keeps track of the planes used in the previous commit
  * @frame_trigger_mode: frame trigger mode
+ * @ltm_buffer_cnt  : number of ltm buffers
+ * @ltm_buffers     : struct stores ltm buffer related data
+ * @ltm_buf_free    : list of LTM buffers that are available
+ * @ltm_buf_busy    : list of LTM buffers that are been used by HW
+ * @ltm_hist_en     : flag to indicate whether LTM hist is enabled or not
+ * @ltm_buffer_lock : muttx to protect ltm_buffers allcation and free
+ * @ltm_lock        : Spinlock to protect ltm buffer_cnt, hist_en and ltm lists
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -291,6 +320,14 @@ struct sde_crtc {
 	/* blob for histogram data */
 	struct drm_property_blob *hist_blob;
 	enum frame_trigger_mode_type frame_trigger_mode;
+
+	u32 ltm_buffer_cnt;
+	struct sde_ltm_buffer *ltm_buffers[LTM_BUFFER_SIZE];
+	struct list_head ltm_buf_free;
+	struct list_head ltm_buf_busy;
+	bool ltm_hist_en;
+	struct mutex ltm_buffer_lock;
+	spinlock_t ltm_lock;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)

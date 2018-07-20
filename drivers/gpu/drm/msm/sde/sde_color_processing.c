@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/dma-buf.h>
 #include <drm/msm_drm_pp.h>
 #include "sde_color_processing.h"
 #include "sde_kms.h"
@@ -38,6 +39,8 @@ struct sde_cp_prop_attach {
 	u32 feature;
 	uint64_t val;
 };
+
+#define ALIGNED_OFFSET (U32_MAX & ~(LTM_GUARD_BYTES))
 
 static void dspp_pcc_install_property(struct drm_crtc *crtc);
 
@@ -79,6 +82,17 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 		enum ad_property ad_prop);
 
 static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg);
+
+static void _sde_cp_crtc_set_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg);
+static void _sde_cp_crtc_free_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg);
+static void _sde_cp_crtc_queue_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg);
+static int _sde_cp_crtc_get_ltm_buffer(struct sde_crtc *sde_crtc, u64 *addr);
+static void _sde_cp_crtc_enable_ltm_hist(struct sde_crtc *sde_crtc,
+		struct sde_hw_dspp *hw_dspp, struct sde_hw_cp_cfg *hw_cfg);
+static void _sde_cp_crtc_disable_ltm_hist(struct sde_crtc *sde_crtc,
+		struct sde_hw_dspp *hw_dspp, struct sde_hw_cp_cfg *hw_cfg);
+static void sde_cp_notify_ltm_hist(struct drm_crtc *crtc_drm, void *arg);
+static void sde_cp_notify_ltm_wb_pb(struct drm_crtc *crtc_drm, void *arg);
 
 #define setup_dspp_prop_install_funcs(func) \
 do { \
@@ -547,6 +561,93 @@ static int set_ltm_vlut_feature(struct sde_hw_dspp *hw_dspp,
 	return ret;
 }
 
+static int set_ltm_thresh_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *sde_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ltm_thresh)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_ltm_thresh(hw_dspp, hw_cfg);
+
+	return ret;
+}
+
+static int set_ltm_buffers_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *sde_crtc)
+{
+	int ret = 0;
+	struct sde_hw_mixer *hw_lm;
+	struct drm_msm_ltm_buffers_ctrl *payload;
+
+	if (!sde_crtc || !hw_dspp) {
+		ret = -EINVAL;
+	} else {
+		hw_lm = hw_cfg->mixer_info;
+		/* in merge mode, both LTM cores use the same buffer */
+		if (!hw_lm->cfg.right_mixer) {
+			payload = hw_cfg->payload;
+			mutex_lock(&sde_crtc->ltm_buffer_lock);
+			if (payload)
+				_sde_cp_crtc_set_ltm_buffer(sde_crtc, hw_cfg);
+			else
+				_sde_cp_crtc_free_ltm_buffer(sde_crtc, hw_cfg);
+			mutex_unlock(&sde_crtc->ltm_buffer_lock);
+		}
+	}
+
+	return ret;
+}
+
+static int set_ltm_queue_buf_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *sde_crtc)
+{
+	int ret = 0;
+	struct sde_hw_mixer *hw_lm;
+
+	if (!sde_crtc || !hw_dspp) {
+		ret = -EINVAL;
+	} else {
+		hw_lm = hw_cfg->mixer_info;
+		/* in merge mode, both LTM cores use the same buffer */
+		if (!hw_lm->cfg.right_mixer) {
+			mutex_lock(&sde_crtc->ltm_buffer_lock);
+			_sde_cp_crtc_queue_ltm_buffer(sde_crtc, hw_cfg);
+			mutex_unlock(&sde_crtc->ltm_buffer_lock);
+		}
+	}
+
+	return ret;
+}
+
+static int set_ltm_hist_crtl_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *sde_crtc)
+{
+	int ret = 0;
+	bool feature_enabled = false;
+
+	if (!sde_crtc || !hw_dspp || !hw_dspp->ops.setup_ltm_hist_ctrl) {
+		ret = -EINVAL;
+	} else {
+		mutex_lock(&sde_crtc->ltm_buffer_lock);
+		feature_enabled = hw_cfg->payload &&
+			(*((u64 *)hw_cfg->payload) != 0);
+		if (feature_enabled)
+			_sde_cp_crtc_enable_ltm_hist(sde_crtc, hw_dspp, hw_cfg);
+		else
+			_sde_cp_crtc_disable_ltm_hist(sde_crtc, hw_dspp,
+					hw_cfg);
+		mutex_unlock(&sde_crtc->ltm_buffer_lock);
+	}
+
+	return ret;
+}
+
 set_feature_wrapper crtc_feature_wrappers[SDE_CP_CRTC_MAX_FEATURES];
 
 #define setup_crtc_feature_wrappers(wrappers) \
@@ -583,6 +684,10 @@ do { \
 	wrappers[SDE_CP_CRTC_DSPP_LTM_INIT] = set_ltm_init_feature; \
 	wrappers[SDE_CP_CRTC_DSPP_LTM_ROI] = set_ltm_roi_feature; \
 	wrappers[SDE_CP_CRTC_DSPP_LTM_VLUT] = set_ltm_vlut_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_HIST_THRESH] = set_ltm_thresh_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_SET_BUF] = set_ltm_buffers_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_QUEUE_BUF] = set_ltm_queue_buf_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_HIST_CTL] = set_ltm_hist_crtl_feature; \
 } while (0)
 
 #define INIT_PROP_ATTACH(p, crtc, prop, node, feature, val) \
@@ -830,6 +935,10 @@ void sde_cp_crtc_init(struct drm_crtc *crtc)
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
 	INIT_LIST_HEAD(&sde_crtc->ad_dirty);
 	INIT_LIST_HEAD(&sde_crtc->ad_active);
+	mutex_init(&sde_crtc->ltm_buffer_lock);
+	spin_lock_init(&sde_crtc->ltm_lock);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
 }
 
 static void sde_cp_crtc_install_immutable_property(struct drm_crtc *crtc,
@@ -1071,9 +1180,8 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_dspp *hw_dspp;
 	u32 num_mixers = sde_crtc->num_mixers;
-	int i = 0;
+	int i = 0, ret = 0;
 	bool feature_enabled = false;
-	int ret = 0;
 
 	memset(&hw_cfg, 0, sizeof(hw_cfg));
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
@@ -1423,6 +1531,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = NULL;
 	struct sde_cp_node *prop_node = NULL, *n = NULL;
+	u32 i = 0;
 
 	if (!crtc) {
 		DRM_ERROR("invalid crtc %pK\n", crtc);
@@ -1451,10 +1560,28 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 	if (sde_crtc->hist_blob)
 		drm_property_blob_put(sde_crtc->hist_blob);
 
+	for (i = 0; i < sde_crtc->ltm_buffer_cnt; i++) {
+		if (sde_crtc->ltm_buffers[i]) {
+			msm_gem_put_vaddr(sde_crtc->ltm_buffers[i]->gem);
+			drm_framebuffer_put(sde_crtc->ltm_buffers[i]->fb);
+			msm_gem_put_iova(sde_crtc->ltm_buffers[i]->gem,
+					sde_crtc->ltm_buffers[i]->aspace);
+			kfree(sde_crtc->ltm_buffers[i]);
+			sde_crtc->ltm_buffers[i] = NULL;
+		}
+	}
+	sde_crtc->ltm_buffer_cnt = 0;
+	sde_crtc->ltm_hist_en = false;
+
 	mutex_destroy(&sde_crtc->crtc_cp_lock);
 	INIT_LIST_HEAD(&sde_crtc->active_list);
 	INIT_LIST_HEAD(&sde_crtc->dirty_list);
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
+	INIT_LIST_HEAD(&sde_crtc->ad_dirty);
+	INIT_LIST_HEAD(&sde_crtc->ad_active);
+	mutex_destroy(&sde_crtc->ltm_buffer_lock);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
 }
 
 void sde_cp_crtc_suspend(struct drm_crtc *crtc)
@@ -2434,5 +2561,632 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 	spin_unlock_irqrestore(&node->state_lock, flags);
 
 exit:
+	return ret;
+}
+
+/* needs to be called within ltm_buffer_lock mutex */
+static void _sde_cp_crtc_free_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
+{
+	u32 i = 0;
+	unsigned long irq_flags;
+
+	if (!sde_crtc) {
+		DRM_ERROR("invalid parameters sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (sde_crtc->ltm_hist_en) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("cannot free LTM buffers when hist is enabled\n");
+		return;
+	}
+	if (!sde_crtc->ltm_buffer_cnt) {
+		/* ltm_buffers are already freed */
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		return;
+	}
+	if (!list_empty(&sde_crtc->ltm_buf_busy)) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("ltm_buf_busy is not empty\n");
+		return;
+	}
+
+	sde_crtc->ltm_buffer_cnt = 0;
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
+	INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+
+	for (i = 0; i < sde_crtc->ltm_buffer_cnt && sde_crtc->ltm_buffers[i];
+			i++) {
+		msm_gem_put_vaddr(sde_crtc->ltm_buffers[i]->gem);
+		drm_framebuffer_put(sde_crtc->ltm_buffers[i]->fb);
+		msm_gem_put_iova(sde_crtc->ltm_buffers[i]->gem,
+			sde_crtc->ltm_buffers[i]->aspace);
+		kfree(sde_crtc->ltm_buffers[i]);
+		sde_crtc->ltm_buffers[i] = NULL;
+	}
+}
+
+/* needs to be called within ltm_buffer_lock mutex */
+static void _sde_cp_crtc_set_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_ltm_buffers_ctrl *buf_cfg;
+	struct drm_framebuffer *fb;
+	struct drm_crtc *crtc;
+	struct dma_buf *dmabuf;
+	u32 size = 0, expected_size = 0;
+	u32 i = 0, j = 0, num = 0, iova_aligned;
+	int ret = 0;
+	unsigned long irq_flags;
+
+	if (!sde_crtc || !cfg) {
+		DRM_ERROR("invalid parameters sde_crtc %pK cfg %pK\n", sde_crtc,
+				cfg);
+		return;
+	}
+
+	crtc = &sde_crtc->base;
+	if (!crtc) {
+		DRM_ERROR("invalid parameters drm_crtc %pK\n", crtc);
+		return;
+	}
+
+	buf_cfg = hw_cfg->payload;
+	num = buf_cfg->num_of_buffers;
+	if (num == 0 || num > LTM_BUFFER_SIZE) {
+		DRM_ERROR("invalid buffer size %d\n", num);
+		return;
+	}
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (sde_crtc->ltm_buffer_cnt) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("%d ltm_buffers already allocated\n",
+			sde_crtc->ltm_buffer_cnt);
+		return;
+	}
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+
+	expected_size = sizeof(struct drm_msm_ltm_stats_data) + LTM_GUARD_BYTES;
+	for (i = 0; i < num; i++) {
+		sde_crtc->ltm_buffers[i] = kzalloc(
+			sizeof(struct sde_ltm_buffer), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(sde_crtc->ltm_buffers[i]))
+			goto exit;
+
+		sde_crtc->ltm_buffers[i]->drm_fb_id = buf_cfg->fds[i];
+		fb = drm_framebuffer_lookup(crtc->dev, NULL, buf_cfg->fds[i]);
+		if (!fb) {
+			DRM_ERROR("unknown framebuffer ID %d\n",
+					buf_cfg->fds[i]);
+			goto exit;
+		}
+
+		sde_crtc->ltm_buffers[i]->fb = fb;
+		sde_crtc->ltm_buffers[i]->gem = msm_framebuffer_bo(fb, 0);
+		if (!sde_crtc->ltm_buffers[i]->gem) {
+			DRM_ERROR("failed to get gem object\n");
+			goto exit;
+		}
+
+		dmabuf = sde_crtc->ltm_buffers[i]->gem->dma_buf;
+		if (!dmabuf) {
+			DRM_ERROR("failed to get dma_buf\n");
+			goto exit;
+		}
+
+		size = PAGE_ALIGN(dmabuf->size);
+		if (size < expected_size) {
+			DRM_ERROR("Invalid buffer size\n");
+			goto exit;
+		}
+
+		sde_crtc->ltm_buffers[i]->aspace =
+			msm_gem_smmu_address_space_get(crtc->dev,
+			MSM_SMMU_DOMAIN_UNSECURE);
+		if (!sde_crtc->ltm_buffers[i]->aspace) {
+			DRM_ERROR("failed to get aspace\n");
+			goto exit;
+		}
+		ret = msm_gem_get_iova(sde_crtc->ltm_buffers[i]->gem,
+				       sde_crtc->ltm_buffers[i]->aspace,
+				       &sde_crtc->ltm_buffers[i]->iova);
+		if (ret) {
+			DRM_ERROR("failed to get the iova ret %d\n", ret);
+			goto exit;
+		}
+
+		sde_crtc->ltm_buffers[i]->kva = msm_gem_get_vaddr(
+			sde_crtc->ltm_buffers[i]->gem);
+		if (IS_ERR_OR_NULL(sde_crtc->ltm_buffers[i]->kva)) {
+			DRM_ERROR("failed to get kva\n");
+			goto exit;
+		}
+		iova_aligned = (sde_crtc->ltm_buffers[i]->iova +
+				LTM_GUARD_BYTES) & ALIGNED_OFFSET;
+		sde_crtc->ltm_buffers[i]->offset = iova_aligned -
+			sde_crtc->ltm_buffers[i]->iova;
+	}
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	/* Add buffers to ltm_buf_free list */
+	for (i = 0; i < num; i++)
+		list_add(&sde_crtc->ltm_buffers[i]->node,
+			&sde_crtc->ltm_buf_free);
+	sde_crtc->ltm_buffer_cnt = num;
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+
+	return;
+exit:
+	for (j = 0; j < i; j++) {
+		if (sde_crtc->ltm_buffers[i]->aspace)
+			msm_gem_put_iova(sde_crtc->ltm_buffers[i]->gem,
+				sde_crtc->ltm_buffers[i]->aspace);
+		if (sde_crtc->ltm_buffers[i]->gem)
+			msm_gem_put_vaddr(sde_crtc->ltm_buffers[i]->gem);
+		if (sde_crtc->ltm_buffers[i]->fb)
+			drm_framebuffer_put(sde_crtc->ltm_buffers[i]->fb);
+		kfree(sde_crtc->ltm_buffers[i]);
+		sde_crtc->ltm_buffers[i] = NULL;
+	}
+}
+
+/* needs to be called within ltm_buffer_lock mutex */
+static void _sde_cp_crtc_queue_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_ltm_buffer *buf;
+	struct drm_msm_ltm_stats_data *ltm_data = NULL;
+	u32 i;
+	bool found = false;
+	unsigned long irq_flags;
+
+	if (!sde_crtc || !cfg) {
+		DRM_ERROR("invalid parameters sde_crtc %pK cfg %pK\n", sde_crtc,
+				cfg);
+		return;
+	}
+
+	buf = hw_cfg->payload;
+	if (!buf) {
+		DRM_ERROR("invalid parameters payload %pK\n", buf);
+		return;
+	}
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (!sde_crtc->ltm_buffer_cnt) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("LTM buffers are not allocated\n");
+		return;
+	}
+
+	for (i = 0; i < LTM_BUFFER_SIZE; i++) {
+		if (sde_crtc->ltm_buffers[i] && buf->fd ==
+				sde_crtc->ltm_buffers[i]->drm_fb_id) {
+			/* clear the status flag */
+			ltm_data = (struct drm_msm_ltm_stats_data *)
+				((u8 *)sde_crtc->ltm_buffers[i]->kva +
+				 sde_crtc->ltm_buffers[i]->offset);
+			ltm_data->status_flag = 0;
+
+			list_add_tail(&sde_crtc->ltm_buffers[i]->node,
+					&sde_crtc->ltm_buf_free);
+			found = true;
+		}
+	}
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+
+	if (!found)
+		DRM_ERROR("failed to found a matching buffer fd %d", buf->fd);
+}
+
+/* this func needs to be called within the ltm_buffer_lock and ltm_lock */
+static int _sde_cp_crtc_get_ltm_buffer(struct sde_crtc *sde_crtc, u64 *addr)
+{
+	struct sde_ltm_buffer *buf;
+
+	if (!sde_crtc || !addr) {
+		DRM_ERROR("invalid parameters sde_crtc %pK cfg %pK\n",
+				sde_crtc, addr);
+		return -EINVAL;
+	}
+
+	/**
+	 * for LTM merge mode, both LTM blocks will use the same buffer for
+	 * hist collection. The first LTM will acquire a buffer from buf_free
+	 * list and move that buffer to buf_busy list; the second LTM block
+	 * will get the same buffer from busy list for HW programming
+	 */
+	if (!list_empty(&sde_crtc->ltm_buf_busy)) {
+		buf = list_first_entry(&sde_crtc->ltm_buf_busy,
+			struct sde_ltm_buffer, node);
+		*addr = buf->iova + buf->offset;
+		DRM_DEBUG_DRIVER("ltm_buf_busy list already has a buffer\n");
+		return 0;
+	}
+
+	buf = list_first_entry(&sde_crtc->ltm_buf_free, struct sde_ltm_buffer,
+				node);
+
+	*addr = buf->iova + buf->offset;
+	list_del_init(&buf->node);
+	list_add_tail(&buf->node, &sde_crtc->ltm_buf_busy);
+
+	return 0;
+}
+
+/* this func needs to be called within the ltm_buffer_lock mutex */
+static void _sde_cp_crtc_enable_ltm_hist(struct sde_crtc *sde_crtc,
+	struct sde_hw_dspp *hw_dspp, struct sde_hw_cp_cfg *hw_cfg)
+{
+	int ret = 0;
+	u64 addr = 0;
+	unsigned long irq_flags;
+	struct sde_hw_mixer *hw_lm = hw_cfg->mixer_info;
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (!sde_crtc->ltm_buffer_cnt) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("LTM buffers are not allocated\n");
+		return;
+	}
+
+	if (!hw_lm->cfg.right_mixer && sde_crtc->ltm_hist_en) {
+		/* histogram is already enabled */
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		return;
+	}
+
+	ret = _sde_cp_crtc_get_ltm_buffer(sde_crtc, &addr);
+	if (!ret) {
+		if (!hw_lm->cfg.right_mixer)
+			sde_crtc->ltm_hist_en = true;
+		hw_dspp->ops.setup_ltm_hist_ctrl(hw_dspp, hw_cfg,
+			true, addr);
+	}
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+}
+
+/* this func needs to be called within the ltm_buffer_lock mutex */
+static void _sde_cp_crtc_disable_ltm_hist(struct sde_crtc *sde_crtc,
+	struct sde_hw_dspp *hw_dspp, struct sde_hw_cp_cfg *hw_cfg)
+{
+	unsigned long irq_flags;
+	struct sde_hw_mixer *hw_lm = hw_cfg->mixer_info;
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (!hw_lm->cfg.right_mixer && !sde_crtc->ltm_hist_en) {
+		/* histogram is already disabled */
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		return;
+	}
+	sde_crtc->ltm_hist_en = false;
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+}
+
+static void sde_cp_ltm_hist_interrupt_cb(void *arg, int irq_idx)
+{
+	struct sde_crtc *sde_crtc = arg;
+	struct sde_ltm_buffer *busy_buf, *free_buf;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	struct drm_msm_ltm_stats_data *ltm_data = NULL;
+	u32 num_mixers = 0, i = 0, status = 0, ltm_hist_status = 0;
+	u64 addr = 0;
+	int idx = -1;
+	unsigned long irq_flags;
+
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+	/* read intr_status register value */
+	num_mixers = sde_crtc->num_mixers;
+	if (!num_mixers)
+		return;
+
+	for (i = 0; i < num_mixers; i++) {
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_dspp) {
+			DRM_ERROR("invalid dspp for mixer %d\n", i);
+			return;
+		}
+		hw_dspp->ops.ltm_read_intr_status(hw_dspp, &status);
+		if (status & LTM_STATS_SAT)
+			ltm_hist_status |= LTM_STATS_SAT;
+		if (status & LTM_STATS_MERGE_SAT)
+			ltm_hist_status |= LTM_STATS_MERGE_SAT;
+	}
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (!sde_crtc->ltm_buffer_cnt) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		/* all LTM buffers are freed, no further action is needed */
+		return;
+	}
+
+	if (!sde_crtc->ltm_hist_en) {
+		/* histogram is disabled, no need to notify user space */
+		for (i = 0; i < sde_crtc->num_mixers; i++) {
+			hw_dspp = sde_crtc->mixers[i].hw_dspp;
+			if (!hw_dspp || i >= DSPP_MAX)
+				continue;
+			hw_dspp->ops.setup_ltm_hist_ctrl(hw_dspp, NULL, false,
+				0);
+		}
+
+		INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
+		INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
+		for (i = 0; i < sde_crtc->ltm_buffer_cnt; i++)
+			list_add(&sde_crtc->ltm_buffers[i]->node,
+				&sde_crtc->ltm_buf_free);
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		return;
+	}
+
+	/* if no free buffer available, the same buffer is used by HW */
+	if (list_empty(&sde_crtc->ltm_buf_free)) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_DEBUG_DRIVER("no free buffer available\n");
+		return;
+	}
+
+	busy_buf = list_first_entry(&sde_crtc->ltm_buf_busy,
+			struct sde_ltm_buffer, node);
+	free_buf = list_first_entry(&sde_crtc->ltm_buf_free,
+			struct sde_ltm_buffer, node);
+
+	/* find the index of buffer in the ltm_buffers */
+	for (i = 0; i < sde_crtc->ltm_buffer_cnt; i++) {
+		if (busy_buf->drm_fb_id == sde_crtc->ltm_buffers[i]->drm_fb_id)
+			idx = i;
+	}
+	if (idx < 0) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		DRM_ERROR("failed to found the buffer in the list fb_id %d\n",
+				busy_buf->drm_fb_id);
+		return;
+	}
+
+	addr = free_buf->iova + free_buf->offset;
+	for (i = 0; i < num_mixers; i++) {
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_dspp) {
+			spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+			DRM_ERROR("invalid dspp for mixer %d\n", i);
+			return;
+		}
+		hw_dspp->ops.setup_ltm_hist_buffer(hw_dspp, addr);
+	}
+
+	list_del_init(&busy_buf->node);
+	list_del_init(&free_buf->node);
+	list_add_tail(&free_buf->node, &sde_crtc->ltm_buf_busy);
+
+	ltm_data = (struct drm_msm_ltm_stats_data *)
+		((u8 *)sde_crtc->ltm_buffers[idx]->kva +
+		sde_crtc->ltm_buffers[idx]->offset);
+	ltm_data->status_flag = ltm_hist_status;
+	sde_crtc_event_queue(&sde_crtc->base, sde_cp_notify_ltm_hist,
+				sde_crtc->ltm_buffers[idx], true);
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+}
+
+static void sde_cp_ltm_wb_pb_interrupt_cb(void *arg, int irq_idx)
+{
+	struct sde_crtc *sde_crtc = arg;
+
+	sde_crtc_event_queue(&sde_crtc->base, sde_cp_notify_ltm_wb_pb, NULL,
+				true);
+}
+
+static void sde_cp_notify_ltm_hist(struct drm_crtc *crtc, void *arg)
+{
+	struct drm_event event;
+	struct drm_msm_ltm_buffer payload = {};
+	struct sde_ltm_buffer *buf;
+	struct sde_crtc *sde_crtc;
+	unsigned long irq_flags;
+
+	if (!crtc || !arg) {
+		DRM_ERROR("invalid drm_crtc %pK or arg %pK\n", crtc, arg);
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	mutex_lock(&sde_crtc->ltm_buffer_lock);
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	if (!sde_crtc->ltm_buffer_cnt) {
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		mutex_unlock(&sde_crtc->ltm_buffer_lock);
+		/* all LTM buffers are freed, no further action is needed */
+		return;
+	}
+
+	if (!sde_crtc->ltm_hist_en) {
+		/* histogram is disabled, no need to notify user space */
+		spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+		mutex_unlock(&sde_crtc->ltm_buffer_lock);
+		return;
+	}
+
+	buf = (struct sde_ltm_buffer *)arg;
+	payload.fd = buf->drm_fb_id;
+	payload.offset = buf->offset;
+	event.length = sizeof(struct drm_msm_ltm_buffer);
+	event.type = DRM_EVENT_LTM_HIST;
+	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+					(u8 *)&payload);
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
+	mutex_unlock(&sde_crtc->ltm_buffer_lock);
+}
+
+static void sde_cp_notify_ltm_wb_pb(struct drm_crtc *crtc, void *arg)
+{
+	struct drm_event event;
+	struct drm_msm_ltm_buffer payload = {};
+
+	if (!crtc) {
+		DRM_ERROR("invalid drm_crtc %pK\n", crtc);
+		return;
+	}
+
+	payload.fd = 0;
+	payload.offset = 0;
+	event.length = sizeof(struct drm_msm_ltm_buffer);
+	event.type = DRM_EVENT_LTM_WB_PB;
+	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+					(u8 *)&payload);
+}
+
+static int sde_cp_ltm_register_irq(struct sde_kms *kms,
+		struct sde_crtc *sde_crtc, struct sde_hw_dspp *hw_dspp,
+		struct sde_irq_callback *ltm_irq, enum sde_intr_type irq)
+{
+	int irq_idx, ret = 0;
+
+	if (irq == SDE_IRQ_TYPE_LTM_STATS_DONE) {
+		ltm_irq->func = sde_cp_ltm_hist_interrupt_cb;
+	} else if (irq == SDE_IRQ_TYPE_LTM_STATS_WB_PB) {
+		ltm_irq->func = sde_cp_ltm_wb_pb_interrupt_cb;
+	} else {
+		DRM_ERROR("invalid irq type %s\n", irq);
+		return -EINVAL;
+	}
+
+	irq_idx = sde_core_irq_idx_lookup(kms, irq, hw_dspp->idx);
+	if (irq_idx < 0) {
+		DRM_ERROR("failed to get the irq idx %d\n", irq_idx);
+		return irq_idx;
+	}
+
+	ltm_irq->arg = sde_crtc;
+	ret = sde_core_irq_register_callback(kms, irq_idx, ltm_irq);
+	if (ret) {
+		DRM_ERROR("failed to register the callback ret %d\n", ret);
+		return ret;
+	}
+
+	ret = sde_core_irq_enable(kms, &irq_idx, 1);
+	if (ret) {
+		DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
+		sde_core_irq_unregister_callback(kms, irq_idx, ltm_irq);
+	}
+
+	return ret;
+}
+
+static int sde_cp_ltm_unregister_irq(struct sde_kms *kms,
+		struct sde_crtc *sde_crtc, struct sde_hw_dspp *hw_dspp,
+		struct sde_irq_callback *ltm_irq, enum sde_intr_type irq)
+{
+	int irq_idx, ret = 0;
+
+	if (!(irq == SDE_IRQ_TYPE_LTM_STATS_DONE ||
+		irq == SDE_IRQ_TYPE_LTM_STATS_WB_PB)) {
+		DRM_ERROR("invalid irq type %s\n", irq);
+		return -EINVAL;
+	}
+
+	irq_idx = sde_core_irq_idx_lookup(kms, irq, hw_dspp->idx);
+	if (irq_idx < 0) {
+		DRM_ERROR("failed to get the irq idx %d\n", irq_idx);
+		return irq_idx;
+	}
+
+	ret = sde_core_irq_disable(kms, &irq_idx, 1);
+	if (ret)
+		DRM_ERROR("disable irq %d error %d\n", irq_idx, ret);
+
+	sde_core_irq_unregister_callback(kms, irq_idx, ltm_irq);
+	return ret;
+}
+
+int sde_cp_ltm_hist_interrupt(struct drm_crtc *crtc, bool en,
+				struct sde_irq_callback *ltm_irq)
+{
+	struct sde_kms *kms = NULL;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	struct sde_crtc *sde_crtc;
+	int ret = 0;
+
+	if (!crtc || !ltm_irq) {
+		DRM_ERROR("invalid params: crtc %pK irq %pK\n", crtc, ltm_irq);
+		return -EINVAL;
+	}
+
+	kms = get_kms(crtc);
+	sde_crtc = to_sde_crtc(crtc);
+	if (!kms || !sde_crtc) {
+		DRM_ERROR("invalid params: kms %pK sde_crtc %pK\n", kms,
+				sde_crtc);
+		return -EINVAL;
+	}
+
+	/* enable interrupt on master LTM block */
+	hw_dspp = sde_crtc->mixers[0].hw_dspp;
+	if (!hw_dspp) {
+		DRM_ERROR("invalid dspp\n");
+		return -EINVAL;
+	}
+
+	if (en) {
+		ret = sde_cp_ltm_register_irq(kms, sde_crtc, hw_dspp,
+				ltm_irq, SDE_IRQ_TYPE_LTM_STATS_DONE);
+		if (ret)
+			DRM_ERROR("failed to register stats_done irq\n");
+	} else {
+		ret = sde_cp_ltm_unregister_irq(kms, sde_crtc, hw_dspp,
+				ltm_irq, SDE_IRQ_TYPE_LTM_STATS_DONE);
+		if (ret)
+			DRM_ERROR("failed to unregister stats_done irq\n");
+	}
+	return ret;
+}
+
+int sde_cp_ltm_wb_pb_interrupt(struct drm_crtc *crtc, bool en,
+				struct sde_irq_callback *ltm_irq)
+{
+	struct sde_kms *kms = NULL;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	struct sde_crtc *sde_crtc;
+	int ret = 0;
+
+	if (!crtc || !ltm_irq) {
+		DRM_ERROR("invalid params: crtc %pK irq %pK\n", crtc, ltm_irq);
+		return -EINVAL;
+	}
+
+	kms = get_kms(crtc);
+	sde_crtc = to_sde_crtc(crtc);
+	if (!kms || !sde_crtc) {
+		DRM_ERROR("invalid params: kms %pK sde_crtc %pK\n", kms,
+				sde_crtc);
+		return -EINVAL;
+	}
+
+	/* enable interrupt on master LTM block */
+	hw_dspp = sde_crtc->mixers[0].hw_dspp;
+	if (!hw_dspp) {
+		DRM_ERROR("invalid dspp\n");
+		return -EINVAL;
+	}
+
+	if (en) {
+		ret = sde_cp_ltm_register_irq(kms, sde_crtc, hw_dspp,
+				ltm_irq, SDE_IRQ_TYPE_LTM_STATS_WB_PB);
+		if (ret)
+			DRM_ERROR("failed to register WB_PB irq\n");
+	} else {
+		ret = sde_cp_ltm_unregister_irq(kms, sde_crtc, hw_dspp,
+				ltm_irq, SDE_IRQ_TYPE_LTM_STATS_WB_PB);
+		if (ret)
+			DRM_ERROR("failed to unregister WB_PB irq\n");
+	}
 	return ret;
 }
