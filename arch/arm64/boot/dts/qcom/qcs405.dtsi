@@ -74,6 +74,12 @@
 			reg = <0x0 0x89a00000 0x0 0x600000>;
 		};
 
+		wlan_msa_mem: wlan_msa_region@8a000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x8a000000 0x0 0x100000>;
+		};
+
 		secure_mem: secure_region {
 			compatible = "shared-dma-pool";
 			reusable;
