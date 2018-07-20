@@ -609,6 +609,18 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		.bw = INVALID_DCVS_IDX,
 	};
 
+	/* Do not set to XO and lower GPU clock vote from GMU */
+	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
+			(gpu_pwrlevel >= gmu->num_gpupwrlevels - 1))
+		return -EINVAL;
+
+	/* If GMU has not been started, save it */
+	if (!test_bit(GMU_HFI_ON, &device->gmu_core.flags)) {
+		/* store clock change request */
+		set_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
+		return 0;
+	}
+
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		req.freq = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
 
@@ -617,8 +629,10 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 
 	/* GMU will vote for slumber levels through the sleep sequence */
 	if ((req.freq == INVALID_DCVS_IDX) &&
-		(req.bw == INVALID_DCVS_IDX))
+		(req.bw == INVALID_DCVS_IDX)) {
+		clear_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
 		return 0;
+	}
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
@@ -635,6 +649,8 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		adreno_dispatcher_schedule(device);
 	}
 
+	/* indicate actual clock change */
+	clear_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
 	return ret;
 }
 
