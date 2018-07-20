@@ -1190,14 +1190,17 @@
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pms405_l5>;
-		qca,bt-vdd-pa-supply = <&pms405_l1>;
+		qca,bt-vdd-xtal-supply = <&pms405_l5>;
+		qca,bt-vdd-io-supply = <&pms405_l6>;
+		qca,bt-vdd-ldo-supply = <&pms405_l1>;
 
-		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
-		qca,bt-vdd-pa-voltage-level = <1300000 1300000>;
+		qca,bt-vdd-xtal-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-io-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-ldo-voltage-level = <1300000 1350000>;
 
-		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
-		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <80000>;
+		qca,bt-vdd-io-current-level = <10000>;
+		qca,bt-vdd-ldo-current-level = <300000>;
 	};
 
 	qcom,icnss@18800000 {
