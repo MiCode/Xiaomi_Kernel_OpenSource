@@ -709,6 +709,7 @@ int mdss_mdp_get_split_display_ctls(struct mdss_mdp_ctl **ctl,
 			swap(*ctl, *sctl);
 		}
 	} else {
+		rc = -EINVAL;
 		pr_debug("%s no split mode:%d\n", __func__,
 			(*ctl)->mfd->split_mode);
 	}
