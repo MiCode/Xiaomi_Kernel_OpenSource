@@ -255,20 +255,16 @@ static int vs_block_client_blkdev_getgeo(struct block_device *bdev,
 static int vs_block_client_check_sector_size(struct block_client *client,
 		struct bio *bio)
 {
-	unsigned int expected_bytes;
-
 	if (unlikely(!bio_sectors(bio))) {
 		dev_err(&client->service->dev, "zero-length bio");
 		return -EIO;
 	}
 
-	expected_bytes = bio_sectors(bio) * client->client.sector_size;
-	if (unlikely(bio_size(bio) != expected_bytes)) {
+	if (unlikely(bio_size(bio) % client->client.sector_size)) {
 		dev_err(&client->service->dev,
-				"bio has %zd bytes, which is unexpected "
-				"for %d sectors of %zd bytes each",
-				(size_t)bio_size(bio), bio_sectors(bio),
-				(size_t)client->client.sector_size);
+		"bio has %zd bytes, unexpected for sector_size of %zd bytes",
+		(size_t)bio_size(bio),
+		(size_t)client->client.sector_size);
 		return -EIO;
 	}
 
@@ -550,6 +546,10 @@ static int vs_block_client_disk_add(struct block_client *client)
 			client->client.segment_size /
 			client->client.sector_size);
 	blk_queue_max_hw_sectors(blkdev->queue, max_hw_sectors);
+	blk_queue_logical_block_size(blkdev->queue,
+		client->client.sector_size);
+	blk_queue_physical_block_size(blkdev->queue,
+		client->client.sector_size);
 
 	blkdev->disk = alloc_disk(PERDEV_MINORS);
 	if (!blkdev->disk) {
@@ -585,7 +585,8 @@ static int vs_block_client_disk_add(struct block_client *client)
 	 */
 	snprintf(blkdev->disk->disk_name, sizeof(blkdev->disk->disk_name),
 			"%s%d", CLIENT_BLKDEV_NAME, blkdev->id);
-	set_capacity(blkdev->disk, client->client.device_sectors);
+	set_capacity(blkdev->disk, client->client.device_sectors *
+		(client->client.sector_size >> 9));
 
 	/*
 	 * We need to hold a reference on blkdev across add_disk(), to make
@@ -752,7 +753,8 @@ static void vs_block_client_opened(struct vs_client_block_state *state)
 	struct block_client *client = state_to_block_client(state);
 
 #if !defined(CONFIG_LBDAF) && !defined(CONFIG_64BIT)
-	if (state->device_sectors >> (sizeof(sector_t) * 8)) {
+	if ((state->device_sectors * (state->sector_size >> 9))
+			>> (sizeof(sector_t) * 8)) {
 		dev_err(&client->service->dev,
 				"Client doesn't support full capacity large block devices\n");
 		vs_client_block_close(state);
