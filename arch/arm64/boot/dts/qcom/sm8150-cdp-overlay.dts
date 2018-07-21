@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sm8150-cdp.dtsi"
+#include "sm8150-cdp-audio-overlay.dtsi"
 
 / {
 	model = "CDP";

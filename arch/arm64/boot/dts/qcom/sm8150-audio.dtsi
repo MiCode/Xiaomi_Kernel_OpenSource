@@ -32,11 +32,6 @@
 	snd_9360: sound-pahu {
 		compatible = "qcom,sm8150-asoc-snd-pahu";
 		qcom,model = "sm8150-pahu-snd-card";
-		qcom,ext-disp-audio-rx;
-		qcom,wcn-btfm;
-		qcom,mi2s-audio-intf;
-		qcom,auxpcm-audio-intf;
-		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -98,11 +93,6 @@
 	snd_934x: sound-tavil {
 		compatible = "qcom,sm8150-asoc-snd-tavil";
 		qcom,model = "sm8150-tavil-snd-card";
-		qcom,ext-disp-audio-rx;
-		qcom,wcn-btfm;
-		qcom,mi2s-audio-intf;
-		qcom,auxpcm-audio-intf;
-		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
