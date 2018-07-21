@@ -452,13 +452,11 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 }
 
 #define MIN_FIFO_FULL_TIME_MS			12000
-static int process_rt_fifo_data(struct qpnp_qg *chip,
-			bool update_vbat_low, bool update_smb)
+static int process_rt_fifo_data(struct qpnp_qg *chip, bool update_smb)
 {
 	int rc = 0;
 	ktime_t now = ktime_get();
 	s64 time_delta;
-	u8 fifo_length;
 
 	/*
 	 * Reject the FIFO read event if there are back-to-back requests
@@ -467,11 +465,10 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 	 */
 	time_delta = ktime_ms_delta(now, chip->last_user_update_time);
 
-	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms update_vbat_low=%d update_smb=%d\n",
-				time_delta, update_vbat_low, update_smb);
+	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms update_smb=%d\n",
+				time_delta, update_smb);
 
-	if (time_delta > MIN_FIFO_FULL_TIME_MS || update_vbat_low
-						|| update_smb) {
+	if (time_delta > MIN_FIFO_FULL_TIME_MS || update_smb) {
 		rc = qg_master_hold(chip, true);
 		if (rc < 0) {
 			pr_err("Failed to hold master, rc=%d\n", rc);
@@ -482,20 +479,6 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 		if (rc < 0) {
 			pr_err("Failed to process FIFO real-time, rc=%d\n", rc);
 			goto done;
-		}
-
-		if (update_vbat_low) {
-			/* change FIFO length */
-			fifo_length = chip->vbat_low ?
-					chip->dt.s2_vbat_low_fifo_length :
-					chip->dt.s2_fifo_length;
-			rc = qg_update_fifo_length(chip, fifo_length);
-			if (rc < 0)
-				goto done;
-
-			qg_dbg(chip, QG_DEBUG_STATUS,
-				"FIFO length updated to %d vbat_low=%d\n",
-					fifo_length, chip->vbat_low);
 		}
 
 		if (update_smb) {
@@ -539,60 +522,67 @@ done:
 static int qg_vbat_low_wa(struct qpnp_qg *chip)
 {
 	int rc, i, temp = 0;
-	u32 vbat_low_uv = 0;
+	u32 vbat_low_uv = 0, fifo_length = 0;
 
-	rc = qg_get_battery_temp(chip, &temp);
-	if (rc < 0) {
-		pr_err("Failed to read batt_temp rc=%d\n", rc);
-		temp = 250;
-	}
+	if ((chip->wa_flags & QG_VBAT_LOW_WA) && chip->vbat_low) {
+		rc = qg_get_battery_temp(chip, &temp);
+		if (rc < 0) {
+			pr_err("Failed to read batt_temp rc=%d\n", rc);
+			temp = 250;
+		}
 
-	vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
-				chip->dt.vbatt_low_cold_mv :
-				chip->dt.vbatt_low_mv);
-	vbat_low_uv += VBAT_LOW_HYST_UV;
-
-	if (!(chip->wa_flags & QG_VBAT_LOW_WA) || !chip->vbat_low)
-		return 0;
-
-	/*
-	 * PMI632 1.0 does not generate a falling VBAT_LOW IRQ.
-	 * To exit from VBAT_LOW config, check if any of the FIFO
-	 * averages is > vbat_low threshold and reconfigure the
-	 * FIFO length to normal.
-	 */
-	for (i = 0; i < chip->kdata.fifo_length; i++) {
-		if (chip->kdata.fifo[i].v > vbat_low_uv) {
-			rc = qg_master_hold(chip, true);
-			if (rc < 0) {
-				pr_err("Failed to hold master, rc=%d\n", rc);
-				goto done;
-			}
-			rc = qg_update_fifo_length(chip,
-					chip->dt.s2_fifo_length);
-			if (rc < 0)
-				goto done;
-
-			rc = qg_master_hold(chip, false);
-			if (rc < 0) {
-				pr_err("Failed to release master, rc=%d\n", rc);
-				goto done;
-			}
-			/* FIFOs restarted */
-			chip->last_fifo_update_time = ktime_get();
-
-			chip->vbat_low = false;
-			pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV updated fifo_length=%d\n",
+		vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
+					chip->dt.vbatt_low_cold_mv :
+					chip->dt.vbatt_low_mv);
+		vbat_low_uv += VBAT_LOW_HYST_UV;
+		/*
+		 * PMI632 1.0 does not generate a falling VBAT_LOW IRQ.
+		 * To exit from VBAT_LOW config, check if any of the FIFO
+		 * averages is > vbat_low threshold and reconfigure the
+		 * FIFO length to normal.
+		 */
+		for (i = 0; i < chip->kdata.fifo_length; i++) {
+			if (chip->kdata.fifo[i].v > vbat_low_uv) {
+				chip->vbat_low = false;
+				pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV updated fifo_length=%d\n",
 					chip->kdata.fifo[i].v, vbat_low_uv,
 					chip->dt.s2_fifo_length);
-			break;
+				break;
+			}
 		}
 	}
 
-	return 0;
+	rc = get_fifo_length(chip, &fifo_length, false);
+	if (rc < 0) {
+		pr_err("Failed to get FIFO length, rc=%d\n", rc);
+		return rc;
+	}
 
+	if (chip->vbat_low && fifo_length == chip->dt.s2_vbat_low_fifo_length)
+		return 0;
+
+	if (!chip->vbat_low && fifo_length == chip->dt.s2_fifo_length)
+		return 0;
+
+	rc = qg_master_hold(chip, true);
+	if (rc < 0) {
+		pr_err("Failed to hold master, rc=%d\n", rc);
+		goto done;
+	}
+
+	fifo_length = chip->vbat_low ? chip->dt.s2_vbat_low_fifo_length :
+					chip->dt.s2_fifo_length;
+
+	rc = qg_update_fifo_length(chip, fifo_length);
+	if (rc < 0)
+		goto done;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "FIFO length updated to %d vbat_low=%d\n",
+					fifo_length, chip->vbat_low);
 done:
 	qg_master_hold(chip, false);
+	/* FIFOs restarted */
+	chip->last_fifo_update_time = ktime_get();
 	return rc;
 }
 
@@ -1173,10 +1163,6 @@ static irqreturn_t qg_vbat_low_handler(int irq, void *data)
 		goto done;
 
 	chip->vbat_low = !!(status & VBAT_LOW_INT_RT_STS_BIT);
-
-	rc = process_rt_fifo_data(chip, true, false);
-	if (rc < 0)
-		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "VBAT_LOW = %d\n", chip->vbat_low);
 done:
@@ -1950,7 +1936,7 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 	if (!chip->dt.qg_ext_sense)
 		update_smb = true;
 
-	rc = process_rt_fifo_data(chip, false, update_smb);
+	rc = process_rt_fifo_data(chip, update_smb);
 	if (rc < 0)
 		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
