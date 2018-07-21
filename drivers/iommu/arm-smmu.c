@@ -988,6 +988,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 		}
 		udelay(delay);
 	}
+	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked\n");
 }
@@ -1026,10 +1027,14 @@ static void arm_smmu_tlb_sync_vmid(void *cookie)
 static void arm_smmu_tlb_inv_context_s1(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	struct device *dev = smmu_domain->dev;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *base = ARM_SMMU_CB(smmu_domain->smmu, cfg->cbndx);
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
+	ktime_t cur = ktime_get();
+
+	trace_tlbi_start(dev, 0);
 
 	if (!use_tlbiall)
 		writel_relaxed(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
@@ -1037,6 +1042,7 @@ static void arm_smmu_tlb_inv_context_s1(void *cookie)
 		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
 
 	arm_smmu_tlb_sync_context(cookie);
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static void arm_smmu_tlb_inv_context_s2(void *cookie)
