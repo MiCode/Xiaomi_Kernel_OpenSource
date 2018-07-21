@@ -117,7 +117,7 @@ struct mdm_ops {
 };
 
 void mdm_disable_irqs(struct mdm_ctrl *mdm);
-void mdm_wait_for_status_low(struct mdm_ctrl *mdm);
+void mdm_wait_for_status_low(struct mdm_ctrl *mdm, bool atomic);
 
 static inline int mdm_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 {
