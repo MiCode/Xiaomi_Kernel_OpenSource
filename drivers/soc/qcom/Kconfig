@@ -3,7 +3,6 @@
 # QCOM Soc drivers
 #
 menu "Qualcomm SoC drivers"
-
 config QCOM_COMMAND_DB
 	bool "Qualcomm Command DB"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -145,6 +144,24 @@ config QCOM_WCNSS_CTRL
 	help
 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
 	  firmware to a newly booted WCNSS chip.
+
+config QCOM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
+
+config MSM_TZ_SMMU
+	depends on ARCH_MSM8953 || ARCH_QCS405
+	bool "Helper functions for SMMU configuration through TZ"
+	help
+	  Say 'Y' here for targets that need to call into TZ to configure
+	  SMMUs for any reason (for example, for errata workarounds or
+	  configuration of SMMU virtualization).
+
+	  If unsure, say N.
 
 config MSM_SERVICE_LOCATOR
 	bool "Service Locator"

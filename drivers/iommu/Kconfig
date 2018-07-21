@@ -58,6 +58,43 @@ config IOMMU_IO_PGTABLE_ARMV7S_SELFTEST
 
 	  If unsure, say N here.
 
+config IOMMU_IO_PGTABLE_FAST
+	bool "Fast ARMv7/v8 Long Descriptor Format"
+	select IOMMU_IO_PGTABLE
+	help
+          Enable support for a subset of the ARM long descriptor pagetable
+	  format.  This allocator achieves fast performance by
+	  pre-allocating and pre-populating page table memory up front.
+	  only supports a 32 bit virtual address space.
+
+          This implementation is mainly optimized for use cases where the
+          buffers are small (<= 64K) since it only supports 4K page sizes.
+
+config IOMMU_IO_PGTABLE_FAST_SELFTEST
+	bool "Fast IO pgtable selftests"
+	depends on IOMMU_IO_PGTABLE_FAST
+	help
+	  Enable self-tests for "fast" page table allocator.
+	  This performs a series of page-table consistency checks
+	  during boot.
+
+	  If unsure, say N here.
+
+config IOMMU_IO_PGTABLE_FAST_PROVE_TLB
+	bool "Prove correctness of TLB maintenance in the Fast DMA mapper"
+	depends on IOMMU_IO_PGTABLE_FAST
+	help
+          Enables some debug features that help prove correctness of TLB
+          maintenance routines in the Fast DMA mapper.  This option will
+          slow things down considerably, so should only be used in a debug
+          configuration.  This relies on the ability to set bits in an
+          invalid page table entry, which is disallowed on some hardware
+          due to errata.  If you're running on such a platform then this
+          option can only be used with unit tests.  It will break real use
+          cases.
+
+	  If unsure, say N here.
+
 endmenu
 
 config IOMMU_IOVA
@@ -305,6 +342,7 @@ config ARM_SMMU
 	select IOMMU_API
 	select IOMMU_IO_PGTABLE_LPAE
 	select ARM_DMA_USE_IOMMU if ARM
+	select ARM64_DMA_USE_IOMMU if ARM64
 	help
 	  Support for implementations of the ARM System MMU architecture
 	  versions 1 and 2.
@@ -324,6 +362,18 @@ config ARM_SMMU_V3
 
 	  Say Y here if your system includes an IOMMU device implementing
 	  the ARM SMMUv3 architecture.
+
+config QCOM_LAZY_MAPPING
+	bool "Reference counted iommu-mapping support"
+	depends on ION
+	depends on IOMMU_API
+	help
+	  ION buffers may be shared between several software clients.
+	  Reference counting the mapping may simplify coordination between
+	  these clients, and decrease latency by preventing multiple
+	  map/unmaps of the same region.
+
+	  If unsure, say N here.
 
 config S390_IOMMU
 	def_bool y if S390 && PCI
@@ -371,6 +421,38 @@ config MTK_IOMMU_V1
 	  DMA memory accesses for the multimedia subsystem.
 
 	  if unsure, say N here.
+
+menuconfig IOMMU_DEBUG
+	bool "IOMMU Profiling and Debugging"
+	help
+	  This option is used to enable profiling and debugging in
+	  the IOMMU framework code. IOMMU profiling and debugging
+	  can be done through the debugfs nodes which this option
+	  makes available.
+
+if IOMMU_DEBUG
+
+config IOMMU_DEBUG_TRACKING
+	bool "Track key IOMMU events"
+	select IOMMU_API
+	help
+	  Enables additional debug tracking in the IOMMU framework code.
+	  Tracking information and tests can be accessed through various
+	  debugfs files.
+
+	  Say Y here if you need to debug IOMMU issues and are okay with
+	  the performance penalty of the tracking.
+
+config IOMMU_TESTS
+	bool "Interactive IOMMU performance/functional tests"
+	select IOMMU_API
+	help
+	  Enables a suite of IOMMU unit tests.  The tests are runnable
+	  through debugfs.  Unlike the IOMMU_DEBUG_TRACKING option, the
+	  impact of enabling this option to overal system performance
+	  should be minimal.
+
+endif # IOMMU_DEBUG
 
 config QCOM_IOMMU
 	# Note: iommu drivers cannot (yet?) be built as modules
