@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * drivers/staging/android/ion/ion_cma_heap.c
- *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
+ *
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -12,9 +12,11 @@
 #include <linux/err.h>
 #include <linux/cma.h>
 #include <linux/scatterlist.h>
+#include <soc/qcom/secure_buffer.h>
 #include <linux/highmem.h>
 
 #include "ion.h"
+#include "ion_secure_util.h"
 
 struct ion_cma_heap {
 	struct ion_heap heap;
@@ -35,6 +37,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	unsigned long nr_pages = size >> PAGE_SHIFT;
 	unsigned long align = get_order(size);
 	int ret;
+	struct device *dev = heap->priv;
 
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
@@ -43,21 +46,29 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	if (!pages)
 		return -ENOMEM;
 
-	if (PageHighMem(pages)) {
-		unsigned long nr_clear_pages = nr_pages;
-		struct page *page = pages;
+	if (!(flags & ION_FLAG_SECURE)) {
+		if (PageHighMem(pages)) {
+			unsigned long nr_clear_pages = nr_pages;
+			struct page *page = pages;
 
-		while (nr_clear_pages > 0) {
-			void *vaddr = kmap_atomic(page);
+			while (nr_clear_pages > 0) {
+				void *vaddr = kmap_atomic(page);
 
-			memset(vaddr, 0, PAGE_SIZE);
-			kunmap_atomic(vaddr);
-			page++;
-			nr_clear_pages--;
+				memset(vaddr, 0, PAGE_SIZE);
+				kunmap_atomic(vaddr);
+				page++;
+				nr_clear_pages--;
+			}
+		} else {
+			memset(page_address(pages), 0, size);
 		}
-	} else {
-		memset(page_address(pages), 0, size);
 	}
+
+	if (MAKE_ION_ALLOC_DMA_READY ||
+	    (flags & ION_FLAG_SECURE) ||
+	     (!ion_buffer_cached(buffer)))
+		ion_pages_sync_for_device(dev, pages, size,
+					  DMA_BIDIRECTIONAL);
 
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
@@ -101,9 +112,13 @@ static struct ion_heap_ops ion_cma_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
-static struct ion_heap *__ion_cma_heap_create(struct cma *cma)
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 {
 	struct ion_cma_heap *cma_heap;
+	struct device *dev = (struct device *)data->priv;
+
+	if (!dev->cma_area)
+		return ERR_PTR(-EINVAL);
 
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 
@@ -115,28 +130,85 @@ static struct ion_heap *__ion_cma_heap_create(struct cma *cma)
 	 * get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory
 	 */
-	cma_heap->cma = cma;
+	cma_heap->cma = dev->cma_area;
 	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
 	return &cma_heap->heap;
 }
 
-static int __ion_add_cma_heaps(struct cma *cma, void *data)
+void ion_cma_heap_destroy(struct ion_heap *heap)
 {
-	struct ion_heap *heap;
+	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
 
-	heap = __ion_cma_heap_create(cma);
-	if (IS_ERR(heap))
-		return PTR_ERR(heap);
-
-	heap->name = cma_get_name(cma);
-
-	ion_device_add_heap(heap);
-	return 0;
+	kfree(cma_heap);
 }
 
-static int ion_add_cma_heaps(void)
+static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
-	cma_for_each_area(__ion_add_cma_heaps, NULL);
-	return 0;
+	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
+					   false))
+		return;
+
+	ion_cma_free(buffer);
 }
-device_initcall(ion_add_cma_heaps);
+
+static int ion_secure_cma_allocate(struct ion_heap *heap,
+				   struct ion_buffer *buffer, unsigned long len,
+				   unsigned long flags)
+{
+	int ret;
+
+	ret = ion_cma_allocate(heap, buffer, len, flags);
+	if (ret) {
+		dev_err(heap->priv, "Unable to allocate cma buffer");
+		goto out;
+	}
+
+	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, false);
+	if (ret)
+		goto out_free_buf;
+
+	return ret;
+
+out_free_buf:
+	ion_secure_cma_free(buffer);
+out:
+	return ret;
+}
+
+static struct ion_heap_ops ion_secure_cma_ops = {
+	.allocate = ion_secure_cma_allocate,
+	.free = ion_secure_cma_free,
+	.map_user = ion_heap_map_user,
+	.map_kernel = ion_heap_map_kernel,
+	.unmap_kernel = ion_heap_unmap_kernel,
+};
+
+struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
+{
+	struct ion_cma_heap *cma_heap;
+	struct device *dev = (struct device *)data->priv;
+
+	if (!dev->cma_area)
+		return ERR_PTR(-EINVAL);
+
+	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
+
+	if (!cma_heap)
+		return ERR_PTR(-ENOMEM);
+
+	cma_heap->heap.ops = &ion_secure_cma_ops;
+	/*
+	 * get device from private heaps data, later it will be
+	 * used to make the link with reserved CMA memory
+	 */
+	cma_heap->cma = dev->cma_area;
+	cma_heap->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA;
+	return &cma_heap->heap;
+}
+
+void ion_cma_secure_heap_destroy(struct ion_heap *heap)
+{
+	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
+
+	kfree(cma_heap);
+}

@@ -449,4 +449,5 @@
 	};
 };
 
+#include "kona-ion.dtsi"
 #include "msm-arm-smmu-kona.dtsi"
