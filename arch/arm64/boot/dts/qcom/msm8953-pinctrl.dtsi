@@ -1400,6 +1400,66 @@
 			};
 		};
 
+		spi6 {
+			spi6_default: spi6_default {
+				/* active state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio20", "gpio21", "gpio23";
+					function = "blsp_spi6";
+				};
+
+				config {
+					pins = "gpio20", "gpio21", "gpio23";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable = <0>; /* No PULL */
+				};
+			};
+
+			spi6_sleep: spi6_sleep {
+				/* suspended state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio20", "gpio21", "gpio23";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20", "gpio21", "gpio23";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* PULL Down */
+				};
+			};
+
+			spi6_cs0_active: cs0_active {
+				/* CS */
+				mux {
+					pins = "gpio22";
+					function = "blsp_spi6";
+				};
+
+				config {
+					pins = "gpio22";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+
+			spi6_cs0_sleep: cs0_sleep {
+				/* CS */
+				mux {
+					pins = "gpio22";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio22";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+		};
+
 		/* add pingrp for touchscreen */
 		pmx_ts_int_active {
 			ts_int_active: ts_int_active {
