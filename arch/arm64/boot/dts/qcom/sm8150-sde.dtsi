@@ -24,20 +24,17 @@
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
 			<&clock_gcc GCC_DISP_HF_AXI_CLK>,
-			<&clock_gcc GCC_DISP_SF_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_MDP_LUT_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_ROT_CLK>;
-		clock-names = "gcc_iface", "gcc_bus", "gcc_nrt_bus",
+			<&clock_dispcc DISP_CC_MDSS_MDP_LUT_CLK>;
+		clock-names = "gcc_iface", "gcc_bus",
 				"iface_clk", "core_clk", "vsync_clk",
-				"lut_clk", "rot_clk";
-		clock-rate = <0 0 0 0 300000000 19200000 300000000>;
-		clock-max-rate = <0 0 0 0 460000000 19200000 460000000>;
+				"lut_clk";
+		clock-rate = <0 0 0 300000000 19200000 300000000>;
+		clock-max-rate = <0 0 0 460000000 19200000 460000000>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
-		mmcx-supply = <&VDD_MMCX_LEVEL>;
 
 		/* interrupt config */
 		interrupts = <0 83 0>;
@@ -250,7 +247,7 @@
 
 			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "mmcx";
+				qcom,supply-name = "sde-vdd";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -265,13 +262,33 @@
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
-			qcom,msm-bus,name = "mdss_sde";
+			qcom,msm-bus,name = "mdss_sde_mnoc";
 			qcom,msm-bus,num-cases = <3>;
 			qcom,msm-bus,num-paths = <2>;
 			qcom,msm-bus,vectors-KBps =
-				<22 512 0 0>, <23 512 0 0>,
-				<22 512 0 6400000>, <23 512 0 6400000>,
-				<22 512 0 6400000>, <23 512 0 6400000>;
+			    <22 773 0 0>, <23 773 0 0>,
+			    <22 773 0 6400000>, <23 773 0 6400000>,
+			    <22 773 0 6400000>, <23 773 0 6400000>;
+		};
+
+		qcom,sde-llcc-bus {
+			qcom,msm-bus,name = "mdss_sde_llcc";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <132 770 0 0>,
+			    <132 770 0 6400000>,
+			    <132 770 0 6400000>;
+		};
+
+		qcom,sde-ebi-bus {
+			qcom,msm-bus,name = "mdss_sde_ebi";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <129 512 0 0>,
+			    <129 512 0 6400000>,
+			    <129 512 0 6400000>;
 		};
 
 		qcom,sde-reg-bus {
@@ -293,6 +310,7 @@
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
 		qcom,sde-rsc-version = <2>;
+		status = "disabled";
 
 		vdd-supply = <&mdss_core_gdsc>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
@@ -338,6 +356,20 @@
 			    <20000 20512 0 0>,
 			    <20000 20512 0 6400000>,
 			    <20000 20512 0 6400000>;
+		};
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "mmcx";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
 		};
 	};
 
