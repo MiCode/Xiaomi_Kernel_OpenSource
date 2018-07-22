@@ -20,11 +20,11 @@
 #include "xiaomi-sde-display.dtsi"
 
 &removed_region {
-	reg = <0 0x85fc0000 0 0x3a40000>;
+	reg = <0 0x85fc0000 0 0x4940000>;
 };
 
 &qcom_seecom {
-	reg = <0x86d00000 0x02d00000>;
+	reg = <0x86d00000 0x03c00000>;
 };
 
 &reserved_memory {
