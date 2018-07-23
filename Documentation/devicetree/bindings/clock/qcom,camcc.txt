@@ -3,7 +3,7 @@ Qualcomm Technologies, Inc. Camera Clock & Reset Controller Binding
 
 Required properties :
 - compatible : must contain "qcom,camcc-sm8150", "qcom,camcc-sm8150-v2"
-	       or "qcom,camcc-sdmshrike".
+	       or "qcom,camcc-sdmshrike" or "qcom,camcc-sm6150".
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
