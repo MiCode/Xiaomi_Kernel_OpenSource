@@ -293,7 +293,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 	struct msm_plat_data *pdata;
 	struct snd_pcm_hw_params *params;
-	int ret;
+	int ret = 0;
 	uint16_t bits_per_sample;
 	uint16_t sample_word_size;
 
