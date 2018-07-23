@@ -242,8 +242,8 @@
 		clock-cntl-level = "lowsvs";
 		clock-rates = <37500000 0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cci2_active &cci2_active>;
-		pinctrl-1 = <&cci3_suspend &cci3_suspend>;
+		pinctrl-0 = <&cci2_active &cci3_active>;
+		pinctrl-1 = <&cci2_suspend &cci3_suspend>;
 		gpios = <&tlmm 31 0>,
 			<&tlmm 32 0>,
 			<&tlmm 33 0>,
