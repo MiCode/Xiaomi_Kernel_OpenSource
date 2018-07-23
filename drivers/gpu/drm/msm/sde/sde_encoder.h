@@ -257,4 +257,11 @@ int sde_encoder_display_failure_notification(struct drm_encoder *enc);
  */
 int sde_encoder_in_clone_mode(struct drm_encoder *enc);
 
+/**
+ * sde_encoder_control_idle_pc - control enable/disable of idle power collapse
+ * @drm_enc:    Pointer to drm encoder structure
+ * @enable:	enable/disable flag
+ */
+void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
+
 #endif /* __SDE_ENCODER_H__ */
