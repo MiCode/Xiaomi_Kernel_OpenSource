@@ -461,17 +461,7 @@ int smblib_get_prop_system_temp_level_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_current_now(struct smb_charger *chg,
-				union power_supply_propval *val);
 int smblib_get_prop_batt_iterm(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_temp(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_cycle_count(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
@@ -558,6 +548,9 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_get_prop_from_bms(struct smb_charger *chg,
+				enum power_supply_property psp,
+				union power_supply_propval *val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 
