@@ -383,7 +383,7 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 	edid_ext = sde_find_cea_extension(edid_ctrl->edid);
 
 	if (!edid_ext) {
-		SDE_ERROR("no cea extension\n");
+		SDE_DEBUG("no cea extension\n");
 		return;
 	}
 
