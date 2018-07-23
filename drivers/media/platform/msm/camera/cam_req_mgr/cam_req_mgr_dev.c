@@ -591,6 +591,7 @@ static int cam_req_mgr_remove(struct platform_device *pdev)
 	cam_v4l2_device_cleanup();
 	mutex_destroy(&g_dev.dev_lock);
 	g_dev.state = false;
+	g_dev.subdev_nodes_created = false;
 
 	return 0;
 }
@@ -680,6 +681,7 @@ static struct platform_driver cam_req_mgr_driver = {
 		.name = "cam_req_mgr",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_req_mgr_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

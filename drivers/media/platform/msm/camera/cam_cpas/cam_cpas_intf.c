@@ -642,6 +642,7 @@ static struct platform_driver cam_cpas_driver = {
 		.name = CAM_CPAS_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_cpas_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
