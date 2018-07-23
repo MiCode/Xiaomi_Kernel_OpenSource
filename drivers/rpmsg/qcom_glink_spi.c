@@ -2436,6 +2436,8 @@ static void glink_spi_remove(struct glink_spi *glink)
 	GLINK_INFO(glink, "\n");
 
 	glink->in_reset = true;
+	kthread_cancel_work_sync(&glink->rx_work);
+	cancel_work_sync(&glink->rx_defer_work);
 
 	ret = device_for_each_child(&glink->dev, NULL, glink_spi_remove_device);
 	if (ret)
