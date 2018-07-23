@@ -69,11 +69,20 @@
 	};
 };
 
+&sdhc_1 {
+	qcom,tsens-id = <0>;
+};
+
 &sdhc_2 {
+	compatible = "qcom,late-sdhci-msm";
+
 	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
 			&sdc2_cd_on_sbc>;
+	qcom,tsens-id = <10>;
+	qcom,disable_scaling_threshold_temp = <(-15)>;
+	qcom,enable_scaling_threshold_temp = <(-5)>;
 };
 
 &i2c_7 {
