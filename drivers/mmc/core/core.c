@@ -285,6 +285,7 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 {
 	struct mmc_host *host = container_of(dev, struct mmc_host, class_dev);
 	struct mmc_devfeq_clk_scaling *clk_scaling;
+	bool disable = false;
 
 	if (!host) {
 		pr_err("bad host parameter\n");
@@ -312,7 +313,14 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 		}
 	}
 
-	status->busy_time = clk_scaling->total_busy_time_us;
+	if (host->ops->check_temp &&
+			host->card->clk_scaling_highest > UHS_DDR50_MAX_DTR)
+		disable = host->ops->check_temp(host);
+	/* busy_time=0 for running at low freq*/
+	if (disable)
+		status->busy_time = 0;
+	else
+		status->busy_time = clk_scaling->total_busy_time_us;
 	status->total_time = ktime_to_us(ktime_sub(ktime_get(),
 		clk_scaling->measure_interval_start));
 	clk_scaling->total_busy_time_us = 0;

@@ -33,6 +33,8 @@
 #define UHS_SDR25_MIN_DTR	(25 * 1000 * 1000)
 #define UHS_SDR12_MIN_DTR	(12.5 * 1000 * 1000)
 
+#define ENOCALLBACK 1
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -498,7 +500,11 @@ static int sd_set_bus_speed_mode(struct mmc_card *card, u8 *status)
 		err = -EBUSY;
 	} else {
 		mmc_set_timing(card->host, timing);
-		mmc_set_clock(card->host, card->sw_caps.uhs_max_dtr);
+		if (card->host->ops->check_temp(card->host) &&
+				timing == MMC_TIMING_UHS_SDR104)
+			mmc_set_clock(card->host, UHS_SDR50_MAX_DTR);
+		else
+			mmc_set_clock(card->host, card->sw_caps.uhs_max_dtr);
 	}
 
 	return err;
@@ -1122,6 +1128,34 @@ free_card:
 	return err;
 }
 
+static int mmc_sd_init_temp_control_clk_scaling(struct mmc_host *host)
+{
+	int ret;
+
+	if (host->ops->reg_temp_callback) {
+		ret = host->ops->reg_temp_callback(host);
+	} else {
+		pr_err("%s: %s: couldn't find init temp control clk scaling cb\n",
+			mmc_hostname(host), __func__);
+		ret = -ENOCALLBACK;
+	}
+	return ret;
+}
+
+static int mmc_sd_dereg_temp_control_clk_scaling(struct mmc_host *host)
+{
+	int ret;
+
+	if (host->ops->dereg_temp_callback) {
+		ret = host->ops->dereg_temp_callback(host);
+	} else {
+		pr_err("%s: %s: couldn't find dereg temp control clk scaling cb\n",
+			mmc_hostname(host), __func__);
+		ret = -ENOCALLBACK;
+	}
+	return ret;
+}
+
 /*
  * Host is being removed. Free up the current card.
  */
@@ -1131,6 +1165,7 @@ static void mmc_sd_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_exit_clk_scaling(host);
+	mmc_sd_dereg_temp_control_clk_scaling(host);
 	mmc_remove_card(host->card);
 
 	mmc_claim_host(host);
@@ -1458,6 +1493,9 @@ int mmc_attach_sd(struct mmc_host *host)
 		goto err;
 	}
 
+	if (mmc_sd_init_temp_control_clk_scaling(host))
+		pr_err("%s: failed to init temp control clk scaling\n",
+			mmc_hostname(host));
 	/*
 	 * Detect and init the card.
 	 */
