@@ -379,8 +379,8 @@ static void gsmd_tx_pull(struct work_struct *w)
 	}
 
 tx_pull_end:
-	/* TBD: Check how code behaves on USB bus suspend */
-	if (port->port_usb && smd_read_avail(port->pi->ch) && !list_empty(pool))
+	if (port->port_usb && port->pi->ch && smd_read_avail(port->pi->ch) &&
+							!list_empty(pool))
 		queue_work(gsmd_wq, &port->pull);
 
 	spin_unlock_irq(&port->port_lock);
