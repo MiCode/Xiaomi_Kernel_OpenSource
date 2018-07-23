@@ -118,15 +118,6 @@ static struct clk_alpha_pll video_pll0_out_main = {
 	},
 };
 
-/* chip_sleep_clk is external clocks running at 32000Hz */
-static struct clk_fixed_rate chip_sleep_clk = {
-	.fixed_rate = 32000,
-	.hw.init = &(struct clk_init_data){
-		.name = "chip_sleep_clk",
-		.ops = &clk_fixed_rate_ops,
-	},
-};
-
 static const struct freq_tbl ftbl_video_cc_sleep_clk_src[] = {
 	F(32000, P_CHIP_SLEEP_CLK, 1, 0, 0),
 	{ }
@@ -142,7 +133,6 @@ static struct clk_rcg2 video_cc_sleep_clk_src = {
 		.name = "video_cc_sleep_clk_src",
 		.parent_names = video_cc_parent_names_0,
 		.num_parents = 2,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -334,10 +324,6 @@ static struct clk_branch video_cc_xo_clk = {
 	},
 };
 
-struct clk_hw *video_cc_sm6150_hws[] = {
-	[CHIP_SLEEP_CLK] = &chip_sleep_clk.hw,
-};
-
 static struct clk_regmap *video_cc_sm6150_clocks[] = {
 	[VIDEO_CC_APB_CLK] = &video_cc_apb_clk.clkr,
 	[VIDEO_CC_SLEEP_CLK] = &video_cc_sleep_clk.clkr,
@@ -365,8 +351,6 @@ static const struct qcom_cc_desc video_cc_sm6150_desc = {
 	.config = &video_cc_sm6150_regmap_config,
 	.clks = video_cc_sm6150_clocks,
 	.num_clks = ARRAY_SIZE(video_cc_sm6150_clocks),
-	.hwclks = video_cc_sm6150_hws,
-	.num_hwclks = ARRAY_SIZE(video_cc_sm6150_hws),
 };
 
 static const struct of_device_id video_cc_sm6150_match_table[] = {
