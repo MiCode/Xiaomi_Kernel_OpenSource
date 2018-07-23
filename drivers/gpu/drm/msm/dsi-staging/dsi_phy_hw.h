@@ -240,6 +240,14 @@ struct dsi_phy_hw_ops {
 				u32 *timing, u32 size);
 
 	/**
+	 * clamp_ctrl() - configure clamps for DSI lanes
+	 * @phy:        DSI PHY handle.
+	 * @enable:     boolean to specify clamp enable/disable.
+	 * Return:    error code.
+	 */
+	void (*clamp_ctrl)(struct dsi_phy_hw *phy, bool enable);
+
+	/**
 	 * phy_lane_reset() - Reset dsi phy lanes in case of error.
 	 * @phy:      Pointer to DSI PHY hardware object.
 	 * Return:    error code.

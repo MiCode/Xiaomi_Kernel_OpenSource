@@ -1618,9 +1618,19 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	ulps_enabled = display->ulps_enabled;
 
+	/*
+	 * Clamp control can be either through the DSI controller or
+	 * the DSI PHY depending on hardware variation
+	 */
 	rc = dsi_ctrl_set_clamp_state(m_ctrl->ctrl, enable, ulps_enabled);
 	if (rc) {
-		pr_err("DSI Clamp state change(%d) failed\n", enable);
+		pr_err("DSI ctrl clamp state change(%d) failed\n", enable);
+		return rc;
+	}
+
+	rc = dsi_phy_set_clamp_state(m_ctrl->phy, enable);
+	if (rc) {
+		pr_err("DSI phy clamp state change(%d) failed\n", enable);
 		return rc;
 	}
 
@@ -1634,7 +1644,18 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 			pr_err("DSI Clamp state change(%d) failed\n", enable);
 			return rc;
 		}
+
+		rc = dsi_phy_set_clamp_state(ctrl->phy, enable);
+		if (rc) {
+			pr_err("DSI phy clamp state change(%d) failed\n",
+				enable);
+			return rc;
+		}
+
+		pr_debug("Clamps %s for ctrl%d\n",
+			enable ? "enabled" : "disabled", i);
 	}
+
 	display->clamp_enabled = enable;
 	return 0;
 }
@@ -2845,13 +2866,15 @@ static void dsi_display_ctrl_isr_configure(struct dsi_display *display, bool en)
 
 int dsi_pre_clkoff_cb(void *priv,
 			   enum dsi_clk_type clk,
+			   enum dsi_lclk_type l_type,
 			   enum dsi_clk_state new_state)
 {
 	int rc = 0, i;
 	struct dsi_display *display = priv;
 	struct dsi_display_ctrl *ctrl;
 
-	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
+		(l_type && DSI_LINK_LP_CLK)) {
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2912,13 +2935,14 @@ int dsi_pre_clkoff_cb(void *priv,
 
 int dsi_post_clkon_cb(void *priv,
 			   enum dsi_clk_type clk,
+			   enum dsi_lclk_type l_type,
 			   enum dsi_clk_state curr_state)
 {
 	int rc = 0;
 	struct dsi_display *display = priv;
 	bool mmss_clamp = false;
 
-	if (clk & DSI_CORE_CLK) {
+	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_LP_CLK)) {
 		mmss_clamp = display->clamp_enabled;
 		/*
 		 * controller setup is needed if coming out of idle
@@ -2926,6 +2950,13 @@ int dsi_post_clkon_cb(void *priv,
 		 */
 		if (mmss_clamp)
 			dsi_display_ctrl_setup(display);
+
+		/*
+		 * Phy setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
+		 */
+		if (display->phy_idle_power_off || mmss_clamp)
+			dsi_display_phy_idle_on(display, mmss_clamp);
 
 		if (display->ulps_enabled && mmss_clamp) {
 			/*
@@ -2965,17 +2996,11 @@ int dsi_post_clkon_cb(void *priv,
 			goto error;
 		}
 
-		/*
-		 * Phy setup is needed if coming out of idle
-		 * power collapse with clamps enabled.
-		 */
-		if (display->phy_idle_power_off || mmss_clamp)
-			dsi_display_phy_idle_on(display, mmss_clamp);
-
 		/* enable dsi to serve irqs */
 		dsi_display_ctrl_irq_update(display, true);
 	}
-	if (clk & DSI_LINK_CLK) {
+
+	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_HS_CLK)) {
 		/*
 		 * Toggle the resync FIFO everytime clock changes, except
 		 * when cont-splash screen transition is going on.
@@ -3000,6 +3025,7 @@ error:
 
 int dsi_post_clkoff_cb(void *priv,
 			    enum dsi_clk_type clk_type,
+			    enum dsi_lclk_type l_type,
 			    enum dsi_clk_state curr_state)
 {
 	int rc = 0;
@@ -3027,6 +3053,7 @@ int dsi_post_clkoff_cb(void *priv,
 
 int dsi_pre_clkon_cb(void *priv,
 			  enum dsi_clk_type clk_type,
+			  enum dsi_lclk_type l_type,
 			  enum dsi_clk_state new_state)
 {
 	int rc = 0;
@@ -4275,10 +4302,16 @@ static int dsi_display_bind(struct device *dev,
 			goto error_ctrl_deinit;
 		}
 
-		memcpy(&info.c_clks[i], &display_ctrl->ctrl->clk_info.core_clks,
-			sizeof(struct dsi_core_clk_info));
-		memcpy(&info.l_clks[i], &display_ctrl->ctrl->clk_info.link_clks,
-			sizeof(struct dsi_link_clk_info));
+		memcpy(&info.c_clks[i],
+				(&display_ctrl->ctrl->clk_info.core_clks),
+				sizeof(struct dsi_core_clk_info));
+		memcpy(&info.l_hs_clks[i],
+				(&display_ctrl->ctrl->clk_info.hs_link_clks),
+				sizeof(struct dsi_link_hs_clk_info));
+		memcpy(&info.l_lp_clks[i],
+				(&display_ctrl->ctrl->clk_info.lp_link_clks),
+				sizeof(struct dsi_link_lp_clk_info));
+
 		info.c_clks[i].phandle = &priv->phandle;
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
