@@ -3407,6 +3407,7 @@ static struct platform_driver cam_smmu_driver = {
 		.name = "msm_cam_smmu",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_cam_smmu_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

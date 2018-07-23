@@ -214,6 +214,7 @@ static struct platform_driver cam_lrme_driver = {
 		.name = "cam_lrme",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_lrme_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
