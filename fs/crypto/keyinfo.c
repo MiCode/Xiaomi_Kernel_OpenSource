@@ -267,7 +267,7 @@ void __exit fscrypt_essiv_cleanup(void)
 
 static int fscrypt_data_encryption_mode(struct inode *inode)
 {
-	return fscrypt_should_be_processed_by_ice(inode) ?
+	return fscrypt_is_ice_capable(inode->i_sb) ?
 	FS_ENCRYPTION_MODE_PRIVATE : FS_ENCRYPTION_MODE_AES_256_XTS;
 }
 
