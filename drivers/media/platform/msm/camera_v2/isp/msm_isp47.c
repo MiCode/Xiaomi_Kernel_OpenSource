@@ -443,10 +443,10 @@ void msm_vfe47_process_reset_irq(struct vfe_device *vfe_dev,
 	unsigned long flags;
 
 	if (irq_status0 & (1 << 31)) {
-		spin_lock_irqsave(&vfe_dev->completion_lock, flags);
+		spin_lock_irqsave(&vfe_dev->reset_completion_lock, flags);
 		complete(&vfe_dev->reset_complete);
 		vfe_dev->reset_pending = 0;
-		spin_unlock_irqrestore(&vfe_dev->completion_lock, flags);
+		spin_unlock_irqrestore(&vfe_dev->reset_completion_lock, flags);
 	}
 }
 
@@ -454,9 +454,12 @@ void msm_vfe47_process_halt_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
 	uint32_t val = 0;
+	unsigned long flags;
 
 	if (irq_status1 & (1 << 8)) {
+		spin_lock_irqsave(&vfe_dev->halt_completion_lock, flags);
 		complete(&vfe_dev->halt_complete);
+		spin_unlock_irqrestore(&vfe_dev->halt_completion_lock, flags);
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x400);
 	}
 
@@ -774,9 +777,9 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t reset;
 	unsigned long flags;
 
-	spin_lock_irqsave(&vfe_dev->completion_lock, flags);
+	spin_lock_irqsave(&vfe_dev->reset_completion_lock, flags);
 	init_completion(&vfe_dev->reset_complete);
-	spin_unlock_irqrestore(&vfe_dev->completion_lock, flags);
+	spin_unlock_irqrestore(&vfe_dev->reset_completion_lock, flags);
 
 	if (blocking_call)
 		vfe_dev->reset_pending = 1;
@@ -1996,6 +1999,7 @@ int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src i;
 	uint32_t val = 0;
 	struct msm_isp_timestamp ts;
+	unsigned long flags;
 
 	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 	val |= 0x1;
@@ -2012,7 +2016,9 @@ int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 			__func__, vfe_dev->pdev->id, blocking);
 
 	if (blocking) {
+		spin_lock_irqsave(&vfe_dev->halt_completion_lock, flags);
 		init_completion(&vfe_dev->halt_complete);
+		spin_unlock_irqrestore(&vfe_dev->halt_completion_lock, flags);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x400);
 		rc = wait_for_completion_interruptible_timeout(
