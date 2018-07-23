@@ -44,7 +44,8 @@
  * @flt_generate_eq: Generate flt equation attributes from rule attributes
  * @rt_parse_hw_rule: Parse rt rule read from H/W
  * @flt_parse_hw_rule: Parse flt rule read from H/W
- * @eq_bitfield: Array of the bit fields of the support equations
+ * @eq_bitfield: Array of the bit fields of the support equations.
+ *	0xFF means the equation is not supported
  */
 struct ipahal_fltrt_obj {
 	bool support_hash;
@@ -171,6 +172,9 @@ static int ipa_flt_parse_hw_rule_ipav4(u8 *addr,
 
 #define IPA_GET_RULE_EQ_BIT_PTRN(__eq) \
 	(BIT(ipahal_fltrt_objs[ipahal_ctx->hw_type].eq_bitfield[(__eq)]))
+
+#define IPA_IS_RULE_EQ_VALID(__eq) \
+	(ipahal_fltrt_objs[ipahal_ctx->hw_type].eq_bitfield[(__eq)] != 0xFF)
 
 /*
  * ipa_fltrt_rule_generation_err_check() - check basic validity on the rule
@@ -489,6 +493,7 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 			[IPA_IHL_OFFSET_EQ_16]		= 13,
 			[IPA_FL_EQ]			= 14,
 			[IPA_IS_FRAG]			= 15,
+			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
 	},
 
@@ -517,22 +522,23 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 		ipa_rt_parse_hw_rule,
 		ipa_flt_parse_hw_rule_ipav4,
 		{
-			[IPA_TOS_EQ] = 0,
-			[IPA_PROTOCOL_EQ] = 1,
-			[IPA_TC_EQ] = 2,
-			[IPA_OFFSET_MEQ128_0] = 3,
-			[IPA_OFFSET_MEQ128_1] = 4,
-			[IPA_OFFSET_MEQ32_0] = 5,
-			[IPA_OFFSET_MEQ32_1] = 6,
-			[IPA_IHL_OFFSET_MEQ32_0] = 7,
-			[IPA_IHL_OFFSET_MEQ32_1] = 8,
-			[IPA_METADATA_COMPARE] = 9,
-			[IPA_IHL_OFFSET_RANGE16_0] = 10,
-			[IPA_IHL_OFFSET_RANGE16_1] = 11,
-			[IPA_IHL_OFFSET_EQ_32] = 12,
-			[IPA_IHL_OFFSET_EQ_16] = 13,
-			[IPA_FL_EQ] = 14,
-			[IPA_IS_FRAG] = 15,
+			[IPA_TOS_EQ]			= 0,
+			[IPA_PROTOCOL_EQ]		= 1,
+			[IPA_TC_EQ]			= 2,
+			[IPA_OFFSET_MEQ128_0]		= 3,
+			[IPA_OFFSET_MEQ128_1]		= 4,
+			[IPA_OFFSET_MEQ32_0]		= 5,
+			[IPA_OFFSET_MEQ32_1]		= 6,
+			[IPA_IHL_OFFSET_MEQ32_0]	= 7,
+			[IPA_IHL_OFFSET_MEQ32_1]	= 8,
+			[IPA_METADATA_COMPARE]		= 9,
+			[IPA_IHL_OFFSET_RANGE16_0]	= 10,
+			[IPA_IHL_OFFSET_RANGE16_1]	= 11,
+			[IPA_IHL_OFFSET_EQ_32]		= 12,
+			[IPA_IHL_OFFSET_EQ_16]		= 13,
+			[IPA_FL_EQ]			= 14,
+			[IPA_IS_FRAG]			= 15,
+			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
 	},
 
@@ -561,22 +567,23 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 		ipa_rt_parse_hw_rule,
 		ipa_flt_parse_hw_rule_ipav4,
 		{
-			[IPA_TOS_EQ] = 0,
-			[IPA_PROTOCOL_EQ] = 1,
-			[IPA_TC_EQ] = 2,
-			[IPA_OFFSET_MEQ128_0] = 3,
-			[IPA_OFFSET_MEQ128_1] = 4,
-			[IPA_OFFSET_MEQ32_0] = 5,
-			[IPA_OFFSET_MEQ32_1] = 6,
-			[IPA_IHL_OFFSET_MEQ32_0] = 7,
-			[IPA_IHL_OFFSET_MEQ32_1] = 8,
-			[IPA_METADATA_COMPARE] = 9,
-			[IPA_IHL_OFFSET_RANGE16_0] = 10,
-			[IPA_IHL_OFFSET_RANGE16_1] = 11,
-			[IPA_IHL_OFFSET_EQ_32] = 12,
-			[IPA_IHL_OFFSET_EQ_16] = 13,
-			[IPA_FL_EQ] = 14,
-			[IPA_IS_FRAG] = 15,
+			[IPA_TOS_EQ]			= 0,
+			[IPA_PROTOCOL_EQ]		= 1,
+			[IPA_TC_EQ]			= 2,
+			[IPA_OFFSET_MEQ128_0]		= 3,
+			[IPA_OFFSET_MEQ128_1]		= 4,
+			[IPA_OFFSET_MEQ32_0]		= 5,
+			[IPA_OFFSET_MEQ32_1]		= 6,
+			[IPA_IHL_OFFSET_MEQ32_0]	= 7,
+			[IPA_IHL_OFFSET_MEQ32_1]	= 8,
+			[IPA_METADATA_COMPARE]		= 9,
+			[IPA_IHL_OFFSET_RANGE16_0]	= 10,
+			[IPA_IHL_OFFSET_RANGE16_1]	= 11,
+			[IPA_IHL_OFFSET_EQ_32]		= 12,
+			[IPA_IHL_OFFSET_EQ_16]		= 13,
+			[IPA_FL_EQ]			= 14,
+			[IPA_IS_FRAG]			= 15,
+			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
 	},
 
@@ -605,22 +612,23 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 		ipa_rt_parse_hw_rule,
 		ipa_flt_parse_hw_rule_ipav4,
 		{
-			[IPA_TOS_EQ] = 0,
-			[IPA_PROTOCOL_EQ] = 1,
-			[IPA_TC_EQ] = 2,
-			[IPA_OFFSET_MEQ128_0] = 3,
-			[IPA_OFFSET_MEQ128_1] = 4,
-			[IPA_OFFSET_MEQ32_0] = 5,
-			[IPA_OFFSET_MEQ32_1] = 6,
-			[IPA_IHL_OFFSET_MEQ32_0] = 7,
-			[IPA_IHL_OFFSET_MEQ32_1] = 8,
-			[IPA_METADATA_COMPARE] = 9,
-			[IPA_IHL_OFFSET_RANGE16_0] = 10,
-			[IPA_IHL_OFFSET_RANGE16_1] = 11,
-			[IPA_IHL_OFFSET_EQ_32] = 12,
-			[IPA_IHL_OFFSET_EQ_16] = 13,
-			[IPA_FL_EQ] = 14,
-			[IPA_IS_FRAG] = 15,
+			[IPA_TOS_EQ]			= 0xFF,
+			[IPA_PROTOCOL_EQ]		= 1,
+			[IPA_TC_EQ]			= 2,
+			[IPA_OFFSET_MEQ128_0]		= 3,
+			[IPA_OFFSET_MEQ128_1]		= 4,
+			[IPA_OFFSET_MEQ32_0]		= 5,
+			[IPA_OFFSET_MEQ32_1]		= 6,
+			[IPA_IHL_OFFSET_MEQ32_0]	= 7,
+			[IPA_IHL_OFFSET_MEQ32_1]	= 8,
+			[IPA_METADATA_COMPARE]		= 9,
+			[IPA_IHL_OFFSET_RANGE16_0]	= 10,
+			[IPA_IHL_OFFSET_RANGE16_1]	= 11,
+			[IPA_IHL_OFFSET_EQ_32]		= 12,
+			[IPA_IHL_OFFSET_EQ_16]		= 13,
+			[IPA_FL_EQ]			= 14,
+			[IPA_IS_FRAG]			= 15,
+			[IPA_IS_PURE_ACK]		= 0,
 		},
 	},
 };
@@ -696,10 +704,25 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 	u8 ihl_ofst_meq32 = 0;
 	u8 ofst_meq128 = 0;
 	int rc = 0;
+	bool tos_done = false;
 
-	if (attrib->attrib_mask & IPA_FLT_TOS) {
-		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ);
-		extra = ipa_write_8(attrib->u.v4.tos, extra);
+	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK)) {
+			IPAHAL_ERR("is_pure_ack eq not supported\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_PURE_ACK);
+		extra = ipa_write_8(0, extra);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_TOS_EQ)) {
+			IPAHAL_DBG("tos eq not supported\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ);
+			extra = ipa_write_8(attrib->u.v4.tos, extra);
+			tos_done = true;
+		}
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
@@ -790,7 +813,7 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
 			ipa3_0_ofst_meq32[ofst_meq32]);
-		/* 0 => offset of TOS in v4 header */
+		/* 0 => Take the first word. offset of TOS in v4 header is 1 */
 		extra = ipa_write_8(0, extra);
 		rest = ipa_write_32((attrib->tos_mask << 16), rest);
 		rest = ipa_write_32((attrib->tos_value << 16), rest);
@@ -839,6 +862,24 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 		rest = ipa_write_16(0, rest);
 		rest = ipa_write_16(htons(attrib->ether_type), rest);
 		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_DBG("ran out of meq32 eq\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+				ipa3_0_ofst_meq32[ofst_meq32]);
+			/*
+			 * 0 => Take the first word.
+			 * offset of TOS in v4 header is 1
+			 */
+			extra = ipa_write_8(0, extra);
+			rest = ipa_write_32(0xFF << 16, rest);
+			rest = ipa_write_32((attrib->u.v4.tos << 16), rest);
+			ofst_meq32++;
+			tos_done = true;
+		}
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_TYPE) {
@@ -933,6 +974,26 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 		ihl_ofst_meq32++;
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_DBG("ran out of ihl_meq32 eq\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+				ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+			/*
+			 * 0 => Take the first word. offset of TOS in
+			 * v4 header is 1. MSB bit asserted at IHL means
+			 * to ignore packet IHL and do offset inside IPA header
+			 */
+			extra = ipa_write_8(0x80, extra);
+			rest = ipa_write_32(0xFF << 16, rest);
+			rest = ipa_write_32((attrib->u.v4.tos << 16), rest);
+			ihl_ofst_meq32++;
+			tos_done = true;
+		}
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_METADATA_COMPARE);
 		rest = ipa_write_32(attrib->meta_data_mask, rest);
@@ -1010,6 +1071,11 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 	if (attrib->attrib_mask & IPA_FLT_FRAGMENT)
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_FRAG);
 
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		IPAHAL_ERR("could not find equation for tos\n");
+		goto err;
+	}
+
 	goto done;
 
 err:
@@ -1033,6 +1099,14 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 	int rc = 0;
 
 	/* v6 code below assumes no extension headers TODO: fix this */
+	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK)) {
+			IPAHAL_ERR("is_pure_ack eq not supported\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_PURE_ACK);
+		extra = ipa_write_8(0, extra);
+	}
 
 	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_PROTOCOL_EQ);
@@ -1597,6 +1671,12 @@ static int ipa_fltrt_calc_extra_wrd_bytes(
 {
 	int num = 0;
 
+	/*
+	 * tos_eq_present field has two meanings:
+	 * tos equation for IPA ver < 4.5 (as the field name reveals)
+	 * pure_ack equation for IPA ver >= 4.5
+	 * In both cases it needs one extra word.
+	 */
 	if (attrib->tos_eq_present)
 		num++;
 	if (attrib->protocol_eq_present)
@@ -1650,8 +1730,22 @@ static int ipa_fltrt_generate_hw_rule_bdy_from_eq(
 		rest = *buf;
 	}
 
-	if (attrib->tos_eq_present)
-		extra = ipa_write_8(attrib->tos_eq, extra);
+	/*
+	 * tos_eq_present field has two meanings:
+	 * tos equation for IPA ver < 4.5 (as the field name reveals)
+	 * pure_ack equation for IPA ver >= 4.5
+	 * In both cases it needs one extra word.
+	 */
+	if (attrib->tos_eq_present) {
+		if (IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK)) {
+			extra = ipa_write_8(0, extra);
+		} else if (IPA_IS_RULE_EQ_VALID(IPA_TOS_EQ)) {
+			extra = ipa_write_8(attrib->tos_eq, extra);
+		} else {
+			IPAHAL_ERR("no support for pure_ack and tos eqs\n");
+			return -EPERM;
+		}
+	}
 
 	if (attrib->protocol_eq_present)
 		extra = ipa_write_8(attrib->protocol_eq, extra);
@@ -1807,11 +1901,31 @@ static int ipa_flt_generate_eq_ip4(enum ipa_ip_type ip,
 	u8 ofst_meq128 = 0;
 	u16 eq_bitmap = 0;
 	u16 *en_rule = &eq_bitmap;
+	bool tos_done = false;
 
-	if (attrib->attrib_mask & IPA_FLT_TOS) {
-		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ);
+	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK)) {
+			IPAHAL_ERR("is_pure_ack eq not supported\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_PURE_ACK);
+		/*
+		 * Starting IPA 4.5, where PURE ACK equation supported
+		 * and TOS equation support removed, field tos_eq_present
+		 * represent pure_ack presence.
+		 */
 		eq_atrb->tos_eq_present = 1;
-		eq_atrb->tos_eq = attrib->u.v4.tos;
+		eq_atrb->tos_eq = 0;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_TOS_EQ)) {
+			IPAHAL_DBG("tos eq not supported\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ);
+			eq_atrb->tos_eq_present = 1;
+			eq_atrb->tos_eq = attrib->u.v4.tos;
+		}
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
@@ -1993,6 +2107,26 @@ static int ipa_flt_generate_eq_ip4(enum ipa_ip_type ip,
 		ofst_meq32++;
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_DBG("ran out of meq32 eq\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+				ipa3_0_ofst_meq32[ofst_meq32]);
+			/*
+			 * offset 0 => Take the first word.
+			 * offset of TOS in v4 header is 1
+			 */
+			eq_atrb->offset_meq_32[ofst_meq32].offset = 0;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				0xFF << 16;
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				attrib->u.v4.tos << 16;
+			ofst_meq32++;
+			tos_done = true;
+		}
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_TYPE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
@@ -2037,6 +2171,29 @@ static int ipa_flt_generate_eq_ip4(enum ipa_ip_type ip,
 		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
 			attrib->spi;
 		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_DBG("ran out of ihl_meq32 eq\n");
+		} else {
+			*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+				ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+			/*
+			 * 0 => Take the first word. offset of TOS in
+			 * v4 header is 1. MSB bit asserted at IHL means
+			 * to ignore packet IHL and do offset inside IPA header
+			 */
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset =
+				0x80;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				0xFF << 16;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->u.v4.tos << 16;
+			ihl_ofst_meq32++;
+			tos_done = true;
+		}
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
@@ -2125,6 +2282,11 @@ static int ipa_flt_generate_eq_ip4(enum ipa_ip_type ip,
 		eq_atrb->ipv4_frag_eq_present = 1;
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_TOS && !tos_done) {
+		IPAHAL_ERR("could not find equation for tos\n");
+		return -EPERM;
+	}
+
 	eq_atrb->rule_eq_bitmap = *en_rule;
 	eq_atrb->num_offset_meq_32 = ofst_meq32;
 	eq_atrb->num_ihl_offset_range_16 = ihl_ofst_rng16;
@@ -2144,6 +2306,21 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	u8 ofst_meq128 = 0;
 	u16 eq_bitmap = 0;
 	u16 *en_rule = &eq_bitmap;
+
+	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK) {
+		if (!IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK)) {
+			IPAHAL_ERR("is_pure_ack eq not supported\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_PURE_ACK);
+		/*
+		 * Starting IPA 4.5, where PURE ACK equation supported
+		 * and TOS equation support removed, field tos_eq_present
+		 * represent pure_ack presenence.
+		 */
+		eq_atrb->tos_eq_present = 1;
+		eq_atrb->tos_eq = 0;
+	}
 
 	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2658,8 +2835,19 @@ static int ipa_fltrt_parse_hw_rule_eq(u8 *addr, u32 hdr_sz,
 
 	IPAHAL_DBG_LOW("eq_bitmap=0x%x\n", eq_bitmap);
 
-	if (eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ))
+	if (IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK) &&
+		(eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_IS_PURE_ACK))) {
+		/*
+		 * tos_eq_present field represents pure_ack when pure
+		 * ack equation valid (started IPA 4.5). In this case
+		 * tos equation should not be supported.
+		 */
 		atrb->tos_eq_present = true;
+	}
+	if (IPA_IS_RULE_EQ_VALID(IPA_TOS_EQ) &&
+		(eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ))) {
+		atrb->tos_eq_present = true;
+	}
 	if (eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_PROTOCOL_EQ))
 		atrb->protocol_eq_present = true;
 	if (eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_TC_EQ))
@@ -2715,8 +2903,12 @@ static int ipa_fltrt_parse_hw_rule_eq(u8 *addr, u32 hdr_sz,
 	IPAHAL_DBG_LOW("addr=0x%pK extra=0x%pK rest=0x%pK\n",
 		addr, extra, rest);
 
-	if (atrb->tos_eq_present)
+	if (IPA_IS_RULE_EQ_VALID(IPA_TOS_EQ) && atrb->tos_eq_present)
 		atrb->tos_eq = *extra++;
+	if (IPA_IS_RULE_EQ_VALID(IPA_IS_PURE_ACK) && atrb->tos_eq_present) {
+		atrb->tos_eq = 0;
+		extra++;
+	}
 	if (atrb->protocol_eq_present)
 		atrb->protocol_eq = *extra++;
 	if (atrb->tc_eq_present)
@@ -2839,7 +3031,7 @@ static int ipa_rt_parse_hw_rule(u8 *addr, struct ipahal_rt_rule_entry *rule)
 	IPAHAL_DBG_LOW("read hdr 0x%llx\n", rule_hdr->u.word);
 
 	if (rule_hdr->u.word == 0) {
-		/* table termintator - empty table */
+		/* table terminator - empty table */
 		rule->rule_size = 0;
 		return 0;
 	}
@@ -2971,6 +3163,8 @@ int ipahal_fltrt_init(enum ipa_hw_type ipa_hw_type)
 	int i;
 	struct ipa_mem_buffer *mem;
 	int rc = -EFAULT;
+	u32 eq_bits;
+	u8 *eq_bitfield;
 
 	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
 
@@ -3100,6 +3294,20 @@ int ipahal_fltrt_init(enum ipa_hw_type ipa_hw_type)
 				WARN_ON(1);
 			}
 		}
+	}
+
+	eq_bits = 0;
+	eq_bitfield = ipahal_fltrt_objs[ipa_hw_type].eq_bitfield;
+	for (i = 0; i < IPA_EQ_MAX; i++) {
+		if (!IPA_IS_RULE_EQ_VALID(i))
+			continue;
+
+		if (eq_bits & IPA_GET_RULE_EQ_BIT_PTRN(eq_bitfield[i])) {
+			IPAHAL_ERR("more than eq with same bit. eq=%d\n", i);
+			WARN_ON(1);
+			return -EFAULT;
+		}
+		eq_bits |= IPA_GET_RULE_EQ_BIT_PTRN(eq_bitfield[i]);
 	}
 
 	mem = &ipahal_ctx->empty_fltrt_tbl;
@@ -3735,14 +3943,14 @@ int ipahal_rt_generate_hw_rule(struct ipahal_rt_rule_gen_params *params,
 		if (!tmp)
 			return -ENOMEM;
 		buf = tmp;
-	} else
+	} else {
 		if ((long)buf & obj->rule_start_alignment) {
-			IPAHAL_ERR("buff is not rule rule start aligned\n");
+			IPAHAL_ERR("buff is not rule start aligned\n");
 			return -EPERM;
 		}
+	}
 
-	rc = ipahal_fltrt_objs[ipahal_ctx->hw_type].rt_generate_hw_rule(
-		params, hw_len, buf);
+	rc = obj->rt_generate_hw_rule(params, hw_len, buf);
 	if (!tmp && !rc) {
 		/* write the rule-set terminator */
 		memset(buf + *hw_len, 0, obj->tbl_width);
@@ -3800,8 +4008,7 @@ int ipahal_flt_generate_hw_rule(struct ipahal_flt_rule_gen_params *params,
 			return -EPERM;
 		}
 
-	rc = ipahal_fltrt_objs[ipahal_ctx->hw_type].flt_generate_hw_rule(
-		params, hw_len, buf);
+	rc = obj->flt_generate_hw_rule(params, hw_len, buf);
 	if (!tmp && !rc) {
 		/* write the rule-set terminator */
 		memset(buf + *hw_len, 0, obj->tbl_width);

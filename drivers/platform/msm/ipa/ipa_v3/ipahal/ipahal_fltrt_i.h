@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ enum ipa_fltrt_equations {
 	IPA_IHL_OFFSET_EQ_16,
 	IPA_FL_EQ,
 	IPA_IS_FRAG,
+	IPA_IS_PURE_ACK,
 	IPA_EQ_MAX,
 };
 
