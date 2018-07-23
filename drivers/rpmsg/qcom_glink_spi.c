@@ -561,7 +561,7 @@ static void glink_spi_rx_advance(struct glink_spi *glink, size_t count)
 	tail = pipe->local_addr;
 	tail += count;
 
-	if (tail > pipe->fifo_base + pipe->length)
+	if (tail >= pipe->fifo_base + pipe->length)
 		tail -= pipe->length;
 
 	pipe->local_addr = tail;
