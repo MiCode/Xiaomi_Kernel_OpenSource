@@ -218,6 +218,15 @@ int dsi_phy_clk_cb_register(struct msm_dsi_phy *phy,
 int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
 
 /**
+ * dsi_phy_set_clamp_state() - configure clamps for DSI lanes
+ * @phy:        DSI PHY handle.
+ * @enable:     boolean to specify clamp enable/disable.
+ *
+ * Return: error code.
+ */
+int dsi_phy_set_clamp_state(struct msm_dsi_phy *phy, bool enable);
+
+/**
  * dsi_phy_set_clk_freq() - set DSI PHY clock frequency setting
  * @phy:          DSI PHY handle
  * @clk_freq:     link clock frequency
