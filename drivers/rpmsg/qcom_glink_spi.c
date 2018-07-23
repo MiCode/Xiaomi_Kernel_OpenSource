@@ -2443,8 +2443,10 @@ static void glink_spi_remove(struct glink_spi *glink)
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
 	/* Release any defunct local channels, waiting for close-ack */
-	idr_for_each_entry(&glink->lcids, channel, cid)
-		kref_put(&channel->refcount, glink_spi_channel_release);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		if (kref_put(&channel->refcount, glink_spi_channel_release))
+			idr_remove(&glink->lcids, cid);
+	}
 
 	/* Release any defunct local channels, waiting for close-req */
 	idr_for_each_entry(&glink->lcids, channel, cid)
