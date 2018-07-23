@@ -40,6 +40,20 @@
 #define POLL_TIME_USEC_FOR_LN_CNT 500
 #define MAX_POLL_CNT 10
 
+static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
+		return true;
+
+	return false;
+}
+
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -313,12 +327,14 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	if (!phys_enc->sde_kms->splash_data.cont_splash_en) {
 		SDE_EVT32(DRMID(phys_enc->parent), f.enable, f.fetch_start);
 
-		phys_enc->hw_ctl->ops.get_bitmask_intf(
-				phys_enc->hw_ctl, &flush_mask,
-				vid_enc->hw_intf->idx);
-		phys_enc->hw_ctl->ops.update_pending_flush(
-				phys_enc->hw_ctl, flush_mask);
-
+		if (!_sde_encoder_phys_is_ppsplit(phys_enc) ||
+			sde_encoder_phys_vid_is_master(phys_enc)) {
+			phys_enc->hw_ctl->ops.get_bitmask_intf(
+					phys_enc->hw_ctl, &flush_mask,
+					vid_enc->hw_intf->idx);
+			phys_enc->hw_ctl->ops.update_pending_flush(
+					phys_enc->hw_ctl, flush_mask);
+		}
 		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 		vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
@@ -494,20 +510,6 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 	if (phys_enc->parent_ops.handle_underrun_virt)
 		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
 			phys_enc);
-}
-
-static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
-{
-	enum sde_rm_topology_name topology;
-
-	if (!phys_enc)
-		return false;
-
-	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
-		return true;
-
-	return false;
 }
 
 static bool _sde_encoder_phys_is_dual_ctl(struct sde_encoder_phys *phys_enc)
