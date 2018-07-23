@@ -1988,6 +1988,32 @@
 		qcom,pil-force-shutdown;
 		memory-region = <&pil_ipa_fw_mem>;
 	};
+
+	icnss: qcom,icnss@18800000 {
+		status = "disabled";
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,smmu-s1-bypass;
+		qcom,wlan-msa-memory = <0x100000>;
+		vdd-0.8-cx-mx-supply = <&pm6150_l9>;
+		vdd-1.8-xo-supply = <&pm6150l_l1>;
+		vdd-1.3-rfa-supply = <&pm6150l_l2>;
+		vdd-3.3-ch0-supply = <&pm6150l_l10>;
+		qcom,vdd-0.8-cx-mx-config = <640000 640000>;
+	};
 };
 
 #include "pm6150.dtsi"
