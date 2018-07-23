@@ -31,6 +31,9 @@
 #include "inv_icm20602_iio.h"
 #include <linux/regulator/consumer.h>
 
+
+static struct regulator *reg_ldo;
+
 /* Attribute of icm20602 device init show */
 static ssize_t inv_icm20602_init_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -384,19 +387,19 @@ static int icm20602_ldo_work(struct inv_icm20602_state *st, bool enable)
 	int ret = 0;
 
 	if (enable) {
-		ret = regulator_set_voltage(st->reg_ldo,
+		ret = regulator_set_voltage(reg_ldo,
 			ICM20602_LDO_VTG_MIN_UV, ICM20602_LDO_VTG_MAX_UV);
 		if (ret)
 			pr_err("Failed to request LDO voltage.\n");
 
-		ret = regulator_enable(st->reg_ldo);
+		ret = regulator_enable(reg_ldo);
 		if (ret)
 			pr_err("Failed to enable LDO %d\n", ret);
 	} else {
-		ret = regulator_disable(st->reg_ldo);
+		ret = regulator_disable(reg_ldo);
+		regulator_set_load(reg_ldo, 0);
 		if (ret)
 			pr_err("Failed to disable LDO %d\n", ret);
-		regulator_set_load(st->reg_ldo, 0);
 	}
 
 	return MPU_SUCCESS;
@@ -405,14 +408,13 @@ static int icm20602_ldo_work(struct inv_icm20602_state *st, bool enable)
 static int icm20602_init_regulators(struct inv_icm20602_state *st)
 {
 	struct regulator *reg;
-
 	reg = regulator_get(&st->client->dev, "vdd-ldo");
 	if (IS_ERR_OR_NULL(reg)) {
 		pr_err("Unable to get regulator for LDO\n");
 		return -MPU_FAIL;
 	}
 
-	st->reg_ldo = reg;
+	reg_ldo = reg;
 
 	return MPU_SUCCESS;
 }
