@@ -404,6 +404,7 @@
 
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
+		qcom,curr-link-list = <1>;
 	};
 
 	rpm_bus: qcom,rpm-smd {

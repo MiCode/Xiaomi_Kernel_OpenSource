@@ -71,6 +71,7 @@
 
 		arm,buffer-size = <0x400000>;
 		qcom,force-reg-dump;
+		arm,sg-enable;
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti0>;
