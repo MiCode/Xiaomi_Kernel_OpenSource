@@ -22,7 +22,7 @@
 #include <linux/spinlock.h>
 
 struct removed_region {
-	dma_addr_t	base;
+	phys_addr_t	base;
 	int		nr_pages;
 	unsigned long	*bitmap;
 	struct mutex	lock;
@@ -74,16 +74,18 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	bool no_kernel_mapping = attrs & DMA_ATTR_NO_KERNEL_MAPPING;
 	bool skip_zeroing = attrs & DMA_ATTR_SKIP_ZEROING;
 	int pageno;
-	unsigned long order = get_order(size);
+	unsigned long order;
 	void *addr = NULL;
 	struct removed_region *dma_mem = dev->removed_mem;
-	int nbits = size >> PAGE_SHIFT;
+	int nbits;
 	unsigned int align;
-
-	size = PAGE_ALIGN(size);
 
 	if (!gfpflags_allow_blocking(gfp))
 		return NULL;
+
+	size = PAGE_ALIGN(size);
+	nbits = size >> PAGE_SHIFT;
+	order = get_order(size);
 
 	if (order > get_order(SZ_1M))
 		order = get_order(SZ_1M);
@@ -111,7 +113,7 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 			bitmap_clear(dma_mem->bitmap, pageno, nbits);
 		} else {
 			if (!skip_zeroing)
-				memset(addr, 0, size);
+				memset_io(addr, 0, size);
 			if (no_kernel_mapping) {
 				iounmap(addr);
 				addr = (void *)NO_KERNEL_MAPPING_DUMMY;
@@ -139,6 +141,7 @@ void removed_free(struct device *dev, size_t size, void *cpu_addr,
 	bool no_kernel_mapping = attrs & DMA_ATTR_NO_KERNEL_MAPPING;
 	struct removed_region *dma_mem = dev->removed_mem;
 
+	size = PAGE_ALIGN(size);
 	if (!no_kernel_mapping)
 		iounmap(cpu_addr);
 	mutex_lock(&dma_mem->lock);
