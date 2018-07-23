@@ -346,6 +346,7 @@ config CLOCK_CPU_QCS405
 config MSM_GCC_SM6150
 	tristate "SM6150 Global Clock Controller"
 	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
 	help
 	  Support for the global clock controller on Qualcomm Technologies, Inc
 	  SM6150 devices.
