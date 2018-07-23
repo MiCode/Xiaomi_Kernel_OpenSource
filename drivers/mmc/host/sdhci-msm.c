@@ -5239,19 +5239,50 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct sdhci_msm_pltfm_data *pdata = msm_host->pdata;
+	int nr_groups = msm_host->pdata->pm_qos_data.cpu_group_map.nr_groups;
+	int i;
 	int dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) ==
 			0xffffffff);
 
-	pr_debug("%s: %s\n", dev_name(&pdev->dev), __func__);
+	pr_debug("%s: %s Enter\n", dev_name(&pdev->dev), __func__);
 	if (!gpio_is_valid(msm_host->pdata->status_gpio))
 		device_remove_file(&pdev->dev, &msm_host->polling);
+
+	device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 	pm_runtime_disable(&pdev->dev);
 
+	if (msm_host->pm_qos_group_enable) {
+		struct sdhci_msm_pm_qos_group *group;
+
+		for (i = 0; i < nr_groups; i++)
+			cancel_delayed_work_sync(
+					&msm_host->pm_qos[i].unvote_work);
+
+		device_remove_file(&msm_host->pdev->dev,
+			&msm_host->pm_qos_group_enable_attr);
+		device_remove_file(&msm_host->pdev->dev,
+			&msm_host->pm_qos_group_status_attr);
+
+		for (i = 0; i < nr_groups; i++) {
+			group = &msm_host->pm_qos[i];
+			pm_qos_remove_request(&group->req);
+		}
+	}
+
+	if (msm_host->pm_qos_irq.enabled) {
+		cancel_delayed_work_sync(&msm_host->pm_qos_irq.unvote_work);
+		device_remove_file(&pdev->dev,
+				&msm_host->pm_qos_irq.enable_attr);
+		device_remove_file(&pdev->dev,
+				&msm_host->pm_qos_irq.status_attr);
+		pm_qos_remove_request(&msm_host->pm_qos_irq.req);
+	}
+
 	if (msm_host->pm_qos_wq)
 		destroy_workqueue(msm_host->pm_qos_wq);
+
 	sdhci_remove_host(host, dead);
-	sdhci_pltfm_free(pdev);
 
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
@@ -5262,6 +5293,9 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(msm_host);
 	}
+
+	sdhci_pltfm_free(pdev);
+
 	return 0;
 }
 
