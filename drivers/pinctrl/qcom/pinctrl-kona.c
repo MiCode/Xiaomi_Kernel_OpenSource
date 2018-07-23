@@ -50,7 +50,7 @@
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
 		.egpio_enable = 12,		\
-		.egpio_presetn = 11,		\
+		.egpio_present = 11,		\
 		.oe_bit = 9,			\
 		.in_bit = 0,			\
 		.out_bit = 1,			\
