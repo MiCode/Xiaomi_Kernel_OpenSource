@@ -124,6 +124,8 @@
 		"MIC BIAS External", "Digital Mic3",
 		"DMIC4", "MIC BIAS External",
 		"MIC BIAS External", "Digital Mic4",
+		"MICBIAS_REGULATOR", "VDDA18_L10_REGULATOR",
+		"VDDA18_L10_REGULATOR", "VDD_L1_REGULATOR",
 		"SpkrLeft IN", "SPK1 OUT",
 		"SpkrRight IN", "SPK2 OUT",
 		"PDM_IN_RX1", "PDM_OUT_RX1",
@@ -501,12 +503,22 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3088000 3088000>;
 		qcom,cdc-vdd-mic-bias-current = <5000>;
 
+		cdc-vdda18-l10-supply = <&pm660_l10>;
+		qcom,cdc-vdda18-l10-voltage = <1800000 1800000>;
+		qcom,cdc-vdda18-l10-current = <30000>;
+
+		cdc-vdd-l1-supply = <&pm660l_l1>;
+		qcom,cdc-vdd-l1-voltage = <880000 880000>;
+		qcom,cdc-vdd-l1-current = <30000>;
+
 		qcom,cdc-mclk-clk-rate = <9600000>;
 
 		qcom,cdc-static-supplies = "cdc-vdda-cp",
 					   "cdc-vdd-pa";
 
-		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias",
+					      "cdc-vdda18-l10",
+					      "cdc-vdd-l1";
 
 		/*
 		 * Not marking address @ as driver searches this child

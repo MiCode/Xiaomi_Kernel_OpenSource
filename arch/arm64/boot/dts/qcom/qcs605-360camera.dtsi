@@ -184,6 +184,8 @@
 		"MIC BIAS External2", "Digital Mic3",
 		"DMIC4", "MIC BIAS External2",
 		"MIC BIAS External2", "Digital Mic4",
+		"MICBIAS_REGULATOR", "VDDA18_L10_REGULATOR",
+		"VDDA18_L10_REGULATOR", "VDD_L1_REGULATOR",
 		"PDM_IN_RX1", "PDM_OUT_RX1",
 		"PDM_IN_RX2", "PDM_OUT_RX2",
 		"PDM_IN_RX3", "PDM_OUT_RX3",
