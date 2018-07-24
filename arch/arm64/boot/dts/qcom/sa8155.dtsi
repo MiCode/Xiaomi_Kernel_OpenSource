@@ -66,6 +66,14 @@
 	/delete-node/ rpmh-regulator-ldof2;
 	/delete-node/ rpmh-regulator-ldof5;
 	/delete-node/ rpmh-regulator-ldof6;
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		status = "disabled";
+	};
 };
 
 /* Add regulator nodes specific to SA8155 */
