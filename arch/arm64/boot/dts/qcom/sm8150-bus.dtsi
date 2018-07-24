@@ -777,24 +777,6 @@
 			qcom,prio = <2>;
 		};
 
-		mas_xm_ufs_card: mas-xm-ufs-card {
-			cell-id = <MSM_BUS_MASTER_UFS_CARD>;
-			label = "mas-xm-ufs-card";
-			qcom,buswidth = <8>;
-			qcom,agg-ports = <1>;
-			qcom,qport = <45>;
-			qcom,connections = <&slv_qns_a2noc_snoc>;
-			qcom,bus-dev = <&fab_aggre2_noc>;
-			qcom,ap-owned;
-			qcom,prio = <2>;
-			qcom,node-qos-clks {
-				clocks =
-				<&clock_gcc GCC_AGGRE_UFS_CARD_AXI_CLK>;
-				clock-names =
-				"clk-aggre-ufs-card-axi-no-rate";
-			};
-		};
-
 		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
 			cell-id = <MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP>;
 			label = "mas-qxm-camnoc-hf0-uncomp";

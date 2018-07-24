@@ -4,7 +4,7 @@ Peripheral-to-Memory (a.k.a. BAM-System) mode. SPS includes BAM (Bus
 Access Module) hardware block, BAM DMA peripheral, and pipe memory.
 
 Required property:
-  - compatible: should be "qcom,msm_sps" or "qcom,msm_sps_4k"
+  - compatible: should be "qcom,msm-sps" or "qcom,msm-sps-4k"
 
 Optional properties:
   - reg: offset and size for the memory mapping, including maps for
@@ -34,7 +34,7 @@ Optional properties:
 Example:
 
 	qcom,sps@f9980000 {
-		compatible = "qcom,msm_sps";
+		compatible = "qcom,msm-sps";
 		reg = <0xf9984000 0x15000>,
 		      <0xf9999000 0xb000>,
 		      <0xfe803000 0x4800>;

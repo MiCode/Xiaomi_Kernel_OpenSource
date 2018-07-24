@@ -1159,7 +1159,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 			bus_irq_reg_mask, wm_res,
 			wm_res->top_half_handler,
 			cam_ife_mgr_do_tasklet_buf_done,
-			wm_res->tasklet_info, cam_tasklet_enqueue_cmd);
+			wm_res->tasklet_info, &tasklet_bh_api);
 		if (wm_res->irq_handle < 0) {
 			CAM_ERR(CAM_ISP, "Subscribe IRQ failed for WM %d",
 				rsrc_data->index);
@@ -1673,7 +1673,7 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 			bus_irq_reg_mask, comp_grp,
 			comp_grp->top_half_handler,
 			cam_ife_mgr_do_tasklet_buf_done,
-			comp_grp->tasklet_info, cam_tasklet_enqueue_cmd);
+			comp_grp->tasklet_info, &tasklet_bh_api);
 		if (comp_grp->irq_handle < 0) {
 			CAM_ERR(CAM_ISP, "Subscribe IRQ failed for comp_grp %d",
 				rsrc_data->comp_grp_type);
@@ -2360,11 +2360,13 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 	struct cam_irq_th_payload                 *th_payload)
 {
 	struct cam_vfe_bus_ver2_priv          *bus_priv;
+	int rc = 0;
 
 	bus_priv     = th_payload->handler_priv;
 	CAM_DBG(CAM_ISP, "Enter");
-	return cam_irq_controller_handle_irq(evt_id,
+	rc = cam_irq_controller_handle_irq(evt_id,
 		bus_priv->common_data.bus_irq_controller);
+	return (rc == IRQ_HANDLED) ? 0 : -EINVAL;
 }
 
 static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,

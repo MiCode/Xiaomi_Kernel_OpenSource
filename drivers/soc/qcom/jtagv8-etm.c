@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,6 +178,7 @@
 
 #define MAX_ETM_STATE_SIZE	(165)
 
+#define TZ_DBG_ETM_FEAT_ID	(0x8)
 #define TZ_DBG_ETM_VER		(0x400000)
 #define HW_SOC_ID_M8953		(293)
 #define GET_FEAT_VERSION_CMD	3
@@ -1537,6 +1538,8 @@ static int jtag_mm_etm_online(unsigned int cpu)
 		return 0;
 	}
 	if (etm_arch_supported(etm[cpu]->arch)) {
+		desc.args[0] = TZ_DBG_ETM_FEAT_ID;
+		desc.arginfo = SCM_ARGS(1);
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
 				GET_FEAT_VERSION_CMD), &desc);
 		if (!ret) {
@@ -1631,6 +1634,8 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	mutex_lock(&etmdata->mutex);
 	if (etmdata->init && !etmdata->enable) {
 		if (etm_arch_supported(etmdata->arch)) {
+			desc.args[0] = TZ_DBG_ETM_FEAT_ID;
+			desc.arginfo = SCM_ARGS(1);
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
 					GET_FEAT_VERSION_CMD), &desc);
 			if (!ret) {

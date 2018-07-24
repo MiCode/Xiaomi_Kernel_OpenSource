@@ -25,8 +25,8 @@
 #define A5_CSR_BASE             2
 
 #define A5_HOST_INT             0x1
-#define A5_WDT_0                0x10
-#define A5_WDT_1                0x100
+#define A5_WDT_0                0x2
+#define A5_WDT_1                0x4
 
 #define ELF_GUARD_PAGE          (2 * 1024 * 1024)
 

@@ -139,8 +139,14 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
+
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
+	else
+		_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
@@ -157,8 +163,14 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
+
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
+	else
+		_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
@@ -724,18 +736,15 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 #define GX_CLK_OFF		BIT(7)
 #define is_on(val)		(!(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF)))
 /*
- * a6xx_gx_is_on() - Check if GX is on using pwr status register
+ * a6xx_gmu_gx_is_on() - Check if GX is on using pwr status register
  * @adreno_dev - Pointer to adreno_device
  * This check should only be performed if the keepalive bit is set or it
  * can be guaranteed that the power state of the GPU will remain unchanged
  */
-bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
+static bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
-
-	if (!gmu_core_isenabled(device))
-		return true;
 
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return is_on(val);
@@ -1363,12 +1372,12 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	bool gx_on;
 	struct gmu_mem_type_desc desc[] = {
 		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
 		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
 		{gmu->bw_mem, SNAPSHOT_GMU_BWMEM},
 		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int val, i;
 
 	if (!gmu_core_isenabled(device))
@@ -1385,7 +1394,9 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
 
-	if (gpudev->gx_is_on(adreno_dev)) {
+	gx_on = a6xx_gmu_gx_is_on(adreno_dev);
+
+	if (gx_on) {
 		/* Set fence to ALLOW mode so registers can be read */
 		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
@@ -1406,6 +1417,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.hfi_start_msg = a6xx_gmu_hfi_start_msg,
 	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
+	.gx_is_on = a6xx_gmu_gx_is_on,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
 	.ifpc_store = a6xx_gmu_ifpc_store,

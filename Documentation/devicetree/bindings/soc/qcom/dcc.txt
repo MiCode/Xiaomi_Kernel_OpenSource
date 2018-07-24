@@ -27,6 +27,8 @@ Optional properties:
 - clock-names: Name of the clock that needs to be enabled for the HW to run.
 	       Turned off when the subsystem is disabled.
 
+- clk-enable: Boolean, To specify DCC CLKs support is added.
+
 - qcom,save-reg: boolean, To save dcc registers state in memory after dcc
 		 enable and disable
 

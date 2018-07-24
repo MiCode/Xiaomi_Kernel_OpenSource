@@ -299,6 +299,8 @@ struct RGF_ICR {
 	#define BIT_DMA_ITR_RX_IDL_CNT_CTL_FOREVER		BIT(2)
 	#define BIT_DMA_ITR_RX_IDL_CNT_CTL_CLR			BIT(3)
 	#define BIT_DMA_ITR_RX_IDL_CNT_CTL_REACHED_TRESH	BIT(4)
+#define RGF_DMA_MISC_CTL				(0x881d6c)
+	#define BIT_OFUL34_RDY_VALID_BUG_FIX_EN			BIT(7)
 
 #define RGF_DMA_PSEUDO_CAUSE		(0x881c68)
 #define RGF_DMA_PSEUDO_CAUSE_MASK_SW	(0x881c6c)
@@ -565,6 +567,7 @@ struct wil_net_stats {
 	unsigned long	rx_mic_error;
 	unsigned long	rx_key_error; /* eDMA specific */
 	unsigned long	rx_amsdu_error; /* eDMA specific */
+	unsigned long	rx_csum_err;
 	u16 last_mcs_rx;
 	u64 rx_per_mcs[WIL_MCS_MAX + 1];
 };

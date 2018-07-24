@@ -1173,6 +1173,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	struct f_gsi *gsi;
 	struct gsi_ctrl_pkt *cpkt;
 	struct ep_info info;
+	struct data_buf_info data_info;
 	enum ipa_usb_teth_prot prot_id =
 		*(enum ipa_usb_teth_prot *)(fp->private_data);
 	struct gsi_inst_status *inst_cur = &inst_status[prot_id];
@@ -1301,6 +1302,36 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 		}
 		log_event_dbg("Sent NTB datagrams count %d",
 			gsi->d_port.ntb_info.ntb_max_datagrams);
+		break;
+	case QTI_CTRL_DATA_BUF_INFO:
+		if (gsi->d_port.out_ep) {
+			data_info.epout_buf_len =
+				gsi->d_port.out_request.buf_len;
+			data_info.epout_total_buf_len =
+				gsi->d_port.out_request.buf_len *
+				gsi->d_port.out_request.num_bufs;
+			log_event_dbg("prot id :%d OUT: buf_len:%u total_len: %u",
+				gsi->prot_id, data_info.epout_buf_len,
+				data_info.epout_total_buf_len);
+		}
+
+		if (gsi->d_port.in_ep) {
+			data_info.epin_buf_len =
+				gsi->d_port.in_request.buf_len;
+			data_info.epin_total_buf_len =
+				gsi->d_port.in_request.buf_len *
+				gsi->d_port.in_request.num_bufs;
+			log_event_dbg("prot id :%d IN: buf_len:%u total_len:%u\n",
+				gsi->prot_id, data_info.epin_buf_len,
+				data_info.epin_total_buf_len);
+		}
+
+		ret = copy_to_user((void __user *)arg, &data_info,
+			sizeof(data_info));
+		if (ret) {
+			log_event_err("QTI_CTRL_DATA_BUF_INFO: copy_to_user failed");
+			ret = -EFAULT;
+		}
 		break;
 	default:
 		log_event_err("wrong parameter");

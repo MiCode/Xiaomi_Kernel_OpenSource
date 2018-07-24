@@ -791,6 +791,8 @@ int read_platform_resources_from_drv_data(
 			"qcom,decode-batching");
 	res->dcvs = find_key_value(platform_data,
 			"qcom,dcvs");
+	res->fw_cycles = find_key_value(platform_data,
+			"qcom,fw-cycles");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 

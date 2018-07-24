@@ -23,7 +23,6 @@
 
 #define DFC_MAX_BEARERS_V01 16
 #define DFC_MAX_QOS_ID_V01 2
-#define DEFAULT_FLOW_ID 0
 
 struct dfc_qmi_data {
 	void *rmnet_port;
@@ -39,15 +38,6 @@ struct dfc_svc_ind {
 	struct dfc_qmi_data *data;
 	void *dfc_info;
 };
-
-#ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
-struct dfc_ind_reg {
-	struct work_struct work;
-	struct dfc_qmi_data *data;
-	int reg;
-};
-static void dfc_ind_reg_dereg(struct work_struct *work);
-#endif
 
 static void dfc_svc_init(struct work_struct *work);
 static void dfc_do_burst_flow_control(struct work_struct *work);
@@ -68,7 +58,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work);
 #define QMI_DFC_INDICATION_REGISTER_RESP_V01_MAX_MSG_LEN 7
 
 #define QMI_DFC_FLOW_STATUS_IND_V01 0x0022
-#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 471
+#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 424
 
 struct dfc_bind_client_req_msg_v01 {
 	u8 ep_id_valid;
@@ -223,16 +213,12 @@ static struct qmi_elem_info dfc_flow_status_info_type_v01_ei[] = {
 	},
 };
 
-/**
- * Indication Message; Gives the flow status to control points
- * that have registered for this event reporting.
- */
 struct dfc_flow_status_ind_msg_v01 {
-	u8	flow_status_valid;
-	u8	flow_status_len;
-	struct	dfc_flow_status_info_type_v01 flow_status[DFC_MAX_BEARERS_V01];
-	u8	eod_ack_reqd_valid;
-	u8	eod_ack_reqd;
+	u8 flow_status_valid;
+	u8 flow_status_len;
+	struct dfc_flow_status_info_type_v01 flow_status[DFC_MAX_BEARERS_V01];
+	u8 eod_ack_reqd_valid;
+	u8 eod_ack_reqd;
 };
 
 static struct qmi_elem_info dfc_bind_client_req_msg_v01_ei[] = {
@@ -412,34 +398,36 @@ dfc_bind_client_req(struct qmi_handle *dfc_handle,
 		kfree(req);
 		return -ENOMEM;
 	}
-	/* Prepare req and response message */
-	req->ep_id_valid = 1;
-	req->ep_id.ep_type = svc->ep_type;
-	req->ep_id.iface_id = svc->iface_id;
 
 	ret = qmi_txn_init(dfc_handle, &txn,
 			   dfc_bind_client_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		pr_err("Fail to init txn for bind client resp %d\n", ret);
+		pr_err("%s() Failed init for response, err: %d\n",
+			__func__, ret);
 		goto out;
 	}
 
+	req->ep_id_valid = 1;
+	req->ep_id.ep_type = svc->ep_type;
+	req->ep_id.iface_id = svc->iface_id;
 	ret = qmi_send_request(dfc_handle, ssctl, &txn,
 			       QMI_DFC_BIND_CLIENT_REQ_V01,
 			       QMI_DFC_BIND_CLIENT_REQ_V01_MAX_MSG_LEN,
 			       dfc_bind_client_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		pr_err("Fail to send bind client req %d\n", ret);
+		pr_err("%s() Failed sending request, err: %d\n",
+			__func__, ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("bind client resp wait failed ret %d\n", ret);
+		pr_err("%s() Response waiting failed, err: %d\n",
+			__func__, ret);
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("QMI bind client request rejected, result:%d err:%d\n",
-			resp->resp.result, resp->resp.error);
+		pr_err("%s() Request rejected, result: %d, err: %d\n",
+			__func__, resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 	}
 
@@ -467,34 +455,35 @@ dfc_indication_register_req(struct qmi_handle *dfc_handle,
 		kfree(req);
 		return -ENOMEM;
 	}
-	/* Prepare req and response message */
-	req->report_flow_status_valid = 1;
-	req->report_flow_status = reg;
 
 	ret = qmi_txn_init(dfc_handle, &txn,
 			   dfc_indication_register_resp_msg_v01_ei, resp);
 	if (ret < 0) {
-		pr_err("%s() Failed init txn for resp %d\n", __func__, ret);
+		pr_err("%s() Failed init for response, err: %d\n",
+			__func__, ret);
 		goto out;
 	}
 
+	req->report_flow_status_valid = 1;
+	req->report_flow_status = reg;
 	ret = qmi_send_request(dfc_handle, ssctl, &txn,
 			       QMI_DFC_INDICATION_REGISTER_REQ_V01,
 			       QMI_DFC_INDICATION_REGISTER_REQ_V01_MAX_MSG_LEN,
 			       dfc_indication_register_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		pr_err("%s() Fail to send indication register req %d\n",
-		       __func__, ret);
+		pr_err("%s() Failed sending request, err: %d\n",
+			__func__, ret);
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s() resp wait failed ret:%d\n", __func__, ret);
+		pr_err("%s() Response waiting failed, err: %d\n",
+			__func__, ret);
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s() rejected, result:%d error:%d\n",
-		       __func__, resp->resp.result, resp->resp.error);
+		pr_err("%s() Request rejected, result: %d, err: %d\n",
+			__func__, resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 	}
 
@@ -616,6 +605,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 		return;
 	}
 
+	local_bh_disable();
 	/* This will drop some messages but that is
 	 * unavoidable for now since the notifier callback is
 	 * protected by rtnl_lock() and destroy_workqueue()
@@ -624,6 +614,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 	if (!rtnl_trylock()) {
 		kfree(ind);
 		kfree(svc_ind);
+		local_bh_enable();
 		return;
 	}
 
@@ -655,6 +646,7 @@ clean_out:
 	kfree(ind);
 	kfree(svc_ind);
 	rtnl_unlock();
+	local_bh_enable();
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
@@ -679,13 +671,13 @@ static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			return;
 		}
 
-		svc_ind = kmalloc(sizeof(struct dfc_svc_ind), GFP_ATOMIC);
+		svc_ind = kzalloc(sizeof(struct dfc_svc_ind), GFP_ATOMIC);
 		if (!svc_ind)
 			return;
 
 		INIT_WORK((struct work_struct *)svc_ind,
 			  dfc_do_burst_flow_control);
-		svc_ind->dfc_info = kmalloc(sizeof(*ind_msg), GFP_ATOMIC);
+		svc_ind->dfc_info = kzalloc(sizeof(*ind_msg), GFP_ATOMIC);
 		if (!svc_ind->dfc_info) {
 			kfree(svc_ind);
 			return;
@@ -705,23 +697,24 @@ static void dfc_svc_init(struct work_struct *work)
 	struct qmi_info *qmi;
 
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
-	if (!qmi) {
-		qmi_handle_release(&data->handle);
-		return;
-	}
+	if (!qmi)
+		goto clean_out;
 
-	/* Request indication from modem service */
 	rc = dfc_init_service(data, qmi);
-	if (rc < 0) {
-		qmi_handle_release(&data->handle);
-		return;
-	}
+	if (rc < 0)
+		goto clean_out;
 
 	qmi->fc_info[data->index].dfc_client = (void *)data;
 	trace_dfc_client_state_up(data->index,
 				  qmi->fc_info[data->index].svc.instance,
 				  qmi->fc_info[data->index].svc.ep_type,
 				  qmi->fc_info[data->index].svc.iface_id);
+	return;
+
+clean_out:
+	qmi_handle_release(&data->handle);
+	destroy_workqueue(data->dfc_wq);
+	kfree(data);
 }
 
 static int dfc_svc_arrive(struct qmi_handle *qmi, struct qmi_service *svc)
@@ -845,6 +838,7 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 	if (!rtnl_trylock())
 		return;
+
 	ip_type = (ip_hdr(skb)->version == IP_VER_6) ? AF_INET6 : AF_INET;
 
 	itm = qmi_rmnet_get_flow_map(qos, skb->mark, ip_type);
@@ -869,44 +863,3 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 	rtnl_unlock();
 }
-
-void dfc_reset_port_pt(void *dfc_data)
-{
-	struct dfc_qmi_data *data = (struct dfc_qmi_data *)dfc_data;
-
-	if (data) {
-		data->rmnet_port = NULL;
-		dfc_indication_register_req(&data->handle, &data->ssctl, 0);
-		destroy_workqueue(data->dfc_wq);
-	}
-}
-
-#ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
-static void dfc_ind_reg_dereg(struct work_struct *work)
-{
-	struct dfc_ind_reg *ind_reg = (struct dfc_ind_reg *)work;
-
-	dfc_indication_register_req(&ind_reg->data->handle,
-				    &ind_reg->data->ssctl, ind_reg->reg);
-	kfree(ind_reg);
-}
-
-int dfc_reg_unreg_fc_ind(void *dfc_data, int reg)
-{
-	struct dfc_qmi_data *data = (struct dfc_qmi_data *)dfc_data;
-	struct dfc_ind_reg *ind_reg;
-
-	if (!data)
-		return -EINVAL;
-
-	ind_reg = kmalloc(sizeof(struct dfc_ind_reg), GFP_ATOMIC);
-	if (!ind_reg)
-		return -ENOMEM;
-
-	INIT_WORK((struct work_struct *)ind_reg, dfc_ind_reg_dereg);
-	ind_reg->data = data;
-	ind_reg->reg = reg;
-	schedule_work((struct work_struct *)ind_reg);
-	return 0;
-}
-#endif /*defed CONFIG_QCOM_QMI_POWER_COLLAPSE*/

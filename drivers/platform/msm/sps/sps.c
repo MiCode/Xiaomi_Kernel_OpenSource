@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2813,10 +2813,10 @@ static int get_device_tree_data(struct platform_device *pdev)
 }
 
 static const struct of_device_id msm_sps_match[] = {
-	{	.compatible = "qcom,msm_sps",
+	{	.compatible = "qcom,msm-sps",
 		.data = &bam_types[SPS_BAM_NDP]
 	},
-	{	.compatible = "qcom,msm_sps_4k",
+	{	.compatible = "qcom,msm-sps-4k",
 		.data = &bam_types[SPS_BAM_NDP_4K]
 	},
 	{}

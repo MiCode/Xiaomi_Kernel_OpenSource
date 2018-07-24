@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ struct msm_memory_dump {
 };
 
 static struct msm_memory_dump memdump;
+static struct msm_mem_dump_vaddr_tbl vaddr_tbl;
 
 uint32_t msm_dump_table_version(void)
 {
@@ -145,6 +146,28 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 }
 EXPORT_SYMBOL(msm_dump_data_register);
 
+struct dump_vaddr_entry *get_msm_dump_ptr(enum msm_dump_data_ids id)
+{
+	int i;
+
+	if (!vaddr_tbl.entries)
+		return NULL;
+
+	if (id > MSM_DUMP_DATA_MAX)
+		return NULL;
+
+	for (i = 0; i < vaddr_tbl.num_node; i++) {
+		if (vaddr_tbl.entries[i].id == id)
+			break;
+	}
+
+	if (i == vaddr_tbl.num_node)
+		return NULL;
+
+	return &vaddr_tbl.entries[i];
+}
+EXPORT_SYMBOL(get_msm_dump_ptr);
+
 static int __init init_memory_dump(void)
 {
 	struct msm_dump_table *table;
@@ -212,14 +235,9 @@ early_initcall(init_memory_dump);
 static int __init init_debug_lar_unlock(void)
 {
 	int ret;
-	uint32_t argument = 0;
 	struct scm_desc desc = {0};
 
-	if (!is_scm_armv8())
-		ret = scm_call(SCM_SVC_TZ, SCM_CMD_DEBUG_LAR_UNLOCK, &argument,
-			       sizeof(argument), NULL, 0);
-	else
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TZ,
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TZ,
 				SCM_CMD_DEBUG_LAR_UNLOCK), &desc);
 	if (ret)
 		pr_err("Core Debug Lock unlock failed, ret: %d\n", ret);
@@ -241,6 +259,14 @@ static int mem_dump_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	int ret;
 	u32 size, id;
+	int i = 0;
+
+	vaddr_tbl.num_node = of_get_child_count(node);
+	vaddr_tbl.entries = devm_kcalloc(&pdev->dev, vaddr_tbl.num_node,
+				sizeof(struct dump_vaddr_entry),
+				GFP_KERNEL);
+	if (!vaddr_tbl.entries)
+		dev_err(&pdev->dev, "Unable to allocate mem for ptr addr\n");
 
 	for_each_available_child_of_node(node, child_node) {
 		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);
@@ -289,6 +315,11 @@ static int mem_dump_probe(struct platform_device *pdev)
 			dma_free_coherent(&pdev->dev, size, dump_vaddr,
 					dump_addr);
 			devm_kfree(&pdev->dev, dump_data);
+		} else if (vaddr_tbl.entries) {
+			vaddr_tbl.entries[i].id = id;
+			vaddr_tbl.entries[i].dump_vaddr = dump_vaddr;
+			vaddr_tbl.entries[i].dump_data_vaddr = dump_data;
+			i++;
 		}
 	}
 	return 0;

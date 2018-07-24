@@ -24,6 +24,10 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
+#ifdef CONFIG_QCOM_QMI_HELPERS
+#include <soc/qcom/rmnet_qmi.h>
+#include <soc/qcom/qmi_rmnet.h>
+#endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
@@ -46,7 +50,7 @@ static int rmnet_check_skb_can_gro(struct sk_buff *skb)
 	return -EPROTONOSUPPORT;
 }
 
-static void rmnet_set_skb_proto(struct sk_buff *skb)
+void rmnet_set_skb_proto(struct sk_buff *skb)
 {
 	switch (skb->data[0] & 0xF0) {
 	case RMNET_IP_VERSION_4:
@@ -60,13 +64,21 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
 		break;
 	}
 }
+EXPORT_SYMBOL(rmnet_set_skb_proto);
+
+/* Shs hook handler */
+
+int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
+			   struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_shs_skb_entry);
 
 /* Generic handler */
 
-static void
-rmnet_deliver_skb(struct sk_buff *skb)
+void
+rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
+	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
@@ -75,11 +87,16 @@ rmnet_deliver_skb(struct sk_buff *skb)
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
 
+	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
+	if (rmnet_shs_stamp)
+		rmnet_shs_stamp(skb, port);
+
 	if (!rmnet_check_skb_can_gro(skb))
 		gro_cells_receive(&priv->gro_cells, skb);
 	else
 		netif_receive_skb(skb);
 }
+EXPORT_SYMBOL(rmnet_deliver_skb);
 
 /* MAP handler */
 
@@ -93,7 +110,7 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 
 	if (RMNET_MAP_GET_CD_BIT(skb)) {
 		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
-			if (!rmnet_map_flow_command(skb, port))
+			if (!rmnet_map_flow_command(skb, port, false))
 				return;
 		}
 
@@ -125,19 +142,28 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
+	if ((port->data_format & RMNET_INGRESS_FORMAT_PS) &&
+	    !qmi_rmnet_work_get_active(port)) {
+		/* register for powersave indications*/
+		qmi_rmnet_work_restart(port);
+	}
+
 	skb_trim(skb, len);
-	rmnet_deliver_skb(skb);
+	rmnet_deliver_skb(skb, port);
 	return;
 
 free_skb:
 	kfree_skb(skb);
 }
 
+int (*rmnet_perf_deag_entry)(struct sk_buff *skb,
+			     struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_perf_deag_entry);
+
 static void
 rmnet_map_ingress_handler(struct sk_buff *skb,
 			  struct rmnet_port *port)
 {
-	struct sk_buff *skbn;
 
 	if (skb->dev->type == ARPHRD_ETHER) {
 		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_KERNEL)) {
@@ -149,18 +175,29 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION) {
-		while (skb) {
-			struct sk_buff *skb_frag = skb_shinfo(skb)->frag_list;
+		int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
+						   struct rmnet_port *port);
+		/* Deaggregation and freeing of HW originating
+		 * buffers is done within here
+		 */
+		rmnet_perf_core_deaggregate =
+					rcu_dereference(rmnet_perf_deag_entry);
+		if (rmnet_perf_core_deaggregate) {
+			rmnet_perf_core_deaggregate(skb, port);
+		} else {
+			struct sk_buff *skbn;
 
-			skb_shinfo(skb)->frag_list = NULL;
+			while (skb) {
+				struct sk_buff *skb_frag =
+						skb_shinfo(skb)->frag_list;
 
-			while ((skbn = rmnet_map_deaggregate(skb, port))
-			       != NULL)
-				__rmnet_map_ingress_handler(skbn, port);
-
-			consume_skb(skb);
-
-			skb = skb_frag;
+				skb_shinfo(skb)->frag_list = NULL;
+				while ((skbn = rmnet_map_deaggregate(skb, port))
+					!= NULL)
+					__rmnet_map_ingress_handler(skbn, port);
+				consume_skb(skb);
+				skb = skb_frag;
+			}
 		}
 	} else {
 		__rmnet_map_ingress_handler(skb, port);
@@ -258,6 +295,7 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 done:
 	return RX_HANDLER_CONSUMED;
 }
+EXPORT_SYMBOL(rmnet_rx_handler);
 
 /* Modifies packet as per logical endpoint configuration and egress data format
  * for egress device configured in logical endpoint. Packet is then transmitted

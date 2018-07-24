@@ -50,7 +50,9 @@
  */
 static int npu_enable_regulators(struct npu_device *npu_dev);
 static void npu_disable_regulators(struct npu_device *npu_dev);
-static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil);
+static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil);
+static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil);
+static int npu_enable_core_clocks(struct npu_device *npu_dev);
 static void npu_disable_core_clocks(struct npu_device *npu_dev);
 static uint32_t npu_calc_power_level(struct npu_device *npu_dev);
 static ssize_t npu_show_capabilities(struct device *dev,
@@ -77,8 +79,10 @@ static int npu_get_info(struct npu_device *npu_dev, unsigned long arg);
 static int npu_map_buf(struct npu_device *npu_dev, unsigned long arg);
 static int npu_unmap_buf(struct npu_device *npu_dev, unsigned long arg);
 static int npu_load_network(struct npu_device *npu_dev, unsigned long arg);
+static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg);
 static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg);
 static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg);
+static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
 static int npu_parse_dt_clock(struct npu_device *npu_dev);
@@ -278,7 +282,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 		if (ret)
 			return ret;
 
-		ret = npu_enable_core_clocks(npu_dev, false);
+		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
 			npu_disable_regulators(npu_dev);
 			pwr->pwr_vote_num = 0;
@@ -310,11 +314,25 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		pwr->default_pwrlevel);
 }
 
-int npu_enable_post_pil_clocks(struct npu_device *npu_dev)
+static int npu_enable_core_clocks(struct npu_device *npu_dev)
 {
-	return npu_enable_core_clocks(npu_dev, true);
+	return npu_enable_clocks(npu_dev, false);
 }
 
+static void npu_disable_core_clocks(struct npu_device *npu_dev)
+{
+	return npu_disable_clocks(npu_dev, false);
+}
+
+int npu_enable_post_pil_clocks(struct npu_device *npu_dev)
+{
+	return npu_enable_clocks(npu_dev, true);
+}
+
+void npu_disable_post_pil_clocks(struct npu_device *npu_dev)
+{
+	npu_disable_clocks(npu_dev, true);
+}
 
 static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 {
@@ -497,7 +515,7 @@ static bool npu_is_exclude_rate_clock(const char *clk_name)
 	return ret;
 }
 
-static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil)
+static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
 	int i, rc = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
@@ -557,14 +575,17 @@ static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil)
 	return rc;
 }
 
-static void npu_disable_core_clocks(struct npu_device *npu_dev)
+static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
 	int i = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 
 	for (i = (npu_dev->core_clk_num)-1; i >= 0 ; i--) {
-		if (npu_dev->host_ctx.fw_state == FW_DISABLED) {
-			if (npu_is_post_clock(npu_dev->core_clks[i].clk_name))
+		if (post_pil) {
+			if (!npu_is_post_clock(core_clks[i].clk_name))
+				continue;
+		} else {
+			if (npu_is_post_clock(core_clks[i].clk_name))
 				continue;
 		}
 
@@ -900,6 +921,51 @@ static int npu_load_network(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
+static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg)
+{
+	struct msm_npu_load_network_ioctl_v2 req;
+	void __user *argp = (void __user *)arg;
+	struct msm_npu_patch_info_v2 *patch_info = NULL;
+	int ret;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		pr_err("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	if (req.patch_info_num > MSM_NPU_MAX_PATCH_LAYER_NUM) {
+		pr_err("Invalid patch info num %d[max:%d]\n",
+			req.patch_info_num, MSM_NPU_MAX_PATCH_LAYER_NUM);
+		return -EINVAL;
+	}
+
+	if (req.patch_info_num) {
+		patch_info = kmalloc_array(req.patch_info_num,
+			sizeof(*patch_info), GFP_KERNEL);
+		if (!patch_info)
+			return -ENOMEM;
+
+		copy_from_user(patch_info,
+			(void __user *)req.patch_info,
+			req.patch_info_num * sizeof(*patch_info));
+	}
+
+	pr_debug("network load with perf request %d\n", req.perf_mode);
+
+	ret = npu_host_load_network_v2(npu_dev, &req, patch_info);
+	if (ret) {
+		pr_err("network load failed: %d\n", ret);
+	} else {
+		ret = copy_to_user(argp, &req, sizeof(req));
+		if (ret)
+			pr_err("fail to copy to user\n");
+	}
+
+	kfree(patch_info);
+	return ret;
+}
+
 static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg)
 {
 	struct msm_npu_unload_network_ioctl req;
@@ -958,6 +1024,55 @@ static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
+static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg)
+{
+	struct msm_npu_exec_network_ioctl_v2 req;
+	void __user *argp = (void __user *)arg;
+	struct msm_npu_patch_buf_info *patch_buf_info = NULL;
+	int ret;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		pr_err("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	if (req.patch_buf_info_num > MSM_NPU_MAX_PATCH_LAYER_NUM) {
+		pr_err("Invalid patch buf info num %d[max:%d]\n",
+			req.patch_buf_info_num, MSM_NPU_MAX_PATCH_LAYER_NUM);
+		return -EINVAL;
+	}
+
+	if (req.stats_buf_size > MSM_NPU_MAX_STATS_BUF_SIZE) {
+		pr_err("Invalid stats buffer size %d max %d\n",
+			req.stats_buf_size, MSM_NPU_MAX_STATS_BUF_SIZE);
+		return -EINVAL;
+	}
+
+	if (req.patch_buf_info_num) {
+		patch_buf_info = kmalloc_array(req.patch_buf_info_num,
+			sizeof(*patch_buf_info), GFP_KERNEL);
+		if (!patch_buf_info)
+			return -ENOMEM;
+
+		copy_from_user(patch_buf_info,
+			(void __user *)req.patch_buf_info,
+			req.patch_buf_info_num * sizeof(*patch_buf_info));
+	}
+
+	ret = npu_host_exec_network_v2(npu_dev, &req, patch_buf_info);
+	if (ret) {
+		pr_err("npu_host_exec_network failed\n");
+	} else {
+		ret = copy_to_user(argp, &req, sizeof(req));
+		if (ret)
+			pr_err("fail to copy to user\n");
+	}
+
+	kfree(patch_buf_info);
+	return ret;
+}
+
 static long npu_ioctl(struct file *file, unsigned int cmd,
 						 unsigned long arg)
 {
@@ -977,11 +1092,17 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 	case MSM_NPU_LOAD_NETWORK:
 		ret = npu_load_network(npu_dev, arg);
 		break;
+	case MSM_NPU_LOAD_NETWORK_V2:
+		ret = npu_load_network_v2(npu_dev, arg);
+		break;
 	case MSM_NPU_UNLOAD_NETWORK:
 		ret = npu_unload_network(npu_dev, arg);
 		break;
 	case MSM_NPU_EXEC_NETWORK:
 		ret = npu_exec_network(npu_dev, arg);
+		break;
+	case MSM_NPU_EXEC_NETWORK_V2:
+		ret = npu_exec_network_v2(npu_dev, arg);
 		break;
 	default:
 		pr_err("unexpected IOCTL %x\n", cmd);

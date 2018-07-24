@@ -19,7 +19,10 @@
 #include "rmnet_config.h"
 
 void rmnet_egress_handler(struct sk_buff *skb);
-
+void rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port);
+void rmnet_set_skb_proto(struct sk_buff *skb);
+rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
+					       struct rmnet_port *port);
 rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb);
 
 #endif /* _RMNET_HANDLERS_H_ */

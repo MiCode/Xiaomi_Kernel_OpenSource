@@ -2630,4 +2630,50 @@
 			};
 		};
 	};
+
+	pop-mem-test {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 3>;
+		thermal-governor = "step_wise";
+		trips {
+			pop_test_trip: pop-test-trip {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			pop_test_cdev0 {
+				trip = <&pop_test_trip>;
+				cooling-device =
+					<&modem_pa THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+			pop_test_cdev1 {
+				trip = <&pop_test_trip>;
+				cooling-device =
+					<&modem_proc THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+			pop_test_cdev2 {
+				trip = <&pop_test_trip>;
+				cooling-device =
+					<&modem_current THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+			pop_test_cdev3 {
+				trip = <&pop_test_trip>;
+				cooling-device =
+					<&modem_skin THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+			pop_test_cdev4 {
+				trip = <&pop_test_trip>;
+				cooling-device =
+					<&mdss_mdp THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+		};
+	};
 };

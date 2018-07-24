@@ -136,7 +136,7 @@ static const struct parent_map gcc_parent_map_5[] = {
 
 static const char * const gcc_parent_names_5[] = {
 	"cxo",
-	"dsi0_phy_pll_out_byteclk",
+	"dsi0pll_byteclk_src",
 	"gpll0_out_aux",
 	"core_bi_pll_test_se",
 };
@@ -234,7 +234,7 @@ static const struct parent_map gcc_parent_map_12[] = {
 
 static const char * const gcc_parent_names_12[] = {
 	"cxo",
-	"dsi0_phy_pll_out_dsiclk",
+	"dsi0pll_pclk_src",
 	"gpll0_out_aux",
 	"core_bi_pll_test_se",
 };
@@ -443,7 +443,7 @@ static struct clk_rcg2 apss_ahb_clk_src = {
 	.freq_tbl = ftbl_apss_ahb_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "apss_ahb_clk_src",
-		.parent_names = gcc_parent_names_0,
+		.parent_names = gcc_parent_names_ao_0,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
 	},
@@ -743,6 +743,7 @@ static struct clk_rcg2 blsp1_uart3_apps_clk_src = {
 	.cmd_rcgr = 0x4014,
 	.mnd_width = 16,
 	.hid_width = 5,
+	.cfg_off = 0x20,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_blsp1_uart0_apps_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
@@ -834,6 +835,8 @@ static struct clk_rcg2 byte0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_emac_clk_src[] = {
+	F(5000000,   P_GPLL1_OUT_MAIN, 2, 1, 50),
+	F(50000000,  P_GPLL1_OUT_MAIN, 10, 0, 0),
 	F(125000000, P_GPLL1_OUT_MAIN, 4, 0, 0),
 	F(250000000, P_GPLL1_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -1479,6 +1482,19 @@ static struct clk_branch gcc_dcc_clk = {
 	},
 };
 
+static struct clk_branch gcc_dcc_xo_clk = {
+	.halt_reg = 0x77008,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x77008,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_dcc_xo_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_blsp1_qup0_i2c_apps_clk = {
 	.halt_reg = 0x6028,
 	.halt_check = BRANCH_HALT,
@@ -1920,6 +1936,19 @@ static struct clk_branch gcc_geni_ir_s_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_geni_ir_s_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_geni_ir_h_clk = {
+	.halt_reg = 0xf004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0xf004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_geni_ir_h_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2697,7 +2726,7 @@ static struct clk_branch gcc_usb_hs_system_clk = {
 static struct clk_dummy wcnss_m_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
-		.name = "wcss_m_clk",
+		.name = "wcnss_m_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -2752,6 +2781,7 @@ static struct clk_regmap *gcc_qcs405_clocks[] = {
 	[GCC_ETH_RGMII_CLK] = &gcc_eth_rgmii_clk.clkr,
 	[GCC_ETH_SLAVE_AHB_CLK] = &gcc_eth_slave_ahb_clk.clkr,
 	[GCC_GENI_IR_S_CLK] = &gcc_geni_ir_s_clk.clkr,
+	[GCC_GENI_IR_H_CLK] = &gcc_geni_ir_h_clk.clkr,
 	[GCC_GP1_CLK] = &gcc_gp1_clk.clkr,
 	[GCC_GP2_CLK] = &gcc_gp2_clk.clkr,
 	[GCC_GP3_CLK] = &gcc_gp3_clk.clkr,
@@ -2833,6 +2863,7 @@ static struct clk_regmap *gcc_qcs405_clocks[] = {
 	[GCC_MDP_TBU_CLK] = &gcc_mdp_tbu_clk.clkr,
 	[GCC_QDSS_DAP_CLK] = &gcc_qdss_dap_clk.clkr,
 	[GCC_DCC_CLK] = &gcc_dcc_clk.clkr,
+	[GCC_DCC_XO_CLK] = &gcc_dcc_xo_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_qcs405_resets[] = {
@@ -2840,8 +2871,8 @@ static const struct qcom_reset_map gcc_qcs405_resets[] = {
 	[GCC_USB_HS_BCR] = {0x41000},
 	[GCC_USB2_HS_PHY_ONLY_BCR] = {0x41034},
 	[GCC_QUSB2_PHY_BCR] = {0x4103C},
-	[GCC_USB_HS_PHY_CFG_AHB_BCR] = {0x0000C, 0},
-	[GCC_USB2A_PHY_BCR] = {0x0000C, 1},
+	[GCC_USB_HS_PHY_CFG_AHB_BCR] = {0x0000C, 1},
+	[GCC_USB2A_PHY_BCR] = {0x0000C, 0},
 	[GCC_USB3_PHY_BCR] = {0x39004},
 	[GCC_USB_30_BCR] = {0x39000},
 	[GCC_USB3PHY_PHY_BCR] = {0x39008},

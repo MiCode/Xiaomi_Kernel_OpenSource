@@ -3491,8 +3491,8 @@ static const struct file_operations ipa3_drv_fops = {
 
 static int ipa3_get_clks(struct device *dev)
 {
-	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
-		IPADBG("No clock manipulation when running emulation\n");
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPADBG("not supported in this HW mode\n");
 		ipa3_clk = NULL;
 		return 0;
 	}
@@ -5205,6 +5205,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->enable_clock_scaling = 1;
 	/* vote for svs2 on bootup */
 	ipa3_ctx->curr_ipa_clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
+
+	/* Enable ipa3_ctx->enable_napi_chain */
+	ipa3_ctx->enable_napi_chain = 1;
 
 	/* enable IPA clocks explicitly to allow the initialization */
 	ipa3_enable_clks();

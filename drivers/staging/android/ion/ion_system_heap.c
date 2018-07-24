@@ -661,26 +661,6 @@ destroy_secure_pools:
 	return ERR_PTR(-ENOMEM);
 }
 
-void ion_system_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_system_heap *sys_heap = container_of(heap,
-							struct ion_system_heap,
-							heap);
-	int i, j;
-
-	for (i = 0; i < VMID_LAST; i++) {
-		if (!is_secure_vmid_valid(i))
-			continue;
-		for (j = 0; j < NUM_ORDERS; j++)
-			ion_secure_page_pool_shrink(sys_heap, i, j, UINT_MAX);
-
-		ion_system_heap_destroy_pools(sys_heap->secure_pools[i]);
-	}
-	ion_system_heap_destroy_pools(sys_heap->uncached_pools);
-	ion_system_heap_destroy_pools(sys_heap->cached_pools);
-	kfree(sys_heap);
-}
-
 static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 					   struct ion_buffer *buffer,
 					   unsigned long len,
@@ -760,9 +740,4 @@ struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *unused)
 	heap->ops = &kmalloc_ops;
 	heap->type = ION_HEAP_TYPE_SYSTEM_CONTIG;
 	return heap;
-}
-
-void ion_system_contig_heap_destroy(struct ion_heap *heap)
-{
-	kfree(heap);
 }

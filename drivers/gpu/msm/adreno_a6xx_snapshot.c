@@ -1494,7 +1494,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
-	bool sptprac_on;
+	bool sptprac_on, gx_on = true;
 	unsigned int i, roq_size;
 
 	/* ROQ size is 0x800 DW on a640 and a680 */
@@ -1507,8 +1507,11 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on))
+		gx_on = gmu_dev_ops->gx_is_on(adreno_dev);
+
 	/* Return if the GX is off */
-	if (!gpudev->gx_is_on(adreno_dev))
+	if (!gx_on)
 		return;
 
 	/* Dump the registers which get affected by crash dumper trigger */

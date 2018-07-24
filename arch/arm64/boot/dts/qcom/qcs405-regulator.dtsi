@@ -58,6 +58,15 @@
 					RPM_SMD_REGULATOR_LEVEL_NONE>;
 			#cooling-cells = <2>;
 		};
+
+		mx_cdev: mx-cdev-lvl {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pms405_s1_level>;
+			regulator-levels =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS
+					RPM_SMD_REGULATOR_LEVEL_NONE>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	/* PMS405 S2 - VDD_LPI_CX supply */

@@ -91,6 +91,11 @@ int fw_init(struct npu_device *npu_dev)
 
 	/* Boot the NPU subsystem */
 	host_ctx->subsystem_handle = subsystem_get_local("npu");
+	if (IS_ERR(host_ctx->subsystem_handle)) {
+		pr_err("pil load npu fw failed\n");
+		ret = -ENODEV;
+		goto subsystem_get_fail;
+	}
 
 	/* Clear control/status registers */
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
@@ -149,8 +154,10 @@ int fw_init(struct npu_device *npu_dev)
 	return ret;
 
 wait_fw_ready_fail:
-	subsystem_put_local(host_ctx->subsystem_handle);
+	npu_disable_post_pil_clocks(npu_dev);
 enable_post_clk_fail:
+	subsystem_put_local(host_ctx->subsystem_handle);
+subsystem_get_fail:
 	npu_disable_sys_cache(npu_dev);
 enable_sys_cache_fail:
 	npu_disable_core_power(npu_dev);
@@ -194,6 +201,7 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive)
 	}
 
 	npu_disable_irq(npu_dev);
+	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
 	subsystem_put_local(host_ctx->subsystem_handle);
 	host_ctx->fw_state = FW_DISABLED;
@@ -208,15 +216,14 @@ int npu_host_init(struct npu_device *npu_dev)
 	int sts = 0;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
-	init_completion(&host_ctx->exec_done);
-	init_completion(&host_ctx->load_done);
-	init_completion(&host_ctx->unload_done);
 	init_completion(&host_ctx->loopback_done);
 
 	host_ctx->sys_cache_disable = 0;
 	spin_lock_init(&host_ctx->lock);
 	host_ctx->fw_state = FW_DISABLED;
 	host_ctx->fw_ref_cnt = 0;
+	host_ctx->exec_flags_override = 0;
+	atomic_set(&host_ctx->ipc_trans_id, 1);
 
 	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
 		&host_ctx->irq_work);
@@ -281,13 +288,12 @@ static int host_error_hdlr(struct npu_device *npu_dev)
 	/* flush all pending npu cmds with error */
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		network = &host_ctx->networks[i];
-		if (network->id != 0)
-			network->cmd_error = true;
+		if (network->id != 0) {
+			network->fw_error = true;
+			complete(&network->cmd_done);
+		}
 	}
 
-	complete_all(&host_ctx->exec_done);
-	complete_all(&host_ctx->load_done);
-	complete_all(&host_ctx->unload_done);
 	complete_all(&host_ctx->loopback_done);
 
 	return 1;
@@ -361,11 +367,6 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx)
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		if (network->id == 0) {
 			network->id = i + 1;
-			/*
-			 * -IPC trans ID to start at 1 and increment
-			 * by 1 for the next IPC cmd on the same network
-			 */
-			network->ipc_trans_id = 1;
 			network->network_hdl = 0;
 			break;
 		}
@@ -376,6 +377,12 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx)
 	else
 		ctx->network_num++;
 	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	if (network) {
+		init_completion(&network->cmd_done);
+		network->is_valid = true;
+		network->fw_error = false;
+	}
 
 	return network;
 }
@@ -392,7 +399,7 @@ static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
 
 		network++;
 	}
-	if (i == MAX_LOADED_NETWORK) {
+	if ((i == MAX_LOADED_NETWORK) || !network->is_valid) {
 		pr_err("network hdl invalid %d\n", hdl);
 		network = NULL;
 	}
@@ -403,10 +410,13 @@ static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
 static struct npu_network *get_network_by_id(struct npu_host_ctx *ctx,
 	int64_t id)
 {
-	if (id >= 1 && id <= MAX_LOADED_NETWORK)
-		return &ctx->networks[id - 1];
-	pr_err("network id invalid %d\n", (int32_t)id);
-	return NULL;
+	if (id < 1 || id > MAX_LOADED_NETWORK ||
+		!ctx->networks[id - 1].is_valid) {
+		pr_err("network id invalid %d\n", (int32_t)id);
+		return NULL;
+	}
+
+	return &ctx->networks[id - 1];
 }
 
 static void free_network(struct npu_host_ctx *ctx, int64_t id)
@@ -429,15 +439,14 @@ static void free_network(struct npu_host_ctx *ctx, int64_t id)
 static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 {
 	uint32_t msg_id;
-	struct ipc_msg_header_pkt *resp_pkt;
-	struct ipc_msg_load_pkt *load_rsp_pkt;
-	struct ipc_msg_execute_pkt *exe_rsp_pkt;
-	struct ipc_msg_loopback_pkt *lb_rsp_pkt;
+	struct npu_network *network = NULL;
 
 	msg_id = msg[1];
 	switch (msg_id) {
 	case NPU_IPC_MSG_EXECUTE_DONE:
-		exe_rsp_pkt = (struct ipc_msg_execute_pkt *)msg;
+	{
+		struct ipc_msg_execute_pkt *exe_rsp_pkt =
+			(struct ipc_msg_execute_pkt *)msg;
 
 		pr_debug("NPU_IPC_MSG_EXECUTE_DONE status: %d\n",
 			exe_rsp_pkt->header.status);
@@ -450,48 +459,104 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			exe_rsp_pkt->stats.aco_execution_tick_count);
 		pr_debug("total_num_layers: %d\n",
 			exe_rsp_pkt->stats.exe_stats.total_num_layers);
-		complete_all(&host_ctx->exec_done);
+
+		network = get_network_by_hdl(host_ctx,
+			exe_rsp_pkt->network_hdl);
+		if (!network) {
+			pr_err("can't find network %x\n",
+				exe_rsp_pkt->network_hdl);
+			break;
+		}
+
+		complete(&network->cmd_done);
 		break;
+	}
+	case NPU_IPC_MSG_EXECUTE_V2_DONE:
+	{
+		struct ipc_msg_execute_pkt_v2 *exe_rsp_pkt =
+			(struct ipc_msg_execute_pkt_v2 *)msg;
+		uint32_t stats_size = 0;
+
+		pr_debug("NPU_IPC_MSG_EXECUTE_V2_DONE status: %d\n",
+			exe_rsp_pkt->header.status);
+		pr_debug("trans_id : %d", exe_rsp_pkt->header.trans_id);
+
+		network = get_network_by_hdl(host_ctx,
+			exe_rsp_pkt->network_hdl);
+		if (!network) {
+			pr_err("can't find network %x\n",
+				exe_rsp_pkt->network_hdl);
+			break;
+		}
+
+		stats_size = exe_rsp_pkt->header.size - sizeof(*exe_rsp_pkt);
+		pr_debug("stats_size %d:%d\n", exe_rsp_pkt->header.size,
+			stats_size);
+		stats_size = stats_size < network->stats_buf_size ?
+			stats_size : network->stats_buf_size;
+		network->stats_buf_size = stats_size;
+		if (stats_size)
+			memcpy(network->stats_buf, exe_rsp_pkt->stats_data,
+				stats_size);
+
+		complete(&network->cmd_done);
+		break;
+	}
 	case NPU_IPC_MSG_LOAD_DONE:
 	{
-		struct npu_network *network = 0;
 		uint32_t network_id = 0;
+		struct ipc_msg_load_pkt *load_rsp_pkt =
+			(struct ipc_msg_load_pkt *)msg;
 
-		load_rsp_pkt = (struct ipc_msg_load_pkt *)msg;
 		pr_debug("NPU_IPC_MSG_LOAD_DONE status: %d, trans_id: %d\n",
 			load_rsp_pkt->header.status,
 			load_rsp_pkt->header.trans_id);
 
 		/*
-		 * store the returned aco_hdl generated by the firmware
-		 * response header flags filed was TEMP used to store
-		 * the network ID on the way back
+		 * the upper 16 bits in returned network_hdl is
+		 * the network ID
 		 */
-		network_id = load_rsp_pkt->header.flags;
+		pr_debug("network_hdl: %x\n", load_rsp_pkt->network_hdl);
+		network_id = load_rsp_pkt->network_hdl >> 16;
 		network = get_network_by_id(host_ctx, network_id);
 		if (!network) {
 			pr_err("can't find network %d\n", network_id);
 			break;
 		}
-		network->network_hdl = load_rsp_pkt->aco_hdl;
-		complete_all(&host_ctx->load_done);
+		network->network_hdl = load_rsp_pkt->network_hdl;
+		complete(&network->cmd_done);
 		break;
 	}
-
 	case NPU_IPC_MSG_UNLOAD_DONE:
-		resp_pkt = (struct ipc_msg_header_pkt *)msg;
-		pr_debug("NPU_IPC_MSG_UNLOAD_DONE status: %d, trans_id: %d\n",
-			resp_pkt->status, resp_pkt->trans_id);
-		complete_all(&host_ctx->unload_done);
-		break;
+	{
+		struct ipc_msg_unload_pkt *unload_rsp_pkt =
+			(struct ipc_msg_unload_pkt *)msg;
 
+		pr_debug("NPU_IPC_MSG_UNLOAD_DONE status: %d, trans_id: %d\n",
+			unload_rsp_pkt->header.status,
+			unload_rsp_pkt->header.trans_id);
+
+		network = get_network_by_hdl(host_ctx,
+			unload_rsp_pkt->network_hdl);
+		if (!network) {
+			pr_err("can't find network %x\n",
+				unload_rsp_pkt->network_hdl);
+			break;
+		}
+
+		complete(&network->cmd_done);
+		break;
+	}
 	case NPU_IPC_MSG_LOOPBACK_DONE:
-		lb_rsp_pkt = (struct ipc_msg_loopback_pkt *)msg;
+	{
+		struct ipc_msg_loopback_pkt *lb_rsp_pkt =
+			(struct ipc_msg_loopback_pkt *)msg;
+
 		pr_debug("NPU_IPC_MSG_LOOPBACK_DONE loopbackParams: 0x%x\n",
 			lb_rsp_pkt->loopbackParams);
 		complete_all(&host_ctx->loopback_done);
 		break;
-
+	}
 	default:
 		pr_err("Not supported apps response received %d\n",
 			msg_id);
@@ -577,7 +642,7 @@ int32_t npu_host_unmap_buf(struct npu_device *npu_dev,
 	return 0;
 }
 
-void host_copy_patch_data(struct npu_patch_tuple *param, uint32_t value,
+static void host_copy_patch_data(struct npu_patch_tuple *param, uint32_t value,
 		struct msm_npu_layer *layer_info)
 {
 	param->value = value;
@@ -589,6 +654,33 @@ void host_copy_patch_data(struct npu_patch_tuple *param, uint32_t value,
 		layer_info->patch_info.shift_value_in_bits;
 	param->variable_size_in_bits =
 		layer_info->patch_info.variable_size_in_bits;
+
+	pr_debug("copy_patch_data: %x %d %x %x %x %x\n",
+		param->value,
+		param->chunk_id,
+		param->loc_offset,
+		param->instruction_size_in_bytes,
+		param->shift_value_in_bits,
+		param->variable_size_in_bits);
+}
+
+static void host_copy_patch_data_v2(struct npu_patch_tuple_v2 *param,
+	struct msm_npu_patch_info_v2 *patch_info)
+{
+	param->value = patch_info->value;
+	param->chunk_id = patch_info->chunk_id;
+	param->loc_offset = patch_info->loc_offset;
+	param->instruction_size_in_bytes =
+		patch_info->instruction_size_in_bytes;
+	param->shift_value_in_bits = patch_info->shift_value_in_bits;
+	param->variable_size_in_bits = patch_info->variable_size_in_bits;
+	pr_debug("copy_patch_data_v2: %x %d %x %x %x %x\n",
+		param->value,
+		param->chunk_id,
+		param->loc_offset,
+		param->instruction_size_in_bytes,
+		param->shift_value_in_bits,
+		param->variable_size_in_bits);
 }
 
 static uint32_t find_networks_perf_mode(struct npu_host_ctx *host_ctx)
@@ -647,7 +739,8 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 
 	load_packet.header.cmd_type = NPU_IPC_CMD_LOAD;
 	load_packet.header.size = sizeof(struct ipc_cmd_load_pkt);
-	load_packet.header.trans_id = network->ipc_trans_id++;
+	load_packet.header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
 	load_packet.header.flags = 0;
 
 	/* ACO Buffer. Use the npu mapped aco address */
@@ -656,7 +749,7 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	load_packet.buf_pkt.network_id = network->id;
 
 	/* NPU_IPC_CMD_LOAD will go onto IPC_QUEUE_APPS_EXEC */
-	reinit_completion(&host_ctx->load_done);
+	reinit_completion(&network->cmd_done);
 	ret = npu_host_ipc_send_cmd(npu_dev,
 		IPC_QUEUE_APPS_EXEC, &load_packet);
 
@@ -668,14 +761,11 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	}
 
 	if (!wait_for_completion_interruptible_timeout(
-		&host_ctx->load_done, NW_LOAD_TIMEOUT)) {
+		&network->cmd_done, NW_LOAD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
 		ret = -ETIMEDOUT;
 		goto error_free_network;
-	}
-
-	if (network->cmd_error) {
-		network->cmd_error = false;
+	} else if (network->fw_error) {
 		ret = -EIO;
 		pr_err("load cmd returns with error\n");
 		goto error_free_network;
@@ -686,6 +776,105 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	return ret;
 
 error_free_network:
+	free_network(host_ctx, network->id);
+err_deinit_fw:
+	fw_deinit(npu_dev, true);
+	return ret;
+}
+
+int32_t npu_host_load_network_v2(struct npu_device *npu_dev,
+			struct msm_npu_load_network_ioctl_v2 *load_ioctl,
+			struct msm_npu_patch_info_v2 *patch_info)
+{
+	int ret = 0, i;
+	struct npu_network *network;
+	struct ipc_cmd_load_pkt_v2 *load_packet = NULL;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	uint32_t networks_perf_mode = 0;
+	uint32_t num_patch_params, pkt_size;
+
+	ret = fw_init(npu_dev);
+	if (ret)
+		return ret;
+
+	network = alloc_network(host_ctx);
+	if (!network) {
+		ret = -ENOMEM;
+		goto err_deinit_fw;
+	}
+
+	num_patch_params = load_ioctl->patch_info_num;
+	pkt_size = sizeof(*load_packet) +
+		num_patch_params * sizeof(struct npu_patch_tuple_v2);
+	load_packet = kzalloc(pkt_size, GFP_KERNEL);
+
+	if (!load_packet) {
+		ret = -ENOMEM;
+		goto error_free_network;
+	}
+
+	for (i = 0; i < num_patch_params; i++)
+		host_copy_patch_data_v2(&load_packet->patch_params[i],
+			&patch_info[i]);
+
+	network->buf_hdl = load_ioctl->buf_ion_hdl;
+	network->size = load_ioctl->buf_size;
+	network->phy_add = load_ioctl->buf_phys_addr;
+	network->first_block_size = load_ioctl->first_block_size;
+	network->priority = load_ioctl->priority;
+	network->perf_mode = load_ioctl->perf_mode;
+	network->num_layers = load_ioctl->num_layers;
+
+	networks_perf_mode = find_networks_perf_mode(host_ctx);
+
+	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	if (ret) {
+		pr_err("network load failed due to power level set\n");
+		goto error_free_network;
+	}
+
+	load_packet->header.cmd_type = NPU_IPC_CMD_LOAD_V2;
+	load_packet->header.size = pkt_size;
+	load_packet->header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
+	load_packet->header.flags = 0;
+
+	/* ACO Buffer. Use the npu mapped aco address */
+	load_packet->buf_pkt.address = (uint32_t)network->phy_add;
+	load_packet->buf_pkt.buf_size = network->first_block_size;
+	load_packet->buf_pkt.network_id = network->id;
+	load_packet->buf_pkt.num_layers = network->num_layers;
+	load_packet->num_patch_params = num_patch_params;
+
+	/* NPU_IPC_CMD_LOAD_V2 will go onto IPC_QUEUE_APPS_EXEC */
+	reinit_completion(&network->cmd_done);
+	ret = npu_host_ipc_send_cmd(npu_dev,
+		IPC_QUEUE_APPS_EXEC, load_packet);
+
+	pr_debug("NPU_IPC_CMD_LOAD_V2 sent status: %d\n", ret);
+
+	if (ret) {
+		ret = -EIO;
+		goto error_free_network;
+	}
+
+	if (!wait_for_completion_interruptible_timeout(
+		&network->cmd_done, NW_LOAD_TIMEOUT)) {
+		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
+		ret = -ETIMEDOUT;
+		goto error_free_network;
+	} else if (network->fw_error) {
+		ret = -EIO;
+		pr_err("load cmd returns with error\n");
+		goto error_free_network;
+	}
+
+	load_ioctl->network_hdl = network->network_hdl;
+
+	return ret;
+
+error_free_network:
+	kfree(load_packet);
 	free_network(host_ctx, network->id);
 err_deinit_fw:
 	fw_deinit(npu_dev, true);
@@ -705,15 +894,21 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 	if (!network)
 		return -EINVAL;
 
+	if (network->fw_error) {
+		pr_err("fw in error state, skip unload network in fw\n");
+		goto skip_fw;
+	}
+
 	/* prepare IPC packet for UNLOAD */
 	unload_packet.header.cmd_type = NPU_IPC_CMD_UNLOAD;
 	unload_packet.header.size = sizeof(struct ipc_cmd_unload_pkt);
-	unload_packet.header.trans_id = network->ipc_trans_id++;
+	unload_packet.header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
 	unload_packet.header.flags = 0;
-	unload_packet.aco_hdl = (uint32_t)network->network_hdl;
+	unload_packet.network_hdl = (uint32_t)network->network_hdl;
 
 	/* NPU_IPC_CMD_UNLOAD will go onto IPC_QUEUE_APPS_EXEC */
-	reinit_completion(&host_ctx->unload_done);
+	reinit_completion(&network->cmd_done);
 	ret = npu_host_ipc_send_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
 		&unload_packet);
 
@@ -722,22 +917,22 @@ int32_t npu_host_unload_network(struct npu_device *npu_dev,
 		return -EIO;
 	}
 
-	if (!wait_for_completion_interruptible_timeout(&host_ctx->unload_done,
+	if (!wait_for_completion_interruptible_timeout(&network->cmd_done,
 		NW_UNLOAD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_UNLOAD time out\n");
 		ret = -ETIMEDOUT;
-	} else if (network->cmd_error) {
-		network->cmd_error = false;
+	} else if (network->fw_error) {
 		ret = -EIO;
 		pr_err("unload cmd returns with error\n");
-	} else {
-		/*
-		 * free the network on the kernel if the corresponding ACO
-		 * handle is unloaded on the firmware side
-		 */
-		free_network(host_ctx, network->id);
-		fw_deinit(npu_dev, true);
 	}
+
+skip_fw:
+	/*
+	 * free the network on the kernel if the corresponding ACO
+	 * handle is unloaded on the firmware side
+	 */
+	free_network(host_ctx, network->id);
+	fw_deinit(npu_dev, true);
 
 	return ret;
 }
@@ -760,6 +955,9 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	if (!network)
 		return -EINVAL;
 
+	if (network->fw_error)
+		return -EIO;
+
 	memset(&exec_packet, 0, sizeof(exec_packet));
 	if (exec_ioctl->patching_required) {
 		if (exec_ioctl->input_layer_num == 1)
@@ -780,12 +978,13 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 
 	exec_packet.header.cmd_type = NPU_IPC_CMD_EXECUTE;
 	exec_packet.header.size = sizeof(struct ipc_cmd_execute_pkt);
-	exec_packet.header.trans_id = network->ipc_trans_id++;
+	exec_packet.header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
 	exec_packet.header.flags = 0xF;
-	exec_packet.aco_hdl = network->network_hdl;
+	exec_packet.network_hdl = network->network_hdl;
 
 	/* Send it on the high priority queue */
-	reinit_completion(&host_ctx->exec_done);
+	reinit_completion(&network->cmd_done);
 	ret = npu_host_ipc_send_cmd(npu_dev, IPC_QUEUE_APPS_EXEC, &exec_packet);
 
 	pr_debug("NPU_IPC_CMD_EXECUTE sent status: %d\n", ret);
@@ -797,13 +996,12 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 		timeout = NW_LARGE_EXEC_TIMEOUT;
 
 	if (!wait_for_completion_interruptible_timeout(
-		&host_ctx->exec_done, timeout)) {
+		&network->cmd_done, timeout)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE time out\n");
 		/* dump debug stats */
 		npu_dump_debug_timeout_stats(npu_dev);
 		ret = -ETIMEDOUT;
-	} else if (network->cmd_error) {
-		network->cmd_error = false;
+	} else if (network->fw_error) {
 		ret = -EIO;
 		pr_err("execute cmd returns with error\n");
 	}
@@ -819,6 +1017,101 @@ int32_t npu_host_exec_network(struct npu_device *npu_dev,
 	return ret;
 }
 
+int32_t npu_host_exec_network_v2(struct npu_device *npu_dev,
+	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
+	struct msm_npu_patch_buf_info *patch_buf_info)
+{
+	struct ipc_cmd_execute_pkt_v2 *exec_packet;
+	int32_t ret;
+	struct npu_network *network;
+	uint32_t timeout = NW_SMALL_EXEC_TIMEOUT;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	uint32_t num_patch_params, pkt_size;
+	int i;
+
+	network = get_network_by_hdl(host_ctx, exec_ioctl->network_hdl);
+
+	if (!network)
+		return -EINVAL;
+
+	if (network->fw_error)
+		return -EIO;
+
+	num_patch_params = exec_ioctl->patch_buf_info_num;
+	pkt_size = num_patch_params * sizeof(struct npu_patch_params_v2) +
+		sizeof(*exec_packet);
+	exec_packet = kzalloc(pkt_size, GFP_KERNEL);
+
+	if (!exec_packet)
+		return -ENOMEM;
+
+	for (i = 0; i < num_patch_params; i++) {
+		exec_packet->patch_params[i].id = patch_buf_info[i].buf_id;
+		pr_debug("%d: patch_id: %x\n", i,
+			exec_packet->patch_params[i].id);
+		exec_packet->patch_params[i].value =
+			patch_buf_info[i].buf_phys_addr;
+		pr_debug("%d: patch value: %x\n", i,
+			exec_packet->patch_params[i].value);
+	}
+
+	exec_packet->header.cmd_type = NPU_IPC_CMD_EXECUTE_V2;
+	exec_packet->header.size = pkt_size;
+	exec_packet->header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
+	exec_packet->header.flags = host_ctx->exec_flags_override > 0 ?
+		host_ctx->exec_flags_override : exec_ioctl->flags;
+	exec_packet->network_hdl = network->network_hdl;
+	exec_packet->num_patch_params = num_patch_params;
+
+	/* allocate stats_buf to be filled after execution */
+	network->stats_buf = kzalloc(exec_ioctl->stats_buf_size, GFP_KERNEL);
+	if (!network->stats_buf)
+		network->stats_buf_size = 0;
+	else
+		network->stats_buf_size = exec_ioctl->stats_buf_size;
+
+	pr_debug("Execute_v2 flags %x stats_buf_size %d\n",
+		exec_packet->header.flags, exec_ioctl->stats_buf_size);
+
+	/* Send it on the high priority queue */
+	reinit_completion(&network->cmd_done);
+	ret = npu_host_ipc_send_cmd(npu_dev, IPC_QUEUE_APPS_EXEC, exec_packet);
+
+	pr_debug("NPU_IPC_CMD_EXECUTE_V2 sent status: %d\n", ret);
+
+	/*
+	 * If this is a large network set the excecution timeout accordingly
+	 */
+	if (network->size > LARGE_NETWORK_SIZE_THRESHOLD)
+		timeout = NW_LARGE_EXEC_TIMEOUT;
+
+	if (!wait_for_completion_interruptible_timeout(
+		&network->cmd_done, timeout)) {
+		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE_V2 time out\n");
+		/* dump debug stats */
+		npu_dump_debug_timeout_stats(npu_dev);
+		ret = -ETIMEDOUT;
+	} else if (network->fw_error) {
+		ret = -EIO;
+		pr_err("execute cmd returns with error\n");
+	}
+
+	if (!ret) {
+		exec_ioctl->stats_buf_size = network->stats_buf_size;
+		if (exec_ioctl->stats_buf_size) {
+			if (copy_to_user(
+				(void __user *)exec_ioctl->stats_buf_addr,
+				network->stats_buf, exec_ioctl->stats_buf_size))
+				pr_err("copy stats to user failed\n");
+		}
+	}
+
+	kfree(network->stats_buf);
+	kfree(exec_packet);
+	return ret;
+}
+
 int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 {
 	struct ipc_cmd_loopback_pkt loopback_packet;
@@ -831,7 +1124,8 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 
 	loopback_packet.header.cmd_type = NPU_IPC_CMD_LOOPBACK;
 	loopback_packet.header.size = sizeof(struct ipc_cmd_loopback_pkt);
-	loopback_packet.header.trans_id = 0;
+	loopback_packet.header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
 	loopback_packet.header.flags = 0;
 	loopback_packet.loopbackParams = 15;
 

@@ -149,10 +149,19 @@ config QCOM_QMI_HELPERS
 	  clients and this helpers provide the common functionality needed for
 	  doing this from a kernel driver.
 
-config QCOM_QMI_DFC
-	bool "Enable burst mode flow control"
+config QCOM_QMI_RMNET
+	bool "QTI QMI Rmnet Helpers"
 	depends on QCOM_QMI_HELPERS
 	depends on RMNET
+	help
+	  Helper for handling interfaces between kernel clients and rmnet
+	  driver. It enables the rmnet driver to create/delete DFC/WDA
+	  clients and provides the common functionality for data flow control
+	  and power save features.
+
+config QCOM_QMI_DFC
+	bool "Enable burst mode flow control"
+	depends on QCOM_QMI_RMNET
 	help
 	  Say y here to enable support for burst mode data flow control.
 	  DFC client provides an interface to the modem dfc service and
@@ -161,13 +170,13 @@ config QCOM_QMI_DFC
 	  If unsure or not use burst mode flow control, say 'N'.
 
 config QCOM_QMI_POWER_COLLAPSE
-	bool "Enable power collapse feature"
-	depends on QCOM_QMI_DFC
+	bool "Enable power save features"
+	depends on QCOM_QMI_RMNET
 	help
-	  Say y here to enable support for power collapse.
-	  It is to register/unregister the flow status indication callback
-	  based on detected flow status.
-	  If unsure or not use power collapse feature, say 'N'.
+	  Say y here to enable support for power save features.
+	  It provides an interface to offload uplink flow control based on
+	  detected flow status.
+	  If unsure or not use power save feature, say 'N'.
 
 config QCOM_SMEM
 	tristate "Qualcomm Shared Memory Manager (SMEM)"
@@ -225,6 +234,15 @@ config QCOM_MEMORY_DUMP_V2
 	  subsystems to register respective dump regions. At the time
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
+
+config MSM_DEBUG_LAR_UNLOCK
+	bool "MSM Debug LAR Unlock Support"
+	depends on QCOM_MEMORY_DUMP_V2
+	help
+	  This allows unlocking Core Debug lock to allow capture
+	  of upper 32 bits of program counter at the time of
+	  system crash. This is useful in getting correct crash
+	  location.
 
 config QCOM_WATCHDOG_V2
 	bool "Qualcomm Watchdog Support"

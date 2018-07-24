@@ -18,7 +18,7 @@
 };
 
 &pm6150l_wled {
-	qcom,string-cfg= <7>;
+	qcom,string-cfg= <3>;
 	status = "ok";
 };
 
