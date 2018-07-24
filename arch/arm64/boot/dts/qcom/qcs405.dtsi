@@ -327,7 +327,8 @@
 			<0xb016000 0x34>;
 		reg-names = "apcs_cmd" , "apcs_pll";
 		cpu-vdd-supply = <&apc_vreg_corner>;
-		vdd_dig_ao-supply = <&pms405_s1_level>;
+		vdd_dig_ao-supply = <&pms405_s1_level_ao>;
+		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
 			< 1113600000 1>,
