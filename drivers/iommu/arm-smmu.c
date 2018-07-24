@@ -3521,7 +3521,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			ret = -ENODEV;
 			break;
 		}
-		info->pmds = smmu_domain->pgtbl_cfg.av8l_fast_cfg.pmds;
+		info->ops = smmu_domain->pgtbl_ops;
 		ret = 0;
 		break;
 	}
