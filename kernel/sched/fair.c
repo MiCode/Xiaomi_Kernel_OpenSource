@@ -7287,13 +7287,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			}
 
 			/*
-			 * Favor CPUs with smaller capacity for Non latency
-			 * sensitive tasks.
-			 */
-			if (capacity_orig > target_capacity)
-				continue;
-
-			/*
 			 * Case B) Non latency sensitive tasks on IDLE CPUs.
 			 *
 			 * Find an optimal backup IDLE CPU for non latency
@@ -7383,29 +7376,16 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		}
 
 		/*
-		 * For placement boost (or otherwise), we start with group
-		 * where the task should be placed. When
-		 * boost is active, and we are not at the highest
-		 * capacity group reset the target_capacity to keep
-		 * traversing to other higher clusters.
-		 * If we already are at the highest capacity cluster we skip
-		 * going around to the lower capacity cluster if we've found
-		 * a cpu.
+		 * If we've found a cpu, but the boost is ON_ALL we continue
+		 * visiting other clusters. If the boost is ON_BIG we visit
+		 * next cluster if they are higher in capacity. If we are
+		 * not in any kind of boost, we break.
 		 */
-		if (fbt_env->placement_boost == SCHED_BOOST_ON_BIG) {
-			if (capacity_orig_of(group_first_cpu(sg)) <
-				capacity_orig_of(group_first_cpu(sg->next)))
-				target_capacity = ULONG_MAX;
-			else
-				if (target_cpu != -1 || best_idle_cpu != -1)
-					break;
-		}
-
-		/*
-		 * if we have found a target cpu within a group, don't bother
-		 * checking other groups, provided we are not in placement boost
-		 */
-		if (target_capacity != ULONG_MAX)
+		if ((target_cpu != -1 || best_idle_cpu != -1) &&
+			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
+			(fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
+				(capacity_orig_of(group_first_cpu(sg)) >
+				capacity_orig_of(group_first_cpu(sg->next))))))
 			break;
 
 	} while (sg = sg->next, sg != sd->groups);
