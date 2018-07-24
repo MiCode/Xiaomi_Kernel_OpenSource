@@ -34,10 +34,6 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 {
 	/* Schedule a card detection after a debounce timeout */
 	struct mmc_host *host = dev_id;
-	int present = host->ops->get_cd(host);
-
-	pr_debug("%s: cd gpio irq, gpio state %d (CARD_%s)\n",
-		mmc_hostname(host), present, present?"INSERT":"REMOVAL");
 
 	host->trigger_card_event = true;
 	mmc_detect_change(host, msecs_to_jiffies(200));
