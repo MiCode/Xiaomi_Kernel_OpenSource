@@ -1927,6 +1927,15 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
+	/* set the Source Mode (OTG) current limit */
+	rc = smblib_masked_write(chg, DCDC_OTG_CURRENT_LIMIT_CFG_REG,
+			OTG_CURRENT_LIMIT_MASK, OTG_CURRENT_LIMIT_3000_MA);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure DCDC_OTG_CURRENT_LIMIT_CFG rc=%d\n",
+				rc);
+		return rc;
+	}
+
 	if (chg->sw_jeita_enabled) {
 		rc = smblib_disable_hw_jeita(chg, true);
 		if (rc < 0) {
