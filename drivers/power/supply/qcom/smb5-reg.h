@@ -262,6 +262,9 @@ enum {
 #define USBIN_AICL_PERIODIC_RERUN_EN_BIT	BIT(4)
 #define USBIN_AICL_ADC_EN_BIT			BIT(3)
 
+#define USB_ENG_SSUPPLY_USB2_REG		(USBIN_BASE + 0xC0)
+#define ENG_SSUPPLY_12V_OV_OPT_BIT		BIT(1)
+
 /********************************
  *  DCIN Peripheral Registers   *
  ********************************/

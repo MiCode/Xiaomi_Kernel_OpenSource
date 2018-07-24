@@ -2048,11 +2048,41 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
-	if (chg->iio.usbin_v_chan)
-		return iio_read_channel_processed(chg->iio.usbin_v_chan,
+	int rc, ret = 0;
+
+	/* set 12V OV to 14.6V */
+	if (chg->smb_version == PM8150B_SUBTYPE) {
+		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
+				ENG_SSUPPLY_12V_OV_OPT_BIT,
+				ENG_SSUPPLY_12V_OV_OPT_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't set USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
+					rc);
+			return -ENODATA;
+		}
+	}
+
+	if (chg->iio.usbin_v_chan) {
+		rc = iio_read_channel_processed(chg->iio.usbin_v_chan,
 				&val->intval);
-	else
-		return -ENODATA;
+		if (rc < 0)
+			ret = -ENODATA;
+	} else {
+		ret = -ENODATA;
+	}
+
+	/*  restore 12V OV to 13.2V */
+	if (chg->smb_version == PM8150B_SUBTYPE) {
+		rc = smblib_masked_write(chg, USB_ENG_SSUPPLY_USB2_REG,
+				ENG_SSUPPLY_12V_OV_OPT_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't restore USB_ENG_SSUPPLY_USB2_REG rc=%d\n",
+					rc);
+			ret = -ENODATA;
+		}
+	}
+
+	return ret;
 }
 
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
