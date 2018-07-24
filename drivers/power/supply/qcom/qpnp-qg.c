@@ -1858,9 +1858,11 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 		recharge_soc = DEFAULT_RECHARGE_SOC;
 	}
 	recharge_soc = prop.intval;
+	chip->recharge_soc = recharge_soc;
 
-	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d\n",
-				chip->msoc, health, chip->charge_full);
+	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",
+				chip->msoc, health, chip->charge_full,
+				chip->charge_done);
 	if (chip->charge_done && !chip->charge_full) {
 		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
 			chip->charge_full = true;
@@ -1871,10 +1873,18 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
-	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
+	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
-		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+		bool usb_present = is_usb_present(chip);
+
+		/*
+		 * force a recharge only if SOC <= recharge SOC and
+		 * we have not started charging.
+		 */
+		if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+			usb_present && chip->msoc <= recharge_soc &&
+			chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
@@ -1882,23 +1892,33 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
-				qg_dbg(chip, QG_DEBUG_STATUS,
-					"Forced recharge\n");
+				qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
 		}
+
+
+		if (chip->charge_done)
+			return 0;	/* wait for recharge */
 
 		/*
-		 * If recharge or discharge has started and
-		 * if linearize soc dtsi property defined
-		 * scale msoc from 100% for better UX.
+		 * If SOC has indeed dropped below recharge-SOC or
+		 * the USB is removed, if linearize-soc is set scale
+		 * msoc from 100% for better UX.
 		 */
-		if (chip->dt.linearize_soc && chip->msoc < 99) {
-			chip->maint_soc = FULL_SOC;
-			qg_scale_soc(chip, false);
-		}
-
-		qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
+		if (chip->msoc < recharge_soc || !usb_present) {
+			if (chip->dt.linearize_soc) {
+				get_rtc_time(&chip->last_maint_soc_update_time);
+				chip->maint_soc = FULL_SOC;
+				qg_scale_soc(chip, false);
+			}
+			chip->charge_full = false;
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
 					chip->msoc, recharge_soc);
-		chip->charge_full = false;
+		} else {
+			/* continue with charge_full state */
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d usb_present=%d\n",
+					chip->msoc, recharge_soc,
+					chip->charge_full, usb_present);
+		}
 	}
 out:
 	return 0;
