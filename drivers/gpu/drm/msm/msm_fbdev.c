@@ -146,7 +146,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 		goto fail_unlock;
 	}
 
-	DBG("fbi=%p, dev=%p", fbi, dev);
+	DBG("fbi=%pK, dev=%pK", fbi, dev);
 
 	fbdev->fb = fb;
 	helper->fb = fb;
@@ -167,7 +167,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	fbi->fix.smem_start = paddr;
 	fbi->fix.smem_len = fbdev->bo->size;
 
-	DBG("par=%p, %dx%d", fbi->par, fbi->var.xres, fbi->var.yres);
+	DBG("par=%pK, %dx%d", fbi->par, fbi->var.xres, fbi->var.yres);
 	DBG("allocated %dx%d fb", fbdev->fb->width, fbdev->fb->height);
 
 	mutex_unlock(&dev->struct_mutex);

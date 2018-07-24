@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1253,7 +1253,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	sde_crtc_install_properties(crtc);
 
-	SDE_DEBUG("%s: successfully initialized crtc=%p\n",
+	SDE_DEBUG("%s: successfully initialized crtc=%pK\n",
 			sde_crtc->name, crtc);
 	return crtc;
 }
