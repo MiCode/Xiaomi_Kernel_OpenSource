@@ -691,15 +691,15 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 			handle_error();
 			return -EINVAL;
 		}
-	} else if (argc == 2)
-		key_id = argv[1];
-	else {
+		target_device = argv[0];
+	} else if (argc == 2) {
+		key_id = argv[0];
+		target_device = argv[1];
+	} else {
 		DMERR("Incorrect number of arguments");
 		handle_error();
 		return -EINVAL;
 	}
-
-	target_device = argv[0];
 
 	dev = name_to_dev_t(target_device);
 	if (!dev) {
