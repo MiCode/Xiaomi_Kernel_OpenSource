@@ -1525,7 +1525,7 @@ static bool is_mdp_prefetch_needed(struct mdss_panel_info *pinfo)
  * the mdp fetch lines  as the last (25 - vbp - vpw) lines of vertical
  * front porch.
  */
-int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo)
+int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo, bool is_fixed)
 {
 	int prefetch_avail = 0;
 	int v_total, vfp_start;
@@ -1534,7 +1534,11 @@ int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo)
 	if (!is_mdp_prefetch_needed(pinfo))
 		return 0;
 
-	v_total = mdss_panel_get_vtotal(pinfo);
+	if (is_fixed)
+		v_total = mdss_panel_get_vtotal_fixed(pinfo);
+	else
+		v_total = mdss_panel_get_vtotal(pinfo);
+
 	vfp_start = (pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width +
 			pinfo->yres);
 
