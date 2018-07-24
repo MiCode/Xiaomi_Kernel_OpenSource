@@ -503,7 +503,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 		if (blk->size == 0)
 			continue;
 
-		md = gmu_get_memdesc(blk->addr, blk->size);
+		md = gmu_get_memdesc(gmu, blk->addr, blk->size);
 		if (md == NULL) {
 			dev_err(&gmu->pdev->dev,
 					"No backing memory for 0x%8.8X\n",

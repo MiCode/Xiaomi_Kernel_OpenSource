@@ -24,7 +24,6 @@
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
-#define GMU_KERNEL_ENTRIES		16
 
 #define GMU_CM3_CFG_NONMASKINTR_SHIFT    9
 
@@ -65,8 +64,6 @@ struct gmu_iommu_context gmu_ctx[] = {
  * active SMMU entries of GMU kernel mode context. Each entry is assigned
  * a unique address inside GMU kernel mode address range.
  */
-static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
-static unsigned long gmu_kmem_bitmap;
 static unsigned int next_uncached_kernel_alloc;
 static unsigned int next_uncached_user_alloc;
 
@@ -148,16 +145,17 @@ static int alloc_and_map(struct gmu_device *gmu, struct gmu_memdesc *md,
 	return ret;
 }
 
-struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size)
+struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,
+		unsigned int addr, unsigned int size)
 {
 	int i;
 	struct gmu_memdesc *mem;
 
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
-		if (!test_bit(i, &gmu_kmem_bitmap))
+		if (!test_bit(i, &gmu->kmem_bitmap))
 			continue;
 
-		mem = &gmu_kmem_entries[i];
+		mem = &gmu->kmem_entries[i];
 
 		if (addr >= mem->gmuaddr &&
 				(addr + size <= mem->gmuaddr + mem->size))
@@ -180,7 +178,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	struct gmu_memdesc *md;
 	int ret;
 	int entry_idx = find_first_zero_bit(
-			&gmu_kmem_bitmap, GMU_KERNEL_ENTRIES);
+			&gmu->kmem_bitmap, GMU_KERNEL_ENTRIES);
 
 	if (entry_idx >= GMU_KERNEL_ENTRIES) {
 		dev_err(&gmu->pdev->dev,
@@ -197,8 +195,8 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 		return ERR_PTR(-EINVAL);
 	}
 
-	md = &gmu_kmem_entries[entry_idx];
-	set_bit(entry_idx, &gmu_kmem_bitmap);
+	md = &gmu->kmem_entries[entry_idx];
+	set_bit(entry_idx, &gmu->kmem_bitmap);
 
 	memset(md, 0, sizeof(*md));
 
@@ -245,7 +243,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 		dev_err(&gmu->pdev->dev,
 				"Invalid memory type (%d) requested\n",
 				mem_type);
-		clear_bit(entry_idx, &gmu_kmem_bitmap);
+		clear_bit(entry_idx, &gmu->kmem_bitmap);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -255,7 +253,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 	ret = alloc_and_map(gmu, md, attrs);
 	if (ret) {
-		clear_bit(entry_idx, &gmu_kmem_bitmap);
+		clear_bit(entry_idx, &gmu->kmem_bitmap);
 		return ERR_PTR(ret);
 	}
 
@@ -367,10 +365,10 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 
 	/* Unmap and free all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
-		if (!test_bit(i, &gmu_kmem_bitmap))
+		if (!test_bit(i, &gmu->kmem_bitmap))
 			continue;
 
-		md = &gmu_kmem_entries[i];
+		md = &gmu->kmem_entries[i];
 		ctx = &gmu_ctx[md->ctx_idx];
 
 		if (md->gmuaddr && md->mem_type != GMU_ITCM &&
@@ -379,7 +377,7 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 
 		free_gmu_mem(gmu, md);
 
-		clear_bit(i, &gmu_kmem_bitmap);
+		clear_bit(i, &gmu->kmem_bitmap);
 	}
 
 	/* Detach the device from SMMU context bank */
@@ -418,7 +416,7 @@ int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk)
 	struct gmu_memdesc *md;
 
 	/* Check to see if this memdesc is already around */
-	md = gmu_get_memdesc(blk->addr, blk->value);
+	md = gmu_get_memdesc(gmu, blk->addr, blk->value);
 	if (md)
 		return 0;
 
