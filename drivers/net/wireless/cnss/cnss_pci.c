@@ -2717,10 +2717,14 @@ err_pcie_link_up:
 	cnss_configure_wlan_en_gpio(WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	if (penv->pdev) {
-		pr_err("%d: Unregistering pci device\n", __LINE__);
-		pci_unregister_driver(&cnss_wlan_pci_driver);
-		penv->pdev = NULL;
-		penv->pci_register_again = true;
+		if (wdrv && wdrv->update_status)
+			wdrv->update_status(penv->pdev, CNSS_SSR_FAIL);
+		if (!penv->recovery_in_progress) {
+			pr_err("%d: Unregistering pci device\n", __LINE__);
+			pci_unregister_driver(&cnss_wlan_pci_driver);
+			penv->pdev = NULL;
+			penv->pci_register_again = true;
+		}
 	}
 
 err_wlan_vreg_on:
