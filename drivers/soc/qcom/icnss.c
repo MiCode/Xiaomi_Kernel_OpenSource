@@ -1212,7 +1212,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
 		ret = wlfw_send_modem_shutdown_msg(priv);
-		if (ret)
+		if (ret < 0)
 			icnss_pr_err("Fail to send modem shutdown Indication %d\n",
 				     ret);
 	}
