@@ -2589,9 +2589,9 @@ static void esr_calib_work(struct work_struct *work)
 	esr_delta = esr_delta - esr_filtered;
 
 	/* Bound the limits */
-	if (esr_delta < SHRT_MAX)
+	if (esr_delta > SHRT_MAX)
 		esr_delta = SHRT_MAX;
-	else if (esr_delta > SHRT_MIN)
+	else if (esr_delta < SHRT_MIN)
 		esr_delta = SHRT_MIN;
 
 	fg_dbg(fg, FG_STATUS, "fg_esr_meas_diff: 0x%x esr_filt: 0x%x esr_delta_new: 0x%x\n",
