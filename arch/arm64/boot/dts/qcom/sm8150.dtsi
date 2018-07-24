@@ -1906,6 +1906,9 @@
 
 		qcom,llcc-perfmon {
 			compatible = "qcom,llcc-perfmon";
+
+			clocks = <&clock_aop QDSS_CLK>;
+			clock-names = "qdss_clk";
 		};
 
 		qcom,llcc-erp {
