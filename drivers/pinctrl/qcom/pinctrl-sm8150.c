@@ -1848,7 +1848,7 @@ static const struct msm_pingroup sm8150_groups[] = {
 	[175] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
 	[176] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
 	[177] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
-	[178] = UFS_RESET(ufs_reset, 0xdb6004),
+	[178] = UFS_RESET(ufs_reset, 0xdb6000),
 };
 
 static struct msm_dir_conn sm8150_dir_conn[] = {
