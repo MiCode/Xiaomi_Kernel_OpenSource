@@ -1052,7 +1052,7 @@
 		vdd-io-supply = <&pms405_l6>;
 		qcom,vdd-io-always-on;
 		qcom,vdd-io-lpm-sup;
-		qcom,vdd-io-voltage-level = <1704000 1800000>;
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
 		qcom,vdd-io-current-level = <0 325000>;
 
 		pinctrl-names = "active", "sleep";
