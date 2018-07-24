@@ -1,0 +1,123 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/msm-clocks-8952.h>
+#include "msm8917-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8917-QRD SKU5";
+	qcom,board-id = <0x1000b 0>;
+};
+
+&vendor{
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-sku2-4v35-2590mah.dtsi"
+	};
+};
+
+&qpnp_smbcharger {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&qpnp_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394f_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+};
+
+&dsi_hx8394f_720p_video {
+	qcom,esd-check-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&soc {
+	i2c@78b7000 {
+		status = "ok";
+		focaltech@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2>;
+			vdd-supply = <&pm8937_l10>;
+			vcc_i2c-supply = <&pm8937_l5>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active",
+						"pmx_ts_suspend",
+						"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			focaltech,name = "ft5436";
+			focaltech,family-id = <0x06>;
+			focaltech,reset-gpio = <&tlmm 64 0x0>;
+			focaltech,irq-gpio = <&tlmm 65 0x2008>;
+			focaltech,display-coords = <0 0 720 1280>;
+			focaltech,panel-coords = <0 0 720 1400>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <20>;
+			focaltech,soft-reset-delay-ms = <200>;
+			focaltech,num-max-touches = <5>;
+			focaltech,fw-delay-aa-ms = <30>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x79>;
+			focaltech,fw-upgrade-id2 = <0x08>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,ignore-id-check;
+			focaltech,resume-in-workqueue;
+		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1400>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	led_flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8937_flash0>;
+		qcom,torch-source = <&pmi8937_torch0>;
+		qcom,switch-source = <&pmi8937_switch>;
+	};
+};

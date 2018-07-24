@@ -963,8 +963,10 @@ static ssize_t stmvl53l0x_show_meter(struct device *dev,
 	struct vl_data *data = dev_get_drvdata(dev);
 	struct VL_RangingMeasurementData_t Measure;
 
+	if (data->enable_ps_sensor == 0)
+		return -ENODEV;
 	papi_func_tbl->PerformSingleRangingMeasurement(data, &Measure);
-	return snprintf(buf, 4, "%d\n", Measure.RangeMilliMeter);
+	return snprintf(buf, 7, "%d\n", Measure.RangeMilliMeter);
 }
 
 /* DEVICE_ATTR(name,mode,show,store) */

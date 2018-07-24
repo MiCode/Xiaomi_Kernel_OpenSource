@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,6 @@
 #include "cam_lrme_hw_mgr.h"
 #include "cam_mem_mgr_api.h"
 #include "cam_smmu_api.h"
-
-#define CAM_LRME_HW_WORKQ_NUM_TASK 30
 
 static int cam_lrme_hw_dev_util_cdm_acquire(struct cam_lrme_core *lrme_core,
 	struct cam_hw_info *lrme_hw)
@@ -122,7 +120,7 @@ static int cam_lrme_hw_dev_probe(struct platform_device *pdev)
 
 	rc = cam_req_mgr_workq_create("cam_lrme_hw_worker",
 		CAM_LRME_HW_WORKQ_NUM_TASK,
-		&lrme_core->work, CRM_WORKQ_USAGE_IRQ);
+		&lrme_core->work, CRM_WORKQ_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_LRME, "Unable to create a workq, rc=%d", rc);
 		goto free_memory;

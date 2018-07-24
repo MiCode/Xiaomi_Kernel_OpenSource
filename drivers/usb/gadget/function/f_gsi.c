@@ -2565,6 +2565,11 @@ static void gsi_resume(struct usb_function *f)
 static int gsi_get_status(struct usb_function *f)
 {
 	unsigned int remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+	struct f_gsi *gsi = func_to_gsi(f);
+
+	/* Disable function remote wake-up for DPL interface */
+	if (gsi->prot_id == USB_PROT_DIAG_IPA)
+		return 0;
 
 	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
 		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
@@ -2846,6 +2851,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 	struct rndis_params *params;
 	struct net_device *net;
+	struct gsi_opts *opts;
 	char *name = NULL;
 	int status;
 	__u8  class;
@@ -3053,18 +3059,15 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		mbim_gsi_desc.wMaxSegmentSize = cpu_to_le16(0x800);
 
-		/*
-		 * If MBIM is bound in a config other than the first, tell
-		 * Windows about it by returning the num as a string in the
-		 * OS descriptor's subCompatibleID field. Windows only supports
-		 * up to config #4.
-		 */
-		if (c->bConfigurationValue >= 2 &&
-				c->bConfigurationValue <= 4) {
-			log_event_dbg("MBIM in configuration %d",
-					c->bConfigurationValue);
-			mbim_gsi_ext_config_desc.function.subCompatibleID[0] =
-				c->bConfigurationValue + '0';
+		if (cdev->use_os_string) {
+			f->os_desc_table = kzalloc(sizeof(*f->os_desc_table),
+						GFP_KERNEL);
+			if (!f->os_desc_table)
+				return -ENOMEM;
+			opts = container_of(f->fi, struct gsi_opts, func_inst);
+			f->os_desc_n = 1;
+			f->os_desc_table[0].os_desc = &opts->os_desc;
+			f->os_desc_table[0].if_id = gsi->data_id;
 		}
 		break;
 	case USB_PROT_RMNET_IPA:
@@ -3254,6 +3257,7 @@ skip_ipa_init:
 
 dereg_rndis:
 	rndis_deregister(gsi->params);
+	kfree(f->os_desc_table);
 fail:
 	return status;
 }
@@ -3285,8 +3289,11 @@ skip_ipa_dinit:
 		rndis_deregister(gsi->params);
 	}
 
-	if (gsi->prot_id == USB_PROT_MBIM_IPA)
-		mbim_gsi_ext_config_desc.function.subCompatibleID[0] = 0;
+	if (gsi->prot_id == USB_PROT_MBIM_IPA) {
+		kfree(f->os_desc_table);
+		f->os_desc_table = NULL;
+		f->os_desc_n = 0;
+	}
 
 	if (gadget_is_superspeed(c->cdev->gadget)) {
 		usb_free_descriptors(f->ss_descriptors);
@@ -3609,6 +3616,8 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 	int name_len, prot_id, ret = 0;
 	struct gsi_opts *opts;
 	struct f_gsi *gsi;
+	struct usb_os_desc *descs[1];
+	char *names[1];
 
 	opts = container_of(fi, struct gsi_opts, func_inst);
 
@@ -3626,6 +3635,15 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 	if (prot_id == USB_PROT_RNDIS_IPA)
 		config_group_init_type_name(&opts->func_inst.group, "",
 					    &gsi_func_rndis_type);
+	if (prot_id == IPA_USB_MBIM) {
+		opts->os_desc.ext_compat_id = opts->ext_compat_id;
+		INIT_LIST_HEAD(&opts->os_desc.ext_prop);
+		descs[0] = &opts->os_desc;
+		names[0] = "MBIM";
+		opts->interf_group = usb_os_desc_prepare_interf_dir(
+						&opts->func_inst.group, 1,
+						descs, names, THIS_MODULE);
+	}
 
 	gsi = opts->gsi = __gsi[prot_id];
 	opts->gsi->prot_id = prot_id;
@@ -3640,8 +3658,11 @@ static void gsi_free_inst(struct usb_function_instance *f)
 {
 	struct gsi_opts *opts = container_of(f, struct gsi_opts, func_inst);
 
-	if (opts && opts->gsi && opts->gsi->c_port.ctrl_device.fops)
-		misc_deregister(&opts->gsi->c_port.ctrl_device);
+	if (opts) {
+		if (opts->gsi && opts->gsi->c_port.ctrl_device.fops)
+			misc_deregister(&opts->gsi->c_port.ctrl_device);
+		kfree(opts->interf_group);
+	}
 
 	kfree(opts);
 }

@@ -36,7 +36,7 @@
 		peripheral2_mem: peripheral2_region@8fe00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x8fe00000 0x200000>;
+			reg = <0x8fe00000 0xe00000>;
 			label = "peripheral2_mem";
 		};
 
@@ -65,7 +65,7 @@
 		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87400000 0x8300000>;
+			reg = <0x87000000 0x8700000>;
 			label = "mss_mem";
 		};
 
@@ -1359,6 +1359,8 @@
 		vreg_emac_phy-supply =  <&vreg_emac_phy>;
 		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
 		gdsc_emac-supply = <&gdsc_emac>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "emac_aop";
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
@@ -1377,15 +1379,15 @@
 			compatible = "qcom,ess-switch-qca83xx";
 			qcom,switch-access-mode = "mdio";
 			qcom,ar8327-initvals = <
-				0x0000c 0x7600000   /* PAD6_MODE */
+				0x00004 0x7600000   /* PAD0_MODE */
 				0x00008 0x0         /* PAD5_MODE */
 				0x000e4 0xaa545     /* MAC_POWER_SEL */
 				0x000e0 0xc74164de  /* SGMII_CTRL */
 				0x0007c 0x4e        /* PORT0_STATUS */
 				0x00094 0x4e        /* PORT6_STATUS */
 			>;
-			qcom,link-intr-gpio = <2>;
-			qcom,switch-cpu-bmp = <0x40>;    /* cpu port bitmap */
+			qcom,link-intr-gpio = <84>;
+			qcom,switch-cpu-bmp = <0x01>;    /* cpu port bitmap */
 			qcom,switch-lan-bmp = <0x3e>;    /* lan port bitmap */
 			qcom,switch-wan-bmp = <0x0>;     /* wan port bitmap */
 		};

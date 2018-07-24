@@ -16,6 +16,7 @@
 #include "apq8053-camera-sensor-dragon.dtsi"
 #include "pmi8950.dtsi"
 #include "msm8953-pmi8950.dtsi"
+#include "apq8053-dragon-memory.dtsi"
 
 &soc {
 	vreg_5p0: vreg_5p0 {
@@ -117,6 +118,10 @@
 			linux,can-disable;
 			gpio-key,wakeup;
 		};
+	};
+
+	qcom,rmnet-ipa {
+		status = "disabled";
 	};
 };
 
@@ -501,4 +506,12 @@
 		bias-disable = <0>; /* no pull */
 		status = "okay";
 	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
+
+&msm_gpu {
+	/delete-node/ qcom,gpu-mempools;
 };
