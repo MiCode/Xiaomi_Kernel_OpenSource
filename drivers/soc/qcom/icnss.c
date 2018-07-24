@@ -1211,8 +1211,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
-		if (wlfw_send_modem_shutdown_msg(priv))
-			icnss_pr_dbg("Fail to send modem shutdown Indication\n");
+		ret = wlfw_send_modem_shutdown_msg(priv);
+		if (ret)
+			icnss_pr_err("Fail to send modem shutdown Indication %d\n",
+				     ret);
 	}
 
 	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
