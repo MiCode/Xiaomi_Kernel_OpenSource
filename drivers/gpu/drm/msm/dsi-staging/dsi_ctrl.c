@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -484,7 +484,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	}
 
 	ctrl->hw.base = ptr;
-	pr_debug("[%s] map dsi_ctrl registers to %p\n", ctrl->name,
+	pr_debug("[%s] map dsi_ctrl registers to %pK\n", ctrl->name,
 		 ctrl->hw.base);
 
 	ptr = msm_ioremap(pdev, "mmss_misc", ctrl->name);
@@ -494,7 +494,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	}
 
 	ctrl->hw.mmss_misc_base = ptr;
-	pr_debug("[%s] map mmss_misc registers to %p\n", ctrl->name,
+	pr_debug("[%s] map mmss_misc registers to %pK\n", ctrl->name,
 		 ctrl->hw.mmss_misc_base);
 	return rc;
 }

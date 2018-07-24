@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,7 +93,8 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 
 	phy->hw.base = ptr;
 
-	pr_debug("[%s] map dsi_phy registers to %p\n", phy->name, phy->hw.base);
+	pr_debug("[%s] map dsi_phy registers to %pK\n",
+		phy->name, phy->hw.base);
 
 	return rc;
 }

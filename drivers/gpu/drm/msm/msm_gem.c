@@ -290,7 +290,7 @@ int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	pfn = page_to_pfn(pages[pgoff]);
 
-	VERB("Inserting %p pfn %lx, pa %lx", vmf->virtual_address,
+	VERB("Inserting %pK pfn %lx, pa %lx", vmf->virtual_address,
 			pfn, pfn << PAGE_SHIFT);
 
 	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, pfn);
@@ -399,7 +399,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 						msm_obj->domain[id].sgt,
 						IOMMU_READ | IOMMU_NOEXEC);
 				if (ret) {
-					DRM_ERROR("Unable to map phy buf=%p\n",
+					DRM_ERROR("Unable to map phy buf=%pK\n",
 						(void *)pa);
 					return ret;
 				}
@@ -414,7 +414,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 				msm_obj->domain[id].iova =
 				sg_dma_address(msm_obj->domain[id].sgt->sgl);
 			}
-			DRM_DEBUG("iova=%p\n",
+			DRM_DEBUG("iova=%pK\n",
 					(void *)msm_obj->domain[id].iova);
 		} else {
 			WARN_ONCE(1, "physical address being used\n");
@@ -599,7 +599,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 	uint64_t off = drm_vma_node_start(&obj->vma_node);
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
-	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p %zu\n",
+	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %pK %zu\n",
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			msm_obj->read_timestamp, msm_obj->write_timestamp,
 			obj->name, obj->refcount.refcount.counter,
