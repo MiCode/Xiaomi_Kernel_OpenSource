@@ -953,7 +953,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	uint32_t gmu_log_info;
 	int ret;
 	unsigned int chipid = 0;
@@ -996,7 +995,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	gmu_core_regwrite(device, A6XX_GMU_CM3_BOOT_CONFIG, gmu->load_mode);
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_ADDR,
-			mem_addr->gmuaddr);
+			gmu->hfi_mem->gmuaddr);
 	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_INFO, 1);
 
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
@@ -1506,6 +1505,7 @@ static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 		return 0;
 	}
 
+	memset(mem_hdr, 0, sizeof(*mem_hdr));
 	mem_hdr->type = desc->type;
 	mem_hdr->hostaddr = (uintptr_t)desc->memdesc->hostptr;
 	mem_hdr->gmuaddr = desc->memdesc->gmuaddr;
@@ -1515,6 +1515,93 @@ static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
 
 	return desc->memdesc->size + sizeof(*mem_hdr);
+}
+
+struct a6xx_tcm_data {
+	enum gmu_mem_type type;
+	u32 start;
+	u32 last;
+};
+
+static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
+	unsigned int i, bytes;
+	struct a6xx_tcm_data *tcm = priv;
+
+	bytes = (tcm->last - tcm->start + 1) << 2;
+
+	if (remain < bytes + sizeof(*mem_hdr)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Memory");
+		return 0;
+	}
+
+	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
+	mem_hdr->hostaddr = 0;
+	mem_hdr->gmuaddr = gmu_get_memtype_base(tcm->type);
+	mem_hdr->gpuaddr = 0;
+
+	for (i = tcm->start; i <= tcm->last; i++)
+		kgsl_regread(device, i, data++);
+
+	return bytes + sizeof(*mem_hdr);
+}
+
+static void a6xx_gmu_snapshot_memories(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct gmu_mem_type_desc desc;
+	struct gmu_memdesc *md;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(gmu->kmem_entries); i++) {
+		if (!test_bit(i, &gmu->kmem_bitmap))
+			continue;
+
+		md = &gmu->kmem_entries[i];
+		if (!md->size)
+			continue;
+
+		desc.memdesc = md;
+		if (md == gmu->hfi_mem)
+			desc.type = SNAPSHOT_GMU_MEM_HFI;
+		else if (md == gmu->gmu_log)
+			desc.type = SNAPSHOT_GMU_MEM_LOG;
+		else if (md == gmu->dump_mem)
+			desc.type = SNAPSHOT_GMU_MEM_DEBUG;
+		else
+			desc.type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
+
+		if (md->mem_type == GMU_ITCM) {
+			struct a6xx_tcm_data tcm = {
+				.type = md->mem_type,
+				.start = a6xx_gmu_tcm_registers[0],
+				.last = a6xx_gmu_tcm_registers[1],
+			};
+
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
+		} else if (md->mem_type == GMU_DTCM) {
+			struct a6xx_tcm_data tcm = {
+				.type = md->mem_type,
+				.start = a6xx_gmu_tcm_registers[2],
+				.last = a6xx_gmu_tcm_registers[3],
+			};
+
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
+		} else {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+				snapshot, a6xx_snapshot_gmu_mem, &desc);
+		}
+	}
 }
 
 struct kgsl_snapshot_gmu_version {
@@ -1566,42 +1653,9 @@ static void a6xx_gmu_snapshot_versions(struct kgsl_device *device,
 				&gmu_vers[i]);
 }
 
-struct a6xx_tcm_data {
-	enum gmu_mem_type type;
-	u32 start;
-	u32 last;
-};
-
-static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
-		u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_gmu_mem *mem_hdr =
-		(struct kgsl_snapshot_gmu_mem *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
-	unsigned int i, bytes;
-	struct a6xx_tcm_data *tcm = priv;
-
-	bytes = (tcm->last - tcm->start + 1) << 2;
-
-	if (remain < bytes + sizeof(*mem_hdr)) {
-		SNAPSHOT_ERR_NOMEM(device, "GMU Memory");
-		return 0;
-	}
-
-	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
-	mem_hdr->hostaddr = 0;
-	mem_hdr->gmuaddr = gmu_get_memtype_base(tcm->type);
-	mem_hdr->gpuaddr = 0;
-
-	for (i = tcm->start; i <= tcm->last; i++)
-		kgsl_regread(device, i, data++);
-
-	return bytes + sizeof(*mem_hdr);
-}
-
 /*
  * a6xx_gmu_snapshot() - A6XX GMU snapshot function
- * @adreno_dev: Device being snapshotted
+ * @device: Device being snapshotted
  * @snapshot: Pointer to the snapshot instance
  *
  * This is where all of the A6XX GMU specific bits and pieces are grabbed
@@ -1610,51 +1664,21 @@ static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
 static void a6xx_gmu_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct gmu_mem_type_desc desc[] = {
-		{gmu->hfi_mem, SNAPSHOT_GMU_MEM_HFI},
-		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
-		{gmu->dump_mem, SNAPSHOT_GMU_MEM_DEBUG},
-	};
-	unsigned int val, i;
+	unsigned int val;
 
 	if (!gmu_core_isenabled(device))
 		return;
 
 	a6xx_gmu_snapshot_versions(device, snapshot);
 
-	for (i = 0; i < ARRAY_SIZE(desc); i++) {
-		if (desc[i].memdesc)
-			kgsl_snapshot_add_section(device,
-					KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-					snapshot, a6xx_snapshot_gmu_mem,
-					&desc[i]);
-	}
+	a6xx_gmu_snapshot_memories(device, snapshot);
 
-	if (adreno_is_a640(adreno_dev) || adreno_is_a650(adreno_dev) ||
-			adreno_is_a680(adreno_dev)) {
-		struct a6xx_tcm_data tcm = {
-			.type = GMU_ITCM,
-			.start = a6xx_gmu_tcm_registers[0],
-			.last = a6xx_gmu_tcm_registers[1],
-		};
-
-		kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
-
-		tcm.type = GMU_DTCM;
-		tcm.start = a6xx_gmu_tcm_registers[2],
-		tcm.last = a6xx_gmu_tcm_registers[3],
-
-		kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
-				snapshot, a6xx_snapshot_gmu_tcm, &tcm);
-	} else {
+	/* Snapshot tcms as registers for legacy targets */
+	if (adreno_is_a630(ADRENO_DEVICE(device)) ||
+			adreno_is_a615_family(ADRENO_DEVICE(device)))
 		adreno_snapshot_registers(device, snapshot,
 				a6xx_gmu_tcm_registers,
 				ARRAY_SIZE(a6xx_gmu_tcm_registers) / 2);
-	}
 
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
