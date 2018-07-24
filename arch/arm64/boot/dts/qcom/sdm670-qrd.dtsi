@@ -195,6 +195,8 @@
 		"AMIC1", "MIC BIAS External",
 		"MIC BIAS External", "Secondary Mic",
 		"AMIC3", "MIC BIAS External",
+		"MICBIAS_REGULATOR", "VDDA18_L10_REGULATOR",
+		"VDDA18_L10_REGULATOR", "VDD_L1_REGULATOR",
 		"SpkrLeft IN", "SPK1 OUT",
 		"PDM_IN_RX1", "PDM_OUT_RX1",
 		"PDM_IN_RX2", "PDM_OUT_RX2",
