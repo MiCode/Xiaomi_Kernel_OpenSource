@@ -1525,7 +1525,7 @@ static void dp_panel_config_msa(struct dp_panel *dp_panel)
 	catalog->config_msa(catalog, rate, stream_rate_khz, fixed_nvid);
 }
 
-static int dp_panel_hw_cfg(struct dp_panel *dp_panel)
+static int dp_panel_hw_cfg(struct dp_panel *dp_panel, bool enable)
 {
 	struct dp_panel_private *panel;
 
@@ -1542,11 +1542,15 @@ static int dp_panel_hw_cfg(struct dp_panel *dp_panel)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	panel->catalog->stream_id = dp_panel->stream_id;
 
-	dp_panel_config_ctrl(dp_panel);
-	dp_panel_config_misc(dp_panel);
-	dp_panel_config_msa(dp_panel);
-	dp_panel_config_tr_unit(dp_panel);
-	dp_panel_config_timing(dp_panel);
+	if (enable) {
+		dp_panel_config_ctrl(dp_panel);
+		dp_panel_config_misc(dp_panel);
+		dp_panel_config_msa(dp_panel);
+		dp_panel_config_tr_unit(dp_panel);
+		dp_panel_config_timing(dp_panel);
+	}
+
+	panel->catalog->config_dto(panel->catalog, !enable);
 
 	return 0;
 }
