@@ -3491,8 +3491,8 @@ static const struct file_operations ipa3_drv_fops = {
 
 static int ipa3_get_clks(struct device *dev)
 {
-	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
-		IPADBG("No clock manipulation when running emulation\n");
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPADBG("not supported in this HW mode\n");
 		ipa3_clk = NULL;
 		return 0;
 	}
@@ -4511,6 +4511,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	IPADBG("IPA HW initialization sequence completed");
 
 	ipa3_ctx->ipa_num_pipes = ipa3_get_num_pipes();
+	IPADBG("IPA Pipes num %u\n", ipa3_ctx->ipa_num_pipes);
 	if (ipa3_ctx->ipa_num_pipes > IPA3_MAX_NUM_PIPES) {
 		IPAERR("IPA has more pipes then supported has %d, max %d\n",
 			ipa3_ctx->ipa_num_pipes, IPA3_MAX_NUM_PIPES);
@@ -5136,13 +5137,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 			ipa3_ctx->ipa_tz_unlock_reg[i].size =
 				resource_p->ipa_tz_unlock_reg[i].size;
 		}
-	}
 
-	/* unlock registers for uc */
-	result = ipa3_tz_unlock_reg(ipa3_ctx->ipa_tz_unlock_reg,
-				    ipa3_ctx->ipa_tz_unlock_reg_num);
-	if (result)
-		IPAERR("Failed to unlock memory region using TZ\n");
+		/* unlock registers for uc */
+		result = ipa3_tz_unlock_reg(ipa3_ctx->ipa_tz_unlock_reg,
+					    ipa3_ctx->ipa_tz_unlock_reg_num);
+		if (result)
+			IPAERR("Failed to unlock memory region using TZ\n");
+	}
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -5744,7 +5745,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->use_ipa_teth_bridge =
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,use-ipa-tethering-bridge");
-	IPADBG(": using TBDr = %s",
+	IPADBG(": using ipa teth bridge = %s",
 		ipa_drv_res->use_ipa_teth_bridge
 		? "True" : "False");
 

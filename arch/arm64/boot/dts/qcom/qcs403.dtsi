@@ -20,6 +20,19 @@
 };
 
 &soc {
+	/delete-node/ qcom,msm-cpufreq;
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk";
+		clocks = <&clock_cpu APCS_MUX_CLK>;
+
+		qcom,cpufreq-table =
+			 < 1113600 >,
+			 < 1267200 >,
+			 < 1401600 >;
+	};
+
 	/delete-node/ qcom,cpu0-computemon;
 
 	cpu0_computemon: qcom,cpu0-computemon {

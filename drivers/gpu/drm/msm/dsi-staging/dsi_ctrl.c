@@ -786,16 +786,51 @@ err:
 	return rc;
 }
 
+/* Function returns number of bits per pxl */
+static int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format)
+{
+	u32 bpp = 0;
+
+	switch (dst_format) {
+	case DSI_PIXEL_FORMAT_RGB111:
+		bpp = 3;
+		break;
+	case DSI_PIXEL_FORMAT_RGB332:
+		bpp = 8;
+		break;
+	case DSI_PIXEL_FORMAT_RGB444:
+		bpp = 12;
+		break;
+	case DSI_PIXEL_FORMAT_RGB565:
+		bpp = 16;
+		break;
+	case DSI_PIXEL_FORMAT_RGB666:
+	case DSI_PIXEL_FORMAT_RGB666_LOOSE:
+		bpp = 18;
+		break;
+	case DSI_PIXEL_FORMAT_RGB888:
+		bpp = 24;
+		break;
+	default:
+		bpp = 24;
+		break;
+	}
+	return bpp;
+}
+
 static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	struct dsi_host_config *config, void *clk_handle)
 {
 	int rc = 0;
 	u32 num_of_lanes = 0;
-	u32 bpp = 3;
+	u32 bpp;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
 	struct dsi_mode_info *timing = &config->video_timing;
+
+	/* Get bits per pxl in desitnation format */
+	bpp = dsi_ctrl_pixel_format_to_bpp(host_cfg->dst_format);
 
 	if (host_cfg->data_lanes & DSI_DATA_LANE_0)
 		num_of_lanes++;
@@ -809,7 +844,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (config->bit_clk_rate_hz == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
 		v_period = DSI_V_TOTAL(timing);
-		bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
 	}
@@ -817,7 +852,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	bit_rate_per_lane = bit_rate;
 	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;
-	do_div(pclk_rate, (8 * bpp));
+	do_div(pclk_rate, bpp);
 	byte_clk_rate = bit_rate_per_lane;
 	do_div(byte_clk_rate, 8);
 	pr_debug("bit_clk_rate = %llu, bit_clk_rate_per_lane = %llu\n",
@@ -1335,10 +1370,17 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 	u32 current_read_len = 0, total_bytes_read = 0;
 	bool short_resp = false;
 	bool read_done = false;
-	u32 dlen, diff, rlen = msg->rx_len;
+	u32 dlen, diff, rlen;
 	unsigned char *buff;
 	char cmd;
 
+	if (!msg) {
+		pr_err("Invalid msg\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	rlen = msg->rx_len;
 	if (msg->rx_len <= 2) {
 		short_resp = true;
 		rd_pkt_size = msg->rx_len;

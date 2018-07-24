@@ -1075,7 +1075,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("gsi_start_channel failed res=%d ep=%d.\n", result,
 			ipa_ep_idx);
-		goto fail_gen2;
+		goto fail_gen3;
 	}
 
 	if (!ep->keep_ipa_awake)
@@ -1086,6 +1086,8 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	return 0;
 
+fail_gen3:
+	ipa3_disable_data_path(ipa_ep_idx);
 fail_gen2:
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deregister(ep->sys->pm_hdl);
@@ -3785,6 +3787,8 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_channel_props.low_weight = IPA_GSI_MAX_CH_LOW_WEIGHT;
 	else
 		gsi_channel_props.low_weight = 1;
+	gsi_channel_props.prefetch_mode = gsi_ep_info->prefetch_mode;
+	gsi_channel_props.empty_lvl_threshold = gsi_ep_info->prefetch_threshold;
 	gsi_channel_props.chan_user_data = ep->sys;
 	gsi_channel_props.err_cb = ipa_gsi_chan_err_cb;
 	if (IPA_CLIENT_IS_PROD(ep->client))

@@ -45,7 +45,10 @@
 #define FW_CTRL_STATUS_LOG_READY_BIT            1
 #define FW_CTRL_STATUS_EXECUTE_THREAD_READY_BIT 2
 #define FW_CTRL_STATUS_MAIN_THREAD_READY_BIT    3
-#define FW_CTRL_STATUS_EXECUTING_ACO            4
+#define FW_CTRL_STATUS_LOADED_ACO_BIT           4
+#define FW_CTRL_STATUS_EXECUTING_ACO_BIT        5
+#define FW_CTRL_STATUS_SHUTDOWN_DONE_BIT        12
+#define FW_CTRL_STATUS_STACK_CORRUPT_BIT        13
 
 /* 32 bit values of the bit fields above */
 #define FW_CTRL_STATUS_IPC_READY_VAL    (1 << FW_CTRL_STATUS_IPC_READY_BIT)
@@ -54,8 +57,14 @@
 		(1 << FW_CTRL_STATUS_EXECUTE_THREAD_READY_BIT)
 #define FW_CTRL_STATUS_MAIN_THREAD_READY_VAL \
 		(1 << FW_CTRL_STATUS_MAIN_THREAD_READY_BIT)
+#define FW_CTRL_STATUS_LOADED_ACO_VAL \
+			(1 << FW_CTRL_STATUS_LOADED_ACO_BIT)
 #define FW_CTRL_STATUS_EXECUTING_ACO_VAL \
-		(1 << FW_CTRL_STATUS_EXECUTING_ACO)
+			(1 << FW_CTRL_STATUS_EXECUTING_ACO_BIT)
+#define FW_CTRL_STATUS_SHUTDOWN_DONE_VAL \
+			(1 << FW_CTRL_STATUS_SHUTDOWN_DONE_BIT)
+#define FW_CTRL_STATUS_STACK_CORRUPT_VAL \
+			(1 << FW_CTRL_STATUS_STACK_CORRUPT_BIT)
 
 /* NPU HOST Control/Status Register */
 /* bit fields definitions in CTRL STATUS REG */
@@ -65,6 +74,8 @@
 #define HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_BIT    1
 /* Host has enabled the clk gating of CAL during boot */
 #define HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT   2
+/* Host requests to pause fw during boot up */
+#define HOST_CTRL_STATUS_FW_PAUSE                   3
 
 /* 32 bit values of the bit fields above */
 #define HOST_CTRL_STATUS_IPC_ADDRESS_READY_VAL \
@@ -73,6 +84,8 @@
 		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_BIT)
 #define HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_VAL \
 		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT)
+#define HOST_CTRL_STATUS_FW_PAUSE_VAL \
+		(1 << HOST_CTRL_STATUS_FW_PAUSE)
 
 /* Queue table header definition */
 struct hfi_queue_tbl_header {

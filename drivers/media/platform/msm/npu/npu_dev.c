@@ -50,7 +50,9 @@
  */
 static int npu_enable_regulators(struct npu_device *npu_dev);
 static void npu_disable_regulators(struct npu_device *npu_dev);
-static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil);
+static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil);
+static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil);
+static int npu_enable_core_clocks(struct npu_device *npu_dev);
 static void npu_disable_core_clocks(struct npu_device *npu_dev);
 static uint32_t npu_calc_power_level(struct npu_device *npu_dev);
 static ssize_t npu_show_capabilities(struct device *dev,
@@ -280,7 +282,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 		if (ret)
 			return ret;
 
-		ret = npu_enable_core_clocks(npu_dev, false);
+		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
 			npu_disable_regulators(npu_dev);
 			pwr->pwr_vote_num = 0;
@@ -312,11 +314,25 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		pwr->default_pwrlevel);
 }
 
-int npu_enable_post_pil_clocks(struct npu_device *npu_dev)
+static int npu_enable_core_clocks(struct npu_device *npu_dev)
 {
-	return npu_enable_core_clocks(npu_dev, true);
+	return npu_enable_clocks(npu_dev, false);
 }
 
+static void npu_disable_core_clocks(struct npu_device *npu_dev)
+{
+	return npu_disable_clocks(npu_dev, false);
+}
+
+int npu_enable_post_pil_clocks(struct npu_device *npu_dev)
+{
+	return npu_enable_clocks(npu_dev, true);
+}
+
+void npu_disable_post_pil_clocks(struct npu_device *npu_dev)
+{
+	npu_disable_clocks(npu_dev, true);
+}
 
 static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 {
@@ -499,7 +515,7 @@ static bool npu_is_exclude_rate_clock(const char *clk_name)
 	return ret;
 }
 
-static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil)
+static int npu_enable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
 	int i, rc = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
@@ -559,14 +575,17 @@ static int npu_enable_core_clocks(struct npu_device *npu_dev, bool post_pil)
 	return rc;
 }
 
-static void npu_disable_core_clocks(struct npu_device *npu_dev)
+static void npu_disable_clocks(struct npu_device *npu_dev, bool post_pil)
 {
 	int i = 0;
 	struct npu_clk *core_clks = npu_dev->core_clks;
 
 	for (i = (npu_dev->core_clk_num)-1; i >= 0 ; i--) {
-		if (npu_dev->host_ctx.fw_state == FW_DISABLED) {
-			if (npu_is_post_clock(npu_dev->core_clks[i].clk_name))
+		if (post_pil) {
+			if (!npu_is_post_clock(core_clks[i].clk_name))
+				continue;
+		} else {
+			if (npu_is_post_clock(core_clks[i].clk_name))
 				continue;
 		}
 

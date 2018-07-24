@@ -24,18 +24,16 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define NW_SMALL_EXEC_TIMEOUT_MS (1000*300)	/* set for 5 min */
-#define NW_SMALL_EXEC_TIMEOUT msecs_to_jiffies(NW_SMALL_EXEC_TIMEOUT_MS)
-#define NW_LARGE_EXEC_TIMEOUT_MS (1000*300*12)	/* set for 60 min */
-#define NW_LARGE_EXEC_TIMEOUT msecs_to_jiffies(NW_LARGE_EXEC_TIMEOUT_MS)
-#define NW_LOAD_TIMEOUT_MS (1000*300) /* set for 5 min */
-#define NW_LOAD_TIMEOUT msecs_to_jiffies(NW_LOAD_TIMEOUT_MS)
-#define NW_UNLOAD_TIMEOUT_MS (1000*300) /* set for 5 min */
-#define NW_UNLOAD_TIMEOUT msecs_to_jiffies(NW_UNLOAD_TIMEOUT_MS)
+#define NW_CMD_TIMEOUT_MS (1000 * 60 * 5) /* set for 5 minutes */
+#define NW_CMD_TIMEOUT msecs_to_jiffies(NW_CMD_TIMEOUT_MS)
+#define NW_DEBUG_TIMEOUT_MS (1000 * 60 * 30) /* set for 30 minutes */
+#define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
-#define LARGE_NETWORK_SIZE_THRESHOLD (5*1024) /* 5 KB */
 #define NPU_IPC_BUF_LENGTH 512
+
+#define FW_DBG_MODE_PAUSE        (1 << 0)
+#define FW_DBG_MODE_INC_TIMEOUT  (1 << 1)
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -77,6 +75,7 @@ struct npu_host_ctx {
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
+	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
 	atomic_t ipc_trans_id;
 

@@ -1786,6 +1786,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->intf_mode = INTF_MODE_WB_LINE;
 	phys_enc->intf_idx = p->intf_idx;
 	phys_enc->enc_spinlock = p->enc_spinlock;
+	phys_enc->vblank_ctl_lock = p->vblank_ctl_lock;
 	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
 
 	irq = &phys_enc->irq[INTR_IDX_WB_DONE];

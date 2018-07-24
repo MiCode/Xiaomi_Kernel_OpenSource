@@ -66,6 +66,8 @@ enum {
 	HW_PLATFORM_RCM	= 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_ADP = 25,
+	HW_PLATFORM_IOT = 32,
 	HW_PLATFORM_INVALID
 };
 
@@ -86,11 +88,23 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_ADP] = "ADP",
+	[HW_PLATFORM_IOT] = "IOT"
 };
 
 enum {
 	ACCESSORY_CHIP_UNKNOWN = 0,
 	ACCESSORY_CHIP_CHARM = 58,
+};
+
+enum {
+	PLATFORM_SUBTYPE_ADP_V1 = 0x0,
+	PLATFORM_SUBTYPE_ADP_INVALID,
+};
+
+const char *adp_hw_platform_subtype[] = {
+	[PLATFORM_SUBTYPE_ADP_V1] = "ADP_V1",
+	[PLATFORM_SUBTYPE_ADP_INVALID] = "INVALID",
 };
 
 enum {
@@ -703,6 +717,14 @@ msm_get_platform_subtype(struct device *dev,
 		}
 		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 					qrd_hw_platform_subtype[hw_subtype]);
+	}
+	if (socinfo_get_platform_type() == HW_PLATFORM_ADP) {
+		if (hw_subtype >= PLATFORM_SUBTYPE_ADP_INVALID) {
+			pr_err("Invalid hardware platform sub type for adp found\n");
+			hw_subtype = PLATFORM_SUBTYPE_ADP_INVALID;
+		}
+		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+					adp_hw_platform_subtype[hw_subtype]);
 	} else {
 		if (hw_subtype >= PLATFORM_SUBTYPE_INVALID) {
 			pr_err("Invalid hardware platform subtype\n");

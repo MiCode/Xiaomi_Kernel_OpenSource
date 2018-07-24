@@ -46,12 +46,12 @@ module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
 );
 
-static int qg_esr_mod_count = 10;
+static int qg_esr_mod_count = 30;
 module_param_named(
 	esr_mod_count, qg_esr_mod_count, int, 0600
 );
 
-static int qg_esr_count = 5;
+static int qg_esr_count = 3;
 module_param_named(
 	esr_count, qg_esr_count, int, 0600
 );
@@ -855,7 +855,7 @@ static int qg_process_esr_data(struct qpnp_qg *chip)
 
 static int qg_esr_estimate(struct qpnp_qg *chip)
 {
-	int rc, i, ibat;
+	int rc, i, ibat = 0;
 	u8 esr_done_count, reg0 = 0, reg1 = 0;
 	bool is_charging = false;
 
@@ -863,13 +863,17 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 		return 0;
 
 	/*
-	 * Charge - enable ESR estimation only during fast-charging.
+	 * Charge - enable ESR estimation if IBAT > MIN_IBAT.
 	 * Discharge - enable ESR estimation only if enabled via DT.
 	 */
+	rc = qg_get_battery_current(chip, &ibat);
+	if (rc < 0)
+		return rc;
 	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING &&
-			chip->charge_type != POWER_SUPPLY_CHARGE_TYPE_FAST) {
+				ibat > chip->dt.esr_min_ibat_ua) {
 		qg_dbg(chip, QG_DEBUG_ESR,
-			"Skip ESR, Not in fast-charge (CC)\n");
+			"Skip CHG ESR, Fails IBAT ibat(%d) min_ibat(%d)\n",
+				ibat, chip->dt.esr_min_ibat_ua);
 		return 0;
 	}
 
@@ -1003,6 +1007,8 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 		pr_err("Failed to release master, rc=%d\n", rc);
 		goto done;
 	}
+	/* FIFOs restarted */
+	chip->last_fifo_update_time = ktime_get();
 
 	if (chip->esr_avg) {
 		chip->kdata.param[QG_ESR].data = chip->esr_avg;
@@ -1507,47 +1513,6 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 	}
 
 	return DEFAULT_BATT_TYPE;
-}
-
-static int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
-{
-	int rc = 0, last_ibat = 0;
-	u32 fifo_length = 0;
-
-	if (chip->battery_missing) {
-		*ibat_ua = 0;
-		return 0;
-	}
-
-	if (chip->parallel_enabled) {
-		/* read the last real-time FIFO */
-		rc = get_fifo_length(chip, &fifo_length, true);
-		if (rc < 0) {
-			pr_err("Failed to read RT FIFO length, rc=%d\n", rc);
-			return rc;
-		}
-		fifo_length = (fifo_length == 0) ? 0 : fifo_length - 1;
-		fifo_length *= 2;
-		rc = qg_read(chip, chip->qg_base + QG_I_FIFO0_DATA0_REG +
-					fifo_length, (u8 *)&last_ibat, 2);
-		if (rc < 0) {
-			pr_err("Failed to read FIFO_I_%d reg, rc=%d\n",
-					fifo_length / 2, rc);
-			return rc;
-		}
-	} else {
-		rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_I_DATA0_REG,
-					(u8 *)&last_ibat, 2);
-		if (rc < 0) {
-			pr_err("Failed to read LAST_ADV_I reg, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	last_ibat = sign_extend32(last_ibat, 15);
-	*ibat_ua = I_RAW_TO_UA(last_ibat);
-
-	return rc;
 }
 
 static int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
@@ -3115,6 +3080,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
 #define DEFAULT_ESR_DISABLE_SOC		1000
+#define ESR_CHG_MIN_IBAT_UA		(-450000)
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -3333,6 +3299,12 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.esr_disable_soc = temp * 100;
 
+	rc = of_property_read_u32(node, "qcom,esr-chg-min-ibat-ua", &temp);
+	if (rc < 0)
+		chip->dt.esr_min_ibat_ua = ESR_CHG_MIN_IBAT_UA;
+	else
+		chip->dt.esr_min_ibat_ua = (int)temp;
+
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
 
 	/* Capacity learning params*/
@@ -3412,9 +3384,6 @@ static int process_suspend(struct qpnp_qg *chip)
 		return 0;
 
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
-	/* disable GOOD_OCV IRQ in sleep */
-	vote(chip->good_ocv_irq_disable_votable,
-			QG_INIT_STATE_IRQ_DISABLE, true, 0);
 
 	chip->suspend_data = false;
 
@@ -3486,10 +3455,6 @@ static int process_resume(struct qpnp_qg *chip)
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
 		return 0;
-
-	/* enable GOOD_OCV IRQ when awake */
-	vote(chip->good_ocv_irq_disable_votable,
-			QG_INIT_STATE_IRQ_DISABLE, false, 0);
 
 	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status2, 1);
 	if (rc < 0) {
@@ -3581,9 +3546,41 @@ static int qpnp_qg_resume_noirq(struct device *dev)
 	return 0;
 }
 
+static int qpnp_qg_suspend(struct device *dev)
+{
+	struct qpnp_qg *chip = dev_get_drvdata(dev);
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
+
+	/* disable GOOD_OCV IRQ in sleep */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, true, 0);
+
+	return 0;
+}
+
+static int qpnp_qg_resume(struct device *dev)
+{
+	struct qpnp_qg *chip = dev_get_drvdata(dev);
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
+
+	/* enable GOOD_OCV IRQ when active */
+	vote(chip->good_ocv_irq_disable_votable,
+			QG_INIT_STATE_IRQ_DISABLE, false, 0);
+
+	return 0;
+}
+
 static const struct dev_pm_ops qpnp_qg_pm_ops = {
 	.suspend_noirq	= qpnp_qg_suspend_noirq,
 	.resume_noirq	= qpnp_qg_resume_noirq,
+	.suspend	= qpnp_qg_suspend,
+	.resume		= qpnp_qg_resume,
 };
 
 static int qpnp_qg_probe(struct platform_device *pdev)

@@ -154,6 +154,7 @@
 #define GCC_CRYPTO_CLK					137
 #define GCC_MDP_TBU_CLK					138
 #define GCC_QDSS_DAP_CLK				139
+#define GCC_DCC_XO_CLK					140
 
 #define GCC_GENI_IR_BCR					0
 #define GCC_USB_HS_BCR					1

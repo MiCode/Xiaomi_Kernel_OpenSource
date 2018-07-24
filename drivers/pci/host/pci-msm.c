@@ -5783,24 +5783,24 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	}
 
 	msm_pcie_dev[rc_idx].l0s_supported =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,l0s-supported");
+		!of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,no-l0s-supported");
 	if (msm_pcie_invert_l0s_support & BIT(rc_idx))
 		msm_pcie_dev[rc_idx].l0s_supported =
 			!msm_pcie_dev[rc_idx].l0s_supported;
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L0s is %s supported.\n",
 		msm_pcie_dev[rc_idx].l0s_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].l1_supported =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,l1-supported");
+		!of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,no-l1-supported");
 	if (msm_pcie_invert_l1_support & BIT(rc_idx))
 		msm_pcie_dev[rc_idx].l1_supported =
 			!msm_pcie_dev[rc_idx].l1_supported;
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L1 is %s supported.\n",
 		msm_pcie_dev[rc_idx].l1_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].l1ss_supported =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,l1ss-supported");
+		!of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,no-l1ss-supported");
 	if (msm_pcie_invert_l1ss_support & BIT(rc_idx))
 		msm_pcie_dev[rc_idx].l1ss_supported =
 			!msm_pcie_dev[rc_idx].l1ss_supported;
@@ -5818,8 +5818,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		"Clock power management is %s enabled.\n",
 		msm_pcie_dev[rc_idx].clk_power_manage_en ? "" : "not");
 	msm_pcie_dev[rc_idx].aux_clk_sync =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,aux-clk-sync");
+		!of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,no-aux-clk-sync");
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");

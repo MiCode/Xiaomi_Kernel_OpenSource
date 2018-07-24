@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@ void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 		SDE_ERROR("invalid kms arguments\n");
 		return;
 	}
+
+	sde_kms->irq_enabled = enable;
 
 	if (enable)
 		enable_irq(sde_kms->irq_num);
@@ -106,7 +108,7 @@ void sde_irq_preinstall(struct msm_kms *kms)
 	}
 
 	/* disable irq until power event enables it */
-	if (!sde_kms->splash_data.cont_splash_en)
+	if (!sde_kms->splash_data.cont_splash_en && !sde_kms->irq_enabled)
 		irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
 }
 

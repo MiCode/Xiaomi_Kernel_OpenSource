@@ -238,7 +238,7 @@ static ssize_t npu_debug_off_write(struct file *file,
 	cnt = sscanf(buf, "%zx %x", &off, &reg_cnt);
 	if (cnt == 1)
 		reg_cnt = DEFAULT_REG_DUMP_NUM;
-	pr_debug("reg off = %zx, %d	cnt=%d\n", off, reg_cnt, cnt);
+	pr_debug("reg off = %zx, %d cnt=%d\n", off, reg_cnt, cnt);
 	if (cnt >= 1) {
 		debugfs->reg_off = off;
 		debugfs->reg_cnt = reg_cnt;
@@ -456,6 +456,12 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 	if (!debugfs_create_bool("sys_cache_disable", 0644,
 		debugfs->root, &(host_ctx->sys_cache_disable))) {
 		pr_err("debugfs_creat_bool fail for sys cache\n");
+		goto err;
+	}
+
+	if (!debugfs_create_u32("fw_dbg_mode", 0644,
+		debugfs->root, &(host_ctx->fw_dbg_mode))) {
+		pr_err("debugfs_create_u32 fail for fw_dbg_mode\n");
 		goto err;
 	}
 

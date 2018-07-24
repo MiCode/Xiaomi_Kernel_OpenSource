@@ -22,6 +22,14 @@
 
 #define CAM_CDM_DWORD 4
 
+#define CAM_CDM_SW_CMD_COUNT    2
+#define CAM_CMD_LENGTH_MASK     0xFFFF
+#define CAM_CDM_COMMAND_OFFSET  24
+#define CAM_CDM_REG_OFFSET_MASK 0x00FFFFFF
+
+#define CAM_CDM_DMI_DATA_HI_OFFSET   8
+#define CAM_CDM_DMI_DATA_LO_OFFSET   12
+
 static unsigned int CDMCmdHeaderSizes[
 	CAM_CDM_CMD_PRIVATE_BASE + CAM_CDM_SW_CMD_COUNT] = {
 	0, /* UNUSED*/
@@ -33,7 +41,7 @@ static unsigned int CDMCmdHeaderSizes[
 	2, /* GenerateIRQ*/
 	3, /* WaitForEvent*/
 	1, /* ChangeBase*/
-	1, /* PERF_CONTINUOUSROL*/
+	1, /* PERF_CONTROL*/
 	3, /* DMI32*/
 	3, /* DMI64*/
 };
@@ -539,4 +547,170 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 	}
 
 	return ret;
+}
+
+static long cam_cdm_util_dump_dmi_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_DMI];
+	CAM_INFO(CAM_CDM, "DMI");
+	return ret;
+}
+
+static long cam_cdm_util_dump_buff_indirect(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_BUFF_INDIRECT];
+	CAM_INFO(CAM_CDM, "Buff Indirect");
+	return ret;
+}
+
+static long cam_cdm_util_dump_reg_cont_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+	struct cdm_regcontinuous_cmd *p_regcont_cmd;
+	uint32_t *temp_ptr = cmd_buf_addr;
+	int i = 0;
+
+	p_regcont_cmd = (struct cdm_regcontinuous_cmd *)temp_ptr;
+	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
+
+	CAM_INFO(CAM_CDM, "REG_CONT: COUNT: %u OFFSET: 0x%X",
+		p_regcont_cmd->count, p_regcont_cmd->offset);
+
+	for (i = 0; i < p_regcont_cmd->count; i++) {
+		CAM_INFO(CAM_CDM, "DATA_%d: 0x%X", i,
+			*temp_ptr);
+		temp_ptr++;
+		ret++;
+	}
+
+	return ret;
+}
+
+static long cam_cdm_util_dump_reg_random_cmd(uint32_t *cmd_buf_addr)
+{
+	struct cdm_regrandom_cmd *p_regrand_cmd;
+	uint32_t *temp_ptr = cmd_buf_addr;
+	long ret = 0;
+	int i = 0;
+
+	p_regrand_cmd = (struct cdm_regrandom_cmd *)temp_ptr;
+	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
+
+	CAM_INFO(CAM_CDM, "REG_RAND: COUNT: %u",
+		p_regrand_cmd->count);
+
+	for (i = 0; i < p_regrand_cmd->count; i++) {
+		CAM_INFO(CAM_CDM, "OFFSET_%d: 0x%X DATA_%d: 0x%X",
+			i, *temp_ptr & CAM_CDM_REG_OFFSET_MASK, i,
+			*(temp_ptr + 1));
+		temp_ptr += 2;
+		ret += 2;
+	}
+
+	return ret;
+}
+
+static long cam_cdm_util_dump_gen_irq_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_GEN_IRQ];
+
+	CAM_INFO(CAM_CDM, "GEN_IRQ");
+
+	return ret;
+}
+
+static long cam_cdm_util_dump_wait_event_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_WAIT_EVENT];
+
+	CAM_INFO(CAM_CDM, "WAIT_EVENT");
+
+	return ret;
+}
+
+static long cam_cdm_util_dump_change_base_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+	struct cdm_changebase_cmd *p_cbase_cmd;
+	uint32_t *temp_ptr = cmd_buf_addr;
+
+	p_cbase_cmd = (struct cdm_changebase_cmd *)temp_ptr;
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_CHANGE_BASE];
+
+	CAM_INFO(CAM_CDM, "CHANGE_BASE: 0x%X",
+		p_cbase_cmd->base);
+
+	return ret;
+}
+
+static long cam_cdm_util_dump_perf_ctrl_cmd(uint32_t *cmd_buf_addr)
+{
+	long ret = 0;
+
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_PERF_CTRL];
+
+	CAM_INFO(CAM_CDM, "PERF_CTRL");
+
+	return ret;
+}
+
+void cam_cdm_util_dump_cmd_buf(
+	uint32_t *cmd_buf_start, uint32_t *cmd_buf_end)
+{
+	uint32_t *buf_now = cmd_buf_start;
+	uint32_t cmd = 0;
+
+	if (!cmd_buf_start || !cmd_buf_end) {
+		CAM_INFO(CAM_CDM, "Invalid args");
+		return;
+	}
+
+	do {
+		cmd = *buf_now;
+		cmd = cmd >> CAM_CDM_COMMAND_OFFSET;
+
+		switch (cmd) {
+		case CAM_CDM_CMD_DMI:
+		case CAM_CDM_CMD_DMI_32:
+		case CAM_CDM_CMD_DMI_64:
+			buf_now += cam_cdm_util_dump_dmi_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_REG_CONT:
+			buf_now += cam_cdm_util_dump_reg_cont_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_REG_RANDOM:
+			buf_now += cam_cdm_util_dump_reg_random_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_BUFF_INDIRECT:
+			buf_now += cam_cdm_util_dump_buff_indirect(buf_now);
+			break;
+		case CAM_CDM_CMD_GEN_IRQ:
+			buf_now += cam_cdm_util_dump_gen_irq_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_WAIT_EVENT:
+			buf_now += cam_cdm_util_dump_wait_event_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_CHANGE_BASE:
+			buf_now += cam_cdm_util_dump_change_base_cmd(buf_now);
+			break;
+		case CAM_CDM_CMD_PERF_CTRL:
+			buf_now += cam_cdm_util_dump_perf_ctrl_cmd(buf_now);
+			break;
+		default:
+			CAM_INFO(CAM_CDM, "Invalid CMD: 0x%x buf 0x%x",
+				cmd, *buf_now);
+			buf_now++;
+			break;
+		}
+	} while (buf_now <= cmd_buf_end);
 }

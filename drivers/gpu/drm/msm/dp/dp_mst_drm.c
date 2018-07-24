@@ -1005,6 +1005,9 @@ dp_mst_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 	dp_display = dp_mst->dp_display;
 	dev = dp_display->drm_dev;
 
+	/* make sure connector is not accessed before reset */
+	drm_modeset_lock_all(dev);
+
 	connector = sde_connector_init(dev,
 				dp_mst->mst_bridge[0].encoder,
 				NULL,
@@ -1040,6 +1043,9 @@ dp_mst_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 			dev->mode_config.path_property, 0);
 	drm_object_attach_property(&connector->base,
 			dev->mode_config.tile_property, 0);
+
+	/* unlock connector and make it accessible */
+	drm_modeset_unlock_all(dev);
 
 	DP_MST_DEBUG("add mst connector:%d\n", connector->base.id);
 

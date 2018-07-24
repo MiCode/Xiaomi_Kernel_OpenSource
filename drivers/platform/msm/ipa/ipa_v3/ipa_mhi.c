@@ -283,6 +283,8 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	ch_props.low_weight = 1;
+	ch_props.prefetch_mode = ep_cfg->prefetch_mode;
+	ch_props.empty_lvl_threshold = ep_cfg->prefetch_threshold;
 	ch_props.err_cb = params->ch_err_cb;
 	ch_props.chan_user_data = params->channel;
 	res = gsi_alloc_channel(&ch_props, ipa3_ctx->gsi_dev_hdl,

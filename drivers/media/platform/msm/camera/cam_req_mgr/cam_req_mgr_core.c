@@ -1856,7 +1856,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	mutex_lock(&link->lock);
 	spin_lock_bh(&link->link_state_spin_lock);
-	if (link->state != CAM_CRM_LINK_STATE_READY) {
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
 		rc = -EPERM;
 		spin_unlock_bh(&link->link_state_spin_lock);
@@ -1993,7 +1993,7 @@ static int cam_req_mgr_cb_notify_trigger(
 	}
 
 	spin_lock_bh(&link->link_state_spin_lock);
-	if (link->state != CAM_CRM_LINK_STATE_READY) {
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
 		spin_unlock_bh(&link->link_state_spin_lock);
 		rc = -EPERM;
@@ -2320,6 +2320,7 @@ end:
 int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 {
 	int                                     rc = 0;
+	int                                     wq_flag = 0;
 	char                                    buf[128];
 	struct cam_create_dev_hdl               root_dev;
 	struct cam_req_mgr_core_session        *cam_session;
@@ -2390,8 +2391,9 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 	/* Create worker for current link */
 	snprintf(buf, sizeof(buf), "%x-%x",
 		link_info->session_hdl, link->link_hdl);
+	wq_flag = CAM_WORKQ_FLAG_HIGH_PRIORITY | CAM_WORKQ_FLAG_SERIAL;
 	rc = cam_req_mgr_workq_create(buf, CRM_WORKQ_NUM_TASKS,
-		&link->workq, CRM_WORKQ_USAGE_NON_IRQ);
+		&link->workq, CRM_WORKQ_USAGE_NON_IRQ, wq_flag);
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "FATAL: unable to create worker");
 		__cam_req_mgr_destroy_link_info(link);

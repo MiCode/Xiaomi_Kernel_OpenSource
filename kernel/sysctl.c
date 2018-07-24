@@ -389,8 +389,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0644,
 		.proc_handler	= sched_updown_migrate_handler,
-		.extra1		= &one,
-		.extra2		= &sysctl_sched_capacity_margin_down,
 	},
 	{
 		.procname	= "sched_downmigrate",
@@ -398,7 +396,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0644,
 		.proc_handler	= sched_updown_migrate_handler,
-		.extra1		= &sysctl_sched_capacity_margin_up,
 	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
@@ -3270,20 +3267,10 @@ int proc_do_large_bitmap(struct ctl_table *table, int write,
 static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 					   int *valp, int write, void *data)
 {
-	struct do_proc_douintvec_minmax_conv_param *param = data;
-
 	if (write) {
-		int val;
-
 		if (*negp)
 			return -EINVAL;
-
-		val = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
-		if ((param->min && *param->min > val) ||
-		    (param->max && *param->max < val))
-			return -ERANGE;
-
-		*valp = val;
+		*valp = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
 	} else {
 		*negp = false;
 		*lvalp = SCHED_FIXEDPOINT_SCALE * 100 / *valp;
@@ -3306,13 +3293,8 @@ static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 int proc_douintvec_capacity(struct ctl_table *table, int write,
 			    void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct do_proc_douintvec_minmax_conv_param param = {
-		.min = (unsigned int *) table->extra1,
-		.max = (unsigned int *) table->extra2,
-	};
-
 	return do_proc_dointvec(table, write, buffer, lenp, ppos,
-				do_proc_douintvec_capacity_conv, &param);
+				do_proc_douintvec_capacity_conv, NULL);
 }
 
 #else /* CONFIG_PROC_SYSCTL */

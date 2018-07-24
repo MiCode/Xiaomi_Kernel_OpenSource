@@ -111,9 +111,21 @@ typedef int (*CAM_IRQ_HANDLER_TOP_HALF)(uint32_t evt_id,
 typedef int (*CAM_IRQ_HANDLER_BOTTOM_HALF)(void *handler_priv,
 	void *evt_payload_priv);
 
-typedef int (*CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC)(void *bottom_half,
-	void *handler_priv, void *evt_payload_priv,
+typedef void (*CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC)(void *bottom_half,
+	void *bh_cmd, void *handler_priv, void *evt_payload_priv,
 	CAM_IRQ_HANDLER_BOTTOM_HALF);
+
+typedef int (*CAM_IRQ_GET_TASKLET_PAYLOAD_FUNC)(void *bottom_half,
+	void **bh_cmd);
+
+typedef void (*CAM_IRQ_PUT_TASKLET_PAYLOAD_FUNC)(void *bottom_half,
+	void **bh_cmd);
+
+struct cam_irq_bh_api {
+	CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC bottom_half_enqueue_func;
+	CAM_IRQ_GET_TASKLET_PAYLOAD_FUNC get_bh_payload_func;
+	CAM_IRQ_PUT_TASKLET_PAYLOAD_FUNC put_bh_payload_func;
+};
 
 /*
  * cam_irq_controller_init()
@@ -165,7 +177,7 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 	CAM_IRQ_HANDLER_TOP_HALF           top_half_handler,
 	CAM_IRQ_HANDLER_BOTTOM_HALF        bottom_half_handler,
 	void                              *bottom_half,
-	CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC   bottom_half_enqueue_func);
+	struct cam_irq_bh_api             *irq_bh_api);
 
 /*
  * cam_irq_controller_unsubscribe_irq()

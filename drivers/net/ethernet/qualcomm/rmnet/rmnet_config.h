@@ -51,6 +51,7 @@ struct rmnet_port {
 	u8 rmnet_mode;
 	struct hlist_head muxed_ep[RMNET_MAX_LOGICAL_EP];
 	struct net_device *bridge_ep;
+	void *rmnet_perf;
 
 	u16 egress_agg_size;
 	u16 egress_agg_count;
@@ -108,6 +109,7 @@ struct rmnet_priv {
 	void *qos_info;
 };
 
+int rmnet_is_real_dev_registered(const struct net_device *real_dev);
 struct rmnet_port *rmnet_get_port(struct net_device *real_dev);
 struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id);
 int rmnet_add_bridge(struct net_device *rmnet_dev,
