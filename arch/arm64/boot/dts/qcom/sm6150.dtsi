@@ -1819,6 +1819,7 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,ipa-wdi2;
+		qcom,ipa-wdi2_over_gsi;
 		qcom,ipa-fltrt-not-hashable;
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
