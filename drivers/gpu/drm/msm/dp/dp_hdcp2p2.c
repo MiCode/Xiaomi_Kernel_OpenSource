@@ -26,6 +26,9 @@
 
 #define DP_INTR_STATUS2				(0x00000024)
 #define DP_INTR_STATUS3				(0x00000028)
+
+#define DP_DPCD_CP_IRQ                          (0x201)
+
 #define dp_read(offset) readl_relaxed((offset))
 #define dp_write(offset, data) writel_relaxed((data), (offset))
 #define DP_HDCP_RXCAPS_LENGTH 3
@@ -393,6 +396,7 @@ static int dp_hdcp2p2_aux_write_message(struct dp_hdcp2p2_ctrl *ctrl,
 		if (bytes_written != write_size) {
 			pr_err("fail: offset(0x%x), size(0x%x), rc(0x%x)\n",
 					offset, write_size, bytes_written);
+			rc = bytes_written;
 			break;
 		}
 
@@ -675,6 +679,18 @@ error:
 	return rc;
 }
 
+static void dp_hdcp2p2_clear_cp_irq(struct dp_hdcp2p2_ctrl *ctrl)
+{
+	int rc = 0;
+	u8 buf = BIT(2);
+	u32 const default_timeout_us = 500;
+
+	rc = dp_hdcp2p2_aux_write_message(ctrl, &buf, 1,
+			DP_DPCD_CP_IRQ, default_timeout_us);
+	if (rc)
+		pr_err("error clearing irq_vector\n");
+}
+
 static int dp_hdcp2p2_cp_irq(void *input)
 {
 	int rc = 0;
@@ -709,6 +725,7 @@ static int dp_hdcp2p2_cp_irq(void *input)
 
 	kthread_queue_work(&ctrl->worker, &ctrl->link);
 
+	dp_hdcp2p2_clear_cp_irq(ctrl);
 	return 0;
 error:
 	return rc;
