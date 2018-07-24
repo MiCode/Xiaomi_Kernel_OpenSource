@@ -2024,6 +2024,8 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 	list_for_each_entry(binfo, &inst->outputbufs.list, list) {
 		if (binfo->buffer_ownership != DRIVER)
 			continue;
+		if (binfo->mark_remove)
+			continue;
 		frame_data.alloc_len = output_buf->buffer_size;
 		frame_data.filled_len = 0;
 		frame_data.offset = 0;
@@ -4641,6 +4643,12 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 
 		if ((buf->buffer_ownership == FIRMWARE) && !force_release) {
 			dprintk(VIDC_INFO, "DPB is with f/w. Can't free it\n");
+			/*
+			 * mark this buffer to avoid sending it to video h/w
+			 * again, this buffer belongs to old resolution and
+			 * it will be removed when video h/w returns it.
+			 */
+			buf->mark_remove = true;
 			continue;
 		}
 
