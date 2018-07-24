@@ -1343,9 +1343,9 @@
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 			<98 512 0 0>, <1 781 0 0>,  /* No vote */
-			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
-			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
-			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+			<98 512 2500 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 25000 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
 			<&clock_gcc GCC_ETH_PTP_CLK>,
