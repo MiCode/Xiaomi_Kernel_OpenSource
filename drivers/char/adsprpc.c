@@ -103,6 +103,7 @@
 
 #define INIT_FILELEN_MAX (2*1024*1024)
 #define INIT_MEMLEN_MAX  (8*1024*1024)
+#define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
 #define PERF_END (void)0
 
@@ -494,7 +495,7 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 
 	if (!fl)
 		return;
-	if (cache) {
+	if (cache && buf->size < MAX_CACHE_BUF_SIZE) {
 		spin_lock(&fl->hlock);
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		spin_unlock(&fl->hlock);
