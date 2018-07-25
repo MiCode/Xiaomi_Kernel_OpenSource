@@ -284,6 +284,7 @@ enum icnss_driver_state {
 	ICNSS_HOST_TRIGGERED_PDR,
 	ICNSS_FW_DOWN,
 	ICNSS_DRIVER_UNLOADING,
+	ICNSS_REJUVENATE,
 };
 
 struct ce_irq_list {
@@ -1172,6 +1173,14 @@ bool icnss_is_fw_down(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
+bool icnss_is_rejuvenate(void)
+{
+	if (!penv)
+		return false;
+	else
+		return test_bit(ICNSS_REJUVENATE, &penv->state);
+}
+EXPORT_SYMBOL(icnss_is_rejuvenate);
 
 int icnss_power_off(struct device *dev)
 {
@@ -2093,6 +2102,7 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 		event_data->crashed = true;
 		event_data->fw_rejuvenate = true;
 		fw_down_data.crashed = true;
+		set_bit(ICNSS_REJUVENATE, &penv->state);
 		icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_DOWN,
 					 &fw_down_data);
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
@@ -2283,6 +2293,7 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_call_driver_shutdown(priv);
 
+	clear_bit(ICNSS_REJUVENATE, &penv->state);
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 	priv->early_crash_ind = false;
 
@@ -3999,6 +4010,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_FW_DOWN:
 			seq_puts(s, "FW DOWN");
+			continue;
+		case ICNSS_REJUVENATE:
+			seq_puts(s, "FW REJUVENATE");
 			continue;
 		case ICNSS_DRIVER_UNLOADING:
 			seq_puts(s, "DRIVER UNLOADING");
