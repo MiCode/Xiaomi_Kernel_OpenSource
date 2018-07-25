@@ -892,7 +892,7 @@ static void elants_i2c_mt_event(struct elants_data *ts, u8 *buf)
 			input_mt_report_slot_state(input, MT_TOOL_FINGER, true);
 			input_event(input, EV_ABS, ABS_MT_POSITION_X, x);
 			input_event(input, EV_ABS, ABS_MT_POSITION_Y, y);
-			input_event(input, EV_ABS, ABS_MT_PRESSURE, p);
+		/*	input_event(input, EV_ABS, ABS_MT_PRESSURE, p);*/
 			input_event(input, EV_ABS, ABS_MT_TOUCH_MAJOR, w);
 
 			n_fingers--;
@@ -1333,11 +1333,12 @@ static int elants_i2c_probe(struct i2c_client *client,
 	__set_bit(EV_KEY, ts->input->evbit);
 
 	/* Single touch input params setup */
-	input_set_abs_params(ts->input, ABS_X, 0, ts->x_max, 0, 0);
+/*	input_set_abs_params(ts->input, ABS_X, 0, ts->x_max, 0, 0);
 	input_set_abs_params(ts->input, ABS_Y, 0, ts->y_max, 0, 0);
 	input_set_abs_params(ts->input, ABS_PRESSURE, 0, 255, 0, 0);
 	input_abs_set_res(ts->input, ABS_X, ts->x_res);
 	input_abs_set_res(ts->input, ABS_Y, ts->y_res);
+*/
 
 	/* Multitouch input params setup */
 	error = input_mt_init_slots(ts->input, MAX_CONTACT_NUM,
@@ -1351,7 +1352,7 @@ static int elants_i2c_probe(struct i2c_client *client,
 	input_set_abs_params(ts->input, ABS_MT_POSITION_X, 0, ts->x_max, 0, 0);
 	input_set_abs_params(ts->input, ABS_MT_POSITION_Y, 0, ts->y_max, 0, 0);
 	input_set_abs_params(ts->input, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(ts->input, ABS_MT_PRESSURE, 0, 255, 0, 0);
+/*	input_set_abs_params(ts->input, ABS_MT_PRESSURE, 0, 255, 0, 0);*/
 	input_abs_set_res(ts->input, ABS_MT_POSITION_X, ts->x_res);
 	input_abs_set_res(ts->input, ABS_MT_POSITION_Y, ts->y_res);
 
