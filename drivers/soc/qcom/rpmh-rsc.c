@@ -65,6 +65,16 @@
 #define RSC_PDC_DRV_DATA		0x38
 #define RSC_PDC_DATA_OFFSET		0x08
 
+#define ACCL_TYPE(addr)			((addr >> 16) & 0xF)
+#define NR_ACCL_TYPES			3
+
+static const char * const accl_str[] = {
+	"", "", "", "CLK", "VREG", "BUS",
+};
+
+static struct rsc_drv *__rsc_drv[2];
+static int __rsc_count;
+
 static u32 read_tcs_reg(struct rsc_drv *drv, int reg, int tcs_id, int cmd_id)
 {
 	return readl_relaxed(drv->tcs_base + reg + RSC_DRV_TCS_OFFSET * tcs_id +
@@ -450,8 +460,8 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	do {
 		ret = tcs_write(drv, msg);
 		if (ret == -EBUSY) {
-			pr_info_ratelimited("TCS Busy, retrying RPMH message send: addr=%#x\n",
-					    msg->cmds[0].addr);
+			pr_info_ratelimited("DRV:%s TCS Busy, retrying RPMH message send: addr=%#x\n",
+					    drv->name, msg->cmds[0].addr);
 			udelay(10);
 		}
 	} while (ret == -EBUSY);
@@ -624,6 +634,106 @@ int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	return 0;
 }
 
+static struct tcs_group *get_tcs_from_index(struct rsc_drv *drv, int tcs_id)
+{
+	unsigned int i;
+
+	for (i = 0; i < TCS_TYPE_NR; i++) {
+		if (drv->tcs[i].mask & BIT(tcs_id))
+			return &drv->tcs[i];
+	}
+
+	return NULL;
+}
+
+static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
+{
+	struct tcs_group *tcs_grp = get_tcs_from_index(drv, tcs_id);
+	const struct tcs_request *req = get_req_from_tcs(drv, tcs_id);
+	unsigned long cmds_enabled;
+	u32 addr, data, msgid, sts, irq_sts;
+	bool in_use = test_bit(tcs_id, drv->tcs_in_use);
+	int i;
+
+	if (!tcs_grp || !req)
+		return;
+
+	sts = read_tcs_reg(drv, RSC_DRV_STATUS, tcs_id, 0);
+	cmds_enabled = read_tcs_reg(drv, RSC_DRV_CMD_ENABLE, tcs_id, 0);
+	if (!cmds_enabled)
+		return;
+
+	data = read_tcs_reg(drv, RSC_DRV_CONTROL, tcs_id, 0);
+	irq_sts = read_tcs_reg(drv, RSC_DRV_IRQ_STATUS, 0, 0);
+	pr_warn("Request: tcs-in-use:%s active_tcs=%s(%d) state=%d wait_for_compl=%u]\n",
+		(in_use ? "YES" : "NO"),
+		((tcs_grp->type == ACTIVE_TCS) ? "YES" : "NO"),
+		tcs_grp->type, req->state, req->wait_for_compl);
+	pr_warn("TCS=%d [ctrlr-sts:%s amc-mode:0x%x irq-sts:%s]\n",
+		tcs_id, sts ? "IDLE" : "BUSY", data,
+		(irq_sts & BIT(tcs_id)) ? "COMPLETED" : "PENDING");
+
+	for_each_set_bit(i, &cmds_enabled, MAX_CMDS_PER_TCS) {
+		addr = read_tcs_reg(drv, RSC_DRV_CMD_ADDR, tcs_id, i);
+		data = read_tcs_reg(drv, RSC_DRV_CMD_DATA, tcs_id, i);
+		msgid = read_tcs_reg(drv, RSC_DRV_CMD_MSGID, tcs_id, i);
+		sts = read_tcs_reg(drv, RSC_DRV_CMD_STATUS, tcs_id, i);
+		pr_warn("\tCMD=%d [addr=0x%x data=0x%x hdr=0x%x sts=0x%x enabled=1]\n",
+			i, addr, data, msgid, sts);
+		if (!(sts & CMD_STATUS_ISSUED))
+			continue;
+		if (!(sts & CMD_STATUS_COMPL))
+			*accl |= BIT(ACCL_TYPE(addr));
+	}
+}
+
+void rpmh_rsc_debug(struct rsc_drv *drv)
+{
+	struct irq_data *rsc_irq_data = irq_get_irq_data(drv->irq);
+	bool irq_sts;
+	int i;
+	int busy = 0;
+	unsigned long accl = 0;
+	char str[20] = "";
+
+	pr_warn("RSC:%s\n", drv->name);
+
+	for (i = 0; i < drv->num_tcs; i++) {
+		if (!test_bit(i, drv->tcs_in_use))
+			continue;
+		busy++;
+		print_tcs_info(drv, i, &accl);
+	}
+
+	if (!rsc_irq_data) {
+		pr_err("No IRQ data for RSC:%s\n", drv->name);
+		return;
+	}
+
+	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &irq_sts);
+	pr_warn("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
+		irq_sts ? "PENDING" : "NOT PENDING");
+
+	for_each_set_bit(i, &accl, ARRAY_SIZE(accl_str)) {
+		strlcat(str, accl_str[i], sizeof(str));
+		strlcat(str, " ", sizeof(str));
+	}
+
+	if (busy && !irq_sts)
+		pr_warn("ERROR:Accelerator(s) { %s } at AOSS did not respond\n",
+			str);
+	else if (irq_sts)
+		pr_warn("ERROR:Possible lockup in Linux\n");
+
+	/*
+	 * The TCS(s) are busy waiting, we have no way to recover from this.
+	 * If this debug function is called, we assume it's because timeout
+	 * has happened.
+	 * Crash and report.
+	 */
+	BUG_ON(busy);
+}
+
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv)
 {
@@ -760,6 +870,8 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
+	drv->irq = irq;
+
 	ret = devm_request_irq(&pdev->dev, irq, tcs_tx_done,
 			       IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
 			       drv->name, drv);
@@ -774,6 +886,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&drv->client.batch_cache);
 
 	dev_set_drvdata(&pdev->dev, drv);
+	__rsc_drv[__rsc_count++] = drv;
 
 	return devm_of_platform_populate(&pdev->dev);
 }
