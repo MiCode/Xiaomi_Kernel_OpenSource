@@ -1937,30 +1937,37 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 	return rc;
 }
 
+#define RAW_ITERM(iterm_ma, max_range)				\
+		div_s64((int64_t)iterm_ma * ADC_CHG_ITERM_MASK, max_range)
 static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 {
 	u8 *buf;
 	int rc = 0;
-	s16 raw_hi_thresh, raw_lo_thresh;
+	s16 raw_hi_thresh, raw_lo_thresh, max_limit_ma;
 	struct smb_charger *chg = &chip->chg;
 
-	if (chip->dt.term_current_thresh_hi_ma < -10000 ||
-			chip->dt.term_current_thresh_hi_ma > 10000 ||
-			chip->dt.term_current_thresh_lo_ma < -10000 ||
-			chip->dt.term_current_thresh_lo_ma > 10000) {
+	if (chip->chg.smb_version == PMI632_SUBTYPE)
+		max_limit_ma = ITERM_LIMITS_PMI632_MA;
+	else
+		max_limit_ma = ITERM_LIMITS_PM8150B_MA;
+
+	if (chip->dt.term_current_thresh_hi_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_hi_ma > max_limit_ma
+		|| chip->dt.term_current_thresh_lo_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_lo_ma > max_limit_ma) {
 		dev_err(chg->dev, "ITERM threshold out of range rc=%d\n", rc);
 		return -EINVAL;
 	}
 
 	/*
 	 * Conversion:
-	 *	raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 *	raw (A) = (term_current * ADC_CHG_ITERM_MASK) / max_limit_ma
 	 * Note: raw needs to be converted to big-endian format.
 	 */
 
 	if (chip->dt.term_current_thresh_hi_ma) {
-		raw_hi_thresh = ((chip->dt.term_current_thresh_hi_ma *
-						ADC_CHG_TERM_MASK) / 10000);
+		raw_hi_thresh = RAW_ITERM(chip->dt.term_current_thresh_hi_ma,
+					max_limit_ma);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
 		buf = (u8 *)&raw_hi_thresh;
 		raw_hi_thresh = buf[1] | (buf[0] << 8);
@@ -1975,8 +1982,8 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 	}
 
 	if (chip->dt.term_current_thresh_lo_ma) {
-		raw_lo_thresh = ((chip->dt.term_current_thresh_lo_ma *
-					ADC_CHG_TERM_MASK) / 10000);
+		raw_lo_thresh = RAW_ITERM(chip->dt.term_current_thresh_lo_ma,
+					max_limit_ma);
 		raw_lo_thresh = sign_extend32(raw_lo_thresh, 15);
 		buf = (u8 *)&raw_lo_thresh;
 		raw_lo_thresh = buf[1] | (buf[0] << 8);

@@ -2011,7 +2011,14 @@ int smblib_get_prop_batt_iterm(struct smb_charger *chg,
 
 	temp = buf[1] | (buf[0] << 8);
 	temp = sign_extend32(temp, 15);
-	temp = DIV_ROUND_CLOSEST(temp * 10000, ADC_CHG_TERM_MASK);
+
+	if (chg->smb_version == PMI632_SUBTYPE)
+		temp = DIV_ROUND_CLOSEST(temp * ITERM_LIMITS_PMI632_MA,
+					ADC_CHG_ITERM_MASK);
+	else
+		temp = DIV_ROUND_CLOSEST(temp * ITERM_LIMITS_PM8150B_MA,
+					ADC_CHG_ITERM_MASK);
+
 	val->intval = temp;
 
 	return rc;
