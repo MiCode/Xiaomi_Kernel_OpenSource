@@ -3849,11 +3849,9 @@ static int cam_icp_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 	switch (flush_args->flush_type) {
 	case CAM_FLUSH_TYPE_ALL:
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
-		if (!hw_mgr->recovery) {
-			if (flush_args->num_req_active) {
-				mutex_unlock(&hw_mgr->hw_mgr_mutex);
-				cam_icp_mgr_abort_handle(ctx_data);
-			}
+		if (!hw_mgr->recovery && flush_args->num_req_active) {
+			mutex_unlock(&hw_mgr->hw_mgr_mutex);
+			cam_icp_mgr_abort_handle(ctx_data);
 		} else {
 			mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		}
