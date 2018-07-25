@@ -873,6 +873,7 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	struct sde_encoder_wait_info wait_info;
 	int ret = 0;
 	u32 event = 0;
+	u32 event_helper = 0;
 
 	if (!phys_enc) {
 		pr_err("invalid encoder\n");
@@ -896,12 +897,19 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_VSYNC,
 			&wait_info);
 
-	if (ret == -ETIMEDOUT)
-		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
-				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
-				| SDE_ENCODER_FRAME_EVENT_ERROR;
-	else if (!ret && notify)
-		event = SDE_ENCODER_FRAME_EVENT_DONE;
+	event_helper = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+			| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+	if (notify) {
+		if (ret == -ETIMEDOUT) {
+			event = SDE_ENCODER_FRAME_EVENT_ERROR;
+			if (atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0))
+				event |= event_helper;
+		} else if (!ret) {
+			event = SDE_ENCODER_FRAME_EVENT_DONE;
+		}
+	}
 
 end:
 	SDE_EVT32(DRMID(phys_enc->parent), event, notify, ret,
@@ -917,6 +925,12 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc)
 {
 	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
+}
+
+static int sde_encoder_phys_vid_wait_for_vblank_no_notify(
+		struct sde_encoder_phys *phys_enc)
+{
+	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
 }
 
 static int sde_encoder_phys_vid_prepare_for_kickoff(
@@ -1283,7 +1297,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_vblank;
-	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank;
+	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank_no_notify;
 	ops->wait_for_tx_complete = sde_encoder_phys_vid_wait_for_vblank;
 	ops->irq_control = sde_encoder_phys_vid_irq_control;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
