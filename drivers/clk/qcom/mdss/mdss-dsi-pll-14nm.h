@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef MDSS_DSI_PLL_8996_H
-#define MDSS_DSI_PLL_8996_H
+#ifndef MDSS_DSI_PLL_14NM_H
+#define MDSS_DSI_PLL_14NM_H
 
 #define DSIPHY_CMN_CLK_CFG0		0x0010
 #define DSIPHY_CMN_CLK_CFG1		0x0014
@@ -197,25 +197,31 @@ enum {
 	PLL_MASTER
 };
 
-int pll_vco_set_rate_8996(struct clk *c, unsigned long rate);
-long pll_vco_round_rate_8996(struct clk *c, unsigned long rate);
-enum handoff pll_vco_handoff_8996(struct clk *c);
-enum handoff shadow_pll_vco_handoff_8996(struct clk *c);
-int shadow_post_n1_div_set_div(struct div_clk *clk, int div);
-int shadow_post_n1_div_get_div(struct div_clk *clk);
-int shadow_n2_div_set_div(struct div_clk *clk, int div);
-int shadow_n2_div_get_div(struct div_clk *clk);
-int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate);
-int pll_vco_prepare_8996(struct clk *c);
-void pll_vco_unprepare_8996(struct clk *c);
-int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel);
-int get_mdss_byte_mux_sel_8996(struct mux_clk *clk);
-int set_mdss_pixel_mux_sel_8996(struct mux_clk *clk, int sel);
-int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk);
-int post_n1_div_set_div(struct div_clk *clk, int div);
-int post_n1_div_get_div(struct div_clk *clk);
-int n2_div_set_div(struct div_clk *clk, int div);
-int n2_div_get_div(struct div_clk *clk);
-int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll);
+int pll_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate);
+int shadow_pll_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate);
+long pll_vco_round_rate_14nm(struct clk_hw *hw, unsigned long rate,
+		unsigned long *parent_rate);
+unsigned long pll_vco_recalc_rate_14nm(struct clk_hw *hw,
+		unsigned long parent_rate);
 
-#endif  /* MDSS_DSI_PLL_8996_H */
+int pll_vco_prepare_14nm(struct clk_hw *hw);
+void pll_vco_unprepare_14nm(struct clk_hw *hw);
+
+int shadow_post_n1_div_set_div(void *context,
+			unsigned int reg, unsigned int div);
+int shadow_post_n1_div_get_div(void *context,
+			unsigned int reg, unsigned int *div);
+int shadow_n2_div_set_div(void *context, unsigned int reg, unsigned int div);
+int shadow_n2_div_get_div(void *context, unsigned int reg, unsigned int *div);
+
+int post_n1_div_set_div(void *context, unsigned int reg, unsigned int div);
+int post_n1_div_get_div(void *context, unsigned int reg, unsigned int *div);
+int n2_div_set_div(void *context, unsigned int reg, unsigned int div);
+int n2_div_get_div(void *context, unsigned int reg, unsigned int *div);
+int dsi_pll_enable_seq_14nm(struct mdss_pll_resources *pll);
+int dsi_mux_set_parent_14nm(void *context, unsigned int reg, unsigned int val);
+int dsi_mux_get_parent_14nm(void *context, unsigned int reg, unsigned int *val);
+
+#endif  /* MDSS_DSI_PLL_14NM_H */
