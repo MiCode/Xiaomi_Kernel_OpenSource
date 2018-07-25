@@ -30,7 +30,7 @@ const char *cam_get_module_name(unsigned int module_id)
 		name = "CAM-CORE";
 		break;
 	case CAM_CRM:
-		name = "CAM_CRM";
+		name = "CAM-CRM";
 		break;
 	case CAM_CPAS:
 		name = "CAM-CPAS";
@@ -85,6 +85,18 @@ const char *cam_get_module_name(unsigned int module_id)
 		break;
 	case CAM_OIS:
 		name = "CAM-OIS";
+		break;
+	case CAM_IRQ_CTRL:
+		name = "CAM-IRQ-CTRL";
+		break;
+	case CAM_MEM:
+		name = "CAM-MEM";
+		break;
+	case CAM_PERF:
+		name = "CAM-PERF";
+		break;
+	case CAM_REQ:
+		name = "CAM-REQ";
 		break;
 	default:
 		name = "CAM";

@@ -596,11 +596,8 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %d",
 			required_camnoc_bw, clk_rate);
 
-		rc = cam_soc_util_set_clk_rate(
-			soc_info->clk[soc_info->src_clk_idx],
-			soc_info->clk_name[soc_info->src_clk_idx],
-			clk_rate);
-		if (rc)
+		rc = cam_soc_util_set_src_clk_rate(soc_info, clk_rate);
+		if (!rc)
 			CAM_ERR(CAM_CPAS,
 				"Failed in setting camnoc axi clk %llu %d %d",
 				required_camnoc_bw, clk_rate, rc);
@@ -738,7 +735,7 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 		goto unlock_client;
 	}
 
-	CAM_DBG(CAM_CPAS,
+	CAM_DBG(CAM_PERF,
 		"Client=[%d][%s][%d] Requested compressed[%llu], uncompressed[%llu]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, axi_vote.compressed_bw,
@@ -900,7 +897,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 		goto unlock_client;
 	}
 
-	CAM_DBG(CAM_CPAS,
+	CAM_DBG(CAM_PERF,
 		"client=[%d][%s][%d] : type[%d], level[%d], freq[%ld], applied[%d]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, ahb_vote.type,
@@ -1511,27 +1508,6 @@ static int cam_cpas_util_get_internal_ops(struct platform_device *pdev,
 	return rc;
 }
 
-static int cam_cpas_util_get_hw_version(struct platform_device *pdev,
-	struct cam_hw_soc_info *soc_info)
-{
-	struct device_node *of_node = pdev->dev.of_node;
-	int rc;
-
-	soc_info->hw_version = 0;
-
-	rc = of_property_read_u32(of_node,
-		"qcom,cpas-hw-ver", &soc_info->hw_version);
-
-	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
-
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "failed to get CPAS HW Version rc=%d", rc);
-		return -EINVAL;
-	}
-
-	return rc;
-}
-
 int cam_cpas_hw_probe(struct platform_device *pdev,
 	struct cam_hw_intf **hw_intf)
 {
@@ -1671,10 +1647,6 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	}
 
 	rc = cam_cpas_util_vote_default_ahb_axi(cpas_hw, false);
-	if (rc)
-		goto axi_cleanup;
-
-	rc = cam_cpas_util_get_hw_version(pdev, &cpas_hw->soc_info);
 	if (rc)
 		goto axi_cleanup;
 

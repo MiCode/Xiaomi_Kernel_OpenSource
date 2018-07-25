@@ -177,13 +177,18 @@ enum cam_req_mgr_device_id {
 
 /**
  * enum cam_req_mgr_link_evt_type
- * @CAM_REQ_MGR_LINK_EVT_ERR:
- * @CAM_REQ_MGR_LINK_EVT_MAX:
+ * @CAM_REQ_MGR_LINK_EVT_ERR        : error on the link from any of the
+ *                                    connected devices
+ * @CAM_REQ_MGR_LINK_EVT_PAUSE      : to pause the link
+ * @CAM_REQ_MGR_LINK_EVT_RESUME     : resumes the link which was paused
+ * @CAM_REQ_MGR_LINK_EVT_SOF_FREEZE : request manager has detected an sof freeze
+ * @CAM_REQ_MGR_LINK_EVT_MAX        : invalid event type
  */
 enum cam_req_mgr_link_evt_type {
 	CAM_REQ_MGR_LINK_EVT_ERR,
 	CAM_REQ_MGR_LINK_EVT_PAUSE,
 	CAM_REQ_MGR_LINK_EVT_RESUME,
+	CAM_REQ_MGR_LINK_EVT_SOF_FREEZE,
 	CAM_REQ_MGR_LINK_EVT_MAX,
 };
 

@@ -2600,6 +2600,61 @@ static int cam_ife_csid_write(void *hw_priv,
 	return -EINVAL;
 }
 
+static int cam_ife_csid_sof_irq_debug(
+	struct cam_ife_csid_hw *csid_hw, void *cmd_args)
+{
+	int i = 0;
+	uint32_t val = 0;
+	bool sof_irq_enable = false;
+	const struct cam_ife_csid_reg_offset    *csid_reg;
+	struct cam_hw_soc_info                  *soc_info;
+
+	csid_reg = csid_hw->csid_info->csid_reg;
+	soc_info = &csid_hw->hw_info->soc_info;
+
+	if (*((uint32_t *)cmd_args) == 1)
+		sof_irq_enable = true;
+
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->ipp_reg->csid_pxl_irq_mask_addr);
+
+	if (val) {
+		if (sof_irq_enable)
+			val |= CSID_PATH_INFO_INPUT_SOF;
+		else
+			val &= ~CSID_PATH_INFO_INPUT_SOF;
+
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->ipp_reg->csid_pxl_irq_mask_addr);
+		val = 0;
+	}
+
+	for (i = 0; i < csid_reg->cmn_reg->num_rdis; i++) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[i]->csid_rdi_irq_mask_addr);
+		if (val) {
+			if (sof_irq_enable)
+				val |= CSID_PATH_INFO_INPUT_SOF;
+			else
+				val &= ~CSID_PATH_INFO_INPUT_SOF;
+
+			cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+				csid_reg->rdi_reg[i]->csid_rdi_irq_mask_addr);
+			val = 0;
+		}
+	}
+
+	if (sof_irq_enable)
+		csid_hw->csid_debug |= CSID_DEBUG_ENABLE_SOF_IRQ;
+	else
+		csid_hw->csid_debug &= ~CSID_DEBUG_ENABLE_SOF_IRQ;
+
+	CAM_INFO(CAM_ISP, "SOF freeze: CSID SOF irq %s",
+		(sof_irq_enable == true) ? "enabled" : "disabled");
+
+	return 0;
+}
+
 static int cam_ife_csid_process_cmd(void *hw_priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -2622,8 +2677,11 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 	case CAM_IFE_CSID_SET_CSID_DEBUG:
 		rc = cam_ife_csid_set_csid_debug(csid_hw, cmd_args);
 		break;
+	case CAM_IFE_CSID_SOF_IRQ_DEBUG:
+		rc = cam_ife_csid_sof_irq_debug(csid_hw, cmd_args);
+		break;
 	default:
-		CAM_ERR(CAM_ISP, "CSID:%d un supported cmd:%d",
+		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",
 			csid_hw->hw_intf->hw_idx, cmd_type);
 		rc = -EINVAL;
 		break;
