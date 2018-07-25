@@ -6359,6 +6359,7 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 	unsigned long flags;
 	bool found = false;
 	int ret, i = 0;
+	bool add_event = false;
 
 	crtc = to_sde_crtc(crtc_drm);
 	spin_lock_irqsave(&crtc->spin_lock, flags);
@@ -6408,10 +6409,23 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 		}
 
 		INIT_LIST_HEAD(&node->irq.list);
+
+		mutex_lock(&crtc->crtc_lock);
 		ret = node->func(crtc_drm, true, &node->irq);
+		if (!ret) {
+			spin_lock_irqsave(&crtc->spin_lock, flags);
+			list_add_tail(&node->list, &crtc->user_event_list);
+			add_event = true;
+			spin_unlock_irqrestore(&crtc->spin_lock, flags);
+		}
+		mutex_unlock(&crtc->crtc_lock);
+
 		sde_power_resource_enable(&priv->phandle, kms->core_client,
 				false);
 	}
+
+	if (add_event)
+		return 0;
 
 	if (!ret) {
 		spin_lock_irqsave(&crtc->spin_lock, flags);
