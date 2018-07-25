@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -797,6 +797,7 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 
+#ifdef CONFIG_IPC_LOGGING
 static ssize_t diag_dbgfs_write_debug(struct file *fp, const char __user *buf,
 				      size_t count, loff_t *ppos)
 {
@@ -827,6 +828,7 @@ static ssize_t diag_dbgfs_write_debug(struct file *fp, const char __user *buf,
 	diag_debug_mask = (uint16_t)value;
 	return count;
 }
+#endif
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 #ifdef CONFIG_USB_QCOM_DIAG_BRIDGE
@@ -1086,9 +1088,11 @@ const struct file_operations diag_dbgfs_power_ops = {
 	.read = diag_dbgfs_read_power,
 };
 
+#ifdef CONFIG_IPC_LOGGING
 const struct file_operations diag_dbgfs_debug_ops = {
 	.write = diag_dbgfs_write_debug
 };
+#endif
 
 int diag_debugfs_init(void)
 {
@@ -1145,11 +1149,12 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
+#ifdef CONFIG_IPC_LOGGING
 	entry = debugfs_create_file("debug", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_debug_ops);
 	if (!entry)
 		goto err;
-
+#endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	entry = debugfs_create_file("bridge", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_bridge_ops);
