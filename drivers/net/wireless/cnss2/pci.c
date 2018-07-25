@@ -131,6 +131,7 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Suspending PCI link\n");
 	if (!pci_priv->pci_link_state) {
 		cnss_pr_info("PCI link is already suspended!\n");
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -393,8 +394,10 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
 	ret = cnss_suspend_pci_link(pci_priv);
-	if (ret)
+	if (ret) {
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
+		return -EINVAL;
+	}
 
 	cnss_power_off_device(plat_priv);
 
