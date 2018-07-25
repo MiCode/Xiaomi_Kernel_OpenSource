@@ -398,8 +398,6 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 
 	cnss_power_off_device(plat_priv);
 
-	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
-
 	return ret;
 }
 
@@ -516,7 +514,6 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
-	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 
 	return ret;
 }
@@ -757,6 +754,7 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	cnss_pci_dev_shutdown(pci_priv);
 	pci_priv->driver_ops = NULL;
+	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 
 	return 0;
 }
