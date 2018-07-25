@@ -175,6 +175,7 @@ struct internal_buf {
 	enum hal_buffer buffer_type;
 	struct msm_smem smem;
 	enum buffer_owner buffer_ownership;
+	bool mark_remove;
 };
 
 struct msm_vidc_csc_coeff {
