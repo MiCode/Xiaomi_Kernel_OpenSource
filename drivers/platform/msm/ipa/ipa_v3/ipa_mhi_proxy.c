@@ -681,6 +681,20 @@ static void imp_mhi_shutdown(void)
 			imp_ctx->lpm_disabled = false;
 		}
 
+		/* unmap MHI doorbells from IPA uC SMMU */
+		if (!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
+			struct ipa_smmu_cb_ctx *cb =
+				ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
+			unsigned long iova_p;
+			phys_addr_t pa_p;
+			u32 size_p;
+
+			imp_smmu_round_to_page(imp_ctx->dev_info.chdb_base,
+				imp_ctx->dev_info.chdb_base, PAGE_SIZE,
+				&iova_p, &pa_p, &size_p);
+
+			iommu_unmap(cb->mapping->domain, iova_p, size_p);
+		}
 	}
 	imp_ctx->state = IMP_PROBED;
 
@@ -767,6 +781,27 @@ static int imp_mhi_probe_cb(struct mhi_device *mhi_dev,
 		goto fail;
 	IMP_DBG("mapped ch db 0x%pad to mbox %d\n", &ev->props.doorbell,
 		ev->props.uc_mbox_n);
+
+	/*
+	 * Map MHI doorbells to IPA uC SMMU.
+	 * Both channel and event doorbells resides in a single page.
+	 */
+	if (!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
+		struct ipa_smmu_cb_ctx *cb =
+			ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
+		unsigned long iova_p;
+		phys_addr_t pa_p;
+		u32 size_p;
+
+		imp_smmu_round_to_page(imp_ctx->dev_info.chdb_base,
+			imp_ctx->dev_info.chdb_base, PAGE_SIZE,
+			&iova_p, &pa_p, &size_p);
+
+		ret = ipa3_iommu_map(cb->mapping->domain, iova_p, pa_p, size_p,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+		if (ret)
+			goto fail;
+	}
 
 	imp_mhi_trigger_ready_ind();
 
