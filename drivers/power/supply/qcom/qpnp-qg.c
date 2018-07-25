@@ -2865,10 +2865,6 @@ static int qg_post_init(struct qpnp_qg *chip)
 				PROFILE_IRQ_DISABLE, true, 0);
 		vote(chip->good_ocv_irq_disable_votable,
 				PROFILE_IRQ_DISABLE, true, 0);
-	} else {
-		/* disable GOOD_OCV IRQ at init */
-		vote(chip->good_ocv_irq_disable_votable,
-				QG_INIT_STATE_IRQ_DISABLE, true, 0);
 	}
 
 	/* restore ESR data */
