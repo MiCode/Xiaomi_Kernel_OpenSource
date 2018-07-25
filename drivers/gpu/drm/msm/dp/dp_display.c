@@ -74,6 +74,7 @@ struct dp_display_private {
 	struct device_node *aux_switch_node;
 	struct dentry *root;
 	struct completion notification_comp;
+	struct completion disconnect_comp;
 
 	struct dp_usbpd   *usbpd;
 	struct dp_parser  *parser;
@@ -534,9 +535,38 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 	DP_MST_DEBUG("mst_hpd_high. mst_active:%d\n", dp->mst.mst_active);
 }
 
+static void dp_display_host_init(struct dp_display_private *dp)
+{
+	bool flip = false;
+	bool reset;
+
+	if (dp->core_initialized) {
+		pr_debug("DP core already initialized\n");
+		return;
+	}
+
+	if (dp->usbpd->orientation == ORIENTATION_CC2)
+		flip = true;
+
+	reset = dp->debug->sim_mode ? false : !dp->usbpd->multi_func;
+
+	dp->power->init(dp->power, flip);
+	dp->ctrl->init(dp->ctrl, flip, reset);
+	enable_irq(dp->irq);
+	dp->core_initialized = true;
+}
+
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
+
+	if (!dp->debug->sim_mode) {
+		rc = dp->aux->aux_switch(dp->aux, true, dp->usbpd->orientation);
+		if (rc)
+			goto end;
+	}
+
+	dp_display_host_init(dp);
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
@@ -577,27 +607,6 @@ notify:
 
 end:
 	return rc;
-}
-
-static void dp_display_host_init(struct dp_display_private *dp)
-{
-	bool flip = false;
-	bool reset;
-
-	if (dp->core_initialized) {
-		pr_debug("DP core already initialized\n");
-		return;
-	}
-
-	if (dp->usbpd->orientation == ORIENTATION_CC2)
-		flip = true;
-
-	reset = dp->debug->sim_mode ? false : !dp->usbpd->multi_func;
-
-	dp->power->init(dp->power, flip);
-	dp->ctrl->init(dp->ctrl, flip, reset);
-	enable_irq(dp->irq);
-	dp->core_initialized = true;
 }
 
 static void dp_display_host_deinit(struct dp_display_private *dp)
@@ -689,16 +698,6 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	if (!dp->debug->sim_mode) {
-		rc = dp->aux->aux_switch(dp->aux, true, dp->usbpd->orientation);
-		if (rc)
-			goto end;
-	}
-
-	atomic_set(&dp->aborted, 0);
-
-	dp_display_host_init(dp);
-
 	/* check for hpd high and framework ready */
 	if  (dp->usbpd->hpd_high && dp_display_framework_ready(dp))
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
@@ -748,6 +747,7 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	if (!dp->power_on && !dp->usbpd->alt_mode_cfg_done)
 		dp_display_host_deinit(dp);
 
+	complete_all(&dp->disconnect_comp);
 	mutex_unlock(&dp->session_lock);
 
 	return rc;
@@ -796,6 +796,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	if (!dp->debug->sim_mode)
 		dp->aux->aux_switch(dp->aux, false, ORIENTATION_NONE);
 
+	/* Reset abort value to allow future connections */
+	atomic_set(&dp->aborted, 0);
 end:
 	return rc;
 }
@@ -958,6 +960,8 @@ static void dp_display_connect_work(struct work_struct *work)
 	struct delayed_work *dw = to_delayed_work(work);
 	struct dp_display_private *dp = container_of(dw,
 			struct dp_display_private, connect_work);
+	u32 const disconnect_timeout_sec = 20;
+
 
 	if (dp->dp_display.is_connected && dp_display_framework_ready(dp)) {
 		pr_debug("HPD already on\n");
@@ -965,7 +969,31 @@ static void dp_display_connect_work(struct work_struct *work)
 	}
 
 	if (atomic_read(&dp->aborted)) {
-		pr_err("aborted\n");
+		/*
+		 * If we receive a connection event while processing a
+		 * disconnect event from the previous session then we have to
+		 * wait until that disconnect event completes or expires. We
+		 * give the highest priority to handling disconnect events
+		 * since they represent a state change triggered by a physical
+		 * removal of the cable/plug.
+		 */
+		pr_warn("disconnect pending, waiting for %d sec\n",
+				disconnect_timeout_sec);
+		reinit_completion(&dp->disconnect_comp);
+		if (!wait_for_completion_timeout(&dp->disconnect_comp,
+					HZ * disconnect_timeout_sec)) {
+			pr_warn("disconnect completion timeout\n");
+			return;
+		}
+	}
+
+	if (atomic_read(&dp->aborted)) {
+		pr_warn("HPD off requested\n");
+		return;
+	}
+
+	if (!dp->usbpd->hpd_high) {
+		pr_warn("Sink disconnected\n");
 		return;
 	}
 
@@ -1574,9 +1602,6 @@ static int dp_display_unprepare(struct dp_display *dp_display, void *panel)
 	if (dp->active_stream_cnt)
 		goto end;
 
-	if (atomic_read(&dp->aborted))
-		goto end;
-
 	if (!dp->mst.mst_active) {
 		dp->aux->deinit(dp->aux);
 		dp->aux->state = DP_STATE_CTRL_POWERED_OFF;
@@ -1949,6 +1974,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&dp->notification_comp);
+	init_completion(&dp->disconnect_comp);
 
 	dp->pdev = pdev;
 	dp->name = "drm_dp";
