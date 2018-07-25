@@ -46,6 +46,7 @@ static struct platform_driver cam_vfe_driver = {
 		.name = "cam_vfe17x",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_vfe_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

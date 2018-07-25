@@ -394,6 +394,7 @@ static struct platform_driver cam_flash_platform_driver = {
 		.name = "CAM-FLASH-DRIVER",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_flash_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

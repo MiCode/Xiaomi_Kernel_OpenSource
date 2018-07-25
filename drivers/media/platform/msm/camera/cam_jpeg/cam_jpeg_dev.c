@@ -138,6 +138,7 @@ static struct platform_driver jpeg_driver = {
 		.name = "cam_jpeg",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_jpeg_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
