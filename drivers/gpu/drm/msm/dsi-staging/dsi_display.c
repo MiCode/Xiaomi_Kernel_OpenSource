@@ -1497,6 +1497,11 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 
 	pr_debug("checking ulps req validity\n");
 
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("%s: ESD recovery sequence underway\n", __func__);
+		return false;
+	}
+
 	if (!dsi_panel_ulps_feature_enabled(display->panel) &&
 			!display->panel->ulps_suspend_enabled) {
 		pr_debug("%s: ULPS feature is not enabled\n", __func__);
