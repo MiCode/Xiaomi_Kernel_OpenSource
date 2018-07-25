@@ -1890,23 +1890,23 @@ static void himax_update_register(struct work_struct *work)
 #endif
 
 #ifdef CONFIG_DRM
-static void himax_fb_register(struct work_struct *work)
+int himax_fb_register(struct himax_ts_data *ts)
 {
 	int ret = 0;
-	struct himax_ts_data *ts = container_of(work, struct himax_ts_data, work_att.work);
 
 	I(" %s in\n", __func__);
 	ts->fb_notif.notifier_call = fb_notifier_callback;
 	ret = msm_drm_register_client(&ts->fb_notif);
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);
+
+	return ret;
 }
 
 #elif defined CONFIG_FB
-static void himax_fb_register(struct work_struct *work)
+int himax_fb_register(struct himax_ts_data *ts)
 {
 	int ret = 0;
-	struct himax_ts_data *ts = container_of(work, struct himax_ts_data, work_att.work);
 
 	I(" %s in\n", __func__);
 	ts->fb_notif.notifier_call = fb_notifier_callback;
@@ -1914,6 +1914,8 @@ static void himax_fb_register(struct work_struct *work)
 
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);
+
+	return ret;
 }
 #endif
 
@@ -2070,20 +2072,6 @@ FW_force_upgrade:
 		goto err_input_register_device_failed;
 	}
 
-#if defined(CONFIG_DRM) || defined(CONFIG_FB)
-
-	ts->himax_att_wq = create_singlethread_workqueue("HMX_ATT_request");
-
-	if (!ts->himax_att_wq) {
-		E(" allocate syn_att_wq failed\n");
-		err = -ENOMEM;
-		goto err_get_intr_bit_failed;
-	}
-
-	INIT_DELAYED_WORK(&ts->work_att, himax_fb_register);
-	queue_delayed_work(ts->himax_att_wq, &ts->work_att, msecs_to_jiffies(15000));
-#endif
-
 #ifdef HX_SMART_WAKEUP
 	ts->SMWP_enable = 0;
 	wakeup_source_init(&ts->ts_SMWP_wake_src, WAKE_LOCK_SUSPEND, HIMAX_common_NAME);
@@ -2147,11 +2135,6 @@ err_ito_test_wq_failed:
 #endif
 #ifdef HX_SMART_WAKEUP
 	wakeup_source_trash(&ts->ts_SMWP_wake_src);
-#endif
-#if defined(CONFIG_FB) || defined(CONFIG_DRM)
-err_get_intr_bit_failed:
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #endif
 err_input_register_device_failed:
 	input_free_device(ts->input_dev);
@@ -2217,13 +2200,9 @@ void himax_chip_common_deinit(void)
 #ifdef CONFIG_DRM
 	if (msm_drm_unregister_client(&ts->fb_notif))
 		E("Error occurred while unregistering fb_notifier.\n");
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #elif defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
 		E("Error occurred while unregistering fb_notifier.\n");
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #endif
 	input_free_device(ts->input_dev);
 #ifdef HX_ZERO_FLASH
