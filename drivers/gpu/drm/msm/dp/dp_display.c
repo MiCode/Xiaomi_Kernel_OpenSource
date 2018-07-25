@@ -1266,6 +1266,9 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	if (atomic_read(&dp->aborted))
 		goto end;
 
+	if (dp->power_on)
+		goto end;
+
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
 	if (dp->debug->psm_enabled) {

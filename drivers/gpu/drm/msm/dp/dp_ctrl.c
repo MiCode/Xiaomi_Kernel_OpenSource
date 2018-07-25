@@ -666,7 +666,6 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
 	struct dp_ctrl_private *ctrl;
-	bool mainlink_ready = false;
 
 	if (!dp_ctrl) {
 		pr_err("Invalid input data\n");
@@ -684,7 +683,6 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_FAILED;
 	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_STARTED;
 
-	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl, DP_STREAM_0);
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 
 	do {
@@ -715,14 +713,6 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 		ret = dp_ctrl_setup_main_link(ctrl, true);
 	} while (ret == -EAGAIN);
-
-	ctrl->panel->hw_cfg(ctrl->panel);
-
-	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
-
-	dp_ctrl_wait4video_ready(ctrl);
-	mainlink_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
-	pr_debug("mainlink %s\n", mainlink_ready ? "READY" : "NOT READY");
 
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_STARTED;
 
@@ -919,11 +909,30 @@ static void dp_ctrl_mst_calculate_rg(struct dp_ctrl_private *ctrl,
 	pr_debug("x_int: %d, y_frac_enum: %d\n", x_int, y_frac_enum);
 }
 
+static int dp_ctrl_mst_send_act(struct dp_ctrl_private *ctrl)
+{
+	bool act_complete;
+
+	if (!ctrl->mst_mode)
+		return 0;
+
+	ctrl->catalog->trigger_act(ctrl->catalog);
+	msleep(20); /* needs 1 frame time */
+
+	ctrl->catalog->read_act_complete_sts(ctrl->catalog, &act_complete);
+
+	if (!act_complete)
+		pr_err("mst act trigger complete failed\n");
+	else
+		DP_MST_DEBUG("mst ACT trigger complete SUCCESS\n");
+
+	return 0;
+}
+
 static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 		struct dp_panel *panel)
 {
 	u32 x_int, y_frac_enum, lanes, bw_code;
-	bool act_complete;
 
 	if (!ctrl->mst_mode)
 		return 0;
@@ -949,16 +958,6 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 
 	DP_MST_DEBUG("mst lane_cnt:%d, bw:%d, x_int:%d, y_frac:%d\n",
 			lanes, bw_code, x_int, y_frac_enum);
-
-	ctrl->catalog->trigger_act(ctrl->catalog);
-	msleep(20); /* needs 1 frame time */
-
-	ctrl->catalog->read_act_complete_sts(ctrl->catalog, &act_complete);
-
-	if (!act_complete)
-		pr_err("mst act trigger complete failed\n");
-	else
-		DP_MST_DEBUG("mst ACT trigger complete SUCCESS\n");
 
 	return 0;
 }
@@ -988,13 +987,15 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 
 	rc = panel->hw_cfg(panel);
 	if (rc)
-		goto error;
-
-	dp_ctrl_send_video(ctrl);
+		return rc;
 
 	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
 	if (rc)
 		goto error;
+
+	dp_ctrl_send_video(ctrl);
+
+	dp_ctrl_mst_send_act(ctrl);
 
 	rc = dp_ctrl_wait4video_ready(ctrl);
 	if (rc)
