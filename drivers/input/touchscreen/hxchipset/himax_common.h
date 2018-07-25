@@ -259,6 +259,7 @@ struct himax_report_data {
 };
 
 struct himax_ts_data {
+	bool initialized;
 	bool suspended;
 	atomic_t suspend_mode;
 	uint8_t x_channel;
@@ -320,10 +321,8 @@ struct himax_ts_data {
 
 	int in_self_test;
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 	struct notifier_block fb_notif;
-	struct workqueue_struct *himax_att_wq;
-	struct delayed_work work_att;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
@@ -474,6 +473,7 @@ extern int himax_chip_common_suspend(struct himax_ts_data *ts);
 extern int himax_chip_common_resume(struct himax_ts_data *ts);
 extern int himax_chip_common_init(void);
 extern void himax_chip_common_deinit(void);
+extern int himax_fb_register(struct himax_ts_data *ts);
 extern int himax_input_register(struct himax_ts_data *ts);
 extern void himax_ts_work(struct himax_ts_data *ts);
 extern enum hrtimer_restart himax_ts_timer_func(struct hrtimer *timer);
