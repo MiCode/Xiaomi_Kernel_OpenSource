@@ -1557,10 +1557,10 @@ static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
 
 	ch_start_slot = ch_start_slot - 1;
 	for (i = 0; i < tot_slot_cnt; i++) {
-		if (ch_start_slot < 33) {
+		if (ch_start_slot < 32) {
 			slot_reg_1 |= BIT(ch_start_slot);
 		} else {
-			slot = ch_start_slot - 33;
+			slot = ch_start_slot - 32;
 			slot_reg_2 |= BIT(slot);
 		}
 		ch_start_slot++;
