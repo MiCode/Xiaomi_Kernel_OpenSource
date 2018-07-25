@@ -91,6 +91,15 @@ config FB_MSM_MDSS_SPI_PANEL
 	the current max fps only reach to ~30 fps with 240x240 resolution, and
 	limited by MDP hardware architecture only supply GPU compostition.
 
+config FB_MSM_MDSS_RGB_PANEL
+	depends on FB_MSM_MDSS
+	bool "Support RGB panel feature"
+	---help---
+	The MDSS RGB Panel provides support for transmitting
+	MDSS frame buffer data over RGB parallel interface
+	connected to RGB panel. Panel on/off sequence commands
+	are sent to RGB Panel through an SPI interface.
+
 config FB_MSM_MDSS_MHL3
 	depends on FB_MSM_MDSS_HDMI_PANEL
 	bool "MHL3 SII8620 Support"

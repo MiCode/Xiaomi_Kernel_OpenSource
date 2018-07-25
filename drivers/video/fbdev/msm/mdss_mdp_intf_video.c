@@ -507,6 +507,10 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_SKEW, p->hsync_skew);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_POLARITY_CTL, polarity_ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN, 0x3);
+
+	if (mdata->pan_cfg.pan_intf == MDSS_PANEL_INTF_RGB)
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_RGB_INTF_CTRL, 0x1);
+
 	MDSS_XLOG(hsync_period, vsync_period);
 
 	/*
