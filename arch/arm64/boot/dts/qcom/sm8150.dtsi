@@ -2309,7 +2309,6 @@
 
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "core_reset";
-		dma-coherent;
 
 		status = "disabled";
 	};
