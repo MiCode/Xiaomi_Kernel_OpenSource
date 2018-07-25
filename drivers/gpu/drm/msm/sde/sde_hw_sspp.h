@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_reg_dma.h"
 #include "sde_hw_blk.h"
 #include "sde_formats.h"
 #include "sde_color_processing.h"
@@ -38,7 +39,8 @@ struct sde_hw_pipe;
  */
 #define SDE_SSPP_SCALER ((1UL << SDE_SSPP_SCALER_RGB) | \
 	(1UL << SDE_SSPP_SCALER_QSEED2) | \
-	(1UL << SDE_SSPP_SCALER_QSEED3))
+	(1UL << SDE_SSPP_SCALER_QSEED3) | \
+	(1UL << SDE_SSPP_SCALER_QSEED3LITE))
 
 /**
  * Component indices
@@ -498,6 +500,16 @@ struct sde_hw_sspp_ops {
 		void *scaler_cfg);
 
 	/**
+	 * setup_scaler_lut - setup scaler lut
+	 * @buf: Defines structure for reg dma ops on the reg dma buffer.
+	 * @scaler3_cfg: QSEEDv3 configuration
+	 * @offset: Scaler Offset
+	 */
+	void (*setup_scaler_lut)(struct sde_reg_dma_setup_ops_cfg *buf,
+			struct sde_hw_scaler3_cfg *scaler3_cfg,
+			u32 offset);
+
+	/**
 	 * get_scaler_ver - get scaler h/w version
 	 * @ctx: Pointer to pipe context
 	 */
@@ -598,7 +610,7 @@ struct sde_hw_pipe {
 
 	/* Pipe */
 	enum sde_sspp idx;
-	const struct sde_sspp_cfg *cap;
+	struct sde_sspp_cfg *cap;
 
 	/* Ops */
 	struct sde_hw_sspp_ops ops;

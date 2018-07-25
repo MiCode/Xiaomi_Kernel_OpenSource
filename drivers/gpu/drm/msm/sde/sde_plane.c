@@ -1076,6 +1076,21 @@ static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
 	return ret;
 }
 
+static int _sde_plane_setup_scaler3lite_lut(struct sde_plane *psde,
+		struct sde_plane_state *pstate)
+{
+	struct sde_hw_scaler3_cfg *cfg;
+
+	cfg = &pstate->scaler3_cfg;
+
+	cfg->sep_lut = msm_property_get_blob(
+			&psde->property_info,
+			&pstate->property_state, &cfg->sep_len,
+			PLANE_PROP_SCALER_LUT_SEP);
+
+	return cfg->sep_lut ? 0 : -ENODATA;
+}
+
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		struct sde_plane_state *pstate, const struct sde_format *fmt,
 		uint32_t chroma_subsmpl_h, uint32_t chroma_subsmpl_v)
@@ -1500,13 +1515,14 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		drm_format_vert_chroma_subsampling(fmt->base.pixel_format);
 
 	/* update scaler */
-	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
-		int rc;
+	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
+			(psde->features & BIT(SDE_SSPP_SCALER_QSEED3LITE))) {
+		int rc = -EINVAL;
 
 		if (!color_fill && !psde->debugfs_default_scale)
-			rc = _sde_plane_setup_scaler3_lut(psde, pstate);
-		else
-			rc = -EINVAL;
+			rc = is_qseed3_rev_qseed3lite(psde->pipe_hw->catalog) ?
+			_sde_plane_setup_scaler3lite_lut(psde, pstate) :
+				_sde_plane_setup_scaler3_lut(psde, pstate);
 		if (rc || pstate->scaler_check_state !=
 					SDE_PLANE_SCLCHECK_SCALER_V2) {
 			SDE_EVT32(DRMID(&psde->base), color_fill,
@@ -4305,6 +4321,13 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			msm_property_install_blob(&psde->property_info,
 					"lut_sep", 0,
 					PLANE_PROP_SCALER_LUT_SEP);
+		} else if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3LITE)) {
+			msm_property_install_range(
+					&psde->property_info, "scaler_v2",
+					0x0, 0, ~0, 0, PLANE_PROP_SCALER_V2);
+			msm_property_install_blob(&psde->property_info,
+					"lut_sep", 0,
+					PLANE_PROP_SCALER_LUT_SEP);
 		} else if (psde->features & SDE_SSPP_SCALER) {
 			msm_property_install_range(
 					&psde->property_info, "scaler_v1", 0x0,
@@ -5146,6 +5169,7 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 			psde->debugfs_root, &psde->debugfs_src);
 
 	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
+			cfg->features & BIT(SDE_SSPP_SCALER_QSEED3LITE) ||
 			cfg->features & BIT(SDE_SSPP_SCALER_QSEED2)) {
 		sde_debugfs_setup_regset32(&psde->debugfs_scaler,
 				sblk->scaler_blk.base + cfg->base,

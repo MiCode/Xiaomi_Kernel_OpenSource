@@ -32,6 +32,8 @@
 #include "sde_hw_ctl.h"
 #include "sde_crtc.h"
 #include "sde_plane.h"
+#include "sde_hw_util.h"
+#include "sde_hw_catalog.h"
 #include "sde_color_processing.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
@@ -1999,6 +2001,7 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		struct sde_crtc_state *cstate, uint32_t lut_idx)
 {
 	struct sde_hw_scaler3_lut_cfg *cfg;
+	struct sde_kms *sde_kms;
 	u32 *lut_data = NULL;
 	size_t len = 0;
 	int ret = 0;
@@ -2007,6 +2010,13 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
 	}
+
+	sde_kms = _sde_crtc_get_kms(&sde_crtc->base);
+	if (!sde_kms)
+		return -EINVAL;
+
+	if (is_qseed3_rev_qseed3lite(sde_kms->catalog))
+		return 0;
 
 	lut_data = msm_property_get_blob(&sde_crtc->property_info,
 			&cstate->property_state, &len, lut_idx);
@@ -5136,6 +5146,8 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed3");
+	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3LITE)
+		sde_kms_info_add_keystr(info, "qseed_type", "qseed3lite");
 
 	if (sde_is_custom_client()) {
 		/* No support for SMART_DMA_V1 yet */
@@ -5177,6 +5189,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			msm_property_install_blob(&sde_crtc->property_info,
 					"ds_lut_sep", 0,
 					CRTC_PROP_DEST_SCALER_LUT_SEP);
+		} else if (catalog->ds[0].features
+				& BIT(SDE_SSPP_SCALER_QSEED3LITE)) {
+			msm_property_install_volatile_range(
+					&sde_crtc->property_info, "dest_scaler",
+					0x0, 0, ~0, 0, CRTC_PROP_DEST_SCALER);
 		}
 	}
 
