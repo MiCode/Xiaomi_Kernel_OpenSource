@@ -138,9 +138,10 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		if (ret1)
 			pr_err("%s: Invalidate Key Error: %d\n", __func__,
 					ret1);
-		goto out;
 	}
-	ret = qcom_ice_setup_ice_hw((const char *)s_type, false);
+	ret1 = qcom_ice_setup_ice_hw((const char *)s_type, false);
+	if (ret1)
+		pr_err("%s: Error %d disabling clocks\n", __func__, ret1);
 
 out:
 	return ret;
