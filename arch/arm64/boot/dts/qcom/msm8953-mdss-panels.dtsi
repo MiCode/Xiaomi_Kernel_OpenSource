@@ -26,6 +26,7 @@
 #include "dsi-panel-hx8399c-fhd-plus-video.dtsi"
 #include "dsi-panel-hx83100a-800p-video.dtsi"
 #include "dsi-panel-boent51021-1200p-video.dtsi"
+#include "dsi-panel-hx8394d-wxga-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -183,4 +184,12 @@
 		25 20 08 0a 06 03 04 a0
 		25 20 08 0a 06 03 04 a0
 		25 1d 08 0a 06 03 04 a0];
+};
+
+&dsi_hx8394d_kingdisplay_vid {
+    qcom,mdss-dsi-panel-timings-phy-v2 = [1c 19 02 03 01 03 04 a0
+        1c 19 02 03 01 03 04 a0
+        1c 19 02 03 01 03 04 a0
+        1c 19 02 03 01 03 04 a0
+        1c 07 02 03 01 03 04 a0];
 };
