@@ -121,6 +121,7 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 	if (wdg_irq_sts != 0) {
 		pr_err("wdg irq %x\n", wdg_irq_sts);
 		host_ctx->wdg_irq_sts |= wdg_irq_sts;
+		host_ctx->fw_error = true;
 	}
 
 	error_irq_sts = REGR(npu_dev, NPU_MASTERn_ERROR_IRQ_STATUS(0));
@@ -129,6 +130,7 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), error_irq_sts);
 		pr_err("error irq %x\n", error_irq_sts);
 		host_ctx->err_irq_sts |= error_irq_sts;
+		host_ctx->fw_error = true;
 	}
 }
 

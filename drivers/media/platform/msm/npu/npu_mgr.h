@@ -53,18 +53,17 @@ struct npu_network {
 	uint32_t stats_buf_size;
 	bool is_valid;
 	bool fw_error;
+	bool cmd_pending;
 	struct completion cmd_done;
 };
 
 enum fw_state {
 	FW_DISABLED = 0,
-	FW_ENABLING = 1,
-	FW_DISABLING = 2,
-	FW_ENABLED = 3,
+	FW_ENABLED = 1,
 };
 
 struct npu_host_ctx {
-	spinlock_t lock;
+	struct mutex lock;
 	void *subsystem_handle;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
@@ -81,6 +80,7 @@ struct npu_host_ctx {
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
+	bool fw_error;
 };
 
 struct npu_device;
