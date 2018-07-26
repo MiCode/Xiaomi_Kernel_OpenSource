@@ -53,6 +53,8 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == NORTH) ? base + 0x89000 : \
+			((base == SOUTH) ? base + 0x86000 : base + 0x81000), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -67,6 +69,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,           \
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1447,6 +1450,83 @@ static const struct msm_pingroup sdmmagpie_groups[] = {
 	[126] = UFS_RESET(ufs_reset, 0x9f000),
 };
 
+static struct msm_dir_conn sdmmagpie_dir_conn[] = {
+	{0, 520},
+	{3, 530},
+	{4, 522},
+	{5, 550},
+	{6, 521},
+	{9, 537},
+	{10, 560},
+	{11, 531},
+	{22, 570},
+	{24, 541},
+	{26, 532},
+	{30, 536},
+	{31, 513},
+	{32, 561},
+	{33, 542},
+	{34, 523},
+	{36, 571},
+	{37, 533},
+	{38, 543},
+	{39, 552},
+	{41, 616},
+	{42, 515},
+	{43, 514},
+	{45, 553},
+	{47, 562},
+	{48, 516},
+	{49, 517},
+	{50, 518},
+	{52, 519},
+	{53, 617},
+	{55, 572},
+	{56, 525},
+	{57, 526},
+	{58, 563},
+	{59, 527},
+	{62, 528},
+	{64, 554},
+	{65, 524},
+	{66, 573},
+	{67, 529},
+	{68, 535},
+	{69, 512},
+	{70, 534},
+	{73, 544},
+	{74, 551},
+	{78, 511},
+	{82, 510},
+	{84, 538},
+	{85, 618},
+	{86, 539},
+	{87, 540},
+	{88, 545},
+	{89, 546},
+	{90, 547},
+	{91, 548},
+	{92, 549},
+	{93, 555},
+	{94, 564},
+	{95, 609},
+	{96, 556},
+	{98, 557},
+	{101, 558},
+	{104, 614},
+	{109, 619},
+	{110, 559},
+	{113, 565},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+	{0, 212},
+	{0, 211},
+	{0, 210},
+	{0, 209},
+};
+
 static const struct msm_pinctrl_soc_data sdmmagpie_pinctrl = {
 	.pins = sdmmagpie_pins,
 	.npins = ARRAY_SIZE(sdmmagpie_pins),
@@ -1455,6 +1535,9 @@ static const struct msm_pinctrl_soc_data sdmmagpie_pinctrl = {
 	.groups = sdmmagpie_groups,
 	.ngroups = ARRAY_SIZE(sdmmagpie_groups),
 	.ngpios = 119,
+	.dir_conn = sdmmagpie_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdmmagpie_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int sdmmagpie_pinctrl_probe(struct platform_device *pdev)
