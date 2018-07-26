@@ -1860,8 +1860,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_pwr_off;
 
-	_set_secvid(device);
-
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
@@ -1880,6 +1878,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		if (status)
 			goto error_oob_clear;
 	}
+
+	_set_secvid(device);
 
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
