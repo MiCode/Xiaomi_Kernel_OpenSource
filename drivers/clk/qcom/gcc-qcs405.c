@@ -2335,11 +2335,7 @@ static struct clk_branch gcc_pcnoc_usb2_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcnoc_usb2_clk",
-			.parent_names = (const char *[]){
-				"usb_hs_system_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2353,11 +2349,7 @@ static struct clk_branch gcc_pcnoc_usb3_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcnoc_usb3_clk",
-			.parent_names = (const char *[]){
-				"usb30_master_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
