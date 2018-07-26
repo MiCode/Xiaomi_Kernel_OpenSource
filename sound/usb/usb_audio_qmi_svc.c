@@ -1020,6 +1020,8 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
 
+	svc->t_request_recvd = ktime_get();
+
 	pr_debug("%s: sq_node:%x sq_port:%x sq_family:%x\n",
 			__func__, sq->sq_node, sq->sq_port, sq->sq_family);
 	if (!svc->client_connected) {
