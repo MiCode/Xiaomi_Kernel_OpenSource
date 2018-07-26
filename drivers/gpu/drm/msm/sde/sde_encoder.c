@@ -169,6 +169,7 @@ enum sde_enc_rc_states {
  * @base:		drm_encoder base class for registration with DRM
  * @enc_spin_lock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @bus_scaling_client:	Client handle to the bus scaling interface
+ * @te_source:		vsync source pin information
  * @num_phys_encs:	Actual number of physical encoders contained.
  * @phys_encs:		Container of physical encoders managed.
  * @cur_master:		Pointer to the current master in this mode. Optimization
@@ -226,6 +227,7 @@ struct sde_encoder_virt {
 	uint32_t bus_scaling_client;
 
 	uint32_t display_num_of_h_tiles;
+	uint32_t te_source;
 
 	unsigned int num_phys_encs;
 	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
@@ -1670,14 +1672,13 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	}
 
 	if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
-
 		if (is_dummy)
-			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
+			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0 -
+					sde_enc->te_source;
 		else if (disp_info->is_te_using_watchdog_timer)
-			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
+			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_4;
 		else
-			vsync_source =
-				sde_enc->cur_master->hw_pp->caps->te_source;
+			vsync_source = sde_enc->te_source;
 
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			phys = sde_enc->phys_encs[i];
@@ -4880,6 +4881,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	WARN_ON(disp_info->num_of_h_tiles < 1);
 
 	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
+	sde_enc->te_source = disp_info->te_source;
 
 	SDE_DEBUG("dsi_info->num_of_h_tiles %d\n", disp_info->num_of_h_tiles);
 

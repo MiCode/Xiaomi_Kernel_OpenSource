@@ -172,6 +172,7 @@ struct dsi_display_clk_info {
  * @misr_enable       Frame MISR enable/disable
  * @misr_frame_count  Number of frames to accumulate the MISR value
  * @esd_trigger       field indicating ESD trigger through debugfs
+ * @te_source         vsync source pin information
  */
 struct dsi_display {
 	struct platform_device *pdev;
@@ -254,6 +255,8 @@ struct dsi_display {
 	void *parser;
 
 	struct dsi_display_boot_param *boot_disp;
+
+	u32 te_source;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

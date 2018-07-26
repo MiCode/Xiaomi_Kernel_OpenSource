@@ -42,6 +42,7 @@
 #define MAX_NAME_SIZE	64
 
 #define DSI_CLOCK_BITRATE_RADIX 10
+#define MAX_TE_SOURCE_ID  2
 
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
@@ -536,10 +537,12 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	return false;
 }
 
-static void dsi_display_parse_te_gpio(struct dsi_display *display)
+static void dsi_display_parse_te_data(struct dsi_display *display)
 {
 	struct platform_device *pdev;
 	struct device *dev;
+	int rc = 0;
+	u32 val = 0;
 
 	pdev = display->pdev;
 	if (!pdev) {
@@ -555,6 +558,20 @@ static void dsi_display_parse_te_gpio(struct dsi_display *display)
 
 	display->disp_te_gpio = of_get_named_gpio(dev->of_node,
 					"qcom,platform-te-gpio", 0);
+
+	if (display->fw)
+		rc = dsi_parser_read_u32(display->parser_node,
+			"qcom,panel-te-source", &val);
+	else
+		rc = of_property_read_u32(dev->of_node,
+			"qcom,panel-te-source", &val);
+
+	if (rc || (val  > MAX_TE_SOURCE_ID)) {
+		pr_err("invalid vsync source selection\n");
+		val = 0;
+	}
+
+	display->te_source = val;
 }
 
 static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
@@ -3343,8 +3360,8 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 
-	/* Parse TE gpio */
-	dsi_display_parse_te_gpio(display);
+	/* Parse TE data */
+	dsi_display_parse_te_data(display);
 
 	/* Parse external bridge from port 0, reg 0 */
 	display->ext_bridge_of = of_graph_get_remote_node(of_node, 0, 0);
@@ -5175,6 +5192,8 @@ int dsi_display_get_info(struct drm_connector *connector,
 
 	if (display->panel->esd_config.esd_enabled)
 		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
+
+	info->te_source = display->te_source;
 
 error:
 	mutex_unlock(&display->display_lock);
