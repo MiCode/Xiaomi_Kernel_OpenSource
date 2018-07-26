@@ -198,7 +198,6 @@ struct cam_csiphy_param {
  * @csiphy_reg_ptr: Regulator structure
  * @csiphy_3p_clk_info: 3Phase clock information
  * @csiphy_3p_clk: 3Phase clocks structure
- * @csiphy_clk_index: Timer Src clk index
  * @csi_3phase: Is it a 3Phase mode
  * @ref_count: Reference count
  * @clk_lane: Clock lane
@@ -216,7 +215,6 @@ struct csiphy_device {
 	uint32_t csiphy_max_clk;
 	struct msm_cam_clk_info csiphy_3p_clk_info[2];
 	struct clk *csiphy_3p_clk[2];
-	uint32_t csiphy_clk_index;
 	unsigned char csi_3phase;
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];

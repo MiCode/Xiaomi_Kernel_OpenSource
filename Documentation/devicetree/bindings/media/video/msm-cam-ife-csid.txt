@@ -79,7 +79,10 @@ First Level Node - CAM IFE CSID device
   Value type: <string>
   Definition: Source clock name.
 
-
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
 
 Example:
 

@@ -18,6 +18,197 @@
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 
+static char supported_clk_info[256];
+static char debugfs_dir_name[64];
+
+/**
+ * cam_soc_util_get_string_from_level()
+ *
+ * @brief:     Returns the string for a given clk level
+ *
+ * @level:     Clock level
+ *
+ * @return:    String corresponding to the clk level
+ */
+static const char *cam_soc_util_get_string_from_level(
+	enum cam_vote_level level)
+{
+	switch (level) {
+	case CAM_SUSPEND_VOTE:
+		return "";
+	case CAM_MINSVS_VOTE:
+		return "MINSVS[1]";
+	case CAM_LOWSVS_VOTE:
+		return "LOWSVS[2]";
+	case CAM_SVS_VOTE:
+		return "SVS[3]";
+	case CAM_SVSL1_VOTE:
+		return "SVSL1[4]";
+	case CAM_NOMINAL_VOTE:
+		return "NOM[5]";
+	case CAM_TURBO_VOTE:
+		return "TURBO[6]";
+	default:
+		return "";
+	}
+}
+
+/**
+ * cam_soc_util_get_supported_clk_levels()
+ *
+ * @brief:      Returns the string of all the supported clk levels for
+ *              the given device
+ *
+ * @soc_info:   Device soc information
+ *
+ * @return:     String containing all supported clk levels
+ */
+static const char *cam_soc_util_get_supported_clk_levels(
+	struct cam_hw_soc_info *soc_info)
+{
+	int i = 0;
+
+	memset(supported_clk_info, 0, sizeof(supported_clk_info));
+	strlcat(supported_clk_info, "Supported levels: ",
+		sizeof(supported_clk_info));
+
+	for (i = 0; i < CAM_MAX_VOTE; i++) {
+		if (soc_info->clk_level_valid[i] == true) {
+			strlcat(supported_clk_info,
+				cam_soc_util_get_string_from_level(i),
+				sizeof(supported_clk_info));
+			strlcat(supported_clk_info, " ",
+				sizeof(supported_clk_info));
+		}
+	}
+
+	strlcat(supported_clk_info, "\n", sizeof(supported_clk_info));
+	return supported_clk_info;
+}
+
+static int cam_soc_util_clk_lvl_options_open(struct inode *inode,
+	struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t cam_soc_util_clk_lvl_options_read(struct file *file,
+	char __user *clk_info, size_t size_t, loff_t *loff_t)
+{
+	struct cam_hw_soc_info *soc_info =
+		(struct cam_hw_soc_info *)file->private_data;
+	const char *display_string =
+		cam_soc_util_get_supported_clk_levels(soc_info);
+
+	return simple_read_from_buffer(clk_info, size_t, loff_t, display_string,
+		strlen(display_string));
+}
+
+static const struct file_operations cam_soc_util_clk_lvl_options = {
+	.open = cam_soc_util_clk_lvl_options_open,
+	.read = cam_soc_util_clk_lvl_options_read,
+};
+
+static int cam_soc_util_set_clk_lvl(void *data, u64 val)
+{
+	struct cam_hw_soc_info *soc_info = (struct cam_hw_soc_info *)data;
+
+	if (val <= CAM_SUSPEND_VOTE || val >= CAM_MAX_VOTE)
+		return 0;
+
+	if (soc_info->clk_level_valid[val] == true)
+		soc_info->clk_level_override = val;
+	else
+		soc_info->clk_level_override = 0;
+
+	return 0;
+}
+
+static int cam_soc_util_get_clk_lvl(void *data, u64 *val)
+{
+	struct cam_hw_soc_info *soc_info = (struct cam_hw_soc_info *)data;
+
+	*val = soc_info->clk_level_override;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_soc_util_clk_lvl_control,
+	cam_soc_util_get_clk_lvl, cam_soc_util_set_clk_lvl, "%08llu");
+
+/**
+ * cam_soc_util_create_clk_lvl_debugfs()
+ *
+ * @brief:      Creates debugfs files to view/control device clk rates
+ *
+ * @soc_info:   Device soc information
+ *
+ * @return:     Success or failure
+ */
+static int cam_soc_util_create_clk_lvl_debugfs(
+	struct cam_hw_soc_info *soc_info)
+{
+	struct dentry *dentry = NULL;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_UTIL, "soc info is NULL");
+		return -EINVAL;
+	}
+
+	if (soc_info->dentry)
+		return 0;
+
+	memset(debugfs_dir_name, 0, sizeof(debugfs_dir_name));
+	strlcat(debugfs_dir_name, "clk_dir_", sizeof(debugfs_dir_name));
+	strlcat(debugfs_dir_name, soc_info->dev_name, sizeof(debugfs_dir_name));
+
+	dentry = soc_info->dentry;
+	dentry = debugfs_create_dir(debugfs_dir_name, NULL);
+	if (!dentry) {
+		CAM_ERR(CAM_UTIL, "failed to create debug directory");
+		return -ENOMEM;
+	}
+
+	if (!debugfs_create_file("clk_lvl_options", 0444,
+		dentry, soc_info, &cam_soc_util_clk_lvl_options)) {
+		CAM_ERR(CAM_UTIL, "failed to create clk_lvl_options");
+		goto err;
+	}
+
+	if (!debugfs_create_file("clk_lvl_control", 0644,
+		dentry, soc_info, &cam_soc_util_clk_lvl_control)) {
+		CAM_ERR(CAM_UTIL, "failed to create clk_lvl_control");
+		goto err;
+	}
+
+	CAM_DBG(CAM_UTIL, "clk lvl debugfs for %s successfully created",
+		soc_info->dev_name);
+
+	return 0;
+
+err:
+	debugfs_remove_recursive(dentry);
+	dentry = NULL;
+	return -ENOMEM;
+}
+
+/**
+ * cam_soc_util_remove_clk_lvl_debugfs()
+ *
+ * @brief:      Removes the debugfs files used to view/control
+ *              device clk rates
+ *
+ * @soc_info:   Device soc information
+ *
+ */
+static void cam_soc_util_remove_clk_lvl_debugfs(
+	struct cam_hw_soc_info *soc_info)
+{
+	debugfs_remove_recursive(soc_info->dentry);
+	soc_info->dentry = NULL;
+}
+
 int cam_soc_util_get_level_from_string(const char *string,
 	enum cam_vote_level *level)
 {
@@ -152,7 +343,18 @@ int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
 	return clk_set_flags(soc_info->clk[clk_index], flags);
 }
 
-int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
+/**
+ * cam_soc_util_set_clk_rate()
+ *
+ * @brief:          Sets the given rate for the clk requested for
+ *
+ * @clk:            Clock structure information for which rate is to be set
+ * @clk_name:       Name of the clock for which rate is being set
+ * @clk_rate        Clock rate to be set
+ *
+ * @return:         Success or failure
+ */
+static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {
 	int rc = 0;
@@ -194,6 +396,26 @@ int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	}
 
 	return rc;
+}
+
+int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
+	int32_t clk_rate)
+{
+	int32_t src_clk_idx;
+	struct clk *clk = NULL;
+
+	if (!soc_info || (soc_info->src_clk_idx < 0))
+		return -EINVAL;
+
+	if (soc_info->clk_level_override && clk_rate)
+		clk_rate = soc_info->clk_level_override;
+
+	src_clk_idx = soc_info->src_clk_idx;
+	clk = soc_info->clk[src_clk_idx];
+
+	return cam_soc_util_set_clk_rate(clk,
+		soc_info->clk_name[src_clk_idx], clk_rate);
+
 }
 
 int cam_soc_util_clk_put(struct clk **clk)
@@ -402,6 +624,7 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	int i, j, rc;
 	int32_t num_clk_level_strings;
 	const char *src_clk_str = NULL;
+	const char *clk_control_debugfs = NULL;
 	const char *clk_cntl_lvl_string = NULL;
 	enum cam_vote_level level;
 
@@ -515,8 +738,7 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	if (rc || !src_clk_str) {
 		CAM_DBG(CAM_UTIL, "No src_clk_str found");
 		rc = 0;
-		/* Bottom loop is dependent on src_clk_str. So return here */
-		return rc;
+		goto end;
 	}
 
 	for (i = 0; i < soc_info->num_clk; i++) {
@@ -528,6 +750,18 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 		}
 	}
 
+	rc = of_property_read_string_index(of_node,
+		"clock-control-debugfs", 0, &clk_control_debugfs);
+	if (rc || !clk_control_debugfs) {
+		CAM_DBG(CAM_UTIL, "No clock_control_debugfs property found");
+		rc = 0;
+		goto end;
+	}
+
+	if (strcmp("true", clk_control_debugfs) == 0)
+		soc_info->clk_control_enable = true;
+
+end:
 	return rc;
 }
 
@@ -1216,6 +1450,9 @@ int cam_soc_util_request_platform_resource(
 		goto put_clk;
 	}
 
+	if (soc_info->clk_control_enable)
+		cam_soc_util_create_clk_lvl_debugfs(soc_info);
+
 	return rc;
 
 put_clk:
@@ -1299,6 +1536,9 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 
 	/* release for gpio */
 	cam_soc_util_request_gpio_table(soc_info, false);
+
+	if (soc_info->clk_control_enable)
+		cam_soc_util_remove_clk_lvl_debugfs(soc_info);
 
 	return 0;
 }

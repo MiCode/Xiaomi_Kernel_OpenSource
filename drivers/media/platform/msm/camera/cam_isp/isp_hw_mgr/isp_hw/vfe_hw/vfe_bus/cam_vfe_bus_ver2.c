@@ -514,6 +514,8 @@ static int cam_vfe_bus_get_num_wm(
 		case CAM_FORMAT_TP10:
 		case CAM_FORMAT_PLAIN16_10:
 			return 2;
+		case CAM_FORMAT_Y_ONLY:
+			return 1;
 		default:
 			break;
 		}
@@ -832,6 +834,7 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_NV12:
 	case CAM_FORMAT_UBWC_NV12:
 	case CAM_FORMAT_UBWC_NV12_4R:
+	case CAM_FORMAT_Y_ONLY:
 		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
 	case CAM_FORMAT_PLAIN16_16:
 		return PACKER_FMT_PLAIN_16_16BPP;
@@ -990,6 +993,7 @@ static int cam_vfe_bus_acquire_wm(
 			/* Fall through for NV12 */
 		case CAM_FORMAT_NV21:
 		case CAM_FORMAT_NV12:
+		case CAM_FORMAT_Y_ONLY:
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;
@@ -1049,12 +1053,21 @@ static int cam_vfe_bus_acquire_wm(
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
-	} else if ((rsrc_data->index >= 10) && (rsrc_data->index < 20)) {
-		/* Write master 10-19 stats */
+	} else if (rsrc_data->index >= 11 && rsrc_data->index < 20) {
+		/* Write master 11 - 19 stats */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
+	} else if (rsrc_data->index == 10) {
+		/* Write master 10 - PDAF/2PD */
+		rsrc_data->width = 0;
+		rsrc_data->height = 0;
+		rsrc_data->stride = 1;
+		rsrc_data->en_cfg = 0x3;
+		if (vfe_out_res_id == CAM_VFE_BUS_VER2_VFE_OUT_PDAF)
+			/* LSB aligned */
+			rsrc_data->pack_fmt |= 0x10;
 	}  else if (rsrc_data->index == 9) {
 		/* Write master 9 - Raw dump */
 		rsrc_data->width = rsrc_data->width * 2;
@@ -1063,7 +1076,7 @@ static int cam_vfe_bus_acquire_wm(
 		/* LSB aligned */
 		rsrc_data->pack_fmt |= 0x10;
 	}  else {
-		/* Write master 5-6 DS ports, 10 PDAF */
+		/* Write master 5-6 DS ports */
 		uint32_t align_width;
 
 		rsrc_data->width = rsrc_data->width * 4;
@@ -1239,7 +1252,8 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 
 	/* disable WM */
 	/* Disable all register access, reply on global reset */
-	CAM_DBG(CAM_ISP, "irq_enabled %d", rsrc_data->irq_enabled);
+	CAM_DBG(CAM_ISP, "WM res %d irq_enabled %d",
+		rsrc_data->index, rsrc_data->irq_enabled);
 	/* Unsubscribe IRQ */
 	if (rsrc_data->irq_enabled)
 		rc = cam_irq_controller_unsubscribe_irq(
