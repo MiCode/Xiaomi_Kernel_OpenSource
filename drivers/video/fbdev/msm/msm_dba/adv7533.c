@@ -885,9 +885,13 @@ static void adv7533_handle_hdcp_intr(struct adv7533 *pdata, u8 hdcp_status)
 			break;
 		case 4:
 			pr_err("%s: DDC: I2C ERROR\n", __func__);
+			adv7533_notify_clients(&pdata->dev_info,
+					MSM_DBA_CB_DDC_I2C_ERROR);
 			break;
 		case 5:
 			pr_err("%s: DDC: TIMED OUT DS DONE\n", __func__);
+			adv7533_notify_clients(&pdata->dev_info,
+					MSM_DBA_CB_DDC_TIMEOUT);
 			break;
 		case 6:
 			pr_err("%s: DDC: MAX CAS EXC\n", __func__);

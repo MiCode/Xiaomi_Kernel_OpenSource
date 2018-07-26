@@ -335,6 +335,18 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	return &pdev->dev;
 }
 
+void msm_smmu_register_fault_handler(struct msm_mmu *mmu,
+	iommu_fault_handler_t handler)
+{
+	struct msm_smmu *smmu = to_msm_smmu(mmu);
+	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	if (client)
+		iommu_set_fault_handler(client->mmu_mapping->domain,
+						handler, client->dev);
+
+}
+
 struct msm_mmu *msm_smmu_new(struct device *dev,
 		enum msm_mmu_domain_type domain)
 {

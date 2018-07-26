@@ -93,4 +93,8 @@ static inline void msm_mmu_disable(struct msm_mmu *mmu)
 int __init msm_smmu_driver_init(void);
 void __exit msm_smmu_driver_cleanup(void);
 
+/* register custom fault handler for a specific domain */
+void msm_smmu_register_fault_handler(struct msm_mmu *mmu,
+	iommu_fault_handler_t handler);
+
 #endif /* __MSM_MMU_H__ */

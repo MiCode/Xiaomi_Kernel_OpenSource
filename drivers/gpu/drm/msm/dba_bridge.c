@@ -16,6 +16,7 @@
 #include "drm_edid.h"
 #include "sde_kms.h"
 #include "dba_bridge.h"
+#include "sde/sde_recovery_manager.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt)	"dba_bridge:[%s] " fmt, __func__
@@ -36,6 +37,7 @@
  * @num_of_input_lanes: Number of input lanes in case of DSI/LVDS
  * @pluggable:          If it's pluggable
  * @panel_count:        Number of panels attached to this display
+ * @client_info:        bridge chip specific information for recovery manager
  */
 struct dba_bridge {
 	struct drm_bridge base;
@@ -52,12 +54,17 @@ struct dba_bridge {
 	bool pluggable;
 	u32 panel_count;
 	bool cont_splash_enabled;
+	struct recovery_client_info client_info;
 };
 #define to_dba_bridge(x)     container_of((x), struct dba_bridge, base)
+
+static int _dba_bridge_recovery_callback(int err_code,
+	struct recovery_client_info *client_info);
 
 static void _dba_bridge_cb(void *data, enum msm_dba_callback_event event)
 {
 	struct dba_bridge *d_bridge = data;
+	int chip_err;
 
 	if (!d_bridge) {
 		SDE_ERROR("Invalid data\n");
@@ -73,6 +80,12 @@ static void _dba_bridge_cb(void *data, enum msm_dba_callback_event event)
 	case MSM_DBA_CB_HPD_DISCONNECT:
 		DRM_DEBUG("HPD DISCONNECT\n");
 		break;
+	case MSM_DBA_CB_DDC_I2C_ERROR:
+	case MSM_DBA_CB_DDC_TIMEOUT:
+		DRM_DEBUG("DDC FAILURE\n");
+		chip_err = DBA_BRIDGE_CRITICAL_ERR + d_bridge->id;
+		sde_recovery_set_events(chip_err);
+		break;
 	default:
 		DRM_DEBUG("event:%d is not supported\n", event);
 		break;
@@ -83,6 +96,7 @@ static int _dba_bridge_attach(struct drm_bridge *bridge)
 {
 	struct dba_bridge *d_bridge = to_dba_bridge(bridge);
 	struct msm_dba_reg_info info;
+	struct recovery_client_info *client_info = &d_bridge->client_info;
 	int ret = 0;
 
 	if (!bridge) {
@@ -114,6 +128,25 @@ static int _dba_bridge_attach(struct drm_bridge *bridge)
 		ret = -ENODEV;
 		goto error;
 	}
+
+	snprintf(client_info->name, MAX_REC_NAME_LEN, "%s_%d",
+		d_bridge->chip_name, d_bridge->id);
+
+	client_info->recovery_cb = _dba_bridge_recovery_callback;
+
+	/* Identify individual chip by different error codes */
+	client_info->err_supported[0].reported_err_code =
+				DBA_BRIDGE_CRITICAL_ERR + d_bridge->id;
+	client_info->err_supported[0].pre_err_code = 0;
+	client_info->err_supported[0].post_err_code = 0;
+	client_info->no_of_err = 1;
+	/* bridge chip context */
+	client_info->pdata = d_bridge;
+
+	ret = sde_recovery_client_register(client_info);
+	if (ret)
+		SDE_ERROR("%s recovery mgr register failed %d\n",
+							__func__, ret);
 
 	DRM_INFO("client:%s bridge:[%s:%d] attached\n",
 		d_bridge->client_name, d_bridge->chip_name, d_bridge->id);
@@ -240,6 +273,44 @@ static void _dba_bridge_post_disable(struct drm_bridge *bridge)
 		if (rc)
 			SDE_ERROR("power off failed ret=%d\n", rc);
 	}
+}
+
+static int _dba_bridge_recovery_callback(int err_code,
+	struct recovery_client_info *client_info)
+{
+	int rc = 0;
+	struct dba_bridge *d_bridge;
+
+	if (!client_info) {
+		SDE_ERROR("Invalid client info\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	d_bridge = client_info->pdata;
+
+	err_code = err_code - d_bridge->id;
+
+	switch (err_code) {
+	case DBA_BRIDGE_CRITICAL_ERR:
+		SDE_DEBUG("%s critical bridge chip error\n", __func__);
+
+		/* Power OFF */
+		_dba_bridge_disable(&d_bridge->base);
+		_dba_bridge_post_disable(&d_bridge->base);
+
+		/* settle power rails */
+		msleep(100);
+
+		/* Power On */
+		_dba_bridge_pre_enable(&d_bridge->base);
+		_dba_bridge_enable(&d_bridge->base);
+
+		break;
+	default:
+		SDE_ERROR("%s error %d undefined\n", __func__, err_code);
+	}
+	return rc;
 }
 
 static void _dba_bridge_mode_set(struct drm_bridge *bridge,
@@ -371,6 +442,9 @@ void dba_bridge_cleanup(struct drm_bridge *bridge)
 
 	if (!bridge)
 		return;
+
+	sde_recovery_client_unregister(d_bridge->client_info.handle);
+	d_bridge->client_info.handle = NULL;
 
 	if (IS_ENABLED(CONFIG_MSM_DBA)) {
 		if (!IS_ERR_OR_NULL(d_bridge->dba_ctx))
