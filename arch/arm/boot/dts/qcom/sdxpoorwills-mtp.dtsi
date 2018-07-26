@@ -141,3 +141,11 @@
 	extcon = <&smb1381_charger>;
 	vbus_dwc3-supply = <&smb138x_vbus>;
 };
+
+&soc {
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pmxpoorwills_gpios 4 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&vreg_wlan>;
+	};
+};

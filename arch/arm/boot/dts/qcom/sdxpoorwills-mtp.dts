@@ -24,3 +24,7 @@
 &qcom_seecom {
 	status = "okay";
 };
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
