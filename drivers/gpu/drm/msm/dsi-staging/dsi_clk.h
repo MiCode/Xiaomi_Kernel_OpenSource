@@ -43,11 +43,24 @@ enum dsi_link_clk_type {
 	DSI_LINK_CLK_MAX,
 };
 
+enum dsi_link_clk_op_type {
+	DSI_LINK_CLK_SET_RATE = BIT(0),
+	DSI_LINK_CLK_PREPARE = BIT(1),
+	DSI_LINK_CLK_ENABLE = BIT(2),
+	DSI_LINK_CLK_START = BIT(0) | BIT(1) | BIT(2),
+};
+
 enum dsi_clk_type {
 	DSI_CORE_CLK = BIT(0),
 	DSI_LINK_CLK = BIT(1),
 	DSI_ALL_CLKS = (BIT(0) | BIT(1)),
 	DSI_CLKS_MAX = BIT(2),
+};
+
+enum dsi_lclk_type {
+	DSI_LINK_NONE = 0,
+	DSI_LINK_LP_CLK = BIT(0),
+	DSI_LINK_HS_CLK = BIT(1),
 };
 
 struct dsi_clk_ctrl_info {
@@ -82,23 +95,29 @@ struct dsi_core_clk_info {
 };
 
 /**
- * struct dsi_link_clk_info - Link clock information for DSI hardware.
- * @byte_clk:        Handle to DSI byte clock.
- * @pixel_clk:       Handle to DSI pixel clock.
- * @esc_clk:         Handle to DSI escape clock.
+ * struct dsi_link_hs_clk_info - Set of high speed link clocks for DSI HW
+ * @byte_clk:        Handle to DSI byte_clk.
+ * @pixel_clk:       Handle to DSI pixel_clk.
  * @byte_intf_clk:   Handle to DSI byte intf. clock.
  */
-struct dsi_link_clk_info {
+struct dsi_link_hs_clk_info {
 	struct clk *byte_clk;
 	struct clk *pixel_clk;
-	struct clk *esc_clk;
 	struct clk *byte_intf_clk;
 };
 
 /**
+ * struct dsi_link_lp_clk_info - Set of low power link clocks for DSI HW.
+ * @esc_clk:         Handle to DSI escape clock.
+ */
+struct dsi_link_lp_clk_info {
+	struct clk *esc_clk;
+};
+
+/**
  * struct link_clk_freq - Clock frequency information for Link clocks
- * @byte_clk_rate:   Frequency of DSI byte clock in KHz.
- * @pixel_clk_rate:  Frequency of DSI pixel clock in KHz.
+ * @byte_clk_rate:   Frequency of DSI byte_clk in KHz.
+ * @pixel_clk_rate:  Frequency of DSI pixel_clk in KHz.
  * @esc_clk_rate:    Frequency of DSI escape clock in KHz.
  */
 struct link_clk_freq {
@@ -111,48 +130,56 @@ struct link_clk_freq {
  * typedef *pre_clockoff_cb() - Callback before clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which is being turned off.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 typedef int (*pre_clockoff_cb)(void *priv,
 			       enum dsi_clk_type clk_type,
+			       enum dsi_lclk_type l_type,
 			       enum dsi_clk_state new_state);
 
 /**
  * typedef *post_clockoff_cb() - Callback after clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which was turned off.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 typedef int (*post_clockoff_cb)(void *priv,
 				enum dsi_clk_type clk_type,
+				enum dsi_lclk_type l_type,
 				enum dsi_clk_state curr_state);
 
 /**
  * typedef *post_clockon_cb() - Callback after clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which was turned on.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 typedef int (*post_clockon_cb)(void *priv,
 			       enum dsi_clk_type clk_type,
+			       enum dsi_lclk_type l_type,
 			       enum dsi_clk_state curr_state);
 
 /**
  * typedef *pre_clockon_cb() - Callback before clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
+ * @l_type: specifies if the clock is HS or LP type.Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 typedef int (*pre_clockon_cb)(void *priv,
 			      enum dsi_clk_type clk_type,
+			      enum dsi_lclk_type l_type,
 			      enum dsi_clk_state new_state);
 
 
@@ -160,7 +187,8 @@ typedef int (*pre_clockon_cb)(void *priv,
  * struct dsi_clk_info - clock information for DSI hardware.
  * @name:                    client name.
  * @c_clks[MAX_DSI_CTRL]     array of core clock configurations
- * @l_clks[MAX_DSI_CTRL]     array of link clock configurations
+ * @l_lp_clks[MAX_DSI_CTRL]  array of low power(esc) clock configurations
+ * @l_hs_clks[MAX_DSI_CTRL]  array of high speed clock configurations
  * @bus_handle[MAX_DSI_CTRL] array of bus handles
  * @ctrl_index[MAX_DSI_CTRL] array of DSI controller indexes mapped
  *                           to core and link clock configurations
@@ -175,7 +203,8 @@ typedef int (*pre_clockon_cb)(void *priv,
 struct dsi_clk_info {
 	char name[MAX_STRING_LEN];
 	struct dsi_core_clk_info c_clks[MAX_DSI_CTRL];
-	struct dsi_link_clk_info l_clks[MAX_DSI_CTRL];
+	struct dsi_link_lp_clk_info l_lp_clks[MAX_DSI_CTRL];
+	struct dsi_link_hs_clk_info l_hs_clks[MAX_DSI_CTRL];
 	u32 bus_handle[MAX_DSI_CTRL];
 	u32 ctrl_index[MAX_DSI_CTRL];
 	pre_clockoff_cb pre_clkoff_cb;
@@ -189,8 +218,8 @@ struct dsi_clk_info {
 
 /**
  * struct dsi_clk_link_set - Pair of clock handles to describe link clocks
- * @byte_clk:     Handle to DSi byte clock.
- * @pixel_clk:    Handle to DSI pixel clock.
+ * @byte_clk:     Handle to DSi byte_clk.
+ * @pixel_clk:    Handle to DSI pixel_clk.
  */
 struct dsi_clk_link_set {
 	struct clk *byte_clk;
@@ -264,10 +293,10 @@ int dsi_clk_set_link_frequencies(void *client, struct link_clk_freq freq,
 
 
 /**
- * dsi_clk_set_pixel_clk_rate() - set frequency for pixel clock
+ * dsi_clk_set_pixel_clk_rate() - set frequency for pixel_clk
  * @client:       DSI clock client pointer.
- * @pixel_clk: Pixel clock rate in Hz.
- * @index:      Index of the DSI controller.
+ * @pixel_clk:    Pixel_clk rate in Hz.
+ * @index:        Index of the DSI controller.
  * return: error code in case of failure or 0 for success.
  */
 int dsi_clk_set_pixel_clk_rate(void *client, u64 pixel_clk, u32 index);

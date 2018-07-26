@@ -504,7 +504,8 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 static int dsi_ctrl_clocks_deinit(struct dsi_ctrl *ctrl)
 {
 	struct dsi_core_clk_info *core = &ctrl->clk_info.core_clks;
-	struct dsi_link_clk_info *link = &ctrl->clk_info.link_clks;
+	struct dsi_link_lp_clk_info *lp_link = &ctrl->clk_info.lp_link_clks;
+	struct dsi_link_hs_clk_info *hs_link = &ctrl->clk_info.hs_link_clks;
 	struct dsi_clk_link_set *rcg = &ctrl->clk_info.rcg_clks;
 
 	if (core->mdp_core_clk)
@@ -520,16 +521,17 @@ static int dsi_ctrl_clocks_deinit(struct dsi_ctrl *ctrl)
 
 	memset(core, 0x0, sizeof(*core));
 
-	if (link->byte_clk)
-		devm_clk_put(&ctrl->pdev->dev, link->byte_clk);
-	if (link->pixel_clk)
-		devm_clk_put(&ctrl->pdev->dev, link->pixel_clk);
-	if (link->esc_clk)
-		devm_clk_put(&ctrl->pdev->dev, link->esc_clk);
-	if (link->byte_intf_clk)
-		devm_clk_put(&ctrl->pdev->dev, link->byte_intf_clk);
+	if (hs_link->byte_clk)
+		devm_clk_put(&ctrl->pdev->dev, hs_link->byte_clk);
+	if (hs_link->pixel_clk)
+		devm_clk_put(&ctrl->pdev->dev, hs_link->pixel_clk);
+	if (lp_link->esc_clk)
+		devm_clk_put(&ctrl->pdev->dev, lp_link->esc_clk);
+	if (hs_link->byte_intf_clk)
+		devm_clk_put(&ctrl->pdev->dev, hs_link->byte_intf_clk);
 
-	memset(link, 0x0, sizeof(*link));
+	memset(hs_link, 0x0, sizeof(*hs_link));
+	memset(lp_link, 0x0, sizeof(*lp_link));
 
 	if (rcg->byte_clk)
 		devm_clk_put(&ctrl->pdev->dev, rcg->byte_clk);
@@ -546,7 +548,8 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 {
 	int rc = 0;
 	struct dsi_core_clk_info *core = &ctrl->clk_info.core_clks;
-	struct dsi_link_clk_info *link = &ctrl->clk_info.link_clks;
+	struct dsi_link_lp_clk_info *lp_link = &ctrl->clk_info.lp_link_clks;
+	struct dsi_link_hs_clk_info *hs_link = &ctrl->clk_info.hs_link_clks;
 	struct dsi_clk_link_set *rcg = &ctrl->clk_info.rcg_clks;
 
 	core->mdp_core_clk = devm_clk_get(&pdev->dev, "mdp_core_clk");
@@ -579,30 +582,30 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 		pr_debug("can't get mnoc clock, rc=%d\n", rc);
 	}
 
-	link->byte_clk = devm_clk_get(&pdev->dev, "byte_clk");
-	if (IS_ERR(link->byte_clk)) {
-		rc = PTR_ERR(link->byte_clk);
+	hs_link->byte_clk = devm_clk_get(&pdev->dev, "byte_clk");
+	if (IS_ERR(hs_link->byte_clk)) {
+		rc = PTR_ERR(hs_link->byte_clk);
 		pr_err("failed to get byte_clk, rc=%d\n", rc);
 		goto fail;
 	}
 
-	link->pixel_clk = devm_clk_get(&pdev->dev, "pixel_clk");
-	if (IS_ERR(link->pixel_clk)) {
-		rc = PTR_ERR(link->pixel_clk);
+	hs_link->pixel_clk = devm_clk_get(&pdev->dev, "pixel_clk");
+	if (IS_ERR(hs_link->pixel_clk)) {
+		rc = PTR_ERR(hs_link->pixel_clk);
 		pr_err("failed to get pixel_clk, rc=%d\n", rc);
 		goto fail;
 	}
 
-	link->esc_clk = devm_clk_get(&pdev->dev, "esc_clk");
-	if (IS_ERR(link->esc_clk)) {
-		rc = PTR_ERR(link->esc_clk);
+	lp_link->esc_clk = devm_clk_get(&pdev->dev, "esc_clk");
+	if (IS_ERR(lp_link->esc_clk)) {
+		rc = PTR_ERR(lp_link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);
 		goto fail;
 	}
 
-	link->byte_intf_clk = devm_clk_get(&pdev->dev, "byte_intf_clk");
-	if (IS_ERR(link->byte_intf_clk)) {
-		link->byte_intf_clk = NULL;
+	hs_link->byte_intf_clk = devm_clk_get(&pdev->dev, "byte_intf_clk");
+	if (IS_ERR(hs_link->byte_intf_clk)) {
+		hs_link->byte_intf_clk = NULL;
 		pr_debug("can't find byte intf clk, rc=%d\n", rc);
 	}
 

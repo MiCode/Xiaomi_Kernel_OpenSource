@@ -97,7 +97,8 @@ struct dsi_ctrl_power_info {
 /**
  * struct dsi_ctrl_clk_info - clock information for DSI controller
  * @core_clks:          Core clocks needed to access DSI controller registers.
- * @link_clks:          Link clocks required to transmit data over DSI link.
+ * @hs_link_clks:       Clocks required to transmit high speed data over DSI
+ * @lp_link_clks:       Clocks required to perform low power ops over DSI
  * @rcg_clks:           Root clock generation clocks generated in MMSS_CC. The
  *			output of the PLL is set as parent for these root
  *			clocks. These clocks are specific to controller
@@ -111,7 +112,8 @@ struct dsi_ctrl_power_info {
 struct dsi_ctrl_clk_info {
 	/* Clocks parsed from DT */
 	struct dsi_core_clk_info core_clks;
-	struct dsi_link_clk_info link_clks;
+	struct dsi_link_hs_clk_info hs_link_clks;
+	struct dsi_link_lp_clk_info lp_link_clks;
 	struct dsi_clk_link_set rcg_clks;
 
 	/* Clocks set by DSI Manager */
