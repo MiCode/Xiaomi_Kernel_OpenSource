@@ -1,0 +1,10 @@
+config QCA402X
+	tristate "Qualcomm QCA402X wireless support"
+	default n
+	---help---
+	Software for Qualcomm QCA402x including HIF and HTCA.
+
+	Say Y here if support for Qualcomm's QCA402x wireless SoC
+	via host-target communication protocol is required.
+	Say N to disable completely if support for that device is
+	not needed or if not sure.

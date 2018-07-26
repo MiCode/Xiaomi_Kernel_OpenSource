@@ -114,3 +114,5 @@ source "drivers/net/wireless/cnss_utils/Kconfig"
 source "drivers/net/wireless/cnss_genl/Kconfig"
 
 endif # WLAN
+
+source "drivers/net/wireless/qca402x/Kconfig"
