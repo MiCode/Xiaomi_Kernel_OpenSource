@@ -1,0 +1,32 @@
+== Introduction==
+
+LLCC (Last Level Cache Controller) provides last level of cache memory in SOC,
+that can be shared by multiple clients. Clients here are different cores in the
+SOC, the idea is to minimize the local caches at the clients and migrate to
+common pool of memory. Cache memory is divided into partitions called slices
+which are assigned to clients. Clients can query the slice details, activate
+and deactivate them.
+
+Properties:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,kona-llcc"
+
+- reg:
+	Usage: required
+	Value Type: <prop-encoded-array>
+	Definition: Start address and the the size of the register regions.
+
+- regnames:
+	Usage: required
+	Value Type: <stringlist>
+	Definition: Register region names. Must be "llcc_*"
+
+Example:
+
+	cache-controller@9200000 {
+		compatible = "qcom,kona-llcc";
+		reg = <0x9200000 0x200000> <0x9600000 0x50000>;
+		reg-names = "llcc_base", "llcc_bcast_base";
+	};
