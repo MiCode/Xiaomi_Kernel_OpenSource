@@ -597,7 +597,7 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 			required_camnoc_bw, clk_rate);
 
 		rc = cam_soc_util_set_src_clk_rate(soc_info, clk_rate);
-		if (!rc)
+		if (rc)
 			CAM_ERR(CAM_CPAS,
 				"Failed in setting camnoc axi clk %llu %d %d",
 				required_camnoc_bw, clk_rate, rc);
