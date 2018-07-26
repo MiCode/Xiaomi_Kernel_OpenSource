@@ -221,6 +221,7 @@ static struct platform_driver devbw_driver = {
 	.driver = {
 		.name = "devbw",
 		.of_match_table = devbw_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 
