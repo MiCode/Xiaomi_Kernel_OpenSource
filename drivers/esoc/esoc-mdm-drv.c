@@ -34,7 +34,7 @@ enum esoc_boot_fail_action {
 	BOOT_FAIL_ACTION_NOP,
 };
 
-static unsigned int boot_fail_action = BOOT_FAIL_ACTION_NOP;
+static unsigned int boot_fail_action = BOOT_FAIL_ACTION_PANIC;
 module_param(boot_fail_action, uint, 0644);
 MODULE_PARM_DESC(boot_fail_action,
 "Actions: 0:Retry PON; 1:Cold reset; 2:Power-down; 3:APQ Panic; 4:No action");
