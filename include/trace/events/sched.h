@@ -1300,7 +1300,7 @@ TRACE_EVENT(sched_task_util,
 		__field(bool, sync			)
 		__field(bool, need_idle			)
 		__field(int, fastpath			)
-		__field(bool, placement_boost		)
+		__field(int, placement_boost		)
 		__field(int, rtg_cpu			)
 		__field(u64, latency			)
 	),
