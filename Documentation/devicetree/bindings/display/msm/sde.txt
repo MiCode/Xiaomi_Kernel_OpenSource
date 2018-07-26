@@ -142,6 +142,8 @@ Optional properties:
 				feature is available or not.
 - qcom,sde-has-idle-pc:		Boolean property to indicate if target has idle
 				power collapse feature available or not.
+- qcom,fullsize-va-map:		Boolean property to indicate smmu mapping range
+				for mdp should be full range (4GB).
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
 - qcom,sde-has-dest-scaler: 	Boolean property to indicate if destination scaler
@@ -605,6 +607,7 @@ Example:
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
     qcom,sde-has-idle-pc;
+    qcom,fullsize-va-map;
     qcom,sde-has-dest-scaler;
     qcom,sde-max-dest-scaler-input-linewidth = <2048>;
     qcom,sde-max-dest-scaler-output-linewidth = <2560>;
