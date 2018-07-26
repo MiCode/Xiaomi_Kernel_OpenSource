@@ -2453,7 +2453,6 @@
 
 &usb0 {
 	extcon = <&pm6150_pdphy>;
-	vbus_dwc3-supply = <&smb5_vbus>;
 };
 
 &pm6150_vadc {
