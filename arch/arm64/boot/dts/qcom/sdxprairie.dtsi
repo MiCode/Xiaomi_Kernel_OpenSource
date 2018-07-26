@@ -256,4 +256,5 @@
 
 #include "sdxprairie-pinctrl.dtsi"
 #include "sdxprairie-ion.dtsi"
+#include "sdxprairie-bus.dtsi"
 #include "msm-arm-smmu-sdxprairie.dtsi"
