@@ -93,6 +93,9 @@
 &pcie0 {
 	vreg-1.8-supply = <&pm8150_2_l8>;
 	vreg-0.9-supply = <&pm8150_2_l18>;
+	qcom,no-l1-supported;
+	qcom,no-l1ss-supported;
+	qcom,no-aux-clk-sync;
 };
 
 &pcie1 {
