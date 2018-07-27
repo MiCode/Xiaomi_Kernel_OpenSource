@@ -24,6 +24,8 @@ int rpmh_flush(const struct device *dev);
 
 int rpmh_invalidate(const struct device *dev);
 
+int rpmh_ctrlr_idle(const struct device *dev);
+
 #else
 
 static inline int rpmh_write(const struct device *dev, enum rpmh_state state,
@@ -44,6 +46,9 @@ static inline int rpmh_flush(const struct device *dev)
 { return -ENODEV; }
 
 static inline int rpmh_invalidate(const struct device *dev)
+{ return -ENODEV; }
+
+static inline int rpmh_ctrlr_idle(const struct device *dev)
 { return -ENODEV; }
 
 #endif /* CONFIG_QCOM_RPMH */
