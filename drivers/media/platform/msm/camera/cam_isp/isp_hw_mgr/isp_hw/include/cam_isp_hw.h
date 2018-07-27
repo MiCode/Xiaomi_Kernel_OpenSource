@@ -177,7 +177,7 @@ struct cam_isp_hw_cmd_buf_update {
  *
  */
 struct cam_isp_hw_get_wm_update {
-	uint64_t                       *image_buf;
+	dma_addr_t                     *image_buf;
 	uint32_t                        num_buf;
 	struct cam_buf_io_cfg          *io_cfg;
 };

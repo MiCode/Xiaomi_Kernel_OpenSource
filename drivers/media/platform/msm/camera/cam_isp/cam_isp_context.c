@@ -25,19 +25,15 @@
 #include "cam_debug_util.h"
 
 static const char isp_dev_name[] = "isp";
-
-#define INC_STATE_MONITOR_HEAD(head) \
-	(atomic64_add_return(1, head) % \
-	CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES)
-
 static void __cam_isp_ctx_update_state_monitor_array(
 	struct cam_isp_context *ctx_isp,
 	enum cam_isp_state_change_trigger trigger_type,
 	uint32_t req_id)
 {
-	int iterator = 0;
+	uint64_t iterator = 0;
 
-	iterator = INC_STATE_MONITOR_HEAD(&ctx_isp->state_monitor_head);
+	div64_u64_rem(atomic64_add_return(1, &ctx_isp->state_monitor_head),
+		CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES, &iterator);
 	ctx_isp->cam_isp_ctx_state_monitor[iterator].curr_state =
 		ctx_isp->substate_activated;
 	ctx_isp->cam_isp_ctx_state_monitor[iterator].trigger =
@@ -96,6 +92,7 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 	int i = 0;
 	uint64_t state_head = 0;
 	uint64_t index;
+	struct cam_isp_context_state_monitor *cam_isp_ctx_state_monitor;
 
 	state_head = atomic64_read(&ctx_isp->state_monitor_head);
 	CAM_ERR_RATE_LIMIT(CAM_ISP,
@@ -103,17 +100,20 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 
 	for (i = CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES - 1; i >= 0;
 		i--) {
-		index = (((state_head - i) +
-			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES) %
-			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES);
+		div64_u64_rem(((state_head - i) +
+			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES),
+			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES, &index);
+		cam_isp_ctx_state_monitor =
+			&ctx_isp->cam_isp_ctx_state_monitor[index];
+
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-		"time[0x%llx] req_id[%u] state[%s] evt_type[%s]",
-		ctx_isp->cam_isp_ctx_state_monitor[index].evt_time_stamp,
-		ctx_isp->cam_isp_ctx_state_monitor[index].req_id,
-		__cam_isp_ctx_substate_val_to_type(
-		ctx_isp->cam_isp_ctx_state_monitor[index].curr_state),
-		__cam_isp_hw_evt_val_to_type(
-		ctx_isp->cam_isp_ctx_state_monitor[index].trigger));
+			"time[0x%llx] req_id[%u] state[%s] evt_type[%s]",
+			cam_isp_ctx_state_monitor->evt_time_stamp,
+			cam_isp_ctx_state_monitor->req_id,
+			__cam_isp_ctx_substate_val_to_type(
+			cam_isp_ctx_state_monitor->curr_state),
+			__cam_isp_hw_evt_val_to_type(
+			cam_isp_ctx_state_monitor->trigger));
 	}
 }
 

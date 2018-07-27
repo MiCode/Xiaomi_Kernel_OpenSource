@@ -599,7 +599,7 @@ static uint32_t cam_icp_mgr_calc_base_clk(uint32_t frame_cycles,
 	uint64_t base_clk;
 	uint64_t mul = 1000000000;
 
-	base_clk = (frame_cycles * mul) / budget;
+	base_clk = div64_u64((frame_cycles * mul), budget);
 
 	CAM_DBG(CAM_ICP, "budget = %lld fc = %d ib = %lld base_clk = %lld",
 		budget, frame_cycles,
@@ -3268,7 +3268,7 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 {
 	int rc = 0;
 	int i, j, k;
-	uint64_t addr;
+	dma_addr_t addr;
 	size_t len;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	uint64_t cpu_addr = 0;
@@ -3490,7 +3490,7 @@ static int cam_icp_process_generic_cmd_buffer(
 	struct cam_packet *packet,
 	struct cam_icp_hw_ctx_data *ctx_data,
 	int32_t index,
-	uint64_t *io_buf_addr)
+	dma_addr_t *io_buf_addr)
 {
 	int i, rc = 0;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
@@ -4132,7 +4132,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 {
 	int rc = 0, bitmap_size = 0;
 	uint32_t ctx_id = 0;
-	uint64_t io_buf_addr;
+	dma_addr_t io_buf_addr;
 	size_t io_buf_size;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
