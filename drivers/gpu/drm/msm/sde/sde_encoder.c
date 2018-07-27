@@ -4136,12 +4136,12 @@ int sde_encoder_poll_line_counts(struct drm_encoder *drm_enc)
 	return -ETIMEDOUT;
 }
 
-static int _helper_flush_mixer(struct sde_encoder_phys *phys_enc)
+static int _helper_flush_qsync(struct sde_encoder_phys *phys_enc)
 {
 	struct drm_encoder *drm_enc;
-	struct sde_hw_mixer_cfg mixer;
-	struct sde_rm_hw_iter lm_iter;
+	struct sde_rm_hw_iter rm_iter;
 	bool lm_valid = false;
+	bool intf_valid = false;
 
 	if (!phys_enc || !phys_enc->parent) {
 		SDE_ERROR("invalid encoder\n");
@@ -4149,28 +4149,56 @@ static int _helper_flush_mixer(struct sde_encoder_phys *phys_enc)
 	}
 
 	drm_enc = phys_enc->parent;
-	memset(&mixer, 0, sizeof(mixer));
 
-	sde_rm_init_hw_iter(&lm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
-	while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &lm_iter)) {
-		struct sde_hw_mixer *hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
+	/* Flush the interfaces for AVR update or Qsync with INTF TE */
+	if (phys_enc->intf_mode == INTF_MODE_VIDEO ||
+			(phys_enc->intf_mode == INTF_MODE_CMD &&
+			phys_enc->has_intf_te)) {
+		sde_rm_init_hw_iter(&rm_iter, drm_enc->base.id,
+				SDE_HW_BLK_INTF);
+		while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &rm_iter)) {
+			struct sde_hw_intf *hw_intf =
+				(struct sde_hw_intf *)rm_iter.hw;
 
-		if (!hw_lm)
-			continue;
+			if (!hw_intf)
+				continue;
 
-		/* update LM flush */
-		if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
-			phys_enc->hw_ctl->ops.update_bitmask_mixer(
-					phys_enc->hw_ctl,
-					hw_lm->idx, 1);
+			if (phys_enc->hw_ctl->ops.update_bitmask_intf)
+				phys_enc->hw_ctl->ops.update_bitmask_intf(
+						phys_enc->hw_ctl,
+						hw_intf->idx, 1);
 
-		lm_valid = true;
-	}
+			intf_valid = true;
+		}
 
-	if (!lm_valid) {
-		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
-			"lm not found to flush\n");
-		return -EFAULT;
+		if (!intf_valid) {
+			SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+				"intf not found to flush\n");
+			return -EFAULT;
+		}
+	} else {
+		sde_rm_init_hw_iter(&rm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
+		while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &rm_iter)) {
+			struct sde_hw_mixer *hw_lm =
+					(struct sde_hw_mixer *)rm_iter.hw;
+
+			if (!hw_lm)
+				continue;
+
+			/* update LM flush for HW without INTF TE */
+			if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
+				phys_enc->hw_ctl->ops.update_bitmask_mixer(
+						phys_enc->hw_ctl,
+						hw_lm->idx, 1);
+
+			lm_valid = true;
+		}
+
+		if (!lm_valid) {
+			SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+				"lm not found to flush\n");
+			return -EFAULT;
+		}
 	}
 
 	return 0;
@@ -4228,7 +4256,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			/* flush the mixer if qsync is enabled */
 			if (sde_enc->cur_master && sde_connector_qsync_updated(
 					sde_enc->cur_master->connector)) {
-				_helper_flush_mixer(phys);
+				_helper_flush_qsync(phys);
 			}
 		}
 	}
