@@ -348,10 +348,6 @@ static int msm_snps_hsphy_init(struct usb_phy *uphy)
 	int ret;
 
 	dev_dbg(phy->phy.dev, "%s: Initialize HS PHY\n", __func__);
-	ret = msm_snps_hsphy_enable_regulators(phy);
-	if (ret)
-		return ret;
-
 	ret = msm_snps_phy_block_reset(phy);
 	if (ret)
 		return ret;
@@ -391,7 +387,8 @@ static int msm_snps_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	dev_dbg(phy->phy.dev, "%s: suspend:%d with phy->suspended:%d\n",
 					__func__, suspend, phy->suspended);
 	if (phy->suspended == suspend) {
-		dev_info(phy->phy.dev, "PHY is already suspended\n");
+		dev_info(phy->phy.dev, "PHY is already %s\n",
+					suspend ? "suspended" : "resumed");
 		return 0;
 	}
 
@@ -631,6 +628,7 @@ static int msm_snps_hsphy_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	phy->suspended = true;
 	ret = usb_add_phy_dev(&phy->phy);
 
 	return ret;
