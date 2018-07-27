@@ -22,6 +22,8 @@ int rpmh_flush(const struct device *dev);
 
 int rpmh_invalidate(const struct device *dev);
 
+int rpmh_mode_solver_set(const struct device *dev, bool enable);
+
 #else
 
 static inline int rpmh_write(const struct device *dev, enum rpmh_state state,
@@ -42,6 +44,9 @@ static inline int rpmh_flush(const struct device *dev)
 { return -ENODEV; }
 
 static inline int rpmh_invalidate(const struct device *dev)
+{ return -ENODEV; }
+
+static inline int rpmh_mode_solver_set(const struct device *dev, bool enable)
 { return -ENODEV; }
 
 #endif /* CONFIG_QCOM_RPMH */

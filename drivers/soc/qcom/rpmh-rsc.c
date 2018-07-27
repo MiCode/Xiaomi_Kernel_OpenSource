@@ -386,6 +386,11 @@ static int tcs_write(struct rsc_drv *drv, const struct tcs_request *msg)
 
 	spin_lock_irqsave(&tcs->lock, flags);
 	spin_lock(&drv->lock);
+	if (msg->state == RPMH_ACTIVE_ONLY_STATE && drv->in_solver_mode) {
+		ret = -EINVAL;
+		spin_unlock(&drv->lock);
+		goto done_write;
+	}
 	/*
 	 * The h/w does not like if we send a request to the same address,
 	 * when one is already in-flight or being processed.
@@ -552,6 +557,30 @@ int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	return tcs_ctrl_write(drv, msg);
 }
 
+/**
+ *  rpmh_rsc_mode_solver_set: Enable/disable solver mode
+ *
+ *  @drv: The controller
+ *
+ *  enable: boolean state to be set - true/false
+ */
+void rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable)
+{
+	int m;
+	struct tcs_group *tcs = get_tcs_of_type(drv, ACTIVE_TCS);
+
+again:
+	spin_lock(&drv->lock);
+	for (m = tcs->offset; m < tcs->offset + tcs->num_tcs; m++) {
+		if (!tcs_is_free(drv, m)) {
+			spin_unlock(&drv->lock);
+			goto again;
+		}
+	}
+	drv->in_solver_mode = enable;
+	spin_unlock(&drv->lock);
+}
+
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv)
 {
@@ -682,6 +711,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 		return ret;
 
 	spin_lock_init(&drv->lock);
+	drv->in_solver_mode = false;
 	bitmap_zero(drv->tcs_in_use, MAX_TCS_NR);
 
 	irq = platform_get_irq(pdev, drv->id);
