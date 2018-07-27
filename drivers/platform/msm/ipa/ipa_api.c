@@ -184,7 +184,16 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_TEST3_CONS),
 	__stringify(IPA_CLIENT_TEST4_PROD),
 	__stringify(IPA_CLIENT_TEST4_CONS),
+	__stringify(RESERVERD_PROD_72),
 	__stringify(IPA_CLIENT_DUMMY_CONS),
+	__stringify(IPA_CLIENT_Q6_DL_NLO_DATA_PROD),
+	__stringify(IPA_CLIENT_Q6_UL_NLO_DATA_CONS),
+	__stringify(RESERVERD_PROD_76),
+	__stringify(IPA_CLIENT_Q6_UL_NLO_ACK_CONS),
+	__stringify(RESERVERD_PROD_78),
+	__stringify(IPA_CLIENT_Q6_QBAP_STATUS_CONS),
+	__stringify(RESERVERD_PROD_80),
+	__stringify(IPA_CLIENT_MHI_DPL_CONS),
 };
 
 /**

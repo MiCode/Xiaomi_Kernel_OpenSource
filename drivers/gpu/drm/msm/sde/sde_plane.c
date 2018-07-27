@@ -4971,6 +4971,37 @@ static void sde_plane_reset(struct drm_plane *plane)
 	plane->state = &pstate->base;
 }
 
+u32 sde_plane_get_ubwc_error(struct drm_plane *plane)
+{
+	u32 ubwc_error = 0;
+	struct sde_plane *psde;
+
+	if (!plane) {
+		SDE_ERROR("invalid plane\n");
+		return 0;
+	}
+	psde = to_sde_plane(plane);
+
+	if (!psde->is_virtual && psde->pipe_hw->ops.get_ubwc_error)
+		ubwc_error = psde->pipe_hw->ops.get_ubwc_error(psde->pipe_hw);
+
+	return ubwc_error;
+}
+
+void sde_plane_clear_ubwc_error(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+	psde = to_sde_plane(plane);
+
+	if (psde->pipe_hw->ops.clear_ubwc_error)
+		psde->pipe_hw->ops.clear_ubwc_error(psde->pipe_hw);
+}
+
 #ifdef CONFIG_DEBUG_FS
 static ssize_t _sde_plane_danger_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)

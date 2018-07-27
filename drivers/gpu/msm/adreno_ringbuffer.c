@@ -767,6 +767,8 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_context *context = drawobj->context;
+	unsigned long flags = drawobj->flags;
+
 	/*
 	 * Check if the context has a constraint and constraint flags are
 	 * set.
@@ -776,6 +778,47 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			(drawobj->flags & KGSL_CONTEXT_PWR_CONSTRAINT)))
 		kgsl_pwrctrl_set_constraint(device, &context->pwr_constraint,
 						context->id);
+
+	if (context->l3_pwr_constraint.type &&
+		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
+			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
+
+		if (!device->l3_clk) {
+			KGSL_DEV_ERR_ONCE(device,
+				"l3_vote clk not available\n");
+			return;
+		}
+
+		switch (context->l3_pwr_constraint.type) {
+		case KGSL_CONSTRAINT_L3_PWRLEVEL: {
+			unsigned int sub_type;
+			unsigned int new_l3;
+			int ret = 0;
+
+			sub_type = context->l3_pwr_constraint.sub_type;
+
+			/*
+			 * If an L3 constraint is already set, set the new
+			 * one only if it is higher.
+			 */
+			new_l3 = max_t(unsigned int, sub_type + 1,
+					device->cur_l3_pwrlevel);
+			new_l3 = min_t(unsigned int, new_l3,
+					device->num_l3_pwrlevels - 1);
+
+			ret = clk_set_rate(device->l3_clk,
+					device->l3_freq[new_l3]);
+
+			if (!ret)
+				device->cur_l3_pwrlevel = new_l3;
+			else
+				KGSL_DRV_ERR_RATELIMIT(device,
+					"Could not set l3_vote: %d\n",
+					ret);
+			break;
+			}
+		}
+	}
 }
 
 static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,

@@ -264,27 +264,16 @@ static DEFINE_MUTEX(scan_mutex);
 
 static int can_use_cma_pages(gfp_t gfp_mask)
 {
-	int can_use = 0;
 	int mtype = gfpflags_to_migratetype(gfp_mask);
-	int i = 0;
-	int *mtype_fallbacks = get_migratetype_fallbacks(mtype);
 
-	if (is_migrate_cma(mtype)) {
-		can_use = 1;
-	} else {
-		for (i = 0;; i++) {
-			int fallbacktype = mtype_fallbacks[i];
+	/*
+	 * Assumes that all types of movable pages can be
+	 * served by cma. Fix this if that changes.
+	 */
+	if (mtype == MIGRATE_MOVABLE)
+		return 1;
 
-			if (is_migrate_cma(fallbacktype)) {
-				can_use = 1;
-				break;
-			}
-
-			if (fallbacktype == MIGRATE_TYPES)
-				break;
-		}
-	}
-	return can_use;
+	return 0;
 }
 
 void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,

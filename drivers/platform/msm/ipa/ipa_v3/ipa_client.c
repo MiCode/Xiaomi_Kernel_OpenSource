@@ -812,6 +812,9 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 
 	params->chan_params.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	params->chan_params.ch_id = gsi_ep_cfg_ptr->ipa_gsi_chan_num;
+	params->chan_params.prefetch_mode = gsi_ep_cfg_ptr->prefetch_mode;
+	params->chan_params.empty_lvl_threshold =
+		gsi_ep_cfg_ptr->prefetch_threshold;
 	gsi_res = gsi_alloc_channel(&params->chan_params, gsi_dev_hdl,
 		&ep->gsi_chan_hdl);
 	if (gsi_res != GSI_STATUS_SUCCESS) {

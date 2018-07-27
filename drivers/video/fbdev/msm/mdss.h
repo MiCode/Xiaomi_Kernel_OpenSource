@@ -45,6 +45,7 @@ enum mdss_mdp_clk_type {
 	MDSS_CLK_MDP_VSYNC,
 	MDSS_CLK_MNOC_AHB,
 	MDSS_CLK_THROTTLE_AXI,
+	MDSS_CLK_BIMC,
 	MDSS_MAX_CLK
 };
 

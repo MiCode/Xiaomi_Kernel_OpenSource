@@ -92,4 +92,8 @@
 	status = "disabled";
 };
 
+&qupv3_se8_2uart {
+	status = "ok";
+};
+
 #include "sdmmagpie-stub-regulator.dtsi"

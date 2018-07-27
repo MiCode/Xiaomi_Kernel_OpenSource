@@ -830,6 +830,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	unsigned int i;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -845,9 +846,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		gpudev->snapshot(adreno_dev, snapshot);
 
 	/* Dumping these buffers is useless if the GX is not on */
-	if (gpudev->gx_is_on)
-		if (!gpudev->gx_is_on(adreno_dev))
-			return;
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on) &&
+			!gmu_dev_ops->gx_is_on(adreno_dev))
+		return;
 
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);

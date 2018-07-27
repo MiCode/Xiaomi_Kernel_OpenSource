@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sm8150-mtp.dtsi"
+#include "sm8150-mtp-audio-overlay.dtsi"
 
 / {
 	model = "MTP";

@@ -76,11 +76,12 @@
 		vdd-supply = <&pms405_l4>;
 		vdda18-supply = <&pms405_l5>;
 		vdda33-supply = <&pms405_l12>;
-		qcom,vdd-voltage-level = <0 1144000 1144000>;
+		qcom,vdd-voltage-level = <0 1144000 1200000>;
 
 		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
-			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>;
-		clock-names = "ref_clk", "phy_csr_clk";
+			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_USB2A_PHY_SLEEP_CLK>;
+		clock-names = "ref_clk", "phy_csr_clk", "sleep_clk";
 
 		resets = <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_BCR>,
 			 <&clock_gcc GCC_USB2A_PHY_BCR>;
@@ -181,11 +182,12 @@
 		vdd-supply = <&pms405_l4>;
 		vdda18-supply = <&pms405_l5>;
 		vdda33-supply = <&pms405_l12>;
-		qcom,vdd-voltage-level = <0 1144000 1144000>;
+		qcom,vdd-voltage-level = <0 1144000 1200000>;
 
 		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
-			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>;
-		clock-names = "ref_clk", "phy_csr_clk";
+			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_USB2A_PHY_SLEEP_CLK>;
+		clock-names = "ref_clk", "phy_csr_clk", "sleep_clk";
 
 		resets = <&clock_gcc GCC_QUSB2_PHY_BCR>,
 			 <&clock_gcc GCC_USB2_HS_PHY_ONLY_BCR>;

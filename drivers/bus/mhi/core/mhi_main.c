@@ -1582,11 +1582,11 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 	struct mhi_controller *mhi_cntrl = m->private;
 
 	seq_printf(m,
-		   "pm_state:%s dev_state:%s EE:%s M0:%u M1:%u M2:%u M3:%u wake:%d dev_wake:%u alloc_size:%u\n",
+		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u wake:%d dev_wake:%u alloc_size:%u\n",
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
-		   mhi_cntrl->M0, mhi_cntrl->M1, mhi_cntrl->M2, mhi_cntrl->M3,
+		   mhi_cntrl->M0, mhi_cntrl->M2, mhi_cntrl->M3,
 		   mhi_cntrl->wake_set,
 		   atomic_read(&mhi_cntrl->dev_wake),
 		   atomic_read(&mhi_cntrl->alloc_size));

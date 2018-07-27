@@ -12,3 +12,7 @@
 
 &soc {
 };
+
+&qupv3_se8_2uart {
+	status = "ok";
+};

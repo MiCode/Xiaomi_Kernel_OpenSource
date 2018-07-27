@@ -3,7 +3,8 @@ Qualcomm Technologies, Inc. Debug Clock Controller Binding
 
 Required properties :
 - compatible: Shall contain "qcom,debugcc-sm8150",
-		"qcom,debugcc-qcs405".
+		"qcom,debugcc-qcs405",
+		"qcom,debugcc-sm6150".
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
 - qcom,camcc: phandle to the Camera CC device node.

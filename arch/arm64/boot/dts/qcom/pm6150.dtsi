@@ -314,7 +314,7 @@
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5300 0x100>;
 			qcom,vib-ldo-volt-uv = <3000000>;
-			qcom,vib-overdrive-volt-uv = <3544000>;
+			qcom,disable-overdrive;
 		};
 	};
 };

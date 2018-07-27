@@ -80,6 +80,12 @@ static struct sde_crtc_custom_events custom_events[] = {
 
 #define MISR_BUFF_SIZE			256
 
+/*
+ * Time period for fps calculation in micro seconds.
+ * Default value is set to 1 sec.
+ */
+#define CRTC_TIME_PERIOD_CALC_FPS_US	1000000
+
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
@@ -124,6 +130,37 @@ static inline int _sde_crtc_power_enable(struct sde_crtc *sde_crtc, bool enable)
 
 	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 									enable);
+}
+
+/**
+ * sde_crtc_calc_fps() - Calculates fps value.
+ * @sde_crtc   : CRTC structure
+ *
+ * This function is called at frame done. It counts the number
+ * of frames done for every 1 sec. Stores the value in measured_fps.
+ * measured_fps value is 10 times the calculated fps value.
+ * For example, measured_fps= 594 for calculated fps of 59.4
+ */
+static void sde_crtc_calc_fps(struct sde_crtc *sde_crtc)
+{
+	ktime_t current_time_us;
+	u64 fps, diff_us;
+
+	current_time_us = ktime_get();
+	diff_us = (u64)ktime_us_delta(current_time_us,
+			sde_crtc->fps_info.last_sampled_time_us);
+	sde_crtc->fps_info.frame_count++;
+
+	if (diff_us >= CRTC_TIME_PERIOD_CALC_FPS_US) {
+		fps = ((u64)sde_crtc->fps_info.frame_count) * 10000000;
+		do_div(fps, diff_us);
+		sde_crtc->fps_info.measured_fps = (unsigned int)fps;
+		SDE_DEBUG(" FPS for crtc%d is %d.%d\n",
+				sde_crtc->base.base.id, (unsigned int)fps/10,
+				(unsigned int)fps%10);
+		sde_crtc->fps_info.last_sampled_time_us = current_time_us;
+		sde_crtc->fps_info.frame_count = 0;
+	}
 }
 
 /**
@@ -600,6 +637,50 @@ static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 {
 	if (!sde_crtc)
 		return;
+}
+
+static int _sde_debugfs_fps_status_show(struct seq_file *s, void *data)
+{
+	struct sde_crtc *sde_crtc;
+	unsigned int fps_int, fps_float;
+	ktime_t current_time_us;
+	u64 fps, diff_us;
+
+	if (!s || !s->private) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	sde_crtc = s->private;
+
+	current_time_us = ktime_get();
+	diff_us = (u64)ktime_us_delta(current_time_us,
+			sde_crtc->fps_info.last_sampled_time_us);
+
+	if (diff_us >= CRTC_TIME_PERIOD_CALC_FPS_US) {
+		fps = ((u64)sde_crtc->fps_info.frame_count) * 10000000;
+		do_div(fps, diff_us);
+		sde_crtc->fps_info.measured_fps = (unsigned int)fps;
+		sde_crtc->fps_info.last_sampled_time_us = current_time_us;
+		sde_crtc->fps_info.frame_count = 0;
+		SDE_DEBUG("Measured FPS for crtc%d is %d.%d\n",
+				sde_crtc->base.base.id, (unsigned int)fps/10,
+				(unsigned int)fps%10);
+	}
+
+	fps_int = (unsigned int) sde_crtc->fps_info.measured_fps;
+	fps_float = do_div(fps_int, 10);
+
+	seq_printf(s, "fps: %d.%d\n", fps_int, fps_float);
+
+	return 0;
+}
+
+
+static int _sde_debugfs_fps_status(struct inode *inode, struct file *file)
+{
+	return single_open(file, _sde_debugfs_fps_status_show,
+			inode->i_private);
 }
 
 static ssize_t vsync_event_show(struct device *device,
@@ -2307,6 +2388,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
+	struct drm_plane *plane;
+	u32 ubwc_error;
+	bool frame_done_event = false;
 	unsigned long flags;
 	bool in_clone_mode = false;
 
@@ -2362,6 +2446,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
+		frame_done_event = true;
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
@@ -2381,6 +2466,21 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
+
+	if (frame_done_event) {
+		drm_for_each_plane_mask(plane, crtc->dev,
+						sde_crtc->plane_mask_old) {
+			ubwc_error = sde_plane_get_ubwc_error(plane);
+			if (ubwc_error) {
+				SDE_EVT32(DRMID(crtc), DRMID(plane),
+						ubwc_error, SDE_EVTLOG_ERROR);
+				SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
+						DRMID(crtc), DRMID(plane),
+						ubwc_error);
+				sde_plane_clear_ubwc_error(plane);
+			}
+		}
+	}
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -3657,9 +3757,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 			is_error = true;
 	}
 
+	sde_crtc_calc_fps(sde_crtc);
 	SDE_ATRACE_BEGIN("flush_event_thread");
 	_sde_crtc_flush_event_thread(crtc);
 	SDE_ATRACE_END("flush_event_thread");
+	sde_crtc->plane_mask_old = crtc->state->plane_mask;
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
@@ -5726,6 +5828,10 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 		.read =		_sde_crtc_misr_read,
 		.write =	_sde_crtc_misr_setup,
 	};
+	static const struct file_operations debugfs_fps_fops = {
+		.open =		_sde_debugfs_fps_status,
+		.read =		seq_read,
+	};
 
 	if (!crtc)
 		return -EINVAL;
@@ -5750,6 +5856,8 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 			&sde_crtc_debugfs_state_fops);
 	debugfs_create_file("misr_data", 0600, sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_misr_fops);
+	debugfs_create_file("fps", 0400, sde_crtc->debugfs_root,
+					sde_crtc, &debugfs_fps_fops);
 
 	return 0;
 }

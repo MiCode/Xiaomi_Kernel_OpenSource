@@ -221,6 +221,7 @@ enum sde_enc_rc_states {
 struct sde_encoder_virt {
 	struct drm_encoder base;
 	spinlock_t enc_spinlock;
+	struct mutex vblank_ctl_lock;
 	uint32_t bus_scaling_client;
 
 	uint32_t display_num_of_h_tiles;
@@ -1658,12 +1659,14 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	}
 
 	if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
+
 		if (is_dummy)
 			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
 		else if (disp_info->is_te_using_watchdog_timer)
 			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
 		else
-			vsync_source = SDE_VSYNC0_SOURCE_GPIO;
+			vsync_source =
+				sde_enc->cur_master->hw_pp->caps->te_source;
 
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			phys = sde_enc->phys_encs[i];
@@ -2051,11 +2054,11 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		/* enable all the irq */
 		_sde_encoder_irq_control(drm_enc, true);
 
-		if (is_cmd_mode && is_primary)
+		if (is_cmd_mode)
 			_sde_encoder_pm_qos_add_request(drm_enc);
 
 	} else {
-		if (is_cmd_mode && is_primary)
+		if (is_cmd_mode)
 			_sde_encoder_pm_qos_remove_request(drm_enc);
 
 		/* disable all the irq */
@@ -4331,6 +4334,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 	}
 
 	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
+			sde_enc->disp_info.is_primary &&
 			!_sde_encoder_wakeup_time(drm_enc, &wakeup_time)) {
 		SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
 		mod_timer(&sde_enc->vsync_event_timer,
@@ -4776,6 +4780,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	phys_params.parent = &sde_enc->base;
 	phys_params.parent_ops = parent_ops;
 	phys_params.enc_spinlock = &sde_enc->enc_spinlock;
+	phys_params.vblank_ctl_lock = &sde_enc->vblank_ctl_lock;
 
 	SDE_DEBUG("\n");
 
@@ -4921,6 +4926,7 @@ struct drm_encoder *sde_encoder_init(
 
 	sde_enc->cur_master = NULL;
 	spin_lock_init(&sde_enc->enc_spinlock);
+	mutex_init(&sde_enc->vblank_ctl_lock);
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);

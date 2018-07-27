@@ -249,7 +249,7 @@
 			wsa_swr_clk_sleep: wsa_swr_clk_sleep {
 				mux {
 					pins = "gpio5";
-					function = "wsa_clk";
+					function = "func1";
 				};
 
 				config {
@@ -262,7 +262,7 @@
 			wsa_swr_clk_active: wsa_swr_clk_active {
 				mux {
 					pins = "gpio5";
-					function = "wsa_clk";
+					function = "func1";
 				};
 
 				config {
@@ -277,7 +277,7 @@
 			wsa_swr_data_sleep: wsa_swr_data_sleep {
 				mux {
 					pins = "gpio20";
-					function = "wsa_data";
+					function = "func1";
 				};
 
 				config {
@@ -290,7 +290,7 @@
 			wsa_swr_data_active: wsa_swr_data_active {
 				mux {
 					pins = "gpio20";
-					function = "wsa_data";
+					function = "func1";
 				};
 
 				config {

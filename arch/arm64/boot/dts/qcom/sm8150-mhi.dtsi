@@ -418,3 +418,411 @@
 		};
 	};
 };
+
+&pcie0 {
+	pci,bus@1 {
+		reg = <0 0 0 0 0>;
+
+		mhi_1: qcom,mhi@0 {
+			reg = <0 0 0 0 0 >;
+
+			/* controller specific configuration */
+			qcom,smmu-cfg = <0x3>;
+			qcom,msm-bus,name = "mhi";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 1200000000 650000000>;
+
+			/* mhi bus specific settings */
+			mhi,max-channels = <106>;
+			mhi,timeout = <2000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mhi_chan@0 {
+				reg = <0>;
+				label = "LOOPBACK";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@1 {
+				reg = <1>;
+				label = "LOOPBACK";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@2 {
+				reg = <2>;
+				label = "SAHARA";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <1>;
+			};
+
+			mhi_chan@3 {
+				reg = <3>;
+				label = "SAHARA";
+				mhi,num-elements = <128>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <1>;
+			};
+
+			mhi_chan@4 {
+				reg = <4>;
+				label = "DIAG";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@5 {
+				reg = <5>;
+				label = "DIAG";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@8 {
+				reg = <8>;
+				label = "QDSS";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@9 {
+				reg = <9>;
+				label = "QDSS";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@10 {
+				reg = <10>;
+				label = "EFS";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@11 {
+				reg = <11>;
+				label = "EFS";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@14 {
+				reg = <14>;
+				label = "QMI0";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@15 {
+				reg = <15>;
+				label = "QMI0";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@16 {
+				reg = <16>;
+				label = "QMI1";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@17 {
+				reg = <17>;
+				label = "QMI1";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@18 {
+				reg = <18>;
+				label = "IP_CTRL";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@19 {
+				reg = <19>;
+				label = "IP_CTRL";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+				mhi,auto-queue;
+			};
+
+			mhi_chan@20 {
+				reg = <20>;
+				label = "IPCR";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <1>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+				mhi,auto-start;
+			};
+
+			mhi_chan@21 {
+				reg = <21>;
+				label = "IPCR";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+				mhi,auto-queue;
+				mhi,auto-start;
+			};
+
+			mhi_chan@22 {
+				reg = <22>;
+				label = "TF";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@23 {
+				reg = <23>;
+				label = "TF";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@24 {
+				reg = <24>;
+				label = "BL";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <1>;
+			};
+
+			mhi_chan@25 {
+				reg = <25>;
+				label = "BL";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <2>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <1>;
+			};
+
+			mhi_chan@26 {
+				reg = <26>;
+				label = "DCI";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@27 {
+				reg = <27>;
+				label = "DCI";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@32 {
+				reg = <32>;
+				label = "DUN";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@33 {
+				reg = <33>;
+				label = "DUN";
+				mhi,num-elements = <64>;
+				mhi,event-ring = <3>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <2>;
+			};
+
+			mhi_chan@104 {
+				reg = <104>;
+				label = "IP_HW_OFFLOAD_0";
+				mhi,event-ring = <4>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <3>;
+				mhi,ee = <2>;
+				mhi,offload-chan;
+			};
+
+			mhi_chan@105 {
+				reg = <105>;
+				label = "IP_HW_OFFLOAD_0";
+				mhi,event-ring = <5>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <3>;
+				mhi,ee = <2>;
+				mhi,offload-chan;
+				mhi,lpm-notify;
+			};
+
+			mhi_event@0 {
+				mhi,num-elements = <32>;
+				mhi,intmod = <1>;
+				mhi,msi = <1>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+				mhi,data-type = <1>;
+			};
+
+			mhi_event@1 {
+				mhi,num-elements = <256>;
+				mhi,intmod = <1>;
+				mhi,msi = <2>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+			};
+
+			mhi_event@2 {
+				mhi,num-elements = <256>;
+				mhi,intmod = <1>;
+				mhi,msi = <3>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+			};
+
+			mhi_event@3 {
+				mhi,num-elements = <256>;
+				mhi,intmod = <1>;
+				mhi,msi = <4>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+			};
+
+			mhi_event@4 {
+				mhi,num-elements = <0>;
+				mhi,intmod = <0>;
+				mhi,msi = <5>;
+				mhi,chan = <104>;
+				mhi,priority = <1>;
+				mhi,brstmode = <3>;
+				mhi,hw-ev;
+				mhi,client-manage;
+				mhi,offload;
+			};
+
+			mhi_event@5 {
+				mhi,num-elements = <0>;
+				mhi,intmod = <0>;
+				mhi,msi = <6>;
+				mhi,chan = <105>;
+				mhi,priority = <1>;
+				mhi,brstmode = <3>;
+				mhi,hw-ev;
+				mhi,client-manage;
+				mhi,offload;
+			};
+
+			mhi_netdev_2: mhi_rmnet@0 {
+				reg = <0x0>;
+				mhi,chan = "IP_HW0";
+				mhi,interface-name = "rmnet_mhi";
+				mhi,mru = <0x4000>;
+			};
+
+			mhi_netdev_3: mhi_rmnet@1 {
+				reg = <0x1>;
+				mhi,chan = "IP_HW_ADPL";
+				mhi,interface-name = "rmnet_mhi";
+				mhi,mru = <0x4000>;
+			};
+		};
+	};
+};

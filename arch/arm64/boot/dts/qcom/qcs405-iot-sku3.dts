@@ -15,9 +15,36 @@
 
 #include "qcs405.dtsi"
 #include "qcs405-nowcd-audio-overlay.dtsi"
+#include "qcs405-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 sEVB/SLT IOT";
 	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
 	qcom,board-id = <0x010020 0x2>;
+};
+#include "qcs405-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_720_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 41 0>;
+	qcom,platform-reset-gpio = <&tlmm 39 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 48 0>;
+};
+
+&dsi_hx8394d_720_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_tlmm_gpio";
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

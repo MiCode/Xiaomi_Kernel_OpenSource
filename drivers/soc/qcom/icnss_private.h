@@ -346,6 +346,7 @@ struct icnss_priv {
 	u8 requesting_sub_system;
 	u16 line_number;
 	struct mutex dev_lock;
+	bool is_hyp_disabled;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 };
 

@@ -399,12 +399,32 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 			(bcl_perph->param[BCL_VBAT_LVL1].tz_dev)) {
 			of_thermal_handle_trip(
 				bcl_perph->param[BCL_VBAT_LVL1].tz_dev);
+
+			/*
+			 * There is a possibility that just vbat_l1 be the
+			 * source of bcl event. So trigger Vbat_l0 in
+			 * those case.
+			 */
+			if (!(irq_status & BCL_IRQ_VCMP_L0) &&
+				(bcl_perph->param[BCL_VBAT_LVL0].tz_dev))
+				of_thermal_handle_trip(
+					bcl_perph->param[BCL_VBAT_LVL0].tz_dev);
 			notify = true;
 		}
 		if ((irq_status & BCL_IRQ_IBAT_L1) &&
 			(bcl_perph->param[BCL_IBAT_LVL1].tz_dev)) {
 			of_thermal_handle_trip(
 				bcl_perph->param[BCL_IBAT_LVL1].tz_dev);
+
+			/*
+			 * There is a possibility that just ibat_l1 be the
+			 * source of bcl event. So trigger ibat_l0 in
+			 * those case.
+			 */
+			if (!(irq_status & BCL_IRQ_IBAT_L0) &&
+				(bcl_perph->param[BCL_IBAT_LVL0].tz_dev))
+				of_thermal_handle_trip(
+					bcl_perph->param[BCL_IBAT_LVL0].tz_dev);
 			notify = true;
 		}
 		break;
@@ -413,6 +433,20 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 			(bcl_perph->param[BCL_VBAT_LVL2].tz_dev)) {
 			of_thermal_handle_trip(
 				bcl_perph->param[BCL_VBAT_LVL2].tz_dev);
+
+			/*
+			 * There is a possibility that just vbat_l2 be the
+			 * source of bcl event. So trigger Vbat_l0 and vbat_l1
+			 * in those case.
+			 */
+			if (!(irq_status & BCL_IRQ_VCMP_L1) &&
+				(bcl_perph->param[BCL_VBAT_LVL1].tz_dev))
+				of_thermal_handle_trip(
+					bcl_perph->param[BCL_VBAT_LVL1].tz_dev);
+			if (!(irq_status & BCL_IRQ_VCMP_L0) &&
+				(bcl_perph->param[BCL_VBAT_LVL0].tz_dev))
+				of_thermal_handle_trip(
+					bcl_perph->param[BCL_VBAT_LVL0].tz_dev);
 			notify = true;
 		}
 		break;

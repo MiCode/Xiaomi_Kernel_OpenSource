@@ -113,7 +113,8 @@ static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
 }
 
 static void rmnet_map_process_flow_start(struct sk_buff *skb,
-					 struct rmnet_port *port)
+					 struct rmnet_port *port,
+					 bool rmnet_perf)
 {
 	struct rmnet_map_dl_ind_hdr *dlhdr;
 
@@ -142,10 +143,20 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 				      port->stats.dl_hdr_count;
 
 	rmnet_map_dl_hdr_notify(port, dlhdr);
+	if (rmnet_perf) {
+		unsigned int pull_size;
+
+		pull_size = sizeof(struct rmnet_map_dl_ind_hdr);
+		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
+			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
+		skb_pull(skb, pull_size);
+	}
+
 }
 
 static void rmnet_map_process_flow_end(struct sk_buff *skb,
-				       struct rmnet_port *port)
+				       struct rmnet_port *port,
+					   bool rmnet_perf)
 {
 	struct rmnet_map_dl_ind_trl *dltrl;
 
@@ -160,6 +171,15 @@ static void rmnet_map_process_flow_end(struct sk_buff *skb,
 	port->stats.dl_trl_count++;
 
 	rmnet_map_dl_trl_notify(port, dltrl);
+	if (rmnet_perf) {
+		unsigned int pull_size;
+
+		pull_size = sizeof(struct rmnet_map_dl_ind_trl);
+		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
+			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
+		skb_pull(skb, pull_size);
+	}
+
 }
 
 /* Process MAP command frame and send N/ACK message as appropriate. Message cmd
@@ -192,7 +212,8 @@ void rmnet_map_command(struct sk_buff *skb, struct rmnet_port *port)
 		rmnet_map_send_ack(skb, rc, port);
 }
 
-int rmnet_map_flow_command(struct sk_buff *skb, struct rmnet_port *port)
+int rmnet_map_flow_command(struct sk_buff *skb, struct rmnet_port *port,
+			   bool rmnet_perf)
 {
 	struct rmnet_map_control_command *cmd;
 	unsigned char command_name;
@@ -202,20 +223,24 @@ int rmnet_map_flow_command(struct sk_buff *skb, struct rmnet_port *port)
 
 	switch (command_name) {
 	case RMNET_MAP_COMMAND_FLOW_START:
-		rmnet_map_process_flow_start(skb, port);
+		rmnet_map_process_flow_start(skb, port, rmnet_perf);
 		break;
 
 	case RMNET_MAP_COMMAND_FLOW_END:
-		rmnet_map_process_flow_end(skb, port);
+		rmnet_map_process_flow_end(skb, port, rmnet_perf);
 		break;
 
 	default:
 		return 1;
 	}
 
-	consume_skb(skb);
+	/* rmnet_perf module will handle the consuming */
+	if (!rmnet_perf)
+		consume_skb(skb);
+
 	return 0;
 }
+EXPORT_SYMBOL(rmnet_map_flow_command);
 
 void rmnet_map_cmd_exit(struct rmnet_port *port)
 {
@@ -241,6 +266,7 @@ int rmnet_map_dl_ind_register(struct rmnet_port *port,
 
 	return 0;
 }
+EXPORT_SYMBOL(rmnet_map_dl_ind_register);
 
 int rmnet_map_dl_ind_deregister(struct rmnet_port *port,
 				struct rmnet_map_dl_ind *dl_ind)
@@ -260,3 +286,4 @@ int rmnet_map_dl_ind_deregister(struct rmnet_port *port,
 done:
 	return 0;
 }
+EXPORT_SYMBOL(rmnet_map_dl_ind_deregister);

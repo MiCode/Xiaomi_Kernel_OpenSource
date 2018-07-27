@@ -33,17 +33,16 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_HOLB_DROP_IRQ_CLR_EE_n),
 	__stringify(IPA_BCR),
 	__stringify(IPA_ENABLED_PIPES),
-	__stringify(IPA_COMP_SW_RESET),
 	__stringify(IPA_VERSION),
 	__stringify(IPA_TAG_TIMER),
 	__stringify(IPA_COMP_HW_VERSION),
-	__stringify(IPA_SPARE_REG_1),
-	__stringify(IPA_SPARE_REG_2),
 	__stringify(IPA_COMP_CFG),
 	__stringify(IPA_STATE_TX_WRAPPER),
 	__stringify(IPA_STATE_TX1),
 	__stringify(IPA_STATE_FETCHER),
 	__stringify(IPA_STATE_FETCHER_MASK),
+	__stringify(IPA_STATE_FETCHER_MASK_0),
+	__stringify(IPA_STATE_FETCHER_MASK_1),
 	__stringify(IPA_STATE_DFETCHER),
 	__stringify(IPA_STATE_ACL),
 	__stringify(IPA_STATE),
@@ -55,6 +54,12 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_STATE_GSI_AOS),
 	__stringify(IPA_STATE_GSI_IF),
 	__stringify(IPA_STATE_GSI_SKIP),
+	__stringify(IPA_STATE_GSI_IF_CONS),
+	__stringify(IPA_STATE_DPL_FIFO),
+	__stringify(IPA_STATE_COAL_MASTER),
+	__stringify(IPA_GENERIC_RAM_ARBITER_PRIORITY),
+	__stringify(IPA_STATE_NLO_AGGR),
+	__stringify(IPA_STATE_COAL_MASTER_1),
 	__stringify(IPA_ENDP_INIT_HDR_n),
 	__stringify(IPA_ENDP_INIT_HDR_EXT_n),
 	__stringify(IPA_ENDP_INIT_AGGR_n),
@@ -87,8 +92,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_SYS_PKT_PROC_CNTXT_BASE),
 	__stringify(IPA_LOCAL_PKT_PROC_CNTXT_BASE),
 	__stringify(IPA_ENDP_STATUS_n),
-	__stringify(IPA_ENDP_WEIGHTS_n),
-	__stringify(IPA_ENDP_YELLOW_RED_MARKER),
+	__stringify(IPA_ENDP_YELLOW_RED_MARKER_CFG_n),
 	__stringify(IPA_ENDP_FILTER_ROUTER_HSH_CFG_n),
 	__stringify(IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n),
 	__stringify(IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n),
@@ -444,12 +448,9 @@ static void ipareg_parse_hash_cfg_n(
 		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_UNDEFINED2_BMSK);
 }
 
-static void ipareg_construct_endp_status_n(
-	enum ipahal_reg_name reg, const void *fields, u32 *val)
+static void ipareg_construct_endp_status_n_common(
+	const struct ipahal_reg_ep_cfg_status *ep_status, u32 *val)
 {
-	struct ipahal_reg_ep_cfg_status *ep_status =
-		(struct ipahal_reg_ep_cfg_status *)fields;
-
 	IPA_SETFIELD_IN_REG(*val, ep_status->status_en,
 			IPA_ENDP_STATUS_n_STATUS_EN_SHFT,
 			IPA_ENDP_STATUS_n_STATUS_EN_BMSK);
@@ -457,6 +458,15 @@ static void ipareg_construct_endp_status_n(
 	IPA_SETFIELD_IN_REG(*val, ep_status->status_ep,
 			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
 			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
+}
+
+static void ipareg_construct_endp_status_n(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	const struct ipahal_reg_ep_cfg_status *ep_status =
+		(const struct ipahal_reg_ep_cfg_status *)fields;
+
+	ipareg_construct_endp_status_n_common(ep_status, val);
 
 	IPA_SETFIELD_IN_REG(*val, ep_status->status_location,
 			IPA_ENDP_STATUS_n_STATUS_LOCATION_SHFT,
@@ -469,13 +479,7 @@ static void ipareg_construct_endp_status_n_v4_0(
 	struct ipahal_reg_ep_cfg_status *ep_status =
 		(struct ipahal_reg_ep_cfg_status *)fields;
 
-	IPA_SETFIELD_IN_REG(*val, ep_status->status_en,
-			IPA_ENDP_STATUS_n_STATUS_EN_SHFT,
-			IPA_ENDP_STATUS_n_STATUS_EN_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, ep_status->status_ep,
-			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
-			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
+	ipareg_construct_endp_status_n_common(ep_status, val);
 
 	IPA_SETFIELD_IN_REG(*val, ep_status->status_location,
 			IPA_ENDP_STATUS_n_STATUS_LOCATION_SHFT,
@@ -486,140 +490,170 @@ static void ipareg_construct_endp_status_n_v4_0(
 			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_BMSK);
 }
 
+static void ipareg_construct_endp_status_n_v4_5(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_ep_cfg_status *ep_status =
+		(struct ipahal_reg_ep_cfg_status *)fields;
+
+	ipareg_construct_endp_status_n_common(ep_status, val);
+
+	IPA_SETFIELD_IN_REG(*val, ep_status->status_pkt_suppress,
+			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_BMSK);
+}
+
+static void ipareg_construct_clkon_cfg_common(
+	const struct ipahal_reg_clkon_cfg *clkon_cfg, u32 *val)
+{
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_global_2x_clk,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_global,
+			IPA_CLKON_CFG_OPEN_GLOBAL_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_gsi_if,
+			IPA_CLKON_CFG_OPEN_GSI_IF_SHFT,
+			IPA_CLKON_CFG_OPEN_GSI_IF_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_weight_arb,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_qmb,
+			IPA_CLKON_CFG_OPEN_QMB_SHFT,
+			IPA_CLKON_CFG_OPEN_QMB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ram_slaveway,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_aggr_wrapper,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_qsb2axi_cmdq_l,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_SHFT,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_fnr,
+			IPA_CLKON_CFG_OPEN_FNR_SHFT,
+			IPA_CLKON_CFG_OPEN_FNR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_tx_1,
+			IPA_CLKON_CFG_OPEN_TX_1_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_1_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_tx_0,
+			IPA_CLKON_CFG_OPEN_TX_0_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_0_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ntf_tx_cmdqs,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_h_dcph,
+			IPA_CLKON_CFG_OPEN_H_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_H_DCPH_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_d_dcph,
+			IPA_CLKON_CFG_OPEN_D_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_D_DCPH_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ack_mngr,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ctx_handler,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_SHFT,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_rsrc_mngr,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_dps_tx_cmdqs,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_hps_dps_cmdqs,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_rx_hps_cmdqs,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_dps,
+			IPA_CLKON_CFG_OPEN_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_hps,
+			IPA_CLKON_CFG_OPEN_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ftch_dps,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ftch_hps,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_ram_arb,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_misc,
+			IPA_CLKON_CFG_OPEN_MISC_SHFT,
+			IPA_CLKON_CFG_OPEN_MISC_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_tx_wrapper,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_proc,
+			IPA_CLKON_CFG_OPEN_PROC_SHFT,
+			IPA_CLKON_CFG_OPEN_PROC_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_rx,
+			IPA_CLKON_CFG_OPEN_RX_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_BMSK);
+}
+
 static void ipareg_construct_clkon_cfg(
 	enum ipahal_reg_name reg, const void *fields, u32 *val)
 {
 	struct ipahal_reg_clkon_cfg *clkon_cfg =
 		(struct ipahal_reg_clkon_cfg *)fields;
 
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_global_2x_clk,
-			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_SHFT,
-			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_BMSK);
+	ipareg_construct_clkon_cfg_common(clkon_cfg, val);
 
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_global,
-			IPA_CLKON_CFG_OPEN_GLOBAL_SHFT,
-			IPA_CLKON_CFG_OPEN_GLOBAL_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_gsi_if,
-			IPA_CLKON_CFG_OPEN_GSI_IF_SHFT,
-			IPA_CLKON_CFG_OPEN_GSI_IF_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_weight_arb,
-			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_SHFT,
-			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_qmb,
-			IPA_CLKON_CFG_OPEN_QMB_SHFT,
-			IPA_CLKON_CFG_OPEN_QMB_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ram_slaveway,
-			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_SHFT,
-			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_aggr_wrapper,
-			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_SHFT,
-			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_qsb2axi_cmdq_l,
-			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_SHFT,
-			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_fnr,
-			IPA_CLKON_CFG_OPEN_FNR_SHFT,
-			IPA_CLKON_CFG_OPEN_FNR_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_1,
-			IPA_CLKON_CFG_OPEN_TX_1_SHFT,
-			IPA_CLKON_CFG_OPEN_TX_1_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_0,
-			IPA_CLKON_CFG_OPEN_TX_0_SHFT,
-			IPA_CLKON_CFG_OPEN_TX_0_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ntf_tx_cmdqs,
-			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_SHFT,
-			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dcmp,
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_dcmp,
 			IPA_CLKON_CFG_OPEN_DCMP_SHFT,
 			IPA_CLKON_CFG_OPEN_DCMP_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_h_dcph,
-			IPA_CLKON_CFG_OPEN_H_DCPH_SHFT,
-			IPA_CLKON_CFG_OPEN_H_DCPH_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_d_dcph,
-			IPA_CLKON_CFG_OPEN_D_DCPH_SHFT,
-			IPA_CLKON_CFG_OPEN_D_DCPH_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ack_mngr,
-			IPA_CLKON_CFG_OPEN_ACK_MNGR_SHFT,
-			IPA_CLKON_CFG_OPEN_ACK_MNGR_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ctx_handler,
-			IPA_CLKON_CFG_OPEN_CTX_HANDLER_SHFT,
-			IPA_CLKON_CFG_OPEN_CTX_HANDLER_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rsrc_mngr,
-			IPA_CLKON_CFG_OPEN_RSRC_MNGR_SHFT,
-			IPA_CLKON_CFG_OPEN_RSRC_MNGR_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dps_tx_cmdqs,
-			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_SHFT,
-			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_hps_dps_cmdqs,
-			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_SHFT,
-			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rx_hps_cmdqs,
-			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_SHFT,
-			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dps,
-			IPA_CLKON_CFG_OPEN_DPS_SHFT,
-			IPA_CLKON_CFG_OPEN_DPS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_hps,
-			IPA_CLKON_CFG_OPEN_HPS_SHFT,
-			IPA_CLKON_CFG_OPEN_HPS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ftch_dps,
-			IPA_CLKON_CFG_OPEN_FTCH_DPS_SHFT,
-			IPA_CLKON_CFG_OPEN_FTCH_DPS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ftch_hps,
-			IPA_CLKON_CFG_OPEN_FTCH_HPS_SHFT,
-			IPA_CLKON_CFG_OPEN_FTCH_HPS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ram_arb,
-			IPA_CLKON_CFG_OPEN_RAM_ARB_SHFT,
-			IPA_CLKON_CFG_OPEN_RAM_ARB_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_misc,
-			IPA_CLKON_CFG_OPEN_MISC_SHFT,
-			IPA_CLKON_CFG_OPEN_MISC_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_wrapper,
-			IPA_CLKON_CFG_OPEN_TX_WRAPPER_SHFT,
-			IPA_CLKON_CFG_OPEN_TX_WRAPPER_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_proc,
-			IPA_CLKON_CFG_OPEN_PROC_SHFT,
-			IPA_CLKON_CFG_OPEN_PROC_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rx,
-			IPA_CLKON_CFG_OPEN_RX_SHFT,
-			IPA_CLKON_CFG_OPEN_RX_BMSK);
 }
 
-static void ipareg_parse_clkon_cfg(
-	enum ipahal_reg_name reg, void *fields, u32 val)
+static void ipareg_construct_clkon_cfg_v4_5(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
 {
 	struct ipahal_reg_clkon_cfg *clkon_cfg =
 		(struct ipahal_reg_clkon_cfg *)fields;
 
+	ipareg_construct_clkon_cfg_common(clkon_cfg, val);
+
+	IPA_SETFIELD_IN_REG(*val, !!clkon_cfg->open_dpl_fifo,
+			IPA_CLKON_CFG_CGC_OPEN_DPL_FIFO_SHFT_V4_5,
+			IPA_CLKON_CFG_CGC_OPEN_DPL_FIFO_BMSK_V4_5);
+}
+
+static void ipareg_parse_clkon_cfg_common(
+	struct ipahal_reg_clkon_cfg *clkon_cfg, u32 val)
+{
 	memset(clkon_cfg, 0, sizeof(struct ipahal_reg_clkon_cfg));
+
 	clkon_cfg->open_global_2x_clk = IPA_GETFIELD_FROM_REG(val,
 			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_SHFT,
 			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_BMSK);
@@ -667,10 +701,6 @@ static void ipareg_parse_clkon_cfg(
 	clkon_cfg->open_ntf_tx_cmdqs = IPA_GETFIELD_FROM_REG(val,
 			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_SHFT,
 			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_BMSK);
-
-	clkon_cfg->open_dcmp = IPA_GETFIELD_FROM_REG(val,
-			IPA_CLKON_CFG_OPEN_DCMP_SHFT,
-			IPA_CLKON_CFG_OPEN_DCMP_BMSK);
 
 	clkon_cfg->open_h_dcph = IPA_GETFIELD_FROM_REG(val,
 			IPA_CLKON_CFG_OPEN_H_DCPH_SHFT,
@@ -741,109 +771,152 @@ static void ipareg_parse_clkon_cfg(
 			IPA_CLKON_CFG_OPEN_RX_BMSK);
 }
 
-static void ipareg_construct_comp_cfg(
-	enum ipahal_reg_name reg, const void *fields, u32 *val)
+static void ipareg_parse_clkon_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
 {
-	struct ipahal_reg_comp_cfg *comp_cfg =
-		(struct ipahal_reg_comp_cfg *)fields;
+	struct ipahal_reg_clkon_cfg *clkon_cfg =
+		(struct ipahal_reg_clkon_cfg *)fields;
 
+	ipareg_parse_clkon_cfg_common(clkon_cfg, val);
+
+	clkon_cfg->open_dcmp = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_DCMP_SHFT,
+			IPA_CLKON_CFG_OPEN_DCMP_BMSK);
+}
+
+static void ipareg_parse_clkon_cfg_v4_5(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_clkon_cfg *clkon_cfg =
+		(struct ipahal_reg_clkon_cfg *)fields;
+
+	ipareg_parse_clkon_cfg_common(clkon_cfg, val);
+
+	clkon_cfg->open_dpl_fifo = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_CGC_OPEN_DPL_FIFO_SHFT_V4_5,
+			IPA_CLKON_CFG_CGC_OPEN_DPL_FIFO_BMSK_V4_5);
+}
+
+static void ipareg_construct_comp_cfg_comon(
+	const struct ipahal_reg_comp_cfg *comp_cfg, u32 *val)
+{
 	IPA_SETFIELD_IN_REG(*val,
 		comp_cfg->ipa_atomic_fetcher_arb_lock_dis,
 		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_SHFT,
 		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->ipa_qmb_select_by_address_global_en,
+		!!comp_cfg->ipa_qmb_select_by_address_global_en,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_SHFT,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gsi_multi_axi_masters_dis,
+		!!comp_cfg->gsi_multi_axi_masters_dis,
 		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_SHFT,
 		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gsi_snoc_cnoc_loop_protection_disable,
+		!!comp_cfg->gsi_snoc_cnoc_loop_protection_disable,
 		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
 		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_0_snoc_cnoc_loop_protection_disable,
+		!!comp_cfg->gen_qmb_0_snoc_cnoc_loop_protection_disable,
 		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
 		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_1_multi_inorder_wr_dis,
+		!!comp_cfg->gen_qmb_1_multi_inorder_wr_dis,
 		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_0_multi_inorder_wr_dis,
+		!!comp_cfg->gen_qmb_0_multi_inorder_wr_dis,
 		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_1_multi_inorder_rd_dis,
+		!!comp_cfg->gen_qmb_1_multi_inorder_rd_dis,
 		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_0_multi_inorder_rd_dis,
+		!!comp_cfg->gen_qmb_0_multi_inorder_rd_dis,
 		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gsi_multi_inorder_wr_dis,
+		!!comp_cfg->gsi_multi_inorder_wr_dis,
 		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_SHFT,
 		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gsi_multi_inorder_rd_dis,
+		!!comp_cfg->gsi_multi_inorder_rd_dis,
 		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_SHFT,
 		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->ipa_qmb_select_by_address_prod_en,
+		!!comp_cfg->ipa_qmb_select_by_address_prod_en,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_SHFT,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->ipa_qmb_select_by_address_cons_en,
+		!!comp_cfg->ipa_qmb_select_by_address_cons_en,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_SHFT,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->ipa_dcmp_fast_clk_en,
-		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
-		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_1_snoc_bypass_dis,
+		!!comp_cfg->gen_qmb_1_snoc_bypass_dis,
 		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gen_qmb_0_snoc_bypass_dis,
+		!!comp_cfg->gen_qmb_0_snoc_bypass_dis,
 		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_SHFT,
 		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->gsi_snoc_bypass_dis,
+		!!comp_cfg->gsi_snoc_bypass_dis,
 		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_SHFT,
 		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_BMSK);
-
-	IPA_SETFIELD_IN_REG(*val,
-		comp_cfg->enable,
-		IPA_COMP_CFG_ENABLE_SHFT,
-		IPA_COMP_CFG_ENABLE_BMSK);
 }
 
-static void ipareg_parse_comp_cfg(
-	enum ipahal_reg_name reg, void *fields, u32 val)
+static void ipareg_construct_comp_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
 {
 	struct ipahal_reg_comp_cfg *comp_cfg =
 		(struct ipahal_reg_comp_cfg *)fields;
 
+	ipareg_construct_comp_cfg_comon(comp_cfg, val);
+
+	IPA_SETFIELD_IN_REG(*val,
+		!!comp_cfg->enable,
+		IPA_COMP_CFG_ENABLE_SHFT,
+		IPA_COMP_CFG_ENABLE_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		!!comp_cfg->ipa_dcmp_fast_clk_en,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
+}
+
+static void ipareg_construct_comp_cfg_v4_5(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_comp_cfg *comp_cfg =
+		(struct ipahal_reg_comp_cfg *)fields;
+
+	ipareg_construct_comp_cfg_comon(comp_cfg, val);
+
+	IPA_SETFIELD_IN_REG(*val,
+		!!comp_cfg->ipa_full_flush_wait_rsc_closure_en,
+		IPA_COMP_CFG_IPA_FULL_FLUSH_WAIT_RSC_CLOSURE_EN_SHFT_v4_5,
+		IPA_COMP_CFG_IPA_FULL_FLUSH_WAIT_RSC_CLOSURE_EN_BMSK_v4_5);
+}
+
+static void ipareg_parse_comp_cfg_common(
+	struct ipahal_reg_comp_cfg *comp_cfg, u32 val)
+{
 	memset(comp_cfg, 0, sizeof(struct ipahal_reg_comp_cfg));
 
 	comp_cfg->ipa_atomic_fetcher_arb_lock_dis =
@@ -911,11 +984,6 @@ static void ipareg_parse_comp_cfg(
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_SHFT,
 		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_BMSK);
 
-	comp_cfg->ipa_dcmp_fast_clk_en =
-		IPA_GETFIELD_FROM_REG(val,
-		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
-		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
-
 	comp_cfg->gen_qmb_1_snoc_bypass_dis =
 		IPA_GETFIELD_FROM_REG(val,
 		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_SHFT,
@@ -930,11 +998,39 @@ static void ipareg_parse_comp_cfg(
 		IPA_GETFIELD_FROM_REG(val,
 		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_SHFT,
 		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_BMSK);
+}
+
+static void ipareg_parse_comp_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_comp_cfg *comp_cfg =
+		(struct ipahal_reg_comp_cfg *)fields;
+
+	ipareg_parse_comp_cfg_common(comp_cfg, val);
 
 	comp_cfg->enable =
 		IPA_GETFIELD_FROM_REG(val,
 		IPA_COMP_CFG_ENABLE_SHFT,
 		IPA_COMP_CFG_ENABLE_BMSK);
+
+	comp_cfg->ipa_dcmp_fast_clk_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
+}
+
+static void ipareg_parse_comp_cfg_v4_5(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_comp_cfg *comp_cfg =
+		(struct ipahal_reg_comp_cfg *)fields;
+
+	ipareg_parse_comp_cfg_common(comp_cfg, val);
+
+	comp_cfg->ipa_full_flush_wait_rsc_closure_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_FULL_FLUSH_WAIT_RSC_CLOSURE_EN_SHFT_v4_5,
+		IPA_COMP_CFG_IPA_FULL_FLUSH_WAIT_RSC_CLOSURE_EN_BMSK_v4_5);
 }
 
 static void ipareg_construct_qcncm(
@@ -1108,6 +1204,17 @@ static void ipareg_construct_endp_init_rsrc_grp_n_v3_5(
 	IPA_SETFIELD_IN_REG(*val, rsrc_grp->rsrc_grp,
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT_v3_5,
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK_v3_5);
+}
+
+static void ipareg_construct_endp_init_rsrc_grp_n_v4_5(
+		enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_endp_init_rsrc_grp *rsrc_grp =
+		(struct ipahal_reg_endp_init_rsrc_grp *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, rsrc_grp->rsrc_grp,
+		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT_v4_5,
+		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK_v4_5);
 }
 
 static void ipareg_construct_endp_init_hdr_metadata_n(
@@ -1320,6 +1427,21 @@ static void ipareg_construct_endp_init_mode_n(enum ipahal_reg_name reg,
 	IPA_SETFIELD_IN_REG(*val, init_mode->dst_pipe_number,
 		IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_SHFT,
 		IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_BMSK);
+}
+
+static void ipareg_construct_endp_init_mode_n_v4_5(enum ipahal_reg_name reg,
+		const void *fields, u32 *val)
+{
+	struct ipahal_reg_endp_init_mode *init_mode =
+		(struct ipahal_reg_endp_init_mode *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, init_mode->ep_mode.mode,
+		IPA_ENDP_INIT_MODE_n_MODE_SHFT_V4_5,
+		IPA_ENDP_INIT_MODE_n_MODE_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, init_mode->dst_pipe_number,
+		IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_SHFT_V4_5,
+		IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_BMSK_V4_5);
 }
 
 static void ipareg_construct_endp_init_route_n(enum ipahal_reg_name reg,
@@ -1633,6 +1755,20 @@ static void ipareg_parse_tx_cfg_v4_0(enum ipahal_reg_name reg,
 		IPA_TX_CFG_PA_MASK_EN_BMSK_V4_0);
 }
 
+static void ipareg_parse_tx_cfg_v4_5(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipahal_reg_tx_cfg *tx_cfg;
+
+	ipareg_parse_tx_cfg_v4_0(reg, fields, val);
+
+	tx_cfg = (struct ipahal_reg_tx_cfg *)fields;
+
+	tx_cfg->dual_tx_enable = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_DUAL_TX_ENABLE_SHFT_V4_5,
+		IPA_TX_CFG_DUAL_TX_ENABLE_BMSK_V4_5);
+}
+
 static void ipareg_construct_tx_cfg(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -1687,6 +1823,20 @@ static void ipareg_construct_tx_cfg_v4_0(enum ipahal_reg_name reg,
 	IPA_SETFIELD_IN_REG(*val, tx_cfg->pa_mask_en,
 		IPA_TX_CFG_PA_MASK_EN_SHFT_V4_0,
 		IPA_TX_CFG_PA_MASK_EN_BMSK_V4_0);
+}
+
+static void ipareg_construct_tx_cfg_v4_5(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_tx_cfg *tx_cfg;
+
+	ipareg_construct_tx_cfg_v4_0(reg, fields, val);
+
+	tx_cfg = (struct ipahal_reg_tx_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->dual_tx_enable,
+		IPA_TX_CFG_DUAL_TX_ENABLE_SHFT_V4_5,
+		IPA_TX_CFG_DUAL_TX_ENABLE_BMSK_V4_5);
 }
 
 static void ipareg_construct_idle_indication_cfg(enum ipahal_reg_name reg,
@@ -1840,9 +1990,6 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_ENABLED_PIPES] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000038, 0, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_COMP_SW_RESET] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000040, 0, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_VERSION] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000034, 0, 0, 0, 0},
@@ -1852,12 +1999,6 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_COMP_HW_VERSION] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000030, 0, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_SPARE_REG_1] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00005090, 0, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_SPARE_REG_2] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00005094, 0, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_COMP_CFG] = {
 		ipareg_construct_comp_cfg, ipareg_parse_comp_cfg,
 		0x0000003C, 0, 0, 0, 0},
@@ -2070,12 +2211,6 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_RX_HPS_CLIENTS_MAX_DEPTH_1] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		-1, 0, 0, 0, 0},
-	[IPA_HW_v3_5][IPA_SPARE_REG_1] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00002780, 0, 0, 0, 0},
-	[IPA_HW_v3_5][IPA_SPARE_REG_2] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00002784, 0, 0, 0, 0},
 	[IPA_HW_v3_5][IPA_IDLE_INDICATION_CFG] = {
 		ipareg_construct_idle_indication_cfg, ipareg_parse_dummy,
 		0x00000220, 0, 0, 0, 0},
@@ -2255,7 +2390,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x0000074C, 0, 0, 0, 0},
 	[IPA_HW_v4_0][IPA_STAT_DROP_CNT_BASE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000750, 0x4, 3, 1},
+		0x00000750, 0x4, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_STAT_DROP_CNT_MASK_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000758, 0x4, 0, 0, 1},
@@ -2294,7 +2429,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x000000B8, 0, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_STATE_GSI_AOS] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x000000B8, 0, 0, 0, 1},
+		0x000000BC, 0, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_STATE_GSI_IF] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x000000C0, 0, 0, 0, 1},
@@ -2338,10 +2473,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_rsrc_grp_n_v3_5,
 		ipareg_parse_dummy,
 		0x00000838, 0x70, 0, 23, 1},
-	[IPA_HW_v4_0][IPA_ENDP_WEIGHTS_n] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00000CA4, 0x70, 10, 23, 1},
-	[IPA_HW_v4_0][IPA_ENDP_YELLOW_RED_MARKER] = {
+	[IPA_HW_v4_0][IPA_ENDP_YELLOW_RED_MARKER_CFG_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000CC0, 0x70, 10, 23, 1},
 
@@ -2353,6 +2485,12 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_hol_block_timer_n_v4_2,
 		ipareg_parse_dummy,
 		0x00000830, 0x70, 8, 17, 1},
+	[IPA_HW_v4_2][IPA_ENDP_FILTER_ROUTER_HSH_CFG_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_2][IPA_HPS_FTCH_ARB_QUEUE_WEIGHT] = {
+		ipareg_construct_dummy,
+		ipareg_parse_dummy, -1, 0, 0, 0, 0},
 
 	/* IPA4.5 */
 	[IPA_HW_v4_5][IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n] = {
@@ -2381,11 +2519,128 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_rx_hps_clients_depth0_v4_5,
 		ipareg_parse_dummy,
 		0x000023cc, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_BCR] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_COMP_CFG] = {
+		ipareg_construct_comp_cfg_v4_5, ipareg_parse_comp_cfg_v4_5,
+		0x0000003C, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STATE_FETCHER_MASK] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STATE_FETCHER_MASK_0] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0000009C, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STATE_FETCHER_MASK_1] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000CC, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_COUNTER_CFG] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STATE_GSI_IF_CONS] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000C8, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STATE_DPL_FIFO] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000D0, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STATE_COAL_MASTER] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000D4, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_GENERIC_RAM_ARBITER_PRIORITY] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000D8, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STATE_NLO_AGGR] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000DC, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_STATE_COAL_MASTER_1] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000E0, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_ENDP_YELLOW_RED_MARKER_CFG_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000860, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_MODE_n] = {
+		ipareg_construct_endp_init_mode_n_v4_5, ipareg_parse_dummy,
+		0x00000820, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_TX_CFG] = {
+		ipareg_construct_tx_cfg_v4_5, ipareg_parse_tx_cfg_v4_5,
+		0x000001FC, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_CLKON_CFG] = {
+		ipareg_construct_clkon_cfg_v4_5, ipareg_parse_clkon_cfg_v4_5,
+		0x00000044, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_SEQ_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0000083C, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_CFG_n] = {
+		ipareg_construct_endp_init_cfg_n, ipareg_parse_dummy,
+		0x00000808, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_DEAGGR_n] = {
+		ipareg_construct_endp_init_deaggr_n,
+		ipareg_parse_dummy,
+		0x00000834, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_n] = {
+		ipareg_construct_endp_init_ctrl_n_v4_0, ipareg_parse_dummy,
+		0x00000800, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_SCND_n] = {
+		ipareg_construct_endp_init_ctrl_scnd_n, ipareg_parse_dummy,
+		0x00000804, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_STATUS_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000864, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_PROD_CFG_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000CC8, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_FILTER_ROUTER_HSH_CFG_n] = {
+		ipareg_construct_hash_cfg_n, ipareg_parse_hash_cfg_n,
+		0x0000085C, 0x70, 0, 32, 1},
+	[IPA_HW_v4_5][IPA_ENDP_STATUS_n] = {
+		ipareg_construct_endp_status_n_v4_5, ipareg_parse_dummy,
+		0x00000840, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_NAT_n] = {
+		ipareg_construct_endp_init_nat_n, ipareg_parse_dummy,
+		0x0000080C, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_CONN_TRACK_n] = {
+		ipareg_construct_endp_init_conn_track_n,
+		ipareg_parse_dummy,
+		0x00000850, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_RSRC_GRP_n] = {
+		ipareg_construct_endp_init_rsrc_grp_n_v4_5,
+		ipareg_parse_dummy,
+		0x00000838, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV4_START_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV6_START_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV4_START_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV6_START_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV4_END_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_FILTER_IPV6_END_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV4_END_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_STAT_ROUTER_IPV6_END_ID] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0, 0, 0, 0},
 };
 
+/*
+ * ipahal_print_all_regs() - Loop and read and print all the valid registers
+ *  Parameterized registers are also printed for all the valid ranges.
+ *  Print to dmsg and IPC logs
+ */
 void ipahal_print_all_regs(bool print_to_dmesg)
 {
 	int i, j;
+	struct ipahal_reg_obj *reg;
 
 	IPAHAL_DBG("Printing all registers for ipa_hw_type %d\n",
 		ipahal_ctx->hw_type);
@@ -2397,12 +2652,18 @@ void ipahal_print_all_regs(bool print_to_dmesg)
 	}
 
 	for (i = 0; i < IPA_REG_MAX ; i++) {
-		if (!ipahal_reg_objs[ipahal_ctx->hw_type][i].en_print)
+		reg = &(ipahal_reg_objs[ipahal_ctx->hw_type][i]);
+
+		/* skip obsolete registers */
+		if (reg->offset == -1)
 			continue;
 
-		j = ipahal_reg_objs[ipahal_ctx->hw_type][i].n_start;
+		if (!reg->en_print)
+			continue;
 
-		if (j == ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end) {
+		j = reg->n_start;
+
+		if (j == reg->n_end) {
 			if (print_to_dmesg)
 				IPAHAL_DBG_REG("%s=0x%x\n",
 					ipahal_reg_name_str(i),
@@ -2413,7 +2674,7 @@ void ipahal_print_all_regs(bool print_to_dmesg)
 					ipahal_read_reg_n(i, j));
 		}
 
-		for (; j < ipahal_reg_objs[ipahal_ctx->hw_type][i].n_end; j++) {
+		for (; j < reg->n_end; j++) {
 			if (print_to_dmesg)
 				IPAHAL_DBG_REG("%s_%u=0x%x\n",
 					ipahal_reg_name_str(i),
@@ -2748,11 +3009,21 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V3_5;
 		bmsk =
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V3_5;
-	} else {
+	} else if (ipahal_ctx->hw_type <= IPA_HW_v4_1) {
 		shft =
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V4_0;
 		bmsk =
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V4_0;
+	} else if (ipahal_ctx->hw_type <= IPA_HW_v4_2) {
+		shft =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V4_2;
+		bmsk =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V4_2;
+	} else if (ipahal_ctx->hw_type <= IPA_HW_v4_5) {
+		shft =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V4_5;
+		bmsk =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V4_5;
 	}
 
 	if (ep_idx > (sizeof(valmask->val) * 8 - 1)) {

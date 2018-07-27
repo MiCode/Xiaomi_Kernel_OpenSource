@@ -146,6 +146,7 @@ struct gmu_dev_ops {
 			unsigned int arg1, unsigned int arg2);
 	int (*wait_for_lowest_idle)(struct adreno_device *);
 	int (*wait_for_gmu_idle)(struct adreno_device *);
+	bool (*gx_is_on)(struct adreno_device *);
 	int (*ifpc_store)(struct adreno_device *adreno_dev,
 			unsigned int val);
 	unsigned int (*ifpc_show)(struct adreno_device *adreno_dev);

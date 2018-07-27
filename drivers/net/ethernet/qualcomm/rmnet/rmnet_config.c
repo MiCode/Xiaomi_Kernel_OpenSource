@@ -52,10 +52,11 @@ static const struct nla_policy rmnet_policy[IFLA_RMNET_MAX + 2] = {
 	[IFLA_VLAN_EGRESS_QOS]	= { .len = sizeof(struct tcmsg) },
 };
 
-static int rmnet_is_real_dev_registered(const struct net_device *real_dev)
+int rmnet_is_real_dev_registered(const struct net_device *real_dev)
 {
 	return rcu_access_pointer(real_dev->rx_handler) == rmnet_rx_handler;
 }
+EXPORT_SYMBOL(rmnet_is_real_dev_registered);
 
 /* Needs rtnl lock */
 static struct rmnet_port*
@@ -104,7 +105,6 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 		kfree(port);
 		return -EBUSY;
 	}
-
 	/* hold on to real dev for MAP data */
 	dev_hold(real_dev);
 
@@ -416,6 +416,7 @@ struct rmnet_port *rmnet_get_port(struct net_device *real_dev)
 	else
 		return NULL;
 }
+EXPORT_SYMBOL(rmnet_get_port);
 
 struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 {
@@ -428,6 +429,7 @@ struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 
 	return NULL;
 }
+EXPORT_SYMBOL(rmnet_get_endpoint);
 
 int rmnet_add_bridge(struct net_device *rmnet_dev,
 		     struct net_device *slave_dev)
@@ -481,7 +483,7 @@ int rmnet_del_bridge(struct net_device *rmnet_dev,
 	return 0;
 }
 
-#ifdef CONFIG_QCOM_QMI_DFC
+#ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port)
 {
 	if (port)
@@ -545,6 +547,50 @@ void rmnet_init_qmi_pt(void *port, void *qmi)
 		((struct rmnet_port *)port)->qmi_info = qmi;
 }
 EXPORT_SYMBOL(rmnet_init_qmi_pt);
+
+void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
+{
+	struct rmnet_priv *priv;
+	struct rmnet_pcpu_stats *ps;
+	unsigned int cpu, start;
+
+	struct rmnet_endpoint *ep;
+	unsigned long bkt;
+
+	if (!port || !tx || !rx)
+		return;
+
+	*tx = 0;
+	*rx = 0;
+	hash_for_each(((struct rmnet_port *)port)->muxed_ep, bkt, ep, hlnode) {
+		priv = netdev_priv(ep->egress_dev);
+		for_each_possible_cpu(cpu) {
+			ps = per_cpu_ptr(priv->pcpu_stats, cpu);
+			do {
+				start = u64_stats_fetch_begin_irq(&ps->syncp);
+				*tx += ps->stats.tx_pkts;
+				*rx += ps->stats.rx_pkts;
+			} while (u64_stats_fetch_retry_irq(&ps->syncp, start));
+		}
+	}
+}
+EXPORT_SYMBOL(rmnet_get_packets);
+
+void  rmnet_set_powersave_format(void *port)
+{
+	if (!port)
+		return;
+	((struct rmnet_port *)port)->data_format |= RMNET_INGRESS_FORMAT_PS;
+}
+EXPORT_SYMBOL(rmnet_set_powersave_format);
+
+void  rmnet_clear_powersave_format(void *port)
+{
+	if (!port)
+		return;
+	((struct rmnet_port *)port)->data_format &= ~RMNET_INGRESS_FORMAT_PS;
+}
+EXPORT_SYMBOL(rmnet_clear_powersave_format);
 #endif
 
 /* Startup/Shutdown */

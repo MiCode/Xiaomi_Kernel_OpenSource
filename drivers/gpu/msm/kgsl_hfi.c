@@ -442,6 +442,27 @@ static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
 	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
+static int hfi_send_get_value(struct gmu_device *gmu,
+		struct hfi_get_value_req *req)
+{
+	struct hfi_get_value_cmd *cmd = &req->cmd;
+	struct pending_cmd ret_cmd;
+	struct hfi_get_value_reply_cmd *reply =
+		(struct hfi_get_value_reply_cmd *)ret_cmd.results;
+	int rc;
+
+	cmd->hdr = CMD_MSG_HDR(H2F_MSG_GET_VALUE, sizeof(*cmd));
+
+	rc = hfi_send_cmd(gmu, HFI_CMD_IDX, cmd, &ret_cmd);
+	if (rc)
+		return rc;
+
+	memset(&req->data, 0, sizeof(req->data));
+	memcpy(&req->data, &reply->data,
+			(MSG_HDR_GET_SIZE(reply->hdr) - 2) << 2);
+	return 0;
+}
+
 static int hfi_send_dcvstbl(struct gmu_device *gmu)
 {
 	struct hfi_dcvstable_cmd cmd = {
@@ -781,6 +802,16 @@ int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 	}
 	case H2F_MSG_START: {
 		struct hfi_start_cmd *cmd = data;
+
+		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
+	}
+	case H2F_MSG_GET_VALUE: {
+		return hfi_send_get_value(gmu, data);
+	}
+	case H2F_MSG_SET_VALUE: {
+		struct hfi_set_value_cmd *cmd = data;
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 

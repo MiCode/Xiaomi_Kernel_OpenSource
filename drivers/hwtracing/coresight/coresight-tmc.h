@@ -240,6 +240,7 @@ struct tmc_drvdata {
 	const char		*csr_name;
 	struct byte_cntr	*byte_cntr;
 	struct dma_iommu_mapping *iommu_mapping;
+	bool			force_reg_dump;
 };
 
 /* Generic functions */

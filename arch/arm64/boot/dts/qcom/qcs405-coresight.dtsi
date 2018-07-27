@@ -70,6 +70,7 @@
 		reg-names = "tmc-base", "bam-base";
 
 		arm,buffer-size = <0x400000>;
+		qcom,force-reg-dump;
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti0>;
@@ -100,6 +101,8 @@
 		coresight-name = "coresight-tmc-etf";
 		coresight-ctis = <&cti0 &cti0>;
 		arm,default-sink;
+		qcom,force-reg-dump;
+
 		coresight-csr = <&csr>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
@@ -270,14 +273,6 @@
 						<&audio_etm0_out_funnel_in1>;
 				};
 			};
-			port@2 {
-				reg = <4>;
-				funnel_in1_in_modem_etm0: endpoint {
-					slave-mode;
-					remote-endpoint =
-					<&modem_etm0_out_funnel_in1>;
-				};
-			};
 		};
 	};
 
@@ -317,10 +312,10 @@
 
 			port@2 {
 				reg = <4>;
-				funnel_in2_in_wlan_etm0: endpoint {
+				funnel_in2_in_modem_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
-					  <&wlan_etm0_out_funnel_in2>;
+					  <&modem_etm0_out_funnel_in2>;
 				};
 			};
 
@@ -594,7 +589,7 @@
 			};
 
 			port@1 {
-				reg = <1>;
+				reg = <0>;
 				funnel_qatb_in_tpda: endpoint {
 					slave-mode;
 					remote-endpoint =
@@ -612,6 +607,7 @@
 
 		coresight-name = "coresight-cti-cpu0";
 		cpu = <&CPU0>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -627,6 +623,7 @@
 
 		coresight-name = "coresight-cti-cpu1";
 		cpu = <&CPU1>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -642,6 +639,7 @@
 
 		coresight-name = "coresight-cti-cpu2";
 		cpu = <&CPU2>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -657,6 +655,7 @@
 
 		coresight-name = "coresight-cti-cpu3";
 		cpu = <&CPU3>;
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -916,20 +915,6 @@
 		};
 	};
 
-	modem_etm0 {
-		compatible = "qcom,coresight-remote-etm";
-
-		coresight-name = "coresight-modem-etm0";
-		qcom,inst-id = <2>;
-
-		port {
-			modem_etm0_out_funnel_in1: endpoint {
-				remote-endpoint =
-					<&funnel_in1_in_modem_etm0>;
-			};
-		};
-	};
-
 	audio_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
@@ -944,16 +929,16 @@
 		};
 	};
 
-	wlan_etm0 {
+	modem_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-name = "coresight-wlan-etm0";
+		coresight-name = "coresight-modem-etm0";
 		qcom,inst-id = <3>;
 
 		port{
-			wlan_etm0_out_funnel_in2: endpoint {
+			modem_etm0_out_funnel_in2: endpoint {
 				remote-endpoint =
-					<&funnel_in2_in_wlan_etm0>;
+					<&funnel_in2_in_modem_etm0>;
 			};
 		};
 	};

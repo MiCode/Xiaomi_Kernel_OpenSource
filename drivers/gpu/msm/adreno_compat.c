@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,7 +158,8 @@ int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 
 	switch (type) {
-	case KGSL_PROP_PWR_CONSTRAINT: {
+	case KGSL_PROP_PWR_CONSTRAINT:
+	case KGSL_PROP_L3_PWR_CONSTRAINT: {
 			struct kgsl_device_constraint_compat constraint32;
 			struct kgsl_device_constraint constraint;
 			struct kgsl_context *context;

@@ -102,6 +102,9 @@ struct msm_hsphy {
 	int			*param_override_seq;
 	int			param_override_seq_cnt;
 
+	void __iomem		*phy_rcal_reg;
+	u32			rcal_mask;
+
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
 	int			*emu_init_seq;
@@ -357,6 +360,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 	int ret;
+	u32 rcal_code = 0;
 
 	dev_dbg(uphy->dev, "%s\n", __func__);
 
@@ -393,7 +397,16 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
 
-	msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
+	if (phy->phy_rcal_reg) {
+		rcal_code = readl_relaxed(phy->phy_rcal_reg) & phy->rcal_mask;
+
+		dev_dbg(uphy->dev, "rcal_mask:%08x reg:%08x code:%08x\n",
+				phy->rcal_mask, phy->phy_rcal_reg, rcal_code);
+	}
+
+	/* Use external resistor for tuning if efuse is not programmed */
+	if (!rcal_code)
+		msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
 			RTUNE_SEL, RTUNE_SEL);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
@@ -510,6 +523,24 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		dev_err(dev, "ioremap failed\n");
 		ret = -ENODEV;
 		goto err_ret;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"phy_rcal_reg");
+	if (res) {
+		phy->phy_rcal_reg = devm_ioremap_nocache(dev,
+					res->start, resource_size(res));
+		if (IS_ERR(phy->phy_rcal_reg)) {
+			dev_err(dev, "couldn't ioremap phy_rcal_reg\n");
+			phy->phy_rcal_reg = NULL;
+		}
+		if (of_property_read_u32(dev->of_node,
+					"qcom,rcal-mask", &phy->rcal_mask)) {
+			dev_err(dev, "unable to read phy rcal mask\n");
+			phy->phy_rcal_reg = NULL;
+		}
+		dev_dbg(dev, "rcal_mask:%08x reg:%08x\n", phy->rcal_mask,
+				phy->phy_rcal_reg);
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,

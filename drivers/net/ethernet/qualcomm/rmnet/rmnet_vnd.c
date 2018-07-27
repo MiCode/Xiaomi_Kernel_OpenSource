@@ -29,7 +29,7 @@
 
 /* RX/TX Fixup */
 
-void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
+void rmnet_vnd_rx_fixup(struct net_device *dev, u32 skb_len)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_pcpu_stats *pcpu_ptr;
@@ -38,11 +38,11 @@ void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
 
 	u64_stats_update_begin(&pcpu_ptr->syncp);
 	pcpu_ptr->stats.rx_pkts++;
-	pcpu_ptr->stats.rx_bytes += skb->len;
+	pcpu_ptr->stats.rx_bytes += skb_len;
 	u64_stats_update_end(&pcpu_ptr->syncp);
 }
 
-void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
+void rmnet_vnd_tx_fixup(struct net_device *dev, u32 skb_len)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_pcpu_stats *pcpu_ptr;
@@ -51,7 +51,7 @@ void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
 
 	u64_stats_update_begin(&pcpu_ptr->syncp);
 	pcpu_ptr->stats.tx_pkts++;
-	pcpu_ptr->stats.tx_bytes += skb->len;
+	pcpu_ptr->stats.tx_bytes += skb_len;
 	u64_stats_update_end(&pcpu_ptr->syncp);
 }
 

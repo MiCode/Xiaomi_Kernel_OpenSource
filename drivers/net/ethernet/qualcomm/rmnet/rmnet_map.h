@@ -12,6 +12,7 @@
 
 #ifndef _RMNET_MAP_H_
 #define _RMNET_MAP_H_
+#include "rmnet_config.h"
 
 struct rmnet_map_control_command {
 	u8  command_name;
@@ -131,6 +132,9 @@ struct rmnet_map_dl_ind {
 #define RMNET_MAP_GET_LENGTH(Y) (ntohs(((struct rmnet_map_header *) \
 					(Y)->data)->pkt_len))
 
+#define RMNET_MAP_DEAGGR_SPACING  64
+#define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
+
 #define RMNET_MAP_COMMAND_REQUEST     0
 #define RMNET_MAP_COMMAND_ACK         1
 #define RMNET_MAP_COMMAND_UNSUPPORTED 2
@@ -151,7 +155,9 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
-int rmnet_map_flow_command(struct sk_buff *skb, struct rmnet_port *port);
+int rmnet_map_flow_command(struct sk_buff *skb,
+			   struct rmnet_port *port,
+			   bool rmnet_perf);
 void rmnet_map_cmd_init(struct rmnet_port *port);
 int rmnet_map_dl_ind_register(struct rmnet_port *port,
 			      struct rmnet_map_dl_ind *dl_ind);

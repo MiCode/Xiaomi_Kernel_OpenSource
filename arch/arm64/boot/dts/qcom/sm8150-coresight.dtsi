@@ -1771,8 +1771,7 @@
 			"npu_core_clk_src",
 			"npu_core_cti_clk";
 
-		qcom,tpdm-clks = "apb_pclk",
-			"gcc_npu_trig_clk",
+		qcom,tpdm-clks = "gcc_npu_trig_clk",
 			"gcc_npu_at_clk",
 			"npu_core_apb_clk",
 			"npu_core_atb_clk",
@@ -1782,8 +1781,6 @@
 
 		vdd-supply = <&npu_core_gdsc>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
-		qcom,proxy-reg-names ="vdd", "vdd_cx";
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		qcom,tpdm-regs  = "vdd", "vdd_cx";
 
 		port{

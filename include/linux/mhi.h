@@ -205,12 +205,11 @@ struct mhi_controller {
 	spinlock_t wlock;
 
 	/* debug counters */
-	u32 M0, M1, M2, M3;
+	u32 M0, M2, M3;
 
 	/* worker for different state transitions */
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
-	struct work_struct m1_worker;
 	struct work_struct syserr_worker;
 	wait_queue_head_t state_event;
 

@@ -738,7 +738,14 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	if (rc && dp->power_on)
 		dp_display_clean(dp);
 
-	if (!dp->usbpd->alt_mode_cfg_done)
+	/*
+	 * De-initialize the display core only if the display controller has
+	 * been turned off either through the DRM bridge disable call or
+	 * through the error handling code. This ensures that the power
+	 * resource vote is still present in cases when the bridge disable is
+	 * delayed.
+	 */
+	if (!dp->power_on && !dp->usbpd->alt_mode_cfg_done)
 		dp_display_host_deinit(dp);
 
 	mutex_unlock(&dp->session_lock);
@@ -1315,6 +1322,10 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 
 stream_setup:
 	rc = dp_display_stream_enable(dp, panel);
+	if (rc && (dp->active_stream_cnt == 0)) {
+		dp->ctrl->off(dp->ctrl);
+		dp->power_on = false;
+	}
 
 end:
 	mutex_unlock(&dp->session_lock);
@@ -1442,19 +1453,23 @@ end:
 static void dp_display_stream_disable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
-	dp->ctrl->stream_off(dp->ctrl, dp_panel);
+	if (!dp->active_stream_cnt) {
+		pr_err("invalid active_stream_cnt (%d)\n");
+		return;
+	}
 
+	pr_debug("stream_id=%d, active_stream_cnt=%d\n",
+			dp_panel->stream_id, dp->active_stream_cnt);
+
+	dp->ctrl->stream_off(dp->ctrl, dp_panel);
 	dp->active_panels[dp_panel->stream_id] = NULL;
 	dp->active_stream_cnt--;
-
-	dp_panel->deinit(dp_panel);
-
-	pr_debug("mst stream disabled");
 }
 
 static int dp_display_disable(struct dp_display *dp_display, void *panel)
 {
-	struct dp_display_private *dp;
+	struct dp_display_private *dp = NULL;
+	struct dp_panel *dp_panel = NULL;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1462,18 +1477,21 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	dp_panel = panel;
 
 	mutex_lock(&dp->session_lock);
-
-	dp_display_stream_disable(dp, panel);
 
 	if (!dp->power_on || !dp->core_initialized) {
 		pr_debug("Link already powered off, return\n");
 		goto end;
 	}
 
-	if (dp->active_stream_cnt)
+	dp_display_stream_disable(dp, dp_panel);
+
+	if (dp->active_stream_cnt) {
+		pr_debug("active stream present\n");
 		goto end;
+	}
 
 	dp->ctrl->off(dp->ctrl);
 
@@ -1490,6 +1508,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 
 	dp->power_on = false;
 end:
+	dp_panel->deinit(dp_panel);
 	mutex_unlock(&dp->session_lock);
 	return 0;
 }

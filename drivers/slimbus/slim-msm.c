@@ -1621,8 +1621,11 @@ static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
 		return rc;
 	}
 
-	rc = qmi_txn_wait(&txn, SLIM_QMI_RESP_TOUT);
-	if (rc < 0) {
+	rc = wait_for_completion_timeout(&txn.completion,
+					SLIM_QMI_RESP_TOUT);
+	qmi_txn_cancel(&txn);
+	if (!rc) {
+		rc = -ETIMEDOUT;
 		SLIM_ERR(dev, "%s: QMI TXN wait failed: %d\n", __func__, rc);
 		return rc;
 	}

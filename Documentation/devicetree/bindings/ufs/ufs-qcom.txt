@@ -18,7 +18,10 @@ Required properties:
 		        "qcom,ufs-phy-qmp-v3-falcon" for phy support
 			 for msmfalcon
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
-			 present on MSM8996 chipset.
+			 present on MSM8996 chipset
+			"qcom,ufs-phy-qmp-v3-660" for V3 phy support on
+			 sm6150 platform
+
 - reg               : should contain PHY register address space (mandatory),
 - reg-names         : indicates various resources passed to driver (via reg proptery) by name.
                       Required "reg-names" is "phy_mem".
