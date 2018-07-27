@@ -979,12 +979,17 @@ static int __iommu_map_sg_attrs(struct device *dev, struct scatterlist *sgl,
 				unsigned long attrs)
 {
 	bool coherent = is_dma_coherent(dev, attrs);
+	int ret;
+
+	ret =  iommu_dma_map_sg(dev, sgl, nelems,
+				dma_info_to_prot(dir, coherent, attrs));
+	if (!ret)
+		return ret;
 
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		__iommu_sync_sg_for_device(dev, sgl, nelems, dir);
 
-	return iommu_dma_map_sg(dev, sgl, nelems,
-				dma_info_to_prot(dir, coherent, attrs));
+	return ret;
 }
 
 static void __iommu_unmap_sg_attrs(struct device *dev,
