@@ -448,6 +448,22 @@ struct sde_hw_ctl_ops {
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm, struct sde_hw_stage_cfg *cfg);
 
+	/**
+	 * Get all the sspp staged on a layer mixer
+	 * @ctx       : ctl path ctx pointer
+	 * @lm        : layer mixer enumeration
+	 * @info      : array address to populate connected sspp index info
+	 * @info_max_cnt : maximum sspp info elements based on array size
+	 * @Return: count of sspps info  elements populated
+	 */
+	u32 (*get_staged_sspp)(struct sde_hw_ctl *ctx, enum sde_lm lm,
+		struct sde_sspp_index_info *info, u32 info_max_cnt);
+
+	/**
+	 * Setup the stream buffer config like rotation mode
+	 * @ctx       : ctl path ctx pointer
+	 * Returns: 0 on success or -error
+	 */
 	int (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_sbuf_cfg *cfg);
 

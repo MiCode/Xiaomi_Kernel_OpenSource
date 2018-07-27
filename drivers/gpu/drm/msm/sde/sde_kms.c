@@ -2395,6 +2395,52 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 }
 
+static int _sde_kms_update_planes_for_cont_splash(struct sde_kms *sde_kms,
+		struct sde_splash_display *splash_display,
+		struct drm_crtc *crtc)
+{
+	struct msm_drm_private *priv;
+	struct drm_plane *plane;
+	struct sde_splash_mem *splash;
+	enum sde_sspp plane_id;
+	bool is_virtual;
+	int i, j;
+
+	if (!sde_kms || !splash_display || !crtc) {
+		SDE_ERROR("invalid input args\n");
+		return -EINVAL;
+	}
+
+	priv = sde_kms->dev->dev_private;
+	for (i = 0; i < priv->num_planes; i++) {
+		plane = priv->planes[i];
+		plane_id = sde_plane_pipe(plane);
+		is_virtual = is_sde_plane_virtual(plane);
+		splash = splash_display->splash;
+
+		for (j = 0; j < splash_display->pipe_cnt; j++) {
+			if ((plane_id != splash_display->pipes[j].sspp) ||
+					(splash_display->pipes[j].is_virtual
+					 != is_virtual))
+				continue;
+
+			if (splash && sde_plane_validate_src_addr(plane,
+						splash->splash_buf_base,
+						splash->splash_buf_size)) {
+				SDE_ERROR("invalid adr on pipe:%d crtc:%d\n",
+						plane_id, crtc->base.id);
+			}
+
+			plane->crtc = crtc;
+			plane->state->crtc = crtc;
+			SDE_DEBUG("set crtc:%d for plane:%d rect:%d\n",
+					crtc->base.id, plane_id, is_virtual);
+		}
+	}
+
+	return 0;
+}
+
 static int sde_kms_cont_splash_config(struct msm_kms *kms)
 {
 	void *display;
@@ -2541,6 +2587,12 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		if (sde_conn && sde_conn->ops.cont_splash_config)
 			sde_conn->ops.cont_splash_config(sde_conn->display);
 
+		rc = _sde_kms_update_planes_for_cont_splash(sde_kms,
+				splash_display, crtc);
+		if (rc) {
+			SDE_ERROR("Failed: updating plane status rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return rc;

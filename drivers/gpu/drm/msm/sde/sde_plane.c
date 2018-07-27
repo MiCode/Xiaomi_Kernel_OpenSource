@@ -3399,6 +3399,28 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 	}
 }
 
+int sde_plane_validate_src_addr(struct drm_plane *plane,
+		unsigned long base_addr, u32 size)
+{
+	int ret =  -EINVAL;
+	u32 addr;
+	struct sde_plane *psde = to_sde_plane(plane);
+
+	if (!psde || !base_addr || !size) {
+		SDE_ERROR_PLANE(psde, "invalid arguments\n");
+		return ret;
+	}
+
+	if (psde->pipe_hw && psde->pipe_hw->ops.get_sourceaddress) {
+		addr = psde->pipe_hw->ops.get_sourceaddress(psde->pipe_hw,
+				is_sde_plane_virtual(plane));
+		if ((addr >= base_addr) && (addr < (base_addr + size)))
+			ret = 0;
+	}
+
+	return ret;
+}
+
 static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 		struct sde_plane_state *pstate,
 		const struct sde_format *fmt,

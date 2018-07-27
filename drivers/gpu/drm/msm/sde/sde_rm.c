@@ -1209,6 +1209,17 @@ static int _sde_rm_get_hw_blk_for_cont_splash(struct sde_rm *rm,
 		SDE_DEBUG("lm_cnt=%d lm_reg[%d]=0x%x\n", splash_display->lm_cnt,
 				iter_lm.blk->id - LM_0, lm_reg);
 
+		if (ctl->ops.get_staged_sspp &&
+				ctl->ops.get_staged_sspp(ctl, iter_lm.blk->id,
+					&splash_display->pipes[
+					splash_display->pipe_cnt], 1)) {
+			splash_display->pipe_cnt++;
+		} else {
+			SDE_ERROR("no pipe detected on LM-%d\n",
+					iter_lm.blk->id - LM_0);
+			return 0;
+		}
+
 		pp = to_sde_hw_pingpong(iter_pp.blk->hw);
 		if (pp && pp->ops.get_dsc_status &&
 				pp->ops.get_dsc_status(pp)) {

@@ -568,18 +568,30 @@ struct sde_splash_mem {
 };
 
 /**
+ * struct sde_sspp_index_info - Struct containing sspp identifier info
+ * @sspp:	Enum value indicates sspp id
+ * @is_virtual: Boolean to identify if virtual or base
+ */
+struct sde_sspp_index_info {
+	enum sde_sspp sspp;
+	bool is_virtual;
+};
+
+/**
  * struct sde_splash_data - Struct contains details of resources and hw blocks
  * used in continuous splash on a specific display.
  * @cont_splash_enabled:  Stores the cont_splash status (enabled/disabled)
  * @single_flush_en: Stores if the single flush is enabled
- * @encoder:	Pointer points to the drm encoder object used for this display
+ * @encoder:	Pointer to the drm encoder object used for this display
  * @splash:     Pointer to struct sde_splash_mem used for this display
  * @ctl_ids:	Stores the valid MDSS ctl block ids for the current mode
  * @lm_ids:	Stores the valid MDSS layer mixer block ids for the current mode
  * @dsc_ids:	Stores the valid MDSS DSC block ids for the current mode
+ * @pipes:      Array of sspp info detected on this display
  * @ctl_cnt:    Stores the active number of MDSS "top" blks of the current mode
  * @lm_cnt:	Stores the active number of MDSS "LM" blks for the current mode
  * @dsc_cnt:	Stores the active number of MDSS "dsc" blks for the current mode
+ * @pipe_cnt:	Stores the active number of "sspp" blks connected
  */
 struct sde_splash_display {
 	bool cont_splash_enabled;
@@ -589,9 +601,11 @@ struct sde_splash_display {
 	u8 ctl_ids[MAX_DATA_PATH_PER_DSIPLAY];
 	u8 lm_ids[MAX_DATA_PATH_PER_DSIPLAY];
 	u8 dsc_ids[MAX_DATA_PATH_PER_DSIPLAY];
+	struct sde_sspp_index_info pipes[MAX_DATA_PATH_PER_DSIPLAY];
 	u8 ctl_cnt;
 	u8 lm_cnt;
 	u8 dsc_cnt;
+	u8 pipe_cnt;
 };
 
 /**
