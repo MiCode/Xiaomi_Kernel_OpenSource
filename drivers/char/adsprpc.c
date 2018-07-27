@@ -236,6 +236,7 @@ struct fastrpc_ctx_lst {
 struct fastrpc_smmu {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
+	const char *dev_name;
 	int cb;
 	int enabled;
 	int faults;
@@ -3505,12 +3506,13 @@ static int fastrpc_cb_probe(struct device *dev)
 	dma_addr_t start = 0x80000000;
 	int err = 0;
 	unsigned int sharedcb_count = 0, cid, i, j;
-	int secure_vmid = VMID_CP_PIXEL;
+	int secure_vmid = VMID_CP_PIXEL, cache_flush = 1;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
 					 "label", NULL)));
 	if (err)
 		goto bail;
+
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
@@ -3526,10 +3528,13 @@ static int fastrpc_cb_probe(struct device *dev)
 	if (err)
 		goto bail;
 
-	VERIFY(err, !of_parse_phandle_with_args(dev->of_node, "iommus",
-						"#iommu-cells", 0, &iommuspec));
-	if (err)
+	err = of_parse_phandle_with_args(dev->of_node, "iommus",
+						"#iommu-cells", 0, &iommuspec);
+	if (err) {
+		pr_err("adsprpc: %s: parsing iommu arguments failed for %s with err %d",
+					__func__, dev_name(dev), err);
 		goto bail;
+	}
 	sess = &chan->session[chan->sesscount];
 	sess->used = 0;
 	sess->smmu.coherent = of_property_read_bool(dev->of_node,
@@ -3554,19 +3559,38 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
 						start, 0x78000000)));
-	if (err)
+	if (err) {
+		pr_err("adsprpc: %s: creating iommu mapping failed for %s, ret %pK",
+				__func__, dev_name(dev), sess->smmu.mapping);
 		goto bail;
+	}
 
-	if (sess->smmu.secure)
-		iommu_domain_set_attr(sess->smmu.mapping->domain,
-				DOMAIN_ATTR_SECURE_VMID,
-				&secure_vmid);
-
-	VERIFY(err, !arm_iommu_attach_device(dev, sess->smmu.mapping));
-	if (err)
+	err = iommu_domain_set_attr(sess->smmu.mapping->domain,
+			DOMAIN_ATTR_CB_STALL_DISABLE, &cache_flush);
+	if (err) {
+		pr_err("adsprpc: %s: setting CB stall iommu attribute failed for %s with err %d",
+			__func__, dev_name(dev), err);
 		goto bail;
+	}
+	if (sess->smmu.secure) {
+		err = iommu_domain_set_attr(sess->smmu.mapping->domain,
+				DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
+		if (err) {
+			pr_err("adsprpc: %s: setting secure iommu attribute failed for %s with err %d",
+				__func__, dev_name(dev), err);
+			goto bail;
+		}
+	}
+
+	err = arm_iommu_attach_device(dev, sess->smmu.mapping);
+	if (err) {
+		pr_err("adsprpc: %s: attaching iommu device failed for %s with err %d",
+			__func__, dev_name(dev), err);
+		goto bail;
+	}
 
 	sess->smmu.dev = dev;
+	sess->smmu.dev_name = dev_name(dev);
 	sess->smmu.enabled = 1;
 	if (!sess->smmu.dev->dma_parms)
 		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
@@ -3575,8 +3599,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
 
 	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
-		VERIFY(err, !of_property_read_u32(dev->of_node, "shared-cb",
-				&sharedcb_count));
+		err = of_property_read_u32(dev->of_node, "shared-cb",
+				&sharedcb_count);
 		if (err)
 			goto bail;
 		if (sharedcb_count > 0) {
