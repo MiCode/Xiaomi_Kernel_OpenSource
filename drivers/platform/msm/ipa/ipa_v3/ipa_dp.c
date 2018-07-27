@@ -3913,8 +3913,10 @@ static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
 		sys->ep->bytes_xfered_valid = false;
 		idx++;
 	}
-	if (expected_num == idx)
+	if (expected_num == idx) {
+		*actual_num = idx;
 		return GSI_STATUS_SUCCESS;
+	}
 
 	ret = gsi_poll_n_channel(sys->ep->gsi_chan_hdl,
 		xfer_notify, expected_num - idx, &poll_num);
@@ -3923,6 +3925,7 @@ static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
 			*actual_num = idx;
 			return GSI_STATUS_SUCCESS;
 		} else {
+			*actual_num = 0;
 			return ret;
 		}
 	} else if (ret != GSI_STATUS_SUCCESS) {
@@ -3930,7 +3933,7 @@ static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
 			*actual_num = idx;
 			return GSI_STATUS_SUCCESS;
 		}
-
+		*actual_num = 0;
 		IPAERR("Poll channel err: %d\n", ret);
 		return ret;
 	}
@@ -3985,8 +3988,13 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	while (remain_aggr_weight > 0 &&
 			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
-		ret = ipa_poll_gsi_n_pkt(ep->sys, mem_info,
-			remain_aggr_weight, &num);
+		if (ipa3_ctx->enable_napi_chain) {
+			ret = ipa_poll_gsi_n_pkt(ep->sys, mem_info,
+				remain_aggr_weight, &num);
+		} else {
+			ret = ipa_poll_gsi_n_pkt(ep->sys, mem_info,
+				1, &num);
+		}
 		if (ret)
 			break;
 

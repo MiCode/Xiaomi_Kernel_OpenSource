@@ -5206,6 +5206,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/* vote for svs2 on bootup */
 	ipa3_ctx->curr_ipa_clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
 
+	/* Enable ipa3_ctx->enable_napi_chain */
+	ipa3_ctx->enable_napi_chain = 1;
+
 	/* enable IPA clocks explicitly to allow the initialization */
 	ipa3_enable_clks();
 
@@ -5963,7 +5966,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,wlan-ce-db-over-pcie");
 	IPADBG("Is wdi_over_pcie ? (%s)\n",
-		ipa3_ctx->wdi_over_pcie ? "Yes":"No");
+		ipa_drv_res->wdi_over_pcie ? "Yes":"No");
 
 	/*
 	 * If we're on emulator, get its interrupt controller's mem

@@ -46,6 +46,9 @@ static unsigned long pressure_max = 90;
 module_param_named(pressure_min, pressure_min, ulong, 0644);
 module_param_named(pressure_max, pressure_max, ulong, 0644);
 
+static short min_score_adj = 360;
+module_param_named(min_score_adj, min_score_adj, short, 0644);
+
 /*
  * Scheduling process reclaim workqueue unecessarily
  * when the reclaim efficiency is low does not make
@@ -112,7 +115,6 @@ static void swap_fn(struct work_struct *work)
 	int i;
 	int tasksize;
 	int total_sz = 0;
-	short min_score_adj = 360;
 	int total_scan = 0;
 	int total_reclaimed = 0;
 	int nr_to_reclaim;

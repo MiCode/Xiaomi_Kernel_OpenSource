@@ -183,7 +183,7 @@ u32 get_frame_size_p010(int plane, u32 height, u32 width);
 struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 		struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
 struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
-		struct msm_vidc_inst *inst, u32 *planes);
+		struct msm_vidc_inst *inst, u32 type, u32 *planes);
 struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb2);
 void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
@@ -205,9 +205,9 @@ bool msm_comm_compare_vb2_plane(struct msm_vidc_inst *inst,
 bool msm_comm_compare_vb2_planes(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf, struct vb2_buffer *vb2);
 bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
-		u32 *planes, u32 i);
+		u32 type, u32 *planes, u32 i);
 bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
-		u32 *planes);
+		u32 type, u32 *planes);
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,

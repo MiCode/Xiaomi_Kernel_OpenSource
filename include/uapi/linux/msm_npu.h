@@ -37,8 +37,19 @@
 #define MSM_NPU_EXEC_NETWORK \
 	_IOWR(MSM_NPU_IOCTL_MAGIC, 6, struct msm_npu_exec_network_ioctl)
 
+/* load network v2 */
+#define MSM_NPU_LOAD_NETWORK_V2 \
+	_IOWR(MSM_NPU_IOCTL_MAGIC, 7, struct msm_npu_load_network_ioctl_v2)
+
+/* exec network v2 */
+#define MSM_NPU_EXEC_NETWORK_V2 \
+	_IOWR(MSM_NPU_IOCTL_MAGIC, 8, struct msm_npu_exec_network_ioctl_v2)
+
 #define MSM_NPU_MAX_INPUT_LAYER_NUM 8
 #define MSM_NPU_MAX_OUTPUT_LAYER_NUM 4
+#define MSM_NPU_MAX_PATCH_LAYER_NUM (MSM_NPU_MAX_INPUT_LAYER_NUM +\
+	MSM_NPU_MAX_OUTPUT_LAYER_NUM)
+#define MSM_NPU_MAX_STATS_BUF_SIZE 65536
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -68,6 +79,28 @@ struct msm_npu_layer {
 	uint32_t buf_size;
 	/* physical address */
 	uint64_t buf_phys_addr;
+};
+
+struct msm_npu_patch_info_v2 {
+	/* patch value */
+	uint32_t value;
+	/* chunk id */
+	uint32_t chunk_id;
+	/* instruction size in bytes */
+	uint32_t instruction_size_in_bytes;
+	/* variable size in bits */
+	uint32_t variable_size_in_bits;
+	/* shift value in bits */
+	uint32_t shift_value_in_bits;
+	/* location offset */
+	uint32_t loc_offset;
+};
+
+struct msm_npu_patch_buf_info {
+	/* physical address to be patched */
+	uint64_t buf_phys_addr;
+	/* buffer id */
+	uint32_t buf_id;
 };
 
 /* -------------------------------------------------------------------------
@@ -116,6 +149,33 @@ struct msm_npu_load_network_ioctl {
 	uint32_t perf_mode;
 };
 
+struct msm_npu_load_network_ioctl_v2 {
+	/* physical address */
+	uint64_t buf_phys_addr;
+	/* patch info(v2) for all input/output layers */
+	uint64_t patch_info;
+	/* buffer ion handle */
+	int32_t buf_ion_hdl;
+	/* buffer size */
+	uint32_t buf_size;
+	/* first block size */
+	uint32_t first_block_size;
+	/* load flags */
+	uint32_t flags;
+	/* network handle */
+	uint32_t network_hdl;
+	/* priority */
+	uint32_t priority;
+	/* perf mode */
+	uint32_t perf_mode;
+	/* number of layers in the network */
+	uint32_t num_layers;
+	/* number of layers to be patched */
+	uint32_t patch_info_num;
+	/* reserved */
+	uint32_t reserved;
+};
+
 struct msm_npu_unload_network_ioctl {
 	/* network handle */
 	uint32_t network_hdl;
@@ -138,6 +198,25 @@ struct msm_npu_exec_network_ioctl {
 	uint32_t async;
 	/* reserved */
 	uint32_t flags;
+};
+
+struct msm_npu_exec_network_ioctl_v2 {
+	/* stats buffer to be filled with execution stats */
+	uint64_t stats_buf_addr;
+	/* patch buf info for both input and output layers */
+	uint64_t patch_buf_info;
+	/* network handle */
+	uint32_t network_hdl;
+	/* asynchronous execution */
+	uint32_t async;
+	/* execution flags */
+	uint32_t flags;
+	/* stats buf size allocated */
+	uint32_t stats_buf_size;
+	/* number of layers to be patched */
+	uint32_t patch_buf_info_num;
+	/* reserved */
+	uint32_t reserved;
 };
 
 #endif /*_UAPI_MSM_NPU_H_*/

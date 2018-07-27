@@ -29,3 +29,8 @@
 &smb1351_otg_supply {
 	status = "ok";
 };
+
+&usb2s {
+	extcon = <&smb1351_otg_supply>;
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};

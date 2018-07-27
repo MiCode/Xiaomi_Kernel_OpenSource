@@ -38,7 +38,7 @@ void *ion_heap_map_kernel(struct ion_heap *heap,
 	struct page **tmp = pages;
 
 	if (!pages)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	if (buffer->flags & ION_FLAG_CACHED)
 		pgprot = PAGE_KERNEL;
@@ -370,48 +370,3 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	return heap;
 }
 EXPORT_SYMBOL(ion_heap_create);
-
-void ion_heap_destroy(struct ion_heap *heap)
-{
-	int heap_type;
-
-	if (!heap)
-		return;
-
-	heap_type = heap->type;
-	switch (heap_type) {
-	case ION_HEAP_TYPE_SYSTEM_CONTIG:
-		ion_system_contig_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_SYSTEM:
-		ion_system_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_CARVEOUT:
-		ion_carveout_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_CHUNK:
-		ion_chunk_heap_destroy(heap);
-		break;
-#ifdef CONFIG_CMA
-	case ION_HEAP_TYPE_SECURE_DMA:
-		ion_secure_cma_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_DMA:
-		ion_cma_heap_destroy(heap);
-		break;
-	case (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA:
-		ion_cma_secure_heap_destroy(heap);
-		break;
-#endif
-	case (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE:
-		ion_system_secure_heap_destroy(heap);
-		break;
-	case (enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT:
-		ion_secure_carveout_heap_destroy(heap);
-		break;
-	default:
-		pr_err("%s: Invalid heap type %d\n", __func__,
-		       heap->type);
-	}
-}
-EXPORT_SYMBOL(ion_heap_destroy);

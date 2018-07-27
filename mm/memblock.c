@@ -1488,6 +1488,11 @@ static phys_addr_t __init_memblock __find_max_addr(phys_addr_t limit)
 	return max_addr;
 }
 
+phys_addr_t __init_memblock memblock_max_addr(phys_addr_t limit)
+{
+	return __find_max_addr(limit);
+}
+
 void __init memblock_enforce_memory_limit(phys_addr_t limit)
 {
 	phys_addr_t max_addr = (phys_addr_t)ULLONG_MAX;

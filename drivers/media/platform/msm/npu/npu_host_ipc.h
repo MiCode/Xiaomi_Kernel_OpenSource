@@ -32,8 +32,12 @@
 #define NPU_IPC_CMD_CONFIG_PERFORMANCE  0x00000005
 #define NPU_IPC_CMD_CONFIG_DEBUG        0x00000006
 #define NPU_IPC_CMD_SHUTDOWN            0x00000007
-/* npu_ipc_cmd_loopback_packet_t */
+/* ipc_cmd_loopback_packet */
 #define NPU_IPC_CMD_LOOPBACK            0x00000008
+/* ipc_cmd_load_packet_v2_t */
+#define NPU_IPC_CMD_LOAD_V2             0x00000009
+/* ipc_cmd_execute_packet_v2 */
+#define NPU_IPC_CMD_EXECUTE_V2          0x0000000A
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -47,8 +51,10 @@
 #define NPU_IPC_MSG_EXECUTE_DONE        0x00010003
 /* ipc_msg_event_notify_pkt */
 #define NPU_IPC_MSG_EVENT_NOTIFY        0x00010004
-/* npu_ipc_msg_loopback_packet_t */
+/* ipc_msg_loopback_pkt */
 #define NPU_IPC_MSG_LOOPBACK_DONE       0x00010005
+/* ipc_msg_execute_pkt_v2 */
+#define NPU_IPC_MSG_EXECUTE_V2_DONE     0x00010006
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -154,6 +160,31 @@ struct npu_aco_buffer {
 };
 
 /*
+ * ACO Buffer V2 definition
+ */
+struct npu_aco_buffer_v2 {
+	/*
+	 * used to track if previous network is the same and already loaded,
+	 * we can save a dma
+	 */
+	uint32_t network_id;
+	/*
+	 * size of header + first chunk ACO buffer -
+	 * this saves a dma by dmaing both header and first chunk
+	 */
+	uint32_t buf_size;
+	/*
+	 * SMMU 32-bit mapped address that the DMA engine can read -
+	 * uses lower 32 bits
+	 */
+	uint32_t address;
+	/*
+	 * number of layers in the network
+	 */
+	uint32_t num_layers;
+};
+
+/*
  * ACO Patch Parameters
  */
 struct npu_patch_tuple {
@@ -162,6 +193,18 @@ struct npu_patch_tuple {
 	uint16_t instruction_size_in_bytes;
 	uint16_t variable_size_in_bits;
 	uint16_t shift_value_in_bits;
+	uint32_t loc_offset;
+};
+
+/*
+ * ACO Patch Tuple V2
+ */
+struct npu_patch_tuple_v2 {
+	uint32_t value;
+	uint32_t chunk_id;
+	uint32_t instruction_size_in_bytes;
+	uint32_t variable_size_in_bits;
+	uint32_t shift_value_in_bits;
 	uint32_t loc_offset;
 };
 
@@ -179,11 +222,21 @@ struct ipc_cmd_load_pkt {
 };
 
 /*
+ * LOAD command packet V2 definition
+ */
+struct ipc_cmd_load_pkt_v2 {
+	struct ipc_cmd_header_pkt header;
+	struct npu_aco_buffer_v2 buf_pkt;
+	uint32_t num_patch_params;
+	struct npu_patch_tuple_v2 patch_params[0];
+};
+
+/*
  * UNLOAD command packet definition
  */
 struct ipc_cmd_unload_pkt {
 	struct ipc_cmd_header_pkt header;
-	uint32_t aco_hdl;
+	uint32_t network_hdl;
 };
 
 /*
@@ -192,7 +245,22 @@ struct ipc_cmd_unload_pkt {
 struct ipc_cmd_execute_pkt {
 	struct ipc_cmd_header_pkt header;
 	struct npu_patch_params patch_params;
-	uint32_t aco_hdl;
+	uint32_t network_hdl;
+};
+
+struct npu_patch_params_v2 {
+	uint32_t value;
+	uint32_t id;
+};
+
+/*
+ * Execute packet V2 definition
+ */
+struct ipc_cmd_execute_pkt_v2 {
+	struct ipc_cmd_header_pkt header;
+	uint32_t network_hdl;
+	uint32_t num_patch_params;
+	struct npu_patch_params_v2 patch_params[0];
 };
 
 /*
@@ -208,22 +276,21 @@ struct ipc_cmd_loopback_pkt {
  */
 struct ipc_msg_load_pkt {
 	struct ipc_msg_header_pkt header;
-	uint32_t aco_hdl;
+	uint32_t network_hdl;
 };
 
 /*
- * UNLOAD response packet definition -- ipc_msg_header_pkt
+ * UNLOAD response packet definition
  */
+struct ipc_msg_unload_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t network_hdl;
+};
 
 /*
  * Layer Stats information returned back during EXECUTE_DONE response
  */
 struct ipc_layer_stats {
-	/*
-	 * layer id
-	 * 8 bits enough for the current networks supporting
-	 */
-	uint8_t layer_id;
 	/*
 	 * hardware tick count per layer
 	 */
@@ -234,7 +301,7 @@ struct ipc_execute_layer_stats {
 	/*
 	 * total number of layers associated with the execution
 	 */
-	uint8_t total_num_layers;
+	uint32_t total_num_layers;
 	/*
 	 * pointer to each layer stats
 	 */
@@ -267,6 +334,16 @@ struct ipc_execute_stats {
 struct ipc_msg_execute_pkt {
 	struct ipc_msg_header_pkt header;
 	struct ipc_execute_stats stats;
+	uint32_t network_hdl;
+};
+
+/*
+ * EXECUTE V2 response packet definition
+ */
+struct ipc_msg_execute_pkt_v2 {
+	struct ipc_msg_header_pkt header;
+	uint32_t network_hdl;
+	uint32_t stats_data[0];
 };
 
 /*

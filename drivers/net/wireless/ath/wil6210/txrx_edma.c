@@ -26,65 +26,7 @@
 #include "txrx.h"
 #include "trace.h"
 
-/* limit status ring size in range [ring size..max ring size] */
-#define WIL_SRING_SIZE_ORDER_MIN	(WIL_RING_SIZE_ORDER_MIN)
-#define WIL_SRING_SIZE_ORDER_MAX	(WIL_RING_SIZE_ORDER_MAX)
-/* RX sring order should be bigger than RX ring order */
-#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(11)
-#define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(12)
-#define WIL_RX_BUFF_ARR_SIZE_DEFAULT (1536)
 #define WIL_EDMA_MAX_DATA_OFFSET (2)
-
-bool use_compressed_rx_status = true;
-module_param(use_compressed_rx_status, bool, 0444);
-MODULE_PARM_DESC(use_compressed_rx_status, " Use compressed or extended Rx status message. Default: true");
-
-bool use_rx_hw_reordering = true;
-module_param(use_rx_hw_reordering, bool, 0444);
-MODULE_PARM_DESC(use_rx_hw_reordering, " RX Packet reordering in HW. Default: true");
-
-static int sring_order_set(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	uint x;
-
-	ret = kstrtouint(val, 0, &x);
-	if (ret)
-		return ret;
-
-	if (x < WIL_SRING_SIZE_ORDER_MIN || x > WIL_SRING_SIZE_ORDER_MAX)
-		return -EINVAL;
-
-	*((uint *)kp->arg) = x;
-
-	return 0;
-}
-
-static const struct kernel_param_ops sring_order_ops = {
-	.set = sring_order_set,
-	.get = param_get_uint,
-};
-
-/* Status ring size should be bigger than the number of RX buffers in order
- * to prevent backpressure on the status ring, which may cause HW freeze.
- */
-static uint rx_status_ring_order = WIL_RX_SRING_SIZE_ORDER_DEFAULT;
-module_param_cb(rx_status_ring_order, &sring_order_ops, &rx_status_ring_order,
-		0444);
-MODULE_PARM_DESC(rx_status_ring_order, " Rx status ring order; size = 1 << order. Default: 11");
-
-static uint tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
-module_param_cb(tx_status_ring_order, &sring_order_ops, &tx_status_ring_order,
-		0444);
-MODULE_PARM_DESC(tx_status_ring_order, " Tx status ring order; size = 1 << order. Default: 12");
-
-/* Number of RX buffer IDs should be bigger than the RX descriptor ring size
- * as in HW reorder flow, the HW can consume additional buffers before
- * releasing the previous ones.
- */
-static uint rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
-module_param(rx_buff_id_count, uint, 0444);
-MODULE_PARM_DESC(rx_buff_id_count, " Rx buffer IDs count: default: 1536");
 
 static void wil_tx_desc_unmap_edma(struct device *dev,
 				   union wil_tx_desc *desc,
@@ -170,7 +112,13 @@ static int wil_tx_init_edma(struct wil6210_priv *wil)
 	int ring_id = wil_find_free_sring(wil);
 	struct wil_status_ring *sring;
 	int rc;
-	u16 status_ring_size = 1 << tx_status_ring_order;
+	u16 status_ring_size;
+
+	if (wil->tx_status_ring_order < WIL_SRING_SIZE_ORDER_MIN ||
+	    wil->tx_status_ring_order > WIL_SRING_SIZE_ORDER_MAX)
+		wil->tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
+
+	status_ring_size = 1 << wil->tx_status_ring_order;
 
 	wil_dbg_misc(wil, "init TX sring: size=%u, ring_id=%u\n",
 		     status_ring_size, ring_id);
@@ -552,17 +500,19 @@ out_free:
 	return rc;
 }
 
-static void wil_get_reorder_params_edma(struct sk_buff *skb, int *tid,
+static void wil_get_reorder_params_edma(struct wil6210_priv *wil,
+					struct sk_buff *skb, int *tid,
 					int *cid, int *mid, u16 *seq,
-					int *mcast)
+					int *mcast, int *retry)
 {
 	struct wil_rx_status_extended *s = wil_skb_rxstatus(skb);
 
 	*tid = wil_rx_status_get_tid(s);
 	*cid = wil_rx_status_get_cid(s);
 	*mid = wil_rx_status_get_mid(s);
-	*seq = le16_to_cpu(wil_rx_status_get_seq(s));
+	*seq = le16_to_cpu(wil_rx_status_get_seq(wil, s));
 	*mcast = wil_rx_status_get_mcast(s);
+	*retry = wil_rx_status_get_retry(s);
 }
 
 static void wil_get_netif_rx_params_edma(struct sk_buff *skb, int *cid,
@@ -585,7 +535,7 @@ static int wil_rx_crypto_check_edma(struct wil6210_priv *wil,
 	const u8 *pn;
 
 	/* In HW reorder, HW is responsible for crypto check */
-	if (use_rx_hw_reordering)
+	if (wil->use_rx_hw_reordering)
 		return 0;
 
 	st = wil_skb_rxstatus(skb);
@@ -649,21 +599,27 @@ static void wil_rx_buf_len_init_edma(struct wil6210_priv *wil)
 
 static int wil_rx_init_edma(struct wil6210_priv *wil, u16 desc_ring_size)
 {
-	u16 status_ring_size = 1 << rx_status_ring_order;
+	u16 status_ring_size;
 	struct wil_ring *ring = &wil->ring_rx;
 	int rc;
-	size_t elem_size = use_compressed_rx_status ?
+	size_t elem_size = wil->use_compressed_rx_status ?
 		sizeof(struct wil_rx_status_compressed) :
 		sizeof(struct wil_rx_status_extended);
 	int i;
 	u16 max_rx_pl_per_desc;
 
 	/* In SW reorder one must use extended status messages */
-	if (use_compressed_rx_status && !use_rx_hw_reordering) {
+	if (wil->use_compressed_rx_status && !wil->use_rx_hw_reordering) {
 		wil_err(wil,
 			"compressed RX status cannot be used with SW reorder\n");
 		return -EINVAL;
 	}
+
+	if (wil->rx_status_ring_order < WIL_SRING_SIZE_ORDER_MIN ||
+	    wil->rx_status_ring_order > WIL_SRING_SIZE_ORDER_MAX)
+		wil->rx_status_ring_order = WIL_RX_SRING_SIZE_ORDER_DEFAULT;
+
+	status_ring_size = 1 << wil->rx_status_ring_order;
 
 	wil_dbg_misc(wil,
 		     "rx_init, desc_ring_size=%u, status_ring_size=%u, elem_size=%zu\n",
@@ -705,16 +661,16 @@ static int wil_rx_init_edma(struct wil6210_priv *wil, u16 desc_ring_size)
 	if (rc)
 		goto err_free_status;
 
-	if (rx_buff_id_count >= status_ring_size) {
+	if (wil->rx_buff_id_count >= status_ring_size) {
 		wil_info(wil,
 			 "rx_buff_id_count %d exceeds sring_size %d. set it to %d\n",
-			 rx_buff_id_count, status_ring_size,
+			 wil->rx_buff_id_count, status_ring_size,
 			 status_ring_size - 1);
-		rx_buff_id_count = status_ring_size - 1;
+		wil->rx_buff_id_count = status_ring_size - 1;
 	}
 
 	/* Allocate Rx buffer array */
-	rc = wil_init_rx_buff_arr(wil, rx_buff_id_count);
+	rc = wil_init_rx_buff_arr(wil, wil->rx_buff_id_count);
 	if (rc)
 		goto err_free_desc;
 
@@ -794,14 +750,14 @@ static int wil_check_bar(struct wil6210_priv *wil, void *msg, int cid,
 	u16 seq;
 	struct wil6210_vif *vif;
 
-	ftype = wil_rx_status_get_frame_type(msg);
+	ftype = wil_rx_status_get_frame_type(wil, msg);
 	if (ftype == IEEE80211_FTYPE_DATA)
 		return 0;
 
-	fc1 = wil_rx_status_get_fc1(msg);
+	fc1 = wil_rx_status_get_fc1(wil, msg);
 	mid = wil_rx_status_get_mid(msg);
 	tid = wil_rx_status_get_tid(msg);
-	seq = le16_to_cpu(wil_rx_status_get_seq(msg));
+	seq = le16_to_cpu(wil_rx_status_get_seq(wil, msg));
 	vif = wil->vifs[mid];
 
 	if (unlikely(!vif)) {
@@ -812,14 +768,15 @@ static int wil_check_bar(struct wil6210_priv *wil, void *msg, int cid,
 	wil_dbg_txrx(wil,
 		     "Non-data frame FC[7:0] 0x%02x MID %d CID %d TID %d Seq 0x%03x\n",
 		     fc1, mid, cid, tid, seq);
-	stats->rx_non_data_frame++;
+	if (stats)
+		stats->rx_non_data_frame++;
 	if (wil_is_back_req(fc1)) {
 		wil_dbg_txrx(wil,
 			     "BAR: MID %d CID %d TID %d Seq 0x%03x\n",
 			     mid, cid, tid, seq);
 		wil_rx_bar(wil, vif, cid, tid, seq);
 	} else {
-		u32 sz = use_compressed_rx_status ?
+		u32 sz = wil->use_compressed_rx_status ?
 			sizeof(struct wil_rx_status_compressed) :
 			sizeof(struct wil_rx_status_extended);
 
@@ -838,14 +795,15 @@ static int wil_check_bar(struct wil6210_priv *wil, void *msg, int cid,
 	return -EAGAIN;
 }
 
-static int wil_rx_edma_check_errors(struct wil6210_priv *wil, void *msg,
-				    struct wil_net_stats *stats,
-				    struct sk_buff *skb)
+static int wil_rx_error_check_edma(struct wil6210_priv *wil,
+				   struct sk_buff *skb,
+				   struct wil_net_stats *stats)
 {
 	int error;
 	int l2_rx_status;
 	int l3_rx_status;
 	int l4_rx_status;
+	void *msg = wil_skb_rxstatus(skb);
 
 	error = wil_rx_status_get_error(msg);
 	if (!error) {
@@ -905,10 +863,9 @@ static struct sk_buff *wil_sring_reap_rx_edma(struct wil6210_priv *wil,
 	struct wil_ring_rx_data *rxdata = &sring->rx_data;
 	unsigned int sz = wil->rx_buf_len + ETH_HLEN +
 		WIL_EDMA_MAX_DATA_OFFSET;
-	struct wil_net_stats *stats;
+	struct wil_net_stats *stats = NULL;
 	u16 dmalen;
 	int cid;
-	int rc;
 	bool eop, headstolen;
 	int delta;
 	u8 dr_bit;
@@ -949,11 +906,12 @@ again:
 	dma_unmap_single(dev, pa, sz, DMA_FROM_DEVICE);
 	dmalen = le16_to_cpu(wil_rx_status_get_length(msg));
 
-	trace_wil6210_rx_status(use_compressed_rx_status, buff_id, msg);
+	trace_wil6210_rx_status(wil, wil->use_compressed_rx_status, buff_id,
+				msg);
 	wil_dbg_txrx(wil, "Rx, buff_id=%u, sring_idx=%u, dmalen=%u bytes\n",
 		     buff_id, sring_idx, dmalen);
 	wil_hex_dump_txrx("RxS ", DUMP_PREFIX_NONE, 32, 4,
-			  (const void *)msg, use_compressed_rx_status ?
+			  (const void *)msg, wil->use_compressed_rx_status ?
 			  sizeof(struct wil_rx_status_compressed) :
 			  sizeof(struct wil_rx_status_extended), false);
 
@@ -975,13 +933,6 @@ again:
 	if (unlikely(skb->len < ETH_HLEN)) {
 		wil_dbg_txrx(wil, "Short frame, len = %d\n", skb->len);
 		stats->rx_short_frame++;
-		rxdata->skipping = true;
-		goto skipping;
-	}
-
-	/* Check and treat errors reported by HW */
-	rc = wil_rx_edma_check_errors(wil, msg, stats, skb);
-	if (rc) {
 		rxdata->skipping = true;
 		goto skipping;
 	}
@@ -1039,11 +990,13 @@ skipping:
 	rxdata->skb = NULL;
 	rxdata->skipping = false;
 
-	stats->last_mcs_rx = wil_rx_status_get_mcs(msg);
-	if (stats->last_mcs_rx < ARRAY_SIZE(stats->rx_per_mcs))
-		stats->rx_per_mcs[stats->last_mcs_rx]++;
+	if (stats) {
+		stats->last_mcs_rx = wil_rx_status_get_mcs(msg);
+		if (stats->last_mcs_rx < ARRAY_SIZE(stats->rx_per_mcs))
+			stats->rx_per_mcs[stats->last_mcs_rx]++;
+	}
 
-	if (!use_rx_hw_reordering && !use_compressed_rx_status &&
+	if (!wil->use_rx_hw_reordering && !wil->use_compressed_rx_status &&
 	    wil_check_bar(wil, msg, cid, skb, stats) == -EAGAIN) {
 		kfree_skb(skb);
 		goto again;
@@ -1101,7 +1054,7 @@ void wil_rx_handle_edma(struct wil6210_priv *wil, int *quota)
 		       (NULL != (skb =
 			wil_sring_reap_rx_edma(wil, sring)))) {
 			(*quota)--;
-			if (use_rx_hw_reordering) {
+			if (wil->use_rx_hw_reordering) {
 				void *msg = wil_skb_rxstatus(skb);
 				int mid = wil_rx_status_get_mid(msg);
 				struct wil6210_vif *vif = wil->vifs[mid];
@@ -1141,9 +1094,11 @@ static int wil_tx_desc_map_edma(union wil_tx_desc *desc,
 	/* 0..6: mac_length; 7:ip_version 0-IP6 1-IP4*/
 	d->dma.length = cpu_to_le16((u16)len);
 	d->mac.d[0] = (ring_index << WIL_EDMA_DESC_TX_MAC_CFG_0_QID_POS);
-	/* translation type:  0 - bypass; 1 - 802.3; 2 - native wifi */
+	/* translation type:  0 - bypass; 1 - 802.3; 2 - native wifi;
+	 * 3 - eth mode
+	 */
 	d->mac.d[2] = BIT(MAC_CFG_DESC_TX_2_SNAP_HDR_INSERTION_EN_POS) |
-		      (1 << MAC_CFG_DESC_TX_2_L2_TRANSLATION_TYPE_POS);
+		      (0x3 << MAC_CFG_DESC_TX_2_L2_TRANSLATION_TYPE_POS);
 
 	return 0;
 }
@@ -1631,6 +1586,7 @@ void wil_init_txrx_ops_edma(struct wil6210_priv *wil)
 	wil->txrx_ops.get_reorder_params = wil_get_reorder_params_edma;
 	wil->txrx_ops.get_netif_rx_params = wil_get_netif_rx_params_edma;
 	wil->txrx_ops.rx_crypto_check = wil_rx_crypto_check_edma;
+	wil->txrx_ops.rx_error_check = wil_rx_error_check_edma;
 	wil->txrx_ops.is_rx_idle = wil_is_rx_idle_edma;
 	wil->txrx_ops.rx_fini = wil_rx_fini_edma;
 }

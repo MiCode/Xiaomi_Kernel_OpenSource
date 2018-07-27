@@ -6,6 +6,7 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
+	- "qcom,sm6150-vidc" : Invokes driver specific data for SM6150.
         - "qcom,sm8150-vidc" : Invokes driver specific data for SM8150.
         - "qcom,sm6150-vidc" : Invokes driver specific data for SM6150.
         - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.

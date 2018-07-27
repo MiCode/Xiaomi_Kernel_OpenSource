@@ -19,6 +19,14 @@
 
 #include "wil6210.h"
 
+/* limit status ring size in range [ring size..max ring size] */
+#define WIL_SRING_SIZE_ORDER_MIN	(WIL_RING_SIZE_ORDER_MIN)
+#define WIL_SRING_SIZE_ORDER_MAX	(WIL_RING_SIZE_ORDER_MAX)
+/* RX sring order should be bigger than RX ring order */
+#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(11)
+#define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(12)
+#define WIL_RX_BUFF_ARR_SIZE_DEFAULT (1536)
+
 #define WIL_DEFAULT_RX_STATUS_RING_ID 0
 #define WIL_RX_DESC_RING_ID 0
 #define WIL_RX_STATUS_IRQ_IDX 0
@@ -436,30 +444,37 @@ static inline u8 wil_rx_status_get_data_offset(void *msg)
 	}
 }
 
-static inline int wil_rx_status_get_frame_type(void *msg)
+static inline int wil_rx_status_get_frame_type(struct wil6210_priv *wil,
+					       void *msg)
 {
-	if (use_compressed_rx_status)
+	if (wil->use_compressed_rx_status)
 		return IEEE80211_FTYPE_DATA;
 
 	return WIL_GET_BITS(((struct wil_rx_status_extended *)msg)->ext.d1,
 			    0, 1) << 2;
 }
 
-static inline int wil_rx_status_get_fc1(void *msg)
+static inline int wil_rx_status_get_fc1(struct wil6210_priv *wil, void *msg)
 {
-	if (use_compressed_rx_status)
+	if (wil->use_compressed_rx_status)
 		return 0;
 
 	return WIL_GET_BITS(((struct wil_rx_status_extended *)msg)->ext.d1,
 			    0, 5) << 2;
 }
 
-static inline __le16 wil_rx_status_get_seq(void *msg)
+static inline __le16 wil_rx_status_get_seq(struct wil6210_priv *wil, void *msg)
 {
-	if (use_compressed_rx_status)
+	if (wil->use_compressed_rx_status)
 		return 0;
 
 	return ((struct wil_rx_status_extended *)msg)->ext.seq_num;
+}
+
+static inline u8 wil_rx_status_get_retry(void *msg)
+{
+	/* retry bit is missing in EDMA HW. return 1 to be on the safe side */
+	return 1;
 }
 
 static inline int wil_rx_status_get_mid(void *msg)

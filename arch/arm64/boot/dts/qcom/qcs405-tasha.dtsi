@@ -29,7 +29,7 @@
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&tasha_mclk_default>;
 		pinctrl-1 = <&tasha_mclk_default>;
-		#clock-names = "osr_clk";
+		clock-names = "osr_clk";
 		clocks = <&pms405_clkdiv>;
 		#clock-cells = <1>;
 	};

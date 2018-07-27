@@ -2272,6 +2272,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	file = debugfs_create_u32("enable_napi_chain", IPA_READ_WRITE_MODE,
+		dent, &ipa3_ctx->enable_napi_chain);
+	if (!file) {
+		IPAERR("could not create enable_napi_chain file\n");
+		goto fail;
+	}
+
 	file = debugfs_create_u32("clock_scaling_bw_threshold_nominal_mbps",
 		IPA_READ_WRITE_MODE, dent,
 		&ipa3_ctx->ctrl->clock_scaling_bw_threshold_nominal);

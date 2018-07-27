@@ -1219,7 +1219,7 @@ static int wil_status_msg_debugfs_show(struct seq_file *s, void *data)
 
 	seq_printf(s, "  0x%08x 0x%08x 0x%08x 0x%08x\n",
 		   u[0], u[1], u[2], u[3]);
-	if (!tx && !use_compressed_rx_status)
+	if (!tx && !wil->use_compressed_rx_status)
 		seq_printf(s, "  0x%08x 0x%08x 0x%08x 0x%08x\n",
 			   u[4], u[5], u[6], u[7]);
 
@@ -1679,6 +1679,7 @@ static void wil_print_rxtid(struct seq_file *s, struct wil_tid_ampdu_rx *r)
 	int i;
 	u16 index = ((r->head_seq_num - r->ssn) & 0xfff) % r->buf_size;
 	unsigned long long drop_dup = r->drop_dup, drop_old = r->drop_old;
+	unsigned long long drop_dup_mcast = r->drop_dup_mcast;
 
 	seq_printf(s, "([%2d]) 0x%03x [", r->buf_size, r->head_seq_num);
 	for (i = 0; i < r->buf_size; i++) {
@@ -1688,9 +1689,9 @@ static void wil_print_rxtid(struct seq_file *s, struct wil_tid_ampdu_rx *r)
 			seq_printf(s, "%c", r->reorder_buf[i] ? '*' : '_');
 	}
 	seq_printf(s,
-		   "] total %llu drop %llu (dup %llu + old %llu) last 0x%03x\n",
-		   r->total, drop_dup + drop_old, drop_dup, drop_old,
-		   r->ssn_last_drop);
+		   "] total %llu drop %llu (dup %llu + old %llu + dup mcast %llu) last 0x%03x\n",
+		   r->total, drop_dup + drop_old + drop_dup_mcast, drop_dup,
+		   drop_old, drop_dup_mcast, r->ssn_last_drop);
 }
 
 static void wil_print_rxtid_crypto(struct seq_file *s, int tid,
@@ -1772,13 +1773,11 @@ __acquires(&p->tid_rx_lock) __releases(&p->tid_rx_lock)
 				   p->stats.rx_short_frame,
 				   p->stats.rx_large_frame,
 				   p->stats.rx_replay);
-
-			if (wil->use_enhanced_dma_hw)
-				seq_printf(s,
-					   "mic error  %lu, key error %lu, amsdu error %lu\n",
-					   p->stats.rx_mic_error,
-					   p->stats.rx_key_error,
-					   p->stats.rx_amsdu_error);
+			seq_printf(s,
+				   "mic error %lu, key error %lu, amsdu error %lu\n",
+				   p->stats.rx_mic_error,
+				   p->stats.rx_key_error,
+				   p->stats.rx_amsdu_error);
 
 			seq_puts(s, "Rx/MCS:");
 			for (mcs = 0; mcs < ARRAY_SIZE(p->stats.rx_per_mcs);
@@ -2062,6 +2061,60 @@ static const struct file_operations fops_suspend_stats = {
 	.open  = simple_open,
 };
 
+/*---------compressed_rx_status---------*/
+static ssize_t wil_compressed_rx_status_write(struct file *file,
+					      const char __user *buf,
+					      size_t len, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct wil6210_priv *wil = s->private;
+	int compressed_rx_status;
+	int rc;
+
+	rc = kstrtoint_from_user(buf, len, 0, &compressed_rx_status);
+	if (rc) {
+		wil_err(wil, "Invalid argument\n");
+		return rc;
+	}
+
+	if (wil_has_active_ifaces(wil, true, false)) {
+		wil_err(wil, "cannot change edma config after iface is up\n");
+		return -EPERM;
+	}
+
+	wil_info(wil, "%sable compressed_rx_status\n",
+		 compressed_rx_status ? "En" : "Dis");
+
+	wil->use_compressed_rx_status = compressed_rx_status;
+
+	return len;
+}
+
+static int
+wil_compressed_rx_status_show(struct seq_file *s, void *data)
+{
+	struct wil6210_priv *wil = s->private;
+
+	seq_printf(s, "%d\n", wil->use_compressed_rx_status);
+
+	return 0;
+}
+
+static int
+wil_compressed_rx_status_seq_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, wil_compressed_rx_status_show,
+			   inode->i_private);
+}
+
+static const struct file_operations fops_compressed_rx_status = {
+	.open  = wil_compressed_rx_status_seq_open,
+	.release = single_release,
+	.read = seq_read,
+	.write = wil_compressed_rx_status_write,
+	.llseek	= seq_lseek,
+};
+
 /*----------------*/
 static void wil6210_debugfs_init_blobs(struct wil6210_priv *wil,
 				       struct dentry *dbg)
@@ -2116,6 +2169,7 @@ static const struct {
 	{"fw_capabilities",	0444,	&fops_fw_capabilities},
 	{"fw_version",	0444,		&fops_fw_version},
 	{"suspend_stats",	0644,	&fops_suspend_stats},
+	{"compressed_rx_status", 0644,	&fops_compressed_rx_status},
 	{"srings",	0444,		&fops_srings},
 	{"status_msg",	0444,		&fops_status_msg},
 	{"rx_buff_mgmt",	0444,	&fops_rx_buff_mgmt},
@@ -2166,6 +2220,9 @@ static const struct dbg_off dbg_wil_off[] = {
 	WIL_FIELD(wakeup_trigger, 0644,		doff_u8),
 	WIL_FIELD(ring_idle_trsh, 0644,	doff_u32),
 	WIL_FIELD(num_rx_status_rings, 0644,	doff_u8),
+	WIL_FIELD(rx_status_ring_order, 0644,	doff_u32),
+	WIL_FIELD(tx_status_ring_order, 0644,	doff_u32),
+	WIL_FIELD(rx_buff_id_count, 0644,	doff_u32),
 	WIL_FIELD(amsdu_en, 0644,	doff_u8),
 	WIL_FIELD(force_edmg_channel, 0644,	doff_u8),
 	{},

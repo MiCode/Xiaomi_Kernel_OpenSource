@@ -1,0 +1,178 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/thermal/thermal.h>
+
+&thermal_zones {
+	pm6150-tz {
+		cooling-maps {
+			trip0_bat {
+				trip = <&pm6150_trip0>;
+				cooling-device =
+					<&pm6150_charger (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip1_bat {
+				trip = <&pm6150_trip1>;
+				cooling-device =
+					<&pm6150_charger THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6150l-tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu1 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu2 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu3 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu4 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu5 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu6 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU6 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu7 {
+				trip = <&pm6150l_trip0>;
+				cooling-device =
+					<&CPU7 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip1_cpu1 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu2 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu3 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu4 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu5 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu6 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu7 {
+				trip = <&pm6150l_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6150-vbat-lvl0 {
+		cooling-maps {
+			vbat_cpu6 {
+				trip = <&vbat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_cpu7 {
+				trip = <&vbat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6150-ibat-lvl0 {
+		cooling-maps {
+			ibat_cpu6 {
+				trip = <&ibat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_cpu7 {
+				trip = <&ibat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_cpu6 {
+				trip = <&soc_trip>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_cpu7 {
+				trip = <&soc_trip>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

@@ -90,6 +90,8 @@
 			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>;
 			interrupt-names = "kpdpwr";
 			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;

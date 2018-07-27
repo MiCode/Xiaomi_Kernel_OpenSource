@@ -1561,7 +1561,7 @@ static struct device *msm_bus_device_init(
 	struct device *bus_dev = NULL;
 	struct msm_bus_node_device_type *bus_node = NULL;
 	struct msm_bus_node_info_type *node_info = NULL;
-	int ret = 0, i = 0;
+	int ret = -ENODEV, i = 0;
 
 	/*
 	 * Init here so we can use devm calls
@@ -1569,10 +1569,8 @@ static struct device *msm_bus_device_init(
 
 	bus_node = kzalloc(sizeof(struct msm_bus_node_device_type), GFP_KERNEL);
 	if (!bus_node) {
-		MSM_BUS_ERR("%s:Bus node alloc failed\n", __func__);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		ret = -ENOMEM;
+		goto err_device_init;
 	}
 	bus_dev = &bus_node->dev;
 	device_initialize(bus_dev);
@@ -1580,11 +1578,8 @@ static struct device *msm_bus_device_init(
 	node_info = devm_kzalloc(bus_dev,
 			sizeof(struct msm_bus_node_info_type), GFP_KERNEL);
 	if (!node_info) {
-		MSM_BUS_ERR("%s:Bus node info alloc failed\n", __func__);
-		devm_kfree(bus_dev, bus_node);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		ret = -ENOMEM;
+		goto err_put_device;
 	}
 
 	bus_node->node_info = node_info;
@@ -1595,8 +1590,10 @@ static struct device *msm_bus_device_init(
 		bus_node->qos_bcms = devm_kzalloc(bus_dev,
 					(sizeof(struct qos_bcm_type) *
 					bus_node->num_qos_bcms), GFP_KERNEL);
-		if (!bus_node->qos_bcms)
-			goto exit_device_init;
+		if (!bus_node->qos_bcms) {
+			ret = -ENOMEM;
+			goto err_put_device;
+		}
 		for (i = 0; i < bus_node->num_qos_bcms; i++) {
 			bus_node->qos_bcms[i].qos_bcm_id =
 					pdata->qos_bcms[i].qos_bcm_id;
@@ -1612,36 +1609,29 @@ static struct device *msm_bus_device_init(
 
 	bus_dev->of_node = pdata->of_node;
 
-	if (msm_bus_copy_node_info(pdata, bus_dev) < 0) {
-		devm_kfree(bus_dev, bus_node);
-		devm_kfree(bus_dev, node_info);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
-	}
+	ret = msm_bus_copy_node_info(pdata, bus_dev);
+	if (ret)
+		goto err_put_device;
 
 	bus_dev->bus = &msm_bus_type;
 	dev_set_name(bus_dev, bus_node->node_info->name);
 
 	ret = device_add(bus_dev);
-	if (ret < 0) {
+	if (ret) {
 		MSM_BUS_ERR("%s: Error registering device %d",
 				__func__, pdata->node_info->id);
-		devm_kfree(bus_dev, bus_node);
-		devm_kfree(bus_dev, node_info->dev_connections);
-		devm_kfree(bus_dev, node_info->connections);
-		devm_kfree(bus_dev, node_info->black_connections);
-		devm_kfree(bus_dev, node_info->bl_cons);
-		devm_kfree(bus_dev, node_info);
-		kfree(bus_dev);
-		bus_dev = NULL;
-		goto exit_device_init;
+		goto err_put_device;
 	}
 	device_create_file(bus_dev, &dev_attr_bw);
 	INIT_LIST_HEAD(&bus_node->devlist);
-
-exit_device_init:
 	return bus_dev;
+
+err_put_device:
+	put_device(bus_dev);
+	bus_dev = NULL;
+	kfree(bus_node);
+err_device_init:
+	return ERR_PTR(ret);
 }
 
 static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
@@ -1827,10 +1817,10 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 		node_dev = msm_bus_device_init(&pdata->info[i]);
 
-		if (!node_dev) {
+		if (IS_ERR(node_dev)) {
 			MSM_BUS_ERR("%s: Error during dev init for %d",
 				__func__, pdata->info[i].node_info->id);
-			ret = -ENXIO;
+			ret = PTR_ERR(node_dev);
 			goto exit_device_probe;
 		}
 

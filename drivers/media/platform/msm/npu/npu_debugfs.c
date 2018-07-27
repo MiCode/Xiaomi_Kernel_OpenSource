@@ -461,13 +461,19 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 
 	if (!debugfs_create_u32("fw_state", 0444,
 		debugfs->root, &(host_ctx->fw_state))) {
-		pr_err("debugfs_creat_bool fail for fw_state\n");
+		pr_err("debugfs_create_u32 fail for fw_state\n");
 		goto err;
 	}
 
 	if (!debugfs_create_u32("pwr_level", 0444,
 		debugfs->root, &(pwr->active_pwrlevel))) {
-		pr_err("debugfs_creat_bool fail for power level\n");
+		pr_err("debugfs_create_u32 fail for pwr_level\n");
+		goto err;
+	}
+
+	if (!debugfs_create_u32("exec_flags", 0644,
+		debugfs->root, &(host_ctx->exec_flags_override))) {
+		pr_err("debugfs_create_u32 fail for exec_flags\n");
 		goto err;
 	}
 

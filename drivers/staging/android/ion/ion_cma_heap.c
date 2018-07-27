@@ -198,13 +198,6 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	return &cma_heap->heap;
 }
 
-void ion_cma_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
-
-	kfree(cma_heap);
-}
-
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
 	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
@@ -265,11 +258,4 @@ struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
 	cma_heap->cma = dev->cma_area;
 	cma_heap->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA;
 	return &cma_heap->heap;
-}
-
-void ion_cma_secure_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
-
-	kfree(cma_heap);
 }
