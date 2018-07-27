@@ -527,7 +527,6 @@ static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
 {
 	u8 addr, mask, val;
 	int i, rc;
-	bool en = true;
 
 	addr = REG_HAP_BRAKE;
 	for (val = 0, i = 0; i < HAP_BRAKE_PATTERN_MAX; i++)
@@ -539,14 +538,12 @@ static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
 		dev_err(chip->dev, "write brake pattern failed, rc=%d\n", rc);
 		return rc;
 	}
-
-	if (val == 0)
-		en = false;
-
-	/* Set BRAKE_EN only if brake pattern is non-zero */
+	/*
+	 * Set BRAKE_EN regardless of the brake pattern, this helps to stop
+	 * playing immediately once the valid values in WF_Sx are played.
+	 */
 	addr = REG_HAP_EN_CTL2;
-	mask = HAP_BRAKE_EN_BIT;
-	val = en;
+	val = mask = HAP_BRAKE_EN_BIT;
 	rc = qti_haptics_masked_write(chip, addr, mask, val);
 	if (rc < 0)
 		dev_err(chip->dev, "set EN_CTL2 failed, rc=%d\n", rc);
@@ -579,6 +576,9 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	rc = qti_haptics_config_play_rate_us(chip, config->play_rate_us);
+	if (rc < 0)
+		return rc;
 	/*
 	 * Using VMAX waveform source if playing length is >= 20ms,
 	 * otherwise using buffer waveform source and calculate the
@@ -696,7 +696,6 @@ static irqreturn_t qti_haptics_play_irq_handler(int irq, void *data)
 	dev_dbg(chip->dev, "play_irq triggered\n");
 	if (play->playing_pos == effect->pattern_length) {
 		dev_dbg(chip->dev, "waveform playing done\n");
-		qti_haptics_play(chip, false);
 		if (chip->play_irq_en) {
 			disable_irq_nosync(chip->play_irq);
 			chip->play_irq_en = false;
@@ -918,6 +917,10 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 				enable_irq(chip->play_irq);
 				chip->play_irq_en = true;
 			}
+			/* Toggle PLAY when playing pattern */
+			rc = qti_haptics_play(chip, false);
+			if (rc < 0)
+				return rc;
 		} else {
 			if (chip->play_irq_en) {
 				disable_irq_nosync(chip->play_irq);
@@ -1092,7 +1095,7 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 	struct device_node *child_node;
 	struct qti_hap_effect *effect;
 	const char *str;
-	int rc = 0, tmp, i = 0, j;
+	int rc = 0, tmp, i = 0, j, m;
 	u8 val;
 
 	rc = of_property_read_u32(node, "reg", &tmp);
@@ -1301,7 +1304,7 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 			effect->wf_s_repeat_n = j;
 		}
 
-		effect->lra_auto_res_disable = of_property_read_bool(node,
+		effect->lra_auto_res_disable = of_property_read_bool(child_node,
 				"qcom,lra-auto-resonance-disable");
 
 		tmp = of_property_count_elems_of_size(child_node,
@@ -1335,6 +1338,28 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 				<< j * HAP_BRAKE_PATTERN_SHIFT;
 
 		effect->brake_en = (val != 0);
+	}
+
+	for (j = 0; j < i; j++) {
+		dev_dbg(chip->dev, "effect: %d\n", chip->predefined[j].id);
+		dev_dbg(chip->dev, "        vmax: %d mv\n",
+				chip->predefined[j].vmax_mv);
+		dev_dbg(chip->dev, "        play_rate: %d us\n",
+				chip->predefined[j].play_rate_us);
+		for (m = 0; m < chip->predefined[j].pattern_length; m++)
+			dev_dbg(chip->dev, "        pattern[%d]: 0x%x\n",
+					m, chip->predefined[j].pattern[m]);
+		for (m = 0; m < chip->predefined[j].brake_pattern_length; m++)
+			dev_dbg(chip->dev, "        brake_pattern[%d]: 0x%x\n",
+					m, chip->predefined[j].brake[m]);
+		dev_dbg(chip->dev, "    brake_en: %d\n",
+				chip->predefined[j].brake_en);
+		dev_dbg(chip->dev, "    wf_repeat_n: %d\n",
+				chip->predefined[j].wf_repeat_n);
+		dev_dbg(chip->dev, "    wf_s_repeat_n: %d\n",
+				chip->predefined[j].wf_s_repeat_n);
+		dev_dbg(chip->dev, "    lra_auto_res_disable: %d\n",
+				chip->predefined[j].lra_auto_res_disable);
 	}
 
 	return 0;
