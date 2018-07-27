@@ -110,6 +110,7 @@ int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv,
 			     const struct tcs_request *msg);
 int rpmh_rsc_invalidate(struct rsc_drv *drv);
 void rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
+bool rpmh_rsc_ctrlr_is_idle(struct rsc_drv *drv);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 
