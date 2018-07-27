@@ -871,7 +871,7 @@ static int arm64_online_page(struct page *page)
 {
 	unsigned long phy_addr = page_to_phys(page);
 
-	if (phy_addr + PAGE_SIZE >= bootloader_memory_limit)
+	if (phy_addr + PAGE_SIZE > bootloader_memory_limit)
 		return -EINVAL;
 
 	__online_page_set_limits(page);
