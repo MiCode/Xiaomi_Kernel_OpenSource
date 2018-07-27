@@ -3212,8 +3212,8 @@ static int dsi_display_get_phandle_index(
 	u32 *val = NULL;
 	int rc = 0;
 
-	val = kzalloc(count, GFP_KERNEL);
-	if (!val) {
+	val = kcalloc(count, sizeof(*val), GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(val)) {
 		rc = -ENOMEM;
 		goto end;
 	}
