@@ -72,6 +72,9 @@ struct msm_pingroup {
 	unsigned *funcs;
 	unsigned nfuncs;
 
+#ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
+	u32 tile_base;
+#endif
 	u32 ctl_reg;
 	u32 io_reg;
 	u32 intr_cfg_reg;
@@ -139,6 +142,13 @@ struct msm_pinctrl_soc_data {
 	const struct msm_dir_conn *dir_conn;
 	unsigned int n_dir_conns;
 	unsigned int dir_conn_irq_base;
+#ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
+	const u32 *tile_start;
+	const u32 *tile_offsets;
+	unsigned int n_tile;
+	void __iomem **pin_base;
+	const u32 *tile_end;
+#endif
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,

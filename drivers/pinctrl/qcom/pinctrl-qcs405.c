@@ -30,6 +30,7 @@
 #define EAST	0x06B00000
 #define DUMMY	0x0
 #define REG_SIZE 0x1000
+#ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
 #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{						\
 		.name = "gpio" #id,			\
@@ -48,11 +49,12 @@
 			msm_mux_##f9			\
 		},					\
 		.nfuncs = 10,				\
-		.ctl_reg = base + REG_SIZE * id,		\
-		.io_reg = base + 0x4 + REG_SIZE * id,		\
-		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
-		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
-		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.tile_base = base,			\
+		.ctl_reg = REG_SIZE * id,		\
+		.io_reg = 0x4 + REG_SIZE * id,		\
+		.intr_cfg_reg = 0x8 + REG_SIZE * id,	\
+		.intr_status_reg = 0xc + REG_SIZE * id,	\
+		.intr_target_reg = 0x8 + REG_SIZE * id,	\
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -68,7 +70,46 @@
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
 	}
-
+#else
+#define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)  \
+	{                                               \
+		.name = "gpio" #id,                     \
+		.pins = gpio##id##_pins,                \
+		.npins = (unsigned int)ARRAY_SIZE(gpio##id##_pins),     \
+		.funcs = (int[]){                       \
+			msm_mux_gpio, /* gpio mode */   \
+			msm_mux_##f1,                   \
+			msm_mux_##f2,                   \
+			msm_mux_##f3,                   \
+			msm_mux_##f4,                   \
+			msm_mux_##f5,                   \
+			msm_mux_##f6,                   \
+			msm_mux_##f7,                   \
+			msm_mux_##f8,                   \
+			msm_mux_##f9                    \
+		},                                      \
+		.nfuncs = 10,                           \
+		.ctl_reg = base + REG_SIZE * id,               \
+		.io_reg = base + 0x4 + REG_SIZE * id,          \
+		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,    \
+		.intr_status_reg = base + 0xc + REG_SIZE * id, \
+		.intr_target_reg = base + 0x8 + REG_SIZE * id, \
+		.mux_bit = 2,                   \
+		.pull_bit = 0,                  \
+		.drv_bit = 6,                   \
+		.oe_bit = 9,                    \
+		.in_bit = 0,                    \
+		.out_bit = 1,                   \
+		.intr_enable_bit = 0,           \
+		.intr_status_bit = 0,           \
+		.intr_target_bit = 5,           \
+		.intr_target_kpss_val = 4,      \
+		.intr_raw_status_bit = 4,       \
+		.intr_polarity_bit = 1,         \
+		.intr_detection_bit = 2,        \
+		.intr_detection_width = 2,      \
+	}
+#endif
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
 	{						\
 		.name = #pg_name,			\
@@ -1549,6 +1590,13 @@ static const struct msm_pingroup qcs405_groups[] = {
 	[126] = SDC_QDSD_PINGROUP(sdc2_data, 0xc3000, 9, 0),
 };
 
+#ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
+static const u32 qcs405_tile_start[] = {0x01000000, 0x01300000, 0x07b00000};
+static const u32 qcs405_tile_end[] = {0x01200000, 0x01500000, 0x07d00000};
+static const u32 qcs405_tile_offset[] = {0x0, 0x300000, 0x6b00000};
+static void __iomem *qcs405_pin_base[120];
+#endif
+
 static const struct msm_pinctrl_soc_data qcs405_pinctrl = {
 	.pins = qcs405_pins,
 	.npins = ARRAY_SIZE(qcs405_pins),
@@ -1557,6 +1605,13 @@ static const struct msm_pinctrl_soc_data qcs405_pinctrl = {
 	.groups = qcs405_groups,
 	.ngroups = ARRAY_SIZE(qcs405_groups),
 	.ngpios = 120,
+#ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
+	.tile_start = qcs405_tile_start,
+	.tile_offsets = qcs405_tile_offset,
+	.tile_end = qcs405_tile_end,
+	.n_tile = ARRAY_SIZE(qcs405_tile_start),
+	.pin_base = qcs405_pin_base,
+#endif
 };
 
 static int qcs405_pinctrl_probe(struct platform_device *pdev)

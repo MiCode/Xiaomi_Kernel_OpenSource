@@ -47,6 +47,11 @@ config PINCTRL_QCS405
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  QTI TLMM block found in the QTI QCS405 platform.
 
+config FRAGMENTED_GPIO_ADDRESS_SPACE
+	bool "Support for fragmented gpio address space"
+	depends on PINCTRL_MSM
+	help
+	  This allows individually mapping each tlmm tile.
 
 config PINCTRL_IPQ8074
 	tristate "Qualcomm Technologies, Inc. IPQ8074 pin controller driver"
