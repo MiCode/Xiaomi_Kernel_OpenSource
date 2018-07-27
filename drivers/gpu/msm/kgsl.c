@@ -75,10 +75,23 @@ MODULE_PARM_DESC(kgsl_mmu_type, "Type of MMU to be used for graphics");
 DEFINE_MUTEX(kgsl_mmu_sync);
 EXPORT_SYMBOL(kgsl_mmu_sync);
 
+/* List of dmabufs mapped */
+static LIST_HEAD(kgsl_dmabuf_list);
+static DEFINE_SPINLOCK(kgsl_dmabuf_lock);
+
+struct dmabuf_list_entry {
+	struct page *firstpage;
+	struct list_head node;
+	struct list_head dmabuf_list;
+};
+
 struct kgsl_dma_buf_meta {
+	struct kgsl_mem_entry *entry;
 	struct dma_buf_attachment *attach;
 	struct dma_buf *dmabuf;
 	struct sg_table *table;
+	struct dmabuf_list_entry *dle;
+	struct list_head node;
 };
 
 static inline struct kgsl_pagetable *_get_memdesc_pagetable(
@@ -269,10 +282,65 @@ kgsl_mem_entry_create(void)
 
 	return entry;
 }
+
+static void add_dmabuf_list(struct kgsl_dma_buf_meta *meta)
+{
+	struct dmabuf_list_entry *dle;
+	struct page *page;
+
+	/*
+	 * Get the first page. We will use it to identify the imported
+	 * buffer, since the same buffer can be mapped as different
+	 * mem entries.
+	 */
+	page = sg_page(meta->table->sgl);
+
+	spin_lock(&kgsl_dmabuf_lock);
+
+	/* Go through the list to see if we imported this buffer before */
+	list_for_each_entry(dle, &kgsl_dmabuf_list, node) {
+		if (dle->firstpage == page) {
+			/* Add the dmabuf meta to the list for this dle */
+			meta->dle = dle;
+			list_add(&meta->node, &dle->dmabuf_list);
+			spin_unlock(&kgsl_dmabuf_lock);
+			return;
+		}
+	}
+
+	/* This is a new buffer. Add a new entry for it */
+	dle = kzalloc(sizeof(*dle), GFP_ATOMIC);
+	if (dle) {
+		dle->firstpage = page;
+		INIT_LIST_HEAD(&dle->dmabuf_list);
+		list_add(&dle->node, &kgsl_dmabuf_list);
+		meta->dle = dle;
+		list_add(&meta->node, &dle->dmabuf_list);
+	}
+	spin_unlock(&kgsl_dmabuf_lock);
+}
+
+static void remove_dmabuf_list(struct kgsl_dma_buf_meta *meta)
+{
+	struct dmabuf_list_entry *dle = meta->dle;
+
+	if (!dle)
+		return;
+
+	spin_lock(&kgsl_dmabuf_lock);
+	list_del(&meta->node);
+	if (list_empty(&dle->dmabuf_list)) {
+		list_del(&dle->node);
+		kfree(dle);
+	}
+	spin_unlock(&kgsl_dmabuf_lock);
+}
+
 #ifdef CONFIG_DMA_SHARED_BUFFER
 static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 {
 	if (meta != NULL) {
+		remove_dmabuf_list(meta);
 		dma_buf_unmap_attachment(meta->attach, meta->table,
 			DMA_FROM_DEVICE);
 		dma_buf_detach(meta->dmabuf, meta->attach);
@@ -2613,6 +2681,7 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 
 	meta->dmabuf = dmabuf;
 	meta->attach = attach;
+	meta->entry = entry;
 
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
@@ -2649,13 +2718,18 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		entry->memdesc.size += (uint64_t) s->length;
 	}
 
+	if (!entry->memdesc.size) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	add_dmabuf_list(meta);
 	entry->memdesc.size = PAGE_ALIGN(entry->memdesc.size);
 
 out:
 	if (ret) {
 		if (!IS_ERR_OR_NULL(attach))
 			dma_buf_detach(dmabuf, attach);
-
 
 		kfree(meta);
 	}
@@ -2669,21 +2743,16 @@ void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 		int *egl_surface_count, int *egl_image_count)
 {
 	struct kgsl_dma_buf_meta *meta = entry->priv_data;
-	struct dma_buf *dmabuf = meta->dmabuf;
-	struct dma_buf_attachment *mem_entry_buf_attachment = meta->attach;
-	struct device *buf_attachment_dev = mem_entry_buf_attachment->dev;
-	struct dma_buf_attachment *attachment = NULL;
+	struct dmabuf_list_entry *dle = meta->dle;
+	struct kgsl_dma_buf_meta *scan_meta;
+	struct kgsl_mem_entry *scan_mem_entry;
 
-	mutex_lock(&dmabuf->lock);
-	list_for_each_entry(attachment, &dmabuf->attachments, node) {
-		struct kgsl_mem_entry *scan_mem_entry = NULL;
+	if (!dle)
+		return;
 
-		if (attachment->dev != buf_attachment_dev)
-			continue;
-
-		scan_mem_entry = attachment->priv;
-		if (!scan_mem_entry)
-			continue;
+	spin_lock(&kgsl_dmabuf_lock);
+	list_for_each_entry(scan_meta, &dle->dmabuf_list, node) {
+		scan_mem_entry = scan_meta->entry;
 
 		switch (kgsl_memdesc_get_memtype(&scan_mem_entry->memdesc)) {
 		case KGSL_MEMTYPE_EGL_SURFACE:
@@ -2694,7 +2763,7 @@ void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 			break;
 		}
 	}
-	mutex_unlock(&dmabuf->lock);
+	spin_unlock(&kgsl_dmabuf_lock);
 }
 #else
 void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
