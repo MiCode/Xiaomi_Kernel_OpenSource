@@ -147,10 +147,18 @@
 	};
 };
 
+&pcie0 {
+	iommu-map = <0x0 &apps_smmu 0x1d80 0x1>,
+		<0x100 &apps_smmu 0x1dff 0x1>;
+};
+
 &pcie1 {
 	pinctrl-0 = <&pcie1_clkreq_default
 		&pcie1_perst_default
 		&pcie1_sdx50m_wake_default>;
+
+	iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
+		<0x100 &apps_smmu 0x1e7f 0x1>;
 };
 
 &soc {
