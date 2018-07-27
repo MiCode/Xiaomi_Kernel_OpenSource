@@ -72,6 +72,10 @@
 	pinctrl-0 = <&pcie1_clkreq_default
 		&pcie1_perst_default
 		&pcie1_sdx50m_wake_default>;
+
+	qcom,no-l1-supported;
+	qcom,no-l1ss-supported;
+	qcom,no-aux-clk-sync;
 };
 
 &soc {
