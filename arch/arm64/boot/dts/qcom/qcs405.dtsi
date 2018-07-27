@@ -1204,7 +1204,7 @@
 			<&wakegic 0 305 4>, <&wakegic 0 306 4>,
 			<&wakegic 0 307 4>, <&wakegic 0 308 4>;
 		interrupt-names = "sbd-intr", "lpi-intr",
-			"rgmii_int", "tx-ch0-intr",
+			"phy-intr", "tx-ch0-intr",
 			"tx-ch1-intr", "tx-ch2-intr",
 			"tx-ch3-intr", "tx-ch4-intr",
 			"rx-ch0-intr", "rx-ch1-intr",
