@@ -616,4 +616,24 @@
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
+
+	dai_pri_spdif_rx: qcom,msm-dai-q6-spdif-pri-rx {
+		compatible = "qcom,msm-dai-q6-spdif";
+		qcom,msm-dai-q6-dev-id = <20480>;
+	};
+
+	dai_pri_spdif_tx: qcom,msm-dai-q6-spdif-pri-tx {
+		compatible = "qcom,msm-dai-q6-spdif";
+		qcom,msm-dai-q6-dev-id = <20481>;
+	};
+
+	dai_sec_spdif_rx: qcom,msm-dai-q6-spdif-sec-rx {
+		compatible = "qcom,msm-dai-q6-spdif";
+		qcom,msm-dai-q6-dev-id = <20482>;
+	};
+
+	dai_sec_spdif_tx: qcom,msm-dai-q6-spdif-sec-tx {
+		compatible = "qcom,msm-dai-q6-spdif";
+		qcom,msm-dai-q6-dev-id = <20483>;
+	};
 };
