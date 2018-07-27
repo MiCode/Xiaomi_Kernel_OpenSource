@@ -28,6 +28,9 @@ int rpmh_ctrlr_idle(const struct device *dev);
 
 int rpmh_mode_solver_set(const struct device *dev, bool enable);
 
+int rpmh_write_pdc_data(const struct device *dev,
+			const struct tcs_cmd *cmd, u32 n);
+
 #else
 
 static inline int rpmh_write(const struct device *dev, enum rpmh_state state,
@@ -56,6 +59,9 @@ static inline int rpmh_ctrlr_idle(const struct device *dev)
 static inline int rpmh_mode_solver_set(const struct device *dev, bool enable)
 { return -ENODEV; }
 
+static inline int rpmh_write_pdc_data(const struct device *dev,
+				      const struct tcs_cmd *cmd, u32 n)
+{ return -ENODEV; }
 #endif /* CONFIG_QCOM_RPMH */
 
 #endif /* __SOC_QCOM_RPMH_H__ */

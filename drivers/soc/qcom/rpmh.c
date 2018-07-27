@@ -472,6 +472,34 @@ exit:
 }
 EXPORT_SYMBOL(rpmh_write_batch);
 
+/**
+ * rpmh_write_pdc_data: Write PDC data to the controller
+ *
+ * @dev: the device making the request
+ * @cmd: The payload data
+ * @n: The number of elements in payload
+ *
+ * Write PDC data to the controller. The messages are always sent async.
+ *
+ * May be called from atomic contexts.
+ */
+int rpmh_write_pdc_data(const struct device *dev,
+			const struct tcs_cmd *cmd, u32 n)
+{
+	DEFINE_RPMH_MSG_ONSTACK(dev, 0, NULL, rpm_msg);
+	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
+
+	if (!n || n > MAX_RPMH_PAYLOAD)
+		return -EINVAL;
+
+	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
+	rpm_msg.msg.num_cmds = n;
+	rpm_msg.msg.wait_for_compl = false;
+
+	return rpmh_rsc_write_pdc_data(ctrlr_to_drv(ctrlr), &rpm_msg.msg);
+}
+EXPORT_SYMBOL(rpmh_write_pdc_data);
+
 static int is_req_valid(struct cache_req *req)
 {
 	return (req->sleep_val != UINT_MAX &&
