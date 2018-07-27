@@ -428,7 +428,7 @@ int dp_connector_get_info(struct drm_connector *connector,
 {
 	struct dp_display *display = data;
 
-	if (!info || !display) {
+	if (!info || !display || !display->drm_dev) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
