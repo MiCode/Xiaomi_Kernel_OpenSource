@@ -205,6 +205,7 @@ struct dp_catalog_panel {
 			u32 rate, u32 stream_rate_khz, bool fixed_nvid);
 	void (*update_transfer_unit)(struct dp_catalog_panel *panel);
 	void (*config_ctrl)(struct dp_catalog_panel *panel, u32 cfg);
+	void (*config_dto)(struct dp_catalog_panel *panel, bool ack);
 };
 
 struct dp_catalog;

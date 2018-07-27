@@ -985,7 +985,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return 0;
 	}
 
-	rc = panel->hw_cfg(panel);
+	rc = panel->hw_cfg(panel, true);
 	if (rc)
 		return rc;
 
@@ -1058,6 +1058,8 @@ static void dp_ctrl_stream_off(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 		return;
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	panel->hw_cfg(panel, false);
 
 	dp_ctrl_disable_stream_clocks(ctrl, panel);
 }
