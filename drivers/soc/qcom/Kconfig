@@ -365,4 +365,32 @@ config QCOM_WATCHDOG_V2
 	  watchdog times out. It allows for detection of cpu hangs and
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
+
+config QCOM_RPMH
+	bool "Qualcomm Technologies, Inc. RPM-Hardened (RPMH) Communication"
+	depends on ARCH_QCOM && ARM64 && OF || COMPILE_TEST
+	help
+	  Support for communication with the hardened-RPM blocks in
+	  Qualcomm Technologies Inc (QTI) SoCs. RPMH communication uses an
+	  internal bus to transmit state requests for shared resources. A set
+	  of hardware components aggregate requests for these resources and
+	  help apply the aggregated state on the resource.
+
+config QCOM_BUS_SCALING
+	bool "Bus scaling driver"
+	help
+	This option enables bus scaling on MSM devices.  Bus scaling
+	allows devices to request the clocks be set to rates sufficient
+	for the active devices needs without keeping the clocks at max
+	frequency when a slower speed is sufficient.
+
+config  QCOM_BUS_CONFIG_RPMH
+	bool "RPMH Bus scaling driver"
+	depends on QCOM_BUS_SCALING
+	help
+	  This option enables bus scaling using QCOM specific hardware
+	  accelerators. It enables the translation of bandwidth requests
+	  from logical nodes to hardware nodes controlled by the BCM (Bus
+	  Clock Manager)
+
 endmenu
