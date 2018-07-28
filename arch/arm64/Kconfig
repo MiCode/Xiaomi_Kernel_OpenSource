@@ -260,6 +260,15 @@ config PGTABLE_LEVELS
 	default 3 if ARM64_16K_PAGES && ARM64_VA_BITS_47
 	default 4 if !ARM64_64K_PAGES && ARM64_VA_BITS_48
 
+config MSM_GVM
+	bool "Enable virtualization Support for MSM kernel"
+	help
+	  This enables support for MSM Kernel based virtual
+	  machine for any platform.
+	  This helps to enable virtual driver support.
+	  This should work on 64bit machine.
+	  If you don't know what to do here, say N.
+
 config MSM_GVM_QUIN
 	bool "Enable virtualization Support for MSM kernel required for QUIN platform"
 	help
