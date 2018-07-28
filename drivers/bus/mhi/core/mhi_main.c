@@ -363,8 +363,8 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in activate state, pm_state:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		MHI_VERB("MHI is not in activate state, pm_state:%s\n",
+			 to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 
 		return -EIO;
@@ -498,16 +498,10 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 	 * which is not fatal so we do not need to hold pm_lock
 	 */
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in active state, pm_state:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		MHI_VERB("MHI is not in active state, pm_state:%s\n",
+			 to_mhi_pm_state_str(mhi_cntrl->pm_state));
 
 		return -EIO;
-	}
-
-	/* we're in M3 or transitioning to M3 */
-	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
-		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
 	tre_ring = &mhi_chan->tre_ring;
@@ -519,6 +513,12 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		return ret;
 
 	read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+
+	/* we're in M3 or transitioning to M3 */
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+	}
 
 	/*
 	 * For UL channels always assert WAKE until work is done,
@@ -1329,6 +1329,15 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	}
 
 	mutex_lock(&mhi_chan->mutex);
+
+	/* if channel is not disable state do not allow to start */
+	if (mhi_chan->ch_state != MHI_CH_STATE_DISABLED) {
+		ret = -EIO;
+		MHI_LOG("channel:%d is not in disabled state, ch_state%d\n",
+			mhi_chan->chan, mhi_chan->ch_state);
+		goto error_init_chan;
+	}
+
 	/* client manages channel context for offload channels */
 	if (!mhi_chan->offload_ch) {
 		ret = mhi_init_chan_ctxt(mhi_cntrl, mhi_chan);
