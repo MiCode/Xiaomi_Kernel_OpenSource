@@ -146,6 +146,10 @@
 #define MONOTONIC_SOC_OFFSET		0
 
 /* v2 SRAM address and offset in ascending order */
+#define RSLOW_SCALE_FN_DISCHG_V2_WORD	281
+#define RSLOW_SCALE_FN_DISCHG_V2_OFFSET	0
+#define RSLOW_SCALE_FN_CHG_V2_WORD	285
+#define RSLOW_SCALE_FN_CHG_V2_OFFSET	0
 #define ACT_BATT_CAP_v2_WORD		287
 #define ACT_BATT_CAP_v2_OFFSET		0
 #define RSLOW_v2_WORD			371
@@ -1282,6 +1286,7 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 	int rc, i;
 	u8 buf, therm_coeffs[BATT_THERM_NUM_COEFFS * 2];
 	u8 rslow_coeffs[RSLOW_NUM_COEFFS], val, mask;
+	u16 rslow_scalefn;
 
 	if (fg->bp.vbatt_full_mv > 0) {
 		rc = fg_set_constant_chg_voltage(fg,
@@ -1349,6 +1354,27 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (fg->wa_flags & PM8150B_V2_RSLOW_SCALE_FN_WA) {
+		rslow_scalefn = 0x4000;
+		rc = fg_sram_write(fg, RSLOW_SCALE_FN_CHG_V2_WORD,
+				RSLOW_SCALE_FN_CHG_V2_OFFSET,
+				(u8 *)&rslow_scalefn, 2, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_SCALE_FN_CHG_WORD rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = fg_sram_write(fg, RSLOW_SCALE_FN_DISCHG_V2_WORD,
+				RSLOW_SCALE_FN_DISCHG_V2_OFFSET,
+				(u8 *)&rslow_scalefn, 2, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_SCALE_FN_DISCHG_WORD rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -3764,6 +3790,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 			fg->sp = pm8150b_v1_sram_params;
 			fg->wa_flags |= PM8150B_V1_DMA_WA;
 			fg->wa_flags |= PM8150B_V1_RSLOW_COMP_WA;
+		} else if (fg->pmic_rev_id->rev4 == PM8150B_V2P0_REV4) {
+			fg->wa_flags |= PM8150B_V2_RSLOW_SCALE_FN_WA;
 		}
 		break;
 	default:
