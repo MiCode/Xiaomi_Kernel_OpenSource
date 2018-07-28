@@ -1017,7 +1017,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		 * qseecom does not understand smcinvoke's callback object &&
 		 * erringly sets ret value as -EINVAL :( We need to handle it.
 		 */
-		if (ret && desc.ret[0] != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED)
+		if (desc.ret[0] != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED)
 			break;
 
 		dmac_inv_range(out_buf, out_buf + out_buf_len);
