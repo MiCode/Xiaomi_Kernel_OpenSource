@@ -1,4 +1,4 @@
-Qualcomm IMEM
+QTI IMEM
 
 IMEM is fast on-chip memory used for various debug features and dma transactions.
 
