@@ -35,6 +35,7 @@
 #include <linux/frame.h>
 
 #include <linux/kexec.h>
+#include <linux/slab.h>
 
 #include <xen/xen.h>
 #include <xen/events.h>
