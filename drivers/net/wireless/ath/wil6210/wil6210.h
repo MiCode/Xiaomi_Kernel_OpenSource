@@ -28,6 +28,7 @@ extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
 extern bool ftm_mode;
+extern ushort headroom_size;
 
 struct wil6210_priv;
 struct wil6210_vif;
