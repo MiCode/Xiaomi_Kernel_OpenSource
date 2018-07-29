@@ -40,7 +40,7 @@ config ESOC_DEBUG
 config ESOC_MDM_4x
 	bool "Add support for external modems"
 	help
-	  In some qualcomm boards, an external modem such as mdm9x55 or sdx50m
+	  In some QTI boards, an external modem such as mdm9x55 or sdx50m
 	  is connected to a primary msm. The primary soc can control/monitor
 	  the modem via gpios. The data communication with such modems can
 	  occur over PCIE or HSIC.
