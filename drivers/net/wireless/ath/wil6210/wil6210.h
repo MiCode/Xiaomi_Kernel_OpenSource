@@ -41,6 +41,7 @@ extern bool ac_queues;
 extern uint rx_ring_order;
 extern uint tx_ring_order;
 extern uint bcast_ring_order;
+extern ushort headroom_size;
 
 struct wil6210_priv;
 struct wil6210_vif;
@@ -106,6 +107,7 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
 #define WIL6210_MAX_STATUS_RINGS	(8)
 #define WIL_WMI_CALL_GENERAL_TO_MS 100
 #define WIL_DEFAULT_TX_RESERVED_ENTRIES (16)
+#define WIL6210_MAX_HEADROOM_SIZE      (256)
 
 /* Hardware offload block adds the following:
  * 26 bytes - 3-address QoS data header
