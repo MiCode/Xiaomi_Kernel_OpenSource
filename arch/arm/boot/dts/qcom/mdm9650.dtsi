@@ -22,7 +22,7 @@
 		      <286 0x10000>, <283 0x10000>, <359 0x10000>;
 	interrupt-parent = <&intc>;
 
-	reserved-memory {
+	reserved_mem: reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

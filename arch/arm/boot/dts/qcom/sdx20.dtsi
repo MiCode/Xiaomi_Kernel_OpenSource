@@ -39,6 +39,17 @@
 	reg = <0x88000000 0x7300000>;
 };
 
+&reserved_mem {
+	linux,cma {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0 0x00000000 0 0x90000000>;
+		reusable;
+		alignment = <0 0x400000>;
+		size = <0 0xc00000>;
+		linux,cma-default;
+	};
+};
+
 &soc {
 	/* SD card 2.95 V supply */
 	sdc_vreg: sdc_vreg {
