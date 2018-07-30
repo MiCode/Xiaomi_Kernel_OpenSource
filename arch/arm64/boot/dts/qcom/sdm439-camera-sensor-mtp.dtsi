@@ -30,7 +30,7 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,actuator";
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		cam_vaf-supply = <&pm8953_l17>;
 		qcom,cam-vreg-name = "cam_vaf";
 		qcom,cam-vreg-min-voltage = <2850000>;
@@ -156,6 +156,43 @@
 		qcom,clock-rates = <19200000 0>;
 	};
 
+	eeprom2: qcom,eeprom@2 {
+		cell-index = <2>;
+		compatible = "qcom,eeprom";
+		qcom,cci-master = <1>;
+		reg = <0x2>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+					"cam_vaf";
+		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
+		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_default
+				&cam_sensor_front1_default>;
+		pinctrl-1 = <&cam_sensor_mclk2_sleep
+				&cam_sensor_front1_sleep>;
+		gpios = <&tlmm 28 0>,
+			<&tlmm 40 0>,
+			<&tlmm 39 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
+					  "CAM_RESET2",
+					  "CAM_STANDBY2";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk2_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <19200000 0>;
+	};
+
 	qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
@@ -249,9 +286,9 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
-		qcom,eeprom-src = <&eeprom1>;
+		qcom,eeprom-src = <&eeprom2>;
 		qcom,actuator-src = <&actuator1>;
-		cam_vdig-supply = <&pm8953_l23>;
+		cam_vdig-supply = <&pm8953_l3>;
 		cam_vana-supply = <&pm8953_l22>;
 		cam_vio-supply = <&pm8953_l6>;
 		cam_vaf-supply = <&pm8953_l17>;
@@ -278,7 +315,7 @@
 					  "CAM_STANDBY2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
