@@ -738,7 +738,7 @@ void sde_connector_destroy(struct drm_connector *connector)
 		backlight_device_unregister(c_conn->bl_device);
 	drm_connector_unregister(connector);
 	mutex_destroy(&c_conn->lock);
-	sde_fence_deinit(&c_conn->retire_fence);
+	sde_fence_deinit(c_conn->retire_fence);
 	drm_connector_cleanup(connector);
 	msm_property_destroy(&c_conn->property_info);
 	kfree(c_conn);
@@ -1124,7 +1124,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		/*
 		 * update the the offset to a timeline for commit completion
 		 */
-		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 1);
+		rc = sde_fence_create(c_conn->retire_fence, &fence_fd, 1);
 		if (rc) {
 			SDE_ERROR("fence create failed rc:%d\n", rc);
 			goto end;
@@ -1234,7 +1234,7 @@ void sde_conn_timeline_status(struct drm_connector *conn)
 	}
 
 	c_conn = to_sde_connector(conn);
-	sde_fence_timeline_status(&c_conn->retire_fence, &conn->base);
+	sde_fence_timeline_status(c_conn->retire_fence, &conn->base);
 }
 
 void sde_connector_prepare_fence(struct drm_connector *connector)
@@ -1244,7 +1244,7 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 		return;
 	}
 
-	sde_fence_prepare(&to_sde_connector(connector)->retire_fence);
+	sde_fence_prepare(to_sde_connector(connector)->retire_fence);
 }
 
 void sde_connector_complete_commit(struct drm_connector *connector,
@@ -1256,7 +1256,7 @@ void sde_connector_complete_commit(struct drm_connector *connector,
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+	sde_fence_signal(to_sde_connector(connector)->retire_fence,
 			ts, fence_event);
 }
 
@@ -1268,7 +1268,7 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+	sde_fence_signal(to_sde_connector(connector)->retire_fence,
 			ts, SDE_FENCE_RESET_TIMELINE);
 }
 
@@ -2135,9 +2135,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"conn%u",
 			c_conn->base.base.id);
 
-	rc = sde_fence_init(&c_conn->retire_fence, c_conn->name,
+	c_conn->retire_fence = sde_fence_init(c_conn->name,
 			c_conn->base.base.id);
-	if (rc) {
+	if (IS_ERR(c_conn->retire_fence)) {
+		rc = PTR_ERR(c_conn->retire_fence);
 		SDE_ERROR("failed to init fence, %d\n", rc);
 		goto error_cleanup_conn;
 	}
@@ -2312,7 +2313,7 @@ error_destroy_property:
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
 	mutex_destroy(&c_conn->lock);
-	sde_fence_deinit(&c_conn->retire_fence);
+	sde_fence_deinit(c_conn->retire_fence);
 error_cleanup_conn:
 	drm_connector_cleanup(&c_conn->base);
 error_free_conn:
