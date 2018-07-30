@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,7 +261,7 @@
 			};
 		};
 
-		bmi160_int1_default: bmi160_int1_default {
+		sensor_int1_default: sensor_int1_default {
 			mux {
 				pins = "gpio78";
 				function = "gpio";
@@ -273,7 +273,7 @@
 			};
 		};
 
-		bmi160_int2_default: bmi160_int2_default {
+		sensor_int2_default: sensor_int2_default {
 			mux {
 				pins = "gpio79";
 				function = "gpio";
