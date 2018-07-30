@@ -504,6 +504,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
 	apq8009w-bg-alpha.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-robot-som-refboard.dtb \
+	apq8009-robot-rome-refboard.dtb \
+	apq8009-robot-pronto-refboard.dtb \
 	apq8009-dragon.dtb \
 	apq8009-lat-v1.0.dtb \
 	sdw3100-msm8909w-1gb-wtp.dtb
