@@ -266,6 +266,8 @@ struct sde_encoder_irq {
  * @intf_cfg_v1:        Interface hardware configuration to be used if control
  *                      path supports SDE_CTL_ACTIVE_CFG
  * @comp_type:      Type of compression supported
+ * @comp_ratio:		Compression ratio
+ * @wide_bus_en:	Wide-bus configuraiton
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
@@ -307,6 +309,8 @@ struct sde_encoder_phys {
 	struct sde_hw_intf_cfg intf_cfg;
 	struct sde_hw_intf_cfg_v1 intf_cfg_v1;
 	enum msm_display_compression_type comp_type;
+	enum msm_display_compression_ratio comp_ratio;
+	bool wide_bus_en;
 	spinlock_t *enc_spinlock;
 	enum sde_enc_enable_state enable_state;
 	struct mutex *vblank_ctl_lock;

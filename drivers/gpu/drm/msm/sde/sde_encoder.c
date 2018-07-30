@@ -993,6 +993,16 @@ static int sde_encoder_virt_atomic_check(
 			return ret;
 		}
 
+		if (sde_conn_state->mode_info.comp_info.comp_type &&
+			sde_conn_state->mode_info.comp_info.comp_ratio >=
+					MSM_DISPLAY_COMPRESSION_RATIO_MAX) {
+			SDE_ERROR_ENC(sde_enc,
+				"invalid compression ratio: %d\n",
+				sde_conn_state->mode_info.comp_info.comp_ratio);
+			ret = -EINVAL;
+			return ret;
+		}
+
 		/* Reserve dynamic resources, indicating atomic_check phase */
 		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
 			conn_state, true);
@@ -2995,6 +3005,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			continue;
 
 		phys->comp_type = comp_info->comp_type;
+		phys->comp_ratio = comp_info->comp_ratio;
+		phys->wide_bus_en = mode_info.wide_bus_en;
 		if (phys != sde_enc->cur_master) {
 			/**
 			 * on DMS request, the encoder will be enabled

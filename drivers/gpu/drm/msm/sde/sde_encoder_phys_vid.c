@@ -57,6 +57,8 @@ static void drm_mode_to_intf_timing_params(
 		struct intf_timing_params *timing)
 {
 	const struct sde_encoder_phys *phys_enc = &vid_enc->base;
+	enum msm_display_compression_ratio comp_ratio =
+				MSM_DISPLAY_COMPRESSION_RATIO_NONE;
 
 	memset(timing, 0, sizeof(*timing));
 
@@ -86,8 +88,14 @@ static void drm_mode_to_intf_timing_params(
 	 * <---------------------------- [hv]total ------------->
 	 */
 	timing->width = mode->hdisplay;	/* active width */
-	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC)
-		timing->width = DIV_ROUND_UP(timing->width, 3);
+
+	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
+		comp_ratio = vid_enc->base.comp_ratio;
+		if (comp_ratio == MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1)
+			timing->width = DIV_ROUND_UP(timing->width, 2);
+		else
+			timing->width = DIV_ROUND_UP(timing->width, 3);
+	}
 
 	timing->height = mode->vdisplay;	/* active height */
 	timing->xres = timing->width;
@@ -110,6 +118,8 @@ static void drm_mode_to_intf_timing_params(
 		timing->hsync_polarity = 0;
 		timing->vsync_polarity = 0;
 	}
+
+	timing->wide_bus_en = vid_enc->base.wide_bus_en;
 
 	/*
 	 * For edp only:
