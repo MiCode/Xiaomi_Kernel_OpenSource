@@ -230,7 +230,7 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 
 static int adc_tm_probe(struct platform_device *pdev)
 {
-	struct device_node *child, *node = pdev->dev.of_node;
+	struct device_node *child, *revid_dev_node, *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
 	struct adc_tm_chip *adc_tm;
 	struct regmap *regmap;
@@ -279,6 +279,15 @@ static int adc_tm_probe(struct platform_device *pdev)
 	adc_tm->dev = dev;
 	adc_tm->base = reg;
 	adc_tm->dt_channels = dt_chan_num;
+
+	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (revid_dev_node) {
+		adc_tm->pmic_rev_id = get_revid_data(revid_dev_node);
+		if (IS_ERR(adc_tm->pmic_rev_id)) {
+			pr_debug("Unable to get revid\n");
+			return -EPROBE_DEFER;
+		}
+	}
 
 	ret = adc_tm_get_dt_data(pdev, adc_tm, channels, dt_chan_num);
 	if (ret) {

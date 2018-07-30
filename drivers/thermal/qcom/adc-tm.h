@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/iio/consumer.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 struct adc_tm_chip;
 
@@ -91,6 +92,7 @@ struct adc_tm_chip {
 	const struct adc_tm_ops		*ops;
 	const struct adc_tm_data	*data;
 	unsigned int			dt_channels;
+	struct pmic_revid_data		*pmic_rev_id;
 	struct adc_tm_sensor		sensor[0];
 };
 

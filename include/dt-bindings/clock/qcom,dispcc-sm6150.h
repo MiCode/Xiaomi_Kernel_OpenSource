@@ -14,7 +14,7 @@
 #ifndef _DT_BINDINGS_CLK_QCOM_DISP_CC_SM6150_H
 #define _DT_BINDINGS_CLK_QCOM_DISP_CC_SM6150_H
 
-#define DISP_CC_DEBUG_CLK					0
+#define DISP_CC_PLL0_OUT_MAIN					0
 #define DISP_CC_MDSS_AHB_CLK					1
 #define DISP_CC_MDSS_AHB_CLK_SRC				2
 #define DISP_CC_MDSS_BYTE0_CLK					3
@@ -45,14 +45,6 @@
 #define DISP_CC_MDSS_RSCC_VSYNC_CLK				28
 #define DISP_CC_MDSS_VSYNC_CLK					29
 #define DISP_CC_MDSS_VSYNC_CLK_SRC				30
-#define DISP_CC_PLL0						31
-#define DISP_CC_PLL0_OUT_MAIN					32
-#define DISP_CC_PLL_TEST_CLK					33
-#define DISP_CC_SLEEP_CLK					34
-#define DISP_CC_SLEEP_CLK_SRC					35
-#define DISP_CC_XO_CLK						36
-#define DISP_CC_XO_CLK_SRC					37
-
-#define DISP_CC_MDSS_RSCC_BCR					0
+#define DISP_CC_XO_CLK						31
 
 #endif

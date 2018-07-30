@@ -50,8 +50,11 @@
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
 		mhi0 = &mhi_0;
+		mhi1 = &mhi_1;
 		mhi_netdev0 = &mhi_netdev_0;
 		mhi_netdev1 = &mhi_netdev_1;
+		mhi_netdev2 = &mhi_netdev_2;
+		mhi_netdev3 = &mhi_netdev_3;
 	};
 
 	aliases {
@@ -2436,7 +2439,7 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x5a3 0x0>;
-			shared-cb = <5>;
+			shared-cb = <2>;
 			dma-coherent;
 		};
 	};
@@ -3061,7 +3064,7 @@
 
 		dcc-ram-offset = <0x6000>;
 
-		qcom,curr-link-list = <2>;
+		qcom,curr-link-list = <3>;
 		qcom,link-list = <DCC_READ 0x18220d14 3 0>,
 				 <DCC_READ 0x18220d30 4 0>,
 				 <DCC_READ 0x18220d44 4 0>,
@@ -3543,7 +3546,6 @@
 
 	ipa_smmu_wlan: ipa_smmu_wlan {
 		compatible = "qcom,ipa-smmu-wlan-cb";
-		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x521 0x0>;
 		qcom,additional-mapping =
 		/* ipa-uc ram */
@@ -3552,7 +3554,6 @@
 
 	ipa_smmu_uc: ipa_smmu_uc {
 		compatible = "qcom,ipa-smmu-uc-cb";
-		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x522 0x0>;
 		qcom,iova-mapping = <0x40000000 0x20000000>;
 	};
@@ -3594,7 +3595,6 @@
 		qcom,wlan-msa-fixed-region = <&pil_wlan_fw_mem>;
 		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
 		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
-		qcom,smmu-s1-bypass;
 
 		vdd-cx-mx-supply = <&pm8150_l1>;
 		vdd-1.8-xo-supply = <&pm8150_l7>;

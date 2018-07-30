@@ -9339,7 +9339,7 @@ void update_group_capacity(struct sched_domain *sd, int cpu)
 				capacity += sgc->capacity;
 				min_capacity = min(sgc->min_capacity,
 							min_capacity);
-				max_capacity = min(sgc->max_capacity,
+				max_capacity = max(sgc->max_capacity,
 							max_capacity);
 			}
 			group = group->next;

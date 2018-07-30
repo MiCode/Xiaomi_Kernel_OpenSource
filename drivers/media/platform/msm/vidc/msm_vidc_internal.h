@@ -175,6 +175,7 @@ struct internal_buf {
 	enum hal_buffer buffer_type;
 	struct msm_smem smem;
 	enum buffer_owner buffer_ownership;
+	bool mark_remove;
 };
 
 struct msm_vidc_csc_coeff {
@@ -452,6 +453,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_capability capability;
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
+	enum multi_stream stream_output_mode;
 	struct v4l2_ctrl **ctrls;
 	int bit_depth;
 	struct kref kref;

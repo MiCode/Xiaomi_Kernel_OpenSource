@@ -36,7 +36,7 @@
 #define APCS_CMD	0x0b011050
 #define XO_RATE		19200000
 
-static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_hf_pll, VDD_HF_PLL_NUM, 2, vdd_hf_levels);
 static DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
 static unsigned int cpucc_clk_init_rate;
 
@@ -265,12 +265,12 @@ static struct clk_pll apcs_cpu_pll = {
 		.parent_names = (const char *[]){ "cxo_a" },
 		.num_parents = 1,
 		.ops = &clk_pll_hf_ops,
-		.vdd_class = &vdd_cx,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOW] = 1000000000,
-			[VDD_NOMINAL] = 2000000000,
+		.vdd_class = &vdd_hf_pll,
+		.rate_max = (unsigned long[VDD_HF_PLL_NUM]) {
+			[VDD_HF_PLL_SVS] = 1000000000,
+			[VDD_HF_PLL_NOM] = 2000000000,
 		},
-		.num_rate_max = VDD_NUM,
+		.num_rate_max = VDD_HF_PLL_NUM,
 	},
 };
 
@@ -533,12 +533,20 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 	}
 
 	 /* Rail Regulator for apcs_pll */
-	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig_ao");
-	if (IS_ERR(vdd_cx.regulator[0])) {
-		if (!(PTR_ERR(vdd_cx.regulator[0]) == -EPROBE_DEFER))
+	vdd_hf_pll.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_hf_pll");
+	if (IS_ERR(vdd_hf_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_hf_pll.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_hf_pll regulator\n");
+		return PTR_ERR(vdd_hf_pll.regulator[0]);
+	}
+
+	vdd_hf_pll.regulator[1] = devm_regulator_get(&pdev->dev, "vdd_dig_ao");
+	if (IS_ERR(vdd_hf_pll.regulator[1])) {
+		if (!(PTR_ERR(vdd_hf_pll.regulator[1]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev,
 				"Unable to get vdd_dig_ao regulator\n");
-		return PTR_ERR(vdd_cx.regulator[0]);
+		return PTR_ERR(vdd_hf_pll.regulator[1]);
 	}
 
 	/* Rail Regulator for APSS cpuss mux */

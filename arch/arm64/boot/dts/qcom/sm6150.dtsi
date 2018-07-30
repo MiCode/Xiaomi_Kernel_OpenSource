@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2018, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -744,45 +744,50 @@
 		mbox-names = "qdss_clk";
 	};
 
-	clock_gcc: qcom,gcc {
+	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,gcc-sm6150", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm6150_s1_level>;
-		vdd_cx_ao-supply = <&pm6150_s1_level_ao>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_videocc: qcom,videocc {
+	clock_videocc: qcom,videocc@ab00000 {
 		compatible = "qcom,videocc-sm6150", "syscon";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,camcc-sm6150", "syscon";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dispcc-sm6150", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_gpucc: qcom,gpupcc {
+	clock_gpucc: qcom,gpupcc@5090000 {
 		compatible = "qcom,gpucc-sm6150", "syscon";
 		reg = <0x5090000 0x9000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm6150_s1_level>;
-		vdd_mx-supply = <&pm6150_s3_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1197,11 +1202,11 @@
 		qcom,large-address-bus;
 
 		qcom,clk-rates = <400000 20000000 25000000
-				50000000 100000000 201500000>;
+				50000000 100000000 202000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
-		qcom,devfreq,freq-table = <50000000 201500000>;
+		qcom,devfreq,freq-table = <50000000 202000000>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
@@ -1988,6 +1993,32 @@
 		qcom,pil-force-shutdown;
 		memory-region = <&pil_ipa_fw_mem>;
 	};
+
+	icnss: qcom,icnss@18800000 {
+		status = "disabled";
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,smmu-s1-bypass;
+		qcom,wlan-msa-memory = <0x100000>;
+		vdd-0.8-cx-mx-supply = <&pm6150_l9>;
+		vdd-1.8-xo-supply = <&pm6150l_l1>;
+		vdd-1.3-rfa-supply = <&pm6150l_l2>;
+		vdd-3.3-ch0-supply = <&pm6150l_l10>;
+		qcom,vdd-0.8-cx-mx-config = <640000 640000>;
+	};
 };
 
 #include "pm6150.dtsi"
@@ -1999,6 +2030,12 @@
 #include "sm6150-qupv3.dtsi"
 #include "sm6150-thermal.dtsi"
 #include "sm6150-gpu.dtsi"
+#include "sm6150-usb.dtsi"
+
+&usb0 {
+	extcon = <&pm6150_pdphy>;
+	vbus_dwc3-supply = <&smb5_vbus>;
+};
 
 &emac_gdsc {
 	status = "ok";

@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sm8150-qrd.dtsi"
+#include "sm8150-qrd-audio-overlay.dtsi"
 
 / {
 	model = "QRD";

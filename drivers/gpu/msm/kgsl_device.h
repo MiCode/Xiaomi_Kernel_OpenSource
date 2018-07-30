@@ -152,6 +152,8 @@ struct kgsl_functable {
 		struct kgsl_snapshot *snapshot);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	int (*drain)(struct kgsl_device *device);
+	struct kgsl_device_private * (*device_private_create)(void);
+	void (*device_private_destroy)(struct kgsl_device_private *dev_priv);
 	/*
 	 * Optional functions - these functions are not mandatory.  The
 	 * driver will check that the function pointer is not NULL before

@@ -2500,10 +2500,20 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
+	union power_supply_propval pval;
 	int rc = 0;
 
 	if (!chg->pd_active) {
-		rc = smblib_handle_usb_current(chg, val->intval);
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get usb present rc = %d\n",
+						rc);
+			return rc;
+		}
+
+		/* handle the request only when USB is present */
+		if (pval.intval)
+			rc = smblib_handle_usb_current(chg, val->intval);
 	} else if (chg->system_suspend_supported) {
 		if (val->intval <= USBIN_25MA)
 			rc = vote(chg->usb_icl_votable,
@@ -2627,6 +2637,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		 * pd_current_max
 		 */
 		vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
+		vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
 
 		/*

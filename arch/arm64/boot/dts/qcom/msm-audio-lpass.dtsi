@@ -427,7 +427,7 @@
 		qcom,adsp-state = <0>;
 	};
 
-	qcom,msm-dai-tdm-pri-rx {
+	tdm_pri_rx: qcom,msm-dai-tdm-pri-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37120>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -446,7 +446,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-pri-tx {
+	tdm_pri_tx: qcom,msm-dai-tdm-pri-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37121>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -465,7 +465,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-sec-rx {
+	tdm_sec_rx: qcom,msm-dai-tdm-sec-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37136>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -484,7 +484,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-sec-tx {
+	tdm_sec_tx: qcom,msm-dai-tdm-sec-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37137>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -503,7 +503,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-tert-rx {
+	tdm_tert_rx: qcom,msm-dai-tdm-tert-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37152>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -522,7 +522,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-tert-tx {
+	tdm_tert_tx: qcom,msm-dai-tdm-tert-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37153>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -541,7 +541,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quat-rx {
+	tdm_quat_rx: qcom,msm-dai-tdm-quat-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37168>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -560,7 +560,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quat-tx {
+	tdm_quat_tx: qcom,msm-dai-tdm-quat-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37169>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -579,7 +579,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quin-rx {
+	tdm_quin_rx: qcom,msm-dai-tdm-quin-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37184>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
@@ -598,7 +598,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quin-tx {
+	tdm_quin_tx: qcom,msm-dai-tdm-quin-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37185>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;

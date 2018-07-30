@@ -37,7 +37,6 @@
 #define GCC_CAMERA_MISC		0x0b084
 #define GCC_VIDEO_MISC		0x9b000
 #define GCC_GPU_MISC		0x71028
-#define GCC_EMAC_MISC		0x06040
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
@@ -300,7 +299,7 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_emac_ptp_clk_src[] = {
-	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
+	F(75000000, P_GPLL0_OUT_AUX2, 4, 0, 0),
 	F(125000000, P_GPLL7_OUT_MAIN, 4, 0, 0),
 	F(250000000, P_GPLL7_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -320,8 +319,9 @@ static struct clk_rcg2 gcc_emac_ptp_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 50000000,
-			[VDD_LOW] = 230400000},
+			[VDD_LOWER] = 75000000,
+			[VDD_LOW] = 125000000,
+			[VDD_NOMINAL] = 250000000},
 	},
 };
 
@@ -792,6 +792,7 @@ static const struct freq_tbl ftbl_gcc_sdcc1_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(20000000, P_GPLL0_OUT_AUX2, 5, 1, 3),
 	F(25000000, P_GPLL0_OUT_AUX2, 6, 1, 2),
+	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_AUX2, 3, 0, 0),
 	F(192000000, P_GPLL6_OUT_MAIN, 2, 0, 0),
 	F(384000000, P_GPLL6_OUT_MAIN, 1, 0, 0),
@@ -813,7 +814,9 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 100000000,
+			[VDD_LOWER] = 50000000,
+			[VDD_LOW] = 100000000,
+			[VDD_LOW_L1] = 200000000,
 			[VDD_NOMINAL] = 384000000},
 	},
 };
@@ -851,8 +854,9 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(25000000, P_GPLL0_OUT_AUX2, 12, 0, 0),
-	F(52000000, P_GPLL8_OUT_MAIN, 8, 0, 0),
-	F(208000000, P_GPLL8_OUT_MAIN, 2, 0, 0),
+	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_AUX2, 3, 0, 0),
+	F(202000000, P_GPLL8_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -871,8 +875,9 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 52000000,
-			[VDD_LOW] = 208000000},
+			[VDD_LOWER] = 50000000,
+			[VDD_LOW] = 100000000,
+			[VDD_NOMINAL] = 202000000},
 	},
 };
 
@@ -2555,7 +2560,7 @@ static struct clk_branch gcc_sys_noc_cpuss_ahb_clk = {
 
 static struct clk_branch gcc_ufs_card_clkref_clk = {
 	.halt_reg = 0x8c004,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x8c004,
 		.enable_mask = BIT(0),
@@ -3496,11 +3501,10 @@ static int gcc_sm6150_probe(struct platform_device *pdev)
 	 * Disable the GPLL0 active input to MM blocks and GPU
 	 * via MISC registers.
 	 */
-	regmap_update_bits(regmap, GCC_DISPLAY_MISC, 0x3, 0x3);
-	regmap_update_bits(regmap, GCC_CAMERA_MISC, 0x3, 0x3);
-	regmap_update_bits(regmap, GCC_VIDEO_MISC, 0x3, 0x3);
+	regmap_update_bits(regmap, GCC_DISPLAY_MISC, 0x1, 0x1);
+	regmap_update_bits(regmap, GCC_CAMERA_MISC, 0x1, 0x1);
+	regmap_update_bits(regmap, GCC_VIDEO_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
-	regmap_update_bits(regmap, GCC_EMAC_MISC, 0x3, 0x3);
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sm6150_desc, regmap);
 	if (ret) {

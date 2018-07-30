@@ -54,6 +54,7 @@ struct qg_dt {
 	int			esr_qual_i_ua;
 	int			esr_qual_v_uv;
 	int			esr_disable_soc;
+	int			esr_min_ibat_ua;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -144,6 +145,8 @@ struct qpnp_qg {
 	int			batt_soc;
 	int			cc_soc;
 	int			full_soc;
+	int			sys_soc;
+	int			last_adj_ssoc;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 

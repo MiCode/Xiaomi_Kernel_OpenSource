@@ -4174,5 +4174,18 @@
 				};
 			};
 		};
+
+		bt_en_active: bt_en_active {
+			mux {
+				pins = "gpio172";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio172";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };

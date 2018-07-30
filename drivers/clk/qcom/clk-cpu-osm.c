@@ -82,6 +82,7 @@ struct clk_osm {
 };
 
 static bool is_sdmshrike;
+static bool is_sm6150;
 
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
@@ -359,6 +360,30 @@ static struct clk_osm cpu3_pwrcl_clk = {
 	},
 };
 
+static struct clk_osm cpu4_pwrcl_clk = {
+	.core_num = 4,
+	.total_cycle_counter = 0,
+	.prev_cycle_counter = 0,
+	.hw.init = &(struct clk_init_data){
+		.name = "cpu4_pwrcl_clk",
+		.parent_names = (const char *[]){ "pwrcl_clk" },
+		.num_parents = 1,
+		.ops = &clk_ops_core,
+	},
+};
+
+static struct clk_osm cpu5_pwrcl_clk = {
+	.core_num = 5,
+	.total_cycle_counter = 0,
+	.prev_cycle_counter = 0,
+	.hw.init = &(struct clk_init_data){
+		.name = "cpu5_pwrcl_clk",
+		.parent_names = (const char *[]){ "pwrcl_clk" },
+		.num_parents = 1,
+		.ops = &clk_ops_core,
+	},
+};
+
 static struct clk_osm perfcl_clk = {
 	.cluster_num = 2,
 	.hw.init = &osm_clks_init[2],
@@ -447,6 +472,8 @@ static struct clk_hw *osm_qcom_clk_hws[] = {
 	[CPU7_PERFPCL_CLK] = &cpu7_perfpcl_clk.hw,
 	[PERFPCL_CLK] = &perfpcl_clk.hw,
 	[CPU7_PERFCL_CLK] = NULL,
+	[CPU4_PWRCL_CLK] = NULL,
+	[CPU5_PWRCL_CLK] = NULL,
 };
 
 struct clk_osm *clk_cpu_map[] = {
@@ -980,7 +1007,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (is_sdmshrike)
+	if (is_sdmshrike || is_sm6150)
 		return 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1003,6 +1030,24 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	return 0;
 }
 
+static void clk_cpu_osm_driver_sm6150_fixup(void)
+{
+	osm_qcom_clk_hws[CPU4_PERFCL_CLK] = NULL;
+	osm_qcom_clk_hws[CPU5_PERFCL_CLK] = NULL;
+	osm_qcom_clk_hws[CPU7_PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[CPU4_PWRCL_CLK] = &cpu4_pwrcl_clk.hw;
+	osm_qcom_clk_hws[CPU5_PWRCL_CLK] = &cpu5_pwrcl_clk.hw;
+	osm_qcom_clk_hws[CPU7_PERFCL_CLK] = &cpu7_perfcl_clk.hw;
+
+	cpu6_perfcl_clk.core_num = 0;
+	cpu7_perfcl_clk.core_num = 1;
+
+	clk_cpu_map[4] = &cpu4_pwrcl_clk;
+	clk_cpu_map[5] = &cpu5_pwrcl_clk;
+	clk_cpu_map[7] = &cpu7_perfcl_clk;
+}
+
 static void clk_cpu_osm_driver_sdmshrike_fixup(void)
 {
 	osm_qcom_clk_hws[CPU7_PERFPCL_CLK] = NULL;
@@ -1023,10 +1068,15 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
 
+	is_sm6150 = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,clk-cpu-osm-sm6150");
+
 	is_sdmshrike = of_device_is_compatible(pdev->dev.of_node,
 				"qcom,clk-cpu-osm-sdmshrike");
 	if (is_sdmshrike)
 		clk_cpu_osm_driver_sdmshrike_fixup();
+	else if (is_sm6150)
+		clk_cpu_osm_driver_sm6150_fixup();
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
 								GFP_KERNEL);
@@ -1078,7 +1128,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (!is_sdmshrike) {
+	if (!is_sdmshrike && !is_sm6150) {
 		rc = clk_osm_read_lut(pdev, &perfpcl_clk);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to read OSM LUT for perf plus cluster, rc=%d\n",
@@ -1150,6 +1200,7 @@ exit:
 
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,clk-cpu-osm" },
+	{ .compatible = "qcom,clk-cpu-osm-sm6150" },
 	{ .compatible = "qcom,clk-cpu-osm-sdmshrike" },
 	{}
 };

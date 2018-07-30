@@ -518,7 +518,8 @@ static int adc_tm5_register_interrupts(struct adc_tm_chip *chip)
 static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 {
 	u8 buf[4], channels_available, meas_int_timer_2_3 = 0;
-	int ret, i;
+	int ret;
+	unsigned int offset_btm_idx = 0, i;
 
 	ret = adc_tm5_read_reg(chip, ADC_TM_NUM_BTM, &channels_available, 1);
 	if (ret < 0) {
@@ -561,8 +562,26 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 
 	spin_lock_init(&chip->adc_tm_lock);
 
-	for (i = 0; i < dt_chans; i++)
-		chip->sensor[i].btm_ch = adc_tm_ch_data[i].btm_amux_ch;
+	if (chip->pmic_rev_id) {
+		switch (chip->pmic_rev_id->pmic_subtype)
+		/*
+		 * PM8150B 1.0 CH_0 and CH_1 is already used.
+		 * Therefore configure to use CH_2 onwards.
+		 */
+		case PM8150B_SUBTYPE:
+			if (chip->pmic_rev_id->rev4 == PM8150B_V1P0_REV4)
+				offset_btm_idx = ADC_TM_CHAN2;
+	}
+
+	for (i = 0; i < dt_chans; i++) {
+		if ((i + offset_btm_idx) > ADC_TM_CHAN7) {
+			pr_err("Invalid BTM index\n", (i + offset_btm_idx));
+			return -EINVAL;
+		}
+
+		chip->sensor[i].btm_ch =
+				adc_tm_ch_data[i + offset_btm_idx].btm_amux_ch;
+	}
 
 	return ret;
 }

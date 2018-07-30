@@ -17,15 +17,19 @@
 #include <linux/module.h>
 #include <linux/power_supply.h>
 #include <uapi/linux/qg.h>
+#include <uapi/linux/qg-profile.h>
 #include "fg-alg.h"
 #include "qg-sdam.h"
 #include "qg-core.h"
 #include "qg-reg.h"
 #include "qg-util.h"
 #include "qg-defs.h"
+#include "qg-soc.h"
 
 #define DEFAULT_UPDATE_TIME_MS			64000
 #define SOC_SCALE_HYST_MS			2000
+#define VBAT_LOW_HYST_UV			50000
+#define FULL_SOC				100
 
 static int qg_delta_soc_interval_ms = 20000;
 module_param_named(
@@ -36,6 +40,39 @@ static int qg_delta_soc_cold_interval_ms = 4000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
+
+int qg_adjust_sys_soc(struct qpnp_qg *chip)
+{
+	int soc, vbat_uv, rc;
+	int vcutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
+
+	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
+
+	if (chip->sys_soc == QG_MIN_SOC) {
+		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
+		rc = qg_get_battery_voltage(chip, &vbat_uv);
+		if (!rc && vbat_uv >= (vcutoff_uv + VBAT_LOW_HYST_UV))
+			soc = 1;
+		else
+			soc = 0;
+	} else if (chip->sys_soc == QG_MAX_SOC) {
+		soc = FULL_SOC;
+	} else if (chip->sys_soc >= (QG_MAX_SOC - 100)) {
+		/* Hold SOC to 100% if we are dropping from 100 to 99 */
+		if (chip->last_adj_ssoc == FULL_SOC)
+			soc = FULL_SOC;
+		else /* Hold SOC at 99% until we hit 100% */
+			soc = FULL_SOC - 1;
+	} else {
+		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
+	}
+
+	qg_dbg(chip, QG_DEBUG_SOC, "last_adj_sys_soc=%d  adj_sys_soc=%d\n",
+					chip->last_adj_ssoc, soc);
+	chip->last_adj_ssoc = soc;
+
+	return soc;
+}
 
 static void get_next_update_time(struct qpnp_qg *chip)
 {

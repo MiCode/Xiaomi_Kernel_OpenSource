@@ -88,11 +88,18 @@
 			size = <0 0x1000000>;
 		};
 
-		adsp_mem: adsp_region {
+		qseecom_ta_mem: qseecom_ta_region {
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x400000>;
+		};
+
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
 		};
 
 		dump_mem: mem_dump_region {
@@ -132,8 +139,8 @@
 #include "qcs405-mdss.dtsi"
 
 &i2c_5 { /* BLSP (NTAG) */
-	status = "ok";
 	nq@55 {
+		status = "disabled";
 		compatible = "qcom,nq-ntag";
 		reg = <0x55>;
 		qcom,nq-ntagfd = <&tlmm 53 GPIO_ACTIVE_LOW>;
@@ -320,7 +327,8 @@
 			<0xb016000 0x34>;
 		reg-names = "apcs_cmd" , "apcs_pll";
 		cpu-vdd-supply = <&apc_vreg_corner>;
-		vdd_dig_ao-supply = <&pms405_s1_level>;
+		vdd_dig_ao-supply = <&pms405_s1_level_ao>;
+		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
 			< 1113600000 1>,
@@ -397,6 +405,7 @@
 
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x400>;
+		qcom,curr-link-list = <1>;
 	};
 
 	rpm_bus: qcom,rpm-smd {
@@ -980,6 +989,21 @@
 		};
 	};
 
+	qcom_seecom: qseecom@85800000 {
+		compatible = "qcom,qseecom";
+		reg = <0x85800000 0x600000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
 	sdhc_1: sdhci@7804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x7804000 0x1000>, <0x7805000 0x1000>;
@@ -1122,8 +1146,7 @@
 
 		qcom,cpufreq-table =
 			 < 1113600 >,
-			 < 1267200 >,
-			 < 1401600 >;
+			 < 1267200 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1164,8 +1187,7 @@
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
 			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >,
-			< 1401600 MHZ_TO_MBPS( 710, 4) >;
+			< 1267200 MHZ_TO_MBPS( 597, 4) >;
 	};
 
 	bluetooth: bt_wcn3990 {
