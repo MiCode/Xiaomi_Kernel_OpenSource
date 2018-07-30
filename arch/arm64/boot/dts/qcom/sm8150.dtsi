@@ -1656,6 +1656,7 @@
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -1703,6 +1704,7 @@
 		status = "ok";
 		memory-region = <&pil_slpi_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 0 494 1>,
@@ -1748,6 +1750,7 @@
 		qcom,pil-generic-irq-handler;
 		status = "ok";
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -1803,6 +1806,7 @@
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		qcom,msm-bus,name = "pil-cdsp";
 		qcom,msm-bus,num-cases = <2>;
@@ -1838,6 +1842,7 @@
 
 		vdd-supply = <&mvsc_gdsc>;
 		qcom,proxy-reg-names = "vdd";
+		qcom,complete-ramdump;
 
 		clocks = <&clock_videocc VIDEO_CC_XO_CLK>,
 			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK>,
