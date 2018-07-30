@@ -45,7 +45,6 @@ struct mdp3_session_data {
 	struct msm_fb_data_type *mfd;
 	ktime_t vsync_time;
 	struct timer_list vsync_timer;
-	int vsync_period;
 	struct kernfs_node *vsync_event_sd;
 	struct kernfs_node *bl_event_sd;
 	struct mdp_overlay overlay;
