@@ -1466,6 +1466,11 @@
 		reg = <0x182a0018 0x4>;
 	};
 
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x1000>;
+	};
+
 	clock_cpucc: qcom,cpucc {
 		compatible = "qcom,clk-cpu-osm";
 		reg = <0x18321000 0x1400>,
@@ -1489,6 +1494,7 @@
 		qcom,npucc = <&clock_npucc>;
 		qcom,gpucc = <&clock_gpucc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;

@@ -120,7 +120,7 @@ static const char *const debug_mux_parent_names[] = {
 	"disp_cc_xo_clk",
 	"measure_only_snoc_clk",
 	"measure_only_cnoc_clk",
-	"measure_only_bimc_clk",
+	"measure_only_mccc_clk",
 	"measure_only_ipa_2x_clk",
 	"gcc_aggre_noc_pcie_tbu_clk",
 	"gcc_aggre_ufs_card_axi_clk",
@@ -293,6 +293,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
 	.post_div_shift = 0,
+	.period_offset = 0x50,
 	MUX_SRC_LIST(
 		{ "cam_cc_bps_ahb_clk", 0x55, 1, CAM_CC,
 			0xE, 0xFF, 0, 0xF, 0, 4, 0xD000, 0xD004, 0xD008 },
@@ -468,7 +469,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x7, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_cnoc_clk", 0x19, 1, GCC,
 			0x19, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
-		{ "measure_only_bimc_clk", 0xD0, 1, GCC,
+		{ "measure_only_mccc_clk", 0xD0, 1, MC_CC,
 			0xD0, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_ipa_2x_clk", 0x147, 1, GCC,
 			0x147, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
@@ -867,6 +868,10 @@ static int clk_debug_sm8150_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
 	if (ret)
 		return ret;
 
