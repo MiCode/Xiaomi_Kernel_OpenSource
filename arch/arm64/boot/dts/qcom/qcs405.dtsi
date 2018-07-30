@@ -728,6 +728,14 @@
 		interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
 		qcom,rpm-msg-ram = <&rpm_msg_ram>;
 		mboxes = <&apcs_glb 0>;
+
+		qcom,rpm_glink_ssr {
+			qcom,glink-channels = "glink_ssr";
+			qcom,notify-edges = <&glink_adsp>,
+					    <&glink_cdsp>,
+					    <&glink_wcnss>;
+		};
+
 	};
 
 	qcom,msm-cdsp-loader {
