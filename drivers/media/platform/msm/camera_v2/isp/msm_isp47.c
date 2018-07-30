@@ -1907,6 +1907,10 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 
 			stream_info = msm_isp_get_stream_common_data(vfe_dev,
 					HANDLE_TO_IDX(axi_data->free_wm[i]));
+			if (!stream_info) {
+				pr_err("%s: stream_info is NULL!", __func__);
+				return;
+			}
 			vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev,
 							stream_info);
 			for (plane = 0; plane < stream_info->num_planes;
