@@ -454,6 +454,9 @@ static int dp_power_config_gpios(struct dp_power_private *power, bool flip,
 	struct dss_module_power *mp;
 	struct dss_gpio *config;
 
+	if (power->parser->no_aux_switch)
+		return 0;
+
 	mp = &power->parser->mp[DP_CORE_PM];
 	config = mp->gpio_config;
 

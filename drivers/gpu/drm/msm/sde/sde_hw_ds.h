@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,12 @@ struct sde_hw_ds_ops {
 				void *scaler_cfg,
 				void *scaler_lut_cfg);
 
+	/**
+	 * get_scaler_ver - get scaler h/w version
+	 * @ctx: Pointer to ds structure
+	 */
+	u32 (*get_scaler_ver)(struct sde_hw_ds *ctx);
+
 };
 
 /**
@@ -82,7 +88,7 @@ struct sde_hw_ds {
 	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 	enum sde_ds idx;
-	const struct sde_ds_cfg *scl;
+	struct sde_ds_cfg *scl;
 	struct sde_hw_ds_ops ops;
 };
 

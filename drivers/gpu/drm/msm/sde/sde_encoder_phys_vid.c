@@ -57,6 +57,8 @@ static void drm_mode_to_intf_timing_params(
 		struct intf_timing_params *timing)
 {
 	const struct sde_encoder_phys *phys_enc = &vid_enc->base;
+	enum msm_display_compression_ratio comp_ratio =
+				MSM_DISPLAY_COMPRESSION_RATIO_NONE;
 
 	memset(timing, 0, sizeof(*timing));
 
@@ -86,8 +88,14 @@ static void drm_mode_to_intf_timing_params(
 	 * <---------------------------- [hv]total ------------->
 	 */
 	timing->width = mode->hdisplay;	/* active width */
-	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC)
-		timing->width = DIV_ROUND_UP(timing->width, 3);
+
+	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
+		comp_ratio = vid_enc->base.comp_ratio;
+		if (comp_ratio == MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1)
+			timing->width = DIV_ROUND_UP(timing->width, 2);
+		else
+			timing->width = DIV_ROUND_UP(timing->width, 3);
+	}
 
 	timing->height = mode->vdisplay;	/* active height */
 	timing->xres = timing->width;
@@ -110,6 +118,8 @@ static void drm_mode_to_intf_timing_params(
 		timing->hsync_polarity = 0;
 		timing->vsync_polarity = 0;
 	}
+
+	timing->wide_bus_en = vid_enc->base.wide_bus_en;
 
 	/*
 	 * For edp only:
@@ -493,6 +503,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	u32 reset_status = 0;
 	int new_cnt = -1, old_cnt = -1;
 	u32 event = 0;
+	int pend_ret_fence_cnt;
 
 	if (!phys_enc)
 		return;
@@ -519,6 +530,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		goto not_flushed;
 
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	pend_ret_fence_cnt = atomic_read(&phys_enc->pending_retire_fence_cnt);
 
 	/* signal only for master, where there is a pending kickoff */
 	if (sde_encoder_phys_vid_is_master(phys_enc)) {
@@ -544,7 +556,8 @@ not_flushed:
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), phys_enc->hw_intf->idx - INTF_0,
 			old_cnt, new_cnt, reset_status ? SDE_EVTLOG_ERROR : 0,
-			flush_register, event);
+			flush_register, event,
+			pend_ret_fence_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
@@ -824,6 +837,8 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
 		ctl->idx - CTL_0, intf->idx);
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
 
 	/* ctl_flush & timing engine enable will be triggered by framework */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)
@@ -873,6 +888,7 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	struct sde_encoder_wait_info wait_info;
 	int ret = 0;
 	u32 event = 0;
+	u32 event_helper = 0;
 
 	if (!phys_enc) {
 		pr_err("invalid encoder\n");
@@ -896,12 +912,19 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_VSYNC,
 			&wait_info);
 
-	if (ret == -ETIMEDOUT)
-		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
-				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
-				| SDE_ENCODER_FRAME_EVENT_ERROR;
-	else if (!ret && notify)
-		event = SDE_ENCODER_FRAME_EVENT_DONE;
+	event_helper = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+			| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+	if (notify) {
+		if (ret == -ETIMEDOUT) {
+			event = SDE_ENCODER_FRAME_EVENT_ERROR;
+			if (atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0))
+				event |= event_helper;
+		} else if (!ret) {
+			event = SDE_ENCODER_FRAME_EVENT_DONE;
+		}
+	}
 
 end:
 	SDE_EVT32(DRMID(phys_enc->parent), event, notify, ret,
@@ -917,6 +940,12 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc)
 {
 	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
+}
+
+static int sde_encoder_phys_vid_wait_for_vblank_no_notify(
+		struct sde_encoder_phys *phys_enc)
+{
+	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
 }
 
 static int sde_encoder_phys_vid_prepare_for_kickoff(
@@ -1099,6 +1128,8 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 				phys_enc->hw_pp->merge_3d->idx);
 
 exit:
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
 	phys_enc->vfp_cached = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
@@ -1283,7 +1314,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_vblank;
-	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank;
+	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank_no_notify;
 	ops->wait_for_tx_complete = sde_encoder_phys_vid_wait_for_vblank;
 	ops->irq_control = sde_encoder_phys_vid_irq_control;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;

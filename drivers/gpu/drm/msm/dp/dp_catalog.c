@@ -46,7 +46,7 @@
 #define DP_INTR_MASK2		(DP_INTERRUPT_STATUS2 << 2)
 
 #define DP_INTERRUPT_STATUS5 \
-	(DP_INTR_MST_DP0_VCPF_SENT | DP_INTR_MST_DP0_VCPF_SENT)
+	(DP_INTR_MST_DP0_VCPF_SENT | DP_INTR_MST_DP1_VCPF_SENT)
 
 #define DP_INTR_MASK5		(DP_INTERRUPT_STATUS5 << 2)
 
@@ -780,6 +780,40 @@ static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
 		dp_write(catalog, io_data, MMSS_DP_ASYNC_FIFO_CONFIG, 0x01);
 	else
 		dp_write(catalog, io_data, MMSS_DP_ASYNC_FIFO_CONFIG, 0x00);
+}
+
+static void dp_catalog_panel_config_dto(struct dp_catalog_panel *panel,
+					bool ack)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(panel);
+	io_data = catalog->io.dp_link;
+
+	switch (panel->stream_id) {
+	case DP_STREAM_0:
+		io_data = catalog->io.dp_p0;
+		break;
+	case DP_STREAM_1:
+		io_data = catalog->io.dp_p1;
+		break;
+	default:
+		pr_err("invalid stream id\n");
+		return;
+	}
+
+	dp_write(catalog, io_data, MMSS_DP_DSC_DTO, ack << 1);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
@@ -1557,10 +1591,10 @@ static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
 
 	ch_start_slot = ch_start_slot - 1;
 	for (i = 0; i < tot_slot_cnt; i++) {
-		if (ch_start_slot < 33) {
+		if (ch_start_slot < 32) {
 			slot_reg_1 |= BIT(ch_start_slot);
 		} else {
-			slot = ch_start_slot - 33;
+			slot = ch_start_slot - 32;
 			slot_reg_2 |= BIT(slot);
 		}
 		ch_start_slot++;
@@ -2182,6 +2216,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_msa = dp_catalog_panel_config_msa,
 		.update_transfer_unit = dp_catalog_panel_update_transfer_unit,
 		.config_ctrl = dp_catalog_panel_config_ctrl,
+		.config_dto = dp_catalog_panel_config_dto,
 	};
 
 	if (!dev || !parser) {

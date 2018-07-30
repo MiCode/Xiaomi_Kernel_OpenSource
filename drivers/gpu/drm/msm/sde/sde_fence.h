@@ -105,13 +105,11 @@ uint32_t sde_sync_get_name_prefix(void *fence);
 
 /**
  * sde_fence_init - initialize fence object
- * @fence: Pointer to crtc fence object
  * @drm_id: ID number of owning DRM Object
  * @name: Timeline name
- * Returns: Zero on success
+ * Returns: fence context object on success
  */
-int sde_fence_init(struct sde_fence_context *fence,
-		const char *name,
+struct sde_fence_context *sde_fence_init(const char *name,
 		uint32_t drm_id);
 
 /**
@@ -153,6 +151,22 @@ void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
 void sde_fence_timeline_status(struct sde_fence_context *ctx,
 					struct drm_mode_object *drm_obj);
 
+/**
+ * sde_fence_timeline_dump - utility to dump fence list info in debugfs node
+ * @fence: Pointer fence container
+ * @drm_obj: Pointer to drm object associated with fence timeline
+ * @s: used to writing on debugfs node
+ */
+void sde_debugfs_timeline_dump(struct sde_fence_context *ctx,
+		struct drm_mode_object *drm_obj, struct seq_file **s);
+
+/**
+ * sde_fence_timeline_status - dumps fence timeline in debugfs node
+ * @fence: Pointer fence container
+ * @s: used to writing on debugfs node
+ */
+void sde_fence_list_dump(struct dma_fence *fence, struct seq_file **s);
+
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -172,12 +186,12 @@ static inline uint32_t sde_sync_get_name_prefix(void *fence)
 {
 	return 0x0;
 }
-static inline int sde_fence_init(struct sde_fence_context *fence,
-		const char *name,
+
+static inline struct sde_fence_context *sde_fence_init(const char *name,
 		uint32_t drm_id)
 {
 	/* do nothing */
-	return 0;
+	return NULL;
 }
 
 static inline void sde_fence_deinit(struct sde_fence_context *fence)
@@ -212,6 +226,18 @@ static inline void sde_fence_timeline_status(struct sde_fence_context *ctx,
 {
 	/* do nothing */
 }
+
+void sde_debugfs_timeline_dump(struct sde_fence_context *ctx,
+		struct drm_mode_object *drm_obj, struct seq_file **s)
+{
+	/* do nothing */
+}
+
+void sde_fence_list_dump(struct dma_fence *fence, struct seq_file **s)
+{
+	/* do nothing */
+}
+
 #endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 
 #endif /* _SDE_FENCE_H_ */

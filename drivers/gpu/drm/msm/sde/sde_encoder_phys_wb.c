@@ -32,8 +32,6 @@
 
 #define TO_S15D16(_x_)	((_x_) << 7)
 
-#define MULTIPLE_CONN_DETECTED(x) (x > 1)
-
 static const u32 cwb_irq_tbl[PINGPONG_MAX] = {SDE_NONE, SDE_NONE,
 	INTR_IDX_PP2_OVFL, INTR_IDX_PP3_OVFL, INTR_IDX_PP4_OVFL,
 	INTR_IDX_PP5_OVFL, SDE_NONE, SDE_NONE};
@@ -615,12 +613,9 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc,
 static void _sde_enc_phys_wb_detect_cwb(struct sde_encoder_phys *phys_enc,
 		struct drm_crtc_state *crtc_state)
 {
-	struct drm_connector *conn;
-	struct drm_connector_state *conn_state;
+	struct drm_encoder *encoder;
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	const struct sde_wb_cfg *wb_cfg = wb_enc->hw_wb->caps;
-	struct drm_connector_list_iter conn_iter;
-	int conn_count = 0;
 
 	phys_enc->in_clone_mode = false;
 
@@ -628,22 +623,16 @@ static void _sde_enc_phys_wb_detect_cwb(struct sde_encoder_phys *phys_enc,
 	if (!(wb_cfg->features & BIT(SDE_WB_HAS_CWB)))
 		return;
 
-	/* Count the number of connectors on the given crtc */
-	drm_connector_list_iter_begin(crtc_state->crtc->dev, &conn_iter);
-	drm_for_each_connector_iter(conn, &conn_iter) {
-		conn_state =
-			drm_atomic_get_connector_state(crtc_state->state, conn);
-		if ((conn->state && conn->state->crtc == crtc_state->crtc) ||
-				(conn_state &&
-				 conn_state->crtc == crtc_state->crtc))
-			conn_count++;
+	/* if any other encoder is connected to same crtc enable clone mode*/
+	drm_for_each_encoder(encoder, crtc_state->crtc->dev) {
+		if (encoder->crtc != crtc_state->crtc)
+			continue;
+
+		if (phys_enc->parent != encoder) {
+			phys_enc->in_clone_mode = true;
+			break;
+		}
 	}
-	drm_connector_list_iter_end(&conn_iter);
-
-
-	/* Enable clone mode If crtc has multiple connectors & one is WB */
-	if (MULTIPLE_CONN_DETECTED(conn_count))
-		phys_enc->in_clone_mode = true;
 
 	SDE_DEBUG("detect CWB - status:%d\n", phys_enc->in_clone_mode);
 }

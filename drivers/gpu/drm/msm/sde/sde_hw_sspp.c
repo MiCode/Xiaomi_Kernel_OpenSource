@@ -17,6 +17,7 @@
 #include "sde_hw_color_processing.h"
 #include "sde_dbg.h"
 #include "sde_kms.h"
+#include "sde_hw_reg_dma_v1_color_proc.h"
 
 #define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
@@ -558,9 +559,8 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		|| !scaler3_cfg || !ctx || !ctx->cap || !ctx->cap->sblk)
 		return;
 
-	sde_hw_setup_scaler3(&ctx->hw, scaler3_cfg, idx,
-			ctx->cap->sblk->scaler_blk.version,
-			sspp->layout.format);
+	sde_hw_setup_scaler3(&ctx->hw, scaler3_cfg,
+		ctx->cap->sblk->scaler_blk.version, idx, sspp->layout.format);
 }
 
 static u32 _sde_hw_sspp_get_scaler3_ver(struct sde_hw_pipe *ctx)
@@ -1126,11 +1126,16 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 	if (sde_hw_sspp_multirect_enabled(c->cap))
 		c->ops.setup_multirect = sde_hw_sspp_setup_multirect;
 
-	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features)) {
+	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features) ||
+			test_bit(SDE_SSPP_SCALER_QSEED3LITE, &features)) {
 		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler3;
 		c->ops.get_scaler_ver = _sde_hw_sspp_get_scaler3_ver;
-		ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_SCALER_QSEED3,
-				c->idx);
+		c->ops.setup_scaler_lut = is_qseed3_rev_qseed3lite(
+				c->catalog) ? reg_dmav1_setup_scaler3lite_lut
+				: reg_dmav1_setup_scaler3_lut;
+		ret = reg_dmav1_init_sspp_op_v4(is_qseed3_rev_qseed3lite(
+					c->catalog) ? SDE_SSPP_SCALER_QSEED3LITE
+					: SDE_SSPP_SCALER_QSEED3, c->idx);
 		if (!ret)
 			c->ops.setup_scaler = reg_dmav1_setup_vig_qseed3;
 	}
@@ -1209,6 +1214,11 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	hw_pipe->idx = idx;
 	hw_pipe->cap = cfg;
 	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
+
+	if (hw_pipe->ops.get_scaler_ver) {
+		hw_pipe->cap->sblk->scaler_blk.version =
+			hw_pipe->ops.get_scaler_ver(hw_pipe);
+	}
 
 	rc = sde_hw_blk_init(&hw_pipe->base, SDE_HW_BLK_SSPP, idx, &sde_hw_ops);
 	if (rc) {
