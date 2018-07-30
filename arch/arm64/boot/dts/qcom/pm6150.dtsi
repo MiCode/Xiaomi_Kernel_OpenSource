@@ -129,6 +129,22 @@
 				qcom,pre-scaling = <1 1>;
 			};
 
+			bat_therm_30k {
+				reg = <ADC_BAT_THERM_PU1>;
+				label = "bat_therm_30k";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm_400k {
+				reg = <ADC_BAT_THERM_PU3>;
+				label = "bat_therm_400k";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
 			bat_id {
 				reg = <ADC_BAT_ID_PU2>;
 				label = "bat_id";
