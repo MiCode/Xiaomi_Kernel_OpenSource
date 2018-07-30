@@ -367,7 +367,6 @@ struct sde_connector_evt {
  * @event_lock: Lock object for event_table
  * @bl_device: backlight device node
  * @status_work: work object to perform status checks
- * @force_panel_dead: variable to trigger forced ESD recovery
  * @esd_status_interval: variable to change ESD check interval in millisec
  * @panel_dead: Flag to indicate if panel has gone bad
  * @esd_status_check: Flag to indicate if ESD thread is scheduled or not
@@ -414,7 +413,6 @@ struct sde_connector {
 
 	struct backlight_device *bl_device;
 	struct delayed_work status_work;
-	u32 force_panel_dead;
 	u32 esd_status_interval;
 	bool panel_dead;
 	bool esd_status_check;
