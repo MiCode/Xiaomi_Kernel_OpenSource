@@ -1190,6 +1190,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	display->esd_trigger = esd_trigger;
 
 	if (display->esd_trigger) {
+		pr_info("ESD attack triggered by user\n");
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
@@ -1246,11 +1247,13 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		goto error;
 
 	if (!strcmp(buf, "te_signal_check\n")) {
+		pr_info("ESD check is switched to TE mode by user\n");
 		esd_config->status_mode = ESD_MODE_PANEL_TE;
 		dsi_display_change_te_irq_status(display, true);
 	}
 
 	if (!strcmp(buf, "reg_read\n")) {
+		pr_info("ESD check is switched to reg read by user\n");
 		rc = dsi_panel_parse_esd_reg_read_configs(display->panel);
 		if (rc) {
 			pr_err("failed to alter esd check mode,rc=%d\n",
