@@ -50,14 +50,10 @@ Optional properties:
 	- qcom,min-child-idx: The minimum level that a child CPU should be in
 	before this level can be chosen. This property is required for all
         non-default level.
-	- qcom,latency-us: The latency in handling the interrupt if this level
-	was chosen, in uSec
-	- qcom,ss-power: The steady state power expelled when the processor is
-	in this level in mWatts
-	- qcom,energy-overhead: The energy used up in entering and exiting
-	this level in mWatts.uSec
-	- qcom,time-overhead: The time spent in entering and exiting this
-	level in uS
+	- qcom,entry-latency-us: The latency to enter LPM level, in uSec
+	- qcom,exit-latency-us: The latency to exit LPM level, in uSec
+	- qcom,min-residency-us: The minimum residency value from which entering
+	to low power mode is beneficial, in uSec
 
  Optional properties:
 	- qcom,notify-rpm: When set, the driver configures the sleep and wake
@@ -107,14 +103,10 @@ Optional properties:
 	- reg: The numeric cpu level id
 	- label: Name to identify the low power mode in stats
 	- qcom,psci-cpu-mode: ID to be passed into PSCI firmware.
-	- qcom,latency-us: The latency in handling the interrupt if this level
-	was chosen, in uSec
-	- qcom,ss-power: The steady state power expelled when the processor is
-	in this level in mWatts
-	- qcom,energy-overhead: The energy used up in entering and exiting
-	this level in mWatts.uSec
-	- qcom,time-overhead: The time spent in entering and exiting this
-	level in uS
+	- qcom,entry-latency-us: The latency to enter LPM level, in uSec
+	- qcom,exit-latency-us: The latency to exit LPM level, in uSec
+	- qcom,min-residency-us: The minimum residency value from which entering
+	to low power mode is beneficial, in uSec
 
  Optional properties:
 	- qcom,is-reset: This boolean property maps to "power state" bit in PSCI
@@ -144,31 +136,27 @@ Optional properties:
 				reg = <0>;
 				label = "l3-wfi";
 				qcom,psci-mode = <0x1>;
-				qcom,latency-us = <51>;
-				qcom,ss-power = <452>;
-				qcom,energy-overhead = <69355>;
-				qcom,time-overhead = <99>;
+				qcom,entry-latency-us = <48>;
+				qcom,exit-latency-us = <51>;
+				qcom,min-residency-us = <99>;
 			};
 
 			qcom,pm-cluster-level@1 { /* D2 */
 				reg = <1>;
 				label = "l3-dyn-ret";
 				qcom,psci-mode = <0x2>;
-				qcom,latency-us = <659>;
-				qcom,ss-power = <434>;
-				qcom,energy-overhead = <465725>;
-				qcom,time-overhead = <976>;
-				qcom,min-child-idx = <1>;
+				qcom,entry-latency-us = <317>;
+				qcom,exit-latency-us = <659>;
+				qcom,min-residency-us = <4065>;
 			};
 
 			qcom,pm-cluster-level@2 { /* D4, D3 is not supported */
 				reg = <2>;
 				label = "l3-pc";
 				qcom,psci-mode = <0x4>;
-				qcom,latency-us = <4562>;
-				qcom,ss-power = <408>;
-				qcom,energy-overhead = <2421840>;
-				qcom,time-overhead = <5376>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <4562>;
+				qcom,min-residency-us = <7085>;
 				qcom,min-child-idx = <2>;
 				qcom,is-reset;
 			};
@@ -177,10 +165,9 @@ Optional properties:
 				reg = <3>;
 				label = "cx-off";
 				qcom,psci-mode = <0x224>;
-				qcom,latency-us = <5562>;
-				qcom,ss-power = <308>;
-				qcom,energy-overhead = <2521840>;
-				qcom,time-overhead = <6376>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <5562>;
+				qcom,min-residency-us = <9987>;
 				qcom,min-child-idx = <3>;
 				qcom,is-reset;
 				qcom,notify-rpm;
@@ -190,10 +177,9 @@ Optional properties:
 				reg = <4>;
 				label = "llcc-off";
 				qcom,psci-mode = <0xC24>;
-				qcom,latency-us = <6562>;
-				qcom,ss-power = <108>;
-				qcom,energy-overhead = <2621840>;
-				qcom,time-overhead = <7376>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <6562>;
+				qcom,min-residency-us = <10100>;
 				qcom,min-child-idx = <3>;
 				qcom,is-reset;
 				qcom,notify-rpm;
@@ -210,30 +196,27 @@ Optional properties:
 					reg = <0>;
 					label = "wfi";
 					qcom,psci-cpu-mode = <0x1>;
-					qcom,latency-us = <43>;
-					qcom,ss-power = <454>;
-					qcom,energy-overhead = <38639>;
-					qcom,time-overhead = <83>;
+					qcom,entry-latency-us = <40>;
+					qcom,exit-latency-us = <43>;
+					qcom,min-residency-us = <100>;
 				};
 
 				qcom,pm-cpu-level@1 { /* C2D */
 					reg = <1>;
 					label = "ret";
 					qcom,psci-cpu-mode = <0x2>;
-					qcom,latency-us = <86>;
-					qcom,ss-power = <449>;
-					qcom,energy-overhead = <78456>;
-					qcom,time-overhead = <167>;
+					qcom,entry-latency-us = <81>;
+					qcom,exit-latency-us = <86>;
+					qcom,min-residency-us = <965>;
 				};
 
 				qcom,pm-cpu-level@2 {  /* C3 */
 					reg = <2>;
 					label = "pc";
 					qcom,psci-cpu-mode = <0x3>;
-					qcom,latency-us = <612>;
-					qcom,ss-power = <436>;
-					qcom,energy-overhead = <418225>;
-					qcom,time-overhead = <885>;
+					qcom,entry-latency-us = <273>;
+					qcom,exit-latency-us = <612>;
+					qcom,min-residency-us = <1890>;
 					qcom,is-reset;
 				};
 
@@ -241,10 +224,9 @@ Optional properties:
 					reg = <3>;
 					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,latency-us = <700>;
-					qcom,ss-power = <400>;
-					qcom,energy-overhead = <428225>;
-					qcom,time-overhead = <1000>;
+					qcom,entry-latency-us = <300>;
+					qcom,exit-latency-us = <700>;
+					qcom,min-residency-us = <3934>;
 					qcom,is-reset;
 				};
 			};
@@ -260,30 +242,27 @@ Optional properties:
 					reg = <0>;
 					label = "wfi";
 					qcom,psci-cpu-mode = <0x1>;
-					qcom,latency-us = <43>;
-					qcom,ss-power = <454>;
-					qcom,energy-overhead = <38639>;
-					qcom,time-overhead = <83>;
+					qcom,entry-latency-us = <40>;
+					qcom,exit-latency-us = <43>;
+					qcom,min-residency-us = <83>;
 				};
 
 				qcom,pm-cpu-level@1 { /* C2D */
 					reg = <1>;
 					label = "ret";
 					qcom,psci-cpu-mode = <0x2>;
-					qcom,latency-us = <86>;
-					qcom,ss-power = <449>;
-					qcom,energy-overhead = <78456>;
-					qcom,time-overhead = <167>;
+					qcom,entry-latency-us = <81>;
+					qcom,exit-latency-us = <86>;
+					qcom,min-residency-us = <637>;
 				};
 
 				qcom,pm-cpu-level@2 {  /* C3 */
 					reg = <2>;
 					label = "pc";
 					qcom,psci-cpu-mode = <0x3>;
-					qcom,latency-us = <612>;
-					qcom,ss-power = <436>;
-					qcom,energy-overhead = <418225>;
-					qcom,time-overhead = <885>;
+					qcom,entry-latency-us = <273>;
+					qcom,exit-latency-us = <612>;
+					qcom,min-residency-us = <952>;
 					qcom,is-reset;
 				};
 
@@ -291,10 +270,9 @@ Optional properties:
 					reg = <3>;
 					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,latency-us = <700>;
-					qcom,ss-power = <400>;
-					qcom,energy-overhead = <428225>;
-					qcom,time-overhead = <1000>;
+					qcom,entry-latency-us = <300>;
+					qcom,exit-latency-us = <700>;
+					qcom,min-residency-us = <4488>;
 					qcom,is-reset;
 				};
 			};
