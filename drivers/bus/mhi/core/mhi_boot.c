@@ -556,9 +556,9 @@ void mhi_fw_load_worker(struct work_struct *work)
 		goto error_read;
 	}
 
-	/* wait for BHIE event */
+	/* wait for SBL event */
 	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 mhi_cntrl->ee == MHI_EE_BHIE ||
+				 mhi_cntrl->ee == MHI_EE_SBL ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
 

@@ -27,8 +27,8 @@ const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PBL] = "PBL",
 	[MHI_EE_SBL] = "SBL",
 	[MHI_EE_AMSS] = "AMSS",
-	[MHI_EE_BHIE] = "BHIE",
 	[MHI_EE_RDDM] = "RDDM",
+	[MHI_EE_WFW] = "WFW",
 	[MHI_EE_PTHRU] = "PASS THRU",
 	[MHI_EE_EDL] = "EDL",
 	[MHI_EE_DISABLE_TRANSITION] = "DISABLE",
@@ -38,8 +38,7 @@ const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX] = {
 	[MHI_ST_TRANSITION_PBL] = "PBL",
 	[MHI_ST_TRANSITION_READY] = "READY",
 	[MHI_ST_TRANSITION_SBL] = "SBL",
-	[MHI_ST_TRANSITION_AMSS] = "AMSS",
-	[MHI_ST_TRANSITION_BHIE] = "BHIE",
+	[MHI_ST_TRANSITION_MISSION_MODE] = "MISSION MODE",
 };
 
 const char * const mhi_state_str[MHI_STATE_MAX] = {

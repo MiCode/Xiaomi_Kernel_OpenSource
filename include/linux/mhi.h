@@ -77,8 +77,8 @@ enum mhi_device_type {
  * @MHI_EE_PBL - device in PBL
  * @MHI_EE_SBL - device in SBL
  * @MHI_EE_AMSS - device in mission mode (firmware fully loaded)
- * @MHI_EE_BHIE - device in special SBL that support BHI/e protocol
  * @MHI_EE_RDDM - device in ram dump collection mode
+ * @MHI_EE_WFW - device in WLAN firmware mode
  * @MHI_EE_PTHRU - device in PBL but configured in pass thru mode
  * @MHI_EE_EDL - device in emergency download mode
  */
@@ -86,8 +86,8 @@ enum mhi_ee {
 	MHI_EE_PBL = 0x0,
 	MHI_EE_SBL = 0x1,
 	MHI_EE_AMSS = 0x2,
-	MHI_EE_BHIE = 0x3,
-	MHI_EE_RDDM = 0x4,
+	MHI_EE_RDDM = 0x3,
+	MHI_EE_WFW = 0x4,
 	MHI_EE_PTHRU = 0x5,
 	MHI_EE_EDL = 0x6,
 	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,

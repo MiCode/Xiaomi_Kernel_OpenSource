@@ -613,7 +613,7 @@ static void mhi_create_time_sync_dev(struct mhi_controller *mhi_cntrl)
 	if (!mhi_tsync || !mhi_tsync->db)
 		return;
 
-	if (mhi_cntrl->ee != MHI_EE_AMSS)
+	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
 		return;
 
 	mhi_dev = mhi_alloc_device(mhi_cntrl);
@@ -973,15 +973,14 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			case MHI_EE_SBL:
 				st = MHI_ST_TRANSITION_SBL;
 				break;
+			case MHI_EE_WFW:
 			case MHI_EE_AMSS:
-				st = MHI_ST_TRANSITION_AMSS;
+				st = MHI_ST_TRANSITION_MISSION_MODE;
 				break;
 			case MHI_EE_RDDM:
 				mhi_cntrl->status_cb(mhi_cntrl,
 						     mhi_cntrl->priv_data,
 						     MHI_CB_EE_RDDM);
-				/* fall thru to wake up the event */
-			case MHI_EE_BHIE:
 				write_lock_irq(&mhi_cntrl->pm_lock);
 				mhi_cntrl->ee = event;
 				write_unlock_irq(&mhi_cntrl->pm_lock);

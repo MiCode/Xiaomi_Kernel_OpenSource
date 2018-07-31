@@ -81,8 +81,8 @@ mhi channel node properties:
 		BIT(0) = Channel supported in PBL EE
 		BIT(1) = Channel supported in SBL EE
 		BIT(2) = Channel supported in AMSS EE
-		BIT(3) = Channel supported in BHIe EE
-		BIT(4) = Channel supported in RDDM EE
+		BIT(3) = Channel supported in RDDM EE
+		BIT(4) = Channel supported in WFW EE
 		BIT(5) = Channel supported in PTHRU EE
 		BIT(6) = Channel supported in EDL EE
 
