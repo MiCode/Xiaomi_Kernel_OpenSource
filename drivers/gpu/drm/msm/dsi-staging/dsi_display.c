@@ -728,20 +728,25 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+		goto release_panel_lock;
 	}
 
 	/* Prevent another ESD check,when ESD recovery is underway */
-	if (panel->esd_recovery_pending) {
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+	if (atomic_read(&panel->esd_recovery_pending))
+		goto release_panel_lock;
+
+	status_mode = panel->esd_config.status_mode;
+
+	if (status_mode == ESD_MODE_SW_SIM_SUCCESS)
+		goto release_panel_lock;
+
+	if (status_mode == ESD_MODE_SW_SIM_FAILURE) {
+		rc = -EINVAL;
+		goto release_panel_lock;
 	}
 
 	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
 		status_mode = ESD_MODE_PANEL_TE;
-	else
-		status_mode = panel->esd_config.status_mode;
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -769,11 +774,13 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 							false);
 	} else {
 		/* Handle Panel failures during display disable sequence */
-		panel->esd_recovery_pending = true;
+		atomic_set(&panel->esd_recovery_pending, 1);
 	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+
+release_panel_lock:
 	dsi_panel_release_panel_lock(panel);
 
 	return rc;
@@ -1103,7 +1110,7 @@ static ssize_t debugfs_misr_read(struct file *file,
 		return 0;
 
 	buf = kzalloc(max_len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	mutex_lock(&display->display_lock);
@@ -1134,7 +1141,7 @@ static ssize_t debugfs_misr_read(struct file *file,
 		goto error;
 	}
 
-	if (copy_to_user(user_buf, buf, len)) {
+	if (copy_to_user(user_buf, buf, max_len)) {
 		rc = -EFAULT;
 		goto error;
 	}
@@ -1164,6 +1171,9 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		return 0;
 
 	if (user_len > sizeof(u32))
+		return -EINVAL;
+
+	if (!user_len || !user_buf)
 		return -EINVAL;
 
 	buf = kzalloc(user_len, GFP_KERNEL);
@@ -1221,7 +1231,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		return 0;
 
 	buf = kzalloc(len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	if (copy_from_user(buf, user_buf, user_len)) {
@@ -1263,6 +1273,12 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 			dsi_display_change_te_irq_status(display, false);
 	}
 
+	if (!strcmp(buf, "esd_sw_sim_success\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_SUCCESS;
+
+	if (!strcmp(buf, "esd_sw_sim_failure\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_FAILURE;
+
 	rc = len;
 error:
 	kfree(buf);
@@ -1292,7 +1308,7 @@ static ssize_t debugfs_read_esd_check_mode(struct file *file,
 	}
 
 	buf = kzalloc(len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	esd_config = &display->panel->esd_config;
@@ -1496,6 +1512,11 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 	int splash_enabled = false;
 
 	pr_debug("checking ulps req validity\n");
+
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("%s: ESD recovery sequence underway\n", __func__);
+		return false;
+	}
 
 	if (!dsi_panel_ulps_feature_enabled(display->panel) &&
 			!display->panel->ulps_suspend_enabled) {
@@ -2563,11 +2584,19 @@ static int dsi_host_detach(struct mipi_dsi_host *host,
 static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
-	struct dsi_display *display = to_dsi_display(host);
+	struct dsi_display *display;
 	int rc = 0, ret = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
+		return 0;
+	}
+
+	display = to_dsi_display(host);
+
+	/* Avoid sending DCS commands when ESD recovery is pending */
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("ESD recovery pending\n");
 		return 0;
 	}
 
@@ -2995,9 +3024,6 @@ int dsi_post_clkon_cb(void *priv,
 				__func__, rc);
 			goto error;
 		}
-
-		/* enable dsi to serve irqs */
-		dsi_display_ctrl_irq_update(display, true);
 	}
 
 	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_HS_CLK)) {
@@ -3019,6 +3045,11 @@ int dsi_post_clkon_cb(void *priv,
 			}
 		}
 	}
+
+	/* enable dsi to serve irqs */
+	if (clk & DSI_CORE_CLK)
+		dsi_display_ctrl_irq_update(display, true);
+
 error:
 	return rc;
 }
@@ -3209,8 +3240,8 @@ static int dsi_display_get_phandle_index(
 	u32 *val = NULL;
 	int rc = 0;
 
-	val = kzalloc(count, GFP_KERNEL);
-	if (!val) {
+	val = kcalloc(count, sizeof(*val), GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(val)) {
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -6134,6 +6165,8 @@ static int dsi_display_qsync(struct dsi_display *display, bool enable)
 				goto exit;
 			}
 		}
+
+		dsi_ctrl_setup_avr(display->ctrl[i].ctrl, enable);
 	}
 
 exit:

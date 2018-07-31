@@ -767,13 +767,14 @@ end:
 }
 
 struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
-		struct dp_aux_cfg *aux_cfg, struct device_node *aux_switch)
+		struct dp_parser *parser, struct device_node *aux_switch)
 {
 	int rc = 0;
 	struct dp_aux_private *aux;
 	struct dp_aux *dp_aux;
 
-	if (!catalog || !aux_cfg || !aux_switch) {
+	if (!catalog || !parser ||
+			(!parser->no_aux_switch && !aux_switch)) {
 		pr_err("invalid input\n");
 		rc = -ENODEV;
 		goto error;
@@ -791,7 +792,7 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 
 	aux->dev = dev;
 	aux->catalog = catalog;
-	aux->cfg = aux_cfg;
+	aux->cfg = parser->aux_cfg;
 	aux->aux_switch_node = aux_switch;
 	dp_aux = &aux->dp_aux;
 	aux->retry_cnt = 0;

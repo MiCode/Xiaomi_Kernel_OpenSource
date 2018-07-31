@@ -148,6 +148,7 @@ struct sde_ctl_sbuf_cfg {
  * @pending_dsc_flush_mask: pending dsc flush
  * @pending_merge_3d_flush_mask: pending 3d merge block flush
  * @pending_cwb_flush_mask: pending flush for concurrent writeback
+ * @pending_periph_flush_mask: pending flush for peripheral module
  */
 struct sde_ctl_flush_cfg {
 	u32 pending_flush_mask;
@@ -157,6 +158,7 @@ struct sde_ctl_flush_cfg {
 	u32 pending_dsc_flush_mask;
 	u32 pending_merge_3d_flush_mask;
 	u32 pending_cwb_flush_mask;
+	u32 pending_periph_flush_mask;
 };
 
 /**
@@ -398,6 +400,15 @@ struct sde_hw_ctl_ops {
 	 */
 	int (*update_bitmask_cwb)(struct sde_hw_ctl *ctx,
 		enum sde_cwb blk, bool enable);
+
+	/**
+	 * update_bitmask_periph: updates mask corresponding to peripheral
+	 * @blk               : blk id
+	 * @enable            : true to enable, 0 to disable
+	 */
+	int (*update_bitmask_periph)(struct sde_hw_ctl *ctx,
+		enum sde_intf blk, bool enable);
+
 	/**
 	 * read CTL_TOP register value and return
 	 * the data.

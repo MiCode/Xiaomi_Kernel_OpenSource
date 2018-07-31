@@ -993,6 +993,16 @@ static int sde_encoder_virt_atomic_check(
 			return ret;
 		}
 
+		if (sde_conn_state->mode_info.comp_info.comp_type &&
+			sde_conn_state->mode_info.comp_info.comp_ratio >=
+					MSM_DISPLAY_COMPRESSION_RATIO_MAX) {
+			SDE_ERROR_ENC(sde_enc,
+				"invalid compression ratio: %d\n",
+				sde_conn_state->mode_info.comp_info.comp_ratio);
+			ret = -EINVAL;
+			return ret;
+		}
+
 		/* Reserve dynamic resources, indicating atomic_check phase */
 		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
 			conn_state, true);
@@ -2967,7 +2977,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
-	if (sde_enc->input_handler) {
+	/* register input handler if not already registered */
+	if (sde_enc->input_handler && !msm_is_mode_seamless_dms(cur_mode)) {
 		ret = _sde_encoder_input_handler_register(
 				sde_enc->input_handler);
 		if (ret)
@@ -2994,6 +3005,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			continue;
 
 		phys->comp_type = comp_info->comp_type;
+		phys->comp_ratio = comp_info->comp_ratio;
+		phys->wide_bus_en = mode_info.wide_bus_en;
 		if (phys != sde_enc->cur_master) {
 			/**
 			 * on DMS request, the encoder will be enabled
@@ -3057,8 +3070,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
-
-	kthread_flush_work(&sde_enc->input_event_work);
 
 	if (sde_enc->input_handler)
 		input_unregister_handler(sde_enc->input_handler);
@@ -3352,6 +3363,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	struct sde_hw_ctl *ctl;
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
+	int pend_ret_fence_cnt;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -3386,6 +3398,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
+	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
+
 	if ((extra_flush && extra_flush->pending_flush_mask)
 			&& ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush);
@@ -3400,10 +3414,12 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
 				ctl->idx - CTL_0,
-				pending_flush.pending_flush_mask);
+				pending_flush.pending_flush_mask,
+				pend_ret_fence_cnt);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				ctl->idx - CTL_0);
+				ctl->idx - CTL_0,
+				pend_ret_fence_cnt);
 	}
 }
 
