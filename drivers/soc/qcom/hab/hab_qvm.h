@@ -49,5 +49,5 @@ struct qvm_channel {
 
 void *qnx_hyp_rx_dispatch(void *data);
 void hab_pipe_reset(struct physical_channel *pchan);
-
+void habhyp_notify(void *commdev);
 #endif /* __HAB_QNX_H */

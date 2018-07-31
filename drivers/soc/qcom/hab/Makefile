@@ -9,7 +9,8 @@ msm_hab-objs = \
 	hab_mem_linux.o \
 	hab_pipe.o \
 	hab_parser.o \
-	khab_test.o
+	khab_test.o \
+	hab_stat.o
 
 ifdef CONFIG_GHS_VMM
 msm_hab_hyp-objs = \

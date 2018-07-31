@@ -104,8 +104,8 @@ static struct export_desc *habmem_add_export(struct virtual_channel *vchan,
 	exp->vchan = vchan;
 	exp->vcid_local = vchan->id;
 	exp->vcid_remote = vchan->otherend_id;
-	exp->domid_local = -1; /* dom id, provided on the importer */
-	exp->domid_remote = vchan->pchan->dom_id;
+	exp->domid_local = vchan->pchan->vmid_local;
+	exp->domid_remote = vchan->pchan->vmid_remote;
 	exp->ctx = vchan->ctx;
 	exp->pchan = vchan->pchan;
 
@@ -124,7 +124,8 @@ void habmem_remove_export(struct export_desc *exp)
 	struct uhab_context *ctx;
 
 	if (!exp || !exp->ctx || !exp->pchan) {
-		pr_err("failed to find valid info in exp %pK\n", exp);
+		pr_err("failed to find valid info in exp %pK ctx %pK pchan %pK\n",
+			   exp, exp->ctx, exp->pchan);
 		return;
 	}
 
