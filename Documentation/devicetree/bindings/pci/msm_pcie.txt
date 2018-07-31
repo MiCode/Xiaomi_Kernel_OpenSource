@@ -38,6 +38,8 @@ Required properties:
   - perst-gpio: PERST GPIO specified by PCIe spec.
   - wake-gpio: WAKE GPIO specified by PCIe spec.
   - phy-status-offset: Offset from PCIe PHY base to check if PCIe PHY is up.
+  - pcie_rc<PCIe index>: PCI node is a sub-node of PCIe controller node.
+    node. This node holds root complex specific configurations and properties.
   - <supply-name>-supply: phandle to the regulator device tree node.
     Refer to the schematics for the corresponding voltage regulators.
     vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
@@ -127,6 +129,17 @@ Optional Properties:
     and reset lines used by this controller.
   - reset-names: reset signal name strings sorted in the same order as the resets
     property.
+
+=================
+Root Complex node
+=================
+
+Root complex are defined as subnodes of the PCIe controller node.
+
+Required properties:
+- reg: Array (5-cell PCI resource) of <u32>. First cell is devfn, which is
+  determined by pci bus topology. Assign the other cells 0 since they are not
+  used.
 
 Example:
 
@@ -304,4 +317,8 @@ Example:
 		qcom,msm-bus,vectors-KBps =
 				<45 512 0 0>,
 				<45 512 500 800>;
+
+		pcie_rc0: pcie_rc0 {
+			reg = <0x0 0x0 0x0 0x0 0x0>;
+		};
 	};
