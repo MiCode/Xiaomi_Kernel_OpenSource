@@ -132,7 +132,7 @@ static void fts_interrupt_enable(struct fts_ts_info *info);
 static int fts_init_afterProbe(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
-
+static int fts_chip_initialization(struct fts_ts_info *info);
 
 void touch_callback(unsigned int status)
 {
@@ -633,7 +633,7 @@ static ssize_t fts_feature_enable_store(struct device *dev,
 			return -EINVAL;
 
 		logError(1, "%s fts_feature_enable: Stylus Enabled = %d\n",
-		tag, info->stylus_enabled);
+			tag, info->stylus_enabled);
 
 		break;
 #endif
@@ -2855,10 +2855,10 @@ static void fts_key_status_event_handler(struct fts_ts_info *info,
 	int value;
 
 	logError(0,
-	"%s %sReceived event %02X %02X %02X %02X %02X %02X %02X %02X\n",
+		"%s %sReceived event %02X %02X %02X %02X %02X %02X %02X %02X\n",
 		tag, __func__, event[0], event[1], event[2], event[3],
 		event[4], event[5], event[6], event[7]);
-	/**
+	/*
 	 * TODO: the customer should handle the events coming
 	 * from the keys according his needs (this is an example
 	 * that report only the single pressure of one key at time)
@@ -2885,7 +2885,6 @@ static void fts_key_status_event_handler(struct fts_ts_info *info,
 			logError(0,
 				"%s %s:No valid Button ID or more than one key pressed!\n",
 				tag, __func__);
-			//goto done;
 			return;
 		}
 
@@ -2893,9 +2892,6 @@ static void fts_key_status_event_handler(struct fts_ts_info *info,
 	} else {
 		logError(0, "%s %s: All buttons released!\n", tag, __func__);
 	}
-//done:
-	/* return fts_next_event(event); */
-	//return;
 }
 #endif
 
@@ -2926,10 +2922,10 @@ static void fts_error_event_handler(struct fts_ts_info *info,
 				tag, __func__, error);
 		}
 		break;
-	case EVENT_TYPE_WATCHDOG_ERROR: /*watch dog timer*/
-		/*if (event[2] == 0) { */
+	case EVENT_TYPE_WATCHDOG_ERROR: /* watch dog timer */
+		/* if (event[2] == 0) { */
 		dumpErrorInfo();
-		/*before reset clear all slot */
+		/* before reset clear all slot */
 		release_all_touches(info);
 		error = fts_system_reset();
 		error |= fts_mode_handler(info, 0);
@@ -2968,7 +2964,7 @@ static void fts_controller_ready_event_handler(struct fts_ts_info *info,
 static void fts_status_event_handler(struct fts_ts_info *info,
 		unsigned char *event)
 {
-	/*logError(1, "%s Received event 0x%02x\n", tag, event[0]);*/
+	/* logError(1, "%s Received event 0x%02x\n", tag, event[0]); */
 
 	switch (event[1]) {
 	case EVENT_TYPE_MS_TUNING_CMPL:
@@ -3163,7 +3159,7 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 			goto gesture_done;
 		}
 
-		/*no coordinates for gestures reported by FW */
+		/* no coordinates for gestures reported by FW */
 		if (event[1] == EVENT_TYPE_GESTURE_DTC1)
 			needCoords = 0;
 
@@ -3202,9 +3198,9 @@ static void fts_event_handler(struct work_struct *work)
 	 * read all the FIFO and parsing events
 	 */
 
-	/*wake_lock_timeout(&info->wakelock, HZ); */
+	/* wake_lock_timeout(&info->wakelock, HZ); */
 	__pm_wakeup_event(&info->wakeup_source, HZ);
-	/*logError(1, "%s %s: begin\n", tag, __func__);*/
+	/* logError(1, "%s %s: begin\n", tag, __func__); */
 	regAdd = FIFO_CMD_READONE;
 
 	for (count = 0; count < FIFO_DEPTH; count++) {
@@ -3225,10 +3221,223 @@ static void fts_event_handler(struct work_struct *work)
 	}
 	input_sync(info->input_dev);
 
-	/*re-enable interrupts */
+	/* re-enable interrupts */
 	fts_interrupt_enable(info);
 }
 
+static int cx_crc_check(void)
+{
+	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0,
+				ADDR_CRC_BYTE1};
+	unsigned char val[2];
+	unsigned char crc_status;
+	int res;
+	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
+	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
+			(int)EVENT_TYPE_CHECKSUM_ERROR};
+	u8 readData[FIFO_EVENT_SIZE];
+
+	/* read 2 bytes because the first one is a dummy byte! */
+	res = fts_readCmd(regAdd1, sizeof(regAdd1), val, 2);
+	if (res < OK) {
+		logError(1, "%s %s Cannot read crc status ERROR %08X\n",
+			tag, __func__, res);
+		return res;
+	}
+
+	crc_status = val[1] & CRC_MASK;
+	if (crc_status != OK) {
+		logError(1, "%s %s CRC ERROR = %X\n",
+			tag, __func__, crc_status);
+		return crc_status;
+	}
+
+
+	logError(0, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
+	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
+	res = fts_writeCmd(cmd, 4);
+	if (res < OK) {
+		logError(1, "%s %s Cannot send system resest command:%08X\n",
+			tag, __func__, res);
+		return res;
+	}
+	setSystemResettedDown(1);
+	setSystemResettedUp(1);
+	res = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
+	if (res < OK) {
+		logError(0, "%s %s: No Config CRC Found!\n", tag, __func__);
+	} else {
+		if (readData[2] == CRC_CONFIG_SIGNATURE ||
+				readData[2] == CRC_CONFIG) {
+			logError(1, "%s:%s: CRC Error for config found! %02X\n",
+				tag, __func__, readData[2]);
+			return readData[2];
+		}
+	}
+
+	return OK;
+}
+
+static void fts_fw_update_auto(struct work_struct *work)
+{
+	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
+	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
+					(int)EVENT_TYPE_CHECKSUM_ERROR};
+	u8 readData[FIFO_EVENT_SIZE];
+	int flag_init = 0;
+	int retval = 0;
+	int retval1 = 0;
+	int ret;
+	struct fts_ts_info *info;
+	struct delayed_work *fwu_work = container_of(work,
+	struct delayed_work, work);
+	int crc_status = 0;
+	int error = 0;
+
+	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
+	logError(0, "%s Fw Auto Update is starting...\n", tag);
+
+	/* check CRC status */
+	ret = cx_crc_check();
+	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {
+		logError(1, "%s %s: CRC Error or NO FW!\n", tag, __func__);
+		crc_status = 1;
+	} else {
+		crc_status = 0;
+		logError(0, "%s %s:NO Error or can't read CRC register!\n",
+			tag, __func__);
+	}
+
+	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
+	if ((retval & ERROR_MEMH_READ) || (retval & ERROR_FW_NO_UPDATE)) {
+		logError(1, "%s %s: no firmware file or no newer firmware!\n",
+			tag, __func__);
+		goto NO_FIRMWARE_UPDATE;
+	} else if ((retval & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
+		logError(1, "%s %s:firmware update retry! ERROR %08X\n",
+			tag, __func__, retval);
+		fts_chip_powercycle(info);
+
+		retval1 = flashProcedure(PATH_FILE_FW, crc_status, 1);
+
+		if ((retval1 & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
+			logError(1, "%s %s: update failed again! ERROR %08X\n",
+				tag, __func__, retval1);
+			logError(1, "%s Fw Auto Update Failed!\n", tag);
+		}
+	}
+
+	logError(0, "%s %s: Verifying if CX CRC Error...\n",
+		tag, __func__, ret);
+	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
+	ret = fts_writeCmd(cmd, 4);
+	if (ret < OK) {
+		logError(1, "%s %s Can't send reset command! ERROR %08X\n",
+			tag, __func__, ret);
+	} else {
+		setSystemResettedDown(1);
+		setSystemResettedUp(1);
+		ret = pollForEvent(event_to_search, 2, readData,
+				GENERAL_TIMEOUT);
+		if (ret < OK) {
+			logError(0, "%s %s: No CX CRC Found!\n", tag, __func__);
+		} else {
+			if (readData[2] == CRC_CX_MEMORY) {
+				logError(1, "%s %s: CRC Error! ERROR:%02X\n\n",
+					tag, __func__, readData[2]);
+
+				flag_init = 1;
+			}
+		}
+	}
+
+	if (ftsInfo.u8_msScrConfigTuneVer != ftsInfo.u8_msScrCxmemTuneVer ||
+		ftsInfo.u8_ssTchConfigTuneVer != ftsInfo.u8_ssTchCxmemTuneVer)
+		ret = ERROR_GET_INIT_STATUS;
+	else if (((ftsInfo.u32_mpPassFlag != INIT_MP)
+		&& (ftsInfo.u32_mpPassFlag != INIT_FIELD)) || flag_init == 1)
+		ret = ERROR_GET_INIT_STATUS;
+	else
+		ret = OK;
+
+	if (ret == ERROR_GET_INIT_STATUS) {
+		error = fts_chip_initialization(info);
+		if (error < OK)
+			logError(1, "%s %s Can't initialize chip! ERROR %08X",
+				tag, __func__, error);
+	}
+
+NO_FIRMWARE_UPDATE:
+	error = fts_init_afterProbe(info);
+	if (error < OK)
+		logError(1, "%s Can't initialize hardware device ERROR %08X\n",
+			tag, error);
+
+	logError(0, "%s Fw Auto Update Finished!\n", tag);
+}
+
+static int fts_chip_initialization(struct fts_ts_info *info)
+{
+	int ret2 = 0;
+	int retry;
+	int initretrycnt = 0;
+	struct TestToDo todoDefault;
+
+	todoDefault.MutualRaw = 1;
+	todoDefault.MutualRawGap = 1;
+	todoDefault.MutualCx1 = 0;
+	todoDefault.MutualCx2 = 0;
+	todoDefault.MutualCx2Adj = 0;
+	todoDefault.MutualCxTotal = 0;
+	todoDefault.MutualCxTotalAdj = 0;
+
+	todoDefault.MutualKeyRaw = 0;
+	todoDefault.MutualKeyCx1 = 0;
+	todoDefault.MutualKeyCx2 = 0;
+	todoDefault.MutualKeyCxTotal = 0;
+
+	todoDefault.SelfForceRaw = 0;
+	todoDefault.SelfForceRawGap = 0;
+	todoDefault.SelfForceIx1 = 0;
+	todoDefault.SelfForceIx2 = 0;
+	todoDefault.SelfForceIx2Adj = 0;
+	todoDefault.SelfForceIxTotal = 0;
+	todoDefault.SelfForceIxTotalAdj = 0;
+	todoDefault.SelfForceCx1 = 0;
+	todoDefault.SelfForceCx2 = 0;
+	todoDefault.SelfForceCx2Adj = 0;
+	todoDefault.SelfForceCxTotal = 0;
+	todoDefault.SelfForceCxTotalAdj = 0;
+
+	todoDefault.SelfSenseRaw = 1;
+	todoDefault.SelfSenseRawGap = 0;
+	todoDefault.SelfSenseIx1 = 0;
+	todoDefault.SelfSenseIx2 = 0;
+	todoDefault.SelfSenseIx2Adj = 0;
+	todoDefault.SelfSenseIxTotal = 0;
+	todoDefault.SelfSenseIxTotalAdj = 0;
+	todoDefault.SelfSenseCx1 = 0;
+	todoDefault.SelfSenseCx2 = 0;
+	todoDefault.SelfSenseCx2Adj = 0;
+	todoDefault.SelfSenseCxTotal = 0;
+	todoDefault.SelfSenseCxTotalAdj = 0;
+
+	for (retry = 0; retry <= INIT_FLAG_CNT; retry++) {
+		ret2 = production_test_main(LIMITS_FILE, 1, 1, &todoDefault,
+					INIT_FIELD);
+		if (ret2 == OK)
+			break;
+		initretrycnt++;
+		logError(1, "%s %s: cycle count = %04d - ERROR %08X\n",
+			tag, __func__, initretrycnt, ret2);
+		fts_chip_powercycle(info);
+	}
+
+	if (ret2 < OK)
+		logError(1, "%s failed to initializate 3 times\n", tag);
+
+	return ret2;
+}
 
 #ifdef FTS_USE_POLLING_MODE
 
@@ -3338,7 +3547,7 @@ static int fts_init(struct fts_ts_info *info)
 		logError(1, "%s Setting default Chip INFO!\n", tag);
 		defaultChipInfo(0);
 	} else {
-		error = readChipInfo(0);/*system reset OK*/
+		error = readChipInfo(0);
 		if (error < OK) {
 			logError(1, "%s Cannot read Chip Info!ERROR:%08X\n",
 				tag, error);
@@ -3359,7 +3568,7 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 
 	logError(0, "%s %s: Power Cycle Starting...\n", tag, __func__);
 
-	/**
+	/*
 	 * if IRQ pin is short with DVDD a call to
 	 * the ISR will triggered when the regulator is turned off
 	 */
@@ -3402,12 +3611,12 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 				tag, __func__);
 		}
 	}
-	/*time needed by the regulators for reaching the regime values*/
+	/* time needed by the regulators for reaching the regime values */
 	msleep(20);
 
 
 	if (info->bdata->reset_gpio != GPIO_NOT_DEFINED) {
-		/* time to wait before bring up the reset*/
+		/* time to wait before bring up the reset */
 		/* gpio after the power up of the regulators */
 		msleep(20);
 		gpio_set_value(info->bdata->reset_gpio, 1);
@@ -3450,7 +3659,6 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep)
 	if (info->bdata->reset_gpio != GPIO_NOT_DEFINED)
 		gpio_set_value(info->bdata->reset_gpio, 0);
 
-	/*mdelay(sleep);*/
 	msleep(sleep);
 	if (info->pwr_reg) {
 		error = regulator_enable(info->bus_reg);
@@ -3467,21 +3675,21 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep)
 				tag, __func__);
 		}
 	}
-	/*time needed by the regulators for reaching the regime values*/
+	/* time needed by the regulators for reaching the regime values */
 	msleep(500);
 
 
 	if (info->bdata->reset_gpio != GPIO_NOT_DEFINED) {
-		/**
+		/*
 		 * time to wait before bring up the reset
 		 * gpio after the power up of the regulators
 		 */
 		msleep(20);
 		gpio_set_value(info->bdata->reset_gpio, 1);
-		/*msleep(300);*/
+		/* msleep(300); */
 	}
 
-	/*before reset clear all slot */
+	/* before reset clear all slot */
 	release_all_touches(info);
 
 	logError(0, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n",
@@ -3496,13 +3704,13 @@ static int fts_init_afterProbe(struct fts_ts_info *info)
 	int error = 0;
 
 	/* system reset */
-	error = cleanUp(1);
+	error = cleanUp(0);
 
 	/* enable the features and the sensing */
 	error |= fts_mode_handler(info, 0);
 
 	/* enable the interrupt */
-	/* error |= fts_enableInterrupt(); */
+	error |= fts_enableInterrupt();
 
 #if defined(CONFIG_FB_MSM)
 	error |= fb_register_client(&info->notifier);
@@ -3517,7 +3725,7 @@ static int fts_init_afterProbe(struct fts_ts_info *info)
 	return error;
 }
 
-/**
+/*
  * TODO: change this function according with the needs
  * of customer in terms of feature to enable/disable
  */
@@ -3526,8 +3734,8 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	int res = OK;
 	int ret = OK;
 
-	/* initialize the mode to Nothing in order*/
-	/*to be updated depending on the features enabled */
+	/* initialize the mode to Nothing in order */
+	/* to be updated depending on the features enabled */
 	info->mode = MODE_NOTHING;
 
 	logError(0, "%s %s: Mode Handler starting...\n", tag, __func__);
@@ -3535,15 +3743,17 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	case 0:
 		/* screen down */
 		logError(0, "%s %s: Screen OFF...\n", tag, __func__);
-		/**
+		/*
 		 * do sense off in order to avoid the flooding
 		 * of the fifo with touch events if someone is
 		 * touching the panel during suspend
 		 */
 		logError(0, "%s %s: Sense OFF!\n", tag, __func__);
-		/*we need to use fts_command for speed reason*/
-		/*(no need to check echo in this case and interrupt*/
-		/* can be enabled)*/
+		/*
+		 *we need to use fts_command for speed reason
+		 * (no need to check echo in this case and interrupt
+		 * can be enabled)
+		 */
 		res |= fts_command(info, FTS_CMD_MS_MT_SENSE_OFF);
 #ifdef PHONE_KEY
 		logError(0, "%s %s: Key OFF!\n", tag, __func__);
@@ -4153,9 +4363,7 @@ static int fts_probe(struct i2c_client *client,
 
 	logError(0, "%s SET I2C Functionality and Dev INFO:\n", tag);
 	openChannel(client);
-	/* logError(1, "%s driver ver. %s (built on %s, %s)\n", tag,*/
-	/*      FTS_TS_DRV_VERSION, __DATE__, __TIME__);*/
-	 logError(0, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
+	logError(0, "%s driver ver. %s (built on)\n", tag, FTS_TS_DRV_VERSION);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		logError(1, "%s Unsupported I2C functionality\n", tag);
@@ -4214,8 +4422,6 @@ static int fts_probe(struct i2c_client *client,
 	info->client->irq = gpio_to_irq(info->bdata->irq_gpio);
 
 	logError(0, "%s SET Auto Fw Update:\n", tag);
-	/*info->fwu_workqueue =*/
-	/*create_singlethread_workqueue("fts-fwu-queue");*/
 	info->fwu_workqueue = alloc_workqueue("fts-fwu-queue",
 				WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
 	if (!info->fwu_workqueue) {
@@ -4223,10 +4429,10 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_3;
 	}
 
+	INIT_DELAYED_WORK(&info->fwu_work, fts_fw_update_auto);
+
 	logError(0, "%s SET Event Handler:\n", tag);
-	/*wake_lock_init(&info->wakelock, WAKE_LOCK_SUSPEND, "fts_tp");*/
 	wakeup_source_init(&info->wakeup_source, "fts_tp");
-	/*info->event_wq = create_singlethread_workqueue("fts-event-queue");*/
 	info->event_wq = alloc_workqueue("fts-event-queue",
 				WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
 	if (!info->event_wq) {
@@ -4241,7 +4447,7 @@ static int fts_probe(struct i2c_client *client,
 	INIT_WORK(&info->suspend_work, fts_suspend_work);
 
 	logError(0, "%s SET Input Device Property:\n", tag);
-	/*info->dev = &info->client->dev;*/
+	/* info->dev = &info->client->dev; */
 	info->input_dev = input_allocate_device();
 	if (!info->input_dev) {
 		logError(1, "%s ERROR: No such input device defined!\n",
@@ -4267,10 +4473,6 @@ static int fts_probe(struct i2c_client *client,
 
 	input_mt_init_slots(info->input_dev, TOUCH_ID_MAX, INPUT_MT_DIRECT);
 
-	/*input_mt_init_slots(info->input_dev, TOUCH_ID_MAX);*/
-
-	/*input_set_abs_params(info->input_dev,*/
-	/*ABS_MT_TRACKING_ID, 0, FINGER_MAX, 0, 0);*/
 	input_set_abs_params(info->input_dev, ABS_MT_POSITION_X,
 			X_AXIS_MIN, X_AXIS_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_POSITION_Y,
@@ -4279,8 +4481,8 @@ static int fts_probe(struct i2c_client *client,
 			AREA_MIN, AREA_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_TOUCH_MINOR,
 			AREA_MIN, AREA_MAX, 0, 0);
-	/*input_set_abs_params(info->input_dev, ABS_MT_PRESSURE,*/
-			/*PRESSURE_MIN, PRESSURE_MAX, 0, 0);*/
+	input_set_abs_params(info->input_dev, ABS_MT_PRESSURE,
+			PRESSURE_MIN, PRESSURE_MAX, 0, 0);
 
 #ifdef PHONE_GESTURE
 	input_set_capability(info->input_dev, EV_KEY, KEY_WAKEUP);
@@ -4313,7 +4515,7 @@ static int fts_probe(struct i2c_client *client,
 #endif
 
 #ifdef PHONE_KEY
-	/*KEY associated to the touch screen buttons*/
+	/* KEY associated to the touch screen buttons */
 	input_set_capability(info->input_dev, EV_KEY, KEY_HOMEPAGE);
 	input_set_capability(info->input_dev, EV_KEY, KEY_BACK);
 	input_set_capability(info->input_dev, EV_KEY, KEY_MENU);
@@ -4351,7 +4553,7 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_6;
 	}
 
-	/**
+	/*
 	 * init feature switches (by default all the features
 	 * are disable, if one feature want to be enabled from
 	 * the start, set the corresponding value to 1)
@@ -4368,11 +4570,6 @@ static int fts_probe(struct i2c_client *client,
 
 	info->resume_bit = 1;
 	info->notifier = fts_noti_block;
-	/*error = fb_register_client(&info->notifier);*/
-	/*if (error) {*/
-		/*logError(1, "%s ERROR: register notifier failed!\n", tag);*/
-		/*goto ProbeErrorExit_6;*/
-	/*}*/
 
 	logError(0, "%s SET Device File Nodes:\n", tag);
 	/* sysfs stuff */
@@ -4385,7 +4582,7 @@ static int fts_probe(struct i2c_client *client,
 	}
 
 #ifdef SCRIPTLESS
-	/*I2C cmd*/
+	/* I2C cmd */
 	if (fts_cmd_class == NULL)
 		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
 	info->i2c_cmd_dev = device_create(fts_cmd_class,
@@ -4429,14 +4626,8 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_11;
 	}
 #endif
-
-	error = fts_init_afterProbe(info);
-	if (error < OK) {
-		logError(1,
-			"%s Cannot initialize the hardware device ERROR %08X\n",
-			tag, error);
-		goto ProbeErrorExit_11;
-	}
+	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
+			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 	logError(1, "%s Probe Finished!\n", tag);
 	return OK;
 
@@ -4450,7 +4641,7 @@ ProbeErrorExit_11:
 ProbeErrorExit_10:
 #ifndef SCRIPTLESS
 	sysfs_remove_group(&client->dev.kobj, &info->attrs);
-#endif /*if fail before creating the*/
+#endif
 #endif
 
 #ifdef SCRIPTLESS
@@ -4462,7 +4653,7 @@ ProbeErrorExit_8:
 #endif
 
 ProbeErrorExit_7:
-	/*fb_unregister_client(&info->notifier);*/
+	/* fb_unregister_client(&info->notifier); */
 
 ProbeErrorExit_6:
 	input_unregister_device(info->input_dev);
@@ -4476,7 +4667,6 @@ ProbeErrorExit_5:
 
 ProbeErrorExit_4:
 	destroy_workqueue(info->fwu_workqueue);
-	/* wake_lock_destroy(&info->wakelock); */
 	wakeup_source_trash(&info->wakeup_source);
 
 ProbeErrorExit_3:
@@ -4504,7 +4694,7 @@ static int fts_remove(struct i2c_client *client)
 #endif
 
 #ifdef SCRIPTLESS
-	/*I2C cmd*/
+	/* I2C cmd */
 	sysfs_remove_group(&info->i2c_cmd_dev->kobj, &i2c_cmd_attr_group);
 #endif
 

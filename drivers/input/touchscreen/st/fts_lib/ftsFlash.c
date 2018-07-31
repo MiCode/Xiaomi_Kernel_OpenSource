@@ -139,8 +139,8 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 		memcpy(*data, (u8 *)FW_ARRAY_NAME, (*size));
 		break;
 #endif
-	case 2:
-		logError(1, "%s Read FW from BIN file!\n", tag);
+	default:
+		logError(0, "%s Read FW from BIN file!\n", tag);
 		dev = getDev();
 
 		if (dev != NULL) {
@@ -169,9 +169,6 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 			tag, __func__, ERROR_OP_NOT_ALLOW);
 			return ERROR_OP_NOT_ALLOW;
 		}
-		break;
-	default:
-		return ERROR_OP_NOT_ALLOW;
 		/* break; */
 	}
 
@@ -462,9 +459,9 @@ int flash_burn(Firmware fw, int force_burn, int keep_cx)
 
 	if (!force_burn && (ftsInfo.u16_fwVer >= fw.fw_ver)
 		&& (ftsInfo.u16_cfgId >= fw.config_id)) {
-		logError(1, "Firmware in the chip newer");
-		logError(1, " or equal to the one to burn! ");
-		logError(1, "%s %s:NO UPDATE ERROR %02X\n",
+		logError(0, "Firmware in the chip newer");
+		logError(0, " or equal to the one to burn! ");
+		logError(0, "%s %s:NO UPDATE ERROR %02X\n",
 			tag, __func__, ERROR_FW_NO_UPDATE);
 		return (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED);
 	}
@@ -682,56 +679,56 @@ int parseBinFile(u8 *data, int fw_size,
 		}
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
-		logError(1, "%s %s: Fw ID = %08X\n", tag, __func__, temp);
+		logError(0, "%s %s: Fw ID = %08X\n", tag, __func__, temp);
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->fw_ver = temp;
-		logError(1, "%s %s:FILE Fw Version = %04X\n",
+		logError(0, "%s %s:FILE Fw Version = %04X\n",
 			tag, __func__, fwData->fw_ver);
 
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->config_id = temp;
-		logError(1, "%s %s:FILE Config ID = %04X\n",
+		logError(0, "%s %s:FILE Config ID = %04X\n",
 			tag, __func__, fwData->config_id);
 
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
-		logError(1, "%s %s:Config Version = %08X\n",
+		logError(0, "%s %s:Config Version = %08X\n",
 			tag, __func__, temp);
 		//skip reserved data
 		index += FW_BYTES_ALIGN * 2;
 		index += FW_BYTES_ALIGN;
-		logError(1, "%s %s:File External Release =  ",
+		logError(0, "%s %s:File External Release =  ",
 			tag, __func__);
 		for (i = 0; i < EXTERNAL_RELEASE_INFO_SIZE; i++) {
 			fwData->externalRelease[i] = data[index++];
-			logError(1, "%02X", fwData->externalRelease[i]);
+			logError(0, "%02X", fwData->externalRelease[i]);
 		}
-		logError(1, "\n");
+		logError(0, "\n");
 
 		//index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->sec0_size = temp;
-		logError(1, "%s %s:sec0_size = %08X (%d bytes)\n",
+		logError(0, "%s %s:sec0_size = %08X (%d bytes)\n",
 			tag, __func__, fwData->sec0_size, fwData->sec0_size);
 
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->sec1_size = temp;
-		logError(1, "%s %s:sec1_size = %08X (%d bytes)\n",
+		logError(0, "%s %s:sec1_size = %08X (%d bytes)\n",
 			tag, __func__, fwData->sec1_size, fwData->sec1_size);
 
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->sec2_size = temp;
-		logError(1, "%s %s:sec2_size = %08X (%d bytes)\n",
+		logError(0, "%s %s:sec2_size = %08X (%d bytes)\n",
 			tag, __func__, fwData->sec2_size, fwData->sec2_size);
 
 		index += FW_BYTES_ALIGN;
 		u8ToU32(&data[index], &temp);
 		fwData->sec3_size = temp;
-		logError(1, "%s %s:sec3_size = %08X (%d bytes)\n",
+		logError(0, "%s %s:sec3_size = %08X (%d bytes)\n",
 			tag, __func__, fwData->sec3_size, fwData->sec3_size);
 
 		//skip header crc
@@ -1021,15 +1018,17 @@ int flash_burn(struct Firmware fw, int force_burn, int keep_cx)
 {
 	int res;
 
-	if (!force_burn) {
+	if (!force_burn && (ftsInfo.u16_fwVer >= fw.fw_ver)
+		&& (ftsInfo.u16_cfgId >= fw.config_id)) {
 		for (res = EXTERNAL_RELEASE_INFO_SIZE-1; res >= 0; res--) {
 			if (fw.externalRelease[res] >
 				ftsInfo.u8_extReleaseInfo[res])
 				goto start;
 		}
-		logError(1, "Firmware in the chip newer or ");
-		logError(1, "equal to the one to burn!");
-		logError(1, "%s %s:NO UPDATE ERROR %02X\n",
+
+		logError(0, "Firmware in the chip newer or ");
+		logError(0, "equal to the one to burn!");
+		logError(0, "%s %s:NO UPDATE ERROR %02X\n",
 			tag, __func__, ERROR_FW_NO_UPDATE);
 		return (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED);
 	}
@@ -1105,7 +1104,7 @@ start:
 			tag, ERROR_FLASH_BURN_FAILED);
 		return (res | ERROR_FLASH_BURN_FAILED);
 	}
-	logError(1, "%s   load program DONE!\n", tag);
+	logError(0, "%s   load program DONE!\n", tag);
 	logError(0, "%s 7) LOAD CONFIG:\n", tag);
 	res = fillFlash(FLASH_ADDR_CONFIG,
 		&(fw.data[fw.sec0_size]), fw.sec1_size);
@@ -1114,7 +1113,7 @@ start:
 			tag, ERROR_FLASH_BURN_FAILED);
 		return (res | ERROR_FLASH_BURN_FAILED);
 	}
-	logError(1, "%s   load config DONE!\n", tag);
+	logError(0, "%s   load config DONE!\n", tag);
 
 	logError(0, "%s   Flash burn COMPLETED!\n\n", tag);
 
