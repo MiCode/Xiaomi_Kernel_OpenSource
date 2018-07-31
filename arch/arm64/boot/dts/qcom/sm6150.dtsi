@@ -1111,6 +1111,11 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
 	};
 
 	apps_rsc: mailbox@18220000 {
@@ -1172,6 +1177,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -1180,6 +1189,10 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
