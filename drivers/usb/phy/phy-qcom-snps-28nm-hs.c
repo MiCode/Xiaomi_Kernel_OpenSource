@@ -377,8 +377,20 @@ static void msm_snps_hsphy_enable_hv_interrupts(struct msm_snps_hsphy *phy)
 	usleep_range(200, 220);
 	writeb_relaxed(0x01, USB2_PHY_USB_PHY_IRQ_CMD);
 
+	/* Make sure the interrupts are cleared */
+	usleep_range(200, 220);
+
 	val = readl_relaxed(USB2_PHY_USB_PHY_INTERRUPT_MASK0);
-	val |= USB2_PHY_USB_PHY_DPDM_0_1_MASK;
+	if (phy->phy.flags & PHY_HSFS_MODE) {
+		val |= USB2_PHY_USB_PHY_DP_1_0_MASK |
+			USB2_PHY_USB_PHY_DM_0_1_MASK;
+	} else if (phy->phy.flags & PHY_LS_MODE) {
+		val |= USB2_PHY_USB_PHY_DP_0_1_MASK |
+			USB2_PHY_USB_PHY_DM_1_0_MASK;
+	} else {
+		val |= USB2_PHY_USB_PHY_DP_0_1_MASK |
+			USB2_PHY_USB_PHY_DM_0_1_MASK;
+	}
 	writeb_relaxed(val, USB2_PHY_USB_PHY_INTERRUPT_MASK0);
 }
 
@@ -399,6 +411,7 @@ static void msm_snps_hsphy_disable_hv_interrupts(struct msm_snps_hsphy *phy)
 	writeb_relaxed(0x00, USB2_PHY_USB_PHY_IRQ_CMD);
 	usleep_range(200, 220);
 	writeb_relaxed(0x01, USB2_PHY_USB_PHY_IRQ_CMD);
+	usleep_range(200, 220);
 }
 
 static int msm_snps_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
