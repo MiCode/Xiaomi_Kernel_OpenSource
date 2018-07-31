@@ -331,6 +331,9 @@ int pil_mss_shutdown(struct pil_desc *pil)
 		drv->is_booted = false;
 	}
 
+	if (drv->mx_spike_wa && drv->ahb_clk_vote)
+		clk_disable_unprepare(drv->ahb_clk);
+
 	return ret;
 }
 
