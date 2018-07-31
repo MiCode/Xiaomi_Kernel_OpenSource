@@ -1285,7 +1285,7 @@ static size_t a6xx_snapshot_cx_dbgc_debugbus_block(struct kgsl_device *device,
 }
 
 /* a6xx_snapshot_debugbus() - Capture debug bus data */
-void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
+static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	int i;
@@ -1500,6 +1500,15 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	/* GMU TCM data dumped through AHB */
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
 		gmu_dev_ops->snapshot(adreno_dev, snapshot);
+
+	/*
+	 * Dump debugbus data here to capture it for both
+	 * GMU and GPU snapshot. Debugbus data can be accessed
+	 * even if the gx headswitch or sptprac is off. If gx
+	 * headswitch is off, data for gx blocks will show as
+	 * 0x5c00bd00.
+	 */
+	a6xx_snapshot_debugbus(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
