@@ -11,6 +11,12 @@
  */
 
 &soc {
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a608_zap";
+	};
+
 	msm_gpu: qcom,kgsl-3d0@5000000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
@@ -204,13 +210,20 @@
 		clock-names = "iface_clk", "mem_clk", "mem_iface_clk",
 				"alt_mem_iface_clk";
 
+		qcom,secure_align_mask = <0xfff>;
 		qcom,retention;
+		qcom,hyp_secure_alloc;
 
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_user";
 			iommus = <&kgsl_smmu 0x0 0x401>;
 			qcom,gpu-offset = <0xa8000>;
+		};
+		gfx3d_secure: gfx3d_secure {
+			compatible = "qcom,smmu-kgsl-cb";
+			label = "gfx3d_secure";
+			iommus = <&kgsl_smmu 0x2 0x400>;
 		};
 	};
 };
