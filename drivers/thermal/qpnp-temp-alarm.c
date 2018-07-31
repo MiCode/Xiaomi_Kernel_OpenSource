@@ -586,6 +586,20 @@ static int qpnp_tm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void qpnp_tm_shutdown(struct platform_device *pdev)
+{
+	struct qpnp_tm_chip *chip = dev_get_drvdata(&pdev->dev);
+	int rc;
+	u8 reg;
+
+	/* configure TEMP_ALARM to follow HW_EN */
+	reg = ALARM_CTRL_FOLLOW_HW_ENABLE;
+	rc = qpnp_tm_write(chip, QPNP_TM_REG_ALARM_CTRL, &reg, 1);
+	if (rc)
+		pr_err("Failed to cfg. TEMP_ALARM to follow HW_EN rc=%d\n", rc);
+}
+
+
 static const struct of_device_id qpnp_tm_match_table[] = {
 	{ .compatible = QPNP_TM_DRIVER_NAME, },
 	{}
@@ -604,6 +618,7 @@ static struct platform_driver qpnp_tm_driver = {
 	},
 	.probe	  = qpnp_tm_probe,
 	.remove	  = qpnp_tm_remove,
+	.shutdown = qpnp_tm_shutdown,
 	.id_table = qpnp_tm_id,
 };
 
