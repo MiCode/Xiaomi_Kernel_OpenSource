@@ -165,6 +165,77 @@
 			compatible = "qcom,msm-dai-cdc-dma-dev";
 			qcom,msm-dai-cdc-dma-dev-id = <45091>;
 		};
+
+		rx_cdc_dma_0_rx: qcom,msm-dai-rx-cdc-dma-0-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45104>;
+		};
+
+		rx_cdc_dma_1_rx: qcom,msm-dai-rx-cdc-dma-1-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45106>;
+		};
+
+		rx_cdc_dma_2_rx: qcom,msm-dai-rx-cdc-dma-2-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45108>;
+		};
+
+		rx_cdc_dma_3_rx: qcom,msm-dai-rx-cdc-dma-3-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45110>;
+		};
+
+		rx_cdc_dma_4_rx: qcom,msm-dai-rx-cdc-dma-4-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45112>;
+		};
+
+		rx_cdc_dma_5_rx: qcom,msm-dai-rx-cdc-dma-5-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45114>;
+		};
+
+		rx_cdc_dma_6_rx: qcom,msm-dai-rx-cdc-dma-6-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45116>;
+		};
+
+		rx_cdc_dma_7_rx: qcom,msm-dai-rx-cdc-dma-7-rx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45118>;
+		};
+
+		tx_cdc_dma_0_tx: qcom,msm-dai-tx-cdc-dma-0-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45105>;
+		};
+
+		tx_cdc_dma_1_tx: qcom,msm-dai-tx-cdc-dma-1-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45107>;
+		};
+
+		tx_cdc_dma_2_tx: qcom,msm-dai-tx-cdc-dma-2-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45109>;
+		};
+
+		tx_cdc_dma_3_tx: qcom,msm-dai-tx-cdc-dma-3-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45111>;
+		};
+
+		tx_cdc_dma_4_tx: qcom,msm-dai-tx-cdc-dma-4-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45113>;
+		};
+
+		tx_cdc_dma_5_tx: qcom,msm-dai-tx-cdc-dma-5-tx {
+			compatible = "qcom,msm-dai-cdc-dma-dev";
+			qcom,msm-dai-cdc-dma-dev-id = <45115>;
+		};
+
 	};
 
 	lsm: qcom,msm-lsm-client {
