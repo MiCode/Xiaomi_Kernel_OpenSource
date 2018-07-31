@@ -136,6 +136,11 @@
 			label = "cont_splash_mem";
 		};
 
+		adsp_shmem_device_mem: adsp_shmem_device_region@0xc0100000 {
+			reg = <0x0 0xc0100000 0x0 0x1f400000>;
+			label = "adsp_shmem_device_mem";
+		};
+
 		gpu_mem: gpu_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;

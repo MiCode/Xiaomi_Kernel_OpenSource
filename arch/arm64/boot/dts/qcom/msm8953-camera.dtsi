@@ -328,6 +328,12 @@
 		max-clk-turbo = <465000000>;
 	};
 
+	qcom,adsp {
+		status = "ok";
+		compatible = "adsp-shmem-device";
+		memory-region = <&adsp_shmem_device_mem>;
+	};
+
 	qcom,vfe {
 		compatible = "qcom,vfe";
 		num_child = <2>;
