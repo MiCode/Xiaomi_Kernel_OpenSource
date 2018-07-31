@@ -118,6 +118,15 @@ struct vadc_prescale_ratio {
  *	charger temperature.
  * SCALE_HW_CALIB_PM5_SMB_TEMP: Returns result in millidegrees for PMIC5
  *	SMB1390 temperature.
+ * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor voltage in
+ *	decidegC using 100k pullup. The hardware applies offset/slope to adc
+ *	code.
+ * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor voltage in
+ *	decidegC using 30k pullup. The hardware applies offset/slope to adc
+ *	code.
+ * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor voltage in
+ *	decidegC using 400k pullup. The hardware applies offset/slope to adc
+ *	code.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -132,6 +141,9 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_CUR,
 	SCALE_HW_CALIB_PM5_CHG_TEMP,
 	SCALE_HW_CALIB_PM5_SMB_TEMP,
+	SCALE_HW_CALIB_BATT_THERM_100K,
+	SCALE_HW_CALIB_BATT_THERM_30K,
+	SCALE_HW_CALIB_BATT_THERM_400K,
 };
 
 struct adc_data {
