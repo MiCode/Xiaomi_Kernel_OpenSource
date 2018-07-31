@@ -3909,7 +3909,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
-	.snapshot_gmu = a6xx_snapshot_gmu,
 	.irq = &a6xx_irq,
 	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
