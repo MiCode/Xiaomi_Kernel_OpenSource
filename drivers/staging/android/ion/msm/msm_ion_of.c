@@ -215,7 +215,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 			pr_err("Failed to create device %s\n", node->name);
 			goto free_heaps;
 		}
-		of_dma_configure(&new_dev->dev, node);
+		of_dma_configure(&new_dev->dev, node, true);
 
 		pdata->heaps[idx].priv = &new_dev->dev;
 		val = of_get_address(node, 0, NULL, NULL);
