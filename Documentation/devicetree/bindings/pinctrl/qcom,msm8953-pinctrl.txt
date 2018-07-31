@@ -11,7 +11,13 @@ MSM8953 platform.
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
-	Definition: the base address and size of the TLMM register space.
+	Definition: the base address and size of the TLMM register space
+		    provided as "pinctrl_regs".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
 
 - interrupts:
 	Usage: required
@@ -173,6 +179,7 @@ Example:
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,msm8953-pinctrl";
 		reg = <0x1000000 0x300000>;
+		reg-names = "pinctrl_regs";
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
