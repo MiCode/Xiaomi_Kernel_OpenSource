@@ -134,6 +134,7 @@ struct qpnp_qg {
 	u32			esr_last;
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
+	unsigned long		last_maint_soc_update_time;
 	struct iio_channel	*batt_therm_chan;
 	struct iio_channel	*batt_id_chan;
 
@@ -147,6 +148,7 @@ struct qpnp_qg {
 	int			full_soc;
 	int			sys_soc;
 	int			last_adj_ssoc;
+	int			recharge_soc;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 
