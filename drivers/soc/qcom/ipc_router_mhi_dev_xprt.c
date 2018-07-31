@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,9 @@ if (ipc_router_mhi_dev_xprt_debug_mask) \
 
 #define MODULE_NAME "ipc_router_mhi_dev_xprt"
 #define XPRT_NAME_LEN 32
-#define IPC_ROUTER_MHI_XPRT_MAX_PKT_SIZE 0x1000
+#define IPC_ROUTER_MHI_XPRT_MAX_PKT_SIZE 8192
+#define MHI_IPCR_ASYNC_TIMEOUT msecs_to_jiffies(100)
+#define MAX_IPCR_WR_REQ 128
 
 /**
  * ipc_router_mhi_dev_channel - MHI Channel related information
@@ -40,8 +42,6 @@ if (ipc_router_mhi_dev_xprt_debug_mask) \
  * @state_lock: Lock to protect access to the state information.
  * @out_chan_enabled: State of the outgoing channel.
  * @in_chan_enabled: State of the incoming channel.
- * @bytes_to_rx: Remaining bytes to be received in a packet.
- * @in_skbq: Queue containing the input buffers.
  * @max_packet_size: Possible maximum packet size.
  * @mhi_xprtp: Pointer to IPC Router MHI XPRT.
  */
@@ -53,8 +53,6 @@ struct ipc_router_mhi_dev_channel {
 	struct mutex state_lock;
 	bool out_chan_enabled;
 	bool in_chan_enabled;
-	int bytes_to_rx;
-	struct sk_buff_head in_skbq;
 	size_t max_packet_size;
 	void *mhi_xprtp;
 };
@@ -67,10 +65,13 @@ struct ipc_router_mhi_dev_channel {
  * @xprt: IPC Router XPRT structure to contain MHI XPRT specific info.
  * @wq: Workqueue to queue read & other XPRT related works.
  * @read_work: Read Work to perform read operation from MHI Driver.
- * @in_pkt: Pointer to any partially read packet.
  * @write_wait_q: Wait Queue to handle the write events.
  * @xprt_version: IPC Router header version supported by this XPRT.
  * @xprt_option: XPRT specific options to be handled by IPC Router.
+ * @wr_req_lock: Lock for write request list
+ * @wreqs: List of write requests
+ * @wr_req_list: Head of the list of available write requests
+ * @read_done: Completion for async read.
  */
 struct ipc_router_mhi_dev_xprt {
 	struct list_head list;
@@ -79,11 +80,13 @@ struct ipc_router_mhi_dev_xprt {
 	struct msm_ipc_router_xprt xprt;
 	struct workqueue_struct *wq;
 	struct work_struct read_work;
-	struct rr_packet *in_pkt;
-	size_t bytes_to_rx;
 	wait_queue_head_t write_wait_q;
 	unsigned xprt_version;
 	unsigned xprt_option;
+	spinlock_t wr_req_lock;
+	struct mhi_req *wreqs;
+	struct list_head wr_req_list;
+	struct completion read_done;
 };
 
 /**
@@ -168,6 +171,29 @@ static int ipc_router_mhi_dev_get_xprt_option(struct msm_ipc_router_xprt *xprt)
 	return (int)mhi_xprtp->xprt_option;
 }
 
+static void mhi_xprt_write_completion_cb(void *req)
+{
+	struct mhi_req *ureq = req;
+	struct rr_packet *pkt = ureq->context;
+	unsigned long flags;
+
+	if (pkt)
+		kref_put(&pkt->ref, ipc_router_mhi_dev_release_pkt);
+
+	spin_lock_irqsave(&mhi_xprtp->wr_req_lock, flags);
+	list_add_tail(&ureq->list, &mhi_xprtp->wr_req_list);
+	spin_unlock_irqrestore(&mhi_xprtp->wr_req_lock, flags);
+}
+
+static void mhi_xprt_read_completion_cb(void *req)
+{
+	struct mhi_req *ureq = req;
+	struct ipc_router_mhi_dev_xprt *mhi_xprtp;
+
+	mhi_xprtp = (struct ipc_router_mhi_dev_xprt *)ureq->context;
+	complete(&mhi_xprtp->read_done);
+}
+
 static void mhi_xprt_event_notifier(struct mhi_dev_client_cb_reason *reason)
 {
 	if (reason->reason == MHI_DEV_TRE_AVAILABLE) {
@@ -184,22 +210,21 @@ static void mhi_xprt_event_notifier(struct mhi_dev_client_cb_reason *reason)
 static void mhi_xprt_read_data(struct work_struct *work)
 {
 	struct sk_buff *skb;
+	struct rr_packet *in_pkt;
 	struct mhi_req mreq = {0};
 	int data_sz;
 	struct ipc_router_mhi_dev_xprt *mhi_xprtp =
 		container_of(work, struct ipc_router_mhi_dev_xprt, read_work);
+	unsigned long compl_ret;
 
-	while (1) {
-		/* Create a new rr_packet, if first fragment */
-		if (!mhi_xprtp->bytes_to_rx) {
-			mhi_xprtp->in_pkt = create_pkt(NULL);
-			if (!mhi_xprtp->in_pkt) {
-				IPC_RTR_ERR("%s: Couldn't alloc rr_packet\n",
-					    __func__);
-				return;
-			}
-			D("%s: Allocated rr_packet\n", __func__);
+	while (!mhi_dev_channel_isempty(mhi_xprtp->ch_hndl.out_handle)) {
+		in_pkt = create_pkt(NULL);
+		if (!in_pkt) {
+			IPC_RTR_ERR("%s: Couldn't alloc rr_packet\n",
+				    __func__);
+			return;
 		}
+		D("%s: Allocated rr_packet\n", __func__);
 
 		skb = alloc_skb(mhi_xprtp->ch_hndl.max_packet_size, GFP_KERNEL);
 		if (!skb) {
@@ -212,7 +237,11 @@ static void mhi_xprt_read_data(struct work_struct *work)
 		mreq.buf = skb->data;
 		mreq.len = mhi_xprtp->ch_hndl.max_packet_size;
 		mreq.chan = mhi_xprtp->ch_hndl.out_chan_id;
-		mreq.mode = IPA_DMA_SYNC;
+		mreq.mode = IPA_DMA_ASYNC;
+		mreq.client_cb = mhi_xprt_read_completion_cb;
+
+		reinit_completion(&mhi_xprtp->read_done);
+
 		data_sz = mhi_dev_read_channel(&mreq);
 		if (data_sz < 0) {
 			IPC_RTR_ERR("%s: Failed to queue TRB into MHI\n",
@@ -223,26 +252,34 @@ static void mhi_xprt_read_data(struct work_struct *work)
 			goto exit_free_skb;
 		}
 
-		if (!mhi_xprtp->bytes_to_rx) {
-			mhi_xprtp->bytes_to_rx =
-				ipc_router_peek_pkt_size(skb->data) - data_sz;
-		} else {
-			mhi_xprtp->bytes_to_rx -= data_sz;
+		compl_ret =
+			wait_for_completion_interruptible_timeout(
+				&mhi_xprtp->read_done,
+				MHI_IPCR_ASYNC_TIMEOUT);
+
+		if (compl_ret == -ERESTARTSYS) {
+			IPC_RTR_ERR("%s: Exit signal caught\n", __func__);
+			goto exit_free_skb;
+		} else if (compl_ret == 0) {
+			IPC_RTR_ERR("%s: Read timed out\n", __func__);
+			goto exit_free_skb;
 		}
 
-		skb_put(skb, data_sz);
-		mhi_xprtp->in_pkt->length += data_sz;
-		skb_queue_tail(mhi_xprtp->in_pkt->pkt_fragment_q, skb);
-
-		if (!mhi_xprtp->bytes_to_rx) {
-			D("%s: Packet size read %d\n",
-			  __func__, mhi_xprtp->in_pkt->length);
-			msm_ipc_router_xprt_notify(&mhi_xprtp->xprt,
-				IPC_ROUTER_XPRT_EVENT_DATA,
-				(void *)mhi_xprtp->in_pkt);
-			release_pkt(mhi_xprtp->in_pkt);
-			mhi_xprtp->in_pkt = NULL;
+		if (mreq.transfer_len != ipc_router_peek_pkt_size(skb->data)) {
+			IPC_RTR_ERR("%s: Incomplete packet, drop it\n",
+				    __func__);
+			goto exit_free_skb;
 		}
+
+		skb_put(skb, mreq.transfer_len);
+		in_pkt->length = mreq.transfer_len;
+		skb_queue_tail(in_pkt->pkt_fragment_q, skb);
+
+		D("%s: Packet size read %d\n", __func__, in_pkt->length);
+		msm_ipc_router_xprt_notify(&mhi_xprtp->xprt,
+					   IPC_ROUTER_XPRT_EVENT_DATA,
+					   (void *)in_pkt);
+		release_pkt(in_pkt);
 	}
 
 	return;
@@ -250,15 +287,14 @@ static void mhi_xprt_read_data(struct work_struct *work)
 exit_free_skb:
 	kfree_skb(skb);
 exit_free_pkt:
-	release_pkt(mhi_xprtp->in_pkt);
-	mhi_xprtp->in_pkt = NULL;
-	mhi_xprtp->bytes_to_rx = 0;
+	release_pkt(in_pkt);
 }
 
 /**
  * ipc_router_mhi_dev_write_skb() - Write a single SKB onto the XPRT
  * @mhi_xprtp: XPRT in which the SKB has to be written.
  * @skb: SKB to be written.
+ * @pkt: IPC packet, for reference count purposes
  *
  * @return: return number of bytes written on success,
  *          standard Linux error codes on failure.
@@ -267,41 +303,58 @@ static int ipc_router_mhi_dev_write_skb(
 	struct ipc_router_mhi_dev_xprt *mhi_xprtp,
 	struct sk_buff *skb, struct rr_packet *pkt)
 {
-	size_t sz_to_write = 0;
-	size_t offset = 0;
-	int rc;
-	struct mhi_req wreq = {0};
+	struct mhi_req *wreq;
 
-	while (offset < skb->len) {
-		wait_event(mhi_xprtp->write_wait_q,
-			!mhi_dev_channel_isempty(
-				mhi_xprtp->ch_hndl.in_handle) ||
-			!mhi_xprtp->ch_hndl.in_chan_enabled);
-		mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
-		if (!mhi_xprtp->ch_hndl.in_chan_enabled) {
-			mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
-			IPC_RTR_ERR("%s: %s chnl reset\n",
-				    __func__, mhi_xprtp->xprt_name);
-			return -ENETRESET;
-		}
-		sz_to_write = min((size_t)(skb->len - offset),
-				(size_t)IPC_ROUTER_MHI_XPRT_MAX_PKT_SIZE);
-
-		wreq.client = mhi_xprtp->ch_hndl.in_handle;
-		wreq.buf = skb->data + offset;
-		wreq.len = sz_to_write;
-		wreq.chan = mhi_xprtp->ch_hndl.in_chan_id;
-		wreq.mode = IPA_DMA_SYNC;
-		rc = mhi_dev_write_channel(&wreq);
-		if (rc <= 0) {
-			mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
-			IPC_RTR_ERR("%s: Error queueing mhi_xfer 0x%zx\n",
-				    __func__, sz_to_write);
-			return -EFAULT;
-		}
-		offset += sz_to_write;
-		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
+	if (skb->len > mhi_xprtp->ch_hndl.max_packet_size) {
+		IPC_RTR_ERR("%s: Packet size is above the limit\n", __func__);
+		return -EINVAL;
 	}
+
+	wait_event_interruptible(mhi_xprtp->write_wait_q,
+		!mhi_dev_channel_isempty(mhi_xprtp->ch_hndl.in_handle) ||
+					 !mhi_xprtp->ch_hndl.in_chan_enabled);
+	mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
+	if (!mhi_xprtp->ch_hndl.in_chan_enabled) {
+		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
+		IPC_RTR_ERR("%s: %s chnl reset\n",
+			    __func__, mhi_xprtp->xprt_name);
+		return -ENETRESET;
+	}
+
+	spin_lock_irq(&mhi_xprtp->wr_req_lock);
+	if (list_empty(&mhi_xprtp->wr_req_list)) {
+		IPC_RTR_ERR("%s: Write request pool empty\n", __func__);
+		spin_unlock_irq(&mhi_xprtp->wr_req_lock);
+		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
+		return -ENOMEM;
+	}
+	wreq = container_of(mhi_xprtp->wr_req_list.next,
+			    struct mhi_req, list);
+	list_del_init(&wreq->list);
+
+	kref_get(&pkt->ref);
+
+	wreq->client = mhi_xprtp->ch_hndl.in_handle;
+	wreq->context = pkt;
+	wreq->buf = skb->data;
+	wreq->len = skb->len;
+	if (list_empty(&wreq->list))
+		wreq->snd_cmpl = 1;
+	else
+		wreq->snd_cmpl = 0;
+	spin_unlock_irq(&mhi_xprtp->wr_req_lock);
+
+	if (mhi_dev_write_channel(wreq) < 0) {
+		spin_lock_irq(&mhi_xprtp->wr_req_lock);
+		list_add_tail(&wreq->list, &mhi_xprtp->wr_req_list);
+		spin_unlock_irq(&mhi_xprtp->wr_req_lock);
+		kref_put(&pkt->ref, ipc_router_mhi_dev_release_pkt);
+		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
+		IPC_RTR_ERR("%s: Error queueing mhi_xfer\n", __func__);
+		return -EFAULT;
+	}
+
+	mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
 
 	return skb->len;
 }
@@ -376,6 +429,32 @@ static int ipc_router_mhi_dev_close(struct msm_ipc_router_xprt *xprt)
 	return 0;
 }
 
+static int mhi_dev_xprt_alloc_write_reqs(
+	struct ipc_router_mhi_dev_xprt *mhi_xprtp)
+{
+	int i;
+
+	mhi_xprtp->wreqs = kcalloc(MAX_IPCR_WR_REQ,
+				   sizeof(struct mhi_req),
+				   GFP_KERNEL);
+	if (!mhi_xprtp->wreqs) {
+		IPC_RTR_ERR("%s: Write reqs alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	INIT_LIST_HEAD(&mhi_xprtp->wr_req_list);
+	for (i = 0; i < MAX_IPCR_WR_REQ; ++i) {
+		mhi_xprtp->wreqs[i].chan = mhi_xprtp->ch_hndl.in_chan_id;
+		mhi_xprtp->wreqs[i].mode = IPA_DMA_ASYNC;
+		mhi_xprtp->wreqs[i].client_cb = mhi_xprt_write_completion_cb;
+		list_add_tail(&mhi_xprtp->wreqs[i].list,
+			      &mhi_xprtp->wr_req_list);
+	}
+
+	D("%s: write reqs allocation successful\n", __func__);
+	return 0;
+}
+
 /**
  * ipc_router_mhi_dev_driver_register() - register for MHI channels
  *
@@ -412,6 +491,10 @@ static int ipc_router_mhi_dev_driver_register(
 	mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
 	mhi_xprtp->ch_hndl.in_chan_enabled = true;
 	mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
+
+	rc = mhi_dev_xprt_alloc_write_reqs(mhi_xprtp);
+	if (rc)
+		goto exit;
 
 	/* Register the XPRT before receiving any data */
 	msm_ipc_router_xprt_notify(&mhi_xprtp->xprt,
@@ -502,9 +585,10 @@ static int ipc_router_mhi_dev_config_init(
 	mhi_xprtp->ch_hndl.out_chan_id = mhi_xprt_config->out_chan_id;
 	mhi_xprtp->ch_hndl.in_chan_id = mhi_xprt_config->in_chan_id;
 	mutex_init(&mhi_xprtp->ch_hndl.state_lock);
-	skb_queue_head_init(&mhi_xprtp->ch_hndl.in_skbq);
 	mhi_xprtp->ch_hndl.max_packet_size = IPC_ROUTER_MHI_XPRT_MAX_PKT_SIZE;
 	mhi_xprtp->ch_hndl.mhi_xprtp = mhi_xprtp;
+	init_completion(&mhi_xprtp->read_done);
+	spin_lock_init(&mhi_xprtp->wr_req_lock);
 
 	/* Register callback to mhi_dev */
 	rc = mhi_register_state_cb(mhi_dev_xprt_state_cb, mhi_xprtp,
