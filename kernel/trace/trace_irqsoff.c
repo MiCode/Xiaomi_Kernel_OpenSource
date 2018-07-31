@@ -804,10 +804,9 @@ static inline void tracer_preempt_on(unsigned long a0, unsigned long a1) { }
 static inline void tracer_preempt_off(unsigned long a0, unsigned long a1) { }
 #endif
 
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PROVE_LOCKING)
 /* Per-cpu variable to prevent redundant calls when IRQs already off */
 static DEFINE_PER_CPU(int, tracing_irq_cpu);
-
-#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_PROVE_LOCKING)
 void trace_hardirqs_on(void)
 {
 	if (!this_cpu_read(tracing_irq_cpu))
