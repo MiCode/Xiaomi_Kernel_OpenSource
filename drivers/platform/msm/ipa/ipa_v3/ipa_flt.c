@@ -793,7 +793,7 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 		}
 	} else {
 		if (rule->rt_tbl_idx > 0) {
-			IPAERR("invalid RT tbl\n");
+			IPAERR_RL("invalid RT tbl\n");
 			goto error;
 		}
 	}
@@ -1057,7 +1057,7 @@ static int __ipa_add_flt_get_ep_idx(enum ipa_client_type ep, int *ipa_ep_idx)
 {
 	*ipa_ep_idx = ipa3_get_ep_mapping(ep);
 	if (*ipa_ep_idx < 0) {
-		IPAERR("ep not valid ep=%d\n", ep);
+		IPAERR_RL("ep not valid ep=%d\n", ep);
 		return -EINVAL;
 	}
 	if (ipa3_ctx->ep[*ipa_ep_idx].valid == 0)
@@ -1535,7 +1535,7 @@ int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple)
 	struct ipahal_reg_fltrt_hash_tuple fltrt_tuple;
 
 	if (!tuple) {
-		IPAERR("bad tuple\n");
+		IPAERR_RL("bad tuple\n");
 		return -EINVAL;
 	}
 
@@ -1603,19 +1603,19 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx, enum ipa_ip_type ip_type,
 	 * rules operation not supported
 	 */
 	if (hashable && ipa3_ctx->ipa_fltrt_not_hashable) {
-		IPADBG("Reading hashable rules not supported\n");
+		IPAERR_RL("Reading hashable rules not supported\n");
 		*num_entry = 0;
 		return 0;
 	}
 
 	if (pipe_idx >= ipa3_ctx->ipa_num_pipes || ip_type >= IPA_IP_MAX ||
 	    !entry || !num_entry) {
-		IPAERR("Invalid params\n");
+		IPAERR_RL("Invalid params\n");
 		return -EFAULT;
 	}
 
 	if (!ipa_is_ep_support_flt(pipe_idx)) {
-		IPAERR("pipe %d does not support filtering\n", pipe_idx);
+		IPAERR_RL("pipe %d does not support filtering\n", pipe_idx);
 		return -EINVAL;
 	}
 
