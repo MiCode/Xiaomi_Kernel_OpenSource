@@ -1972,11 +1972,12 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 	char *boot_str = NULL;
 	char *str = NULL;
 	char *sw_te = NULL;
-	unsigned long value;
+	unsigned long cmdline_topology = NO_OVERRIDE;
+	unsigned long cmdline_timing = NO_OVERRIDE;
 
 	if (display_type >= MAX_DSI_ACTIVE_DISPLAY) {
 		pr_err("display_type=%d not supported\n", display_type);
-		return;
+		goto end;
 	}
 
 	if (display_type == DSI_PRIMARY)
@@ -1990,27 +1991,29 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 
 	str = strnstr(boot_str, ":config", strlen(boot_str));
 	if (!str)
-		return;
+		goto end;
 
 	if (kstrtol(str + strlen(":config"), INT_BASE_10,
-				(unsigned long *)&value)) {
+				(unsigned long *)&cmdline_topology)) {
 		pr_err("invalid config index override: %s\n", boot_str);
-		return;
+		goto end;
 	}
-	display->cmdline_topology = value;
 
 	str = strnstr(boot_str, ":timing", strlen(boot_str));
 	if (!str)
-		return;
+		goto end;
 
 	if (kstrtol(str + strlen(":timing"), INT_BASE_10,
-				(unsigned long *)&value)) {
+				(unsigned long *)&cmdline_timing)) {
 		pr_err("invalid timing index override: %s. resetting both timing and config\n",
 			boot_str);
-		display->cmdline_topology = NO_OVERRIDE;
-		return;
+		cmdline_topology = NO_OVERRIDE;
+		goto end;
 	}
-	display->cmdline_timing = value;
+	pr_debug("successfully parsed command line topology and timing\n");
+end:
+	display->cmdline_topology = cmdline_topology;
+	display->cmdline_timing = cmdline_timing;
 }
 
 /**
