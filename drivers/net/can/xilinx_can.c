@@ -25,8 +25,10 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/skbuff.h>
+#include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/can/dev.h>
@@ -100,7 +102,7 @@ enum xcan_reg {
 #define XCAN_INTR_ALL		(XCAN_IXR_TXOK_MASK | XCAN_IXR_BSOFF_MASK |\
 				 XCAN_IXR_WKUP_MASK | XCAN_IXR_SLP_MASK | \
 				 XCAN_IXR_RXNEMP_MASK | XCAN_IXR_ERROR_MASK | \
-				 XCAN_IXR_ARBLST_MASK | XCAN_IXR_RXOK_MASK)
+				 XCAN_IXR_RXOFLW_MASK | XCAN_IXR_ARBLST_MASK)
 
 /* CAN register bit shift - XCAN_<REG>_<BIT>_SHIFT */
 #define XCAN_BTR_SJW_SHIFT		7  /* Synchronous jump width */
@@ -117,6 +119,7 @@ enum xcan_reg {
 /**
  * struct xcan_priv - This definition define CAN driver instance
  * @can:			CAN private data structure.
+ * @tx_lock:			Lock for synchronizing TX interrupt handling
  * @tx_head:			Tx CAN packets ready to send on the queue
  * @tx_tail:			Tx CAN packets successfully sended on the queue
  * @tx_max:			Maximum number packets the driver can send
@@ -131,6 +134,7 @@ enum xcan_reg {
  */
 struct xcan_priv {
 	struct can_priv can;
+	spinlock_t tx_lock;
 	unsigned int tx_head;
 	unsigned int tx_tail;
 	unsigned int tx_max;
@@ -156,6 +160,11 @@ static const struct can_bittiming_const xcan_bittiming_const = {
 	.brp_min = 1,
 	.brp_max = 256,
 	.brp_inc = 1,
+};
+
+#define XCAN_CAP_WATERMARK	0x0001
+struct xcan_devtype_data {
+	unsigned int caps;
 };
 
 /**
@@ -236,6 +245,10 @@ static int set_reset_mode(struct net_device *ndev)
 		}
 		usleep_range(500, 10000);
 	}
+
+	/* reset clears FIFOs */
+	priv->tx_head = 0;
+	priv->tx_tail = 0;
 
 	return 0;
 }
@@ -391,6 +404,7 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct net_device_stats *stats = &ndev->stats;
 	struct can_frame *cf = (struct can_frame *)skb->data;
 	u32 id, dlc, data[2] = {0, 0};
+	unsigned long flags;
 
 	if (can_dropped_invalid_skb(ndev, skb))
 		return NETDEV_TX_OK;
@@ -438,6 +452,9 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		data[1] = be32_to_cpup((__be32 *)(cf->data + 4));
 
 	can_put_echo_skb(skb, ndev, priv->tx_head % priv->tx_max);
+
+	spin_lock_irqsave(&priv->tx_lock, flags);
+
 	priv->tx_head++;
 
 	/* Write the Frame to Xilinx CAN TX FIFO */
@@ -453,9 +470,15 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		stats->tx_bytes += cf->can_dlc;
 	}
 
+	/* Clear TX-FIFO-empty interrupt for xcan_tx_interrupt() */
+	if (priv->tx_max > 1)
+		priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_TXFEMP_MASK);
+
 	/* Check if the TX buffer is full */
 	if ((priv->tx_head - priv->tx_tail) == priv->tx_max)
 		netif_stop_queue(ndev);
+
+	spin_unlock_irqrestore(&priv->tx_lock, flags);
 
 	return NETDEV_TX_OK;
 }
@@ -598,7 +621,6 @@ static void xcan_err_interrupt(struct net_device *ndev, u32 isr)
 	if (isr & XCAN_IXR_RXOFLW_MASK) {
 		stats->rx_over_errors++;
 		stats->rx_errors++;
-		priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_RESET_MASK);
 		if (skb) {
 			cf->can_id |= CAN_ERR_CRTL;
 			cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
@@ -710,15 +732,7 @@ static int xcan_rx_poll(struct napi_struct *napi, int quota)
 
 	isr = priv->read_reg(priv, XCAN_ISR_OFFSET);
 	while ((isr & XCAN_IXR_RXNEMP_MASK) && (work_done < quota)) {
-		if (isr & XCAN_IXR_RXOK_MASK) {
-			priv->write_reg(priv, XCAN_ICR_OFFSET,
-				XCAN_IXR_RXOK_MASK);
-			work_done += xcan_rx(ndev);
-		} else {
-			priv->write_reg(priv, XCAN_ICR_OFFSET,
-				XCAN_IXR_RXNEMP_MASK);
-			break;
-		}
+		work_done += xcan_rx(ndev);
 		priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_RXNEMP_MASK);
 		isr = priv->read_reg(priv, XCAN_ISR_OFFSET);
 	}
@@ -729,7 +743,7 @@ static int xcan_rx_poll(struct napi_struct *napi, int quota)
 	if (work_done < quota) {
 		napi_complete(napi);
 		ier = priv->read_reg(priv, XCAN_IER_OFFSET);
-		ier |= (XCAN_IXR_RXOK_MASK | XCAN_IXR_RXNEMP_MASK);
+		ier |= XCAN_IXR_RXNEMP_MASK;
 		priv->write_reg(priv, XCAN_IER_OFFSET, ier);
 	}
 	return work_done;
@@ -801,9 +815,9 @@ static irqreturn_t xcan_interrupt(int irq, void *dev_id)
 	}
 
 	/* Check for the type of receive interrupt and Processing it */
-	if (isr & (XCAN_IXR_RXNEMP_MASK | XCAN_IXR_RXOK_MASK)) {
+	if (isr & XCAN_IXR_RXNEMP_MASK) {
 		ier = priv->read_reg(priv, XCAN_IER_OFFSET);
-		ier &= ~(XCAN_IXR_RXNEMP_MASK | XCAN_IXR_RXOK_MASK);
+		ier &= ~XCAN_IXR_RXNEMP_MASK;
 		priv->write_reg(priv, XCAN_IER_OFFSET, ier);
 		napi_schedule(&priv->napi);
 	}
@@ -1032,6 +1046,18 @@ static int __maybe_unused xcan_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(xcan_dev_pm_ops, xcan_suspend, xcan_resume);
 
+static const struct xcan_devtype_data xcan_zynq_data = {
+	.caps = XCAN_CAP_WATERMARK,
+};
+
+/* Match table for OF platform binding */
+static const struct of_device_id xcan_of_match[] = {
+	{ .compatible = "xlnx,zynq-can-1.0", .data = &xcan_zynq_data },
+	{ .compatible = "xlnx,axi-can-1.00.a", },
+	{ /* end of list */ },
+};
+MODULE_DEVICE_TABLE(of, xcan_of_match);
+
 /**
  * xcan_probe - Platform registration call
  * @pdev:	Handle to the platform device structure
@@ -1046,8 +1072,10 @@ static int xcan_probe(struct platform_device *pdev)
 	struct resource *res; /* IO mem resources */
 	struct net_device *ndev;
 	struct xcan_priv *priv;
+	const struct of_device_id *of_id;
+	int caps = 0;
 	void __iomem *addr;
-	int ret, rx_max, tx_max;
+	int ret, rx_max, tx_max, tx_fifo_depth;
 
 	/* Get the virtual base address for the device */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1057,13 +1085,38 @@ static int xcan_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "tx-fifo-depth", &tx_max);
+	ret = of_property_read_u32(pdev->dev.of_node, "tx-fifo-depth",
+				   &tx_fifo_depth);
 	if (ret < 0)
 		goto err;
 
 	ret = of_property_read_u32(pdev->dev.of_node, "rx-fifo-depth", &rx_max);
 	if (ret < 0)
 		goto err;
+
+	of_id = of_match_device(xcan_of_match, &pdev->dev);
+	if (of_id) {
+		const struct xcan_devtype_data *devtype_data = of_id->data;
+
+		if (devtype_data)
+			caps = devtype_data->caps;
+	}
+
+	/* There is no way to directly figure out how many frames have been
+	 * sent when the TXOK interrupt is processed. If watermark programming
+	 * is supported, we can have 2 frames in the FIFO and use TXFEMP
+	 * to determine if 1 or 2 frames have been sent.
+	 * Theoretically we should be able to use TXFWMEMP to determine up
+	 * to 3 frames, but it seems that after putting a second frame in the
+	 * FIFO, with watermark at 2 frames, it can happen that TXFWMEMP (less
+	 * than 2 frames in FIFO) is set anyway with no TXOK (a frame was
+	 * sent), which is not a sensible state - possibly TXFWMEMP is not
+	 * completely synchronized with the rest of the bits?
+	 */
+	if (caps & XCAN_CAP_WATERMARK)
+		tx_max = min(tx_fifo_depth, 2);
+	else
+		tx_max = 1;
 
 	/* Create a CAN device instance */
 	ndev = alloc_candev(sizeof(struct xcan_priv), tx_max);
@@ -1079,6 +1132,7 @@ static int xcan_probe(struct platform_device *pdev)
 					CAN_CTRLMODE_BERR_REPORTING;
 	priv->reg_base = addr;
 	priv->tx_max = tx_max;
+	spin_lock_init(&priv->tx_lock);
 
 	/* Get IRQ for the device */
 	ndev->irq = platform_get_irq(pdev, 0);
@@ -1146,9 +1200,9 @@ static int xcan_probe(struct platform_device *pdev)
 	devm_can_led_init(ndev);
 	clk_disable_unprepare(priv->bus_clk);
 	clk_disable_unprepare(priv->can_clk);
-	netdev_dbg(ndev, "reg_base=0x%p irq=%d clock=%d, tx fifo depth:%d\n",
+	netdev_dbg(ndev, "reg_base=0x%p irq=%d clock=%d, tx fifo depth: actual %d, using %d\n",
 			priv->reg_base, ndev->irq, priv->can.clock.freq,
-			priv->tx_max);
+			tx_fifo_depth, priv->tx_max);
 
 	return 0;
 
@@ -1183,14 +1237,6 @@ static int xcan_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-/* Match table for OF platform binding */
-static struct of_device_id xcan_of_match[] = {
-	{ .compatible = "xlnx,zynq-can-1.0", },
-	{ .compatible = "xlnx,axi-can-1.00.a", },
-	{ /* end of list */ },
-};
-MODULE_DEVICE_TABLE(of, xcan_of_match);
 
 static struct platform_driver xcan_driver = {
 	.probe = xcan_probe,
