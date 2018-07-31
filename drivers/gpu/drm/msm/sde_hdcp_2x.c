@@ -691,6 +691,7 @@ static int sde_hdcp_2x_wakeup(struct sde_hdcp_2x_wakeup_data *data)
 		break;
 	case HDCP_2X_CMD_MSG_SEND_FAILED:
 	case HDCP_2X_CMD_MSG_RECV_FAILED:
+	case HDCP_2X_CMD_LINK_FAILED:
 		HDCP_2X_EXECUTE(clean);
 		break;
 	case HDCP_2X_CMD_MSG_RECV_SUCCESS:
