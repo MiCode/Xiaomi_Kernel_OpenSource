@@ -900,8 +900,8 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		if (ret)
 			goto error_chan_cfg;
 
-		ret = of_property_read_u32(child, "mhi,ee", &mhi_chan->ee);
-		if (ret || mhi_chan->ee >= MHI_EE_MAX_SUPPORTED)
+		ret = of_property_read_u32(child, "mhi,ee", &mhi_chan->ee_mask);
+		if (ret)
 			goto error_chan_cfg;
 
 		of_property_read_u32(child, "mhi,pollcfg",

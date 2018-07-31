@@ -476,6 +476,16 @@ enum mhi_er_data_type {
 	MHI_ER_DATA_TYPE_MAX = MHI_ER_TSYNC_ELEMENT_TYPE,
 };
 
+enum mhi_ch_ee_mask {
+	MHI_CH_EE_PBL = BIT(MHI_EE_PBL),
+	MHI_CH_EE_SBL = BIT(MHI_EE_SBL),
+	MHI_CH_EE_AMSS = BIT(MHI_EE_AMSS),
+	MHI_CH_EE_BHIE = BIT(MHI_EE_BHIE),
+	MHI_CH_EE_RDDM = BIT(MHI_EE_RDDM),
+	MHI_CH_EE_PTHRU = BIT(MHI_EE_PTHRU),
+	MHI_CH_EE_EDL = BIT(MHI_EE_EDL),
+};
+
 struct db_cfg {
 	bool reset_req;
 	bool db_mode;
@@ -571,7 +581,7 @@ struct mhi_chan {
 	u32 intmod;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
-	enum mhi_ee ee;
+	u32 ee_mask;
 	enum MHI_XFER_TYPE xfer_type;
 	enum MHI_CH_STATE ch_state;
 	enum MHI_EV_CCS ccs;
