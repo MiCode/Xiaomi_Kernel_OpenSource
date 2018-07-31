@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2672,6 +2672,42 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	return result;
 }
 
+static void ipa_generic_plat_drv_shutdown(struct platform_device *pdev_p)
+{
+	int result;
+
+	pr_info("ipa: IPA driver shutdown started for %s\n",
+		pdev_p->dev.of_node->name);
+
+	if (!ipa_api_ctrl) {
+		pr_err("ipa: invalid ipa_api_ctrl\n");
+		return;
+	}
+
+	/* call probe based on IPA HW version */
+	switch (ipa_api_hw_type) {
+	case IPA_HW_v2_0:
+	case IPA_HW_v2_1:
+	case IPA_HW_v2_5:
+	case IPA_HW_v2_6L:
+		result = ipa_plat_drv_shutdown(pdev_p, ipa_api_ctrl,
+			ipa_plat_drv_match);
+		break;
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
+	default:
+		pr_err("ipa: ipa_generic_plat_drv_shutdown, unsupported version %d\n",
+			ipa_api_hw_type);
+		return;
+	}
+
+	if (result)
+		pr_err("ipa: ipa_generic_plat_drv_shutdown failed\n");
+}
+
+
 static int ipa_ap_suspend(struct device *dev)
 {
 	int ret;
@@ -2975,6 +3011,7 @@ static struct platform_driver ipa_plat_drv = {
 		.pm = &ipa_pm_ops,
 		.of_match_table = ipa_plat_drv_match,
 	},
+	.shutdown = ipa_generic_plat_drv_shutdown,
 };
 
 static int __init ipa_module_init(void)
