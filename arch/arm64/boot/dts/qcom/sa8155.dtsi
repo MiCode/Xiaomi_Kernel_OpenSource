@@ -171,6 +171,10 @@
 	vdd_parent-supply = <&pm8150_2_s3_level>;
 };
 
+&ufsphy_mem {
+	vdda-phy-supply = <&pm8150_2_l18>;
+};
+
 &thermal_zones {
 	aoss0-lowf {
 		cooling-maps {

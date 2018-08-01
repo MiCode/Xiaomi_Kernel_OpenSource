@@ -18,3 +18,7 @@
 	qcom,msm-name = "SA8155 V2";
 	qcom,msm-id = <362 0x20000>;
 };
+
+&ufsphy_mem {
+	vdda-phy-supply = <&pm8150_1_l5>;
+};
