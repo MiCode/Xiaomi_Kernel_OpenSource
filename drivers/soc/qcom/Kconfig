@@ -275,7 +275,7 @@ config MSM_CORE_HANG_DETECT
 	  enabled or disabled dynamically.
 
 config QCOM_WATCHDOG_V2
-	bool "Qualcomm Watchdog Support"
+	bool "QTI Watchdog Support"
 	depends on ARCH_QCOM
 	help
 	  This enables the watchdog module. It causes kernel panic if the
