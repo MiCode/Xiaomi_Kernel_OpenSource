@@ -75,6 +75,7 @@
 		};
 
 		secure_mem: secure_region {
+			status = "disabled";
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
