@@ -51,7 +51,6 @@ enum usbpd_state {
 	PE_SRC_READY,
 	PE_SRC_HARD_RESET,
 	PE_SRC_SOFT_RESET,
-	PE_SRC_SEND_SOFT_RESET,
 	PE_SRC_DISCOVERY,
 	PE_SRC_TRANSITION_TO_DEFAULT,
 	PE_SNK_STARTUP,
@@ -63,7 +62,6 @@ enum usbpd_state {
 	PE_SNK_READY,
 	PE_SNK_HARD_RESET,
 	PE_SNK_SOFT_RESET,
-	PE_SNK_SEND_SOFT_RESET,
 	PE_SNK_TRANSITION_TO_DEFAULT,
 	PE_DRS_SEND_DR_SWAP,
 	PE_PRS_SNK_SRC_SEND_SWAP,
@@ -72,6 +70,7 @@ enum usbpd_state {
 	PE_PRS_SRC_SNK_SEND_SWAP,
 	PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
 	PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
+	PE_SEND_SOFT_RESET,
 	PE_VCS_WAIT_FOR_VCONN,
 };
 
@@ -88,7 +87,6 @@ static const char * const usbpd_state_strings[] = {
 	"SRC_Ready",
 	"SRC_Hard_Reset",
 	"SRC_Soft_Reset",
-	"SRC_Send_Soft_Reset",
 	"SRC_Discovery",
 	"SRC_Transition_to_default",
 	"SNK_Startup",
@@ -100,7 +98,6 @@ static const char * const usbpd_state_strings[] = {
 	"SNK_Ready",
 	"SNK_Hard_Reset",
 	"SNK_Soft_Reset",
-	"SNK_Send_Soft_Reset",
 	"SNK_Transition_to_default",
 	"DRS_Send_DR_Swap",
 	"PRS_SNK_SRC_Send_Swap",
@@ -109,6 +106,7 @@ static const char * const usbpd_state_strings[] = {
 	"PRS_SRC_SNK_Send_Swap",
 	"PRS_SRC_SNK_Transition_to_off",
 	"PRS_SRC_SNK_Wait_Source_on",
+	"Send_Soft_Reset",
 	"VCS_Wait_for_VCONN",
 };
 
@@ -1335,7 +1333,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			/* send Reject */
 			ret = pd_send_msg(pd, MSG_REJECT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -1356,7 +1354,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		/* PE_SRC_TRANSITION_SUPPLY pseudo-state */
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
-			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
 		}
 
@@ -1371,7 +1369,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		 */
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
-			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
 		}
 
@@ -1423,8 +1421,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		kick_sm(pd, 0);
 		break;
 
-	case PE_SRC_SEND_SOFT_RESET:
-	case PE_SNK_SEND_SOFT_RESET:
+	case PE_SEND_SOFT_RESET:
 		pd_reset_protocol(pd);
 
 		ret = pd_send_msg(pd, MSG_SOFT_RESET, NULL, 0, SOP_MSG);
@@ -1514,7 +1511,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		ret = pd_send_msg(pd, MSG_REQUEST, &pd->rdo, 1, SOP_MSG);
 		if (ret) {
-			usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
 		}
 
@@ -1938,9 +1935,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 
 			/* retry when hitting PE_SRC/SNK_Ready again */
 			if (ret != -EBUSY && sop_type == SOP_MSG)
-				usbpd_set_state(pd, pd->current_pr == PR_SRC ?
-					PE_SRC_SEND_SOFT_RESET :
-					PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 
 			return;
 		}
@@ -2041,9 +2036,7 @@ static void vconn_swap(struct usbpd *pd)
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
-			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
-					PE_SRC_SEND_SOFT_RESET :
-					PE_SNK_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			return;
 		}
 	}
@@ -2353,7 +2346,7 @@ static void usbpd_sm(struct work_struct *w)
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
 		} else if (rx_msg) {
 			usbpd_err(&pd->dev, "Unexpected message received\n");
-			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		} else {
 			usbpd_set_state(pd, PE_SRC_HARD_RESET);
 		}
@@ -2368,7 +2361,7 @@ static void usbpd_sm(struct work_struct *w)
 					pd->sink_caps, pd->num_sink_caps,
 					SOP_MSG);
 			if (ret)
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		} else if (IS_DATA(rx_msg, MSG_REQUEST)) {
 			pd->rdo = *(u32 *)rx_msg->payload;
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
@@ -2380,7 +2373,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2389,7 +2382,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* we'll happily accept Src->Sink requests anytime */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2398,7 +2391,7 @@ static void usbpd_sm(struct work_struct *w)
 		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2410,13 +2403,13 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
 					SOP_MSG);
 			if (ret)
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
 		} else if (pd->send_pr_swap) {
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2426,7 +2419,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_dr_swap = false;
 			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2590,7 +2583,7 @@ static void usbpd_sm(struct work_struct *w)
 						PE_SNK_WAIT_FOR_CAPABILITIES);
 		} else if (rx_msg) {
 			usbpd_err(&pd->dev, "Invalid response to sink request\n");
-			usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		} else {
 			/* timed out; go to hard reset */
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
@@ -2634,14 +2627,14 @@ static void usbpd_sm(struct work_struct *w)
 					pd->sink_caps, pd->num_sink_caps,
 					SOP_MSG);
 			if (ret)
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP) &&
 				pd->spec_rev == USBPD_REV_20) {
 			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 					default_src_caps,
 					ARRAY_SIZE(default_src_caps), SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 		} else if (IS_CTRL(rx_msg, MSG_DR_SWAP)) {
@@ -2652,7 +2645,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2662,7 +2655,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2679,15 +2672,14 @@ static void usbpd_sm(struct work_struct *w)
 				ret = pd_send_msg(pd, MSG_REJECT, NULL, 0,
 						SOP_MSG);
 				if (ret)
-					usbpd_set_state(pd,
-							PE_SNK_SEND_SOFT_RESET);
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 
 				break;
 			}
 
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2699,7 +2691,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_GET_SOURCE_CAP_EXTENDED, NULL,
 				0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
@@ -2717,7 +2709,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_GET_PPS_STATUS, NULL,
 				0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
@@ -2751,7 +2743,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_get_status = false;
 			ret = pd_send_msg(pd, MSG_GET_STATUS, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
@@ -2768,7 +2760,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_CAP,
 				&pd->get_battery_cap_db, 1, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
@@ -2786,7 +2778,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_STATUS,
 				&pd->get_battery_status_db, 1, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 			kick_sm(pd, SENDER_RESPONSE_TIME);
@@ -2804,7 +2796,7 @@ static void usbpd_sm(struct work_struct *w)
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
 					SOP_MSG);
 			if (ret)
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
 		} else if (pd->send_request) {
 			pd->send_request = false;
@@ -2813,7 +2805,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2823,7 +2815,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->send_dr_swap = false;
 			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
-				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 				break;
 			}
 
@@ -2854,8 +2846,7 @@ static void usbpd_sm(struct work_struct *w)
 				PE_SNK_WAIT_FOR_CAPABILITIES);
 		break;
 
-	case PE_SRC_SEND_SOFT_RESET:
-	case PE_SNK_SEND_SOFT_RESET:
+	case PE_SEND_SOFT_RESET:
 		if (IS_CTRL(rx_msg, MSG_ACCEPT)) {
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_CAPABILITIES :
