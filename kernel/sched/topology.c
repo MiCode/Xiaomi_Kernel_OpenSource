@@ -418,6 +418,7 @@ DEFINE_PER_CPU(struct sched_domain *, sd_numa);
 DEFINE_PER_CPU(struct sched_domain *, sd_asym);
 DEFINE_PER_CPU(struct sched_domain *, sd_ea);
 DEFINE_PER_CPU(struct sched_domain *, sd_scs);
+DEFINE_STATIC_KEY_FALSE(sched_asym_cpucapacity);
 
 static void update_top_cache_domain(int cpu)
 {
@@ -455,6 +456,21 @@ static void update_top_cache_domain(int cpu)
 
 	sd = highest_flag_domain(cpu, SD_SHARE_CAP_STATES);
 	rcu_assign_pointer(per_cpu(sd_scs, cpu), sd);
+}
+
+static void update_asym_cpucapacity(int cpu)
+{
+	int enable = false;
+
+	rcu_read_lock();
+	if (lowest_flag_domain(cpu, SD_ASYM_CPUCAPACITY))
+		enable = true;
+	rcu_read_unlock();
+
+	if (enable) {
+		/* This expects to be hotplug-safe */
+		static_branch_enable_cpuslocked(&sched_asym_cpucapacity);
+	}
 }
 
 /*
@@ -1867,6 +1883,9 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		}
 	}
 	rcu_read_unlock();
+
+	if (!cpumask_empty(cpu_map))
+		update_asym_cpucapacity(cpumask_first(cpu_map));
 
 	if (rq && sched_debug_enabled) {
 		pr_info("span: %*pbl (max cpu_capacity = %lu)\n",
