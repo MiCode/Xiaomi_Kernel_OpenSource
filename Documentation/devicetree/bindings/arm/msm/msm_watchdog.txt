@@ -1,4 +1,4 @@
-* Qualcomm MSM Watchdog
+* QTI MSM Watchdog
 
 Watchdog timer is configured with a bark and a bite time.
 If the watchdog is not "pet" at regular intervals, the system
