@@ -147,7 +147,10 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 	struct bio *bio;
 	struct page *page = fio->encrypted_page ? fio->encrypted_page : fio->page;
 
-	verify_block_addr(fio, fio->blk_addr);
+	if (!f2fs_is_valid_blkaddr(fio->sbi, fio->blk_addr,
+			__is_meta_io(fio) ? META_GENERIC : DATA_GENERIC))
+		return -EFAULT;
+
 	trace_f2fs_submit_page_bio(page, fio);
 	f2fs_trace_ios(fio, 0);
 
@@ -604,6 +607,12 @@ static int f2fs_map_blocks(struct inode *inode, struct f2fs_map_blocks *map,
 		goto unlock_out;
 	}
 
+	if (__is_valid_data_blkaddr(dn.data_blkaddr) &&
+		!f2fs_is_valid_blkaddr(sbi, dn.data_blkaddr, DATA_GENERIC)) {
+		err = -EFAULT;
+		goto sync_out;
+	}
+
 	if (!is_valid_data_blkaddr(sbi, dn.data_blkaddr)) {
 		if (create) {
 			if (unlikely(f2fs_cp_error(sbi))) {
@@ -972,6 +981,10 @@ got_it:
 				SetPageUptodate(page);
 				goto confused;
 			}
+
+			if (!f2fs_is_valid_blkaddr(F2FS_I_SB(inode), block_nr,
+								DATA_GENERIC))
+				goto set_error_page;
 		} else {
 			zero_user_segment(page, 0, PAGE_CACHE_SIZE);
 			SetPageUptodate(page);
@@ -1086,6 +1099,12 @@ int do_write_data_page(struct f2fs_io_info *fio)
 
 	set_page_writeback(page);
 
+	if (__is_valid_data_blkaddr(fio->blk_addr) &&
+		!f2fs_is_valid_blkaddr(fio->sbi, fio->blk_addr,
+							DATA_GENERIC)) {
+		err = -EFAULT;
+		goto out_writepage;
+	}
 	/*
 	 * If current allocation needs SSR,
 	 * it had better in-place writes for updated data.
