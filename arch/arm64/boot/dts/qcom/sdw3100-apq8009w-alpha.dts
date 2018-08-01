@@ -20,52 +20,33 @@
 #include "msm8909-audio-bg_codec.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 BLACKGHOST WTP";
+	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 BG Alpha SDW3100";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id =   <265 0>,
 			<301 0>;
-	qcom,board-id = <8 0x10f>;
+	qcom,board-id = <8 0x113>;
 	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
 			<0x0001011b 0x0 0x0 0x0>;
 };
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		synaptics@20 {
-			compatible = "synaptics,dsx-i2c";
-			reg = <0x20>;
+		focaltech@38 {
+			compatible = "focaltech,fts";
+			reg = <0x38>;
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <98 0x2008>;
-			vdd_ana-supply = <&pm660_l18>;
-			vcc_i2c-supply = <&pm660_l13>;
-			synaptics,pwr-reg-name = "vdd_ana";
-			synaptics,bus-reg-name = "vcc_i2c";
-			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
-							"pmx_ts_release";
-			pinctrl-0 = <&ts_int_active &ts_reset_active>;
-			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-			pinctrl-2 = <&ts_release>;
-			synaptics,irq-gpio = <&msm_gpio 98 0x2008>;
-			synaptics,irq-on-state = <0>;
-			synaptics,irq-flags = <0x2008>;
-			synaptics,power-delay-ms = <200>;
-			synaptics,reset-delay-ms = <200>;
-			synaptics,max-y-for-2d = <389>;
-			synaptics,bus-lpm-cur-uA = <450>;
-			synaptics,do-not-disable-regulators;
-			synaptics,wakeup-gestures-en;
-			synaptics,resume-in-workqueue;
-			synaptics,x-flip;
-			synaptics,y-flip;
-			/delete-property/ synaptics,reset-gpio;
-			/delete-property/ synaptics,display-coords;
-			/delete-property/ synaptics,panel-coords;
-			/delete-property/ synaptics,power-down;
-			/delete-property/ synaptics,disable-gpios;
-			/delete-property/ synaptics,is_wake;
+			vdd-supply = <&pm660_l18>;
+			vcc-i2c-supply = <&pm660_l13>;
+			focaltech,irq-gpio = <&msm_gpio 98 0x2008>;
+			focaltech,reset-gpio = <&msm_gpio 16 0x00>;/**/
+			focaltech,max-touch-number = <5>;
+			focaltech,display-coords = <0 0 390 390>;/**/
+			focaltech,wakeup-gestures-en;
 		};
 
 		/delete-node/ it7260@46;
+		/delete-node/ synaptics@20;
 	};
 
 	qcom,blackghost {
@@ -270,8 +251,6 @@
 
 	config {
 		pins = "gpio98";
-		/delete-property/ bias-pull-down;
-		bias-disable; /* No PULL */
 	};
 };
 
@@ -303,6 +282,10 @@
 	config {
 		pins = "gpio98", "gpio16";
 	};
+};
+
+&pm660_charger {
+	qcom,micro-usb;
 };
 
 &spi4_cs0_active {
