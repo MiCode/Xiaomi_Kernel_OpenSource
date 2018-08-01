@@ -373,7 +373,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	int val;
 
 	/* Only trigger wakeup sequence if sleep sequence was done earlier */
-	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
 	gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
@@ -406,7 +406,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	/* Clear sleep sequence flag as wakeup sequence is successful */
-	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
+	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
 
 	/* Enable the power counter because it was disabled before slumber */
 	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
@@ -423,7 +423,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
 	/* RSC sleep sequence is different on v1 */
@@ -468,7 +468,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
-	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
+	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
 	return 0;
 }
 
@@ -955,7 +955,8 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		/* Turn on TCM retention */
 		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
-		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags))
+		if (!test_and_set_bit(GMU_BOOT_INIT_DONE,
+			&device->gmu_core.flags))
 			ret = _load_gmu_rpmh_ucode(device);
 		else
 			ret = a6xx_rpmh_power_on_gpu(device);
