@@ -9332,6 +9332,7 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	cpu_rq(cpu)->cpu_capacity = capacity;
 	sdg->sgc->capacity = capacity;
 	sdg->sgc->min_capacity = capacity;
+	sdg->sgc->max_capacity = capacity;
 }
 
 void update_group_capacity(struct sched_domain *sd, int cpu)
@@ -9507,15 +9508,27 @@ group_is_overloaded(struct lb_env *env, struct sg_lb_stats *sgs)
 }
 
 /*
- * group_smaller_cpu_capacity: Returns true if sched_group sg has smaller
+ * group_smaller_min_cpu_capacity: Returns true if sched_group sg has smaller
  * per-CPU capacity than sched_group ref.
  */
 static inline bool
-group_smaller_cpu_capacity(struct sched_group *sg, struct sched_group *ref)
+group_smaller_min_cpu_capacity(struct sched_group *sg, struct sched_group *ref)
 {
 	return sg->sgc->min_capacity *
 				sched_capacity_margin_up[group_first_cpu(sg)] <
 						ref->sgc->min_capacity * 1024;
+}
+
+/*
+ * group_smaller_max_cpu_capacity: Returns true if sched_group sg has smaller
+ * per-CPU capacity_orig than sched_group ref.
+ */
+static inline bool
+group_smaller_max_cpu_capacity(struct sched_group *sg, struct sched_group *ref)
+{
+	return sg->sgc->max_capacity *
+				sched_capacity_margin_up[group_first_cpu(sg)] <
+						ref->sgc->max_capacity * 1024;
 }
 
 /*
@@ -9554,7 +9567,7 @@ group_type group_classify(struct sched_group *group,
  * @load_idx: Load index of sched_domain of this_cpu for load calc.
  * @local_group: Does group contain this_cpu.
  * @sgs: variable to hold the statistics for this group.
- * @overload: Indicate more than one runnable task for any CPU.
+ * @overload: Indicate pullable load (e.g. >1 runnable task).
  * @overutilized: Indicate overutilization for any CPU.
  */
 static inline void update_sg_lb_stats(struct lb_env *env,
@@ -9599,8 +9612,11 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 			sgs->idle_cpus++;
 
 		if (env->sd->flags & SD_ASYM_CPUCAPACITY &&
-		    sgs->group_misfit_task_load < rq->misfit_task_load)
+		    sgs->group_misfit_task_load < rq->misfit_task_load) {
 			sgs->group_misfit_task_load = rq->misfit_task_load;
+			*overload = 1;
+		}
+
 
 		if (cpu_overutilized(i)) {
 			*overutilized = true;
@@ -9656,9 +9672,12 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 
 	/*
 	 * Don't try to pull misfit tasks we can't help.
+	 * We can use max_capacity here as reduction in capacity on some
+	 * cpus in the group should either be possible to resolve
+	 * internally or be covered by avg_load imbalance (eventually).
 	 */
 	if (sgs->group_type == group_misfit_task &&
-	    (!group_smaller_cpu_capacity(sg, sds->local) ||
+	    (!group_smaller_max_cpu_capacity(sg, sds->local) ||
 	     !group_has_capacity(env, &sds->local_stat)))
 		return false;
 
@@ -9681,7 +9700,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 * power/energy consequences are not considered.
 	 */
 	if (sgs->sum_nr_running <= sgs->group_weight &&
-	    group_smaller_cpu_capacity(sds->local, sg))
+	    group_smaller_min_cpu_capacity(sds->local, sg))
 		return false;
 
 	/*
@@ -9691,6 +9710,13 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 */
 	if (sgs->group_type == group_other &&
 		!group_similar_cpu_capacity(sds->local, sg))
+		return false;
+
+	/*
+	 * If we have more than one misfit sg go with the biggest misfit.
+	 */
+	if (sgs->group_type == group_misfit_task &&
+	    sgs->group_misfit_task_load < busiest->group_misfit_task_load)
 		return false;
 
 asym_packing:
@@ -9773,11 +9799,9 @@ static inline void update_sd_lb_stats(struct lb_env *env, struct sd_lb_stats *sd
 	struct sched_group *sg = env->sd->groups;
 	struct sg_lb_stats *local = &sds->local_stat;
 	struct sg_lb_stats tmp_sgs;
-	int load_idx, prefer_sibling = 0;
+	int load_idx;
 	bool overload = false, overutilized = false, misfit_task = false;
-
-	if (child && child->flags & SD_PREFER_SIBLING)
-		prefer_sibling = 1;
+	bool prefer_sibling = child && child->flags & SD_PREFER_SIBLING;
 
 #ifdef CONFIG_NO_HZ_COMMON
 	if (env->idle == CPU_NEWLY_IDLE) {
@@ -9865,8 +9889,8 @@ next_group:
 
 	if (!lb_sd_parent(env->sd)) {
 		/* update overload indicator if we are at root domain */
-		if (env->dst_rq->rd->overload != overload)
-			env->dst_rq->rd->overload = overload;
+		if (READ_ONCE(env->dst_rq->rd->overload) != overload)
+			WRITE_ONCE(env->dst_rq->rd->overload, overload);
 	}
 
 	if (overutilized)
@@ -10112,8 +10136,18 @@ static inline void calculate_imbalance(struct lb_env *env, struct sd_lb_stats *s
 		(sds->avg_load - local->avg_load) * local->group_capacity
 	) / SCHED_CAPACITY_SCALE;
 
-	/* Boost imbalance to allow misfit task to be balanced. */
-	if (busiest->group_type == group_misfit_task) {
+	/* Boost imbalance to allow misfit task to be balanced.
+	 * Always do this if we are doing a NEWLY_IDLE balance
+	 * on the assumption that any tasks we have must not be
+	 * long-running (and hence we cannot rely upon load).
+	 * However if we are not idle, we should assume the tasks
+	 * we have are longer running and not override load-based
+	 * calculations above unless we are sure that the local
+	 * group is underutilized.
+	 */
+	if (busiest->group_type == group_misfit_task &&
+	    (env->idle == CPU_NEWLY_IDLE ||
+	     local->sum_nr_running < local->group_weight)) {
 		env->imbalance = max_t(long, env->imbalance,
 				       busiest->group_misfit_task_load);
 	}
@@ -10214,7 +10248,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	    busiest->group_no_capacity)
 		goto force_balance;
 
-	/* Misfitting tasks should be dealt with regardless of the avg load */
+	/* Misfit tasks should be dealt with regardless of the avg load */
 	if (busiest->group_type == group_misfit_task)
 		goto force_balance;
 
@@ -10304,14 +10338,29 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 			continue;
 
 		/*
-		 * For ASYM_CPUCAPACITY domains with misfit tasks we ignore
-		 * load.
+		 * For ASYM_CPUCAPACITY domains with misfit tasks we simply
+		 * seek the "biggest" misfit task.
 		 */
-		if (env->src_grp_type == group_misfit_task &&
-		    rq->misfit_task_load)
-			return rq;
+		if (env->src_grp_type == group_misfit_task) {
+			if (rq->misfit_task_load > busiest_load) {
+				busiest_load = rq->misfit_task_load;
+				busiest = rq;
+			}
+			continue;
+		}
 
 		capacity = capacity_of(i);
+
+		/*
+		 * For ASYM_CPUCAPACITY domains, don't pick a cpu that could
+		 * eventually lead to active_balancing high->low capacity.
+		 * Higher per-cpu capacity is considered better than balancing
+		 * average load.
+		 */
+		if (env->sd->flags & SD_ASYM_CPUCAPACITY &&
+		    capacity_of(env->dst_cpu) < capacity &&
+		    rq->nr_running == 1)
+			continue;
 
 		wl = weighted_cpuload(rq);
 
@@ -10389,6 +10438,9 @@ static int need_active_balance(struct lb_env *env)
 				!cpu_overutilized(env->dst_cpu)) {
 			return 1;
 	}
+
+	if (env->src_grp_type == group_misfit_task)
+		return 1;
 
 	return unlikely(sd->nr_balance_failed >
 			sd->cache_nice_tries + NEED_ACTIVE_BALANCE_THRESHOLD);
@@ -10814,7 +10866,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	rq_unpin_lock(this_rq, rf);
 
 	if (this_rq->avg_idle < sysctl_sched_migration_cost ||
-	    !this_rq->rd->overload) {
+	    !READ_ONCE(this_rq->rd->overload)) {
 		rcu_read_lock();
 		sd = rcu_dereference_check_sched_domain(this_rq->sd);
 		if (sd)
