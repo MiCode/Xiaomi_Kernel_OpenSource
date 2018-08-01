@@ -1216,6 +1216,7 @@ static int __glink_spi_send(struct glink_channel *channel,
 	glink->activity_flag |= ACTIVE_TX;
 	spin_unlock_irqrestore(&glink->activity_lock, flags);
 
+	kref_get(&channel->refcount);
 	while (!intent) {
 		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_for_each_entry(&channel->riids, tmp, iid) {
@@ -1294,6 +1295,7 @@ tx_exit:
 	/* Mark intent available if we failed */
 	if (ret && intent)
 		intent->in_use = false;
+	kref_put(&channel->refcount, glink_spi_channel_release);
 
 	spin_lock_irqsave(&glink->activity_lock, flags);
 	glink->activity_flag &= ~ACTIVE_TX;
@@ -2436,6 +2438,8 @@ static void glink_spi_remove(struct glink_spi *glink)
 	GLINK_INFO(glink, "\n");
 
 	glink->in_reset = true;
+	kthread_cancel_work_sync(&glink->rx_work);
+	cancel_work_sync(&glink->rx_defer_work);
 
 	ret = device_for_each_child(&glink->dev, NULL, glink_spi_remove_device);
 	if (ret)
