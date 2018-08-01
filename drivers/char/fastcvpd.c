@@ -24,6 +24,8 @@
 #define FASTCVPD_VIDEO_SUSPEND 1
 #define FASTCVPD_VIDEO_RESUME 2
 #define FASTCVPD_VIDEO_SHUTDOWN 3
+#define STATUS_OK 0
+#define STATUS_SSR 1
 
 struct fastcvpd_cmd_msg {
 	uint32_t cmd_msg_type;
@@ -40,7 +42,8 @@ struct fastcvpd_apps {
 	struct rpmsg_device *chan;
 	struct mutex smd_mutex;
 	int rpmsg_register;
-	spinlock_t hlock;
+	uint32_t cdsp_state;
+	uint32_t video_shutdown;
 };
 
 static struct completion work;
@@ -70,6 +73,12 @@ static int fastcvpd_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	int err = 0;
 	struct fastcvpd_apps *me = &gfa_cv;
+	uint32_t cdsp_state, video_shutdown;
+	uint64_t msg_ptr;
+	uint32_t msg_ptr_len;
+	int srcVM[DEST_VM_NUM] = {VMID_HLOS, VMID_CDSP_Q6};
+	int destVM[SRC_VM_NUM] = {VMID_HLOS};
+	int destVMperm[SRC_VM_NUM] = { PERM_READ | PERM_WRITE | PERM_EXEC };
 
 	if (strcmp(rpdev->dev.parent->of_node->name, "cdsp")) {
 		pr_err("%s: Failed to probe rpmsg device.Node name:%s\n",
@@ -79,8 +88,35 @@ static int fastcvpd_rpmsg_probe(struct rpmsg_device *rpdev)
 	}
 	mutex_lock(&me->smd_mutex);
 	me->chan = rpdev;
+	cdsp_state = me->cdsp_state;
+	video_shutdown = me->video_shutdown;
+	msg_ptr = cmd_msg.msg_ptr;
+	msg_ptr_len =  cmd_msg.msg_ptr_len;
 	mutex_unlock(&me->smd_mutex);
-	pr_debug("%s: Successfully probed\n", __func__);
+
+	if (cdsp_state == STATUS_SSR && video_shutdown == STATUS_OK) {
+		err = hyp_assign_phys((uint64_t)msg_ptr,
+			msg_ptr_len, srcVM, DEST_VM_NUM, destVM,
+			destVMperm, SRC_VM_NUM);
+		if (err) {
+			pr_err("%s: Failed to hyp_assign. err=%d\n",
+				__func__, err);
+			return err;
+		}
+		err = fastcvpd_video_send_cmd_hfi_queue(
+			(phys_addr_t *)msg_ptr, msg_ptr_len);
+		if (err) {
+			pr_err("%s: Failed to send HFI Queue address. err=%d\n",
+			__func__, err);
+			goto bail;
+		}
+		mutex_lock(&me->smd_mutex);
+		cdsp_state = me->cdsp_state;
+		mutex_unlock(&me->smd_mutex);
+	}
+
+	pr_info("%s: Successfully probed. cdsp_state=%d video_shutdown=%d\n",
+		__func__, cdsp_state, video_shutdown);
 bail:
 	return err;
 }
@@ -91,18 +127,17 @@ static void fastcvpd_rpmsg_remove(struct rpmsg_device *rpdev)
 
 	mutex_lock(&me->smd_mutex);
 	me->chan = NULL;
+	me->cdsp_state = STATUS_SSR;
 	mutex_unlock(&me->smd_mutex);
+	pr_info("%s: CDSP SSR triggered\n", __func__);
 }
 
 static int fastcvpd_rpmsg_callback(struct rpmsg_device *rpdev,
 	void *data, int len, void *priv, u32 addr)
 {
 	int *rpmsg_resp = (int *)data;
-	struct fastcvpd_apps *me = &gfa_cv;
 
-	spin_lock(&me->hlock);
 	cmd_msg_rsp.ret_val = *rpmsg_resp;
-	spin_unlock(&me->hlock);
 	complete(&work);
 
 	return 0;
@@ -144,6 +179,12 @@ int fastcvpd_video_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 	if (err != 0)
 		pr_err("%s: fastcvpd_send_cmd failed with err=%d\n",
 			__func__, err);
+	else {
+		mutex_lock(&me->smd_mutex);
+		me->video_shutdown = STATUS_OK;
+		me->cdsp_state = STATUS_OK;
+		mutex_unlock(&me->smd_mutex);
+	}
 
 	return err;
 }
@@ -153,6 +194,15 @@ int fastcvpd_video_suspend(uint32_t session_flag)
 {
 	int err = 0;
 	struct fastcvpd_cmd_msg local_cmd_msg;
+	struct fastcvpd_apps *me = &gfa_cv;
+	uint32_t cdsp_state;
+
+	mutex_lock(&me->smd_mutex);
+	cdsp_state = me->cdsp_state;
+	mutex_unlock(&me->smd_mutex);
+
+	if (cdsp_state == STATUS_SSR)
+		return 0;
 
 	local_cmd_msg.cmd_msg_type = FASTCVPD_VIDEO_SUSPEND;
 	err = fastcvpd_send_cmd
@@ -169,6 +219,15 @@ int fastcvpd_video_resume(uint32_t session_flag)
 {
 	int err;
 	struct fastcvpd_cmd_msg local_cmd_msg;
+	struct fastcvpd_apps *me = &gfa_cv;
+	uint32_t cdsp_state;
+
+	mutex_lock(&me->smd_mutex);
+	cdsp_state = me->cdsp_state;
+	mutex_unlock(&me->smd_mutex);
+
+	if (cdsp_state == STATUS_SSR)
+		return 0;
 
 	local_cmd_msg.cmd_msg_type = FASTCVPD_VIDEO_RESUME;
 	err = fastcvpd_send_cmd
@@ -199,11 +258,12 @@ int fastcvpd_video_shutdown(uint32_t session_flag)
 
 	wait_for_completion(&work);
 
-	spin_lock(&me->hlock);
+	mutex_lock(&me->smd_mutex);
+	me->video_shutdown = STATUS_SSR;
 	local_cmd_msg.msg_ptr = cmd_msg.msg_ptr;
 	local_cmd_msg.msg_ptr_len = cmd_msg.msg_ptr_len;
+	mutex_unlock(&me->smd_mutex);
 	local_cmd_msg_rsp = cmd_msg_rsp.ret_val;
-	spin_unlock(&me->hlock);
 	if (local_cmd_msg_rsp == 0) {
 		err = hyp_assign_phys((uint64_t)local_cmd_msg.msg_ptr,
 			local_cmd_msg.msg_ptr_len, srcVM, DEST_VM_NUM, destVM,
@@ -215,7 +275,7 @@ int fastcvpd_video_shutdown(uint32_t session_flag)
 		}
 	} else {
 		pr_err("%s: Skipping hyp_assign as CDSP sent invalid response=%d\n",
-			__func__, cmd_msg_rsp.ret_val);
+			__func__, local_cmd_msg_rsp);
 	}
 
 	return err;
@@ -244,7 +304,6 @@ static int __init fastcvpd_device_init(void)
 
 	init_completion(&work);
 	mutex_init(&me->smd_mutex);
-	spin_lock_init(&me->hlock);
 	err = register_rpmsg_driver(&fastcvpd_rpmsg_client);
 	if (err) {
 		pr_err("%s : register_rpmsg_driver failed with err %d\n",
