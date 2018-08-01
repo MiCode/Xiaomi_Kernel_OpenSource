@@ -2622,21 +2622,22 @@ static void usbpd_sm(struct work_struct *w)
 			pd->src_cap_id++;
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 					pd->sink_caps, pd->num_sink_caps,
 					SOP_MSG);
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP) &&
 				pd->spec_rev == USBPD_REV_20) {
 			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 					default_src_caps,
 					ARRAY_SIZE(default_src_caps), SOP_MSG);
-			if (ret) {
+			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_DR_SWAP)) {
 			if (pd->vdm_state == MODE_ENTERED) {
 				usbpd_set_state(pd, PE_SNK_HARD_RESET);
@@ -2650,6 +2651,7 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP) &&
 				pd->spec_rev == USBPD_REV_20) {
 			/* TODO: should we Reject in certain circumstances? */
@@ -2684,44 +2686,10 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			vconn_swap(pd);
+			break;
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
-		} else if (pd->send_get_src_cap_ext && is_sink_tx_ok(pd)) {
-			pd->send_get_src_cap_ext = false;
-			ret = pd_send_msg(pd, MSG_GET_SOURCE_CAP_EXTENDED, NULL,
-				0, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg &&
-			IS_EXT(rx_msg, MSG_SOURCE_CAPABILITIES_EXTENDED)) {
-			if (rx_msg->data_len != PD_SRC_CAP_EXT_DB_LEN) {
-				usbpd_err(&pd->dev, "Invalid src cap ext db\n");
-				break;
-			}
-			memcpy(&pd->src_cap_ext_db, rx_msg->payload,
-				sizeof(pd->src_cap_ext_db));
-			complete(&pd->is_ready);
-		} else if (pd->send_get_pps_status && is_sink_tx_ok(pd)) {
-			pd->send_get_pps_status = false;
-			ret = pd_send_msg(pd, MSG_GET_PPS_STATUS, NULL,
-				0, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg &&
-			IS_EXT(rx_msg, MSG_PPS_STATUS)) {
-			if (rx_msg->data_len != sizeof(pd->pps_status_db)) {
-				usbpd_err(&pd->dev, "Invalid pps status db\n");
-				break;
-			}
-			memcpy(&pd->pps_status_db, rx_msg->payload,
-				sizeof(pd->pps_status_db));
-			complete(&pd->is_ready);
+			break;
 		} else if (IS_DATA(rx_msg, MSG_ALERT)) {
 			u32 ado;
 
@@ -2739,15 +2707,24 @@ static void usbpd_sm(struct work_struct *w)
 			 */
 			pd->send_get_status = true;
 			kick_sm(pd, 150);
-		} else if (pd->send_get_status && is_sink_tx_ok(pd)) {
-			pd->send_get_status = false;
-			ret = pd_send_msg(pd, MSG_GET_STATUS, NULL, 0, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+			break;
+		} else if (IS_EXT(rx_msg, MSG_SOURCE_CAPABILITIES_EXTENDED)) {
+			if (rx_msg->data_len != PD_SRC_CAP_EXT_DB_LEN) {
+				usbpd_err(&pd->dev, "Invalid src cap ext db\n");
 				break;
 			}
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg && IS_EXT(rx_msg, MSG_STATUS)) {
+			memcpy(&pd->src_cap_ext_db, rx_msg->payload,
+				sizeof(pd->src_cap_ext_db));
+			complete(&pd->is_ready);
+		} else if (IS_EXT(rx_msg, MSG_PPS_STATUS)) {
+			if (rx_msg->data_len != sizeof(pd->pps_status_db)) {
+				usbpd_err(&pd->dev, "Invalid pps status db\n");
+				break;
+			}
+			memcpy(&pd->pps_status_db, rx_msg->payload,
+				sizeof(pd->pps_status_db));
+			complete(&pd->is_ready);
+		} else if (IS_EXT(rx_msg, MSG_STATUS)) {
 			if (rx_msg->data_len != PD_STATUS_DB_LEN) {
 				usbpd_err(&pd->dev, "Invalid status db\n");
 				break;
@@ -2755,17 +2732,8 @@ static void usbpd_sm(struct work_struct *w)
 			memcpy(&pd->status_db, rx_msg->payload,
 				sizeof(pd->status_db));
 			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-		} else if (pd->send_get_battery_cap && is_sink_tx_ok(pd)) {
-			pd->send_get_battery_cap = false;
-			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_CAP,
-				&pd->get_battery_cap_db, 1, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg &&
-			IS_EXT(rx_msg, MSG_BATTERY_CAPABILITIES)) {
+			complete(&pd->is_ready);
+		} else if (IS_EXT(rx_msg, MSG_BATTERY_CAPABILITIES)) {
 			if (rx_msg->data_len != PD_BATTERY_CAP_DB_LEN) {
 				usbpd_err(&pd->dev, "Invalid battery cap db\n");
 				break;
@@ -2773,17 +2741,7 @@ static void usbpd_sm(struct work_struct *w)
 			memcpy(&pd->battery_cap_db, rx_msg->payload,
 				sizeof(pd->battery_cap_db));
 			complete(&pd->is_ready);
-		} else if (pd->send_get_battery_status && is_sink_tx_ok(pd)) {
-			pd->send_get_battery_status = false;
-			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_STATUS,
-				&pd->get_battery_status_db, 1, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (rx_msg &&
-			IS_EXT(rx_msg, MSG_BATTERY_STATUS)) {
+		} else if (IS_EXT(rx_msg, MSG_BATTERY_STATUS)) {
 			if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
 				usbpd_err(&pd->dev, "Invalid bat sts dobj\n");
 				break;
@@ -2798,31 +2756,86 @@ static void usbpd_sm(struct work_struct *w)
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
-		} else if (pd->send_request) {
-			pd->send_request = false;
-			usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
-		} else if (pd->send_pr_swap && is_sink_tx_ok(pd)) {
-			pd->send_pr_swap = false;
-			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
+		}
 
-			pd->current_state = PE_PRS_SNK_SRC_SEND_SWAP;
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (pd->send_dr_swap && is_sink_tx_ok(pd)) {
-			pd->send_dr_swap = false;
-			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
-			if (ret) {
-				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				break;
-			}
+		/* handle outgoing requests */
+		if (is_sink_tx_ok(pd)) {
+			if (pd->send_get_src_cap_ext) {
+				pd->send_get_src_cap_ext = false;
+				ret = pd_send_msg(pd,
+						MSG_GET_SOURCE_CAP_EXTENDED,
+						NULL, 0, SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_get_pps_status) {
+				pd->send_get_pps_status = false;
+				ret = pd_send_msg(pd, MSG_GET_PPS_STATUS,
+						NULL, 0, SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_get_status) {
+				pd->send_get_status = false;
+				ret = pd_send_msg(pd, MSG_GET_STATUS, NULL, 0,
+						SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_get_battery_cap) {
+				pd->send_get_battery_cap = false;
+				ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_CAP,
+					&pd->get_battery_cap_db, 1, SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_get_battery_status) {
+				pd->send_get_battery_status = false;
+				ret = pd_send_ext_msg(pd,
+						MSG_GET_BATTERY_STATUS,
+						&pd->get_battery_status_db, 1,
+						SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_request) {
+				pd->send_request = false;
+				usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
+			} else if (pd->send_pr_swap) {
+				pd->send_pr_swap = false;
+				ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0,
+						SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
 
-			pd->current_state = PE_DRS_SEND_DR_SWAP;
-			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (is_sink_tx_ok(pd)) {
-			handle_vdm_tx(pd, SOP_MSG);
+				pd->current_state = PE_PRS_SNK_SRC_SEND_SWAP;
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else if (pd->send_dr_swap) {
+				pd->send_dr_swap = false;
+				ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0,
+						SOP_MSG);
+				if (ret) {
+					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+					break;
+				}
+
+				pd->current_state = PE_DRS_SEND_DR_SWAP;
+				kick_sm(pd, SENDER_RESPONSE_TIME);
+			} else {
+				handle_vdm_tx(pd, SOP_MSG);
+			}
 		}
 		break;
 
