@@ -31,6 +31,7 @@ struct dfc_qmi_data {
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
 	int index;
+	int restart_state;
 };
 
 struct dfc_svc_ind {
@@ -605,6 +606,7 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 		return;
 	}
 
+get_lock:
 	local_bh_disable();
 	/* This will drop some messages but that is
 	 * unavoidable for now since the notifier callback is
@@ -612,11 +614,20 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 	 * will dead lock with this.
 	 */
 	if (!rtnl_trylock()) {
-		kfree(ind);
-		kfree(svc_ind);
-		local_bh_enable();
-		return;
+		if (!svc_ind->data->restart_state) {
+			local_bh_enable();
+			msleep(20);
+			goto get_lock;
+		} else {
+			kfree(ind);
+			kfree(svc_ind);
+			local_bh_enable();
+			return;
+		}
 	}
+
+	if (unlikely(svc_ind->data->restart_state))
+		goto clean_out;
 
 	for (i = 0; i < ind->flow_status_len; i++) {
 		flow_status = &ind->flow_status[i];
@@ -767,6 +778,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 
 	data->rmnet_port = port;
 	data->index = index;
+	data->restart_state = 0;
 
 	data->dfc_wq = create_singlethread_workqueue("dfc_wq");
 	if (!data->dfc_wq) {
@@ -811,6 +823,7 @@ void dfc_qmi_client_exit(void *dfc_data)
 		return;
 	}
 
+	data->restart_state = 1;
 	trace_dfc_client_state_down(data->index, 0);
 	qmi_handle_release(&data->handle);
 
