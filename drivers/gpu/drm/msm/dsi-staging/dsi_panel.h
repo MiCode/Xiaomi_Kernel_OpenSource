@@ -285,6 +285,8 @@ int dsi_panel_post_switch(struct dsi_panel *panel);
 
 void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
 
+void dsi_panel_bl_handoff(struct dsi_panel *panel);
+
 struct dsi_panel *dsi_panel_ext_bridge_get(struct device *parent,
 				struct device_node *of_node,
 				int topology_override);
