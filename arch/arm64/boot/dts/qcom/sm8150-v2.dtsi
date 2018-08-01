@@ -23,6 +23,10 @@
 /delete-node/ &apps_smmu;
 /delete-node/ &kgsl_smmu;
 
+&mdss_mdp {
+	qcom,fullsize-va-map;
+};
+
 &mdss_rotator {
 	smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 		compatible = "qcom,smmu_sde_rot_unsec";
