@@ -19,6 +19,11 @@
 #define MAX_DEC_BATCH_WIDTH                    1920
 #define MAX_DEC_BATCH_HEIGHT                   1088
 #define SKIP_BATCH_WINDOW                      100
+#define MIN_FRAME_QUALITY 0
+#define MAX_FRAME_QUALITY 100
+#define DEFAULT_FRAME_QUALITY 80
+#define FRAME_QUALITY_STEP 1
+#define HEIC_GRID_DIMENSION 512
 
 struct vb2_buf_entry {
 	struct list_head list;
