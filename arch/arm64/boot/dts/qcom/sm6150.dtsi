@@ -2113,6 +2113,13 @@
 		qcom,pre-scaling = <1 1>;
 	};
 
+	smb1390_therm {
+		reg = <ADC_AMUX_THM3>;
+		label = "smb1390_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
 	conn_therm {
 		reg = <ADC_AMUX_THM4_PU2>;
 		label = "conn_therm";
