@@ -98,7 +98,11 @@ extern int pm_async_enabled;
 /* drivers/base/power/main.c */
 extern struct list_head dpm_list;	/* The active device list */
 
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
 extern int msm_show_resume_irq_mask;
+#else
+#define msm_show_resume_irq_mask 0
+#endif
 
 static inline struct device *to_device(struct list_head *entry)
 {
