@@ -696,9 +696,11 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
-		usbpd_err(&pd->dev, "Error sending %s: %d\n",
-				msg_to_string(msg_type, num_data, false),
-				ret);
+		if (pd->pd_connected)
+			usbpd_err(&pd->dev, "Error sending %s: %d\n",
+					msg_to_string(msg_type, num_data,
+							false),
+					ret);
 		return ret;
 	}
 
