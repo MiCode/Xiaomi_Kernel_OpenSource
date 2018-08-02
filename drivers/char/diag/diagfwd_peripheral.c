@@ -357,6 +357,8 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 			goto end;
 		}
 	}
+	mutex_unlock(&fwd_info->data_mutex);
+	mutex_unlock(&driver->hdlc_disable_mutex);
 
 	if (write_len > 0) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_len,
@@ -364,18 +366,18 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 		if (err) {
 			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
-			goto end;
+			goto end_write;
 		}
 	}
-	mutex_unlock(&fwd_info->data_mutex);
-	mutex_unlock(&driver->hdlc_disable_mutex);
+
 	diagfwd_queue_read(fwd_info);
 	return;
 
 end:
-	diag_ws_release();
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
+end_write:
+	diag_ws_release();
 	if (buf) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
@@ -694,24 +696,26 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		}
 	}
 
+	mutex_unlock(&fwd_info->data_mutex);
+	mutex_unlock(&driver->hdlc_disable_mutex);
+
 	if (write_len > 0) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_len,
 				     temp_buf->ctxt);
 		if (err) {
 			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
-			goto end;
+			goto end_write;
 		}
 	}
-	mutex_unlock(&fwd_info->data_mutex);
-	mutex_unlock(&driver->hdlc_disable_mutex);
 	diagfwd_queue_read(fwd_info);
 	return;
 
 end:
-	diag_ws_release();
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
+end_write:
+	diag_ws_release();
 	if (temp_buf) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
