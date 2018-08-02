@@ -4332,6 +4332,10 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 		iio_channel_release(chg->iio.usbin_i_chan);
 	if (!IS_ERR_OR_NULL(chg->iio.temp_chan))
 		iio_channel_release(chg->iio.temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.sbux_chan))
+		iio_channel_release(chg->iio.sbux_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.vph_v_chan))
+		iio_channel_release(chg->iio.vph_v_chan);
 }
 
 int smblib_init(struct smb_charger *chg)
