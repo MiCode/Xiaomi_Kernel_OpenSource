@@ -1329,6 +1329,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 					descr = "Y/CbCr 4:2:0 TP10 UBWC"; break;
 	case V4L2_PIX_FMT_NV12_P010_UBWC:
 					descr = "Y/CbCr 4:2:0 P010 UBWC"; break;
+	case V4L2_PIX_FMT_NV12_512:
+				descr = "Y/CbCr 4:2:0 (512 align)"; break;
 
 	default:
 		/* Compressed formats */
