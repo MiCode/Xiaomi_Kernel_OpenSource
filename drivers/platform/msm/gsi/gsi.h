@@ -295,6 +295,7 @@ enum gsi_evt_ch_cmd_opcode {
 
 enum gsi_generic_ee_cmd_opcode {
 	GSI_GEN_EE_CMD_HALT_CHANNEL = 0x1,
+	GSI_GEN_EE_CMD_ALLOC_CHANNEL = 0x2,
 };
 
 enum gsi_generic_ee_cmd_return_code {
@@ -304,6 +305,7 @@ enum gsi_generic_ee_cmd_return_code {
 	GSI_GEN_EE_CMD_RETURN_CODE_INCORRECT_CHANNEL_TYPE = 0x4,
 	GSI_GEN_EE_CMD_RETURN_CODE_INCORRECT_CHANNEL_INDEX = 0x5,
 	GSI_GEN_EE_CMD_RETURN_CODE_RETRY = 0x6,
+	GSI_GEN_EE_CMD_RETURN_CODE_OUT_OF_RESOURCES = 0x7,
 };
 
 extern struct gsi_ctx *gsi_ctx;

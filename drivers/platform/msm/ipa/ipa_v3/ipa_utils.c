@@ -3510,7 +3510,7 @@ enum ipa_client_type ipa3_get_client_mapping(int pipe_idx)
  *
  * Return value: client type
  */
-static enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx)
+enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx)
 {
 	int j = 0;
 
