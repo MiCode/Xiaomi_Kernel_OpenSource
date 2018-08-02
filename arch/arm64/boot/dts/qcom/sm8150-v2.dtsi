@@ -27,10 +27,12 @@
 	smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 		compatible = "qcom,smmu_sde_rot_unsec";
 		iommus = <&apps_smmu 0x2040 0x0>;
+		qcom,fullsize-va-map;
 	};
 	smmu_rot_sec: qcom,smmu_rot_sec_cb {
 		compatible = "qcom,smmu_sde_rot_sec";
 		iommus = <&apps_smmu 0x2041 0x0>;
+		qcom,fullsize-va-map;
 	};
 };
 
