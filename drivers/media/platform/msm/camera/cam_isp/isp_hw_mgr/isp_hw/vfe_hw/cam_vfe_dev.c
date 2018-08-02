@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include "cam_debug_util.h"
 
 static struct cam_hw_intf *cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX] = {0, 0, 0, 0};
+
+static char vfe_dev_name[8];
 
 int cam_vfe_probe(struct platform_device *pdev)
 {
@@ -44,9 +46,14 @@ int cam_vfe_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto free_vfe_hw_intf;
 	}
+
+	memset(vfe_dev_name, 0, sizeof(vfe_dev_name));
+	snprintf(vfe_dev_name, sizeof(vfe_dev_name),
+		"vfe%1u", vfe_hw_intf->hw_idx);
+
 	vfe_hw->soc_info.pdev = pdev;
 	vfe_hw->soc_info.dev = &pdev->dev;
-	vfe_hw->soc_info.dev_name = pdev->name;
+	vfe_hw->soc_info.dev_name = vfe_dev_name;
 	vfe_hw_intf->hw_priv = vfe_hw;
 	vfe_hw_intf->hw_ops.get_hw_caps = cam_vfe_get_hw_caps;
 	vfe_hw_intf->hw_ops.init = cam_vfe_init_hw;

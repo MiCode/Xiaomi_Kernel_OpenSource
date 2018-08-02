@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,6 +104,7 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
+	int i = 0;
 	struct cam_sensor_board_info *sensordata = NULL;
 	struct device_node *of_node = s_ctrl->of_node;
 	struct cam_hw_soc_info *soc_info = &s_ctrl->soc_info;
@@ -133,6 +134,33 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "Failed invalid cell_id %d", s_ctrl->id);
 		rc = -EINVAL;
 		goto FREE_SENSOR_DATA;
+	}
+
+	/* Store the index of BoB regulator if it is available */
+	for (i = 0; i < soc_info->num_rgltr; i++) {
+		if (!strcmp(soc_info->rgltr_name[i],
+			"cam_bob")) {
+			CAM_DBG(CAM_SENSOR,
+				"i: %d cam_bob", i);
+			s_ctrl->bob_reg_index = i;
+			soc_info->rgltr[i] = devm_regulator_get(soc_info->dev,
+				soc_info->rgltr_name[i]);
+			if (IS_ERR_OR_NULL(soc_info->rgltr[i])) {
+				CAM_WARN(CAM_SENSOR,
+					"Regulator: %s get failed",
+					soc_info->rgltr_name[i]);
+				soc_info->rgltr[i] = NULL;
+			} else {
+				if (!of_property_read_bool(of_node,
+					"pwm-switch")) {
+					CAM_DBG(CAM_SENSOR,
+					"No BoB PWM switch param defined");
+					s_ctrl->bob_pwm_switch = false;
+				} else {
+					s_ctrl->bob_pwm_switch = true;
+				}
+			}
+		}
 	}
 
 	/* Read subdev info */
