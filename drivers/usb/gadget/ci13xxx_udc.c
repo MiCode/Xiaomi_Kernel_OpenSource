@@ -1613,11 +1613,14 @@ done:
 }
 static DEVICE_ATTR(dtds, S_IWUSR, NULL, print_dtds);
 
+#define CI_PM_RESUME_RETRIES	5    /* Max Number of retries */
+
 static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
 	int ret = 0;
+	static int retry_count;
 
 	trace();
 
@@ -1629,7 +1632,27 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
-	pm_runtime_get_sync(&_gadget->dev);
+	ret = pm_runtime_get_sync(&_gadget->dev);
+	if (ret) {
+		/* pm_runtime_get_sync returns -EACCES error between
+		 * late_suspend and early_resume, wait for system resume to
+		 * finish and perform resume from work_queue again
+		 */
+		pr_debug("PM runtime get sync failed, ret %d\n", ret);
+		if (ret == -EACCES) {
+			pm_runtime_put_noidle(&_gadget->dev);
+			if (retry_count == CI_PM_RESUME_RETRIES) {
+				pr_err("pm_runtime_get_sync timed out\n");
+				retry_count = 0;
+				return 0;
+			}
+			retry_count++;
+			schedule_delayed_work(&udc->rw_work,
+					      REMOTE_WAKEUP_DELAY);
+			return 0;
+		}
+	}
+	retry_count = 0;
 
 	udc->udc_driver->notify_event(udc,
 		CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT);
