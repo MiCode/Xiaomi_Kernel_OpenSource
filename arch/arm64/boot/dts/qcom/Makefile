@@ -276,6 +276,7 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	qcs605-lc-ipcamera.dtb \
 	qcs605-lc-mtp.dtb \
 	qcs605-lc-cdp.dtb \
+	qcs605-lc-mtp-no-hdcp.dtb \
 	sdm710-mtp.dtb \
 	sdm710-cdp.dtb \
 	sdm710-qrd.dtb \
