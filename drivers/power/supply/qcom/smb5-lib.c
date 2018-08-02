@@ -3898,8 +3898,65 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
+	union power_supply_propval pval;
+	bool dcin_present, vbus_present;
+	int rc, wireless_vout = 0;
+
+	rc = iio_read_channel_processed(chg->iio.vph_v_chan,
+			&wireless_vout);
+	if (rc < 0)
+		return IRQ_HANDLED;
+
+	wireless_vout *= 2;
+	wireless_vout /= 100000;
+	wireless_vout *= 100000;
+
+	rc = smblib_get_prop_dc_present(chg, &pval);
+	if (rc < 0)
+		return IRQ_HANDLED;
+
+	dcin_present = pval.intval;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb present rc = %d\n",
+				rc);
+		return IRQ_HANDLED;
+	}
+
+	vbus_present = pval.intval;
+
+	if (dcin_present) {
+		if (!vbus_present && chg->sec_cp_present) {
+			pval.intval = wireless_vout;
+			rc = smblib_set_prop_voltage_wls_output(chg, &pval);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't set dc voltage to 2*vph  rc=%d\n",
+					rc);
+
+			chg->cp_reason = POWER_SUPPLY_CP_WIRELESS;
+			rc = smblib_select_sec_charger(chg,
+						POWER_SUPPLY_CHARGER_SEC_CP);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't enable secondary chargers  rc=%d\n",
+					rc);
+		}
+	} else if (chg->cp_reason == POWER_SUPPLY_CP_WIRELESS) {
+		chg->cp_reason = POWER_SUPPLY_CP_NONE;
+		rc = smblib_select_sec_charger(chg,
+			chg->sec_pl_present ?  POWER_SUPPLY_CHARGER_SEC_PL :
+						POWER_SUPPLY_CHARGER_SEC_NONE);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Couldn't disable secondary charger rc=%d\n",
+						rc);
+	}
 
 	power_supply_changed(chg->dc_psy);
+
+	smblib_dbg(chg, PR_WLS, "dcin_present= %d, usbin_present= %d, cp_reason = %d\n",
+			dcin_present, vbus_present, chg->cp_reason);
+
 	return IRQ_HANDLED;
 }
 
