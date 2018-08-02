@@ -151,6 +151,12 @@ enum msm_gpi_tre_type {
 #define MSM_GPI_I2C_CONFIG0_TRE_DWORD3(bei, ieot, ieob, ch) ((0x2 << 20) | \
 	(0x2 << 16) | (bei << 10) | (ieot << 9) | (ieob << 8) | ch)
 
+#ifdef CONFIG_ARM64
+#define MSM_GPI_RING_PHYS_ADDR_UPPER(ring) ((u32)(ring->phys_addr >> 32))
+#else
+#define MSM_GPI_RING_PHYS_ADDR_UPPER(ring) 0
+#endif
+
 /* cmds to perform by using dmaengine_slave_config() */
 enum msm_gpi_ctrl_cmd {
 	MSM_GPI_INIT,
