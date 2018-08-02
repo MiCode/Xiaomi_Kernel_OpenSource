@@ -574,6 +574,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
+		pr_debug("network id : %d", network->id);
 		stats_size = exe_rsp_pkt->header.size - sizeof(*exe_rsp_pkt);
 		pr_debug("stats_size %d:%d\n", exe_rsp_pkt->header.size,
 			stats_size);
@@ -728,18 +729,17 @@ int32_t npu_host_get_info(struct npu_device *npu_dev,
 	return 0;
 }
 
-int32_t npu_host_map_buf(struct npu_device *npu_dev,
+int32_t npu_host_map_buf(struct npu_client *client,
 			struct msm_npu_map_buf_ioctl *map_ioctl)
 {
-	npu_mem_map(npu_dev, map_ioctl->buf_ion_hdl, map_ioctl->size,
+	return npu_mem_map(client, map_ioctl->buf_ion_hdl, map_ioctl->size,
 		&map_ioctl->npu_phys_addr);
-	return 0;
 }
 
-int32_t npu_host_unmap_buf(struct npu_device *npu_dev,
+int32_t npu_host_unmap_buf(struct npu_client *client,
 			struct msm_npu_unmap_buf_ioctl *unmap_ioctl)
 {
-	npu_mem_unmap(npu_dev, unmap_ioctl->buf_ion_hdl,
+	npu_mem_unmap(client, unmap_ioctl->buf_ion_hdl,
 		unmap_ioctl->npu_phys_addr);
 	return 0;
 }
@@ -759,8 +759,9 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 		pr_err("Another cmd is pending\n");
 		ret = -EBUSY;
 	} else {
-		pr_debug("Send cmd %d\n",
-			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type);
+		pr_debug("Send cmd %d network id %d\n",
+			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type,
+			network->id);
 		network->cmd_async = async;
 		ret = npu_host_ipc_send_cmd(npu_dev,
 			IPC_QUEUE_APPS_EXEC, cmd_ptr);
@@ -880,6 +881,12 @@ int32_t npu_host_load_network(struct npu_client *client,
 	network->priority = load_ioctl->priority;
 	network->perf_mode = load_ioctl->perf_mode;
 
+	/* verify mapped physical address */
+	if (!npu_mem_verify_addr(client, network->phy_add)) {
+		ret = -EINVAL;
+		goto error_free_network;
+	}
+
 	networks_perf_mode = find_networks_perf_mode(host_ctx);
 
 	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
@@ -974,6 +981,12 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	network->priority = load_ioctl->priority;
 	network->perf_mode = load_ioctl->perf_mode;
 	network->num_layers = load_ioctl->num_layers;
+
+	/* verify mapped physical address */
+	if (!npu_mem_verify_addr(client, network->phy_add)) {
+		ret = -EINVAL;
+		goto error_free_network;
+	}
 
 	networks_perf_mode = find_networks_perf_mode(host_ctx);
 
@@ -1113,6 +1126,13 @@ int32_t npu_host_exec_network(struct npu_client *client,
 
 		input_off = exec_ioctl->input_layers[0].buf_phys_addr;
 		output_off = exec_ioctl->output_layers[0].buf_phys_addr;
+		/* verify mapped physical address */
+		if (!npu_mem_verify_addr(client, input_off) ||
+			!npu_mem_verify_addr(client, output_off)) {
+			pr_err("Invalid patch buf address\n");
+			return -EINVAL;
+		}
+
 		exec_packet.patch_params.num_params = 2;
 		host_copy_patch_data(&exec_packet.patch_params.param[0],
 			(uint32_t)input_off, &exec_ioctl->input_layers[0]);
@@ -1190,6 +1210,14 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 			patch_buf_info[i].buf_phys_addr;
 		pr_debug("%d: patch value: %x\n", i,
 			exec_packet->patch_params[i].value);
+
+		/* verify mapped physical address */
+		if (!npu_mem_verify_addr(client,
+			patch_buf_info[i].buf_phys_addr)) {
+			pr_err("Invalid patch value\n");
+			kfree(exec_packet);
+			return -EINVAL;
+		}
 	}
 
 	exec_packet->header.cmd_type = NPU_IPC_CMD_EXECUTE_V2;

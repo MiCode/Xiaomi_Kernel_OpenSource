@@ -814,6 +814,7 @@ static int npu_open(struct inode *inode, struct file *file)
 	init_waitqueue_head(&client->wait);
 	mutex_init(&client->list_lock);
 	INIT_LIST_HEAD(&client->evt_list);
+	INIT_LIST_HEAD(&(client->mapped_buffer_list));
 	file->private_data = client;
 
 	return 0;
@@ -872,7 +873,6 @@ static int npu_get_info(struct npu_client *client, unsigned long arg)
 
 static int npu_map_buf(struct npu_client *client, unsigned long arg)
 {
-	struct npu_device *npu_dev = client->npu_dev;
 	struct msm_npu_map_buf_ioctl req;
 	void __user *argp = (void __user *)arg;
 	int ret = 0;
@@ -884,7 +884,7 @@ static int npu_map_buf(struct npu_client *client, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_map_buf(npu_dev, &req);
+	ret = npu_host_map_buf(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_map_buf failed\n");
@@ -902,7 +902,6 @@ static int npu_map_buf(struct npu_client *client, unsigned long arg)
 
 static int npu_unmap_buf(struct npu_client *client, unsigned long arg)
 {
-	struct npu_device *npu_dev = client->npu_dev;
 	struct msm_npu_unmap_buf_ioctl req;
 	void __user *argp = (void __user *)arg;
 	int ret = 0;
@@ -914,7 +913,7 @@ static int npu_unmap_buf(struct npu_client *client, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_unmap_buf(npu_dev, &req);
+	ret = npu_host_unmap_buf(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_unmap_buf failed\n");
@@ -1633,7 +1632,7 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_driver_init;
 	}
 
-	INIT_LIST_HEAD(&(npu_dev->mapped_buffers.list));
+	mutex_init(&npu_dev->dev_lock);
 
 	rc = npu_host_init(npu_dev);
 	if (rc) {

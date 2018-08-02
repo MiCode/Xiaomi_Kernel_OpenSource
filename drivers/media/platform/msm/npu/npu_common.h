@@ -169,7 +169,7 @@ struct npu_irq {
 };
 
 struct npu_device {
-	struct mutex ctx_lock;
+	struct mutex dev_lock;
 
 	struct platform_device *pdev;
 
@@ -189,8 +189,6 @@ struct npu_device {
 	struct npu_regulator regulators[NPU_MAX_DT_NAME_LEN];
 
 	struct npu_irq irq[NPU_MAX_IRQ];
-
-	struct npu_ion_buf mapped_buffers;
 
 	struct device *cb_device;
 
@@ -220,6 +218,7 @@ struct npu_client {
 
 	struct mutex list_lock;
 	struct list_head evt_list;
+	struct list_head mapped_buffer_list;
 };
 
 /* -------------------------------------------------------------------------

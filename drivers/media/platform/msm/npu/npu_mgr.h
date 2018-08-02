@@ -107,9 +107,9 @@ int npu_host_ipc_read_msg(struct npu_device *npu_dev, uint32_t queueIndex,
 
 int32_t npu_host_get_info(struct npu_device *npu_dev,
 	struct msm_npu_get_info_ioctl *get_info_ioctl);
-int32_t npu_host_map_buf(struct npu_device *npu_dev,
+int32_t npu_host_map_buf(struct npu_client *client,
 	struct msm_npu_map_buf_ioctl *map_ioctl);
-int32_t npu_host_unmap_buf(struct npu_device *npu_dev,
+int32_t npu_host_unmap_buf(struct npu_client *client,
 	struct msm_npu_unmap_buf_ioctl *unmap_ioctl);
 int32_t npu_host_load_network(struct npu_client *client,
 	struct msm_npu_load_network_ioctl *load_ioctl);
