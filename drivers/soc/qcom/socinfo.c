@@ -608,7 +608,7 @@ msm_get_vendor(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "Qualcomm\n");
+	return snprintf(buf, PAGE_SIZE, "Qualcomm Technologies, Inc\n");
 }
 
 static ssize_t
