@@ -2083,6 +2083,73 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 	return ret;
 }
 
+bool smblib_rsbux_low(struct smb_charger *chg, int r_thr)
+{
+	int r_sbu1, r_sbu2;
+	bool ret = false;
+	int rc;
+
+	if (!chg->iio.sbux_chan)
+		return false;
+
+	/* disable crude sensors */
+	rc = smblib_masked_write(chg, TYPE_C_CRUDE_SENSOR_CFG_REG,
+			EN_SRC_CRUDE_SENSOR_BIT | EN_SNK_CRUDE_SENSOR_BIT,
+			0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't disable crude sensor rc=%d\n", rc);
+		return false;
+	}
+
+	/* select SBU1 as current source */
+	rc = smblib_write(chg, TYPE_C_SBU_CFG_REG, SEL_SBU1_ISRC_VAL);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't select SBU1 rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = iio_read_channel_processed(chg->iio.sbux_chan, &r_sbu1);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SBU1 rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	if (r_sbu1 < r_thr) {
+		ret = true;
+		goto cleanup;
+	}
+
+	/* select SBU2 as current source */
+	rc = smblib_write(chg, TYPE_C_SBU_CFG_REG, SEL_SBU2_ISRC_VAL);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't select SBU1 rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = iio_read_channel_processed(chg->iio.sbux_chan, &r_sbu2);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SBU1 rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	if (r_sbu2 < r_thr)
+		ret = true;
+cleanup:
+	/* enable crude sensors */
+	rc = smblib_masked_write(chg, TYPE_C_CRUDE_SENSOR_CFG_REG,
+			EN_SRC_CRUDE_SENSOR_BIT | EN_SNK_CRUDE_SENSOR_BIT,
+			EN_SRC_CRUDE_SENSOR_BIT | EN_SNK_CRUDE_SENSOR_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't enable crude sensor rc=%d\n", rc);
+
+	/* disable current source */
+	rc = smblib_write(chg, TYPE_C_SBU_CFG_REG, 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't select SBU1 rc=%d\n", rc);
+
+	return ret;
+}
+
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				 union power_supply_propval *val)
 {
