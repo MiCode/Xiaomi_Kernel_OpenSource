@@ -1418,6 +1418,8 @@ static int __dwc3_gadget_get_frame(struct dwc3 *dwc)
 
 static void __dwc3_gadget_start_isoc(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
+	u16 uf, wraparound_bits;
+
 	if (list_empty(&dep->pending_list)) {
 		dev_info(dwc->dev, "%s: ran out of requests\n",
 				dep->name);
@@ -1425,22 +1427,25 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc, struct dwc3_ep *dep)
 		return;
 	}
 
-	/*
-	 * Schedule the first trb for one interval in the future or at
-	 * least 4 microframes.
-	 */
-	dep->frame_number += max_t(u32, 4, dep->interval);
-	__dwc3_gadget_kick_transfer(dep, dep->frame_number);
+	wraparound_bits = dep->frame_number & DWC3_FRAME_WRAP_AROUND_MASK;
+	uf = dep->frame_number & ~DWC3_FRAME_WRAP_AROUND_MASK;
+
+	/* if frame wrapped-around update wrap-around bits to reflect that */
+	if (__dwc3_gadget_get_frame(dwc) < uf)
+		wraparound_bits += BIT(14);
+
+	uf = __dwc3_gadget_get_frame(dwc) + 2 * dep->interval;
+
+	/* align uf to ep interval */
+	uf = (wraparound_bits | uf) & ~(dep->interval - 1);
+
+	__dwc3_gadget_kick_transfer(dep, uf);
 }
 
 static void dwc3_gadget_start_isoc(struct dwc3 *dwc,
 		struct dwc3_ep *dep, const struct dwc3_event_depevt *event)
 {
-	u32 cur_uf, mask;
-
-	mask = ~(dep->interval - 1);
-	cur_uf = event->parameters & mask;
-	dep->frame_number = cur_uf;
+	dep->frame_number = event->parameters;
 
 	__dwc3_gadget_start_isoc(dwc, dep);
 }
