@@ -61,20 +61,27 @@
 extern struct gmu_dev_ops adreno_a6xx_gmudev;
 #define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
 
+enum gmu_mem_type {
+	GMU_CACHED_CODE = 0,
+	GMU_CACHED_DATA,
+	GMU_NONCACHED_KERNEL,
+	GMU_NONCACHED_USER
+};
+
 /**
  * struct gmu_memdesc - Gmu shared memory object descriptor
  * @hostptr: Kernel virtual address
  * @gmuaddr: GPU virtual address
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
- * @attr: memory attributes for this memory
+ * @mem_type: memory type for this memory
  */
 struct gmu_memdesc {
 	void *hostptr;
 	uint64_t gmuaddr;
 	phys_addr_t physaddr;
 	uint64_t size;
-	uint32_t attr;
+	enum gmu_mem_type mem_type;
 };
 
 struct gmu_bw_votes {
@@ -109,6 +116,8 @@ enum gmu_load_mode {
  * @hfi_mem: pointer to HFI shared memory
  * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
+ * @gmu_log: gmu event log memory
+ * @icache_mem: gmu icache memory buffer
  * @hfi: HFI controller
  * @lm_config: GPU LM configuration data
  * @lm_dcvs_level: Minimal DCVS level that enable LM. LM disable in
@@ -139,14 +148,12 @@ struct gmu_device {
 	unsigned long reg_phys;
 	unsigned int reg_len;
 	unsigned int gmu_interrupt_num;
-	struct gmu_memdesc cached_fw_image;
 	struct gmu_memdesc *fw_image;
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
-	struct gmu_memdesc *system_wb_page;
-	struct gmu_memdesc *dcache_chunk;
+	struct gmu_memdesc *icache_mem;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;
 	unsigned int lm_dcvs_level;
@@ -170,7 +177,6 @@ struct gmu_device {
 };
 
 bool is_cached_fw_size_valid(uint32_t size_in_bytes);
-int allocate_gmu_cached_fw(struct gmu_device *gmu);
 int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
 
 #endif /* __KGSL_GMU_H */

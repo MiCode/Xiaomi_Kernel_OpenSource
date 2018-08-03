@@ -491,13 +491,8 @@ static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	uint32_t *fwptr = gmu->fw_image->hostptr;
-	int i, j, ret;
+	int i, j;
 	int start_addr, size_in_bytes, num_dwords, tcm_slot, num_records;
-
-	/* Allocates & maps memory for GMU cached instructions range */
-	ret = allocate_gmu_cached_fw(gmu);
-	if (ret)
-		return ret;
 
 	/*
 	 * Read first record. pad0 field of first record contains
@@ -535,8 +530,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 				return -EINVAL;
 
 			}
-			memcpy(gmu->cached_fw_image.hostptr,
-					fwptr, size_in_bytes);
+			memcpy(gmu->icache_mem->hostptr, fwptr, size_in_bytes);
 		}
 
 		fwptr += num_dwords;
