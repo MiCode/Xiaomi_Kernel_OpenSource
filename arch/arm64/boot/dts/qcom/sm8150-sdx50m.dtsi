@@ -159,10 +159,6 @@
 
 	iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
 		<0x100 &apps_smmu 0x1e7f 0x1>;
-
-	qcom,no-l1-supported;
-	qcom,no-l1ss-supported;
-	qcom,no-aux-clk-sync;
 };
 
 &soc {
