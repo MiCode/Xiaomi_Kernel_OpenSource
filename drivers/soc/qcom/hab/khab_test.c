@@ -11,13 +11,12 @@
  *
  */
 #include "hab.h"
-#include "khab_test.h"
-#include "hab_pipe.h"
-#ifdef CONFIG_MSM_GVM_QUIN
-#include "hab_qvm.h"
-#endif
+#if !defined CONFIG_GHS_VMM && defined(CONFIG_MSM_GVM_QUIN)
 #include <asm/cacheflush.h>
 #include <linux/list.h>
+#include "hab_pipe.h"
+#include "hab_qvm.h"
+#include "khab_test.h"
 
 static char g_perf_test_result[256];
 
@@ -32,10 +31,8 @@ enum hab_perf_test_type {
 static int hab_shmm_throughput_test(void)
 {
 	struct hab_device *habDev;
-#ifdef CONFIG_MSM_GVM_QUIN
 	struct qvm_channel *dev;
-#endif
-	struct hab_shared_buf *sh_buf = NULL;
+	struct hab_shared_buf *sh_buf;
 	struct physical_channel *pchan;
 	struct timeval tv1, tv2;
 	int i, counter;
@@ -56,7 +53,6 @@ static int hab_shmm_throughput_test(void)
 
 	pchan = list_first_entry(&(habDev->pchannels),
 		struct physical_channel, node);
-#ifdef CONFIG_MSM_GVM_QUIN
 	dev = pchan->hyp_data;
 	if (!dev) {
 		ret = -EPERM;
@@ -64,7 +60,6 @@ static int hab_shmm_throughput_test(void)
 	}
 
 	sh_buf = dev->pipe_ep->tx_info.sh_buf;
-#endif
 
 	/* pChannel is of 128k, we use 64k to test */
 	size = 0x10000;
@@ -267,4 +262,113 @@ static int get_hab_perf_result(char *buffer, struct kernel_param *kp)
 {
 	return strlcpy(buffer, g_perf_test_result,
 		strlen(g_perf_test_result)+1);
+}
+#endif
+
+static struct kobject *hab_kobject;
+
+static int vchan_stat;
+static int context_stat;
+static int pid_stat;
+
+static ssize_t vchan_show(struct kobject *kobj, struct kobj_attribute *attr,
+						char *buf)
+{
+	return hab_stat_show_vchan(&hab_driver, buf, PAGE_SIZE);
+}
+
+static ssize_t vchan_store(struct kobject *kobj, struct kobj_attribute *attr,
+						 char *buf, size_t count)
+{
+	int ret;
+
+	ret = sscanf(buf, "%du", &vchan_stat);
+	if (ret < 1) {
+		pr_err("failed to read anything from input %d", ret);
+		return 0;
+	} else
+		return vchan_stat;
+}
+
+static ssize_t ctx_show(struct kobject *kobj, struct kobj_attribute *attr,
+						char *buf)
+{
+	return hab_stat_show_ctx(&hab_driver, buf, PAGE_SIZE);
+}
+
+static ssize_t ctx_store(struct kobject *kobj, struct kobj_attribute *attr,
+						 char *buf, size_t count)
+{
+	int ret;
+
+	ret = sscanf(buf, "%du", &context_stat);
+	if (ret < 1) {
+		pr_err("failed to read anything from input %d", ret);
+		return 0;
+	} else
+		return context_stat;
+}
+
+static ssize_t expimp_show(struct kobject *kobj, struct kobj_attribute *attr,
+						char *buf)
+{
+	return hab_stat_show_expimp(&hab_driver, pid_stat, buf, PAGE_SIZE);
+}
+
+static ssize_t expimp_store(struct kobject *kobj, struct kobj_attribute *attr,
+						 char *buf, size_t count)
+{
+	int ret;
+
+	ret = sscanf(buf, "%du", &pid_stat);
+	if (ret < 1) {
+		pr_err("failed to read anything from input %d", ret);
+		return 0;
+	} else
+		return pid_stat;
+}
+
+static struct kobj_attribute vchan_attribute = __ATTR(vchan_stat, 0660,
+								vchan_show,
+								vchan_store);
+
+static struct kobj_attribute ctx_attribute = __ATTR(context_stat, 0660,
+								ctx_show,
+								ctx_store);
+
+static struct kobj_attribute expimp_attribute = __ATTR(pid_stat, 0660,
+								expimp_show,
+								expimp_store);
+
+int hab_stat_init_sub(struct hab_driver *driver)
+{
+	int result;
+
+	hab_kobject = kobject_create_and_add("hab", kernel_kobj);
+	if (!hab_kobject)
+		return -ENOMEM;
+
+	result = sysfs_create_file(hab_kobject, &vchan_attribute.attr);
+	if (result)
+		pr_debug("cannot add vchan in /sys/kernel/hab %d\n", result);
+
+	result = sysfs_create_file(hab_kobject, &ctx_attribute.attr);
+	if (result)
+		pr_debug("cannot add ctx in /sys/kernel/hab %d\n", result);
+
+	result = sysfs_create_file(hab_kobject, &expimp_attribute.attr);
+	if (result)
+		pr_debug("cannot add expimp in /sys/kernel/hab %d\n", result);
+
+	return result;
+}
+
+int hab_stat_deinit_sub(struct hab_driver *driver)
+{
+	sysfs_remove_file(hab_kobject, &vchan_attribute.attr);
+	sysfs_remove_file(hab_kobject, &ctx_attribute.attr);
+	sysfs_remove_file(hab_kobject, &expimp_attribute.attr);
+	kobject_put(hab_kobject);
+
+	return 0;
 }
