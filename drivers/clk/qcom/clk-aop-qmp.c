@@ -149,7 +149,8 @@ static int clk_aop_qmp_prepare(struct clk_hw *hw)
 	ret = mbox_send_message(clk->mbox, &pkt);
 	if (ret < 0) {
 		pr_err("Failed to send clk prepare request for %s, ret %d\n",
-					clk_hw_get_name(hw), ret);
+				hw->core ? clk_hw_get_name(hw) : hw->init->name,
+					ret);
 		goto err;
 	}
 
