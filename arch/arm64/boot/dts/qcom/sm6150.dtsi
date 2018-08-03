@@ -2019,6 +2019,11 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+	};
+
 	qcom,smp2p-modem {
 		compatible = "qcom,smp2p";
 		qcom,smem = <435>, <428>;
@@ -2056,6 +2061,11 @@
 			qcom,entry-name = "slave-kernel";
 			interrupt-controller;
 			#interrupt-cells = <2>;
+		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
 		};
 	};
 
