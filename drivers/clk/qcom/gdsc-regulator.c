@@ -79,6 +79,7 @@ struct gdsc {
 	bool			force_root_en;
 	bool			no_status_check_on_disable;
 	bool			skip_disable;
+	bool			bypass_skip_disable;
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
 	bool			reset_aon;
@@ -467,7 +468,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	/* Delay to account for staggered memory powerdown. */
 	udelay(1);
 
-	if (sc->skip_disable) {
+	if (sc->skip_disable && !sc->bypass_skip_disable) {
 		/*
 		 * Don't change the GDSCR register state on disable.  AOP will
 		 * handle this during system sleep.
@@ -538,6 +539,12 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 	uint32_t regval;
 	int ret;
 
+	if (sc->skip_disable) {
+		if (sc->bypass_skip_disable)
+			return REGULATOR_MODE_IDLE;
+		return REGULATOR_MODE_NORMAL;
+	}
+
 	mutex_lock(&gdsc_seq_lock);
 
 	if (sc->parent_regulator) {
@@ -596,6 +603,23 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	int ret = 0;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->skip_disable) {
+		switch (mode) {
+		case REGULATOR_MODE_IDLE:
+			sc->bypass_skip_disable = true;
+			break;
+		case REGULATOR_MODE_NORMAL:
+			sc->bypass_skip_disable = false;
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+
+		mutex_unlock(&gdsc_seq_lock);
+		return ret;
+	}
 
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
@@ -918,6 +942,17 @@ static int gdsc_probe(struct platform_device *pdev)
 		init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
 		init_data->constraints.valid_modes_mask |=
 				REGULATOR_MODE_NORMAL | REGULATOR_MODE_FAST;
+	}
+
+	if (sc->skip_disable) {
+		/*
+		 * If the disable skipping feature is allowed, then use mode
+		 * control to enable and disable the feature at runtime instead
+		 * of using it to enable and disable hardware triggering.
+		 */
+		init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
+		init_data->constraints.valid_modes_mask =
+				REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
 	}
 
 	if (!sc->toggle_logic) {
