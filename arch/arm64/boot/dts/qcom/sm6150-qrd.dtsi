@@ -113,6 +113,7 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
+	qcom,fcc-stepping-enable;
 	qcom,sec-charger-config = <1>;
 };
 
