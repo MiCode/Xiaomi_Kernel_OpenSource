@@ -45,6 +45,7 @@
 			17000 15500 30000 8000 3000>;
 		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
 		qcom,mdss-dsi-panel-blackness-level = <3230>;
+		qcom,mdss-dsi-qsync-min-refresh-rate = <55>;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0{
@@ -65,6 +66,7 @@
 				qcom,mdss-dsi-panel-jitter = <0x4 0x1>;
 				qcom,mdss-dsi-on-command = [
 					39 01 00 00 00 00 03 b0 a5 00
+					39 01 00 00 00 00 03 5c 42 00
 					07 01 00 00 00 00 02 01 00
 					0a 01 00 00 00 00 80 11 00 00 89 30 80
 					   0B 40 05 A0 05 A0 02 D0 02 D0 02 00
@@ -94,7 +96,14 @@
 				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 				qcom,mdss-dsi-h-sync-pulse = <0>;
-
+				qcom,mdss-dsi-qsync-on-commands =
+					[15 01 00 00 00 00 02 5a 01];
+				qcom,mdss-dsi-qsync-on-commands-state =
+					"dsi_lp_mode";
+				qcom,mdss-dsi-qsync-off-commands =
+					[15 01 00 00 00 00 02 5a 00];
+				qcom,mdss-dsi-qsync-off-commands-state =
+					"dsi_lp_mode";
 				qcom,compression-mode = "dsc";
 				qcom,mdss-dsc-slice-height = <1440>;
 				qcom,mdss-dsc-slice-width = <720>;
