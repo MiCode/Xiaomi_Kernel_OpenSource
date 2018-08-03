@@ -10442,6 +10442,10 @@ static int need_active_balance(struct lb_env *env)
 	if (env->src_grp_type == group_misfit_task)
 		return 1;
 
+	if (env->src_grp_type == group_overloaded &&
+	    env->src_rq->misfit_task_load)
+		return 1;
+
 	return unlikely(sd->nr_balance_failed >
 			sd->cache_nice_tries + NEED_ACTIVE_BALANCE_THRESHOLD);
 }
@@ -10884,8 +10888,12 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 		int continue_balancing = 1;
 		u64 t0, domain_cost;
 
-		if (!(sd->flags & SD_LOAD_BALANCE))
+		if (!(sd->flags & SD_LOAD_BALANCE)) {
+			if (time_after_eq(jiffies,
+					  sd->groups->sgc->next_update))
+				update_group_capacity(sd, this_cpu);
 			continue;
+		}
 
 		if (this_rq->avg_idle < curr_cost + sd->max_newidle_lb_cost) {
 			update_next_balance(sd, &next_balance);
@@ -11294,8 +11302,12 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 		if (energy_aware() && !sd_overutilized(sd))
 			continue;
 
-		if (!(sd->flags & SD_LOAD_BALANCE))
+		if (!(sd->flags & SD_LOAD_BALANCE)) {
+			if (time_after_eq(jiffies,
+					  sd->groups->sgc->next_update))
+				update_group_capacity(sd, cpu);
 			continue;
+		}
 
 		/*
 		 * Stop the load balance at this level. There is another
