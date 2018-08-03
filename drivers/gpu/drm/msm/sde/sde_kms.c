@@ -2594,7 +2594,8 @@ retry:
 	if (sde_kms->suspend_state) {
 		sde_kms->suspend_state->acquire_ctx = &ctx;
 		for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
-			ret = drm_atomic_commit(sde_kms->suspend_state);
+			ret = drm_atomic_helper_commit_duplicated_state(
+					sde_kms->suspend_state, &ctx);
 			if (ret != -EDEADLK)
 				break;
 
