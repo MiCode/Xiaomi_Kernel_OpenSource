@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/mailbox_client.h>
 #include <linux/msm-bus.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
@@ -28,6 +29,7 @@
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 #include <linux/clk/qcom.h>
+#include <linux/mailbox/qmp.h>
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
@@ -52,6 +54,8 @@
 /* Timeout Delay */
 #define TIMEOUT_US		100
 
+#define MBOX_TOUT_MS		100
+
 struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -64,6 +68,8 @@ struct gdsc {
 	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	struct msm_bus_scale_pdata *bus_pdata;
+	struct mbox_client	mbox_client;
+	struct mbox_chan	*mbox;
 	u32			bus_handle;
 	bool			toggle_mem;
 	bool			toggle_periph;
@@ -218,6 +224,35 @@ end:
 	return is_enabled;
 }
 
+#define MAX_LEN 96
+
+static int gdsc_qmp_enable(struct gdsc *sc)
+{
+	char buf[MAX_LEN] = "{class: clock, res: gpu_noc_wa}";
+	struct qmp_pkt pkt;
+	uint32_t regval;
+	int ret;
+
+	regmap_read(sc->regmap, REG_OFFSET, &regval);
+	if (!(regval & SW_COLLAPSE_MASK)) {
+		/*
+		 * Do not enable via a QMP request if the GDSC is already
+		 * enabled by software.
+		 */
+		return 0;
+	}
+
+	pkt.size = MAX_LEN;
+	pkt.data = buf;
+
+	ret = mbox_send_message(sc->mbox, &pkt);
+	if (ret < 0)
+		dev_err(&sc->rdev->dev, "qmp message send failed, ret=%d\n",
+			ret);
+
+	return ret;
+}
+
 static int gdsc_enable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
@@ -308,9 +343,15 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			gdsc_mb(sc);
 		}
 
-		regmap_read(sc->regmap, REG_OFFSET, &regval);
-		regval &= ~SW_COLLAPSE_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		if (sc->mbox) {
+			ret = gdsc_qmp_enable(sc);
+			if (ret < 0)
+				goto end;
+		} else {
+			regmap_read(sc->regmap, REG_OFFSET, &regval);
+			regval &= ~SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
 
 		/* Wait for 8 XO cycles before polling the status bit. */
 		gdsc_mb(sc);
@@ -817,6 +858,23 @@ static int gdsc_probe(struct platform_device *pdev)
 		sc->is_bus_enabled = true;
 	}
 
+	if (of_find_property(pdev->dev.of_node, "mboxes", NULL)) {
+		sc->mbox_client.dev = &pdev->dev;
+		sc->mbox_client.tx_block = true;
+		sc->mbox_client.tx_tout = MBOX_TOUT_MS;
+		sc->mbox_client.knows_txdone = false;
+
+		sc->mbox = mbox_request_channel(&sc->mbox_client, 0);
+		if (IS_ERR(sc->mbox)) {
+			ret = PTR_ERR(sc->mbox);
+			if (ret != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "mailbox channel request failed, ret=%d\n",
+					ret);
+			sc->mbox = NULL;
+			goto err;
+		}
+	}
+
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
 	sc->rdesc.ops = &gdsc_ops;
 	sc->rdesc.type = REGULATOR_VOLTAGE;
@@ -955,6 +1013,9 @@ static int gdsc_probe(struct platform_device *pdev)
 	return 0;
 
 err:
+	if (sc->mbox)
+		mbox_free_channel(sc->mbox);
+
 	if (sc->bus_handle) {
 		if (sc->is_bus_enabled)
 			msm_bus_scale_client_update_request(sc->bus_handle, 0);
@@ -969,6 +1030,9 @@ static int gdsc_remove(struct platform_device *pdev)
 	struct gdsc *sc = platform_get_drvdata(pdev);
 
 	regulator_unregister(sc->rdev);
+
+	if (sc->mbox)
+		mbox_free_channel(sc->mbox);
 
 	if (sc->bus_handle) {
 		if (sc->is_bus_enabled)
