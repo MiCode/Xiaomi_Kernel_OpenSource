@@ -243,6 +243,7 @@ struct fg_dt_props {
 	bool	hold_soc_while_full;
 	bool	auto_recharge_soc;
 	bool	use_esr_sw;
+	bool	disable_esr_pull_dn;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
