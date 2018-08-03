@@ -28,38 +28,6 @@
 
 #define to_dp_bridge(x)     container_of((x), struct dp_bridge, base)
 
-void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
-			struct dp_display_mode *dp_mode, struct dp_display *dp)
-{
-	memset(dp_mode, 0, sizeof(*dp_mode));
-
-	dp_mode->timing.h_active = drm_mode->hdisplay;
-	dp_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
-	dp_mode->timing.h_sync_width = drm_mode->htotal -
-			(drm_mode->hsync_start + dp_mode->timing.h_back_porch);
-	dp_mode->timing.h_front_porch = drm_mode->hsync_start -
-					 drm_mode->hdisplay;
-	dp_mode->timing.h_skew = drm_mode->hskew;
-
-	dp_mode->timing.v_active = drm_mode->vdisplay;
-	dp_mode->timing.v_back_porch = drm_mode->vtotal - drm_mode->vsync_end;
-	dp_mode->timing.v_sync_width = drm_mode->vtotal -
-		(drm_mode->vsync_start + dp_mode->timing.v_back_porch);
-
-	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
-					 drm_mode->vdisplay;
-
-	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
-
-	dp_mode->timing.pixel_clk_khz = drm_mode->clock;
-
-	dp_mode->timing.v_active_low =
-		!!(drm_mode->flags & DRM_MODE_FLAG_NVSYNC);
-
-	dp_mode->timing.h_active_low =
-		!!(drm_mode->flags & DRM_MODE_FLAG_NHSYNC);
-}
-
 void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
 				struct drm_display_mode *drm_mode)
 {
@@ -298,8 +266,8 @@ static void dp_bridge_mode_set(struct drm_bridge *drm_bridge,
 
 	dp = bridge->display;
 
-	memset(&bridge->dp_mode, 0x0, sizeof(struct dp_display_mode));
-	convert_to_dp_mode(adjusted_mode, &bridge->dp_mode, dp);
+	dp->convert_to_dp_mode(dp, bridge->dp_panel, adjusted_mode,
+			&bridge->dp_mode);
 }
 
 static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
@@ -332,7 +300,7 @@ static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 
 	dp = bridge->display;
 
-	convert_to_dp_mode(mode, &dp_mode, dp);
+	dp->convert_to_dp_mode(dp, bridge->dp_panel, mode, &dp_mode);
 	convert_to_drm_mode(&dp_mode, adjusted_mode);
 end:
 	return ret;
