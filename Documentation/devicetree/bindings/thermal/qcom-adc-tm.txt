@@ -11,7 +11,8 @@ ADC_TM node
 - compatible:
     Usage: required
     Value type: <string>
-    Definition: Should contain "qcom,adc-tm5" for PMIC5 ADC TM driver.
+    Definition: Should contain "qcom,adc-tm5" or "qcom,adc-tm5-iio"
+                for PMIC5 ADC TM driver.
 
 - reg:
     Usage: required
