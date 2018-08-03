@@ -125,9 +125,9 @@ static struct uhci_td *uhci_alloc_td(struct uhci_hcd *uhci)
 static void uhci_free_td(struct uhci_hcd *uhci, struct uhci_td *td)
 {
 	if (!list_empty(&td->list))
-		dev_WARN(uhci_dev(uhci), "td %p still in list!\n", td);
+		dev_WARN(uhci_dev(uhci), "td %pK still in list!\n", td);
 	if (!list_empty(&td->fl_list))
-		dev_WARN(uhci_dev(uhci), "td %p still in fl_list!\n", td);
+		dev_WARN(uhci_dev(uhci), "td %pK still in fl_list!\n", td);
 
 	dma_pool_free(uhci->td_pool, td, td->dma_handle);
 }
@@ -294,7 +294,7 @@ static void uhci_free_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 {
 	WARN_ON(qh->state != QH_STATE_IDLE && qh->udev);
 	if (!list_empty(&qh->queue))
-		dev_WARN(uhci_dev(uhci), "qh %p list not empty!\n", qh);
+		dev_WARN(uhci_dev(uhci), "qh %pK list not empty!\n", qh);
 
 	list_del(&qh->node);
 	if (qh->udev) {
@@ -744,7 +744,7 @@ static void uhci_free_urb_priv(struct uhci_hcd *uhci,
 	struct uhci_td *td, *tmp;
 
 	if (!list_empty(&urbp->node))
-		dev_WARN(uhci_dev(uhci), "urb %p still on QH's list!\n",
+		dev_WARN(uhci_dev(uhci), "urb %pK still on QH's list!\n",
 				urbp->urb);
 
 	list_for_each_entry_safe(td, tmp, &urbp->td_list, list) {
@@ -1317,7 +1317,7 @@ static int uhci_submit_isochronous(struct uhci_hcd *uhci, struct urb *urb,
 			else if (!uhci_frame_before_eq(next,
 					frame + (urb->number_of_packets - 1) *
 						qh->period))
-				dev_dbg(uhci_dev(uhci), "iso underrun %p (%u+%u < %u)\n",
+				dev_dbg(uhci_dev(uhci), "iso underrun %pK (%u+%u < %u)\n",
 						urb, frame,
 						(urb->number_of_packets - 1) *
 							qh->period,

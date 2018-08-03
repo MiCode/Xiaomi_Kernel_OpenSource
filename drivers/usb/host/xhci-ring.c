@@ -325,7 +325,7 @@ static void xhci_handle_stopped_cmd_ring(struct xhci_hcd *xhci,
 
 		i_cmd->status = COMP_COMMAND_RING_STOPPED;
 
-		xhci_dbg(xhci, "Turn aborted command %p to no-op\n",
+		xhci_dbg(xhci, "Turn aborted command %pK to no-op\n",
 			 i_cmd->command_trb);
 
 		trb_to_noop(i_cmd->command_trb, TRB_CMD_NOOP);
@@ -595,7 +595,7 @@ void xhci_find_new_dequeue_state(struct xhci_hcd *xhci,
 			"Cycle state = 0x%x", state->new_cycle_state);
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
-			"New dequeue segment = %p (virtual)",
+			"New dequeue segment = %pK (virtual)",
 			state->new_deq_seg);
 	addr = xhci_trb_virt_to_dma(state->new_deq_seg, state->new_deq_ptr);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
@@ -757,7 +757,7 @@ static void xhci_handle_cmd_stop_ep(struct xhci_hcd *xhci, int slot_id,
 			 * short, don't muck with the stream ID after
 			 * submission.
 			 */
-			xhci_warn(xhci, "WARN Cancelled URB %p "
+			xhci_warn(xhci, "WARN Cancelled URB %pK "
 					"has invalid stream ID %u.\n",
 					cur_td->urb,
 					cur_td->urb->stream_id);
@@ -1117,7 +1117,7 @@ static void xhci_handle_cmd_set_deq(struct xhci_hcd *xhci, int slot_id,
 				ep_ring, ep_index);
 		} else {
 			xhci_warn(xhci, "Mismatch between completed Set TR Deq Ptr command & xHCI internal state.\n");
-			xhci_warn(xhci, "ep deq seg = %p, deq ptr = %p\n",
+			xhci_warn(xhci, "ep deq seg = %pK, deq ptr = %pK\n",
 				  ep->queued_deq_seg, ep->queued_deq_ptr);
 		}
 	}
@@ -4029,7 +4029,7 @@ void xhci_queue_new_dequeue_state(struct xhci_hcd *xhci,
 	int ret;
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
-		"Set TR Deq Ptr cmd, new deq seg = %p (0x%llx dma), new deq ptr = %p (0x%llx dma), new cycle = %u",
+		"Set TR Deq Ptr cmd, new deq seg = %pK (0x%llx dma), new deq ptr = %pK (0x%llx dma), new cycle = %u",
 		deq_state->new_deq_seg,
 		(unsigned long long)deq_state->new_deq_seg->dma,
 		deq_state->new_deq_ptr,
@@ -4041,7 +4041,7 @@ void xhci_queue_new_dequeue_state(struct xhci_hcd *xhci,
 				    deq_state->new_deq_ptr);
 	if (addr == 0) {
 		xhci_warn(xhci, "WARN Cannot submit Set TR Deq Ptr\n");
-		xhci_warn(xhci, "WARN deq seg = %p, deq pt = %p\n",
+		xhci_warn(xhci, "WARN deq seg = %pK, deq pt = %pK\n",
 			  deq_state->new_deq_seg, deq_state->new_deq_ptr);
 		return;
 	}
