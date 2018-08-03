@@ -1695,7 +1695,7 @@ static const struct msm_pingroup kona_groups[] = {
 	[180] = SDC_QDSD_PINGROUP(sdc2_clk, 0xb7000, 14, 6),
 	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xb7000, 11, 3),
 	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0xb7000, 9, 0),
-	[183] = UFS_RESET(ufs_reset, 0xb8004),
+	[183] = UFS_RESET(ufs_reset, 0xb8000),
 };
 
 static const struct msm_pinctrl_soc_data kona_pinctrl = {
