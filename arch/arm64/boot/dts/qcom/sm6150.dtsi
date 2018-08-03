@@ -2663,3 +2663,4 @@
 #include "sm6150-coresight.dtsi"
 #include "sm6150-bus.dtsi"
 #include "sm6150-vidc.dtsi"
+#include "sm6150-audio.dtsi"

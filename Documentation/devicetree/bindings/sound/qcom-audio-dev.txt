@@ -1457,7 +1457,10 @@ Optional properties:
 - qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
 - qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
 - qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,ext-disp-audio-rx: Property to specify if Audio over Display port is supported for the target
 - qcom,wcn-btfm : Property to specify if WCN BT/FM chip is used for the target
+- qcom,mi2s-audio-intf: Property to specify if MI2S interface is used for the target
+- qcom,auxpcm-audio-intf: Property to specify if Aux PCM interface is used for the target
 - qcom,tavil_codec : Property to specify if Tavil codec is used for this target
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
 
@@ -1465,10 +1468,10 @@ Example:
 	sm6150_snd: sound {
 		status = "okay";
 		compatible = "qcom,sm6150-asoc-snd";
-		qcom,ext-disp-audio-rx;
-		qcom,wcn-btfm;
-		qcom,mi2s-audio-intf;
-		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx = <1>;
+		qcom,wcn-btfm = <1>;
+		qcom,mi2s-audio-intf = <1>;
+		qcom,auxpcm-audio-intf = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
