@@ -26,6 +26,7 @@
 #include <linux/regmap.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/module.h>
+#include <linux/clk.h>
 #include "llcc_events.h"
 #include "llcc_perfmon.h"
 
@@ -79,6 +80,7 @@ struct event_port_ops {
  * @mutex:		mutex to protect this structure
  * @hrtimer:		hrtimer instance for timer functionality
  * @expires:		timer expire time in nano seconds
+ * @clk:		clock node to enable qdss
  */
 struct llcc_perfmon_private {
 	struct regmap *llcc_map;
@@ -94,6 +96,7 @@ struct llcc_perfmon_private {
 	struct mutex mutex;
 	struct hrtimer hrtimer;
 	ktime_t expires;
+	struct clk *clock;
 };
 
 static inline void llcc_bcast_write(struct llcc_perfmon_private *llcc_priv,
@@ -519,14 +522,24 @@ static ssize_t perfmon_start_store(struct device *dev,
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	uint32_t val = 0, mask;
 	unsigned long start;
+	int ret;
 
 	if (kstrtoul(buf, 10, &start))
 		return -EINVAL;
 
 	mutex_lock(&llcc_priv->mutex);
 	if (start) {
-		if (!llcc_priv->configured_counters)
+		if (!llcc_priv->configured_counters) {
 			pr_err("start failed. perfmon not configured\n");
+			mutex_unlock(&llcc_priv->mutex);
+			return -EINVAL;
+		}
+
+		ret = clk_prepare_enable(llcc_priv->clock);
+		if (ret) {
+			mutex_unlock(&llcc_priv->mutex);
+			return -EINVAL;
+		}
 
 		val = MANUAL_MODE | MONITOR_EN;
 		if (llcc_priv->expires) {
@@ -550,6 +563,8 @@ static ssize_t perfmon_start_store(struct device *dev,
 	mask = PERFMON_MODE_MONITOR_MODE_MASK | PERFMON_MODE_MONITOR_EN_MASK;
 	llcc_bcast_modify(llcc_priv, PERFMON_MODE, val, mask);
 
+	if (!start)
+		clk_disable_unprepare(llcc_priv->clock);
 
 	mutex_unlock(&llcc_priv->mutex);
 	return count;
@@ -1151,6 +1166,12 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	if (result < 0) {
 		pr_err("Invalid qcom,llcc-banks-off entry\n");
 		return result;
+	}
+
+	llcc_priv->clock = devm_clk_get(&pdev->dev, "qdss_clk");
+	if (IS_ERR(llcc_priv->clock)) {
+		pr_err("failed to get clock node\n");
+		return PTR_ERR(llcc_priv->clock);
 	}
 
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);
