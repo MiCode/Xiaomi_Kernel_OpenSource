@@ -3842,10 +3842,8 @@ static int cam_icp_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_REQ, "ctx_id %d req %lld Flush type %d",
-		ctx_data->ctx_id,
-		*(int64_t *)flush_args->flush_req_pending[0],
-		flush_args->flush_type);
+	CAM_DBG(CAM_REQ, "ctx_id %d Flush type %d",
+		ctx_data->ctx_id, flush_args->flush_type);
 
 	switch (flush_args->flush_type) {
 	case CAM_FLUSH_TYPE_ALL:
