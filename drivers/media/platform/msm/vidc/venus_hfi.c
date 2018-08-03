@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -936,8 +936,6 @@ static int __core_set_resource(struct venus_hfi_device *device,
 err_create_pkt:
 	return rc;
 }
-
-static DECLARE_COMPLETION(release_resources_done);
 
 static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
 {
@@ -2157,8 +2155,6 @@ static int venus_hfi_core_init(void *device)
 
 	dev = device;
 	mutex_lock(&dev->lock);
-
-	init_completion(&release_resources_done);
 
 	rc = __load_fw(dev);
 	if (rc) {
@@ -3461,7 +3457,6 @@ static int __response_handler(struct venus_hfi_device *device)
 			break;
 		case HAL_SYS_RELEASE_RESOURCE_DONE:
 			dprintk(VIDC_DBG, "Received SYS_RELEASE_RESOURCE\n");
-			complete(&release_resources_done);
 			break;
 		case HAL_SYS_INIT_DONE:
 			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
