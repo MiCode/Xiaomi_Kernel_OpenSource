@@ -684,8 +684,11 @@
 	};
 
 	clock_npucc: qcom,npucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "npucc_clocks";
+		compatible = "qcom,npucc-sdmmagpie", "syscon";
+		reg = <0x9910000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		npu_gdsc-supply = <&npu_core_gdsc>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1791,6 +1794,8 @@
 };
 
 &npu_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_NPU_CFG_AHB_CLK>;
 	status = "ok";
 };
 
