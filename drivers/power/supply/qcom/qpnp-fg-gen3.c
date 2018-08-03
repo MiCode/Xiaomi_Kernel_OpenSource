@@ -165,6 +165,7 @@ struct fg_dt_props {
 	bool	linearize_soc;
 	bool	auto_recharge_soc;
 	bool    use_esr_sw;
+	bool	disable_esr_pull_dn;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -4140,7 +4141,7 @@ static int fg_hw_init(struct fg_dev *fg)
 		return rc;
 	}
 
-	if (is_debug_batt_id(fg)) {
+	if (is_debug_batt_id(fg) || chip->dt.disable_esr_pull_dn) {
 		val = ESR_NO_PULL_DOWN;
 		rc = fg_masked_write(fg, BATT_INFO_ESR_PULL_DN_CFG(fg),
 			ESR_PULL_DOWN_MODE_MASK, val);
@@ -5025,6 +5026,9 @@ static int fg_parse_dt(struct fg_gen3_chip *chip)
 	}
 
 	chip->dt.use_esr_sw = of_property_read_bool(node, "qcom,fg-use-sw-esr");
+
+	chip->dt.disable_esr_pull_dn = of_property_read_bool(node,
+					"qcom,fg-disable-esr-pull-dn");
 
 	return 0;
 }
