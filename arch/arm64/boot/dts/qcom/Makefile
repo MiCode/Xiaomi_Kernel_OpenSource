@@ -502,9 +502,9 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pmi8950-mtp.dtb \
 	msm8917-pmi8940-cdp.dtb \
 	msm8917-pmi8940-rcm.dtb
 
-dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
-	apq8009w-bg-wtp-v2.dtb \
-	apq8009w-bg-alpha.dtb \
+dtb-$(CONFIG_ARCH_MSM8909) += sdw3100-msm8909w-wtp.dtb \
+	sdw3100-apq8009w-wtp.dtb \
+	sdw3100-apq8009w-alpha.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-robot-som-refboard.dtb \
 	apq8009-robot-rome-refboard.dtb \
