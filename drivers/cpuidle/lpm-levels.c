@@ -1250,13 +1250,13 @@ static int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl,
 				&cluster->child_cpus))
 		goto unlock_and_return;
 
-	state_id |= get_cluster_id(cluster->parent, aff_lvl, from_idle);
+	state_id += get_cluster_id(cluster->parent, aff_lvl, from_idle);
 
 	if (cluster->last_level != cluster->default_level) {
 		struct lpm_cluster_level *level
 			= &cluster->levels[cluster->last_level];
 
-		state_id |= (level->psci_id & cluster->psci_mode_mask)
+		state_id += (level->psci_id & cluster->psci_mode_mask)
 					<< cluster->psci_mode_shift;
 
 		/*
@@ -1266,7 +1266,7 @@ static int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl,
 		if (level->notify_rpm)
 			if (sys_pm_ops && sys_pm_ops->update_wakeup)
 				sys_pm_ops->update_wakeup(from_idle);
-		if (level->psci_id)
+		if (cluster->psci_mode_shift)
 			(*aff_lvl)++;
 	}
 unlock_and_return:
@@ -1297,7 +1297,7 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	state_id = get_cluster_id(cpu->parent, &affinity_level, from_idle);
 	power_state = PSCI_POWER_STATE(cpu->levels[idx].is_reset);
 	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
-	state_id |= power_state | affinity_level | cpu->levels[idx].psci_id;
+	state_id += power_state + affinity_level + cpu->levels[idx].psci_id;
 
 	update_debug_pc_event(CPU_ENTER, state_id,
 			0xdeaffeed, 0xdeaffeed, from_idle);
