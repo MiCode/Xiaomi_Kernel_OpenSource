@@ -21,8 +21,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/sched/topology.h>
+#include <linux/sched/energy.h>
 #include <linux/cpuset.h>
-#include <linux/sched_energy.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;

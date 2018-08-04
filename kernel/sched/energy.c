@@ -23,7 +23,7 @@
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/sched/topology.h>
-#include <linux/sched_energy.h>
+#include <linux/sched/energy.h>
 #include <linux/stddef.h>
 #include <linux/arch_topology.h>
 #include <linux/cpu.h>

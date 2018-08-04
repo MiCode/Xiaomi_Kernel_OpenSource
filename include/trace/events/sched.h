@@ -737,6 +737,19 @@ struct cfs_rq *__trace_sched_group_cfs_rq(struct sched_entity *se)
 }
 #endif /* CREATE_TRACE_POINTS */
 
+#ifdef CONFIG_SCHED_WALT
+extern unsigned int sysctl_sched_use_walt_cpu_util;
+extern unsigned int sysctl_sched_use_walt_task_util;
+extern unsigned int sched_ravg_window;
+extern unsigned int walt_disabled;
+
+#define walt_util(util_var, demand_sum) {\
+	u64 sum = demand_sum << SCHED_CAPACITY_SHIFT;\
+	do_div(sum, sched_ravg_window);\
+	util_var = (typeof(util_var))sum;\
+	}
+#endif
+
 /*
  * Tracepoint for cfs_rq load tracking:
  */
@@ -752,6 +765,8 @@ TRACE_EVENT(sched_load_cfs_rq,
 				__trace_sched_path(cfs_rq, NULL, 0)	)
 		__field(	unsigned long,	load			)
 		__field(	unsigned long,	util			)
+		__field(	unsigned long,	util_pelt          	)
+		__field(	unsigned long,	util_walt          	)
 	),
 
 	TP_fast_assign(
@@ -760,10 +775,21 @@ TRACE_EVENT(sched_load_cfs_rq,
 				   __get_dynamic_array_len(path));
 		__entry->load	= cfs_rq->runnable_load_avg;
 		__entry->util	= cfs_rq->avg.util_avg;
+		__entry->util_pelt = cfs_rq->avg.util_avg;
+		__entry->util_walt = 0;
+#ifdef CONFIG_SCHED_WALT
+		if (&cfs_rq->rq->cfs == cfs_rq) {
+			walt_util(__entry->util_walt,
+				  cfs_rq->rq->prev_runnable_sum);
+			if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+				__entry->util = __entry->util_walt;
+		}
+#endif
 	),
 
-	TP_printk("cpu=%d path=%s load=%lu util=%lu", __entry->cpu,
-		  __get_str(path), __entry->load, __entry->util)
+	TP_printk("cpu=%d path=%s load=%lu util=%lu util_pelt=%lu util_walt=%lu",
+		  __entry->cpu, __get_str(path), __entry->load, __entry->util,
+		  __entry->util_pelt, __entry->util_walt)
 );
 
 /*
@@ -790,52 +816,6 @@ TRACE_EVENT(sched_load_rt_rq,
 	TP_printk("cpu=%d util=%lu", __entry->cpu,
 		  __entry->util)
 );
-
-#ifdef CONFIG_SCHED_WALT
-extern unsigned int sysctl_sched_use_walt_cpu_util;
-extern unsigned int sysctl_sched_use_walt_task_util;
-extern unsigned int sched_ravg_window;
-extern unsigned int walt_disabled;
-#endif
-
-/*
- * Tracepoint for accounting cpu root cfs_rq
- */
-TRACE_EVENT(sched_load_avg_cpu,
-
-	TP_PROTO(int cpu, struct cfs_rq *cfs_rq),
-
-	TP_ARGS(cpu, cfs_rq),
-
-	TP_STRUCT__entry(
-		__field( int,   cpu                             )
-		__field( unsigned long, load_avg                )
-		__field( unsigned long, util_avg                )
-		__field( unsigned long, util_avg_pelt           )
-		__field( u32,		util_avg_walt           )
-	),
-
-	TP_fast_assign(
-		__entry->cpu                    = cpu;
-		__entry->load_avg               = cfs_rq->avg.load_avg;
-		__entry->util_avg               = cfs_rq->avg.util_avg;
-		__entry->util_avg_pelt  = cfs_rq->avg.util_avg;
-		__entry->util_avg_walt  = 0;
-#ifdef CONFIG_SCHED_WALT
-		__entry->util_avg_walt  = div64_ul(cpu_rq(cpu)->prev_runnable_sum,
-					  sched_ravg_window >> SCHED_CAPACITY_SHIFT);
-
-		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
-			__entry->util_avg       = __entry->util_avg_walt;
-#endif
-	),
-
-	TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
-			"util_avg_pelt=%lu util_avg_walt=%u",
-		__entry->cpu, __entry->load_avg, __entry->util_avg,
-		__entry->util_avg_pelt, __entry->util_avg_walt)
-);
-
 
 /*
  * Tracepoint for sched_entity load tracking:

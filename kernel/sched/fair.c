@@ -2881,9 +2881,6 @@ static inline void cfs_rq_util_change(struct cfs_rq *cfs_rq)
 		 * See cpu_util().
 		 */
 		cpufreq_update_util(rq, 0);
-#ifdef CONFIG_SMP
-		trace_sched_load_avg_cpu(cpu_of(rq), cfs_rq);
-#endif
 	}
 }
 
@@ -9322,6 +9319,9 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	capacity = min(capacity, thermal_cap(cpu));
 
 	cpu_rq(cpu)->cpu_capacity_orig = capacity;
+
+	capacity *= arch_scale_max_freq_capacity(sd, cpu);
+	capacity >>= SCHED_CAPACITY_SHIFT;
 
 	capacity *= scale_rt_capacity(cpu);
 	capacity >>= SCHED_CAPACITY_SHIFT;
