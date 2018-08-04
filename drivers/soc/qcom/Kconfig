@@ -375,6 +375,43 @@ config MSM_PIL_SSR_GENERIC
          or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
          BCSS.
 
+config SETUP_SSR_NOTIF_TIMEOUTS
+	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
+	help
+	  Setup timers prior to initiating communication between
+	  subsystems through sysmon, and prior to sending notifications
+	  to drivers in the kernel that have registered callbacks with the
+	  subsystem notifier framework for a particular subsystem. This
+	  is a debugging feature.
+
+config SSR_SYSMON_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Sysmon notifications timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of sysmon SSR notifications, before a warning
+	  is emitted.
+
+config SSR_SUBSYS_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Subsystem notifier timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of SSR notifications through the subsystem
+	  notifier, before a warning is emitted.
+
+config PANIC_ON_SSR_NOTIF_TIMEOUT
+	bool "Trigger kernel panic when notification timeout expires"
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	help
+	  Trigger a kernel panic when communication between subsystems
+	  through sysmon is taking too long. Also trigger a kernel panic
+	  if invoking the callbacks registered with a particular subsystem's
+	  notifications by the subsystem notifier framework is taking too long.
+	  This is a debugging feature.
+
 config MSM_BOOT_STATS
 	bool "Use MSM boot stats reporting"
 	help
