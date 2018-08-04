@@ -116,6 +116,7 @@ struct qmi_client_info {
 static LIST_HEAD(qmi_client_list);
 static DEFINE_MUTEX(qmi_list_lock);
 static DEFINE_MUTEX(notif_add_lock);
+static struct workqueue_struct *pdr_wq;
 
 static struct service_notif_info *_find_service_info(const char *service_path)
 {
@@ -236,7 +237,7 @@ static void root_service_service_ind_cb(struct qmi_handle *qmi,
 	snprintf(qmi_data->ind_msg.service_path,
 		ARRAY_SIZE(qmi_data->ind_msg.service_path), "%s",
 		ind_msg.service_name);
-	schedule_work(&qmi_data->ind_ack);
+	queue_work(pdr_wq, &qmi_data->ind_ack);
 }
 
 static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
@@ -716,3 +717,14 @@ int service_notif_unregister_notifier(void *service_notif_handle,
 				&service_notif->service_notif_rcvr_list, nb);
 }
 EXPORT_SYMBOL(service_notif_unregister_notifier);
+
+static int __init service_notif_init(void)
+{
+
+	pdr_wq = alloc_workqueue("pdr_wq", WQ_CPU_INTENSIVE | WQ_UNBOUND |
+				 WQ_HIGHPRI, 0);
+	BUG_ON(!pdr_wq);
+
+	return 0;
+}
+arch_initcall(service_notif_init);
