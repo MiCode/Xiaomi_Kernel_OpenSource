@@ -3535,6 +3535,19 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 				return rc;
 			}
 		}
+
+		/*
+		 * Disable ESR discharging timer and ESR pulsing during
+		 * discharging when ESR fast calibration is disabled.
+		 */
+		val = 0;
+		mask = BIT(6) | BIT(7);
+		rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+				SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/*
