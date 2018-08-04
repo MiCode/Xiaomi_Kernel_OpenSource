@@ -75,6 +75,7 @@ static int sharedmem_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	return result;
 }
 
+#ifdef CONFIG_MSM_GVM_QUIN
 static void free_shared_ram_perms(u32 client_id, phys_addr_t addr, u32 size)
 {
 	int ret;
@@ -92,6 +93,7 @@ static void free_shared_ram_perms(u32 client_id, phys_addr_t addr, u32 size)
 			&addr, size, ret);
 	}
 }
+#endif
 
 /* Setup the shared ram permissions.
  * This function currently supports the mpss client only.
@@ -202,6 +204,7 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_MSM_GVM_QUIN
 static void msm_sharedmem_shutdown(struct platform_device *pdev)
 {
 	struct uio_info *info = dev_get_drvdata(&pdev->dev);
@@ -212,6 +215,11 @@ static void msm_sharedmem_shutdown(struct platform_device *pdev)
 	free_shared_ram_perms(MPSS_RMTS_CLIENT_ID, shared_mem_addr,
 			shared_mem_size);
 }
+#else
+static void msm_sharedmem_shutdown(struct platform_device *pdev)
+{
+}
+#endif
 
 static int msm_sharedmem_remove(struct platform_device *pdev)
 {
