@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,8 @@
 
 #define SDE_CEA_EXT    0x02
 #define SDE_EXTENDED_TAG 0x07
+
+#define MIN_SCRAMBLER_REQ_RATE 340000
 
 #define SDE_DRM_MODE_FLAG_FMT_MASK (0x3 << 20)
 

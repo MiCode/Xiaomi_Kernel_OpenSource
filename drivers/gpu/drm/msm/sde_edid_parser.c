@@ -366,6 +366,33 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 	else
 		SDE_EDID_DEBUG("YCbCr420 CMDB is not present\n");
 
+	/*
+	 * As per HDMI 2.0 spec, a sink supporting any modes
+	 * requiring more than 340Mhz clock rate should support
+	 * SCDC as well. This is required because we need the SCDC
+	 * channel to set the TMDS clock ratio. However in cases
+	 * where the TV publishes such a mode in its list of modes
+	 * but does not have SCDC support as per HDMI HFVSDB block
+	 * remove RGB mode support from the flags. Currently, in
+	 * the list of modes not having deep color support only RGB
+	 * modes shall requre a clock of 340Mhz and above such as the
+	 * 4K@60fps case. All other modes shall be YUV.
+	 * Deep color case is handled separately while choosing the
+	 * best mode in the _sde_hdmi_choose_best_format API where
+	 * we enable deep color only if it satisfies both source and
+	 * sink requirements. However, that API assumes that at least
+	 * RGB mode is supported on the mode. Hence, it would be better
+	 * to remove the format support flags while parsing the EDID
+	 * itself if it doesn't satisfy the HDMI spec requirement.
+	 */
+
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		if ((mode->clock > MIN_SCRAMBLER_REQ_RATE) &&
+			!connector->scdc_present) {
+			mode->flags &= ~DRM_MODE_FLAG_SUPPORTS_RGB;
+		}
+	}
+
 	SDE_EDID_DEBUG("%s -\n", __func__);
 }
 

@@ -2754,6 +2754,13 @@ enum drm_mode_status sde_hdmi_mode_valid(struct drm_connector *connector,
 	if (actual != requested)
 		return MODE_CLOCK_RANGE;
 
+	/* if no format flags are present remove the mode */
+	if (!(mode->flags & SDE_DRM_MODE_FLAG_FMT_MASK)) {
+		SDE_HDMI_DEBUG("removing following mode from list\n");
+		drm_mode_debug_printmodeline(mode);
+		return MODE_BAD;
+	}
+
 	return MODE_OK;
 }
 
