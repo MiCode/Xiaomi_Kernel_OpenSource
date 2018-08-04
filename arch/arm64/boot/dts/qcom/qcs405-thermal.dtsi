@@ -42,6 +42,13 @@
 	};
 };
 
+&rpm_bus {
+	rpm_smd_cdev: rpm-smd-cdev {
+		compatible = "qcom,rpm-smd-cooling-device";
+		#cooling-cells = <2>;
+	};
+};
+
 &thermal_zones {
 	aoss-usr {
 		polling-delay-passive = <0>;
@@ -328,6 +335,27 @@
 				cooling-device =
 					<&CPU3 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	aoss-lowc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&tsens0 0>;
+		tracks-low;
+		trips {
+			aoss_lowc: aoss-lowc {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			rpm_smd_cdev {
+				trip = <&aoss_lowc>;
+				cooling-device = <&rpm_smd_cdev 2 2>;
 			};
 		};
 	};
