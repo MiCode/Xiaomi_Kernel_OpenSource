@@ -764,7 +764,7 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 
 	mutex_lock(&device->mutex);
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (status == 0)
+	if (status == 0 && device->state == KGSL_STATE_SUSPEND)
 		device->ftbl->dispatcher_halt(device);
 	mutex_unlock(&device->mutex);
 
