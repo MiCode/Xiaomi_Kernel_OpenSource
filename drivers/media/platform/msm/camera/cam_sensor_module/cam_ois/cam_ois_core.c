@@ -56,6 +56,7 @@ int32_t cam_ois_construct_default_power_setting(
 free_power_settings:
 	kfree(power_info->power_setting);
 	power_info->power_setting = NULL;
+	power_info->power_setting_size = 0;
 	return rc;
 }
 
@@ -638,10 +639,9 @@ pwr_dwn:
 void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
 {
 	int rc = 0;
-	struct cam_ois_soc_private  *soc_private =
+	struct cam_ois_soc_private *soc_private =
 		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
-	struct cam_sensor_power_ctrl_t *power_info =
-		&soc_private->power_info;
+	struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
 
 	if (o_ctrl->cam_ois_state == CAM_OIS_INIT)
 		return;
@@ -666,6 +666,8 @@ void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
 	kfree(power_info->power_down_setting);
 	power_info->power_setting = NULL;
 	power_info->power_down_setting = NULL;
+	power_info->power_down_setting_size = 0;
+	power_info->power_setting_size = 0;
 
 	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 }
@@ -679,11 +681,13 @@ void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
  */
 int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 {
-	int                            rc = 0;
-	struct cam_ois_query_cap_t     ois_cap = {0};
-	struct cam_control            *cmd = (struct cam_control *)arg;
+	int                              rc = 0;
+	struct cam_ois_query_cap_t       ois_cap = {0};
+	struct cam_control              *cmd = (struct cam_control *)arg;
+	struct cam_ois_soc_private      *soc_private = NULL;
+	struct cam_sensor_power_ctrl_t  *power_info = NULL;
 
-	if (!o_ctrl || !arg) {
+	if (!o_ctrl || !cmd) {
 		CAM_ERR(CAM_OIS, "Invalid arguments");
 		return -EINVAL;
 	}
@@ -693,6 +697,10 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			cmd->handle_type);
 		return -EINVAL;
 	}
+
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
 
 	mutex_lock(&(o_ctrl->ois_mutex));
 	switch (cmd->op_code) {
@@ -764,6 +772,13 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		o_ctrl->bridge_intf.link_hdl = -1;
 		o_ctrl->bridge_intf.session_hdl = -1;
 		o_ctrl->cam_ois_state = CAM_OIS_INIT;
+
+		kfree(power_info->power_setting);
+		kfree(power_info->power_down_setting);
+		power_info->power_setting = NULL;
+		power_info->power_down_setting = NULL;
+		power_info->power_down_setting_size = 0;
+		power_info->power_setting_size = 0;
 		break;
 	case CAM_STOP_DEV:
 		if (o_ctrl->cam_ois_state != CAM_OIS_START) {

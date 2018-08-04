@@ -91,6 +91,11 @@ Optional properties:
   Value type: <u32>
   Definition: List of clocks rates for optional clocks.
 
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
 Example:
 	qcom,vfe0@acaf000 {
 		cell-index = <0>;
