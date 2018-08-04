@@ -2272,6 +2272,48 @@ int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 	return rc;
 }
 
+static inline bool typec_in_src_mode(struct smb_charger *chg)
+{
+	return (chg->typec_mode > POWER_SUPPLY_TYPEC_NONE &&
+		chg->typec_mode < POWER_SUPPLY_TYPEC_SOURCE_DEFAULT);
+}
+
+int smblib_get_prop_typec_select_rp(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc, rp;
+	u8 stat;
+
+	if (!typec_in_src_mode(chg))
+		return -ENODATA;
+
+	rc = smblib_read(chg, TYPE_C_CURRSRC_CFG_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_CURRSRC_CFG_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	switch (stat & TYPEC_SRC_RP_SEL_MASK) {
+	case TYPEC_SRC_RP_STD:
+		rp = POWER_SUPPLY_TYPEC_SRC_RP_STD;
+		break;
+	case TYPEC_SRC_RP_1P5A:
+		rp = POWER_SUPPLY_TYPEC_SRC_RP_1P5A;
+		break;
+	case TYPEC_SRC_RP_3A:
+	case TYPEC_SRC_RP_3A_DUPLICATE:
+		rp = POWER_SUPPLY_TYPEC_SRC_RP_3A;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	val->intval = rp;
+
+	return 0;
+}
+
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
@@ -2607,6 +2649,29 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+int smblib_set_prop_typec_select_rp(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	int rc;
+
+	if (!typec_in_src_mode(chg)) {
+		smblib_err(chg, "Couldn't set curr src: not in SRC mode\n");
+		return -EINVAL;
+	}
+
+	if (val->intval < TYPEC_SRC_RP_MAX_ELEMENTS) {
+		rc = smblib_masked_write(chg, TYPE_C_CURRSRC_CFG_REG,
+				TYPEC_SRC_RP_SEL_MASK,
+				val->intval);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't write to TYPE_C_CURRSRC_CFG rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	return -EINVAL;
 }
 
 int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
