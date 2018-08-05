@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,31 +229,62 @@ done:
 	return ret;
 }
 
-static int audio_ext_set_lpass_mclk_v2(enum clk_enablement enable)
+static int audio_ext_set_lpass_mclk_v2(struct clk *clk,
+				       enum clk_enablement enable)
 {
 	struct afe_clk_set m_clk = lpass_default2;
 	struct afe_clk_set ibit_clk = lpass_default2;
-	int ret = 0;
+	struct audio_ext_lpass_mclk *audio_lpass_mclk;
+	int ret = 0, val = 0;
 
 	pr_debug("%s: Setting clock using v2, enable(%d)\n", __func__, enable);
 
-	/* Set both mclk and ibit clocks when using LPASS_CLK_VER_2 */
-	m_clk.enable = enable;
-	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX, &m_clk);
-	if (ret < 0) {
-		pr_err("%s: afe_set_lpass_clock_v2 failed for mclk_3 with ret %d\n",
-		       __func__, ret);
+	audio_lpass_mclk = container_of(clk, struct audio_ext_lpass_mclk, c);
+	if (audio_lpass_mclk == NULL) {
+		pr_err("%s: audio_lpass_mclk is NULL\n", __func__);
+		ret = -EINVAL;
 		goto done;
 	}
 
-	ibit_clk.clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
-	ibit_clk.clk_freq_in_hz = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-	ibit_clk.enable = enable;
-	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX, &ibit_clk);
-	if (ret < 0) {
-		pr_err("%s: afe_set_lpass_clock_v2 failed for ibit with ret %d\n",
-		       __func__, ret);
-		goto err_ibit_clk_set;
+	if (!audio_lpass_mclk->lpass_clock) {
+		/* Set both mclk and ibit clocks when using LPASS_CLK_VER_2 */
+		m_clk.enable = enable;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					     &m_clk);
+		if (ret < 0) {
+			pr_err("%s: afe_set_lpass_clock_v2 failed for mclk_3\n"
+				"with ret %d\n", __func__, ret);
+			goto done;
+		}
+
+		ibit_clk.clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
+		ibit_clk.clk_freq_in_hz = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+		ibit_clk.enable = enable;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					     &ibit_clk);
+		if (ret < 0) {
+			pr_err("%s: afe_set_lpass_clock_v2 failed for ibit\n"
+				 "with ret %d\n", __func__, ret);
+			goto err_ibit_clk_set;
+		}
+	} else {
+		if (audio_lpass_mclk->lpass_csr_gpio_mux_spkrctl_vaddr &&
+		    enable) {
+			val = ioread32(audio_lpass_mclk->
+					lpass_csr_gpio_mux_spkrctl_vaddr);
+			val = val | 0x00000002;
+			iowrite32(val, audio_lpass_mclk->
+					lpass_csr_gpio_mux_spkrctl_vaddr);
+		}
+
+		digital_cdc_core_clk.enable = enable;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					     &digital_cdc_core_clk);
+		if (ret < 0) {
+			pr_err("%s: afe_set_digital_codec_core_clock failed\n"
+				" with ret %d\n", __func__, ret);
+			goto done;
+		}
 	}
 
 	ret = 0;
@@ -299,7 +330,7 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 	lpass_clk_ver = afe_get_lpass_clk_ver();
 
 	if (lpass_clk_ver >= LPASS_CLK_VER_2)
-		ret = audio_ext_set_lpass_mclk_v2(CLK_ENABLE);
+		ret = audio_ext_set_lpass_mclk_v2(clk, CLK_ENABLE);
 	else
 		ret = audio_ext_set_lpass_mclk_v1(clk, CLK_ENABLE);
 
@@ -336,7 +367,7 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 	lpass_clk_ver = afe_get_lpass_clk_ver();
 
 	if (lpass_clk_ver >= LPASS_CLK_VER_2)
-		ret = audio_ext_set_lpass_mclk_v2(CLK_DISABLE);
+		ret = audio_ext_set_lpass_mclk_v2(clk, CLK_DISABLE);
 	else
 		ret = audio_ext_set_lpass_mclk_v1(clk, CLK_DISABLE);
 

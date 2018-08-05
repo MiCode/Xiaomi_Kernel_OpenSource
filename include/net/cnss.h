@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,11 +102,14 @@ struct cnss_platform_cap {
 	u32 cap_flag;
 };
 
-/* WLAN driver status */
+/* WLAN driver status, keep it aligned with cnss2 */
 enum cnss_driver_status {
 	CNSS_UNINITIALIZED,
 	CNSS_INITIALIZED,
-	CNSS_LOAD_UNLOAD
+	CNSS_LOAD_UNLOAD,
+	CNSS_RECOVERY,
+	CNSS_FW_DOWN,
+	CNSS_SSR_FAIL,
 };
 
 enum cnss_runtime_request {

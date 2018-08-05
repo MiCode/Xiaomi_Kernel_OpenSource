@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -59,11 +59,11 @@ struct msm_audio_in_frame_info {
 
 #define PLAYBACK_MIN_NUM_PERIODS    2
 #define PLAYBACK_MAX_NUM_PERIODS    8
-#define PLAYBACK_MAX_PERIOD_SIZE    61440
+#define PLAYBACK_MAX_PERIOD_SIZE    122880
 #define PLAYBACK_MIN_PERIOD_SIZE    128
 #define CAPTURE_MIN_NUM_PERIODS     2
 #define CAPTURE_MAX_NUM_PERIODS     8
-#define CAPTURE_MAX_PERIOD_SIZE     61440
+#define CAPTURE_MAX_PERIOD_SIZE     122880
 #define CAPTURE_MIN_PERIOD_SIZE     320
 
 struct msm_audio {
@@ -124,6 +124,7 @@ struct output_meta_data_st {
 struct msm_plat_data {
 	int perf_mode;
 	int perf_mode_set;
+	struct snd_pcm *pcm;
 };
 
 #endif /*_MSM_PCM_H*/

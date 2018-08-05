@@ -49,7 +49,8 @@
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
 #define MSM8X16_WCD_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
 		SNDRV_PCM_FMTBIT_S24_LE |\
-		SNDRV_PCM_FMTBIT_S24_3LE)
+		SNDRV_PCM_FMTBIT_S24_3LE |\
+		SNDRV_PCM_FMTBIT_S32_LE)
 
 #define NUM_INTERPOLATORS	3
 #define BITS_PER_REG		8
@@ -4755,13 +4756,24 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 	}
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
-		snd_soc_update_bits(dai->codec,
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			snd_soc_update_bits(dai->codec,
 				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x20);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			snd_soc_update_bits(dai->codec,
+				MSM8X16_WCD_A_CDC_CLK_TX_I2S_CTL, 0x20, 0x20);
+		}
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
-		snd_soc_update_bits(dai->codec,
+	case SNDRV_PCM_FORMAT_S32_LE:
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			snd_soc_update_bits(dai->codec,
 				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x00);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			snd_soc_update_bits(dai->codec,
+				MSM8X16_WCD_A_CDC_CLK_TX_I2S_CTL, 0x20, 0x00);
+		}
 		break;
 	default:
 		dev_err(dai->codec->dev, "%s: wrong format selected\n",

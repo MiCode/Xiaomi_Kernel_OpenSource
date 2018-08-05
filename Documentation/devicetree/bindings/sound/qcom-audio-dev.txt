@@ -1371,6 +1371,16 @@ Required properties:
 				When clock rate is set to zero,
 				then external clock is assumed.
 
+ - qcom,msm-cpudai-tdm-afe-ebit-unsupported: Notify if ebit setting is needed
+					  When this is set , alongwith
+					  clock rate as zero then afe
+					  is not configured for clock.
+
+ - qcom,msm-cpudai-tdm-sec-port-start: For chipsets with the limitation where we need
+				       to start both RX and TX AFE ports, this flag is
+				       used to start TX/RX port for RX/TX streams.
+
+
  [Second Level Nodes]
 
 Required properties:
@@ -1963,6 +1973,9 @@ Optional properties:
 - qcom,wsa-devs: This property contains list of wsa codec names. The names
 		should comply with the wsa nodes configurations.
 - qcom,wsa-aux-dev-prefix: This property contains list of wsa codec prefixes.
+- qcom,tdm-i2s-switch-enable: For chipsets where tdm mics are controlled by
+			      switch, drive corresponding gpio to output high
+			      to enable switch.
 
 Example:
 	sound {

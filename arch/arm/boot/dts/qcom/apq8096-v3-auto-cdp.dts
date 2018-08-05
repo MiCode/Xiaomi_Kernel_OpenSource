@@ -38,7 +38,7 @@
 		compatible = "qcom,renesas,rh850";
 		reg = <0>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <127 0>;
+		interrupts = <127 2>;
 		spi-max-frequency = <5000000>;
 		qcom,clk-freq-mhz = <16000000>;
 		qcom,max-can-channels = <4>;

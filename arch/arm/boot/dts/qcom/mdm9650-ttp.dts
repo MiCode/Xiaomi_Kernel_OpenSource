@@ -78,7 +78,7 @@
 		spi-max-frequency = <4800000>;
 		reg = <0>;
 		interrupt-parent = <&tlmm_pinmux>;
-		interrupts = <84 0>;
+		interrupts = <84 1>;
 		reset-gpio = <&tlmm_pinmux 68 0x1>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
