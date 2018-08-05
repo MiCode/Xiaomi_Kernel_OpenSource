@@ -1401,3 +1401,24 @@
 &usb3 {
 	extcon = <&usb3_extcon>;
 };
+
+&soc {
+	qcom,msm-geni-ir@740000 {
+		compatible = "qcom,msm-geni-ir";
+		reg-names = "base";
+		reg = <0x740000 0x1000>;
+
+		interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "geni-ir-core-irq";
+
+		clocks = <&clock_gcc GCC_GENI_IR_H_CLK>,
+			<&clock_gcc GCC_GENI_IR_S_CLK>;
+		clock-names = "iface_clk", "serial_clk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_in_default>;
+
+		resets = <&clock_gcc GCC_GENI_IR_BCR>;
+		reset-names = "geni_reset";
+	};
+};

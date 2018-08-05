@@ -1,0 +1,44 @@
+MSM Generic Serial Interface Infrared (GENI-IR) Controller
+
+Required properties:
+- compatible : Should be "qcom,msm-geni-ir"
+- reg : Offset and length of the register region for the device
+- reg-names : Register region name referenced in 'reg' above
+	The only required register resource entry is:
+	"base"       : GENI-IR controller register block
+- interrupts : Interrupt numbers used by this controller
+- interrupt-names : Interrupt resource names referenced in 'interrupts' above
+	Required interrupt resource entries are:
+	"geni-ir-core-irq"   : GENI-IR core interrupt
+	"geni-ir-wakeup-irq" : GENI-IR wakeup interrupt
+- qcom,geni-ir-gpio-tx  : GPIO pin number of the GENI-IR transmit line
+- qcom,geni-ir-gpio-rx  : GPIO pin number of the GENI-IR receive line
+
+Aliases :
+Aliases may be optionally used for GENI-IR devices on a target.
+The alias will have the following format:
+	'geni_ir{n}' where n is the instance number.
+
+GENI-IR device is the child device of the SPSS device.
+
+Example:
+	aliases {
+		geni_ir1 = &geni_ir_1;
+	};
+
+	qcom,msm-spss@fc5c3000 {
+
+		...
+
+		geni_ir_1: qcom,msm-geni-ir@fc5c1000 {
+			compatible = "qcom,msm-geni-ir";
+			reg-names = "base";
+			reg = <0xfc5c1000 0x1000>;
+			interrupts = <0 284 0>, <0 285 0>;
+			interrupt-names = "geni-ir-core-irq",
+					  "geni-ir-wakeup-irq";
+			qcom,geni-ir-gpio-tx = <&msmgpio 8 0>;
+			qcom,geni-ir-gpio-rx = <&msmgpio 9 0>;
+		};
+	};
+

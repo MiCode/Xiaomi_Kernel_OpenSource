@@ -1350,6 +1350,22 @@
 			};
 		};
 
+		ir_in {
+			ir_in_default: ir_in_default {
+				mux {
+					pins = "gpio77";
+					function = "ir_in";
+				};
+
+				config {
+					pins = "gpio77";
+					drive-strength = <2>;   /* 2 mA */
+					bias-disable;           /* no pull */
+					input-enable;
+				};
+			};
+		};
+
 		/* WSA speaker reset pins */
 		wsa_en_1_2 {
 			wsa_en_1_2_sleep: wsa_en_1_2_sleep {
