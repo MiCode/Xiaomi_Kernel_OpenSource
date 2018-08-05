@@ -1356,7 +1356,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 {
 	struct dwc3_gadget_ep_cmd_params params;
-	struct dwc3_request		*req;
+	struct dwc3_request		*req, *req1, *n;
 	struct dwc3			*dwc = dep->dwc;
 	int				starting;
 	int				ret;
@@ -1386,6 +1386,31 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 
 	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
 	if (ret < 0) {
+		if ((ret == -EAGAIN) && starting &&
+				usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+			dbg_event(dep->number, "CMD_STS", ret);
+			/* If bit13 in Command complete event is set, software
+			 * must issue ENDTRANDFER command and wait for
+			 * Xfernotready event to queue the requests again.
+			 */
+			if (!dep->resource_index) {
+				dep->resource_index =
+					 dwc3_gadget_ep_get_transfer_index(dep);
+				WARN_ON_ONCE(!dep->resource_index);
+			}
+			dwc3_stop_active_transfer(dwc, dep->number, true);
+
+			list_for_each_entry_safe_reverse(req1, n,
+						&dep->started_list, list) {
+				req1->trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
+				req1->trb = NULL;
+				dwc3_gadget_move_pending_list_front(req1);
+				dwc3_ep_inc_deq(dep);
+			}
+
+			return ret;
+		}
+
 		/*
 		 * FIXME we need to iterate over the list of requests
 		 * here and stop, unmap, free and del each of the linked
@@ -2834,18 +2859,17 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 
 	if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
 			list_empty(&dep->started_list)) {
-		if (list_empty(&dep->pending_list)) {
+		if (list_empty(&dep->pending_list))
 			/*
 			 * If there is no entry in request list then do
 			 * not issue END TRANSFER now. Just set PENDING
 			 * flag, so that END TRANSFER is issued when an
 			 * entry is added into request list.
 			 */
-			dep->flags = DWC3_EP_PENDING_REQUEST;
-		} else {
+			dep->flags |= DWC3_EP_PENDING_REQUEST;
+		else
 			dwc3_stop_active_transfer(dwc, dep->number, true);
-			dep->flags = DWC3_EP_ENABLED;
-		}
+		dep->flags &= ~DWC3_EP_MISSED_ISOC;
 		return 1;
 	}
 
