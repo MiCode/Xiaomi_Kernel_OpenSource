@@ -3586,7 +3586,6 @@ void ipa3_enable_clks(void)
  */
 void _ipa_disable_clks_v3_0(void)
 {
-	ipa3_suspend_apps_pipes(true);
 	ipa3_uc_notify_clk_state(false);
 	if (ipa3_clk) {
 		IPADBG_LOW("disabling gcc_ipa_clk\n");
@@ -3831,6 +3830,7 @@ static void __ipa3_dec_client_disable_clks(void)
 	ret = atomic_sub_return(1, &ipa3_ctx->ipa3_active_clients.cnt);
 	if (ret > 0)
 		goto unlock_mutex;
+	ipa3_suspend_apps_pipes(true);
 	ipa3_disable_clks();
 
 unlock_mutex:

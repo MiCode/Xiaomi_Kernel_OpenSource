@@ -535,6 +535,7 @@ enum ipahal_pkt_status_nat_type {
  *  the global flt tbl? (if not, then the per endp tables)
  * @flt_ret_hdr: Retain header in filter rule flag: Does matching flt rule
  *  specifies to retain header?
+ *  Starting IPA4.5, this will be true only if packet has L2 header.
  * @flt_miss: Filtering miss flag: Was their a filtering rule miss?
  *   In case of miss, all flt info to be ignored
  * @rt_local: Route table location flag: Does matching rt rule belongs to
