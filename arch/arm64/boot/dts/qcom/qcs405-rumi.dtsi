@@ -88,6 +88,9 @@
 
 &thermal_zones {
 	/delete-node/ aoss-lowf;
+	/delete-node/ xo-therm-usr;
+	/delete-node/ pa-therm1-usr;
+	/delete-node/ pa-therm3-usr;
 };
 
 #include "qcs405-stub-regulator.dtsi"
