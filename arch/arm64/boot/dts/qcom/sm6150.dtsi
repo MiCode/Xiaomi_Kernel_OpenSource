@@ -368,11 +368,11 @@
 			};
 
 			cluster1 {
-				core6 {
+				core0 {
 					cpu = <&CPU6>;
 				};
 
-				core7 {
+				core1 {
 					cpu = <&CPU7>;
 				};
 			};
