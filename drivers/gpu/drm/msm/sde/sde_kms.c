@@ -1631,6 +1631,16 @@ void sde_kms_timeline_status(struct drm_device *dev)
 	drm_for_each_crtc(crtc, dev)
 		sde_crtc_timeline_status(crtc);
 
+	if (mutex_is_locked(&dev->mode_config.mutex)) {
+		/*
+		 *Probably locked from last close dumping status anyway
+		 */
+		SDE_ERROR("dumping conn_timeline without mode_config lock\n");
+		drm_for_each_connector_iter(conn, &conn_iter)
+			sde_conn_timeline_status(conn);
+		return;
+	}
+
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(conn, &conn_iter)
