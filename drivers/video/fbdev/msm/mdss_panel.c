@@ -633,6 +633,7 @@ void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 
 	pinfo->yres = pt->yres;
 	pinfo->lcdc.v_front_porch = pt->v_front_porch;
+	pinfo->lcdc.v_front_porch_fixed = pt->v_front_porch;
 	pinfo->lcdc.v_back_porch = pt->v_back_porch;
 	pinfo->lcdc.v_pulse_width = pt->v_pulse_width;
 
