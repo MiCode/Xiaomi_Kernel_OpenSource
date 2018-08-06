@@ -928,6 +928,8 @@ static irqreturn_t bg_irq_tasklet_hndlr(int irq, void *device)
 		pr_debug("No callback registered\n");
 		return IRQ_HANDLED;
 	} else if (spi_state == BGCOM_SPI_BUSY) {
+		/* delay for SPI to be freed */
+		msleep(50);
 		return IRQ_HANDLED;
 	} else if (!bg_spi->irq_lock) {
 		bg_spi->irq_lock = 1;
