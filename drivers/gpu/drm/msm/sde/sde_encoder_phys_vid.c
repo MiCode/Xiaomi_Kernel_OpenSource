@@ -404,6 +404,27 @@ static void _sde_encoder_phys_vid_setup_avr(
 	}
 }
 
+static void _sde_encoder_phys_vid_avr_ctrl(struct sde_encoder_phys *phys_enc)
+{
+	struct intf_avr_params avr_params;
+	struct sde_encoder_phys_vid *vid_enc =
+			to_sde_encoder_phys_vid(phys_enc);
+
+	avr_params.avr_mode = sde_connector_get_property(
+			phys_enc->connector->state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (vid_enc->base.hw_intf->ops.avr_ctrl) {
+		vid_enc->base.hw_intf->ops.avr_ctrl(
+				vid_enc->base.hw_intf,
+				&avr_params);
+	}
+
+	SDE_EVT32(DRMID(phys_enc->parent),
+		phys_enc->hw_intf->idx - INTF_0,
+		avr_params.avr_mode);
+}
+
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -490,8 +511,10 @@ exit:
 				phys_enc->parent, &qsync_min_fps);
 
 	/* only panels which support qsync will have a non-zero min fps */
-	if (qsync_min_fps)
+	if (qsync_min_fps) {
 		_sde_encoder_phys_vid_setup_avr(phys_enc, qsync_min_fps);
+		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
+	}
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -958,7 +981,6 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 	struct drm_connector *conn;
 	int event;
 	int rc;
-	struct intf_avr_params avr_params;
 
 	if (!phys_enc || !params || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid encoder/parameters\n");
@@ -1020,21 +1042,8 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		vid_enc->error_count = 0;
 	}
 
-	if (sde_connector_qsync_updated(phys_enc->connector)) {
-		avr_params.avr_mode = sde_connector_get_property(
-				phys_enc->connector->state,
-				CONNECTOR_PROP_QSYNC_MODE);
-
-		if (vid_enc->base.hw_intf->ops.avr_ctrl) {
-			vid_enc->base.hw_intf->ops.avr_ctrl(
-					vid_enc->base.hw_intf,
-					&avr_params);
-		}
-
-		SDE_EVT32(DRMID(phys_enc->parent),
-				phys_enc->hw_intf->idx - INTF_0,
-				avr_params.avr_mode);
-	}
+	if (sde_connector_qsync_updated(phys_enc->connector))
+		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
 
 	programmable_rot_fetch_config(phys_enc,
 			params->inline_rotate_prefill, params->is_primary);
