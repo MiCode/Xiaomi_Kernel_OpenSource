@@ -49,5 +49,12 @@
 			reg = <9>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
+
+		qcom,ion-heap@22 { /* ADSP HEAP */
+			reg = <22>;
+			memory-region = <&sdsp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
 	};
 };

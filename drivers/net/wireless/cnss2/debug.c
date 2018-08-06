@@ -306,10 +306,6 @@ static ssize_t cnss_reg_read_debug_write(struct file *fp,
 	if (kstrtou32(token, 0, &data_len))
 		return -EINVAL;
 
-	if (data_len == 0 ||
-	    data_len > QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01)
-		return -EINVAL;
-
 	mutex_lock(&plat_priv->dev_lock);
 	kfree(plat_priv->diag_reg_read_buf);
 	plat_priv->diag_reg_read_buf = NULL;

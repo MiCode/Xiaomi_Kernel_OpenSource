@@ -41,8 +41,8 @@
 #define INV20602_SMD_IRQ_TRIGGER    1
 #endif
 
-#define ICM20602_LDO_VTG_MIN_UV 3300000
-#define ICM20602_LDO_VTG_MAX_UV 3300000
+#define ICM20602_LDO_VTG_MIN_UV 1800000
+#define ICM20602_LDO_VTG_MAX_UV 1800000
 
 #define INV_ICM20602_TIME_STAMP_TOR           5
 #define ICM20602_PACKAGE_SIZE 14
@@ -220,7 +220,6 @@ struct inv_icm20602_state {
 	struct struct_icm20602_data *data_push;
 	enum inv_devices chip_type;
 	int gpio;
-	struct regulator *reg_ldo;
 	DECLARE_KFIFO(timestamps, long long, TIMESTAMP_FIFO_SIZE);
 };
 

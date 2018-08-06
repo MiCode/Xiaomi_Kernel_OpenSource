@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,8 +51,9 @@ int cam_sync_init_object(struct sync_table_row *table,
 	init_completion(&row->signaled);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
-	CAM_DBG(CAM_SYNC, "Sync object Initialised: sync_id:%u row_state:%u ",
-		row->sync_id, row->state);
+	CAM_DBG(CAM_SYNC,
+		"row name:%s sync_id:%i [idx:%u] row_state:%u ",
+		row->name, row->sync_id, idx, row->state);
 
 	return 0;
 }
@@ -74,9 +75,11 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 	 * counts of error, active and success states of all children objects
 	 */
 	for (i = 0; i < num_objs; i++) {
+		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 		child_row = table + sync_objs[i];
 		switch (child_row->state) {
 		case CAM_SYNC_STATE_SIGNALED_ERROR:
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			return CAM_SYNC_STATE_SIGNALED_ERROR;
 		case CAM_SYNC_STATE_SIGNALED_SUCCESS:
 			success_count++;
@@ -87,8 +90,10 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 		default:
 			CAM_ERR(CAM_SYNC,
 				"Invalid state of child object during merge");
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			return CAM_SYNC_STATE_SIGNALED_ERROR;
 		}
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 	}
 
 	if (active_count)
@@ -209,12 +214,16 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	if (!table || idx <= 0 || idx >= CAM_SYNC_MAX_OBJS)
 		return -EINVAL;
 
+	CAM_DBG(CAM_SYNC,
+		"row name:%s sync_id:%i [idx:%u] row_state:%u",
+		row->name, row->sync_id, idx, row->state);
+
 	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	if (row->state == CAM_SYNC_STATE_INVALID) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		CAM_ERR(CAM_SYNC,
 			"Error: accessing an uninitialized sync obj: idx = %d",
 			idx);
-		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
 	row->state = CAM_SYNC_STATE_INVALID;
@@ -252,9 +261,9 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		spin_lock_bh(&sync_dev->row_spinlocks[child_info->sync_id]);
 
 		if (child_row->state == CAM_SYNC_STATE_INVALID) {
+			list_del_init(&child_info->list);
 			spin_unlock_bh(&sync_dev->row_spinlocks[
 				child_info->sync_id]);
-			list_del_init(&child_info->list);
 			kfree(child_info);
 			continue;
 		}
@@ -262,9 +271,8 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		cam_sync_util_cleanup_parents_list(child_row,
 			SYNC_LIST_CLEAN_ONE, idx);
 
-		spin_unlock_bh(&sync_dev->row_spinlocks[child_info->sync_id]);
-
 		list_del_init(&child_info->list);
+		spin_unlock_bh(&sync_dev->row_spinlocks[child_info->sync_id]);
 		kfree(child_info);
 	}
 
@@ -277,9 +285,9 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		spin_lock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
 
 		if (parent_row->state == CAM_SYNC_STATE_INVALID) {
+			list_del_init(&parent_info->list);
 			spin_unlock_bh(&sync_dev->row_spinlocks[
 				parent_info->sync_id]);
-			list_del_init(&parent_info->list);
 			kfree(parent_info);
 			continue;
 		}
@@ -287,9 +295,8 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		cam_sync_util_cleanup_children_list(parent_row,
 			SYNC_LIST_CLEAN_ONE, idx);
 
-		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
-
 		list_del_init(&parent_info->list);
+		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
 		kfree(parent_info);
 	}
 

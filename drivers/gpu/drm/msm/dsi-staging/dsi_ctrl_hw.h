@@ -803,6 +803,13 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	int (*wait_for_cmd_mode_mdp_idle)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * hw.ops.set_continuous_clk() - Set continuous clock
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @enable:	  Bool to control continuous clock request.
+	 */
+	void (*set_continuous_clk)(struct dsi_ctrl_hw *ctrl, bool enable);
 };
 
 /*

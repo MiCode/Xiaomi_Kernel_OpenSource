@@ -19,6 +19,8 @@ Optional properties:
 			that subsystem.
 -qcom,dynamic-wakeup-source:	Boolean property to indicate that G-Link
 				transport supports dynamic wakeup source
+-qcom,low-latency-xprt:		Boolean property to indicate that G-Link
+				transport is low latency trasport.
 
 Example:
 	qcom,ipc_router_modem_xprt {

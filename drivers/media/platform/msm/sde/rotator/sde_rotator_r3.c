@@ -1496,7 +1496,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			(fmt->bits[C0_G_Y] << 0);
 
 	/* alpha control */
-	if (fmt->bits[C3_ALPHA] || fmt->alpha_enable) {
+	if (fmt->alpha_enable || (!fmt->is_yuv && (fmt->unpack_count == 4))) {
 		dst_format |= BIT(8);
 		if (!fmt->alpha_enable) {
 			dst_format |= BIT(14);

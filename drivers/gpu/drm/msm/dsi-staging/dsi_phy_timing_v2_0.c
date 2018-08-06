@@ -113,7 +113,7 @@ void dsi_phy_hw_v2_0_update_timing_params(
 		else
 			timing->lane[i][4] = desc->hs_rqst.reg_value;
 
-		timing->lane[i][5] = 0x3;
+		timing->lane[i][5] = 0x2;
 		timing->lane[i][6] = 0x4;
 		timing->lane[i][7] = 0xA0;
 		pr_debug("[%d][%d %d %d %d %d]\n", i, timing->lane[i][0],

@@ -73,6 +73,11 @@ enum {
 
 #define CHGR_FAST_CHARGE_CURRENT_CFG_REG	(CHGR_BASE + 0x61)
 
+#define CHGR_ADC_ITERM_UP_THD_MSB_REG		(CHGR_BASE + 0x67)
+#define CHGR_ADC_ITERM_UP_THD_LSB_REG		(CHGR_BASE + 0x68)
+#define CHGR_ADC_ITERM_LO_THD_MSB_REG		(CHGR_BASE + 0x69)
+#define CHGR_ADC_ITERM_LO_THD_LSB_REG		(CHGR_BASE + 0x6A)
+
 #define CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG	(CHGR_BASE + 0x6B)
 #define NO_OF_SAMPLE_FOR_RCHG_SHIFT		2
 #define NO_OF_SAMPLE_FOR_RCHG			GENMASK(3, 2)
@@ -102,6 +107,10 @@ enum {
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
 
 #define CHGR_JEITA_THRESHOLD_BASE_REG(i)	(CHGR_BASE + 0x94 + (i * 4))
+
+#define CHGR_ENG_CHARGING_CFG_REG		(CHGR_BASE + 0xC0)
+#define CHGR_ITERM_USE_ANALOG_BIT		BIT(3)
+
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
@@ -267,10 +276,11 @@ enum {
  *  TYPEC Peripheral Registers  *
  ********************************/
 #define TYPE_C_SNK_STATUS_REG			(TYPEC_BASE + 0x06)
-#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 1)
+#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 0)
 #define SNK_RP_STD_BIT				BIT(3)
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)
+#define SNK_RP_SHORT_BIT			BIT(0)
 
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)

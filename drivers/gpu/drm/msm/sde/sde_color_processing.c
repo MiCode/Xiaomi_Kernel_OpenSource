@@ -1297,6 +1297,33 @@ void sde_cp_crtc_resume(struct drm_crtc *crtc)
 	/* placeholder for operations needed during resume */
 }
 
+void sde_cp_crtc_clear(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = NULL;
+	unsigned long flags;
+
+	if (!crtc) {
+		DRM_ERROR("crtc %pK\n", crtc);
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	mutex_lock(&sde_crtc->crtc_cp_lock);
+	list_del_init(&sde_crtc->active_list);
+	list_del_init(&sde_crtc->dirty_list);
+	list_del_init(&sde_crtc->ad_active);
+	list_del_init(&sde_crtc->ad_dirty);
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_del_init(&sde_crtc->user_event_list);
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+}
+
 static void dspp_pcc_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];

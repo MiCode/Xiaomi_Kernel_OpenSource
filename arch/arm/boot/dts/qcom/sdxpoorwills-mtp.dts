@@ -20,3 +20,7 @@
 		"qcom,sdxpoorwills", "qcom,mtp";
 	qcom,board-id = <8 0x102>;
 };
+
+&qcom_seecom {
+	status = "okay";
+};

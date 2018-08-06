@@ -1704,6 +1704,11 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 	struct qmi_handle *handle;
 	struct slimbus_select_inst_req_msg_v01 req;
 
+	if (dev->qmi.handle || dev->qmi.task) {
+		pr_err("%s: Destroying stale QMI client handle\n", __func__);
+		msm_slim_qmi_exit(dev);
+	}
+
 	kthread_init_worker(&dev->qmi.kworker);
 	init_completion(&dev->qmi.defer_comp);
 

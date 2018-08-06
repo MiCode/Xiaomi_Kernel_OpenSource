@@ -64,6 +64,7 @@ config ARCH_MSM8953
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
+	select ARCH_MSM8953_SOC_SETTINGS
 
 config ARCH_MSM8953_BOOT_ORDERING
 	bool "Enable support for MSM8953 device boot ordering"
@@ -160,6 +161,7 @@ config ARCH_SDM450
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
+	select ARCH_MSM8953_SOC_SETTINGS
 
 config ARCH_SDM632
 	bool "Enable Support for Qualcomm Technologies Inc. SDM632"
@@ -176,6 +178,7 @@ config ARCH_SDM632
 	select SND_HWDEP
 	select CPU_FREQ_QCOM
 	select COMMON_CLK_MSM
+	select ARCH_MSM8953_SOC_SETTINGS
 
 config ARCH_SDM670
         bool "Enable Support for SDM670"

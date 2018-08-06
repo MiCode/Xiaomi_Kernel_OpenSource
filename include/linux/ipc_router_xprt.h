@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,7 @@ struct rr_packet {
  * @sft_close_done: Method to indicate to the XPRT that handling of reset
  *                  event is complete.
  * @get_ws_info: Method to get the wakeup soruce inforamtion of the XPRT
+ * @get_ws_info: Method to get the latency inforamtion of the XPRT.
  */
 struct msm_ipc_router_xprt {
 	char *name;
@@ -147,6 +148,7 @@ struct msm_ipc_router_xprt {
 	int (*close)(struct msm_ipc_router_xprt *xprt);
 	void (*sft_close_done)(struct msm_ipc_router_xprt *xprt);
 	bool (*get_ws_info)(struct msm_ipc_router_xprt *xprt);
+	bool (*get_latency_info)(struct msm_ipc_router_xprt *xprt);
 };
 
 void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,

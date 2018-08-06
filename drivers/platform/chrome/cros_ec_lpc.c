@@ -49,7 +49,6 @@ static int ec_response_timed_out(void)
 static int cros_ec_pkt_xfer_lpc(struct cros_ec_device *ec,
 				struct cros_ec_command *msg)
 {
-	struct ec_host_request *request;
 	struct ec_host_response response;
 	u8 sum = 0;
 	int i;
@@ -61,8 +60,6 @@ static int cros_ec_pkt_xfer_lpc(struct cros_ec_device *ec,
 	/* Write buffer */
 	for (i = 0; i < ret; i++)
 		outb(ec->dout[i], EC_LPC_ADDR_HOST_PACKET + i);
-
-	request = (struct ec_host_request *)ec->dout;
 
 	/* Here we go */
 	outb(EC_COMMAND_PROTOCOL_3, EC_LPC_ADDR_HOST_CMD);

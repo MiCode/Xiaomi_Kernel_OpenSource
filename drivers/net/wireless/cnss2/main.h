@@ -24,6 +24,8 @@
 #include "qmi.h"
 
 #define MAX_NO_OF_MAC_ADDR		4
+#define QMI_WLFW_MAX_TIMESTAMP_LEN	32
+#define QMI_WLFW_MAX_NUM_MEM_SEG	32
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -108,6 +110,33 @@ struct cnss_fw_mem {
 	phys_addr_t pa;
 	bool valid;
 	u32 type;
+};
+
+struct wlfw_rf_chip_info {
+	u32 chip_id;
+	u32 chip_family;
+};
+
+struct wlfw_rf_board_info {
+	u32 board_id;
+};
+
+struct wlfw_soc_info {
+	u32 soc_id;
+};
+
+struct wlfw_fw_version_info {
+	u32 fw_version;
+	char fw_build_timestamp[QMI_WLFW_MAX_TIMESTAMP_LEN + 1];
+};
+
+enum cnss_mem_type {
+	CNSS_MEM_TYPE_MSA,
+	CNSS_MEM_TYPE_DDR,
+	CNSS_MEM_BDF,
+	CNSS_MEM_M3,
+	CNSS_MEM_CAL_V01,
+	CNSS_MEM_DPD_V01,
 };
 
 enum cnss_fw_dump_type {
@@ -202,12 +231,12 @@ struct cnss_plat_data {
 	struct qmi_handle *qmi_wlfw_clnt;
 	struct work_struct qmi_recv_msg_work;
 	struct notifier_block qmi_wlfw_clnt_nb;
-	struct wlfw_rf_chip_info_s_v01 chip_info;
-	struct wlfw_rf_board_info_s_v01 board_info;
-	struct wlfw_soc_info_s_v01 soc_info;
-	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	struct wlfw_rf_chip_info chip_info;
+	struct wlfw_rf_board_info board_info;
+	struct wlfw_soc_info soc_info;
+	struct wlfw_fw_version_info fw_version_info;
 	u32 fw_mem_seg_len;
-	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG_V01];
+	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_fw_mem m3_mem;
 	struct cnss_pin_connect_result pin_result;
 	struct dentry *root_dentry;
