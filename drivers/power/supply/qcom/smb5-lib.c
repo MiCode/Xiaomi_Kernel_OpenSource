@@ -689,9 +689,10 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			chg->bms_psy = psy;
 		if (ev == PSY_EVENT_PROP_CHANGED)
 			schedule_work(&chg->bms_update_work);
-		if (!chg->jeita_configured)
-			schedule_work(&chg->jeita_update_work);
 	}
+
+	if (!chg->jeita_configured)
+		schedule_work(&chg->jeita_update_work);
 
 	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
 		chg->pl.psy = psy;
@@ -4121,12 +4122,20 @@ static void jeita_update_work(struct work_struct *work)
 		goto out;
 	}
 
+	/* if BMS is not ready, defer the work */
+	if (!chg->bms_psy)
+		return;
+
 	rc = power_supply_get_property(chg->bms_psy,
 			POWER_SUPPLY_PROP_RESISTANCE_ID, &val);
 	if (rc < 0) {
 		smblib_err(chg, "Failed to get batt-id rc=%d\n", rc);
 		goto out;
 	}
+
+	/* if BMS hasn't read out the batt_id yet, defer the work */
+	if (val.intval <= 0)
+		return;
 
 	pnode = of_batterydata_get_best_profile(batt_node,
 					val.intval / 1000, NULL);
