@@ -505,6 +505,47 @@ static int set_lm_gc_feature(struct sde_hw_dspp *hw_dspp,
 	return ret;
 }
 
+static int set_ltm_init_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ltm_init)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_ltm_init(hw_dspp, hw_cfg);
+
+	return ret;
+}
+
+static int set_ltm_roi_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ltm_roi)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_ltm_roi(hw_dspp, hw_cfg);
+
+	return ret;
+}
+
+static int set_ltm_vlut_feature(struct sde_hw_dspp *hw_dspp,
+				   struct sde_hw_cp_cfg *hw_cfg,
+				   struct sde_crtc *hw_crtc)
+{
+	int ret = 0;
+
+	if (!hw_dspp || !hw_dspp->ops.setup_ltm_vlut)
+		ret = -EINVAL;
+	else
+		hw_dspp->ops.setup_ltm_vlut(hw_dspp, hw_cfg);
+
+	return ret;
+}
 
 set_feature_wrapper crtc_feature_wrappers[SDE_CP_CRTC_MAX_FEATURES];
 
@@ -539,6 +580,9 @@ do { \
 	wrappers[SDE_CP_CRTC_DSPP_AD_STRENGTH] = set_dspp_ad_strength_feature; \
 	wrappers[SDE_CP_CRTC_DSPP_AD_ROI] = set_dspp_ad_roi_feature; \
 	wrappers[SDE_CP_CRTC_LM_GC] = set_lm_gc_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_INIT] = set_ltm_init_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_ROI] = set_ltm_roi_feature; \
+	wrappers[SDE_CP_CRTC_DSPP_LTM_VLUT] = set_ltm_vlut_feature; \
 } while (0)
 
 #define INIT_PROP_ATTACH(p, crtc, prop, node, feature, val) \

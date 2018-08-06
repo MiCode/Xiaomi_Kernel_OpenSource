@@ -20,6 +20,12 @@ int init_v1(struct sde_hw_reg_dma *reg_dma);
 int init_v11(struct sde_hw_reg_dma *reg_dma);
 
 /**
+ * init_v12() - initialize the reg dma v12 driver by installing v12 ops
+ * @reg_dma - reg_dma hw info structure exposing capabilities.
+ */
+int init_v12(struct sde_hw_reg_dma *reg_dma);
+
+/**
  * deinit_v1() - free up any resources allocated during the v1 reg dma init
  */
 void deinit_v1(void);

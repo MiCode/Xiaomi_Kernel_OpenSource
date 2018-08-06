@@ -113,7 +113,7 @@ void reg_dmav1_setup_dspp_memcol_protv17(struct sde_hw_dspp *ctx, void *cfg);
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx);
 
 /**
- * reg_dma_init_sspp_op_v4() - initialize the sspp feature op for sde v4
+ * reg_dmav1_init_sspp_op_v4() - initialize the sspp feature op for sde v4
  * @feature: sspp feature
  * @idx: sspp idx
  */
@@ -190,5 +190,41 @@ void reg_dmav1_setup_scaler3lite_lut(struct sde_reg_dma_setup_ops_cfg *buf,
  * @idx: sspp idx
  */
 int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx);
+
+/**
+ * reg_dmav1_init_ltm_op_v6() - initialize the ltm feature op for sde v6
+ * @feature: ltm feature
+ * @idx: dspp idx
+ */
+int reg_dmav1_init_ltm_op_v6(int feature, enum sde_dspp idx);
+
+/**
+ * reg_dmav1_setup_ltm_initv1() - LTM INIT v1 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_ltm_initv1(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_ltm_roiv1() - LTM ROI v1 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_ltm_roiv1(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_ltm_vlutv1() - LTM VLUT v1 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_ltm_vlutv1(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_deinit_ltm_ops() - deinitialize the ltm feature op for sde v4
+ *                               which were initialized.
+ * @idx: ltm idx
+ */
+int reg_dmav1_deinit_ltm_ops(enum sde_dspp idx);
+
 
 #endif /* _SDE_HW_REG_DMA_V1_COLOR_PROC_H */

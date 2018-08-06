@@ -196,6 +196,29 @@ static void dspp_ad(struct sde_hw_dspp *c)
 	}
 }
 
+static void dspp_ltm(struct sde_hw_dspp *c)
+{
+	int ret = 0;
+
+	if (c->cap->sblk->ltm.version == SDE_COLOR_PROCESS_VER(0x1, 0x0)) {
+		ret = reg_dmav1_init_ltm_op_v6(SDE_LTM_INIT, c->idx);
+		if (!ret)
+			ret = reg_dmav1_init_ltm_op_v6(SDE_LTM_ROI, c->idx);
+		if (!ret)
+			ret = reg_dmav1_init_ltm_op_v6(SDE_LTM_VLUT, c->idx);
+
+		if (!ret) {
+			c->ops.setup_ltm_init = reg_dmav1_setup_ltm_initv1;
+			c->ops.setup_ltm_roi = reg_dmav1_setup_ltm_roiv1;
+			c->ops.setup_ltm_vlut = reg_dmav1_setup_ltm_vlutv1;
+		} else {
+			c->ops.setup_ltm_init = NULL;
+			c->ops.setup_ltm_roi = NULL;
+			c->ops.setup_ltm_vlut = NULL;
+		}
+	}
+}
+
 static void (*dspp_blocks[SDE_DSPP_MAX])(struct sde_hw_dspp *c);
 
 static void _init_dspp_ops(void)
@@ -211,6 +234,7 @@ static void _init_dspp_ops(void)
 	dspp_blocks[SDE_DSPP_HIST] = dspp_hist;
 	dspp_blocks[SDE_DSPP_VLUT] = dspp_vlut;
 	dspp_blocks[SDE_DSPP_AD] = dspp_ad;
+	dspp_blocks[SDE_DSPP_LTM] = dspp_ltm;
 }
 
 static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
@@ -288,6 +312,7 @@ void sde_hw_dspp_destroy(struct sde_hw_dspp *dspp)
 {
 	if (dspp) {
 		reg_dmav1_deinit_dspp_ops(dspp->idx);
+		reg_dmav1_deinit_ltm_ops(dspp->idx);
 		sde_hw_blk_destroy(&dspp->base);
 	}
 	kfree(dspp);

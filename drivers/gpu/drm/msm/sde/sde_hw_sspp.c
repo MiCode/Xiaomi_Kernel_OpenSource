@@ -1218,8 +1218,10 @@ blk_init_error:
 
 void sde_hw_sspp_destroy(struct sde_hw_pipe *ctx)
 {
-	if (ctx)
+	if (ctx) {
 		sde_hw_blk_destroy(&ctx->base);
+		reg_dmav1_deinit_sspp_ops(ctx->idx);
+	}
 	kfree(ctx);
 }
 

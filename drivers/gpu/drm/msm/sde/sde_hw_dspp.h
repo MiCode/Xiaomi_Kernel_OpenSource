@@ -158,6 +158,26 @@ struct sde_hw_dspp_ops {
 	void (*ad_read_intr_resp)(struct sde_hw_dspp *ctx, u32 event,
 			u32 *resp_in, u32 *resp_out);
 
+	/**
+	 * setup_ltm_init - setup LTM INIT
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_ltm_init)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_ltm_roi - setup LTM ROI
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_ltm_roi)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_ltm_vlut - setup LTM VLUT
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_ltm_vlut)(struct sde_hw_dspp *ctx, void *cfg);
 };
 
 /**

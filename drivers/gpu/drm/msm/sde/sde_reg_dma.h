@@ -54,6 +54,9 @@ enum sde_reg_dma_read_sel {
  * @SIX_ZONE: six zone
  * @HSIC: Hue, saturation and contrast
  * @GC: gamma correction
+ * @LTM_INIT: LTM INIT
+ * @LTM_ROI: LTM ROI
+ * @LTM_VLUT: LTM VLUT
  * @REG_DMA_FEATURES_MAX: invalid selection
  */
 enum sde_reg_dma_features {
@@ -69,6 +72,9 @@ enum sde_reg_dma_features {
 	SIX_ZONE,
 	HSIC,
 	GC,
+	LTM_INIT,
+	LTM_ROI,
+	LTM_VLUT,
 	REG_DMA_FEATURES_MAX,
 };
 
@@ -146,6 +152,8 @@ enum sde_reg_dma_setup_ops {
  * @DMA3: select dma3 block
  * @SSPP_IGC: select sspp igc block
  * @DSPP_IGC: select dspp igc block
+ * @LTM0: select LTM0 block
+ * @LTM1: select LTM1 block
  * @MDSS: select mdss block
  */
 enum sde_reg_dma_blk {
@@ -167,6 +175,8 @@ enum sde_reg_dma_blk {
 	DMA3  = BIT(15),
 	SSPP_IGC = BIT(16),
 	DSPP_IGC = BIT(17),
+	LTM0 = BIT(18),
+	LTM1 = BIT(19),
 	MDSS  = BIT(31)
 };
 

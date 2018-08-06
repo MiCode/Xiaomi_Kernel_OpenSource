@@ -274,6 +274,20 @@ enum {
 };
 
 /**
+ * LTM sub-features
+ * @SDE_LTM_INIT             LTM INIT feature
+ * @SDE_LTM_ROI              LTM ROI feature
+ * @SDE_LTM_VLUT             LTM VLUT feature
+ * @SDE_LTM_MAX              maximum value
+ */
+enum {
+	SDE_LTM_INIT = 0x1,
+	SDE_LTM_ROI,
+	SDE_LTM_VLUT,
+	SDE_LTM_MAX
+};
+
+/**
  * PINGPONG sub-blocks
  * @SDE_PINGPONG_TE         Tear check block
  * @SDE_PINGPONG_TE2        Additional tear check block for split pipes

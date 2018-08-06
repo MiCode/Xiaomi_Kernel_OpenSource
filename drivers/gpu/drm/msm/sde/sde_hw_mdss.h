@@ -173,6 +173,12 @@ enum sde_dspp {
 	DSPP_MAX
 };
 
+enum sde_ltm {
+	LTM_0 = DSPP_0,
+	LTM_1,
+	LTM_MAX
+};
+
 enum sde_ds {
 	DS_TOP,
 	DS_0,
