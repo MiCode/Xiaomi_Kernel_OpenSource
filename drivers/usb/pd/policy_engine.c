@@ -456,8 +456,8 @@ struct usbpd {
 	bool			vconn_enabled;
 	bool			vconn_is_external;
 
-	u8			tx_msgid;
-	u8			rx_msgid;
+	u8			tx_msgid[SOPII_MSG + 1];
+	u8			rx_msgid[SOPII_MSG + 1];
 	int			caps_count;
 	int			hard_reset_count;
 
@@ -675,8 +675,8 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 	 * first Rx ID should be 0; set this to a sentinel of -1 so that in
 	 * phy_msg_received() we can check if we had seen it before.
 	 */
-	pd->rx_msgid = -1;
-	pd->tx_msgid = 0;
+	memset(pd->rx_msgid, -1, sizeof(pd->rx_msgid));
+	memset(pd->tx_msgid, 0, sizeof(pd->tx_msgid));
 	pd->send_request = false;
 	pd->send_pr_swap = false;
 	pd->send_dr_swap = false;
@@ -692,7 +692,7 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		return -EBUSY;
 
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid, num_data, pd->spec_rev);
+			pd->tx_msgid[sop], num_data, pd->spec_rev);
 
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
 	if (ret) {
@@ -704,7 +704,7 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		return ret;
 	}
 
-	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+	pd->tx_msgid[sop] = (pd->tx_msgid[sop] + 1) & PD_MAX_MSG_ID;
 	return 0;
 }
 
@@ -738,7 +738,7 @@ static int pd_send_ext_msg(struct usbpd *pd, u8 msg_type,
 
 		reinit_completion(&pd->tx_chunk_request);
 		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
-				pd->tx_msgid, num_objs, pd->spec_rev) |
+				pd->tx_msgid[sop], num_objs, pd->spec_rev) |
 			PD_MSG_HDR_EXTENDED;
 		ret = pd_phy_write(hdr, chunked_payload,
 				num_objs * sizeof(u32), sop);
@@ -749,7 +749,7 @@ static int pd_send_ext_msg(struct usbpd *pd, u8 msg_type,
 			return ret;
 		}
 
-		pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+		pd->tx_msgid[sop] = (pd->tx_msgid[sop] + 1) & PD_MAX_MSG_ID;
 
 		/* Wait for request chunk */
 		if (len_remain &&
@@ -929,13 +929,15 @@ static void pd_request_chunk_work(struct work_struct *w)
 	int ret;
 	u8 payload[4] = {0}; /* ext_hdr + padding */
 	u16 hdr = PD_MSG_HDR(req->msg_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid, 1, pd->spec_rev) | PD_MSG_HDR_EXTENDED;
+				pd->tx_msgid[req->sop], 1, pd->spec_rev)
+		| PD_MSG_HDR_EXTENDED;
 
 	*(u16 *)payload = PD_MSG_EXT_HDR(1, req->chunk_num, 1, 0);
 
 	ret = pd_phy_write(hdr, payload, sizeof(payload), req->sop);
 	if (!ret) {
-		pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+		pd->tx_msgid[req->sop] =
+			(pd->tx_msgid[req->sop] + 1) & PD_MAX_MSG_ID;
 	} else {
 		usbpd_err(&pd->dev, "could not send chunk request\n");
 
@@ -1084,13 +1086,13 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 	}
 
 	/* if MSGID already seen, discard */
-	if (PD_MSG_HDR_ID(header) == pd->rx_msgid &&
+	if (PD_MSG_HDR_ID(header) == pd->rx_msgid[sop] &&
 			PD_MSG_HDR_TYPE(header) != MSG_SOFT_RESET) {
 		usbpd_dbg(&pd->dev, "MessageID already seen, discarding\n");
 		return;
 	}
 
-	pd->rx_msgid = PD_MSG_HDR_ID(header);
+	pd->rx_msgid[sop] = PD_MSG_HDR_ID(header);
 
 	/* discard Pings */
 	if (PD_MSG_HDR_TYPE(header) == MSG_PING && !len)
