@@ -266,6 +266,8 @@ struct sde_encoder_virt {
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
 	struct drm_crtc *crtc;
+
+	bool elevated_ahb_vote;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -1850,6 +1852,7 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 			return rc;
 		}
 
+		sde_enc->elevated_ahb_vote = true;
 		/* enable DSI clks */
 		rc = sde_connector_clk_ctrl(sde_enc->cur_master->connector,
 				true);
@@ -3316,6 +3319,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_ctl *ctl;
 	uint32_t i, pending_flush;
 	unsigned long lock_flags;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *sde_kms = NULL;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -3393,6 +3398,20 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	_sde_encoder_trigger_start(sde_enc->cur_master);
 
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
+
+	if (sde_enc->elevated_ahb_vote) {
+		priv = sde_enc->base.dev->dev_private;
+		if (priv != NULL) {
+			sde_kms = to_sde_kms(priv->kms);
+			if (sde_kms != NULL) {
+				sde_power_scale_reg_bus(&priv->phandle,
+						sde_kms->core_client,
+						VOTE_INDEX_LOW,
+						false);
+			}
+		}
+		sde_enc->elevated_ahb_vote = false;
+	}
 }
 
 static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
