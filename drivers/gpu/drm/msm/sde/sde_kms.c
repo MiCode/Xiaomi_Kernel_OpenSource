@@ -2658,7 +2658,15 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		SDE_DEBUG("info.is_connected = %s, info.is_primary = %s\n",
 			((info.is_connected) ? "true" : "false"),
 			((info.is_primary) ? "true" : "false"));
-		break;
+
+		/**
+		 * Since we are supporting one DSI for splash, use the display
+		 * which is marked as primary.
+		 */
+		if (!info.is_primary)
+			continue;
+		else
+			break;
 	}
 
 	if (!encoder) {
