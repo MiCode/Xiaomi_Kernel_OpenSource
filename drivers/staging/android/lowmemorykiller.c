@@ -106,6 +106,7 @@ static unsigned long lowmem_count(struct shrinker *s,
 		global_node_page_state(NR_INACTIVE_FILE);
 }
 
+bool lmk_kill_possible(void);
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
 module_param_named(adj_max_shift, adj_max_shift, short, 0644);
@@ -127,6 +128,20 @@ module_param_named(vmpressure_file_min, vmpressure_file_min, int, 0644);
 /* User knob to enable/disable oom reaping feature */
 static int oom_reaper;
 module_param_named(oom_reaper, oom_reaper, int, 0644);
+
+/* Variable that helps in feed to the reclaim path  */
+static atomic64_t lmk_feed = ATOMIC64_INIT(0);
+
+/*
+ * This function can be called whether to include the anon LRU pages
+ * for accounting in the page reclaim.
+ */
+bool lmk_kill_possible(void)
+{
+	unsigned long val = atomic64_read(&lmk_feed);
+
+	return !val || time_after_eq(jiffies, val);
+}
 
 enum {
 	VMPRESSURE_NO_ADJUST = 0,
@@ -574,6 +589,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
 		long free = other_free * (long)(PAGE_SIZE / 1024);
 
+		atomic64_set(&lmk_feed, 0);
 		if (test_task_lmk_waiting(selected) &&
 		    (test_task_state(selected, TASK_UNINTERRUPTIBLE))) {
 			lowmem_print(2, "'%s' (%d) is already killed\n",
@@ -638,6 +654,12 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	} else {
 		trace_almk_shrink(1, ret, other_free, other_file, 0);
 		rcu_read_unlock();
+		if (other_free < lowmem_minfree[0] &&
+		    other_file < lowmem_minfree[0])
+			atomic64_set(&lmk_feed, jiffies + HZ);
+		else
+			atomic64_set(&lmk_feed, 0);
+
 	}
 
 	lowmem_print(4, "%s %lu, %x, return %lu\n",
