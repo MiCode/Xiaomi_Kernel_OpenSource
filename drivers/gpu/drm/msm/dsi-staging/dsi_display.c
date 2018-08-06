@@ -1326,11 +1326,23 @@ static ssize_t debugfs_read_esd_check_mode(struct file *file,
 		goto output_mode;
 	}
 
-	if (esd_config->status_mode == ESD_MODE_REG_READ)
+	switch (esd_config->status_mode) {
+	case ESD_MODE_REG_READ:
 		rc = snprintf(buf, len, "reg_read");
-
-	if (esd_config->status_mode == ESD_MODE_PANEL_TE)
+		break;
+	case ESD_MODE_PANEL_TE:
 		rc = snprintf(buf, len, "te_signal_check");
+		break;
+	case ESD_MODE_SW_SIM_FAILURE:
+		rc = snprintf(buf, len, "esd_sw_sim_failure");
+		break;
+	case ESD_MODE_SW_SIM_SUCCESS:
+		rc = snprintf(buf, len, "esd_sw_sim_success");
+		break;
+	default:
+		rc = snprintf(buf, len, "invalid");
+		break;
+	}
 
 output_mode:
 	if (!rc) {
