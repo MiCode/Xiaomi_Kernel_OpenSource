@@ -12,6 +12,7 @@
  */
 
 #include <dt-bindings/clock/msm-clocks-8952.h>
+#include "msm8917-camera-sensor-cdp.dtsi"
 
 &soc {
 	gpio_keys {
