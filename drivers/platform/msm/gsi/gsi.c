@@ -440,12 +440,18 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 {
 	uint32_t addr_diff;
 
-	WARN(addr1 < ctx->base || addr1 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr1);
-	WARN(addr2 < ctx->base || addr2 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr2);
+	GSIDBG_LOW("gsi base addr 0x%llx end addr 0x%llx\n",
+		ctx->base, ctx->end);
+
+	if (addr1 < ctx->base || addr1 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr1);
+		BUG();
+	}
+
+	if (addr2 < ctx->base || addr2 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr2);
+		BUG();
+	}
 
 	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
