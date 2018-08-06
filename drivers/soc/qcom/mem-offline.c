@@ -316,8 +316,12 @@ static int mem_parse_dt(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 
 	val = of_get_property(node, "granule", NULL);
-	if (!val && !*val) {
+	if (!val) {
 		pr_err("mem-offine: granule property not found in DT\n");
+		return -EINVAL;
+	}
+	if (!*val) {
+		pr_err("mem-offine: invalid granule property\n");
 		return -EINVAL;
 	}
 	offline_granule = be32_to_cpup(val);
