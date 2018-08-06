@@ -448,3 +448,11 @@ config MSM_GPUCC_SDMMAGPIE
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  SDMMAGPIE devices.
 	  Say Y if you want to support graphics clocks.
+
+config MSM_DEBUGCC_SDMMAGPIE
+	tristate "SDMMAGPIE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support the clock measurement functionality.
