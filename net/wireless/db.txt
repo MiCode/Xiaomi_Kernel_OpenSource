@@ -1375,6 +1375,8 @@ country TR: DFS-ETSI
 	(5170 - 5250 @ 80), (23), AUTO-BW
 	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
 	(5490 - 5710 @ 160), (30), DFS
+	# 60 gHz band channels 1-4, ref: Etsi En 302 567
+	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
 country TT:
 	(2402 - 2482 @ 40), (20)
