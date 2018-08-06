@@ -2383,7 +2383,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -2399,7 +2399,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			SDE_ERROR("plane%d.%d invalid rotator ops\n",
 					plane->base.id, rstate->sequence_id);
 			sde_crtc_res_put(cstate,
-					SDE_HW_BLK_ROT, (u64) state->fb);
+				SDE_HW_BLK_ROT, (u64)(uintptr_t) state->fb);
 			rstate->rot_hw = NULL;
 			return -EINVAL;
 		}
@@ -3081,7 +3081,7 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -4753,15 +4753,15 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			default:
 				/* nothing to do */
