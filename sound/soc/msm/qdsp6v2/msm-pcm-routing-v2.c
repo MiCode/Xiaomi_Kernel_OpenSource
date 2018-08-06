@@ -3231,10 +3231,6 @@ static const struct snd_kcontrol_new ext_ec_ref_mux_ul2 =
 	SOC_DAPM_ENUM_EXT("AUDIO_REF_EC_UL2 MUX Mux",
 		msm_route_ec_ref_rx_enum[0],
 		msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put);
-static const struct snd_kcontrol_new ext_ec_ref_mux_ul3 =
-	SOC_DAPM_ENUM_EXT("AUDIO_REF_EC_UL3 MUX Mux",
-		msm_route_ec_ref_rx_enum[0],
-		msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put);
 
 static const struct snd_kcontrol_new ext_ec_ref_mux_ul3 =
 	SOC_DAPM_ENUM_EXT("AUDIO_REF_EC_UL3 MUX Mux",
