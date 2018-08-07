@@ -2193,6 +2193,7 @@
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -2282,6 +2283,7 @@
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc 0 578 1>,
