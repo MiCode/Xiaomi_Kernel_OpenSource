@@ -30,8 +30,8 @@
 		clocks = <&clock_cpu APCS_MUX_CLK>;
 
 		qcom,cpufreq-table =
-			 < 1113600 >,
-			 < 1267200 >,
+			 < 1094400 >,
+			 < 1248000 >,
 			 < 1401600 >;
 	};
 
@@ -42,8 +42,8 @@
 		qcom,cpulist = <&CPU0 &CPU1>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >,
+			< 1094400 MHZ_TO_MBPS( 297, 4) >,
+			< 1248000 MHZ_TO_MBPS( 597, 4) >,
 			< 1401600 MHZ_TO_MBPS( 710, 4) >;
 	};
 };
