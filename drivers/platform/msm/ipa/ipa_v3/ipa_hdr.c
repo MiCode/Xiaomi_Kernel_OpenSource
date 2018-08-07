@@ -341,7 +341,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	}
 	if (hdr_entry->cookie != IPA_HDR_COOKIE) {
 		IPAERR_RL("Invalid header cookie %u\n", hdr_entry->cookie);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 	IPADBG("Associated header is name=%s is_hdr_proc_ctx=%d\n",
@@ -371,7 +371,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 		bin = IPA_HDR_PROC_CTX_BIN1;
 	} else {
 		IPAERR_RL("unexpected needed len %d\n", needed_len);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		goto bad_len;
 	}
 
@@ -418,8 +418,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -558,8 +558,8 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr, bool user)
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -1018,7 +1018,7 @@ int ipa3_reset_hdr(bool user_only)
 				if (entry->is_hdr_proc_ctx) {
 					IPAERR("default header is proc ctx\n");
 					mutex_unlock(&ipa3_ctx->lock);
-					WARN_ON(1);
+					WARN_ON_RATELIMIT_IPA(1);
 					return -EFAULT;
 				}
 				IPADBG("skip default header\n");
@@ -1028,7 +1028,7 @@ int ipa3_reset_hdr(bool user_only)
 
 		if (ipa3_id_find(entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 
@@ -1108,7 +1108,7 @@ int ipa3_reset_hdr(bool user_only)
 
 		if (ipa3_id_find(ctx_entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 
