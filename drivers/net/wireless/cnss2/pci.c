@@ -1268,6 +1268,74 @@ int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
 	return pm_request_resume(&pci_dev->dev);
 }
 
+int cnss_pci_force_wake_request(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	read_lock_bh(&mhi_ctrl->pm_lock);
+	mhi_ctrl->wake_get(mhi_ctrl, true);
+	read_unlock_bh(&mhi_ctrl->pm_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_request);
+
+int cnss_pci_is_device_awake(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return true;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	return mhi_ctrl->dev_state == MHI_STATE_M0 ? true : false;
+}
+EXPORT_SYMBOL(cnss_pci_is_device_awake);
+
+int cnss_pci_force_wake_release(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	read_lock_bh(&mhi_ctrl->pm_lock);
+	mhi_ctrl->wake_put(mhi_ctrl, false);
+	read_unlock_bh(&mhi_ctrl->pm_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_release);
+
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
