@@ -125,6 +125,55 @@ static void sde_hdmi_clear_hdr_info(struct drm_bridge *bridge)
 	connector->hdr_supported = false;
 }
 
+static void sde_hdmi_clear_vsdb_info(struct drm_bridge *bridge)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+
+	connector->max_tmds_clock = 0;
+	connector->latency_present[0] = false;
+	connector->latency_present[1] = false;
+	connector->video_latency[0] = false;
+	connector->video_latency[1] = false;
+	connector->audio_latency[0] = false;
+	connector->audio_latency[1] = false;
+}
+
+static void sde_hdmi_clear_hf_vsdb_info(struct drm_bridge *bridge)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+
+	connector->max_tmds_char = 0;
+	connector->scdc_present = false;
+	connector->rr_capable = false;
+	connector->supports_scramble = false;
+	connector->flags_3d = 0;
+}
+
+static void sde_hdmi_clear_vcdb_info(struct drm_bridge *bridge)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+
+	connector->pt_scan_info = 0;
+	connector->it_scan_info = 0;
+	connector->ce_scan_info = 0;
+	connector->rgb_qs = false;
+	connector->yuv_qs = false;
+}
+
+static void sde_hdmi_clear_vsdbs(struct drm_bridge *bridge)
+{
+	/* Clear fields of HDMI VSDB */
+	sde_hdmi_clear_vsdb_info(bridge);
+	/* Clear fields of HDMI forum VSDB */
+	sde_hdmi_clear_hf_vsdb_info(bridge);
+}
+
 static int _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
@@ -606,6 +655,12 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 
 	mutex_lock(&display->display_lock);
 
+	if (!bridge) {
+		SDE_ERROR("Invalid params\n");
+		mutex_unlock(&display->display_lock);
+		return;
+	}
+
 	display->pll_update_enable = false;
 	display->sink_hdcp_ver = SDE_HDMI_HDCP_NONE;
 	display->sink_hdcp22_support = false;
@@ -614,6 +669,11 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 		sde_hdmi_hdcp_off(display);
 
 	sde_hdmi_clear_hdr_info(bridge);
+	/* Clear HDMI VSDB blocks info */
+	sde_hdmi_clear_vsdbs(bridge);
+	/* Clear HDMI VCDB block info */
+	sde_hdmi_clear_vcdb_info(bridge);
+
 	mutex_unlock(&display->display_lock);
 }
 
