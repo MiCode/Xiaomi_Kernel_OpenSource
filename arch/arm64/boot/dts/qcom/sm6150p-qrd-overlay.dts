@@ -21,4 +21,5 @@
 	model = "Qualcomm Technologies, Inc. SM6150P QRD";
 	compatible = "qcom,sm6150p-qrd", "qcom,sm6150p", "qcom,qrd";
 	qcom,board-id = <11 0>;
+	qcom,msm-id = <369 0>;
 };
