@@ -54,6 +54,11 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 #define QSEED3L_COEF_LUT_UV_SEP_BIT        5
 #define QSEED3L_DIR_FILTER_WEIGHT          0x60
 #define QSEED3LITE_SCALER_VERSION          0x2004
+#define QSEED4_SCALER_VERSION              0x3000
+
+#define QSEED3_DEFAULT_PRELOAD_V 0x3
+#define QSEED3_DEFAULT_PRELOAD_H 0x4
+#define QSEED4_DEFAULT_PRELOAD_H 0x5
 
 typedef void (*scaler_lut_type)(struct sde_hw_blk_reg_map *,
 		struct sde_hw_scaler3_cfg *, u32);
@@ -80,6 +85,17 @@ u32 *sde_hw_util_get_log_mask_ptr(void)
 	return &sde_hw_util_log_mask;
 }
 
+void sde_init_scaler_blk(struct sde_scaler_blk *blk, u32 version)
+{
+	if (!blk)
+		return;
+
+	blk->version = version;
+	blk->v_preload = QSEED3_DEFAULT_PRELOAD_V;
+	blk->h_preload = QSEED4_DEFAULT_PRELOAD_H;
+	if (version < QSEED4_SCALER_VERSION)
+		blk->h_preload = QSEED3_DEFAULT_PRELOAD_H;
+}
 void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 		const struct sde_drm_scaler_v2 *scale_v2)
 {
@@ -116,7 +132,7 @@ void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 	cfg->uv_sep_lut_idx = scale_v2->uv_sep_lut_idx;
 	cfg->de.prec_shift = scale_v2->de.prec_shift;
 	cfg->dir_weight = scale_v2->dir_weight;
-	cfg->unsharp_mask_blend = scale_v2->unsharp_mask_blend;
+	cfg->dyn_exp_disabled = (scale_v2->flags & SDE_DYN_EXP_DISABLE) ? 1 : 0;
 
 	cfg->de.enable = scale_v2->de.enable;
 	cfg->de.sharpen_level1 = scale_v2->de.sharpen_level1;
@@ -127,6 +143,7 @@ void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 	cfg->de.thr_dieout = scale_v2->de.thr_dieout;
 	cfg->de.thr_low = scale_v2->de.thr_low;
 	cfg->de.thr_high = scale_v2->de.thr_high;
+	cfg->de.blend = scale_v2->de_blend;
 
 	for (i = 0; i < SDE_MAX_DE_CURVES; i++) {
 		cfg->de.adjust_a[i] = scale_v2->de.adjust_a[i];
@@ -273,7 +290,8 @@ static void _sde_hw_setup_scaler3_de(struct sde_hw_blk_reg_map *c,
 
 	sharp_ctl = ((de_cfg->limit & 0xF) << 9) |
 		((de_cfg->prec_shift & 0x7) << 13) |
-		((de_cfg->clip & 0x7) << 16);
+		((de_cfg->clip & 0x7) << 16) |
+		((de_cfg->blend & 0xF) << 20);
 
 	shape_ctl = (de_cfg->thr_quiet & 0xFF) |
 		((de_cfg->thr_dieout & 0x3FF) << 16);
@@ -306,19 +324,14 @@ static void _sde_hw_setup_scaler3_de(struct sde_hw_blk_reg_map *c,
 static inline scaler_lut_type get_scaler_lut(
 		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 scaler_version)
 {
-	scaler_lut_type lut_ptr = NULL;
+	scaler_lut_type lut_ptr = _sde_hw_setup_scaler3lite_lut;
 
 	if (!(scaler3_cfg->lut_flag))
 		return NULL;
 
-	switch (scaler_version) {
-
-	case QSEED3LITE_SCALER_VERSION:
-		lut_ptr = _sde_hw_setup_scaler3lite_lut;
-		break;
-	default:
+	if (scaler_version < QSEED3LITE_SCALER_VERSION)
 		lut_ptr = _sde_hw_setup_scaler3_lut;
-	}
+
 	return lut_ptr;
 }
 
@@ -343,6 +356,7 @@ void sde_hw_setup_scaler3(struct sde_hw_blk_reg_map *c,
 
 	op_mode |= (scaler3_cfg->blend_cfg & 1) << 31;
 	op_mode |= (scaler3_cfg->dir_en) ? BIT(4) : 0;
+	op_mode |= (scaler3_cfg->dyn_exp_disabled) ? BIT(13) : 0;
 
 	preload =
 		((scaler3_cfg->preload_x[0] & 0x7F) << 0) |

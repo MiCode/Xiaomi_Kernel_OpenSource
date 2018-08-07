@@ -467,10 +467,14 @@ struct sde_src_blk {
  * struct sde_scaler_blk: Scaler information
  * @info:   HW register and features supported by this sub-blk
  * @version: qseed block revision
+ * @h_preload: horizontal preload
+ * @v_preload: vertical preload
  */
 struct sde_scaler_blk {
 	SDE_HW_SUBBLK_INFO;
 	u32 version;
+	u32 h_preload;
+	u32 v_preload;
 };
 
 struct sde_csc_blk {

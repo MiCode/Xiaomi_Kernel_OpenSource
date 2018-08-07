@@ -217,6 +217,16 @@ struct sde_drm_de_v1 {
 	int16_t adjust_c[SDE_MAX_DE_CURVES];
 };
 
+/*
+ * Scaler configuration flags
+ */
+
+/* Disable dynamic expansion */
+#define SDE_DYN_EXP_DISABLE 0x1
+
+#define SDE_DRM_QSEED3LITE
+#define SDE_DRM_QSEED4
+
 /**
  * struct sde_drm_scaler_v2 - version 2 of struct sde_drm_scaler
  * @enable:            Scaler enable
@@ -247,8 +257,9 @@ struct sde_drm_de_v1 {
  * @de:                Detail enhancer settings
  * @dir_weight:        Directional Weight
  * @unsharp_mask_blend: Unsharp Blend Filter Ratio
+ * @de_blend:          Ratio of two unsharp mask filters
+ * @flags:             Scaler configuration flags
  */
-#define SDE_DRM_QSEED3LITE
 struct sde_drm_scaler_v2 {
 	/*
 	 * General definitions
@@ -303,6 +314,8 @@ struct sde_drm_scaler_v2 {
 	struct sde_drm_de_v1 de;
 	uint32_t dir_weight;
 	uint32_t unsharp_mask_blend;
+	uint32_t de_blend;
+	uint32_t flags;
 };
 
 /* Number of dest scalers supported */
