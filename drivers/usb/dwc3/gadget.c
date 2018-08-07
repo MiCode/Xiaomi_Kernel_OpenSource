@@ -2566,6 +2566,7 @@ static int dwc3_gadget_init_endpoint(struct dwc3 *dwc, u8 epnum)
 	snprintf(dep->name, sizeof(dep->name), "ep%u%s", num,
 			direction ? "in" : "out");
 
+	dep->endpoint.ep_num = epnum >> 1;
 	dep->endpoint.name = dep->name;
 
 	if (!(dep->number > 1)) {
