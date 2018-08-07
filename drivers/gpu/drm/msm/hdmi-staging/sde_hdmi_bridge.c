@@ -1000,6 +1000,9 @@ static bool _sde_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 
+	/* Clear the private flags before assigning new one */
+	adjusted_mode->private_flags = 0;
+
 	adjusted_mode->private_flags |=
 		_sde_hdmi_choose_best_format(hdmi, adjusted_mode);
 	SDE_DEBUG("Adjusted mode private flags: 0x%x\n",
