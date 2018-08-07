@@ -17,8 +17,11 @@
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-qrd.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
+
+&qupv3_se4_i2c {
 #include "smb1390.dtsi"
 #include "smb1355.dtsi"
+};
 
 &vendor {
 	bluetooth: bt_wcn3990 {
@@ -538,6 +541,8 @@
 };
 
 &smb1390_charger {
+	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+	io-channel-names = "cp_die_temp";
 	status = "ok";
 };
 
