@@ -165,7 +165,7 @@ static struct mutex apps_data_mutex;
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
-#ifdef DIAG_DEBUG
+#ifdef CONFIG_IPC_LOGGING
 uint16_t diag_debug_mask;
 void *diag_ipc_log;
 #endif
@@ -1160,7 +1160,7 @@ static void diag_remote_exit(void)
 	return;
 }
 
-int diagfwd_bridge_init(void)
+int diagfwd_bridge_init(bool use_mhi)
 {
 	return 0;
 }
@@ -3626,7 +3626,7 @@ void diag_ws_release()
 		pm_relax(driver->diag_dev);
 }
 
-#ifdef DIAG_DEBUG
+#ifdef CONFIG_IPC_LOGGING
 static void diag_debug_init(void)
 {
 	diag_ipc_log = ipc_log_context_create(DIAG_IPC_LOG_PAGES, "diag", 0);
@@ -3743,7 +3743,7 @@ static int diag_mhi_probe(struct platform_device *pdev)
 		diag_remote_exit();
 		return ret;
 	}
-	ret = diagfwd_bridge_init();
+	ret = diagfwd_bridge_init(true);
 	if (ret) {
 		diagfwd_bridge_exit();
 		return ret;
@@ -3763,6 +3763,39 @@ static struct platform_driver diag_mhi_driver = {
 		.name = "DIAG MHI Platform",
 		.owner = THIS_MODULE,
 		.of_match_table = diag_mhi_table,
+	},
+};
+
+static int diagfwd_usb_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	driver->pdev = pdev;
+	ret = diag_remote_init();
+	if (ret) {
+		diag_remote_exit();
+		return ret;
+	}
+	ret = diagfwd_bridge_init(false);
+	if (ret) {
+		diagfwd_bridge_exit();
+		return ret;
+	}
+	pr_debug("diag: usb device is ready\n");
+	return 0;
+}
+
+static const struct of_device_id diagfwd_usb_table[] = {
+	{.compatible = "qcom,diagfwd-usb"},
+	{},
+};
+
+static struct platform_driver diagfwd_usb_driver = {
+	.probe = diagfwd_usb_probe,
+	.driver = {
+		.name = "DIAGFWD USB Platform",
+		.owner = THIS_MODULE,
+		.of_match_table = diagfwd_usb_table,
 	},
 };
 
@@ -3892,6 +3925,7 @@ static int __init diagchar_init(void)
 
 	pr_debug("diagchar initialized now");
 	platform_driver_register(&diag_mhi_driver);
+	platform_driver_register(&diagfwd_usb_driver);
 	return 0;
 
 fail:

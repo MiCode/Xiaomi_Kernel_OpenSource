@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,11 +84,20 @@ int ipa_disable_data_path(u32 clnt_hdl)
 			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(clnt_hdl));
 	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
 	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR) {
-		res = ipa_tag_aggr_force_close(clnt_hdl);
-		if (res) {
-			IPAERR("tag process timeout, client:%d err:%d\n",
-				clnt_hdl, res);
-			BUG();
+		/*
+		* Tag process will not work for,
+		* APPS CMD PROD --> Uses the same for IMM cmd over tag
+		* APPS LAN CONS --> Already suspend is set
+		*/
+		if (!(ep->client == IPA_CLIENT_APPS_CMD_PROD ||
+			ep->client == IPA_CLIENT_APPS_LAN_CONS)) {
+			res = ipa_tag_aggr_force_close(clnt_hdl);
+			if (res) {
+				IPAERR("tag process timeout");
+				IPAERR("client:%d err:%d\n",
+					clnt_hdl, res);
+				ipa_assert();
+			}
 		}
 	}
 
@@ -762,6 +771,63 @@ bail:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return res;
+}
+
+/**
+* ipa2_apps_shutdown_apps_ep_reset() -
+* reset an endpoints from BAM perspective.
+*
+* Q6 ep reset is not handled here
+*/
+void ipa2_apps_shutdown_apps_ep_reset(void)
+{
+	struct ipa_ep_context *ep;
+	int ep_idx, client_idx;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return;
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+
+		ep_idx = ipa2_get_ep_mapping(client_idx);
+		if (ep_idx == -1)
+			continue;
+
+		ep = &ipa_ctx->ep[ep_idx];
+		if (ep->valid && (IPA_CLIENT_IS_APPS_PROD(client_idx) ||
+			IPA_CLIENT_IS_APPS_CONS(client_idx))) {
+			/*
+			 * we shouldn't reset APPS CMD PROD
+			 * and LAN CONS in for loop
+			 * these 2 ep's should be resetted at last,
+			 * since it is used in Tag Process
+			 */
+			if (!(client_idx == IPA_CLIENT_APPS_CMD_PROD ||
+				client_idx == IPA_CLIENT_APPS_LAN_CONS)) {
+				IPADBG("teardown ep (%d)\n", ep_idx);
+				ipa2_teardown_sys_pipe(ep_idx);
+			}
+		}
+	}
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	if (ep_idx != -1) {
+		ep = &ipa_ctx->ep[ep_idx];
+		if (ep->valid) {
+			IPADBG("teardown ep (%d)\n", ep_idx);
+			ipa2_teardown_sys_pipe(ep_idx);
+		}
+	}
+
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (ep_idx != -1) {
+		ep = &ipa_ctx->ep[ep_idx];
+		if (ep->valid) {
+			IPADBG("teardown ep (%d)\n", ep_idx);
+			ipa2_teardown_sys_pipe(ep_idx);
+		}
+	}
 }
 
 /**

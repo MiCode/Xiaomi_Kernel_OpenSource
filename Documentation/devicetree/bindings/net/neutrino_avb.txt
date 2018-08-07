@@ -17,6 +17,9 @@ Optional properties:
   - pinctrl-0: Neutrino reset GPIO [this is from MSM]
   - ntn-rst-delay-msec: dealy (msec) required after PCIe reset for stabilization
   - ntn-rc-num: PCIe root complex number on which Neutrino is connected
+  - qcom,txc-skew-ps: Skew control of TXC pad
+  - qcom,rxc-skew-ps: Skew control of RXC pad
+
 Example:
 	qcom,ntn_avb {
 		compatible = "qcom,ntn_avb";
@@ -31,4 +34,6 @@ Example:
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
 		qcom,ntn-bus-num = <1>;
+		qcom,txc-skew-ps = <1860>;
+		qcom,rxc-skew-ps = <1860>;
 	};

@@ -37,6 +37,7 @@
 #include "sde_encoder.h"
 #include "sde_plane.h"
 #include "sde_crtc.h"
+#include "sde_recovery_manager.h"
 
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
@@ -57,6 +58,20 @@
  */
 #define SDE_DEBUGFS_DIR "msm_sde"
 #define SDE_DEBUGFS_HWMASKNAME "hw_log_mask"
+
+static int sde_kms_recovery_callback(int err_code,
+	    struct recovery_client_info *client_info);
+
+static struct recovery_client_info info = {
+	.name = "sde_kms",
+	.recovery_cb = sde_kms_recovery_callback,
+	.err_supported[0] = {SDE_UNDERRUN, 0, 0},
+	.err_supported[1] = {SDE_VSYNC_MISS, 0, 0},
+	.err_supported[2] = {SDE_SMMU_FAULT, 0, 0},
+	.no_of_err = 3,
+	.handle = NULL,
+	.pdata = NULL,
+};
 
 /**
  * sdecustom - enable certain driver customizations for sde clients
@@ -1062,6 +1077,8 @@ static void sde_kms_destroy(struct msm_kms *kms)
 		return;
 	}
 
+	sde_recovery_client_unregister(info.handle);
+	info.handle = NULL;
 	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
 	kfree(sde_kms);
 }
@@ -1124,6 +1141,18 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	return 0;
 }
 
+static int sde_smmu_fault_handler(struct iommu_domain *iommu,
+	 struct device *dev, unsigned long iova, int flags, void *arg)
+{
+
+	dev_info(dev, "%s: iova=0x%08lx, flags=0x%x, iommu=%pK\n", __func__,
+			iova, flags, iommu);
+
+	sde_recovery_set_events(SDE_SMMU_FAULT);
+
+	return 0;
+}
+
 static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 {
 	struct msm_mmu *mmu;
@@ -1141,6 +1170,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 					ret);
 			continue;
 		}
+
+		msm_smmu_register_fault_handler(mmu, sde_smmu_fault_handler);
 
 		/* Attaching smmu means IOMMU HW starts to work immediately.
 		 * However, display HW in LK is still accessing memory
@@ -1264,6 +1295,11 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto end;
 	}
 
+	rc = sde_recovery_client_register(&info);
+	if (rc)
+		pr_err("%s recovery mgr register failed %d\n",
+							__func__, rc);
+
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
 	if (!dev || !dev->platformdev) {
@@ -1283,7 +1319,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_ERROR("mdp register memory map failed\n");
 		goto error;
 	}
-	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+	DRM_INFO("mapped mdp address space @%pK\n", sde_kms->mmio);
 
 	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,
 			sde_kms->mmio_len);
@@ -1487,10 +1523,38 @@ end:
 	return rc;
 }
 
+static int sde_kms_recovery_callback(int err_code,
+	    struct recovery_client_info *client_info)
+{
+	int rc = 0;
+
+	switch (err_code) {
+	case SDE_UNDERRUN:
+		pr_debug("%s [SDE_UNDERRUN] error is auto HW receovered\n",
+			__func__);
+		break;
+
+	case SDE_VSYNC_MISS:
+		pr_debug("%s [SDE_VSYNC_MISS] trigger soft reset\n", __func__);
+		break;
+
+	case SDE_SMMU_FAULT:
+		pr_debug("%s [SDE_SMMU_FAULT] trigger soft reset\n", __func__);
+		break;
+
+	default:
+		pr_err("%s error %d undefined\n", __func__, err_code);
+
+	}
+
+	return rc;
+}
+
 struct msm_kms *sde_kms_init(struct drm_device *dev)
 {
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	int rc = 0;
 
 	if (!dev || !dev->dev_private) {
 		SDE_ERROR("drm device node invalid\n");
@@ -1503,6 +1567,13 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	if (!sde_kms) {
 		SDE_ERROR("failed to allocate sde kms\n");
 		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = sde_init_recovery_mgr(dev);
+	if (rc) {
+		SDE_ERROR("Failed SDE recovery mgr Init, err = %d\n", rc);
+		kfree(sde_kms);
+		return ERR_PTR(-EFAULT);
 	}
 
 	msm_kms_init(&sde_kms->base, &kms_funcs);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3153,6 +3153,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_cfg_ep_holb_by_client = ipa3_cfg_ep_holb_by_client;
 	api_ctrl->ipa_cfg_ep_ctrl = ipa3_cfg_ep_ctrl;
 	api_ctrl->ipa_add_hdr = ipa3_add_hdr;
+	api_ctrl->ipa_add_hdr_usr = ipa3_add_hdr_usr;
 	api_ctrl->ipa_del_hdr = ipa3_del_hdr;
 	api_ctrl->ipa_commit_hdr = ipa3_commit_hdr;
 	api_ctrl->ipa_reset_hdr = ipa3_reset_hdr;
@@ -3162,6 +3163,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
 	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
 	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_add_rt_rule_usr = ipa3_add_rt_rule_usr;
 	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
 	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
 	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
@@ -3170,6 +3172,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
 	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
 	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_add_flt_rule_usr = ipa3_add_flt_rule_usr;
 	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;

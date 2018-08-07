@@ -104,8 +104,8 @@ static struct export_desc *habmem_add_export(struct virtual_channel *vchan,
 	exp->vchan = vchan;
 	exp->vcid_local = vchan->id;
 	exp->vcid_remote = vchan->otherend_id;
-	exp->domid_local = -1; /* dom id, provided on the importer */
-	exp->domid_remote = vchan->pchan->dom_id;
+	exp->domid_local = vchan->pchan->vmid_local;
+	exp->domid_remote = vchan->pchan->vmid_remote;
 	exp->ctx = vchan->ctx;
 	exp->pchan = vchan->pchan;
 
@@ -240,7 +240,7 @@ int hab_mem_export(struct uhab_context *ctx,
 	int page_count;
 	int compressed = 0;
 
-	if (!ctx || !param)
+	if (!ctx || !param || !param->buffer)
 		return -EINVAL;
 
 	vchan = hab_get_vchan_fromvcid(param->vcid, ctx);

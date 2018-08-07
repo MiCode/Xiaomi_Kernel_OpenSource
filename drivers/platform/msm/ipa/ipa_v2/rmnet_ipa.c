@@ -76,6 +76,8 @@ static bool egress_set, a7_ul_flt_set;
 static struct workqueue_struct *ipa_rm_q6_workqueue; /* IPA_RM workqueue*/
 static atomic_t is_initialized;
 static atomic_t is_ssr;
+static atomic_t is_after_powerup_cmpltd;
+static struct completion is_after_shutdown_cmpltd;
 static void *subsys_notify_handle;
 
 u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
@@ -133,6 +135,14 @@ struct wwan_private {
 	struct completion resource_granted_completion;
 	enum wwan_device_status device_status;
 	struct napi_struct napi;
+};
+
+static int ssr_notifier_cb(struct notifier_block *this,
+			   unsigned long code,
+			   void *data);
+
+static struct notifier_block ssr_notifier = {
+	.notifier_call = ssr_notifier_cb,
 };
 
 /**
@@ -1958,15 +1968,34 @@ static void ipa_rm_notify(void *dev, enum ipa_rm_event event,
 	}
 }
 
+/**
+* q6_cleanup_cb() - IPA q6 cleanup
+*
+* This function is called in the sequence
+* of ipa platform shutdown
+*/
+
+static int q6_cleanup_cb(void)
+{
+	int ret = 0;
+
+	IPAWANERR("Start\n");
+	if (atomic_read(&is_initialized) &&
+		atomic_read(&is_after_powerup_cmpltd)) {
+		pr_info("Wait for q6 cleanup\n");
+		wait_for_completion(&is_after_shutdown_cmpltd);
+		pr_info("q6_cleanup_cb: Q6 SSR cleanup is taken care\n");
+	} else {
+		if (!atomic_read(&is_initialized))
+			pr_info("RmNET IPA driver is not inited\n");
+		if (!atomic_read(&is_after_powerup_cmpltd))
+			pr_info("Modem is not up\n");
+	}
+	IPAWANERR("END\n");
+	return ret;
+}
+
 /* IPA_RM related functions end*/
-
-static int ssr_notifier_cb(struct notifier_block *this,
-			   unsigned long code,
-			   void *data);
-
-static struct notifier_block ssr_notifier = {
-	.notifier_call = ssr_notifier_cb,
-};
 
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa_rmnet_plat_drv_res *ipa_rmnet_drv_res)
@@ -2179,6 +2208,8 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		ipa2_proxy_clk_unvote();
 	}
 	atomic_set(&is_ssr, 0);
+	atomic_set(&is_after_powerup_cmpltd, 0);
+	init_completion(&is_after_shutdown_cmpltd);
 
 	pr_info("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2221,6 +2252,7 @@ setup_dflt_wan_rt_tables_err:
 setup_a7_qmap_hdr_err:
 	ipa_qmi_service_exit();
 	atomic_set(&is_ssr, 0);
+	atomic_set(&is_after_powerup_cmpltd, 0);
 	return ret;
 }
 
@@ -2409,6 +2441,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 			if (atomic_read(&is_ssr))
 				ipa_q6_post_shutdown_cleanup();
 			pr_info("IPA AFTER_SHUTDOWN handling is complete\n");
+			complete(&is_after_shutdown_cmpltd);
 			return NOTIFY_DONE;
 		}
 		if (SUBSYS_AFTER_POWERUP == code) {
@@ -2416,6 +2449,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 			if (!atomic_read(&is_initialized)
 				&& atomic_read(&is_ssr))
 				platform_driver_register(&rmnet_ipa_driver);
+			atomic_set(&is_after_powerup_cmpltd, 1);
 			pr_info("IPA AFTER_POWERUP handling is complete\n");
 			return NOTIFY_DONE;
 		}
@@ -3222,6 +3256,7 @@ void ipa_q6_handshake_complete(bool ssr_bootup)
 
 static int __init ipa_wwan_init(void)
 {
+	int ret = 0;
 	atomic_set(&is_initialized, 0);
 	atomic_set(&is_ssr, 0);
 
@@ -3230,6 +3265,11 @@ static int __init ipa_wwan_init(void)
 	ipa_to_apps_hdl = -1;
 
 	ipa_qmi_init();
+
+	IPAWANERR("Registering for q6_cleanup_cb\n");
+	ret = register_ipa_platform_cb(&q6_cleanup_cb);
+	if (ret == -EAGAIN)
+		IPAWANERR("Register for q6_cleanup_cb is un-successful\n");
 
 	/* Register for Modem SSR */
 	subsys_notify_handle = subsys_notif_register_notifier(SUBSYS_MODEM,

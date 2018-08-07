@@ -473,11 +473,13 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) {
-		if (phy->cable_connected)
-			msm_ssusb_qmp_enable_autonomous(phy, 1);
-		else
+		if (phy->cable_connected) {
+			if (phy->vls_clamp_reg)
+				msm_ssusb_qmp_enable_autonomous(phy, 1);
+		} else {
 			writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+		}
 
 		/* Make sure above write completed with PHY */
 		wmb();
@@ -509,7 +511,8 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 			writel_relaxed(0x01,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 		} else  {
-			msm_ssusb_qmp_enable_autonomous(phy, 0);
+			if (phy->vls_clamp_reg)
+				msm_ssusb_qmp_enable_autonomous(phy, 0);
 		}
 
 		/* Make sure that above write completed with PHY */
@@ -648,13 +651,13 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"vls_clamp_reg");
 	if (!res) {
-		dev_err(dev, "failed getting vls_clamp_reg\n");
-		return -ENODEV;
-	}
-	phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->vls_clamp_reg)) {
-		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
-		return PTR_ERR(phy->vls_clamp_reg);
+		dev_dbg(dev, "vls_clamp_reg not passed\n");
+	} else {
+		phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->vls_clamp_reg)) {
+			dev_err(dev, "couldn't find vls_clamp_reg address.\n");
+			return PTR_ERR(phy->vls_clamp_reg);
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,

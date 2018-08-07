@@ -62,6 +62,7 @@ struct cnss_pci_data {
 	const struct pci_device_id *pci_device_id;
 	u32 device_id;
 	u16 revision_id;
+	struct cnss_wlan_driver *driver_ops;
 	bool pci_link_state;
 	bool pci_link_down_ind;
 	struct pci_saved_state *saved_state;
@@ -72,6 +73,8 @@ struct cnss_pci_data {
 	struct dma_iommu_mapping *smmu_mapping;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
+	dma_addr_t smmu_iova_ipa_start;
+	size_t smmu_iova_ipa_len;
 	void __iomem *bar;
 	struct cnss_msi_config *msi_config;
 	u32 msi_ep_base_data;
@@ -152,5 +155,18 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 int cnss_pm_request_resume(struct cnss_pci_data *pci_priv);
-
+u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);
+int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv);
+void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv);
+int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv);
+int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv);
+int cnss_pci_dev_powerup(struct cnss_pci_data *pci_priv);
+int cnss_pci_dev_shutdown(struct cnss_pci_data *pci_priv);
+int cnss_pci_dev_crash_shutdown(struct cnss_pci_data *pci_priv);
+int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv);
+int cnss_pci_register_driver_hdlr(struct cnss_pci_data *pci_priv, void *data);
+int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv);
+int cnss_pci_call_driver_modem_status(struct cnss_pci_data *pci_priv,
+				      int modem_current_status);
+int cnss_pci_recovery_update_status(struct cnss_pci_data *pci_priv);
 #endif /* _CNSS_PCI_H */

@@ -43,6 +43,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/jiffies.h>
 #include <linux/reboot.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
 
 enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_MSG = 0x0,
@@ -338,6 +340,8 @@ struct hab_driver {
 	int b_loopback;
 
 	void *hyp_priv; /* hypervisor plug-in storage */
+
+	void *hab_vmm_handle;
 };
 
 struct virtual_channel {
@@ -412,6 +416,7 @@ int hab_vchan_recv(struct uhab_context *ctx,
 void hab_vchan_stop(struct virtual_channel *vchan);
 void hab_vchans_stop(struct physical_channel *pchan);
 void hab_vchan_stop_notify(struct virtual_channel *vchan);
+void hab_vchans_empty_wait(int vmid);
 
 int hab_mem_export(struct uhab_context *ctx,
 		struct hab_export *param, int kernel);
@@ -456,7 +461,7 @@ int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel);
 
 int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
-
+int habmm_imp_hyp_map_check(void *imp_ctx, struct export_desc *exp);
 
 void hab_msg_free(struct hab_message *message);
 int hab_msg_dequeue(struct virtual_channel *vchan,
@@ -562,6 +567,15 @@ int hab_open_cancel_notify(struct hab_open_request *request);
 
 int hab_open_receive_cancel(struct physical_channel *pchan,
 		size_t sizebytes);
+
+int hab_stat_init(struct hab_driver *drv);
+int hab_stat_deinit(struct hab_driver *drv);
+int hab_stat_show_vchan(struct hab_driver *drv, char *buf, int sz);
+int hab_stat_show_ctx(struct hab_driver *drv, char *buf, int sz);
+int hab_stat_show_expimp(struct hab_driver *drv, int pid, char *buf, int sz);
+
+int hab_stat_init_sub(struct hab_driver *drv);
+int hab_stat_deinit_sub(struct hab_driver *drv);
 
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;

@@ -72,6 +72,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,ipa-bam-remote-mode;
+		qcom,apps-shutdown-support;
 		qcom,modem-cfg-emb-pipe-flt;
 		clocks = <&clock_virt clk_ipa_clk>;
 		clock-names = "core_clk";

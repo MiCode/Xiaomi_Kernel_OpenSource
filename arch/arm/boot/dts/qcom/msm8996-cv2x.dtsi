@@ -74,6 +74,8 @@
 				<100 512 0 0>,
 				<100 512 207108 14432000>;
 		qcom,ntn-pcierst-resx;
+		qcom,txc-skew-ps = <1860>;
+		qcom,rxc-skew-ps = <1860>;
 	};
 
 	usb_detect: usb_detect {
@@ -188,6 +190,11 @@
 		qcom,mhi = <&mhi>;
 		status = "okay";
 	};
+
+	qcom,diagfwd-usb {
+		compatible = "qcom,diagfwd-usb";
+		status = "okay";
+	};
 };
 
 /delete-node/ &mdss_mdp;
@@ -225,7 +232,7 @@
 		reg = <0>;
 		spi-max-frequency = <9600000>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <78 0>;
+		interrupts = <78 2>;
 		qcom,reset-gpio = <&tlmm 71 GPIO_ACTIVE_LOW>;
 		qcom,clk-freq-mhz = <20000000>;
 		qcom,max-can-channels = <2>;

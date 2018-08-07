@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+#include "sde_recovery_manager.h"
 #include "sde_encoder_phys.h"
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
@@ -704,6 +705,7 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 			SDE_EVT32(DRMID(phys_enc->parent),
 					vid_enc->hw_intf->idx - INTF_0);
 			SDE_ERROR_VIDENC(vid_enc, "kickoff timed out\n");
+			sde_recovery_set_events(SDE_VSYNC_MISS);
 			if (notify && phys_enc->parent_ops.handle_frame_done)
 				phys_enc->parent_ops.handle_frame_done(
 						phys_enc->parent, phys_enc,
