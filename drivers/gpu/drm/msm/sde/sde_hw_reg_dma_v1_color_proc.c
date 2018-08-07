@@ -1603,7 +1603,7 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx)
 		rc = (is_supported) ? 0 : -ENOTSUPP;
 
 	if (!rc) {
-		for (i = SDE_SSPP_RECT_0; i < SDE_SSPP_RECT_MAX; i++) {
+		for (i = SDE_SSPP_RECT_SOLO; i < SDE_SSPP_RECT_MAX; i++) {
 			rc = reg_dma_buf_init(
 				&sspp_buf[i][sspp_feature_map[feature]][idx],
 				sspp_feature_reg_dma_sz[feature]);
@@ -2254,7 +2254,7 @@ int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
 		return -EINVAL;
 	}
 
-	for (i = SDE_SSPP_RECT_0; i < SDE_SSPP_RECT_MAX; i++) {
+	for (i = SDE_SSPP_RECT_SOLO; i < SDE_SSPP_RECT_MAX; i++) {
 		for (j = 0; j < REG_DMA_FEATURES_MAX; j++) {
 			if (!sspp_buf[i][j][idx])
 				continue;

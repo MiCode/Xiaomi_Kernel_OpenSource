@@ -12,9 +12,18 @@ ADC node:
 		Should contain "qcom,spmi-adc-rev2" for PMIC refresh ADC driver.
 
 - reg:
-    Usage: required
+    Usage: required for VADC base address
     Value type: <prop-encoded-array>
     Definition: VADC base address and length in the SPMI PMIC register map.
+                ADC_CAL base address and length in SPMI PMIC register map.
+                ADC_CAL base is optional and is dependent on USB_IN_V channel
+                read sequence for the PMIC.
+
+- reg-names
+    Usage: required
+    Value type: <string>
+    Definition: Names associated with base addresses. should be
+                "adc5-usr-base", "adc5-cal-base".
 
 - #address-cells:
     Usage: required
@@ -37,6 +46,12 @@ ADC node:
     Usage: optional
     Value type: <prop-encoded-array>
     Definition: End of conversion interrupt.
+
+- qcom,pmic-revid:
+    Usage: optional
+    Value type:<u32>
+    Definition: phandle pointing to the revision peripheral node. Use it to query the
+                PMIC type and revision.
 
 Channel node properties:
 

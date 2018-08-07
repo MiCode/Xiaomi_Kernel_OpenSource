@@ -96,6 +96,7 @@ static struct platform_driver sys_pm_driver = {
 	.probe = sys_pm_probe,
 	.driver = {
 		.name = KBUILD_MODNAME,
+		.suppress_bind_attrs = true,
 		.of_match_table = sys_pm_drv_match,
 	},
 };

@@ -25,6 +25,7 @@ enum vdd_mx_levels {
 	VDD_MX_LOW_L1,		/* SVSL1 */
 	VDD_MX_NOMINAL,		/* NOM */
 	VDD_MX_HIGH,		/* TURBO */
+	VDD_MX_HIGH_L1,		/* TURBO_L1 */
 	VDD_MX_NUM,
 };
 
@@ -36,6 +37,7 @@ static int vdd_mx_corner[] = {
 	RPMH_REGULATOR_LEVEL_SVS_L1,		/* VDD_LOW_L1 */
 	RPMH_REGULATOR_LEVEL_NOM,		/* VDD_NOMINAL */
 	RPMH_REGULATOR_LEVEL_TURBO,		/* VDD_HIGH */
+	RPMH_REGULATOR_LEVEL_TURBO_L1,		/* VDD_HIGH_L1 */
 };
 
 enum vdd_levels {
@@ -47,7 +49,7 @@ enum vdd_levels {
 	VDD_NOMINAL,		/* NOM */
 	VDD_NOMINAL_L1,		/* NOM1 */
 	VDD_HIGH,		/* TURBO */
-	VDD_HIGH_L1,		/* TURBO1 */
+	VDD_HIGH_L1,		/* TURBO_L1 */
 	VDD_NUM,
 };
 

@@ -103,8 +103,8 @@ struct dsi_display_ctrl {
  */
 struct dsi_display_boot_param {
 	char name[MAX_CMDLINE_PARAM_LEN];
+	char *boot_param;
 	bool boot_disp_en;
-	bool is_primary;
 	int length;
 	struct device_node *node;
 	int cmdline_topology;
@@ -252,6 +252,8 @@ struct dsi_display {
 	/* firmware panel data */
 	const struct firmware *fw;
 	void *parser;
+
+	struct dsi_display_boot_param *boot_disp;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

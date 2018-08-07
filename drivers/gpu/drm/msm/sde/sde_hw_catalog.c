@@ -271,6 +271,7 @@ enum {
 	DITHER_LEN,
 	DITHER_VER,
 	PP_MERGE_3D_ID,
+	TE_SOURCE,
 	PP_PROP_MAX,
 };
 
@@ -634,6 +635,7 @@ static struct sde_prop_type pp_prop[] = {
 	{DITHER_LEN, "qcom,sde-dither-size", false, PROP_TYPE_U32},
 	{DITHER_VER, "qcom,sde-dither-version", false, PROP_TYPE_U32},
 	{PP_MERGE_3D_ID, "qcom,sde-pp-merge-3d-id", false, PROP_TYPE_U32_ARRAY},
+	{TE_SOURCE, "qcom,sde-te-source", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type dsc_prop[] = {
@@ -2819,6 +2821,10 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		snprintf(pp->name, SDE_HW_BLK_NAME_LEN, "pingpong_%u",
 				pp->id - PINGPONG_0);
 		pp->len = PROP_VALUE_ACCESS(prop_value, PP_LEN, 0);
+		pp->te_source = PROP_VALUE_ACCESS(prop_value, TE_SOURCE, i);
+		if (!prop_exists[TE_SOURCE] ||
+			pp->te_source > SDE_VSYNC_SOURCE_WD_TIMER_0)
+			pp->te_source = SDE_VSYNC0_SOURCE_GPIO;
 
 		sblk->te.base = PROP_VALUE_ACCESS(prop_value, TE_OFF, i);
 		sblk->te.id = SDE_PINGPONG_TE;

@@ -25,7 +25,12 @@ Required properties:
    property.
 
 Optional properties:
- - qcom,param-override-seq: parameter override sequence with value, reg offset pair.
+ - qcom,param-override-seq: parameter override sequence with value, reg offset
+   pair.
+ - qcom,rcal-mask: efuse calibration mask.
+ - reg: Address and length of the register set for the device
+   Optional regs are:
+        "phy_rcal_reg": register address for efuse used for rext calibration
 
 Example:
 	hsphy@f9200000 {

@@ -1492,13 +1492,7 @@ static int clk_alpha_pll_slew_set_rate(struct clk_hw *hw, unsigned long rate,
 	const struct pll_vco *curr_vco = NULL, *vco;
 	u32 l, ctl;
 	u64 a;
-	int i = 0, rc;
-
-	if (!clk_hw_is_enabled(hw)) {
-		rc = clk_alpha_pll_calibrate(hw);
-		if (rc)
-			return rc;
-	}
+	int i = 0;
 
 	freq_hz = alpha_pll_round_rate(pll, rate, parent_rate, &l, &a);
 	if (freq_hz != rate) {
@@ -1629,8 +1623,9 @@ static int clk_alpha_pll_calibrate(struct clk_hw *hw)
 	 * PLL is already running at calibration frequency.
 	 * So slew pll to the previously set frequency.
 	 */
-	freq_hz = alpha_pll_round_rate(pll, clk_hw_get_rate(hw),
-				clk_hw_get_rate(parent), &l, &a);
+	freq_hz = alpha_pll_round_rate(pll, clk_hw_get_rate(hw) *
+					clk_alpha_div_table[i].div,
+					clk_hw_get_rate(parent), &l, &a);
 
 	pr_debug("pll %s: setting back to required rate %lu, freq_hz %ld\n",
 				hw->init->name, clk_hw_get_rate(hw), freq_hz);
@@ -1650,6 +1645,12 @@ static int clk_alpha_pll_calibrate(struct clk_hw *hw)
 
 static int clk_alpha_pll_slew_enable(struct clk_hw *hw)
 {
+	int rc;
+
+	rc = clk_alpha_pll_calibrate(hw);
+	if (rc)
+		return rc;
+
 	return clk_alpha_pll_enable(hw);
 }
 

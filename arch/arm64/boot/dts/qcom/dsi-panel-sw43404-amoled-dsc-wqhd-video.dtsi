@@ -30,6 +30,12 @@
 	qcom,mdss-dsi-mdp-trigger = "none";
 	qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
 	qcom,adjust-timer-wakeup-ms = <1>;
+	qcom,mdss-dsi-panel-hdr-enabled;
+	qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+		17000 15500 30000 8000 3000>;
+	qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+	qcom,mdss-dsi-panel-blackness-level = <3230>;
+
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-width = <1440>;

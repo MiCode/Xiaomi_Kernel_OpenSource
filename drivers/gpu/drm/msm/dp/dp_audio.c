@@ -413,7 +413,7 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
-		goto end;
+		return rc;
 	}
 
 	mutex_lock(&audio->dp_audio.ops_lock);
@@ -423,7 +423,8 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	if (audio->panel->stream_id >= DP_STREAM_MAX) {
 		pr_err("invalid stream id: %d\n", audio->panel->stream_id);
 		rc = -EINVAL;
-		goto end;
+		mutex_unlock(&audio->dp_audio.ops_lock);
+		return rc;
 	}
 
 	dp_audio_setup_sdp(audio);
@@ -432,7 +433,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	dp_audio_enable(audio, true);
 
 	mutex_unlock(&audio->dp_audio.ops_lock);
-end:
 	return rc;
 }
 

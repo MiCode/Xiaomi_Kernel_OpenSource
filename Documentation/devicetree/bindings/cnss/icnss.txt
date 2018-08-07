@@ -31,6 +31,7 @@ Optional properties:
   - qcom,wlan-msa-fixed-region: phandle, specifier pairs to children of /reserved-memory
   - qcom,gpio-force-fatal-error: SMP2P bit triggered by WLAN FW to force error fatal.
   - qcom,gpio-early-crash-ind: SMP2P bit triggered by WLAN FW to indicate FW is in assert.
+  - qcom,hyp_disabled: Boolean context flag to disable hyperviser
 
 Example:
 
@@ -63,4 +64,5 @@ Example:
 	qcom,vdd-0.8-cx-mx-config = <800000 800000 2400 1000>;
 	qcom,gpio-forced-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
 	qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
+	qcom,hyp_disabled;
     };

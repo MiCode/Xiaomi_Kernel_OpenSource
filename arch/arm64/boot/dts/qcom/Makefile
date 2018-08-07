@@ -15,6 +15,7 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku6.dtb \
 		qcs405-iot-sku7.dtb \
 		qcs405-iot-sku8.dtb \
+		qcs405-iot-sku9.dtb \
 		qcs403-iot-sku1.dtb \
 		qcs403-iot-sku2.dtb
 

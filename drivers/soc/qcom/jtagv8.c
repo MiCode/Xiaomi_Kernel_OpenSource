@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@
 
 #define OSLOCK_MAGIC		(0xC5ACCE55)
 #define GET_FEAT_VERSION_CMD	3
+#define TZ_DBG_ETM_FEAT_ID	(0x8)
 #define TZ_DBG_ETM_VER		(0x400000)
 
 static uint32_t msm_jtag_save_cntr[NR_CPUS];
@@ -965,6 +966,8 @@ static int __init msm_jtag_dbg_init(void)
 	dbg_init_arch_data();
 
 	if (dbg_arch_supported(dbg.arch)) {
+		desc.args[0] = TZ_DBG_ETM_FEAT_ID;
+		desc.arginfo = SCM_ARGS(1);
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
 				GET_FEAT_VERSION_CMD), &desc);
 		if (!ret) {

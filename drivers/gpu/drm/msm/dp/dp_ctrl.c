@@ -988,21 +988,25 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 
 	rc = panel->hw_cfg(panel);
 	if (rc)
-		return rc;
+		goto error;
 
 	dp_ctrl_send_video(ctrl);
 
 	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
 	if (rc)
-		return rc;
+		goto error;
 
 	rc = dp_ctrl_wait4video_ready(ctrl);
 	if (rc)
-		return rc;
+		goto error;
 
 	link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
 	pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
 
+	return rc;
+
+error:
+	dp_ctrl_disable_stream_clocks(ctrl, panel);
 	return rc;
 }
 

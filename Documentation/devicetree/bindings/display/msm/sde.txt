@@ -101,6 +101,8 @@ Optional properties:
 - qcom,sde-dsc-size:		A u32 value indicates the address range for each dsc.
 - qcom,sde-cdm-size:		A u32 value indicates the address range for each cdm.
 - qcom,sde-pp-size:		A u32 value indicates the address range for each pingpong.
+- qcom,sde-te-source:		Array of GPIO sources indicating which pingpong TE is
+				sourced to which panel TE gpio.
 - qcom,sde-wb-size:		A u32 value indicates the address range for each writeback.
 - qcom,sde-len:			A u32 entry for SDE address range.
 - qcom,sde-intf-max-prefetch-lines:	Array of u32 values for max prefetch lines on
@@ -535,6 +537,7 @@ Example:
     qcom,sde-pp-off = <0x00071000 0x00071800
 			  0x00072000 0x00072800>;
     qcom,sde-pp-slave = <0x0 0x0 0x0 0x0>;
+    qcom,sde-te-source = <0x0 0x1 0x0 0x0>;
     qcom,sde-cdm-off = <0x0007a200>;
     qcom,sde-dsc-off = <0x00081000 0x00081400>;
     qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;

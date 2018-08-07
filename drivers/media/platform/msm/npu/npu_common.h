@@ -219,6 +219,7 @@ void npu_debugfs_deinit(struct npu_device *npu_dev);
 int npu_enable_core_power(struct npu_device *npu_dev);
 void npu_disable_core_power(struct npu_device *npu_dev);
 int npu_enable_post_pil_clocks(struct npu_device *npu_dev);
+void npu_disable_post_pil_clocks(struct npu_device *npu_dev);
 
 irqreturn_t npu_intr_hdler(int irq, void *ptr);
 

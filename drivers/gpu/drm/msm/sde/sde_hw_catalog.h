@@ -747,6 +747,7 @@ struct sde_ds_cfg {
  */
 struct sde_pingpong_cfg  {
 	SDE_HW_BLK_INFO;
+	u32 te_source;
 	const struct sde_pingpong_sub_blks *sblk;
 	int merge_3d_id;
 };

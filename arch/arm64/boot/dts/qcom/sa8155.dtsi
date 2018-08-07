@@ -600,7 +600,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
 };
 
 #include <dt-bindings/gpio/gpio.h>

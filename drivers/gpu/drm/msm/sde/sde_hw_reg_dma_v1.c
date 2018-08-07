@@ -35,6 +35,7 @@
 		(hw).base_off = (reg_dma)->addr; \
 		(hw).blk_off = (reg_dma)->caps->base; \
 		(hw).hwversion = (reg_dma)->caps->version; \
+		(hw).log_mask = SDE_DBG_MASK_REGDMA; \
 } while (0)
 
 #define SIZE_DWORD(x) ((x) / (sizeof(u32)))

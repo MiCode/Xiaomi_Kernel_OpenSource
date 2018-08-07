@@ -57,13 +57,13 @@
 		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
 				     0x2600 0x2800 0x2a00>;
 		qcom,sde-ctl-size = <0x1e0>;
-		qcom,sde-ctl-display-pref = "primary", "primary", "none",
+		qcom,sde-ctl-display-pref = "primary", "none", "none",
 			    "none", "none";
 
 		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
 				      0x48000 0x49000 0x4a000>;
 		qcom,sde-mixer-size = <0x320>;
-		qcom,sde-mixer-display-pref = "primary", "primary", "none",
+		qcom,sde-mixer-display-pref = "primary", "none", "none",
 					      "none", "none", "none";
 
 		qcom,sde-dspp-top-off = <0x1300>;
@@ -92,6 +92,7 @@
 		qcom,sde-pp-slave = <0x0 0x0 0x0 0x0 0x0 0x0>;
 		qcom,sde-pp-size = <0xd4>;
 		qcom,sde-pp-merge-3d-id = <0x0 0x0 0x1 0x1 0x2 0x2>;
+		qcom,sde-te-source = <0x0 0x1 0x0 0x0 0x0>;
 
 		qcom,sde-merge-3d-off = <0x84000 0x84100 0x84200>;
 		qcom,sde-merge-3d-size = <0x100>;

@@ -21,6 +21,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -49,6 +50,8 @@
 #define ADC_USR_DIG_PARAM_CAL_SEL_SHIFT		4
 #define ADC_USR_DIG_PARAM_DEC_RATIO_SEL		0xc
 #define ADC_USR_DIG_PARAM_DEC_RATIO_SEL_SHIFT	2
+
+#define ADC_USR_DIG_PARAM_ABS_CAL_VAL		0x28
 
 #define ADC_USR_FAST_AVG_CTL			0x43
 #define ADC_USR_FAST_AVG_CTL_EN			BIT(7)
@@ -85,6 +88,11 @@
 #define ADC_CONV_TIME_MAX_US			264
 #define ADC_CONV_TIME_RETRY			400
 #define ADC_CONV_TIMEOUT			msecs_to_jiffies(100)
+
+/* CAL peripheral */
+#define ADC_CAL_DELAY_CTL			0x44
+#define ADC_CAL_DELAY_CTL_VAL_256S		0x73
+#define ADC_CAL_DELAY_CTL_VAL_125MS		0x3
 
 enum adc_cal_method {
 	ADC_NO_CAL = 0,
@@ -128,6 +136,7 @@ struct adc_channel_prop {
  * @regmap: pointer to struct regmap.
  * @dev: pointer to struct device.
  * @base: base address for the ADC peripheral.
+ * @cal_addr: base address for the CAL peripheral.
  * @nchannels: number of ADC channels.
  * @chan_props: array of ADC channel properties.
  * @iio_chans: array of IIO channels specification.
@@ -140,6 +149,7 @@ struct adc_chip {
 	struct regmap		*regmap;
 	struct device		*dev;
 	u16			base;
+	u16			cal_addr;
 	unsigned int		nchannels;
 	struct adc_channel_prop	*chan_props;
 	struct iio_chan_spec	*iio_chans;
@@ -275,6 +285,32 @@ static int adc_poll_wait_eoc(struct adc_chip *adc)
 	return -ETIMEDOUT;
 }
 
+static int adc_wait_eoc(struct adc_chip *adc)
+{
+	int ret;
+
+	if (adc->poll_eoc) {
+		ret = adc_poll_wait_eoc(adc);
+		if (ret < 0) {
+			pr_err("EOC bit not set\n");
+			return ret;
+		}
+	} else {
+		ret = wait_for_completion_timeout(&adc->complete,
+							ADC_CONV_TIMEOUT);
+		if (!ret) {
+			pr_debug("Did not get completion timeout.\n");
+			ret = adc_poll_wait_eoc(adc);
+			if (ret < 0) {
+				pr_err("EOC bit not set\n");
+				return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static void adc_update_dig_param(struct adc_chip *adc,
 			struct adc_channel_prop *prop, u8 *data)
 {
@@ -289,6 +325,79 @@ static void adc_update_dig_param(struct adc_chip *adc,
 	/* Update decimation ratio select */
 	*data &= ~ADC_USR_DIG_PARAM_DEC_RATIO_SEL;
 	*data |= (prop->decimation << ADC_USR_DIG_PARAM_DEC_RATIO_SEL_SHIFT);
+}
+
+static int adc_post_configure_usb_in_read(struct adc_chip *adc,
+					struct adc_channel_prop *prop)
+{
+	u8 data;
+
+	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr) {
+		data = ADC_CAL_DELAY_CTL_VAL_125MS;
+		/* Set calibration measurement interval to 125ms */
+		return regmap_bulk_write(adc->regmap,
+					adc->cal_addr + ADC_CAL_DELAY_CTL,
+					&data, 1);
+	}
+
+	return 0;
+}
+
+static int adc_pre_configure_usb_in_read(struct adc_chip *adc)
+{
+	int ret;
+	u8 data = ADC_CAL_DELAY_CTL_VAL_256S;
+
+	/* Increase calibration measurement interval to 256s */
+	ret = regmap_bulk_write(adc->regmap,
+				adc->cal_addr + ADC_CAL_DELAY_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	/* Add delay of 20ms to allow completion of pending conversions */
+	msleep(20);
+
+	/* Select REF_GND and start a conversion */
+	data = ADC_REF_GND;
+	ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	data = ADC_USR_EN_CTL1_ADC_EN;
+	ret = adc_write(adc, ADC_USR_EN_CTL1, &data, 1);
+	if (ret)
+		return ret;
+
+	if (!adc->poll_eoc)
+		reinit_completion(&adc->complete);
+
+	data = ADC_USR_CONV_REQ_REQ;
+	ret = adc_write(adc, ADC_USR_CONV_REQ, &data, 1);
+	if (ret)
+		return ret;
+
+	/* Select DIG PARAM and CH_SEL for USBIN */
+	data = ADC_USR_DIG_PARAM_ABS_CAL_VAL;
+	ret = adc_write(adc, ADC_USR_DIG_PARAM, &data, 1);
+	if (ret)
+		return ret;
+
+	data = ADC_USB_IN_V_16;
+	ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	/* Check EOC for GND conversion */
+	ret = adc_wait_eoc(adc);
+	if (ret < 0)
+		return ret;
+
+	if (!adc->poll_eoc)
+		reinit_completion(&adc->complete);
+
+	/* Conversion request for USB_IN */
+	data = ADC_USR_CONV_REQ_REQ;
+	return adc_write(adc, ADC_USR_CONV_REQ, &data, 1);
 }
 
 static int adc_configure(struct adc_chip *adc,
@@ -339,30 +448,23 @@ static int adc_do_conversion(struct adc_chip *adc,
 
 	mutex_lock(&adc->lock);
 
-	ret = adc_configure(adc, prop);
-	if (ret) {
-		pr_err("ADC configure failed with %d\n", ret);
-		goto unlock;
-	}
-
-	if (adc->poll_eoc) {
-		ret = adc_poll_wait_eoc(adc);
-		if (ret < 0) {
-			pr_err("EOC bit not set\n");
+	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr) {
+		ret = adc_pre_configure_usb_in_read(adc);
+		if (ret) {
+			pr_err("ADC configure failed with %d\n", ret);
 			goto unlock;
 		}
 	} else {
-		ret = wait_for_completion_timeout(&adc->complete,
-							ADC_CONV_TIMEOUT);
-		if (!ret) {
-			pr_debug("Did not get completion timeout.\n");
-			ret = adc_poll_wait_eoc(adc);
-			if (ret < 0) {
-				pr_err("EOC bit not set\n");
-				goto unlock;
-			}
+		ret = adc_configure(adc, prop);
+		if (ret) {
+			pr_err("ADC configure failed with %d\n", ret);
+			goto unlock;
 		}
 	}
+
+	ret = adc_wait_eoc(adc);
+	if (ret < 0)
+		goto unlock;
 
 	if ((chan->type == IIO_VOLTAGE) || (chan->type == IIO_TEMP))
 		ret = adc_read_voltage_data(adc, data_volt);
@@ -373,6 +475,8 @@ static int adc_do_conversion(struct adc_chip *adc,
 
 		ret = adc_read_current_data(adc, data_cur);
 	}
+
+	ret = adc_post_configure_usb_in_read(adc, prop);
 unlock:
 	mutex_unlock(&adc->lock);
 
@@ -762,6 +866,7 @@ static int adc_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct adc_chip *adc;
 	struct regmap *regmap;
+	const __be32 *prop_addr;
 	int ret, irq_eoc;
 	u32 reg;
 
@@ -780,7 +885,20 @@ static int adc_probe(struct platform_device *pdev)
 	adc = iio_priv(indio_dev);
 	adc->regmap = regmap;
 	adc->dev = dev;
-	adc->base = reg;
+
+	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
+	if (!prop_addr) {
+		pr_err("invalid IO resources\n");
+		return -EINVAL;
+	}
+	adc->base = be32_to_cpu(*prop_addr);
+
+	prop_addr = of_get_address(dev->of_node, 1, NULL, NULL);
+	if (!prop_addr)
+		pr_debug("invalid cal IO resources\n");
+	else
+		adc->cal_addr = be32_to_cpu(*prop_addr);
+
 	init_completion(&adc->complete);
 	mutex_init(&adc->lock);
 

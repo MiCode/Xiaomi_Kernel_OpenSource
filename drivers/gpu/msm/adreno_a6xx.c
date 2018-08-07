@@ -1301,6 +1301,9 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
+	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+		return;
+
 	adreno_write_gmureg(adreno_dev,
 			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
 }
@@ -2948,7 +2951,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
-	.gx_is_on = a6xx_gmu_gx_is_on,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,

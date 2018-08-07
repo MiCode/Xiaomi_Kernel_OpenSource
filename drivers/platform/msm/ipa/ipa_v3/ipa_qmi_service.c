@@ -411,6 +411,7 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	struct ipa_msg_desc req_desc, resp_desc;
 	int rc;
 	u16 smem_restr_bytes = ipa3_get_smem_restr_bytes();
+	int wan_cons_ep;
 
 	memset(&req, 0, sizeof(struct ipa_init_modem_driver_req_msg_v01));
 	memset(&resp, 0, sizeof(struct ipa_init_modem_driver_resp_msg_v01));
@@ -449,9 +450,16 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 		IPA_MEM_PART(modem_ofst) + smem_restr_bytes;
 	req.modem_mem_info.size = IPA_MEM_PART(modem_size);
 
-	req.ctrl_comm_dest_end_pt_valid = true;
-	req.ctrl_comm_dest_end_pt =
-		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	wan_cons_ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (wan_cons_ep == IPA_EP_NOT_ALLOCATED) {
+		IPAWANDBG("APPS_WAN_CONS is not valid\n");
+		req.ctrl_comm_dest_end_pt_valid = false;
+		req.ctrl_comm_dest_end_pt = 0;
+	} else {
+		req.ctrl_comm_dest_end_pt_valid = true;
+		req.ctrl_comm_dest_end_pt =
+			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	}
 
 	req.hdr_proc_ctx_tbl_info_valid =
 		(IPA_MEM_PART(modem_hdr_proc_ctx_size) != 0);

@@ -183,4 +183,25 @@ struct el2_report_data_t {
 	__u8 response;       /* Response From EL2 */
 };
 
+struct el2_actor_report_t {
+	__u32 mpgen_interface_ver;
+		/* duplicate MP version, used for API verification */
+	__u64 num_incidents; /* number of incidents */
+	__u8 protection_enabled; /* states if protection is enabled */
+	__u64 spare; /* reserve 64bit for future use */
+	__u64 timestamp; /* time of report */
+	__u8 report_type; /* type of report: info or incident */
+	__u8 asset_category; /* category of affected asset: ro, wo etc */
+	__s8 asset_name[24]; /* name of affected asset */
+	__u8 response; /* type of response: allow or restrict */
+	__u32 actor_count; /* number of actors involved */
+};
+
+struct el2_actor_data_t {
+	__s32 pid;  /*pid of actor process */
+	__s64 state; /* state of actor process */
+	__s8 name[16]; /* name of actor process */
+};
+
+
 #endif

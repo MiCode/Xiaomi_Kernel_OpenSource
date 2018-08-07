@@ -184,7 +184,8 @@
  * HSIC1_PROD means HSIC client is the producer and IPA is the
  * consumer.
  * PROD clients are always even, and CONS clients are always odd.
- * Add new clients in the end of the list and update IPA_CLIENT_MAX
+ * Add new clients in the end of the list or replace reserved one,
+ * update IPA_CLIENT_MAX and update the strings array ipa_clients_strings[]
  */
 enum ipa_client_type {
 	IPA_CLIENT_HSIC1_PROD			= 0,
@@ -296,11 +297,28 @@ enum ipa_client_type {
 	IPA_CLIENT_TEST4_PROD			= 70,
 	IPA_CLIENT_TEST4_CONS			= 71,
 
-	/* RESERVERD PROD				= 72, */
-	IPA_CLIENT_DUMMY_CONS			= 73
+	/* RESERVERD PROD			= 72, */
+	IPA_CLIENT_DUMMY_CONS			= 73,
+
+	IPA_CLIENT_Q6_DL_NLO_DATA_PROD		= 74,
+	IPA_CLIENT_Q6_UL_NLO_DATA_CONS		= 75,
+
+	/* RESERVERD PROD			= 76, */
+	IPA_CLIENT_Q6_UL_NLO_ACK_CONS		= 77,
+
+	/* RESERVERD PROD			= 78, */
+	IPA_CLIENT_Q6_QBAP_STATUS_CONS		= 79,
+
+	/* RESERVERD PROD			= 80, */
+	IPA_CLIENT_MHI_DPL_CONS			= 81,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_DUMMY_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_DPL_CONS + 1)
+
+#define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
+#define IPA_CLIENT_Q6_UL_NLO_ACK_CONS IPA_CLIENT_Q6_UL_NLO_ACK_CONS
+#define IPA_CLIENT_Q6_QBAP_STATUS_CONS IPA_CLIENT_Q6_QBAP_STATUS_CONS
+#define IPA_CLIENT_MHI_DPL_CONS IPA_CLIENT_MHI_DPL_CONS
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -329,20 +347,27 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_DUN_CONS || \
 	(client) == IPA_CLIENT_Q6_DECOMP_CONS || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_CONS || \
-	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS || \
+	(client) == IPA_CLIENT_Q6_UL_NLO_DATA_CONS || \
+	(client) == IPA_CLIENT_Q6_UL_NLO_ACK_CONS || \
+	(client) == IPA_CLIENT_Q6_QBAP_STATUS_CONS)
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
-	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
+	(client) == IPA_CLIENT_Q6_DECOMP2_PROD || \
+	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD)
 
 #define IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client) \
 	((client) == IPA_CLIENT_Q6_LAN_CONS || \
 	(client) == IPA_CLIENT_Q6_WAN_CONS || \
 	(client) == IPA_CLIENT_Q6_DUN_CONS || \
-	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS || \
+	(client) == IPA_CLIENT_Q6_UL_NLO_DATA_CONS || \
+	(client) == IPA_CLIENT_Q6_UL_NLO_ACK_CONS || \
+	(client) == IPA_CLIENT_Q6_QBAP_STATUS_CONS)
 
 #define IPA_CLIENT_IS_Q6_ZIP_CONS(client) \
 	((client) == IPA_CLIENT_Q6_DECOMP_CONS || \
@@ -351,7 +376,8 @@ enum ipa_client_type {
 #define IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
-	(client) == IPA_CLIENT_Q6_CMD_PROD)
+	(client) == IPA_CLIENT_Q6_CMD_PROD || \
+	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD)
 
 #define IPA_CLIENT_IS_Q6_ZIP_PROD(client) \
 	((client) == IPA_CLIENT_Q6_DECOMP_PROD || \
@@ -366,11 +392,13 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD)
 
 #define IPA_CLIENT_IS_MHI_CONS(client) \
-	((client) == IPA_CLIENT_MHI_CONS)
+	((client) == IPA_CLIENT_MHI_CONS || \
+	(client) == IPA_CLIENT_MHI_DPL_CONS)
 
 #define IPA_CLIENT_IS_MHI(client) \
 	((client) == IPA_CLIENT_MHI_CONS || \
-	(client) == IPA_CLIENT_MHI_PROD)
+	(client) == IPA_CLIENT_MHI_PROD || \
+	(client) == IPA_CLIENT_MHI_DPL_CONS)
 
 #define IPA_CLIENT_IS_TEST_PROD(client) \
 	((client) == IPA_CLIENT_TEST_PROD || \

@@ -54,20 +54,18 @@ const char * const mhi_state_str[MHI_STATE_MAX] = {
 };
 
 static const char * const mhi_pm_state_str[] = {
-	"DISABLE",
-	"POR",
-	"M0",
-	"M1",
-	"M1->M2",
-	"M2",
-	"M?->M3",
-	"M3",
-	"M3->M0",
-	"FW DL Error",
-	"SYS_ERR Detect",
-	"SYS_ERR Process",
-	"SHUTDOWN Process",
-	"LD or Error Fatal Detect",
+	[MHI_PM_BIT_DISABLE] = "DISABLE",
+	[MHI_PM_BIT_POR] = "POR",
+	[MHI_PM_BIT_M0] = "M0",
+	[MHI_PM_BIT_M2] = "M2",
+	[MHI_PM_BIT_M3_ENTER] = "M?->M3",
+	[MHI_PM_BIT_M3] = "M3",
+	[MHI_PM_BIT_M3_EXIT] = "M3->M0",
+	[MHI_PM_BIT_FW_DL_ERR] = "FW DL Error",
+	[MHI_PM_BIT_SYS_ERR_DETECT] = "SYS_ERR Detect",
+	[MHI_PM_BIT_SYS_ERR_PROCESS] = "SYS_ERR Process",
+	[MHI_PM_BIT_SHUTDOWN_PROCESS] = "SHUTDOWN Process",
+	[MHI_PM_BIT_LD_ERR_FATAL_DETECT] = "LD or Error Fatal Detect",
 };
 
 struct mhi_bus mhi_bus;
@@ -1087,7 +1085,6 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	spin_lock_init(&mhi_cntrl->wlock);
 	INIT_WORK(&mhi_cntrl->st_worker, mhi_pm_st_worker);
 	INIT_WORK(&mhi_cntrl->fw_worker, mhi_fw_load_worker);
-	INIT_WORK(&mhi_cntrl->m1_worker, mhi_pm_m1_worker);
 	INIT_WORK(&mhi_cntrl->syserr_worker, mhi_pm_sys_err_worker);
 	init_waitqueue_head(&mhi_cntrl->state_event);
 

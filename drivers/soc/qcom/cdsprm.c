@@ -119,12 +119,14 @@ static LIST_HEAD(cdsprm_list);
  */
 void cdsprm_register_cdspl3gov(struct cdsprm_l3 *arg)
 {
+	unsigned long flags;
+
 	if (!arg)
 		return;
 
-	spin_lock(&gcdsprm.l3_lock);
+	spin_lock_irqsave(&gcdsprm.l3_lock, flags);
 	gcdsprm.set_l3_freq = arg->set_l3_freq;
-	spin_unlock(&gcdsprm.l3_lock);
+	spin_unlock_irqrestore(&gcdsprm.l3_lock, flags);
 }
 EXPORT_SYMBOL(cdsprm_register_cdspl3gov);
 
@@ -137,9 +139,11 @@ EXPORT_SYMBOL(cdsprm_register_cdspl3gov);
  */
 void cdsprm_unregister_cdspl3gov(void)
 {
-	spin_lock(&gcdsprm.l3_lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&gcdsprm.l3_lock, flags);
 	gcdsprm.set_l3_freq = NULL;
-	spin_unlock(&gcdsprm.l3_lock);
+	spin_unlock_irqrestore(&gcdsprm.l3_lock, flags);
 }
 EXPORT_SYMBOL(cdsprm_unregister_cdspl3gov);
 
@@ -251,6 +255,7 @@ static void process_cdsp_request(struct work_struct *work)
 	struct cdsprm_request *req = NULL;
 	struct sysmon_msg *msg = NULL;
 	unsigned int l3_clock_khz;
+	unsigned long flags;
 
 	while (gcdsprm.work_state ==
 			CDSP_DELAY_THREAD_STARTED) {
@@ -259,10 +264,11 @@ static void process_cdsp_request(struct work_struct *work)
 		if (req) {
 			msg = &req->msg;
 			if (!msg) {
-				spin_lock(&gcdsprm.list_lock);
+				spin_lock_irqsave(&gcdsprm.list_lock, flags);
 				list_del(&req->node);
 				req->busy = false;
-				spin_unlock(&gcdsprm.list_lock);
+				spin_unlock_irqrestore(&gcdsprm.list_lock,
+					flags);
 				continue;
 			}
 			if ((msg->feature_id == SYSMON_CDSP_FEATURE_RM) &&
@@ -271,10 +277,10 @@ static void process_cdsp_request(struct work_struct *work)
 			} else if (msg->feature_id == SYSMON_CDSP_FEATURE_L3) {
 				l3_clock_khz =
 				msg->feature_struct.l3_struct.l3_clock_khz;
-				spin_lock(&gcdsprm.l3_lock);
+				spin_lock_irqsave(&gcdsprm.l3_lock, flags);
 				gcdsprm.set_l3_freq_cached =
 							gcdsprm.set_l3_freq;
-				spin_unlock(&gcdsprm.l3_lock);
+				spin_unlock_irqrestore(&gcdsprm.l3_lock, flags);
 				if (gcdsprm.set_l3_freq_cached) {
 					gcdsprm.set_l3_freq_cached(
 						l3_clock_khz);
@@ -282,10 +288,10 @@ static void process_cdsp_request(struct work_struct *work)
 					l3_clock_khz);
 				}
 			}
-			spin_lock(&gcdsprm.list_lock);
+			spin_lock_irqsave(&gcdsprm.list_lock, flags);
 			list_del(&req->node);
 			req->busy = false;
-			spin_unlock(&gcdsprm.list_lock);
+			spin_unlock_irqrestore(&gcdsprm.list_lock, flags);
 		} else {
 			wait_for_completion(&gcdsprm.msg_avail);
 		}
@@ -312,6 +318,7 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 	struct sysmon_msg *msg = (struct sysmon_msg *)data;
 	bool b_valid = false;
 	struct cdsprm_request *req;
+	unsigned long flags;
 
 	if (!data || (len < sizeof(*msg))) {
 		dev_err(&dev->dev,
@@ -326,15 +333,15 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 		b_valid = true;
 	} else if (msg->feature_id == SYSMON_CDSP_FEATURE_L3) {
 		dev_dbg(&dev->dev, "Processing L3 request\n");
-		spin_lock(&gcdsprm.l3_lock);
+		spin_lock_irqsave(&gcdsprm.l3_lock, flags);
 		gcdsprm.set_l3_freq_cached = gcdsprm.set_l3_freq;
-		spin_unlock(&gcdsprm.l3_lock);
+		spin_unlock_irqrestore(&gcdsprm.l3_lock, flags);
 		if (gcdsprm.set_l3_freq_cached)
 			b_valid = true;
 	}
 
 	if (b_valid) {
-		spin_lock(&gcdsprm.list_lock);
+		spin_lock_irqsave(&gcdsprm.list_lock, flags);
 		if (!gcdsprm.msg_queue[gcdsprm.msg_queue_idx].busy) {
 			req = &gcdsprm.msg_queue[gcdsprm.msg_queue_idx];
 			req->busy = true;
@@ -345,13 +352,13 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 			else
 				gcdsprm.msg_queue_idx = 0;
 		} else {
-			spin_unlock(&gcdsprm.list_lock);
+			spin_unlock_irqrestore(&gcdsprm.list_lock, flags);
 			dev_err(&dev->dev,
 				"Unable to queue cdsp request, no memory\n");
 			return -ENOMEM;
 		}
 		list_add_tail(&req->node, &cdsprm_list);
-		spin_unlock(&gcdsprm.list_lock);
+		spin_unlock_irqrestore(&gcdsprm.list_lock, flags);
 		if (gcdsprm.work_state ==
 				CDSP_DELAY_THREAD_NOT_STARTED) {
 			gcdsprm.work_state =

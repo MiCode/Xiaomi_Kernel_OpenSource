@@ -646,7 +646,7 @@ static int dp_power_deinit(struct dp_power *dp_power)
 	rc = sde_power_resource_enable(power->phandle,
 			power->dp_core_client, false);
 	if (rc) {
-		pr_err("Power resource enable failed, rc=%d\n", rc);
+		pr_err("Power resource disable failed, rc=%d\n", rc);
 		goto exit;
 	}
 	dp_power_config_gpios(power, false, false);

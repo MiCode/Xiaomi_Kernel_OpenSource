@@ -16,6 +16,12 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &snd_9360 {
+	qcom,ext-disp-audio-rx;
+	qcom,wcn-btfm;
+	qcom,mi2s-audio-intf;
+	qcom,auxpcm-audio-intf;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"MADINPUT", "MCLK",
@@ -54,6 +60,12 @@
 };
 
 &snd_934x {
+	qcom,ext-disp-audio-rx;
+	qcom,wcn-btfm;
+	qcom,mi2s-audio-intf;
+	qcom,auxpcm-audio-intf;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",

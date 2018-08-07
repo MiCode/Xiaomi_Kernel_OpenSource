@@ -702,7 +702,8 @@ static int imp_mhi_probe_cb(struct mhi_device *mhi_dev,
 		return -EPERM;
 	}
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	/* vote for IPA clock. IPA clock will be devoted when MHI enters LPM */
+	IPA_ACTIVE_CLIENTS_INC_SPECIAL("IMP");
 
 	imp_ctx->md.mhi_dev = mhi_dev;
 
@@ -770,15 +771,13 @@ static int imp_mhi_probe_cb(struct mhi_device *mhi_dev,
 	imp_mhi_trigger_ready_ind();
 
 	mutex_unlock(&imp_ctx->mutex);
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-
 
 	IMP_FUNC_EXIT();
 	return 0;
 
 fail:
 	mutex_unlock(&imp_ctx->mutex);
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
 	return ret;
 }
 

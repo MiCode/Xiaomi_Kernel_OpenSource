@@ -1298,9 +1298,11 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
+		mdss_mdp_clk_update(MDSS_CLK_BIMC, 1);
 		mdss_mdp_clk_update(MDSS_CLK_THROTTLE_AXI, 1);
 	} else {
 		mdss_mdp_clk_update(MDSS_CLK_THROTTLE_AXI, 0);
+		mdss_mdp_clk_update(MDSS_CLK_BIMC, 0);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
@@ -1343,6 +1345,7 @@ static void __mdss_mdp_clk_control(struct mdss_data_type *mdata, bool enable)
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, 1);
 		mdss_mdp_clk_update(MDSS_CLK_THROTTLE_AXI, 1);
+		mdss_mdp_clk_update(MDSS_CLK_BIMC, 1);
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, 1);
 	} else {
@@ -1353,12 +1356,13 @@ static void __mdss_mdp_clk_control(struct mdss_data_type *mdata, bool enable)
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, 0);
 
+		mdss_mdp_clk_update(MDSS_CLK_BIMC, 0);
+		mdss_mdp_clk_update(MDSS_CLK_THROTTLE_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, 0);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
 		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 0);
-		mdss_mdp_clk_update(MDSS_CLK_THROTTLE_AXI, 0);
 
 		/* release iommu control */
 		mdss_iommu_ctrl(0);
@@ -1828,6 +1832,9 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 
 	/* vsync_clk is optional for non-smart panels */
 	mdss_mdp_irq_clk_register(mdata, "vsync_clk", MDSS_CLK_MDP_VSYNC);
+
+	/* this optional clock is needed for DDR memory access on few targets */
+	mdss_mdp_irq_clk_register(mdata, "bimc_clk", MDSS_CLK_BIMC);
 
 	/* this clk is not present on all MDSS revisions */
 	mdss_mdp_irq_clk_register(mdata, "mnoc_clk", MDSS_CLK_MNOC_AHB);
@@ -2425,8 +2432,9 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
 	for (i = 0; i < pipe_cnt && pipe; i++) {
-		SPRINT("pipe num:%d type:%s ndx:%d rect:%d handoff:%d id:%d ",
-			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
+		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d ",
+			pipe->num, type, pipe->ndx, pipe->multirect.max_rects);
+		SPRINT("pipe_is_handoff:%d display_id:%d ",
 			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
 		for (j = 0; j < num_bytes; j++)

@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/clock/qcom,gcc-qcs405.h>
 
 &soc {
 	ad_hoc_bus: ad-hoc-bus@580000 {
@@ -27,7 +28,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc BIMC_MSMBUS_CLK>,
@@ -39,7 +39,8 @@
 			label = "fab-pcnoc";
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
-			qcom,bypass-qos-prg;
+			qcom,base-offset = <0x7000>;
+			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc PNOC_MSMBUS_CLK>,
@@ -51,7 +52,8 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
+			qcom,base-offset = <0x11000>;
+			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc SNOC_MSMBUS_CLK>,
@@ -64,7 +66,13 @@
 			label = "mas-apps-proc";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <0>;
+			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
+			qcom,prio-lvl = <0>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_APPSS_PROC>;
 		};
@@ -106,6 +114,8 @@
 			label = "mas-snoc-bimc-1";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <5>;
+			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_ebi>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC_1>;
@@ -134,11 +144,7 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <5>;
-			qcom,qos-mode = "fixed";
 			qcom,connections = <&pcnoc_int_3>;
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SPDM>;
 		};
@@ -183,7 +189,11 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
+			qcom,qport = <0>;
+			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_pcnoc_snoc &pcnoc_int_2>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CRYPTO_CORE0>;
 			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_1 &pcnoc_s_10
@@ -256,7 +266,7 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <11>;
+			qcom,qport = <1>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&qdss_int>;
 			qcom,prio1 = <1>;
@@ -293,7 +303,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <10>;
+			qcom,qport = <0>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&qdss_int>;
 			qcom,prio1 = <1>;
@@ -308,7 +318,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <27>;
+			qcom,qport = <17>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_snoc_bimc_1 &snoc_int_1>;
 			qcom,prio1 = <1>;
@@ -323,7 +333,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <18>;
+			qcom,qport = <8>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_snoc_bimc_1 &snoc_int_1>;
 			qcom,prio1 = <1>;
@@ -338,13 +348,17 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <26>;
+			qcom,qport = <16>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_snoc_bimc_1 &snoc_int_1>;
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_USB3>;
+			qcom,node-qos-clks {
+				clock-names = "clk-syc-noc-usb3-no-rate";
+				clocks = <&clock_gcc GCC_SYS_NOC_USB3_CLK>;
+			};
 		};
 
 		/*Internal nodes*/

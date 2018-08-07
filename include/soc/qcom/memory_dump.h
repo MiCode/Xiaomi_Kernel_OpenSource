@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,8 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_RPMH = 0xEC,
 	MSM_DUMP_DATA_TMC_ETF = 0xF0,
 	MSM_DUMP_DATA_TMC_REG = 0x100,
+	MSM_DUMP_DATA_TMC_ETR_REG = 0x100,
+	MSM_DUMP_DATA_TMC_ETF_REG = 0x101,
 	MSM_DUMP_DATA_LOG_BUF = 0x110,
 	MSM_DUMP_DATA_LOG_BUF_FIRST_IDX = 0x111,
 	MSM_DUMP_DATA_SCANDUMP_PER_CPU = 0x130,
@@ -118,9 +120,22 @@ struct msm_dump_entry {
 	uint64_t addr;
 };
 
+struct dump_vaddr_entry {
+	uint32_t id;
+	void *dump_vaddr;
+	struct msm_dump_data *dump_data_vaddr;
+};
+
+struct msm_mem_dump_vaddr_tbl {
+	uint8_t num_node;
+	struct dump_vaddr_entry *entries;
+};
+
 #ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 extern int msm_dump_data_register(enum msm_dump_table_ids id,
 				  struct msm_dump_entry *entry);
+
+extern struct dump_vaddr_entry *get_msm_dump_ptr(enum msm_dump_data_ids id);
 #else
 static inline int msm_dump_data_register(enum msm_dump_table_ids id,
 					 struct msm_dump_entry *entry)

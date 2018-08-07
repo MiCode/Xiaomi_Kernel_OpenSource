@@ -30,9 +30,12 @@
 #include <linux/amba/bus.h>
 #include <linux/iommu.h>
 #include <asm/dma-iommu.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
+
+#define TMC_REG_DUMP_MAGIC 0x42445953
 
 void tmc_wait_for_tmcready(struct tmc_drvdata *drvdata)
 {
@@ -63,11 +66,85 @@ void tmc_flush_and_stop(struct tmc_drvdata *drvdata)
 	tmc_wait_for_tmcready(drvdata);
 }
 
+static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
+{
+	struct dump_vaddr_entry *dump_entry;
+	struct msm_dump_data *dump_data;
+	uint32_t *reg_buf;
+
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		dump_entry = get_msm_dump_ptr(MSM_DUMP_DATA_TMC_ETR_REG);
+		dev_dbg(drvdata->dev, "%s: TMC ETR dump entry ptr is %pK\n",
+			__func__, dump_entry);
+	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETB ||
+			drvdata->config_type == TMC_CONFIG_TYPE_ETF) {
+		dump_entry = get_msm_dump_ptr(MSM_DUMP_DATA_TMC_ETF_REG);
+		dev_dbg(drvdata->dev, "%s: TMC ETF dump entry ptr is %pK\n",
+			__func__, dump_entry);
+	} else
+		return;
+
+	if (dump_entry == NULL)
+		return;
+
+	reg_buf = (uint32_t *)(dump_entry->dump_vaddr);
+	dump_data = dump_entry->dump_data_vaddr;
+
+	if (reg_buf == NULL || dump_data == NULL)
+		return;
+
+	dev_dbg(drvdata->dev, "%s: TMC dump reg ptr is %pK, dump_data is %pK\n",
+		__func__, reg_buf, dump_data);
+
+	reg_buf[1] = readl_relaxed(drvdata->base + TMC_RSZ);
+	reg_buf[3] = readl_relaxed(drvdata->base + TMC_STS);
+	reg_buf[5] = readl_relaxed(drvdata->base + TMC_RRP);
+	reg_buf[6] = readl_relaxed(drvdata->base + TMC_RWP);
+	reg_buf[7] = readl_relaxed(drvdata->base + TMC_TRG);
+	reg_buf[8] = readl_relaxed(drvdata->base + TMC_CTL);
+	reg_buf[10] = readl_relaxed(drvdata->base + TMC_MODE);
+	reg_buf[11] = readl_relaxed(drvdata->base + TMC_LBUFLEVEL);
+	reg_buf[12] = readl_relaxed(drvdata->base + TMC_CBUFLEVEL);
+	reg_buf[13] = readl_relaxed(drvdata->base + TMC_BUFWM);
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		reg_buf[14] = readl_relaxed(drvdata->base + TMC_RRPHI);
+		reg_buf[15] = readl_relaxed(drvdata->base + TMC_RWPHI);
+		reg_buf[68] = readl_relaxed(drvdata->base + TMC_AXICTL);
+		reg_buf[70] = readl_relaxed(drvdata->base + TMC_DBALO);
+		reg_buf[71] = readl_relaxed(drvdata->base + TMC_DBAHI);
+	}
+	reg_buf[192] = readl_relaxed(drvdata->base + TMC_FFSR);
+	reg_buf[193] = readl_relaxed(drvdata->base + TMC_FFCR);
+	reg_buf[194] = readl_relaxed(drvdata->base + TMC_PSCR);
+	reg_buf[1000] = readl_relaxed(drvdata->base + CORESIGHT_CLAIMSET);
+	reg_buf[1001] = readl_relaxed(drvdata->base + CORESIGHT_CLAIMCLR);
+	reg_buf[1005] = readl_relaxed(drvdata->base + CORESIGHT_LSR);
+	reg_buf[1006] = readl_relaxed(drvdata->base + CORESIGHT_AUTHSTATUS);
+	reg_buf[1010] = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
+	reg_buf[1011] = readl_relaxed(drvdata->base + CORESIGHT_DEVTYPE);
+	reg_buf[1012] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR4);
+	reg_buf[1013] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR5);
+	reg_buf[1014] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR6);
+	reg_buf[1015] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR7);
+	reg_buf[1016] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR0);
+	reg_buf[1017] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR1);
+	reg_buf[1018] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR2);
+	reg_buf[1019] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR3);
+	reg_buf[1020] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR0);
+	reg_buf[1021] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR1);
+	reg_buf[1022] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR2);
+	reg_buf[1023] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR3);
+
+	dump_data->magic = TMC_REG_DUMP_MAGIC;
+}
+
 void tmc_enable_hw(struct tmc_drvdata *drvdata)
 {
 	drvdata->enable = true;
 	drvdata->sticky_enable = true;
 	writel_relaxed(TMC_CTL_CAPT_EN, drvdata->base + TMC_CTL);
+	if (drvdata->force_reg_dump)
+		__tmc_reg_dump(drvdata);
 }
 
 void tmc_disable_hw(struct tmc_drvdata *drvdata)
@@ -744,6 +821,8 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			return -EPROBE_DEFER;
 		}
 	}
+	if (of_property_read_bool(drvdata->dev->of_node, "qcom,force-reg-dump"))
+		drvdata->force_reg_dump = true;
 
 	desc.pdata = pdata;
 	desc.dev = dev;

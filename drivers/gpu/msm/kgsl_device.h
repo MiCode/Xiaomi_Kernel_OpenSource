@@ -104,6 +104,7 @@ enum kgsl_event_results {
 
 /* Allocate 600K for the snapshot static region*/
 #define KGSL_SNAPSHOT_MEMSIZE (600 * 1024)
+#define MAX_L3_LEVELS	3
 
 struct kgsl_device;
 struct platform_device;
@@ -151,6 +152,8 @@ struct kgsl_functable {
 		struct kgsl_snapshot *snapshot);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	int (*drain)(struct kgsl_device *device);
+	struct kgsl_device_private * (*device_private_create)(void);
+	void (*device_private_destroy)(struct kgsl_device_private *dev_priv);
 	/*
 	 * Optional functions - these functions are not mandatory.  The
 	 * driver will check that the function pointer is not NULL before
@@ -328,6 +331,11 @@ struct kgsl_device {
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject *gpu_sysfs_kobj;
+	struct clk *l3_clk;
+	unsigned int l3_freq[MAX_L3_LEVELS];
+	unsigned int num_l3_pwrlevels;
+	/* store current L3 vote to determine if we should change our vote */
+	unsigned int cur_l3_pwrlevel;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -406,6 +414,7 @@ struct kgsl_context {
 	struct kgsl_event_group events;
 	unsigned int flags;
 	struct kgsl_pwr_constraint pwr_constraint;
+	struct kgsl_pwr_constraint l3_pwr_constraint;
 	unsigned int fault_count;
 	unsigned long fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;

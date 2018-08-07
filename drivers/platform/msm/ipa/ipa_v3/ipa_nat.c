@@ -1115,10 +1115,17 @@ int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 	pdn_entries[mdfy_pdn->pdn_index].src_metadata =
 		mdfy_pdn->src_metadata;
 
+	/* mark tethering bit for remote modem */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)
+		pdn_entries[mdfy_pdn->pdn_index].src_metadata |=
+			IPA_QMAP_TETH_BIT;
+
 	IPADBG("Modify PDN in index: %d Public ip address:%pI4h\n",
-		mdfy_pdn->pdn_index, &mdfy_pdn->public_ip);
+		mdfy_pdn->pdn_index,
+		&pdn_entries[mdfy_pdn->pdn_index].public_ip);
 	IPADBG("Modify PDN dst metadata: 0x%x src metadata: 0x%x\n",
-		mdfy_pdn->dst_metadata, mdfy_pdn->src_metadata);
+		pdn_entries[mdfy_pdn->pdn_index].dst_metadata,
+		pdn_entries[mdfy_pdn->pdn_index].src_metadata);
 
 	/* Copy the PDN config table to SRAM */
 	ipa3_nat_create_modify_pdn_cmd(&mem_cmd, false);

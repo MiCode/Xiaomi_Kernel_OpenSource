@@ -34,17 +34,16 @@ enum ipahal_reg_name {
 	IPA_HOLB_DROP_IRQ_CLR_EE_n,
 	IPA_BCR,
 	IPA_ENABLED_PIPES,
-	IPA_COMP_SW_RESET,
 	IPA_VERSION,
 	IPA_TAG_TIMER,
 	IPA_COMP_HW_VERSION,
-	IPA_SPARE_REG_1,
-	IPA_SPARE_REG_2,
 	IPA_COMP_CFG,
 	IPA_STATE_TX_WRAPPER,
 	IPA_STATE_TX1,
 	IPA_STATE_FETCHER,
 	IPA_STATE_FETCHER_MASK,
+	IPA_STATE_FETCHER_MASK_0,
+	IPA_STATE_FETCHER_MASK_1,
 	IPA_STATE_DFETCHER,
 	IPA_STATE_ACL,
 	IPA_STATE,
@@ -56,6 +55,12 @@ enum ipahal_reg_name {
 	IPA_STATE_GSI_AOS,
 	IPA_STATE_GSI_IF,
 	IPA_STATE_GSI_SKIP,
+	IPA_STATE_GSI_IF_CONS,
+	IPA_STATE_DPL_FIFO,
+	IPA_STATE_COAL_MASTER,
+	IPA_GENERIC_RAM_ARBITER_PRIORITY,
+	IPA_STATE_NLO_AGGR,
+	IPA_STATE_COAL_MASTER_1,
 	IPA_ENDP_INIT_HDR_n,
 	IPA_ENDP_INIT_HDR_EXT_n,
 	IPA_ENDP_INIT_AGGR_n,
@@ -88,8 +93,7 @@ enum ipahal_reg_name {
 	IPA_SYS_PKT_PROC_CNTXT_BASE,
 	IPA_LOCAL_PKT_PROC_CNTXT_BASE,
 	IPA_ENDP_STATUS_n,
-	IPA_ENDP_WEIGHTS_n,
-	IPA_ENDP_YELLOW_RED_MARKER,
+	IPA_ENDP_YELLOW_RED_MARKER_CFG_n,
 	IPA_ENDP_FILTER_ROUTER_HSH_CFG_n,
 	IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
 	IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n,
@@ -221,7 +225,7 @@ struct ipahal_reg_shared_mem_size {
  *	If set to 0 (default), PKT-STATUS will be appended before the packet
  *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
  *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
- * @status_pkt_suppress:
+ * @status_pkt_suppress: Disable notification status, when statistics is enabled
  */
 struct ipahal_reg_ep_cfg_status {
 	bool status_en;
@@ -239,6 +243,7 @@ struct ipahal_reg_ep_cfg_status {
  *	to IPA_RX sub-module and open_global refers to global IPA 1x clock
  */
 struct ipahal_reg_clkon_cfg {
+	bool open_dpl_fifo;
 	bool open_global_2x_clk;
 	bool open_global;
 	bool open_gsi_if;
@@ -274,12 +279,12 @@ struct ipahal_reg_clkon_cfg {
 /*
  * struct ipahal_reg_comp_cfg- IPA Core QMB/Master Port selection
  *
- * @all: QMB/Master port selection policy is configured via IPA_COMP_CFG
- *	- Address based Selection
- *	- Endpoint based selection / Legacy Mode
+ * @enable / @ipa_dcmp_fast_clk_en: are not relevant starting IPA4.5
+ * @ipa_full_flush_wait_rsc_closure_en: relevant starting IPA4.5
  */
 struct ipahal_reg_comp_cfg {
-	bool ipa_atomic_fetcher_arb_lock_dis;
+	bool ipa_full_flush_wait_rsc_closure_en;
+	u8 ipa_atomic_fetcher_arb_lock_dis;
 	bool ipa_qmb_select_by_address_global_en;
 	bool gsi_multi_axi_masters_dis;
 	bool gsi_snoc_cnoc_loop_protection_disable;
@@ -504,10 +509,12 @@ struct ipahal_reg_qsb_max_reads {
  * @tx1_prefetch_disable: Disable prefetch on TX1
  * @tx0_prefetch_almost_empty_size: Prefetch almost empty size on TX0
  * @tx1_prefetch_almost_empty_size: Prefetch almost empty size on TX1
- * @dmaw_scnd_outsd_pred_threshold:
+ * @dmaw_scnd_outsd_pred_threshold: threshold for DMAW_SCND_OUTSD_PRED_EN
  * @dmaw_max_beats_256_dis:
  * @dmaw_scnd_outsd_pred_en:
  * @pa_mask_en:
+ * @dual_tx_enable: When 1 TX0 and TX1 are enabled. When 0 only TX0 is enabled
+ *  Relevant starting IPA4.5
  */
 struct ipahal_reg_tx_cfg {
 	bool tx0_prefetch_disable;
@@ -518,7 +525,7 @@ struct ipahal_reg_tx_cfg {
 	u32 dmaw_max_beats_256_dis;
 	u32 dmaw_scnd_outsd_pred_en;
 	u32 pa_mask_en;
-
+	bool dual_tx_enable;
 };
 
 /*
@@ -539,7 +546,11 @@ struct ipahal_ep_cfg_ctrl_scnd {
 	bool endp_delay;
 };
 
-
+/*
+ * ipahal_print_all_regs() - Loop and read and print all the valid registers
+ *  Parameterized registers are also printed for all the valid ranges.
+ *  Print to dmsg and IPC logs
+ */
 void ipahal_print_all_regs(bool print_to_dmesg);
 
 /*
