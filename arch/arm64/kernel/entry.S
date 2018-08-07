@@ -602,7 +602,7 @@ el1_undef:
 	enable_dbg
 	mov	x0, sp
 	bl	do_undefinstr
-	ASM_BUG()
+	kernel_exit 1
 el1_dbg:
 	/*
 	 * Debug exception handling
