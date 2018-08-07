@@ -575,8 +575,10 @@ static void start_usb_peripheral_work(struct work_struct *w)
 	struct usbpd *pd = container_of(w, struct usbpd, start_periph_work);
 
 	pd->current_state = PE_SNK_STARTUP;
+	pd->current_pr = PR_SINK;
 	pd->current_dr = DR_UFP;
 	start_usb_peripheral(pd);
+	dual_role_instance_changed(pd->dual_role);
 }
 
 /**

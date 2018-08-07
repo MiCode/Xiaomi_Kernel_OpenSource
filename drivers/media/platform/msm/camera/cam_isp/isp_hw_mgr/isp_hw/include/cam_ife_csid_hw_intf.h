@@ -156,6 +156,7 @@ struct cam_csid_get_time_stamp_args {
 enum cam_ife_csid_cmd_type {
 	CAM_IFE_CSID_CMD_GET_TIME_STAMP,
 	CAM_IFE_CSID_SET_CSID_DEBUG,
+	CAM_IFE_CSID_SOF_IRQ_DEBUG,
 	CAM_IFE_CSID_CMD_MAX,
 };
 

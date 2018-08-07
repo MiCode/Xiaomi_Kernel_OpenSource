@@ -180,6 +180,13 @@ struct msm_vidc_roi_qp_payload {
 	unsigned int data[1];
 };
 
+#define MSM_VIDC_EXTRADATA_ROI_DELTAQP 0x1
+struct msm_vidc_roi_deltaqp_payload {
+	unsigned int b_roi_info; /*Enable/Disable*/
+	int mbi_info_size; /*Size of QP data*/
+	unsigned int data[1];
+};
+
 struct msm_vidc_mastering_display_colour_sei_payload {
 	unsigned int nDisplayPrimariesX[3];
 	unsigned int nDisplayPrimariesY[3];

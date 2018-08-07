@@ -46,6 +46,7 @@
 		qcom,model = "qcs405-snd-card";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
+		qcom,spdif-audio-intf = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -81,7 +82,9 @@
 			<&wsa_cdc_dma_0_rx>, <&wsa_cdc_dma_0_tx>,
 			<&wsa_cdc_dma_1_rx>, <&wsa_cdc_dma_1_tx>,
 			<&wsa_cdc_dma_2_tx>,
-			<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>;
+			<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>,
+			<&dai_pri_spdif_rx>, <&dai_pri_spdif_tx>,
+			<&dai_sec_spdif_rx>, <&dai_sec_spdif_tx>;
 		asoc-cpu-names = "msm-dai-q6-dp.24608",
 			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -114,7 +117,9 @@
 			"msm-dai-cdc-dma-dev.45059",
 			"msm-dai-cdc-dma-dev.45061",
 			"msm-dai-cdc-dma-dev.45089",
-			"msm-dai-cdc-dma-dev.45091";
+			"msm-dai-cdc-dma-dev.45091",
+			"msm-dai-q6-spdif.20480", "msm-dai-q6-spdif.20481",
+			"msm-dai-q6-spdif.20482", "msm-dai-q6-spdif.20483";
 	};
 };
 

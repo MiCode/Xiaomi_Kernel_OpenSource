@@ -159,6 +159,9 @@ extern int cnss_get_fw_files_for_target(struct device *dev,
 					u32 target_type, u32 target_version);
 extern int cnss_get_platform_cap(struct device *dev,
 				 struct cnss_platform_cap *cap);
+extern struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev);
+extern int cnss_smmu_map(struct device *dev,
+			 phys_addr_t paddr, uint32_t *iova_addr, size_t size);
 extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern int cnss_request_bus_bandwidth(struct device *dev, int bandwidth);
 extern int cnss_power_up(struct device *dev);

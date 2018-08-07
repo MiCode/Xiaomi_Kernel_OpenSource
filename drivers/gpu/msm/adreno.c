@@ -1860,8 +1860,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_pwr_off;
 
-	_set_secvid(device);
-
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
@@ -1880,6 +1878,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		if (status)
 			goto error_oob_clear;
 	}
+
+	_set_secvid(device);
 
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
@@ -3261,7 +3261,7 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		return 0;
 
-	for (i = 0; i < GMU_CORE_WAKEUP_RETRY_MAX; i++) {
+	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
 		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
 			&status);
 
@@ -3276,10 +3276,19 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 
 		/* Try to write the fenced register again */
 		adreno_writereg(adreno_dev, offset, val);
+
+		if (i == GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
+			dev_err(adreno_dev->dev.dev,
+				"Waited %d usecs to write fenced register 0x%x. Continuing to wait...\n",
+				(GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT *
+				GMU_CORE_WAKEUP_DELAY_US),
+				reg_offset);
 	}
 
 	dev_err(adreno_dev->dev.dev,
-		"GMU fenced register write timed out: reg 0x%x\n", reg_offset);
+		"Timed out waiting %d usecs to write fenced register 0x%x\n",
+		GMU_CORE_LONG_WAKEUP_RETRY_LIMIT * GMU_CORE_WAKEUP_DELAY_US,
+		reg_offset);
 	return -ETIMEDOUT;
 }
 

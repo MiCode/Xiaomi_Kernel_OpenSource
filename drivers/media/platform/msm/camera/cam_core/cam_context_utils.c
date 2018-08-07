@@ -91,10 +91,19 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	 */
 	list_del_init(&req->list);
 	spin_unlock(&ctx->lock);
-	if (!bubble_state)
+	if (!bubble_state) {
 		result = CAM_SYNC_STATE_SIGNALED_SUCCESS;
-	else
+	} else {
+		CAM_DBG(CAM_REQ,
+			"[%s][ctx_id %d] : req[%llu] is done with error",
+			ctx->dev_name, ctx->ctx_id, req->request_id);
+
+		for (j = 0; j < req->num_out_map_entries; j++)
+			CAM_DBG(CAM_REQ, "fence %d signaled with error",
+				req->out_map_entries[j].sync_id);
+
 		result = CAM_SYNC_STATE_SIGNALED_ERROR;
+	}
 
 	for (j = 0; j < req->num_out_map_entries; j++) {
 		cam_sync_signal(req->out_map_entries[j].sync_id, result);

@@ -34,7 +34,6 @@ struct cam_cpas_vdd_ahb_mapping {
  * struct cam_cpas_private_soc : CPAS private DT info
  *
  * @arch_compat: ARCH compatible string
- * @hw_version: Camera HW version
  * @client_id_based: Whether clients are id based
  * @num_clients: Number of clients supported
  * @client_name: Client names
@@ -52,7 +51,6 @@ struct cam_cpas_vdd_ahb_mapping {
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
-	uint32_t hw_version;
 	bool client_id_based;
 	uint32_t num_clients;
 	const char *client_name[CAM_CPAS_MAX_CLIENTS];

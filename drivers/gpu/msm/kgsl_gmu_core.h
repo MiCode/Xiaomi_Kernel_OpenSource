@@ -100,8 +100,15 @@ enum gpu_idle_level {
  * the GMU will start shutting down before we try again.
  */
 #define GMU_CORE_WAKEUP_DELAY_US 10
-/* Max amount of tries to wake up the GMU. */
-#define GMU_CORE_WAKEUP_RETRY_MAX 60
+
+/* Max amount of tries to wake up the GMU. The short retry
+ * limit is half of the long retry limit. After the short
+ * number of retries, we print an informational message to say
+ * exiting IFPC is taking longer than expected. We continue
+ * to retry after this until the long retry limit.
+ */
+#define GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT 100
+#define GMU_CORE_LONG_WAKEUP_RETRY_LIMIT 200
 
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2

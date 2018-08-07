@@ -256,6 +256,8 @@ struct sdhci_msm_host {
 	bool pltfm_init_done;
 	struct sdhci_msm_regs_restore regs_restore;
 	bool use_7nm_dll;
+	int soc_min_rev;
+	struct workqueue_struct *pm_qos_wq;
 };
 
 extern char *saved_command_line;

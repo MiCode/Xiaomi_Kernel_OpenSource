@@ -436,8 +436,8 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->free_req_list);
 		ctx_isp->active_req_cnt--;
-		CAM_DBG(CAM_ISP,
-			"Move active request %lld to free list(cnt = %d)",
+		CAM_DBG(CAM_REQ,
+			"Move active request %lld to free list(cnt = %d) [all fences done]",
 			 req->request_id, ctx_isp->active_req_cnt);
 	}
 
@@ -537,7 +537,7 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	if (req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+		CAM_DBG(CAM_REQ, "move request %lld to active list(cnt = %d)",
 			 req->request_id, ctx_isp->active_req_cnt);
 	} else {
 		/* no io config, so the request is completed. */
@@ -698,7 +698,7 @@ static int __cam_isp_ctx_reg_upd_in_sof(struct cam_isp_context *ctx_isp,
 			/* need to handle the buf done */
 			list_add_tail(&req->list, &ctx->active_req_list);
 			ctx_isp->active_req_cnt++;
-			CAM_DBG(CAM_ISP,
+			CAM_DBG(CAM_REQ,
 				"move request %lld to active list(cnt = %d)",
 				 req->request_id,
 				ctx_isp->active_req_cnt);
@@ -762,7 +762,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+		CAM_DBG(CAM_REQ, "move request %lld to active list(cnt = %d)",
 			 req->request_id, ctx_isp->active_req_cnt);
 		req_isp->bubble_report = 0;
 	}
@@ -896,8 +896,9 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CAM_DBG(CAM_ISP, "Notify CRM about Bubble frame %lld",
-			ctx_isp->frame_id);
+		CAM_DBG(CAM_REQ,
+			"Notify CRM about Bubble req_id %llu frame %lld",
+			req->request_id, ctx_isp->frame_id);
 	} else {
 		/*
 		 * If we can not report bubble, then treat it as if no bubble
@@ -1193,7 +1194,8 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		goto end;
 	}
 
-	CAM_DBG(CAM_ISP, "Apply request %lld", req->request_id);
+	CAM_DBG(CAM_REQ, "Apply request %lld in substate %d", req->request_id,
+		ctx_isp->substate_activated);
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 
 	if (ctx_isp->active_req_cnt >=  2) {
@@ -1314,6 +1316,8 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 			return 0;
 	}
 
+	CAM_DBG(CAM_REQ, "Flush [%u] in progress for req_id %llu",
+		flush_req->type, flush_req->req_id);
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
 		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
 			if (req->request_id != flush_req->req_id) {
@@ -1941,7 +1945,8 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx->state = CAM_CTX_AVAILABLE;
 
 	trace_cam_context_state("ISP", ctx);
-	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
+	CAM_DBG(CAM_ISP, "Release device success[%u] next state %d",
+		ctx->ctx_id, ctx->state);
 	return rc;
 }
 
@@ -2067,8 +2072,9 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc)
 		goto free_req;
 
-	CAM_DBG(CAM_ISP, "Preprocessing Config %lld successful",
-		req->request_id);
+	CAM_DBG(CAM_REQ,
+		"Preprocessing Config req_id %lld successful on ctx %u",
+		req->request_id, ctx->ctx_id);
 
 	return rc;
 
@@ -2199,7 +2205,10 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	ctx->state = CAM_CTX_ACQUIRED;
 
 	trace_cam_context_state("ISP", ctx);
-	CAM_DBG(CAM_ISP, "Acquire success.");
+	CAM_DBG(CAM_ISP,
+		"Acquire success on session_hdl 0x%x num_rsrces %d RDI only %d ctx %u",
+		cmd->session_handle, cmd->num_resources,
+		(hw_cmd_args.u.is_rdi_only_context ? 1 : 0), ctx->ctx_id);
 	kfree(isp_res);
 	return rc;
 
@@ -2341,7 +2350,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		trace_cam_context_state("ISP", ctx);
 		goto end;
 	}
-	CAM_DBG(CAM_ISP, "start device success");
+	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
 	if (req_isp->num_fence_map_out) {
 		list_del_init(&req->list);
@@ -2424,7 +2433,8 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
 
-	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
+	CAM_DBG(CAM_ISP, "Stop device success next state %d on ctx %u",
+		ctx->state, ctx->ctx_id);
 	return rc;
 }
 
@@ -2485,6 +2495,24 @@ static int __cam_isp_ctx_link_resume(struct cam_context *ctx)
 	return rc;
 }
 
+static int __cam_isp_ctx_handle_sof_freeze_evt(
+	struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_SOF_DEBUG;
+	hw_cmd_args.u.sof_irq_enable = 1;
+
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
 static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
 	struct cam_req_mgr_link_evt_data *link_evt_data)
 {
@@ -2499,6 +2527,9 @@ static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
 		break;
 	case CAM_REQ_MGR_LINK_EVT_RESUME:
 		__cam_isp_ctx_link_resume(ctx);
+		break;
+	case CAM_REQ_MGR_LINK_EVT_SOF_FREEZE:
+		__cam_isp_ctx_handle_sof_freeze_evt(ctx);
 		break;
 	default:
 		CAM_WARN(CAM_ISP, "Unknown event from CRM");

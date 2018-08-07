@@ -982,6 +982,7 @@ void icnss_handle_rejuvenate(struct icnss_priv *priv)
 	event_data->crashed = true;
 	event_data->fw_rejuvenate = true;
 	fw_down_data.crashed = true;
+	set_bit(ICNSS_REJUVENATE, &priv->state);
 
 	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 				 &fw_down_data);

@@ -22,6 +22,7 @@
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk/qcom.h>
+#include <linux/debugfs.h>
 
 #include "cam_io_util.h"
 
@@ -150,6 +151,9 @@ struct cam_soc_gpio_data {
  * @clk_level_valid:        Indicates whether corresponding level is valid
  * @gpio_data:              Pointer to gpio info
  * @pinctrl_info:           Pointer to pinctrl info
+ * @dentry:                 Debugfs entry
+ * @clk_level_override:     Clk level set from debugfs
+ * @clk_control:            Enable/disable clk rate control through debugfs
  * @soc_private:            Soc private data
  */
 struct cam_hw_soc_info {
@@ -190,6 +194,10 @@ struct cam_hw_soc_info {
 
 	struct cam_soc_gpio_data       *gpio_data;
 	struct cam_soc_pinctrl_info     pinctrl_info;
+
+	struct dentry                  *dentry;
+	uint32_t                        clk_level_override;
+	bool                            clk_control_enable;
 
 	void                           *soc_private;
 };
@@ -364,17 +372,16 @@ int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
 	 uint32_t clk_index, unsigned long flags);
 
 /**
- * cam_soc_util_set_clk_rate()
+ * cam_soc_util_set_src_clk_rate()
  *
- * @brief:              Set the rate on a given clock.
+ * @brief:              Set the rate on the source clock.
  *
- * @clk:                Clock that needs to be set
- * @clk_name:           Clocks name associated with clk
- * @clk_rate:           Clocks rate associated with clk
+ * @soc_info:           Device soc information
+ * @clk_rate:           Clock rate associated with the src clk
  *
  * @return:             success or failure
  */
-int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
+int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
 	int32_t clk_rate);
 
 /**

@@ -204,6 +204,9 @@ static const struct file_operations npu_fops = {
 	.open = npu_open,
 	.release = npu_close,
 	.unlocked_ioctl = npu_ioctl,
+#ifdef CONFIG_COMPAT
+	 .compat_ioctl = npu_ioctl,
+#endif
 };
 
 static const struct thermal_cooling_device_ops npu_cooling_ops = {
