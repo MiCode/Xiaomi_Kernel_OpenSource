@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,11 +122,20 @@ int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 		bool dec_client_on_err)
 {
 	int driver_result;
+	int result = 0;
 
 	IPA_RM_DBG_LOW("calling driver CB\n");
 	driver_result = consumer->request_resource();
 	IPA_RM_DBG_LOW("driver CB returned with %d\n", driver_result);
-	if (driver_result == 0) {
+
+	if (driver_result == 0 ||
+		driver_result == -EPERM) {
+		/*
+		 * Go ahead and handle suspend of
+		 * resources in case of -EPERM return,
+		 * as the client driver is unloaded and
+		 * Holb drop is enabled
+		 */
 		if (notify_completion) {
 			ipa_rm_resource_consumer_handle_cb(consumer,
 					IPA_RM_RESOURCE_GRANTED);
@@ -140,9 +149,11 @@ int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 		consumer->resource.needed_bw -= prod_needed_bw;
 		if (dec_client_on_err)
 			consumer->usage_count--;
-	}
+		result = driver_result;
+	} else
+		result = driver_result;
 
-	return driver_result;
+	return result;
 }
 
 int ipa_rm_resource_consumer_request(

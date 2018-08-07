@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ struct ipa_rm_resource {
 	u32				needed_bw;
 	enum ipa_rm_resource_state	state;
 	struct ipa_rm_peers_list	*peers_list;
+	struct ipa_rm_delayed_release_work_type *release_work;
 };
 
 /**
