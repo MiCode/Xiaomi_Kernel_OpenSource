@@ -1302,4 +1302,15 @@ config TOUCHSCREEN_HIMAX_CHIPSET
           If unsure, say N.
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
+
+config TOUCHSCREEN_EKTF3XXX_CHIPSET
+	bool "Elan EKTF3XXX touchpanel CHIPSET"
+	depends on I2C
+	help
+	  Say Y here if you have a Elan CHIPSET touchscreen.
+	  ELAN controllers are multi touch controllers which can
+	  report 10 touches at a time.
+
+		  If unusre, say N.
+
 endif
