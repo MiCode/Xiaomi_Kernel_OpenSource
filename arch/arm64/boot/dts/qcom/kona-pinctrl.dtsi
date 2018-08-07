@@ -6,8 +6,8 @@
 &soc {
 	tlmm: pinctrl@0F000000 {
 		compatible = "qcom,kona-pinctrl";
-		reg = <0x0F000000 0xC00000>;
-		interrupts = <0 208 0>;
+		reg = <0x0F000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
