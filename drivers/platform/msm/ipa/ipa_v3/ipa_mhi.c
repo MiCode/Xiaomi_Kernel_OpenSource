@@ -198,6 +198,7 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa3_ep_context *ep;
 	const struct ipa_gsi_ep_config *ep_cfg;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -322,6 +323,20 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	}
 
 	*params->mhi = ch_scratch.mhi;
+
+	if (IPA_CLIENT_IS_PROD(ep->client) && ep->skip_ep_cfg) {
+		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = true;
+		ep->ep_delay_set = true;
+		res = ipa3_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);
+		if (res)
+			IPA_MHI_ERR("client (ep: %d) failed result=%d\n",
+			ipa_ep_idx, res);
+		else
+			IPA_MHI_DBG("client (ep: %d) success\n", ipa_ep_idx);
+	} else {
+		ep->ep_delay_set = false;
+	}
 
 	IPA_MHI_DBG("Starting channel\n");
 	res = gsi_start_channel(ep->gsi_chan_hdl);
@@ -496,6 +511,7 @@ int ipa3_disconnect_mhi_pipe(u32 clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
 	int res;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -510,6 +526,23 @@ int ipa3_disconnect_mhi_pipe(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
+	IPA_MHI_ERR("Debug --> Remove ep_delay start");
+	if (ep->ep_delay_set == true) {
+		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = false;
+		res = ipa3_cfg_ep_ctrl(clnt_hdl,
+			&ep_cfg_ctrl);
+		if (res) {
+			IPAERR
+			("client(ep:%d) failed to remove delay res=%d\n",
+				clnt_hdl, res);
+		} else {
+			IPADBG("client (ep: %d) delay removed\n",
+				clnt_hdl);
+			ep->ep_delay_set = false;
+		}
+	}
+	IPA_MHI_ERR("Debug --> Remov ep_delay end");
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		res = gsi_dealloc_channel(ep->gsi_chan_hdl);
