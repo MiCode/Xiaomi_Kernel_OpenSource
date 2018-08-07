@@ -279,6 +279,22 @@ struct sde_encoder_virt {
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
+void sde_encoder_uidle_enable(struct drm_encoder *drm_enc, bool enable)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->hw_ctl && phys->hw_ctl->ops.uidle_enable) {
+			SDE_EVT32(DRMID(drm_enc), enable);
+			phys->hw_ctl->ops.uidle_enable(phys->hw_ctl, enable);
+		}
+	}
+}
+
 static void _sde_encoder_pm_qos_add_request(struct drm_encoder *drm_enc)
 {
 	struct msm_drm_private *priv;
@@ -5184,6 +5200,26 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 	}
 
 	return ret;
+}
+
+u32 sde_encoder_get_fps(struct drm_encoder *drm_enc)
+{
+	struct msm_mode_info mode_info;
+	int rc;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return 0;
+	}
+
+	rc = _sde_encoder_get_mode_info(drm_enc, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+			"failed to get mode info\n");
+		return 0;
+	}
+
+	return mode_info.frame_rate;
 }
 
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)

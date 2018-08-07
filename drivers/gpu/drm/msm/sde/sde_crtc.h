@@ -512,6 +512,12 @@ int sde_crtc_register_custom_event(struct sde_kms *kms,
 enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc);
 
 /**
+ * sde_crtc_get_fps_mode - get frame rate of the given crtc
+ * @crtc: Pointert to crtc
+ */
+u32 sde_crtc_get_fps_mode(struct drm_crtc *crtc);
+
+/**
  * sde_crtc_get_client_type - check the crtc type- rt, nrt, rsc, etc.
  * @crtc: Pointer to crtc
  */

@@ -14,6 +14,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_catalog_format.h"
 #include "sde_kms.h"
+#include "sde_hw_uidle.h"
 
 /*************************************************************
  * MACRO DEFINITION
@@ -130,6 +131,17 @@
 #define DEFAULT_AMORTIZABLE_THRESHOLD		25
 #define DEFAULT_CPU_MASK			0
 #define DEFAULT_CPU_DMA_LATENCY			PM_QOS_DEFAULT_VALUE
+
+/* Uidle values */
+#define SDE_UIDLE_FAL10_EXIT_CNT 128
+#define SDE_UIDLE_FAL10_EXIT_DANGER 4
+#define SDE_UIDLE_FAL10_DANGER 6
+#define SDE_UIDLE_FAL10_TARGET_IDLE 50
+#define SDE_UIDLE_FAL1_TARGET_IDLE 10
+#define SDE_UIDLE_FAL10_THRESHOLD 12
+#define SDE_UIDLE_MAX_DWNSCALE 1500
+#define SDE_UIDLE_MAX_FPS 60
+
 
 /*************************************************************
  *  DTSI PROPERTY INDEX
@@ -372,6 +384,12 @@ enum {
 	VBIF_MEMTYPE_0,
 	VBIF_MEMTYPE_1,
 	VBIF_PROP_MAX,
+};
+
+enum {
+	UIDLE_OFF,
+	UIDLE_LEN,
+	UIDLE_PROP_MAX,
 };
 
 enum {
@@ -685,6 +703,11 @@ static struct sde_prop_type vbif_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
 	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type uidle_prop[] = {
+	{UIDLE_OFF, "qcom,sde-uidle-off", false, PROP_TYPE_U32},
+	{UIDLE_LEN, "qcom,sde-uidle-size", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
@@ -1434,6 +1457,9 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			goto end;
 		}
 
+		if (sde_cfg->uidle_cfg.uidle_rev)
+			set_bit(SDE_PERF_SSPP_UIDLE, &sspp->perf_features);
+
 		snprintf(sblk->src_blk.name, SDE_HW_BLK_NAME_LEN, "sspp_src_%u",
 				sspp->id - SSPP_VIG0);
 
@@ -1545,6 +1571,8 @@ static int sde_ctl_parse_dt(struct device_node *np,
 			set_bit(SDE_CTL_PINGPONG_SPLIT, &ctl->features);
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_CTL_ACTIVE_CFG, &ctl->features);
+		if (IS_SDE_UIDLE_REV_100(sde_cfg->uidle_cfg.uidle_rev))
+			set_bit(SDE_CTL_UIDLE, &ctl->features);
 	}
 end:
 	kfree(prop_value);
@@ -2511,6 +2539,71 @@ static int sde_cdm_parse_dt(struct device_node *np,
 end:
 	kfree(prop_value);
 	return rc;
+}
+
+static int sde_uidle_parse_dt(struct device_node *np,
+				struct sde_mdss_cfg *sde_cfg)
+{
+	int rc = 0, prop_count[UIDLE_PROP_MAX];
+	bool prop_exists[UIDLE_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	u32 off_count;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!sde_cfg->uidle_cfg.uidle_rev)
+		goto end;
+
+	prop_value = kcalloc(UIDLE_PROP_MAX,
+		sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, uidle_prop, ARRAY_SIZE(uidle_prop),
+			prop_count, &off_count);
+	if (rc)
+		goto end;
+
+	rc = _read_dt_entry(np, uidle_prop, ARRAY_SIZE(uidle_prop), prop_count,
+		prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	if (!prop_exists[UIDLE_LEN] || !prop_exists[UIDLE_OFF]) {
+		SDE_DEBUG("offset/len missing, will disable uidle:%d,%d\n",
+			prop_exists[UIDLE_LEN], prop_exists[UIDLE_OFF]);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	sde_cfg->uidle_cfg.id = UIDLE;
+	sde_cfg->uidle_cfg.base =
+		PROP_VALUE_ACCESS(prop_value, UIDLE_OFF, 0);
+	sde_cfg->uidle_cfg.len =
+		PROP_VALUE_ACCESS(prop_value, UIDLE_LEN, 0);
+
+	/* validate */
+	if (!sde_cfg->uidle_cfg.base || !sde_cfg->uidle_cfg.len) {
+		SDE_ERROR("invalid reg/len [%d, %d], will disable uidle\n",
+			sde_cfg->uidle_cfg.base, sde_cfg->uidle_cfg.len);
+		rc = -EINVAL;
+	}
+
+end:
+	if (rc && sde_cfg->uidle_cfg.uidle_rev) {
+		SDE_DEBUG("wrong dt entries, will disable uidle\n");
+		sde_cfg->uidle_cfg.uidle_rev = 0;
+	}
+
+	kfree(prop_value);
+	/* optional feature, so always return success */
+	return 0;
 }
 
 static int sde_vbif_parse_dt(struct device_node *np,
@@ -3489,6 +3582,28 @@ end:
 	return rc;
 }
 
+static void _sde_hw_setup_uidle(struct sde_uidle_cfg *uidle_cfg)
+{
+	if (!uidle_cfg->uidle_rev)
+		return;
+
+	if (IS_SDE_UIDLE_REV_100(uidle_cfg->uidle_rev)) {
+		uidle_cfg->fal10_exit_cnt = SDE_UIDLE_FAL10_EXIT_CNT;
+		uidle_cfg->fal10_exit_danger = SDE_UIDLE_FAL10_EXIT_DANGER;
+		uidle_cfg->fal10_danger = SDE_UIDLE_FAL10_DANGER;
+		uidle_cfg->fal10_target_idle_time = SDE_UIDLE_FAL10_TARGET_IDLE;
+		uidle_cfg->fal1_target_idle_time = SDE_UIDLE_FAL1_TARGET_IDLE;
+		uidle_cfg->fal10_threshold = SDE_UIDLE_FAL10_THRESHOLD;
+		uidle_cfg->max_dwnscale = SDE_UIDLE_MAX_DWNSCALE;
+		uidle_cfg->max_fps = SDE_UIDLE_MAX_FPS;
+		uidle_cfg->debugfs_ctrl = true;
+	} else {
+		pr_err("invalid uidle rev:0x%x, disabling uidle\n",
+			uidle_cfg->uidle_rev);
+		uidle_cfg->uidle_rev = 0;
+	}
+}
+
 static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
 	int i, rc = 0;
@@ -3605,6 +3720,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 			MAX_DOWNSCALE_RATIO_INLINE_ROT_RT_DEFAULT;
 		sde_cfg->true_inline_dwnscale_nrt =
 			MAX_DOWNSCALE_RATIO_INLINE_ROT_NRT_DEFAULT;
+		sde_cfg->uidle_cfg.uidle_rev = SDE_UIDLE_VERSION_1_0_0;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3613,6 +3729,8 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 
 	if (!rc)
 		rc = sde_hardware_format_caps(sde_cfg, hw_rev);
+
+	_sde_hw_setup_uidle(&sde_cfg->uidle_cfg);
 
 	return rc;
 }
@@ -3749,6 +3867,14 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_rot_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	/* uidle must be done before sspp and ctl,
+	 * so if something goes wrong, we won't
+	 * enable it in ctl and sspp.
+	 */
+	rc = sde_uidle_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

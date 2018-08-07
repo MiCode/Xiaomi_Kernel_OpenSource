@@ -177,6 +177,13 @@ struct sde_hw_ctl_ops {
 	int (*trigger_rot_start)(struct sde_hw_ctl *ctx);
 
 	/**
+	 * enable/disable UIDLE feature
+	 * @ctx       : ctl path ctx pointer
+	 * @enable: true to enable the feature
+	 */
+	void (*uidle_enable)(struct sde_hw_ctl *ctx, bool enable);
+
+	/**
 	 * Clear the value of the cached pending_flush_mask
 	 * No effect on hardware
 	 * @ctx       : ctl path ctx pointer

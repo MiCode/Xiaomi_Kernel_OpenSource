@@ -35,6 +35,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
+#include "sde_hw_uidle.h"
 #include "sde_rm.h"
 #include "sde_power_handle.h"
 #include "sde_irq.h"
@@ -259,6 +260,7 @@ struct sde_kms {
 	struct sde_splash_data splash_data;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_hw_uidle *hw_uidle;
 	int dsi_display_count;
 	void **dsi_displays;
 	int wb_display_count;

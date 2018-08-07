@@ -107,6 +107,11 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_MAX,
 };
 
+enum sde_uidle {
+	UIDLE = 0x1,
+	UIDLE_MAX,
+};
+
 enum sde_mdp {
 	MDP_TOP = 0x1,
 	MDP_MAX,
@@ -505,6 +510,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_ROT      (1 << 12)
 #define SDE_DBG_MASK_DS       (1 << 13)
 #define SDE_DBG_MASK_REGDMA   (1 << 14)
+#define SDE_DBG_MASK_UIDLE    (1 << 15)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

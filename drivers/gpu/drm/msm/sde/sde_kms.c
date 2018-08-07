@@ -3360,6 +3360,22 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		}
 	}
 
+	if (sde_kms->catalog->uidle_cfg.uidle_rev) {
+		sde_kms->hw_uidle = sde_hw_uidle_init(UIDLE, sde_kms->mmio,
+			sde_kms->mmio_len, sde_kms->catalog);
+		if (IS_ERR_OR_NULL(sde_kms->hw_uidle)) {
+			rc = PTR_ERR(sde_kms->hw_uidle);
+			if (!sde_kms->hw_uidle)
+				rc = -EINVAL;
+			/* uidle is optional, so do not make it a fatal error */
+			SDE_ERROR("failed to init uidle rc:%d\n", rc);
+			sde_kms->hw_uidle = NULL;
+			rc = 0;
+		}
+	} else {
+		sde_kms->hw_uidle = NULL;
+	}
+
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
 			&priv->phandle, priv->pclient, "core_clk");
 	if (rc) {

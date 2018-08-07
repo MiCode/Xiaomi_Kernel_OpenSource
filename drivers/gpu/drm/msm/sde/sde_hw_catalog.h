@@ -90,6 +90,13 @@
 #define IS_SDE_INLINE_ROT_REV_100(rev) \
 	((rev) == SDE_INLINE_ROT_VERSION_1_0_0)
 
+/*
+ * UIDLE supported versions
+ */
+#define SDE_UIDLE_VERSION_1_0_0	0x100
+#define IS_SDE_UIDLE_REV_100(rev) \
+	((rev) == SDE_UIDLE_VERSION_1_0_0)
+
 #define SDE_HW_UBWC_VER(rev) \
 	SDE_HW_VER((((rev) >> 8) & 0xF), (((rev) >> 4) & 0xF), ((rev) & 0xF))
 
@@ -231,6 +238,7 @@ enum {
  * @SDE_PERF_SSPP_CDP             Supports client driven prefetch
  * @SDE_PERF_SSPP_QOS_FL_NOCALC   Avoid fill level calc for QoS/danger/safe
  * @SDE_PERF_SSPP_SYS_CACHE,      SSPP supports system cache
+ * @SDE_PERF_SSPP_UIDLE,          sspp supports uidle
  * @SDE_PERF_SSPP_MAX             Maximum value
  */
 enum {
@@ -241,6 +249,7 @@ enum {
 	SDE_PERF_SSPP_CDP,
 	SDE_PERF_SSPP_QOS_FL_NOCALC,
 	SDE_PERF_SSPP_SYS_CACHE,
+	SDE_PERF_SSPP_UIDLE,
 	SDE_PERF_SSPP_MAX
 };
 
@@ -349,6 +358,7 @@ enum {
  * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
  * @SDE_CTL_ACTIVE_CFG          CTL configuration is specified using active
  *                              blocks
+ * @SDE_CTL_UIDLE               CTL supports uidle
  * @SDE_CTL_MAX
  */
 enum {
@@ -356,6 +366,7 @@ enum {
 	SDE_CTL_PINGPONG_SPLIT,
 	SDE_CTL_PRIMARY_PREF,
 	SDE_CTL_ACTIVE_CFG,
+	SDE_CTL_UIDLE,
 	SDE_CTL_MAX
 };
 
@@ -714,6 +725,40 @@ struct sde_mdp_cfg {
 	bool has_dest_scaler;
 	u32 smart_panel_align_mode;
 	struct sde_clk_ctrl_reg clk_ctrls[SDE_CLK_CTRL_MAX];
+};
+
+/* struct sde_uidle_cfg : MDP TOP-BLK instance info
+ * @id:                     index identifying this block
+ * @base:                   register base offset to mdss
+ * @features:               bit mask identifying sub-blocks/features
+ * @fal10_exit_cnt:         fal10 exit counter
+ * @fal10_exit_danger:      fal10 exit danger level
+ * @fal10_danger:           fal10 danger level
+ * @fal10_target_idle_time: fal10 targeted time in uS
+ * @fal1_target_idle_time:  fal1 targeted time in uS
+ * @fal10_threshold:        fal10 threshold value
+ * @max_downscale:          maximum downscaling ratio x1000.
+ *	                    This ratio is multiplied x1000 to allow
+ *	                    3 decimal precision digits.
+ * @max_fps:                maximum fps to allow micro idle
+ * @uidle_rev:              uidle revision supported by the target,
+ *                          zero if no support
+ * @debugfs_ctrl:           uidle is enabled/disabled through debugfs
+ */
+struct sde_uidle_cfg {
+	SDE_HW_BLK_INFO;
+	/* global settings */
+	u32 fal10_exit_cnt;
+	u32 fal10_exit_danger;
+	u32 fal10_danger;
+	/* per-pipe settings */
+	u32 fal10_target_idle_time;
+	u32 fal1_target_idle_time;
+	u32 fal10_threshold;
+	u32 max_dwnscale;
+	u32 max_fps;
+	u32 uidle_rev;
+	bool debugfs_ctrl;
 };
 
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
@@ -1110,6 +1155,7 @@ struct sde_perf_cfg {
  * @has_3d_merge_reset Supports 3D merge reset
  * @has_decimation     Supports decimation
  * @sc_cfg: system cache configuration
+ * @uidle_cfg		Settings for uidle feature
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1180,6 +1226,9 @@ struct sde_mdss_cfg {
 
 	u32 mdp_count;
 	struct sde_mdp_cfg mdp[MAX_BLOCKS];
+
+	/* uidle is a singleton */
+	struct sde_uidle_cfg uidle_cfg;
 
 	u32 ctl_count;
 	struct sde_ctl_cfg ctl[MAX_BLOCKS];
