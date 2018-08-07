@@ -2649,18 +2649,18 @@ int _ipa_init_sram_v3(void)
 	unsigned long phys_addr;
 
 	IPADBG(
-	    "ipa_wrapper_base(0x%08X) ipa_reg_base_ofst(0x%08X) IPA_SRAM_DIRECT_ACCESS_n(0x%08X) smem_restricted_bytes(0x%08X) smem_sz(0x%08X)\n",
+	    "ipa_wrapper_base(0x%08X) ipa_reg_base_ofst(0x%08X) IPA_SW_AREA_RAM_DIRECT_ACCESS_n(0x%08X) smem_restricted_bytes(0x%08X) smem_sz(0x%08X)\n",
 	    ipa3_ctx->ipa_wrapper_base,
 	    ipa3_ctx->ctrl->ipa_reg_base_ofst,
 	    ipahal_get_reg_n_ofst(
-		IPA_SRAM_DIRECT_ACCESS_n,
+		IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 		ipa3_ctx->smem_restricted_bytes / 4),
 	    ipa3_ctx->smem_restricted_bytes,
 	    ipa3_ctx->smem_sz);
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
+		ipahal_get_reg_n_ofst(IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 			ipa3_ctx->smem_restricted_bytes / 4);
 
 	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
@@ -4094,7 +4094,6 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 	IPADBG("interrupt=%d, interrupt_data=%u\n",
 		interrupt, suspend_data);
 	memset(&holb_cfg, 0, sizeof(holb_cfg));
-	holb_cfg.tmr_val = 0;
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++, bmsk = bmsk << 1) {
 		if ((suspend_data & bmsk) && (ipa3_ctx->ep[i].valid)) {

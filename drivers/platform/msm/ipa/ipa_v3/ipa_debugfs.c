@@ -117,12 +117,18 @@ static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 			"IPA_COMP_HW_VERSION=0x%x\n"
 			"IPA_ROUTE=0x%x\n"
 			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
-			"IPA_SHARED_MEM_SIZE=0x%x\n",
+			"IPA_SHARED_MEM_SIZE=0x%x\n"
+			"IPA_QTIME_TIMESTAMP_CFG=0x%x\n"
+			"IPA_TIMERS_PULSE_GRAN_CFG=0x%x\n"
+			"IPA_TIMERS_XO_CLK_DIV_CFG=0x%x\n",
 			ipahal_read_reg(IPA_VERSION),
 			ipahal_read_reg(IPA_COMP_HW_VERSION),
 			ipahal_read_reg(IPA_ROUTE),
 			smem_sz.shared_mem_baddr,
-			smem_sz.shared_mem_sz);
+			smem_sz.shared_mem_sz,
+			ipahal_read_reg(IPA_QTIME_TIMESTAMP_CFG),
+			ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG),
+			ipahal_read_reg(IPA_TIMERS_XO_CLK_DIV_CFG));
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 

@@ -82,9 +82,14 @@
 /* In IPAv3 only endpoints 0-3 can be configured to deaggregation */
 #define IPA_EP_SUPPORTS_DEAGGR(idx) ((idx) >= 0 && (idx) <= 3)
 
-/* configure IPA spare register 1 in order to have correct IPA version
- * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
+#define IPA_TAG_TIMER_TIMESTAMP_SHFT (14) /* ~0.8msec */
+#define IPA_NAT_TIMER_TIMESTAMP_SHFT (24) /* ~0.8sec */
+
+/*
+ * Units of time per a specific granularity
+ * The limitation based on H/W HOLB/AGGR time limit field width
  */
+#define IPA_TIMER_SCALED_TIME_LIMIT 31
 
 /* HPS, DPS sequencers Types*/
 
@@ -3208,6 +3213,65 @@ static void ipa3_cfg_qsb(void)
 	ipahal_write_reg_fields(IPA_QSB_MAX_READS, &max_reads);
 }
 
+/* relevant starting IPA4.5 */
+static void ipa_cfg_qtime(void)
+{
+	struct ipahal_reg_qtime_timestamp_cfg ts_cfg;
+	struct ipahal_reg_timers_pulse_gran_cfg gran_cfg;
+	struct ipahal_reg_timers_xo_clk_div_cfg div_cfg;
+	u32 val;
+
+	/* Configure timestamp resolution */
+	memset(&ts_cfg, 0, sizeof(ts_cfg));
+	ts_cfg.dpl_timestamp_lsb = 0;
+	ts_cfg.dpl_timestamp_sel = false; /* DPL: use legacy 1ms resolution */
+	ts_cfg.tag_timestamp_lsb = IPA_TAG_TIMER_TIMESTAMP_SHFT;
+	ts_cfg.nat_timestamp_lsb = IPA_NAT_TIMER_TIMESTAMP_SHFT;
+	val = ipahal_read_reg(IPA_QTIME_TIMESTAMP_CFG);
+	IPADBG("qtime timestamp before cfg: 0x%x\n", val);
+	ipahal_write_reg_fields(IPA_QTIME_TIMESTAMP_CFG, &ts_cfg);
+	val = ipahal_read_reg(IPA_QTIME_TIMESTAMP_CFG);
+	IPADBG("qtime timestamp after cfg: 0x%x\n", val);
+
+	/* Configure timers pulse generators granularity */
+	memset(&gran_cfg, 0, sizeof(gran_cfg));
+	gran_cfg.gran_0 = IPA_TIMERS_TIME_GRAN_100_USEC;
+	gran_cfg.gran_1 = IPA_TIMERS_TIME_GRAN_1_MSEC;
+	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_10_USEC;
+	val = ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG);
+	IPADBG("timer pulse granularity before cfg: 0x%x\n", val);
+	ipahal_write_reg_fields(IPA_TIMERS_PULSE_GRAN_CFG, &gran_cfg);
+	val = ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG);
+	IPADBG("timer pulse granularity after cfg: 0x%x\n", val);
+
+	/* Configure timers XO Clock divider */
+	memset(&div_cfg, 0, sizeof(div_cfg));
+	ipahal_read_reg_fields(IPA_TIMERS_XO_CLK_DIV_CFG, &div_cfg);
+	IPADBG("timer XO clk divider before cfg: enabled=%d divider=%u\n",
+		div_cfg.enable, div_cfg.value);
+
+	/* Make sure divider is disabled */
+	if (div_cfg.enable) {
+		div_cfg.enable = false;
+		ipahal_write_reg_fields(IPA_TIMERS_XO_CLK_DIV_CFG, &div_cfg);
+	}
+
+	/* At emulation systems XO clock is lower than on real target.
+	 * (e.g. 19.2Mhz compared to 96Khz)
+	 * Use lowest possible divider.
+	 */
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		div_cfg.value = 0;
+	}
+
+	div_cfg.enable = true; /* Enable the divider */
+	ipahal_write_reg_fields(IPA_TIMERS_XO_CLK_DIV_CFG, &div_cfg);
+	ipahal_read_reg_fields(IPA_TIMERS_XO_CLK_DIV_CFG, &div_cfg);
+	IPADBG("timer XO clk divider after cfg: enabled=%d divider=%u\n",
+		div_cfg.enable, div_cfg.value);
+}
+
 /**
  * ipa3_init_hw() - initialize HW
  *
@@ -3267,9 +3331,13 @@ int ipa3_init_hw(void)
 
 	ipa3_cfg_qsb();
 
-	/* set granularity for 0.5 msec*/
-	cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
-	ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		/* set aggr granularity for 0.5 msec*/
+		cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
+		ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
+	} else {
+		ipa_cfg_qtime();
+	}
 
 	ipa_comp_cfg();
 
@@ -4210,6 +4278,89 @@ const char *ipa3_get_aggr_type_str(enum ipa_aggr_type aggr_type)
 	return "undefined";
 }
 
+static u32 ipa3_time_gran_usec_step(enum ipa_timers_time_gran_type gran)
+{
+	switch (gran) {
+	case IPA_TIMERS_TIME_GRAN_10_USEC:		return 10;
+	case IPA_TIMERS_TIME_GRAN_20_USEC:		return 20;
+	case IPA_TIMERS_TIME_GRAN_50_USEC:		return 50;
+	case IPA_TIMERS_TIME_GRAN_100_USEC:		return 100;
+	case IPA_TIMERS_TIME_GRAN_1_MSEC:		return 1000;
+	case IPA_TIMERS_TIME_GRAN_10_MSEC:		return 10000;
+	case IPA_TIMERS_TIME_GRAN_100_MSEC:		return 100000;
+	case IPA_TIMERS_TIME_GRAN_NEAR_HALF_SEC:	return 655350;
+	default:
+		IPAERR("Invalid granularity time unit %d\n", gran);
+		ipa_assert();
+		break;
+	};
+
+	return 100;
+}
+
+/*
+ * ipa3_process_timer_cfg() - Check and produce timer config
+ *
+ * Relevant for IPA 4.5 and above
+ *
+ * Assumes clocks are voted
+ */
+static int ipa3_process_timer_cfg(u32 time_us,
+	u8 *pulse_gen, u8 *time_units)
+{
+	struct ipahal_reg_timers_pulse_gran_cfg gran_cfg;
+	u32 gran0_step, gran1_step;
+
+	IPADBG("time in usec=%u\n", time_us);
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Invalid IPA version %d\n", ipa3_ctx->ipa_hw_type);
+		return -EPERM;
+	}
+
+	if (!time_us) {
+		*pulse_gen = 0;
+		*time_units = 0;
+		return 0;
+	}
+
+	ipahal_read_reg_fields(IPA_TIMERS_PULSE_GRAN_CFG, &gran_cfg);
+
+	gran0_step = ipa3_time_gran_usec_step(gran_cfg.gran_0);
+	gran1_step = ipa3_time_gran_usec_step(gran_cfg.gran_1);
+	/* gran_2 is not used by AP */
+
+	IPADBG("gran0 usec step=%u  gran1 usec step=%u\n",
+		gran0_step, gran1_step);
+
+	/* Lets try pulse generator #0 granularity */
+	if (!(time_us % gran0_step)) {
+		if ((time_us / gran0_step) <= IPA_TIMER_SCALED_TIME_LIMIT) {
+			*pulse_gen = 0;
+			*time_units = time_us / gran0_step;
+			IPADBG("Matched: generator=0, units=%u\n",
+				*time_units);
+			return 0;
+		}
+		IPADBG("gran0 cannot be used due to range limit\n");
+	}
+
+	/* Lets try pulse generator #1 granularity */
+	if (!(time_us % gran1_step)) {
+		if ((time_us / gran1_step) <= IPA_TIMER_SCALED_TIME_LIMIT) {
+			*pulse_gen = 1;
+			*time_units = time_us / gran1_step;
+			IPADBG("Matched: generator=1, units=%u\n",
+				*time_units);
+			return 0;
+		}
+		IPADBG("gran1 cannot be used due to range limit\n");
+	}
+
+	IPAERR("Cannot match requested time to configured granularities\n");
+	return -EPERM;
+}
+
 /**
  * ipa3_cfg_ep_aggr() - IPA end-point aggregation configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -4221,6 +4372,8 @@ const char *ipa3_get_aggr_type_str(enum ipa_aggr_type aggr_type)
  */
 int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 {
+	int res = 0;
+
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_aggr == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
@@ -4252,11 +4405,41 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl, ep_aggr);
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		res = ipa3_process_timer_cfg(ep_aggr->aggr_time_limit,
+			&ipa3_ctx->ep[clnt_hdl].cfg.aggr.pulse_generator,
+			&ipa3_ctx->ep[clnt_hdl].cfg.aggr.scaled_time);
+		if (res) {
+			IPAERR("failed to process AGGR timer tmr=%u\n",
+				ep_aggr->aggr_time_limit);
+			ipa_assert();
+			res = -EINVAL;
+			goto complete;
+		}
+	} else {
+		/*
+		 * Global aggregation granularity is 0.5msec.
+		 * So if H/W programmed with 1msec, it will be
+		 *  0.5msec defacto.
+		 * So finest granularity is 0.5msec
+		 */
+		if (ep_aggr->aggr_time_limit % 500) {
+			IPAERR("given time limit %u is not in 0.5msec\n",
+				ep_aggr->aggr_time_limit);
+			WARN_ON(1);
+			res = -EINVAL;
+			goto complete;
+		}
 
+		/* Due to described above global granularity */
+		ipa3_ctx->ep[clnt_hdl].cfg.aggr.aggr_time_limit *= 2;
+	}
+
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl,
+			&ipa3_ctx->ep[clnt_hdl].cfg.aggr);
+complete:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
-	return 0;
+	return res;
 }
 
 /**
@@ -4382,21 +4565,33 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
 		ep_holb);
+
+	/* Configure timer */
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
 		ipa3_cal_ep_holb_scale_base_val(ep_holb->tmr_val,
 				&ipa3_ctx->ep[clnt_hdl].holb);
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
-			clnt_hdl, &ipa3_ctx->ep[clnt_hdl].holb);
-	} else {
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
-			clnt_hdl, ep_holb);
+		goto success;
+	}
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		int res;
+
+		res = ipa3_process_timer_cfg(ep_holb->tmr_val * 1000,
+			&ipa3_ctx->ep[clnt_hdl].holb.pulse_generator,
+			&ipa3_ctx->ep[clnt_hdl].holb.scaled_time);
+		if (res) {
+			IPAERR("failed to process HOLB timer tmr=%u\n",
+				ep_holb->tmr_val);
+			ipa_assert();
+			return res;
+		}
 	}
 
+success:
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+		clnt_hdl, &ipa3_ctx->ep[clnt_hdl].holb);
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
-				ep_holb->tmr_val);
-
+		ep_holb->tmr_val);
 	return 0;
 }
 

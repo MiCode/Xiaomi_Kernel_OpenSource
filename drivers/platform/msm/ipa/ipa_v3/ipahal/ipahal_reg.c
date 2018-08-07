@@ -35,6 +35,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENABLED_PIPES),
 	__stringify(IPA_VERSION),
 	__stringify(IPA_TAG_TIMER),
+	__stringify(IPA_NAT_TIMER),
 	__stringify(IPA_COMP_HW_VERSION),
 	__stringify(IPA_COMP_CFG),
 	__stringify(IPA_STATE_TX_WRAPPER),
@@ -83,7 +84,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENDP_INIT_PROD_CFG_n),
 	__stringify(IPA_ENDP_INIT_RSRC_GRP_n),
 	__stringify(IPA_SHARED_MEM_SIZE),
-	__stringify(IPA_SRAM_DIRECT_ACCESS_n),
+	__stringify(IPA_SW_AREA_RAM_DIRECT_ACCESS_n),
 	__stringify(IPA_DEBUG_CNT_CTRL_n),
 	__stringify(IPA_UC_MAILBOX_m_n),
 	__stringify(IPA_FILT_ROUT_HASH_FLUSH),
@@ -116,6 +117,9 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_HPS_SEQUENCER_FIRST),
 	__stringify(IPA_HPS_SEQUENCER_LAST),
 	__stringify(IPA_CLKON_CFG),
+	__stringify(IPA_QTIME_TIMESTAMP_CFG),
+	__stringify(IPA_TIMERS_PULSE_GRAN_CFG),
+	__stringify(IPA_TIMERS_XO_CLK_DIV_CFG),
 	__stringify(IPA_STAT_QUOTA_BASE_n),
 	__stringify(IPA_STAT_QUOTA_MASK_n),
 	__stringify(IPA_STAT_TETHERING_BASE_n),
@@ -799,6 +803,155 @@ static void ipareg_parse_clkon_cfg_v4_5(
 			IPA_CLKON_CFG_CGC_OPEN_DPL_FIFO_BMSK_V4_5);
 }
 
+static void ipareg_construct_qtime_timestamp_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	const struct ipahal_reg_qtime_timestamp_cfg *ts_cfg =
+		(const struct ipahal_reg_qtime_timestamp_cfg *)fields;
+
+	if (!ts_cfg->dpl_timestamp_sel &&
+		ts_cfg->dpl_timestamp_lsb) {
+		IPAHAL_ERR("non zero DPL shift while legacy mode\n");
+		WARN_ON(1);
+	}
+
+	IPA_SETFIELD_IN_REG(*val,
+		ts_cfg->dpl_timestamp_lsb,
+		IPA_QTIME_TIMESTAMP_CFG_DPL_TIMESTAMP_LSB_SHFT,
+		IPA_QTIME_TIMESTAMP_CFG_DPL_TIMESTAMP_LSB_BMSK);
+	IPA_SETFIELD_IN_REG(*val,
+		ts_cfg->dpl_timestamp_sel ? 1 : 0,
+		IPA_QTIME_TIMESTAMP_CFG_DPL_TIMESTAMP_SEL_SHFT,
+		IPA_QTIME_TIMESTAMP_CFG_DPL_TIMESTAMP_SEL_BMSK);
+	IPA_SETFIELD_IN_REG(*val,
+		ts_cfg->tag_timestamp_lsb,
+		IPA_QTIME_TIMESTAMP_CFG_TAG_TIMESTAMP_LSB_SHFT,
+		IPA_QTIME_TIMESTAMP_CFG_TAG_TIMESTAMP_LSB_BMSK);
+	IPA_SETFIELD_IN_REG(*val,
+		ts_cfg->nat_timestamp_lsb,
+		IPA_QTIME_TIMESTAMP_CFG_NAT_TIMESTAMP_LSB_SHFT,
+		IPA_QTIME_TIMESTAMP_CFG_NAT_TIMESTAMP_LSB_BMSK);
+}
+
+static u8 ipareg_timers_pulse_gran_code(
+	enum ipa_timers_time_gran_type gran)
+{
+	switch (gran) {
+	case IPA_TIMERS_TIME_GRAN_10_USEC:		return 0;
+	case IPA_TIMERS_TIME_GRAN_20_USEC:		return 1;
+	case IPA_TIMERS_TIME_GRAN_50_USEC:		return 2;
+	case IPA_TIMERS_TIME_GRAN_100_USEC:		return 3;
+	case IPA_TIMERS_TIME_GRAN_1_MSEC:		return 4;
+	case IPA_TIMERS_TIME_GRAN_10_MSEC:		return 5;
+	case IPA_TIMERS_TIME_GRAN_100_MSEC:		return 6;
+	case IPA_TIMERS_TIME_GRAN_NEAR_HALF_SEC:	return 7;
+	default:
+		IPAHAL_ERR("Invalid granularity %d\n", gran);
+		break;
+	};
+
+	return 3;
+}
+
+static enum ipa_timers_time_gran_type
+	ipareg_timers_pulse_gran_decode(u8 code)
+{
+	switch (code) {
+	case 0: return IPA_TIMERS_TIME_GRAN_10_USEC;
+	case 1: return IPA_TIMERS_TIME_GRAN_20_USEC;
+	case 2: return IPA_TIMERS_TIME_GRAN_50_USEC;
+	case 3: return IPA_TIMERS_TIME_GRAN_100_USEC;
+	case 4: return IPA_TIMERS_TIME_GRAN_1_MSEC;
+	case 5: return IPA_TIMERS_TIME_GRAN_10_MSEC;
+	case 6: return IPA_TIMERS_TIME_GRAN_100_MSEC;
+	case 7: return IPA_TIMERS_TIME_GRAN_NEAR_HALF_SEC;
+	default:
+		IPAHAL_ERR("Invalid coded granularity %d\n", code);
+		break;
+	};
+
+	return IPA_TIMERS_TIME_GRAN_100_USEC;
+}
+
+static void ipareg_construct_timers_pulse_gran_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	const struct ipahal_reg_timers_pulse_gran_cfg *gran_cfg =
+		(const struct ipahal_reg_timers_pulse_gran_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val,
+		ipareg_timers_pulse_gran_code(gran_cfg->gran_0),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(0),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(0));
+
+	IPA_SETFIELD_IN_REG(*val,
+		ipareg_timers_pulse_gran_code(gran_cfg->gran_1),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(1),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(1));
+
+	IPA_SETFIELD_IN_REG(*val,
+		ipareg_timers_pulse_gran_code(gran_cfg->gran_2),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(2),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(2));
+}
+
+static void ipareg_parse_timers_pulse_gran_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	u8 code;
+	struct ipahal_reg_timers_pulse_gran_cfg *gran_cfg =
+		(struct ipahal_reg_timers_pulse_gran_cfg *)fields;
+
+	code = IPA_GETFIELD_FROM_REG(val,
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(0),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(0));
+	gran_cfg->gran_0 = ipareg_timers_pulse_gran_decode(code);
+
+	code = IPA_GETFIELD_FROM_REG(val,
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(1),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(1));
+	gran_cfg->gran_1 = ipareg_timers_pulse_gran_decode(code);
+
+	code = IPA_GETFIELD_FROM_REG(val,
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_SHFT(2),
+		IPA_TIMERS_PULSE_GRAN_CFG_GRAN_X_BMSK(2));
+	gran_cfg->gran_2 = ipareg_timers_pulse_gran_decode(code);
+}
+
+static void ipareg_construct_timers_xo_clk_div_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	const struct ipahal_reg_timers_xo_clk_div_cfg *div_cfg =
+		(const struct ipahal_reg_timers_xo_clk_div_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val,
+		div_cfg->enable ? 1 : 0,
+		IPA_TIMERS_XO_CLK_DIV_CFG_ENABLE_SHFT,
+		IPA_TIMERS_XO_CLK_DIV_CFG_ENABLE_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		div_cfg->value,
+		IPA_TIMERS_XO_CLK_DIV_CFG_VALUE_SHFT,
+		IPA_TIMERS_XO_CLK_DIV_CFG_VALUE_BMSK);
+}
+
+static void ipareg_parse_timers_xo_clk_div_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_timers_xo_clk_div_cfg *div_cfg =
+		(struct ipahal_reg_timers_xo_clk_div_cfg *)fields;
+
+	div_cfg->enable =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_TIMERS_XO_CLK_DIV_CFG_ENABLE_SHFT,
+		IPA_TIMERS_XO_CLK_DIV_CFG_ENABLE_BMSK);
+
+	div_cfg->value =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_TIMERS_XO_CLK_DIV_CFG_VALUE_SHFT,
+		IPA_TIMERS_XO_CLK_DIV_CFG_VALUE_BMSK);
+}
+
 static void ipareg_construct_comp_cfg_comon(
 	const struct ipahal_reg_comp_cfg *comp_cfg, u32 *val)
 {
@@ -1340,6 +1493,27 @@ static void ipareg_construct_endp_init_hol_block_timer_n_v4_2(
 		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_BASE_VALUE_BMSK_V_4_2);
 }
 
+static void ipareg_construct_endp_init_hol_block_timer_n_v4_5(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_holb *ep_holb =
+		(struct ipa_ep_cfg_holb *)fields;
+
+	if (ep_holb->pulse_generator != !!ep_holb->pulse_generator) {
+		IPAHAL_ERR("Pulse generator is not 0 or 1 %d\n",
+			ep_holb->pulse_generator);
+		WARN_ON(1);
+	}
+
+	IPA_SETFIELD_IN_REG(*val, ep_holb->scaled_time,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_TIME_LIMIT_SHFT_V4_5,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_TIME_LIMIT_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_holb->pulse_generator,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_GRAN_SEL_SHFT_V4_5,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_GRAN_SEL_BMSK_V4_5);
+}
+
 static void ipareg_construct_endp_init_ctrl_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -1479,6 +1653,7 @@ static void ipareg_parse_endp_init_aggr_n(enum ipahal_reg_name reg,
 	ep_aggr->aggr_time_limit =
 		((val & IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK) >>
 			IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT);
+	ep_aggr->aggr_time_limit *= 1000; /* HW works in msec */
 	ep_aggr->aggr_pkt_limit =
 		((val & IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK) >>
 			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT);
@@ -1491,14 +1666,48 @@ static void ipareg_parse_endp_init_aggr_n(enum ipahal_reg_name reg,
 			IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT);
 }
 
+static void ipareg_parse_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipa_ep_cfg_aggr *ep_aggr =
+		(struct ipa_ep_cfg_aggr *)fields;
+
+	memset(ep_aggr, 0, sizeof(struct ipa_ep_cfg_aggr));
+
+	ep_aggr->aggr_en =
+		(((val & IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT_V4_5)
+			== IPA_ENABLE_AGGR);
+	ep_aggr->aggr =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT_V4_5);
+	ep_aggr->aggr_byte_limit =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT_V4_5);
+	ep_aggr->scaled_time =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT_V4_5);
+	ep_aggr->aggr_pkt_limit =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT_V4_5);
+	ep_aggr->aggr_sw_eof_active =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT_V4_5);
+	ep_aggr->aggr_hard_byte_limit_en =
+		((val &
+		 IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK_V4_5)
+		 >>
+		 IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT_V4_5);
+	ep_aggr->pulse_generator =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_GRAN_SEL_BMSK_V4_5) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_GRAN_SEL_SHFT_V4_5);
+}
+
 static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
 	struct ipa_ep_cfg_aggr *ep_aggr =
 		(struct ipa_ep_cfg_aggr *)fields;
-	u32 byte_limit;
-	u32 pkt_limit;
-
 
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT,
@@ -1508,25 +1717,16 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK);
 
-	/* make sure aggregation size does not cross HW boundaries */
-	byte_limit = (ep_aggr->aggr_byte_limit >
-		ipahal_aggr_get_max_byte_limit()) ?
-		ipahal_aggr_get_max_byte_limit() :
-		ep_aggr->aggr_byte_limit;
-	IPA_SETFIELD_IN_REG(*val, byte_limit,
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_byte_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_time_limit,
+	/* HW works in msec */
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_time_limit / 1000,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK);
 
-	/* make sure aggregation size does not cross HW boundaries */
-	pkt_limit = (ep_aggr->aggr_pkt_limit >
-		ipahal_aggr_get_max_pkt_limit()) ?
-		ipahal_aggr_get_max_pkt_limit() :
-		ep_aggr->aggr_pkt_limit;
-	IPA_SETFIELD_IN_REG(*val, pkt_limit,
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
 
@@ -1539,6 +1739,52 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK);
 }
+
+static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_aggr *ep_aggr =
+		(struct ipa_ep_cfg_aggr *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_en,
+		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr,
+		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_byte_limit,
+		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->scaled_time,
+		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_sw_eof_active,
+		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK_V4_5);
+
+	/* At IPAv3 hard_byte_limit is not supported */
+	if (ep_aggr->aggr_hard_byte_limit_en) {
+		IPAHAL_ERR("hard byte limit aggr is not supported\n");
+		WARN_ON(1);
+	}
+	ep_aggr->aggr_hard_byte_limit_en = 0;
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_hard_byte_limit_en,
+		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK_V4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->pulse_generator,
+		IPA_ENDP_INIT_AGGR_n_AGGR_GRAN_SEL_SHFT_V4_5,
+		IPA_ENDP_INIT_AGGR_n_AGGR_GRAN_SEL_BMSK_V4_5);
+}
+
 
 static void ipareg_construct_endp_init_hdr_ext_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
@@ -2074,7 +2320,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_SHARED_MEM_SIZE] = {
 		ipareg_construct_dummy, ipareg_parse_shared_mem_size,
 		0x00000054, 0, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_SRAM_DIRECT_ACCESS_n] = {
+	[IPA_HW_v3_0][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00007000, 0x4, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_DEBUG_CNT_CTRL_n] = {
@@ -2577,6 +2823,17 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_CLKON_CFG] = {
 		ipareg_construct_clkon_cfg_v4_5, ipareg_parse_clkon_cfg_v4_5,
 		0x00000044, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_QTIME_TIMESTAMP_CFG] = {
+		ipareg_construct_qtime_timestamp_cfg, ipareg_parse_dummy,
+		0x00000024c, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_TIMERS_PULSE_GRAN_CFG] = {
+		ipareg_construct_timers_pulse_gran_cfg,
+		ipareg_parse_timers_pulse_gran_cfg,
+		0x000000254, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_TIMERS_XO_CLK_DIV_CFG] = {
+		ipareg_construct_timers_xo_clk_div_cfg,
+		ipareg_parse_timers_xo_clk_div_cfg,
+		0x000000250, 0, 0, 0, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_SEQ_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0000083C, 0x70, 0, 13, 1},
@@ -2652,6 +2909,24 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_HPS_SEQUENCER_LAST] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x0000257c, 0, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_NAT_TIMER] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000058, 0, 0, 0, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HOL_BLOCK_EN_n] = {
+		ipareg_construct_endp_init_hol_block_en_n,
+		ipareg_parse_dummy,
+		0x0000082c, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HOL_BLOCK_TIMER_n] = {
+		ipareg_construct_endp_init_hol_block_timer_n_v4_5,
+		ipareg_parse_dummy,
+		0x00000830, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_AGGR_n] = {
+		ipareg_construct_endp_init_aggr_n_v4_5,
+		ipareg_parse_endp_init_aggr_n_v4_5,
+		0x00000824, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000010000, 0x4, 0, 0, 0},
 };
 
 /*
@@ -2995,20 +3270,6 @@ u32 ipahal_get_reg_base(void)
  *  and cannot be generically defined. For such operations we define these
  *  specific functions.
  */
-
-u32 ipahal_aggr_get_max_byte_limit(void)
-{
-	return
-		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK >>
-		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT;
-}
-
-u32 ipahal_aggr_get_max_pkt_limit(void)
-{
-	return
-		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK >>
-		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT;
-}
 
 void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask)
