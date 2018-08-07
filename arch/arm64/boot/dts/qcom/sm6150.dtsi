@@ -1935,7 +1935,6 @@
 	status = "ok";
 };
 
-#include "sm6150-camera.dtsi"
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
 #include "sm6150-coresight.dtsi"
