@@ -801,8 +801,8 @@ static int dsi_display_cmd_prepare(const char *cmd_buf, u32 cmd_buf_len,
 	cmd->msg.tx_len = ((cmd_buf[5] << 8) | (cmd_buf[6]));
 
 	if (cmd->msg.tx_len > payload_len) {
-		pr_err("Incorrect payload length tx_len %ld, payload_len %d\n",
-				cmd->msg.tx_len, payload_len);
+		pr_err("Incorrect payload length tx_len %zu, payload_len %d\n",
+		       cmd->msg.tx_len, payload_len);
 		return -EINVAL;
 	}
 
@@ -1200,6 +1200,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	display->esd_trigger = esd_trigger;
 
 	if (display->esd_trigger) {
+		pr_info("ESD attack triggered by user\n");
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
@@ -1256,11 +1257,13 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		goto error;
 
 	if (!strcmp(buf, "te_signal_check\n")) {
+		pr_info("ESD check is switched to TE mode by user\n");
 		esd_config->status_mode = ESD_MODE_PANEL_TE;
 		dsi_display_change_te_irq_status(display, true);
 	}
 
 	if (!strcmp(buf, "reg_read\n")) {
+		pr_info("ESD check is switched to reg read by user\n");
 		rc = dsi_panel_parse_esd_reg_read_configs(display->panel);
 		if (rc) {
 			pr_err("failed to alter esd check mode,rc=%d\n",
@@ -1323,11 +1326,23 @@ static ssize_t debugfs_read_esd_check_mode(struct file *file,
 		goto output_mode;
 	}
 
-	if (esd_config->status_mode == ESD_MODE_REG_READ)
+	switch (esd_config->status_mode) {
+	case ESD_MODE_REG_READ:
 		rc = snprintf(buf, len, "reg_read");
-
-	if (esd_config->status_mode == ESD_MODE_PANEL_TE)
+		break;
+	case ESD_MODE_PANEL_TE:
 		rc = snprintf(buf, len, "te_signal_check");
+		break;
+	case ESD_MODE_SW_SIM_FAILURE:
+		rc = snprintf(buf, len, "esd_sw_sim_failure");
+		break;
+	case ESD_MODE_SW_SIM_SUCCESS:
+		rc = snprintf(buf, len, "esd_sw_sim_success");
+		break;
+	default:
+		rc = snprintf(buf, len, "invalid");
+		break;
+	}
 
 output_mode:
 	if (!rc) {

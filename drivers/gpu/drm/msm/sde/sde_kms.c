@@ -1631,6 +1631,16 @@ void sde_kms_timeline_status(struct drm_device *dev)
 	drm_for_each_crtc(crtc, dev)
 		sde_crtc_timeline_status(crtc);
 
+	if (mutex_is_locked(&dev->mode_config.mutex)) {
+		/*
+		 *Probably locked from last close dumping status anyway
+		 */
+		SDE_ERROR("dumping conn_timeline without mode_config lock\n");
+		drm_for_each_connector_iter(conn, &conn_iter)
+			sde_conn_timeline_status(conn);
+		return;
+	}
+
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(conn, &conn_iter)
@@ -2099,6 +2109,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	struct drm_crtc_state *crtc_state;
 	int active_crtc_cnt = 0, global_active_crtc_cnt = 0;
 	bool sec_session = false, global_sec_session = false;
+	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
 	int i;
 
 	if (!kms || !state) {
@@ -2115,54 +2126,56 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 			continue;
 
 		active_crtc_cnt++;
-		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
-				SDE_DRM_SEC_ONLY)
+		sde_crtc_state_find_plane_fb_modes(crtc_state, &fb_ns,
+				&fb_sec, &fb_sec_dir);
+		if (fb_sec_dir)
 			sec_session = true;
-
 		cur_crtc = crtc;
 	}
 
-	/* iterate global list for active and secure crtc */
+	/* iterate global list for active and secure/non-secure crtc */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (!crtc->state->active)
 			continue;
 
 		global_active_crtc_cnt++;
-		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
-				SDE_DRM_SEC_ONLY)
-			global_sec_session = true;
-
-		global_crtc = crtc;
+		/* update only when crtc is not the same as current crtc */
+		if (crtc != cur_crtc) {
+			fb_ns = fb_sec = fb_sec_dir = 0;
+			sde_crtc_find_plane_fb_modes(crtc, &fb_ns,
+					&fb_sec, &fb_sec_dir);
+			if (fb_sec_dir)
+				global_sec_session = true;
+			global_crtc = crtc;
+		}
 	}
 
+	if (!global_sec_session && !sec_session)
+		return 0;
+
 	/*
-	 * - fail secure crtc commit, if any other crtc session is already
-	 *   in progress
-	 * - fail non-secure crtc commit, if any secure crtc session is already
-	 *   in progress
+	 * - fail crtc commit, if secure-camera/secure-ui session is
+	 *   in-progress in any other display
+	 * - fail secure-camera/secure-ui crtc commit, if any other display
+	 *   session is in-progress
 	 */
-	if (global_sec_session || sec_session) {
-		if ((global_active_crtc_cnt >
-					MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
+	if ((global_active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
 		    (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE)) {
-			SDE_ERROR(
-			"Secure check failed global_active:%d active:%d\n",
+		SDE_ERROR(
+		    "crtc%d secure check failed global_active:%d active:%d\n",
+				cur_crtc ? cur_crtc->base.id : -1,
 				global_active_crtc_cnt, active_crtc_cnt);
-			return -EPERM;
+		return -EPERM;
 
-		/*
-		 * As only one crtc is allowed during secure session, the crtc
-		 * in this commit should match with the global crtc, if it
-		 * exists
-		 */
-		} else if (global_crtc && (global_crtc != cur_crtc)) {
-			SDE_ERROR(
-			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
-				cur_crtc ? cur_crtc->base.id : -1, sec_session,
+	/*
+	 * As only one crtc is allowed during secure session, the crtc
+	 * in this commit should match with the global crtc
+	 */
+	} else if (global_crtc && cur_crtc && (global_crtc != cur_crtc)) {
+		SDE_ERROR("crtc%d-sec%d not allowed during crtc%d-sec%d\n",
+				cur_crtc->base.id, sec_session,
 				global_crtc->base.id, global_sec_session);
-			return -EPERM;
-		}
-
+		return -EPERM;
 	}
 
 	return 0;

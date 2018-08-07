@@ -2556,10 +2556,17 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 			_sde_encoder_resource_control_rsc_update(drm_enc, true);
 
+			/*
+			 * In some cases, commit comes with slight delay
+			 * (> 80 ms)after early wake up, prevent clock switch
+			 * off to avoid jank in next update. So, increase the
+			 * command mode idle timeout sufficiently to prevent
+			 * such case.
+			 */
 			kthread_mod_delayed_work(&disp_thread->worker,
-						&sde_enc->delayed_off_work,
-						msecs_to_jiffies(
-						IDLE_POWERCOLLAPSE_DURATION));
+					&sde_enc->delayed_off_work,
+					msecs_to_jiffies(
+					IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP));
 
 			sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
 		}
@@ -2925,6 +2932,21 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 	_sde_encoder_virt_enable_helper(drm_enc);
 }
 
+static void sde_encoder_off_work(struct kthread_work *work)
+{
+	struct sde_encoder_virt *sde_enc = container_of(work,
+			struct sde_encoder_virt, delayed_off_work.work);
+	struct drm_encoder *drm_enc;
+
+	if (!sde_enc) {
+		SDE_ERROR("invalid sde encoder\n");
+		return;
+	}
+	drm_enc = &sde_enc->base;
+
+	sde_encoder_idle_request(drm_enc);
+}
+
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
@@ -2986,7 +3008,9 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			"input handler registration failed, rc = %d\n", ret);
 	}
 
-	sde_enc->delayed_off_work.work.worker = NULL;
+	if (!msm_is_mode_seamless_vrr(cur_mode))
+		kthread_init_delayed_work(&sde_enc->delayed_off_work,
+			sde_encoder_off_work);
 
 	ret = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (ret) {
@@ -3333,21 +3357,6 @@ int sde_encoder_idle_request(struct drm_encoder *drm_enc)
 						SDE_ENC_RC_EVENT_ENTER_IDLE);
 
 	return 0;
-}
-
-static void sde_encoder_off_work(struct kthread_work *work)
-{
-	struct sde_encoder_virt *sde_enc = container_of(work,
-			struct sde_encoder_virt, delayed_off_work.work);
-	struct drm_encoder *drm_enc;
-
-	if (!sde_enc) {
-		SDE_ERROR("invalid sde encoder\n");
-		return;
-	}
-	drm_enc = &sde_enc->base;
-
-	sde_encoder_idle_request(drm_enc);
 }
 
 /**
@@ -4151,12 +4160,12 @@ int sde_encoder_poll_line_counts(struct drm_encoder *drm_enc)
 	return -ETIMEDOUT;
 }
 
-static int _helper_flush_mixer(struct sde_encoder_phys *phys_enc)
+static int _helper_flush_qsync(struct sde_encoder_phys *phys_enc)
 {
 	struct drm_encoder *drm_enc;
-	struct sde_hw_mixer_cfg mixer;
-	struct sde_rm_hw_iter lm_iter;
+	struct sde_rm_hw_iter rm_iter;
 	bool lm_valid = false;
+	bool intf_valid = false;
 
 	if (!phys_enc || !phys_enc->parent) {
 		SDE_ERROR("invalid encoder\n");
@@ -4164,28 +4173,56 @@ static int _helper_flush_mixer(struct sde_encoder_phys *phys_enc)
 	}
 
 	drm_enc = phys_enc->parent;
-	memset(&mixer, 0, sizeof(mixer));
 
-	sde_rm_init_hw_iter(&lm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
-	while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &lm_iter)) {
-		struct sde_hw_mixer *hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
+	/* Flush the interfaces for AVR update or Qsync with INTF TE */
+	if (phys_enc->intf_mode == INTF_MODE_VIDEO ||
+			(phys_enc->intf_mode == INTF_MODE_CMD &&
+			phys_enc->has_intf_te)) {
+		sde_rm_init_hw_iter(&rm_iter, drm_enc->base.id,
+				SDE_HW_BLK_INTF);
+		while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &rm_iter)) {
+			struct sde_hw_intf *hw_intf =
+				(struct sde_hw_intf *)rm_iter.hw;
 
-		if (!hw_lm)
-			continue;
+			if (!hw_intf)
+				continue;
 
-		/* update LM flush */
-		if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
-			phys_enc->hw_ctl->ops.update_bitmask_mixer(
-					phys_enc->hw_ctl,
-					hw_lm->idx, 1);
+			if (phys_enc->hw_ctl->ops.update_bitmask_intf)
+				phys_enc->hw_ctl->ops.update_bitmask_intf(
+						phys_enc->hw_ctl,
+						hw_intf->idx, 1);
 
-		lm_valid = true;
-	}
+			intf_valid = true;
+		}
 
-	if (!lm_valid) {
-		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
-			"lm not found to flush\n");
-		return -EFAULT;
+		if (!intf_valid) {
+			SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+				"intf not found to flush\n");
+			return -EFAULT;
+		}
+	} else {
+		sde_rm_init_hw_iter(&rm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
+		while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &rm_iter)) {
+			struct sde_hw_mixer *hw_lm =
+					(struct sde_hw_mixer *)rm_iter.hw;
+
+			if (!hw_lm)
+				continue;
+
+			/* update LM flush for HW without INTF TE */
+			if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
+				phys_enc->hw_ctl->ops.update_bitmask_mixer(
+						phys_enc->hw_ctl,
+						hw_lm->idx, 1);
+
+			lm_valid = true;
+		}
+
+		if (!lm_valid) {
+			SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc),
+				"lm not found to flush\n");
+			return -EFAULT;
+		}
 	}
 
 	return 0;
@@ -4243,7 +4280,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			/* flush the mixer if qsync is enabled */
 			if (sde_enc->cur_master && sde_connector_qsync_updated(
 					sde_enc->cur_master->connector)) {
-				_helper_flush_mixer(phys);
+				_helper_flush_qsync(phys);
 			}
 		}
 	}

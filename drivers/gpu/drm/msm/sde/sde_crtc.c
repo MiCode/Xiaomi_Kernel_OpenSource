@@ -644,7 +644,7 @@ static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 static int _sde_debugfs_fps_status_show(struct seq_file *s, void *data)
 {
 	struct sde_crtc *sde_crtc;
-	unsigned int fps_int, fps_float;
+	u64 fps_int, fps_float;
 	ktime_t current_time_us;
 	u64 fps, diff_us;
 
@@ -673,7 +673,7 @@ static int _sde_debugfs_fps_status_show(struct seq_file *s, void *data)
 	fps_int = (unsigned int) sde_crtc->fps_info.measured_fps;
 	fps_float = do_div(fps_int, 10);
 
-	seq_printf(s, "fps: %d.%d\n", fps_int, fps_float);
+	seq_printf(s, "fps: %llu.%llu\n", fps_int, fps_float);
 
 	return 0;
 }
@@ -1790,10 +1790,54 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 	_sde_crtc_program_lm_output_roi(crtc);
 }
 
-static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
-		uint32_t *fb_ns,
-		uint32_t *fb_sec,
-		uint32_t *fb_sec_dir)
+int sde_crtc_find_plane_fb_modes(struct drm_crtc *crtc,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir)
+{
+	struct drm_plane *plane;
+	struct sde_plane_state *sde_pstate;
+	uint32_t mode = 0;
+	int rc;
+
+	if (!crtc) {
+		SDE_ERROR("invalid state\n");
+		return -EINVAL;
+	}
+
+	*fb_ns = 0;
+	*fb_sec = 0;
+	*fb_sec_dir = 0;
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		if (IS_ERR_OR_NULL(plane) || IS_ERR_OR_NULL(plane->state)) {
+			rc = PTR_ERR(plane);
+			SDE_ERROR("crtc%d failed to get plane%d state%d\n",
+					DRMID(crtc), DRMID(plane), rc);
+			return rc;
+		}
+		sde_pstate = to_sde_plane_state(plane->state);
+		mode = sde_plane_get_property(sde_pstate,
+				PLANE_PROP_FB_TRANSLATION_MODE);
+
+		switch (mode) {
+		case SDE_DRM_FB_NON_SEC:
+			(*fb_ns)++;
+			break;
+		case SDE_DRM_FB_SEC:
+			(*fb_sec)++;
+			break;
+		case SDE_DRM_FB_SEC_DIR_TRANS:
+			(*fb_sec_dir)++;
+			break;
+		default:
+			SDE_ERROR("Error: Plane[%d], fb_trans_mode:%d",
+					DRMID(plane), mode);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+int sde_crtc_state_find_plane_fb_modes(struct drm_crtc_state *state,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir)
 {
 	struct drm_plane *plane;
 	const struct drm_plane_state *pstate;
@@ -1813,13 +1857,13 @@ static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
 		if (IS_ERR_OR_NULL(pstate)) {
 			rc = PTR_ERR(pstate);
 			SDE_ERROR("crtc%d failed to get plane%d state%d\n",
-					state->crtc->base.id,
-					plane->base.id, rc);
+					DRMID(state->crtc), DRMID(plane), rc);
 			return rc;
 		}
 		sde_pstate = to_sde_plane_state(pstate);
 		mode = sde_plane_get_property(sde_pstate,
 				PLANE_PROP_FB_TRANSLATION_MODE);
+
 		switch (mode) {
 		case SDE_DRM_FB_NON_SEC:
 			(*fb_ns)++;
@@ -1832,7 +1876,7 @@ static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
 			break;
 		default:
 			SDE_ERROR("Error: Plane[%d], fb_trans_mode:%d",
-					plane->base.id, mode);
+					DRMID(plane), mode);
 			return -EINVAL;
 		}
 	}
@@ -4515,7 +4559,8 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 
 	secure = sde_crtc_get_property(cstate, CRTC_PROP_SECURITY_LEVEL);
 
-	rc = _sde_crtc_find_plane_fb_modes(state, &fb_ns, &fb_sec, &fb_sec_dir);
+	rc = sde_crtc_state_find_plane_fb_modes(state, &fb_ns,
+					&fb_sec, &fb_sec_dir);
 	if (rc)
 		return rc;
 
@@ -4819,8 +4864,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	for (i = 1; i < SSPP_MAX; i++) {
 		if (pipe_staged[i]) {
-			sde_plane_clear_multirect(pipe_staged[i]);
-
 			if (is_sde_plane_virtual(pipe_staged[i]->plane)) {
 				SDE_ERROR(
 					"r1 only virt plane:%d not supported\n",
@@ -4828,6 +4871,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 				rc  = -EINVAL;
 				goto end;
 			}
+			sde_plane_clear_multirect(pipe_staged[i]);
 		}
 	}
 
@@ -5365,14 +5409,16 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		_sde_crtc_set_input_fence_timeout(cstate);
 		break;
 	case CRTC_PROP_DIM_LAYER_V1:
-		_sde_crtc_set_dim_layer_v1(cstate, (void __user *)val);
+		_sde_crtc_set_dim_layer_v1(cstate,
+					(void __user *)(uintptr_t)val);
 		break;
 	case CRTC_PROP_ROI_V1:
-		ret = _sde_crtc_set_roi_v1(state, (void __user *)val);
+		ret = _sde_crtc_set_roi_v1(state,
+					(void __user *)(uintptr_t)val);
 		break;
 	case CRTC_PROP_DEST_SCALER:
 		ret = _sde_crtc_set_dest_scaler(sde_crtc, cstate,
-				(void __user *)val);
+				(void __user *)(uintptr_t)val);
 		break;
 	case CRTC_PROP_DEST_SCALER_LUT_ED:
 	case CRTC_PROP_DEST_SCALER_LUT_CIR:
@@ -5401,7 +5447,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 			goto exit;
 		}
 
-		ret = copy_to_user((uint64_t __user *)val, &fence_fd,
+		ret = copy_to_user((uint64_t __user *)(uintptr_t)val, &fence_fd,
 				sizeof(uint64_t));
 		if (ret) {
 			SDE_ERROR("copy to user failed rc:%d\n", ret);
@@ -5669,8 +5715,8 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 
 	if (sde_crtc->vblank_cb_count) {
 		ktime_t diff = ktime_sub(ktime_get(), sde_crtc->vblank_cb_time);
-		s64 diff_ms = ktime_to_ms(diff);
-		s64 fps = diff_ms ? DIV_ROUND_CLOSEST(
+		u32 diff_ms = ktime_to_ms(diff);
+		u64 fps = diff_ms ? DIV_ROUND_CLOSEST(
 				sde_crtc->vblank_cb_count * 1000, diff_ms) : 0;
 
 		seq_printf(s,
