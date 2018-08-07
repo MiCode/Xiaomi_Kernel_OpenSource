@@ -2083,6 +2083,22 @@ enable_reg:
 	else
 		pd->vbus_enabled = true;
 
+	count = 10;
+	/*
+	 * Check to make sure VBUS voltage reaches above Vsafe5Vmin (4.75v)
+	 * before proceeding.
+	 */
+	while (count--) {
+		ret = power_supply_get_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+		if (ret || val.intval >= 4750000) /*vsafe5Vmin*/
+			break;
+		usleep_range(10000, 12000); /* Delay between two reads */
+	}
+
+	if (ret)
+		msleep(100); /* Delay to wait for VBUS ramp up if read fails */
+
 	return ret;
 }
 
@@ -2969,7 +2985,6 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_PRS_SNK_SRC_SOURCE_ON:
 		enable_vbus(pd);
-		msleep(200); /* allow time VBUS ramp-up, must be < tNewSrc */
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
