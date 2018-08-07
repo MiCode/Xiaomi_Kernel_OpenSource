@@ -251,6 +251,8 @@ struct smb_iio {
 	struct iio_channel	*usbin_v_chan;
 	struct iio_channel	*batt_i_chan;
 	struct iio_channel	*connector_temp_chan;
+	struct iio_channel	*sbux_chan;
+	struct iio_channel	*vph_v_chan;
 };
 
 struct smb_charger {
