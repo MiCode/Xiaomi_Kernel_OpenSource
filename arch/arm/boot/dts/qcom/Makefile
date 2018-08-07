@@ -11,7 +11,9 @@ dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
 	sdxpoorwills-pcie-ep-cdp-256.dtb \
 	sdxpoorwills-pcie-ep-mtp-256.dtb \
 	sdxpoorwills-pcie-ep-cdp.dtb \
-	sdxpoorwills-pcie-ep-mtp.dtb
+	sdxpoorwills-pcie-ep-mtp.dtb \
+	sdxpoorwills-v2-mtp.dtb \
+	sdxpoorwills-v2-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-nand-mtp.dtb \
 	mdm9650-ttp.dtb \
