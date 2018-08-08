@@ -2111,6 +2111,7 @@ static struct snd_soc_dai_link apq8009_dai[] = {
 		.platform_name = "msm-compress-dsp",
 		.dynamic = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",
@@ -2390,6 +2391,40 @@ static struct snd_soc_dai_link msm_tdm_fe_dai[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm_compr_fe_dai[] = {
+	/* FE TDM DAI links */
+	{/* hw:x,43 */
+		.name = "APQ8009 Compress3",
+		.stream_name = "Compress3",
+		.cpu_dai_name = "MultiMedia10",
+		.platform_name = "msm-compress-dsp",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA10,
+	},
+	{/* hw:x,44 */
+		.name = "APQ8009 Compress4",
+		.stream_name = "Compress4",
+		.cpu_dai_name = "MultiMedia11",
+		.platform_name = "msm-compress-dsp",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA11,
+	},
+};
+
 static struct snd_soc_dai_link msm_tdm_be_dai[] = {
 	/* TDM be dai links */
 	{
@@ -2425,6 +2460,7 @@ static struct snd_soc_dai_link msm_tdm_be_dai[] = {
 static struct snd_soc_dai_link apq8009_9326_dai_links[
 				ARRAY_SIZE(apq8009_dai) +
 				ARRAY_SIZE(msm_tdm_fe_dai) +
+				ARRAY_SIZE(msm_compr_fe_dai) +
 				ARRAY_SIZE(apq8009_9326_dai) +
 				ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link) +
 				ARRAY_SIZE(msm_tdm_be_dai)];
@@ -2447,7 +2483,7 @@ static int populate_ext_snd_card_dt_data(struct platform_device *pdev)
 struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = &snd_soc_card_9326_apq8009;
-	int ret, len1, len2, len3;
+	int ret, len1, len2, len3, len4;
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -2460,34 +2496,37 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 	len1 = ARRAY_SIZE(apq8009_dai);
 	len2 = len1 + ARRAY_SIZE(msm_tdm_fe_dai);
-	len3 = len2 + ARRAY_SIZE(apq8009_9326_dai);
+	len3 = len2 + ARRAY_SIZE(msm_compr_fe_dai);
+	len4 = len3 + ARRAY_SIZE(apq8009_9326_dai);
 
 	memcpy(apq8009_9326_dai_links, apq8009_dai,
 			sizeof(apq8009_dai));
 	memcpy(apq8009_9326_dai_links + len1, msm_tdm_fe_dai,
 			sizeof(msm_tdm_fe_dai));
-	memcpy(apq8009_9326_dai_links + len2, apq8009_9326_dai,
+	memcpy(apq8009_9326_dai_links + len2, msm_compr_fe_dai,
+			sizeof(msm_compr_fe_dai));
+	memcpy(apq8009_9326_dai_links + len3, apq8009_9326_dai,
 			sizeof(apq8009_9326_dai));
 
 	if (of_property_read_bool(dev->of_node, "qcom,afe-rxtx-lb")) {
 		dev_dbg(dev, "%s(): AFE RX to TX loopback supported\n",
 				__func__);
-		memcpy(apq8009_9326_dai_links + len3,
+		memcpy(apq8009_9326_dai_links + len4,
 		       msm_afe_rxtx_lb_be_dai_link,
 		       sizeof(msm_afe_rxtx_lb_be_dai_link));
-		len3 += ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
+		len4 += ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
 	}
 
 	if (of_property_read_bool(dev->of_node, "qcom,tdm-audio-intf")) {
 		dev_dbg(dev, "%s(): TDM support present\n",
 				__func__);
-		memcpy(apq8009_9326_dai_links + len3, msm_tdm_be_dai,
+		memcpy(apq8009_9326_dai_links + len4, msm_tdm_be_dai,
 			sizeof(msm_tdm_be_dai));
-		len3 += ARRAY_SIZE(msm_tdm_be_dai);
+		len4 += ARRAY_SIZE(msm_tdm_be_dai);
 	}
 
 	card->dai_link = apq8009_9326_dai_links;
-	card->num_links = len3;
+	card->num_links = len4;
 	card->dev = dev;
 
 	return card;
