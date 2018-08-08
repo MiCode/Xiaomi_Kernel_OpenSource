@@ -2744,12 +2744,15 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			if (rc < 0)
 				dev_err(chg->dev, "Couldn't enable secondary charger rc=%d\n",
 					rc);
+			else
+				chg->cp_reason = POWER_SUPPLY_CP_PPS;
 		}
 	} else {
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 		vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 
+		chg->cp_reason = POWER_SUPPLY_CP_NONE;
 		rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
 						POWER_SUPPLY_CHARGER_SEC_NONE);
@@ -3348,6 +3351,8 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 		if (rc < 0)
 			dev_err(chg->dev,
 			"Couldn't enable secondary chargers  rc=%d\n", rc);
+		else
+			chg->cp_reason = POWER_SUPPLY_CP_HVDCP3;
 	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
@@ -3603,6 +3608,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
 
+	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
 						POWER_SUPPLY_CHARGER_SEC_NONE);
@@ -4358,6 +4364,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->sink_src_mode = UNATTACHED_MODE;
 	chg->jeita_configured = false;
 	chg->sec_chg_selected = POWER_SUPPLY_CHARGER_SEC_NONE;
+	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
