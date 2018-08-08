@@ -435,16 +435,16 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 				&dma_addr);
 		if (!transfer.iovec) {
 			IPAERR("fail to alloc dma mem for sps xfr buff\n");
-			return -EFAULT;
+			return -ENOMEM;
 		}
 	} else {
 		transfer.iovec = kmalloc(size, flag);
 		if (!transfer.iovec) {
 			IPAERR("fail to alloc mem for sps xfr buff ");
 			IPAERR("num_desc = %d size = %d\n", num_desc, size);
-			return -EFAULT;
+			return -ENOMEM;
 		}
-		dma_addr  = dma_map_single(ipa_ctx->pdev,
+		dma_addr = dma_map_single(ipa_ctx->pdev,
 				transfer.iovec, size, DMA_TO_DEVICE);
 		if (dma_mapping_error(ipa_ctx->pdev, dma_addr)) {
 			IPAERR("dma_map_single failed for sps xfr buff\n");
@@ -459,9 +459,10 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 
 	for (i = 0; i < num_desc; i++) {
 		tx_pkt = kmem_cache_zalloc(ipa_ctx->tx_pkt_wrapper_cache,
-					   mem_flag);
+					   GFP_ATOMIC);
 		if (!tx_pkt) {
 			IPAERR("failed to alloc tx wrapper\n");
+			ret = -ENOMEM;
 			goto failure;
 		}
 		/*
@@ -515,6 +516,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 
 		if (dma_mapping_error(ipa_ctx->pdev, tx_pkt->mem.phys_base)) {
 			IPAERR("dma_map_single failed\n");
+			ret = -EFAULT;
 			goto failure_dma_map;
 		}
 
@@ -564,6 +566,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	result = sps_transfer(sys->ep->ep_hdl, &transfer);
 	if (result) {
 		IPAERR("sps_transfer failed rc=%d\n", result);
+		ret = -EFAULT;
 		goto failure;
 	}
 
@@ -605,7 +608,7 @@ failure:
 		}
 	}
 	spin_unlock_bh(&sys->spinlock);
-	return -EFAULT;
+	return ret;
 }
 
 /**

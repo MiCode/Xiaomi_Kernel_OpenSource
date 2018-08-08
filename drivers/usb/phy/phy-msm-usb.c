@@ -1553,6 +1553,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 	}
 
 	disable_irq(motg->irq);
+	if (motg->phy_irq)
+		disable_irq(motg->phy_irq);
 	wake_lock(&motg->wlock);
 
 	/*
@@ -1680,6 +1682,8 @@ skip_phy_resume:
 		enable_irq(motg->async_int);
 		motg->async_int = 0;
 	}
+	if (motg->phy_irq)
+		enable_irq(motg->phy_irq);
 	enable_irq(motg->irq);
 
 	/* Enable ASYNC_IRQ only during LPM */
@@ -2931,10 +2935,10 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_start_peripheral(otg, 0);
 			msm_otg_dbg_log_event(&motg->phy, "RT PM: B_PERI A PUT",
 				get_pm_runtime_counter(dev), 0);
-			/* _put for _get done on cable connect in B_IDLE */
-			pm_runtime_put_noidle(dev);
 			/* Schedule work to finish cable disconnect processing*/
 			otg->phy->state = OTG_STATE_B_IDLE;
+			/* _put for _get done on cable connect in B_IDLE */
+			pm_runtime_put_noidle(dev);
 			work = 1;
 		} else if (test_bit(A_BUS_SUSPEND, &motg->inputs)) {
 			pr_debug("a_bus_suspend\n");

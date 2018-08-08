@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,8 @@
 		qcom,mdss-dsi-color-order = "rgb_swap_rgb";
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
+		qcom,esd-check-enabled;
 		qcom,mdss-dsi-on-command = [
 			39 01 00 00 00 00 06 F0 55 AA 52 08 00
 			39 01 00 00 00 00 06 BD 03 20 14 4B 00
@@ -89,6 +91,15 @@
 					];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-idle-on-command = [
+			05 01 00 00 00 00 01 39 /* Idle-Mode On */
+			];
+		qcom,mdss-dsi-idle-on-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-idle-off-command = [
+			05 01 00 00 00 00 01 38 /* Idle-Mode Off  */
+			];
+		qcom,mdss-dsi-idle-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-idle-fps = <30>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
 		qcom,mdss-dsi-bllp-eof-power-mode;
@@ -97,6 +108,7 @@
 		qcom,mdss-dsi-te-pin-select = <1>;
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-te-using-te-pin;
+		/* qcom,mdss-dsi-te-check-enable; */
 		qcom,mdss-dsi-panel-timings = [5F 12 0A 00 32 34 10 16 0F 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x05>;
 		qcom,mdss-dsi-t-clk-pre = <0x11>;
@@ -106,7 +118,7 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
-		/* clk = totlaH * totalV * bpp* 66fps */
-		qcom,mdss-dsi-panel-clockrate = <180905472>;
+		/* clk = totlaH * totalV * bpp* 84fps */
+		qcom,mdss-dsi-panel-clockrate = <230243328>;
 	};
 };

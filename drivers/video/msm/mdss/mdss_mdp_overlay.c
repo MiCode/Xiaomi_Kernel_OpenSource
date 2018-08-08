@@ -6080,6 +6080,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		goto end;
 	}
 
+ctl_stop:
 	/*
 	 * If retire fences are still active wait for a vsync time
 	 * for retire fence to be updated.
@@ -6111,7 +6112,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		flush_kthread_work(&mdp5_data->vsync_work);
 	}
 
-ctl_stop:
 	mutex_lock(&mdp5_data->ov_lock);
 	/* set the correct pipe_mapped before ctl_stop */
 	mdss_mdp_mixer_update_pipe_map(mdp5_data->ctl,

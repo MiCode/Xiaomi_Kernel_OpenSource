@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -611,7 +611,7 @@ static void frmnet_suspend(struct usb_function *f)
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num, remote_wakeup_allowed);
 
-	usb_ep_fifo_flush(dev->notify);
+	usb_ep_dequeue(dev->notify, dev->notify_req);
 	frmnet_purge_responses(dev);
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
@@ -921,7 +921,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 		return;
 	}
 
-	usb_ep_fifo_flush(dev->notify);
+	usb_ep_dequeue(dev->notify, dev->notify_req);
 
 	event = dev->notify_req->buf;
 	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS

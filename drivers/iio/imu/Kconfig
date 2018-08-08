@@ -31,6 +31,7 @@ source "drivers/iio/imu/bmi160/Kconfig"
 source "drivers/iio/imu/inv_mpu/Kconfig"
 source "drivers/iio/imu/inv_mpu9250/Kconfig"
 source "drivers/iio/imu/inv_icm20602/Kconfig"
+source "drivers/iio/imu/st_asm330lhh/Kconfig"
 
 endmenu
 

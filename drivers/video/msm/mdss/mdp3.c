@@ -3198,7 +3198,7 @@ static int mdp3_runtime_resume(struct device *dev)
 		atomic_read(&mdp3_res->active_intf_cnt));
 
 	/* do not resume panels when coming out of idle power collapse */
-	if (!mdp3_res->idle_pc)
+	if (!mdp3_is_idle_pc())
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 
 	MDSS_XLOG(XLOG_FUNC_ENTRY);
@@ -3230,7 +3230,7 @@ static int mdp3_runtime_suspend(struct device *dev)
 	mdp3_footswitch_ctrl(0);
 
 	/* do not suspend panels when going in to idle power collapse */
-	if (!mdp3_res->idle_pc)
+	if (!mdp3_is_idle_pc())
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 
 	return 0;

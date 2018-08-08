@@ -99,6 +99,8 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_RELEASE_BUFFER          0x89
 #define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
 #define CMD_UPDATE_TIME_INFO		0x9D
+#define CMD_SUSPEND_EVENT		0x9E
+#define CMD_RESUME_EVENT		0x9F
 
 #define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
 #define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
@@ -385,6 +387,30 @@ static int k61_query_firmware_version(struct k61_can *priv_data)
 				&priv_data->response_completion, 0.001 * HZ);
 		ret = priv_data->cmd_result;
 	}
+
+	return ret;
+}
+
+static int k61_notify_power_events(struct k61_can *priv_data, u8 event_type)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = event_type;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = k61_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
 
 	return ret;
 }
@@ -825,6 +851,7 @@ static int k61_probe(struct spi_device *spi)
 	int err, retry = 0, query_err = -1;
 	struct k61_can *priv_data;
 	struct device *dev;
+	u32 irq_type;
 
 	dev = &spi->dev;
 	dev_dbg(dev, "k61_probe");
@@ -881,8 +908,11 @@ static int k61_probe(struct spi_device *spi)
 		goto unregister_candev;
 	}
 
+	irq_type = irq_get_trigger_type(spi->irq);
+	if (irq_type == IRQ_TYPE_NONE)
+		irq_type = IRQ_TYPE_EDGE_FALLING;
 	err = request_threaded_irq(spi->irq, NULL, k61_irq,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				   irq_type | IRQF_ONESHOT,
 				   "k61", priv_data);
 	if (err) {
 		dev_err(dev, "Failed to request irq: %d", err);
@@ -936,7 +966,10 @@ static const struct of_device_id k61_match_table[] = {
 static int k61_suspend(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
+	struct k61_can *priv_data = spi_get_drvdata(spi);
+	u8 power_event = CMD_SUSPEND_EVENT;
 
+	k61_notify_power_events(priv_data, power_event);
 	enable_irq_wake(spi->irq);
 	return 0;
 }
@@ -945,9 +978,10 @@ static int k61_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct k61_can *priv_data = spi_get_drvdata(spi);
+	u8 power_event = CMD_RESUME_EVENT;
 
 	disable_irq_wake(spi->irq);
-	k61_rx_message(priv_data);
+	k61_notify_power_events(priv_data, power_event);
 	return 0;
 }
 

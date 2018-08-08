@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,9 +192,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 
 	desc.arginfo = SMCINVOKE_TZ_PARAM_ID;
 	desc.args[0] = (uint64_t)virt_to_phys(in_buf);
-	desc.args[1] = in_buf_len;
+	desc.args[1] = inbuf_flush_size;
 	desc.args[2] = (uint64_t)virt_to_phys(out_buf);
-	desc.args[3] = out_buf_len;
+	desc.args[3] = outbuf_flush_size;
 
 	dmac_flush_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_flush_range(out_buf, out_buf + outbuf_flush_size);
@@ -207,12 +207,11 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		ret = qseecom_process_listener_from_smcinvoke(&desc);
 
 	*smcinvoke_result = (int32_t)desc.ret[1];
-	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0]) {
+	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0])
 		pr_err("SCM call failed with ret val = %d %d %d %d\n",
 						ret, (int)desc.ret[0],
 				(int)desc.ret[1], (int)desc.ret[2]);
-		ret = ret | desc.ret[0] | desc.ret[1] | desc.ret[2];
-	}
+
 	dmac_inv_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_inv_range(out_buf, out_buf + outbuf_flush_size);
 	return ret;
@@ -243,7 +242,7 @@ static int marshal_out(void *buf, uint32_t buf_size,
 			pr_err("%s: buffer overflow detected\n", __func__);
 			goto out;
 		}
-		if (copy_to_user((void __user *)(args_buf[i].b.addr),
+		if (copy_to_user((void __user *)(uintptr_t)(args_buf[i].b.addr),
 			(uint8_t *)(buf) + tz_args->b.offset,
 						tz_args->b.size)) {
 			pr_err("Error %d copying ctxt to user\n", ret);
@@ -328,7 +327,7 @@ static int marshal_in(const struct smcinvoke_cmd_req *req,
 		tz_args++;
 
 		if (copy_from_user(buf+offset,
-				(void __user *)(args_buf[i].b.addr),
+			(void __user *)(uintptr_t)(args_buf[i].b.addr),
 						args_buf[i].b.size))
 			goto out;
 
@@ -383,23 +382,27 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		nr_args = object_counts_num_buffers(req.counts) +
 				object_counts_num_objects(req.counts);
 
-		if (!nr_args || req.argsize != sizeof(union smcinvoke_arg)) {
+		if (req.argsize != sizeof(union smcinvoke_arg)) {
 			ret = -EINVAL;
 			goto out;
 		}
 
-		args_buf = kzalloc(nr_args * req.argsize, GFP_KERNEL);
-		if (!args_buf) {
-			ret = -ENOMEM;
-			goto out;
-		}
+		if (nr_args) {
 
-		ret = copy_from_user(args_buf, (void __user *)(req.args),
+			args_buf = kzalloc(nr_args * req.argsize, GFP_KERNEL);
+			if (!args_buf) {
+				ret = -ENOMEM;
+				goto out;
+			}
+
+			ret = copy_from_user(args_buf,
+					(void __user *)(uintptr_t)(req.args),
 						nr_args * req.argsize);
 
-		if (ret) {
-			ret = -EFAULT;
-			goto out;
+			if (ret) {
+				ret = -EFAULT;
+				goto out;
+			}
 		}
 
 		inmsg_size = compute_in_msg_size(&req, args_buf);
@@ -426,10 +429,17 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		if (ret)
 			goto out;
 
-		ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
+		/*
+		 * if invoke op results in an err, no need to marshal_out and
+		 * copy args buf to user space
+		 */
+		if (!req.result) {
+			ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
 
-		ret |=  copy_to_user((void __user *)(req.args), args_buf,
-						nr_args * req.argsize);
+			ret |=  copy_to_user(
+					(void __user *)(uintptr_t)(req.args),
+					args_buf, nr_args * req.argsize);
+		}
 		ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
 		if (ret)
 			goto out;

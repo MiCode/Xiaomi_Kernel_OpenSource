@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,7 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 major,
 	struct sde_mdss_cfg *cfg = NULL;
 
 	if (!dev || !dev->dev) {
-		SDE_ERROR("dev=%p or dev->dev is NULL\n", dev);
+		SDE_ERROR("dev=%pK or dev->dev is NULL\n", dev);
 		return NULL;
 	}
 

@@ -1424,6 +1424,15 @@ int ipa2_reset_hdr(bool user_only)
 	}
 	mutex_unlock(&ipa_ctx->lock);
 
+	/* commit the change to IPA-HW */
+	if (ipa_ctx->ctrl->ipa_commit_hdr()) {
+		IPAERR_RL("fail to commit hdr\n");
+		WARN_ON_RATELIMIT_IPA(1);
+		mutex_unlock(&ipa_ctx->lock);
+		return -EFAULT;
+	}
+
+	mutex_unlock(&ipa_ctx->lock);
 	return 0;
 }
 

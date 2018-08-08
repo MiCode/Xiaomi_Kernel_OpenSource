@@ -66,6 +66,9 @@
 
 #define IGNORE_FN_INIT_FAILURE
 
+#define FB_READY_RESET
+#define SDW2500_I2C_ADDR 0x20
+
 #define FB_READY_WAIT_MS 100
 #define FB_READY_TIMEOUT_S 30
 
@@ -4731,7 +4734,6 @@ static int synaptics_rmi4_resume(struct device *dev)
 #ifdef FB_READY_RESET
 	int retval;
 #endif
-	int retval;
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
@@ -4776,12 +4778,14 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 
 exit:
-#ifdef FB_READY_RESET
-	retval = synaptics_rmi4_reset_device(rmi4_data, false);
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to issue reset command\n",
-				__func__);
+ #ifdef FB_READY_RESET
+	if (rmi4_data->hw_if->board_data->i2c_addr != SDW2500_I2C_ADDR) {
+		retval = synaptics_rmi4_reset_device(rmi4_data, false);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to issue reset command\n",
+					__func__);
+		}
 	}
 #endif
 	mutex_lock(&exp_data.mutex);
