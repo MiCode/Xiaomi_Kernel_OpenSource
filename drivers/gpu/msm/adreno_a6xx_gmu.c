@@ -322,11 +322,6 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
-	/* Write 1 first to make sure the GMU is reset */
-	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
-
-	/* Make sure putting in reset doesn't happen after clearing */
-	wmb();
 
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
@@ -943,6 +938,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	uint32_t gmu_log_info;
 	int ret;
 	unsigned int chipid = 0;
+
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+	/* Make sure M3 is in reset before going on */
+	wmb();
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:
