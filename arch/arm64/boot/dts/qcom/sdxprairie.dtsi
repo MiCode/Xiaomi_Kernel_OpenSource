@@ -209,6 +209,11 @@
 		qcom,pil-force-shutdown;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
 		reg = <0x1e00000 0xc0000>,
