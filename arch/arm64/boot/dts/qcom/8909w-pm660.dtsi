@@ -559,6 +559,10 @@
 	qcom,fg-esr-pulse-thresh-ma = <40>;
 	qcom,fg-esr-meas-curr-ma = <60>;
 	qcom,fg-cutoff-current = <50>;
+
+	qcom,fg-esr-timer-shutdown = <2048 2048>;
+	qcom,fg-esr-timer-asleep = <512 512>;
+	qcom,fg-sync-sleep-threshold-ma = <30>;
 };
 
 &pm660_pdphy {
