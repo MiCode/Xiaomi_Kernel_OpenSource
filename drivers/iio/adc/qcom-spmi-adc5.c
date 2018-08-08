@@ -26,6 +26,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/log2.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 
@@ -105,6 +106,11 @@ enum adc_cal_val {
 	ADC_NEW_CAL
 };
 
+struct pmic_rev_data {
+	int subtype;
+	int rev4;
+};
+
 /**
  * struct adc_channel_prop - ADC channel property.
  * @channel: channel number, refer to the channel list.
@@ -156,6 +162,7 @@ struct adc_chip {
 	bool			poll_eoc;
 	struct completion	complete;
 	struct mutex		lock;
+	bool			skip_usb_wa;
 	const struct adc_data	*data;
 };
 
@@ -332,7 +339,8 @@ static int adc_post_configure_usb_in_read(struct adc_chip *adc,
 {
 	u8 data;
 
-	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr) {
+	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr &&
+			!adc->skip_usb_wa) {
 		data = ADC_CAL_DELAY_CTL_VAL_125MS;
 		/* Set calibration measurement interval to 125ms */
 		return regmap_bulk_write(adc->regmap,
@@ -448,7 +456,8 @@ static int adc_do_conversion(struct adc_chip *adc,
 
 	mutex_lock(&adc->lock);
 
-	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr) {
+	if ((prop->channel == ADC_USB_IN_V_16) && adc->cal_addr &&
+			!adc->skip_usb_wa) {
 		ret = adc_pre_configure_usb_in_read(adc);
 		if (ret) {
 			pr_err("ADC configure failed with %d\n", ret);
@@ -877,9 +886,30 @@ static int adc_get_dt_data(struct adc_chip *adc, struct device_node *node)
 	return 0;
 }
 
+static const struct pmic_rev_data pmic_data[] = {
+	{PM6150_SUBTYPE,	1},
+};
+
+bool skip_usb_in_wa(struct pmic_revid_data *pmic_rev_id)
+{
+	int i = 0;
+	uint32_t tablesize = ARRAY_SIZE(pmic_data);
+
+	while (i < tablesize) {
+		if (pmic_data[i].subtype == pmic_rev_id->pmic_subtype
+		 && pmic_data[i].rev4 < pmic_rev_id->rev4) {
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
+
 static int adc_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	struct device_node *revid_dev_node;
+	struct pmic_revid_data	*pmic_rev_id;
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct adc_chip *adc;
@@ -887,6 +917,7 @@ static int adc_probe(struct platform_device *pdev)
 	const __be32 *prop_addr;
 	int ret, irq_eoc;
 	u32 reg;
+	bool skip_usb_wa = false;
 
 	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap)
@@ -895,6 +926,16 @@ static int adc_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, "reg", &reg);
 	if (ret < 0)
 		return ret;
+
+	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (revid_dev_node) {
+		pmic_rev_id = get_revid_data(revid_dev_node);
+		if (!(IS_ERR(pmic_rev_id)))
+			skip_usb_wa = skip_usb_in_wa(pmic_rev_id);
+		else
+			pr_err("Unable to get revid\n");
+		of_node_put(revid_dev_node);
+	}
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
 	if (!indio_dev)
@@ -916,6 +957,8 @@ static int adc_probe(struct platform_device *pdev)
 		pr_debug("invalid cal IO resources\n");
 	else
 		adc->cal_addr = be32_to_cpu(*prop_addr);
+
+	adc->skip_usb_wa = skip_usb_wa;
 
 	init_completion(&adc->complete);
 	mutex_init(&adc->lock);
