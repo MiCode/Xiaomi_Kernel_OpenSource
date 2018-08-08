@@ -15,6 +15,17 @@
 #include <linux/usb.h>
 #include <uapi/linux/usb/charger.h>
 
+#define ENABLE_DP_MANUAL_PULLUP	BIT(0)
+#define ENABLE_SECONDARY_PHY	BIT(1)
+#define PHY_HOST_MODE		BIT(2)
+#define PHY_CHARGER_CONNECTED	BIT(3)
+#define PHY_VBUS_VALID_OVERRIDE	BIT(4)
+#define DEVICE_IN_SS_MODE	BIT(5)
+#define PHY_LANE_A		BIT(6)
+#define PHY_LANE_B		BIT(7)
+#define PHY_HSFS_MODE		BIT(8)
+#define PHY_LS_MODE		BIT(9)
+
 enum usb_phy_interface {
 	USBPHY_INTERFACE_MODE_UNKNOWN,
 	USBPHY_INTERFACE_MODE_UTMI,
@@ -37,6 +48,8 @@ enum usb_phy_type {
 	USB_PHY_TYPE_UNDEFINED,
 	USB_PHY_TYPE_USB2,
 	USB_PHY_TYPE_USB3,
+	USB_PHY_TYPE_USB3_OR_DP,
+	USB_PHY_TYPE_USB3_AND_DP,
 };
 
 /* OTG defines lots of enumeration states before device reset */
@@ -149,12 +162,16 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
+	int	(*link_training)(struct usb_phy *x, bool start);
 
 	/*
 	 * Charger detection method can be implemented if you need to
 	 * manually detect the charger type.
 	 */
 	enum usb_charger_type (*charger_detect)(struct usb_phy *x);
+
+	/* reset the PHY clocks */
+	int     (*reset)(struct usb_phy *x);
 };
 
 /* for board-specific init logic */
@@ -211,6 +228,15 @@ usb_phy_vbus_off(struct usb_phy *x)
 		return 0;
 
 	return x->set_vbus(x, false);
+}
+
+static inline int
+usb_phy_reset(struct usb_phy *x)
+{
+	if (x && x->reset)
+		return x->reset(x);
+
+	return 0;
 }
 
 /* for usb host and peripheral controller drivers */
