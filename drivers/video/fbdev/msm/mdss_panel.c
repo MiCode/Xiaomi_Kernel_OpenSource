@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -630,6 +630,7 @@ void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 
 	pinfo->yres = pt->yres;
 	pinfo->lcdc.v_front_porch = pt->v_front_porch;
+	pinfo->lcdc.v_front_porch_fixed = pt->v_front_porch;
 	pinfo->lcdc.v_back_porch = pt->v_back_porch;
 	pinfo->lcdc.v_pulse_width = pt->v_pulse_width;
 

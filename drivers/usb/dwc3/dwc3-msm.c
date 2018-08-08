@@ -46,6 +46,7 @@
 #include <linux/irq.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "power.h"
 #include "core.h"
@@ -187,6 +188,7 @@ struct dwc3_msm {
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
 	struct workqueue_struct *dwc3_wq;
+	struct workqueue_struct *sm_usb_wq;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
 	unsigned		max_power;
@@ -1596,7 +1598,7 @@ static int msm_dwc3_usbdev_notify(struct notifier_block *self,
 	}
 
 	mdwc->hc_died = true;
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 	return 0;
 }
 
@@ -2357,7 +2359,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 	}
 
 	pm_stay_awake(mdwc->dev);
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 }
 
 static void dwc3_resume_work(struct work_struct *w)
@@ -2917,6 +2919,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ret = 0;
 	int ext_hub_reset_gpio;
 	u32 val;
+	char boot_marker[40];
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
@@ -2941,6 +2944,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
 	INIT_DELAYED_WORK(&mdwc->sdp_check, check_for_sdp_connection);
+
+	mdwc->sm_usb_wq = create_freezable_workqueue("k_sm_usb");
+	if (!mdwc->sm_usb_wq) {
+		pr_err("%s: Failed to create workqueue for sm_usb\n", __func__);
+		return -ENOMEM;
+	}
 
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
 	if (!mdwc->dwc3_wq) {
@@ -3246,7 +3255,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
 	else if (!pval.intval) {
 		/* USB cable is not connected */
-		schedule_delayed_work(&mdwc->sm_work, 0);
+		queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 	} else {
 		if (pval.intval > 0)
 			dev_info(mdwc->dev, "charger detection in progress\n");
@@ -3264,7 +3273,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->host_only_mode = true;
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
+		snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Host Ready", dev_name(&pdev->dev));
+	} else {
+		snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER %s Device Ready", dev_name(&pdev->dev));
 	}
+
+	place_marker(boot_marker);
 
 	return 0;
 
@@ -3859,6 +3875,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			break;
 		} else {
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
+			pm_relax(mdwc->dev);
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
 		}
 		break;
@@ -3972,7 +3989,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		schedule_delayed_work(&mdwc->sm_work, delay);
+		queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, delay);
 
 ret:
 	return;
@@ -4077,9 +4094,7 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	if (mdwc->no_wakeup_src_in_hostmode && !test_bit(ID, &mdwc->inputs))
 		dwc3_msm_resume(mdwc);
 
-	/* kick in otg state machine */
-	if (mdwc->vbus_active || !mdwc->id_state)
-		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return 0;
 }

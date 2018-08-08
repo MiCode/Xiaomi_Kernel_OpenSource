@@ -194,6 +194,55 @@ void hab_vchan_stop_notify(struct virtual_channel *vchan)
 	hab_vchan_stop(vchan);
 }
 
+static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
+{
+	int empty;
+
+	read_lock(&pchan->vchans_lock);
+	empty = list_empty(&pchan->vchannels);
+	read_unlock(&pchan->vchans_lock);
+
+	return empty;
+}
+
+static int hab_vchans_empty(int vmid)
+{
+	int i, empty = 1;
+	struct physical_channel *pchan;
+	struct hab_device *hab_dev;
+
+	for (i = 0; i < hab_driver.ndevices; i++) {
+		hab_dev = &hab_driver.devp[i];
+
+		spin_lock_bh(&hab_dev->pchan_lock);
+		list_for_each_entry(pchan, &hab_dev->pchannels, node) {
+			if (pchan->vmid_remote == vmid) {
+				if (!hab_vchans_per_pchan_empty(pchan)) {
+					empty = 0;
+					spin_unlock_bh(&hab_dev->pchan_lock);
+					break;
+				}
+			}
+		}
+		spin_unlock_bh(&hab_dev->pchan_lock);
+	}
+
+	return empty;
+}
+
+/*
+ * block until all vchans of a given GVM are explicitly closed
+ * with habmm_socket_close() by hab clients themselves
+ */
+void hab_vchans_empty_wait(int vmid)
+{
+	pr_info("waiting for GVM%d's sockets closure\n", vmid);
+
+	while (!hab_vchans_empty(vmid))
+		schedule();
+
+	pr_info("all of GVM%d's sockets are closed\n", vmid);
+}
 
 int hab_vchan_find_domid(struct virtual_channel *vchan)
 {

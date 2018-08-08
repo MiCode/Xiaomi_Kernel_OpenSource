@@ -6,7 +6,7 @@
 config DRM_MSM_HYP
 	tristate "MSM DRM HYP"
 	depends on DRM
-	depends on MSM_GVM_QUIN
+	depends on MSM_GVM
 	depends on OF
 	default y
 	help

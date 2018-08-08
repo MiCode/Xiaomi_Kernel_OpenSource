@@ -8,6 +8,7 @@ Optional properties:
 - qcom,display-type: display type of this manager. It could be "primary",
   "secondary", "tertiary", etc.
 - qcom,non-pluggable: Boolean to indicate if display is non pluggable.
+- qcom,skip_ddc: Boolean to indicate if display skips ddc function.
 - qcom,customize-modes: Customized modes when it's non pluggable display.
 - qcom,customize-mode-id: Customized mode node.
 - qcom,mode-name: String which indicates the mode name which shall be used

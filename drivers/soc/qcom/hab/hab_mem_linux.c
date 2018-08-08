@@ -751,3 +751,22 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	return 0;
 }
+
+int habmm_imp_hyp_map_check(void *imp_ctx, struct export_desc *exp)
+{
+	struct importer_context *priv = imp_ctx;
+	struct pages_list *pglist;
+	int found = 0;
+
+	read_lock(&priv->implist_lock);
+	list_for_each_entry(pglist, &priv->imp_list, list) {
+		if (pglist->export_id == exp->export_id &&
+			pglist->vcid == exp->vcid_remote) {
+			found = 1;
+			break;
+		}
+	}
+	read_unlock(&priv->implist_lock);
+
+	return found;
+}

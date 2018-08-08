@@ -154,6 +154,7 @@ struct sde_hdmi {
 	struct sde_edid_ctrl *edid_ctrl;
 
 	bool non_pluggable;
+	bool skip_ddc;
 	u32 num_of_modes;
 	struct list_head mode_list;
 	struct drm_display_mode mode;

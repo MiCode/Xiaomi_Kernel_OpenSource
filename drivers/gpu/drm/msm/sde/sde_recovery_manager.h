@@ -29,11 +29,17 @@
 
 #define MAX_REC_NAME_LEN (16)
 #define MAX_REC_UEVENT_LEN (64)
-#define MAX_REC_ERR_SUPPORT (2)
+#define MAX_REC_ERR_SUPPORT (3)
 
 /* MSM Recovery Manager Error Code */
+#define SDE_SMMU_FAULT	111
 #define SDE_UNDERRUN	222
 #define SDE_VSYNC_MISS	333
+/*
+ * instance id of bridge chip is added to make error code
+ * unique to individual bridge chip instance
+ */
+#define DBA_BRIDGE_CRITICAL_ERR	444
 
 /**
  * struct recovery_mgr_info - Recovery manager information

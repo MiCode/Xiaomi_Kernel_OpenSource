@@ -785,12 +785,6 @@ int ipa2_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		base_addr = ipa_ctx->nat_mem.tmp_dma_handle;
 	}
 
-	if (del->public_ip_addr == 0) {
-		IPADBG("Bad Parameter\n");
-		result = -EPERM;
-		goto bail;
-	}
-
 	memset(&desc, 0, sizeof(desc));
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
 	reg_write_nop = kzalloc(sizeof(*reg_write_nop), flag);
