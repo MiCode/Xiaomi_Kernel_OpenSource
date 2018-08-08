@@ -294,11 +294,11 @@ void adreno_efuse_speed_bin_array(struct adreno_device *adreno_dev)
 	 */
 	count = of_property_count_u32_elems(device->pdev->dev.of_node,
 				"qcom,gpu-speed-bin-vectors");
-	if (count <= 0)
+
+	if ((count <= 0) || (count % vector_size))
 		return;
 
-	bin_vector = kmalloc(sizeof(count * sizeof(unsigned int)),
-			GFP_KERNEL);
+	bin_vector = kmalloc_array(count, sizeof(unsigned int), GFP_KERNEL);
 	if (bin_vector == NULL) {
 		KGSL_DRV_ERR(device,
 				"Unable to allocate memory for speed-bin vector\n");
