@@ -19,6 +19,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017-MTP";
 	qcom,board-id = <8 0>;
+	qcom,msm-id = <307 0x0>;
 };
 
 &blsp1_uart1 {

@@ -1029,11 +1029,23 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_FULL_SOC].valid)
 		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
 
-	if (chip->udata.param[QG_SOC].valid) {
-		qg_dbg(chip, QG_DEBUG_SOC, "udata SOC=%d last SOC=%d\n",
-			chip->udata.param[QG_SOC].data, chip->catch_up_soc);
+	if (chip->udata.param[QG_SOC].valid ||
+			chip->udata.param[QG_SYS_SOC].valid) {
 
-		chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		qg_dbg(chip, QG_DEBUG_SOC, "udata update: QG_SOC=%d QG_SYS_SOC=%d last_catchup_soc=%d\n",
+				chip->udata.param[QG_SOC].valid ?
+				chip->udata.param[QG_SOC].data : -EINVAL,
+				chip->udata.param[QG_SYS_SOC].valid ?
+				chip->udata.param[QG_SYS_SOC].data : -EINVAL,
+				chip->catch_up_soc);
+
+		if (chip->udata.param[QG_SYS_SOC].valid) {
+			chip->sys_soc = chip->udata.param[QG_SYS_SOC].data;
+			chip->catch_up_soc = qg_adjust_sys_soc(chip);
+		} else {
+			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		}
+
 		qg_scale_soc(chip, false);
 
 		/* update parameters to SDAM */
@@ -1500,28 +1512,6 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 	return DEFAULT_BATT_TYPE;
 }
 
-static int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
-{
-	int rc = 0;
-	u64 last_vbat = 0;
-
-	if (chip->battery_missing) {
-		*vbat_uv = 3700000;
-		return 0;
-	}
-
-	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_V_DATA0_REG,
-				(u8 *)&last_vbat, 2);
-	if (rc < 0) {
-		pr_err("Failed to read LAST_ADV_V reg, rc=%d\n", rc);
-		return rc;
-	}
-
-	*vbat_uv = V_RAW_TO_UV(last_vbat);
-
-	return rc;
-}
-
 #define DEBUG_BATT_SOC		67
 #define BATT_MISSING_SOC	50
 #define EMPTY_SOC		0
@@ -1868,9 +1858,11 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 		recharge_soc = DEFAULT_RECHARGE_SOC;
 	}
 	recharge_soc = prop.intval;
+	chip->recharge_soc = recharge_soc;
 
-	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d\n",
-				chip->msoc, health, chip->charge_full);
+	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",
+				chip->msoc, health, chip->charge_full,
+				chip->charge_done);
 	if (chip->charge_done && !chip->charge_full) {
 		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
 			chip->charge_full = true;
@@ -1881,10 +1873,18 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
-	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
+	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
-		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+		bool usb_present = is_usb_present(chip);
+
+		/*
+		 * force a recharge only if SOC <= recharge SOC and
+		 * we have not started charging.
+		 */
+		if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+			usb_present && chip->msoc <= recharge_soc &&
+			chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
@@ -1892,23 +1892,33 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
-				qg_dbg(chip, QG_DEBUG_STATUS,
-					"Forced recharge\n");
+				qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
 		}
+
+
+		if (chip->charge_done)
+			return 0;	/* wait for recharge */
 
 		/*
-		 * If recharge or discharge has started and
-		 * if linearize soc dtsi property defined
-		 * scale msoc from 100% for better UX.
+		 * If SOC has indeed dropped below recharge-SOC or
+		 * the USB is removed, if linearize-soc is set scale
+		 * msoc from 100% for better UX.
 		 */
-		if (chip->dt.linearize_soc && chip->msoc < 99) {
-			chip->maint_soc = FULL_SOC;
-			qg_scale_soc(chip, false);
-		}
-
-		qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
+		if (chip->msoc < recharge_soc || !usb_present) {
+			if (chip->dt.linearize_soc) {
+				get_rtc_time(&chip->last_maint_soc_update_time);
+				chip->maint_soc = FULL_SOC;
+				qg_scale_soc(chip, false);
+			}
+			chip->charge_full = false;
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
 					chip->msoc, recharge_soc);
-		chip->charge_full = false;
+		} else {
+			/* continue with charge_full state */
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d usb_present=%d\n",
+					chip->msoc, recharge_soc,
+					chip->charge_full, usb_present);
+		}
 	}
 out:
 	return 0;
@@ -2620,7 +2630,7 @@ done:
 		return rc;
 	}
 
-	chip->pon_soc = chip->catch_up_soc = chip->msoc = soc;
+	chip->last_adj_ssoc = chip->catch_up_soc = chip->msoc = soc;
 	chip->kdata.param[QG_PON_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_PON_OCV_UV].valid = true;
 
@@ -2875,10 +2885,6 @@ static int qg_post_init(struct qpnp_qg *chip)
 				PROFILE_IRQ_DISABLE, true, 0);
 		vote(chip->good_ocv_irq_disable_votable,
 				PROFILE_IRQ_DISABLE, true, 0);
-	} else {
-		/* disable GOOD_OCV IRQ at init */
-		vote(chip->good_ocv_irq_disable_votable,
-				QG_INIT_STATE_IRQ_DISABLE, true, 0);
 	}
 
 	/* restore ESR data */
@@ -3436,7 +3442,7 @@ static int process_resume(struct qpnp_qg *chip)
 {
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
-	int rc, batt_temp = 0;
+	int rc;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3452,11 +3458,6 @@ static int process_resume(struct qpnp_qg *chip)
 		rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_GOOD_OCV);
 		if (rc < 0) {
 			pr_err("Failed to read good_ocv, rc=%d\n", rc);
-			return rc;
-		}
-		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc < 0) {
-			pr_err("Failed to read BATT_TEMP, rc=%d\n", rc);
 			return rc;
 		}
 
@@ -3606,6 +3607,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->maint_soc = -EINVAL;
 	chip->batt_soc = INT_MIN;
 	chip->cc_soc = INT_MIN;
+	chip->sys_soc = INT_MIN;
 	chip->full_soc = QG_SOC_FULL;
 	chip->chg_iterm_ma = INT_MIN;
 	chip->soh = -EINVAL;

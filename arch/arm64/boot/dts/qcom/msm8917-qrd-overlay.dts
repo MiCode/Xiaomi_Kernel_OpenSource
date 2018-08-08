@@ -14,7 +14,6 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/msm-clocks-8952.h>
 #include "msm8917-qrd.dtsi"
 
 / {

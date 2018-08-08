@@ -469,11 +469,12 @@ int cam_isp_add_io_buffers(
 
 	for (i = 0; i < prepare->packet->num_io_configs; i++) {
 		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
-		CAM_DBG(CAM_ISP, "i %d resource_type:%d fence:%d",
-			i, io_cfg[i].resource_type, io_cfg[i].fence);
-		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
-		CAM_DBG(CAM_ISP, "direction %d",
+		CAM_DBG(CAM_REQ,
+			"i %d req_id %llu resource_type:%d fence:%d direction %d",
+			i, prepare->packet->header.request_id,
+			io_cfg[i].resource_type, io_cfg[i].fence,
 			io_cfg[i].direction);
+		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
 
 		if (io_cfg[i].direction == CAM_BUF_OUTPUT) {
 			res_id_out = io_cfg[i].resource_type & 0xFF;

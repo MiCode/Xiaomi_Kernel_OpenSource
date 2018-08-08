@@ -150,6 +150,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		qcs605-mtp-overlay.dtbo \
 		qcs605-360camera-overlay.dtbo \
 		qcs605-external-codec-mtp-overlay.dtbo \
+		qcs605-lc-ipcamera-overlay.dtbo \
 		qcs605-lc-mtp-overlay.dtbo \
 		qcs605-lc-cdp-overlay.dtbo \
 		sdm710-cdp-overlay.dtbo \
@@ -211,6 +212,7 @@ qcs605-cdp-overlay.dtbo-base := qcs605.dtb
 qcs605-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-external-codec-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-lc-mtp-overlay.dtbo-base := qcs605-lc.dtb
+qcs605-lc-ipcamera-overlay.dtbo-base := qcs605-lc.dtb
 qcs605-360camera-overlay.dtbo-base := qcs605.dtb
 qcs605-lc-cdp-overlay.dtbo-base := qcs605-lc-cdp-base.dtb
 sdm710-cdp-overlay.dtbo-base := sdm710.dtb
@@ -271,6 +273,7 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	qcs605-mtp.dtb \
 	qcs605-cdp.dtb \
 	qcs605-external-codec-mtp.dtb \
+	qcs605-lc-ipcamera.dtb \
 	qcs605-lc-mtp.dtb \
 	qcs605-lc-cdp.dtb \
 	sdm710-mtp.dtb \
@@ -301,7 +304,10 @@ dtbo-$(CONFIG_ARCH_MSM8917) += msm8917-mtp-overlay.dtbo \
 	msm8917-cdp-overlay.dtbo \
 	msm8917-cdp-ext-codec-overlay.dtbo \
 	msm8917-cdp-ml-touch-overlay.dtbo \
-	msm8917-rcm-overlay.dtbo
+	msm8917-rcm-overlay.dtbo \
+	apq8017-mtp-overlay.dtbo \
+	apq8017-cdp-overlay.dtbo \
+	apq8017-cdp-wcd-rome-overlay.dtbo
 
 dtbo-$(CONFIG_ARCH_MSM8953) += msm8953-mtp-overlay.dtbo \
 	msm8953-cdp-overlay.dtbo \
@@ -496,11 +502,13 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pmi8950-mtp.dtb \
 	msm8917-pmi8940-cdp.dtb \
 	msm8917-pmi8940-rcm.dtb
 
-dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
-	apq8009w-bg-wtp-v2.dtb \
-	apq8009w-bg-alpha.dtb \
+dtb-$(CONFIG_ARCH_MSM8909) += sdw3100-msm8909w-wtp.dtb \
+	sdw3100-apq8009w-wtp.dtb \
+	sdw3100-apq8009w-alpha.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-robot-som-refboard.dtb \
+	apq8009-robot-rome-refboard.dtb \
+	apq8009-robot-pronto-refboard.dtb \
 	apq8009-dragon.dtb \
 	apq8009-lat-v1.0.dtb \
 	sdw3100-msm8909w-1gb-wtp.dtb

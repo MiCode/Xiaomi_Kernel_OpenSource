@@ -75,6 +75,7 @@ const char *ipa3_event_name[] = {
 	__stringify(IPA_PER_CLIENT_STATS_DISCONNECT_EVENT),
 	__stringify(ADD_BRIDGE_VLAN_MAPPING),
 	__stringify(DEL_BRIDGE_VLAN_MAPPING),
+	__stringify(WLAN_FWR_SSR_BEFORE_SHUTDOWN),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -2089,7 +2090,7 @@ static ssize_t ipa3_enable_ipc_low(struct file *file,
 					"ipa_low", 0);
 		}
 			if (ipa_ipc_low_buff == NULL)
-				IPAERR("failed to get logbuf_low\n");
+				IPADBG("failed to get logbuf_low\n");
 		ipa3_ctx->logbuf_low = ipa_ipc_low_buff;
 	} else {
 		ipa3_ctx->logbuf_low = NULL;

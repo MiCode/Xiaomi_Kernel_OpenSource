@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. APQ 8953 Lite";
 	compatible = "qcom,apq8053";
 	qcom,msm-id = <304 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	soc: soc { };
 };

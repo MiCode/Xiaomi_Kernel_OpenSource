@@ -104,7 +104,7 @@ static ssize_t dp_debug_write_edid(struct file *file,
 	size = min_t(size_t, count, SZ_1K);
 
 	buf = kzalloc(size, GFP_KERNEL);
-	if (!buf) {
+	if (ZERO_OR_NULL_PTR(buf)) {
 		rc = -ENOMEM;
 		goto bail;
 	}
@@ -172,7 +172,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size = min_t(size_t, count, SZ_2K);
 
 	buf = kzalloc(size, GFP_KERNEL);
-	if (!buf) {
+	if (ZERO_OR_NULL_PTR(buf)) {
 		rc = -ENOMEM;
 		goto bail;
 	}
@@ -493,7 +493,7 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 		goto error;
 
 	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf) {
+	if (ZERO_OR_NULL_PTR(buf)) {
 		rc = -ENOMEM;
 		goto error;
 	}
@@ -538,7 +538,7 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 		return 0;
 
 	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	rc = snprintf(buf + len, max_size, "\tstate=0x%x\n", debug->aux->state);
@@ -624,7 +624,7 @@ static ssize_t dp_debug_bw_code_read(struct file *file,
 		return 0;
 
 	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	len += snprintf(buf + len, (SZ_4K - len),
@@ -745,7 +745,7 @@ static ssize_t dp_debug_read_hdr(struct file *file,
 		goto error;
 
 	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf) {
+	if (ZERO_OR_NULL_PTR(buf)) {
 		rc = -ENOMEM;
 		goto error;
 	}

@@ -151,7 +151,7 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 				else
 					curr = soc_private->torch_op_current[i];
 
-				CAM_DBG(CAM_FLASH,
+				CAM_DBG(CAM_PERF,
 					"Led_Current[%d] = %d", i, curr);
 				cam_res_mgr_led_trigger_event(
 					flash_ctrl->torch_trigger[i],
@@ -169,7 +169,7 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 				else
 					curr = soc_private->flash_op_current[i];
 
-				CAM_DBG(CAM_FLASH, "LED flash_current[%d]: %d",
+				CAM_DBG(CAM_PERF, "LED flash_current[%d]: %d",
 					i, curr);
 				cam_res_mgr_led_trigger_event(
 					flash_ctrl->flash_trigger[i],
@@ -338,6 +338,10 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 		if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE) {
 			flash_data = &fctrl->nrt_info;
+			CAM_DBG(CAM_REQ,
+				"FLASH_INIT_FIRE req_id: %u flash_opcode: %d",
+				req_id, flash_data->opcode);
+
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_FIREHIGH) {
 				if (fctrl->flash_state !=
@@ -381,6 +385,10 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET) {
 			flash_data = &fctrl->nrt_info;
+			CAM_DBG(CAM_REQ,
+				"FLASH_WIDGET req_id: %u flash_opcode: %d",
+				req_id, flash_data->opcode);
+
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_FIRELOW) {
 				rc = cam_flash_low(fctrl, flash_data);
@@ -411,6 +419,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 					goto nrt_del_req;
 				}
 			}
+			CAM_DBG(CAM_REQ, "FLASH_RER req_id: %u", req_id);
+
 			num_iterations = flash_data->num_iterations;
 			for (i = 0; i < num_iterations; i++) {
 				/* Turn On Torch */
@@ -445,6 +455,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 	} else {
 		frame_offset = req_id % MAX_PER_FRAME_ARRAY;
 		flash_data = &fctrl->per_frame[frame_offset];
+		CAM_DBG(CAM_REQ, "FLASH_RT req_id: %u flash_opcode: %d",
+			req_id, flash_data->opcode);
 
 		if ((flash_data->opcode == CAMERA_SENSOR_FLASH_OP_FIREHIGH) &&
 			(flash_data->cmn_attr.is_settings_valid) &&
@@ -482,8 +494,14 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 					"Flash off failed %d", rc);
 				goto apply_setting_err;
 			}
+		} else if (flash_data->opcode == CAM_PKT_NOP_OPCODE) {
+			flash_data->opcode = 0;
+			CAM_DBG(CAM_FLASH, "NOP Packet");
 		} else {
-			CAM_DBG(CAM_FLASH, "NOP opcode: req_id: %u", req_id);
+			rc = -EINVAL;
+			CAM_ERR(CAM_FLASH, "Invalid opcode: %d req_id: %llu",
+				flash_data->opcode, req_id);
+			goto apply_setting_err;
 		}
 	}
 
@@ -754,17 +772,20 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
+		frm_offset = csl_packet->header.request_id %
+			MAX_PER_FRAME_ARRAY;
 		if ((fctrl->flash_state == CAM_FLASH_STATE_INIT) ||
 			(fctrl->flash_state == CAM_FLASH_STATE_ACQUIRE)) {
 			CAM_WARN(CAM_FLASH,
 				"Rxed NOP packets without linking");
-			frm_offset = csl_packet->header.request_id %
-				MAX_PER_FRAME_ARRAY;
 			fctrl->per_frame[frm_offset].cmn_attr.is_settings_valid
 				= false;
 			return 0;
 		}
 
+		fctrl->per_frame[frm_offset].cmn_attr.is_settings_valid = false;
+		fctrl->per_frame[frm_offset].cmn_attr.request_id = 0;
+		fctrl->per_frame[frm_offset].opcode = CAM_PKT_NOP_OPCODE;
 		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
 			csl_packet->header.request_id);
 		goto update_req_mgr;
@@ -914,19 +935,15 @@ int cam_flash_apply_request(struct cam_req_mgr_apply_request *apply)
 	fctrl = (struct cam_flash_ctrl *) cam_get_device_priv(apply->dev_hdl);
 	if (!fctrl) {
 		CAM_ERR(CAM_FLASH, "Device data is NULL");
-		rc = -EINVAL;
-		goto free_resource;
+		return -EINVAL;
 	}
 
-	if (!(apply->report_if_bubble)) {
-		mutex_lock(&fctrl->flash_wq_mutex);
-		rc = cam_flash_apply_setting(fctrl, apply->request_id);
-		if (rc)
-			CAM_ERR(CAM_FLASH, "apply_setting failed with rc=%d",
-				rc);
-		mutex_unlock(&fctrl->flash_wq_mutex);
-	}
+	mutex_lock(&fctrl->flash_wq_mutex);
+	rc = cam_flash_apply_setting(fctrl, apply->request_id);
+	if (rc)
+		CAM_ERR(CAM_FLASH, "apply_setting failed with rc=%d",
+			rc);
+	mutex_unlock(&fctrl->flash_wq_mutex);
 
-free_resource:
 	return rc;
 }
