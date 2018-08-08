@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sm6150-idp.dtsi"
+#include "sm6150-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SM6150 IDP";
