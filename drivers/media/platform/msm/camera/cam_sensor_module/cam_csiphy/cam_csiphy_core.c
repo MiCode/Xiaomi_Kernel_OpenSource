@@ -246,10 +246,17 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 			mask <<= 1;
 		}
 	} else {
-		if (csiphy_dev->csiphy_info.combo_mode == 1)
-			reg_array =
+		if (csiphy_dev->csiphy_info.combo_mode == 1) {
+			if (csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg)
+				reg_array =
 				csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg;
-		else
+			else {
+				reg_array =
+					csiphy_dev->ctrl_reg->csiphy_3ph_reg;
+				CAM_ERR(CAM_CSIPHY,
+					"Unsupported configuration, Falling back to CPHY mode");
+			}
+		} else
 			reg_array =
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg;
 		csiphy_dev->num_irq_registers = 11;
@@ -282,6 +289,24 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 				csiphybase + csiphy_common_reg->reg_addr);
 			usleep_range(csiphy_common_reg->delay * 1000,
 				csiphy_common_reg->delay * 1000 + 10);
+			break;
+		case CSIPHY_2PH_REGS:
+			if (!csiphy_dev->csiphy_info.csiphy_3phase) {
+				cam_io_w_mb(csiphy_common_reg->reg_data,
+					csiphybase +
+					csiphy_common_reg->reg_addr);
+				usleep_range(csiphy_common_reg->delay * 1000,
+					csiphy_common_reg->delay * 1000 + 10);
+			}
+			break;
+		case CSIPHY_3PH_REGS:
+			if (csiphy_dev->csiphy_info.csiphy_3phase) {
+				cam_io_w_mb(csiphy_common_reg->reg_data,
+					csiphybase +
+					csiphy_common_reg->reg_addr);
+				usleep_range(csiphy_common_reg->delay * 1000,
+					csiphy_common_reg->delay * 1000 + 10);
+			}
 			break;
 		default:
 			break;

@@ -135,6 +135,7 @@ static struct platform_driver isp_driver = {
 		.name = "cam_isp",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_isp_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
