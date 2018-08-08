@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/ipc_logging.h>
 #include <linux/debugfs.h>
 #include <linux/errno.h>
 #include <linux/etherdevice.h>
@@ -30,17 +31,49 @@
 #define TX_TIMEOUT (5 * HZ)
 
 
+#define IPA_ECM_IPC_LOG_PAGES 50
+
+#define IPA_ECM_IPC_LOGGING(buf, fmt, args...) \
+	do { \
+		if (buf) \
+			ipc_log_string((buf), fmt, __func__, __LINE__, \
+				## args); \
+	} while (0)
+
+static void *ipa_ecm_logbuf;
+
 #define ECM_IPA_DEBUG(fmt, args...) \
-	pr_debug("ctx:%s: "\
-			fmt, current->comm, ## args)
+	do { \
+		pr_debug(DRIVER_NAME " %s:%d "\
+			fmt, __func__, __LINE__, ## args);\
+		if (ipa_ecm_logbuf) { \
+			IPA_ECM_IPC_LOGGING(ipa_ecm_logbuf, \
+				DRIVER_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define ECM_IPA_DEBUG_XMIT(fmt, args...) \
+	pr_debug(DRIVER_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
 #define ECM_IPA_INFO(fmt, args...) \
-	pr_err(DRIVER_NAME "@%s@%d@ctx:%s: "\
-			fmt, __func__, __LINE__, current->comm, ## args)
+	do { \
+		pr_info(DRIVER_NAME "@%s@%d@ctx:%s: "\
+			fmt, __func__, __LINE__, current->comm, ## args);\
+		if (ipa_ecm_logbuf) { \
+			IPA_ECM_IPC_LOGGING(ipa_ecm_logbuf, \
+				DRIVER_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
 
 #define ECM_IPA_ERROR(fmt, args...) \
-	pr_err(DRIVER_NAME "@%s@%d@ctx:%s: "\
-			fmt, __func__, __LINE__, current->comm, ## args)
+	do { \
+		pr_err(DRIVER_NAME "@%s@%d@ctx:%s: "\
+			fmt, __func__, __LINE__, current->comm, ## args);\
+		if (ipa_ecm_logbuf) { \
+			IPA_ECM_IPC_LOGGING(ipa_ecm_logbuf, \
+				DRIVER_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
 
 #define NULL_CHECK(ptr) \
 	do { \
@@ -547,7 +580,8 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 
 	net->trans_start = jiffies;
 
-	ECM_IPA_DEBUG("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
+	ECM_IPA_DEBUG_XMIT
+		("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
 		skb->len, skb->protocol,
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts));
 
@@ -1152,7 +1186,9 @@ static void ecm_ipa_tx_complete_notify(void *priv,
 	ecm_ipa_ctx->net->stats.tx_packets++;
 	ecm_ipa_ctx->net->stats.tx_bytes += skb->len;
 
-	atomic_dec(&ecm_ipa_ctx->outstanding_pkts);
+	if (atomic_read(&ecm_ipa_ctx->outstanding_pkts) > 0)
+		atomic_dec(&ecm_ipa_ctx->outstanding_pkts);
+
 	if (netif_queue_stopped(ecm_ipa_ctx->net) &&
 		netif_carrier_ok(ecm_ipa_ctx->net) &&
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts) <
@@ -1413,6 +1449,10 @@ static const char *ecm_ipa_state_string(enum ecm_ipa_state state)
 static int ecm_ipa_init_module(void)
 {
 	ECM_IPA_LOG_ENTRY();
+	ipa_ecm_logbuf =
+		ipc_log_context_create(IPA_ECM_IPC_LOG_PAGES, "ipa_ecm", 0);
+	if (ipa_ecm_logbuf == NULL)
+		ECM_IPA_DEBUG("failed to create IPC log, continue...\n");
 	ECM_IPA_LOG_EXIT();
 	return 0;
 }
@@ -1424,6 +1464,9 @@ static int ecm_ipa_init_module(void)
 static void ecm_ipa_cleanup_module(void)
 {
 	ECM_IPA_LOG_ENTRY();
+	if (ipa_ecm_logbuf)
+		ipc_log_context_destroy(ipa_ecm_logbuf);
+	ipa_ecm_logbuf = NULL;
 	ECM_IPA_LOG_EXIT();
 	return;
 }
