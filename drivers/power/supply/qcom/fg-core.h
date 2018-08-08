@@ -297,6 +297,7 @@ struct fg_dt_props {
 	int	esr_timer_charging[NUM_ESR_TIMERS];
 	int	esr_timer_awake[NUM_ESR_TIMERS];
 	int	esr_timer_asleep[NUM_ESR_TIMERS];
+	int	esr_timer_shutdown[NUM_ESR_TIMERS];
 	int	rconn_mohms;
 	int	esr_clamp_mohms;
 	int	cl_start_soc;
