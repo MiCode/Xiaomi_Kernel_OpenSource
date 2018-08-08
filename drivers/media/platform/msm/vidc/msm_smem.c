@@ -522,10 +522,20 @@ int msm_smem_cache_operations(struct dma_buf *dbuf,
 	enum smem_cache_ops cache_op, unsigned long offset, unsigned long size)
 {
 	int rc = 0;
+	unsigned long flags = 0;
 
 	if (!dbuf) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
 		return -EINVAL;
+	}
+
+	/* Return if buffer doesn't support caching */
+	rc = dma_buf_get_flags(dbuf, &flags);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: dma_buf_get_flags failed, err %d\n", rc);
+		return rc;
+	} else if (!(flags & ION_FLAG_CACHED)) {
+		return rc;
 	}
 
 	switch (cache_op) {
