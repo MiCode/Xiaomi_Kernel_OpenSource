@@ -746,7 +746,7 @@ static ssize_t inv_temperature_show(struct device *dev,
 		return res;
 	mutex_unlock(&indio_dev->mlock);
 
-	temp = (s32)be16_to_cpup((__be16 *)(data)) * 10000;
+	temp = (s16)be16_to_cpup((__be16 *)(data)) * 10000;
 	temp = temp / TEMP_SENSITIVITY + TEMP_OFFSET;
 
 	return snprintf(buf, MAX_WR_SZ, "%d %lld\n", temp, get_time_ns());
