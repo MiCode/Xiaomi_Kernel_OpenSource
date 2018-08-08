@@ -790,7 +790,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
-		map->va = (uintptr_t)region_vaddr;
+		map->va = 0;
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err)
