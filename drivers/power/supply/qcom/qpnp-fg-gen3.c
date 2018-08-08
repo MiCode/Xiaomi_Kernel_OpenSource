@@ -180,6 +180,7 @@ struct fg_dt_props {
 	int	esr_timer_charging[NUM_ESR_TIMERS];
 	int	esr_timer_awake[NUM_ESR_TIMERS];
 	int	esr_timer_asleep[NUM_ESR_TIMERS];
+	int     esr_timer_shutdown[NUM_ESR_TIMERS];
 	int	rconn_mohms;
 	int	esr_clamp_mohms;
 	int	cl_start_soc;
@@ -4863,6 +4864,13 @@ static int fg_parse_dt(struct fg_gen3_chip *chip)
 		chip->dt.esr_timer_asleep[TIMER_MAX] = -EINVAL;
 	}
 
+	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-shutdown",
+		chip->dt.esr_timer_shutdown, NUM_ESR_TIMERS);
+	if (rc < 0) {
+		chip->dt.esr_timer_shutdown[TIMER_RETRY] = -EINVAL;
+		chip->dt.esr_timer_shutdown[TIMER_MAX] = -EINVAL;
+	}
+
 	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
 
 	chip->dt.force_load_profile = of_property_read_bool(node,
@@ -5351,6 +5359,13 @@ static void fg_gen3_shutdown(struct platform_device *pdev)
 			return;
 		}
 	}
+	rc = fg_set_esr_timer(fg, chip->dt.esr_timer_shutdown[TIMER_RETRY],
+				chip->dt.esr_timer_shutdown[TIMER_MAX], false,
+				FG_IMA_NO_WLOCK);
+	if (rc < 0)
+		pr_err("Error in setting ESR timer at shutdown, rc=%d\n", rc);
+
+	fg_cleanup(chip);
 }
 
 static const struct of_device_id fg_gen3_match_table[] = {

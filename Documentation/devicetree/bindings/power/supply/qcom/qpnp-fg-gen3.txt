@@ -177,6 +177,14 @@ First Level Node - FG Gen3 device
 		    Element 0 - Retry value for timer
 		    Element 1 - Maximum value for timer
 
+- qcom,fg-esr-timer-shutdown
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses at/after shutdwon.This is
+		    defined when TWM (traditional watch mode) is supported.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
