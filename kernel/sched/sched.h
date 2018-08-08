@@ -565,6 +565,9 @@ struct cfs_rq {
 	u64 throttled_clock_task_time;
 	int throttled, throttle_count;
 	struct list_head throttled_list;
+#ifdef CONFIG_SCHED_WALT
+	u64 cumulative_runnable_avg;
+#endif /* CONFIG_SCHED_WALT */
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 };
