@@ -2944,7 +2944,9 @@ static void sde_encoder_off_work(struct kthread_work *work)
 	}
 	drm_enc = &sde_enc->base;
 
+	SDE_ATRACE_BEGIN("sde_encoder_off_work");
 	sde_encoder_idle_request(drm_enc);
+	SDE_ATRACE_END("sde_encoder_off_work");
 }
 
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
@@ -4262,7 +4264,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		ln_cnt1 = -EINVAL;
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
-	SDE_ATRACE_BEGIN("enc_prepare_for_kickoff");
+	SDE_ATRACE_BEGIN("sde_encoder_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		params->is_primary = sde_enc->disp_info.is_primary;
@@ -4284,12 +4286,12 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			}
 		}
 	}
-	SDE_ATRACE_END("enc_prepare_for_kickoff");
 
 	rc = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (rc) {
 		SDE_ERROR_ENC(sde_enc, "resource kickoff failed rc %d\n", rc);
-		return rc;
+		ret = rc;
+		goto end;
 	}
 
 	/* if any phys needs reset, reset all phys, in-order */
@@ -4334,6 +4336,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		}
 	}
 
+end:
+	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
 	return ret;
 }
 
@@ -5060,6 +5064,7 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 	int (*fn_wait)(struct sde_encoder_phys *phys_enc) = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
+	char atrace_buf[32];
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -5091,9 +5096,11 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		};
 
 		if (phys && fn_wait) {
-			SDE_ATRACE_BEGIN("wait_for_completion_event");
+			snprintf(atrace_buf, sizeof(atrace_buf),
+				"wait_completion_event_%d", event);
+			SDE_ATRACE_BEGIN(atrace_buf);
 			ret = fn_wait(phys);
-			SDE_ATRACE_END("wait_for_completion_event");
+			SDE_ATRACE_END(atrace_buf);
 			if (ret)
 				return ret;
 		}

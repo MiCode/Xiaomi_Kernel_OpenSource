@@ -642,9 +642,13 @@ static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
 {
 	int rc = 0;
 
-	if (reg_bus_hdl)
+	if (reg_bus_hdl) {
+		SDE_ATRACE_BEGIN("msm_bus_scale_req");
 		rc = msm_bus_scale_client_update_request(reg_bus_hdl,
 								usecase_ndx);
+		SDE_ATRACE_END("msm_bus_scale_req");
+	}
+
 	if (rc)
 		pr_err("failed to set reg bus vote rc=%d\n", rc);
 
@@ -963,6 +967,8 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 	if (!changed)
 		goto end;
 
+	SDE_ATRACE_BEGIN("sde_power_resource_enable");
+
 	/* RSC client init */
 	sde_power_rsc_client_init(phandle);
 
@@ -1034,7 +1040,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 end:
 	SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_EXIT);
 	mutex_unlock(&phandle->phandle_lock);
-
+	SDE_ATRACE_END("sde_power_resource_enable");
 	return rc;
 
 clk_err:
@@ -1049,6 +1055,7 @@ vreg_err:
 data_bus_hdl_err:
 	phandle->current_usecase_ndx = prev_usecase_ndx;
 	mutex_unlock(&phandle->phandle_lock);
+	SDE_ATRACE_END("sde_power_resource_enable");
 	return rc;
 }
 
