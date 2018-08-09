@@ -169,7 +169,7 @@ struct npu_irq {
 };
 
 struct npu_device {
-	struct mutex ctx_lock;
+	struct mutex dev_lock;
 
 	struct platform_device *pdev;
 
@@ -190,8 +190,6 @@ struct npu_device {
 
 	struct npu_irq irq[NPU_MAX_IRQ];
 
-	struct npu_ion_buf mapped_buffers;
-
 	struct device *cb_device;
 
 	struct npu_host_ctx host_ctx;
@@ -208,6 +206,20 @@ struct npu_device {
 	uint32_t execute_v2_flag;
 };
 
+struct npu_kevent {
+	struct list_head list;
+	struct msm_npu_event evt;
+	uint64_t reserved[4];
+};
+
+struct npu_client {
+	struct npu_device *npu_dev;
+	wait_queue_head_t wait;
+
+	struct mutex list_lock;
+	struct list_head evt_list;
+	struct list_head mapped_buffer_list;
+};
 
 /* -------------------------------------------------------------------------
  * Function Prototypes
