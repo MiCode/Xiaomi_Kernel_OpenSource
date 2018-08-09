@@ -3005,17 +3005,6 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	struct extcon_dev *edev;
 	int idx, extcon_cnt, ret = 0;
 	bool check_vbus_state, check_id_state, phandle_found = false;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	if (!of_property_read_bool(node, "extcon")) {
-		if (dwc3_is_otg_or_drd(dwc)) {
-			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
-								__func__);
-			mdwc->vbus_active = true;
-			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-		}
-		return 0;
-	}
 
 	extcon_cnt = of_count_phandle_with_args(node, "extcon", NULL);
 	if (extcon_cnt < 0) {
@@ -3309,7 +3298,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
-	bool host_mode;
 	int ret = 0, size = 0, i;
 	u32 val;
 	unsigned long irq_type;
@@ -3580,23 +3568,28 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
-	ret = dwc3_msm_extcon_register(mdwc);
-	if (ret)
-		goto put_dwc3;
+	if (of_property_read_bool(node, "extcon")) {
+		ret = dwc3_msm_extcon_register(mdwc);
+		if (ret)
+			goto put_dwc3;
+	} else {
+		if (dwc3_is_otg_or_drd(dwc) ||
+				dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+								__func__);
+			mdwc->vbus_active = true;
+		} else if (dwc->dr_mode == USB_DR_MODE_HOST) {
+			dev_dbg(mdwc->dev, "DWC3 in host only mode\n");
+			mdwc->id_state = DWC3_ID_GROUND;
+		}
 
-	schedule_delayed_work(&mdwc->sm_work, 0);
+		dwc3_ext_event_notify(mdwc);
+	}
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
 	device_create_file(&pdev->dev, &dev_attr_bus_vote);
-
-	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
-	if (host_mode) {
-		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
-		mdwc->id_state = DWC3_ID_GROUND;
-		dwc3_ext_event_notify(mdwc);
-	}
 
 	return 0;
 
