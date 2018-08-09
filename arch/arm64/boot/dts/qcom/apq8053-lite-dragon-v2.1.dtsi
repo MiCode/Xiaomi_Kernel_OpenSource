@@ -13,10 +13,23 @@
 
 #include "apq8053-lite-dragon.dtsi"
 
+&rpm_bus {
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm8953_l10: regulator-l10 {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
+			status = "okay";
+		};
+	};
+};
+
 &mdss_dsi0 {
 	qcom,ext-vdd-gpio = <&tlmm 100 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 95 0>;
 
+	/delete-property/ vdd-supply;
 	qcom,platform-lane-config = [00 00 ff 0f
 				00 00 ff 0f
 				00 00 ff 0f
