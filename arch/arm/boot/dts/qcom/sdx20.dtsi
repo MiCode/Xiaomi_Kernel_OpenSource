@@ -42,10 +42,10 @@
 &reserved_mem {
 	linux,cma {
 		compatible = "shared-dma-pool";
-		alloc-ranges = <0 0x00000000 0 0x90000000>;
+		alloc-ranges = <0 0x90000000>;
 		reusable;
-		alignment = <0 0x400000>;
-		size = <0 0xc00000>;
+		alignment = <0x400000>;
+		size = <0xc00000>;
 		linux,cma-default;
 	};
 };
