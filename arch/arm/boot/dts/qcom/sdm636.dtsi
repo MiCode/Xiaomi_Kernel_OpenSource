@@ -31,6 +31,7 @@
 &soc {
 	/delete-node/ qcom,turing@1a300000;
 
+	/delete-node/ qcom,msm-cdsp-loader;
 	/delete-node/ cti@7068000;
 	/delete-node/ turing_etm0;
 	funnel@6042000 {
