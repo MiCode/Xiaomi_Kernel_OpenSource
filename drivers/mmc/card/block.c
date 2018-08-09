@@ -766,7 +766,7 @@ cmd_rel_host:
 			       mmc_hostname(card->host), __func__);
 	}
 cmd_rel_host_halt:
-	mmc_release_host(card->host);
+	mmc_put_card(card);
 
 cmd_done:
 	mmc_blk_put(md);
