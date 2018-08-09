@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sm6150-camera-sensor-idp.dtsi"
+
 &soc {
 };
 
