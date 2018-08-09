@@ -231,10 +231,27 @@ static void rmnet_get_ethtool_stats(struct net_device *dev,
 	       ARRAY_SIZE(rmnet_port_gstrings_stats) * sizeof(u64));
 }
 
+static int rmnet_stats_reset(struct net_device *dev)
+{
+	struct rmnet_priv *priv = netdev_priv(dev);
+	struct rmnet_port_priv_stats *stp;
+	struct rmnet_port *port;
+
+	port = rmnet_get_port(priv->real_dev);
+	if (!port)
+		return -EINVAL;
+
+	stp = &port->stats;
+
+	memset(stp, 0, sizeof(*stp));
+	return 0;
+}
+
 static const struct ethtool_ops rmnet_ethtool_ops = {
 	.get_ethtool_stats = rmnet_get_ethtool_stats,
 	.get_strings = rmnet_get_strings,
 	.get_sset_count = rmnet_get_sset_count,
+	.nway_reset = rmnet_stats_reset,
 };
 
 /* Called by kernel whenever a new rmnet<n> device is created. Sets MTU,
