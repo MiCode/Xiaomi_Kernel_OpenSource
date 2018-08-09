@@ -176,6 +176,7 @@
 
 /* GEN4 bit definitions */
 #define GEN4_ESR_FAST_CRG_IVAL_MASK		GENMASK(7, 4)
+#define GEN4_ESR_FAST_CRG_IVAL_SHIFT		4
 #define GEN4_ESR_FCC_300MA			0x0
 #define GEN4_ESR_FCC_600MA			0x1
 #define GEN4_ESR_FCC_1A				0x2
