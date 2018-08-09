@@ -289,10 +289,12 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			mutex_unlock(&pcm->lock);
 			return -ENOMEM;
 		}
-		pcm->session_id = pcm->audio_client->session;
+
 		pcm->audio_client->perf_mode = pdata->perf_mode;
-		ret = q6asm_open_loopback_v2(pcm->audio_client,
-					     bits_per_sample);
+		ret = q6asm_open_loopback_with_retry(pcm->audio_client,
+					bits_per_sample);
+		pcm->session_id = pcm->audio_client->session;
+
 		if (ret < 0) {
 			dev_err(rtd->platform->dev,
 				"%s: pcm out open failed\n", __func__);
