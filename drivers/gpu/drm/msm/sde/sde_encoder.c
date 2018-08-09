@@ -218,6 +218,8 @@ enum sde_enc_rc_states {
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
  * @crtc			pointer to drm_crtc
  * @recovery_events_enabled:	status of hw recovery feature enable by client
+ * @elevated_ahb_vote:		increase AHB bus speed for the first frame
+ *				after power collapse
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -270,6 +272,7 @@ struct sde_encoder_virt {
 	struct drm_crtc *crtc;
 
 	bool recovery_events_enabled;
+	bool elevated_ahb_vote;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -2052,6 +2055,7 @@ static int _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 			return rc;
 		}
 
+		sde_enc->elevated_ahb_vote = true;
 		/* enable DSI clks */
 		rc = sde_connector_clk_ctrl(sde_enc->cur_master->connector,
 				true);
@@ -2944,7 +2948,9 @@ static void sde_encoder_off_work(struct kthread_work *work)
 	}
 	drm_enc = &sde_enc->base;
 
+	SDE_ATRACE_BEGIN("sde_encoder_off_work");
 	sde_encoder_idle_request(drm_enc);
+	SDE_ATRACE_END("sde_encoder_off_work");
 }
 
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
@@ -3612,6 +3618,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	uint32_t i;
 	struct sde_ctl_flush_cfg pending_flush = {0,};
 	u32 pending_kickoff_cnt;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *sde_kms = NULL;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -3689,6 +3697,21 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	}
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
+
+	if (sde_enc->elevated_ahb_vote) {
+		priv = sde_enc->base.dev->dev_private;
+		if (priv != NULL) {
+			sde_kms = to_sde_kms(priv->kms);
+			if (sde_kms != NULL) {
+				sde_power_scale_reg_bus(&priv->phandle,
+						sde_kms->core_client,
+						VOTE_INDEX_LOW,
+						false);
+			}
+		}
+		sde_enc->elevated_ahb_vote = false;
+	}
+
 }
 
 static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
@@ -4262,7 +4285,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		ln_cnt1 = -EINVAL;
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
-	SDE_ATRACE_BEGIN("enc_prepare_for_kickoff");
+	SDE_ATRACE_BEGIN("sde_encoder_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		params->is_primary = sde_enc->disp_info.is_primary;
@@ -4284,12 +4307,12 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			}
 		}
 	}
-	SDE_ATRACE_END("enc_prepare_for_kickoff");
 
 	rc = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (rc) {
 		SDE_ERROR_ENC(sde_enc, "resource kickoff failed rc %d\n", rc);
-		return rc;
+		ret = rc;
+		goto end;
 	}
 
 	/* if any phys needs reset, reset all phys, in-order */
@@ -4334,6 +4357,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		}
 	}
 
+end:
+	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
 	return ret;
 }
 
@@ -5060,6 +5085,7 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 	int (*fn_wait)(struct sde_encoder_phys *phys_enc) = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
+	char atrace_buf[32];
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -5091,9 +5117,11 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		};
 
 		if (phys && fn_wait) {
-			SDE_ATRACE_BEGIN("wait_for_completion_event");
+			snprintf(atrace_buf, sizeof(atrace_buf),
+				"wait_completion_event_%d", event);
+			SDE_ATRACE_BEGIN(atrace_buf);
 			ret = fn_wait(phys);
-			SDE_ATRACE_END("wait_for_completion_event");
+			SDE_ATRACE_END(atrace_buf);
 			if (ret)
 				return ret;
 		}
