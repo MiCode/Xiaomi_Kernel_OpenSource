@@ -15,6 +15,7 @@
 
 #include "qcs405.dtsi"
 #include "qcs405-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 DSI IOT";
