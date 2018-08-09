@@ -1946,12 +1946,6 @@ int stmvl53l0x_setup(struct vl_data *data)
 	input_set_drvdata(data->input_dev_ps, data);
 
 	/* Register sysfs hooks */
-	data->range_kobj = kobject_create_and_add("range", kernel_kobj);
-	if (!data->range_kobj) {
-		rc = -ENOMEM;
-		err("%d error:%d\n", __LINE__, rc);
-		goto exit_unregister_dev_ps;
-	}
 	rc = sysfs_create_group(&data->input_dev_ps->dev.kobj,
 			&stmvl53l0x_attr_group);
 	if (rc) {
@@ -1979,7 +1973,6 @@ int stmvl53l0x_setup(struct vl_data *data)
 	return 0;
 exit_unregister_dev_ps_1:
 	kobject_put(data->range_kobj);
-exit_unregister_dev_ps:
 	input_unregister_device(data->input_dev_ps);
 exit_free_dev_ps:
 	input_free_device(data->input_dev_ps);
