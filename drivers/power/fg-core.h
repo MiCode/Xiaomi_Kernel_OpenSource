@@ -243,6 +243,7 @@ struct fg_dt_props {
 	bool	hold_soc_while_full;
 	bool	auto_recharge_soc;
 	bool	use_esr_sw;
+	bool	disable_esr_pull_dn;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -257,6 +258,7 @@ struct fg_dt_props {
 	int	esr_timer_charging[NUM_ESR_TIMERS];
 	int	esr_timer_awake[NUM_ESR_TIMERS];
 	int	esr_timer_asleep[NUM_ESR_TIMERS];
+	int	esr_timer_shutdown[NUM_ESR_TIMERS];
 	int	rconn_mohms;
 	int	esr_clamp_mohms;
 	int	cl_start_soc;
