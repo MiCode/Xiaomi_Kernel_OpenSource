@@ -118,6 +118,11 @@
 	vreg-0.9-supply = <&pm8150_2_l18>;
 };
 
+&pcie_ep {
+	vreg-1.8-supply = <&pm8150_2_l8>;
+	vreg-0.9-supply = <&pm8150_2_l18>;
+};
+
 &mdss_dsi_phy0 {
 		vdda-0p9-supply = <&pm8150_2_l18>;
 };
