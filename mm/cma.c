@@ -466,7 +466,8 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align)
 				bitmap_maxno, start, bitmap_count, mask,
 				offset);
 		if (bitmap_no >= bitmap_maxno) {
-			if (retry_after_sleep < max_retries) {
+			if ((retry_after_sleep < max_retries) &&
+						(ret == -EBUSY)) {
 				start = 0;
 				/*
 				 * update max retries if available free regions
