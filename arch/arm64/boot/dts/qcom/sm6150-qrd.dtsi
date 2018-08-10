@@ -13,6 +13,7 @@
 #include "sm6150-thermal-overlay.dtsi"
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include "sm6150-sde-display.dtsi"
+#include "sm6150-camera-sensor-qrd.dtsi"
 
 &soc {
 };
