@@ -33,10 +33,10 @@ Optional Properties:
   - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
     Should be specified in pairs (max, min, optimal), units uV.
   - clock-names: list of names of clock inputs.
-		     Should be "pcie_0_pipe_clk",
-				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
-				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
-				"pcie_0_ldo";
+		     Should be "pcie_pipe_clk",
+				"pcie_aux_clk", "pcie_cfg_ahb_clk",
+				"pcie_mstr_axi_clk", "pcie_slv_axi_clk",
+				"pcie_ldo";
   - max-clock-frequency-hz: list of the maximum operating frequencies stored
 				in the same order of clock names;
   - resets: reset specifier pair consists of phandle for the reset controller
@@ -105,17 +105,17 @@ Example:
 		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
-		clock-names = "pcie_0_pipe_clk",
-				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
-				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
-				"pcie_0_ldo";
+		clock-names = "pcie_pipe_clk",
+				"pcie_aux_clk", "pcie_cfg_ahb_clk",
+				"pcie_mstr_axi_clk", "pcie_slv_axi_clk",
+				"pcie_ldo";
 		max-clock-frequency-hz = <62500000>, <1000000>,
 						<0>, <0>, <0>, <0>;
 
 		resets = <&clock_gcc GCC_PCIE_BCR>,
 			<&clock_gcc GCC_PCIE_PHY_BCR>;
 
-		reset-names = "pcie_0_core_reset", "pcie_0_phy_reset";
+		reset-names = "pcie_core_reset", "pcie_phy_reset";
 
 		qcom,msm-bus,name = "pcie-ep";
 		qcom,msm-bus,num-cases = <2>;
