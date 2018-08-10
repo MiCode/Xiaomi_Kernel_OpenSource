@@ -15,13 +15,6 @@
 &soc {
 };
 
-/ {
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-	};
-};
-
 &qupv3_se0_2uart {
 	status = "ok";
 };

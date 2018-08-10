@@ -896,6 +896,12 @@
 			< 1708800 MHZ_TO_MBPS(1017, 4) >,
 			< 2208000 MHZ_TO_MBPS(1804, 4) >;
 	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
 };
 
 &soc {
@@ -1696,8 +1702,8 @@
 		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
