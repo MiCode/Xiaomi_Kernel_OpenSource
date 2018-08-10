@@ -91,7 +91,7 @@
 
 			vbat_sns {
 				reg = <ADC_VBAT_SNS>;
-				label = "vph_pwr";
+				label = "vbat_sns";
 				qcom,pre-scaling = <1 3>;
 			};
 
