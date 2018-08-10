@@ -301,6 +301,7 @@ void sdhci_msm_ice_hci_update_noncq_cfg(struct sdhci_host *host,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	unsigned int crypto_params = 0;
+	unsigned int crypto_enable = !bypass;
 	/*
 	 * The naming convention got changed between ICE2.0 and ICE3.0
 	 * registers fields. Below is the equivalent names for
@@ -311,7 +312,7 @@ void sdhci_msm_ice_hci_update_noncq_cfg(struct sdhci_host *host,
 	 */
 	/* Configure ICE bypass mode */
 	crypto_params |=
-		(!bypass & MASK_SDHCI_MSM_ICE_HCI_PARAM_CE)
+		(crypto_enable & MASK_SDHCI_MSM_ICE_HCI_PARAM_CE)
 			<< OFFSET_SDHCI_MSM_ICE_HCI_PARAM_CE;
 	/* Configure Crypto Configure Index (CCI) */
 	crypto_params |= (key_index &
