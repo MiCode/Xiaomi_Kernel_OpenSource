@@ -1173,6 +1173,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1288,6 +1289,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1366,6 +1370,15 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		rc = smblib_set_prop_rechg_soc_thresh(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
+			/* toggle charging to force recharge */
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					true, 0);
+			/* charge disable delay */
+			msleep(50);
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					false, 0);
 		break;
 	default:
 		rc = -EINVAL;
