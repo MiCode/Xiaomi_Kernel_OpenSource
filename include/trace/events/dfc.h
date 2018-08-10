@@ -18,7 +18,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(dfc_qmi_tc,
+DECLARE_EVENT_CLASS(dfc_tc,
 
 	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
 		 u32 tcm_handle, int enable),
@@ -48,6 +48,22 @@ TRACE_EVENT(dfc_qmi_tc,
 		__entry->bid, __entry->grant, __entry->qlen, __entry->fid,
 		__entry->tcm_handle,
 		__entry->enable ? "enable" : "disable")
+);
+
+DEFINE_EVENT(dfc_tc, dfc_qmi_tc,
+
+	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
+		 u32 tcm_handle, int enable),
+
+	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
+);
+
+DEFINE_EVENT(dfc_tc, dfc_qmi_tc_limit,
+
+	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
+		 u32 tcm_handle, int enable),
+
+	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
 );
 
 TRACE_EVENT(dfc_flow_ind,
