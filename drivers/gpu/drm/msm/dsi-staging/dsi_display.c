@@ -3995,6 +3995,9 @@ int dsi_display_cont_splash_config(void *dsi_display)
 	dsi_config_host_engine_state_for_cont_splash(display);
 	mutex_unlock(&display->display_lock);
 
+	/* Set the current brightness level */
+	dsi_panel_bl_handoff(display->panel);
+
 	return rc;
 
 clks_disabled:

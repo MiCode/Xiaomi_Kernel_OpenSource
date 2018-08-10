@@ -2336,6 +2336,8 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(crtc->state);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 
+	SDE_ATRACE_BEGIN("sde_crtc_prepare_commit");
+
 	/* identify connectors attached to this crtc */
 	cstate->num_connectors = 0;
 
@@ -2357,6 +2359,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 
 	/* prepare main output fence */
 	sde_fence_prepare(sde_crtc->output_fence);
+	SDE_ATRACE_END("sde_crtc_prepare_commit");
 }
 
 /**
@@ -3208,6 +3211,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (!sde_kms)
 		return;
 
+	SDE_ATRACE_BEGIN("crtc_atomic_begin");
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
@@ -3233,7 +3237,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * nothing else needs to be done.
 	 */
 	if (unlikely(!sde_crtc->num_mixers))
-		return;
+		goto end;
 
 	_sde_crtc_blend_setup(crtc, old_state, true);
 	_sde_crtc_dest_scaler_setup(crtc);
@@ -3260,6 +3264,9 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * This is safe because no pp_done will happen before SW trigger
 	 * in command mode.
 	 */
+
+end:
+	SDE_ATRACE_END("crtc_atomic_begin");
 }
 
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -3320,6 +3327,8 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
+	SDE_ATRACE_BEGIN("sde_crtc_atomic_flush");
+
 	/*
 	 * For planes without commit update, drm framework will not add
 	 * those planes to current state since hardware update is not
@@ -3368,6 +3377,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* Kickoff will be scheduled by outer layer */
+	SDE_ATRACE_END("sde_crtc_atomic_flush");
 }
 
 /**
@@ -5392,6 +5402,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
+	SDE_ATRACE_BEGIN("sde_crtc_atomic_set_property");
 	/* check with cp property system first */
 	ret = sde_cp_crtc_set_property(crtc, property, val);
 	if (ret != -ENOENT)
@@ -5476,6 +5487,7 @@ exit:
 				property->base.id, val);
 	}
 
+	SDE_ATRACE_END("sde_crtc_atomic_set_property");
 	return ret;
 }
 
