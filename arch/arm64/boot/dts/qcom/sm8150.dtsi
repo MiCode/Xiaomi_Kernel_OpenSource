@@ -33,7 +33,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SM8150";
 	compatible = "qcom,sm8150";
-	qcom,msm-name = "SM8150";
+	qcom,msm-name = "SM8150 V1";
 	qcom,msm-id = <339 0x10000>;
 	interrupt-parent = <&pdc>;
 
