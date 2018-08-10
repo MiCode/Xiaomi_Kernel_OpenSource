@@ -448,6 +448,10 @@ static struct clk_branch npu_cc_npu_core_apb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_apb_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -461,6 +465,10 @@ static struct clk_branch npu_cc_npu_core_atb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_atb_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_at_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -492,6 +500,10 @@ static struct clk_branch npu_cc_npu_core_cti_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_cti_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_trig_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
