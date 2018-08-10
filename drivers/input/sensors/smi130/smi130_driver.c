@@ -285,9 +285,7 @@ uint64_t get_current_timestamp(void)
 /*! sensor support type map */
 static const struct smi130_type_mapping_type sensor_type_map[] = {
 
-	{SENSOR_CHIP_ID_SMI, SENSOR_CHIP_REV_ID_SMI, "SMI130/162AB"},
-	{SENSOR_CHIP_ID_SMI_C2, SENSOR_CHIP_REV_ID_SMI, "SMI130C2"},
-	{SENSOR_CHIP_ID_SMI_C3, SENSOR_CHIP_REV_ID_SMI, "SMI130C3"},
+	{SENSOR_CHIP_ID_SMI, SENSOR_CHIP_REV_ID_SMI, "SMI130"},
 
 };
 
