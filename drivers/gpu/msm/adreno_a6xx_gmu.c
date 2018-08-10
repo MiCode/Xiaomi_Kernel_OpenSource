@@ -421,6 +421,10 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+	/* Make sure M3 is in reset before going on */
+	wmb();
+
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
 		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
@@ -921,10 +925,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	uint32_t gmu_log_info;
 	int ret;
 	unsigned int chipid = 0;
-
-	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
-	/* Make sure M3 is in reset before going on */
-	wmb();
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:
