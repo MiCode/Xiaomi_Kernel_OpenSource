@@ -1890,7 +1890,7 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+				POWER_SUPPLY_PROP_FORCE_RECHARGE, &prop);
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
