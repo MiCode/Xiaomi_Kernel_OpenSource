@@ -23,5 +23,6 @@ extern char __exception_text_start[], __exception_text_end[];
 extern char __hibernate_exit_text_start[], __hibernate_exit_text_end[];
 extern char __idmap_text_start[], __idmap_text_end[];
 extern char __irqentry_text_start[], __irqentry_text_end[];
+extern char __mmuoff_data_start[], __mmuoff_data_end[];
 
 #endif /* __ASM_SECTIONS_H */
