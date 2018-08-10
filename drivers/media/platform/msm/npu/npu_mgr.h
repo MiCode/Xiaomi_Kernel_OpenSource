@@ -57,6 +57,7 @@ struct npu_network {
 	bool fw_error;
 	bool cmd_pending;
 	bool cmd_async;
+	int cmd_ret_status;
 	struct completion cmd_done;
 	struct npu_client *client;
 };

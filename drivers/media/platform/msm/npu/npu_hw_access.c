@@ -171,7 +171,7 @@ static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
 		pr_err("ion buf %x has been mapped\n");
 		ret_val = NULL;
 	} else {
-		ret_val = kmalloc(sizeof(struct npu_ion_buf), GFP_KERNEL);
+		ret_val = kzalloc(sizeof(*ret_val), GFP_KERNEL);
 		if (ret_val) {
 			ret_val->fd = buf_hdl;
 			ret_val->size = size;

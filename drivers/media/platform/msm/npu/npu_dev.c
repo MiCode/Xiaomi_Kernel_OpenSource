@@ -933,6 +933,7 @@ static int npu_load_network(struct npu_client *client,
 	unsigned long arg)
 {
 	struct msm_npu_load_network_ioctl req;
+	struct msm_npu_unload_network_ioctl unload_req;
 	void __user *argp = (void __user *)arg;
 	int ret = 0;
 
@@ -948,21 +949,24 @@ static int npu_load_network(struct npu_client *client,
 	ret = npu_host_load_network(client, &req);
 	if (ret) {
 		pr_err("network load failed: %d\n", ret);
-		return -EFAULT;
+		return ret;
 	}
 
 	ret = copy_to_user(argp, &req, sizeof(req));
 	if (ret) {
 		pr_err("fail to copy to user\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		unload_req.network_hdl = req.network_hdl;
+		npu_host_unload_network(client, &unload_req);
 	}
-	return 0;
+	return ret;
 }
 
 static int npu_load_network_v2(struct npu_client *client,
 	unsigned long arg)
 {
 	struct msm_npu_load_network_ioctl_v2 req;
+	struct msm_npu_unload_network_ioctl unload_req;
 	void __user *argp = (void __user *)arg;
 	struct msm_npu_patch_info_v2 *patch_info = NULL;
 	int ret;
@@ -985,23 +989,34 @@ static int npu_load_network_v2(struct npu_client *client,
 		if (!patch_info)
 			return -ENOMEM;
 
-		copy_from_user(patch_info,
+		ret = copy_from_user(patch_info,
 			(void __user *)req.patch_info,
 			req.patch_info_num * sizeof(*patch_info));
+		if (ret) {
+			pr_err("fail to copy patch info\n");
+			kfree(patch_info);
+			return -EFAULT;
+		}
 	}
 
 	pr_debug("network load with perf request %d\n", req.perf_mode);
 
 	ret = npu_host_load_network_v2(client, &req, patch_info);
-	if (ret) {
-		pr_err("network load failed: %d\n", ret);
-	} else {
-		ret = copy_to_user(argp, &req, sizeof(req));
-		if (ret)
-			pr_err("fail to copy to user\n");
-	}
 
 	kfree(patch_info);
+	if (ret) {
+		pr_err("network load failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = copy_to_user(argp, &req, sizeof(req));
+	if (ret) {
+		pr_err("fail to copy to user\n");
+		ret = -EFAULT;
+		unload_req.network_hdl = req.network_hdl;
+		npu_host_unload_network(client, &unload_req);
+	}
+
 	return ret;
 }
 
@@ -1105,21 +1120,30 @@ static int npu_exec_network_v2(struct npu_client *client,
 		if (!patch_buf_info)
 			return -ENOMEM;
 
-		copy_from_user(patch_buf_info,
+		ret = copy_from_user(patch_buf_info,
 			(void __user *)req.patch_buf_info,
 			req.patch_buf_info_num * sizeof(*patch_buf_info));
+		if (ret) {
+			pr_err("fail to copy patch buf info\n");
+			kfree(patch_buf_info);
+			return -EFAULT;
+		}
 	}
 
 	ret = npu_host_exec_network_v2(client, &req, patch_buf_info);
-	if (ret) {
-		pr_err("npu_host_exec_network failed\n");
-	} else {
-		ret = copy_to_user(argp, &req, sizeof(req));
-		if (ret)
-			pr_err("fail to copy to user\n");
-	}
 
 	kfree(patch_buf_info);
+	if (ret) {
+		pr_err("npu_host_exec_network failed\n");
+		return ret;
+	}
+
+	ret = copy_to_user(argp, &req, sizeof(req));
+	if (ret) {
+		pr_err("fail to copy to user\n");
+		ret = -EFAULT;
+	}
+
 	return ret;
 }
 

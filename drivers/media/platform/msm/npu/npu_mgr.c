@@ -539,7 +539,9 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				exe_rsp_pkt->network_hdl);
 			break;
 		}
+
 		network->cmd_pending = false;
+		network->cmd_ret_status = exe_rsp_pkt->header.status;
 
 		if (!network->cmd_async) {
 			complete(&network->cmd_done);
@@ -586,6 +588,8 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		network->stats_buf_size = stats_size;
 		network->cmd_pending = false;
+		network->cmd_ret_status = exe_rsp_pkt->header.status;
+
 		if (network->cmd_async) {
 			pr_debug("async cmd, queue event\n");
 			kevt.evt.type = MSM_NPU_EVENT_TYPE_EXEC_V2_DONE;
@@ -626,6 +630,8 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		}
 		network->network_hdl = load_rsp_pkt->network_hdl;
 		network->cmd_pending = false;
+		network->cmd_ret_status = load_rsp_pkt->header.status;
+
 		complete(&network->cmd_done);
 		break;
 	}
@@ -647,6 +653,8 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		}
 
 		network->cmd_pending = false;
+		network->cmd_ret_status = unload_rsp_pkt->header.status;
+
 		complete(&network->cmd_done);
 		break;
 	}
@@ -763,10 +771,12 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type,
 			network->id);
 		network->cmd_async = async;
+		network->cmd_ret_status = 0;
+		network->cmd_pending = true;
 		ret = npu_host_ipc_send_cmd(npu_dev,
 			IPC_QUEUE_APPS_EXEC, cmd_ptr);
-		if (!ret)
-			network->cmd_pending = true;
+		if (ret)
+			network->cmd_pending = false;
 	}
 	mutex_unlock(&host_ctx->lock);
 
@@ -927,6 +937,10 @@ int32_t npu_host_load_network(struct npu_client *client,
 		goto error_free_network;
 	}
 
+	ret = network->cmd_ret_status;
+	if (ret)
+		goto error_free_network;
+
 	load_ioctl->network_hdl = network->network_hdl;
 
 	return ret;
@@ -1029,6 +1043,10 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 		pr_err("load cmd returns with error\n");
 		goto error_free_network;
 	}
+
+	ret = network->cmd_ret_status;
+	if (ret)
+		goto error_free_network;
 
 	load_ioctl->network_hdl = network->network_hdl;
 
@@ -1164,10 +1182,16 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE time out\n");
 		/* dump debug stats */
 		npu_dump_debug_timeout_stats(npu_dev);
+		network->cmd_pending = false;
+
+		/* treat execution timed out as ssr */
+		fw_deinit(npu_dev, false, true);
 		ret = -ETIMEDOUT;
 	} else if (network->fw_error) {
 		ret = -EIO;
 		pr_err("execute cmd returns with error\n");
+	} else {
+		ret = network->cmd_ret_status;
 	}
 
 	return ret;
@@ -1250,16 +1274,24 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		pr_err_ratelimited("npu: NPU_IPC_CMD_EXECUTE_V2 time out\n");
 		/* dump debug stats */
 		npu_dump_debug_timeout_stats(npu_dev);
+		network->cmd_pending = false;
+		/* treat execution timed out as ssr */
+		fw_deinit(npu_dev, false, true);
 		ret = -ETIMEDOUT;
 	} else if (network->fw_error) {
 		ret = -EIO;
 		pr_err("execute cmd returns with error\n");
 	} else {
-		exec_ioctl->stats_buf_size = network->stats_buf_size;
-		if (copy_to_user((void __user *)exec_ioctl->stats_buf_addr,
-			network->stats_buf, exec_ioctl->stats_buf_size)) {
-			pr_err("copy stats to user failed\n");
-			exec_ioctl->stats_buf_size = 0;
+		ret = network->cmd_ret_status;
+		if (!ret) {
+			exec_ioctl->stats_buf_size = network->stats_buf_size;
+			if (copy_to_user(
+				(void __user *)exec_ioctl->stats_buf_addr,
+				network->stats_buf,
+				exec_ioctl->stats_buf_size)) {
+				pr_err("copy stats to user failed\n");
+				exec_ioctl->stats_buf_size = 0;
+			}
 		}
 	}
 
