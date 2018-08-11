@@ -45,6 +45,7 @@
 			"csiphy0_clk",
 			"csi0phytimer_clk_src",
 			"csi0phytimer_clk";
+		src-clock-name = "csi0phytimer_clk_src";
 		clock-cntl-level = "turbo";
 		clock-rates =
 			<0 0 0 0 384000000 0 269333333 0>;
@@ -79,6 +80,7 @@
 			"csiphy1_clk",
 			"csi1phytimer_clk_src",
 			"csi1phytimer_clk";
+		src-clock-name = "csi1phytimer_clk_src";
 		clock-cntl-level = "turbo";
 		clock-rates =
 			<0 0 0 0 384000000 0 269333333 0>;
@@ -114,6 +116,7 @@
 			"csiphy2_clk",
 			"csi2phytimer_clk_src",
 			"csi2phytimer_clk";
+		src-clock-name = "csi2phytimer_clk_src";
 		clock-cntl-level = "turbo";
 		clock-rates =
 			<0 0 0 0 384000000 0 269333333 0>;
@@ -451,7 +454,7 @@
 			"csid0", "csid1", "csid2",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
-			"icp0", "jpeg-dma0", "jpeg-enc0", "lrmecpas";
+			"icp0", "jpeg-dma0", "jpeg-enc0", "lrmecpas0";
 			client-axi-port-names =
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2",
