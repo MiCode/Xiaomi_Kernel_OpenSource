@@ -14,6 +14,7 @@
 #define __KGSL_GMU_H
 
 #include "kgsl_gmu_core.h"
+#include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x2000	/* in bytes */
@@ -54,6 +55,14 @@
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
+
+/* Gmu FW block header format */
+struct gmu_block_header {
+	uint32_t addr;
+	uint32_t size;
+	uint32_t type;
+	uint32_t value;
+};
 
 /* For GMU Logs*/
 #define LOGMEM_SIZE  SZ_4K
@@ -112,7 +121,7 @@ enum gmu_load_mode {
  * @reg_phys: GMU CSR physical address
  * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
- * @fw_image: descriptor of GMU memory that has GMU image in it
+ * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
  * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
@@ -148,7 +157,7 @@ struct gmu_device {
 	unsigned long reg_phys;
 	unsigned int reg_len;
 	unsigned int gmu_interrupt_num;
-	struct gmu_memdesc *fw_image;
+	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
@@ -177,6 +186,5 @@ struct gmu_device {
 };
 
 bool is_cached_fw_size_valid(uint32_t size_in_bytes);
-int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
 
 #endif /* __KGSL_GMU_H */
