@@ -3424,6 +3424,8 @@ static const struct qcom_reset_map gcc_sm6150_resets[] = {
 	[GCC_PCIE_PHY_COM_BCR] = { 0x6f010 },
 	[GCC_UFS_PHY_BCR] = { 0x77000 },
 	[GCC_USB20_SEC_BCR] = { 0xa6000 },
+	[GCC_USB3_DP_PHY_PRIM_SP0_BCR] = { 0x50010 },
+	[GCC_USB3PHY_PHY_PRIM_SP0_BCR] = { 0x50008 },
 };
 
 static struct clk_dfs gcc_dfs_clocks[] = {
@@ -3501,10 +3503,8 @@ static int gcc_sm6150_probe(struct platform_device *pdev)
 	 * Disable the GPLL0 active input to MM blocks and GPU
 	 * via MISC registers.
 	 */
-	regmap_update_bits(regmap, GCC_DISPLAY_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_CAMERA_MISC, 0x1, 0x1);
 	regmap_update_bits(regmap, GCC_VIDEO_MISC, 0x1, 0x1);
-	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sm6150_desc, regmap);
 	if (ret) {
