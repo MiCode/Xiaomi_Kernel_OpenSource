@@ -2428,6 +2428,15 @@
 		vdd-3.3-ch0-supply = <&pm6150l_l10>;
 		qcom,vdd-0.8-cx-mx-config = <640000 640000>;
 	};
+
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+		qcom,guard-memory;
+	};
+
 };
 
 #include "pm6150.dtsi"
