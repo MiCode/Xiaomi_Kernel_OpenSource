@@ -271,7 +271,7 @@ int tmc_etr_bam_init(struct amba_device *adev,
 extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
-extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp);
+extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, phys_addr_t rwp);
 
 extern const struct coresight_ops tmc_etr_cs_ops;
 

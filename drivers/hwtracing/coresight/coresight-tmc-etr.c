@@ -352,7 +352,7 @@ static void tmc_etr_sg_mem_reset(uint32_t *vaddr, uint32_t size)
 	tmc_etr_sg_tbl_flush(vaddr, size);
 }
 
-void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
+void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, phys_addr_t rwp)
 {
 	uint32_t i = 0, pte_n = 0, last_pte;
 	uint32_t *virt_st_tbl, *virt_pte;
