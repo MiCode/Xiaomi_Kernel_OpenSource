@@ -20,8 +20,6 @@
 };
 
 &soc {
-	/delete-node/ qcom,msm-geni-ir;
-
 	/delete-node/ qcom,msm-cpufreq;
 
 	msm_cpufreq: qcom,msm-cpufreq {

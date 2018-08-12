@@ -11,14 +11,25 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "qcs405-pinctrl.dtsi"
 
-#include "qcs405.dtsi"
-#include "qcs405-audio-overlay.dtsi"
-#include "qcs405-geni-ir-overlay.dtsi"
+&soc {
+	qcom,msm-geni-ir@740000 {
+		compatible = "qcom,msm-geni-ir";
+		reg-names = "base";
+		reg = <0x740000 0x1000>;
 
-/ {
-	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 SPI IOT";
-	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
-	qcom,board-id = <0x010020 0x1>;
+		interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "geni-ir-core-irq";
+
+		clocks = <&clock_gcc GCC_GENI_IR_H_CLK>,
+			<&clock_gcc GCC_GENI_IR_S_CLK>;
+		clock-names = "iface_clk", "serial_clk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_in_default>;
+
+		resets = <&clock_gcc GCC_GENI_IR_BCR>;
+		reset-names = "geni_reset";
+	};
 };
