@@ -125,8 +125,12 @@ extern uint8_t himax_int_gpio_read(int pinnum);
 extern int himax_gpio_power_config(struct himax_i2c_platform_data *pdata);
 
 
-#if defined(CONFIG_DRM) || defined(CONFIG_FB)
-	extern int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
+#if defined(CONFIG_DRM)
+	extern int drm_notifier_callback(struct notifier_block *self,
+					unsigned long event, void *data);
+#elif defined(CONFIG_FB)
+	extern int fb_notifier_callback(struct notifier_block *self,
+					unsigned long event, void *data);
 #endif
 
 #if defined(HX_PLATFOME_DEFINE_KEY)
