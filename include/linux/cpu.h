@@ -29,7 +29,7 @@ struct cpu {
 };
 
 extern void boot_cpu_init(void);
-extern void boot_cpu_state_init(void);
+extern void boot_cpu_hotplug_init(void);
 
 extern int register_cpu(struct cpu *cpu, int num);
 extern struct device *get_cpu_device(unsigned cpu);
