@@ -131,4 +131,20 @@
 	status = "ok";
 };
 
+&thermal_zones {
+	/delete-node/ aoss-0-lowf;
+	/delete-node/ cpu-0-0-lowf;
+	/delete-node/ cpu-1-0-lowf;
+	/delete-node/ gpuss-0-lowf;
+	/delete-node/ cwlan-lowf;
+	/delete-node/ audio-lowf;
+	/delete-node/ ddr-lowf;
+	/delete-node/ q6-hvx-lowf;
+	/delete-node/ camera-lowf;
+	/delete-node/ mdm-core-lowf;
+	/delete-node/ mdm-dsp-lowf;
+	/delete-node/ npu-lowf;
+	/delete-node/ video-lowf;
+};
+
 #include "sdmmagpie-stub-regulator.dtsi"
