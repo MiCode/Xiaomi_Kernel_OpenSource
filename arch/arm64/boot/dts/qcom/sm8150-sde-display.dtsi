@@ -364,6 +364,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,platform-te-gpio = <&tlmm 8 0>;
+		qcom,panel-te-source = <0>;
 
 		vddio-supply = <&pm8150_l14>;
 		lab-supply = <&lcdb_ldo_vreg>;
@@ -411,6 +412,7 @@
 		pinctrl-1 = <&sde_dsi1_suspend &sde_te1_suspend>;
 
 		qcom,platform-te-gpio = <&tlmm 9 0>;
+		qcom,panel-te-source = <1>;
 
 		vddio-supply = <&pm8150_l14>;
 		lab-supply = <&lcdb_ldo_vreg>;
