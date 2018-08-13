@@ -812,8 +812,10 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			unsigned char cid = csid_params.lut_params.vc_cfg_a[i].
 									cid;
 
-			csid_dev->current_csid_params.lut_params.vc_cfg_a[cid] =
-					csid_params.lut_params.vc_cfg_a[i];
+			if (cid < MAX_CID)
+				csid_dev->current_csid_params.lut_params.
+				vc_cfg_a[cid] = csid_params.lut_params.
+				vc_cfg_a[i];
 
 			CDBG("vc_cfg_a[%d] : dt=%d, decode_fmt=%d",
 				csid_params.lut_params.vc_cfg_a[i].cid,
@@ -851,8 +853,10 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			unsigned char cid = csid_params.lut_params.vc_cfg_a[i].
 						cid;
 
-			csid_dev->current_csid_params.lut_params.vc_cfg_a[cid] =
-				csid_params.lut_params.vc_cfg_a[i];
+			if (cid < MAX_CID)
+				csid_dev->current_csid_params.lut_params.
+				vc_cfg_a[cid] = csid_params.lut_params.
+				vc_cfg_a[i];
 
 			CDBG("vc_cfg_a[%d] : dt=%d, decode_fmt=%d",
 				csid_params.lut_params.vc_cfg_a[i].cid,
