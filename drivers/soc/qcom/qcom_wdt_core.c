@@ -573,7 +573,7 @@ int qcom_wdt_register(struct platform_device *pdev,
 	md_entry.virt_addr = (uintptr_t)wdog_dd;
 	md_entry.phys_addr = virt_to_phys(wdog_dd);
 	md_entry.size = sizeof(*wdog_dd);
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		dev_err(wdog_dd->dev, "Failed to add Wdt data in Minidump\n");
 	return 0;
 err:
