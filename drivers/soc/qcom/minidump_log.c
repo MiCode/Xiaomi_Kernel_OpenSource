@@ -34,7 +34,7 @@ static void __init register_log_buf(void)
 	md_entry.phys_addr = virt_to_phys(*log_bufp);
 	md_entry.size = *log_buf_lenp;
 	md_entry.id = MINIDUMP_DEFAULT_ID;
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add logbuf in Minidump\n");
 }
 
@@ -54,7 +54,7 @@ static void register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size,
 		ksp_entry->phys_addr = virt_to_phys((uintptr_t *)sp);
 	}
 
-	if (msm_minidump_add_region(ksp_entry))
+	if (msm_minidump_add_region(ksp_entry) < 0)
 		pr_err("Failed to add stack of cpu %d in Minidump\n", cpu);
 }
 
@@ -71,7 +71,7 @@ static void __init register_kernel_sections(void)
 	ksec_entry.phys_addr = virt_to_phys(_sdata);
 	ksec_entry.size = roundup((__bss_stop - _sdata), 4);
 	ksec_entry.id = MINIDUMP_DEFAULT_ID;
-	if (msm_minidump_add_region(&ksec_entry))
+	if (msm_minidump_add_region(&ksec_entry) < 0)
 		pr_err("Failed to add data section in Minidump\n");
 
 	/* Add percpu static sections */
@@ -85,7 +85,7 @@ static void __init register_kernel_sections(void)
 		ksec_entry.phys_addr = per_cpu_ptr_to_phys(start);
 		ksec_entry.size = static_size;
 		ksec_entry.id = MINIDUMP_DEFAULT_ID;
-		if (msm_minidump_add_region(&ksec_entry))
+		if (msm_minidump_add_region(&ksec_entry) < 0)
 			pr_err("Failed to add percpu sections in Minidump\n");
 	}
 }
@@ -158,7 +158,7 @@ void dump_stack_minidump(u64 sp)
 	ktsk_entry.phys_addr = virt_to_phys((uintptr_t *)current);
 	ktsk_entry.size = sizeof(struct task_struct);
 	ktsk_entry.id = MINIDUMP_DEFAULT_ID;
-	if (msm_minidump_add_region(&ktsk_entry))
+	if (msm_minidump_add_region(&ktsk_entry) < 0)
 		pr_err("Failed to add current task %d in Minidump\n", cpu);
 }
 

@@ -803,7 +803,7 @@ static void minidump_reg_init_log_buf(void)
 	md_entry.phys_addr = log_buf_paddr;
 	md_entry.size = *log_buf_size;
 	md_entry.id = MINIDUMP_DEFAULT_ID;
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add init_log_buf in Minidump\n");
 }
 
@@ -1049,7 +1049,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	md_entry.phys_addr = virt_to_phys(wdog_dd);
 	md_entry.size = sizeof(*wdog_dd);
 	md_entry.id = MINIDUMP_DEFAULT_ID;
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_info("Failed to add Watchdog data in Minidump\n");
 
 	return 0;
