@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,7 +299,7 @@ static int msm_rtb_probe(struct platform_device *pdev)
 	md_entry.virt_addr = (uintptr_t)msm_rtb.rtb;
 	md_entry.phys_addr = msm_rtb.phys;
 	md_entry.size = msm_rtb.size;
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_info("Failed to add RTB in Minidump\n");
 
 #if defined(CONFIG_QCOM_RTB_SEPARATE_CPUS)

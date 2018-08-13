@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,7 @@ static void __init register_log_buf(void)
 	md_entry.virt_addr = (uintptr_t) (*log_bufp);
 	md_entry.phys_addr = virt_to_phys(*log_bufp);
 	md_entry.size = *log_buf_lenp;
-	if (msm_minidump_add_region(&md_entry))
+	if (msm_minidump_add_region(&md_entry) < 0)
 		pr_err("Failed to add logbuf in Minidump\n");
 }
 
@@ -53,7 +53,7 @@ static void __init register_kernel_sections(void)
 	ksec_entry.virt_addr = (uintptr_t)_sdata;
 	ksec_entry.phys_addr = virt_to_phys(_sdata);
 	ksec_entry.size = roundup((__bss_stop - _sdata), 4);
-	if (msm_minidump_add_region(&ksec_entry))
+	if (msm_minidump_add_region(&ksec_entry) < 0)
 		pr_err("Failed to add data section in Minidump\n");
 
 	/* Add percpu static sections */
@@ -66,7 +66,7 @@ static void __init register_kernel_sections(void)
 		ksec_entry.virt_addr = (uintptr_t)start;
 		ksec_entry.phys_addr = per_cpu_ptr_to_phys(start);
 		ksec_entry.size = static_size;
-		if (msm_minidump_add_region(&ksec_entry))
+		if (msm_minidump_add_region(&ksec_entry) < 0)
 			pr_err("Failed to add percpu sections in Minidump\n");
 	}
 }
@@ -87,14 +87,14 @@ void dump_stack_minidump(u64 sp)
 	ksp_entry.virt_addr = sp;
 	ksp_entry.phys_addr = virt_to_phys((uintptr_t *)sp);
 	ksp_entry.size = THREAD_SIZE;
-	if (msm_minidump_add_region(&ksp_entry))
+	if (msm_minidump_add_region(&ksp_entry) < 0)
 		pr_err("Failed to add stack of cpu %d in Minidump\n", cpu);
 
 	scnprintf(ktsk_entry.name, sizeof(ktsk_entry.name), "KTASK%d", cpu);
 	ktsk_entry.virt_addr = (u64)current;
 	ktsk_entry.phys_addr = virt_to_phys((uintptr_t *)current);
 	ktsk_entry.size = sizeof(struct task_struct);
-	if (msm_minidump_add_region(&ktsk_entry))
+	if (msm_minidump_add_region(&ktsk_entry) < 0)
 		pr_err("Failed to add current task %d in Minidump\n", cpu);
 }
 
