@@ -93,7 +93,7 @@ int ieee80211_channel_to_frequency(int chan, enum nl80211_band band)
 			return 5940 + chan * 5;
 		break;
 	case NL80211_BAND_60GHZ:
-		if (chan < 5)
+		if (chan < 7)
 			return 56160 + chan * 2160;
 		break;
 	default:
@@ -117,7 +117,7 @@ int ieee80211_frequency_to_channel(int freq)
 	else if (freq <= 45000) /* DMG band lower limit */
 		/* see 802.11ax D4.1 27.3.22.2 */
 		return (freq - 5940) / 5;
-	else if (freq >= 58320 && freq <= 64800)
+	else if (freq >= 58320 && freq <= 70200)
 		return (freq - 56160) / 2160;
 	else
 		return 0;
@@ -1624,7 +1624,7 @@ bool ieee80211_chandef_to_operating_class(struct cfg80211_chan_def *chandef,
 	}
 
 	/* 56.16 GHz, channel 1..4 */
-	if (freq >= 56160 + 2160 * 1 && freq <= 56160 + 2160 * 4) {
+	if (freq >= 56160 + 2160 * 1 && freq <= 56160 + 2160 * 6) {
 		if (chandef->width >= NL80211_CHAN_WIDTH_40)
 			return false;
 
