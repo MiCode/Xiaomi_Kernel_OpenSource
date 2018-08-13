@@ -3196,7 +3196,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_actual);
 
 	rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -3230,7 +3230,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_actual);
 
 	rc = msm_comm_set_buffer_count(inst,
-		bufreq->buffer_count_min_host,
+		bufreq->buffer_count_min,
 		bufreq->buffer_count_actual, HAL_BUFFER_OUTPUT);
 	if (rc) {
 		dprintk(VIDC_ERR,
