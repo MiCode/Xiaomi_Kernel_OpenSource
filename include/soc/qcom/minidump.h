@@ -59,4 +59,11 @@ static inline int msm_minidump_remove_region(const struct md_region *entry)
 static inline bool msm_minidump_enabled(void) { return false; }
 static inline void dump_stack_minidump(u64 sp) {}
 #endif
+
+#ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
+/* Update current stack of this cpu in Minidump table. */
+extern void update_md_current_stack(void *data);
+#else
+static inline void update_md_current_stack(void *data) {}
+#endif
 #endif
