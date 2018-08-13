@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
+#include "sdmmagpie-thermal-overlay.dtsi"
 
 &soc {
 };
