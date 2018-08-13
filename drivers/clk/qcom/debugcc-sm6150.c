@@ -255,6 +255,9 @@ static const char *const debug_mux_parent_names[] = {
 	"video_cc_venus_ctl_axi_clk",
 	"video_cc_venus_ctl_core_clk",
 	"video_cc_xo_clk",
+	"l3_clk",
+	"pwrcl_clk",
+	"perfcl_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -682,7 +685,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 		{ "gpu_cc_sleep_clk", 0x144, 1, GPU_CC,
 			0x16, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
 		{ "measure_only_bimc_clk", 0xC2, 1, GCC,
-			0xC2, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
+			0xBF, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_cnoc_clk", 0x15, 1, GCC,
 			0x15, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_ipa_2x_clk", 0x128, 1, GCC,
@@ -711,6 +714,12 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x1, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
 		{ "video_cc_xo_clk", 0x48, 1, VIDEO_CC,
 			0xC, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0xA30, 0xA38 },
+		{ "l3_clk", 0xD6, 4, CPU_CC,
+			0x46, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "pwrcl_clk", 0xD6, 4, CPU_CC,
+			0x44, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "perfcl_clk", 0xD6, 4, CPU_CC,
+			0x45, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -781,6 +790,10 @@ static int clk_debug_sm6150_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,dispcc", DISP_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 
