@@ -124,4 +124,55 @@
 			};
 		};
 	};
+
+	pm6150-vbat-lvl0 {
+		cooling-maps {
+			vbat_cpu6 {
+				trip = <&vbat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_cpu7 {
+				trip = <&vbat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6150-ibat-lvl0 {
+		cooling-maps {
+			ibat_cpu6 {
+				trip = <&ibat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_cpu7 {
+				trip = <&ibat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_cpu6 {
+				trip = <&soc_trip>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_cpu7 {
+				trip = <&soc_trip>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
 };
