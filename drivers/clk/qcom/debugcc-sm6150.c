@@ -240,7 +240,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gpu_cc_gx_qdss_tsctr_clk",
 	"gpu_cc_gx_vsense_clk",
 	"gpu_cc_sleep_clk",
-	"measure_only_bimc_clk",
+	"measure_only_mccc_clk",
 	"measure_only_cnoc_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
@@ -269,6 +269,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
 	.post_div_shift = 0,
+	.period_offset = 0x50,
 	MUX_SRC_LIST(
 		{ "cam_cc_bps_ahb_clk", 0x46, 1, CAM_CC,
 			0xE, 0xFF, 0, 0x3, 0, 2, 0xC000, 0xC004, 0xC008 },
@@ -684,8 +685,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0xC, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
 		{ "gpu_cc_sleep_clk", 0x144, 1, GPU_CC,
 			0x16, 0xFF, 0, 0x3, 0, 2, 0x1568, 0x10FC, 0x1100 },
-		{ "measure_only_bimc_clk", 0xC2, 1, GCC,
-			0xBF, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
+		{ "measure_only_mccc_clk", 0xC2, 1, MC_CC,
+			0xC2, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_cnoc_clk", 0x15, 1, GCC,
 			0x15, 0x3FF, 0, 0xF, 0, 1, 0x62000, 0x62004, 0x62008 },
 		{ "measure_only_ipa_2x_clk", 0x128, 1, GCC,
@@ -794,6 +795,10 @@ static int clk_debug_sm6150_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
 	if (ret)
 		return ret;
 
