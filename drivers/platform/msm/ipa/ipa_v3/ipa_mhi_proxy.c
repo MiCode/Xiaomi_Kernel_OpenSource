@@ -923,9 +923,8 @@ static int imp_probe(struct platform_device *pdev)
 static int imp_remove(struct platform_device *pdev)
 {
 	IMP_FUNC_ENTRY();
-	mutex_lock(&imp_ctx->mutex);
 	mhi_driver_unregister(&mhi_driver);
-
+	mutex_lock(&imp_ctx->mutex);
 	if (!imp_ctx->in_lpm)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IMP");
 	imp_ctx->in_lpm = false;
