@@ -734,7 +734,6 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	struct mdss_dba_utils_data *udata = NULL;
 	struct msm_dba_reg_info info;
 	struct cec_abstract_init_data cec_abst_init_data;
-	void *cec_abst_data;
 	int ret = 0;
 
 	if (!uid) {
@@ -823,7 +822,7 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	udata->cec_abst_data = cec_abstract_init(&cec_abst_init_data);
 	if (IS_ERR_OR_NULL(udata->cec_abst_data)) {
 		pr_err("error initializing cec abstract module\n");
-		ret = PTR_ERR(cec_abst_data);
+		ret = PTR_ERR(udata->cec_abst_data);
 		goto error;
 	}
 
