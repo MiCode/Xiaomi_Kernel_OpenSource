@@ -59,6 +59,7 @@ Bus Scaling Data:
 Optional properties:
 - label:                  String to describe controller.
 - qcom,platform-te-gpio:  Specifies the gpio used for TE.
+- qcom,panel-te-source:  Specifies the source pin for Vsync from panel or WD Timer.
 - qcom,dsi-display-active: Current active display
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
