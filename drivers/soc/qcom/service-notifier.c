@@ -98,6 +98,7 @@ struct ind_req_resp {
  */
 struct qmi_client_info {
 	int instance_id;
+	char service_path[SERVREG_NOTIF_NAME_LENGTH];
 	enum pd_subsys_state subsys_state;
 	struct work_struct ind_ack;
 	struct work_struct new_server;
@@ -115,6 +116,7 @@ struct qmi_client_info {
 static LIST_HEAD(qmi_client_list);
 static DEFINE_MUTEX(qmi_list_lock);
 static DEFINE_MUTEX(notif_add_lock);
+static struct workqueue_struct *pdr_wq;
 
 static struct service_notif_info *_find_service_info(const char *service_path)
 {
@@ -235,7 +237,7 @@ static void root_service_service_ind_cb(struct qmi_handle *qmi,
 	snprintf(qmi_data->ind_msg.service_path,
 		ARRAY_SIZE(qmi_data->ind_msg.service_path), "%s",
 		ind_msg.service_name);
-	schedule_work(&qmi_data->ind_ack);
+	queue_work(pdr_wq, &qmi_data->ind_ack);
 }
 
 static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
@@ -343,7 +345,8 @@ static void new_server_work(struct work_struct *work)
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
-		if (service_notif->instance_id == data->instance_id) {
+		if (service_notif->instance_id == data->instance_id && !strcmp
+			(service_notif->service_path, data->service_path)) {
 			enum pd_subsys_state state = ROOT_PD_UP;
 
 			rc = register_notif_listener(service_notif, data,
@@ -378,7 +381,8 @@ static void root_service_service_exit(struct qmi_client_info *data,
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
-		if (service_notif->instance_id == data->instance_id) {
+		if (service_notif->instance_id == data->instance_id && !strcmp
+			(data->service_path, service_notif->service_path)) {
 			rc = service_notif_queue_notification(service_notif,
 					SERVREG_NOTIF_SERVICE_STATE_DOWN_V01,
 					&state);
@@ -477,7 +481,8 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	 */
 	mutex_lock(&qmi_list_lock);
 	list_for_each_entry(tmp, &qmi_client_list, list) {
-		if (tmp->instance_id == instance_id) {
+		if (tmp->instance_id == instance_id && !strcmp
+				(tmp->service_path, service_path)) {
 			if (tmp->service_connected) {
 				rc = register_notif_listener(service_notif, tmp,
 								curr_state);
@@ -503,6 +508,8 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	}
 
 	qmi_data->instance_id = instance_id;
+	strlcpy(qmi_data->service_path, service_path,
+		ARRAY_SIZE(service_notif->service_path));
 	qmi_data->svc_event_wq = create_singlethread_workqueue(subsys);
 	if (!qmi_data->svc_event_wq) {
 		rc = -ENOMEM;
@@ -633,7 +640,8 @@ int service_notif_pd_restart(const char *service_path, int instance_id)
 	int rc = 0;
 
 	list_for_each_entry(tmp, &qmi_client_list, list) {
-		if (tmp->instance_id == instance_id) {
+		if (tmp->instance_id == instance_id && !strcmp
+				(tmp->service_path, service_path)) {
 			if (tmp->service_connected) {
 				pr_info("Restarting service %s, instance-id %d\n",
 						service_path, instance_id);
@@ -709,3 +717,14 @@ int service_notif_unregister_notifier(void *service_notif_handle,
 				&service_notif->service_notif_rcvr_list, nb);
 }
 EXPORT_SYMBOL(service_notif_unregister_notifier);
+
+static int __init service_notif_init(void)
+{
+
+	pdr_wq = alloc_workqueue("pdr_wq", WQ_CPU_INTENSIVE | WQ_UNBOUND |
+				 WQ_HIGHPRI, 0);
+	BUG_ON(!pdr_wq);
+
+	return 0;
+}
+arch_initcall(service_notif_init);

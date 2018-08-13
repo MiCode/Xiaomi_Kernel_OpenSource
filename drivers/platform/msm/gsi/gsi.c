@@ -23,7 +23,9 @@
 #include "gsi_emulation.h"
 
 #define GSI_CMD_TIMEOUT (5*HZ)
-#define GSI_STOP_CMD_TIMEOUT_MS 50
+#define GSI_START_CMD_TIMEOUT_MS 1000
+#define GSI_CMD_POLL_CNT 5
+#define GSI_STOP_CMD_TIMEOUT_MS 10
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -110,6 +112,65 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_GSI_IRQ_EN_OFFS(ee));
 	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
 			GSI_EE_n_CNTXT_GSI_IRQ_EN_OFFS(ee));
+}
+
+static void gsi_channel_state_change_wait(unsigned long chan_hdl,
+	struct gsi_chan_ctx *ctx,
+	uint32_t tm,
+	enum gsi_chan_state next_state)
+{
+	int poll_cnt;
+	int gsi_pending_intr;
+	int res;
+	uint32_t ch;
+	uint32_t val;
+	int ee = gsi_ctx->per.ee;
+
+	/*
+	 * Start polling the GSI channel for
+	 * duration = tm * poll_cnt.
+	 * We need to do polling of gsi state for improving debugability
+	 * of gsi hw state.
+	 */
+
+	for (poll_cnt = 0;
+		poll_cnt < GSI_CMD_POLL_CNT;
+		poll_cnt++) {
+		res = wait_for_completion_timeout(&ctx->compl,
+			msecs_to_jiffies(tm));
+
+		/* Interrupt received, return */
+		if (res != 0)
+			return;
+
+		/*
+		 * Check channel state here in case the channel is
+		 * already started but interrupt is not yet received.
+		 */
+		val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+				gsi_ctx->per.ee));
+
+		ctx->state = (val &
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+
+		ch = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(gsi_ctx->per.ee));
+
+		gsi_pending_intr = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
+
+		GSIDBG("GSI wait on chan_hld=%lu chan=%lu state=%u intr=%u\n",
+			chan_hdl,
+			ch,
+			ctx->state,
+			gsi_pending_intr);
+
+		if (ctx->state == next_state)
+			break;
+	}
+
 }
 
 static void gsi_handle_ch_ctrl(int ee)
@@ -379,12 +440,18 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 {
 	uint32_t addr_diff;
 
-	WARN(addr1 < ctx->base || addr1 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr1);
-	WARN(addr2 < ctx->base || addr2 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr2);
+	GSIDBG_LOW("gsi base addr 0x%llx end addr 0x%llx\n",
+		ctx->base, ctx->end);
+
+	if (addr1 < ctx->base || addr1 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr1);
+		BUG();
+	}
+
+	if (addr2 < ctx->base || addr2 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr2);
+		BUG();
+	}
 
 	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
@@ -1306,12 +1373,27 @@ static void gsi_prime_evt_ring(struct gsi_evt_ctx *ctx)
 	spin_unlock_irqrestore(&ctx->ring.slock, flags);
 }
 
+static void gsi_prime_evt_ring_wdi(struct gsi_evt_ctx *ctx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->ring.slock, flags);
+	if (ctx->ring.base_va)
+		memset((void *)ctx->ring.base_va, 0, ctx->ring.len);
+	ctx->ring.wp_local = ctx->ring.base +
+		((ctx->ring.max_num_elem + 2) * ctx->ring.elem_sz);
+	gsi_ring_evt_doorbell(ctx);
+	spin_unlock_irqrestore(&ctx->ring.slock, flags);
+}
+
 static int gsi_validate_evt_ring_props(struct gsi_evt_ring_props *props)
 {
 	uint64_t ra;
 
 	if ((props->re_size == GSI_EVT_RING_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_EVT_RING_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_EVT_RING_RE_SIZE_16B &&
 				 props->ring_len % 16)) {
 		GSIERR("bad params ring_len %u not a multiple of RE size %u\n",
@@ -1444,6 +1526,8 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	atomic_inc(&gsi_ctx->num_evt_ring);
 	if (props->intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	else if (props->intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	spin_lock_irqsave(&gsi_ctx->slock, flags);
@@ -1517,7 +1601,8 @@ int gsi_dealloc_evt_ring(unsigned long evt_ring_hdl)
 		return -GSI_STATUS_NODEV;
 	}
 
-	if (evt_ring_hdl >= gsi_ctx->max_ev) {
+	if (evt_ring_hdl >= gsi_ctx->max_ev ||
+			evt_ring_hdl >= GSI_EVT_RING_MAX) {
 		GSIERR("bad params evt_ring_hdl=%lu\n", evt_ring_hdl);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
@@ -1696,6 +1781,8 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 
 	if (ctx->props.intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	return GSI_STATUS_SUCCESS;
@@ -1919,6 +2006,8 @@ static int gsi_validate_channel_props(struct gsi_chan_props *props)
 
 	if ((props->re_size == GSI_CHAN_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_CHAN_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_16B &&
 				 props->ring_len % 16) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_32B &&
@@ -2317,7 +2406,6 @@ EXPORT_SYMBOL(gsi_query_channel_db_addr);
 int gsi_start_channel(unsigned long chan_hdl)
 {
 	enum gsi_ch_cmd_opcode op = GSI_CH_START;
-	int res;
 	uint32_t val;
 	struct gsi_chan_ctx *ctx;
 
@@ -2350,20 +2438,24 @@ int gsi_start_channel(unsigned long chan_hdl)
 		 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
-	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
-	if (res == 0) {
-		GSIERR("chan_hdl=%lu timed out\n", chan_hdl);
-		mutex_unlock(&gsi_ctx->mlock);
-		return -GSI_STATUS_TIMED_OUT;
-	}
+
+	GSIDBG("GSI Channel Start, waiting for completion\n");
+	gsi_channel_state_change_wait(chan_hdl,
+		ctx,
+		GSI_START_CMD_TIMEOUT_MS,
+		GSI_CHAN_STATE_STARTED);
+
 	if (ctx->state != GSI_CHAN_STATE_STARTED) {
-		GSIERR("chan=%lu unexpected state=%u\n", chan_hdl, ctx->state);
 		/*
-		 * Hardware returned unexpected status, unexpected
-		 * hardware state.
-		 */
+		* Hardware returned unexpected status, unexpected
+		* hardware state.
+		*/
+		GSIERR("chan=%lu timed out, unexpected state=%u\n",
+			chan_hdl, ctx->state);
 		BUG();
 	}
+
+	GSIDBG("GSI Channel=%lu Start success\n", chan_hdl);
 
 	/* write order MUST be MSB followed by LSB */
 	val = ((ctx->ring.wp_local >> 32) &
@@ -2420,27 +2512,12 @@ int gsi_stop_channel(unsigned long chan_hdl)
 		 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
-	res = wait_for_completion_timeout(&ctx->compl,
-			msecs_to_jiffies(GSI_STOP_CMD_TIMEOUT_MS));
-	if (res == 0) {
-		/*
-		 * check channel state here in case the channel is stopped but
-		 * the interrupt was not handled yet.
-		 */
-		val = gsi_readl(gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-		ctx->state = (val &
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
-		if (ctx->state == GSI_CHAN_STATE_STOPPED) {
-			res = GSI_STATUS_SUCCESS;
-			goto free_lock;
-		}
-		GSIDBG("chan_hdl=%lu timed out\n", chan_hdl);
-		res = -GSI_STATUS_TIMED_OUT;
-		goto free_lock;
-	}
+
+	GSIDBG("GSI Channel Stop, waiting for completion\n");
+	gsi_channel_state_change_wait(chan_hdl,
+		ctx,
+		GSI_STOP_CMD_TIMEOUT_MS,
+		GSI_CHAN_STATE_STOPPED);
 
 	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
 		ctx->state != GSI_CHAN_STATE_STOP_IN_PROC) {

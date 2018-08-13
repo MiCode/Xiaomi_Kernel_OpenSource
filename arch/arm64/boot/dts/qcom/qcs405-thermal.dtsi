@@ -42,6 +42,13 @@
 	};
 };
 
+&rpm_bus {
+	rpm_smd_cdev: rpm-smd-cdev {
+		compatible = "qcom,rpm-smd-cooling-device";
+		#cooling-cells = <2>;
+	};
+};
+
 &thermal_zones {
 	aoss-usr {
 		polling-delay-passive = <0>;
@@ -332,6 +339,27 @@
 		};
 	};
 
+	aoss-lowc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&tsens0 0>;
+		tracks-low;
+		trips {
+			aoss_lowc: aoss-lowc {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			rpm_smd_cdev {
+				trip = <&aoss_lowc>;
+				cooling-device = <&rpm_smd_cdev 2 2>;
+			};
+		};
+	};
+
 	aoss-lowf {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
@@ -364,5 +392,26 @@
 				cooling-device = <&modem_vdd 0 0>;
 			};
 		};
+	};
+
+	xo-therm-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_XO_THERM_PU2>;
+	};
+
+	pa-therm1-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_AMUX_THM1_PU2>;
+	};
+
+	pa-therm3-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_AMUX_THM3_PU2>;
 	};
 };

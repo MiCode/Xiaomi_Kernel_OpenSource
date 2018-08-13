@@ -113,6 +113,7 @@ everest	Everest Semiconductor Co. Ltd.
 everspin	Everspin Technologies, Inc.
 exar	Exar Corporation
 excito	Excito
+explore Explore Semiconductor, Inc. Limited
 ezchip	EZchip Semiconductor
 faraday	Faraday Technology Corporation
 fcs	Fairchild Semiconductor

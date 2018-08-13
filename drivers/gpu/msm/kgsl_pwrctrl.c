@@ -251,28 +251,9 @@ int kgsl_clk_set_rate(struct kgsl_device *device,
 	int ret = 0;
 
 	/* GMU scales GPU freq */
-	if (gmu_core_gpmu_isenabled(device)) {
-		int num_gpupwrlevels = pwr->num_pwrlevels;
-
-		/* If GMU has not been started, save it */
-		if (!gmu_core_testbit(device, GMU_HFI_ON)) {
-			/* store clock change request */
-			gmu_core_setbit(device, GMU_DCVS_REPLAY);
-			return 0;
-		}
-
-		if (num_gpupwrlevels < 0)
-			return -EINVAL;
-
-		/* If the GMU is on we cannot vote for the lowest level */
-		if (pwrlevel == (num_gpupwrlevels - 1)) {
-			WARN(1, "Cannot set 0 GPU frequency with GMU\n");
-			return -EINVAL;
-		}
+	if (gmu_core_gpmu_isenabled(device))
 		ret = gmu_core_dcvs_set(device, pwrlevel, INVALID_DCVS_IDX);
-		/* indicate actual clock  change */
-		gmu_core_clearbit(device, GMU_DCVS_REPLAY);
-	} else
+	else
 		/* Linux clock driver scales GPU freq */
 		ret = kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[0],
 			pl->gpu_freq, clocks[0]);
@@ -444,7 +425,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
 
 	if (new_level == old_level &&
-		!gmu_core_testbit(device, GMU_DCVS_REPLAY))
+		!test_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags))
 		return;
 
 	kgsl_pwrscale_update_stats(device);
@@ -2793,7 +2774,7 @@ _aware(struct kgsl_device *device)
 	case KGSL_STATE_SLUMBER:
 		/* if GMU already in FAULT */
 		if (gmu_core_isenabled(device) &&
-			gmu_core_testbit(device, GMU_FAULT)) {
+			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			status = -EINVAL;
 			break;
 		}
@@ -2808,7 +2789,7 @@ _aware(struct kgsl_device *device)
 		if (gmu_core_isenabled(device)) {
 			/* GMU hang recovery */
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
-			gmu_core_setbit(device, GMU_FAULT);
+			set_bit(GMU_FAULT, &device->gmu_core.flags);
 			status = kgsl_pwrctrl_enable(device);
 			if (status) {
 				/*
@@ -2844,7 +2825,7 @@ _aware(struct kgsl_device *device)
 					KGSL_STATE_AWARE);
 			}
 
-			gmu_core_clearbit(device, GMU_FAULT);
+			clear_bit(GMU_FAULT, &device->gmu_core.flags);
 			return status;
 		}
 

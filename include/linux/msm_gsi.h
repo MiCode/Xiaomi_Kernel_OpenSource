@@ -149,11 +149,13 @@ enum gsi_evt_chtype {
 	GSI_EVT_CHTYPE_MHI_EV = 0x0,
 	GSI_EVT_CHTYPE_XHCI_EV = 0x1,
 	GSI_EVT_CHTYPE_GPI_EV = 0x2,
-	GSI_EVT_CHTYPE_XDCI_EV = 0x3
+	GSI_EVT_CHTYPE_XDCI_EV = 0x3,
+	GSI_EVT_CHTYPE_WDI_EV = 0x4
 };
 
 enum gsi_evt_ring_elem_size {
 	GSI_EVT_RING_RE_SIZE_4B = 4,
+	GSI_EVT_RING_RE_SIZE_8B = 8,
 	GSI_EVT_RING_RE_SIZE_16B = 16,
 };
 
@@ -215,7 +217,8 @@ enum gsi_chan_prot {
 	GSI_CHAN_PROT_MHI = 0x0,
 	GSI_CHAN_PROT_XHCI = 0x1,
 	GSI_CHAN_PROT_GPI = 0x2,
-	GSI_CHAN_PROT_XDCI = 0x3
+	GSI_CHAN_PROT_XDCI = 0x3,
+	GSI_CHAN_PROT_WDI = 0x4
 };
 
 enum gsi_chan_dir {
@@ -299,6 +302,7 @@ struct gsi_chan_err_notify {
 
 enum gsi_chan_ring_elem_size {
 	GSI_CHAN_RE_SIZE_4B = 4,
+	GSI_CHAN_RE_SIZE_8B = 8,
 	GSI_CHAN_RE_SIZE_16B = 16,
 	GSI_CHAN_RE_SIZE_32B = 32,
 };
@@ -604,6 +608,70 @@ struct __packed gsi_xdci_channel_scratch {
 };
 
 /**
+ * gsi_wdi_channel_scratch - WDI protocol SW config area of
+ * channel scratch
+ *
+ * @wifi_rx_ri_addr_low: Low 32 bits of Transfer ring Read Index address.
+ * @wifi_rx_ri_addr_high: High 32 bits of Transfer ring Read Index address.
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @update_ri_moderation_counter: This field is incremented with each TRE
+ *                                processed in MCS.
+ * @wdi_rx_tre_proc_in_progress: It is set if IPA IF returned BECAME FULL
+ *                               status after MCS submitted an inline immediate
+ *                               command to update the metadata. It allows MCS
+ *                               to know that it has to retry sending the TRE
+ *                               to IPA.
+ * @wdi_rx_vdev_id: Rx only. Initialized to 0xFF by SW after allocating channel
+ *                  and before starting it. Both FW_DESC and VDEV_ID are part
+ *                  of a scratch word that is Read/Write for both MCS and SW.
+ *                  To avoid race conditions, SW should not update this field
+ *                  after starting the channel.
+ * @wdi_rx_fw_desc: Rx only. Initialized to 0xFF by SW after allocating channel
+ *                  and before starting it. After Start, this is a Read only
+ *                  field for SW.
+ * @endp_metadatareg_offset: Rx only, the offset of IPA_ENDP_INIT_HDR_METADATA
+ *                           of the corresponding endpoint in 4B words from IPA
+ *                           base address. Read only field for MCS.
+ *                           Write for SW.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
+ * @wdi_rx_pkt_length: If WDI_RX_TRE_PROC_IN_PROGRESS is set, this field is
+ *                     valid and contains the packet length of the TRE that
+ *                     needs to be submitted to IPA.
+ * @resv1: reserved bits.
+ * @pkt_comp_count: It is incremented on each AOS received. When event ring
+ *                  Write index is updated, it is decremented by the same
+ *                  amount.
+ * @stop_in_progress_stm: If a Stop request is in progress, this will indicate
+ *                        the current stage of processing of the stop within MCS
+ * @resv2: reserved bits.
+ * wdi_rx_qmap_id_internal: Initialized to 0 by MCS when the channel is
+ *                          allocated. It is updated to the current value of SW
+ *                          QMAP ID that is being written by MCS to the IPA
+ *                          metadata register.
+ */
+struct __packed gsi_wdi_channel_scratch {
+	uint32_t wifi_rx_ri_addr_low;
+	uint32_t wifi_rx_ri_addr_high;
+	uint32_t update_ri_moderation_threshold:5;
+	uint32_t update_ri_moderation_counter:6;
+	uint32_t wdi_rx_tre_proc_in_progress:1;
+	uint32_t wdi_rx_vdev_id:8;
+	uint32_t wdi_rx_fw_desc:8;
+	uint32_t endp_metadatareg_offset:16;
+	uint32_t qmap_id:16;
+	uint32_t wdi_rx_pkt_length:16;
+	uint32_t resv1:2;
+	uint32_t pkt_comp_count:11;
+	uint32_t stop_in_progress_stm:3;
+	uint32_t resv2:16;
+	uint32_t wdi_rx_qmap_id_internal:16;
+};
+
+/**
  * gsi_channel_scratch - channel scratch SW config area
  *
  */
@@ -611,6 +679,7 @@ union __packed gsi_channel_scratch {
 	struct __packed gsi_gpi_channel_scratch gpi;
 	struct __packed gsi_mhi_channel_scratch mhi;
 	struct __packed gsi_xdci_channel_scratch xdci;
+	struct __packed gsi_wdi_channel_scratch wdi;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -640,12 +709,30 @@ struct __packed gsi_xdci_evt_scratch {
 };
 
 /**
+ * gsi_wdi_evt_scratch - WDI protocol SW config area of
+ * event scratch
+ *
+ */
+
+struct __packed gsi_wdi_evt_scratch {
+	uint32_t update_ri_moderation_config:8;
+	uint32_t resvd1:8;
+	uint32_t update_ri_mod_timer_running:1;
+	uint32_t evt_comp_count:14;
+	uint32_t resvd2:1;
+	uint32_t last_update_ri:16;
+	uint32_t resvd3:16;
+};
+
+
+/**
  * gsi_evt_scratch - event scratch SW config area
  *
  */
 union __packed gsi_evt_scratch {
 	struct __packed gsi_mhi_evt_scratch mhi;
 	struct __packed gsi_xdci_evt_scratch xdci;
+	struct __packed gsi_wdi_evt_scratch wdi;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;

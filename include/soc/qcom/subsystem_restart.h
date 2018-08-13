@@ -35,6 +35,30 @@ enum crash_status {
 struct device;
 struct module;
 
+enum ssr_comm {
+	SUBSYS_TO_SUBSYS_SYSMON,
+	SUBSYS_TO_HLOS,
+	HLOS_TO_SUBSYS_SYSMON_SHUTDOWN,
+	NUM_SSR_COMMS,
+};
+
+/**
+ * struct subsys_notif_timeout - timeout data used by notification timeout hdlr
+ * @comm_type: Specifies if the type of communication being tracked is
+ * through sysmon between two subsystems, subsystem notifier call chain, or
+ * sysmon shutdown.
+ * @dest_name: subsystem to which sysmon notification is being sent to
+ * @source_name: subsystem which generated event that notification is being sent
+ * for
+ * @timer: timer for scheduling timeout
+ */
+struct subsys_notif_timeout {
+	enum ssr_comm comm_type;
+	const char *dest_name;
+	const char *source_name;
+	struct timer_list timer;
+};
+
 /**
  * struct subsys_desc - subsystem descriptor
  * @name: name of subsystem
@@ -98,6 +122,9 @@ struct subsys_desc {
 	bool ignore_ssr_failure;
 	const char *edge;
 	struct qcom_smem_state *state;
+#ifdef CONFIG_SETUP_SSR_NOTIF_TIMEOUTS
+	struct subsys_notif_timeout timeout_data;
+#endif /* CONFIG_SETUP_SSR_NOTIF_TIMEOUTS */
 };
 
 /**

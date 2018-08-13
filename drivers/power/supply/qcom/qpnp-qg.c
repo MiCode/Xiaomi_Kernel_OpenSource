@@ -3442,7 +3442,7 @@ static int process_resume(struct qpnp_qg *chip)
 {
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
-	int rc, batt_temp = 0;
+	int rc;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3458,11 +3458,6 @@ static int process_resume(struct qpnp_qg *chip)
 		rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S3_GOOD_OCV);
 		if (rc < 0) {
 			pr_err("Failed to read good_ocv, rc=%d\n", rc);
-			return rc;
-		}
-		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc < 0) {
-			pr_err("Failed to read BATT_TEMP, rc=%d\n", rc);
 			return rc;
 		}
 

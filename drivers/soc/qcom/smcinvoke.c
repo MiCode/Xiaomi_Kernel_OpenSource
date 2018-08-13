@@ -989,8 +989,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 		ret = scm_call2(cmd, &desc);
+		req->result = (int32_t)desc.ret[1];
 		if (!ret && !is_inbound_req(desc.ret[0])) {
-			req->result = (int32_t)desc.ret[1];
+
 			/* dont marshal if Obj returns an error */
 			if (!req->result) {
 				dmac_inv_range(in_buf, in_buf + in_buf_len);
@@ -1010,8 +1011,16 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 
 		/* process listener request */
 		if (desc.ret[0] == QSEOS_RESULT_INCOMPLETE ||
-		    desc.ret[0] == QSEOS_RESULT_BLOCKED_ON_LISTENER)
+		    desc.ret[0] == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
 			ret = qseecom_process_listener_from_smcinvoke(&desc);
+			req->result = (int32_t)desc.ret[1];
+			if (!req->result) {
+				dmac_inv_range(in_buf, in_buf + in_buf_len);
+				ret = marshal_out_invoke_req(in_buf,
+						in_buf_len, req, args_buf);
+			}
+			*tz_acked = true;
+		}
 
 		/*
 		 * qseecom does not understand smcinvoke's callback object &&
@@ -1024,7 +1033,6 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 
 		if (desc.ret[0] == SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
 			process_tzcb_req(out_buf, out_buf_len, arr_filp);
-			memset(&desc, 0, sizeof(struct scm_desc));
 			desc.arginfo = SMCINVOKE_CB_RSP_PARAM_ID;
 			desc.args[0] = (uint64_t)virt_to_phys(out_buf);
 			desc.args[1] = out_buf_len;

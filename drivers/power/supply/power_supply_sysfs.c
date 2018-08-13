@@ -89,6 +89,10 @@ static const char * const power_supply_usbc_pr_text[] = {
 	"none", "dual power role", "sink", "source"
 };
 
+static const char * const power_supply_typec_src_rp_text[] = {
+	"Rp-Default", "Rp-1.5A", "Rp-3A"
+};
+
 static ssize_t power_supply_show_property(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf) {
@@ -141,6 +145,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	else if (off == POWER_SUPPLY_PROP_TYPEC_POWER_ROLE)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 			       power_supply_usbc_pr_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_TYPEC_SRC_RP)
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+			       power_supply_typec_src_rp_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_DIE_HEALTH)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 			       power_supply_health_text[value.intval]);
@@ -334,6 +341,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(typec_mode),
 	POWER_SUPPLY_ATTR(typec_cc_orientation),
 	POWER_SUPPLY_ATTR(typec_power_role),
+	POWER_SUPPLY_ATTR(typec_src_rp),
 	POWER_SUPPLY_ATTR(pd_allowed),
 	POWER_SUPPLY_ATTR(pd_active),
 	POWER_SUPPLY_ATTR(pd_in_hard_reset),

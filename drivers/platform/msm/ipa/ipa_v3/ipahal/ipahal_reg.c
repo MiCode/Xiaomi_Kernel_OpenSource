@@ -1534,8 +1534,7 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK);
 
-	/* At IPAv3 hard_byte_limit is not supported */
-	ep_aggr->aggr_hard_byte_limit_en = 0;
+	/*IPA 3.5.1 and above target versions hard byte limit enable supported*/
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_hard_byte_limit_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK);

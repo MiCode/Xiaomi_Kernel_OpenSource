@@ -18,10 +18,15 @@ struct cnss_plat_data;
 #ifdef CONFIG_CNSS2_QMI
 #include "wlan_firmware_service_v01.h"
 
+struct cnss_qmi_event_server_arrive_data {
+	unsigned int node;
+	unsigned int port;
+};
+
 int cnss_qmi_init(struct cnss_plat_data *plat_priv);
 void cnss_qmi_deinit(struct cnss_plat_data *plat_priv);
 unsigned int cnss_get_qmi_timeout(void);
-int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data);
 int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv);
@@ -57,7 +62,8 @@ static inline unsigned int cnss_get_qmi_timeout(void)
 	return QMI_WLFW_TIMEOUT_MS;
 }
 
-static inline int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv)
+static inline int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv,
+					  void *data)
 {
 	return 0;
 }
