@@ -608,7 +608,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
 };
 
 #include <dt-bindings/gpio/gpio.h>
@@ -694,5 +694,33 @@
 			iommus = <&apps_smmu 0x3C0 0x0>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
+	};
+
+	cnss_pcie: qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-en-gpio = <&tlmm 169 0>;
+		vdd-wlan-supply = <&vreg_wlan>;
+		reg = <0x10000000 0x10000000>,
+			<0x20000000 0x10000>;
+		reg-names = "smmu_iova_base", "smmu_iova_ipa";
+		qcom,notify-modem-status;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>, <1 512 0 0>,
+				/* Upto 200 Mbps */
+				<45 512 41421 655360>, <1 512 41421 655360>,
+				/* Upto 400 Mbps */
+				<45 512 98572 655360>, <1 512 98572 1600000>,
+				/* Upto 800 Mbps */
+				<45 512 207108 1146880>, <1 512 207108 3124992>;
+		qcom,smmu-s1-enable;
 	};
 };

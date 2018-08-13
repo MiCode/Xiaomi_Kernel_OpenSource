@@ -177,10 +177,11 @@ static int wil_ring_alloc_skb_edma(struct wil6210_priv *wil,
 		return -EAGAIN;
 	}
 
-	skb = dev_alloc_skb(sz);
+	skb = dev_alloc_skb(sz + headroom_size);
 	if (unlikely(!skb))
 		return -ENOMEM;
 
+	skb_reserve(skb, headroom_size);
 	skb_put(skb, sz);
 
 	/**

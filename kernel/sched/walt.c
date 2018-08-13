@@ -2554,7 +2554,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		return;
 
 	list_for_each_entry(p, &grp->tasks, grp_list) {
-		if (task_boost_on_big_eligible(p)) {
+		if (task_boost_policy(p) == SCHED_BOOST_ON_BIG) {
 			group_boost = true;
 			break;
 		}

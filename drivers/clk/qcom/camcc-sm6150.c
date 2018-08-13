@@ -162,12 +162,12 @@ static struct pll_vco cam_cc_pll_vco[] = {
 static const struct alpha_pll_config cam_cc_pll0_config = {
 	.l = 0x1F,
 	.alpha_u = 0x40,
-	.alpha = 0x0,
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x2 << 20,
 	.vco_mask = 0x3 << 20,
-	.main_output_mask = BIT(1),
-	.config_ctl_val = 0x40008529,
+	.aux_output_mask = BIT(1),
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll cam_cc_pll0_out_aux = {
@@ -197,8 +197,9 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x2 << 20,
 	.vco_mask = 0x3 << 20,
-	.main_output_mask = BIT(1),
-	.config_ctl_val = 0x40008529,
+	.aux_output_mask = BIT(1),
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll cam_cc_pll1_out_aux = {
@@ -223,13 +224,12 @@ static struct clk_alpha_pll cam_cc_pll1_out_aux = {
 /* 960MHz configuration */
 static const struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x32,
-	.alpha = 0x0,
-	.alpha_en_mask = BIT(24),
 	.vco_val = 0x0 << 20,
 	.vco_mask = 0x3 << 20,
 	.early_output_mask = BIT(3),
 	.aux2_output_mask = BIT(2),
-	.config_ctl_val = 0x000040C9,
+	.config_ctl_val = 0x04289,
+	.test_ctl_mask = 0x08000000,
 };
 
 static struct clk_alpha_pll cam_cc_pll2_out_early = {
@@ -265,12 +265,12 @@ static struct clk_alpha_pll_postdiv cam_cc_pll2_out_aux2 = {
 static const struct alpha_pll_config cam_cc_pll3_config = {
 	.l = 0x38,
 	.alpha_u = 0x40,
-	.alpha = 0x0,
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x0 << 20,
 	.vco_mask = 0x3 << 20,
 	.main_output_mask = BIT(0),
-	.config_ctl_val = 0x40008529,
+	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_mask = 0x1,
 };
 
 static struct clk_alpha_pll cam_cc_pll3_out_main = {

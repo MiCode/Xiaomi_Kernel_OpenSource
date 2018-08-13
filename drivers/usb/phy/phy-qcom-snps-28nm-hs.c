@@ -348,10 +348,6 @@ static int msm_snps_hsphy_init(struct usb_phy *uphy)
 	int ret;
 
 	dev_dbg(phy->phy.dev, "%s: Initialize HS PHY\n", __func__);
-	ret = msm_snps_hsphy_enable_regulators(phy);
-	if (ret)
-		return ret;
-
 	ret = msm_snps_phy_block_reset(phy);
 	if (ret)
 		return ret;
@@ -368,9 +364,18 @@ static void msm_snps_hsphy_enable_hv_interrupts(struct msm_snps_hsphy *phy)
 	u32 val;
 
 	dev_dbg(phy->phy.dev, "%s\n", __func__);
-	val = readl_relaxed(USB_PHY_CSR_PHY_CTRL3);
-	val |= CLAMP_MPM_DPSE_DMSE_EN_N;
-	writeb_relaxed(val, USB_PHY_CSR_PHY_CTRL3);
+	/* Clear any existing interrupts before enabling the interrupts */
+	val = readl_relaxed(USB2_PHY_USB_PHY_INTERRUPT_CLEAR0);
+	val |= USB2_PHY_USB_PHY_DPDM_CLEAR_MASK;
+	writeb_relaxed(val, USB2_PHY_USB_PHY_INTERRUPT_CLEAR0);
+
+	writeb_relaxed(0x00, USB2_PHY_USB_PHY_IRQ_CMD);
+	usleep_range(200, 220);
+	writeb_relaxed(0x01, USB2_PHY_USB_PHY_IRQ_CMD);
+
+	val = readl_relaxed(USB2_PHY_USB_PHY_INTERRUPT_MASK0);
+	val |= USB2_PHY_USB_PHY_DPDM_0_1_MASK;
+	writeb_relaxed(val, USB2_PHY_USB_PHY_INTERRUPT_MASK0);
 }
 
 static void msm_snps_hsphy_disable_hv_interrupts(struct msm_snps_hsphy *phy)
@@ -378,9 +383,18 @@ static void msm_snps_hsphy_disable_hv_interrupts(struct msm_snps_hsphy *phy)
 	u32 val;
 
 	dev_dbg(phy->phy.dev, "%s\n", __func__);
-	val = readl_relaxed(USB_PHY_CSR_PHY_CTRL3);
-	val &= ~CLAMP_MPM_DPSE_DMSE_EN_N;
-	writeb_relaxed(val, USB_PHY_CSR_PHY_CTRL3);
+	val = readl_relaxed(USB2_PHY_USB_PHY_INTERRUPT_MASK0);
+	val &= ~USB2_PHY_USB_PHY_DPDM_CLEAR_MASK;
+	writeb_relaxed(val, USB2_PHY_USB_PHY_INTERRUPT_MASK0);
+
+	/* Clear any pending interrupts */
+	val = readl_relaxed(USB2_PHY_USB_PHY_INTERRUPT_CLEAR0);
+	val |= USB2_PHY_USB_PHY_DPDM_CLEAR_MASK;
+	writeb_relaxed(val, USB2_PHY_USB_PHY_INTERRUPT_CLEAR0);
+
+	writeb_relaxed(0x00, USB2_PHY_USB_PHY_IRQ_CMD);
+	usleep_range(200, 220);
+	writeb_relaxed(0x01, USB2_PHY_USB_PHY_IRQ_CMD);
 }
 
 static int msm_snps_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
@@ -391,7 +405,8 @@ static int msm_snps_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	dev_dbg(phy->phy.dev, "%s: suspend:%d with phy->suspended:%d\n",
 					__func__, suspend, phy->suspended);
 	if (phy->suspended == suspend) {
-		dev_info(phy->phy.dev, "PHY is already suspended\n");
+		dev_info(phy->phy.dev, "PHY is already %s\n",
+					suspend ? "suspended" : "resumed");
 		return 0;
 	}
 
@@ -631,6 +646,7 @@ static int msm_snps_hsphy_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	phy->suspended = true;
 	ret = usb_add_phy_dev(&phy->phy);
 
 	return ret;

@@ -579,6 +579,12 @@ struct perf_event {
 	int				group_caps;
 
 	struct perf_event		*group_leader;
+
+	/*
+	 * Protect the pmu, attributes and context of a group leader.
+	 * Note: does not protect the pointer to the group_leader.
+	 */
+	struct mutex			group_leader_mutex;
 	struct pmu			*pmu;
 	void				*pmu_private;
 

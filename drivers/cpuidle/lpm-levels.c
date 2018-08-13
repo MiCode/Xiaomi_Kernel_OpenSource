@@ -1364,7 +1364,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int idx)
 {
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
-	bool success = true;
+	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	ktime_t start = ktime_get();
 	uint64_t start_time = ktime_to_ns(start), end_time;

@@ -798,6 +798,18 @@
 		#clock-cells = <1>;
 	};
 
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sm6150";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		clock-names = "cxo";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
@@ -847,6 +859,12 @@
 		reg = <0xc264000 0x4>,
 		      <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
+	qcom,mpm2-sleep-counter@0xc221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
 	};
 
 	qcom,sps {
@@ -1093,6 +1111,11 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
 	};
 
 	apps_rsc: mailbox@18220000 {
@@ -1154,6 +1177,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -1162,6 +1189,10 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
@@ -1339,6 +1370,30 @@
 		cell-index = <0>;
 	};
 
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pm6150l_l1>;
+		qca,bt-vdd-pa-supply = <&pm6150l_l2>;
+		qca,bt-vdd-ldo-supply = <&pm6150l_l10>;
+
+		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1370000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3400000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
+	};
+
 	slim_aud: slim@62dc0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
@@ -1370,12 +1425,20 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
 		qcom,iommu-s1-bypass;
 
 		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
 			compatible = "qcom,iommu-slim-ctrl-cb";
 			iommus = <&apps_smmu 0x17f3 0x0>;
+		};
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
 		};
 	};
 
@@ -2032,9 +2095,130 @@
 #include "sm6150-gpu.dtsi"
 #include "sm6150-usb.dtsi"
 
+&pm6150_charger {
+	dpdm-supply = <&qusb_phy0>;
+};
+
 &usb0 {
 	extcon = <&pm6150_pdphy>;
 	vbus_dwc3-supply = <&smb5_vbus>;
+};
+
+&pm6150_vadc {
+	sdm_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "sdm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	conn_therm {
+		reg = <ADC_AMUX_THM4_PU2>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150_adc_tm {
+	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM4_PU2>;
+
+	/* Channel nodes */
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	sdm_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	conn_therm {
+		reg = <ADC_AMUX_THM4_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pm6150l_vadc {
+	emmc_ufs_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "emmc_ufs_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "rf_pa0_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "rf_pa1_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	camera_flash_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "camera_flash_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_GPIO4_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150l_adc_tm {
+	io-channels = <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
+			<&pm6150l_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6150l_vadc ADC_GPIO1_PU2>,
+			<&pm6150l_vadc ADC_GPIO4_PU2>;
+
+	/* Channel nodes */
+	emmc_ufs_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	camera_flash_therm {
+		reg = <ADC_GPIO1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC_GPIO4_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
 };
 
 &emac_gdsc {
@@ -2110,6 +2294,7 @@
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
@@ -2117,7 +2302,7 @@
 	clock-names = "core_root_clk";
 	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
-	parent-supply = <&pm6150_s1_level>;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 

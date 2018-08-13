@@ -995,6 +995,8 @@ static int cam_icp_update_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
 		id = CAM_ICP_IPE_CMD_UPDATE_CLK;
 	}
 
+	CAM_DBG(CAM_PERF, "clk_rate %u for dev_type %d", curr_clk_rate,
+		ctx_data->icp_dev_acquire_info->dev_type);
 	clk_upd_cmd.curr_clk_rate = curr_clk_rate;
 	clk_upd_cmd.ipe_bps_pc_enable = icp_hw_mgr.ipe_bps_pc_flag;
 
@@ -1057,6 +1059,10 @@ static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
 	 * and vote to cpas - cpas will add up and vote full bw to sf client
 	 * anyway.
 	 */
+
+	CAM_DBG(CAM_ICP, "compress_bw %llu uncompress_bw %llu dev_type %d",
+		clk_info->compressed_bw, clk_info->uncompressed_bw,
+		ctx_data->icp_dev_acquire_info->dev_type);
 
 	return 0;
 }
@@ -1373,6 +1379,7 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	return rc;
 err:
 	debugfs_remove_recursive(icp_hw_mgr.dentry);
+	icp_hw_mgr.dentry = NULL;
 	return rc;
 }
 
@@ -1452,8 +1459,10 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 		CAM_ERR(CAM_ICP, "Invalid Context");
 		return -EINVAL;
 	}
-	CAM_DBG(CAM_ICP, "ctx : %pK, request_id :%lld",
-		(void *)ctx_data->context_priv, request_id);
+	CAM_DBG(CAM_REQ,
+		"ctx_id : %u, request_id :%lld dev_type: %d",
+		ctx_data->ctx_id, request_id,
+		ctx_data->icp_dev_acquire_info->dev_type);
 
 	mutex_lock(&ctx_data->ctx_mutex);
 	cam_icp_ctx_timer_reset(ctx_data);
@@ -2326,6 +2335,7 @@ static int cam_icp_mgr_hw_close_u(void *hw_priv, void *hw_close_args)
 	struct cam_icp_hw_mgr *hw_mgr = hw_priv;
 	int rc = 0;
 
+	CAM_DBG(CAM_ICP, "UMD calls close");
 	if (!hw_mgr) {
 		CAM_ERR(CAM_ICP, "Null hw mgr");
 		return 0;
@@ -2342,6 +2352,7 @@ static int cam_icp_mgr_hw_close_k(void *hw_priv, void *hw_close_args)
 {
 	struct cam_icp_hw_mgr *hw_mgr = hw_priv;
 
+	CAM_DBG(CAM_ICP, "KMD calls close");
 	if (!hw_mgr) {
 		CAM_ERR(CAM_ICP, "Null hw mgr");
 		return 0;
@@ -2371,6 +2382,7 @@ static int cam_icp_mgr_icp_power_collapse(struct cam_icp_hw_mgr *hw_mgr)
 			a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 		rc = cam_icp_mgr_hw_close_k(hw_mgr, NULL);
 	} else {
+		CAM_DBG(CAM_PERF, "Sending PC prep ICP PC enabled");
 		rc = cam_icp_mgr_send_pc_prep(hw_mgr);
 		cam_hfi_disable_cpu(
 			a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
@@ -3181,8 +3193,10 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	rc = cam_icp_mgr_enqueue_config(hw_mgr, config_args);
 	if (rc)
 		goto config_err;
-	CAM_DBG(CAM_ICP, "req_id = %lld %u",
-		req_id, ctx_data->ctx_id);
+	CAM_DBG(CAM_REQ,
+		"req_id = %lld on ctx_id %u for dev %d queued to FW",
+		req_id, ctx_data->ctx_id,
+		ctx_data->icp_dev_acquire_info->dev_type);
 	mutex_unlock(&ctx_data->ctx_mutex);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
@@ -3368,8 +3382,11 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 				io_cfg_ptr[i].fence;
 			prepare_args->num_out_map_entries++;
 		}
-		CAM_DBG(CAM_ICP, "dir[%d]: %u, fence: %u",
-			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence);
+		CAM_DBG(CAM_REQ,
+			"ctx_id: %u req_id: %llu dir[%d]: %u, fence: %u resource_type = %u",
+			ctx_data->ctx_id, packet->header.request_id, i,
+			io_cfg_ptr[i].direction, io_cfg_ptr[i].fence,
+			io_cfg_ptr[i].resource_type);
 	}
 
 	if (prepare_args->num_in_map_entries > 1) {
@@ -3385,7 +3402,9 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 			merged_sync_in_obj;
 		prepare_args->in_map_entries[0].sync_id = merged_sync_in_obj;
 		prepare_args->num_in_map_entries = 1;
-		CAM_DBG(CAM_ICP, "Merged Sync obj = %d", merged_sync_in_obj);
+		CAM_DBG(CAM_REQ, "ctx_id: %u req_id: %llu Merged Sync obj: %d",
+			ctx_data->ctx_id, packet->header.request_id,
+			merged_sync_in_obj);
 	} else if (prepare_args->num_in_map_entries == 1) {
 		prepare_args->in_map_entries[0].sync_id = sync_in_obj[0];
 		prepare_args->num_in_map_entries = 1;
@@ -3606,7 +3625,8 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return rc;
 	}
 
-	CAM_DBG(CAM_ICP, "E: req id = %lld", packet->header.request_id);
+	CAM_DBG(CAM_REQ, "req id = %lld for ctx = %u",
+		packet->header.request_id, ctx_data->ctx_id);
 	/* Update Buffer Address from handles and patch information */
 	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl,
 		hw_mgr->iommu_sec_hdl);
@@ -3822,6 +3842,11 @@ static int cam_icp_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 		return -EINVAL;
 	}
 
+	CAM_DBG(CAM_REQ, "ctx_id %d req %lld Flush type %d",
+		ctx_data->ctx_id,
+		*(int64_t *)flush_args->flush_req_pending[0],
+		flush_args->flush_type);
+
 	switch (flush_args->flush_type) {
 	case CAM_FLUSH_TYPE_ALL:
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
@@ -3916,7 +3941,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	if ((!hw_mgr->bps_ctxt_cnt || !hw_mgr->ipe_ctxt_cnt))
 		cam_icp_device_timer_stop(hw_mgr);
 
-	CAM_DBG(CAM_ICP, "Exit");
+	CAM_DBG(CAM_ICP, "Release done for ctx_id %d", ctx_id);
 	return rc;
 }
 
@@ -4093,6 +4118,21 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 	return 0;
 }
 
+static const char *cam_icp_dev_type_to_name(
+	uint32_t dev_type)
+{
+	switch (dev_type) {
+	case CAM_ICP_RES_TYPE_BPS:
+		return "BPS";
+	case CAM_ICP_RES_TYPE_IPE_RT:
+		return "IPE_RT";
+	case CAM_ICP_RES_TYPE_IPE:
+		return "IPE";
+	default:
+		return "Invalid dev type";
+	}
+}
+
 static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 {
 	int rc = 0, bitmap_size = 0;
@@ -4224,7 +4264,10 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	cam_icp_ctx_timer_start(ctx_data);
 	hw_mgr->ctxt_cnt++;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-	CAM_DBG(CAM_ICP, "Acquire Done");
+	CAM_DBG(CAM_ICP, "Acquire Done for ctx_id %u dev name %s dev type %d",
+		ctx_data->ctx_id, cam_icp_dev_type_to_name(
+		icp_dev_acquire_info->dev_type),
+		icp_dev_acquire_info->dev_type);
 
 	return 0;
 

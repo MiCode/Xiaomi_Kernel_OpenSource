@@ -11,6 +11,7 @@
  */
 
 #include "sm8150.dtsi"
+#include "sm8150-v2-camera.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SM8150 V2";
@@ -21,6 +22,23 @@
 /* Remove smmu nodes specific to SM8150 */
 /delete-node/ &apps_smmu;
 /delete-node/ &kgsl_smmu;
+
+&mdss_rotator {
+	smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
+		compatible = "qcom,smmu_sde_rot_unsec";
+		iommus = <&apps_smmu 0x2040 0x0>;
+	};
+	smmu_rot_sec: qcom,smmu_rot_sec_cb {
+		compatible = "qcom,smmu_sde_rot_sec";
+		iommus = <&apps_smmu 0x2041 0x0>;
+	};
+};
+
+&spss_utils {
+	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
+	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
+	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+};
 
 &clock_gcc {
 	compatible = "qcom,gcc-sm8150-v2", "syscon";
@@ -403,5 +421,131 @@
 			qcom,bus-min = <0>;
 			qcom,bus-max = <0>;
 		};
+	};
+};
+
+/* NPU overrides */
+&msm_npu {
+	qcom,npu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "qcom,npu-pwrlevels";
+		initial-pwrlevel = <3>;
+		qcom,npu-pwrlevel@0 {
+			reg = <0>;
+			clk-freq = <300000000
+					19200000
+					100000000
+					19200000
+					19200000
+					300000000
+					150000000
+					19200000
+					19200000
+					60000000
+					100000000
+					37500000
+					100000000
+					19200000
+					300000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@1 {
+			reg = <1>;
+			clk-freq = <400000000
+					19200000
+					150000000
+					19200000
+					19200000
+					400000000
+					200000000
+					37500000
+					19200000
+					120000000
+					150000000
+					75000000
+					150000000
+					19200000
+					400000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@2 {
+			reg = <2>;
+			clk-freq = <487000000
+					19200000
+					200000000
+					19200000
+					19200000
+					487000000
+					300000000
+					37500000
+					19200000
+					240000000
+					200000000
+					150000000
+					200000000
+					19200000
+					487000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@3 {
+			reg = <3>;
+			clk-freq = <773000000
+					19200000
+					300000000
+					19200000
+					19200000
+					773000000
+					403000000
+					75000000
+					19200000
+					240000000
+					300000000
+					150000000
+					300000000
+					19200000
+					773000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@4 {
+			reg = <4>;
+			clk-freq = <908000000
+					19200000
+					400000000
+					19200000
+					19200000
+					908000000
+					533000000
+					75000000
+					19200000
+					300000000
+					400000000
+					150000000
+					400000000
+					19200000
+					908000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		/delete-node/ qcom,npu-pwrlevel@5;
 	};
 };

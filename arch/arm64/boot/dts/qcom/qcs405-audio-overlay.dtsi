@@ -46,6 +46,8 @@
 		"VA MIC BIAS1", "Digital Mic6",
 		"VA DMIC7", "VA MIC BIAS1",
 		"VA MIC BIAS1", "Digital Mic7";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spdifrx_opt_default>;
 };
 
 &bolero {

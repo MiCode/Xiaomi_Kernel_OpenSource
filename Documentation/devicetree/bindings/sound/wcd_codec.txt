@@ -457,8 +457,8 @@ Example:
 		compatible = "qcom,wsa-macro";
 		reg = <0x0C2C0000 0x0>;
 		clock-names = "wsa_core_clk", "wsa_npl_clk";
-		clocks = <&clock_audio_wsa_1 AUDIO_LPASS_MCLK>,
-		<&clock_audio_wsa_2 AUDIO_LPASS_MCLK>;
+		clocks = <&clock_audio_wsa_1 0>,
+		<&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = &wsa_swr_gpios;
 	};
 };
@@ -479,6 +479,126 @@ Example:
 		compatible = "qcom,va-macro";
 		reg = <0x0C490000 0x0>;
 		clock-names = "va_core_clk";
-		clocks = <&clock_audio_va AUDIO_LPASS_MCLK>;
+		clocks = <&clock_audio_va 0>;
 	};
+};
+
+RX macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,rx-macro";
+ - reg: Specifies the Rx macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for RX macro
+ - clocks : clock handles defined for RX macro
+
+Example:
+
+&bolero {
+	rx_macro: rx-macro {
+		compatible = "qcom,rx-macro";
+		reg = <0x62EE0000 0x0>;
+		clock-names = "rx_core_clk", "rx_npl_clk";
+		clocks = <&clock_audio_rx_1 0>,
+			 <&clock_audio_rx_2 0>;
+		swr_1: rx_swr_master {
+			compatible = "qcom,swr-mstr";
+			wcd937x_rx_slave: wcd937x-rx-slave {
+				compatible = "qcom,wcd937x-slave";
+			};
+		};
+	};
+};
+
+TX macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,tx-macro";
+ - reg: Specifies the Tx macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for TX macro
+ - clocks : clock handles defined for TX macro
+
+Example:
+
+&bolero {
+	tx_macro: tx-macro {
+		compatible = "qcom,tx-macro";
+		reg = <0x62EC0000 0x0>;
+		clock-names = "tx_core_clk", "tx_npl_clk";
+		clocks = <&clock_audio_tx_1 0>
+			 <&clock_audio_tx_2 0>;
+		swr_2: tx_swr_master {
+			compatible = "qcom,swr-mstr";
+			wcd937x_tx_slave: wcd937x-tx-slave {
+				compatible = "qcom,wcd937x-slave";
+			};
+		};
+	};
+};
+
+Tanggu Codec
+
+Required properties:
+ - compatible: "qcom,wcd937x-codec";
+ - qcom,wcd-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+                        configuration. If this property is not defined, it is
+                        expected to atleast define "qcom,cdc-reset-gpio" property.
+ - qcom,rx-slave: phandle reference of Soundwire Rx slave device.
+ - qcom,tx-slave: phandle reference of Soundwire Tx slave device.
+
+Optional properties:
+
+ - cdc-vdd-ldo-rxtx-supply: phandle of ldo-rxtx supply's regulator device tree node.
+ - qcom,cdc-vdd-ldo-rxtx-voltage: ldo-rxtx supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-ldo-rxtx-current: ldo-rxtx supply's max current in mA.
+
+ - cdc-vddpx-1-supply: phandle of px-1 supply's regulator device tree node.
+ - qcom,cdc-vddpx-1-voltage: px-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddpx-1-current: px-1 supply's max current in mA.
+
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+ - cdc-vdd-mic-bias-supply: phandle of mic bias supply's regulator device tree node.
+ - qcom,cdc-vdd-mic-bias-voltage: mic bias supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-mic-bias-current: mic bias supply's max current in mA.
+
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+
+Example:
+wcd937x_codec: wcd937x-codec {
+	compatible = "qcom,wcd937x-codec";
+
+	qcom,wcd-rst-gpio-node = <&wcd937x_rst_gpio>;
+	qcom,rx-slave = <&wcd937x_rx_slave>;
+	qcom,tx-slave = <&wcd937x_tx_slave>;
+
+	cdc-vdd-buck-supply = <&L15A>;
+	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-buck-current = <650000>;
+
+	cdc-vdd-ldo-rxtx-supply = <&L10A>;
+	qcom,cdc-vdd-ldo-rxtx-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-ldo-rxtx-current = <25000>;
+
+	cdc-vddpx-1-supply = <&L10A>;
+	qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+	qcom,cdc-vddpx-1-current = <10000>;
+
+	cdc-vdd-mic-bias-supply = <&BOB>;
+	qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
+	qcom,cdc-vdd-mic-bias-current = <25000>;
+
+	qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
+				   "cdc-vddpx-1";
+	qcom,cdc-on-demand-supplies = "cdc-vdd-buck",
+				      "cdc-vdd-mic-bias";
 };

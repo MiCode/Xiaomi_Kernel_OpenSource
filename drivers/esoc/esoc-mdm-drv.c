@@ -34,7 +34,7 @@ enum esoc_boot_fail_action {
 	BOOT_FAIL_ACTION_NOP,
 };
 
-static unsigned int boot_fail_action = BOOT_FAIL_ACTION_NOP;
+static unsigned int boot_fail_action = BOOT_FAIL_ACTION_PANIC;
 module_param(boot_fail_action, uint, 0644);
 MODULE_PARM_DESC(boot_fail_action,
 "Actions: 0:Retry PON; 1:Cold reset; 2:Power-down; 3:APQ Panic; 4:No action");
@@ -93,7 +93,6 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 					struct esoc_eng *eng)
 {
 	struct mdm_drv *mdm_drv = to_mdm_drv(eng);
-	struct mdm_ctrl *mdm;
 	bool unexpected_state = false;
 
 	switch (evt) {
@@ -138,9 +137,6 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 		if (mdm_drv->mode == CRASH || mdm_drv->mode != RUN)
 			return;
 		mdm_drv->mode = CRASH;
-		mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
-		mdm_wait_for_status_low(mdm);
-		esoc_mdm_log("Starting SSR work\n");
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
 		break;
 	case ESOC_REQ_ENG_ON:
@@ -156,6 +152,11 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 static void mdm_ssr_fn(struct work_struct *work)
 {
 	struct mdm_drv *mdm_drv = container_of(work, struct mdm_drv, ssr_work);
+	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
+
+	mdm_wait_for_status_low(mdm, false);
+
+	esoc_mdm_log("Starting SSR work\n");
 
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
