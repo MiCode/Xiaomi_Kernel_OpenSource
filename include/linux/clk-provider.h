@@ -36,12 +36,14 @@
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
 /* parents need enable during gate/ungate, set rate and re-parent */
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
-#define CLK_ENABLE_HAND_OFF	BIT(13) /* enable clock when registered. */
+/* duty cycle call may be forwarded to the parent clock */
+#define CLK_DUTY_CYCLE_PARENT	BIT(13)
+#define CLK_ENABLE_HAND_OFF	BIT(14) /* enable clock when registered. */
 					/*
 					 * hand-off enable_count & prepare_count
 					 * to first consumer that enables clk
 					 */
-#define CLK_IS_MEASURE          BIT(14) /* measure clock */
+#define CLK_IS_MEASURE          BIT(15) /* measure clock */
 
 struct clk;
 struct clk_hw;
@@ -68,6 +70,17 @@ struct clk_rate_request {
 	unsigned long max_rate;
 	unsigned long best_parent_rate;
 	struct clk_hw *best_parent_hw;
+};
+
+/**
+ * struct clk_duty - Struture encoding the duty cycle ratio of a clock
+ *
+ * @num:	Numerator of the duty cycle ratio
+ * @den:	Denominator of the duty cycle ratio
+ */
+struct clk_duty {
+	unsigned int num;
+	unsigned int den;
 };
 
 /**
@@ -173,6 +186,15 @@ struct clk_rate_request {
  *		by the second argument. Valid values for degrees are
  *		0-359. Return 0 on success, otherwise -EERROR.
  *
+ * @get_duty_cycle: Queries the hardware to get the current duty cycle ratio
+ *              of a clock. Returned values denominator cannot be 0 and must be
+ *              superior or equal to the numerator.
+ *
+ * @set_duty_cycle: Apply the duty cycle ratio to this clock signal specified by
+ *              the numerator (2nd argurment) and denominator (3rd  argument).
+ *              Argument must be a valid ratio (denominator > 0
+ *              and >= numerator) Return 0 on success, otherwise -EERROR.
+ *
  * @init:	Perform platform-specific initialization magic.
  *		This is not not used by any of the basic clock types.
  *		Please consider other ways of solving initialization problems
@@ -231,6 +253,10 @@ struct clk_ops {
 					   unsigned long parent_accuracy);
 	int		(*get_phase)(struct clk_hw *hw);
 	int		(*set_phase)(struct clk_hw *hw, int degrees);
+	int		(*get_duty_cycle)(struct clk_hw *hw,
+					  struct clk_duty *duty);
+	int		(*set_duty_cycle)(struct clk_hw *hw,
+					  struct clk_duty *duty);
 	void		(*init)(struct clk_hw *hw);
 	int		(*debug_init)(struct clk_hw *hw, struct dentry *dentry);
 	int		(*set_flags)(struct clk_hw *hw, unsigned int flags);

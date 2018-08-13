@@ -77,6 +77,7 @@ struct clk_core {
 	unsigned long		max_rate;
 	unsigned long		accuracy;
 	int			phase;
+	struct clk_duty		duty;
 	struct hlist_head	children;
 	struct hlist_node	child_node;
 	struct hlist_head	clks;
@@ -2304,6 +2305,163 @@ int clk_get_phase(struct clk *clk)
 }
 EXPORT_SYMBOL_GPL(clk_get_phase);
 
+static void clk_core_reset_duty_cycle_nolock(struct clk_core *core)
+{
+	/* Assume a default value of 50% */
+	core->duty.num = 1;
+	core->duty.den = 2;
+}
+
+static int clk_core_update_duty_cycle_parent_nolock(struct clk_core *core);
+
+static int clk_core_update_duty_cycle_nolock(struct clk_core *core)
+{
+	struct clk_duty *duty = &core->duty;
+	int ret = 0;
+
+	if (!core->ops->get_duty_cycle)
+		return clk_core_update_duty_cycle_parent_nolock(core);
+
+	ret = core->ops->get_duty_cycle(core->hw, duty);
+	if (ret)
+		goto reset;
+
+	/* Don't trust the clock provider too much */
+	if (duty->den == 0 || duty->num > duty->den) {
+		ret = -EINVAL;
+		goto reset;
+	}
+
+	return 0;
+
+reset:
+	clk_core_reset_duty_cycle_nolock(core);
+	return ret;
+}
+
+static int clk_core_update_duty_cycle_parent_nolock(struct clk_core *core)
+{
+	int ret = 0;
+
+	if (core->parent &&
+	    core->flags & CLK_DUTY_CYCLE_PARENT) {
+		ret = clk_core_update_duty_cycle_nolock(core->parent);
+		memcpy(&core->duty, &core->parent->duty, sizeof(core->duty));
+	} else {
+		clk_core_reset_duty_cycle_nolock(core);
+	}
+
+	return ret;
+}
+
+static int clk_core_set_duty_cycle_parent_nolock(struct clk_core *core,
+						 struct clk_duty *duty);
+
+static int clk_core_set_duty_cycle_nolock(struct clk_core *core,
+					  struct clk_duty *duty)
+{
+	int ret;
+
+	lockdep_assert_held(&prepare_lock);
+
+	trace_clk_set_duty_cycle(core, duty);
+
+	if (!core->ops->set_duty_cycle)
+		return clk_core_set_duty_cycle_parent_nolock(core, duty);
+
+	ret = core->ops->set_duty_cycle(core->hw, duty);
+	if (!ret)
+		memcpy(&core->duty, duty, sizeof(*duty));
+
+	trace_clk_set_duty_cycle_complete(core, duty);
+
+	return ret;
+}
+
+static int clk_core_set_duty_cycle_parent_nolock(struct clk_core *core,
+						 struct clk_duty *duty)
+{
+	int ret = 0;
+
+	if (core->parent &&
+	    core->flags & (CLK_DUTY_CYCLE_PARENT | CLK_SET_RATE_PARENT)) {
+		ret = clk_core_set_duty_cycle_nolock(core->parent, duty);
+		memcpy(&core->duty, &core->parent->duty, sizeof(core->duty));
+	}
+
+	return ret;
+}
+
+/**
+ * clk_set_duty_cycle - adjust the duty cycle ratio of a clock signal
+ * @clk: clock signal source
+ * @num: numerator of the duty cycle ratio to be applied
+ * @den: denominator of the duty cycle ratio to be applied
+ *
+ * Apply the duty cycle ratio if the ratio is valid and the clock can
+ * perform this operation
+ *
+ * Returns (0) on success, a negative errno otherwise.
+ */
+int clk_set_duty_cycle(struct clk *clk, unsigned int num, unsigned int den)
+{
+	int ret;
+	struct clk_duty duty;
+
+	if (!clk)
+		return 0;
+
+	/* sanity check the ratio */
+	if (den == 0 || num > den)
+		return -EINVAL;
+
+	duty.num = num;
+	duty.den = den;
+
+	clk_prepare_lock();
+
+	ret = clk_core_set_duty_cycle_nolock(clk->core, &duty);
+
+	clk_prepare_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(clk_set_duty_cycle);
+
+static int clk_core_get_scaled_duty_cycle(struct clk_core *core,
+					  unsigned int scale)
+{
+	struct clk_duty *duty = &core->duty;
+	int ret;
+
+	clk_prepare_lock();
+
+	ret = clk_core_update_duty_cycle_nolock(core);
+	if (!ret)
+		ret = mult_frac(scale, duty->num, duty->den);
+
+	clk_prepare_unlock();
+
+	return ret;
+}
+
+/**
+ * clk_get_scaled_duty_cycle - return the duty cycle ratio of a clock signal
+ * @clk: clock signal source
+ * @scale: scaling factor to be applied to represent the ratio as an integer
+ *
+ * Returns the duty cycle ratio of a clock node multiplied by the provided
+ * scaling factor, or negative errno on error.
+ */
+int clk_get_scaled_duty_cycle(struct clk *clk, unsigned int scale)
+{
+	if (!clk)
+		return 0;
+
+	return clk_core_get_scaled_duty_cycle(clk->core, scale);
+}
+EXPORT_SYMBOL_GPL(clk_get_scaled_duty_cycle);
+
 /**
  * clk_is_match - check if two clk's point to the same hardware clock
  * @p: clk compared against q
@@ -2420,11 +2578,12 @@ static void clk_summary_show_one(struct seq_file *s, struct clk_core *c,
 	if (!c)
 		return;
 
-	seq_printf(s, "%*s%-*s %11d %12d %11lu %10lu %-3d\n",
+	seq_printf(s, "%*s%-*s %7d %8d %8d %11lu %10lu %5d %6d\n",
 		   level * 3 + 1, "",
 		   30 - level * 3, c->name,
 		   c->enable_count, c->prepare_count, clk_core_get_rate(c),
-		   clk_core_get_accuracy(c), clk_core_get_phase(c));
+		   clk_core_get_accuracy(c), clk_core_get_phase(c),
+		   clk_core_get_scaled_duty_cycle(c, 100000));
 }
 
 static void clk_summary_show_subtree(struct seq_file *s, struct clk_core *c,
@@ -2446,8 +2605,9 @@ static int clk_summary_show(struct seq_file *s, void *data)
 	struct clk_core *c;
 	struct hlist_head **lists = (struct hlist_head **)s->private;
 
-	seq_puts(s, "   clock                         enable_cnt  prepare_cnt        rate   accuracy   phase\n");
-	seq_puts(s, "----------------------------------------------------------------------------------------\n");
+	seq_puts(s, "                                 enable  prepare                          duty\n");
+	seq_puts(s, "   clock                          count    count   rate   accuracy phase  cycle\n");
+	seq_puts(s, "-------------------------------------------------------------------------------\n");
 
 	clk_prepare_lock();
 
@@ -2485,6 +2645,8 @@ static void clk_dump_one(struct seq_file *s, struct clk_core *c, int level)
 	seq_printf(s, "\"rate\": %lu,", clk_core_get_rate(c));
 	seq_printf(s, "\"accuracy\": %lu,", clk_core_get_accuracy(c));
 	seq_printf(s, "\"phase\": %d", clk_core_get_phase(c));
+	seq_printf(s, "\"duty_cycle\": %u",
+		   clk_core_get_scaled_duty_cycle(c, 100000));
 }
 
 static void clk_dump_subtree(struct seq_file *s, struct clk_core *c, int level)
@@ -2899,6 +3061,28 @@ static const struct file_operations rate_max_fops = {
 	.release	= seq_release,
 };
 
+static int clk_duty_cycle_show(struct seq_file *s, void *data)
+{
+	struct clk_core *core = s->private;
+	struct clk_duty *duty = &core->duty;
+
+	seq_printf(s, "%u/%u\n", duty->num, duty->den);
+
+	return 0;
+}
+
+static int clk_duty_cycle_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clk_duty_cycle_show, inode->i_private);
+}
+
+static const struct file_operations clk_duty_cycle_fops = {
+	.open		= clk_duty_cycle_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 static int clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 {
 	struct dentry *d;
@@ -2974,6 +3158,11 @@ static int clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 
 	d = debugfs_create_file("clk_print_regs", 0444, core->dentry,
 			core, &clock_print_hw_fops);
+	if (!d)
+		goto err_out;
+
+	d = debugfs_create_file("clk_duty_cycle", 0444, core->dentry,
+			core, &clk_duty_cycle_fops);
 	if (!d)
 		goto err_out;
 
@@ -3249,6 +3438,11 @@ static int __clk_core_init(struct clk_core *core)
 		core->phase = core->ops->get_phase(core->hw);
 	else
 		core->phase = 0;
+
+	/*
+	 * Set clk's duty cycle.
+	 */
+	clk_core_update_duty_cycle_nolock(core);
 
 	/*
 	 * Set clk's rate.  The preferred method is to use .recalc_rate.  For
