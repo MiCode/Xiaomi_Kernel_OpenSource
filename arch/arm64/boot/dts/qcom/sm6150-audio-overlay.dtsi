@@ -114,13 +114,13 @@
 	qcom,audio-routing =
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
-		"DMIC0", "MIC BIAS1",
+		"TX DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
-		"DMIC1", "MIC BIAS1",
+		"TX DMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic1",
-		"DMIC2", "MIC BIAS3",
+		"TX DMIC2", "MIC BIAS3",
 		"MIC BIAS3", "Digital Mic2",
-		"DMIC3", "MIC BIAS3",
+		"TX DMIC3", "MIC BIAS3",
 		"MIC BIAS3", "Digital Mic3",
 		"TX_AIF1 CAP", "VA_MCLK",
 		"TX_AIF2 CAP", "VA_MCLK",
@@ -191,9 +191,9 @@
 		qcom,cdc-vdd-mic-bias-current = <25000>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
-					   "cdc-vddpx-1";
-		qcom,cdc-on-demand-supplies = "cdc-vdd-buck",
-					      "cdc-vdd-mic-bias";
+					   "cdc-vddpx-1",
+					   "cdc-vdd-buck",
+					   "cdc-vdd-mic-bias";
 	};
 
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
@@ -280,7 +280,7 @@
 		qcom,lpi-gpios;
 	};
 
-	qcom,wcd-dsp-glink {
+	tavil_glink: qcom,wcd-dsp-glink {
 		status = "disabled";
 		compatible = "qcom,wcd-dsp-glink";
 		qcom,wdsp-channels = "g_glink_ctrl",
@@ -356,6 +356,7 @@
 
 	clock_audio: audio_ext_clk {
 		status = "disabled";
+		qcom,codec-ext-clk-src = <0>;
 		compatible = "qcom,audio-ref-clk";
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&wcd934x_mclk_default>;
