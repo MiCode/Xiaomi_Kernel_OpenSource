@@ -375,19 +375,6 @@ enum MHI_BRSTMODE {
 #define MHI_INVALID_BRSTMODE(mode) (mode != MHI_BRSTMODE_DISABLE && \
 				    mode != MHI_BRSTMODE_ENABLE)
 
-enum MHI_EE {
-	MHI_EE_PBL = 0x0,
-	MHI_EE_SBL = 0x1,
-	MHI_EE_AMSS = 0x2,
-	MHI_EE_BHIE = 0x3,
-	MHI_EE_RDDM = 0x4,
-	MHI_EE_PTHRU = 0x5,
-	MHI_EE_EDL = 0x6,
-	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,
-	MHI_EE_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
-	MHI_EE_MAX,
-};
-
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (((ee) >= MHI_EE_MAX) ? \
 			     "INVALID_EE" : mhi_ee_str[ee])
@@ -407,18 +394,6 @@ enum MHI_ST_TRANSITION {
 extern const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX];
 #define TO_MHI_STATE_TRANS_STR(state) (((state) >= MHI_ST_TRANSITION_MAX) ? \
 				"INVALID_STATE" : mhi_state_tran_str[state])
-
-enum MHI_STATE {
-	MHI_STATE_RESET = 0x0,
-	MHI_STATE_READY = 0x1,
-	MHI_STATE_M0 = 0x2,
-	MHI_STATE_M1 = 0x3,
-	MHI_STATE_M2 = 0x4,
-	MHI_STATE_M3 = 0x5,
-	MHI_STATE_BHI  = 0x7,
-	MHI_STATE_SYS_ERR  = 0xFF,
-	MHI_STATE_MAX,
-};
 
 extern const char * const mhi_state_str[MHI_STATE_MAX];
 #define TO_MHI_STATE_STR(state) ((state >= MHI_STATE_MAX || \
@@ -596,7 +571,7 @@ struct mhi_chan {
 	u32 intmod;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
-	enum MHI_EE ee;
+	enum mhi_ee ee;
 	enum MHI_XFER_TYPE xfer_type;
 	enum MHI_CH_STATE ch_state;
 	enum MHI_EV_CCS ccs;
@@ -663,8 +638,8 @@ enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
 const char *to_mhi_pm_state_str(enum MHI_PM_STATE state);
 void mhi_reset_chan(struct mhi_controller *mhi_cntrl,
 		    struct mhi_chan *mhi_chan);
-enum MHI_EE mhi_get_exec_env(struct mhi_controller *mhi_cntrl);
-enum MHI_STATE mhi_get_m_state(struct mhi_controller *mhi_cntrl);
+enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl);
+enum mhi_dev_state mhi_get_m_state(struct mhi_controller *mhi_cntrl);
 int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
@@ -720,7 +695,8 @@ void mhi_write_db(struct mhi_controller *mhi_cntrl, void __iomem *db_addr,
 void mhi_ring_cmd_db(struct mhi_controller *mhi_cntrl, struct mhi_cmd *mhi_cmd);
 void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
-void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl, enum MHI_STATE state);
+void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
+		       enum mhi_dev_state state);
 int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
