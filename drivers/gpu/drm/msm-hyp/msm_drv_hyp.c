@@ -318,7 +318,7 @@ static int _msm_parse_dt(struct device_node *node, u32 *client_id)
 	const char *client_id_str;
 
 	client_id_str = of_get_property(node, "qcom,client-id", &len);
-	if (len != CLIENT_ID_LEN_IN_CHARS) {
+	if (!client_id_str || len != CLIENT_ID_LEN_IN_CHARS) {
 		DBG("client_id_str len(%d) is invalid\n", len);
 		ret = -EINVAL;
 	} else {
