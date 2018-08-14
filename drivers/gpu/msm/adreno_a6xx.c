@@ -2625,7 +2625,10 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	if (counter == 0)
 		return -EINVAL;
 
-	if (!gmu_core_isenabled(device))
+	/* We can use GPU without GMU and allow it to count GPU busy cycles */
+	if (!gmu_core_isenabled(device) &&
+			!kgsl_is_register_offset(device,
+				A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK))
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
