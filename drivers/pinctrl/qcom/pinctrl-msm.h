@@ -128,10 +128,12 @@ struct msm_pdc_mux_output {
  * struct msm_dir_conn - Direct GPIO connect configuration
  * @gpio:	GPIO pin number
  * @hwirq:	The GIC interrupt that the pin is connected to
+ * @tlmm_dc:	indicates if the GPIO is routed to GIC directly
  */
 struct msm_dir_conn {
 	unsigned int gpio;
 	irq_hw_number_t hwirq;
+	bool tlmm_dc;
 };
 
 /**
