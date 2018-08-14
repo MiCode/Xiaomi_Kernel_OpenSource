@@ -353,6 +353,7 @@ struct synaptics_rmi4_device_info {
  * @report_touch: pointer to touch reporting function
  */
 struct synaptics_rmi4_data {
+	bool initialized;
 	struct platform_device *pdev;
 	struct input_dev *input_dev;
 	struct input_dev *stylus_dev;
