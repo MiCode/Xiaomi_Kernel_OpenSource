@@ -827,7 +827,7 @@
 			};
 
 			port@1 {
-				reg = <0>;
+				reg = <1>;
 				funnel_turing_1_in_turing_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
