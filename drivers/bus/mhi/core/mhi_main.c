@@ -657,7 +657,8 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 
 	mhi_chan = mhi_cntrl->mhi_chan;
 	for (i = 0; i < mhi_cntrl->max_chan; i++, mhi_chan++) {
-		if (!mhi_chan->configured || mhi_chan->ee != mhi_cntrl->ee)
+		if (!mhi_chan->configured || mhi_chan->mhi_dev ||
+		    !(mhi_chan->ee_mask & BIT(mhi_cntrl->ee)))
 			continue;
 		mhi_dev = mhi_alloc_device(mhi_cntrl);
 		if (!mhi_dev)
@@ -1320,10 +1321,9 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Entered: preparing channel:%d\n", mhi_chan->chan);
 
-	if (mhi_cntrl->ee != mhi_chan->ee) {
-		MHI_ERR("Current EE:%s Required EE:%s for chan:%s\n",
-			TO_MHI_EXEC_STR(mhi_cntrl->ee),
-			TO_MHI_EXEC_STR(mhi_chan->ee),
+	if (!(BIT(mhi_cntrl->ee) & mhi_chan->ee_mask)) {
+		MHI_ERR("Current EE:%s Required EE Mask:0x%x for chan:%s\n",
+			TO_MHI_EXEC_STR(mhi_cntrl->ee), mhi_chan->ee_mask,
 			mhi_chan->name);
 		return -ENOTCONN;
 	}
