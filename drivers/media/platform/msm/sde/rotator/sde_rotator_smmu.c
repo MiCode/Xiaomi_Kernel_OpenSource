@@ -527,6 +527,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	char name[MAX_CLIENT_NAME_LEN];
 	int mdphtw_llc_enable = 1;
 	u32 sid = 0;
+	bool smmu_rot_full_map;
 
 	if (!mdata) {
 		SDEROT_INFO(
@@ -609,6 +610,13 @@ int sde_smmu_probe(struct platform_device *pdev)
 		SDEROT_ERR("power enable failed - domain:[%d] rc:%d\n",
 			smmu_domain.domain, rc);
 		goto bus_client_destroy;
+	}
+
+	smmu_rot_full_map = of_property_read_bool(dev->of_node,
+					 "qcom,fullsize-va-map");
+	if (smmu_rot_full_map) {
+		smmu_domain.start = SZ_128K;
+		smmu_domain.size = SZ_4G - SZ_128K;
 	}
 
 	sde_smmu->mmu_mapping = arm_iommu_create_mapping(
