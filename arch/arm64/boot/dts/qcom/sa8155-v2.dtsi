@@ -10,13 +10,15 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-#include "sa8155-v1.dtsi"
-#include "sa8155-adp-star.dtsi"
+#include "sm8150-v2.dtsi"
+#include "sa8155.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8155 ADP-STAR";
-	compatible = "qcom,sa8155-adp-star", "qcom,sa8155",
-		"qcom,adp-star";
-	qcom,board-id = <25 0>;
+	model = "Qualcomm Technologies, Inc. SA8155 V2";
+	qcom,msm-name = "SA8155 V2";
+	qcom,msm-id = <362 0x20000>;
+};
+
+&ufsphy_mem {
+	vdda-phy-supply = <&pm8150_1_l5>;
 };
