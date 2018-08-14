@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,8 +244,8 @@ int sdhci_msm_ice_get_cfg(struct sdhci_msm_host *msm_host, struct request *req,
 }
 
 static
-void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
-			u32 slot, unsigned int bypass, short key_index)
+void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba, u32 slot,
+		unsigned int bypass, short key_index, u32 cdu_sz)
 {
 	unsigned int ctrl_info_val = 0;
 
@@ -257,7 +257,7 @@ void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
 
 	/* Configure data unit size of transfer request */
 	ctrl_info_val |=
-		(SDHCI_MSM_ICE_TR_DATA_UNIT_512_B &
+		(cdu_sz &
 		 MASK_SDHCI_MSM_ICE_CTRL_INFO_CDU)
 		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_CDU;
 
@@ -335,8 +335,9 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 	short key_index = 0;
-	sector_t lba = 0;
+	u64 dun = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
+	u32 cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_512_B;
 	struct request *req;
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
@@ -349,8 +350,13 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	if (!mrq)
 		return -EINVAL;
 	req = mrq->req;
-	if (req) {
-		lba = req->__sector;
+	if (req && req->bio) {
+		if (bio_dun(req->bio)) {
+			dun = bio_dun(req->bio);
+			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
+		} else {
+			dun = req->__sector;
+		}
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
@@ -362,11 +368,12 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 
 	if (msm_host->ice_hci_support) {
 		/* For ICE HCI / ICE3.0 */
-		sdhci_msm_ice_hci_update_noncq_cfg(host, lba, bypass,
+		sdhci_msm_ice_hci_update_noncq_cfg(host, dun, bypass,
 						key_index);
 	} else {
 		/* For ICE versions earlier to ICE3.0 */
-		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+		sdhci_msm_ice_update_cfg(host, dun, slot, bypass, key_index,
+					cdu_sz);
 	}
 	return 0;
 }
@@ -378,9 +385,10 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 	short key_index = 0;
-	sector_t lba = 0;
+	u64 dun = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
 	struct request *req;
+	u32 cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_512_B;
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
 		pr_err("%s: ice is in invalid state %d\n",
@@ -392,8 +400,13 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 	if (!mrq)
 		return -EINVAL;
 	req = mrq->req;
-	if (req) {
-		lba = req->__sector;
+	if (req && req->bio) {
+		if (bio_dun(req->bio)) {
+			dun = bio_dun(req->bio);
+			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
+		} else {
+			dun = req->__sector;
+		}
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
@@ -405,11 +418,12 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 
 	if (msm_host->ice_hci_support) {
 		/* For ICE HCI / ICE3.0 */
-		sdhci_msm_ice_hci_update_cmdq_cfg(lba, bypass, key_index,
+		sdhci_msm_ice_hci_update_cmdq_cfg(dun, bypass, key_index,
 						ice_ctx);
 	} else {
 		/* For ICE versions earlier to ICE3.0 */
-		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+		sdhci_msm_ice_update_cfg(host, dun, slot, bypass, key_index,
+					cdu_sz);
 	}
 	return 0;
 }
