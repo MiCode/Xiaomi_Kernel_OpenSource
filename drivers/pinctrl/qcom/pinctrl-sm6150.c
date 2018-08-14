@@ -1548,14 +1548,14 @@ static const struct msm_pingroup sm6150_groups[] = {
 			 NA, NA, NA, NA),
 	[121] = PINGROUP(121, SOUTH, mclk1, NA, NA, NA, NA, NA, NA, NA, NA),
 	[122] = PINGROUP(122, SOUTH, mclk2, NA, NA, NA, NA, NA, NA, NA, NA),
-	[123] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x9a000, 15, 0),
-	[124] = SDC_QDSD_PINGROUP(sdc1_clk, 0x9a000, 13, 6),
-	[125] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x9a000, 11, 3),
-	[126] = SDC_QDSD_PINGROUP(sdc1_data, 0x9a000, 9, 0),
-	[127] = SDC_QDSD_PINGROUP(sdc2_clk, 0x98000, 14, 6),
-	[128] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x98000, 11, 3),
-	[129] = SDC_QDSD_PINGROUP(sdc2_data, 0x98000, 9, 0),
-	[130] = UFS_RESET(ufs_reset, 0x9f000),
+	[123] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x59a000, 15, 0),
+	[124] = SDC_QDSD_PINGROUP(sdc1_clk, 0x59a000, 13, 6),
+	[125] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x59a000, 11, 3),
+	[126] = SDC_QDSD_PINGROUP(sdc1_data, 0x59a000, 9, 0),
+	[127] = SDC_QDSD_PINGROUP(sdc2_clk, 0xd98000, 14, 6),
+	[128] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xd98000, 11, 3),
+	[129] = SDC_QDSD_PINGROUP(sdc2_data, 0xd98000, 9, 0),
+	[130] = UFS_RESET(ufs_reset, 0x59f000),
 };
 
 static struct msm_dir_conn sm6150_dir_conn[] = {
