@@ -1260,6 +1260,52 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
+#define ITERM_SCALING_FACTOR_PMI632	1525
+#define ITERM_SCALING_FACTOR_PM855B	3050
+static int smb5_get_prop_batt_iterm(struct smb_charger *chg,
+		union power_supply_propval *val)
+{
+	int rc, temp, scaling_factor;
+	u8 stat, buf[2];
+
+	/*
+	 * Currently, only ADC comparator-based termination is supported,
+	 * hence read only the threshold corresponding to ADC source.
+	 * Proceed only if CHGR_ITERM_USE_ANALOG_BIT is 0.
+	 */
+	rc = smblib_read(chg, CHGR_ENG_CHARGING_CFG_REG, &stat);
+	if (rc < 0) {
+		pr_err("Couldn't read CHGR_ENG_CHARGING_CFG_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	if (stat & CHGR_ITERM_USE_ANALOG_BIT) {
+		val->intval = -EINVAL;
+		return 0;
+	}
+
+	rc = smblib_batch_read(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG, buf, 2);
+
+	if (rc < 0) {
+		pr_err("Couldn't read CHGR_ADC_ITERM_UP_THD_MSB_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	temp = buf[1] | (buf[0] << 8);
+	temp = sign_extend32(temp, 15);
+
+	if (chg->smb_version == PMI632_SUBTYPE)
+		scaling_factor = ITERM_SCALING_FACTOR_PMI632;
+	else
+		scaling_factor = ITERM_SCALING_FACTOR_PM855B;
+
+	temp = div_s64(temp * scaling_factor, 10000);
+	val->intval = temp;
+
+	return rc;
+}
+
 static int smb5_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -1322,7 +1368,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 					      BATT_PROFILE_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
-		rc = smblib_get_prop_batt_iterm(chg, val);
+		rc = smb5_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
@@ -1772,30 +1818,42 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 	return 0;
 }
 
+#define RAW_TERM_CURR(conv_factor, scaled_ma)	\
+				div_s64((int64_t)scaled_ma * 10000, conv_factor)
+#define ITERM_LIMITS_PMI632_MA	5000
+#define ITERM_LIMITS_PM855B_MA	10000
 static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 {
 	u8 *buf;
 	int rc = 0;
-	s16 raw_hi_thresh, raw_lo_thresh;
+	int raw_hi_thresh, raw_lo_thresh, max_limit_ma, scaling_factor;
 	struct smb_charger *chg = &chip->chg;
 
-	if (chip->dt.term_current_thresh_hi_ma < -10000 ||
-			chip->dt.term_current_thresh_hi_ma > 10000 ||
-			chip->dt.term_current_thresh_lo_ma < -10000 ||
-			chip->dt.term_current_thresh_lo_ma > 10000) {
+	if (chip->chg.smb_version == PMI632_SUBTYPE) {
+		scaling_factor = ITERM_SCALING_FACTOR_PMI632;
+		max_limit_ma = ITERM_LIMITS_PMI632_MA;
+	} else {
+		scaling_factor = ITERM_SCALING_FACTOR_PM855B;
+		max_limit_ma = ITERM_LIMITS_PM855B_MA;
+	}
+
+	if (chip->dt.term_current_thresh_hi_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_hi_ma > max_limit_ma
+		|| chip->dt.term_current_thresh_lo_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_lo_ma > max_limit_ma) {
 		dev_err(chg->dev, "ITERM threshold out of range rc=%d\n", rc);
 		return -EINVAL;
 	}
 
 	/*
 	 * Conversion:
-	 *	raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 *	raw (A) = (scaled_mA * (10000) / conv_factor)
 	 * Note: raw needs to be converted to big-endian format.
 	 */
 
 	if (chip->dt.term_current_thresh_hi_ma) {
-		raw_hi_thresh = ((chip->dt.term_current_thresh_hi_ma *
-						ADC_CHG_TERM_MASK) / 10000);
+		raw_hi_thresh = RAW_TERM_CURR(scaling_factor,
+					chip->dt.term_current_thresh_hi_ma);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
 		buf = (u8 *)&raw_hi_thresh;
 		raw_hi_thresh = buf[1] | (buf[0] << 8);
@@ -1810,8 +1868,8 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 	}
 
 	if (chip->dt.term_current_thresh_lo_ma) {
-		raw_lo_thresh = ((chip->dt.term_current_thresh_lo_ma *
-					ADC_CHG_TERM_MASK) / 10000);
+		raw_lo_thresh = RAW_TERM_CURR(scaling_factor,
+					chip->dt.term_current_thresh_lo_ma);
 		raw_lo_thresh = sign_extend32(raw_lo_thresh, 15);
 		buf = (u8 *)&raw_lo_thresh;
 		raw_lo_thresh = buf[1] | (buf[0] << 8);
