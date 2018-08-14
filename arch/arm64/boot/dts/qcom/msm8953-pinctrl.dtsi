@@ -466,6 +466,34 @@
 			};
 		};
 
+		ext_amp_ctrl {
+			label = "ext_amp_ctrl";
+			ext_amp_ctrl_active: ext_amp_ctrl_active {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio68";
+					drive-strength = <8>;   /* 8 MA */
+					bias-pull-up;           /*  PULL UP */
+					output-high;
+				};
+			};
+
+			ext_amp_ctrl_sleep: ext_amp_ctrl_sleep {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				configs {
+					pins = "gpio68";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
 		cdc_dmic0_clk_act: cdc_dmic0_clk_act_default {
 				mux {
 						pins = "gpio89";

@@ -100,8 +100,8 @@
 	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&sec_tlmm_lines_act>;
-		pinctrl-1 = <&sec_tlmm_lines_sus>;
+		pinctrl-0 = <&sec_tlmm_lines_act &ext_amp_ctrl_active>;
+		pinctrl-1 = <&sec_tlmm_lines_sus &ext_amp_ctrl_sleep>;
 	};
 
 	gpio_keys {
@@ -127,6 +127,31 @@
 	qcom,qca402x {
 		compatible = "qcom,qca402";
 		endpoints = <1>;
+	};
+};
+
+&cdc_pdm_comp_lines_act {
+	mux {
+		pins = "gpio67";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio67";
+		drive-strength = <8>;
+	};
+};
+
+&cdc_pdm_comp_lines_sus {
+	mux {
+		pins = "gpio67";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio67";
+		drive-strength = <2>;
+		bias-disable;
 	};
 };
 
