@@ -13,6 +13,18 @@
 
 #include "apq8053-lite-dragon.dtsi"
 
+&rpm_bus {
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm8953_l10: regulator-l10 {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
+			status = "okay";
+		};
+	};
+};
+
 &i2c_3 {
 	status = "okay";
 	/delete-node/ himax_ts@48;
@@ -32,7 +44,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-	vdd-supply = <&pm8953_l10>;
+	/delete-property/ vdd-supply;
 	vddio-supply = <&pm8953_l6>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
