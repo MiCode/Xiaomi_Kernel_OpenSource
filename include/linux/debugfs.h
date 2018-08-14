@@ -95,8 +95,10 @@ int debugfs_use_file_start(const struct dentry *dentry, int *srcu_idx)
 
 void debugfs_use_file_finish(int srcu_idx) __releases(&debugfs_srcu);
 
-const struct file_operations *debugfs_real_fops(const struct file *filp)
-	__must_hold(&debugfs_srcu);
+const struct file_operations *debugfs_real_fops(const struct file *filp);
+
+int debugfs_file_get(struct dentry *dentry);
+void debugfs_file_put(struct dentry *dentry);
 
 ssize_t debugfs_attr_read(struct file *file, char __user *buf,
 			size_t len, loff_t *ppos);
@@ -234,6 +236,14 @@ static inline int debugfs_use_file_start(const struct dentry *dentry,
 
 static inline void debugfs_use_file_finish(int srcu_idx)
 	__releases(&debugfs_srcu)
+{ }
+
+static inline int debugfs_file_get(struct dentry *dentry)
+{
+	return 0;
+}
+
+static inline void debugfs_file_put(struct dentry *dentry)
 { }
 
 static inline ssize_t debugfs_attr_read(struct file *file, char __user *buf,
