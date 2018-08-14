@@ -666,6 +666,15 @@
 			qcom,prio = <2>;
 		};
 
+		mas_qhm_sensorss_ahb: mas-qhm-sensorss-ahb {
+			cell-id = <MSM_BUS_MASTER_SENSORS_AHB>;
+			label = "mas-qhm-sensorss-ahb";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qns_a2noc_snoc>;
+			qcom,bus-dev = <&fab_aggre2_noc>;
+		};
+
 		mas_qhm_tsif: mas-qhm-tsif {
 			cell-id = <MSM_BUS_MASTER_TSIF>;
 			label = "mas-qhm-tsif";
