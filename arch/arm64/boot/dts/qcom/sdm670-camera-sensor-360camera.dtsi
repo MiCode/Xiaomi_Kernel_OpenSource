@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,7 +189,7 @@
 	rgltr-cntrl-support;
 	rgltr-min-voltage = <1352000 1800000 2850000 0 2800000>;
 	rgltr-max-voltage = <1352000 1800000 2850000 0 2800000>;
-	rgltr-load-current = <105000 0 80000 0>;
+	rgltr-load-current = <105000 0 80000 0 0>;
 	gpio-no-mux = <0>;
 	pinctrl-names = "cam_default", "cam_suspend";
 	pinctrl-0 = <&cam_sensor_mclk1_active
@@ -226,7 +226,7 @@
 	rgltr-cntrl-support;
 	rgltr-min-voltage = <1800000 2850000 1352000 0 2800000>;
 	rgltr-max-voltage = <1800000 2850000 1352000 0 2800000>;
-	rgltr-load-current = <0 80000 105000 0>;
+	rgltr-load-current = <0 80000 105000 0 0>;
 	gpio-no-mux = <0>;
 	pinctrl-names = "cam_default", "cam_suspend";
 	pinctrl-0 = <&cam_sensor_mclk2_active

@@ -373,9 +373,6 @@ static void __cache_size_refresh(void)
 static void *alloc_buffer_data(struct dm_bufio_client *c, gfp_t gfp_mask,
 			       enum data_mode *data_mode)
 {
-	unsigned noio_flag;
-	void *ptr;
-
 	if (c->block_size <= DM_BUFIO_BLOCK_SIZE_SLAB_LIMIT) {
 		*data_mode = DATA_MODE_SLAB;
 		return kmem_cache_alloc(DM_BUFIO_CACHE(c), gfp_mask);
@@ -399,16 +396,16 @@ static void *alloc_buffer_data(struct dm_bufio_client *c, gfp_t gfp_mask,
 	 * all allocations done by this process (including pagetables) are done
 	 * as if GFP_NOIO was specified.
 	 */
+	if (gfp_mask & __GFP_NORETRY) {
+		unsigned noio_flag = memalloc_noio_save();
+		void *ptr = __vmalloc(c->block_size, gfp_mask | __GFP_HIGHMEM,
+				      PAGE_KERNEL);
 
-	if (gfp_mask & __GFP_NORETRY)
-		noio_flag = memalloc_noio_save();
-
-	ptr = __vmalloc(c->block_size, gfp_mask | __GFP_HIGHMEM, PAGE_KERNEL);
-
-	if (gfp_mask & __GFP_NORETRY)
 		memalloc_noio_restore(noio_flag);
+		return ptr;
+	}
 
-	return ptr;
+	return __vmalloc(c->block_size, gfp_mask | __GFP_HIGHMEM, PAGE_KERNEL);
 }
 
 /*
@@ -822,6 +819,7 @@ enum new_flag {
 static struct dm_buffer *__alloc_buffer_wait_no_callback(struct dm_bufio_client *c, enum new_flag nf)
 {
 	struct dm_buffer *b;
+	bool tried_noio_alloc = false;
 
 	/*
 	 * dm-bufio is resistant to allocation failures (it just keeps
@@ -845,6 +843,15 @@ static struct dm_buffer *__alloc_buffer_wait_no_callback(struct dm_bufio_client 
 
 		if (nf == NF_PREFETCH)
 			return NULL;
+
+		if (dm_bufio_cache_size_latch != 1 && !tried_noio_alloc) {
+			dm_bufio_unlock(c);
+			b = alloc_buffer(c, GFP_NOIO | __GFP_NORETRY | __GFP_NOMEMALLOC | __GFP_NOWARN);
+			dm_bufio_lock(c);
+			if (b)
+				return b;
+			tried_noio_alloc = true;
+		}
 
 		if (!list_empty(&c->reserved_buffers)) {
 			b = list_entry(c->reserved_buffers.next,
@@ -1591,19 +1598,11 @@ dm_bufio_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 static unsigned long
 dm_bufio_shrink_count(struct shrinker *shrink, struct shrink_control *sc)
 {
-	struct dm_bufio_client *c;
-	unsigned long count;
-	unsigned long retain_target;
+	struct dm_bufio_client *c = container_of(shrink, struct dm_bufio_client, shrinker);
+	unsigned long count = READ_ONCE(c->n_buffers[LIST_CLEAN]) +
+			      READ_ONCE(c->n_buffers[LIST_DIRTY]);
+	unsigned long retain_target = get_retain_buffers(c);
 
-	c = container_of(shrink, struct dm_bufio_client, shrinker);
-	if (sc->gfp_mask & __GFP_FS)
-		dm_bufio_lock(c);
-	else if (!dm_bufio_trylock(c))
-		return 0;
-
-	count = c->n_buffers[LIST_CLEAN] + c->n_buffers[LIST_DIRTY];
-	retain_target = get_retain_buffers(c);
-	dm_bufio_unlock(c);
 	return (count < retain_target) ? 0 : (count - retain_target);
 }
 

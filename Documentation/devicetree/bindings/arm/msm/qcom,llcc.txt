@@ -86,7 +86,8 @@ Optional Properties:
 
 compatible devices:
 		qcom,sdm845-llcc,
-		qcom,sdm670-llcc
+		qcom,sdm670-llcc,
+		qcom,qcs605-llcc
 
 Example:
 

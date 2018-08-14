@@ -1,0 +1,14 @@
+* Qualcomm Technologies, Inc. MSM QCA402x
+
+Required properties for parent node:
+- compatible :
+    - "qcom,qca402"
+
+Optional properties
+- endpoints : Number of endpoints used for communication with the QCA402x
+               device
+Example:
+qcom,qca402x {
+	compatible = "qcom,qca402";
+	endpoints = <1>;
+};

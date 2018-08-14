@@ -341,7 +341,7 @@ static inline void *kvm_get_hyp_vector(void)
 		vect = __bp_harden_hyp_vecs_start +
 		       data->hyp_vectors_slot * SZ_2K;
 
-		if (!cpus_have_cap(ARM64_HAS_VIRT_HOST_EXTN))
+		if (!cpus_have_const_cap(ARM64_HAS_VIRT_HOST_EXTN))
 			vect = lm_alias(vect);
 	}
 

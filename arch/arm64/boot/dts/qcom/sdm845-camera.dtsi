@@ -45,6 +45,7 @@
 			"csiphy0_clk",
 			"csi0phytimer_clk_src",
 			"csi0phytimer_clk";
+		src-clock-name = "csi0phytimer_clk_src";
 		clock-cntl-level = "svs", "turbo";
 		clock-rates =
 			<0 0 0 0 320000000 0 269333333 0>,
@@ -80,6 +81,7 @@
 			"csiphy1_clk",
 			"csi1phytimer_clk_src",
 			"csi1phytimer_clk";
+		src-clock-name = "csi1phytimer_clk_src";
 		clock-cntl-level = "svs", "turbo";
 		clock-rates =
 			<0 0 0 0 320000000 0 269333333 0>,
@@ -116,6 +118,7 @@
 			"csiphy2_clk",
 			"csi2phytimer_clk_src",
 			"csi2phytimer_clk";
+		src-clock-name = "csi2phytimer_clk_src";
 		clock-cntl-level = "svs", "turbo";
 		clock-rates =
 			<0 0 0 0 320000000 0 269333333 0>,
@@ -311,17 +314,17 @@
 				iova-mem-region-io {
 					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd911000>;
-					iova-region-len = <0xd26ef000>;
+					iova-region-start = <0xda00000>;
+					iova-region-len = <0xd2500000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
 
 				iova-mem-qdss-region {
-					/* qdss region is approximately 64K */
+					/* qdss region is approximately 1MB */
 					iova-region-name = "qdss";
 					iova-region-start = <0xd900000>;
-					iova-region-len = <0x10000>;
+					iova-region-len = <0x100000>;
 					iova-region-id = <0x5>;
 					qdss-phy-addr = <0x16790000>;
 					status = "ok";
@@ -621,6 +624,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -659,6 +663,7 @@
 			<0 0 0 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
 		clock-rates-option = <600000000>;
@@ -707,6 +712,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -745,6 +751,7 @@
 			<0 0 0 0 0 0 600000000 0 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
 		clock-rates-option = <600000000>;
@@ -790,6 +797,7 @@
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0>;
 		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -825,6 +833,7 @@
 			<0 0 0 0 0 0 600000000 0>;
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
 		status = "ok";
 	};
 
@@ -881,6 +890,9 @@
 	cam_ipe0: qcom,ipe0 {
 		cell-index = <0>;
 		compatible = "qcom,cam-ipe";
+		reg = <0xac87000 0x3000>;
+		reg-names = "ipe0_top";
+		reg-cam-base = <0x87000>;
 		regulator-names = "ipe0-vdd";
 		ipe0-vdd-supply = <&ipe_0_gdsc>;
 		clock-names = "ipe_0_ahb_clk",
@@ -889,6 +901,7 @@
 			"ipe_0_clk",
 			"ipe_0_clk_src";
 		src-clock-name = "ipe_0_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_IPE_0_AHB_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_AREG_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_AXI_CLK>,
@@ -908,6 +921,9 @@
 	cam_ipe1: qcom,ipe1 {
 		cell-index = <1>;
 		compatible = "qcom,cam-ipe";
+		reg = <0xac91000 0x3000>;
+		reg-names = "ipe1_top";
+		reg-cam-base = <0x91000>;
 		regulator-names = "ipe1-vdd";
 		ipe1-vdd-supply = <&ipe_1_gdsc>;
 		clock-names = "ipe_1_ahb_clk",
@@ -916,6 +932,7 @@
 			"ipe_1_clk",
 			"ipe_1_clk_src";
 		src-clock-name = "ipe_1_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_IPE_1_AHB_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_AREG_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_AXI_CLK>,
@@ -935,6 +952,9 @@
 	cam_bps: qcom,bps {
 		cell-index = <0>;
 		compatible = "qcom,cam-bps";
+		reg = <0xac6f000 0x3000>;
+		reg-names = "bps_top";
+		reg-cam-base = <0x6f000>;
 		regulator-names = "bps-vdd";
 		bps-vdd-supply = <&bps_gdsc>;
 		clock-names = "bps_ahb_clk",
@@ -943,6 +963,7 @@
 			"bps_clk",
 			"bps_clk_src";
 		src-clock-name = "bps_clk_src";
+		clock-control-debugfs = "true";
 		clocks = <&clock_camcc CAM_CC_BPS_AHB_CLK>,
 				<&clock_camcc CAM_CC_BPS_AREG_CLK>,
 				<&clock_camcc CAM_CC_BPS_AXI_CLK>,
@@ -1065,6 +1086,7 @@
 			<&clock_camcc CAM_CC_FD_CORE_CLK>,
 			<&clock_camcc CAM_CC_FD_CORE_UAR_CLK>;
 		src-clock-name = "fd_core_clk_src";
+		clock-control-debugfs = "true";
 		clock-cntl-level = "svs", "svs_l1", "turbo";
 		clock-rates =
 			<0 0 0 0 0 400000000 0 0>,

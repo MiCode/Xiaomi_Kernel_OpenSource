@@ -123,6 +123,11 @@
 	qcom,rmnet-ipa {
 		status = "disabled";
 	};
+
+	qcom,qca402x {
+		compatible = "qcom,qca402";
+		endpoints = <1>;
+	};
 };
 
 &firmware {

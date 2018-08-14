@@ -283,6 +283,8 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
 		chg->wa_flags |= WEAK_ADAPTER_WA;
+		if (pmic_rev_id->rev4 >= 2)
+			chg->wa_flags |= MOISTURE_PROTECTION_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -499,6 +501,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
 					&chg->connector_pull_up);
 
+	chg->moisture_protection_enabled = of_property_read_bool(node,
+					"qcom,moisture-protection-enable");
+
 	return 0;
 }
 
@@ -617,6 +622,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
+	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -754,6 +760,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 					| POWER_SUPPLY_QC_INOV_THERMAL_DISABLE;
 		if (chg->hw_connector_mitigation)
 			val->intval |= POWER_SUPPLY_QC_CTM_DISABLE;
+		break;
+	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
+		val->intval = chg->moisture_present;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1248,6 +1257,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1296,14 +1306,16 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = chg->sw_jeita_enabled;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		rc = smblib_get_prop_batt_voltage_now(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable,
 				BATT_PROFILE_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		rc = smblib_get_prop_batt_current_now(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CURRENT_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -1313,7 +1325,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		rc = smblib_get_prop_batt_temp(chg, val);
+		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -1342,13 +1354,19 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		rc = smblib_get_prop_batt_charge_counter(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CHARGE_COUNTER, val);
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		rc = smblib_get_prop_batt_cycle_count(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CYCLE_COUNT, val);
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		val->intval = chg->auto_recharge_soc;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -1646,14 +1664,6 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure Type-C interrupts rc=%d\n", rc);
-		return rc;
-	}
-
 	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				EN_TRY_SNK_BIT, EN_TRY_SNK_BIT);
 	if (rc < 0) {
@@ -1690,6 +1700,37 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
 		return rc;
+	}
+
+	if (chg->moisture_protection_enabled &&
+				(chg->wa_flags & MOISTURE_PROTECTION_WA)) {
+		/* Enable moisture detection interrupt */
+		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+				TYPEC_WATER_DETECTION_INT_EN_BIT,
+				TYPEC_WATER_DETECTION_INT_EN_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable moisture detection interrupt rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Enable uUSB factory mode */
+		rc = smblib_masked_write(chg, TYPEC_U_USB_CFG_REG,
+					EN_MICRO_USB_FACTORY_MODE_BIT,
+					EN_MICRO_USB_FACTORY_MODE_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable uUSB factory mode c=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Disable periodic monitoring of CC_ID pin */
+		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	return rc;

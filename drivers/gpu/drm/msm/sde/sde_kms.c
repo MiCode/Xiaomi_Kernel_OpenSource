@@ -926,6 +926,12 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	}
 
+	if (sde_kms->first_kickoff) {
+		sde_power_scale_reg_bus(&priv->phandle, sde_kms->core_client,
+			VOTE_INDEX_HIGH, false);
+		sde_kms->first_kickoff = false;
+	}
+
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 				head) {
@@ -2658,7 +2664,15 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		SDE_DEBUG("info.is_connected = %s, info.is_primary = %s\n",
 			((info.is_connected) ? "true" : "false"),
 			((info.is_primary) ? "true" : "false"));
-		break;
+
+		/**
+		 * Since we are supporting one DSI for splash, use the display
+		 * which is marked as primary.
+		 */
+		if (!info.is_primary)
+			continue;
+		else
+			break;
 	}
 
 	if (!encoder) {
@@ -3083,8 +3097,10 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+		sde_kms->first_kickoff = true;
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);
+		sde_kms->first_kickoff = false;
 	}
 }
 

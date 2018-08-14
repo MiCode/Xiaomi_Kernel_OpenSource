@@ -255,7 +255,7 @@ static void xprt_read_data(struct work_struct *work)
 	hdr_len = sizeof(struct rr_header_v1);
 	while (1) {
 		rx_avail = fifo_rx_avail(&xprtp->rx_pipe);
-		if (!rx_avail || (rx_avail < hdr_len))
+		if (!rx_avail)
 			break;
 
 		fifo_rx_peak(&xprtp->rx_pipe, &hdr, 0, hdr_len);

@@ -990,6 +990,14 @@ static ssize_t dcc_store_config(struct device *dev,
 		apb_bus = 1;
 	}
 
+	if (len == 0)
+		len = 1;
+
+	if (base == 0) {
+		dev_err(drvdata->dev, "DCC: Invalid  Address\n");
+		return -EINVAL;
+	}
+
 	ret = dcc_config_add(drvdata, base, len, apb_bus);
 	if (ret)
 		return ret;

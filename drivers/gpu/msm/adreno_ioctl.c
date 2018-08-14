@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,50 @@
 #include "kgsl_device.h"
 #include "adreno.h"
 #include "adreno_a5xx.h"
+
+/*
+ * Add a perfcounter to the per-fd list.
+ * Call with the device mutex held
+ */
+static int adreno_process_perfcounter_add(struct kgsl_device_private *dev_priv,
+	unsigned int groupid, unsigned int countable)
+{
+	struct adreno_device_private *adreno_priv = container_of(dev_priv,
+		struct adreno_device_private, dev_priv);
+	struct adreno_perfcounter_list_node *perfctr;
+
+	perfctr = kmalloc(sizeof(*perfctr), GFP_KERNEL);
+	if (!perfctr)
+		return -ENOMEM;
+
+	perfctr->groupid = groupid;
+	perfctr->countable = countable;
+
+	/* add the pair to process perfcounter list */
+	list_add(&perfctr->node, &adreno_priv->perfcounter_list);
+	return 0;
+}
+
+/*
+ * Remove a perfcounter from the per-fd list.
+ * Call with the device mutex held
+ */
+static int adreno_process_perfcounter_del(struct kgsl_device_private *dev_priv,
+	unsigned int groupid, unsigned int countable)
+{
+	struct adreno_device_private *adreno_priv = container_of(dev_priv,
+		struct adreno_device_private, dev_priv);
+	struct adreno_perfcounter_list_node *p;
+
+	list_for_each_entry(p, &adreno_priv->perfcounter_list, node) {
+		if (p->groupid == groupid && p->countable == countable) {
+			list_del(&p->node);
+			kfree(p);
+			return 0;
+		}
+	}
+	return -ENODEV;
+}
 
 long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
@@ -42,6 +86,15 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 			get->groupid, get->countable, &get->offset,
 			&get->offset_hi, PERFCOUNTER_FLAG_NONE);
 
+	/* Add the perfcounter into the list */
+	if (!result) {
+		result = adreno_process_perfcounter_add(dev_priv, get->groupid,
+				get->countable);
+		if (result)
+			adreno_perfcounter_put(adreno_dev, get->groupid,
+				get->countable, PERFCOUNTER_FLAG_NONE);
+	}
+
 	adreno_perfcntr_active_oob_put(adreno_dev);
 
 	mutex_unlock(&device->mutex);
@@ -58,8 +111,15 @@ long adreno_ioctl_perfcounter_put(struct kgsl_device_private *dev_priv,
 	int result;
 
 	mutex_lock(&device->mutex);
-	result = adreno_perfcounter_put(adreno_dev, put->groupid,
-		put->countable, PERFCOUNTER_FLAG_NONE);
+
+	/* Delete the perfcounter from the process list */
+	result = adreno_process_perfcounter_del(dev_priv, put->groupid,
+		put->countable);
+
+	/* Put the perfcounter refcount */
+	if (!result)
+		adreno_perfcounter_put(adreno_dev, put->groupid,
+			put->countable, PERFCOUNTER_FLAG_NONE);
 	mutex_unlock(&device->mutex);
 
 	return (long) result;

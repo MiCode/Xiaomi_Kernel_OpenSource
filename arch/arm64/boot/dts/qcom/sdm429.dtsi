@@ -69,8 +69,8 @@
 		target-dev = <&cpubw>;
 		cpu-to-dev-map =
 			<  960000  2929 >,
-			< 1305600  5126 >,
-			< 1497600  5859 >,
+			< 1305600  5053 >,
+			< 1497600  5712 >,
 			< 1708800  6445 >,
 			< 1804800  7104 >,
 			< 1958400  7104 >;
@@ -91,9 +91,21 @@
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map =
 				< 1305600 2929 >,
-				< 1804800 5859 >;
+				< 1804800 5712 >;
 		};
 	};
+
+	qcom,ion {
+		/delete-node/ qcom,ion-heap@8;
+	};
+};
+
+&secure_mem {
+	status = "disabled";
+};
+
+&kgsl_msm_iommu {
+	/delete-node/ gfx3d_secure;
 };
 
 &funnel_apss {

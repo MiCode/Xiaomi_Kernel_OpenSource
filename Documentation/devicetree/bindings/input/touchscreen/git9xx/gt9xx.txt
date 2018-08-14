@@ -1,0 +1,99 @@
+Goodix GT9xx series touch controller
+
+Required properties:
+
+ - compatible		: Should be "goodix,gt9xx"
+ - reg			: I2C slave address of the device.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Configuration of touch panel controller interrupt
+				GPIO.
+ - goodix,product-id	: Product identification of the controller.
+ - interrupt-gpios	: Interrupt gpio which is to provide interrupts to
+				host, same as "interrupts" node.
+ - reset-gpios		: Reset gpio to control the reset of chip.
+ - goodix,display-coords	: Display coordinates in pixels. It is a four
+				tuple consisting of min x, min y, max x and
+				max y values.
+
+Optional properties:
+
+ - avdd-supply		: Power supply needed to power up the device, this is
+				for fixed voltage external regulator.
+ - vdd-supply		: Power supply needed to power up the device, when use
+				external regulator, do not add this property.
+ - vcc-i2c-supply	: Power source required to power up i2c bus.
+				GT9xx series can provide 1.8V from internal
+				LDO, add this properties base on hardware
+				design.
+ - goodix,panel-coords	: Panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values.
+ - goodix,i2c-pull-up	: To specify pull up is required.
+ - goodix,force-update	: To specify force update is allowed.
+ - goodix,enable-power-off	: Power off touchscreen during suspend.
+ - goodix,button-map	: Button map of key codes. The number of key codes
+				depend on panel.
+ - goodix,cfg-data0	: Touch screen controller config data group 0. Ask vendor
+				to provide that.
+				Driver supports maximum six config groups. If more than one
+				groups are defined, driver will select config group depending
+				on hardware configuration. If only config group 0 is defined,
+				it will be used for all hardware configurations.
+				Touch screen controller will use its onchip default config data
+				if this property is not present.
+ - goodix,cfg-data1	: Touch screen controller config data group 1. Ask vendor
+				to provide that.
+ - goodix,cfg-data2	: Touch screen controller config data group 2. Ask vendor
+				to provide that.
+ - goodix,cfg-data3	: Touch screen controller config data group 3. Ask vendor
+				to provide that.
+ - goodix,cfg-data4	: Touch screen controller config data group 4. Ask vendor
+				to provide that.
+ - goodix,cfg-data5	: Touch screen controller config data group 5. Ask vendor
+				to provide that.
+ - goodix,fw-name	: Touch screen controller firmware file name.
+ - goodix,slide-wakeup	: To specify slide-wakeup property is enabled or not.
+ - goodix,dbl-clk-wakeup	: To specify dbl-clk-wakeup property is enabled or not.
+ - goodix,change-x2y	: To specify change-x2y property is enabled or not.
+ - goodix,driver-send-cfg	: To specify driver-send-cfg property is enabled or not.
+ - goodix,have-touch-key	: To specify have-touch-key property is enabled or not.
+ - goodix,with-pen	: To specify with-pen property is enabled or not.
+Example:
+i2c@f9927000 {
+		goodix@5d {
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2008>;
+			reset-gpios = <&msmgpio 16 0x00>;
+			interrupt-gpios = <&msmgpio 17 0x00>;
+			avdd-supply = <&tp_power>;
+			goodix,panel-coords = <0 0 720 1200>;
+			goodix,display-coords = <0 0 720 1080>;
+			goodix,button-map= <158 102 139>;
+			goodix,product-id = "915";
+			goodix,cfg-data0 = [
+				41 D0 02 00 05 0A 05 01 01 08
+				12 58 50 41 03 05 00 00 00 00
+				00 00 00 00 00 00 00 8C 2E 0E
+				28 24 73 13 00 00 00 83 03 1D
+				40 02 00 00 00 03 64 32 00 00
+				00 1A 38 94 C0 02 00 00 00 04
+				9E 1C 00 8D 20 00 7A 26 00 6D
+				2C 00 60 34 00 60 10 38 68 00
+				F0 50 35 FF FF 27 00 00 00 00
+				00 01 1B 14 0C 14 00 00 01 00
+				00 00 00 00 00 00 00 00 00 00
+				00 00 02 04 06 08 0A 0C 0E 10
+				12 14 16 18 1A 1C FF FF FF FF
+				FF FF FF FF FF FF FF FF FF FF
+				FF FF 00 02 04 06 08 0A 0C 0F
+				10 12 13 14 16 18 1C 1D 1E 1F
+				20 21 22 24 26 28 29 2A FF FF
+				FF FF FF FF FF FF FF 22 22 22
+				22 22 22 FF 07 01];
+			goodix,fw_name = "gtp_fw.bin";
+			goodix,have-touch-key;
+			goodix,driver-send-cfg;
+		};
+};

@@ -1,0 +1,34 @@
+Elan Ektf3xx series touch controller
+
+   Required properties:
+
+		- compatible				: Should be "elan,ekth3500"
+		- reg				        : I2C slave address of the device.
+		- interrupt-parent			: Parent of interrupt.
+		- interrupts				: Configuration of touch panel controller interrupt GPIO.
+		- elan,irq-gpio				: Interrupt gpio which is to provide interrupts to
+										host, same as "interrupts" node.It will also contain
+										active low or active high information
+
+  Optional properties:
+
+		- vdd-supply				: Power supply needed to power up the device, when use
+										external regulator, do not add this property.
+		- vccio-supply				: Power source required to power up i2c bus.
+										Ekth3500 series can provide 1.8V from internal
+										LDO, add this properties base on hardware design.
+		- reset-gpio			    : Reset gpio to control the reset of chip.
+
+  Example:
+		i2c@f9923000{
+			elan_ktf@10 {
+				compatible = "elan,ekth3500";
+				reg = <0x10>;
+				vdd-supply = <&pm8110_l19>;
+				vccio-supply = <&pm8110_l14>;
+				reset-gpio = <&msmgpio 0 GPIO_ACTIVE_LOW>;
+				interrupt-parent = <&msmgpio>;
+				interrupts = <1 0x2>;
+				elan,irq-gpio = <&tlmm 65 0x2008>;>
+			};
+		};

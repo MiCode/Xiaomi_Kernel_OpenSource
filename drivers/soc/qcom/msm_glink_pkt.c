@@ -398,7 +398,10 @@ void glink_pkt_notify_tx_done(void *handle, const void *priv,
 	GLINK_PKT_INFO("%s(): priv[%p] pkt_priv[%p] ptr[%p]\n",
 					__func__, priv, pkt_priv, ptr);
 	/* Free Tx buffer allocated in glink_pkt_write */
-	kvfree(ptr);
+	if (is_vmalloc_addr(ptr))
+		vfree_atomic(ptr);
+	else
+		kfree(ptr);
 }
 
 /**
@@ -787,14 +790,20 @@ ssize_t glink_pkt_write(struct file *file,
 		GLINK_PKT_ERR(
 		"%s copy_from_user failed ret[%d] on dev id:%d size %zu\n",
 		 __func__, ret, devp->i, count);
-		kvfree(data);
+		if (is_vmalloc_addr(data))
+			vfree_atomic(data);
+		else
+			kfree(data);
 		return -EFAULT;
 	}
 
 	ret = glink_tx(devp->handle, data, data, count, GLINK_TX_REQ_INTENT);
 	if (ret) {
 		GLINK_PKT_ERR("%s glink_tx failed ret[%d]\n", __func__, ret);
-		kvfree(data);
+		if (is_vmalloc_addr(data))
+			vfree_atomic(data);
+		else
+			kfree(data);
 		return ret;
 	}
 

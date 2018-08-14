@@ -1140,7 +1140,7 @@ static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe;
 	int i, cnt = 0;
 
-	if (!mixer)
+	if (!mixer || !mfd)
 		return;
 
 	seq_printf(s, "\n%s Mixer #%d  res=%dx%d roi[%d, %d, %d, %d] %s\n",

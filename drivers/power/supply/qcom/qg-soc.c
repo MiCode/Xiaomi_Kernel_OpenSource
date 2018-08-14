@@ -17,15 +17,19 @@
 #include <linux/module.h>
 #include <linux/power_supply.h>
 #include <uapi/linux/qg.h>
+#include <uapi/linux/qg-profile.h>
 #include "fg-alg.h"
 #include "qg-sdam.h"
 #include "qg-core.h"
 #include "qg-reg.h"
 #include "qg-util.h"
 #include "qg-defs.h"
+#include "qg-soc.h"
 
 #define DEFAULT_UPDATE_TIME_MS			64000
 #define SOC_SCALE_HYST_MS			2000
+#define VBAT_LOW_HYST_UV			50000
+#define FULL_SOC				100
 
 static int qg_delta_soc_interval_ms = 20000;
 module_param_named(
@@ -36,6 +40,44 @@ static int qg_delta_soc_cold_interval_ms = 4000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
+
+static int qg_maint_soc_update_ms = 120000;
+module_param_named(
+	maint_soc_update_ms, qg_maint_soc_update_ms, int, 0600
+);
+
+int qg_adjust_sys_soc(struct qpnp_qg *chip)
+{
+	int soc, vbat_uv, rc;
+	int vcutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
+
+	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
+
+	if (chip->sys_soc == QG_MIN_SOC) {
+		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
+		rc = qg_get_battery_voltage(chip, &vbat_uv);
+		if (!rc && vbat_uv >= (vcutoff_uv + VBAT_LOW_HYST_UV))
+			soc = 1;
+		else
+			soc = 0;
+	} else if (chip->sys_soc == QG_MAX_SOC) {
+		soc = FULL_SOC;
+	} else if (chip->sys_soc >= (QG_MAX_SOC - 100)) {
+		/* Hold SOC to 100% if we are dropping from 100 to 99 */
+		if (chip->last_adj_ssoc == FULL_SOC)
+			soc = FULL_SOC;
+		else /* Hold SOC at 99% until we hit 100% */
+			soc = FULL_SOC - 1;
+	} else {
+		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
+	}
+
+	qg_dbg(chip, QG_DEBUG_SOC, "last_adj_sys_soc=%d  adj_sys_soc=%d\n",
+					chip->last_adj_ssoc, soc);
+	chip->last_adj_ssoc = soc;
+
+	return soc;
+}
 
 static void get_next_update_time(struct qpnp_qg *chip)
 {
@@ -56,10 +98,11 @@ static void get_next_update_time(struct qpnp_qg *chip)
 
 	/* Lower the delta soc interval by half at cold */
 	rc = qg_get_battery_temp(chip, &batt_temp);
-	if (rc < 0)
-		pr_err("Failed to read battery temperature rc=%d\n", rc);
-	else if (batt_temp < chip->dt.cold_temp_threshold)
+	if (!rc && batt_temp < chip->dt.cold_temp_threshold)
 		min_delta_soc_interval_ms = qg_delta_soc_cold_interval_ms;
+	else if (chip->maint_soc > 0 && chip->maint_soc >= chip->recharge_soc)
+		/* if in maintenance mode scale slower */
+		min_delta_soc_interval_ms = qg_maint_soc_update_ms;
 
 	if (!min_delta_soc_interval_ms)
 		min_delta_soc_interval_ms = 1000;	/* 1 second */
@@ -98,9 +141,34 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 	return true;
 }
 
+static bool maint_soc_timeout(struct qpnp_qg *chip)
+{
+	unsigned long now;
+	int rc;
+
+	if (chip->maint_soc < 0)
+		return false;
+
+	rc = get_rtc_time(&now);
+	if (rc < 0)
+		return true;
+
+	/* Do not scale if we have dropped below recharge-soc */
+	if (chip->maint_soc < chip->recharge_soc)
+		return true;
+
+	if ((now - chip->last_maint_soc_update_time) >=
+			(qg_maint_soc_update_ms / 1000)) {
+		chip->last_maint_soc_update_time = now;
+		return true;
+	}
+
+	return false;
+}
+
 static void update_msoc(struct qpnp_qg *chip)
 {
-	int rc = 0, batt_temp = 0,  batt_soc_32bit = 0;
+	int rc = 0, sdam_soc, batt_temp = 0,  batt_soc_32bit = 0;
 	bool usb_present = is_usb_present(chip);
 
 	if (chip->catch_up_soc > chip->msoc) {
@@ -113,7 +181,8 @@ static void update_msoc(struct qpnp_qg *chip)
 	}
 	chip->msoc = CAP(0, 100, chip->msoc);
 
-	if (chip->maint_soc > 0 && chip->msoc < chip->maint_soc) {
+	if (chip->maint_soc > 0 && chip->msoc < chip->maint_soc
+				&& maint_soc_timeout(chip)) {
 		chip->maint_soc -= chip->dt.delta_soc;
 		chip->maint_soc = CAP(0, 100, chip->maint_soc);
 	}
@@ -128,8 +197,9 @@ static void update_msoc(struct qpnp_qg *chip)
 		pr_err("Failed to update MSOC register rc=%d\n", rc);
 
 	/* update SDAM with the new MSOC */
-	chip->sdam_data[SDAM_SOC] = chip->msoc;
-	rc = qg_sdam_write(SDAM_SOC, chip->msoc);
+	sdam_soc = (chip->maint_soc > 0) ? chip->maint_soc : chip->msoc;
+	chip->sdam_data[SDAM_SOC] = sdam_soc;
+	rc = qg_sdam_write(SDAM_SOC, sdam_soc);
 	if (rc < 0)
 		pr_err("Failed to update SDAM with MSOC rc=%d\n", rc);
 

@@ -4864,6 +4864,10 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 
 	arm_smmu_exit_power_resources(smmu->pwr);
 
+	spin_lock(&arm_smmu_devices_lock);
+	list_del(&smmu->list);
+	spin_unlock(&arm_smmu_devices_lock);
+
 	return 0;
 }
 

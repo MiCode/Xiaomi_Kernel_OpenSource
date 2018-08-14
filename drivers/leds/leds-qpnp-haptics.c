@@ -2515,6 +2515,16 @@ static int qpnp_haptics_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void qpnp_haptics_shutdown(struct platform_device *pdev)
+{
+	struct hap_chip *chip = dev_get_drvdata(&pdev->dev);
+
+	cancel_work_sync(&chip->haptics_work);
+
+	/* disable haptics */
+	qpnp_haptics_mod_enable(chip, false);
+}
+
 static const struct dev_pm_ops qpnp_haptics_pm_ops = {
 	.suspend	= qpnp_haptics_suspend,
 };
@@ -2532,6 +2542,7 @@ static struct platform_driver qpnp_haptics_driver = {
 	},
 	.probe		= qpnp_haptics_probe,
 	.remove		= qpnp_haptics_remove,
+	.shutdown	= qpnp_haptics_shutdown,
 };
 module_platform_driver(qpnp_haptics_driver);
 

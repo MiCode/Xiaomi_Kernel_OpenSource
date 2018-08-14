@@ -11,6 +11,7 @@
  */
 
 #include "sdxpoorwills-cdp.dtsi"
+#include "sdxpoorwills-memory-256.dtsi"
 
 &soc {
 	vreg_sd_mmc: vreg_sd_mmc {
@@ -20,4 +21,12 @@
 
 &sdhc_1 {
 	cd-gpios = <&tlmm 21 0x1>;
+};
+
+&soc {
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pmxpoorwills_gpios 4 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&vreg_wlan>;
+	};
 };

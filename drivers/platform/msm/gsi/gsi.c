@@ -23,7 +23,7 @@
 #include "gsi_emulation.h"
 
 #define GSI_CMD_TIMEOUT (5*HZ)
-#define GSI_STOP_CMD_TIMEOUT_MS 20
+#define GSI_STOP_CMD_TIMEOUT_MS 50
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -2788,27 +2788,21 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
+	spin_lock_irqsave(&gsi_ctx->slock, flags);
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
-		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
-		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
-		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
-		spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		ctx->stats.callback_to_poll++;
 	}
 
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
-		spin_lock_irqsave(&ctx->ring.slock, flags);
 		atomic_set(&ctx->poll_mode, mode);
-		spin_unlock_irqrestore(&ctx->ring.slock, flags);
-		spin_lock_irqsave(&gsi_ctx->slock, flags);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
-		spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 		ctx->stats.poll_to_callback++;
 	}
+	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 
 	return GSI_STATUS_SUCCESS;
 }

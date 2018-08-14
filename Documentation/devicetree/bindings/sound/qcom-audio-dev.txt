@@ -3290,3 +3290,97 @@ Example:
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					"SpkrLeft", "SpkrRight";
 	}
+
+* QCS605 IPcamera  ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,qcs605-asoc-snd-tavil"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+- qcom,msm-gpios : Lists down all the gpio sets that are supported.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+mentioned in qcom,msm-gpios.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+the flavor.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+
+Optional properties:
+- qcom,wsa-disable : Boolean. Disables WSA speaker dailinks from sound node.
+- qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
+- qcom,msm-mclk-freq : This property is used to inform machine driver about
+mclk frequency needs to be configured for internal and external PA.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+	codec dai names should match to that of the phandle order given
+	in "asoc-codec".
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+- qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
+- qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
+- qcom,cdc-sdw-gpios : phandle for soundwire clk and data gpios.
+- qcom,pri-mi2s-gpios : phandle for primary MI2S clk, word select and data gpios.
+- qcom,sec-mi2s-gpios : phandle for secondary MI2S clk, word select and data gpios.
+- qcom,tert-mi2s-gpios : phandle for tertiary MI2S clk, word select and data gpios.
+- qcom,quat-mi2s-gpios : phandle for quaternary MI2S clk, word select and data gpios.
+- qcom,quin-mi2s-gpios : phandle for quinary MI2S clk, word select and data gpios.
+
+Example:
+	 sound {
+		compatible = "qcom,qcs605-asoc-snd-tavil";
+		qcom,model = "qcs605-tavil-snd-card";
+		qcom,audio-routing =
+			"RX_BIAS", "INT_MCLK0",
+			"SPK_RX_BIAS", "INT_MCLK0",
+			"DMIC1", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic1",
+			"DMIC2", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic2",
+			"DMIC3", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic3",
+			"DMIC4", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic4",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-gpios =
+			"slim",
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"slim_act",
+			"us_eu_gpio_act",
+			"slim_us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"slim_act",
+			"us_eu_gpio_act",
+			"slim_us_eu_gpio_act";
+		pinctrl-0 = <&cdc_slim_lines_sus &cross_conn_det_sus>;
+		pinctrl-1 = <&cdc_slim_lines_act &cross_conn_det_sus>;
+		pinctrl-2 = <&cdc_slim_lines_sus &cross_conn_det_act>;
+		pinctrl-3 = <&cdc_slim_lines_act &cross_conn_det_act>;
+		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+				<&msm_sdw_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+					"msm_sdw_codec";
+
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,
+				<&wsa881x_213_en>, <&wsa881x_214_en>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
+	}

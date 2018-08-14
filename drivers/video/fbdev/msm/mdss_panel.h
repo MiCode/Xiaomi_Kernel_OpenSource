@@ -289,6 +289,7 @@ struct lcd_panel_info {
 	u32 h_pulse_width;
 	u32 v_back_porch;
 	u32 v_front_porch;
+	u32 v_front_porch_fixed;
 	u32 v_pulse_width;
 	u32 border_clr;
 	u32 underflow_clr;
@@ -924,6 +925,23 @@ end:
 	}
 
 	return frame_rate;
+}
+
+/*
+ * mdss_panel_get_vtotal_fixed() - return panel device tree vertical height
+ * @pinfo:	Pointer to panel info containing all panel information
+ *
+ * Returns the total height as defined in panel device tree including any
+ * blanking regions which are not visible to user but used to calculate
+ * panel clock.
+ */
+static inline int mdss_panel_get_vtotal_fixed(struct mdss_panel_info *pinfo)
+{
+	return pinfo->yres + pinfo->lcdc.v_back_porch +
+			pinfo->lcdc.v_front_porch_fixed +
+			pinfo->lcdc.v_pulse_width+
+			pinfo->lcdc.border_top +
+			pinfo->lcdc.border_bottom;
 }
 
 /*

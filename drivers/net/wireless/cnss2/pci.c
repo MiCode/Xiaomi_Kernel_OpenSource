@@ -1357,6 +1357,61 @@ void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 			       CNSS_REASON_TIMEOUT);
 }
 
+struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+
+	if (!pci_priv)
+		return NULL;
+
+	return pci_priv->smmu_mapping;
+}
+EXPORT_SYMBOL(cnss_smmu_get_mapping);
+
+int cnss_smmu_map(struct device *dev,
+		  phys_addr_t paddr, uint32_t *iova_addr, size_t size)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+	unsigned long iova;
+	size_t len;
+	int ret = 0;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!iova_addr) {
+		cnss_pr_err("iova_addr is NULL, paddr %pa, size %zu\n",
+			    &paddr, size);
+		return -EINVAL;
+	}
+
+	len = roundup(size + paddr - rounddown(paddr, PAGE_SIZE), PAGE_SIZE);
+	iova = roundup(pci_priv->smmu_iova_ipa_start, PAGE_SIZE);
+
+	if (iova >=
+	    (pci_priv->smmu_iova_ipa_start + pci_priv->smmu_iova_ipa_len)) {
+		cnss_pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu\n",
+			    iova,
+			    &pci_priv->smmu_iova_ipa_start,
+			    pci_priv->smmu_iova_ipa_len);
+		return -ENOMEM;
+	}
+
+	ret = iommu_map(pci_priv->smmu_mapping->domain, iova,
+			rounddown(paddr, PAGE_SIZE), len,
+			IOMMU_READ | IOMMU_WRITE);
+	if (ret) {
+		cnss_pr_err("PA to IOVA mapping failed, ret %d\n", ret);
+		return ret;
+	}
+
+	pci_priv->smmu_iova_ipa_start = iova + len;
+	*iova_addr = (uint32_t)(iova + paddr - rounddown(paddr, PAGE_SIZE));
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_smmu_map);
+
 int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 {
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
@@ -2149,6 +2204,17 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
 			    &pci_priv->smmu_iova_start,
 			    pci_priv->smmu_iova_len);
+
+		res = platform_get_resource_byname(plat_priv->plat_dev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_ipa");
+		if (res) {
+			pci_priv->smmu_iova_ipa_start = res->start;
+			pci_priv->smmu_iova_ipa_len = resource_size(res);
+			cnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
+				    &pci_priv->smmu_iova_ipa_start,
+				    pci_priv->smmu_iova_ipa_len);
+		}
 
 		ret = cnss_pci_init_smmu(pci_priv);
 		if (ret) {
