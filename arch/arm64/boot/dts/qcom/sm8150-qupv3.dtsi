@@ -1035,4 +1035,42 @@
 		status = "disabled";
 	};
 
+	/* SPI */
+	qupv3_se21_spi: spi@2684000 {
+		compatible = "qcom,spi-geni";
+		reg = <0x2684000 0x4000>;
+		reg-names = "se_phys";
+		interrupts = <GIC_SPI 443 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_scc SCC_QUPV3_SE1_CLK>,
+			<&clock_scc SCC_QUPV3_M_HCLK_CLK>,
+			<&clock_scc SCC_QUPV3_S_HCLK_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se21_spi_active>;
+		pinctrl-1 = <&qupv3_se21_spi_sleep>;
+		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_3>;
+		status = "disabled";
+	};
+
+	qupv3_se22_spi: spi@2688000 {
+		compatible = "qcom,spi-geni";
+		reg = <0x2688000 0x4000>;
+		reg-names = "se_phys";
+		interrupts = <GIC_SPI 444 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_scc SCC_QUPV3_SE2_CLK>,
+			<&clock_scc SCC_QUPV3_M_HCLK_CLK>,
+			<&clock_scc SCC_QUPV3_S_HCLK_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se22_spi_active>;
+		pinctrl-1 = <&qupv3_se22_spi_sleep>;
+		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_3>;
+		status = "disabled";
+	};
 };
