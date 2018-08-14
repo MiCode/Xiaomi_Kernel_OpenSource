@@ -406,6 +406,7 @@
 
 /* NPU overrides */
 &msm_npu {
+	iommus = <&apps_smmu 0x1081 0x400>;
 	qcom,npu-pwrlevels {
 		#address-cells = <1>;
 		#size-cells = <0>;
