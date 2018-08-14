@@ -79,3 +79,17 @@
 &camera2{
 	qcom,mount-angle = <270>;
 };
+
+&i2c_3 {
+	status = "okay";
+	elan_ktf@10 {
+		compatible = "elan,ekth3500";
+		reg = <0x10>;
+		vdd-supply = <&pm8953_l10>;
+		vccio-supply = <&pm8953_l6>;
+		interrupt-parent = <&tlmm>;
+		reset-gpio = <&tlmm 64 GPIO_ACTIVE_LOW>;
+		elan,irq-gpio = <&tlmm 65 0x2008>;
+		interrupts = <65 0x2>;
+	};
+};
