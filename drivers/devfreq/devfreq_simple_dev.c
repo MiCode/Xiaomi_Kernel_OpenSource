@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017-2018, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,6 +213,7 @@ static struct platform_driver devfreq_clock_driver = {
 	.driver = {
 		.name = "devfreq-simple-dev",
 		.of_match_table = devfreq_simple_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 module_platform_driver(devfreq_clock_driver);

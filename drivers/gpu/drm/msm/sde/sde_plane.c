@@ -885,7 +885,6 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 		input_fence = pstate->input_fence;
 
 		if (input_fence) {
-			psde->is_error = false;
 			prefix = sde_sync_get_name_prefix(input_fence);
 			rc = sde_sync_wait(input_fence, wait_ms);
 
@@ -1025,8 +1024,15 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
-	else if (ret)
+	else if (ret) {
 		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
+
+		/*
+		 * Force solid fill color on error. This is to prevent
+		 * smmu faults during secure session transition.
+		 */
+		psde->is_error = true;
+	}
 	else if (psde->pipe_hw->ops.setup_sourceaddress) {
 		SDE_EVT32_VERBOSE(psde->pipe_hw->idx,
 				pipe_cfg->layout.width,
@@ -1074,6 +1080,21 @@ static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
 	if (!cfg->dir_lut || !cfg->cir_lut || !cfg->sep_lut)
 		ret = -ENODATA;
 	return ret;
+}
+
+static int _sde_plane_setup_scaler3lite_lut(struct sde_plane *psde,
+		struct sde_plane_state *pstate)
+{
+	struct sde_hw_scaler3_cfg *cfg;
+
+	cfg = &pstate->scaler3_cfg;
+
+	cfg->sep_lut = msm_property_get_blob(
+			&psde->property_info,
+			&pstate->property_state, &cfg->sep_len,
+			PLANE_PROP_SCALER_LUT_SEP);
+
+	return cfg->sep_lut ? 0 : -ENODATA;
 }
 
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
@@ -1500,13 +1521,14 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		drm_format_vert_chroma_subsampling(fmt->base.pixel_format);
 
 	/* update scaler */
-	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
-		int rc;
+	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
+			(psde->features & BIT(SDE_SSPP_SCALER_QSEED3LITE))) {
+		int rc = -EINVAL;
 
 		if (!color_fill && !psde->debugfs_default_scale)
-			rc = _sde_plane_setup_scaler3_lut(psde, pstate);
-		else
-			rc = -EINVAL;
+			rc = is_qseed3_rev_qseed3lite(psde->pipe_hw->catalog) ?
+			_sde_plane_setup_scaler3lite_lut(psde, pstate) :
+				_sde_plane_setup_scaler3_lut(psde, pstate);
 		if (rc || pstate->scaler_check_state !=
 					SDE_PLANE_SCLCHECK_SCALER_V2) {
 			SDE_EVT32(DRMID(&psde->base), color_fill,
@@ -2361,7 +2383,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -2377,7 +2399,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			SDE_ERROR("plane%d.%d invalid rotator ops\n",
 					plane->base.id, rstate->sequence_id);
 			sde_crtc_res_put(cstate,
-					SDE_HW_BLK_ROT, (u64) state->fb);
+				SDE_HW_BLK_ROT, (u64)(uintptr_t) state->fb);
 			rstate->rot_hw = NULL;
 			return -EINVAL;
 		}
@@ -3059,7 +3081,7 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -4305,6 +4327,13 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			msm_property_install_blob(&psde->property_info,
 					"lut_sep", 0,
 					PLANE_PROP_SCALER_LUT_SEP);
+		} else if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3LITE)) {
+			msm_property_install_range(
+					&psde->property_info, "scaler_v2",
+					0x0, 0, ~0, 0, PLANE_PROP_SCALER_V2);
+			msm_property_install_blob(&psde->property_info,
+					"lut_sep", 0,
+					PLANE_PROP_SCALER_LUT_SEP);
 		} else if (psde->features & SDE_SSPP_SCALER) {
 			msm_property_install_range(
 					&psde->property_info, "scaler_v1", 0x0,
@@ -4724,15 +4753,15 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			default:
 				/* nothing to do */
@@ -5146,6 +5175,7 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 			psde->debugfs_root, &psde->debugfs_src);
 
 	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
+			cfg->features & BIT(SDE_SSPP_SCALER_QSEED3LITE) ||
 			cfg->features & BIT(SDE_SSPP_SCALER_QSEED2)) {
 		sde_debugfs_setup_regset32(&psde->debugfs_scaler,
 				sblk->scaler_blk.base + cfg->base,

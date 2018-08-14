@@ -81,6 +81,7 @@ static bool cpu_stop_queue_work(unsigned int cpu, struct cpu_stop_work *work)
 	unsigned long flags;
 	bool enabled;
 
+	preempt_disable();
 	spin_lock_irqsave(&stopper->lock, flags);
 	enabled = stopper->enabled;
 	if (enabled)
@@ -90,6 +91,7 @@ static bool cpu_stop_queue_work(unsigned int cpu, struct cpu_stop_work *work)
 	spin_unlock_irqrestore(&stopper->lock, flags);
 
 	wake_up_q(&wakeq);
+	preempt_enable();
 
 	return enabled;
 }
@@ -260,6 +262,15 @@ retry:
 	err = 0;
 	__cpu_stop_queue_work(stopper1, work1, &wakeq);
 	__cpu_stop_queue_work(stopper2, work2, &wakeq);
+	/*
+	 * The waking up of stopper threads has to happen
+	 * in the same scheduling context as the queueing.
+	 * Otherwise, there is a possibility of one of the
+	 * above stoppers being woken up by another CPU,
+	 * and preempting us. This will cause us to not
+	 * wake up the other stopper forever.
+	 */
+	preempt_disable();
 unlock:
 	spin_unlock(&stopper2->lock);
 	spin_unlock_irq(&stopper1->lock);
@@ -271,7 +282,6 @@ unlock:
 	}
 
 	if (!err) {
-		preempt_disable();
 		wake_up_q(&wakeq);
 		preempt_enable();
 	}

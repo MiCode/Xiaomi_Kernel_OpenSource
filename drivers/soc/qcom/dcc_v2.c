@@ -42,7 +42,7 @@
 #define dcc_sram_readl(drvdata, off)					\
 	__raw_readl(drvdata->ram_base + off)
 
-#define HLOS_LIST_START			1
+#define HLOS_LIST_START			0
 
 /* DCC registers */
 #define DCC_HW_VERSION			(0x00)
@@ -173,6 +173,8 @@ static int dcc_read_status(struct dcc_drvdata *drvdata)
 {
 	int curr_list;
 	uint32_t bus_status;
+	uint32_t ll_cfg = 0;
+	uint32_t tmp_ll_cfg = 0;
 
 	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
 		if (!drvdata->enable[curr_list])
@@ -187,8 +189,12 @@ static int dcc_read_status(struct dcc_drvdata *drvdata)
 				"Read access error for list %d err: 0x%x",
 				curr_list, bus_status);
 
+			ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
+			tmp_ll_cfg = ll_cfg & ~BIT(9);
+			dcc_writel(drvdata, tmp_ll_cfg, DCC_LL_CFG(curr_list));
 			dcc_writel(drvdata, 0x3,
 				   DCC_LL_BUS_ACCESS_STATUS(curr_list));
+			dcc_writel(drvdata, ll_cfg, DCC_LL_CFG(curr_list));
 			return -ENODATA;
 		}
 	}
@@ -200,6 +206,8 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 {
 	int ret = 0;
 	int curr_list;
+	uint32_t ll_cfg = 0;
+	uint32_t tmp_ll_cfg = 0;
 
 	mutex_lock(&drvdata->mutex);
 
@@ -228,8 +236,11 @@ static int dcc_sw_trigger(struct dcc_drvdata *drvdata)
 	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
 		if (!drvdata->enable[curr_list])
 			continue;
-
+		ll_cfg = dcc_readl(drvdata, DCC_LL_CFG(curr_list));
+		tmp_ll_cfg = ll_cfg & ~BIT(9);
+		dcc_writel(drvdata, tmp_ll_cfg, DCC_LL_CFG(curr_list));
 		dcc_writel(drvdata, 1, DCC_LL_SW_TRIGGER(curr_list));
+		dcc_writel(drvdata, ll_cfg, DCC_LL_CFG(curr_list));
 	}
 
 	if (!dcc_ready(drvdata)) {
@@ -600,11 +611,11 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		dcc_writel(drvdata, ram_cfg_base +
 			   drvdata->ram_offset/4, DCC_LL_BASE(list));
 		dcc_writel(drvdata, drvdata->ram_start +
-			   drvdata->ram_offset/4, DCC_FD_BASE(list));
+				drvdata->ram_offset/4, DCC_FD_BASE(list));
 		dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
 
-		/* 4. Configure trigger, data sink and function type */
-		dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
+		/* 4. Configure data sink and function type */
+		dcc_writel(drvdata, ((drvdata->cti_trig << 8) |
 			   (drvdata->data_sink << 4) |
 			   (drvdata->func_type[list])), DCC_LL_CFG(list));
 
@@ -627,6 +638,11 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 				dcc_writel(drvdata, BIT(1),
 					   DCC_LL_INT_ENABLE(list));
 		}
+
+		/* 6. Configure trigger */
+		dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
+			   (drvdata->data_sink << 4) |
+			   (drvdata->func_type[list])), DCC_LL_CFG(list));
 	}
 
 err:

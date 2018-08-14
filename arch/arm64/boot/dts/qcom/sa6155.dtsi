@@ -10,19 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
-
-#include <dt-bindings/clock/qcom,gcc-sm8150.h>
-#include <dt-bindings/clock/qcom,camcc-sm8150.h>
-#include <dt-bindings/clock/qcom,rpmh.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sm8150-qrd.dtsi"
-#include "sm8150-qrd-audio-overlay.dtsi"
+#include "sm6150.dtsi"
 
 / {
-	model = "QRD";
-	compatible = "qcom,sm8150p-qrd", "qcom,sm8150p", "qcom,qrd";
-	qcom,board-id = <11 0>;
+	model = "Qualcomm Technologies, Inc. SA6155";
+	compatible = "qcom,sa6155";
+	qcom,msm-name = "SA6155";
+	qcom,msm-id = <384 0x10000>;
 };

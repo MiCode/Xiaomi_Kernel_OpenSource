@@ -23,7 +23,9 @@
 #include "gsi_emulation.h"
 
 #define GSI_CMD_TIMEOUT (5*HZ)
-#define GSI_STOP_CMD_TIMEOUT_MS 50
+#define GSI_START_CMD_TIMEOUT_MS 1000
+#define GSI_CMD_POLL_CNT 5
+#define GSI_STOP_CMD_TIMEOUT_MS 10
 #define GSI_MAX_CH_LOW_WEIGHT 15
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
@@ -110,6 +112,65 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_GSI_IRQ_EN_OFFS(ee));
 	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
 			GSI_EE_n_CNTXT_GSI_IRQ_EN_OFFS(ee));
+}
+
+static void gsi_channel_state_change_wait(unsigned long chan_hdl,
+	struct gsi_chan_ctx *ctx,
+	uint32_t tm,
+	enum gsi_chan_state next_state)
+{
+	int poll_cnt;
+	int gsi_pending_intr;
+	int res;
+	uint32_t ch;
+	uint32_t val;
+	int ee = gsi_ctx->per.ee;
+
+	/*
+	 * Start polling the GSI channel for
+	 * duration = tm * poll_cnt.
+	 * We need to do polling of gsi state for improving debugability
+	 * of gsi hw state.
+	 */
+
+	for (poll_cnt = 0;
+		poll_cnt < GSI_CMD_POLL_CNT;
+		poll_cnt++) {
+		res = wait_for_completion_timeout(&ctx->compl,
+			msecs_to_jiffies(tm));
+
+		/* Interrupt received, return */
+		if (res != 0)
+			return;
+
+		/*
+		 * Check channel state here in case the channel is
+		 * already started but interrupt is not yet received.
+		 */
+		val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+				gsi_ctx->per.ee));
+
+		ctx->state = (val &
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
+			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
+
+		ch = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(gsi_ctx->per.ee));
+
+		gsi_pending_intr = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
+
+		GSIDBG("GSI wait on chan_hld=%lu chan=%lu state=%u intr=%u\n",
+			chan_hdl,
+			ch,
+			ctx->state,
+			gsi_pending_intr);
+
+		if (ctx->state == next_state)
+			break;
+	}
+
 }
 
 static void gsi_handle_ch_ctrl(int ee)
@@ -379,12 +440,18 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 {
 	uint32_t addr_diff;
 
-	WARN(addr1 < ctx->base || addr1 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr1);
-	WARN(addr2 < ctx->base || addr2 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr2);
+	GSIDBG_LOW("gsi base addr 0x%llx end addr 0x%llx\n",
+		ctx->base, ctx->end);
+
+	if (addr1 < ctx->base || addr1 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr1);
+		BUG();
+	}
+
+	if (addr2 < ctx->base || addr2 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr2);
+		BUG();
+	}
 
 	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
@@ -822,6 +889,50 @@ int gsi_complete_clk_grant(unsigned long dev_hdl)
 }
 EXPORT_SYMBOL(gsi_complete_clk_grant);
 
+int gsi_map_base(phys_addr_t gsi_base_addr, u32 gsi_size)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	gsi_ctx->base = devm_ioremap_nocache(
+		gsi_ctx->dev, gsi_base_addr, gsi_size);
+
+	if (!gsi_ctx->base) {
+		GSIERR("failed to map access to GSI HW\n");
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+
+	GSIDBG("GSI base(%pa) mapped to (%pK) with len (0x%x)\n",
+		&gsi_base_addr,
+		gsi_ctx->base,
+		gsi_size);
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_map_base);
+
+int gsi_unmap_base(void)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+
+	gsi_ctx->base = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_unmap_base);
+
 int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 {
 	int res;
@@ -926,17 +1037,15 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	gsi_ctx->base = devm_ioremap_nocache(gsi_ctx->dev, props->phys_addr,
-				props->size);
+	/*
+	 * If base not previously mapped via gsi_map_base(), map it
+	 * now...
+	 */
 	if (!gsi_ctx->base) {
-		GSIERR("failed to remap GSI HW\n");
-		return -GSI_STATUS_RES_ALLOC_FAILURE;
+		res = gsi_map_base(props->phys_addr, props->size);
+		if (res)
+			return res;
 	}
-
-	GSIDBG("GSI base(%pa) mapped to (%pK) with len (0x%lx)\n",
-	       &(props->phys_addr),
-	       gsi_ctx->base,
-	       props->size);
 
 	if (running_emulation) {
 		GSIDBG("GSI SW ver register value 0x%x\n",
@@ -952,7 +1061,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		if (!gsi_ctx->intcntrlr_base) {
 			GSIERR(
 			  "failed to remap emulator's interrupt controller HW\n");
-			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			gsi_unmap_base();
 			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
 			return -GSI_STATUS_RES_ALLOC_FAILURE;
 		}
@@ -975,7 +1084,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	atomic_set(&gsi_ctx->num_evt_ring, 0);
 	gsi_ctx->max_ch = gsi_get_max_channels(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ch == 0) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -985,7 +1094,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	}
 	gsi_ctx->max_ev = gsi_get_max_event_rings(gsi_ctx->per.ver);
 	if (gsi_ctx->max_ev == 0) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -1001,7 +1110,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 
 	if (props->mhi_er_id_limits_valid &&
 	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
-		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_unmap_base();
 		if (running_emulation)
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 		gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
@@ -1052,7 +1161,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		res = setup_emulator_cntrlr(
 		    gsi_ctx->intcntrlr_base, gsi_ctx->intcntrlr_mem_size);
 		if (res != 0) {
-			devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+			gsi_unmap_base();
 			devm_iounmap(gsi_ctx->dev, gsi_ctx->intcntrlr_base);
 			gsi_ctx->base = gsi_ctx->intcntrlr_base = NULL;
 			devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
@@ -1149,7 +1258,7 @@ int gsi_deregister_device(unsigned long dev_hdl, bool force)
 	__gsi_config_gen_irq(gsi_ctx->per.ee, ~0, 0);
 
 	devm_free_irq(gsi_ctx->dev, gsi_ctx->per.irq, gsi_ctx);
-	devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+	gsi_unmap_base();
 	memset(gsi_ctx, 0, sizeof(*gsi_ctx));
 
 	return GSI_STATUS_SUCCESS;
@@ -1264,12 +1373,27 @@ static void gsi_prime_evt_ring(struct gsi_evt_ctx *ctx)
 	spin_unlock_irqrestore(&ctx->ring.slock, flags);
 }
 
+static void gsi_prime_evt_ring_wdi(struct gsi_evt_ctx *ctx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->ring.slock, flags);
+	if (ctx->ring.base_va)
+		memset((void *)ctx->ring.base_va, 0, ctx->ring.len);
+	ctx->ring.wp_local = ctx->ring.base +
+		((ctx->ring.max_num_elem + 2) * ctx->ring.elem_sz);
+	gsi_ring_evt_doorbell(ctx);
+	spin_unlock_irqrestore(&ctx->ring.slock, flags);
+}
+
 static int gsi_validate_evt_ring_props(struct gsi_evt_ring_props *props)
 {
 	uint64_t ra;
 
 	if ((props->re_size == GSI_EVT_RING_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_EVT_RING_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_EVT_RING_RE_SIZE_16B &&
 				 props->ring_len % 16)) {
 		GSIERR("bad params ring_len %u not a multiple of RE size %u\n",
@@ -1402,6 +1526,8 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	atomic_inc(&gsi_ctx->num_evt_ring);
 	if (props->intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	else if (props->intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	spin_lock_irqsave(&gsi_ctx->slock, flags);
@@ -1475,7 +1601,8 @@ int gsi_dealloc_evt_ring(unsigned long evt_ring_hdl)
 		return -GSI_STATUS_NODEV;
 	}
 
-	if (evt_ring_hdl >= gsi_ctx->max_ev) {
+	if (evt_ring_hdl >= gsi_ctx->max_ev ||
+			evt_ring_hdl >= GSI_EVT_RING_MAX) {
 		GSIERR("bad params evt_ring_hdl=%lu\n", evt_ring_hdl);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
@@ -1654,6 +1781,8 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 
 	if (ctx->props.intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	return GSI_STATUS_SUCCESS;
@@ -1877,6 +2006,8 @@ static int gsi_validate_channel_props(struct gsi_chan_props *props)
 
 	if ((props->re_size == GSI_CHAN_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_CHAN_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_16B &&
 				 props->ring_len % 16) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_32B &&
@@ -2275,7 +2406,6 @@ EXPORT_SYMBOL(gsi_query_channel_db_addr);
 int gsi_start_channel(unsigned long chan_hdl)
 {
 	enum gsi_ch_cmd_opcode op = GSI_CH_START;
-	int res;
 	uint32_t val;
 	struct gsi_chan_ctx *ctx;
 
@@ -2308,20 +2438,24 @@ int gsi_start_channel(unsigned long chan_hdl)
 		 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
-	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
-	if (res == 0) {
-		GSIERR("chan_hdl=%lu timed out\n", chan_hdl);
-		mutex_unlock(&gsi_ctx->mlock);
-		return -GSI_STATUS_TIMED_OUT;
-	}
+
+	GSIDBG("GSI Channel Start, waiting for completion\n");
+	gsi_channel_state_change_wait(chan_hdl,
+		ctx,
+		GSI_START_CMD_TIMEOUT_MS,
+		GSI_CHAN_STATE_STARTED);
+
 	if (ctx->state != GSI_CHAN_STATE_STARTED) {
-		GSIERR("chan=%lu unexpected state=%u\n", chan_hdl, ctx->state);
 		/*
-		 * Hardware returned unexpected status, unexpected
-		 * hardware state.
-		 */
+		* Hardware returned unexpected status, unexpected
+		* hardware state.
+		*/
+		GSIERR("chan=%lu timed out, unexpected state=%u\n",
+			chan_hdl, ctx->state);
 		BUG();
 	}
+
+	GSIDBG("GSI Channel=%lu Start success\n", chan_hdl);
 
 	/* write order MUST be MSB followed by LSB */
 	val = ((ctx->ring.wp_local >> 32) &
@@ -2378,27 +2512,12 @@ int gsi_stop_channel(unsigned long chan_hdl)
 		 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
-	res = wait_for_completion_timeout(&ctx->compl,
-			msecs_to_jiffies(GSI_STOP_CMD_TIMEOUT_MS));
-	if (res == 0) {
-		/*
-		 * check channel state here in case the channel is stopped but
-		 * the interrupt was not handled yet.
-		 */
-		val = gsi_readl(gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-		ctx->state = (val &
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_BMSK) >>
-			GSI_EE_n_GSI_CH_k_CNTXT_0_CHSTATE_SHFT;
-		if (ctx->state == GSI_CHAN_STATE_STOPPED) {
-			res = GSI_STATUS_SUCCESS;
-			goto free_lock;
-		}
-		GSIDBG("chan_hdl=%lu timed out\n", chan_hdl);
-		res = -GSI_STATUS_TIMED_OUT;
-		goto free_lock;
-	}
+
+	GSIDBG("GSI Channel Stop, waiting for completion\n");
+	gsi_channel_state_change_wait(chan_hdl,
+		ctx,
+		GSI_STOP_CMD_TIMEOUT_MS,
+		GSI_CHAN_STATE_STOPPED);
 
 	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
 		ctx->state != GSI_CHAN_STATE_STOP_IN_PROC) {
@@ -3240,14 +3359,16 @@ static void gsi_configure_bck_prs_matrix(void *base)
 		gsi_base + GSI_IC_UCONTROLLER_GPR_BCK_PRS_MSB_OFFS);
 }
 
-int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
-		phys_addr_t per_base_addr, enum gsi_ver ver)
+int gsi_configure_regs(phys_addr_t per_base_addr, enum gsi_ver ver)
 {
-	void __iomem *gsi_base;
-
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
 		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
 	if (ver <= GSI_VER_ERR || ver >= GSI_VER_MAX) {
@@ -3255,17 +3376,11 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 		return -GSI_STATUS_ERROR;
 	}
 
-	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
-	if (!gsi_base) {
-		GSIERR("ioremap failed\n");
-		return -GSI_STATUS_RES_ALLOC_FAILURE;
-	}
-	gsi_writel(0, gsi_base + GSI_GSI_PERIPH_BASE_ADDR_MSB_OFFS);
+	gsi_writel(0, gsi_ctx->base + GSI_GSI_PERIPH_BASE_ADDR_MSB_OFFS);
 	gsi_writel(per_base_addr,
-			gsi_base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
-	gsi_configure_bck_prs_matrix((void *)gsi_base);
-	gsi_configure_ieps(gsi_base, ver);
-	iounmap(gsi_base);
+			gsi_ctx->base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
+	gsi_configure_bck_prs_matrix((void *)gsi_ctx->base);
+	gsi_configure_ieps(gsi_ctx->base, ver);
 
 	return 0;
 }
@@ -3439,6 +3554,26 @@ free_lock:
 	return res;
 }
 EXPORT_SYMBOL(gsi_halt_channel_ee);
+
+int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (!gsi_ctx->base) {
+		GSIERR("access to GSI HW has not been mapped\n");
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	gsi_writel(per_ep_index,
+		gsi_ctx->base +
+		GSI_V2_5_GSI_MAP_EE_n_CH_k_VP_TABLE_OFFS(chan_num, ee));
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_map_virtual_ch_to_per_ep);
 
 static int msm_gsi_probe(struct platform_device *pdev)
 {

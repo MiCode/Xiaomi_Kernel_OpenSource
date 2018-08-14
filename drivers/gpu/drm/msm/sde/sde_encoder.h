@@ -31,6 +31,7 @@
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE	BIT(4)
 
 #define IDLE_POWERCOLLAPSE_DURATION	(66 - 16/2)
+#define IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP (200 - 16/2)
 
 /**
  * Encoder functions and data types
@@ -276,5 +277,12 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
  * @Return:     true if successful in updating the encoder structure
  */
 int sde_encoder_in_clone_mode(struct drm_encoder *enc);
+
+/**
+ * sde_encoder_control_idle_pc - control enable/disable of idle power collapse
+ * @drm_enc:    Pointer to drm encoder structure
+ * @enable:	enable/disable flag
+ */
+void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
 
 #endif /* __SDE_ENCODER_H__ */

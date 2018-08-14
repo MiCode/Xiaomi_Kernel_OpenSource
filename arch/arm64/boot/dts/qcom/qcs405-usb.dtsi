@@ -62,7 +62,7 @@
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3-u1u2-disable;
 			usb-core-id = <1>;
-			maximum-speed = "high-speed";
+			maximum-speed = "super-speed";
 			dr_mode = "host";
 		};
 	};
@@ -105,15 +105,17 @@
 	};
 
 	/* Secondary USB port related Super Speed PHY */
-	usb_ss_phy: ssphy@7678800 {
+	usb_ss_phy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy";
-		reg = <0x7678800 0x400>;
+		reg = <0x78000 0x400>;
 		vdd-supply = <&pms405_l3>;
 		vdda18-supply = <&pms405_l5>;
 		qcom,vdd-voltage-level = <0 1050000 1050000>;
 
-		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>;
-		clock-names = "ref_clk";
+		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
+			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_USB3_PHY_PIPE_CLK>;
+		clock-names = "ref_clk", "cfg_ahb_clk", "pipe_clk";
 
 		resets = <&clock_gcc GCC_USB3_PHY_BCR>,
 			 <&clock_gcc GCC_USB3PHY_PHY_BCR>;

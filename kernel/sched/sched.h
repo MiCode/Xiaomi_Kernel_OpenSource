@@ -108,6 +108,7 @@ struct sched_cluster {
 	int notifier_sent;
 	bool wake_up_idle;
 	u64 aggr_grp_load;
+	u64 coloc_boost_load;
 };
 
 extern unsigned int sched_disable_window_stats;
@@ -680,6 +681,12 @@ static inline bool sched_asym_prefer(int a, int b)
 	return arch_asym_cpu_priority(a) > arch_asym_cpu_priority(b);
 }
 
+struct max_cpu_capacity {
+	raw_spinlock_t lock;
+	unsigned long val;
+	int cpu;
+};
+
 /*
  * We add the notion of a root-domain which will be used to define per-domain
  * variables. Each exclusive cpuset essentially defines an island domain by
@@ -695,8 +702,12 @@ struct root_domain {
 	cpumask_var_t span;
 	cpumask_var_t online;
 
-	/* Indicate more than one runnable task for any CPU */
-	bool overload;
+	/*
+	 * Indicate pullable load on at least one CPU, e.g:
+	 * - More than one runnable task
+	 * - Running task is misfit
+	 */
+	int overload;
 
 	/*
 	 * The bit corresponding to a CPU gets set here if such CPU has more
@@ -727,7 +738,8 @@ struct root_domain {
 	cpumask_var_t rto_mask;
 	struct cpupri cpupri;
 
-	unsigned long max_cpu_capacity;
+	/* Maximum cpu capacity in the system. */
+	struct max_cpu_capacity max_cpu_capacity;
 
 	/* First cpu with maximum and minimum original capacity */
 	int max_cap_orig_cpu, min_cap_orig_cpu;
@@ -739,6 +751,7 @@ extern struct root_domain def_root_domain;
 extern struct mutex sched_domains_mutex;
 
 extern void init_defrootdomain(void);
+extern void init_max_cpu_capacity(struct max_cpu_capacity *mcc);
 extern int sched_init_domains(const struct cpumask *cpu_map);
 extern void rq_attach_root(struct rq *rq, struct root_domain *rd);
 extern void sched_get_rd(struct root_domain *rd);
@@ -825,7 +838,8 @@ struct rq {
 
 	unsigned char idle_balance;
 
-	unsigned int misfit_task;
+	unsigned long misfit_task_load;
+
 	/* For active balancing */
 	int active_balance;
 	int push_cpu;
@@ -1190,6 +1204,7 @@ DECLARE_PER_CPU(struct sched_domain *, sd_numa);
 DECLARE_PER_CPU(struct sched_domain *, sd_asym);
 DECLARE_PER_CPU(struct sched_domain *, sd_ea);
 DECLARE_PER_CPU(struct sched_domain *, sd_scs);
+extern struct static_key_false sched_asym_cpucapacity;
 
 struct sched_group_capacity {
 	atomic_t ref;
@@ -1759,8 +1774,8 @@ static inline void add_nr_running(struct rq *rq, unsigned count)
 
 	if (prev_nr < 2 && rq->nr_running >= 2) {
 #ifdef CONFIG_SMP
-		if (!rq->rd->overload)
-			rq->rd->overload = true;
+		if (!READ_ONCE(rq->rd->overload))
+			WRITE_ONCE(rq->rd->overload, 1);
 #endif
 	}
 
@@ -1837,6 +1852,14 @@ unsigned long arch_scale_freq_capacity(struct sched_domain *sd, int cpu)
 }
 #endif
 
+#ifndef arch_scale_max_freq_capacity
+static __always_inline
+unsigned long arch_scale_max_freq_capacity(struct sched_domain *sd, int cpu)
+{
+	return SCHED_CAPACITY_SCALE;
+}
+#endif
+
 #ifndef arch_scale_cpu_capacity
 static __always_inline
 unsigned long arch_scale_cpu_capacity(struct sched_domain *sd, int cpu)
@@ -1865,18 +1888,20 @@ extern unsigned int walt_disabled;
 static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_task_util)
+	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
 		return p->ravg.demand /
 		       (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 #endif
-	return p->se.avg.util_avg;
+	return READ_ONCE(p->se.avg.util_avg);
 }
 
-/*
- * cpu_util returns the amount of capacity of a CPU that is used by CFS
- * tasks. The unit of the return value must be the one of capacity so we can
- * compare the utilization with the capacity of the CPU that is available for
- * CFS task (ie cpu_capacity).
+/**
+ * Amount of capacity of a CPU that is (estimated to be) used by CFS tasks
+ * @cpu: the CPU to get the utilization of
+ *
+ * The unit of the return value must be the one of capacity so we can compare
+ * the utilization with the capacity of the CPU that is available for CFS task
+ * (ie cpu_capacity).
  *
  * cfs_rq.avg.util_avg is the sum of running time of runnable tasks plus the
  * recent utilization of currently non-runnable tasks on a CPU. It represents
@@ -1886,6 +1911,14 @@ static inline unsigned long task_util(struct task_struct *p)
  * The utilization of a CPU converges towards a sum equal to or less than the
  * current capacity (capacity_curr <= capacity_orig) of the CPU because it is
  * the running time on this CPU scaled by capacity_curr.
+ *
+ * The estimated utilization of a CPU is defined to be the maximum between its
+ * cfs_rq.avg.util_avg and the sum of the estimated utilization of the tasks
+ * currently RUNNABLE on that CPU.
+ * This allows to properly represent the expected utilization of a CPU which
+ * has just got a big task running since a long sleep period. At the same time
+ * however it preserves the benefits of the "blocked utilization" in
+ * describing the potential for other tasks waking up on the same CPU.
  *
  * Nevertheless, cfs_rq.avg.util_avg can be higher than capacity_curr or even
  * higher than capacity_orig because of unfortunate rounding in
@@ -1897,29 +1930,34 @@ static inline unsigned long task_util(struct task_struct *p)
  * available capacity. We allow utilization to overshoot capacity_curr (but not
  * capacity_orig) as it useful for predicting the capacity required after task
  * migrations (scheduler-driven DVFS).
+ *
+ * Return: the (estimated) utilization for the specified CPU
  */
-static inline unsigned long __cpu_util(int cpu, int delta)
-{
-	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
-	unsigned long capacity = capacity_orig_of(cpu);
-
-#ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->walt_stats.cumulative_runnable_avg;
-		util = div64_u64(util,
-				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
-	}
-#endif
-	delta += util;
-	if (delta < 0)
-		return 0;
-
-	return (delta >= capacity) ? capacity : delta;
-}
-
 static inline unsigned long cpu_util(int cpu)
 {
-	return __cpu_util(cpu, 0);
+	struct cfs_rq *cfs_rq;
+	unsigned int util;
+
+#ifdef CONFIG_SCHED_WALT
+	if (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {
+		u64 walt_cpu_util =
+				cpu_rq(cpu)->walt_stats.cumulative_runnable_avg;
+
+		walt_cpu_util <<= SCHED_CAPACITY_SHIFT;
+		do_div(walt_cpu_util, sched_ravg_window);
+
+		return min_t(unsigned long, walt_cpu_util,
+				capacity_orig_of(cpu));
+	}
+#endif
+
+	cfs_rq = &cpu_rq(cpu)->cfs;
+	util = READ_ONCE(cfs_rq->avg.util_avg);
+
+	if (sched_feat(UTIL_EST))
+		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
+
+	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
 struct sched_walt_cpu_load {
@@ -1951,22 +1989,7 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 
 #ifdef CONFIG_SCHED_WALT
 u64 freq_policy_load(struct rq *rq);
-#endif
 
-static inline unsigned long
-cpu_util_freq_pelt(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	u64 util = rq->cfs.avg.util_avg;
-	unsigned long capacity = capacity_orig_of(cpu);
-
-	util *= (100 + per_cpu(sched_load_boost, cpu));
-	do_div(util, 100);
-
-	return (util >= capacity) ? capacity : util;
-}
-
-#ifdef CONFIG_SCHED_WALT
 extern u64 walt_load_reported_window;
 
 static inline unsigned long
@@ -1977,8 +2000,8 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 	unsigned long capacity = capacity_orig_of(cpu);
 	int boost;
 
-	if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
-		return cpu_util_freq_pelt(cpu);
+	if (unlikely(walt_disabled || !sysctl_sched_use_walt_cpu_util))
+		return cpu_util(cpu);
 
 	boost = per_cpu(sched_load_boost, cpu);
 	util_unboosted = util = freq_policy_load(rq);
@@ -2022,7 +2045,7 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 static inline unsigned long
 cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
-	return cpu_util_freq_pelt(cpu);
+	return cpu_util(cpu);
 }
 
 #define sched_ravg_window TICK_NSEC
@@ -2044,7 +2067,7 @@ add_capacity_margin(unsigned long cpu_capacity, int cpu)
 	return cpu_capacity;
 }
 
-#endif
+#endif /* CONFIG_SMP */
 
 static inline void sched_rt_avg_update(struct rq *rq, u64 rt_delta)
 {
@@ -2902,12 +2925,13 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
-static inline bool task_boost_on_big_eligible(struct task_struct *p)
-{
-	bool boost_on_big = task_sched_boost(p) &&
-				sched_boost_policy() == SCHED_BOOST_ON_BIG;
 
-	if (boost_on_big) {
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	enum sched_boost_policy policy = task_sched_boost(p) ?
+							sched_boost_policy() :
+							SCHED_BOOST_NONE;
+	if (policy == SCHED_BOOST_ON_BIG) {
 		/*
 		 * Filter out tasks less than min task util threshold
 		 * under conservative boost.
@@ -2915,10 +2939,17 @@ static inline bool task_boost_on_big_eligible(struct task_struct *p)
 		if (sysctl_sched_boost == CONSERVATIVE_BOOST &&
 				task_util(p) <=
 				sysctl_sched_min_task_util_for_boost_colocation)
-			boost_on_big = false;
+			policy = SCHED_BOOST_NONE;
 	}
 
-	return boost_on_big;
+	return policy;
+}
+
+extern void walt_map_freq_to_load(void);
+
+static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
+{
+	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
 
 #else	/* CONFIG_SCHED_WALT */
@@ -2937,16 +2968,16 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
-static inline bool task_boost_on_big_eligible(struct task_struct *p)
-{
-	return false;
-}
-
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
 static inline int sched_boost(void)
 {
 	return 0;
+}
+
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	return SCHED_BOOST_NONE;
 }
 
 static inline bool
@@ -3068,6 +3099,7 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 #endif
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline void walt_map_freq_to_load(void) { }
 #endif	/* CONFIG_SCHED_WALT */
 
 static inline bool energy_aware(void)

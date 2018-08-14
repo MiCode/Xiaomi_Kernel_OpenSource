@@ -125,6 +125,8 @@ enum esd_check_status_mode {
 	ESD_MODE_REG_READ,
 	ESD_MODE_SW_BTA,
 	ESD_MODE_PANEL_TE,
+	ESD_MODE_SW_SIM_SUCCESS,
+	ESD_MODE_SW_SIM_FAILURE,
 	ESD_MODE_MAX
 };
 
@@ -176,7 +178,7 @@ struct dsi_panel {
 	bool ulps_enabled;
 	bool ulps_suspend_enabled;
 	bool allow_phy_power_off;
-	bool esd_recovery_pending;
+	atomic_t esd_recovery_pending;
 
 	bool panel_initialized;
 	bool te_using_watchdog_timer;
@@ -282,6 +284,8 @@ int dsi_panel_switch(struct dsi_panel *panel);
 int dsi_panel_post_switch(struct dsi_panel *panel);
 
 void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
+
+void dsi_panel_bl_handoff(struct dsi_panel *panel);
 
 struct dsi_panel *dsi_panel_ext_bridge_get(struct device *parent,
 				struct device_node *of_node,

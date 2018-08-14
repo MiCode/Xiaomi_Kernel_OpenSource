@@ -59,6 +59,18 @@ enum sde_crtc_output_capture_point {
 };
 
 /**
+ * enum sde_crtc_idle_pc_state: states of idle power collapse
+ * @IDLE_PC_NONE: no-op
+ * @IDLE_PC_ENABLE: enable idle power-collapse
+ * @IDLE_PC_DISABLE: disable idle power-collapse
+ */
+enum sde_crtc_idle_pc_state {
+	IDLE_PC_NONE,
+	IDLE_PC_ENABLE,
+	IDLE_PC_DISABLE,
+};
+
+/**
  * @connectors    : Currently associated drm connectors for retire event
  * @num_connectors: Number of associated drm connectors for retire event
  * @list:	event list
@@ -220,7 +232,7 @@ struct sde_crtc {
 	struct drm_property_blob *blob_info;
 
 	/* output fence support */
-	struct sde_fence_context output_fence;
+	struct sde_fence_context *output_fence;
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
@@ -733,6 +745,28 @@ static inline int sde_crtc_get_secure_level(struct drm_crtc *crtc,
 int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state,
 		bool old_valid_fb);
+
+/**
+ * sde_crtc_find_plane_fb_modes - finds the modes of all planes attached
+ *                                  to crtc
+ * @crtc: Pointer to DRM crtc object
+ * @fb_ns: number of non secure planes
+ * @fb_sec: number of secure-playback planes
+ * @fb_sec_dir: number of secure-ui/secure-camera planes
+ */
+int sde_crtc_find_plane_fb_modes(struct drm_crtc *crtc,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir);
+
+/**
+ * sde_crtc_state_find_plane_fb_modes - finds the modes of all planes attached
+ *                                       to the crtc state
+ * @crtc_state: Pointer to DRM crtc state object
+ * @fb_ns: number of non secure planes
+ * @fb_sec: number of secure-playback planes
+ * @fb_sec_dir: number of secure-ui/secure-camera planes
+ */
+int sde_crtc_state_find_plane_fb_modes(struct drm_crtc_state *state,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir);
 
 /**
  * sde_crtc_secure_ctrl - Initiates the transition between secure and

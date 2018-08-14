@@ -2564,22 +2564,6 @@ static struct dma_iommu_mapping *gpi_create_mapping(struct gpi_dev *gpi_dev)
 	return arm_iommu_create_mapping(&platform_bus_type, base, size);
 }
 
-static int gpi_dma_mask(struct gpi_dev *gpi_dev)
-{
-	int mask = 64;
-
-	if (gpi_dev->smmu_cfg && !(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
-		unsigned long addr;
-
-		addr = gpi_dev->iova_base + gpi_dev->iova_size + 1;
-		mask = find_last_bit(&addr, 64);
-	}
-
-	GPI_LOG(gpi_dev, "Setting dma mask to %d\n", mask);
-
-	return dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(mask));
-}
-
 static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 {
 	struct dma_iommu_mapping *mapping = NULL;
@@ -2643,9 +2627,10 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 		}
 	}
 
-	ret = gpi_dma_mask(gpi_dev);
+	GPI_LOG(gpi_dev, "Setting dma mask to 64\n");
+	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
 	if (ret) {
-		GPI_ERR(gpi_dev, "Error setting dma_mask, ret:%d\n", ret);
+		GPI_ERR(gpi_dev, "Error setting dma_mask to 64, ret:%d\n", ret);
 		goto error_set_mask;
 	}
 

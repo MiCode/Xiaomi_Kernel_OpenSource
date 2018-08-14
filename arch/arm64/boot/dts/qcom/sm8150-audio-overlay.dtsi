@@ -16,10 +16,10 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &snd_9360 {
-	qcom,ext-disp-audio-rx;
-	qcom,wcn-btfm;
-	qcom,mi2s-audio-intf;
-	qcom,auxpcm-audio-intf;
+	qcom,ext-disp-audio-rx = <1>;
+	qcom,wcn-btfm = <1>;
+	qcom,mi2s-audio-intf = <1>;
+	qcom,auxpcm-audio-intf = <1>;
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 
 	qcom,audio-routing =
@@ -60,10 +60,10 @@
 };
 
 &snd_934x {
-	qcom,ext-disp-audio-rx;
-	qcom,wcn-btfm;
-	qcom,mi2s-audio-intf;
-	qcom,auxpcm-audio-intf;
+	qcom,ext-disp-audio-rx = <1>;
+	qcom,wcn-btfm = <1>;
+	qcom,mi2s-audio-intf = <1>;
+	qcom,auxpcm-audio-intf = <1>;
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 
 	qcom,audio-routing =

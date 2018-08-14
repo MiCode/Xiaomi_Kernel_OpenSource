@@ -572,6 +572,8 @@ struct dwc3_ep_events {
 
 #define DWC3_TRB_NUM		256
 
+#define DWC3_FRAME_WRAP_AROUND_MASK (BIT(14) | BIT(15))
+
 /**
  * struct dwc3_ep - device side endpoint representation
  * @endpoint: usb endpoint
@@ -593,6 +595,7 @@ struct dwc3_ep_events {
  * @number: endpoint number (1 - 15)
  * @type: set to bmAttributes & USB_ENDPOINT_XFERTYPE_MASK
  * @resource_index: Resource transfer index
+ * @frame_number: set to the frame number we want this transfer to start (ISOC)
  * @interval: the interval on which the ISOC transfer is started
  * @allocated_requests: number of requests allocated
  * @queued_requests: number of requests queued for transfer
@@ -651,6 +654,7 @@ struct dwc3_ep {
 	u8			resource_index;
 	u32			allocated_requests;
 	u32			queued_requests;
+	u32			frame_number;
 	u32			interval;
 
 	char			name[20];
@@ -834,21 +838,22 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
-#define DWC3_CONTROLLER_ERROR_EVENT		0
-#define DWC3_CONTROLLER_RESET_EVENT		1
-#define DWC3_CONTROLLER_POST_RESET_EVENT	2
-#define DWC3_CORE_PM_SUSPEND_EVENT		3
-#define DWC3_CORE_PM_RESUME_EVENT		4
-#define DWC3_CONTROLLER_CONNDONE_EVENT		5
-#define DWC3_CONTROLLER_NOTIFY_OTG_EVENT	6
-#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT	7
-#define DWC3_CONTROLLER_RESTART_USB_SESSION	8
+#define DWC3_CONTROLLER_ERROR_EVENT			0
+#define DWC3_CONTROLLER_RESET_EVENT			1
+#define DWC3_CONTROLLER_POST_RESET_EVENT		2
+#define DWC3_CORE_PM_SUSPEND_EVENT			3
+#define DWC3_CORE_PM_RESUME_EVENT			4
+#define DWC3_CONTROLLER_CONNDONE_EVENT			5
+#define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		6
+#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		7
+#define DWC3_CONTROLLER_RESTART_USB_SESSION		8
+#define DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER		9
 
 /* USB GSI event buffer related notification */
-#define DWC3_GSI_EVT_BUF_ALLOC			9
-#define DWC3_GSI_EVT_BUF_SETUP			10
-#define DWC3_GSI_EVT_BUF_CLEANUP		11
-#define DWC3_GSI_EVT_BUF_FREE			12
+#define DWC3_GSI_EVT_BUF_ALLOC			10
+#define DWC3_GSI_EVT_BUF_SETUP			11
+#define DWC3_GSI_EVT_BUF_CLEANUP		12
+#define DWC3_GSI_EVT_BUF_FREE			13
 
 #define MAX_INTR_STATS				10
 
@@ -1457,7 +1462,9 @@ static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
 #endif
 
 extern void dwc3_set_notifier(
-		void (*notify)(struct dwc3 *dwc3, unsigned int event));
-extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned int event);
+		void (*notify)(struct dwc3 *dwc3, unsigned int event,
+						unsigned int value));
+extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned int event,
+						unsigned int value);
 void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
 #endif /* __DRIVERS_USB_DWC3_CORE_H */

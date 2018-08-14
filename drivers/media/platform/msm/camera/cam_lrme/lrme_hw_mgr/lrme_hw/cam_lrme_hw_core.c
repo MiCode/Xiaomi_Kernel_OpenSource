@@ -1118,7 +1118,7 @@ irqreturn_t cam_lrme_hw_irq(int irq_num, void *data)
 
 	if (!data) {
 		CAM_ERR(CAM_LRME, "Invalid data in IRQ callback");
-		return -EINVAL;
+		return IRQ_NONE;
 	}
 
 	lrme_hw = (struct cam_hw_info *)data;
@@ -1179,7 +1179,7 @@ irqreturn_t cam_lrme_hw_irq(int irq_num, void *data)
 		task = cam_req_mgr_workq_get_task(lrme_core->work);
 		if (!task) {
 			CAM_ERR(CAM_LRME, "no empty task available");
-			return -ENOMEM;
+			return IRQ_NONE;
 		}
 		work_data = (struct cam_lrme_hw_work_data *)task->payload;
 		work_data->top_irq_status = top_irq_status;

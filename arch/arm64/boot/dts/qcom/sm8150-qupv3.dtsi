@@ -267,7 +267,7 @@
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se3_spi_active>;
-		pinctrl-1 = <&qupv3_se3_spi_sleep>;
+		pinctrl-1 = <&qupv3_se3_spi_sleep &qupv3_se3_spi_miso_sleep>;
 		interrupts = <GIC_SPI 604 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;

@@ -693,7 +693,8 @@ int __ipa3_del_hdr(u32 hdr_hdl, bool by_user)
 			IPADBG("Trying to delete hdr %s offset=%u\n",
 				entry->name, entry->offset_entry->offset);
 			if (!entry->offset_entry->offset) {
-				IPAERR("User cannot delete default header\n");
+				IPAERR_RL(
+				"User cannot delete default header\n");
 				return -EPERM;
 			}
 		}
@@ -1007,9 +1008,9 @@ int ipa3_reset_hdr(bool user_only)
 	 * header table entries
 	 */
 	if (ipa3_reset_rt(IPA_IP_v4, user_only))
-		IPAERR("fail to reset v4 rt\n");
+		IPAERR_RL("fail to reset v4 rt\n");
 	if (ipa3_reset_rt(IPA_IP_v6, user_only))
-		IPAERR("fail to reset v4 rt\n");
+		IPAERR_RL("fail to reset v6 rt\n");
 
 	mutex_lock(&ipa3_ctx->lock);
 	IPADBG("reset hdr\n");

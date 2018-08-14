@@ -146,7 +146,7 @@ static int ipa3_nat_ipv6ct_mmap(struct file *filp, struct vm_area_struct *vma)
 
 		phys_addr = ipa3_ctx->ipa_wrapper_base +
 			ipa3_ctx->ctrl->ipa_reg_base_ofst +
-			ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
+			ipahal_get_reg_n_ofst(IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 				dev->smem_offset);
 
 		if (remap_pfn_range(
@@ -1536,6 +1536,8 @@ int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 			ipa3_ctx->nat_mem.pdn_mem.size,
 			ipa3_ctx->nat_mem.pdn_mem.base,
 			ipa3_ctx->nat_mem.pdn_mem.phys_base);
+		ipa3_ctx->nat_mem.pdn_mem.base = NULL;
+		ipa3_ctx->nat_mem.dev.is_mem_allocated = false;
 	}
 
 	ipa3_nat_ipv6ct_free_mem(&ipa3_ctx->nat_mem.dev);

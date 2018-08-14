@@ -644,6 +644,40 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	return rc;
 }
 
+static u32 dsi_panel_get_brightness(struct dsi_backlight_config *bl)
+{
+	u32 cur_bl_level;
+	struct backlight_device *bd = bl->raw_bd;
+
+	/* default the brightness level to 50% */
+	cur_bl_level = bl->bl_max_level >> 1;
+
+	switch (bl->type) {
+	case DSI_BACKLIGHT_WLED:
+		/* Try to query the backlight level from the backlight device */
+		if (bd->ops && bd->ops->get_brightness)
+			cur_bl_level = bd->ops->get_brightness(bd);
+		break;
+	case DSI_BACKLIGHT_DCS:
+	default:
+		/*
+		 * Ideally, we should read the backlight level from the
+		 * panel. For now, just set it default value.
+		 */
+		break;
+	}
+
+	pr_debug("cur_bl_level=%d\n", cur_bl_level);
+	return cur_bl_level;
+}
+
+void dsi_panel_bl_handoff(struct dsi_panel *panel)
+{
+	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	bl->bl_level = dsi_panel_get_brightness(bl);
+}
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -2031,7 +2065,7 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	int target_bpp_x16;
 	int data;
 	int final_value, final_scale;
-	int ratio_index;
+	int ratio_index, mod_offset;
 
 	dsc->rc_model_size = 8192;
 
@@ -2103,7 +2137,20 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 		dsc->quant_incr_limit1 = 19;
 	}
 
-	dsc->slice_last_group_size = 3 - (dsc->slice_width % 3);
+	mod_offset = dsc->slice_width % 3;
+	switch (mod_offset) {
+	case 0:
+		dsc->slice_last_group_size = 2;
+		break;
+	case 1:
+		dsc->slice_last_group_size = 0;
+		break;
+	case 2:
+		dsc->slice_last_group_size = 1;
+		break;
+	default:
+		break;
+	}
 
 	dsc->det_thresh_flatness = 7 + 2*(bpc - 8);
 
@@ -3704,8 +3751,8 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	 /* Avoid sending panel off commands when ESD recovery is underway */
-	if (!panel->esd_recovery_pending) {
+	/* Avoid sending panel off commands when ESD recovery is underway */
+	if (!atomic_read(&panel->esd_recovery_pending)) {
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
 		if (rc) {
 			pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",

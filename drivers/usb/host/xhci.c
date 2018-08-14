@@ -621,7 +621,7 @@ int xhci_run(struct usb_hcd *hcd)
 
 	temp = readl(&xhci->ir_set->irq_pending);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
-			"// Enabling event ring interrupter %p by writing 0x%x to irq_pending",
+			"// Enabling event ring interrupter %pK by writing 0x%x to irq_pending",
 			xhci->ir_set, (unsigned int) ER_IRQ_ENABLE(temp));
 	writel(ER_IRQ_ENABLE(temp), &xhci->ir_set->irq_pending);
 	xhci_print_ir_set(xhci, 0);
@@ -1498,7 +1498,7 @@ static int xhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	i = urb_priv->num_tds_done;
 	if (i < urb_priv->num_tds)
 		xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
-				"Cancel URB %p, dev %s, ep 0x%x, "
+				"Cancel URB %pK, dev %s, ep 0x%x, "
 				"starting at offset 0x%llx",
 				urb, urb->dev->devpath,
 				urb->ep->desc.bEndpointAddress,
@@ -1573,7 +1573,7 @@ static int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	if (xhci->xhc_state & XHCI_STATE_DYING)
 		return -ENODEV;
 
-	xhci_dbg(xhci, "%s called for udev %p\n", __func__, udev);
+	xhci_dbg(xhci, "%s called for udev %pK\n", __func__, udev);
 	drop_flag = xhci_get_endpoint_flag(&ep->desc);
 	if (drop_flag == SLOT_FLAG || drop_flag == EP0_FLAG) {
 		xhci_dbg(xhci, "xHCI %s - can't drop slot or ep 0 %#x\n",
@@ -1600,7 +1600,7 @@ static int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	    xhci_get_endpoint_flag(&ep->desc)) {
 		/* Do not warn when called after a usb_device_reset */
 		if (xhci->devs[udev->slot_id]->eps[ep_index].ring != NULL)
-			xhci_warn(xhci, "xHCI %s called with disabled ep %p\n",
+			xhci_warn(xhci, "xHCI %s called with disabled ep %pK\n",
 				  __func__, ep);
 		return 0;
 	}
@@ -1695,7 +1695,7 @@ static int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	 * ignore this request.
 	 */
 	if (le32_to_cpu(ctrl_ctx->add_flags) & added_ctxs) {
-		xhci_warn(xhci, "xHCI %s called with enabled ep %p\n",
+		xhci_warn(xhci, "xHCI %s called with enabled ep %pK\n",
 				__func__, ep);
 		return 0;
 	}
@@ -2689,7 +2689,7 @@ static int xhci_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 		(xhci->xhc_state & XHCI_STATE_REMOVING))
 		return -ENODEV;
 
-	xhci_dbg(xhci, "%s called for udev %p\n", __func__, udev);
+	xhci_dbg(xhci, "%s called for udev %pK\n", __func__, udev);
 	virt_dev = xhci->devs[udev->slot_id];
 
 	command = xhci_alloc_command(xhci, false, true, GFP_KERNEL);
@@ -2779,7 +2779,7 @@ static void xhci_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 		return;
 	xhci = hcd_to_xhci(hcd);
 
-	xhci_dbg(xhci, "%s called for udev %p\n", __func__, udev);
+	xhci_dbg(xhci, "%s called for udev %pK\n", __func__, udev);
 	virt_dev = xhci->devs[udev->slot_id];
 	/* Free any rings allocated for added endpoints */
 	for (i = 0; i < 31; i++) {
@@ -2829,7 +2829,7 @@ static void xhci_setup_input_ctx_for_quirk(struct xhci_hcd *xhci,
 	if (addr == 0) {
 		xhci_warn(xhci, "WARN Cannot submit config ep after "
 				"reset ep command\n");
-		xhci_warn(xhci, "WARN deq seg = %p, deq ptr = %p\n",
+		xhci_warn(xhci, "WARN deq seg = %pK, deq ptr = %pK\n",
 				deq_state->new_deq_seg,
 				deq_state->new_deq_ptr);
 		return;
@@ -3858,7 +3858,7 @@ static int xhci_setup_device(struct usb_hcd *hcd, struct usb_device *udev,
 	xhci_dbg_trace(xhci, trace_xhci_dbg_address,
 			"Op regs DCBAA ptr = %#016llx", temp_64);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_address,
-		"Slot ID %d dcbaa entry @%p = %#016llx",
+		"Slot ID %d dcbaa entry @%pK = %#016llx",
 		udev->slot_id,
 		&xhci->dcbaa->dev_context_ptrs[udev->slot_id],
 		(unsigned long long)

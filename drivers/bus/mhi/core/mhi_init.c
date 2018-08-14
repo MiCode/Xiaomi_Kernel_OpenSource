@@ -1395,12 +1395,14 @@ static int mhi_driver_remove(struct device *dev)
 		mutex_lock(&mhi_chan->mutex);
 		write_lock_irq(&mhi_chan->lock);
 		ch_state[dir] = mhi_chan->ch_state;
-		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
+		mhi_chan->ch_state = MHI_CH_STATE_SUSPENDED;
 		write_unlock_irq(&mhi_chan->lock);
 
 		/* reset the channel */
 		if (!mhi_chan->offload_ch)
 			mhi_reset_chan(mhi_cntrl, mhi_chan);
+
+		mutex_unlock(&mhi_chan->mutex);
 	}
 
 	/* destroy the device */
@@ -1413,9 +1415,13 @@ static int mhi_driver_remove(struct device *dev)
 		if (!mhi_chan)
 			continue;
 
+		mutex_lock(&mhi_chan->mutex);
+
 		if (ch_state[dir] == MHI_CH_STATE_ENABLED &&
 		    !mhi_chan->offload_ch)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
+
+		mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
 
 		/* remove associated device */
 		mhi_chan->mhi_dev = NULL;

@@ -41,6 +41,9 @@
 #define INTF_TEST_CTL                   0x054
 #define INTF_TP_COLOR0                  0x058
 #define INTF_TP_COLOR1                  0x05C
+#define INTF_CONFIG2                    0x060
+#define INTF_DISPLAY_DATA_HCTL          0x064
+#define INTF_ACTIVE_DATA_HCTL           0x068
 #define INTF_FRAME_LINE_COUNT_EN        0x0A8
 #define INTF_FRAME_COUNT                0x0AC
 #define   INTF_LINE_COUNT               0x0B0
@@ -193,7 +196,7 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	u32 active_hctl, display_hctl, hsync_ctl;
 	u32 polarity_ctl, den_polarity, hsync_polarity, vsync_polarity;
 	u32 panel_format;
-	u32 intf_cfg;
+	u32 intf_cfg, intf_cfg2;
 
 	/* read interface_cfg */
 	intf_cfg = SDE_REG_READ(c, INTF_CONFIG);
@@ -268,6 +271,10 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 				(COLOR_8BIT << 4) |
 				(0x21 << 8));
 
+	intf_cfg2 = 0;
+	if (p->wide_bus_en)
+		intf_cfg2 |= BIT(0);
+
 	SDE_REG_WRITE(c, INTF_HSYNC_CTL, hsync_ctl);
 	SDE_REG_WRITE(c, INTF_VSYNC_PERIOD_F0, vsync_period * hsync_period);
 	SDE_REG_WRITE(c, INTF_VSYNC_PULSE_WIDTH_F0,
@@ -285,6 +292,7 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	SDE_REG_WRITE(c, INTF_FRAME_LINE_COUNT_EN, 0x3);
 	SDE_REG_WRITE(c, INTF_CONFIG, intf_cfg);
 	SDE_REG_WRITE(c, INTF_PANEL_FORMAT, panel_format);
+	SDE_REG_WRITE(c, INTF_CONFIG2, intf_cfg2);
 }
 
 static void sde_hw_intf_enable_timing_engine(

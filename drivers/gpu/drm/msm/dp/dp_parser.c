@@ -228,6 +228,11 @@ static int dp_parser_gpio(struct dp_parser *parser)
 		"qcom,usbplug-cc-gpio",
 	};
 
+	if (of_find_property(of_node, "qcom,dp-hpd-gpio", NULL)) {
+		parser->no_aux_switch = true;
+		return 0;
+	}
+
 	mp->gpio_config = devm_kzalloc(dev,
 		sizeof(struct dss_gpio) * ARRAY_SIZE(dp_gpios), GFP_KERNEL);
 	if (!mp->gpio_config)

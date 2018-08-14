@@ -26,3 +26,21 @@ Optional properties:
  - himax,3v3-gpio       : gpio acting as 3.3 v supply.
  - himax,report_type    : Multi-touch protocol type. Default 0.
                                   0 for protocol A, 1 for protocol B.
+
+Example:
+	i2c@884000 {
+		status = "okay";
+		himax_ts@48 {
+			compatible = "himax,hxcommon";
+			reg = <0x48>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <89 0x2008>;
+			vdd-supply = <&pm6150_l10>;
+			avdd-supply = <&pm6150l_l7>;
+			himax,panel-coords = <0 1080 0 2160>;
+			himax,display-coords = <0 1080 0 2160>;
+			himax,irq-gpio = <&tlmm 89 0x00>;
+			himax,rst-gpio = <&tlmm 88 0x00>;
+			report_type = <1>;
+		};
+	};

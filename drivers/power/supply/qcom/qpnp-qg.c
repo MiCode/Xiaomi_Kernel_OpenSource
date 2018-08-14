@@ -347,7 +347,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		temp = sign_extend32(fifo_i, 15);
 
 		chip->kdata.fifo[j].v = V_RAW_TO_UV(fifo_v);
-		chip->kdata.fifo[j].i = I_RAW_TO_UA(temp);
+		chip->kdata.fifo[j].i = qg_iraw_to_ua(chip, temp);
 		chip->kdata.fifo[j].interval = sample_interval;
 		chip->kdata.fifo[j].count = sample_count;
 
@@ -408,7 +408,7 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	temp = sign_extend64(acc_i, 23);
 
 	chip->kdata.fifo[index].v = V_RAW_TO_UV(div_u64(acc_v, count));
-	chip->kdata.fifo[index].i = I_RAW_TO_UA(div_s64(temp, count));
+	chip->kdata.fifo[index].i = qg_iraw_to_ua(chip, div_s64(temp, count));
 	chip->kdata.fifo[index].interval = sample_interval;
 	chip->kdata.fifo[index].count = count;
 	chip->kdata.fifo_length++;
@@ -453,13 +453,11 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 }
 
 #define MIN_FIFO_FULL_TIME_MS			12000
-static int process_rt_fifo_data(struct qpnp_qg *chip,
-			bool update_vbat_low, bool update_smb)
+static int process_rt_fifo_data(struct qpnp_qg *chip, bool update_smb)
 {
 	int rc = 0;
 	ktime_t now = ktime_get();
 	s64 time_delta;
-	u8 fifo_length;
 
 	/*
 	 * Reject the FIFO read event if there are back-to-back requests
@@ -468,11 +466,10 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 	 */
 	time_delta = ktime_ms_delta(now, chip->last_user_update_time);
 
-	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms update_vbat_low=%d update_smb=%d\n",
-				time_delta, update_vbat_low, update_smb);
+	qg_dbg(chip, QG_DEBUG_FIFO, "time_delta=%lld ms update_smb=%d\n",
+				time_delta, update_smb);
 
-	if (time_delta > MIN_FIFO_FULL_TIME_MS || update_vbat_low
-						|| update_smb) {
+	if (time_delta > MIN_FIFO_FULL_TIME_MS || update_smb) {
 		rc = qg_master_hold(chip, true);
 		if (rc < 0) {
 			pr_err("Failed to hold master, rc=%d\n", rc);
@@ -483,20 +480,6 @@ static int process_rt_fifo_data(struct qpnp_qg *chip,
 		if (rc < 0) {
 			pr_err("Failed to process FIFO real-time, rc=%d\n", rc);
 			goto done;
-		}
-
-		if (update_vbat_low) {
-			/* change FIFO length */
-			fifo_length = chip->vbat_low ?
-					chip->dt.s2_vbat_low_fifo_length :
-					chip->dt.s2_fifo_length;
-			rc = qg_update_fifo_length(chip, fifo_length);
-			if (rc < 0)
-				goto done;
-
-			qg_dbg(chip, QG_DEBUG_STATUS,
-				"FIFO length updated to %d vbat_low=%d\n",
-					fifo_length, chip->vbat_low);
 		}
 
 		if (update_smb) {
@@ -540,60 +523,67 @@ done:
 static int qg_vbat_low_wa(struct qpnp_qg *chip)
 {
 	int rc, i, temp = 0;
-	u32 vbat_low_uv = 0;
+	u32 vbat_low_uv = 0, fifo_length = 0;
 
-	rc = qg_get_battery_temp(chip, &temp);
-	if (rc < 0) {
-		pr_err("Failed to read batt_temp rc=%d\n", rc);
-		temp = 250;
-	}
+	if ((chip->wa_flags & QG_VBAT_LOW_WA) && chip->vbat_low) {
+		rc = qg_get_battery_temp(chip, &temp);
+		if (rc < 0) {
+			pr_err("Failed to read batt_temp rc=%d\n", rc);
+			temp = 250;
+		}
 
-	vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
-				chip->dt.vbatt_low_cold_mv :
-				chip->dt.vbatt_low_mv);
-	vbat_low_uv += VBAT_LOW_HYST_UV;
-
-	if (!(chip->wa_flags & QG_VBAT_LOW_WA) || !chip->vbat_low)
-		return 0;
-
-	/*
-	 * PMI632 1.0 does not generate a falling VBAT_LOW IRQ.
-	 * To exit from VBAT_LOW config, check if any of the FIFO
-	 * averages is > vbat_low threshold and reconfigure the
-	 * FIFO length to normal.
-	 */
-	for (i = 0; i < chip->kdata.fifo_length; i++) {
-		if (chip->kdata.fifo[i].v > vbat_low_uv) {
-			rc = qg_master_hold(chip, true);
-			if (rc < 0) {
-				pr_err("Failed to hold master, rc=%d\n", rc);
-				goto done;
-			}
-			rc = qg_update_fifo_length(chip,
-					chip->dt.s2_fifo_length);
-			if (rc < 0)
-				goto done;
-
-			rc = qg_master_hold(chip, false);
-			if (rc < 0) {
-				pr_err("Failed to release master, rc=%d\n", rc);
-				goto done;
-			}
-			/* FIFOs restarted */
-			chip->last_fifo_update_time = ktime_get();
-
-			chip->vbat_low = false;
-			pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV updated fifo_length=%d\n",
+		vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
+					chip->dt.vbatt_low_cold_mv :
+					chip->dt.vbatt_low_mv);
+		vbat_low_uv += VBAT_LOW_HYST_UV;
+		/*
+		 * PMI632 1.0 does not generate a falling VBAT_LOW IRQ.
+		 * To exit from VBAT_LOW config, check if any of the FIFO
+		 * averages is > vbat_low threshold and reconfigure the
+		 * FIFO length to normal.
+		 */
+		for (i = 0; i < chip->kdata.fifo_length; i++) {
+			if (chip->kdata.fifo[i].v > vbat_low_uv) {
+				chip->vbat_low = false;
+				pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV updated fifo_length=%d\n",
 					chip->kdata.fifo[i].v, vbat_low_uv,
 					chip->dt.s2_fifo_length);
-			break;
+				break;
+			}
 		}
 	}
 
-	return 0;
+	rc = get_fifo_length(chip, &fifo_length, false);
+	if (rc < 0) {
+		pr_err("Failed to get FIFO length, rc=%d\n", rc);
+		return rc;
+	}
 
+	if (chip->vbat_low && fifo_length == chip->dt.s2_vbat_low_fifo_length)
+		return 0;
+
+	if (!chip->vbat_low && fifo_length == chip->dt.s2_fifo_length)
+		return 0;
+
+	rc = qg_master_hold(chip, true);
+	if (rc < 0) {
+		pr_err("Failed to hold master, rc=%d\n", rc);
+		goto done;
+	}
+
+	fifo_length = chip->vbat_low ? chip->dt.s2_vbat_low_fifo_length :
+					chip->dt.s2_fifo_length;
+
+	rc = qg_update_fifo_length(chip, fifo_length);
+	if (rc < 0)
+		goto done;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "FIFO length updated to %d vbat_low=%d\n",
+					fifo_length, chip->vbat_low);
 done:
 	qg_master_hold(chip, false);
+	/* FIFOs restarted */
+	chip->last_fifo_update_time = ktime_get();
 	return rc;
 }
 
@@ -976,11 +966,12 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 			chip->esr_data[i].pre_esr_v =
 				V_RAW_TO_UV(chip->esr_data[i].pre_esr_v);
 			ibat = sign_extend32(chip->esr_data[i].pre_esr_i, 15);
-			chip->esr_data[i].pre_esr_i = I_RAW_TO_UA(ibat);
+			chip->esr_data[i].pre_esr_i = qg_iraw_to_ua(chip, ibat);
 			chip->esr_data[i].post_esr_v =
 				V_RAW_TO_UV(chip->esr_data[i].post_esr_v);
 			ibat = sign_extend32(chip->esr_data[i].post_esr_i, 15);
-			chip->esr_data[i].post_esr_i = I_RAW_TO_UA(ibat);
+			chip->esr_data[i].post_esr_i =
+						qg_iraw_to_ua(chip, ibat);
 
 			chip->esr_data[i].valid = true;
 
@@ -1040,11 +1031,23 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_FULL_SOC].valid)
 		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
 
-	if (chip->udata.param[QG_SOC].valid) {
-		qg_dbg(chip, QG_DEBUG_SOC, "udata SOC=%d last SOC=%d\n",
-			chip->udata.param[QG_SOC].data, chip->catch_up_soc);
+	if (chip->udata.param[QG_SOC].valid ||
+			chip->udata.param[QG_SYS_SOC].valid) {
 
-		chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		qg_dbg(chip, QG_DEBUG_SOC, "udata update: QG_SOC=%d QG_SYS_SOC=%d last_catchup_soc=%d\n",
+				chip->udata.param[QG_SOC].valid ?
+				chip->udata.param[QG_SOC].data : -EINVAL,
+				chip->udata.param[QG_SYS_SOC].valid ?
+				chip->udata.param[QG_SYS_SOC].data : -EINVAL,
+				chip->catch_up_soc);
+
+		if (chip->udata.param[QG_SYS_SOC].valid) {
+			chip->sys_soc = chip->udata.param[QG_SYS_SOC].data;
+			chip->catch_up_soc = qg_adjust_sys_soc(chip);
+		} else {
+			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		}
+
 		qg_scale_soc(chip, false);
 
 		/* update parameters to SDAM */
@@ -1174,10 +1177,6 @@ static irqreturn_t qg_vbat_low_handler(int irq, void *data)
 		goto done;
 
 	chip->vbat_low = !!(status & VBAT_LOW_INT_RT_STS_BIT);
-
-	rc = process_rt_fifo_data(chip, true, false);
-	if (rc < 0)
-		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "VBAT_LOW = %d\n", chip->vbat_low);
 done:
@@ -1513,28 +1512,6 @@ static const char *qg_get_battery_type(struct qpnp_qg *chip)
 	}
 
 	return DEFAULT_BATT_TYPE;
-}
-
-static int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
-{
-	int rc = 0;
-	u64 last_vbat = 0;
-
-	if (chip->battery_missing) {
-		*vbat_uv = 3700000;
-		return 0;
-	}
-
-	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_V_DATA0_REG,
-				(u8 *)&last_vbat, 2);
-	if (rc < 0) {
-		pr_err("Failed to read LAST_ADV_V reg, rc=%d\n", rc);
-		return rc;
-	}
-
-	*vbat_uv = V_RAW_TO_UV(last_vbat);
-
-	return rc;
 }
 
 #define DEBUG_BATT_SOC		67
@@ -1883,9 +1860,11 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 		recharge_soc = DEFAULT_RECHARGE_SOC;
 	}
 	recharge_soc = prop.intval;
+	chip->recharge_soc = recharge_soc;
 
-	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d\n",
-				chip->msoc, health, chip->charge_full);
+	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",
+				chip->msoc, health, chip->charge_full,
+				chip->charge_done);
 	if (chip->charge_done && !chip->charge_full) {
 		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
 			chip->charge_full = true;
@@ -1896,10 +1875,18 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
-	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
+	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
-		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+		bool usb_present = is_usb_present(chip);
+
+		/*
+		 * force a recharge only if SOC <= recharge SOC and
+		 * we have not started charging.
+		 */
+		if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+			usb_present && chip->msoc <= recharge_soc &&
+			chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
@@ -1907,23 +1894,33 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
-				qg_dbg(chip, QG_DEBUG_STATUS,
-					"Forced recharge\n");
+				qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
 		}
+
+
+		if (chip->charge_done)
+			return 0;	/* wait for recharge */
 
 		/*
-		 * If recharge or discharge has started and
-		 * if linearize soc dtsi property defined
-		 * scale msoc from 100% for better UX.
+		 * If SOC has indeed dropped below recharge-SOC or
+		 * the USB is removed, if linearize-soc is set scale
+		 * msoc from 100% for better UX.
 		 */
-		if (chip->dt.linearize_soc && chip->msoc < 99) {
-			chip->maint_soc = FULL_SOC;
-			qg_scale_soc(chip, false);
-		}
-
-		qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
+		if (chip->msoc < recharge_soc || !usb_present) {
+			if (chip->dt.linearize_soc) {
+				get_rtc_time(&chip->last_maint_soc_update_time);
+				chip->maint_soc = FULL_SOC;
+				qg_scale_soc(chip, false);
+			}
+			chip->charge_full = false;
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
 					chip->msoc, recharge_soc);
-		chip->charge_full = false;
+		} else {
+			/* continue with charge_full state */
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d usb_present=%d\n",
+					chip->msoc, recharge_soc,
+					chip->charge_full, usb_present);
+		}
 	}
 out:
 	return 0;
@@ -1951,7 +1948,7 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 	if (!chip->dt.qg_ext_sense)
 		update_smb = true;
 
-	rc = process_rt_fifo_data(chip, false, update_smb);
+	rc = process_rt_fifo_data(chip, update_smb);
 	if (rc < 0)
 		pr_err("Failed to process RT FIFO data, rc=%d\n", rc);
 
@@ -2397,7 +2394,7 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 
 	/* Read battery-id */
 	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id_mv);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("Failed to read BATT_ID over ADC, rc=%d\n", rc);
 		return rc;
 	}
@@ -2576,7 +2573,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 use_pon_ocv:
 	if (use_pon_ocv == true) {
 		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc) {
+		if (rc < 0) {
 			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
 			goto done;
 		}
@@ -2634,7 +2631,7 @@ done:
 		return rc;
 	}
 
-	chip->pon_soc = chip->catch_up_soc = chip->msoc = soc;
+	chip->last_adj_ssoc = chip->catch_up_soc = chip->msoc = soc;
 	chip->kdata.param[QG_PON_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_PON_OCV_UV].valid = true;
 
@@ -2668,6 +2665,10 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
+	case PM6150_SUBTYPE:
+		chip->wa_flags |= QG_CLK_ADJUST_WA |
+				QG_RECHARGE_SOC_WA;
+		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
 			chip->pmic_rev_id->pmic_subtype);
@@ -2684,6 +2685,14 @@ static int qg_hw_init(struct qpnp_qg *chip)
 {
 	int rc, temp;
 	u8 reg;
+
+	/* read the QG perph_subtype */
+	rc = qg_read(chip, chip->qg_base + PERPH_SUBTYPE_REG,
+					&chip->qg_subtype, 1);
+	if (rc < 0) {
+		pr_err("Failed to read QG subtype rc=%d", rc);
+		return rc;
+	}
 
 	rc = qg_set_wa_flags(chip);
 	if (rc < 0) {
@@ -2889,10 +2898,6 @@ static int qg_post_init(struct qpnp_qg *chip)
 				PROFILE_IRQ_DISABLE, true, 0);
 		vote(chip->good_ocv_irq_disable_votable,
 				PROFILE_IRQ_DISABLE, true, 0);
-	} else {
-		/* disable GOOD_OCV IRQ at init */
-		vote(chip->good_ocv_irq_disable_votable,
-				QG_INIT_STATE_IRQ_DISABLE, true, 0);
 	}
 
 	/* restore ESR data */
@@ -3450,7 +3455,7 @@ static int process_resume(struct qpnp_qg *chip)
 {
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
-	int rc, batt_temp = 0;
+	int rc;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3468,16 +3473,11 @@ static int process_resume(struct qpnp_qg *chip)
 			pr_err("Failed to read good_ocv, rc=%d\n", rc);
 			return rc;
 		}
-		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc < 0) {
-			pr_err("Failed to read BATT_TEMP, rc=%d\n", rc);
-			return rc;
-		}
 
-		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
-		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		 /* Clear suspend data as there has been a GOOD OCV */
 		memset(&chip->kdata, 0, sizeof(chip->kdata));
+		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
+		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		chip->suspend_data = false;
 
 		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV\n",
@@ -3602,21 +3602,19 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->batt_id_chan = iio_channel_get(&pdev->dev, "batt-id");
 	if (IS_ERR(chip->batt_id_chan)) {
 		rc = PTR_ERR(chip->batt_id_chan);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			pr_err("batt-id channel unavailable, rc=%d\n", rc);
-			chip->batt_id_chan = NULL;
-			return rc;
-		}
+		chip->batt_id_chan = NULL;
+		return rc;
 	}
 
 	chip->batt_therm_chan = iio_channel_get(&pdev->dev, "batt-therm");
 	if (IS_ERR(chip->batt_therm_chan)) {
 		rc = PTR_ERR(chip->batt_therm_chan);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			pr_err("batt-therm channel unavailable, rc=%d\n", rc);
-			chip->batt_therm_chan = NULL;
-			return rc;
-		}
+		chip->batt_therm_chan = NULL;
+		return rc;
 	}
 
 	chip->dev = &pdev->dev;
@@ -3631,6 +3629,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->maint_soc = -EINVAL;
 	chip->batt_soc = INT_MIN;
 	chip->cc_soc = INT_MIN;
+	chip->sys_soc = INT_MIN;
 	chip->full_soc = QG_SOC_FULL;
 	chip->chg_iterm_ma = INT_MIN;
 	chip->soh = -EINVAL;
@@ -3762,8 +3761,8 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	}
 
 	qg_get_battery_capacity(chip, &soc);
-	pr_info("QG initialized! battery_profile=%s SOC=%d\n",
-				qg_get_battery_type(chip), soc);
+	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d\n",
+			qg_get_battery_type(chip), soc, chip->qg_subtype);
 
 	return rc;
 

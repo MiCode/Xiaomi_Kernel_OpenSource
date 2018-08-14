@@ -35,6 +35,16 @@
 #define CAM_CTXT       (1 << 19)
 #define CAM_OIS        (1 << 20)
 #define CAM_RES        (1 << 21)
+#define CAM_MEM        (1 << 22)
+
+/* CAM_IRQ_CTRL: For events in irq controller */
+#define CAM_IRQ_CTRL   (1 << 23)
+
+/* CAM_REQ: Tracks a request submitted to KMD */
+#define CAM_REQ        (1 << 24)
+
+/* CAM_PERF: Used for performance (clock, BW etc) logs */
+#define CAM_PERF       (1 << 25)
 
 #define STR_BUFFER_MAX_LENGTH  1024
 

@@ -504,7 +504,7 @@ void __init arm64_memblock_init(void)
 	if (IS_ENABLED(CONFIG_RANDOMIZE_BASE)) {
 		extern u16 memstart_offset_seed;
 		u64 range = linear_region_size -
-			    (memblock_end_of_DRAM() - memblock_start_of_DRAM());
+			   (bootloader_memory_limit - memblock_start_of_DRAM());
 
 		/*
 		 * If the size of the linear region exceeds, by a sufficient
@@ -906,7 +906,7 @@ static int arm64_online_page(struct page *page)
 {
 	unsigned long phy_addr = page_to_phys(page);
 
-	if (phy_addr + PAGE_SIZE >= bootloader_memory_limit)
+	if (phy_addr + PAGE_SIZE > bootloader_memory_limit)
 		return -EINVAL;
 
 	__online_page_set_limits(page);

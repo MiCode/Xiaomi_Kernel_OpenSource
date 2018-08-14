@@ -127,6 +127,14 @@ int qg_read_raw_data(struct qpnp_qg *chip, int addr, u32 *data)
 	return rc;
 }
 
+s64 qg_iraw_to_ua(struct qpnp_qg *chip, int iraw)
+{
+	if (chip->qg_subtype == QG_ADC_IBAT_5A)
+		return div_s64(152588LL * (s64)iraw, 1000);
+	else
+		return div_s64(305176LL * (s64)iraw, 1000);
+}
+
 int get_fifo_length(struct qpnp_qg *chip, u32 *fifo_length, bool rt)
 {
 	int rc;
@@ -167,6 +175,8 @@ int get_sample_count(struct qpnp_qg *chip, u32 *sample_count)
 	return rc;
 }
 
+#define QG_CLK_RATE		32000
+#define QG_ACTUAL_CLK_RATE	32764
 int get_sample_interval(struct qpnp_qg *chip, u32 *sample_interval)
 {
 	int rc;
@@ -180,6 +190,11 @@ int get_sample_interval(struct qpnp_qg *chip, u32 *sample_interval)
 	}
 
 	*sample_interval = reg * 10;
+
+	if (chip->wa_flags & QG_CLK_ADJUST_WA) {
+		*sample_interval = DIV_ROUND_CLOSEST(
+			*sample_interval * QG_CLK_RATE, QG_ACTUAL_CLK_RATE);
+	}
 
 	return rc;
 }
@@ -354,11 +369,33 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 	}
 
 	last_ibat = sign_extend32(last_ibat, 15);
-	*ibat_ua = I_RAW_TO_UA(last_ibat);
+	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
 
 release:
 	/* release */
 	qg_masked_write(chip, chip->qg_base + QG_DATA_CTL2_REG,
 				BURST_AVG_HOLD_FOR_READ_BIT, 0);
+	return rc;
+}
+
+int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
+{
+	int rc = 0;
+	u64 last_vbat = 0;
+
+	if (chip->battery_missing) {
+		*vbat_uv = 3700000;
+		return 0;
+	}
+
+	rc = qg_read(chip, chip->qg_base + QG_LAST_ADC_V_DATA0_REG,
+				(u8 *)&last_vbat, 2);
+	if (rc < 0) {
+		pr_err("Failed to read LAST_ADV_V reg, rc=%d\n", rc);
+		return rc;
+	}
+
+	*vbat_uv = V_RAW_TO_UV(last_vbat);
+
 	return rc;
 }

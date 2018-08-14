@@ -728,20 +728,25 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+		goto release_panel_lock;
 	}
 
 	/* Prevent another ESD check,when ESD recovery is underway */
-	if (panel->esd_recovery_pending) {
-		dsi_panel_release_panel_lock(panel);
-		return rc;
+	if (atomic_read(&panel->esd_recovery_pending))
+		goto release_panel_lock;
+
+	status_mode = panel->esd_config.status_mode;
+
+	if (status_mode == ESD_MODE_SW_SIM_SUCCESS)
+		goto release_panel_lock;
+
+	if (status_mode == ESD_MODE_SW_SIM_FAILURE) {
+		rc = -EINVAL;
+		goto release_panel_lock;
 	}
 
 	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
 		status_mode = ESD_MODE_PANEL_TE;
-	else
-		status_mode = panel->esd_config.status_mode;
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -769,11 +774,13 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 							false);
 	} else {
 		/* Handle Panel failures during display disable sequence */
-		panel->esd_recovery_pending = true;
+		atomic_set(&panel->esd_recovery_pending, 1);
 	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+
+release_panel_lock:
 	dsi_panel_release_panel_lock(panel);
 
 	return rc;
@@ -794,8 +801,8 @@ static int dsi_display_cmd_prepare(const char *cmd_buf, u32 cmd_buf_len,
 	cmd->msg.tx_len = ((cmd_buf[5] << 8) | (cmd_buf[6]));
 
 	if (cmd->msg.tx_len > payload_len) {
-		pr_err("Incorrect payload length tx_len %ld, payload_len %d\n",
-				cmd->msg.tx_len, payload_len);
+		pr_err("Incorrect payload length tx_len %zu, payload_len %d\n",
+		       cmd->msg.tx_len, payload_len);
 		return -EINVAL;
 	}
 
@@ -1103,7 +1110,7 @@ static ssize_t debugfs_misr_read(struct file *file,
 		return 0;
 
 	buf = kzalloc(max_len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	mutex_lock(&display->display_lock);
@@ -1134,7 +1141,7 @@ static ssize_t debugfs_misr_read(struct file *file,
 		goto error;
 	}
 
-	if (copy_to_user(user_buf, buf, len)) {
+	if (copy_to_user(user_buf, buf, max_len)) {
 		rc = -EFAULT;
 		goto error;
 	}
@@ -1166,6 +1173,9 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	if (user_len > sizeof(u32))
 		return -EINVAL;
 
+	if (!user_len || !user_buf)
+		return -EINVAL;
+
 	buf = kzalloc(user_len, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -1190,6 +1200,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	display->esd_trigger = esd_trigger;
 
 	if (display->esd_trigger) {
+		pr_info("ESD attack triggered by user\n");
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
@@ -1221,7 +1232,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		return 0;
 
 	buf = kzalloc(len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	if (copy_from_user(buf, user_buf, user_len)) {
@@ -1246,11 +1257,13 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		goto error;
 
 	if (!strcmp(buf, "te_signal_check\n")) {
+		pr_info("ESD check is switched to TE mode by user\n");
 		esd_config->status_mode = ESD_MODE_PANEL_TE;
 		dsi_display_change_te_irq_status(display, true);
 	}
 
 	if (!strcmp(buf, "reg_read\n")) {
+		pr_info("ESD check is switched to reg read by user\n");
 		rc = dsi_panel_parse_esd_reg_read_configs(display->panel);
 		if (rc) {
 			pr_err("failed to alter esd check mode,rc=%d\n",
@@ -1262,6 +1275,12 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		if (dsi_display_is_te_based_esd(display))
 			dsi_display_change_te_irq_status(display, false);
 	}
+
+	if (!strcmp(buf, "esd_sw_sim_success\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_SUCCESS;
+
+	if (!strcmp(buf, "esd_sw_sim_failure\n"))
+		esd_config->status_mode = ESD_MODE_SW_SIM_FAILURE;
 
 	rc = len;
 error:
@@ -1292,7 +1311,7 @@ static ssize_t debugfs_read_esd_check_mode(struct file *file,
 	}
 
 	buf = kzalloc(len, GFP_KERNEL);
-	if (!buf)
+	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
 	esd_config = &display->panel->esd_config;
@@ -1307,11 +1326,23 @@ static ssize_t debugfs_read_esd_check_mode(struct file *file,
 		goto output_mode;
 	}
 
-	if (esd_config->status_mode == ESD_MODE_REG_READ)
+	switch (esd_config->status_mode) {
+	case ESD_MODE_REG_READ:
 		rc = snprintf(buf, len, "reg_read");
-
-	if (esd_config->status_mode == ESD_MODE_PANEL_TE)
+		break;
+	case ESD_MODE_PANEL_TE:
 		rc = snprintf(buf, len, "te_signal_check");
+		break;
+	case ESD_MODE_SW_SIM_FAILURE:
+		rc = snprintf(buf, len, "esd_sw_sim_failure");
+		break;
+	case ESD_MODE_SW_SIM_SUCCESS:
+		rc = snprintf(buf, len, "esd_sw_sim_success");
+		break;
+	default:
+		rc = snprintf(buf, len, "invalid");
+		break;
+	}
 
 output_mode:
 	if (!rc) {
@@ -1497,6 +1528,11 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 
 	pr_debug("checking ulps req validity\n");
 
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("%s: ESD recovery sequence underway\n", __func__);
+		return false;
+	}
+
 	if (!dsi_panel_ulps_feature_enabled(display->panel) &&
 			!display->panel->ulps_suspend_enabled) {
 		pr_debug("%s: ULPS feature is not enabled\n", __func__);
@@ -1618,9 +1654,19 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	ulps_enabled = display->ulps_enabled;
 
+	/*
+	 * Clamp control can be either through the DSI controller or
+	 * the DSI PHY depending on hardware variation
+	 */
 	rc = dsi_ctrl_set_clamp_state(m_ctrl->ctrl, enable, ulps_enabled);
 	if (rc) {
-		pr_err("DSI Clamp state change(%d) failed\n", enable);
+		pr_err("DSI ctrl clamp state change(%d) failed\n", enable);
+		return rc;
+	}
+
+	rc = dsi_phy_set_clamp_state(m_ctrl->phy, enable);
+	if (rc) {
+		pr_err("DSI phy clamp state change(%d) failed\n", enable);
 		return rc;
 	}
 
@@ -1634,7 +1680,18 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 			pr_err("DSI Clamp state change(%d) failed\n", enable);
 			return rc;
 		}
+
+		rc = dsi_phy_set_clamp_state(ctrl->phy, enable);
+		if (rc) {
+			pr_err("DSI phy clamp state change(%d) failed\n",
+				enable);
+			return rc;
+		}
+
+		pr_debug("Clamps %s for ctrl%d\n",
+			enable ? "enabled" : "disabled", i);
 	}
+
 	display->clamp_enabled = enable;
 	return 0;
 }
@@ -2542,11 +2599,19 @@ static int dsi_host_detach(struct mipi_dsi_host *host,
 static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
-	struct dsi_display *display = to_dsi_display(host);
+	struct dsi_display *display;
 	int rc = 0, ret = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
+		return 0;
+	}
+
+	display = to_dsi_display(host);
+
+	/* Avoid sending DCS commands when ESD recovery is pending */
+	if (atomic_read(&display->panel->esd_recovery_pending)) {
+		pr_debug("ESD recovery pending\n");
 		return 0;
 	}
 
@@ -2845,13 +2910,15 @@ static void dsi_display_ctrl_isr_configure(struct dsi_display *display, bool en)
 
 int dsi_pre_clkoff_cb(void *priv,
 			   enum dsi_clk_type clk,
+			   enum dsi_lclk_type l_type,
 			   enum dsi_clk_state new_state)
 {
 	int rc = 0, i;
 	struct dsi_display *display = priv;
 	struct dsi_display_ctrl *ctrl;
 
-	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
+		(l_type && DSI_LINK_LP_CLK)) {
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2912,13 +2979,14 @@ int dsi_pre_clkoff_cb(void *priv,
 
 int dsi_post_clkon_cb(void *priv,
 			   enum dsi_clk_type clk,
+			   enum dsi_lclk_type l_type,
 			   enum dsi_clk_state curr_state)
 {
 	int rc = 0;
 	struct dsi_display *display = priv;
 	bool mmss_clamp = false;
 
-	if (clk & DSI_CORE_CLK) {
+	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_LP_CLK)) {
 		mmss_clamp = display->clamp_enabled;
 		/*
 		 * controller setup is needed if coming out of idle
@@ -2926,6 +2994,13 @@ int dsi_post_clkon_cb(void *priv,
 		 */
 		if (mmss_clamp)
 			dsi_display_ctrl_setup(display);
+
+		/*
+		 * Phy setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
+		 */
+		if (display->phy_idle_power_off || mmss_clamp)
+			dsi_display_phy_idle_on(display, mmss_clamp);
 
 		if (display->ulps_enabled && mmss_clamp) {
 			/*
@@ -2964,18 +3039,9 @@ int dsi_post_clkon_cb(void *priv,
 				__func__, rc);
 			goto error;
 		}
-
-		/*
-		 * Phy setup is needed if coming out of idle
-		 * power collapse with clamps enabled.
-		 */
-		if (display->phy_idle_power_off || mmss_clamp)
-			dsi_display_phy_idle_on(display, mmss_clamp);
-
-		/* enable dsi to serve irqs */
-		dsi_display_ctrl_irq_update(display, true);
 	}
-	if (clk & DSI_LINK_CLK) {
+
+	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_HS_CLK)) {
 		/*
 		 * Toggle the resync FIFO everytime clock changes, except
 		 * when cont-splash screen transition is going on.
@@ -2994,12 +3060,18 @@ int dsi_post_clkon_cb(void *priv,
 			}
 		}
 	}
+
+	/* enable dsi to serve irqs */
+	if (clk & DSI_CORE_CLK)
+		dsi_display_ctrl_irq_update(display, true);
+
 error:
 	return rc;
 }
 
 int dsi_post_clkoff_cb(void *priv,
 			    enum dsi_clk_type clk_type,
+			    enum dsi_lclk_type l_type,
 			    enum dsi_clk_state curr_state)
 {
 	int rc = 0;
@@ -3027,6 +3099,7 @@ int dsi_post_clkoff_cb(void *priv,
 
 int dsi_pre_clkon_cb(void *priv,
 			  enum dsi_clk_type clk_type,
+			  enum dsi_lclk_type l_type,
 			  enum dsi_clk_state new_state)
 {
 	int rc = 0;
@@ -3182,8 +3255,8 @@ static int dsi_display_get_phandle_index(
 	u32 *val = NULL;
 	int rc = 0;
 
-	val = kzalloc(count, GFP_KERNEL);
-	if (!val) {
+	val = kcalloc(count, sizeof(*val), GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(val)) {
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -3922,6 +3995,9 @@ int dsi_display_cont_splash_config(void *dsi_display)
 	dsi_config_host_engine_state_for_cont_splash(display);
 	mutex_unlock(&display->display_lock);
 
+	/* Set the current brightness level */
+	dsi_panel_bl_handoff(display->panel);
+
 	return rc;
 
 clks_disabled:
@@ -4275,10 +4351,16 @@ static int dsi_display_bind(struct device *dev,
 			goto error_ctrl_deinit;
 		}
 
-		memcpy(&info.c_clks[i], &display_ctrl->ctrl->clk_info.core_clks,
-			sizeof(struct dsi_core_clk_info));
-		memcpy(&info.l_clks[i], &display_ctrl->ctrl->clk_info.link_clks,
-			sizeof(struct dsi_link_clk_info));
+		memcpy(&info.c_clks[i],
+				(&display_ctrl->ctrl->clk_info.core_clks),
+				sizeof(struct dsi_core_clk_info));
+		memcpy(&info.l_hs_clks[i],
+				(&display_ctrl->ctrl->clk_info.hs_link_clks),
+				sizeof(struct dsi_link_hs_clk_info));
+		memcpy(&info.l_lp_clks[i],
+				(&display_ctrl->ctrl->clk_info.lp_link_clks),
+				sizeof(struct dsi_link_lp_clk_info));
+
 		info.c_clks[i].phandle = &priv->phandle;
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
@@ -6101,6 +6183,8 @@ static int dsi_display_qsync(struct dsi_display *display, bool enable)
 				goto exit;
 			}
 		}
+
+		dsi_ctrl_setup_avr(display->ctrl[i].ctrl, enable);
 	}
 
 exit:

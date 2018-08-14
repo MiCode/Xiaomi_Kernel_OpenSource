@@ -738,7 +738,7 @@ void sde_connector_destroy(struct drm_connector *connector)
 		backlight_device_unregister(c_conn->bl_device);
 	drm_connector_unregister(connector);
 	mutex_destroy(&c_conn->lock);
-	sde_fence_deinit(&c_conn->retire_fence);
+	sde_fence_deinit(c_conn->retire_fence);
 	drm_connector_cleanup(connector);
 	msm_property_destroy(&c_conn->property_info);
 	kfree(c_conn);
@@ -1124,13 +1124,13 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		/*
 		 * update the the offset to a timeline for commit completion
 		 */
-		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 1);
+		rc = sde_fence_create(c_conn->retire_fence, &fence_fd, 1);
 		if (rc) {
 			SDE_ERROR("fence create failed rc:%d\n", rc);
 			goto end;
 		}
 
-		rc = copy_to_user((uint64_t __user *)val, &fence_fd,
+		rc = copy_to_user((uint64_t __user *)(uintptr_t)val, &fence_fd,
 			sizeof(uint64_t));
 		if (rc) {
 			SDE_ERROR("copy to user failed rc:%d\n", rc);
@@ -1141,8 +1141,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 		break;
 	case CONNECTOR_PROP_ROI_V1:
-		rc = _sde_connector_set_roi_v1(c_conn,
-				c_state, (void __user *)val);
+		rc = _sde_connector_set_roi_v1(c_conn, c_state,
+				(void *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 		break;
@@ -1165,7 +1165,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	if (idx == CONNECTOR_PROP_HDR_METADATA) {
 		rc = _sde_connector_set_ext_hdr_info(c_conn,
-			c_state, (void __user *)val);
+			c_state, (void *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}
@@ -1234,7 +1234,7 @@ void sde_conn_timeline_status(struct drm_connector *conn)
 	}
 
 	c_conn = to_sde_connector(conn);
-	sde_fence_timeline_status(&c_conn->retire_fence, &conn->base);
+	sde_fence_timeline_status(c_conn->retire_fence, &conn->base);
 }
 
 void sde_connector_prepare_fence(struct drm_connector *connector)
@@ -1244,7 +1244,7 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 		return;
 	}
 
-	sde_fence_prepare(&to_sde_connector(connector)->retire_fence);
+	sde_fence_prepare(to_sde_connector(connector)->retire_fence);
 }
 
 void sde_connector_complete_commit(struct drm_connector *connector,
@@ -1256,7 +1256,7 @@ void sde_connector_complete_commit(struct drm_connector *connector,
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+	sde_fence_signal(to_sde_connector(connector)->retire_fence,
 			ts, fence_event);
 }
 
@@ -1268,7 +1268,7 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+	sde_fence_signal(to_sde_connector(connector)->retire_fence,
 			ts, SDE_FENCE_RESET_TIMELINE);
 }
 
@@ -1523,7 +1523,7 @@ static ssize_t _sde_debugfs_conn_cmd_tx_write(struct file *file,
 	}
 	input[count] = '\0';
 
-	SDE_DEBUG("input: %s\n", input);
+	SDE_INFO("Command requested for trasnfer to panel: %s\n", input);
 
 	input_copy = kstrdup(input, GFP_KERNEL);
 	if (!input_copy) {
@@ -1591,9 +1591,6 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 	sde_connector_get_info(connector, &info);
 	if (sde_connector->ops.check_status &&
 		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
-		debugfs_create_u32("force_panel_dead", 0600,
-				connector->debugfs_entry,
-				&sde_connector->force_panel_dead);
 		debugfs_create_u32("esd_status_interval", 0600,
 				connector->debugfs_entry,
 				&sde_connector->esd_status_interval);
@@ -1859,12 +1856,6 @@ static void sde_connector_check_status_work(struct work_struct *work)
 	rc = conn->ops.check_status(&conn->base, conn->display, false);
 	mutex_unlock(&conn->lock);
 
-	if (conn->force_panel_dead) {
-		conn->force_panel_dead--;
-		if (!conn->force_panel_dead)
-			goto status_dead;
-	}
-
 	if (rc > 0) {
 		u32 interval;
 
@@ -1879,7 +1870,6 @@ static void sde_connector_check_status_work(struct work_struct *work)
 		return;
 	}
 
-status_dead:
 	_sde_connector_report_panel_dead(conn);
 }
 
@@ -2135,9 +2125,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"conn%u",
 			c_conn->base.base.id);
 
-	rc = sde_fence_init(&c_conn->retire_fence, c_conn->name,
+	c_conn->retire_fence = sde_fence_init(c_conn->name,
 			c_conn->base.base.id);
-	if (rc) {
+	if (IS_ERR(c_conn->retire_fence)) {
+		rc = PTR_ERR(c_conn->retire_fence);
 		SDE_ERROR("failed to init fence, %d\n", rc);
 		goto error_cleanup_conn;
 	}
@@ -2312,7 +2303,7 @@ error_destroy_property:
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
 	mutex_destroy(&c_conn->lock);
-	sde_fence_deinit(&c_conn->retire_fence);
+	sde_fence_deinit(c_conn->retire_fence);
 error_cleanup_conn:
 	drm_connector_cleanup(&c_conn->base);
 error_free_conn:
