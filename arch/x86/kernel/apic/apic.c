@@ -2043,6 +2043,7 @@ static int cpuid_to_apicid[] = {
 	[0 ... NR_CPUS - 1] = -1,
 };
 
+#ifdef CONFIG_SMP
 /**
  * apic_id_is_primary_thread - Check whether APIC ID belongs to a primary thread
  * @id:	APIC ID to check
@@ -2057,6 +2058,7 @@ bool apic_id_is_primary_thread(unsigned int apicid)
 	mask = (1U << (fls(smp_num_siblings) - 1)) - 1;
 	return !(apicid & mask);
 }
+#endif
 
 /*
  * Should use this API to allocate logical CPU IDs to keep nr_logical_cpuids
