@@ -816,6 +816,14 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
 
+	chg->cp_reason = POWER_SUPPLY_CP_NONE;
+	rc = smblib_select_sec_charger(chg,
+			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
+						POWER_SUPPLY_CHARGER_SEC_NONE);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't disable secondary charger rc=%d\n",
+			rc);
+
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
 	if (chg->wa_flags & BOOST_BACK_WA) {
