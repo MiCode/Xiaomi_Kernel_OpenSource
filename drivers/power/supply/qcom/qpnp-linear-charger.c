@@ -2877,7 +2877,8 @@ static int qpnp_lbc_request_irqs(struct qpnp_lbc_chip *chip)
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, 1);
 
 	REQUEST_IRQ(chip, USBIN_VALID, rc, usbin_valid, 1,
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, 1);
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+			| IRQF_ONESHOT, 1);
 
 	REQUEST_IRQ(chip, USB_CHG_GONE, rc, chg_gone, 0,
 			IRQF_TRIGGER_RISING, 1);
