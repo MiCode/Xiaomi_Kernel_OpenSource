@@ -233,6 +233,7 @@ static struct platform_driver csiphy_driver = {
 		.name = CAMX_CSIPHY_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_csiphy_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

@@ -506,6 +506,7 @@ static struct platform_driver cam_eeprom_platform_driver = {
 		.name = "qcom,eeprom",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_eeprom_dt_match,
+		.suppress_bind_attrs = true,
 	},
 	.probe = cam_eeprom_platform_driver_probe,
 	.remove = cam_eeprom_platform_driver_remove,
