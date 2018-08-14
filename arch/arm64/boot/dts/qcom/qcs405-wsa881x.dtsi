@@ -33,7 +33,7 @@
 			<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
 			<8 SPKR_R_VI 0x3>;
 		qcom,swr-num-dev = <2>;
-
+		qcom,swr_master_id = <1>;
 		wsa881x_0211: wsa881x@20170211 {
 			compatible = "qcom,wsa881x";
 			reg = <0x0 0x20170211>;
