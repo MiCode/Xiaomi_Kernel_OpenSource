@@ -15,7 +15,7 @@
 
 #include "kgsl_device.h"
 #include "kgsl_gmu_core.h"
-#include "a6xx_reg.h"
+#include "kgsl_trace.h"
 #include "adreno.h"
 
 #undef MODULE_PARAM_PREFIX
@@ -36,11 +36,10 @@ int gmu_core_probe(struct kgsl_device *device)
 {
 	struct device_node *node;
 	struct gmu_core_ops *gmu_core_ops;
-	unsigned long flags;
 	int i = 0, ret = -ENXIO;
 
-	flags = ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_GPMU) ?
-			BIT(GMU_GPMU) : 0;
+	device->gmu_core.flags = ADRENO_FEATURE(ADRENO_DEVICE(device),
+			ADRENO_GPMU) ? BIT(GMU_GPMU) : 0;
 
 	for (i = 0; i < ARRAY_SIZE(gmu_subtypes); i++) {
 		node = of_find_compatible_node(device->pdev->dev.of_node,
@@ -53,14 +52,14 @@ int gmu_core_probe(struct kgsl_device *device)
 	/* No GMU in dt, no worries...hopefully */
 	if (node == NULL) {
 		/* If we are trying to use GPMU and no GMU, that's bad */
-		if (flags & BIT(GMU_GPMU))
+		if (device->gmu_core.flags & BIT(GMU_GPMU))
 			return ret;
 		/* Otherwise it's ok and nothing to do */
 		return 0;
 	}
 
 	if (gmu_core_ops && gmu_core_ops->probe) {
-		ret = gmu_core_ops->probe(device, node, flags);
+		ret = gmu_core_ops->probe(device, node);
 		if (ret == 0)
 			device->gmu_core.core_ops = gmu_core_ops;
 	}
@@ -78,22 +77,12 @@ void gmu_core_remove(struct kgsl_device *device)
 
 bool gmu_core_isenabled(struct kgsl_device *device)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->isenabled)
-		return !nogmu && gmu_core_ops->isenabled(device);
-
-	return false;
+	return test_bit(GMU_ENABLED, &device->gmu_core.flags);
 }
 
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->gpmu_isenabled)
-		return gmu_core_ops->gpmu_isenabled(device);
-
-	return false;
+	return test_bit(GMU_GPMU, &device->gmu_core.flags);
 }
 
 int gmu_core_start(struct kgsl_device *device)
@@ -143,32 +132,6 @@ int gmu_core_dcvs_set(struct kgsl_device *device, unsigned int gpu_pwrlevel,
 	return -EINVAL;
 }
 
-void gmu_core_setbit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->set_bit)
-		return gmu_core_ops->set_bit(device, flag);
-}
-
-void gmu_core_clearbit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->clear_bit)
-		return gmu_core_ops->clear_bit(device, flag);
-}
-
-int gmu_core_testbit(struct kgsl_device *device, enum gmu_core_flags flag)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->test_bit)
-		return gmu_core_ops->test_bit(device, flag);
-
-	return -EINVAL;
-}
-
 bool gmu_core_regulator_isenabled(struct kgsl_device *device)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
@@ -191,31 +154,47 @@ bool gmu_core_is_register_offset(struct kgsl_device *device,
 void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+	void __iomem *reg;
 
 	if (!gmu_core_is_register_offset(device, offsetwords)) {
 		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
 		return;
 	}
 
-	if (gmu_core_ops && gmu_core_ops->regread)
-		gmu_core_ops->regread(device, offsetwords, value);
-	else
-		*value = 0;
+	offsetwords -= device->gmu_core.gmu2gpu_offset;
+
+	reg = device->gmu_core.reg_virt + (offsetwords << 2);
+
+	*value = __raw_readl(reg);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
 }
 
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+	void __iomem *reg;
 
 	if (!gmu_core_is_register_offset(device, offsetwords)) {
 		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
 		return;
 	}
 
-	if (gmu_core_ops && gmu_core_ops->regwrite)
-		gmu_core_ops->regwrite(device, offsetwords, value);
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	offsetwords -= device->gmu_core.gmu2gpu_offset;
+	reg = device->gmu_core.reg_virt + (offsetwords << 2);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, reg);
 }
 
 void gmu_core_regrmw(struct kgsl_device *device,

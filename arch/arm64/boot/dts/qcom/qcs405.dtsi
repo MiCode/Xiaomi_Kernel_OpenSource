@@ -74,11 +74,26 @@
 			reg = <0x0 0x89a00000 0x0 0x600000>;
 		};
 
+		wlan_msa_mem: wlan_msa_region@8a000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x8a000000 0x0 0x100000>;
+		};
+
 		secure_mem: secure_region {
+			status = "disabled";
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x7000000>;
+		};
+
+		mdf_mem: mdf_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -331,8 +346,8 @@
 		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
-			< 1113600000 1>,
-			< 1267200000 2>,
+			< 1094400000 1>,
+			< 1248000000 2>,
 			< 1401600000 3>;
 		#clock-cells = <1>;
 	};
@@ -597,13 +612,15 @@
 				<&modem_smp2p_in 0 0>,
 				<&modem_smp2p_in 2 0>,
 				<&modem_smp2p_in 1 0>,
-				<&modem_smp2p_in 3 0>;
+				<&modem_smp2p_in 3 0>,
+				<&modem_smp2p_in 7 0>;
 
 		interrupt-names = "qcom,wdog",
 				"qcom,err-fatal",
 				"qcom,proxy-unvote",
 				"qcom,err-ready",
-				"qcom,stop-ack";
+				"qcom,stop-ack",
+				"qcom,shutdown-ack";
 
 		/* GPIO output to wcnss */
 		qcom,gpio-force-stop = <&modem_smp2p_out 0 0>;
@@ -723,11 +740,50 @@
 		};
 	};
 
+	qcom,msm-mdf-mem {
+		compatible = "qcom,msm-mdf-mem-region";
+		qcom,msm-mdf-mem-data-size = <0x200000>;
+		memory-region = <&mdf_mem>;
+	};
+
+	qcom,msm-mdf {
+		compatible = "qcom,msm-mdf";
+
+		qcom,msm_mdf_cb1 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "adsp";
+			qcom,smmu-enabled;
+		};
+
+		qcom,msm_mdf_cb2 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "dsps";
+		};
+
+		qcom,msm_mdf_cb3 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "modem";
+		};
+
+		qcom,msm_mdf_cb4 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "cdsp";
+		};
+	};
+
 	rpm-glink {
 		compatible = "qcom,glink-rpm";
 		interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
 		qcom,rpm-msg-ram = <&rpm_msg_ram>;
 		mboxes = <&apcs_glb 0>;
+
+		qcom,rpm_glink_ssr {
+			qcom,glink-channels = "glink_ssr";
+			qcom,notify-edges = <&glink_adsp>,
+					    <&glink_cdsp>,
+					    <&glink_wcnss>;
+		};
+
 	};
 
 	qcom,msm-cdsp-loader {
@@ -1145,8 +1201,8 @@
 		clocks = <&clock_cpu APCS_MUX_CLK>;
 
 		qcom,cpufreq-table =
-			 < 1113600 >,
-			 < 1267200 >;
+			 < 1094400 >,
+			 < 1248000 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1186,8 +1242,8 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >;
+			< 1094400 MHZ_TO_MBPS( 297, 4) >,
+			< 1248000 MHZ_TO_MBPS( 597, 4) >;
 	};
 
 	emac_hw: qcom,emac@07A80000 {
@@ -1275,8 +1331,11 @@
 
 	qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
-		reg = <0x0A000000 0x800000>;
-		reg-names = "membase";
+		reg = <0x0A000000 0x800000>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0x400 0x1>;
 		interrupts = <0 277 0 /* CE0 */ >,
 		      <0 278 0 /* CE1 */ >,
 		      <0 279 0 /* CE2 */ >,
@@ -1290,6 +1349,7 @@
 		      <0 287 0 /* CE10 */ >,
 		      <0 288 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
 		vdd-cx-mx-supply = <&pms405_l2>;
 		vdd-1.8-xo-supply = <&pms405_l5>;
 		vdd-1.3-rfa-supply = <&pms405_l1>;
@@ -1379,4 +1439,25 @@
 
 &usb3 {
 	extcon = <&usb3_extcon>;
+};
+
+&soc {
+	qcom,msm-geni-ir@740000 {
+		compatible = "qcom,msm-geni-ir";
+		reg-names = "base";
+		reg = <0x740000 0x1000>;
+
+		interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "geni-ir-core-irq";
+
+		clocks = <&clock_gcc GCC_GENI_IR_H_CLK>,
+			<&clock_gcc GCC_GENI_IR_S_CLK>;
+		clock-names = "iface_clk", "serial_clk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_in_default>;
+
+		resets = <&clock_gcc GCC_GENI_IR_BCR>;
+		reset-names = "geni_reset";
+	};
 };

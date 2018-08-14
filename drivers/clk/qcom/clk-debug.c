@@ -297,15 +297,54 @@ exit:
 DEFINE_SIMPLE_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
 							NULL, "%lld\n");
 
+static int clk_debug_read_period(void *data, u64 *val)
+{
+	struct clk_hw *hw = data;
+	struct clk_debug_mux *meas = to_clk_measure(measure);
+	int index;
+	int dbg_cc;
+	int ret = 0;
+	u32 regval;
+
+	mutex_lock(&clk_debug_lock);
+
+	ret = clk_set_parent(measure->clk, hw->clk);
+	if (!ret) {
+		index = clk_debug_mux_get_parent(measure);
+		dbg_cc = meas->parent[index].dbg_cc;
+
+		regmap_read(meas->regmap[dbg_cc], meas->period_offset, &regval);
+		if (!regval) {
+			pr_err("Error reading mccc period register, ret = %d\n",
+			       ret);
+			mutex_unlock(&clk_debug_lock);
+			return 0;
+		}
+		*val = 1000000000000UL;
+		do_div(*val, regval);
+	} else {
+		pr_err("Failed to set the debug mux's parent.\n");
+	}
+
+	mutex_unlock(&clk_debug_lock);
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(clk_read_period_fops, clk_debug_read_period,
+							NULL, "%lld\n");
+
 int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {
 	int ret;
+	int index;
+	struct clk_debug_mux *meas;
 
 	if (IS_ERR_OR_NULL(measure)) {
 		pr_err_once("Please check if `measure` clk is registered.\n");
 		return 0;
 	}
 
+	meas = to_clk_measure(measure);
 	ret = clk_set_parent(measure->clk, hw->clk);
 	if (ret) {
 		pr_debug("Unable to set %s as %s's parent, ret=%d\n",
@@ -313,7 +352,12 @@ int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 		return 0;
 	}
 
-	debugfs_create_file("clk_measure", 0444, dentry, hw,
+	index = clk_debug_mux_get_parent(measure);
+	if (meas->parent[index].dbg_cc == MC_CC)
+		debugfs_create_file("clk_measure", 0444, dentry, hw,
+					&clk_read_period_fops);
+	else
+		debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_measure_fops);
 	return 0;
 }

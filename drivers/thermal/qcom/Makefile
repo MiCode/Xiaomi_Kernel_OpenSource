@@ -10,3 +10,4 @@ obj-$(CONFIG_QTI_BCL_PMIC5) += bcl_pmic5.o
 obj-$(CONFIG_QTI_BCL_SOC_DRIVER) += bcl_soc.o
 obj-$(CONFIG_QTI_ADC_TM) += adc-tm.o adc-tm-common.o adc-tm5.o
 obj-$(CONFIG_QTI_CX_IPEAK_COOLING_DEVICE) += cx_ipeak_cdev.o
+obj-$(CONFIG_QTI_RPM_SMD_COOLING_DEVICE) += rpm_smd_cooling_device.o

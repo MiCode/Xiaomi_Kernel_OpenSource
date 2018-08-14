@@ -23,7 +23,7 @@
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/sched/topology.h>
-#include <linux/sched_energy.h>
+#include <linux/sched/energy.h>
 #include <linux/stddef.h>
 #include <linux/arch_topology.h>
 #include <linux/cpu.h>
@@ -273,6 +273,8 @@ static int sched_energy_probe(struct platform_device *pdev)
 	}
 
 	kfree(max_frequencies);
+
+	walt_map_freq_to_load();
 
 	dev_info(&pdev->dev, "Sched-energy-costs capacity updated\n");
 	return 0;

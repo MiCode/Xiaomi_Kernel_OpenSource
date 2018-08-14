@@ -679,16 +679,26 @@
 
 			qupv3_se3_spi_sleep: qupv3_se3_spi_sleep {
 				mux {
-					pins = "gpio144", "gpio145", "gpio146",
-								"gpio147";
-					function = "gpio";
+					pins = "gpio145", "gpio146", "gpio147";
+					function = "qup3";
 				};
 
 				config {
-					pins = "gpio144", "gpio145", "gpio146",
-								"gpio147";
+					pins = "gpio145", "gpio146", "gpio147";
 					drive-strength = <6>;
 					bias-disable;
+				};
+			};
+			qupv3_se3_spi_miso_sleep: qupv3_se3_spi_miso_sleep {
+				mux {
+					pins = "gpio144";
+					function = "qup3";
+				};
+
+				config {
+					pins = "gpio144";
+					drive-strength = <6>;
+					bias-pull-down; /* pull down */
 				};
 			};
 		};

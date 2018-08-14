@@ -201,7 +201,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
 	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
-					   false))
+					   true))
 		return;
 
 	ion_cma_free(buffer);
@@ -220,7 +220,7 @@ static int ion_secure_cma_allocate(
 		goto out;
 	}
 
-	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, false);
+	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, true);
 	if (ret)
 		goto out_free_buf;
 

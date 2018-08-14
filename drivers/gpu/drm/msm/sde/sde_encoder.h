@@ -31,6 +31,7 @@
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE	BIT(4)
 
 #define IDLE_POWERCOLLAPSE_DURATION	(66 - 16/2)
+#define IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP (200 - 16/2)
 
 /**
  * Encoder functions and data types

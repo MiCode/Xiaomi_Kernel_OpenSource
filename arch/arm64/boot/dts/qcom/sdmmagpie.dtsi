@@ -620,21 +620,35 @@
 		};
 	};
 
+	clocks {
+		sleep_clk: sleep-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			clock-output-names = "chip_sleep_clk";
+			#clock-cells = <1>;
+		};
+	};
+
 	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpm_clocks";
+		compatible = "qcom,rpmh-clk-sdmmagpie";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
+		compatible = "qcom,aop-qmp-clk";
 		#clock-cells = <1>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -653,9 +667,11 @@
 		#reset-cells = <1>;
 	};
 
-	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	clock_videocc: qcom,videocc@ab00000 {
+		compatible = "qcom,videocc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1329,6 +1345,11 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+	};
+
 	qcom,smp2p-modem {
 		compatible = "qcom,smp2p";
 		qcom,smem = <435>, <428>;
@@ -1366,6 +1387,11 @@
 			qcom,entry-name = "slave-kernel";
 			interrupt-controller;
 			#interrupt-cells = <2>;
+		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
 		};
 	};
 

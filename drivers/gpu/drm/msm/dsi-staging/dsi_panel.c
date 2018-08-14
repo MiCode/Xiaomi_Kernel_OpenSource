@@ -644,6 +644,40 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	return rc;
 }
 
+static u32 dsi_panel_get_brightness(struct dsi_backlight_config *bl)
+{
+	u32 cur_bl_level;
+	struct backlight_device *bd = bl->raw_bd;
+
+	/* default the brightness level to 50% */
+	cur_bl_level = bl->bl_max_level >> 1;
+
+	switch (bl->type) {
+	case DSI_BACKLIGHT_WLED:
+		/* Try to query the backlight level from the backlight device */
+		if (bd->ops && bd->ops->get_brightness)
+			cur_bl_level = bd->ops->get_brightness(bd);
+		break;
+	case DSI_BACKLIGHT_DCS:
+	default:
+		/*
+		 * Ideally, we should read the backlight level from the
+		 * panel. For now, just set it default value.
+		 */
+		break;
+	}
+
+	pr_debug("cur_bl_level=%d\n", cur_bl_level);
+	return cur_bl_level;
+}
+
+void dsi_panel_bl_handoff(struct dsi_panel *panel)
+{
+	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	bl->bl_level = dsi_panel_get_brightness(bl);
+}
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;

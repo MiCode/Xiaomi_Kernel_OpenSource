@@ -91,7 +91,7 @@
 
 			vbat_sns {
 				reg = <ADC_VBAT_SNS>;
-				label = "vph_pwr";
+				label = "vbat_sns";
 				qcom,pre-scaling = <1 3>;
 			};
 
@@ -124,6 +124,22 @@
 			bat_therm {
 				reg = <ADC_BAT_THERM_PU2>;
 				label = "bat_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm_30k {
+				reg = <ADC_BAT_THERM_PU1>;
+				label = "bat_therm_30k";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm_400k {
+				reg = <ADC_BAT_THERM_PU3>;
+				label = "bat_therm_400k";
 				qcom,ratiometric;
 				qcom,hw-settle-time = <200>;
 				qcom,pre-scaling = <1 1>;
@@ -392,6 +408,8 @@
 			qcom,qg-iterm-ma = <100>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
+			qcom,cl-feedback-on;
+
 			qcom,pmic-revid = <&pm6150_revid>;
 			io-channels = <&pm6150_vadc ADC_BAT_THERM_PU2>,
 				      <&pm6150_vadc ADC_BAT_ID_PU2>;
@@ -414,9 +432,9 @@
 						  "qg-good-ocv";
 			};
 
-			qcom,qg-sdam@b500 {
+			qcom,qg-sdam@b600 {
 				status = "okay";
-				reg = <0xb500 0x100>;
+				reg = <0xb600 0x100>;
 			};
 		};
 

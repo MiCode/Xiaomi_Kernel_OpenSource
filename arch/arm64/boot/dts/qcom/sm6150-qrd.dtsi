@@ -16,13 +16,6 @@
 &soc {
 };
 
-/ {
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-	};
-};
-
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3-660";
 

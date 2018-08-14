@@ -17,8 +17,11 @@
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-mtp.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
+
+&qupv3_se4_i2c {
 #include "smb1390.dtsi"
 #include "smb1355.dtsi"
+};
 
 &qupv3_se12_2uart {
 	status = "ok";
@@ -600,9 +603,13 @@
 	qcom,auto-recharge-soc = <98>;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 		      <&pm8150b_vadc ADC_USB_IN_I>,
+		      <&pm8150b_vadc ADC_SBUx>,
+		      <&pm8150b_vadc ADC_VPH_PWR>,
 		      <&pm8150b_vadc ADC_CHG_TEMP>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
+			   "sbux_res",
+			   "vph_voltage",
 			   "chg_temp";
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
@@ -616,11 +623,22 @@
 };
 
 &smb1390_charger {
+	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+	io-channel-names = "cp_die_temp";
 	status = "ok";
 };
 
 &usb1 {
 	extcon = <&extcon_usb1>;
+	status = "ok";
+};
+
+&usb2_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
 };
 
 &smb1355 {

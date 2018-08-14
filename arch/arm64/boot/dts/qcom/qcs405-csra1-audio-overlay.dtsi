@@ -51,6 +51,15 @@
 		"VA DMIC7", "VA MIC BIAS1",
 		"VA MIC BIAS1", "Digital Mic7",
 		"CSRA_12 IN", "PRI_MI2S_RX";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spdifrx_opt_default
+		&pri_mi2s_sck_active &pri_mi2s_ws_active
+		&pri_mi2s_sd0_active &pri_mi2s_sd1_active
+		&pri_mi2s_sd2_active &pri_mi2s_sd3_active
+		&pri_mi2s_sd4_active &pri_mi2s_sd5_active
+		&sec_mi2s_sck_active &sec_mi2s_ws_active
+		&sec_mi2s_sd0_active &sec_mi2s_sd1_active
+		&sec_mi2s_sd2_active &sec_mi2s_sd3_active>;
 };
 
 &bolero {
