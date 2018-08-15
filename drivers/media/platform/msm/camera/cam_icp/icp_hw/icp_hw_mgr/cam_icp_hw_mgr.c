@@ -2001,6 +2001,11 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 	struct crm_workq_task *task;
 	struct hfi_msg_work_data *task_data;
 
+	if (!data) {
+		CAM_ERR(CAM_ICP, "irq cb data is NULL");
+		return rc;
+	}
+
 	spin_lock_irqsave(&hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
 	if (!task) {
