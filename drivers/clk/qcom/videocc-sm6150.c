@@ -176,29 +176,6 @@ static struct clk_rcg2 video_cc_venus_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_video_cc_xo_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 video_cc_xo_clk_src = {
-	.cmd_rcgr = 0xa98,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = video_cc_parent_map_2,
-	.freq_tbl = ftbl_video_cc_xo_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "video_cc_xo_clk_src",
-		.parent_names = video_cc_parent_names_2,
-		.num_parents = 2,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000},
-	},
-};
-
 static struct clk_branch video_cc_apb_clk = {
 	.halt_reg = 0x990,
 	.halt_check = BRANCH_HALT,
@@ -313,11 +290,7 @@ static struct clk_branch video_cc_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_xo_clk",
-			.parent_names = (const char *[]){
-				"video_cc_xo_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -334,7 +307,6 @@ static struct clk_regmap *video_cc_sm6150_clocks[] = {
 	[VIDEO_CC_VENUS_CTL_AXI_CLK] = &video_cc_venus_ctl_axi_clk.clkr,
 	[VIDEO_CC_VENUS_CTL_CORE_CLK] = &video_cc_venus_ctl_core_clk.clkr,
 	[VIDEO_CC_XO_CLK] = &video_cc_xo_clk.clkr,
-	[VIDEO_CC_XO_CLK_SRC] = &video_cc_xo_clk_src.clkr,
 	[VIDEO_PLL0_OUT_MAIN] = &video_pll0_out_main.clkr,
 };
 
