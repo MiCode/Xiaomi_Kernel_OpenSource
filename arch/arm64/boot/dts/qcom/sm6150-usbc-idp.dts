@@ -11,15 +11,12 @@
  */
 
 /dts-v1/;
-/plugin/;
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sm6150-qrd.dtsi"
+#include "sm6150.dtsi"
+#include "sm6150-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SM6150P QRD";
-	compatible = "qcom,sm6150p-qrd", "qcom,sm6150p", "qcom,qrd";
-	qcom,board-id = <11 0>;
-	qcom,msm-id = <369 0>;
+	model = "Qualcomm Technologies, Inc. SM6150 USBC Audio IDP";
+	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
+	qcom,board-id = <34 2>;
 };

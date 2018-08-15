@@ -125,10 +125,13 @@ enum ip_conntrack_events {
 	IPCT_NATSEQADJ = IPCT_SEQADJ,
 	IPCT_SECMARK,		/* new security mark has been set */
 	IPCT_LABEL,		/* new connlabel has been set */
+	IPCT_COUNTER,           /* Packet counters have matched. */
 #ifdef __KERNEL__
 	__IPCT_MAX
 #endif
 };
+
+#define IPCT_COUNTER IPCT_COUNTER
 
 enum ip_conntrack_expect_events {
 	IPEXP_NEW,		/* new expectation */

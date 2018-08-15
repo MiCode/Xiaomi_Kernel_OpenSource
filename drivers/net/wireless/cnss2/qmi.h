@@ -13,6 +13,8 @@
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
 
+#include <linux/soc/qcom/qmi.h>
+
 struct cnss_plat_data;
 
 #ifdef CONFIG_CNSS2_QMI

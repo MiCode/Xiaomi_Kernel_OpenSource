@@ -482,6 +482,36 @@ static int smb5_parse_dt(struct smb5 *chip)
 		}
 	}
 
+	rc = of_property_match_string(node, "io-channel-names",
+			"sbux_res");
+	if (rc >= 0) {
+		chg->iio.sbux_chan = iio_channel_get(chg->dev,
+				"sbux_res");
+		if (IS_ERR(chg->iio.sbux_chan)) {
+			rc = PTR_ERR(chg->iio.sbux_chan);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
+						rc);
+			chg->iio.sbux_chan = NULL;
+			return rc;
+		}
+	}
+
+	rc = of_property_match_string(node, "io-channel-names",
+			"vph_voltage");
+	if (rc >= 0) {
+		chg->iio.vph_v_chan = iio_channel_get(chg->dev,
+				"vph_voltage");
+		if (IS_ERR(chg->iio.vph_v_chan)) {
+			rc = PTR_ERR(chg->iio.vph_v_chan);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "vph_voltage channel unavailable, %ld\n",
+						rc);
+			chg->iio.vph_v_chan = NULL;
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -515,6 +545,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
+	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
@@ -645,6 +676,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_MODE:
 		val->intval = chg->sec_chg_selected;
+		break;
+	case POWER_SUPPLY_PROP_SMB_EN_REASON:
+		val->intval = chg->cp_reason;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);

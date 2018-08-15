@@ -338,8 +338,8 @@
 		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
-			< 1113600000 1>,
-			< 1267200000 2>,
+			< 1094400000 1>,
+			< 1248000000 2>,
 			< 1401600000 3>;
 		#clock-cells = <1>;
 	};
@@ -1162,8 +1162,8 @@
 		clocks = <&clock_cpu APCS_MUX_CLK>;
 
 		qcom,cpufreq-table =
-			 < 1113600 >,
-			 < 1267200 >;
+			 < 1094400 >,
+			 < 1248000 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1203,8 +1203,8 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >;
+			< 1094400 MHZ_TO_MBPS( 297, 4) >,
+			< 1248000 MHZ_TO_MBPS( 597, 4) >;
 	};
 
 	emac_hw: qcom,emac@07A80000 {

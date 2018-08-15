@@ -340,11 +340,13 @@ static int qmp_startup(struct mbox_chan *chan)
 		return -EAGAIN;
 	}
 
-	set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
-	mbox->local_state = LOCAL_CONNECTING;
+	if (mbox->local_state == LINK_CONNECTED) {
+		set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
+		mbox->local_state = LOCAL_CONNECTING;
+		send_irq(mbox->mdev);
+	}
 	mutex_unlock(&mbox->state_lock);
 
-	send_irq(mbox->mdev);
 	ret = wait_for_completion_timeout(&mbox->ch_complete,
 					msecs_to_jiffies(QMP_TOUT_MS));
 	if (!ret)

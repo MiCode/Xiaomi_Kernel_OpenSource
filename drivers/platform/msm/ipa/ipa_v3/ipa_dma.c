@@ -244,9 +244,10 @@ int ipa3_dma_init(void)
 
 	ipa_dma_ctx_t = kzalloc(sizeof(*(ipa3_dma_ctx)), GFP_KERNEL);
 
-	if (!ipa_dma_ctx_t)
+	if (!ipa_dma_ctx_t) {
 		res = -ENOMEM;
 		goto init_unlock;
+	}
 
 	ipa_dma_ctx_t->ipa_dma_xfer_wrapper_cache =
 		kmem_cache_create("IPA DMA XFER WRAPPER",
@@ -821,7 +822,7 @@ int ipa3_dma_async_memcpy(u64 dest, u64 src, int len,
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD);
 	if (-1 == ep_idx) {
 		IPADMA_ERR("Client %u is not mapped\n",
-			IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
+			IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD);
 		return -EFAULT;
 	}
 	prod_sys = ipa3_ctx->ep[ep_idx].sys;
