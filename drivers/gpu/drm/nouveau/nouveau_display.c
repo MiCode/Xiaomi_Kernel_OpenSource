@@ -367,8 +367,6 @@ nouveau_display_hpd_work(struct work_struct *work)
 	pm_runtime_get_sync(drm->dev->dev);
 
 	drm_helper_hpd_irq_event(drm->dev);
-	/* enable polling for external displays */
-	drm_kms_helper_poll_enable(drm->dev);
 
 	pm_runtime_mark_last_busy(drm->dev->dev);
 	pm_runtime_put_sync(drm->dev->dev);
@@ -421,6 +419,11 @@ nouveau_display_init(struct drm_device *dev)
 	ret = disp->init(dev);
 	if (ret)
 		return ret;
+
+	/* enable connector detection and polling for connectors without HPD
+	 * support
+	 */
+	drm_kms_helper_poll_enable(dev);
 
 	/* enable hotplug interrupts */
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
