@@ -215,8 +215,11 @@ struct fg_gen4_chip {
 	struct cap_learning	*cl;
 	struct ttf		*ttf;
 	struct votable		*delta_esr_irq_en_votable;
+	struct votable		*pl_disable_votable;
+	struct votable		*cp_disable_votable;
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
+	struct delayed_work	pl_enable_work;
 	char			batt_profile[PROFILE_LEN];
 	int			delta_esr_count;
 	int			recharge_soc_thr;
@@ -1599,10 +1602,12 @@ done:
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
 
-	schedule_delayed_work(&chip->ttf->ttf_work, 10000);
+	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
 	fg->soc_reporting_ready = true;
+	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
+	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(fg->awake_votable, PROFILE_LOAD, false, 0);
 	if (!work_pending(&fg->status_change_work)) {
 		pm_stay_awake(fg->dev);
@@ -2155,6 +2160,12 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		kfree(chip->ttf->step_chg_data);
 		chip->ttf->step_chg_data = NULL;
 		mutex_unlock(&chip->ttf->lock);
+		cancel_delayed_work_sync(&chip->pl_enable_work);
+		vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
+		if (chip->pl_disable_votable)
+			vote(chip->pl_disable_votable, ESR_FCC_VOTER, true, 0);
+		if (chip->cp_disable_votable)
+			vote(chip->cp_disable_votable, ESR_FCC_VOTER, true, 0);
 		return IRQ_HANDLED;
 	}
 
@@ -2727,6 +2738,20 @@ out:
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
 }
 
+static void pl_enable_work(struct work_struct *work)
+{
+	struct fg_gen4_chip *chip = container_of(work,
+				struct fg_gen4_chip,
+				pl_enable_work.work);
+	struct fg_dev *fg = &chip->fg;
+
+	if (chip->pl_disable_votable)
+		vote(chip->pl_disable_votable, ESR_FCC_VOTER, false, 0);
+	if (chip->cp_disable_votable)
+		vote(chip->cp_disable_votable, ESR_FCC_VOTER, false, 0);
+	vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work,
@@ -2734,6 +2759,12 @@ static void status_change_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp;
 	bool input_present, qnovo_en;
+
+	if (!chip->pl_disable_votable)
+		chip->pl_disable_votable = find_votable("PL_DISABLE");
+
+	if (!chip->cp_disable_votable)
+		chip->cp_disable_votable = find_votable("CP_DISABLE");
 
 	if (!batt_psy_initialized(fg)) {
 		fg_dbg(fg, FG_STATUS, "Charger not available?!\n");
@@ -4172,9 +4203,10 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
 	INIT_WORK(&fg->status_change_work, status_change_work);
+	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
+	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
