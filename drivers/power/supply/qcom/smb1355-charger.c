@@ -32,10 +32,15 @@
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
+#define I2C_SS_DIG_BASE 0x0E00
 #define CHGR_BASE	0x1000
 #define BATIF_BASE	0x1200
 #define USBIN_BASE	0x1300
 #define MISC_BASE	0x1600
+
+#define I2C_SS_DIG_PMIC_SID_REG			(I2C_SS_DIG_BASE + 0x45)
+#define PMIC_SID_MASK				GENMASK(3, 0)
+#define PMIC_SID0_BIT				BIT(0)
 
 #define BATTERY_STATUS_2_REG			(CHGR_BASE + 0x0B)
 #define DISABLE_CHARGING_BIT			BIT(3)
@@ -693,6 +698,15 @@ static int smb1355_tskin_sensor_config(struct smb1355 *chip)
 static int smb1355_init_hw(struct smb1355 *chip)
 {
 	int rc;
+
+	/* Change to let SMB1355 only respond to address 0x0C  */
+	rc = smb1355_masked_write(chip, I2C_SS_DIG_PMIC_SID_REG,
+					PMIC_SID_MASK, PMIC_SID0_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure the I2C_SS_DIG_PMIC_SID_REG rc=%d\n",
+					rc);
+		return rc;
+	}
 
 	/* enable watchdog bark and bite interrupts, and disable the watchdog */
 	rc = smb1355_masked_write(chip, WD_CFG_REG, WDOG_TIMER_EN_BIT

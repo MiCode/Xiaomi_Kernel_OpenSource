@@ -13,6 +13,8 @@
 #include <linux/firmware.h>
 #include <linux/jiffies.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/of_platform.h>
 
 #include "kgsl_gmu_core.h"
 #include "kgsl_gmu.h"
@@ -79,10 +81,70 @@ static void _regwrite(void __iomem *regbase,
  * PDC and RSC execute GPU power on/off RPMh sequence
  * @device: Pointer to KGSL device
  */
-static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
+static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res_pdc, *res_cfg, *res_seq;
+	void __iomem *cfg = NULL, *seq = NULL;
+	unsigned int cfg_offset, seq_offset;
+
+	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
+	if (adreno_is_a640v2(adreno_dev)) {
+		cfg_offset = 0x90000;
+		seq_offset = 0x290000;
+	} else {
+		cfg_offset = 0x80000;
+		seq_offset = 0x280000;
+	}
+
+	/*
+	 * Older A6x platforms specified PDC registers in the DT using a
+	 * single base pointer that encompassed the entire PDC range. Current
+	 * targets specify the individual GPU-owned PDC register blocks
+	 * (sequence and config).
+	 *
+	 * This code handles both possibilities and generates individual
+	 * pointers to the GPU PDC blocks, either as offsets from the single
+	 * base, or as directly specified ranges.
+	 */
+
+	/* Get pointers to each of the possible PDC resources */
+	res_pdc = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_reg");
+	res_cfg = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_cfg");
+	res_seq = platform_get_resource_byname(gmu->pdev, IORESOURCE_MEM,
+			"kgsl_gmu_pdc_seq");
+
+	/*
+	 * Map the starting address for pdc_cfg programming. If the pdc_cfg
+	 * resource is not available use an offset from the base PDC resource.
+	 */
+	if (res_cfg)
+		cfg = ioremap(res_cfg->start, resource_size(res_cfg));
+	else if (res_pdc)
+		cfg = ioremap(res_pdc->start + cfg_offset, 0x10000);
+
+	if (!cfg) {
+		dev_err(&gmu->pdev->dev, "Failed to map PDC CFG\n");
+		return -ENODEV;
+	}
+
+	/*
+	 * Map the starting address for pdc_seq programming. If the pdc_seq
+	 * resource is not available use an offset from the base PDC resource.
+	 */
+	if (res_seq)
+		seq = ioremap(res_seq->start, resource_size(res_seq));
+	else if (res_pdc)
+		seq = ioremap(res_pdc->start + seq_offset, 0x10000);
+
+	if (!seq) {
+		dev_err(&gmu->pdev->dev, "Failed to map PDC SEQ\n");
+		iounmap(cfg);
+		return -ENODEV;
+	}
 
 	/* Disable SDE clock gating */
 	gmu_core_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -118,68 +180,62 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 1, 0xA5A4A3A2);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 2, 0x8382A6E0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 3, 0xBCE3E284);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
+	_regwrite(seq, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
+	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 1, 0xA5A4A3A2);
+	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 2, 0x8382A6E0);
+	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 3, 0xBCE3E284);
+	_regwrite(seq, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CONTROL, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 1);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
+	_regwrite(cfg, PDC_GPU_TCS1_CONTROL, 0);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA, 1);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
+		_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2,
+				0x30090);
 	else
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+		_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2,
+				0x30080);
 
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CONTROL, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_DATA, 2);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
+	_regwrite(cfg, PDC_GPU_TCS3_CONTROL, 0);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA, 2);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30090);
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2,
+				0x30090);
 	else
-		_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2,
+				0x30080);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
 	/* Setup GPU PDC */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_START_ADDR, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_ENABLE_PDC, 0x80000001);
+	_regwrite(cfg, PDC_GPU_SEQ_START_ADDR, 0);
+	_regwrite(cfg, PDC_GPU_ENABLE_PDC, 0x80000001);
 
 	/* ensure no writes happen before the uCode is fully written */
 	wmb();
+
+	iounmap(seq);
+	iounmap(cfg);
+
+	return 0;
 }
 
 /* GMU timeouts */
@@ -317,7 +373,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	int val;
 
 	/* Only trigger wakeup sequence if sleep sequence was done earlier */
-	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
 	gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
@@ -350,7 +406,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	/* Clear sleep sequence flag as wakeup sequence is successful */
-	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
+	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
 
 	/* Enable the power counter because it was disabled before slumber */
 	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
@@ -367,7 +423,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
 	/* RSC sleep sequence is different on v1 */
@@ -412,7 +468,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
-	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
+	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
 	return 0;
 }
 
@@ -435,13 +491,8 @@ static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	uint32_t *fwptr = gmu->fw_image->hostptr;
-	int i, j, ret;
+	int i, j;
 	int start_addr, size_in_bytes, num_dwords, tcm_slot, num_records;
-
-	/* Allocates & maps memory for GMU cached instructions range */
-	ret = allocate_gmu_cached_fw(gmu);
-	if (ret)
-		return ret;
 
 	/*
 	 * Read first record. pad0 field of first record contains
@@ -479,8 +530,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 				return -EINVAL;
 
 			}
-			memcpy(gmu->cached_fw_image.hostptr,
-					fwptr, size_in_bytes);
+			memcpy(gmu->icache_mem->hostptr, fwptr, size_in_bytes);
 		}
 
 		fwptr += num_dwords;
@@ -899,13 +949,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		/* Turn on TCM retention */
 		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
-		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags))
-			_load_gmu_rpmh_ucode(device);
-		else {
+		if (!test_and_set_bit(GMU_BOOT_INIT_DONE,
+			&device->gmu_core.flags))
+			ret = _load_gmu_rpmh_ucode(device);
+		else
 			ret = a6xx_rpmh_power_on_gpu(device);
-			if (ret)
-				return ret;
-		}
+		if (ret)
+			return ret;
 
 		if (gmu->load_mode == TCM_BOOT) {
 			/* Load GMU image via AHB bus */
@@ -1081,8 +1131,7 @@ static void a6xx_isense_disable(struct kgsl_device *device)
 
 static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
-	/* Max GX clients on A6xx is 2: GMU and KMD */
-	int ret = 0, max_client_num = 2;
+	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
@@ -1101,8 +1150,13 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
 
+	/*
+	 * This is based on the assumption that GMU is the only one controlling
+	 * the GX HS. This code path is the only client voting for GX through
+	 * the regulator interface.
+	 */
 	if (gmu->gx_gdsc) {
-		if (regulator_is_enabled(gmu->gx_gdsc)) {
+		if (a6xx_gmu_gx_is_on(adreno_dev)) {
 			/* Switch gx gdsc control from GMU to CPU
 			 * force non-zero reference count in clk driver
 			 * so next disable call will turn
@@ -1111,18 +1165,16 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 			ret = regulator_enable(gmu->gx_gdsc);
 			if (ret)
 				dev_err(&gmu->pdev->dev,
-					"suspend fail: gx enable\n");
+					"suspend fail: gx enable %d\n", ret);
 
-			while ((max_client_num)) {
-				ret = regulator_disable(gmu->gx_gdsc);
-				if (!regulator_is_enabled(gmu->gx_gdsc))
-					break;
-				max_client_num -= 1;
-			}
-
-			if (!max_client_num)
+			ret = regulator_disable(gmu->gx_gdsc);
+			if (ret)
 				dev_err(&gmu->pdev->dev,
-					"suspend fail: cannot disable gx\n");
+					"suspend fail: gx disable %d\n", ret);
+
+			if (a6xx_gmu_gx_is_on(adreno_dev))
+				dev_err(&gmu->pdev->dev,
+					"gx is stuck on\n");
 		}
 	}
 

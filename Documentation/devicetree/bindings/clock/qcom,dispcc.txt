@@ -2,7 +2,8 @@ Qualcomm Technologies, Inc. Display Clock & Reset Controller Binding
 --------------------------------------------------------------------
 
 Required properties :
-- compatible : Shall contain "qcom,dispcc-sm8150" or "qcom,dispcc-sm8150-v2".
+- compatible : Shall contain "qcom,dispcc-sm8150" or "qcom,dispcc-sm8150-v2" or
+				"qcom,dispcc-sm6150".
 - reg : Shall contain base register location and length.
 - reg-names: Address name. Must be "cc_base".
 - vdd_mm-supply: phandle to the MM_CX rail that needs to be voted on behalf

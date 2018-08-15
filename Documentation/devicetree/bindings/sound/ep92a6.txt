@@ -1,0 +1,17 @@
+EP92A6 HDMI bridge chip
+
+This device supports I2C mode only.
+
+Required properties:
+  - compatible : "explore,ep92a6"
+  - reg : the I2C address of the device
+
+Optional properties:
+  - interrupts : interrupt line that signals state update
+
+Example:
+
+ep92a6: ep92a6@64 {
+   compatible = "explore,ep92a6";
+   reg = <0x64>;
+};

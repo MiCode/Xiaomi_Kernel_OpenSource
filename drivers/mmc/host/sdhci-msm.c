@@ -159,6 +159,9 @@
 #define DDR_CONFIG_2_POR_VAL		0x80040873
 #define DLL_USR_CTL_POR_VAL		0x10800
 #define ENABLE_DLL_LOCK_STATUS		(1 << 26)
+#define FINE_TUNE_MODE_EN		(1 << 27)
+#define BIAS_OK_SIGNAL			(1 << 29)
+#define DLL_CONFIG_3_POR_VAL		0x10
 
 /* 512 descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
@@ -199,6 +202,7 @@ struct sdhci_msm_offset {
 	u32 CORE_DDR_200_CFG;
 	u32 CORE_VENDOR_SPEC3;
 	u32 CORE_DLL_CONFIG_2;
+	u32 CORE_DLL_CONFIG_3;
 	u32 CORE_DDR_CONFIG;
 	u32 CORE_DDR_CONFIG_2;
 	u32 CORE_DLL_USR_CTL; /* Present on SDCC5.1 onwards */
@@ -229,8 +233,9 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
 	.CORE_DDR_200_CFG = 0x224,
 	.CORE_VENDOR_SPEC3 = 0x250,
 	.CORE_DLL_CONFIG_2 = 0x254,
-	.CORE_DDR_CONFIG = 0x258,
-	.CORE_DDR_CONFIG_2 = 0x25C,
+	.CORE_DLL_CONFIG_3 = 0x258,
+	.CORE_DDR_CONFIG = 0x25C,
+	.CORE_DDR_CONFIG_2 = 0x260,
 	.CORE_DLL_USR_CTL = 0x388,
 };
 
@@ -259,8 +264,9 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_present = {
 	.CORE_DDR_200_CFG = 0x184,
 	.CORE_VENDOR_SPEC3 = 0x1B0,
 	.CORE_DLL_CONFIG_2 = 0x1B4,
-	.CORE_DDR_CONFIG = 0x1B8,
-	.CORE_DDR_CONFIG_2 = 0x1BC,
+	.CORE_DLL_CONFIG_3 = 0x1B8,
+	.CORE_DDR_CONFIG = 0x1BC,
+	.CORE_DDR_CONFIG_2 = 0x1C,
 };
 
 u8 sdhci_msm_readb_relaxed(struct sdhci_host *host, u32 offset)
@@ -759,17 +765,30 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	writel_relaxed((readl_relaxed(host->ioaddr +
 		msm_host_offset->CORE_DLL_CONFIG) | CORE_DLL_PDN),
 		host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
-	msm_cm_dll_set_freq(host);
 
 	if (msm_host->use_updated_dll_reset) {
 		u32 mclk_freq = 0;
 
+		switch (host->clock) {
+		case 202000000:
+		case 201500000:
+		case 200000000:
+			mclk_freq = 42;
+			break;
+		case 192000000:
+			mclk_freq = 40;
+			break;
+		default:
+			pr_err("%s: %s: Error. Unsupported clk freq\n",
+				mmc_hostname(mmc), __func__);
+			rc = -EINVAL;
+			goto out;
+		}
+
 		if ((readl_relaxed(host->ioaddr +
 					msm_host_offset->CORE_DLL_CONFIG_2)
 					& CORE_FLL_CYCLE_CNT))
-			mclk_freq = (u32) ((host->clock / TCXO_FREQ) * 8);
-		else
-			mclk_freq = (u32) ((host->clock / TCXO_FREQ) * 4);
+			mclk_freq *= 2;
 
 		writel_relaxed(((readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_DLL_CONFIG_2)
@@ -790,7 +809,6 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
 
 	if (msm_host->use_updated_dll_reset) {
-		msm_cm_dll_set_freq(host);
 		/* Enable the DLL clock */
 		writel_relaxed((readl_relaxed(host->ioaddr +
 				msm_host_offset->CORE_DLL_CONFIG_2)
@@ -800,8 +818,12 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 
 	/* Configure Tassadar DLL (Only applicable for 7FF projects) */
 	if (msm_host->use_7nm_dll) {
-		writel_relaxed(DLL_USR_CTL_POR_VAL | ENABLE_DLL_LOCK_STATUS,
-			host->ioaddr + msm_host_offset->CORE_DLL_USR_CTL);
+		writel_relaxed(DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
+			ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL, host->ioaddr +
+			msm_host_offset->CORE_DLL_USR_CTL);
+
+		writel_relaxed(DLL_CONFIG_3_POR_VAL, host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3);
 	}
 
 	/* Set DLL_EN bit to 1. */
@@ -3669,10 +3691,18 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 			msm_host_offset->CORE_VENDOR_SPEC_ADMA_ERR_ADDR0),
 		readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC_ADMA_ERR_ADDR1));
-	pr_info("Vndr func2: 0x%08x\n",
+	pr_info("Vndr func2: 0x%08x | dll_config_2: 0x%08x\n",
 		readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_VENDOR_SPEC_FUNC2));
-
+			msm_host_offset->CORE_VENDOR_SPEC_FUNC2),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_2));
+	pr_info("dll_config_3: 0x%08x | ddr_config: 0x%08x |  dll_usr_ctl: 0x%08x\n",
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_USR_CTL));
 	/*
 	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
 	 * of CORE_TESTBUS_CONFIG register.
@@ -3882,8 +3912,9 @@ void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async)
 		return;
 
 	if (async) {
-		schedule_delayed_work(&msm_host->pm_qos_irq.unvote_work,
-				      msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
+		queue_delayed_work(msm_host->pm_qos_wq,
+				&msm_host->pm_qos_irq.unvote_work,
+				msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
 		return;
 	}
 
@@ -3960,6 +3991,33 @@ static inline void set_affine_irq(struct sdhci_msm_host *msm_host,
 				struct sdhci_host *host) { }
 #endif
 
+static bool sdhci_msm_pm_qos_wq_init(struct sdhci_msm_host *msm_host)
+{
+	char *wq = NULL;
+	bool ret = true;
+
+	wq = kasprintf(GFP_KERNEL, "sdhci_msm_pm_qos/%s",
+			dev_name(&msm_host->pdev->dev));
+	if (!wq)
+		return false;
+	/*
+	 * Create a work queue with flag WQ_MEM_RECLAIM set for
+	 * pm_qos_unvote work. Because mmc thread is created with
+	 * flag PF_MEMALLOC set, kernel will check for work queue
+	 * flag WQ_MEM_RECLAIM when flush the work queue. If work
+	 * queue flag WQ_MEM_RECLAIM is not set, kernel warning
+	 * will be triggered.
+	 */
+	msm_host->pm_qos_wq = create_workqueue(wq);
+	if (!msm_host->pm_qos_wq) {
+		ret = false;
+		dev_err(&msm_host->pdev->dev,
+				"failed to create pm qos unvote work queue\n");
+	}
+	kfree(wq);
+	return ret;
+}
+
 void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3983,6 +4041,8 @@ void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 	else
 		cpumask_copy(&msm_host->pm_qos_irq.req.cpus_affine,
 			cpumask_of(msm_host->pdata->pm_qos_data.irq_cpu));
+
+	sdhci_msm_pm_qos_wq_init(msm_host);
 
 	INIT_DELAYED_WORK(&msm_host->pm_qos_irq.unvote_work,
 		sdhci_msm_pm_qos_irq_unvote_work);
@@ -4158,8 +4218,9 @@ bool sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
 		return false;
 
 	if (async) {
-		schedule_delayed_work(&msm_host->pm_qos[group].unvote_work,
-				      msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
+		queue_delayed_work(msm_host->pm_qos_wq,
+				&msm_host->pm_qos[group].unvote_work,
+				msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
 		return true;
 	}
 
@@ -5097,6 +5158,9 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 		device_remove_file(&pdev->dev, &msm_host->polling);
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 	pm_runtime_disable(&pdev->dev);
+
+	if (msm_host->pm_qos_wq)
+		destroy_workqueue(msm_host->pm_qos_wq);
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
 

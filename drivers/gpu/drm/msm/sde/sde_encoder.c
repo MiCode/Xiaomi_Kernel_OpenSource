@@ -199,7 +199,8 @@ enum sde_enc_rc_states {
  * @disp_info:			local copy of msm_display_info struct
  * @misr_enable:		misr enable/disable status
  * @misr_frame_count:		misr frame count before start capturing the data
- * @idle_pc_supported:		indicate if idle power collaps is supported
+ * @idle_pc_enabled:		indicate if idle power collapse is enabled
+ *				currently. This can be controlled by user-mode
  * @rc_lock:			resource control mutex lock to protect
  *				virt encoder over various state changes
  * @rc_state:			resource controller state
@@ -251,7 +252,7 @@ struct sde_encoder_virt {
 	bool misr_enable;
 	u32 misr_frame_count;
 
-	bool idle_pc_supported;
+	bool idle_pc_enabled;
 	struct mutex rc_lock;
 	enum sde_enc_rc_states rc_state;
 	struct kthread_delayed_work delayed_off_work;
@@ -989,6 +990,16 @@ static int sde_encoder_virt_atomic_check(
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"failed to get mode info, rc = %d\n", ret);
+			return ret;
+		}
+
+		if (sde_conn_state->mode_info.comp_info.comp_type &&
+			sde_conn_state->mode_info.comp_info.comp_ratio >=
+					MSM_DISPLAY_COMPRESSION_RATIO_MAX) {
+			SDE_ERROR_ENC(sde_enc,
+				"invalid compression ratio: %d\n",
+				sde_conn_state->mode_info.comp_info.comp_ratio);
+			ret = -EINVAL;
 			return ret;
 		}
 
@@ -2113,6 +2124,25 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 				&sde_enc->input_event_work);
 }
 
+void sde_encoder_control_idle_pc(struct drm_encoder *drm_enc, bool enable)
+{
+	struct sde_encoder_virt *sde_enc;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	/* return early if there is no state change */
+	if (sde_enc->idle_pc_enabled == enable)
+		return;
+
+	sde_enc->idle_pc_enabled = enable;
+
+	SDE_DEBUG("idle-pc state:%d\n", sde_enc->idle_pc_enabled);
+	SDE_EVT32(sde_enc->idle_pc_enabled);
+}
 
 static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
@@ -2139,7 +2169,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	 * when idle_pc is not supported, process only KICKOFF, STOP and MODESET
 	 * events and return early for other events (ie wb display).
 	 */
-	if (!sde_enc->idle_pc_supported &&
+	if (!sde_enc->idle_pc_enabled &&
 			(sw_event != SDE_ENC_RC_EVENT_KICKOFF &&
 			sw_event != SDE_ENC_RC_EVENT_PRE_MODESET &&
 			sw_event != SDE_ENC_RC_EVENT_POST_MODESET &&
@@ -2147,9 +2177,9 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			sw_event != SDE_ENC_RC_EVENT_PRE_STOP))
 		return 0;
 
-	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, idle_pc_supported:%d\n", sw_event,
-			sde_enc->idle_pc_supported);
-	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
+	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, idle_pc:%d\n",
+			sw_event, sde_enc->idle_pc_enabled);
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_enabled,
 			sde_enc->rc_state, SDE_EVTLOG_FUNC_ENTRY);
 
 	switch (sw_event) {
@@ -2545,7 +2575,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 	}
 
-	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_enabled,
 			sde_enc->rc_state, SDE_EVTLOG_FUNC_EXIT);
 	return 0;
 }
@@ -2947,7 +2977,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
-	if (sde_enc->input_handler) {
+	/* register input handler if not already registered */
+	if (sde_enc->input_handler && !msm_is_mode_seamless_dms(cur_mode)) {
 		ret = _sde_encoder_input_handler_register(
 				sde_enc->input_handler);
 		if (ret)
@@ -2974,6 +3005,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			continue;
 
 		phys->comp_type = comp_info->comp_type;
+		phys->comp_ratio = comp_info->comp_ratio;
+		phys->wide_bus_en = mode_info.wide_bus_en;
 		if (phys != sde_enc->cur_master) {
 			/**
 			 * on DMS request, the encoder will be enabled
@@ -3037,8 +3070,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
-
-	kthread_flush_work(&sde_enc->input_event_work);
 
 	if (sde_enc->input_handler)
 		input_unregister_handler(sde_enc->input_handler);
@@ -3332,6 +3363,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	struct sde_hw_ctl *ctl;
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
+	int pend_ret_fence_cnt;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -3366,6 +3398,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
+	pend_ret_fence_cnt = atomic_read(&phys->pending_retire_fence_cnt);
+
 	if ((extra_flush && extra_flush->pending_flush_mask)
 			&& ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush);
@@ -3380,10 +3414,12 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
 				ctl->idx - CTL_0,
-				pending_flush.pending_flush_mask);
+				pending_flush.pending_flush_mask,
+				pend_ret_fence_cnt);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				ctl->idx - CTL_0);
+				ctl->idx - CTL_0,
+				pend_ret_fence_cnt);
 	}
 }
 
@@ -4629,7 +4665,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 		sde_enc->debugfs_root, sde_enc, &debugfs_misr_fops);
 
 	debugfs_create_bool("idle_power_collapse", 0600, sde_enc->debugfs_root,
-			&sde_enc->idle_pc_supported);
+			&sde_enc->idle_pc_enabled);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] &&
@@ -4812,7 +4848,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	if ((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) ||
 	    (disp_info->capabilities & MSM_DISPLAY_CAP_VID_MODE))
-		sde_enc->idle_pc_supported = sde_kms->catalog->has_idle_pc;
+		sde_enc->idle_pc_enabled = sde_kms->catalog->has_idle_pc;
 
 	mutex_lock(&sde_enc->enc_lock);
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {

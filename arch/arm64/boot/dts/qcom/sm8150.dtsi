@@ -1466,6 +1466,11 @@
 		reg = <0x182a0018 0x4>;
 	};
 
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x1000>;
+	};
+
 	clock_cpucc: qcom,cpucc {
 		compatible = "qcom,clk-cpu-osm";
 		reg = <0x18321000 0x1400>,
@@ -1489,6 +1494,7 @@
 		qcom,npucc = <&clock_npucc>;
 		qcom,gpucc = <&clock_gpucc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
@@ -1906,6 +1912,9 @@
 
 		qcom,llcc-perfmon {
 			compatible = "qcom,llcc-perfmon";
+
+			clocks = <&clock_aop QDSS_CLK>;
+			clock-names = "qdss_clk";
 		};
 
 		qcom,llcc-erp {
@@ -2439,7 +2448,7 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x5a3 0x0>;
-			shared-cb = <5>;
+			shared-cb = <2>;
 			dma-coherent;
 		};
 	};
@@ -3064,7 +3073,7 @@
 
 		dcc-ram-offset = <0x6000>;
 
-		qcom,curr-link-list = <2>;
+		qcom,curr-link-list = <3>;
 		qcom,link-list = <DCC_READ 0x18220d14 3 0>,
 				 <DCC_READ 0x18220d30 4 0>,
 				 <DCC_READ 0x18220d44 4 0>,
@@ -3555,7 +3564,7 @@
 	ipa_smmu_uc: ipa_smmu_uc {
 		compatible = "qcom,ipa-smmu-uc-cb";
 		iommus = <&apps_smmu 0x522 0x0>;
-		qcom,iova-mapping = <0x40000000 0x20000000>;
+		qcom,iova-mapping = <0x40400000 0x1FC00000>;
 	};
 
 	qcom,ipa_fws {

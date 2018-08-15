@@ -226,7 +226,8 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 static void ion_buffer_kmap_put(struct ion_buffer *buffer)
 {
 	if (buffer->kmap_cnt == 0) {
-		WARN(1, "Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access\n");
+		pr_warn_ratelimited("Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access, pid:%d\n",
+				    current->pid);
 		return;
 	}
 

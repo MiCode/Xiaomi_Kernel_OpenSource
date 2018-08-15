@@ -13,7 +13,8 @@ Required properties:
 - reg:	Shall contain base register offset and size.
 - reg-names:	Names of the bases for the above registers. Shall contain following:
 		"apcs_cmd", "apcs_pll"
-- vdd_dig_ao-supply:	The regulator powering the APSS PLL.
+- vdd_dig_ao-supply:	The regulator(active only) powering the digital logic of APSS PLL.
+- vdd_hf_pll-supply:	The regulator(active only) powering the Analog logic of APSS PLL.
 - cpu-vdd-supply:	The regulator powering the APSS RCG.
 - qcom,speedX-bin-vZ:	A table of CPU frequency (Hz) to regulator voltage (uV) mapping.
 			Format: <freq uV>
@@ -37,7 +38,8 @@ Example:
 			<0xb016000 0x34>;
 		reg-names = "apcs_cmd" , "apcs_pll";
 		cpu-vdd-supply = <&apc_vreg_corner>;
-		vdd_dig_ao-supply = <&pmd9655_s1_level>;
+		vdd_dig_ao-supply = <&pmd9655_s1_level_ao>;
+		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
 			< 960000000  1>,

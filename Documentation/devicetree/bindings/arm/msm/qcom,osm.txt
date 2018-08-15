@@ -9,7 +9,8 @@ Properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: must be "qcom,clk-cpu-osm" or "qcom,clk-cpu-osm-sdmshrike".
+	Definition: must be "qcom,clk-cpu-osm" or "qcom,clk-cpu-osm-sdmshrike"
+				or "qcom,clk-cpu-osm-sm6150".
 
 - reg
 	Usage:      required

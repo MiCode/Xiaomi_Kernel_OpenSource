@@ -407,6 +407,35 @@
 			};
 		};
 
+		cnss_pins {
+			cnss_wlan_en_active: cnss_wlan_en_active {
+				mux {
+					pins = "gpio169";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio169";
+					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
+			};
+			cnss_wlan_en_sleep: cnss_wlan_en_sleep {
+				mux {
+					pins = "gpio169";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio169";
+					drive-strength = <2>;
+					output-low;
+					bias-pull-down;
+				};
+			};
+		};
+
 		wil6210_refclk3_en_pin: wil6210_refclk3_en_pin {
 			mux {
 				pins = "gpio87";
@@ -650,16 +679,26 @@
 
 			qupv3_se3_spi_sleep: qupv3_se3_spi_sleep {
 				mux {
-					pins = "gpio144", "gpio145", "gpio146",
-								"gpio147";
-					function = "gpio";
+					pins = "gpio145", "gpio146", "gpio147";
+					function = "qup3";
 				};
 
 				config {
-					pins = "gpio144", "gpio145", "gpio146",
-								"gpio147";
+					pins = "gpio145", "gpio146", "gpio147";
 					drive-strength = <6>;
 					bias-disable;
+				};
+			};
+			qupv3_se3_spi_miso_sleep: qupv3_se3_spi_miso_sleep {
+				mux {
+					pins = "gpio144";
+					function = "qup3";
+				};
+
+				config {
+					pins = "gpio144";
+					drive-strength = <6>;
+					bias-pull-down; /* pull down */
 				};
 			};
 		};
@@ -4172,6 +4211,19 @@
 					bias-disable;  /* NO pull */
 					drive-strength = <2>;
 				};
+			};
+		};
+
+		bt_en_active: bt_en_active {
+			mux {
+				pins = "gpio172";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio172";
+				drive-strength = <2>;
+				bias-pull-up;
 			};
 		};
 	};

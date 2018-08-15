@@ -205,6 +205,7 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"RC OFF",
 		"CBR VFR",
 		"MBR VFR",
+		"Constant Quality",
 		NULL
 	};
 	static const char * const mpeg_stream_type[] = {

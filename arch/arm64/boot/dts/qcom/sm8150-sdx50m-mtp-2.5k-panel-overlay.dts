@@ -22,6 +22,7 @@
 
 #include "sdx50m-external-soc.dtsi"
 #include "sm8150-sdx50m.dtsi"
+#include "sm8150-mtp-audio-overlay.dtsi"
 
 / {
 	model = "SDX50M 2.5k panel MTP";

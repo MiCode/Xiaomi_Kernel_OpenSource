@@ -39,6 +39,7 @@ struct intf_timing_params {
 	u32 underflow_clr;
 	u32 hsync_skew;
 	u32 v_front_porch_fixed;
+	bool wide_bus_en;
 };
 
 struct intf_prog_fetch {

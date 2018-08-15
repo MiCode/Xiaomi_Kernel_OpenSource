@@ -487,12 +487,14 @@ int dsi_display_disable(struct dsi_display *display);
  * dsi_pre_clkoff_cb() - Callback before clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 int dsi_pre_clkoff_cb(void *priv, enum dsi_clk_type clk_type,
-	enum dsi_clk_state new_state);
+		enum dsi_lclk_type l_type,
+		enum dsi_clk_state new_state);
 
 /**
  * dsi_display_update_pps() - update PPS buffer.
@@ -509,35 +511,40 @@ int dsi_display_update_pps(char *pps_cmd, void *display);
  * dsi_post_clkoff_cb() - Callback after clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 int dsi_post_clkoff_cb(void *priv, enum dsi_clk_type clk_type,
-	enum dsi_clk_state curr_state);
+		enum dsi_lclk_type l_type,
+		enum dsi_clk_state curr_state);
 
 /**
  * dsi_post_clkon_cb() - Callback after clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 int dsi_post_clkon_cb(void *priv, enum dsi_clk_type clk_type,
-	enum dsi_clk_state curr_state);
-
+		enum dsi_lclk_type l_type,
+		enum dsi_clk_state curr_state);
 
 /**
  * dsi_pre_clkon_cb() - Callback before clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
+ * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 int dsi_pre_clkon_cb(void *priv, enum dsi_clk_type clk_type,
-	enum dsi_clk_state new_state);
+		enum dsi_lclk_type l_type,
+		enum dsi_clk_state new_state);
 
 /**
  * dsi_display_unprepare() - power off display hardware.

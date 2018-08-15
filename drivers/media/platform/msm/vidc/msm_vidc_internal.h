@@ -175,6 +175,7 @@ struct internal_buf {
 	enum hal_buffer buffer_type;
 	struct msm_smem smem;
 	enum buffer_owner buffer_ownership;
+	bool mark_remove;
 };
 
 struct msm_vidc_csc_coeff {
@@ -462,6 +463,8 @@ struct msm_vidc_inst {
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
+	u32 grid_enable;
+	u32 frame_quality;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
@@ -491,6 +494,7 @@ void handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_vidc_noc_error_info(struct msm_vidc_core *core);
+bool heic_encode_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);

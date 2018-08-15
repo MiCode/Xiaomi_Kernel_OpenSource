@@ -100,7 +100,7 @@ struct dp_panel {
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
-	int (*hw_cfg)(struct dp_panel *dp_panel);
+	int (*hw_cfg)(struct dp_panel *dp_panel, bool enable);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, bool multi_func);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);

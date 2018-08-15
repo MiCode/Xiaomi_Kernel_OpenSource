@@ -213,6 +213,7 @@ struct arm_lpae_io_pgtable {
 	unsigned long		bits_per_level;
 
 	void			*pgd;
+	void			*pgd_ttbr1;
 };
 
 typedef u64 arm_lpae_iopte;
@@ -739,6 +740,8 @@ static void arm_lpae_free_pgtable(struct io_pgtable *iop)
 	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(iop);
 
 	__arm_lpae_free_pgtable(data, ARM_LPAE_START_LVL(data), data->pgd);
+	__arm_lpae_free_pgtable(data, ARM_LPAE_START_LVL(data),
+				data->pgd_ttbr1);
 	kfree(data);
 }
 
@@ -1203,13 +1206,21 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	if (!data->pgd)
 		goto out_free_data;
 
+	data->pgd_ttbr1 = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL,
+					   cfg, cookie);
+	if (!data->pgd_ttbr1)
+		goto out_free_pgd;
+
 	/* Ensure the empty pgd is visible before any actual TTBR write */
 	wmb();
 
 	/* TTBRs */
 	cfg->arm_lpae_s1_cfg.ttbr[0] = virt_to_phys(data->pgd);
-	cfg->arm_lpae_s1_cfg.ttbr[1] = 0;
+	cfg->arm_lpae_s1_cfg.ttbr[1] = virt_to_phys(data->pgd_ttbr1);
 	return &data->iop;
+
+out_free_pgd:
+	__arm_lpae_free_pages(data->pgd, data->pgd_size, cfg, cookie);
 
 out_free_data:
 	kfree(data);
