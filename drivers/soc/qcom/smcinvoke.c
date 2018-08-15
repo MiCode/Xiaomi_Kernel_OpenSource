@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,8 @@
  */
 
 #include <linux/module.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/miscdevice.h>
 #include <linux/poll.h>
@@ -19,6 +21,8 @@
 #include <linux/fs.h>
 #include <linux/anon_inodes.h>
 #include <linux/smcinvoke.h>
+#include <linux/cdev.h>
+#include <linux/uaccess.h>
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include "smcinvoke_object.h"
@@ -51,11 +55,11 @@ static const struct file_operations smcinvoke_fops = {
 	.release = smcinvoke_release,
 };
 
-static struct miscdevice smcinvoke_miscdev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "smcinvoke",
-	.fops = &smcinvoke_fops
-};
+static dev_t smcinvoke_device_no;
+static struct cdev smcinvoke_cdev;
+static struct class *driver_class;
+static struct device *class_dev;
+static struct platform_device *smcinvoke_pdev;
 
 struct smcinvoke_buf_hdr {
 	uint32_t offset;
@@ -509,10 +513,94 @@ out:
 	return ret;
 }
 
-static int __init smcinvoke_init(void)
+static int smcinvoke_probe(struct platform_device *pdev)
 {
-	return misc_register(&smcinvoke_miscdev);
+	unsigned int baseminor = 0;
+	unsigned int count = 1;
+	int rc = 0;
+
+	rc = alloc_chrdev_region(&smcinvoke_device_no, baseminor, count,
+							SMCINVOKE_FILE);
+	if (rc < 0) {
+		pr_err("chrdev_region failed %d for %s\n", rc, SMCINVOKE_FILE);
+		return rc;
+	}
+	driver_class = class_create(THIS_MODULE, SMCINVOKE_FILE);
+	if (IS_ERR(driver_class)) {
+		rc = -ENOMEM;
+		pr_err("class_create failed %d\n", rc);
+		goto exit_unreg_chrdev_region;
+	}
+	class_dev = device_create(driver_class, NULL, smcinvoke_device_no,
+						NULL, SMCINVOKE_FILE);
+	if (!class_dev) {
+		pr_err("class_device_create failed %d\n", rc);
+		rc = -ENOMEM;
+		goto exit_destroy_class;
+	}
+
+	cdev_init(&smcinvoke_cdev, &smcinvoke_fops);
+	smcinvoke_cdev.owner = THIS_MODULE;
+
+	rc = cdev_add(&smcinvoke_cdev, MKDEV(MAJOR(smcinvoke_device_no), 0),
+								count);
+	if (rc < 0) {
+		pr_err("cdev_add failed %d for %s\n", rc, SMCINVOKE_FILE);
+		goto exit_destroy_device;
+	}
+	smcinvoke_pdev = pdev;
+
+	return  0;
+
+exit_destroy_device:
+	device_destroy(driver_class, smcinvoke_device_no);
+exit_destroy_class:
+	class_destroy(driver_class);
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(smcinvoke_device_no, count);
+	return rc;
 }
 
-device_initcall(smcinvoke_init);
+static int smcinvoke_remove(struct platform_device *pdev)
+{
+	int count = 1;
+
+	cdev_del(&smcinvoke_cdev);
+	device_destroy(driver_class, smcinvoke_device_no);
+	class_destroy(driver_class);
+	unregister_chrdev_region(smcinvoke_device_no, count);
+	return 0;
+}
+
+static const struct of_device_id smcinvoke_match[] = {
+	{
+		.compatible = "qcom,smcinvoke",
+	},
+	{},
+};
+
+static struct platform_driver smcinvoke_plat_driver = {
+	.probe = smcinvoke_probe,
+	.remove = smcinvoke_remove,
+	.driver = {
+		.name = "smcinvoke",
+		.owner = THIS_MODULE,
+		.of_match_table = smcinvoke_match,
+	},
+};
+
+static int smcinvoke_init(void)
+{
+	return platform_driver_register(&smcinvoke_plat_driver);
+}
+
+static void smcinvoke_exit(void)
+{
+	platform_driver_unregister(&smcinvoke_plat_driver);
+}
+
+module_init(smcinvoke_init);
+module_exit(smcinvoke_exit);
+
 MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("SMC Invoke driver");
