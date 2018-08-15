@@ -3882,35 +3882,35 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	else
 		chip->dt.delta_soc_thr = temp;
 
+	chip->dt.esr_timer_chg_fast[TIMER_RETRY] = -EINVAL;
+	chip->dt.esr_timer_chg_fast[TIMER_MAX] = -EINVAL;
 	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-chg-fast",
 		chip->dt.esr_timer_chg_fast, NUM_ESR_TIMERS);
-	if (rc < 0) {
-		chip->dt.esr_timer_chg_fast[TIMER_RETRY] = -EINVAL;
-		chip->dt.esr_timer_chg_fast[TIMER_MAX] = -EINVAL;
-	}
+	if (rc < 0)
+		return rc;
 
+	chip->dt.esr_timer_dischg_fast[TIMER_RETRY] = -EINVAL;
+	chip->dt.esr_timer_dischg_fast[TIMER_MAX] = -EINVAL;
 	rc = fg_parse_dt_property_u32_array(node,
 		"qcom,fg-esr-timer-dischg-fast", chip->dt.esr_timer_dischg_fast,
 		NUM_ESR_TIMERS);
-	if (rc < 0) {
-		chip->dt.esr_timer_dischg_fast[TIMER_RETRY] = -EINVAL;
-		chip->dt.esr_timer_dischg_fast[TIMER_MAX] = -EINVAL;
-	}
+	if (rc < 0)
+		return rc;
 
+	chip->dt.esr_timer_chg_slow[TIMER_RETRY] = -EINVAL;
+	chip->dt.esr_timer_chg_slow[TIMER_MAX] = -EINVAL;
 	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-chg-slow",
 		chip->dt.esr_timer_chg_slow, NUM_ESR_TIMERS);
-	if (rc < 0) {
-		chip->dt.esr_timer_chg_slow[TIMER_RETRY] = -EINVAL;
-		chip->dt.esr_timer_chg_slow[TIMER_MAX] = -EINVAL;
-	}
+	if (rc < 0)
+		return rc;
 
+	chip->dt.esr_timer_dischg_slow[TIMER_RETRY] = -EINVAL;
+	chip->dt.esr_timer_dischg_slow[TIMER_MAX] = -EINVAL;
 	rc = fg_parse_dt_property_u32_array(node,
 		"qcom,fg-esr-timer-dischg-slow", chip->dt.esr_timer_dischg_slow,
 		NUM_ESR_TIMERS);
-	if (rc < 0) {
-		chip->dt.esr_timer_dischg_slow[TIMER_RETRY] = -EINVAL;
-		chip->dt.esr_timer_dischg_slow[TIMER_MAX] = -EINVAL;
-	}
+	if (rc < 0)
+		return rc;
 
 	chip->dt.force_load_profile = of_property_read_bool(node,
 					"qcom,fg-force-load-profile");
