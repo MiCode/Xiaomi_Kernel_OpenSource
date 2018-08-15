@@ -354,9 +354,11 @@ irqreturn_t cam_a5_irq(int irq_num, void *data)
 		CAM_ERR_RATE_LIMIT(CAM_ICP, "watch dog interrupt from A5");
 	}
 
+	spin_lock(&a5_dev->hw_lock);
 	if (core_info->irq_cb.icp_hw_mgr_cb)
 		core_info->irq_cb.icp_hw_mgr_cb(irq_status,
 					core_info->irq_cb.data);
+	spin_unlock(&a5_dev->hw_lock);
 
 	return IRQ_HANDLED;
 }
@@ -414,8 +416,10 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			return -EINVAL;
 		}
 
+		spin_lock(&a5_dev->hw_lock);
 		core_info->irq_cb.icp_hw_mgr_cb = irq_cb->icp_hw_mgr_cb;
 		core_info->irq_cb.data = irq_cb->data;
+		spin_unlock(&a5_dev->hw_lock);
 		break;
 	}
 
