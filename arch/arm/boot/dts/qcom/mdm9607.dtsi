@@ -1747,6 +1747,12 @@
 		status = "ok";
 	};
 
+	qcom_smcinvoke: smcinvoke@88000000 {
+		compatible = "qcom,smcinvoke";
+		reg = <0x88000000 0x500000>;
+		reg-names = "secapp-region";
+	};
+
 	qcom_tzlog: tz-log@8600720 {
 		compatible = "qcom,tz-log";
 		reg = <0x08600720 0x2000>;
