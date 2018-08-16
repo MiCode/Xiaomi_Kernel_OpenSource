@@ -976,7 +976,7 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 }
 
 /* Wait for any pending TLB invalidations to complete */
-static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
+static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 				void __iomem *sync, void __iomem *status)
 {
 	unsigned int spin_cnt, delay;
@@ -985,7 +985,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
 		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
 			if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
-				return;
+				return 0;
 			cpu_relax();
 		}
 		udelay(delay);
@@ -993,6 +993,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked\n");
+	return -EINVAL;
 }
 
 static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
@@ -1001,8 +1002,10 @@ static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu->global_sync_lock, flags);
-	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
-			    base + ARM_SMMU_GR0_sTLBGSTATUS);
+	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
+					base + ARM_SMMU_GR0_sTLBGSTATUS))
+		dev_err_ratelimited(smmu->dev,
+				    "TLB global sync failed!\n");
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 }
 
@@ -1014,8 +1017,12 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
-	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
-			    base + ARM_SMMU_CB_TLBSTATUS);
+	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
+					base + ARM_SMMU_CB_TLBSTATUS))
+		dev_err_ratelimited(smmu->dev,
+				"TLB sync on cb%d failed for device %s\n",
+				smmu_domain->cfg.cbndx,
+				dev_name(smmu_domain->dev));
 	spin_unlock_irqrestore(&smmu_domain->sync_lock, flags);
 }
 
