@@ -94,18 +94,6 @@
 				< 1804800 5712 >;
 		};
 	};
-
-	qcom,ion {
-		/delete-node/ qcom,ion-heap@8;
-	};
-};
-
-&secure_mem {
-	status = "disabled";
-};
-
-&kgsl_msm_iommu {
-	/delete-node/ gfx3d_secure;
 };
 
 &funnel_apss {
