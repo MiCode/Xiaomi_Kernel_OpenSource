@@ -92,6 +92,9 @@ enum qmp_phy_rev_reg {
 	USB3_PHY_SW_RESET,
 	USB3_PHY_START,
 
+	/* TypeC port select configuration (optional) */
+	USB3_PHY_PCS_MISC_TYPEC_CTRL,
+
 	/* USB DP Combo PHY related */
 	USB3_DP_DP_PHY_PD_CTL,
 	USB3_DP_COM_POWER_DOWN_CTRL,
@@ -104,8 +107,6 @@ enum qmp_phy_rev_reg {
 	USB3_DP_PCS_PCS_STATUS2,
 	USB3_DP_PCS_INSIG_SW_CTRL3,
 	USB3_DP_PCS_INSIG_MX_CTRL3,
-	/* TypeC port select configuration (optional) */
-	USB3_PHY_PCS_MISC_TYPEC_CTRL,
 	USB3_PHY_REG_MAX,
 };
 
@@ -393,6 +394,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 		break;
 	case  USB_PHY_TYPE_USB3_OR_DP:
+	case  USB_PHY_TYPE_USB3:
 		if (val > 0) {
 			dev_err(phy->phy.dev,
 				"USB QMP PHY: Update TYPEC CTRL(%d)\n", val);
