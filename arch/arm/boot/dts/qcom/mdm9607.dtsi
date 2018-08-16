@@ -1750,7 +1750,21 @@
 	qcom_smcinvoke: smcinvoke@88000000 {
 		compatible = "qcom,smcinvoke";
 		reg = <0x88000000 0x500000>;
-		reg-names = "secapp-region";
+		qcom,clock-support;
+		qcom,msm-bus,name = "smcinvoke-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<47 512 0 0>,
+				<47 512 393600 3936000>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			<&clock_gcc clk_gcc_crypto_clk>,
+			<&clock_gcc clk_gcc_crypto_ahb_clk>,
+			<&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
+		status = "ok";
 	};
 
 	qcom_tzlog: tz-log@8600720 {
