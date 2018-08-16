@@ -1096,6 +1096,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
