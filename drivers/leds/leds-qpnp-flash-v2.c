@@ -404,6 +404,22 @@ static int qpnp_flash_led_headroom_config(struct qpnp_flash_led *led)
 	return rc;
 }
 
+static int qpnp_flash_led_safety_tmr_config(struct qpnp_flash_led *led)
+{
+	int rc = 0, i, addr_offset;
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		addr_offset = led->fnode[i].id;
+		rc = qpnp_flash_led_write(led,
+			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
+			FLASH_LED_SAFETY_TMR_DISABLED);
+		if (rc < 0)
+			return rc;
+	}
+
+	return rc;
+}
+
 static int qpnp_flash_led_strobe_config(struct qpnp_flash_led *led)
 {
 	int i, rc, addr_offset;
@@ -539,6 +555,10 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	u8 val = 0;
 
 	rc = qpnp_flash_led_headroom_config(led);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_safety_tmr_config(led);
 	if (rc < 0)
 		return rc;
 
@@ -1135,6 +1155,12 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_TGR_CURRENT(led->base + addr_offset),
 			FLASH_LED_CURRENT_MASK, 0);
+		if (rc < 0)
+			return rc;
+
+		rc = qpnp_flash_led_write(led,
+			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
+			FLASH_LED_SAFETY_TMR_DISABLED);
 		if (rc < 0)
 			return rc;
 
