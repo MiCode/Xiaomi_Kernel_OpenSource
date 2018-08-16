@@ -1037,6 +1037,16 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
+
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x141>;
+		};
 	};
 
 	thermal_zones: thermal-zones {};
@@ -1094,6 +1104,14 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
