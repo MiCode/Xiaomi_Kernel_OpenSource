@@ -843,6 +843,15 @@
 		qcom,wakeup-enable;
 	};
 
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
+	};
+
 	qcom,chd_sliver {
 		compatible = "qcom,core-hang-detect";
 		label = "silver";
