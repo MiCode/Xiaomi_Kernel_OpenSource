@@ -145,15 +145,21 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 {
 	struct recon_buf *binfo, *nextb;
 	struct vidc_input_cr_data *temp, *next;
-	u32 min_cf = 0, max_cf = 0;
-	u32 min_input_cr = 0, max_input_cr = 0, min_cr = 0, max_cr = 0;
+	u32 min_cf = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR, max_cf = 0;
+	u32 min_input_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO,
+		max_input_cr = 0;
+	u32 min_cr = MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO, max_cr = 0;
 
 	mutex_lock(&inst->reconbufs.lock);
 	list_for_each_entry_safe(binfo, nextb, &inst->reconbufs.list, list) {
-		min_cr = min(min_cr, binfo->CR);
-		max_cr = max(max_cr, binfo->CR);
-		min_cf = min(min_cf, binfo->CF);
-		max_cf = max(max_cf, binfo->CF);
+		if (binfo->CR) {
+			min_cr = min(min_cr, binfo->CR);
+			max_cr = max(max_cr, binfo->CR);
+		}
+		if (binfo->CF) {
+			min_cf = min(min_cf, binfo->CF);
+			max_cf = max(max_cf, binfo->CF);
+		}
 	}
 	mutex_unlock(&inst->reconbufs.lock);
 
@@ -292,7 +298,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].output_height =
 				max(inst->prop.height[CAPTURE_PORT],
 				inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].lcu_size = codec == V4L2_PIX_FMT_HEVC ? 32 : 16;
+		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
+				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
 		vote_data[i].b_frames_enabled =
 			msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES) != 0;
