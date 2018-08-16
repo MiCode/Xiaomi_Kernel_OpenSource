@@ -112,6 +112,7 @@
 #define DEF_TX_WM		(2)
 #define DEF_FIFO_WIDTH_BITS	(32)
 #define UART_CORE2X_VOTE	(10000)
+#define UART_CONSOLE_CORE2X_VOTE (960)
 
 #define WAKEBYTE_TIMEOUT_MSEC	(2000)
 #define WAIT_XFER_MAX_ITER	(50)
@@ -2386,8 +2387,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 	dev_port->wrapper_dev = &wrapper_pdev->dev;
 	dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
-	ret = geni_se_resources_init(&dev_port->serial_rsc, UART_CORE2X_VOTE,
-					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+
+	if (is_console)
+		ret = geni_se_resources_init(&dev_port->serial_rsc,
+			UART_CONSOLE_CORE2X_VOTE,
+			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	else
+		ret = geni_se_resources_init(&dev_port->serial_rsc,
+			UART_CORE2X_VOTE,
+			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+
 	if (ret)
 		goto exit_geni_serial_probe;
 
