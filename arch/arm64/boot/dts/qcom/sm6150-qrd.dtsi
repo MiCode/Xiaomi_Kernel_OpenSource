@@ -11,7 +11,9 @@
  */
 
 #include "sm6150-thermal-overlay.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/input/input.h>
 #include "sm6150-sde-display.dtsi"
 
 &qupv3_se3_i2c {
@@ -20,7 +22,36 @@
 	#include "smb1355.dtsi"
 };
 
+&pm6150l_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio2";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+};
+
 &soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm6150l_gpios 2 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			linux,can-disable;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+		};
+	};
 };
 
 &qupv3_se7_4uart {
