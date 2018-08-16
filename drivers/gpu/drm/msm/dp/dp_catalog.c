@@ -1563,6 +1563,7 @@ static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
 	struct dp_io_data *io_data = NULL;
 	u32 i, slot_reg_1, slot_reg_2, slot;
 	u32 reg_off = 0;
+	int const num_slots_per_reg = 32;
 
 	if (!ctrl || ch >= DP_STREAM_MAX) {
 		pr_err("invalid input. ch %d\n", ch);
@@ -1586,18 +1587,20 @@ static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
 	if (ch == DP_STREAM_1)
 		reg_off = DP_DP1_TIMESLOT_1_32 - DP_DP0_TIMESLOT_1_32;
 
-	slot_reg_1 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_1_32 + reg_off);
-	slot_reg_2 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off);
+	slot_reg_1 = 0;
+	slot_reg_2 = 0;
 
-	ch_start_slot = ch_start_slot - 1;
-	for (i = 0; i < tot_slot_cnt; i++) {
-		if (ch_start_slot < 32) {
-			slot_reg_1 |= BIT(ch_start_slot);
-		} else {
-			slot = ch_start_slot - 32;
-			slot_reg_2 |= BIT(slot);
+	if (ch_start_slot && tot_slot_cnt) {
+		ch_start_slot--;
+		for (i = 0; i < tot_slot_cnt; i++) {
+			if (ch_start_slot < num_slots_per_reg) {
+				slot_reg_1 |= BIT(ch_start_slot);
+			} else {
+				slot = ch_start_slot - num_slots_per_reg;
+				slot_reg_2 |= BIT(slot);
+			}
+			ch_start_slot++;
 		}
-		ch_start_slot++;
 	}
 
 	pr_debug("ch:%d slot_reg_1:%d, slot_reg_2:%d\n", ch,
