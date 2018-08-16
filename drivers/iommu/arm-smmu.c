@@ -1790,6 +1790,8 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
 	}
+	if (cb->attributes & (1 << DOMAIN_ATTR_NO_CFRE))
+		reg &= ~SCTLR_CFRE;
 
 	if ((!(cb->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(cb->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
@@ -3316,6 +3318,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_NO_CFRE));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN:
 		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
 		ret = 0;
@@ -3550,6 +3557,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 
+	case DOMAIN_ATTR_NO_CFRE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_NO_CFRE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 	}
