@@ -1455,7 +1455,7 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 	 * Statically choose the GPIOs for mapping to PDC. Dynamic mux mapping
 	 * is very difficult.
 	 */
-	for (i = 0; i < pctrl->soc->n_pdc_mux_out; i++) {
+	for (i = 0; i < pctrl->soc->n_gpio_mux_in; i++) {
 		unsigned int irq;
 		struct irq_data *d;
 		struct msm_gpio_mux_input *gpio_in =
