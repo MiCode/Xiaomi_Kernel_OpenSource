@@ -501,7 +501,7 @@
 		};
 
 		mas_qhm_qup1: mas-qhm-qup1 {
-			cell-id = <MSM_BUS_MASTER_BLSP_1>;
+			cell-id = <MSM_BUS_MASTER_QUP_1>;
 			label = "mas-qhm-qup1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
