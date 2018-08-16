@@ -264,13 +264,8 @@ static DEFINE_MUTEX(scan_mutex);
 
 static int can_use_cma_pages(gfp_t gfp_mask)
 {
-	int mtype = gfpflags_to_migratetype(gfp_mask);
-
-	/*
-	 * Assumes that all types of movable pages can be
-	 * served by cma. Fix this if that changes.
-	 */
-	if (mtype == MIGRATE_MOVABLE)
+	if (gfpflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE &&
+	    (gfp_mask & __GFP_CMA))
 		return 1;
 
 	return 0;
