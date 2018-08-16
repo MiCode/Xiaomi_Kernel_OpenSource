@@ -160,12 +160,13 @@ int diag_masks_init(void);
 void diag_masks_exit(void);
 int diag_log_mask_copy(struct diag_mask_info *dest,
 		       struct diag_mask_info *src);
-int diag_msg_mask_copy(struct diag_mask_info *dest,
-		       struct diag_mask_info *src);
+int diag_msg_mask_copy(struct diag_md_session_t *new_session,
+	struct diag_mask_info *dest, struct diag_mask_info *src);
 int diag_event_mask_copy(struct diag_mask_info *dest,
 			 struct diag_mask_info *src);
 void diag_log_mask_free(struct diag_mask_info *mask_info);
-void diag_msg_mask_free(struct diag_mask_info *mask_info);
+void diag_msg_mask_free(struct diag_mask_info *mask_info,
+	struct diag_md_session_t *session_info);
 void diag_event_mask_free(struct diag_mask_info *mask_info);
 int diag_process_apps_masks(unsigned char *buf, int len, int pid);
 void diag_send_updates_peripheral(uint8_t peripheral);
