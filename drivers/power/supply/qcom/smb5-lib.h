@@ -375,6 +375,7 @@ struct smb_charger {
 	bool			jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
+	u8			typec_try_mode;
 
 	/* workaround flag */
 	u32			wa_flags;

@@ -1563,6 +1563,8 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't enable try.snk rc=%d\n", rc);
 		return rc;
+	} else {
+		chg->typec_try_mode |= EN_TRY_SNK_BIT;
 	}
 
 	/* configure VCONN for software control */
