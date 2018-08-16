@@ -442,6 +442,19 @@
 		};
 	};
 
+	tpdm_wcss: tpdm@699c000 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-wcss";
+		qcom,dummy-source;
+
+		port {
+			tpdm_wcss_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_tpdm_wcss>;
+			};
+		};
+	};
+
 	tpdm_west: tpdm@6b48000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b968>;
@@ -1017,11 +1030,20 @@
 			};
 
 			port@2 {
+				reg = <4>;
+				funnel_in1_in_tpdm_wcss: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_wcss_out_funnel_in1>;
+				};
+			};
+
+			port@3 {
 				reg = <7>;
 				funnel_in1_in_funnel_apss_merg: endpoint {
 					slave-mode;
 					remote-endpoint =
-					    <&funnel_apss_merg_out_funnel_in1>;
+					<&funnel_apss_merg_out_funnel_in1>;
 				};
 			};
 		};
