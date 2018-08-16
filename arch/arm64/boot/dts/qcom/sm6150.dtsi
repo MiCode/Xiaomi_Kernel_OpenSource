@@ -2526,6 +2526,7 @@
 
 &pm6150_charger {
 	dpdm-supply = <&qusb_phy0>;
+	qcom,suspend-input-on-debug-batt;
 };
 
 &usb0 {
