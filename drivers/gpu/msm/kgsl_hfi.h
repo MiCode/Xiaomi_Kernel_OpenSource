@@ -610,7 +610,6 @@ struct pending_cmd {
  * @kgsldev: Point to the kgsl device
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
  * @msglock: spinlock to protect access to outstanding command message list
- * @read_queue_lock: spinlock to protect against concurrent reading of queues
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
  * @msglist: outstanding command message list. Each message in the list
  *	is waiting for ACK from GMU
@@ -623,7 +622,6 @@ struct kgsl_hfi {
 	struct kgsl_device *kgsldev;
 	int hfi_interrupt_num;
 	spinlock_t msglock;
-	spinlock_t read_queue_lock;
 	struct mutex cmdq_mutex;
 	struct list_head msglist;
 	struct tasklet_struct tasklet;
