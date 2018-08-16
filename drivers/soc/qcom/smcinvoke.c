@@ -23,6 +23,9 @@
 #include <linux/smcinvoke.h>
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
+#include <linux/clk.h>
+#include <linux/msm-bus.h>
+#include <linux/of.h>
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include "smcinvoke_object.h"
@@ -36,6 +39,14 @@
 #define SMCINVOKE_TZ_MIN_BUF_SIZE	4096
 #define SMCINVOKE_ARGS_ALIGN_SIZE	(sizeof(uint64_t))
 #define SMCINVOKE_TZ_OBJ_NULL		0
+#define SMCINVOKE_CE_CLK_100MHZ         100000000
+#define SMCINVOKE_CE_CLK_DIV		1000000
+#define SMCINVOKE_DEINIT_CLK(x) \
+	{ if (x) { clk_put(x); x = NULL; } }
+#define SMCINVOKE_ENABLE_CLK(x) \
+	{ if (x) clk_prepare_enable(x); }
+#define SMCINVOKE_DISABLE_CLK(x) \
+	{ if (x) clk_disable_unprepare(x); }
 
 #define FOR_ARGS(ndxvar, counts, section)                      \
 	for (ndxvar = object_counts_index_##section(counts);     \
@@ -43,6 +54,7 @@
 		+ object_counts_num_##section(counts));          \
 		++ndxvar)
 
+static DEFINE_MUTEX(smcinvoke_lock);
 static long smcinvoke_ioctl(struct file *, unsigned , unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
 static int smcinvoke_release(struct inode *, struct file *);
@@ -55,11 +67,28 @@ static const struct file_operations smcinvoke_fops = {
 	.release = smcinvoke_release,
 };
 
+enum clk_types { CE_CORE_SRC_CLK, CE_CORE_CLK, CE_CLK, CE_BUS_CLK, CE_MAX_CLK };
+static const char *clk_names[CE_MAX_CLK] = {
+			"core_clk_src", "core_clk", "iface_clk", "bus_clk"
+};
+enum bandwidth_request_mode {BW_INACTIVE = 0, BW_HIGH};
+
 static dev_t smcinvoke_device_no;
 static struct cdev smcinvoke_cdev;
 static struct class *driver_class;
 static struct device *class_dev;
 static struct platform_device *smcinvoke_pdev;
+static struct msm_bus_scale_pdata *bus_scale_pdata;
+static uint32_t qsee_perf_client;
+static bool support_clocks;
+static uint32_t ce_opp_freq_hz;
+static enum bandwidth_request_mode current_mode;
+
+struct smcinvoke_clk {
+	struct clk *clks[CE_MAX_CLK];
+	uint32_t clk_access_cnt;
+};
+static struct smcinvoke_clk g_clk;
 
 struct smcinvoke_buf_hdr {
 	uint32_t offset;
@@ -105,6 +134,132 @@ static inline size_t pad_size(size_t a, size_t b)
 static inline size_t size_align(size_t a, size_t b)
 {
 	return size_add(a, pad_size(a, b));
+}
+
+static void disable_clocks(void)
+{
+	int i;
+
+	for (i = CE_MAX_CLK; i > 0; i--)
+		SMCINVOKE_DISABLE_CLK(g_clk.clks[i-1]);
+}
+
+static int enable_clocks(void)
+{
+	int rc = 0, i;
+
+	for (i = 0; i < CE_MAX_CLK; i++) {
+		if (g_clk.clks[i]) {
+			rc = clk_prepare_enable(g_clk.clks[i]);
+			if (rc) {
+				pr_err("Err %d enabling %s", rc, clk_names[i]);
+				break;
+			}
+		}
+	}
+	if (rc) {
+		for ( ; i >= 0; i--)
+			SMCINVOKE_DISABLE_CLK(g_clk.clks[i]);
+	}
+	return rc;
+}
+
+static int set_msm_bus_request_locked(enum bandwidth_request_mode mode)
+{
+	int ret = 0;
+
+	if (support_clocks == 0)
+		return ret;
+
+	if (g_clk.clks[CE_CORE_SRC_CLK] == NULL) {
+		pr_err("%s clock NULL\n", __func__);
+		return ret;
+	}
+
+	if (current_mode == mode) {
+		if (mode == BW_INACTIVE) {
+			if (g_clk.clk_access_cnt)
+				g_clk.clk_access_cnt--;
+		} else {
+			g_clk.clk_access_cnt++;
+		}
+		return ret;
+	}
+
+	if (mode == BW_INACTIVE) {
+		disable_clocks();
+	} else {
+		ret = enable_clocks();
+		if (ret)
+			goto out;
+	}
+
+	ret = msm_bus_scale_client_update_request(qsee_perf_client, mode);
+	if (ret) {
+		pr_err("BW req failed(%d) MODE (%d)\n", ret, mode);
+		if (mode == BW_INACTIVE)
+			enable_clocks();
+		else
+			disable_clocks();
+		goto out;
+	}
+	current_mode = mode;
+	if (mode == BW_INACTIVE) {
+		if (g_clk.clk_access_cnt)
+			g_clk.clk_access_cnt--;
+	} else {
+		g_clk.clk_access_cnt++;
+	}
+out:
+	return ret;
+}
+
+static void deinit_clocks(void)
+{
+	int i;
+
+	for (i = CE_MAX_CLK; i > 0; i--)
+		SMCINVOKE_DEINIT_CLK(g_clk.clks[i-1])
+}
+
+static struct clk *get_clk(const char *clk_name)
+{
+	int rc = 0;
+	struct clk *clk = clk_get(class_dev, clk_name);
+
+	if (!IS_ERR(clk)) {
+		if (!strcmp(clk_name, clk_names[CE_CORE_SRC_CLK])) {
+			rc = clk_set_rate(clk, ce_opp_freq_hz);
+			if (rc) {
+				SMCINVOKE_DEINIT_CLK(clk);
+				pr_err("Err %d setting clk %s to %uMhz\n",
+					rc, clk_name,
+					ce_opp_freq_hz/SMCINVOKE_CE_CLK_DIV);
+			}
+		}
+	} else {
+		pr_warn("Err %d getting clk %s\n", IS_ERR(clk), clk_name);
+		clk = NULL;
+	}
+	return clk;
+}
+
+static int init_clocks(void)
+{
+	int i = 0;
+	int rc = -1;
+
+	for (i = 0; i < CE_MAX_CLK; i++) {
+		g_clk.clks[i] = get_clk(clk_names[i]);
+		if (!g_clk.clks[i])
+			goto exit;
+	}
+	g_clk.clk_access_cnt = 0;
+	return 0;
+exit:
+	for ( ; i >= 0; i--)
+		SMCINVOKE_DEINIT_CLK(g_clk.clks[i]);
+	return rc;
 }
 
 /*
@@ -203,7 +358,13 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 	dmac_flush_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_flush_range(out_buf, out_buf + outbuf_flush_size);
 
+	mutex_lock(&smcinvoke_lock);
+	set_msm_bus_request_locked(BW_HIGH);
+	mutex_unlock(&smcinvoke_lock);
 	ret = scm_call2(SMCINVOKE_TZ_CMD, &desc);
+	mutex_lock(&smcinvoke_lock);
+	set_msm_bus_request_locked(BW_INACTIVE);
+	mutex_unlock(&smcinvoke_lock);
 
 	/* process listener request */
 	if (!ret && (desc.ret[0] == QSEOS_RESULT_INCOMPLETE ||
@@ -549,7 +710,26 @@ static int smcinvoke_probe(struct platform_device *pdev)
 		goto exit_destroy_device;
 	}
 	smcinvoke_pdev = pdev;
+	class_dev->of_node = pdev->dev.of_node;
 
+	if (pdev->dev.of_node) {
+		support_clocks =
+				of_property_read_bool(pdev->dev.of_node,
+						"qcom,clock-support");
+		if (of_property_read_u32(pdev->dev.of_node,
+						"qcom,ce-opp-freq",
+					&ce_opp_freq_hz)) {
+			pr_debug("CE op freq not defined, setting to 100MHZ\n");
+			ce_opp_freq_hz = SMCINVOKE_CE_CLK_100MHZ;
+		}
+	}
+	if (support_clocks) {
+		init_clocks();
+		bus_scale_pdata	= msm_bus_cl_get_pdata(pdev);
+		if (bus_scale_pdata)
+			qsee_perf_client = msm_bus_scale_register_client(
+							bus_scale_pdata);
+	}
 	return  0;
 
 exit_destroy_device:
@@ -565,10 +745,31 @@ static int smcinvoke_remove(struct platform_device *pdev)
 {
 	int count = 1;
 
+	if (support_clocks) {
+		/* ok to call with NULL */
+		msm_bus_scale_unregister_client(qsee_perf_client);
+		if (bus_scale_pdata)
+			msm_bus_cl_clear_pdata(bus_scale_pdata);
+		deinit_clocks();
+		support_clocks = false;
+	}
 	cdev_del(&smcinvoke_cdev);
 	device_destroy(driver_class, smcinvoke_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(smcinvoke_device_no, count);
+	return 0;
+}
+
+static int smcinvoke_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	if (current_mode == BW_HIGH)
+		return 1;
+	else
+		return 0;
+}
+
+static int smcinvoke_resume(struct platform_device *pdev)
+{
 	return 0;
 }
 
@@ -582,6 +783,8 @@ static const struct of_device_id smcinvoke_match[] = {
 static struct platform_driver smcinvoke_plat_driver = {
 	.probe = smcinvoke_probe,
 	.remove = smcinvoke_remove,
+	.suspend = smcinvoke_suspend,
+	.resume = smcinvoke_resume,
 	.driver = {
 		.name = "smcinvoke",
 		.owner = THIS_MODULE,
