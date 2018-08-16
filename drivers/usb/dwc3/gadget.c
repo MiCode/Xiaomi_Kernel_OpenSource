@@ -226,7 +226,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 		mult = 3;
 
 	if ((dep->endpoint.maxburst > 2) &&
-			dep->endpoint.ep_type == EP_TYPE_GSI)
+			dep->endpoint.ep_type == EP_TYPE_GSI
+			&& dwc3_is_usb31(dwc))
 		mult = 6;
 
 	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
