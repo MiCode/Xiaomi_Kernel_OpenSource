@@ -17,6 +17,8 @@
 #include <dt-bindings/clock/qcom,camcc-sm6150.h>
 
 #include "sm6150-idp.dtsi"
+#include "sm6150-ext-codec-audio-overlay.dtsi"
+#include "sm6150-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SM6150 External Audio Codec IDP";
