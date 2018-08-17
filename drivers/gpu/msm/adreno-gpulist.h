@@ -207,11 +207,9 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.major = 0,
 		.minor = 4,
 		.patchid = ANY_ID,
-		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
-			ADRENO_CONTENT_PROTECTION | ADRENO_CPZ_RETENTION,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT,
 		.pm4fw_name = "a530_pm4.fw",
 		.pfpfw_name = "a530_pfp.fw",
-		.zap_name = "a506_zap",
 		.gpudev = &adreno_a5xx_gpudev,
 		.gmem_size = (SZ_128K + SZ_8K),
 		.num_protected_regs = 0x20,
