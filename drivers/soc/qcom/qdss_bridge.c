@@ -15,6 +15,8 @@
 
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/cdev.h>
+#include <linux/poll.h>
 #include <linux/ratelimit.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
@@ -38,6 +40,28 @@ module_param(poolsize, int, 0644);
 /* Size of single buffer */
 static int itemsize = QDSS_BUF_SIZE;
 module_param(itemsize, int, 0644);
+
+static struct class *mhi_class;
+
+static const char * const str_mhi_transfer_mode[] = {
+		[MHI_TRANSFER_TYPE_USB]			= "usb",
+		[MHI_TRANSFER_TYPE_UCI]			= "uci",
+};
+
+static int qdss_destroy_mhi_buf_tbl(struct qdss_bridge_drvdata *drvdata)
+{
+	struct list_head *start, *temp;
+	struct qdss_mhi_buf_tbl_t *entry = NULL;
+
+	list_for_each_safe(start, temp, &drvdata->mhi_buf_tbl) {
+		entry = list_entry(start, struct qdss_mhi_buf_tbl_t, link);
+		list_del(&entry->link);
+		kfree(entry->buf);
+		kfree(entry);
+	}
+
+	return 0;
+}
 
 static int qdss_destroy_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 {
@@ -67,7 +91,7 @@ static int qdss_create_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 		if (!entry)
 			goto err;
 
-		buf = kzalloc(QDSS_BUF_SIZE, GFP_KERNEL);
+		buf = kzalloc(drvdata->mtu, GFP_KERNEL);
 		usb_req = kzalloc(sizeof(*usb_req), GFP_KERNEL);
 
 		entry->buf = buf;
@@ -129,10 +153,98 @@ static void qdss_buf_tbl_remove(struct qdss_bridge_drvdata *drvdata,
 
 static void mhi_ch_close(struct qdss_bridge_drvdata *drvdata)
 {
-	flush_workqueue(drvdata->mhi_wq);
-	qdss_destroy_buf_tbl(drvdata);
-	mhi_unprepare_from_transfer(drvdata->mhi_dev);
+	if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
+		flush_workqueue(drvdata->mhi_wq);
+		qdss_destroy_buf_tbl(drvdata);
+	} else if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
+		qdss_destroy_mhi_buf_tbl(drvdata);
+		if (drvdata->cur_buf)
+			kfree(drvdata->cur_buf->buf);
+
+		drvdata->cur_buf = NULL;
+	}
 }
+
+static ssize_t mhi_show_transfer_mode(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct qdss_bridge_drvdata *drvdata = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_mhi_transfer_mode[drvdata->mode]);
+}
+
+static ssize_t mhi_store_transfer_mode(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
+{
+	struct qdss_bridge_drvdata *drvdata = dev_get_drvdata(dev);
+	char str[10] = "";
+	int ret;
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%3s", str) != 1)
+		return -EINVAL;
+
+	spin_lock_bh(&drvdata->lock);
+	if (!strcmp(str, str_mhi_transfer_mode[MHI_TRANSFER_TYPE_UCI])) {
+		if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
+			if (drvdata->opened == ENABLE) {
+				drvdata->opened = DISABLE;
+				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
+				spin_unlock_bh(&drvdata->lock);
+				usb_qdss_close(drvdata->usb_ch);
+				mhi_unprepare_from_transfer(drvdata->mhi_dev);
+				mhi_ch_close(drvdata);
+			} else if (drvdata->opened == DISABLE) {
+				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
+				spin_unlock_bh(&drvdata->lock);
+			} else {
+				ret = -ERESTARTSYS;
+				goto out;
+			}
+		} else
+			spin_unlock_bh(&drvdata->lock);
+
+	} else if (!strcmp(str, str_mhi_transfer_mode[MHI_TRANSFER_TYPE_USB])) {
+		if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
+			if (drvdata->opened == ENABLE) {
+				drvdata->opened = DISABLE;
+				spin_unlock_bh(&drvdata->lock);
+				wake_up(&drvdata->uci_wq);
+				mhi_unprepare_from_transfer(drvdata->mhi_dev);
+				mhi_ch_close(drvdata);
+				drvdata->mode = MHI_TRANSFER_TYPE_USB;
+				queue_work(drvdata->mhi_wq,
+						&drvdata->open_work);
+			} else if (drvdata->opened == DISABLE) {
+				drvdata->mode = MHI_TRANSFER_TYPE_USB;
+				spin_unlock_bh(&drvdata->lock);
+				queue_work(drvdata->mhi_wq,
+						&drvdata->open_work);
+			} else {
+				ret = -ERESTARTSYS;
+				goto out;
+			}
+		} else
+			spin_unlock_bh(&drvdata->lock);
+
+	} else {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = size;
+	return ret;
+out:
+	spin_unlock_bh(&drvdata->lock);
+	return ret;
+}
+
+static DEVICE_ATTR(mode, 0644,
+		mhi_show_transfer_mode, mhi_store_transfer_mode);
+
 
 static void mhi_read_work_fn(struct work_struct *work)
 {
@@ -146,14 +258,14 @@ static void mhi_read_work_fn(struct work_struct *work)
 					     read_work);
 
 	do {
-		if (!drvdata->opened)
+		if (drvdata->opened != ENABLE)
 			break;
 		entry = qdss_get_entry(drvdata);
 		if (!entry)
 			break;
 
 		err = mhi_queue_transfer(drvdata->mhi_dev, DMA_FROM_DEVICE,
-					entry->buf, QDSS_BUF_SIZE, mhi_flags);
+					entry->buf, drvdata->mtu, mhi_flags);
 		if (err) {
 			pr_err_ratelimited("Unable to read from MHI buffer err:%d",
 					   err);
@@ -203,7 +315,7 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 	LIST_HEAD(head);
 
 	do {
-		if (!(drvdata->opened))
+		if (drvdata->opened != ENABLE)
 			break;
 		spin_lock_bh(&drvdata->lock);
 		if (list_empty(&drvdata->read_done_list)) {
@@ -227,7 +339,7 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 			 * read, discard the buffers here and do not forward
 			 * them to the mux layer.
 			 */
-			if (drvdata->opened) {
+			if (drvdata->opened == ENABLE) {
 				err = usb_write(drvdata, buf, len);
 				if (err)
 					qdss_buf_tbl_remove(drvdata, buf);
@@ -282,18 +394,26 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 {
 	int ret;
 
-	if (drvdata->opened)
+	spin_lock_bh(&drvdata->lock);
+	if (drvdata->opened == ENABLE)
 		return 0;
+	if (drvdata->opened == SSR)
+		return -ERESTARTSYS;
+	drvdata->opened = ENABLE;
+	spin_unlock_bh(&drvdata->lock);
+
 	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
 	if (ret) {
 		pr_err("Unable to open MHI channel\n");
-		return ret;
+		goto err;
 	}
 
-	spin_lock_bh(&drvdata->lock);
-	drvdata->opened = 1;
-	spin_unlock_bh(&drvdata->lock);
 	return 0;
+err:
+	spin_lock_bh(&drvdata->lock);
+	drvdata->opened = DISABLE;
+	spin_unlock_bh(&drvdata->lock);
+	return ret;
 }
 
 static void qdss_bridge_open_work_fn(struct work_struct *work)
@@ -320,6 +440,7 @@ static void qdss_bridge_open_work_fn(struct work_struct *work)
 
 	return;
 err:
+	mhi_unprepare_from_transfer(drvdata->mhi_dev);
 	mhi_ch_close(drvdata);
 err_open:
 	pr_err("Open work failed with err:%d\n", ret);
@@ -342,8 +463,10 @@ static void qdss_mhi_read_cb(struct mhi_device *mhi_dev,
 		return;
 	buf = result->buf_addr;
 
-	if (drvdata->opened &&
+	spin_lock_bh(&drvdata->lock);
+	if (drvdata->opened == ENABLE &&
 	    result->transaction_status != -ENOTCONN) {
+		spin_unlock_bh(&drvdata->lock);
 		tp = kmalloc(sizeof(*tp), GFP_ATOMIC);
 		if (!tp)
 			return;
@@ -352,11 +475,242 @@ static void qdss_mhi_read_cb(struct mhi_device *mhi_dev,
 		spin_lock_bh(&drvdata->lock);
 		list_add_tail(&tp->link, &drvdata->read_done_list);
 		spin_unlock_bh(&drvdata->lock);
-		queue_work(drvdata->mhi_wq, &drvdata->read_done_work);
+		if (drvdata->mode == MHI_TRANSFER_TYPE_USB)
+			queue_work(drvdata->mhi_wq, &drvdata->read_done_work);
+		else
+			wake_up(&drvdata->uci_wq);
 	} else {
-		qdss_buf_tbl_remove(drvdata, buf);
+		if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
+			spin_unlock_bh(&drvdata->lock);
+			qdss_buf_tbl_remove(drvdata, buf);
+		} else {
+			spin_unlock_bh(&drvdata->lock);
+			return;
+		}
 	}
+
 }
+
+static int mhi_uci_release(struct inode *inode, struct file *file)
+{
+	struct qdss_bridge_drvdata *drvdata = file->private_data;
+
+	spin_lock_bh(&drvdata->lock);
+	if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
+		if (drvdata->opened == ENABLE) {
+			drvdata->opened = DISABLE;
+			spin_unlock_bh(&drvdata->lock);
+			wake_up(&drvdata->uci_wq);
+			mhi_unprepare_from_transfer(drvdata->mhi_dev);
+			mhi_ch_close(drvdata);
+		} else if (drvdata->opened == SSR) {
+			spin_unlock_bh(&drvdata->lock);
+			complete(&drvdata->completion);
+		} else
+			spin_unlock_bh(&drvdata->lock);
+	} else
+		spin_unlock_bh(&drvdata->lock);
+
+	return 0;
+}
+
+static ssize_t mhi_uci_read(struct file *file,
+			char __user *buf,
+			size_t count,
+			loff_t *ppos)
+{
+	struct qdss_bridge_drvdata *drvdata = file->private_data;
+	struct mhi_device *mhi_dev = drvdata->mhi_dev;
+	struct qdss_mhi_buf_tbl_t *uci_buf;
+	char *ptr;
+	size_t to_copy;
+	int ret = 0;
+
+	if (!buf)
+		return -EINVAL;
+
+	pr_debug("Client provided buf len:%lu\n", count);
+
+	/* confirm channel is active */
+	spin_lock_bh(&drvdata->lock);
+	if (drvdata->opened != ENABLE ||
+	    drvdata->mode != MHI_TRANSFER_TYPE_UCI) {
+		spin_unlock_bh(&drvdata->lock);
+		return -ERESTARTSYS;
+	}
+
+	/* No data available to read, wait */
+	if (!drvdata->cur_buf && list_empty(&drvdata->read_done_list)) {
+		spin_unlock_bh(&drvdata->lock);
+
+		pr_debug("No data available to read waiting\n");
+		ret = wait_event_interruptible(drvdata->uci_wq,
+				((drvdata->opened != ENABLE
+				 || !list_empty(&drvdata->read_done_list))));
+		if (ret == -ERESTARTSYS) {
+			pr_debug("Exit signal caught for node\n");
+			return -ERESTARTSYS;
+		}
+
+		spin_lock_bh(&drvdata->lock);
+		if (drvdata->opened != ENABLE) {
+			spin_unlock_bh(&drvdata->lock);
+			pr_debug("node was disabled or SSR occurred.\n");
+			ret = -ERESTARTSYS;
+			return ret;
+		}
+	}
+
+	/* new read, get the next descriptor from the list */
+	if (!drvdata->cur_buf) {
+		uci_buf = list_first_entry_or_null(&drvdata->read_done_list,
+					struct qdss_mhi_buf_tbl_t, link);
+		if (unlikely(!uci_buf)) {
+			ret = -EIO;
+			goto read_error;
+		}
+
+		list_del(&uci_buf->link);
+		drvdata->cur_buf = uci_buf;
+		drvdata->rx_size = uci_buf->len;
+		pr_debug("Got pkt of size:%zu\n", drvdata->rx_size);
+	}
+
+	uci_buf = drvdata->cur_buf;
+	spin_unlock_bh(&drvdata->lock);
+
+	/* Copy the buffer to user space */
+	to_copy = min_t(size_t, count, drvdata->rx_size);
+	ptr = uci_buf->buf + (uci_buf->len - drvdata->rx_size);
+	ret = copy_to_user(buf, ptr, to_copy);
+	if (ret)
+		return ret;
+
+	pr_debug("Copied %lu of %lu bytes\n", to_copy, drvdata->rx_size);
+	drvdata->rx_size -= to_copy;
+
+	/* we finished with this buffer, queue it back to hardware */
+	if (!drvdata->rx_size) {
+		spin_lock_bh(&drvdata->lock);
+		drvdata->cur_buf = NULL;
+
+		if (drvdata->opened == ENABLE)
+			ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE,
+						 uci_buf->buf, drvdata->mtu,
+						 MHI_EOT);
+		else
+			ret = -ERESTARTSYS;
+
+		if (ret) {
+			pr_err("Failed to recycle element, ret: %d\n", ret);
+			kfree(uci_buf->buf);
+			kfree(uci_buf);
+			uci_buf->buf = NULL;
+			uci_buf = NULL;
+			goto read_error;
+		}
+
+		spin_unlock_bh(&drvdata->lock);
+	}
+
+	pr_debug("Returning %lu bytes\n", to_copy);
+	return to_copy;
+
+read_error:
+	spin_unlock_bh(&drvdata->lock);
+	return ret;
+}
+
+static int mhi_queue_inbound(struct qdss_bridge_drvdata *drvdata)
+{
+	struct mhi_device *mhi_dev = drvdata->mhi_dev;
+	int nr_trbs = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
+	void *buf;
+	struct qdss_mhi_buf_tbl_t *entry;
+	int ret = -EIO, i;
+
+	for (i = 0; i < nr_trbs; i++) {
+		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+		if (!entry)
+			goto err;
+
+		buf = kzalloc(drvdata->mtu, GFP_KERNEL);
+		if (!buf) {
+			kfree(entry);
+			goto err;
+		}
+
+		entry->buf = buf;
+
+		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, buf,
+					drvdata->mtu,
+					MHI_EOT);
+		if (ret) {
+			kfree(buf);
+			kfree(entry);
+			pr_err("Failed to queue buffer %d\n", i);
+			return ret;
+		}
+		list_add_tail(&entry->link, &drvdata->mhi_buf_tbl);
+	}
+
+	return ret;
+err:
+	return -ENOMEM;
+
+}
+
+static int mhi_uci_open(struct inode *inode, struct file *filp)
+{
+	int ret = -EIO;
+	struct qdss_mhi_buf_tbl_t *buf_itr, *tmp;
+	struct qdss_bridge_drvdata *drvdata = container_of(inode->i_cdev,
+					struct qdss_bridge_drvdata,
+					cdev);
+
+	spin_lock_bh(&drvdata->lock);
+	if (drvdata->opened) {
+		pr_err("Node was opened or SSR occurred\n");
+		spin_unlock_bh(&drvdata->lock);
+		return ret;
+	}
+	drvdata->opened = ENABLE;
+	spin_unlock_bh(&drvdata->lock);
+
+	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
+	if (ret) {
+		pr_err("Error starting transfer channels\n");
+		goto error_open_chan;
+	}
+
+	ret = mhi_queue_inbound(drvdata);
+	if (ret)
+		goto error_rx_queue;
+
+	filp->private_data = drvdata;
+	return ret;
+
+error_rx_queue:
+	mhi_unprepare_from_transfer(drvdata->mhi_dev);
+	list_for_each_entry_safe(buf_itr, tmp, &drvdata->read_done_list, link) {
+		list_del(&buf_itr->link);
+		kfree(buf_itr->buf);
+	}
+
+error_open_chan:
+	spin_lock_bh(&drvdata->lock);
+	drvdata->opened = DISABLE;
+	spin_unlock_bh(&drvdata->lock);
+	return ret;
+}
+
+
+
+static const struct file_operations mhidev_fops = {
+	.open = mhi_uci_open,
+	.release = mhi_uci_release,
+	.read = mhi_uci_read,
+};
 
 static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 {
@@ -367,14 +721,26 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 	drvdata = mhi_dev->priv_data;
 	if (!drvdata)
 		return;
-	if (!drvdata->opened)
-		return;
 	spin_lock_bh(&drvdata->lock);
-	drvdata->opened = 0;
-	spin_unlock_bh(&drvdata->lock);
-	usb_qdss_close(drvdata->usb_ch);
-	flush_workqueue(drvdata->mhi_wq);
-	qdss_destroy_buf_tbl(drvdata);
+	if (drvdata->opened == ENABLE) {
+		drvdata->opened = SSR;
+		if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
+			spin_unlock_bh(&drvdata->lock);
+			wake_up(&drvdata->uci_wq);
+			wait_for_completion(&drvdata->completion);
+		} else {
+			spin_unlock_bh(&drvdata->lock);
+			usb_qdss_close(drvdata->usb_ch);
+		}
+		mhi_ch_close(drvdata);
+
+	} else
+		spin_unlock_bh(&drvdata->lock);
+
+	device_remove_file(drvdata->dev, &dev_attr_mode);
+	device_destroy(mhi_class, drvdata->cdev.dev);
+	cdev_del(&drvdata->cdev);
+	unregister_chrdev_region(drvdata->cdev.dev, 1);
 }
 
 int qdss_mhi_init(struct qdss_bridge_drvdata *drvdata)
@@ -388,8 +754,11 @@ int qdss_mhi_init(struct qdss_bridge_drvdata *drvdata)
 	INIT_WORK(&(drvdata->read_done_work), mhi_read_done_work_fn);
 	INIT_WORK(&(drvdata->open_work), qdss_bridge_open_work_fn);
 	INIT_LIST_HEAD(&drvdata->buf_tbl);
+	INIT_LIST_HEAD(&drvdata->mhi_buf_tbl);
+	init_waitqueue_head(&drvdata->uci_wq);
+	init_completion(&drvdata->completion);
 	INIT_LIST_HEAD(&drvdata->read_done_list);
-	drvdata->opened = 0;
+	drvdata->opened = DISABLE;
 
 	return 0;
 }
@@ -398,7 +767,10 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 				const struct mhi_device_id *id)
 {
 	int ret;
+	unsigned int baseminor = 0;
+	unsigned int count = 1;
 	struct qdss_bridge_drvdata *drvdata;
+	dev_t dev;
 
 	drvdata = devm_kzalloc(&mhi_dev->dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata) {
@@ -406,21 +778,63 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 		return ret;
 	}
 
+	ret = alloc_chrdev_region(&dev, baseminor, count, "mhi_qdss");
+	if (ret < 0) {
+		pr_err("alloc_chrdev_region failed %d\n", ret);
+		return ret;
+	}
+	cdev_init(&drvdata->cdev, &mhidev_fops);
+
+	drvdata->cdev.owner = THIS_MODULE;
+	drvdata->cdev.ops = &mhidev_fops;
+
+	ret = cdev_add(&drvdata->cdev, dev, 1);
+	if (ret)
+		goto exit_unreg_chrdev_region;
+
+	drvdata->dev = device_create(mhi_class, NULL,
+			       drvdata->cdev.dev, drvdata,
+			       "mhi_qdss");
+	if (IS_ERR(drvdata->dev)) {
+		pr_err("class_device_create failed %d\n", ret);
+		ret = -ENOMEM;
+		goto exit_cdev_add;
+	}
+
+	drvdata->mode = MHI_TRANSFER_TYPE_USB;
+	drvdata->mtu = min_t(size_t, id->driver_data, mhi_dev->mtu);
 	drvdata->mhi_dev = mhi_dev;
 	mhi_device_set_devdata(mhi_dev, drvdata);
+	dev_set_drvdata(drvdata->dev, drvdata);
+
+	ret = device_create_file(drvdata->dev, &dev_attr_mode);
+	if (ret) {
+		pr_err("sysfs node create failed error:%d\n", ret);
+		goto exit_destroy_device;
+	}
 
 	ret = qdss_mhi_init(drvdata);
-	if (ret)
-		goto err;
+	if (ret) {
+		pr_err("Device probe failed err:%d\n", ret);
+		goto remove_sysfs_exit;
+	}
 	queue_work(drvdata->mhi_wq, &drvdata->open_work);
 	return 0;
-err:
-	pr_err("Device probe failed err:%d\n", ret);
+
+remove_sysfs_exit:
+	device_remove_file(drvdata->dev, &dev_attr_mode);
+exit_destroy_device:
+	device_destroy(mhi_class, drvdata->cdev.dev);
+exit_cdev_add:
+	cdev_del(&drvdata->cdev);
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(drvdata->cdev.dev, 1);
 	return ret;
+
 }
 
 static const struct mhi_device_id qdss_mhi_match_table[] = {
-	{ .chan = "QDSS" },
+	{ .chan = "QDSS", .driver_data = 0x4000 },
 	{},
 };
 
@@ -438,7 +852,17 @@ static struct mhi_driver qdss_mhi_driver = {
 
 static int __init qdss_bridge_init(void)
 {
-	return mhi_driver_register(&qdss_mhi_driver);
+	int ret;
+
+	mhi_class = class_create(THIS_MODULE, MODULE_NAME);
+	if (IS_ERR(mhi_class))
+		return -ENODEV;
+
+	ret = mhi_driver_register(&qdss_mhi_driver);
+	if (ret)
+		class_destroy(mhi_class);
+
+	return ret;
 }
 
 static void __exit qdss_bridge_exit(void)
