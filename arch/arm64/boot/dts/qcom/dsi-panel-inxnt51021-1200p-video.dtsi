@@ -1,0 +1,106 @@
+/* Novatek Android Driver Sample Code for Novatek chipset
+*
+* Copyright (C) 2015 Novatek Microelectronics Corp.
+*
+* This software is licensed under the terms of the GNU General Public
+* License version 2, as published by the Free Software Foundation, and
+* may be copied, distributed, and modified under those terms.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+*/
+
+&mdss_mdp {
+        dsi_inxnt51021_1200p_video: qcom,mdss_dsi_inxnt51021_1200p_video {
+		qcom,mdss-dsi-panel-name = "inxnt51021 1200p video mode dsi panel";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1200>;
+		qcom,mdss-dsi-panel-height = <1920>;
+		qcom,mdss-dsi-h-front-porch = <100>;
+		qcom,mdss-dsi-h-back-porch = <32>;
+		qcom,mdss-dsi-h-pulse-width = <1>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <14>;
+		qcom,mdss-dsi-v-front-porch = <25>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-on-command = [
+			23 01 00 00 01 00 02 8F A5
+			23 01 00 00 00 00 02 83 00
+			23 01 00 00 00 00 02 84 00
+			23 01 00 00 00 00 02 8C 84
+			23 01 00 00 00 00 02 C5 50
+			23 01 00 00 00 00 02 C7 50
+			23 01 00 00 00 00 02 85 04
+			23 01 00 00 00 00 02 86 08
+			23 01 00 00 00 00 02 83 AA
+			23 01 00 00 00 00 02 84 11
+			23 01 00 00 00 00 02 9C 10
+			23 01 00 00 00 00 02 A9 4B
+			23 01 00 00 00 00 02 A0 36
+			23 01 00 00 00 00 02 A1 36
+			23 01 00 00 00 00 02 C0 00
+			23 01 00 00 00 00 02 E0 3D
+			23 01 00 00 00 00 02 83 BB
+			23 01 00 00 00 00 02 84 22
+			23 01 00 00 00 00 02 C0 00
+			23 01 00 00 00 00 02 E0 3D
+			23 01 00 00 00 00 02 83 CC
+			23 01 00 00 00 00 02 84 33
+			23 01 00 00 00 00 02 C0 00
+			23 01 00 00 00 00 02 E0 3D
+			23 01 00 00 00 00 02 8F 00
+		];
+		qcom,mdss-dsi-off-command = [
+			23 01 00 00 01 00 02 8F A5
+			23 01 00 00 00 00 02 83 00
+			23 01 00 00 78 00 02 84 00
+			05 01 00 00 78 00 02 10 00
+		];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+		//qcom,cont-splash-enabled;
+		qcom,mdss-dsi-h-sync-pulse = <1>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-lane-map = "lane_map_0123";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [f2 3a 28 00 6c 70 2c 3e 2e 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x0e>;
+		qcom,mdss-dsi-t-clk-pre = <0x33>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-force-clock-lane-hs;
+		//qcom,platform-bklight-en-gpio = <&tlmm 46 0>;
+		//qcom,mdss-dsi-lcden-ctrl = <&tlmm 61 0>;
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		//qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+		//qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+		//qcom,mdss-dsi-pwm-gpio = <&pm8953_mpps 4 0>;
+		qcom,mdss-pan-physical-width-dimension = <135>;
+		qcom,mdss-pan-physical-height-dimension = <216>;
+		//qcom,mdss-dsi-reset-sequence = <1 10>, <0 5>, <1 50>;
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-post-init-delay = <1>;
+	};
+};
