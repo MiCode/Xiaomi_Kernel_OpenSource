@@ -66,19 +66,6 @@ Properties:
 		specified in the LRA actuator datasheet. Allowed values are:
 		0 to 20475. If this is not specified, 5715us play rate is used.
 
-- qcom,brake-pattern
-  Usage:      optional
-  Value type: <prop-encoded-array>
-  Definition: Specifies the brake pattern with 4 elements used to enable the
-		internal reverse braking. Allowed values for each element are:
-			0: no brake;
-			1: brake with (Vmax / 2) strength;
-			2: brake with Vmax strength;
-			3: brake with (2 * Vmax) strength;
-		If this property is specified with an array of non-zero values,
-		then the brake pattern is applied at the end of the playing
-		waveform.
-
 - qcom,external-waveform-source
   Usage:      optional
   Value type: <string>
@@ -108,11 +95,12 @@ Following properties are specific only when LRA actuator is used:
 		values: "sine", "square". If this is not specified, sinusoid
 		resonance driver signal is used.
 
-- qcom,lra-auto-resonance-en
+- qcom,lra-allow-variable-play-rate
   Usage:      optional
   Value type: <empty>
-  Definition: If specified, the hardware feature of LRA auto resonance detection
-		 is enabled for correcting the resonance frequency variation.
+  Definition: If specified, "qcom,wf-play-rate-us" for LRA defined in each
+		effect could be different with the resonance period of the
+		LRA actuator.
 
 - qcom,lra-auto-resonance-mode
   Usage:      optional
@@ -136,16 +124,20 @@ waveforms/effects:
   Usage:      required
   Value type: <prop-encoded-array>
   Definition: Specifies the waveform pattern in a byte array that will be
-		played for the effect-id. Allowed values for each element
-		are: 0x00 to 0x1F.
+		played for the effect-id. The bit fields of each byte are:
+		 [7]: drive direction, 0 - forward; 1 - reverse
+		 [6]: overdrive, 0 -- 1x drive; 1 -- 2x drive
+		 [5:1]: waveform amplitude
+		 [0]: reserved.
 
 - qcom,wf-play-rate-us
   Usage:      optional
   Value type: <u32>
   Definition: Specifies the play period in microseconds for each byte pattern.
-		For LRA actuator, For LRA, it should be set equal to the resonance
-		period specified in the LRA actuator datasheet. Allowed values
-		are: 0 to 20475.
+		Allowed values are: 0 to 20475. For LRA actuator, if
+		"qcom,lra-allow-variable-play-rate" is defined, it could be
+		set to other values not equal to the resonance period of the
+		LRA actuator.
 
 - qcom,wf-repeat-count
   Usage:      optional
@@ -159,6 +151,25 @@ waveforms/effects:
   Definition: Specifies the repeat times for each sample defined in
 		qcom,wf-pattern. Allowed values are: 1, 2, 4, 8.
 
+- qcom,wf-brake-pattern
+  Usage:      optional
+  Value type: <prop-encoded-array>
+  Definition: Specifies the brake pattern with 4 elements used to enable the
+		internal reverse braking. Allowed values for each element are:
+			0: no brake
+			1: brake with (Vmax / 2) strength
+			2: brake with Vmax strength
+			3: brake with (2 * Vmax) strength
+		If this property is specified with an array of non-zero values,
+		then the brake pattern is applied at the end of the playing
+		waveform.
+
+- qcom,lra-auto-resonance-disable
+  Usage:      optional
+  Value type: <empty>
+  Definition: If specified, the hardware feature of LRA auto resonance detection
+		is disabled.
+
 Example:
   qcom,haptics@c000 {
 	compatible = "qcom,haptics";
@@ -169,20 +180,23 @@ Example:
 	qcom,actuator-type = "lra";
 	qcom,vmax-mv = <1800>;
 	qcom,ilim-ma = <400>;
-	qcom,play-rate-us = <4255>;
-	qcom,brake-pattern = [03 02 01 00];
+	qcom,play-rate-us = <8000>;
 	qcom,lra-resonance-sig-shape = "sine";
-	qcom,lra-auto-resonance-mode;
+	qcom,lra-auto-resonance-mode = "qwd";
+	qcom,lra-allow-variable-play-rate;
 
 	wf_0 {
 		/* CLICK effect */
 		qcom,effect-id = <0>;
-		qcom,wf-pattern = [0a 14 1f 1f 1f 1f 14 0a];
+		qcom,wf-play-rate-us = <6250>;
+		qcom,wf-pattern = [3e 3e 3e];
+		qcom,lra-auto-resonance-disable;
 	};
 
 	wf_5 {
 		/* HEAVY_CLICK effect */
 		qcom,effect-id = <5>;
-		qcom,wf-pattern = [08 0a 1a 1f 1f 1a 0a 08];
+		qcom,wf-play-rate-us = <6250>;
+		qcom,wf-pattern = [7e 7e 7e];
 	};
   };
