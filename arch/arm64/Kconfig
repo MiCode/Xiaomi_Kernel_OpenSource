@@ -85,6 +85,7 @@ config ARM64
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
 	select HAVE_CONTEXT_TRACKING
+	select THREAD_INFO_IN_TASK
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 	help
 	  ARM 64-bit (AArch64) Linux support.

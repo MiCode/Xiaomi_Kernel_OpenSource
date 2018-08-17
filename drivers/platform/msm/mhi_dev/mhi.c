@@ -1406,16 +1406,20 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	union mhi_dev_ring_element_type *el;
 	int rc = 0;
 	struct mhi_req *req = (struct mhi_req *)mreq;
-	struct mhi_req *local_req = NULL;
 	union mhi_dev_ring_element_type *compl_ev = NULL;
 	struct mhi_dev *mhi = NULL;
 	unsigned long flags;
+	size_t transfer_len;
+	u32 snd_cmpl;
+	uint32_t rd_offset;
 
 	client = req->client;
 	ch = client->channel;
 	mhi = ch->ring->mhi_dev;
 	el = req->el;
-	local_req = req;
+	transfer_len = req->len;
+	snd_cmpl = req->snd_cmpl;
+	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
@@ -1429,14 +1433,13 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 		compl_ev->evt_tr_comp.chid = ch->ch_id;
 		compl_ev->evt_tr_comp.type =
 				MHI_DEV_RING_EL_TRANSFER_COMPLETION_EVENT;
-		compl_ev->evt_tr_comp.len = el->tre.len;
+		compl_ev->evt_tr_comp.len = transfer_len;
 		compl_ev->evt_tr_comp.code = MHI_CMD_COMPL_CODE_EOT;
 		compl_ev->evt_tr_comp.ptr = ch->ring->ring_ctx->generic.rbase +
-				local_req->rd_offset * TR_RING_ELEMENT_SZ;
+						rd_offset * TR_RING_ELEMENT_SZ;
 		ch->curr_ereq->num_events++;
 
-		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS ||
-				local_req->snd_cmpl){
+		if (ch->curr_ereq->num_events >= MAX_TR_EVENTS || snd_cmpl) {
 			mhi_log(MHI_MSG_VERBOSE,
 					"num of tr events %d for ch %d\n",
 					ch->curr_ereq->num_events, ch->ch_id);
@@ -1880,6 +1883,7 @@ int mhi_dev_open_channel(uint32_t chan_id,
 			(struct mhi_dev_client_cb_reason *cb))
 {
 	int rc = 0;
+	int i = 0;
 	struct mhi_dev_channel *ch;
 	struct platform_device *pdev;
 
@@ -1903,6 +1907,38 @@ int mhi_dev_open_channel(uint32_t chan_id,
 		goto exit;
 	}
 
+	/* Pre allocate event requests */
+	ch->ereqs = kcalloc(MHI_MAX_EVT_REQ, sizeof(*ch->ereqs), GFP_KERNEL);
+	if (!ch->ereqs) {
+		rc = -ENOMEM;
+		goto free_client;
+	}
+	/* pre allocate buffers to queue transfer completion events */
+	ch->tr_events = kcalloc(MHI_MAX_EVT_REQ,
+				MAX_TR_EVENTS * sizeof(*ch->tr_events),
+				GFP_KERNEL);
+	if (!ch->tr_events) {
+		rc = -ENOMEM;
+		goto free_ereqs;
+	}
+
+	/*
+	 * Organize the above allocated event request block and
+	 * completion event block into linked lists. Each event
+	 * request includes a pointer to a block of MAX_TR_EVENTS
+	 * completion events.
+	 */
+	INIT_LIST_HEAD(&mhi_ctx->ch[chan_id].event_req_buffers);
+	for (i = 0; i < MHI_MAX_EVT_REQ; ++i) {
+		ch->ereqs[i].tr_events = ch->tr_events + i * MAX_TR_EVENTS;
+		list_add_tail(&ch->ereqs[i].list,
+				&mhi_ctx->ch[chan_id].event_req_buffers);
+	}
+	mhi_ctx->ch[chan_id].curr_ereq =
+		container_of(mhi_ctx->ch[chan_id].event_req_buffers.next,
+				struct event_req, list);
+	list_del_init(&mhi_ctx->ch[chan_id].curr_ereq->list);
+
 	ch->active_client = (*handle_client);
 	(*handle_client)->channel = ch;
 	(*handle_client)->event_trigger = mhi_dev_client_cb_reason;
@@ -1915,6 +1951,13 @@ int mhi_dev_open_channel(uint32_t chan_id,
 	else if (ch->state == MHI_DEV_CH_STOPPED)
 		ch->state = MHI_DEV_CH_PENDING_START;
 
+	goto exit;
+
+free_ereqs:
+	kfree(ch->ereqs);
+	ch->ereqs = NULL;
+free_client:
+	kfree(*handle_client);
 exit:
 	mutex_unlock(&ch->ch_lock);
 	return rc;
@@ -1948,14 +1991,12 @@ int mhi_dev_close_channel(struct mhi_dev_client *handle)
 			mhi_log(MHI_MSG_ERROR,
 				"Trying to close an active channel (%d)\n",
 				ch->ch_id);
-			mutex_unlock(&ch->ch_lock);
 			rc = -EAGAIN;
 			goto exit;
 		} else if (ch->tre_loc) {
 			mhi_log(MHI_MSG_ERROR,
 				"Trying to close channel (%d) when a TRE is active",
 				ch->ch_id);
-			mutex_unlock(&ch->ch_lock);
 			rc = -EAGAIN;
 			goto exit;
 		}
@@ -1963,6 +2004,10 @@ int mhi_dev_close_channel(struct mhi_dev_client *handle)
 
 	ch->state = MHI_DEV_CH_CLOSED;
 	ch->active_client = NULL;
+	kfree(ch->ereqs);
+	kfree(ch->tr_events);
+	ch->ereqs = NULL;
+	ch->tr_events = NULL;
 	kfree(handle);
 exit:
 	mutex_unlock(&ch->ch_lock);
@@ -2670,40 +2715,8 @@ static int mhi_init(struct mhi_dev *mhi)
 	if (!mhi->ch)
 		return -ENOMEM;
 
-
-	for (i = 0; i < mhi->cfg.channels; i++) {
+	for (i = 0; i < mhi->cfg.channels; i++)
 		mutex_init(&mhi->ch[i].ch_lock);
-		if (i == MHI_CLIENT_IP_SW_4_OUT || i == MHI_CLIENT_IP_SW_4_IN) {
-			int nreq = 0;
-
-			INIT_LIST_HEAD(&mhi->ch[i].event_req_buffers);
-			while (nreq < MHI_MAX_EVT_REQ) {
-				struct event_req *ereq;
-				/* Pre allocate event requests */
-				ereq = kzalloc(sizeof(struct event_req),
-						GFP_KERNEL);
-				if (!ereq)
-					return -ENOMEM;
-
-				/* pre allocate buffers to queue
-				 * transfer completion events
-				 */
-				ereq->tr_events = kzalloc(RING_ELEMENT_TYPE_SZ*
-						MAX_TR_EVENTS, GFP_KERNEL);
-				if (!ereq->tr_events) {
-					kfree(ereq);
-					return -ENOMEM;
-				}
-				list_add_tail(&ereq->list,
-						&mhi->ch[i].event_req_buffers);
-				nreq++;
-			}
-			mhi->ch[i].curr_ereq =
-				container_of(mhi->ch[i].event_req_buffers.next,
-						struct event_req, list);
-			list_del_init(&mhi->ch[i].curr_ereq->list);
-		}
-	}
 
 	spin_lock_init(&mhi->lock);
 	mhi->mmio_backup = devm_kzalloc(&pdev->dev,

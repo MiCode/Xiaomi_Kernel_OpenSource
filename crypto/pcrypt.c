@@ -306,6 +306,14 @@ static void pcrypt_aead_exit_tfm(struct crypto_tfm *tfm)
 	crypto_free_aead(ctx->child);
 }
 
+static void pcrypt_free(struct crypto_instance *inst)
+{
+	struct pcrypt_instance_ctx *ctx = crypto_instance_ctx(inst);
+
+	crypto_drop_spawn(&ctx->spawn);
+	kfree(inst);
+}
+
 static struct crypto_instance *pcrypt_alloc_instance(struct crypto_alg *alg)
 {
 	struct crypto_instance *inst;
@@ -375,6 +383,7 @@ static struct crypto_instance *pcrypt_alloc_aead(struct rtattr **tb,
 	inst->alg.cra_aead.encrypt = pcrypt_aead_encrypt;
 	inst->alg.cra_aead.decrypt = pcrypt_aead_decrypt;
 	inst->alg.cra_aead.givencrypt = pcrypt_aead_givencrypt;
+	inst->tmpl->free = pcrypt_free;
 
 out_put_alg:
 	crypto_mod_put(alg);
@@ -395,14 +404,6 @@ static struct crypto_instance *pcrypt_alloc(struct rtattr **tb)
 	}
 
 	return ERR_PTR(-EINVAL);
-}
-
-static void pcrypt_free(struct crypto_instance *inst)
-{
-	struct pcrypt_instance_ctx *ctx = crypto_instance_ctx(inst);
-
-	crypto_drop_spawn(&ctx->spawn);
-	kfree(inst);
 }
 
 static int pcrypt_cpumask_change_notify(struct notifier_block *self,
@@ -517,7 +518,6 @@ static void pcrypt_fini_padata(struct padata_pcrypt *pcrypt)
 static struct crypto_template pcrypt_tmpl = {
 	.name = "pcrypt",
 	.alloc = pcrypt_alloc,
-	.free = pcrypt_free,
 	.module = THIS_MODULE,
 };
 

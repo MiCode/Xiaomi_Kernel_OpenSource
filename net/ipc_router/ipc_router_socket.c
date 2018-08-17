@@ -155,6 +155,7 @@ static int msm_ipc_router_extract_msg(struct msghdr *m,
 			return -EINVAL;
 		}
 		ctl_msg = (union rr_control_msg *)(temp->data);
+		memset(addr, 0x0, sizeof(*addr));
 		addr->family = AF_MSM_IPC;
 		addr->address.addrtype = MSM_IPC_ADDR_ID;
 		addr->address.addr.port_addr.node_id = ctl_msg->cli.node_id;
@@ -163,6 +164,7 @@ static int msm_ipc_router_extract_msg(struct msghdr *m,
 		return offset;
 	}
 	if (addr && (hdr->type == IPC_ROUTER_CTRL_CMD_DATA)) {
+		memset(addr, 0x0, sizeof(*addr));
 		addr->family = AF_MSM_IPC;
 		addr->address.addrtype = MSM_IPC_ADDR_ID;
 		addr->address.addr.port_addr.node_id = hdr->src_node_id;
