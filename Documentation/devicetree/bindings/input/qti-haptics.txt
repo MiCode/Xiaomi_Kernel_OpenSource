@@ -1,0 +1,188 @@
+Qualcomm Technologies, Inc. Haptics driver
+
+Haptics peripheral in QTI PMICs can support different type of actuators or
+vibrators:
+  1) Eccentric Rotation Mass (ERM);
+  2) Linear Resonant Actuator (LRA).
+This binding document describes the properties for this module.
+
+Properties:
+
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: It can be one of the following:
+		"qcom,haptics",
+		"qcom,pm660-haptics",
+		"qcom,pm8150b-haptics".
+
+- reg
+  Usage:      required
+  Value type: <u32>
+  Definition: Base address of haptics peripheral.
+
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+		interrupts specified in the 'interrupts' property. Following
+		interrupts are required: "hap_play_irq", "hap_sc_irq".
+
+- qcom,actuator-type
+  Usage:      optional
+  Value type: <string>
+  Definition: Specifies the type of the actuator connected on the output of
+		haptics module. Allowed values: "erm", "lra". If this is
+		not specified, then LRA type will be used by default.
+
+- qcom,vmax-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum allowed output voltage in millivolts
+		for the actuator. Value specified here will be rounded
+		off to the closest multiple of 116 mV. Allowed values:
+		0 to 3596. If this is not specified, then 1800 mV will be
+		used by default.
+
+- qcom,ilim-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum allowed output current in mA for the
+		actuator. Allowed values: 400 or 800. If this is not
+		specified, 400 mA will be used by default.
+
+- qcom,play-rate-us
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the period at which each sample of the 8-byte waveform
+		registers is played. For ERM, this period is flexible and it
+		can be chosen based on the desired shape of the pattern.
+		For LRA, it should be set equal to the resonance period
+		specified in the LRA actuator datasheet. Allowed values are:
+		0 to 20475. If this is not specified, 5715us play rate is used.
+
+- qcom,brake-pattern
+  Usage:      optional
+  Value type: <prop-encoded-array>
+  Definition: Specifies the brake pattern with 4 elements used to enable the
+		internal reverse braking. Allowed values for each element are:
+			0: no brake;
+			1: brake with (Vmax / 2) strength;
+			2: brake with Vmax strength;
+			3: brake with (2 * Vmax) strength;
+		If this property is specified with an array of non-zero values,
+		then the brake pattern is applied at the end of the playing
+		waveform.
+
+- qcom,external-waveform-source
+  Usage:      optional
+  Value type: <string>
+  Definition: The haptics module supports to play with internal constant
+		Vmax strength or play with patterns specified in its internal
+		8-bytes waveform buffer. It can also play with the audio
+		LINE-IN signal or PWM waveform coming from LINE-IN/PWM pin.
+		This property specify the kind of the waveform resources
+		on the LINE-IN/PWM pins. Allowed values are: "audio", "pwm".
+		If this is not specified, internal signals (Vmax or buffer)
+		will be selected according to the requriement of the playing
+		waveforms.
+
+- vdd-supply
+  Usage:      optional
+  Value type: <phandle>
+  Definition: Specifies the phandle of the regulator device which supplies
+		haptics module through VDD_HAP pin. This is only needed if VDD_HAP
+		is supplied from an external boost regulator instead of VPH_PWR.
+
+Following properties are specific only when LRA actuator is used:
+
+- qcom,lra-resonance-sig-shape
+  Usage:      optional
+  Value type: <string>
+  Definition: Specifies the shape of the LRA resonance drive signal. Allowed
+		values: "sine", "square". If this is not specified, sinusoid
+		resonance driver signal is used.
+
+- qcom,lra-auto-resonance-en
+  Usage:      optional
+  Value type: <empty>
+  Definition: If specified, the hardware feature of LRA auto resonance detection
+		 is enabled for correcting the resonance frequency variation.
+
+- qcom,lra-auto-resonance-mode
+  Usage:      optional
+  Value type: <string>
+  Definition: Specifies the auto resonance technique for LRA. Allowed values are:
+		"zxd": zero crossing based discontinuous method;
+		"qwd": quarter wave drive method;
+
+Following properties could be specified in child nodes for defining vibrating
+waveforms/effects:
+
+- qcom,effect-id
+  Usage:      required
+  Value type: <u32>
+  Definition: Specifies the effect ID that the client can request to play the
+		corresponding waveform defined in this child node. The ID is
+		normaly defined and sent from userspace for certain user
+		notification event.
+
+- qcom,wf-pattern
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Specifies the waveform pattern in a byte array that will be
+		played for the effect-id. Allowed values for each element
+		are: 0x00 to 0x1F.
+
+- qcom,wf-play-rate-us
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the play period in microseconds for each byte pattern.
+		For LRA actuator, For LRA, it should be set equal to the resonance
+		period specified in the LRA actuator datasheet. Allowed values
+		are: 0 to 20475.
+
+- qcom,wf-repeat-count
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the repeat times for the waveform pattern. Allowed
+		values are: 1, 2, 4, 8, 16, 32, 64, 128.
+
+- qcom,wf-s-repeat-count
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the repeat times for each sample defined in
+		qcom,wf-pattern. Allowed values are: 1, 2, 4, 8.
+
+Example:
+  qcom,haptics@c000 {
+	compatible = "qcom,haptics";
+	reg = <0xc000 0x100>;
+	interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+		     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+	interrupt-names = "hap-sc-irq", "hap-play-irq";
+	qcom,actuator-type = "lra";
+	qcom,vmax-mv = <1800>;
+	qcom,ilim-ma = <400>;
+	qcom,play-rate-us = <4255>;
+	qcom,brake-pattern = [03 02 01 00];
+	qcom,lra-resonance-sig-shape = "sine";
+	qcom,lra-auto-resonance-mode;
+
+	wf_0 {
+		/* CLICK effect */
+		qcom,effect-id = <0>;
+		qcom,wf-pattern = [0a 14 1f 1f 1f 1f 14 0a];
+	};
+
+	wf_5 {
+		/* HEAVY_CLICK effect */
+		qcom,effect-id = <5>;
+		qcom,wf-pattern = [08 0a 1a 1f 1f 1a 0a 08];
+	};
+  };
