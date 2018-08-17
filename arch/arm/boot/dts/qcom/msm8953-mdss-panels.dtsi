@@ -25,6 +25,9 @@
 #include "dsi-panel-lt8912-1080p-video.dtsi"
 #include "dsi-panel-lgd-incell-sw49106-fhd-video.dtsi"
 #include "dsi-panel-hx83100a-800p-video.dtsi"
+#include "dsi-panel-otm1911-fhd-video.dtsi"
+#include "dsi-panel-ft8716-fhd-video.dtsi"
+#include "dsi-panel-ili7807-fhd-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -49,6 +52,31 @@
 			qcom,supply-disable-load = <100>;
 		};
 	};
+};
+
+
+&dsi_ili7807_fhd_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1F 08 09 05 03 04 a0
+		24 1F 08 09 05 03 04 a0
+		24 1F 08 09 05 03 04 a0
+		24 1F 08 09 05 03 04 a0
+		24 1B 08 09 05 03 04 a0];
+};
+
+&dsi_ft8716_fhd_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 18 07 08 05 03 04 a0];
+};
+
+&dsi_otm1911_fhd_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 18 07 08 05 03 04 a0];
 };
 
 &dsi_truly_1080_vid {

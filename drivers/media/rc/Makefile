@@ -14,6 +14,8 @@ obj-$(CONFIG_IR_SHARP_DECODER) += ir-sharp-decoder.o
 obj-$(CONFIG_IR_MCE_KBD_DECODER) += ir-mce_kbd-decoder.o
 obj-$(CONFIG_IR_LIRC_CODEC) += ir-lirc-codec.o
 obj-$(CONFIG_IR_XMP_DECODER) += ir-xmp-decoder.o
+# peelir using spi
+obj-$(CONFIG_SPI_PEELIR) += peelir.o
 
 # stand-alone IR receivers/transmitters
 obj-$(CONFIG_RC_ATI_REMOTE) += ati_remote.o

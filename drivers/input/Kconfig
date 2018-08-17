@@ -206,6 +206,8 @@ source "drivers/input/tablet/Kconfig"
 
 source "drivers/input/touchscreen/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
+
 source "drivers/input/misc/Kconfig"
 
 endif
