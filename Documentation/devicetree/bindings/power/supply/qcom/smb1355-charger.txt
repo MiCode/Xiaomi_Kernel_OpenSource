@@ -36,6 +36,21 @@ Charger specific properties:
 	      connected to AUX. Set this flag to indicate the thermistor
 	      doesn't exist.
 
+- qcom,parallel-mode
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies parallel charging mode. If not specified, MID-MID
+              option is selected by default.
+
+- qcom,stacked-batfet
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Specifies if parallel charger has stacked BATFET
+              configuration.
+	      In stacked batfet the main and parallel charger's batfet are
+	      stacked one after the other and thus all the charge current
+	      (FCC) flows through main. In a non-stacked configuration each
+	      charger controls the charge current (FCC) separately.
 ================================================
 Second Level Nodes - SMB1355 Charger Peripherals
 ================================================
