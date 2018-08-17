@@ -189,7 +189,7 @@ struct extcon_nb {
 	int			idx;
 	struct notifier_block	vbus_nb;
 	struct notifier_block	id_nb;
-	struct notifier_block	host_restart_nb;
+	struct notifier_block	blocking_sync_nb;
 };
 
 /* Input bits to state machine (mdwc->inputs) */
@@ -302,7 +302,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 						unsigned int value);
-static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
+static int dwc3_usb_blocking_sync(struct notifier_block *nb,
 					unsigned long event, void *ptr);
 
 /**
@@ -3085,10 +3085,10 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 		if (ret < 0)
 			check_id_state = false;
 
-		mdwc->extcon[idx].host_restart_nb.notifier_call =
-					dwc3_restart_usb_host_mode;
+		mdwc->extcon[idx].blocking_sync_nb.notifier_call =
+					dwc3_usb_blocking_sync;
 		extcon_register_blocking_notifier(edev, EXTCON_USB_HOST,
-					&mdwc->extcon[idx].host_restart_nb);
+					&mdwc->extcon[idx].blocking_sync_nb);
 
 		/* Update initial VBUS/ID state */
 		if (check_vbus_state && extcon_get_state(edev, EXTCON_USB))
@@ -4087,58 +4087,46 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 	return 0;
 }
 
-/* speed: 0 - USB_SPEED_HIGH, 1 - USB_SPEED_SUPER */
-static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
+static int dwc3_usb_blocking_sync(struct notifier_block *nb,
 				unsigned long event, void *ptr)
 {
 	struct dwc3 *dwc;
 	struct extcon_dev *edev = ptr;
 	struct extcon_nb *enb = container_of(nb, struct extcon_nb,
-						host_restart_nb);
+						blocking_sync_nb);
 	struct dwc3_msm *mdwc = enb->mdwc;
-	int ret = -EINVAL, usb_speed;
+	int ret = 0;
 
 	if (!edev || !mdwc)
 		return NOTIFY_DONE;
 
 	dwc = platform_get_drvdata(mdwc->dwc3);
 
-	usb_speed = (event == 0 ? USB_SPEED_HIGH : USB_SPEED_SUPER);
-	if (dwc->maximum_speed == usb_speed)
-		return 0;
-
-	dbg_event(0xFF, "fw_restarthost", 0);
+	dbg_event(0xFF, "fw_blocksync", 0);
+	flush_work(&mdwc->resume_work);
 	flush_delayed_work(&mdwc->sm_work);
 
-	if (!mdwc->in_host_mode)
-		goto err;
+	if (!mdwc->in_host_mode && !mdwc->in_device_mode) {
+		dbg_event(0xFF, "lpm_state", atomic_read(&dwc->in_lpm));
 
-	dbg_event(0xFF, "stop_host_mode", dwc->maximum_speed);
-	ret = dwc3_otg_start_host(mdwc, 0);
-	if (ret)
-		goto err;
+		/*
+		 * stop host mode functionality performs autosuspend with mdwc
+		 * device, and it may take sometime to call PM runtime suspend.
+		 * Hence call pm_runtime_suspend() API to invoke PM runtime
+		 * suspend immediately to put USB controller and PHYs into
+		 * suspend.
+		 */
+		ret = pm_runtime_suspend(mdwc->dev);
+		dbg_event(0xFF, "pm_runtime_sus", ret);
 
-	dbg_event(0xFF, "USB_lpm_state", atomic_read(&dwc->in_lpm));
-	/*
-	 * stop host mode functionality performs autosuspend with mdwc
-	 * device, and it may take sometime to call PM runtime suspend.
-	 * Hence call pm_runtime_suspend() API to invoke PM runtime
-	 * suspend immediately to put USB controller and PHYs into suspend.
-	 */
-	ret = pm_runtime_suspend(mdwc->dev);
-	/*
-	 * If mdwc device is already suspended, pm_runtime_suspend() API
-	 * returns 1, which is not error. Overwrite with zero if it is.
-	 */
-	if (ret > 0)
-		ret = 0;
-	dbg_event(0xFF, "pm_runtime_sus", ret);
+		/*
+		 * If mdwc device is already suspended, pm_runtime_suspend() API
+		 * returns 1, which is not error. Overwrite with zero if it is.
+		 */
+		if (ret > 0)
+			ret = 0;
+	}
 
-	dwc->maximum_speed = usb_speed;
-	mdwc->otg_state = OTG_STATE_B_IDLE;
-	schedule_delayed_work(&mdwc->sm_work, 0);
-	dbg_event(0xFF, "complete_host_change", dwc->maximum_speed);
-err:
 	return ret;
 }
 

@@ -593,14 +593,17 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 		goto err_exit;
 	}
 
-	if (pd->peer_usb_comm) {
-		ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
-		if (ret) {
-			usbpd_err(&pd->dev, "err(%d) for releasing ss lane",
-					ret);
-			goto err_exit;
-		}
+	stop_usb_host(pd);
+
+	/* blocks until USB host is completely stopped */
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) stopping host", ret);
+		goto err_exit;
 	}
+
+	if (pd->peer_usb_comm)
+		start_usb_host(pd, false);
 
 	pd->ss_lane_svid = hdlr->svid;
 
