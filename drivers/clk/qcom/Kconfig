@@ -423,3 +423,11 @@ config MSM_VIDEOCC_SDMMAGPIE
 	  SDMMAGPIE devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config MSM_NPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+          Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to enable use of the Network Processing Unit.

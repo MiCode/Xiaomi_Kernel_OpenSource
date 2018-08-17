@@ -218,7 +218,7 @@
 
 	/* GDSCs in NPU CC */
 	npu_core_gdsc: qcom,gdsc@9911028 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "npu_core_gdsc";
 		reg = <0x9911028 0x4>;
 		status = "disabled";
