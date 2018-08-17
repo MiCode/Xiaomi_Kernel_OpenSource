@@ -16,3 +16,7 @@
 	compatible = "qcom,sdxpoorwills";
 	qcom,msm-id = <334 0x20000>, <335 0x20000>;
 };
+
+&emac_hw {
+	emac-core-version = <5>;
+};
