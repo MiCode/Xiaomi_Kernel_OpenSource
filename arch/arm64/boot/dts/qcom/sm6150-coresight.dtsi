@@ -553,7 +553,7 @@
 			};
 
 			port@2 {
-				reg = <6>;
+				reg = <7>;
 				funnel_monaq_1_in_funnel_modem: endpoint {
 					slave-mode;
 					remote-endpoint =
@@ -562,7 +562,7 @@
 			};
 
 			port@3 {
-				reg = <7>;
+				reg = <6>;
 				funnel_monaq_1_in_modem_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
@@ -827,7 +827,7 @@
 			};
 
 			port@1 {
-				reg = <0>;
+				reg = <1>;
 				funnel_turing_1_in_turing_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
