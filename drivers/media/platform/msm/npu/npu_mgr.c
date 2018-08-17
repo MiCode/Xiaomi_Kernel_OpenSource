@@ -41,7 +41,8 @@
  */
 static void host_irq_wq(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
-static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits);
+static int wait_for_status_ready(struct npu_device *npu_dev,
+	uint32_t status_reg, uint32_t status_bits);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	struct npu_client *client);
 static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
@@ -59,6 +60,7 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	void *cmd_ptr);
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
+static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -132,7 +134,7 @@ int fw_init(struct npu_device *npu_dev)
 	/* Keep reading ctrl status until NPU is ready */
 	pr_debug("waiting for status ready from fw\n");
 
-	if (wait_for_fw_ready(npu_dev,
+	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
 		FW_CTRL_STATUS_MAIN_THREAD_READY_BIT)) {
 		ret = -EPERM;
 		goto wait_fw_ready_fail;
@@ -150,6 +152,8 @@ int fw_init(struct npu_device *npu_dev)
 	host_ctx->fw_ref_cnt++;
 	mutex_unlock(&host_ctx->lock);
 	pr_debug("firmware init complete\n");
+
+	npu_notify_dsp(npu_dev, true);
 
 	/* Set logging state */
 	if (!npu_hw_log_enabled()) {
@@ -173,7 +177,7 @@ enable_pw_fail:
 	return ret;
 }
 
-void fw_deinit(struct npu_device *npu_dev, bool fw_alive, bool ssr)
+void fw_deinit(struct npu_device *npu_dev, bool ssr)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct ipc_cmd_shutdown_pkt cmd_shutdown_pkt;
@@ -199,7 +203,7 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive, bool ssr)
 
 	npu_disable_irq(npu_dev);
 
-	if (fw_alive) {
+	if (!ssr) {
 		/* Command header */
 		cmd_shutdown_pkt.header.cmd_type = NPU_IPC_CMD_SHUTDOWN;
 		cmd_shutdown_pkt.header.size =
@@ -217,13 +221,16 @@ void fw_deinit(struct npu_device *npu_dev, bool fw_alive, bool ssr)
 		} else {
 			/* Keep reading ctrl status until NPU shuts down */
 			pr_debug("waiting for shutdown status from fw\n");
-			if (wait_for_fw_ready(npu_dev,
+			if (wait_for_status_ready(npu_dev,
+				REG_NPU_FW_CTRL_STATUS,
 				FW_CTRL_STATUS_SHUTDOWN_DONE_VAL)) {
 				pr_err("wait for fw shutdown timedout\n");
 				ret = -ETIMEDOUT;
 			}
 		}
 	}
+
+	npu_notify_dsp(npu_dev, false);
 
 	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
@@ -299,19 +306,16 @@ static int host_error_hdlr(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_network *network = NULL;
-	bool fw_alive = true;
 	struct npu_kevent kevt;
 	int i;
 
 	if ((host_ctx->wdg_irq_sts == 0) && (host_ctx->err_irq_sts == 0))
 		return 0;
 
-	if (host_ctx->wdg_irq_sts) {
+	if (host_ctx->wdg_irq_sts)
 		pr_info("watchdog irq triggered\n");
-		fw_alive = false;
-	}
 
-	fw_deinit(npu_dev, fw_alive, true);
+	fw_deinit(npu_dev, true);
 	host_ctx->wdg_irq_sts = 0;
 	host_ctx->err_irq_sts = 0;
 
@@ -375,7 +379,8 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 		pr_err("npu_host_ipc_send_cmd failed\n");
 }
 
-static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits)
+static int wait_for_status_ready(struct npu_device *npu_dev,
+	uint32_t status_reg, uint32_t status_bits)
 {
 	uint32_t ctrl_sts = 0;
 	uint32_t wait_cnt = 0, max_wait_ms;
@@ -384,9 +389,9 @@ static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits)
 	max_wait_ms = (host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT_MS : NPU_FW_TIMEOUT_MS;
 
-	/* keep reading ctrl status until NPU is ready */
+	/* keep reading status register until bits are set */
 	while ((ctrl_sts & status_bits) != status_bits) {
-		ctrl_sts = REGR(npu_dev, REG_NPU_FW_CTRL_STATUS);
+		ctrl_sts = REGR(npu_dev, status_reg);
 		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
 		if (wait_cnt >= max_wait_ms) {
@@ -395,8 +400,36 @@ static int wait_for_fw_ready(struct npu_device *npu_dev, uint32_t status_bits)
 			return -EPERM;
 		}
 	}
-	pr_debug("status %x ready from fw received\n", status_bits);
+	pr_debug("status %x[reg %x] ready received\n", status_bits, status_reg);
 	return 0;
+}
+
+static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up)
+{
+	uint32_t ack_val, notify_val;
+	int ret = 0;
+
+	if (pwr_up) {
+		notify_val = HOST_DSP_CTRL_STATUS_PWR_UP_VAL;
+		ack_val = HOST_DSP_CTRL_STATUS_PWR_UP_ACK_VAL;
+	} else {
+		notify_val = HOST_DSP_CTRL_STATUS_PWR_DWN_VAL;
+		ack_val = HOST_DSP_CTRL_STATUS_PWR_DWN_ACK_VAL;
+	}
+
+	REGW(npu_dev, REG_HOST_DSP_CTRL_STATUS,
+		notify_val);
+	/* Read back to flush register for dsp to read */
+	REGR(npu_dev, REG_HOST_DSP_CTRL_STATUS);
+
+	INTERRUPT_RAISE_DSP(npu_dev);
+
+	ret = wait_for_status_ready(npu_dev, REG_HOST_DSP_CTRL_STATUS,
+		ack_val);
+	if (ret)
+		pr_warn("No response from dsp\n");
+
+	return ret;
 }
 
 /* -------------------------------------------------------------------------
@@ -948,7 +981,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 error_free_network:
 	free_network(host_ctx, network->id);
 err_deinit_fw:
-	fw_deinit(npu_dev, true, false);
+	fw_deinit(npu_dev, false);
 	return ret;
 }
 
@@ -1056,7 +1089,7 @@ error_free_network:
 	kfree(load_packet);
 	free_network(host_ctx, network->id);
 err_deinit_fw:
-	fw_deinit(npu_dev, true, false);
+	fw_deinit(npu_dev, false);
 	return ret;
 }
 
@@ -1110,7 +1143,7 @@ skip_fw:
 	 * handle is unloaded on the firmware side
 	 */
 	free_network(host_ctx, network->id);
-	fw_deinit(npu_dev, true, false);
+	fw_deinit(npu_dev, false);
 	return ret;
 }
 
@@ -1185,7 +1218,7 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		network->cmd_pending = false;
 
 		/* treat execution timed out as ssr */
-		fw_deinit(npu_dev, false, true);
+		fw_deinit(npu_dev, true);
 		ret = -ETIMEDOUT;
 	} else if (network->fw_error) {
 		ret = -EIO;
@@ -1276,7 +1309,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		/* treat execution timed out as ssr */
-		fw_deinit(npu_dev, false, true);
+		fw_deinit(npu_dev, true);
 		ret = -ETIMEDOUT;
 	} else if (network->fw_error) {
 		ret = -EIO;
@@ -1329,7 +1362,7 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 		ret = -ETIMEDOUT;
 	}
 
-	fw_deinit(npu_dev, true, false);
+	fw_deinit(npu_dev, false);
 
 	return ret;
 }
