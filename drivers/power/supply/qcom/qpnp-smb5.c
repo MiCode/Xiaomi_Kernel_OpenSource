@@ -2643,12 +2643,17 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (chg->smb_version == PM8150B_SUBTYPE) {
+	switch (chg->smb_version) {
+	case PM8150B_SUBTYPE:
+	case PM6150_SUBTYPE:
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);
 			goto cleanup;
 		}
+		break;
+	default:
+		break;
 	}
 
 	rc = smb5_init_usb_psy(chip);
