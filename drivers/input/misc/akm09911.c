@@ -1778,13 +1778,13 @@ static int akm_compass_parse_dt(struct device *dev,
 		s_akm->layout = temp_val;
 	}
 
-	if (of_property_read_bool(np, "akm, auto-report"))
+	if (of_property_read_bool(np, "akm,auto-report"))
 		s_akm->auto_report = 1;
 	else
 		s_akm->auto_report = 0;
 
 	s_akm->gpio_rstn = of_get_named_gpio_flags(dev->of_node,
-			"akm, gpio_rstn", 0, NULL);
+			"akm,gpio_rstn", 0, NULL);
 
 	if (gpio_is_valid(s_akm->gpio_rstn)) {
 		/* configure touchscreen reset out gpio */
