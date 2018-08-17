@@ -110,6 +110,8 @@
 		reg-names = "tmc-base", "bam-base";
 
 		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x01e0 0>,
+				<&apps_smmu 0x00a0 0>;
 		arm,buffer-size = <0x400000>;
 
 		coresight-name = "coresight-tmc-etr";
