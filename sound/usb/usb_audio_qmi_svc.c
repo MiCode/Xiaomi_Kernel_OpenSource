@@ -758,25 +758,6 @@ static void uaudio_dev_intf_cleanup(struct usb_device *udev,
 	struct intf_info *info)
 {
 
-	struct usb_host_endpoint *ep;
-
-	if (info->data_ep_pipe) {
-		ep = usb_pipe_endpoint(udev, info->data_ep_pipe);
-		if (!ep)
-			pr_debug("%s: no data ep\n", __func__);
-		else
-			usb_stop_endpoint(udev, ep);
-		info->data_ep_pipe = 0;
-	}
-	if (info->sync_ep_pipe) {
-		ep = usb_pipe_endpoint(udev, info->sync_ep_pipe);
-		if (!ep)
-			pr_debug("%s: no sync ep\n", __func__);
-		else
-			usb_stop_endpoint(udev, ep);
-		info->sync_ep_pipe = 0;
-	}
-
 	uaudio_iommu_unmap(MEM_XFER_RING, info->data_xfer_ring_va,
 		info->data_xfer_ring_size, info->data_xfer_ring_size);
 	info->data_xfer_ring_va = 0;
@@ -1016,6 +997,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	struct snd_usb_audio *chip = NULL;
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 	struct intf_info *info;
+	struct usb_host_endpoint *ep;
 	int pcm_format;
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
@@ -1107,6 +1089,29 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	}
 
 	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
+
+	if (!req_msg->enable) {
+		info = &uadev[pcm_card_num].info[info_idx];
+		if (info->data_ep_pipe) {
+			ep = usb_pipe_endpoint(uadev[pcm_card_num].udev,
+						info->data_ep_pipe);
+			if (!ep)
+				pr_debug("%s: no data ep\n", __func__);
+			else
+				usb_stop_endpoint(uadev[pcm_card_num].udev, ep);
+			info->data_ep_pipe = 0;
+		}
+
+		if (info->sync_ep_pipe) {
+			ep = usb_pipe_endpoint(uadev[pcm_card_num].udev,
+						info->sync_ep_pipe);
+			if (!ep)
+				pr_debug("%s: no sync ep\n", __func__);
+			else
+				usb_stop_endpoint(uadev[pcm_card_num].udev, ep);
+			info->sync_ep_pipe = 0;
+		}
+	}
 
 	ret = snd_usb_enable_audio_stream(subs, datainterval, req_msg->enable);
 
