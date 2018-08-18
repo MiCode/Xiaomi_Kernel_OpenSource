@@ -1782,14 +1782,22 @@
 };
 
 &mvsc_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	status = "ok";
 };
 
 &mvs0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &mvs1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
