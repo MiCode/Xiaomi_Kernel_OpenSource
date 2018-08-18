@@ -228,6 +228,7 @@ struct fg_gen4_chip {
 	bool			esr_fast_calib;
 	bool			esr_fast_calib_done;
 	bool			esr_fast_cal_timer_expired;
+	bool			esr_fcc_ctrl_en;
 	bool			rslow_low;
 };
 
@@ -1974,6 +1975,87 @@ out:
 	return rc;
 }
 
+static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	union power_supply_propval prop = {0, };
+	int rc;
+	bool parallel_en = false, cp_en = false, qnovo_en, esr_fcc_ctrl_en;
+	u8 val, mask;
+
+	if (is_parallel_charger_available(fg)) {
+		rc = power_supply_get_property(fg->parallel_psy,
+			POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
+		if (rc < 0)
+			pr_err_ratelimited("Error in reading charging_enabled from parallel_psy, rc=%d\n",
+				rc);
+		else
+			parallel_en = prop.intval;
+	}
+
+	if (usb_psy_initialized(fg)) {
+		rc = power_supply_get_property(fg->usb_psy,
+			POWER_SUPPLY_PROP_SMB_EN_MODE, &prop);
+		if (rc < 0) {
+			pr_err("Couldn't read usb SMB_EN_MODE rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * If SMB_EN_MODE is 1, then charge pump can get enabled for
+		 * the charger inserted. However, whether the charge pump
+		 * switching happens only if the conditions are met.
+		 */
+		cp_en = (prop.intval == 1);
+	}
+
+	qnovo_en = is_qnovo_en(fg);
+
+	fg_dbg(fg, FG_POWER_SUPPLY, "chg_sts: %d par_en: %d cp_en: %d qnov_en: %d esr_fcc_ctrl_en: %d\n",
+		fg->charge_status, parallel_en, cp_en, qnovo_en,
+		chip->esr_fcc_ctrl_en);
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING &&
+			(parallel_en || qnovo_en || cp_en)) {
+		if (chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * When parallel charging or Qnovo or Charge pump is enabled,
+		 * configure ESR FCC to 300mA to trigger an ESR pulse. Without
+		 * this, FG can request the main charger to increase FCC when it
+		 * is supposed to decrease it.
+		 */
+		val = GEN4_ESR_FCC_300MA << GEN4_ESR_FAST_CRG_IVAL_SHIFT |
+			ESR_FAST_CRG_CTL_EN_BIT;
+		esr_fcc_ctrl_en = true;
+	} else {
+		if (!chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * If we're here, then it means either the device is not in
+		 * charging state or parallel charging / Qnovo / Charge pump is
+		 * disabled. Disable ESR fast charge current control in SW.
+		 */
+		val = GEN4_ESR_FCC_1A << GEN4_ESR_FAST_CRG_IVAL_SHIFT;
+		esr_fcc_ctrl_en = false;
+	}
+
+	mask = GEN4_ESR_FAST_CRG_IVAL_MASK | ESR_FAST_CRG_CTL_EN_BIT;
+	rc = fg_masked_write(fg, BATT_INFO_ESR_FAST_CRG_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_INFO_ESR_FAST_CRG_CFG(fg), rc);
+		return rc;
+	}
+
+	chip->esr_fcc_ctrl_en = esr_fcc_ctrl_en;
+	fg_dbg(fg, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
+		chip->esr_fcc_ctrl_en);
+	return 0;
+}
+
 /* All irq handlers below this */
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
@@ -2699,6 +2781,10 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting recharge SOC, rc=%d\n", rc);
 
+	rc = fg_gen4_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
 out:
@@ -3280,6 +3366,15 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	struct fg_dev *fg = &chip->fg;
 	int rc;
 	u8 buf[4], val, mask;
+
+	/* Enable measurement of parallel charging current */
+	val = mask = SMB_MEASURE_EN_BIT;
+	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("Error in writing to 0x%04x, rc=%d\n",
+			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
+		return rc;
+	}
 
 	fg_encode(fg->sp, FG_SRAM_CUTOFF_VOLT, chip->dt.cutoff_volt_mv, buf);
 	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_VOLT].addr_word,
