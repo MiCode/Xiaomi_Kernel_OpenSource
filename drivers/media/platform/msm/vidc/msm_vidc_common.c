@@ -2683,10 +2683,6 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DATACORRUPT)
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_DATA_CORRUPT;
 	switch (fill_buf_done->picture_type) {
-	case HAL_PICTURE_IDR:
-	case HAL_PICTURE_I:
-		mbuf->vvb.flags |= V4L2_BUF_FLAG_KEYFRAME;
-		break;
 	case HAL_PICTURE_P:
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_PFRAME;
 		break;
