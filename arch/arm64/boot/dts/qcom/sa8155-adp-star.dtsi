@@ -23,7 +23,7 @@
 		interrupt-parent = <&tlmm>;
 		interrupts = <38 0>;
 		spi-max-frequency = <5000000>;
-		qcom,clk-freq-mhz = <16000000>;
+		qcom,clk-freq-mhz = <40000000>;
 		qcom,max-can-channels = <4>;
 		qcom,bits-per-word = <8>;
 		qcom,support-can-fd;
