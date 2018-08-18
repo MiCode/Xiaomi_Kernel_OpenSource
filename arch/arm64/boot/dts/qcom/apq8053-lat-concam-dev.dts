@@ -1,0 +1,159 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8053-lat-concam.dtsi"
+#include "apq8053-camera-sensor-mtp.dtsi"
+#include "apq8053-lat-concam-regulator.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8053 LAT Concam Dev board";
+	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
+	qcom,board-id= <0x56 0x30>;
+};
+
+&pm8953_mpps {
+	mpp@a100 {
+		reg = <0xa100 0x100>;
+		qcom,pin-num = <2>;
+		qcom,mode = <4>; // A-input
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; // QPNP_PIN_AIN_AMUX_CH6 = 1 for MPP2
+		qcom,master-en = <1>; //Enable MPP
+		qcom,src-sel = <0>; /* Function constant */
+		status = "okay";
+	};
+
+	mpp@a200 {
+		/* MPP3 - PA_THERM config */
+		reg = <0xa200 0x100>;
+		com,pin-num = <3>;
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <2>; /* AMUX 7 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		status = "okay";
+	};
+
+	mpp@a300 {
+		/* MPP4 - CASE_THERM config */
+		reg = <0xa300 0x100>;
+		com,pin-num = <4>;
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		status = "okay";
+	};
+};
+
+&tlmm {
+	button_active: button_active {
+		mux {
+			pins = "gpio57";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio57";
+			drive-strength = <8>;
+			bias-pull-up;
+		};
+	};
+
+	icr_int {
+		qcom,pins = <&tlmm 53>;
+		qcom,num-grp-pins = <1>;
+		qcom,pin-func = <0>;
+		label = "icr-int";
+		icr_int_default: icr_int_default {
+			drive-strength = <2>;	/* 2 MA */
+			bias-pull-up;		/* PULL UP*/
+		};
+	};
+
+	gcc_gp1_clk_pin {
+		qcom,pins = <&tlmm 33>;
+		qcom,num-grp-pins = <1>;
+		qcom,pin-func = <2>;
+		label = "gp1-clk-pin";
+		gcc_gp1_clk_pin: gcc_gp1_clk_pin {
+			drive-strength = <2>;	/* 2 MA */
+			bias-disable;
+		};
+	};
+
+	bt_host_wake_default: bt_host_wake_default {
+		mux {
+			pins = "gpio52";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio52";
+			bias-disable; /* No PULL */
+			drive-strength = <2>;
+		};
+	};
+};
+
+&soc {
+	usb_detect: usb_detect {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&tlmm 57 GPIO_ACTIVE_HIGH>;
+		qcom,enable-button-mode;
+
+		pinctrl-names = "button_active";
+		pinctrl-0 = <&button_active>;
+	};
+
+	hbtp {
+		status = "disabled";
+	};
+};
+
+&usb3 {
+	extcon = <&usb_detect>;
+};
+
+&firmware {
+	android {
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,bluetooth,modem,oem";
+		};
+		fstab {
+			/delete-node/ system;
+			vendor {
+				fsmgr_flags = "wait,slotselect,avb";
+			};
+		};
+	};
+};
+
+&modem_mem {
+	reg = <0x0 0x86c00000 0x0 0x1e00000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x89b00000 0x0 0x700000>;
+};
+
+&gpio_key_suspend {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-pull-down;
+	};
+};
