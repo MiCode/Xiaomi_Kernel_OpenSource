@@ -658,6 +658,11 @@ int fb_notifier_callback(struct notifier_block *self, unsigned long event, void 
 
 		switch (*blank) {
 		case MSM_DRM_BLANK_UNBLANK:
+			if (!ts->initialized) {
+				if (himax_chip_common_init())
+					return 0;
+				ts->initialized = true;
+			}
 			himax_common_resume(&ts->client->dev);
 			break;
 		case MSM_DRM_BLANK_POWERDOWN:
@@ -689,6 +694,11 @@ int fb_notifier_callback(struct notifier_block *self, unsigned long event, void 
 
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
+			if (!ts->initialized) {
+				if (himax_chip_common_init())
+					return 0;
+				ts->initialized = true;
+			}
 			himax_common_resume(&ts->client->dev);
 			break;
 		case FB_BLANK_POWERDOWN:
@@ -731,8 +741,18 @@ int himax_chip_common_probe(struct i2c_client *client, const struct i2c_device_i
 	mutex_init(&ts->rw_lock);
 	private_ts = ts;
 
-	ret = himax_chip_common_init();
+	/*
+	 * ts chip initialization is deferred till FB_UNBLACK event;
+	 * probe is considered pending till then.
+	 */
+	ts->initialized = false;
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
+	ret = himax_fb_register(ts);
+	if (ret)
+		goto err_fb_notify_reg_failed;
+#endif
 
+err_fb_notify_reg_failed:
 err_alloc_data_failed:
 err_check_functionality_failed:
 
