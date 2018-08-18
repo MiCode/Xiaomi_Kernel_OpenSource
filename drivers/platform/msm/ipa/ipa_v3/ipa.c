@@ -59,6 +59,7 @@
 
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
+#include "ipa_odl.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -5510,6 +5511,16 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
 			MAJOR(ipa3_ctx->cdev.dev_num),
 			MINOR(ipa3_ctx->cdev.dev_num));
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1) {
+		result = ipa_odl_init();
+		if (result) {
+			IPADBG("Error: ODL init fialed\n");
+			result = -ENODEV;
+			goto fail_cdev_add;
+		}
+	}
+
 	/*
 	 * for IPA 4.0 offline charge is not needed and we need to prevent
 	 * power collapse until IPA uC is loaded.
@@ -5519,7 +5530,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_unvote();
 	return 0;
-
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa3_dma_shutdown();

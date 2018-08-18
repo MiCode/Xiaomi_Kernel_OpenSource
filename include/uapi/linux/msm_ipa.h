@@ -100,6 +100,10 @@
 #define IPA_IOCTL_GET_VLAN_MODE                 58
 #define IPA_IOCTL_ADD_BRIDGE_VLAN_MAPPING       59
 #define IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING       60
+#define IPA_IOCTL_ODL_QUERY_ADAPL_EP_INFO       61
+#define IPA_IOCTL_ODL_GET_AGG_BYTE_LIMIT        62
+#define IPA_IOCTL_ODL_QUERY_MODEM_CONFIG        63
+
 
 /**
  * max size of the header to be inserted
@@ -311,9 +315,13 @@ enum ipa_client_type {
 
 	/* RESERVERD PROD			= 80, */
 	IPA_CLIENT_MHI_DPL_CONS			= 81,
+
+	/* RESERVERD PROD			= 82, */
+	IPA_CLIENT_ODL_DPL_CONS			= 83,
+
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_DPL_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_ODL_DPL_CONS + 1)
 
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
 #define IPA_CLIENT_Q6_UL_NLO_ACK_CONS IPA_CLIENT_Q6_UL_NLO_ACK_CONS
@@ -1936,6 +1944,22 @@ struct ipa_ioc_bridge_vlan_mapping_info {
 	uint32_t subnet_mask;
 };
 
+struct ipa_odl_ep_info {
+	 __u32 cons_pipe_num;
+	 __u32 prod_pipe_num;
+	 __u32 peripheral_iface_id;
+	 __u32 ep_type;
+};
+
+struct odl_agg_pipe_info {
+	 __u16 agg_byte_limit;
+};
+
+struct ipa_odl_modem_config {
+	 __u8 config_status;
+};
+
+
 /**
  *   actual IOCTLs supported by IPA driver
  */
@@ -2128,6 +2152,18 @@ struct ipa_ioc_bridge_vlan_mapping_info {
 					IPA_IOCTL_CLEANUP)
 #define IPA_IOC_QUERY_WLAN_CLIENT _IO(IPA_IOC_MAGIC,\
 					IPA_IOCTL_QUERY_WLAN_CLIENT)
+
+#define IPA_IOC_ODL_QUERY_ADAPL_EP_INFO _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ODL_QUERY_ADAPL_EP_INFO, \
+				struct ipa_odl_ep_info)
+#define IPA_IOC_ODL_GET_AGG_BYTE_LIMIT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ODL_GET_AGG_BYTE_LIMIT, \
+				struct odl_agg_pipe_info)
+
+#define IPA_IOC_ODL_QUERY_MODEM_CONFIG _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ODL_QUERY_MODEM_CONFIG, \
+				struct ipa_odl_modem_config)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */

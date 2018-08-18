@@ -61,6 +61,8 @@
 #define IPA_ODU_RX_BUFF_SZ 2048
 #define IPA_ODU_RX_POOL_SZ 64
 
+#define IPA_ODL_RX_BUFF_SZ (16 * 1024)
+
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
 #define IPA_GSI_EVT_RING_INT_MODT (16) /* 0.5ms under 32KHz clock */
 #define IPA_GSI_EVT_RING_INT_MODC (20)
@@ -2861,6 +2863,17 @@ static int ipa3_odu_rx_pyld_hdlr(struct sk_buff *rx_skb,
 	return 0;
 }
 
+static int ipa3_odl_dpl_rx_pyld_hdlr(struct sk_buff *rx_skb,
+	struct ipa3_sys_context *sys)
+{
+	if (WARN(!sys->ep->client_notify, "sys->ep->client_notify is NULL\n"))
+		dev_kfree_skb_any(rx_skb);
+	else
+		sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
+			(unsigned long)(rx_skb));
+
+	return 0;
+}
 static void ipa3_free_rx_wrapper(struct ipa3_rx_pkt_wrapper *rk_pkt)
 {
 	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rk_pkt);
@@ -3051,6 +3064,26 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 				in->client);
 
 			sys->policy = IPA_POLICY_NOINTR_MODE;
+		}  else if (in->client == IPA_CLIENT_ODL_DPL_CONS) {
+			IPADBG("assigning policy to ODL client:%d\n",
+				in->client);
+			sys->ep->status.status_en = true;
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+				ipa3_switch_to_intr_rx_work_func);
+			INIT_DELAYED_WORK(&sys->replenish_rx_work,
+				ipa3_replenish_rx_work_func);
+			atomic_set(&sys->curr_polling_state, 0);
+			sys->rx_buff_sz =
+				IPA_GENERIC_RX_BUFF_SZ(IPA_ODL_RX_BUFF_SZ);
+			sys->pyld_hdlr = ipa3_odl_dpl_rx_pyld_hdlr;
+			sys->get_skb = ipa3_get_skb_ipa_rx;
+			sys->free_skb = ipa3_free_skb_rx;
+			sys->free_rx_wrapper = ipa3_recycle_rx_wrapper;
+			sys->repl_hdlr = ipa3_replenish_rx_cache_recycle;
+			sys->rx_pool_sz = in->desc_fifo_sz /
+					IPA_FIFO_ELEMENT_SIZE - 1;
 		} else {
 			WARN(1, "Need to install a RX pipe hdlr\n");
 			return -EINVAL;
@@ -3520,8 +3553,10 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
+	spin_lock_bh(&sys->spinlock);
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
 					   struct ipa3_rx_pkt_wrapper, link);
+	spin_unlock_bh(&sys->spinlock);
 	rx_pkt_rcvd = (struct ipa3_rx_pkt_wrapper *)notify->xfer_user_data;
 
 	if (rx_pkt_expected != rx_pkt_rcvd) {
