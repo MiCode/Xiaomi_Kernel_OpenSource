@@ -16,5 +16,6 @@
 int qg_scale_soc(struct qpnp_qg *chip, bool force_soc);
 int qg_soc_init(struct qpnp_qg *chip);
 void qg_soc_exit(struct qpnp_qg *chip);
+int qg_adjust_sys_soc(struct qpnp_qg *chip);
 
 #endif /* __QG_SOC_H__ */

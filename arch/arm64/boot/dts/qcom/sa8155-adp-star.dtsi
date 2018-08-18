@@ -129,6 +129,10 @@
 			linux,can-disable;
 		};
 	};
+
+	bluetooth: bt_qca6174 {
+		status = "ok";
+	};
 };
 
 &ufsphy_mem {

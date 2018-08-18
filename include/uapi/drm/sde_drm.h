@@ -240,7 +240,10 @@ struct sde_drm_de_v1 {
  * @y_rgb_sep_lut_idx: Y/RGB separable LUT index
  * @uv_sep_lut_idx:    UV separable LUT index
  * @de:                Detail enhancer settings
+ * @dir_weight:        Directional Weight
+ * @unsharp_mask_blend: Unsharp Blend Filter Ratio
  */
+#define SDE_DRM_QSEED3LITE
 struct sde_drm_scaler_v2 {
 	/*
 	 * General definitions
@@ -293,6 +296,8 @@ struct sde_drm_scaler_v2 {
 	 * Detail enhancer settings
 	 */
 	struct sde_drm_de_v1 de;
+	uint32_t dir_weight;
+	uint32_t unsharp_mask_blend;
 };
 
 /* Number of dest scalers supported */

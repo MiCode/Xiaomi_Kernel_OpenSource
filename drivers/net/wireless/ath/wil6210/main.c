@@ -223,6 +223,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	struct net_device *ndev = vif_to_ndev(vif);
 	struct wireless_dev *wdev = vif_to_wdev(vif);
 	struct wil_sta_info *sta = &wil->sta[cid];
+	int min_ring_id = wil_get_min_tx_ring_id(wil);
 
 	might_sleep();
 	wil_dbg_misc(wil, "disconnect_cid: CID %d, MID %d, status %d\n",
@@ -274,7 +275,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	memset(sta->tid_crypto_rx, 0, sizeof(sta->tid_crypto_rx));
 	memset(&sta->group_crypto_rx, 0, sizeof(sta->group_crypto_rx));
 	/* release vrings */
-	for (i = 0; i < ARRAY_SIZE(wil->ring_tx); i++) {
+	for (i = min_ring_id; i < ARRAY_SIZE(wil->ring_tx); i++) {
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
@@ -605,8 +606,10 @@ int wil_priv_init(struct wil6210_priv *wil)
 		wil->sta[i].mid = U8_MAX;
 	}
 
-	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++)
+	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++) {
 		spin_lock_init(&wil->ring_tx_data[i].lock);
+		wil->ring2cid_tid[i][0] = WIL6210_MAX_CID;
+	}
 
 	mutex_init(&wil->mutex);
 	mutex_init(&wil->vif_mutex);
@@ -654,8 +657,6 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	/* edma configuration can be updated via debugfs before allocation */
 	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
-	wil->use_compressed_rx_status = true;
-	wil->use_rx_hw_reordering = true;
 	wil->tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
 
 	/* Rx status ring size should be bigger than the number of RX buffers
@@ -1143,6 +1144,15 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 			features |= BIT(WIL_PLATFORM_FEATURE_TRIPLE_MSI);
 
 		wil->platform_ops.set_features(wil->platform_handle, features);
+	}
+
+	if (test_bit(WMI_FW_CAPABILITY_BACK_WIN_SIZE_64,
+		     wil->fw_capabilities)) {
+		wil->max_agg_wsize = WIL_MAX_AGG_WSIZE_64;
+		wil->max_ampdu_size = WIL_MAX_AMPDU_SIZE_128;
+	} else {
+		wil->max_agg_wsize = WIL_MAX_AGG_WSIZE;
+		wil->max_ampdu_size = WIL_MAX_AMPDU_SIZE;
 	}
 }
 

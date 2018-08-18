@@ -32,6 +32,8 @@
 #include "sde_hw_ctl.h"
 #include "sde_crtc.h"
 #include "sde_plane.h"
+#include "sde_hw_util.h"
+#include "sde_hw_catalog.h"
 #include "sde_color_processing.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
@@ -734,7 +736,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
 
-	sde_fence_deinit(&sde_crtc->output_fence);
+	sde_fence_deinit(sde_crtc->output_fence);
 	_sde_crtc_deinit_events(sde_crtc);
 
 	drm_crtc_cleanup(crtc);
@@ -1374,7 +1376,7 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	 * check connector array cached at modeset time since incoming atomic
 	 * state may not include any connectors if they aren't modified
 	 */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc_state->connectors); i++) {
+	for (i = 0; i < sde_crtc_state->num_connectors; i++) {
 		struct drm_connector *conn = sde_crtc_state->connectors[i];
 
 		if (!conn || !conn->state)
@@ -1999,6 +2001,7 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		struct sde_crtc_state *cstate, uint32_t lut_idx)
 {
 	struct sde_hw_scaler3_lut_cfg *cfg;
+	struct sde_kms *sde_kms;
 	u32 *lut_data = NULL;
 	size_t len = 0;
 	int ret = 0;
@@ -2007,6 +2010,13 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
 	}
+
+	sde_kms = _sde_crtc_get_kms(&sde_crtc->base);
+	if (!sde_kms)
+		return -EINVAL;
+
+	if (is_qseed3_rev_qseed3lite(sde_kms->catalog))
+		return 0;
 
 	lut_data = msm_property_get_blob(&sde_crtc->property_info,
 			&cstate->property_state, &len, lut_idx);
@@ -2056,7 +2066,7 @@ void sde_crtc_timeline_status(struct drm_crtc *crtc)
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
-	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
+	sde_fence_timeline_status(sde_crtc->output_fence, &crtc->base);
 }
 
 static int _sde_validate_hw_resources(struct sde_crtc *sde_crtc)
@@ -2200,6 +2210,8 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	struct msm_drm_private *priv;
 	struct sde_crtc_frame_event *fevent;
 	struct sde_crtc_frame_event_cb_data *cb_data;
+	struct drm_plane *plane;
+	u32 ubwc_error;
 	unsigned long flags;
 	u32 crtc_id;
 
@@ -2233,6 +2245,24 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 				crtc->base.id, event);
 		SDE_EVT32(DRMID(crtc), event);
 		return;
+	}
+
+	/* log and clear plane ubwc errors if any */
+	if (event & (SDE_ENCODER_FRAME_EVENT_ERROR
+				| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD
+				| SDE_ENCODER_FRAME_EVENT_DONE)) {
+		drm_for_each_plane_mask(plane, crtc->dev,
+						sde_crtc->plane_mask_old) {
+			ubwc_error = sde_plane_get_ubwc_error(plane);
+			if (ubwc_error) {
+				SDE_EVT32(DRMID(crtc), DRMID(plane),
+						ubwc_error, SDE_EVTLOG_ERROR);
+				SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
+						DRMID(crtc), DRMID(plane),
+						ubwc_error);
+				sde_plane_clear_ubwc_error(plane);
+			}
+		}
 	}
 
 	fevent->event = event;
@@ -2282,7 +2312,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	drm_connector_list_iter_end(&conn_iter);
 
 	/* prepare main output fence */
-	sde_fence_prepare(&sde_crtc->output_fence);
+	sde_fence_prepare(sde_crtc->output_fence);
 }
 
 /**
@@ -2369,7 +2399,7 @@ static void sde_crtc_vblank_cb(void *data)
 }
 
 static void _sde_crtc_retire_event(struct drm_connector *connector,
-		ktime_t ts, bool is_error)
+		ktime_t ts, enum sde_fence_event fence_event)
 {
 	if (!connector) {
 		SDE_ERROR("invalid param\n");
@@ -2377,7 +2407,7 @@ static void _sde_crtc_retire_event(struct drm_connector *connector,
 	}
 
 	SDE_ATRACE_BEGIN("signal_retire_fence");
-	sde_connector_complete_commit(connector, ts, is_error);
+	sde_connector_complete_commit(connector, ts, fence_event);
 	SDE_ATRACE_END("signal_retire_fence");
 }
 
@@ -2388,9 +2418,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
-	struct drm_plane *plane;
-	u32 ubwc_error;
-	bool frame_done_event = false;
 	unsigned long flags;
 	bool in_clone_mode = false;
 
@@ -2446,12 +2473,11 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
-		frame_done_event = true;
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
 		SDE_ATRACE_BEGIN("signal_release_fence");
-		sde_fence_signal(&sde_crtc->output_fence, fevent->ts,
+		sde_fence_signal(sde_crtc->output_fence, fevent->ts,
 				(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)
 				? SDE_FENCE_SIGNAL_ERROR : SDE_FENCE_SIGNAL);
 		SDE_ATRACE_END("signal_release_fence");
@@ -2466,21 +2492,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
-
-	if (frame_done_event) {
-		drm_for_each_plane_mask(plane, crtc->dev,
-						sde_crtc->plane_mask_old) {
-			ubwc_error = sde_plane_get_ubwc_error(plane);
-			if (ubwc_error) {
-				SDE_EVT32(DRMID(crtc), DRMID(plane),
-						ubwc_error, SDE_EVTLOG_ERROR);
-				SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
-						DRMID(crtc), DRMID(plane),
-						ubwc_error);
-				sde_plane_clear_ubwc_error(plane);
-			}
-		}
-	}
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -3698,6 +3709,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	struct sde_crtc_state *cstate;
 	bool is_error, reset_req, recovery_events;
 	unsigned long flags;
+	enum sde_crtc_idle_pc_state idle_pc_state;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3728,6 +3740,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 
 	is_error = _sde_crtc_prepare_for_kickoff_rot(dev, crtc);
 
+	idle_pc_state = sde_crtc_get_property(cstate, CRTC_PROP_IDLE_PC_STATE);
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
 
@@ -3746,6 +3760,10 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 
 		recovery_events =
 			sde_encoder_recovery_events_enabled(encoder);
+
+		if (idle_pc_state != IDLE_PC_NONE)
+			sde_encoder_control_idle_pc(encoder,
+			    (idle_pc_state == IDLE_PC_ENABLE) ? true : false);
 	}
 
 	/*
@@ -4257,6 +4275,13 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
 		cstate->rsc_client = NULL;
 		cstate->rsc_update = false;
+
+		/*
+		 * reset idle power-collapse to original state during suspend;
+		 * user-mode will change the state on resume, if required
+		 */
+		if (sde_kms->catalog->has_idle_pc)
+			sde_encoder_control_idle_pc(encoder, true);
 	}
 
 	if (sde_crtc->power_event)
@@ -4269,7 +4294,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	 * reset the fence timeline if crtc will not be enabled for this commit
 	 */
 	if (!crtc->state->active || !crtc->state->enable) {
-		sde_fence_signal(&sde_crtc->output_fence,
+		sde_fence_signal(sde_crtc->output_fence,
 				ktime_get(), SDE_FENCE_RESET_TIMELINE);
 		for (i = 0; i < cstate->num_connectors; ++i)
 			sde_connector_commit_reset(cstate->connectors[i],
@@ -4631,6 +4656,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
+	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
@@ -4647,10 +4673,15 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	const struct drm_plane_state *pipe_staged[SSPP_MAX];
 	int left_zpos_cnt = 0, right_zpos_cnt = 0;
 
+	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
+
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
 		return -EINVAL;
 	}
+
+	dev = crtc->dev;
 
 	kms = _sde_crtc_get_kms(crtc);
 
@@ -4695,6 +4726,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			crtc->base.id, rc);
 		goto end;
 	}
+
+	/* identify connectors attached to this crtc */
+	cstate->num_connectors = 0;
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			cstate->connectors[cstate->num_connectors++] = conn;
+		}
+	drm_connector_list_iter_end(&conn_iter);
 
 	mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 
@@ -5000,6 +5042,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		{CAPTURE_DSPP_OUT, "capture_pp_out"},
 	};
 
+	static const struct drm_prop_enum_list e_idle_pc_state[] = {
+		{IDLE_PC_NONE, "idle_pc_none"},
+		{IDLE_PC_ENABLE, "idle_pc_enable"},
+		{IDLE_PC_DISABLE, "idle_pc_disable"},
+	};
+
 	SDE_DEBUG("\n");
 
 	if (!crtc || !catalog) {
@@ -5075,6 +5123,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		"idle_time", 0, 0, U64_MAX, 0,
 		CRTC_PROP_IDLE_TIMEOUT);
 
+	if (catalog->has_idle_pc)
+		msm_property_install_enum(&sde_crtc->property_info,
+			"idle_pc_state", 0x0, 0, e_idle_pc_state,
+			ARRAY_SIZE(e_idle_pc_state),
+			CRTC_PROP_IDLE_PC_STATE);
+
 	if (catalog->has_cwb_support)
 		msm_property_install_enum(&sde_crtc->property_info,
 				"capture_mode", 0, 0, e_cwb_data_points,
@@ -5110,6 +5164,8 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed3");
+	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3LITE)
+		sde_kms_info_add_keystr(info, "qseed_type", "qseed3lite");
 
 	if (sde_is_custom_client()) {
 		/* No support for SMART_DMA_V1 yet */
@@ -5151,6 +5207,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			msm_property_install_blob(&sde_crtc->property_info,
 					"ds_lut_sep", 0,
 					CRTC_PROP_DEST_SCALER_LUT_SEP);
+		} else if (catalog->ds[0].features
+				& BIT(SDE_SSPP_SCALER_QSEED3LITE)) {
+			msm_property_install_volatile_range(
+					&sde_crtc->property_info, "dest_scaler",
+					0x0, 0, ~0, 0, CRTC_PROP_DEST_SCALER);
 		}
 	}
 
@@ -5258,7 +5319,7 @@ static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 	 */
 	offset++;
 
-	return sde_fence_create(&sde_crtc->output_fence, val, offset);
+	return sde_fence_create(sde_crtc->output_fence, val, offset);
 }
 
 /**
@@ -5812,6 +5873,77 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 }
 DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_crtc_debugfs_state);
 
+static int _sde_debugfs_fence_status_show(struct seq_file *s, void *data)
+{
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct drm_connector *conn;
+	struct drm_mode_object *drm_obj;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct sde_fence_context *ctx;
+	struct drm_connector_list_iter conn_iter;
+	struct drm_device *dev;
+
+	if (!s || !s->private)
+		return -EINVAL;
+
+	sde_crtc = s->private;
+	crtc = &sde_crtc->base;
+	dev = crtc->dev;
+	cstate = to_sde_crtc_state(crtc->state);
+
+	/* Dump input fence info */
+	seq_puts(s, "===Input fence===\n");
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		struct sde_plane_state *pstate;
+		struct dma_fence *fence;
+
+		pstate = to_sde_plane_state(plane->state);
+		if (!pstate)
+			continue;
+
+		seq_printf(s, "plane:%u stage:%d\n", plane->base.id,
+			pstate->stage);
+
+		fence = pstate->input_fence;
+		if (fence)
+			sde_fence_list_dump(fence, &s);
+	}
+
+	/* Dump release fence info */
+	seq_puts(s, "\n");
+	seq_puts(s, "===Release fence===\n");
+	ctx = sde_crtc->output_fence;
+	drm_obj = &crtc->base;
+	sde_debugfs_timeline_dump(ctx, drm_obj, &s);
+	seq_puts(s, "\n");
+
+	/* Dump retire fence info */
+	seq_puts(s, "===Retire fence===\n");
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			struct sde_connector *c_conn;
+
+			c_conn = to_sde_connector(conn);
+			ctx = c_conn->retire_fence;
+			drm_obj = &conn->base;
+			sde_debugfs_timeline_dump(ctx, drm_obj, &s);
+		}
+	drm_connector_list_iter_end(&conn_iter);
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+static int _sde_debugfs_fence_status(struct inode *inode, struct file *file)
+{
+	return single_open(file, _sde_debugfs_fence_status_show,
+				inode->i_private);
+}
+
 static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
@@ -5830,6 +5962,10 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 	};
 	static const struct file_operations debugfs_fps_fops = {
 		.open =		_sde_debugfs_fps_status,
+		.read =		seq_read,
+	};
+	static const struct file_operations debugfs_fence_fops = {
+		.open =		_sde_debugfs_fence_status,
 		.read =		seq_read,
 	};
 
@@ -5858,6 +5994,8 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 					sde_crtc, &debugfs_misr_fops);
 	debugfs_create_file("fps", 0400, sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_fps_fops);
+	debugfs_create_file("fence_status", 0400, sde_crtc->debugfs_root,
+					sde_crtc, &debugfs_fence_fops);
 
 	return 0;
 }
@@ -6090,7 +6228,15 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	}
 
 	/* initialize output fence support */
-	sde_fence_init(&sde_crtc->output_fence, sde_crtc->name, crtc->base.id);
+	sde_crtc->output_fence = sde_fence_init(sde_crtc->name, crtc->base.id);
+
+	if (IS_ERR(sde_crtc->output_fence)) {
+		rc = PTR_ERR(sde_crtc->output_fence);
+		SDE_ERROR("failed to init fence, %d\n", rc);
+		drm_crtc_cleanup(crtc);
+		kfree(sde_crtc);
+		return ERR_PTR(rc);
+	}
 
 	/* create CRTC properties */
 	msm_property_init(&sde_crtc->property_info, &crtc->base, dev,

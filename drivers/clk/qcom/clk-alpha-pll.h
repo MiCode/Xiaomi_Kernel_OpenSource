@@ -32,6 +32,7 @@ enum pll_type {
 	ALPHA_PLL,
 	TRION_PLL,
 	REGERA_PLL,
+	FABIA_PLL,
 };
 
 /**
@@ -100,6 +101,7 @@ struct clk_alpha_pll_postdiv {
 
 struct alpha_pll_config {
 	u32 l;
+	u32 frac;
 	u32 alpha;
 	u32 alpha_u;
 	u32 user_ctl_val;
@@ -135,12 +137,17 @@ extern const struct clk_ops clk_trion_pll_postdiv_ops;
 extern const struct clk_ops clk_regera_pll_ops;
 extern const struct clk_ops clk_alpha_pll_slew_ops;
 extern const struct clk_ops clk_pll_sleep_vote_ops;
+extern const struct clk_ops clk_fabia_pll_ops;
+extern const struct clk_ops clk_fabia_fixed_pll_ops;
+extern const struct clk_ops clk_generic_pll_postdiv_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
 int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
 int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
 
 #endif

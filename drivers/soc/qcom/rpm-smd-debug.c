@@ -90,23 +90,23 @@ static ssize_t rsc_ops_write(struct file *fp, const char __user *user_buffer,
 		cmp += pos;
 		if (sscanf(cmp, "%5s %n", key_str, &pos) != 1) {
 			pr_err("Invalid number of arguments passed\n");
-			goto err;
+			goto err_request;
 		}
 
 		if (strlen(key_str) > 4) {
 			pr_err("Key value cannot be more than 4 charecters");
-			goto err;
+			goto err_request;
 		}
 		key = string_to_uint(key_str);
 		if (!key) {
 			pr_err("Key values entered incorrectly\n");
-			goto err;
+			goto err_request;
 		}
 
 		cmp += pos;
 		if (sscanf(cmp, "%u %n", &data, &pos) != 1) {
 			pr_err("Invalid number of arguments passed\n");
-			goto err;
+			goto err_request;
 		}
 
 		if (msm_rpm_add_kvp_data(req, key,

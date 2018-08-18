@@ -100,8 +100,15 @@ enum gpu_idle_level {
  * the GMU will start shutting down before we try again.
  */
 #define GMU_CORE_WAKEUP_DELAY_US 10
-/* Max amount of tries to wake up the GMU. */
-#define GMU_CORE_WAKEUP_RETRY_MAX 60
+
+/* Max amount of tries to wake up the GMU. The short retry
+ * limit is half of the long retry limit. After the short
+ * number of retries, we print an informational message to say
+ * exiting IFPC is taking longer than expected. We continue
+ * to retry after this until the long retry limit.
+ */
+#define GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT 100
+#define GMU_CORE_LONG_WAKEUP_RETRY_LIMIT 200
 
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
@@ -111,20 +118,10 @@ struct adreno_device;
 struct kgsl_snapshot;
 
 struct gmu_core_ops {
-	int (*probe)(struct kgsl_device *device, struct device_node *node,
-			unsigned long flags);
+	int (*probe)(struct kgsl_device *device, struct device_node *node);
 	void (*remove)(struct kgsl_device *device);
-	void (*regread)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int *value);
-	void (*regwrite)(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int value);
-	bool (*isenabled)(struct kgsl_device *device);
-	bool (*gpmu_isenabled)(struct kgsl_device *device);
 	int (*dcvs_set)(struct kgsl_device *device,
 			unsigned int gpu_pwrlevel, unsigned int bus_level);
-	void (*set_bit)(struct kgsl_device *device, enum gmu_core_flags flag);
-	void (*clear_bit)(struct kgsl_device *device, enum gmu_core_flags flag);
-	int (*test_bit)(struct kgsl_device *device, enum gmu_core_flags flag);
 	int (*start)(struct kgsl_device *device);
 	void (*stop)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device);
@@ -162,15 +159,19 @@ struct gmu_dev_ops {
  *	and GPU register set, the offset will be used when accessing
  *	gmu registers using offset defined in GPU register space.
  * @reg_len: GMU registers length
+ * @reg_virt: GMU CSR virtual address
  * @core_ops: Pointer to gmu core operations
  * @dev_ops: Pointer to gmu device operations
+ * @flags: GMU flags
  */
 struct gmu_core_device {
 	void *ptr;
 	unsigned int gmu2gpu_offset;
 	unsigned int reg_len;
+	void __iomem *reg_virt;
 	struct gmu_core_ops *core_ops;
 	struct gmu_dev_ops *dev_ops;
+	unsigned long flags;
 };
 
 /* GMU core functions */
@@ -186,9 +187,6 @@ bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);
 int gmu_core_dcvs_set(struct kgsl_device *device, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
-void gmu_core_setbit(struct kgsl_device *device, enum gmu_core_flags flag);
-void gmu_core_clearbit(struct kgsl_device *device, enum gmu_core_flags flag);
-int gmu_core_testbit(struct kgsl_device *device, enum gmu_core_flags flag);
 bool gmu_core_regulator_isenabled(struct kgsl_device *device);
 bool gmu_core_is_register_offset(struct kgsl_device *device,
 				unsigned int offsetwords);

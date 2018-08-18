@@ -1020,6 +1020,15 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 			VIG_QSEED_LEN, 0);
 		snprintf(sblk->scaler_blk.name, SDE_HW_BLK_NAME_LEN,
 			"sspp_scaler%u", sspp->id - SSPP_VIG0);
+	} else if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3LITE) {
+		set_bit(SDE_SSPP_SCALER_QSEED3LITE, &sspp->features);
+		sblk->scaler_blk.id = SDE_SSPP_SCALER_QSEED3LITE;
+		sblk->scaler_blk.base = PROP_VALUE_ACCESS(prop_value,
+			VIG_QSEED_OFF, 0);
+		sblk->scaler_blk.len = PROP_VALUE_ACCESS(prop_value,
+			VIG_QSEED_LEN, 0);
+		snprintf(sblk->scaler_blk.name, SDE_HW_BLK_NAME_LEN,
+			"sspp_scaler%u", sspp->id - SSPP_VIG0);
 	}
 
 	if (sde_cfg->has_sbuf)
@@ -2430,6 +2439,9 @@ static int sde_ds_parse_dt(struct device_node *np,
 
 		if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3)
 			set_bit(SDE_SSPP_SCALER_QSEED3, &ds->features);
+		else if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3LITE)
+			set_bit(SDE_SSPP_SCALER_QSEED3LITE, &ds->features);
+
 	}
 
 end:
@@ -2995,6 +3007,8 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
+	} else if (!rc && !strcmp(type, "qseedv3lite")) {
+		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3LITE;
 	} else if (!rc && !strcmp(type, "qseedv2")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
 	} else if (rc) {
@@ -3594,6 +3608,17 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
+	} else if (IS_SM6150_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x2EE3;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3612,7 +3637,7 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 	if (!sde_cfg)
 		return -EINVAL;
 
-	if (IS_SM8150_TARGET(hw_rev)) {
+	if (IS_SM8150_TARGET(hw_rev) || IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->sui_supported_blendstage =
 			sde_cfg->max_mixer_blendstages - SDE_STAGE_0;
 

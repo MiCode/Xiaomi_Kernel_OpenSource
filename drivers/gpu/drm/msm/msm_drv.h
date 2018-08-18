@@ -163,6 +163,8 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_DEST_SCALER,
 	CRTC_PROP_CAPTURE_OUTPUT,
 
+	CRTC_PROP_IDLE_PC_STATE,
+
 	/* total # of properties */
 	CRTC_PROP_COUNT
 };
@@ -218,6 +220,19 @@ struct msm_vblank_ctrl {
 enum msm_display_compression_type {
 	MSM_DISPLAY_COMPRESSION_NONE,
 	MSM_DISPLAY_COMPRESSION_DSC,
+};
+
+/**
+ * enum msm_display_compression_ratio - compression ratio
+ * @MSM_DISPLAY_COMPRESSION_NONE: no compression
+ * @MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1: 2 to 1 compression
+ * @MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1: 3 to 1 compression
+ */
+enum msm_display_compression_ratio {
+	MSM_DISPLAY_COMPRESSION_RATIO_NONE,
+	MSM_DISPLAY_COMPRESSION_RATIO_2_TO_1,
+	MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1,
+	MSM_DISPLAY_COMPRESSION_RATIO_MAX,
 };
 
 /**
@@ -392,11 +407,13 @@ struct msm_display_dsc_info {
 /**
  * struct msm_compression_info - defined panel compression
  * @comp_type:        type of compression supported
+ * @comp_ratio:       compression ratio
  * @dsc_info:         dsc configuration if the compression
  *                    supported is DSC
  */
 struct msm_compression_info {
 	enum msm_display_compression_type comp_type;
+	enum msm_display_compression_ratio comp_ratio;
 
 	union{
 		struct msm_display_dsc_info dsc_info;
@@ -426,6 +443,7 @@ struct msm_display_topology {
  * @topology:        supported topology for the mode
  * @comp_info:       compression info supported
  * @roi_caps:        panel roi capabilities
+ * @wide_bus_en:	wide-bus mode cfg for interface module
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -437,6 +455,7 @@ struct msm_mode_info {
 	struct msm_display_topology topology;
 	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
+	bool wide_bus_en;
 };
 
 /**

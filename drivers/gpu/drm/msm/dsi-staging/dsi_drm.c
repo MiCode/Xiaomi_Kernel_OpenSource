@@ -156,7 +156,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
-	c_bridge->display->panel->esd_recovery_pending = false;
+	atomic_set(&c_bridge->display->panel->esd_recovery_pending, 0);
 
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
@@ -410,6 +410,8 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 		mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_DSC;
 		memcpy(&mode_info->comp_info.dsc_info, &dsi_mode.priv_info->dsc,
 			sizeof(dsi_mode.priv_info->dsc));
+		mode_info->comp_info.comp_ratio =
+			MSM_DISPLAY_COMPRESSION_RATIO_3_TO_1;
 	}
 
 	if (dsi_mode.priv_info->roi_caps.enabled) {

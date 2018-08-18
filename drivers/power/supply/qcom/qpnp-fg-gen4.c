@@ -146,6 +146,10 @@
 #define MONOTONIC_SOC_OFFSET		0
 
 /* v2 SRAM address and offset in ascending order */
+#define RSLOW_SCALE_FN_DISCHG_V2_WORD	281
+#define RSLOW_SCALE_FN_DISCHG_V2_OFFSET	0
+#define RSLOW_SCALE_FN_CHG_V2_WORD	285
+#define RSLOW_SCALE_FN_CHG_V2_OFFSET	0
 #define ACT_BATT_CAP_v2_WORD		287
 #define ACT_BATT_CAP_v2_OFFSET		0
 #define RSLOW_v2_WORD			371
@@ -1282,6 +1286,7 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 	int rc, i;
 	u8 buf, therm_coeffs[BATT_THERM_NUM_COEFFS * 2];
 	u8 rslow_coeffs[RSLOW_NUM_COEFFS], val, mask;
+	u16 rslow_scalefn;
 
 	if (fg->bp.vbatt_full_mv > 0) {
 		rc = fg_set_constant_chg_voltage(fg,
@@ -1349,6 +1354,27 @@ static int fg_gen4_bp_params_config(struct fg_dev *fg)
 				RSLOW_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in writing RSLOW_CONFIG_WORD, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (fg->wa_flags & PM8150B_V2_RSLOW_SCALE_FN_WA) {
+		rslow_scalefn = 0x4000;
+		rc = fg_sram_write(fg, RSLOW_SCALE_FN_CHG_V2_WORD,
+				RSLOW_SCALE_FN_CHG_V2_OFFSET,
+				(u8 *)&rslow_scalefn, 2, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_SCALE_FN_CHG_WORD rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = fg_sram_write(fg, RSLOW_SCALE_FN_DISCHG_V2_WORD,
+				RSLOW_SCALE_FN_DISCHG_V2_OFFSET,
+				(u8 *)&rslow_scalefn, 2, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing RSLOW_SCALE_FN_DISCHG_WORD rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -2480,8 +2506,8 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 	}
 
 	if (en) {
-		/* Set ESR fast calibration timer to 300 seconds as default */
-		esr_fast_cal_ms = 300000;
+		/* Set ESR fast calibration timer to 50 seconds as default */
+		esr_fast_cal_ms = 50000;
 		if (chip->dt.esr_timer_chg_fast > 0 &&
 			chip->dt.delta_esr_disable_count > 0)
 			esr_fast_cal_ms = 3 * chip->dt.delta_esr_disable_count *
@@ -2589,9 +2615,9 @@ static void esr_calib_work(struct work_struct *work)
 	esr_delta = esr_delta - esr_filtered;
 
 	/* Bound the limits */
-	if (esr_delta < SHRT_MAX)
+	if (esr_delta > SHRT_MAX)
 		esr_delta = SHRT_MAX;
-	else if (esr_delta > SHRT_MIN)
+	else if (esr_delta < SHRT_MIN)
 		esr_delta = SHRT_MIN;
 
 	fg_dbg(fg, FG_STATUS, "fg_esr_meas_diff: 0x%x esr_filt: 0x%x esr_delta_new: 0x%x\n",
@@ -3640,7 +3666,7 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	return 0;
 }
 
-#define DEFAULT_ESR_DISABLE_COUNT	10
+#define DEFAULT_ESR_DISABLE_COUNT	5
 #define DEFAULT_ESR_FILTER_FACTOR	2
 #define DEFAULT_DELTA_ESR_THR		1832
 static int fg_parse_esr_cal_params(struct fg_dev *fg)
@@ -3764,6 +3790,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 			fg->sp = pm8150b_v1_sram_params;
 			fg->wa_flags |= PM8150B_V1_DMA_WA;
 			fg->wa_flags |= PM8150B_V1_RSLOW_COMP_WA;
+		} else if (fg->pmic_rev_id->rev4 == PM8150B_V2P0_REV4) {
+			fg->wa_flags |= PM8150B_V2_RSLOW_SCALE_FN_WA;
 		}
 		break;
 	default:

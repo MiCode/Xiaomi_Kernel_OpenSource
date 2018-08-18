@@ -1301,11 +1301,12 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 
 	hdev = inst->core->device;
 
+	if (inst->clk_data.low_latency_mode) {
+		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		goto decision_done;
+	}
+
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		if (inst->clk_data.low_latency_mode) {
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
-			goto decision_done;
-		}
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
 		switch (inst->fmts[OUTPUT_PORT].fourcc) {
 		case V4L2_PIX_FMT_MPEG2:
@@ -1328,14 +1329,6 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 		u32 width = inst->prop.width[OUTPUT_PORT];
 
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
-
-		if (codec == V4L2_PIX_FMT_H264 && width > 3840)
-			goto decision_done;
-
-		if (inst->clk_data.low_latency_mode) {
-			pdata.video_work_mode = VIDC_WORK_MODE_1;
-			goto decision_done;
-		}
 
 		switch (codec) {
 		case V4L2_PIX_FMT_VP8:

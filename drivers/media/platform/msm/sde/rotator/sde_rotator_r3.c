@@ -3102,6 +3102,31 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		rot->downscale_caps =
 			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
 	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+				SDE_MDP_HW_REV_530)) {
+		SDEROT_DBG("Supporting sys cache inline rotation\n");
+		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map);
+		rot->inpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_inpixfmts;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
+		rot->outpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_outpixfmts;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts);
+		rot->inpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_inpixfmts_sbuf;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts_sbuf);
+		rot->outpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_outpixfmts_sbuf;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts_sbuf);
+		rot->downscale_caps =
+			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
+	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 				SDE_MDP_HW_REV_400) ||
 			IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 				SDE_MDP_HW_REV_410)) {

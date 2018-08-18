@@ -494,6 +494,8 @@ const struct tsens_data data_tsens14xx = {
 	.ops = &ops_tsens1xxx,
 	.valid_status_check = true,
 	.mtc = true,
+	.ver_major = 1,
+	.ver_minor = 4,
 };
 
 static const struct tsens_ops ops_tsens1xxx_405 = {
@@ -510,4 +512,6 @@ const struct tsens_data data_tsens14xx_405 = {
 	.ops = &ops_tsens1xxx_405,
 	.valid_status_check = true,
 	.mtc = true,
+	.ver_major = 1,
+	.ver_minor = 4,
 };

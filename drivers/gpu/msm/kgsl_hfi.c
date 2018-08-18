@@ -684,7 +684,7 @@ int hfi_start(struct kgsl_device *device,
 	struct hfi_queue_header *hdr;
 	int result, i;
 
-	if (test_bit(GMU_HFI_ON, &gmu->flags))
+	if (test_bit(GMU_HFI_ON, &device->gmu_core.flags))
 		return 0;
 
 	/* Force read_index to the write_index no matter what */
@@ -742,7 +742,7 @@ int hfi_start(struct kgsl_device *device,
 				return result;
 		}
 	}
-	set_bit(GMU_HFI_ON, &gmu->flags);
+	set_bit(GMU_HFI_ON, &device->gmu_core.flags);
 	return 0;
 }
 
@@ -751,10 +751,12 @@ void hfi_stop(struct gmu_device *gmu)
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
+	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct kgsl_device *device = hfi->kgsldev;
 	unsigned int i;
 
 
-	if (!test_bit(GMU_HFI_ON, &gmu->flags))
+	if (!test_bit(GMU_HFI_ON, &device->gmu_core.flags))
 		return;
 
 	/* Flush HFI queues */
@@ -769,7 +771,7 @@ void hfi_stop(struct gmu_device *gmu)
 				i, hdr->read_index, hdr->write_index);
 	}
 
-	clear_bit(GMU_HFI_ON, &gmu->flags);
+	clear_bit(GMU_HFI_ON, &device->gmu_core.flags);
 }
 
 /* Entry point for external HFI requests */

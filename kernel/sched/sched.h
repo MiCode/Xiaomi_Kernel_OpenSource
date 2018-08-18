@@ -108,6 +108,7 @@ struct sched_cluster {
 	int notifier_sent;
 	bool wake_up_idle;
 	u64 aggr_grp_load;
+	u64 coloc_boost_load;
 };
 
 extern unsigned int sched_disable_window_stats;
@@ -695,8 +696,12 @@ struct root_domain {
 	cpumask_var_t span;
 	cpumask_var_t online;
 
-	/* Indicate more than one runnable task for any CPU */
-	bool overload;
+	/*
+	 * Indicate pullable load on at least one CPU, e.g:
+	 * - More than one runnable task
+	 * - Running task is misfit
+	 */
+	int overload;
 
 	/*
 	 * The bit corresponding to a CPU gets set here if such CPU has more
@@ -825,7 +830,8 @@ struct rq {
 
 	unsigned char idle_balance;
 
-	unsigned int misfit_task;
+	unsigned long misfit_task_load;
+
 	/* For active balancing */
 	int active_balance;
 	int push_cpu;
@@ -1190,6 +1196,7 @@ DECLARE_PER_CPU(struct sched_domain *, sd_numa);
 DECLARE_PER_CPU(struct sched_domain *, sd_asym);
 DECLARE_PER_CPU(struct sched_domain *, sd_ea);
 DECLARE_PER_CPU(struct sched_domain *, sd_scs);
+extern struct static_key_false sched_asym_cpucapacity;
 
 struct sched_group_capacity {
 	atomic_t ref;
@@ -1759,8 +1766,8 @@ static inline void add_nr_running(struct rq *rq, unsigned count)
 
 	if (prev_nr < 2 && rq->nr_running >= 2) {
 #ifdef CONFIG_SMP
-		if (!rq->rd->overload)
-			rq->rd->overload = true;
+		if (!READ_ONCE(rq->rd->overload))
+			WRITE_ONCE(rq->rd->overload, 1);
 #endif
 	}
 
@@ -2902,12 +2909,13 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
-static inline bool task_boost_on_big_eligible(struct task_struct *p)
-{
-	bool boost_on_big = task_sched_boost(p) &&
-				sched_boost_policy() == SCHED_BOOST_ON_BIG;
 
-	if (boost_on_big) {
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	enum sched_boost_policy policy = task_sched_boost(p) ?
+							sched_boost_policy() :
+							SCHED_BOOST_NONE;
+	if (policy == SCHED_BOOST_ON_BIG) {
 		/*
 		 * Filter out tasks less than min task util threshold
 		 * under conservative boost.
@@ -2915,10 +2923,17 @@ static inline bool task_boost_on_big_eligible(struct task_struct *p)
 		if (sysctl_sched_boost == CONSERVATIVE_BOOST &&
 				task_util(p) <=
 				sysctl_sched_min_task_util_for_boost_colocation)
-			boost_on_big = false;
+			policy = SCHED_BOOST_NONE;
 	}
 
-	return boost_on_big;
+	return policy;
+}
+
+extern void walt_map_freq_to_load(void);
+
+static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
+{
+	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
 
 #else	/* CONFIG_SCHED_WALT */
@@ -2937,16 +2952,16 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
-static inline bool task_boost_on_big_eligible(struct task_struct *p)
-{
-	return false;
-}
-
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
 static inline int sched_boost(void)
 {
 	return 0;
+}
+
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	return SCHED_BOOST_NONE;
 }
 
 static inline bool
@@ -3068,6 +3083,7 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 #endif
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline void walt_map_freq_to_load(void) { }
 #endif	/* CONFIG_SCHED_WALT */
 
 static inline bool energy_aware(void)

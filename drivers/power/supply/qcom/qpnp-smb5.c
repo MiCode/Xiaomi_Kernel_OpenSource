@@ -251,6 +251,11 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
 		break;
+	case PM6150_SUBTYPE:
+		chip->chg.smb_version = PM6150_SUBTYPE;
+		chg->param = smb5_pm8150b_params;
+		chg->name = "pm6150_charger";
+		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
 		chg->param = smb5_pmi632_params;
@@ -493,6 +498,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_TYPEC_MODE,
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
+	POWER_SUPPLY_PROP_TYPEC_SRC_RP,
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
@@ -575,6 +581,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 			val->intval = 0;
 		else
 			rc = smblib_get_prop_typec_cc_orientation(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_SRC_RP:
+		rc = smblib_get_prop_typec_select_rp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		val->intval = chg->pd_active;
@@ -665,6 +674,9 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_set_prop_typec_power_role(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_SRC_RP:
+		rc = smblib_set_prop_typec_select_rp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		rc = smblib_set_prop_pd_active(chg, val);
@@ -1925,6 +1937,15 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 			return rc;
 		}
+	}
+
+	/* set the Source (OTG) mode current limit */
+	rc = smblib_masked_write(chg, DCDC_OTG_CURRENT_LIMIT_CFG_REG,
+			OTG_CURRENT_LIMIT_MASK, OTG_CURRENT_LIMIT_3000_MA);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure DCDC_OTG_CURRENT_LIMIT_CFG rc=%d\n",
+				rc);
+		return rc;
 	}
 
 	if (chg->sw_jeita_enabled) {

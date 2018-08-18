@@ -254,7 +254,7 @@ int errorHandler(u8 *event, int size)
 		logError(0,  "%s %s: No Action taken!\n", tag, __func__);
 	break;
 	}
-	logError(1, "%s %s: handling Finished! res = %08X\n",
+	logError(0, "%s %s: handling Finished! res = %08X\n",
 		tag, __func__, res);
 	return res;
 }

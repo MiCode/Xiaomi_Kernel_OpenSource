@@ -554,6 +554,9 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_NV24    v4l2_fourcc('N', 'V', '2', '4') /* 24  Y/CbCr 4:4:4  */
 #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
 
+/* NV12_512 8-bit Y/CbCr 4:2:0  */
+#define V4L2_PIX_FMT_NV12_512         v4l2_fourcc('Q', '5', '1', '2')
+
 /* UBWC 8-bit Y/CbCr 4:2:0  */
 #define V4L2_PIX_FMT_NV12_UBWC        v4l2_fourcc('Q', '1', '2', '8')
 /* UBWC 10-bit Y/CbCr 4:2:0 */
@@ -1051,6 +1054,7 @@ struct v4l2_buffer {
 /* Vendor extensions */
 #define V4L2_QCOM_BUF_FLAG_CODECCONFIG		0x00020000
 #define V4L2_QCOM_BUF_DATA_CORRUPT		0x00400000
+#define V4L2_BUF_DATA_CORRUPT			0x00400000
 #define V4L2_QCOM_BUF_INPUT_UNSUPPORTED		0x01000000
 #define V4L2_QCOM_BUF_FLAG_EOS			0x02000000
 #define V4L2_QCOM_BUF_FLAG_READONLY		0x04000000

@@ -680,7 +680,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	}
 
 	if (ipa3_send_cmd(num_cmd, desc)) {
-		IPAERR("fail to send immediate command\n");
+		IPAERR_RL("fail to send immediate command\n");
 		rc = -EFAULT;
 		goto fail_imm_cmd_construct;
 	}
@@ -1155,7 +1155,7 @@ int ipa3_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 					&rules->rules[i].rt_rule_hdl,
 					0,
 					user_only)) {
-			IPAERR("failed to add rt rule %d\n", i);
+			IPAERR_RL("failed to add rt rule %d\n", i);
 			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
 			rules->rules[i].status = 0;
@@ -1189,7 +1189,7 @@ int ipa3_add_rt_rule_ext(struct ipa_ioc_add_rt_rule_ext *rules)
 	int ret;
 
 	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
-		IPAERR("bad parm\n");
+		IPAERR_RL("bad parm\n");
 		return -EINVAL;
 	}
 
@@ -1203,7 +1203,7 @@ int ipa3_add_rt_rule_ext(struct ipa_ioc_add_rt_rule_ext *rules)
 					rules->rules[i].at_rear,
 					&rules->rules[i].rt_rule_hdl,
 					rules->rules[i].rule_id, true)) {
-			IPAERR("failed to add rt rule %d\n", i);
+			IPAERR_RL("failed to add rt rule %d\n", i);
 			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
 			rules->rules[i].status = 0;
@@ -1850,7 +1850,7 @@ int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipahal_reg_hash_tuple *tuple)
 	struct ipahal_reg_fltrt_hash_tuple fltrt_tuple;
 
 	if (!tuple) {
-		IPAERR("bad tuple\n");
+		IPAERR_RL("bad tuple\n");
 		return -EINVAL;
 	}
 
@@ -1858,19 +1858,19 @@ int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipahal_reg_hash_tuple *tuple)
 		max(IPA_MEM_PART(v6_rt_num_index),
 		IPA_MEM_PART(v4_rt_num_index)) ||
 		tbl_idx < 0) {
-		IPAERR("bad table index\n");
+		IPAERR_RL("bad table index\n");
 		return -EINVAL;
 	}
 
 	if (tbl_idx >= IPA_MEM_PART(v4_modem_rt_index_lo) &&
 		tbl_idx <= IPA_MEM_PART(v4_modem_rt_index_hi)) {
-		IPAERR("cannot configure modem v4 rt tuple by AP\n");
+		IPAERR_RL("cannot configure modem v4 rt tuple by AP\n");
 		return -EINVAL;
 	}
 
 	if (tbl_idx >= IPA_MEM_PART(v6_modem_rt_index_lo) &&
 		tbl_idx <= IPA_MEM_PART(v6_modem_rt_index_hi)) {
-		IPAERR("cannot configure modem v6 rt tuple by AP\n");
+		IPAERR_RL("cannot configure modem v6 rt tuple by AP\n");
 		return -EINVAL;
 	}
 
@@ -1926,12 +1926,12 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 	}
 
 	if (ip_type == IPA_IP_v4 && tbl_idx >= IPA_MEM_PART(v4_rt_num_index)) {
-		IPAERR("Invalid params\n");
+		IPAERR_RL("Invalid params\n");
 		return -EFAULT;
 	}
 
 	if (ip_type == IPA_IP_v6 && tbl_idx >= IPA_MEM_PART(v6_rt_num_index)) {
-		IPAERR("Invalid params\n");
+		IPAERR_RL("Invalid params\n");
 		return -EFAULT;
 	}
 

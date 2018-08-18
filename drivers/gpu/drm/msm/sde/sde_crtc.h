@@ -59,6 +59,18 @@ enum sde_crtc_output_capture_point {
 };
 
 /**
+ * enum sde_crtc_idle_pc_state: states of idle power collapse
+ * @IDLE_PC_NONE: no-op
+ * @IDLE_PC_ENABLE: enable idle power-collapse
+ * @IDLE_PC_DISABLE: disable idle power-collapse
+ */
+enum sde_crtc_idle_pc_state {
+	IDLE_PC_NONE,
+	IDLE_PC_ENABLE,
+	IDLE_PC_DISABLE,
+};
+
+/**
  * @connectors    : Currently associated drm connectors for retire event
  * @num_connectors: Number of associated drm connectors for retire event
  * @list:	event list
@@ -220,7 +232,7 @@ struct sde_crtc {
 	struct drm_property_blob *blob_info;
 
 	/* output fence support */
-	struct sde_fence_context output_fence;
+	struct sde_fence_context *output_fence;
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;

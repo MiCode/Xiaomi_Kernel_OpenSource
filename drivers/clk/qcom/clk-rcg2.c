@@ -151,9 +151,6 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + rcg->cfg_off + CFG_REG,
 		       &old_cfg);
 
-	if (rcg->flags & DFS_ENABLE_RCG)
-		return 0;
-
 	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr +
 			rcg->cfg_off + CFG_REG, CFG_SRC_SEL_MASK, cfg);
 	if (ret)
@@ -387,8 +384,9 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 	struct clk_hw *hw = &rcg->clkr.hw;
 	int ret, index = qcom_find_src_index(hw, rcg->parent_map, f->src);
 
+	/* Skip configuration if DFS control has been enabled for the RCG. */
 	if (rcg->flags & DFS_ENABLE_RCG)
-		return -EPERM;
+		return 0;
 
 	if (index < 0)
 		return index;
@@ -537,7 +535,7 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	ret = clk_rcg2_configure(rcg, f);
-	if (ret && ret != -EPERM)
+	if (ret)
 		return ret;
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
@@ -572,6 +570,28 @@ static int clk_rcg2_set_floor_rate_and_parent(struct clk_hw *hw,
 		unsigned long rate, unsigned long parent_rate, u8 index)
 {
 	return __clk_rcg2_set_rate(hw, rate, FLOOR);
+}
+
+static int clk_rcg2_prepare(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	u32 cfg;
+	int ret;
+
+	ret = regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	if (ret)
+		return ret;
+
+	if (cfg & CFG_HW_CLK_CTRL_MASK) {
+		ret = regmap_update_bits(rcg->clkr.regmap,
+			rcg->cmd_rcgr + CFG_REG, CFG_HW_CLK_CTRL_MASK, 0);
+		if (ret)
+			return ret;
+
+		return update_config(rcg, cfg);
+	}
+
+	return 0;
 }
 
 static int clk_rcg2_enable(struct clk_hw *hw)
@@ -651,6 +671,7 @@ static void clk_rcg2_disable(struct clk_hw *hw)
 
 const struct clk_ops clk_rcg2_ops = {
 	.is_enabled = clk_rcg2_is_enabled,
+	.prepare = clk_rcg2_prepare,
 	.enable = clk_rcg2_enable,
 	.disable = clk_rcg2_disable,
 	.get_parent = clk_rcg2_get_parent,
@@ -1442,7 +1463,9 @@ done:
 		"RCG flags %x\n", i, dfs_freq_tbl[i].freq, dfs_freq_tbl[i].src,
 				dfs_freq_tbl[i].pre_div, dfs_freq_tbl[i].m,
 				dfs_freq_tbl[i].n, rcg_flags);
-
+	/* Skip the safe configuration if DFS has been enabled for the RCG. */
+	if (clk->enable_safe_config)
+		clk->enable_safe_config = false;
 	clk->flags |= rcg_flags;
 	clk->freq_tbl = dfs_freq_tbl;
 err:
