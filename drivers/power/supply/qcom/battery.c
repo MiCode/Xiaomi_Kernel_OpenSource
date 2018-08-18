@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@
 
 struct pl_data {
 	int			pl_mode;
+	int			pl_batfet_mode;
 	int			slave_pct;
 	int			slave_fcc_ua;
 	int			restricted_current;
@@ -155,22 +156,52 @@ static void split_settled(struct pl_data *chip)
 		total_current_ua = pval.intval;
 	}
 
-	pval.intval = total_current_ua - slave_ua;
-	/* Set ICL on main charger */
-	rc = power_supply_set_property(chip->main_psy,
+	/*
+	 * If there is an increase in slave share
+	 * (Also handles parallel enable case)
+	 *	Set Main ICL then slave ICL
+	 * else
+	 * (Also handles parallel disable case)
+	 *	Set slave ICL then main ICL.
+	 */
+	if (slave_ua > chip->pl_settled_ua) {
+		pval.intval = total_current_ua - slave_ua;
+		/* Set ICL on main charger */
+		rc = power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't change slave suspend state rc=%d\n", rc);
-		return;
-	}
+		if (rc < 0) {
+			pr_err("Couldn't change slave suspend state rc=%d\n",
+					rc);
+			return;
+		}
 
-	/* set parallel's ICL  could be 0mA when pl is disabled */
-	pval.intval = slave_ua;
-	rc = power_supply_set_property(chip->pl_psy,
-			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't set parallel icl, rc=%d\n", rc);
-		return;
+		/* set parallel's ICL  could be 0mA when pl is disabled */
+		pval.intval = slave_ua;
+		rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't set parallel icl, rc=%d\n", rc);
+			return;
+		}
+	} else {
+		/* set parallel's ICL  could be 0mA when pl is disabled */
+		pval.intval = slave_ua;
+		rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't set parallel icl, rc=%d\n", rc);
+			return;
+		}
+
+		pval.intval = total_current_ua - slave_ua;
+		/* Set ICL on main charger */
+		rc = power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't change slave suspend state rc=%d\n",
+					rc);
+			return;
+		}
 	}
 
 	chip->total_settled_ua = total_settled_ua;
@@ -345,11 +376,11 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
 
 	/*
-	 * In USBIN_USBIN configuration with internal rsense parallel
-	 * charger's current goes through main charger's BATFET, keep
-	 * the main charger's FCC to the votable result.
+	 * In stacked BATFET configuration charger's current goes
+	 * through main charger's BATFET, keep the main charger's FCC
+	 * to the votable result.
 	 */
-	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+	if (chip->pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET)
 		*master_ua = max(0, total_ua);
 	else
 		*master_ua = max(0, total_ua - *slave_ua);
@@ -634,24 +665,56 @@ static int pl_disable_vote_callback(struct votable *votable,
 		get_fcc_split(chip, total_fcc_ua, &master_fcc_ua,
 				&slave_fcc_ua);
 
-		chip->slave_fcc_ua = slave_fcc_ua;
-
-		pval.intval = master_fcc_ua;
-		rc = power_supply_set_property(chip->main_psy,
+		/*
+		 * If there is an increase in slave share
+		 * (Also handles parallel enable case)
+		 *	Set Main ICL then slave FCC
+		 * else
+		 * (Also handles parallel disable case)
+		 *	Set slave ICL then main FCC.
+		 */
+		if (slave_fcc_ua > chip->slave_fcc_ua) {
+			pval.intval = master_fcc_ua;
+			rc = power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 				&pval);
-		if (rc < 0) {
-			pr_err("Could not set main fcc, rc=%d\n", rc);
-			return rc;
-		}
+			if (rc < 0) {
+				pr_err("Could not set main fcc, rc=%d\n", rc);
+				return rc;
+			}
 
-		pval.intval = slave_fcc_ua;
-		rc = power_supply_set_property(chip->pl_psy,
+			pval.intval = slave_fcc_ua;
+			rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 				&pval);
-		if (rc < 0) {
-			pr_err("Couldn't set parallel fcc, rc=%d\n", rc);
-			return rc;
+			if (rc < 0) {
+				pr_err("Couldn't set parallel fcc, rc=%d\n",
+						rc);
+				return rc;
+			}
+
+			chip->slave_fcc_ua = slave_fcc_ua;
+		} else {
+			pval.intval = slave_fcc_ua;
+			rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&pval);
+			if (rc < 0) {
+				pr_err("Couldn't set parallel fcc, rc=%d\n",
+						rc);
+				return rc;
+			}
+
+			chip->slave_fcc_ua = slave_fcc_ua;
+
+			pval.intval = master_fcc_ua;
+			rc = power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&pval);
+			if (rc < 0) {
+				pr_err("Could not set main fcc, rc=%d\n", rc);
+				return rc;
+			}
 		}
 
 		/*
@@ -805,6 +868,15 @@ static bool is_parallel_available(struct pl_data *chip)
 		else
 			return false;
 	}
+
+	rc = power_supply_get_property(chip->pl_psy,
+		       POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get parallel batfet mode rc=%d\n",
+				rc);
+		return false;
+	}
+	chip->pl_batfet_mode = pval.intval;
 
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
