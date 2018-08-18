@@ -388,6 +388,7 @@ static int hfi_send_core_fw_start(struct gmu_device *gmu)
 
 static const char * const hfi_features[] = {
 	[HFI_FEATURE_ECP] = "ECP",
+	[HFI_FEATURE_ACD] = "ACD",
 };
 
 static const char *feature_to_string(uint32_t feature)
@@ -474,11 +475,7 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
-		/*
-		 * Set ACD threshold to the maximum value as a default.
-		 * At this level, ACD will never activate.
-		 */
-		cmd.gx_votes[i].acd = 0xFFFFFFFF;
+		cmd.gx_votes[i].acd = gmu->acd_dvm_vals[i];
 		/* Divide by 1000 to convert to kHz */
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
@@ -729,6 +726,10 @@ int hfi_start(struct kgsl_device *device,
 	 */
 	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
 		result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ECP, 0, 0);
+		if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
+			result |= hfi_send_feature_ctrl(gmu,
+					HFI_FEATURE_ACD, 1, 0);
+
 		if (result)
 			return result;
 
