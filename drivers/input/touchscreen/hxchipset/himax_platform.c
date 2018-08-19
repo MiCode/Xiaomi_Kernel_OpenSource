@@ -660,7 +660,7 @@ int fb_notifier_callback(struct notifier_block *self, unsigned long event, void 
 		case MSM_DRM_BLANK_UNBLANK:
 			if (!ts->initialized) {
 				if (himax_chip_common_init())
-					return 0;
+					return -ECANCELED;
 				ts->initialized = true;
 			}
 			himax_common_resume(&ts->client->dev);
