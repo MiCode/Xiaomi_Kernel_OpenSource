@@ -438,6 +438,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 
 	return prev_p;
 }
+EXPORT_SYMBOL_GPL(start_thread);
 
 void set_personality_64bit(void)
 {
