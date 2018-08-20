@@ -1591,12 +1591,24 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 {
 	int rc;
 
+	chg->pd_not_supported = true;
+
 	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable HVDCP and BC 1.2 source detection */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't enable HVDCP detection rc=%d\n", rc);
 		return rc;
 	}
 
