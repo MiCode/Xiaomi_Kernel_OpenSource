@@ -4958,6 +4958,12 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 	u32 halt, fsr, sctlr_orig, sctlr, status;
 	void __iomem *base, *cb_base;
 
+	if (of_property_read_bool(tbu->dev->of_node,
+						"qcom,opt-out-tbu-halting")) {
+		dev_notice(tbu->dev, "TBU opted-out for halting!\n");
+		return -EBUSY;
+	}
+
 	spin_lock_irqsave(&tbu->halt_lock, flags);
 	if (tbu->halt_count) {
 		tbu->halt_count++;
