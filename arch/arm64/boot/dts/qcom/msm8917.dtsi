@@ -86,19 +86,19 @@
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86800000 0x0 0x5000000>;
+			reg = <0x0 0x86800000 0x0 0x5500000>;
 		};
 
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8b800000 0x0 0x1100000>;
+			reg = <0x0 0x8bd00000 0x0 0x1100000>;
 		};
 
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8c900000 0x0 0x700000>;
+			reg = <0x0 0x8ce00000 0x0 0x700000>;
 		};
 
 		venus_mem: venus_region@0 {
