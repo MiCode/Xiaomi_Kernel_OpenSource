@@ -221,6 +221,7 @@ struct fg_gen4_chip {
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
 	char			batt_profile[PROFILE_LEN];
+	enum slope_limit_status	slope_limit_sts;
 	int			delta_esr_count;
 	int			recharge_soc_thr;
 	int			esr_actual;
@@ -1072,6 +1073,49 @@ static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_hi %d\n", ki_coeff_hi);
 	}
 
+	return 0;
+}
+
+static int fg_gen4_slope_limit_config(struct fg_gen4_chip *chip, int batt_temp)
+{
+	struct fg_dev *fg = &chip->fg;
+	enum slope_limit_status status;
+	int rc;
+	u8 buf;
+
+	if (!chip->slope_limit_en)
+		return 0;
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING ||
+		fg->charge_status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	}
+
+	if (chip->slope_limit_sts == status)
+		return 0;
+
+	fg_encode(fg->sp, FG_SRAM_SLOPE_LIMIT,
+		chip->dt.slope_limit_coeffs[status], &buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	chip->slope_limit_sts = status;
+	fg_dbg(fg, FG_STATUS, "Slope limit status: %d value: %x\n", status,
+		buf);
 	return 0;
 }
 
@@ -2189,6 +2233,7 @@ static irqreturn_t fg_batt_temp_irq_handler(int irq, void *data)
 static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_temp;
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -2198,6 +2243,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered batt_temp:%d\n", irq, batt_temp);
+
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
 	if (abs(fg->last_batt_temp - batt_temp) > 30)
 		pr_warn("Battery temperature last:%d current: %d\n",
@@ -2264,12 +2313,19 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 			fg->charge_status, fg->charge_done, input_present);
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Failed to read battery temp rc: %d\n", rc);
-	else if (chip->cl->active)
-		cap_learning_update(chip->cl, batt_temp, batt_soc,
-			fg->charge_status, fg->charge_done, input_present,
-			is_qnovo_en(fg));
+	} else {
+		if (chip->cl->active)
+			cap_learning_update(chip->cl, batt_temp, batt_soc,
+				fg->charge_status, fg->charge_done,
+				input_present, is_qnovo_en(fg));
+
+		rc = fg_gen4_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+	}
 
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
@@ -2803,6 +2859,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
@@ -4318,7 +4378,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	rc = fg_get_battery_voltage(fg, &volt_uv);
 	if (!rc)
-		rc = fg_gen4_get_prop_capacity(fg, &msoc);
+		rc = fg_get_msoc(fg, &msoc);
 
 	if (!rc)
 		rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -4326,9 +4386,11 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (!rc)
 		rc = fg_gen4_get_batt_id(chip);
 
-	if (!rc)
+	if (!rc) {
+		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
 
 	device_init_wakeup(fg->dev, true);
 	schedule_delayed_work(&fg->profile_load_work, 0);
