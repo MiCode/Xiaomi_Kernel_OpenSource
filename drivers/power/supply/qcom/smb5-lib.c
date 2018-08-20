@@ -1115,6 +1115,11 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
 
+	/* reset USBOV votes and cancel work */
+	cancel_delayed_work_sync(&chg->usbov_dbc_work);
+	vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
+	chg->dbc_usbov = false;
+
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
 	chg->usb_icl_delta_ua = 0;
@@ -1738,7 +1743,32 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	union power_supply_propval pval = {0, };
 	bool usb_online, dc_online;
 	u8 stat;
-	int rc;
+	int rc, suspend = 0;
+
+	if (chg->dbc_usbov) {
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't get usb present prop rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_get_usb_suspend(chg, &suspend);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't get usb suspend rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * Report charging as long as USBOV is not debounced and
+		 * charging path is un-suspended.
+		 */
+		if (pval.intval && !suspend) {
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			return 0;
+		}
+	}
 
 	rc = smblib_get_prop_usb_online(chg, &pval);
 	if (rc < 0) {
@@ -5020,6 +5050,11 @@ static void typec_src_removal(struct smb_charger *chg)
 		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
 								false, 0);
 
+	/* reset USBOV votes and cancel work */
+	cancel_delayed_work_sync(&chg->usbov_dbc_work);
+	vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
+	chg->dbc_usbov = false;
+
 	chg->pulse_cnt = 0;
 	chg->usb_icl_delta_ua = 0;
 	chg->voltage_min_uv = MICRO_5V;
@@ -5465,6 +5500,57 @@ irqreturn_t temp_change_irq_handler(int irq, void *data)
 
 	smblib_die_rst_icl_regulate(chg);
 
+	return IRQ_HANDLED;
+}
+
+static void smblib_usbov_dbc_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						usbov_dbc_work.work);
+
+	smblib_dbg(chg, PR_MISC, "Resetting USBOV debounce\n");
+	chg->dbc_usbov = false;
+	vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
+}
+
+#define USB_OV_DBC_PERIOD_MS		1000
+irqreturn_t usbin_ov_irq_handler(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	u8 stat;
+	int rc;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (!(chg->wa_flags & USBIN_OV_WA))
+		return IRQ_HANDLED;
+
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	/*
+	 * On specific PMICs, OV IRQ triggers for very small duration in
+	 * interim periods affecting charging status reflection. In order to
+	 * differentiate between OV IRQ glitch and real OV_IRQ, add a debounce
+	 * period for evaluation.
+	 */
+	if (stat & USBIN_OV_RT_STS_BIT) {
+		chg->dbc_usbov = true;
+		vote(chg->awake_votable, USBOV_DBC_VOTER, true, 0);
+		schedule_delayed_work(&chg->usbov_dbc_work,
+				msecs_to_jiffies(USB_OV_DBC_PERIOD_MS));
+	} else {
+		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		chg->dbc_usbov = false;
+		vote(chg->awake_votable, USBOV_DBC_VOTER, false, 0);
+	}
+
+	smblib_dbg(chg, PR_MISC, "USBOV debounce status %d\n",
+				chg->dbc_usbov);
 	return IRQ_HANDLED;
 }
 
@@ -6135,6 +6221,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->lpd_detach_work, smblib_lpd_detach_work);
 	INIT_DELAYED_WORK(&chg->thermal_regulation_work,
 					smblib_thermal_regulation_work);
+	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
 
 	if (chg->uusb_moisture_protection_enabled) {
 		INIT_WORK(&chg->moisture_protection_work,
@@ -6256,6 +6343,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
+		cancel_delayed_work_sync(&chg->usbov_dbc_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();
