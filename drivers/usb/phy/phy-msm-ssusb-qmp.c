@@ -70,6 +70,7 @@ enum core_ldo_levels {
 /* USB3_DP_COM_PHY_MODE_CTRL bits */
 #define USB3_MODE		BIT(0) /* enables USB3 mode */
 #define DP_MODE			BIT(1) /* enables DP mode */
+#define USB3_DP_COMBO_MODE	(USB3_MODE | DP_MODE) /*enables combo mode */
 
 /* USB3 Gen2 link training indicator */
 #define RX_EQUALIZATION_IN_PROGRESS	BIT(3)
@@ -335,6 +336,18 @@ static int configure_phy_regs(struct usb_phy *uphy,
 	return 0;
 }
 
+static void msm_ssphy_qmp_setmode(struct msm_ssphy_qmp *phy, u32 mode)
+{
+	mode = mode & USB3_DP_COMBO_MODE;
+
+	writel_relaxed(mode,
+			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+
+	/* flush the write by reading it */
+	readl_relaxed(phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+}
+
+
 static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 {
 	int val;
@@ -364,8 +377,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
 
-		writel_relaxed(USB3_MODE | DP_MODE,
-			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+		msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
 
 		/* bring both QMP USB and QMP DP PHYs PCS block out of reset */
 		writel_relaxed(0x00,
@@ -627,11 +639,14 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) {
-		if (phy->cable_connected)
+		if (phy->cable_connected) {
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
-		else
+		} else {
+			if (uphy->type  == USB_PHY_TYPE_USB3_AND_DP)
+				msm_ssphy_qmp_setmode(phy, USB3_MODE);
 			writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+		}
 
 		/* Make sure above write completed with PHY */
 		wmb();
