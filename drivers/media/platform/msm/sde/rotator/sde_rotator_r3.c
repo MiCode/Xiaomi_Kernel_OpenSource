@@ -555,6 +555,10 @@ struct sde_rot_cdp_params {
 /* Invalid software timestamp value for initialization */
 #define SDE_REGDMA_SWTS_INVALID	(~0)
 
+static int sde_hw_rotator_irq_setup(struct sde_hw_rotator *rot);
+static irqreturn_t sde_hw_rotator_rotirq_handler(int irq, void *ptr);
+static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr);
+
 /**
  * __sde_hw_rotator_get_timestamp - obtain rotator current timestamp
  * @rot: rotator context
@@ -706,17 +710,64 @@ static void sde_hw_rotator_update_swts(struct sde_hw_rotator *rot,
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, swts);
 }
 
+/*
+ * sde_hw_rotator_irq_setup - setup rotator irq
+ * @mgr: Pointer to rotator manager
+ * return: none
+ */
+static int sde_hw_rotator_irq_setup(struct sde_hw_rotator *rot)
+{
+	int rc = 0;
+
+	/* return early if irq is already setup */
+	if (rot->irq_num >= 0)
+		return 0;
+
+	rot->irq_num = platform_get_irq(rot->pdev, 0);
+	if (rot->irq_num < 0) {
+		rc = rot->irq_num;
+		SDEROT_ERR("fail to get rot irq, fallback to poll %d\n", rc);
+	} else {
+		if (rot->mode == ROT_REGDMA_OFF)
+			rc = devm_request_threaded_irq(&rot->pdev->dev,
+					rot->irq_num,
+					sde_hw_rotator_rotirq_handler,
+					NULL, 0, "sde_rotator_r3", rot);
+		else
+			rc = devm_request_threaded_irq(&rot->pdev->dev,
+					rot->irq_num,
+					sde_hw_rotator_regdmairq_handler,
+					NULL, 0, "sde_rotator_r3", rot);
+		if (rc) {
+			SDEROT_ERR("fail to request irq r:%d\n", rc);
+			rot->irq_num = -1;
+		} else {
+			disable_irq(rot->irq_num);
+		}
+	}
+
+	return rc;
+}
+
 /**
  * sde_hw_rotator_enable_irq - Enable hw rotator interrupt with ref. count
  *				Also, clear rotator/regdma irq status.
  * @rot: Pointer to hw rotator
  */
-static void sde_hw_rotator_enable_irq(struct sde_hw_rotator *rot)
+static int sde_hw_rotator_enable_irq(struct sde_hw_rotator *rot)
 {
+	int ret = 0;
 	SDEROT_DBG("irq_num:%d enabled:%d\n", rot->irq_num,
 		atomic_read(&rot->irq_enabled));
 
+	ret = sde_hw_rotator_irq_setup(rot);
+	if (ret < 0) {
+		SDEROT_ERR("Rotator irq setup failed %d\n", ret);
+		return ret;
+	}
+
 	if (!atomic_read(&rot->irq_enabled)) {
+
 		if (rot->mode == ROT_REGDMA_OFF)
 			SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_INTR_CLEAR,
 				ROT_DONE_MASK);
@@ -727,6 +778,8 @@ static void sde_hw_rotator_enable_irq(struct sde_hw_rotator *rot)
 		enable_irq(rot->irq_num);
 	}
 	atomic_inc(&rot->irq_enabled);
+
+	return (atomic_read(&rot->irq_enabled) > 0) ? 0 : -EINVAL;
 }
 
 /**
@@ -1765,11 +1818,10 @@ static u32 sde_hw_rotator_start_no_regdma(struct sde_hw_rotator_context *ctx,
 	mem_rdptr = sde_hw_rotator_get_regdma_segment_base(ctx);
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
-	if (rot->irq_num >= 0) {
+	if (!sde_hw_rotator_enable_irq(rot)) {
 		SDE_REGDMA_WRITE(wrptr, ROTTOP_INTR_EN, 1);
 		SDE_REGDMA_WRITE(wrptr, ROTTOP_INTR_CLEAR, 1);
 		reinit_completion(&ctx->rot_comp);
-		sde_hw_rotator_enable_irq(rot);
 	}
 
 	SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL, ctx->start_ctrl);
@@ -2455,8 +2507,7 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 			sde_hw_rotator_swts_create(resinfo->rot);
 	}
 
-	if (resinfo->rot->irq_num >= 0)
-		sde_hw_rotator_enable_irq(resinfo->rot);
+	sde_hw_rotator_enable_irq(resinfo->rot);
 
 	SDEROT_DBG("New rotator resource:%p, priority:%d\n",
 			resinfo, wb_id);
@@ -2484,8 +2535,7 @@ static void sde_hw_rotator_free_ext(struct sde_rot_mgr *mgr,
 		resinfo, hw->wb_id, atomic_read(&hw->num_active),
 		hw->pending_count);
 
-	if (resinfo->rot->irq_num >= 0)
-		sde_hw_rotator_disable_irq(resinfo->rot);
+	sde_hw_rotator_disable_irq(resinfo->rot);
 
 	devm_kfree(&mgr->pdev->dev, resinfo);
 }
@@ -3191,8 +3241,7 @@ static irqreturn_t sde_hw_rotator_rotirq_handler(int irq, void *ptr)
 	SDEROT_DBG("intr_status = %8.8x\n", isr);
 
 	if (isr & ROT_DONE_MASK) {
-		if (rot->irq_num >= 0)
-			sde_hw_rotator_disable_irq(rot);
+		sde_hw_rotator_disable_irq(rot);
 		SDEROT_DBG("Notify rotator complete\n");
 
 		/* Normal rotator only 1 session, no need to lookup */
@@ -3850,30 +3899,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	if (ret)
 		goto error_parse_dt;
 
-	rot->irq_num = platform_get_irq(mgr->pdev, 0);
-	if (rot->irq_num == -EPROBE_DEFER) {
-		SDEROT_INFO("irq master master not ready, defer probe\n");
-		return -EPROBE_DEFER;
-	} else if (rot->irq_num < 0) {
-		SDEROT_ERR("fail to get rotator irq, fallback to polling\n");
-	} else {
-		if (rot->mode == ROT_REGDMA_OFF)
-			ret = devm_request_threaded_irq(&mgr->pdev->dev,
-					rot->irq_num,
-					sde_hw_rotator_rotirq_handler,
-					NULL, 0, "sde_rotator_r3", rot);
-		else
-			ret = devm_request_threaded_irq(&mgr->pdev->dev,
-					rot->irq_num,
-					sde_hw_rotator_regdmairq_handler,
-					NULL, 0, "sde_rotator_r3", rot);
-		if (ret) {
-			SDEROT_ERR("fail to request irq r:%d\n", ret);
-			rot->irq_num = -1;
-		} else {
-			disable_irq(rot->irq_num);
-		}
-	}
+	rot->irq_num = -EINVAL;
 	atomic_set(&rot->irq_enabled, 0);
 
 	ret = sde_rotator_hw_rev_init(rot);
@@ -3921,8 +3947,6 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mdata->sde_rot_hw = rot;
 	return 0;
 error_hw_rev_init:
-	if (rot->irq_num >= 0)
-		devm_free_irq(&mgr->pdev->dev, rot->irq_num, mdata);
 	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
 error_parse_dt:
 	return ret;
