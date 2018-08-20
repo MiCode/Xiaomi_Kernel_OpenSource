@@ -213,7 +213,7 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
-		struct vb2_buffer *vb);
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
