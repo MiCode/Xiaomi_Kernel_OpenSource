@@ -1889,8 +1889,7 @@ static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
 	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
-		return p->ravg.demand /
-		       (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+		return p->ravg.demand_scaled;
 #endif
 	return READ_ONCE(p->se.avg.util_avg);
 }
