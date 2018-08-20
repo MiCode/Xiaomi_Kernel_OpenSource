@@ -70,6 +70,7 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_FILT_ROUT_HASH_REG_VAL_v4_2 (0x00000000)
 #define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
 
 #define IPA_AGGR_BYTE_LIMIT (\
@@ -3128,6 +3129,21 @@ int ipa3_cfg_filter(u32 disable)
 }
 
 /**
+ * ipa_disable_hashing_rt_flt_v4_2() - Disable filer and route hashing.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+static int ipa_disable_hashing_rt_flt_v4_2(void)
+{
+
+	IPADBG("Disable hashing for filter and route table in IPA 4.2 HW\n");
+	ipahal_write_reg(IPA_FILT_ROUT_HASH_EN,
+					IPA_FILT_ROUT_HASH_REG_VAL_v4_2);
+	return 0;
+}
+
+
+/**
  * ipa_comp_cfg() - Configure QMB/Master port selection
  *
  * Returns:	None
@@ -3346,6 +3362,13 @@ int ipa3_init_hw(void)
 	}
 
 	ipa_comp_cfg();
+
+	/*
+	 * In IPA 4.2 filter and routing hashing not supported
+	 * disabling hash enable register.
+	 */
+	if (ipa3_ctx->ipa_fltrt_not_hashable)
+		ipa_disable_hashing_rt_flt_v4_2();
 
 	return 0;
 }
