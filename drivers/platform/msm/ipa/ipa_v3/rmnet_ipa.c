@@ -2719,7 +2719,8 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 			/* clean up cached QMI msg/handlers */
 			ipa3_qmi_service_exit();
 		/*hold a proxy vote for the modem*/
-		ipa3_proxy_clk_vote();
+		/* Removing proxy clk vote until uC support loading*/
+		/*ipa3_proxy_clk_vote();*/
 		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
 		break;
