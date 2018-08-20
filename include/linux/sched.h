@@ -782,7 +782,6 @@ struct task_struct {
 	 */
 	u32 init_load_pct;
 	u64 last_wake_ts;
-	u64 last_switch_out_ts;
 	u64 last_enqueued_ts;
 	struct related_thread_group *grp;
 	struct list_head grp_list;
