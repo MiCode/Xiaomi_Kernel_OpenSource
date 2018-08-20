@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1726,7 +1726,7 @@ int qpnp_adc_get_revid_version(struct device *dev)
 	}
 
 	revid_data = get_revid_data(revid_dev_node);
-	if (IS_ERR(revid_data)) {
+	if (IS_ERR_OR_NULL(revid_data)) {
 		pr_debug("revid error rc = %ld\n", PTR_ERR(revid_data));
 		return -EINVAL;
 	}

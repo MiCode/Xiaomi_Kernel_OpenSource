@@ -1481,8 +1481,8 @@ static int cnss_smmu_init(struct device *dev)
 					   penv->smmu_iova_start,
 					   penv->smmu_iova_len);
 	if (IS_ERR(mapping)) {
-		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
 		ret = PTR_ERR(mapping);
+		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
 		goto map_fail;
 	}
 
