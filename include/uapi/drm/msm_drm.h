@@ -466,6 +466,7 @@ struct drm_msm_submitqueue_query {
 #define DRM_MSM_COUNTER_PUT            0x44
 #define DRM_MSM_COUNTER_READ           0x45
 #define DRM_MSM_GEM_SYNC               0x46
+#define DRM_MSM_RMFB2                  0x47
 
 /**
  * Currently DRM framework supports only VSYNC event.
@@ -509,6 +510,8 @@ struct drm_msm_submitqueue_query {
 #define DRM_IOCTL_MSM_SUBMITQUEUE_QUERY \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_QUERY, \
 		struct drm_msm_submitqueue_query)
+#define DRM_IOCTL_MSM_RMFB2 DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_RMFB2), unsigned int)
 
 #if defined(__cplusplus)
 }

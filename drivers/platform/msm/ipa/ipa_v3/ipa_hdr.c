@@ -341,7 +341,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	}
 	if (hdr_entry->cookie != IPA_HDR_COOKIE) {
 		IPAERR_RL("Invalid header cookie %u\n", hdr_entry->cookie);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 	IPADBG("Associated header is name=%s is_hdr_proc_ctx=%d\n",
@@ -371,7 +371,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 		bin = IPA_HDR_PROC_CTX_BIN1;
 	} else {
 		IPAERR_RL("unexpected needed len %d\n", needed_len);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		goto bad_len;
 	}
 
@@ -418,8 +418,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -558,8 +558,8 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr, bool user)
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -653,7 +653,6 @@ static int __ipa3_del_hdr_proc_ctx(u32 proc_ctx_hdl,
 
 	return 0;
 }
-
 
 int __ipa3_del_hdr(u32 hdr_hdl, bool by_user)
 {
@@ -994,6 +993,8 @@ int ipa3_reset_hdr(bool user_only)
 	struct ipa_hdr_offset_entry *off_next;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_entry;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_next;
+	struct ipa3_hdr_tbl *htbl = &ipa3_ctx->hdr_tbl;
+	struct ipa3_hdr_proc_ctx_tbl *htbl_proc = &ipa3_ctx->hdr_proc_ctx_tbl;
 	int i;
 
 	/*
@@ -1018,7 +1019,7 @@ int ipa3_reset_hdr(bool user_only)
 				if (entry->is_hdr_proc_ctx) {
 					IPAERR("default header is proc ctx\n");
 					mutex_unlock(&ipa3_ctx->lock);
-					WARN_ON(1);
+					WARN_ON_RATELIMIT_IPA(1);
 					return -EFAULT;
 				}
 				IPADBG("skip default header\n");
@@ -1028,7 +1029,7 @@ int ipa3_reset_hdr(bool user_only)
 
 		if (ipa3_id_find(entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 
@@ -1039,8 +1040,15 @@ int ipa3_reset_hdr(bool user_only)
 					entry->hdr_len,
 					DMA_TO_DEVICE);
 				entry->proc_ctx = NULL;
+			} else {
+				/* move the offset entry to free list */
+				entry->offset_entry->ipacm_installed = 0;
+				list_move(&entry->offset_entry->link,
+				&htbl->head_free_offset_list[
+					entry->offset_entry->bin]);
 			}
 			list_del(&entry->link);
+			htbl->hdr_cnt--;
 			entry->ref_cnt = 0;
 			entry->cookie = 0;
 
@@ -1049,40 +1057,35 @@ int ipa3_reset_hdr(bool user_only)
 			kmem_cache_free(ipa3_ctx->hdr_cache, entry);
 		}
 	}
-	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
-		list_for_each_entry_safe(off_entry, off_next,
+
+	/* only clean up offset_list and free_offset_list on global reset */
+	if (!user_only) {
+		for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
+			list_for_each_entry_safe(off_entry, off_next,
 					 &ipa3_ctx->hdr_tbl.head_offset_list[i],
 					 link) {
-
-			/*
-			 * do not remove the default exception header which is
-			 * at offset 0
-			 */
-			if (off_entry->offset == 0)
-				continue;
-
-			if (!user_only ||
-					off_entry->ipacm_installed) {
+				/**
+				 * do not remove the default exception
+				 * header which is at offset 0
+				 */
+				if (off_entry->offset == 0)
+					continue;
 				list_del(&off_entry->link);
 				kmem_cache_free(ipa3_ctx->hdr_offset_cache,
 					off_entry);
 			}
-		}
-		list_for_each_entry_safe(off_entry, off_next,
+			list_for_each_entry_safe(off_entry, off_next,
 				&ipa3_ctx->hdr_tbl.head_free_offset_list[i],
 				link) {
-
-			if (!user_only ||
-					off_entry->ipacm_installed) {
 				list_del(&off_entry->link);
 				kmem_cache_free(ipa3_ctx->hdr_offset_cache,
 					off_entry);
 			}
 		}
+		/* there is one header of size 8 */
+		ipa3_ctx->hdr_tbl.end = 8;
+		ipa3_ctx->hdr_tbl.hdr_cnt = 1;
 	}
-	/* there is one header of size 8 */
-	ipa3_ctx->hdr_tbl.end = 8;
-	ipa3_ctx->hdr_tbl.hdr_cnt = 1;
 
 	IPADBG("reset hdr proc ctx\n");
 	list_for_each_entry_safe(
@@ -1093,13 +1096,18 @@ int ipa3_reset_hdr(bool user_only)
 
 		if (ipa3_id_find(ctx_entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 
 		if (!user_only ||
 				ctx_entry->ipacm_installed) {
+			/* move the offset entry to appropriate free list */
+			list_move(&ctx_entry->offset_entry->link,
+				&htbl_proc->head_free_offset_list[
+					ctx_entry->offset_entry->bin]);
 			list_del(&ctx_entry->link);
+			htbl_proc->proc_ctx_cnt--;
 			ctx_entry->ref_cnt = 0;
 			ctx_entry->cookie = 0;
 
@@ -1109,36 +1117,39 @@ int ipa3_reset_hdr(bool user_only)
 				ctx_entry);
 		}
 	}
-	for (i = 0; i < IPA_HDR_PROC_CTX_BIN_MAX; i++) {
-		list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
+	/* only clean up offset_list and free_offset_list on global reset */
+	if (!user_only) {
+		for (i = 0; i < IPA_HDR_PROC_CTX_BIN_MAX; i++) {
+			list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
 				&ipa3_ctx->hdr_proc_ctx_tbl.head_offset_list[i],
 				link) {
-
-			if (!user_only ||
-					ctx_off_entry->ipacm_installed) {
+				list_del(&ctx_off_entry->link);
+				kmem_cache_free(
+					ipa3_ctx->hdr_proc_ctx_offset_cache,
+					ctx_off_entry);
+			}
+			list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
+				&ipa3_ctx->hdr_proc_ctx_tbl.
+				head_free_offset_list[i], link) {
 				list_del(&ctx_off_entry->link);
 				kmem_cache_free(
 					ipa3_ctx->hdr_proc_ctx_offset_cache,
 					ctx_off_entry);
 			}
 		}
-		list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
-			&ipa3_ctx->hdr_proc_ctx_tbl.head_free_offset_list[i],
-			link) {
-
-			if (!user_only ||
-					ctx_off_entry->ipacm_installed) {
-				list_del(&ctx_off_entry->link);
-				kmem_cache_free(
-					ipa3_ctx->hdr_proc_ctx_offset_cache,
-					ctx_off_entry);
-			}
-		}
+		ipa3_ctx->hdr_proc_ctx_tbl.end = 0;
+		ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt = 0;
 	}
-	ipa3_ctx->hdr_proc_ctx_tbl.end = 0;
-	ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt = 0;
-	mutex_unlock(&ipa3_ctx->lock);
 
+	/* commit the change to IPA-HW */
+	if (ipa3_ctx->ctrl->ipa3_commit_hdr()) {
+		IPAERR("fail to commit hdr\n");
+		WARN_ON_RATELIMIT_IPA(1);
+		mutex_unlock(&ipa3_ctx->lock);
+		return -EFAULT;
+	}
+
+	mutex_unlock(&ipa3_ctx->lock);
 	return 0;
 }
 

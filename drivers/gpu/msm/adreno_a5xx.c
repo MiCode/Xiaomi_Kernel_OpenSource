@@ -31,6 +31,7 @@
 #include "adreno_a5xx_packets.h"
 
 static int zap_ucode_loaded;
+static void *zap_handle_ptr;
 static int critical_packet_constructed;
 
 static struct kgsl_memdesc crit_pkts;
@@ -2236,7 +2237,6 @@ static int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
  */
 static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 {
-	void *ptr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint64_t gpuaddr;
 
@@ -2276,16 +2276,26 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
-		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
+		zap_handle_ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(ptr))
-			return (ptr == NULL) ? -ENODEV : PTR_ERR(ptr);
+		if (IS_ERR_OR_NULL(zap_handle_ptr))
+			return (zap_handle_ptr == NULL) ?
+					-ENODEV : PTR_ERR(zap_handle_ptr);
 
 		zap_ucode_loaded = 1;
 	}
 
 	return 0;
+}
+
+static void a5xx_zap_shader_unload(struct adreno_device *adreno_dev)
+{
+	if (!IS_ERR_OR_NULL(zap_handle_ptr)) {
+		subsystem_put(zap_handle_ptr);
+		zap_handle_ptr = NULL;
+		zap_ucode_loaded = 0;
+	}
 }
 
 static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
@@ -3698,4 +3708,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
 	.clk_set_options = a5xx_clk_set_options,
+	.zap_shader_unload = a5xx_zap_shader_unload,
 };
