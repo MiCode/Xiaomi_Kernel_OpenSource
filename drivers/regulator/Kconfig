@@ -992,5 +992,15 @@ config REGULATOR_WM8994
 	  This driver provides support for the voltage regulators on the
 	  WM8994 CODEC.
 
+config REGULATOR_STUB
+	tristate "Stub Regulator"
+	help
+	  This driver adds stub regulator support. It allows for consumers to
+	  request their regulator devices and to use all of the standard
+	  regulator functions. It is useful for bringing up new platforms when
+	  the real hardware based regulator implementation is not yet available.
+	  Consumers can use stub regulator device with proper constraint
+	  checking while the real regulator driver is being developed.
+
 endif
 
