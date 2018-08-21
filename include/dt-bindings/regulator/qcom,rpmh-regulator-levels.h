@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+#ifndef __QCOM_RPMH_REGULATOR_LEVELS_H
+#define __QCOM_RPMH_REGULATOR_LEVELS_H
+
+/* These levels may be used for ARC type RPMh regulators. */
+#define RPMH_REGULATOR_LEVEL_RETENTION	16
+#define RPMH_REGULATOR_LEVEL_MIN_SVS	48
+#define RPMH_REGULATOR_LEVEL_LOW_SVS	64
+#define RPMH_REGULATOR_LEVEL_SVS	128
+#define RPMH_REGULATOR_LEVEL_SVS_L1	192
+#define RPMH_REGULATOR_LEVEL_NOM	256
+#define RPMH_REGULATOR_LEVEL_NOM_L1	320
+#define RPMH_REGULATOR_LEVEL_NOM_L2	336
+#define RPMH_REGULATOR_LEVEL_TURBO	384
+#define RPMH_REGULATOR_LEVEL_TURBO_L1	416
+#define RPMH_REGULATOR_LEVEL_MAX	65535
+
+#endif
