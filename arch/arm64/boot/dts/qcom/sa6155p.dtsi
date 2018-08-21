@@ -19,6 +19,10 @@
 	model = "Qualcomm Technologies, Inc. SA6155P";
 	qcom,msm-name = "SA6155P";
 	qcom,msm-id = <377 0>;
+
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 };
 
 /* Delete second instance of pm6155 definitions for APQ version */
@@ -257,3 +261,4 @@
 
 /* Audio device tree */
 #include "sa6155-audio.dtsi"
+#include "sa6155-pcie.dtsi"
