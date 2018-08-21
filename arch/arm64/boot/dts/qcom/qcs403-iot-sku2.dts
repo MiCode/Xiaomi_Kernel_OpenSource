@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs403.dtsi"
-#include "qcs405-nowcd-audio-overlay.dtsi"
+#include "qcs405-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 RCM IOT";
