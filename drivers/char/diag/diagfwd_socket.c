@@ -822,7 +822,7 @@ static int diag_socket_write(void *ctxt, unsigned char *buf, int len)
 		 * -EAGAIN means that the number of packets in flight is at
 		 * max capactity and the peripheral hasn't read the data.
 		 */
-		if (err != -EAGAIN) {
+		if (err != -EAGAIN && err != -ECONNRESET) {
 			pr_err_ratelimited("diag: In %s, error sending data, err: %d, ch: %s\n",
 					   __func__, err, info->name);
 		}
