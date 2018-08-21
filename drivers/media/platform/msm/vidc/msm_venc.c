@@ -1435,14 +1435,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QUALITY:
 	{
-		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
-			dprintk(VIDC_ERR,
-				"Frame quality supported only for CQ\n");
-			rc = -ENOTSUPP;
-			break;
-		}
 		if (ctrl->val < MIN_FRAME_QUALITY ||
 			ctrl->val > MAX_FRAME_QUALITY) {
 			dprintk(VIDC_ERR,
@@ -1459,15 +1451,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_IMG_GRID_ENABLE:
 	{
-		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ &&
-			ctrl->val) {
-			dprintk(VIDC_ERR,
-				"Grid enable supported only for CQ\n");
-			rc = -ENOTSUPP;
-			break;
-		}
 		property_id = HAL_CONFIG_HEIC_GRID_ENABLE;
 		grid_enable.grid_enable = ctrl->val;
 		inst->grid_enable = ctrl->val;
