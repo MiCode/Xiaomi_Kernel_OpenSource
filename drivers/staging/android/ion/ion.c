@@ -126,6 +126,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
 			goto err2;
 
+		if (ret == -EINTR)
+			goto err2;
+
 		ion_heap_freelist_drain(heap, 0);
 		ret = heap->ops->allocate(heap, buffer, len, flags);
 		if (ret)
@@ -1062,7 +1065,7 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
 		buffer = ion_buffer_create(heap, dev, len, flags);
-		if (!IS_ERR(buffer))
+		if (!IS_ERR(buffer) || PTR_ERR(buffer) == -EINTR)
 			break;
 	}
 	up_read(&dev->lock);
