@@ -918,11 +918,19 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 			(void *)&rc_mode);
 	}
 
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+	fps = inst->prop.fps;
+	mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
 		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(codec != V4L2_PIX_FMT_VP8)) {
-		hrd_buf_size.vbv_hdr_buf_size = 1000;
-		dprintk(VIDC_DBG, "Enable cbr+ hdr_buf_size %d :\n",
+		if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
+		    mbps < CBR_MB_LIMIT)
+			hrd_buf_size.vbv_hdr_buf_size = 500;
+		else
+			hrd_buf_size.vbv_hdr_buf_size = 1000;
+		dprintk(VIDC_DBG, "Enable hdr_buf_size %d :\n",
 				hrd_buf_size.vbv_hdr_buf_size);
 		rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
@@ -942,13 +950,8 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 
 	if ((codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC) &&
 		slice_mode != V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) {
-
-		output_height = inst->prop.height[CAPTURE_PORT];
-		output_width = inst->prop.width[CAPTURE_PORT];
-		fps = inst->prop.fps;
 		bitrate = inst->clk_data.bitrate;
 		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
-		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 
 		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF &&
 			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
