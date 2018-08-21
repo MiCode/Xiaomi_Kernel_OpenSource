@@ -313,6 +313,7 @@ struct fastrpc_apps {
 	unsigned int latency;
 	bool glink;
 	bool legacy;
+	bool secure_flag;
 	spinlock_t ctxlock;
 	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 };
@@ -3215,7 +3216,8 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		if (err)
 			goto bail;
 		/* Check to see if the device node is non-secure */
-		if (fl->dev_minor == MINOR_NUM_DEV) {
+		if (fl->dev_minor == MINOR_NUM_DEV &&
+			fl->apps->secure_flag == true) {
 			/*
 			 * For non secure device node check and make sure that
 			 * the channel allows non-secure access
@@ -3863,10 +3865,13 @@ static int fastrpc_probe(struct platform_device *pdev)
 			VERIFY(err, !of_property_read_u32(dev->of_node,
 					  "qcom,secure-domains",
 			      &secure_domains));
-			if (!err)
+			if (!err) {
+				me->secure_flag = true;
 				configure_secure_channels(secure_domains);
-			else
+			} else {
+				me->secure_flag = false;
 				pr_info("adsprpc: unable to read the domain configuration from dts\n");
+			}
 		}
 	}
 	if (of_device_is_compatible(dev->of_node,
@@ -4021,6 +4026,7 @@ static int __init fastrpc_device_init(void)
 	fastrpc_init(me);
 	me->dev = NULL;
 	me->glink = true;
+	me->secure_flag = false;
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
 		goto register_bail;
