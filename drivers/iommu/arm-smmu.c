@@ -1635,6 +1635,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg |= SCTLR_HUPCF;
 	}
 
+	if (attributes & (1 << DOMAIN_ATTR_NO_CFRE))
+		reg &= ~SCTLR_CFRE;
+
 	if ((!(attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) || !stage1)
 		reg |= SCTLR_M;
@@ -3201,6 +3204,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_NO_CFRE));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN:
 		*((int *)data) = smmu_domain->qsmmuv500_errata1_min_iova_align;
 		ret = 0;
@@ -3415,6 +3423,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_NO_CFRE;
 		ret = 0;
 		break;
 	default:
