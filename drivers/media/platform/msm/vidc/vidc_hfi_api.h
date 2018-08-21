@@ -406,6 +406,8 @@ enum hal_vp9_level {
 	HAL_VP9_LEVEL_41 = 0x00000080,
 	HAL_VP9_LEVEL_5  = 0x00000100,
 	HAL_VP9_LEVEL_51 = 0x00000200,
+	HAL_VP9_LEVEL_6  = 0x00000400,
+	HAL_VP9_LEVEL_61 = 0x00000800,
 };
 
 struct hal_frame_rate {
