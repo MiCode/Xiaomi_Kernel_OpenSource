@@ -2244,6 +2244,7 @@
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
+		qcom,use-ipa-pm;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
@@ -2276,6 +2277,8 @@
 		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>;
 		qcom,bus-vector-names =
 			"MIN", "SVS2", "SVS", "NOMINAL", "TURBO";
+		qcom,throughput-threshold = <310 600 1000>;
+		qcom,scaling-exceptions = <>;
 
 		/* smp2p information */
 		qcom,smp2p_map_ipa_1_out {
