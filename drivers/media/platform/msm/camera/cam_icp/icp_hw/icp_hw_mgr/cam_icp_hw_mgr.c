@@ -3099,7 +3099,7 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	task_data->type = ICP_WORKQ_TASK_MSG_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	size_in_words = (*(uint32_t *)task_data->data) >> 2;
-	CAM_INFO(CAM_ICP, "size_in_words %u", size_in_words);
+	CAM_DBG(CAM_ICP, "size_in_words %u", size_in_words);
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
 	if (rc)
