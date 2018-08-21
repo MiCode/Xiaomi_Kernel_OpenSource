@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -839,6 +839,9 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 		for (i = 0; i < tx_level; i++) {
 			tx_fifo[i] = msm_camera_io_r(cpp_dev->base +
 				MSM_CPP_MICRO_FIFO_TX_DATA);
+		} else {
+			pr_err("Fatal invalid tx level %d", tx_level);
+			goto err;
 		}
 		spin_lock_irqsave(&cpp_dev->tasklet_lock, flags);
 		queue_cmd = &cpp_dev->tasklet_queue_cmd[cpp_dev->taskletq_idx];
@@ -893,6 +896,7 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 		pr_debug("DEBUG_R1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x8C));
 	}
+err:
 	msm_camera_io_w(irq_status, cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
 	return IRQ_HANDLED;
 }
