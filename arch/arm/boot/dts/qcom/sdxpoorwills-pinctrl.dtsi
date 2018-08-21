@@ -1683,6 +1683,21 @@
 				};
 			};
 		};
+
+		emac {
+			emac_pin_pps_0: emac_pin_pps_0 {
+				mux {
+					pins = "gpio89";
+					function = "emac_pps";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <8>;	/* 8 mA */
+					bias-disable;		/* NO PULL*/
+				};
+			};
+		};
 	};
 };
 
