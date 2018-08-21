@@ -458,6 +458,11 @@ struct rndis_pkt_hdr rndis_template_hdr = {
 	.zeroes = {0},
 };
 
+static void rndis_ipa_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	kfree(buff);
+}
+
 /**
  * rndis_ipa_init() - create network device and initialize internal
  *  data structures
@@ -682,6 +687,8 @@ int rndis_ipa_pipe_connect_notify(
 	int result;
 	int ret;
 	unsigned long flags;
+	struct ipa_ecm_msg *rndis_msg;
+	struct ipa_msg_meta msg_meta;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -768,6 +775,26 @@ int rndis_ipa_pipe_connect_notify(
 		goto fail;
 	}
 	RNDIS_IPA_DEBUG("netif_carrier_on() was called\n");
+
+	rndis_msg = kzalloc(sizeof(*rndis_msg), GFP_KERNEL);
+	if (!rndis_msg) {
+		result = -ENOMEM;
+		goto fail;
+	}
+
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	msg_meta.msg_type = ECM_CONNECT;
+	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
+	strlcpy(rndis_msg->name, rndis_ipa_ctx->net->name,
+		IPA_RESOURCE_NAME_MAX);
+	rndis_msg->ifindex = rndis_ipa_ctx->net->ifindex;
+
+	result = ipa_send_msg(&msg_meta, rndis_msg, rndis_ipa_msg_free_cb);
+	if (result) {
+		RNDIS_IPA_ERROR("fail to send ECM_CONNECT for rndis\n");
+		kfree(rndis_msg);
+		goto fail;
+	}
 
 	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
@@ -1231,6 +1258,8 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	int retval;
 	int ret;
 	unsigned long flags;
+	struct ipa_ecm_msg *rndis_msg;
+	struct ipa_msg_meta msg_meta;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -1261,6 +1290,24 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 
 	netif_carrier_off(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("carrier_off notification was sent\n");
+
+	rndis_msg = kzalloc(sizeof(*rndis_msg), GFP_KERNEL);
+	if (!rndis_msg)
+		return -ENOMEM;
+
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	msg_meta.msg_type = ECM_DISCONNECT;
+	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
+	strlcpy(rndis_msg->name, rndis_ipa_ctx->net->name,
+		IPA_RESOURCE_NAME_MAX);
+	rndis_msg->ifindex = rndis_ipa_ctx->net->ifindex;
+
+	retval = ipa_send_msg(&msg_meta, rndis_msg, rndis_ipa_msg_free_cb);
+	if (retval) {
+		RNDIS_IPA_ERROR("fail to send ECM_DISCONNECT for rndis\n");
+		kfree(rndis_msg);
+		return -EPERM;
+	}
 
 	netif_stop_queue(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("queue stopped\n");
