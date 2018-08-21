@@ -744,6 +744,12 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	qcom,mpm2-sleep-counter@0xc221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
