@@ -123,6 +123,7 @@ struct cam_ife_hw_mgr_debug {
  *                          context
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
+ * @init_done               indicate whether init hw is done
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -156,6 +157,7 @@ struct cam_ife_hw_mgr_ctx {
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
+	bool                            init_done;
 };
 
 /**
