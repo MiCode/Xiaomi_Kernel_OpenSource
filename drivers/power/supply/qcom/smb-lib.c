@@ -3123,7 +3123,9 @@ static int smblib_cc2_sink_removal_exit(struct smb_charger *chg)
 		return 0;
 
 	chg->cc2_detach_wa_active = false;
+	chg->in_chg_lock = true;
 	cancel_work_sync(&chg->rdstd_cc2_detach_work);
+	chg->in_chg_lock = false;
 	smblib_reg_block_restore(chg, cc2_detach_settings);
 	return 0;
 }
@@ -4757,7 +4759,6 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 {
 	int rc;
 	u8 stat4, stat5;
-	bool lock = false;
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						rdstd_cc2_detach_work);
 
@@ -4826,22 +4827,15 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 	 * during pd_hard_reset from the function smblib_cc2_sink_removal_exit
 	 * which is called in the same lock context that we try to acquire in
 	 * this work routine.
-	 * Check if this work is running during pd_hard_reset and use trylock
-	 * instead of mutex_lock to prevent any deadlock if mutext is already
-	 * held.
+	 * Check if this work is running during pd_hard_reset and skip holding
+	 * mutex if lock is already held.
 	 */
-	if (chg->pd_hard_reset) {
-		if (mutex_trylock(&chg->lock))
-			lock = true;
-	} else {
+	if (!chg->in_chg_lock)
 		mutex_lock(&chg->lock);
-		lock = true;
-	}
-
 	smblib_usb_typec_change(chg);
-
-	if (lock)
+	if (!chg->in_chg_lock)
 		mutex_unlock(&chg->lock);
+
 	return;
 
 rerun:
