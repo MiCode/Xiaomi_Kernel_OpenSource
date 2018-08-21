@@ -66,7 +66,7 @@ struct inode_security_struct {
 	u16 sclass;		/* security class of this object */
 	unsigned char initialized;	/* initialization flag */
 	u32 tag;		/* Per-File-Encryption tag */
-	void *pfk_data; /* Per-File-Key data from ecryptfs */
+	void *pfk_data;		/* Per-File-Key data from ecryptfs */
 	spinlock_t lock;
 };
 
