@@ -180,6 +180,11 @@ static int enable_big_min_freq_adjust(void)
 	if (!p->min_freq_floor)
 		p->min_freq_floor = POLICY_MIN;
 
+	p->min_freq_state = RESET_MIN_FLOOR;
+	p->min_freq_request = RESET_MIN_FLOOR;
+	spin_lock_init(&p->lock);
+	p->big_min_freq_on = true;
+
 	ret = cpu_pm_register_notifier(&cpu_pm_nb);
 	if (ret) {
 		pr_err("Failed to register for PM notification\n");
@@ -192,11 +197,6 @@ static int enable_big_min_freq_adjust(void)
 		cpu_pm_unregister_notifier(&cpu_pm_nb);
 		return ret;
 	}
-
-	p->min_freq_state = RESET_MIN_FLOOR;
-	p->min_freq_request = RESET_MIN_FLOOR;
-	spin_lock_init(&p->lock);
-	p->big_min_freq_on = true;
 
 	/* If BIG cluster is active at this time and continue to be active
 	 * forever, in that case min frequency of the cluster will never be
