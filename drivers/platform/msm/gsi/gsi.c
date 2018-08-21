@@ -2151,31 +2151,36 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 	atomic_set(&ctx->poll_mode, GSI_CHAN_MODE_CALLBACK);
 	ctx->props = *props;
 
-	mutex_lock(&gsi_ctx->mlock);
-	ee = gsi_ctx->per.ee;
-	gsi_ctx->ch_dbg[props->ch_id].ch_allocate++;
-	val = (((props->ch_id << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
-				GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
-		((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
-			 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_CMD_OFFS(ee));
-	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
-	if (res == 0) {
-		GSIERR("chan_hdl=%u timed out\n", props->ch_id);
+	if (gsi_ctx->per.ver != GSI_VER_2_2) {
+		mutex_lock(&gsi_ctx->mlock);
+		ee = gsi_ctx->per.ee;
+		gsi_ctx->ch_dbg[props->ch_id].ch_allocate++;
+		val = (((props->ch_id << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
+					GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
+				((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
+				 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
+		gsi_writel(val, gsi_ctx->base +
+				GSI_EE_n_GSI_CH_CMD_OFFS(ee));
+		res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
+		if (res == 0) {
+			GSIERR("chan_hdl=%u timed out\n", props->ch_id);
+			mutex_unlock(&gsi_ctx->mlock);
+			devm_kfree(gsi_ctx->dev, user_data);
+			return -GSI_STATUS_TIMED_OUT;
+		}
+		if (ctx->state != GSI_CHAN_STATE_ALLOCATED) {
+			GSIERR("chan_hdl=%u allocation failed state=%d\n",
+					props->ch_id, ctx->state);
+			mutex_unlock(&gsi_ctx->mlock);
+			devm_kfree(gsi_ctx->dev, user_data);
+			return -GSI_STATUS_RES_ALLOC_FAILURE;
+		}
 		mutex_unlock(&gsi_ctx->mlock);
-		devm_kfree(gsi_ctx->dev, user_data);
-		return -GSI_STATUS_TIMED_OUT;
-	}
-	if (ctx->state != GSI_CHAN_STATE_ALLOCATED) {
-		GSIERR("chan_hdl=%u allocation failed state=%d\n",
-				props->ch_id, ctx->state);
+	} else {
+		mutex_lock(&gsi_ctx->mlock);
+		ctx->state = GSI_CHAN_STATE_ALLOCATED;
 		mutex_unlock(&gsi_ctx->mlock);
-		devm_kfree(gsi_ctx->dev, user_data);
-		return -GSI_STATUS_RES_ALLOC_FAILURE;
 	}
-	mutex_unlock(&gsi_ctx->mlock);
-
 	erindex = props->evt_ring_hdl != ~0 ? props->evt_ring_hdl :
 		GSI_NO_EVT_ERINDEX;
 	if (erindex != GSI_NO_EVT_ERINDEX) {
@@ -2748,31 +2753,40 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
 
-	mutex_lock(&gsi_ctx->mlock);
-	reinit_completion(&ctx->compl);
+	/*In GSI_VER_2_2 version deallocation channel not supported*/
+	if (gsi_ctx->per.ver != GSI_VER_2_2) {
+		mutex_lock(&gsi_ctx->mlock);
+		reinit_completion(&ctx->compl);
 
-	gsi_ctx->ch_dbg[chan_hdl].ch_de_alloc++;
-	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
-			GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
-		((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
-		 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
-	res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
-	if (res == 0) {
-		GSIERR("chan_hdl=%lu timed out\n", chan_hdl);
+		gsi_ctx->ch_dbg[chan_hdl].ch_de_alloc++;
+		val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
+					GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
+				((op << GSI_EE_n_GSI_CH_CMD_OPCODE_SHFT) &
+				 GSI_EE_n_GSI_CH_CMD_OPCODE_BMSK));
+		gsi_writel(val, gsi_ctx->base +
+				GSI_EE_n_GSI_CH_CMD_OFFS(gsi_ctx->per.ee));
+		res = wait_for_completion_timeout(&ctx->compl, GSI_CMD_TIMEOUT);
+		if (res == 0) {
+			GSIERR("chan_hdl=%lu timed out\n", chan_hdl);
+			mutex_unlock(&gsi_ctx->mlock);
+			return -GSI_STATUS_TIMED_OUT;
+		}
+		if (ctx->state != GSI_CHAN_STATE_NOT_ALLOCATED) {
+			GSIERR("chan_hdl=%lu unexpected state=%u\n", chan_hdl,
+					ctx->state);
+			/* Hardware returned incorrect value */
+			BUG();
+		}
+
 		mutex_unlock(&gsi_ctx->mlock);
-		return -GSI_STATUS_TIMED_OUT;
+	} else {
+		mutex_lock(&gsi_ctx->mlock);
+		GSIDBG("In GSI_VER_2_2 channel deallocation not supported\n");
+		ctx->state = GSI_CHAN_STATE_NOT_ALLOCATED;
+		GSIDBG("chan_hdl=%lu Channel state = %u\n", chan_hdl,
+								ctx->state);
+		mutex_unlock(&gsi_ctx->mlock);
 	}
-	if (ctx->state != GSI_CHAN_STATE_NOT_ALLOCATED) {
-		GSIERR("chan_hdl=%lu unexpected state=%u\n", chan_hdl,
-				ctx->state);
-		/* Hardware returned incorrect value */
-		BUG();
-	}
-
-	mutex_unlock(&gsi_ctx->mlock);
-
 	devm_kfree(gsi_ctx->dev, ctx->user_data);
 	ctx->allocated = false;
 	if (ctx->evtr)
@@ -3581,6 +3595,72 @@ free_lock:
 	return res;
 }
 EXPORT_SYMBOL(gsi_halt_channel_ee);
+
+int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code)
+{
+	enum gsi_generic_ee_cmd_opcode op = GSI_GEN_EE_CMD_ALLOC_CHANNEL;
+	struct gsi_chan_ctx *ctx;
+	uint32_t val;
+	int res;
+
+	if (chan_idx >= gsi_ctx->max_ch || !code) {
+		GSIERR("bad params chan_idx=%d\n", chan_idx);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	mutex_lock(&gsi_ctx->mlock);
+	reinit_completion(&gsi_ctx->gen_ee_cmd_compl);
+
+	/* invalidate the response */
+	gsi_ctx->scratch.word0.val = gsi_readl(gsi_ctx->base +
+			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+	gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code = 0;
+	gsi_writel(gsi_ctx->scratch.word0.val, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+
+	val = (((op << GSI_EE_n_GSI_EE_GENERIC_CMD_OPCODE_SHFT) &
+		GSI_EE_n_GSI_EE_GENERIC_CMD_OPCODE_BMSK) |
+		((chan_idx << GSI_EE_n_GSI_EE_GENERIC_CMD_VIRT_CHAN_IDX_SHFT) &
+			GSI_EE_n_GSI_EE_GENERIC_CMD_VIRT_CHAN_IDX_BMSK) |
+		((ee << GSI_EE_n_GSI_EE_GENERIC_CMD_EE_SHFT) &
+			GSI_EE_n_GSI_EE_GENERIC_CMD_EE_BMSK));
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_GSI_EE_GENERIC_CMD_OFFS(gsi_ctx->per.ee));
+
+	res = wait_for_completion_timeout(&gsi_ctx->gen_ee_cmd_compl,
+		msecs_to_jiffies(GSI_CMD_TIMEOUT));
+	if (res == 0) {
+		GSIERR("chan_idx=%u ee=%u timed out\n", chan_idx, ee);
+		res = -GSI_STATUS_TIMED_OUT;
+		goto free_lock;
+	}
+
+	gsi_ctx->scratch.word0.val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code ==
+		GSI_GEN_EE_CMD_RETURN_CODE_OUT_OF_RESOURCES) {
+		GSIDBG("chan_idx=%u ee=%u out of resources\n", chan_idx, ee);
+		*code = GSI_GEN_EE_CMD_RETURN_CODE_OUT_OF_RESOURCES;
+		res = -GSI_STATUS_RES_ALLOC_FAILURE;
+		goto free_lock;
+	}
+	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code == 0) {
+		GSIERR("No response received\n");
+		res = -GSI_STATUS_ERROR;
+		goto free_lock;
+	}
+	if (ee == 0) {
+		ctx = &gsi_ctx->chan[chan_idx];
+		gsi_ctx->ch_dbg[chan_idx].ch_allocate++;
+	}
+	res = GSI_STATUS_SUCCESS;
+	*code = gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code;
+free_lock:
+	mutex_unlock(&gsi_ctx->mlock);
+
+	return res;
+}
+EXPORT_SYMBOL(gsi_alloc_channel_ee);
 
 int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
 {
