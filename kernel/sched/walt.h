@@ -293,7 +293,7 @@ void sort_clusters(void);
 
 void walt_irq_work(struct irq_work *irq_work);
 
-void walt_sched_init(struct rq *rq);
+void walt_sched_init_rq(struct rq *rq);
 
 static inline void walt_update_last_enqueue(struct task_struct *p)
 {
@@ -305,7 +305,7 @@ extern unsigned int walt_rotation_enabled;
 
 #else /* CONFIG_SCHED_WALT */
 
-static inline void walt_sched_init(struct rq *rq) { }
+static inline void walt_sched_init_rq(struct rq *rq) { }
 
 static inline void walt_rotate_work_init(void) { }
 static inline void walt_rotation_checkpoint(int nr_big) { }

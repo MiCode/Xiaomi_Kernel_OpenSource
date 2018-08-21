@@ -3251,14 +3251,28 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-void walt_sched_init(struct rq *rq)
+static void walt_init_once(void)
 {
-	int j;
-
-	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 	init_irq_work(&walt_migration_irq_work, walt_irq_work);
 	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
 	walt_rotate_work_init();
+
+	walt_cpu_util_freq_divisor =
+	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
+
+	sched_init_task_load_windows =
+		div64_u64((u64)sysctl_sched_init_task_load_pct *
+			  (u64)sched_ravg_window, 100);
+}
+
+void walt_sched_init_rq(struct rq *rq)
+{
+	int j;
+
+	if (cpu_of(rq) == 0)
+		walt_init_once();
+
+	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 
 	rq->walt_stats.cumulative_runnable_avg = 0;
 	rq->window_start = 0;
@@ -3305,11 +3319,4 @@ void walt_sched_init(struct rq *rq)
 	}
 	rq->cum_window_demand = 0;
 	rq->notif_pending = false;
-
-	walt_cpu_util_freq_divisor =
-	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
-
-	sched_init_task_load_windows =
-		div64_u64((u64)sysctl_sched_init_task_load_pct *
-			  (u64)sched_ravg_window, 100);
 }

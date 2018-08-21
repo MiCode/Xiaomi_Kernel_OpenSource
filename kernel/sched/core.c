@@ -6412,7 +6412,7 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-		walt_sched_init(rq);
+		walt_sched_init_rq(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
