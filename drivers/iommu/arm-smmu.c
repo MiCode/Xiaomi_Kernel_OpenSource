@@ -287,6 +287,22 @@
 					 FSR_EF | FSR_PF | FSR_TF | FSR_IGN)
 
 #define FSYNR0_WNR			(1 << 4)
+#define MAX_GLOBAL_REG_SAVE_ENTRIES	(2 * ARM_SMMU_MAX_SMRS + 1)
+
+enum arm_smmu_save_ctx {
+	SAVE_ARM_SMMU_CB_SCTLR,
+	SAVE_ARM_SMMU_CB_ACTLR,
+	SAVE_ARM_SMMU_CB_TTBCR2,
+	SAVE_ARM_SMMU_CB_TTBR0,
+	SAVE_ARM_SMMU_CB_TTBR1,
+	SAVE_ARM_SMMU_CB_TTBCR,
+	SAVE_ARM_SMMU_CB_CONTEXTIDR,
+	SAVE_ARM_SMMU_CB_S1_MAIR0,
+	SAVE_ARM_SMMU_CB_S1_MAIR1,
+	SAVE_ARM_SMMU_GR1_CBA2R,
+	SAVE_ARM_SMMU_GR1_CBAR,
+	SAVE_ARM_SMMU_MAX_CNT,
+};
 
 static int force_stage;
 module_param_named(force_stage, force_stage, int, S_IRUGO);
@@ -407,6 +423,8 @@ struct arm_smmu_device {
 
 	enum tz_smmu_device_id		sec_id;
 	int				regulator_defer;
+	u64 regs[ARM_SMMU_MAX_CBS*(SAVE_ARM_SMMU_MAX_CNT)];
+	u64 reg_global[MAX_GLOBAL_REG_SAVE_ENTRIES];
 };
 
 struct arm_smmu_cfg {
@@ -4170,6 +4188,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	idr_init(&smmu->asid_idr);
 
+	platform_set_drvdata(pdev, smmu);
+
 	err = register_regulator_notifier(smmu);
 	if (err)
 		goto out_free_irqs;
@@ -4295,10 +4315,145 @@ release_memory:
 	return -ENOMEM;
 }
 
+#if CONFIG_PM
+static int arm_smmu_pm_suspend(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	u64 *regs, *reg_global;
+	int j, k = 0;
+	u32 cb_count = 0;
+	void __iomem *base, *gr0_base, *gr1_base;
+
+	if (!smmu)
+		return -ENODEV;
+
+	if (!smmu->attach_count)
+		return 0;
+
+	if (arm_smmu_enable_clocks(smmu)) {
+		dev_err(smmu->dev, "failed to enable clocks for smmu");
+		return -EINVAL;
+	}
+
+	regs = &smmu->regs[0];
+	reg_global = &smmu->reg_global[0];
+	cb_count = smmu->num_context_banks;
+
+	gr0_base = ARM_SMMU_GR0(smmu);
+	gr1_base = ARM_SMMU_GR1(smmu);
+
+	for (j = 0; j < cb_count; j++) {
+		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, j);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_SCTLR);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_ACTLR);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_TTBCR2);
+		regs[k++] = readq_relaxed(base + ARM_SMMU_CB_TTBR0);
+		regs[k++] = readq_relaxed(base + ARM_SMMU_CB_TTBR1);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_TTBCR);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_CONTEXTIDR);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_S1_MAIR0);
+		regs[k++] = readl_relaxed(base + ARM_SMMU_CB_S1_MAIR1);
+		regs[k++] = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBA2R(j));
+		regs[k++] = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBAR(j));
+	}
+
+	for (j = 0, k = 0; j < smmu->num_mapping_groups; j++) {
+		reg_global[k++] = readl_relaxed(
+				gr0_base + ARM_SMMU_GR0_S2CR(j));
+		reg_global[k++] = readl_relaxed(
+				gr0_base + ARM_SMMU_GR0_SMR(j));
+	}
+	reg_global[k++] = readl_relaxed(ARM_SMMU_GR0_NS(smmu)
+			+ ARM_SMMU_GR0_sCR0);
+
+	arm_smmu_disable_clocks(smmu);
+
+	return 0;
+}
+static int arm_smmu_pm_resume(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	u64 *regs, *reg_global;
+	int j, k = 0;
+	u32 cb_count = 0;
+	void __iomem *base, *gr0_base, *gr1_base;
+
+	if (!smmu)
+		return -ENODEV;
+
+	if (!smmu->attach_count)
+		return 0;
+
+	if (arm_smmu_enable_clocks(smmu)) {
+		dev_err(smmu->dev, "failed to enable clocks for smmu");
+		return -EINVAL;
+	}
+
+	regs = &smmu->regs[0];
+	reg_global = &smmu->reg_global[0];
+	cb_count = smmu->num_context_banks;
+
+	gr0_base = ARM_SMMU_GR0(smmu);
+	gr1_base = ARM_SMMU_GR1(smmu);
+
+	for (j = 0; j < cb_count; j++) {
+		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, j);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_ACTLR);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_TTBCR2);
+		writeq_relaxed(regs[k++], base + ARM_SMMU_CB_TTBR0);
+		writeq_relaxed(regs[k++], base + ARM_SMMU_CB_TTBR1);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_TTBCR);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_CONTEXTIDR);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_S1_MAIR0);
+		writel_relaxed(regs[k++], base + ARM_SMMU_CB_S1_MAIR1);
+		writel_relaxed(regs[k++], gr1_base + ARM_SMMU_GR1_CBA2R(j));
+		writel_relaxed(regs[k++], gr1_base + ARM_SMMU_GR1_CBAR(j));
+	}
+
+	for (j = 0, k = 0; j < smmu->num_mapping_groups; j++) {
+		writel_relaxed(reg_global[k++],
+				gr0_base + ARM_SMMU_GR0_S2CR(j));
+		writel_relaxed(reg_global[k++],
+				gr0_base + ARM_SMMU_GR0_SMR(j));
+	}
+	writel_relaxed(reg_global[k++],
+			ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
+
+	/* Do a tlb flush */
+	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLH);
+	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLNSNH);
+	__arm_smmu_tlb_sync(smmu);
+
+	arm_smmu_disable_clocks(smmu);
+
+	return 0;
+}
+#else
+static inline int arm_smmu_pm_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static inline int arm_smmu_pm_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops arm_smmu_pm_ops = {
+#ifdef CONFIG_PM
+		.freeze_late = arm_smmu_pm_suspend,
+		.thaw_early = arm_smmu_pm_resume,
+		.restore_early = arm_smmu_pm_resume,
+#endif
+};
+
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {
 		.name		= "arm-smmu",
 		.of_match_table	= of_match_ptr(arm_smmu_of_match),
+		.pm = &arm_smmu_pm_ops,
 	},
 	.probe	= arm_smmu_device_dt_probe,
 	.remove	= arm_smmu_device_remove,
