@@ -1475,6 +1475,12 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 static int msm_gpiochip_to_irq(struct gpio_chip *chip, unsigned int offset)
 {
 	struct irq_fwspec fwspec;
+	struct irq_domain *domain = chip->irqdomain;
+	int virq;
+
+	virq = irq_find_mapping(domain, offset);
+	if (virq)
+		return virq;
 
 	fwspec.fwnode = of_node_to_fwnode(chip->of_node);
 	fwspec.param[0] = offset;
