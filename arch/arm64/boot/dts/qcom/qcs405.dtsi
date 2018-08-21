@@ -88,6 +88,14 @@
 			size = <0 0x7000000>;
 		};
 
+		mdf_mem: mdf_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
+		};
+
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -338,8 +346,8 @@
 		vdd_hf_pll-supply = <&pms405_l5_ao>;
 		qcom,speed0-bin-v0 =
 			< 0         0>,
-			< 1113600000 1>,
-			< 1267200000 2>,
+			< 1094400000 1>,
+			< 1248000000 2>,
 			< 1401600000 3>;
 		#clock-cells = <1>;
 	};
@@ -729,6 +737,37 @@
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x806 0x0>;
 			shared-cb = <5>;
+		};
+	};
+
+	qcom,msm-mdf-mem {
+		compatible = "qcom,msm-mdf-mem-region";
+		qcom,msm-mdf-mem-data-size = <0x200000>;
+		memory-region = <&mdf_mem>;
+	};
+
+	qcom,msm-mdf {
+		compatible = "qcom,msm-mdf";
+
+		qcom,msm_mdf_cb1 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "adsp";
+			qcom,smmu-enabled;
+		};
+
+		qcom,msm_mdf_cb2 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "dsps";
+		};
+
+		qcom,msm_mdf_cb3 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "modem";
+		};
+
+		qcom,msm_mdf_cb4 {
+			compatible = "qcom,msm-mdf-cb";
+			label = "cdsp";
 		};
 	};
 
@@ -1162,8 +1201,8 @@
 		clocks = <&clock_cpu APCS_MUX_CLK>;
 
 		qcom,cpufreq-table =
-			 < 1113600 >,
-			 < 1267200 >;
+			 < 1094400 >,
+			 < 1248000 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1203,8 +1242,8 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
-			< 1113600 MHZ_TO_MBPS( 297, 4) >,
-			< 1267200 MHZ_TO_MBPS( 597, 4) >;
+			< 1094400 MHZ_TO_MBPS( 297, 4) >,
+			< 1248000 MHZ_TO_MBPS( 597, 4) >;
 	};
 
 	emac_hw: qcom,emac@07A80000 {
@@ -1400,4 +1439,25 @@
 
 &usb3 {
 	extcon = <&usb3_extcon>;
+};
+
+&soc {
+	qcom,msm-geni-ir@740000 {
+		compatible = "qcom,msm-geni-ir";
+		reg-names = "base";
+		reg = <0x740000 0x1000>;
+
+		interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "geni-ir-core-irq";
+
+		clocks = <&clock_gcc GCC_GENI_IR_H_CLK>,
+			<&clock_gcc GCC_GENI_IR_S_CLK>;
+		clock-names = "iface_clk", "serial_clk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_in_default>;
+
+		resets = <&clock_gcc GCC_GENI_IR_BCR>;
+		reset-names = "geni_reset";
+	};
 };

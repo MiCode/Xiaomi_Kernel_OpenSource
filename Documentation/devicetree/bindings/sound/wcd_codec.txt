@@ -449,6 +449,7 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for WSA macro
  - clocks : clock handles defined for WSA  macro
+ - qcom,wsa-swr-gpios: phandle for SWR data and clock GPIOs of WSA macro
 
 Example:
 
@@ -491,6 +492,8 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for RX macro
  - clocks : clock handles defined for RX macro
+ - qcom,rx-swr-gpios: phandle for SWR data and clock GPIOs of RX macro
+ - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
 
 Example:
 
@@ -501,6 +504,8 @@ Example:
 		clock-names = "rx_core_clk", "rx_npl_clk";
 		clocks = <&clock_audio_rx_1 0>,
 			 <&clock_audio_rx_2 0>;
+		qcom,rx-swr-gpios = <&rx_swr_gpios>;
+		qcom,rx_mclk_mode_muxsel = <0x62C25020>;
 		swr_1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			wcd937x_rx_slave: wcd937x-rx-slave {
@@ -518,6 +523,8 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for TX macro
  - clocks : clock handles defined for TX macro
+ - qcom,tx-swr-gpios: phandle for SWR data and clock GPIOs of TX macro
+ - qcom,tx-dmic-sample-rate: Sample rate defined for DMICs connected to TX macro
 
 Example:
 
@@ -528,6 +535,8 @@ Example:
 		clock-names = "tx_core_clk", "tx_npl_clk";
 		clocks = <&clock_audio_tx_1 0>
 			 <&clock_audio_tx_2 0>;
+		qcom,tx-swr-gpios = <&tx_swr_gpios>;
+		qcom,tx-dmic-sample-rate = <4800000>;
 		swr_2: tx_swr_master {
 			compatible = "qcom,swr-mstr";
 			wcd937x_tx_slave: wcd937x-tx-slave {

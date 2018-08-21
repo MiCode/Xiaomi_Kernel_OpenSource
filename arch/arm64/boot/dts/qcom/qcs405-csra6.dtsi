@@ -12,6 +12,7 @@
  */
 
 &i2c_5 {
+	status = "okay";
 	/* CSRA66X0 cluster GRP_0 */
 	csra66x0_ampl_68: csra66x0@68 {
 		compatible = "qcom,csra66x0";
@@ -47,6 +48,7 @@
 };
 
 &i2c_2 {
+	status = "okay";
 	/* CSRA66X0 cluster GRP_1 */
 	csra66x0_ampl_68_1: csra66x0_1@68 {
 		compatible = "qcom,csra66x0";

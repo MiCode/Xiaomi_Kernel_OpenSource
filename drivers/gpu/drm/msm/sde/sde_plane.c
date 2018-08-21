@@ -885,7 +885,6 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 		input_fence = pstate->input_fence;
 
 		if (input_fence) {
-			psde->is_error = false;
 			prefix = sde_sync_get_name_prefix(input_fence);
 			rc = sde_sync_wait(input_fence, wait_ms);
 
@@ -1025,8 +1024,15 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
-	else if (ret)
+	else if (ret) {
 		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
+
+		/*
+		 * Force solid fill color on error. This is to prevent
+		 * smmu faults during secure session transition.
+		 */
+		psde->is_error = true;
+	}
 	else if (psde->pipe_hw->ops.setup_sourceaddress) {
 		SDE_EVT32_VERBOSE(psde->pipe_hw->idx,
 				pipe_cfg->layout.width,
@@ -2377,7 +2383,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -2393,7 +2399,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			SDE_ERROR("plane%d.%d invalid rotator ops\n",
 					plane->base.id, rstate->sequence_id);
 			sde_crtc_res_put(cstate,
-					SDE_HW_BLK_ROT, (u64) state->fb);
+				SDE_HW_BLK_ROT, (u64)(uintptr_t) state->fb);
 			rstate->rot_hw = NULL;
 			return -EINVAL;
 		}
@@ -3075,7 +3081,7 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 				state->fb ? state->fb->base.id : -1);
 
 		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
-				(u64) state->fb);
+				(u64)(uintptr_t) state->fb);
 		if (!hw_blk) {
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
@@ -4747,15 +4753,15 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
-						(void __user *)val);
+						(void *)(uintptr_t)val);
 				break;
 			default:
 				/* nothing to do */

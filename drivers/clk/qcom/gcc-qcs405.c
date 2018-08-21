@@ -873,12 +873,19 @@ static struct clk_rcg2 emac_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_emac_ptp_clk_src[] = {
+	F(50000000,  P_GPLL1_OUT_MAIN, 10, 0, 0),
+	F(125000000, P_GPLL1_OUT_MAIN, 4, 0, 0),
+	F(250000000, P_GPLL1_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 emac_ptp_clk_src = {
 	.cmd_rcgr = 0x4e014,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_4,
-	.freq_tbl = ftbl_emac_clk_src,
+	.freq_tbl = ftbl_emac_ptp_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "emac_ptp_clk_src",
 		.parent_names = gcc_parent_names_4,

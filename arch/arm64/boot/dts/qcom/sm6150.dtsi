@@ -368,11 +368,11 @@
 			};
 
 			cluster1 {
-				core6 {
+				core0 {
 					cpu = <&CPU6>;
 				};
 
-				core7 {
+				core1 {
 					cpu = <&CPU7>;
 				};
 			};
@@ -896,6 +896,12 @@
 			< 1708800 MHZ_TO_MBPS(1017, 4) >,
 			< 2208000 MHZ_TO_MBPS(1804, 4) >;
 	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
 };
 
 &soc {
@@ -1085,6 +1091,13 @@
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
 		interrupts = <1 5 4>;
+	};
+
+	dsu_pmu@0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
+			<&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
 	};
 
 	qcom,msm-imem@146aa000 {
@@ -1464,9 +1477,9 @@
 		interrupts = <0 129 0>;
 		#mbox-cells = <1>;
 		qcom,drv-id = <0>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   1>,
+		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
+				  <ACTIVE_TCS  2>,
 				  <CONTROL_TCS 0>;
 	};
 
@@ -1689,8 +1702,8 @@
 		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
@@ -2186,6 +2199,7 @@
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -2275,6 +2289,7 @@
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc 0 578 1>,
@@ -2664,3 +2679,6 @@
 #include "sm6150-coresight.dtsi"
 #include "sm6150-bus.dtsi"
 #include "sm6150-vidc.dtsi"
+#include "sm6150-audio.dtsi"
+#include "sm6150-sde-pll.dtsi"
+#include "sm6150-sde.dtsi"

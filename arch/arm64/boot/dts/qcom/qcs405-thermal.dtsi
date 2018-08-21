@@ -393,4 +393,25 @@
 			};
 		};
 	};
+
+	xo-therm-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_XO_THERM_PU2>;
+	};
+
+	pa-therm1-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_AMUX_THM1_PU2>;
+	};
+
+	pa-therm3-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pms405_adc_tm_iio ADC_AMUX_THM3_PU2>;
+	};
 };

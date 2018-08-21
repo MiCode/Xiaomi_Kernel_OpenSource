@@ -11,9 +11,17 @@
  * GNU General Public License for more details.
  */
 
+/{
+	aliases {
+		swr0 = &swr_tavil;
+	};
+};
+
+#include "sm6150-wcd.dtsi"
+
 &sm6150_snd {
 	qcom,model = "sm6150-tavil-snd-card";
-	qcom,tavil_codec;
+	qcom,tavil_codec = <1>;
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
@@ -88,8 +96,8 @@
 		"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
 		"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
 		"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
-	asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
-	asoc-codec-names = "msm-stub-codec.1", "msm-ext-disp-audio-codec-rx";
+	asoc-codec = <&stub_codec>;
+	asoc-codec-names = "msm-stub-codec.1";
 	qcom,hph-en0-gpio = <&tavil_hph_en0>;
 	qcom,hph-en1-gpio = <&tavil_hph_en1>;
 	qcom,wsa-max-devs = <2>;
@@ -101,6 +109,37 @@
 
 &slim_aud {
 	status = "okay";
+	tavil_codec {
+		swr_tavil: tavil_wsa_swr_master {
+			compatible = "qcom,swr-mstr";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_11: wsa881x@11 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
+			};
+
+			wsa881x_12: wsa881x@12 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
+			};
+
+			wsa881x_13: wsa881x@13 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170213>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
+			};
+
+			wsa881x_14: wsa881x@14 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
+			};
+		};
+	};
 };
 
 &dai_slim {

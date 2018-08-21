@@ -33,7 +33,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SM8150";
 	compatible = "qcom,sm8150";
-	qcom,msm-name = "SM8150";
+	qcom,msm-name = "SM8150 V1";
 	qcom,msm-id = <339 0x10000>;
 	interrupt-parent = <&pdc>;
 
@@ -601,11 +601,6 @@
 			reg = <0x0 0x85e00000 0x0 0x140000>;
 		};
 
-		flex_sec_apps_mem: flex_sec_apps_regions@85ffd000 {
-			no-map;
-			reg = <0x0 0x85ffd000 0x0 0x3000>;
-		};
-
 		smem_region: smem@86000000 {
 			no-map;
 			reg = <0x0 0x86000000 0x0 0x200000>;
@@ -670,28 +665,34 @@
 			reg = <0x0 0x96700000 0x0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@96c00000 {
+		pil_slpi_mem: pil_slpi_region@96c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x96c00000 0x0 0x800000>;
+			reg = <0x0 0x96c00000 0x0 0x1400000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@97400000 {
+		pil_spss_mem: pil_spss_region@98000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x97400000 0x0 0x1400000>;
+			reg = <0x0 0x98000000 0x0 0x100000>;
 		};
 
-		pil_spss_mem: pil_spss_region@98800000 {
+		pil_cdsp_mem: cdsp_regions@98100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x98800000 0x0 0x100000>;
+			reg = <0x0 0x98100000 0x0 0x1400000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
 			compatible = "shared-dma-pool";
 			no-map;
 			reg = <0 0x9e400000 0 0x1400000>;
+		};
+
+		cdsp_sec_mem: cdsp_sec_regions@0xa4c00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0xa4c00000 0x0 0x3c00000>;
 		};
 
 		cont_splash_memory: cont_splash_region@9c000000 {
@@ -1655,6 +1656,7 @@
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -1702,6 +1704,7 @@
 		status = "ok";
 		memory-region = <&pil_slpi_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 0 494 1>,
@@ -1747,6 +1750,7 @@
 		qcom,pil-generic-irq-handler;
 		status = "ok";
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -1802,6 +1806,7 @@
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		qcom,msm-bus,name = "pil-cdsp";
 		qcom,msm-bus,num-cases = <2>;
@@ -1837,6 +1842,7 @@
 
 		vdd-supply = <&mvsc_gdsc>;
 		qcom,proxy-reg-names = "vdd";
+		qcom,complete-ramdump;
 
 		clocks = <&clock_videocc VIDEO_CC_XO_CLK>,
 			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK>,
