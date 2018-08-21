@@ -819,9 +819,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	/* For a608 Mem pool size is reduced to 1/4 */
 	if (adreno_is_a608(adreno_dev))
-		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 32);
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0x30);
 	else
-		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0x80);
 
 	/* Setting the primFifo thresholds values */
 	if (adreno_is_a640(adreno_dev))
