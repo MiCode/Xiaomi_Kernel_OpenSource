@@ -810,7 +810,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	} else if (adreno_is_a608(adreno_dev)) {
-		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x800060);
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x00800060);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
 	} else {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x010000C0);
@@ -1750,7 +1750,6 @@ static struct adreno_irq a6xx_irq = {
 
 static struct adreno_snapshot_sizes a6xx_snap_sizes = {
 	.cp_pfp = 0x33,
-	.roq = 0x400,
 };
 
 static struct adreno_snapshot_data a6xx_snapshot_data = {
