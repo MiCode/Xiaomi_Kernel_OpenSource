@@ -406,6 +406,28 @@
 			qcom,bus-max = <0>;
 		};
 	};
+
+	qcom,l3-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,l3-pwrlevels";
+
+		qcom,l3-pwrlevel@0 {
+			reg = <0>;
+			qcom,l3-freq = <0>;
+		};
+
+		qcom,l3-pwrlevel@1 {
+			reg = <1>;
+			qcom,l3-freq = <1344000000>;
+		};
+
+		qcom,l3-pwrlevel@2 {
+			reg = <2>;
+			qcom,l3-freq = <1612800000>;
+		};
+	};
 };
 
 /* NPU overrides */
