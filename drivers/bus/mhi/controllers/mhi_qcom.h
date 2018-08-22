@@ -24,6 +24,9 @@
 #define MHI_RPM_SUSPEND_TMR_MS (1000)
 #define MHI_PCI_BAR_NUM (0)
 
+extern const char * const mhi_ee_str[MHI_EE_MAX];
+#define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
+
 struct mhi_dev {
 	struct pci_dev *pci_dev;
 	u32 smmu_cfg;
