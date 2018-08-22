@@ -380,6 +380,27 @@ struct ipahal_reg_comp_cfg {
 };
 
 /*
+ * struct ipahal_reg_tx_wrapper- IPA TX Wrapper state information
+ */
+struct ipahal_reg_tx_wrapper {
+	bool tx0_idle;
+	bool tx1_idle;
+	bool ipa_prod_ackmngr_db_empty;
+	bool ipa_prod_ackmngr_state_idle;
+	bool ipa_prod_prod_bresp_empty;
+	bool ipa_prod_prod_bresp_toggle_idle;
+	bool ipa_mbim_pkt_fms_idle;
+	u8 mbim_direct_dma;
+	bool trnseq_force_valid;
+	bool pkt_drop_cnt_idle;
+	u8 nlo_direct_dma;
+	u8 coal_direct_dma;
+	bool coal_slave_idle;
+	bool coal_slave_ctx_idle;
+	u8 coal_slave_open_frame;
+};
+
+/*
  * struct ipa_hash_tuple - Hash tuple members for flt and rt
  *  the fields tells if to be masked or not
  * @src_id: pipe number for flt, table index for rt
