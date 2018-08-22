@@ -2143,7 +2143,15 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 				chip->recharge_soc_adjusted = true;
 			} else {
 				/* adjusted already, do nothing */
-				return 0;
+				if (chip->health != POWER_SUPPLY_HEALTH_GOOD)
+					return 0;
+
+				/*
+				 * Device is out of JEITA so restore the
+				 * default value
+				 */
+				new_recharge_soc = recharge_soc;
+				chip->recharge_soc_adjusted = false;
 			}
 		} else {
 			if (!chip->recharge_soc_adjusted)
