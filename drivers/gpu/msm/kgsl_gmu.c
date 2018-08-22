@@ -1520,7 +1520,15 @@ static int gmu_suspend(struct kgsl_device *device)
 		return -EINVAL;
 
 	gmu_disable_clks(device);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
+
 	gmu_disable_gdsc(gmu);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
+
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
 	return 0;
 }
