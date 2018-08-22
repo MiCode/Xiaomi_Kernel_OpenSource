@@ -1399,7 +1399,7 @@ static int qti_haptics_probe(struct platform_device *pdev)
 	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	chip->stop_timer.function = qti_hap_stop_timer;
 
-	input_dev->name = "vibrator";
+	input_dev->name = "qti-haptics";
 	input_set_drvdata(input_dev, chip);
 	chip->input_dev = input_dev;
 
