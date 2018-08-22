@@ -1131,6 +1131,9 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->common_data;
 
 	/* Disble WM */
+	cam_io_w_mb(0x0,
+		common_data->mem_base + rsrc_data->hw_regs->cfg);
+
 	/* Disable all register access, reply on global reset */
 	CAM_DBG(CAM_ISP, "WM res %d irq_enabled %d",
 		rsrc_data->index, rsrc_data->irq_enabled);
@@ -2291,9 +2294,10 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
 	struct cam_vfe_bus_ver2_reg_offset_ubwc_client *ubwc_client = NULL;
 	uint32_t *reg_val_pair;
-	uint32_t  i, j, size = 0;
+	uint32_t  i, j, k, size = 0;
 	uint32_t  frame_inc = 0, ubwc_bw_limit = 0, camera_hw_version, val;
 	int rc = 0;
+	uint32_t loop_size = 0;
 
 	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 	update_buf =  (struct cam_isp_hw_get_cmd_update *) cmd_args;
@@ -2492,20 +2496,6 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 			}
 		}
 
-		/* WM Image address */
-		if (wm_data->en_ubwc)
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->image_addr,
-				(update_buf->wm_update->image_buf[i] +
-				io_cfg->planes[i].meta_size));
-		else
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->image_addr,
-				update_buf->wm_update->image_buf[i] +
-				wm_data->offset);
-		CAM_DBG(CAM_ISP, "WM %d image address 0x%x",
-			wm_data->index, reg_val_pair[j-1]);
-
 		if (wm_data->en_ubwc) {
 			frame_inc = ALIGNUP(io_cfg->planes[i].plane_stride *
 			    io_cfg->planes[i].slice_height, 4096);
@@ -2519,6 +2509,28 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 		} else {
 			frame_inc = io_cfg->planes[i].plane_stride *
 				io_cfg->planes[i].slice_height;
+		}
+
+		if (wm_data->index < 3)
+			loop_size = wm_data->irq_subsample_period + 1;
+		else
+			loop_size = 1;
+
+		/* WM Image address */
+		for (k = 0; k < loop_size; k++) {
+			if (wm_data->en_ubwc)
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->image_addr,
+					update_buf->wm_update->image_buf[i] +
+					io_cfg->planes[i].meta_size +
+					k * frame_inc);
+			else
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->image_addr,
+					update_buf->wm_update->image_buf[i] +
+					wm_data->offset + k * frame_inc);
+			CAM_DBG(CAM_ISP, "WM %d image address 0x%x",
+				wm_data->index, reg_val_pair[j-1]);
 		}
 
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
@@ -2590,6 +2602,13 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		if (wm_data->index <= 2 && hfr_cfg->subsample_period > 3) {
+			CAM_ERR(CAM_ISP,
+				"RDI doesn't support irq subsample period %d",
+				hfr_cfg->subsample_period);
+			return -EINVAL;
+		}
 
 		if ((wm_data->framedrop_pattern !=
 			hfr_cfg->framedrop_pattern) ||
