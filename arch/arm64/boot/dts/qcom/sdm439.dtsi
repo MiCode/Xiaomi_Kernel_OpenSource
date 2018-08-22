@@ -238,6 +238,18 @@
 	};
 };
 
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x5500000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x8bd00000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8ce00000 0x0 0x700000>;
+};
+
 &soc {
 	pil_gpu: qcom,kgsl-hyp {
 		compatible = "qcom,pil-tz-generic";
