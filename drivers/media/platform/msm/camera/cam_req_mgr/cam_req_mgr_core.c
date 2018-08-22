@@ -1282,7 +1282,8 @@ static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 				rc = dev->ops->link_setup(&link_data);
 				if (rc)
 					CAM_ERR(CAM_CRM,
-						"Unlink failed dev_hdl %d",
+						"Unlink failed dev name %s hdl %x",
+						dev->dev_info.name,
 						dev->dev_hdl);
 			}
 			dev->dev_hdl = 0;
@@ -2347,8 +2348,8 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	/* Destroy the link handle */
 	rc = cam_destroy_device_hdl(link->link_hdl);
 	if (rc < 0) {
-		CAM_ERR(CAM_CRM, "error while destroying dev handle %d %x",
-			rc, link->link_hdl);
+		CAM_ERR(CAM_CRM, "error destroying link hdl %x rc %d",
+			link->link_hdl, rc);
 	}
 
 	mutex_unlock(&link->lock);
@@ -2549,8 +2550,7 @@ int cam_req_mgr_unlink(struct cam_req_mgr_unlink_info *unlink_info)
 	rc = __cam_req_mgr_unlink(link);
 
 	/* Free curent link and put back into session's free pool of links */
-	if (!rc)
-		__cam_req_mgr_unreserve_link(cam_session, link);
+	__cam_req_mgr_unreserve_link(cam_session, link);
 
 done:
 	mutex_unlock(&g_crm_core_dev->crm_lock);
