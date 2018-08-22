@@ -58,8 +58,8 @@ extern unsigned int walt_cpu_util_freq_divisor;
 
 struct walt_sched_stats {
 	int nr_big_tasks;
-	u64 cumulative_runnable_avg;
-	u64 pred_demands_sum;
+	u64 cumulative_runnable_avg_scaled;
+	u64 pred_demands_sum_scaled;
 };
 
 struct cpu_cycle {
@@ -882,7 +882,7 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
-	u64 cum_window_demand;
+	u64 cum_window_demand_scaled;
 	struct group_cpu_time grp_time;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
 	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
@@ -1615,7 +1615,8 @@ struct sched_class {
 
 #ifdef CONFIG_SCHED_WALT
 	void (*fixup_walt_sched_stats)(struct rq *rq, struct task_struct *p,
-				      u32 new_task_load, u32 new_pred_demand);
+				       u16 updated_demand_scaled,
+				       u16 updated_pred_demand_scaled);
 #endif
 };
 
@@ -1889,8 +1890,7 @@ static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
 	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
-		return p->ravg.demand /
-		       (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+		return p->ravg.demand_scaled;
 #endif
 	return READ_ONCE(p->se.avg.util_avg);
 }
@@ -1941,10 +1941,7 @@ static inline unsigned long cpu_util(int cpu)
 #ifdef CONFIG_SCHED_WALT
 	if (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {
 		u64 walt_cpu_util =
-				cpu_rq(cpu)->walt_stats.cumulative_runnable_avg;
-
-		walt_cpu_util <<= SCHED_CAPACITY_SHIFT;
-		do_div(walt_cpu_util, sched_ravg_window);
+			cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
 
 		return min_t(unsigned long, walt_cpu_util,
 				capacity_orig_of(cpu));
@@ -1973,11 +1970,8 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->cum_window_demand;
-		util = div64_u64(util,
-				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
-	}
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+		util = cpu_rq(cpu)->cum_window_demand_scaled;
 #endif
 	delta += util;
 	if (delta < 0)
@@ -2011,19 +2005,17 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 	if (walt_load) {
 		u64 nl = cpu_rq(cpu)->nt_prev_runnable_sum +
 				rq->grp_time.nt_prev_runnable_sum;
-		u64 pl = rq->walt_stats.pred_demands_sum;
+		u64 pl = rq->walt_stats.pred_demands_sum_scaled;
 
 		/* do_pl_notif() needs unboosted signals */
 		rq->old_busy_time = div64_u64(util_unboosted,
 						sched_ravg_window >>
 						SCHED_CAPACITY_SHIFT);
-		rq->old_estimated_time = div64_u64(pl, sched_ravg_window >>
-						SCHED_CAPACITY_SHIFT);
+		rq->old_estimated_time = pl;
 
 		nl = div64_u64(nl * (100 + boost),
 		walt_cpu_util_freq_divisor);
-		pl = div64_u64(pl * (100 + boost),
-		walt_cpu_util_freq_divisor);
+		pl = div64_u64(pl * (100 + boost), 100);
 
 		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
@@ -2810,8 +2802,6 @@ struct related_thread_group *task_related_thread_group(struct task_struct *p)
 	return rcu_dereference(p->grp);
 }
 
-#define PRED_DEMAND_DELTA ((s64)new_pred_demand - p->ravg.pred_demand)
-
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
@@ -2890,11 +2880,11 @@ task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
 							 rq->window_start);
 }
 
-static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 delta)
+static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 scaled_delta)
 {
-	rq->cum_window_demand += delta;
-	if (unlikely((s64)rq->cum_window_demand < 0))
-		rq->cum_window_demand = 0;
+	rq->cum_window_demand_scaled += scaled_delta;
+	if (unlikely((s64)rq->cum_window_demand_scaled < 0))
+		rq->cum_window_demand_scaled = 0;
 }
 
 extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
@@ -3037,8 +3027,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void add_new_task_to_grp(struct task_struct *new) {}
 
-#define PRED_DEMAND_DELTA (0)
-
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
 	return 1;
@@ -3052,7 +3040,8 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_cgroup(...)
 #define trace_sched_cpu_load_wakeup(...)
 
-static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 delta) { }
+static inline void walt_fixup_cum_window_demand(struct rq *rq,
+						s64 scaled_delta) { }
 
 static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
 
