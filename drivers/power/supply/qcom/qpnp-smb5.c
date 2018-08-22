@@ -534,6 +534,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
 	POWER_SUPPLY_PROP_TYPEC_SRC_RP,
+	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
@@ -620,6 +621,12 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_SRC_RP:
 		rc = smblib_get_prop_typec_select_rp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_LOW_POWER:
+		if (chg->sink_src_mode == SRC_MODE)
+			rc = smblib_get_prop_low_power(chg, val);
+		else
+			rc = -ENODATA;
 		break;
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		val->intval = chg->pd_active;
@@ -1557,8 +1564,11 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
+	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
+				TYPEC_WATER_DETECTION_INT_EN_BIT,
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT
+				| TYPEC_WATER_DETECTION_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
@@ -2058,6 +2068,14 @@ static int smb5_init_hw(struct smb5 *chip)
 			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
 			return rc;
 		}
+	}
+
+	rc = smblib_masked_write(chg, DCDC_ENG_SDCDC_CFG5_REG,
+			ENG_SDCDC_BAT_HPWR_MASK, BOOST_MODE_THRESH_3P6_V);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure DCDC_ENG_SDCDC_CFG5 rc=%d\n",
+				rc);
+		return rc;
 	}
 
 	return rc;
