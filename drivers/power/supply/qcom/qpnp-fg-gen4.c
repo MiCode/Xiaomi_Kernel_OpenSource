@@ -4166,6 +4166,16 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+	mutex_init(&fg->bus_lock);
+	mutex_init(&fg->sram_rw_lock);
+	mutex_init(&fg->charge_full_lock);
+	init_completion(&fg->soc_update);
+	init_completion(&fg->soc_ready);
+	INIT_WORK(&fg->status_change_work, status_change_work);
+	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
+	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
+	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
+
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
 	if (IS_ERR(fg->awake_votable)) {
@@ -4217,16 +4227,6 @@ static int fg_gen4_probe(struct platform_device *pdev)
 			goto exit;
 		}
 	}
-
-	mutex_init(&fg->bus_lock);
-	mutex_init(&fg->sram_rw_lock);
-	mutex_init(&fg->charge_full_lock);
-	init_completion(&fg->soc_update);
-	init_completion(&fg->soc_ready);
-	INIT_WORK(&fg->status_change_work, status_change_work);
-	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
-	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
 
 	rc = fg_memif_init(fg);
 	if (rc < 0) {
