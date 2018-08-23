@@ -986,7 +986,7 @@ static int himax_touch_get(struct himax_ts_data *ts, uint8_t *buf, int ts_path, 
 			|| (HX_ESD_RESET_ACTIVATE)
 #endif
 			) {
-			if (!g_core_fp.fp_read_event_stack(buf, 128)) {
+			if (!g_core_fp.fp_read_event_stack(buf, HX_REPORT_SZ)) {
 				E("%s: can't read data from chip!\n", __func__);
 				ts_status = HX_TS_GET_DATA_FAIL;
 				goto END_FUNCTION;
@@ -1013,7 +1013,7 @@ static int himax_touch_get(struct himax_ts_data *ts, uint8_t *buf, int ts_path, 
 		break;
 #endif
 	case HX_REPORT_COORD_RAWDATA:
-		if (!g_core_fp.fp_read_event_stack(buf, 128)) {
+		if (!g_core_fp.fp_read_event_stack(buf, HX_REPORT_SZ)) {
 			E("%s: can't read data from chip!\n", __func__);
 			ts_status = HX_TS_GET_DATA_FAIL;
 			goto END_FUNCTION;
@@ -1750,7 +1750,7 @@ int himax_report_data(struct himax_ts_data *ts, int ts_path, int ts_status)
 static int himax_ts_operation(struct himax_ts_data *ts, int ts_path, int ts_status)
 {
 	uint8_t hw_reset_check[2];
-	uint8_t buf[128];
+	uint8_t buf[HX_REPORT_SZ];
 
 	memset(buf, 0x00, sizeof(buf));
 	memset(hw_reset_check, 0x00, sizeof(hw_reset_check));
@@ -1895,7 +1895,7 @@ int himax_fb_register(struct himax_ts_data *ts)
 	int ret = 0;
 
 	I(" %s in\n", __func__);
-	ts->fb_notif.notifier_call = fb_notifier_callback;
+	ts->fb_notif.notifier_call = drm_notifier_callback;
 	ret = msm_drm_register_client(&ts->fb_notif);
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);
@@ -2230,6 +2230,7 @@ void himax_chip_common_deinit(void)
 	kfree(hx_touch_data);
 	kfree(ic_data);
 	kfree(ts->pdata);
+	kfree(ts->report_i2c_data);
 	kfree(ts);
 	probe_fail_flag = 0;
 }
