@@ -463,6 +463,11 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: The minimum battery current for FG to enter into sync-sleep.
 
+- qcom,fg-disable-in-twm
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property which disables FG during TWM entry.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================

@@ -451,6 +451,7 @@ struct fg_dev {
 	struct fg_batt_props	bp;
 	struct notifier_block	nb;
 	struct alarm            esr_sw_timer;
+	struct notifier_block	twm_nb;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
@@ -488,6 +489,7 @@ struct fg_dev {
 	bool			soc_reporting_ready;
 	bool			use_ima_single_mode;
 	bool			usb_present;
+	bool			twm_state;
 	bool			use_dma;
 	bool			qnovo_enable;
 	enum fg_version		version;
