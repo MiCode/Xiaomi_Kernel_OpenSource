@@ -176,6 +176,7 @@ struct fg_dt_props {
 	bool	force_load_profile;
 	bool	hold_soc_while_full;
 	bool	linearize_soc;
+	bool	rapid_soc_dec_en;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -221,6 +222,7 @@ struct fg_gen4_chip {
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
 	char			batt_profile[PROFILE_LEN];
+	enum slope_limit_status	slope_limit_sts;
 	int			delta_esr_count;
 	int			recharge_soc_thr;
 	int			esr_actual;
@@ -233,6 +235,7 @@ struct fg_gen4_chip {
 	bool			esr_fast_cal_timer_expired;
 	bool			esr_fcc_ctrl_en;
 	bool			rslow_low;
+	bool			rapid_soc_dec_en;
 };
 
 struct bias_config {
@@ -1072,6 +1075,93 @@ static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_hi %d\n", ki_coeff_hi);
 	}
 
+	return 0;
+}
+
+static int fg_gen4_slope_limit_config(struct fg_gen4_chip *chip, int batt_temp)
+{
+	struct fg_dev *fg = &chip->fg;
+	enum slope_limit_status status;
+	int rc;
+	u8 buf;
+
+	if (!chip->slope_limit_en || chip->rapid_soc_dec_en)
+		return 0;
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING ||
+		fg->charge_status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	}
+
+	if (chip->slope_limit_sts == status)
+		return 0;
+
+	fg_encode(fg->sp, FG_SRAM_SLOPE_LIMIT,
+		chip->dt.slope_limit_coeffs[status], &buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	chip->slope_limit_sts = status;
+	fg_dbg(fg, FG_STATUS, "Slope limit status: %d value: %x\n", status,
+		buf);
+	return 0;
+}
+
+static int fg_gen4_configure_cutoff_current(struct fg_dev *fg, int current_ma)
+{
+	int rc;
+	u8 buf[2];
+
+	fg_encode(fg->sp, FG_SRAM_CUTOFF_CURR, current_ma, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_CURR].addr_word,
+			fg->sp[FG_SRAM_CUTOFF_CURR].addr_byte, buf,
+			fg->sp[FG_SRAM_CUTOFF_CURR].len, FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("Error in writing cutoff_curr, rc=%d\n", rc);
+
+	return rc;
+}
+
+#define SLOPE_LIMIT_DEFAULT	5738
+#define CUTOFF_CURRENT_MAX	15999
+static int fg_gen4_rapid_soc_config(struct fg_gen4_chip *chip, bool en)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, slope_limit_coeff, cutoff_curr_ma;
+	u8 buf;
+
+	slope_limit_coeff = en ? SLOPE_LIMIT_COEFF_MAX : SLOPE_LIMIT_DEFAULT;
+	fg_encode(fg->sp, FG_SRAM_SLOPE_LIMIT, slope_limit_coeff, &buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	cutoff_curr_ma = en ? CUTOFF_CURRENT_MAX : chip->dt.cutoff_curr_ma;
+	rc = fg_gen4_configure_cutoff_current(fg, cutoff_curr_ma);
+	if (rc < 0)
+		return rc;
+
+	fg_dbg(fg, FG_STATUS, "Configured slope limit coeff %d cutoff current %d mA\n",
+		slope_limit_coeff, cutoff_curr_ma);
 	return 0;
 }
 
@@ -2116,13 +2206,34 @@ static irqreturn_t fg_delta_esr_irq_handler(int irq, void *data)
 static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
-	int rc, vbatt_mv;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, vbatt_mv, msoc_raw;
 
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
 		return IRQ_HANDLED;
 
-	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d\n", irq, vbatt_mv);
+	vbatt_mv /= 1000;
+	rc = fg_get_msoc_raw(fg, &msoc_raw);
+	if (rc < 0)
+		return IRQ_HANDLED;
+
+	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
+		vbatt_mv, msoc_raw);
+
+	if (chip->dt.rapid_soc_dec_en && vbatt_mv < chip->dt.cutoff_volt_mv) {
+		/*
+		 * Set this flag so that slope limiter coefficient cannot be
+		 * configured during rapid SOC decrease.
+		 */
+		chip->rapid_soc_dec_en = true;
+
+		rc = fg_gen4_rapid_soc_config(chip, true);
+		if (rc < 0)
+			pr_err("Error in configuring for rapid SOC reduction rc:%d\n",
+				rc);
+	}
+
 	if (batt_psy_initialized(fg))
 		power_supply_changed(fg->batt_psy);
 
@@ -2189,6 +2300,7 @@ static irqreturn_t fg_batt_temp_irq_handler(int irq, void *data)
 static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_temp;
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -2198,6 +2310,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered batt_temp:%d\n", irq, batt_temp);
+
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
 	if (abs(fg->last_batt_temp - batt_temp) > 30)
 		pr_warn("Battery temperature last:%d current: %d\n",
@@ -2264,12 +2380,19 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 			fg->charge_status, fg->charge_done, input_present);
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Failed to read battery temp rc: %d\n", rc);
-	else if (chip->cl->active)
-		cap_learning_update(chip->cl, batt_temp, batt_soc,
-			fg->charge_status, fg->charge_done, input_present,
-			is_qnovo_en(fg));
+	} else {
+		if (chip->cl->active)
+			cap_learning_update(chip->cl, batt_temp, batt_soc,
+				fg->charge_status, fg->charge_done,
+				input_present, is_qnovo_en(fg));
+
+		rc = fg_gen4_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+	}
 
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
@@ -2803,6 +2926,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
@@ -3416,14 +3543,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		return rc;
 	}
 
-	fg_encode(fg->sp, FG_SRAM_CUTOFF_CURR, chip->dt.cutoff_curr_ma, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_CURR].addr_word,
-			fg->sp[FG_SRAM_CUTOFF_CURR].addr_byte, buf,
-			fg->sp[FG_SRAM_CUTOFF_CURR].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing cutoff_curr, rc=%d\n", rc);
+	rc = fg_gen4_configure_cutoff_current(fg, chip->dt.cutoff_curr_ma);
+	if (rc < 0)
 		return rc;
-	}
 
 	fg_encode(fg->sp, FG_SRAM_SYS_TERM_CURR, chip->dt.sys_term_curr_ma,
 		buf);
@@ -4144,6 +4266,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	chip->dt.rapid_soc_dec_en = of_property_read_bool(node,
+					"qcom,rapid-soc-dec-en");
 	return 0;
 }
 
@@ -4318,7 +4442,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	rc = fg_get_battery_voltage(fg, &volt_uv);
 	if (!rc)
-		rc = fg_gen4_get_prop_capacity(fg, &msoc);
+		rc = fg_get_msoc(fg, &msoc);
 
 	if (!rc)
 		rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -4326,9 +4450,11 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (!rc)
 		rc = fg_gen4_get_batt_id(chip);
 
-	if (!rc)
+	if (!rc) {
+		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
 
 	device_init_wakeup(fg->dev, true);
 	schedule_delayed_work(&fg->profile_load_work, 0);
@@ -4353,6 +4479,15 @@ static void fg_gen4_shutdown(struct platform_device *pdev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(&pdev->dev);
 	struct fg_dev *fg = &chip->fg;
 	int rc, bsoc;
+
+	fg_unregister_interrupts(fg, chip, FG_GEN4_IRQ_MAX);
+
+	if (chip->rapid_soc_dec_en) {
+		rc = fg_gen4_rapid_soc_config(chip, false);
+		if (rc < 0)
+			pr_err("Error in reverting rapid SOC decrease config rc:%d\n",
+				rc);
+	}
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_BATT_SOC, &bsoc);
 	if (rc < 0) {
