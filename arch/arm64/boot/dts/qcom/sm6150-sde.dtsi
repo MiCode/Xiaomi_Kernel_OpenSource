@@ -253,8 +253,7 @@
 		reg = <0xaf20000 0x1c44>,
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
-		qcom,sde-rsc-version = <1>;
-		status = "disabled";
+		qcom,sde-rsc-version = <2>;
 
 		vdd-supply = <&mdss_core_gdsc>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
