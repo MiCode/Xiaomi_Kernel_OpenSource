@@ -33,7 +33,6 @@
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
-#define DEVICE_NAME_SECURE "adsprpc-smd-secure"
 
 /* Set for buffers that have no virtual mapping in userspace */
 #define FASTRPC_ATTR_NOVA 0x1
