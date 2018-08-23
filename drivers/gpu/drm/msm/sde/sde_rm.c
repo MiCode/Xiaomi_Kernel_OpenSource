@@ -1072,38 +1072,67 @@ static int _sde_rm_reserve_intf_related_hw(
 	return ret;
 }
 
-static int _sde_rm_make_next_rsvp(
-		struct sde_rm *rm,
-		struct drm_encoder *enc,
-		struct drm_crtc_state *crtc_state,
-		struct drm_connector_state *conn_state,
-		struct sde_rm_rsvp *rsvp,
-		struct sde_rm_requirements *reqs)
+static bool _sde_rm_is_display_in_cont_splash(struct sde_kms *sde_kms,
+		struct drm_encoder *enc)
 {
-	int ret;
-	struct sde_rm_topology_def topology;
+	int i;
+	struct sde_splash_display *splash_dpy;
 
-	/* Create reservation info, tag reserved blocks with it as we go */
-	rsvp->seq = ++rm->rsvp_next_seq;
-	rsvp->enc_id = enc->base.id;
-	rsvp->topology = reqs->topology->top_name;
-	list_add_tail(&rsvp->list, &rm->rsvps);
+	for (i = 0; i < MAX_DSI_DISPLAYS; i++) {
+		splash_dpy = &sde_kms->splash_data.splash_display[i];
+		if (splash_dpy->encoder ==  enc)
+			return splash_dpy->cont_splash_enabled;
+	}
 
+	return false;
+}
+
+static int _sde_rm_make_lm_rsvp(struct sde_rm *rm, struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
+		struct sde_splash_display *splash_display)
+{
+	int ret, i;
+	u8 *hw_ids = NULL;
+
+	/* Check if splash data provided lm_ids */
+	if (splash_display) {
+		hw_ids = splash_display->lm_ids;
+		for (i = 0; i < splash_display->lm_cnt; i++)
+			SDE_DEBUG("splash_display->lm_ids[%d] = %d\n",
+				i, splash_display->lm_ids[i]);
+
+		if (splash_display->lm_cnt != reqs->topology->num_lm)
+			SDE_DEBUG("Configured splash LMs != needed LM cnt\n");
+	}
 	/*
 	 * Assign LMs and blocks whose usage is tied to them: DSPP & Pingpong.
 	 * Do assignment preferring to give away low-resource mixers first:
 	 * - Check mixers without DSPPs
 	 * - Only then allow to grab from mixers with DSPP capability
 	 */
-	ret = _sde_rm_reserve_lms(rm, rsvp, reqs, NULL);
+	ret = _sde_rm_reserve_lms(rm, rsvp, reqs, hw_ids);
 	if (ret && !RM_RQ_DSPP(reqs)) {
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
-		ret = _sde_rm_reserve_lms(rm, rsvp, reqs, NULL);
+		ret = _sde_rm_reserve_lms(rm, rsvp, reqs, hw_ids);
 	}
 
-	if (ret) {
-		SDE_ERROR("unable to find appropriate mixers\n");
-		return ret;
+	return ret;
+}
+
+static int _sde_rm_make_ctl_rsvp(struct sde_rm *rm, struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
+		struct sde_splash_display *splash_display)
+{
+	int ret, i;
+	u8 *hw_ids = NULL;
+	struct sde_rm_topology_def topology;
+
+	/* Check if splash data provided ctl_ids */
+	if (splash_display) {
+		hw_ids = splash_display->ctl_ids;
+		for (i = 0; i < splash_display->ctl_cnt; i++)
+			SDE_DEBUG("splash_display->ctl_ids[%d] = %d\n",
+				i, splash_display->ctl_ids[i]);
 	}
 
 	/*
@@ -1111,13 +1140,78 @@ static int _sde_rm_make_next_rsvp(
 	 * - Check mixers without Split Display
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
-	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology, NULL);
+	ret = _sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology, hw_ids);
 	if (ret && !reqs->topology->needs_split_display &&
 			reqs->topology->num_ctl > SINGLE_CTL) {
 		memcpy(&topology, reqs->topology, sizeof(topology));
 		topology.needs_split_display = true;
-		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology, NULL);
+		ret = _sde_rm_reserve_ctls(rm, rsvp, reqs, &topology, hw_ids);
 	}
+
+	return ret;
+}
+
+static int _sde_rm_make_dsc_rsvp(struct sde_rm *rm, struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
+		struct sde_splash_display *splash_display)
+{
+	int ret, i;
+	u8 *hw_ids = NULL;
+
+	/* Check if splash data provided dsc_ids */
+	if (splash_display) {
+		hw_ids = splash_display->dsc_ids;
+		for (i = 0; i < splash_display->dsc_cnt; i++)
+			SDE_DEBUG("splash_data.dsc_ids[%d] = %d\n",
+				i, splash_display->dsc_ids[i]);
+	}
+
+	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology, hw_ids);
+
+	return ret;
+}
+
+static int _sde_rm_make_next_rsvp(struct sde_rm *rm, struct drm_encoder *enc,
+		struct drm_crtc_state *crtc_state,
+		struct drm_connector_state *conn_state,
+		struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct sde_splash_display *splash_display = NULL;
+	struct sde_splash_data *splash_data;
+	int i, ret;
+
+	priv = enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	splash_data = &sde_kms->splash_data;
+
+	if (_sde_rm_is_display_in_cont_splash(sde_kms, enc)) {
+		for (i = 0; i < ARRAY_SIZE(splash_data->splash_display); i++) {
+			if (enc == splash_data->splash_display[i].encoder)
+				splash_display =
+					&splash_data->splash_display[i];
+		}
+		if (!splash_display) {
+			SDE_ERROR("rm is in cont_splash but data not found\n");
+			return -EINVAL;
+		}
+	}
+
+	/* Create reservation info, tag reserved blocks with it as we go */
+	rsvp->seq = ++rm->rsvp_next_seq;
+	rsvp->enc_id = enc->base.id;
+	rsvp->topology = reqs->topology->top_name;
+	list_add_tail(&rsvp->list, &rm->rsvps);
+
+	ret = _sde_rm_make_lm_rsvp(rm, rsvp, reqs, splash_display);
+	if (ret) {
+		SDE_ERROR("unable to find appropriate mixers\n");
+		return ret;
+	}
+
+	ret = _sde_rm_make_ctl_rsvp(rm, rsvp, reqs, splash_display);
 	if (ret) {
 		SDE_ERROR("unable to find appropriate CTL\n");
 		return ret;
@@ -1128,7 +1222,7 @@ static int _sde_rm_make_next_rsvp(
 	if (ret)
 		return ret;
 
-	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology, NULL);
+	ret = _sde_rm_make_dsc_rsvp(rm, rsvp, reqs, splash_display);
 	if (ret)
 		return ret;
 
@@ -1273,115 +1367,6 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	}
 
 	return 0;
-}
-
-static int _sde_rm_make_next_rsvp_for_cont_splash(
-		struct sde_rm *rm,
-		struct drm_encoder *enc,
-		struct drm_crtc_state *crtc_state,
-		struct drm_connector_state *conn_state,
-		struct sde_rm_rsvp *rsvp,
-		struct sde_rm_requirements *reqs)
-{
-	int ret;
-	struct sde_rm_topology_def topology;
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
-	struct sde_splash_display *splash_display = NULL;
-	int i;
-
-	if (!enc->dev || !enc->dev->dev_private) {
-		SDE_ERROR("drm device invalid\n");
-		return -EINVAL;
-	}
-	priv = enc->dev->dev_private;
-	if (!priv->kms) {
-		SDE_ERROR("invalid kms\n");
-		return -EINVAL;
-	}
-	sde_kms = to_sde_kms(priv->kms);
-
-	for (i = 0; i < ARRAY_SIZE(sde_kms->splash_data.splash_display); i++) {
-		if (enc == sde_kms->splash_data.splash_display[i].encoder)
-			splash_display =
-				&sde_kms->splash_data.splash_display[i];
-	}
-
-	if (!splash_display) {
-		SDE_ERROR("invalid splash data for enc:%d\n", enc->base.id);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < splash_display->lm_cnt; i++)
-		SDE_DEBUG("splash_data.lm_ids[%d] = %d\n",
-			i, splash_display->lm_ids[i]);
-
-	if (splash_display->lm_cnt !=
-			reqs->topology->num_lm)
-		SDE_DEBUG("Configured splash screen LMs != needed LM cnt\n");
-
-	/* Create reservation info, tag reserved blocks with it as we go */
-	rsvp->seq = ++rm->rsvp_next_seq;
-	rsvp->enc_id = enc->base.id;
-	rsvp->topology = reqs->topology->top_name;
-	list_add_tail(&rsvp->list, &rm->rsvps);
-
-	/*
-	 * Assign LMs and blocks whose usage is tied to them: DSPP & Pingpong.
-	 * Do assignment preferring to give away low-resource mixers first:
-	 * - Check mixers without DSPPs
-	 * - Only then allow to grab from mixers with DSPP capability
-	 */
-	ret = _sde_rm_reserve_lms(rm, rsvp, reqs,
-				splash_display->lm_ids);
-	if (ret && !RM_RQ_DSPP(reqs)) {
-		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
-		ret = _sde_rm_reserve_lms(rm, rsvp, reqs,
-					splash_display->lm_ids);
-	}
-
-	if (ret) {
-		SDE_ERROR("unable to find appropriate mixers\n");
-		return ret;
-	}
-
-	/*
-	 * Do assignment preferring to give away low-resource CTLs first:
-	 * - Check mixers without Split Display
-	 * - Only then allow to grab from CTLs with split display capability
-	 */
-	for (i = 0; i < splash_display->ctl_cnt; i++)
-		SDE_DEBUG("splash_data.ctl_ids[%d] = %d\n",
-			i, splash_display->ctl_ids[i]);
-
-	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology,
-			splash_display->ctl_ids);
-	if (ret && !reqs->topology->needs_split_display) {
-		memcpy(&topology, reqs->topology, sizeof(topology));
-		topology.needs_split_display = true;
-		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology,
-				splash_display->ctl_ids);
-	}
-	if (ret) {
-		SDE_ERROR("unable to find appropriate CTL\n");
-		return ret;
-	}
-
-	/* Assign INTFs, WBs, and blks whose usage is tied to them: CTL & CDM */
-	ret = _sde_rm_reserve_intf_related_hw(rm, rsvp, &reqs->hw_res);
-	if (ret)
-		return ret;
-
-	for (i = 0; i < splash_display->dsc_cnt; i++)
-		SDE_DEBUG("splash_data.dsc_ids[%d] = %d\n",
-			i, splash_display->dsc_ids[i]);
-
-	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology,
-				splash_display->dsc_ids);
-	if (ret)
-		return ret;
-
-	return ret;
 }
 
 static int _sde_rm_populate_requirements(
@@ -1623,21 +1608,6 @@ static int _sde_rm_commit_rsvp(
 	return ret;
 }
 
-static bool sde_rm_is_display_in_cont_splash(struct sde_kms *sde_kms,
-		struct drm_encoder *enc)
-{
-	int i;
-	struct sde_splash_display *splash_dpy;
-
-	for (i = 0; i < MAX_DSI_DISPLAYS; i++) {
-		splash_dpy = &sde_kms->splash_data.splash_display[i];
-		if (splash_dpy->encoder ==  enc)
-			return splash_dpy->cont_splash_enabled;
-	}
-
-	return false;
-}
-
 int sde_rm_reserve(
 		struct sde_rm *rm,
 		struct drm_encoder *enc,
@@ -1668,7 +1638,7 @@ int sde_rm_reserve(
 	sde_kms = to_sde_kms(priv->kms);
 
 	/* Check if this is just a page-flip */
-	if (!sde_rm_is_display_in_cont_splash(sde_kms, enc) &&
+	if (!_sde_rm_is_display_in_cont_splash(sde_kms, enc) &&
 			!drm_atomic_crtc_needs_modeset(crtc_state))
 		return 0;
 
@@ -1720,14 +1690,8 @@ int sde_rm_reserve(
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
-	if (sde_rm_is_display_in_cont_splash(sde_kms, enc)) {
-		SDE_DEBUG("cont_splash enabled on enc-%d\n", enc->base.id);
-		ret = _sde_rm_make_next_rsvp_for_cont_splash
-			(rm, enc, crtc_state, conn_state, rsvp_nxt, &reqs);
-	} else {
-		ret = _sde_rm_make_next_rsvp(rm, enc, crtc_state, conn_state,
+	ret = _sde_rm_make_next_rsvp(rm, enc, crtc_state, conn_state,
 			rsvp_nxt, &reqs);
-	}
 
 	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_RSVPNEXT);
 
