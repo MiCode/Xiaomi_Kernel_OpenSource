@@ -87,6 +87,8 @@ static struct sde_crtc_custom_events custom_events[] = {
  * Default value is set to 1 sec.
  */
 #define CRTC_TIME_PERIOD_CALC_FPS_US	1000000
+#define MAX_PERIODICITY			5000000
+#define MAX_FRAME_COUNT			300
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -163,6 +165,16 @@ static void sde_crtc_calc_fps(struct sde_crtc *sde_crtc)
 		sde_crtc->fps_info.last_sampled_time_us = current_time_us;
 		sde_crtc->fps_info.frame_count = 0;
 	}
+
+	/**
+	 * Array indexing is based on sliding window algorithm.
+	 * sde_crtc->time_buf has a maximum capacity of MAX_FRAME_COUNT
+	 * time slots. As the count increases to MAX_FRAME_COUNT + 1, the
+	 * counter loops around and comes back to the first index to store
+	 * the next ktime.
+	 */
+	sde_crtc->time_buf[sde_crtc->next_time_index++] = ktime_get();
+	sde_crtc->next_time_index %= MAX_FRAME_COUNT;
 }
 
 /**
@@ -685,6 +697,131 @@ static int _sde_debugfs_fps_status(struct inode *inode, struct file *file)
 			inode->i_private);
 }
 
+static ssize_t set_fps_periodicity(struct device *device,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+	int res;
+
+	if (!device || !buf) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	crtc = dev_get_drvdata(device);
+	if (!crtc)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	res = kstrtou32(buf, 10, &sde_crtc->fps_info.fps_periodicity);
+	if (res < 0)
+		return res;
+
+	if (sde_crtc->fps_info.fps_periodicity < 0 ||
+			(sde_crtc->fps_info.fps_periodicity)*1000 >
+							MAX_PERIODICITY)
+		sde_crtc->fps_info.fps_periodicity =
+			CRTC_TIME_PERIOD_CALC_FPS_US;
+	else
+		sde_crtc->fps_info.fps_periodicity *= 1000;
+
+	return count;
+}
+
+static ssize_t fps_periodicity_show(struct device *device,
+		struct device_attribute *attr, char *buf)
+{
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+
+	if (!device || !buf) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	crtc = dev_get_drvdata(device);
+	if (!crtc)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+				(sde_crtc->fps_info.fps_periodicity)/1000);
+}
+
+static ssize_t measured_fps_show(struct device *device,
+		struct device_attribute *attr, char *buf)
+{
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+	unsigned int fps_int, fps_decimal;
+	u64 fps = 0, frame_count = 1;
+	ktime_t current_time;
+	int i = 0, time_index;
+	u64 diff_us;
+
+	if (!device || !buf) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	crtc = dev_get_drvdata(device);
+	if (!crtc)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	/**
+	 * Whenever the time_index counter comes to zero upon decrementing,
+	 * it is set to the last index since it is the next index that we
+	 * should check for calculating the buftime.
+	 */
+	time_index = (sde_crtc->next_time_index - 1) < 0 ?
+			MAX_FRAME_COUNT - 1 : (sde_crtc->next_time_index - 1);
+
+	current_time = ktime_get();
+
+	if (sde_crtc->fps_info.fps_periodicity <= MAX_PERIODICITY) {
+		for (; i < MAX_FRAME_COUNT; i++) {
+			u64 ptime = (u64)ktime_to_us(current_time);
+			u64 buftime = (u64)
+				ktime_to_us(sde_crtc->time_buf[time_index]);
+			if (ptime > buftime) {
+				diff_us = (u64)ktime_us_delta(current_time,
+						sde_crtc->time_buf[time_index]);
+				if (diff_us >= (u64)
+					sde_crtc->fps_info.fps_periodicity) {
+					fps = (frame_count) * 1000000 * 10;
+					do_div(fps, diff_us);
+					sde_crtc->fps_info.measured_fps =
+						(unsigned int)fps;
+					break;
+				}
+			}
+
+			time_index = (time_index - 1) < 0 ?
+				(MAX_FRAME_COUNT - 1) : (time_index - 1);
+			frame_count++;
+		}
+	}
+
+	if (i == MAX_FRAME_COUNT) {
+		diff_us = (u64)ktime_us_delta(current_time,
+				sde_crtc->time_buf[time_index]);
+		if (diff_us >= sde_crtc->fps_info.fps_periodicity) {
+			fps = (frame_count) * 1000000 * 10;
+			do_div(fps, diff_us);
+			sde_crtc->fps_info.measured_fps = (unsigned int)fps;
+		}
+	}
+
+	fps_int = (unsigned int) sde_crtc->fps_info.measured_fps;
+	fps_decimal = do_div(fps_int, 10);
+	return scnprintf(buf, PAGE_SIZE, "%d.%d\n", fps_int, fps_decimal);
+}
+
 static ssize_t vsync_event_show(struct device *device,
 	struct device_attribute *attr, char *buf)
 {
@@ -703,8 +840,13 @@ static ssize_t vsync_event_show(struct device *device,
 }
 
 static DEVICE_ATTR_RO(vsync_event);
+static DEVICE_ATTR(measured_fps, 0444, measured_fps_show, NULL);
+static DEVICE_ATTR(fps_periodicity_ms, 0644, fps_periodicity_show,
+							set_fps_periodicity);
 static struct attribute *sde_crtc_dev_attrs[] = {
 	&dev_attr_vsync_event.attr,
+	&dev_attr_measured_fps.attr,
+	&dev_attr_fps_periodicity_ms.attr,
 	NULL
 };
 
@@ -6257,6 +6399,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
 	sde_crtc->enabled = false;
+
+	/* Below parameters are for fps calculation for sysfs node */
+	sde_crtc->fps_info.fps_periodicity = CRTC_TIME_PERIOD_CALC_FPS_US;
+	sde_crtc->fps_info.frame_count = 0;
+	sde_crtc->time_buf = kmalloc_array(MAX_FRAME_COUNT,
+			sizeof(sde_crtc->time_buf), GFP_KERNEL);
+	memset(sde_crtc->time_buf, 0, sizeof(*(sde_crtc->time_buf)));
+	sde_crtc->next_time_index = 0;
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
 	INIT_LIST_HEAD(&sde_crtc->user_event_list);
