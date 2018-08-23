@@ -11,12 +11,6 @@
  * GNU General Public License for more details.
  */
 
-/{
-	aliases {
-		swr0 = &swr_tavil;
-	};
-};
-
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include "sm6150-wcd.dtsi"
 
@@ -111,7 +105,7 @@
 &slim_aud {
 	status = "okay";
 	tavil_codec {
-		swr_tavil: swr_master {
+		swr3: swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
