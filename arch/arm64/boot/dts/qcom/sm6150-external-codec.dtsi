@@ -111,7 +111,7 @@
 &slim_aud {
 	status = "okay";
 	tavil_codec {
-		swr_tavil: tavil_wsa_swr_master {
+		swr_tavil: swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;

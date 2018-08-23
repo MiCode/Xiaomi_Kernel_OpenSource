@@ -361,10 +361,12 @@
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&wcd934x_mclk_default>;
 		pinctrl-1 = <&wcd934x_mclk_default>;
+		qcom,use-pinctrl = <1>;
 		qcom,audio-ref-clk-gpio = <&pm6150_gpios 8 0>;
 		clock-names = "osr_clk";
 		clocks = <&pm6150_clkdiv>;
 		qcom,node_has_rpm_clock;
+		pmic-clock-names = "pm6150_div_clk1";
 		#clock-cells = <1>;
 	};
 
