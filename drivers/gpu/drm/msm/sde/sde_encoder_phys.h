@@ -695,4 +695,13 @@ static inline bool sde_encoder_phys_needs_single_flush(
 			(_sde_encoder_phys_is_ppsplit(phys_enc) ||
 				_sde_encoder_phys_is_dual_ctl(phys_enc));
 }
+
+/**
+ * sde_encoder_helper_phys_disable - helper function to disable virt encoder
+ * @phys_enc: Pointer to physical encoder structure
+ * @wb_enc: Pointer to writeback encoder structure
+ */
+void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_phys_wb *wb_enc);
+
 #endif /* __sde_encoder_phys_H__ */
