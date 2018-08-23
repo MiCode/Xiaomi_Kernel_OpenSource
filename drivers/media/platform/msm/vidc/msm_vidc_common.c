@@ -2402,10 +2402,10 @@ bool heic_encode_session_supported(struct msm_vidc_inst *inst)
 		n_bframes == 0 &&
 		n_pframes == 0) {
 		if (inst->grid_enable > 0) {
-			if (!(inst->prop.height[CAPTURE_PORT] ==
-				inst->prop.width[CAPTURE_PORT] &&
-				inst->prop.width[CAPTURE_PORT] ==
-					HEIC_GRID_DIMENSION))
+			if (inst->prop.width[CAPTURE_PORT] <
+					HEIC_GRID_DIMENSION ||
+				inst->prop.height[CAPTURE_PORT] <
+					HEIC_GRID_DIMENSION)
 				return false;
 			}
 		return true;
