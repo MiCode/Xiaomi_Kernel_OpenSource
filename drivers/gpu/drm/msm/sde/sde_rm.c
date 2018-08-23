@@ -39,17 +39,6 @@
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
 
-#define SINGLE_CTL	1
-
-struct sde_rm_topology_def {
-	enum sde_rm_topology_name top_name;
-	int num_lm;
-	int num_comp_enc;
-	int num_intf;
-	int num_ctl;
-	int needs_split_display;
-};
-
 /**
  * toplogy information to be used when ctl path version does not
  * support driving more than one interface per ctl_path
