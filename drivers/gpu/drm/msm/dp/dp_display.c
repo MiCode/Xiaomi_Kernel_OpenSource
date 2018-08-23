@@ -707,6 +707,11 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 	rc = dp_display_send_hpd_notification(dp);
 
+	mutex_lock(&dp->session_lock);
+	if (!dp->active_stream_cnt)
+		dp->ctrl->off(dp->ctrl);
+	mutex_unlock(&dp->session_lock);
+
 	dp->panel->video_test = false;
 
 	return rc;
@@ -1250,6 +1255,7 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	int rc = 0;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1272,9 +1278,13 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	if (dp->power_on)
 		goto end;
 
-	if (dp_display_is_ready(dp))
-		dp_display_host_init(dp);
-	else
+	if (!dp_display_is_ready(dp))
+		goto end;
+
+	dp_display_host_init(dp);
+
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
+	if (rc)
 		goto end;
 
 	if (dp->debug->psm_enabled) {
@@ -1376,10 +1386,8 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	rc = dp_display_stream_enable(dp, panel);
-	if (rc && (dp->active_stream_cnt == 0)) {
-		dp->ctrl->off(dp->ctrl);
+	if (rc)
 		goto end;
-	}
 
 	dp->power_on = true;
 end:
@@ -1413,7 +1421,7 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	mutex_lock(&dp->session_lock);
 
 	if (!dp->power_on) {
-		pr_debug("Link not setup, return\n");
+		pr_debug("stream not setup, return\n");
 		goto end;
 	}
 
@@ -1482,7 +1490,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 	mutex_lock(&dp->session_lock);
 
 	if (!dp->power_on) {
-		pr_debug("Link already powered off, return\n");
+		pr_debug("stream already powered off, return\n");
 		goto end;
 	}
 
@@ -1552,8 +1560,6 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 		goto end;
 	}
 
-	dp->ctrl->off(dp->ctrl);
-
 	/*
 	 * In case of framework reboot, the DP off sequence is executed without
 	 * any notification from driver. Initialize post_open callback to notify
@@ -1562,6 +1568,8 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	if (dp_display_is_ready(dp) && !dp->mst.mst_active) {
 		dp_display->post_open = dp_display_post_open;
 		dp->dp_display.is_sst_connected = false;
+
+		dp->ctrl->off(dp->ctrl);
 		dp_display_host_deinit(dp);
 	}
 
