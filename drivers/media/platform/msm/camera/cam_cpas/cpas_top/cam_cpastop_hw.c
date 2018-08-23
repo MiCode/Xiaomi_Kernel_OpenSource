@@ -105,6 +105,13 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 1))
 			soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
+	} else if ((hw_caps->camera_version.major == 1) &&
+		(hw_caps->camera_version.minor == 5) &&
+		(hw_caps->camera_version.incr == 0)) {
+		if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 0) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
 	}
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);

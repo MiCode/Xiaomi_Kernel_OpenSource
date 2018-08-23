@@ -11,6 +11,7 @@
  */
 
 #include "sm6150-thermal-overlay.dtsi"
+#include "sm6150-camera-sensor-idp.dtsi"
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include "sm6150-sde-display.dtsi"
 
