@@ -431,3 +431,11 @@ config MSM_NPUCC_SDMMAGPIE
           Support for the NPU clock controller on Qualcomm Technologies, Inc
 	  SDMMAGPIE devices.
 	  Say Y if you want to enable use of the Network Processing Unit.
+
+config MSM_GPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SDMMAGPIE devices.
+	  Say Y if you want to support graphics clocks.

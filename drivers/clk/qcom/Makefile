@@ -49,6 +49,7 @@ obj-$(CONFIG_MSM_GCC_SM6150) += gcc-sm6150.o
 obj-$(CONFIG_MSM_GCC_SM8150) += gcc-sm8150.o
 obj-$(CONFIG_MSM_GCC_SDMMAGPIE) += gcc-sdmmagpie.o
 obj-$(CONFIG_MSM_GCC_SDMSHRIKE) += gcc-sdmshrike.o
+obj-$(CONFIG_MSM_GPUCC_SDMMAGPIE) += gpucc-sdmmagpie.o
 obj-$(CONFIG_MSM_GPUCC_SM6150) += gpucc-sm6150.o
 obj-$(CONFIG_MSM_GPUCC_SM8150) += gpucc-sm8150.o
 obj-$(CONFIG_MSM_LCC_8960) += lcc-msm8960.o
