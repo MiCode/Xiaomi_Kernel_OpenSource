@@ -5904,7 +5904,7 @@ static int dsi_display_cb_error_handler(void *data,
 {
 	struct dsi_display *display =  data;
 
-	if (!display)
+	if (!display || !(display->err_workq))
 		return -EINVAL;
 
 	switch (event_idx) {
@@ -6621,9 +6621,6 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to disable Link clocks, rc=%d\n",
 		       display->name, rc);
 
-	/* Free up DSI ERROR event callback */
-	dsi_display_unregister_error_handler(display);
-
 	rc = dsi_display_ctrl_deinit(display);
 	if (rc)
 		pr_err("[%s] failed to deinit controller, rc=%d\n",
@@ -6644,6 +6641,9 @@ int dsi_display_unprepare(struct dsi_display *display)
 
 	/* destrory dsi isr set up */
 	dsi_display_ctrl_isr_configure(display, false);
+
+	/* Free up DSI ERROR event callback */
+	dsi_display_unregister_error_handler(display);
 
 	rc = dsi_panel_post_unprepare(display->panel);
 	if (rc)
