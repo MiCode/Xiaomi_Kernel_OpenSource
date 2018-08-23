@@ -28,6 +28,10 @@
 	status = "ok";
 };
 
+&qupv3_se7_4uart {
+	status = "ok";
+};
+
 &pm6150l_wled {
 	qcom,string-cfg= <3>;
 	status = "ok";
