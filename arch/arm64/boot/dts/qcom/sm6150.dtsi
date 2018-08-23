@@ -2391,7 +2391,7 @@
 
 	cpu_cpu_llcc_bwmon: qcom,cpu-cpu-llcc-bwmon@90b6400 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x90b6400 0x300>, <0x90b6300 0x200>;
+		reg = <0x90b6300 0x300>, <0x90b6200 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <GIC_SPI 581 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
