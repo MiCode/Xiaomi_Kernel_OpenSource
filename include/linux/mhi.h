@@ -73,6 +73,44 @@ enum mhi_device_type {
 };
 
 /**
+ * enum mhi_ee - device current execution enviornment
+ * @MHI_EE_PBL - device in PBL
+ * @MHI_EE_SBL - device in SBL
+ * @MHI_EE_AMSS - device in mission mode (firmware fully loaded)
+ * @MHI_EE_RDDM - device in ram dump collection mode
+ * @MHI_EE_WFW - device in WLAN firmware mode
+ * @MHI_EE_PTHRU - device in PBL but configured in pass thru mode
+ * @MHI_EE_EDL - device in emergency download mode
+ */
+enum mhi_ee {
+	MHI_EE_PBL = 0x0,
+	MHI_EE_SBL = 0x1,
+	MHI_EE_AMSS = 0x2,
+	MHI_EE_RDDM = 0x3,
+	MHI_EE_WFW = 0x4,
+	MHI_EE_PTHRU = 0x5,
+	MHI_EE_EDL = 0x6,
+	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,
+	MHI_EE_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
+	MHI_EE_MAX,
+};
+
+/**
+ * enum mhi_dev_state - device current MHI state
+ */
+enum mhi_dev_state {
+	MHI_STATE_RESET = 0x0,
+	MHI_STATE_READY = 0x1,
+	MHI_STATE_M0 = 0x2,
+	MHI_STATE_M1 = 0x3,
+	MHI_STATE_M2 = 0x4,
+	MHI_STATE_M3 = 0x5,
+	MHI_STATE_BHI  = 0x7,
+	MHI_STATE_SYS_ERR  = 0xFF,
+	MHI_STATE_MAX,
+};
+
+/**
  * struct image_info - firmware and rddm table table
  * @mhi_buf - Contain device firmware and rddm table
  * @entries - # of entries in table
@@ -195,8 +233,8 @@ struct mhi_controller {
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;
-	u32 ee;
-	u32 dev_state;
+	enum mhi_ee ee;
+	enum mhi_dev_state dev_state;
 	bool wake_set;
 	atomic_t dev_wake;
 	atomic_t alloc_size;

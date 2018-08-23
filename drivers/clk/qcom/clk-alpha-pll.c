@@ -2009,7 +2009,7 @@ static long clk_generic_pll_postdiv_round_rate(struct clk_hw *hw,
 		return -EINVAL;
 
 	return divider_round_rate(hw, rate, prate, pll->post_div_table,
-					pll->width, CLK_DIVIDER_ROUND_CLOSEST);
+					pll->width, CLK_DIVIDER_ROUND_KHZ);
 }
 
 static int clk_generic_pll_postdiv_set_rate(struct clk_hw *hw,

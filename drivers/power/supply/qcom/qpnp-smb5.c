@@ -1173,6 +1173,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1288,6 +1289,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1366,6 +1370,15 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		rc = smblib_set_prop_rechg_soc_thresh(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
+			/* toggle charging to force recharge */
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					true, 0);
+			/* charge disable delay */
+			msleep(50);
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					false, 0);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1550,6 +1563,8 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't enable try.snk rc=%d\n", rc);
 		return rc;
+	} else {
+		chg->typec_try_mode |= EN_TRY_SNK_BIT;
 	}
 
 	/* configure VCONN for software control */
@@ -1562,6 +1577,13 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
+		0);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -1569,12 +1591,24 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 {
 	int rc;
 
+	chg->pd_not_supported = true;
+
 	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable HVDCP and BC 1.2 source detection */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't enable HVDCP detection rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2621,12 +2655,17 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (chg->smb_version == PM8150B_SUBTYPE) {
+	switch (chg->smb_version) {
+	case PM8150B_SUBTYPE:
+	case PM6150_SUBTYPE:
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);
 			goto cleanup;
 		}
+		break;
+	default:
+		break;
 	}
 
 	rc = smb5_init_usb_psy(chip);

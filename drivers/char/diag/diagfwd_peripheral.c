@@ -1081,8 +1081,10 @@ void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
 
 	mutex_lock(&driver->diagfwd_channel_mutex[peripheral]);
 	fwd_info = &early_init_info[transport][peripheral];
+	mutex_unlock(&driver->diagfwd_channel_mutex[peripheral]);
 	if (fwd_info->p_ops && fwd_info->p_ops->close)
 		fwd_info->p_ops->close(fwd_info->ctxt);
+	mutex_lock(&driver->diagfwd_channel_mutex[peripheral]);
 	fwd_info = &early_init_info[transport_open][peripheral];
 	dest_info = &peripheral_info[TYPE_CNTL][peripheral];
 	dest_info->inited = 1;
@@ -1106,9 +1108,7 @@ void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
 	 *	GLINK. GLINK supported peripheral mask update will
 	 *	happen after glink buffers are initialized.
 	 */
-
-	if (dest_info->transport != TRANSPORT_RPMSG)
-		diagfwd_cntl_open(dest_info);
+	diagfwd_cntl_open(dest_info);
 	init_fn(peripheral);
 	mutex_unlock(&driver->diagfwd_channel_mutex[peripheral]);
 	diagfwd_queue_read(&peripheral_info[TYPE_DATA][peripheral]);

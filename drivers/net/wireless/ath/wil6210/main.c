@@ -281,6 +281,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	}
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
+	sta->stats.tx_latency_min_us = U32_MAX;
 }
 
 static bool wil_vif_is_connected(struct wil6210_priv *wil, u8 mid)
@@ -1133,6 +1134,9 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 		wiphy->max_sched_scan_plans = WMI_MAX_PLANS_NUM;
 	}
 
+	if (test_bit(WMI_FW_CAPABILITY_TX_REQ_EXT, wil->fw_capabilities))
+		wiphy->flags |= WIPHY_FLAG_OFFCHAN_TX;
+
 	if (wil->platform_ops.set_features) {
 		features = (test_bit(WMI_FW_CAPABILITY_REF_CLOCK_CONTROL,
 				     wil->fw_capabilities) &&
@@ -1154,6 +1158,8 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 		wil->max_agg_wsize = WIL_MAX_AGG_WSIZE;
 		wil->max_ampdu_size = WIL_MAX_AMPDU_SIZE;
 	}
+
+	update_supported_bands(wil);
 }
 
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
@@ -1330,7 +1336,7 @@ static int wil_get_otp_info(struct wil6210_priv *wil)
 
 static int wil_wait_for_fw_ready(struct wil6210_priv *wil)
 {
-	ulong to = msecs_to_jiffies(1000);
+	ulong to = msecs_to_jiffies(2000);
 	ulong left = wait_for_completion_timeout(&wil->wmi_ready, to);
 
 	if (0 == left) {

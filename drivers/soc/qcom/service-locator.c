@@ -267,7 +267,7 @@ static int init_service_locator(void)
 	service_locator.connected = false;
 
 	rc = qmi_handle_init(&service_locator.clnt_handle,
-			QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN,
+		QMI_SERVREG_LOC_GET_DOMAIN_LIST_RESP_MSG_V01_MAX_MSG_LEN,
 			&server_ops, NULL);
 	if (rc < 0) {
 		pr_err("Service locator QMI handle init failed rc:%d\n", rc);

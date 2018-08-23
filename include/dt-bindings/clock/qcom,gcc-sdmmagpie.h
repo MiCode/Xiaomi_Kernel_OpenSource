@@ -183,6 +183,7 @@
 #define GCC_VS_CTRL_CLK					163
 #define GCC_VS_CTRL_CLK_SRC				164
 #define GCC_VSENSOR_CLK_SRC				165
+#define GCC_GPLL0_MAIN_DIV_CDIV				167
 
 /* GCC Resets */
 #define GCC_PCIE_0_BCR					0

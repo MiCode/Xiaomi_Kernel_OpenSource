@@ -74,6 +74,15 @@ config GSI
 	  and CPUs over various types of interfaces such as MHI, xDCI,
 	  xHCI, GPI, WDI, Ethernet, etc.
 
+config GSI_REGISTER_VERSION_2
+	bool "GSI core Version 2 Registers SWI Support"
+	depends on GSI
+	help
+	  GSI core registers Software interface version 2 has updated
+	  registers interface to communicate with GSI. This includes
+	  new registers offsets, new registers fields structure and
+	  new registers.
+
 config IPA3
 	tristate "IPA3 support"
 	select GSI

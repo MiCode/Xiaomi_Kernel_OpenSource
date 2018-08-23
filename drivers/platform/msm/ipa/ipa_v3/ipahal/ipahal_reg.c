@@ -88,6 +88,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_DEBUG_CNT_CTRL_n),
 	__stringify(IPA_UC_MAILBOX_m_n),
 	__stringify(IPA_FILT_ROUT_HASH_FLUSH),
+	__stringify(IPA_FILT_ROUT_HASH_EN),
 	__stringify(IPA_SINGLE_NDP_MODE),
 	__stringify(IPA_QCNCM),
 	__stringify(IPA_SYS_PKT_PROC_CNTXT_BASE),
@@ -2747,6 +2748,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_2][IPA_HPS_FTCH_ARB_QUEUE_WEIGHT] = {
 		ipareg_construct_dummy,
 		ipareg_parse_dummy, -1, 0, 0, 0, 0},
+	[IPA_HW_v4_2][IPA_FILT_ROUT_HASH_EN] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000148, 0, 0, 0, 0},
 
 	/* IPA4.5 */
 	[IPA_HW_v4_5][IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n] = {

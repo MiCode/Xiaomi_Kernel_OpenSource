@@ -41,6 +41,7 @@ static struct platform_driver cam_ife_csid_lite_driver = {
 		.name = CAM_CSID_LITE_DRV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_ife_csid_lite_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

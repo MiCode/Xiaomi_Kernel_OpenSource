@@ -29,13 +29,22 @@
 #include "diagfwd_rpmsg.h"
 #include "diag_ipc_logging.h"
 
+struct diag_rpmsg_read_work {
+	struct diag_rpmsg_info *rpmsg_info;
+	const void *ptr_read_done;
+	const void *ptr_rx_done;
+	size_t ptr_read_size;
+	struct work_struct work;
+};
+
 struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 	{
 		.peripheral = PERIPHERAL_MODEM,
 		.type = TYPE_DATA,
 		.edge = "mpss",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -43,7 +52,8 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.type = TYPE_DATA,
 		.edge = "lpass",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -51,7 +61,8 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.type = TYPE_DATA,
 		.edge = "wcnss",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -59,7 +70,8 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.type = TYPE_DATA,
 		.edge = "dsps",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -67,7 +79,8 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.type = TYPE_DATA,
 		.edge = "wdsp",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -75,7 +88,8 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.type = TYPE_DATA,
 		.edge = "cdsp",
 		.name = "DIAG_DATA",
-		.buf = NULL,
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	}
 };
@@ -86,6 +100,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "mpss",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -93,6 +109,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "lpass",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -100,6 +118,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "wcnss",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -107,6 +127,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "dsps",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -114,6 +136,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "wdsp",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -121,6 +145,8 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.type = TYPE_CNTL,
 		.edge = "cdsp",
 		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	}
 };
@@ -131,6 +157,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "mpss",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -138,6 +166,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "lpass",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -145,6 +175,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "wcnss",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -152,6 +184,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "dsps",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -159,6 +193,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "wdsp",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -166,6 +202,8 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI,
 		.edge = "cdsp",
 		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	}
 };
@@ -176,6 +214,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "mpss",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -183,6 +223,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "lpass",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -190,6 +232,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "wcnss",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -197,6 +241,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "dsps",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -204,6 +250,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "wdsp",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -211,6 +259,8 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_CMD,
 		.edge = "cdsp",
 		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	}
 };
@@ -221,6 +271,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "mpss",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -228,6 +280,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "lpass",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -235,6 +289,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "wcnss",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -242,6 +298,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "dsps",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -249,6 +307,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "wdsp",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	},
 	{
@@ -256,6 +316,8 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.edge = "cdsp",
 		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
 		.hdl = NULL
 	}
 };
@@ -265,7 +327,7 @@ static void diag_state_close_rpmsg(void *ctxt);
 static int diag_rpmsg_write(void *ctxt, unsigned char *buf, int len);
 static int diag_rpmsg_read(void *ctxt, unsigned char *buf, int buf_len);
 static void diag_rpmsg_queue_read(void *ctxt);
-
+static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work);
 static struct diag_peripheral_ops rpmsg_ops = {
 	.open = diag_state_open_rpmsg,
 	.close = diag_state_close_rpmsg,
@@ -341,7 +403,11 @@ static int diag_rpmsg_read(void *ctxt, unsigned char *buf, int buf_len)
 			"diag:RPMSG channel not opened");
 		return -EIO;
 	}
-	rpmsg_info->buf = buf;
+	if (!rpmsg_info->buf1)
+		rpmsg_info->buf1 = buf;
+	else if (!rpmsg_info->buf2)
+		rpmsg_info->buf2 = buf;
+
 	return ret_val;
 }
 
@@ -418,9 +484,10 @@ static void diag_rpmsg_open_work_fn(struct work_struct *work)
 		return;
 	if (!rpmsg_info->inited)
 		return;
-	atomic_set(&rpmsg_info->opened, 1);
-	diagfwd_channel_open(rpmsg_info->fwd_ctxt);
-	diagfwd_late_open(rpmsg_info->fwd_ctxt);
+	if (rpmsg_info->type != TYPE_CNTL) {
+		diagfwd_channel_open(rpmsg_info->fwd_ctxt);
+		diagfwd_late_open(rpmsg_info->fwd_ctxt);
+	}
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n",
 		 rpmsg_info->name);
 }
@@ -442,14 +509,69 @@ static int diag_rpmsg_notify_cb(struct rpmsg_device *rpdev, void *data, int len,
 						void *priv, u32 src)
 {
 	struct diag_rpmsg_info *rpmsg_info = NULL;
+	struct diag_rpmsg_read_work *read_work;
+	void *buf;
 
-	rpmsg_info = (struct diag_rpmsg_info *)priv;
+	rpmsg_info = dev_get_drvdata(&rpdev->dev);
 	if (!rpmsg_info)
 		return 0;
-	memcpy(rpmsg_info->buf, data, len);
-	diagfwd_channel_read_done(rpmsg_info->fwd_ctxt, rpmsg_info->buf, len);
-	rpmsg_info->buf = NULL;
+
+	if (!rpmsg_info->buf1 && !rpmsg_info->buf2) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"dropping data for %s len %d\n",
+			rpmsg_info->name, len);
+		return 0;
+	}
+
+	if (rpmsg_info->buf1)
+		buf = rpmsg_info->buf1;
+	else
+		buf = rpmsg_info->buf2;
+
+	if (!buf)
+		return 0;
+
+	memcpy(buf, data, len);
+
+	read_work = kmalloc(sizeof(*read_work), GFP_ATOMIC);
+	if (!read_work) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: Could not allocate read_work\n");
+		return 0;
+	}
+	read_work->rpmsg_info = rpmsg_info;
+	read_work->ptr_read_done = buf;
+	read_work->ptr_read_size = len;
+	INIT_WORK(&read_work->work, diag_rpmsg_notify_rx_work_fn);
+	queue_work(rpmsg_info->wq, &read_work->work);
 	return 0;
+}
+
+static void diag_rpmsg_notify_rx_work_fn(struct work_struct *work)
+{
+	struct diag_rpmsg_read_work *read_work = container_of(work,
+	struct diag_rpmsg_read_work, work);
+	struct diag_rpmsg_info *rpmsg_info = read_work->rpmsg_info;
+	struct mutex *channel_mutex;
+
+	if (!rpmsg_info || !rpmsg_info->hdl) {
+		kfree(read_work);
+		return;
+	}
+
+	channel_mutex = &driver->diagfwd_channel_mutex[rpmsg_info->peripheral];
+	mutex_lock(channel_mutex);
+	diagfwd_channel_read_done(rpmsg_info->fwd_ctxt,
+			(unsigned char *)(read_work->ptr_read_done),
+			read_work->ptr_read_size);
+	mutex_unlock(channel_mutex);
+
+	if (read_work->ptr_read_done == rpmsg_info->buf1)
+		rpmsg_info->buf1 = NULL;
+	else if (read_work->ptr_read_done == rpmsg_info->buf2)
+		rpmsg_info->buf2 = NULL;
+
+	kfree(read_work);
 }
 
 static void rpmsg_late_init(struct diag_rpmsg_info *rpmsg_info)
@@ -547,6 +669,8 @@ int diag_rpmsg_init(void)
 					(void *)rpmsg_info, &rpmsg_ops,
 					&(rpmsg_info->fwd_ctxt));
 		rpmsg_info->inited = 1;
+		diagfwd_channel_open(rpmsg_info->fwd_ctxt);
+		diagfwd_late_open(rpmsg_info->fwd_ctxt);
 		__diag_rpmsg_init(&rpmsg_data[peripheral]);
 		__diag_rpmsg_init(&rpmsg_cmd[peripheral]);
 		__diag_rpmsg_init(&rpmsg_dci[peripheral]);
@@ -606,7 +730,7 @@ static struct diag_rpmsg_info *diag_get_rpmsg_ptr(char *name)
 		return NULL;
 	if (!strcmp(name, "DIAG_CMD"))
 		return &rpmsg_cmd[PERIPHERAL_WDSP];
-	else if (!strcmp(name, "DIAG_CNTL"))
+	else if (!strcmp(name, "DIAG_CTRL"))
 		return &rpmsg_cntl[PERIPHERAL_WDSP];
 	else if (!strcmp(name, "DIAG_DATA"))
 		return &rpmsg_data[PERIPHERAL_WDSP];
@@ -631,6 +755,8 @@ static int diag_rpmsg_probe(struct rpmsg_device *rpdev)
 	if (rpmsg_info) {
 		rpmsg_info->hdl = rpdev;
 		dev_set_drvdata(&rpdev->dev, rpmsg_info);
+		atomic_set(&rpmsg_info->opened, 1);
+		diagfwd_channel_read(rpmsg_info->fwd_ctxt);
 		queue_work(rpmsg_info->wq, &rpmsg_info->open_work);
 	}
 
@@ -651,7 +777,7 @@ static void diag_rpmsg_remove(struct rpmsg_device *rpdev)
 
 static struct rpmsg_device_id rpmsg_diag_table[] = {
 	{ .name	= "DIAG_CMD" },
-	{ .name	= "DIAG_CNTL" },
+	{ .name	= "DIAG_CTRL" },
 	{ .name	= "DIAG_DATA" },
 	{ .name	= "DIAG_DCI_CMD" },
 	{ .name	= "DIAG_DCI_DATA" },

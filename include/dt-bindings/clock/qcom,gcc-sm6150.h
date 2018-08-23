@@ -18,7 +18,7 @@
 #define GPLL0_OUT_AUX2				0
 #define MEASURE_ONLY_SNOC_CLK			1
 #define MEASURE_ONLY_CNOC_CLK			2
-#define MEASURE_ONLY_BIMC_CLK			3
+#define MEASURE_ONLY_MMCC_CLK			3
 #define MEASURE_ONLY_IPA_2X_CLK			4
 
 /* GCC clock registers */
@@ -204,5 +204,7 @@
 #define GCC_PCIE_PHY_COM_BCR			9
 #define GCC_UFS_PHY_BCR				10
 #define GCC_USB20_SEC_BCR			11
+#define GCC_USB3_DP_PHY_PRIM_SP0_BCR		12
+#define GCC_USB3PHY_PHY_PRIM_SP0_BCR		13
 
 #endif

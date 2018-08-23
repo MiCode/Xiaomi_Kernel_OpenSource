@@ -1635,6 +1635,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg |= SCTLR_HUPCF;
 	}
 
+	if (attributes & (1 << DOMAIN_ATTR_NO_CFRE))
+		reg &= ~SCTLR_CFRE;
+
 	if ((!(attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) || !stage1)
 		reg |= SCTLR_M;
@@ -2706,10 +2709,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		return msm_secure_smmu_map_sg(domain, iova, sg, nents, prot);
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
-
 	arm_smmu_prealloc_memory_sg(smmu_domain, sg, nents, &nonsecure_pool);
 	arm_smmu_secure_domain_lock(smmu_domain);
 
@@ -2754,7 +2753,6 @@ out:
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 	return iova - __saved_iova_start;
 }
@@ -3206,6 +3204,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_NO_CFRE));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN:
 		*((int *)data) = smmu_domain->qsmmuv500_errata1_min_iova_align;
 		ret = 0;
@@ -3420,6 +3423,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_NO_CFRE;
 		ret = 0;
 		break;
 	default:

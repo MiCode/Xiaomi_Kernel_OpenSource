@@ -42,6 +42,7 @@
 #define MAX_NAME_SIZE	64
 
 #define DSI_CLOCK_BITRATE_RADIX 10
+#define MAX_TE_SOURCE_ID  2
 
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
@@ -536,10 +537,12 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	return false;
 }
 
-static void dsi_display_parse_te_gpio(struct dsi_display *display)
+static void dsi_display_parse_te_data(struct dsi_display *display)
 {
 	struct platform_device *pdev;
 	struct device *dev;
+	int rc = 0;
+	u32 val = 0;
 
 	pdev = display->pdev;
 	if (!pdev) {
@@ -555,6 +558,20 @@ static void dsi_display_parse_te_gpio(struct dsi_display *display)
 
 	display->disp_te_gpio = of_get_named_gpio(dev->of_node,
 					"qcom,platform-te-gpio", 0);
+
+	if (display->fw)
+		rc = dsi_parser_read_u32(display->parser_node,
+			"qcom,panel-te-source", &val);
+	else
+		rc = of_property_read_u32(dev->of_node,
+			"qcom,panel-te-source", &val);
+
+	if (rc || (val  > MAX_TE_SOURCE_ID)) {
+		pr_err("invalid vsync source selection\n");
+		val = 0;
+	}
+
+	display->te_source = val;
 }
 
 static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
@@ -1204,7 +1221,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		rc = dsi_panel_trigger_esd_attack(display->panel);
 		if (rc) {
 			pr_err("Failed to trigger ESD attack\n");
-			return rc;
+			goto error;
 		}
 	}
 
@@ -1476,16 +1493,23 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		}
 	}
 
-	if (!debugfs_create_bool("ulps_enable", 0600, dir,
-			&display->panel->ulps_enabled)) {
-		pr_err("[%s] debugfs create ulps enable file failed\n",
+	if (!debugfs_create_bool("ulps_feature_enable", 0600, dir,
+			&display->panel->ulps_feature_enabled)) {
+		pr_err("[%s] debugfs create ulps feature enable file failed\n",
 		       display->name);
 		goto error_remove_dir;
 	}
 
-	if (!debugfs_create_bool("ulps_suspend_enable", 0600, dir,
+	if (!debugfs_create_bool("ulps_suspend_feature_enable", 0600, dir,
 			&display->panel->ulps_suspend_enabled)) {
-		pr_err("[%s] debugfs create ulps-suspend enable file failed\n",
+		pr_err("[%s] debugfs create ulps-suspend feature enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
+	if (!debugfs_create_bool("ulps_status", 0400, dir,
+			&display->ulps_enabled)) {
+		pr_err("[%s] debugfs create ulps status file failed\n",
 		       display->name);
 		goto error_remove_dir;
 	}
@@ -1972,11 +1996,12 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 	char *boot_str = NULL;
 	char *str = NULL;
 	char *sw_te = NULL;
-	unsigned long value;
+	unsigned long cmdline_topology = NO_OVERRIDE;
+	unsigned long cmdline_timing = NO_OVERRIDE;
 
 	if (display_type >= MAX_DSI_ACTIVE_DISPLAY) {
 		pr_err("display_type=%d not supported\n", display_type);
-		return;
+		goto end;
 	}
 
 	if (display_type == DSI_PRIMARY)
@@ -1990,27 +2015,29 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 
 	str = strnstr(boot_str, ":config", strlen(boot_str));
 	if (!str)
-		return;
+		goto end;
 
 	if (kstrtol(str + strlen(":config"), INT_BASE_10,
-				(unsigned long *)&value)) {
+				(unsigned long *)&cmdline_topology)) {
 		pr_err("invalid config index override: %s\n", boot_str);
-		return;
+		goto end;
 	}
-	display->cmdline_topology = value;
 
 	str = strnstr(boot_str, ":timing", strlen(boot_str));
 	if (!str)
-		return;
+		goto end;
 
 	if (kstrtol(str + strlen(":timing"), INT_BASE_10,
-				(unsigned long *)&value)) {
+				(unsigned long *)&cmdline_timing)) {
 		pr_err("invalid timing index override: %s. resetting both timing and config\n",
 			boot_str);
-		display->cmdline_topology = NO_OVERRIDE;
-		return;
+		cmdline_topology = NO_OVERRIDE;
+		goto end;
 	}
-	display->cmdline_timing = value;
+	pr_debug("successfully parsed command line topology and timing\n");
+end:
+	display->cmdline_topology = cmdline_topology;
+	display->cmdline_timing = cmdline_timing;
 }
 
 /**
@@ -3343,8 +3370,8 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 
-	/* Parse TE gpio */
-	dsi_display_parse_te_gpio(display);
+	/* Parse TE data */
+	dsi_display_parse_te_data(display);
 
 	/* Parse external bridge from port 0, reg 0 */
 	display->ext_bridge_of = of_graph_get_remote_node(of_node, 0, 0);
@@ -5178,6 +5205,8 @@ int dsi_display_get_info(struct drm_connector *connector,
 
 	if (display->panel->esd_config.esd_enabled)
 		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
+
+	info->te_source = display->te_source;
 
 error:
 	mutex_unlock(&display->display_lock);

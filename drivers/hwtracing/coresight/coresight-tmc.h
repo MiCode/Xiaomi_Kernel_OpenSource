@@ -86,6 +86,8 @@
 #define TMC_AXICTL_PROT_CTL_B1	BIT(1)
 #define TMC_AXICTL_CACHE_CTL_B0	BIT(2)
 #define TMC_AXICTL_CACHE_CTL_B1	BIT(3)
+#define TMC_AXICTL_CACHE_CTL_B2	BIT(4)
+#define TMC_AXICTL_CACHE_CTL_B3	BIT(5)
 #define TMC_AXICTL_SCT_GAT_MODE	BIT(7)
 #define TMC_AXICTL_WR_BURST_16	0xF00
 /* Write-back Read and Write-allocate */
@@ -271,7 +273,7 @@ int tmc_etr_bam_init(struct amba_device *adev,
 extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
-extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp);
+extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, phys_addr_t rwp);
 
 extern const struct coresight_ops tmc_etr_cs_ops;
 

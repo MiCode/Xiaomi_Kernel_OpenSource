@@ -238,6 +238,17 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	},
 };
 
+static struct clk_fixed_factor gcc_pll0_main_div_cdiv = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "gcc_pll0_main_div_cdiv",
+		.parent_names = (const char *[]){ "gpll0" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
 static struct clk_alpha_pll gpll6 = {
 	.offset = 0x13000,
 	.vco_table = fabia_vco,
@@ -1493,7 +1504,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_gpll0_main_div_cdiv",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
@@ -1635,7 +1646,7 @@ static struct clk_branch gcc_gpu_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_gpll0_main_div_cdiv",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
@@ -1723,7 +1734,7 @@ static struct clk_branch gcc_mss_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_mss_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_pll0_main_div_cdiv",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
@@ -1843,7 +1854,7 @@ static struct clk_branch gcc_npu_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_npu_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_pll0_main_div_cdiv",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -3141,6 +3152,8 @@ struct clk_hw *gcc_sdmmagpie_hws[] = {
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
 	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,
+	[GCC_GPLL0_MAIN_DIV_CDIV] = &gcc_pll0_main_div_cdiv.hw,
+
 };
 
 static struct clk_regmap *gcc_sdmmagpie_clocks[] = {

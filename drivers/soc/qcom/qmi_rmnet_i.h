@@ -106,7 +106,10 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
 void dfc_qmi_client_exit(void *dfc_data);
 
 void dfc_qmi_burst_check(struct net_device *dev,
-			 struct qos_info *qos, struct sk_buff *skb);
+			 struct qos_info *qos, struct sk_buff *skb,
+			 struct qmi_info *qmi);
+
+void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -131,10 +134,16 @@ static inline void dfc_qmi_client_exit(void *dfc_data)
 {
 }
 
-static inline void dfc_qmi_burst_check(struct net_device *dev,
-					struct qos_info *qos,
-					struct sk_buff *skb)
+static inline void
+dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
+		    struct sk_buff *skb, struct qmi_info *qmi)
 {
+}
+
+static inline
+void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
+{
+	return NULL;
 }
 #endif
 

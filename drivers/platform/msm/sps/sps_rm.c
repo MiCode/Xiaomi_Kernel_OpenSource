@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,6 +176,8 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 			 struct sps_connection *map)
 {
 	struct sps_connect *cfg = &pipe->connect;
+	unsigned long desc_iova;
+	unsigned long data_iova;
 
 	/* Check ownership and BAM */
 	if ((cfg->mode == SPS_MODE_SRC && map->client_src != NULL) ||
@@ -220,8 +222,24 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 	/* Copy parameters to client connect state */
 	pipe->connect.src_pipe_index = map->src.pipe_index;
 	pipe->connect.dest_pipe_index = map->dest.pipe_index;
+
+	/*
+	 * The below assignment to connect.desc and connect.data will
+	 * overwrite the previous values given by the first client
+	 * in a BAM-to-BAM connection. Prevent that since the IOVAs
+	 * may be different for the same physical buffers if the
+	 * BAMs use different SMMUs.
+	 */
+	if (pipe->bam->props.options & SPS_BAM_SMMU_EN) {
+		desc_iova = pipe->connect.desc.iova;
+		data_iova = pipe->connect.data.iova;
+	}
 	pipe->connect.desc = map->desc;
 	pipe->connect.data = map->data;
+	if (pipe->bam->props.options & SPS_BAM_SMMU_EN) {
+		pipe->connect.desc.iova = desc_iova;
+		pipe->connect.data.iova = data_iova;
+	}
 
 	pipe->client_state = SPS_STATE_ALLOCATE;
 

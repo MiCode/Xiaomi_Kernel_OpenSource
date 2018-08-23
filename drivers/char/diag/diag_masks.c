@@ -2209,6 +2209,9 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count,
 
 void diag_send_updates_peripheral(uint8_t peripheral)
 {
+	if (!driver->feature[peripheral].rcvd_feature_mask)
+		return;
+
 	if (!driver->feature[peripheral].sent_feature_mask)
 		diag_send_feature_mask_update(peripheral);
 	/*

@@ -1125,6 +1125,7 @@ static struct platform_driver cam_hw_cdm_driver = {
 		.name = "msm_cam_cdm",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_cam_hw_cdm_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
