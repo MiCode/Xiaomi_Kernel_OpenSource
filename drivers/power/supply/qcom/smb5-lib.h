@@ -190,12 +190,6 @@ static const unsigned int smblib_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
-enum lpd_reason {
-	LPD_NONE,
-	LPD_MOISTURE_DETECTED,
-	LPD_FLOATING_CABLE,
-};
-
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
 static const u32 smblib_extcon_exclusive[] = {0x3, 0};
 
@@ -381,7 +375,6 @@ struct smb_charger {
 	int			charger_temp_max;
 	int			smb_temp_max;
 	bool			lpd_in_progress;
-	int			lpd_reason;
 
 	/* workaround flag */
 	u32			wa_flags;
