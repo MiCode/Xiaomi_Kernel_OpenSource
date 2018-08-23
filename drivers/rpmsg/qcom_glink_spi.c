@@ -2467,6 +2467,15 @@ static void glink_spi_remove(struct glink_spi *glink)
 		dev_warn(&glink->dev, "Can't remove GLINK devices: %d\n", ret);
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		/* cancel_work_sync may sleep */
+		cancel_work_sync(&channel->intent_work);
+		spin_lock_irqsave(&glink->idr_lock, flags);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
 		kref_put(&channel->refcount, glink_spi_channel_release);
