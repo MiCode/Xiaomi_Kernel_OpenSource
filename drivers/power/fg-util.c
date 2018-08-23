@@ -432,7 +432,7 @@ int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val)
 	reg &= ~mask;
 	reg |= val & mask;
 
-	sec_access = (addr & 0x00FF) > 0xD0;
+	sec_access = (addr & 0x00FF) > 0xB8;
 	if (sec_access) {
 		rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid,
 				(addr & 0xFF00) | 0xD0, &sec_addr_val, 1);

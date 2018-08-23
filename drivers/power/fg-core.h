@@ -245,6 +245,7 @@ struct fg_dt_props {
 	bool	auto_recharge_soc;
 	bool	use_esr_sw;
 	bool	disable_esr_pull_dn;
+	bool	disable_fg_twm;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -389,6 +390,7 @@ struct fg_chip {
 	struct fg_batt_props	bp;
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
+	struct notifier_block	twm_nb;
 	struct fg_cap_learning  cl;
 	struct alarm            esr_sw_timer;
 	struct mutex		bus_lock;
@@ -430,6 +432,7 @@ struct fg_chip {
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
 	bool			usb_present;
+	bool			twm_state;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
