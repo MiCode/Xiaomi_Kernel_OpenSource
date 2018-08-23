@@ -2272,9 +2272,6 @@ static int smblib_get_prop_dfp_mode(struct smb_charger *chg)
 	int rc;
 	u8 stat;
 
-	if (chg->lpd_in_progress)
-		return POWER_SUPPLY_TYPEC_NONE;
-
 	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
@@ -3634,83 +3631,8 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
-						ktime_t time)
-{
-	union power_supply_propval pval;
-	struct smb_charger *chg = container_of(alarm, struct smb_charger,
-							lpd_recheck_timer);
-	int rc;
-
-	pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-	rc = smblib_set_prop_typec_power_role(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-			pval.intval, rc);
-		return ALARMTIMER_NORESTART;
-	}
-
-	chg->lpd_in_progress = false;
-
-	return ALARMTIMER_NORESTART;
-}
-
-#define RSBU_DP_100K_UV	1000000
-#define RSBU_K_300K_UV	3000000
-static bool smblib_src_lpd(struct smb_charger *chg)
-{
-	union power_supply_propval pval;
-	bool lpd_flag = false;
-	u8 stat;
-	int rc;
-
-	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
-				rc);
-		return false;
-	}
-
-	switch (stat & DETECTED_SNK_TYPE_MASK) {
-	case SRC_DEBUG_ACCESS_BIT:
-		if (smblib_rsbux_low(chg, RSBU_K_300K_UV))
-			lpd_flag = true;
-		break;
-	case SRC_RD_RA_VCONN_BIT:
-	case SRC_RD_OPEN_BIT:
-		if (smblib_rsbux_low(chg, RSBU_DP_100K_UV))
-			lpd_flag = true;
-		break;
-	case AUDIO_ACCESS_RA_RA_BIT:
-	default:
-		break;
-	}
-
-	if (lpd_flag) {
-		pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
-		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0)
-			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-				pval.intval, rc);
-		alarm_start_relative(&chg->lpd_recheck_timer,
-						ms_to_ktime(60000));
-	} else {
-		chg->lpd_in_progress = false;
-		chg->typec_mode = smblib_get_prop_typec_mode(chg);
-	}
-
-	return lpd_flag;
-}
-
 static void typec_sink_insertion(struct smb_charger *chg)
 {
-	if (chg->lpd_in_progress) {
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, false, 0);
-		if (smblib_src_lpd(chg))
-			return;
-	}
-
 	vote(chg->usb_icl_votable, OTG_VOTER, true, 0);
 
 	if (chg->use_extcon) {
@@ -3893,10 +3815,6 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	u8 stat;
-	int rc;
-
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
 	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
 		cancel_delayed_work_sync(&chg->uusb_otg_work);
@@ -3905,22 +3823,6 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 		schedule_delayed_work(&chg->uusb_otg_work,
 				msecs_to_jiffies(chg->otg_delay_ms));
 		return IRQ_HANDLED;
-	}
-
-	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
-			rc);
-		return IRQ_HANDLED;
-	}
-
-	/* liquid presence detected, to check further */
-	if (stat & TYPEC_WATER_DETECTION_STATUS_BIT && !chg->lpd_in_progress) {
-		chg->lpd_in_progress = true;
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, true, 0);
-		schedule_delayed_work(&chg->lpd_ra_open_work,
-						msecs_to_jiffies(300));
 	}
 
 	return IRQ_HANDLED;
@@ -4473,74 +4375,6 @@ out:
 	chg->jeita_configured = true;
 }
 
-static void smblib_lpd_ra_open_work(struct work_struct *work)
-{
-	struct smb_charger *chg = container_of(work, struct smb_charger,
-							lpd_ra_open_work.work);
-	union power_supply_propval pval;
-	u8 stat;
-	int rc;
-
-	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
-			rc);
-		return;
-	}
-
-	/* double check water detection status bit */
-	if (!(stat & TYPEC_WATER_DETECTION_STATUS_BIT)) {
-		chg->lpd_in_progress = false;
-		return;
-	}
-
-	/* Enable source only mode */
-	pval.intval = POWER_SUPPLY_TYPEC_PR_SOURCE;
-	rc = smblib_set_prop_typec_power_role(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-			pval.intval, rc);
-		return;
-	}
-
-	/* Wait 1.5ms to read src status */
-	usleep_range(1500, 1510);
-
-	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
-				rc);
-		return;
-	}
-
-	/* Emark cable */
-	if ((stat & SRC_RA_OPEN_BIT) &&
-			!smblib_rsbux_low(chg, RSBU_K_300K_UV)) {
-		/* restore DRP mode */
-		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0)
-			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-				pval.intval, rc);
-
-		chg->lpd_in_progress = false;
-		return;
-	}
-
-	/* Moisture detected, enable sink only mode */
-	pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
-	rc = smblib_set_prop_typec_power_role(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-			pval.intval, rc);
-		return;
-	}
-
-	/* recheck in 60 seconds */
-	alarm_start_relative(&chg->lpd_recheck_timer, ms_to_ktime(60000));
-	vote(chg->awake_votable, LPD_VOTER, false, 0);
-}
-
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -4664,7 +4498,6 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
 	INIT_DELAYED_WORK(&chg->uusb_otg_work, smblib_uusb_otg_work);
 	INIT_DELAYED_WORK(&chg->bb_removal_work, smblib_bb_removal_work);
-	INIT_DELAYED_WORK(&chg->lpd_ra_open_work, smblib_lpd_ra_open_work);
 	chg->fake_capacity = -EINVAL;
 	chg->fake_input_current_limited = -EINVAL;
 	chg->fake_batt_status = -EINVAL;
@@ -4765,7 +4598,6 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->pl_enable_work);
 		cancel_delayed_work_sync(&chg->uusb_otg_work);
 		cancel_delayed_work_sync(&chg->bb_removal_work);
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();
