@@ -74,9 +74,7 @@
 			synaptics,max-y-for-2d = <389>;
 			synaptics,wakeup-gestures-en = <1>;
 			synaptics,resume-in-workqueue;
-			synaptics,x-flip;
-			synaptics,y-flip;
-
+			synaptics,fw-name = "PR1814809-s1222_30303032.img";
 			synaptics,reset-gpio = <&msm_gpio 31 0x0>;
 			synaptics,reset-delay-ms = <200>;
 			synaptics,reset-on-state = <0>;
