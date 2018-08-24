@@ -133,7 +133,7 @@
 #define COVARIANCE_SIZE          14
 #define ACCEL_COVARIANCE_SIZE  (COVARIANCE_SIZE * sizeof(int))
 
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 #define INV_ACC_MAXSAMPLE        4000
 #define INV_GYRO_MAXSAMPLE       4000
 #define G_MAX                    23920640
@@ -855,7 +855,7 @@ struct inv_mpu_state {
 	u8 int_en_2;
 	u8 gesture_int_count;
 	u8 smplrt_div;
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 	bool read_acc_boot_sample;
 	bool read_gyro_boot_sample;
 	int acc_bufsample_cnt;

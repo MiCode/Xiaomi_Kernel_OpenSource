@@ -311,7 +311,7 @@ static int _misc_attr_store(struct device *dev,
 	return result;
 }
 
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 static inline int inv_check_acc_gyro_early_buff_enable_flag(
 		struct iio_dev *indio_dev)
 {
@@ -800,7 +800,7 @@ static ssize_t inv_flush_batch_store(struct device *dev,
 	return count;
 }
 
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 static int inv_gyro_read_bootsampl(struct inv_mpu_state *st,
 		unsigned long enable_read)
 {
@@ -972,7 +972,7 @@ static DEVICE_ATTR(debug_reg_dump, S_IRUGO | S_IWUSR, inv_reg_dump_show, NULL);
 static DEVICE_ATTR(out_temperature, S_IRUGO | S_IWUSR,
 			inv_temperature_show, NULL);
 static DEVICE_ATTR(misc_self_test, S_IRUGO | S_IWUSR, inv_self_test, NULL);
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 static IIO_DEVICE_ATTR(read_acc_boot_sample, S_IRUGO | S_IWUSR,
 	read_acc_boot_sample_show, read_acc_boot_sample_store, SENSOR_L_ACCEL);
 static IIO_DEVICE_ATTR(read_gyro_boot_sample, S_IRUGO | S_IWUSR,
@@ -1112,7 +1112,7 @@ static const struct attribute *inv_raw_attributes[] = {
 #ifndef SUPPORT_ONLY_BASIC_FEATURES
 	&iio_dev_attr_in_power_on.dev_attr.attr,
 #endif
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 	&iio_dev_attr_read_acc_boot_sample.dev_attr.attr,
 	&iio_dev_attr_read_gyro_boot_sample.dev_attr.attr,
 #endif
