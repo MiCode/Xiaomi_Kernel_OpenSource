@@ -19,6 +19,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <net/sock.h>
+#include <linux/tracepoint.h>
 #include "rmnet_private.h"
 #include "rmnet_config.h"
 #include "rmnet_vnd.h"
@@ -27,10 +28,23 @@
 #ifdef CONFIG_QCOM_QMI_HELPERS
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
+
 #endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
+#define CREATE_TRACE_POINTS
+#include "rmnet_trace.h"
+
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_wq_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_low);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_high);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_err);
 
 /* Helper Functions */
 
