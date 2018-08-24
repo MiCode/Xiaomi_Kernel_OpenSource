@@ -331,11 +331,11 @@
 			};
 
 			cluster1 {
-				core6 {
+				core0 {
 					cpu = <&CPU6>;
 				};
 
-				core7 {
+				core1 {
 					cpu = <&CPU7>;
 				};
 			};
@@ -708,6 +708,13 @@
 		interrupts = <GIC_PPI 5 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	dsu_pmu@0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
+		       <&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
+	};
+
 	qcom,msm-imem@146aa000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146aa000 0x1000>;
@@ -841,6 +848,15 @@
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
 	};
 
 	qcom,chd_sliver {
@@ -1028,6 +1044,16 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
+
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x141>;
+		};
 	};
 
 	thermal_zones: thermal-zones {};
@@ -1077,6 +1103,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -1085,6 +1115,14 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
