@@ -278,7 +278,7 @@ static ssize_t vchan_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t vchan_store(struct kobject *kobj, struct kobj_attribute *attr,
-						 char *buf, size_t count)
+						const char *buf, size_t count)
 {
 	int ret;
 
@@ -297,7 +297,7 @@ static ssize_t ctx_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t ctx_store(struct kobject *kobj, struct kobj_attribute *attr,
-						 char *buf, size_t count)
+						const char *buf, size_t count)
 {
 	int ret;
 
@@ -316,7 +316,7 @@ static ssize_t expimp_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t expimp_store(struct kobject *kobj, struct kobj_attribute *attr,
-						 char *buf, size_t count)
+						const char *buf, size_t count)
 {
 	int ret;
 
