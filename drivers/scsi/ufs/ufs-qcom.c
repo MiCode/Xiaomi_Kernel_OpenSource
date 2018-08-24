@@ -2100,6 +2100,7 @@ static int ufs_qcom_parse_reg_info(struct ufs_qcom_host *host, char *name,
 		dev_dbg(dev, "%s: unable to find %s err %d, using default\n",
 			__func__, prop_name, ret);
 		vreg->min_uV = VDDP_REF_CLK_MIN_UV;
+		ret = 0;
 	}
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-uV", name);
@@ -2108,6 +2109,7 @@ static int ufs_qcom_parse_reg_info(struct ufs_qcom_host *host, char *name,
 		dev_dbg(dev, "%s: unable to find %s err %d, using default\n",
 			__func__, prop_name, ret);
 		vreg->max_uV = VDDP_REF_CLK_MAX_UV;
+		ret = 0;
 	}
 
 out:
