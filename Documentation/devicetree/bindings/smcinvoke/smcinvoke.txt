@@ -1,0 +1,34 @@
+* SMCInvoke driver to provide transport between TZ and Linux
+
+Required properties:
+- compatible : Should be "qcom,smcinvoke"
+- reg : should contain memory region address reserved for loading secure apps.
+- qcom, msm_bus,name: Should be "smcinvoke-noc"
+- qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
+- qcom, msm_bus,num_paths: The paths for source and destination ports
+- qcom, msm_bus,vectors: Vectors for bus topology.
+- qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
+  - qcom,clock-support : indicates clocks are handled by smcinvoke (could be handled by RPM)
+
+Example:
+        qcom_smcinvoke: smcinvoke@88000000 {
+                compatible = "qcom,smcinvoke";
+                reg = <0x88000000 0x500000>;
+                qcom,clock-support;
+                qcom,msm-bus,name = "smcinvoke-noc";
+                qcom,msm-bus,num-cases = <4>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                                <47 512 0 0>,
+                                <47 512 0 0>,
+                                <47 512 120000 1200000>,
+                                <47 512 393600 3936000>;
+                clocks = <&clock_gcc clk_crypto_clk_src>,
+                        <&clock_gcc clk_gcc_crypto_clk>,
+                        <&clock_gcc clk_gcc_crypto_ahb_clk>,
+                        <&clock_gcc clk_gcc_crypto_axi_clk>;
+                clock-names = "core_clk_src", "core_clk",
+                                "iface_clk", "bus_clk";
+                qcom,ce-opp-freq = <100000000>;
+                status = "ok";
+        };

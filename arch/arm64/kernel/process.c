@@ -44,6 +44,9 @@
 #include <linux/personality.h>
 #include <linux/notifier.h>
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+#include <linux/percpu.h>
+#endif
 #include <asm/alternative.h>
 #include <asm/compat.h>
 #include <asm/cacheflush.h>
@@ -391,6 +394,22 @@ static void uao_thread_switch(struct task_struct *next)
 	}
 }
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+/*
+ * We store our current task in sp_el0, which is clobbered by userspace. Keep a
+ * shadow copy so that we can restore this upon entry from userspace.
+ *
+ * This is *only* for exception entry from EL0, and is not valid until we
+ * __switch_to() a user task.
+ */
+DEFINE_PER_CPU(struct task_struct *, __entry_task);
+
+static void entry_task_switch(struct task_struct *next)
+{
+	__this_cpu_write(__entry_task, next);
+}
+#endif
+
 /*
  * Thread switching.
  */
@@ -403,6 +422,9 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	tls_thread_switch(next);
 	hw_breakpoint_thread_switch(next);
 	contextidr_thread_switch(next);
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	entry_task_switch(next);
+#endif
 	uao_thread_switch(next);
 
 	/*

@@ -76,13 +76,15 @@ static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 	u64 result = val;
 
 	if (val) {
-		u64 temp = -1UL;
+		u64 temp = U64_MAX;
 
 		do_div(temp, val);
 		if (temp > numer) {
 			/* no overflow, so we can do the operation*/
 			result = (val * (u64)numer);
 			do_div(result, denom);
+		} else {
+			pr_warn("Overflow, skip fudge factor\n");
 		}
 	}
 	return result;
@@ -933,7 +935,7 @@ static u32 mdss_mdp_calc_prefill_line_time(struct mdss_mdp_ctl *ctl,
 {
 	u32 prefill_us = 0;
 	u32 prefill_amortized = 0;
-	struct mdss_data_type *mdata;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_mixer *mixer;
 	struct mdss_panel_info *pinfo;
 	u32 fps, v_total;

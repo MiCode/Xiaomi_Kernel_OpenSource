@@ -177,6 +177,7 @@ enum fg_sram_param_id {
 	FG_SRAM_DELTA_MSOC_THR,
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
+	FG_SRAM_SYNC_SLEEP_THR,
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
@@ -243,6 +244,7 @@ struct fg_dt_props {
 	bool	hold_soc_while_full;
 	bool	auto_recharge_soc;
 	bool	use_esr_sw;
+	bool	disable_esr_pull_dn;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -257,6 +259,7 @@ struct fg_dt_props {
 	int	esr_timer_charging[NUM_ESR_TIMERS];
 	int	esr_timer_awake[NUM_ESR_TIMERS];
 	int	esr_timer_asleep[NUM_ESR_TIMERS];
+	int	esr_timer_shutdown[NUM_ESR_TIMERS];
 	int	rconn_mohms;
 	int	esr_clamp_mohms;
 	int	cl_start_soc;
@@ -276,6 +279,7 @@ struct fg_dt_props {
 	int	slope_limit_temp;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
+	int	sync_sleep_threshold_ma;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];

@@ -13,7 +13,9 @@
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
 #include "mdm9650-v1.1-mtp.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9650 PCIE EP TTP";
 	compatible = "qcom,mdm9650-ttp", "qcom,mdm9650", "qcom,ttp";
@@ -165,7 +167,8 @@
 
 &pcie_ep {
 	status = "ok";
-	mdm2apstatus-gpio = <&tlmm_pinmux 85 0>;
+	mdm2apstatus-gpio = <&tlmm_pinmux 64 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&tlmm_pinmux 85 0>;
 };
 
 &pcie0 {
@@ -182,13 +185,40 @@
 
 &pcie0_mdm2apstatus_default {
 	mux {
-		pins = "gpio85";
+		pins = "gpio64";
 		function = "gpio";
 	};
 
 	config {
+		pins = "gpio64";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&pcie0_clkreq_default {
+	mux {
+		pins = "gpio85";
+		function = "gpio";
+	};
+	config {
 		pins = "gpio85";
 		drive-strength = <2>;
-		bias-pull-down;
+		bias-pull-up;
+	};
+};
+
+&pmd9650_pon {
+	interrupts = <0x0 0x8 0x0>, <0x0 0x8 0x1>;
+	interrupt-names = "kpdpwr", "resin";
+	qcom,s3-src = "resin";
+
+	qcom,pon_2 {
+		qcom,pon-type = <1>;
+		qcom,support-reset = <1>;
+		qcom,s1-timer = <0>;
+		qcom,s2-timer = <2000>;
+		qcom,s2-type = <7>;
+		qcom,pull-up = <1>;
 	};
 };

@@ -135,6 +135,7 @@ enum mhi_client_channel {
 	MHI_CLIENT_RESERVED_2_LOWER = 102,
 	MHI_CLIENT_RESERVED_2_UPPER = 127,
 	MHI_MAX_CHANNELS = 102,
+	MHI_CLIENT_INVALID = 0xFFFFFFFF
 };
 
 struct mhi_dev_client_cb_data {
