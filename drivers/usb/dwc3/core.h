@@ -987,6 +987,7 @@ struct dwc3_scratchpad_array {
  * @imod_interval: set the interrupt moderation interval in 250ns
  *                 increments or 0 to disable.
  * @xhci_imod_value: imod value to use with xhci
+ * @core_id: usb core id to differentiate different controller
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1157,6 +1158,7 @@ struct dwc3 {
 
 	u16			imod_interval;
 	u32			xhci_imod_value;
+	int			core_id;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))
