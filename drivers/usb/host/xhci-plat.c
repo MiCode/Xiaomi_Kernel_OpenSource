@@ -217,6 +217,14 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!sysdev)
 		sysdev = &pdev->dev;
 
+	/*
+	 * If sysdev dev is having parent i.e. "linux,sysdev_is_parent" is true,
+	 * then use sysdev->parent device.
+	 */
+	if (sysdev->parent && sysdev->parent->of_node &&
+		device_property_read_bool(sysdev, "linux,sysdev_is_parent"))
+		sysdev = sysdev->parent;
+
 	/* Try to set 64-bit DMA first */
 	if (WARN_ON(!sysdev->dma_mask))
 		/* Platform did not initialize dma_mask */
