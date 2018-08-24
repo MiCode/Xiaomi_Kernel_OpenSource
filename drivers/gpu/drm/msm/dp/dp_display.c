@@ -168,6 +168,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	struct dp_display_private *dp;
 	struct delayed_work *dw = to_delayed_work(work);
 	struct sde_hdcp_ops *ops;
+	void *data;
 	int rc = 0;
 	u32 hdcp_auth_state;
 
@@ -180,20 +181,24 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	}
 
 	ops = dp->hdcp.ops;
+	data = dp->hdcp.data;
 
 	pr_debug("%s: %s\n",
 		sde_hdcp_version(dp->link->hdcp_status.hdcp_version),
 		sde_hdcp_state_name(dp->link->hdcp_status.hdcp_state));
 
+	if (dp->debug->force_encryption && ops && ops->force_encryption)
+		ops->force_encryption(data, dp->debug->force_encryption);
+
 	switch (dp->link->hdcp_status.hdcp_state) {
 	case HDCP_STATE_AUTHENTICATING:
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
-			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+			rc = dp->hdcp.ops->authenticate(data);
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		if (dp_display_is_ready(dp) && dp->power_on) {
 			if (ops && ops->reauthenticate) {
-				rc = ops->reauthenticate(dp->hdcp.data);
+				rc = ops->reauthenticate(data);
 				if (rc)
 					pr_err("failed rc=%d\n", rc);
 			}
@@ -1028,6 +1033,9 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	struct dp_panel_in panel_in = {
 		.dev = dev,
 	};
+	struct dp_debug_in debug_in = {
+		.dev = dev,
+	};
 
 	mutex_init(&dp->session_lock);
 
@@ -1143,11 +1151,17 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_hpd;
 	}
 
-	dp->debug = dp_debug_get(dev, dp->panel, dp->hpd,
-				dp->link, dp->aux,
-				&dp->dp_display.base_connector,
-				dp->catalog, dp->parser);
+	dp_display_initialize_hdcp(dp);
 
+	debug_in.panel = dp->panel;
+	debug_in.hpd = dp->hpd;
+	debug_in.link = dp->link;
+	debug_in.aux = dp->aux;
+	debug_in.connector = &dp->dp_display.base_connector;
+	debug_in.catalog = dp->catalog;
+	debug_in.parser = dp->parser;
+
+	dp->debug = dp_debug_get(&debug_in);
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);
@@ -1200,8 +1214,6 @@ static int dp_display_post_init(struct dp_display *dp_display)
 	rc = dp_init_sub_modules(dp);
 	if (rc)
 		goto end;
-
-	dp_display_initialize_hdcp(dp);
 
 	dp_display->post_init = NULL;
 end:

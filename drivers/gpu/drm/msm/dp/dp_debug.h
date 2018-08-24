@@ -28,6 +28,7 @@
  * @vrefresh: used to filter out vrefresh value
  * @tpg_state: specifies whether tpg feature is enabled
  * @max_pclk_khz: max pclk supported
+ * @force_encryption: enable/disable forced encryption for HDCP 2.2
  */
 struct dp_debug {
 	bool debug_en;
@@ -39,30 +40,44 @@ struct dp_debug {
 	int vrefresh;
 	bool tpg_state;
 	u32 max_pclk_khz;
+	bool force_encryption;
 
 	u8 *(*get_edid)(struct dp_debug *dp_debug);
 };
 
 /**
- * dp_debug_get() - configure and get the DisplayPlot debug module data
- *
+ * struct dp_debug_in
  * @dev: device instance of the caller
  * @panel: instance of panel module
  * @hpd: instance of hpd module
  * @link: instance of link module
+ * @aux: instance of aux module
  * @connector: double pointer to display connector
  * @catalog: instance of catalog module
  * @parser: instance of parser module
+ */
+struct dp_debug_in {
+	struct device *dev;
+	struct dp_panel *panel;
+	struct dp_hpd *hpd;
+	struct dp_link *link;
+	struct dp_aux *aux;
+	struct drm_connector **connector;
+	struct dp_catalog *catalog;
+	struct dp_parser *parser;
+};
+
+/**
+ * dp_debug_get() - configure and get the DisplayPlot debug module data
+ *
+ * @in: input structure containing data to initialize the debug module
  * return: pointer to allocated debug module data
  *
  * This function sets up the debug module and provides a way
  * for debugfs input to be communicated with existing modules
  */
-struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
-			struct dp_hpd *hpd, struct dp_link *link,
-			struct dp_aux *aux, struct drm_connector **connector,
-			struct dp_catalog *catalog,
-			struct dp_parser *parser);
+struct dp_debug *dp_debug_get(struct dp_debug_in *in);
+
 /**
  * dp_debug_put()
  *

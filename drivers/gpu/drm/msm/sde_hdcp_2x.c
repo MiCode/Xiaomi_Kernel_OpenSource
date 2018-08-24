@@ -59,6 +59,7 @@ struct sde_hdcp_2x_ctrl {
 	u32 total_message_length;
 	bool no_stored_km;
 	bool feature_supported;
+	bool force_encryption;
 	bool authenticated;
 	bool resend_lc_init;
 	bool resend_stream_manage;
@@ -339,6 +340,19 @@ static bool sde_hdcp_2x_client_feature_supported(void *data)
 	return hdcp2_feature_supported(hdcp->hdcp2_ctx);
 }
 
+static void sde_hdcp_2x_force_encryption(void *data, bool enable)
+{
+	struct sde_hdcp_2x_ctrl *hdcp = data;
+
+	if (!hdcp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	hdcp->force_encryption = enable;
+	pr_info("force_encryption=%d\n", hdcp->force_encryption);
+}
+
 static int sde_hdcp_2x_check_valid_state(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	int rc = 0;
@@ -448,6 +462,9 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 		if (!hdcp2_app_comm(hdcp->hdcp2_ctx,
 				HDCP2_CMD_EN_ENCRYPTION, &hdcp->app_data)) {
 			hdcp->authenticated = true;
+
+			if (hdcp->force_encryption)
+				hdcp2_force_encryption(hdcp->hdcp2_ctx, 1);
 
 			cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
 			sde_hdcp_2x_wakeup_client(hdcp, &cdata);
@@ -638,6 +655,10 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 			if (!rc) {
 				hdcp->authenticated = true;
 
+				if (hdcp->force_encryption)
+					hdcp2_force_encryption(
+							hdcp->hdcp2_ctx, 1);
+
 				cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
 				sde_hdcp_2x_wakeup_client(hdcp, &cdata);
 			} else {
@@ -825,6 +846,7 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 	/* populate ops to be called by client */
 	data->ops->feature_supported = sde_hdcp_2x_client_feature_supported;
 	data->ops->wakeup = sde_hdcp_2x_wakeup;
+	data->ops->force_encryption = sde_hdcp_2x_force_encryption;
 
 	hdcp = kzalloc(sizeof(*hdcp), GFP_KERNEL);
 	if (!hdcp) {
@@ -865,6 +887,8 @@ int sde_hdcp_2x_register(struct sde_hdcp_2x_register_data *data)
 		hdcp->thread = NULL;
 		goto error;
 	}
+
+	hdcp->force_encryption = false;
 
 	return 0;
 error:
