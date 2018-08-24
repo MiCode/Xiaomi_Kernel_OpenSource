@@ -1271,6 +1271,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 	connector->hdr_max_luminance = 0;
 	connector->hdr_avg_luminance = 0;
 	connector->hdr_min_luminance = 0;
+	connector->hdr_supported = false;
 
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 
