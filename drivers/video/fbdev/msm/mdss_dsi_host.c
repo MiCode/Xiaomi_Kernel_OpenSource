@@ -1462,6 +1462,11 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 					(mipi->vc << 8) | DTYPE_DCS_LWRITE;
 			stream_total = pinfo->roi.h << 16 | pinfo->roi.w;
 		} else {
+			width = width + pdata->panel_info.lcdc.border_left +
+				pdata->panel_info.lcdc.border_right;
+			height = height +  pdata->panel_info.lcdc.border_top +
+				pdata->panel_info.lcdc.border_bottom;
+			ystride = width * bpp + 1;
 			stream_ctrl = (ystride << 16) | (mipi->vc << 8) |
 					DTYPE_DCS_LWRITE;
 			stream_total = height << 16 | width;

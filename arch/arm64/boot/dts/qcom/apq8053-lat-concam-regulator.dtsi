@@ -1,0 +1,181 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-ldoa18 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <18>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		pm8953_l18: regulator-l18 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l18";
+			qcom,set = <3>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <2700000>;
+		};
+
+	};
+
+	rpm-regulator-ldoa9 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <9>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-l9 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l9";
+			qcom,set = <3>;
+			regulator-boot-on;
+			regulator-always-on;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <10>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		regulator-boot-on;
+		regulator-always-on;
+		pm8953_l10: regulator-l10 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l10";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	};
+
+	/* L4 for ALS, TMP, Moisture, Image Sensor, PD Control, Thermistor */
+	rpm-regulator-ldoa4 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <4>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		regulator-boot-on;
+		regulator-l4 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l4";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+	/* l2, l7 and l17 for cci */
+	rpm-regulator-ldoa2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+		regulator-l2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l2";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+		regulator-l7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l7";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <17>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+
+		regulator-l17 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l17";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+	/* l6 for eeprom/ Image sensor */
+
+	rpm-regulator-ldoa6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+		regulator-l6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l6";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+	/* l5 for WSA8815 Speaker amp */
+	rpm-regulator-ldoa5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "okay";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-l5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l5";
+			qcom,set = <3>;
+			regulator-always-on;
+			regulator-boot-on;
+			status = "okay";
+		};
+	};
+
+};

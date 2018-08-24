@@ -1,0 +1,22 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPOORWILLS V2";
+	compatible = "qcom,sdxpoorwills";
+	qcom,msm-id = <334 0x20000>, <335 0x20000>;
+};
+
+&emac_hw {
+	emac-core-version = <5>;
+};

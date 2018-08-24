@@ -324,25 +324,22 @@ static int glink_bgcom_xprt_tx_cmd(struct edge_info *einfo, void *src,
 				 uint32_t size)
 {
 	int ret;
-	DEFINE_WAIT(wait);
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 
 	mutex_lock(&einfo->write_lock);
+	add_wait_queue(&einfo->tx_blocked_queue, &wait);
 	while (glink_bgcom_get_tx_avail(einfo) < (size/WORD_SIZE)) {
 		send_tx_blocked_signal(einfo);
-		prepare_to_wait(&einfo->tx_blocked_queue, &wait,
-				TASK_UNINTERRUPTIBLE);
-		if (glink_bgcom_get_tx_avail(einfo) < (size/WORD_SIZE)
-							&& !einfo->in_ssr) {
-			mutex_unlock(&einfo->write_lock);
-			schedule();
-			mutex_lock(&einfo->write_lock);
-		}
-		finish_wait(&einfo->tx_blocked_queue, &wait);
 		if (einfo->in_ssr) {
+			remove_wait_queue(&einfo->tx_blocked_queue, &wait);
 			mutex_unlock(&einfo->write_lock);
 			return -EFAULT;
 		}
+		mutex_unlock(&einfo->write_lock);
+		wait_woken(&wait, TASK_UNINTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+		mutex_lock(&einfo->write_lock);
 	}
+	remove_wait_queue(&einfo->tx_blocked_queue, &wait);
 	ret = glink_bgcom_xprt_tx_cmd_safe(einfo, src, size);
 	mutex_unlock(&einfo->write_lock);
 	return ret;

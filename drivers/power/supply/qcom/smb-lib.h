@@ -71,6 +71,7 @@ enum print_reason {
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
 #define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
 #define OV_VOTER			"OV_VOTER"
+#define FG_ESR_VOTER			"FG_ESR_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -354,6 +355,7 @@ struct smb_charger {
 	bool			otg_present;
 	bool			is_audio_adapter;
 	bool			disable_stat_sw_override;
+	bool			in_chg_lock;
 
 	/* workaround flag */
 	u32			wa_flags;

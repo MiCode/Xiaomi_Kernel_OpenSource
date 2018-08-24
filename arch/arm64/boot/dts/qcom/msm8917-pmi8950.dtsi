@@ -22,3 +22,13 @@
 &usb_otg {
 	extcon = <&qpnp_smbcharger>;
 };
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};

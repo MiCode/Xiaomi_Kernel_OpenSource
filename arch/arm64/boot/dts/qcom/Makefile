@@ -223,7 +223,7 @@ qcs605-cdp-overlay.dtbo-base := qcs605.dtb
 qcs605-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-external-codec-mtp-overlay.dtbo-base := qcs605.dtb
 qcs605-lc-mtp-overlay.dtbo-base := qcs605-lc.dtb
-qcs605-lc-ipcamera-overlay.dtbo-base := qcs605-lc.dtb
+qcs605-lc-ipcamera-overlay.dtbo-base := qcs605-lc-ipcamera-base.dtb
 qcs605-360camera-overlay.dtbo-base := qcs605.dtb
 qcs605-lc-cdp-overlay.dtbo-base := qcs605-lc-cdp-base.dtb
 sdm710-cdp-overlay.dtbo-base := sdm710.dtb
@@ -499,8 +499,11 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	apq8053-lite-dragon-v2.0.dtb \
 	apq8053-lite-dragon-v2.1.dtb \
 	apq8053-lite-dragon-v2.2.dtb \
+	apq8053-lite-dragon-v2.2.1.dtb \
 	apq8053-lite-dragon-v2.3.dtb \
 	apq8053-lite-dragon-v2.4.dtb \
+	apq8053-lat-concam-dev.dtb \
+	apq8053-lat-concam-proto.dtb \
 	msm8953-pmi8940-cdp.dtb \
 	msm8953-pmi8940-mtp.dtb \
 	msm8953-pmi8937-cdp.dtb \
