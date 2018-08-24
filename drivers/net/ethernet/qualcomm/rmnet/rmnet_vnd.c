@@ -14,10 +14,10 @@
 #include "rmnet_private.h"
 #include "rmnet_map.h"
 #include "rmnet_vnd.h"
+#include "rmnet_trace.h"
 
 #include <soc/qcom/qmi_rmnet.h>
 #include <soc/qcom/rmnet_qmi.h>
-#include <trace/events/rmnet.h>
 
 /* RX/TX Fixup */
 
