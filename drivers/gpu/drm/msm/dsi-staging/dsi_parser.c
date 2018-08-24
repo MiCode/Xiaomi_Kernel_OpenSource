@@ -462,7 +462,6 @@ static struct dsi_parser_prop *dsi_parser_search_property(
 	struct dsi_parser_prop *prop = node->prop;
 
 	for (i = 0; i < node->prop_count; i++) {
-		pr_err("prop name: %s\n", prop[i].name);
 		if (prop[i].name && !strcmp(prop[i].name, name))
 			return &prop[i];
 	}
@@ -553,7 +552,7 @@ int dsi_parser_read_u32(const struct device_node *np,
 
 	prop = dsi_parser_search_property(node, propname);
 	if (!prop) {
-		pr_err("%s not found\n", propname);
+		pr_debug("%s not found\n", propname);
 		rc = -EINVAL;
 		goto end;
 	}

@@ -2230,7 +2230,7 @@ static bool dsi_ctrl_check_for_spurious_error_interrupts(
 
 	if ((jiffies_now - dsi_ctrl->jiffies_start) < intr_check_interval) {
 		if (dsi_ctrl->error_interrupt_count > interrupt_threshold) {
-			pr_debug("Detected spurious interrupts on dsi ctrl\n");
+			pr_warn("Detected spurious interrupts on dsi ctrl\n");
 			return true;
 		}
 	} else {
@@ -2271,7 +2271,7 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 							0, 0, 0, 0);
 			}
 		}
-		pr_err_ratelimited("tx timeout error: 0x%lx\n", error);
+		pr_err("tx timeout error: 0x%lx\n", error);
 	}
 
 	/* DSI FIFO OVERFLOW error */
@@ -2318,7 +2318,7 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 	 * case and prevent us from re enabling interrupts until a full ESD
 	 * recovery is completed.
 	 */
-	if (0 && dsi_ctrl_check_for_spurious_error_interrupts(dsi_ctrl) &&
+	if (dsi_ctrl_check_for_spurious_error_interrupts(dsi_ctrl) &&
 				dsi_ctrl->esd_check_underway) {
 		dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
 		return;
@@ -2667,23 +2667,6 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
 		_dsi_ctrl_destroy_isr(dsi_ctrl);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
-}
-
-/**
- * dsi_ctrl_enable_test_pattern() - Function to enable DSi Test Pattern
- * @dsi_ctrl:              DSI controller handle.
- */
-int dsi_ctrl_enable_test_pattern(struct dsi_ctrl *dsi_ctrl)
-{
-	if (!dsi_ctrl)
-		return -EINVAL;
-
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-	dsi_ctrl->hw.ops.enable_test_pattern(&dsi_ctrl->hw);
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
-
-	pr_debug("[DSI_%d] enable TPG\n", dsi_ctrl->cell_index);
-	return 0;
 }
 
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)

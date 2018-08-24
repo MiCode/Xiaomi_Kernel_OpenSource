@@ -202,8 +202,6 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	struct resource *gdsc_base_reg;
 	struct mdss_pll_resources *pll_res;
 
-	pr_err("dsi pll probe called\n");
-
 	if (!pdev->dev.of_node) {
 		pr_err("MDSS pll driver only supports device tree probe\n");
 		rc = -ENOTSUPP;
@@ -212,9 +210,9 @@ static int mdss_pll_probe(struct platform_device *pdev)
 
 	label = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!label)
-		pr_err("%d: MDSS pll label not specified\n", __LINE__);
+		pr_info("%d: MDSS pll label not specified\n", __LINE__);
 	else
-		pr_err("MDSS pll label = %s\n", label);
+		pr_info("MDSS pll label = %s\n", label);
 
 	pll_res = devm_kzalloc(&pdev->dev, sizeof(struct mdss_pll_resources),
 								GFP_KERNEL);
@@ -235,7 +233,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 						"qcom,dsi-pll-ssc-en");
 
 	if (pll_res->ssc_en) {
-		pr_err("%s: label=%s PLL SSC enabled\n", __func__, label);
+		pr_info("%s: label=%s PLL SSC enabled\n", __func__, label);
 
 		rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,ssc-frequency-hz", &pll_res->ssc_freq);
@@ -410,7 +408,6 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_7nm"},
 	{.compatible = "qcom,mdss_dp_pll_7nm"},
 	{.compatible = "qcom,mdss_dsi_pll_28lpm"},
-	{.compatible = "qcom,mdss_dsi_pll_14nm"},
 	{}
 };
 

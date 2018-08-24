@@ -78,7 +78,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = (const char *[]){ "xo_board" },
 			.num_parents = 1,
 			.ops = &clk_ops_dsi_vco,
 		},
@@ -90,7 +90,7 @@ static struct dsi_pll_vco_clk dsi0pll_shadow_vco_clk = {
 	.max_rate = 2600000000u,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = (const char *[]){ "xo_board" },
 			.num_parents = 1,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
@@ -104,7 +104,7 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = (const char *[]){ "xo_board" },
 			.num_parents = 1,
 			.ops = &clk_ops_dsi_vco,
 		},
@@ -118,7 +118,7 @@ static struct dsi_pll_vco_clk dsi1pll_shadow_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = (const char *[]){ "xo_board" },
 			.num_parents = 1,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
@@ -603,7 +603,7 @@ int dsi_pll_clock_register_14nm(struct platform_device *pdev,
 	}
 
 	if (!rc) {
-		pr_err("Registered DSI PLL ndx=%d clocks successfully\n",
+		pr_info("Registered DSI PLL ndx=%d clocks successfully\n",
 						pll_res->index);
 		return rc;
 	}

@@ -766,10 +766,6 @@ void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable);
  */
 int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
 		bool *state);
-/**
- * dsi_ctrl_enable_test_pattern - Enable DSI Test Pattern
- */
-int dsi_ctrl_enable_test_pattern(struct dsi_ctrl *dsi_ctrl);
 
 /**
  * dsi_ctrl_wait_for_cmd_mode_mdp_idle() - Wait for command mode engine not to

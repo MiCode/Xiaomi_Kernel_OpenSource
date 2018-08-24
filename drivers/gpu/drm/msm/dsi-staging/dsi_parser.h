@@ -96,7 +96,6 @@ static inline int dsi_parser_read_u64(const struct device_node *np,
 static inline int dsi_parser_read_u32(const struct device_node *np,
 			const char *propname, u32 *out_value)
 {
-	pr_err("config dsi parser not defined dsi \n");
 	return -ENODEV;
 }
 

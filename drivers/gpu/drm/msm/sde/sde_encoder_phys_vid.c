@@ -594,8 +594,6 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 	if (!phys_enc)
 		return;
 
-	pr_err("%s: \n", __func__);
-
 	if (phys_enc->parent_ops.handle_underrun_virt)
 		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
 			phys_enc);

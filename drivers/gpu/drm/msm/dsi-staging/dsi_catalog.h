@@ -172,7 +172,6 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 				     struct dsi_rect *roi);
 void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl);
-void dsi_ctrl_hw_cmn_enable_test_pattern(struct dsi_ctrl_hw *ctrl);
 
 void dsi_ctrl_hw_cmn_setup_misr(struct dsi_ctrl_hw *ctrl,
 			enum dsi_op_mode panel_mode,

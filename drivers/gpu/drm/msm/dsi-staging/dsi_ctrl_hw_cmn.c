@@ -67,11 +67,9 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 
 	dsi_setup_trigger_controls(ctrl, cfg);
 
-	pr_debug("dsi host cmn config\n");
-
 	/* Setup clocking timing controls */
-	reg_value = ((0xe & 0x3F) << 8);
-	reg_value |= (0x31 & 0x3F);
+	reg_value = ((cfg->t_clk_post & 0x3F) << 8);
+	reg_value |= (cfg->t_clk_pre & 0x3F);
 	DSI_W32(ctrl, DSI_CLKOUT_TIMING_CTRL, reg_value);
 
 	/* EOT packet control */
@@ -1521,14 +1519,4 @@ int dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl_hw *ctrl)
 		pr_err("%s: timed out waiting for idle\n", __func__);
 
 	return rc;
-}
-
-void dsi_ctrl_hw_cmn_enable_test_pattern(struct dsi_ctrl_hw *ctrl)
-{
-	return;
-	DSI_W32(ctrl, 0x19c, 0x100);
-	udelay(100);
-	DSI_W32(ctrl, 0x1a4, 0x5);
-	udelay(100);
-	DSI_W32(ctrl, 0x15c, 0x31);
 }

@@ -478,7 +478,6 @@ struct dsi_ctrl_hw_ops {
 	 * engine should be re-enabled only during the vertical blanking time.
 	 */
 	void (*soft_reset)(struct dsi_ctrl_hw *ctrl);
-	void (*enable_test_pattern)(struct dsi_ctrl_hw *ctrl);
 
 	/**
 	 * setup_lane_map() - setup mapping between logical and physical lanes

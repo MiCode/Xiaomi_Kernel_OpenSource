@@ -1026,23 +1026,17 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	u32 val = 0;
 	int rc = 0;
 
-	pr_err("misc host config called\n");
-
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-t-clk-post", &val);
 	if (!rc) {
 		host->t_clk_post = val;
-		pr_err("[%s] t_clk_post = %d\n", name, val);
-	} else {
-		pr_err("clk_post dsi parse failed\n");
+		pr_debug("[%s] t_clk_post = %d\n", name, val);
 	}
 
 	val = 0;
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-t-clk-pre", &val);
 	if (!rc) {
 		host->t_clk_pre = val;
-		pr_err("[%s] t_clk_pre = %d\n", name, val);
-	} else {
-		pr_err("clk_pre dsi parse failed\n");
+		pr_debug("[%s] t_clk_pre = %d\n", name, val);
 	}
 
 	host->ignore_rx_eot = utils->read_bool(utils->data,

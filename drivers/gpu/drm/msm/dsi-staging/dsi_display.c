@@ -2494,9 +2494,9 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	int i;
 
 	m_flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_BROADCAST_MASTER |
-		   DSI_CTRL_CMD_DEFER_TRIGGER | DSI_CTRL_CMD_FIFO_STORE);
+		   DSI_CTRL_CMD_DEFER_TRIGGER | DSI_CTRL_CMD_FETCH_MEMORY);
 	flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_DEFER_TRIGGER |
-		 DSI_CTRL_CMD_FIFO_STORE);
+		 DSI_CTRL_CMD_FETCH_MEMORY);
 
 	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
@@ -2657,7 +2657,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				msg->ctrl : 0;
 
 		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
-					  DSI_CTRL_CMD_FIFO_STORE);
+					  DSI_CTRL_CMD_FETCH_MEMORY);
 		if (rc) {
 			pr_err("[%s] cmd transfer failed, rc=%d\n",
 			       display->name, rc);
@@ -6455,8 +6455,7 @@ error:
 
 int dsi_display_post_enable(struct dsi_display *display)
 {
-	int rc = 0, i = 0;
-	struct dsi_display_ctrl *ctrl;
+	int rc = 0;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -6469,12 +6468,6 @@ int dsi_display_post_enable(struct dsi_display *display)
 	if (rc)
 		pr_err("[%s] panel post-enable failed, rc=%d\n",
 		       display->name, rc);
-
-	/* Enable TPG */
-	for (i = 0 ; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		rc = dsi_ctrl_enable_test_pattern(ctrl->ctrl);
-	}
 
 	/* remove the clk vote for CMD mode panels */
 	if (display->config.panel_mode == DSI_OP_CMD_MODE)

@@ -88,8 +88,6 @@ void dsi_phy_hw_v2_0_regulator_enable(struct dsi_phy_hw *phy,
 {
 	int i;
 
-	pr_err("dsi phy v2 reg enable\n");
-
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
 		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(i), reg_cfg->lane[i][0]);
 
@@ -120,7 +118,6 @@ void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy,
 	int i;
 	struct dsi_phy_per_lane_cfgs *timing = &cfg->timing;
 	u32 data;
-	pr_err("dsi phy v2 config enable\n");
 
 	DSI_W32(phy, DSIPHY_CMN_LDO_CNTRL, 0x1C);
 
@@ -132,7 +129,6 @@ void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy,
 		DSI_W32(phy, DSIPHY_DLNX_CFG2(i), cfg->lanecfg.lane[i][2]);
 		DSI_W32(phy, DSIPHY_DLNX_CFG3(i), cfg->lanecfg.lane[i][3]);
 
-		/* should be fixed */
 		DSI_W32(phy, DSIPHY_DLNX_TEST_STR(i), 0x88);
 
 		DSI_W32(phy, DSIPHY_DLNX_TIMING_CTRL_4(i), timing->lane[i][0]);
@@ -146,7 +142,6 @@ void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy,
 
 		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_0(i),
 			cfg->strength.lane[i][0]);
-		/* not programmed in fb */
 		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i),
 			cfg->strength.lane[i][1]);
 	}
@@ -182,9 +177,6 @@ void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy,
 	/* Enable bias current for pll1 during split display case */
 	if (cfg->pll_source == DSI_PLL_SOURCE_NON_NATIVE)
 		DSI_W32(phy, DSIPHY_PLL_PLL_BANDGAP, 0x3);
-
-	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);
-	wmb();
 
 	pr_debug("[DSI_%d]Phy enabled ", phy->index);
 }

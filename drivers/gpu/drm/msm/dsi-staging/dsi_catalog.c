@@ -70,7 +70,6 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.wait_for_cmd_mode_mdp_idle =
 		dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle;
 	ctrl->ops.setup_avr = dsi_ctrl_hw_cmn_setup_avr;
-	ctrl->ops.enable_test_pattern = dsi_ctrl_hw_cmn_enable_test_pattern;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
