@@ -193,8 +193,13 @@ static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
 static inline void fscrypt_set_ice_dun(const struct inode *inode,
 		struct bio *bio, u64 dun){}
 
+static inline void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip)
+{
+	return;
+}
+
 static inline bool fscrypt_mergeable_bio(struct bio *bio,
-		sector_t iv_block, bool bio_encrypted)
+		sector_t iv_block, bool bio_encrypted, int bi_crypt_skip)
 {
 	return true;
 }

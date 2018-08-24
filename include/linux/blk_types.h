@@ -104,6 +104,9 @@ struct bio {
 	/* Encryption key to use (NULL if none) */
 	const struct blk_encryption_key	*bi_crypt_key;
 #endif
+#ifdef CONFIG_DM_DEFAULT_KEY
+	int bi_crypt_skip;
+#endif
 
 	unsigned short		bi_vcnt;	/* how many bio_vec's */
 
