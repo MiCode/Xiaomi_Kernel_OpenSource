@@ -761,6 +761,7 @@ static ssize_t store_enable(struct device *dev,
 		/* Suspend the clock scaling and mask host capability */
 		if (host->clk_scaling.enable)
 			mmc_suspend_clk_scaling(host);
+		host->clk_scaling.enable = false;
 		host->caps2 &= ~MMC_CAP2_CLK_SCALE;
 		host->clk_scaling.state = MMC_LOAD_HIGH;
 		/* Set to max. frequency when disabling */
@@ -769,8 +770,10 @@ static ssize_t store_enable(struct device *dev,
 	} else if (value) {
 		/* Unmask host capability and resume scaling */
 		host->caps2 |= MMC_CAP2_CLK_SCALE;
-		if (!host->clk_scaling.enable)
+		if (!host->clk_scaling.enable) {
+			host->clk_scaling.enable = true;
 			mmc_resume_clk_scaling(host);
+		}
 	}
 
 	mmc_put_card(host->card);
