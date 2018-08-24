@@ -841,11 +841,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
-	/* Turn on GX memory retention */
-	if (adreno_is_a608(adreno_dev))
-		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL,
-				0x7FFFF);
-
 	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,highest-bank-bit", &bit))
 		bit = MIN_HBB;
@@ -1423,30 +1418,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	a6xx_sptprac_enable(adreno_dev);
 
 	return 0;
-}
-
-static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
-	const char *name, struct clk *clk, bool on)
-{
-
-	if (!adreno_is_a608(adreno_dev))
-		return;
-
-	/* Handle clock settings for GFX PSCBCs */
-	if (on) {
-		if (!strcmp(name, "mem_iface_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		} else if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
-		}
-	} else {
-		if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		}
-	}
 }
 
 static void a6xx_count_throttles(struct adreno_device *adreno_dev,
@@ -3012,5 +2983,4 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.ccu_invalidate = a6xx_ccu_invalidate,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
-	.clk_set_options = a6xx_clk_set_options,
 };
