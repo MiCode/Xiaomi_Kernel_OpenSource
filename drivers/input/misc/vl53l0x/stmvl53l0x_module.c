@@ -1130,6 +1130,25 @@ static DEVICE_ATTR(set_xtalkdata, 0660/*S_IWUGO | S_IRUGO*/,
 				stmvl53l0x_set_XTalkCompensationRateMegaCps);
 
 
+static ssize_t stmvl53l0x_show_GetSensorID(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	u32 SensorID = 0;
+	int ret = 0;
+	struct vl_data *data = dev_get_drvdata(dev);
+	struct i2c_data *i2c_object = (struct i2c_data *)data->client_object;
+
+	ret = of_property_read_u32(i2c_object->client->dev.of_node,
+							"tof-id",
+							&SensorID);
+	return snprintf(buf, 5, "%d\n", SensorID);
+}
+
+/* DEVICE_ATTR(name,mode,show,store) */
+static DEVICE_ATTR(show_sensorid, 0660/*S_IWUGO | S_IRUGO*/,
+				stmvl53l0x_show_GetSensorID,
+				NULL);
 
 static struct attribute *stmvl53l0x_attributes[] = {
 	&dev_attr_enable_ps_sensor.attr,
@@ -1144,6 +1163,7 @@ static struct attribute *stmvl53l0x_attributes[] = {
 	&dev_attr_ref_cal.attr,
 	&dev_attr_set_offsetdata.attr,
 	&dev_attr_set_xtalkdata.attr,
+	&dev_attr_show_sensorid.attr,
 	NULL,
 };
 
