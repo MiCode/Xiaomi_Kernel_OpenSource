@@ -148,6 +148,33 @@ static const struct of_device_id usb_xhci_of_match[] = {
 MODULE_DEVICE_TABLE(of, usb_xhci_of_match);
 #endif
 
+static ssize_t config_imod_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	u32 imod;
+
+	if (kstrtouint(buff, 10, &imod) != 1)
+		return 0;
+
+	xhci = hcd_to_xhci(hcd);
+	xhci->imod_interval = imod;
+
+	return size;
+}
+
+static ssize_t config_imod_show(struct device *pdev,
+		struct device_attribute *attr, char *buff)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+
+	return snprintf(buff, PAGE_SIZE, "%08u\n", xhci->imod_interval);
+}
+
+static DEVICE_ATTR_RW(config_imod);
+
 static int xhci_plat_probe(struct platform_device *pdev)
 {
 	const struct xhci_plat_priv *priv_match;
@@ -310,6 +337,11 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto dealloc_usb2_hcd;
 
+	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
+	if (ret)
+		dev_err(&pdev->dev, "%s: unable to create imod sysfs entry\n",
+					__func__);
+
 	device_enable_async_suspend(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 
@@ -356,6 +388,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
+	device_remove_file(&dev->dev, &dev_attr_config_imod);
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_phy_shutdown(hcd->usb_phy);
 
