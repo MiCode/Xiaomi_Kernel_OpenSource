@@ -117,6 +117,12 @@ conditions.
 		  Some hardware may not have full support for atos debugging
 		  in tandem with other features like power collapse.
 
+-qcom,opt-out-tbu-halting:
+		  Allow certain TBUs to opt-out from being halted for the
+		  ATOS operation to proceed. Halting certain TBUs would cause
+		  considerable impact to the system such as deadlocks on demand.
+		  Such TBUs can be opted out to be halted from software.
+
 - qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
                   disable in ms. In case of unmap call, regulator is
                   enabled/disabled. This may introduce additional delay. For
