@@ -1120,18 +1120,14 @@ static void sde_encoder_phys_wb_irq_ctrl(
 
 	if (enable) {
 		sde_encoder_helper_register_irq(phys, INTR_IDX_WB_DONE);
-		if (phys->in_clone_mode) {
-			for (index = 0; index < CRTC_DUAL_MIXERS; index++)
-				sde_encoder_helper_register_irq(phys,
-						cwb_irq_tbl[index + pp]);
-		}
+		for (index = 0; index < CRTC_DUAL_MIXERS; index++)
+			sde_encoder_helper_register_irq(phys,
+				cwb_irq_tbl[index + pp]);
 	} else {
 		sde_encoder_helper_unregister_irq(phys, INTR_IDX_WB_DONE);
-		if (phys->in_clone_mode) {
-			for (index = 0; index < CRTC_DUAL_MIXERS; index++)
-				sde_encoder_helper_unregister_irq(phys,
-						cwb_irq_tbl[index + pp]);
-		}
+		for (index = 0; index < CRTC_DUAL_MIXERS; index++)
+			sde_encoder_helper_unregister_irq(phys,
+				cwb_irq_tbl[index + pp]);
 	}
 }
 
