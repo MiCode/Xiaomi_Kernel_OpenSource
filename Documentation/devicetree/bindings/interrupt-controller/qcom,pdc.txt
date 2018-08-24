@@ -55,13 +55,13 @@ Example:
 	pdc: interrupt-controller@b220000 {
 		compatible = "qcom,sdm845-pdc";
 		reg = <0xb220000 0x30000>;
-		qcom,pdc-ranges = <0 512 94>, <94 641 15>, <115 662 7>;
+		qcom,pdc-ranges = <0 480 94>, <94 609 15>, <115 630 7>;
 		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
 	};
 
-DT binding of a device that wants to use the GIC SPI 514 as a wakeup
+DT binding of a device that wants to use the GIC SPI 482 as a wakeup
 interrupt, must do -
 
 	wake-device {
