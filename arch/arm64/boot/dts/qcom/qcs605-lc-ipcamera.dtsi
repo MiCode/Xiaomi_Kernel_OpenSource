@@ -174,14 +174,18 @@
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
 		"MADINPUT", "MCLK",
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Handset Mic",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
 		"DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"DMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic1",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
+		"DMIC2", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic2",
+		"DMIC3", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic3",
 		"SpkrLeft IN", "SPK1 OUT";
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
