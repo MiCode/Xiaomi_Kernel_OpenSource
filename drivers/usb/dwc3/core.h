@@ -906,6 +906,8 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+#define MAX_INTR_STATS					10
+
 /**
  * struct dwc3 - representation of our controller
  * @drd_work: workqueue used for role swapping
@@ -1028,6 +1030,10 @@ struct dwc3_scratchpad_array {
  * @core_id: usb core id to differentiate different controller
  * @index: dwc3's instance number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @irq_cnt: total irq count
+ * @bh_completion_time: time taken for taklet completion
+ * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
+ * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1203,6 +1209,15 @@ struct dwc3 {
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	/* IRQ timing statistics */
+	unsigned long		irq_cnt;
+	unsigned int		bh_completion_time[MAX_INTR_STATS];
+	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
+	ktime_t			irq_start_time[MAX_INTR_STATS];
+	unsigned int		irq_completion_time[MAX_INTR_STATS];
+	unsigned int		irq_event_count[MAX_INTR_STATS];
+	unsigned int		irq_dbg_index;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))
