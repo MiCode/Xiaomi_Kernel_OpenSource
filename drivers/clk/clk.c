@@ -1105,7 +1105,6 @@ static int clk_disable_unused(void)
 	struct clk_core *core;
 	struct clk_handoff_vdd *v, *v_temp;
 
-	return 0;
 	if (clk_ignore_unused) {
 		pr_warn("clk: Not disabling unused clocks\n");
 		return 0;

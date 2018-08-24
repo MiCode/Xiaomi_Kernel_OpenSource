@@ -1967,7 +1967,6 @@ int __init msm_bus_device_init_driver(void)
 
 int __init msm_bus_device_late_init(void)
 {
-	return 0;
 	commit_late_init_data(true);
 	MSM_BUS_ERR("msm_bus_late_init: Remove handoff bw requests\n");
 	init_time = false;
