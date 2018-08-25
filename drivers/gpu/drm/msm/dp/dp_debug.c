@@ -35,8 +35,6 @@ struct dp_debug_private {
 	u8 *dpcd;
 	u32 dpcd_size;
 
-	int vdo;
-
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
 
@@ -47,7 +45,6 @@ struct dp_debug_private {
 	struct dp_catalog *catalog;
 	struct drm_connector **connector;
 	struct device *dev;
-	struct work_struct sim_work;
 	struct dp_debug dp_debug;
 	struct dp_parser *parser;
 };
@@ -1068,9 +1065,7 @@ static ssize_t dp_debug_write_attention(struct file *file,
 	if (kstrtoint(buf, 10, &vdo) != 0)
 		goto end;
 
-	debug->vdo = vdo;
-
-	schedule_work(&debug->sim_work);
+	debug->hpd->simulate_attention(debug->hpd, vdo);
 end:
 	return len;
 }
@@ -1399,14 +1394,6 @@ error:
 	return rc;
 }
 
-static void dp_debug_sim_work(struct work_struct *work)
-{
-	struct dp_debug_private *debug =
-		container_of(work, typeof(*debug), sim_work);
-
-	debug->hpd->simulate_attention(debug->hpd, debug->vdo);
-}
-
 u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
 {
 	struct dp_debug_private *debug;
@@ -1440,8 +1427,6 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 		rc = -ENOMEM;
 		goto error;
 	}
-
-	INIT_WORK(&debug->sim_work, dp_debug_sim_work);
 
 	debug->dp_debug.debug_en = false;
 	debug->hpd = hpd;

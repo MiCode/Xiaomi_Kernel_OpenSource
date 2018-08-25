@@ -492,8 +492,7 @@ static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
 		SDE_ERROR("Error:scm_call2, vmid %lld, ret%d\n",
 				desc.args[3], ret);
 	SDE_EVT32(mem_protect_sd_ctrl_id,
-			desc.args[0], desc.args[3], num_sids,
-			sec_sid[0], sec_sid[1], ret);
+			desc.args[0], desc.args[3], num_sids, ret);
 
 	kfree(sec_sid);
 	return ret;
@@ -3202,6 +3201,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	mutex_init(&sde_kms->secure_transition_lock);
 	atomic_set(&sde_kms->detach_sec_cb, 0);
 	atomic_set(&sde_kms->detach_all_cb, 0);
+	atomic_set(&sde_kms->pm_qos_counts, 0);
 
 	/*
 	 * Support format modifiers for compression etc.
