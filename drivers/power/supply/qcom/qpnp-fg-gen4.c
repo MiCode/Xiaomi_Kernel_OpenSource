@@ -233,6 +233,7 @@ struct fg_gen4_chip {
 	bool			esr_fast_calib;
 	bool			esr_fast_calib_done;
 	bool			esr_fast_cal_timer_expired;
+	bool			esr_fast_calib_retry;
 	bool			esr_fcc_ctrl_en;
 	bool			rslow_low;
 	bool			rapid_soc_dec_en;
@@ -2151,6 +2152,172 @@ static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
 	return 0;
 }
 
+static int fg_gen4_configure_esr_cal_soc(struct fg_dev *fg, int soc_min,
+					int soc_max)
+{
+	int rc;
+	u8 buf[2];
+
+	fg_encode(fg->sp, FG_SRAM_ESR_CAL_SOC_MIN, soc_min, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].addr_word,
+			fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].addr_byte, buf,
+			fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_CAL_SOC_MIN, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(fg->sp, FG_SRAM_ESR_CAL_SOC_MAX, soc_max, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].addr_word,
+			fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].addr_byte, buf,
+			fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_CAL_SOC_MAX, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int fg_gen4_configure_esr_cal_temp(struct fg_dev *fg, int temp_min,
+					int temp_max)
+{
+	int rc;
+	u8 buf[2];
+
+	fg_encode(fg->sp, FG_SRAM_ESR_CAL_TEMP_MIN, temp_min, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].addr_word,
+			fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].addr_byte, buf,
+			fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_CAL_TEMP_MIN, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(fg->sp, FG_SRAM_ESR_CAL_TEMP_MAX, temp_max, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].addr_word,
+			fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].addr_byte, buf,
+			fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_CAL_TEMP_MAX, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+#define ESR_CAL_TEMP_MIN	-127
+#define ESR_CAL_TEMP_MAX	127
+static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, esr_timer_chg_init, esr_timer_chg_max, esr_timer_dischg_init,
+		esr_timer_dischg_max, esr_fast_cal_ms, esr_cal_soc_min,
+		esr_cal_soc_max, esr_cal_temp_min, esr_cal_temp_max;
+	u8 val, mask;
+
+	esr_timer_chg_init = esr_timer_chg_max = -EINVAL;
+	esr_timer_dischg_init = esr_timer_dischg_max = -EINVAL;
+	if (en) {
+		esr_timer_chg_init = chip->dt.esr_timer_chg_fast[TIMER_RETRY];
+		esr_timer_chg_max = chip->dt.esr_timer_chg_fast[TIMER_MAX];
+		esr_timer_dischg_init =
+				chip->dt.esr_timer_dischg_fast[TIMER_RETRY];
+		esr_timer_dischg_max =
+				chip->dt.esr_timer_dischg_fast[TIMER_MAX];
+
+		esr_cal_soc_min = 0;
+		esr_cal_soc_max = FULL_SOC_RAW;
+		esr_cal_temp_min = ESR_CAL_TEMP_MIN;
+		esr_cal_temp_max = ESR_CAL_TEMP_MAX;
+
+		vote(chip->delta_esr_irq_en_votable, DELTA_ESR_IRQ_VOTER,
+			true, 0);
+		chip->esr_fast_calib_done = false;
+	} else {
+		chip->esr_fast_calib_done = true;
+
+		esr_timer_chg_init = chip->dt.esr_timer_chg_slow[TIMER_RETRY];
+		esr_timer_chg_max = chip->dt.esr_timer_chg_slow[TIMER_MAX];
+		esr_timer_dischg_init =
+				chip->dt.esr_timer_dischg_slow[TIMER_RETRY];
+		esr_timer_dischg_max =
+				chip->dt.esr_timer_dischg_slow[TIMER_MAX];
+
+		esr_cal_soc_min = chip->dt.esr_cal_soc_thresh[0];
+		esr_cal_soc_max = chip->dt.esr_cal_soc_thresh[1];
+		esr_cal_temp_min = chip->dt.esr_cal_temp_thresh[0];
+		esr_cal_temp_max = chip->dt.esr_cal_temp_thresh[1];
+
+		vote(chip->delta_esr_irq_en_votable, DELTA_ESR_IRQ_VOTER,
+			false, 0);
+	}
+
+	rc = fg_set_esr_timer(fg, esr_timer_chg_init, esr_timer_chg_max, true,
+				FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR charge timer, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = fg_set_esr_timer(fg, esr_timer_dischg_init, esr_timer_dischg_max,
+				false, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR discharge timer, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = fg_gen4_configure_esr_cal_soc(fg, esr_cal_soc_min,
+			esr_cal_soc_max);
+	if (rc < 0) {
+		pr_err("Error in configuring SOC thresholds, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = fg_gen4_configure_esr_cal_temp(fg, esr_cal_temp_min,
+			esr_cal_temp_max);
+	if (rc < 0) {
+		pr_err("Error in configuring temperature thresholds, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/*
+	 * Disable ESR discharging timer and ESR pulsing during
+	 * discharging when ESR fast calibration is disabled. Otherwise, keep
+	 * it enabled so that ESR pulses can happen during discharging.
+	 */
+	val = en ? BIT(6) | BIT(7) : 0;
+	mask = BIT(6) | BIT(7);
+	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
+			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (en) {
+		/* Set ESR fast calibration timer to 50 seconds as default */
+		esr_fast_cal_ms = 50000;
+		if (chip->dt.esr_timer_chg_fast > 0 &&
+			chip->dt.delta_esr_disable_count > 0)
+			esr_fast_cal_ms = 3 * chip->dt.delta_esr_disable_count *
+				chip->dt.esr_timer_chg_fast[TIMER_MAX] * 1000;
+
+		alarm_start_relative(&chip->esr_fast_cal_timer,
+					ms_to_ktime(esr_fast_cal_ms));
+	} else {
+		alarm_cancel(&chip->esr_fast_cal_timer);
+	}
+
+	fg_dbg(fg, FG_STATUS, "%sabling ESR fast calibration\n",
+		en ? "En" : "Dis");
+	return 0;
+}
+
 /* All irq handlers below this */
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
@@ -2410,6 +2577,22 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 
+	/*
+	 * If ESR fast calibration is done without a delta ESR interrupt, then
+	 * it is possibly a failed attempt. In such cases, retry ESR fast
+	 * calibration once again. This will get restored to normal config once
+	 * a delta ESR interrupt fires or the timer expires.
+	 */
+	if (chip->esr_fast_calib && chip->esr_fast_calib_done &&
+		!chip->delta_esr_count && !chip->esr_fast_calib_retry) {
+		rc = fg_gen4_esr_fast_calib_config(chip, true);
+		if (rc < 0)
+			pr_err("Error in configuring esr_fast_calib, rc=%d\n",
+				rc);
+		else
+			chip->esr_fast_calib_retry = true;
+	}
+
 	if (batt_psy_initialized(fg))
 		power_supply_changed(fg->batt_psy);
 
@@ -2573,173 +2756,6 @@ static bool is_batt_empty(struct fg_dev *fg)
 	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
 }
 
-static int fg_gen4_configure_esr_cal_soc(struct fg_dev *fg, int soc_min,
-					int soc_max)
-{
-	int rc;
-	u8 buf[2];
-
-	fg_encode(fg->sp, FG_SRAM_ESR_CAL_SOC_MIN, soc_min, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].addr_word,
-			fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].addr_byte, buf,
-			fg->sp[FG_SRAM_ESR_CAL_SOC_MIN].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR_CAL_SOC_MIN, rc=%d\n", rc);
-		return rc;
-	}
-
-	fg_encode(fg->sp, FG_SRAM_ESR_CAL_SOC_MAX, soc_max, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].addr_word,
-			fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].addr_byte, buf,
-			fg->sp[FG_SRAM_ESR_CAL_SOC_MAX].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR_CAL_SOC_MAX, rc=%d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-static int fg_gen4_configure_esr_cal_temp(struct fg_dev *fg, int temp_min,
-					int temp_max)
-{
-	int rc;
-	u8 buf[2];
-
-	fg_encode(fg->sp, FG_SRAM_ESR_CAL_TEMP_MIN, temp_min, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].addr_word,
-			fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].addr_byte, buf,
-			fg->sp[FG_SRAM_ESR_CAL_TEMP_MIN].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR_CAL_TEMP_MIN, rc=%d\n", rc);
-		return rc;
-	}
-
-	fg_encode(fg->sp, FG_SRAM_ESR_CAL_TEMP_MAX, temp_max, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].addr_word,
-			fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].addr_byte, buf,
-			fg->sp[FG_SRAM_ESR_CAL_TEMP_MAX].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing ESR_CAL_TEMP_MAX, rc=%d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-#define ESR_CAL_TEMP_MIN	-127
-#define ESR_CAL_TEMP_MAX	127
-static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
-{
-	struct fg_dev *fg = &chip->fg;
-	int rc, esr_timer_chg_init, esr_timer_chg_max, esr_timer_dischg_init,
-		esr_timer_dischg_max, esr_fast_cal_ms, esr_cal_soc_min,
-		esr_cal_soc_max, esr_cal_temp_min, esr_cal_temp_max;
-	u8 val, mask;
-
-	esr_timer_chg_init = esr_timer_chg_max = -EINVAL;
-	esr_timer_dischg_init = esr_timer_dischg_max = -EINVAL;
-	if (en) {
-		esr_timer_chg_init = chip->dt.esr_timer_chg_fast[TIMER_RETRY];
-		esr_timer_chg_max = chip->dt.esr_timer_chg_fast[TIMER_MAX];
-		esr_timer_dischg_init =
-				chip->dt.esr_timer_dischg_fast[TIMER_RETRY];
-		esr_timer_dischg_max =
-				chip->dt.esr_timer_dischg_fast[TIMER_MAX];
-
-		esr_cal_soc_min = 0;
-		esr_cal_soc_max = FULL_SOC_RAW;
-		esr_cal_temp_min = ESR_CAL_TEMP_MIN;
-		esr_cal_temp_max = ESR_CAL_TEMP_MAX;
-
-		vote(chip->delta_esr_irq_en_votable, DELTA_ESR_IRQ_VOTER,
-			true, 0);
-		chip->delta_esr_count = 0;
-		chip->esr_fast_calib_done = false;
-	} else {
-		chip->esr_fast_calib_done = true;
-
-		esr_timer_chg_init = chip->dt.esr_timer_chg_slow[TIMER_RETRY];
-		esr_timer_chg_max = chip->dt.esr_timer_chg_slow[TIMER_MAX];
-		esr_timer_dischg_init =
-				chip->dt.esr_timer_dischg_slow[TIMER_RETRY];
-		esr_timer_dischg_max =
-				chip->dt.esr_timer_dischg_slow[TIMER_MAX];
-
-		esr_cal_soc_min = chip->dt.esr_cal_soc_thresh[0];
-		esr_cal_soc_max = chip->dt.esr_cal_soc_thresh[1];
-		esr_cal_temp_min = chip->dt.esr_cal_temp_thresh[0];
-		esr_cal_temp_max = chip->dt.esr_cal_temp_thresh[1];
-
-		vote(chip->delta_esr_irq_en_votable, DELTA_ESR_IRQ_VOTER,
-			false, 0);
-	}
-
-	rc = fg_set_esr_timer(fg, esr_timer_chg_init, esr_timer_chg_max, true,
-				FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in setting ESR charge timer, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = fg_set_esr_timer(fg, esr_timer_dischg_init, esr_timer_dischg_max,
-				false, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in setting ESR discharge timer, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = fg_gen4_configure_esr_cal_soc(fg, esr_cal_soc_min,
-			esr_cal_soc_max);
-	if (rc < 0) {
-		pr_err("Error in configuring SOC thresholds, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = fg_gen4_configure_esr_cal_temp(fg, esr_cal_temp_min,
-			esr_cal_temp_max);
-	if (rc < 0) {
-		pr_err("Error in configuring temperature thresholds, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	/*
-	 * Disable ESR discharging timer and ESR pulsing during
-	 * discharging when ESR fast calibration is disabled. Otherwise, keep
-	 * it enabled so that ESR pulses can happen during discharging.
-	 */
-	val = en ? BIT(6) | BIT(7) : 0;
-	mask = BIT(6) | BIT(7);
-	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
-			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing SYS_CONFIG_WORD, rc=%d\n", rc);
-		return rc;
-	}
-
-	if (en) {
-		/* Set ESR fast calibration timer to 50 seconds as default */
-		esr_fast_cal_ms = 50000;
-		if (chip->dt.esr_timer_chg_fast > 0 &&
-			chip->dt.delta_esr_disable_count > 0)
-			esr_fast_cal_ms = 3 * chip->dt.delta_esr_disable_count *
-				chip->dt.esr_timer_chg_fast[TIMER_MAX] * 1000;
-
-		alarm_start_relative(&chip->esr_fast_cal_timer,
-					ms_to_ktime(esr_fast_cal_ms));
-	} else {
-		alarm_cancel(&chip->esr_fast_cal_timer);
-	}
-
-	fg_dbg(fg, FG_STATUS, "%sabling ESR fast calibration\n",
-		en ? "En" : "Dis");
-	return 0;
-}
-
 static enum alarmtimer_restart fg_esr_fast_cal_timer(struct alarm *alarm,
 							ktime_t time)
 {
@@ -2780,11 +2796,12 @@ static void esr_calib_work(struct work_struct *work)
 
 	/*
 	 * If the number of delta ESR interrupts fired is more than the count
-	 * to disable the interrupt OR ESR fast calibration timer is expired,
-	 * disable ESR fast calibration.
+	 * to disable the interrupt OR ESR fast calibration timer is expired
+	 * OR after one retry, disable ESR fast calibration.
 	 */
-	if (chip->delta_esr_count >= chip->dt.delta_esr_disable_count ||
-		chip->esr_fast_cal_timer_expired) {
+	if ((chip->delta_esr_count >= chip->dt.delta_esr_disable_count) ||
+		chip->esr_fast_cal_timer_expired ||
+		(chip->esr_fast_calib_retry && chip->delta_esr_count > 0)) {
 		rc = fg_gen4_esr_fast_calib_config(chip, false);
 		if (rc < 0)
 			pr_err("Error in configuring esr_fast_calib, rc=%d\n",
@@ -2794,6 +2811,9 @@ static void esr_calib_work(struct work_struct *work)
 			pm_relax(fg->dev);
 			chip->esr_fast_cal_timer_expired = false;
 		}
+
+		if (chip->esr_fast_calib_retry)
+			chip->esr_fast_calib_retry = false;
 
 		goto out;
 	}
