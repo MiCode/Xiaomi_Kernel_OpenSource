@@ -3191,10 +3191,10 @@ static struct clk_branch gcc_usb2_sec_clkref_clk = {
 };
 
 /* Measure-only clock for ddrss_gcc_debug_clk. */
-static struct clk_dummy measure_only_bimc_clk = {
+static struct clk_dummy measure_only_mccc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_bimc_clk",
+		.name = "measure_only_mccc_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -3228,7 +3228,7 @@ static struct clk_dummy measure_only_snoc_clk = {
 
 struct clk_hw *gcc_sm6150_hws[] = {
 	[GPLL0_OUT_AUX2] = &gpll0_out_aux2.hw,
-	[MEASURE_ONLY_BIMC_CLK] = &measure_only_bimc_clk.hw,
+	[MEASURE_ONLY_MMCC_CLK] = &measure_only_mccc_clk.hw,
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
 	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,

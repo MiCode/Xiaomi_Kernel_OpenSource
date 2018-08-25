@@ -76,9 +76,15 @@ mhi channel node properties:
 - mhi,ee
   Usage: required
   Value type: <u32>
-  Definition: Channel execution enviornment as defined by enum MHI_EE
-	1 = Bootloader stage
-	2 = AMSS mode
+  Definition: Channel execution enviornment (EE) mask as defined by enum
+	mhi_ch_ee_mask
+		BIT(0) = Channel supported in PBL EE
+		BIT(1) = Channel supported in SBL EE
+		BIT(2) = Channel supported in AMSS EE
+		BIT(3) = Channel supported in RDDM EE
+		BIT(4) = Channel supported in WFW EE
+		BIT(5) = Channel supported in PTHRU EE
+		BIT(6) = Channel supported in EDL EE
 
 - mhi,pollcfg
   Usage: optional
@@ -223,7 +229,7 @@ mhi_controller {
 		mhi,chan-dir = <1>;
 		mhi,data-type = <0>;
 		mhi,doorbell-mode = <2>;
-		mhi,ee = <2>;
+		mhi,ee = <0x4>;
 	};
 
 	mhi_chan@1 {
@@ -234,7 +240,7 @@ mhi_controller {
 		mhi,chan-dir = <2>;
 		mhi,data-type = <0>;
 		mhi,doorbell-mode = <2>;
-		mhi,ee = <2>;
+		mhi,ee = <0x4>;
 	};
 
 	mhi_event@0 {

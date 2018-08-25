@@ -62,6 +62,8 @@ union wil_tx_desc;
 #define WIL_DEFAULT_BUS_REQUEST_KBPS 128000 /* ~1Gbps */
 #define WIL_MAX_BUS_REQUEST_KBPS 800000 /* ~6.1Gbps */
 
+#define WIL_NUM_LATENCY_BINS 200
+
 /* maximum number of virtual interfaces the driver supports
  * (including the main interface)
  */
@@ -562,6 +564,9 @@ struct wil_net_stats {
 	unsigned long	rx_bytes;
 	unsigned long	tx_bytes;
 	unsigned long	tx_errors;
+	u32 tx_latency_min_us;
+	u32 tx_latency_max_us;
+	u64 tx_latency_total_us;
 	unsigned long	rx_dropped;
 	unsigned long	rx_non_data_frame;
 	unsigned long	rx_short_frame;
@@ -723,6 +728,14 @@ struct wil_sta_info {
 	u8 mid;
 	enum wil_sta_status status;
 	struct wil_net_stats stats;
+	/**
+	 * 20 latency bins. 1st bin counts packets with latency
+	 * of 0..tx_latency_res, last bin counts packets with latency
+	 * of 19*tx_latency_res and above.
+	 * tx_latency_res is configured from "tx_latency" debug-fs.
+	 */
+	u64 *tx_latency_bins;
+	struct wmi_link_stats_basic fw_stats_basic;
 	/* Rx BACK */
 	struct wil_tid_ampdu_rx *tid_rx[WIL_STA_TID_NUM];
 	spinlock_t tid_rx_lock; /* guarding tid_rx array */
@@ -840,6 +853,8 @@ struct wil6210_vif {
 	struct mutex probe_client_mutex; /* protect @probe_client_pending */
 	struct work_struct probe_client_worker;
 	int net_queue_stopped; /* netif_tx_stop_all_queues invoked */
+	bool fw_stats_ready; /* per-cid statistics are ready inside sta_info */
+	u64 fw_stats_tsf; /* measurement timestamp */
 };
 
 /**
@@ -865,6 +880,12 @@ struct wil_rx_buff_mgmt {
 	struct list_head active;
 	struct list_head free;
 	unsigned long free_list_empty_cnt; /* statistics */
+};
+
+struct wil_fw_stats_global {
+	bool ready;
+	u64 tsf; /* measurement timestamp */
+	struct wmi_link_stats_global stats;
 };
 
 struct wil6210_priv {
@@ -960,6 +981,8 @@ struct wil6210_priv {
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
 	u8 force_edmg_channel;
+	bool tx_latency; /* collect TX latency measurements */
+	size_t tx_latency_res; /* bin resolution in usec */
 
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
@@ -1021,6 +1044,8 @@ struct wil6210_priv {
 
 	u32 max_agg_wsize;
 	u32 max_ampdu_size;
+
+	struct wil_fw_stats_global fw_stats_global;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1226,6 +1251,7 @@ int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
 int wmi_port_allocate(struct wil6210_priv *wil, u8 mid,
 		      const u8 *mac, enum nl80211_iftype iftype);
 int wmi_port_delete(struct wil6210_priv *wil, u8 mid);
+int wmi_link_stats_cfg(struct wil6210_vif *vif, u32 type, u8 cid, u32 interval);
 int wil_addba_rx_request(struct wil6210_priv *wil, u8 mid,
 			 u8 cidxtid, u8 dialog_token, __le16 ba_param_set,
 			 __le16 ba_timeout, __le16 ba_seq_ctrl);
@@ -1380,6 +1406,8 @@ int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);
 int wmi_stop_sched_scan(struct wil6210_priv *wil);
 int wmi_mgmt_tx(struct wil6210_vif *vif, const u8 *buf, size_t len);
+int wmi_mgmt_tx_ext(struct wil6210_vif *vif, const u8 *buf, size_t len,
+		    u8 channel, u16 duration_ms);
 
 int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch);
 int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
@@ -1398,5 +1426,7 @@ int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id);
 int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u8 tid, u8 token, u16 status, bool amsdu,
 			   u16 agg_wsize, u16 timeout);
+
+void update_supported_bands(struct wil6210_priv *wil);
 
 #endif /* __WIL6210_H__ */

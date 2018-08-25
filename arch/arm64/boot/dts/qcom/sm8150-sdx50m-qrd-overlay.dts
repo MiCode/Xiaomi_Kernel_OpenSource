@@ -29,3 +29,11 @@
 	compatible = "qcom,sm8150-qrd", "qcom,sm8150", "qcom,qrd";
 	qcom,board-id = <11 1>;
 };
+
+&cam_cci0 {
+	status = "disabled";
+};
+
+&qupv3_se9_i2c {
+	status = "disabled";
+};

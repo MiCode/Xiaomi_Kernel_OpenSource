@@ -50,7 +50,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	struct mhi_buf *mhi_buf;
 	u32 sequence_id;
 	u32 rx_status;
-	enum MHI_EE ee;
+	enum mhi_ee ee;
 	struct image_info *rddm_image = mhi_cntrl->rddm_image;
 	const u32 delayus = 100;
 	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
@@ -556,9 +556,9 @@ void mhi_fw_load_worker(struct work_struct *work)
 		goto error_read;
 	}
 
-	/* wait for BHIE event */
+	/* wait for SBL event */
 	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 mhi_cntrl->ee == MHI_EE_BHIE ||
+				 mhi_cntrl->ee == MHI_EE_SBL ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
 

@@ -79,10 +79,10 @@ struct cam_flash_intf_params {
  * @cmd_type           : Command buffer type
  */
 struct cam_flash_common_attr {
-	bool     is_settings_valid;
-	int32_t  request_id;
-	uint16_t count;
-	uint8_t  cmd_type;
+	bool      is_settings_valid;
+	uint64_t  request_id;
+	uint16_t  count;
+	uint8_t   cmd_type;
 };
 
 /**

@@ -349,7 +349,7 @@ int cam_jpeg_enc_stop_hw(void *data,
 	hw_info = core_info->jpeg_enc_hw_info;
 	mem_base = soc_info->reg_map[0].mem_base;
 
-	mutex_unlock(&core_info->core_mutex);
+	mutex_lock(&core_info->core_mutex);
 	spin_lock(&jpeg_enc_dev->hw_lock);
 	if (core_info->core_state == CAM_JPEG_ENC_CORE_ABORTING) {
 		CAM_ERR(CAM_JPEG, "alrady stopping");

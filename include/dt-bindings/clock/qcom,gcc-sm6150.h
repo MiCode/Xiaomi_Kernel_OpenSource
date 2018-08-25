@@ -18,7 +18,7 @@
 #define GPLL0_OUT_AUX2				0
 #define MEASURE_ONLY_SNOC_CLK			1
 #define MEASURE_ONLY_CNOC_CLK			2
-#define MEASURE_ONLY_BIMC_CLK			3
+#define MEASURE_ONLY_MMCC_CLK			3
 #define MEASURE_ONLY_IPA_2X_CLK			4
 
 /* GCC clock registers */

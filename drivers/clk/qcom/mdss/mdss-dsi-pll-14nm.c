@@ -78,7 +78,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "xo_board" },
+			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_ops_dsi_vco,
 		},
@@ -90,7 +90,7 @@ static struct dsi_pll_vco_clk dsi0pll_shadow_vco_clk = {
 	.max_rate = 2600000000u,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "xo_board" },
+			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
@@ -104,7 +104,7 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "xo_board" },
+			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_ops_dsi_vco,
 		},
@@ -118,7 +118,7 @@ static struct dsi_pll_vco_clk dsi1pll_shadow_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "xo_board" },
+			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
@@ -319,7 +319,7 @@ static struct clk_regmap_mux dsi0pll_pixel_clk_mux = {
 
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi0pll_pixel_clk_mux",
+			.name = "dsi0_phy_pll_out_dsiclk",
 			.parent_names =
 				(const char *[]){ "dsi0pll_pixel_clk_src",
 					"dsi0pll_shadow_pixel_clk_src"},
@@ -409,7 +409,7 @@ static struct clk_regmap_mux dsi0pll_byte_clk_mux = {
 
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi0pll_byte_clk_mux",
+			.name = "dsi0_phy_pll_out_byteclk",
 			.parent_names =
 				(const char *[]){"dsi0pll_byte_clk_src",
 					"dsi0pll_shadow_byte_clk_src"},

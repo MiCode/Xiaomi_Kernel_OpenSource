@@ -215,6 +215,7 @@ static struct platform_driver cam_a5_driver = {
 		.name = "cam-a5",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_a5_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

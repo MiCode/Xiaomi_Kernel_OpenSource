@@ -777,7 +777,7 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 
 		bufreq->buffer_count_actual = *num_buffers;
 		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
 		break;
@@ -811,7 +811,7 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 
 		bufreq->buffer_count_actual = *num_buffers;
 		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, buffer_type);
 		}
 		break;

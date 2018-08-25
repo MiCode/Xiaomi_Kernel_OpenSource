@@ -397,6 +397,7 @@ static struct platform_driver cam_actuator_platform_driver = {
 		.name = "qcom,actuator",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_actuator_driver_dt_match,
+		.suppress_bind_attrs = true,
 	},
 	.remove = cam_actuator_platform_remove,
 };

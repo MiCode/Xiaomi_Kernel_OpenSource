@@ -208,7 +208,7 @@
 		regulator-name = "gpu_cx_gdsc";
 		reg = <0x2c9106c 0x4>;
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
-		qcom,no-status-check-on-disable;
+		qcom,skip-disable;
 		qcom,gds-timeout = <500>;
 		qcom,clk-dis-wait-val = <8>;
 		status = "disabled";

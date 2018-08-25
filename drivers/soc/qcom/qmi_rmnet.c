@@ -75,20 +75,19 @@ static struct qmi_info *qmi_rmnet_qmi_init(void)
 	return qmi_info;
 }
 
-static inline int
-qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
+void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
 {
 	int i;
 
 	if (!qmi || !(qmi->flag & FLAG_DFC_MASK))
-		return 0;
+		return NULL;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
 		if (qmi->fc_info[i].dfc_client)
-			return 1;
+			return qmi->fc_info[i].dfc_client;
 	}
 
-	return 0;
+	return NULL;
 }
 
 static inline int
@@ -97,7 +96,7 @@ qmi_rmnet_has_client(struct qmi_info *qmi)
 	if (qmi->wda_client)
 		return 1;
 
-	return qmi_rmnet_has_dfc_client(qmi);
+	return qmi_rmnet_has_dfc_client(qmi) ? 1 : 0;
 }
 
 #ifdef CONFIG_QCOM_QMI_DFC
@@ -528,7 +527,7 @@ void qmi_rmnet_burst_fc_check(struct net_device *dev, struct sk_buff *skb)
 	if (!qmi || !qos)
 		return;
 
-	dfc_qmi_burst_check(dev, qos, skb);
+	dfc_qmi_burst_check(dev, qos, skb, qmi);
 }
 EXPORT_SYMBOL(qmi_rmnet_burst_fc_check);
 

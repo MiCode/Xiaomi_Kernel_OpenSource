@@ -72,6 +72,7 @@ struct gdsc {
 	bool			root_en;
 	bool			force_root_en;
 	bool			no_status_check_on_disable;
+	bool			skip_disable;
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
 	bool			reset_aon;
@@ -149,6 +150,13 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 	uint32_t regval;
 	int ret;
 	bool is_enabled = false;
+
+	/*
+	 * Return the logical GDSC enable state given that it will only be
+	 * physically disabled by AOP during system sleep.
+	 */
+	if (sc->skip_disable)
+		return sc->is_gdsc_enabled;
 
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
@@ -418,7 +426,12 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	/* Delay to account for staggered memory powerdown. */
 	udelay(1);
 
-	if (sc->toggle_logic) {
+	if (sc->skip_disable) {
+		/*
+		 * Don't change the GDSCR register state on disable.  AOP will
+		 * handle this during system sleep.
+		 */
+	} else if (sc->toggle_logic) {
 		regmap_read(sc->regmap, REG_OFFSET, &regval);
 		regval |= SW_COLLAPSE_MASK;
 		regmap_write(sc->regmap, REG_OFFSET, regval);
@@ -831,6 +844,8 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->no_status_check_on_disable =
 			of_property_read_bool(pdev->dev.of_node,
 					"qcom,no-status-check-on-disable");
+	sc->skip_disable = of_property_read_bool(pdev->dev.of_node,
+					"qcom,skip-disable");
 	retain_mem = of_property_read_bool(pdev->dev.of_node,
 					    "qcom,retain-mem");
 	sc->toggle_mem = !retain_mem;

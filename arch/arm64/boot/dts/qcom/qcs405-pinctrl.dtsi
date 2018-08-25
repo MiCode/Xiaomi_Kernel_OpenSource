@@ -1160,6 +1160,21 @@
 				};
 			};
 		};
+
+		pca9956b_reset_gpio: pca9956b_reset_gpio {
+			mux {
+				pins = "gpio95";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio95";
+				drive-strength = <2>;
+				bias-pull-up;
+				output-high;
+			};
+		};
+
 		sec_mi2s_sck {
 			sec_mi2s_sck_sleep: sec_mi2s_sck_sleep {
 				mux {

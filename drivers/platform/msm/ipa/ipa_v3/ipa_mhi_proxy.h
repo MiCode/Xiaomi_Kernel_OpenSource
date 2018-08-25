@@ -24,6 +24,8 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 
 int imp_handle_vote_req(bool vote);
 
+void imp_handle_modem_shutdown(void);
+
 #else /* CONFIG_IPA3_MHI_PROXY */
 
 static inline void imp_handle_modem_ready(void)
@@ -41,6 +43,11 @@ static inline struct ipa_mhi_alloc_channel_resp_msg_v01
 static inline int imp_handle_vote_req(bool vote)
 {
 	return -EPERM;
+}
+
+static inline  void imp_handle_modem_shutdown(void)
+{
+
 }
 
 #endif /* CONFIG_IPA3_MHI_PROXY */

@@ -1890,7 +1890,7 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+				POWER_SUPPLY_PROP_FORCE_RECHARGE, &prop);
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
@@ -2394,7 +2394,7 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 
 	/* Read battery-id */
 	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id_mv);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("Failed to read BATT_ID over ADC, rc=%d\n", rc);
 		return rc;
 	}
@@ -2573,7 +2573,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 use_pon_ocv:
 	if (use_pon_ocv == true) {
 		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc) {
+		if (rc < 0) {
 			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
 			goto done;
 		}
