@@ -1895,7 +1895,7 @@ int himax_fb_register(struct himax_ts_data *ts)
 	int ret = 0;
 
 	I(" %s in\n", __func__);
-	ts->fb_notif.notifier_call = drm_notifier_callback;
+	ts->fb_notif.notifier_call = fb_notifier_callback;
 	ret = msm_drm_register_client(&ts->fb_notif);
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);

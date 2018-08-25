@@ -959,7 +959,7 @@ config HAVE_ARCH_VMAP_STACK
 	    instantly rebooting without logging anything would be unfriendly.
 
 config VMAP_STACK
-	default n
+	default y
 	bool "Use a virtually-mapped stack"
 	depends on HAVE_ARCH_VMAP_STACK && !KASAN
 	---help---

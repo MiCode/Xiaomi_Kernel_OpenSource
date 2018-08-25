@@ -641,7 +641,7 @@ static int himax_common_resume(struct device *dev)
 
 #if defined(CONFIG_DRM)
 
-int drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
+int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct msm_drm_notifier *evdata = data;
 	int *blank;
