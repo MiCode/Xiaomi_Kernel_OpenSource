@@ -7579,6 +7579,13 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				continue;
 
 			/*
+			 * Favor CPUs with smaller capacity for non latency
+			 * sensitive tasks.
+			 */
+			if (capacity_orig > target_capacity)
+				continue;
+
+			/*
 			 * Case B) Non latency sensitive tasks on IDLE CPUs.
 			 *
 			 * Find an optimal backup IDLE CPU for non latency
@@ -8114,7 +8121,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	}
 
 	/* find most energy-efficient CPU */
-	energy_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
+	target_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
 					eenv->cpu[eenv->next_idx].cpu_id;
 
 out:
@@ -10705,8 +10712,7 @@ static int need_active_balance(struct lb_env *env)
 	    env->src_rq->misfit_task_load)
 		return 1;
 
-	return unlikely(sd->nr_balance_failed >
-			sd->cache_nice_tries + NEED_ACTIVE_BALANCE_THRESHOLD);
+	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
 
 static int group_balance_cpu_not_isolated(struct sched_group *sg)
