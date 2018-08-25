@@ -309,3 +309,4 @@ fail:
 }
 
 IRQCHIP_DECLARE(pdc_sdm845, "qcom,sdm845-pdc", qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_kona,   "qcom,kona-pdc",   qcom_pdc_init);
