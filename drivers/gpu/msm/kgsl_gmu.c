@@ -235,26 +235,6 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	return md;
 }
 
-/*
- * allocate_gmu_image() - allocates & maps memory for FW image, the size
- * shall come from the loaded f/w file.
- * @gmu: Pointer to GMU device
- * @size: Requested allocation size
- */
-int allocate_gmu_image(struct gmu_device *gmu, unsigned int size)
-{
-	/* Allocates & maps memory for GMU FW */
-	gmu->fw_image = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, size,
-				(IOMMU_READ | IOMMU_PRIV));
-	if (IS_ERR(gmu->fw_image)) {
-		dev_err(&gmu->pdev->dev,
-				"GMU firmware image allocation failed\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 /* Checks if cached fw code size falls within the cached code segment range */
 bool is_cached_fw_size_valid(uint32_t size_in_bytes)
 {
@@ -360,7 +340,6 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->hfi_mem = NULL;
 	gmu->bw_mem = NULL;
 	gmu->dump_mem = NULL;
-	gmu->fw_image = NULL;
 	gmu->gmu_log = NULL;
 
 	/* Unmap all memories in GMU kernel memory pool */
@@ -1627,6 +1606,11 @@ static void gmu_remove(struct kgsl_device *device)
 	if (gmu->pcl) {
 		msm_bus_scale_unregister_client(gmu->pcl);
 		gmu->pcl = 0;
+	}
+
+	if (gmu->fw_image) {
+		release_firmware(gmu->fw_image);
+		gmu->fw_image = NULL;
 	}
 
 	gmu_memory_close(gmu);

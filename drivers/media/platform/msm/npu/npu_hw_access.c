@@ -151,69 +151,94 @@ int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
  * Functions - ION Memory
  * -------------------------------------------------------------------------
  */
-static struct npu_ion_buf *npu_get_npu_ion_buffer(struct npu_device
-	*npu_dev)
+static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
+	*client, int buf_hdl, uint32_t size)
 {
-	struct npu_ion_buf *ret_val = 0;
+	struct npu_ion_buf *ret_val = NULL, *tmp;
+	struct list_head *pos = NULL;
 
-	ret_val = kmalloc(sizeof(struct npu_ion_buf), GFP_KERNEL);
-	if (ret_val)
-		list_add(&(ret_val->list), &(npu_dev->mapped_buffers.list));
+	mutex_lock(&client->list_lock);
+	list_for_each(pos, &(client->mapped_buffer_list)) {
+		tmp = list_entry(pos, struct npu_ion_buf, list);
+		if (tmp->fd == buf_hdl) {
+			ret_val = tmp;
+			break;
+		}
+	}
+
+	if (ret_val) {
+		/* mapped already, treat as invalid request */
+		pr_err("ion buf %x has been mapped\n");
+		ret_val = NULL;
+	} else {
+		ret_val = kmalloc(sizeof(struct npu_ion_buf), GFP_KERNEL);
+		if (ret_val) {
+			ret_val->fd = buf_hdl;
+			ret_val->size = size;
+			ret_val->iova = 0;
+			list_add(&(ret_val->list),
+				&(client->mapped_buffer_list));
+		}
+	}
+	mutex_unlock(&client->list_lock);
 
 	return ret_val;
 }
 
-static struct npu_ion_buf *npu_get_existing_ion_buffer(struct npu_device
-	*npu_dev, int buf_hdl)
+static struct npu_ion_buf *npu_get_npu_ion_buffer(struct npu_client
+	*client, int buf_hdl)
 {
-	struct list_head *pos = 0;
-	struct npu_ion_buf *npu_ion_buf = 0;
+	struct list_head *pos = NULL;
+	struct npu_ion_buf *ret_val = NULL, *tmp;
 
-	list_for_each(pos, &(npu_dev->mapped_buffers.list)) {
-		npu_ion_buf = list_entry(pos, struct npu_ion_buf, list);
-		if (npu_ion_buf->fd == buf_hdl)
-			return npu_ion_buf;
-	}
-
-	return NULL;
-}
-
-static struct npu_ion_buf *npu_clear_npu_ion_buffer(struct npu_device
-	*npu_dev, int buf_hdl, uint64_t addr)
-{
-	struct list_head *pos = 0;
-	struct npu_ion_buf *npu_ion_buf = 0;
-
-	list_for_each(pos, &(npu_dev->mapped_buffers.list)) {
-		npu_ion_buf = list_entry(pos, struct npu_ion_buf, list);
-		if (npu_ion_buf->fd == buf_hdl &&
-			npu_ion_buf->iova == addr) {
-			list_del(&npu_ion_buf->list);
-			return npu_ion_buf;
+	mutex_lock(&client->list_lock);
+	list_for_each(pos, &(client->mapped_buffer_list)) {
+		tmp = list_entry(pos, struct npu_ion_buf, list);
+		if (tmp->fd == buf_hdl) {
+			ret_val = tmp;
+			break;
 		}
 	}
+	mutex_unlock(&client->list_lock);
 
-	return NULL;
+	return ret_val;
 }
 
-int npu_mem_map(struct npu_device *npu_dev, int buf_hdl, uint32_t size,
+static void npu_free_npu_ion_buffer(struct npu_client
+	*client, int buf_hdl)
+{
+	struct list_head *pos = NULL;
+	struct npu_ion_buf *npu_ion_buf = NULL;
+
+	mutex_lock(&client->list_lock);
+	list_for_each(pos, &(client->mapped_buffer_list)) {
+		npu_ion_buf = list_entry(pos, struct npu_ion_buf, list);
+		if (npu_ion_buf->fd == buf_hdl) {
+			list_del(&npu_ion_buf->list);
+			kfree(npu_ion_buf);
+			break;
+		}
+	}
+	mutex_unlock(&client->list_lock);
+}
+
+int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	uint64_t *addr)
 {
 	int ret = 0;
-
-	struct npu_ion_buf *ion_buf = npu_get_npu_ion_buffer(npu_dev);
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_ion_buf *ion_buf = NULL;
 	struct npu_smmu_ctx *smmu_ctx = &npu_dev->smmu_ctx;
 
+	if (buf_hdl == 0)
+		return -EINVAL;
+
+	ion_buf = npu_alloc_npu_ion_buffer(client, buf_hdl, size);
 	if (!ion_buf) {
-		pr_err("%s no more table space\n", __func__);
+		pr_err("%s fail to alloc npu_ion_buffer\n", __func__);
 		ret = -ENOMEM;
 		return ret;
 	}
-	ion_buf->fd = buf_hdl;
-	ion_buf->size = size;
-
-	if (ion_buf->fd == 0)
-		return -EINVAL;
 
 	smmu_ctx->attach_cnt++;
 
@@ -250,15 +275,16 @@ int npu_mem_map(struct npu_device *npu_dev, int buf_hdl, uint32_t size,
 	ion_buf->size = ion_buf->table->sgl->dma_length;
 map_end:
 	if (ret)
-		npu_mem_unmap(npu_dev, buf_hdl, 0);
+		npu_mem_unmap(client, buf_hdl, 0);
 
 	*addr = ion_buf->iova;
 	return ret;
 }
 
-void npu_mem_invalidate(struct npu_device *npu_dev, int buf_hdl)
+void npu_mem_invalidate(struct npu_client *client, int buf_hdl)
 {
-	struct npu_ion_buf *ion_buf = npu_get_existing_ion_buffer(npu_dev,
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_ion_buf *ion_buf = npu_get_npu_ion_buffer(client,
 		buf_hdl);
 
 	if (!ion_buf)
@@ -268,29 +294,50 @@ void npu_mem_invalidate(struct npu_device *npu_dev, int buf_hdl)
 			ion_buf->table->nents, DMA_BIDIRECTIONAL);
 }
 
-void npu_mem_unmap(struct npu_device *npu_dev, int buf_hdl, uint64_t addr)
+bool npu_mem_verify_addr(struct npu_client *client, uint64_t addr)
 {
+	struct npu_ion_buf *ion_buf = 0;
+	struct list_head *pos = NULL;
+	bool valid = false;
+
+	mutex_lock(&client->list_lock);
+	list_for_each(pos, &(client->mapped_buffer_list)) {
+		ion_buf = list_entry(pos, struct npu_ion_buf, list);
+		if (ion_buf->iova == addr) {
+			valid = true;
+			break;
+		}
+	}
+	mutex_unlock(&client->list_lock);
+
+	return valid;
+}
+
+void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
+{
+	struct npu_device *npu_dev = client->npu_dev;
 	struct npu_ion_buf *ion_buf = 0;
 
 	/* clear entry and retrieve the corresponding buffer */
-	ion_buf = npu_clear_npu_ion_buffer(npu_dev, buf_hdl, addr);
-
+	ion_buf = npu_get_npu_ion_buffer(client, buf_hdl);
 	if (!ion_buf) {
 		pr_err("%s could not find buffer\n", __func__);
 		return;
 	}
+
+	if (ion_buf->iova != addr)
+		pr_warn("unmap address %lu doesn't match %lu\n", addr,
+			ion_buf->iova);
+
 	if (ion_buf->table)
 		dma_buf_unmap_attachment(ion_buf->attachment, ion_buf->table,
 			DMA_BIDIRECTIONAL);
-	ion_buf->table = 0;
 	if (ion_buf->dma_buf && ion_buf->attachment)
 		dma_buf_detach(ion_buf->dma_buf, ion_buf->attachment);
-	ion_buf->attachment = 0;
 	if (ion_buf->dma_buf)
 		dma_buf_put(ion_buf->dma_buf);
-	ion_buf->dma_buf = 0;
 	npu_dev->smmu_ctx.attach_cnt--;
-	kfree(ion_buf);
+	npu_free_npu_ion_buffer(client, buf_hdl);
 }
 
 /* -------------------------------------------------------------------------

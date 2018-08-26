@@ -286,7 +286,7 @@ static void usb_read_work_fn(struct work_struct *work)
 		req->buf = ch->read_buf;
 		req->length = USB_MAX_OUT_BUF;
 		err = usb_diag_read(ch->hdl, req);
-		if (err) {
+		if (err && err != -EIO) {
 			pr_debug("diag: In %s, error in reading from USB %s, err: %d\n",
 				 __func__, ch->name, err);
 			atomic_set(&ch->read_pending, 0);

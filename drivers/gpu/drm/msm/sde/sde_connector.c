@@ -1130,7 +1130,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			goto end;
 		}
 
-		rc = copy_to_user((uint64_t __user *)val, &fence_fd,
+		rc = copy_to_user((uint64_t __user *)(uintptr_t)val, &fence_fd,
 			sizeof(uint64_t));
 		if (rc) {
 			SDE_ERROR("copy to user failed rc:%d\n", rc);
@@ -1141,8 +1141,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 		break;
 	case CONNECTOR_PROP_ROI_V1:
-		rc = _sde_connector_set_roi_v1(c_conn,
-				c_state, (void __user *)val);
+		rc = _sde_connector_set_roi_v1(c_conn, c_state,
+				(void *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 		break;
@@ -1165,7 +1165,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	if (idx == CONNECTOR_PROP_HDR_METADATA) {
 		rc = _sde_connector_set_ext_hdr_info(c_conn,
-			c_state, (void __user *)val);
+			c_state, (void *)(uintptr_t)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}
@@ -1523,7 +1523,7 @@ static ssize_t _sde_debugfs_conn_cmd_tx_write(struct file *file,
 	}
 	input[count] = '\0';
 
-	SDE_DEBUG("input: %s\n", input);
+	SDE_INFO("Command requested for trasnfer to panel: %s\n", input);
 
 	input_copy = kstrdup(input, GFP_KERNEL);
 	if (!input_copy) {

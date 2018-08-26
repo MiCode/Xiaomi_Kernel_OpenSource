@@ -1938,7 +1938,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 	/* map IPA SRAM */
 	ipa_sram_mmio = ioremap(ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
+		ipahal_get_reg_n_ofst(IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 			ipa3_ctx->smem_restricted_bytes / 4),
 		ipa3_ctx->smem_sz);
 	if (!ipa_sram_mmio) {

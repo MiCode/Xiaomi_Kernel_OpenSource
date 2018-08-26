@@ -747,6 +747,28 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		bool old_valid_fb);
 
 /**
+ * sde_crtc_find_plane_fb_modes - finds the modes of all planes attached
+ *                                  to crtc
+ * @crtc: Pointer to DRM crtc object
+ * @fb_ns: number of non secure planes
+ * @fb_sec: number of secure-playback planes
+ * @fb_sec_dir: number of secure-ui/secure-camera planes
+ */
+int sde_crtc_find_plane_fb_modes(struct drm_crtc *crtc,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir);
+
+/**
+ * sde_crtc_state_find_plane_fb_modes - finds the modes of all planes attached
+ *                                       to the crtc state
+ * @crtc_state: Pointer to DRM crtc state object
+ * @fb_ns: number of non secure planes
+ * @fb_sec: number of secure-playback planes
+ * @fb_sec_dir: number of secure-ui/secure-camera planes
+ */
+int sde_crtc_state_find_plane_fb_modes(struct drm_crtc_state *state,
+		uint32_t *fb_ns, uint32_t *fb_sec, uint32_t *fb_sec_dir);
+
+/**
  * sde_crtc_secure_ctrl - Initiates the transition between secure and
  *                          non-secure world
  * @crtc: Pointer to crtc

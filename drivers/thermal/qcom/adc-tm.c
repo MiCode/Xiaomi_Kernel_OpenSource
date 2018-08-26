@@ -65,17 +65,27 @@ static struct thermal_zone_of_device_ops adc_tm_ops = {
 	.set_trips = adc_tm_set_trip_temp,
 };
 
-static int adc_tm_register_tzd(struct adc_tm_chip *adc_tm, int dt_chan_num)
+static struct thermal_zone_of_device_ops adc_tm_ops_iio = {
+	.get_temp = adc_tm_get_temp,
+};
+
+static int adc_tm_register_tzd(struct adc_tm_chip *adc_tm, int dt_chan_num,
+					bool set_trips)
 {
 	unsigned int i;
 	struct thermal_zone_device *tzd;
 
 	for (i = 0; i < dt_chan_num; i++) {
 		adc_tm->sensor[i].chip = adc_tm;
-		tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
-						adc_tm->sensor[i].adc_ch,
-						&adc_tm->sensor[i],
-						&adc_tm_ops);
+		if (set_trips)
+			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
+				adc_tm->sensor[i].adc_ch, &adc_tm->sensor[i],
+					&adc_tm_ops);
+		else
+			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
+				adc_tm->sensor[i].adc_ch, &adc_tm->sensor[i],
+					&adc_tm_ops_iio);
+
 		if (IS_ERR(tzd)) {
 			pr_err("Error registering TZ zone:%d for dt_ch:%d\n",
 				PTR_ERR(tzd), adc_tm->sensor[i].adc_ch);
@@ -123,6 +133,10 @@ static int adc_tm_decimation_from_dt(u32 value, const unsigned int *decimation)
 static const struct of_device_id adc_tm_match_table[] = {
 	{
 		.compatible = "qcom,adc-tm5",
+		.data = &data_adc_tm5,
+	},
+	{
+		.compatible = "qcom,adc-tm5-iio",
 		.data = &data_adc_tm5,
 	},
 	{}
@@ -295,13 +309,22 @@ static int adc_tm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (of_device_is_compatible(node, "qcom,adc-tm5-iio")) {
+		ret = adc_tm_register_tzd(adc_tm, dt_chan_num, false);
+		if (ret) {
+			dev_err(dev, "adc-tm failed to register with of thermal\n");
+			return ret;
+		}
+		return 0;
+	}
+
 	ret = adc_tm_init(adc_tm, dt_chan_num);
 	if (ret) {
 		dev_err(dev, "adc-tm init failed\n");
 		return ret;
 	}
 
-	ret = adc_tm_register_tzd(adc_tm, dt_chan_num);
+	ret = adc_tm_register_tzd(adc_tm, dt_chan_num, true);
 	if (ret) {
 		dev_err(dev, "adc-tm failed to register with of thermal\n");
 		return ret;

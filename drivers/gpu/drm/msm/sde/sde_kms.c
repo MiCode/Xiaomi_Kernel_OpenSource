@@ -358,12 +358,20 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 
 static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	return sde_crtc_vblank(crtc, true);
+	int ret = 0;
+
+	SDE_ATRACE_BEGIN("sde_kms_enable_vblank");
+	ret = sde_crtc_vblank(crtc, true);
+	SDE_ATRACE_END("sde_kms_enable_vblank");
+
+	return ret;
 }
 
 static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
+	SDE_ATRACE_BEGIN("sde_kms_disable_vblank");
 	sde_crtc_vblank(crtc, false);
+	SDE_ATRACE_END("sde_kms_disable_vblank");
 }
 
 static void sde_kms_wait_for_frame_transfer_complete(struct msm_kms *kms,
@@ -898,12 +906,19 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	priv = dev->dev_private;
 
+	SDE_ATRACE_BEGIN("prepare_commit");
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 			true);
 	if (rc) {
 		SDE_ERROR("failed to enable power resource %d\n", rc);
 		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		return;
+		goto end;
+	}
+
+	if (sde_kms->first_kickoff) {
+		sde_power_scale_reg_bus(&priv->phandle, sde_kms->core_client,
+			VOTE_INDEX_HIGH, false);
+		sde_kms->first_kickoff = false;
 	}
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
@@ -922,6 +937,8 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	 * transitions prepare below if any transtions is required.
 	 */
 	sde_kms_prepare_secure_transition(kms, state);
+end:
+	SDE_ATRACE_END("prepare_commit");
 }
 
 static void sde_kms_commit(struct msm_kms *kms,
@@ -941,12 +958,15 @@ static void sde_kms_commit(struct msm_kms *kms,
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("sde_kms_commit");
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
 			SDE_EVT32(DRMID(crtc));
 			sde_crtc_commit_kickoff(crtc, old_crtc_state);
 		}
 	}
+
+	SDE_ATRACE_END("sde_kms_commit");
 }
 
 static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
@@ -1030,6 +1050,8 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("sde_kms_complete_commit");
+
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		sde_crtc_complete_commit(crtc, old_crtc_state);
 
@@ -1056,6 +1078,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	_sde_kms_release_splash_resource(sde_kms, old_state);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
+	SDE_ATRACE_END("sde_kms_complete_commit");
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -1082,6 +1105,7 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("sde_kms_wait_for_commit_done");
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -1099,6 +1123,8 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 
 		sde_crtc_complete_flip(crtc, NULL);
 	}
+
+	SDE_ATRACE_END("sde_ksm_wait_for_commit_done");
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
@@ -1113,6 +1139,7 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("sde_kms_prepare_fence");
 retry:
 	/* attempt to acquire ww mutex for connection */
 	rc = drm_modeset_lock(&old_state->dev->mode_config.connection_mutex,
@@ -1128,6 +1155,8 @@ retry:
 		if (crtc->state->active)
 			sde_crtc_prepare_commit(crtc, old_crtc_state);
 	}
+
+	SDE_ATRACE_END("sde_kms_prepare_fence");
 }
 
 /**
@@ -1631,6 +1660,16 @@ void sde_kms_timeline_status(struct drm_device *dev)
 	drm_for_each_crtc(crtc, dev)
 		sde_crtc_timeline_status(crtc);
 
+	if (mutex_is_locked(&dev->mode_config.mutex)) {
+		/*
+		 *Probably locked from last close dumping status anyway
+		 */
+		SDE_ERROR("dumping conn_timeline without mode_config lock\n");
+		drm_for_each_connector_iter(conn, &conn_iter)
+			sde_conn_timeline_status(conn);
+		return;
+	}
+
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(conn, &conn_iter)
@@ -2099,6 +2138,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	struct drm_crtc_state *crtc_state;
 	int active_crtc_cnt = 0, global_active_crtc_cnt = 0;
 	bool sec_session = false, global_sec_session = false;
+	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
 	int i;
 
 	if (!kms || !state) {
@@ -2115,54 +2155,56 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 			continue;
 
 		active_crtc_cnt++;
-		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
-				SDE_DRM_SEC_ONLY)
+		sde_crtc_state_find_plane_fb_modes(crtc_state, &fb_ns,
+				&fb_sec, &fb_sec_dir);
+		if (fb_sec_dir)
 			sec_session = true;
-
 		cur_crtc = crtc;
 	}
 
-	/* iterate global list for active and secure crtc */
+	/* iterate global list for active and secure/non-secure crtc */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (!crtc->state->active)
 			continue;
 
 		global_active_crtc_cnt++;
-		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
-				SDE_DRM_SEC_ONLY)
-			global_sec_session = true;
-
-		global_crtc = crtc;
+		/* update only when crtc is not the same as current crtc */
+		if (crtc != cur_crtc) {
+			fb_ns = fb_sec = fb_sec_dir = 0;
+			sde_crtc_find_plane_fb_modes(crtc, &fb_ns,
+					&fb_sec, &fb_sec_dir);
+			if (fb_sec_dir)
+				global_sec_session = true;
+			global_crtc = crtc;
+		}
 	}
 
+	if (!global_sec_session && !sec_session)
+		return 0;
+
 	/*
-	 * - fail secure crtc commit, if any other crtc session is already
-	 *   in progress
-	 * - fail non-secure crtc commit, if any secure crtc session is already
-	 *   in progress
+	 * - fail crtc commit, if secure-camera/secure-ui session is
+	 *   in-progress in any other display
+	 * - fail secure-camera/secure-ui crtc commit, if any other display
+	 *   session is in-progress
 	 */
-	if (global_sec_session || sec_session) {
-		if ((global_active_crtc_cnt >
-					MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
+	if ((global_active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
 		    (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE)) {
-			SDE_ERROR(
-			"Secure check failed global_active:%d active:%d\n",
+		SDE_ERROR(
+		    "crtc%d secure check failed global_active:%d active:%d\n",
+				cur_crtc ? cur_crtc->base.id : -1,
 				global_active_crtc_cnt, active_crtc_cnt);
-			return -EPERM;
+		return -EPERM;
 
-		/*
-		 * As only one crtc is allowed during secure session, the crtc
-		 * in this commit should match with the global crtc, if it
-		 * exists
-		 */
-		} else if (global_crtc && (global_crtc != cur_crtc)) {
-			SDE_ERROR(
-			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
-				cur_crtc ? cur_crtc->base.id : -1, sec_session,
+	/*
+	 * As only one crtc is allowed during secure session, the crtc
+	 * in this commit should match with the global crtc
+	 */
+	} else if (global_crtc && cur_crtc && (global_crtc != cur_crtc)) {
+		SDE_ERROR("crtc%d-sec%d not allowed during crtc%d-sec%d\n",
+				cur_crtc->base.id, sec_session,
 				global_crtc->base.id, global_sec_session);
-			return -EPERM;
-		}
-
+		return -EPERM;
 	}
 
 	return 0;
@@ -2181,14 +2223,16 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
 
+	SDE_ATRACE_BEGIN("atomic_check");
 	if (sde_kms_is_suspend_blocked(dev)) {
 		SDE_DEBUG("suspended, skip atomic_check\n");
-		return -EBUSY;
+		ret = -EBUSY;
+		goto end;
 	}
 
 	ret = drm_atomic_helper_check(dev, state);
 	if (ret)
-		return ret;
+		goto end;
 	/*
 	 * Check if any secure transition(moving CRTC between secure and
 	 * non-secure state and vice-versa) is allowed or not. when moving
@@ -2196,7 +2240,10 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 	 * be staged on the CRTC, and only one CRTC can be active during
 	 * Secure state
 	 */
-	return sde_kms_check_secure_transition(kms, state);
+	ret = sde_kms_check_secure_transition(kms, state);
+end:
+	SDE_ATRACE_END("atomic_check");
+	return ret;
 }
 
 static struct msm_gem_address_space*
@@ -2594,7 +2641,8 @@ retry:
 	if (sde_kms->suspend_state) {
 		sde_kms->suspend_state->acquire_ctx = &ctx;
 		for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
-			ret = drm_atomic_commit(sde_kms->suspend_state);
+			ret = drm_atomic_helper_commit_duplicated_state(
+					sde_kms->suspend_state, &ctx);
 			if (ret != -EDEADLK)
 				break;
 
@@ -2789,8 +2837,10 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
 		sde_kms_init_shared_hw(sde_kms);
+		sde_kms->first_kickoff = true;
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);
+		sde_kms->first_kickoff = false;
 	}
 }
 

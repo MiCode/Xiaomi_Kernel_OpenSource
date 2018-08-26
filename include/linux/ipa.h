@@ -248,12 +248,13 @@ struct ipa_ep_cfg_mode {
  *			to 0, there is no aggregation, every packet is sent
  *			independently according to the aggregation structure
  *			Valid for Output Pipes only (IPA Producer )
- * @aggr_time_limit:	Timer to close aggregated packet (<=32ms) When set to 0,
+ * @aggr_time_limit:	Timer to close aggregated packet When set to 0,
  *			there is no time limitation on the aggregation.  When
  *			both, Aggr_Byte_Limit and Aggr_Time_Limit are set to 0,
  *			there is no aggregation, every packet is sent
  *			independently according to the aggregation structure
- *			Valid for Output Pipes only (IPA Producer)
+ *			Valid for Output Pipes only (IPA Producer).
+ *			Time unit is -->> usec <<--
  * @aggr_pkt_limit: Defines if EOF close aggregation or not. if set to false
  *			HW closes aggregation (sends EOT) only based on its
  *			aggregation config (byte/time limit, etc). if set to
@@ -275,6 +276,13 @@ struct ipa_ep_cfg_mode {
  *			aggregation closure. Valid for Output Pipes only (IPA
  *			Producer). EOF affects only Pipes configured for generic
  *			aggregation.
+ * @pulse_generator:	Pulse generator number to be used.
+ *			For internal use.
+ *			Supported starting IPA4.5.
+ * @scaled_time:	Time limit in accordance to the pulse generator
+ *			granularity.
+ *			For internal use
+ *			Supported starting IPA4.5
  */
 struct ipa_ep_cfg_aggr {
 	enum ipa_aggr_en_type aggr_en;
@@ -284,6 +292,8 @@ struct ipa_ep_cfg_aggr {
 	u32 aggr_pkt_limit;
 	u32 aggr_hard_byte_limit_en;
 	bool aggr_sw_eof_active;
+	u8 pulse_generator;
+	u8 scaled_time;
 };
 
 /**
@@ -304,16 +314,26 @@ struct ipa_ep_cfg_route {
  * @tmr_val: duration in units of 128 IPA clk clock cyles [0,511], 1 clk=1.28us
  *	     IPAv2.5 support 32 bit HOLB timeout value, previous versions
  *	     supports 16 bit
- * splitting timer value into 2 fields for IPA4.2  new timer value is:
- * BASE_VALUE* (2^SCALE)
- * @base_val : base value of the timer
- * @scale : scale value for timer
+ *  IPAv4.2: splitting timer value into 2 fields. Timer value is:
+ *   BASE_VALUE * (2^SCALE)
+ *  IPA4.5: tmr_val is in -->>msec<<--. Range is dynamic based
+ *   on H/W configuration. (IPA4.5 absolute maximum is 0.65535*31 -> ~20sec).
+ * @base_val : IPA4.2 only field. base value of the timer.
+ * @scale : IPA4.2 only field. scale value for timer.
+ * @pulse_generator: Pulse generator number to be used.
+ *  For internal use.
+ *  Supported starting IPA4.5.
+ * @scaled_time: Time limit in accordance to the pulse generator granularity
+ *  For internal use
+ *  Supported starting IPA4.5
  */
 struct ipa_ep_cfg_holb {
-	u16 en;
 	u32 tmr_val;
 	u32 base_val;
 	u32 scale;
+	u16 en;
+	u8 pulse_generator;
+	u8 scaled_time;
 };
 
 /**
@@ -1638,6 +1658,12 @@ static inline int ipa_cfg_ep_route(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
 		const struct ipa_ep_cfg_holb *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
+		const struct ipa_ep_cfg_holb *ep_holb)
 {
 	return -EPERM;
 }

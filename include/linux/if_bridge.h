@@ -56,6 +56,8 @@ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __use
 
 typedef int br_should_route_hook_t(struct sk_buff *skb);
 extern br_should_route_hook_t __rcu *br_should_route_hook;
+extern struct net_device *br_port_dev_get(struct net_device *dev,
+						unsigned char *addr);
 
 #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
 int br_multicast_list_adjacent(struct net_device *dev,

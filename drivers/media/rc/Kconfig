@@ -482,4 +482,15 @@ config IR_ZX
 
 endif #RC_DEVICES
 
+config IR_MSM_GENI
+	tristate "MSM GENI IR Controller"
+	depends on RC_CORE
+	default m
+	---help---
+	   Say Y here to enable support for integrated infrared module
+	   for MSM family processors.
+
+	   To compile this driver as a module, choose M here: the
+	   module will be called msm-geni-ir.
+
 endif #RC_CORE

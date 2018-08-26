@@ -84,6 +84,15 @@
 		compatible = "qcom,msm-pcm-loopback";
 	};
 
+	loopback1: qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
+	};
+
+	pcm_dtmf: qcom,msm-pcm-dtmf {
+		compatible = "qcom,msm-pcm-dtmf";
+	};
+
 	msm_dai_mi2s: qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {

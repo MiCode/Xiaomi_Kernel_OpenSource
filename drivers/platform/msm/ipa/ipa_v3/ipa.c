@@ -2649,18 +2649,18 @@ int _ipa_init_sram_v3(void)
 	unsigned long phys_addr;
 
 	IPADBG(
-	    "ipa_wrapper_base(0x%08X) ipa_reg_base_ofst(0x%08X) IPA_SRAM_DIRECT_ACCESS_n(0x%08X) smem_restricted_bytes(0x%08X) smem_sz(0x%08X)\n",
+	    "ipa_wrapper_base(0x%08X) ipa_reg_base_ofst(0x%08X) IPA_SW_AREA_RAM_DIRECT_ACCESS_n(0x%08X) smem_restricted_bytes(0x%08X) smem_sz(0x%08X)\n",
 	    ipa3_ctx->ipa_wrapper_base,
 	    ipa3_ctx->ctrl->ipa_reg_base_ofst,
 	    ipahal_get_reg_n_ofst(
-		IPA_SRAM_DIRECT_ACCESS_n,
+		IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 		ipa3_ctx->smem_restricted_bytes / 4),
 	    ipa3_ctx->smem_restricted_bytes,
 	    ipa3_ctx->smem_sz);
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
+		ipahal_get_reg_n_ofst(IPA_SW_AREA_RAM_DIRECT_ACCESS_n,
 			ipa3_ctx->smem_restricted_bytes / 4);
 
 	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
@@ -4094,7 +4094,6 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 	IPADBG("interrupt=%d, interrupt_data=%u\n",
 		interrupt, suspend_data);
 	memset(&holb_cfg, 0, sizeof(holb_cfg));
-	holb_cfg.tmr_val = 0;
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++, bmsk = bmsk << 1) {
 		if ((suspend_data & bmsk) && (ipa3_ctx->ep[i].valid)) {
@@ -5104,6 +5103,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
+	ipa3_ctx->ipa_wdi2_over_gsi = resource_p->ipa_wdi2_over_gsi;
 	ipa3_ctx->ipa_fltrt_not_hashable = resource_p->ipa_fltrt_not_hashable;
 	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
@@ -5699,6 +5699,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa3_hw_mode = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->ipa_wdi2_over_gsi = false;
 	ipa_drv_res->ipa_mhi_dynamic_config = false;
 	ipa_drv_res->use_64_bit_dma_mask = false;
 	ipa_drv_res->use_bw_vote = false;
@@ -5780,6 +5781,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,modem-cfg-emb-pipe-flt");
 	IPADBG(": modem configure embedded pipe filtering = %s\n",
 			ipa_drv_res->modem_cfg_emb_pipe_flt
+			? "True" : "False");
+	ipa_drv_res->ipa_wdi2_over_gsi =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-wdi2_over_gsi");
+	IPADBG(": WDI-2.0 over gsi= %s\n",
+			ipa_drv_res->ipa_wdi2_over_gsi
 			? "True" : "False");
 
 	ipa_drv_res->ipa_wdi2 =

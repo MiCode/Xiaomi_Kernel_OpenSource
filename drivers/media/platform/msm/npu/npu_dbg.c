@@ -305,7 +305,6 @@ void npu_dump_debug_timeout_stats(struct npu_device *npu_dev)
 	pr_info("fw jobs execute finished count = %d\n", reg_val);
 	reg_val = REGR(npu_dev, REG_NPU_FW_DEBUG_DATA);
 	pr_info("fw jobs aco parser debug = %d\n", reg_val);
-	npu_dump_cal_state(npu_dev);
 }
 
 void npu_dump_cal_state(struct npu_device *npu_dev)

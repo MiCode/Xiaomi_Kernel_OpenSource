@@ -57,7 +57,7 @@
 		(BAM_DMA_MAX_PKT_NUMBER * (sizeof(struct sps_iovec)))
 #define TX_TIMEOUT (5 * HZ)
 #define MIN_TX_ERROR_SLEEP_PERIOD 500
-#define DEFAULT_AGGR_TIME_LIMIT 1
+#define DEFAULT_AGGR_TIME_LIMIT 1000 /* 1ms */
 #define DEFAULT_AGGR_PKT_LIMIT 0
 
 #define RNDIS_IPA_ERROR(fmt, args...) \
@@ -328,7 +328,7 @@ static struct ipa_ep_cfg ipa_to_usb_ep_cfg = {
 		.aggr = IPA_GENERIC,
 		.aggr_byte_limit = 4,
 		.aggr_time_limit = DEFAULT_AGGR_TIME_LIMIT,
-		.aggr_pkt_limit = DEFAULT_AGGR_PKT_LIMIT
+		.aggr_pkt_limit = DEFAULT_AGGR_PKT_LIMIT,
 	},
 	.deaggr = {
 		.deaggr_hdr_len = 0,

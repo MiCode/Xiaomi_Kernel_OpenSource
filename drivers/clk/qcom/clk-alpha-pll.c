@@ -116,6 +116,8 @@
 #define FABIA_USER_CTL_HI	0x10
 #define FABIA_CONFIG_CTL_LO	0x14
 #define FABIA_CONFIG_CTL_HI	0x18
+#define FABIA_TEST_CTL_LO	0x1c
+#define FABIA_TEST_CTL_HI	0x20
 #define FABIA_OPMODE		0x2c
 #define FABIA_FRAC_VAL		0x38
 #define FABIA_PLL_STANDBY	0x0
@@ -1728,9 +1730,30 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->frac)
 		regmap_write(regmap, pll->offset + FABIA_FRAC_VAL,
 						config->frac);
+
 	if (config->config_ctl_val)
 		regmap_write(regmap, pll->offset + FABIA_CONFIG_CTL_LO,
-				config->config_ctl_val);
+					config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		regmap_write(regmap, pll->offset + FABIA_CONFIG_CTL_HI,
+					config->config_ctl_hi_val);
+
+	if (config->user_ctl_val)
+		regmap_write(regmap, pll->offset + FABIA_USER_CTL_LO,
+					config->user_ctl_val);
+
+	if (config->user_ctl_hi_val)
+		regmap_write(regmap, pll->offset + FABIA_USER_CTL_HI,
+					config->user_ctl_hi_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, pll->offset + FABIA_TEST_CTL_LO,
+					config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, pll->offset + FABIA_TEST_CTL_HI,
+					config->test_ctl_hi_val);
 
 	if (config->post_div_mask) {
 		mask = config->post_div_mask;

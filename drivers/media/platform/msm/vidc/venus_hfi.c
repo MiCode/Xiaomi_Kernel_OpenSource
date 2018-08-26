@@ -1465,7 +1465,7 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 	__strict_check(device);
 
 	if (!__core_in_valid_state(device)) {
-		dprintk(VIDC_DBG, "%s - fw not in init state\n", __func__);
+		dprintk(VIDC_ERR, "%s - fw not in init state\n", __func__);
 		result = -EINVAL;
 		goto err_q_null;
 	}
@@ -3360,8 +3360,6 @@ static void __process_sys_error(struct venus_hfi_device *device)
 {
 	struct hfi_sfr_struct *vsfr = NULL;
 
-	__set_state(device, VENUS_STATE_DEINIT);
-
 	vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
 	if (vsfr) {
 		void *p = memchr(vsfr->rg_data, '\0', vsfr->bufSize);
@@ -3625,6 +3623,10 @@ static int __response_handler(struct venus_hfi_device *device)
 					"Too many packets in message queue to handle at once, deferring read\n");
 			break;
 		}
+
+		/* do not read packets after sys error packet */
+		if (info->response_type == HAL_SYS_ERROR)
+			break;
 	}
 
 	if (requeue_pm_work && device->res->sw_power_collapsible) {

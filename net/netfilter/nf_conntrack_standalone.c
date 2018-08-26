@@ -596,6 +596,14 @@ static struct ctl_table nf_ct_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+	{
+		.procname	= "nf_conntrack_pkt_threshold",
+		.data		= &nf_conntrack_pkt_threshold,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+
 	{ }
 };
 

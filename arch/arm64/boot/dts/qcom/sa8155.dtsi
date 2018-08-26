@@ -724,3 +724,5 @@
 		qcom,smmu-s1-enable;
 	};
 };
+
+#include "sa8155-audio.dtsi"

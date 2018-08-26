@@ -43,6 +43,7 @@
 struct npu_device;
 struct npu_ion_buf_t;
 struct npu_host_ctx;
+struct npu_client;
 typedef irqreturn_t (*intr_hdlr_fn)(int32_t irq, void *ptr);
 typedef void (*wq_hdlr_fn) (struct work_struct *work);
 
@@ -57,10 +58,11 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint32_t size);
 
-int npu_mem_map(struct npu_device *npu_dev, int buf_hdl, uint32_t size,
+int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	uint64_t *addr);
-void npu_mem_unmap(struct npu_device *npu_dev, int buf_hdl, uint64_t addr);
-void npu_mem_invalidate(struct npu_device *npu_dev, int buf_hdl);
+void npu_mem_unmap(struct npu_client *client, int buf_hdl, uint64_t addr);
+void npu_mem_invalidate(struct npu_client *client, int buf_hdl);
+bool npu_mem_verify_addr(struct npu_client *client, uint64_t addr);
 
 void *npu_ipc_addr(void);
 void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num);

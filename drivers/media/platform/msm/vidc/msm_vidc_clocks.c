@@ -1188,6 +1188,7 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 slice_mode = 0;
+		u32 rc_mode = 0;
 
 		switch (inst->fmts[CAPTURE_PORT].fourcc) {
 		case V4L2_PIX_FMT_VP8:
@@ -1196,6 +1197,13 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 			goto decision_done;
 		}
 
+		rc_mode = msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+		if (rc_mode ==
+			V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
+			pdata.video_work_route = 2;
+			goto decision_done;
+		}
 		slice_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 		if (slice_mode ==
@@ -1381,6 +1389,7 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	void *pdata = NULL;
 	struct hfi_device *hdev = NULL;
 	enum hal_perf_mode venc_mode;
+	u32 rc_mode = 0;
 
 	hdev = inst->core->device;
 	if (inst->session_type != MSM_VIDC_ENCODER) {
@@ -1394,6 +1403,11 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 		msm_vidc_get_fps(inst) > inst->core->resources.max_hq_fps) {
 		enable = true;
 	}
+	/* Power saving always disabled for CQ RC mode. */
+	rc_mode = msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
+		enable = false;
 
 	prop_id = HAL_CONFIG_VENC_PERF_MODE;
 	venc_mode = enable ? HAL_PERF_MODE_POWER_SAVE :

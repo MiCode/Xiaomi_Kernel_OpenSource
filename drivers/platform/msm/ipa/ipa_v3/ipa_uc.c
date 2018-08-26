@@ -249,7 +249,8 @@ static void ipa3_log_evt_hdlr(void)
 		if (ipa3_ctx->uc_ctx.uc_event_top_ofst +
 			sizeof(struct IpaHwEventLogInfoData_t) >=
 			ipa3_ctx->ctrl->ipa_reg_base_ofst +
-			ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
+			ipahal_get_reg_n_ofst(
+				IPA_SW_AREA_RAM_DIRECT_ACCESS_n, 0) +
 			ipa3_ctx->smem_sz) {
 			IPAERR("uc_top 0x%x outside SRAM\n",
 				ipa3_ctx->uc_ctx.uc_event_top_ofst);
@@ -657,7 +658,7 @@ int ipa3_uc_interface_init(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0);
+		ipahal_get_reg_n_ofst(IPA_SW_AREA_RAM_DIRECT_ACCESS_n, 0);
 	ipa3_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
 					       IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa3_ctx->uc_ctx.uc_sram_mmio) {

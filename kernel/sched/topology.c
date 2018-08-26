@@ -305,6 +305,8 @@ static int init_rootdomain(struct root_domain *rd)
 	rd->max_cap_orig_cpu = rd->min_cap_orig_cpu = -1;
 	rd->mid_cap_orig_cpu = -1;
 
+	init_max_cpu_capacity(&rd->max_cpu_capacity);
+
 	return 0;
 
 free_cpudl:
@@ -1822,7 +1824,6 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	enum s_alloc alloc_state;
 	struct sched_domain *sd;
 	struct s_data d;
-	struct rq *rq = NULL;
 	int i, ret = -ENOMEM;
 
 	alloc_state = __visit_domain_allocation_hell(&d, cpu_map);
@@ -1877,12 +1878,7 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
 		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
 
-		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
-
-		/* Use READ_ONCE()/WRITE_ONCE() to avoid load/store tearing: */
-		if (rq->cpu_capacity_orig > READ_ONCE(d.rd->max_cpu_capacity))
-			WRITE_ONCE(d.rd->max_cpu_capacity, rq->cpu_capacity_orig);
 
 		if ((max_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig >
 		    cpu_rq(max_cpu)->cpu_capacity_orig))
@@ -1912,11 +1908,6 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 
 	if (!cpumask_empty(cpu_map))
 		update_asym_cpucapacity(cpumask_first(cpu_map));
-
-	if (rq && sched_debug_enabled) {
-		pr_info("span: %*pbl (max cpu_capacity = %lu)\n",
-			cpumask_pr_args(cpu_map), rq->rd->max_cpu_capacity);
-	}
 
 	ret = 0;
 error:

@@ -27,14 +27,13 @@
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
 	};
+};
 
-	audio_apr: qcom,msm-audio-apr {
-		compatible = "qcom,msm-audio-apr";
-		q6core: qcom,q6core-audio {
-			compatible = "qcom,q6core-audio";
-			bolero: bolero-cdc {
-				compatible = "qcom,bolero-codec";
-			};
+&audio_apr {
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+		bolero: bolero-cdc {
+			compatible = "qcom,bolero-codec";
 		};
 	};
 };
@@ -42,8 +41,8 @@
 &q6core {
 	sm6150_snd: sound {
 		compatible = "qcom,sm6150-asoc-snd";
-		qcom,mi2s-audio-intf;
-		qcom,auxpcm-audio-intf;
+		qcom,mi2s-audio-intf = <1>;
+		qcom,auxpcm-audio-intf = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,

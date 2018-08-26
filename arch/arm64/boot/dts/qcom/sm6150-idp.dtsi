@@ -12,15 +12,9 @@
 
 #include "sm6150-camera-sensor-idp.dtsi"
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include "sm6150-sde-display.dtsi"
 
 &soc {
-};
-
-/ {
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-alium-3600mah.dtsi"
-	};
 };
 
 &qupv3_se0_2uart {
@@ -62,6 +56,28 @@
 	qcom,vddp-ref-clk-max-uV = <1260000>;
 
 	status = "ok";
+};
+
+&qupv3_se1_i2c {
+	status = "okay";
+	himax_ts@48 {
+		compatible = "himax,hxcommon";
+		reg = <0x48>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <89 0x2008>;
+		vdd-supply = <&pm6150_l10>;
+		avdd-supply = <&pm6150l_l7>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		himax,panel-coords = <0 1080 0 2160>;
+		himax,display-coords = <0 1080 0 2160>;
+		himax,irq-gpio = <&tlmm 89 0x00>;
+		himax,rst-gpio = <&tlmm 88 0x00>;
+		report_type = <1>;
+	};
 };
 
 &sdhc_1 {
@@ -114,4 +130,25 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&dsi_hx83112a_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
 };

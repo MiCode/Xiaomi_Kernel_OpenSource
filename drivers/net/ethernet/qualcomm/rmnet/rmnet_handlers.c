@@ -88,8 +88,10 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	skb_set_mac_header(skb, 0);
 
 	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
-	if (rmnet_shs_stamp)
+	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
+		return;
+	}
 
 	if (!rmnet_check_skb_can_gro(skb))
 		gro_cells_receive(&priv->gro_cells, skb);

@@ -440,12 +440,18 @@ static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
 {
 	uint32_t addr_diff;
 
-	WARN(addr1 < ctx->base || addr1 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr1);
-	WARN(addr2 < ctx->base || addr2 >= ctx->end,
-		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
-		ctx->base, ctx->end, addr2);
+	GSIDBG_LOW("gsi base addr 0x%llx end addr 0x%llx\n",
+		ctx->base, ctx->end);
+
+	if (addr1 < ctx->base || addr1 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr1);
+		BUG();
+	}
+
+	if (addr2 < ctx->base || addr2 >= ctx->end) {
+		GSIERR("address = 0x%llx not in range\n", addr2);
+		BUG();
+	}
 
 	addr_diff = (uint32_t)(addr2 - addr1);
 	if (addr1 < addr2)
@@ -1367,12 +1373,27 @@ static void gsi_prime_evt_ring(struct gsi_evt_ctx *ctx)
 	spin_unlock_irqrestore(&ctx->ring.slock, flags);
 }
 
+static void gsi_prime_evt_ring_wdi(struct gsi_evt_ctx *ctx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->ring.slock, flags);
+	if (ctx->ring.base_va)
+		memset((void *)ctx->ring.base_va, 0, ctx->ring.len);
+	ctx->ring.wp_local = ctx->ring.base +
+		((ctx->ring.max_num_elem + 2) * ctx->ring.elem_sz);
+	gsi_ring_evt_doorbell(ctx);
+	spin_unlock_irqrestore(&ctx->ring.slock, flags);
+}
+
 static int gsi_validate_evt_ring_props(struct gsi_evt_ring_props *props)
 {
 	uint64_t ra;
 
 	if ((props->re_size == GSI_EVT_RING_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_EVT_RING_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_EVT_RING_RE_SIZE_16B &&
 				 props->ring_len % 16)) {
 		GSIERR("bad params ring_len %u not a multiple of RE size %u\n",
@@ -1505,6 +1526,8 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	atomic_inc(&gsi_ctx->num_evt_ring);
 	if (props->intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	else if (props->intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	spin_lock_irqsave(&gsi_ctx->slock, flags);
@@ -1578,7 +1601,8 @@ int gsi_dealloc_evt_ring(unsigned long evt_ring_hdl)
 		return -GSI_STATUS_NODEV;
 	}
 
-	if (evt_ring_hdl >= gsi_ctx->max_ev) {
+	if (evt_ring_hdl >= gsi_ctx->max_ev ||
+			evt_ring_hdl >= GSI_EVT_RING_MAX) {
 		GSIERR("bad params evt_ring_hdl=%lu\n", evt_ring_hdl);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
@@ -1757,6 +1781,8 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 
 	if (ctx->props.intf == GSI_EVT_CHTYPE_GPI_EV)
 		gsi_prime_evt_ring(ctx);
+	if (ctx->props.intf == GSI_EVT_CHTYPE_WDI_EV)
+		gsi_prime_evt_ring_wdi(ctx);
 	mutex_unlock(&gsi_ctx->mlock);
 
 	return GSI_STATUS_SUCCESS;
@@ -1980,6 +2006,8 @@ static int gsi_validate_channel_props(struct gsi_chan_props *props)
 
 	if ((props->re_size == GSI_CHAN_RE_SIZE_4B &&
 				props->ring_len % 4) ||
+			(props->re_size == GSI_CHAN_RE_SIZE_8B &&
+				 props->ring_len % 8) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_16B &&
 				 props->ring_len % 16) ||
 			(props->re_size == GSI_CHAN_RE_SIZE_32B &&

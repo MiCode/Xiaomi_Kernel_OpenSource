@@ -60,7 +60,7 @@
 		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
 				      0x48000 0x49000 0x4a000>;
 		qcom,sde-mixer-size = <0x320>;
-		qcom,sde-mixer-display-pref = "primary", "none", "none",
+		qcom,sde-mixer-display-pref = "primary", "primary", "none",
 					      "none", "none", "none";
 
 		qcom,sde-dspp-top-off = <0x1300>;

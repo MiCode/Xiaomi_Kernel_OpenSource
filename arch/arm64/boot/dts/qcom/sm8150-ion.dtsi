@@ -51,6 +51,15 @@
 			qcom,ion-heap-type = "HYP_CMA";
 		};
 
+		qcom,ion-heap@14 { /* SECURE CARVEOUT HEAP */
+			reg = <14>;
+			qcom,ion-heap-type = "SECURE_CARVEOUT";
+			cdsp {
+				memory-region = <&cdsp_sec_mem>;
+				token = <0x20000000>;
+			};
+		};
+
 		qcom,ion-heap@9 {
 			reg = <9>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
