@@ -1956,6 +1956,7 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	case GSI_CHAN_PROT_XHCI:
 	case GSI_CHAN_PROT_GPI:
 	case GSI_CHAN_PROT_XDCI:
+	case GSI_CHAN_PROT_WDI:
 		prot = props->prot;
 		prot_msb = 0;
 		break;
