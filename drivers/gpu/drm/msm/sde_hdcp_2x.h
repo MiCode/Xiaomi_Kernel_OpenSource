@@ -181,7 +181,8 @@ static inline const char *hdcp_transport_cmd_to_str(
 
 struct sde_hdcp_2x_ops {
 	int (*wakeup)(struct sde_hdcp_2x_wakeup_data *data);
-	bool (*feature_supported)(void *phdcpcontext);
+	bool (*feature_supported)(void *data);
+	void (*force_encryption)(void *data, bool enable);
 };
 
 struct hdcp_transport_ops {
