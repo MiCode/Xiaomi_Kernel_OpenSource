@@ -23,6 +23,8 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/cpu_cooling.h>
+#include <linux/mutex.h>
 
 #include <microvisor/microvisor.h>
 
@@ -45,7 +47,10 @@ struct hyp_core_ctl_cpu_map {
  * @task: task_struct pointer to the thread running the state machine
  * @pending: state machine work pending status
  * @reservation_enabled: status of the reservation
- *
+ * @reservation_mutex: synchronization between thermal handling and
+ *                     reservation. The physical CPUs are re-assigned
+ *                     during thermal conditions while reservation is
+ *                     not enabled. So this synchronization is needed.
  * @reserve_cpus: The CPUs to be reserved. input.
  * @our_isolated_cpus: The CPUs isolated by hyp_core_ctl driver. output.
  * @final_reserved_cpus: The CPUs reserved for the Hypervisor. output.
@@ -58,6 +63,7 @@ struct hyp_core_ctl_data {
 	struct task_struct *task;
 	bool pending;
 	bool reservation_enabled;
+	struct mutex reservation_mutex;
 	cpumask_t reserve_cpus;
 	cpumask_t our_isolated_cpus;
 	cpumask_t final_reserved_cpus;
@@ -74,12 +80,13 @@ static inline void hyp_core_ctl_print_status(char *msg)
 {
 	trace_hyp_core_ctl_status(the_hcd, msg);
 
-	pr_debug("%s: reserve=%*pbl reserved=%*pbl our_isolated=%*pbl online=%*pbl isolated=%*pbl\n",
+	pr_debug("%s: reserve=%*pbl reserved=%*pbl our_isolated=%*pbl online=%*pbl isolated=%*pbl thermal=%*pbl\n",
 		msg, cpumask_pr_args(&the_hcd->reserve_cpus),
 		cpumask_pr_args(&the_hcd->final_reserved_cpus),
 		cpumask_pr_args(&the_hcd->our_isolated_cpus),
 		cpumask_pr_args(cpu_online_mask),
-		cpumask_pr_args(cpu_isolated_mask));
+		cpumask_pr_args(cpu_isolated_mask),
+		cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
 }
 
 static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
@@ -111,7 +118,8 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 {
 	cpumask_t offline_cpus, iter_cpus, temp_reserved_cpus;
-	int i, ret;
+	int i, ret, iso_required, iso_done;
+	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
 
 	cpumask_clear(&offline_cpus);
 	cpumask_clear(&temp_reserved_cpus);
@@ -125,6 +133,7 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 	 * will be isolated to honor the reservation.
 	 */
 	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &hcd->our_isolated_cpus);
+	cpumask_andnot(&iter_cpus, &iter_cpus, thermal_cpus);
 
 	for_each_cpu(i, &iter_cpus) {
 		if (!cpu_online(i)) {
@@ -134,12 +143,102 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 
 		ret = sched_isolate_cpu(i);
 		if (ret < 0) {
-			pr_err("fail to isolate CPU%d. ret=%d\n", i, ret);
+			pr_debug("fail to isolate CPU%d. ret=%d\n", i, ret);
 			continue;
 		}
 		cpumask_set_cpu(i, &hcd->our_isolated_cpus);
 	}
 
+	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &offline_cpus);
+	iso_required = cpumask_weight(&iter_cpus);
+	iso_done = cpumask_weight(&hcd->our_isolated_cpus);
+
+	if (iso_done < iso_required) {
+		int isolate_need;
+
+		/*
+		 * We have isolated fewer CPUs than required. This happens
+		 * when some of the CPUs from the reserved_cpus mask
+		 * are managed by thermal. Find the replacement CPUs and
+		 * isolate them.
+		 */
+		isolate_need = iso_required - iso_done;
+
+		/*
+		 * Create a cpumask from which replacement CPUs can be
+		 * picked. Exclude our isolated CPUs, thermal managed
+		 * CPUs and offline CPUs, which are already considered
+		 * as reserved.
+		 */
+		cpumask_andnot(&iter_cpus, cpu_possible_mask,
+			       &hcd->our_isolated_cpus);
+		cpumask_andnot(&iter_cpus, &iter_cpus, thermal_cpus);
+		cpumask_andnot(&iter_cpus, &iter_cpus, &offline_cpus);
+
+		/*
+		 * Keep the replacement policy simple. The offline CPUs
+		 * comes for free. so pick them first.
+		 */
+		for_each_cpu(i, &iter_cpus) {
+			if (!cpu_online(i)) {
+				cpumask_set_cpu(i, &offline_cpus);
+				if (--isolate_need == 0)
+					goto done;
+			}
+		}
+
+		cpumask_andnot(&iter_cpus, &iter_cpus, &offline_cpus);
+
+		for_each_cpu(i, &iter_cpus) {
+			ret = sched_isolate_cpu(i);
+			if (ret < 0) {
+				pr_debug("fail to isolate CPU%d. ret=%d\n",
+						i, ret);
+				continue;
+			}
+			cpumask_set_cpu(i, &hcd->our_isolated_cpus);
+
+			if (--isolate_need == 0)
+				break;
+		}
+	} else if (iso_done > iso_required) {
+		int unisolate_need;
+
+		/*
+		 * We have isolated more CPUs than required. Un-isolate
+		 * the additional CPUs which are not part of the
+		 * reserve_cpus mask.
+		 *
+		 * This happens in the following scenario.
+		 *
+		 * - Lets say reserve CPUs are CPU4 and CPU5. They are
+		 *   isolated.
+		 * - CPU4 is isolated by thermal. We found CPU0 as the
+		 *   replacement CPU. Now CPU0 and CPU5 are isolated by
+		 *   us.
+		 * - CPU4 is un-isolated by thermal. We first isolate CPU4
+		 *   since it is part of our reserve CPUs. Now CPU0, CPU4
+		 *   and CPU5 are isolated by us.
+		 * - Since iso_done (3) > iso_required (2), un-isolate
+		 *   a CPU which is not part of the reserve CPU. i.e CPU0.
+		 */
+		unisolate_need = iso_done - iso_required;
+		cpumask_andnot(&iter_cpus, &hcd->our_isolated_cpus,
+			       &hcd->reserve_cpus);
+		for_each_cpu(i, &iter_cpus) {
+			ret = sched_unisolate_cpu(i);
+			if (ret < 0) {
+				pr_err("fail to unisolate CPU%d. ret=%d\n",
+				       i, ret);
+				continue;
+			}
+			cpumask_clear_cpu(i, &hcd->our_isolated_cpus);
+			if (--unisolate_need == 0)
+				break;
+		}
+	}
+
+done:
 	cpumask_or(&temp_reserved_cpus, &hcd->our_isolated_cpus, &offline_cpus);
 	finalize_reservation(hcd, &temp_reserved_cpus);
 
@@ -167,14 +266,152 @@ static int hyp_core_ctl_thread(void *data)
 		if (kthread_should_stop())
 			break;
 
+		/*
+		 * The reservation mutex synchronize the reservation
+		 * happens in this thread against the thermal handling.
+		 * The CPU re-assignment happens directly from the
+		 * thermal callback context when the reservation is
+		 * not enabled, since there is no need for isolating.
+		 */
+		mutex_lock(&hcd->reservation_mutex);
 		if (hcd->reservation_enabled)
 			hyp_core_ctl_do_reservation(hcd);
 		else
 			hyp_core_ctl_undo_reservation(hcd);
+		mutex_unlock(&hcd->reservation_mutex);
 	}
 
 	return 0;
 }
+
+static void hyp_core_ctl_handle_thermal(struct hyp_core_ctl_data *hcd,
+					int cpu, bool throttled)
+{
+	cpumask_t temp_mask, iter_cpus;
+	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	bool notify = false;
+	int replacement_cpu;
+
+	hyp_core_ctl_print_status("handle_thermal_start");
+
+	/*
+	 * Take a copy of the final_reserved_cpus and adjust the mask
+	 * based on the notified CPU's thermal state.
+	 */
+	cpumask_copy(&temp_mask, &hcd->final_reserved_cpus);
+
+	if (throttled) {
+		/*
+		 * Find a replacement CPU for this throttled CPU. Select
+		 * any CPU that is not managed by thermal and not already
+		 * part of the assigned CPUs.
+		 */
+		cpumask_andnot(&iter_cpus, cpu_possible_mask, thermal_cpus);
+		cpumask_andnot(&iter_cpus, &iter_cpus,
+			       &hcd->final_reserved_cpus);
+		replacement_cpu = cpumask_any(&iter_cpus);
+
+		if (replacement_cpu < nr_cpu_ids) {
+			cpumask_clear_cpu(cpu, &temp_mask);
+			cpumask_set_cpu(replacement_cpu, &temp_mask);
+			notify = true;
+		}
+	} else {
+		/*
+		 * One of the original assigned CPU is unthrottled by thermal.
+		 * Swap this CPU with any one of the replacement CPUs.
+		 */
+		cpumask_andnot(&iter_cpus, &hcd->final_reserved_cpus,
+			       &hcd->reserve_cpus);
+		replacement_cpu = cpumask_any(&iter_cpus);
+
+		if (replacement_cpu < nr_cpu_ids) {
+			cpumask_clear_cpu(replacement_cpu, &temp_mask);
+			cpumask_set_cpu(cpu, &temp_mask);
+			notify = true;
+		}
+	}
+
+	if (notify)
+		finalize_reservation(hcd, &temp_mask);
+
+	hyp_core_ctl_print_status("handle_thermal_end");
+}
+
+static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
+				       unsigned long val, void *data)
+{
+	int cpu = (long) data;
+	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+
+	if (!the_hcd)
+		return NOTIFY_DONE;
+
+	mutex_lock(&the_hcd->reservation_mutex);
+
+	pr_debug("CPU%d is %s by thermal\n", cpu,
+		 val ? "throttled" : "unthrottled");
+
+	if (val) {
+		/*
+		 * The thermal mitigated CPU is not part of our reserved
+		 * CPUs. So nothing to do.
+		 */
+		if (!cpumask_test_cpu(cpu, &the_hcd->final_reserved_cpus))
+			goto out;
+
+		/*
+		 * The thermal mitigated CPU is part of our reserved CPUs.
+		 *
+		 * If it is isolated by us, unisolate it. If it is not
+		 * isolated, probably it is offline. In both cases, kick
+		 * the state machine to find a replacement CPU.
+		 */
+		if (cpumask_test_cpu(cpu, &the_hcd->our_isolated_cpus)) {
+			sched_unisolate_cpu(cpu);
+			cpumask_clear_cpu(cpu, &the_hcd->our_isolated_cpus);
+		}
+	} else {
+		/*
+		 * A CPU is unblocked by thermal. We are interested if
+		 *
+		 * (1) This CPU is part of the original reservation request
+		 *     In this case, this CPU should be swapped with one of
+		 *     the replacement CPU that is currently reserved.
+		 * (2) When some of the thermal mitigated CPUs are currently
+		 *     reserved due to unavailability of CPUs. Now that
+		 *     thermal unblocked a CPU, swap this with one of the
+		 *     thermal mitigated CPU that is currently reserved.
+		 */
+		if (!cpumask_test_cpu(cpu, &the_hcd->reserve_cpus) &&
+		    !cpumask_intersects(&the_hcd->final_reserved_cpus,
+		    thermal_cpus))
+			goto out;
+	}
+
+	if (the_hcd->reservation_enabled) {
+		spin_lock(&the_hcd->lock);
+		the_hcd->pending = true;
+		wake_up_process(the_hcd->task);
+		spin_unlock(&the_hcd->lock);
+	} else {
+		/*
+		 * When the reservation is enabled, the state machine
+		 * takes care of finding the new replacement CPU or
+		 * isolating the unthrottled CPU. However when the
+		 * reservation is not enabled, we still want to
+		 * re-assign another CPU for a throttled CPU.
+		 */
+		hyp_core_ctl_handle_thermal(the_hcd, cpu, val);
+	}
+out:
+	mutex_unlock(&the_hcd->reservation_mutex);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block hyp_core_ctl_nb = {
+	.notifier_call = hyp_core_ctl_cpu_cooling_cb,
+};
 
 static int hyp_core_ctl_hp_offline(unsigned int cpu)
 {
@@ -360,6 +597,7 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	}
 
 	spin_lock_init(&hcd->lock);
+	mutex_init(&hcd->reservation_mutex);
 	hcd->task = kthread_run(hyp_core_ctl_thread, (void *) hcd,
 				"hyp_core_ctl");
 
@@ -384,6 +622,8 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	cpuhp_setup_state_nocalls(CPUHP_HYP_CORE_CTL_ISOLATION_DEAD,
 				  "qcom/hyp_core_ctl:dead",
 				  NULL, hyp_core_ctl_hp_offline);
+
+	cpu_cooling_max_level_notifier_register(&hyp_core_ctl_nb);
 
 	the_hcd = hcd;
 	return 0;
