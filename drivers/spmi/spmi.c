@@ -79,7 +79,7 @@ int spmi_device_add(struct spmi_device *sdev)
 		goto err_device_add;
 	}
 
-	dev_err(&sdev->dev, "device %s registered\n", dev_name(&sdev->dev));
+	dev_dbg(&sdev->dev, "device %s registered\n", dev_name(&sdev->dev));
 
 err_device_add:
 	return err;
@@ -431,7 +431,6 @@ struct spmi_controller *spmi_controller_alloc(struct device *parent,
 	if (!ctrl)
 		return NULL;
 
-	pr_err("%s : ctrl address %p\n", ctrl);
 	device_initialize(&ctrl->dev);
 	ctrl->dev.type = &spmi_ctrl_type;
 	ctrl->dev.bus = &spmi_bus_type;
@@ -450,7 +449,7 @@ struct spmi_controller *spmi_controller_alloc(struct device *parent,
 	ctrl->nr = id;
 	dev_set_name(&ctrl->dev, "spmi-%d", id);
 
-	dev_err(&ctrl->dev, "allocated controller 0x%p id %d\n", ctrl, id);
+	dev_dbg(&ctrl->dev, "allocated controller 0x%p id %d\n", ctrl, id);
 	return ctrl;
 }
 EXPORT_SYMBOL_GPL(spmi_controller_alloc);
@@ -467,7 +466,7 @@ static void of_spmi_register_devices(struct spmi_controller *ctrl)
 		struct spmi_device *sdev;
 		u32 reg[2];
 
-		dev_err(&ctrl->dev, "adding child %pOF\n", node);
+		dev_dbg(&ctrl->dev, "adding child %pOF\n", node);
 
 		err = of_property_read_u32_array(node, "reg", reg, 2);
 		if (err) {
@@ -489,7 +488,7 @@ static void of_spmi_register_devices(struct spmi_controller *ctrl)
 			continue;
 		}
 
-		dev_err(&ctrl->dev, "read usid %02x\n", reg[0]);
+		dev_dbg(&ctrl->dev, "read usid %02x\n", reg[0]);
 
 		sdev = spmi_device_alloc(ctrl);
 		if (!sdev)
@@ -522,16 +521,14 @@ int spmi_controller_add(struct spmi_controller *ctrl)
 	if (WARN_ON(!is_registered))
 		return -EAGAIN;
 
-	pr_err("spmi_controller_add\n");
 	ret = device_add(&ctrl->dev);
 	if (ret)
 		return ret;
 
-	pr_err("spmi_controller_add  device add complete\n");
 	if (IS_ENABLED(CONFIG_OF))
 		of_spmi_register_devices(ctrl);
 
-	dev_err(&ctrl->dev, "spmi-%d registered: dev:%p\n",
+	dev_dbg(&ctrl->dev, "spmi-%d registered: dev:%p\n",
 		ctrl->nr, &ctrl->dev);
 
 	return 0;

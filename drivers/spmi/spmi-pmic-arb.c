@@ -1184,7 +1184,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	u32 channel, ee, hw_ver;
 	int err;
 
-	pr_err("SPMI Probe init\n");
 	ctrl = spmi_controller_alloc(&pdev->dev, sizeof(*pmic_arb));
 	if (!ctrl)
 		return -ENOMEM;
@@ -1209,7 +1208,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		goto err_put_ctrl;
 	}
 
-	pr_err("SPMI probe pmic_arb->ppid_to_apid=%p\n", pmic_arb->ppid_to_apid);
 	hw_ver = readl_relaxed(core + PMIC_ARB_VERSION);
 
 	if (hw_ver < PMIC_ARB_VERSION_V2_MIN) {
@@ -1233,7 +1231,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 			err = PTR_ERR(pmic_arb->rd_base);
 			goto err_put_ctrl;
 		}
-		pr_err("SPMI probe pmic_arb->rd_base =%p\n", pmic_arb->rd_base);
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   "chnls");
@@ -1242,33 +1239,27 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 			err = PTR_ERR(pmic_arb->wr_base);
 			goto err_put_ctrl;
 		}
-		pr_err("SPMI probe pmic_arb->wr_base = %p\n", pmic_arb->wr_base);
 	}
 
-	dev_err(&ctrl->dev, "PMIC arbiter version %s (0x%x)\n",
+	dev_info(&ctrl->dev, "PMIC arbiter version %s (0x%x)\n",
 		 pmic_arb->ver_ops->ver_str, hw_ver);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intr");
 	pmic_arb->intr = devm_ioremap_resource(&ctrl->dev, res);
-	pr_err("SPMI probe pmic_arb->intr = %p\n", pmic_arb->intr);
 	if (IS_ERR(pmic_arb->intr)) {
-		pr_err("SPMI error  intr fail\n");
 		err = PTR_ERR(pmic_arb->intr);
 		goto err_put_ctrl;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cnfg");
 	pmic_arb->cnfg = devm_ioremap_resource(&ctrl->dev, res);
-	pr_err("SPMI probe pmic_arb->cnfg = %p\n", pmic_arb->cnfg);
 	if (IS_ERR(pmic_arb->cnfg)) {
-		pr_err("SPMI error  intr cnfg\n");
 		err = PTR_ERR(pmic_arb->cnfg);
 		goto err_put_ctrl;
 	}
 
 	pmic_arb->irq = platform_get_irq_byname(pdev, "periph_irq");
 	if (pmic_arb->irq < 0) {
-		dev_err(&pdev->dev, "IRQ failed.\n");
 		err = pmic_arb->irq;
 		goto err_put_ctrl;
 	}
@@ -1304,12 +1295,11 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	mapping_table = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PERIPHS,
 					sizeof(*mapping_table), GFP_KERNEL);
 	if (!mapping_table) {
-		pr_err("SPMI mapping_table error\n");
 		err = -ENOMEM;
 		goto err_put_ctrl;
 	}
+
 	pmic_arb->mapping_table = mapping_table;
-	pr_err("SPMI probe pmic_arb->mapping_table = %p\n", pmic_arb->mapping_table);
 	/* Initialize max_apid/min_apid to the opposite bounds, during
 	 * the irq domain translation, we are sure to update these */
 	pmic_arb->max_apid = 0;
@@ -1331,7 +1321,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		}
 	}
 
-	dev_err(&pdev->dev, "adding irq domain\n");
+	dev_dbg(&pdev->dev, "adding irq domain\n");
 	pmic_arb->domain = irq_domain_add_tree(pdev->dev.of_node,
 					 &pmic_arb_irq_domain_ops, pmic_arb);
 	if (!pmic_arb->domain) {
@@ -1345,7 +1335,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	err = spmi_controller_add(ctrl);
 	if (err)
 		goto err_domain_remove;
-	pr_err("SPMI contoller register\n");
+
 	return 0;
 
 err_domain_remove:
