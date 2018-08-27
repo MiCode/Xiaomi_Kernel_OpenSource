@@ -791,7 +791,7 @@ int ipa2_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		return -EPERM;
 	}
 
-	if (ipa_ctx->nat_mem.public_ip_addr) {
+	if (!ipa_ctx->nat_mem.public_ip_addr) {
 		IPAERR_RL("Public IP addr not assigned and trying to delete\n");
 		return -EPERM;
 	}
