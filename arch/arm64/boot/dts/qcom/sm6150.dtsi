@@ -1561,7 +1561,7 @@
 
 	spmi_bus: qcom,spmi@c440000 {
 		compatible = "qcom,spmi-pmic-arb";
-		reg = <0xc440000 0x2300>,
+		reg = <0xc440000 0x1100>,
 		      <0xc600000 0x2000000>,
 		      <0xe600000 0x100000>,
 		      <0xe700000 0xa0000>,
