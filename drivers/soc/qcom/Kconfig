@@ -843,3 +843,19 @@ config QCOM_AOP_DDR_MESSAGING
 	  the device is rebooting, to ensure that the device is powered off
 	  cleanly.
 endmenu
+
+config QCOM_HYP_CORE_CTL
+	bool "CPU reservation scheme for Hypervisor"
+	help
+	  This driver reserve the specified CPUS by isolating them. The reserved
+	  CPUs can be assigned to the other guest OS by the hypervisor.
+	  An offline CPU is considered as a reserved CPU since this OS can't use
+	  it.
+
+config QCOM_HYP_CORE_CTL_RESERVE_CPUS
+	string "Reserve CPUs for HYP_CORE_CTL"
+	depends on QCOM_HYP_CORE_CTL
+	default "4-5" if ARCH_SDM670
+	help
+	  A compile time knob for specifying the cpumask that contains the CPUs
+	  to be reserved by the QCOM_HYP_CORE_CTL driver.
