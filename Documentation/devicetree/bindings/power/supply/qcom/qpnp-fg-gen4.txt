@@ -323,6 +323,16 @@ First Level Node - FG Gen4 device
 		    charging. Value has no unit. Allowed range is 62 to 15564
 		    in micro units.
 
+- qcom,ki-coeff-full-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of Ki coefficient full SOC values that needs to be
+		    applied during discharging. If not specified, a value of
+		    0 will be set.
+		    Allowed range is from 62 to 15564.
+		    Element 0 - Ki coefficient for full SOC in room temperature
+		    Element 1 - Ki coefficient for full SOC in low temperature
+
 - qcom,fg-rconn-uohms
 	Usage:      optional
 	Value type: <u32>

@@ -78,7 +78,10 @@
 #define SYS_TERM_CURR_OFFSET		0
 #define VBATT_FULL_WORD			23
 #define VBATT_FULL_OFFSET		0
+#define KI_COEFF_FULL_SOC_NORM_WORD	24
+#define KI_COEFF_FULL_SOC_NORM_OFFSET	1
 #define KI_COEFF_LOW_DISCHG_WORD	25
+#define KI_COEFF_FULL_SOC_LOW_OFFSET	0
 #define KI_COEFF_LOW_DISCHG_OFFSET	1
 #define KI_COEFF_MED_DISCHG_WORD	26
 #define KI_COEFF_MED_DISCHG_OFFSET	0
@@ -202,6 +205,7 @@ struct fg_dt_props {
 	int	ki_coeff_low_chg;
 	int	ki_coeff_med_chg;
 	int	ki_coeff_hi_chg;
+	int	ki_coeff_full_soc_dischg[2];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_low_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -223,6 +227,7 @@ struct fg_gen4_chip {
 	struct delayed_work	pl_enable_work;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
+	int			ki_coeff_full_soc[2];
 	int			delta_esr_count;
 	int			recharge_soc_thr;
 	int			esr_actual;
@@ -318,6 +323,9 @@ static struct fg_sram_param pm8150b_v1_sram_params[] = {
 		1, 1000, 15625, 0, fg_encode_default, NULL),
 	PARAM(DELTA_ESR_THR, DELTA_ESR_THR_WORD, DELTA_ESR_THR_OFFSET, 2, 1000,
 		61036, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_NORM_WORD,
+		KI_COEFF_FULL_SOC_NORM_OFFSET, 1, 1000, 61035, 0,
+		fg_encode_default, NULL),
 	PARAM(KI_COEFF_LOW_DISCHG, KI_COEFF_LOW_DISCHG_WORD,
 		KI_COEFF_LOW_DISCHG_OFFSET, 1, 1000, 61035, 0,
 		fg_encode_default, NULL),
@@ -403,6 +411,9 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 		1, 1000, 15625, 0, fg_encode_default, NULL),
 	PARAM(DELTA_ESR_THR, DELTA_ESR_THR_WORD, DELTA_ESR_THR_OFFSET, 2, 1000,
 		61036, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_NORM_WORD,
+		KI_COEFF_FULL_SOC_NORM_OFFSET, 1, 1000, 61035, 0,
+		fg_encode_default, NULL),
 	PARAM(KI_COEFF_LOW_DISCHG, KI_COEFF_LOW_DISCHG_WORD,
 		KI_COEFF_LOW_DISCHG_OFFSET, 1, 1000, 61035, 0,
 		fg_encode_default, NULL),
@@ -998,6 +1009,55 @@ static void fg_gen4_update_rslow_coeff(struct fg_dev *fg, int batt_temp)
 		fg_dbg(fg, FG_STATUS, "Updated Rslow %s coefficients\n",
 			rslow_low ? "low" : "normal");
 	}
+}
+
+#define KI_COEFF_FULL_SOC_NORM_DEFAULT		733
+#define KI_COEFF_FULL_SOC_LOW_DEFAULT		184
+static int fg_gen4_adjust_ki_coeff_full_soc(struct fg_gen4_chip *chip,
+						int batt_temp)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, ki_coeff_full_soc_norm, ki_coeff_full_soc_low;
+	u8 val;
+
+	if (batt_temp < 0) {
+		ki_coeff_full_soc_norm = 0;
+		ki_coeff_full_soc_low = 0;
+	} else if (fg->charge_status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		ki_coeff_full_soc_norm = chip->dt.ki_coeff_full_soc_dischg[0];
+		ki_coeff_full_soc_low = chip->dt.ki_coeff_full_soc_dischg[1];
+	} else {
+		ki_coeff_full_soc_norm = KI_COEFF_FULL_SOC_NORM_DEFAULT;
+		ki_coeff_full_soc_low = KI_COEFF_FULL_SOC_LOW_DEFAULT;
+	}
+
+	if (chip->ki_coeff_full_soc[0] == ki_coeff_full_soc_norm &&
+		chip->ki_coeff_full_soc[1] == ki_coeff_full_soc_low)
+		return 0;
+
+	fg_encode(fg->sp, FG_SRAM_KI_COEFF_FULL_SOC, ki_coeff_full_soc_norm,
+		&val);
+	rc = fg_sram_write(fg, KI_COEFF_FULL_SOC_NORM_WORD,
+			KI_COEFF_FULL_SOC_NORM_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_full_soc_norm, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(fg->sp, FG_SRAM_KI_COEFF_FULL_SOC, ki_coeff_full_soc_low,
+		&val);
+	rc = fg_sram_write(fg, KI_COEFF_LOW_DISCHG_WORD,
+			KI_COEFF_FULL_SOC_LOW_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_full_soc_low, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->ki_coeff_full_soc[0] = ki_coeff_full_soc_norm;
+	chip->ki_coeff_full_soc[1] = ki_coeff_full_soc_low;
+	fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_full_soc [%d %d]\n",
+		ki_coeff_full_soc_norm, ki_coeff_full_soc_low);
+	return 0;
 }
 
 #define KI_COEFF_LOW_DISCHG_DEFAULT	428
@@ -2482,6 +2542,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
+	rc = fg_gen4_adjust_ki_coeff_full_soc(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ki_coeff_full_soc rc:%d\n", rc);
+
 	if (abs(fg->last_batt_temp - batt_temp) > 30)
 		pr_warn("Battery temperature last:%d current: %d\n",
 			fg->last_batt_temp, batt_temp);
@@ -2954,6 +3018,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_gen4_adjust_ki_coeff_full_soc(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ki_coeff_full_soc rc:%d\n", rc);
 
 	rc = fg_gen4_adjust_recharge_soc(chip);
 	if (rc < 0)
@@ -3880,6 +3948,22 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	struct device_node *node = fg->dev->of_node;
 	int rc, i;
 
+	if (of_find_property(node, "qcom,ki-coeff-full-dischg", NULL)) {
+		rc = fg_parse_dt_property_u32_array(node,
+			"qcom,ki-coeff-full-dischg",
+			chip->dt.ki_coeff_full_soc_dischg, 2);
+		if (rc < 0)
+			return rc;
+
+		if (chip->dt.ki_coeff_full_soc_dischg[0] < 62 ||
+			chip->dt.ki_coeff_full_soc_dischg[0] > 15564 ||
+			chip->dt.ki_coeff_full_soc_dischg[1] < 62 ||
+			chip->dt.ki_coeff_full_soc_dischg[1] > 15564) {
+			pr_err("Error in ki_coeff_full_soc_dischg values\n");
+			return -EINVAL;
+		}
+	}
+
 	chip->dt.ki_coeff_low_chg = -EINVAL;
 	of_property_read_u32(node, "qcom,ki-coeff-low-chg",
 		&chip->dt.ki_coeff_low_chg);
@@ -4335,6 +4419,8 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	fg->prev_charge_status = -EINVAL;
 	fg->online_status = -EINVAL;
 	fg->batt_id_ohms = -EINVAL;
+	chip->ki_coeff_full_soc[0] = -EINVAL;
+	chip->ki_coeff_full_soc[1] = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");
