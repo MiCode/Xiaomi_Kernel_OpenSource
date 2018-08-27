@@ -545,8 +545,7 @@ int msm_smem_cache_operations(struct dma_buf *dbuf,
 				offset, size);
 		if (rc)
 			break;
-		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_TO_DEVICE,
-				offset, size);
+		rc = dma_buf_end_cpu_access(dbuf, DMA_TO_DEVICE);
 		break;
 	case SMEM_CACHE_INVALIDATE:
 		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_TO_DEVICE,
