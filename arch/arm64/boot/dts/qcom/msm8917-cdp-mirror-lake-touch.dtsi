@@ -100,7 +100,6 @@
 };
 
 &pmi_haptic{
-	qcom,actuator-type = "lra";
 	qcom,wave-play-rate-us = <4165>;
 	qcom,lra-auto-res-mode = "qwd";
 	qcom,lra-high-z = "opt1";
