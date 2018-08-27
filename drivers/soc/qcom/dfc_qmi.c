@@ -699,14 +699,12 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 		return;
 	}
 
-	local_bh_disable();
 	while (!rtnl_trylock()) {
 		if (!svc_ind->data->restart_state) {
-			cond_resched_softirq();
+			cond_resched();
 		} else {
 			kfree(ind);
 			kfree(svc_ind);
-			local_bh_enable();
 			return;
 		}
 	}
@@ -742,7 +740,6 @@ clean_out:
 	kfree(ind);
 	kfree(svc_ind);
 	rtnl_unlock();
-	local_bh_enable();
 }
 
 static void dfc_bearer_limit_work(struct work_struct *work)
@@ -752,21 +749,16 @@ static void dfc_bearer_limit_work(struct work_struct *work)
 	struct list_head *p;
 	int qlen, fc;
 
-	local_bh_disable();
-
 	/* enable transmit on device so that the other
 	 * flows which transmit proceed normally.
-	 * do it here under bh disabled so that the TX softirq
-	 * may not run here
 	 */
 	netif_start_queue(dfc_ind->dev);
 
 	while (!rtnl_trylock()) {
 		if (!dfc_ind->data->restart_state) {
-			cond_resched_softirq();
+			cond_resched();
 		} else {
 			kfree(dfc_ind);
-			local_bh_enable();
 			return;
 		}
 	}
@@ -798,7 +790,6 @@ static void dfc_bearer_limit_work(struct work_struct *work)
 done:
 	kfree(dfc_ind);
 	rtnl_unlock();
-	local_bh_enable();
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
@@ -921,7 +912,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 	data->index = index;
 	data->restart_state = 0;
 
-	data->dfc_wq = alloc_workqueue("dfc_wq", WQ_HIGHPRI, 1);
+	data->dfc_wq = create_singlethread_workqueue("dfc_wq");
 	if (!data->dfc_wq) {
 		pr_err("%s Could not create workqueue\n", __func__);
 		goto err0;
