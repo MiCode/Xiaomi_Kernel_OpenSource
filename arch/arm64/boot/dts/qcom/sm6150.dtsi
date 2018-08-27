@@ -805,6 +805,19 @@
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+		qcom,cam_cc_csi0phytimer_clk_src-opp-handle = <&cam_csiphy0>;
+		qcom,cam_cc_csi1phytimer_clk_src-opp-handle = <&cam_csiphy1>;
+		qcom,cam_cc_csi2phytimer_clk_src-opp-handle = <&cam_csiphy2>;
+		qcom,cam_cc_cci_clk_src-opp-handle = <&cam_cci>;
+		qcom,cam_cc_ife_0_csid_clk_src-opp-handle = <&cam_csid0>;
+		qcom,cam_cc_ife_0_clk_src-opp-handle = <&cam_vfe0>;
+		qcom,cam_cc_ife_1_csid_clk_src-opp-handle = <&cam_csid1>;
+		qcom,cam_cc_ife_1_clk_src-opp-handle = <&cam_vfe1>;
+		qcom,cam_cc_ife_lite_csid_clk_src-opp-handle = <&cam_csid_lite>;
+		qcom,cam_cc_ife_lite_clk_src-opp-handle = <&cam_vfe_lite>;
+		qcom,cam_cc_icp_clk_src-opp-handle = <&cam_a5>;
+		qcom,cam_cc_ipe_0_clk_src-opp-handle = <&cam_ipe0>;
+		qcom,cam_cc_bps_clk_src-opp-handle = <&cam_bps>;
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
@@ -824,6 +837,7 @@
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
 	};
 
 	cpucc_debug: syscon@182a0018 {
