@@ -81,6 +81,8 @@ static const char *const vp9_level[] = {
 	"4.1",
 	"5.0",
 	"5.1",
+	"6.0",
+	"6.1",
 };
 
 static const char *const mpeg2_profile[] = {
@@ -248,8 +250,8 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "VP9 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61,
 		.menu_skip_mask = 0,
 		.qmenu = vp9_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,

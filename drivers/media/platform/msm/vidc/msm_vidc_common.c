@@ -300,6 +300,10 @@ int msm_comm_hal_to_v4l2(int id, int value)
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5;
 		case HAL_VP9_LEVEL_51:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51;
+		case HAL_VP9_LEVEL_6:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_6;
+		case HAL_VP9_LEVEL_61:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61;
 		case HAL_VP9_LEVEL_UNUSED:
 			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED;
 		default:
