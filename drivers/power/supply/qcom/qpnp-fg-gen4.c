@@ -351,8 +351,8 @@ static struct fg_sram_param pm8150b_v1_sram_params[] = {
 static struct fg_sram_param pm8150b_v2_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_v2_WORD, BATT_SOC_v2_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
-	PARAM(FULL_SOC, FULL_SOC_v2_WORD, FULL_SOC_v2_OFFSET, 2, 1, 1, 0, NULL,
-		fg_decode_default),
+	PARAM(FULL_SOC, FULL_SOC_v2_WORD, FULL_SOC_v2_OFFSET, 2, 1, 1, 0,
+		fg_encode_default, fg_decode_default),
 	PARAM(MONOTONIC_SOC, MONOTONIC_SOC_v2_WORD, MONOTONIC_SOC_v2_OFFSET, 2,
 		1, 1, 0, NULL, fg_decode_default),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_v2_WORD, VOLTAGE_PRED_v2_OFFSET, 2,
