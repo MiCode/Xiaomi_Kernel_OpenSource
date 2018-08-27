@@ -738,8 +738,15 @@ static int mhi_uci_client_open(struct inode *mhi_inode,
 	struct uci_client *uci_handle;
 	int rc = 0;
 
-	uci_handle =
-		&uci_ctxt.client_handles[iminor(mhi_inode)];
+	rc = iminor(mhi_inode);
+	if (rc < MHI_SOFTWARE_CLIENT_LIMIT) {
+		uci_handle =
+			&uci_ctxt.client_handles[iminor(mhi_inode)];
+	} else {
+		uci_log(UCI_DBG_DBG,
+		"Cannot open struct device node 0x%x\n", iminor(mhi_inode));
+		return -EINVAL;
+	}
 
 	uci_log(UCI_DBG_DBG,
 		"Client opened struct device node 0x%x, ref count 0x%x\n",
@@ -977,7 +984,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 			/* A valid packet was returned from MHI */
 		} else if (bytes_avail > 0) {
 			uci_log(UCI_DBG_VERBOSE,
-				"Got packet: avail pkts %d phy_adr %p, ch %d\n",
+				"Got packet: avail pkts %d phy_adr %pK, ch %d\n",
 				atomic_read(&uci_handle->read_data_ready),
 				ureq.buf,
 				ureq.chan);
@@ -988,7 +995,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 			 */
 		} else {
 			uci_log(UCI_DBG_CRITICAL,
-				"chan %d err: avail pkts %d phy_adr %p",
+				"chan %d err: avail pkts %d phy_adr %pK",
 				ureq.chan,
 				atomic_read(&uci_handle->read_data_ready),
 				ureq.buf);
@@ -1025,7 +1032,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 	/* We finished with this buffer, map it back */
 	if (*bytes_pending == 0) {
 		uci_log(UCI_DBG_VERBOSE,
-				"All data consumed. Pkt loc %p ,chan %d\n",
+				"All data consumed. Pkt loc %pK ,chan %d\n",
 				uci_handle->pkt_loc, ureq.chan);
 		uci_handle->pkt_loc = 0;
 		uci_handle->pkt_size = 0;
@@ -1216,7 +1223,7 @@ static const struct file_operations mhi_uci_client_fops = {
 
 static int uci_device_create(struct uci_client *client)
 {
-	int r;
+	unsigned long r;
 	int n;
 	ssize_t dst_size;
 	unsigned int client_index;
@@ -1324,7 +1331,7 @@ int mhi_uci_init(void)
 	u32 i = 0;
 	int ret_val = 0;
 	struct uci_client *mhi_client = NULL;
-	s32 r = 0;
+	unsigned long r = 0;
 
 	mhi_uci_ipc_log = ipc_log_context_create(MHI_UCI_IPC_LOG_PAGES,
 						"mhi-uci", 0);

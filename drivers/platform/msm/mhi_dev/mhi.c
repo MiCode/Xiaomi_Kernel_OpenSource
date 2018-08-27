@@ -1969,8 +1969,8 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 	size_t bytes_to_read, addr_offset;
 	uint64_t read_from_loc;
 	ssize_t bytes_read = 0;
-	uint32_t write_to_loc = 0;
-	size_t usr_buf_remaining;
+	size_t write_to_loc = 0;
+	uint32_t usr_buf_remaining;
 	int td_done = 0, rc = 0;
 	struct mhi_dev_client *handle_client;
 
@@ -2110,8 +2110,8 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	enum mhi_dev_cmd_completion_code code = MHI_CMD_COMPL_CODE_INVALID;
 	int rc = 0;
 	uint64_t skip_tres = 0, write_to_loc;
-	uint32_t read_from_loc;
-	size_t usr_buf_remaining;
+	size_t read_from_loc;
+	uint32_t usr_buf_remaining;
 	size_t usr_buf_offset = 0;
 	size_t bytes_to_write = 0;
 	size_t bytes_written = 0;
@@ -2442,7 +2442,10 @@ int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
 	if (idx == MHI_DEV_UEVENT_CTRL)
 		*info = mhi_ctx->ctrl_info;
 	else
-		*info = channel_state_info[idx].ctrl_info;
+		if (idx < MHI_MAX_CHANNELS)
+			*info = channel_state_info[idx].ctrl_info;
+		else
+			return -EINVAL;
 
 	mhi_log(MHI_MSG_VERBOSE, "idx:%d, ctrl:%d", idx, *info);
 
