@@ -267,8 +267,7 @@ static struct clk_pll apcs_cpu_pll = {
 		.ops = &clk_pll_hf_ops,
 		.vdd_class = &vdd_hf_pll,
 		.rate_max = (unsigned long[VDD_HF_PLL_NUM]) {
-			[VDD_HF_PLL_SVS] = 1000000000,
-			[VDD_HF_PLL_NOM] = 2000000000,
+			[VDD_HF_PLL_SVS] = 2000000000,
 		},
 		.num_rate_max = VDD_HF_PLL_NUM,
 	},
