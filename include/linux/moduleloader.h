@@ -4,6 +4,7 @@
 
 #include <linux/module.h>
 #include <linux/elf.h>
+#include <asm/alternative.h>
 
 /* These may be implemented by architectures that need to hook into the
  * module loader code.  Architectures that don't need to do anything special

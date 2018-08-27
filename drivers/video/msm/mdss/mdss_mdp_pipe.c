@@ -2304,7 +2304,7 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 
 	/* support ARGB color format only */
 	unpack = (C3_ALPHA << 24) | (C2_R_Cr << 16) |
-		(C1_B_Cb << 8) | (C0_G_Y << 0);
+		(C0_G_Y << 8) | (C1_B_Cb << 0);
 	if (pipe->scaler.enable)
 		opmode |= (1 << 31);
 

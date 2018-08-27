@@ -78,6 +78,7 @@ $(warning kbuild: Makefile.build is included improperly)
 endif
 
 # ===========================================================================
+#LIB_STA := $(srctree)/drivers/video/msm/mdss/libmdss_get_rc.a
 
 ifneq ($(strip $(lib-y) $(lib-m) $(lib-)),)
 lib-target := $(obj)/lib.a

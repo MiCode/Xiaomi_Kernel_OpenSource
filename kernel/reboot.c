@@ -17,6 +17,9 @@
 #include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
 
+#ifdef CONFIG_PROJECT_VINCE
+bool pullDownReset = false;
+#endif
 /*
  * this indicates whether you can reboot with ctrl-alt-del: the default is yes
  */
@@ -312,6 +315,14 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 		cmd = LINUX_REBOOT_CMD_HALT;
 
 	mutex_lock(&reboot_mutex);
+
+#ifdef CONFIG_PROJECT_VINCE
+	if (cmd == LINUX_REBOOT_CMD_RESTART || cmd == LINUX_REBOOT_CMD_POWER_OFF ||
+		cmd == LINUX_REBOOT_CMD_RESTART2) {
+		pullDownReset = true;
+	}
+#endif
+
 	switch (cmd) {
 	case LINUX_REBOOT_CMD_RESTART:
 		kernel_restart(NULL);

@@ -288,12 +288,6 @@
 	status = "ok";
 };
 
-&pm8953_typec {
-	ss-mux-supply = <&pm8953_l13>;
-	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&typec_ssmux_config>;
-};
 
 &pm8953_gpios {
 	/* GPIO 2 (NFC_CLK_REQ) */

@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +25,10 @@
 #include "dsi-panel-lt8912-480p-video.dtsi"
 #include "dsi-panel-lt8912-1080p-video.dtsi"
 #include "dsi-panel-lgd-incell-sw49106-fhd-video.dtsi"
-
+#include "dsi-panel-otm1911-fhd-video.dtsi"
+#include "dsi-panel-otm1911-fhdplus-video.dtsi"
+#include "dsi-panel-ili7807-fhdplus-video.dtsi"
+#include "dsi-panel-hx8399c-fhdplus-video.dtsi"
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
@@ -36,6 +40,7 @@
 			qcom,supply-min-voltage = <2850000>;
 			qcom,supply-max-voltage = <2850000>;
 			qcom,supply-enable-load = <100000>;
+			qcom,supply-post-on-sleep= <2>;
 			qcom,supply-disable-load = <100>;
 		};
 
@@ -45,9 +50,22 @@
 			qcom,supply-min-voltage = <1800000>;
 			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <100000>;
+			qcom,supply-post-on-sleep= <2>;
 			qcom,supply-disable-load = <100>;
 		};
 	};
+};
+
+
+
+
+
+&dsi_otm1911_fhd_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 1e 07 08 05 03 04 a0
+		23 18 07 08 05 03 04 a0];
 };
 
 &dsi_truly_1080_vid {

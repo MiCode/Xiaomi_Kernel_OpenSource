@@ -22,6 +22,8 @@ struct blk_flush_queue {
 	struct list_head	flush_queue[2];
 	struct list_head	flush_data_in_flight;
 	struct request		*flush_rq;
+
+	struct request		*orig_rq;
 	spinlock_t		mq_flush_lock;
 };
 
@@ -180,7 +182,7 @@ static inline int blk_should_fake_timeout(struct request_queue *q)
 
 int ll_back_merge_fn(struct request_queue *q, struct request *req,
 		     struct bio *bio);
-int ll_front_merge_fn(struct request_queue *q, struct request *req, 
+int ll_front_merge_fn(struct request_queue *q, struct request *req,
 		      struct bio *bio);
 int attempt_back_merge(struct request_queue *q, struct request *rq);
 int attempt_front_merge(struct request_queue *q, struct request *rq);

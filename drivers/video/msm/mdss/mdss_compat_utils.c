@@ -4269,6 +4269,8 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 	if (!info || !info->par)
 		return -EINVAL;
 
+    printk("linson run mdss_fb_compat_ioctl\n");  //
+
 	cmd = __do_compat_ioctl_nr(cmd);
 	switch (cmd) {
 	case MSMFB_CURSOR:

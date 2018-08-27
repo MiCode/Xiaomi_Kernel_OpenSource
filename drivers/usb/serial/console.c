@@ -81,7 +81,7 @@ static int usb_console_setup(struct console *co, char *options)
 		if (*s)
 			doflow = (*s++ == 'r');
 	}
-	
+
 	/* Sane default */
 	if (baud == 0)
 		baud = 9600;
@@ -187,6 +187,7 @@ static int usb_console_setup(struct console *co, char *options)
 	tty_kref_put(tty);
  reset_open_count:
 	port->port.count = 0;
+	info->port = NULL;
 	usb_autopm_put_interface(serial->interface);
  error_get_interface:
 	usb_serial_put(serial);
@@ -302,4 +303,3 @@ void usb_serial_console_exit(void)
 		usbcons_info.port = NULL;
 	}
 }
-

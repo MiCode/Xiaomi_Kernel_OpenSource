@@ -1717,6 +1717,9 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			continue;
 
 		for_each_cpu(i, &candidate_mask) {
+			if (sched_boost() && cpu_capacity(i) != max_capacity)
+				continue;
+
 			if (sched_cpu_high_irqload(i))
 				continue;
 
