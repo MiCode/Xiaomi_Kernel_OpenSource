@@ -407,10 +407,18 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 {
 	struct msm_smmu *smmu;
 	struct device *client_dev;
+	bool smmu_full_map;
 
 	smmu = kzalloc(sizeof(*smmu), GFP_KERNEL);
 	if (!smmu)
 		return ERR_PTR(-ENOMEM);
+
+	smmu_full_map = of_property_read_bool(dev->of_node,
+					"qcom,fullsize-va-map");
+	if (smmu_full_map) {
+		msm_smmu_domains[domain].va_start = SZ_128K;
+		msm_smmu_domains[domain].va_size = SZ_4G - SZ_128K;
+	}
 
 	client_dev = msm_smmu_device_create(dev, domain, smmu);
 	if (IS_ERR(client_dev)) {

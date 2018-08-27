@@ -1615,6 +1615,47 @@ end:
 	return mst_cap;
 }
 
+static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
+		const struct drm_display_mode *drm_mode,
+		struct dp_display_mode *dp_mode)
+{
+	const u32 num_components = 3, default_bpp = 24;
+
+	dp_mode->timing.h_active = drm_mode->hdisplay;
+	dp_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
+	dp_mode->timing.h_sync_width = drm_mode->htotal -
+			(drm_mode->hsync_start + dp_mode->timing.h_back_porch);
+	dp_mode->timing.h_front_porch = drm_mode->hsync_start -
+					 drm_mode->hdisplay;
+	dp_mode->timing.h_skew = drm_mode->hskew;
+
+	dp_mode->timing.v_active = drm_mode->vdisplay;
+	dp_mode->timing.v_back_porch = drm_mode->vtotal - drm_mode->vsync_end;
+	dp_mode->timing.v_sync_width = drm_mode->vtotal -
+		(drm_mode->vsync_start + dp_mode->timing.v_back_porch);
+
+	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
+					 drm_mode->vdisplay;
+
+	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
+
+	dp_mode->timing.pixel_clk_khz = drm_mode->clock;
+
+	dp_mode->timing.v_active_low =
+		!!(drm_mode->flags & DRM_MODE_FLAG_NVSYNC);
+
+	dp_mode->timing.h_active_low =
+		!!(drm_mode->flags & DRM_MODE_FLAG_NHSYNC);
+
+	dp_mode->timing.bpp =
+		dp_panel->connector->display_info.bpc * num_components;
+	if (!dp_mode->timing.bpp)
+		dp_mode->timing.bpp = default_bpp;
+
+	dp_mode->timing.bpp = dp_panel_get_mode_bpp(dp_panel,
+			dp_mode->timing.bpp, dp_mode->timing.pixel_clk_khz);
+}
+
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
@@ -1673,6 +1714,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->read_sink_status = dp_panel_read_sink_sts;
 	dp_panel->update_edid = dp_panel_update_edid;
 	dp_panel->read_mst_cap = dp_panel_read_mst_cap;
+	dp_panel->convert_to_dp_mode = dp_panel_convert_to_dp_mode;
 
 	sde_conn = to_sde_connector(dp_panel->connector);
 	sde_conn->drv_panel = dp_panel;

@@ -1091,7 +1091,7 @@ static int dvb_net_feed_start(struct net_device *dev)
 			goto error;
 		}
 
-		ret = priv->secfeed->set(priv->secfeed, priv->pid, 1);
+		ret = priv->secfeed->set(priv->secfeed, priv->pid, 32768, 1);
 
 		if (ret<0) {
 			pr_err("%s: could not set section feed\n", dev->name);
@@ -1129,7 +1129,7 @@ static int dvb_net_feed_start(struct net_device *dev)
 		netdev_dbg(dev, "start filtering\n");
 		priv->secfeed->start_filtering(priv->secfeed);
 	} else if (priv->feedtype == DVB_NET_FEEDTYPE_ULE) {
-		ktime_t timeout = ns_to_ktime(10 * NSEC_PER_MSEC);
+		ktime_t timeout = ktime_set(0, 10*NSEC_PER_MSEC); // 10 msec
 
 		/* we have payloads encapsulated in TS */
 		netdev_dbg(dev, "alloc tsfeed\n");
@@ -1145,6 +1145,7 @@ static int dvb_net_feed_start(struct net_device *dev)
 					priv->pid, /* pid */
 					TS_PACKET, /* type */
 					DMX_PES_OTHER, /* pes type */
+					32768,     /* circular buffer size */
 					timeout    /* timeout */
 					);
 

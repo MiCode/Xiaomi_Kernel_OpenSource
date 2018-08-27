@@ -478,6 +478,7 @@ struct msm_mode_info {
  *				 used instead of panel TE in cmd mode panels
  * @roi_caps:           Region of interest capability info
  * @qsync_min_fps	Minimum fps supported by Qsync feature
+ * @te_source		vsync source pin information
  */
 struct msm_display_info {
 	int intf_type;
@@ -500,6 +501,7 @@ struct msm_display_info {
 	struct msm_roi_caps roi_caps;
 
 	uint32_t qsync_min_fps;
+	uint32_t te_source;
 };
 
 #define MSM_MAX_ROI	4

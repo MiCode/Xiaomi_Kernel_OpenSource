@@ -322,11 +322,6 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
-	/* Write 1 first to make sure the GMU is reset */
-	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
-
-	/* Make sure putting in reset doesn't happen after clearing */
-	wmb();
 
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
@@ -426,6 +421,10 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+	/* Make sure M3 is in reset before going on */
+	wmb();
+
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
 		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
@@ -472,23 +471,14 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
-#define GMU_ITCM_VA_START 0x0
-#define GMU_ITCM_VA_END   (GMU_ITCM_VA_START + 0x4000) /* 16 KB */
-
-#define GMU_DTCM_VA_START 0x40000
-#define GMU_DTCM_VA_END   (GMU_DTCM_VA_START + 0x4000) /* 16 KB */
-
-#define GMU_ICACHE_VA_START 0x4000
-#define GMU_ICACHE_VA_END   (GMU_ICACHE_VA_START + 0x3C000) /* 240 KB */
-
 static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	uint8_t *fw = (uint8_t *)gmu->fw_image->data;
-	struct gmu_block_header *blk;
-	uint32_t *fwptr;
 	int j;
-	int tcm_slot;
+	int tcm_addr;
+	struct gmu_block_header *blk;
+	struct gmu_memdesc *md;
 
 	while (fw < (uint8_t *)gmu->fw_image->data + gmu->fw_image->size) {
 		blk = (struct gmu_block_header *)fw;
@@ -498,35 +488,31 @@ static int load_gmu_fw(struct kgsl_device *device)
 		if (blk->size == 0)
 			continue;
 
-		if ((blk->addr >= GMU_ITCM_VA_START) &&
-				(blk->addr < GMU_ITCM_VA_END)) {
-			fwptr = (uint32_t *)fw;
-			tcm_slot = (blk->addr - GMU_ITCM_VA_START)
-				/ sizeof(uint32_t);
+		md = gmu_get_memdesc(blk->addr, blk->size);
+		if (md == NULL) {
+			dev_err(&gmu->pdev->dev,
+					"No backing memory for 0x%8.8X\n",
+					blk->addr);
+			return -EINVAL;
+		}
+
+		if (md->mem_type == GMU_ITCM || md->mem_type == GMU_DTCM) {
+			uint32_t *fwptr = (uint32_t *)fw;
+
+			tcm_addr = (blk->addr - (uint32_t)md->gmuaddr) /
+				sizeof(uint32_t);
+
+			if (md->mem_type == GMU_ITCM)
+				tcm_addr += A6XX_GMU_CM3_ITCM_START;
+			else
+				tcm_addr += A6XX_GMU_CM3_DTCM_START;
 
 			for (j = 0; j < blk->size / sizeof(uint32_t); j++)
-				gmu_core_regwrite(device,
-					A6XX_GMU_CM3_ITCM_START + tcm_slot + j,
+				gmu_core_regwrite(device, tcm_addr + j,
 					fwptr[j]);
-		} else if ((blk->addr >= GMU_DTCM_VA_START) &&
-				(blk->addr < GMU_DTCM_VA_END)) {
-			fwptr = (uint32_t *)fw;
-			tcm_slot = (blk->addr - GMU_DTCM_VA_START)
-				/ sizeof(uint32_t);
-
-			for (j = 0; j < blk->size / sizeof(uint32_t); j++)
-				gmu_core_regwrite(device,
-					A6XX_GMU_CM3_DTCM_START + tcm_slot + j,
-					fwptr[j]);
-		} else if ((blk->addr >= GMU_ICACHE_VA_START) &&
-				(blk->addr < GMU_ICACHE_VA_END)) {
-			if (!is_cached_fw_size_valid(blk->size)) {
-				dev_err(&gmu->pdev->dev,
-						"GMU firmware size too big\n");
-				return -EINVAL;
-
-			}
-			memcpy(gmu->icache_mem->hostptr, fw, blk->size);
+		} else {
+			/* Copy the memory directly */
+			memcpy(md->hostptr, fw, blk->size);
 		}
 
 		fw += blk->size;

@@ -50,6 +50,15 @@
 #define MR_LINK_CUSTOM80 0x200
 #define MR_LINK_TRAINING4  0x40
 
+struct dp_mst_ch_slot_info {
+	u32 start_slot;
+	u32 tot_slots;
+};
+
+struct dp_mst_channel_info {
+	struct dp_mst_ch_slot_info slot_info[DP_STREAM_MAX];
+};
+
 struct dp_ctrl_private {
 	struct dp_ctrl dp_ctrl;
 
@@ -71,6 +80,7 @@ struct dp_ctrl_private {
 	atomic_t aborted;
 
 	u32 vic;
+	struct dp_mst_channel_info mst_ch_info;
 };
 
 enum notification_status {
@@ -929,20 +939,23 @@ static int dp_ctrl_mst_send_act(struct dp_ctrl_private *ctrl)
 	return 0;
 }
 
-static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
+static void dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 		struct dp_panel *panel)
 {
 	u32 x_int, y_frac_enum, lanes, bw_code;
+	int i;
 
 	if (!ctrl->mst_mode)
-		return 0;
+		return;
 
 	DP_MST_DEBUG("mst stream channel allocation\n");
 
-	ctrl->catalog->channel_alloc(ctrl->catalog,
-				panel->stream_id,
-				panel->channel_start_slot,
-				panel->channel_total_slots);
+	for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+		ctrl->catalog->channel_alloc(ctrl->catalog,
+				i,
+				ctrl->mst_ch_info.slot_info[i].start_slot,
+				ctrl->mst_ch_info.slot_info[i].tot_slots);
+	}
 
 	lanes = ctrl->link->link_params.lane_count;
 	bw_code = ctrl->link->link_params.bw_code;
@@ -958,8 +971,6 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 
 	DP_MST_DEBUG("mst lane_cnt:%d, bw:%d, x_int:%d, y_frac:%d\n",
 			lanes, bw_code, x_int, y_frac_enum);
-
-	return 0;
 }
 
 static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
@@ -989,9 +1000,7 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	if (rc)
 		return rc;
 
-	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
-	if (rc)
-		goto error;
+	dp_ctrl_mst_stream_setup(ctrl, panel);
 
 	dp_ctrl_send_video(ctrl);
 
@@ -1016,16 +1025,19 @@ static void dp_ctrl_mst_stream_pre_off(struct dp_ctrl *dp_ctrl,
 {
 	struct dp_ctrl_private *ctrl;
 	bool act_complete;
+	int i;
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	if (!ctrl->mst_mode)
 		return;
 
-	ctrl->catalog->channel_dealloc(ctrl->catalog,
-				panel->stream_id,
-				panel->channel_start_slot,
-				panel->channel_total_slots);
+	for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+		ctrl->catalog->channel_alloc(ctrl->catalog,
+				i,
+				ctrl->mst_ch_info.slot_info[i].start_slot,
+				ctrl->mst_ch_info.slot_info[i].tot_slots);
+	}
 
 	ctrl->catalog->trigger_act(ctrl->catalog);
 	msleep(20); /* needs 1 frame time */
@@ -1153,7 +1165,25 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 
 	ctrl->mst_mode = false;
 	ctrl->power_on = false;
+	memset(&ctrl->mst_ch_info, 0, sizeof(ctrl->mst_ch_info));
 	pr_debug("DP off done\n");
+}
+
+static void dp_ctrl_set_mst_channel_info(struct dp_ctrl *dp_ctrl,
+		enum dp_stream_id strm,
+		u32 start_slot, u32 tot_slots)
+{
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl || strm >= DP_STREAM_MAX) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	ctrl->mst_ch_info.slot_info[strm].start_slot = start_slot;
+	ctrl->mst_ch_info.slot_info[strm].tot_slots = tot_slots;
 }
 
 static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
@@ -1228,6 +1258,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->stream_on = dp_ctrl_stream_on;
 	dp_ctrl->stream_off = dp_ctrl_stream_off;
 	dp_ctrl->stream_pre_off = dp_ctrl_stream_pre_off;
+	dp_ctrl->set_mst_channel_info = dp_ctrl_set_mst_channel_info;
 
 	return dp_ctrl;
 error:

@@ -375,6 +375,7 @@ static int dp_hdcp2p2_aux_read_message(struct dp_hdcp2p2_ctrl *ctrl)
 		if (bytes_read != read_size) {
 			pr_err("fail: offset(0x%x), size(0x%x), rc(0x%x)\n",
 					offset, read_size, bytes_read);
+			rc = -EINVAL;
 			break;
 		}
 
@@ -401,6 +402,7 @@ static int dp_hdcp2p2_aux_write_message(struct dp_hdcp2p2_ctrl *ctrl,
 		if (bytes_written != write_size) {
 			pr_err("fail: offset(0x%x), size(0x%x), rc(0x%x)\n",
 					offset, write_size, bytes_written);
+			rc = -EINVAL;
 			break;
 		}
 

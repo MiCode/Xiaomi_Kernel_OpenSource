@@ -40,16 +40,15 @@ struct gmu_iommu_context {
 
 #define DUMMY_SIZE   SZ_4K
 
-#define GMU_DCACHE_SIZE  (SZ_256K - SZ_16K) /* GMU DCache VA size: 240KB */
-#define GMU_ICACHE_SIZE  (SZ_256K - SZ_16K) /* GMU ICache VA size: 240KB */
-
 /* Define target specific GMU VMA configurations */
 static const struct gmu_vma_entry {
 	unsigned int start;
 	unsigned int size;
 } gmu_vma[] = {
-	[GMU_CACHED_CODE] = { .start = 0x04000, .size = GMU_ICACHE_SIZE },
-	[GMU_CACHED_DATA] = { .start = 0x44000, .size = GMU_DCACHE_SIZE },
+	[GMU_ITCM] = { .start = 0x00000, .size = SZ_16K },
+	[GMU_ICACHE] = { .start = 0x04000, .size = (SZ_256K - SZ_16K) },
+	[GMU_DTCM] = { .start = 0x40000, .size = SZ_16K },
+	[GMU_DCACHE] = { .start = 0x44000, .size = (SZ_256K - SZ_16K) },
 	[GMU_NONCACHED_KERNEL] = { .start = 0x60000000, .size = SZ_512M },
 	[GMU_NONCACHED_USER] = { .start = 0x80000000, .size = SZ_1G },
 };
@@ -125,6 +124,9 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 	int ret;
 	struct iommu_domain *domain;
 
+	if (md->mem_type == GMU_ITCM || md->mem_type == GMU_DTCM)
+		return 0;
+
 	domain = gmu_ctx[ctx_id].domain;
 
 	md->hostptr = dma_alloc_attrs(&gmu->pdev->dev, (size_t) md->size,
@@ -145,6 +147,25 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 	return ret;
 }
 
+struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size)
+{
+	int i;
+	struct gmu_memdesc *mem;
+
+	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
+		if (!test_bit(i, &gmu_kmem_bitmap))
+			continue;
+
+		mem = &gmu_kmem_entries[i];
+
+		if (addr >= mem->gmuaddr &&
+				(addr + size < mem->gmuaddr + mem->size))
+			return mem;
+	}
+
+	return NULL;
+}
+
 /*
  * allocate_gmu_kmem() - allocates and maps uncached GMU kernel shared memory
  * @gmu: Pointer to GMU device
@@ -152,10 +173,12 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
  * @attrs: IOMMU mapping attributes
  */
 static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
-		uint32_t mem_type, unsigned int size, unsigned int attrs)
+		enum gmu_mem_type mem_type, unsigned int size,
+		unsigned int attrs)
 {
 	struct gmu_memdesc *md;
-	int ret, entry_idx = find_first_zero_bit(
+	int ret = 0;
+	int entry_idx = find_first_zero_bit(
 			&gmu_kmem_bitmap, GMU_KERNEL_ENTRIES);
 
 	if (entry_idx >= GMU_KERNEL_ENTRIES) {
@@ -174,55 +197,54 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 			return ERR_PTR(-EINVAL);
 		}
 
-		/* Allocate GMU virtual memory */
 		md = &gmu_kmem_entries[entry_idx];
 		md->gmuaddr = gmu_vma[mem_type].start +
 			(num_uncached_entries * SZ_1M);
 		set_bit(entry_idx, &gmu_kmem_bitmap);
 		md->size = size;
 		md->mem_type = mem_type;
-
 		break;
-	case GMU_CACHED_DATA:
-		if (size != GMU_DCACHE_SIZE) {
-			dev_err(&gmu->pdev->dev,
-					"Invalid cached GMU memory req %d\n",
-					size);
-			return ERR_PTR(-EINVAL);
-		}
 
-		/* Allocate GMU virtual memory */
+	case GMU_DCACHE:
 		md = &gmu_kmem_entries[entry_idx];
 		md->gmuaddr = gmu_vma[mem_type].start;
 		set_bit(entry_idx, &gmu_kmem_bitmap);
 		md->size = size;
 		md->mem_type = mem_type;
-
 		break;
-	case GMU_CACHED_CODE:
-		if (size != GMU_ICACHE_SIZE) {
-			dev_err(&gmu->pdev->dev,
-					"Invalid cached GMU memory req %d\n",
-					size);
-			return ERR_PTR(-EINVAL);
-		}
 
-		/* Allocate GMU virtual memory */
+	case GMU_ICACHE:
 		md = &gmu_kmem_entries[entry_idx];
 		md->gmuaddr = gmu_vma[mem_type].start;
 		set_bit(entry_idx, &gmu_kmem_bitmap);
 		md->size = size;
 		md->mem_type = mem_type;
-
 		break;
+
+	case GMU_ITCM:
+		md = &gmu_kmem_entries[entry_idx];
+		md->gmuaddr = gmu_vma[mem_type].start;
+		set_bit(entry_idx, &gmu_kmem_bitmap);
+		md->size = size;
+		md->mem_type = mem_type;
+		break;
+
+	case GMU_DTCM:
+		md = &gmu_kmem_entries[entry_idx];
+		md->gmuaddr = gmu_vma[mem_type].start;
+		set_bit(entry_idx, &gmu_kmem_bitmap);
+		md->size = size;
+		md->mem_type = mem_type;
+		break;
+
 	default:
 		dev_err(&gmu->pdev->dev,
-				"Invalid memory type requested\n");
+				"Invalid memory type (%d) requested\n",
+				mem_type);
 			return ERR_PTR(-EINVAL);
 	};
 
 	ret = alloc_and_map(gmu, GMU_CONTEXT_KERNEL, md, attrs);
-
 	if (ret) {
 		clear_bit(entry_idx, &gmu_kmem_bitmap);
 		md->gmuaddr = 0;
@@ -233,15 +255,6 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 		num_uncached_entries++;
 
 	return md;
-}
-
-/* Checks if cached fw code size falls within the cached code segment range */
-bool is_cached_fw_size_valid(uint32_t size_in_bytes)
-{
-	if (size_in_bytes > gmu_vma[GMU_CACHED_CODE].size)
-		return false;
-
-	return true;
 }
 
 static int gmu_iommu_cb_probe(struct gmu_device *gmu,
@@ -342,18 +355,19 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->dump_mem = NULL;
 	gmu->gmu_log = NULL;
 
-	/* Unmap all memories in GMU kernel memory pool */
+	/* Unmap and free all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
+		if (!test_bit(i, &gmu_kmem_bitmap))
+			continue;
+
 		md = &gmu_kmem_entries[i];
 
-		if (md->gmuaddr)
+		if (md->gmuaddr && md->mem_type != GMU_ITCM &&
+				md->mem_type != GMU_DTCM)
 			iommu_unmap(ctx->domain, md->gmuaddr, md->size);
-	}
 
-	/* Free GMU shared kernel memory */
-	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
-		md = &gmu_kmem_entries[i];
 		free_gmu_mem(gmu, md);
+
 		clear_bit(i, &gmu_kmem_bitmap);
 	}
 
@@ -390,6 +404,20 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
+	/* Reserve a memdesc for ITCM. No actually memory allocated */
+	md = allocate_gmu_kmem(gmu, GMU_ITCM, gmu_vma[GMU_ITCM].size, 0);
+	if (IS_ERR(md)) {
+		ret = PTR_ERR(md);
+		goto err_ret;
+	}
+
+	/* Reserve a memdesc for DTCM. No actually memory allocated */
+	md = allocate_gmu_kmem(gmu, GMU_DTCM, gmu_vma[GMU_DTCM].size, 0);
+	if (IS_ERR(md)) {
+		ret = PTR_ERR(md);
+		goto err_ret;
+	}
+
 	/* Allocates & maps memory for WB DUMMY PAGE */
 	/* Must be the first alloc */
 	md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
@@ -400,7 +428,7 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps memory for DCACHE */
-	md = allocate_gmu_kmem(gmu, GMU_CACHED_DATA, GMU_DCACHE_SIZE,
+	md = allocate_gmu_kmem(gmu, GMU_DCACHE, gmu_vma[GMU_DCACHE].size,
 			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
 	if (IS_ERR(md)) {
 		ret = PTR_ERR(md);
@@ -408,11 +436,10 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps memory for ICACHE */
-	gmu->icache_mem = allocate_gmu_kmem(gmu, GMU_CACHED_CODE,
-			GMU_ICACHE_SIZE,
+	md = allocate_gmu_kmem(gmu, GMU_ICACHE, gmu_vma[GMU_ICACHE].size,
 			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(gmu->icache_mem)) {
-		ret = PTR_ERR(gmu->icache_mem);
+	if (IS_ERR(md)) {
+		ret = PTR_ERR(md);
 		goto err_ret;
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,17 +78,18 @@ static ssize_t debug_read_helper(struct file *file, char __user *buff,
 	struct dentry *d = file->f_path.dentry;
 	char *buffer;
 	int bsize;
-	int srcu_idx;
 	int r;
 
-	r = debugfs_use_file_start(d, &srcu_idx);
-	if (!r) {
-		ilctxt = file->private_data;
-		r = kref_get_unless_zero(&ilctxt->refcount) ? 0 : -EIO;
-	}
-	debugfs_use_file_finish(srcu_idx);
+	r = debugfs_file_get(d);
 	if (r)
 		return r;
+
+	ilctxt = file->private_data;
+	r = kref_get_unless_zero(&ilctxt->refcount) ? 0 : -EIO;
+	if (r) {
+		debugfs_file_put(d);
+		return r;
+	}
 
 	buffer = kmalloc(count, GFP_KERNEL);
 	if (!buffer) {
@@ -110,6 +111,7 @@ static ssize_t debug_read_helper(struct file *file, char __user *buff,
 
 done:
 	ipc_log_context_put(ilctxt);
+	debugfs_file_put(d);
 	return bsize;
 }
 

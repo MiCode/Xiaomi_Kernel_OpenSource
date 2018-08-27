@@ -1192,7 +1192,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				break;
 
 			rc = msm_comm_set_buffer_count(inst,
-				bufreq_out2->buffer_count_min_host,
+				bufreq_out2->buffer_count_min,
 				bufreq_out2->buffer_count_actual,
 				HAL_BUFFER_OUTPUT2);
 			if (rc) {

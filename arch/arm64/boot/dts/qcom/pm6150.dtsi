@@ -476,7 +476,7 @@
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
 			assigned-clocks = <&pm6150_clkdiv 1>;
-			assigned-clock-rates = <9600000>;
+			assigned-clock-rates = <19200000>;
 		};
 
 		pm6150_gpios: pinctrl@c000 {

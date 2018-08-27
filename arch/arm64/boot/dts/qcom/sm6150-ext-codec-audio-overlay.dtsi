@@ -56,11 +56,11 @@
 	status = "okay";
 };
 
-&wdsp_mgr {
+&tavil_wdsp {
 	status = "okay";
 };
 
-&wdsp_glink {
+&tavil_glink {
 	status = "okay";
 };
 
