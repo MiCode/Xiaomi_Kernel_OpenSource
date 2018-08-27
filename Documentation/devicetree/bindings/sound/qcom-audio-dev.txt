@@ -289,6 +289,13 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-hostless"
 
+Optional properties
+
+ - compatible : "qcom,audio-test-mod"
+		Add this compatible as child device to hostless device.
+		This child device is added after lpass is up to invoke
+		deferred probe devices.
+
 * msm-ocmem-audio
 
 Required properties:
@@ -631,6 +638,9 @@ Example:
 
         qcom,msm-pcm-hostless {
                 compatible = "qcom,msm-pcm-hostless";
+		audio-test-mod {
+			compatible = "qcom,audio-test-mod";
+		};
         };
 
 	qcom,msm-ocmem-audio {

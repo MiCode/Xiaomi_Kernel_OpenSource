@@ -97,7 +97,7 @@ static int wiphy_suspend(struct device *dev)
 	rtnl_lock();
 	if (rdev->wiphy.registered)
 		if (rdev->ops->suspend)
-			ret = rdev_suspend(rdev, NULL);
+			ret = rdev_suspend(rdev, rdev->wiphy.wowlan_config);
 	rtnl_unlock();
 
 	return ret;

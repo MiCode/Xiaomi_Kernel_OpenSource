@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3357,6 +3358,18 @@
 				pins = "gpio86";
 				bias-pull-up;           /* pull up */
 				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
+		ir_int: ir_int {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio120";
+				drive-strength = <6>;   /* 5 mA */
+				bias-pull-up;           /* NO PULL */
 			};
 		};
 	};

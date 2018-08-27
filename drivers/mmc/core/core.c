@@ -5,6 +5,7 @@
  *  SD support Copyright (C) 2004 Ian Molton, All Rights Reserved.
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1160,9 +1161,11 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	return 0;
 }
 
-static void mmc_start_cmdq_request(struct mmc_host *host,
+static int mmc_start_cmdq_request(struct mmc_host *host,
 				   struct mmc_request *mrq)
 {
+	int ret = 0;
+
 	if (mrq->data) {
 		pr_debug("%s:     blksz %d blocks %d flags %08x tsac %lu ms nsac %d\n",
 			mmc_hostname(host), mrq->data->blksz,
@@ -1184,11 +1187,21 @@ static void mmc_start_cmdq_request(struct mmc_host *host,
 	}
 
 	mmc_host_clk_hold(host);
-	if (likely(host->cmdq_ops->request))
-		host->cmdq_ops->request(host, mrq);
-	else
-		pr_err("%s: %s: issue request failed\n", mmc_hostname(host),
-				__func__);
+	if (likely(host->cmdq_ops->request)) {
+		ret = host->cmdq_ops->request(host, mrq);
+	} else {
+		ret = -ENOENT;
+		pr_err("%s: %s: cmdq request host op is not available\n",
+				mmc_hostname(host), __func__);
+	}
+
+	if (ret) {
+		mmc_host_clk_release(host);
+		pr_err("%s: %s: issue request failed, err=%d\n",
+				mmc_hostname(host), __func__, ret);
+	}
+
+	return ret;
 }
 
 /**
@@ -1283,7 +1296,6 @@ int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
 				mmc_hostname(card->host), __func__);
 		return -EPERM;
 	}
-
 	if (enable) {
 		if (mmc_card_doing_auto_bkops(card))
 			goto out;
@@ -1293,6 +1305,8 @@ int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
 			goto out;
 		bkops_en = card->ext_csd.bkops_en & ~EXT_CSD_BKOPS_AUTO_EN;
 	}
+	if (!strcmp(card->cid.prod_name, "S0J97Y"))
+		bkops_en = 0;
 
 	ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BKOPS_EN,
 			bkops_en, 0);
@@ -1675,8 +1689,7 @@ int mmc_cmdq_start_req(struct mmc_host *host, struct mmc_cmdq_req *cmdq_req)
 		mrq->cmd->error = -ENOMEDIUM;
 		return -ENOMEDIUM;
 	}
-	mmc_start_cmdq_request(host, mrq);
-	return 0;
+	return mmc_start_cmdq_request(host, mrq);
 }
 EXPORT_SYMBOL(mmc_cmdq_start_req);
 

@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -199,6 +200,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
+	POWER_SUPPLY_PROP_COLD_TEMP,
+	POWER_SUPPLY_PROP_HOT_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
@@ -255,6 +258,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_RERUN_APSD,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */

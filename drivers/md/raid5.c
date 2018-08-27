@@ -3,6 +3,7 @@
  *	   Copyright (C) 1996, 1997 Ingo Molnar, Miguel de Icaza, Gadi Oxman
  *	   Copyright (C) 1999, 2000 Ingo Molnar
  *	   Copyright (C) 2002, 2003 H. Peter Anvin
+ *         Copyright (C) 2018 XiaoMi, Inc.
  *
  * RAID-4/5/6 management functions.
  * Thanks to Penguin Computing for making the RAID-6 development possible
@@ -6116,10 +6117,10 @@ raid5_store_skip_copy(struct mddev *mddev, const char *page, size_t len)
 		mddev_suspend(mddev);
 		conf->skip_copy = new;
 		if (new)
-			mddev->queue->backing_dev_info.capabilities |=
+			mddev->queue->backing_dev_info->capabilities |=
 				BDI_CAP_STABLE_WRITES;
 		else
-			mddev->queue->backing_dev_info.capabilities &=
+			mddev->queue->backing_dev_info->capabilities &=
 				~BDI_CAP_STABLE_WRITES;
 		mddev_resume(mddev);
 	}
@@ -6963,8 +6964,8 @@ static int run(struct mddev *mddev)
 		int data_disks = conf->previous_raid_disks - conf->max_degraded;
 		int stripe = data_disks *
 			((mddev->chunk_sectors << 9) / PAGE_SIZE);
-		if (mddev->queue->backing_dev_info.ra_pages < 2 * stripe)
-			mddev->queue->backing_dev_info.ra_pages = 2 * stripe;
+		if (mddev->queue->backing_dev_info->ra_pages < 2 * stripe)
+			mddev->queue->backing_dev_info->ra_pages = 2 * stripe;
 
 		chunk_size = mddev->chunk_sectors << 9;
 		blk_queue_io_min(mddev->queue, chunk_size);
@@ -7547,8 +7548,8 @@ static void end_reshape(struct r5conf *conf)
 			int data_disks = conf->raid_disks - conf->max_degraded;
 			int stripe = data_disks * ((conf->chunk_sectors << 9)
 						   / PAGE_SIZE);
-			if (conf->mddev->queue->backing_dev_info.ra_pages < 2 * stripe)
-				conf->mddev->queue->backing_dev_info.ra_pages = 2 * stripe;
+			if (conf->mddev->queue->backing_dev_info->ra_pages < 2 * stripe)
+				conf->mddev->queue->backing_dev_info->ra_pages = 2 * stripe;
 		}
 	}
 }

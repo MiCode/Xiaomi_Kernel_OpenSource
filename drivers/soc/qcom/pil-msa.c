@@ -601,6 +601,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		}
 		drv->dp_size = dp_fw->size;
 		drv->mba_dp_size += drv->dp_size;
+		drv->mba_dp_size = ALIGN(drv->mba_dp_size, SZ_4K);
 	}
 
 	mba_dp_virt = dma_alloc_attrs(dma_dev, drv->mba_dp_size, &mba_dp_phys,

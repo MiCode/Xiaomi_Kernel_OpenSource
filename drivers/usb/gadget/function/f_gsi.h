@@ -237,6 +237,7 @@ struct f_gsi {
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
+	bool rndis_use_wceis;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
@@ -564,7 +565,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_out_desc = {
 };
 
 static struct usb_descriptor_header *gsi_eth_fs_function[] = {
-	(struct usb_descriptor_header *) &gsi_eth_fs_function,
+	(struct usb_descriptor_header *) &rndis_gsi_iad_descriptor,
 	/* control interface matches ACM, not Ethernet */
 	(struct usb_descriptor_header *) &rndis_gsi_control_intf,
 	(struct usb_descriptor_header *) &rndis_gsi_header_desc,

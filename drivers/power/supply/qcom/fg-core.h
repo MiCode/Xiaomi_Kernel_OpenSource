@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -239,6 +240,7 @@ enum ttf_mode {
 struct fg_dt_props {
 	bool	force_load_profile;
 	bool	hold_soc_while_full;
+	bool	linearize_soc;
 	bool	auto_recharge_soc;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
@@ -272,6 +274,7 @@ struct fg_dt_props {
 	int	slope_limit_temp;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
+	int	ki_coeff_full_soc_dischg;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -409,7 +412,6 @@ struct fg_chip {
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
-	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
 	int			online_status;
@@ -421,12 +423,16 @@ struct fg_chip {
 	int			last_msoc;
 	int			last_recharge_volt_mv;
 	int			esr_timer_charging_default[NUM_ESR_TIMERS];
+	int                     battery_full_design;
 	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;
 	bool			fg_restarting;
 	bool			charge_full;
+#if defined(CONFIG_KERNEL_CUSTOM_D2S)
+	bool			report_full;
+#endif
 	bool			recharge_soc_adjusted;
 	bool			ki_coeff_dischg_en;
 	bool			esr_fcc_ctrl_en;

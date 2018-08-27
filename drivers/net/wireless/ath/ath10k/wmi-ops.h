@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2014, 2017 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -160,6 +161,10 @@ struct wmi_ops {
 					      u32 num_ac);
 	struct sk_buff *(*gen_sta_keepalive)(struct ath10k *ar,
 					     const struct wmi_sta_keepalive_arg *arg);
+	struct sk_buff *(*gen_set_arp_ns_offload)(struct ath10k *ar,
+					struct ath10k_vif *arvif);
+	struct sk_buff *(*gen_gtk_offload)(struct ath10k *ar,
+					struct ath10k_vif *arvif);
 	struct sk_buff *(*gen_wow_enable)(struct ath10k *ar);
 	struct sk_buff *(*gen_wow_add_wakeup_event)(struct ath10k *ar, u32 vdev_id,
 						    enum wmi_wow_wakeup_event event,
@@ -1177,6 +1182,40 @@ ath10k_wmi_sta_keepalive(struct ath10k *ar,
 		return PTR_ERR(skb);
 
 	cmd_id = ar->wmi.cmd->sta_keepalive_cmd;
+	return ath10k_wmi_cmd_send(ar, skb, cmd_id);
+}
+
+static inline int
+ath10k_wmi_set_arp_ns_offload(struct ath10k *ar, struct ath10k_vif *arvif)
+{
+	struct sk_buff *skb;
+	u32 cmd_id;
+
+	if (!ar->wmi.ops->gen_set_arp_ns_offload)
+		return -EOPNOTSUPP;
+
+	skb = ar->wmi.ops->gen_set_arp_ns_offload(ar, arvif);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	cmd_id = ar->wmi.cmd->set_arp_ns_offload_cmdid;
+	return ath10k_wmi_cmd_send(ar, skb, cmd_id);
+}
+
+static inline int
+ath10k_wmi_gtk_offload(struct ath10k *ar, struct ath10k_vif *arvif)
+{
+	struct sk_buff *skb;
+	u32 cmd_id;
+
+	if (!ar->wmi.ops->gen_gtk_offload)
+		return -EOPNOTSUPP;
+
+	skb = ar->wmi.ops->gen_gtk_offload(ar, arvif);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	cmd_id = ar->wmi.cmd->gtk_offload_cmdid;
 	return ath10k_wmi_cmd_send(ar, skb, cmd_id);
 }
 

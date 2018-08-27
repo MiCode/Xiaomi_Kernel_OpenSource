@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1928,6 +1929,12 @@ static void ipa3_q6_avoid_holb(void)
 			if (ep_idx == -1)
 				continue;
 
+			/* from IPA 4.0 pipe suspend is not supported */
+			if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+				ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_CTRL_n,
+					ep_idx, &ep_suspend);
+
 			/*
 			 * ipa3_cfg_ep_holb is not used here because we are
 			 * setting HOLB on Q6 pipes, and from APPS perspective
@@ -1940,10 +1947,6 @@ static void ipa3_q6_avoid_holb(void)
 			ipahal_write_reg_n_fields(
 				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 				ep_idx, &ep_holb);
-
-			ipahal_write_reg_n_fields(
-				IPA_ENDP_INIT_CTRL_n,
-				ep_idx, &ep_suspend);
 		}
 	}
 }
@@ -4128,6 +4131,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_register_panic_hdlr();
 
 	ipa3_ctx->q6_proxy_clk_vote_valid = true;
+	ipa3_ctx->q6_proxy_clk_vote_cnt++;
 
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
@@ -4234,6 +4238,9 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		IPAERR("Unable to copy data from user\n");
 		return -EFAULT;
 	}
+
+	if (count > 0)
+		dbg_buff[count - 1] = '\0';
 
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
@@ -4705,6 +4712,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->nat_mem.lock);
+	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
+	ipa3_ctx->q6_proxy_clk_vote_cnt = 0;
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);

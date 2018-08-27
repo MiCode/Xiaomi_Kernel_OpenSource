@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2013, 2017 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1304,6 +1305,9 @@ static int ath10k_core_fetch_firmware_files(struct ath10k *ar)
 		fw_file = &ar->normal_mode_fw.fw_file;
 		fw_file->wmi_op_version = ATH10K_FW_WMI_OP_VERSION_TLV;
 		fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_TLV;
+		__set_bit(ATH10K_FW_FEATURE_WOWLAN_SUPPORT,
+				fw_file->fw_features);
+		__set_bit(WMI_SERVICE_WOW, ar->wmi.svc_map);
 		return 0;
 	}
 

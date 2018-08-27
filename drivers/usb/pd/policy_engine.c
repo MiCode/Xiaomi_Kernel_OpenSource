@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -309,6 +310,7 @@ struct usbpd {
 	struct device		dev;
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
+	struct delayed_work 	vbus_work;
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -754,6 +756,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SRC_STARTUP:
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
+			start_usb_host(pd, true);
 			/*
 			 * Defer starting USB host mode until PE_SRC_READY or
 			 * when PE_SRC_SEND_CAPABILITIES fails
@@ -1310,7 +1313,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			 * if DisplayPort mode is present or not and limit USB
 			 * to HS-only mode if so.
 			 */
-			start_usb_host(pd, !has_dp);
+
 
 			break;
 
@@ -1328,7 +1331,7 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		switch (cmd) {
 		case USBPD_SVDM_DISCOVER_IDENTITY:
 		case USBPD_SVDM_DISCOVER_SVIDS:
-			start_usb_host(pd, true);
+
 			break;
 		default:
 			break;
@@ -1443,6 +1446,7 @@ static void dr_swap(struct usbpd *pd)
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		stop_usb_peripheral(pd);
+		start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
 
 		/* don't start USB host until after SVDM discovery */
@@ -1728,7 +1732,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			if (pd->caps_count == 10 && pd->current_dr == DR_DFP) {
 				/* Likely not PD-capable, start host now */
-				start_usb_host(pd, true);
+
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {
 				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
@@ -3129,6 +3133,78 @@ static ssize_t hard_reset_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(hard_reset);
 
+struct usbpd *pd_lobal;
+unsigned int pd_vbus_ctrl = 0;
+
+module_param(pd_vbus_ctrl, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(pd_vbus_ctrl, "PD VBUS CONTROL");
+
+void pd_vbus_reset(struct usbpd *pd)
+{
+	if (!pd) {
+		pr_err("pd_vbus_reset, pd is null\n");
+		return;
+	}
+	if (pd->vbus_enabled) {
+		regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
+		if (0 == pd_vbus_ctrl)
+			pd_vbus_ctrl = 500;
+		msleep(pd_vbus_ctrl);
+		enable_vbus(pd);
+	} else {
+		pr_err("pd_vbus is not enabled yet\n");
+	}
+}
+
+/* Handles VBUS off on */
+void usbpd_vbus_sm(struct work_struct *w)
+{
+	struct usbpd *pd = pd_lobal;
+
+	pr_err("usbpd_vbus_sm handle state %s, vbus %d\n",
+	usbpd_state_strings[pd->current_state], pd->vbus_enabled);
+
+	pd_vbus_reset(pd);
+
+}
+void kick_usbpd_vbus_sm(void)
+{
+	pm_stay_awake(&pd_lobal->dev);
+
+	pr_err("kick_usbpd_vbus_sm handle state %s, vbus %d\n",
+	usbpd_state_strings[pd_lobal->current_state], pd_lobal->vbus_enabled);
+	queue_delayed_work(pd_lobal->wq, &(pd_lobal->vbus_work), msecs_to_jiffies(400));
+}
+
+static ssize_t pd_vbus_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	pr_err("pd_vbus_show handle state %s, vbus %d\n",
+	usbpd_state_strings[pd_lobal->current_state], pd_lobal->vbus_enabled);
+	pd_vbus_reset(pd);
+
+	return 0;
+}
+
+static ssize_t pd_vbus_store(struct device *dev,
+ struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = 0;
+
+	if (sscanf(buf, "%d\n", &val) != 0) {
+		pr_err("pd_vbus_store input err\n");
+	}
+	pr_err("pd_vbus_store handle state %s, vbus %d,val %d\n",
+	usbpd_state_strings[pd_lobal->current_state], pd_lobal->vbus_enabled, val);
+	kick_usbpd_vbus_sm();
+
+	return size;
+}
+static DEVICE_ATTR_RW(pd_vbus);
+
+
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
 	&dev_attr_initial_pr.attr,
@@ -3148,6 +3224,7 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_rdo.attr,
 	&dev_attr_rdo_h.attr,
 	&dev_attr_hard_reset.attr,
+	&dev_attr_pd_vbus.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
@@ -3262,6 +3339,7 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto del_pd;
 	}
 	INIT_WORK(&pd->sm_work, usbpd_sm);
+	INIT_DELAYED_WORK(&pd->vbus_work, usbpd_vbus_sm);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
@@ -3386,7 +3464,7 @@ struct usbpd *usbpd_create(struct device *parent)
 
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
-
+	pd_lobal = pd;
 	return pd;
 
 del_inst:

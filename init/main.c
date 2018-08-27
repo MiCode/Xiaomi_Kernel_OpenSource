@@ -490,11 +490,15 @@ static void __init mm_init(void)
 	vmalloc_init();
 	ioremap_huge_init();
 }
+int fpsensor=1;
+int force_warm_reset = 0;
+bool is_poweroff_charge = false;
 
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 	char *after_dashes;
+	char *p=NULL;
 
 	/*
 	 * Need to run as early as possible, to initialize the
@@ -532,6 +536,30 @@ asmlinkage __visible void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
+	p = NULL;
+	p= strstr(boot_command_line,"androidboot.fpsensor=fpc");
+	if(p){
+		fpsensor = 1;//fc fingerprint
+	}else{
+		fpsensor = 2;//goodix fingerprint
+	}
+
+	p= NULL;
+	p= strstr(boot_command_line,"androidboot.mode=charger");
+	if(p)
+	{
+		is_poweroff_charge = true;
+	}
+	
+	p = NULL;
+	p= strstr(boot_command_line,"force_warm_Reset");
+	if(p){
+		force_warm_reset = 1;
+	}else{
+		force_warm_reset = 0;
+	}
+
+	
 	parse_early_param();
 	after_dashes = parse_args("Booting kernel",
 				  static_command_line, __start___param,

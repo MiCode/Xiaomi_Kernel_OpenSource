@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -725,11 +726,13 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 
 	if (nat_ctx->is_sys_mem) {
 		IPADBG("freeing the dma memory\n");
-		dma_free_coherent(
-			 ipa_ctx->pdev, nat_ctx->size,
-			 nat_ctx->vaddr, nat_ctx->dma_handle);
-		nat_ctx->size = 0;
-		nat_ctx->vaddr = NULL;
+		if (nat_ctx->vaddr) {
+			dma_free_coherent(
+				ipa_ctx->pdev, nat_ctx->size,
+				nat_ctx->vaddr, nat_ctx->dma_handle);
+			nat_ctx->size = 0;
+			nat_ctx->vaddr = NULL;
+		}
 	}
 	nat_ctx->is_mapped = false;
 	nat_ctx->is_sys_mem = false;

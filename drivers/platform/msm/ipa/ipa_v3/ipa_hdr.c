@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,7 +342,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	}
 	if (hdr_entry->cookie != IPA_HDR_COOKIE) {
 		IPAERR_RL("Invalid header cookie %u\n", hdr_entry->cookie);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 	IPADBG("Associated header is name=%s is_hdr_proc_ctx=%d\n",
@@ -370,7 +371,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 		bin = IPA_HDR_PROC_CTX_BIN1;
 	} else {
 		IPAERR_RL("unexpected needed len %d\n", needed_len);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		goto bad_len;
 	}
 
@@ -415,8 +416,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -552,8 +553,8 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -678,8 +679,17 @@ int __ipa3_del_hdr(u32 hdr_hdl, bool by_user)
 		return -EINVAL;
 	}
 
-	if (by_user)
+	if (by_user) {
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
+			IPADBG("Trying to delete hdr %s offset=%u\n",
+					entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				IPAERR("User cannot delete default header\n");
+				return -EPERM;
+			}
+		}
 		entry->user_deleted = true;
+	}
 
 	if (--entry->ref_cnt) {
 		IPADBG("hdr_hdl %x ref_cnt %d\n", hdr_hdl, entry->ref_cnt);
@@ -978,18 +988,23 @@ int ipa3_reset_hdr(void)
 
 		/* do not remove the default header */
 		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
-			if (entry->is_hdr_proc_ctx) {
-				IPAERR("default header is proc ctx\n");
-				mutex_unlock(&ipa3_ctx->lock);
-				WARN_ON(1);
-				return -EFAULT;
+			IPADBG("Trying to remove hdr %s offset=%u\n",
+					entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				if (entry->is_hdr_proc_ctx) {
+					IPAERR("default header is proc ctx\n");
+					mutex_unlock(&ipa3_ctx->lock);
+					WARN_ON_RATELIMIT_IPA(1);
+					return -EFAULT;
+				}
+				IPADBG("skip default header\n");
+				continue;
 			}
-			continue;
 		}
 
 		if (ipa3_id_find(entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 		if (entry->is_hdr_proc_ctx) {
@@ -1043,7 +1058,7 @@ int ipa3_reset_hdr(void)
 
 		if (ipa3_id_find(ctx_entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 		list_del(&ctx_entry->link);

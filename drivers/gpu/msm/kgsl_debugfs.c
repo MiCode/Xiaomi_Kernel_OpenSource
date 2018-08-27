@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +300,7 @@ static int print_sparse_mem_entry(int id, void *ptr, void *data)
 	if (!(m->flags & KGSL_MEMFLAGS_SPARSE_VIRT))
 		return 0;
 
+	spin_lock(&entry->bind_lock);
 	node = rb_first(&entry->bind_tree);
 
 	while (node != NULL) {
@@ -309,6 +311,7 @@ static int print_sparse_mem_entry(int id, void *ptr, void *data)
 				obj->v_off, obj->size, obj->p_off);
 		node = rb_next(node);
 	}
+	spin_unlock(&entry->bind_lock);
 
 	seq_putc(s, '\n');
 

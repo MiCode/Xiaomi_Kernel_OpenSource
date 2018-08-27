@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,6 +416,12 @@ enum {
 
 #define BE_DAI_PORT_SESSIONS_IDX_MAX		4
 #define BE_DAI_FE_SESSIONS_IDX_MAX		2
+
+enum {
+	ADM_TOPOLOGY_CAL_TYPE_IDX = 0,
+	ADM_LSM_TOPOLOGY_CAL_TYPE_IDX,
+	MAX_ROUTING_CAL_TYPES
+};
 
 struct msm_pcm_routing_evt {
 	void (*event_func)(enum msm_pcm_routing_event, void *);

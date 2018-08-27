@@ -1599,6 +1599,7 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 			EXT4_ERROR_INODE(dir,
 					 "deleted inode referenced: %u",
 					 ino);
+			BUG_ON(1);
 			return ERR_PTR(-EFSCORRUPTED);
 		}
 		if (!IS_ERR(inode) && ext4_encrypted_inode(dir) &&

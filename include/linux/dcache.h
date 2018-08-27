@@ -21,6 +21,7 @@ struct vfsmount;
  *
  * (C) Copyright 1997 Thomas Schoebel-Theuer,
  * with heavy changes by Linus Torvalds
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 
 #define IS_ROOT(x) ((x) == (x)->d_parent)
@@ -616,5 +617,11 @@ static inline struct inode *d_real_inode(struct dentry *dentry)
 	return d_backing_inode(d_real(dentry));
 }
 
+struct name_snapshot {
+	const char *name;
+	char inline_name[DNAME_INLINE_LEN];
+};
+void take_dentry_name_snapshot(struct name_snapshot *, struct dentry *);
+void release_dentry_name_snapshot(struct name_snapshot *);
 
 #endif	/* __LINUX_DCACHE_H */

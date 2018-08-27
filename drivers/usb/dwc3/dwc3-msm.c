@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +55,7 @@
 #include "debug.h"
 #include "xhci.h"
 
-#define SDP_CONNETION_CHECK_TIME 10000 /* in ms */
+#define SDP_CONNETION_CHECK_TIME 5000 /* in ms */
 
 /* time out to wait for USB cable status notification (in ms)*/
 #define SM_INIT_TIMEOUT 30000
@@ -223,6 +224,7 @@ struct dwc3_msm {
 	struct notifier_block	id_nb;
 
 	struct notifier_block	host_nb;
+	bool			host_only_mode;
 
 	int			pwr_event_irq;
 	atomic_t                in_p3;
@@ -2651,6 +2653,8 @@ static void check_for_sdp_connection(struct work_struct *w)
 	struct dwc3_msm *mdwc =
 		container_of(w, struct dwc3_msm, sdp_check.work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	union power_supply_propval pval = {0};
+	int ret;
 
 	if (!mdwc->vbus_active)
 		return;
@@ -2659,6 +2663,15 @@ static void check_for_sdp_connection(struct work_struct *w)
 	if (dwc->gadget.state < USB_STATE_DEFAULT &&
 		dwc3_gadget_get_link_state(dwc) != DWC3_LINK_STATE_CMPLY) {
 		mdwc->vbus_active = 0;
+		if (!mdwc->usb_psy)
+			mdwc->usb_psy = power_supply_get_by_name("usb");
+		if (mdwc->usb_psy) {
+			pval.intval = 1;
+			ret = power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_RERUN_APSD, &pval);
+			if (ret)
+				dev_dbg(mdwc->dev, "error when set property\n");
+		}
 		dbg_event(0xFF, "Q RW SPD CHK", mdwc->vbus_active);
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
@@ -3215,6 +3228,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (host_mode ||
 		(dwc->is_drd && !of_property_read_bool(node, "extcon"))) {
 		dev_dbg(&pdev->dev, "DWC3 in default host mode\n");
+		mdwc->host_only_mode = true;
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
 	}
@@ -3589,7 +3603,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->in_host_mode = false;
 
 		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
+		if (!mdwc->host_only_mode)
+			dwc3_post_host_reset_core_init(dwc);
+
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",

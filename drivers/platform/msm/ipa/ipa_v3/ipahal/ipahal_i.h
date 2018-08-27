@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +45,16 @@
 			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
 			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAHAL_ERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited_ipa(IPAHAL_DRV_NAME " %s:%d " fmt, \
+				__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+				IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+				IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 /*

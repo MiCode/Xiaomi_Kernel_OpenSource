@@ -4,6 +4,7 @@
  * Copyright 2007	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2008-2011	Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -3245,6 +3246,34 @@ int cfg80211_get_unii(int freq)
 bool regulatory_indoor_allowed(void)
 {
 	return reg_is_indoor;
+}
+
+bool regulatory_pre_cac_allowed(struct wiphy *wiphy)
+{
+	const struct ieee80211_regdomain *regd = NULL;
+	const struct ieee80211_regdomain *wiphy_regd = NULL;
+	bool pre_cac_allowed = false;
+
+	rcu_read_lock();
+
+	regd = rcu_dereference(cfg80211_regdomain);
+	wiphy_regd = rcu_dereference(wiphy->regd);
+	if (!wiphy_regd) {
+		if (regd->dfs_region == NL80211_DFS_ETSI)
+			pre_cac_allowed = true;
+
+		rcu_read_unlock();
+
+		return pre_cac_allowed;
+	}
+
+	if (regd->dfs_region == wiphy_regd->dfs_region &&
+			wiphy_regd->dfs_region == NL80211_DFS_ETSI)
+		pre_cac_allowed = true;
+
+	rcu_read_unlock();
+
+	return pre_cac_allowed;
 }
 
 int __init regulatory_init(void)

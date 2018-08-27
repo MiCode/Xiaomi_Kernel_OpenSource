@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2013, 2017 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1267,15 +1268,18 @@ static int ath10k_start_cac(struct ath10k *ar)
 
 	set_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
 
-	ret = ath10k_monitor_recalc(ar);
-	if (ret) {
-		ath10k_warn(ar, "failed to start monitor (cac): %d\n", ret);
-		clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
-		return ret;
-	}
+	if (!QCA_REV_WCN3990(ar)) {
+		ret = ath10k_monitor_recalc(ar);
+		if (ret) {
+			ath10k_warn(ar, "failed to start monitor (cac): %d\n",
+					ret);
+			clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
+			return ret;
+		}
 
-	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac start monitor vdev %d\n",
-		   ar->monitor_vdev_id);
+		ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac start monitor vdev %d\n",
+				ar->monitor_vdev_id);
+	}
 
 	return 0;
 }
@@ -1289,7 +1293,8 @@ static int ath10k_stop_cac(struct ath10k *ar)
 		return 0;
 
 	clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
-	ath10k_monitor_stop(ar);
+	if (!QCA_REV_WCN3990(ar))
+		ath10k_monitor_stop(ar);
 
 	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac finished\n");
 
@@ -1386,6 +1391,10 @@ static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
 	int ret = 0;
 
 	lockdep_assert_held(&ar->conf_mutex);
+
+	/* Clear arp and ns offload cache */
+	memset(&arvif->arp_offload, 0, sizeof(arvif->arp_offload));
+	memset(&arvif->ns_offload, 0, sizeof(arvif->ns_offload));
 
 	reinit_completion(&ar->vdev_setup_done);
 	reinit_completion(&ar->vdev_delete_done);
@@ -7578,6 +7587,8 @@ static const struct ieee80211_ops ath10k_ops = {
 #ifdef CONFIG_PM
 	.suspend			= ath10k_wow_op_suspend,
 	.resume				= ath10k_wow_op_resume,
+	.set_wakeup			= ath10k_wow_op_set_wakeup,
+	.set_rekey_data			= ath10k_wow_op_set_rekey_data,
 #endif
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs		= ath10k_sta_add_debugfs,

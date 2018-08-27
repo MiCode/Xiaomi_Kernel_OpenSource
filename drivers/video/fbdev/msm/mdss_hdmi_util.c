@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -631,6 +632,12 @@ const char *msm_hdmi_mode_2string(u32 mode)
 		break;
 	case HDMI_RES_AR_16_10:
 		aspect_ratio = "16/10";
+		break;
+	case HDMI_RES_AR_64_27:
+		aspect_ratio = "64/27";
+		break;
+	case HDMI_RES_AR_256_135:
+		aspect_ratio = "256/135";
 		break;
 	default:
 		aspect_ratio = "???";

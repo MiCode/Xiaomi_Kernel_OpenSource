@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -931,7 +932,7 @@ static int sps_device_init(void)
 		goto exit_err;
 	}
 
-	SPS_DBG3(sps, "sps:bamdma_bam.phys=%pa.virt=0x%p.",
+	SPS_DBG3(sps, "sps:bamdma_bam.phys=%pa.virt=0x%pK.",
 		&bamdma_props.phys_addr,
 		bamdma_props.virt_addr);
 
@@ -946,7 +947,7 @@ static int sps_device_init(void)
 		goto exit_err;
 	}
 
-	SPS_DBG3(sps, "sps:bamdma_dma.phys=%pa.virt=0x%p.",
+	SPS_DBG3(sps, "sps:bamdma_dma.phys=%pa.virt=0x%pK.",
 		&bamdma_props.periph_phys_addr,
 		bamdma_props.periph_virt_addr);
 
@@ -2322,8 +2323,11 @@ int sps_deregister_bam_device(unsigned long dev_handle)
 	mutex_lock(&bam->lock);
 	sps_bam_device_de_init(bam);
 	mutex_unlock(&bam->lock);
+	ipc_log_context_destroy(bam->ipc_log0);
 	ipc_log_context_destroy(bam->ipc_log1);
 	ipc_log_context_destroy(bam->ipc_log2);
+	ipc_log_context_destroy(bam->ipc_log3);
+	ipc_log_context_destroy(bam->ipc_log4);
 	if (bam->props.virt_size)
 		(void)iounmap(bam->props.virt_addr);
 

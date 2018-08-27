@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -224,6 +225,152 @@ static int ath10k_wow_wakeup(struct ath10k *ar)
 	return 0;
 }
 
+static int
+ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
+		bool enable_offload)
+{
+	struct in_device *in_dev;
+	struct in_ifaddr *ifa;
+	bool offload_params_found = false;
+	struct wireless_dev *wdev = ieee80211_vif_to_wdev(arvif->vif);
+	struct wmi_ns_arp_offload_req *arp = &arvif->arp_offload;
+
+	if (!enable_offload) {
+		arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
+		arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_DISABLE);
+		return 0;
+	}
+
+	if (!wdev)
+		return -ENODEV;
+	if (!wdev->netdev)
+		return -ENODEV;
+	in_dev = __in_dev_get_rtnl(wdev->netdev);
+	if (!in_dev)
+		return -ENODEV;
+
+	arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
+	arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_ENABLE);
+	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
+		if (!memcmp(ifa->ifa_label, wdev->netdev->name, IFNAMSIZ)) {
+			offload_params_found = true;
+			break;
+		}
+	}
+
+	if (!offload_params_found)
+		return -ENODEV;
+	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local,
+			sizeof(arp->params.ipv4_addr));
+
+	return 0;
+}
+
+static int ath10k_wow_enable_ns_arp_offload(struct ath10k *ar, bool offload)
+{
+	struct ath10k_vif *arvif;
+	int ret;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+
+		if (!arvif->is_up)
+			continue;
+
+		ret = ath10k_wow_fill_vdev_arp_offload_struct(arvif, offload);
+		if (ret) {
+			ath10k_err(ar, "ARP-offload config failed, vdev: %d\n",
+					arvif->vdev_id);
+			return ret;
+		}
+
+		ret = ath10k_wmi_set_arp_ns_offload(ar, arvif);
+		if (ret) {
+			ath10k_err(ar, "failed to send offload cmd, vdev: %d\n",
+					arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int ath10k_config_wow_listen_interval(struct ath10k *ar)
+{
+	int ret;
+	u32 param = ar->wmi.vdev_param->listen_interval;
+	u8 listen_interval = ar->hw_values->default_listen_interval;
+	struct ath10k_vif *arvif;
+
+	if (!listen_interval)
+		return 0;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+		ret = ath10k_wmi_vdev_set_param(ar, arvif->vdev_id,
+				param, listen_interval);
+		if (ret) {
+			ath10k_err(ar, "failed to config LI for vdev_id: %d\n",
+					arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+void ath10k_wow_op_set_rekey_data(struct ieee80211_hw *hw,
+			struct ieee80211_vif *vif,
+			struct cfg80211_gtk_rekey_data *data)
+{
+	struct ath10k *ar = hw->priv;
+	struct ath10k_vif *arvif = ath10k_vif_to_arvif(vif);
+
+	mutex_lock(&ar->conf_mutex);
+	memcpy(&arvif->gtk_rekey_data.kek, data->kek, NL80211_KEK_LEN);
+	memcpy(&arvif->gtk_rekey_data.kck, data->kck, NL80211_KCK_LEN);
+	arvif->gtk_rekey_data.replay_ctr =
+			__cpu_to_le64(*(__le64 *)data->replay_ctr);
+	arvif->gtk_rekey_data.valid = true;
+	mutex_unlock(&ar->conf_mutex);
+}
+
+static int ath10k_wow_config_gtk_offload(struct ath10k *ar, bool gtk_offload)
+{
+	struct ath10k_vif *arvif;
+	struct ieee80211_bss_conf *bss;
+	struct wmi_gtk_rekey_data *rekey_data;
+	int ret;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+
+		bss = &arvif->vif->bss_conf;
+		if (!arvif->is_up || !bss->assoc)
+			continue;
+
+		rekey_data = &arvif->gtk_rekey_data;
+		if (!rekey_data->valid)
+			continue;
+
+		if (gtk_offload)
+			rekey_data->enable_offload = WMI_GTK_OFFLOAD_ENABLE;
+		else
+			rekey_data->enable_offload = WMI_GTK_OFFLOAD_DISABLE;
+		ret = ath10k_wmi_gtk_offload(ar, arvif);
+		if (ret) {
+			ath10k_err(ar, "GTK offload failed for vdev_id: %d\n",
+					arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 			  struct cfg80211_wowlan *wowlan)
 {
@@ -238,16 +385,35 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 		goto exit;
 	}
 
+	ret = ath10k_wow_config_gtk_offload(ar, true);
+	if (ret) {
+		ath10k_warn(ar, "failed to enable GTK offload: %d\n", ret);
+		goto exit;
+	}
+
+	ret = ath10k_wow_enable_ns_arp_offload(ar, true);
+	if (ret) {
+		ath10k_warn(ar, "failed to enable ARP-NS offload: %d\n", ret);
+		goto disable_gtk_offload;
+	}
+
 	ret =  ath10k_wow_cleanup(ar);
 	if (ret) {
 		ath10k_warn(ar, "failed to clear wow wakeup events: %d\n",
 			    ret);
-		goto exit;
+		goto disable_ns_arp_offload;
 	}
 
 	ret = ath10k_wow_set_wakeups(ar, wowlan);
 	if (ret) {
 		ath10k_warn(ar, "failed to set wow wakeup events: %d\n",
+			    ret);
+		goto cleanup;
+	}
+
+	ret = ath10k_config_wow_listen_interval(ar);
+	if (ret) {
+		ath10k_warn(ar, "failed to config wow listen interval: %d\n",
 			    ret);
 		goto cleanup;
 	}
@@ -272,9 +438,26 @@ wakeup:
 cleanup:
 	ath10k_wow_cleanup(ar);
 
+disable_ns_arp_offload:
+	ath10k_wow_enable_ns_arp_offload(ar, false);
+
+disable_gtk_offload:
+	ath10k_wow_config_gtk_offload(ar, false);
 exit:
 	mutex_unlock(&ar->conf_mutex);
 	return ret ? 1 : 0;
+}
+
+void ath10k_wow_op_set_wakeup(struct ieee80211_hw *hw, bool enabled)
+{
+	struct ath10k *ar = hw->priv;
+
+	mutex_lock(&ar->conf_mutex);
+	if (test_bit(ATH10K_FW_FEATURE_WOWLAN_SUPPORT,
+			ar->running_fw->fw_file.fw_features)) {
+		device_set_wakeup_enable(ar->dev, enabled);
+	}
+	mutex_unlock(&ar->conf_mutex);
 }
 
 int ath10k_wow_op_resume(struct ieee80211_hw *hw)
@@ -297,8 +480,20 @@ int ath10k_wow_op_resume(struct ieee80211_hw *hw)
 	}
 
 	ret = ath10k_wow_wakeup(ar);
-	if (ret)
+	if (ret) {
 		ath10k_warn(ar, "failed to wakeup from wow: %d\n", ret);
+		goto exit;
+	}
+
+	ret = ath10k_wow_enable_ns_arp_offload(ar, false);
+	if (ret) {
+		ath10k_warn(ar, "failed to disable ARP-NS offload: %d\n", ret);
+		goto exit;
+	}
+
+	ret = ath10k_wow_config_gtk_offload(ar, false);
+	if (ret)
+		ath10k_warn(ar, "failed to disable GTK offload: %d\n", ret);
 
 exit:
 	if (ret) {
@@ -335,6 +530,8 @@ int ath10k_wow_init(struct ath10k *ar)
 	ar->wow.wowlan_support = ath10k_wowlan_support;
 	ar->wow.wowlan_support.n_patterns = ar->wow.max_num_patterns;
 	ar->hw->wiphy->wowlan = &ar->wow.wowlan_support;
+
+	device_set_wakeup_capable(ar->dev, true);
 
 	return 0;
 }

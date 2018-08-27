@@ -33,6 +33,8 @@
 #define SDE_HDCP_DEBUG(fmt, args...)   SDE_DEBUG(fmt, ##args)
 #endif
 
+#define SDE_HDCP_SRM_FAIL 29
+
 enum sde_hdcp_client_id {
 	HDCP_CLIENT_HDMI,
 	HDCP_CLIENT_DP,

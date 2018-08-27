@@ -2,6 +2,7 @@
  * Hash algorithms.
  * 
  * Copyright (c) 2008 Herbert Xu <herbert@gondor.apana.org.au>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -101,6 +102,14 @@ int crypto_unregister_shashes(struct shash_alg *algs, int count);
 int shash_register_instance(struct crypto_template *tmpl,
 			    struct shash_instance *inst);
 void shash_free_instance(struct crypto_instance *inst);
+
+int shash_no_setkey(struct crypto_shash *tfm, const u8 *key,
+		    unsigned int keylen);
+
+static inline bool crypto_shash_alg_has_setkey(struct shash_alg *alg)
+{
+	return alg->setkey != shash_no_setkey;
+}
 
 int crypto_grab_shash(struct crypto_shash_spawn *spawn,
 		      const char *name, u32 type, u32 mask);

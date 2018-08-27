@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,6 +402,8 @@ module_param_named(
 
 static int fg_restart;
 static bool fg_sram_dump;
+ int hwc_check_india;
+ int hwc_check_global;
 
 /* All getters HERE */
 
@@ -596,6 +599,40 @@ static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 
 	/* Value is in Kelvin; Convert it to deciDegC */
 	temp = (temp - 273) * 10;
+
+	if (temp < -80) {
+		switch (temp) {
+		case -90:
+			temp = -110;
+			break;
+		case -100:
+			temp = -120;
+			break;
+		case -110:
+			temp = -130;
+			break;
+		case -120:
+			temp = -150;
+			break;
+		case -130:
+			temp = -170;
+			break;
+		case -140:
+			temp = -190;
+			break;
+		case -150:
+			temp = -200;
+			break;
+		case -160:
+			temp = -210;
+			break;
+		default:
+			temp -= 50;
+			break;
+		};
+	}
+
+
 	*val = temp;
 	return 0;
 }
@@ -704,6 +741,10 @@ static int fg_get_msoc_raw(struct fg_chip *chip, int *val)
 
 #define FULL_CAPACITY	100
 #define FULL_SOC_RAW	255
+#if defined(CONFIG_KERNEL_CUSTOM_D2S)
+#define FULL_SOC_REPORT_THR 250
+#endif
+
 static int fg_get_msoc(struct fg_chip *chip, int *msoc)
 {
 	int rc;
@@ -711,8 +752,25 @@ static int fg_get_msoc(struct fg_chip *chip, int *msoc)
 	rc = fg_get_msoc_raw(chip, msoc);
 	if (rc < 0)
 		return rc;
-
+#if defined(CONFIG_KERNEL_CUSTOM_D2S)
+	if ((*msoc >= FULL_SOC_REPORT_THR - 2)
+			&& (*msoc < FULL_SOC_RAW) && chip->report_full) {
+		*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW) + 1;
+		if (*msoc >= FULL_CAPACITY)
+			*msoc = FULL_CAPACITY;
+	} else if (*msoc == FULL_SOC_RAW)
+		*msoc = 100;
+	else if (*msoc == 0)
+		*msoc = 0;
+	else if (*msoc >= FULL_SOC_REPORT_THR - 4 && *msoc <= FULL_SOC_REPORT_THR - 3 && chip->report_full) {
+		*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW);
+	} else {
+		*msoc = DIV_ROUND_CLOSEST((*msoc - 1) * (FULL_CAPACITY - 2),
+				FULL_SOC_RAW - 2) + 1;
+	}
+#else
 	*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW);
+#endif
 	return 0;
 }
 
@@ -838,7 +896,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 	if (rc < 0)
 		return rc;
 
-	if (chip->delta_soc > 0)
+	if (chip->dt.linearize_soc && chip->delta_soc > 0)
 		*val = chip->maint_soc;
 	else
 		*val = msoc;
@@ -909,6 +967,20 @@ out:
 	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, true, 0);
 	return rc;
 }
+static int __init hwc_setup(char *s)
+{
+	if (strcmp(s, "India") == 0)
+		hwc_check_india = 1;
+	else
+		hwc_check_india = 0;
+	if (strcmp(s, "Global") == 0)
+		hwc_check_global = 1;
+	else
+		hwc_check_global = 0;
+	return 1;
+}
+
+__setup("androidboot.hwc=", hwc_setup);
 
 static int fg_get_batt_profile(struct fg_chip *chip)
 {
@@ -940,32 +1012,51 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return rc;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
-			&chip->bp.float_volt_uv);
-	if (rc < 0) {
-		pr_err("battery float voltage unavailable, rc:%d\n", rc);
-		chip->bp.float_volt_uv = -EINVAL;
-	}
 
+
+
+		rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+				&chip->bp.float_volt_uv);
+		if (rc < 0) {
+			pr_err("battery float voltage unavailable, rc:%d\n", rc);
+			chip->bp.float_volt_uv = -EINVAL;
+		}
+
+	if (hwc_check_global) {
+		pr_err("sunxing get global set fastchg  2.3A");
+		chip->bp.fastchg_curr_ma = 2300;
+	} else{
 	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
 			&chip->bp.fastchg_curr_ma);
-	if (rc < 0) {
-		pr_err("battery fastchg current unavailable, rc:%d\n", rc);
-		chip->bp.fastchg_curr_ma = -EINVAL;
+		if (rc < 0) {
+			pr_err("battery fastchg current unavailable, rc:%d\n", rc);
+			chip->bp.fastchg_curr_ma = -EINVAL;
+		}
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
-			&chip->bp.vbatt_full_mv);
-	if (rc < 0) {
-		pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
-		chip->bp.vbatt_full_mv = -EINVAL;
-	}
+
+
+		rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
+				&chip->bp.vbatt_full_mv);
+		if (rc < 0) {
+			pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
+			chip->bp.vbatt_full_mv = -EINVAL;
+		}
+
 
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
 		return -ENODATA;
 	}
+
+
+	rc = of_property_read_u32(profile_node, "qcom,battery-full-design", &chip->battery_full_design);
+	if (rc < 0) {
+		pr_err("No profile data available\n");
+		return -ENODATA;
+	}
+
 
 	if (len != PROFILE_LEN) {
 		pr_err("battery profile incorrect size: %d\n", len);
@@ -1119,7 +1210,7 @@ static int fg_batt_miss_irq_en_cb(struct votable *votable, void *data,
 		enable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
 	} else {
 		disable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
-		disable_irq(chip->irqs[BATT_MISSING_IRQ].irq);
+		disable_irq_nosync(chip->irqs[BATT_MISSING_IRQ].irq);
 	}
 
 	return 0;
@@ -1138,7 +1229,7 @@ static int fg_delta_bsoc_irq_en_cb(struct votable *votable, void *data,
 		enable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
 	} else {
 		disable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
-		disable_irq(chip->irqs[BSOC_DELTA_IRQ].irq);
+		disable_irq_nosync(chip->irqs[BSOC_DELTA_IRQ].irq);
 	}
 
 	return 0;
@@ -1602,6 +1693,8 @@ static int fg_adjust_ki_coeff_full_soc(struct fg_chip *chip, int batt_temp)
 
 	if (batt_temp < 0)
 		ki_coeff_full_soc = 0;
+	else if (chip->charge_status == POWER_SUPPLY_STATUS_DISCHARGING)
+		ki_coeff_full_soc = chip->dt.ki_coeff_full_soc_dischg;
 	else
 		ki_coeff_full_soc = KI_COEFF_FULL_SOC_DEFAULT;
 
@@ -1658,12 +1751,38 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 	return 0;
 }
 
+static int fg_configure_full_soc(struct fg_chip *chip, int bsoc)
+{
+	int rc;
+	u8 full_soc[2] = {0xFF, 0xFF};
+
+	/*
+	 * Once SOC masking condition is cleared, FULL_SOC and MONOTONIC_SOC
+	 * needs to be updated to reflect the same. Write battery SOC to
+	 * FULL_SOC and write a full value to MONOTONIC_SOC.
+	 */
+	rc = fg_sram_write(chip, FULL_SOC_WORD, FULL_SOC_OFFSET,
+			(u8 *)&bsoc, 2, FG_IMA_ATOMIC);
+	if (rc < 0) {
+		pr_err("failed to write full_soc rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_sram_write(chip, MONOTONIC_SOC_WORD, MONOTONIC_SOC_OFFSET,
+			full_soc, 2, FG_IMA_ATOMIC);
+	if (rc < 0) {
+		pr_err("failed to write monotonic_soc rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 #define AUTO_RECHG_VOLT_LOW_LIMIT_MV	3700
 static int fg_charge_full_update(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
 	int rc, msoc, bsoc, recharge_soc, msoc_raw;
-	u8 full_soc[2] = {0xFF, 0xFF};
 
 	if (!chip->dt.hold_soc_while_full)
 		return 0;
@@ -1693,12 +1812,12 @@ static int fg_charge_full_update(struct fg_chip *chip)
 
 	/* We need 2 most significant bytes here */
 	bsoc = (u32)bsoc >> 16;
-	rc = fg_get_msoc(chip, &msoc);
+	rc = fg_get_msoc_raw(chip, &msoc_raw);
 	if (rc < 0) {
-		pr_err("Error in getting msoc, rc=%d\n", rc);
+		pr_err("Error in getting msoc_raw, rc=%d\n", rc);
 		goto out;
 	}
-	msoc_raw = DIV_ROUND_CLOSEST(msoc * FULL_SOC_RAW, FULL_CAPACITY);
+	msoc = DIV_ROUND_CLOSEST(msoc_raw * FULL_CAPACITY, FULL_SOC_RAW);
 
 	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d full: %d\n",
 		msoc, bsoc, chip->health, chip->charge_status,
@@ -1722,23 +1841,23 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
 		}
-	} else if (msoc_raw < recharge_soc && chip->charge_full) {
-		chip->delta_soc = FULL_CAPACITY - msoc;
+	} else if (msoc_raw <= recharge_soc && chip->charge_full) {
+		if (chip->dt.linearize_soc) {
+			chip->delta_soc = FULL_CAPACITY - msoc;
 
-		/*
-		 * We're spreading out the delta SOC over every 10% change
-		 * in monotonic SOC. We cannot spread more than 9% in the
-		 * range of 0-100 skipping the first 10%.
-		 */
-		if (chip->delta_soc > 9) {
-			chip->delta_soc = 0;
-			chip->maint_soc = 0;
-		} else {
-			chip->maint_soc = FULL_CAPACITY;
-			chip->last_msoc = msoc;
+			/*
+			 * We're spreading out the delta SOC over every 10%
+			 * change in monotonic SOC. We cannot spread more than
+			 * 9% in the range of 0-100 skipping the first 10%.
+			 */
+			if (chip->delta_soc > 9) {
+				chip->delta_soc = 0;
+				chip->maint_soc = 0;
+			} else {
+				chip->maint_soc = FULL_CAPACITY;
+				chip->last_msoc = msoc;
+			}
 		}
-
-		chip->charge_full = false;
 
 		/*
 		 * Raise the recharge voltage so that VBAT_LT_RECHG signal
@@ -1752,35 +1871,23 @@ static int fg_charge_full_update(struct fg_chip *chip)
 				rc);
 			goto out;
 		}
+
+		/*
+		 * If charge_done is still set, wait for recharging or
+		 * discharging to happen.
+		 */
+		if (chip->charge_done)
+			goto out;
+
+		rc = fg_configure_full_soc(chip, bsoc);
+		if (rc < 0)
+			goto out;
+
+		chip->charge_full = false;
 		fg_dbg(chip, FG_STATUS, "msoc_raw = %d bsoc: %d recharge_soc: %d delta_soc: %d\n",
 			msoc_raw, bsoc >> 8, recharge_soc, chip->delta_soc);
-	} else {
-		goto out;
 	}
 
-	if (!chip->charge_full)
-		goto out;
-
-	/*
-	 * During JEITA conditions, charge_full can happen early. FULL_SOC
-	 * and MONOTONIC_SOC needs to be updated to reflect the same. Write
-	 * battery SOC to FULL_SOC and write a full value to MONOTONIC_SOC.
-	 */
-	rc = fg_sram_write(chip, FULL_SOC_WORD, FULL_SOC_OFFSET, (u8 *)&bsoc, 2,
-			FG_IMA_ATOMIC);
-	if (rc < 0) {
-		pr_err("failed to write full_soc rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_sram_write(chip, MONOTONIC_SOC_WORD, MONOTONIC_SOC_OFFSET,
-			full_soc, 2, FG_IMA_ATOMIC);
-	if (rc < 0) {
-		pr_err("failed to write monotonic_soc rc=%d\n", rc);
-		goto out;
-	}
-
-	fg_dbg(chip, FG_STATUS, "Set charge_full to true @ soc %d\n", msoc);
 out:
 	mutex_unlock(&chip->charge_full_lock);
 	return rc;
@@ -1978,9 +2085,17 @@ static int fg_adjust_recharge_voltage(struct fg_chip *chip)
 	recharge_volt_mv = chip->dt.recharge_volt_thr_mv;
 
 	/* Lower the recharge voltage in soft JEITA */
-	if (chip->health == POWER_SUPPLY_HEALTH_WARM ||
-			chip->health == POWER_SUPPLY_HEALTH_COOL)
-		recharge_volt_mv -= 200;
+#if defined(CONFIG_KERNEL_CUSTOM_E7S)
+	if (chip->health == POWER_SUPPLY_HEALTH_WARM)
+		recharge_volt_mv = 4050;
+	if (chip->health == POWER_SUPPLY_HEALTH_COOL)
+		 recharge_volt_mv = 4250;
+#else
+	if (chip->health == POWER_SUPPLY_HEALTH_WARM)
+		recharge_volt_mv = 4050;
+	 if (chip->health == POWER_SUPPLY_HEALTH_COOL)
+			  recharge_volt_mv = 4250 ;
+#endif
 
 	rc = fg_set_recharge_voltage(chip, recharge_volt_mv);
 	if (rc < 0) {
@@ -2413,6 +2528,9 @@ static void status_change_work(struct work_struct *work)
 			struct fg_chip, status_change_work);
 	union power_supply_propval prop = {0, };
 	int rc, batt_temp;
+	#if defined(CONFIG_KERNEL_CUSTOM_D2S)
+	int msoc;
+	#endif
 
 	if (!batt_psy_initialized(chip)) {
 		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
@@ -2426,7 +2544,6 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	chip->prev_charge_status = chip->charge_status;
 	chip->charge_status = prop.intval;
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
@@ -2446,7 +2563,17 @@ static void status_change_work(struct work_struct *work)
 	chip->charge_done = prop.intval;
 	fg_cycle_counter_update(chip);
 	fg_cap_learning_update(chip);
-
+#if defined(CONFIG_KERNEL_CUSTOM_D2S)
+	if (chip->charge_done && !chip->report_full) {
+		chip->report_full = true;
+	} else if (!chip->charge_done && chip->report_full) {
+		rc = fg_get_msoc_raw(chip, &msoc);
+		if (rc < 0)
+			pr_err("Error in getting msoc, rc=%d\n", rc);
+		if (msoc < FULL_SOC_REPORT_THR - 4)
+			chip->report_full = false;
+	}
+#endif
 	rc = fg_charge_full_update(chip);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
@@ -3137,6 +3264,9 @@ static int fg_update_maint_soc(struct fg_chip *chip)
 {
 	int rc = 0, msoc;
 
+	if (!chip->dt.linearize_soc)
+		return 0;
+
 	mutex_lock(&chip->charge_full_lock);
 	if (chip->delta_soc <= 0)
 		goto out;
@@ -3365,6 +3495,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_get_prop_capacity(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		rc = fg_get_msoc_raw(chip, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (chip->battery_missing)
 			pval->intval = 3700000;
@@ -3555,6 +3688,7 @@ static int fg_notifier_cb(struct notifier_block *nb,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
@@ -4064,7 +4198,8 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 	int rc;
-
+	int msoc, volt_uv, batt_temp, ibatt_now ;
+	bool input_present;
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	fg_cycle_counter_update(chip);
 
@@ -4094,6 +4229,20 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
 
+	input_present = is_input_present(chip);
+	rc = fg_get_battery_voltage(chip, &volt_uv);
+	if (!rc)
+		rc = fg_get_prop_capacity(chip, &msoc);
+
+	if (!rc)
+		rc = fg_get_battery_temp(chip, &batt_temp);
+
+	if (!rc)
+		rc = fg_get_battery_current(chip, &ibatt_now);
+
+	if (!rc)
+		pr_err("lct battery SOC:%d voltage:%duV current:%duA temp:%d id:%dK charge_status:%d charge_type:%d health:%d input_present:%d \n",
+			msoc, volt_uv, ibatt_now, batt_temp, chip->batt_id_ohms / 1000, chip->charge_status, chip->charge_type, chip->health, input_present);
 	return IRQ_HANDLED;
 }
 
@@ -4309,7 +4458,11 @@ static int fg_parse_slope_limit_coefficients(struct fg_chip *chip)
 static int fg_parse_ki_coefficients(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
-	int rc, i;
+	int rc, i, temp;
+
+	rc = of_property_read_u32(node, "qcom,ki-coeff-full-dischg", &temp);
+	if (!rc)
+		chip->dt.ki_coeff_full_soc_dischg = temp;
 
 	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-soc-dischg",
 		chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
@@ -4508,7 +4661,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 	if (rc < 0)
 		chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
 	else
-		chip->dt.sys_term_curr_ma = temp;
+		chip->dt.sys_term_curr_ma = -temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-chg-term-base-current", &temp);
 	if (rc < 0)
@@ -4654,6 +4807,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
 
+	chip->dt.linearize_soc = of_property_read_bool(node,
+					"qcom,linearize-soc");
+
 	rc = fg_parse_ki_coefficients(chip);
 	if (rc < 0)
 		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
@@ -4759,7 +4915,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->debug_mask = &fg_gen3_debug_mask;
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
-	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
 	chip->online_status = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
@@ -4968,6 +5123,29 @@ static int fg_gen3_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void fg_gen3_shutdown(struct platform_device *pdev)
+{
+	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
+	int rc, bsoc;
+
+	if (chip->charge_full) {
+		rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &bsoc);
+		if (rc < 0) {
+			pr_err("Error in getting BATT_SOC, rc=%d\n", rc);
+			return;
+		}
+
+		/* We need 2 most significant bytes here */
+		bsoc = (u32)bsoc >> 16;
+
+		rc = fg_configure_full_soc(chip, bsoc);
+		if (rc < 0) {
+			pr_err("Error in configuring full_soc, rc=%d\n", rc);
+			return;
+		}
+	}
+}
+
 static const struct of_device_id fg_gen3_match_table[] = {
 	{.compatible = FG_GEN3_DEV_NAME},
 	{},
@@ -4982,6 +5160,7 @@ static struct platform_driver fg_gen3_driver = {
 	},
 	.probe		= fg_gen3_probe,
 	.remove		= fg_gen3_remove,
+	.shutdown	= fg_gen3_shutdown,
 };
 
 static int __init fg_gen3_init(void)

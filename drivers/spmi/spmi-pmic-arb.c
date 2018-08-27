@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,15 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/syscore_ops.h>
+
+/*Add-begin
+**JIRA-id:HMI_L6651_A01-202
+**Author:lijiang@longcheer.com
+**Date:2017-10-26
+**Comment:Logging kernel wakeup reson
+*/
+#include <linux/wakeup_reason.h>
+/*Add-end HMI_L6651_A01-202*/
 
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
@@ -562,6 +572,15 @@ static void periph_interrupt(struct spmi_pmic_arb *pa, u16 apid, bool show)
 				name = "stray irq";
 			else if (desc->action && desc->action->name)
 				name = desc->action->name;
+
+			/*Add-begin
+			**JIRA-id:HMI_L6651_A01-202
+			**Author:lijiang@longcheer.com
+			**Date:2017-10-26
+			**Comment:Logging kernel wakeup reson
+			*/
+			log_wakeup_reason(irq);
+			/*Add-end HMI_L6651_A01-202*/
 
 			pr_warn("spmi_show_resume_irq: %d triggered [0x%01x, 0x%02x, 0x%01x] %s\n",
 				irq, sid, per, id, name);

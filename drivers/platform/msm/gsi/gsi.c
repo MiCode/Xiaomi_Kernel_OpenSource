@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2554,15 +2555,16 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		atomic_set(&ctx->poll_mode, mode);
 		ctx->stats.callback_to_poll++;
 	}
 
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
+		atomic_set(&ctx->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
 		ctx->stats.poll_to_callback++;
 	}
-	atomic_set(&ctx->poll_mode, mode);
 	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 
 	return GSI_STATUS_SUCCESS;

@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007, 2008 Oracle Corporation
  * Written by: Martin K. Petersen <martin.petersen@oracle.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -418,7 +419,7 @@ void blk_integrity_register(struct gendisk *disk, struct blk_integrity *template
 	bi->tuple_size = template->tuple_size;
 	bi->tag_size = template->tag_size;
 
-	disk->queue->backing_dev_info.capabilities |= BDI_CAP_STABLE_WRITES;
+	disk->queue->backing_dev_info->capabilities |= BDI_CAP_STABLE_WRITES;
 }
 EXPORT_SYMBOL(blk_integrity_register);
 
@@ -431,7 +432,7 @@ EXPORT_SYMBOL(blk_integrity_register);
  */
 void blk_integrity_unregister(struct gendisk *disk)
 {
-	disk->queue->backing_dev_info.capabilities &= ~BDI_CAP_STABLE_WRITES;
+	disk->queue->backing_dev_info->capabilities &= ~BDI_CAP_STABLE_WRITES;
 	memset(&disk->queue->integrity, 0, sizeof(struct blk_integrity));
 }
 EXPORT_SYMBOL(blk_integrity_unregister);

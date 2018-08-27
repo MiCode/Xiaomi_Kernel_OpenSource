@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -679,9 +680,10 @@ void apr_cb_func(void *buf, int len, void *priv)
 	}
 
 	temp_port = ((data.dest_port >> 8) * 8) + (data.dest_port & 0xFF);
-	pr_debug("port = %d t_port = %d\n", data.src_port, temp_port);
-	if (c_svc->port_cnt && c_svc->port_fn[temp_port])
-		c_svc->port_fn[temp_port](&data,  c_svc->port_priv[temp_port]);
+	if (((temp_port >= 0) && (temp_port < APR_MAX_PORTS))
+		&& (c_svc->port_cnt && c_svc->port_fn[temp_port]))
+		c_svc->port_fn[temp_port](&data,
+				c_svc->port_priv[temp_port]);
 	else if (c_svc->fn)
 		c_svc->fn(&data, c_svc->priv);
 	else

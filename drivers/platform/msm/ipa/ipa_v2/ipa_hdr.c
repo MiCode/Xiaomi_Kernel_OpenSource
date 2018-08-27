@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -910,8 +911,17 @@ int __ipa_del_hdr(u32 hdr_hdl, bool by_user)
 		return -EINVAL;
 	}
 
-	if (by_user)
+	if (by_user) {
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
+			IPADBG("Trying to delete hdr %s offset=%u\n",
+					entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				IPAERR("User cannot delete default header\n");
+				return -EPERM;
+			}
+		}
 		entry->user_deleted = true;
+	}
 
 	if (--entry->ref_cnt) {
 		IPADBG("hdr_hdl %x ref_cnt %d\n", hdr_hdl, entry->ref_cnt);
@@ -1234,13 +1244,18 @@ int ipa2_reset_hdr(void)
 
 		/* do not remove the default header */
 		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
-			if (entry->is_hdr_proc_ctx) {
-				mutex_unlock(&ipa_ctx->lock);
-				WARN_ON(1);
-				IPAERR("default header is proc ctx\n");
-				return -EFAULT;
+			IPADBG("Trying to remove hdr %s offset=%u\n",
+					entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				if (entry->is_hdr_proc_ctx) {
+					mutex_unlock(&ipa_ctx->lock);
+					WARN_ON(1);
+					IPAERR("default header is proc ctx\n");
+					return -EFAULT;
+				}
+				IPADBG("skip default header\n");
+				continue;
 			}
-			continue;
 		}
 
 		if (ipa_id_find(entry->id) == NULL) {

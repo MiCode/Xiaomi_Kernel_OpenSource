@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "lct %s: " fmt, __func__
 
 #include <linux/i2c.h>
 #include <linux/debugfs.h>
@@ -639,7 +640,7 @@ static int smb1351_usb_suspend(struct smb1351_charger *chip, int reason,
 
 	suspended = chip->usb_suspended_status;
 
-	pr_debug("reason = %d requested_suspend = %d suspended_status = %d\n",
+	pr_err("reason = %d requested_suspend = %d suspended_status = %d\n",
 						reason, suspend, suspended);
 
 	if (suspend == false)
@@ -647,7 +648,7 @@ static int smb1351_usb_suspend(struct smb1351_charger *chip, int reason,
 	else
 		suspended |= reason;
 
-	pr_debug("new suspended_status = %d\n", suspended);
+	pr_err("new suspended_status = %d\n", suspended);
 
 	rc = smb1351_masked_write(chip, CMD_INPUT_LIMIT_REG,
 				CMD_SUSPEND_MODE_BIT,
@@ -704,7 +705,7 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		(fastchg_current > SMB1351_CHG_FAST_MAX_MA)) {
 		pr_err("bad pre_fastchg current mA=%d asked to set\n",
 					fastchg_current);
-		return -EINVAL;
+
 	}
 
 	/*
@@ -860,7 +861,7 @@ static int smb1351_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
 	return (reg & CMD_OTG_EN_BIT) ? 1 : 0;
 }
 
-struct regulator_ops smb1351_chg_otg_reg_ops = {
+static struct regulator_ops smb1351_chg_otg_reg_ops = {
 	.enable		= smb1351_chg_otg_regulator_enable,
 	.disable	= smb1351_chg_otg_regulator_disable,
 	.is_enabled	= smb1351_chg_otg_regulator_is_enable,
@@ -1426,11 +1427,12 @@ static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 	u8 reg, mask = 0;
 
 	if (chip->parallel_charger_suspended == suspend) {
-		pr_debug("Skip same state request suspended = %d suspend=%d\n",
+		pr_err("Skip same state request suspended = %d suspend=%d\n",
 				chip->parallel_charger_suspended, !suspend);
-		return 0;
-	}
 
+	}
+	pr_err("smb1351 chip->parallel_charger_suspended = %d,request suspend=%d\n",
+			chip->parallel_charger_suspended, suspend);
 	if (!suspend) {
 		rc = smb_chip_get_version(chip);
 		if (rc) {
@@ -1522,10 +1524,22 @@ static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 		}
 		chip->parallel_charger_suspended = false;
 	} else {
+		smb1351_enable_volatile_writes(chip);
+		/* control USB suspend via command bits */
+		rc = smb1351_masked_write(chip, VARIOUS_FUNC_REG,
+				APSD_EN_BIT | SUSPEND_MODE_CTRL_BIT,
+				SUSPEND_MODE_CTRL_BY_I2C);
+		if (rc) {
+			pr_err("Couldn't set USB suspend rc=%d\n", rc);
+			return rc;
+		}
+
+
 		rc = smb1351_usb_suspend(chip, CURRENT, true);
 		if (rc)
-			pr_debug("failed to suspend rc=%d\n", rc);
+			pr_err("failed to suspend rc=%d\n", rc);
 
+		pr_err("lct suspend smb1351 success\n");
 		chip->usb_psy_ma = SUSPEND_CURRENT_MA;
 		chip->parallel_charger_suspended = true;
 	}
@@ -1597,7 +1611,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
-	int rc = 0, index;
+	int rc = 0, index, current_ma;
 	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
@@ -1606,30 +1620,41 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		 *CHG EN is controlled by pin in the parallel charging.
 		 *Use suspend if disable charging by command.
 		 */
+		pr_err("smb1351_parallel_set_property POWER_SUPPLY_PROP_CHARGING_ENABLED  chip->parallel_charger_suspended= %d, enabled=%d \n", chip->parallel_charger_suspended, val->intval);
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_usb_suspend(chip, USER, !val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		pr_err("smb1351_parallel_set_property POWER_SUPPLY_PROP_INPUT_SUSPEND = %d \n", val->intval);
 		rc = smb1351_parallel_set_chg_suspend(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chip->target_fastchg_current_max_ma =
 						val->intval / 1000;
+		pr_err("val->intval=%d, target_fastchg_current_max_ma = %d, parallel_charger_suspended= %d \n", val->intval, chip->target_fastchg_current_max_ma, chip->parallel_charger_suspended);
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_fastchg_current_set(chip,
 					chip->target_fastchg_current_max_ma);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		index = smb1351_get_closest_usb_setpoint(val->intval / 1000);
-		chip->usb_psy_ma = usb_chg_current[index];
+		current_ma = val->intval / 1000;
+		if (current_ma > SUSPEND_CURRENT_MA) {
+			index = smb1351_get_closest_usb_setpoint(current_ma);
+			chip->usb_psy_ma = usb_chg_current[index];
+		} else {
+			chip->usb_psy_ma = current_ma;
+		}
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_set_usb_chg_current(chip,
 						chip->usb_psy_ma);
+		pr_err("val->intval=%d, current_ma = %d, chip->usb_psy_ma= %d \n", val->intval, current_ma, chip->usb_psy_ma);
+
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		chip->vfloat_mv = val->intval / 1000;
 		if (!chip->parallel_charger_suspended)
-			rc = smb1351_float_voltage_set(chip, val->intval);
+			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
+		pr_err("chip->vfloat_mv = %d \n", chip->vfloat_mv);
 		break;
 	default:
 		return -EINVAL;
@@ -3156,7 +3181,7 @@ fail_smb1351_hw_init:
 fail_smb1351_regulator_init:
 	return rc;
 }
-
+extern int hwc_check_global;
 static int smb1351_parallel_charger_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -3164,6 +3189,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	struct smb1351_charger *chip;
 	struct device_node *node = client->dev.of_node;
 	struct power_supply_config parallel_psy_cfg = {};
+
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -3175,6 +3201,10 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	chip->dev = &client->dev;
 	chip->parallel_charger = true;
 	chip->parallel_charger_suspended = true;
+	if (hwc_check_global) {
+		pr_err("Global hasn't smb1350 ragulator,return\n");
+		return -ENODEV;
+	}
 
 	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");

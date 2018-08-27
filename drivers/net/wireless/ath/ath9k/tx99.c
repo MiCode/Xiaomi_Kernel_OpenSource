@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -190,22 +191,27 @@ static ssize_t write_file_tx99(struct file *file, const char __user *user_buf,
 	if (strtobool(buf, &start))
 		return -EINVAL;
 
+	mutex_lock(&sc->mutex);
+
 	if (start == sc->tx99_state) {
 		if (!start)
-			return count;
+			goto out;
 		ath_dbg(common, XMIT, "Resetting TX99\n");
 		ath9k_tx99_deinit(sc);
 	}
 
 	if (!start) {
 		ath9k_tx99_deinit(sc);
-		return count;
+		goto out;
 	}
 
 	r = ath9k_tx99_init(sc);
-	if (r)
+	if (r) {
+		mutex_unlock(&sc->mutex);
 		return r;
-
+	}
+out:
+	mutex_unlock(&sc->mutex);
 	return count;
 }
 

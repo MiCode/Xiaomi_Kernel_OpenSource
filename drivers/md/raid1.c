@@ -4,6 +4,7 @@
  * Copyright (C) 1999, 2000, 2001 Ingo Molnar, Red Hat
  *
  * Copyright (C) 1996, 1997, 1998 Ingo Molnar, Miguel de Icaza, Gadi Oxman
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * RAID-1 management functions.
  *
@@ -730,9 +731,9 @@ static int raid1_congested(struct mddev *mddev, int bits)
 			 * non-congested targets, it can be removed
 			 */
 			if ((bits & (1 << WB_async_congested)) || 1)
-				ret |= bdi_congested(&q->backing_dev_info, bits);
+				ret |= bdi_congested(q->backing_dev_info, bits);
 			else
-				ret &= bdi_congested(&q->backing_dev_info, bits);
+				ret &= bdi_congested(q->backing_dev_info, bits);
 		}
 	}
 	rcu_read_unlock();

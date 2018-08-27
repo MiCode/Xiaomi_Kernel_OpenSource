@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +73,13 @@ static void scm_disable_sdi(void);
 
 static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
-static int download_mode = 1;
+#if defined(CONFIG_KERNEL_CUSTOM_E7S)
+ int download_mode = 0;
+#elif defined(CONFIG_KERNEL_CUSTOM_D2S)
+int download_mode = 0;
+#else
+ int download_mode = 1;
+#endif
 static struct kobject dload_kobj;
 static void *dload_mode_addr, *dload_type_addr;
 static bool dload_mode_enabled;
@@ -81,6 +88,8 @@ static void *emergency_dload_mode_addr;
 static void *kaslr_imem_addr;
 #endif
 static bool scm_dload_supported;
+
+extern int force_warm_reset;
 
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
@@ -199,6 +208,11 @@ static int dload_set(const char *val, struct kernel_param *kp)
 
 	set_dload_mode(download_mode);
 
+
+	if (!download_mode)
+		scm_disable_sdi();
+
+
 	return 0;
 }
 #else
@@ -298,10 +312,16 @@ static void msm_restart_prepare(const char *cmd)
 	if (need_warm_reset) {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
-		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+		if (force_warm_reset) {
+			qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+		} else {
+			qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+		}
 	}
-
-	if (cmd != NULL) {
+	if (in_panic) {
+			   qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+			   qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+       } else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -334,10 +354,17 @@ static void msm_restart_prepare(const char *cmd)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
+			if (0)
+				enable_emergency_dload_mode();
+			else
+				pr_info("This command already been disabled");
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();

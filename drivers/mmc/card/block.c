@@ -3,6 +3,7 @@
  *
  * Copyright 2002 Hewlett-Packard Company
  * Copyright 2005-2008 Pierre Ossman
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Use consistent with the GNU GPL is permitted,
  * provided that this copyright notice is
@@ -3170,6 +3171,16 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 	return &mqrq->cmdq_req;
 }
 
+static void mmc_blk_cmdq_requeue_rw_rq(struct mmc_queue *mq,
+			struct request *req)
+{
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host = card->host;
+
+	blk_requeue_request(req->q, req);
+	mmc_put_card(host->card);
+}
+
 static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 {
 	struct mmc_queue_req *active_mqrq;
@@ -3216,6 +3227,15 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
 		wait_event_interruptible(ctx->queue_empty_wq,
 					(!ctx->active_reqs));
+
+	if (ret) {
+		/* clear pending request */
+		WARN_ON(!test_and_clear_bit(req->tag,
+				&host->cmdq_ctx.data_active_reqs));
+		WARN_ON(!test_and_clear_bit(req->tag,
+				&host->cmdq_ctx.active_reqs));
+		mmc_cmdq_clk_scaling_stop_busy(host, true, false);
+	}
 
 	return ret;
 }
@@ -4000,6 +4020,13 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 			ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
 		} else {
 			ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
+			/*
+			 * If issuing of the request fails with eitehr EBUSY or
+			 * EAGAIN error, re-queue the request.
+			 * This case would occur with ICE calls.
+			 */
+			if (ret == -EBUSY || ret == -EAGAIN)
+				mmc_blk_cmdq_requeue_rw_rq(mq, req);
 		}
 	}
 

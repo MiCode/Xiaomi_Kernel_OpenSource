@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2014, 2017 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -922,6 +923,11 @@ static int ath10k_wmi_tlv_op_pull_phyerr_ev_hdr(struct ath10k *ar,
 	arg->tsf_u32 = __le32_to_cpu(ev->tsf_u32);
 	arg->buf_len = __le32_to_cpu(ev->buf_len);
 	arg->phyerrs = phyerrs;
+
+	if (QCA_REV_WCN3990(ar)) {
+		arg->phy_err_mask0 = __le32_to_cpu(ev->rs_phy_err_mask0);
+		arg->phy_err_mask1 = __le32_to_cpu(ev->rs_phy_err_mask1);
+	}
 
 	kfree(tb);
 	return 0;
@@ -3010,6 +3016,117 @@ ath10k_wmi_tlv_op_gen_tdls_peer_update(struct ath10k *ar,
 }
 
 static struct sk_buff *
+ath10k_wmi_op_gen_gtk_offload(struct ath10k *ar, struct ath10k_vif *arvif)
+{
+	struct wmi_tlv_gtk_offload_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	struct wmi_gtk_rekey_data *rekey_data = &arvif->gtk_rekey_data;
+	int len;
+
+	len = sizeof(*cmd) + sizeof(*tlv);
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	tlv = (void *)skb->data;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_GTK_OFFLOAD_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (void *)tlv->value;
+	if (rekey_data->enable_offload) {
+		cmd->vdev_id = __cpu_to_le32(arvif->vdev_id);
+		cmd->flags |= __cpu_to_le32(WMI_GTK_OFFLOAD_ENABLE_OPCODE);
+		memcpy(cmd->kek, rekey_data->kek, NL80211_KEK_LEN);
+		memcpy(cmd->kck, rekey_data->kck, NL80211_KCK_LEN);
+		cmd->replay_ctr = __cpu_to_le64(rekey_data->replay_ctr);
+	} else {
+		cmd->vdev_id = __cpu_to_le32(arvif->vdev_id);
+		cmd->flags |= __cpu_to_le32(WMI_GTK_OFFLOAD_DISABLE_OPCODE);
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI,
+		   "wmi GTK offload for vdev: %d\n", arvif->vdev_id);
+	return skb;
+}
+
+static struct sk_buff *
+ath10k_wmi_tlv_op_gen_set_arp_ns_offload(struct ath10k *ar,
+					 struct ath10k_vif *arvif)
+{
+	struct wmi_tlv_arp_ns_offload_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	size_t len;
+	void *ptr;
+	int i;
+	struct wmi_ns_arp_offload_req *arp = &arvif->arp_offload;
+	struct wmi_ns_offload *ns_tuple;
+	struct wmi_arp_offload *arp_tuple;
+
+	len = sizeof(*cmd) + sizeof(*tlv) +
+		sizeof(*tlv) + WMI_MAX_NS_OFFLOADS *
+		(sizeof(struct wmi_ns_offload) + sizeof(*tlv)) +
+		sizeof(*tlv) + WMI_MAX_ARP_OFFLOADS *
+		(sizeof(struct wmi_arp_offload) + sizeof(*tlv));
+
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	ptr = (void *)skb->data;
+	tlv = ptr;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_SET_ARP_NS_OFFLOAD_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (struct wmi_tlv_arp_ns_offload_cmd *)tlv->value;
+	cmd->flags = __cpu_to_le32(0);
+	cmd->vdev_id = __cpu_to_le32(arvif->vdev_id);
+
+	ptr += (sizeof(*tlv) + sizeof(*cmd));
+	tlv = ptr;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+	tlv->len = __cpu_to_le16(WMI_MAX_NS_OFFLOADS *
+		(sizeof(struct wmi_ns_offload) + sizeof(*tlv)));
+	ptr += sizeof(*tlv);
+	tlv = ptr;
+
+	for (i = 0; i < WMI_MAX_NS_OFFLOADS; i++) {
+		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_NS_OFFLOAD_TUPLE);
+		tlv->len = __cpu_to_le16(sizeof(struct wmi_ns_offload));
+		ns_tuple = (struct wmi_ns_offload *)tlv->value;
+		ns_tuple->flags |= __cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
+		ptr += (sizeof(*tlv) + sizeof(struct wmi_ns_offload));
+		tlv = ptr;
+	}
+
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+	tlv->len = __cpu_to_le16(WMI_MAX_ARP_OFFLOADS *
+		(sizeof(struct wmi_arp_offload) + sizeof(*tlv)));
+	ptr += sizeof(*tlv);
+	tlv = ptr;
+
+	for (i = 0; i < WMI_MAX_ARP_OFFLOADS; i++) {
+		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_ARP_OFFLOAD_TUPLE);
+		tlv->len = __cpu_to_le16(sizeof(struct wmi_arp_offload));
+		arp_tuple = (struct wmi_arp_offload *)tlv->value;
+		if (arp->enable_offload && (i == 0)) {
+			arp_tuple->flags |=
+				__cpu_to_le32(WMI_ARPOFF_FLAGS_VALID);
+			memcpy(&arp_tuple->target_ipaddr,
+			       &arp->params.ipv4_addr,
+			       sizeof(arp_tuple->target_ipaddr));
+		} else {
+			arp_tuple->flags |=
+				__cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
+		}
+		ptr += (sizeof(*tlv) + sizeof(struct wmi_arp_offload));
+		tlv = ptr;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv set arp ns offload\n");
+	return skb;
+}
+
+static struct sk_buff *
 ath10k_wmi_tlv_op_gen_wow_enable(struct ath10k *ar)
 {
 	struct wmi_tlv_wow_enable_cmd *cmd;
@@ -3028,6 +3145,8 @@ ath10k_wmi_tlv_op_gen_wow_enable(struct ath10k *ar)
 	cmd = (void *)tlv->value;
 
 	cmd->enable = __cpu_to_le32(1);
+	if (QCA_REV_WCN3990(ar))
+		cmd->pause_iface_config = __cpu_to_le32(1);
 
 	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv wow enable\n");
 	return skb;
@@ -3693,6 +3812,8 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.gen_p2p_go_bcn_ie = ath10k_wmi_tlv_op_gen_p2p_go_bcn_ie,
 	.gen_vdev_sta_uapsd = ath10k_wmi_tlv_op_gen_vdev_sta_uapsd,
 	.gen_sta_keepalive = ath10k_wmi_tlv_op_gen_sta_keepalive,
+	.gen_set_arp_ns_offload = ath10k_wmi_tlv_op_gen_set_arp_ns_offload,
+	.gen_gtk_offload = ath10k_wmi_op_gen_gtk_offload,
 	.gen_wow_enable = ath10k_wmi_tlv_op_gen_wow_enable,
 	.gen_wow_add_wakeup_event = ath10k_wmi_tlv_op_gen_wow_add_wakeup_event,
 	.gen_wow_host_wakeup_ind = ath10k_wmi_tlv_gen_wow_host_wakeup_ind,

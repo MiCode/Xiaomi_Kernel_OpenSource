@@ -5,6 +5,7 @@
  * Copyright (c) 2008 Google Inc.
  * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * All source code in this file is licensed under the following license
  * except where indicated.
@@ -218,7 +219,7 @@ struct msm_hs_wakeup {
 };
 
 struct msm_hs_port {
-	bool startup_locked;
+	atomic_t startup_locked;
 	struct uart_port uport;
 	unsigned long imr_reg;  /* shadow value of UARTDM_IMR */
 	struct clk *clk;
@@ -258,6 +259,7 @@ struct msm_hs_port {
 	atomic_t client_count;
 	bool obs; /* out of band sleep flag */
 	atomic_t client_req_state;
+	int sys_suspend_noirq_cnt;
 	void *ipc_msm_hs_log_ctxt;
 	void *ipc_msm_hs_pwr_ctxt;
 	int ipc_debug_mask;
@@ -395,8 +397,6 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 {
 	struct uart_port *uport = &(msm_uport->uport);
 	int rc = atomic_read(&msm_uport->resource_count);
-	struct msm_hs_tx *tx = &msm_uport->tx;
-	struct msm_hs_rx *rx = &msm_uport->rx;
 
 	MSM_HS_DBG("%s(): power usage count %d", __func__, rc);
 	if (rc <= 0) {
@@ -405,15 +405,8 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 		return;
 	}
 	atomic_dec(&msm_uport->resource_count);
-
-	if (pm_runtime_enabled(uport->dev)) {
-		pm_runtime_mark_last_busy(uport->dev);
-		pm_runtime_put_autosuspend(uport->dev);
-	} else {
-		MSM_HS_DBG("%s():tx.flush:%d,in_flight:%d,rx.flush:%d\n",
-		__func__, tx->flush, tx->dma_in_flight, rx->flush);
-		msm_hs_pm_suspend(uport->dev);
-	}
+	pm_runtime_mark_last_busy(uport->dev);
+	pm_runtime_put_autosuspend(uport->dev);
 }
 
  /* Vote for resources before accessing them */
@@ -649,7 +642,6 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	unsigned long flags;
 	int ret = 0;
 
-	msm_uport->startup_locked = true;
 	msm_hs_resource_vote(msm_uport);
 
 	if (val) {
@@ -669,7 +661,6 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	}
 	/* Calling CLOCK API. Hence mb() requires here. */
 	mb();
-	msm_uport->startup_locked = false;
 	msm_hs_resource_unvote(msm_uport);
 	return 0;
 }
@@ -681,13 +672,11 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 	unsigned long flags;
 	int ret = 0;
 
-	msm_uport->startup_locked = true;
 	msm_hs_resource_vote(msm_uport);
 
 	spin_lock_irqsave(&uport->lock, flags);
 	ret = msm_hs_read(&msm_uport->uport, UART_DM_MR2);
 	spin_unlock_irqrestore(&uport->lock, flags);
-	msm_uport->startup_locked = false;
 
 	msm_hs_resource_unvote(msm_uport);
 
@@ -1372,12 +1361,9 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
 	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
-		MSM_HS_WARN("%s(): Clocks are off\n", __func__);
-		/* Make sure resource_on doesn't get called */
-		if (msm_hs_clk_bus_vote(msm_uport))
-			MSM_HS_ERR("%s:Failed clock vote\n",  __func__);
-		msm_hs_disable_rx(uport);
-		msm_hs_clk_bus_unvote(msm_uport);
+		MSM_HS_WARN("%s(): Clocks are off, Rx still active\n",
+				__func__);
+		return;
 	} else
 		msm_hs_disable_rx(uport);
 
@@ -1397,8 +1383,9 @@ static void msm_hs_disconnect_rx(struct uart_port *uport)
 	if (msm_uport->rx.flush == FLUSH_NONE)
 		msm_uport->rx.flush = FLUSH_STOP;
 
-	if (sps_is_pipe_empty(sps_pipe_handle, &prod_empty)) {
-		MSM_HS_WARN("%s():Pipe Not Empty, ret=%d, flush=%d\n",
+	if (!sps_is_pipe_empty(sps_pipe_handle, &prod_empty)) {
+		if (prod_empty == false)
+		MSM_HS_WARN("%s():Pipe Not Empty, prod=%d, flush=%d\n",
 			__func__, prod_empty, msm_uport->rx.flush);
 	}
 	disconnect_rx_endpoint(msm_uport);
@@ -1421,7 +1408,7 @@ void tx_timeout_handler(unsigned long arg)
 	if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
 		MSM_HS_WARN("%s(): CTS Disabled, ISR 0x%x", __func__, isr);
 	dump_uart_hs_registers(msm_uport);
-	/* Stop further loging */
+	/* Stop further logging */
 	MSM_HS_ERR("%s(): Stop IPC logging\n", __func__);
 }
 
@@ -1868,12 +1855,6 @@ static void msm_hs_start_tx_locked(struct uart_port *uport)
 	struct msm_hs_tx *tx = &msm_uport->tx;
 	unsigned int isr;
 
-	if (msm_uport->startup_locked) {
-		MSM_HS_DBG("%s(): No Tx Request, startup_locked=%d\n",
-			__func__, msm_uport->startup_locked);
-		return;
-	}
-
 	/* Bail if transfer in progress */
 	if (tx->flush < FLUSH_STOP || tx->dma_in_flight) {
 		MSM_HS_INFO("%s(): retry, flush %d, dma_in_flight %d\n",
@@ -1881,9 +1862,12 @@ static void msm_hs_start_tx_locked(struct uart_port *uport)
 
 		if (msm_uport->pm_state == MSM_HS_PM_ACTIVE) {
 			isr = msm_hs_read(uport, UART_DM_ISR);
-			if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
-			MSM_HS_DBG("%s():CTS 1: Peer is Busy, ISR 0x%x",
-						__func__, isr);
+			if (UARTDM_ISR_CURRENT_CTS_BMSK & isr) {
+				MSM_HS_DBG("%s():CTS 1: Peer is Busy\n",
+					__func__);
+				MSM_HS_DBG("%s():ISR 0x%x\n",
+					__func__, isr);
+			}
 		} else
 			MSM_HS_WARN("%s(): Clocks are off\n", __func__);
 
@@ -2364,11 +2348,11 @@ void msm_hs_resource_on(struct msm_hs_port *msm_uport)
 	unsigned int data;
 	unsigned long flags;
 
-	if (msm_uport->startup_locked) {
-		MSM_HS_WARN("%s(): startup_locked=%d\n",
-			__func__, msm_uport->startup_locked);
+	if (atomic_read(&msm_uport->startup_locked)) {
+		MSM_HS_DBG("%s(): Port open in progress\n", __func__);
 		return;
 	}
+	msm_hs_disable_flow_control(uport, false);
 
 	if (msm_uport->rx.flush == FLUSH_SHUTDOWN ||
 	msm_uport->rx.flush == FLUSH_STOP) {
@@ -2387,6 +2371,8 @@ void msm_hs_resource_on(struct msm_hs_port *msm_uport)
 		spin_unlock_irqrestore(&uport->lock, flags);
 	}
 	msm_hs_spsconnect_tx(msm_uport);
+
+	msm_hs_enable_flow_control(uport, false);
 }
 
 /* Request to turn off uart clock once pending TX is flushed */
@@ -2679,7 +2665,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	struct sps_pipe *sps_pipe_handle_tx = tx->cons.pipe_handle;
 	struct sps_pipe *sps_pipe_handle_rx = rx->prod.pipe_handle;
 
-	msm_uport->startup_locked = true;
+	atomic_set(&msm_uport->startup_locked, 1);
 	rfr_level = uport->fifosize;
 	if (rfr_level > 16)
 		rfr_level -= 16;
@@ -2809,7 +2795,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	atomic_set(&msm_uport->client_req_state, 0);
 	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
 			"%s: Client_Count 0\n", __func__);
-	msm_uport->startup_locked = false;
+	atomic_set(&msm_uport->startup_locked, 0);
 	msm_hs_start_rx_locked(uport);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -2826,6 +2812,7 @@ unconfig_uart_gpios:
 free_uart_irq:
 	free_irq(uport->irq, msm_uport);
 unvote_exit:
+	atomic_set(&msm_uport->startup_locked, 0);
 	msm_hs_resource_unvote(msm_uport);
 	MSM_HS_ERR("%s(): Error return\n", __func__);
 	return ret;
@@ -3238,8 +3225,6 @@ static void msm_hs_pm_suspend(struct device *dev)
 	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
 	msm_hs_resource_off(msm_uport);
 	obs_manage_irq(msm_uport, false);
-	if (!atomic_read(&msm_uport->client_req_state))
-		enable_wakeup_interrupt(msm_uport);
 	msm_hs_clk_bus_unvote(msm_uport);
 
 	/* For OBS, don't use wakeup interrupt, set gpio to suspended state */
@@ -3251,6 +3236,8 @@ static void msm_hs_pm_suspend(struct device *dev)
 				__func__);
 	}
 
+	if (!atomic_read(&msm_uport->client_req_state))
+		enable_wakeup_interrupt(msm_uport);
 	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
 		"%s: PM State Suspended client_count %d\n", __func__,
 								client_count);
@@ -3302,6 +3289,7 @@ static int msm_hs_pm_resume(struct device *dev)
 	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
 		"%s:PM State:Active client_count %d\n", __func__, client_count);
 exit_pm_resume:
+	msm_uport->sys_suspend_noirq_cnt = 0;
 	mutex_unlock(&msm_uport->mtx);
 	return ret;
 }
@@ -3311,14 +3299,11 @@ static int msm_hs_pm_sys_suspend_noirq(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
-	enum msm_hs_pm_state prev_pwr_state;
 	int clk_cnt, client_count, ret = 0;
 
 	if (IS_ERR_OR_NULL(msm_uport))
 		return -ENODEV;
-
 	mutex_lock(&msm_uport->mtx);
-
 	/*
 	 * If there is an active clk request or an impending userspace request
 	 * fail the suspend callback.
@@ -3326,19 +3311,40 @@ static int msm_hs_pm_sys_suspend_noirq(struct device *dev)
 	clk_cnt = atomic_read(&msm_uport->resource_count);
 	client_count = atomic_read(&msm_uport->client_count);
 	if (msm_uport->pm_state == MSM_HS_PM_ACTIVE) {
-		MSM_HS_WARN("%s:Fail Suspend.clk_cnt:%d,clnt_count:%d\n",
-				 __func__, clk_cnt, client_count);
-		ret = -EBUSY;
-		goto exit_suspend_noirq;
-	}
+		if (clk_cnt == 0 && client_count == 0)
+			msm_uport->sys_suspend_noirq_cnt++;
+		/*Serve force suspend post autosuspend timer expires
+		 */
+		if (msm_uport->sys_suspend_noirq_cnt >= 2) {
+			msm_uport->pm_state = MSM_HS_PM_SYS_SUSPENDED;
+			msm_uport->sys_suspend_noirq_cnt = 0;
+			mutex_unlock(&msm_uport->mtx);
 
-	prev_pwr_state = msm_uport->pm_state;
-	msm_uport->pm_state = MSM_HS_PM_SYS_SUSPENDED;
-	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
-		"%s:PM State:Sys-Suspended client_count %d\n", __func__,
-								client_count);
-exit_suspend_noirq:
+			msm_hs_pm_suspend(dev);
+			/*
+			 * Synchronize RT-pm and system-pm, RT-PM thinks that
+			 * we are active. The three calls below let the RT-PM
+			 * know that we are suspended already without calling
+			 * suspend callback
+			 */
+			pm_runtime_disable(dev);
+			pm_runtime_set_suspended(dev);
+			pm_runtime_enable(dev);
+
+			/*To Balance out exit time Mutex unlock */
+			mutex_lock(&msm_uport->mtx);
+		} else {
+			ret = -EBUSY;
+		}
+	}
 	mutex_unlock(&msm_uport->mtx);
+	if (ret)
+		MSM_HS_WARN("%s:Fail Suspend.clk_cnt:%d,clnt_count:%d\n",
+			__func__, clk_cnt, client_count);
+	else
+		LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
+			"%s:PM State:Sys-Suspended client_count %d\n",
+			__func__, client_count);
 	return ret;
 };
 
@@ -3824,11 +3830,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	if (atomic_read(&msm_uport->client_count)) {
 		MSM_HS_WARN("%s: Client vote on, forcing to 0\n", __func__);
 		atomic_set(&msm_uport->client_count, 0);
-		LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
-			"%s: Client_Count 0\n", __func__);
 	}
 	msm_hs_unconfig_uart_gpios(uport);
-	MSM_HS_INFO("%s:UART port closed successfully\n", __func__);
+	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
+		"%s:UART port closed, Client_Count 0\n", __func__);
 }
 
 static void __exit msm_serial_hs_exit(void)

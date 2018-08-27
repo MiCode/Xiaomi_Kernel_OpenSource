@@ -4293,6 +4293,7 @@ struct inode *ext4_iget(struct super_block *sb, unsigned long ino)
 				EXT4_GOOD_OLD_INODE_SIZE + ei->i_extra_isize,
 				EXT4_INODE_SIZE(inode->i_sb));
 			ret = -EFSCORRUPTED;
+			BUG_ON(1);
 			goto bad_inode;
 		}
 	} else

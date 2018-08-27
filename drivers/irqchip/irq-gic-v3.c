@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2013, 2014 ARM Limited, All Rights Reserved.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +26,16 @@
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+
+/*Add-begin
+**JIRA-id:HMI_L6651_A01-202
+**Author:lijiang@longcheer.com
+**Date:2017-10-26
+**Comment:Logging kernel wakeup reson
+*/
+#include <linux/wakeup_reason.h>
+/*Add-end HMI_L6651_A01-202*/
+
 
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-v3.h>
@@ -441,6 +452,15 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 			name = "stray irq";
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
+
+		/*Add-begin
+		**JIRA-id:HMI_L6651_A01-202
+		**Author:lijiang@longcheer.com
+		**Date:2017-10-26
+		**Comment:Logging kernel wakeup reson
+		*/
+		log_wakeup_reason(irq);
+		/*Add-end HMI_L6651_A01-202*/
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
 	}

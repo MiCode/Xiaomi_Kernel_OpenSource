@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -372,7 +373,9 @@ struct device_node *of_batterydata_get_best_profile(
 	}
 
 	if (best_node == NULL) {
-		pr_err("No battery data found\n");
+		pr_err("sunxing detect No battery data configed,add default\n");
+		best_node = node;
+		best_id_kohm = batt_ids.kohm[i];
 		return best_node;
 	}
 

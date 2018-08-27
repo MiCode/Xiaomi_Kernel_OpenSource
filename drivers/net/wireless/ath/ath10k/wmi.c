@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -4076,19 +4077,20 @@ void ath10k_wmi_event_phyerr(struct ath10k *ar, struct sk_buff *skb)
 
 		left_len -= buf_len;
 
-		switch (phy_err_code) {
-		case PHY_ERROR_RADAR:
+		if ((phy_err_code == PHY_ERROR_RADAR) ||
+		    (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_RADAR)) {
 			ath10k_wmi_event_dfs(ar, &phyerr_arg, tsf);
-			break;
-		case PHY_ERROR_SPECTRAL_SCAN:
+		} else if ((phy_err_code ==
+				WMI_PHY_ERROR_MASK0_SPECTRAL_SCAN) ||
+			   (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_SPECTRAL_SCAN)) {
 			ath10k_wmi_event_spectral_scan(ar, &phyerr_arg, tsf);
-			break;
-		case PHY_ERROR_FALSE_RADAR_EXT:
+		} else if ((phy_err_code == PHY_ERROR_FALSE_RADAR_EXT) ||
+			   (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_FALSE_RADAR_EXT)) {
 			ath10k_wmi_event_dfs(ar, &phyerr_arg, tsf);
 			ath10k_wmi_event_spectral_scan(ar, &phyerr_arg, tsf);
-			break;
-		default:
-			break;
 		}
 
 		phyerr = phyerr + phyerr_arg.hdr_len + buf_len;

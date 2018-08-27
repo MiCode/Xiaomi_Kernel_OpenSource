@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2013, 2017 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -24,6 +25,7 @@
 #include <linux/pci.h>
 #include <linux/uuid.h>
 #include <linux/time.h>
+#include <linux/inetdevice.h>
 #include <soc/qcom/socinfo.h>
 
 #include "htt.h"
@@ -430,6 +432,9 @@ struct ath10k_vif {
 	struct work_struct ap_csa_work;
 	struct delayed_work connection_loss_work;
 	struct cfg80211_bitrate_mask bitrate_mask;
+	struct wmi_ns_arp_offload_req arp_offload;
+	struct wmi_ns_arp_offload_req ns_offload;
+	struct wmi_gtk_rekey_data gtk_rekey_data;
 };
 
 struct ath10k_vif_iter {

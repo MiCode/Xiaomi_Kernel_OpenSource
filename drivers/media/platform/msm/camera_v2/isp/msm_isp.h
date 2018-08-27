@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -759,6 +760,11 @@ struct msm_vfe_common_subdev {
 	struct msm_vfe_common_dev_data *common_data;
 };
 
+struct isp_proc {
+	uint32_t  kernel_sofid;
+	uint32_t  vfeid;
+};
+
 struct vfe_device {
 	/* Driver private data */
 	struct platform_device *pdev;
@@ -842,6 +848,7 @@ struct vfe_device {
 	uint32_t recovery_irq1_mask;
 	/* total bandwidth per vfe */
 	uint64_t total_bandwidth;
+	struct isp_proc *isp_page;
 };
 
 struct vfe_parent_device {

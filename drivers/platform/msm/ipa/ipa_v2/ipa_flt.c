@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,10 +24,10 @@
 static int ipa_generate_hw_rule_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
-	int num_offset_meq_32 = attrib->num_offset_meq_32;
-	int num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
-	int num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
-	int num_offset_meq_128 = attrib->num_offset_meq_128;
+	uint8_t num_offset_meq_32 = attrib->num_offset_meq_32;
+	uint8_t num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
+	uint8_t num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
+	uint8_t num_offset_meq_128 = attrib->num_offset_meq_128;
 	int i;
 
 	if (attrib->tos_eq_present) {

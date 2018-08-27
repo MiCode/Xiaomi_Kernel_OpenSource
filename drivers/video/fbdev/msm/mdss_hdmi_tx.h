@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,6 +143,9 @@ struct hdmi_tx_ctrl {
 	u8 *edid_buf;
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
+
+	u64 actual_clk_rate;
+	bool pll_update_enable;
 
 	/* pre/post is done in the context without tx_lock */
 	hdmi_tx_evt_handler pre_evt_handler[MDSS_EVENT_MAX - 1];
