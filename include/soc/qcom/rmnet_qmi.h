@@ -15,6 +15,10 @@
 #define _RMNET_QMI_H
 
 #include <linux/netdevice.h>
+#include <linux/skbuff.h>
+
+void rmnet_map_tx_qmap_cmd(struct sk_buff *qmap_skb);
+
 #ifdef CONFIG_QCOM_QMI_RMNET
 void *rmnet_get_qmi_pt(void *port);
 void *rmnet_get_qos_pt(struct net_device *dev);

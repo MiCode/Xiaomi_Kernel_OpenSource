@@ -5,7 +5,8 @@ Required properties :
 - compatible : shall contain one of the following:
 		"qcom,gpucc-sm8150",
 		"qcom,gpucc-sdmshrike",
-		"qcom,gpucc-sm6150".
+		"qcom,gpucc-sm6150",
+		"qcom,gpucc-sdmmagpie".
 
 - reg : shall contain base register offset and size.
 - reg-names: names of registers listed in the same order as in the reg property.

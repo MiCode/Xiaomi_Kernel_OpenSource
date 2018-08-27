@@ -937,11 +937,18 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 		req = lrbp->cmd->request;
 	else
 		return 0;
-
-	/* Use request LBA as the DUN value */
-	if (req->bio)
-		*dun = (req->bio->bi_iter.bi_sector) >>
-				UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+	/*
+	 * Right now ICE do not support variable dun but can be
+	 * taken as future enhancement
+	 * if (bio_dun(req->bio)) {
+	 *      dun @bio can be split, so we have to adjust offset
+	 *      *dun = bio_dun(req->bio);
+	 * } else
+	 */
+	if (req->bio) {
+		*dun = req->bio->bi_iter.bi_sector;
+		*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+	}
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
 
@@ -2180,6 +2187,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		dev_err(dev, "%s: ufs_qcom_ice_get_dev failed %d\n",
 			__func__, err);
 		goto out_variant_clear;
+	} else {
+		hba->host->inlinecrypt_support = 1;
 	}
 
 	host->generic_phy = devm_phy_get(dev, "ufsphy");

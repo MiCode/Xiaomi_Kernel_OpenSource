@@ -11,6 +11,7 @@
  */
 
 #include "sm6150-thermal-overlay.dtsi"
+#include "sm6150-camera-sensor-idp.dtsi"
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include "sm6150-sde-display.dtsi"
 
@@ -24,6 +25,10 @@
 };
 
 &qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se7_4uart {
 	status = "ok";
 };
 

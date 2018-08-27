@@ -1603,8 +1603,8 @@ static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 	pr_debug("type=%d, name=%s, length=%d\n", type,
 		cmd_set_prop_map[type], length);
 
-	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_NONE,
-		8, 1, data, length, false);
+	print_hex_dump_debug("", DUMP_PREFIX_NONE,
+		       8, 1, data, length, false);
 
 	rc = dsi_panel_get_cmd_pkt_count(data, length, &packet_count);
 	if (rc) {

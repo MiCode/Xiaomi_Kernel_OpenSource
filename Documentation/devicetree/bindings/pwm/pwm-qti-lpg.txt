@@ -40,6 +40,17 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 		      channels. This property is required if any LPG channels
 		      support LUT mode.
 
+- qcom,sync-channel-ids:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: The hardware IDs of the LPG channel that required be
+		      grouped together. These channels will share the same LUT
+		      ramping configuration so that they will be enabled with a
+		      synchronized pattern. If the LUT ramping configuration
+		      differs for the channels grouped for synchronization,
+		      configuration of the first channel will be applied for
+		      all others.
+
 Subnode is optional if LUT mode is not required, it's required if any LPG
 channels expected to be supported in LUT mode.
 
@@ -114,6 +125,7 @@ Example:
 		#pwm-cells = <2>;
 		qcom,lut-patterns = <0 14 28 42 56 70 84 100
 					100 84 70 56 42 28 14 0>;
+		qcom,sync-channel-ids = <3 4 5>;
 		lpg@3 {
 			qcom,lpg-chan-id = <3>;
 			qcom,ramp-step-ms = <200>;

@@ -613,7 +613,7 @@ int security_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode
 EXPORT_SYMBOL_GPL(security_inode_create);
 
 int security_inode_post_create(struct inode *dir, struct dentry *dentry,
-			       umode_t mode)
+				umode_t mode)
 {
 	if (unlikely(IS_PRIVATE(dir)))
 		return 0;

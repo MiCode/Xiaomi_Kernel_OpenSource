@@ -24,6 +24,7 @@
 #define DEFAULT_FRAME_QUALITY 80
 #define FRAME_QUALITY_STEP 1
 #define HEIC_GRID_DIMENSION 512
+#define CBR_MB_LIMIT                           (1280*720/256*30)
 
 struct vb2_buf_entry {
 	struct list_head list;

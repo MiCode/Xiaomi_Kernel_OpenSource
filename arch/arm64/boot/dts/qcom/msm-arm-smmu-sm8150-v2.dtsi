@@ -343,7 +343,7 @@
 			reg = <0x151a5000 0x1000>,
 				<0x15182240 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1c00 0x400>;
+			qcom,stream-id-range = <0x2000 0x400>;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
 			qcom,msm-bus,name = "mnoc_sf_0_tbu";

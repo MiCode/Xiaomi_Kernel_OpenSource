@@ -258,17 +258,6 @@
 				mhi,ee = <0x4>;
 			};
 
-			mhi_chan@24 {
-				reg = <24>;
-				label = "BL";
-				mhi,num-elements = <64>;
-				mhi,event-ring = <2>;
-				mhi,chan-dir = <1>;
-				mhi,data-type = <0>;
-				mhi,doorbell-mode = <2>;
-				mhi,ee = <0x2>;
-			};
-
 			mhi_chan@25 {
 				reg = <25>;
 				label = "BL";
@@ -278,6 +267,8 @@
 				mhi,data-type = <0>;
 				mhi,doorbell-mode = <2>;
 				mhi,ee = <0x2>;
+				mhi,auto-queue;
+				mhi,auto-start;
 			};
 
 			mhi_chan@26 {
@@ -686,17 +677,6 @@
 				mhi,ee = <0x4>;
 			};
 
-			mhi_chan@24 {
-				reg = <24>;
-				label = "BL";
-				mhi,num-elements = <64>;
-				mhi,event-ring = <2>;
-				mhi,chan-dir = <1>;
-				mhi,data-type = <0>;
-				mhi,doorbell-mode = <2>;
-				mhi,ee = <0x2>;
-			};
-
 			mhi_chan@25 {
 				reg = <25>;
 				label = "BL";
@@ -706,6 +686,8 @@
 				mhi,data-type = <0>;
 				mhi,doorbell-mode = <2>;
 				mhi,ee = <0x2>;
+				mhi,auto-queue;
+				mhi,auto-start;
 			};
 
 			mhi_chan@26 {

@@ -175,8 +175,18 @@
 		reg = <0x5091540 0x4>;
 	};
 
+	gpu_gx_domain_addr: syscon@0x5091508 {
+		compatible = "syscon";
+		reg = <0x5091508 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@0x5091008 {
+		compatible = "syscon";
+		reg = <0x5091008 0x4>;
+	};
+
 	gpu_cx_gdsc: qcom,gdsc@509106c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gpu_cx_gdsc";
 		reg = <0x509106c 0x4>;
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
@@ -187,10 +197,12 @@
 	};
 
 	gpu_gx_gdsc: qcom,gdsc@509100c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gpu_gx_gdsc";
 		reg = <0x509100c 0x4>;
 		qcom,poll-cfg-gdscr;
+		domain-addr = <&gpu_gx_domain_addr>;
+		sw-reset = <&gpu_gx_sw_reset>;
 		status = "disabled";
 	};
 

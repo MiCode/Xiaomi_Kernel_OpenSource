@@ -175,19 +175,11 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 
 int cam_sync_signal(int32_t sync_obj, uint32_t status)
 {
-	int rc;
 	struct sync_table_row *row = NULL;
 	struct sync_table_row *parent_row = NULL;
-	struct sync_callback_info *sync_cb;
-	struct sync_user_payload *payload_info;
-	struct sync_parent_info *parent_info;
-	struct list_head sync_list;
-	struct cam_signalable_info *list_info = NULL;
-	struct cam_signalable_info *temp_list_info = NULL;
+	struct sync_parent_info *parent_info, *temp_parent_info;
 	struct list_head parents_list;
-
-	/* Objects to be signaled will be added into this list */
-	INIT_LIST_HEAD(&sync_list);
+	int rc = 0;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0) {
 		CAM_ERR(CAM_SYNC, "Error: Out of range sync obj (0 <= %d < %d)",
@@ -230,14 +222,7 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	}
 
 	row->state = status;
-	rc = cam_sync_util_add_to_signalable_list(sync_obj, status, &sync_list);
-	if (rc < 0) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-		CAM_ERR(CAM_SYNC,
-			"Error: Unable to add sync object :%d to signalable list",
-			sync_obj);
-		return rc;
-	}
+	cam_sync_util_dispatch_signaled_cb(sync_obj, status);
 
 	/* copy parent list to local and release child lock */
 	INIT_LIST_HEAD(&parents_list);
@@ -245,13 +230,14 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
 	if (list_empty(&parents_list))
-		goto dispatch_cb;
+		return 0;
 
 	/*
 	 * Now iterate over all parents of this object and if they too need to
-	 * be signaled add them to the list
+	 * be signaled dispatch cb's
 	 */
-	list_for_each_entry(parent_info,
+	list_for_each_entry_safe(parent_info,
+		temp_parent_info,
 		&parents_list,
 		list) {
 		parent_row = sync_dev->sync_table + parent_info->sync_id;
@@ -270,93 +256,16 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 			continue;
 		}
 
-		if (!parent_row->remaining) {
-			rc = cam_sync_util_add_to_signalable_list
-				(parent_info->sync_id,
-					parent_row->state,
-					&sync_list);
-			if (rc < 0) {
-				spin_unlock_bh(
-					&sync_dev->row_spinlocks[
-						parent_info->sync_id]);
-				continue;
-			}
-		}
+		if (!parent_row->remaining)
+			cam_sync_util_dispatch_signaled_cb(
+				parent_info->sync_id, parent_row->state);
+
 		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
+		list_del_init(&parent_info->list);
+		kfree(parent_info);
 	}
 
-dispatch_cb:
-
-	/*
-	 * Now dispatch the various sync objects collected so far, in our
-	 * list
-	 */
-	list_for_each_entry_safe(list_info,
-		temp_list_info,
-		&sync_list,
-		list) {
-		struct sync_table_row *signalable_row = NULL;
-		struct sync_callback_info *temp_sync_cb;
-		struct sync_user_payload *temp_payload_info;
-
-		signalable_row = sync_dev->sync_table + list_info->sync_obj;
-
-		spin_lock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
-		if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
-			spin_unlock_bh(
-				&sync_dev->row_spinlocks[list_info->sync_obj]);
-			continue;
-		}
-
-		/* Dispatch kernel callbacks if any were registered earlier */
-
-		list_for_each_entry_safe(sync_cb,
-			temp_sync_cb, &signalable_row->callback_list, list) {
-			sync_cb->status = list_info->status;
-			list_del_init(&sync_cb->list);
-			queue_work(sync_dev->work_queue,
-				&sync_cb->cb_dispatch_work);
-		}
-
-		/* Dispatch user payloads if any were registered earlier */
-		list_for_each_entry_safe(payload_info, temp_payload_info,
-			&signalable_row->user_payload_list, list) {
-			spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
-			if (!sync_dev->cam_sync_eventq) {
-				spin_unlock_bh(
-				&sync_dev->cam_sync_eventq_lock);
-				break;
-			}
-			spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
-			cam_sync_util_send_v4l2_event(
-				CAM_SYNC_V4L_EVENT_ID_CB_TRIG,
-				list_info->sync_obj,
-				list_info->status,
-				payload_info->payload_data,
-				CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64));
-
-			list_del_init(&payload_info->list);
-			/*
-			 * We can free the list node here because
-			 * sending V4L event will make a deep copy
-			 * anyway
-			 */
-			kfree(payload_info);
-		}
-
-		/*
-		 * This needs to be done because we want to unblock anyone
-		 * who might be blocked and waiting on this sync object
-		 */
-		complete_all(&signalable_row->signaled);
-
-		spin_unlock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
-
-		list_del_init(&list_info->list);
-		kfree(list_info);
-	}
-
-	return rc;
+	return 0;
 }
 
 int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)

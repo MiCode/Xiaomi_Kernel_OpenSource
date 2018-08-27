@@ -668,8 +668,8 @@ static inline int security_inode_create(struct inode *dir,
 }
 
 static inline int security_inode_post_create(struct inode *dir,
-					struct dentry *dentry,
-					umode_t mode)
+					 struct dentry *dentry,
+					 umode_t mode)
 {
 	return 0;
 }

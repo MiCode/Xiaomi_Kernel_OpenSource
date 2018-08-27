@@ -44,7 +44,6 @@
 #include "xattr.h"
 #include "acl.h"
 #include "truncate.h"
-#include "ext4_ice.h"
 
 #include <trace/events/ext4.h>
 #include <trace/events/android_fs.h>
@@ -1220,7 +1219,7 @@ static int ext4_block_write_begin(struct page *page, loff_t pos, unsigned len,
 			*wait_bh++ = bh;
 			decrypt = ext4_encrypted_inode(inode) &&
 				S_ISREG(inode->i_mode) &&
-				!ext4_should_be_processed_by_ice(inode);
+				!fscrypt_using_hardware_encryption(inode);
 		}
 	}
 	/*
@@ -3716,15 +3715,14 @@ static ssize_t ext4_direct_IO_write(struct kiocb *iocb, struct iov_iter *iter)
 		get_block_func = ext4_dio_get_block_unwritten_async;
 		dio_flags = DIO_LOCKING;
 	}
-
-#if defined(CONFIG_EXT4_FS_ENCRYPTION) && \
-!defined(CONFIG_EXT4_FS_ICE_ENCRYPTION)
-	if (ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode))
-		return 0;
+#if defined(CONFIG_EXT4_FS_ENCRYPTION)
+	WARN_ON(ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode)
+		&& !fscrypt_using_hardware_encryption(inode));
 #endif
-	ret = __blockdev_direct_IO(iocb, inode, inode->i_sb->s_bdev, iter,
-				   get_block_func, ext4_end_io_dio, NULL,
-				   dio_flags);
+	ret = __blockdev_direct_IO(iocb, inode,
+				   inode->i_sb->s_bdev, iter,
+				   get_block_func,
+				   ext4_end_io_dio, NULL, dio_flags);
 
 	if (ret > 0 && !overwrite && ext4_test_inode_state(inode,
 						EXT4_STATE_DIO_UNWRITTEN)) {
@@ -3830,9 +3828,9 @@ static ssize_t ext4_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	ssize_t ret;
 	int rw = iov_iter_rw(iter);
 
-#if defined(CONFIG_EXT4_FS_ENCRYPTION) && \
-!defined(CONFIG_EXT4_FS_ICE_ENCRYPTION)
-	if (ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode))
+#if defined(CONFIG_EXT4_FS_ENCRYPTION)
+	if (ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode)
+		&& !fscrypt_using_hardware_encryption(inode))
 		return 0;
 #endif
 
@@ -4042,7 +4040,7 @@ static int __ext4_block_zero_page_range(handle_t *handle,
 			goto unlock;
 		if (S_ISREG(inode->i_mode) &&
 		    ext4_encrypted_inode(inode) &&
-		    !ext4_should_be_processed_by_ice(inode)) {
+		    !fscrypt_using_hardware_encryption(inode)) {
 			/* We expect the key to be set. */
 			BUG_ON(!fscrypt_has_encryption_key(inode));
 			BUG_ON(blocksize != PAGE_SIZE);
