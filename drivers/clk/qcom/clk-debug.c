@@ -19,6 +19,7 @@
 #include <linux/clk-provider.h>
 #include <linux/of.h>
 #include <linux/bitops.h>
+#include <linux/msm-bus.h>
 
 #include "clk-regmap.h"
 #include "clk-debug.h"
@@ -253,6 +254,13 @@ static int clk_debug_measure_get(void *data, u64 *val)
 
 	mutex_lock(&clk_debug_lock);
 
+	/*
+	 * Vote for bandwidth to re-connect config ports
+	 * to multimedia clock controllers.
+	 */
+	if (meas->bus_cl_id)
+		msm_bus_scale_client_update_request(meas->bus_cl_id, 1);
+
 	ret = clk_set_parent(measure->clk, hw->clk);
 	if (!ret) {
 		par = measure;
@@ -290,6 +298,8 @@ static int clk_debug_measure_get(void *data, u64 *val)
 exit1:
 	disable_debug_clks(meas, index);
 exit:
+	if (meas->bus_cl_id)
+		msm_bus_scale_client_update_request(meas->bus_cl_id, 0);
 	mutex_unlock(&clk_debug_lock);
 	return ret;
 }
@@ -345,11 +355,13 @@ int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 	}
 
 	meas = to_clk_measure(measure);
+	if (meas->bus_cl_id)
+		msm_bus_scale_client_update_request(meas->bus_cl_id, 1);
 	ret = clk_set_parent(measure->clk, hw->clk);
 	if (ret) {
 		pr_debug("Unable to set %s as %s's parent, ret=%d\n",
 			clk_hw_get_name(hw), clk_hw_get_name(measure), ret);
-		return 0;
+		goto err;
 	}
 
 	index = clk_debug_mux_get_parent(measure);
@@ -359,6 +371,9 @@ int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 	else
 		debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_measure_fops);
+err:
+	if (meas->bus_cl_id)
+		msm_bus_scale_client_update_request(meas->bus_cl_id, 0);
 	return 0;
 }
 EXPORT_SYMBOL(clk_debug_measure_add);
