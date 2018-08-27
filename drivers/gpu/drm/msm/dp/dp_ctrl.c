@@ -1096,6 +1096,9 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
+	if (ctrl->power_on)
+		goto end;
+
 	ctrl->mst_mode = mst_mode;
 	rate = ctrl->panel->link_info.rate;
 
@@ -1129,6 +1132,9 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 		return;
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	if (!ctrl->power_on)
+		return;
 
 	dp_ctrl_configure_source_link_params(ctrl, false);
 	ctrl->catalog->reset(ctrl->catalog);
