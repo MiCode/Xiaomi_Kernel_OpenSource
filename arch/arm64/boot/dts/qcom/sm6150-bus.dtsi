@@ -308,6 +308,7 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
 			qcom,sbm-offset = <0>;
+			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -358,6 +359,7 @@
 			qcom,qos-off = <128>;
 			qcom,base-offset = <176128>;
 			qcom,sbm-offset = <0>;
+			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -394,6 +396,7 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <36864>;
 			qcom,sbm-offset = <0>;
+			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -407,6 +410,7 @@
 			qcom,base-offset = <45056>;
 			qcom,sbm-offset = <0>;
 			qcom,bus-type = <1>;
+			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
 
