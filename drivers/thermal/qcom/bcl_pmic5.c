@@ -496,7 +496,7 @@ static void bcl_fetch_trip(struct platform_device *pdev, enum bcl_dev_type type,
 	data->irq_num = 0;
 	data->irq_enabled = false;
 	irq_num = platform_get_irq_byname(pdev, int_name);
-	if (irq_num && handle) {
+	if (irq_num > 0 && handle) {
 		ret = devm_request_threaded_irq(&pdev->dev,
 				irq_num, NULL, handle,
 				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -510,7 +510,7 @@ static void bcl_fetch_trip(struct platform_device *pdev, enum bcl_dev_type type,
 		}
 		disable_irq_nosync(irq_num);
 		data->irq_num = irq_num;
-	} else if (irq_num && !handle) {
+	} else if (irq_num > 0 && !handle) {
 		disable_irq_nosync(irq_num);
 		data->irq_num = irq_num;
 	}
@@ -559,6 +559,9 @@ static void bcl_ibat_init(struct platform_device *pdev,
 	ibat->type = type;
 	ibat->dev = bcl_perph;
 	bcl_fetch_trip(pdev, type, ibat, NULL);
+	if (ibat->irq_num <= 0)
+		return;
+
 	ibat->ops.get_temp = bcl_read_ibat;
 	ibat->ops.set_trips = bcl_set_ibat;
 
