@@ -144,6 +144,24 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+static bool dp_display_is_ds_bridge(struct dp_panel *panel)
+{
+	return (panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+		DP_DWN_STRM_PORT_PRESENT);
+}
+
+static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
+{
+	return dp_display_is_ds_bridge(dp->panel) &&
+		(dp->link->sink_count.count == 0);
+}
+
+static bool dp_display_is_ready(struct dp_display_private *dp)
+{
+	return dp->hpd->hpd_high && dp->is_connected &&
+		!dp_display_is_sink_count_zero(dp) &&
+		dp->hpd->alt_mode_cfg_done;
+}
 
 static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
@@ -173,7 +191,7 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
 		break;
 	case HDCP_STATE_AUTH_FAIL:
-		if (dp->power_on) {
+		if (dp_display_is_ready(dp) && dp->power_on) {
 			if (ops && ops->reauthenticate) {
 				rc = ops->reauthenticate(dp->hdcp.data);
 				if (rc)
@@ -389,18 +407,6 @@ static const struct component_ops dp_display_comp_ops = {
 	.bind = dp_display_bind,
 	.unbind = dp_display_unbind,
 };
-
-static bool dp_display_is_ds_bridge(struct dp_panel *panel)
-{
-	return (panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
-		DP_DWN_STRM_PORT_PRESENT);
-}
-
-static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
-{
-	return dp_display_is_ds_bridge(dp->panel) &&
-		(dp->link->sink_count.count == 0);
-}
 
 static void dp_display_send_hpd_event(struct dp_display_private *dp)
 {
@@ -1237,13 +1243,6 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 	mutex_unlock(&dp->session_lock);
 
 	return 0;
-}
-
-static bool dp_display_is_ready(struct dp_display_private *dp)
-{
-	return dp->hpd->hpd_high && dp->is_connected &&
-		!dp_display_is_sink_count_zero(dp) &&
-		dp->hpd->alt_mode_cfg_done;
 }
 
 static int dp_display_prepare(struct dp_display *dp_display, void *panel)
