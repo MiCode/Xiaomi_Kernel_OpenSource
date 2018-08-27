@@ -1157,7 +1157,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 {
 	int rc = 0;
 	struct cam_ctx_request          *req;
-	struct cam_ctx_request          *active_req;
+	struct cam_ctx_request          *active_req = NULL;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_ctx_req          *active_req_isp;
 	struct cam_isp_context          *ctx_isp = NULL;
@@ -1177,8 +1177,10 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 *
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+	spin_lock_bh(&ctx->lock);
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
 		list);
+	spin_unlock_bh(&ctx->lock);
 
 	/*
 	 * Check whehter the request id is matching the tip, if not, this means
@@ -1201,19 +1203,25 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 			"Reject apply request (id %lld) due to congestion(cnt = %d)",
 			req->request_id,
 			ctx_isp->active_req_cnt);
-		if (!list_empty(&ctx->active_req_list)) {
+
+		spin_lock_bh(&ctx->lock);
+		if (!list_empty(&ctx->active_req_list))
 			active_req = list_first_entry(&ctx->active_req_list,
 				struct cam_ctx_request, list);
-			active_req_isp =
-				(struct cam_isp_ctx_req *) active_req->req_priv;
-			__cam_isp_ctx_handle_buf_done_fail_log(active_req_isp);
-		} else {
+		else
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"WARNING: should not happen (cnt = %d) but active_list empty",
 				ctx_isp->active_req_cnt);
+		spin_unlock_bh(&ctx->lock);
+
+		if (active_req) {
+			active_req_isp =
+				(struct cam_isp_ctx_req *) active_req->req_priv;
+			__cam_isp_ctx_handle_buf_done_fail_log(active_req_isp);
 		}
-			rc = -EFAULT;
-			goto end;
+
+		rc = -EFAULT;
+		goto end;
 	}
 	req_isp->bubble_report = apply->report_if_bubble;
 
