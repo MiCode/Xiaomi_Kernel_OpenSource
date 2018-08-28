@@ -1,6 +1,6 @@
 /* QTI crypto Driver
  *
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@ enum qcedev_crypto_oper_type {
 };
 
 struct qcedev_handle;
+extern enum fips_status g_fips140_status;
 
 struct qcedev_cipher_req {
 	struct ablkcipher_request creq;
@@ -120,5 +121,48 @@ void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,
 
 void qcedev_sha_req_cb(void *cookie, unsigned char *digest,
 	unsigned char *authdata, int ret);
+
+extern int _do_msm_fips_drbg_init(void *rng_dev);
+
+#ifdef CONFIG_FIPS_ENABLE
+
+/*
+ * Self test for Cipher algorithms
+ */
+int _fips_qcedev_cipher_selftest(struct qcedev_control *podev);
+
+/*
+ * Self test for SHA / HMAC
+ */
+
+int _fips_qcedev_sha_selftest(struct qcedev_control *podev);
+
+/*
+ * Update FIPs Global status Status
+ */
+static inline enum fips_status _fips_update_status(enum fips_status status)
+{
+	return (status == FIPS140_STATUS_PASS) ?
+		FIPS140_STATUS_QCRYPTO_ALLOWED :
+		FIPS140_STATUS_FAIL;
+}
+
+#else
+
+static inline int _fips_qcedev_cipher_selftest(struct qcedev_control *podev)
+{
+	return 0;
+}
+static inline int _fips_qcedev_sha_selftest(struct qcedev_control *podev)
+{
+	return 0;
+}
+
+static inline enum fips_status _fips_update_status(enum fips_status status)
+{
+	return FIPS140_STATUS_NA;
+}
+
+#endif  /* CONFIG_FIPS_ENABLE */
 
 #endif  /* __CRYPTO_MSM_QCEDEVI_H */
