@@ -255,6 +255,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 7)
+#define ARM_SMMU_OPT_MIN_IOVA_ALIGN	(1 << 8)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -394,6 +395,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
+	{ ARM_SMMU_OPT_MIN_IOVA_ALIGN, "qcom,min-iova-align" },
 	{ 0, NULL},
 };
 
@@ -5344,8 +5346,9 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	 * Prefetch only works properly if the start and end of all
 	 * buffers in the page table are aligned to ARM_SMMU_MIN_IOVA_ALIGN.
 	 */
-	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
-			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
+	if (((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
+			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK) &&
+				  (smmu->options & ARM_SMMU_OPT_MIN_IOVA_ALIGN))
 		smmu_domain->qsmmuv500_errata1_min_iova_align = true;
 }
 
