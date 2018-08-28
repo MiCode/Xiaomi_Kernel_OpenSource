@@ -562,8 +562,10 @@ static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 			sg_dma_addr = sg_dma_address(sg);
 
 		len += sg->length;
-		if (len <= offset)
+		if (len <= offset) {
+			sg_dma_addr += sg->length;
 			continue;
+		}
 
 		sg_left = len - offset;
 		sg_offset = sg->length - sg_left;
