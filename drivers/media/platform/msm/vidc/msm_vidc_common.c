@@ -2501,7 +2501,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 	if (empty_buf_done->status == VIDC_ERR_BITSTREAM_ERR) {
 		dprintk(VIDC_INFO, "Failed : Corrupted input stream\n");
-		mbuf->vvb.flags |= V4L2_QCOM_BUF_DATA_CORRUPT;
+		mbuf->vvb.flags |= V4L2_BUF_FLAG_DATA_CORRUPT;
 	}
 	if (empty_buf_done->flags & HAL_BUFFERFLAG_SYNCFRAME)
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_KEYFRAME;
@@ -2681,7 +2681,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
 		mbuf->vvb.flags |= V4L2_BUF_FLAG_KEYFRAME;
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DATACORRUPT)
-		mbuf->vvb.flags |= V4L2_QCOM_BUF_DATA_CORRUPT;
+		mbuf->vvb.flags |= V4L2_BUF_FLAG_DATA_CORRUPT;
 	switch (fill_buf_done->picture_type) {
 	case HAL_PICTURE_IDR:
 	case HAL_PICTURE_I:
@@ -3196,7 +3196,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_actual);
 
 	rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -3230,7 +3230,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 		bufreq->buffer_count_actual);
 
 	rc = msm_comm_set_buffer_count(inst,
-		bufreq->buffer_count_min_host,
+		bufreq->buffer_count_min,
 		bufreq->buffer_count_actual, HAL_BUFFER_OUTPUT);
 	if (rc) {
 		dprintk(VIDC_ERR,

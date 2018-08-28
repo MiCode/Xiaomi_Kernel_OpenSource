@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,8 @@ struct diag_rpmsg_info {
 	struct work_struct read_work;
 	struct work_struct late_init_work;
 	struct diagfwd_info *fwd_ctxt;
-	void *buf;
+	void *buf1;
+	void *buf2;
 };
 
 extern struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS];

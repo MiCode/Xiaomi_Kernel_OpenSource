@@ -857,14 +857,20 @@ static void dp_display_attention_work(struct work_struct *work)
 {
 	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, attention_work);
+	bool is_sink_cnt_zero;
 
 	if (!dp->power_on)
 		goto mst_attention;
 
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
+		is_sink_cnt_zero = dp_display_is_sink_count_zero(dp);
+
+		if (dp->mst.mst_active && !is_sink_cnt_zero)
+			goto mst_attention;
+
 		dp_display_handle_disconnect(dp);
 
-		if (dp_display_is_sink_count_zero(dp)) {
+		if (is_sink_cnt_zero) {
 			pr_debug("sink count is zero, nothing to do\n");
 			goto mst_attention;
 		}
@@ -1285,20 +1291,44 @@ end:
 }
 
 static int dp_display_set_stream_info(struct dp_display *dp_display,
-			void *panel, u32 ch_id, u32 ch_start_slot,
-			u32 ch_tot_slots, u32 pbn)
+			void *panel, u32 strm_id, u32 start_slot,
+			u32 num_slots, u32 pbn)
 {
 	int rc = 0;
 	struct dp_panel *dp_panel;
+	struct dp_display_private *dp;
+	const int max_slots = 64;
 
-	if (!dp_display || !panel) {
+	if (!dp_display) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	dp_panel = panel;
-	dp_panel->set_stream_info(dp_panel, ch_id,
-			ch_start_slot, ch_tot_slots, pbn);
+	if (strm_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", strm_id);
+		return -EINVAL;
+	}
+
+	if (start_slot + num_slots > max_slots) {
+		pr_err("invalid channel info received. start:%d, slots:%d\n",
+				start_slot, num_slots);
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+
+	dp->ctrl->set_mst_channel_info(dp->ctrl, strm_id,
+			start_slot, num_slots);
+
+	if (panel) {
+		dp_panel = panel;
+		dp_panel->set_stream_info(dp_panel, strm_id, start_slot,
+				num_slots, pbn);
+	}
+
+	mutex_unlock(&dp->session_lock);
 
 	return rc;
 }
@@ -1688,6 +1718,31 @@ static int dp_display_get_modes(struct dp_display *dp, void *panel,
 	return ret;
 }
 
+static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
+		void *panel,
+		const struct drm_display_mode *drm_mode,
+		struct dp_display_mode *dp_mode)
+{
+	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
+
+	if (!dp_display || !drm_mode || !dp_mode || !panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	dp_panel = panel;
+
+	mutex_lock(&dp->session_lock);
+
+	memset(dp_mode, 0, sizeof(*dp_mode));
+
+	dp_panel->convert_to_dp_mode(dp_panel, drm_mode, dp_mode);
+
+	mutex_unlock(&dp->session_lock);
+}
+
 static int dp_display_config_hdr(struct dp_display *dp_display, void *panel,
 			struct drm_msm_ext_hdr_metadata *hdr)
 {
@@ -2026,6 +2081,7 @@ static int dp_display_probe(struct platform_device *pdev)
 					dp_display_mst_connector_update_edid;
 	g_dp_display->get_mst_caps = dp_display_get_mst_caps;
 	g_dp_display->set_stream_info = dp_display_set_stream_info;
+	g_dp_display->convert_to_dp_mode = dp_display_convert_to_dp_mode;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {

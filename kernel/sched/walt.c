@@ -272,15 +272,7 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	u64 old_window_start = rq->window_start;
 
 	delta = wallclock - rq->window_start;
-	/*
-	 * If the MPM global timer is cleared, set delta as 0 to
-	 * avoid kernel BUG happening
-	 */
-	if (delta < 0) {
-		delta = 0;
-		WARN_ONCE(1, "WALT wallclock appears to have gone backwards or reset\n");
-	}
-
+	BUG_ON(delta < 0);
 	if (delta < sched_ravg_window)
 		return old_window_start;
 
@@ -321,6 +313,11 @@ void clear_ed_task(struct task_struct *p, struct rq *rq)
 		rq->ed_task = NULL;
 }
 
+static inline bool is_ed_task(struct task_struct *p, u64 wallclock)
+{
+	return (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION);
+}
+
 bool early_detection_notify(struct rq *rq, u64 wallclock)
 {
 	struct task_struct *p;
@@ -335,7 +332,7 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 		if (!loop_max)
 			break;
 
-		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
+		if (is_ed_task(p, wallclock)) {
 			rq->ed_task = p;
 			return 1;
 		}
@@ -835,6 +832,8 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;
+		dest_rq->ed_task = p;
+	} else if (is_ed_task(p, wallclock)) {
 		dest_rq->ed_task = p;
 	}
 

@@ -71,10 +71,13 @@ extern struct gmu_dev_ops adreno_a6xx_gmudev;
 #define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
 
 enum gmu_mem_type {
-	GMU_CACHED_CODE = 0,
-	GMU_CACHED_DATA,
+	GMU_ITCM = 0,
+	GMU_ICACHE,
+	GMU_DTCM,
+	GMU_DCACHE,
 	GMU_NONCACHED_KERNEL,
-	GMU_NONCACHED_USER
+	GMU_NONCACHED_USER,
+	GMU_MEM_TYPE_MAX,
 };
 
 /**
@@ -126,7 +129,6 @@ enum gmu_load_mode {
  * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
- * @icache_mem: gmu icache memory buffer
  * @hfi: HFI controller
  * @lm_config: GPU LM configuration data
  * @lm_dcvs_level: Minimal DCVS level that enable LM. LM disable in
@@ -162,7 +164,6 @@ struct gmu_device {
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
-	struct gmu_memdesc *icache_mem;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;
 	unsigned int lm_dcvs_level;
@@ -185,6 +186,6 @@ struct gmu_device {
 	unsigned int fault_count;
 };
 
-bool is_cached_fw_size_valid(uint32_t size_in_bytes);
+struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);
 
 #endif /* __KGSL_GMU_H */

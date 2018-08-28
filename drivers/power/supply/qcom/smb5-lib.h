@@ -59,6 +59,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
 #define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
+#define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -77,6 +78,12 @@ enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,
 	UNATTACHED_MODE,
+};
+
+enum qc2_non_comp_voltage {
+	QC2_COMPLIANT,
+	QC2_NON_COMPLIANT_9V,
+	QC2_NON_COMPLIANT_12V
 };
 
 enum {
@@ -368,12 +375,13 @@ struct smb_charger {
 	bool			jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
+	u8			typec_try_mode;
 
 	/* workaround flag */
 	u32			wa_flags;
 	int			boost_current_ua;
 	int                     qc2_max_pulses;
-	bool                    non_compliant_chg_detected;
+	enum qc2_non_comp_voltage qc2_unsupported_voltage;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;

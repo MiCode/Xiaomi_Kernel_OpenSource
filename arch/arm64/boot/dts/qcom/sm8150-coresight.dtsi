@@ -321,7 +321,12 @@
 		reg-names = "tmc-base", "bam-base";
 
 		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x05e0 0>;
+		iommus = <&apps_smmu 0x05e0 0>,
+			<&apps_smmu 0x04a0 0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
 		arm,buffer-size = <0x400000>;
 
 		coresight-name = "coresight-tmc-etr";

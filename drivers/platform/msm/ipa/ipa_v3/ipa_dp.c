@@ -60,7 +60,6 @@
 
 #define IPA_ODU_RX_BUFF_SZ 2048
 #define IPA_ODU_RX_POOL_SZ 64
-#define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
 #define IPA_GSI_EVT_RING_INT_MODT (16) /* 0.5ms under 32KHz clock */
@@ -2278,8 +2277,7 @@ begin:
 					return rc;
 				}
 				memcpy(&comp, skb->data, sizeof(comp));
-				skb_pull(skb, sizeof(comp) +
-						IPA_SIZE_DL_CSUM_META_TRAILER);
+				skb_pull(skb, sizeof(comp));
 				complete(&comp->comp);
 				if (atomic_dec_return(&comp->cnt) == 0)
 					kfree(comp);
@@ -2325,8 +2323,7 @@ begin:
 			pad_len_byte = ((status.pkt_len + 3) & ~3) -
 					status.pkt_len;
 
-			len = status.pkt_len + pad_len_byte +
-				IPA_SIZE_DL_CSUM_META_TRAILER;
+			len = status.pkt_len + pad_len_byte;
 			IPADBG_LOW("pad %d pkt_len %d len %d\n", pad_len_byte,
 					status.pkt_len, len);
 

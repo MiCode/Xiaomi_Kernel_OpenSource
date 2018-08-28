@@ -937,6 +937,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 {
 	int res;
 	uint32_t val;
+	int needed_reg_ver;
 
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
@@ -967,6 +968,32 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		GSIERR("per already registered\n");
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
+
+	switch (props->ver) {
+	case GSI_VER_1_0:
+	case GSI_VER_1_2:
+	case GSI_VER_1_3:
+	case GSI_VER_2_0:
+	case GSI_VER_2_2:
+		needed_reg_ver = GSI_REGISTER_VER_1;
+		break;
+	case GSI_VER_2_5:
+		needed_reg_ver = GSI_REGISTER_VER_2;
+		break;
+	case GSI_VER_ERR:
+	case GSI_VER_MAX:
+	default:
+		GSIERR("GSI version is not supported %d\n", props->ver);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	if (needed_reg_ver != GSI_REGISTER_VER_CURRENT) {
+		GSIERR("Invalid register version. current=%d, needed=%d\n",
+			GSI_REGISTER_VER_CURRENT, needed_reg_ver);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+	GSIDBG("gsi ver %d register ver %d needed register ver %d\n",
+		props->ver, GSI_REGISTER_VER_CURRENT, needed_reg_ver);
 
 	spin_lock_init(&gsi_ctx->slock);
 	if (props->intr == GSI_INTR_IRQ) {

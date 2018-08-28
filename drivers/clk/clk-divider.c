@@ -257,6 +257,9 @@ static bool _is_best_div(unsigned long rate, unsigned long now,
 {
 	if (flags & CLK_DIVIDER_ROUND_CLOSEST)
 		return abs(rate - now) < abs(rate - best);
+	else if (flags & CLK_DIVIDER_ROUND_KHZ)
+		return (DIV_ROUND_CLOSEST(abs(rate - now), 1000)
+			< DIV_ROUND_CLOSEST(abs(rate - best), 1000));
 
 	return now <= rate && now > best;
 }

@@ -57,6 +57,14 @@
 #define QCOM_ICE_UFS		10
 #define QCOM_ICE_SDCC		20
 
+#define QCOM_ICE_ENCRYPT	0x1
+#define QCOM_ICE_DECRYPT	0x2
+#define QCOM_SECT_LEN_IN_BYTE	512
+#define QCOM_UD_FOOTER_SIZE	0x4000
+#define QCOM_UD_FOOTER_SECS	(QCOM_UD_FOOTER_SIZE / QCOM_SECT_LEN_IN_BYTE)
+
+static int ice_fde_flag;
+
 struct ice_clk_info {
 	struct list_head list;
 	struct clk *clk;
@@ -130,13 +138,14 @@ static int qti_ice_setting_config(struct request *req,
 		return -EINVAL;
 
 	if ((short)(crypto_data->key_index) >= 0) {
-
 		memcpy(&setting->crypto_data, crypto_data,
 				sizeof(setting->crypto_data));
 
-		if (rq_data_dir(req) == WRITE)
+		if (rq_data_dir(req) == WRITE &&
+					(ice_fde_flag & QCOM_ICE_ENCRYPT))
 			setting->encr_bypass = false;
-		else if (rq_data_dir(req) == READ)
+		else if (rq_data_dir(req) == READ &&
+					(ice_fde_flag & QCOM_ICE_DECRYPT))
 			setting->decr_bypass = false;
 		else {
 			/* Should I say BUG_ON */
@@ -147,6 +156,12 @@ static int qti_ice_setting_config(struct request *req,
 
 	return 0;
 }
+void qcom_ice_set_fde_flag(int flag)
+{
+	ice_fde_flag = flag;
+	pr_debug("%s read_write setting %d\n", __func__, ice_fde_flag);
+}
+EXPORT_SYMBOL(qcom_ice_set_fde_flag);
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
@@ -1431,8 +1446,11 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		struct ice_data_setting *setting, bool async)
 {
 	struct ice_crypto_setting pfk_crypto_data = {0};
+	struct ice_crypto_setting ice_data = {0};
 	int ret = 0;
 	bool is_pfe = false;
+	unsigned long sec_end = 0;
+	sector_t data_size;
 
 	if (!pdev || !req) {
 		pr_err("%s: Invalid params passed\n", __func__);
@@ -1465,6 +1483,36 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 
 		return qti_ice_setting_config(req, pdev,
 				&pfk_crypto_data, setting);
+	}
+
+	if (ice_fde_flag && req->part && req->part->info
+				&& req->part->info->volname[0]) {
+		if (!strcmp(req->part->info->volname, "userdata")) {
+			sec_end = req->part->start_sect + req->part->nr_sects -
+					QCOM_UD_FOOTER_SECS;
+			if ((req->__sector >= req->part->start_sect) &&
+				(req->__sector < sec_end)) {
+				/*
+				 * Ugly hack to address non-block-size aligned
+				 * userdata end address in eMMC based devices.
+				 * for eMMC based devices, since sector and
+				 * block sizes are not same i.e. 4K, it is
+				 * possible that partition is not a multiple of
+				 * block size. For UFS based devices sector
+				 * size and block size are same. Hence ensure
+				 * that data is within userdata partition using
+				 * sector based calculation
+				 */
+				data_size = req->__data_len /
+						QCOM_SECT_LEN_IN_BYTE;
+
+				if ((req->__sector + data_size) > sec_end)
+					return 0;
+				else
+					return qti_ice_setting_config(req, pdev,
+						&ice_data, setting);
+			}
+		}
 	}
 
 	/*

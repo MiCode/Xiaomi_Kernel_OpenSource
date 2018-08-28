@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,14 +26,14 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/power_supply.h>
+#include <linux/workqueue.h>
 #include <linux/pmic-voter.h>
-
-#define SMB1355_DEFAULT_FCC_UA 1000000
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
 #define I2C_SS_DIG_BASE 0x0E00
 #define CHGR_BASE	0x1000
+#define ANA2_BASE	0x1100
 #define BATIF_BASE	0x1200
 #define USBIN_BASE	0x1300
 #define MISC_BASE	0x1600
@@ -70,6 +70,9 @@
 #define CHGR_PRE_TO_FAST_THRESHOLD_CFG_REG	(CHGR_BASE + 0x74)
 #define PRE_TO_FAST_CHARGE_THRESHOLD_MASK	GENMASK(2, 0)
 
+#define ANA2_TR_SBQ_ICL_1X_REF_OFFSET_REG	(ANA2_BASE + 0xF5)
+#define TR_SBQ_ICL_1X_REF_OFFSET		GENMASK(4, 0)
+
 #define POWER_MODE_HICCUP_CFG			(BATIF_BASE + 0x72)
 #define MAX_HICCUP_DUETO_BATDIS_MASK		GENMASK(5, 2)
 #define HICCUP_TIMEOUT_CFG_MASK			GENMASK(1, 0)
@@ -77,8 +80,12 @@
 #define BATIF_CFG_SMISC_BATID_REG		(BATIF_BASE + 0x73)
 #define CFG_SMISC_RBIAS_EXT_CTRL_BIT		BIT(2)
 
+#define SMB2CHGS_BATIF_ENG_SMISC_DIETEMP	(BATIF_BASE + 0xC0)
+#define TDIE_COMPARATOR_THRESHOLD		GENMASK(5, 0)
+
 #define BATIF_ENG_SCMISC_SPARE1_REG		(BATIF_BASE + 0xC2)
 #define EXT_BIAS_PIN_BIT			BIT(2)
+#define DIE_TEMP_COMP_HYST_BIT			BIT(1)
 
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
@@ -88,6 +95,9 @@
 #define DIE_TEMP_RST_HOT_BIT			BIT(2)
 #define DIE_TEMP_UB_HOT_BIT			BIT(1)
 #define DIE_TEMP_LB_HOT_BIT			BIT(0)
+
+#define MISC_RT_STS_REG				(MISC_BASE + 0x10)
+#define HARD_ILIMIT_RT_STS_BIT			BIT(5)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
@@ -99,6 +109,9 @@
 #define WDOG_IRQ_SFT_BIT			BIT(2)
 #define WDOG_TIMER_EN_ON_PLUGIN_BIT		BIT(1)
 #define WDOG_TIMER_EN_BIT			BIT(0)
+
+#define MISC_CUST_SDCDC_CLK_CFG_REG		(MISC_BASE + 0xA0)
+#define SWITCHER_CLK_FREQ_MASK			GENMASK(3, 0)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
@@ -114,6 +127,34 @@
 #define MISC_CHGR_TRIM_OPTIONS_REG		(MISC_BASE + 0x55)
 #define CMD_RBIAS_EN_BIT			BIT(2)
 
+#define MISC_ENG_SDCDC_INPUT_CURRENT_CFG1_REG	(MISC_BASE + 0xC8)
+#define PROLONG_ISENSE_MASK			GENMASK(7, 6)
+#define PROLONG_ISENSEM_SHIFT			6
+#define SAMPLE_HOLD_DELAY_MASK			GENMASK(5, 2)
+#define SAMPLE_HOLD_DELAY_SHIFT			2
+#define DISABLE_ILIMIT_BIT			BIT(0)
+
+#define MISC_ENG_SDCDC_INPUT_CURRENT_CFG2_REG	(MISC_BASE + 0xC9)
+#define INPUT_CURRENT_LIMIT_SOURCE_BIT		BIT(7)
+#define TC_ISENSE_AMPLIFIER_MASK		GENMASK(6, 4)
+#define TC_ISENSE_AMPLIFIER_SHIFT		4
+#define HS_II_CORRECTION_MASK			GENMASK(3, 0)
+
+#define MISC_ENG_SDCDC_RESERVE3_REG		(MISC_BASE + 0xCB)
+#define VDDCAP_SHORT_DISABLE_TRISTATE_BIT	BIT(7)
+#define PCL_SHUTDOWN_BUCK_BIT			BIT(6)
+#define ISENSE_TC_CORRECTION_BIT		BIT(5)
+#define II_SOURCE_BIT				BIT(4)
+#define SCALE_SLOPE_COMP_MASK			GENMASK(3, 0)
+
+#define USBIN_CURRENT_LIMIT_CFG_REG		(USBIN_BASE + 0x70)
+#define USB_TR_SCPATH_ICL_1X_GAIN_REG		(USBIN_BASE + 0xF2)
+#define TR_SCPATH_ICL_1X_GAIN_MASK		GENMASK(5, 0)
+
+#define IS_USBIN(mode)				\
+	((mode == POWER_SUPPLY_PL_USBIN_USBIN) \
+	 || (mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+
 struct smb_chg_param {
 	const char	*name;
 	u16		reg;
@@ -125,6 +166,7 @@ struct smb_chg_param {
 struct smb_params {
 	struct smb_chg_param	fcc;
 	struct smb_chg_param	ov;
+	struct smb_chg_param	usb_icl;
 };
 
 static struct smb_params v1_params = {
@@ -142,6 +184,13 @@ static struct smb_params v1_params = {
 		.max_u	= 5000000,
 		.step_u	= 10000,
 	},
+	.usb_icl	= {
+		.name   = "usb input current limit",
+		.reg    = USBIN_CURRENT_LIMIT_CFG_REG,
+		.min_u  = 100000,
+		.max_u  = 5000000,
+		.step_u = 30000,
+	},
 };
 
 struct smb_irq_info {
@@ -151,13 +200,10 @@ struct smb_irq_info {
 	int			irq;
 };
 
-struct smb_iio {
-	struct iio_channel	*temp_chan;
-	struct iio_channel	*temp_max_chan;
-};
-
 struct smb_dt_props {
 	bool	disable_ctm;
+	int	pl_mode;
+	int	pl_batfet_mode;
 };
 
 struct smb1355 {
@@ -167,7 +213,6 @@ struct smb1355 {
 
 	struct smb_dt_props	dt;
 	struct smb_params	param;
-	struct smb_iio		iio;
 
 	struct mutex		write_lock;
 
@@ -176,6 +221,10 @@ struct smb1355 {
 
 	int			c_health;
 	int			c_charger_temp_max;
+	int			die_temp_deciDegC;
+	bool			exit_die_temp;
+	struct delayed_work	die_temp_work;
+	bool			disabled;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -275,6 +324,63 @@ static int smb1355_get_charge_param(struct smb1355 *chip,
 	return rc;
 }
 
+#define UB_COMP_OFFSET_DEGC		34
+#define DIE_TEMP_MEAS_PERIOD_MS		10000
+static void die_temp_work(struct work_struct *work)
+{
+	struct smb1355 *chip = container_of(work, struct smb1355,
+							die_temp_work.work);
+	int rc, i;
+	u8 temp_stat;
+
+	for (i = 0; i < BIT(5); i++) {
+		rc = smb1355_masked_write(chip,
+				SMB2CHGS_BATIF_ENG_SMISC_DIETEMP,
+				TDIE_COMPARATOR_THRESHOLD, i);
+		if (rc < 0) {
+			pr_err("Couldn't set temp comp threshold rc=%d\n", rc);
+			continue;
+		}
+
+		if (chip->exit_die_temp)
+			return;
+
+		/* wait for the comparator output to deglitch */
+		msleep(100);
+
+		rc = smb1355_read(chip, TEMP_COMP_STATUS_REG, &temp_stat);
+		if (rc < 0) {
+			pr_err("Couldn't read temp comp status rc=%d\n", rc);
+			continue;
+		}
+
+		if (!(temp_stat & DIE_TEMP_UB_HOT_BIT)) {
+			/* found the temp */
+			break;
+		}
+	}
+
+	chip->die_temp_deciDegC = 10 * (i + UB_COMP_OFFSET_DEGC);
+
+	schedule_delayed_work(&chip->die_temp_work,
+			msecs_to_jiffies(DIE_TEMP_MEAS_PERIOD_MS));
+}
+
+static int smb1355_get_prop_input_current_limited(struct smb1355 *chip,
+					union power_supply_propval *pval)
+{
+	int rc;
+	u8 stat = 0;
+
+	rc = smb1355_read(chip, MISC_RT_STS_REG, &stat);
+	if (rc < 0)
+		pr_err("Couldn't read SMB1355_BATTERY_STATUS_3 rc=%d\n", rc);
+
+	pval->intval = !!(stat & HARD_ILIMIT_RT_STS_BIT);
+
+	return 0;
+}
+
 static irqreturn_t smb1355_handle_chg_state_change(int irq, void *data)
 {
 	struct smb1355 *chip = data;
@@ -327,7 +433,24 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	chip->dt.disable_ctm =
 		of_property_read_bool(node, "qcom,disable-ctm");
 
-	return rc;
+	/*
+	 * If parallel-mode property is not present default
+	 * parallel configuration is USBMID-USBMID.
+	 */
+	rc = of_property_read_u32(node,
+		"qcom,parallel-mode", &chip->dt.pl_mode);
+	if (rc < 0)
+		chip->dt.pl_mode = POWER_SUPPLY_PL_USBMID_USBMID;
+
+	/*
+	 * If stacked-batfet property is not present default
+	 * configuration is NON-STACKED-BATFET.
+	 */
+	chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_NON_STACKED_BATFET;
+	if (of_property_read_bool(node, "qcom,stacked-batfet"))
+		chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
+
+	return 0;
 }
 
 /*****************************
@@ -346,6 +469,10 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
+	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_MIN_ICL,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
 static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
@@ -372,25 +499,6 @@ static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
 	return rc;
 }
 
-static int smb1355_get_parallel_charging(struct smb1355 *chip, int *disabled)
-{
-	int rc;
-	u8 cfg2;
-
-	rc = smb1355_read(chip, CHGR_CFG2_REG, &cfg2);
-	if (rc < 0) {
-		pr_err("Couldn't read en_cmg_reg rc=%d\n", rc);
-		return rc;
-	}
-
-	if (cfg2 & CHG_EN_SRC_BIT)
-		*disabled = 0;
-	else
-		*disabled = 1;
-
-	return 0;
-}
-
 static int smb1355_get_prop_connector_health(struct smb1355 *chip)
 {
 	u8 temp;
@@ -414,25 +522,7 @@ static int smb1355_get_prop_connector_health(struct smb1355 *chip)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-
-static int smb1355_get_prop_charger_temp(struct smb1355 *chip,
-				union power_supply_propval *val)
-{
-	int rc;
-
-	if (!chip->iio.temp_chan ||
-		PTR_ERR(chip->iio.temp_chan) == -EPROBE_DEFER)
-		chip->iio.temp_chan = devm_iio_channel_get(chip->dev,
-						"charger_temp");
-
-	if (IS_ERR(chip->iio.temp_chan))
-		return PTR_ERR(chip->iio.temp_chan);
-
-	rc = iio_read_channel_processed(chip->iio.temp_chan, &val->intval);
-	val->intval /= 100;
-	return rc;
-}
-
+#define MIN_PARALLEL_ICL_UA		250000
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -456,13 +546,13 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 			val->intval = !(stat & DISABLE_CHARGING_BIT);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smb1355_get_prop_charger_temp(chip, val);
+		val->intval = chip->die_temp_deciDegC;
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		val->intval = chip->c_charger_temp_max;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb1355_get_parallel_charging(chip, &val->intval);
+		val->intval = chip->disabled;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smb1355_get_charge_param(chip, &chip->param.ov,
@@ -476,13 +566,32 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		val->strval = chip->name;
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
+		val->intval = chip->dt.pl_mode;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		if (chip->c_health == -EINVAL)
 			val->intval = smb1355_get_prop_connector_health(chip);
 		else
 			val->intval = chip->c_health;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE:
+		val->intval = chip->dt.pl_batfet_mode;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		if (IS_USBIN(chip->dt.pl_mode))
+			rc = smb1355_get_prop_input_current_limited(chip, val);
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (IS_USBIN(chip->dt.pl_mode))
+			rc = smb1355_get_charge_param(chip,
+					&chip->param.usb_icl, &val->intval);
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_MIN_ICL:
+		val->intval = MIN_PARALLEL_ICL_UA;
 		break;
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",
@@ -502,6 +611,9 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 {
 	int rc;
 
+	if (chip->disabled == disable)
+		return 0;
+
 	rc = smb1355_masked_write(chip, WD_CFG_REG, WDOG_TIMER_EN_BIT,
 				 disable ? 0 : WDOG_TIMER_EN_BIT);
 	if (rc < 0) {
@@ -520,10 +632,44 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 			disable ? 0 : CHG_EN_SRC_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't configure charge enable source rc=%d\n", rc);
-		return rc;
+		disable = true;
 	}
 
+	chip->die_temp_deciDegC = -EINVAL;
+	if (disable) {
+		chip->exit_die_temp = true;
+		cancel_delayed_work_sync(&chip->die_temp_work);
+	} else {
+		/* start the work to measure temperature */
+		chip->exit_die_temp = false;
+		schedule_delayed_work(&chip->die_temp_work, 0);
+	}
+
+	chip->disabled = disable;
+
 	return 0;
+}
+
+static int smb1355_set_current_max(struct smb1355 *chip, int curr)
+{
+	int rc = 0;
+
+	if (!IS_USBIN(chip->dt.pl_mode))
+		return 0;
+
+	if ((curr / 1000) < 100) {
+		/* disable parallel path (ICL < 100mA) */
+		rc = smb1355_set_parallel_charging(chip, true);
+	} else {
+		rc = smb1355_set_parallel_charging(chip, false);
+		if (rc < 0)
+			return rc;
+
+		rc = smb1355_set_charge_param(chip,
+				&chip->param.usb_icl, curr);
+	}
+
+	return rc;
 }
 
 static int smb1355_parallel_set_prop(struct power_supply *psy,
@@ -536,6 +682,9 @@ static int smb1355_parallel_set_prop(struct power_supply *psy,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb1355_set_parallel_charging(chip, (bool)val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smb1355_set_current_max(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smb1355_set_charge_param(chip, &chip->param.ov,
@@ -770,15 +919,26 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	}
 
 	/*
-	 * Disable thermal Die temperature comparator source and hw mitigation
-	 * for skin/die
+	 * Enable thermal Die temperature comparator source and disable hw
+	 * mitigation for skin/die
 	 */
 	rc = smb1355_masked_write(chip, MISC_THERMREG_SRC_CFG_REG,
 		THERMREG_DIE_CMP_SRC_EN_BIT | BYP_THERM_CHG_CURR_ADJUST_BIT,
-		BYP_THERM_CHG_CURR_ADJUST_BIT);
+		THERMREG_DIE_CMP_SRC_EN_BIT | BYP_THERM_CHG_CURR_ADJUST_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't set Skin temperature comparator src rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/*
+	 * Disable hysterisis for die temperature. This is so that sw can run
+	 * stepping scheme quickly
+	 */
+	rc = smb1355_masked_write(chip, BATIF_ENG_SCMISC_SPARE1_REG,
+				DIE_TEMP_COMP_HYST_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable hyst. for die rc=%d\n", rc);
 		return rc;
 	}
 
@@ -786,6 +946,73 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	if (rc < 0) {
 		pr_err("Couldn't configure tskin regs rc=%d\n", rc);
 		return rc;
+	}
+
+	/* USBIN-USBIN configuration */
+	if (IS_USBIN(chip->dt.pl_mode)) {
+		/* set swicther clock frequency to 700kHz */
+		rc = smb1355_masked_write(chip, MISC_CUST_SDCDC_CLK_CFG_REG,
+				SWITCHER_CLK_FREQ_MASK, 0x03);
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_CUST_SDCDC_CLK_CFG rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/*
+		 * configure compensation for input current limit (ICL) loop
+		 * accuracy, scale slope compensation using 30k resistor.
+		 */
+		rc = smb1355_masked_write(chip, MISC_ENG_SDCDC_RESERVE3_REG,
+				II_SOURCE_BIT | SCALE_SLOPE_COMP_MASK,
+				II_SOURCE_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_ENG_SDCDC_RESERVE3_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* configuration to improve ICL accuracy */
+		rc = smb1355_masked_write(chip,
+				MISC_ENG_SDCDC_INPUT_CURRENT_CFG1_REG,
+				PROLONG_ISENSE_MASK | SAMPLE_HOLD_DELAY_MASK,
+				((uint8_t)0x0C << SAMPLE_HOLD_DELAY_SHIFT));
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_ENG_SDCDC_INPUT_CURRENT_CFG1_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smb1355_masked_write(chip,
+				MISC_ENG_SDCDC_INPUT_CURRENT_CFG2_REG,
+				INPUT_CURRENT_LIMIT_SOURCE_BIT
+				| HS_II_CORRECTION_MASK,
+			       INPUT_CURRENT_LIMIT_SOURCE_BIT | 0xC);
+
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_ENG_SDCDC_INPUT_CURRENT_CFG2_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* configure DAC offset */
+		rc = smb1355_masked_write(chip,
+				ANA2_TR_SBQ_ICL_1X_REF_OFFSET_REG,
+				TR_SBQ_ICL_1X_REF_OFFSET, 0x00);
+		if (rc < 0) {
+			pr_err("Couldn't set ANA2_TR_SBQ_ICL_1X_REF_OFFSET_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* configure DAC gain */
+		rc = smb1355_masked_write(chip, USB_TR_SCPATH_ICL_1X_GAIN_REG,
+				TR_SCPATH_ICL_1X_GAIN_MASK, 0x22);
+		if (rc < 0) {
+			pr_err("Couldn't set USB_TR_SCPATH_ICL_1X_GAIN_REG rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -907,6 +1134,9 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->c_charger_temp_max = -EINVAL;
 	chip->name = "smb1355";
 	mutex_init(&chip->write_lock);
+	INIT_DELAYED_WORK(&chip->die_temp_work, die_temp_work);
+	chip->disabled = true;
+	chip->die_temp_deciDegC = -EINVAL;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
@@ -953,7 +1183,11 @@ static int smb1355_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	pr_info("%s probed successfully\n", chip->name);
+	pr_info("%s probed successfully pl_mode=%s batfet_mode=%s\n",
+		chip->name,
+		IS_USBIN(chip->dt.pl_mode) ? "USBIN-USBIN" : "USBMID-USBMID",
+		(chip->dt.pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET)
+			? "STACKED_BATFET" : "NON-STACKED_BATFET");
 	return rc;
 
 cleanup:
