@@ -4577,12 +4577,15 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_power_off;
 
-	if (smmu->version == ARM_SMMU_V2 &&
-	    smmu->num_context_banks != smmu->num_context_irqs) {
+	if (smmu->version == ARM_SMMU_V2) {
+		if (smmu->num_context_banks > smmu->num_context_irqs) {
 		dev_err(dev,
 			"found %d context interrupt(s) but have %d context banks. assuming %d context interrupts.\n",
 			smmu->num_context_irqs, smmu->num_context_banks,
 			smmu->num_context_banks);
+			return -ENODEV;	
+		}
+		/* Ignore superfluous interrupts */
 		smmu->num_context_irqs = smmu->num_context_banks;
 	}
 
@@ -4722,13 +4725,6 @@ static void __exit arm_smmu_exit(void)
 
 subsys_initcall(arm_smmu_init);
 module_exit(arm_smmu_exit);
-
-IOMMU_OF_DECLARE(arm_smmuv1, "arm,smmu-v1");
-IOMMU_OF_DECLARE(arm_smmuv2, "arm,smmu-v2");
-IOMMU_OF_DECLARE(arm_mmu400, "arm,mmu-400");
-IOMMU_OF_DECLARE(arm_mmu401, "arm,mmu-401");
-IOMMU_OF_DECLARE(arm_mmu500, "arm,mmu-500");
-IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2");
 
 #define TCU_HW_VERSION_HLOS1		(0x18)
 

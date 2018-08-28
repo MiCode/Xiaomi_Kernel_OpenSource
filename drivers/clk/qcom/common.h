@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2014, 2018, The Linux Foundation. All rights reserved.
  */
+
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
 

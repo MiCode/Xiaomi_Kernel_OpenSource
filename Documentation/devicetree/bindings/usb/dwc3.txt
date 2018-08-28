@@ -104,6 +104,13 @@ Optional properties:
  - snps,disable-clk-gating: If present, disable controller's internal clock gating.
    Default it is enabled.
 
+ - <DEPRECATED> tx-fifo-resize: determines if the FIFO *has* to be reallocated.
+ - snps,incr-burst-type-adjustment: Value for INCR burst type of GSBUSCFG0
+			register, undefined length INCR burst type enable and INCRx type.
+			When just one value, which means INCRX burst mode enabled. When
+			more than one value, which means undefined length INCR burst type
+			enabled. The values can be 1, 4, 8, 16, 32, 64, 128 and 256.
+
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well
 
@@ -117,4 +124,5 @@ dwc3@4a030000 {
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
 	tx-fifo-resize;
 	snps,xhci-imod-value = <4000>;
+	snps,incr-burst-type-adjustment = <1>, <4>, <8>, <16>;
 };

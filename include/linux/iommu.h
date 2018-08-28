@@ -246,7 +246,7 @@ struct iommu_ops {
 	size_t (*unmap)(struct iommu_domain *domain, unsigned long iova,
 		     size_t size);
 	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
-			 struct scatterlist *sg, unsigned int nents, int prot);
+                        struct scatterlist *sg, unsigned int nents, int prot);
 	void (*flush_iotlb_all)(struct iommu_domain *domain);
 	void (*iotlb_range_add)(struct iommu_domain *domain,
 				unsigned long iova, size_t size);
@@ -363,8 +363,7 @@ extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 extern size_t iommu_unmap_fast(struct iommu_domain *domain,
 			       unsigned long iova, size_t size);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
-				struct scatterlist *sg,unsigned int nents,
-				int prot);
+			   struct scatterlist *sg,unsigned int nents, int prot);
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
 extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 					   dma_addr_t iova);
@@ -445,10 +444,10 @@ static inline void iommu_tlb_sync(struct iommu_domain *domain)
 }
 
 static inline size_t iommu_map_sg(struct iommu_domain *domain,
-				  unsigned long iova, struct scatterlist *sg,
-				  unsigned int nents, int prot)
+                                 unsigned long iova, struct scatterlist *sg,
+                                 unsigned int nents, int prot)
 {
-	return domain->ops->map_sg(domain, iova, sg, nents, prot);
+       return domain->ops->map_sg(domain, iova, sg, nents, prot);
 }
 
 extern void iommu_trigger_fault(struct iommu_domain *domain,
@@ -458,6 +457,7 @@ extern unsigned long iommu_reg_read(struct iommu_domain *domain,
 				    unsigned long offset);
 extern void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
 			    unsigned long val);
+
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
@@ -841,5 +841,12 @@ static inline int iommu_is_available(struct device *dev)
 	return -ENODEV;
 }
 #endif /* CONFIG_IOMMU_API */
+
+#ifdef CONFIG_IOMMU_DEBUGFS
+extern	struct dentry *iommu_debugfs_dir;
+void iommu_debugfs_setup(void);
+#else
+static inline void iommu_debugfs_setup(void) {}
+#endif
 
 #endif /* __LINUX_IOMMU_H */

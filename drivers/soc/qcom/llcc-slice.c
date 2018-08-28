@@ -8,6 +8,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
 #include <linux/regmap.h>
@@ -87,7 +88,7 @@ struct llcc_slice_desc *llcc_slice_getd(u32 uid)
 
 	return desc;
 }
-EXPORT_SYMBOL(llcc_slice_getd);
+EXPORT_SYMBOL_GPL(llcc_slice_getd);
 
 /**
  * llcc_slice_putd - llcc slice descritpor
@@ -97,7 +98,7 @@ void llcc_slice_putd(struct llcc_slice_desc *desc)
 {
 	kfree(desc);
 }
-EXPORT_SYMBOL(llcc_slice_putd);
+EXPORT_SYMBOL_GPL(llcc_slice_putd);
 
 static int llcc_update_act_ctrl(u32 sid,
 				u32 act_ctrl_reg_val, u32 status)
@@ -162,7 +163,7 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 
 	return ret;
 }
-EXPORT_SYMBOL(llcc_slice_activate);
+EXPORT_SYMBOL_GPL(llcc_slice_activate);
 
 /**
  * llcc_slice_deactivate - Deactivate the llcc slice
@@ -195,7 +196,7 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 
 	return ret;
 }
-EXPORT_SYMBOL(llcc_slice_deactivate);
+EXPORT_SYMBOL_GPL(llcc_slice_deactivate);
 
 /**
  * llcc_get_slice_id - return the slice id
@@ -205,7 +206,7 @@ int llcc_get_slice_id(struct llcc_slice_desc *desc)
 {
 	return desc->slice_id;
 }
-EXPORT_SYMBOL(llcc_get_slice_id);
+EXPORT_SYMBOL_GPL(llcc_get_slice_id);
 
 /**
  * llcc_get_slice_size - return the slice id
@@ -215,7 +216,7 @@ size_t llcc_get_slice_size(struct llcc_slice_desc *desc)
 {
 	return desc->slice_size;
 }
-EXPORT_SYMBOL(llcc_get_slice_size);
+EXPORT_SYMBOL_GPL(llcc_get_slice_size);
 
 static int qcom_llcc_cfg_program(struct platform_device *pdev)
 {
@@ -356,4 +357,6 @@ int qcom_llcc_probe(struct platform_device *pdev,
 
 	return qcom_llcc_cfg_program(pdev);
 }
-EXPORT_SYMBOL(qcom_llcc_probe);
+
+EXPORT_SYMBOL_GPL(qcom_llcc_probe);
+MODULE_LICENSE("GPL v2");
