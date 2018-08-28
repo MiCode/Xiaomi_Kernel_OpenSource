@@ -281,3 +281,13 @@ config MSM_CLK_AOP_QMP
 	Technologies, Inc. SoCs. It accepts requests from other hardware
 	subsystems via QMP mailboxes.
 	Say Y to support the clocks managed by AOP on platforms such as sdm845.
+
+config MSM_GCC_KONA
+	tristate "KONA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  KONA devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
