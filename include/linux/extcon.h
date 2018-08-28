@@ -61,6 +61,9 @@
 /* connector speed 0 - High Speed, 1 - super speed */
 #define EXTCON_USB_SPEED	29
 
+/* connector type C current 0 - default current, 1 - medium or high current */
+#define EXTCON_USB_TYPEC_MED_HIGH_CURRENT	30
+
 /* Display external connector */
 #define EXTCON_DISP_HDMI	40	/* High-Definition Multimedia Interface */
 #define EXTCON_DISP_MHL		41	/* Mobile High-Definition Link */
