@@ -219,13 +219,15 @@ static struct clk_debug_mux gcc_debug_mux = {
 
 static const struct of_device_id clk_debug_match_table[] = {
 	{ .compatible = "qcom,debugcc-sdxpoorwills" },
+	{ .compatible = "qcom,debugcc-sdxpoorwills-v2" },
 	{ }
 };
 
 static int clk_debug_sdxpoorwills_probe(struct platform_device *pdev)
 {
 	struct clk *clk;
-	int ret = 0;
+	int ret = 0, compatlen;
+	const char *compat = NULL;
 
 	clk = devm_clk_get(&pdev->dev, "xo_clk_src");
 	if (IS_ERR(clk)) {
@@ -233,6 +235,13 @@ static int clk_debug_sdxpoorwills_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get xo clock\n");
 		return PTR_ERR(clk);
 	}
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,debugcc-sdxpoorwills-v2"))
+		debug_mux_priv.xo_div4_cbcr = 0x22010;
 
 	debug_mux_priv.cxo = clk;
 
