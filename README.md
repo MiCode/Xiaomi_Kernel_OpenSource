@@ -6,6 +6,7 @@
 | cancro-kk-oss | Mi 3, Mi 4, Mi Note | Android KK | LNX.LA.3.5.2.2.1-04310-8x74.0 | [cancro-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-kk-oss) |
 | cappu-n-oss | Mi Pad 3 | Android N | MTK | [cappu-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cappu-n-oss) |
 | dior-kk-oss | Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [dior-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dior-kk-oss) |
+| daisy-o-oss | Mi A2 lite, Redmi 6pro | Android 8.1 | LA.UM.6.6.r1-07400-89xx.0-1 | [daisy-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-o-oss) |
 | ferrari-l-oss | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | [ferrari-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss) |
 | gemini-m-oss | Mi 5 | Android M | LA.HB.1.1.1.c2_rb1035 | [gemini-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gemini-m-oss) |
 | gucci-kk-oss | Redmi Note Dual SIM | Android KK | LNX.LA.3.7.2.1.c6-01400-8x16.0 | [gucci-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gucci-kk-oss) |
