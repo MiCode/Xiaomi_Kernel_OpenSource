@@ -519,7 +519,7 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 		mask_ptr = (struct diag_msg_mask_t *)msg_mask.ptr;
 		found = 0;
 		for (j = 0; j < driver->msg_mask_tbl_count; j++, mask_ptr++) {
-			if (!mask_ptr || !ssid_range) {
+			if (!mask_ptr->ptr || !ssid_range) {
 				found = 1;
 				break;
 			}
@@ -591,7 +591,7 @@ static void diag_build_time_mask_update(uint8_t *buf,
 	num_items = range->ssid_last - range->ssid_first + 1;
 
 	for (i = 0; i < driver->bt_msg_mask_tbl_count; i++, build_mask++) {
-		if (!build_mask) {
+		if (!build_mask->ptr) {
 			found = 1;
 			break;
 		}
