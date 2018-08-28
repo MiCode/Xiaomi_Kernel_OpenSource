@@ -116,8 +116,7 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 
 static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 	struct gsi_chan_ctx *ctx,
-	uint32_t tm,
-	enum gsi_chan_state next_state)
+	uint32_t tm)
 {
 	int poll_cnt;
 	int gsi_pending_intr;
@@ -166,9 +165,6 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 			ch,
 			ctx->state,
 			gsi_pending_intr);
-
-		if (ctx->state == next_state)
-			break;
 	}
 
 }
@@ -2474,8 +2470,7 @@ int gsi_start_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Start, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_START_CMD_TIMEOUT_MS,
-		GSI_CHAN_STATE_STARTED);
+		GSI_START_CMD_TIMEOUT_MS);
 
 	if (ctx->state != GSI_CHAN_STATE_STARTED) {
 		/*
@@ -2548,8 +2543,7 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Stop, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_STOP_CMD_TIMEOUT_MS,
-		GSI_CHAN_STATE_STOPPED);
+		GSI_STOP_CMD_TIMEOUT_MS);
 
 	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
 		ctx->state != GSI_CHAN_STATE_STOP_IN_PROC) {
