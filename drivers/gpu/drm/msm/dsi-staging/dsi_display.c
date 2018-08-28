@@ -3413,7 +3413,7 @@ static int dsi_display_res_init(struct dsi_display *display)
 	display->panel = dsi_panel_get(&display->pdev->dev,
 				display->panel_of,
 				display->parser_node,
-				display->root,
+				display->display_type,
 				display->cmdline_topology);
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
@@ -4703,7 +4703,16 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				disp_node = np;
 				break;
 			}
-		} else if (of_property_read_bool(np, disp_active)) {
+			continue;
+		} else if (index == DSI_SECONDARY) {
+			/*
+			 * secondary display is currently
+			 * supported through boot params only
+			 */
+			break;
+		}
+
+		if (of_property_read_bool(np, disp_active)) {
 			disp_node = np;
 
 			if (IS_ENABLED(CONFIG_DSI_PARSER))
