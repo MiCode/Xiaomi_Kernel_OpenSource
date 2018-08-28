@@ -280,6 +280,7 @@
 
 &pm8150l_wled {
 	qcom,string-cfg= <7>;
+	qcom,leds-per-string = <6>;
 	status = "ok";
 };
 
