@@ -790,7 +790,7 @@ err:
 }
 
 /* Function returns number of bits per pxl */
-static int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format)
+int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format)
 {
 	u32 bpp = 0;
 
