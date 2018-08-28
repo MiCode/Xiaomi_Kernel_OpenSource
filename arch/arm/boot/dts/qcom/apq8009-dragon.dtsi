@@ -80,6 +80,33 @@
 		status = "disabled";
 	};
 
+	cnss_sdio: qcom,cnss_sdio {
+		compatible = "qcom,cnss_sdio";
+		subsys-name = "AR6320";
+		/**
+		 * There is no vdd-wlan on board and this is not for DSRC.
+		 * IO and XTAL share the same vreg.
+		 */
+		vdd-wlan-io-supply = <&pm8916_l5>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<79 512 0 0>,             /* No vote */
+				<79 512 6250 200000>,     /* 50 Mbps */
+				<79 512 25000 200000>,    /* 200 Mbps */
+				<79 512 2048000 4096000>; /* MAX */
+	};
+
+	qcom,wcnss-wlan@a000000 {
+		status = "disabled";
+	};
+
+	qcom,pronto@a21b000 {
+		status = "disabled";
+	};
+
 	bluetooth: bt_qca9379 {
 		compatible = "qca,qca9379";
 		qca,bt-reset-gpio = <&msm_gpio 47 0>; /* BT_EN */
@@ -105,8 +132,62 @@
 	};
 };
 
+&msm_gpio {
+	sdc2_wlan_gpio_on: sdc2_wlan_gpio_on {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <10>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	sdc2_wlan_gpio_off: sdc2_wlan_gpio_off {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
 &sdhc_2 {
-	status = "disabled";
+	/delete-property/cd-gpios;
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0>,
+			<1 &intc 0 221 0>,
+			<2 &msm_gpio 40 0x1>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	qcom,vdd-voltage-level = <1800000 2950000>;
+	qcom,vdd-current-level = <15000 400000>;
+
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 50000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_gpio_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_wlan_gpio_off>;
+	qcom,nonremovable;
+	qcom,core_3_0v_support;
+	status = "ok";
 };
 
 &usb_otg {
