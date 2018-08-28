@@ -371,6 +371,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_a5_device_core_info *core_info = NULL;
 	struct cam_a5_device_hw_info *hw_info = NULL;
 	struct a5_soc_info *a5_soc = NULL;
+	unsigned long flags;
 	int rc = 0;
 
 	if (!device_priv) {
@@ -416,10 +417,10 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			return -EINVAL;
 		}
 
-		spin_lock(&a5_dev->hw_lock);
+		spin_lock_irqsave(&a5_dev->hw_lock, flags);
 		core_info->irq_cb.icp_hw_mgr_cb = irq_cb->icp_hw_mgr_cb;
 		core_info->irq_cb.data = irq_cb->data;
-		spin_unlock(&a5_dev->hw_lock);
+		spin_unlock_irqrestore(&a5_dev->hw_lock, flags);
 		break;
 	}
 
