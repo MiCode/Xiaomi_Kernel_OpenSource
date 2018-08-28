@@ -782,6 +782,23 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
+static int msm_ssphy_qmp_powerup(struct usb_phy *uphy, bool powerup)
+{
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	u8 reg = powerup ? 1 : 0;
+	u8 temp;
+
+	writel_relaxed(reg,
+			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+	temp = readl_relaxed(phy->base +
+			phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+
+	dev_dbg(uphy->dev, "P3 powerup:%x\n", temp);
+
+	return 0;
+}
+
 static int msm_ssphy_qmp_get_clks(struct msm_ssphy_qmp *phy, struct device *dev)
 {
 	int ret = 0;
@@ -1083,6 +1100,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.set_suspend		= msm_ssphy_qmp_set_suspend;
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
+	phy->phy.powerup		= msm_ssphy_qmp_powerup;
 
 	if (of_property_read_bool(dev->of_node, "qcom,link-training-reset"))
 		phy->phy.link_training	= msm_ssphy_qmp_link_training;
