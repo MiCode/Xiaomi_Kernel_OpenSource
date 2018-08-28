@@ -915,6 +915,16 @@
 		interrupt-parent = <&intc>;
 	};
 
+	gict: gict@17a20000 {
+		compatible = "arm,gic-600-erp";
+		reg = <0x17a20000 0x10000>;
+		reg-names = "gict-base";
+		interrupt-config = <46 17>;
+		interrupt-names = "gict-fault", "gict-err";
+		interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	pdc: interrupt-controller@0xb220000{
 		compatible = "qcom,pdc-sm8150";
 		reg = <0xb220000 0x400>;
