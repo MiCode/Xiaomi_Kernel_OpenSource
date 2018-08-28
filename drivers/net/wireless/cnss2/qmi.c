@@ -1333,7 +1333,7 @@ int cnss_qmi_init(struct cnss_plat_data *plat_priv)
 	}
 
 	ret = qmi_add_lookup(&plat_priv->qmi_wlfw, WLFW_SERVICE_ID_V01,
-			     WLFW_SERVICE_VERS_V01, 0);
+			     WLFW_SERVICE_VERS_V01, WLFW_SERVICE_INS_ID_V01);
 	if (ret < 0)
 		cnss_pr_err("Failed to add QMI lookup, err: %d\n", ret);
 
