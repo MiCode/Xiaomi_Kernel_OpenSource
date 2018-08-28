@@ -2973,15 +2973,20 @@ static int mmc_runtime_suspend(struct mmc_host *host)
  */
 static int mmc_runtime_resume(struct mmc_host *host)
 {
-	int err;
+	int err = 0;
 	ktime_t start = ktime_get();
 
 	MMC_TRACE(host, "%s\n", __func__);
+
+	if (!(host->caps & MMC_CAP_AGGRESSIVE_PM))
+		goto out;
+
 	err = _mmc_resume(host);
 	if (err && err != -ENOMEDIUM)
 		pr_err("%s: error %d doing runtime resume\n",
 			mmc_hostname(host), err);
 
+out:
 	trace_mmc_runtime_resume(mmc_hostname(host), err,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 
