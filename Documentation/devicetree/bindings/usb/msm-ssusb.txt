@@ -69,6 +69,9 @@ Optional properties :
 	  events.
 - qcom,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated
   event buffers. 1 event buffer is needed per h/w accelerated endpoint.
+- qcom,gsi-reg-offset: USB GSI wrapper registers offset. It is must to provide this
+  if qcom,num-gsi-evt-buffs property is specified. Check dwc3-msm driver for order
+  and name of register offset need to provide.
 - qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
