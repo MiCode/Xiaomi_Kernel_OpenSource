@@ -1360,10 +1360,67 @@ static void glink_spi_handle_rx_done(struct glink_spi *glink,
 	spin_unlock_irqrestore(&channel->intent_lock, flags);
 }
 
+static int __glink_spi_rx_done(struct glink_spi *glink,
+				struct glink_channel *channel,
+				struct glink_core_rx_intent *intent,
+				bool wait)
+{
+	struct {
+		u16 id;
+		u16 lcid;
+		u32 liid;
+		u64 reserved;
+	} __packed cmd;
+	unsigned int cid = channel->lcid;
+	unsigned int iid = intent->id;
+	bool reuse = intent->reuse;
+	int ret;
+
+	cmd.id = reuse ? SPI_CMD_RX_DONE_W_REUSE : SPI_CMD_RX_DONE;
+	cmd.lcid = cid;
+	cmd.liid = iid;
+
+	ret = glink_spi_tx(glink, &cmd, sizeof(cmd), NULL, 0, wait);
+	if (ret)
+		return ret;
+
+	intent->offset = 0;
+	if (!reuse) {
+		kfree(intent->data);
+		kfree(intent);
+	}
+
+	CH_INFO(channel, "reuse:%d liid:%d", reuse, iid);
+	return 0;
+}
+
+static void glink_spi_rx_done_work(struct work_struct *work)
+{
+	struct glink_channel *channel = container_of(work, struct glink_channel,
+						     intent_work);
+	struct glink_spi *glink = channel->glink;
+	struct glink_core_rx_intent *intent, *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&channel->intent_lock, flags);
+	list_for_each_entry_safe(intent, tmp, &channel->done_intents, node) {
+		list_del(&intent->node);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
+
+		__glink_spi_rx_done(glink, channel, intent, true);
+
+		spin_lock_irqsave(&channel->intent_lock, flags);
+	}
+	spin_unlock_irqrestore(&channel->intent_lock, flags);
+}
+
 static void glink_spi_rx_done(struct glink_spi *glink,
 			       struct glink_channel *channel,
 			       struct glink_core_rx_intent *intent)
 {
+	unsigned long flags;
+	int ret = -EAGAIN;
+
 	/* We don't send RX_DONE to intentless systems */
 	if (glink->intentless) {
 		kfree(intent->data);
@@ -1373,58 +1430,21 @@ static void glink_spi_rx_done(struct glink_spi *glink,
 
 	/* Take it off the tree of receive intents */
 	if (!intent->reuse) {
-		spin_lock(&channel->intent_lock);
+		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_remove(&channel->liids, intent->id);
-		spin_unlock(&channel->intent_lock);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
 	}
 
 	/* Schedule the sending of a rx_done indication */
-	spin_lock(&channel->intent_lock);
-	list_add_tail(&intent->node, &channel->done_intents);
-	spin_unlock(&channel->intent_lock);
+	if (list_empty(&channel->done_intents))
+		ret = __glink_spi_rx_done(glink, channel, intent, false);
 
-	schedule_work(&channel->intent_work);
-}
-
-static void glink_spi_rx_done_work(struct work_struct *work)
-{
-	struct glink_channel *channel = container_of(work, struct glink_channel,
-						     intent_work);
-	struct glink_spi *glink = channel->glink;
-	struct glink_core_rx_intent *intent, *tmp;
-	struct {
-		u16 id;
-		u16 lcid;
-		u32 liid;
-		u64 reserved;
-	} __packed cmd;
-
-	unsigned int lcid = channel->lcid;
-	unsigned int iid;
-	bool reuse;
-	unsigned long flags;
-
-	spin_lock_irqsave(&channel->intent_lock, flags);
-	list_for_each_entry_safe(intent, tmp, &channel->done_intents, node) {
-		list_del(&intent->node);
-		spin_unlock_irqrestore(&channel->intent_lock, flags);
-		iid = intent->id;
-		reuse = intent->reuse;
-
-		cmd.id = reuse ? SPI_CMD_RX_DONE_W_REUSE : SPI_CMD_RX_DONE;
-		cmd.lcid = lcid;
-		cmd.liid = iid;
-
-		CH_INFO(channel, "reuse:%d liid:%d", reuse, iid);
-		glink_spi_tx(glink, &cmd, sizeof(cmd), NULL, 0, true);
-		intent->offset = 0;
-		if (!reuse) {
-			kfree(intent->data);
-			kfree(intent);
-		}
+	if (ret) {
 		spin_lock_irqsave(&channel->intent_lock, flags);
+		list_add_tail(&intent->node, &channel->done_intents);
+		schedule_work(&channel->intent_work);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
 	}
-	spin_unlock_irqrestore(&channel->intent_lock, flags);
 }
 
 /* Locally initiated rpmsg_create_ept */
