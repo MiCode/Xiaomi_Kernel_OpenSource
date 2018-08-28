@@ -550,6 +550,10 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	val.intval = 1;
 	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
 
+	val.intval = pd->typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ? 1 : 0;
+	extcon_set_property(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, val);
+
 	extcon_set_state_sync(pd->extcon, EXTCON_USB, 1);
 }
 
@@ -4126,6 +4130,8 @@ struct usbpd *usbpd_create(struct device *parent)
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB,
 			EXTCON_PROP_USB_SS);
+	extcon_set_property_capability(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
