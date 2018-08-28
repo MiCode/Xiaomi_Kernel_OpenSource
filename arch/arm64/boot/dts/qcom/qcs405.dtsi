@@ -810,7 +810,7 @@
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 
 			label = "wcnss";
-			qcom,glink-label = "wcnss";
+			qcom,glink-label = "mpss";
 
 			qcom,wcnss_qrtr {
 				qcom,glink-channels = "IPCRTR";
