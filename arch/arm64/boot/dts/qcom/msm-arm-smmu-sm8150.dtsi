@@ -23,7 +23,6 @@
 		qcom,dynamic;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
-		qcom,no-asid-retention;
 		qcom,disable-atos;
 		#global-interrupts = <1>;
 		qcom,regulator-names = "vdd";
@@ -72,7 +71,6 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
-		qcom,no-asid-retention;
 		qcom,disable-atos;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
