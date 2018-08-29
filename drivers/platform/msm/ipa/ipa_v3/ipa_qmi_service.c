@@ -849,6 +849,12 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 		return -EINVAL;
 	}
 
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		IPAWANDBG("Simulating success on emu/virt mode\n");
+		return 0;
+	}
+
 	req_desc.max_msg_len =
 	QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_V01;
@@ -896,6 +902,12 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 	if (!req) {
 		IPAWANERR("invalid params\n");
 		return -EINVAL;
+	}
+
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+		ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		IPAWANDBG("Simulating success on emu/virt mode\n");
+		return 0;
 	}
 
 	req_desc.max_msg_len =
