@@ -69,8 +69,7 @@ struct dp_hpd {
 	bool multi_func;
 
 	void (*isr)(struct dp_hpd *dp_hpd, int event);
-	int (*simulate_connect)(struct dp_hpd *dp_hpd, bool hpd,
-			int orientation);
+	int (*simulate_connect)(struct dp_hpd *dp_hpd, bool hpd);
 	int (*simulate_attention)(struct dp_hpd *dp_hpd, int vdo);
 };
 
