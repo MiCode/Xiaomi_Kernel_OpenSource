@@ -252,4 +252,29 @@ static inline int fscrypt_encrypt_symlink(struct inode *inode,
 	return 0;
 }
 
+/* fscrypt_ice.c */
+#ifdef CONFIG_PFK
+extern int fscrypt_using_hardware_encryption(const struct inode *inode);
+extern void fscrypt_set_ice_dun(const struct inode *inode,
+	struct bio *bio, u64 dun);
+extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted);
+#else
+static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
+{
+	return 0;
+}
+
+static inline void fscrypt_set_ice_dun(const struct inode *inode,
+	struct bio *bio, u64 dun)
+{
+	return;
+}
+
+static inline bool fscrypt_mergeable_bio(struct bio *bio,
+	u64 dun, bool bio_encrypted)
+{
+	return true;
+}
+#endif
+
 #endif	/* _LINUX_FSCRYPT_H */
