@@ -200,8 +200,7 @@ struct glink_spi {
 
 	struct wcd_spi_ops spi_ops;
 	struct glink_cmpnt cmpnt;
-	u32 activity_flag;
-	spinlock_t activity_lock;
+	atomic_t activity_cnt;
 	atomic_t in_reset;
 
 	void *ilc;
@@ -298,21 +297,6 @@ static void glink_spi_rx_done_work(struct work_struct *work);
 static void glink_spi_remove(struct glink_spi *glink);
 
 /**
- * spi_suspend() - Vote for the spi device suspend
- * @cmpnt:	Component to identify the spi device.
- *
- * Return: 0 on success, standard Linux error codes on failure.
- */
-static int spi_suspend(struct glink_cmpnt *cmpnt)
-{
-	if (!cmpnt || !cmpnt->master_dev || !cmpnt->master_ops ||
-	    !cmpnt->master_ops->suspend)
-		return 0;
-
-	return cmpnt->master_ops->suspend(cmpnt->master_dev);
-}
-
-/**
  * spi_resume() - Vote for the spi device resume
  * @cmpnt:	Component to identify the spi device.
  *
@@ -337,12 +321,7 @@ static int spi_resume(struct glink_cmpnt *cmpnt)
  */
 static void glink_spi_xprt_set_poll_mode(struct glink_spi *glink)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag |= ACTIVE_RX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
+	atomic_inc(&glink->activity_cnt);
 	spi_resume(&glink->cmpnt);
 }
 
@@ -355,13 +334,7 @@ static void glink_spi_xprt_set_poll_mode(struct glink_spi *glink)
  */
 static void glink_spi_xprt_set_irq_mode(struct glink_spi *glink)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag &= ~ACTIVE_RX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
-	spi_suspend(&glink->cmpnt);
+	atomic_dec(&glink->activity_cnt);
 }
 
 static struct glink_channel *glink_spi_alloc_channel(struct glink_spi *glink,
@@ -1259,11 +1232,8 @@ static int __glink_spi_send(struct glink_channel *channel,
 
 	CH_INFO(channel, "size:%d, wait:%d\n", len, wait);
 
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag |= ACTIVE_TX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
-	kref_get(&channel->refcount);
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
 	while (!intent) {
 		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_for_each_entry(&channel->riids, tmp, iid) {
@@ -1315,11 +1285,8 @@ tx_exit:
 	/* Mark intent available if we failed */
 	if (ret && intent)
 		intent->in_use = false;
-	kref_put(&channel->refcount, glink_spi_channel_release);
 
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag &= ~ACTIVE_TX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
+	atomic_dec(&glink->activity_cnt);
 
 	return ret;
 }
@@ -1402,6 +1369,9 @@ static void glink_spi_rx_done_work(struct work_struct *work)
 	struct glink_core_rx_intent *intent, *tmp;
 	unsigned long flags;
 
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
+
 	spin_lock_irqsave(&channel->intent_lock, flags);
 	list_for_each_entry_safe(intent, tmp, &channel->done_intents, node) {
 		list_del(&intent->node);
@@ -1412,6 +1382,8 @@ static void glink_spi_rx_done_work(struct work_struct *work)
 		spin_lock_irqsave(&channel->intent_lock, flags);
 	}
 	spin_unlock_irqrestore(&channel->intent_lock, flags);
+
+	atomic_dec(&glink->activity_cnt);
 }
 
 static void glink_spi_rx_done(struct glink_spi *glink,
@@ -2053,6 +2025,8 @@ static void glink_spi_defer_work(struct work_struct *work)
 	unsigned int param4;
 	unsigned int cmd;
 
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
 	for (;;) {
 		spin_lock_irqsave(&glink->rx_lock, flags);
 		if (list_empty(&glink->rx_queue)) {
@@ -2088,6 +2062,7 @@ static void glink_spi_defer_work(struct work_struct *work)
 
 		kfree(dcmd);
 	}
+	atomic_dec(&glink->activity_cnt);
 }
 
 static int glink_spi_rx_defer(struct glink_spi *glink,
@@ -2267,7 +2242,7 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 {
 	struct glink_spi *glink = dev_get_drvdata(dev);
 	struct glink_cmpnt *cmpnt = &glink->cmpnt;
-	int ret;
+	int ret = 0;
 
 	switch (event) {
 	case WDSP_EVENT_PRE_BOOTUP:
@@ -2296,13 +2271,15 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 	case WDSP_EVENT_RESUME:
 		break;
 	case WDSP_EVENT_SUSPEND:
+		if (atomic_read(&glink->activity_cnt))
+			ret = -EBUSY;
 		break;
 	default:
 		GLINK_INFO(glink, "unhandled event %d", event);
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 /* glink_spi_cmpnt_ops - Callback operations registered wtih wdsp framework */
@@ -2424,8 +2401,7 @@ struct glink_spi *qcom_glink_spi_register(struct device *parent,
 	idr_init(&glink->rcids);
 
 	atomic_set(&glink->in_reset, 1);
-	glink->activity_flag = 0;
-	spin_lock_init(&glink->activity_lock);
+	atomic_set(&glink->activity_cnt, 0);
 
 	ret = glink_spi_init_pipe("tx-descriptors", node, &glink->tx_pipe);
 	if (ret)
