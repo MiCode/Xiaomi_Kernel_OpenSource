@@ -1431,8 +1431,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			goto end;
 		}
 
-		sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
-		sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		if (sde_cfg->has_decimation) {
+			sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
+			sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		} else {
+			sblk->maxhdeciexp = 0;
+			sblk->maxvdeciexp = 0;
+		}
 
 		sspp->xin_id = PROP_VALUE_ACCESS(prop_value, SSPP_XIN, i);
 		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
@@ -3575,6 +3580,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 21;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_MSM8998_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
@@ -3582,6 +3588,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 1;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM845_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_cwb_support = true;
@@ -3592,6 +3599,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_block_xin_mask = 0x3F71;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM670_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
@@ -3599,6 +3607,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3614,6 +3623,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_3d_merge_reset = true;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMSHRIKE_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
@@ -3623,6 +3633,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->delay_prg_fetch_start = true;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3633,6 +3644,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->delay_prg_fetch_start = true;
 		sde_cfg->sui_ns_allowed = true;
 		sde_cfg->sui_misr_supported = true;
+		sde_cfg->has_decimation = true;
 		sde_cfg->sui_block_xin_mask = 0x2EE1;
 		clear_bit(MDSS_INTR_LTM_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_LTM_1_INTR, sde_cfg->mdss_irqs);
