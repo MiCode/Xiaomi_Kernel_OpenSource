@@ -604,6 +604,8 @@
 
 &mdss_mdp {
 	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	qcom,sde-mixer-display-pref = "primary", "none", "none",
+				"none", "none", "none";
 };
 
 #include <dt-bindings/gpio/gpio.h>
