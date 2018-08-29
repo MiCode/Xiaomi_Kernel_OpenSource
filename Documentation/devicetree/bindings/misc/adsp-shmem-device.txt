@@ -1,0 +1,11 @@
+ADSP shared memory device driver for ADSP fast boot camera
+
+Required properties:
+-  memory-region : start address and size of the shared memory region
+
+Example:
+	qcom,adsp {
+		status = "ok";
+		compatible = "adsp-shmem-device";
+		memory-region = <&adsp_shmem_device_mem>;
+		};
