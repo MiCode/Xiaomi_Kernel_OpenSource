@@ -217,6 +217,9 @@ config USB_F_PRINTER
 config USB_F_TCM
 	tristate
 
+config USB_F_DIAG
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -484,6 +487,15 @@ config USB_CONFIGFS_F_TCM
 	  Both protocols can work on USB2.0 and USB3.0.
 	  UAS utilizes the USB 3.0 feature called streams support.
 
+config USB_CONFIGFS_F_DIAG
+	bool "USB Diag function"
+	select USB_F_DIAG
+	depends on USB_CONFIGFS
+	help
+	  Diag function driver enables support for diagnostics service over USB.
+	  Diagnostics application running on Host receives  stream of log data
+	  over USB. Applications can also send commands to diagnostics client
+	  running on device.
 choice
 	tristate "USB Gadget precomposed configurations"
 	default USB_ETH
