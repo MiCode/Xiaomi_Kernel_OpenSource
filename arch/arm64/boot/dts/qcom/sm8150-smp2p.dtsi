@@ -131,6 +131,11 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_qvrexternal5_out: qcom,smp2p-qvrexternal5-out {
+			qcom,entry-name = "qvrexternal";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	/* wlan - inbound entry from mss/WLAN PD */
