@@ -391,3 +391,12 @@
 				 <0x65 0x3400 0x303>;
 };
 
+&apps_smmu {
+	qcom,actlr =
+		/* HF0 and HF1 TBUs: +3 deep PF */
+		<0x800 0x7ff 0x103>,
+
+		/* SF TBU: +3 deep PF */
+		<0x2000 0x3ff 0x103>;
+};
+
