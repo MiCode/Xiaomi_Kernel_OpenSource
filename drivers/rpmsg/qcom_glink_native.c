@@ -293,7 +293,6 @@ static void qcom_glink_channel_release(struct kref *ref)
 
 	CH_INFO(channel, "\n");
 	wake_up(&channel->intent_req_event);
-	kthread_cancel_work_sync(&channel->intent_work);
 
 	spin_lock_irqsave(&channel->intent_lock, flags);
 	idr_destroy(&channel->liids);
@@ -1913,6 +1912,16 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 		dev_warn(glink->dev, "Can't remove GLINK devices: %d\n", ret);
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		/* cancel pending rx_done work for each channel*/
+		kthread_cancel_work_sync(&channel->intent_work);
+		spin_lock_irqsave(&glink->idr_lock, flags);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
+
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
 		kref_put(&channel->refcount, qcom_glink_channel_release);
