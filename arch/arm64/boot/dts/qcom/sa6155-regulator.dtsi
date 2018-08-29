@@ -52,9 +52,9 @@
 		S3A: pm6155_1_s3: regulator-pm6155-1-s3 {
 			regulator-name = "pm6155_1_s3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1400000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <650000>;
+			qcom,init-voltage = <600000>;
 		};
 	};
 
@@ -65,9 +65,9 @@
 		S4A: pm6155_1_s4: regulator-pm6155-1-s4 {
 			regulator-name = "pm6155_1_s4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1400000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1829000>;
+			qcom,init-voltage = <1800000>;
 		};
 	};
 
@@ -78,9 +78,9 @@
 		S6A: pm6155_1_s6: regulator-pm6155-1-s6 {
 			regulator-name = "pm6155_1_s6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1400000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <947000>;
+			regulator-max-microvolt = <1404000>;
+			qcom,init-voltage = <947000>;
 		};
 	};
 
