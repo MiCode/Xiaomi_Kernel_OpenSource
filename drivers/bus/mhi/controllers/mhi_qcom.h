@@ -29,6 +29,7 @@ struct mhi_dev {
 	bool powered_on;
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
+	bool lpm_disabled;
 };
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);
