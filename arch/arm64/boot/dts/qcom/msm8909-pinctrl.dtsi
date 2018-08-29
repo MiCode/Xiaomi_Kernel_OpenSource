@@ -1981,7 +1981,7 @@
 				config {
 					pins = "gpio4";
 					drive-strength = <8>;
-					bias-pull-none;
+					output-high;
 				};
 			};
 
@@ -1995,6 +1995,7 @@
 					pins = "gpio4";
 					drive-strength = <2>;
 					bias-disable;
+					output-low;
 				};
 			};
 
@@ -2007,7 +2008,7 @@
 				config {
 					pins = "gpio5";
 					drive-strength = <8>;
-					bias-pull-none;
+					input-enable;
 				};
 			};
 
@@ -2080,6 +2081,62 @@
 					pins = "gpio97";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+		};
+
+		amp_mute {
+			label = "amp_mute";
+			amp_mute_active: amp_mute_active {
+				mux {
+					pins = "gpio84";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio84";
+					drive-strength = <8>;   /* 8 MA */
+					bias-pull-up;           /*  PULL UP */
+					output-high;
+				};
+			};
+
+			amp_mute_sleep: amp_mute_sleep {
+				mux {
+					pins = "gpio84";
+					function = "gpio";
+				};
+				configs {
+					pins = "gpio84";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		ext_amp_ctrl {
+			label = "ext_amp_ctrl";
+			ext_amp_ctrl_active: ext_amp_ctrl_active {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio25";
+					drive-strength = <8>;   /* 8 MA */
+					bias-pull-up;           /*  PULL UP */
+					output-high;
+				};
+			};
+
+			ext_amp_ctrl_sleep: ext_amp_ctrl_sleep {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+				configs {
+					pins = "gpio25";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;         /* PULL DOWN */
 				};
 			};
 		};
