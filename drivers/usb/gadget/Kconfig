@@ -223,6 +223,9 @@ config USB_F_DIAG
 config USB_F_CDEV
 	tristate
 
+config USB_F_CCID
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -511,6 +514,18 @@ config USB_CONFIGFS_F_CDEV
 	  function also supports a single interrupt IN endpoint for
 	  asynchronous notification to the host. This driver is typically
 	  used to support DUN/NMEA functions.
+
+config USB_CONFIGFS_F_CCID
+	bool "USB CCID function"
+	select USB_F_CCID
+	depends on USB_CONFIGFS
+	help
+	  The Chip Card Interface Device (CCID) function implements a USB
+	  interface that exposes a standard CSCID class that consists of a
+	  pair of bulk IN and OUT endpoints and a single interrupt IN
+	  endpoint. This driver provides a character device interface
+	  allowing a userspace component to be able to provide the
+	  implementation necessary to interface with the smartcard.
 
 choice
 	tristate "USB Gadget precomposed configurations"
