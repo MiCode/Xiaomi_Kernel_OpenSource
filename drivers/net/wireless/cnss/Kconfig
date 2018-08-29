@@ -61,6 +61,19 @@ config CLD_DEBUG
 	  Say N, if you are building a release kernel for production use.
 	  Only say Y, if you are building a kernel with debug support.
 
+config CLD_USB_CORE
+	tristate "Qualcomm Technologies Inc. Core wlan driver for QCA USB interface"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	select NL80211_TESTMODE
+	---help---
+	  This section contains the necessary modules needed to enable the
+	  core WLAN driver for Qualcomm Technologies Inc USB wlan chipset.
+	  Select Y to compile the driver in order to have WLAN functionality
+	  support.
+
 config CLD_HL_SDIO_CORE
 	tristate "Qualcomm Technologies Inc. Core wlan driver for QCA SDIO interface"
 	select WIRELESS_EXT

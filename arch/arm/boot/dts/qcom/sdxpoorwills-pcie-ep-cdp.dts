@@ -21,3 +21,6 @@
 	qcom,board-id = <1 0x106>;
 };
 
+&blsp1_uart2b_hs {
+	status = "okay";
+};

@@ -1462,6 +1462,9 @@ int dp_display_get_displays(void **displays, int count)
 
 int dp_display_get_num_of_displays(void)
 {
+	if (!g_dp_display)
+		return 0;
+
 	return 1;
 }
 

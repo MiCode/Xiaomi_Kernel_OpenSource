@@ -139,9 +139,9 @@
 #define QPNP_VADC_HC1_ADC_CH_SEL_CTL				0x44
 #define QPNP_VADC_HC1_DELAY_CTL					0x45
 #define QPNP_VADC_HC1_DELAY_CTL_MASK				0xf
-#define QPNP_VADC_MC1_EN_CTL1					0x46
+#define QPNP_VADC_HC1_EN_CTL1					0x46
 #define QPNP_VADC_HC1_ADC_EN					BIT(7)
-#define QPNP_VADC_MC1_CONV_REQ					0x47
+#define QPNP_VADC_HC1_CONV_REQ					0x47
 #define QPNP_VADC_HC1_CONV_REQ_START				BIT(7)
 
 #define QPNP_VADC_HC1_VBAT_MIN_THR0				0x48
@@ -421,6 +421,32 @@ static int qpnp_vadc_hc_read_data(struct qpnp_vadc_chip *vadc, int *data)
 	return rc;
 }
 
+static int qpnp_vadc_wait_for_eoc(struct qpnp_vadc_chip *vadc)
+{
+	int ret;
+
+	if (vadc->vadc_poll_eoc) {
+		ret = qpnp_vadc_hc_check_conversion_status(vadc);
+		if (ret < 0) {
+			pr_err("polling mode conversion failed\n");
+			return ret;
+		}
+	} else {
+		ret = wait_for_completion_timeout(
+			&vadc->adc->adc_rslt_completion,
+			QPNP_ADC_COMPLETION_TIMEOUT);
+		if (!ret) {
+			ret = qpnp_vadc_hc_check_conversion_status(vadc);
+			if (ret < 0) {
+				pr_err("interrupt mode conversion failed\n");
+				return ret;
+			}
+			pr_debug("End of conversion status set\n");
+		}
+	}
+	return ret;
+}
+
 static void qpnp_vadc_hc_update_adc_dig_param(struct qpnp_vadc_chip *vadc,
 			struct qpnp_adc_amux_properties *amux_prop, u8 *data)
 {
@@ -437,6 +463,78 @@ static void qpnp_vadc_hc_update_adc_dig_param(struct qpnp_vadc_chip *vadc,
 	*data |= (amux_prop->decimation << QPNP_VADC_HC1_DEC_RATIO_SHIFT);
 
 	pr_debug("VADC_DIG_PARAM value:0x%x\n", *data);
+}
+
+static int qpnp_vadc_hc_pre_configure_usb_in(struct qpnp_vadc_chip *vadc,
+						int dt_index)
+{
+	int rc = 0;
+	u8 buf;
+	u8 dig_param = 0;
+	struct qpnp_adc_amux_properties conv;
+
+	/* Setup dig params for USB_IN_V */
+	conv.decimation = DECIMATION_TYPE2;
+	conv.cal_val = ADC_HC_ABS_CAL;
+	conv.calib_type = vadc->adc->adc_channels[dt_index].calib_type;
+
+	qpnp_vadc_hc_update_adc_dig_param(vadc, &conv, &dig_param);
+
+	/* Increase calib interval and wait for other conversions to complete */
+	buf = QPNP_VADC_CAL_DELAY_MEAS_SLOW;
+	rc = regmap_bulk_write(vadc->adc->regmap,
+			QPNP_VADC_CAL_DELAY_CTL_1, &buf, 1);
+	if (rc < 0) {
+		pr_err("qpnp adc write cal_delay failed with %d\n", rc);
+		return rc;
+	}
+	msleep(20);
+
+	/* Read GND first */
+	buf = VADC_VREF_GND;
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_CH_SEL_CTL, &buf, 1);
+	if (rc < 0)
+		return rc;
+
+	buf = QPNP_VADC_HC1_ADC_EN;
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_EN_CTL1, &buf, 1);
+	if (rc < 0)
+		return rc;
+
+	if (!vadc->vadc_poll_eoc)
+		reinit_completion(&vadc->adc->adc_rslt_completion);
+
+	buf = QPNP_VADC_HC1_CONV_REQ_START;
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_CONV_REQ, &buf, 1);
+	if (rc < 0)
+		return rc;
+
+	/* Pre-configure USB_IN_V request */
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_DIG_PARAM,
+				&dig_param, 1);
+	if (rc < 0)
+		return rc;
+
+	buf = VADC_USB_IN_V_DIV_16_PM5;
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_ADC_CH_SEL_CTL, &buf, 1);
+	if (rc < 0)
+		return rc;
+
+	/* Wait for GND read to complete */
+	rc = qpnp_vadc_wait_for_eoc(vadc);
+	if (rc < 0)
+		return rc;
+
+	if (!vadc->vadc_poll_eoc)
+		reinit_completion(&vadc->adc->adc_rslt_completion);
+
+	/* Start USB_IN_V read */
+	buf = QPNP_VADC_HC1_CONV_REQ_START;
+	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_CONV_REQ, &buf, 1);
+	if (rc < 0)
+		return rc;
+
+	return 0;
 }
 
 static int qpnp_vadc_hc_configure(struct qpnp_vadc_chip *vadc,
@@ -494,7 +592,7 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 {
 	int rc = 0, scale_type, amux_prescaling, dt_index = 0, calib_type = 0;
 	u8 val = QPNP_VADC_CAL_DELAY_MEAS_SLOW;
-	struct qpnp_adc_amux_properties amux_prop, conv;
+	struct qpnp_adc_amux_properties amux_prop;
 
 	if (qpnp_vadc_is_valid(vadc))
 		return -EPROBE_DEFER;
@@ -532,69 +630,37 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 
 	if (channel == VADC_USB_IN_V_DIV_16_PM5 &&
 			vadc->adc->adc_prop->is_pmic_5) {
-		rc = regmap_bulk_write(vadc->adc->regmap,
-				QPNP_VADC_CAL_DELAY_CTL_1, &val, 1);
+		rc = qpnp_vadc_hc_pre_configure_usb_in(vadc, dt_index);
 		if (rc < 0) {
-			pr_err("qpnp adc write cal_delay failed with %d\n", rc);
-			return rc;
-		}
-		msleep(20);
-
-		conv.amux_channel = VADC_VREF_GND;
-		conv.decimation = DECIMATION_TYPE2;
-		conv.mode_sel = ADC_OP_NORMAL_MODE << QPNP_VADC_OP_MODE_SHIFT;
-		conv.hw_settle_time = ADC_CHANNEL_HW_SETTLE_DELAY_0US;
-		conv.fast_avg_setup = ADC_FAST_AVG_SAMPLE_1;
-		conv.cal_val = ADC_HC_ABS_CAL;
-
-		rc = qpnp_vadc_hc_configure(vadc, &conv);
-		if (rc) {
-			pr_err("qpnp_vadc configure failed with %d\n", rc);
-			goto fail_unlock;
-		}
-
-	}
-
-	amux_prop.decimation =
-			vadc->adc->adc_channels[dt_index].adc_decimation;
-	amux_prop.calib_type = vadc->adc->adc_channels[dt_index].calib_type;
-	amux_prop.cal_val = vadc->adc->adc_channels[dt_index].cal_val;
-	amux_prop.fast_avg_setup =
-			vadc->adc->adc_channels[dt_index].fast_avg_setup;
-	amux_prop.amux_channel = channel;
-	amux_prop.hw_settle_time =
-			vadc->adc->adc_channels[dt_index].hw_settle_time;
-
-	rc = qpnp_vadc_hc_configure(vadc, &amux_prop);
-	if (rc < 0) {
-		pr_err("Configuring VADC channel failed with %d\n", rc);
-		goto fail_unlock;
-	}
-
-	if (vadc->vadc_poll_eoc) {
-		rc = qpnp_vadc_hc_check_conversion_status(vadc);
-		if (rc < 0) {
-			pr_err("polling mode conversion failed\n");
+			pr_err("Configuring VADC channel failed with %d\n", rc);
 			goto fail_unlock;
 		}
 	} else {
-		rc = wait_for_completion_timeout(
-					&vadc->adc->adc_rslt_completion,
-					QPNP_ADC_COMPLETION_TIMEOUT);
-		if (!rc) {
-			rc = qpnp_vadc_hc_check_conversion_status(vadc);
-			if (rc < 0) {
-				pr_err("interrupt mode conversion failed\n");
-				goto fail_unlock;
-			}
-			pr_debug("End of conversion status set\n");
+		amux_prop.decimation =
+			vadc->adc->adc_channels[dt_index].adc_decimation;
+		amux_prop.calib_type =
+			vadc->adc->adc_channels[dt_index].calib_type;
+		amux_prop.cal_val = vadc->adc->adc_channels[dt_index].cal_val;
+		amux_prop.fast_avg_setup =
+			vadc->adc->adc_channels[dt_index].fast_avg_setup;
+		amux_prop.amux_channel = channel;
+		amux_prop.hw_settle_time =
+			vadc->adc->adc_channels[dt_index].hw_settle_time;
+
+		rc = qpnp_vadc_hc_configure(vadc, &amux_prop);
+		if (rc < 0) {
+			pr_err("Configuring VADC channel failed with %d\n", rc);
+			goto fail_unlock;
 		}
 	}
 
-	val = QPNP_VADC_CAL_DELAY_MEAS_DEFAULT;
+	rc = qpnp_vadc_wait_for_eoc(vadc);
+	if (rc < 0)
+		goto fail_unlock;
 
 	if (channel == VADC_USB_IN_V_DIV_16_PM5 &&
 			vadc->adc->adc_prop->is_pmic_5) {
+		val = QPNP_VADC_CAL_DELAY_MEAS_DEFAULT;
 		rc = regmap_bulk_write(vadc->adc->regmap,
 				QPNP_VADC_CAL_DELAY_CTL_1, &val, 1);
 		if (rc < 0) {

@@ -105,7 +105,8 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 	    filenames_mode == FS_ENCRYPTION_MODE_SPECK128_256_CTS)
 		return true;
 
-	if (contents_mode == FS_ENCRYPTION_MODE_PRIVATE)
+	if (contents_mode == FS_ENCRYPTION_MODE_PRIVATE &&
+	    filenames_mode == FS_ENCRYPTION_MODE_AES_256_CTS)
 		return true;
 
 	return false;

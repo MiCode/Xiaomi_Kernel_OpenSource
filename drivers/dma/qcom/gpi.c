@@ -559,6 +559,7 @@ static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 {
 	u64 time = sched_clock();
 	unsigned int index = atomic_inc_return(&gpii->dbg_index) - 1;
+	unsigned long offset = addr - gpii->regs;
 	u32 val;
 
 	val = readl_relaxed(addr);
@@ -568,13 +569,14 @@ static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 	(gpii->dbg_log + index)->val = val;
 	(gpii->dbg_log + index)->read = true;
 	GPII_REG(gpii, GPI_DBG_COMMON, "offset:0x%lx val:0x%x\n",
-		 addr - gpii->regs, val);
+		offset, val);
 	return val;
 }
 static inline void gpi_write_reg(struct gpii *gpii, void __iomem *addr, u32 val)
 {
 	u64 time = sched_clock();
 	unsigned int index = atomic_inc_return(&gpii->dbg_index) - 1;
+	unsigned long offset = addr - gpii->regs;
 
 	index &= (GPI_DBG_LOG_SIZE - 1);
 	(gpii->dbg_log + index)->addr = addr;
@@ -583,7 +585,7 @@ static inline void gpi_write_reg(struct gpii *gpii, void __iomem *addr, u32 val)
 	(gpii->dbg_log + index)->read = false;
 
 	GPII_REG(gpii, GPI_DBG_COMMON, "offset:0x%lx  val:0x%x\n",
-		 addr - gpii->regs, val);
+		offset, val);
 	writel_relaxed(val, addr);
 }
 #else
@@ -1244,11 +1246,13 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 
 	/* Event TR RP gen. don't match descriptor TR */
 	if (gpi_desc->wp != tre) {
+		phys_addr_t p_wp = to_physical(ch_ring, gpi_desc->wp);
+		phys_addr_t p_tre = to_physical(ch_ring, tre);
+
 		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
-			 "EOT/EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
-			 to_physical(ch_ring, gpi_desc->wp),
-			 to_physical(ch_ring, tre));
+			 "EOT/EOB received for wrong TRE %pa != %pa\n",
+			 &p_wp, &p_tre);
 		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
 				      __LINE__);
 		return;
@@ -1331,11 +1335,13 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 
 	/* TRE Event generated didn't match descriptor's TRE */
 	if (gpi_desc->wp != ev_rp) {
+		phys_addr_t p_wp = to_physical(ch_ring, gpi_desc->wp);
+		phys_addr_t p_ev_rp = to_physical(ch_ring, ev_rp);
+
 		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
-			 "EOT\EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
-			 to_physical(ch_ring, gpi_desc->wp),
-			 to_physical(ch_ring, ev_rp));
+			 "EOT\EOB received for wrong TRE %pa != %pa\n",
+			 &p_wp, &p_ev_rp);
 		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
 				      __LINE__);
 		return;
@@ -1588,12 +1594,12 @@ static int gpi_alloc_chan(struct gpii_chan *gpii_chan, bool send_alloc_cmd)
 		{
 			gpii_chan->ch_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring),
 		},
 		{ /* program MSB of DB register with ring base */
 			gpii_chan->ch_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring),
 		},
 		{
 			gpii->regs,
@@ -1682,13 +1688,13 @@ static int gpi_alloc_ev_chan(struct gpii *gpii)
 		{
 			gpii->ev_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring),
 		},
 		{
 			/* program db msg with ring base msb */
 			gpii->ev_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring),
 		},
 		{
 			gpii->ev_cntxt_base_reg,
@@ -1825,7 +1831,7 @@ static int gpi_alloc_ring(struct gpi_ring *ring,
 	len = 1 << bit;
 	ring->alloc_size = (len + (len - 1));
 	GPII_INFO(gpii, GPI_DBG_COMMON,
-		  "#el:%u el_size:%u len:%u actual_len:%llu alloc_size:%lu\n",
+		  "#el:%u el_size:%u len:%u actual_len:%llu alloc_size:%zx\n",
 		  elements, el_size, (elements * el_size), len,
 		  ring->alloc_size);
 	ring->pre_aligned = dma_alloc_coherent(gpii->gpi_dev->dev,
@@ -1833,7 +1839,7 @@ static int gpi_alloc_ring(struct gpi_ring *ring,
 					       &ring->dma_handle, GFP_KERNEL);
 	if (!ring->pre_aligned) {
 		GPII_CRITIC(gpii, GPI_DBG_COMMON,
-			    "could not alloc size:%lu mem for ring\n",
+			    "could not alloc size:%zx mem for ring\n",
 			    ring->alloc_size);
 		return -ENOMEM;
 	}
@@ -1853,8 +1859,8 @@ static int gpi_alloc_ring(struct gpi_ring *ring,
 	smp_wmb();
 
 	GPII_INFO(gpii, GPI_DBG_COMMON,
-		  "phy_pre:0x%0llx phy_alig:0x%0llx len:%u el_size:%u elements:%u\n",
-		  ring->dma_handle, ring->phys_addr, ring->len, ring->el_size,
+		  "phy_pre:%pad phy_alig:%pa len:%u el_size:%u elements:%u\n",
+		  &ring->dma_handle, &ring->phys_addr, ring->len, ring->el_size,
 		  ring->elements);
 
 	return 0;
@@ -2064,6 +2070,10 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	void *tre, *wp = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
+#ifdef CONFIG_QCOM_GPI_DMA_DEBUG
+	phys_addr_t p_wp, p_rp;
+#endif
+
 
 	GPII_VERB(gpii, gpii_chan->chid, "enter\n");
 
@@ -2106,9 +2116,12 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	gpi_desc->db = ch_ring->wp;
 	gpi_desc->wp = wp;
 	gpi_desc->gpii_chan = gpii_chan;
-	GPII_VERB(gpii, gpii_chan->chid, "exit wp:0x%0llx rp:0x%0llx\n",
-		  to_physical(ch_ring, ch_ring->wp),
-		  to_physical(ch_ring, ch_ring->rp));
+#ifdef CONFIG_QCOM_GPI_DMA_DEBUG
+	p_wp = to_physical(ch_ring, ch_ring->wp);
+	p_rp = to_physical(ch_ring, ch_ring->rp);
+#endif
+	GPII_VERB(gpii, gpii_chan->chid, "exit wp:%pa rp:%pa\n",
+			&p_wp, &p_rp);
 
 	return vchan_tx_prep(&gpii_chan->vc, &gpi_desc->vd, flags);
 }
@@ -2558,8 +2571,8 @@ static struct dma_iommu_mapping *gpi_create_mapping(struct gpi_dev *gpi_dev)
 		size = gpi_dev->iova_size;
 	}
 
-	GPI_LOG(gpi_dev, "Creating iommu mapping of base:0x%llx size:%lu\n",
-		base, size);
+	GPI_LOG(gpi_dev, "Creating iommu mapping of base:%pad size:%zx\n",
+		&base, size);
 
 	return arm_iommu_create_mapping(&platform_bus_type, base, size);
 }

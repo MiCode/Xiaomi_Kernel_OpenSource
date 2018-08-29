@@ -20,5 +20,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. QC605 LC Groot + PM8005 IPC";
 	compatible = "qcom,qcs605-mtp", "qcom,qcs605", "qcom,mtp";
-	qcom,board-id = <8 6>;
+	qcom,board-id = <0x020208 4>;
 };

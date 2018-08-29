@@ -44,18 +44,6 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 		return rc;
 	}
 
-
-	soc_private->hw_version = 0;
-	rc = of_property_read_u32(of_node,
-		"qcom,cpas-hw-ver", &soc_private->hw_version);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "device %s failed to read cpas-hw-ver",
-			pdev->name);
-		return rc;
-	}
-
-	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_private->hw_version);
-
 	soc_private->camnoc_axi_min_ib_bw = 0;
 	rc = of_property_read_u64(of_node,
 		"camnoc-axi-min-ib-bw",

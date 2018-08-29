@@ -1345,39 +1345,65 @@
 			};
 		};
 
-		pmx_rd_nfc_int {
-			/*qcom,pins = <&gp 17>;*/
-			pins = "gpio17";
-			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <1>;
-			label = "pmx_nfc_int";
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 17 NFC Read Interrupt */
+					pins = "gpio17";
+					function = "gpio";
+				};
 
-			nfc_int_active: active {
-				drive-strength = <6>;
-				bias-pull-up;
+				config {
+					pins = "gpio17";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
 			};
 
-			nfc_int_suspend: suspend {
-				drive-strength = <6>;
-				bias-pull-up;
-			};
-		};
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 17 NFC Read Interrupt */
+					pins = "gpio17";
+					function = "gpio";
+				};
 
-		pmx_nfc_reset {
-			/*qcom,pins = <&gp 16>;*/
-			pins = "gpio16";
-			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <1>;
-			label = "pmx_nfc_disable";
-
-			nfc_disable_active: active {
-				drive-strength = <6>;
-				bias-pull-up;
+				config {
+					pins = "gpio17";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
 			};
 
-			nfc_disable_suspend: suspend {
-				drive-strength = <6>;
-				bias-disable;
+			nfc_disable_active: nfc_disable_active {
+				/* active state */
+				mux {
+					/* 16: NFC ENABLE 130: FW DNLD */
+					pins = "gpio16", "gpio130";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio16", "gpio130";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_disable_suspend: nfc_disable_suspend {
+				/* sleep state */
+				mux {
+					/* 16: NFC ENABLE 130: FW DNLD */
+					pins = "gpio16", "gpio130";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio16", "gpio130";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
 			};
 		};
 

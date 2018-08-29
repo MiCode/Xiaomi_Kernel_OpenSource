@@ -68,14 +68,6 @@
 					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
-				system {
-					compatible = "android,system";
-					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
-					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,avb";
-					status = "ok";
-				};
 			};
 		};
 	};
@@ -94,19 +86,19 @@
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86800000 0x0 0x5000000>;
+			reg = <0x0 0x86800000 0x0 0x5500000>;
 		};
 
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8b800000 0x0 0x1100000>;
+			reg = <0x0 0x8bd00000 0x0 0x1100000>;
 		};
 
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8c900000 0x0 0x700000>;
+			reg = <0x0 0x8ce00000 0x0 0x700000>;
 		};
 
 		venus_mem: venus_region@0 {

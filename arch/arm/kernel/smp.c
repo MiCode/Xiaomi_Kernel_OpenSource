@@ -47,6 +47,7 @@
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
 #include <asm/mpu.h>
+#include <asm/cputype.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -359,6 +360,7 @@ asmlinkage void secondary_start_kernel(void)
 	 * The identity mapping is uncached (strongly ordered), so
 	 * switch away from it before attempting any exclusive accesses.
 	 */
+	arm_init_bp_hardening();
 	cpu_switch_mm(mm->pgd, mm);
 	local_flush_bp_all();
 	enter_lazy_tlb(mm, current);

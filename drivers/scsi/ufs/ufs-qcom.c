@@ -727,6 +727,11 @@ static int ufs_qcom_config_vreg(struct device *dev,
 
 	reg = vreg->reg;
 	if (regulator_count_voltages(reg) > 0) {
+		uA_load = on ? vreg->max_uA : 0;
+		ret = regulator_set_load(vreg->reg, uA_load);
+		if (ret)
+			goto out;
+
 		min_uV = on ? vreg->min_uV : 0;
 		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
 		if (ret) {
@@ -734,11 +739,6 @@ static int ufs_qcom_config_vreg(struct device *dev,
 					__func__, vreg->name, ret);
 			goto out;
 		}
-
-		uA_load = on ? vreg->max_uA : 0;
-		ret = regulator_set_load(vreg->reg, uA_load);
-		if (ret)
-			goto out;
 	}
 out:
 	return ret;
@@ -897,17 +897,16 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 		req = lrbp->cmd->request;
 	else
 		return 0;
-	/*
-	 * Right now ICE do not support variable dun but can be
-	 * taken as future enhancement
-	 * if (bio_dun(req->bio)) {
-	 *      dun @bio can be split, so we have to adjust offset
-	 *      *dun = bio_dun(req->bio);
-	 * } else
-	 */
+
+	/* Use request LBA or given dun as the DUN value */
 	if (req->bio) {
-		*dun = req->bio->bi_iter.bi_sector;
-		*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+		if (bio_dun(req->bio)) {
+			/* dun @bio can be split, so we have to adjust offset */
+			*dun = bio_dun(req->bio);
+		} else {
+			*dun = req->bio->bi_iter.bi_sector;
+			*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
+		}
 	}
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);

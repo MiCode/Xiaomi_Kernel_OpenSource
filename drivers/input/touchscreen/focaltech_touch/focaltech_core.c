@@ -514,11 +514,11 @@ static int fts_input_dev_report_b(struct ts_event *event,
 #endif
 		} else {
 			uppoint++;
-			input_mt_report_slot_state(data->input_dev,
-						MT_TOOL_FINGER, false);
 #if FTS_REPORT_PRESSURE_EN
 			input_report_abs(data->input_dev, ABS_MT_PRESSURE, 0);
 #endif
+			input_mt_report_slot_state(data->input_dev,
+						MT_TOOL_FINGER, false);
 			data->touchs &= ~BIT(event->au8_finger_id[i]);
 			FTS_DEBUG("[B]P%d UP!", event->au8_finger_id[i]);
 		}

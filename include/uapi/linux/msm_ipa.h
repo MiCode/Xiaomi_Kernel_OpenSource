@@ -520,7 +520,13 @@ enum ipa_vlan_bridge_event {
 	BRIDGE_VLAN_MAPPING_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (BRIDGE_VLAN_MAPPING_MAX)
+enum ipa_wlan_fw_ssr_event {
+	WLAN_FWR_SSR_BEFORE_SHUTDOWN = BRIDGE_VLAN_MAPPING_MAX,
+	IPA_WLAN_FW_SSR_EVENT_MAX
+#define IPA_WLAN_FW_SSR_EVENT_MAX IPA_WLAN_FW_SSR_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_WLAN_FW_SSR_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -580,6 +586,9 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v3_5: IPA hardware version 3.5
  * @IPA_HW_v3_5_1: IPA hardware version 3.5.1
  * @IPA_HW_v4_0: IPA hardware version 4.0
+ * @IPA_HW_v4_1: IPA hardware version 4.1
+ * @IPA_HW_v4_2: IPA hardware version 4.2
+ * @IPA_HW_v4_5: IPA hardware version 4.5
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -595,10 +604,16 @@ enum ipa_hw_type {
 	IPA_HW_v3_5 = 12,
 	IPA_HW_v3_5_1 = 13,
 	IPA_HW_v4_0 = 14,
+	IPA_HW_v4_1 = 15,
+	IPA_HW_v4_2 = 16,
+	IPA_HW_v4_5 = 17,
 };
-#define IPA_HW_MAX (IPA_HW_v4_0 + 1)
+#define IPA_HW_MAX (IPA_HW_v4_5 + 1)
 
 #define IPA_HW_v4_0 IPA_HW_v4_0
+#define IPA_HW_v4_1 IPA_HW_v4_1
+#define IPA_HW_v4_2 IPA_HW_v4_2
+#define IPA_HW_v4_5 IPA_HW_v4_5
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering

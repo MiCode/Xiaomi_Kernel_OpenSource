@@ -37,6 +37,8 @@
 #include <linux/uio.h>
 #include <linux/atomic.h>
 #include <linux/prefetch.h>
+#define __FS_HAS_ENCRYPTION IS_ENABLED(CONFIG_F2FS_FS_ENCRYPTION)
+#include <linux/fscrypt.h>
 
 /*
  * How many user pages to map in one call to get_user_pages().  This determines
@@ -390,6 +392,21 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 	sdio->logical_offset_in_bio = sdio->cur_page_fs_offset;
 }
 
+static bool is_inode_filesystem_type(const struct inode *inode,
+					const char *fs_type)
+{
+	if (!inode || !fs_type)
+		return false;
+
+	if (!inode->i_sb)
+		return false;
+
+	if (!inode->i_sb->s_type)
+		return false;
+
+	return (strcmp(inode->i_sb->s_type->name, fs_type) == 0);
+}
+
 /*
  * In the AIO read case we speculatively dirty the pages before starting IO.
  * During IO completion, any of these pages which happen to have been written
@@ -412,6 +429,14 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 		bio_set_pages_dirty(bio);
 
 	bio->bi_dio_inode = dio->inode;
+
+/* iv sector for security/pfe/pfk_fscrypt.c and f2fs in fs/f2fs/f2fs.h.*/
+#define PG_DUN_NEW(i,p)                                            \
+	(((((u64)(i)->i_ino) & 0xffffffff) << 32) | ((p) & 0xffffffff))
+
+	if (is_inode_filesystem_type(dio->inode, "f2fs"))
+		fscrypt_set_ice_dun(dio->inode, bio, PG_DUN_NEW(dio->inode,
+			(sdio->logical_offset_in_bio >> PAGE_SHIFT)));
 	dio->bio_bdev = bio->bi_bdev;
 
 	if (sdio->submit_io) {

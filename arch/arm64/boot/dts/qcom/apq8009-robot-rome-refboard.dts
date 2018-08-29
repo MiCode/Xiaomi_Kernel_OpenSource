@@ -170,8 +170,8 @@
 		status = "ok";
 	};
 
-	bluetooth: bt_qca9379 {
-		compatible = "qca,qca9379";
+	bluetooth: bt_qc6174 {
+		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&msm_gpio 47 0>; /* BT_EN */
 	};
 
@@ -374,7 +374,7 @@
 };
 
 &blsp1_uart2_hs {
-	status = "disabled";
+	status = "okay";
 };
 
 /delete-node/ &cont_splash_mem;

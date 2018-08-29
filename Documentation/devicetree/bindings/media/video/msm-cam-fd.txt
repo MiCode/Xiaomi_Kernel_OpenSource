@@ -108,6 +108,11 @@ about the device register map, interrupt map, clocks, regulators.
   Value type: <string>
   Definition: Source clock name.
 
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
 - clock-cntl-level
   Usage: required
   Value type: <string>

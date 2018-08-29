@@ -306,10 +306,23 @@ static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg, int type)
 
 int bg_soft_reset(void)
 {
-	/*pull down reset gpio */
-	gpio_direction_output(bgreset_gpio, 0);
+	pr_debug("do BG reset using gpio %d\n", bgreset_gpio);
+	if (!gpio_is_valid(bgreset_gpio)) {
+		pr_err("gpio %d is not valid\n", bgreset_gpio);
+		return -ENXIO;
+	}
+	if (gpio_direction_output(bgreset_gpio, 1))
+		pr_err("gpio %d direction not set\n", bgreset_gpio);
+
+	/* Sleep for 50ms for hardware to detect signal as high */
+	msleep(50);
+
+	gpio_set_value(bgreset_gpio, 0);
+
+	/* Sleep for 50ms for hardware to detect signal as high */
 	msleep(50);
 	gpio_set_value(bgreset_gpio, 1);
+
 	return 0;
 }
 EXPORT_SYMBOL(bg_soft_reset);

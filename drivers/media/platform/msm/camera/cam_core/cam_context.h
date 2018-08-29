@@ -206,7 +206,6 @@ struct cam_context {
 
 	struct kref                  refcount;
 	void                        *node;
-	struct                       completion wait_complete;
 	struct mutex                 sync_mutex;
 };
 

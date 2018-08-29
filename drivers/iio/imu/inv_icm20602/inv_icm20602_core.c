@@ -33,6 +33,7 @@
 
 
 static struct regulator *reg_ldo;
+static struct inv_icm20602_state *st;
 
 /* Attribute of icm20602 device init show */
 static ssize_t inv_icm20602_init_show(struct device *dev,
@@ -382,9 +383,12 @@ static const struct iio_info icm20602_info = {
 	.validate_trigger = inv_icm20602_validate_trigger,
 };
 
-static int icm20602_ldo_work(struct inv_icm20602_state *st, bool enable)
+static int icm20602_ldo_work(bool enable)
 {
 	int ret = 0;
+
+	if (reg_ldo == NULL)
+		return MPU_FAIL;
 
 	if (enable) {
 		ret = regulator_set_voltage(reg_ldo,
@@ -465,7 +469,6 @@ static int of_populate_icm20602_dt(struct inv_icm20602_state *st)
 static int inv_icm20602_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	struct inv_icm20602_state *st;
 	struct iio_dev *indio_dev;
 	int result = MPU_SUCCESS;
 
@@ -507,7 +510,7 @@ static int inv_icm20602_probe(struct i2c_client *client,
 		goto out_remove_trigger;
 	}
 	icm20602_init_regulators(st);
-	icm20602_ldo_work(st, true);
+	icm20602_ldo_work(true);
 
 	result = inv_icm20602_probe_trigger(indio_dev);
 	if (result) {
@@ -551,20 +554,19 @@ static int inv_icm20602_remove(struct i2c_client *client)
 
 static int inv_icm20602_suspend(struct device *dev)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct inv_icm20602_state *st = iio_priv(indio_dev);
+	icm20602_ldo_work(false);
 
-	icm20602_stop_fifo(st);
-	icm20602_ldo_work(st, false);
 	return 0;
 }
 
 static int inv_icm20602_resume(struct device *dev)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct inv_icm20602_state *st = iio_priv(indio_dev);
+	int ret;
 
-	icm20602_ldo_work(st, true);
+	ret = icm20602_ldo_work(true);
+	if (ret == MPU_FAIL)
+		return 0;
+
 	icm20602_detect(st);
 	icm20602_init_device(st);
 	icm20602_start_fifo(st);

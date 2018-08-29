@@ -591,6 +591,7 @@ static int cam_req_mgr_remove(struct platform_device *pdev)
 	cam_v4l2_device_cleanup();
 	mutex_destroy(&g_dev.dev_lock);
 	g_dev.state = false;
+	g_dev.subdev_nodes_created = false;
 
 	return 0;
 }
@@ -599,7 +600,6 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 {
 	int rc;
 
-	CAM_ERR(CAM_CRM, "enter");
 	rc = cam_v4l2_device_setup(&pdev->dev);
 	if (rc)
 		return rc;
@@ -681,6 +681,7 @@ static struct platform_driver cam_req_mgr_driver = {
 		.name = "cam_req_mgr",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_req_mgr_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
@@ -725,7 +726,6 @@ create_fail:
 
 static int __init cam_req_mgr_init(void)
 {
-	CAM_ERR(CAM_CRM, "init");
 	return platform_driver_register(&cam_req_mgr_driver);
 }
 

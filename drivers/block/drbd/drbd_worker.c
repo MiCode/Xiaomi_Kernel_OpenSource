@@ -269,8 +269,8 @@ void drbd_request_endio(struct bio *bio)
 		what = COMPLETED_OK;
 	}
 
-	bio_put(req->private_bio);
 	req->private_bio = ERR_PTR(bio->bi_error);
+	bio_put(bio);
 
 	/* not req_mod(), we need irqsave here! */
 	spin_lock_irqsave(&device->resource->req_lock, flags);

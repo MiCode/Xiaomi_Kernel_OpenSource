@@ -108,6 +108,14 @@
 			};
 		};
 	};
+
+	gpu-virt-max-step {
+		trips {
+			gpu-trip0 {
+				temperature = <100000>;
+			};
+		};
+	};
 };
 
 &msm_gpu {

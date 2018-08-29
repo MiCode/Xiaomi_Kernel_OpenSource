@@ -1516,6 +1516,8 @@ int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 			ipa3_ctx->nat_mem.pdn_mem.size,
 			ipa3_ctx->nat_mem.pdn_mem.base,
 			ipa3_ctx->nat_mem.pdn_mem.phys_base);
+		ipa3_ctx->nat_mem.pdn_mem.base = NULL;
+		ipa3_ctx->nat_mem.dev.is_mem_allocated = false;
 	}
 
 	ipa3_nat_ipv6ct_free_mem(&ipa3_ctx->nat_mem.dev);

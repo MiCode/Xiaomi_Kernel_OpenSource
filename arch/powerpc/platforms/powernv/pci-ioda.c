@@ -3424,7 +3424,6 @@ static void pnv_pci_ioda2_release_pe_dma(struct pnv_ioda_pe *pe)
 		WARN_ON(pe->table_group.group);
 	}
 
-	pnv_pci_ioda2_table_free_pages(tbl);
 	iommu_free_table(tbl, "pnv");
 }
 

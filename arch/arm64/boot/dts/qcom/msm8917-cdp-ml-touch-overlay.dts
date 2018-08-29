@@ -14,7 +14,6 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/msm-clocks-8952.h>
 #include "msm8917-cdp.dtsi"
 #include "msm8917-cdp-mirror-lake-touch.dtsi"
 #include "msm8917-audio-cdp.dtsi"

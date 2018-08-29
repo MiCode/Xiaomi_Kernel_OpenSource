@@ -127,6 +127,7 @@
 #define DC_READY_VOTER		"DC_READY_VOTER"
 
 #define PT_RESTART_VOTER	"PT_RESTART_VOTER"
+#define REG_WRITE_VOTER		"REG_WRITE_VOTER"
 
 struct qnovo_dt_props {
 	bool			external_rsense;
@@ -145,6 +146,7 @@ struct qnovo {
 	struct votable		*not_ok_to_qnovo_votable;
 	struct votable		*chg_ready_votable;
 	struct votable		*awake_votable;
+	struct votable		*auto_esr_votable;
 	struct class		qnovo_class;
 	struct pmic_revid_data	*pmic_rev_id;
 	u32			wa_flags;
@@ -340,15 +342,7 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 		return -EINVAL;
 	}
 
-	/*
-	 * fg must be available for enable FG_AVAILABLE_VOTER
-	 * won't enable it otherwise
-	 */
-
-	if (is_fg_available(chip))
-		power_supply_set_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE,
-				&pval);
+	vote(chip->auto_esr_votable, QNOVO_OVERALL_VOTER, disable, 0);
 
 	vote(chip->pt_dis_votable, QNOVO_OVERALL_VOTER, disable, 0);
 	rc = qnovo_batt_psy_update(chip, disable);
@@ -418,6 +412,27 @@ static int awake_cb(struct votable *votable, void *data, int awake,
 		pm_relax(chip->dev);
 
 	return 0;
+}
+
+static int auto_esr_cb(struct votable *votable, void *data, int auto_esr,
+					const char *client)
+{
+	struct qnovo *chip = data;
+	union power_supply_propval pval = {0};
+
+	pval.intval = !auto_esr;
+	if (is_fg_available(chip))
+		power_supply_set_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE,
+				&pval);
+
+	return 0;
+}
+
+static void pe_ctrl2_write_cb(struct qnovo *chip, u8 *val)
+{
+	if (get_effective_result(chip->disable_votable) == 0)
+		vote(chip->auto_esr_votable, REG_WRITE_VOTER, (*val == 0), 0);
 }
 
 static int qnovo_parse_dt(struct qnovo *chip)
@@ -497,6 +512,7 @@ struct param_info {
 	int	reg_to_unit_offset;
 	int	min_val;
 	int	max_val;
+	void	(*callback)(struct qnovo *chip, u8 *val);
 	char	*units_str;
 };
 
@@ -523,6 +539,7 @@ static struct param_info params[] = {
 		.name			= "PE_CTRL2_REG",
 		.start_addr		= QNOVO_PE_CTRL2,
 		.num_regs		= 1,
+		.callback		= pe_ctrl2_write_cb,
 		.units_str		= "",
 	},
 	[PTRAIN_STS_REG] = {
@@ -892,6 +909,10 @@ static ssize_t reg_store(struct class *c, struct class_attribute *attr,
 		pr_err("Couldn't write %s rc = %d\n", params[i].name, rc);
 		return -EINVAL;
 	}
+
+	if (params[i].callback)
+		params[i].callback(chip, buf);
+
 	return count;
 }
 
@@ -1464,6 +1485,8 @@ static int qnovo_hw_init(struct qnovo *chip)
 	vote(chip->pt_dis_votable, QNOVO_OVERALL_VOTER, true, 0);
 	vote(chip->pt_dis_votable, ESR_VOTER, false, 0);
 
+	vote(chip->auto_esr_votable, QNOVO_OVERALL_VOTER, true, 0);
+
 	val = 0;
 	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
 	if (rc < 0) {
@@ -1656,6 +1679,13 @@ static int qnovo_probe(struct platform_device *pdev)
 		goto destroy_chg_ready_votable;
 	}
 
+	chip->auto_esr_votable = create_votable("AUTO_ESR", VOTE_SET_ANY,
+					auto_esr_cb, chip);
+	if (IS_ERR(chip->auto_esr_votable)) {
+		rc = PTR_ERR(chip->auto_esr_votable);
+		goto destroy_auto_esr_votable;
+	}
+
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->dc_debounce_work, dc_debounce_work);
 	INIT_DELAYED_WORK(&chip->usb_debounce_work, usb_debounce_work);
@@ -1700,6 +1730,8 @@ static int qnovo_probe(struct platform_device *pdev)
 
 unreg_notifier:
 	power_supply_unreg_notifier(&chip->nb);
+destroy_auto_esr_votable:
+	destroy_votable(chip->auto_esr_votable);
 destroy_awake_votable:
 	destroy_votable(chip->awake_votable);
 destroy_chg_ready_votable:

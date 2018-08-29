@@ -594,11 +594,8 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %d",
 			required_camnoc_bw, clk_rate);
 
-		rc = cam_soc_util_set_clk_rate(
-			soc_info->clk[soc_info->src_clk_idx],
-			soc_info->clk_name[soc_info->src_clk_idx],
-			clk_rate);
-		if (!rc)
+		rc = cam_soc_util_set_src_clk_rate(soc_info, clk_rate);
+		if (rc)
 			CAM_ERR(CAM_CPAS,
 				"Failed in setting camnoc axi clk %llu %d %d",
 				required_camnoc_bw, clk_rate, rc);
@@ -736,7 +733,7 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 		goto unlock_client;
 	}
 
-	CAM_DBG(CAM_CPAS,
+	CAM_DBG(CAM_PERF,
 		"Client=[%d][%s][%d] Requested compressed[%llu], uncompressed[%llu]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, axi_vote.compressed_bw,
@@ -898,7 +895,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 		goto unlock_client;
 	}
 
-	CAM_DBG(CAM_CPAS,
+	CAM_DBG(CAM_PERF,
 		"client=[%d][%s][%d] : type[%d], level[%d], freq[%ld], applied[%d]",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, ahb_vote.type,
@@ -1212,17 +1209,26 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 
 	rc = cam_common_util_get_string_index(soc_private->client_name,
 		soc_private->num_clients, client_name, &client_indx);
+
+	mutex_lock(&cpas_core->client_mutex[client_indx]);
+
 	if (rc || !CAM_CPAS_CLIENT_VALID(client_indx) ||
 		CAM_CPAS_CLIENT_REGISTERED(cpas_core, client_indx)) {
-		CAM_ERR(CAM_CPAS, "Invalid Client register : %s %d, %d",
+		CAM_ERR(CAM_CPAS,
+			"Inval client %s %d : %d %d %pK %d",
 			register_params->identifier,
-			register_params->cell_index, client_indx);
+			register_params->cell_index,
+			CAM_CPAS_CLIENT_VALID(client_indx),
+			CAM_CPAS_CLIENT_REGISTERED(cpas_core, client_indx),
+			cpas_core->cpas_client[client_indx], rc);
+		mutex_unlock(&cpas_core->client_mutex[client_indx]);
 		mutex_unlock(&cpas_hw->hw_mutex);
 		return -EPERM;
 	}
 
 	cpas_client = kzalloc(sizeof(struct cam_cpas_client), GFP_KERNEL);
 	if (!cpas_client) {
+		mutex_unlock(&cpas_core->client_mutex[client_indx]);
 		mutex_unlock(&cpas_hw->hw_mutex);
 		return -ENOMEM;
 	}
@@ -1235,6 +1241,7 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 			client_indx, cpas_client->data.identifier,
 			cpas_client->data.cell_index, rc);
 		kfree(cpas_client);
+		mutex_unlock(&cpas_core->client_mutex[client_indx]);
 		mutex_unlock(&cpas_hw->hw_mutex);
 		return -EINVAL;
 	}
@@ -1246,11 +1253,12 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 	cpas_core->cpas_client[client_indx] = cpas_client;
 	cpas_core->registered_clients++;
 
-	mutex_unlock(&cpas_hw->hw_mutex);
-
 	CAM_DBG(CAM_CPAS, "client=[%d][%s][%d], registered_clients=%d",
 		client_indx, cpas_client->data.identifier,
 		cpas_client->data.cell_index, cpas_core->registered_clients);
+
+	mutex_unlock(&cpas_core->client_mutex[client_indx]);
+	mutex_unlock(&cpas_hw->hw_mutex);
 
 	return 0;
 }
@@ -1498,27 +1506,6 @@ static int cam_cpas_util_get_internal_ops(struct platform_device *pdev,
 	return rc;
 }
 
-static int cam_cpas_util_get_hw_version(struct platform_device *pdev,
-	struct cam_hw_soc_info *soc_info)
-{
-	struct device_node *of_node = pdev->dev.of_node;
-	int rc;
-
-	soc_info->hw_version = 0;
-
-	rc = of_property_read_u32(of_node,
-		"qcom,cpas-hw-ver", &soc_info->hw_version);
-
-	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
-
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "failed to get CPAS HW Version rc=%d", rc);
-		return -EINVAL;
-	}
-
-	return rc;
-}
-
 int cam_cpas_hw_probe(struct platform_device *pdev,
 	struct cam_hw_intf **hw_intf)
 {
@@ -1658,10 +1645,6 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	}
 
 	rc = cam_cpas_util_vote_default_ahb_axi(cpas_hw, false);
-	if (rc)
-		goto axi_cleanup;
-
-	rc = cam_cpas_util_get_hw_version(pdev, &cpas_hw->soc_info);
 	if (rc)
 		goto axi_cleanup;
 

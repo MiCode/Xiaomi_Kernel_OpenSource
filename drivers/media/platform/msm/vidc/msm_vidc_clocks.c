@@ -643,8 +643,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 			vsp_factor_num = vsp_factor_num * 13 / 10;
 			vsp_factor_den *= 2;
 		}
-		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
-				vsp_factor_den;
+		vsp_cycles += div_u64((u64)inst->clk_data.bitrate *
+				vsp_factor_num, vsp_factor_den);
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
 

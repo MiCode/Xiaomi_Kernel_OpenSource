@@ -191,6 +191,7 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 {
 	int i, ctx = 0;
 	uint32_t max_size = 0;
+	unsigned long flags;
 	unsigned char *temp_buf = NULL;
 	struct diag_md_info *ch = NULL;
 
@@ -205,12 +206,17 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 			max_size = MAX_PERIPHERAL_HDLC_BUF_SZ;
 		}
 
+		mutex_lock(&driver->md_session_lock);
 		if (buf->len < max_size) {
 			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
 				driver->logging_mode == DIAG_MULTI_MODE) {
 				ch = &diag_md[DIAG_LOCAL_PROC];
-				for (i = 0; ch != NULL &&
-						i < ch->num_tbl_entries; i++) {
+				if (!ch || !ch->md_info_inited) {
+					mutex_unlock(&driver->md_session_lock);
+					return -EINVAL;
+				}
+				spin_lock_irqsave(&ch->lock, flags);
+				for (i = 0; i < ch->num_tbl_entries; i++) {
 					if (ch->tbl[i].buf == buf->data) {
 						ctx = ch->tbl[i].ctx;
 						ch->tbl[i].buf = NULL;
@@ -223,18 +229,22 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 						break;
 					}
 				}
+				spin_unlock_irqrestore(&ch->lock, flags);
 			}
 			temp_buf = krealloc(buf->data, max_size +
 						APF_DIAG_PADDING,
 					    GFP_KERNEL);
-			if (!temp_buf)
+			if (!temp_buf) {
+				mutex_unlock(&driver->md_session_lock);
 				return -ENOMEM;
+			}
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Reallocated data buffer: %pK with size: %d\n",
 			temp_buf, max_size);
 			buf->data = temp_buf;
 			buf->len = max_size;
 		}
+		mutex_unlock(&driver->md_session_lock);
 	}
 
 	return buf->len;
@@ -385,6 +395,8 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 			goto end;
 		}
 	}
+	mutex_unlock(&fwd_info->data_mutex);
+	mutex_unlock(&driver->hdlc_disable_mutex);
 
 	if (write_len > 0) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_len,
@@ -392,18 +404,18 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 		if (err) {
 			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
-			goto end;
+			goto end_write;
 		}
 	}
-	mutex_unlock(&fwd_info->data_mutex);
-	mutex_unlock(&driver->hdlc_disable_mutex);
+
 	diagfwd_queue_read(fwd_info);
 	return;
 
 end:
-	diag_ws_release();
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
+end_write:
+	diag_ws_release();
 	if (buf) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
@@ -690,24 +702,26 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		}
 	}
 
+	mutex_unlock(&fwd_info->data_mutex);
+	mutex_unlock(&driver->hdlc_disable_mutex);
+
 	if (write_len > 0) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_len,
 				     temp_buf->ctxt);
 		if (err) {
 			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
-			goto end;
+			goto end_write;
 		}
 	}
-	mutex_unlock(&fwd_info->data_mutex);
-	mutex_unlock(&driver->hdlc_disable_mutex);
 	diagfwd_queue_read(fwd_info);
 	return;
 
 end:
-	diag_ws_release();
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
+end_write:
+	diag_ws_release();
 	if (temp_buf) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
