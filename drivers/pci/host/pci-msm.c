@@ -649,6 +649,11 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
 
+struct msm_root_dev_t {
+	struct msm_pcie_dev_t *pcie_dev;
+	struct pci_dev *pci_dev;
+};
+
 /* debug mask sys interface */
 static int msm_pcie_debug_mask;
 module_param_named(debug_mask, msm_pcie_debug_mask,
@@ -6333,6 +6338,40 @@ out:
 	return ret;
 }
 
+
+int msm_pci_probe(struct pci_dev *pci_dev,
+		  const struct pci_device_id *device_id)
+{
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(pci_dev->bus);
+	struct msm_root_dev_t *root_dev;
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: PCI Probe\n", pcie_dev->rc_idx);
+
+	if (!pci_dev->dev.of_node)
+		return -ENODEV;
+
+	root_dev = devm_kzalloc(&pci_dev->dev, sizeof(*root_dev), GFP_KERNEL);
+	if (!root_dev)
+		return -ENOMEM;
+
+	root_dev->pcie_dev = pcie_dev;
+	root_dev->pci_dev = pci_dev;
+	dev_set_drvdata(&pci_dev->dev, root_dev);
+
+	return 0;
+}
+
+static struct pci_device_id msm_pci_device_id[] = {
+	{PCI_DEVICE(0x17cb, 0x0108)},
+	{0},
+};
+
+static struct pci_driver msm_pci_driver = {
+	.name = "pci-msm-rc",
+	.id_table = msm_pci_device_id,
+	.probe = msm_pci_probe,
+};
+
 static const struct of_device_id msm_pcie_match[] = {
 	{	.compatible = "qcom,pci-msm",
 	},
@@ -6415,6 +6454,10 @@ static int __init pcie_init(void)
 	crc8_populate_msb(msm_pcie_crc8_table, MSM_PCIE_CRC8_POLYNOMIAL);
 
 	msm_pcie_debugfs_init();
+
+	ret = pci_register_driver(&msm_pci_driver);
+	if (ret)
+		return ret;
 
 	ret = platform_driver_register(&msm_pcie_driver);
 
