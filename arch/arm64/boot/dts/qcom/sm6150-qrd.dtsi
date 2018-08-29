@@ -15,6 +15,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "sm6150-sde-display.dtsi"
+#include "sm6150-camera-sensor-qrd.dtsi"
 
 &qupv3_se3_i2c {
 	status = "ok";

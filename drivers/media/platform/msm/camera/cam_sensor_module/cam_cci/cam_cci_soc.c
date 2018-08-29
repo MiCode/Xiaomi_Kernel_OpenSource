@@ -199,6 +199,8 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 		mutex_init(&new_cci_dev->cci_master_info[i].mutex);
 		init_completion(
 			&new_cci_dev->cci_master_info[i].reset_complete);
+		init_completion(
+			&new_cci_dev->cci_master_info[i].th_complete);
 
 		for (j = 0; j < NUM_QUEUES; j++) {
 			mutex_init(&new_cci_dev->cci_master_info[i].mutex_q[j]);
@@ -208,6 +210,7 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 				&new_cci_dev->cci_master_info[i].lock_q[j]);
 		}
 	}
+	spin_lock_init(&new_cci_dev->lock_status);
 }
 
 static void cam_cci_init_default_clk_params(struct cci_device *cci_dev,
