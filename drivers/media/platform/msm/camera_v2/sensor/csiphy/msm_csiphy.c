@@ -282,6 +282,27 @@ static int msm_csiphy_snps_2_lane_config(
 		csiphybase + csiphy_dev->ctrl_reg->csiphy_snps_reg.
 		mipi_csiphy_rx_cb_2_00.addr + offset);
 
+	if (local_data_rate <= 1500) {
+		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane0_ddl_2_00.data,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane0_ddl_2_00.addr + offset);
+
+		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane0_ddl_3_00.data,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane0_ddl_3_00.addr + offset);
+
+		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane_1_10_00.data,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane_1_10_00.addr + offset);
+
+		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane_1_11_00.data,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_snps_reg.
+			mipi_csiphy_rx_lane_1_11_00.addr + offset);
+	}
 	return 0;
 }
 
