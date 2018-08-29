@@ -758,6 +758,8 @@
 			compatible = "qcom,msm-mdf-cb";
 			label = "adsp";
 			qcom,smmu-enabled;
+			iommus = <&apps_smmu 0x0800 0x0>;
+			qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 		};
 
 		qcom,msm_mdf_cb2 {
