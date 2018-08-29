@@ -1955,7 +1955,7 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size) {
-		spin_lock(&channel->recv_lock);
+		spin_lock_irqsave(&channel->recv_lock, flags);
 		if (channel->ept.cb) {
 			channel->ept.cb(channel->ept.rpdev,
 					intent->data,
@@ -1963,7 +1963,7 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 		}
-		spin_unlock(&channel->recv_lock);
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 		intent->offset = 0;
 		channel->buf = NULL;
@@ -2021,7 +2021,7 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size) {
-		spin_lock(&channel->recv_lock);
+		spin_lock_irqsave(&channel->recv_lock, flags);
 		if (channel->ept.cb) {
 			channel->ept.cb(channel->ept.rpdev,
 					intent->data,
@@ -2029,7 +2029,7 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 		}
-		spin_unlock(&channel->recv_lock);
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 		intent->offset = 0;
 		channel->buf = NULL;
