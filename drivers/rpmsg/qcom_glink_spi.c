@@ -202,7 +202,7 @@ struct glink_spi {
 	struct glink_cmpnt cmpnt;
 	u32 activity_flag;
 	spinlock_t activity_lock;
-	bool in_reset;
+	atomic_t in_reset;
 
 	void *ilc;
 };
@@ -504,7 +504,7 @@ static size_t glink_spi_rx_avail(struct glink_spi *glink)
 	u32 tail;
 	int ret;
 
-	if (unlikely(glink->in_reset))
+	if (atomic_read(&glink->in_reset))
 		return 0;
 
 	if (unlikely(!pipe->fifo_base)) {
@@ -578,7 +578,7 @@ static size_t glink_spi_tx_avail(struct glink_spi *glink)
 	u32 tail;
 	int ret;
 
-	if (unlikely(glink->in_reset))
+	if (atomic_read(&glink->in_reset))
 		return 0;
 
 	if (unlikely(!pipe->fifo_base)) {
@@ -682,7 +682,7 @@ static int glink_spi_tx(struct glink_spi *glink, void *hdr, size_t hlen,
 			goto out;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			ret = -ENXIO;
 			goto out;
 		}
@@ -1177,7 +1177,7 @@ static int glink_spi_send_short(struct glink_channel *channel,
 			return -EAGAIN;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			mutex_unlock(&glink->tx_lock);
 			return -EINVAL;
 		}
@@ -1226,7 +1226,7 @@ static int glink_spi_send_data(struct glink_channel *channel,
 			return -EAGAIN;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			mutex_unlock(&glink->tx_lock);
 			return -EINVAL;
 		}
@@ -2246,7 +2246,8 @@ static void glink_spi_work(struct kthread_work *work)
 		kfree(rx_data);
 		glink_spi_rx_advance(glink, rx_avail);
 
-	} while (inactive_cycles < MAX_INACTIVE_CYCLES && !glink->in_reset);
+	} while (inactive_cycles < MAX_INACTIVE_CYCLES &&
+		 !atomic_read(&glink->in_reset));
 	glink_spi_xprt_set_irq_mode(glink);
 }
 
@@ -2280,7 +2281,7 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 			GLINK_ERR(glink, "Failed to get transport device\n");
 		break;
 	case WDSP_EVENT_POST_BOOTUP:
-		glink->in_reset = false;
+		atomic_set(&glink->in_reset, 0);
 		ret = glink_spi_send_version(glink);
 		if (ret)
 			GLINK_ERR(glink, "failed to send version %d\n", ret);
@@ -2422,7 +2423,7 @@ struct glink_spi *qcom_glink_spi_register(struct device *parent,
 	idr_init(&glink->lcids);
 	idr_init(&glink->rcids);
 
-	glink->in_reset = true;
+	atomic_set(&glink->in_reset, 1);
 	glink->activity_flag = 0;
 	spin_lock_init(&glink->activity_lock);
 
@@ -2478,7 +2479,7 @@ static void glink_spi_remove(struct glink_spi *glink)
 
 	GLINK_INFO(glink, "\n");
 
-	glink->in_reset = true;
+	atomic_set(&glink->in_reset, 1);
 	kthread_cancel_work_sync(&glink->rx_work);
 	cancel_work_sync(&glink->rx_defer_work);
 
