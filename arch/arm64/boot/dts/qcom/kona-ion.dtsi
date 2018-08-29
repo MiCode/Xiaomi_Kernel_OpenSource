@@ -9,13 +9,13 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		system_heap: qcom,ion-heap@25 {
-			reg = <25>;
+		system_heap: qcom,ion-heap@19 {
+			reg = <0x19>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
 		system_secure_heap: qcom,ion-heap@9 {
-			reg = <9>;
+			reg = <0x9>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
 	};

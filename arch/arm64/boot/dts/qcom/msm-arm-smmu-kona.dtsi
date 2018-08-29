@@ -6,7 +6,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
-	kgsl_smmu: kgsl-smmu@0x3DA0000 {
+	kgsl_smmu: kgsl-smmu@3da0000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x3DA0000 0x10000>,
 			<0x3DC2000 0x20>;
@@ -30,24 +30,24 @@
 				<GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 689 IRQ_TYPE_LEVEL_HIGH>;
 
-		gfx_0_tbu: gfx_0_tbu@0x3DC5000 {
+		gfx_0_tbu: gfx_0_tbu@3dc5000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x3DC5000 0x1000>,
 				<0x3DC2200 0x8>;
-			reg-names = "base", "status-reg";
+			reg-names = "base", "status";
 			qcom,stream-id-range = <0x0 0x400>;
 		};
 
-		gfx_1_tbu: gfx_1_tbu@0x3DC9000 {
+		gfx_1_tbu: gfx_1_tbu@3dc9000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x3DC9000 0x1000>,
 				<0x3DC2208 0x8>;
-			reg-names = "base", "status-reg";
+			reg-names = "base", "status";
 			qcom,stream-id-range = <0x400 0x400>;
 		};
 	};
 
-	apps_smmu: apps-smmu@0x15000000 {
+	apps_smmu: apps-smmu@15000000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x15000000 0x100000>,
 			<0x15182000 0x20>;
@@ -158,7 +158,7 @@
 				<GIC_SPI 696 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH>;
 
-		anoc_1_tbu: anoc_1_tbu@0x15185000 {
+		anoc_1_tbu: anoc_1_tbu@15185000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15185000 0x1000>,
 				<0x15182200 0x8>;
@@ -166,7 +166,7 @@
 			qcom,stream-id-range = <0x0 0x400>;
 		};
 
-		anoc_2_tbu: anoc_2_tbu@0x15189000 {
+		anoc_2_tbu: anoc_2_tbu@15189000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15189000 0x1000>,
 				<0x15182208 0x8>;
@@ -174,7 +174,7 @@
 			qcom,stream-id-range = <0x400 0x400>;
 		};
 
-		mnoc_hf_0_tbu: mnoc_hf_0_tbu@0x1518D000 {
+		mnoc_hf_0_tbu: mnoc_hf_0_tbu@1518d000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x1518D000 0x1000>,
 				<0x15182210 0x8>;
@@ -182,7 +182,7 @@
 			qcom,stream-id-range = <0x800 0x400>;
 		};
 
-		mnoc_hf_1_tbu: mnoc_hf_1_tbu@0x15191000 {
+		mnoc_hf_1_tbu: mnoc_hf_1_tbu@15191000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15191000 0x1000>,
 				<0x15182218 0x8>;
@@ -191,7 +191,7 @@
 
 		};
 
-		compute_dsp_1_tbu: compute_dsp_1_tbu@0x15195000 {
+		compute_dsp_1_tbu: compute_dsp_1_tbu@15195000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15195000 0x1000>,
 				<0x15182220 0x8>;
@@ -199,7 +199,7 @@
 			qcom,stream-id-range = <0x1000 0x400>;
 		};
 
-		compute_dsp_0_tbu: compute_dsp_0_tbu@0x15199000 {
+		compute_dsp_0_tbu: compute_dsp_0_tbu@15199000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15199000 0x1000>,
 				<0x15182228 0x8>;
@@ -207,7 +207,7 @@
 			qcom,stream-id-range = <0x1400 0x400>;
 		};
 
-		adsp_tbu: adsp_tbu@0x1519D000 {
+		adsp_tbu: adsp_tbu@1519d000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x1519D000 0x1000>,
 				<0x15182230 0x8>;
@@ -215,7 +215,7 @@
 			qcom,stream-id-range = <0x1800 0x400>;
 		};
 
-		anoc_1_pcie_tbu: anoc_1_pcie_tbu@0x151A1000 {
+		anoc_1_pcie_tbu: anoc_1_pcie_tbu@151a1000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151A1000 0x1000>,
 				<0x15182238 0x8>;
@@ -223,7 +223,7 @@
 			qcom,stream-id-range = <0x1c00 0x400>;
 		};
 
-		mnoc_sf_0_tbu: mnoc_sf_0_tbu@0x151A5000 {
+		mnoc_sf_0_tbu: mnoc_sf_0_tbu@151a5000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151A5000 0x1000>,
 				<0x15182240 0x8>;
@@ -231,7 +231,7 @@
 			qcom,stream-id-range = <0x2000 0x400>;
 		};
 
-		mnoc_sf_1_tbu: mnoc_sf_1_tbu@0x151A9000 {
+		mnoc_sf_1_tbu: mnoc_sf_1_tbu@151a9000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151A9000 0x1000>,
 				<0x15182248 0x8>;
