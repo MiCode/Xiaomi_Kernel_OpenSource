@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <asm/arch_timer.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
@@ -327,6 +328,12 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 	}
 }
 
+/* capture host SoC XO time in ticks */
+static u64 mhi_time_get(struct mhi_controller *mhi_cntrl, void *priv)
+{
+	return arch_counter_get_cntvct();
+}
+
 int mhi_debugfs_trigger_m0(void *data, u64 val)
 {
 	struct mhi_controller *mhi_cntrl = data;
@@ -486,6 +493,8 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->runtime_get = mhi_runtime_get;
 	mhi_cntrl->runtime_put = mhi_runtime_put;
 	mhi_cntrl->link_status = mhi_link_status;
+
+	mhi_cntrl->time_get = mhi_time_get;
 
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
