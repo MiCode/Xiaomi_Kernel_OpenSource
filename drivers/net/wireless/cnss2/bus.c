@@ -32,7 +32,6 @@ enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id)
 {
 	switch (device_id) {
 	case QCA6174_DEVICE_ID:
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		return CNSS_BUS_PCI;
