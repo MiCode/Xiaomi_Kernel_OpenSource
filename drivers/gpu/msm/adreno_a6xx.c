@@ -817,11 +817,13 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	/* For a608 Mem pool size is reduced to 1/4 */
-	if (adreno_is_a608(adreno_dev))
-		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0x30);
-	else
-		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0x80);
+	if (adreno_is_a608(adreno_dev)) {
+		/* For a608 Mem pool size is reduced to 48 */
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_DBG_ADDR, 47);
+	} else {
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
+	}
 
 	/* Setting the primFifo thresholds values */
 	if (adreno_is_a640(adreno_dev))
