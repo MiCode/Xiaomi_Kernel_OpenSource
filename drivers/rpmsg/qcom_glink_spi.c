@@ -1501,12 +1501,11 @@ close_link:
 
 	/*
 	 * Send a close request to "undo" our open-ack. The close-ack will
-	 * release the last reference.
+	 * release glink_spi_send_open_req() reference and the last reference
+	 * will be release after rx_close or transport unregister by calling
+	 * glink_spi_remove().
 	 */
 	glink_spi_send_close_req(glink, channel);
-
-	/* Release glink_spi_send_open_req() reference */
-	kref_put(&channel->refcount, glink_spi_channel_release);
 
 	return ret;
 }
@@ -2468,15 +2467,26 @@ static void glink_spi_remove(struct glink_spi *glink)
 		dev_warn(&glink->dev, "Can't remove GLINK devices: %d\n", ret);
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		/* cancel_work_sync may sleep */
+		cancel_work_sync(&channel->intent_work);
+		spin_lock_irqsave(&glink->idr_lock, flags);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
-		if (kref_put(&channel->refcount, glink_spi_channel_release))
-			idr_remove(&glink->lcids, cid);
+		kref_put(&channel->refcount, glink_spi_channel_release);
+		idr_remove(&glink->lcids, cid);
 	}
 
 	/* Release any defunct local channels, waiting for close-req */
-	idr_for_each_entry(&glink->lcids, channel, cid)
+	idr_for_each_entry(&glink->lcids, channel, cid) {
 		kref_put(&channel->refcount, glink_spi_channel_release);
+		idr_remove(&glink->lcids, cid);
+	}
 
 	idr_destroy(&glink->lcids);
 	idr_destroy(&glink->rcids);
