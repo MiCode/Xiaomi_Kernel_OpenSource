@@ -70,7 +70,7 @@ static inline void seemp_logk_sendto(int fd, void __user *buff, size_t len,
 }
 
 static inline void seemp_logk_rtic(__u8 type, pid_t pid, __u8 asset_id[0x20],
-		__u8 asset_category, __u8 response)
+		__u8 asset_category, __u8 response, __u8 process_name[16])
 {
 	char *buf = NULL;
 	void *blck = NULL;
@@ -80,8 +80,8 @@ static inline void seemp_logk_rtic(__u8 type, pid_t pid, __u8 asset_id[0x20],
 		return;
 
 	SEEMP_LOGK_RECORD(SEEMP_API_kernel__rtic,
-		"app_pid=%d,rtic_type=%u,asset_id=%s,asset_category=%u,response=%u",
-		pid, type, asset_id, asset_category, response);
+		"app_pid=%d,rtic_type=%u,asset_id=%s,asset_category=%u,response=%u,process_name=%s",
+		pid, type, asset_id, asset_category, response, process_name);
 
 	seemp_logk_kernel_end(blck);
 }
