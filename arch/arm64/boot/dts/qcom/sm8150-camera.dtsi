@@ -408,7 +408,7 @@
 					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
 					iova-region-start = <0xda00000>;
-					iova-region-len = <0xacdfffff>;
+					iova-region-len = <0xace00000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
