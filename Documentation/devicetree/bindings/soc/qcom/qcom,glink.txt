@@ -32,6 +32,11 @@ a GLINK SPSS edge and a SPI based edge.
 	Definition: reference to the "rpm_hlos" mailbox in APCS, as described
 		    in mailbox/mailbox.txt
 
+- cpu-affinity:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: cores to pin the irq to
+
 = GLINK SPSS
 The remote proc on a GLINK SPSS edge expects the descriptors and fifos to be
 allocated by this processor. The following bindings are required to inform the
