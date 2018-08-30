@@ -247,11 +247,6 @@ struct hfi_bwtable_cmd {
 	uint32_t ddr_cmd_data[MAX_GX_LEVELS][MAX_BW_CMDS];
 };
 
-struct hfi_bwbuf {
-	uint32_t hdr[3];
-	uint32_t arr[NUM_BW_LEVELS];
-};
-
 struct opp_gx_desc {
 	uint32_t vote;
 	uint32_t acd;
@@ -617,6 +612,7 @@ struct pending_cmd {
  * @version: HFI version number provided
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
+ * @bwtbl_cmd: HFI BW table buffer
  */
 struct kgsl_hfi {
 	struct kgsl_device *kgsldev;
@@ -627,6 +623,7 @@ struct kgsl_hfi {
 	struct tasklet_struct tasklet;
 	uint32_t version;
 	atomic_t seqnum;
+	struct hfi_bwtable_cmd bwtbl_cmd;
 };
 
 struct gmu_device;

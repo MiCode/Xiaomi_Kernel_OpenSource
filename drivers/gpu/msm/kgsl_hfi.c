@@ -490,36 +490,11 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 
 static int hfi_send_bwtbl(struct gmu_device *gmu)
 {
-	struct hfi_bwtable_cmd cmd = {
-		.hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(cmd)),
-		.bw_level_num = gmu->num_bwlevels,
-		.cnoc_cmds_num =
-			gmu->rpmh_votes.cnoc_votes.cmds_per_bw_vote,
-		.cnoc_wait_bitmask =
-			gmu->rpmh_votes.cnoc_votes.cmds_wait_bitmask,
-		.ddr_cmds_num = gmu->rpmh_votes.ddr_votes.cmds_per_bw_vote,
-		.ddr_wait_bitmask = gmu->rpmh_votes.ddr_votes.cmds_wait_bitmask,
-	};
-	int i, j;
+	struct hfi_bwtable_cmd *cmd = &gmu->hfi.bwtbl_cmd;
 
-	for (i = 0; i < cmd.ddr_cmds_num; i++)
-		cmd.ddr_cmd_addrs[i] = gmu->rpmh_votes.ddr_votes.cmd_addrs[i];
+	cmd->hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(*cmd));
 
-	for (i = 0; i < cmd.bw_level_num; i++)
-		for (j = 0; j < cmd.ddr_cmds_num; j++)
-			cmd.ddr_cmd_data[i][j] =
-				gmu->rpmh_votes.ddr_votes.cmd_data[i][j];
-
-	for (i = 0; i < cmd.cnoc_cmds_num; i++)
-		cmd.cnoc_cmd_addrs[i] =
-			gmu->rpmh_votes.cnoc_votes.cmd_addrs[i];
-
-	for (i = 0; i < MAX_CNOC_LEVELS; i++)
-		for (j = 0; j < cmd.cnoc_cmds_num; j++)
-			cmd.cnoc_cmd_data[i][j] =
-				gmu->rpmh_votes.cnoc_votes.cmd_data[i][j];
-
-	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
 }
 
 static int hfi_send_test(struct gmu_device *gmu)
