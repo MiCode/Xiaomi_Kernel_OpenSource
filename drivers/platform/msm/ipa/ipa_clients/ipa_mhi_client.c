@@ -2027,6 +2027,8 @@ static void ipa_mhi_update_host_ch_state(bool update_rp)
 			ipa_assert();
 			return;
 		}
+		IPA_MHI_DBG("Updated UL CH=%d state to %s on host\n",
+			i, MHI_CH_STATE_STR(channel->state));
 	}
 
 	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {
@@ -2062,7 +2064,10 @@ static void ipa_mhi_update_host_ch_state(bool update_rp)
 		if (res) {
 			IPA_MHI_ERR("ipa_mhi_read_write_host failed\n");
 			ipa_assert();
+			return;
 		}
+		IPA_MHI_DBG("Updated DL CH=%d state to %s on host\n",
+			i, MHI_CH_STATE_STR(channel->state));
 	}
 }
 
@@ -2095,9 +2100,6 @@ static int ipa_mhi_suspend_dl(bool force)
 			}
 		}
 	}
-
-	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI)
-		ipa_mhi_update_host_ch_state(true);
 
 	return 0;
 
@@ -2150,6 +2152,9 @@ int ipa_mhi_suspend(bool force)
 		IPA_MHI_ERR("ipa_mhi_suspend_ul failed %d\n", res);
 		goto fail_suspend_ul_channel;
 	}
+
+	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI)
+		ipa_mhi_update_host_ch_state(true);
 
 	/*
 	 * hold IPA clocks and release them after all
