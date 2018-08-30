@@ -793,11 +793,11 @@ int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
 void sde_crtc_timeline_status(struct drm_crtc *crtc);
 
 /**
- * sde_crtc_update_cont_splash_mixer_settings - update mixer settings
+ * sde_crtc_update_cont_splash_settings - update mixer settings
  *	during device bootup for cont_splash use case
  * @crtc: Pointer to drm crtc structure
  */
-void sde_crtc_update_cont_splash_mixer_settings(
+void sde_crtc_update_cont_splash_settings(
 		struct drm_crtc *crtc);
 
 /**

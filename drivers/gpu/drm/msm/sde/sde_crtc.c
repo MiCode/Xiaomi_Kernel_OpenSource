@@ -6545,13 +6545,32 @@ static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 }
 
 /**
- * sde_crtc_update_cont_splash_mixer_settings - update mixer settings
- *	during device bootup for cont_splash use case
+ * sde_crtc_update_cont_splash_settings - update mixer settings
+ *	and initial clk during device bootup for cont_splash use case
  * @crtc: Pointer to drm crtc structure
  */
-void sde_crtc_update_cont_splash_mixer_settings(
-		struct drm_crtc *crtc)
+void sde_crtc_update_cont_splash_settings(struct drm_crtc *crtc)
 {
+	struct sde_kms *kms = NULL;
+	struct msm_drm_private *priv;
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc || !crtc->state || !crtc->dev || !crtc->dev->dev_private) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	priv = crtc->dev->dev_private;
+	kms = to_sde_kms(priv->kms);
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
 	_sde_crtc_setup_mixers(crtc);
 	crtc->enabled = true;
+
+	/* update core clk value for initial state with cont-splash */
+	sde_crtc = to_sde_crtc(crtc);
+	sde_crtc->cur_perf.core_clk_rate = kms->perf.max_core_clk_rate;
 }

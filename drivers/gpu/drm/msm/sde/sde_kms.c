@@ -2579,7 +2579,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		sde_encoder_update_caps_for_cont_splash(encoder,
 				splash_display, true);
 
-		sde_crtc_update_cont_splash_mixer_settings(crtc);
+		sde_crtc_update_cont_splash_settings(crtc);
 
 		sde_conn = to_sde_connector(connector);
 		if (sde_conn && sde_conn->ops.cont_splash_config)
