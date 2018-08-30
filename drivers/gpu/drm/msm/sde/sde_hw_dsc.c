@@ -56,7 +56,6 @@ static void sde_hw_dsc_config(struct sde_hw_dsc *hw_dsc,
 	u32 data;
 	int bpp, lsb;
 	u32 initial_lines = dsc->initial_lines;
-	bool is_cmd_mode = !(mode & BIT(2));
 	struct sde_hw_blk_reg_map *dsc_c = &hw_dsc->hw;
 
 	SDE_REG_WRITE(dsc_c, DSC_COMMON_MODE, mode);
@@ -64,9 +63,6 @@ static void sde_hw_dsc_config(struct sde_hw_dsc *hw_dsc,
 	data = 0;
 	if (ich_reset_override)
 		data = 3 << 28;
-
-	if (is_cmd_mode)
-		initial_lines += 1;
 
 	data |= (initial_lines << 20);
 	data |= (dsc->slice_last_group_size << 18);
