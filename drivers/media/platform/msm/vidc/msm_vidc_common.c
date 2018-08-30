@@ -3138,7 +3138,11 @@ static int msm_comm_session_init(int flipped_state,
 		return -EINVAL;
 	}
 
-	msm_comm_init_clocks_and_bus_data(inst);
+	rc = msm_comm_init_clocks_and_bus_data(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to initialize clocks and bus data\n");
+		goto exit;
+	}
 
 	dprintk(VIDC_DBG, "%s: inst %pK\n", __func__, inst);
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
