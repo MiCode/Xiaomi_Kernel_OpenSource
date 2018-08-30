@@ -753,11 +753,8 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 		return HAL_VIDEO_DECODER_PRIMARY;
 	}
 
-	if (!is_decode_session(inst)) {
-		dprintk(VIDC_DBG, "%s: not a decode session %x\n",
-			__func__, hash32_ptr(inst->session));
+	if (!is_decode_session(inst))
 		return HAL_VIDEO_DECODER_PRIMARY;
-	}
 
 	if (inst->stream_output_mode == HAL_VIDEO_DECODER_SECONDARY)
 		return HAL_VIDEO_DECODER_SECONDARY;

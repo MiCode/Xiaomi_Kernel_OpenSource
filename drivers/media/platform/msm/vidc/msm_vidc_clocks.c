@@ -410,6 +410,8 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	if (!inst->clk_data.dcvs_mode || inst->batch.enable) {
 		dprintk(VIDC_DBG, "Skip DCVS (dcvs %d, batching %d)\n",
 			inst->clk_data.dcvs_mode, inst->batch.enable);
+		/* update load (freq) with normal value */
+		inst->clk_data.load = inst->clk_data.load_norm;
 		return 0;
 	}
 
@@ -451,12 +453,16 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	 *    pipeline, request Right Clocks.
 	 */
 
-	if (buffers_outside_fw <= dcvs->max_threshold)
+	if (buffers_outside_fw <= dcvs->max_threshold) {
+		dcvs->load = dcvs->load_high;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_INCR;
-	else if (fw_pending_bufs < min_output_buf)
+	} else if (fw_pending_bufs < min_output_buf) {
+		dcvs->load = dcvs->load_low;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_DECR;
-	else
+	} else {
+		dcvs->load = dcvs->load_norm;
 		dcvs->dcvs_flags = 0;
+	}
 
 	dprintk(VIDC_PROF,
 		"DCVS: total bufs %d outside fw %d max threshold %d with fw %d min bufs %d flags %#x\n",
@@ -813,7 +819,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			rate = allowed_clks_tbl[i-1].clock_rate;
 	} else if (decrement) {
 		if (i < (core->resources.allowed_clks_tbl_size - 1))
-			allowed_clks_tbl[i+1].clock_rate;
+			rate = allowed_clks_tbl[i+1].clock_rate;
 	}
 
 	core->min_freq = freq_core_max;
@@ -1026,7 +1032,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 	u64 total_freq = 0, rate = 0, load;
 	int cycles;
 	struct clock_data *dcvs;
-	struct hal_buffer_requirements *output_buf_req;
+	struct hal_buffer_requirements *buf_req;
 
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
@@ -1049,22 +1055,33 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 		dcvs->buffer_type = HAL_BUFFER_INPUT;
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
+		buf_req = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
+		if (buf_req)
+			dcvs->max_threshold =
+				buf_req->buffer_count_actual -
+				buf_req->buffer_count_min_host + 2;
+		else
+			dprintk(VIDC_ERR,
+				"%s: No bufer req for buffer type %x\n",
+				__func__, HAL_BUFFER_INPUT);
+
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		dcvs->buffer_type = msm_comm_get_hal_output_buffer(inst);
-		output_buf_req = get_buff_req_buffer(inst,
-				dcvs->buffer_type);
-		if (!output_buf_req) {
+		buf_req = get_buff_req_buffer(inst, dcvs->buffer_type);
+		if (buf_req)
+			dcvs->max_threshold =
+				buf_req->buffer_count_actual -
+				buf_req->buffer_count_min_host + 2;
+		else
 			dprintk(VIDC_ERR,
 				"%s: No bufer req for buffer type %x\n",
 				__func__, dcvs->buffer_type);
-			return;
-		}
-		dcvs->max_threshold = output_buf_req->buffer_count_actual -
-			output_buf_req->buffer_count_min_host + 2;
 
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, dcvs->buffer_type);
 	} else {
+		dprintk(VIDC_ERR, "%s: invalid session type %#x\n",
+			__func__, inst->session_type);
 		return;
 	}
 
