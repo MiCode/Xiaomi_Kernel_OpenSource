@@ -5825,7 +5825,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	/* update backlight in commit */
 	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
-	    ctl->mfd && ctl->mfd->bl_extn_level > 0) {
+			ctl->mfd && ctl->mfd->bl_extn_level > 0 &&
+			ctl->mfd->bl_extn_level != U64_MAX) {
 		if (!IS_CALIB_MODE_BL(ctl->mfd) && (!ctl->mfd->ext_bl_ctrl ||
 						!ctl->mfd->bl_level)) {
 			mutex_lock(&ctl->mfd->bl_lock);
