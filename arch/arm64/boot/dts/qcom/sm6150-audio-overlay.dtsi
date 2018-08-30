@@ -34,6 +34,7 @@
 			swrm-io-base = <0x62ed0000 0x0>;
 			interrupts = <0 137 0>, <0 528 0>;
 			interrupt-names = "swr_master_irq", "swr_wake_irq";
+			qcom,swr-wakeup-required = <1>;
 			qcom,swr-num-ports = <5>;
 			qcom,swr-port-mapping = <1 PCM_OUT1 0xF>,
 				<2 ADC1 0x1>, <2 ADC2 0x2>,
