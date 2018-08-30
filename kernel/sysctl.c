@@ -3061,7 +3061,7 @@ static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
 					   int *valp, int write, void *data)
 {
 	if (write) {
-		if (*negp)
+		if (*negp || *lvalp == 0)
 			return -EINVAL;
 		*valp = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
 	} else {
