@@ -394,7 +394,6 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 		break;
 	case  USB_PHY_TYPE_USB3_OR_DP:
-	case  USB_PHY_TYPE_USB3:
 		if (val > 0) {
 			dev_err(phy->phy.dev,
 				"USB QMP PHY: Update TYPEC CTRL(%d)\n", val);
@@ -920,7 +919,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		phy->phy.type = USB_PHY_TYPE_USB3_AND_DP;
 
 	if (of_device_is_compatible(dev->of_node,
-			"qcom,usb-ssphy-qmp-usb-or-dp"))
+			"qcom,usb-ssphy-qmp-usb3-or-dp"))
 		phy->phy.type = USB_PHY_TYPE_USB3_OR_DP;
 
 	ret = msm_ssphy_qmp_get_clks(phy, dev);
