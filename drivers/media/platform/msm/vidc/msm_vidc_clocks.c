@@ -300,8 +300,10 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].fps = msm_vidc_get_fps(inst);
 
 		vote_data[i].power_mode = 0;
-		if (msm_vidc_clock_voting || is_turbo ||
-			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
+		if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW &&
+			inst->session_type != MSM_VIDC_CVP)
+			vote_data[i].power_mode = VIDC_POWER_TURBO;
+		if (msm_vidc_clock_voting || is_turbo)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 
 		if (msm_comm_get_stream_output_mode(inst) ==
