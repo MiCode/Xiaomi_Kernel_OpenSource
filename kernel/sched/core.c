@@ -2044,6 +2044,7 @@ static inline void walt_try_to_wake_up(struct task_struct *p)
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+	note_task_waking(p, wallclock);
 	rq_unlock_irqrestore(rq, &rf);
 
 	rcu_read_lock();
@@ -2081,9 +2082,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 {
 	unsigned long flags;
 	int cpu, success = 0;
-#ifdef CONFIG_SMP
-	u64 wallclock;
-#endif
 
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
@@ -2175,8 +2173,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 		set_task_cpu(p, cpu);
 	}
 
-	wallclock = sched_ktime_clock();
-	note_task_waking(p, wallclock);
 #else /* CONFIG_SMP */
 
 	if (p->in_iowait) {
