@@ -512,21 +512,6 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
-static unsigned int get_connector_type(struct usbpd *pd)
-{
-	int ret;
-	union power_supply_propval val;
-
-	ret = power_supply_get_property(pd->usb_psy,
-		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
-
-	if (ret) {
-		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
-		return ret;
-	}
-	return val.intval;
-}
-
 static inline void stop_usb_host(struct usbpd *pd)
 {
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -4119,11 +4104,6 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto destroy_wq;
 	}
 
-	if (get_connector_type(pd) == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
-		usbpd_dbg(&pd->dev, "USB connector is microAB hence failing pdphy_probe\n");
-		ret = -EINVAL;
-		goto put_psy;
-	}
 	/*
 	 * associate extcon with the parent dev as it could have a DT
 	 * node which will be useful for extcon_get_edev_by_phandle()
