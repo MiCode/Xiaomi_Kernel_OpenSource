@@ -24,9 +24,11 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/alarmtimer.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/string_helpers.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
@@ -51,6 +53,7 @@
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
 #define TTF_PRIMING		"fg_ttf_priming"
+#define FG_ESR_VOTER		"fg_esr_voter"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
@@ -105,6 +108,11 @@ enum fg_debug_flag {
 	FG_BUS_READ		= BIT(6), /* Show REGMAP reads */
 	FG_CAP_LEARN		= BIT(7), /* Show capacity learning */
 	FG_TTF			= BIT(8), /* Show time to full */
+};
+
+enum awake_reasons {
+	FG_SW_ESR_WAKE = BIT(0),
+	FG_STATUS_NOTIFY_WAKE = BIT(1),
 };
 
 /* SRAM access */
@@ -273,6 +281,7 @@ struct fg_dt_props {
 	bool	hold_soc_while_full;
 	bool	linearize_soc;
 	bool	auto_recharge_soc;
+	bool	use_esr_sw;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -440,17 +449,21 @@ struct fg_chip {
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct fg_cap_learning  cl;
+	struct alarm            esr_sw_timer;
 	struct ttf		ttf;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
 	struct mutex		qnovo_esr_ctrl_lock;
+	spinlock_t		awake_lock;
 	spinlock_t		suspend_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
 	u32			rradc_base;
 	u32			wa_flags;
+	u32			esr_wakeup_ms;
+	u32			awake_status;
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
@@ -482,6 +495,7 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			usb_present;
 	bool			use_dma;
 	bool			qnovo_enable;
 	bool			suspended;
@@ -489,6 +503,7 @@ struct fg_chip {
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
+	struct work_struct	esr_sw_work;
 	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
 	struct delayed_work	pl_enable_work;
@@ -561,4 +576,6 @@ extern int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg);
 extern int fg_circ_buf_median(struct fg_circ_buf *buf, int *median);
 extern int fg_lerp(const struct fg_pt *pts, size_t tablesize, s32 input,
 			s32 *output);
+void fg_stay_awake(struct fg_chip *chip, int awake_reason);
+void fg_relax(struct fg_chip *chip, int awake_reason);
 #endif
