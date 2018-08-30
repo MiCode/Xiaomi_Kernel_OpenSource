@@ -135,7 +135,7 @@
 #define I2C_BURST_READ_MAX_LEN      (256)
 #define SMI130_STORE_COUNT  (6000)
 #define LMADA     (1)
-uint64_t g_current_apts_us;
+uint64_t g_current_apts_us_mbl;
 
 
 enum SMI_SENSOR_INT_T {
@@ -285,7 +285,7 @@ enum SMI_CALIBRATION_STATUS_TYPE {
 	SMI_ACC_Z_FAST_CALI_RDY
 };
 
-unsigned int reg_op_addr;
+unsigned int reg_op_addr_mbl;
 
 static const int smi_pmu_cmd_acc_arr[SMI_ACC_PM_MAX] = {
 	/*!smi pmu for acc normal, low power1,
@@ -372,7 +372,7 @@ struct smi130_store_info_t {
 	uint64_t fifo_time;
 };
 
-uint64_t get_current_timestamp(void)
+uint64_t get_current_timestamp_mbl(void)
 {
 	uint64_t ts_ap;
 	struct timespec tmp_time;

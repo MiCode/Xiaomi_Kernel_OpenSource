@@ -124,25 +124,25 @@
 /* user defined code to be added here ... */
 struct smi130_t *p_smi130;
 /* used for reading the mag trim values for compensation*/
-struct trim_data_t mag_trim;
+struct trim_data_t mag_trim_mbl;
 /* the following variable used for avoiding the selecting of auto mode
 when it is running in the manual mode of BMM150 mag interface*/
-u8 V_bmm150_maual_auto_condition_u8 = SMI130_INIT_VALUE;
+u8 V_bmm150_maual_auto_condition_u8_mbl = SMI130_INIT_VALUE;
 /* used for reading the AKM compensating data */
-struct bosch_akm_sensitivity_data_t akm_asa_data;
+struct bosch_akm_sensitivity_data_t akm_asa_data_mbl;
 /* Assign the fifo time */
-u32 V_fifo_time_U32 = SMI130_INIT_VALUE;
+u32 V_fifo_time_U32_mbl = SMI130_INIT_VALUE;
 
 /* FIFO data read for 1024 bytes of data */
-u8 v_fifo_data_u8[FIFO_FRAME] = {SMI130_INIT_VALUE};
+u8 v_fifo_data_u8_mbl[FIFO_FRAME] = {SMI130_INIT_VALUE};
 /* YAMAHA-YAS532*/
 /* value of coeff*/
 static const int yas532_version_ac_coef[] = {YAS532_VERSION_AC_COEF_X,
 YAS532_VERSION_AC_COEF_Y1, YAS532_VERSION_AC_COEF_Y2};
 /* used for reading the yas532 calibration data*/
-struct yas532_t yas532_data;
+struct yas532_t yas532_data_mbl;
 /* used for reading the yas537 calibration data*/
-struct yas537_t yas537_data;
+struct yas537_t yas537_data_mbl;
 /*!
  *	@brief
  *	This function is used for initialize
@@ -2121,10 +2121,10 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
 	return com_rslt;
 }
 /*!
- *	@brief This API reads the orient status
+ *	@brief This API reads the orient_mbl status
  *	from the register 0x1C bit 6
  *	flag is associated with a specific interrupt function.
- *	It is set when the orient interrupt triggers. The
+ *	It is set when the orient_mbl interrupt triggers. The
  *	setting of INT_LATCH controls if the
  *	interrupt signal and hence the
  *	respective interrupt flag will be
@@ -2134,27 +2134,27 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
  *
- *  @param v_orient_intr_u8 : The status of orient interrupt
+ *  @param v_orient_mbl_intr_u8 : The status of orient_mbl interrupt
  *
- *	@note For orient interrupt configuration use the following functions
+ *	@note For orient_mbl interrupt configuration use the following functions
  *	@note STATUS
- *	@note smi130_get_stat0_orient_intr()
+ *	@note smi130_get_stat0_orient_mbl_intr()
  *	@note AXIS MAPPING
- *	@note smi130_get_stat3_orient_xy()
- *	@note smi130_get_stat3_orient_z()
- *	@note smi130_set_intr_orient_axes_enable()
+ *	@note smi130_get_stat3_orient_mbl_xy()
+ *	@note smi130_get_stat3_orient_mbl_z()
+ *	@note smi130_set_intr_orient_mbl_axes_enable()
  *	@note INTERRUPT MAPPING
- *	@note smi130_set_intr_orient()
+ *	@note smi130_set_intr_orient_mbl()
  *	@note INTERRUPT OUTPUT
- *	@note smi130_set_intr_orient_ud_enable()
+ *	@note smi130_set_intr_orient_mbl_ud_enable()
  *	@note THETA
- *	@note smi130_set_intr_orient_theta()
+ *	@note smi130_set_intr_orient_mbl_theta()
  *	@note HYSTERESIS
- *	@note smi130_set_intr_orient_hyst()
+ *	@note smi130_set_intr_orient_mbl_hyst()
  *	@note BLOCKING
- *	@note smi130_set_intr_orient_blocking()
+ *	@note smi130_set_intr_orient_mbl_blocking()
  *	@note MODE
- *	@note smi130_set_intr_orient_mode()
+ *	@note smi130_set_intr_orient_mbl_mode()
  *
  *	@return results of bus communication function
  *	@retval 0 -> Success
@@ -2162,8 +2162,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_intr(u8
-*v_orient_intr_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_mbl_intr(u8
+*v_orient_mbl_intr_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -2176,7 +2176,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_intr(u8
 			p_smi130->SMI130_BUS_READ_FUNC(p_smi130->dev_addr,
 			SMI130_USER_INTR_STAT_0_ORIENT__REG, &v_data_u8,
 			SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_intr_u8 =
+			*v_orient_mbl_intr_u8 =
 			SMI130_GET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_STAT_0_ORIENT);
 		}
@@ -3041,11 +3041,11 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
 	return com_rslt;
 }
 /*!
- *	@brief This API reads the status of orient_xy plane
+ *	@brief This API reads the status of orient_mbl_xy plane
  *	from the register 0x1F bit 4 and 5
  *
  *
- *  @param v_orient_xy_u8 :The status of orient_xy plane
+ *  @param v_orient_mbl_xy_u8 :The status of orient_mbl_xy plane
  *  value     |  status
  * -----------|-------------
  *   0x00     | portrait upright
@@ -3060,8 +3060,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
-*v_orient_xy_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_xy(u8
+*v_orient_mbl_xy_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -3070,23 +3070,23 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orient plane xy interrupt status */
+			/* read orient_mbl plane xy interrupt status */
 			com_rslt =
 			p_smi130->SMI130_BUS_READ_FUNC(p_smi130->dev_addr,
 			SMI130_USER_INTR_STAT_3_ORIENT_XY__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_xy_u8 =
+			*v_orient_mbl_xy_u8 =
 			SMI130_GET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_STAT_3_ORIENT_XY);
 		}
 	return com_rslt;
 }
 /*!
- *	@brief This API reads the status of orient z plane
+ *	@brief This API reads the status of orient_mbl z plane
  *	from the register 0x1F bit 6
  *
  *
- *  @param v_orient_z_u8 :The status of orient z
+ *  @param v_orient_mbl_z_u8 :The status of orient_mbl z
  *  value     |  status
  * -----------|-------------
  *   0x00     | upward looking
@@ -3098,8 +3098,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_z(u8
-*v_orient_z_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_z(u8
+*v_orient_mbl_z_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -3108,12 +3108,12 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_z(u8
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orient z plane interrupt status */
+			/* read orient_mbl z plane interrupt status */
 			com_rslt =
 			p_smi130->SMI130_BUS_READ_FUNC(p_smi130->dev_addr,
 			SMI130_USER_INTR_STAT_3_ORIENT_Z__REG, &v_data_u8,
 			SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_z_u8 =
+			*v_orient_mbl_z_u8 =
 			SMI130_GET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_STAT_3_ORIENT_Z);
 		}
@@ -5858,7 +5858,7 @@ u8 v_enable_u8, u8 *v_intr_enable_zero_u8)
 			SMI130_USER_INTR_ENABLE_0_SINGLE_TAP_ENABLE);
 		break;
 		case SMI130_ORIENT_ENABLE:
-			/* read the orient interrupt data */
+			/* read the orient_mbl interrupt data */
 			com_rslt =
 			p_smi130->SMI130_BUS_READ_FUNC(p_smi130->
 			dev_addr, SMI130_USER_INTR_ENABLE_0_ORIENT_ENABLE__REG,
@@ -6008,7 +6008,7 @@ if (p_smi130 == SMI130_NULL) {
 		}
 		break;
 	case SMI130_ORIENT_ENABLE:
-		/* write orient interrupt*/
+		/* write orient_mbl interrupt*/
 		com_rslt = p_smi130->SMI130_BUS_READ_FUNC(p_smi130->
 		dev_addr, SMI130_USER_INTR_ENABLE_0_ORIENT_ENABLE__REG,
 		&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
@@ -7118,7 +7118,7 @@ u8 v_channel_u8, u8 v_output_enable_u8)
 *	@brief This API is used to get the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -7173,7 +7173,7 @@ u8 *v_latch_intr_u8)
 *	@brief This API is used to set the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -8181,13 +8181,13 @@ return com_rslt;
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -8201,8 +8201,8 @@ return com_rslt;
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient(
-u8 v_channel_u8, u8 *v_intr_orient_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl(
+u8 v_channel_u8, u8 *v_intr_orient_mbl_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -8212,19 +8212,19 @@ u8 v_channel_u8, u8 *v_intr_orient_u8)
 		return E_SMI130_NULL_PTR;
 		} else {
 		switch (v_channel_u8) {
-		/* read the orientation interrupt*/
+		/* read the orient_mblation interrupt*/
 		case SMI130_INTR1_MAP_ORIENT:
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC(p_smi130->
 			dev_addr, SMI130_USER_INTR_MAP_0_INTR1_ORIENT__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_intr_orient_u8 = SMI130_GET_BITSLICE(v_data_u8,
+			*v_intr_orient_mbl_u8 = SMI130_GET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_MAP_0_INTR1_ORIENT);
 			break;
 		case SMI130_INTR2_MAP_ORIENT:
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC(p_smi130->
 			dev_addr, SMI130_USER_INTR_MAP_2_INTR2_ORIENT__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_intr_orient_u8 = SMI130_GET_BITSLICE(v_data_u8,
+			*v_intr_orient_mbl_u8 = SMI130_GET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_MAP_2_INTR2_ORIENT);
 			break;
 		default:
@@ -8242,13 +8242,13 @@ u8 v_channel_u8, u8 *v_intr_orient_u8)
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -8262,8 +8262,8 @@ u8 v_channel_u8, u8 *v_intr_orient_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient(
-u8 v_channel_u8, u8 v_intr_orient_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl(
+u8 v_channel_u8, u8 v_intr_orient_mbl_u8)
 {
 /* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -8273,7 +8273,7 @@ if (p_smi130 == SMI130_NULL) {
 	return E_SMI130_NULL_PTR;
 	} else {
 	switch (v_channel_u8) {
-	/* write the orientation interrupt*/
+	/* write the orient_mblation interrupt*/
 	case SMI130_INTR1_MAP_ORIENT:
 		com_rslt =
 		p_smi130->SMI130_BUS_READ_FUNC(p_smi130->
@@ -8281,7 +8281,7 @@ if (p_smi130 == SMI130_NULL) {
 		&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
 		if (com_rslt == SUCCESS) {
 			v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
-			SMI130_USER_INTR_MAP_0_INTR1_ORIENT, v_intr_orient_u8);
+			SMI130_USER_INTR_MAP_0_INTR1_ORIENT, v_intr_orient_mbl_u8);
 			com_rslt +=
 			p_smi130->SMI130_BUS_WRITE_FUNC(p_smi130->
 			dev_addr, SMI130_USER_INTR_MAP_0_INTR1_ORIENT__REG,
@@ -8296,7 +8296,7 @@ if (p_smi130 == SMI130_NULL) {
 		if (com_rslt == SUCCESS) {
 			v_data_u8 =
 			SMI130_SET_BITSLICE(v_data_u8,
-			SMI130_USER_INTR_MAP_2_INTR2_ORIENT, v_intr_orient_u8);
+			SMI130_USER_INTR_MAP_2_INTR2_ORIENT, v_intr_orient_mbl_u8);
 			com_rslt +=
 			p_smi130->SMI130_BUS_WRITE_FUNC(p_smi130->
 			dev_addr, SMI130_USER_INTR_MAP_2_INTR2_ORIENT__REG,
@@ -11003,10 +11003,10 @@ u8 v_tap_thres_u8)
 	return com_rslt;
 }
  /*!
- *	@brief This API read the threshold for orientation interrupt
+ *	@brief This API read the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -11022,8 +11022,8 @@ u8 v_tap_thres_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mode(
-u8 *v_orient_mode_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_mode(
+u8 *v_orient_mbl_mode_u8)
 {
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
 	u8 v_data_u8 = SMI130_INIT_VALUE;
@@ -11031,22 +11031,22 @@ u8 *v_orient_mode_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orientation threshold*/
+			/* read orient_mblation threshold*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_MODE__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_mode_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_mode_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_MODE);
 		}
 	return com_rslt;
 }
  /*!
- *	@brief This API write the threshold for orientation interrupt
+ *	@brief This API write the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -11062,8 +11062,8 @@ u8 *v_orient_mode_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mode(
-u8 v_orient_mode_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_mode(
+u8 v_orient_mbl_mode_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11072,8 +11072,8 @@ u8 v_orient_mode_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-		if (v_orient_mode_u8 <= SMI130_MAX_ORIENT_MODE) {
-			/* write orientation threshold*/
+		if (v_orient_mbl_mode_u8 <= SMI130_MAX_ORIENT_MODE) {
+			/* write orient_mblation threshold*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_MODE__REG,
@@ -11081,7 +11081,7 @@ u8 v_orient_mode_u8)
 			if (com_rslt == SUCCESS) {
 				v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 				SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_MODE,
-				v_orient_mode_u8);
+				v_orient_mbl_mode_u8);
 				com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 				(p_smi130->dev_addr,
 				SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_MODE__REG,
@@ -11094,11 +11094,11 @@ u8 v_orient_mode_u8)
 	return com_rslt;
 }
 /*!
- *	@brief This API read the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API read the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -11107,7 +11107,7 @@ u8 v_orient_mode_u8)
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -11118,8 +11118,8 @@ u8 v_orient_mode_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_blocking(
-u8 *v_orient_blocking_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_blocking(
+u8 *v_orient_mbl_blocking_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
@@ -11128,23 +11128,23 @@ u8 *v_orient_blocking_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orient blocking mode*/
+			/* read orient_mbl blocking mode*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_BLOCKING__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_blocking_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_blocking_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_BLOCKING);
 		}
 	return com_rslt;
 }
 /*!
- *	@brief This API write the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API write the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -11153,7 +11153,7 @@ u8 *v_orient_blocking_u8)
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -11164,8 +11164,8 @@ u8 *v_orient_blocking_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_blocking(
-u8 v_orient_blocking_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_blocking(
+u8 v_orient_mbl_blocking_u8)
 {
 /* variable used for return the status of communication result*/
 SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11174,8 +11174,8 @@ u8 v_data_u8 = SMI130_INIT_VALUE;
 if (p_smi130 == SMI130_NULL) {
 	return E_SMI130_NULL_PTR;
 	} else {
-	if (v_orient_blocking_u8 <= SMI130_MAX_ORIENT_BLOCKING) {
-		/* write orient blocking mode*/
+	if (v_orient_mbl_blocking_u8 <= SMI130_MAX_ORIENT_BLOCKING) {
+		/* write orient_mbl blocking mode*/
 		com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 		(p_smi130->dev_addr,
 		SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_BLOCKING__REG,
@@ -11183,7 +11183,7 @@ if (p_smi130 == SMI130_NULL) {
 		if (com_rslt == SUCCESS) {
 			v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_BLOCKING,
-			v_orient_blocking_u8);
+			v_orient_mbl_blocking_u8);
 			com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_BLOCKING__REG,
@@ -11201,7 +11201,7 @@ return com_rslt;
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -11213,8 +11213,8 @@ return com_rslt;
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_hyst(
-u8 *v_orient_hyst_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_hyst(
+u8 *v_orient_mbl_hyst_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
@@ -11223,12 +11223,12 @@ u8 *v_orient_hyst_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orient hysteresis*/
+			/* read orient_mbl hysteresis*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_HYST__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_hyst_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_hyst_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_HYST);
 		}
@@ -11240,7 +11240,7 @@ u8 *v_orient_hyst_u8)
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -11252,8 +11252,8 @@ u8 *v_orient_hyst_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_hyst(
-u8 v_orient_hyst_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_hyst(
+u8 v_orient_mbl_hyst_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11262,7 +11262,7 @@ u8 v_orient_hyst_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* write orient hysteresis*/
+			/* write orient_mbl hysteresis*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_HYST__REG,
@@ -11270,7 +11270,7 @@ u8 v_orient_hyst_u8)
 			if (com_rslt == SUCCESS) {
 				v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 				SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_HYST,
-				v_orient_hyst_u8);
+				v_orient_mbl_hyst_u8);
 				com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 				(p_smi130->dev_addr,
 				SMI130_USER_INTR_ORIENT_0_INTR_ORIENT_HYST__REG,
@@ -11283,7 +11283,7 @@ u8 v_orient_hyst_u8)
  *	@brief This API read Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -11293,8 +11293,8 @@ u8 v_orient_hyst_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_theta(
-u8 *v_orient_theta_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_theta(
+u8 *v_orient_mbl_theta_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
@@ -11308,7 +11308,7 @@ u8 *v_orient_theta_u8)
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_THETA__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_theta_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_theta_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_THETA);
 		}
@@ -11318,7 +11318,7 @@ u8 *v_orient_theta_u8)
  *	@brief This API write Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -11328,8 +11328,8 @@ u8 *v_orient_theta_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_theta(
-u8 v_orient_theta_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_theta(
+u8 v_orient_mbl_theta_u8)
 {
 /* variable used for return the status of communication result*/
 SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11338,7 +11338,7 @@ u8 v_data_u8 = SMI130_INIT_VALUE;
 if (p_smi130 == SMI130_NULL) {
 	return E_SMI130_NULL_PTR;
 	} else {
-	if (v_orient_theta_u8 <= SMI130_MAX_ORIENT_THETA) {
+	if (v_orient_mbl_theta_u8 <= SMI130_MAX_ORIENT_THETA) {
 		/* write Orient blocking angle*/
 		com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 		(p_smi130->dev_addr,
@@ -11347,7 +11347,7 @@ if (p_smi130 == SMI130_NULL) {
 		if (com_rslt == SUCCESS) {
 			v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_THETA,
-			v_orient_theta_u8);
+			v_orient_mbl_theta_u8);
 			com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_THETA__REG,
@@ -11360,14 +11360,14 @@ if (p_smi130 == SMI130_NULL) {
 return com_rslt;
 }
 /*!
- *	@brief This API read orient change
+ *	@brief This API read orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -11376,8 +11376,8 @@ return com_rslt;
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_ud_enable(
-u8 *v_orient_ud_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_ud_enable(
+u8 *v_orient_mbl_ud_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
@@ -11386,26 +11386,26 @@ u8 *v_orient_ud_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orient up/down enable*/
+			/* read orient_mbl up/down enable*/
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_UD_ENABLE__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_ud_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_ud_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_UD_ENABLE);
 		}
 	return com_rslt;
 }
 /*!
- *	@brief This API write orient change
+ *	@brief This API write orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -11414,8 +11414,8 @@ u8 *v_orient_ud_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_ud_enable(
-u8 v_orient_ud_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_ud_enable(
+u8 v_orient_mbl_ud_u8)
 {
 /* variable used for return the status of communication result*/
 SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11424,8 +11424,8 @@ u8 v_data_u8 = SMI130_INIT_VALUE;
 if (p_smi130 == SMI130_NULL) {
 	return E_SMI130_NULL_PTR;
 	} else {
-	if (v_orient_ud_u8 <= SMI130_MAX_VALUE_ORIENT_UD) {
-		/* write orient up/down enable */
+	if (v_orient_mbl_ud_u8 <= SMI130_MAX_VALUE_ORIENT_UD) {
+		/* write orient_mbl up/down enable */
 		com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 		(p_smi130->dev_addr,
 		SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_UD_ENABLE__REG,
@@ -11433,7 +11433,7 @@ if (p_smi130 == SMI130_NULL) {
 		if (com_rslt == SUCCESS) {
 			v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_UD_ENABLE,
-			v_orient_ud_u8);
+			v_orient_mbl_ud_u8);
 			com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_UD_ENABLE__REG,
@@ -11446,14 +11446,14 @@ if (p_smi130 == SMI130_NULL) {
 return com_rslt;
 }
  /*!
- *	@brief This API read orientation axes changes
+ *	@brief This API read orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -11462,8 +11462,8 @@ return com_rslt;
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_axes_enable(
-u8 *v_orient_axes_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_axes_enable(
+u8 *v_orient_mbl_axes_u8)
 {
 	/* variable used for return the status of communication result*/
 	SMI130_RETURN_FUNCTION_TYPE com_rslt  = E_SMI130_COMM_RES;
@@ -11472,26 +11472,26 @@ u8 *v_orient_axes_u8)
 	if (p_smi130 == SMI130_NULL) {
 		return E_SMI130_NULL_PTR;
 		} else {
-			/* read orientation axes changes  */
+			/* read orient_mblation axes changes  */
 			com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_AXES_EX__REG,
 			&v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-			*v_orient_axes_u8 = SMI130_GET_BITSLICE
+			*v_orient_mbl_axes_u8 = SMI130_GET_BITSLICE
 			(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_AXES_EX);
 		}
 	return com_rslt;
 }
  /*!
- *	@brief This API write orientation axes changes
+ *	@brief This API write orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -11500,8 +11500,8 @@ u8 *v_orient_axes_u8)
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_axes_enable(
-u8 v_orient_axes_u8)
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_axes_enable(
+u8 v_orient_mbl_axes_u8)
 {
 /* variable used for return the status of communication result*/
 SMI130_RETURN_FUNCTION_TYPE com_rslt = E_SMI130_COMM_RES;
@@ -11510,8 +11510,8 @@ u8 v_data_u8 = SMI130_INIT_VALUE;
 if (p_smi130 == SMI130_NULL) {
 	return E_SMI130_NULL_PTR;
 	} else {
-	if (v_orient_axes_u8 <= SMI130_MAX_VALUE_ORIENT_AXES) {
-		/*write orientation axes changes  */
+	if (v_orient_mbl_axes_u8 <= SMI130_MAX_VALUE_ORIENT_AXES) {
+		/*write orient_mblation axes changes  */
 		com_rslt = p_smi130->SMI130_BUS_READ_FUNC
 		(p_smi130->dev_addr,
 		SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_AXES_EX__REG,
@@ -11519,7 +11519,7 @@ if (p_smi130 == SMI130_NULL) {
 		if (com_rslt == SUCCESS) {
 			v_data_u8 = SMI130_SET_BITSLICE(v_data_u8,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_AXES_EX,
-			v_orient_axes_u8);
+			v_orient_mbl_axes_u8);
 			com_rslt += p_smi130->SMI130_BUS_WRITE_FUNC
 			(p_smi130->dev_addr,
 			SMI130_USER_INTR_ORIENT_1_INTR_ORIENT_AXES_EX__REG,
@@ -15668,32 +15668,32 @@ s32 inter_retval = SMI130_INIT_VALUE;
 /* no overflow */
 if (v_mag_data_x_s16 != SMI130_MAG_FLIP_OVERFLOW_ADCVAL) {
 	if ((v_data_r_u16 != 0)
-	&& (mag_trim.dig_xyz1 != 0)) {
+	&& (mag_trim_mbl.dig_xyz1 != 0)) {
 		inter_retval = ((s32)(((u16)
-		((((s32)mag_trim.dig_xyz1)
+		((((s32)mag_trim_mbl.dig_xyz1)
 		<< SMI130_SHIFT_BIT_POSITION_BY_14_BITS)/
 		 (v_data_r_u16 != 0 ?
-		 v_data_r_u16 : mag_trim.dig_xyz1))) -
+		 v_data_r_u16 : mag_trim_mbl.dig_xyz1))) -
 		((u16)0x4000)));
 	} else {
 		inter_retval = SMI130_MAG_OVERFLOW_OUTPUT;
 		return inter_retval;
 	}
 	inter_retval = ((s32)((((s32)v_mag_data_x_s16) *
-			((((((((s32)mag_trim.dig_xy2) *
+			((((((((s32)mag_trim_mbl.dig_xy2) *
 			((((s32)inter_retval) *
 			((s32)inter_retval))
 			>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS)) +
 			 (((s32)inter_retval) *
-			  ((s32)(((s16)mag_trim.dig_xy1)
+			  ((s32)(((s16)mag_trim_mbl.dig_xy1)
 			  << SMI130_SHIFT_BIT_POSITION_BY_07_BITS))))
 			  >> SMI130_SHIFT_BIT_POSITION_BY_09_BITS) +
 		   ((s32)0x100000)) *
-		  ((s32)(((s16)mag_trim.dig_x2) +
+		  ((s32)(((s16)mag_trim_mbl.dig_x2) +
 		  ((s16)0xA0))))
 		  >> SMI130_SHIFT_BIT_POSITION_BY_12_BITS))
 		  >> SMI130_SHIFT_BIT_POSITION_BY_13_BITS)) +
-		(((s16)mag_trim.dig_x1)
+		(((s16)mag_trim_mbl.dig_x1)
 		<< SMI130_SHIFT_BIT_POSITION_BY_03_BITS);
 	/* check the overflow output */
 	if (inter_retval == (s32)SMI130_MAG_OVERFLOW_OUTPUT)
@@ -15735,30 +15735,30 @@ s32 inter_retval = SMI130_INIT_VALUE;
 /* no overflow */
 if (v_mag_data_y_s16 != SMI130_MAG_FLIP_OVERFLOW_ADCVAL) {
 	if ((v_data_r_u16 != 0)
-	&& (mag_trim.dig_xyz1 != 0)) {
+	&& (mag_trim_mbl.dig_xyz1 != 0)) {
 		inter_retval = ((s32)(((u16)(((
-		(s32)mag_trim.dig_xyz1)
+		(s32)mag_trim_mbl.dig_xyz1)
 		<< SMI130_SHIFT_BIT_POSITION_BY_14_BITS) /
 		(v_data_r_u16 != 0 ?
-		 v_data_r_u16 : mag_trim.dig_xyz1))) -
+		 v_data_r_u16 : mag_trim_mbl.dig_xyz1))) -
 		((u16)0x4000)));
 		} else {
 			inter_retval = SMI130_MAG_OVERFLOW_OUTPUT;
 			return inter_retval;
 		}
 	inter_retval = ((s32)((((s32)v_mag_data_y_s16) * ((((((((s32)
-		mag_trim.dig_xy2) * ((((s32) inter_retval) *
+		mag_trim_mbl.dig_xy2) * ((((s32) inter_retval) *
 		((s32)inter_retval)) >> SMI130_SHIFT_BIT_POSITION_BY_07_BITS))
 		+ (((s32)inter_retval) *
-		((s32)(((s16)mag_trim.dig_xy1)
+		((s32)(((s16)mag_trim_mbl.dig_xy1)
 		<< SMI130_SHIFT_BIT_POSITION_BY_07_BITS))))
 		>> SMI130_SHIFT_BIT_POSITION_BY_09_BITS) +
 		((s32)0x100000))
-		* ((s32)(((s16)mag_trim.dig_y2)
+		* ((s32)(((s16)mag_trim_mbl.dig_y2)
 		+ ((s16)0xA0))))
 		>> SMI130_SHIFT_BIT_POSITION_BY_12_BITS))
 		>> SMI130_SHIFT_BIT_POSITION_BY_13_BITS)) +
-		(((s16)mag_trim.dig_y1)
+		(((s16)mag_trim_mbl.dig_y1)
 		<< SMI130_SHIFT_BIT_POSITION_BY_03_BITS);
 	/* check the overflow output */
 	if (inter_retval == (s32)SMI130_MAG_OVERFLOW_OUTPUT)
@@ -15800,18 +15800,18 @@ s32 smi130_bmm150_mag_compensate_Z(s16 v_mag_data_z_s16, u16 v_data_r_u16)
 
 	if (v_mag_data_z_s16 != SMI130_MAG_HALL_OVERFLOW_ADCVAL) {
 		if ((v_data_r_u16 != 0)
-		   && (mag_trim.dig_z2 != 0)
-		/*   && (mag_trim.dig_z3 != 0)*/
-		   && (mag_trim.dig_z1 != 0)
-		   && (mag_trim.dig_xyz1 != 0)) {
-			retval = (((((s32)(v_mag_data_z_s16 - mag_trim.dig_z4))
+		   && (mag_trim_mbl.dig_z2 != 0)
+		/*   && (mag_trim_mbl.dig_z3 != 0)*/
+		   && (mag_trim_mbl.dig_z1 != 0)
+		   && (mag_trim_mbl.dig_xyz1 != 0)) {
+			retval = (((((s32)(v_mag_data_z_s16 - mag_trim_mbl.dig_z4))
 			<< SMI130_SHIFT_BIT_POSITION_BY_15_BITS) -
-			((((s32)mag_trim.dig_z3) *
+			((((s32)mag_trim_mbl.dig_z3) *
 			((s32)(((s16)v_data_r_u16) -
-			((s16)mag_trim.dig_xyz1))))
+			((s16)mag_trim_mbl.dig_xyz1))))
 			>> SMI130_SHIFT_BIT_POSITION_BY_02_BITS))/
-			(mag_trim.dig_z2 +
-			((s16)(((((s32)mag_trim.dig_z1) *
+			(mag_trim_mbl.dig_z2 +
+			((s16)(((((s32)mag_trim_mbl.dig_z1) *
 			((((s16)v_data_r_u16)
 			<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT))) +
 			(1 << SMI130_SHIFT_BIT_POSITION_BY_15_BITS))
@@ -15902,18 +15902,18 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bmm150_mag_interface_init(void)
 	SMI130_BMM150_POWE_MODE_REG);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 	/* read the mag trim values*/
-	com_rslt += smi130_read_bmm150_mag_trim();
+	com_rslt += smi130_read_bmm150_mag_trim_mbl();
 	printk(KERN_INFO "com_rslt:%d, <%s><%d>\n",
 		com_rslt, __func__, __LINE__);
 	/* To avoid the auto mode enable when manual mode operation running*/
-	V_bmm150_maual_auto_condition_u8 = SMI130_MANUAL_ENABLE;
+	V_bmm150_maual_auto_condition_u8_mbl = SMI130_MANUAL_ENABLE;
 	/* write the XY and Z repetitions*/
 	com_rslt += smi130_set_bmm150_mag_presetmode(
 	SMI130_MAG_PRESETMODE_REGULAR);
 	printk(KERN_INFO "com_rslt:%d, <%s><%d>\n",
 		com_rslt, __func__, __LINE__);
 	/* To avoid the auto mode enable when manual mode operation running*/
-	V_bmm150_maual_auto_condition_u8 = SMI130_MANUAL_DISABLE;
+	V_bmm150_maual_auto_condition_u8_mbl = SMI130_MANUAL_DISABLE;
 	/* Set the power mode of mag as force mode*/
 	/* The data have to write for the register
 	It write the value in the register 0x4F */
@@ -16130,14 +16130,14 @@ u8 v_mag_pow_mode_u8)
 		p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
 		/* To avoid the auto mode enable when manual
 		mode operation running*/
-		V_bmm150_maual_auto_condition_u8 = SMI130_MANUAL_ENABLE;
+		V_bmm150_maual_auto_condition_u8_mbl = SMI130_MANUAL_ENABLE;
 		/* set the preset mode */
 		com_rslt += smi130_set_bmm150_mag_presetmode(
 		SMI130_MAG_PRESETMODE_REGULAR);
 		p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 		/* To avoid the auto mode enable when manual
 		mode operation running*/
-		V_bmm150_maual_auto_condition_u8 = SMI130_MANUAL_DISABLE;
+		V_bmm150_maual_auto_condition_u8_mbl = SMI130_MANUAL_DISABLE;
 		/* set the mag read address to data registers*/
 		com_rslt += smi130_set_mag_read_addr(
 		SMI130_BMM150_DATA_REG);
@@ -16355,7 +16355,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_set_bmm150_mag_presetmode(u8 v_mode_u8)
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
+SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim_mbl(void)
 {
 	/* This variable used for provide the communication
 	results*/
@@ -16383,7 +16383,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_X1],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_x1 = v_data_u8[SMI130_BMM150_DIG_X1];
+	mag_trim_mbl.dig_x1 = v_data_u8[SMI130_BMM150_DIG_X1];
 	/* read dig_y1 value */
 	com_rslt += smi130_set_mag_read_addr(
 	SMI130_MAG_DIG_Y1);
@@ -16393,7 +16393,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_Y1],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_y1 = v_data_u8[SMI130_BMM150_DIG_Y1];
+	mag_trim_mbl.dig_y1 = v_data_u8[SMI130_BMM150_DIG_Y1];
 
 	/* read dig_x2 value */
 	com_rslt += smi130_set_mag_read_addr(
@@ -16404,7 +16404,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_X2],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_x2 = v_data_u8[SMI130_BMM150_DIG_X2];
+	mag_trim_mbl.dig_x2 = v_data_u8[SMI130_BMM150_DIG_X2];
 	/* read dig_y2 value */
 	com_rslt += smi130_set_mag_read_addr(
 	SMI130_MAG_DIG_Y2);
@@ -16414,7 +16414,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_Y3],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_y2 = v_data_u8[SMI130_BMM150_DIG_Y3];
+	mag_trim_mbl.dig_y2 = v_data_u8[SMI130_BMM150_DIG_Y3];
 
 	/* read dig_xy1 value */
 	com_rslt += smi130_set_mag_read_addr(
@@ -16425,7 +16425,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_XY1],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_xy1 = v_data_u8[SMI130_BMM150_DIG_XY1];
+	mag_trim_mbl.dig_xy1 = v_data_u8[SMI130_BMM150_DIG_XY1];
 	/* read dig_xy2 value */
 	com_rslt += smi130_set_mag_read_addr(
 	SMI130_MAG_DIG_XY2);
@@ -16435,7 +16435,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_XY2],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_xy2 = v_data_u8[SMI130_BMM150_DIG_XY2];
+	mag_trim_mbl.dig_xy2 = v_data_u8[SMI130_BMM150_DIG_XY2];
 
 	/* read dig_z1 lsb value */
 	com_rslt += smi130_set_mag_read_addr(
@@ -16454,7 +16454,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_Z1_MSB],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_z1 =
+	mag_trim_mbl.dig_z1 =
 	(u16)((((u32)((u8)v_data_u8[SMI130_BMM150_DIG_Z1_MSB]))
 			<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS) |
 			(v_data_u8[SMI130_BMM150_DIG_Z1_LSB]));
@@ -16475,7 +16475,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_Z2_MSB],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_z2 =
+	mag_trim_mbl.dig_z2 =
 	(s16)((((s32)((s8)v_data_u8[SMI130_BMM150_DIG_Z2_MSB]))
 			<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS) |
 			(v_data_u8[SMI130_BMM150_DIG_Z2_LSB]));
@@ -16496,7 +16496,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_DIG_Z3_MSB],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_z3 =
+	mag_trim_mbl.dig_z3 =
 	(s16)((((s32)((s8)v_data_u8[SMI130_BMM150_DIG_DIG_Z3_MSB]))
 			<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS) |
 			(v_data_u8[SMI130_BMM150_DIG_DIG_Z3_LSB]));
@@ -16517,7 +16517,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_DIG_Z4_MSB],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_z4 =
+	mag_trim_mbl.dig_z4 =
 	(s16)((((s32)((s8)v_data_u8[SMI130_BMM150_DIG_DIG_Z4_MSB]))
 			<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS) |
 			(v_data_u8[SMI130_BMM150_DIG_DIG_Z4_LSB]));
@@ -16538,7 +16538,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void)
 	&v_data_u8[SMI130_BMM150_DIG_DIG_XYZ1_MSB],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	mag_trim.dig_xyz1 =
+	mag_trim_mbl.dig_xyz1 =
 	(u16)((((u32)((u8)v_data_u8[SMI130_BMM150_DIG_DIG_XYZ1_MSB]))
 			<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS) |
 			(v_data_u8[SMI130_BMM150_DIG_DIG_XYZ1_LSB]));
@@ -16711,7 +16711,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bosch_akm_sensitivity_data(void)
 	&v_data_u8[AKM_ASAX],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	akm_asa_data.asax = v_data_u8[AKM_ASAX];
+	akm_asa_data_mbl.asax = v_data_u8[AKM_ASAX];
 	/* read asay value */
 	com_rslt += smi130_set_mag_read_addr(SMI130_BST_AKM_ASAY);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
@@ -16720,7 +16720,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bosch_akm_sensitivity_data(void)
 	&v_data_u8[AKM_ASAY],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	akm_asa_data.asay = v_data_u8[AKM_ASAY];
+	akm_asa_data_mbl.asay = v_data_u8[AKM_ASAY];
 	/* read asaz value */
 	com_rslt += smi130_set_mag_read_addr(SMI130_BST_AKM_ASAZ);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
@@ -16729,7 +16729,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_read_bosch_akm_sensitivity_data(void)
 	&v_data_u8[AKM_ASAZ],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-	akm_asa_data.asaz = v_data_u8[AKM_ASAZ];
+	akm_asa_data_mbl.asaz = v_data_u8[AKM_ASAZ];
 
 	return com_rslt;
 }
@@ -16761,7 +16761,7 @@ s32 smi130_bosch_akm09911_compensate_X(s16 v_bosch_akm_x_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw v_data_u8 into compensated v_data_u8*/
 	retval = (v_bosch_akm_x_s16 *
-	((akm_asa_data.asax/AKM09911_SENSITIVITY_DIV) +
+	((akm_asa_data_mbl.asax/AKM09911_SENSITIVITY_DIV) +
 	SMI130_GEN_READ_WRITE_DATA_LENGTH));
 	return retval;
 }
@@ -16793,7 +16793,7 @@ s32 smi130_bosch_akm09911_compensate_Y(s16 v_bosch_akm_y_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw v_data_u8 into compensated v_data_u8*/
 	retval = (v_bosch_akm_y_s16 *
-	((akm_asa_data.asay/AKM09911_SENSITIVITY_DIV) +
+	((akm_asa_data_mbl.asay/AKM09911_SENSITIVITY_DIV) +
 	SMI130_GEN_READ_WRITE_DATA_LENGTH));
 	return retval;
 }
@@ -16825,7 +16825,7 @@ s32 smi130_bosch_akm09911_compensate_Z(s16 v_bosch_akm_z_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw v_data_u8 into compensated v_data_u8*/
 	retval = (v_bosch_akm_z_s16 *
-	((akm_asa_data.asaz/AKM09911_SENSITIVITY_DIV) +
+	((akm_asa_data_mbl.asaz/AKM09911_SENSITIVITY_DIV) +
 	SMI130_GEN_READ_WRITE_DATA_LENGTH));
 	return retval;
 }
@@ -16857,7 +16857,7 @@ s32 smi130_bosch_akm09912_compensate_X(s16 v_bosch_akm_x_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw data into compensated data*/
 	retval = v_bosch_akm_x_s16 *
-	(akm_asa_data.asax + AKM09912_SENSITIVITY)
+	(akm_asa_data_mbl.asax + AKM09912_SENSITIVITY)
 	/ AKM09912_SENSITIVITY_DIV;
 	return retval;
 }
@@ -16889,7 +16889,7 @@ s32 smi130_bosch_akm09912_compensate_Y(s16 v_bosch_akm_y_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw data into compensated data*/
 	retval = v_bosch_akm_y_s16 *
-	(akm_asa_data.asax + AKM09912_SENSITIVITY)
+	(akm_asa_data_mbl.asax + AKM09912_SENSITIVITY)
 	/ AKM09912_SENSITIVITY_DIV;
 	return retval;
 }
@@ -16921,7 +16921,7 @@ s32 smi130_bosch_akm09912_compensate_Z(s16 v_bosch_akm_z_s16)
 	s32 retval = SMI130_INIT_VALUE;
 	/* Convert raw data into compensated data*/
 	retval = v_bosch_akm_z_s16 *
-	(akm_asa_data.asax + AKM09912_SENSITIVITY)
+	(akm_asa_data_mbl.asax + AKM09912_SENSITIVITY)
 	/ AKM09912_SENSITIVITY_DIV;
 	return retval;
 }
@@ -17284,23 +17284,23 @@ void)
 	com_rslt += smi130_bosch_yamaha_yas532_calib_values();
 	p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
 	/* Assign the data acquisition mode*/
-	yas532_data.measure_state = YAS532_MAG_STATE_INIT_COIL;
+	yas532_data_mbl.measure_state = YAS532_MAG_STATE_INIT_COIL;
 	/* Set the default offset as invalid offset*/
-	set_vector(yas532_data.v_hard_offset_s8, INVALID_OFFSET);
+	set_vector(yas532_data_mbl.v_hard_offset_s8, INVALID_OFFSET);
 	/* set the transform to zero */
-	yas532_data.transform = SMI130_NULL;
+	yas532_data_mbl.transform = SMI130_NULL;
 	/* Assign overflow as zero*/
-	yas532_data.overflow = 0;
+	yas532_data_mbl.overflow = 0;
 	#if YAS532_MAG_LOG < YAS532_MAG_TEMPERATURE_LOG
-		yas532_data.temp_data.num =
-		yas532_data.temp_data.idx = 0;
+		yas532_data_mbl.temp_data.num =
+		yas532_data_mbl.temp_data.idx = 0;
 	#endif
 	/* Assign the coef value*/
 	for (i = 0; i < 3; i++) {
-		yas532_data.coef[i] = yas532_version_ac_coef[i];
-		yas532_data.last_raw[i] = 0;
+		yas532_data_mbl.coef[i] = yas532_version_ac_coef[i];
+		yas532_data_mbl.last_raw[i] = 0;
 	}
-	yas532_data.last_raw[3] = 0;
+	yas532_data_mbl.last_raw[3] = 0;
 	/* Set the initial values of yas532*/
 	com_rslt += smi130_bosch_yas532_set_initial_values();
 	/* write the mag v_data_bw_u8 as 25Hz*/
@@ -17350,15 +17350,15 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yas532_set_initial_values(void)
 	com_rslt += smi130_set_mag_write_addr(SMI130_YAS532_RCOIL);
 	p_smi130->delay_msec(SMI130_YAS532_SET_INITIAL_VALUE_DELAY);
 	/* check the valid offset*/
-	if (is_valid_offset(yas532_data.v_hard_offset_s8)) {
+	if (is_valid_offset(yas532_data_mbl.v_hard_offset_s8)) {
 		com_rslt += smi130_bosch_yas532_set_offset(
-		yas532_data.v_hard_offset_s8);
-		yas532_data.measure_state = YAS532_MAG_STATE_NORMAL;
+		yas532_data_mbl.v_hard_offset_s8);
+		yas532_data_mbl.measure_state = YAS532_MAG_STATE_NORMAL;
 	} else {
 		/* set the default offset as invalid offset*/
-		set_vector(yas532_data.v_hard_offset_s8, INVALID_OFFSET);
+		set_vector(yas532_data_mbl.v_hard_offset_s8, INVALID_OFFSET);
 		/*Set the default measure state for offset correction*/
-		yas532_data.measure_state = YAS532_MAG_STATE_MEASURE_OFFSET;
+		yas532_data_mbl.measure_state = YAS532_MAG_STATE_MEASURE_OFFSET;
 	}
 	return com_rslt;
 }
@@ -17455,28 +17455,28 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	/* 0x04 is secondary read mag x lsb register */
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[0], SMI130_GEN_READ_WRITE_DATA_LENGTH);
-	yas532_data.calib_yas532.cx = (s32)((v_data_u8[0]
+	yas532_data_mbl.calib_yas532.cx = (s32)((v_data_u8[0]
 	* 10) - 1280);
 	/* Read the DY1 value */
 	com_rslt += smi130_set_mag_read_addr(SMI130_YAS532_CALIB_CY1);
 	/* 0x04 is secondary read mag x lsb register */
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[1], SMI130_GEN_READ_WRITE_DATA_LENGTH);
-	yas532_data.calib_yas532.cy1 =
+	yas532_data_mbl.calib_yas532.cy1 =
 	(s32)((v_data_u8[1] * 10) - 1280);
 	/* Read the DY2 value */
 	com_rslt += smi130_set_mag_read_addr(SMI130_YAS532_CALIB_CY2);
 	/* 0x04 is secondary read mag x lsb register */
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[2], SMI130_GEN_READ_WRITE_DATA_LENGTH);
-	yas532_data.calib_yas532.cy2 =
+	yas532_data_mbl.calib_yas532.cy2 =
 	(s32)((v_data_u8[2] * 10) - 1280);
 	/* Read the D2 and D3 value */
 	com_rslt += smi130_set_mag_read_addr(SMI130_YAS532_CALIB1);
 	/* 0x04 is secondary read mag x lsb register */
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[3], SMI130_GEN_READ_WRITE_DATA_LENGTH);
-	yas532_data.calib_yas532.a2 =
+	yas532_data_mbl.calib_yas532.a2 =
 	(s32)(((v_data_u8[3] >>
 	SMI130_SHIFT_BIT_POSITION_BY_02_BITS)
 	& 0x03F) - 32);
@@ -17486,13 +17486,13 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[4], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a3*/
-	yas532_data.calib_yas532.a3 = (s32)((((v_data_u8[3] <<
+	yas532_data_mbl.calib_yas532.a3 = (s32)((((v_data_u8[3] <<
 	SMI130_SHIFT_BIT_POSITION_BY_02_BITS) & 0x0C) |
 	((v_data_u8[4]
 	>> SMI130_SHIFT_BIT_POSITION_BY_06_BITS)
 	& 0x03)) - 8);
 	/* calculate a4*/
-	yas532_data.calib_yas532.a4 = (s32)((v_data_u8[4]
+	yas532_data_mbl.calib_yas532.a4 = (s32)((v_data_u8[4]
 	& 0x3F) - 32);
 	p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
     /* Read the D5 and D6 value */
@@ -17501,7 +17501,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[5], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a5*/
-	yas532_data.calib_yas532.a5 =
+	yas532_data_mbl.calib_yas532.a5 =
 	(s32)(((v_data_u8[5]
 	>> SMI130_SHIFT_BIT_POSITION_BY_02_BITS)
 	& 0x3F) + 38);
@@ -17511,7 +17511,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[6], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a6*/
-	yas532_data.calib_yas532.a6 =
+	yas532_data_mbl.calib_yas532.a6 =
 	(s32)((((v_data_u8[5]
 	<< SMI130_SHIFT_BIT_POSITION_BY_04_BITS)
 	& 0x30) | ((v_data_u8[6] >>
@@ -17523,7 +17523,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[7], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a7*/
-	yas532_data.calib_yas532.a7 = (s32)((((v_data_u8[6]
+	yas532_data_mbl.calib_yas532.a7 = (s32)((((v_data_u8[6]
 	<< SMI130_SHIFT_BIT_POSITION_BY_03_BITS)
 	& 0x78) |
 	((v_data_u8[7]
@@ -17535,7 +17535,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[8], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a8*/
-	yas532_data.calib_yas532.a8 = (s32)((((v_data_u8[7] <<
+	yas532_data_mbl.calib_yas532.a8 = (s32)((((v_data_u8[7] <<
 	SMI130_GEN_READ_WRITE_DATA_LENGTH) & 0x3E) |
 	((v_data_u8[8] >>
 	SMI130_SHIFT_BIT_POSITION_BY_07_BITS) & 0x01)) -
@@ -17547,12 +17547,12 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 	&v_data_u8[9], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* calculate a9*/
-	yas532_data.calib_yas532.a9 = (s32)(((v_data_u8[8] <<
+	yas532_data_mbl.calib_yas532.a9 = (s32)(((v_data_u8[8] <<
 	SMI130_GEN_READ_WRITE_DATA_LENGTH) & 0xFE) |
 	 ((v_data_u8[9] >>
 	 SMI130_SHIFT_BIT_POSITION_BY_07_BITS) & 0x01));
 	/* calculate k*/
-	yas532_data.calib_yas532.k = (s32)((v_data_u8[9] >>
+	yas532_data_mbl.calib_yas532.k = (s32)((v_data_u8[9] >>
 	SMI130_SHIFT_BIT_POSITION_BY_02_BITS) & 0x1F);
 	/* Read the  value from register 0x9A*/
 	com_rslt += smi130_set_mag_read_addr(SMI130_YAS532_CALIB8);
@@ -17579,33 +17579,33 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bosch_yamaha_yas532_calib_values(void)
 	&v_data_u8[13],
 	SMI130_GEN_READ_WRITE_DATA_LENGTH);
 	/* Calculate the fxy1y2 and rxy1y1*/
-	yas532_data.calib_yas532.fxy1y2[0] =
+	yas532_data_mbl.calib_yas532.fxy1y2[0] =
 	(u8)(((v_data_u8[10]
 	& 0x01)
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	| ((v_data_u8[11] >>
 	SMI130_SHIFT_BIT_POSITION_BY_07_BITS) & 0x01));
-	yas532_data.calib_yas532.rxy1y2[0] =
+	yas532_data_mbl.calib_yas532.rxy1y2[0] =
 	((s8)(((v_data_u8[10]
 	>> SMI130_SHIFT_BIT_POSITION_BY_01_BIT) & 0x3F)
 	<< SMI130_SHIFT_BIT_POSITION_BY_02_BITS))
 	>> SMI130_SHIFT_BIT_POSITION_BY_02_BITS;
-	yas532_data.calib_yas532.fxy1y2[1] =
+	yas532_data_mbl.calib_yas532.fxy1y2[1] =
 	(u8)(((v_data_u8[11] & 0x01)
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	 | ((v_data_u8[12] >>
 	 SMI130_SHIFT_BIT_POSITION_BY_07_BITS) & 0x01));
-	yas532_data.calib_yas532.rxy1y2[1] =
+	yas532_data_mbl.calib_yas532.rxy1y2[1] =
 	((s8)(((v_data_u8[11]
 	>> SMI130_SHIFT_BIT_POSITION_BY_01_BIT) & 0x3F)
 	<< SMI130_SHIFT_BIT_POSITION_BY_02_BITS))
 	>> SMI130_SHIFT_BIT_POSITION_BY_02_BITS;
-	yas532_data.calib_yas532.fxy1y2[2] =
+	yas532_data_mbl.calib_yas532.fxy1y2[2] =
 	(u8)(((v_data_u8[12] & 0x01)
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	| ((v_data_u8[13]
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS) & 0x01));
-	yas532_data.calib_yas532.rxy1y2[2] =
+	yas532_data_mbl.calib_yas532.rxy1y2[2] =
 	((s8)(((v_data_u8[12]
 	>> SMI130_SHIFT_BIT_POSITION_BY_01_BIT) & 0x3F)
 	 << SMI130_SHIFT_BIT_POSITION_BY_02_BITS))
@@ -17636,10 +17636,10 @@ u16 *v_xy1y2_u16, s32 *xy1y2_linear)
 
 	for (i = 0; i < 3; i++)
 		xy1y2_linear[i] = v_xy1y2_u16[i] -
-		 v_calib_data[yas532_data.calib_yas532.fxy1y2[i]]
-			+ (yas532_data.v_hard_offset_s8[i] -
-			yas532_data.calib_yas532.rxy1y2[i])
-			* yas532_data.coef[i];
+		 v_calib_data[yas532_data_mbl.calib_yas532.fxy1y2[i]]
+			+ (yas532_data_mbl.v_hard_offset_s8[i] -
+			yas532_data_mbl.calib_yas532.rxy1y2[i])
+			* yas532_data_mbl.coef[i];
 	return com_rslt;
 }
 /*!
@@ -17796,7 +17796,7 @@ u8 v_acquisition_command_u8)
 	s32 sum = SMI130_INIT_VALUE;
 	#endif
 	*v_overflow_s8 = SMI130_INIT_VALUE;
-	switch (yas532_data.measure_state) {
+	switch (yas532_data_mbl.measure_state) {
 	case YAS532_MAG_STATE_INIT_COIL:
 		if (p_smi130->mag_manual_enable != SMI130_MANUAL_ENABLE)
 			com_rslt = smi130_set_mag_manual_enable(
@@ -17807,13 +17807,13 @@ u8 v_acquisition_command_u8)
 		p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 		com_rslt += smi130_set_mag_write_addr(SMI130_YAS532_RCOIL);
 		p_smi130->delay_msec(SMI130_YAS532_MEASUREMENT_DELAY);
-		if (!yas532_data.overflow && is_valid_offset(
-		yas532_data.v_hard_offset_s8))
-			yas532_data.measure_state = 0;
+		if (!yas532_data_mbl.overflow && is_valid_offset(
+		yas532_data_mbl.v_hard_offset_s8))
+			yas532_data_mbl.measure_state = 0;
 	break;
 	case YAS532_MAG_STATE_MEASURE_OFFSET:
 		com_rslt = smi130_bosch_yas532_magnetic_measure_set_offset();
-		yas532_data.measure_state = 0;
+		yas532_data_mbl.measure_state = 0;
 	break;
 	default:
 	break;
@@ -17827,16 +17827,16 @@ u8 v_acquisition_command_u8)
 	v_xy1y2_linear_s32);
 	/* Calculate temperature correction */
 	#if YAS532_MAG_LOG < YAS532_MAG_TEMPERATURE_LOG
-		yas532_data.temp_data.log[yas532_data.temp_data.idx++] =
+		yas532_data_mbl.temp_data.log[yas532_data_mbl.temp_data.idx++] =
 		v_temp_u16;
-	if (YAS532_MAG_TEMPERATURE_LOG <= yas532_data.temp_data.idx)
-		yas532_data.temp_data.idx = 0;
-		yas532_data.temp_data.num++;
-	if (YAS532_MAG_TEMPERATURE_LOG <= yas532_data.temp_data.num)
-		yas532_data.temp_data.num = YAS532_MAG_TEMPERATURE_LOG;
-	for (i = 0; i < yas532_data.temp_data.num; i++)
-		sum += yas532_data.temp_data.log[i];
-		tmp = sum * 10 / yas532_data.temp_data.num
+	if (YAS532_MAG_TEMPERATURE_LOG <= yas532_data_mbl.temp_data.idx)
+		yas532_data_mbl.temp_data.idx = 0;
+		yas532_data_mbl.temp_data.num++;
+	if (YAS532_MAG_TEMPERATURE_LOG <= yas532_data_mbl.temp_data.num)
+		yas532_data_mbl.temp_data.num = YAS532_MAG_TEMPERATURE_LOG;
+	for (i = 0; i < yas532_data_mbl.temp_data.num; i++)
+		sum += yas532_data_mbl.temp_data.log[i];
+		tmp = sum * 10 / yas532_data_mbl.temp_data.num
 		- YAS532_TEMP20DEGREE_TYPICAL * 10;
 	#else
 		tmp = (v_temp_u16 - YAS532_TEMP20DEGREE_TYPICAL)
@@ -17847,33 +17847,33 @@ u8 v_acquisition_command_u8)
 	sy2 = v_xy1y2_linear_s32[2];
 	/* Temperature correction */
 	if (v_temp_correction_u8) {
-		sx  -= (yas532_data.calib_yas532.cx  * tmp)
+		sx  -= (yas532_data_mbl.calib_yas532.cx  * tmp)
 		/ 1000;
-		sy1 -= (yas532_data.calib_yas532.cy1 * tmp)
+		sy1 -= (yas532_data_mbl.calib_yas532.cy1 * tmp)
 		/ 1000;
-		sy2 -= (yas532_data.calib_yas532.cy2 * tmp)
+		sy2 -= (yas532_data_mbl.calib_yas532.cy2 * tmp)
 		/ 1000;
 	}
 	sy = sy1 - sy2;
 	sz = -sy1 - sy2;
 
-	xyz_data->yas532_vector_xyz[0] = yas532_data.calib_yas532.k *
-	((100 * sx + yas532_data.calib_yas532.a2 * sy +
-	yas532_data.calib_yas532.a3 * sz) / 10);
-	xyz_data->yas532_vector_xyz[1] = yas532_data.calib_yas532.k *
-	((yas532_data.calib_yas532.a4 * sx + yas532_data.calib_yas532.a5 * sy +
-	yas532_data.calib_yas532.a6 * sz) / 10);
-	xyz_data->yas532_vector_xyz[2] = yas532_data.calib_yas532.k *
-	((yas532_data.calib_yas532.a7 * sx + yas532_data.calib_yas532.a8 * sy +
-	yas532_data.calib_yas532.a9 * sz) / 10);
-	if (yas532_data.transform != SMI130_NULL) {
+	xyz_data->yas532_vector_xyz[0] = yas532_data_mbl.calib_yas532.k *
+	((100 * sx + yas532_data_mbl.calib_yas532.a2 * sy +
+	yas532_data_mbl.calib_yas532.a3 * sz) / 10);
+	xyz_data->yas532_vector_xyz[1] = yas532_data_mbl.calib_yas532.k *
+	((yas532_data_mbl.calib_yas532.a4 * sx + yas532_data_mbl.calib_yas532.a5 * sy +
+	yas532_data_mbl.calib_yas532.a6 * sz) / 10);
+	xyz_data->yas532_vector_xyz[2] = yas532_data_mbl.calib_yas532.k *
+	((yas532_data_mbl.calib_yas532.a7 * sx + yas532_data_mbl.calib_yas532.a8 * sy +
+	yas532_data_mbl.calib_yas532.a9 * sz) / 10);
+	if (yas532_data_mbl.transform != SMI130_NULL) {
 		for (i = 0; i < 3; i++) {
-				v_xyz_tmp_s32[i] = yas532_data.transform[i
+				v_xyz_tmp_s32[i] = yas532_data_mbl.transform[i
 				* 3] *
 				xyz_data->yas532_vector_xyz[0]
-				+ yas532_data.transform[i * 3 + 1] *
+				+ yas532_data_mbl.transform[i * 3 + 1] *
 				xyz_data->yas532_vector_xyz[1]
-				+ yas532_data.transform[i * 3 + 2] *
+				+ yas532_data_mbl.transform[i * 3 + 2] *
 				xyz_data->yas532_vector_xyz[2];
 		}
 		set_vector(xyz_data->yas532_vector_xyz, v_xyz_tmp_s32);
@@ -17894,14 +17894,14 @@ u8 v_acquisition_command_u8)
 if (v_busy_u8)
 		return com_rslt;
 	if (0 < *v_overflow_s8) {
-		if (!yas532_data.overflow)
-			yas532_data.overflow = 1;
-		yas532_data.measure_state = YAS532_MAG_STATE_INIT_COIL;
+		if (!yas532_data_mbl.overflow)
+			yas532_data_mbl.overflow = 1;
+		yas532_data_mbl.measure_state = YAS532_MAG_STATE_INIT_COIL;
 	} else
-		yas532_data.overflow = 0;
+		yas532_data_mbl.overflow = 0;
 	for (i = 0; i < 3; i++)
-		yas532_data.last_raw[i] = v_xy1y2_u16[i];
-	  yas532_data.last_raw[i] = v_temp_u16;
+		yas532_data_mbl.last_raw[i] = v_xy1y2_u16[i];
+	  yas532_data_mbl.last_raw[i] = v_temp_u16;
 	return com_rslt;
 }
 /*!
@@ -18003,7 +18003,7 @@ const s8 *p_offset_s8)
 		/* YAS532 offset z write*/
 		com_rslt += smi130_set_mag_write_addr(SMI130_YAS532_OFFSET_Z);
 		p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
-		set_vector(yas532_data.v_hard_offset_s8, p_offset_s8);
+		set_vector(yas532_data_mbl.v_hard_offset_s8, p_offset_s8);
 
 	if (p_smi130->mag_manual_enable == SMI130_MANUAL_ENABLE)
 		com_rslt = smi130_set_mag_manual_enable(SMI130_MANUAL_DISABLE);
@@ -18080,7 +18080,7 @@ com_rslt += smi130_set_mag_read_addr(SMI130_YAS_DEVICE_ID_REG);
 p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 &v_data_u8, SMI130_GEN_READ_WRITE_DATA_LENGTH);
-yas537_data.dev_id = v_data_u8;
+yas537_data_mbl.dev_id = v_data_u8;
 p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 /* Read the YAS532 calibration data*/
 com_rslt +=
@@ -18088,16 +18088,16 @@ smi130_bosch_yamaha_yas537_calib_values(
 SMI130_GEN_READ_WRITE_DATA_LENGTH);
 p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
 /* set the mode to NORMAL*/
-yas537_data.measure_state = YAS537_MAG_STATE_NORMAL;
+yas537_data_mbl.measure_state = YAS537_MAG_STATE_NORMAL;
 /* set the transform to zero */
-yas537_data.transform = SMI130_NULL;
-yas537_data.average = 32;
+yas537_data_mbl.transform = SMI130_NULL;
+yas537_data_mbl.average = 32;
 for (i = 0; i < 3; i++) {
-	yas537_data.hard_offset[i] = -128;
-	yas537_data.last_after_rcoil[i] = 0;
+	yas537_data_mbl.hard_offset[i] = -128;
+	yas537_data_mbl.last_after_rcoil[i] = 0;
 }
 for (i = 0; i < 4; i++)
-	yas537_data.last_raw[i] = 0;
+	yas537_data_mbl.last_raw[i] = 0;
 /* write the mag bandwidth as 25Hz*/
 com_rslt += smi130_set_mag_output_data_rate(
 SMI130_MAG_OUTPUT_DATA_RATE_25HZ);
@@ -18250,7 +18250,7 @@ p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 com_rslt += smi130_read_reg(SMI130_MAG_DATA_READ_REG,
 &a_data_u8[16], SMI130_GEN_READ_WRITE_DATA_LENGTH);
 /* get the calib ver*/
-yas537_data.calib_yas537.ver =
+yas537_data_mbl.calib_yas537.ver =
 (a_data_u8[16] >> SMI130_SHIFT_BIT_POSITION_BY_06_BITS);
 for (i = 0; i < 17; i++) {
 	if (((i < 16 && a_data_u8[i]) != 0))
@@ -18261,7 +18261,7 @@ for (i = 0; i < 17; i++) {
 }
 if (!v_cal_valid_u8)
 	return ERROR;
-if (yas537_data.calib_yas537.ver == 0) {
+if (yas537_data_mbl.calib_yas537.ver == 0) {
 	for (i = 0; i < 17; i++) {
 		if (i < 12) {
 			/* write offset*/
@@ -18283,7 +18283,7 @@ if (yas537_data.calib_yas537.ver == 0) {
 			(YAS537_REG_OXR + i) - 12));
 			p_smi130->delay_msec(
 			SMI130_GEN_READ_WRITE_DELAY);
-			yas537_data.hard_offset[i - 12]
+			yas537_data_mbl.hard_offset[i - 12]
 			= a_data_u8[i];
 		} else {
 			/* write offset correction*/
@@ -18298,7 +18298,7 @@ if (yas537_data.calib_yas537.ver == 0) {
 		}
 
 }
-} else if (yas537_data.calib_yas537.ver == 1) {
+} else if (yas537_data_mbl.calib_yas537.ver == 1) {
 	for (i = 0; i < 3; i++) {
 		/* write offset*/
 		com_rslt += smi130_set_mag_write_data(
@@ -18319,7 +18319,7 @@ if (yas537_data.calib_yas537.ver == 0) {
 			YAS537_REG_OXR + i);
 			p_smi130->delay_msec(
 			SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
-			yas537_data.hard_offset[i] =
+			yas537_data_mbl.hard_offset[i] =
 			a_data_u8[i + 12];
 		} else {
 			com_rslt = ERROR;
@@ -18363,20 +18363,20 @@ if (yas537_data.calib_yas537.ver == 0) {
 
 	/* Assign the calibration values*/
 	/* a2 */
-	yas537_data.calib_yas537.a2 =
+	yas537_data_mbl.calib_yas537.a2 =
 	((((a_data_u8[3]
 	<< SMI130_SHIFT_BIT_POSITION_BY_02_BITS)
 	& 0x7C)
 	| (a_data_u8[4]
 	>> SMI130_SHIFT_BIT_POSITION_BY_06_BITS)) - 64);
 	/* a3 */
-	yas537_data.calib_yas537.a3 =
+	yas537_data_mbl.calib_yas537.a3 =
 	((((a_data_u8[4] << SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	& 0x7E)
 	| (a_data_u8[5]
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS)) - 64);
 	/* a4 */
-	yas537_data.calib_yas537.a4 =
+	yas537_data_mbl.calib_yas537.a4 =
 	((((a_data_u8[5]
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	& 0xFE)
@@ -18384,7 +18384,7 @@ if (yas537_data.calib_yas537.ver == 0) {
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS))
 	- 128);
 	/* a5 */
-	yas537_data.calib_yas537.a5 =
+	yas537_data_mbl.calib_yas537.a5 =
 	((((a_data_u8[6]
 	<< SMI130_SHIFT_BIT_POSITION_BY_02_BITS)
 	& 0x1FC)
@@ -18392,14 +18392,14 @@ if (yas537_data.calib_yas537.ver == 0) {
 	>> SMI130_SHIFT_BIT_POSITION_BY_06_BITS))
 	- 112);
 	/* a6 */
-	yas537_data.calib_yas537.a6 =
+	yas537_data_mbl.calib_yas537.a6 =
 	((((a_data_u8[7]
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	& 0x7E)
 	| (a_data_u8[8]
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS)) - 64);
 	/* a7 */
-	yas537_data.calib_yas537.a7 =
+	yas537_data_mbl.calib_yas537.a7 =
 	((((a_data_u8[8]
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT)
 	& 0xFE)
@@ -18407,16 +18407,16 @@ if (yas537_data.calib_yas537.ver == 0) {
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS))
 	- 128);
 	/* a8 */
-	yas537_data.calib_yas537.a8 = ((a_data_u8[9] &
+	yas537_data_mbl.calib_yas537.a8 = ((a_data_u8[9] &
 	0x7F) - 64);
 	/* a9 */
-	yas537_data.calib_yas537.a9 = ((((a_data_u8[10]
+	yas537_data_mbl.calib_yas537.a9 = ((((a_data_u8[10]
 	<< SMI130_SHIFT_BIT_POSITION_BY_01_BIT) & 0x1FE)
 	| (a_data_u8[11]
 	>> SMI130_SHIFT_BIT_POSITION_BY_07_BITS))
 	- 112);
 	/* k */
-	yas537_data.calib_yas537.k = (
+	yas537_data_mbl.calib_yas537.k = (
 	a_data_u8[11] & 0x7F);
 	} else {
 		return ERROR;
@@ -18440,7 +18440,7 @@ com_rslt += smi130_set_mag_write_addr(YAS537_REG_TRMR);
 p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
 /* write average filter register*/
 com_rslt += smi130_set_mag_write_data(
-v_avrr_u8[yas537_data.average]);
+v_avrr_u8[yas537_data_mbl.average]);
 p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 com_rslt += smi130_set_mag_write_addr(YAS537_REG_AVRR);
 p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
@@ -18504,7 +18504,7 @@ u8 v_command_reg_data_u8)
 		com_rslt += smi130_set_mag_write_addr(
 		SMI130_REG_YAS537_CMDR);
 		/* set the mode to RECORD*/
-		yas537_data.measure_state = YAS537_MAG_STATE_RECORD_DATA;
+		yas537_data_mbl.measure_state = YAS537_MAG_STATE_RECORD_DATA;
 		p_smi130->delay_msec(SMI130_YAS_ACQ_COMMAND_DELAY);
 		com_rslt += smi130_set_mag_read_addr(
 		YAS537_REG_TEMPERATURE_0);
@@ -18606,28 +18606,28 @@ u16 *v_temperature_u16, u16 *xy1y2, u8 *v_ouflow_u8)
 	<< SMI130_SHIFT_BIT_POSITION_BY_08_BITS)
 	| a_data_u8[7]);
 	for (i = 0; i < 3; i++)
-		yas537_data.last_raw[i] = xy1y2[i];
-	yas537_data.last_raw[i] = *v_temperature_u16;
-	if (yas537_data.calib_yas537.ver == 1) {
+		yas537_data_mbl.last_raw[i] = xy1y2[i];
+	yas537_data_mbl.last_raw[i] = *v_temperature_u16;
+	if (yas537_data_mbl.calib_yas537.ver == 1) {
 		for (i = 0; i < 3; i++)
 			a_s_s32[i] = xy1y2[i] - 8192;
 		/* read hx*/
-		a_h_s32[0] = ((yas537_data.calib_yas537.k * (
+		a_h_s32[0] = ((yas537_data_mbl.calib_yas537.k * (
 		(128 * a_s_s32[0]) +
-		(yas537_data.calib_yas537.a2 * a_s_s32[1]) +
-		(yas537_data.calib_yas537.a3 * a_s_s32[2])))
+		(yas537_data_mbl.calib_yas537.a2 * a_s_s32[1]) +
+		(yas537_data_mbl.calib_yas537.a3 * a_s_s32[2])))
 		/ (8192));
 		/* read hy1*/
-		a_h_s32[1] = ((yas537_data.calib_yas537.k * (
-		(yas537_data.calib_yas537.a4 * a_s_s32[0]) +
-		(yas537_data.calib_yas537.a5 * a_s_s32[1]) +
-		(yas537_data.calib_yas537.a6 * a_s_s32[2])))
+		a_h_s32[1] = ((yas537_data_mbl.calib_yas537.k * (
+		(yas537_data_mbl.calib_yas537.a4 * a_s_s32[0]) +
+		(yas537_data_mbl.calib_yas537.a5 * a_s_s32[1]) +
+		(yas537_data_mbl.calib_yas537.a6 * a_s_s32[2])))
 		/ (8192));
 		/* read hy2*/
-		a_h_s32[2] = ((yas537_data.calib_yas537.k * (
-		(yas537_data.calib_yas537.a7 * a_s_s32[0]) +
-		(yas537_data.calib_yas537.a8 * a_s_s32[1]) +
-		(yas537_data.calib_yas537.a9 * a_s_s32[2])))
+		a_h_s32[2] = ((yas537_data_mbl.calib_yas537.k * (
+		(yas537_data_mbl.calib_yas537.a7 * a_s_s32[0]) +
+		(yas537_data_mbl.calib_yas537.a8 * a_s_s32[1]) +
+		(yas537_data_mbl.calib_yas537.a9 * a_s_s32[2])))
 		/ (8192));
 
 		for (i = 0; i < 3; i++) {
@@ -18708,15 +18708,15 @@ u8 *v_ouflow_u8, struct yas_vector *vector_xyz)
 	&v_temperature_u16, a_xy1y2_u16, v_ouflow_u8);
 	/* linear calculation*/
 	xy1y2_to_xyz(a_xy1y2_u16, vector_xyz->yas537_vector_xyz);
-	if (yas537_data.transform != SMI130_NULL) {
+	if (yas537_data_mbl.transform != SMI130_NULL) {
 		for (i = 0; i < 3; i++) {
 			a_xyz_tmp_s32[i] = ((
-			yas537_data.transform[i + 3]
+			yas537_data_mbl.transform[i + 3]
 			* vector_xyz->yas537_vector_xyz[0])
-			+ (yas537_data.transform[
+			+ (yas537_data_mbl.transform[
 			i * 3 + 1]
 			* vector_xyz->yas537_vector_xyz[1])
-			+ (yas537_data.transform[
+			+ (yas537_data_mbl.transform[
 			i * 3 + 2]
 			* vector_xyz->yas537_vector_xyz[2]));
 		}
@@ -18736,7 +18736,7 @@ u8 *v_ouflow_u8, struct yas_vector *vector_xyz)
 	}
 	if (v_busy_u8)
 		return ERROR;
-	switch (yas537_data.measure_state) {
+	switch (yas537_data_mbl.measure_state) {
 	case YAS537_MAG_STATE_INIT_COIL:
 		if (p_smi130->mag_manual_enable != SMI130_MANUAL_ENABLE)
 			com_rslt = smi130_set_mag_manual_enable(
@@ -18745,7 +18745,7 @@ u8 *v_ouflow_u8, struct yas_vector *vector_xyz)
 		p_smi130->delay_msec(SMI130_GEN_READ_WRITE_DELAY);
 		com_rslt += smi130_set_mag_write_addr(YAS537_REG_CONFR);
 		p_smi130->delay_msec(SMI130_SEC_INTERFACE_GEN_READ_WRITE_DELAY);
-		yas537_data.measure_state = YAS537_MAG_STATE_RECORD_DATA;
+		yas537_data_mbl.measure_state = YAS537_MAG_STATE_RECORD_DATA;
 		if (p_smi130->mag_manual_enable == SMI130_MANUAL_ENABLE)
 			com_rslt = smi130_set_mag_manual_enable(
 			SMI130_MANUAL_DISABLE);
@@ -18753,14 +18753,14 @@ u8 *v_ouflow_u8, struct yas_vector *vector_xyz)
 	case YAS537_MAG_STATE_RECORD_DATA:
 		if (v_rcoil_u8)
 			break;
-		yas537_set_vector(yas537_data.last_after_rcoil, a_xy1y2_u16);
-		yas537_data.measure_state = YAS537_MAG_STATE_NORMAL;
+		yas537_set_vector(yas537_data_mbl.last_after_rcoil, a_xy1y2_u16);
+		yas537_data_mbl.measure_state = YAS537_MAG_STATE_NORMAL;
 	break;
 	case YAS537_MAG_STATE_NORMAL:
 		if (SMI130_INIT_VALUE < v_ouflow_u8
 		|| invalid_magnetic_field(a_xy1y2_u16,
-		yas537_data.last_after_rcoil)) {
-			yas537_data.measure_state = YAS537_MAG_STATE_INIT_COIL;
+		yas537_data_mbl.last_after_rcoil)) {
+			yas537_data_mbl.measure_state = YAS537_MAG_STATE_INIT_COIL;
 			for (i = 0; i < 3; i++) {
 				if (!*v_ouflow_u8)
 					vector_xyz->yas537_vector_xyz[i] += 3;

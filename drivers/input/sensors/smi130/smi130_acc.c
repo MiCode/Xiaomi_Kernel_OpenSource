@@ -2391,7 +2391,7 @@ static int smi130_acc_get_slope_sign(struct i2c_client *client, unsigned char
 }
 #endif
 
-static int smi130_acc_get_orient_status(struct i2c_client *client, unsigned char
+static int smi130_acc_get_orient_mbl_status(struct i2c_client *client, unsigned char
 		*intstatus)
 {
 	int comres = 0;
@@ -2405,7 +2405,7 @@ static int smi130_acc_get_orient_status(struct i2c_client *client, unsigned char
 	return comres;
 }
 
-static int smi130_acc_get_orient_flat_status(struct i2c_client *client, unsigned
+static int smi130_acc_get_orient_mbl_flat_status(struct i2c_client *client, unsigned
 		char *intstatus)
 {
 	int comres = 0;
@@ -2808,7 +2808,7 @@ static int smi130_acc_get_tap_samp(struct i2c_client *client, unsigned char *sta
 	return comres;
 }
 
-static int smi130_acc_set_orient_mode(struct i2c_client *client, unsigned char mode)
+static int smi130_acc_set_orient_mbl_mode(struct i2c_client *client, unsigned char mode)
 {
 	int comres = 0;
 	unsigned char data = 0;
@@ -2821,7 +2821,7 @@ static int smi130_acc_set_orient_mode(struct i2c_client *client, unsigned char m
 	return comres;
 }
 
-static int smi130_acc_get_orient_mode(struct i2c_client *client, unsigned char
+static int smi130_acc_get_orient_mbl_mode(struct i2c_client *client, unsigned char
 		*status)
 {
 	int comres = 0;
@@ -2834,7 +2834,7 @@ static int smi130_acc_get_orient_mode(struct i2c_client *client, unsigned char
 	return comres;
 }
 
-static int smi130_acc_set_orient_blocking(struct i2c_client *client, unsigned char
+static int smi130_acc_set_orient_mbl_blocking(struct i2c_client *client, unsigned char
 		samp)
 {
 	int comres = 0;
@@ -2849,7 +2849,7 @@ static int smi130_acc_set_orient_blocking(struct i2c_client *client, unsigned ch
 	return comres;
 }
 
-static int smi130_acc_get_orient_blocking(struct i2c_client *client, unsigned char
+static int smi130_acc_get_orient_mbl_blocking(struct i2c_client *client, unsigned char
 		*status)
 {
 	int comres = 0;
@@ -2862,21 +2862,21 @@ static int smi130_acc_get_orient_blocking(struct i2c_client *client, unsigned ch
 	return comres;
 }
 
-static int smi130_acc_set_orient_hyst(struct i2c_client *client, unsigned char
-		orienthyst)
+static int smi130_acc_set_orient_mbl_hyst(struct i2c_client *client, unsigned char
+		orient_mblhyst)
 {
 	int comres = 0;
 	unsigned char data = 0;
 
 	comres = smi130_acc_smbus_read_byte(client, SMI_ACC2X2_ORIENT_HYST__REG, &data);
-	data = SMI_ACC2X2_SET_BITSLICE(data, SMI_ACC2X2_ORIENT_HYST, orienthyst);
+	data = SMI_ACC2X2_SET_BITSLICE(data, SMI_ACC2X2_ORIENT_HYST, orient_mblhyst);
 	comres = smi130_acc_smbus_write_byte(client, SMI_ACC2X2_ORIENT_HYST__REG,
 			&data);
 
 	return comres;
 }
 
-static int smi130_acc_get_orient_hyst(struct i2c_client *client, unsigned char
+static int smi130_acc_get_orient_mbl_hyst(struct i2c_client *client, unsigned char
 		*status)
 {
 	int comres = 0;
@@ -4541,21 +4541,21 @@ static ssize_t smi130_acc_tap_samp_store(struct device *dev,
 	return count;
 }
 
-static ssize_t smi130_acc_orient_mode_show(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char data = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smi130_acc_data *smi130_acc = i2c_get_clientdata(client);
 
-	if (smi130_acc_get_orient_mode(smi130_acc->smi130_acc_client, &data) < 0)
+	if (smi130_acc_get_orient_mbl_mode(smi130_acc->smi130_acc_client, &data) < 0)
 		return -EINVAL;
 
 	return snprintf(buf, 16, "%d\n", data);
 
 }
 
-static ssize_t smi130_acc_orient_mode_store(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_mode_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -4568,28 +4568,28 @@ static ssize_t smi130_acc_orient_mode_store(struct device *dev,
 	if (error)
 		return error;
 
-	if (smi130_acc_set_orient_mode(smi130_acc->smi130_acc_client, (unsigned char)data) <
+	if (smi130_acc_set_orient_mbl_mode(smi130_acc->smi130_acc_client, (unsigned char)data) <
 			0)
 		return -EINVAL;
 
 	return count;
 }
 
-static ssize_t smi130_acc_orient_blocking_show(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_blocking_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char data = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smi130_acc_data *smi130_acc = i2c_get_clientdata(client);
 
-	if (smi130_acc_get_orient_blocking(smi130_acc->smi130_acc_client, &data) < 0)
+	if (smi130_acc_get_orient_mbl_blocking(smi130_acc->smi130_acc_client, &data) < 0)
 		return -EINVAL;
 
 	return snprintf(buf, 16, "%d\n", data);
 
 }
 
-static ssize_t smi130_acc_orient_blocking_store(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_blocking_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -4602,27 +4602,27 @@ static ssize_t smi130_acc_orient_blocking_store(struct device *dev,
 	if (error)
 		return error;
 
-	if (smi130_acc_set_orient_blocking(smi130_acc->smi130_acc_client, (unsigned
+	if (smi130_acc_set_orient_mbl_blocking(smi130_acc->smi130_acc_client, (unsigned
 					char)data) < 0)
 		return -EINVAL;
 
 	return count;
 }
-static ssize_t smi130_acc_orient_hyst_show(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_hyst_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char data = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smi130_acc_data *smi130_acc = i2c_get_clientdata(client);
 
-	if (smi130_acc_get_orient_hyst(smi130_acc->smi130_acc_client, &data) < 0)
+	if (smi130_acc_get_orient_mbl_hyst(smi130_acc->smi130_acc_client, &data) < 0)
 		return -EINVAL;
 
 	return snprintf(buf, 16, "%d\n", data);
 
 }
 
-static ssize_t smi130_acc_orient_hyst_store(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_hyst_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -4635,14 +4635,14 @@ static ssize_t smi130_acc_orient_hyst_store(struct device *dev,
 	if (error)
 		return error;
 
-	if (smi130_acc_set_orient_hyst(smi130_acc->smi130_acc_client, (unsigned char)data) <
+	if (smi130_acc_set_orient_mbl_hyst(smi130_acc->smi130_acc_client, (unsigned char)data) <
 			0)
 		return -EINVAL;
 
 	return count;
 }
 
-static ssize_t smi130_acc_orient_theta_show(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_theta_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char data = 0;
@@ -4656,7 +4656,7 @@ static ssize_t smi130_acc_orient_theta_show(struct device *dev,
 
 }
 
-static ssize_t smi130_acc_orient_theta_store(struct device *dev,
+static ssize_t smi130_acc_orient_mbl_theta_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -6513,14 +6513,14 @@ static DEVICE_ATTR(tap_shock, S_IRUGO | S_IWUSR,
 		smi130_acc_tap_shock_show, smi130_acc_tap_shock_store);
 static DEVICE_ATTR(tap_samp, S_IRUGO | S_IWUSR,
 		smi130_acc_tap_samp_show, smi130_acc_tap_samp_store);
-static DEVICE_ATTR(orient_mode, S_IRUGO | S_IWUSR,
-		smi130_acc_orient_mode_show, smi130_acc_orient_mode_store);
-static DEVICE_ATTR(orient_blocking, S_IRUGO | S_IWUSR,
-		smi130_acc_orient_blocking_show, smi130_acc_orient_blocking_store);
-static DEVICE_ATTR(orient_hyst, S_IRUGO | S_IWUSR,
-		smi130_acc_orient_hyst_show, smi130_acc_orient_hyst_store);
-static DEVICE_ATTR(orient_theta, S_IRUGO | S_IWUSR,
-		smi130_acc_orient_theta_show, smi130_acc_orient_theta_store);
+static DEVICE_ATTR(orient_mbl_mode, S_IRUGO | S_IWUSR,
+		smi130_acc_orient_mbl_mode_show, smi130_acc_orient_mbl_mode_store);
+static DEVICE_ATTR(orient_mbl_blocking, S_IRUGO | S_IWUSR,
+		smi130_acc_orient_mbl_blocking_show, smi130_acc_orient_mbl_blocking_store);
+static DEVICE_ATTR(orient_mbl_hyst, S_IRUGO | S_IWUSR,
+		smi130_acc_orient_mbl_hyst_show, smi130_acc_orient_mbl_hyst_store);
+static DEVICE_ATTR(orient_mbl_theta, S_IRUGO | S_IWUSR,
+		smi130_acc_orient_mbl_theta_show, smi130_acc_orient_mbl_theta_store);
 static DEVICE_ATTR(flat_theta, S_IRUGO | S_IWUSR,
 		smi130_acc_flat_theta_show, smi130_acc_flat_theta_store);
 static DEVICE_ATTR(flat_hold_time, S_IRUGO | S_IWUSR,
@@ -6591,10 +6591,10 @@ static struct attribute *smi130_acc_attributes[] = {
 	&dev_attr_tap_quiet.attr,
 	&dev_attr_tap_shock.attr,
 	&dev_attr_tap_samp.attr,
-	&dev_attr_orient_mode.attr,
-	&dev_attr_orient_blocking.attr,
-	&dev_attr_orient_hyst.attr,
-	&dev_attr_orient_theta.attr,
+	&dev_attr_orient_mbl_mode.attr,
+	&dev_attr_orient_mbl_blocking.attr,
+	&dev_attr_orient_mbl_hyst.attr,
+	&dev_attr_orient_mbl_theta.attr,
 	&dev_attr_flat_theta.attr,
 	&dev_attr_flat_hold_time.attr,
 	&dev_attr_selftest.attr,
@@ -6646,7 +6646,7 @@ static struct attribute_group smi130_acc_double_tap_attribute_group = {
 
 
 #if defined(SMI_ACC2X2_ENABLE_INT1) || defined(SMI_ACC2X2_ENABLE_INT2)
-unsigned char *orient[] = {"upward looking portrait upright",
+unsigned char *orient_mbl[] = {"upward looking portrait upright",
 	"upward looking portrait upside-down",
 		"upward looking landscape left",
 		"upward looking landscape right",
@@ -6886,10 +6886,10 @@ static void smi130_acc_irq_work_func(struct work_struct *work)
 #endif
 
 	case 0x40:
-		smi130_acc_get_orient_status(smi130_acc->smi130_acc_client,
+		smi130_acc_get_orient_mbl_status(smi130_acc->smi130_acc_client,
 				    &first_value);
-		PINFO("orient interrupt happened,%s\n",
-				orient[first_value]);
+		PINFO("orient_mbl interrupt happened,%s\n",
+				orient_mbl[first_value]);
 		if (first_value == 0)
 			input_report_abs(smi130_acc->dev_interrupt,
 			ORIENT_INTERRUPT,
@@ -6924,7 +6924,7 @@ static void smi130_acc_irq_work_func(struct work_struct *work)
 				DOWNWARD_LANDSCAPE_RIGHT_INTERRUPT_HAPPENED);
 		break;
 	case 0x80:
-		smi130_acc_get_orient_flat_status(smi130_acc->smi130_acc_client,
+		smi130_acc_get_orient_mbl_flat_status(smi130_acc->smi130_acc_client,
 				    &sign_value);
 		PINFO("flat interrupt happened,flat status is %d\n",
 				    sign_value);
@@ -7054,7 +7054,7 @@ static int smi130_acc_probe(struct i2c_client *client,
 	smi130_acc_set_Int_Mode(client, 1);/*latch interrupt 250ms*/
 
 	/* do not open any interrupt here  */
-	/*10,orient
+	/*10,orient_mbl
 	11,flat*/
 	/* smi130_acc_set_Int_Enable(client, 10, 1);	*/
 	/* smi130_acc_set_Int_Enable(client, 11, 1); */

@@ -4606,10 +4606,10 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
 /**\name	 FUNCTION FOR ORIENT INTERRUPT STATUS  */
 /*************************************************/
 /*!
- *	@brief This API reads the orient status
+ *	@brief This API reads the orient_mbl status
  *	from the register 0x1C bit 6
  *	flag is associated with a specific interrupt function.
- *	It is set when the orient interrupt triggers. The
+ *	It is set when the orient_mbl interrupt triggers. The
  *	setting of INT_LATCH controls if the
  *	interrupt signal and hence the
  *	respective interrupt flag will be
@@ -4619,27 +4619,27 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
  *
- *  @param v_orient_intr_u8 : The status of orient interrupt
+ *  @param v_orient_mbl_intr_u8 : The status of orient_mbl interrupt
  *
- *	@note For orient interrupt configuration use the following functions
+ *	@note For orient_mbl interrupt configuration use the following functions
  *	@note STATUS
- *	@note smi130_get_stat0_orient_intr()
+ *	@note smi130_get_stat0_orient_mbl_intr()
  *	@note AXIS MAPPING
- *	@note smi130_get_stat3_orient_xy()
- *	@note smi130_get_stat3_orient_z()
- *	@note smi130_set_intr_orient_axes_enable()
+ *	@note smi130_get_stat3_orient_mbl_xy()
+ *	@note smi130_get_stat3_orient_mbl_z()
+ *	@note smi130_set_intr_orient_mbl_axes_enable()
  *	@note INTERRUPT MAPPING
- *	@note smi130_set_intr_orient()
+ *	@note smi130_set_intr_orient_mbl()
  *	@note INTERRUPT OUTPUT
- *	@note smi130_set_intr_orient_ud_enable()
+ *	@note smi130_set_intr_orient_mbl_ud_enable()
  *	@note THETA
- *	@note smi130_set_intr_orient_theta()
+ *	@note smi130_set_intr_orient_mbl_theta()
  *	@note HYSTERESIS
- *	@note smi130_set_intr_orient_hyst()
+ *	@note smi130_set_intr_orient_mbl_hyst()
  *	@note BLOCKING
- *	@note smi130_set_intr_orient_blocking()
+ *	@note smi130_set_intr_orient_mbl_blocking()
  *	@note MODE
- *	@note smi130_set_intr_orient_mode()
+ *	@note smi130_set_intr_orient_mbl_mode()
  *
  *	@return results of bus communication function
  *	@retval 0 -> Success
@@ -4647,8 +4647,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_intr(u8
-*v_orient_intr_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_mbl_intr(u8
+*v_orient_mbl_intr_u8);
 /**************************************************/
 /**\name	 FUNCTION FOR FLAT INTERRUPT STATUS  */
 /*************************************************/
@@ -5184,11 +5184,11 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
 /**\name	 FUNCTIONS FOR ORIENT XY AND Z INTERRUPT STATUS*/
 /*************************************************/
 /*!
- *	@brief This API reads the status of orient_xy plane
+ *	@brief This API reads the status of orient_mbl_xy plane
  *	from the register 0x1F bit 4 and 5
  *
  *
- *  @param v_orient_xy_u8 :The status of orient_xy plane
+ *  @param v_orient_mbl_xy_u8 :The status of orient_mbl_xy plane
  *  value     |  status
  * -----------|-------------
  *   0x00     | portrait upright
@@ -5203,14 +5203,14 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
-*v_orient_xy_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_xy(u8
+*v_orient_mbl_xy_u8);
 /*!
- *	@brief This API reads the status of orient z plane
+ *	@brief This API reads the status of orient_mbl z plane
  *	from the register 0x1F bit 6
  *
  *
- *  @param v_orient_z_u8 :The status of orient z
+ *  @param v_orient_mbl_z_u8 :The status of orient_mbl z
  *  value     |  status
  * -----------|-------------
  *   0x00     | upward looking
@@ -5222,8 +5222,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_z(u8
-*v_orient_z_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_z(u8
+*v_orient_mbl_z_u8);
 /**************************************************/
 /**\name	 FUNCTIONS FOR FLAT INTERRUPT STATUS*/
 /*************************************************/
@@ -7050,7 +7050,7 @@ u8 v_channel_u8, u8 v_output_enable_u8);
 *	@brief This API is used to get the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -7088,7 +7088,7 @@ u8 *v_latch_intr_u8);
 *	@brief This API is used to set the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -7541,13 +7541,13 @@ u8 v_channel_u8, u8 v_intr_single_tap_u8);
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -7561,8 +7561,8 @@ u8 v_channel_u8, u8 v_intr_single_tap_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient(
-u8 v_channel_u8, u8 *v_intr_orient_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl(
+u8 v_channel_u8, u8 *v_intr_orient_mbl_u8);
 /*!
  *	@brief Write the Orient interrupt
  *	interrupt mapped to interrupt1
@@ -7571,13 +7571,13 @@ u8 v_channel_u8, u8 *v_intr_orient_u8);
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -7591,8 +7591,8 @@ u8 v_channel_u8, u8 *v_intr_orient_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient(
-u8 v_channel_u8, u8 v_intr_orient_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl(
+u8 v_channel_u8, u8 v_intr_orient_mbl_u8);
  /*!
  *	@brief Reads the Flat interrupt
  *	mapped to interrupt1
@@ -8965,10 +8965,10 @@ u8 v_tap_thres_u8);
 /**\name	FUNCTION FOR ORIENT MODE CONFIGURATION*/
 /***************************************************************/
  /*!
- *	@brief This API read the threshold for orientation interrupt
+ *	@brief This API read the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -8984,13 +8984,13 @@ u8 v_tap_thres_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mode(
-u8 *v_orient_mode_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_mode(
+u8 *v_orient_mbl_mode_u8);
  /*!
- *	@brief This API write the threshold for orientation interrupt
+ *	@brief This API write the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -9006,17 +9006,17 @@ u8 *v_orient_mode_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mode(
-u8 v_orient_mode_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_mode(
+u8 v_orient_mbl_mode_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT BLOCKING CONFIGURATION*/
 /***************************************************************/
 /*!
- *	@brief This API read the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API read the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -9025,7 +9025,7 @@ u8 v_orient_mode_u8);
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -9036,14 +9036,14 @@ u8 v_orient_mode_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_blocking(
-u8 *v_orient_blocking_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_blocking(
+u8 *v_orient_mbl_blocking_u8);
 /*!
- *	@brief This API write the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API write the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -9052,7 +9052,7 @@ u8 *v_orient_blocking_u8);
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -9063,8 +9063,8 @@ u8 *v_orient_blocking_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_blocking(
-u8 v_orient_blocking_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_blocking(
+u8 v_orient_mbl_blocking_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT HYSTERESIS CONFIGURATION*/
 /***************************************************************/
@@ -9074,7 +9074,7 @@ u8 v_orient_blocking_u8);
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -9086,15 +9086,15 @@ u8 v_orient_blocking_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_hyst(
-u8 *v_orient_hyst_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_hyst(
+u8 *v_orient_mbl_hyst_u8);
 /*!
  *	@brief This API write Orient interrupt
  *	hysteresis, from the register 0x64 bit 4 to 7
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -9106,8 +9106,8 @@ u8 *v_orient_hyst_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_hyst(
-u8 v_orient_hyst_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_hyst(
+u8 v_orient_mbl_hyst_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT THETA CONFIGURATION*/
 /***************************************************************/
@@ -9115,7 +9115,7 @@ u8 v_orient_hyst_u8);
  *	@brief This API read Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -9125,13 +9125,13 @@ u8 v_orient_hyst_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_theta(
-u8 *v_orient_theta_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_theta(
+u8 *v_orient_mbl_theta_u8);
  /*!
  *	@brief This API write Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -9141,20 +9141,20 @@ u8 *v_orient_theta_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_theta(
-u8 v_orient_theta_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_theta(
+u8 v_orient_mbl_theta_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT OUTPUT ENABLE CONFIGURATION*/
 /***************************************************************/
 /*!
- *	@brief This API read orient change
+ *	@brief This API read orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -9163,17 +9163,17 @@ u8 v_orient_theta_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_ud_enable(
-u8 *v_orient_ud_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_ud_enable(
+u8 *v_orient_mbl_ud_u8);
 /*!
- *	@brief This API write orient change
+ *	@brief This API write orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -9182,20 +9182,20 @@ u8 *v_orient_ud_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_ud_enable(
-u8 v_orient_ud_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_ud_enable(
+u8 v_orient_mbl_ud_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT AXIS ENABLE CONFIGURATION*/
 /***************************************************************/
  /*!
- *	@brief This API read orientation axes changes
+ *	@brief This API read orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -9204,17 +9204,17 @@ u8 v_orient_ud_u8);
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_axes_enable(
-u8 *v_orient_axes_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_axes_enable(
+u8 *v_orient_mbl_axes_u8);
  /*!
- *	@brief This API write orientation axes changes
+ *	@brief This API write orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -9223,8 +9223,8 @@ u8 *v_orient_axes_u8);
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_axes_enable(
-u8 v_orient_axes_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_axes_enable(
+u8 v_orient_mbl_axes_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR FLAT THETA CONFIGURATION*/
 /***************************************************************/
@@ -10928,7 +10928,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bmm150_mag_wakeup(void);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void);
+SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim_mbl(void);
  /*!
  *	@brief This function used for read the compensated value of mag
  *	Before start reading the mag compensated data's
