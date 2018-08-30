@@ -1327,14 +1327,17 @@ int cnss_qmi_init(struct cnss_plat_data *plat_priv)
 	ret = qmi_handle_init(&plat_priv->qmi_wlfw,
 			      QMI_WLFW_MAX_RECV_BUF_SIZE,
 			      &qmi_wlfw_ops, qmi_wlfw_msg_handlers);
-	if (ret < 0)
+	if (ret < 0) {
 		cnss_pr_err("Failed to initialize QMI handle, err: %d\n", ret);
+		goto out;
+	}
 
 	ret = qmi_add_lookup(&plat_priv->qmi_wlfw, WLFW_SERVICE_ID_V01,
-			     WLFW_SERVICE_VERS_V01, 0);
+			     WLFW_SERVICE_VERS_V01, WLFW_SERVICE_INS_ID_V01);
 	if (ret < 0)
 		cnss_pr_err("Failed to add QMI lookup, err: %d\n", ret);
 
+out:
 	return ret;
 }
 
