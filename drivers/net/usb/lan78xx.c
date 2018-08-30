@@ -1680,7 +1680,12 @@ static void lan78xx_init_mac_address(struct lan78xx_net *dev)
 				  "MAC address set to random addr");
 		}
 	}
+	addr_lo = addr[0] | (addr[1] << 8) |
+	(addr[2] << 16) | (addr[3] << 24);
+	addr_hi = addr[4] | (addr[5] << 8);
 
+	ret = lan78xx_write_reg(dev, RX_ADDRL, addr_lo);
+	ret = lan78xx_write_reg(dev, RX_ADDRH, addr_hi);
 	ret = lan78xx_write_reg(dev, MAF_LO(0), addr_lo);
 	ret = lan78xx_write_reg(dev, MAF_HI(0), addr_hi | MAF_HI_VALID_);
 
