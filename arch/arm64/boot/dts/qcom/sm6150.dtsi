@@ -2669,6 +2669,11 @@
 		qcom,msm-bus,active-only;
 		status = "ok";
 	};
+
+	cx_ipeak_lm: cx_ipeak@01fed000 {
+		compatible = "qcom,cx-ipeak-sm6150";
+		reg = <0x1fed000 0x28>;
+	};
 };
 
 #include "pm6150.dtsi"
