@@ -3635,9 +3635,8 @@
 		qcom,use-ext-supply;
 		vddio-supply= <&pm8150_s5>;
 		qcom,use-ext-clocks;
-		clocks = <&clock_rpmh RPMH_RF_CLK3>,
-			 <&clock_rpmh RPMH_RF_CLK3_A>;
-		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		clocks = <&clock_rpmh RPMH_RF_CLK3>;
+		clock-names = "rf_clk3_clk";
 		qcom,smmu-support;
 		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,smmu-s1-en;
