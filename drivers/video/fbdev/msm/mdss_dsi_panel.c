@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1803,17 +1803,13 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 	for (i = 0; i < ctrl->status_cmds.cmd_cnt; i++)
 		len += lenp[i];
 
-	for (i = 0; i < len; i++) {
-		pr_debug("[%i] return:0x%x status:0x%x\n",
-			i, (unsigned int)ctrl->return_buf[i],
-			(unsigned int)ctrl->status_value[j + i]);
-		MDSS_XLOG(ctrl->ndx, ctrl->return_buf[i],
-			ctrl->status_value[j + i]);
-		j += len;
-	}
-
 	for (j = 0; j < ctrl->groups; ++j) {
 		for (i = 0; i < len; ++i) {
+			pr_debug("[%i] return:0x%x status:0x%x\n",
+				i, ctrl->return_buf[i],
+				(unsigned int)ctrl->status_value[group + i]);
+			MDSS_XLOG(ctrl->ndx, ctrl->return_buf[i],
+					ctrl->status_value[group + i]);
 			if (ctrl->return_buf[i] !=
 				ctrl->status_value[group + i])
 				break;
