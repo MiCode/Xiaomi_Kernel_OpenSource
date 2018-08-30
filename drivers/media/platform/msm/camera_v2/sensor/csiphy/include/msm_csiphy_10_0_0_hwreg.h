@@ -72,6 +72,10 @@ static struct csiphy_reg_snps_parms_t csiphy_v10_0_0_snps = {
 	{0x12c, 0x0},    /* mipi_csiphy_rx_lane_0_7_00 */
 	{0x220, 0x0},    /* mipi_csiphy_rx_lane_1_7_00 */
 	{0xCC, 0x0},     /* mipi_csiphy_rx_clk_lane_7_00 */
+	{0x1F8, 0x20},   /* mipi_csiphy_rx_lane0_ddl_2_00 */
+	{0x1FC, 0x10},   /* mipi_csiphy_rx_lane0_ddl_3_00 */
+	{0x22C, 0x80},   /* mipi_csiphy_rx_lane_1_10_00 */
+	{0x230, 0x10},   /* mipi_csiphy_rx_lane_1_11_00 */
 };
 
 static struct snps_freq_value snps_v100_freq_values[] = {
