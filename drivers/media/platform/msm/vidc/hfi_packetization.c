@@ -54,6 +54,7 @@ static int color_format[] = {
 			HFI_COLOR_FORMAT_YUV420_TP10_UBWC,
 	/*P010 10bit format*/
 	[ilog2(HAL_COLOR_FORMAT_P010)] =  HFI_COLOR_FORMAT_P010,
+	[ilog2(HAL_COLOR_FORMAT_NV12_512)] = HFI_COLOR_FORMAT_NV12,
 };
 
 static int nal_type[] = {
