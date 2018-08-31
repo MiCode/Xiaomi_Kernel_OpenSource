@@ -581,15 +581,16 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 				required_camnoc_bw);
 		}
 
-		required_camnoc_bw += (required_camnoc_bw *
-			soc_private->camnoc_axi_clk_bw_margin) / 100;
+		required_camnoc_bw += div64_u64((required_camnoc_bw *
+			soc_private->camnoc_axi_clk_bw_margin), 100);
 
 		if ((required_camnoc_bw > 0) &&
 			(required_camnoc_bw <
 			soc_private->camnoc_axi_min_ib_bw))
 			required_camnoc_bw = soc_private->camnoc_axi_min_ib_bw;
 
-		clk_rate = required_camnoc_bw / soc_private->camnoc_bus_width;
+		clk_rate = div64_u64(required_camnoc_bw,
+			soc_private->camnoc_bus_width);
 
 		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %d",
 			required_camnoc_bw, clk_rate);
