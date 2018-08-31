@@ -1267,7 +1267,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		if (chg->die_health == -EINVAL)
-			rc = smblib_get_prop_die_health(chg, val);
+			val->intval = smblib_get_prop_die_health(chg);
 		else
 			val->intval = chg->die_health;
 		break;
