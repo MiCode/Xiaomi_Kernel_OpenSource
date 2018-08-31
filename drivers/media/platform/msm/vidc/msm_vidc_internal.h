@@ -508,6 +508,7 @@ void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 enum msm_vidc_flags {
 	MSM_VIDC_FLAG_DEFERRED            = BIT(0),
 	MSM_VIDC_FLAG_RBR_PENDING         = BIT(1),
+	MSM_VIDC_FLAG_QUEUED              = BIT(2),
 };
 
 struct msm_vidc_buffer {

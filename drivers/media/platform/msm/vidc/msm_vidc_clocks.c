@@ -353,57 +353,13 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	return rc;
 }
 
-static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
-{
-	u32 fw_out_qsize = 0, i = 0;
-	struct vb2_queue *q = NULL;
-	struct vb2_buffer *vb = NULL;
-
-	/*
-	 * DCVS always operates on Uncompressed buffers.
-	 * For Decoders, FTB and Encoders, ETB.
-	 */
-
-	if (inst->state >= MSM_VIDC_OPEN_DONE &&
-			inst->state < MSM_VIDC_STOP_DONE) {
-
-		/*
-		 * For decoder, there will be some frames with client
-		 * but not to be displayed. Ex : VP9 DECODE_ONLY frames.
-		 * Hence don't count them.
-		 */
-
-		if (inst->session_type == MSM_VIDC_DECODER) {
-			q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
-			for (i = 0; i < q->num_buffers; i++) {
-				vb = q->bufs[i];
-				if (vb && vb->state != VB2_BUF_STATE_ACTIVE &&
-						vb->planes[0].bytesused)
-					fw_out_qsize++;
-			}
-		} else {
-			q = &inst->bufq[OUTPUT_PORT].vb2_bufq;
-			for (i = 0; i < q->num_buffers; i++) {
-				vb = q->bufs[i];
-				if (vb && vb->state != VB2_BUF_STATE_ACTIVE)
-					fw_out_qsize++;
-			}
-		}
-	}
-
-	return fw_out_qsize;
-}
-
 static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 		unsigned long freq)
 {
 	int rc = 0;
-	int fw_pending_bufs = 0;
-	int total_output_buf = 0;
-	int min_output_buf = 0;
-	int buffers_outside_fw = 0;
-	struct msm_vidc_core *core;
-	struct hal_buffer_requirements *output_buf_req;
+	int bufs_with_fw = 0;
+	int bufs_with_client = 0;
+	struct hal_buffer_requirements *buf_reqs;
 	struct clock_data *dcvs;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -424,23 +380,22 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 
 	dcvs = &inst->clk_data;
 
-	core = inst->core;
-	mutex_lock(&inst->lock);
-	buffers_outside_fw = get_bufs_outside_fw(inst);
+	if (is_decode_session(inst))
+		bufs_with_fw = msm_comm_num_queued_bufs(inst,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	else
+		bufs_with_fw = msm_comm_num_queued_bufs(inst,
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+	/* +1 as one buffer is going to be queued after the function */
+	bufs_with_fw += 1;
 
-	output_buf_req = get_buff_req_buffer(inst,
-			dcvs->buffer_type);
-	mutex_unlock(&inst->lock);
-	if (!output_buf_req)
+	buf_reqs = get_buff_req_buffer(inst, dcvs->buffer_type);
+	if (!buf_reqs) {
+		dprintk(VIDC_ERR, "%s: invalid buf type %d\n",
+			__func__, dcvs->buffer_type);
 		return -EINVAL;
-
-	/* Total number of output buffers */
-	total_output_buf = output_buf_req->buffer_count_actual;
-
-	min_output_buf = output_buf_req->buffer_count_min;
-
-	/* Buffers outside Display are with FW. */
-	fw_pending_bufs = total_output_buf - buffers_outside_fw;
+	}
+	bufs_with_client = buf_reqs->buffer_count_actual - bufs_with_fw;
 
 	/*
 	 * PMS decides clock level based on below algo
@@ -460,10 +415,10 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	 *    pipeline, request Right Clocks.
 	 */
 
-	if (buffers_outside_fw <= dcvs->max_threshold) {
+	if (bufs_with_client <= dcvs->max_threshold) {
 		dcvs->load = dcvs->load_high;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_INCR;
-	} else if (fw_pending_bufs < min_output_buf) {
+	} else if (bufs_with_fw < buf_reqs->buffer_count_min) {
 		dcvs->load = dcvs->load_low;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_DECR;
 	} else {
@@ -472,9 +427,10 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	}
 
 	dprintk(VIDC_PROF,
-		"DCVS: total bufs %d outside fw %d max threshold %d with fw %d min bufs %d flags %#x\n",
-		total_output_buf, buffers_outside_fw, dcvs->max_threshold,
-		fw_pending_bufs, min_output_buf, dcvs->dcvs_flags);
+		"DCVS: %x : total bufs %d outside fw %d max threshold %d with fw %d min bufs %d flags %#x\n",
+		hash32_ptr(inst->session), buf_reqs->buffer_count_actual,
+		bufs_with_client, dcvs->max_threshold, bufs_with_fw,
+		buf_reqs->buffer_count_min, dcvs->dcvs_flags);
 	return rc;
 }
 
@@ -948,8 +904,10 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	msm_dcvs_scale_clocks(inst, freq);
 
 	if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW || is_turbo ||
-		msm_vidc_clock_voting)
+		msm_vidc_clock_voting) {
 		inst->clk_data.min_freq = msm_vidc_max_freq(inst->core);
+		inst->clk_data.dcvs_flags = 0;
+	}
 
 	msm_vidc_update_freq_entry(inst, freq, device_addr, is_turbo);
 

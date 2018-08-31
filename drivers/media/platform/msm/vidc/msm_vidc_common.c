@@ -2505,6 +2505,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 			__func__, planes[0], planes[1]);
 		goto exit;
 	}
+	mbuf->flags &= ~MSM_VIDC_FLAG_QUEUED;
 	vb = &mbuf->vvb.vb2_buf;
 
 	vb->planes[0].bytesused = response->input_done.filled_len;
@@ -2638,6 +2639,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				&fill_buf_done->packet_buffer1);
 		goto exit;
 	}
+	mbuf->flags &= ~MSM_VIDC_FLAG_QUEUED;
 	vb = &mbuf->vvb.vb2_buf;
 
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME)
@@ -4240,6 +4242,29 @@ enum hal_buffer get_hal_buffer_type(unsigned int type,
 	}
 }
 
+int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type)
+{
+	int count = 0;
+	struct msm_vidc_buffer *mbuf;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+		if (mbuf->vvb.vb2_buf.type != type)
+			continue;
+		if (!(mbuf->flags & MSM_VIDC_FLAG_QUEUED))
+			continue;
+		count++;
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return count;
+}
+
 static int num_pending_qbufs(struct msm_vidc_inst *inst, u32 type)
 {
 	int count = 0;
@@ -4298,6 +4323,7 @@ static int msm_comm_qbuf_to_hfi(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: Failed to qbuf: %d\n", __func__, rc);
 		goto err_bad_input;
 	}
+	mbuf->flags |= MSM_VIDC_FLAG_QUEUED;
 	msm_vidc_debugfs_update(inst, e);
 
 err_bad_input:

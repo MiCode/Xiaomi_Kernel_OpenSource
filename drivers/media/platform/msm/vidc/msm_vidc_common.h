@@ -250,4 +250,5 @@ void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
 int msm_comm_release_mark_data(struct msm_vidc_inst *inst);
 int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
+int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type);
 #endif
