@@ -760,6 +760,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	char prop_name[MAX_PROP_SIZE];
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
+	enum of_gpio_flags gpio_flags;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -868,10 +869,15 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 
 	for (i = 0; i < EP_PCIE_MAX_GPIO; i++) {
 		gpio_info = &dev->gpio[i];
-		ret = of_get_named_gpio((&pdev->dev)->of_node,
-					gpio_info->name, 0);
+		ret = of_get_named_gpio_flags((&pdev->dev)->of_node,
+					      gpio_info->name, 0, &gpio_flags);
 		if (ret >= 0) {
 			gpio_info->num = ret;
+			if (i == EP_PCIE_GPIO_MDM2AP) {
+				gpio_info->init =
+					gpio_flags & OF_GPIO_ACTIVE_LOW;
+				gpio_info->on = !gpio_info->init;
+			}
 			ret = 0;
 			EP_PCIE_DBG(dev, "GPIO num for %s is %d\n",
 				gpio_info->name, gpio_info->num);

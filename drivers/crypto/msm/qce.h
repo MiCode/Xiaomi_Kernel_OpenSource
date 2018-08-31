@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver API
  *
- * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,8 +157,8 @@ struct qce_req {
 	unsigned int authsize;		/* authentication key kength */
 	unsigned char  nonce[MAX_NONCE];/* nonce for ccm mode */
 	unsigned char *assoc;		/* Ptr to formatted associated data */
-	unsigned int assoclen;		/* Formatted associated data length  */
-	struct scatterlist *asg;	/* Formatted associated data sg  */
+	size_t assoclen;		/* Formatted associated data length  */
+	size_t trail_assoclen;		/* trail associated data length  */
 	unsigned char *enckey;		/* cipher key  */
 	unsigned int encklen;		/* cipher key length */
 	unsigned char *iv;		/* initialization vector */
