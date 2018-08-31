@@ -2108,10 +2108,10 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 	}
 
 	rc = power_supply_get_property(chg->wls_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MAX,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 				val);
 	if (rc < 0)
-		dev_err(chg->dev, "Couldn't get POWER_SUPPLY_PROP_VOLTAGE_MAX, rc=%d\n",
+		dev_err(chg->dev, "Couldn't get POWER_SUPPLY_PROP_VOLTAGE_REGULATION, rc=%d\n",
 				rc);
 	return rc;
 }
