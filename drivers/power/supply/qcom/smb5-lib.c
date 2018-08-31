@@ -224,8 +224,30 @@ static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
 
 static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
 {
-	if (enable)
+	int rc = 0;
+
+	if (enable) {
+		smblib_dbg(chg, PR_OTG, "enabling VBUS in OTG mode\n");
+		rc = smblib_masked_write(chg, DCDC_CMD_OTG_REG,
+					OTG_EN_BIT, OTG_EN_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't enable VBUS in OTG mode rc=%d\n", rc);
+			return;
+		}
+
 		smblib_notify_extcon_props(chg, EXTCON_USB_HOST);
+	} else {
+		smblib_dbg(chg, PR_OTG, "disabling VBUS in OTG mode\n");
+		rc = smblib_masked_write(chg, DCDC_CMD_OTG_REG,
+					OTG_EN_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't disable VBUS in OTG mode rc=%d\n",
+				rc);
+			return;
+		}
+	}
 
 	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, enable);
 }
@@ -3684,8 +3706,7 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
-		if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
-				|| chg->use_extcon)
+		if (chg->use_extcon)
 			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
