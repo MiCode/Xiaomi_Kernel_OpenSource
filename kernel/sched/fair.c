@@ -8123,7 +8123,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	}
 
 	/* find most energy-efficient CPU */
-	target_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
+	energy_cpu = select_energy_cpu_idx(eenv) < 0 ? prev_cpu :
 					eenv->cpu[eenv->next_idx].cpu_id;
 
 out:
