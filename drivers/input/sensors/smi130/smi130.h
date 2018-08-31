@@ -1,118 +1,121 @@
-/*
-****************************************************************************
-* Copyright (C) 2014 Bosch Sensortec GmbH
-*
-* (C) Modification Copyright 2018 Robert Bosch Kft  All Rights Reserved
+/*!
+ * @section LICENSE
+ * (C) Copyright 2011~2016 Bosch Sensortec GmbH All Rights Reserved
+ *
+ * (C) Modification Copyright 2018 Robert Bosch Kft  All Rights Reserved
+ *
+ * This software program is licensed subject to the GNU General
+ * Public License (GPL).Version 2,June 1991,
+ * available at http://www.fsf.org/copyleft/gpl.html
+ *
+ * Special: Description of the Software:
+ *
+ * This software module (hereinafter called "Software") and any
+ * information on application-sheets (hereinafter called "Information") is
+ * provided free of charge for the sole purpose to support your application
+ * work. 
+ *
+ * As such, the Software is merely an experimental software, not tested for
+ * safety in the field and only intended for inspiration for further development 
+ * and testing. Any usage in a safety-relevant field of use (like automotive,
+ * seafaring, spacefaring, industrial plants etc.) was not intended, so there are
+ * no precautions for such usage incorporated in the Software.
+ * 
+ * The Software is specifically designed for the exclusive use for Bosch
+ * Sensortec products by personnel who have special experience and training. Do
+ * not use this Software if you do not have the proper experience or training.
+ * 
+ * This Software package is provided as is and without any expressed or
+ * implied warranties, including without limitation, the implied warranties of
+ * merchantability and fitness for a particular purpose.
+ * 
+ * Bosch Sensortec and their representatives and agents deny any liability for
+ * the functional impairment of this Software in terms of fitness, performance
+ * and safety. Bosch Sensortec and their representatives and agents shall not be
+ * liable for any direct or indirect damages or injury, except as otherwise
+ * stipulated in mandatory applicable law.
+ * The Information provided is believed to be accurate and reliable. Bosch
+ * Sensortec assumes no responsibility for the consequences of use of such
+ * Information nor for any infringement of patents or other rights of third
+ * parties which may result from its use.
+ * 
+ *------------------------------------------------------------------------------
+ * The following Product Disclaimer does not apply to the BSX4-HAL-4.1NoFusion Software 
+ * which is licensed under the Apache License, Version 2.0 as stated above.  
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Product Disclaimer
+ *
+ * Common:
+ *
+ * Assessment of Products Returned from Field
+ *
+ * Returned products are considered good if they fulfill the specifications / 
+ * test data for 0-mileage and field listed in this document.
+ *
+ * Engineering Samples
+ * 
+ * Engineering samples are marked with (e) or (E). Samples may vary from the
+ * valid technical specifications of the series product contained in this
+ * data sheet. Therefore, they are not intended or fit for resale to
+ * third parties or for use in end products. Their sole purpose is internal
+ * client testing. The testing of an engineering sample may in no way replace
+ * the testing of a series product. Bosch assumes no liability for the use
+ * of engineering samples. The purchaser shall indemnify Bosch from all claims
+ * arising from the use of engineering samples.
+ *
+ * Intended use
+ *
+ * Provided that SMI130 is used within the conditions (environment, application,
+ * installation, loads) as described in this TCD and the corresponding
+ * agreed upon documents, Bosch ensures that the product complies with
+ * the agreed properties. Agreements beyond this require
+ * the written approval by Bosch. The product is considered fit for the intended
+ * use when the product successfully has passed the tests
+ * in accordance with the TCD and agreed upon documents.
+ *
+ * It is the responsibility of the customer to ensure the proper application
+ * of the product in the overall system/vehicle.
+ *
+ * Bosch does not assume any responsibility for changes to the environment
+ * of the product that deviate from the TCD and the agreed upon documents 
+ * as well as all applications not released by Bosch
+  *
+ * The resale and/or use of products are at the purchaser’s own risk and 
+ * responsibility. The examination and testing of the SMI130 
+ * is the sole responsibility of the purchaser.
+ *
+ * The purchaser shall indemnify Bosch from all third party claims 
+ * arising from any product use not covered by the parameters of 
+ * this product data sheet or not approved by Bosch and reimburse Bosch 
+ * for all costs and damages in connection with such claims.
+ *
+ * The purchaser must monitor the market for the purchased products,
+ * particularly with regard to product safety, and inform Bosch without delay
+ * of all security relevant incidents.
+ *
+ * Application Examples and Hints
+ *
+ * With respect to any application examples, advice, normal values
+ * and/or any information regarding the application of the device,
+ * Bosch hereby disclaims any and all warranties and liabilities of any kind,
+ * including without limitation warranties of
+ * non-infringement of intellectual property rights or copyrights
+ * of any third party.
+ * The information given in this document shall in no event be regarded 
+ * as a guarantee of conditions or characteristics. They are provided
+ * for illustrative purposes only and no evaluation regarding infringement
+ * of intellectual property rights or copyrights or regarding functionality,
+ * performance or error has been made.
 *
 * smi130.h
-* @Date : 2015/04/02
-* @Modification Date 2018/06/21 15:03
+* Date : 2015/04/02
 * @id       836294d
 * Revision : 2.0.9 $
 * @brief
 * The head file of SMI130API
 *
-* Special: Description of the Software:
-*
-* This software module (hereinafter called "Software") and any
-* information on application-sheets (hereinafter called "Information") is
-* provided free of charge for the sole purpose to support your application
-* work. 
-*
-* As such, the Software is merely an experimental software, not tested for
-* safety in the field and only intended for inspiration for further development 
-* and testing. Any usage in a safety-relevant field of use (like automotive,
-* seafaring, spacefaring, industrial plants etc.) was not intended, so there are
-* no precautions for such usage incorporated in the Software.
-* 
-* The Software is specifically designed for the exclusive use for Bosch
-* Sensortec products by personnel who have special experience and training. Do
-* not use this Software if you do not have the proper experience or training.
-* 
-* This Software package is provided as is and without any expressed or
-* implied warranties, including without limitation, the implied warranties of
-* merchantability and fitness for a particular purpose.
-* 
-* Bosch Sensortec and their representatives and agents deny any liability for
-* the functional impairment of this Software in terms of fitness, performance
-* and safety. Bosch Sensortec and their representatives and agents shall not be
-* liable for any direct or indirect damages or injury, except as otherwise
-* stipulated in mandatory applicable law.
-* The Information provided is believed to be accurate and reliable. Bosch
-* Sensortec assumes no responsibility for the consequences of use of such
-* Information nor for any infringement of patents or other rights of third
-* parties which may result from its use.
-* 
-*------------------------------------------------------------------------------
-* The following Product Disclaimer does not apply to the BSX4-HAL-4.1NoFusion Software 
-* which is licensed under the Apache License, Version 2.0 as stated above.  
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Product Disclaimer
-*
-* Common:
-*
-* Assessment of Products Returned from Field
-*
-* Returned products are considered good if they fulfill the specifications / 
-* test data for 0-mileage and field listed in this document.
-*
-* Engineering Samples
-* 
-* Engineering samples are marked with (e) or (E). Samples may vary from the
-* valid technical specifications of the series product contained in this
-* data sheet. Therefore, they are not intended or fit for resale to
-* third parties or for use in end products. Their sole purpose is internal
-* client testing. The testing of an engineering sample may in no way replace
-* the testing of a series product. Bosch assumes no liability for the use
-* of engineering samples. The purchaser shall indemnify Bosch from all claims
-* arising from the use of engineering samples.
-*
-* Intended use
-*
-* Provided that SMI130 is used within the conditions (environment, application,
-* installation, loads) as described in this TCD and the corresponding
-* agreed upon documents, Bosch ensures that the product complies with
-* the agreed properties. Agreements beyond this require
-* the written approval by Bosch. The product is considered fit for the intended
-* use when the product successfully has passed the tests
-* in accordance with the TCD and agreed upon documents.
-*
-* It is the responsibility of the customer to ensure the proper application
-* of the product in the overall system/vehicle.
-*
-* Bosch does not assume any responsibility for changes to the environment
-* of the product that deviate from the TCD and the agreed upon documents 
-* as well as all applications not released by Bosch
-*
-* The resale and/or use of products are at the purchaser’s own risk and 
-* responsibility. The examination and testing of the SMI130 
-* is the sole responsibility of the purchaser.
-*
-* The purchaser shall indemnify Bosch from all third party claims 
-* arising from any product use not covered by the parameters of 
-* this product data sheet or not approved by Bosch and reimburse Bosch 
-* for all costs and damages in connection with such claims.
-*
-* The purchaser must monitor the market for the purchased products,
-* particularly with regard to product safety, and inform Bosch without delay
-* of all security relevant incidents.
-*
-* Application Examples and Hints
-*
-* With respect to any application examples, advice, normal values
-* and/or any information regarding the application of the device,
-* Bosch hereby disclaims any and all warranties and liabilities of any kind,
-* including without limitation warranties of
-* non-infringement of intellectual property rights or copyrights
-* of any third party.
-* The information given in this document shall in no event be regarded 
-* as a guarantee of conditions or characteristics. They are provided
-* for illustrative purposes only and no evaluation regarding infringement
-* of intellectual property rights or copyrights or regarding functionality,
-* performance or error has been made.
-*
-*
+
 **************************************************************************/
 /*! \file smi130.h
     \brief SMI130 Sensor Driver Support Header File */
@@ -443,7 +446,7 @@ burst_read(device_addr, register_addr, register_data, rd_len)
 /**\name	BUS READ AND WRITE FUNCTION POINTERS        */
 /***************************************************************/
 #define SMI130_I2C_ADDR1	0x68 /**< I2C Address needs to be changed */
-#define SMI130_I2C_ADDR2    0x18 /**< I2C Address needs to be changed */
+#define SMI130_I2C_ADDR2    0x69 /**< I2C Address needs to be changed */
 #define SMI130_AUX_BMM150_I2C_ADDRESS       (0x10)
 #define SMI130_AUX_YAS532_I2C_ADDRESS       (0x2E)
 /**< I2C address of YAS532*/
@@ -4603,10 +4606,10 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
 /**\name	 FUNCTION FOR ORIENT INTERRUPT STATUS  */
 /*************************************************/
 /*!
- *	@brief This API reads the orient status
+ *	@brief This API reads the orient_mbl status
  *	from the register 0x1C bit 6
  *	flag is associated with a specific interrupt function.
- *	It is set when the orient interrupt triggers. The
+ *	It is set when the orient_mbl interrupt triggers. The
  *	setting of INT_LATCH controls if the
  *	interrupt signal and hence the
  *	respective interrupt flag will be
@@ -4616,27 +4619,27 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
  *
- *  @param v_orient_intr_u8 : The status of orient interrupt
+ *  @param v_orient_mbl_intr_u8 : The status of orient_mbl interrupt
  *
- *	@note For orient interrupt configuration use the following functions
+ *	@note For orient_mbl interrupt configuration use the following functions
  *	@note STATUS
- *	@note smi130_get_stat0_orient_intr()
+ *	@note smi130_get_stat0_orient_mbl_intr()
  *	@note AXIS MAPPING
- *	@note smi130_get_stat3_orient_xy()
- *	@note smi130_get_stat3_orient_z()
- *	@note smi130_set_intr_orient_axes_enable()
+ *	@note smi130_get_stat3_orient_mbl_xy()
+ *	@note smi130_get_stat3_orient_mbl_z()
+ *	@note smi130_set_intr_orient_mbl_axes_enable()
  *	@note INTERRUPT MAPPING
- *	@note smi130_set_intr_orient()
+ *	@note smi130_set_intr_orient_mbl()
  *	@note INTERRUPT OUTPUT
- *	@note smi130_set_intr_orient_ud_enable()
+ *	@note smi130_set_intr_orient_mbl_ud_enable()
  *	@note THETA
- *	@note smi130_set_intr_orient_theta()
+ *	@note smi130_set_intr_orient_mbl_theta()
  *	@note HYSTERESIS
- *	@note smi130_set_intr_orient_hyst()
+ *	@note smi130_set_intr_orient_mbl_hyst()
  *	@note BLOCKING
- *	@note smi130_set_intr_orient_blocking()
+ *	@note smi130_set_intr_orient_mbl_blocking()
  *	@note MODE
- *	@note smi130_set_intr_orient_mode()
+ *	@note smi130_set_intr_orient_mbl_mode()
  *
  *	@return results of bus communication function
  *	@retval 0 -> Success
@@ -4644,8 +4647,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_single_tap_intr(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_intr(u8
-*v_orient_intr_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat0_orient_mbl_intr(u8
+*v_orient_mbl_intr_u8);
 /**************************************************/
 /**\name	 FUNCTION FOR FLAT INTERRUPT STATUS  */
 /*************************************************/
@@ -5181,11 +5184,11 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
 /**\name	 FUNCTIONS FOR ORIENT XY AND Z INTERRUPT STATUS*/
 /*************************************************/
 /*!
- *	@brief This API reads the status of orient_xy plane
+ *	@brief This API reads the status of orient_mbl_xy plane
  *	from the register 0x1F bit 4 and 5
  *
  *
- *  @param v_orient_xy_u8 :The status of orient_xy plane
+ *  @param v_orient_mbl_xy_u8 :The status of orient_mbl_xy plane
  *  value     |  status
  * -----------|-------------
  *   0x00     | portrait upright
@@ -5200,14 +5203,14 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_high_g_sign(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
-*v_orient_xy_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_xy(u8
+*v_orient_mbl_xy_u8);
 /*!
- *	@brief This API reads the status of orient z plane
+ *	@brief This API reads the status of orient_mbl z plane
  *	from the register 0x1F bit 6
  *
  *
- *  @param v_orient_z_u8 :The status of orient z
+ *  @param v_orient_mbl_z_u8 :The status of orient_mbl z
  *  value     |  status
  * -----------|-------------
  *   0x00     | upward looking
@@ -5219,8 +5222,8 @@ SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_xy(u8
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_z(u8
-*v_orient_z_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_stat3_orient_mbl_z(u8
+*v_orient_mbl_z_u8);
 /**************************************************/
 /**\name	 FUNCTIONS FOR FLAT INTERRUPT STATUS*/
 /*************************************************/
@@ -7047,7 +7050,7 @@ u8 v_channel_u8, u8 v_output_enable_u8);
 *	@brief This API is used to get the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -7085,7 +7088,7 @@ u8 *v_latch_intr_u8);
 *	@brief This API is used to set the latch duration
 *	from the register 0x54 bit 0 to 3
 *	@brief This latch selection is not applicable for data ready,
-*	orientation and flat interrupts.
+*	orient_mblation and flat interrupts.
 *
 *
 *
@@ -7538,13 +7541,13 @@ u8 v_channel_u8, u8 v_intr_single_tap_u8);
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -7558,8 +7561,8 @@ u8 v_channel_u8, u8 v_intr_single_tap_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient(
-u8 v_channel_u8, u8 *v_intr_orient_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl(
+u8 v_channel_u8, u8 *v_intr_orient_mbl_u8);
 /*!
  *	@brief Write the Orient interrupt
  *	interrupt mapped to interrupt1
@@ -7568,13 +7571,13 @@ u8 v_channel_u8, u8 *v_intr_orient_u8);
  *	@brief interrupt2 bit 6 in the register 0x57
  *
  *
- *	@param v_channel_u8: The value of orient interrupt selection
+ *	@param v_channel_u8: The value of orient_mbl interrupt selection
  *   v_channel_u8  |   interrupt
  *  ---------------|---------------
  *       0         | SMI130_INTR1_MAP_ORIENT
  *       1         | SMI130_INTR2_MAP_ORIENT
  *
- *	@param v_intr_orient_u8 : The value of orient enable
+ *	@param v_intr_orient_mbl_u8 : The value of orient_mbl enable
  *	value    | interrupt enable
  * ----------|-------------------
  *  0x01     |  SMI130_ENABLE
@@ -7588,8 +7591,8 @@ u8 v_channel_u8, u8 *v_intr_orient_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient(
-u8 v_channel_u8, u8 v_intr_orient_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl(
+u8 v_channel_u8, u8 v_intr_orient_mbl_u8);
  /*!
  *	@brief Reads the Flat interrupt
  *	mapped to interrupt1
@@ -8962,10 +8965,10 @@ u8 v_tap_thres_u8);
 /**\name	FUNCTION FOR ORIENT MODE CONFIGURATION*/
 /***************************************************************/
  /*!
- *	@brief This API read the threshold for orientation interrupt
+ *	@brief This API read the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -8981,13 +8984,13 @@ u8 v_tap_thres_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mode(
-u8 *v_orient_mode_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_mode(
+u8 *v_orient_mbl_mode_u8);
  /*!
- *	@brief This API write the threshold for orientation interrupt
+ *	@brief This API write the threshold for orient_mblation interrupt
  *	from the register 0x65 bit 0 and 1
  *
- *  @param v_orient_mode_u8 : The value of threshold for orientation
+ *  @param v_orient_mbl_mode_u8 : The value of threshold for orient_mblation
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | symmetrical
@@ -9003,17 +9006,17 @@ u8 *v_orient_mode_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mode(
-u8 v_orient_mode_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_mode(
+u8 v_orient_mbl_mode_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT BLOCKING CONFIGURATION*/
 /***************************************************************/
 /*!
- *	@brief This API read the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API read the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -9022,7 +9025,7 @@ u8 v_orient_mode_u8);
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -9033,14 +9036,14 @@ u8 v_orient_mode_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_blocking(
-u8 *v_orient_blocking_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_blocking(
+u8 *v_orient_mbl_blocking_u8);
 /*!
- *	@brief This API write the orient blocking mode
- *	that is used for the generation of the orientation interrupt.
+ *	@brief This API write the orient_mbl blocking mode
+ *	that is used for the generation of the orient_mblation interrupt.
  *	from the register 0x65 bit 2 and 3
  *
- *  @param v_orient_blocking_u8 : The value of orient blocking mode
+ *  @param v_orient_mbl_blocking_u8 : The value of orient_mbl blocking mode
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | No blocking
@@ -9049,7 +9052,7 @@ u8 *v_orient_blocking_u8);
  *   -       | 0.2g or acceleration in any axis > 1.5g
  *  0x03     | Theta blocking or acceleration slope in any axis >
  *   -       | 0.4g or acceleration in any axis >
- *   -       | 1.5g and value of orient is not stable
+ *   -       | 1.5g and value of orient_mbl is not stable
  *   -       | for at least 100 ms
  *
  *
@@ -9060,8 +9063,8 @@ u8 *v_orient_blocking_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_blocking(
-u8 v_orient_blocking_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_blocking(
+u8 v_orient_mbl_blocking_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT HYSTERESIS CONFIGURATION*/
 /***************************************************************/
@@ -9071,7 +9074,7 @@ u8 v_orient_blocking_u8);
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -9083,15 +9086,15 @@ u8 v_orient_blocking_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_hyst(
-u8 *v_orient_hyst_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_hyst(
+u8 *v_orient_mbl_hyst_u8);
 /*!
  *	@brief This API write Orient interrupt
  *	hysteresis, from the register 0x64 bit 4 to 7
  *
  *
  *
- *  @param v_orient_hyst_u8 : The value of orient hysteresis
+ *  @param v_orient_mbl_hyst_u8 : The value of orient_mbl hysteresis
  *
  *	@note 1 LSB corresponds to 62.5 mg,
  *	irrespective of the selected accel range
@@ -9103,8 +9106,8 @@ u8 *v_orient_hyst_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_hyst(
-u8 v_orient_hyst_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_hyst(
+u8 v_orient_mbl_hyst_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT THETA CONFIGURATION*/
 /***************************************************************/
@@ -9112,7 +9115,7 @@ u8 v_orient_hyst_u8);
  *	@brief This API read Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -9122,13 +9125,13 @@ u8 v_orient_hyst_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_theta(
-u8 *v_orient_theta_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_theta(
+u8 *v_orient_mbl_theta_u8);
  /*!
  *	@brief This API write Orient
  *	blocking angle (0 to 44.8) from the register 0x66 bit 0 to 5
  *
- *  @param v_orient_theta_u8 : The value of Orient blocking angle
+ *  @param v_orient_mbl_theta_u8 : The value of Orient blocking angle
  *
  *
  *
@@ -9138,20 +9141,20 @@ u8 *v_orient_theta_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_theta(
-u8 v_orient_theta_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_theta(
+u8 v_orient_mbl_theta_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT OUTPUT ENABLE CONFIGURATION*/
 /***************************************************************/
 /*!
- *	@brief This API read orient change
+ *	@brief This API read orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -9160,17 +9163,17 @@ u8 v_orient_theta_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_ud_enable(
-u8 *v_orient_ud_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_ud_enable(
+u8 *v_orient_mbl_ud_u8);
 /*!
- *	@brief This API write orient change
+ *	@brief This API write orient_mbl change
  *	of up/down bit from the register 0x66 bit 6
  *
- *  @param v_orient_ud_u8 : The value of orient change of up/down
+ *  @param v_orient_mbl_ud_u8 : The value of orient_mbl change of up/down
  *	value    | Behaviour
  * ----------|-------------------
  *  0x00     | Is ignored
- *  0x01     | Generates orientation interrupt
+ *  0x01     | Generates orient_mblation interrupt
  *
  *
  *	@return results of bus communication function
@@ -9179,20 +9182,20 @@ u8 *v_orient_ud_u8);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_ud_enable(
-u8 v_orient_ud_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_ud_enable(
+u8 v_orient_mbl_ud_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR ORIENT AXIS ENABLE CONFIGURATION*/
 /***************************************************************/
  /*!
- *	@brief This API read orientation axes changes
+ *	@brief This API read orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -9201,17 +9204,17 @@ u8 v_orient_ud_u8);
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_axes_enable(
-u8 *v_orient_axes_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_get_intr_orient_mbl_axes_enable(
+u8 *v_orient_mbl_axes_u8);
  /*!
- *	@brief This API write orientation axes changes
+ *	@brief This API write orient_mblation axes changes
  *	from the register 0x66 bit 7
  *
- *  @param v_orient_axes_u8 : The value of orient axes assignment
+ *  @param v_orient_mbl_axes_u8 : The value of orient_mbl axes assignment
  *	value    |       Behaviour    | Name
  * ----------|--------------------|------
- *  0x00     | x = x, y = y, z = z|orient_ax_noex
- *  0x01     | x = y, y = z, z = x|orient_ax_ex
+ *  0x00     | x = x, y = y, z = z|orient_mbl_ax_noex
+ *  0x01     | x = y, y = z, z = x|orient_mbl_ax_ex
  *
  *
  *	@return results of bus communication function
@@ -9220,8 +9223,8 @@ u8 *v_orient_axes_u8);
  *
  *
  */
-SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_axes_enable(
-u8 v_orient_axes_u8);
+SMI130_RETURN_FUNCTION_TYPE smi130_set_intr_orient_mbl_axes_enable(
+u8 v_orient_mbl_axes_u8);
 /***************************************************************/
 /**\name	FUNCTION FOR FLAT THETA CONFIGURATION*/
 /***************************************************************/
@@ -10925,7 +10928,7 @@ SMI130_RETURN_FUNCTION_TYPE smi130_bmm150_mag_wakeup(void);
  *
  *
 */
-SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim(void);
+SMI130_RETURN_FUNCTION_TYPE smi130_read_bmm150_mag_trim_mbl(void);
  /*!
  *	@brief This function used for read the compensated value of mag
  *	Before start reading the mag compensated data's
