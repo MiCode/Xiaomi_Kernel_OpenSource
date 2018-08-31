@@ -2688,7 +2688,7 @@
 };
 
 &usb0 {
-	extcon = <&pm6150_pdphy>, <&eud>;
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
 };
 
 &pm6150_vadc {
