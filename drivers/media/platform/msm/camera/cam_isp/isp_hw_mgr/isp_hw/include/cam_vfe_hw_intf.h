@@ -237,6 +237,7 @@ struct cam_vfe_top_irq_evt_payload {
  *
  * @list:                    list_head node for the payload
  * @core_index:              Index of VFE HW that generated this IRQ event
+ * @debug_status_0:          Value of debug status_0 register at time of IRQ
  * @evt_id:                  IRQ event
  * @irq_reg_val:             IRQ and Error register values, read when IRQ was
  *                           handled
@@ -247,6 +248,7 @@ struct cam_vfe_top_irq_evt_payload {
 struct cam_vfe_bus_irq_evt_payload {
 	struct list_head            list;
 	uint32_t                    core_index;
+	uint32_t                    debug_status_0;
 	uint32_t                    evt_id;
 	uint32_t                    irq_reg_val[CAM_IFE_BUS_IRQ_REGISTERS_MAX];
 	uint32_t                    error_type;
