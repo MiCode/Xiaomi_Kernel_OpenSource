@@ -597,7 +597,7 @@
 	};
 
 	pm8150b-ibat-lvl1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150b_bcl 1>;
@@ -628,7 +628,7 @@
 	};
 
 	pm8150b-vbat-lvl1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 3>;
@@ -644,7 +644,7 @@
 	};
 
 	pm8150b-vbat-lvl2 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 4>;

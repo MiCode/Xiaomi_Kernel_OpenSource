@@ -2493,7 +2493,7 @@
 			cpu11_cdev {
 				trip = <&cpu11_config>;
 				cooling-device =
-					<&CPU4 THERMAL_MAX_LIMIT
+					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -2515,7 +2515,7 @@
 			cpu12_cdev {
 				trip = <&cpu12_config>;
 				cooling-device =
-					<&CPU5 THERMAL_MAX_LIMIT
+					<&CPU6 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -2537,7 +2537,7 @@
 			cpu13_cdev {
 				trip = <&cpu13_config>;
 				cooling-device =
-					<&CPU5 THERMAL_MAX_LIMIT
+					<&CPU7 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -2559,7 +2559,7 @@
 			cpu14_cdev {
 				trip = <&cpu14_config>;
 				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
+					<&CPU4 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -2581,7 +2581,7 @@
 			cpu15_cdev {
 				trip = <&cpu15_config>;
 				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
+					<&CPU5 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
@@ -2603,7 +2603,7 @@
 			cpu16_cdev {
 				trip = <&cpu16_config>;
 				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
+					<&CPU6 THERMAL_MAX_LIMIT
 						THERMAL_MAX_LIMIT>;
 			};
 		};
