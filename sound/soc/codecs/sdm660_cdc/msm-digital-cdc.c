@@ -1689,7 +1689,7 @@ static const struct snd_soc_dapm_widget msm_dig_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("I2S TX2", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("I2S TX3", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("I2S TX4", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("I2S TX5", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("I2S TX5", "AIF2 Capture", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("I2S TX6", "AIF2 Capture", 0, SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_MIXER_E("RX1 MIX2", MSM89XX_CDC_CORE_CLK_RX_B1_CTL,

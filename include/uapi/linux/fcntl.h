@@ -43,6 +43,17 @@
 /* (1U << 31) is reserved for signed error codes */
 
 /*
+ * Valid hint values for F_{GET,SET}_RW_HINT. 0 is "not set", or can be
+ * used to clear any hints previously set.
+ */
+#define RWF_WRITE_LIFE_NOT_SET  0
+#define RWH_WRITE_LIFE_NONE     1
+#define RWH_WRITE_LIFE_SHORT    2
+#define RWH_WRITE_LIFE_MEDIUM   3
+#define RWH_WRITE_LIFE_LONG     4
+#define RWH_WRITE_LIFE_EXTREME  5
+
+/*
  * Types of directory notifications that may be requested.
  */
 #define DN_ACCESS	0x00000001	/* File accessed */

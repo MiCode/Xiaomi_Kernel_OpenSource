@@ -255,13 +255,13 @@
 			wsa881x_213_en: wsa881x_en@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170213>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
 			};
 
 			wsa881x_214_en: wsa881x_en@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170214>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
 			};
 		};
 	};

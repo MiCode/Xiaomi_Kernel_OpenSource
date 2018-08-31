@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc.c
  *
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  *
@@ -821,9 +822,8 @@ MMC_DEV_ATTR(oemid, "0x%04x\n", card->cid.oemid);
 MMC_DEV_ATTR(prv, "0x%x\n", card->cid.prv);
 MMC_DEV_ATTR(rev, "0x%x\n", card->ext_csd.rev);
 MMC_DEV_ATTR(pre_eol_info, "%02x\n", card->ext_csd.pre_eol_info);
-MMC_DEV_ATTR(life_time, "0x%02x 0x%02x\n",
-	card->ext_csd.device_life_time_est_typ_a,
-	card->ext_csd.device_life_time_est_typ_b);
+MMC_DEV_ATTR(life_time_est_typ_a, "0x%02x\n", card->ext_csd.device_life_time_est_typ_a);
+MMC_DEV_ATTR(life_time_est_typ_b, "0x%02x\n", card->ext_csd.device_life_time_est_typ_b);
 MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
@@ -864,7 +864,8 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_prv.attr,
 	&dev_attr_rev.attr,
 	&dev_attr_pre_eol_info.attr,
-	&dev_attr_life_time.attr,
+	&dev_attr_life_time_est_typ_a.attr,
+	&dev_attr_life_time_est_typ_b.attr,
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
@@ -1950,6 +1951,7 @@ reinit:
 
 		if (card->ext_csd.sectors && (rocr & MMC_CARD_SECTOR_ADDR))
 			mmc_card_set_blockaddr(card);
+
 	}
 
 	/*

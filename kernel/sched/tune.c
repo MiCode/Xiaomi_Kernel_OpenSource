@@ -303,6 +303,18 @@ void update_cgroup_boost_settings(void)
 	}
 }
 
+void update_cgroup_boost_settings_no_override(void)
+{
+	int i;
+
+	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
+		if (!allocated_group[i])
+			break;
+
+		allocated_group[i]->sched_boost_enabled = false;
+	}
+}
+
 void restore_cgroup_boost_settings(void)
 {
 	int i;

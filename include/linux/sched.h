@@ -63,7 +63,10 @@ struct sched_param {
 #include <asm/processor.h>
 
 #define SCHED_ATTR_SIZE_VER0	48	/* sizeof first published struct */
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#define HISTORY_ITMES           4
+#define HISTORY_WINDOWS          (HISTORY_ITMES+2)
+#endif
 /*
  * Extended scheduling parameters data structure.
  *
@@ -919,6 +922,10 @@ struct user_struct {
 	struct key *session_keyring;	/* UID's default session keyring */
 #endif
 
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
+#endif
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	kuid_t uid;
@@ -1457,6 +1464,7 @@ struct ravg {
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
+	u64 proc_load;
 	u32 curr_window, prev_window;
 	u64 curr_burst, avg_burst, avg_sleep_time;
 	u16 active_windows;
@@ -1636,6 +1644,10 @@ struct task_struct {
 	struct related_thread_group *grp;
 	struct list_head grp_list;
 	u64 cpu_cycles;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
+#endif
 #endif
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
@@ -1654,6 +1666,10 @@ struct task_struct {
 	unsigned int policy;
 	int nr_cpus_allowed;
 	cpumask_t cpus_allowed;
+#ifdef CONFIG_CPUSET_EXCLUSIVE_IND
+	int exclusive_flag;
+	cpumask_t cpus_allowed_bak;
+#endif
 
 #ifdef CONFIG_PREEMPT_RCU
 	int rcu_read_lock_nesting;
@@ -2396,6 +2412,7 @@ static inline void memalloc_noio_restore(unsigned int flags)
 #define PFA_NO_NEW_PRIVS 0	/* May not gain new privileges. */
 #define PFA_SPREAD_PAGE  1      /* Spread page cache over cpuset */
 #define PFA_SPREAD_SLAB  2      /* Spread some slab caches over cpuset */
+#define PFA_LMK_WAITING  3      /* Lowmemorykiller is waiting */
 
 
 #define TASK_PFA_TEST(name, func)					\
@@ -2418,6 +2435,8 @@ TASK_PFA_CLEAR(SPREAD_PAGE, spread_page)
 TASK_PFA_TEST(SPREAD_SLAB, spread_slab)
 TASK_PFA_SET(SPREAD_SLAB, spread_slab)
 TASK_PFA_CLEAR(SPREAD_SLAB, spread_slab)
+TASK_PFA_TEST(LMK_WAITING, lmk_waiting)
+TASK_PFA_SET(LMK_WAITING, lmk_waiting)
 
 /*
  * task->jobctl flags

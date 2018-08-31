@@ -6434,6 +6434,7 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 			info->attrs[NL80211_ATTR_SCAN_FLAGS]);
 		if ((request->flags & NL80211_SCAN_FLAG_LOW_PRIORITY) &&
 		    !(wiphy->features & NL80211_FEATURE_LOW_PRIORITY_SCAN)) {
+			printk("=qcdbg= driver not support scan flag low priority");
 			err = -EOPNOTSUPP;
 			goto out_free;
 		}
@@ -6441,11 +6442,13 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		if (request->flags & NL80211_SCAN_FLAG_RANDOM_ADDR) {
 			if (!(wiphy->features &
 					NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR)) {
+				printk("=qcdbg= driver not support random mac address flag");
 				err = -EOPNOTSUPP;
 				goto out_free;
 			}
 
 			if (wdev->current_bss) {
+				printk("=qcdbg= current bss is not null ! reject scan request with random mac address flag");
 				err = -EOPNOTSUPP;
 				goto out_free;
 			}

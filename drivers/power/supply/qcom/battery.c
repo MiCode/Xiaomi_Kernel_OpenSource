@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/pmic-voter.h>
+#include <linux/power/charge_log.h>
 
 #define DRV_MAJOR_VERSION	1
 #define DRV_MINOR_VERSION	0
@@ -40,6 +42,7 @@
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
+#define PL_HIGH_CAPACITY_VOTER			"PL_HIGH_CAPACITY_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -76,7 +79,7 @@ enum print_reason {
 	PR_PARALLEL	= BIT(0),
 };
 
-static int debug_mask;
+static int debug_mask = PR_PARALLEL;
 module_param_named(debug_mask, debug_mask, int, S_IRUSR | S_IWUSR);
 
 #define pl_dbg(chip, reason, fmt, ...)				\
@@ -86,6 +89,12 @@ module_param_named(debug_mask, debug_mask, int, S_IRUSR | S_IWUSR);
 		else							\
 			pr_debug(fmt, ##__VA_ARGS__);		\
 	} while (0)
+
+#undef pr_err
+#define pr_err charge_logs_err
+
+#undef pr_info
+#define pr_info charge_logs_info
 
 enum {
 	VER = 0,
@@ -230,7 +239,10 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 	if (kstrtoul(ubuf, 10, &val))
 		return -EINVAL;
 
-	chip->slave_pct = val;
+	if (val >= 50 && val <= 100)
+		chip->slave_pct = 50;
+	else
+		chip->slave_pct = val;
 	rerun_election(chip->fcc_votable);
 	rerun_election(chip->fv_votable);
 	split_settled(chip);
@@ -633,6 +645,12 @@ static void pl_disable_forever_work(struct work_struct *work)
 	/* Disable Parallel charger forever */
 	vote(chip->pl_disable_votable, PL_HW_ABSENT_VOTER, true, 0);
 
+	/*
+	 * if smb1350 is absent or broken, should limit usb icl to maxium 1.5A
+	 * for safety of pm660
+	 */
+	vote(chip->usb_icl_votable, PL_HW_ABSENT_VOTER, true, 1500000);
+
 	/* Re-enable autonomous mode */
 	if (chip->hvdcp_hw_inov_dis_votable)
 		vote(chip->hvdcp_hw_inov_dis_votable, PL_VOTER, false, 0);
@@ -808,9 +826,12 @@ static bool is_parallel_available(struct pl_data *chip)
 	return true;
 }
 
+#define HIGH_CAPACITY_THR		88
+#define TAPER_END_CAPACITY_THR		83
 static void handle_main_charge_type(struct pl_data *chip)
 {
 	union power_supply_propval pval = {0, };
+	union power_supply_propval capacity_pval = {0, };
 	int rc;
 
 	rc = power_supply_get_property(chip->batt_psy,
@@ -818,6 +839,49 @@ static void handle_main_charge_type(struct pl_data *chip)
 	if (rc < 0) {
 		pr_err("Couldn't get batt charge type rc=%d\n", rc);
 		return;
+	}
+
+	/*
+	 * If charge type failed to change to taper, pl_taper_work cannot
+	 * be launched anymore, so parallel charging cannot be disabled,
+	 * if battery capacity is high, do not allow parallel charging
+	 * to protect the battery avoiding battery over voltage if
+	 * pm660 charge type may failed to change from fast to taper.
+	 */
+	if (!get_effective_result_locked(chip->pl_disable_votable)) {
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_CAPACITY, &capacity_pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt capacity rc=%d\n", rc);
+			return;
+		}
+		if (capacity_pval.intval > HIGH_CAPACITY_THR)
+			vote(chip->pl_disable_votable, PL_HIGH_CAPACITY_VOTER, true, 0);
+	}
+
+	/*
+	 * TAPER_END_VOTER will be voted when high capacity or
+	 * battery is warm and vbat is over 4.1V, so when battery health
+	 * recovery from warm to normal, we should clear TAPER_END_VOTER
+	 * to allow parallel charging if it is voted.
+	 */
+	if (is_client_vote_enabled(chip->pl_disable_votable,
+						TAPER_END_VOTER)) {
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_CAPACITY, &capacity_pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt capacity rc=%d\n", rc);
+			return;
+		}
+		rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_HEALTH, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt health rc=%d\n", rc);
+			return;
+		}
+		if ((capacity_pval.intval < TAPER_END_CAPACITY_THR)
+				&& (pval.intval != POWER_SUPPLY_HEALTH_WARM))
+			vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
 	}
 
 	/* not fast/not taper state to disables parallel */
@@ -1047,7 +1111,7 @@ int qcom_batt_init(void)
 		goto release_wakeup_source;
 	}
 
-	chip->fv_votable = create_votable("FV", VOTE_MAX,
+	chip->fv_votable = create_votable("FV", VOTE_MIN,
 					pl_fv_vote_callback,
 					chip);
 	if (IS_ERR(chip->fv_votable)) {

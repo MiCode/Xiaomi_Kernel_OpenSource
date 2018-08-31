@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -776,7 +777,72 @@ static void pmic_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 		seq_puts(s, "\n");
 	}
 }
+static void pmic_gpio_print_stats_one(struct pinctrl_dev *pctldev, unsigned pin)
+{
+	struct pmic_gpio_state *state = pinctrl_dev_get_drvdata(pctldev);
+	struct pmic_gpio_pad *pad;
+	int ret, val, function;
 
+	static const char *const biases[] = {
+		"pull-up 30uA", "pull-up 1.5uA", "pull-up 31.5uA",
+		"pull-up 1.5uA + 30uA boost", "pull-down 10uA", "no pull"
+	};
+	static const char *const buffer_types[] = {
+		"push-pull", "open-drain", "open-source"
+	};
+	static const char *const strengths[] = {
+		"no", "high", "medium", "low"
+	};
+
+	pad = pctldev->desc->pins[pin].drv_data;
+
+	pr_info(" gpio%-2d:", pin + PMIC_GPIO_PHYSICAL_OFFSET);
+
+	val = pmic_gpio_read(state, pad, PMIC_GPIO_REG_EN_CTL);
+
+	if (val < 0 || !(val >> PMIC_GPIO_REG_MASTER_EN_SHIFT)) {
+		pr_info(" ---");
+	} else {
+		if (pad->input_enabled) {
+			ret = pmic_gpio_read(state, pad, PMIC_MPP_REG_RT_STS);
+			if (ret < 0)
+				return;
+
+			ret &= PMIC_MPP_REG_RT_STS_VAL_MASK;
+			pad->out_value = ret;
+		}
+		/*
+		 * For GPIO not of LV/MV subtypes, the register value of
+		 * the function mapping from "dtest1" to "dtest4" is 2 bits
+		 * lower than the function index in pmic_gpio_functions[].
+		 */
+		if (!pad->lv_mv_type &&
+				pad->function >= PMIC_GPIO_FUNC_INDEX_FUNC3) {
+			function = pad->function + (PMIC_GPIO_FUNC_INDEX_DTEST1
+					- PMIC_GPIO_FUNC_INDEX_FUNC3);
+		} else {
+			function = pad->function;
+		}
+
+		pr_info(" %-4s", pad->output_enabled ? "out" : "in");
+		pr_info(" %-7s", pmic_gpio_functions[function]);
+		pr_info(" vin-%d", pad->power_source);
+		pr_info(" %-27s", biases[pad->pullup]);
+		pr_info(" %-10s", buffer_types[pad->buffer_type]);
+		pr_info(" %-4s", pad->out_value ? "high" : "low");
+		pr_info(" %-7s", strengths[pad->strength]);
+		if (pad->dtest_buffer != INT_MAX)
+			pr_info(" dtest buffer %d", pad->dtest_buffer);
+	}
+}
+static void pmic_gpio_print_stats(struct gpio_chip *chip)
+{
+	struct pmic_gpio_state *state = to_gpio_state(chip);
+	unsigned i;
+
+	for (i = 0; i < chip->ngpio; i++)
+		pmic_gpio_print_stats_one(state->ctrl, i);
+}
 static const struct gpio_chip pmic_gpio_gpio_template = {
 	.direction_input	= pmic_gpio_direction_input,
 	.direction_output	= pmic_gpio_direction_output,
@@ -787,6 +853,7 @@ static const struct gpio_chip pmic_gpio_gpio_template = {
 	.of_xlate		= pmic_gpio_of_xlate,
 	.to_irq			= pmic_gpio_to_irq,
 	.dbg_show		= pmic_gpio_dbg_show,
+	.print_stats	= pmic_gpio_print_stats,
 };
 
 static int pmic_gpio_populate(struct pmic_gpio_state *state,

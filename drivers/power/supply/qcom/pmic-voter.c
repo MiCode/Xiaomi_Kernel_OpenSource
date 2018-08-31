@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +20,15 @@
 #include <linux/string.h>
 
 #include <linux/pmic-voter.h>
+#include <linux/power/charge_log.h>
 
-#define NUM_MAX_CLIENTS		16
+#undef pr_err
+#define pr_err charge_logs_err
+
+#undef pr_info
+#define pr_info charge_logs_info
+
+#define NUM_MAX_CLIENTS		24
 #define DEBUG_FORCE_CLIENT	"DEBUG_FORCE_CLIENT"
 
 static DEFINE_SPINLOCK(votable_list_slock);
@@ -111,6 +119,13 @@ static void vote_min(struct votable *votable, int client_id,
 			*eff_id = i;
 		}
 	}
+
+	if (strcmp(votable->name, "FG_WS") != 0) {
+			if (votable->votes[i].enabled)
+				pr_info("%s: val: %d\n", votable->client_strs[i],
+							votable->votes[i].value);
+	}
+
 	if (*eff_id == -EINVAL)
 		*eff_res = -EINVAL;
 }
@@ -174,7 +189,7 @@ static char *get_client_str(struct votable *votable, int client_id)
 	if (client_id == -EINVAL)
 		return NULL;
 
-	 return votable->client_strs[client_id];
+	return votable->client_strs[client_id];
 }
 
 void lock_votable(struct votable *votable)
@@ -409,6 +424,13 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	if (strcmp(votable->name, "FG_WS") != 0) {
+		pr_info("%s: current vote is now %d voted by %s,%d,previous voted %d\n",
+				votable->name, effective_result,
+				get_client_str(votable, effective_id),
+				effective_id, votable->effective_result);
 	}
 
 	/*

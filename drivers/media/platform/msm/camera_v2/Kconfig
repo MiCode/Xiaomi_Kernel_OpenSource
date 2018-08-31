@@ -253,3 +253,9 @@ config MSM_SEC_CCI_DEBUG
 	---help---
 	  Enables simulation of secure camera for Secure CCI Realy
 	  debugging.
+
+config JASON_CAMERA
+	bool "jason kernel"
+	default n
+	---help---
+	 Say Y here to enable the is jason

@@ -3709,6 +3709,8 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 	struct afe_loopback_cfg_v1 lb_cmd;
 	int ret = 0;
 	int index = 0;
+	pr_debug("%s:  enter !!!rx_port[0x%x],    tx_port id[0x%x]\n",
+		__func__, rx_port, tx_port);
 
 	if (rx_port == MI2S_RX)
 		rx_port = AFE_PORT_ID_PRIMARY_MI2S_RX;

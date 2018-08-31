@@ -998,6 +998,21 @@ config CPUSETS
 
 	  Say N if unsure.
 
+config CPUSET_EXCLUSIVE_IND
+	bool "Independent cpu_exclusive support"
+	depends on CPUSETS
+	default n
+	help
+	  This option can stop the tasks of a cpuset using the cpus of itself
+	  child cpuset with cpu_exclusive enabled.
+
+config PACKAGE_RUNTIME_INFO
+	bool "stat:package runtime info on cluster"
+	depends on SCHED_HMP
+	default n
+	help
+	  This option can show package runtime info in big/little core.
+
 config PROC_PID_CPUSET
 	bool "Include legacy /proc/<pid>/cpuset file"
 	depends on CPUSETS

@@ -438,7 +438,7 @@
 		iommus = <&lpass_q6_smmu 1>;
 	};
 
-	qcom,msm-adsp-loader {
+	ssc_sensors:qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
 	};
@@ -923,7 +923,7 @@
 					  "SpkrLeft", "SpkrRight";
 	};
 
-	us_euro_gpio: msm_cdc_pinctrl@75 {
+	us_euro_gpio: msm_cdc_pinctrl@56 {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wcd_gnd_mic_swap_active>;

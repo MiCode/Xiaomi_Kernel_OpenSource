@@ -77,6 +77,8 @@
 #include <linux/compiler.h>
 #include <linux/sysctl.h>
 
+#include <linux/rtmm.h>
+
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>
