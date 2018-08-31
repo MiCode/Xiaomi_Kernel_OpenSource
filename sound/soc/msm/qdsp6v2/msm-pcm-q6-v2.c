@@ -498,13 +498,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				__func__, params_channels(params),
 				prtd->audio_client->perf_mode);
 
-		if (q6asm_get_svc_version(APR_SVC_ASM) >=
-				ADSP_ASM_API_VERSION_V2)
-			ret = q6asm_open_read_v5(prtd->audio_client,
-					FORMAT_LINEAR_PCM,
-					bits_per_sample, false);
-		else
-			ret = q6asm_open_read_v4(prtd->audio_client,
+		ret = q6asm_open_read_with_retry(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
 					bits_per_sample, false);
 		if (ret < 0) {

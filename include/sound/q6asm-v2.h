@@ -292,6 +292,9 @@ int q6asm_open_read_v4(struct audio_client *ac, uint32_t format,
 int q6asm_open_read_v5(struct audio_client *ac, uint32_t format,
 		       uint16_t bits_per_sample, bool ts_mode);
 
+int q6asm_open_read_with_retry(struct audio_client *ac, uint32_t format,
+		       uint16_t bits_per_sample, bool ts_mode);
+
 int q6asm_open_write(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);
 
@@ -338,6 +341,9 @@ int q6asm_open_read_write_v2(struct audio_client *ac, uint32_t rd_format,
 			     int topology);
 
 int q6asm_open_loopback_v2(struct audio_client *ac,
+			   uint16_t bits_per_sample);
+
+int q6asm_open_loopback_with_retry(struct audio_client *ac,
 			   uint16_t bits_per_sample);
 
 int q6asm_open_transcode_loopback(struct audio_client *ac,

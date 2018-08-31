@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,8 @@
 #include "dsi-panel-sim-dualmipi-cmd.dtsi"
 #include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
 #include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-sharp-dualdsi-wqhd-video.dtsi"
+#include "dsi-panel-sharp-dualdsi-wqhd-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -226,4 +228,16 @@
 	qcom,mdss-dsi-panel-timings = [00 1c 06 06 0b 11 06 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x34>;
 	qcom,mdss-dsi-t-clk-pre = <0x2a>;
+};
+
+&dsi_dual_sharp_wqhd_video {
+	qcom,mdss-dsi-panel-timings = [00 2e 08 0a 12 18 08 0b 09 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x21>;
+};
+
+&dsi_dual_sharp_wqhd_cmd {
+	qcom,mdss-dsi-panel-timings = [00 2e 08 0a 12 18 08 0b 09 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x21>;
 };
