@@ -1826,16 +1826,20 @@ enum ipacm_client_enum {
 	IPACM_CLIENT_MAX
 };
 
+#define IPACM_SUPPORT_OF_LAN_STATS_FOR_ODU_CLIENTS
+
 enum ipacm_per_client_device_type {
 	IPACM_CLIENT_DEVICE_TYPE_USB = 0,
 	IPACM_CLIENT_DEVICE_TYPE_WLAN = 1,
-	IPACM_CLIENT_DEVICE_TYPE_ETH = 2
+	IPACM_CLIENT_DEVICE_TYPE_ETH = 2,
+	IPACM_CLIENT_DEVICE_TYPE_ODU = 3,
+	IPACM_CLIENT_DEVICE_MAX
 };
 
 /**
  * max number of device types supported.
  */
-#define IPACM_MAX_CLIENT_DEVICE_TYPES 3
+#define IPACM_MAX_CLIENT_DEVICE_TYPES IPACM_CLIENT_DEVICE_MAX
 
 /**
  * @lanIface - Name of the lan interface
