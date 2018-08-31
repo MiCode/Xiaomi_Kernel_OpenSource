@@ -1599,6 +1599,8 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 {
 	int rc;
 
+	/* For micro USB connector, use extcon by default */
+	chg->use_extcon = true;
 	chg->pd_not_supported = true;
 
 	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
@@ -2640,20 +2642,6 @@ static int smb5_probe(struct platform_device *pdev)
 	/* set driver data before resources request it */
 	platform_set_drvdata(pdev, chip);
 
-	rc = smb5_init_vbus_regulator(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize vbus regulator rc=%d\n",
-			rc);
-		goto cleanup;
-	}
-
-	rc = smb5_init_vconn_regulator(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize vconn regulator rc=%d\n",
-				rc);
-		goto cleanup;
-	}
-
 	/* extcon registration */
 	chg->extcon = devm_extcon_dev_allocate(chg->dev, smblib_extcon_cable);
 	if (IS_ERR(chg->extcon)) {
@@ -2674,6 +2662,30 @@ static int smb5_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
 		goto cleanup;
+	}
+
+	/*
+	 * VBUS regulator enablement/disablement for host mode is handled
+	 * by USB-PD driver only. For micro-USB and non-PD typeC designs,
+	 * the VBUS regulator is enabled/disabled by the smb driver itself
+	 * before sending extcon notifications.
+	 * Hence, register vbus and vconn regulators for PD supported designs
+	 * only.
+	 */
+	if (!chg->pd_not_supported) {
+		rc = smb5_init_vbus_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vbus regulator rc=%d\n",
+				rc);
+			goto cleanup;
+		}
+
+		rc = smb5_init_vconn_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vconn regulator rc=%d\n",
+				rc);
+			goto cleanup;
+		}
 	}
 
 	switch (chg->smb_version) {
