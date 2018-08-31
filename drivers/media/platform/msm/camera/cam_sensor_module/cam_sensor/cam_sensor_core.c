@@ -125,7 +125,8 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_ERR(CAM_SENSOR,
 			"offset is out of bounds: off: %lld len: %zu",
 			 config.offset, len_of_buff);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
@@ -167,8 +168,10 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
-		if (s_ctrl->streamoff_count > 0)
-			return 0;
+		if (s_ctrl->streamoff_count > 0) {
+			rc = 0;
+			goto rel_pkt_buf;
+		}
 
 		s_ctrl->streamoff_count = s_ctrl->streamoff_count + 1;
 		i2c_reg_settings = &i2c_data->streamoff_settings;
@@ -182,7 +185,8 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
 			CAM_WARN(CAM_SENSOR,
 				"Rxed Update packets without linking");
-			return 0;
+			rc = 0;
+			goto rel_pkt_buf;
 		}
 
 		i2c_reg_settings =
@@ -202,7 +206,8 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			 * fix it.
 			 */
 			cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-			return 0;
+			rc = 0;
+			goto rel_pkt_buf;
 		}
 		break;
 	}
@@ -211,15 +216,18 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
 			CAM_WARN(CAM_SENSOR,
 				"Rxed NOP packets without linking");
-			return 0;
+			rc = 0;
+			goto rel_pkt_buf;
 		}
 
 		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-		return 0;
+		rc = 0;
+		goto rel_pkt_buf;
 	}
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Packet Header");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
 
 	offset = (uint32_t *)&csl_packet->payload;
@@ -230,7 +238,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			i2c_reg_settings, cmd_desc, 1);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Fail parsing I2C Pkt: %d", rc);
-		return rc;
+		goto rel_pkt_buf;
 	}
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) ==
@@ -239,6 +247,11 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			csl_packet->header.request_id;
 		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
 	}
+
+rel_pkt_buf:
+	if (cam_mem_put_cpu_buf(config.packet_handle))
+		CAM_WARN(CAM_SENSOR, "Failed in put the buffer: %pK",
+			config.packet_handle);
 
 	return rc;
 }
@@ -423,13 +436,16 @@ int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 		((uint32_t *)&pkt->payload + pkt->cmd_buf_offset/4);
 	if (cmd_desc == NULL) {
 		CAM_ERR(CAM_SENSOR, "command descriptor pos is invalid");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
 	if (pkt->num_cmd_buf != 2) {
 		CAM_ERR(CAM_SENSOR, "Expected More Command Buffers : %d",
 			 pkt->num_cmd_buf);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
+
 	for (i = 0; i < pkt->num_cmd_buf; i++) {
 		if (!(cmd_desc[i].length))
 			continue;
@@ -438,7 +454,7 @@ int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"Failed to parse the command Buffer Header");
-			return -EINVAL;
+			goto rel_pkt_buf;
 		}
 		cmd_buf = (uint32_t *)cmd_buf1;
 		cmd_buf += cmd_desc[i].offset/4;
@@ -449,9 +465,30 @@ int32_t cam_handle_mem_ptr(uint64_t handle, struct cam_sensor_ctrl_t *s_ctrl)
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"Failed to parse the command Buffer Header");
-			return -EINVAL;
+			goto rel_cmd_buf;
 		}
+
+		if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+			CAM_WARN(CAM_SENSOR,
+				"Failed to put command Buffer : %pK",
+				cmd_desc[i].mem_handle);
 	}
+
+	if (cam_mem_put_cpu_buf(handle))
+		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: %pK",
+			handle);
+
+	return rc;
+
+rel_cmd_buf:
+	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+		CAM_WARN(CAM_SENSOR, "Failed to put command Buffer : %pK",
+			cmd_desc[i].mem_handle);
+rel_pkt_buf:
+	if (cam_mem_put_cpu_buf(handle))
+		CAM_WARN(CAM_SENSOR, "Failed to put the command Buffer: %pK",
+			handle);
+
 	return rc;
 }
 
