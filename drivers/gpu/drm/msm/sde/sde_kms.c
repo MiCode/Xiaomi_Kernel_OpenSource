@@ -1664,8 +1664,10 @@ void sde_kms_timeline_status(struct drm_device *dev)
 		 *Probably locked from last close dumping status anyway
 		 */
 		SDE_ERROR("dumping conn_timeline without mode_config lock\n");
+		drm_connector_list_iter_begin(dev, &conn_iter);
 		drm_for_each_connector_iter(conn, &conn_iter)
 			sde_conn_timeline_status(conn);
+		drm_connector_list_iter_end(&conn_iter);
 		return;
 	}
 
