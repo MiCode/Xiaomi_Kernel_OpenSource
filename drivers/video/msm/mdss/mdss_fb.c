@@ -1863,7 +1863,7 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 	ret = mfd->mdp.off_fnc(mfd);
 	if (ret)
 		mfd->panel_power_state = cur_power_state;
-	else if (mdss_panel_is_power_off(req_power_state))
+	else if (!mdss_panel_is_power_on_interactive(req_power_state))
 		mdss_fb_release_fences(mfd);
 	mfd->op_enable = true;
 	complete(&mfd->power_off_comp);
