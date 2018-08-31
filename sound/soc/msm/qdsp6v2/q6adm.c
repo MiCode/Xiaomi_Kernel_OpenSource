@@ -734,7 +734,7 @@ int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
 	}
 	ret = adm_populate_channel_weight(&adm_pspd_params[index],
 					ch_mixer, channel_index);
-	if (!ret) {
+	if (ret) {
 		pr_err("%s: fail to get channel weight with error %d\n",
 			__func__, ret);
 		goto fail_cmd;
