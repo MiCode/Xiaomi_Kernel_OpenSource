@@ -323,4 +323,5 @@
 	qcom,fg-esr-timer-shutdown = <2048 2048>;
 	qcom,fg-esr-timer-asleep = <512 512>;
 	qcom,fg-sync-sleep-threshold-ma = <30>;
+	qcom,fg-disable-in-twm;
 };
