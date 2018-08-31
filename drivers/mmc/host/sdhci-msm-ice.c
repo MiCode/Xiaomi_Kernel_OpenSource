@@ -343,12 +343,16 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 		return -EINVAL;
 	req = mrq->req;
 	if (req && req->bio) {
+#ifdef CONFIG_PFK
 		if (bio_dun(req->bio)) {
 			dun = bio_dun(req->bio);
 			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
 		} else {
 			dun = req->__sector;
 		}
+#else
+		dun = req->__sector;
+#endif
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
@@ -393,12 +397,16 @@ int sdhci_msm_ice_cqe_cfg(struct sdhci_host *host,
 		return -EINVAL;
 	req = mrq->req;
 	if (req && req->bio) {
+#ifdef CONFIG_PFK
 		if (bio_dun(req->bio)) {
 			dun = bio_dun(req->bio);
 			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
 		} else {
 			dun = req->__sector;
 		}
+#else
+		dun = req->__sector;
+#endif
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
