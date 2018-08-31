@@ -1943,7 +1943,7 @@ int himax_chip_common_init(void)
 #if defined(HX_AUTO_UPDATE_FW) || defined(HX_ZERO_FLASH)
 	bool auto_update_flag = false;
 #endif
-	int ret = 0, err = 0;
+	int ret = 0, err = -1;
 	struct himax_ts_data *ts = private_ts;
 	struct himax_i2c_platform_data *pdata;
 
@@ -2187,7 +2187,6 @@ err_alloc_touch_data_failed:
 err_dt_ic_data_fail:
 	kfree(pdata);
 err_dt_platform_data_fail:
-	kfree(ts);
 	probe_fail_flag = 1;
 	return err;
 }
