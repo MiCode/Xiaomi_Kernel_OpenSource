@@ -182,6 +182,7 @@ static struct cam_ctx_ops
 	/* Acquired */
 	{
 		.ioctl_ops = {
+			.config_dev = __cam_lrme_ctx_config_dev_in_activated,
 			.release_dev = __cam_lrme_ctx_release_dev_in_acquired,
 			.start_dev = __cam_lrme_ctx_start_dev_in_acquired,
 		},
