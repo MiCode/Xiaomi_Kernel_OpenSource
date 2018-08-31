@@ -3333,12 +3333,32 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 	return 0;
 }
 
+static int cam_icp_mgr_put_cmd_buf(struct cam_packet *packet)
+{
+	int i = 0;
+	struct cam_cmd_buf_desc *cmd_desc = NULL;
+
+	cmd_desc = (struct cam_cmd_buf_desc *)
+		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
+
+	for (i = 0; i < packet->num_cmd_buf; i++) {
+		if (cmd_desc[i].type == CAM_CMD_BUF_FW) {
+			if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+				CAM_WARN(CAM_ICP, "put cmd buf failed: 0x%x",
+					cmd_desc[i].mem_handle);
+		}
+	}
+
+	return 0;
+}
+
 static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_packet *packet, struct cam_icp_hw_ctx_data *ctx_data,
 	uint32_t *fw_cmd_buf_iova_addr)
 {
 	int rc = 0;
 	int i, j, k;
+	int num_cmd_buf = 0;
 	uint64_t addr;
 	size_t len;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
@@ -3352,33 +3372,32 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
 
 	*fw_cmd_buf_iova_addr = 0;
-	for (i = 0; i < packet->num_cmd_buf; i++) {
+	for (i = 0; i < packet->num_cmd_buf; i++, num_cmd_buf++) {
 		if (cmd_desc[i].type == CAM_CMD_BUF_FW) {
 			rc = cam_mem_get_io_buf(cmd_desc[i].mem_handle,
 				hw_mgr->iommu_hdl, &addr, &len);
 			if (rc) {
 				CAM_ERR(CAM_ICP, "get cmd buf failed %x",
 					hw_mgr->iommu_hdl);
-				return rc;
+				num_cmd_buf = (num_cmd_buf > 0) ?
+					num_cmd_buf-- : 0;
+				goto rel_cmd_buf;
 			}
 			*fw_cmd_buf_iova_addr = addr;
 			*fw_cmd_buf_iova_addr =
 				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
 			rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
 				&cpu_addr, &len);
-			if (rc) {
+			if (rc || !cpu_addr) {
 				CAM_ERR(CAM_ICP, "get cmd buf failed %x",
 					hw_mgr->iommu_hdl);
 				*fw_cmd_buf_iova_addr = 0;
-				return rc;
+				num_cmd_buf = (num_cmd_buf > 0) ?
+					num_cmd_buf-- : 0;
+				goto rel_cmd_buf;
 			}
 			cpu_addr = cpu_addr + cmd_desc[i].offset;
 		}
-	}
-
-	if (!cpu_addr) {
-		CAM_ERR(CAM_ICP, "Invalid cpu addr");
-		return -EINVAL;
 	}
 
 	if (ctx_data->icp_dev_acquire_info->dev_type !=
@@ -3420,6 +3439,18 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 			for (j = 0; j < MAX_NUM_OF_IMAGE_PLANES; j++) {
 				bps_bufs->buf_ptr[j] = 0;
 				bps_bufs->meta_buf_ptr[j] = 0;
+			}
+		}
+	}
+
+	return rc;
+
+rel_cmd_buf:
+	for (i = num_cmd_buf; i >= 0; i--) {
+		if (cmd_desc[i].type == CAM_CMD_BUF_FW) {
+			if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle)) {
+				CAM_WARN(CAM_ICP, "put cmd buf failed 0x%x",
+					cmd_desc[i].mem_handle);
 			}
 		}
 	}
@@ -3994,6 +4025,7 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	CAM_DBG(CAM_ICP, "X: req id = %lld ctx_id = %u",
 		packet->header.request_id, ctx_data->ctx_id);
+	cam_icp_mgr_put_cmd_buf(packet);
 	mutex_unlock(&ctx_data->ctx_mutex);
 	return rc;
 }
