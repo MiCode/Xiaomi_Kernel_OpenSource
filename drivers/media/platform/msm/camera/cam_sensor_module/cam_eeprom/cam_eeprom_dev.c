@@ -261,9 +261,10 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
-	if (soc_private)
-		kfree(soc_private);
-
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	kfree(soc_private);
+	kfree(e_ctrl->io_master_info.cci_client);
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 
 	return 0;
@@ -394,6 +395,8 @@ static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 		kfree(soc_private->power_info.gpio_num_info);
 		kfree(soc_private);
 	}
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 
 	return 0;
@@ -489,8 +492,11 @@ static int cam_eeprom_platform_driver_remove(struct platform_device *pdev)
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	kfree(soc_info->soc_private);
 	kfree(e_ctrl->io_master_info.cci_client);
+	platform_set_drvdata(pdev, NULL);
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 	return 0;
 }
