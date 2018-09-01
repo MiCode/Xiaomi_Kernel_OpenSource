@@ -1978,7 +1978,7 @@ static inline void __cnss_disable_irq(void *data)
 {
 	struct pci_dev *pdev = data;
 
-	disable_irq(pdev->irq);
+	disable_irq_nosync(pdev->irq);
 }
 
 void cnss_pci_events_cb(struct msm_pcie_notify *notify)
