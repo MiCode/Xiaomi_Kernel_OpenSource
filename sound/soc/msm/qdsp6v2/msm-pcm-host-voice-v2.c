@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,8 @@ struct dai_data {
 struct tap_point {
 	struct dai_data playback_dai_data;
 	struct dai_data capture_dai_data;
+	struct vss_ivpcm_evt_notify_v2_t curr_event_data;
+	bool push_after_write;
 };
 
 struct session {
@@ -763,11 +765,6 @@ void hpcm_notify_evt_processing(uint8_t *data, char *session,
 						notify_evt->filled_out_size);
 	}
 
-	if (notify_evt->notify_mask & VSS_IVPCM_NOTIFY_MASK_INPUT_BUFFER) {
-		hpcm_copy_playback_data_from_queue(&tp->playback_dai_data,
-						   &in_buf_len);
-	}
-
 	switch (tmd->direction) {
 	/*
 	 * When the dir is OUT_IN, for the first notify mask, pushbuf mask
@@ -778,20 +775,22 @@ void hpcm_notify_evt_processing(uint8_t *data, char *session,
 	 * VSS_IVPCM_PUSH_BUFFER_MASK_IN_BUFFER.
 	 */
 	case VSS_IVPCM_TAP_POINT_DIR_OUT_IN:
-		if (notify_evt->notify_mask ==
-		    VSS_IVPCM_NOTIFY_MASK_TIMETICK) {
-			push_buff_event.push_buf_mask =
-				VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER;
-		} else {
-			push_buff_event.push_buf_mask =
-			   VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER |
-			   VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER;
-		}
+		memcpy(&(tp->curr_event_data), notify_evt,
+		       sizeof(struct vss_ivpcm_evt_notify_v2_t));
+
+		tp->push_after_write = true;
+		push_buff_event.push_buf_mask =
+			VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER |
+			VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER;
 		break;
 
 	case VSS_IVPCM_TAP_POINT_DIR_IN:
-		push_buff_event.push_buf_mask =
-			VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER;
+		hpcm_copy_playback_data_from_queue(&tp->playback_dai_data,
+						   &in_buf_len);
+		if (in_buf_len != 0) {
+			push_buff_event.push_buf_mask =
+				VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER;
+		}
 		break;
 
 	case VSS_IVPCM_TAP_POINT_DIR_OUT:
@@ -799,32 +798,37 @@ void hpcm_notify_evt_processing(uint8_t *data, char *session,
 			 VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER;
 		break;
 	}
+	/*if not loopback push buff */
+	if (!(tp->push_after_write) ||
+	   (notify_evt->notify_mask == VSS_IVPCM_NOTIFY_MASK_TIMETICK)) {
+		push_buff_event.tap_point = notify_evt->tap_point;
+		push_buff_event.out_buf_mem_address =
+				tp->capture_dai_data.vocpcm_ion_buffer.paddr;
+		push_buff_event.in_buf_mem_address =
+			tp->playback_dai_data.vocpcm_ion_buffer.paddr;
+		push_buff_event.sampling_rate = notify_evt->sampling_rate;
+		push_buff_event.num_in_channels = 1;
 
-	push_buff_event.tap_point = notify_evt->tap_point;
-	push_buff_event.out_buf_mem_address =
-		      tp->capture_dai_data.vocpcm_ion_buffer.paddr;
-	push_buff_event.in_buf_mem_address =
-		      tp->playback_dai_data.vocpcm_ion_buffer.paddr;
-	push_buff_event.sampling_rate = notify_evt->sampling_rate;
-	push_buff_event.num_in_channels = 1;
-
-	/*
-	 * ADSP must read and write from a cache aligned (128 byte) location,
-	 * and in blocks of the cache alignment size. The 128 byte cache
-	 * alignment requirement is guaranteed due to 4096 byte memory
-	 * alignment requirement during memory allocation/mapping. The output
-	 * buffer (ADSP write) size mask ensures that a 128 byte multiple
-	 * worth of will be written.  Internally, the input buffer (ADSP read)
-	 * size will also be a multiple of 128 bytes.  However it is the
-	 * application's responsibility to ensure no other data is written in
-	 * the specified length of memory.
-	 */
-	push_buff_event.out_buf_mem_size = ((notify_evt->request_buf_size) +
-				CACHE_ALIGNMENT_SIZE) & CACHE_ALIGNMENT_MASK;
-	push_buff_event.in_buf_mem_size = in_buf_len;
-
-	voc_send_cvp_vocpcm_push_buf_evt(voc_get_session_id(sess_name),
-					 &push_buff_event);
+		/*
+		 * ADSP must read and write from a cache aligned (128 byte)
+		 * location, and in blocks of the cache alignment size.
+		 * The 128 byte cache alignment requirement is guaranteed due
+		 * to 4096 byte memory alignment requirement during memory
+		 * allocation/mapping. The output buffer (ADSP write) size mask
+		 *ensures that a 128 byte multiple worth of will be written.
+		 * Internally, the input buffer (ADSP read) size will also be
+		 * a multiple of 128 bytes.  However it is the application's
+		 * responsibility to ensure no other data is written in
+		 * the specified length of memory.
+		 */
+		push_buff_event.out_buf_mem_size =
+					((notify_evt->request_buf_size) +
+					CACHE_ALIGNMENT_SIZE) &
+					CACHE_ALIGNMENT_MASK;
+		push_buff_event.in_buf_mem_size = in_buf_len;
+		voc_send_cvp_vocpcm_push_buf_evt(voc_get_session_id(sess_name),
+						 &push_buff_event);
+	}
 }
 
 static int msm_hpcm_configure_voice_put(struct snd_kcontrol *kcontrol,
@@ -1096,8 +1100,20 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	struct hpcm_drv *prtd = runtime->private_data;
 	struct dai_data *dai_data = hpcm_get_dai_data(substream->pcm->id, prtd);
 	unsigned long dsp_flags;
+	struct vss_ivpcm_evt_push_buffer_v2_t push_buff_event;
+	struct tap_point *tp = NULL;
+	int in_buf_len = 0;
+	char *sess_name = hpcm_get_sess_name(prtd->mixer_conf.sess_indx);
 
 	int count = frames_to_bytes(runtime, frames);
+
+	if (get_tappnt_value(substream->pcm->id) == TX) {
+		push_buff_event.push_buf_mask = VSS_IVPCM_TAP_POINT_TX_DEFAULT;
+		tp = &prtd->session[prtd->mixer_conf.sess_indx].tx_tap_point;
+	} else {
+		push_buff_event.push_buf_mask = VSS_IVPCM_TAP_POINT_RX_DEFAULT;
+		tp = &prtd->session[prtd->mixer_conf.sess_indx].rx_tap_point;
+	}
 
 	if (dai_data == NULL) {
 		pr_err("%s, dai_data is null\n", __func__);
@@ -1135,7 +1151,41 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	} else {
 		pr_err("%s: playback copy  was interrupted\n", __func__);
 	}
+	/* if in out copy data and push */
 
+	if (tp->push_after_write) {
+		hpcm_copy_playback_data_from_queue(dai_data,
+						  &in_buf_len);
+		if (in_buf_len) {
+			push_buff_event.push_buf_mask =
+			VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER |
+			VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER;
+		} else {
+			push_buff_event.push_buf_mask =
+			VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER;
+		}
+		push_buff_event.tap_point = tp->curr_event_data.tap_point;
+		push_buff_event.out_buf_mem_address =
+			tp->capture_dai_data.vocpcm_ion_buffer.paddr;
+		push_buff_event.in_buf_mem_address =
+			tp->playback_dai_data.vocpcm_ion_buffer.paddr;
+		push_buff_event.sampling_rate =
+					tp->curr_event_data.sampling_rate;
+		push_buff_event.num_in_channels = 1;
+		push_buff_event.out_buf_mem_size =
+				((tp->curr_event_data.request_buf_size) +
+			CACHE_ALIGNMENT_SIZE) & CACHE_ALIGNMENT_MASK;
+		push_buff_event.in_buf_mem_size = in_buf_len;
+
+		pr_debug("%s read_buf_mem_size= %d\n", __func__,
+			 push_buff_event.out_buf_mem_size);
+		pr_debug("%s write_buf_mem_size= %d\n", __func__,
+			 push_buff_event.in_buf_mem_size);
+		voc_send_cvp_vocpcm_push_buf_evt(voc_get_session_id(sess_name),
+						 &push_buff_event);
+		/*reset tp flags*/
+		tp->push_after_write = false;
+	}
 done:
 	return  ret;
 }
