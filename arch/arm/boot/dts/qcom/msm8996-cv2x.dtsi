@@ -62,6 +62,7 @@
 		compatible = "qcom,ntn_avb";
 		vdd-ntn-pci-supply = <&ntn_vreg>;
 		vdd-ntn-io-supply = <&ntn_vreg>;
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
 		qcom,ntn-bus-num = <1>;
@@ -467,6 +468,17 @@
 		qcom,vin-sel = <2>;		/* 1.8 */
 		qcom,src-sel = <0>;		/* GPIO */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>; /* 1.8 */
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
 		status = "okay";
 	};
 

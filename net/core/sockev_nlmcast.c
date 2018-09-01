@@ -36,7 +36,6 @@ static struct netlink_kernel_cfg nlcfg = {
 
 static void _sockev_event(unsigned long event, __u8 *evstr, int buflen)
 {
-	memset(evstr, 0, buflen);
 
 	switch (event) {
 	case SOCKEV_SOCKET:
@@ -99,6 +98,7 @@ static int sockev_client_cb(struct notifier_block *nb,
 	NETLINK_CB(skb).dst_group = SKNLGRP_SOCKEV;
 
 	smsg = nlmsg_data(nlh);
+	memset(smsg, 0, sizeof(struct sknlsockevmsg));
 	smsg->pid = current->pid;
 	_sockev_event(event, smsg->event, sizeof(smsg->event));
 	smsg->skfamily = sk->sk_family;

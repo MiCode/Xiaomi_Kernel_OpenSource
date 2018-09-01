@@ -176,18 +176,6 @@ static int dsi_display_ctrl_power_on(struct dsi_display *display)
 
 	if (display->cont_splash_enabled) {
 		pr_debug("skip ctrl power on\n");
-		for (i = 0; i < display->ctrl_count; i++) {
-			ctrl = &display->ctrl[i];
-			if (!ctrl->ctrl)
-				continue;
-			if (!ctrl->ctrl->current_state.pwr_enabled) {
-				ctrl->ctrl->pwr_info.host_pwr.refcount++;
-				ctrl->ctrl->pwr_info.digital.refcount++;
-				ctrl->ctrl->current_state.power_state =
-						DSI_CTRL_POWER_VREG_ON;
-				ctrl->ctrl->current_state.pwr_enabled = true;
-			}
-		}
 		return rc;
 	}
 
@@ -251,16 +239,6 @@ static int dsi_display_phy_power_on(struct dsi_display *display)
 	/* early return for splash enabled case */
 	if (display->cont_splash_enabled) {
 		pr_debug("skip phy power on\n");
-		for (i = 0; i < display->ctrl_count; i++) {
-			ctrl = &display->ctrl[i];
-			if (!ctrl->ctrl)
-				continue;
-			if (!ctrl->phy->power_state) {
-				ctrl->phy->pwr_info.digital.refcount++;
-				ctrl->phy->pwr_info.phy_pwr.refcount++;
-				ctrl->phy->power_state = true;
-			}
-		}
 		return rc;
 	}
 
@@ -320,25 +298,9 @@ static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
-	m_ctrl = &display->ctrl[display->clk_master_idx];
-
 	/* early return for splash enabled case */
 	if (display->cont_splash_enabled) {
 		pr_debug("skip core clk on calling\n");
-		m_ctrl->ctrl->current_state.pwr_enabled = true;
-		m_ctrl->ctrl->current_state.core_clk_enabled = true;
-		m_ctrl->ctrl->current_state.power_state =
-					DSI_CTRL_POWER_CORE_CLK_ON;
-		for (i = 0; i < display->ctrl_count; i++) {
-			ctrl = &display->ctrl[i];
-			if (!ctrl->ctrl || (ctrl == m_ctrl))
-				continue;
-			ctrl->ctrl->current_state.pwr_enabled = true;
-			ctrl->ctrl->current_state.core_clk_enabled = true;
-			ctrl->ctrl->current_state.power_state =
-					DSI_CTRL_POWER_CORE_CLK_ON;
-		}
-
 		return rc;
 	}
 
@@ -347,6 +309,8 @@ static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
 	 * be enabled before the other controller. Master controller in the
 	 * clock context refers to the controller that sources the clock.
 	 */
+	m_ctrl = &display->ctrl[display->clk_master_idx];
+
 	rc = dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_CORE_CLK_ON);
 	if (rc) {
 		pr_err("[%s] failed to turn on clocks, rc=%d\n",
@@ -381,26 +345,9 @@ static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
-	m_ctrl = &display->ctrl[display->clk_master_idx];
-
 	/* early return for splash enabled case */
 	if (display->cont_splash_enabled) {
 		pr_debug("skip ctrl link clk on calling\n");
-		m_ctrl->ctrl->current_state.pwr_enabled = true;
-		m_ctrl->ctrl->current_state.core_clk_enabled = true;
-		m_ctrl->ctrl->current_state.link_clk_enabled = true;
-		m_ctrl->ctrl->current_state.power_state =
-				DSI_CTRL_POWER_LINK_CLK_ON;
-		for (i = 0; i < display->ctrl_count; i++) {
-			ctrl = &display->ctrl[i];
-			if (!ctrl->ctrl || (ctrl == m_ctrl))
-				continue;
-			ctrl->ctrl->current_state.pwr_enabled = true;
-			ctrl->ctrl->current_state.core_clk_enabled = true;
-			ctrl->ctrl->current_state.link_clk_enabled = true;
-			ctrl->ctrl->current_state.power_state =
-						DSI_CTRL_POWER_LINK_CLK_ON;
-		}
 		return rc;
 	}
 
@@ -409,6 +356,7 @@ static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
 	 * be enabled before the other controller. Master controller in the
 	 * clock context refers to the controller that sources the clock.
 	 */
+	m_ctrl = &display->ctrl[display->clk_master_idx];
 
 	rc = dsi_ctrl_set_clock_source(m_ctrl->ctrl,
 				       &display->clock_info.src_clks);
@@ -2910,10 +2858,20 @@ int dsi_dsiplay_setup_splash_resource(struct dsi_display *display)
 		if (!ctrl)
 			return -EINVAL;
 
+		/* set dsi ctrl power state */
 		ret = dsi_ctrl_set_power_state(ctrl->ctrl,
 					DSI_CTRL_POWER_LINK_CLK_ON);
 		if (ret) {
-			SDE_ERROR("calling dsi_ctrl_set_power_state failed\n");
+			pr_err("%s:fail to call dsi_ctrl_set_power_state\n",
+					__func__);
+			return ret;
+		}
+
+		/* set dsi phy power state */
+		ret = dsi_phy_set_power_state(ctrl->phy, true);
+		if (ret) {
+			pr_err("%s:fail to call dsi_phy_set_power_state\n",
+					 __func__);
 			return ret;
 		}
 	}

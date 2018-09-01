@@ -187,7 +187,7 @@ struct page_ext *lookup_page_ext(struct page *page)
 	 * This check is also necessary for ensuring page poisoning
 	 * works as expected when enabled
 	 */
-	if (!section->page_ext)
+	if (!section || !section->page_ext)
 		return NULL;
 	return section->page_ext + pfn;
 }
