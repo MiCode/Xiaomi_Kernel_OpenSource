@@ -18,3 +18,33 @@
 	compatible = "qcom,sxr1120";
 	qcom,msm-id = <370 0x0>;
 };
+
+&soc {
+	qcom,qbt1000 {
+		/delete-property/ qcom,ipc-gpio;
+	};
+};
+
+&ext_dsi_bridge_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&mdss_mdp {
+	/delete-property/ bridges;
+	#cooling-cells = <2>;
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,platform-reset-gpio = <&tlmm 93 0>;
+	qcom,platform-en-gpio = <&tlmm 121 0>;
+};
+
+&dsi_dual_nt35597_truly_video_display {
+	qcom,dsi-display-active;
+};
