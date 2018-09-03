@@ -679,6 +679,8 @@ static int himax_common_suspend(struct device *dev)
 	struct himax_ts_data *ts = dev_get_drvdata(dev);
 
 	D("%s: enter\n", __func__);
+	if (!ts->initialized)
+		return -ECANCELED;
 	himax_chip_common_suspend(ts);
 	return 0;
 }
@@ -688,6 +690,15 @@ static int himax_common_resume(struct device *dev)
 	struct himax_ts_data *ts = dev_get_drvdata(dev);
 
 	D("%s: enter\n", __func__);
+	if (!ts->initialized) {
+		/*
+		 * wait until device resume for TDDI
+		 * TDDI: Touch and display Driver IC
+		 */
+		if (himax_chip_common_init())
+			return -ECANCELED;
+		ts->initialized = true;
+	}
 	himax_chip_common_resume(ts);
 	return 0;
 }
@@ -713,11 +724,6 @@ int drm_notifier_callback(struct notifier_block *self,
 
 		switch (*blank) {
 		case MSM_DRM_BLANK_UNBLANK:
-			if (!ts->initialized) {
-				if (himax_chip_common_init())
-					return -ECANCELED;
-				ts->initialized = true;
-			}
 			himax_common_resume(&ts->client->dev);
 			break;
 		case MSM_DRM_BLANK_POWERDOWN:
@@ -739,9 +745,6 @@ int fb_notifier_callback(struct notifier_block *self,
 	struct himax_ts_data *ts =
 		container_of(self, struct himax_ts_data, fb_notif);
 
-	if (!evdata || (evdata->id != 0))
-		return 0;
-
 	D("FB  %s\n", __func__);
 
 	if (evdata && evdata->data && event == FB_EVENT_BLANK && ts &&
@@ -750,11 +753,6 @@ int fb_notifier_callback(struct notifier_block *self,
 
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
-			if (!ts->initialized) {
-				if (himax_chip_common_init())
-					return 0;
-				ts->initialized = true;
-			}
 			himax_common_resume(&ts->client->dev);
 			break;
 		case FB_BLANK_POWERDOWN:
