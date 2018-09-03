@@ -3613,15 +3613,6 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	int rc;
 	u8 buf[4], val, mask;
 
-	/* Enable measurement of parallel charging current */
-	val = mask = SMB_MEASURE_EN_BIT;
-	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
-	if (rc < 0) {
-		pr_err("Error in writing to 0x%04x, rc=%d\n",
-			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
-		return rc;
-	}
-
 	fg_encode(fg->sp, FG_SRAM_CUTOFF_VOLT, chip->dt.cutoff_volt_mv, buf);
 	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_VOLT].addr_word,
 			fg->sp[FG_SRAM_CUTOFF_VOLT].addr_byte, buf,
