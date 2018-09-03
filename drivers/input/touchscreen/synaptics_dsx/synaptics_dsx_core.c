@@ -4605,10 +4605,12 @@ static int synaptics_rmi4_dsi_panel_notifier_cb(struct notifier_block *self,
 		if (event == MSM_DRM_EVENT_BLANK) {
 			transition = *(int *)evdata->data;
 			if (transition == MSM_DRM_BLANK_POWERDOWN) {
+				if (!rmi4_data->initialized)
+					return -ECANCELED;
 				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
 				rmi4_data->fb_ready = false;
 			} else if (transition == MSM_DRM_BLANK_UNBLANK) {
-				if (rmi4_data->initialized == false) {
+				if (!rmi4_data->initialized) {
 					if (synaptics_rmi4_defer_probe(
 							rmi4_data->pdev))
 						return -ECANCELED;
