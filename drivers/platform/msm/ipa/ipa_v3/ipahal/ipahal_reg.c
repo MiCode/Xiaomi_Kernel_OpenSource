@@ -25,7 +25,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_IRQ_STTS_EE_n),
 	__stringify(IPA_IRQ_EN_EE_n),
 	__stringify(IPA_IRQ_CLR_EE_n),
-	__stringify(IPA_IRQ_SUSPEND_INFO_EE_n),
+	__stringify(IPA_SUSPEND_IRQ_INFO_EE_n),
 	__stringify(IPA_SUSPEND_IRQ_EN_EE_n),
 	__stringify(IPA_SUSPEND_IRQ_CLR_EE_n),
 	__stringify(IPA_HOLB_DROP_IRQ_INFO_EE_n),
@@ -143,11 +143,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_FEC_ADDR_EE_n),
 	__stringify(IPA_FEC_ADDR_MSB_EE_n),
 	__stringify(IPA_FEC_ATTR_EE_n),
-	__stringify(IPA_MBIM_DEAGGR_FEC_ATTR_EE_n),
-	__stringify(IPA_GEN_DEAGGR_FEC_ATTR_EE_n),
-	__stringify(IPA_GSI_CONF),
 	__stringify(IPA_ENDP_GSI_CFG1_n),
-	__stringify(IPA_ENDP_GSI_CFG2_n),
 	__stringify(IPA_ENDP_GSI_CFG_AOS_n),
 	__stringify(IPA_ENDP_GSI_CFG_TLV_n),
 };
@@ -1814,19 +1810,15 @@ static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_GRAN_SEL_BMSK_V4_5);
 }
 
-
-static void ipareg_construct_endp_init_hdr_ext_n(enum ipahal_reg_name reg,
-	const void *fields, u32 *val)
+static void ipareg_construct_endp_init_hdr_ext_n_common(
+	const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext, u32 *val)
 {
-	struct ipa_ep_cfg_hdr_ext *ep_hdr_ext;
 	u8 hdr_endianness;
 
-	ep_hdr_ext = (struct ipa_ep_cfg_hdr_ext *)fields;
 	hdr_endianness = ep_hdr_ext->hdr_little_endian ? 0 : 1;
-
 	IPA_SETFIELD_IN_REG(*val, ep_hdr_ext->hdr_pad_to_alignment,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK_v3_0);
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val, ep_hdr_ext->hdr_total_len_or_pad_offset,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_SHFT,
@@ -1849,6 +1841,48 @@ static void ipareg_construct_endp_init_hdr_ext_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANNESS_BMSK);
 }
 
+static void ipareg_construct_endp_init_hdr_ext_n(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	ipareg_construct_endp_init_hdr_ext_n_common(fields, val);
+}
+
+static void ipareg_construct_endp_init_hdr_ext_n_v4_5(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext =
+		(const struct ipa_ep_cfg_hdr_ext *)fields;
+	u32 msb;
+
+	ipareg_construct_endp_init_hdr_ext_n_common(ep_hdr_ext, val);
+
+	msb = ep_hdr_ext->hdr_total_len_or_pad_offset >>
+		hweight_long(
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_BMSK);
+	IPA_SETFIELD_IN_REG(*val, msb,
+	 IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_MSB_SHFT_v4_5,
+	 IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_MSB_BMSK_v4_5);
+
+	if (!ep_hdr_ext->hdr) {
+		IPAHAL_ERR("No header info, skipping it.\n");
+		return;
+	}
+
+	msb = ep_hdr_ext->hdr->hdr_ofst_pkt_size >>
+		hweight_long(IPA_ENDP_INIT_HDR_n_HDR_OFST_PKT_SIZE_BMSK_v4_5);
+	IPA_SETFIELD_IN_REG(*val, msb,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_OFST_PKT_SIZE_MSB_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_OFST_PKT_SIZE_MSB_BMSK_v4_5);
+
+	msb = ep_hdr_ext->hdr->hdr_additional_const_len >>
+		hweight_long(
+		IPA_ENDP_INIT_HDR_n_HDR_ADDITIONAL_CONST_LEN_BMSK_v4_5);
+	IPA_SETFIELD_IN_REG(*val, msb,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ADDITIONAL_CONST_LEN_MSB_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ADDITIONAL_CONST_LEN_MSB_BMSK_v4_5
+		);
+}
+
 static void ipareg_construct_endp_init_hdr_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -1857,12 +1891,12 @@ static void ipareg_construct_endp_init_hdr_n(enum ipahal_reg_name reg,
 	ep_hdr = (struct ipa_ep_cfg_hdr *)fields;
 
 	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_metadata_reg_valid,
-		IPA_ENDP_INIT_HDR_n_HDR_METADATA_REG_VALID_SHFT_v2,
-		IPA_ENDP_INIT_HDR_n_HDR_METADATA_REG_VALID_BMSK_v2);
+		IPA_ENDP_INIT_HDR_n_HDR_METADATA_REG_VALID_SHFT,
+		IPA_ENDP_INIT_HDR_n_HDR_METADATA_REG_VALID_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_remove_additional,
-		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_SHFT_v2,
-		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_BMSK_v2);
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_SHFT,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_a5_mux,
 		IPA_ENDP_INIT_HDR_n_HDR_A5_MUX_SHFT,
@@ -1891,6 +1925,59 @@ static void ipareg_construct_endp_init_hdr_n(enum ipahal_reg_name reg,
 	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_len,
 		IPA_ENDP_INIT_HDR_n_HDR_LEN_SHFT,
 		IPA_ENDP_INIT_HDR_n_HDR_LEN_BMSK);
+}
+
+static void ipareg_construct_endp_init_hdr_n_v4_5(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_hdr *ep_hdr;
+	u32 msb;
+
+	ep_hdr = (struct ipa_ep_cfg_hdr *)fields;
+
+	msb = ep_hdr->hdr_ofst_metadata >>
+		hweight_long(IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_BMSK_v4_5);
+	IPA_SETFIELD_IN_REG(*val, msb,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_MSB_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_MSB_BMSK_v4_5);
+
+	msb = ep_hdr->hdr_len >>
+		hweight_long(IPA_ENDP_INIT_HDR_n_HDR_LEN_BMSK_v4_5);
+	IPA_SETFIELD_IN_REG(*val, msb,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_MSB_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_MSB_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_remove_additional,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_INC_DEAGG_HDR_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_a5_mux,
+		IPA_ENDP_INIT_HDR_n_HDR_A5_MUX_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_A5_MUX_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_ofst_pkt_size,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_PKT_SIZE_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_PKT_SIZE_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_ofst_pkt_size_valid,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_PKT_SIZE_VALID_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_PKT_SIZE_VALID_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_additional_const_len,
+		IPA_ENDP_INIT_HDR_n_HDR_ADDITIONAL_CONST_LEN_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_ADDITIONAL_CONST_LEN_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_ofst_metadata,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_ofst_metadata_valid,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_VALID_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_OFST_METADATA_VALID_BMSK_v4_5);
+
+	IPA_SETFIELD_IN_REG(*val, ep_hdr->hdr_len,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_SHFT_v4_5,
+		IPA_ENDP_INIT_HDR_n_HDR_LEN_BMSK_v4_5);
 }
 
 static void ipareg_construct_route(enum ipahal_reg_name reg,
@@ -2257,7 +2344,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_IRQ_CLR_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003010, 0x1000, 0, 0, 0},
-	[IPA_HW_v3_0][IPA_IRQ_SUSPEND_INFO_EE_n] = {
+	[IPA_HW_v3_0][IPA_SUSPEND_IRQ_INFO_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003098, 0x1000, 0, 0, 0},
 	[IPA_HW_v3_0][IPA_BCR] = {
@@ -2436,7 +2523,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 
 
 	/* IPAv3.1 */
-	[IPA_HW_v3_1][IPA_IRQ_SUSPEND_INFO_EE_n] = {
+	[IPA_HW_v3_1][IPA_SUSPEND_IRQ_INFO_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003030, 0x1000, 0, 0, 0},
 	[IPA_HW_v3_1][IPA_SUSPEND_IRQ_EN_EE_n] = {
@@ -2502,15 +2589,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_COUNTER_CFG] = {
 		ipareg_construct_counter_cfg, ipareg_parse_counter_cfg,
 		0x000001F0, 0, 0, 0, 0},
-	[IPA_HW_v3_5][IPA_GSI_CONF] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00002790, 0x0, 0, 0, 0 },
 	[IPA_HW_v3_5][IPA_ENDP_GSI_CFG1_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00002794, 0x4, 0, 0, 0 },
-	[IPA_HW_v3_5][IPA_ENDP_GSI_CFG2_n] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00002A2C, 0x4, 0, 0, 0 },
 	[IPA_HW_v3_5][IPA_ENDP_GSI_CFG_AOS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x000029A8, 0x4, 0, 0, 0 },
@@ -2522,7 +2603,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		0x0001e1fc, 0, 0, 0, 0},
 
 	/* IPAv4.0 */
-	[IPA_HW_v4_0][IPA_IRQ_SUSPEND_INFO_EE_n] = {
+	[IPA_HW_v4_0][IPA_SUSPEND_IRQ_INFO_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003030, 0x1000, 0, 1, 1},
 	[IPA_HW_v4_0][IPA_SUSPEND_IRQ_EN_EE_n] = {
@@ -2731,12 +2812,6 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003024, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_FEC_ATTR_EE_n] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00003028, 0x1000, 0, 0, 1},
-	[IPA_HW_v4_0][IPA_MBIM_DEAGGR_FEC_ATTR_EE_n] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
-		0x00003028, 0x1000, 0, 0, 1},
-	[IPA_HW_v4_0][IPA_GEN_DEAGGR_FEC_ATTR_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003028, 0x1000, 0, 0, 1},
 	[IPA_HW_v4_0][IPA_HOLB_DROP_IRQ_INFO_EE_n] = {
@@ -2959,6 +3034,23 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_5][IPA_SW_AREA_RAM_DIRECT_ACCESS_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x000010000, 0x4, 0, 0, 0},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_n] = {
+		ipareg_construct_endp_init_hdr_n_v4_5, ipareg_parse_dummy,
+		0x00000810, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_EXT_n] = {
+		ipareg_construct_endp_init_hdr_ext_n_v4_5, ipareg_parse_dummy,
+		0x00000814, 0x70, 0, 31, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_METADATA_n] = {
+		ipareg_construct_endp_init_hdr_metadata_n,
+		ipareg_parse_dummy,
+		0x0000081c, 0x70, 0, 13, 1},
+	[IPA_HW_v4_5][IPA_ENDP_INIT_HDR_METADATA_MASK_n] = {
+		ipareg_construct_endp_init_hdr_metadata_mask_n,
+		ipareg_parse_dummy,
+		0x00000818, 0x70, 13, 31, 1},
+	[IPA_HW_v4_5][IPA_UC_MAILBOX_m_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00082000, 0x4, 0, 0, 0},
 };
 
 /*

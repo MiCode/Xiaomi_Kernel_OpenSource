@@ -3323,6 +3323,13 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 				result = -EFAULT;
 				goto fail_and_disable_clocks;
 			}
+			if (ipa3_cfg_ep_hdr_ext(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.hdr_ext)) {
+				IPAERR("fail config hdr_ext prop of EP %d\n",
+						ipa_ep_idx);
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
+			}
 			if (ipa3_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP %d\n",
