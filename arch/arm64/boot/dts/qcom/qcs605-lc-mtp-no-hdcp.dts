@@ -23,3 +23,47 @@
 	compatible = "qcom,qcs605-mtp", "qcom,qcs605", "qcom,mtp";
 	qcom,board-id = <8 8>;
 };
+
+&mdss_mdp {
+		status = "disabled";
+};
+
+&sde_rscc {
+		status = "disabled";
+};
+
+&sde_wb {
+		status = "disabled";
+};
+
+&mdss_rotator {
+		status = "disabled";
+};
+
+&mdss_dsi0 {
+		status = "disabled";
+};
+
+&mdss_dsi_phy0 {
+		status = "disabled";
+};
+
+&sde_dp {
+		status = "disabled";
+};
+
+&mdss_dsi0_pll {
+		status = "disabled";
+};
+
+&mdss_dp_pll {
+		status = "disabled";
+};
+
+&ext_disp {
+		status = "disabled";
+};
+
+&ext_dsi_bridge_display {
+		status = "disabled";
+};
