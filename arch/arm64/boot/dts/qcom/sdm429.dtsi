@@ -210,6 +210,8 @@
 	qcom,ion {
 		/delete-node/ qcom,ion-heap@8;
 	};
+	/* delete hypervisor node for GPU*/
+	/delete-node/ qcom,kgsl-hyp;
 };
 
 &secure_mem {
@@ -234,4 +236,9 @@
 
 	/* disable mem pools */
 	/delete-node/qcom,gpu-mempools;
+};
+
+/* Disable secure context for Graphics*/
+&kgsl_msm_iommu {
+	/delete-node/ gfx3d_secure;
 };
