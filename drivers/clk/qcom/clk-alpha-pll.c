@@ -112,6 +112,7 @@
 #define REGERA_PLL_OUT_MASK	0x9
 
 /* FABIA PLL specific settings and offsets */
+#define FABIA_CAL_L_VAL		0x8
 #define FABIA_USER_CTL_LO	0xc
 #define FABIA_USER_CTL_HI	0x10
 #define FABIA_CONFIG_CTL_LO	0x14
@@ -1875,6 +1876,65 @@ static void clk_fabia_pll_disable(struct clk_hw *hw)
 	regmap_write(pll->clkr.regmap, off + FABIA_OPMODE, FABIA_PLL_STANDBY);
 }
 
+/*
+ * Fabia PLL requires power-on self calibration which happen when the PLL comes
+ * out of reset. Calibration frequency is calculated by below relation:
+ *
+ * calibration freq = ((pll_l_valmax + pll_l_valmin) * 0.54)
+ */
+static int clk_fabia_pll_prepare(struct clk_hw *hw)
+{
+	unsigned long calibration_freq, freq_hz;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	const struct pll_vco *vco;
+	u64 a;
+	u32 cal_l, regval, off = pll->offset;
+	int ret;
+
+	/* Check if calibration needs to be done i.e. PLL is in reset */
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
+	if (ret)
+		return ret;
+
+	/* Return early if calibration is not needed. */
+	if (regval & PLL_RESET_N)
+		return 0;
+
+	vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	if (!vco) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+
+	calibration_freq = ((pll->vco_table[0].min_freq +
+				pll->vco_table[0].max_freq) * 54)/100;
+
+	freq_hz = alpha_pll_round_rate(pll, calibration_freq,
+			clk_hw_get_rate(clk_hw_get_parent(hw)), &cal_l, &a);
+	/*
+	 * Due to a limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (freq_hz > (calibration_freq + FABIA_PLL_RATE_MARGIN) ||
+						freq_hz < calibration_freq) {
+		pr_err("fabia_pll: Call set rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	/* Setup PLL for calibration frequency */
+	regmap_write(pll->clkr.regmap, pll->offset + FABIA_CAL_L_VAL, cal_l);
+
+	/* Bringup the pll at calibration frequency */
+	ret = clk_fabia_pll_enable(hw);
+	if (ret) {
+		pr_err("alpha pll calibration failed\n");
+		return ret;
+	}
+
+	clk_fabia_pll_disable(hw);
+	return 0;
+}
+
 static unsigned long
 clk_fabia_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -1956,6 +2016,7 @@ static void clk_fabia_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 }
 
 const struct clk_ops clk_fabia_pll_ops = {
+	.prepare = clk_fabia_pll_prepare,
 	.enable = clk_fabia_pll_enable,
 	.disable = clk_fabia_pll_disable,
 	.recalc_rate = clk_fabia_pll_recalc_rate,
