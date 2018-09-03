@@ -675,14 +675,27 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	regs = a6xx_hwcg_registers[i].regs;
 
-	/* Disable SP clock before programming HWCG registers */
-	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	/*
+	 * Disable SP clock before programming HWCG registers.
+	 * A608 GPU is not having the GX power domain. Hence
+	 * skip GMU_GX registers for A608.
+	 */
+
+	if (!adreno_is_a608(adreno_dev))
+		gmu_core_regrmw(device,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
 	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
 		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
 
-	/* Enable SP clock */
-	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	/*
+	 * Enable SP clock after programming HWCG registers.
+	 * A608 GPU is not having the GX power domain. Hence
+	 * skip GMU_GX registers for A608.
+	 */
+	if (!adreno_is_a608(adreno_dev))
+		gmu_core_regrmw(device,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
