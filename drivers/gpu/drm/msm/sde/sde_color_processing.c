@@ -1430,7 +1430,9 @@ static void dspp_ad_install_property(struct drm_crtc *crtc)
 			SDE_CP_CRTC_DSPP_AD_ASSERTIVENESS, 0, (BIT(8) - 1), 0);
 		sde_cp_crtc_install_range_property(crtc,
 			"SDE_DSPP_AD_V4_STRENGTH",
-			SDE_CP_CRTC_DSPP_AD_STRENGTH, 0, (BIT(10) - 1), 0);
+			SDE_CP_CRTC_DSPP_AD_STRENGTH, 0, U64_MAX, 0);
+		sde_cp_create_local_blob(crtc, SDE_CP_CRTC_DSPP_AD_STRENGTH,
+			sizeof(struct drm_msm_ad4_manual_str_cfg));
 		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_AD_V4_INPUT",
 			SDE_CP_CRTC_DSPP_AD_INPUT, 0, U16_MAX, 0);
 		sde_cp_crtc_install_range_property(crtc,
