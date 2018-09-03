@@ -26,6 +26,7 @@
 | mido-m-oss | Redmi Note 4X Standard | Android M | LA.UM.5.3-06310-89xx.0 | [mido-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mido-m-oss) |
 | mido-n-oss | Redmi Note 4X Standard | Android N | LA.UM.5.6.r1-02100-89xx.0 | [mido-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mido-n-oss) |
 | mocha-kk-oss | Mi Pad | Android KK | tegra-19r15.1-android-4.4 | [mocha-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mocha-kk-oss) |
+| nitrogen-o-oss | MI MAX3,Mi Note 3 | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [nitrogen-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-o-oss) |
 | oxygen-n-oss | Mi Max 2 | Android N | LA.UM.5.6.r1-01900-89xx.0 | [oxygen-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/oxygen-n-oss) |
 | pisces-kk-oss | Mi 3 China Mobile | Android KK | tegra-17r18-android-4.2 | [pisces-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pisces-kk-oss) |
 | polaris-o-oss | Mi MIX 2S | Android O | LA.UM.6.3.r1_r00455 | [polaris-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/polaris-o-oss) |
