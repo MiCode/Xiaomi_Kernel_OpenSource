@@ -1312,6 +1312,15 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_err(&pdev->dev, "could not set DMA mask\n");
+			goto spi_geni_probe_err;
+		}
+	}
+
 	if (of_property_read_u32(pdev->dev.of_node, "spi-max-frequency",
 				&spi->max_speed_hz)) {
 		dev_err(&pdev->dev, "Max frequency not specified.\n");
