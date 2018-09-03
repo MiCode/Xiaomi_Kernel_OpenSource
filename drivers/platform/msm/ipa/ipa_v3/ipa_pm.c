@@ -453,6 +453,7 @@ static void delayed_deferred_deactivate_work_func(struct work_struct *work)
 	struct delayed_work *dwork;
 	struct ipa_pm_client *client;
 	unsigned long flags;
+	unsigned long delay;
 
 	dwork = container_of(work, struct delayed_work, work);
 	client = container_of(dwork, struct ipa_pm_client, deactivate_work);
@@ -464,8 +465,13 @@ static void delayed_deferred_deactivate_work_func(struct work_struct *work)
 		client->state = IPA_PM_ACTIVATED;
 		goto bail;
 	case IPA_PM_ACTIVATED_PENDING_RESCHEDULE:
+		delay = IPA_PM_DEFERRED_TIMEOUT;
+		if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION)
+			delay *= 5;
+
 		queue_delayed_work(ipa_pm_ctx->wq, &client->deactivate_work,
-			msecs_to_jiffies(IPA_PM_DEFERRED_TIMEOUT));
+			msecs_to_jiffies(delay));
 		client->state = IPA_PM_ACTIVATED_PENDING_DEACTIVATION;
 		goto bail;
 	case IPA_PM_ACTIVATED_PENDING_DEACTIVATION:
@@ -1006,6 +1012,7 @@ int ipa_pm_deferred_deactivate(u32 hdl)
 {
 	struct ipa_pm_client *client;
 	unsigned long flags;
+	unsigned long delay;
 
 	if (ipa_pm_ctx == NULL) {
 		IPA_PM_ERR("PM_ctx is null\n");
@@ -1029,9 +1036,14 @@ int ipa_pm_deferred_deactivate(u32 hdl)
 		spin_unlock_irqrestore(&client->state_lock, flags);
 		return 0;
 	case IPA_PM_ACTIVATED:
+		delay = IPA_PM_DEFERRED_TIMEOUT;
+		if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION)
+			delay *= 5;
+
 		client->state = IPA_PM_ACTIVATED_PENDING_DEACTIVATION;
 		queue_delayed_work(ipa_pm_ctx->wq, &client->deactivate_work,
-			msecs_to_jiffies(IPA_PM_DEFERRED_TIMEOUT));
+			msecs_to_jiffies(delay));
 		break;
 	case IPA_PM_ACTIVATED_TIMER_SET:
 	case IPA_PM_ACTIVATED_PENDING_DEACTIVATION:
