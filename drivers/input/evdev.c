@@ -1182,8 +1182,7 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 		return evdev_handle_mt_request(dev, size, ip);
 
 	case EVIOCGKEY(0):
-		return evdev_handle_get_val(client, dev, EV_KEY, dev->key,
-					    KEY_MAX, size, p, compat_mode);
+		return bits_to_user(dev->key, KEY_MAX, size, p, compat_mode);
 
 	case EVIOCGLED(0):
 		return evdev_handle_get_val(client, dev, EV_LED, dev->led,
@@ -1194,8 +1193,7 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 					    SND_MAX, size, p, compat_mode);
 
 	case EVIOCGSW(0):
-		return evdev_handle_get_val(client, dev, EV_SW, dev->sw,
-					    SW_MAX, size, p, compat_mode);
+		return bits_to_user(dev->sw, SW_MAX, size, p, compat_mode);
 
 	case EVIOCGNAME(0):
 		return str_to_user(dev->name, size, p);

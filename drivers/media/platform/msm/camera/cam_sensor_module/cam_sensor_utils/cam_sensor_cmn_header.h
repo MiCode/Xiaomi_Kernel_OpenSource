@@ -26,8 +26,7 @@
 #define MAX_REGULATOR 5
 #define MAX_POWER_CONFIG 12
 
-#define MAX_PER_FRAME_ARRAY 32
-#define BATCH_SIZE_MAX      16
+#define MAX_PER_FRAME_ARRAY 33
 
 #define CAM_SENSOR_NAME    "cam-sensor"
 #define CAM_ACTUATOR_NAME  "cam-actuator"
@@ -35,6 +34,7 @@
 #define CAM_FLASH_NAME     "cam-flash"
 #define CAM_EEPROM_NAME    "cam-eeprom"
 #define CAM_OIS_NAME       "cam-ois"
+#define SL_EEPROM_NAME  "cam-sl-eeprom"
 
 #define MAX_SYSTEM_PIPELINE_DELAY 2
 

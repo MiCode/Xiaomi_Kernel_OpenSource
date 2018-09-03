@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,8 +49,13 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 				OOB_PREEMPTION_SET_MASK,
 				OOB_PREEMPTION_CHECK_MASK,
 				OOB_PREEMPTION_CLEAR_MASK);
-			if (status)
+			if (status) {
+				adreno_set_gpu_fault(adreno_dev,
+					ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(
+					KGSL_DEVICE(adreno_dev));
 				return;
+			}
 		}
 	}
 
@@ -227,6 +232,38 @@ static struct adreno_ringbuffer *a6xx_next_ringbuffer(
 	return NULL;
 }
 
+#define GMU_ACTIVE_STATE_RETRY_MAX 100
+
+static int adreno_gmu_wait_for_active(struct adreno_device *adreno_dev)
+{
+	unsigned int reg, num_retries = 0;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!kgsl_gmu_isenabled(device))
+		return 0;
+
+	kgsl_gmu_regread(device,
+		A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+
+	while (reg != GPU_HW_ACTIVE) {
+		/* Wait for small time before trying again */
+		udelay(5);
+		kgsl_gmu_regread(device,
+			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+
+		if (num_retries == GMU_ACTIVE_STATE_RETRY_MAX &&
+			reg != GPU_HW_ACTIVE) {
+			dev_err(adreno_dev->dev.dev,
+				"GMU failed to move to ACTIVE state: 0x%x\n",
+				reg);
+			return -ETIMEDOUT;
+		}
+		num_retries++;
+	}
+
+	return 0;
+}
+
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -356,6 +393,23 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		upper_32_bits(gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK);
 
+	/*
+	 * Above fence writes will make sure GMU comes out of
+	 * IFPC state if its was in IFPC state but it doesn't
+	 * guarantee that GMU FW actually moved to ACTIVE state
+	 * i.e. wake-up from IFPC is complete.
+	 * Wait for GMU to move to ACTIVE state before triggering
+	 * preemption. This is require to make sure CP doesn't
+	 * interrupt GMU during wake-up from IFPC.
+	 */
+	if (adreno_gmu_wait_for_active(adreno_dev)) {
+		adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
+
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+		return;
+	}
+
 	adreno_dev->next_rb = next;
 
 	/* Start the timer to detect a stuck preemption */
@@ -370,14 +424,6 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	/* Trigger the preemption */
 	adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
 		FENCE_STATUS_WRITEDROPPED1_MASK);
-
-	/*
-	 * Once preemption has been requested with the final register write,
-	 * the preemption process starts and the GPU is considered busy.
-	 * We can now safely clear the preemption keepalive bit, allowing
-	 * power collapse to resume its regular activity.
-	 */
-	kgsl_gmu_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
@@ -404,6 +450,13 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 		return;
 	}
+
+	/*
+	 * We can now safely clear the preemption keepalive bit, allowing
+	 * power collapse to resume its regular activity.
+	 */
+	kgsl_gmu_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GMU_AO_SPARE_CNTL, 0x2,
+			0x0);
 
 	del_timer(&adreno_dev->preempt.timer);
 

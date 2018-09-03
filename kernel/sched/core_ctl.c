@@ -53,7 +53,7 @@ struct cluster_data {
 	spinlock_t pending_lock;
 	bool is_big_cluster;
 	bool enable;
-	int nrrun;
+        unsigned int nrrun;
 	struct task_struct *core_ctl_thread;
 	unsigned int first_cpu;
 	unsigned int boost;
@@ -514,6 +514,9 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	 */
 	if (cluster->max_nr > MAX_NR_THRESHOLD)
 		new_need = new_need + 1;
+
+       if (cluster->is_big_cluster)
+		new_need = max(new_need, cluster->nrrun);
 
 	return new_need;
 }

@@ -1447,8 +1447,7 @@ static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 	u32 lanes = 0;
 	u32 ulps_lanes;
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
-		lanes = dsi_ctrl->host_config.common_config.data_lanes;
+	lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
 	rc = dsi_ctrl->hw.ops.wait_for_lane_idle(&dsi_ctrl->hw, lanes);
 	if (rc) {
@@ -1489,9 +1488,7 @@ static int dsi_disable_ulps(struct dsi_ctrl *dsi_ctrl)
 		return 0;
 	}
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
-		lanes = dsi_ctrl->host_config.common_config.data_lanes;
-
+	lanes = dsi_ctrl->host_config.common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
@@ -2464,6 +2461,31 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	return 0;
+}
+
+/**
+ * dsi_ctrl_update_host_init_state() - Update the host initialization state.
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:        boolean signifying host state.
+ *
+ * Update the host initialization status only while exiting from ulps during
+ * suspend state.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	int rc = 0;
+	u32 state = enable ? 0x1 : 0x0;
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		return rc;
+	}
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	return rc;
 }
 
 /**

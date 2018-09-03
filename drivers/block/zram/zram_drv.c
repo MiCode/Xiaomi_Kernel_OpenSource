@@ -49,6 +49,7 @@ static const char *default_compressor = "lzo";
 
 /* Module params (documentation at end) */
 static unsigned int num_devices = 1;
+static struct zram **zram_devices;
 
 static inline void deprecated_attr_warn(const char *name)
 {
@@ -399,6 +400,31 @@ static ssize_t compact_store(struct device *dev,
 
 	return len;
 }
+
+int zs_get_page_usage(unsigned long *total_pool_pages,
+			unsigned long *total_ori_pages)
+{
+	int i;
+	*total_pool_pages = *total_ori_pages = 0;
+	if (!zram_devices)
+		return 0;
+	for (i = 0; i < num_devices; i++) {
+		struct zram *zram = zram_devices[i];
+		struct zram_meta *meta;
+		if (!zram)
+			return 0;
+		meta = zram->meta;
+		if (!down_read_trylock(&zram->init_lock))
+			continue;
+		if (init_done(zram)) {
+			*total_pool_pages += zs_get_total_pages(meta->mem_pool);
+			*total_ori_pages += atomic64_read(
+						&zram->stats.pages_stored);
+		}
+		up_read(&zram->init_lock);
+	}
+	return 0;
+ }
 
 static ssize_t io_stat_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1240,7 +1266,7 @@ static int zram_add(void)
 {
 	struct zram *zram;
 	struct request_queue *queue;
-	int ret, device_id;
+	int i, ret, device_id;
 
 	zram = kzalloc(sizeof(struct zram), GFP_KERNEL);
 	if (!zram)
@@ -1322,6 +1348,13 @@ static int zram_add(void)
 	}
 	strlcpy(zram->compressor, default_compressor, sizeof(zram->compressor));
 	zram->meta = NULL;
+
+	for (i = 0; i < num_devices; i++) {
+		if (!zram_devices[i]) {
+			zram_devices[i] = zram;
+			break;
+		}
+	}
 
 	pr_info("Added device: %s\n", zram->disk->disk_name);
 	return device_id;
@@ -1452,6 +1485,7 @@ static int zram_remove_cb(int id, void *ptr, void *data)
 
 static void destroy_devices(void)
 {
+	kfree(zram_devices);
 	class_unregister(&zram_control_class);
 	idr_for_each(&zram_index_idr, &zram_remove_cb, NULL);
 	idr_destroy(&zram_index_idr);
@@ -1461,6 +1495,10 @@ static void destroy_devices(void)
 static int __init zram_init(void)
 {
 	int ret;
+
+	zram_devices = kzalloc(num_devices * sizeof(struct zram *), GFP_KERNEL);
+	if (!zram_devices)
+		return -ENOMEM;
 
 	ret = class_register(&zram_control_class);
 	if (ret) {

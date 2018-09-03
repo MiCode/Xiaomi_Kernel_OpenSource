@@ -847,6 +847,7 @@ static const struct file_operations ufsdbg_host_regs_fops = {
 	.read		= seq_read,
 };
 
+
 static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 {
 	int err = 0;
@@ -1567,7 +1568,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.dump_dev_desc =
-		debugfs_create_file("dump_device_desc", S_IRUSR,
+		debugfs_create_file("dump_device_desc", S_IRUGO,
 				    hba->debugfs_files.debugfs_root, hba,
 				    &ufsdbg_dump_device_desc);
 	if (!hba->debugfs_files.dump_dev_desc) {

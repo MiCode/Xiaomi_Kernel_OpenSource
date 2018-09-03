@@ -126,13 +126,11 @@ struct sde_hw_pingpong_ops {
 	 * Disables DSC encoder
 	 */
 	void (*disable_dsc)(struct sde_hw_pingpong *pp);
-
-	/**
-	 * Get DSC status
-	 * @Return: register value of DSC config
-	 */
-	u32 (*get_dsc_status)(struct sde_hw_pingpong *pp);
-
+       /**
+        * Get DSC status
+        * @Return: register value of DSC config
+        */
+       u32 (*get_dsc_status)(struct sde_hw_pingpong *pp);
 	/**
 	 * Program the dither hw block
 	 */

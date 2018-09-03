@@ -1,0 +1,1 @@
+obj-$(CONFIG_FINGERPRINT_SYNAPTICS4302)	+= vfsspidrv.o

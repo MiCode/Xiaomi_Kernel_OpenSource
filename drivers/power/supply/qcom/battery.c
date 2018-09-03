@@ -82,9 +82,10 @@ struct pl_data *the_chip;
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
+	PR_OEM		= BIT(1),
 };
 
-static int debug_mask;
+static int debug_mask = PR_PARALLEL;
 module_param_named(debug_mask, debug_mask, int, 0600);
 
 #define pl_dbg(chip, reason, fmt, ...)				\
@@ -975,7 +976,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 	/* handle fast/taper charge entry */
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
 			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
-		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
+		pl_dbg(chip, PR_OEM, "chg_state enabling parallel\n");
 		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
 		chip->charge_type = pval.intval;
 		return;

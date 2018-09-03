@@ -1595,6 +1595,9 @@ static void lpm_suspend_wake(void)
 	lpm_stats_suspend_exit();
 }
 
+extern void regulator_debug_print_enabled(bool only_enabled);
+extern void system_sleep_status_print_enabled(void);
+extern void gpio_debug_print(void);
 static int lpm_suspend_enter(suspend_state_t state)
 {
 	int cpu = raw_smp_processor_id();
@@ -1621,6 +1624,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * LPMs(XO and Vmin).
 	 */
 	clock_debug_print_enabled(true);
+	regulator_debug_print_enabled(true);
+	gpio_debug_print();
+	system_sleep_status_print_enabled();
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 

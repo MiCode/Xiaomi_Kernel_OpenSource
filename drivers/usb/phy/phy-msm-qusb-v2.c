@@ -111,6 +111,9 @@ struct qusb_phy {
 	int			qusb_phy_reg_offset_cnt;
 
 	u32			tune_val;
+	u32			tune_pll_bias;
+	u32			bias_ctrl_val;
+	int			tune_efuse_correction;
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
@@ -119,6 +122,7 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			dpdm_enable;
+	bool			efuse_pll_bias;
 
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
@@ -140,11 +144,15 @@ struct qusb_phy {
 	int			phy_pll_reset_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+	int			*efuse_pll_bias_seq;
+	int			efuse_pll_bias_seq_len;
 
 	/* override TUNEX registers value */
 	struct dentry		*root;
 	u8			tune[5];
 
+	u8                      imp_ctrl;
+	u8                      pll_bias;
 	struct hrtimer		timer;
 };
 
@@ -342,6 +350,7 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 {
 	u8 reg;
 	u32 bit_mask = 1;
+	int i;
 
 	pr_debug("%s(): num_of_bits:%d bit_pos:%d\n", __func__,
 				qphy->efuse_num_of_bits,
@@ -360,6 +369,25 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 
 	qphy->tune_val = TUNE_VAL_MASK(qphy->tune_val,
 				qphy->efuse_bit_pos, bit_mask);
+
+	if (qphy->tune_efuse_correction) {
+		int corrected_val = qphy->tune_val + qphy->tune_efuse_correction;
+		if (corrected_val < 0)
+			qphy->tune_val = 0;
+		else
+			qphy->tune_val = min_t(unsigned, corrected_val, 0x7);
+		pr_info("%s(): adjust tune1 value to:%d, correction value = %d\n",
+							__func__, qphy->tune_val, qphy->tune_efuse_correction);
+	}
+
+	if (qphy->efuse_pll_bias) {
+		for (i = 0; i < qphy->efuse_pll_bias_seq_len; i+=2)
+		{
+			if (qphy->efuse_pll_bias_seq[i] == qphy->tune_val)
+				qphy->tune_pll_bias = qphy->efuse_pll_bias_seq[i+1];
+		}
+	}
+
 	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	if (qphy->tune_val) {
 		reg = reg & 0x0f;
@@ -406,7 +434,6 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	qusb_phy_reset(qphy);
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
 
@@ -439,6 +466,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	qusb_phy_reset(qphy);
+
+	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE) {
+		qusb_phy_host_init(phy);
+		return 0;
+	}
+
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
 			qusb_phy_write_seq(qphy->emu_phy_base + 0x8000,
@@ -476,7 +509,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (!qphy->tune_val)
 			qusb_phy_get_tune1_param(qphy);
 
-		pr_debug("%s(): Programming TUNE1 parameter as:%x\n", __func__,
+		pr_info("%s(): Programming TUNE1 parameter as:%x\n", __func__,
 				qphy->tune_val);
 		writel_relaxed(qphy->tune_val,
 				qphy->base + qphy->phy_reg[PORT_TUNE1]);
@@ -490,10 +523,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 							(4 * p_index));
 	}
 
-	if (qphy->refgen_north_bg_reg)
-		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
-			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
-				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+	if (qphy->imp_ctrl)
+		writel_relaxed(qphy->imp_ctrl, qphy->base + 0x220);
+
+	if (qphy->tune_pll_bias)
+		writel_relaxed(qphy->tune_pll_bias, qphy->base + 0x198);
+	if (qphy->pll_bias)
+		writel_relaxed(qphy->pll_bias, qphy->base + 0x198);
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
@@ -528,7 +564,7 @@ static enum hrtimer_restart qusb_dis_ext_pulldown_timer(struct hrtimer *timer)
 				qphy->atest_usb13_suspend);
 		if (ret < 0)
 			dev_err(qphy->phy.dev,
-				"pinctrl state suspend select failed\n");
+				        "pinctrl state suspend select failed\n");
 	}
 
 	return HRTIMER_NORESTART;
@@ -543,10 +579,10 @@ static void qusb_phy_enable_ext_pulldown(struct usb_phy *phy)
 
 	if (qphy->pinctrl && qphy->atest_usb13_active) {
 		ret = pinctrl_select_state(qphy->pinctrl,
-				qphy->atest_usb13_active);
+				 qphy->atest_usb13_active);
 		if (ret < 0) {
 			dev_err(phy->dev,
-					"pinctrl state active select failed\n");
+				 "pinctrl state active select failed\n");
 			return;
 		}
 
@@ -561,7 +597,6 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	dev_dbg(phy->dev, "%s\n", __func__);
 
 	qusb_phy_enable_power(qphy, false);
-
 }
 
 static u32 qusb_phy_get_linestate(struct qusb_phy *qphy)
@@ -683,9 +718,6 @@ static int qusb_phy_notify_connect(struct usb_phy *phy,
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 
 	qphy->cable_connected = true;
-
-	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE)
-		qusb_phy_host_init(phy);
 
 	dev_dbg(phy->dev, "QUSB PHY: connect notification cable_connected=%d\n",
 							qphy->cable_connected);
@@ -864,6 +896,24 @@ static int qusb_phy_create_debugfs(struct qusb_phy *qphy)
 		}
 	}
 
+	file = debugfs_create_x8("imp_ctrl", 0644, qphy->root,
+						&qphy->imp_ctrl);
+		if (IS_ERR_OR_NULL(file)) {
+			dev_err(qphy->phy.dev,
+				"can't create debugfs entry for %s\n", name);
+			debugfs_remove_recursive(qphy->root);
+			ret = ENOMEM;
+			goto create_err;
+		}
+	file = debugfs_create_x8("pll_bias", 0644, qphy->root,
+						&qphy->pll_bias);
+		if (IS_ERR_OR_NULL(file)) {
+			dev_err(qphy->phy.dev,
+				"can't create debugfs entry for %s\n", name);
+			debugfs_remove_recursive(qphy->root);
+			ret = ENOMEM;
+			goto create_err;
+		}
 create_err:
 	return ret;
 }
@@ -910,11 +960,38 @@ static int qusb_phy_probe(struct platform_device *pdev)
 						"qcom,efuse-num-bits",
 						&qphy->efuse_num_of_bits);
 			}
+			of_property_read_u32(dev->of_node,
+						"qcom,tune-efuse-correction",
+						&qphy->tune_efuse_correction);
 
 			if (ret) {
 				dev_err(dev,
 				"DT Value for efuse is invalid.\n");
 				return -EINVAL;
+			}
+			qphy->efuse_pll_bias = of_property_read_bool(dev->of_node, "mi,efuse-pll-bias");
+
+			size = 0;
+			of_get_property(dev->of_node, "mi,efuse-pll-bias-seq", &size);
+			if (size) {
+				qphy->efuse_pll_bias_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+				if (qphy->efuse_pll_bias_seq) {
+					qphy->efuse_pll_bias_seq_len =
+						(size / sizeof(*qphy->efuse_pll_bias_seq));
+					if (qphy->efuse_pll_bias_seq_len % 2) {
+						dev_err(dev, "invalid efuse_pll_bias_seq len\n");
+						return -EINVAL;
+					}
+
+					of_property_read_u32_array(dev->of_node,
+							"mi,efuse-pll-bias-seq",
+							qphy->efuse_pll_bias_seq,
+							qphy->efuse_pll_bias_seq_len);
+				} else {
+					dev_dbg(dev,
+							"error allocating memory for efuse_pll_bias_seq\n");
+				}
 			}
 		}
 	}
@@ -1139,6 +1216,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(qphy->atest_usb13_suspend)) {
 		dev_err(dev, "pinctrl lookup atest_usb13_suspend failed\n");
 		goto skip_pinctrl_config;
+	}
+
+	if (qphy->pinctrl && qphy->atest_usb13_suspend) {
+		ret = pinctrl_select_state(qphy->pinctrl,
+				qphy->atest_usb13_suspend);
+		if (ret < 0)
+			dev_err(qphy->phy.dev,
+					"pinctrl state suspend select failed\n");
 	}
 
 	qphy->atest_usb13_active = pinctrl_lookup_state(qphy->pinctrl,

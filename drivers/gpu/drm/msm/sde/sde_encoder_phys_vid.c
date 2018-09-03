@@ -309,7 +309,6 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 	}
-
 	vid_enc->rot_fetch = f;
 	vid_enc->rot_fetch_valid = true;
 }

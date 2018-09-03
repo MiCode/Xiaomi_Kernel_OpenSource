@@ -69,6 +69,8 @@
 #define MAX_LINE_LENGTH			(ADDR_LEN + (ITEMS_PER_LINE *	\
 					CHARS_PER_ITEM) + 1)		\
 
+#define RSLOW_ARRAY_LEN			6
+
 #define NUM_PARTITIONS			3
 #define FG_SRAM_ADDRESS_MAX		255
 #define FG_SRAM_LEN			504
@@ -85,6 +87,11 @@
 #define BATT_THERM_NUM_COEFFS		3
 
 #define MAX_CC_STEPS			20
+
+#define VBAT_RESTART_FG_EMPTY_UV		3700000
+#define TEMP_THR_RESTART_FG		150
+#define RESTART_FG_START_WORK_MS		1000
+#define RESTART_FG_WORK_MS		2000
 
 /* Debug flag definitions */
 enum fg_debug_flag {
@@ -170,6 +177,7 @@ enum fg_sram_param_id {
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_CHG_TERM_BASE_CURR,
+	FG_SRAM_CUTOFF_CURR,
 	FG_SRAM_DELTA_MSOC_THR,
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
@@ -264,6 +272,7 @@ struct fg_dt_props {
 	int	chg_term_curr_ma;
 	int	chg_term_base_curr_ma;
 	int	sys_term_curr_ma;
+	int	cutoff_curr_ma;
 	int	delta_soc_thr;
 	int	recharge_soc_thr;
 	int	recharge_volt_thr_mv;
@@ -309,6 +318,7 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		nom_cap_uah;
 };
 
 struct fg_cyc_ctr_data {
@@ -459,16 +469,22 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			report_full;
 	bool			use_dma;
 	bool			qnovo_enable;
+	bool			empty_restart_fg;
 	bool			suspended;
+	int			rslow_arr[RSLOW_ARRAY_LEN];
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	ttf_work;
+	struct delayed_work	esr_timer_config_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work	soc_work;
 	struct delayed_work	pl_enable_work;
+	struct delayed_work	empty_restart_fg_work;
 };
 
 /* Debugfs data structures are below */

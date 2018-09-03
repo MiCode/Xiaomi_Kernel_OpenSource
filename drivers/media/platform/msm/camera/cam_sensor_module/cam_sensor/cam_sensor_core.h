@@ -15,6 +15,8 @@
 
 #include "cam_sensor_dev.h"
 
+#define MV_TEMP_SET 1
+
 /**
  * @s_ctrl: Sensor ctrl structure
  *

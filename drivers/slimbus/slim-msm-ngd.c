@@ -213,7 +213,8 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 	struct msm_slim_ctrl *dev = container_of(dsp, struct msm_slim_ctrl,
 						dsp);
 	struct pd_qmi_client_data *reg;
-
+	/* Resetting the log level */
+	SLIM_RST_LOGLVL(dev);
 	SLIM_INFO(dev, "SLIM DSP SSR/PDR notify cb:0x%lx, type:%d\n",
 			code, dsp->dom_t);
 	switch (code) {

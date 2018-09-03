@@ -37,6 +37,8 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
@@ -459,6 +461,15 @@ static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/seq_file.h>
+#define msm_gpio_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 
 static void msm_gpio_dbg_show_one(struct seq_file *s,
 				  struct pinctrl_dev *pctldev,
@@ -472,7 +483,7 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	int is_out;
 	int drive;
 	int pull;
-	u32 ctl_reg;
+	u32 ctl_reg, io_reg, value;
 
 	static const char * const pulls[] = {
 		"no pull",
@@ -489,9 +500,12 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
 
-	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
-	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
-	seq_printf(s, " %s", pulls[pull]);
+	io_reg = readl(pctrl->regs + g->io_reg);
+	value = (is_out ? io_reg >> g->out_bit : io_reg >> g->in_bit) & 0x1;
+	msm_gpio_debug_output(s, 1, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
+	msm_gpio_debug_output(s, 1, " %dmA", msm_regval_to_drive(drive));
+	msm_gpio_debug_output(s, 1, " %s", pulls[pull]);
+	msm_gpio_debug_output(s, 1, " %s", value ? "high":"low");
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -500,8 +514,10 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		if ((i < 4) || ((i > 80) && (i < 85)))
+			continue;
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
-		seq_puts(s, "\n");
+		msm_gpio_debug_output(s, 1, "\n");
 	}
 }
 
@@ -1040,6 +1056,72 @@ static struct irq_chip msm_dirconn_irq_chip = {
 					| IRQCHIP_SET_TYPE_MASKED,
 };
 
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+static struct irq_desc *gpio_irq_desc;
+static unsigned int gpio_irq;
+extern int msm_show_resume_irq_mask;
+
+static int msm_pinctrl_suspend(void)
+{
+	return 0;
+}
+
+static inline struct msm_pinctrl *to_msm_pinctrl(struct gpio_chip *gc)
+{
+	return container_of(gc, struct msm_pinctrl, chip);
+}
+
+static void show_resume_gpio_irq(unsigned int irq, struct irq_desc *desc)
+{
+	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = to_msm_pinctrl(gc);
+	struct irq_chip *chip = irq_get_chip(irq);
+	int irq_pin;
+	u32 val;
+	int i;
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	chained_irq_enter(chip, desc);
+
+	/*
+	 * Each pin has it's own IRQ status register, so use
+	 * enabled_irq bitmap to limit the number of reads.
+	 */
+	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
+		g = &pctrl->soc->groups[i];
+		val = readl(pctrl->regs + g->intr_status_reg);
+		if (val & BIT(g->intr_status_bit)) {
+			irq_pin = irq_find_mapping(gc->irqdomain, i);
+			log_wakeup_reason(irq_pin);
+		}
+	}
+
+	chained_irq_exit(chip, desc);
+	gpio_irq = 0;
+}
+
+static void msm_pinctrl_resume(void)
+{
+	if (gpio_irq != 0 && gpio_irq_desc != NULL)
+		show_resume_gpio_irq(gpio_irq, gpio_irq_desc);
+}
+
+static struct syscore_ops msm_pinctrl_syscore_ops = {
+	.suspend = msm_pinctrl_suspend,
+	.resume = msm_pinctrl_resume,
+};
+
+static int __init msm_pinctrl_init_sys(void)
+{
+	register_syscore_ops(&msm_pinctrl_syscore_ops);
+	return 0;
+}
+arch_initcall(msm_pinctrl_init_sys);
+#endif
+
 static void msm_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
@@ -1050,6 +1132,13 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 	int handled = 0;
 	u32 val;
 	int i;
+
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+	if (msm_show_resume_irq_mask) {
+		gpio_irq_desc = desc;
+		gpio_irq = irq_desc_get_irq(desc);;
+	}
+#endif
 
 	chained_irq_enter(chip, desc);
 

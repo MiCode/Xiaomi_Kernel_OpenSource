@@ -93,6 +93,8 @@ struct msm_watchdog_data {
 
 	bool timer_expired;
 	bool user_pet_complete;
+	unsigned int scandump_size;
+	int curr_ping_cpu_id;
 };
 
 /*
@@ -384,8 +386,11 @@ static void ping_other_cpus(struct msm_watchdog_data *wdog_dd)
 	smp_mb();
 	for_each_cpu(cpu, cpu_online_mask) {
 		if (!cpu_idle_pc_state[cpu] && !cpu_isolated(cpu))
+		{
+			wdog_dd->curr_ping_cpu_id = cpu;
 			smp_call_function_single(cpu, keep_alive_response,
 						 wdog_dd, 1);
+		}
 	}
 }
 
@@ -514,6 +519,7 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(wdog_dd->last_pet, 1000000000);
 	dev_info(wdog_dd->dev, "Watchdog last pet at %lu.%06lu\n",
 			(unsigned long) wdog_dd->last_pet, nanosec_rem / 1000);
+	pr_err("Watchdog current pinging cpu id = %d\n", wdog_dd->curr_ping_cpu_id);
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();
@@ -526,6 +532,41 @@ static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
 	struct msm_watchdog_data *wdog_dd =
 			*(struct msm_watchdog_data **)(dev_id);
 	return wdog_bark_handler(irq, wdog_dd);
+}
+
+void register_scan_dump(struct msm_watchdog_data *wdog_dd)
+{
+	static void *dump_addr;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *dump_data;
+
+	if (!wdog_dd->scandump_size)
+		return;
+
+	dump_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+	if (!dump_data)
+		return;
+	dump_addr = kzalloc(wdog_dd->scandump_size, GFP_KERNEL);
+	if (!dump_addr)
+		goto err0;
+
+	dump_data->addr = virt_to_phys(dump_addr);
+	dump_data->len = wdog_dd->scandump_size;
+	strlcpy(dump_data->name, "KSCANDUMP", sizeof(dump_data->name));
+
+	dump_entry.id = MSM_DUMP_DATA_SCANDUMP;
+	dump_entry.addr = virt_to_phys(dump_data);
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		pr_err("Registering scandump region failed\n");
+		goto err1;
+	}
+	return;
+err1:
+	kfree(dump_addr);
+err0:
+	kfree(dump_data);
 }
 
 static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
@@ -613,6 +654,8 @@ static void configure_scandump(struct msm_watchdog_data *wdog_dd)
 					  dump_addr);
 			devm_kfree(wdog_dd->dev, cpu_data);
 		}
+
+		register_scan_dump(wdog_dd);
 	}
 }
 
@@ -680,7 +723,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
-	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
+	__raw_writel(timeout + 10*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,
@@ -691,7 +734,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	wdog_dd->user_pet_complete = true;
 	wdog_dd->user_pet_enabled = false;
 	wake_up_process(wdog_dd->watchdog_task);
-	init_timer(&wdog_dd->pet_timer);
+	init_timer_deferrable(&wdog_dd->pet_timer);
 	wdog_dd->pet_timer.data = (unsigned long)wdog_dd;
 	wdog_dd->pet_timer.function = pet_task_wakeup;
 	wdog_dd->pet_timer.expires = jiffies + delay_time;
@@ -795,6 +838,11 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	pdata->wakeup_irq_enable = of_property_read_bool(node,
 							 "qcom,wakeup-enable");
 
+	if (of_property_read_u32(node, "qcom,scandump-size",
+				 &pdata->scandump_size))
+		dev_info(&pdev->dev,
+			 "No need to allocate memory for scandumps\n");
+
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
 	return 0;
@@ -833,7 +881,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	md_entry.phys_addr = virt_to_phys(wdog_dd);
 	md_entry.size = sizeof(*wdog_dd);
 	if (msm_minidump_add_region(&md_entry))
-		pr_info("Failed to add Watchdog data in Minidump\n");
+		pr_info("Failed to add RTB in Minidump\n");
 
 	return 0;
 err:

@@ -694,8 +694,7 @@ static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
 	u32 lanes = 0;
 	u32 ulps_lanes;
 
-	if (config->panel_mode == DSI_OP_CMD_MODE)
-		lanes = config->common_config.data_lanes;
+	lanes = config->common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	/*
@@ -730,8 +729,7 @@ static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 {
 	u32 ulps_lanes, lanes = 0;
 
-	if (config->panel_mode == DSI_OP_CMD_MODE)
-		lanes = config->common_config.data_lanes;
+	lanes = config->common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);

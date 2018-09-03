@@ -37,6 +37,14 @@
 #define MSM_EEPROM_MAX_MEM_MAP_CNT             8
 #define MSM_EEPROM_MEM_MAP_PROPERTIES_CNT      8
 
+#ifdef CONFIG_USE_ROHM_BU64753
+#define EEPROM_MAP_DATA_CNT 60
+#define EEPROM_READ_START_INDEX 7856
+#define EEPROM_READ_END_INDEX 7915
+#define LITEON_VENDOR_ID 0x15
+#define BACK_CAMERA_LILTEON_EEPROM_ADDR 0xA0
+#endif
+
 enum cam_eeprom_state {
 	CAM_EEPROM_INIT,
 	CAM_EEPROM_ACQUIRE,
@@ -74,6 +82,7 @@ struct cam_eeprom_memory_map_t {
 	struct cam_eeprom_map_t page;
 	struct cam_eeprom_map_t pageen;
 	struct cam_eeprom_map_t poll;
+	struct cam_eeprom_map_t delay;
 	struct cam_eeprom_map_t mem;
 	uint32_t saddr;
 };

@@ -70,7 +70,7 @@ struct cam_ctx_request {
 	uint32_t                      num_in_map_entries;
 	struct cam_hw_fence_map_entry out_map_entries[CAM_CTX_CFG_MAX];
 	uint32_t                      num_out_map_entries;
-	atomic_t                      num_in_acked;
+	uint32_t                      num_in_acked;
 	uint32_t                      num_out_acked;
 	int                           flushed;
 	struct cam_context           *ctx;
@@ -172,6 +172,7 @@ struct cam_ctx_ops {
  * @refcount:              Context object refcount
  * @node:                  The main node to which this context belongs
  * @sync_mutex:            mutex to sync with sync cb thread
+ * @ctx_released:          whether context is released from umd after acquire
  *
  */
 struct cam_context {
@@ -207,6 +208,7 @@ struct cam_context {
 	struct kref                  refcount;
 	void                        *node;
 	struct mutex                 sync_mutex;
+	bool                         ctx_released;
 };
 
 /**

@@ -76,6 +76,8 @@ int cam_vfe_put_evt_payload(void             *core_info,
 {
 	struct cam_vfe_hw_core_info        *vfe_core_info = core_info;
 	unsigned long                       flags;
+	uint32_t  *ife_irq_regs = NULL;
+	uint32_t   status_reg0, status_reg1;
 
 	if (!core_info) {
 		CAM_ERR(CAM_ISP, "Invalid param core_info NULL");
@@ -86,12 +88,23 @@ int cam_vfe_put_evt_payload(void             *core_info,
 		return -EINVAL;
 	}
 
+	ife_irq_regs = (*evt_payload)->irq_reg_val;
+	status_reg0 = ife_irq_regs[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
+	status_reg1 = ife_irq_regs[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
+
+	if (status_reg0 || status_reg1) {
+		CAM_DBG(CAM_ISP, "status0 0x%x status1 0x%x",
+			status_reg0, status_reg1);
+		return 0;
+	}
+
 	spin_lock_irqsave(&vfe_core_info->spin_lock, flags);
 	(*evt_payload)->error_type = 0;
 	list_add_tail(&(*evt_payload)->list, &vfe_core_info->free_payload_list);
 	*evt_payload = NULL;
 	spin_unlock_irqrestore(&vfe_core_info->spin_lock, flags);
 
+	CAM_DBG(CAM_ISP, "Done");
 
 	return 0;
 }
@@ -159,17 +172,18 @@ static int cam_vfe_irq_err_top_half(uint32_t    evt_id,
 	struct cam_vfe_hw_core_info         *core_info;
 	bool                                 error_flag = false;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = %x, IRQ status_1 = %x",
+	pr_err("IRQ status_0 = %x, IRQ status_1 = %x",
 		th_payload->evt_status_arr[0], th_payload->evt_status_arr[1]);
 
 	handler_priv = th_payload->handler_priv;
 	core_info =  handler_priv->core_info;
+
 	/*
-	 *  need to handle overflow condition here, otherwise irq storm
-	 *  will block everything
+	 * Need to disable IRQ first in case of error,
+	 * otherwise irq storm will block everything.
 	 */
 	if (th_payload->evt_status_arr[1] ||
-		(th_payload->evt_status_arr[0] & camif_irq_err_reg_mask[0])) {
+		(th_payload->evt_status_arr[0] & 0x3FC00)) {
 		CAM_ERR(CAM_ISP,
 			"Encountered Error: vfe:%d:  Irq_status0=0x%x Status1=0x%x",
 			handler_priv->core_index, th_payload->evt_status_arr[0],
@@ -209,8 +223,7 @@ static int cam_vfe_irq_err_top_half(uint32_t    evt_id,
 	}
 
 	if (error_flag)
-		CAM_INFO(CAM_ISP, "Violation status = %x",
-			evt_payload->irq_reg_val[2]);
+		CAM_INFO(CAM_ISP, "Violation status = %x", evt_payload->irq_reg_val[2]);
 
 	th_payload->evt_payload_priv = evt_payload;
 
@@ -387,7 +400,7 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 
 	reinit_completion(&vfe_hw->hw_complete);
 
-	CAM_DBG(CAM_ISP, "calling RESET on vfe %d", soc_info->index);
+	CAM_INFO(CAM_ISP, "calling RESET on vfe %d", soc_info->index);
 	core_info->vfe_top->hw_ops.reset(core_info->vfe_top->top_priv,
 		reset_core_args, arg_size);
 	CAM_DBG(CAM_ISP, "waiting for vfe reset complete");
@@ -702,7 +715,6 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_GET_BUF_UPDATE:
 	case CAM_ISP_HW_CMD_GET_HFR_UPDATE:
 	case CAM_ISP_HW_CMD_STRIPE_UPDATE:
-	case CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);

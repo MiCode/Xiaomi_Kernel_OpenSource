@@ -13,6 +13,14 @@ menuconfig SPECTRA_CAMERA
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
+config USE_BU64748
+	bool "use BU64748 acculator"
+	default n
+
+config USE_ROHM_BU64753
+	bool "use ROHM BU64753 acculator"
+	default n
+
 source "drivers/media/platform/msm/vidc/Kconfig"
 
 source "drivers/media/platform/msm/sde/Kconfig"

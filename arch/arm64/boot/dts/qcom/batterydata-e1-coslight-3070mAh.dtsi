@@ -1,0 +1,79 @@
+
+qcom,e1_coslight_3070mAh {
+	/* #3124728_Xiaomi_E1cos_3170mAh_averaged_MasterSlave_Sept25th2017*/
+	qcom,max-voltage-uv = <4400000>;
+        qcom,fastchg-current-ma = <3300>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e1_coslight";
+        qcom,jeita-fcc-ranges = <0   50   330000
+                                 51  150  990000
+                                 151 450  3300000
+                                 451 600  1650000>;
+        qcom,jeita-fv-ranges =  <0   50   4400000
+                                 51  150  4400000
+                                 151 450  4400000
+                                 451 600  4100000>;
+	qcom,checksum = <0xDF1B>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		 40 1F F1 05
+		 35 0A 25 FD
+		 6C 1D 6D F5
+		 39 12 2E 14
+		 80 18 26 23
+		 41 45 46 53
+		 55 00 00 00
+		 0E 00 00 00
+		 00 00 8F C3
+		 2D CC 00 AC
+		 35 00 08 00
+		 F1 DA B3 E4
+		 29 05 A3 FB
+		 89 0D EF 03
+		 52 E5 BD 23
+		 39 06 09 20
+		 27 00 14 00
+		 AA 1F C3 05
+		 40 0A 33 FD
+		 57 1D 95 EB
+		 73 0A 34 15
+		 18 19 F0 22
+		 67 45 1E 53
+		 55 00 00 00
+		 0D 00 00 00
+		 00 00 B0 CC
+		 27 C3 0F BC
+		 23 00 00 00
+		 91 EA B3 E4
+		 D1 FC CF 00
+		 55 F5 F3 01
+		 63 02 E9 23
+		 CB 33 CC FF
+		 07 10 00 00
+		 71 0C 66 46
+		 23 00 40 00
+		 5E 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

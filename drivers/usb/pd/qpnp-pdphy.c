@@ -526,10 +526,10 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 	if (ret)
 		return ret;
 
-	ret = wait_event_interruptible_timeout(pdphy->tx_waitq,
-		pdphy->tx_status != -EINPROGRESS,
-		msecs_to_jiffies(RECEIVER_RESPONSE_TIME));
-	if (ret <= 0) {
+	ret = wait_event_interruptible_hrtimeout(pdphy->tx_waitq,
+			pdphy->tx_status != -EINPROGRESS,
+			ms_to_ktime(RECEIVER_RESPONSE_TIME));
+	if (ret) {
 		dev_err(pdphy->dev, "%s: failed ret %d", __func__, ret);
 		return ret ? ret : -ETIMEDOUT;
 	}

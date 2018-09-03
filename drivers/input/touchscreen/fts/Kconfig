@@ -1,0 +1,51 @@
+menuconfig CONFIG_TOUCHSCREEN_ST_FTS
+	bool "St touchscreen"
+	default y
+	help
+	  Say Y here if you have a St touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_ST_CORE
+	tristate "St core driver module"
+	depends on I2C || SPI_MASTER
+	help
+	  Say Y here to enable basic touch reporting functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fts.
+
+config TOUCHSCREEN_ST_GUI
+	tristate "St gui driver module"
+	depends on TOUCHSCREEN_ST_CORE
+	help
+	  Say Y here to enable touch gui functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fts_gui.
+
+
+config TOUCHSCREEN_ST_DRIVER_TEST
+	tristate "St core driver test module"
+	depends on TOUCHSCREEN_ST_CORE
+	help
+	  Say Y here to enable touch driver test functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fts_driver_test.
+
+config TOUCHSCREEN_ST_DEBUG_FS
+	tristate "St core driver module"
+	depends on TOUCHSCREEN_ST_CORE
+	help
+	  Say Y here to enable  touch debugfs functionality.
+
+	  If unsure, say N.
+

@@ -232,5 +232,6 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #define activate_mm(prev,next)	switch_mm(prev, next, current)
 
 void verify_cpu_asid_bits(void);
+void post_ttbr_update_workaround(void);
 
 #endif

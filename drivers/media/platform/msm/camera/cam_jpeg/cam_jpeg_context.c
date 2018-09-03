@@ -55,7 +55,7 @@ static int __cam_jpeg_ctx_flush_dev_in_acquired(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
 	int rc;
-
+	CAM_ERR(CAM_JPEG, "jpeg flush ctx %d", ctx->ctx_id);
 	rc = cam_context_flush_dev_to_hw(ctx, cmd);
 	if (rc)
 		CAM_ERR(CAM_ICP, "Failed to flush device");

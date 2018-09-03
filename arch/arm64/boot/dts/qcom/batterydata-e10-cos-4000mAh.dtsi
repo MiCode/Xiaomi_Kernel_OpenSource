@@ -1,0 +1,82 @@
+qcom,e10_cos_4000mah {
+	qcom, = <24>;
+	/* #3434841_Xiaomi_E10cos_4000mAh_averaged_MasterSlave_Apr24th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2800>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e10_cos_4000mAh";
+	qcom,jeita-fcc-ranges = <0   50   390000
+				51  100  1170000
+				101 150  1170000
+				151 450  2800000
+				451 600  1950000>;
+	qcom,jeita-fv-ranges =  <0   50  4400000
+				51  100  4400000
+				101 150  4400000
+				151 450  4400000
+				451 600  4100000>;
+	qcom,checksum = <0x97F4>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		D2 1E FB FC
+		91 03 01 F4
+		D8 1C 1F 02
+		56 0D 22 0B
+		BE 17 F6 23
+		28 44 8E 5A
+		68 00 00 00
+		10 00 00 00
+		00 00 FF 07
+		CA CD D8 BB
+		1E 00 08 00
+		E9 DA FC E4
+		0D 06 A5 FA
+		84 ED C8 12
+		BE F5 8A 2A
+		2D 06 09 20
+		27 00 14 00
+		75 20 C9 04
+		07 0B D2 05
+		DF 1C 99 02
+		C0 0C 6F 0B
+		94 18 B7 23
+		0F 44 E3 5A
+		76 00 00 00
+		0E 00 00 00
+		00 00 BD CC
+		4B CA B9 C5
+		17 00 00 00
+		4A EA FC E4
+		9F FD E2 F2
+		F5 F4 7B 02
+		C5 00 B4 1B
+		B7 33 CC FF
+		07 10 00 00
+		91 0F 66 46
+		17 00 40 00
+		61 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};
+
