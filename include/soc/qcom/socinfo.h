@@ -96,6 +96,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
 #define early_machine_is_sda660()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda660")
+#define early_machine_is_sdm455()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm455")
 #define early_machine_is_sdm636()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm636")
 #define early_machine_is_sda636()	\
@@ -146,6 +148,7 @@
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_sdm660()	0
 #define early_machine_is_sda660()	0
+#define early_machine_is_sdm455()	0
 #define early_machine_is_sdm636()	0
 #define early_machine_is_sda636()	0
 #define early_machine_is_sdm658()	0
@@ -211,6 +214,7 @@ enum msm_cpu {
 	MSM_CPU_8998,
 	MSM_CPU_HAMSTER,
 	MSM_CPU_660,
+	MSM_CPU_455,
 	MSM_CPU_630,
 	MSM_CPU_636,
 };
