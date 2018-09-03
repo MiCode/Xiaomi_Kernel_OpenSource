@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_DRM_PP_H_
@@ -543,5 +543,17 @@ struct drm_msm_ltm_buffer {
 	__u32 fd;
 	__u32 offset;
 	__u32 status;
+};
+
+/**
+ * struct drm_msm_ad4_manual_str_cfg - ad4 manual strength config set
+ * by user-space client.
+ * @in_str - strength for inside roi region
+ * @out_str - strength for outside roi region
+ */
+#define DRM_MSM_AD4_MANUAL_STRENGTH
+struct drm_msm_ad4_manual_str_cfg {
+	__u32 in_str;
+	__u32 out_str;
 };
 #endif /* _MSM_DRM_PP_H_ */
