@@ -205,6 +205,15 @@
 
 		#clock-cells = <1>;
 	};
+
+	/* Disable secure_mem node */
+	qcom,ion {
+		/delete-node/ qcom,ion-heap@8;
+	};
+};
+
+&secure_mem {
+	status = "disabled";
 };
 
 &clock_gcc_mdss {
