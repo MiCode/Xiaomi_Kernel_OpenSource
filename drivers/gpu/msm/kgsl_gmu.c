@@ -504,10 +504,6 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		.bw = INVALID_DCVS_IDX,
 	};
 
-	/* Do not set to XO and lower GPU clock vote from GMU */
-	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
-			(gpu_pwrlevel >= gmu->num_gpupwrlevels - 1))
-		return -EINVAL;
 
 	/* If GMU has not been started, save it */
 	if (!test_bit(GMU_HFI_ON, &device->gmu_core.flags)) {
@@ -515,6 +511,11 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		set_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
 		return 0;
 	}
+
+	/* Do not set to XO and lower GPU clock vote from GMU */
+	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
+			(gpu_pwrlevel >= gmu->num_gpupwrlevels - 1))
+		return -EINVAL;
 
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		req.freq = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
