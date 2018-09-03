@@ -323,7 +323,8 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * free when the GPU is already powered on, whereas an OOB requires an
 	 * unconditional handshake with the GMU.
 	 */
-	gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
+	if (gmu_core_isenabled(device))
+		gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
 
 	/*
 	 * Fenced writes on this path will make sure the GPU is woken up
@@ -404,8 +405,9 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 	 * We can now safely clear the preemption keepalive bit, allowing
 	 * power collapse to resume its regular activity.
 	 */
-	gmu_core_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GMU_AO_SPARE_CNTL, 0x2,
-			0x0);
+	if (gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+		gmu_core_regrmw(KGSL_DEVICE(adreno_dev),
+				A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
 
 	del_timer(&adreno_dev->preempt.timer);
 
