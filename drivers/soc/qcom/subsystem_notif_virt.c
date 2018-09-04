@@ -176,7 +176,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		case VIRTUAL:
 			subsystem->ssr_irq =
 				of_irq_get_byname(child, "state-irq");
-			if (IS_ERR_OR_NULL(subsystem->ssr_irq)) {
+			if (subsystem->ssr_irq < 0) {
 				dev_err(&pdev->dev, "Could not find IRQ\n");
 				ret = -EINVAL;
 				goto err;
