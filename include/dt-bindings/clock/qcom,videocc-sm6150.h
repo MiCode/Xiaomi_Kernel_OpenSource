@@ -26,6 +26,5 @@
 #define VIDEO_CC_VENUS_CTL_AXI_CLK				8
 #define VIDEO_CC_VENUS_CTL_CORE_CLK				9
 #define VIDEO_CC_XO_CLK						10
-#define VIDEO_CC_XO_CLK_SRC					11
 
 #endif

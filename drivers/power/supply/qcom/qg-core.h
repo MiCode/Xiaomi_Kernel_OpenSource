@@ -96,6 +96,7 @@ struct qpnp_qg {
 	struct votable		*fifo_irq_disable_votable;
 	struct votable		*good_ocv_irq_disable_votable;
 	u32			qg_base;
+	u8			qg_subtype;
 
 	/* local data variables */
 	u32			batt_id_ohm;
@@ -206,6 +207,7 @@ enum qg_irq {
 enum qg_wa_flags {
 	QG_VBAT_LOW_WA = BIT(0),
 	QG_RECHARGE_SOC_WA = BIT(1),
+	QG_CLK_ADJUST_WA = BIT(2),
 };
 
 

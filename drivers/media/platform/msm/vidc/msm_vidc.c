@@ -777,7 +777,7 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 
 		bufreq->buffer_count_actual = *num_buffers;
 		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
 		break;
@@ -811,7 +811,7 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 
 		bufreq->buffer_count_actual = *num_buffers;
 		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual, buffer_type);
 		}
 		break;
@@ -918,11 +918,19 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 			(void *)&rc_mode);
 	}
 
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+	fps = inst->prop.fps;
+	mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
 		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(codec != V4L2_PIX_FMT_VP8)) {
-		hrd_buf_size.vbv_hdr_buf_size = 1000;
-		dprintk(VIDC_DBG, "Enable cbr+ hdr_buf_size %d :\n",
+		if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
+		    mbps < CBR_MB_LIMIT)
+			hrd_buf_size.vbv_hdr_buf_size = 500;
+		else
+			hrd_buf_size.vbv_hdr_buf_size = 1000;
+		dprintk(VIDC_DBG, "Enable hdr_buf_size %d :\n",
 				hrd_buf_size.vbv_hdr_buf_size);
 		rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
@@ -942,13 +950,8 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 
 	if ((codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC) &&
 		slice_mode != V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) {
-
-		output_height = inst->prop.height[CAPTURE_PORT];
-		output_width = inst->prop.width[CAPTURE_PORT];
-		fps = inst->prop.fps;
 		bitrate = inst->clk_data.bitrate;
 		mb_per_frame = NUM_MBS_PER_FRAME(output_height, output_width);
-		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 
 		if (rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF &&
 			rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
@@ -994,6 +997,57 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	int value = 0;
+	struct hfi_device *hdev;
+	struct hal_vpe_rotation vpe_rotation;
+	struct hal_frame_size frame_sz;
+
+	hdev = inst->core->device;
+
+	/* Set rotation and flip first */
+	value = msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
+	if (value < 0) {
+		dprintk(VIDC_ERR, "Get control for rotation failed\n");
+		return value;
+	}
+	vpe_rotation.rotate = value;
+	value = msm_comm_g_ctrl_for_id(inst, V4L2_CID_MPEG_VIDC_VIDEO_FLIP);
+	if (value < 0) {
+		dprintk(VIDC_ERR, "Get control for flip failed\n");
+		return value;
+	}
+	vpe_rotation.flip = value;
+	dprintk(VIDC_DBG, "Set rotation = %d, flip = %d for capture port.\n",
+			vpe_rotation.rotate, vpe_rotation.flip);
+	rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session,
+				HAL_PARAM_VPE_ROTATION, &vpe_rotation);
+	if (rc) {
+		dprintk(VIDC_ERR, "Set rotation/flip at start stream failed\n");
+		return rc;
+	}
+
+	/* flip the output resolution if required */
+	if (vpe_rotation.rotate == 90 || vpe_rotation.rotate == 270) {
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.height[CAPTURE_PORT];
+		frame_sz.height = inst->prop.width[CAPTURE_PORT];
+		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
+			frame_sz.width, frame_sz.height);
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set framesize for CAPTURE port\n");
+			return rc;
+		}
+	}
+	return rc;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1004,6 +1058,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%s: %x : inst %pK\n", __func__,
 		hash32_ptr(inst->session), inst);
 	hdev = inst->core->device;
+
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		rc = msm_vidc_set_rotation(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Set rotation for encoder failed %pK\n");
+			goto fail_start;
+		}
+	}
 
 	rc_mode =  msm_comm_g_ctrl_for_id(inst,
 		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);

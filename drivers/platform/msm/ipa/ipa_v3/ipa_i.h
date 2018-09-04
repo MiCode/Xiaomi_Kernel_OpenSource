@@ -1966,7 +1966,10 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
 void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
 void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
-void ipa3_set_usb_prod_pipe_delay(void);
+int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
+		enum ipa_client_type client);
+int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
+		enum ipa_client_type client);
 
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl);
@@ -2322,6 +2325,7 @@ void ipa3_proxy_clk_unvote(void);
 bool ipa3_is_client_handle_valid(u32 clnt_hdl);
 
 enum ipa_client_type ipa3_get_client_mapping(int pipe_idx);
+enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx);
 
 void ipa_init_ep_flt_bitmap(void);
 

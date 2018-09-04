@@ -14,6 +14,11 @@
 #define __QG_REG_H__
 
 #define PERPH_TYPE_REG				0x04
+
+#define PERPH_SUBTYPE_REG			0x05
+#define QG_ADC_IBAT_5A				0x3
+#define QG_ADC_IBAT_10A				0x4
+
 #define QG_TYPE					0x0D
 
 #define QG_STATUS1_REG				0x08

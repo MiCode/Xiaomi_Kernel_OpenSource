@@ -26,8 +26,9 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 130 0>, <0 607 0>, <0 131 0>;
-		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
+		interrupts = <0 489 0>, <0 130 0>, <0 607 0>, <0 488 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
 		qcom,use-pdc-interrupts;
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
@@ -49,7 +50,7 @@
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
 		qcom,msm-bus,name = "usb0";
-		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <3>;
 		qcom,msm-bus,vectors-KBps =
 			/*  suspend vote */
@@ -86,8 +87,6 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
-			snps,ssp-u3-u0-quirk;
-			snps,usb3-u1u2-disable;
 			usb-core-id = <0>;
 			maximum-speed = "super-speed";
 			dr_mode = "otg";
@@ -136,7 +135,7 @@
 		vdd-supply = <&pm6150_l4>;
 		vdda18-supply = <&pm6150_l11>;
 		vdda33-supply = <&pm6150_l17>;
-		qcom,vdd-voltage-level = <0 875000 875000>;
+		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
@@ -164,13 +163,13 @@
 
 	/* Primary USB port related QMP USB PHY */
 	usb_qmp_phy: ssphy@88e6000 {
-		compatible = "qcom,usb-ssphy-qmp-dp-combo";
+		compatible = "qcom,usb-ssphy-qmp-v2";
 		reg = <0x88e6000 0x1000>;
 		reg-names = "qmp_phy_base";
 
 		vdd-supply = <&pm6150_l4>;
 		core-supply = <&pm6150_l11>;
-		qcom,vdd-voltage-level = <0 875000 875000>;
+		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,core-voltage-level = <0 1800000 1800000>;
 		qcom,qmp-phy-init-seq =
 			/* <reg_offset, value, delay> */
@@ -292,13 +291,15 @@
 			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
 			<&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
-			<&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>;
+			<&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
+			<&clock_gcc GCC_AHB2PHY_WEST_CLK>;
 
 		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
-				"ref_clk", "com_aux_clk";
+				"ref_clk", "com_aux_clk", "cfg_ahb_clk";
 
-		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
-		reset-names = "phy_reset";
+		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_SP0_BCR>,
+			<&clock_gcc GCC_USB3PHY_PHY_PRIM_SP0_BCR>;
+		reset-names = "phy_phy_reset", "phy_reset";
 	};
 
 	usb_audio_qmi_dev {
@@ -324,8 +325,9 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 664 0>, <0 663 0>;
-		interrupt-names = "pwr_event_irq", "hs_phy_irq";
+		interrupts = <0 491 0>, <0 663 0>, <0 490 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"dm_hs_phy_irq";
 		qcom,use-pdc-interrupts;
 
 		USB3_GDSC-supply = <&usb20_sec_gdsc>;
@@ -341,10 +343,9 @@
 		resets = <&clock_gcc GCC_USB20_SEC_BCR>;
 		reset-names = "core_reset";
 
-		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate = <120000000>;
 		qcom,core-clk-rate-hs = <66666667>;
-		qcom,num-gsi-evt-buffs = <0x3>;
-		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,charging-disabled;
 
 		qcom,msm-bus,name = "usb1";
@@ -362,7 +363,7 @@
 			compatible = "snps,dwc3";
 			reg = <0xa800000 0xcd00>;
 			interrupt-parent = <&intc>;
-			interrupts = <0 665 0>;
+			interrupts = <0 664 0>;
 			usb-phy = <&qusb_phy1>, <&usb_nop_phy>;
 			tx-fifo-resize;
 			linux,sysdev_is_parent;
@@ -385,7 +386,7 @@
 		vdd-supply = <&pm6150_l4>;
 		vdda18-supply = <&pm6150_l11>;
 		vdda33-supply = <&pm6150_l17>;
-		qcom,vdd-voltage-level = <0 875000 875000>;
+		qcom,vdd-voltage-level = <0 925000 975000>;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
 					0xb3 0x84
 					0x83 0x88

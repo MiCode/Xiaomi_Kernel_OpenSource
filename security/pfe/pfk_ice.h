@@ -22,8 +22,34 @@
 
 #include <linux/types.h>
 
+struct __attribute__ ((__packed__)) pfk_ice_key_req {
+	uint32_t cmd_id;
+	uint32_t index;
+	uint32_t ice_key_offset;
+	uint32_t ice_key_size;
+	uint32_t ice_salt_offset;
+	uint32_t ice_salt_size;
+};
+
+struct __attribute__ ((__packed__)) pfk_ice_key_rsp {
+	uint32_t ret;
+	uint32_t cmd_id;
+};
+
 int pfk_ice_init(void);
 int pfk_ice_deinit(void);
+
+#ifdef CONFIG_PFK_WRAPPED_KEY_SUPPORTED
+static inline bool pfk_wrapped_key_supported(void)
+{
+	return true;
+}
+#else
+static inline bool pfk_wrapped_key_supported(void)
+{
+	return false;
+}
+#endif
 
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 			char *storage_type);

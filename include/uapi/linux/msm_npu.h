@@ -45,6 +45,15 @@
 #define MSM_NPU_EXEC_NETWORK_V2 \
 	_IOWR(MSM_NPU_IOCTL_MAGIC, 8, struct msm_npu_exec_network_ioctl_v2)
 
+/* receive event */
+#define MSM_NPU_RECEIVE_EVENT \
+	_IOR(MSM_NPU_IOCTL_MAGIC, 9, struct msm_npu_event)
+
+#define MSM_NPU_EVENT_TYPE_START 0x10000000
+#define MSM_NPU_EVENT_TYPE_EXEC_DONE (MSM_NPU_EVENT_TYPE_START + 1)
+#define MSM_NPU_EVENT_TYPE_EXEC_V2_DONE (MSM_NPU_EVENT_TYPE_START + 2)
+#define MSM_NPU_EVENT_TYPE_SSR (MSM_NPU_EVENT_TYPE_START + 3)
+
 #define MSM_NPU_MAX_INPUT_LAYER_NUM 8
 #define MSM_NPU_MAX_OUTPUT_LAYER_NUM 4
 #define MSM_NPU_MAX_PATCH_LAYER_NUM (MSM_NPU_MAX_INPUT_LAYER_NUM +\
@@ -217,6 +226,33 @@ struct msm_npu_exec_network_ioctl_v2 {
 	uint32_t patch_buf_info_num;
 	/* reserved */
 	uint32_t reserved;
+};
+
+struct msm_npu_event_execute_done {
+	uint32_t network_hdl;
+	int32_t exec_result;
+};
+
+struct msm_npu_event_execute_v2_done {
+	uint32_t network_hdl;
+	int32_t exec_result;
+	/* stats buf size filled */
+	uint32_t stats_buf_size;
+};
+
+struct msm_npu_event_ssr {
+	uint32_t network_hdl;
+};
+
+struct msm_npu_event {
+	uint32_t type;
+	union {
+		struct msm_npu_event_execute_done exec_done;
+		struct msm_npu_event_execute_v2_done exec_v2_done;
+		struct msm_npu_event_ssr ssr;
+		uint8_t data[128];
+	} u;
+	uint32_t reserved[4];
 };
 
 #endif /*_UAPI_MSM_NPU_H_*/

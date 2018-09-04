@@ -339,6 +339,7 @@ static struct platform_driver cam_sensor_platform_driver = {
 		.name = "qcom,camera",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_sensor_driver_dt_match,
+		.suppress_bind_attrs = true,
 	},
 	.remove = cam_sensor_platform_remove,
 };

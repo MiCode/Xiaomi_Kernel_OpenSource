@@ -502,6 +502,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 		for (; i >= 0; i--) {
 			dev = &link->l_dev[i];
 			evt_data.evt_type = CAM_REQ_MGR_LINK_EVT_ERR;
+			evt_data.dev_hdl = dev->dev_hdl;
 			evt_data.link_hdl =  link->link_hdl;
 			evt_data.req_id = apply_req.request_id;
 			evt_data.u.error = CRM_KMD_ERR_BUBBLE;
@@ -1140,24 +1141,26 @@ static void __cam_req_mgr_notify_sof_freeze(
 }
 
 /**
- * __cam_req_mgr_sof_freeze()
+ * __cam_req_mgr_process_sof_freeze()
  *
  * @brief : Apoptosis - Handles case when connected devices are not responding
- * @data  : timer pointer
+ * @priv  : link information
+ * @data  : task data
  *
  */
-static void __cam_req_mgr_sof_freeze(unsigned long data)
+static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 {
-	struct cam_req_mgr_timer     *timer = (struct cam_req_mgr_timer *)data;
 	struct cam_req_mgr_core_link    *link = NULL;
 	struct cam_req_mgr_core_session *session = NULL;
 	struct cam_req_mgr_message       msg;
+	int rc = 0;
 
-	if (!timer) {
-		CAM_ERR(CAM_CRM, "NULL timer");
-		return;
+	if (!data || !priv) {
+		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
+		return -EINVAL;
 	}
-	link = (struct cam_req_mgr_core_link *)timer->parent;
+
+	link = (struct cam_req_mgr_core_link *)priv;
 	session = (struct cam_req_mgr_core_session *)link->parent;
 
 	CAM_ERR(CAM_CRM, "SOF freeze for session %d link 0x%x",
@@ -1171,12 +1174,47 @@ static void __cam_req_mgr_sof_freeze(unsigned long data)
 	msg.u.err_msg.request_id = 0;
 	msg.u.err_msg.link_hdl   = link->link_hdl;
 
+	rc = cam_req_mgr_notify_message(&msg,
+		V4L_EVENT_CAM_REQ_MGR_ERROR, V4L_EVENT_CAM_REQ_MGR_EVENT);
 
-	if (cam_req_mgr_notify_message(&msg,
-		V4L_EVENT_CAM_REQ_MGR_ERROR, V4L_EVENT_CAM_REQ_MGR_EVENT))
+	if (rc)
 		CAM_ERR(CAM_CRM,
-			"Error notifying SOF freeze for session %d link 0x%x",
-			session->session_hdl, link->link_hdl);
+			"Error notifying SOF freeze for session %d link 0x%x rc %d",
+			session->session_hdl, link->link_hdl, rc);
+
+	return rc;
+}
+
+/**
+ * __cam_req_mgr_sof_freeze()
+ *
+ * @brief : Callback function for timer timeout indicating SOF freeze
+ * @data  : timer pointer
+ *
+ */
+static void __cam_req_mgr_sof_freeze(unsigned long data)
+{
+	struct cam_req_mgr_timer     *timer = (struct cam_req_mgr_timer *)data;
+	struct crm_workq_task               *task = NULL;
+	struct cam_req_mgr_core_link        *link = NULL;
+	struct crm_task_payload             *task_data;
+
+	if (!timer) {
+		CAM_ERR(CAM_CRM, "NULL timer");
+		return;
+	}
+
+	link = (struct cam_req_mgr_core_link *)timer->parent;
+	task = cam_req_mgr_workq_get_task(link->workq);
+	if (!task) {
+		CAM_ERR(CAM_CRM, "No empty task");
+		return;
+	}
+
+	task_data = (struct crm_task_payload *)task->payload;
+	task_data->type = CRM_WORKQ_TASK_NOTIFY_FREEZE;
+	task->process_cb = &__cam_req_mgr_process_sof_freeze;
+	cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 }
 
 /**

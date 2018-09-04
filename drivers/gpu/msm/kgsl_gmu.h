@@ -13,7 +13,9 @@
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
+#include <linux/mailbox_client.h>
 #include "kgsl_gmu_core.h"
+#include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x2000	/* in bytes */
@@ -55,6 +57,14 @@
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
 
+/* Gmu FW block header format */
+struct gmu_block_header {
+	uint32_t addr;
+	uint32_t size;
+	uint32_t type;
+	uint32_t value;
+};
+
 /* For GMU Logs*/
 #define LOGMEM_SIZE  SZ_4K
 
@@ -62,10 +72,13 @@ extern struct gmu_dev_ops adreno_a6xx_gmudev;
 #define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
 
 enum gmu_mem_type {
-	GMU_CACHED_CODE = 0,
-	GMU_CACHED_DATA,
+	GMU_ITCM = 0,
+	GMU_ICACHE,
+	GMU_DTCM,
+	GMU_DCACHE,
 	GMU_NONCACHED_KERNEL,
-	GMU_NONCACHED_USER
+	GMU_NONCACHED_USER,
+	GMU_MEM_TYPE_MAX,
 };
 
 /**
@@ -106,18 +119,22 @@ enum gmu_load_mode {
 	INVALID_LOAD
 };
 
+struct kgsl_mailbox {
+	struct mbox_client *client;
+	struct mbox_chan *channel;
+};
+
 /**
  * struct gmu_device - GMU device structure
  * @ver: GMU FW version, read from GMU
  * @reg_phys: GMU CSR physical address
  * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
- * @fw_image: descriptor of GMU memory that has GMU image in it
+ * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
  * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
- * @icache_mem: gmu icache memory buffer
  * @hfi: HFI controller
  * @lm_config: GPU LM configuration data
  * @lm_dcvs_level: Minimal DCVS level that enable LM. LM disable in
@@ -141,6 +158,8 @@ enum gmu_load_mode {
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
+ * @acd_dvm_vals: Table of DVM values that correspond to frequency levels
+ * @mailbox: Messages to AOP for ACD enable/disable go through this
  */
 struct gmu_device {
 	unsigned int ver;
@@ -148,12 +167,11 @@ struct gmu_device {
 	unsigned long reg_phys;
 	unsigned int reg_len;
 	unsigned int gmu_interrupt_num;
-	struct gmu_memdesc *fw_image;
+	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
-	struct gmu_memdesc *icache_mem;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;
 	unsigned int lm_dcvs_level;
@@ -174,9 +192,10 @@ struct gmu_device {
 	unsigned int ccl;
 	unsigned int idle_level;
 	unsigned int fault_count;
+	unsigned int acd_dvm_vals[MAX_GX_LEVELS];
+	struct kgsl_mailbox mailbox;
 };
 
-bool is_cached_fw_size_valid(uint32_t size_in_bytes);
-int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
+struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);
 
 #endif /* __KGSL_GMU_H */

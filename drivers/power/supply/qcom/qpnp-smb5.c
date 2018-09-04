@@ -1024,7 +1024,10 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
 };
 
@@ -1046,9 +1049,14 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		rc = smblib_get_prop_dc_online(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		rc = smblib_get_prop_dc_voltage_now(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_get_charge_param(chg, &chg->param.dc_icl,
-					&val->intval);
+		rc = smblib_get_prop_dc_current_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smblib_get_prop_dc_voltage_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_WIPOWER;
@@ -1077,8 +1085,10 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 				(bool)val->intval, 0);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_set_charge_param(chg, &chg->param.dc_icl,
-					val->intval);
+		rc = smblib_set_prop_dc_current_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		rc = smblib_set_prop_voltage_wls_output(chg, val);
 		break;
 	default:
 		return -EINVAL;
@@ -1162,6 +1172,8 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1212,14 +1224,16 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = chg->sw_jeita_enabled;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		rc = smblib_get_prop_batt_voltage_now(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable,
 				BATT_PROFILE_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		rc = smblib_get_prop_batt_current_now(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CURRENT_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -1229,7 +1243,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		rc = smblib_get_prop_batt_temp(chg, val);
+		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -1258,15 +1272,24 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		rc = smblib_get_prop_batt_charge_counter(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CHARGE_COUNTER, val);
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		rc = smblib_get_prop_batt_cycle_count(chg, val);
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CYCLE_COUNT, val);
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		val->intval = chg->auto_recharge_soc;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CHARGE_FULL, val);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
 		val->intval = 0;
 		break;
 	default:
@@ -1347,6 +1370,15 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		rc = smblib_set_prop_rechg_soc_thresh(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
+			/* toggle charging to force recharge */
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					true, 0);
+			/* charge disable delay */
+			msleep(50);
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					false, 0);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1531,6 +1563,8 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't enable try.snk rc=%d\n", rc);
 		return rc;
+	} else {
+		chg->typec_try_mode |= EN_TRY_SNK_BIT;
 	}
 
 	/* configure VCONN for software control */
@@ -1543,6 +1577,13 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
+		0);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -1550,12 +1591,24 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 {
 	int rc;
 
+	chg->pd_not_supported = true;
+
 	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT,
 					MICRO_USB_STATE_CHANGE_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable HVDCP and BC 1.2 source detection */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT,
+					HVDCP_EN_BIT | BC1P2_SRC_DETECT_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't enable HVDCP detection rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2602,12 +2655,17 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (chg->smb_version == PM8150B_SUBTYPE) {
+	switch (chg->smb_version) {
+	case PM8150B_SUBTYPE:
+	case PM6150_SUBTYPE:
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);
 			goto cleanup;
 		}
+		break;
+	default:
+		break;
 	}
 
 	rc = smb5_init_usb_psy(chip);

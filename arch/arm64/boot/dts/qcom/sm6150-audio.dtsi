@@ -14,7 +14,7 @@
 #include "msm-audio-lpass.dtsi"
 
 &msm_audio_ion {
-	iommus = <&apps_smmu 0x1b21 0x0>;
+	iommus = <&apps_smmu 0x1721 0x0>;
 	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 };
 
@@ -43,6 +43,7 @@
 		compatible = "qcom,sm6150-asoc-snd";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
+		qcom,wcn-btfm = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -125,7 +126,7 @@
 
 &slim_aud {
 	status = "disabled";
-	msm_dai_slim {
+	dai_slim: msm_dai_slim {
 		status = "disabled";
 		compatible = "qcom,msm-dai-slim";
 		elemental-addr = [ff ff ff fe 17 02];

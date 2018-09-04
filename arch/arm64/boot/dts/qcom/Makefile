@@ -38,8 +38,8 @@ sm8150-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.
 sm8150-rumi-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-qrd-dvt-overlay.dtbo-base := sm8150-v2.dtb sm8150p-v2.dtb
-sa8155-adp-star-overlay.dtbo-base := sa8155.dtb
-sa8155p-adp-star-overlay.dtbo-base := sa8155p.dtb
+sa8155-adp-star-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
+sa8155p-adp-star-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sm8150-sdx50m-mtp-2.5k-panel-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
@@ -51,6 +51,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-qrd.dtb \
 	sa8155-adp-star.dtb \
         sa8155p-adp-star.dtb \
+        sa8155-v2-adp-star.dtb \
+        sa8155p-v2-adp-star.dtb \
 	sm8150-v2-rumi.dtb \
 	sm8150-v2-mtp.dtb \
 	sm8150-v2-cdp.dtb \
@@ -85,7 +87,10 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm6150p-qrd-overlay.dtbo \
 		sm6150p-idp-overlay.dtbo \
 		sm6150-external-codec-idp-overlay.dtbo \
-		sm6150-usbc-idp-overlay.dtbo
+		sm6150-usbc-idp-overlay.dtbo \
+		sm6150-cmd-mode-display-idp-overlay.dtbo \
+		sa6155-adp-star-overlay.dtbo \
+		sa6155p-adp-star-overlay.dtbo
 
 sm6150-rumi-overlay.dtbo-base := sm6150.dtb
 sm6150-qrd-overlay.dtbo-base := sm6150.dtb
@@ -94,6 +99,9 @@ sm6150p-qrd-overlay.dtbo-base := sm6150p.dtb
 sm6150p-idp-overlay.dtbo-base := sm6150p.dtb
 sm6150-external-codec-idp-overlay.dtbo-base := sm6150.dtb
 sm6150-usbc-idp-overlay.dtbo-base := sm6150.dtb
+sm6150-cmd-mode-display-idp-overlay.dtbo-base := sm6150.dtb
+sa6155-adp-star-overlay.dtbo-base := sa6155.dtb
+sa6155p-adp-star-overlay.dtbo-base := sa6155p.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-qrd.dtb \
@@ -101,7 +109,11 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150p-qrd.dtb \
 	sm6150p-idp.dtb \
 	sm6150-external-codec-idp.dtb \
-	sm6150-usbc-idp.dtb
+	sm6150-usbc-idp.dtb \
+	sm6150-cmd-mode-display-idp.dtb \
+	sa6155-adp-star.dtb \
+	sa6155p-adp-star.dtb
+
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

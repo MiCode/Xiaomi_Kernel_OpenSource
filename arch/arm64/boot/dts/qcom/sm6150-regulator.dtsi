@@ -117,7 +117,7 @@
 			regulator-name = "pm6150l_s2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <348000>;
-			regulator-max-microvolt = <1200000>;
+			regulator-max-microvolt = <648000>;
 			qcom,init-voltage = <348000>;
 		};
 	};

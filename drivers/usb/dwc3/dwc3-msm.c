@@ -83,6 +83,7 @@
 #define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
 #define PWR_EVNT_LPM_IN_L2_MASK			BIT(4)
 #define PWR_EVNT_LPM_OUT_L2_MASK		BIT(5)
+#define PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK	BIT(12)
 #define PWR_EVNT_LPM_OUT_L1_MASK		BIT(13)
 
 /* QSCRATCH_GENERAL_CFG register bit offset */
@@ -245,6 +246,7 @@ struct dwc3_msm {
 	bool			suspend;
 	bool			use_pdc_interrupts;
 	enum dwc3_id_state	id_state;
+	bool			use_pwr_event_for_wakeup;
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(1)
@@ -2189,6 +2191,27 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 	}
 }
 
+static void dwc3_msm_set_ss_pwr_events(struct dwc3_msm *mdwc, bool on)
+{
+	u32 irq_mask, irq_stat;
+
+	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
+
+	/* clear pending interrupts */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG, irq_stat);
+
+	irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
+
+	if (on)
+		irq_mask |= (PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+					PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
+	else
+		irq_mask &= ~(PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+					PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
+
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
+}
+
 static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 {
 	int ret = 0;
@@ -2228,6 +2251,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	struct dwc3_event_buffer *evt;
 	struct usb_irq *uirq;
+	bool can_suspend_ssphy, no_active_ss;
 
 	mutex_lock(&mdwc->suspend_resume_mutex);
 	if (atomic_read(&dwc->in_lpm)) {
@@ -2303,13 +2327,28 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
+	/*
+	 * Synopsys Superspeed PHY does not support ss_phy_irq, so to detect
+	 * any wakeup events in host mode PHY cannot be suspended.
+	 * This Superspeed PHY can be suspended only in the following cases:
+	 *	1. The core is not in host mode
+	 *	2. A Highspeed device is connected but not a Superspeed device
+	 */
+	no_active_ss = (!mdwc->in_host_mode) || (mdwc->in_host_mode &&
+		((mdwc->hs_phy->flags & (PHY_HSFS_MODE | PHY_LS_MODE)) &&
+			!dwc3_msm_is_superspeed(mdwc)));
+	can_suspend_ssphy = dwc->maximum_speed >= USB_SPEED_SUPER &&
+			(!mdwc->use_pwr_event_for_wakeup || no_active_ss);
 	/* Suspend SS PHY */
-	if (dwc->maximum_speed >= USB_SPEED_SUPER) {
+	if (can_suspend_ssphy) {
 		/* indicate phy about SS mode */
 		if (dwc3_msm_is_superspeed(mdwc))
 			mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
 		usb_phy_set_suspend(mdwc->ss_phy, 1);
 		mdwc->lpm_flags |= MDWC3_SS_PHY_SUSPEND;
+	} else if (mdwc->use_pwr_event_for_wakeup) {
+		dwc3_msm_set_ss_pwr_events(mdwc, true);
+		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 	}
 
 	/* make sure above writes are completed before turning off clocks */
@@ -2464,6 +2503,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->utmi_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
+
+	/*
+	 * Disable any wakeup events that were enabled if pwr_event_irq
+	 * is used as wakeup interrupt.
+	 */
+	if (mdwc->use_pwr_event_for_wakeup &&
+			!(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND)) {
+		disable_irq_nosync(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
+		dwc3_msm_set_ss_pwr_events(mdwc, false);
+	}
 
 	/* Resume SS PHY */
 	if (dwc->maximum_speed >= USB_SPEED_SUPER &&
@@ -2974,17 +3023,6 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	struct extcon_dev *edev;
 	int idx, extcon_cnt, ret = 0;
 	bool check_vbus_state, check_id_state, phandle_found = false;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	if (!of_property_read_bool(node, "extcon")) {
-		if (dwc->dr_mode == USB_DR_MODE_OTG) {
-			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
-								__func__);
-			mdwc->vbus_active = true;
-			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-		}
-		return 0;
-	}
 
 	extcon_cnt = of_count_phandle_with_args(node, "extcon", NULL);
 	if (extcon_cnt < 0) {
@@ -3278,7 +3316,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
-	bool host_mode;
 	int ret = 0, i;
 	u32 val;
 	unsigned long irq_type;
@@ -3499,6 +3536,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_dwc3;
 	}
 
+	/*
+	 * On platforms with SS PHY that do not support ss_phy_irq for wakeup
+	 * events, use pwr_event_irq for wakeup events in superspeed mode.
+	 */
+	mdwc->use_pwr_event_for_wakeup = dwc->maximum_speed >= USB_SPEED_SUPER
+					&& !mdwc->wakeup_irq[SS_PHY_IRQ].irq;
+
+
 	/* IOMMU will be reattached upon each resume/connect */
 	if (mdwc->iommu_map)
 		arm_iommu_detach_device(mdwc->dev);
@@ -3526,23 +3571,28 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
-	ret = dwc3_msm_extcon_register(mdwc);
-	if (ret)
-		goto put_dwc3;
+	if (of_property_read_bool(node, "extcon")) {
+		ret = dwc3_msm_extcon_register(mdwc);
+		if (ret)
+			goto put_dwc3;
+	} else {
+		if (dwc->dr_mode == USB_DR_MODE_OTG ||
+				dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
+								__func__);
+			mdwc->vbus_active = true;
+		} else if (dwc->dr_mode == USB_DR_MODE_HOST) {
+			dev_dbg(mdwc->dev, "DWC3 in host only mode\n");
+			mdwc->id_state = DWC3_ID_GROUND;
+		}
 
-	schedule_delayed_work(&mdwc->sm_work, 0);
+		dwc3_ext_event_notify(mdwc);
+	}
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
 	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
 	device_create_file(&pdev->dev, &dev_attr_bus_vote);
-
-	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
-	if (host_mode) {
-		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
-		mdwc->id_state = DWC3_ID_GROUND;
-		dwc3_ext_event_notify(mdwc);
-	}
 
 	return 0;
 
@@ -3660,6 +3710,14 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		if (event == USB_DEVICE_ADD && udev->actconfig) {
 			if (!dwc3_msm_is_ss_rhport_connected(mdwc)) {
 				/*
+				 * controller may wakeup ss phy during hs data
+				 * transfers or doorbell rings. Power down the
+				 * ss phy to avoid turning on pipe clock during
+				 * these wake-ups.
+				 */
+				usb_phy_powerdown(mdwc->ss_phy);
+
+				/*
 				 * Core clock rate can be reduced only if root
 				 * hub SS port is not enabled/connected.
 				 */
@@ -3674,6 +3732,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
 		} else {
+			usb_phy_powerup(mdwc->ss_phy);
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",

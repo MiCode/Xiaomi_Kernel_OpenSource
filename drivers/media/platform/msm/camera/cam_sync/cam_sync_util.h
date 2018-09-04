@@ -41,12 +41,11 @@ int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
  * @param idx   : Index of row to initialize
  * @param name  : Optional string representation of the sync object. Should be
  *                63 characters or less
- *
+ * @param type  : type of row to be initialized
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_sync_init_object(struct sync_table_row *table,
-	uint32_t idx,
-	const char *name);
+int cam_sync_init_row(struct sync_table_row *table,
+	uint32_t idx, const char *name, uint32_t type);
 
 /**
  * @brief: Function to uninitialize a row in the sync table
@@ -88,6 +87,17 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx);
 void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work);
 
 /**
+ * @brief: Function to dispatch callbacks for a signaled sync object
+ *
+ * @sync_obj : Sync object that is signaled
+ * @status   : Status of the signaled object
+ *
+ * @return None
+ */
+void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
+	uint32_t status);
+
+/**
  * @brief: Function to send V4L event to user space
  * @param id       : V4L event id to send
  * @param sync_obj : Sync obj for which event needs to be sent
@@ -104,29 +114,6 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	int len);
 
 /**
- * @brief: Function to validate sync merge arguments
- *
- * @param sync_obj : Array of sync objects to merge
- * @param num_objs : Number of sync objects in the array
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs);
-
-/**
- * @brief: Function which adds sync object information to the signalable list
- *
- * @param sync_obj : Sync object to add
- * @param status   : Status of above sync object
- * @param list     : Linked list where the information should be added to
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
-	uint32_t status,
-	struct list_head *sync_list);
-
-/**
  * @brief: Function which gets the next state of the sync object based on the
  *         current state and the new state
  *
@@ -135,7 +122,7 @@ int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
  *
  * @return Next state of the sync object
  */
-int cam_sync_util_get_state(int current_state,
+int cam_sync_util_update_parent_state(struct sync_table_row *parent_row,
 	int new_state);
 
 /**

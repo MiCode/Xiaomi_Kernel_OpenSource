@@ -1296,7 +1296,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	enum hal_h264_entropy h264_entropy;
 	struct hal_intra_period intra_period;
 	struct hal_idr_period idr_period;
-	struct hal_vpe_rotation vpe_rotation;
 	struct hal_intra_refresh intra_refresh;
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_h264_db_control h264_db_control;
@@ -1435,14 +1434,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QUALITY:
 	{
-		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
-			dprintk(VIDC_ERR,
-				"Frame quality supported only for CQ\n");
-			rc = -ENOTSUPP;
-			break;
-		}
 		if (ctrl->val < MIN_FRAME_QUALITY ||
 			ctrl->val > MAX_FRAME_QUALITY) {
 			dprintk(VIDC_ERR,
@@ -1459,15 +1450,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_IMG_GRID_ENABLE:
 	{
-		struct v4l2_ctrl *rc_mode = TRY_GET_CTRL(
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode->val != V4L2_MPEG_VIDEO_BITRATE_MODE_CQ &&
-			ctrl->val) {
-			dprintk(VIDC_ERR,
-				"Grid enable supported only for CQ\n");
-			rc = -ENOTSUPP;
-			break;
-		}
 		property_id = HAL_CONFIG_HEIC_GRID_ENABLE;
 		grid_enable.grid_enable = ctrl->val;
 		inst->grid_enable = ctrl->val;
@@ -1594,31 +1576,17 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_ROTATE:
 	{
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_FLIP);
-		property_id = HAL_PARAM_VPE_ROTATION;
-
 		if (ctrl->val != 0 && ctrl->val != 90
 			&& ctrl->val != 180 && ctrl->val != 270) {
 			dprintk(VIDC_ERR, "Invalid rotation angle");
 			rc = -ENOTSUPP;
 		}
-
-		vpe_rotation.rotate = ctrl->val;
-		vpe_rotation.flip = msm_comm_v4l2_to_hal(
-				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
-				temp_ctrl->val);
-		pdata = &vpe_rotation;
+		dprintk(VIDC_DBG, "Rotation %d\n", ctrl->val);
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
 	{
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_ROTATE);
-		property_id = HAL_PARAM_VPE_ROTATION;
-		vpe_rotation.rotate = temp_ctrl->val;
-		vpe_rotation.flip = msm_comm_v4l2_to_hal(
-				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
-				ctrl->val);
-		pdata = &vpe_rotation;
+		dprintk(VIDC_DBG, "Flip %d\n", ctrl->val);
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: {

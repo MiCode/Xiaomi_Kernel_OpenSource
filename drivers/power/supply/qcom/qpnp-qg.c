@@ -347,7 +347,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		temp = sign_extend32(fifo_i, 15);
 
 		chip->kdata.fifo[j].v = V_RAW_TO_UV(fifo_v);
-		chip->kdata.fifo[j].i = I_RAW_TO_UA(temp);
+		chip->kdata.fifo[j].i = qg_iraw_to_ua(chip, temp);
 		chip->kdata.fifo[j].interval = sample_interval;
 		chip->kdata.fifo[j].count = sample_count;
 
@@ -408,7 +408,7 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	temp = sign_extend64(acc_i, 23);
 
 	chip->kdata.fifo[index].v = V_RAW_TO_UV(div_u64(acc_v, count));
-	chip->kdata.fifo[index].i = I_RAW_TO_UA(div_s64(temp, count));
+	chip->kdata.fifo[index].i = qg_iraw_to_ua(chip, div_s64(temp, count));
 	chip->kdata.fifo[index].interval = sample_interval;
 	chip->kdata.fifo[index].count = count;
 	chip->kdata.fifo_length++;
@@ -966,11 +966,12 @@ static int qg_esr_estimate(struct qpnp_qg *chip)
 			chip->esr_data[i].pre_esr_v =
 				V_RAW_TO_UV(chip->esr_data[i].pre_esr_v);
 			ibat = sign_extend32(chip->esr_data[i].pre_esr_i, 15);
-			chip->esr_data[i].pre_esr_i = I_RAW_TO_UA(ibat);
+			chip->esr_data[i].pre_esr_i = qg_iraw_to_ua(chip, ibat);
 			chip->esr_data[i].post_esr_v =
 				V_RAW_TO_UV(chip->esr_data[i].post_esr_v);
 			ibat = sign_extend32(chip->esr_data[i].post_esr_i, 15);
-			chip->esr_data[i].post_esr_i = I_RAW_TO_UA(ibat);
+			chip->esr_data[i].post_esr_i =
+						qg_iraw_to_ua(chip, ibat);
 
 			chip->esr_data[i].valid = true;
 
@@ -1889,7 +1890,7 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			/* Force recharge */
 			prop.intval = 0;
 			rc = power_supply_set_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+				POWER_SUPPLY_PROP_FORCE_RECHARGE, &prop);
 			if (rc < 0)
 				pr_err("Failed to force recharge rc=%d\n", rc);
 			else
@@ -2393,7 +2394,7 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 
 	/* Read battery-id */
 	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id_mv);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("Failed to read BATT_ID over ADC, rc=%d\n", rc);
 		return rc;
 	}
@@ -2572,7 +2573,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 use_pon_ocv:
 	if (use_pon_ocv == true) {
 		rc = qg_get_battery_temp(chip, &batt_temp);
-		if (rc) {
+		if (rc < 0) {
 			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
 			goto done;
 		}
@@ -2664,6 +2665,10 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
+	case PM6150_SUBTYPE:
+		chip->wa_flags |= QG_CLK_ADJUST_WA |
+				QG_RECHARGE_SOC_WA;
+		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
 			chip->pmic_rev_id->pmic_subtype);
@@ -2680,6 +2685,14 @@ static int qg_hw_init(struct qpnp_qg *chip)
 {
 	int rc, temp;
 	u8 reg;
+
+	/* read the QG perph_subtype */
+	rc = qg_read(chip, chip->qg_base + PERPH_SUBTYPE_REG,
+					&chip->qg_subtype, 1);
+	if (rc < 0) {
+		pr_err("Failed to read QG subtype rc=%d", rc);
+		return rc;
+	}
 
 	rc = qg_set_wa_flags(chip);
 	if (rc < 0) {
@@ -3589,21 +3602,19 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->batt_id_chan = iio_channel_get(&pdev->dev, "batt-id");
 	if (IS_ERR(chip->batt_id_chan)) {
 		rc = PTR_ERR(chip->batt_id_chan);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			pr_err("batt-id channel unavailable, rc=%d\n", rc);
-			chip->batt_id_chan = NULL;
-			return rc;
-		}
+		chip->batt_id_chan = NULL;
+		return rc;
 	}
 
 	chip->batt_therm_chan = iio_channel_get(&pdev->dev, "batt-therm");
 	if (IS_ERR(chip->batt_therm_chan)) {
 		rc = PTR_ERR(chip->batt_therm_chan);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			pr_err("batt-therm channel unavailable, rc=%d\n", rc);
-			chip->batt_therm_chan = NULL;
-			return rc;
-		}
+		chip->batt_therm_chan = NULL;
+		return rc;
 	}
 
 	chip->dev = &pdev->dev;
@@ -3750,8 +3761,8 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	}
 
 	qg_get_battery_capacity(chip, &soc);
-	pr_info("QG initialized! battery_profile=%s SOC=%d\n",
-				qg_get_battery_type(chip), soc);
+	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d\n",
+			qg_get_battery_type(chip), soc, chip->qg_subtype);
 
 	return rc;
 

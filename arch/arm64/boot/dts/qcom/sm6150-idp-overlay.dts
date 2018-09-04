@@ -14,6 +14,7 @@
 /plugin/;
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
 
 #include "sm6150-idp.dtsi"
 #include "sm6150-audio-overlay.dtsi"
@@ -23,4 +24,8 @@
 	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
 	qcom,msm-id = <355 0x0>;
 	qcom,board-id = <34 0>;
+};
+
+&dsi_hx83112a_truly_vid_display {
+	qcom,dsi-display-active;
 };

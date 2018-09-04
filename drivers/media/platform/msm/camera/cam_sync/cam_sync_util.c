@@ -31,20 +31,21 @@ int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
 	return rc;
 }
 
-int cam_sync_init_object(struct sync_table_row *table,
-	uint32_t idx,
-	const char *name)
+int cam_sync_init_row(struct sync_table_row *table,
+	uint32_t idx, const char *name, uint32_t type)
 {
 	struct sync_table_row *row = table + idx;
 
 	if (!table || idx <= 0 || idx >= CAM_SYNC_MAX_OBJS)
 		return -EINVAL;
 
+	memset(row, 0, sizeof(*row));
+
 	if (name)
 		strlcpy(row->name, name, SYNC_DEBUG_NAME_LEN);
 	INIT_LIST_HEAD(&row->parents_list);
 	INIT_LIST_HEAD(&row->children_list);
-	row->type = CAM_SYNC_TYPE_INDV;
+	row->type = type;
 	row->sync_id = idx;
 	row->state = CAM_SYNC_STATE_ACTIVE;
 	row->remaining = 0;
@@ -58,147 +59,95 @@ int cam_sync_init_object(struct sync_table_row *table,
 	return 0;
 }
 
-uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
-	uint32_t *sync_objs,
-	uint32_t num_objs)
-{
-	int i;
-	struct sync_table_row *child_row = NULL;
-	int success_count = 0;
-	int active_count = 0;
-
-	if (!table || !sync_objs)
-		return CAM_SYNC_STATE_SIGNALED_ERROR;
-
-	/*
-	 * We need to arrive at the state of the merged object based on
-	 * counts of error, active and success states of all children objects
-	 */
-	for (i = 0; i < num_objs; i++) {
-		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-		child_row = table + sync_objs[i];
-		switch (child_row->state) {
-		case CAM_SYNC_STATE_SIGNALED_ERROR:
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-			return CAM_SYNC_STATE_SIGNALED_ERROR;
-		case CAM_SYNC_STATE_SIGNALED_SUCCESS:
-			success_count++;
-			break;
-		case CAM_SYNC_STATE_ACTIVE:
-			active_count++;
-			break;
-		default:
-			CAM_ERR(CAM_SYNC,
-				"Invalid state of child object during merge");
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-			return CAM_SYNC_STATE_SIGNALED_ERROR;
-		}
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-	}
-
-	if (active_count)
-		return CAM_SYNC_STATE_ACTIVE;
-
-	if (success_count == num_objs)
-		return CAM_SYNC_STATE_SIGNALED_SUCCESS;
-
-	return CAM_SYNC_STATE_SIGNALED_ERROR;
-}
-
-static int cam_sync_util_get_group_object_remaining_count(
-	struct sync_table_row *table,
-	uint32_t *sync_objs,
-	uint32_t num_objs)
-{
-	int i;
-	struct sync_table_row *child_row = NULL;
-	int remaining_count = 0;
-
-	if (!table || !sync_objs)
-		return -EINVAL;
-
-	for (i = 0; i < num_objs; i++) {
-		child_row = table + sync_objs[i];
-		if (child_row->state == CAM_SYNC_STATE_ACTIVE)
-			remaining_count++;
-	}
-
-	return remaining_count;
-}
-
 int cam_sync_init_group_object(struct sync_table_row *table,
 	uint32_t idx,
 	uint32_t *sync_objs,
 	uint32_t num_objs)
 {
-	int i;
-	int remaining;
+	int i, rc = 0;
 	struct sync_child_info *child_info;
 	struct sync_parent_info *parent_info;
 	struct sync_table_row *row = table + idx;
 	struct sync_table_row *child_row = NULL;
 
-	INIT_LIST_HEAD(&row->parents_list);
-
-	INIT_LIST_HEAD(&row->children_list);
+	cam_sync_init_row(table, idx, "merged_fence", CAM_SYNC_TYPE_GROUP);
 
 	/*
-	 * While traversing parents and children, we allocate in a loop and in
-	 * case allocation fails, we call the clean up function which frees up
-	 * all memory allocation thus far
+	 * While traversing for children, parent's row list is updated with
+	 * child info and each child's row is updated with parent info.
+	 * If any child state is ERROR or SUCCESS, it will not be added to list.
 	 */
 	for (i = 0; i < num_objs; i++) {
-		child_info = kzalloc(sizeof(*child_info), GFP_ATOMIC);
-
-		if (!child_info) {
-			cam_sync_util_cleanup_children_list(row,
-				SYNC_LIST_CLEAN_ALL, 0);
-			return -ENOMEM;
-		}
-
-		child_info->sync_id = sync_objs[i];
-		list_add_tail(&child_info->list, &row->children_list);
-	}
-
-	for (i = 0; i < num_objs; i++) {
-		/* This gets us the row corresponding to the sync object */
 		child_row = table + sync_objs[i];
 		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+
+		/* validate child */
+		if ((child_row->type == CAM_SYNC_TYPE_GROUP) ||
+			(child_row->state == CAM_SYNC_STATE_INVALID)) {
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+			CAM_ERR(CAM_SYNC,
+				"Invalid child fence:%i state:%u type:%u",
+				child_row->sync_id, child_row->state,
+				child_row->type);
+			rc = -EINVAL;
+			goto clean_children_info;
+		}
+
+		/* check for child's state */
+		if (child_row->state == CAM_SYNC_STATE_SIGNALED_ERROR) {
+			row->state = CAM_SYNC_STATE_SIGNALED_ERROR;
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+			continue;
+		}
+		if (child_row->state != CAM_SYNC_STATE_ACTIVE) {
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+			continue;
+		}
+
+		row->remaining++;
+
+		/* Add child info */
+		child_info = kzalloc(sizeof(*child_info), GFP_ATOMIC);
+		if (!child_info) {
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+			rc = -ENOMEM;
+			goto clean_children_info;
+		}
+		child_info->sync_id = sync_objs[i];
+		list_add_tail(&child_info->list, &row->children_list);
+
+		/* Add parent info */
 		parent_info = kzalloc(sizeof(*parent_info), GFP_ATOMIC);
 		if (!parent_info) {
-			cam_sync_util_cleanup_parents_list(child_row,
-				SYNC_LIST_CLEAN_ALL, 0);
-			cam_sync_util_cleanup_children_list(row,
-				SYNC_LIST_CLEAN_ALL, 0);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto clean_children_info;
 		}
 		parent_info->sync_id = idx;
 		list_add_tail(&parent_info->list, &child_row->parents_list);
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 	}
 
-	row->type = CAM_SYNC_TYPE_GROUP;
-	row->sync_id = idx;
-	row->state = cam_sync_util_get_group_object_state(table,
-		sync_objs, num_objs);
-	remaining = cam_sync_util_get_group_object_remaining_count(table,
-		sync_objs, num_objs);
-	if (remaining < 0) {
-		CAM_ERR(CAM_SYNC, "Failed getting remaining count");
-		return -ENODEV;
+	if (!row->remaining) {
+		if (row->state != CAM_SYNC_STATE_SIGNALED_ERROR)
+			row->state = CAM_SYNC_STATE_SIGNALED_SUCCESS;
+		complete_all(&row->signaled);
 	}
 
-	row->remaining = remaining;
-
-	init_completion(&row->signaled);
-	INIT_LIST_HEAD(&row->callback_list);
-	INIT_LIST_HEAD(&row->user_payload_list);
-
-	if (row->state != CAM_SYNC_STATE_ACTIVE)
-		complete_all(&row->signaled);
-
 	return 0;
+
+clean_children_info:
+	row->state = CAM_SYNC_STATE_INVALID;
+	for (i = i-1; i >= 0; i--) {
+		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+		child_row = table + sync_objs[i];
+		cam_sync_util_cleanup_parents_list(child_row,
+			SYNC_LIST_CLEAN_ONE, idx);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+	}
+
+	cam_sync_util_cleanup_children_list(row, SYNC_LIST_CLEAN_ALL, 0);
+	return rc;
 }
 
 int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
@@ -338,6 +287,64 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 	kfree(cb_info);
 }
 
+void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
+	uint32_t status)
+{
+	struct sync_callback_info  *sync_cb;
+	struct sync_user_payload   *payload_info;
+	struct sync_callback_info  *temp_sync_cb;
+	struct sync_table_row      *signalable_row;
+	struct sync_user_payload   *temp_payload_info;
+
+	signalable_row = sync_dev->sync_table + sync_obj;
+	if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
+		CAM_DBG(CAM_SYNC,
+			"Accessing invalid sync object:%i", sync_obj);
+		return;
+	}
+
+	/* Dispatch kernel callbacks if any were registered earlier */
+	list_for_each_entry_safe(sync_cb,
+		temp_sync_cb, &signalable_row->callback_list, list) {
+		sync_cb->status = status;
+		list_del_init(&sync_cb->list);
+		queue_work(sync_dev->work_queue,
+			&sync_cb->cb_dispatch_work);
+	}
+
+	/* Dispatch user payloads if any were registered earlier */
+	list_for_each_entry_safe(payload_info, temp_payload_info,
+		&signalable_row->user_payload_list, list) {
+		spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
+		if (!sync_dev->cam_sync_eventq) {
+			spin_unlock_bh(
+				&sync_dev->cam_sync_eventq_lock);
+			break;
+		}
+		spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
+		cam_sync_util_send_v4l2_event(
+			CAM_SYNC_V4L_EVENT_ID_CB_TRIG,
+			sync_obj,
+			status,
+			payload_info->payload_data,
+			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64));
+
+		list_del_init(&payload_info->list);
+		/*
+		 * We can free the list node here because
+		 * sending V4L event will make a deep copy
+		 * anyway
+		 */
+		 kfree(payload_info);
+	}
+
+	/*
+	 * This needs to be done because we want to unblock anyone
+	 * who might be blocked and waiting on this sync object
+	 */
+	complete_all(&signalable_row->signaled);
+}
+
 void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
 	int status,
@@ -363,80 +370,27 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 		sync_obj);
 }
 
-int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs)
-{
-	int i;
-	struct sync_table_row *row = NULL;
-
-	if (num_objs <= 1) {
-		CAM_ERR(CAM_SYNC, "Single object merge is not allowed");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < num_objs; i++) {
-		row = sync_dev->sync_table + sync_obj[i];
-		spin_lock_bh(&sync_dev->row_spinlocks[sync_obj[i]]);
-		if (row->type == CAM_SYNC_TYPE_GROUP ||
-			row->state == CAM_SYNC_STATE_INVALID) {
-			CAM_ERR(CAM_SYNC,
-				"Group obj %d can't be merged or obj UNINIT",
-				sync_obj[i]);
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj[i]]);
-			return -EINVAL;
-		}
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj[i]]);
-	}
-	return 0;
-}
-
-int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
-	uint32_t status,
-	struct list_head *sync_list)
-{
-	struct cam_signalable_info *signalable_info = NULL;
-
-	signalable_info = kzalloc(sizeof(*signalable_info), GFP_ATOMIC);
-	if (!signalable_info)
-		return -ENOMEM;
-
-	signalable_info->sync_obj = sync_obj;
-	signalable_info->status = status;
-
-	list_add_tail(&signalable_info->list, sync_list);
-	CAM_DBG(CAM_SYNC, "Add sync_obj :%d with status :%d to signalable list",
-		sync_obj, status);
-
-	return 0;
-}
-
-int cam_sync_util_get_state(int current_state,
+int cam_sync_util_update_parent_state(struct sync_table_row *parent_row,
 	int new_state)
 {
-	int result = CAM_SYNC_STATE_SIGNALED_ERROR;
+	int rc = 0;
 
-	if (new_state != CAM_SYNC_STATE_SIGNALED_SUCCESS &&
-		new_state != CAM_SYNC_STATE_SIGNALED_ERROR)
-		return CAM_SYNC_STATE_SIGNALED_ERROR;
-
-	switch (current_state) {
-	case CAM_SYNC_STATE_INVALID:
-		result =  CAM_SYNC_STATE_SIGNALED_ERROR;
-		break;
-
+	switch (parent_row->state) {
 	case CAM_SYNC_STATE_ACTIVE:
 	case CAM_SYNC_STATE_SIGNALED_SUCCESS:
-		if (new_state == CAM_SYNC_STATE_SIGNALED_ERROR)
-			result = CAM_SYNC_STATE_SIGNALED_ERROR;
-		else if (new_state == CAM_SYNC_STATE_SIGNALED_SUCCESS)
-			result = CAM_SYNC_STATE_SIGNALED_SUCCESS;
+		parent_row->state = new_state;
 		break;
 
 	case CAM_SYNC_STATE_SIGNALED_ERROR:
-		result = CAM_SYNC_STATE_SIGNALED_ERROR;
+		break;
+
+	case CAM_SYNC_STATE_INVALID:
+	default:
+		rc = -EINVAL;
 		break;
 	}
 
-	return result;
+	return rc;
 }
 
 void cam_sync_util_cleanup_children_list(struct sync_table_row *row,

@@ -220,6 +220,7 @@ static struct platform_driver cam_jpeg_dma_driver = {
 		.name = "cam-jpeg-dma",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_jpeg_dma_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

@@ -476,26 +476,30 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 		IPA_MEM_PART(modem_comp_decomp_ofst) +
 		IPA_MEM_PART(modem_comp_decomp_size) + smem_restr_bytes - 1;
 
-	req.v4_hash_route_tbl_info_valid = true;
-	req.v4_hash_route_tbl_info.route_tbl_start_addr =
-		IPA_MEM_PART(v4_rt_hash_ofst) + smem_restr_bytes;
-	req.v4_hash_route_tbl_info.num_indices =
-		IPA_MEM_PART(v4_modem_rt_index_hi);
+	/* if hashing not supported, Modem filter/routing hash
+	 * tables should not fill with valid data.
+	 */
+	if (!ipa3_ctx->ipa_fltrt_not_hashable) {
+		req.v4_hash_route_tbl_info_valid = true;
+		req.v4_hash_route_tbl_info.route_tbl_start_addr =
+			IPA_MEM_PART(v4_rt_hash_ofst) + smem_restr_bytes;
+		req.v4_hash_route_tbl_info.num_indices =
+			IPA_MEM_PART(v4_modem_rt_index_hi);
 
-	req.v6_hash_route_tbl_info_valid = true;
-	req.v6_hash_route_tbl_info.route_tbl_start_addr =
-		IPA_MEM_PART(v6_rt_hash_ofst) + smem_restr_bytes;
-	req.v6_hash_route_tbl_info.num_indices =
-		IPA_MEM_PART(v6_modem_rt_index_hi);
+		req.v6_hash_route_tbl_info_valid = true;
+		req.v6_hash_route_tbl_info.route_tbl_start_addr =
+			IPA_MEM_PART(v6_rt_hash_ofst) + smem_restr_bytes;
+		req.v6_hash_route_tbl_info.num_indices =
+			IPA_MEM_PART(v6_modem_rt_index_hi);
 
-	req.v4_hash_filter_tbl_start_addr_valid = true;
-	req.v4_hash_filter_tbl_start_addr =
-		IPA_MEM_PART(v4_flt_hash_ofst) + smem_restr_bytes;
+		req.v4_hash_filter_tbl_start_addr_valid = true;
+		req.v4_hash_filter_tbl_start_addr =
+			IPA_MEM_PART(v4_flt_hash_ofst) + smem_restr_bytes;
 
-	req.v6_hash_filter_tbl_start_addr_valid = true;
-	req.v6_hash_filter_tbl_start_addr =
-		IPA_MEM_PART(v6_flt_hash_ofst) + smem_restr_bytes;
-
+		req.v6_hash_filter_tbl_start_addr_valid = true;
+		req.v6_hash_filter_tbl_start_addr =
+			IPA_MEM_PART(v6_flt_hash_ofst) + smem_restr_bytes;
+	}
 	req.hw_stats_quota_base_addr_valid = true;
 	req.hw_stats_quota_base_addr =
 		IPA_MEM_PART(stats_quota_ofst) + smem_restr_bytes;

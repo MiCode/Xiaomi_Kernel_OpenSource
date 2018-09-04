@@ -74,7 +74,7 @@
 		qcom,sde-dest-scaler-top-off = <0x00061000>;
 		qcom,sde-dest-scaler-top-size = <0x1c>;
 		qcom,sde-dest-scaler-off = <0x800 0x1000>;
-		qcom,sde-dest-scaler-size = <0x800>;
+		qcom,sde-dest-scaler-size = <0xa0>;
 
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;

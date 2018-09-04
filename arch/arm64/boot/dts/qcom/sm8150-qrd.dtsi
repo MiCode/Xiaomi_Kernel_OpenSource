@@ -190,10 +190,10 @@
 		compatible = "onnn,redriver";
 		reg = <0x19>;
 		extcon = <&pm8150b_pdphy>, <&pm8150b_pdphy>;
-		eq = /bits/ 8 <0x5 0x4 0x4 0x5>;
+		eq = /bits/ 8 <0x4 0x4 0x4 0x4>;
 		flat-gain = /bits/ 8 <0x3 0x1 0x1 0x3>;
 		output-comp = /bits/ 8 <0x2 0x2 0x2 0x2>;
-		loss-match = /bits/ 8 <0x0 0x3 0x3 0x0>;
+		loss-match = /bits/ 8 <0x1 0x3 0x3 0x1>;
 	};
 };
 
@@ -519,6 +519,38 @@
 
 &spmi_debug_bus {
 	status = "ok";
+};
+
+&pm8150b_haptics {
+	qcom,vmax-mv = <2545>;
+	qcom,play-rate-us = <4255>;
+	wf_0 {
+		/* CLICK */
+		qcom,wf-pattern = [3e 3e 3e 3e];
+		qcom,wf-play-rate-us = <4255>;
+	};
+	wf_1 {
+		/* DOUBLE CLICK */
+		qcom,wf-play-rate-us = <7143>;
+	};
+	wf_2 {
+		/* TICK */
+		qcom,wf-play-rate-us = <4000>;
+	};
+	wf_3 {
+		/* THUD */
+		qcom,wf-pattern = [7e 7e 7e 7e];
+		qcom,wf-play-rate-us = <4255>;
+	};
+	wf_4 {
+		/* POP */
+		qcom,wf-play-rate-us = <5000>;
+	};
+	wf_5 {
+		/* HEAVY CLICK */
+		qcom,wf-pattern = [7e 7e 7e 7e];
+		qcom,wf-play-rate-us = <4255>;
+	};
 };
 
 &pm8150b_charger {

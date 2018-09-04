@@ -19,6 +19,7 @@
 #include <net/pkt_sched.h>
 #include "qmi_rmnet_i.h"
 #include <trace/events/dfc.h>
+#include <linux/moduleparam.h>
 
 #define NLMSG_FLOW_ACTIVATE 1
 #define NLMSG_FLOW_DEACTIVATE 2
@@ -30,6 +31,10 @@
 
 #define PS_INTERVAL (0x0004 * HZ)
 #define NO_DELAY (0x0000 * HZ)
+
+#ifdef CONFIG_QCOM_QMI_DFC
+static unsigned int qmi_rmnet_scale_factor = 5;
+#endif
 
 struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 	{
@@ -75,20 +80,19 @@ static struct qmi_info *qmi_rmnet_qmi_init(void)
 	return qmi_info;
 }
 
-static inline int
-qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
+void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
 {
 	int i;
 
 	if (!qmi || !(qmi->flag & FLAG_DFC_MASK))
-		return 0;
+		return NULL;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
 		if (qmi->fc_info[i].dfc_client)
-			return 1;
+			return qmi->fc_info[i].dfc_client;
 	}
 
-	return 0;
+	return NULL;
 }
 
 static inline int
@@ -97,7 +101,7 @@ qmi_rmnet_has_client(struct qmi_info *qmi)
 	if (qmi->wda_client)
 		return 1;
 
-	return qmi_rmnet_has_dfc_client(qmi);
+	return qmi_rmnet_has_dfc_client(qmi) ? 1 : 0;
 }
 
 #ifdef CONFIG_QCOM_QMI_DFC
@@ -229,20 +233,26 @@ static int qmi_rmnet_add_flow(struct net_device *dev, struct tcmsg *tcm,
 		qmi_rmnet_update_flow_link(qmi, dev, itm, 1);
 		qmi_rmnet_update_flow_map(itm, &new_map);
 		list_add(&itm->list, &qos_info->flow_head);
-	}
 
-	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
-	if (bearer) {
-		bearer->flow_ref++;
-	} else {
-		bearer = kzalloc(sizeof(*bearer), GFP_KERNEL);
-		if (!bearer)
-			return -ENOMEM;
+		bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
+		if (bearer) {
+			bearer->flow_ref++;
+		} else {
+			bearer = kzalloc(sizeof(*bearer), GFP_KERNEL);
+			if (!bearer)
+				return -ENOMEM;
 
-		bearer->bearer_id = new_map.bearer_id;
-		bearer->flow_ref = 1;
-		bearer->grant_size = qos_info->default_grant;
-		list_add(&bearer->list, &qos_info->bearer_head);
+			bearer->bearer_id = new_map.bearer_id;
+			bearer->flow_ref = 1;
+			bearer->grant_size = qos_info->default_grant;
+			bearer->grant_thresh =
+				qmi_rmnet_grant_per(bearer->grant_size);
+			qos_info->default_grant = DEFAULT_GRANT;
+			list_add(&bearer->list, &qos_info->bearer_head);
+		}
+
+		tc_qdisc_flow_control(dev, itm->tcm_handle,
+				bearer->grant_size > 0 ? 1 : 0);
 	}
 
 	return 0;
@@ -277,18 +287,19 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 				    new_map.ip_type, itm->tcm_handle, 0);
 		qmi_rmnet_update_flow_link(qmi, dev, itm, 0);
 		list_del(&itm->list);
+
+		/*clear bearer map*/
+		bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
+		if (bearer && --bearer->flow_ref == 0) {
+			list_del(&bearer->list);
+			bearer_removed = 1;
+		}
+
+		kfree(itm);
+		if (bearer_removed)
+			kfree(bearer);
 	}
 
-	/*clear bearer map*/
-	bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
-	if (bearer && --bearer->flow_ref == 0) {
-		list_del(&bearer->list);
-		bearer_removed = 1;
-	}
-
-	kfree(itm);
-	if (bearer_removed)
-		kfree(bearer);
 	return 0;
 }
 
@@ -312,7 +323,9 @@ static int qmi_rmnet_enable_all_flows(struct qmi_info *qmi)
 		if (bearer) {
 			if (bearer->grant_size == 0)
 				need_enable = 1;
-			bearer->grant_size = qos->default_grant;
+			bearer->grant_size = DEFAULT_GRANT;
+			bearer->grant_thresh =
+				qmi_rmnet_grant_per(DEFAULT_GRANT);
 			if (need_enable) {
 				qlen = tc_qdisc_flow_control(qmi->flow[i].dev,
 							     m->tcm_handle, 1);
@@ -325,6 +338,27 @@ static int qmi_rmnet_enable_all_flows(struct qmi_info *qmi)
 
 	return 0;
 }
+
+static int qmi_rmnet_set_scale_factor(const char *val,
+				      const struct kernel_param *kp)
+{
+	int ret;
+	unsigned int num = 0;
+
+	ret = kstrtouint(val, 10, &num);
+	if (ret != 0 || num == 0)
+		return -EINVAL;
+
+	return param_set_uint(val, kp);
+}
+
+static const struct kernel_param_ops qmi_rmnet_scale_ops = {
+	.set	= qmi_rmnet_set_scale_factor,
+	.get	= param_get_uint,
+};
+
+module_param_cb(qmi_rmnet_scale_factor, &qmi_rmnet_scale_ops,
+		&qmi_rmnet_scale_factor, 0664);
 #else
 static inline void
 qmi_rmnet_update_flow_link(struct qmi_info *qmi, struct net_device *dev,
@@ -528,9 +562,15 @@ void qmi_rmnet_burst_fc_check(struct net_device *dev, struct sk_buff *skb)
 	if (!qmi || !qos)
 		return;
 
-	dfc_qmi_burst_check(dev, qos, skb);
+	dfc_qmi_burst_check(dev, qos, skb, qmi);
 }
 EXPORT_SYMBOL(qmi_rmnet_burst_fc_check);
+
+inline unsigned int qmi_rmnet_grant_per(unsigned int grant)
+{
+	return grant / qmi_rmnet_scale_factor;
+}
+EXPORT_SYMBOL(qmi_rmnet_grant_per);
 
 void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
 {

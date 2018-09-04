@@ -2546,17 +2546,11 @@ static struct adreno_perfcount_register a6xx_pwrcounters_gpmu[] = {
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_H, -1,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
-	/*
-	 * Both A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4 and
-	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5 are owned
-	 * by the GMU. Mark them as broken so there is no
-	 * dual ownership.
-	 */
-	{ KGSL_PERFCOUNTER_BROKEN, 0, 0,
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H, -1,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
-	{ KGSL_PERFCOUNTER_BROKEN, 0, 0,
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_H, -1,
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
@@ -2656,6 +2650,7 @@ static const struct {
 	void (*func)(struct adreno_device *adreno_dev);
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615, a6xx_efuse_speed_bin },
+	{ adreno_is_a608, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)

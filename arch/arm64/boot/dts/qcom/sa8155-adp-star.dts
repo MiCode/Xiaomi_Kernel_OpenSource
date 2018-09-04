@@ -11,7 +11,7 @@
  */
 
 /dts-v1/;
-#include "sa8155.dtsi"
+#include "sa8155-v1.dtsi"
 #include "sa8155-adp-star.dtsi"
 
 / {

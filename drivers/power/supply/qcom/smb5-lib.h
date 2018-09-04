@@ -26,6 +26,7 @@ enum print_reason {
 	PR_MISC		= BIT(2),
 	PR_PARALLEL	= BIT(3),
 	PR_OTG		= BIT(4),
+	PR_WLS		= BIT(5),
 };
 
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
@@ -58,6 +59,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
 #define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
+#define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -76,6 +78,12 @@ enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,
 	UNATTACHED_MODE,
+};
+
+enum qc2_non_comp_voltage {
+	QC2_COMPLIANT,
+	QC2_NON_COMPLIANT_9V,
+	QC2_NON_COMPLIANT_12V
 };
 
 enum {
@@ -282,6 +290,7 @@ struct smb_charger {
 	struct power_supply		*bms_psy;
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
+	struct power_supply		*wls_psy;
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -366,12 +375,13 @@ struct smb_charger {
 	bool			jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
+	u8			typec_try_mode;
 
 	/* workaround flag */
 	u32			wa_flags;
 	int			boost_current_ua;
 	int                     qc2_max_pulses;
-	bool                    non_compliant_chg_detected;
+	enum qc2_non_comp_voltage qc2_unsupported_voltage;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
@@ -392,6 +402,9 @@ struct smb_charger {
 	u32			headroom_mode;
 	bool			flash_init_done;
 	bool			flash_active;
+
+	/* wireless */
+	int			wireless_vout;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -464,17 +477,7 @@ int smblib_get_prop_system_temp_level_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_current_now(struct smb_charger *chg,
-				union power_supply_propval *val);
 int smblib_get_prop_batt_iterm(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_temp(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_cycle_count(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
@@ -494,6 +497,12 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 int smblib_get_prop_dc_current_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -561,6 +570,9 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_get_prop_from_bms(struct smb_charger *chg,
+				enum power_supply_property psp,
+				union power_supply_propval *val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 

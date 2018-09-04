@@ -649,6 +649,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	int read_len = 0;
 	int bytes_remaining = 0;
 	int total_recd = 0;
+	int qrtr_ctrl_recd = 0;
 	uint8_t buf_full = 0;
 	unsigned char *temp = NULL;
 	struct kvec iov = {0};
@@ -729,11 +730,15 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			if (info->port_type == PORT_TYPE_SERVER)
 				socket_init_work_fn(&info->init_work);
 			return read_len;
-		} else if (read_len <= 0)
-			goto fail;
+		} else if (read_len <= 0) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"Invalid read_len: %d\n", read_len);
+			continue;
+		}
 
 		if (src_addr.sq_port == QRTR_PORT_CTRL) {
 			handle_ctrl_pkt(info, temp, read_len);
+			qrtr_ctrl_recd += read_len;
 			continue;
 		}
 
@@ -755,13 +760,6 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			else
 				__socket_open_channel(info);
 		}
-
-		if (read_len < 0) {
-			pr_err_ratelimited("diag: In %s, error receiving data, err: %d\n",
-					   __func__, pkt_len);
-			err = read_len;
-			goto fail;
-		}
 		temp += read_len;
 		total_recd += read_len;
 		bytes_remaining -= read_len;
@@ -780,8 +778,14 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		if (err)
 			goto fail;
 	} else {
-		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s error in read, err: %d\n",
-			 info->name, total_recd);
+		if (qrtr_ctrl_recd > 0)
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"%s read qrtr ctrl bytes: %d\n",
+				info->name, qrtr_ctrl_recd);
+		else
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"%s error in read, err: %d\n",
+				info->name, total_recd);
 		goto fail;
 	}
 

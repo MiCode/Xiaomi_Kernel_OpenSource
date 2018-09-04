@@ -409,8 +409,8 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <45056>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
+			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
 
@@ -501,7 +501,7 @@
 		};
 
 		mas_qhm_qup1: mas-qhm-qup1 {
-			cell-id = <MSM_BUS_MASTER_BLSP_1>;
+			cell-id = <MSM_BUS_MASTER_QUP_1>;
 			label = "mas-qhm-qup1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
@@ -551,6 +551,8 @@
 			qcom,ap-owned;
 			qcom,prio = <2>;
 			qcom,forwarding;
+			qcom,defer-init-qos;
+			qcom,node-qos-bcms = <7035 0 1>;
 		};
 
 		mas_xm_emac_avb: mas-xm-emac-avb {
@@ -574,7 +576,7 @@
 			qcom,connections = <&slv_qns_pcie_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,ap-owned;
-			qcom,prio = <2>;
+			qcom,prio = <0>;
 		};
 
 		mas_xm_qdss_etr: mas-xm-qdss-etr {
@@ -623,6 +625,12 @@
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>;
+				clock-names =
+				"clk-aggre-ufs-phy-axi-no-rate";
+			};
 		};
 
 		mas_xm_usb2: mas-xm-usb2 {
@@ -635,6 +643,12 @@
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB2_SEC_AXI_CLK>;
+				clock-names =
+				"clk-usb3-sec-axi-no-rate";
+			};
 		};
 
 		mas_xm_usb3_0: mas-xm-usb3-0 {
@@ -647,6 +661,12 @@
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
+				clock-names =
+				"clk-usb3-sec-axi-no-rate";
+			};
 		};
 
 		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
@@ -833,6 +853,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qnm_mnoc_sf: mas-qnm-mnoc-sf {
@@ -847,6 +868,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qnm_snoc_gc: mas-qnm-snoc-gc {
@@ -914,6 +936,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_camnoc_hf1: mas-qxm-camnoc-hf1 {
@@ -928,6 +951,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_camnoc_sf: mas-qxm-camnoc-sf {
@@ -942,6 +966,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_mdp0: mas-qxm-mdp0 {
@@ -956,6 +981,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_rot: mas-qxm-rot {
@@ -970,6 +996,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_venus0: mas-qxm-venus0 {
@@ -984,6 +1011,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_venus_arm9: mas-qxm-venus-arm9 {
@@ -998,6 +1026,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qhm_snoc_cfg: mas-qhm-snoc-cfg {
@@ -1042,6 +1071,9 @@
 			qcom,connections = <&slv_xs_pcie>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn8>;
+			qcom,ap-owned;
+			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_qnm_lpass_anoc: mas-qnm-lpass-anoc {

@@ -396,6 +396,15 @@ config MSM_DISPCC_SM6150
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
+config MSM_DISPCC_SDMMAGPIE
+	tristate "SDMMAGPIE Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 config MSM_GCC_SDMMAGPIE
 	tristate "SDMMAGPIE Global Clock Controller"
 	depends on COMMON_CLK_QCOM
@@ -405,3 +414,28 @@ config MSM_GCC_SDMMAGPIE
 	  SDMMAGPIE devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_VIDEOCC_SDMMAGPIE
+	tristate "SDMMAGPIE Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SDMMAGPIE devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_NPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+          Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
+
+config MSM_GPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SDMMAGPIE devices.
+	  Say Y if you want to support graphics clocks.

@@ -18,6 +18,7 @@
 #include "ipa_i.h"
 #include "../ipa_rm_i.h"
 #include "ipahal/ipahal_nat.h"
+#include "ipa_odl.h"
 
 #define IPA_MAX_ENTRY_STRING_LEN 500
 #define IPA_MAX_MSG_LEN 4096
@@ -75,6 +76,7 @@ const char *ipa3_event_name[] = {
 	__stringify(IPA_PER_CLIENT_STATS_DISCONNECT_EVENT),
 	__stringify(ADD_BRIDGE_VLAN_MAPPING),
 	__stringify(DEL_BRIDGE_VLAN_MAPPING),
+	__stringify(WLAN_FWR_SSR_BEFORE_SHUTDOWN),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -1136,6 +1138,27 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa3_read_odlstats(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"ODL received pkt =%u\n"
+			"ODL processed pkt to DIAG=%u\n"
+			"ODL dropped pkt =%u\n"
+			"ODL packet in queue  =%u\n",
+			ipa3_odl_ctx->stats.odl_rx_pkt,
+			ipa3_odl_ctx->stats.odl_tx_diag_pkt,
+			ipa3_odl_ctx->stats.odl_drop_pkt,
+			ipa3_odl_ctx->stats.numer_in_queue);
+
+	cnt += nbytes;
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static ssize_t ipa3_read_wstats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -2179,6 +2202,10 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"wstats", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_wstats,
+		}
+	}, {
+		"odlstats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_odlstats,
 		}
 	}, {
 		"wdi", IPA_READ_ONLY_MODE, NULL, {

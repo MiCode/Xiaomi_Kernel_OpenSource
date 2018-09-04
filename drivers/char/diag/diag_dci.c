@@ -249,8 +249,6 @@ static void dci_chk_handshake(unsigned long data)
 	if (index < 0 || index >= NUM_DCI_PROC)
 		return;
 
-	queue_work(driver->diag_dci_wq,
-		   &dci_channel_status[index].handshake_work);
 }
 #endif
 
@@ -2710,8 +2708,8 @@ static void diag_dci_init_handshake_remote(void)
 	for (i = DCI_REMOTE_BASE; i < NUM_DCI_PROC; i++) {
 		temp = &dci_channel_status[i];
 		temp->id = i;
-		setup_timer(&temp->wait_time, dci_chk_handshake, i);
 		INIT_WORK(&temp->handshake_work, dci_handshake_work_fn);
+		setup_timer(&temp->wait_time, dci_chk_handshake, i);
 	}
 }
 

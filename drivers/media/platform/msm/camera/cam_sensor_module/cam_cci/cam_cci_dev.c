@@ -382,6 +382,7 @@ static struct platform_driver cci_driver = {
 		.name = CAMX_CCI_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_cci_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

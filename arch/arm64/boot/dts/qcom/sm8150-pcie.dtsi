@@ -282,6 +282,10 @@
 
 		reset-names = "pcie_0_core_reset",
 				"pcie_0_phy_reset";
+
+		pcie_rc0: pcie_rc0 {
+			reg = <0 0 0 0 0>;
+		};
 	};
 
 	pcie1: qcom,pcie@1c08000 {
@@ -602,5 +606,9 @@
 
 		reset-names = "pcie_1_core_reset",
 				"pcie_1_phy_reset";
+
+		pcie_rc1: pcie_rc1 {
+			reg = <0 0 0 0 0>;
+		};
 	};
 };

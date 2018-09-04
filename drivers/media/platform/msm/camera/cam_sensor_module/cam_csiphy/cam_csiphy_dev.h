@@ -57,6 +57,8 @@
 #define CSIPHY_SETTLE_CNT_LOWER_BYTE     2
 #define CSIPHY_SETTLE_CNT_HIGHER_BYTE    3
 #define CSIPHY_DNP_PARAMS                4
+#define CSIPHY_2PH_REGS                  5
+#define CSIPHY_3PH_REGS                  6
 
 #define ENABLE_IRQ false
 

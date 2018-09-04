@@ -88,6 +88,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_DEBUG_CNT_CTRL_n),
 	__stringify(IPA_UC_MAILBOX_m_n),
 	__stringify(IPA_FILT_ROUT_HASH_FLUSH),
+	__stringify(IPA_FILT_ROUT_HASH_EN),
 	__stringify(IPA_SINGLE_NDP_MODE),
 	__stringify(IPA_QCNCM),
 	__stringify(IPA_SYS_PKT_PROC_CNTXT_BASE),
@@ -1708,6 +1709,10 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 {
 	struct ipa_ep_cfg_aggr *ep_aggr =
 		(struct ipa_ep_cfg_aggr *)fields;
+	u32 byte_limit;
+	u32 pkt_limit;
+	u32 max_byte_limit;
+	u32 max_pkt_limit;
 
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT,
@@ -1717,7 +1722,12 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_byte_limit,
+	/* make sure aggregation byte limit does not cross HW boundaries */
+	max_byte_limit = IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK >>
+		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT;
+	byte_limit = (ep_aggr->aggr_byte_limit > max_byte_limit) ?
+		max_byte_limit : ep_aggr->aggr_byte_limit;
+	IPA_SETFIELD_IN_REG(*val, byte_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK);
 
@@ -1726,7 +1736,12 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
+	/* make sure aggregation pkt limit does not cross HW boundaries */
+	max_pkt_limit = IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK >>
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT;
+	pkt_limit = (ep_aggr->aggr_pkt_limit > max_pkt_limit) ?
+		max_pkt_limit : ep_aggr->aggr_pkt_limit;
+	IPA_SETFIELD_IN_REG(*val, pkt_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
 
@@ -1745,6 +1760,10 @@ static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
 {
 	struct ipa_ep_cfg_aggr *ep_aggr =
 		(struct ipa_ep_cfg_aggr *)fields;
+	u32 byte_limit;
+	u32 pkt_limit;
+	u32 max_byte_limit;
+	u32 max_pkt_limit;
 
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT_V4_5,
@@ -1754,7 +1773,12 @@ static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK_V4_5);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_byte_limit,
+	/* make sure aggregation byte limit does not cross HW boundaries */
+	max_byte_limit = IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK_V4_5 >>
+		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT_V4_5;
+	byte_limit = (ep_aggr->aggr_byte_limit > max_byte_limit) ?
+		max_byte_limit : ep_aggr->aggr_byte_limit;
+	IPA_SETFIELD_IN_REG(*val, byte_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK_V4_5);
 
@@ -1762,6 +1786,11 @@ static void ipareg_construct_endp_init_aggr_n_v4_5(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK_V4_5);
 
+	/* make sure aggregation pkt limit does not cross HW boundaries */
+	max_pkt_limit = IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK_V4_5 >>
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT_V4_5;
+	pkt_limit = (ep_aggr->aggr_pkt_limit > max_pkt_limit) ?
+		max_pkt_limit : ep_aggr->aggr_pkt_limit;
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT_V4_5,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK_V4_5);
@@ -2747,6 +2776,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_2][IPA_HPS_FTCH_ARB_QUEUE_WEIGHT] = {
 		ipareg_construct_dummy,
 		ipareg_parse_dummy, -1, 0, 0, 0, 0},
+	[IPA_HW_v4_2][IPA_FILT_ROUT_HASH_EN] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000148, 0, 0, 0, 0},
 
 	/* IPA4.5 */
 	[IPA_HW_v4_5][IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n] = {

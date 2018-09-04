@@ -1766,7 +1766,8 @@ failed_removal:
 /* Must be protected by mem_hotplug_begin() or a device_lock */
 int offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 {
-	return __offline_pages(start_pfn, start_pfn + nr_pages, 120 * HZ);
+	return __offline_pages(start_pfn, start_pfn + nr_pages,
+						MIGRATE_TIMEOUT_SEC * HZ);
 }
 #endif /* CONFIG_MEMORY_HOTREMOVE */
 

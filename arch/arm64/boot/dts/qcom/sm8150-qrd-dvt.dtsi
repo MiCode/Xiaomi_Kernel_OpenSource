@@ -16,3 +16,14 @@
 	vdd-supply = <&pm8150_l18>;
 	qcom,vdd-voltage-level = <0 912000 912000>;
 };
+
+&sde_dp {
+	vdda-0p9-supply = <&pm8150_l18>;
+	qcom,phy-supply-entries {
+		qcom,phy-supply-entry@0 {
+			qcom,supply-min-voltage = <880000>;
+			qcom,supply-max-voltage = <912000>;
+		};
+	};
+
+};

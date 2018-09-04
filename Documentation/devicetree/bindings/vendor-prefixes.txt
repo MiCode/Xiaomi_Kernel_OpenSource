@@ -28,6 +28,7 @@ amstaos	AMS-Taos Inc.
 android        Google Inc.
 analogix	Analogix Semiconductor, Inc.
 andestech	Andes Technology Corporation
+android	Google
 apm	Applied Micro Circuits Corporation (APM)
 aptina	Aptina Imaging
 arasan	Arasan Chip Systems
@@ -136,6 +137,7 @@ grinn	Grinn
 grmn	Garmin Limited
 gumstix	Gumstix, Inc.
 gw	Gateworks Corporation
+halo	Halo Microelectronics Co., Ltd.
 hannstar	HannStar Display Corporation
 haoyu	Haoyu Microelectronic Co. Ltd.
 hardkernel	Hardkernel Co., Ltd
@@ -329,7 +331,7 @@ summit	Summit microelectronics
 sunchip	Shenzhen Sunchip Technology Co., Ltd
 SUNW	Sun Microsystems, Inc
 swir	Sierra Wireless
-syna	Synaptics Inc.
+synaptics	Synaptics Inc.
 synology	Synology, Inc.
 tbs	TBS Technologies
 tcg	Trusted Computing Group

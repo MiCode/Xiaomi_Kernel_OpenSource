@@ -533,10 +533,8 @@ static void rmnet_map_flush_tx_packet_work(struct work_struct *work)
 	}
 
 	spin_unlock_irqrestore(&port->agg_lock, flags);
-	if (skb) {
-		skb->protocol = htons(ETH_P_MAP);
+	if (skb)
 		dev_queue_xmit(skb);
-	}
 
 	kfree(work);
 }
@@ -598,6 +596,7 @@ new_packet:
 			dev_queue_xmit(skb);
 			return;
 		}
+		port->agg_skb->protocol = htons(ETH_P_MAP);
 		port->agg_count = 1;
 		getnstimeofday(&port->agg_time);
 		dev_kfree_skb_any(skb);
@@ -616,7 +615,6 @@ new_packet:
 		port->agg_state = 0;
 		spin_unlock_irqrestore(&port->agg_lock, flags);
 		hrtimer_cancel(&port->hrtimer);
-		agg_skb->protocol = htons(ETH_P_MAP);
 		dev_queue_xmit(agg_skb);
 		goto new_packet;
 	}
@@ -663,3 +661,31 @@ void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
 
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
+
+void rmnet_map_tx_qmap_cmd(struct sk_buff *qmap_skb)
+{
+	struct rmnet_port *port;
+	struct sk_buff *agg_skb;
+	unsigned long flags;
+
+	port = rmnet_get_port(qmap_skb->dev);
+
+	if (port->data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
+		spin_lock_irqsave(&port->agg_lock, flags);
+		if (port->agg_skb) {
+			agg_skb = port->agg_skb;
+			port->agg_skb = 0;
+			port->agg_count = 0;
+			memset(&port->agg_time, 0, sizeof(struct timespec));
+			port->agg_state = 0;
+			spin_unlock_irqrestore(&port->agg_lock, flags);
+			hrtimer_cancel(&port->hrtimer);
+			dev_queue_xmit(agg_skb);
+		} else {
+			spin_unlock_irqrestore(&port->agg_lock, flags);
+		}
+	}
+
+	dev_queue_xmit(qmap_skb);
+}
+EXPORT_SYMBOL(rmnet_map_tx_qmap_cmd);

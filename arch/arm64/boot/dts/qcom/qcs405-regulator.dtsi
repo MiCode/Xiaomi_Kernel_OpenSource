@@ -62,8 +62,7 @@
 		mx_cdev: mx-cdev-lvl {
 			compatible = "qcom,regulator-cooling-device";
 			regulator-cdev-supply = <&pms405_s1_level>;
-			regulator-levels =
-				<RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS
+			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_SVS
 					RPM_SMD_REGULATOR_LEVEL_NONE>;
 			#cooling-cells = <2>;
 		};

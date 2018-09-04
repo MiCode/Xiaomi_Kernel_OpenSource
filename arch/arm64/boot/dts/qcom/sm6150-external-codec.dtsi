@@ -17,6 +17,7 @@
 	};
 };
 
+#include <dt-bindings/sound/audio-codec-port-types.h>
 #include "sm6150-wcd.dtsi"
 
 &sm6150_snd {
@@ -110,11 +111,17 @@
 &slim_aud {
 	status = "okay";
 	tavil_codec {
-		swr_tavil: tavil_wsa_swr_master {
+		swr_tavil: swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
-
+			qcom,swr-num-ports = <8>;
+			qcom,swr-port-mapping = <1 SPKR_L 0x1>,
+				<2 SPKR_L_COMP 0xF>, <3 SPKR_L_BOOST 0x3>,
+				<4 SPKR_R 0x1>, <5 SPKR_R_COMP 0xF>,
+				<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
+				<8 SPKR_R_VI 0x3>;
+			qcom,swr_master_id = <1>;
 			wsa881x_11: wsa881x@11 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x20170211>;

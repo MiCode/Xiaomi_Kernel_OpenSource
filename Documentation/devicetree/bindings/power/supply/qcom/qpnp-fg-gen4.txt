@@ -351,6 +351,13 @@ First Level Node - FG Gen4 device
 		    property "qcom,slope-limit-temp-threshold" to make dynamic
 		    slope limit adjustment functional.
 
+- qcom,rapid-soc-dec-en
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined enables rapid SOC
+		    decrease when the battery SOC is low but not converging to
+		    zero with battery voltage dropping rapidly below Vcutoff.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================

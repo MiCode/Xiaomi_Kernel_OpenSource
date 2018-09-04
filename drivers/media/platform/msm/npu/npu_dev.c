@@ -21,6 +21,7 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/of_platform.h>
+#include <linux/poll.h>
 #include <linux/regulator/consumer.h>
 #include <linux/thermal.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -75,16 +76,25 @@ static int npu_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state);
 static int npu_open(struct inode *inode, struct file *file);
 static int npu_close(struct inode *inode, struct file *file);
-static int npu_get_info(struct npu_device *npu_dev, unsigned long arg);
-static int npu_map_buf(struct npu_device *npu_dev, unsigned long arg);
-static int npu_unmap_buf(struct npu_device *npu_dev, unsigned long arg);
-static int npu_load_network(struct npu_device *npu_dev, unsigned long arg);
-static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg);
-static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg);
-static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg);
-static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg);
+static int npu_get_info(struct npu_client *client, unsigned long arg);
+static int npu_map_buf(struct npu_client *client, unsigned long arg);
+static int npu_unmap_buf(struct npu_client *client,
+	unsigned long arg);
+static int npu_load_network(struct npu_client *client,
+	unsigned long arg);
+static int npu_load_network_v2(struct npu_client *client,
+	unsigned long arg);
+static int npu_unload_network(struct npu_client *client,
+	unsigned long arg);
+static int npu_exec_network(struct npu_client *client,
+	unsigned long arg);
+static int npu_exec_network_v2(struct npu_client *client,
+	unsigned long arg);
+static int npu_receive_event(struct npu_client *client,
+	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
+static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p);
 static int npu_parse_dt_clock(struct npu_device *npu_dev);
 static int npu_parse_dt_regulator(struct npu_device *npu_dev);
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
@@ -207,6 +217,7 @@ static const struct file_operations npu_fops = {
 #ifdef CONFIG_COMPAT
 	 .compat_ioctl = npu_ioctl,
 #endif
+	.poll = npu_poll,
 };
 
 static const struct thermal_cooling_device_ops npu_cooling_ops = {
@@ -793,14 +804,36 @@ static int npu_open(struct inode *inode, struct file *file)
 {
 	struct npu_device *npu_dev = container_of(inode->i_cdev,
 		struct npu_device, cdev);
+	struct npu_client *client;
 
-	file->private_data = npu_dev;
+	client = kmalloc(sizeof(*client), GFP_KERNEL);
+	if (!client)
+		return -ENOMEM;
+
+	client->npu_dev = npu_dev;
+	init_waitqueue_head(&client->wait);
+	mutex_init(&client->list_lock);
+	INIT_LIST_HEAD(&client->evt_list);
+	INIT_LIST_HEAD(&(client->mapped_buffer_list));
+	file->private_data = client;
 
 	return 0;
 }
 
 static int npu_close(struct inode *inode, struct file *file)
 {
+	struct npu_client *client = file->private_data;
+	struct npu_kevent *kevent;
+
+	while (!list_empty(&client->evt_list)) {
+		kevent = list_first_entry(&client->evt_list,
+			struct npu_kevent, list);
+		list_del(&kevent->list);
+		kfree(kevent);
+	}
+
+	mutex_destroy(&client->list_lock);
+	kfree(client);
 	return 0;
 }
 
@@ -808,8 +841,9 @@ static int npu_close(struct inode *inode, struct file *file)
  * IOCTL Implementations
  * -------------------------------------------------------------------------
  */
-static int npu_get_info(struct npu_device *npu_dev, unsigned long arg)
+static int npu_get_info(struct npu_client *client, unsigned long arg)
 {
+	struct npu_device *npu_dev = client->npu_dev;
 	struct msm_npu_get_info_ioctl req;
 	void __user *argp = (void __user *)arg;
 	int ret = 0;
@@ -837,7 +871,7 @@ static int npu_get_info(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_map_buf(struct npu_device *npu_dev, unsigned long arg)
+static int npu_map_buf(struct npu_client *client, unsigned long arg)
 {
 	struct msm_npu_map_buf_ioctl req;
 	void __user *argp = (void __user *)arg;
@@ -850,7 +884,7 @@ static int npu_map_buf(struct npu_device *npu_dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_map_buf(npu_dev, &req);
+	ret = npu_host_map_buf(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_map_buf failed\n");
@@ -866,7 +900,7 @@ static int npu_map_buf(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_unmap_buf(struct npu_device *npu_dev, unsigned long arg)
+static int npu_unmap_buf(struct npu_client *client, unsigned long arg)
 {
 	struct msm_npu_unmap_buf_ioctl req;
 	void __user *argp = (void __user *)arg;
@@ -879,7 +913,7 @@ static int npu_unmap_buf(struct npu_device *npu_dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_unmap_buf(npu_dev, &req);
+	ret = npu_host_unmap_buf(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_unmap_buf failed\n");
@@ -895,7 +929,8 @@ static int npu_unmap_buf(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_load_network(struct npu_device *npu_dev, unsigned long arg)
+static int npu_load_network(struct npu_client *client,
+	unsigned long arg)
 {
 	struct msm_npu_load_network_ioctl req;
 	void __user *argp = (void __user *)arg;
@@ -910,7 +945,7 @@ static int npu_load_network(struct npu_device *npu_dev, unsigned long arg)
 
 	pr_debug("network load with perf request %d\n", req.perf_mode);
 
-	ret = npu_host_load_network(npu_dev, &req);
+	ret = npu_host_load_network(client, &req);
 	if (ret) {
 		pr_err("network load failed: %d\n", ret);
 		return -EFAULT;
@@ -924,7 +959,8 @@ static int npu_load_network(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg)
+static int npu_load_network_v2(struct npu_client *client,
+	unsigned long arg)
 {
 	struct msm_npu_load_network_ioctl_v2 req;
 	void __user *argp = (void __user *)arg;
@@ -956,7 +992,7 @@ static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg)
 
 	pr_debug("network load with perf request %d\n", req.perf_mode);
 
-	ret = npu_host_load_network_v2(npu_dev, &req, patch_info);
+	ret = npu_host_load_network_v2(client, &req, patch_info);
 	if (ret) {
 		pr_err("network load failed: %d\n", ret);
 	} else {
@@ -969,7 +1005,8 @@ static int npu_load_network_v2(struct npu_device *npu_dev, unsigned long arg)
 	return ret;
 }
 
-static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg)
+static int npu_unload_network(struct npu_client *client,
+	unsigned long arg)
 {
 	struct msm_npu_unload_network_ioctl req;
 	void __user *argp = (void __user *)arg;
@@ -982,7 +1019,7 @@ static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_unload_network(npu_dev, &req);
+	ret = npu_host_unload_network(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_unload_network failed\n");
@@ -998,7 +1035,8 @@ static int npu_unload_network(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg)
+static int npu_exec_network(struct npu_client *client,
+	unsigned long arg)
 {
 	struct msm_npu_exec_network_ioctl req;
 	void __user *argp = (void __user *)arg;
@@ -1011,7 +1049,15 @@ static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg)
 		return -EFAULT;
 	}
 
-	ret = npu_host_exec_network(npu_dev, &req);
+	if ((req.input_layer_num > MSM_NPU_MAX_INPUT_LAYER_NUM) ||
+		(req.output_layer_num > MSM_NPU_MAX_OUTPUT_LAYER_NUM)) {
+		pr_err("Invalid input/out layer num %d[max:%d] %d[max:%d]\n",
+			req.input_layer_num, MSM_NPU_MAX_INPUT_LAYER_NUM,
+			req.output_layer_num, MSM_NPU_MAX_OUTPUT_LAYER_NUM);
+		return -EINVAL;
+	}
+
+	ret = npu_host_exec_network(client, &req);
 
 	if (ret) {
 		pr_err("npu_host_exec_network failed\n");
@@ -1027,7 +1073,8 @@ static int npu_exec_network(struct npu_device *npu_dev, unsigned long arg)
 	return 0;
 }
 
-static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg)
+static int npu_exec_network_v2(struct npu_client *client,
+	unsigned long arg)
 {
 	struct msm_npu_exec_network_ioctl_v2 req;
 	void __user *argp = (void __user *)arg;
@@ -1063,7 +1110,7 @@ static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg)
 			req.patch_buf_info_num * sizeof(*patch_buf_info));
 	}
 
-	ret = npu_host_exec_network_v2(npu_dev, &req, patch_buf_info);
+	ret = npu_host_exec_network_v2(client, &req, patch_buf_info);
 	if (ret) {
 		pr_err("npu_host_exec_network failed\n");
 	} else {
@@ -1076,42 +1123,113 @@ static int npu_exec_network_v2(struct npu_device *npu_dev, unsigned long arg)
 	return ret;
 }
 
+static int npu_process_kevent(struct npu_kevent *kevt)
+{
+	int ret = 0;
+
+	switch (kevt->evt.type) {
+	case MSM_NPU_EVENT_TYPE_EXEC_V2_DONE:
+		ret = copy_to_user((void __user *)kevt->reserved[1],
+			(void *)&kevt->reserved[0],
+			kevt->evt.u.exec_v2_done.stats_buf_size);
+		if (ret) {
+			pr_err("fail to copy to user\n");
+			kevt->evt.u.exec_v2_done.stats_buf_size = 0;
+			ret = -EFAULT;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static int npu_receive_event(struct npu_client *client,
+	unsigned long arg)
+{
+	void __user *argp = (void __user *)arg;
+	struct npu_kevent *kevt;
+	int ret = 0;
+
+	mutex_lock(&client->list_lock);
+	if (list_empty(&client->evt_list)) {
+		pr_err("event list is empty\n");
+		ret = -EINVAL;
+	} else {
+		kevt = list_first_entry(&client->evt_list,
+			struct npu_kevent, list);
+		list_del(&kevt->list);
+		npu_process_kevent(kevt);
+		ret = copy_to_user(argp, &kevt->evt,
+			sizeof(struct msm_npu_event));
+		if (ret) {
+			pr_err("fail to copy to user\n");
+			ret = -EFAULT;
+		}
+		kfree(kevt);
+	}
+	mutex_unlock(&client->list_lock);
+
+	return ret;
+}
+
 static long npu_ioctl(struct file *file, unsigned int cmd,
 						 unsigned long arg)
 {
 	int ret = -ENOIOCTLCMD;
-	struct npu_device *npu_dev = file->private_data;
+	struct npu_client *client = file->private_data;
 
 	switch (cmd) {
 	case MSM_NPU_GET_INFO:
-		ret = npu_get_info(npu_dev, arg);
+		ret = npu_get_info(client, arg);
 		break;
 	case MSM_NPU_MAP_BUF:
-		ret = npu_map_buf(npu_dev, arg);
+		ret = npu_map_buf(client, arg);
 		break;
 	case MSM_NPU_UNMAP_BUF:
-		ret = npu_unmap_buf(npu_dev, arg);
+		ret = npu_unmap_buf(client, arg);
 		break;
 	case MSM_NPU_LOAD_NETWORK:
-		ret = npu_load_network(npu_dev, arg);
+		ret = npu_load_network(client, arg);
 		break;
 	case MSM_NPU_LOAD_NETWORK_V2:
-		ret = npu_load_network_v2(npu_dev, arg);
+		ret = npu_load_network_v2(client, arg);
 		break;
 	case MSM_NPU_UNLOAD_NETWORK:
-		ret = npu_unload_network(npu_dev, arg);
+		ret = npu_unload_network(client, arg);
 		break;
 	case MSM_NPU_EXEC_NETWORK:
-		ret = npu_exec_network(npu_dev, arg);
+		ret = npu_exec_network(client, arg);
 		break;
 	case MSM_NPU_EXEC_NETWORK_V2:
-		ret = npu_exec_network_v2(npu_dev, arg);
+		ret = npu_exec_network_v2(client, arg);
+		break;
+	case MSM_NPU_RECEIVE_EVENT:
+		ret = npu_receive_event(client, arg);
 		break;
 	default:
 		pr_err("unexpected IOCTL %x\n", cmd);
 	}
 
 	return ret;
+}
+
+static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p)
+{
+	struct npu_client *client = filp->private_data;
+	int rc = 0;
+
+	poll_wait(filp, &client->wait, p);
+
+	mutex_lock(&client->list_lock);
+	if (!list_empty(&client->evt_list)) {
+		pr_debug("poll cmd done\n");
+		rc = POLLIN | POLLRDNORM;
+	}
+	mutex_unlock(&client->list_lock);
+
+	return rc;
 }
 
 /* -------------------------------------------------------------------------
@@ -1514,7 +1632,7 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_driver_init;
 	}
 
-	INIT_LIST_HEAD(&(npu_dev->mapped_buffers.list));
+	mutex_init(&npu_dev->dev_lock);
 
 	rc = npu_host_init(npu_dev);
 	if (rc) {

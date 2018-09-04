@@ -39,6 +39,7 @@
 #include "ipa_mhi_proxy.h"
 
 #include "ipa_trace.h"
+#include "ipa_odl.h"
 
 #define OUTSTANDING_HIGH_DEFAULT 256
 #define OUTSTANDING_HIGH_CTL_DEFAULT (OUTSTANDING_HIGH_DEFAULT + 32)
@@ -67,6 +68,7 @@ MODULE_PARM_DESC(outstanding_low, "Outstanding low");
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_UPSTEAM_WLAN_IFACE_NAME "wlan0"
+#define IPA_UPSTEAM_WLAN1_IFACE_NAME "wlan1"
 
 #define IPA_WWAN_RX_SOFTIRQ_THRESH 16
 
@@ -791,7 +793,8 @@ static enum ipa_upstream_type find_upstream_type(const char *upstreamIface)
 			return IPA_UPSTEAM_MODEM;
 	}
 
-	if (strcmp(IPA_UPSTEAM_WLAN_IFACE_NAME, upstreamIface) == 0)
+	if ((strcmp(IPA_UPSTEAM_WLAN_IFACE_NAME, upstreamIface) == 0) ||
+		(strcmp(IPA_UPSTEAM_WLAN1_IFACE_NAME, upstreamIface) == 0))
 		return IPA_UPSTEAM_WLAN;
 	else
 		return MAX_NUM_OF_MUX_CHANNEL;
@@ -2696,10 +2699,11 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		ipa_stop_polling_stats();
 		if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
 			platform_driver_unregister(&rmnet_ipa_driver);
-
+		imp_handle_modem_shutdown();
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
+		ipa3_odl_pipe_cleanup(true);
 		IPAWANINFO("IPA BEFORE_SHUTDOWN handling is complete\n");
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
@@ -2724,7 +2728,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		if (!atomic_read(&rmnet_ipa3_ctx->is_initialized) &&
 		       atomic_read(&rmnet_ipa3_ctx->is_ssr))
 			platform_driver_register(&rmnet_ipa_driver);
-
+		ipa3_odl_pipe_open();
 		IPAWANINFO("IPA AFTER_POWERUP handling is complete\n");
 		break;
 	default:

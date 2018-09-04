@@ -56,11 +56,15 @@
 	status = "okay";
 };
 
-&wdsp_mgr {
+&qupv3_se4_spi {
 	status = "okay";
 };
 
-&wdsp_glink {
+&tavil_wdsp {
+	status = "okay";
+};
+
+&tavil_glink {
 	status = "okay";
 };
 

@@ -3689,6 +3689,12 @@ err_no_work:
 		i < num_responses; ++i) {
 		struct msm_vidc_cb_info *r = &device->response_pkt[i];
 
+		if (!__core_in_valid_state(device)) {
+			dprintk(VIDC_ERR,
+				"Ignore responses from %d to %d as device is in invalid state",
+				(i + 1), num_responses);
+			break;
+		}
 		dprintk(VIDC_DBG, "Processing response %d of %d, type %d\n",
 			(i + 1), num_responses, r->response_type);
 		device->callback(r->response_type, &r->response);

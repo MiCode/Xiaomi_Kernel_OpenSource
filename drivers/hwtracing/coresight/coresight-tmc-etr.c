@@ -352,7 +352,7 @@ static void tmc_etr_sg_mem_reset(uint32_t *vaddr, uint32_t size)
 	tmc_etr_sg_tbl_flush(vaddr, size);
 }
 
-void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
+void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, phys_addr_t rwp)
 {
 	uint32_t i = 0, pte_n = 0, last_pte;
 	uint32_t *virt_st_tbl, *virt_pte;
@@ -447,7 +447,8 @@ void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 	}
 
 	axictl = (axictl &
-		  ~(TMC_AXICTL_CACHE_CTL_B0 | TMC_AXICTL_CACHE_CTL_B1)) |
+		  ~(TMC_AXICTL_CACHE_CTL_B0 | TMC_AXICTL_CACHE_CTL_B1 |
+		  TMC_AXICTL_CACHE_CTL_B2 | TMC_AXICTL_CACHE_CTL_B3)) |
 		  TMC_AXICTL_CACHE_CTL_B0;
 	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
 	tmc_write_dba(drvdata, drvdata->paddr);
@@ -587,9 +588,10 @@ static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
 	}
 }
 
-static void tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
+static int tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 {
 	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+	dma_addr_t data_fifo_iova, desc_fifo_iova;
 
 	get_qdss_bam_connection_info(&bamdata->dest,
 				    &bamdata->dest_pipe_idx,
@@ -597,6 +599,28 @@ static void tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 				    &bamdata->desc_fifo,
 				    &bamdata->data_fifo,
 				    NULL);
+
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		data_fifo_iova = dma_map_resource(drvdata->dev,
+			bamdata->data_fifo.phys_base, bamdata->data_fifo.size,
+			DMA_BIDIRECTIONAL, 0);
+		if (!data_fifo_iova)
+			return -ENOMEM;
+		dev_dbg(drvdata->dev, "%s:data p_addr:%pa,iova:%pad,size:%x\n",
+			__func__, &(bamdata->data_fifo.phys_base),
+			&data_fifo_iova, bamdata->data_fifo.size);
+		bamdata->data_fifo.iova = data_fifo_iova;
+		desc_fifo_iova = dma_map_resource(drvdata->dev,
+			bamdata->desc_fifo.phys_base, bamdata->desc_fifo.size,
+			DMA_BIDIRECTIONAL, 0);
+		if (!desc_fifo_iova)
+			return -ENOMEM;
+		dev_dbg(drvdata->dev, "%s:desc p_addr:%pa,iova:%pad,size:%x\n",
+			__func__, &(bamdata->desc_fifo.phys_base),
+			&desc_fifo_iova, bamdata->desc_fifo.size);
+		bamdata->desc_fifo.iova = desc_fifo_iova;
+	}
+	return 0;
 }
 
 static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
@@ -625,10 +649,17 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 	axictl = (axictl & ~0x3) | 0x2;
 	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
 
-	writel_relaxed((uint32_t)bamdata->data_fifo.phys_base,
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		writel_relaxed((uint32_t)bamdata->data_fifo.iova,
 		       drvdata->base + TMC_DBALO);
-	writel_relaxed((((uint64_t)bamdata->data_fifo.phys_base) >> 32) & 0xFF,
-		       drvdata->base + TMC_DBAHI);
+		writel_relaxed((((uint64_t)bamdata->data_fifo.iova) >> 32)
+			& 0xFF, drvdata->base + TMC_DBAHI);
+	} else {
+		writel_relaxed((uint32_t)bamdata->data_fifo.phys_base,
+		       drvdata->base + TMC_DBALO);
+		writel_relaxed((((uint64_t)bamdata->data_fifo.phys_base) >> 32)
+			& 0xFF, drvdata->base + TMC_DBAHI);
+	}
 	/* Set FOnFlIn for periodic flush */
 	writel_relaxed(0x133, drvdata->base + TMC_FFCR);
 	writel_relaxed(drvdata->trigger_cntr, drvdata->base + TMC_TRG);
@@ -639,9 +670,29 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 	drvdata->enable_to_bam = true;
 }
 
+static int get_usb_bam_iova(struct device *dev, unsigned long usb_bam_handle,
+				unsigned long *iova)
+{
+	int ret = 0;
+	phys_addr_t p_addr;
+	u32 bam_size;
+
+	ret = sps_get_bam_addr(usb_bam_handle, &p_addr, &bam_size);
+	if (ret) {
+		dev_err(dev, "sps_get_bam_addr failed at handle:%lx, err:%d\n",
+			usb_bam_handle, ret);
+		return ret;
+	}
+	*iova = dma_map_resource(dev, p_addr, bam_size, DMA_BIDIRECTIONAL, 0);
+	if (!(*iova))
+		return -ENOMEM;
+	return 0;
+}
+
 static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
 {
 	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
+	unsigned long iova;
 	int ret;
 
 	if (bamdata->enable)
@@ -673,6 +724,12 @@ static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
 	bamdata->connect.desc = bamdata->desc_fifo;
 	bamdata->connect.data = bamdata->data_fifo;
 
+	if (bamdata->props.options & SPS_BAM_SMMU_EN) {
+		ret = get_usb_bam_iova(drvdata->dev, bamdata->dest, &iova);
+		if (ret)
+			goto err1;
+		bamdata->connect.dest_iova = iova;
+	}
 	ret = sps_connect(bamdata->pipe, &bamdata->connect);
 	if (ret)
 		goto err1;
@@ -739,7 +796,9 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 
 	mutex_lock(&drvdata->mem_lock);
 	if (event == USB_QDSS_CONNECT) {
-		tmc_etr_fill_usb_bam_data(drvdata);
+		ret = tmc_etr_fill_usb_bam_data(drvdata);
+		if (ret)
+			dev_err(drvdata->dev, "ETR get usb bam data failed\n");
 		ret = tmc_etr_bam_enable(drvdata);
 		if (ret)
 			dev_err(drvdata->dev, "ETR BAM enable failed\n");
@@ -784,6 +843,12 @@ int tmc_etr_bam_init(struct amba_device *adev,
 	bamdata->props.summing_threshold = 0x10; /* BAM event threshold */
 	bamdata->props.irq = 0;
 	bamdata->props.num_pipes = TMC_ETR_BAM_NR_PIPES;
+	if (device_property_present(dev, "iommus")
+		&& !device_property_present(dev, "qcom,smmu-s1-bypass")) {
+		pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
+		__func__, dev_name(dev));
+		bamdata->props.options |= SPS_BAM_SMMU_EN;
+	}
 
 	return sps_register_bam_device(&bamdata->props, &bamdata->handle);
 }
@@ -872,7 +937,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		tmc_etr_enable_hw(drvdata);
 
 	drvdata->enable = true;
-	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 

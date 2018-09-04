@@ -132,6 +132,16 @@ int gmu_core_dcvs_set(struct kgsl_device *device, unsigned int gpu_pwrlevel,
 	return -EINVAL;
 }
 
+int gmu_core_acd_set(struct kgsl_device *device, unsigned int val)
+{
+	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+
+	if (gmu_core_ops && gmu_core_ops->acd_set)
+		return gmu_core_ops->acd_set(device, val);
+
+	return -EINVAL;
+}
+
 bool gmu_core_regulator_isenabled(struct kgsl_device *device)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);

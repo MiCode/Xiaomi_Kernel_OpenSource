@@ -40,9 +40,7 @@
 #include <linux/compat.h>
 #endif
 
-#ifndef __FS_HAS_ENCRYPTION
 #define __FS_HAS_ENCRYPTION IS_ENABLED(CONFIG_EXT4_FS_ENCRYPTION)
-#endif
 #include <linux/fscrypt.h>
 
 /*
@@ -2352,7 +2350,6 @@ static inline int ext4_fname_setup_filename(struct inode *dir,
 }
 static inline void ext4_fname_free_filename(struct ext4_filename *fname) { }
 
-#define fscrypt_set_d_op(i)
 #endif
 
 /* dir.c */

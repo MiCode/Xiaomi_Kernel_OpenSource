@@ -141,7 +141,6 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 void tmc_enable_hw(struct tmc_drvdata *drvdata)
 {
 	drvdata->enable = true;
-	drvdata->sticky_enable = true;
 	writel_relaxed(TMC_CTL_CAPT_EN, drvdata->base + TMC_CTL);
 	if (drvdata->force_reg_dump)
 		__tmc_reg_dump(drvdata);
@@ -157,7 +156,7 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 {
 	int ret = 0;
 
-	if (!drvdata->sticky_enable)
+	if (!drvdata->enable)
 		return -EPERM;
 
 	switch (drvdata->config_type) {
@@ -544,10 +543,17 @@ static ssize_t mem_type_store(struct device *dev,
 	}
 	if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_CONTIG]))
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
-	else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG]))
+	else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG])) {
+		if (device_property_present(dev->parent, "iommus") &&
+		!device_property_present(dev->parent, "qcom,smmu-s1-bypass")) {
+			mutex_unlock(&drvdata->mem_lock);
+			pr_err("SMMU is enabled. Sg mode is not supported\n");
+			return -EINVAL;
+		}
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
-	else
+	} else {
 		size = -EINVAL;
+	}
 
 	mutex_unlock(&drvdata->mem_lock);
 
@@ -606,7 +612,7 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 		return 0;
 
 	drvdata->iommu_mapping = arm_iommu_create_mapping(&amba_bustype,
-							0, (SZ_1G * 4ULL));
+							0, (SZ_1G * 2ULL));
 	if (IS_ERR(drvdata->iommu_mapping)) {
 		dev_err(drvdata->dev, "Create mapping failed, err = %d\n", ret);
 		ret = PTR_ERR(drvdata->iommu_mapping);

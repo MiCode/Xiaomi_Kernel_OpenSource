@@ -60,13 +60,29 @@ enum cam_isp_hw_stop_cmd {
 };
 
 /**
- * struct cam_isp_stop_hw_method - hardware stop method
+ * struct cam_isp_stop_args - hardware stop arguments
  *
  * @hw_stop_cmd:               Hardware stop command type information
+ * @stop_only                  Send stop only to hw drivers. No Deinit to be
+ *                             done.
  *
  */
-struct cam_isp_stop_hw_method {
+struct cam_isp_stop_args {
 	enum cam_isp_hw_stop_cmd      hw_stop_cmd;
+	bool                          stop_only;
+};
+
+/**
+ * struct cam_isp_start_args - isp hardware start arguments
+ *
+ * @config_args:               Hardware configuration commands.
+ * @start_only                 Send start only to hw drivers. No init to
+ *                             be done.
+ *
+ */
+struct cam_isp_start_args {
+	struct cam_hw_config_args     hw_config;
+	bool                          start_only;
 };
 
 /**

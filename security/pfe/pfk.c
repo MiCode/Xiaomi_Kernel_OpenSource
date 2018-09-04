@@ -37,6 +37,9 @@
  *
  */
 
+
+/* Uncomment the line below to enable debug messages */
+/* #define DEBUG 1 */
 #define pr_fmt(fmt)	"pfk [%s]: " fmt, __func__
 
 #include <linux/module.h>
@@ -45,24 +48,27 @@
 #include <linux/printk.h>
 #include <linux/bio.h>
 #include <linux/security.h>
-#include <linux/pfk.h>
+#include <crypto/algapi.h>
 #include <crypto/ice.h>
 
-#include "ext4.h"
-#include "objsec.h"
+#include <linux/pfk.h>
+
 #include "pfk_kc.h"
+#include "objsec.h"
 #include "pfk_ice.h"
 #include "pfk_ext4.h"
+#include "pfk_f2fs.h"
 #include "pfk_internal.h"
 
 static bool pfk_ready;
+
 
 /* might be replaced by a table when more than one cipher is supported */
 #define PFK_SUPPORTED_KEY_SIZE 32
 #define PFK_SUPPORTED_SALT_SIZE 32
 
 /* Various PFE types and function tables to support each one of them */
-enum pfe_type {EXT4_CRYPT_PFE, INVALID_PFE};
+enum pfe_type {EXT4_CRYPT_PFE, F2FS_CRYPT_PFE, INVALID_PFE};
 
 typedef int (*pfk_parse_inode_type)(const struct bio *bio,
 	const struct inode *inode,
@@ -76,24 +82,32 @@ typedef bool (*pfk_allow_merge_bio_type)(const struct bio *bio1,
 
 static const pfk_parse_inode_type pfk_parse_inode_ftable[] = {
 	/* EXT4_CRYPT_PFE */ &pfk_ext4_parse_inode,
+    /* F2FS_CRYPT_PFE */ &pfk_f2fs_parse_inode,
 };
 
 static const pfk_allow_merge_bio_type pfk_allow_merge_bio_ftable[] = {
 	/* EXT4_CRYPT_PFE */ &pfk_ext4_allow_merge_bio,
+    /* F2FS_CRYPT_PFE */ &pfk_f2fs_allow_merge_bio,
 };
 
 static void __exit pfk_exit(void)
 {
 	pfk_ready = false;
 	pfk_ext4_deinit();
+	pfk_f2fs_deinit();
 	pfk_kc_deinit();
 }
 
 static int __init pfk_init(void)
 {
+
 	int ret = 0;
 
 	ret = pfk_ext4_init();
+	if (ret != 0)
+		goto fail;
+
+	ret = pfk_f2fs_init();
 	if (ret != 0)
 		goto fail;
 
@@ -101,6 +115,7 @@ static int __init pfk_init(void)
 	if (ret != 0) {
 		pr_err("could init pfk key cache, error %d\n", ret);
 		pfk_ext4_deinit();
+		pfk_f2fs_deinit();
 		goto fail;
 	}
 
@@ -126,6 +141,9 @@ static enum pfe_type pfk_get_pfe_type(const struct inode *inode)
 	if (pfk_is_ext4_type(inode))
 		return EXT4_CRYPT_PFE;
 
+	if (pfk_is_f2fs_type(inode))
+		return F2FS_CRYPT_PFE;
+
 	return INVALID_PFE;
 }
 
@@ -141,6 +159,9 @@ char *inode_to_filename(const struct inode *inode)
 {
 	struct dentry *dentry = NULL;
 	char *filename = NULL;
+
+	if (!inode)
+		return "NULL";
 
 	if (hlist_empty(&inode->i_dentry))
 		return "unknown";
@@ -176,30 +197,30 @@ static inline bool pfk_is_ready(void)
  */
 static struct inode *pfk_bio_get_inode(const struct bio *bio)
 {
-	struct address_space *mapping;
-
 	if (!bio)
+		return NULL;
+	if (!bio_has_data((struct bio *)bio))
 		return NULL;
 	if (!bio->bi_io_vec)
 		return NULL;
 	if (!bio->bi_io_vec->bv_page)
 		return NULL;
-	if (!bio_has_data((struct bio *)bio))
-		return NULL;
 
 	if (PageAnon(bio->bi_io_vec->bv_page)) {
 		struct inode *inode;
 
+		/* Using direct-io (O_DIRECT) without page cache */
 		inode = dio_bio_get_inode((struct bio *)bio);
 		pr_debug("inode on direct-io, inode = 0x%pK.\n", inode);
+
 		return inode;
 	}
 
-	mapping = page_mapping(bio->bi_io_vec->bv_page);
-	if (!mapping)
+	if (!page_mapping(bio->bi_io_vec->bv_page))
 		return NULL;
 
-	if (!mapping->host)
+	if (!bio->bi_io_vec->bv_page->mapping->host)
+
 		return NULL;
 
 	return bio->bi_io_vec->bv_page->mapping->host;
@@ -250,6 +271,60 @@ bool pfe_is_inode_filesystem_type(const struct inode *inode,
 	return (strcmp(inode->i_sb->s_type->name, fs_type) == 0);
 }
 
+/**
+ * pfk_get_key_for_bio() - get the encryption key to be used for a bio
+ *
+ * @bio: pointer to the BIO
+ * @key_info: pointer to the key information which will be filled in
+ * @algo_mode: optional pointer to the algorithm identifier which will be set
+ * @is_pfe: will be set to false if the BIO should be left unencrypted
+ *
+ * Return: 0 if a key is being used, otherwise a -errno value
+ */
+static int pfk_get_key_for_bio(const struct bio *bio,
+		struct pfk_key_info *key_info,
+		enum ice_cryto_algo_mode *algo_mode,
+		bool *is_pfe)
+{
+	const struct inode *inode;
+	enum pfe_type which_pfe;
+	const struct blk_encryption_key *key = NULL;
+
+	inode = pfk_bio_get_inode(bio);
+	which_pfe = pfk_get_pfe_type(inode);
+
+	if (which_pfe != INVALID_PFE) {
+		/* Encrypted file; override ->bi_crypt_key */
+		pr_debug("parsing inode %lu with PFE type %d\n",
+			 inode->i_ino, which_pfe);
+		return (*(pfk_parse_inode_ftable[which_pfe]))
+				(bio, inode, key_info, algo_mode, is_pfe);
+	}
+
+	/*
+	 * bio is not for an encrypted file.  Use ->bi_crypt_key if it was set.
+	 * Otherwise, don't encrypt/decrypt the bio.
+	 */
+#ifdef CONFIG_DM_DEFAULT_KEY
+	key = bio->bi_crypt_key;
+#endif
+	if (!key) {
+		*is_pfe = false;
+		return -EINVAL;
+	}
+
+	/* Note: the "salt" is really just the second half of the XTS key. */
+	BUILD_BUG_ON(sizeof(key->raw) !=
+		     PFK_SUPPORTED_KEY_SIZE + PFK_SUPPORTED_SALT_SIZE);
+	key_info->key = &key->raw[0];
+	key_info->key_size = PFK_SUPPORTED_KEY_SIZE;
+	key_info->salt = &key->raw[PFK_SUPPORTED_KEY_SIZE];
+	key_info->salt_size = PFK_SUPPORTED_SALT_SIZE;
+	if (algo_mode)
+		*algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
+	return 0;
+}
+
 
 /**
  * pfk_load_key_start() - loads PFE encryption key to the ICE
@@ -279,8 +354,6 @@ int pfk_load_key_start(const struct bio *bio,
 	enum ice_cryto_algo_mode algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
 	enum ice_crpto_key_size key_size_type = 0;
 	u32 key_index = 0;
-	struct inode *inode = NULL;
-	enum pfe_type which_pfe = INVALID_PFE;
 
 	if (!is_pfe) {
 		pr_err("is_pfe is NULL\n");
@@ -301,26 +374,16 @@ int pfk_load_key_start(const struct bio *bio,
 		pr_err("ice setting is NULL\n");
 		return -EINVAL;
 	}
-	inode = pfk_bio_get_inode(bio);
-	if (!inode) {
-		*is_pfe = false;
-		return -EINVAL;
-	}
-	which_pfe = pfk_get_pfe_type(inode);
-	if (which_pfe == INVALID_PFE) {
-		*is_pfe = false;
-		return -EPERM;
-	}
 
-	pr_debug("parsing file %s with PFE %d\n",
-		inode_to_filename(inode), which_pfe);
-	ret = (*(pfk_parse_inode_ftable[which_pfe]))
-			(bio, inode, &key_info, &algo_mode, is_pfe);
+	ret = pfk_get_key_for_bio(bio, &key_info, &algo_mode, is_pfe);
+
 	if (ret != 0)
 		return ret;
+
 	ret = pfk_key_size_to_key_type(key_info.key_size, &key_size_type);
 	if (ret != 0)
 		return ret;
+
 	ret = pfk_kc_load_key_start(key_info.key, key_info.key_size,
 			key_info.salt, key_info.salt_size, &key_index, async);
 	if (ret) {
@@ -338,7 +401,7 @@ int pfk_load_key_start(const struct bio *bio,
 	ice_setting->key_index = key_index;
 
 	pr_debug("loaded key for file %s key_index %d\n",
-		inode_to_filename(inode), key_index);
+		inode_to_filename(pfk_bio_get_inode(bio)), key_index);
 
 	return 0;
 }
@@ -357,9 +420,7 @@ int pfk_load_key_start(const struct bio *bio,
 int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 {
 	int ret = 0;
-	struct pfk_key_info key_info = {0};
-	enum pfe_type which_pfe = INVALID_PFE;
-	struct inode *inode = NULL;
+	struct pfk_key_info key_info = {NULL, NULL, 0, 0};
 
 	if (!is_pfe) {
 		pr_err("is_pfe is NULL\n");
@@ -375,20 +436,7 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 	if (!pfk_is_ready())
 		return -ENODEV;
 
-	inode = pfk_bio_get_inode(bio);
-	if (!inode) {
-		*is_pfe = false;
-		return -EINVAL;
-	}
-
-	which_pfe = pfk_get_pfe_type(inode);
-	if (which_pfe == INVALID_PFE) {
-		*is_pfe = false;
-		return -EPERM;
-	}
-
-	ret = (*(pfk_parse_inode_ftable[which_pfe]))
-			(bio, inode, &key_info, NULL, is_pfe);
+	ret = pfk_get_key_for_bio(bio, &key_info, NULL, is_pfe);
 	if (ret != 0)
 		return ret;
 
@@ -396,7 +444,7 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 		key_info.salt, key_info.salt_size);
 
 	pr_debug("finished using key for file %s\n",
-		inode_to_filename(inode));
+		inode_to_filename(pfk_bio_get_inode(bio)));
 
 	return 0;
 }
@@ -418,10 +466,17 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
  */
 bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 {
-	struct inode *inode1 = NULL;
-	struct inode *inode2 = NULL;
-	enum pfe_type which_pfe1 = INVALID_PFE;
-	enum pfe_type which_pfe2 = INVALID_PFE;
+	const struct blk_encryption_key *key1 = NULL;
+	const struct blk_encryption_key *key2 = NULL;
+	const struct inode *inode1;
+	const struct inode *inode2;
+	enum pfe_type which_pfe1;
+	enum pfe_type which_pfe2;
+
+#ifdef CONFIG_DM_DEFAULT_KEY
+	key1 = bio1->bi_crypt_key;
+	key2 = bio2->bi_crypt_key;
+#endif
 
 	if (!pfk_is_ready())
 		return false;
@@ -432,24 +487,38 @@ bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 	if (bio1 == bio2)
 		return true;
 
+	key1 = bio1->bi_crypt_key;
+	key2 = bio2->bi_crypt_key;
+
 	inode1 = pfk_bio_get_inode(bio1);
 	inode2 = pfk_bio_get_inode(bio2);
-
 
 	which_pfe1 = pfk_get_pfe_type(inode1);
 	which_pfe2 = pfk_get_pfe_type(inode2);
 
-	/* nodes with different encryption, do not merge */
+	/*
+	 * If one bio is for an encrypted file and the other is for a different
+	 * type of encrypted file or for blocks that are not part of an
+	 * encrypted file, do not merge.
+	 */
 	if (which_pfe1 != which_pfe2)
 		return false;
 
-	/* both nodes do not have encryption, allow merge */
-	if (which_pfe1 == INVALID_PFE)
-		return true;
+	if (which_pfe1 != INVALID_PFE) {
+		/* Both bios are for the same type of encrypted file. */
+		return (*(pfk_allow_merge_bio_ftable[which_pfe1]))(bio1, bio2,
+				inode1, inode2);
+	}
 
-	return (*(pfk_allow_merge_bio_ftable[which_pfe1]))(bio1, bio2,
-		inode1, inode2);
+	/*
+	 * Neither bio is for an encrypted file.  Merge only if the default keys
+	 * are the same (or both are NULL).
+	 */
+	return key1 == key2 ||
+		(key1 && key2 &&
+		 !crypto_memneq(key1->raw, key2->raw, sizeof(key1->raw)));
 }
+
 /**
  * Flush key table on storage core reset. During core reset key configuration
  * is lost in ICE. We need to flash the cache, so that the keys will be
