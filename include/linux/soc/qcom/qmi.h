@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2018 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017, Linaro Ltd.
  */
 #ifndef __QMI_HELPERS_H__
@@ -166,7 +166,7 @@ struct qmi_ops {
 struct qmi_txn {
 	struct qmi_handle *qmi;
 
-	int id;
+	u16 id;
 
 	struct mutex lock;
 	struct completion completion;
