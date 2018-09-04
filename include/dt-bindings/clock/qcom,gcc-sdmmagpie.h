@@ -195,5 +195,6 @@
 #define GCC_USB3_DP_PHY_SEC_BCR				6
 #define GCC_USB3_PHY_PRIM_BCR				7
 #define GCC_USB3_PHY_SEC_BCR				8
+#define GCC_QUSB2PHY_PRIM_BCR				9
 
 #endif
