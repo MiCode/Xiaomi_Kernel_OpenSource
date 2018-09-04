@@ -63,6 +63,7 @@ enum print_reason {
 #define PL_SMB_EN_VOTER			"PL_SMB_EN_VOTER"
 #define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 #define LPD_VOTER			"LPD_VOTER"
+#define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -399,6 +400,7 @@ struct smb_charger {
 	u8			typec_try_mode;
 	enum lpd_stage		lpd_stage;
 	enum lpd_reason		lpd_reason;
+	bool			fcc_stepper_enable;
 
 	/* workaround flag */
 	u32			wa_flags;

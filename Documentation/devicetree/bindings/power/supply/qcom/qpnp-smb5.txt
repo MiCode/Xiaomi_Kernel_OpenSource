@@ -245,6 +245,12 @@ Charger specific properties:
 		This is only applicable to certain PMICs like PMI632 which
 		has SCHGM_FLASH peripheral.
 
+- qcom,fcc-stepping-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables stepwise change in FCC.
+		The default stepping rate is 100mA/sec.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================
