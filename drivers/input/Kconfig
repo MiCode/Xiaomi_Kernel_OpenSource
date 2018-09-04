@@ -208,6 +208,8 @@ source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
 
+source "drivers/input/sensors/smi130/Kconfig"
+
 endif
 
 menu "Hardware I/O ports"

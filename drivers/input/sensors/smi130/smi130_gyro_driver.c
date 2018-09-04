@@ -2013,8 +2013,8 @@ static struct i2c_driver smi_gyro_driver = {
 	.remove = smi_gyro_remove,
 	.shutdown = smi_gyro_shutdown,
 #ifndef CONFIG_HAS_EARLYSUSPEND
-	//.suspend = smi_gyro_suspend,
-	//.resume = smi_gyro_resume,
+	.suspend = smi_gyro_suspend,
+	.resume = smi_gyro_resume,
 #endif
 };
 
