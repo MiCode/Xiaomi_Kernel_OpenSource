@@ -3510,6 +3510,7 @@ static int mmc_blk_cmdq_issue_drv_op(struct mmc_card *card, struct request *req)
 		pr_err("%s: failed to halt on empty queue\n",
 						mmc_hostname(card->host));
 		blk_end_request_all(req, ret);
+		mmc_put_card(card);
 		return ret;
 	}
 
@@ -3546,6 +3547,7 @@ out_unhalt:
 	if (ret)
 		pr_err("%s: %s: failed to unhalt\n",
 				mmc_hostname(card->host), __func__);
+	mmc_put_card(card);
 
 	return ret;
 }
@@ -3611,8 +3613,6 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		case REQ_OP_DRV_IN:
 		case REQ_OP_DRV_OUT:
 			ret = mmc_blk_cmdq_issue_drv_op(card, req);
-			if (ret)
-				goto out_card;
 			break;
 		default:
 			ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
@@ -3646,7 +3646,6 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 out:
 	if (req)
 		blk_end_request_all(req, ret);
-out_card:
 	mmc_put_card(card);
 
 	return ret;
