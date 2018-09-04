@@ -1192,7 +1192,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		spin_lock_irqsave(&mhi_sm_ctx->mhi_dev->lock, flags);
 		if ((mhi_sm_ctx->mhi_dev->mhi_int) &&
 				(mhi_sm_ctx->mhi_dev->mhi_int_en)) {
-			disable_irq(mhi_sm_ctx->mhi_dev->mhi_irq);
+			disable_irq_nosync(mhi_sm_ctx->mhi_dev->mhi_irq);
 			mhi_sm_ctx->mhi_dev->mhi_int_en = false;
 			MHI_SM_DBG("Disable MHI IRQ during D3 HOT");
 		}
