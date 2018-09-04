@@ -659,8 +659,8 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	INIT_WORK(&(ch->connect_work), usb_connect_work_fn);
 	INIT_WORK(&(ch->disconnect_work), usb_disconnect_work_fn);
 	init_waitqueue_head(&ch->wait_q);
-	strlcpy(wq_name, "DIAG_USB_", DIAG_USB_STRING_SZ);
-	strlcat(wq_name, ch->name, sizeof(ch->name));
+	strlcpy(wq_name, "DIAG_USB_", sizeof(wq_name));
+	strlcat(wq_name, ch->name, sizeof(wq_name));
 	ch->usb_wq = create_singlethread_workqueue(wq_name);
 	if (!ch->usb_wq)
 		goto err;
