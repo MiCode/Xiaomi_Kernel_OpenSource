@@ -660,10 +660,12 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	device->snapshot_faultcount++;
 
 	/*
-	 * Overwrite a non-GMU fault snapshot if a GMU fault occurs.
+	 * Overwrite a fault snapshot only if GMU is
+	 * enabled and we managed to recover from it.
 	 */
 	if (device->snapshot != NULL) {
-		if (!device->prioritize_unrecoverable ||
+		if (!gmu_core_gpmu_isenabled(device) ||
+			!device->prioritize_unrecoverable ||
 				!device->snapshot->recovered)
 			return;
 
