@@ -16,6 +16,7 @@
 
 #include <linux/etherdevice.h>
 #include <linux/if_arp.h>
+#include <linux/ip.h>
 #include <net/pkt_sched.h>
 #include "rmnet_config.h"
 #include "rmnet_handlers.h"
@@ -61,12 +62,19 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 					struct net_device *dev)
 {
 	struct rmnet_priv *priv;
+	int ip_type;
+	u32 mark;
+	unsigned int len;
 
 	priv = netdev_priv(dev);
 	if (priv->real_dev) {
+		ip_type = (ip_hdr(skb)->version == 4) ?
+					AF_INET : AF_INET6;
+		mark = skb->mark;
+		len = skb->len;
 		trace_rmnet_xmit_skb(skb);
-		qmi_rmnet_burst_fc_check(dev, skb);
 		rmnet_egress_handler(skb);
+		qmi_rmnet_burst_fc_check(dev, ip_type, mark, len);
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
@@ -111,12 +119,15 @@ static int rmnet_vnd_init(struct net_device *dev)
 static void rmnet_vnd_uninit(struct net_device *dev)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
+	void *qos;
 
 	gro_cells_destroy(&priv->gro_cells);
 	free_percpu(priv->pcpu_stats);
 
-	qmi_rmnet_qos_exit(dev);
-	priv->qos_info = NULL;
+	qos = priv->qos_info;
+	RCU_INIT_POINTER(priv->qos_info, NULL);
+	synchronize_rcu();
+	qmi_rmnet_qos_exit(dev, qos);
 }
 
 static void rmnet_get_stats64(struct net_device *dev,
@@ -150,6 +161,14 @@ static void rmnet_get_stats64(struct net_device *dev,
 	s->tx_dropped = total_stats.tx_drops;
 }
 
+static u16 rmnet_vnd_select_queue(struct net_device *dev,
+				  struct sk_buff *skb,
+				  void *accel_priv,
+				  select_queue_fallback_t fallback)
+{
+	return 0;
+}
+
 static const struct net_device_ops rmnet_vnd_ops = {
 	.ndo_start_xmit = rmnet_vnd_start_xmit,
 	.ndo_change_mtu = rmnet_vnd_change_mtu,
@@ -159,6 +178,7 @@ static const struct net_device_ops rmnet_vnd_ops = {
 	.ndo_init       = rmnet_vnd_init,
 	.ndo_uninit     = rmnet_vnd_uninit,
 	.ndo_get_stats64 = rmnet_get_stats64,
+	.ndo_select_queue = rmnet_vnd_select_queue,
 };
 
 static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {

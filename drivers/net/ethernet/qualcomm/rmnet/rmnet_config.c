@@ -496,7 +496,8 @@ EXPORT_SYMBOL(rmnet_get_qmi_pt);
 void *rmnet_get_qos_pt(struct net_device *dev)
 {
 	if (dev)
-		return ((struct rmnet_priv *)netdev_priv(dev))->qos_info;
+		return rcu_dereference(
+			((struct rmnet_priv *)netdev_priv(dev))->qos_info);
 
 	return NULL;
 }
@@ -520,14 +521,9 @@ struct net_device *rmnet_get_rmnet_dev(void *port, u8 mux_id)
 	struct rmnet_endpoint *ep;
 
 	if (port) {
-		struct net_device *dev;
-
 		ep = rmnet_get_endpoint((struct rmnet_port *)port, mux_id);
-		if (ep) {
-			dev = ep->egress_dev;
-
-			return dev;
-		}
+		if (ep)
+			return ep->egress_dev;
 	}
 
 	return NULL;
