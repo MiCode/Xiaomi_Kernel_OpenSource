@@ -5,6 +5,7 @@ Required properties :
 - compatible : shall contain only one of the following:
 			"qcom,debugcc-sdm845"
 			"qcom,debugcc-sdxpoorwills"
+			"qcom,debugcc-sdxpoorwills-v2"
 
 - clock-names: Shall contain "xo_clk_src"
 - clocks: phandle + clock reference to the CXO clock.

@@ -21,6 +21,7 @@ Required properties :
 			"qcom,gcc-sdm845-v2.1"
 			"qcom,gcc-sdm670"
 			"qcom,gcc-sdxpoorwills"
+			"qcom,gcc-sdxpoorwills-v2"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1
