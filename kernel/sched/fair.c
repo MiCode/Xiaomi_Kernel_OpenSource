@@ -8377,6 +8377,9 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 	}
 
+	/* Record that we found atleast one task that could run on dst_cpu */
+	env->flags &= ~LBF_ALL_PINNED;
+
 	if (energy_aware() && !env->dst_rq->rd->overutilized &&
 	    env->idle == CPU_NEWLY_IDLE) {
 		long util_cum_dst, util_cum_src;
@@ -8389,9 +8392,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		if (util_cum_dst > util_cum_src)
 			return 0;
 	}
-
-	/* Record that we found atleast one task that could run on dst_cpu */
-	env->flags &= ~LBF_ALL_PINNED;
 
 #ifdef CONFIG_SCHED_WALT
 	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
