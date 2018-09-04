@@ -7994,7 +7994,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 {
 	int use_fbt = sched_feat(FIND_BEST_TARGET);
 	int cpu_iter, eas_cpu_idx = EAS_CPU_NXT;
-	int energy_cpu = prev_cpu, delta = 0;
+	int delta = 0;
 	int target_cpu = -1;
 	struct energy_env *eenv;
 	struct cpumask *rtg_target = find_rtg_target(p);
@@ -8014,7 +8014,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 
 	if (sysctl_sched_sync_hint_enable && sync &&
 				bias_to_waker_cpu(p, cpu, rtg_target)) {
-		energy_cpu = cpu;
+		target_cpu = cpu;
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto out;
 	}
@@ -8079,10 +8079,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 					      boosted, prefer_idle, &fbt_env);
 
 		/* Immediately return a found idle CPU for a prefer_idle task */
-		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu)) {
-			energy_cpu = target_cpu;
+		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu))
 			goto out;
-		}
 
 		/* Place target into NEXT slot */
 		eenv->cpu[EAS_CPU_NXT].cpu_id = target_cpu;
@@ -8118,19 +8116,22 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 			cpumask_test_cpu(next_cpu, rtg_target))) ||
 		 __cpu_overutilized(prev_cpu, delta) ||
 		 !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))) {
-		energy_cpu = eenv->cpu[EAS_CPU_NXT].cpu_id;
+		target_cpu = eenv->cpu[EAS_CPU_NXT].cpu_id;
 		goto out;
 	}
 
 	/* find most energy-efficient CPU */
-	energy_cpu = select_energy_cpu_idx(eenv) < 0 ? prev_cpu :
+	target_cpu = select_energy_cpu_idx(eenv) < 0 ? prev_cpu :
 					eenv->cpu[eenv->next_idx].cpu_id;
 
 out:
-	trace_sched_task_util(p, next_cpu, backup_cpu, energy_cpu, sync,
+	if (target_cpu < 0)
+		target_cpu = prev_cpu;
+
+	trace_sched_task_util(p, next_cpu, backup_cpu, target_cpu, sync,
 			need_idle, fbt_env.fastpath, placement_boost,
 			rtg_target ? cpumask_first(rtg_target) : -1, start_t);
-	return energy_cpu;
+	return target_cpu;
 }
 
 static inline bool nohz_kick_needed(struct rq *rq, bool only_update);
