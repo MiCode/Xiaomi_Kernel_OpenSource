@@ -549,6 +549,7 @@
 	qcom,mdss-dsi-panel-status-value = <0x77>;
 	qcom,mdss-dsi-panel-on-check-value = <0x77>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-qsync-min-refresh-rate = <55>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
