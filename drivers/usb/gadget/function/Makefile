@@ -56,3 +56,7 @@ usb_f_cdev-y			:= f_cdev.o
 obj-$(CONFIG_USB_F_CDEV)	+= usb_f_cdev.o
 usb_f_ccid-y			:= f_ccid.o
 obj-$(CONFIG_USB_F_CCID)	+= usb_f_ccid.o
+usb_f_audio_source-y            := f_audio_source.o
+obj-$(CONFIG_USB_F_AUDIO_SRC)   += usb_f_audio_source.o
+usb_f_accessory-y               := f_accessory.o
+obj-$(CONFIG_USB_F_ACC)         += usb_f_accessory.o

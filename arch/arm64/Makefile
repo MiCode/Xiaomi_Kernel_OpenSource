@@ -119,7 +119,7 @@ core-$(CONFIG_EFI_STUB) += $(objtree)/drivers/firmware/efi/libstub/lib.a
 boot		:= arch/arm64/boot
 
 ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE),y)
-KBUILD_IMAGE   := $(boot)/$(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_KERNEL_IMAGE_NAME))
+KBUILD_IMAGE	:= $(boot)/$(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_KERNEL_IMAGE_NAME))
 else
 KBUILD_IMAGE	:= $(boot)/Image.gz
 endif
@@ -152,7 +152,10 @@ dtbs: prepare scripts
 dtbs_install:
 	$(Q)$(MAKE) $(dtbinst)=$(boot)/dts
 
-Image.gz-dtb: vmlinux scripts dtbs
+Image-dtb: vmlinux scripts dtbs
+	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
+
+Image.gz-dtb: vmlinux scripts dtbs Image.gz
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 
 PHONY += vdso_install
