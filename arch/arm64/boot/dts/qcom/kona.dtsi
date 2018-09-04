@@ -404,6 +404,15 @@
 		};
 	};
 
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,kona-pdc";
+		reg = <0xb220000 0x30000>;
+		qcom,pdc-ranges = <0 480 29>, <42 522 52>, <94 609 30>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmh_clocks";
