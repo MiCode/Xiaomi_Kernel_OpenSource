@@ -1653,6 +1653,7 @@
 		memory-region = <&pil_modem_mem>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
