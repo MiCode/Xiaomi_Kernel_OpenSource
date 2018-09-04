@@ -147,7 +147,7 @@ static void cam_mem_put_slot(int32_t idx)
 }
 
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
-	uint64_t *iova_ptr, size_t *len_ptr)
+	dma_addr_t *iova_ptr, size_t *len_ptr)
 {
 	int rc = 0, idx;
 

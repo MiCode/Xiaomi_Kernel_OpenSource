@@ -150,7 +150,7 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 	int rc = -EINVAL;
 	uint32_t num_in_buf, num_out_buf, i, j, plane;
 	struct cam_buf_io_cfg *io_cfg;
-	uint64_t io_addr[CAM_PACKET_MAX_PLANES];
+	dma_addr_t io_addr[CAM_PACKET_MAX_PLANES];
 	size_t size;
 
 	num_in_buf = 0;
