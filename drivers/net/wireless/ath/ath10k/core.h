@@ -769,8 +769,14 @@ struct ath10k_per_peer_tx_stats {
 	u32	reserved2;
 };
 
+enum ath10k_dev_type {
+	ATH10K_DEV_TYPE_LL,
+	ATH10K_DEV_TYPE_HL,
+};
+
 struct ath10k_bus_params {
 	u32 chip_id;
+	enum ath10k_dev_type dev_type;
 };
 
 struct ath10k {
@@ -783,6 +789,7 @@ struct ath10k {
 	enum ath10k_hw_rev hw_rev;
 	u16 dev_id;
 	u32 chip_id;
+	enum ath10k_dev_type dev_type;
 	u32 target_version;
 	u8 fw_version_major;
 	u32 fw_version_minor;
