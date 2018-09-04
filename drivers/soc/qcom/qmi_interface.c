@@ -351,8 +351,7 @@ int qmi_txn_wait(struct qmi_txn *txn, unsigned long timeout)
 	struct qmi_handle *qmi = txn->qmi;
 	int ret;
 
-	ret = wait_for_completion_interruptible_timeout(&txn->completion,
-							timeout);
+	ret = wait_for_completion_timeout(&txn->completion, timeout);
 
 	mutex_lock(&qmi->txn_lock);
 	mutex_lock(&txn->lock);
@@ -360,9 +359,7 @@ int qmi_txn_wait(struct qmi_txn *txn, unsigned long timeout)
 	mutex_unlock(&txn->lock);
 	mutex_unlock(&qmi->txn_lock);
 
-	if (ret < 0)
-		return ret;
-	else if (ret == 0)
+	if (ret == 0)
 		return -ETIMEDOUT;
 	else
 		return txn->result;
