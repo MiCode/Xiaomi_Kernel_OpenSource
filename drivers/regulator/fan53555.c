@@ -12,6 +12,7 @@
  * published by the Free Software Foundation.
  *
  */
+#include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/param.h>
 #include <linux/err.h>
@@ -105,8 +106,10 @@ struct fan53555_device_info {
 	unsigned int slew_rate;
 	/* Sleep voltage cache */
 	unsigned int sleep_vol_cache;
+	unsigned int peek_poke_address;
 	/* Disable suspend */
 	bool disable_suspend;
+	struct dentry *debug_root;
 };
 
 static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
@@ -503,6 +506,38 @@ static const struct of_device_id fan53555_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
 
+static int get_reg(void *data, u64 *val)
+{
+	struct fan53555_device_info *di = data;
+	int rc;
+	unsigned int temp = 0;
+
+	rc = regmap_read(di->regmap, di->peek_poke_address, &temp);
+	if (rc < 0)
+		dev_err(di->dev, "Couldn't read reg %x rc = %d\n",
+				di->peek_poke_address, rc);
+	else
+		*val = temp;
+
+	return rc;
+}
+
+static int set_reg(void *data, u64 val)
+{
+	struct fan53555_device_info *di = data;
+	int rc;
+	unsigned int temp = 0;
+
+	temp = (unsigned int) val;
+	rc = regmap_write(di->regmap, di->peek_poke_address, temp);
+	if (rc < 0)
+		dev_err(di->dev, "Couldn't write 0x%02x to 0x%02x rc= %d\n",
+			di->peek_poke_address, temp, rc);
+
+	return rc;
+}
+DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
+
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -591,8 +626,27 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	ret = fan53555_regulator_register(di, &config);
 	if (ret < 0)
 		dev_err(&client->dev, "Failed to register regulator!\n");
-	return ret;
 
+	di->debug_root = debugfs_create_dir("fan53555", NULL);
+	if (!di->debug_root)
+		dev_err(&client->dev, "Couldn't create debug dir\n");
+
+	if (di->debug_root) {
+		struct dentry *ent;
+
+		ent = debugfs_create_x32("address", S_IFREG | 0644,
+					  di->debug_root,
+					  &(di->peek_poke_address));
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create address debug file\n");
+
+		ent = debugfs_create_file("data", S_IFREG | 0644,
+					  di->debug_root, di,
+					  &poke_poke_debug_ops);
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create data debug file\n");
+	}
+	return ret;
 }
 
 static const struct i2c_device_id fan53555_id[] = {
