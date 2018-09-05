@@ -727,6 +727,8 @@ int drm_notifier_callback(struct notifier_block *self,
 			himax_common_resume(&ts->client->dev);
 			break;
 		case MSM_DRM_BLANK_POWERDOWN:
+			if (!ts->initialized)
+				return -ECANCELED;
 			himax_common_suspend(&ts->client->dev);
 			break;
 		}
