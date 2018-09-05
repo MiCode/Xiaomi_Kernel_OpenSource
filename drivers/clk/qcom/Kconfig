@@ -396,6 +396,15 @@ config MSM_DISPCC_SM6150
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
+config MSM_CAMCC_SDMMAGPIE
+	tristate "SDMMAGPIE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 config MSM_DISPCC_SDMMAGPIE
 	tristate "SDMMAGPIE Display Clock Controller"
 	depends on COMMON_CLK_QCOM

@@ -655,8 +655,11 @@
 	};
 
 	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+		compatible = "qcom,camcc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -681,9 +684,11 @@
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dispcc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
