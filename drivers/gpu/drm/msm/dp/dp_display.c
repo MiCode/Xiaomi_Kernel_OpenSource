@@ -98,7 +98,6 @@ struct dp_display_private {
 	struct delayed_work hdcp_cb_work;
 	struct delayed_work connect_work;
 	struct work_struct attention_work;
-	struct mutex hdcp_mutex;
 	struct mutex session_lock;
 
 	u32 active_stream_cnt;
@@ -293,7 +292,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 	}
 
 	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
-	mutex_destroy(&dp->hdcp_mutex);
 }
 
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
@@ -308,8 +306,6 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	}
 
 	parser = dp->parser;
-
-	mutex_init(&dp->hdcp_mutex);
 
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 	hdcp_init_data.drm_aux       = dp->aux->drm_aux;
@@ -857,21 +853,17 @@ static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
 	int idx;
 	struct dp_panel *dp_panel;
 
-	mutex_lock(&dp->session_lock);
-
 	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
 		if (!dp->active_panels[idx])
 			continue;
 
 		dp_panel = dp->active_panels[idx];
 
-		dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
-		dp->ctrl->stream_off(dp->ctrl, dp_panel);
-
-		mutex_lock(&dp_panel->audio->ops_lock);
-
 		if (dp_panel->audio_supported)
 			dp_panel->audio->off(dp_panel->audio);
+
+		dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
+		dp->ctrl->stream_off(dp->ctrl, dp_panel);
 	}
 
 	dp->ctrl->link_maintenance(dp->ctrl);
@@ -886,11 +878,7 @@ static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
 
 		if (dp_panel->audio_supported)
 			dp_panel->audio->on(dp_panel->audio);
-
-		mutex_unlock(&dp_panel->audio->ops_lock);
 	}
-
-	mutex_unlock(&dp->session_lock);
 }
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
@@ -1411,8 +1399,6 @@ static void dp_display_stream_post_enable(struct dp_display_private *dp,
 {
 	dp_panel->spd_config(dp_panel);
 	dp_panel->setup_hdr(dp_panel, NULL);
-
-	dp_panel->audio->register_ext_disp(dp_panel->audio);
 }
 
 static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
@@ -1436,10 +1422,8 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 		goto end;
 	}
 
-	if (atomic_read(&dp->aborted)) {
-		pr_err("aborted\n");
+	if (atomic_read(&dp->aborted))
 		goto end;
-	}
 
 	if (!dp_display_is_ready(dp) || !dp->core_initialized) {
 		pr_err("display not ready\n");
@@ -1479,7 +1463,6 @@ end:
 static int dp_display_stream_pre_disable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
-	dp_panel->audio->deregister_ext_disp(dp_panel->audio);
 	dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
 
 	return 0;
@@ -1770,13 +1753,8 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 	dp_panel = panel;
 
-	mutex_lock(&dp->session_lock);
-
 	memset(dp_mode, 0, sizeof(*dp_mode));
-
 	dp_panel->convert_to_dp_mode(dp_panel, drm_mode, dp_mode);
-
-	mutex_unlock(&dp->session_lock);
 }
 
 static int dp_display_config_hdr(struct dp_display *dp_display, void *panel,
