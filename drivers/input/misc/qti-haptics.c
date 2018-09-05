@@ -175,6 +175,7 @@ struct qti_hap_effect {
 	u8			*pattern;
 	int			pattern_length;
 	u16			play_rate_us;
+	u16			vmax_mv;
 	u8			wf_repeat_n;
 	u8			wf_s_repeat_n;
 	u8			brake[HAP_BRAKE_PATTERN_MAX];
@@ -829,10 +830,6 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 			goto disable_vdd;
 		}
 
-		level = effect->u.periodic.magnitude;
-		tmp = level * config->vmax_mv;
-		play->vmax_mv = tmp / 0x7fff;
-
 		if (copy_from_user(data, effect->u.periodic.custom_data,
 					sizeof(s16) * CUSTOM_DATA_LEN)) {
 			rc = -EFAULT;
@@ -850,6 +847,10 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 			rc = -EINVAL;
 			goto disable_vdd;
 		}
+
+		level = effect->u.periodic.magnitude;
+		tmp = level * chip->predefined[i].vmax_mv;
+		play->vmax_mv = tmp / 0x7fff;
 
 		dev_dbg(chip->dev, "upload effect %d, vmax_mv=%d\n",
 				chip->predefined[i].id, play->vmax_mv);
@@ -1252,6 +1253,15 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 					rc);
 			return rc;
 		}
+
+		effect->vmax_mv = config->vmax_mv;
+		rc = of_property_read_u32(child_node, "qcom,wf-vmax-mv", &tmp);
+		if (rc < 0)
+			dev_dbg(chip->dev, "Read qcom,wf-vmax-mv failed, rc=%d\n",
+					rc);
+		else
+			effect->vmax_mv = (tmp > HAP_VMAX_MV_MAX) ?
+				HAP_VMAX_MV_MAX : tmp;
 
 		rc = of_property_count_elems_of_size(child_node,
 				"qcom,wf-pattern", sizeof(u8));
