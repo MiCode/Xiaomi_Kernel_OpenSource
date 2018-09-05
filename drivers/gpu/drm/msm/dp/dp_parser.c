@@ -149,8 +149,16 @@ error:
 
 static int dp_parser_misc(struct dp_parser *parser)
 {
-	int rc = 0;
+	int rc = 0, len = 0, i = 0;
+	const char *data = NULL;
+
 	struct device_node *of_node = parser->pdev->dev.of_node;
+
+	data = of_get_property(of_node, "qcom,logical2physical-lane-map", &len);
+	if (data && (len == DP_MAX_PHY_LN)) {
+		for (i = 0; i < len; i++)
+			parser->l_map[i] = data[i];
+	}
 
 	rc = of_property_read_u32(of_node,
 		"qcom,max-pclk-frequency-khz", &parser->max_pclk_khz);
@@ -660,8 +668,8 @@ static int dp_parser_catalog(struct dp_parser *parser)
 
 	rc = of_property_read_u32(dev->of_node, "qcom,phy-version", &version);
 
-	if (!rc && (version == 0x420))
-		parser->hw_cfg.phy_version = DP_PHY_VERSION_4_2_0;
+	if (!rc)
+		parser->hw_cfg.phy_version = version;
 
 	return 0;
 }
