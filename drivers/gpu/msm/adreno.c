@@ -1338,6 +1338,10 @@ static int adreno_probe(struct platform_device *pdev)
 		device->mmu.va_padding = adreno_dev->gpucore->va_padding;
 	}
 
+	if (adreno_dev->gpucore->cx_ipeak_gpu_freq)
+		device->pwrctrl.cx_ipeak_gpu_freq =
+				adreno_dev->gpucore->cx_ipeak_gpu_freq;
+
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;

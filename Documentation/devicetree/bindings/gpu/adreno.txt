@@ -113,6 +113,20 @@ Optional Properties:
 - qcom,l2pc-cpu-mask-latency:
 				The CPU mask latency in microseconds to avoid L2PC
 				on masked CPUs.
+
+- qcom,gpu-cx-ipeak:
+				CX Ipeak is a mitigation scheme which throttles cDSP frequency
+				if all the clients are running at their respective threshold
+				frequencies to limit CX peak current.
+				<phandle bit>
+				phandle - phandle of CX Ipeak device node
+				bit     - Every bit corresponds to a client of CX Ipeak
+				driver in the relevant register.
+- qcom, gpu-cx-ipeak-freq:
+				GPU frequency threshold for CX Ipeak voting. GPU votes
+				to CX Ipeak driver when GPU clock crosses this threshold.
+				CX Ipeak can limit peak current based on voting from other clients.
+
 - qcom,force-32bit:
 				Force the GPU to use 32 bit data sizes even if
 				it is capable of doing 64 bit.

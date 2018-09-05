@@ -390,6 +390,7 @@ struct adreno_device_private {
  * @gpmu_tsens: ID for the temporature sensor used by the GPMU
  * @max_power: Max possible power draw of a core, units elephant tail hairs
  * @va_padding: Size to pad allocations to, zero if not required
+ * @cx_ipeak_gpu_freq : Default Cx Ipeak GPU frequency
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -421,6 +422,7 @@ struct adreno_gpu_core {
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
 	uint64_t va_padding;
+	unsigned int cx_ipeak_gpu_freq;
 };
 
 
