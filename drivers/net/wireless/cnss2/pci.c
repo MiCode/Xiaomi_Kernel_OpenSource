@@ -50,6 +50,12 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 
+#ifdef CONFIG_CNSS_EMULATION
+#define EMULATION_HW			1
+#else
+#define EMULATION_HW			0
+#endif
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 static unsigned int pci_link_down_panic;
@@ -62,6 +68,21 @@ static bool fbc_bypass;
 module_param(fbc_bypass, bool, 0600);
 MODULE_PARM_DESC(fbc_bypass,
 		 "Bypass firmware download when loading WLAN driver");
+#endif
+
+#ifdef CONFIG_CNSS2_DEBUG
+#ifdef CONFIG_CNSS_EMULATION
+static unsigned int mhi_timeout = 90000;
+#else
+static unsigned int mhi_timeout;
+#endif
+module_param(mhi_timeout, uint, 0600);
+MODULE_PARM_DESC(mhi_timeout,
+		 "Timeout for MHI operation in milliseconds");
+
+#define MHI_TIMEOUT_OVERWRITE_MS	mhi_timeout
+#else
+#define MHI_TIMEOUT_OVERWRITE_MS	0
 #endif
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
@@ -2106,6 +2127,9 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	if (fbc_bypass)
 		return 0;
 
+	if (MHI_TIMEOUT_OVERWRITE_MS)
+		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
+
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
 		goto out;
@@ -2248,6 +2272,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 			cnss_pci_disable_msi(pci_priv);
 			goto disable_bus;
 		}
+		if (EMULATION_HW)
+			break;
 		ret = cnss_suspend_pci_link(pci_priv);
 		if (ret)
 			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
