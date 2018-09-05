@@ -625,6 +625,7 @@
 #define PCI_EXT_CAP_ID_SECPCI	0x19	/* Secondary PCIe Capability */
 #define PCI_EXT_CAP_ID_PMUX	0x1A	/* Protocol Multiplexing */
 #define PCI_EXT_CAP_ID_PASID	0x1B	/* Process Address Space ID */
+#define PCI_EXT_CAP_ID_L1SS	0x1E	/* L1 PM Substates */
 #define PCI_EXT_CAP_ID_MAX	PCI_EXT_CAP_ID_PASID
 
 #define PCI_EXT_CAP_DSN_SIZEOF	12
@@ -901,4 +902,18 @@
 #define PCI_TPH_CAP_ST_SHIFT	16	/* st table shift */
 #define PCI_TPH_BASE_SIZEOF	12	/* size with no st table */
 
+/* L1 PM Substates */
+#define PCI_L1SS_CAP		    4	/* capability register */
+#define  PCI_L1SS_CAP_PCIPM_L1_2	 1	/* PCI PM L1.2 Support */
+#define  PCI_L1SS_CAP_PCIPM_L1_1	 2	/* PCI PM L1.1 Support */
+#define  PCI_L1SS_CAP_ASPM_L1_2		 4	/* ASPM L1.2 Support */
+#define  PCI_L1SS_CAP_ASPM_L1_1		 8	/* ASPM L1.1 Support */
+#define  PCI_L1SS_CAP_L1_PM_SS		16	/* L1 PM Substates Support */
+#define PCI_L1SS_CTL1		    8	/* Control Register 1 */
+#define  PCI_L1SS_CTL1_PCIPM_L1_2	1	/* PCI PM L1.2 Enable */
+#define  PCI_L1SS_CTL1_PCIPM_L1_1	2	/* PCI PM L1.1 Support */
+#define  PCI_L1SS_CTL1_ASPM_L1_2	4	/* ASPM L1.2 Support */
+#define  PCI_L1SS_CTL1_ASPM_L1_1	8	/* ASPM L1.1 Support */
+#define  PCI_L1SS_CTL1_L1SS_MASK	0x0000000F
+#define PCI_L1SS_CTL2		    0xC	/* Control Register 2 */
 #endif /* LINUX_PCI_REGS_H */
