@@ -505,8 +505,10 @@ static int load_gmu_fw(struct kgsl_device *device)
 				gmu_core_regwrite(device, tcm_addr + j,
 					fwptr[j]);
 		} else {
+			uint32_t offset = blk->addr - (uint32_t)md->gmuaddr;
+
 			/* Copy the memory directly */
-			memcpy(md->hostptr, fw, blk->size);
+			memcpy(md->hostptr + offset, fw, blk->size);
 		}
 
 		fw += blk->size;
