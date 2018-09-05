@@ -159,6 +159,7 @@ struct netns_ipv4 {
 	int sysctl_tcp_invalid_ratelimit;
 	int sysctl_tcp_pacing_ss_ratio;
 	int sysctl_tcp_pacing_ca_ratio;
+	int sysctl_tcp_default_init_rwnd;
 	int sysctl_tcp_wmem[3];
 	int sysctl_tcp_rmem[3];
 	int sysctl_tcp_comp_sack_nr;

@@ -752,7 +752,7 @@ extern void afs_put_wb_key(struct afs_wb_key *);
 extern int afs_open(struct inode *, struct file *);
 extern int afs_release(struct inode *, struct file *);
 extern int afs_fetch_data(struct afs_vnode *, struct key *, struct afs_read *);
-extern int afs_page_filler(void *, struct page *);
+extern int afs_page_filler(struct file *, struct page *);
 extern void afs_put_read(struct afs_read *);
 
 /*
