@@ -50,6 +50,8 @@
  */
 #define SDE_ENC_CTL_START_THRESHOLD_US 500
 
+#define SDE_ENC_MAX_POLL_TIMEOUT_US	2000
+
 static inline int _sde_encoder_phys_cmd_get_idle_timeout(
 		struct sde_encoder_phys_cmd *cmd_enc)
 {
@@ -420,6 +422,10 @@ static void sde_encoder_phys_cmd_cont_splash_mode_set(
 		struct sde_encoder_phys *phys_enc,
 		struct drm_display_mode *adj_mode)
 {
+	struct sde_hw_intf *hw_intf;
+	struct sde_hw_pingpong *hw_pp;
+	struct sde_encoder_phys_cmd *cmd_enc;
+
 	if (!phys_enc || !adj_mode) {
 		SDE_ERROR("invalid args\n");
 		return;
@@ -433,6 +439,21 @@ static void sde_encoder_phys_cmd_cont_splash_mode_set(
 			(phys_enc->hw_ctl == NULL),
 			(phys_enc->hw_pp == NULL));
 		return;
+	}
+
+	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
+		cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+		hw_pp = phys_enc->hw_pp;
+		hw_intf = phys_enc->hw_intf;
+
+		if (phys_enc->has_intf_te && hw_intf &&
+				hw_intf->ops.get_autorefresh) {
+			hw_intf->ops.get_autorefresh(hw_intf,
+					&cmd_enc->autorefresh.cfg);
+		} else if (hw_pp && hw_pp->ops.get_autorefresh) {
+			hw_pp->ops.get_autorefresh(hw_pp,
+					&cmd_enc->autorefresh.cfg);
+		}
 	}
 
 	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
@@ -1506,7 +1527,7 @@ static void sde_encoder_phys_cmd_prepare_commit(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
-	unsigned long lock_flags;
+	int trial = 0;
 
 	if (!phys_enc)
 		return;
@@ -1520,35 +1541,31 @@ static void sde_encoder_phys_cmd_prepare_commit(
 	if (!sde_encoder_phys_cmd_is_autorefresh_enabled(phys_enc))
 		return;
 
-	/**
-	 * Autorefresh must be disabled carefully:
-	 *  - Autorefresh must be disabled between pp_done and te
-	 *    signal prior to sdm845 targets. All targets after sdm845
-	 *    supports autorefresh disable without turning off the
-	 *    hardware TE and pp_done wait.
-	 *
-	 *  - Wait for TX to Complete
-	 *    Wait for PPDone confirms the last frame transfer is complete.
-	 *
-	 *  - Leave Autorefresh Disabled
-	 *    - Assume disable of Autorefresh since it is now safe
-	 *    - Can now safely Disable Encoder, do debug printing, etc.
-	 *     without worrying that Autorefresh will kickoff
+	/*
+	 * If autorefresh is enabled, disable it and make sure it is safe to
+	 * proceed with current frame commit/push. Sequence fallowed is,
+	 * 1. Disable TE
+	 * 2. Disable autorefresh config
+	 * 4. Poll for frame transfer ongoing to be false
+	 * 5. Enable TE back
 	 */
-
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	sde_encoder_phys_cmd_connect_te(phys_enc, false);
 
 	_sde_encoder_phys_cmd_config_autorefresh(phys_enc, 0);
 
-	/* check for outstanding TX */
-	if (_sde_encoder_phys_cmd_is_ongoing_pptx(phys_enc))
-		atomic_add_unless(&phys_enc->pending_kickoff_cnt, 1, 1);
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+	do {
+		udelay(SDE_ENC_MAX_POLL_TIMEOUT_US);
+		if ((trial * SDE_ENC_MAX_POLL_TIMEOUT_US)
+				> (KICKOFF_TIMEOUT_MS * USEC_PER_MSEC)) {
+			SDE_ERROR_CMDENC(cmd_enc,
+					"disable autorefresh failed\n");
+			break;
+		}
 
-	/* wait for ppdone if necessary due to catching ongoing TX */
-	if (_sde_encoder_phys_cmd_wait_for_idle(phys_enc))
-		SDE_ERROR_CMDENC(cmd_enc, "pp:%d kickoff timed out\n",
-				phys_enc->hw_pp->idx - PINGPONG_0);
+		trial++;
+	} while (_sde_encoder_phys_cmd_is_ongoing_pptx(phys_enc));
+
+	sde_encoder_phys_cmd_connect_te(phys_enc, true);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "disabled autorefresh\n");
 }
