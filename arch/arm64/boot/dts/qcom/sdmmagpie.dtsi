@@ -1808,6 +1808,7 @@
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc GIC_SPI 162 IRQ_TYPE_EDGE_RISING>,
@@ -1878,6 +1879,7 @@
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc GIC_SPI 578 IRQ_TYPE_EDGE_RISING>,
