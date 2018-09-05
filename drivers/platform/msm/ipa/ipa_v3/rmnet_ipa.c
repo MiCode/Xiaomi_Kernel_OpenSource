@@ -1377,8 +1377,16 @@ static int handle3_egress_format(struct net_device *dev,
 {
 	int rc;
 	struct ipa_sys_connect_params *ipa_wan_ep_cfg;
+	int ep_idx;
 
 	IPAWANDBG("get RMNET_IOCTL_SET_EGRESS_DATA_FORMAT\n");
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+	if (ep_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAWANDBG("Embedded datapath not supported\n");
+		return -EFAULT;
+	}
+
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->apps_to_ipa_ep_cfg;
 	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
@@ -1492,7 +1500,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	uint32_t  mux_id;
 	int8_t *v_name;
 	struct mutex *mux_mutex_ptr;
-	int wan_cons_ep;
+	int wan_ep;
 
 	IPAWANDBG("rmnet_ipa got ioctl number 0x%08x", cmd);
 	switch (cmd) {
@@ -1618,17 +1626,23 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		/*  Endpoint pair  */
 		case RMNET_IOCTL_GET_EP_PAIR:
 			IPAWANDBG("get ioctl: RMNET_IOCTL_GET_EP_PAIR\n");
-			wan_cons_ep =
-				ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
-			if (wan_cons_ep == IPA_EP_NOT_ALLOCATED) {
+			wan_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+			if (wan_ep == IPA_EP_NOT_ALLOCATED) {
+				IPAWANERR("Embedded datapath not supported\n");
+				rc = -EFAULT;
+				break;
+			}
+			ext_ioctl_data.u.ipa_ep_pair.producer_pipe_num =
+				wan_ep;
+
+			wan_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+			if (wan_ep == IPA_EP_NOT_ALLOCATED) {
 				IPAWANERR("Embedded datapath not supported\n");
 				rc = -EFAULT;
 				break;
 			}
 			ext_ioctl_data.u.ipa_ep_pair.consumer_pipe_num =
-			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
-			ext_ioctl_data.u.ipa_ep_pair.producer_pipe_num =
-			wan_cons_ep;
+				wan_ep;
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
 				&ext_ioctl_data,
 				sizeof(struct rmnet_ioctl_extended_s)))
