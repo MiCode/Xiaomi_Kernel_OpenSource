@@ -1389,6 +1389,7 @@ int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val)
 	rc = hdmi_ddc_read(ctrl);
 	if (rc) {
 		pr_err("DDC Read failed for %s\n", data.what);
+		ctrl->ddc_data.data_buf = NULL;
 		return rc;
 	}
 
@@ -1428,7 +1429,7 @@ int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val)
 	default:
 		break;
 	}
-
+	ctrl->ddc_data.data_buf = NULL;
 	return 0;
 }
 
@@ -1469,7 +1470,7 @@ int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val)
 		rc = hdmi_ddc_read(ctrl);
 		if (rc) {
 			pr_err("scdc read failed\n");
-			return rc;
+			goto scdc_write_fail;
 		}
 		if (data_type == HDMI_TX_SCDC_SCRAMBLING_ENABLE) {
 			data_buf[0] = ((((u8)(read_val & 0xFF)) & (~BIT(0))) |
@@ -1491,7 +1492,8 @@ int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val)
 	default:
 		pr_err("Cannot write to read only reg (%d)\n",
 			data_type);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto scdc_write_fail;
 	}
 
 	ctrl->ddc_data = data;
@@ -1499,10 +1501,10 @@ int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val)
 	rc = hdmi_ddc_write(ctrl);
 	if (rc) {
 		pr_err("DDC Read failed for %s\n", data.what);
-		return rc;
 	}
-
-	return 0;
+scdc_write_fail:
+	ctrl->ddc_data.data_buf = NULL;
+	return rc;
 }
 
 int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
