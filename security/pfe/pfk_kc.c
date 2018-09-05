@@ -407,7 +407,7 @@ static void kc_clear_entry(struct kc_entry *entry)
  */
 static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	size_t key_size, const unsigned char *salt, size_t salt_size,
-	unsigned int data_unit)
+	unsigned int data_unit, int ice_rev)
 {
 	int ret;
 
@@ -424,7 +424,7 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	kc_spin_unlock();
 
 	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
-			entry->salt, s_type, data_unit);
+			entry->salt, s_type, data_unit, ice_rev);
 
 	kc_spin_lock();
 	return ret;
@@ -490,7 +490,7 @@ int pfk_kc_deinit(void)
  */
 int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size, u32 *key_index,
-		bool async, unsigned int data_unit)
+		bool async, unsigned int data_unit, int ice_rev)
 {
 	int ret = 0;
 	struct kc_entry *entry = NULL;
@@ -556,7 +556,7 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		}
 	case (FREE):
 		ret = kc_update_entry(entry, key, key_size, salt, salt_size,
-					data_unit);
+					data_unit, ice_rev);
 		if (ret) {
 			entry->state = SCM_ERROR;
 			entry->scm_error = ret;
