@@ -35,6 +35,7 @@
 				"lut_clk", "rot_clk";
 		clock-rate = <0 0 0 256000000 19200000 192000000>;
 		clock-max-rate = <0 0 0 307000000 19200000 307000000>;
+		qcom,dss-cx-ipeak = <&cx_ipeak_lm 3>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
