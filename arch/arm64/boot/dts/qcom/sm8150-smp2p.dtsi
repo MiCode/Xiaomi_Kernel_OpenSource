@@ -100,6 +100,12 @@
 			qcom,entry-name = "sleepstate";
 			#qcom,smem-state-cells = <1>;
 		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,smp2p-cdsp@1799000c {
