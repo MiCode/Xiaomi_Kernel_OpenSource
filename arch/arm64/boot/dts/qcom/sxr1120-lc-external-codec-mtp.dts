@@ -20,5 +20,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. SXR1120 LC Groot+PM8005 Ext. Audio Codec MTP";
 	compatible = "qcom,sxr1120-mtp", "qcom,sxr1120", "qcom,mtp";
-	qcom,board-id = <8 1>;
+	qcom,board-id = <8 9>;
 };
