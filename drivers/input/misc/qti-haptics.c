@@ -10,8 +10,10 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/fs.h>
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/input.h>
@@ -24,8 +26,9 @@
 #include <linux/pwm.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/uaccess.h>
+#include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/uaccess.h>
 
 enum actutor_type {
 	ACT_LRA,
@@ -216,6 +219,7 @@ struct qti_hap_chip {
 	struct qti_hap_effect		constant;
 	struct regulator		*vdd_supply;
 	struct hrtimer			stop_timer;
+	struct dentry			*hap_debugfs;
 	spinlock_t			bus_lock;
 	ktime_t				last_sc_time;
 	int				play_irq;
@@ -1105,6 +1109,26 @@ err_out:
 	return HRTIMER_NORESTART;
 }
 
+static void verify_brake_setting(struct qti_hap_effect *effect)
+{
+	int i = effect->brake_pattern_length - 1;
+	u8 val = 0;
+
+	for (; i >= 0; i--) {
+		if (effect->brake[i] != 0)
+			break;
+
+		effect->brake_pattern_length--;
+	}
+
+	for (i = 0; i < effect->brake_pattern_length; i++) {
+		effect->brake[i] &= HAP_BRAKE_PATTERN_MASK;
+		val |= effect->brake[i] << (i * HAP_BRAKE_PATTERN_SHIFT);
+	}
+
+	effect->brake_en = (val != 0);
+}
+
 static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 {
 	struct qti_hap_config *config = &chip->config;
@@ -1113,7 +1137,6 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 	struct qti_hap_effect *effect;
 	const char *str;
 	int rc = 0, tmp, i = 0, j, m;
-	u8 val;
 
 	rc = of_property_read_u32(node, "reg", &tmp);
 	if (rc < 0) {
@@ -1353,17 +1376,7 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 		}
 
 		effect->brake_pattern_length = tmp;
-		for (j = tmp - 1; j >= 0; j--) {
-			if (effect->brake[j] != 0)
-				break;
-			effect->brake_pattern_length--;
-		}
-
-		for (val = 0, j = 0; j < effect->brake_pattern_length; j++)
-			val |= (effect->brake[j] & HAP_BRAKE_PATTERN_MASK)
-				<< j * HAP_BRAKE_PATTERN_SHIFT;
-
-		effect->brake_en = (val != 0);
+		verify_brake_setting(effect);
 	}
 
 	for (j = 0; j < i; j++) {
@@ -1390,6 +1403,390 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 
 	return 0;
 }
+
+#ifdef CONFIG_DEBUG_FS
+static int play_rate_dbgfs_read(void *data, u64 *val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	*val = effect->play_rate_us;
+
+	return 0;
+}
+
+static int play_rate_dbgfs_write(void *data, u64 val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	if (val > HAP_PLAY_RATE_US_MAX)
+		val = HAP_PLAY_RATE_US_MAX;
+
+	effect->play_rate_us = val;
+
+	return 0;
+}
+
+static int vmax_dbgfs_read(void *data, u64 *val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	*val = effect->vmax_mv;
+
+	return 0;
+}
+
+static int vmax_dbgfs_write(void *data, u64 val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	if (val > HAP_VMAX_MV_MAX)
+		val = HAP_VMAX_MV_MAX;
+
+	effect->vmax_mv = val;
+
+	return 0;
+}
+
+static int wf_repeat_n_dbgfs_read(void *data, u64 *val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	*val = wf_repeat[effect->wf_repeat_n];
+
+	return 0;
+}
+
+static int wf_repeat_n_dbgfs_write(void *data, u64 val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wf_repeat); i++)
+		if (val == wf_repeat[i])
+			break;
+
+	if (i == ARRAY_SIZE(wf_repeat))
+		pr_err("wf_repeat value %lu is invalid\n", val);
+	else
+		effect->wf_repeat_n = i;
+
+	return 0;
+}
+
+static int wf_s_repeat_n_dbgfs_read(void *data, u64 *val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	*val = wf_s_repeat[effect->wf_s_repeat_n];
+
+	return 0;
+}
+
+static int wf_s_repeat_n_dbgfs_write(void *data, u64 val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wf_s_repeat); i++)
+		if (val == wf_s_repeat[i])
+			break;
+
+	if (i == ARRAY_SIZE(wf_s_repeat))
+		pr_err("wf_s_repeat value %lu is invalid\n", val);
+	else
+		effect->wf_s_repeat_n = i;
+
+	return 0;
+}
+
+
+static int auto_res_dbgfs_read(void *data, u64 *val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	*val = !effect->lra_auto_res_disable;
+
+	return 0;
+}
+
+static int auto_res_dbgfs_write(void *data, u64 val)
+{
+	struct qti_hap_effect *effect = (struct qti_hap_effect *)data;
+
+	effect->lra_auto_res_disable = !val;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(play_rate_debugfs_ops,  play_rate_dbgfs_read,
+		play_rate_dbgfs_write, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(vmax_debugfs_ops, vmax_dbgfs_read,
+		vmax_dbgfs_write, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(wf_repeat_n_debugfs_ops,  wf_repeat_n_dbgfs_read,
+		wf_repeat_n_dbgfs_write, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(wf_s_repeat_n_debugfs_ops,  wf_s_repeat_n_dbgfs_read,
+		wf_s_repeat_n_dbgfs_write, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(auto_res_debugfs_ops,  auto_res_dbgfs_read,
+		auto_res_dbgfs_write, "%llu\n");
+
+#define CHAR_PER_PATTERN 8
+static ssize_t brake_pattern_dbgfs_read(struct file *filep,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct qti_hap_effect *effect =
+		(struct qti_hap_effect *)filep->private_data;
+	char *kbuf, *tmp;
+	int rc, length, i, len;
+
+	kbuf = kcalloc(CHAR_PER_PATTERN, HAP_BRAKE_PATTERN_MAX, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	tmp = kbuf;
+	for (length = 0, i = 0; i < HAP_BRAKE_PATTERN_MAX; i++) {
+		len = snprintf(tmp, CHAR_PER_PATTERN, "0x%x ",
+				effect->brake[i]);
+		tmp += len;
+		length += len;
+	}
+
+	kbuf[length++] = '\n';
+	kbuf[length++] = '\0';
+
+	rc = simple_read_from_buffer(buf, count, ppos, kbuf, length);
+
+	kfree(kbuf);
+	return rc;
+}
+
+static ssize_t brake_pattern_dbgfs_write(struct file *filep,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct qti_hap_effect *effect =
+		(struct qti_hap_effect *)filep->private_data;
+	char *kbuf, *token;
+	int rc = 0, i = 0, j;
+	u32 val;
+
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	rc = copy_from_user(kbuf, buf, count);
+	if (rc > 0) {
+		rc = -EFAULT;
+		goto err;
+	}
+
+	kbuf[count] = '\0';
+	*ppos += count;
+
+	while ((token = strsep(&kbuf, " ")) != NULL) {
+		rc = kstrtouint(token, 0, &val);
+		if (rc < 0) {
+			rc = -EINVAL;
+			goto err;
+		}
+
+		effect->brake[i++] = val & HAP_BRAKE_PATTERN_MASK;
+
+		if (i >= HAP_BRAKE_PATTERN_MAX)
+			break;
+	}
+
+	for (j = i; j < HAP_BRAKE_PATTERN_MAX; j++)
+		effect->brake[j] = 0;
+
+	effect->brake_pattern_length = i;
+	verify_brake_setting(effect);
+
+	rc = count;
+err:
+	kfree(kbuf);
+	return rc;
+}
+
+static const struct file_operations brake_pattern_dbgfs_ops = {
+	.read = brake_pattern_dbgfs_read,
+	.write = brake_pattern_dbgfs_write,
+	.owner = THIS_MODULE,
+	.open = simple_open,
+};
+
+static ssize_t pattern_dbgfs_read(struct file *filep,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct qti_hap_effect *effect =
+		(struct qti_hap_effect *)filep->private_data;
+	char *kbuf, *tmp;
+	int rc, length, i, len;
+
+	kbuf = kcalloc(CHAR_PER_PATTERN, effect->pattern_length, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	tmp = kbuf;
+	for (length = 0, i = 0; i < effect->pattern_length; i++) {
+		len = snprintf(tmp, CHAR_PER_PATTERN, "0x%x ",
+				effect->pattern[i]);
+		tmp += len;
+		length += len;
+	}
+
+	kbuf[length++] = '\n';
+	kbuf[length++] = '\0';
+
+	rc = simple_read_from_buffer(buf, count, ppos, kbuf, length);
+
+	kfree(kbuf);
+	return rc;
+}
+
+static ssize_t pattern_dbgfs_write(struct file *filep,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct qti_hap_effect *effect =
+		(struct qti_hap_effect *)filep->private_data;
+	char *kbuf, *token;
+	int rc = 0, i = 0, j;
+	u32 val;
+
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	rc = copy_from_user(kbuf, buf, count);
+	if (rc > 0) {
+		rc = -EFAULT;
+		goto err;
+	}
+
+	kbuf[count] = '\0';
+	*ppos += count;
+
+	while ((token = strsep(&kbuf, " ")) != NULL) {
+		rc = kstrtouint(token, 0, &val);
+		if (rc < 0) {
+			rc = -EINVAL;
+			goto err;
+		}
+
+		effect->pattern[i++] = val & 0xff;
+
+		if (i >= effect->pattern_length)
+			break;
+	}
+
+	for (j = i; j < effect->pattern_length; j++)
+		effect->pattern[j] = 0;
+
+	rc = count;
+err:
+	kfree(kbuf);
+	return rc;
+}
+
+static const struct file_operations pattern_dbgfs_ops = {
+	.read = pattern_dbgfs_read,
+	.write = pattern_dbgfs_write,
+	.owner = THIS_MODULE,
+	.open = simple_open,
+};
+
+static int create_effect_debug_files(struct qti_hap_effect *effect,
+				struct dentry *dir)
+{
+	struct dentry *file;
+
+	file = debugfs_create_file("play_rate_us", 0644, dir,
+			effect, &play_rate_debugfs_ops);
+	if (!file) {
+		pr_err("create play-rate debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("vmax_mv", 0644, dir,
+			effect, &vmax_debugfs_ops);
+	if (!file) {
+		pr_err("create vmax debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("wf_repeat_n", 0644, dir,
+			effect, &wf_repeat_n_debugfs_ops);
+	if (!file) {
+		pr_err("create wf-repeat debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("wf_s_repeat_n", 0644, dir,
+			effect, &wf_s_repeat_n_debugfs_ops);
+	if (!file) {
+		pr_err("create wf-s-repeat debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("lra_auto_res_en", 0644, dir,
+			effect, &auto_res_debugfs_ops);
+	if (!file) {
+		pr_err("create lra-auto-res-en debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("brake", 0644, dir,
+			effect, &brake_pattern_dbgfs_ops);
+	if (!file) {
+		pr_err("create brake debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("pattern", 0644, dir,
+			effect, &pattern_dbgfs_ops);
+	if (!file) {
+		pr_err("create pattern debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static int qti_haptics_add_debugfs(struct qti_hap_chip *chip)
+{
+	struct dentry *hap_dir, *effect_dir;
+	char str[12] = {0};
+	int i, rc = 0;
+
+	hap_dir = debugfs_create_dir("haptics", NULL);
+	if (!hap_dir) {
+		pr_err("create haptics debugfs directory failed\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < chip->effects_count; i++) {
+		snprintf(str, ARRAY_SIZE(str), "effect%d", i);
+		effect_dir = debugfs_create_dir(str, hap_dir);
+		if (!effect_dir) {
+			pr_err("create %s debugfs directory failed\n", str);
+			rc = -ENOMEM;
+			goto cleanup;
+		}
+
+		rc = create_effect_debug_files(&chip->predefined[i],
+				effect_dir);
+		if (rc < 0) {
+			rc = -ENOMEM;
+			goto cleanup;
+		}
+	}
+
+	chip->hap_debugfs = hap_dir;
+	return 0;
+
+cleanup:
+	debugfs_remove_recursive(hap_dir);
+	return rc;
+}
+#endif
 
 static int qti_haptics_probe(struct platform_device *pdev)
 {
@@ -1486,6 +1883,11 @@ static int qti_haptics_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(chip->dev, chip);
+#ifdef CONFIG_DEBUG_FS
+	rc = qti_haptics_add_debugfs(chip);
+	if (rc < 0)
+		dev_dbg(chip->dev, "create debugfs failed, rc=%d\n", rc);
+#endif
 	return 0;
 
 destroy_ff:
@@ -1497,6 +1899,9 @@ static int qti_haptics_remove(struct platform_device *pdev)
 {
 	struct qti_hap_chip *chip = dev_get_drvdata(&pdev->dev);
 
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove_recursive(chip->hap_debugfs);
+#endif
 	input_ff_destroy(chip->input_dev);
 	dev_set_drvdata(chip->dev, NULL);
 
