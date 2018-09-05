@@ -61,6 +61,13 @@ enum ice_crypto_data_unit {
 	ICE_CRYPTO_DATA_UNIT_64_KB          = 7,
 };
 
+enum ice_capability_index {
+	ICE_CRYPTO_MODE_XTS_128 = 0,
+	ICE_CRYPTO_MODE_CBC_128 = 1,
+	ICE_CRYPTO_MODE_XTS_256 = 3,
+	ICE_CRYPTO_MODE_CBC_256 = 4
+};
+
 typedef void (*ice_error_cb)(void *, u32 error);
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node);
