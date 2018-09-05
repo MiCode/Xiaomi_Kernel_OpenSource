@@ -1683,7 +1683,6 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
-	dp_panel->stream_id = DP_STREAM_MAX;
 	dp_panel->connector = in->connector;
 
 	if (in->base_panel) {
