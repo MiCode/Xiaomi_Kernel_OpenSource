@@ -89,7 +89,7 @@
 #define TIMESTAMP_AFTER		BIT(3)
 #define POST_CMD_DELAY		BIT(4)
 
-#define SPI_CORE2X_VOTE		(10000)
+#define SPI_CORE2X_VOTE		(7600)
 /* GSI CONFIG0 TRE Params */
 /* Flags bit fields */
 #define GSI_LOOPBACK_EN		(BIT(0))
@@ -756,9 +756,8 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
 
-	/* Adjust the AB/IB based on the max speed of the slave.*/
+	/* Adjust the IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
-	rsc->ab = max_speed * DEFAULT_BUS_WIDTH;
 	if (mas->shared_se) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
