@@ -490,6 +490,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		} else {
 			/* Clear the enable bit for the commands */
 			write_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0, 0);
+			write_tcs_reg(base, RSC_DRV_CMD_WAIT_FOR_CMPL, m, 0, 0);
 		}
 
 no_resp:
@@ -808,6 +809,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 static void __tcs_buffer_invalidate(void __iomem *base, int m)
 {
 	write_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0, 0);
+	write_tcs_reg(base, RSC_DRV_CMD_WAIT_FOR_CMPL, m, 0, 0);
 }
 
 static int tcs_mbox_invalidate(struct mbox_chan *chan)
