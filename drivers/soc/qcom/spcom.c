@@ -1965,15 +1965,21 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 		pr_err("channel %s not found\n", rpdev->id.name);
 		return;
 	}
-	/* release all ion buffers locked by the channel */
-	for (i = 0 ; i < ARRAY_SIZE(ch->dmabuf_handle_table) ; i++) {
-		if (ch->dmabuf_handle_table[i]) {
-			dma_buf_put(ch->dmabuf_handle_table[i]);
-			ch->dmabuf_handle_table[i] = NULL;
-			dev_info(&rpdev->dev, "dma_buf_put(%d)\n", i);
+
+	mutex_lock(&ch->lock);
+	// unlock all ion buffers of sp_kernel channel
+	if (strcmp(ch->name, "sp_kernel") == 0) {
+		for (i = 0; i < ARRAY_SIZE(ch->dmabuf_handle_table); i++) {
+			if (ch->dmabuf_handle_table[i] != NULL) {
+				pr_debug("unlocked ion buf #%d fd [%d].\n",
+					i, ch->dmabuf_fd_table[i]);
+				dma_buf_put(ch->dmabuf_handle_table[i]);
+				ch->dmabuf_handle_table[i] = NULL;
+				ch->dmabuf_fd_table[i] = -1;
+			}
 		}
 	}
-	mutex_lock(&ch->lock);
+
 	ch->rpdev = NULL;
 	ch->rpmsg_abort = true;
 	complete_all(&ch->rx_done);
