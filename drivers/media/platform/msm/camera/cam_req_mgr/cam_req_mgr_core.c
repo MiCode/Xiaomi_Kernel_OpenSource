@@ -1134,8 +1134,8 @@ static void __cam_req_mgr_notify_sof_freeze(
 		evt_data.link_hdl =  link->link_hdl;
 		evt_data.req_id = 0;
 		evt_data.u.error = CRM_KMD_ERR_FATAL;
-//		if (dev->ops && dev->ops->process_evt)
-//			dev->ops->process_evt(&evt_data);
+		if (dev->ops && dev->ops->process_evt)
+			dev->ops->process_evt(&evt_data);
 	}
 }
 
