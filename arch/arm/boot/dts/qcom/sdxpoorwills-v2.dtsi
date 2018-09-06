@@ -24,3 +24,11 @@
 &apps_smmu {
 	/delete-property/ qcom,no-asid-retention;
 };
+
+&clock_debug {
+	compatible = "qcom,debugcc-sdxpoorwills-v2", "syscon";
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdxpoorwills-v2", "syscon";
+};
