@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,8 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 		 * secure environment to ensure the data is actually present
 		 * in RAM
 		 */
-		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
+		dmac_flush_range(chunk_list,
+			(void *)chunk_list + chunk_list_len);
 
 		ret = secure_buffer_change_chunk(virt_to_phys(chunk_list),
 				nchunks, V2_CHUNK_SIZE, lock);
