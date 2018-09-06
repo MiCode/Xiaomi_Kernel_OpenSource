@@ -452,18 +452,8 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 				timeo);
 		if (ret < 0)
 			return ret;
-		if (!ret) {
-			waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
-			if (!waiter)
-				return -ENOMEM;
-			waiter->sk = sk;
-			sock_hold(sk);
-
-			mutex_lock(&node->qrtr_tx_lock);
-			list_add_tail(&waiter->node, &flow->waiters);
-			mutex_unlock(&node->qrtr_tx_lock);
+		if (!ret)
 			return -EAGAIN;
-		}
 
 		if (!node->ep)
 			return -EPIPE;
@@ -478,6 +468,17 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 		mutex_unlock(&node->qrtr_tx_lock);
 	}
 
+	if (confirm_rx) {
+		waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
+		if (!waiter)
+			return -ENOMEM;
+		waiter->sk = sk;
+		sock_hold(sk);
+
+		mutex_lock(&node->qrtr_tx_lock);
+		list_add_tail(&waiter->node, &flow->waiters);
+		mutex_unlock(&node->qrtr_tx_lock);
+	}
 	return confirm_rx;
 }
 
@@ -568,8 +569,10 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 		node->nid = nid;
 	up_write(&qrtr_node_lock);
 
-	snprintf(name, sizeof(name), "qrtr_%d", nid);
-	node->ilc = ipc_log_context_create(QRTR_LOG_PAGE_CNT, name, 0);
+	if (!node->ilc) {
+		snprintf(name, sizeof(name), "qrtr_%d", nid);
+		node->ilc = ipc_log_context_create(QRTR_LOG_PAGE_CNT, name, 0);
+	}
 }
 
 /**
