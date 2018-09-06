@@ -745,8 +745,26 @@ qcom,msm-imem@146bf000 {
 				  <CONTROL_TCS 0>;
 		status = "disabled";
 	};
+
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
 };
 
 #include "kona-ion.dtsi"
 #include "msm-arm-smmu-kona.dtsi"
 #include "kona-pinctrl.dtsi"
+#include "kona-smp2p.dtsi"
