@@ -53,7 +53,7 @@
 #define MAX_HW_FIFO_DEPTH 16                     /* FIFO is 16 words deep */
 #define MAX_HW_FIFO_SIZE (MAX_HW_FIFO_DEPTH * 4) /* FIFO is 32 bits wide  */
 
-#define RETRY_MAX_CNT		5	/* max retry times to read register */
+#define RETRY_MAX_CNT		20	/* max retry times to read register */
 #define RETRY_DELAY_INTERVAL	440	/* retry delay interval in us */
 
 struct msm_rng_device {
