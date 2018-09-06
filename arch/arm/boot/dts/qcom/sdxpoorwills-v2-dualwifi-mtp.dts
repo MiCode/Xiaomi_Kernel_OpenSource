@@ -1,0 +1,35 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdxpoorwills-dualwifi-mtp.dtsi"
+#include "sdxpoorwills-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPOORWILLS V2 DUALWIFI MTP";
+	compatible = "qcom,sdxpoorwills-mtp",
+		"qcom,sdxpoorwills", "qcom,mtp";
+	qcom,board-id = <8 0x104>;
+};
+
+&cnss_pcie {
+	qcom,is-dual-wifi-enabled;
+};
+
+&cnss_sdio {
+	status = "okay";
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
