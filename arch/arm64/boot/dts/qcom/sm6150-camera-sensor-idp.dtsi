@@ -256,7 +256,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		led-flash-src = <&led_flash_rear>;
-		/* actuator-src = <&actuator_rear>; */
+		actuator-src = <&actuator_rear>;
 		ois-src = <&ois_rear>;
 		eeprom-src = <&eeprom_rear>;
 		cam_vio-supply = <&pm6150_l13>;
@@ -342,7 +342,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;
-		/* actuator-src = <&actuator_front>; */
+		actuator-src = <&actuator_front>;
 		led-flash-src = <&led_flash_front>;
 		cam_vio-supply = <&pm6150_l13>;
 		cam_vana-supply = <&camera_vana1_2_ldo>;
