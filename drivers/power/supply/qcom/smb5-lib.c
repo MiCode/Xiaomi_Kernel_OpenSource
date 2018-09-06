@@ -4080,8 +4080,7 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 		goto out;
 	}
 
-	/* liquid presence detected, to check further */
-	if ((stat & TYPEC_WATER_DETECTION_STATUS_BIT)
+	if (!(stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)
 			&& chg->lpd_stage == LPD_STAGE_NONE) {
 		chg->lpd_stage = LPD_STAGE_FLOAT;
 		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
@@ -4141,7 +4140,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	if (stat & TYPEC_ATTACH_DETACH_STATE_BIT) {
-		chg->lpd_stage = LPD_STAGE_ATTACHED;
+		chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
 		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
 		vote(chg->awake_votable, LPD_VOTER, false, 0);
 
@@ -4180,8 +4179,8 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			chg->early_usb_attach = false;
 		}
 
-		chg->lpd_stage = LPD_STAGE_DETACHED;
-		schedule_delayed_work(&chg->lpd_detach_work,
+		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
+			schedule_delayed_work(&chg->lpd_detach_work,
 					msecs_to_jiffies(100));
 	}
 
@@ -4677,8 +4676,9 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 		goto out;
 	}
 
-	/* double check water detection status bit */
-	if (!(stat & TYPEC_WATER_DETECTION_STATUS_BIT)) {
+	/* quit if moisture status is gone or in attached state */
+	if (!(stat & TYPEC_WATER_DETECTION_STATUS_BIT)
+			|| (stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)) {
 		chg->lpd_stage = LPD_STAGE_NONE;
 		goto out;
 	}
@@ -4750,7 +4750,7 @@ static void smblib_lpd_detach_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 							lpd_detach_work.work);
 
-	if (chg->lpd_stage == LPD_STAGE_DETACHED)
+	if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
 		chg->lpd_stage = LPD_STAGE_NONE;
 }
 

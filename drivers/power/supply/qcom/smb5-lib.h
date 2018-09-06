@@ -204,11 +204,15 @@ enum lpd_reason {
 	LPD_FLOATING_CABLE,
 };
 
+/* Following states are applicable only for floating cable during LPD */
 enum lpd_stage {
+	/* initial stage */
 	LPD_STAGE_NONE,
+	/* started and ongoing */
 	LPD_STAGE_FLOAT,
-	LPD_STAGE_ATTACHED,
-	LPD_STAGE_DETACHED,
+	/* cancel if started,  or don't start */
+	LPD_STAGE_FLOAT_CANCEL,
+	/* confirmed and mitigation measures taken for 60 s */
 	LPD_STAGE_COMMIT,
 };
 
