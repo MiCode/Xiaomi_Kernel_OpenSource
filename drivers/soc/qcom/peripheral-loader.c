@@ -73,6 +73,9 @@ static int proxy_timeout_ms = -1;
 module_param(proxy_timeout_ms, int, 0644);
 
 static bool disable_timeouts;
+
+static struct workqueue_struct *pil_wq;
+
 /**
  * struct pil_mdt - Representation of <name>.mdt file in memory
  * @hdr: ELF32 header
@@ -896,20 +899,19 @@ struct pil_seg_data {
 	int seg_id;
 	struct pil_desc *desc;
 	struct pil_seg *seg;
-	struct completion load_done;
+	struct work_struct load_seg_work;
 	int retval;
 };
 
-static int pil_load_seg_thread_fn(void *data)
+static void pil_load_seg_work_fn(struct work_struct *work)
 {
-	struct pil_seg_data *pil_seg_data = data;
+	struct pil_seg_data *pil_seg_data = container_of(work,
+							struct pil_seg_data,
+							load_seg_work);
 	struct pil_desc *desc = pil_seg_data->desc;
 	struct pil_seg *seg = pil_seg_data->seg;
 
 	pil_seg_data->retval = pil_load_seg(desc, seg);
-	complete(&pil_seg_data->load_done);
-
-	return 0;
 }
 
 static int pil_load_segs(struct pil_desc *desc)
@@ -918,7 +920,6 @@ static int pil_load_segs(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg_data *pil_seg_data;
 	struct pil_seg *seg;
-	struct task_struct *task_load_seg;
 	DECLARE_BITMAP(err_map, priv->num_segs);
 
 	pil_seg_data = kcalloc(priv->num_segs, sizeof(*pil_seg_data),
@@ -931,23 +932,10 @@ static int pil_load_segs(struct pil_desc *desc)
 		pil_seg_data[seg_id].seg_id = seg_id;
 		pil_seg_data[seg_id].desc = desc;
 		pil_seg_data[seg_id].seg = seg;
-		init_completion(&pil_seg_data[seg_id].load_done);
-		task_load_seg = kthread_run(pil_load_seg_thread_fn,
-						&pil_seg_data[seg_id],
-						"%s-%d", desc->name, seg_id);
-		/*
-		 * For error handling, do not block/kill other threads. Just
-		 * set the error return code for this thread and call its
-		 * completion. Errors can be handled while the threads are being
-		 * collected.
-		 */
-		if (IS_ERR(task_load_seg)) {
-			pil_seg_data[seg_id].retval = PTR_ERR(task_load_seg);
-			complete(&pil_seg_data[seg_id].load_done);
-			pil_err(desc,
-			"Failed to spawn the thread for seg_id: %d, rc: %d\n",
-			seg_id, pil_seg_data[seg_id].retval);
-		}
+
+		INIT_WORK(&pil_seg_data[seg_id].load_seg_work,
+				pil_load_seg_work_fn);
+		queue_work(pil_wq, &pil_seg_data[seg_id].load_seg_work);
 
 		seg_id++;
 	}
@@ -957,9 +945,7 @@ static int pil_load_segs(struct pil_desc *desc)
 	/* Wait for the parallel loads to finish */
 	seg_id = 0;
 	list_for_each_entry(seg, &desc->priv->segs, list) {
-		if (wait_for_completion_interruptible(
-					&pil_seg_data[seg_id].load_done))
-			pil_seg_data[seg_id].retval = -ERESTARTSYS;
+		flush_work(&pil_seg_data[seg_id].load_seg_work);
 
 		/* Don't exit if one of the thread fails. Wait for others to
 		 * complete. Bitmap the return codes we get from the threads.
@@ -993,6 +979,7 @@ int pil_boot(struct pil_desc *desc)
 {
 	int ret;
 	char fw_name[30];
+	struct pil_seg *seg;
 	const struct pil_mdt *mdt;
 	const struct elf32_hdr *ehdr;
 	const struct firmware *fw;
@@ -1103,9 +1090,21 @@ int pil_boot(struct pil_desc *desc)
 
 	trace_pil_event("before_load_seg", desc);
 
-	ret = pil_load_segs(desc);
-	if (ret)
-		goto err_deinit_image;
+	/**
+	 * Fallback to serial loading of blobs if the
+	 * workqueue creatation failed during module init.
+	 */
+	if (pil_wq) {
+		ret = pil_load_segs(desc);
+		if (ret)
+			goto err_deinit_image;
+	} else {
+		list_for_each_entry(seg, &desc->priv->segs, list) {
+			ret = pil_load_seg(desc, seg);
+			if (ret)
+				goto err_deinit_image;
+		}
+	}
 
 	if (desc->subsys_vmid > 0) {
 		trace_pil_event("before_reclaim_mem", desc);
@@ -1393,6 +1392,11 @@ static int __init msm_pil_init(void)
 		pr_err("SMEM is not initialized.\n");
 		return -EPROBE_DEFER;
 	}
+
+	pil_wq = alloc_workqueue("pil_workqueue", WQ_HIGHPRI | WQ_UNBOUND, 0);
+	if (!pil_wq)
+		pr_warn("pil: Defaulting to sequential firmware loading.\n");
+
 out:
 	return register_pm_notifier(&pil_pm_notifier);
 }
@@ -1400,6 +1404,8 @@ subsys_initcall(msm_pil_init);
 
 static void __exit msm_pil_exit(void)
 {
+	if (pil_wq)
+		destroy_workqueue(pil_wq);
 	unregister_pm_notifier(&pil_pm_notifier);
 	if (pil_info_base)
 		iounmap(pil_info_base);
