@@ -60,6 +60,28 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 	.fifo_size =            0,
 };
 
+static int is_valid_session_id(uint32_t session_id)
+{
+	int idx = 0;
+
+	switch (session_id) {
+	case VOICE_SESSION_VSID:
+	case VOICE2_SESSION_VSID:
+	case VOLTE_SESSION_VSID:
+	case QCHAT_SESSION_VSID:
+	case VOWLAN_SESSION_VSID:
+	case VOICEMMODE1_VSID:
+	case VOICEMMODE2_VSID:
+	case ALL_SESSION_VSID:
+		idx = 1;
+		break;
+	default:
+		pr_debug("%s: Invalid session_id : %x\n", __func__, session_id);
+		break;
+	}
+	return idx;
+}
+
 static int get_idx_for_session(uint32_t session_id)
 {
 	int idx = 0;
@@ -683,6 +705,11 @@ static int msm_dtmf_detect_rx_vsid_cb_put(struct snd_kcontrol *kcontrol,
 	struct msm_voice *dtmf_voice_info = NULL;
 	uint32_t session_id = ucontrol->value.integer.value[0];
 	uint32_t enable = ucontrol->value.integer.value[1];
+
+	if (!is_valid_session_id(session_id)) {
+		pr_err(" %s Invalid session_id : %x\n", __func__, session_id);
+		return -EINVAL;
+	}
 
 	if (enable)
 		enable = 1;
