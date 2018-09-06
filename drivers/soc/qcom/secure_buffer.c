@@ -56,7 +56,7 @@ struct dest_vm_and_perm_info {
 };
 
 static void *qcom_secure_mem;
-#define QCOM_SECURE_MEM_SIZE (512*1024)
+#define QCOM_SECURE_MEM_SIZE (2048*1024)
 
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,

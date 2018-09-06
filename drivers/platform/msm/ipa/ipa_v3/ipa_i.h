@@ -2325,6 +2325,7 @@ void ipa3_proxy_clk_unvote(void);
 bool ipa3_is_client_handle_valid(u32 clnt_hdl);
 
 enum ipa_client_type ipa3_get_client_mapping(int pipe_idx);
+enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx);
 
 void ipa_init_ep_flt_bitmap(void);
 

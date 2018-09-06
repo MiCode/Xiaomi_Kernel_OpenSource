@@ -756,6 +756,7 @@ static struct {
 	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
 			"qcom,gpu-quirk-limit-uche-gbif-rw" },
 	{ ADRENO_QUIRK_MMU_SECURE_CB_ALT, "qcom,gpu-quirk-mmu-secure-cb-alt" },
+	{ ADRENO_QUIRK_CX_GDSC, "qcom,gpu-quirk-cx-gdsc" },
 };
 
 static struct device_node *
@@ -965,6 +966,10 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		if (of_property_read_u32(child, "qcom,bus-max",
 			&level->bus_max))
 			level->bus_max = level->bus_freq;
+
+		if (of_property_read_u32(child, "qcom,dvm-val",
+				&level->acd_dvm_val))
+			level->acd_dvm_val = 0xFFFFFFFF;
 	}
 
 	return 0;

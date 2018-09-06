@@ -24,6 +24,7 @@
 #define DEFAULT_FRAME_QUALITY 80
 #define FRAME_QUALITY_STEP 1
 #define HEIC_GRID_DIMENSION 512
+#define CBR_MB_LIMIT                           (1280*720/256*30)
 
 struct vb2_buf_entry {
 	struct list_head list;
@@ -213,7 +214,7 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
-		struct vb2_buffer *vb);
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,

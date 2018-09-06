@@ -71,6 +71,7 @@ struct rmnet_port {
 	/* dl marker elements */
 	struct list_head dl_list;
 	struct rmnet_port_priv_stats stats;
+	int dl_marker_flush;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;

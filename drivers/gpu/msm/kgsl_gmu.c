@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
 #include <linux/interrupt.h>
@@ -25,6 +26,13 @@
 #include "kgsl_gmu.h"
 #include "kgsl_hfi.h"
 #include "adreno.h"
+
+#undef MODULE_PARAM_PREFIX
+#define MODULE_PARAM_PREFIX "kgsl."
+
+static bool noacd;
+module_param(noacd, bool, 0444);
+MODULE_PARM_DESC(noacd, "Disable GPU ACD");
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
@@ -1172,6 +1180,103 @@ static int gmu_irq_probe(struct kgsl_device *device, struct gmu_device *gmu)
 	return ret;
 }
 
+struct mbox_message {
+	uint32_t len;
+	void *msg;
+};
+
+static void gmu_aop_send_acd_state(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct mbox_message msg;
+	char msg_buf[33];
+	bool state = test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	int ret;
+
+	if (!gmu->mailbox.client)
+		return;
+
+	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
+			"{class: gpu, res: acd, value: %d}", state);
+	msg.msg = msg_buf;
+
+	ret = mbox_send_message(gmu->mailbox.channel, &msg);
+	if (ret < 0)
+		dev_err(&gmu->pdev->dev,
+				"AOP mbox send message failed: %d\n", ret);
+}
+
+static void gmu_aop_mailbox_destroy(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_mailbox *mailbox = &gmu->mailbox;
+
+	if (!mailbox->client)
+		return;
+
+	mbox_free_channel(mailbox->channel);
+	mailbox->channel = NULL;
+
+	kfree(mailbox->client);
+	mailbox->client = NULL;
+
+	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
+static int gmu_aop_mailbox_init(struct kgsl_device *device,
+		struct gmu_device *gmu)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_mailbox *mailbox = &gmu->mailbox;
+
+	mailbox->client = kzalloc(sizeof(*mailbox->client), GFP_KERNEL);
+	if (!mailbox->client)
+		return -ENOMEM;
+
+	mailbox->client->dev = &gmu->pdev->dev;
+	mailbox->client->tx_block = true;
+	mailbox->client->tx_tout = 1000;
+	mailbox->client->knows_txdone = false;
+
+	mailbox->channel = mbox_request_channel(mailbox->client, 0);
+	if (IS_ERR(mailbox->channel)) {
+		kfree(mailbox->client);
+		mailbox->client = NULL;
+		return PTR_ERR(mailbox->channel);
+	}
+
+	set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	return 0;
+}
+
+static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	if (!gmu->mailbox.client)
+		return -EINVAL;
+
+	/* Don't do any unneeded work if ACD is already in the correct state */
+	if (val == test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
+		return 0;
+
+	mutex_lock(&device->mutex);
+
+	/* Power down the GPU before enabling or disabling ACD */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (val)
+		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	else
+		clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+	return 0;
+}
+
 /* Do not access any GMU registers in GMU probe function */
 static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 {
@@ -1246,6 +1351,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		int j = gmu->num_gpupwrlevels - 1 - i;
 
 		gmu->gpu_freqs[i] = pwr->pwrlevels[j].gpu_freq;
+		gmu->acd_dvm_vals[i] = pwr->pwrlevels[j].acd_dvm_val;
 	}
 
 	/* Initializes GPU b/w levels configuration */
@@ -1276,6 +1382,13 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		gmu->idle_level = GPU_HW_SPTP_PC;
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_ACD) && !noacd) {
+		ret = gmu_aop_mailbox_init(device, gmu);
+		if (ret)
+			dev_err(&gmu->pdev->dev,
+					"AOP mailbox init failed: %d\n", ret);
+	}
 
 	/* disable LM during boot time */
 	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
@@ -1407,7 +1520,15 @@ static int gmu_suspend(struct kgsl_device *device)
 		return -EINVAL;
 
 	gmu_disable_clks(device);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
+
 	gmu_disable_gdsc(gmu);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
+		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
+
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
 	return 0;
 }
@@ -1456,6 +1577,9 @@ static int gmu_start(struct kgsl_device *device)
 	case KGSL_STATE_INIT:
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
+
+		gmu_aop_send_acd_state(device);
+
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
@@ -1483,6 +1607,9 @@ static int gmu_start(struct kgsl_device *device)
 
 	case KGSL_STATE_SLUMBER:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
+
+		gmu_aop_send_acd_state(device);
+
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
@@ -1503,6 +1630,9 @@ static int gmu_start(struct kgsl_device *device)
 		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
 			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			gmu_suspend(device);
+
+			gmu_aop_send_acd_state(device);
+
 			gmu_enable_gdsc(gmu);
 			gmu_enable_clks(device);
 			gmu_dev_ops->irq_enable(device);
@@ -1522,6 +1652,8 @@ static int gmu_start(struct kgsl_device *device)
 		} else {
 			/* GMU fast boot */
 			hfi_stop(gmu);
+
+			gmu_aop_send_acd_state(device);
 
 			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
 					GMU_FW_START, GMU_COLD_BOOT, 0);
@@ -1608,6 +1740,8 @@ static void gmu_remove(struct kgsl_device *device)
 
 	gmu_stop(device);
 
+	gmu_aop_mailbox_destroy(device);
+
 	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
 		gmu->clks[i] = NULL;
 		i++;
@@ -1681,4 +1815,5 @@ struct gmu_core_ops gmu_ops = {
 	.snapshot = gmu_snapshot,
 	.regulator_isenabled = gmu_regulator_isenabled,
 	.suspend = gmu_suspend,
+	.acd_set = gmu_acd_set,
 };

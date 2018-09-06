@@ -780,7 +780,7 @@ release_mapping:
 static int msm_11ad_ssr_shutdown(const struct subsys_desc *subsys,
 				 bool force_stop)
 {
-	pr_info("%s(%p,%d)\n", __func__, subsys, force_stop);
+	pr_info("%s(%pK,%d)\n", __func__, subsys, force_stop);
 	/* nothing is done in shutdown. We do full recovery in powerup */
 	return 0;
 }
@@ -791,7 +791,7 @@ static int msm_11ad_ssr_powerup(const struct subsys_desc *subsys)
 	struct platform_device *pdev;
 	struct msm11ad_ctx *ctx;
 
-	pr_info("%s(%p)\n", __func__, subsys);
+	pr_info("%s(%pK)\n", __func__, subsys);
 
 	pdev = to_platform_device(subsys->dev);
 	ctx = platform_get_drvdata(pdev);
@@ -1185,12 +1185,12 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	msm_11ad_init_cpu_boost(ctx);
 
 	/* report */
-	dev_info(ctx->dev, "msm_11ad discovered. %p {\n"
+	dev_info(ctx->dev, "msm_11ad discovered. %pK {\n"
 		 "  gpio_en = %d\n"
 		 "  sleep_clk_en = %d\n"
 		 "  rc_index = %d\n"
 		 "  use_smmu = %d\n"
-		 "  pcidev = %p\n"
+		 "  pcidev = %pK\n"
 		 "}\n", ctx, ctx->gpio_en, ctx->sleep_clk_en, ctx->rc_index,
 		 ctx->use_smmu, ctx->pcidev);
 
@@ -1227,7 +1227,7 @@ static int msm_11ad_remove(struct platform_device *pdev)
 
 	msm_11ad_ssr_deinit(ctx);
 	list_del(&ctx->list);
-	dev_info(ctx->dev, "%s: pdev %p pcidev %p\n", __func__, pdev,
+	dev_info(ctx->dev, "%s: pdev %pK pcidev %pK\n", __func__, pdev,
 		 ctx->pcidev);
 	kfree(ctx->pristine_state);
 
@@ -1490,7 +1490,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	struct msm11ad_ctx *ctx = pcidev2ctx(pcidev);
 
 	if (!ctx) {
-		pr_err("Context not found for pcidev %p\n", pcidev);
+		pr_err("Context not found for pcidev %pK\n", pcidev);
 		return NULL;
 	}
 

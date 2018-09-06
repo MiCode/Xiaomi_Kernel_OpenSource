@@ -14,7 +14,9 @@
 /plugin/;
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
 
+#include "sm6150-audio-overlay.dtsi"
 #include "sm6150-qrd.dtsi"
 
 / {
@@ -25,4 +27,35 @@
 
 &dsi_hx83112a_truly_vid_display {
 	qcom,dsi-display-active;
+};
+
+&sm6150_snd {
+	qcom,model = "sm6150-qrd-snd-card";
+	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
+		"TX_AIF1 CAP", "VA_MCLK",
+		"TX_AIF2 CAP", "VA_MCLK",
+		"RX AIF1 PB", "VA_MCLK",
+		"RX AIF2 PB", "VA_MCLK",
+		"RX AIF3 PB", "VA_MCLK",
+		"RX AIF4 PB", "VA_MCLK",
+		"HPHL_OUT", "VA_MCLK",
+		"HPHR_OUT", "VA_MCLK",
+		"AUX_OUT", "VA_MCLK",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"TX SWR_ADC0", "ADC1_OUTPUT",
+		"TX SWR_ADC2", "ADC2_OUTPUT",
+		"TX SWR_ADC3", "ADC3_OUTPUT",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"WSA_SPK1 OUT", "VA_MCLK";
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };

@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
 &soc {
 	tlmm: pinctrl@03000000 {
 		compatible = "qcom,sm6150-pinctrl";
@@ -1251,6 +1253,17 @@
 			power-source = <0>;
 			bias-disable;
 			output-low;
+		};
+	};
+
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			pins = "gpio3";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <0>;
 		};
 	};
 };

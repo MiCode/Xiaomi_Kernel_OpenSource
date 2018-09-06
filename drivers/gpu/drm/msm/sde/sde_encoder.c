@@ -308,14 +308,17 @@ static void _sde_encoder_pm_qos_add_request(struct drm_encoder *drm_enc)
 	if (!cpu_mask)
 		return;
 
-	req = &sde_kms->pm_qos_cpu_req;
-	req->type = PM_QOS_REQ_AFFINE_CORES;
-	cpumask_empty(&req->cpus_affine);
-	for_each_possible_cpu(cpu) {
-		if ((1 << cpu) & cpu_mask)
-			cpumask_set_cpu(cpu, &req->cpus_affine);
+	if (atomic_inc_return(&sde_kms->pm_qos_counts) == 1) {
+		req = &sde_kms->pm_qos_cpu_req;
+		req->type = PM_QOS_REQ_AFFINE_CORES;
+		cpumask_empty(&req->cpus_affine);
+		for_each_possible_cpu(cpu) {
+			if ((1 << cpu) & cpu_mask)
+				cpumask_set_cpu(cpu, &req->cpus_affine);
+		}
+		pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY,
+							cpu_dma_latency);
 	}
-	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
 
 	SDE_EVT32_VERBOSE(DRMID(drm_enc), cpu_mask, cpu_dma_latency);
 }
@@ -340,7 +343,9 @@ static void _sde_encoder_pm_qos_remove_request(struct drm_encoder *drm_enc)
 	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
 		return;
 
-	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
+	atomic_add_unless(&sde_kms->pm_qos_counts, -1, 0);
+	if (atomic_read(&sde_kms->pm_qos_counts) == 0)
+		pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
 }
 
 static struct drm_connector_state *_sde_encoder_get_conn_state(
@@ -3015,7 +3020,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			"input handler registration failed, rc = %d\n", ret);
 	}
 
-	if (!msm_is_mode_seamless_vrr(cur_mode))
+	if (!(msm_is_mode_seamless_vrr(cur_mode)
+			|| msm_is_mode_seamless_dms(cur_mode)))
 		kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 
@@ -3287,6 +3293,12 @@ static void sde_encoder_frame_done_callback(
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
+
+	if (!drm_enc || !sde_enc->cur_master) {
+		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
+				drm_enc, drm_enc ? sde_enc->cur_master : 0);
+		return;
+	}
 
 	sde_enc->crtc_frame_event_cb_data.connector =
 				sde_enc->cur_master->connector;

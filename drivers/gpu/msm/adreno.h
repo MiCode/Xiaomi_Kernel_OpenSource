@@ -123,6 +123,11 @@
 #define ADRENO_MIN_VOLT BIT(15)
 /* The core supports IO-coherent memory */
 #define ADRENO_IOCOHERENT BIT(16)
+/*
+ * The GMU supports Adaptive Clock Distribution (ACD)
+ * for droop mitigation
+ */
+#define ADRENO_ACD BIT(17)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -152,6 +157,8 @@
 #define ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW BIT(8)
 /* Select alternate secure context bank for mmu */
 #define ADRENO_QUIRK_MMU_SECURE_CB_ALT BIT(9)
+/* Do explicit mode control of cx gdsc */
+#define ADRENO_QUIRK_CX_GDSC BIT(10)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -233,6 +240,7 @@ enum adreno_gpurev {
 #define ADRENO_LM_CTRL      2
 #define ADRENO_HWCG_CTRL    3
 #define ADRENO_THROTTLING_CTRL 4
+#define ADRENO_ACD_CTRL 5
 
 /* VBIF,  GBIF halt request and ack mask */
 #define GBIF_HALT_REQUEST       0x1E0

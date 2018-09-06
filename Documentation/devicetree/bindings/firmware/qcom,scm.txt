@@ -12,6 +12,8 @@ Required properties:
  * "qcom,scm-msm8690" for MSM8690 platforms
  * "qcom,scm-msm8996" for MSM8996 platforms
  * "qcom,scm" for later processors (MSM8916, APQ8084, MSM8974, etc)
+ * "android,firmware" for firmware image
+ * "android,vbmeta" for setting system properties for verified boot.
 - clocks: One to three clocks may be required based on compatible.
  * No clock required for "qcom,scm-msm8996"
  * Only core clock required for "qcom,scm-apq8064", "qcom,scm-msm8660", and "qcom,scm-msm8960"
@@ -26,5 +28,28 @@ Example for MSM8916:
 			compatible = "qcom,scm";
 			clocks = <&gcc GCC_CRYPTO_CLK> , <&gcc GCC_CRYPTO_AXI_CLK>, <&gcc GCC_CRYPTO_AHB_CLK>;
 			clock-names = "core", "bus", "iface";
+		};
+	};
+
+Example for SM6150:
+
+firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo";
+			};
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect,avb";
+					status = "ok";
+				};
+			};
 		};
 	};

@@ -176,6 +176,7 @@ struct fg_dt_props {
 	bool	force_load_profile;
 	bool	hold_soc_while_full;
 	bool	linearize_soc;
+	bool	rapid_soc_dec_en;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -215,9 +216,13 @@ struct fg_gen4_chip {
 	struct cap_learning	*cl;
 	struct ttf		*ttf;
 	struct votable		*delta_esr_irq_en_votable;
+	struct votable		*pl_disable_votable;
+	struct votable		*cp_disable_votable;
 	struct work_struct	esr_calib_work;
 	struct alarm		esr_fast_cal_timer;
+	struct delayed_work	pl_enable_work;
 	char			batt_profile[PROFILE_LEN];
+	enum slope_limit_status	slope_limit_sts;
 	int			delta_esr_count;
 	int			recharge_soc_thr;
 	int			esr_actual;
@@ -228,7 +233,9 @@ struct fg_gen4_chip {
 	bool			esr_fast_calib;
 	bool			esr_fast_calib_done;
 	bool			esr_fast_cal_timer_expired;
+	bool			esr_fcc_ctrl_en;
 	bool			rslow_low;
+	bool			rapid_soc_dec_en;
 };
 
 struct bias_config {
@@ -1071,6 +1078,93 @@ static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 	return 0;
 }
 
+static int fg_gen4_slope_limit_config(struct fg_gen4_chip *chip, int batt_temp)
+{
+	struct fg_dev *fg = &chip->fg;
+	enum slope_limit_status status;
+	int rc;
+	u8 buf;
+
+	if (!chip->slope_limit_en || chip->rapid_soc_dec_en)
+		return 0;
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING ||
+		fg->charge_status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	}
+
+	if (chip->slope_limit_sts == status)
+		return 0;
+
+	fg_encode(fg->sp, FG_SRAM_SLOPE_LIMIT,
+		chip->dt.slope_limit_coeffs[status], &buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	chip->slope_limit_sts = status;
+	fg_dbg(fg, FG_STATUS, "Slope limit status: %d value: %x\n", status,
+		buf);
+	return 0;
+}
+
+static int fg_gen4_configure_cutoff_current(struct fg_dev *fg, int current_ma)
+{
+	int rc;
+	u8 buf[2];
+
+	fg_encode(fg->sp, FG_SRAM_CUTOFF_CURR, current_ma, buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_CURR].addr_word,
+			fg->sp[FG_SRAM_CUTOFF_CURR].addr_byte, buf,
+			fg->sp[FG_SRAM_CUTOFF_CURR].len, FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("Error in writing cutoff_curr, rc=%d\n", rc);
+
+	return rc;
+}
+
+#define SLOPE_LIMIT_DEFAULT	5738
+#define CUTOFF_CURRENT_MAX	15999
+static int fg_gen4_rapid_soc_config(struct fg_gen4_chip *chip, bool en)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, slope_limit_coeff, cutoff_curr_ma;
+	u8 buf;
+
+	slope_limit_coeff = en ? SLOPE_LIMIT_COEFF_MAX : SLOPE_LIMIT_DEFAULT;
+	fg_encode(fg->sp, FG_SRAM_SLOPE_LIMIT, slope_limit_coeff, &buf);
+	rc = fg_sram_write(fg, fg->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			fg->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	cutoff_curr_ma = en ? CUTOFF_CURRENT_MAX : chip->dt.cutoff_curr_ma;
+	rc = fg_gen4_configure_cutoff_current(fg, cutoff_curr_ma);
+	if (rc < 0)
+		return rc;
+
+	fg_dbg(fg, FG_STATUS, "Configured slope limit coeff %d cutoff current %d mA\n",
+		slope_limit_coeff, cutoff_curr_ma);
+	return 0;
+}
+
 static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 {
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
@@ -1598,10 +1692,12 @@ done:
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
 
-	schedule_delayed_work(&chip->ttf->ttf_work, 10000);
+	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
 	fg->soc_reporting_ready = true;
+	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
+	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(fg->awake_votable, PROFILE_LOAD, false, 0);
 	if (!work_pending(&fg->status_change_work)) {
 		pm_stay_awake(fg->dev);
@@ -1974,6 +2070,87 @@ out:
 	return rc;
 }
 
+static int fg_gen4_esr_fcc_config(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	union power_supply_propval prop = {0, };
+	int rc;
+	bool parallel_en = false, cp_en = false, qnovo_en, esr_fcc_ctrl_en;
+	u8 val, mask;
+
+	if (is_parallel_charger_available(fg)) {
+		rc = power_supply_get_property(fg->parallel_psy,
+			POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
+		if (rc < 0)
+			pr_err_ratelimited("Error in reading charging_enabled from parallel_psy, rc=%d\n",
+				rc);
+		else
+			parallel_en = prop.intval;
+	}
+
+	if (usb_psy_initialized(fg)) {
+		rc = power_supply_get_property(fg->usb_psy,
+			POWER_SUPPLY_PROP_SMB_EN_MODE, &prop);
+		if (rc < 0) {
+			pr_err("Couldn't read usb SMB_EN_MODE rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * If SMB_EN_MODE is 1, then charge pump can get enabled for
+		 * the charger inserted. However, whether the charge pump
+		 * switching happens only if the conditions are met.
+		 */
+		cp_en = (prop.intval == 1);
+	}
+
+	qnovo_en = is_qnovo_en(fg);
+
+	fg_dbg(fg, FG_POWER_SUPPLY, "chg_sts: %d par_en: %d cp_en: %d qnov_en: %d esr_fcc_ctrl_en: %d\n",
+		fg->charge_status, parallel_en, cp_en, qnovo_en,
+		chip->esr_fcc_ctrl_en);
+
+	if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING &&
+			(parallel_en || qnovo_en || cp_en)) {
+		if (chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * When parallel charging or Qnovo or Charge pump is enabled,
+		 * configure ESR FCC to 300mA to trigger an ESR pulse. Without
+		 * this, FG can request the main charger to increase FCC when it
+		 * is supposed to decrease it.
+		 */
+		val = GEN4_ESR_FCC_300MA << GEN4_ESR_FAST_CRG_IVAL_SHIFT |
+			ESR_FAST_CRG_CTL_EN_BIT;
+		esr_fcc_ctrl_en = true;
+	} else {
+		if (!chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * If we're here, then it means either the device is not in
+		 * charging state or parallel charging / Qnovo / Charge pump is
+		 * disabled. Disable ESR fast charge current control in SW.
+		 */
+		val = GEN4_ESR_FCC_1A << GEN4_ESR_FAST_CRG_IVAL_SHIFT;
+		esr_fcc_ctrl_en = false;
+	}
+
+	mask = GEN4_ESR_FAST_CRG_IVAL_MASK | ESR_FAST_CRG_CTL_EN_BIT;
+	rc = fg_masked_write(fg, BATT_INFO_ESR_FAST_CRG_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_INFO_ESR_FAST_CRG_CFG(fg), rc);
+		return rc;
+	}
+
+	chip->esr_fcc_ctrl_en = esr_fcc_ctrl_en;
+	fg_dbg(fg, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
+		chip->esr_fcc_ctrl_en);
+	return 0;
+}
+
 /* All irq handlers below this */
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
@@ -2029,13 +2206,34 @@ static irqreturn_t fg_delta_esr_irq_handler(int irq, void *data)
 static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
-	int rc, vbatt_mv;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
+	int rc, vbatt_mv, msoc_raw;
 
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
 		return IRQ_HANDLED;
 
-	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d\n", irq, vbatt_mv);
+	vbatt_mv /= 1000;
+	rc = fg_get_msoc_raw(fg, &msoc_raw);
+	if (rc < 0)
+		return IRQ_HANDLED;
+
+	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
+		vbatt_mv, msoc_raw);
+
+	if (chip->dt.rapid_soc_dec_en && vbatt_mv < chip->dt.cutoff_volt_mv) {
+		/*
+		 * Set this flag so that slope limiter coefficient cannot be
+		 * configured during rapid SOC decrease.
+		 */
+		chip->rapid_soc_dec_en = true;
+
+		rc = fg_gen4_rapid_soc_config(chip, true);
+		if (rc < 0)
+			pr_err("Error in configuring for rapid SOC reduction rc:%d\n",
+				rc);
+	}
+
 	if (batt_psy_initialized(fg))
 		power_supply_changed(fg->batt_psy);
 
@@ -2073,6 +2271,12 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		kfree(chip->ttf->step_chg_data);
 		chip->ttf->step_chg_data = NULL;
 		mutex_unlock(&chip->ttf->lock);
+		cancel_delayed_work_sync(&chip->pl_enable_work);
+		vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
+		if (chip->pl_disable_votable)
+			vote(chip->pl_disable_votable, ESR_FCC_VOTER, true, 0);
+		if (chip->cp_disable_votable)
+			vote(chip->cp_disable_votable, ESR_FCC_VOTER, true, 0);
 		return IRQ_HANDLED;
 	}
 
@@ -2096,6 +2300,7 @@ static irqreturn_t fg_batt_temp_irq_handler(int irq, void *data)
 static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
+	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_temp;
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -2105,6 +2310,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered batt_temp:%d\n", irq, batt_temp);
+
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
 	if (abs(fg->last_batt_temp - batt_temp) > 30)
 		pr_warn("Battery temperature last:%d current: %d\n",
@@ -2171,12 +2380,19 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 			fg->charge_status, fg->charge_done, input_present);
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Failed to read battery temp rc: %d\n", rc);
-	else if (chip->cl->active)
-		cap_learning_update(chip->cl, batt_temp, batt_soc,
-			fg->charge_status, fg->charge_done, input_present,
-			is_qnovo_en(fg));
+	} else {
+		if (chip->cl->active)
+			cap_learning_update(chip->cl, batt_temp, batt_soc,
+				fg->charge_status, fg->charge_done,
+				input_present, is_qnovo_en(fg));
+
+		rc = fg_gen4_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+	}
 
 	rc = fg_gen4_charge_full_update(fg);
 	if (rc < 0)
@@ -2645,6 +2861,20 @@ out:
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
 }
 
+static void pl_enable_work(struct work_struct *work)
+{
+	struct fg_gen4_chip *chip = container_of(work,
+				struct fg_gen4_chip,
+				pl_enable_work.work);
+	struct fg_dev *fg = &chip->fg;
+
+	if (chip->pl_disable_votable)
+		vote(chip->pl_disable_votable, ESR_FCC_VOTER, false, 0);
+	if (chip->cp_disable_votable)
+		vote(chip->cp_disable_votable, ESR_FCC_VOTER, false, 0);
+	vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work,
@@ -2652,6 +2882,12 @@ static void status_change_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp;
 	bool input_present, qnovo_en;
+
+	if (!chip->pl_disable_votable)
+		chip->pl_disable_votable = find_votable("PL_DISABLE");
+
+	if (!chip->cp_disable_votable)
+		chip->cp_disable_votable = find_votable("CP_DISABLE");
 
 	if (!batt_psy_initialized(fg)) {
 		fg_dbg(fg, FG_STATUS, "Charger not available?!\n");
@@ -2691,6 +2927,10 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
 
+	rc = fg_gen4_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
+
 	rc = fg_gen4_adjust_ki_coeff_dischg(fg);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
@@ -2698,6 +2938,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_gen4_adjust_recharge_soc(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting recharge SOC, rc=%d\n", rc);
+
+	rc = fg_gen4_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 
 	ttf_update(chip->ttf, input_present);
 	fg->prev_charge_status = fg->charge_status;
@@ -3281,6 +3525,15 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	int rc;
 	u8 buf[4], val, mask;
 
+	/* Enable measurement of parallel charging current */
+	val = mask = SMB_MEASURE_EN_BIT;
+	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
+	if (rc < 0) {
+		pr_err("Error in writing to 0x%04x, rc=%d\n",
+			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
+		return rc;
+	}
+
 	fg_encode(fg->sp, FG_SRAM_CUTOFF_VOLT, chip->dt.cutoff_volt_mv, buf);
 	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_VOLT].addr_word,
 			fg->sp[FG_SRAM_CUTOFF_VOLT].addr_byte, buf,
@@ -3290,14 +3543,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		return rc;
 	}
 
-	fg_encode(fg->sp, FG_SRAM_CUTOFF_CURR, chip->dt.cutoff_curr_ma, buf);
-	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_CURR].addr_word,
-			fg->sp[FG_SRAM_CUTOFF_CURR].addr_byte, buf,
-			fg->sp[FG_SRAM_CUTOFF_CURR].len, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in writing cutoff_curr, rc=%d\n", rc);
+	rc = fg_gen4_configure_cutoff_current(fg, chip->dt.cutoff_curr_ma);
+	if (rc < 0)
 		return rc;
-	}
 
 	fg_encode(fg->sp, FG_SRAM_SYS_TERM_CURR, chip->dt.sys_term_curr_ma,
 		buf);
@@ -4018,6 +4266,8 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	chip->dt.rapid_soc_dec_en = of_property_read_bool(node,
+					"qcom,rapid-soc-dec-en");
 	return 0;
 }
 
@@ -4071,6 +4321,17 @@ static int fg_gen4_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+	mutex_init(&fg->bus_lock);
+	mutex_init(&fg->sram_rw_lock);
+	mutex_init(&fg->charge_full_lock);
+	init_completion(&fg->soc_update);
+	init_completion(&fg->soc_ready);
+	INIT_WORK(&fg->status_change_work, status_change_work);
+	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
+	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
+	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
+	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
+
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY,
 					fg_awake_cb, fg);
 	if (IS_ERR(fg->awake_votable)) {
@@ -4122,16 +4383,6 @@ static int fg_gen4_probe(struct platform_device *pdev)
 			goto exit;
 		}
 	}
-
-	mutex_init(&fg->bus_lock);
-	mutex_init(&fg->sram_rw_lock);
-	mutex_init(&fg->charge_full_lock);
-	init_completion(&fg->soc_update);
-	init_completion(&fg->soc_ready);
-	INIT_WORK(&fg->status_change_work, status_change_work);
-	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
-	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
 
 	rc = fg_memif_init(fg);
 	if (rc < 0) {
@@ -4191,7 +4442,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	rc = fg_get_battery_voltage(fg, &volt_uv);
 	if (!rc)
-		rc = fg_gen4_get_prop_capacity(fg, &msoc);
+		rc = fg_get_msoc(fg, &msoc);
 
 	if (!rc)
 		rc = fg_gen4_get_battery_temp(fg, &batt_temp);
@@ -4199,9 +4450,11 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	if (!rc)
 		rc = fg_gen4_get_batt_id(chip);
 
-	if (!rc)
+	if (!rc) {
+		fg->last_batt_temp = batt_temp;
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %d ohms\n",
 			msoc, volt_uv, batt_temp, fg->batt_id_ohms);
+	}
 
 	device_init_wakeup(fg->dev, true);
 	schedule_delayed_work(&fg->profile_load_work, 0);
@@ -4226,6 +4479,15 @@ static void fg_gen4_shutdown(struct platform_device *pdev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(&pdev->dev);
 	struct fg_dev *fg = &chip->fg;
 	int rc, bsoc;
+
+	fg_unregister_interrupts(fg, chip, FG_GEN4_IRQ_MAX);
+
+	if (chip->rapid_soc_dec_en) {
+		rc = fg_gen4_rapid_soc_config(chip, false);
+		if (rc < 0)
+			pr_err("Error in reverting rapid SOC decrease config rc:%d\n",
+				rc);
+	}
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_BATT_SOC, &bsoc);
 	if (rc < 0) {

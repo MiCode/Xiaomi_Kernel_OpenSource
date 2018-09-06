@@ -986,7 +986,7 @@ static int himax_touch_get(struct himax_ts_data *ts, uint8_t *buf, int ts_path, 
 			|| (HX_ESD_RESET_ACTIVATE)
 #endif
 			) {
-			if (!g_core_fp.fp_read_event_stack(buf, 128)) {
+			if (!g_core_fp.fp_read_event_stack(buf, HX_REPORT_SZ)) {
 				E("%s: can't read data from chip!\n", __func__);
 				ts_status = HX_TS_GET_DATA_FAIL;
 				goto END_FUNCTION;
@@ -1013,7 +1013,7 @@ static int himax_touch_get(struct himax_ts_data *ts, uint8_t *buf, int ts_path, 
 		break;
 #endif
 	case HX_REPORT_COORD_RAWDATA:
-		if (!g_core_fp.fp_read_event_stack(buf, 128)) {
+		if (!g_core_fp.fp_read_event_stack(buf, HX_REPORT_SZ)) {
 			E("%s: can't read data from chip!\n", __func__);
 			ts_status = HX_TS_GET_DATA_FAIL;
 			goto END_FUNCTION;
@@ -1750,7 +1750,7 @@ int himax_report_data(struct himax_ts_data *ts, int ts_path, int ts_status)
 static int himax_ts_operation(struct himax_ts_data *ts, int ts_path, int ts_status)
 {
 	uint8_t hw_reset_check[2];
-	uint8_t buf[128];
+	uint8_t buf[HX_REPORT_SZ];
 
 	memset(buf, 0x00, sizeof(buf));
 	memset(hw_reset_check, 0x00, sizeof(hw_reset_check));
@@ -1890,23 +1890,23 @@ static void himax_update_register(struct work_struct *work)
 #endif
 
 #ifdef CONFIG_DRM
-static void himax_fb_register(struct work_struct *work)
+int himax_fb_register(struct himax_ts_data *ts)
 {
 	int ret = 0;
-	struct himax_ts_data *ts = container_of(work, struct himax_ts_data, work_att.work);
 
 	I(" %s in\n", __func__);
-	ts->fb_notif.notifier_call = fb_notifier_callback;
+	ts->fb_notif.notifier_call = drm_notifier_callback;
 	ret = msm_drm_register_client(&ts->fb_notif);
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);
+
+	return ret;
 }
 
 #elif defined CONFIG_FB
-static void himax_fb_register(struct work_struct *work)
+int himax_fb_register(struct himax_ts_data *ts)
 {
 	int ret = 0;
-	struct himax_ts_data *ts = container_of(work, struct himax_ts_data, work_att.work);
 
 	I(" %s in\n", __func__);
 	ts->fb_notif.notifier_call = fb_notifier_callback;
@@ -1914,6 +1914,8 @@ static void himax_fb_register(struct work_struct *work)
 
 	if (ret)
 		E(" Unable to register fb_notifier: %d\n", ret);
+
+	return ret;
 }
 #endif
 
@@ -1957,6 +1959,7 @@ int himax_chip_common_init(void)
 
 	if (himax_parse_dt(ts, pdata) < 0) {
 		I(" pdata is NULL for DT\n");
+		err = -ECANCELED;
 		goto err_alloc_dt_pdata_failed;
 	}
 
@@ -1971,6 +1974,7 @@ int himax_chip_common_init(void)
 
 		if (ret < 0) {
 			E("%s: power on failed\n", __func__);
+			err = ret;
 			goto err_power_failed;
 		}
 	}
@@ -1982,10 +1986,12 @@ int himax_chip_common_init(void)
 			g_core_fp.fp_chip_init();
 		} else {
 			E("%s: chip detect failed!\n", __func__);
+			err = -ECANCELED;
 			goto error_ic_detect_failed;
 		}
 	} else {
 		E("%s: function point is NULL!\n", __func__);
+		err = -ECANCELED;
 		goto error_ic_detect_failed;
 	}
 
@@ -2026,6 +2032,7 @@ FW_force_upgrade:
 	/* Himax Power On and Load Config */
 	if (himax_loadSensorConfig(pdata)) {
 		E("%s: Load Sesnsor configuration failed, unload driver.\n", __func__);
+		err = -ECANCELED;
 		goto err_detect_failed;
 	}
 
@@ -2067,22 +2074,9 @@ FW_force_upgrade:
 	if (ret) {
 		E("%s: Unable to register %s input device\n",
 		  __func__, ts->input_dev->name);
+		err = ret;
 		goto err_input_register_device_failed;
 	}
-
-#if defined(CONFIG_DRM) || defined(CONFIG_FB)
-
-	ts->himax_att_wq = create_singlethread_workqueue("HMX_ATT_request");
-
-	if (!ts->himax_att_wq) {
-		E(" allocate syn_att_wq failed\n");
-		err = -ENOMEM;
-		goto err_get_intr_bit_failed;
-	}
-
-	INIT_DELAYED_WORK(&ts->work_att, himax_fb_register);
-	queue_delayed_work(ts->himax_att_wq, &ts->work_att, msecs_to_jiffies(15000));
-#endif
 
 #ifdef HX_SMART_WAKEUP
 	ts->SMWP_enable = 0;
@@ -2110,6 +2104,7 @@ FW_force_upgrade:
 
 	if (himax_common_proc_init()) {
 		E(" %s: himax_common proc_init failed!\n", __func__);
+		err = -ECANCELED;
 		goto err_creat_proc_file_failed;
 	}
 
@@ -2147,11 +2142,6 @@ err_ito_test_wq_failed:
 #endif
 #ifdef HX_SMART_WAKEUP
 	wakeup_source_trash(&ts->ts_SMWP_wake_src);
-#endif
-#if defined(CONFIG_FB) || defined(CONFIG_DRM)
-err_get_intr_bit_failed:
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #endif
 err_input_register_device_failed:
 	input_free_device(ts->input_dev);
@@ -2217,13 +2207,9 @@ void himax_chip_common_deinit(void)
 #ifdef CONFIG_DRM
 	if (msm_drm_unregister_client(&ts->fb_notif))
 		E("Error occurred while unregistering fb_notifier.\n");
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #elif defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
 		E("Error occurred while unregistering fb_notifier.\n");
-	cancel_delayed_work_sync(&ts->work_att);
-	destroy_workqueue(ts->himax_att_wq);
 #endif
 	input_free_device(ts->input_dev);
 #ifdef HX_ZERO_FLASH
@@ -2244,6 +2230,7 @@ void himax_chip_common_deinit(void)
 	kfree(hx_touch_data);
 	kfree(ic_data);
 	kfree(ts->pdata);
+	kfree(ts->report_i2c_data);
 	kfree(ts);
 	probe_fail_flag = 0;
 }

@@ -26,6 +26,9 @@
  *
  */
 
+
+/* Uncomment the line below to enable debug messages */
+/* #define DEBUG 1 */
 #define pr_fmt(fmt)	"pfk_ext4 [%s]: " fmt, __func__
 
 #include <linux/module.h>
@@ -33,8 +36,9 @@
 #include <linux/errno.h>
 #include <linux/printk.h>
 
-#include "ext4_ice.h"
+#include "fscrypt_ice.h"
 #include "pfk_ext4.h"
+//#include "ext4_ice.h"
 
 static bool pfk_ext4_ready;
 
@@ -68,6 +72,29 @@ static inline bool pfk_ext4_is_ready(void)
 }
 
 /**
+ * pfk_ext4_dump_inode() - dumps all interesting info about inode to the screen
+ *
+ *
+ */
+/*
+ * static void pfk_ext4_dump_inode(const struct inode* inode)
+ * {
+ *	struct ext4_crypt_info *ci = ext4_encryption_info((struct inode*)inode);
+ *
+ *	pr_debug("dumping inode with address 0x%p\n", inode);
+ *	pr_debug("S_ISREG is %d\n", S_ISREG(inode->i_mode));
+ *	pr_debug("EXT4_INODE_ENCRYPT flag is %d\n",
+ *		ext4_test_inode_flag((struct inode*)inode, EXT4_INODE_ENCRYPT));
+ *	if (ci) {
+ *		pr_debug("crypt_info address 0x%p\n", ci);
+ *		pr_debug("ci->ci_data_mode %d\n", ci->ci_data_mode);
+ *	} else {
+ *		pr_debug("crypt_info is NULL\n");
+ *	}
+ * }
+ */
+
+/**
  * pfk_is_ext4_type() - return true if inode belongs to ICE EXT4 PFE
  * @inode: inode pointer
  */
@@ -76,7 +103,7 @@ bool pfk_is_ext4_type(const struct inode *inode)
 	if (!pfe_is_inode_filesystem_type(inode, "ext4"))
 		return false;
 
-	return ext4_should_be_processed_by_ice(inode);
+	return fscrypt_should_be_processed_by_ice(inode);
 }
 
 /**
@@ -98,7 +125,7 @@ static int pfk_ext4_parse_cipher(const struct inode *inode,
 	if (!inode)
 		return -EINVAL;
 
-	if (!ext4_is_aes_xts_cipher(inode)) {
+	if (!fscrypt_is_aes_xts_cipher(inode)) {
 		pr_err("ext4 alghoritm is not supported by pfk\n");
 		return -EINVAL;
 	}
@@ -108,6 +135,7 @@ static int pfk_ext4_parse_cipher(const struct inode *inode,
 
 	return 0;
 }
+
 
 int pfk_ext4_parse_inode(const struct bio *bio,
 	const struct inode *inode,
@@ -136,25 +164,25 @@ int pfk_ext4_parse_inode(const struct bio *bio,
 	if (!key_info)
 		return -EINVAL;
 
-	key_info->key = ext4_get_ice_encryption_key(inode);
+	key_info->key = fscrypt_get_ice_encryption_key(inode);
 	if (!key_info->key) {
 		pr_err("could not parse key from ext4\n");
 		return -EINVAL;
 	}
 
-	key_info->key_size = ext4_get_ice_encryption_key_size(inode);
+	key_info->key_size = fscrypt_get_ice_encryption_key_size(inode);
 	if (!key_info->key_size) {
 		pr_err("could not parse key size from ext4\n");
 		return -EINVAL;
 	}
 
-	key_info->salt = ext4_get_ice_encryption_salt(inode);
+	key_info->salt = fscrypt_get_ice_encryption_salt(inode);
 	if (!key_info->salt) {
 		pr_err("could not parse salt from ext4\n");
 		return -EINVAL;
 	}
 
-	key_info->salt_size = ext4_get_ice_encryption_salt_size(inode);
+	key_info->salt_size = fscrypt_get_ice_encryption_salt_size(inode);
 	if (!key_info->salt_size) {
 		pr_err("could not parse salt size from ext4\n");
 		return -EINVAL;
@@ -180,5 +208,5 @@ bool pfk_ext4_allow_merge_bio(const struct bio *bio1,
 	if (!inode1 || !inode2)
 		return false;
 
-	return ext4_is_ice_encryption_info_equal(inode1, inode2);
+	return fscrypt_is_ice_encryption_info_equal(inode1, inode2);
 }

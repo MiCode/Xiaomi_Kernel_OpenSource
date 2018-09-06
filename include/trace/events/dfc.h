@@ -18,7 +18,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(dfc_qmi_tc,
+DECLARE_EVENT_CLASS(dfc_tc,
 
 	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
 		 u32 tcm_handle, int enable),
@@ -48,6 +48,22 @@ TRACE_EVENT(dfc_qmi_tc,
 		__entry->bid, __entry->grant, __entry->qlen, __entry->fid,
 		__entry->tcm_handle,
 		__entry->enable ? "enable" : "disable")
+);
+
+DEFINE_EVENT(dfc_tc, dfc_qmi_tc,
+
+	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
+		 u32 tcm_handle, int enable),
+
+	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
+);
+
+DEFINE_EVENT(dfc_tc, dfc_qmi_tc_limit,
+
+	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
+		 u32 tcm_handle, int enable),
+
+	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
 );
 
 TRACE_EVENT(dfc_flow_ind,
@@ -177,6 +193,33 @@ TRACE_EVENT(dfc_client_state_down,
 	TP_printk("Client[%d]: Connection with DFC service lost. "
 		  "Exit by callback %d",
 		  __entry->idx, __entry->from_cb)
+);
+
+TRACE_EVENT(dfc_qmap_cmd,
+
+	TP_PROTO(u8 mux_id, u8 bearer_id, u16 seq_num, u8 type, u32 tran),
+
+	TP_ARGS(mux_id, bearer_id, seq_num, type, tran),
+
+	TP_STRUCT__entry(
+		__field(u8, mid)
+		__field(u8, bid)
+		__field(u16, seq)
+		__field(u8, type)
+		__field(u32, tran)
+	),
+
+	TP_fast_assign(
+		__entry->mid = mux_id;
+		__entry->bid = bearer_id;
+		__entry->seq = seq_num;
+		__entry->type = type;
+		__entry->tran = tran;
+	),
+
+	TP_printk("mux_id=%u bearer_id=%u seq_num=%u type=%u tran=%u",
+		__entry->mid, __entry->bid, __entry->seq,
+		__entry->type, __entry->tran)
 );
 
 #endif /* _TRACE_DFC_H */

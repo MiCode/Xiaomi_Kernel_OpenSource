@@ -56,6 +56,10 @@
 	status = "okay";
 };
 
+&qupv3_se4_spi {
+	status = "okay";
+};
+
 &tavil_wdsp {
 	status = "okay";
 };

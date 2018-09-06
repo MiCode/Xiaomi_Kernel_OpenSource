@@ -130,6 +130,15 @@ waveforms/effects:
 		 [5:1]: waveform amplitude
 		 [0]: reserved.
 
+- qcom,wf-vmax-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum allowed output voltage in millivolts
+		for this effect. Value specified here will be rounded
+		off to the closest multiple of 116 mV. Allowed values:
+		0 to 3596. If this is not specified, the value defined in
+		"qcom,vmax-mv" will be applied.
+
 - qcom,wf-play-rate-us
   Usage:      optional
   Value type: <u32>

@@ -51,6 +51,18 @@ Charger specific properties:
 	      stacked one after the other and thus all the charge current
 	      (FCC) flows through main. In a non-stacked configuration each
 	      charger controls the charge current (FCC) separately.
+
+- qcom,die-temp-threshold-degc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies DIE temp threshold beyond which h/w starts mitigation.
+	      If not sepcified, 90 degrees centigrade is used.
+
+- qcom,hw-die-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean property to enable h/w controlled die temp mitigation.
+
 ================================================
 Second Level Nodes - SMB1355 Charger Peripherals
 ================================================

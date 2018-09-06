@@ -596,6 +596,7 @@ static int enable_npu_crc(struct regmap *regmap, struct regulator *npu_gdsc)
 static int npu_cc_sdmmagpie_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	struct regulator *npu_gdsc;
 	int ret = 0;
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");

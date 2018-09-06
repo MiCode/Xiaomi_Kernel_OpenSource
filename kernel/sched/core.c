@@ -785,7 +785,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	p->sched_class->dequeue_task(rq, p, flags);
 #ifdef CONFIG_SCHED_WALT
 	if (p == rq->ed_task)
-		early_detection_notify(rq, ktime_get_ns());
+		early_detection_notify(rq, sched_ktime_clock());
 #endif
 	trace_sched_enq_deq_task(p, 0, cpumask_bits(&p->cpus_allowed)[0]);
 }
@@ -2041,7 +2041,7 @@ static inline void walt_try_to_wake_up(struct task_struct *p)
 
 	rq_lock_irqsave(rq, &rf);
 	old_load = task_load(p);
-	wallclock = ktime_get_ns();
+	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	rq_unlock_irqrestore(rq, &rf);
@@ -2175,7 +2175,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 		set_task_cpu(p, cpu);
 	}
 
-	wallclock = ktime_get_ns();
+	wallclock = sched_ktime_clock();
 	note_task_waking(p, wallclock);
 #else /* CONFIG_SMP */
 
@@ -2240,7 +2240,7 @@ static void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)
 	trace_sched_waking(p);
 
 	if (!task_on_rq_queued(p)) {
-		u64 wallclock = ktime_get_ns();
+		u64 wallclock = sched_ktime_clock();
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
@@ -3163,7 +3163,7 @@ void scheduler_tick(void)
 
 	old_load = task_load(curr);
 	set_window_start(rq);
-	wallclock = ktime_get_ns();
+	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
@@ -3547,7 +3547,7 @@ static void __sched notrace __schedule(bool preempt)
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 
-	wallclock = ktime_get_ns();
+	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
 		if (!prev->on_rq)
 			prev->last_sleep_ts = wallclock;
@@ -4910,6 +4910,71 @@ out_put_task:
 	return retval;
 }
 
+char sched_lib_name[LIB_PATH_LENGTH];
+unsigned int sched_lib_mask_check;
+unsigned int sched_lib_mask_force;
+static inline bool is_sched_lib_based_app(pid_t pid)
+{
+	const char *name = NULL;
+	struct vm_area_struct *vma;
+	char path_buf[LIB_PATH_LENGTH];
+	bool found = false;
+	struct task_struct *p;
+
+	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
+		return false;
+
+	rcu_read_lock();
+
+	p = find_process_by_pid(pid);
+	if (!p) {
+		rcu_read_unlock();
+		return false;
+	}
+
+	/* Prevent p going away */
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	if (!p->mm)
+		goto put_task_struct;
+
+	down_read(&p->mm->mmap_sem);
+	for (vma = p->mm->mmap; vma ; vma = vma->vm_next) {
+		if (vma->vm_file && vma->vm_flags & VM_EXEC) {
+			name = d_path(&vma->vm_file->f_path,
+					path_buf, LIB_PATH_LENGTH);
+			if (IS_ERR(name))
+				goto release_sem;
+
+			if (strnstr(name, sched_lib_name,
+					strnlen(name, LIB_PATH_LENGTH))) {
+				found = true;
+				break;
+			}
+		}
+	}
+
+release_sem:
+	up_read(&p->mm->mmap_sem);
+put_task_struct:
+	put_task_struct(p);
+	return found;
+}
+
+long msm_sched_setaffinity(pid_t pid, struct cpumask *new_mask)
+{
+	if (sched_lib_mask_check != 0 && sched_lib_mask_force != 0 &&
+		(cpumask_bits(new_mask)[0] == sched_lib_mask_check) &&
+		is_sched_lib_based_app(pid)) {
+
+		cpumask_t forced_mask = { {sched_lib_mask_force} };
+
+		cpumask_copy(new_mask, &forced_mask);
+	}
+	return sched_setaffinity(pid, new_mask);
+}
+
 static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
 			     struct cpumask *new_mask)
 {
@@ -4940,7 +5005,7 @@ SYSCALL_DEFINE3(sched_setaffinity, pid_t, pid, unsigned int, len,
 
 	retval = get_user_cpu_mask(user_mask_ptr, len, new_mask);
 	if (retval == 0)
-		retval = sched_setaffinity(pid, new_mask);
+		retval = msm_sched_setaffinity(pid, new_mask);
 	free_cpumask_var(new_mask);
 	return retval;
 }
@@ -6412,7 +6477,7 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-		walt_sched_init(rq);
+		walt_sched_init_rq(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
@@ -7426,7 +7491,7 @@ void sched_exit(struct task_struct *p)
 	rq = task_rq_lock(p, &rf);
 
 	/* rq->curr == p */
-	wallclock = ktime_get_ns();
+	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
 	/*
