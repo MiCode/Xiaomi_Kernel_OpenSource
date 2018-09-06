@@ -32,6 +32,7 @@ struct pages_list {
 	struct dma_buf *dmabuf;
 	int32_t export_id;
 	int32_t vcid;
+	struct physical_channel *pchan;
 };
 
 struct importer_context {
@@ -511,6 +512,7 @@ static int habmem_imp_hyp_map_fd(void *imp_ctx,
 	pglist->userflags = userflags;
 	pglist->export_id = exp->export_id;
 	pglist->vcid = exp->vcid_remote;
+	pglist->pchan = exp->pchan;
 
 	if (!(userflags & HABMM_IMPORT_FLAGS_CACHED))
 		prot = pgprot_writecombine(prot);
@@ -589,6 +591,7 @@ static int habmem_imp_hyp_map_kva(void *imp_ctx,
 	pglist->userflags = userflags;
 	pglist->export_id = exp->export_id;
 	pglist->vcid = exp->vcid_remote;
+	pglist->pchan = exp->pchan;
 
 	if (!(userflags & HABMM_IMPORT_FLAGS_CACHED))
 		prot = pgprot_writecombine(prot);
@@ -658,6 +661,7 @@ static int habmem_imp_hyp_map_uva(void *imp_ctx,
 	pglist->userflags = userflags;
 	pglist->export_id = exp->export_id;
 	pglist->vcid = exp->vcid_remote;
+	pglist->pchan = exp->pchan;
 
 	write_lock(&priv->implist_lock);
 	list_add_tail(&pglist->list,  &priv->imp_list);
@@ -699,7 +703,7 @@ int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp, int kernel)
 	write_lock(&priv->implist_lock);
 	list_for_each_entry_safe(pglist, tmp, &priv->imp_list, list) {
 		if (pglist->export_id == exp->export_id &&
-			pglist->vcid == exp->vcid_remote) {
+			pglist->pchan == exp->pchan) {
 			found = 1;
 			list_del(&pglist->list);
 			priv->cnt--;
@@ -775,7 +779,7 @@ int habmm_imp_hyp_map_check(void *imp_ctx, struct export_desc *exp)
 	read_lock(&priv->implist_lock);
 	list_for_each_entry(pglist, &priv->imp_list, list) {
 		if (pglist->export_id == exp->export_id &&
-			pglist->vcid == exp->vcid_remote) {
+			pglist->pchan == exp->pchan) {
 			found = 1;
 			break;
 		}

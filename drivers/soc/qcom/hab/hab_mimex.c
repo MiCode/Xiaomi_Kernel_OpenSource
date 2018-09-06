@@ -319,8 +319,7 @@ int hab_mem_unexport(struct uhab_context *ctx,
 	write_lock(&ctx->exp_lock);
 	list_for_each_entry_safe(exp, tmp, &ctx->exp_whse, node) {
 		if (param->exportid == exp->export_id &&
-			param->vcid == exp->vcid_local) {
-			/* same vchan guarantees the pchan for idr */
+			vchan->pchan == exp->pchan) {
 			list_del(&exp->node);
 			found = 1;
 			break;
@@ -367,10 +366,7 @@ int hab_mem_import(struct uhab_context *ctx,
 	spin_lock_bh(&ctx->imp_lock);
 	list_for_each_entry(exp, &ctx->imp_whse, node) {
 		if ((exp->export_id == param->exportid) &&
-			(param->vcid == exp->vcid_remote)) {
-			/* only allow import on the vchan recevied from
-			 * remote
-			 */
+			(exp->pchan == vchan->pchan)) {
 			found = 1;
 			break;
 		}
@@ -424,8 +420,8 @@ int hab_mem_unimport(struct uhab_context *ctx,
 	spin_lock_bh(&ctx->imp_lock);
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
 		if (exp->export_id == param->exportid &&
-			param->vcid == exp->vcid_remote) {
-			/* same vchan is expected here */
+			exp->pchan == vchan->pchan) {
+			/* same pchan is expected here */
 			list_del(&exp->node);
 			ctx->import_total--;
 			found = 1;
