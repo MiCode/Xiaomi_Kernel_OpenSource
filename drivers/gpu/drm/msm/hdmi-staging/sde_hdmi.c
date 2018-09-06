@@ -3045,6 +3045,8 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 			flags |= DRM_MODE_FLAG_PVSYNC;
 		else
 			flags |= DRM_MODE_FLAG_NVSYNC;
+
+		flags |= DRM_MODE_FLAG_SUPPORTS_RGB;
 		mode->flags = flags;
 
 		if (!rc) {
