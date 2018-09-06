@@ -81,15 +81,17 @@ struct ctx_base_info {
 /**
  * struct cam_ife_hw_mgr_debug - contain the debug information
  *
- * @dentry:              Debugfs entry
- * @csid_debug:          csid debug information
- * @enable_recovery      enable recovery
+ * @dentry:                    Debugfs entry
+ * @csid_debug:                csid debug information
+ * @enable_recovery:           enable recovery
+ * @enable_diag_sensor_status: enable sensor diagnosis status
  *
  */
 struct cam_ife_hw_mgr_debug {
 	struct dentry  *dentry;
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
+	uint32_t       camif_debug;
 };
 
 /**
