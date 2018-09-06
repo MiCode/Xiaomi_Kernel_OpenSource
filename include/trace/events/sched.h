@@ -249,6 +249,7 @@ TRACE_EVENT(sched_migrate_task,
 /*
  * Tracepoint for load balancing:
  */
+#ifdef CONFIG_SMP
 #if NR_CPUS > 32
 #error "Unsupported NR_CPUS for lb tracepoint."
 #endif
@@ -402,6 +403,7 @@ TRACE_EVENT(sched_load_balance_stats,
 	TP_printk("busiest_group=%#lx busiest_type=%d busiest_avg_load=%ld busiest_lpt=%ld local_group=%#lx local_type=%d local_avg_load=%ld local_lpt=%ld domain_avg_load=%ld imbalance=%ld",
 		__entry->busiest, __entry->bgp_type, __entry->bavg_load, __entry->blpt, __entry->local, __entry->lgp_type, __entry->lavg_load, __entry->llpt, __entry->sds_avg, __entry->imbalance)
 );
+#endif
 
 DECLARE_EVENT_CLASS(sched_process_template,
 
