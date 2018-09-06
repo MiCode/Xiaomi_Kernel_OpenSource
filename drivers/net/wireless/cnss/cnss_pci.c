@@ -1526,13 +1526,21 @@ struct pci_saved_state *cnss_pci_store_saved_state(struct pci_dev *dev)
 	return pci_store_saved_state(dev);
 }
 
+#ifndef CONFIG_GHS_VMM
 int cnss_msm_pcie_pm_control(
 		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
 		struct pci_dev *pdev, u32 options)
 {
 	return msm_pcie_pm_control(pm_opt, bus_num, pdev, NULL, options);
 }
-
+#else
+int cnss_msm_pcie_pm_control(
+		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
+		struct pci_dev *pdev, u32 options)
+{
+	return 0;
+}
+#endif
 int cnss_pci_load_and_free_saved_state(
 	struct pci_dev *dev, struct pci_saved_state **state)
 {
