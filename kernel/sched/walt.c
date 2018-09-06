@@ -3192,6 +3192,7 @@ void walt_irq_work(struct irq_work *irq_work)
 	int cpu;
 	u64 wc;
 	bool is_migration = false;
+	u64 total_grp_load = 0;
 
 	/* Am I the window rollover work or the migration work? */
 	if (irq_work == &walt_migration_irq_work)
@@ -3218,12 +3219,14 @@ void walt_irq_work(struct irq_work *irq_work)
 		}
 
 		cluster->aggr_grp_load = aggr_grp_load;
+		total_grp_load += aggr_grp_load;
 		cluster->coloc_boost_load = 0;
 
 		raw_spin_unlock(&cluster->load_lock);
 	}
 
-	walt_update_coloc_boost_load();
+	if (total_grp_load)
+		walt_update_coloc_boost_load();
 
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
