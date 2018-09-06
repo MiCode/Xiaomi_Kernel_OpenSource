@@ -966,6 +966,13 @@ config HID_ALPS
 	Say Y here if you have a Alps touchpads over i2c-hid or usbhid
 	and want support for its special functionalities.
 
+config HID_QVR
+	tristate "QVR support"
+	depends on HID
+	---help---
+	Say 'Y' or 'M' if you want to connect an external device to
+	stream IMU data for QVR support.
+
 endmenu
 
 endif # HID
