@@ -5531,12 +5531,12 @@ int dsi_display_get_modes(struct dsi_display *display,
 
 	mutex_lock(&display->display_lock);
 
+	if (display->modes)
+		goto exit;
+
 	rc = dsi_display_get_mode_count_no_lock(display, &total_mode_count);
 	if (rc)
 		goto error;
-
-	/* free any previously probed modes */
-	kfree(display->modes);
 
 	display->modes = kcalloc(total_mode_count, sizeof(*display->modes),
 			GFP_KERNEL);
@@ -5616,6 +5616,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 		_dsi_display_populate_bit_clks(display, start, end, &array_idx);
 	}
 
+exit:
 	*out_modes = display->modes;
 	rc = 0;
 
