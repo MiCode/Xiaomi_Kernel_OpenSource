@@ -424,6 +424,10 @@ Optional properties:
 				for the mixer block. Possible values:
 				"primary" - preferred for primary display
 				"none" - no preference on display
+- qcom,sde-mixer-cwb-pref:  	A string array indicating the preferred mixer block.
+				for CWB. Possible values:
+				"cwb" - preferred for cwb
+				"none" - no preference on display
 - qcom,sde-ctl-display-pref:    A string array indicating the preferred display type
                                 for the ctl block. Possible values:
 				"primary" - preferred for primary display
@@ -523,6 +527,8 @@ Example:
 			0x00047000 0x0004a000>;
     qcom,sde-mixer-display-pref = "primary", "none",
 	                "none", "none";
+    qcom,sde-mixer-cwb-pref = "none", "none",
+	                "cwb", "none";
     qcom,sde-dspp-top-off = <0x1300>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
