@@ -90,7 +90,7 @@
 #define GCC_MDSS_PCLK0_CLK				73
 #define GCC_MDSS_VSYNC_CLK				74
 #define GCC_OXILI_AHB_CLK				75
-#define GCC_OXILI_GFX3D_CLK				76
+#define GFX3D_CLK_SRC					76
 #define GCC_PCIE_0_AUX_CLK				77
 #define GCC_PCIE_0_CFG_AHB_CLK				78
 #define GCC_PCIE_0_MSTR_AXI_CLK				79
@@ -120,7 +120,7 @@
 #define GCC_USB3_PHY_PIPE_CLK				103
 #define GCC_USB_HS_PHY_CFG_AHB_CLK			104
 #define GCC_USB_HS_SYSTEM_CLK				105
-#define GFX3D_CLK_SRC					106
+#define GCC_OXILI_GFX3D_CLK				106
 #define GP1_CLK_SRC					107
 #define GP2_CLK_SRC					108
 #define GP3_CLK_SRC					109
