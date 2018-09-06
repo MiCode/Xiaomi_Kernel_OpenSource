@@ -1161,6 +1161,66 @@
 			};
 		};
 
+		pri_mi2s_sd6 {
+			pri_mi2s_sd6_sleep: pri_mi2s_sd6_sleep {
+				mux {
+					pins = "gpio95";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+					input-enable;
+				};
+			};
+
+			pri_mi2s_sd6_active: pri_mi2s_sd6_active {
+				mux {
+					pins = "gpio95";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
+		pri_mi2s_sd7 {
+			pri_mi2s_sd7_sleep: pri_mi2s_sd7_sleep {
+				mux {
+					pins = "gpio96";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio96";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+					input-enable;
+				};
+			};
+
+			pri_mi2s_sd7_active: pri_mi2s_sd7_active {
+				mux {
+					pins = "gpio96";
+					function = "i2s_1";
+				};
+
+				config {
+					pins = "gpio96";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+				};
+			};
+		};
+
 		pca9956b_reset_gpio: pca9956b_reset_gpio {
 			mux {
 				pins = "gpio95";
