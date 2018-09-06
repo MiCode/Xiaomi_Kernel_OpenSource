@@ -228,19 +228,6 @@ static struct lut const *__lut(int width, int height, int fps)
 	return &LUT[ARRAY_SIZE(LUT) - 1];
 }
 
-static fp_t __compression_ratio(struct lut const *entry, int bpp)
-{
-	int c = 0;
-
-	for (c = 0; c < COMPRESSION_RATIO_MAX; ++c) {
-		if (entry->compression_ratio[c].bpp == bpp)
-			return entry->compression_ratio[c].ratio;
-	}
-
-	WARN(true, "Shouldn't be here, LUT possibly corrupted?\n");
-	return FP_ZERO; /* impossible */
-}
-
 #define DUMP_HEADER_MAGIC 0xdeadbeef
 #define DUMP_FP_FMT "%FP" /* special format for fp_t */
 struct dump {
@@ -352,13 +339,14 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	 */
 	/* Decoder parameters */
 	int width, height, lcu_size, fps, dpb_bpp;
-	bool unified_dpb_opb, dpb_compression_enabled,
+	bool unified_dpb_opb, dpb_compression_enabled = true,
 		opb_compression_enabled = false,
 		llc_ref_read_l2_cache_enabled = false,
 		llc_top_line_buf_enabled = false;
 	fp_t dpb_read_compression_factor, dpb_opb_scaling_ratio,
 		dpb_write_compression_factor, opb_write_compression_factor,
 		qsmmu_bw_overhead_factor;
+	bool is_h264_category = true;
 
 	/* Derived parameters */
 	int lcu_per_frame, collocated_bytes_per_lcu, tnbr_per_lcu;
@@ -423,18 +411,19 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	motion_vector_complexity = FP(integer_part, frac_part, 100);
 
-	dpb_write_compression_factor = !dpb_compression_enabled ? FP_ONE :
-		__compression_ratio(__lut(width, height, fps), dpb_bpp);
-
-	dpb_write_compression_factor = d->use_dpb_read ?
-		dpb_read_compression_factor :
-		dpb_write_compression_factor;
+	dpb_write_compression_factor = dpb_read_compression_factor;
 	opb_write_compression_factor = opb_compression_enabled ?
 		dpb_write_compression_factor : FP_ONE;
 
+	if (d->codec == HAL_VIDEO_CODEC_HEVC ||
+		d->codec == HAL_VIDEO_CODEC_VP9) {
+		/* H264, VP8, MPEG2 use the same settings */
+		/* HEVC, VP9 use the same setting */
+		is_h264_category = false;
+	}
 	if (d->use_sys_cache) {
 		llc_ref_read_l2_cache_enabled = true;
-		if (d->codec == HAL_VIDEO_CODEC_H264)
+		if (is_h264_category)
 			llc_top_line_buf_enabled = true;
 	}
 
@@ -464,16 +453,15 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	ddr.vsp_write = fp_div(fp_mult(FP_INT(bitrate),
 				vsp_write_factor), FP_INT(8));
 
-	ddr.collocated_read = FP_INT(lcu_per_frame *
-			collocated_bytes_per_lcu * fps / bps(1));
+	ddr.collocated_read = fp_div(FP_INT(lcu_per_frame *
+			collocated_bytes_per_lcu * fps), FP_INT(bps(1)));
 	ddr.collocated_write = ddr.collocated_read;
 
-	y_bw_no_ubwc_8bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(32 * 8)), FP_INT(1000 * 1000));
-	y_bw_no_ubwc_10bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(48 * 4)), FP_INT(1000 * 1000));
+	y_bw_no_ubwc_8bpp = fp_div(fp_mult(
+		FP_INT((int)(width * height)), FP_INT((int)fps)),
+		FP_INT(1000 * 1000));
+	y_bw_no_ubwc_10bpp = fp_div(fp_mult(y_bw_no_ubwc_8bpp, FP_INT(256)),
+				FP_INT(192));
 
 	ddr.dpb_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
 	ddr.dpb_read = fp_div(fp_mult(ddr.dpb_read,
@@ -488,16 +476,15 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	dpb_total = ddr.dpb_read + ddr.dpb_write;
 
 	if (llc_ref_read_l2_cache_enabled) {
-		ddr.dpb_read = fp_div(ddr.dpb_read,
-		d->codec == HAL_VIDEO_CODEC_H264 ? FP(1, 15, 100) :
-		FP(1, 30, 100));
-		llc.dpb_read = dpb_total - ddr.dpb_read;
+		ddr.dpb_read = fp_div(ddr.dpb_read, is_h264_category ?
+					FP(1, 15, 100) : FP(1, 30, 100));
+		llc.dpb_read = dpb_total - ddr.dpb_write - ddr.dpb_read;
 	}
 
 	ddr.opb_read = FP_ZERO;
 	ddr.opb_write = unified_dpb_opb ? FP_ZERO : (dpb_bpp == 8 ?
 		y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp);
-	ddr.opb_write = fp_div(ddr.opb_write,
+	ddr.opb_write = fp_div(fp_mult(dpb_factor, ddr.opb_write),
 		fp_mult(dpb_opb_scaling_ratio, opb_write_compression_factor));
 
 	ddr.line_buffer_read = FP_INT(tnbr_per_lcu *
@@ -518,7 +505,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
-	llc.total = llc.dpb_read + llc.line_buffer_read + llc.line_buffer_write;
+	llc.total = llc.dpb_read + llc.line_buffer_read +
+			llc.line_buffer_write + ddr.total;
 
 	/* Dump all the variables for easier debugging */
 	if (debug) {
