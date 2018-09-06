@@ -328,6 +328,8 @@ static struct cam_ife_csid_common_reg_offset
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,
 	.ppp_irq_mask_all                             = 0xFFFF,
+	.measure_en_hbi_vbi_cnt_mask                  = 0xC,
+	.format_measure_en_val                        = 1,
 };
 
 static struct cam_ife_csid_reg_offset cam_ife_csid_175_reg_offset = {

@@ -1553,8 +1553,22 @@ static int cam_ife_csid_init_config_pxl_path(
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg0_addr);
 	val |= (1 << csid_reg->cmn_reg->path_en_shift_val);
+
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO)
+		val |= csid_reg->cmn_reg->format_measure_en_val;
+
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg0_addr);
+
+	/* Enable the HBI/VBI counter */
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_format_measure_cfg0_addr);
+		val |= csid_reg->cmn_reg->measure_en_hbi_vbi_cnt_mask;
+		cam_io_w_mb(val,
+			soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_format_measure_cfg0_addr);
+	}
 
 	/* configure the rx packet capture based on csid debug set */
 	val = 0;
@@ -1594,6 +1608,7 @@ static int cam_ife_csid_deinit_pxl_path(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
+	uint32_t val;
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
 	const struct cam_ife_csid_pxl_reg_offset  *pxl_reg = NULL;
@@ -1624,8 +1639,25 @@ static int cam_ife_csid_deinit_pxl_path(
 			csid_hw->hw_intf->hw_idx, (is_ipp) ? "IPP" : "PPP",
 			res->res_id);
 		rc = -EINVAL;
+		goto end;
 	}
 
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_cfg0_addr);
+	if (val & csid_reg->cmn_reg->format_measure_en_val) {
+		val &= ~csid_reg->cmn_reg->format_measure_en_val;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_cfg0_addr);
+
+		/* Disable the HBI/VBI counter */
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_format_measure_cfg0_addr);
+		val &= ~csid_reg->cmn_reg->measure_en_hbi_vbi_cnt_mask;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_format_measure_cfg0_addr);
+	}
+
+end:
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	return rc;
 }
@@ -1794,6 +1826,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	const struct cam_ife_csid_reg_offset   *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
 	uint32_t path_format = 0, plain_fmt = 0, val = 0, id;
+	uint32_t format_measure_addr;
 
 	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1887,8 +1920,23 @@ static int cam_ife_csid_init_config_rdi_path(
 		csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
 	val |= (1 << csid_reg->cmn_reg->path_en_shift_val);
 
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO)
+		val |= csid_reg->cmn_reg->format_measure_en_val;
+
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
+
+	format_measure_addr =
+		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr;
+
+	/* Enable the HBI/VBI counter */
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			format_measure_addr);
+		val |= csid_reg->cmn_reg->measure_en_hbi_vbi_cnt_mask;
+		cam_io_w_mb(val,
+			soc_info->reg_map[0].mem_base + format_measure_addr);
+	}
 
 	/* configure the rx packet capture based on csid debug set */
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SHORT_PKT_CAPTURE)
@@ -1925,7 +1973,7 @@ static int cam_ife_csid_deinit_rdi_path(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
-	uint32_t id;
+	uint32_t id, val, format_measure_addr;
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
 
@@ -1940,6 +1988,24 @@ static int cam_ife_csid_deinit_rdi_path(
 			csid_hw->hw_intf->hw_idx, res->res_id,
 			res->res_state);
 		return -EINVAL;
+	}
+
+	format_measure_addr =
+		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr;
+
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
+		val &= ~csid_reg->cmn_reg->format_measure_en_val;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
+
+		/* Disable the HBI/VBI counter */
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			format_measure_addr);
+		val &= ~csid_reg->cmn_reg->measure_en_hbi_vbi_cnt_mask;
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			format_measure_addr);
 	}
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
@@ -2043,6 +2109,60 @@ static int cam_ife_csid_disable_rdi_path(
 
 	return rc;
 }
+
+static int cam_ife_csid_get_hbi_vbi(
+	struct cam_ife_csid_hw   *csid_hw,
+	struct cam_isp_resource_node *res)
+{
+	uint32_t  hbi, vbi;
+	const struct cam_ife_csid_reg_offset     *csid_reg;
+	const struct cam_ife_csid_rdi_reg_offset *rdi_reg;
+	struct cam_hw_soc_info                   *soc_info;
+
+	csid_reg = csid_hw->csid_info->csid_reg;
+	soc_info = &csid_hw->hw_info->soc_info;
+
+	if (res->res_type != CAM_ISP_RESOURCE_PIX_PATH ||
+		res->res_id >= CAM_IFE_PIX_PATH_RES_MAX) {
+		CAM_ERR(CAM_ISP, "CSID:%d Invalid res_type:%d res id%d",
+			csid_hw->hw_intf->hw_idx, res->res_type,
+			res->res_id);
+		return -EINVAL;
+	}
+
+	if (csid_hw->hw_info->hw_state != CAM_HW_STATE_POWER_UP) {
+		CAM_ERR(CAM_ISP, "CSID:%d Invalid dev state :%d",
+			csid_hw->hw_intf->hw_idx,
+			csid_hw->hw_info->hw_state);
+		return -EINVAL;
+	}
+
+	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP) {
+		hbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->ipp_reg->csid_pxl_format_measure1_addr);
+		vbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->ipp_reg->csid_pxl_format_measure2_addr);
+	} else if (res->res_id == CAM_IFE_PIX_PATH_RES_PPP) {
+		hbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->ppp_reg->csid_pxl_format_measure1_addr);
+		vbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->ppp_reg->csid_pxl_format_measure2_addr);
+	} else {
+		rdi_reg = csid_reg->rdi_reg[res->res_id];
+		hbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			rdi_reg->csid_rdi_format_measure1_addr);
+		vbi = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			rdi_reg->csid_rdi_format_measure2_addr);
+	}
+
+	CAM_INFO_RATE_LIMIT(CAM_ISP, "Resource %u HBI: 0x%x", res->res_id,
+		hbi);
+	CAM_INFO_RATE_LIMIT(CAM_ISP, "Resource %u VBI: 0x%x", res->res_id,
+		vbi);
+
+	return 0;
+}
+
 
 static int cam_ife_csid_get_time_stamp(
 		struct cam_ife_csid_hw   *csid_hw, void *cmd_args)
@@ -2708,6 +2828,7 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 	int rc = 0;
 	struct cam_ife_csid_hw               *csid_hw;
 	struct cam_hw_info                   *csid_hw_info;
+	struct cam_isp_resource_node         *res = NULL;
 
 	if (!hw_priv || !cmd_args) {
 		CAM_ERR(CAM_ISP, "CSID: Invalid arguments");
@@ -2720,6 +2841,11 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 	switch (cmd_type) {
 	case CAM_IFE_CSID_CMD_GET_TIME_STAMP:
 		rc = cam_ife_csid_get_time_stamp(csid_hw, cmd_args);
+		if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_HBI_VBI_INFO) {
+			res = ((struct cam_csid_get_time_stamp_args *)
+				cmd_args)->node_res;
+			cam_ife_csid_get_hbi_vbi(csid_hw, res);
+		}
 		break;
 	case CAM_IFE_CSID_SET_CSID_DEBUG:
 		rc = cam_ife_csid_set_csid_debug(csid_hw, cmd_args);
