@@ -12,6 +12,7 @@
  */
 
 #include "qcs605.dtsi"
+#include "msm-qvr-external.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SXR1130";

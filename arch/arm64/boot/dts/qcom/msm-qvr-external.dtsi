@@ -1,0 +1,44 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	smp2pgpio_qvrexternal_5_in: qcom,smp2pgpio-qvrexternal-5-in {
+			compatible = "qcom,smp2pgpio";
+			qcom,entry-name = "qvrexternal";
+			qcom,remote-pid = <5>;
+			qcom,is-inbound;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_client_qvrexternal_5_in {
+			compatible = "qcom,smp2pgpio_client_qvrexternal_5_in";
+			gpios = <&smp2pgpio_qvrexternal_5_in 0 0>;
+	};
+
+	smp2pgpio_qvrexternal_5_out: qcom,smp2pgpio-qvrexternal-5-out {
+			compatible = "qcom,smp2pgpio";
+			qcom,entry-name = "qvrexternal";
+			qcom,remote-pid = <5>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_client_qvrexternal_5_out {
+			compatible = "qcom,smp2pgpio_client_qvrexternal_5_out";
+			gpios = <&smp2pgpio_qvrexternal_5_out 0 0>;
+	};
+};

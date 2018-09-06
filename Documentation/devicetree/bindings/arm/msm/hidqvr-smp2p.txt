@@ -1,0 +1,39 @@
+Qualcomm Technologies, Inc. HID QVR (hid-qvr) driver
+
+Required properties:
+-compatible :
+	To communicate with cdsp
+		qcom,smp2pgpio-qvrexternal-5-out (outbound)
+		qcom,smp2pgpio-qvrexternal-5-in (inbound)
+
+Example:
+	smp2pgpio_qvrexternal_5_out: qcom,smp2pgpio-qvrexternal-5-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "qvrexternal";
+		qcom,remote-pid = <5>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	smp2pgpio_qvrexternal_5_in: qcom,smp2pgpio-qvrexternal-5-in {
+			compatible = "qcom,smp2pgpio";
+			qcom,entry-name = "qvrexternal";
+			qcom,remote-pid = <5>;
+			qcom,is-inbound;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_client_qvrexternal_5_out {
+			compatible = "qcom,smp2pgpio_client_qvrexternal_5_out";
+			gpios = <&smp2pgpio_qvrexternal_5_out 0 0>;
+	};
+
+	qcom,smp2pgpio_client_qvrexternal_5_in {
+			compatible = "qcom,smp2pgpio_client_qvrexternal_5_in";
+			gpios = <&smp2pgpio_qvrexternal_5_in 0 0>;
+	}
