@@ -436,11 +436,14 @@
 					     <0x2 0x43 0x1 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x43 0x2 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x43 0x3
-							IRQ_TYPE_EDGE_RISING>;
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x43 0x4
+							IRQ_TYPE_EDGE_FALLING>;
 				interrupt-names = "ima-rdy",
 						  "ima-xcp",
 						  "dma-xcp",
-						  "dma-grant";
+						  "dma-grant",
+						  "mem-attn";
 			};
 		};
 	};
