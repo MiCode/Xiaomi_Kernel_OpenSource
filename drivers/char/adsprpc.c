@@ -2035,6 +2035,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 						DMA_ATTR_NO_KERNEL_MAPPING |
 						DMA_ATTR_FORCE_NON_COHERENT;
 		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
+		imem->virt = NULL;
 		if (err)
 			goto bail;
 		fl->init_mem = imem;
@@ -2576,6 +2577,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 								1, &rbuf);
 		if (err)
 			goto bail;
+		rbuf->virt = NULL;
 		err = fastrpc_mmap_on_dsp(fl, ud->flags,
 				(uintptr_t)rbuf->virt,
 				rbuf->phys, rbuf->size, &raddr);
@@ -3092,7 +3094,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 			 * invoke any other methods without failure
 			 */
 			if (fl->apps->channel[cid].secure == SECURE_CHANNEL) {
-				err = -EPERM;
+				err = -EACCES;
 				goto bail;
 			}
 		}
