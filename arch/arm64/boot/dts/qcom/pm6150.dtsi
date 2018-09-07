@@ -405,6 +405,12 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			qcom,vbatt-cutoff-mv = <3200>;
+			qcom,vbatt-low-mv = <3300>;
+			qcom,vbatt-low-cold-mv = <3700>;
+			qcom,vbatt-empty-mv = <3000>;
+			qcom,vbatt-empty-cold-mv = <3000>;
+			qcom,s3-entry-fifo-length = <2>;
 			qcom,qg-iterm-ma = <100>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
