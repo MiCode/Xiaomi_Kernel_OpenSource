@@ -265,7 +265,6 @@ static int msm_drm_uninit(struct device *dev)
 	struct drm_device *ddev = platform_get_drvdata(pdev);
 	struct msm_drm_private *priv = ddev->dev_private;
 	struct msm_kms *kms = priv->kms;
-	struct msm_mdss *mdss = priv->mdss;
 	struct msm_vblank_ctrl *vbl_ctrl = &priv->vblank_ctrl;
 	struct vblank_event *vbl_ev, *tmp;
 
@@ -316,8 +315,7 @@ static int msm_drm_uninit(struct device *dev)
 
 	component_unbind_all(dev, ddev);
 
-	if (mdss && mdss->funcs)
-		mdss->funcs->destroy(ddev);
+	msm_mdss_destroy(ddev);
 
 	ddev->dev_private = NULL;
 	drm_dev_unref(ddev);
@@ -419,7 +417,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	struct drm_device *ddev;
 	struct msm_drm_private *priv;
 	struct msm_kms *kms;
-	struct msm_mdss *mdss;
 	int ret;
 
 	ddev = drm_dev_alloc(drv, dev);
@@ -439,14 +436,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
-	ret = mdp5_mdss_init(ddev);
+	ret = msm_mdss_init(ddev);
 	if (ret) {
 		kfree(priv);
 		drm_dev_unref(ddev);
 		return ret;
 	}
-
-	mdss = priv->mdss;
 
 	priv->wq = alloc_ordered_workqueue("msm", 0);
 	priv->atomic_wq = alloc_ordered_workqueue("msm:atomic", 0);
@@ -461,8 +456,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	/* Bind all our sub-components: */
 	ret = component_bind_all(dev, ddev);
 	if (ret) {
-		if (mdss && mdss->funcs)
-			mdss->funcs->destroy(ddev);
+		msm_mdss_destroy(ddev);
 		kfree(priv);
 		drm_dev_unref(ddev);
 		return ret;
@@ -990,12 +984,11 @@ static int msm_runtime_suspend(struct device *dev)
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev->dev_private;
-	struct msm_mdss *mdss = priv->mdss;
 
 	DBG("");
 
-	if (mdss && mdss->funcs)
-		return mdss->funcs->disable(mdss);
+	if (priv->mdss)
+		return msm_mdss_disable(priv->mdss);
 
 	return 0;
 }
@@ -1004,12 +997,11 @@ static int msm_runtime_resume(struct device *dev)
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct msm_drm_private *priv = ddev->dev_private;
-	struct msm_mdss *mdss = priv->mdss;
 
 	DBG("");
 
-	if (mdss && mdss->funcs)
-		return mdss->funcs->enable(mdss);
+	if (priv->mdss)
+		return msm_mdss_enable(priv->mdss);
 
 	return 0;
 }
