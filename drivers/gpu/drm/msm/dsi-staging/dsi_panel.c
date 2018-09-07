@@ -3746,14 +3746,19 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	if (!atomic_read(&panel->esd_recovery_pending)) {
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
 		if (rc) {
-			pr_err("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
+			/*
+			 * Sending panel off commands may fail when  DSI
+			 * controller is in a bad state. These failures can be
+			 * ignored since controller will go for full reset on
+			 * subsequent display enable anyway.
+			 */
+			pr_warn_ratelimited("[%s] failed to send DSI_CMD_SET_OFF cmds, rc=%d\n",
 					panel->name, rc);
-			goto error;
+			rc = 0;
 		}
 	}
 	panel->panel_initialized = false;
 
-error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
