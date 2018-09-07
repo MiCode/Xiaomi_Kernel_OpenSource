@@ -1823,7 +1823,7 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 
 		if (lcdb->bst.pd_strength != -EINVAL) {
 			rc = qpnp_lcdb_masked_write(lcdb, lcdb->base +
-				LCDB_NCP_PD_CTL_REG, BOOST_PD_STRENGTH_BIT,
+				LCDB_BST_PD_CTL_REG, BOOST_PD_STRENGTH_BIT,
 				lcdb->bst.pd_strength ?
 				BOOST_PD_STRENGTH_BIT : 0);
 			if (rc < 0) {
