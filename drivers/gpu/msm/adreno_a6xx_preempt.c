@@ -122,6 +122,8 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 		return;
 	}
 
+	adreno_dev->preempt.count++;
+
 	del_timer_sync(&adreno_dev->preempt.timer);
 
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT_LEVEL_STATUS, &status);
@@ -297,8 +299,6 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	kgsl_sharedmem_writel(device, &next->preemption_desc,
 		PREEMPT_RECORD(wptr), next->wptr);
 
-	preempt->count++;
-
 	spin_unlock_irqrestore(&next->preempt_lock, flags);
 
 	/* And write it to the smmu info */
@@ -400,6 +400,8 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 		return;
 	}
+
+	adreno_dev->preempt.count++;
 
 	/*
 	 * We can now safely clear the preemption keepalive bit, allowing
