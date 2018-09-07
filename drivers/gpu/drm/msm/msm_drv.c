@@ -429,16 +429,19 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
-		ret = -ENOMEM;
-		goto err_unref_drm_dev;
+		drm_dev_unref(ddev);
+		return -ENOMEM;
 	}
 
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
 	ret = mdp5_mdss_init(ddev);
-	if (ret)
-		goto err_free_priv;
+	if (ret) {
+		kfree(priv);
+		drm_dev_unref(ddev);
+		return ret;
+	}
 
 	mdss = priv->mdss;
 
@@ -453,12 +456,17 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	/* Bind all our sub-components: */
 	ret = component_bind_all(dev, ddev);
-	if (ret)
-		goto err_destroy_mdss;
+	if (ret) {
+		if (mdss && mdss->funcs)
+			mdss->funcs->destroy(ddev);
+		kfree(priv);
+		drm_dev_unref(ddev);
+		return ret;
+	}
 
 	ret = msm_init_vram(ddev);
 	if (ret)
-		goto err_msm_uninit;
+		goto fail;
 
 	msm_gem_shrinker_init(ddev);
 
@@ -484,7 +492,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		 */
 		dev_err(dev, "failed to load kms\n");
 		ret = PTR_ERR(kms);
-		goto err_msm_uninit;
+		goto fail;
 	}
 
 	/* Enable normalization of plane zpos */
@@ -494,7 +502,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		ret = kms->funcs->hw_init(kms);
 		if (ret) {
 			dev_err(dev, "kms hw init failed: %d\n", ret);
-			goto err_msm_uninit;
+			goto fail;
 		}
 	}
 
@@ -504,7 +512,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = drm_vblank_init(ddev, priv->num_crtcs);
 	if (ret < 0) {
 		dev_err(dev, "failed to initialize vblank\n");
-		goto err_msm_uninit;
+		goto fail;
 	}
 
 	if (kms) {
@@ -513,13 +521,13 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		pm_runtime_put_sync(dev);
 		if (ret < 0) {
 			dev_err(dev, "failed to install IRQ handler\n");
-			goto err_msm_uninit;
+			goto fail;
 		}
 	}
 
 	ret = drm_dev_register(ddev, 0);
 	if (ret)
-		goto err_msm_uninit;
+		goto fail;
 
 	drm_mode_config_reset(ddev);
 
@@ -530,22 +538,14 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	ret = msm_debugfs_late_init(ddev);
 	if (ret)
-		goto err_msm_uninit;
+		goto fail;
 
 	drm_kms_helper_poll_init(ddev);
 
 	return 0;
 
-err_msm_uninit:
+fail:
 	msm_drm_uninit(dev);
-	return ret;
-err_destroy_mdss:
-	if (mdss && mdss->funcs)
-		mdss->funcs->destroy(ddev);
-err_free_priv:
-	kfree(priv);
-err_unref_drm_dev:
-	drm_dev_unref(ddev);
 	return ret;
 }
 
