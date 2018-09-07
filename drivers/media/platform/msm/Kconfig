@@ -32,6 +32,7 @@ config MSM_CAMERA_DEBUG
 menuconfig MSMB_CAMERA
     bool "QTI MSM camera and video capture 2.0 support"
     depends on ARCH_QCOM && VIDEO_V4L2 && I2C
+    select ADSP_SHMEM
     ---help---
       Say Y here to enable selecting the video adapters for
       QTI msm camera and video capture 2.0, enabling this
@@ -44,6 +45,8 @@ config MSMB_CAMERA_DEBUG
     ---help---
       Enable printk() debug for msm camera 2.0
 
+
+
 if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
@@ -53,4 +56,4 @@ source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
 source "drivers/media/platform/msm/broadcast/Kconfig"
-
+source "drivers/media/platform/msm/adsp_shmem/Kconfig"

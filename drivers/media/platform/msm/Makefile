@@ -2,6 +2,7 @@
 # Makefile for the qti specific video device drivers
 # based on V4L2.
 #
+obj-y += adsp_shmem/
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
 obj-$(CONFIG_MSM_VIDC_3X_V4L2) += vidc_3x/
 obj-y += sde/

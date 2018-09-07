@@ -1,0 +1,4 @@
+menuconfig ADSP_SHMEM
+	bool "ADSP shared memory device driver"
+	---help---
+	ADSP shared memory device driver for ADSP fast boot camera
