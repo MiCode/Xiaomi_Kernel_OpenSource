@@ -3495,12 +3495,13 @@ static u32 _sde_dbg_get_dump_range(struct sde_dbg_reg_offset *range_node,
 {
 	u32 length = 0;
 
-	if ((range_node->start > range_node->end) ||
-		(range_node->end > max_offset) || (range_node->start == 0
-		&& range_node->end == 0)) {
+	if (range_node->start == 0 && range_node->end == 0) {
 		length = max_offset;
-	} else {
-		length = range_node->end - range_node->start;
+	} else if (range_node->start < max_offset) {
+		if (range_node->end > max_offset)
+			length = max_offset - range_node->start;
+		else if (range_node->start < range_node->end)
+			length = range_node->end - range_node->start;
 	}
 
 	return length;
