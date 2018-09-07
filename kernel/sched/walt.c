@@ -365,11 +365,12 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 	struct task_struct *p;
 	int loop_max = 10;
 
+	rq->ed_task = NULL;
+
 	if ((!walt_rotation_enabled && sched_boost_policy() ==
 			SCHED_BOOST_NONE) || !rq->cfs.h_nr_running)
 		return 0;
 
-	rq->ed_task = NULL;
 	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
 		if (!loop_max)
 			break;
