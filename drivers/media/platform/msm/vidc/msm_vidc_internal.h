@@ -328,6 +328,11 @@ struct batch_mode {
 	u32 size;
 };
 
+enum dcvs_flags {
+	MSM_VIDC_DCVS_INCR = BIT(0),
+	MSM_VIDC_DCVS_DECR = BIT(1),
+};
+
 struct clock_data {
 	int buffer_counter;
 	int load;
@@ -354,6 +359,7 @@ struct clock_data {
 	bool low_latency_mode;
 	bool turbo_mode;
 	u32 work_route;
+	u32 dcvs_flags;
 };
 
 struct profile_data {

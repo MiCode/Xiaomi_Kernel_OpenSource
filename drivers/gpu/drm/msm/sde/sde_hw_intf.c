@@ -361,11 +361,12 @@ static void sde_hw_intf_bind_pingpong_blk(
 	c = &intf->hw;
 
 	mux_cfg = SDE_REG_READ(c, INTF_MUX);
+	mux_cfg &= ~0xf;
 
-	if (enable) {
-		mux_cfg &= ~0xf;
+	if (enable)
 		mux_cfg |= (pp - PINGPONG_0) & 0x7;
-	}
+	else
+		mux_cfg |= 0xf;
 
 	SDE_REG_WRITE(c, INTF_MUX, mux_cfg);
 }

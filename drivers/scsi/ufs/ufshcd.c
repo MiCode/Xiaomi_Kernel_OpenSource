@@ -10614,8 +10614,6 @@ void ufshcd_remove(struct ufs_hba *hba)
 			devfreq_remove_device(hba->devfreq);
 	}
 
-	ufshcd_exit_latency_hist(hba);
-
 	ufshcd_hba_exit(hba);
 	ufsdbg_remove_debugfs(hba);
 }

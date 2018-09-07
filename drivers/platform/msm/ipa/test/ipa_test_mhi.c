@@ -2016,7 +2016,8 @@ static int ipa_mhi_test_suspend_host_wakeup(void)
 		return rc;
 	}
 
-	if (wait_for_completion_timeout(&mhi_test_wakeup_comp, HZ) == 0) {
+	if (wait_for_completion_timeout(&mhi_test_wakeup_comp,
+		msecs_to_jiffies(3500)) == 0) {
 		IPA_UT_LOG("timeout waiting for wakeup event\n");
 		IPA_UT_TEST_FAIL_REPORT("timeout waiting for wakeup event");
 		return -ETIME;

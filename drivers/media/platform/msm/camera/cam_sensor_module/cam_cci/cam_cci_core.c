@@ -1013,7 +1013,7 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 		read_words = cam_io_r_mb(base +
 			CCI_I2C_M0_READ_BUF_LEVEL_ADDR + master * 0x100);
 		total_read_words += read_words;
-		do {
+		while (read_words > 0) {
 			val = cam_io_r_mb(base +
 				CCI_I2C_M0_READ_DATA_ADDR + master * 0x100);
 			for (i = 0; (i < 4) &&
@@ -1031,7 +1031,8 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 					index++;
 				}
 			}
-		} while (--read_words > 0);
+			read_words--;
+		}
 	}
 
 rel_mutex:
@@ -1199,7 +1200,7 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 	index = 0;
 	CAM_DBG(CAM_CCI, "index %d num_type %d", index, read_cfg->num_byte);
 	first_byte = 0;
-	do {
+	while (read_words > 0) {
 		val = cam_io_r_mb(base +
 			CCI_I2C_M0_READ_DATA_ADDR + master * 0x100);
 		CAM_DBG(CAM_CCI, "read val 0x%x", val);
@@ -1216,7 +1217,8 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 				index++;
 			}
 		}
-	} while (--read_words > 0);
+		read_words--;
+	}
 rel_mutex:
 	mutex_unlock(&cci_dev->cci_master_info[master].mutex_q[queue]);
 

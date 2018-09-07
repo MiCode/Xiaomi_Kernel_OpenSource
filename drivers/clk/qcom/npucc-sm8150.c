@@ -111,11 +111,14 @@ static const struct alpha_pll_config npu_cc_pll0_config = {
 };
 
 static const struct alpha_pll_config npu_cc_pll0_config_sm8150_v2 = {
-	.l = 0xD,
-	.alpha = 0x555,
+	.l = 0x1F,
+	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -186,6 +189,9 @@ static const struct alpha_pll_config npu_cc_pll1_config_sm8150_v2 = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -255,7 +261,8 @@ static const struct freq_tbl ftbl_npu_cc_cal_dp_clk_src_sm8150_v2[] = {
 	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(400000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(487000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(773000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(652000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(811000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(908000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
@@ -448,6 +455,10 @@ static struct clk_branch npu_cc_npu_core_apb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_apb_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -461,6 +472,10 @@ static struct clk_branch npu_cc_npu_core_atb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_atb_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_at_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -492,6 +507,10 @@ static struct clk_branch npu_cc_npu_core_cti_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_npu_core_cti_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_trig_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -650,8 +669,9 @@ static void npu_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 0;
 	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 400000000;
 	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] = 487000000;
-	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 773000000;
-	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 908000000;
+	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 652000000;
+	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 811000000;
+	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_HIGH_L1] = 908000000;
 	npu_cc_npu_core_clk_src.freq_tbl =
 		ftbl_npu_cc_npu_core_clk_src_sm8150_v2;
 	npu_cc_npu_core_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 0;

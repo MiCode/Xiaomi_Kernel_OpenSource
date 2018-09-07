@@ -24,6 +24,33 @@
 #define DFC_MAX_BEARERS_V01 16
 #define DFC_MAX_QOS_ID_V01 2
 
+#define DFC_ACK_TYPE_DISABLE 1
+#define DFC_ACK_TYPE_THRESHOLD 2
+
+struct dfc_qmap_header {
+	u8  pad_len:6;
+	u8  reserved_bit:1;
+	u8  cd_bit:1;
+	u8  mux_id;
+	__be16   pkt_len;
+} __aligned(1);
+
+struct dfc_ack_cmd {
+	struct dfc_qmap_header header;
+	u8  command_name;
+	u8  cmd_type:2;
+	u8  reserved:6;
+	u16 reserved2;
+	u32 transaction_id;
+	u8  ver:2;
+	u8  reserved3:6;
+	u8  type:2;
+	u8  reserved4:6;
+	u16 dfc_seq;
+	u8  reserved5[3];
+	u8  bearer_id;
+} __aligned(1);
+
 struct dfc_qmi_data {
 	void *rmnet_port;
 	struct workqueue_struct *dfc_wq;
@@ -514,25 +541,75 @@ static int dfc_init_service(struct dfc_qmi_data *data, struct qmi_info *qmi)
 	return dfc_indication_register_req(&data->handle, &data->ssctl, 1);
 }
 
-static int dfc_bearer_flow_ctl(struct net_device *dev, struct qos_info *qos,
-			       u8 bearer_id, u32 grant_size, int enable)
+static void
+dfc_send_ack(struct net_device *dev, u8 bearer_id, u16 seq, u8 mux_id, u8 type)
+{
+	struct qos_info *qos = rmnet_get_qos_pt(dev);
+	struct sk_buff *skb;
+	struct dfc_ack_cmd *msg;
+	int data_size = sizeof(struct dfc_ack_cmd);
+	int header_size = sizeof(struct dfc_qmap_header);
+
+	if (!qos)
+		return;
+
+	skb = alloc_skb(data_size, GFP_ATOMIC);
+	if (!skb)
+		return;
+
+	msg = (struct dfc_ack_cmd *)skb_put(skb, data_size);
+	memset(msg, 0, data_size);
+
+	msg->header.cd_bit = 1;
+	msg->header.mux_id = mux_id;
+	msg->header.pkt_len = htons(data_size - header_size);
+
+	msg->bearer_id = bearer_id;
+	msg->command_name = 4;
+	msg->cmd_type = 0;
+	msg->dfc_seq = htons(seq);
+	msg->type = type;
+	msg->ver = 2;
+	msg->transaction_id = htonl(qos->tran_num);
+
+	skb->dev = qos->real_dev;
+	skb->protocol = htons(ETH_P_MAP);
+
+	trace_dfc_qmap_cmd(mux_id, bearer_id, seq, type, qos->tran_num);
+	qos->tran_num++;
+
+	rmnet_map_tx_qmap_cmd(skb);
+}
+
+static int dfc_bearer_flow_ctl(struct net_device *dev,
+			       struct rmnet_bearer_map *bearer,
+			       struct qos_info *qos)
 {
 	struct list_head *p;
 	struct rmnet_flow_map *itm;
 	int rc = 0, qlen;
+	int enable;
+
+	enable = bearer->grant_size ? 1 : 0;
 
 	list_for_each(p, &qos->flow_head) {
 		itm = list_entry(p, struct rmnet_flow_map, list);
 
-		if (itm->bearer_id == bearer_id) {
+		if (itm->bearer_id == bearer->bearer_id) {
 			qlen = tc_qdisc_flow_control(dev, itm->tcm_handle,
 						    enable);
 			trace_dfc_qmi_tc(itm->bearer_id, itm->flow_id,
-					 grant_size, qlen, itm->tcm_handle,
-					 enable);
+					 bearer->grant_size, qlen,
+					 itm->tcm_handle, enable);
 			rc++;
 		}
 	}
+
+	if (enable == 0 && bearer->ack_req)
+		dfc_send_ack(dev, bearer->bearer_id,
+			     bearer->seq, qos->mux_id,
+			     DFC_ACK_TYPE_DISABLE);
+
 	return rc;
 }
 
@@ -550,6 +627,8 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 		bearer_itm = list_entry(p, struct rmnet_bearer_map, list);
 
 		bearer_itm->grant_size = fc_info->num_bytes;
+		bearer_itm->grant_thresh =
+			qmi_rmnet_grant_per(bearer_itm->grant_size);
 		bearer_itm->seq = fc_info->seq_num;
 		bearer_itm->ack_req = ack_req;
 	}
@@ -565,6 +644,12 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 				 flow_itm->tcm_handle, enable);
 		rc++;
 	}
+
+	if (enable == 0 && ack_req)
+		dfc_send_ack(dev, fc_info->bearer_id,
+			     fc_info->seq_num, fc_info->mux_id,
+			     DFC_ACK_TYPE_DISABLE);
+
 	return rc;
 }
 
@@ -584,12 +669,12 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 			action = 0;
 
 		itm->grant_size = fc_info->num_bytes;
+		itm->grant_thresh = qmi_rmnet_grant_per(itm->grant_size);
 		itm->seq = fc_info->seq_num;
 		itm->ack_req = ack_req;
 
 		if (action != -1)
-			rc = dfc_bearer_flow_ctl(dev, qos, fc_info->bearer_id,
-						itm->grant_size, action);
+			rc = dfc_bearer_flow_ctl(dev, itm, qos);
 	} else {
 		pr_debug("grant %u before flow activate", fc_info->num_bytes);
 		qos->default_grant = fc_info->num_bytes;
@@ -614,22 +699,12 @@ static void dfc_do_burst_flow_control(struct work_struct *work)
 		return;
 	}
 
-get_lock:
-	local_bh_disable();
-	/* This will drop some messages but that is
-	 * unavoidable for now since the notifier callback is
-	 * protected by rtnl_lock() and destroy_workqueue()
-	 * will dead lock with this.
-	 */
-	if (!rtnl_trylock()) {
+	while (!rtnl_trylock()) {
 		if (!svc_ind->data->restart_state) {
-			local_bh_enable();
-			msleep(20);
-			goto get_lock;
+			cond_resched();
 		} else {
 			kfree(ind);
 			kfree(svc_ind);
-			local_bh_enable();
 			return;
 		}
 	}
@@ -665,7 +740,6 @@ clean_out:
 	kfree(ind);
 	kfree(svc_ind);
 	rtnl_unlock();
-	local_bh_enable();
 }
 
 static void dfc_bearer_limit_work(struct work_struct *work)
@@ -675,21 +749,16 @@ static void dfc_bearer_limit_work(struct work_struct *work)
 	struct list_head *p;
 	int qlen, fc;
 
-	local_bh_disable();
-
 	/* enable transmit on device so that the other
 	 * flows which transmit proceed normally.
-	 * do it here under bh disabled so that the TX softirq
-	 * may not run here
 	 */
 	netif_start_queue(dfc_ind->dev);
 
 	while (!rtnl_trylock()) {
 		if (!dfc_ind->data->restart_state) {
-			cond_resched_softirq();
+			cond_resched();
 		} else {
 			kfree(dfc_ind);
-			local_bh_enable();
 			return;
 		}
 	}
@@ -713,10 +782,14 @@ static void dfc_bearer_limit_work(struct work_struct *work)
 		}
 	}
 
+	if (dfc_ind->bearer->ack_req)
+		dfc_send_ack(dfc_ind->dev, dfc_ind->bearer->bearer_id,
+			     dfc_ind->bearer->seq, dfc_ind->qos->mux_id,
+			     DFC_ACK_TYPE_DISABLE);
+
 done:
 	kfree(dfc_ind);
 	rtnl_unlock();
-	local_bh_enable();
 }
 
 static void dfc_clnt_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
@@ -839,7 +912,7 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi)
 	data->index = index;
 	data->restart_state = 0;
 
-	data->dfc_wq = alloc_workqueue("dfc_wq", WQ_HIGHPRI, 1);
+	data->dfc_wq = create_singlethread_workqueue("dfc_wq");
 	if (!data->dfc_wq) {
 		pr_err("%s Could not create workqueue\n", __func__);
 		goto err0;
@@ -899,11 +972,12 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	struct rmnet_flow_map *itm;
 	struct dfc_qmi_data *data;
 	int ip_type;
+	u32 start_grant;
 
 	ip_type = (ip_hdr(skb)->version == IP_VER_6) ? AF_INET6 : AF_INET;
 
 	itm = qmi_rmnet_get_flow_map(qos, skb->mark, ip_type);
-	if (!itm)
+	if (unlikely(!itm))
 		return;
 
 	bearer = qmi_rmnet_get_bearer_map(qos, itm->bearer_id);
@@ -915,10 +989,21 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	if (!bearer->grant_size)
 		return;
 
-	if (skb->len < bearer->grant_size) {
+	start_grant = bearer->grant_size;
+	if (skb->len >= bearer->grant_size)
+		bearer->grant_size = 0;
+	else
 		bearer->grant_size -= skb->len;
-		return;
+
+	if (start_grant > bearer->grant_thresh &&
+	    bearer->grant_size <= bearer->grant_thresh) {
+		dfc_send_ack(dev, bearer->bearer_id,
+			     bearer->seq, qos->mux_id,
+			     DFC_ACK_TYPE_THRESHOLD);
 	}
+
+	if (bearer->grant_size)
+		return;
 
 	data = (struct dfc_qmi_data *)qmi_rmnet_has_dfc_client(qmi);
 	if (!data)
@@ -934,8 +1019,6 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	dfc_ind->qos = qos;
 	dfc_ind->bearer = bearer;
 	dfc_ind->data = data;
-
-	bearer->grant_size = 0;
 
 	/* stop the flow in hope that the worker thread is
 	 * immediately scheduled beyond this point of time

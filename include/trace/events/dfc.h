@@ -195,6 +195,33 @@ TRACE_EVENT(dfc_client_state_down,
 		  __entry->idx, __entry->from_cb)
 );
 
+TRACE_EVENT(dfc_qmap_cmd,
+
+	TP_PROTO(u8 mux_id, u8 bearer_id, u16 seq_num, u8 type, u32 tran),
+
+	TP_ARGS(mux_id, bearer_id, seq_num, type, tran),
+
+	TP_STRUCT__entry(
+		__field(u8, mid)
+		__field(u8, bid)
+		__field(u16, seq)
+		__field(u8, type)
+		__field(u32, tran)
+	),
+
+	TP_fast_assign(
+		__entry->mid = mux_id;
+		__entry->bid = bearer_id;
+		__entry->seq = seq_num;
+		__entry->type = type;
+		__entry->tran = tran;
+	),
+
+	TP_printk("mux_id=%u bearer_id=%u seq_num=%u type=%u tran=%u",
+		__entry->mid, __entry->bid, __entry->seq,
+		__entry->type, __entry->tran)
+);
+
 #endif /* _TRACE_DFC_H */
 
 /* This part must be outside protection */

@@ -69,6 +69,7 @@
 #define ALPHA_BITWIDTH		32
 #define ALPHA_16BIT_MASK	0xffff
 #define ALPHA_REG_16BITWIDTH	16
+#define ALPHA_16_BIT_PLL_RATE_MARGIN	500
 
 /* TRION PLL specific settings and offsets */
 #define TRION_PLL_CAL_L_VAL	0x8
@@ -90,7 +91,6 @@
 #define TRION_PLL_RUN		0x1
 #define TRION_PLL_OUT_MASK	0x7
 #define TRION_PCAL_DONE		BIT(26)
-#define TRION_PLL_RATE_MARGIN	500
 #define TRION_PLL_ACK_LATCH	BIT(29)
 #define TRION_PLL_UPDATE	BIT(22)
 #define TRION_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
@@ -112,6 +112,7 @@
 #define REGERA_PLL_OUT_MASK	0x9
 
 /* FABIA PLL specific settings and offsets */
+#define FABIA_CAL_L_VAL		0x8
 #define FABIA_USER_CTL_LO	0xc
 #define FABIA_USER_CTL_HI	0x10
 #define FABIA_CONFIG_CTL_LO	0x14
@@ -123,10 +124,17 @@
 #define FABIA_PLL_STANDBY	0x0
 #define FABIA_PLL_RUN		0x1
 #define FABIA_PLL_OUT_MASK	0x7
-#define FABIA_PLL_RATE_MARGIN	500
 #define FABIA_PLL_ACK_LATCH	BIT(29)
 #define FABIA_PLL_UPDATE	BIT(22)
 #define FABIA_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
+
+/* AGERA PLL specific settings and offsets */
+#define AGERA_PLL_USER_CTL		0xc
+#define AGERA_PLL_CONFIG_CTL		0x10
+#define AGERA_PLL_CONFIG_CTL_U		0x14
+#define AGERA_PLL_TEST_CTL		0x18
+#define AGERA_PLL_TEST_CTL_U		0x1c
+#define AGERA_PLL_POST_DIV_MASK		0x3
 
 #define to_clk_alpha_pll(_hw) container_of(to_clk_regmap(_hw), \
 					   struct clk_alpha_pll, clkr)
@@ -444,7 +452,7 @@ static unsigned long alpha_pll_calc_rate(const struct clk_alpha_pll *pll,
 	int alpha_bw = ALPHA_BITWIDTH;
 
 	if (pll->type == TRION_PLL || pll->type == REGERA_PLL
-					|| pll->type == FABIA_PLL)
+			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL)
 		alpha_bw = ALPHA_REG_16BITWIDTH;
 
 	return (prate * l) + ((prate * a) >> alpha_bw);
@@ -481,7 +489,7 @@ alpha_pll_round_rate(const struct clk_alpha_pll *pll, unsigned long rate,
 	 * the fractional divider.
 	 */
 	if (pll->type == TRION_PLL || pll->type == REGERA_PLL
-					|| pll->type == FABIA_PLL)
+			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL)
 		alpha_bw = ALPHA_REG_16BITWIDTH;
 
 	/* Upper ALPHA_BITWIDTH bits of Alpha */
@@ -666,7 +674,8 @@ static long clk_alpha_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 
 	rate = alpha_pll_round_rate(pll, rate, *prate, &l, &a);
 	if ((pll->type == ALPHA_PLL && alpha_pll_find_vco(pll, rate)) ||
-		(pll->type == FABIA_PLL || alpha_pll_find_vco(pll, rate)))
+		(pll->type == FABIA_PLL || alpha_pll_find_vco(pll, rate))
+		|| pll->type == AGERA_PLL)
 		return rate;
 
 	min_freq = pll->vco_table[0].min_freq;
@@ -972,7 +981,7 @@ static int clk_trion_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Due to a limited number of bits for fractional rate programming, the
 	 * rounded up rate could be marginally higher than the requested rate.
 	 */
-	if (rrate > (rate + TRION_PLL_RATE_MARGIN) || rrate < rate) {
+	if (rrate > (rate + ALPHA_16_BIT_PLL_RATE_MARGIN) || rrate < rate) {
 		pr_err("Call set rate on the PLL with rounded rates!\n");
 		return -EINVAL;
 	}
@@ -1223,7 +1232,7 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Due to a limited number of bits for fractional rate programming, the
 	 * rounded up rate could be marginally higher than the requested rate.
 	 */
-	if (rrate > (rate + TRION_PLL_RATE_MARGIN) || rrate < rate) {
+	if (rrate > (rate + ALPHA_16_BIT_PLL_RATE_MARGIN) || rrate < rate) {
 		pr_err("Requested rate (%lu) not matching the PLL's supported frequency (%lu)\n",
 				rate, rrate);
 		return -EINVAL;
@@ -1350,12 +1359,17 @@ static unsigned long
 clk_alpha_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
-	u32 ctl;
+	u32 ctl, user_ctl = PLL_USER_CTL, post_div_mask = PLL_POST_DIV_MASK;
 
-	regmap_read(pll->clkr.regmap, pll->offset + PLL_USER_CTL, &ctl);
+	if (pll->type == AGERA_PLL) {
+		user_ctl = AGERA_PLL_USER_CTL;
+		post_div_mask = AGERA_PLL_POST_DIV_MASK;
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + user_ctl, &ctl);
 
 	ctl >>= PLL_POST_DIV_SHIFT;
-	ctl &= PLL_POST_DIV_MASK;
+	ctl &= post_div_mask;
 
 	return parent_rate >> fls(ctl);
 }
@@ -1384,12 +1398,18 @@ static int clk_alpha_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 	int div;
+	u32 user_ctl = PLL_USER_CTL, post_div_mask = PLL_POST_DIV_MASK;
+
+	if (pll->type == AGERA_PLL) {
+		user_ctl = AGERA_PLL_USER_CTL;
+		post_div_mask = AGERA_PLL_POST_DIV_MASK;
+	}
 
 	/* 16 -> 0xf, 8 -> 0x7, 4 -> 0x3, 2 -> 0x1, 1 -> 0x0 */
 	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate) - 1;
 
-	return regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_USER_CTL,
-				  PLL_POST_DIV_MASK << PLL_POST_DIV_SHIFT,
+	return regmap_update_bits(pll->clkr.regmap, pll->offset + user_ctl,
+				  post_div_mask << PLL_POST_DIV_SHIFT,
 				  div << PLL_POST_DIV_SHIFT);
 }
 
@@ -1875,6 +1895,65 @@ static void clk_fabia_pll_disable(struct clk_hw *hw)
 	regmap_write(pll->clkr.regmap, off + FABIA_OPMODE, FABIA_PLL_STANDBY);
 }
 
+/*
+ * Fabia PLL requires power-on self calibration which happen when the PLL comes
+ * out of reset. Calibration frequency is calculated by below relation:
+ *
+ * calibration freq = ((pll_l_valmax + pll_l_valmin) * 0.54)
+ */
+static int clk_fabia_pll_prepare(struct clk_hw *hw)
+{
+	unsigned long calibration_freq, freq_hz;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	const struct pll_vco *vco;
+	u64 a;
+	u32 cal_l, regval, off = pll->offset;
+	int ret;
+
+	/* Check if calibration needs to be done i.e. PLL is in reset */
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
+	if (ret)
+		return ret;
+
+	/* Return early if calibration is not needed. */
+	if (regval & PLL_RESET_N)
+		return 0;
+
+	vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	if (!vco) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+
+	calibration_freq = ((pll->vco_table[0].min_freq +
+				pll->vco_table[0].max_freq) * 54)/100;
+
+	freq_hz = alpha_pll_round_rate(pll, calibration_freq,
+			clk_hw_get_rate(clk_hw_get_parent(hw)), &cal_l, &a);
+	/*
+	 * Due to a limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (freq_hz > (calibration_freq + ALPHA_16_BIT_PLL_RATE_MARGIN) ||
+						freq_hz < calibration_freq) {
+		pr_err("fabia_pll: Call set rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	/* Setup PLL for calibration frequency */
+	regmap_write(pll->clkr.regmap, pll->offset + FABIA_CAL_L_VAL, cal_l);
+
+	/* Bringup the pll at calibration frequency */
+	ret = clk_fabia_pll_enable(hw);
+	if (ret) {
+		pr_err("alpha pll calibration failed\n");
+		return ret;
+	}
+
+	clk_fabia_pll_disable(hw);
+	return 0;
+}
+
 static unsigned long
 clk_fabia_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -1907,7 +1986,7 @@ static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Due to limited number of bits for fractional rate programming, the
 	 * rounded up rate could be marginally higher than the requested rate.
 	 */
-	if (rrate > (rate + FABIA_PLL_RATE_MARGIN) || rrate < rate) {
+	if (rrate > (rate + ALPHA_16_BIT_PLL_RATE_MARGIN) || rrate < rate) {
 		pr_err("Call set rate on the PLL with rounded rates!\n");
 		return -EINVAL;
 	}
@@ -1956,6 +2035,7 @@ static void clk_fabia_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 }
 
 const struct clk_ops clk_fabia_pll_ops = {
+	.prepare = clk_fabia_pll_prepare,
 	.enable = clk_fabia_pll_enable,
 	.disable = clk_fabia_pll_disable,
 	.recalc_rate = clk_fabia_pll_recalc_rate,
@@ -2054,3 +2134,140 @@ const struct clk_ops clk_generic_pll_postdiv_ops = {
 	.set_rate = clk_generic_pll_postdiv_set_rate,
 };
 EXPORT_SYMBOL(clk_generic_pll_postdiv_ops);
+
+void clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config)
+{
+	u32 val, mask;
+
+	if (config->l)
+		regmap_write(regmap, pll->offset + PLL_L_VAL,
+						config->l);
+
+	if (config->alpha)
+		regmap_write(regmap, pll->offset + PLL_ALPHA_VAL,
+						config->alpha);
+	if (config->post_div_mask) {
+		mask = config->post_div_mask;
+		val = config->post_div_val;
+		regmap_update_bits(regmap, pll->offset + AGERA_PLL_USER_CTL,
+					mask, val);
+	}
+
+	if (config->main_output_mask || config->aux_output_mask ||
+		config->aux2_output_mask || config->early_output_mask) {
+
+		val = config->main_output_mask;
+		val |= config->aux_output_mask;
+		val |= config->aux2_output_mask;
+		val |= config->early_output_mask;
+
+		mask = config->main_output_mask;
+		mask |= config->aux_output_mask;
+		mask |= config->aux2_output_mask;
+		mask |= config->early_output_mask;
+
+		regmap_update_bits(regmap, pll->offset + AGERA_PLL_USER_CTL,
+					mask, val);
+	}
+
+	if (config->config_ctl_val)
+		regmap_write(regmap, pll->offset + AGERA_PLL_CONFIG_CTL,
+				config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		regmap_write(regmap, pll->offset + AGERA_PLL_CONFIG_CTL_U,
+				config->config_ctl_hi_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, pll->offset + AGERA_PLL_TEST_CTL,
+					config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, pll->offset + AGERA_PLL_TEST_CTL_U,
+					config->test_ctl_hi_val);
+}
+
+static unsigned long
+clk_agera_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	u32 l, a;
+	u64 prate = parent_rate;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 off = pll->offset;
+
+	regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l);
+	regmap_read(pll->clkr.regmap, off + PLL_ALPHA_VAL, &a);
+
+	return alpha_pll_calc_rate(pll, prate, l, a);
+}
+
+static int clk_agera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	int ret;
+	u32 l, off = pll->offset;
+	u64 a;
+
+	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
+	/*
+	 * Due to limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + ALPHA_16_BIT_PLL_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	/* change L_VAL without having to go through the power on sequence */
+	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
+	regmap_write(pll->clkr.regmap, off + PLL_ALPHA_VAL, a);
+
+	/* Ensure that the write above goes through before proceeding. */
+	mb();
+
+	if (clk_hw_is_enabled(hw)) {
+		ret = wait_for_pll_enable_lock(pll);
+		if (ret) {
+			pr_err("Failed to lock after L_VAL update\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void clk_agera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	static struct clk_register_data pll_regs[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_ALPHA_VAL", 0x8},
+		{"PLL_USER_CTL", 0xc},
+		{"PLL_CONFIG_CTL", 0x10},
+		{"PLL_CONFIG_CTL_U", 0x14},
+		{"PLL_TEST_CTL", 0x18},
+		{"PLL_TEST_CTL_U", 0x1c},
+		{"PLL_STATUS", 0x2c},
+	};
+
+	static struct clk_register_data pll_vote_reg = {
+		"APSS_PLL_VOTE", 0x0
+	};
+
+	print_pll_registers(f, hw, pll_regs, ARRAY_SIZE(pll_regs),
+							&pll_vote_reg);
+}
+
+const struct clk_ops clk_agera_pll_ops = {
+	.enable = clk_alpha_pll_enable,
+	.disable = clk_alpha_pll_disable,
+	.is_enabled = clk_alpha_pll_is_enabled,
+	.recalc_rate = clk_agera_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = clk_agera_pll_set_rate,
+	.list_registers = clk_agera_pll_list_registers,
+};
+EXPORT_SYMBOL(clk_agera_pll_ops);

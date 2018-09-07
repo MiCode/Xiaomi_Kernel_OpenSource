@@ -1451,6 +1451,46 @@ invalid_input:
 	return size;
 }
 
+static inline unsigned int VENUS_BUFFER_SIZE_USED(
+	int color_fmt, int width, int height, int interlace)
+{
+	unsigned int size = 0;
+	unsigned int y_stride, uv_stride, y_sclines, uv_sclines;
+	unsigned int y_ubwc_plane = 0, uv_ubwc_plane = 0;
+	unsigned int y_meta_stride = 0, y_meta_scanlines = 0;
+	unsigned int uv_meta_stride = 0, uv_meta_scanlines = 0;
+	unsigned int y_meta_plane = 0, uv_meta_plane = 0;
+
+	if (!width || !height)
+		goto invalid_input;
+
+	if (!interlace && color_fmt == COLOR_FMT_NV12_UBWC) {
+		y_stride = VENUS_Y_STRIDE(color_fmt, width);
+		uv_stride = VENUS_UV_STRIDE(color_fmt, width);
+		y_sclines = VENUS_Y_SCANLINES(color_fmt, height);
+		y_ubwc_plane = MSM_MEDIA_ALIGN(y_stride * y_sclines, 4096);
+		uv_sclines = VENUS_UV_SCANLINES(color_fmt, height);
+		uv_ubwc_plane = MSM_MEDIA_ALIGN(uv_stride * uv_sclines, 4096);
+		y_meta_stride = VENUS_Y_META_STRIDE(color_fmt, width);
+		y_meta_scanlines =
+			VENUS_Y_META_SCANLINES(color_fmt, height);
+		y_meta_plane = MSM_MEDIA_ALIGN(
+			y_meta_stride * y_meta_scanlines, 4096);
+		uv_meta_stride = VENUS_UV_META_STRIDE(color_fmt, width);
+		uv_meta_scanlines =
+			VENUS_UV_META_SCANLINES(color_fmt, height);
+		uv_meta_plane = MSM_MEDIA_ALIGN(uv_meta_stride *
+			uv_meta_scanlines, 4096);
+		size = (y_ubwc_plane + uv_ubwc_plane + y_meta_plane +
+			uv_meta_plane);
+		size = MSM_MEDIA_ALIGN(size, 4096);
+	} else {
+		size = VENUS_BUFFER_SIZE(color_fmt, width, height);
+	}
+invalid_input:
+	return size;
+}
+
 static inline unsigned int VENUS_VIEW2_OFFSET(
 	int color_fmt, int width, int height)
 {

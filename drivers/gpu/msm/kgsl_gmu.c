@@ -359,7 +359,6 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	struct gmu_iommu_context *ctx = &gmu_ctx[GMU_CONTEXT_KERNEL];
 
 	gmu->hfi_mem = NULL;
-	gmu->bw_mem = NULL;
 	gmu->dump_mem = NULL;
 	gmu->gmu_log = NULL;
 
@@ -459,13 +458,6 @@ static int gmu_memory_probe(struct kgsl_device *device,
 		goto err_ret;
 	}
 
-	gmu->bw_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, BWMEM_SIZE,
-			IOMMU_READ);
-	if (IS_ERR(gmu->bw_mem)) {
-		ret = PTR_ERR(gmu->bw_mem);
-		goto err_ret;
-	}
-
 	/* Allocates & maps GMU crash dump memory */
 	if (adreno_is_a630(adreno_dev)) {
 		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
@@ -512,10 +504,6 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		.bw = INVALID_DCVS_IDX,
 	};
 
-	/* Do not set to XO and lower GPU clock vote from GMU */
-	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
-			(gpu_pwrlevel >= gmu->num_gpupwrlevels - 1))
-		return -EINVAL;
 
 	/* If GMU has not been started, save it */
 	if (!test_bit(GMU_HFI_ON, &device->gmu_core.flags)) {
@@ -523,6 +511,11 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		set_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
 		return 0;
 	}
+
+	/* Do not set to XO and lower GPU clock vote from GMU */
+	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
+			(gpu_pwrlevel >= gmu->num_gpupwrlevels - 1))
+		return -EINVAL;
 
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		req.freq = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
@@ -794,33 +787,35 @@ static void build_rpmh_bw_votes(struct gmu_bw_votes *rpmh_vote,
 	}
 }
 
-/* TODO: Remove this and use the actual bus API */
-#define GET_IB_VAL(i)	((i) & 0x3FFF)
-#define GET_AB_VAL(i)	(((i) >> 14) & 0x3FFF)
-
-static void build_rpmh_bw_buf(struct gmu_device *gmu)
+static void build_bwtable_cmd_cache(struct gmu_device *gmu)
 {
-	struct hfi_bwbuf *bwbuf = gmu->bw_mem->hostptr;
+	struct hfi_bwtable_cmd *cmd = &gmu->hfi.bwtbl_cmd;
 	struct rpmh_votes_t *votes = &gmu->rpmh_votes;
-	unsigned int i, val;
+	unsigned int i, j;
 
-	/* TODO: wait for IB/AB query API ready */
+	cmd->hdr = 0xFFFFFFFF;
+	cmd->bw_level_num = gmu->num_bwlevels;
+	cmd->cnoc_cmds_num = votes->cnoc_votes.cmds_per_bw_vote;
+	cmd->cnoc_wait_bitmask = votes->cnoc_votes.cmds_wait_bitmask;
+	cmd->ddr_cmds_num = votes->ddr_votes.cmds_per_bw_vote;
+	cmd->ddr_wait_bitmask = votes->ddr_votes.cmds_wait_bitmask;
 
-	/* Build from DDR votes in case IB/AB query API fail */
-	for (i = 0; i < gmu->num_bwlevels; i++) {
-		/* FIXME: wait for HPG to specify which node has IB/AB
-		 * node 0 for now
-		 */
-		/* Get IB val */
-		val = GET_IB_VAL(votes->ddr_votes.cmd_data[i][0]);
-		/* If IB val not set, use AB val */
-		if (val == 0)
-			val = GET_AB_VAL(votes->ddr_votes.cmd_data[i][0]);
+	for (i = 0; i < cmd->ddr_cmds_num; i++)
+		cmd->ddr_cmd_addrs[i] = votes->ddr_votes.cmd_addrs[i];
 
-		/* Set only vote data */
-		bwbuf->arr[i] &= 0xFFFF;
-		bwbuf->arr[i] |= (val << 16);
-	}
+	for (i = 0; i < cmd->bw_level_num; i++)
+		for (j = 0; j < cmd->ddr_cmds_num; j++)
+			cmd->ddr_cmd_data[i][j] =
+				votes->ddr_votes.cmd_data[i][j];
+
+	for (i = 0; i < cmd->cnoc_cmds_num; i++)
+		cmd->cnoc_cmd_addrs[i] =
+			votes->cnoc_votes.cmd_addrs[i];
+
+	for (i = 0; i < MAX_CNOC_LEVELS; i++)
+		for (j = 0; j < cmd->cnoc_cmds_num; j++)
+			cmd->cnoc_cmd_data[i][j] =
+				votes->cnoc_votes.cmd_data[i][j];
 }
 
 /*
@@ -860,7 +855,7 @@ static int gmu_bus_vote_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 
 	build_rpmh_bw_votes(&votes->cnoc_votes, gmu->num_cnocbwlevels, hdl);
 
-	build_rpmh_bw_buf(gmu);
+	build_bwtable_cmd_cache(gmu);
 
 out:
 	kfree(usecases);
@@ -1056,10 +1051,6 @@ static int gmu_clocks_probe(struct gmu_device *gmu, struct device_node *node)
 static int gmu_gpu_bw_probe(struct kgsl_device *device, struct gmu_device *gmu)
 {
 	struct msm_bus_scale_pdata *bus_scale_table;
-	struct msm_bus_paths *usecase;
-	struct msm_bus_vectors *vector;
-	struct hfi_bwbuf *bwbuf = gmu->bw_mem->hostptr;
-	int i;
 
 	bus_scale_table = msm_bus_cl_get_pdata(device->pdev);
 	if (bus_scale_table == NULL) {
@@ -1072,25 +1063,6 @@ static int gmu_gpu_bw_probe(struct kgsl_device *device, struct gmu_device *gmu)
 	if (!gmu->pcl) {
 		dev_err(&gmu->pdev->dev, "dt: cannot register bus client\n");
 		return -ENODEV;
-	}
-
-	/* 0-15: num levels; 16-31: arr offset in bytes */
-	bwbuf->hdr[0] = (12 << 16) | (bus_scale_table->num_usecases & 0xFFFF);
-	/* 0-15: element size in bytes; 16-31: data size in bytes */
-	bwbuf->hdr[1] = (2 << 16) | 4;
-	/* 0-15: bw val offset in bytes; 16-31: vote data offset in bytes */
-	bwbuf->hdr[2] = (2 << 16) | 0;
-
-	for (i = 0; i < bus_scale_table->num_usecases; i++) {
-		usecase = &bus_scale_table->usecase[i];
-		vector = &usecase->vectors[0];
-		/* Clear bw val */
-		bwbuf->arr[i] &= 0xFFFF0000;
-		/* Set bw val if not first entry */
-		if (i)
-			bwbuf->arr[i] |=
-				(DIV_ROUND_UP_ULL(vector->ib, 1048576)
-				 & 0xFFFF);
 	}
 
 	return 0;

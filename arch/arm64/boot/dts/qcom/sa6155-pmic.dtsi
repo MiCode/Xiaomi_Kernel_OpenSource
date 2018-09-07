@@ -1,0 +1,172 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Remove regulator nodes specific to SM6150 */
+&soc {
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-smpc1;
+	/delete-node/ rpmh-regulator-smpc2;
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-smpc8;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa4;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa18;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldoc1;
+	/delete-node/ rpmh-regulator-ldoc2;
+	/delete-node/ rpmh-regulator-ldoc3;
+	/delete-node/ rpmh-regulator-ldoc4;
+	/delete-node/ rpmh-regulator-ldoc5;
+	/delete-node/ rpmh-regulator-ldoc6;
+	/delete-node/ rpmh-regulator-ldoc7;
+	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc9;
+	/delete-node/ rpmh-regulator-ldoc10;
+	/delete-node/ rpmh-regulator-ldoc11;
+	/delete-node/ rpmh-regulator-bobc1;
+};
+
+&qusb_phy0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda18-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&qusb_phy1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda18-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&usb0 {
+	/delete-property/ extcon;
+	/delete-property/ vbus_dwc3-supply;
+};
+
+&pm6150_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
+&usb_qmp_phy {
+	/delete-property/ vdd-supply;
+	/delete-property/ core-supply;
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdda-1p2-supply;
+};
+
+&sde_dp {
+	/delete-property/ vdda-1p2-supply;
+	/delete-property/ vdda-0p9-supply;
+};
+
+&mdss_dsi_phy0 {
+	/delete-property/ vdda-0p9-supply;
+};
+
+&cam_csiphy0 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&cam_csiphy1 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&cam_csiphy2 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&bluetooth {
+	/delete-property/ qca,bt-vdd-core-supply;
+	/delete-property/ qca,bt-vdd-pa-supply;
+	/delete-property/ qca,bt-vdd-ldo-supply;
+};
+
+&icnss {
+	/delete-property/ vdd-0.8-cx-mx-supply;
+	/delete-property/ vdd-1.8-xo-supply ;
+	/delete-property/ vdd-1.3-rfa-supply;
+	/delete-property/ vdd-3.3-ch0-supply;
+};
+
+&soc {
+	qcom,lpass@62400000 {
+		/delete-property/ vdd_cx-supply;
+	};
+};
+
+
+&spmi_bus {
+	/delete-node/ qcom,pm6150@0;
+	/delete-node/ qcom,pm6150@1;
+	/delete-node/ qcom,pm6150l@4;
+	/delete-node/ qcom,pm6150l@5;
+};
+
+&thermal_zones {
+	/delete-node/ pm6150l-tz;
+	/delete-node/ pm6150-tz;
+	/delete-node/ pm6150-ibat-lvl0;
+	/delete-node/ pm6150-ibat-lvl1;
+	/delete-node/ pm6150-vbat-lvl0;
+	/delete-node/ pm6150-vbat-lvl1;
+	/delete-node/ pm6150-vbat-lvl2;
+	/delete-node/ pm6150l-vph-lvl0;
+	/delete-node/ pm6150l-vph-lvl1;
+	/delete-node/ pm6150l-vph-lvl2;
+	/delete-node/ xo-therm;
+	/delete-node/ sdm-therm;
+	/delete-node/ conn-therm;
+	/delete-node/ emmc_ufs-therm;
+	/delete-node/ rf_pa0_therm-therm;
+	/delete-node/ camera_flash-therm;
+	/delete-node/ quiet-therm;
+	/delete-node/ aoss-lowf;
+	/delete-node/ cpuss-0-lowf;
+	/delete-node/ cpuss-1-lowf;
+	/delete-node/ cpuss-2-lowf;
+	/delete-node/ cpuss-3-lowf;
+	/delete-node/ cpu-1-0-lowf;
+	/delete-node/ cpu-1-1-lowf;
+	/delete-node/ cpu-1-2-lowf;
+	/delete-node/ cpu-1-3-lowf;
+	/delete-node/ gpu-lowf;
+	/delete-node/ q6-hvx-lowf;
+	/delete-node/ mdm-core-lowf;
+	/delete-node/ video-lowf;
+	/delete-node/ display-lowf;
+	/delete-node/ wlan-lowf;
+	/delete-node/ camera-lowf;
+	soc {
+		/delete-property/ thermal-sensors;
+	};
+};
+
+#include "sa6155-regulator.dtsi"
+#include "pm6155.dtsi"

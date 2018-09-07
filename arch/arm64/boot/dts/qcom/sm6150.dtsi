@@ -44,6 +44,10 @@
 		i2c1 = &qupv3_se1_i2c;
 		i2c2 = &qupv3_se3_i2c;
 		hsuart0 = &qupv3_se7_4uart;
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
+		swr3 = &swr3;
 	};
 
 	cpus {
@@ -384,6 +388,7 @@
 
 		CPU_COST_0: core-cost0 {
 			busy-cost-data = <
+				300000	24
 				576000	25
 				748800	31
 				1017600	54
@@ -391,6 +396,7 @@
 				1363200	105
 				1516800	116
 				1593600	139
+				1708800	168
 				1804800	178
 			>;
 			idle-cost-data = <
@@ -400,6 +406,7 @@
 
 		CPU_COST_1: core-cost1 {
 			busy-cost-data = <
+				300000	180
 				652800	236
 				768000	273
 				979200	446
@@ -409,6 +416,7 @@
 				1516800	989
 				1708800	1276
 				1900800	1652
+				2016000	2040
 				2112000	2242
 				2208000	2713
 			>;
@@ -419,6 +427,7 @@
 
 		CLUSTER_COST_0: cluster-cost0 {
 			busy-cost-data = <
+				300000	8
 				576000	8
 				748800	9
 				1017600	12
@@ -426,6 +435,7 @@
 				1363200	18
 				1516800	21
 				1593600	22
+				1708800	23
 				1804800	24
 			>;
 			idle-cost-data = <
@@ -435,17 +445,19 @@
 
 		CLUSTER_COST_1: cluster-cost1 {
 			busy-cost-data = <
-				652800	26
-				768000	27
-				979200	36
-				1017600	45
-				1209600	55
-				1363200	64
-				1516800	66
-				1708800	72
-				1900800	77
-				2112000	84
-				2208000	90
+				300000	28
+				652800	35
+				768000	36
+				979200	48
+				1017600	59
+				1209600	73
+				1363200	86
+				1516800	88
+				1708800	96
+				1900800	103
+				2016000	107
+				2112000	112
+				2208000	120
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -1176,52 +1188,52 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
+		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
 		};
 
-		rpm_sw_dump {
+		rpm_sw {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
 		};
 
-		pmic_dump {
+		pmic {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe4>;
 		};
 
-		fcm_dump {
+		fcm {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xee>;
 		};
 
-		tmc_etf_dump {
+		tmc_etf {
 			qcom,dump-size = <0x8000>;
 			qcom,dump-id = <0xf0>;
 		};
 
-		tmc_etf_swao_dump {
+		etf_swao {
 			qcom,dump-size = <0x8000>;
 			qcom,dump-id = <0xf1>;
 		};
 
-		tmc_etr_reg_dump {
+		etr_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x100>;
 		};
 
-		tmc_etf_reg_dump {
+		etf_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x101>;
 		};
 
-		tmc_etf_swao_reg_dump {
+		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
 		};
 
-		misc_data_dump {
+		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
@@ -1288,6 +1300,8 @@
 
 		qcom,llcc-perfmon {
 			compatible = "qcom,llcc-perfmon";
+			clocks = <&clock_aop QDSS_CLK>;
+			clock-names = "qdss_clk";
 		};
 
 		qcom,llcc-erp {
@@ -1889,6 +1903,9 @@
 			tx-descriptors = <0x12000 0x12004>;
 			rx-descriptors = <0x1200c 0x12010>;
 
+			label = "wdsp";
+			qcom,glink-label = "wdsp";
+
 			qcom,wdsp_ctrl {
 				qcom,glink-channels = "g_glink_ctrl";
 				qcom,intents = <0x400 1>;
@@ -2248,6 +2265,7 @@
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
+		qcom,use-ipa-pm;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
@@ -2280,6 +2298,8 @@
 		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>;
 		qcom,bus-vector-names =
 			"MIN", "SVS2", "SVS", "NOMINAL", "TURBO";
+		qcom,throughput-threshold = <310 600 1000>;
+		qcom,scaling-exceptions = <>;
 
 		/* smp2p information */
 		qcom,smp2p_map_ipa_1_out {
@@ -2622,6 +2642,19 @@
 			< 1708800 MHZ_TO_MBPS(1017, 4) >,
 			< 2208000 MHZ_TO_MBPS(1804, 4) >;
 	};
+
+	bus_proxy_client: qcom,bus_proxy_client {
+		compatible = "qcom,bus-proxy-client";
+		qcom,msm-bus,name = "bus-proxy-client";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_MDP_PORT0 MSM_BUS_SLAVE_EBI_CH0 0 0>,
+			<MSM_BUS_MASTER_MDP_PORT0
+				MSM_BUS_SLAVE_EBI_CH0 0 5000000>;
+		qcom,msm-bus,active-only;
+		status = "ok";
+	};
 };
 
 #include "pm6150.dtsi"
@@ -2641,7 +2674,7 @@
 };
 
 &usb0 {
-	extcon = <&pm6150_pdphy>;
+	extcon = <&pm6150_pdphy>, <&eud>;
 };
 
 &pm6150_vadc {

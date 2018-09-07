@@ -289,6 +289,7 @@ out:
 
 #define MICRO_1P5A			1500000
 #define MICRO_P1A			100000
+#define MICRO_1PA			1000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define MIN_WD_BARK_TIME		16
 #define DEFAULT_WD_BARK_TIME		64
@@ -348,7 +349,8 @@ static int smb5_parse_dt(struct smb5 *chip)
 	rc = of_property_read_u32(node,
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chg->otg_cl_ua = MICRO_1P5A;
+		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
+							MICRO_1PA : MICRO_1P5A;
 
 	rc = of_property_read_u32(node, "qcom,chg-term-src",
 			&chip->dt.term_current_src);
@@ -437,6 +439,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 					&chg->otg_delay_ms);
 	if (rc < 0)
 		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
+
+	chg->fcc_stepper_enable = of_property_read_bool(node,
+					"qcom,fcc-stepping-enable");
 
 	rc = of_property_match_string(node, "io-channel-names",
 			"usb_in_voltage");
@@ -1174,6 +1179,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
+	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1291,6 +1297,8 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
 		val->intval = 0;
+	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
+		val->intval = chg->fcc_stepper_enable;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -1794,6 +1802,13 @@ static int smb5_init_hw(struct smb5 *chip)
 	rc = smblib_icl_override(chg, false);
 	if (rc < 0) {
 		pr_err("Couldn't disable ICL override rc=%d\n", rc);
+		return rc;
+	}
+
+	/* set OTG current limit */
+	rc = smblib_set_charge_param(chg, &chg->param.otg_cl, chg->otg_cl_ua);
+	if (rc < 0) {
+		pr_err("Couldn't set otg current limit rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2597,18 +2612,24 @@ static int smb5_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = smb5_parse_dt(chip);
-	if (rc < 0) {
-		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
-	}
-
 	rc = smb5_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
 			pr_err("Couldn't setup chg_config rc=%d\n", rc);
 		return rc;
 	}
+
+	rc = smb5_parse_dt(chip);
+	if (rc < 0) {
+		pr_err("Couldn't parse device tree rc=%d\n", rc);
+		return rc;
+	}
+
+	if (alarmtimer_get_rtcdev())
+		alarm_init(&chg->lpd_recheck_timer, ALARM_REALTIME,
+				smblib_lpd_recheck_timer);
+	else
+		return -EPROBE_DEFER;
 
 	rc = smblib_init(chg);
 	if (rc < 0) {

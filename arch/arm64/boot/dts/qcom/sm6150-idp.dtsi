@@ -11,11 +11,11 @@
  */
 
 #include "sm6150-thermal-overlay.dtsi"
+#include "sm6150-camera-sensor-idp.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "sm6150-sde-display.dtsi"
-#include "sm6150-camera-sensor-idp.dtsi"
 
 &qupv3_se3_i2c {
 	status = "ok";
@@ -172,6 +172,7 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
+	qcom,fcc-stepping-enable;
 	qcom,sec-charger-config = <3>;
 };
 

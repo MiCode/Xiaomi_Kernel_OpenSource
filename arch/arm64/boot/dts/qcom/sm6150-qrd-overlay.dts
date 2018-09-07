@@ -14,6 +14,7 @@
 /plugin/;
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
 
 #include "sm6150-audio-overlay.dtsi"
 #include "sm6150-qrd.dtsi"

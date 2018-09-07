@@ -35,8 +35,6 @@ struct dp_debug_private {
 	u8 *dpcd;
 	u32 dpcd_size;
 
-	int vdo;
-
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
 
@@ -47,7 +45,6 @@ struct dp_debug_private {
 	struct dp_catalog *catalog;
 	struct drm_connector **connector;
 	struct device *dev;
-	struct work_struct sim_work;
 	struct dp_debug dp_debug;
 	struct dp_parser *parser;
 };
@@ -1068,9 +1065,7 @@ static ssize_t dp_debug_write_attention(struct file *file,
 	if (kstrtoint(buf, 10, &vdo) != 0)
 		goto end;
 
-	debug->vdo = vdo;
-
-	schedule_work(&debug->sim_work);
+	debug->hpd->simulate_attention(debug->hpd, vdo);
 end:
 	return len;
 }
@@ -1371,6 +1366,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
 		       DEBUG_NAME, rc);
+		goto error_remove_dir;
 	}
 
 	file = debugfs_create_file("mst_sideband_mode", 0644, dir,
@@ -1379,6 +1375,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
 		       DEBUG_NAME, rc);
+		goto error_remove_dir;
 	}
 
 	file = debugfs_create_file("max_pclk_khz", 0644, dir,
@@ -1387,6 +1384,16 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_pclk_khz failed, rc=%d\n",
 		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_bool("force_encryption", 0644, dir,
+			&debug->dp_debug.force_encryption);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs force_encryption failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
 	}
 
 	return 0;
@@ -1397,14 +1404,6 @@ error_remove_dir:
 	debugfs_remove_recursive(dir);
 error:
 	return rc;
-}
-
-static void dp_debug_sim_work(struct work_struct *work)
-{
-	struct dp_debug_private *debug =
-		container_of(work, typeof(*debug), sim_work);
-
-	debug->hpd->simulate_attention(debug->hpd, debug->vdo);
 }
 
 u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
@@ -1419,39 +1418,33 @@ u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
 	return debug->edid;
 }
 
-struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
-			struct dp_hpd *hpd, struct dp_link *link,
-			struct dp_aux *aux, struct drm_connector **connector,
-			struct dp_catalog *catalog,
-			struct dp_parser *parser)
+struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 {
 	int rc = 0;
 	struct dp_debug_private *debug;
 	struct dp_debug *dp_debug;
 
-	if (!dev || !panel || !hpd || !link || !catalog) {
+	if (!in->dev || !in->panel || !in->hpd || !in->link || !in->catalog) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	debug = devm_kzalloc(dev, sizeof(*debug), GFP_KERNEL);
+	debug = devm_kzalloc(in->dev, sizeof(*debug), GFP_KERNEL);
 	if (!debug) {
 		rc = -ENOMEM;
 		goto error;
 	}
 
-	INIT_WORK(&debug->sim_work, dp_debug_sim_work);
-
 	debug->dp_debug.debug_en = false;
-	debug->hpd = hpd;
-	debug->link = link;
-	debug->panel = panel;
-	debug->aux = aux;
-	debug->dev = dev;
-	debug->connector = connector;
-	debug->catalog = catalog;
-	debug->parser = parser;
+	debug->hpd = in->hpd;
+	debug->link = in->link;
+	debug->panel = in->panel;
+	debug->aux = in->aux;
+	debug->dev = in->dev;
+	debug->connector = in->connector;
+	debug->catalog = in->catalog;
+	debug->parser = in->parser;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;
@@ -1460,7 +1453,7 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 
 	rc = dp_debug_init(dp_debug);
 	if (rc) {
-		devm_kfree(dev, debug);
+		devm_kfree(in->dev, debug);
 		goto error;
 	}
 

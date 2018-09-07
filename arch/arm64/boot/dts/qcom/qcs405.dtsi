@@ -39,10 +39,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region0: removed_region@85600000 {
+		removed_region0: removed_region@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85600000 0x0 0x900000>;
+			reg = <0x0 0x85800000 0x0 0x700000>;
 		};
 
 		smem_region: smem@85f00000 {
@@ -59,25 +59,25 @@
 		wlan_fw_mem: wlan_fw_mem@86400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86400000 0x0 0x1c00000>;
+			reg = <0x0 0x86400000 0x0 0x1100000>;
 		};
 
-		adsp_fw_mem: adsp_fw_mem@88000000 {
+		adsp_fw_mem: adsp_fw_mem@87500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88000000 0x0 0x1a00000>;
+			reg = <0x0 0x87500000 0x0 0x1a00000>;
 		};
 
-		cdsp_fw_mem: cdsp_fw_mem@89a00000 {
+		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x89a00000 0x0 0x600000>;
+			reg = <0x0 0x88f00000 0x0 0x600000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@8a000000 {
+		wlan_msa_mem: wlan_msa_region@89500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8a000000 0x0 0x100000>;
+			reg = <0x0 0x89500000 0x0 0x100000>;
 		};
 
 		secure_mem: secure_region {
@@ -758,6 +758,8 @@
 			compatible = "qcom,msm-mdf-cb";
 			label = "adsp";
 			qcom,smmu-enabled;
+			iommus = <&apps_smmu 0x0800 0x0>;
+			qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 		};
 
 		qcom,msm_mdf_cb2 {
@@ -810,7 +812,7 @@
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 
 			label = "wcnss";
-			qcom,glink-label = "wcnss";
+			qcom,glink-label = "mpss";
 
 			qcom,wcnss_qrtr {
 				qcom,glink-channels = "IPCRTR";

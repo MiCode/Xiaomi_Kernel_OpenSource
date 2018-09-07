@@ -31,6 +31,7 @@
 #include <linux/compat.h>
 #include <linux/ctype.h>
 #include <linux/mm.h>
+#include <linux/ion.h>
 #include <asm/cacheflush.h>
 #include <uapi/linux/sched/types.h>
 
@@ -1414,6 +1415,45 @@ long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 		kgsl_context_put(context);
 		break;
 	}
+	case KGSL_PROP_SECURE_BUFFER_ALIGNMENT:
+	{
+		unsigned int align;
+
+		if (param->sizebytes != sizeof(unsigned int)) {
+			result = -EINVAL;
+			break;
+		}
+		/*
+		 * XPUv2 impose the constraint of 1MB memory alignment,
+		 * on the other hand Hypervisor does not have such
+		 * constraints. So driver should fulfill such
+		 * requirements when allocating secure memory.
+		 */
+		align = MMU_FEATURE(&dev_priv->device->mmu,
+				KGSL_MMU_HYP_SECURE_ALLOC) ? PAGE_SIZE : SZ_1M;
+
+		if (copy_to_user(param->value, &align, sizeof(align)))
+			result = -EFAULT;
+
+		break;
+	}
+	case KGSL_PROP_SECURE_CTXT_SUPPORT:
+	{
+		unsigned int secure_ctxt;
+
+		if (param->sizebytes != sizeof(unsigned int)) {
+			result = -EINVAL;
+			break;
+		}
+
+		secure_ctxt = dev_priv->device->mmu.secured ? 1 : 0;
+
+		if (copy_to_user(param->value, &secure_ctxt,
+				sizeof(secure_ctxt)))
+			result = -EFAULT;
+
+		break;
+	}
 	default:
 		if (is_compat_task())
 			result = dev_priv->device->ftbl->getproperty_compat(
@@ -2352,6 +2392,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 {
 	struct kgsl_gpuobj_import_dma_buf buf;
 	struct dma_buf *dmabuf;
+	unsigned long flags = 0;
 	int ret;
 
 	/*
@@ -2381,6 +2422,16 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 
 	if (IS_ERR_OR_NULL(dmabuf))
 		return (dmabuf == NULL) ? -EINVAL : PTR_ERR(dmabuf);
+
+	/*
+	 * ION cache ops are routed through kgsl, so record if the dmabuf is
+	 * cached or not in the memdesc. Assume uncached if dma_buf_get_flags
+	 * fails.
+	 */
+	dma_buf_get_flags(dmabuf, &flags);
+	if (flags & ION_FLAG_CACHED)
+		entry->memdesc.flags |=
+			KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT;
 
 	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
 	if (ret)

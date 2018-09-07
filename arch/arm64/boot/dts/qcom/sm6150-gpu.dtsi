@@ -33,7 +33,7 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
-		reg =   <0x5000000 0x40000>;
+		reg = <0x5000000 0x90000>,
 			<0x780000 0x6fff>;
 		reg-names = "kgsl_3d0_reg_memory",
 				"qfprom_memory";

@@ -4268,7 +4268,7 @@ int ipa3_init_interrupts(void)
 	return 0;
 
 fail_add_interrupt_handler:
-	free_irq(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
+	ipa3_interrupts_destroy(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
 	return result;
 }
 

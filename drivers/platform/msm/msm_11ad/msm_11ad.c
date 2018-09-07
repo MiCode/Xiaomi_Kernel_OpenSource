@@ -464,6 +464,7 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 	struct device *dev = ctx->dev;
+	int rf_clk3_pin_idx;
 
 	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
 		return 0;
@@ -472,9 +473,14 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 	if (rc)
 		return rc;
 
-	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin, "rf_clk3_pin_clk");
-	if (rc)
-		msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	rf_clk3_pin_idx = of_property_match_string(dev->of_node, "clock-names",
+						   "rf_clk3_pin_clk");
+	if (rf_clk3_pin_idx >= 0) {
+		rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin,
+				       "rf_clk3_pin_clk");
+		if (rc)
+			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	}
 
 	return rc;
 }
@@ -780,7 +786,7 @@ release_mapping:
 static int msm_11ad_ssr_shutdown(const struct subsys_desc *subsys,
 				 bool force_stop)
 {
-	pr_info("%s(%p,%d)\n", __func__, subsys, force_stop);
+	pr_info("%s(%pK,%d)\n", __func__, subsys, force_stop);
 	/* nothing is done in shutdown. We do full recovery in powerup */
 	return 0;
 }
@@ -791,7 +797,7 @@ static int msm_11ad_ssr_powerup(const struct subsys_desc *subsys)
 	struct platform_device *pdev;
 	struct msm11ad_ctx *ctx;
 
-	pr_info("%s(%p)\n", __func__, subsys);
+	pr_info("%s(%pK)\n", __func__, subsys);
 
 	pdev = to_platform_device(subsys->dev);
 	ctx = platform_get_drvdata(pdev);
@@ -1185,12 +1191,12 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	msm_11ad_init_cpu_boost(ctx);
 
 	/* report */
-	dev_info(ctx->dev, "msm_11ad discovered. %p {\n"
+	dev_info(ctx->dev, "msm_11ad discovered. %pK {\n"
 		 "  gpio_en = %d\n"
 		 "  sleep_clk_en = %d\n"
 		 "  rc_index = %d\n"
 		 "  use_smmu = %d\n"
-		 "  pcidev = %p\n"
+		 "  pcidev = %pK\n"
 		 "}\n", ctx, ctx->gpio_en, ctx->sleep_clk_en, ctx->rc_index,
 		 ctx->use_smmu, ctx->pcidev);
 
@@ -1227,7 +1233,7 @@ static int msm_11ad_remove(struct platform_device *pdev)
 
 	msm_11ad_ssr_deinit(ctx);
 	list_del(&ctx->list);
-	dev_info(ctx->dev, "%s: pdev %p pcidev %p\n", __func__, pdev,
+	dev_info(ctx->dev, "%s: pdev %pK pcidev %pK\n", __func__, pdev,
 		 ctx->pcidev);
 	kfree(ctx->pristine_state);
 
@@ -1490,7 +1496,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	struct msm11ad_ctx *ctx = pcidev2ctx(pcidev);
 
 	if (!ctx) {
-		pr_err("Context not found for pcidev %p\n", pcidev);
+		pr_err("Context not found for pcidev %pK\n", pcidev);
 		return NULL;
 	}
 

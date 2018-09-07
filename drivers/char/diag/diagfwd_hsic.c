@@ -407,8 +407,8 @@ int diag_hsic_init(void)
 		INIT_WORK(&(ch->read_work), hsic_read_work_fn);
 		INIT_WORK(&(ch->open_work), hsic_open_work_fn);
 		INIT_WORK(&(ch->close_work), hsic_close_work_fn);
-		strlcpy(wq_name, "DIAG_HSIC_", DIAG_HSIC_STRING_SZ);
-		strlcat(wq_name, ch->name, sizeof(ch->name));
+		strlcpy(wq_name, "DIAG_HSIC_", sizeof(wq_name));
+		strlcat(wq_name, ch->name, sizeof(wq_name));
 		ch->hsic_wq = create_singlethread_workqueue(wq_name);
 		if (!ch->hsic_wq)
 			goto fail;

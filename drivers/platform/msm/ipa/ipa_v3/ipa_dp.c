@@ -3323,6 +3323,13 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 				result = -EFAULT;
 				goto fail_and_disable_clocks;
 			}
+			if (ipa3_cfg_ep_hdr_ext(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.hdr_ext)) {
+				IPAERR("fail config hdr_ext prop of EP %d\n",
+						ipa_ep_idx);
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
+			}
 			if (ipa3_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP %d\n",
@@ -3553,10 +3560,10 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
-	spin_lock_bh(&sys->spinlock);
+	spin_lock(&sys->spinlock);
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
 					   struct ipa3_rx_pkt_wrapper, link);
-	spin_unlock_bh(&sys->spinlock);
+	spin_unlock(&sys->spinlock);
 	rx_pkt_rcvd = (struct ipa3_rx_pkt_wrapper *)notify->xfer_user_data;
 
 	if (rx_pkt_expected != rx_pkt_rcvd) {

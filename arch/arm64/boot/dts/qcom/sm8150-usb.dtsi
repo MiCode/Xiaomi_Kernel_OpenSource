@@ -293,6 +293,7 @@
 			 USB3_DP_PCS_POWER_DOWN_CONTROL
 			 USB3_DP_PCS_SW_RESET
 			 USB3_DP_PCS_START_CONTROL
+			 0xffff /* USB3_PHY_PCS_MISC_TYPEC_CTRL */
 			 0x2a18 /* USB3_DP_DP_PHY_PD_CTL */
 			 USB3_DP_COM_POWER_DOWN_CTRL
 			 USB3_DP_COM_SW_RESET
@@ -398,6 +399,7 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
+			snps,bus-suspend-enable;
 			usb-core-id = <0>;
 			maximum-speed = "super-speed";
 			dr_mode = "otg";

@@ -1384,7 +1384,6 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 	case QCA6174_DEVICE_ID:
 		ret = cnss_register_ramdump_v1(plat_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		ret = cnss_register_ramdump_v2(plat_priv);
@@ -1403,7 +1402,6 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 	case QCA6174_DEVICE_ID:
 		cnss_unregister_ramdump_v1(plat_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		cnss_unregister_ramdump_v2(plat_priv);
@@ -1474,7 +1472,6 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	}
 
 	switch (plat_priv->device_id) {
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		break;

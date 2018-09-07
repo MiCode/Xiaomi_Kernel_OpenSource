@@ -77,8 +77,8 @@ EXPORT_SYMBOL(rmnet_shs_skb_entry);
 void
 rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
-	struct rmnet_priv *priv = netdev_priv(skb->dev);
 	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
+	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
@@ -93,10 +93,22 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 		return;
 	}
 
-	if (!rmnet_check_skb_can_gro(skb))
-		gro_cells_receive(&priv->gro_cells, skb);
-	else
-		netif_receive_skb(skb);
+	if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
+		if (!rmnet_check_skb_can_gro(skb) &&
+		    port->dl_marker_flush >= 0) {
+			struct napi_struct *napi = get_current_napi_context();
+
+			napi_gro_receive(napi, skb);
+			port->dl_marker_flush++;
+		} else {
+			netif_receive_skb(skb);
+		}
+	} else {
+		if (!rmnet_check_skb_can_gro(skb))
+			gro_cells_receive(&priv->gro_cells, skb);
+		else
+			netif_receive_skb(skb);
+	}
 }
 EXPORT_SYMBOL(rmnet_deliver_skb);
 
@@ -287,6 +299,9 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 
 	if (!skb)
 		goto done;
+
+	if (skb->pkt_type == PACKET_LOOPBACK)
+		return RX_HANDLER_PASS;
 
 	dev = skb->dev;
 	port = rmnet_get_port(dev);

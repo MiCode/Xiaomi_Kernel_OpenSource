@@ -311,6 +311,16 @@
 &gpu_opp_table {
 	compatible = "operating-points-v2";
 
+	opp-700000000 {
+		opp-hz = /bits/ 64 <585000000>;
+		opp-microvolt = <RPMH_REGULATOR_LEVEL_NOM>;
+	};
+
+	opp-675000000 {
+		opp-hz = /bits/ 64 <585000000>;
+		opp-microvolt = <RPMH_REGULATOR_LEVEL_NOM>;
+	};
+
 	opp-585000000 {
 		opp-hz = /bits/ 64 <585000000>;
 		opp-microvolt = <RPMH_REGULATOR_LEVEL_NOM>;
@@ -376,30 +386,46 @@
 
 		qcom,gpu-pwrlevel@1 {
 			reg = <1>;
+			qcom,gpu-freq = <585000000>;
+			qcom,bus-freq = <7>;
+			qcom,bus-min = <6>;
+			qcom,bus-max = <8>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <585000000>;
+			qcom,bus-freq = <7>;
+			qcom,bus-min = <6>;
+			qcom,bus-max = <8>;
+		};
+
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
 			qcom,gpu-freq = <427000000>;
 			qcom,bus-freq = <6>;
 			qcom,bus-min = <5>;
 			qcom,bus-max = <7>;
 		};
 
-		qcom,gpu-pwrlevel@2 {
-			reg = <2>;
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
 			qcom,gpu-freq = <345000000>;
 			qcom,bus-freq = <3>;
 			qcom,bus-min = <3>;
 			qcom,bus-max = <5>;
 		};
 
-		qcom,gpu-pwrlevel@3 {
-			reg = <3>;
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
 			qcom,gpu-freq = <257000000>;
 			qcom,bus-freq = <2>;
 			qcom,bus-min = <1>;
 			qcom,bus-max = <3>;
 		};
 
-		qcom,gpu-pwrlevel@4 {
-			reg = <4>;
+		qcom,gpu-pwrlevel@6 {
+			reg = <6>;
 			qcom,gpu-freq = <0>;
 			qcom,bus-freq = <0>;
 			qcom,bus-min = <0>;
@@ -437,7 +463,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "qcom,npu-pwrlevels";
-		initial-pwrlevel = <3>;
+		initial-pwrlevel = <5>;
 		qcom,npu-pwrlevel@0 {
 			reg = <0>;
 			clk-freq = <300000000
@@ -509,12 +535,12 @@
 		};
 		qcom,npu-pwrlevel@3 {
 			reg = <3>;
-			clk-freq = <773000000
+			clk-freq = <652000000
 					19200000
 					300000000
 					19200000
 					19200000
-					773000000
+					652000000
 					403000000
 					75000000
 					19200000
@@ -523,7 +549,7 @@
 					150000000
 					300000000
 					19200000
-					773000000
+					652000000
 					19200000
 					0
 					0
@@ -532,6 +558,29 @@
 		};
 		qcom,npu-pwrlevel@4 {
 			reg = <4>;
+			clk-freq = <811000000
+					19200000
+					400000000
+					19200000
+					19200000
+					811000000
+					533000000
+					75000000
+					19200000
+					300000000
+					400000000
+					150000000
+					400000000
+					19200000
+					811000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@5 {
+			reg = <5>;
 			clk-freq = <908000000
 					19200000
 					400000000
@@ -553,7 +602,6 @@
 					0
 					0>;
 		};
-		/delete-node/ qcom,npu-pwrlevel@5;
 	};
 };
 

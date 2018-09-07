@@ -778,4 +778,8 @@ int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
  */
 int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
 
+/**
+ * dsi_ctrl_pixel_format_to_bpp() - returns number of bits per pxl
+ */
+int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format);
 #endif /* _DSI_CTRL_H_ */

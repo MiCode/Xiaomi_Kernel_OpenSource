@@ -3176,8 +3176,8 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	frame_info = (struct icp_frame_info *)config_args->priv;
 	req_id = frame_info->request_id;
 	idx = cam_icp_clk_idx_from_req_id(ctx_data, req_id);
-	ctx_data->hfi_frame_process.fw_process_flag[idx] = true;
 	cam_icp_mgr_ipe_bps_clk_update(hw_mgr, ctx_data, idx);
+	ctx_data->hfi_frame_process.fw_process_flag[idx] = true;
 
 	CAM_DBG(CAM_ICP, "req_id %llu, io config %llu", req_id,
 		frame_info->io_config);

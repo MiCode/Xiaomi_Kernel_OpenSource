@@ -254,5 +254,6 @@
 #define MEASURE_ONLY_MCCC_CLK					2
 #define MEASURE_ONLY_IPA_2X_CLK					3
 #define MMCX_CLK						4
+#define MEASURE_ONLY_CDSP_CLK					5
 
 #endif

@@ -702,7 +702,7 @@
 		};
 
 		disp_rdump_memory: disp_rdump_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x00800000>;
+			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "disp_rdump_region";
 		};
 
@@ -3013,52 +3013,52 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
+		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
 		};
 
-		rpm_sw_dump {
+		rpm_sw {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
 		};
 
-		pmic_dump {
+		pmic {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe4>;
 		};
 
-		fcm_dump {
+		fcm {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xee>;
 		};
 
-		tmc_etf_dump {
+		tmc_etf {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xf0>;
 		};
 
-		tmc_etf_swao_dump {
+		etf_swao {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xf1>;
 		};
 
-		tmc_etr_reg_dump {
+		etr_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x100>;
 		};
 
-		tmc_etf_reg_dump {
+		etf_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x101>;
 		};
 
-		tmc_etf_swao_reg_dump {
+		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
 		};
 
-		misc_data_dump {
+		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
@@ -3588,6 +3588,106 @@
 		mbox-names = "aop";
 	};
 
+	qcom,cnss-qca6390@a0000000 {
+		compatible = "qcom,cnss-qca6390";
+		reg = <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_base", "smmu_iova_ipa";
+		pinctrl-names = "disabled";
+		pinctrl-0 = <>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x400000>;
+
+		mhi,max-channels = <30>;
+		mhi,timeout = <1000>;
+
+		mhi_chan@0 {
+			reg = <0>;
+			label = "LOOPBACK";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@1 {
+			reg = <1>;
+			label = "LOOPBACK";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@4 {
+			reg = <4>;
+			label = "DIAG";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@5 {
+			reg = <5>;
+			label = "DIAG";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@20 {
+			reg = <20>;
+			label = "IPCR";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <1>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+			mhi,auto-start;
+		};
+
+		mhi_chan@21 {
+			reg = <21>;
+			label = "IPCR";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+			mhi,auto-queue;
+			mhi,auto-start;
+		};
+
+		mhi_event@0 {
+			mhi,num-elements = <32>;
+			mhi,intmod = <1>;
+			mhi,msi = <1>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+			mhi,data-type = <1>;
+		};
+
+		mhi_event@1 {
+			mhi,num-elements = <256>;
+			mhi,intmod = <1>;
+			mhi,msi = <2>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+		};
+	};
+
 	icnss: qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
@@ -3635,9 +3735,8 @@
 		qcom,use-ext-supply;
 		vddio-supply= <&pm8150_s5>;
 		qcom,use-ext-clocks;
-		clocks = <&clock_rpmh RPMH_RF_CLK3>,
-			 <&clock_rpmh RPMH_RF_CLK3_A>;
-		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		clocks = <&clock_rpmh RPMH_RF_CLK3>;
+		clock-names = "rf_clk3_clk";
 		qcom,smmu-support;
 		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,smmu-s1-en;

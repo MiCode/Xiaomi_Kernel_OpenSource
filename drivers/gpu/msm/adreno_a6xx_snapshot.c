@@ -1497,10 +1497,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	bool sptprac_on, gx_on = true;
 	unsigned int i, roq_size;
 
-	/* ROQ size is 0x800 DW on a640 and a680 */
-	roq_size = adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev) ?
-		(snap_data->sect_sizes->roq * 2) : snap_data->sect_sizes->roq;
-
 	/* GMU TCM data dumped through AHB */
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
 		gmu_dev_ops->snapshot(adreno_dev, snapshot);
@@ -1552,7 +1548,13 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_SQE_UCODE_DBG_ADDR, A6XX_CP_SQE_UCODE_DBG_DATA,
 		0, 0x6000);
 
-	/* CP ROQ */
+	/*
+	 * CP ROQ dump units is 4dwords. The number of units is stored
+	 * in CP_ROQ_THRESHOLDS_2[31:16]. Read the value and convert to
+	 * dword units.
+	 */
+	kgsl_regread(device, A6XX_CP_ROQ_THRESHOLDS_2, &roq_size);
+	roq_size = roq_size >> 14;
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, adreno_snapshot_cp_roq, &roq_size);
 

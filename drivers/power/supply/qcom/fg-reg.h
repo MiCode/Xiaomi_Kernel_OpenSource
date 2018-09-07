@@ -268,9 +268,6 @@
 #define BATT_INFO_IADC_MSB(chip)		(chip->batt_info_base + 0xAF)
 #define IADC_MSB_MASK				GENMASK(6, 0)
 
-#define BATT_INFO_FG_CNV_CHAR_CFG(chip)		(chip->batt_info_base + 0xB7)
-#define SMB_MEASURE_EN_BIT			BIT(2)
-
 #define BATT_INFO_TM_MISC(chip)			(chip->batt_info_base + 0xE5)
 #define FORCE_SEQ_RESP_TOGGLE_BIT		BIT(6)
 #define ALG_DIRECT_VALID_DATA_BIT		BIT(5)

@@ -362,6 +362,9 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 	case EDP_PANEL:
 		ret = snprintf(buf, PAGE_SIZE, "edp panel\n");
 		break;
+	case SPI_PANEL:
+		ret = snprintf(buf, PAGE_SIZE, "spi panel\n");
+		break;
 	default:
 		ret = snprintf(buf, PAGE_SIZE, "unknown panel\n");
 		break;
@@ -1278,6 +1281,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	mfd->pdev = pdev;
 
+	if (mfd->panel.type == SPI_PANEL)
+		mfd->fb_imgType = MDP_RGB_565;
+
 	mfd->split_fb_left = mfd->split_fb_right = 0;
 
 	mdss_fb_set_split_mode(mfd, pdata);
@@ -2122,8 +2128,9 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 	dma_buf_end_cpu_access(mfd->fbmem_buf, DMA_BIDIRECTIONAL);
 
-	if (mfd->mdp.fb_mem_get_iommu_domain && !(!mfd->fb_attachment ||
-		!mfd->fb_attachment->dmabuf ||
+	if ((mfd->mdp.fb_mem_get_iommu_domain ||
+		(mfd->panel.type == SPI_PANEL)) &&
+		!(!mfd->fb_attachment || !mfd->fb_attachment->dmabuf ||
 		!mfd->fb_attachment->dmabuf->ops)) {
 		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
 				DMA_BIDIRECTIONAL);
@@ -2170,6 +2177,20 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 
 		mfd->fb_table = dma_buf_map_attachment(mfd->fb_attachment,
 				DMA_BIDIRECTIONAL);
+		if (IS_ERR(mfd->fb_table)) {
+			rc = PTR_ERR(mfd->fb_table);
+			goto err_detach;
+		}
+	} else if (mfd->panel.type == SPI_PANEL) {
+		mfd->fb_attachment = dma_buf_attach(mfd->fbmem_buf,
+				&mfd->pdev->dev);
+		if (IS_ERR(mfd->fb_attachment)) {
+			rc = PTR_ERR(mfd->fb_attachment);
+			goto err_put;
+		}
+
+		mfd->fb_table = dma_buf_map_attachment(mfd->fb_attachment,
+			DMA_BIDIRECTIONAL);
 		if (IS_ERR(mfd->fb_table)) {
 			rc = PTR_ERR(mfd->fb_table);
 			goto err_detach;

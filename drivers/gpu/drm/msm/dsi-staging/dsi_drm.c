@@ -437,6 +437,8 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
+	enum dsi_pixel_format fmt;
+	u32 bpp;
 
 	if (!info || !dsi_display)
 		return -EINVAL;
@@ -556,6 +558,11 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 		sde_kms_info_add_keyint(info, "partial_update_roimerge",
 				mode_info->roi_caps.merge_rois);
 	}
+
+	fmt = dsi_display->config.common_config.dst_format;
+	bpp = dsi_ctrl_pixel_format_to_bpp(fmt);
+
+	sde_kms_info_add_keyint(info, "bit_depth", bpp);
 
 end:
 	return 0;

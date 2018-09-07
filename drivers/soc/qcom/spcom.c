@@ -643,6 +643,8 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 		}
 		/* may fail when RX intent not queued by SP */
 		ret = rpmsg_trysend(ch->rpdev->ept, tx_buf, tx_buf_size);
+		if (ret == 0)
+			break;
 		time_msec += TX_RETRY_DELAY_MSEC;
 		mutex_unlock(&ch->lock);
 		msleep(TX_RETRY_DELAY_MSEC);
@@ -845,6 +847,8 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 		}
 		/* may fail when RX intent not queued by SP */
 		ret = rpmsg_trysend(ch->rpdev->ept, tx_buf, tx_buf_size);
+		if (ret == 0)
+			break;
 		time_msec += TX_RETRY_DELAY_MSEC;
 		mutex_unlock(&ch->lock);
 		msleep(TX_RETRY_DELAY_MSEC);

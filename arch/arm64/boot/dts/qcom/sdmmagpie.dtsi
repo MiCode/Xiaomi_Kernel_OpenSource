@@ -39,6 +39,7 @@
 		hsuart0 = &qupv3_se3_4uart;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 	};
 
 	cpus {
@@ -331,11 +332,11 @@
 			};
 
 			cluster1 {
-				core6 {
+				core0 {
 					cpu = <&CPU6>;
 				};
 
-				core7 {
+				core1 {
 					cpu = <&CPU7>;
 				};
 			};
@@ -661,8 +662,12 @@
 	};
 
 	clock_gpucc: qcom,gpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+		compatible = "qcom,gpucc-sdmmagpie", "syscon";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		vdd_gfx-supply = <&VDD_GFX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -702,6 +707,13 @@
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
 		interrupts = <GIC_PPI 5 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	dsu_pmu@0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
+		       <&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
 	};
 
 	qcom,msm-imem@146aa000 {
@@ -837,6 +849,15 @@
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
 	};
 
 	qcom,chd_sliver {
@@ -1024,6 +1045,16 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
+
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x141>;
+		};
 	};
 
 	thermal_zones: thermal-zones {};
@@ -1050,6 +1081,15 @@
 		#thermal-sensor-cells = <1>;
 	};
 
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+		      <0x10ae000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
@@ -1064,6 +1104,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -1072,6 +1116,14 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
@@ -1588,6 +1640,111 @@
 		status = "disabled";
 	};
 
+	ufsphy_mem: ufsphy_mem@1d87000 {
+		reg = <0x1d87000 0xddc>; /* PHY regs */
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+
+		lanes-per-direction = <1>;
+
+		clock-names = "ref_clk_src",
+			"ref_clk",
+			"ref_aux_clk";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+
+		status = "disabled";
+	};
+
+	ufshc_mem: ufshc@1d84000 {
+		compatible = "qcom,ufshc";
+		reg = <0x1d84000 0x3000>;
+		interrupts = <0 265 0>;
+		phys = <&ufsphy_mem>;
+		phy-names = "ufsphy";
+
+		lanes-per-direction = <1>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
+		spm-level = <5>;
+
+		clock-names =
+			"core_clk",
+			"bus_aggr_clk",
+			"iface_clk",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"ref_clk",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk";
+		clocks =
+			<&clock_gcc GCC_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_UFS_PHY_AHB_CLK>,
+			<&clock_gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
+			<&clock_gcc GCC_UFS_PHY_ICE_CORE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>;
+		freq-table-hz =
+			<50000000 240000000>,
+			<0 0>,
+			<0 0>,
+			<37500000 150000000>,
+			<75000000 300000000>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+
+		qcom,msm-bus,name = "ufshc_mem";
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
+		<123 512 0 0>, <1 757 0 0>,          /* No vote */
+		<123 512 922 0>, <1 757 1000 0>,     /* PWM G1 */
+		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G2 */
+		<123 512 3688 0>, <1 757 1000 0>,    /* PWM G3 */
+		<123 512 7376 0>, <1 757 1000 0>,    /* PWM G4 */
+		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
+		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
+		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
+
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x3f 0xC0>;
+		qcom,pm-qos-cpu-group-latency-us = <67 67>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
+
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "core_reset";
+		non-removable;
+
+		status = "disabled";
+	};
+
 	qcom,lpass@62400000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x62400000 0x00100>;
@@ -1780,10 +1937,16 @@
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,reset-aon-logic;
 	status = "ok";
 };
 
@@ -1819,3 +1982,4 @@
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
 #include "sdmmagpie-regulator.dtsi"
+#include "sdmmagpie-coresight.dtsi"

@@ -200,9 +200,8 @@ struct glink_spi {
 
 	struct wcd_spi_ops spi_ops;
 	struct glink_cmpnt cmpnt;
-	u32 activity_flag;
-	spinlock_t activity_lock;
-	bool in_reset;
+	atomic_t activity_cnt;
+	atomic_t in_reset;
 
 	void *ilc;
 };
@@ -298,21 +297,6 @@ static void glink_spi_rx_done_work(struct work_struct *work);
 static void glink_spi_remove(struct glink_spi *glink);
 
 /**
- * spi_suspend() - Vote for the spi device suspend
- * @cmpnt:	Component to identify the spi device.
- *
- * Return: 0 on success, standard Linux error codes on failure.
- */
-static int spi_suspend(struct glink_cmpnt *cmpnt)
-{
-	if (!cmpnt || !cmpnt->master_dev || !cmpnt->master_ops ||
-	    !cmpnt->master_ops->suspend)
-		return 0;
-
-	return cmpnt->master_ops->suspend(cmpnt->master_dev);
-}
-
-/**
  * spi_resume() - Vote for the spi device resume
  * @cmpnt:	Component to identify the spi device.
  *
@@ -337,12 +321,7 @@ static int spi_resume(struct glink_cmpnt *cmpnt)
  */
 static void glink_spi_xprt_set_poll_mode(struct glink_spi *glink)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag |= ACTIVE_RX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
+	atomic_inc(&glink->activity_cnt);
 	spi_resume(&glink->cmpnt);
 }
 
@@ -355,13 +334,7 @@ static void glink_spi_xprt_set_poll_mode(struct glink_spi *glink)
  */
 static void glink_spi_xprt_set_irq_mode(struct glink_spi *glink)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag &= ~ACTIVE_RX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
-	spi_suspend(&glink->cmpnt);
+	atomic_dec(&glink->activity_cnt);
 }
 
 static struct glink_channel *glink_spi_alloc_channel(struct glink_spi *glink,
@@ -504,7 +477,7 @@ static size_t glink_spi_rx_avail(struct glink_spi *glink)
 	u32 tail;
 	int ret;
 
-	if (unlikely(glink->in_reset))
+	if (atomic_read(&glink->in_reset))
 		return 0;
 
 	if (unlikely(!pipe->fifo_base)) {
@@ -578,7 +551,7 @@ static size_t glink_spi_tx_avail(struct glink_spi *glink)
 	u32 tail;
 	int ret;
 
-	if (unlikely(glink->in_reset))
+	if (atomic_read(&glink->in_reset))
 		return 0;
 
 	if (unlikely(!pipe->fifo_base)) {
@@ -682,7 +655,7 @@ static int glink_spi_tx(struct glink_spi *glink, void *hdr, size_t hlen,
 			goto out;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			ret = -ENXIO;
 			goto out;
 		}
@@ -1177,7 +1150,7 @@ static int glink_spi_send_short(struct glink_channel *channel,
 			return -EAGAIN;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			mutex_unlock(&glink->tx_lock);
 			return -EINVAL;
 		}
@@ -1226,7 +1199,7 @@ static int glink_spi_send_data(struct glink_channel *channel,
 			return -EAGAIN;
 		}
 
-		if (unlikely(glink->in_reset)) {
+		if (atomic_read(&glink->in_reset)) {
 			mutex_unlock(&glink->tx_lock);
 			return -EINVAL;
 		}
@@ -1259,11 +1232,8 @@ static int __glink_spi_send(struct glink_channel *channel,
 
 	CH_INFO(channel, "size:%d, wait:%d\n", len, wait);
 
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag |= ACTIVE_TX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
-
-	kref_get(&channel->refcount);
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
 	while (!intent) {
 		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_for_each_entry(&channel->riids, tmp, iid) {
@@ -1315,11 +1285,8 @@ tx_exit:
 	/* Mark intent available if we failed */
 	if (ret && intent)
 		intent->in_use = false;
-	kref_put(&channel->refcount, glink_spi_channel_release);
 
-	spin_lock_irqsave(&glink->activity_lock, flags);
-	glink->activity_flag &= ~ACTIVE_TX;
-	spin_unlock_irqrestore(&glink->activity_lock, flags);
+	atomic_dec(&glink->activity_cnt);
 
 	return ret;
 }
@@ -1360,10 +1327,72 @@ static void glink_spi_handle_rx_done(struct glink_spi *glink,
 	spin_unlock_irqrestore(&channel->intent_lock, flags);
 }
 
+static int __glink_spi_rx_done(struct glink_spi *glink,
+				struct glink_channel *channel,
+				struct glink_core_rx_intent *intent,
+				bool wait)
+{
+	struct {
+		u16 id;
+		u16 lcid;
+		u32 liid;
+		u64 reserved;
+	} __packed cmd;
+	unsigned int cid = channel->lcid;
+	unsigned int iid = intent->id;
+	bool reuse = intent->reuse;
+	int ret;
+
+	cmd.id = reuse ? SPI_CMD_RX_DONE_W_REUSE : SPI_CMD_RX_DONE;
+	cmd.lcid = cid;
+	cmd.liid = iid;
+
+	ret = glink_spi_tx(glink, &cmd, sizeof(cmd), NULL, 0, wait);
+	if (ret)
+		return ret;
+
+	intent->offset = 0;
+	if (!reuse) {
+		kfree(intent->data);
+		kfree(intent);
+	}
+
+	CH_INFO(channel, "reuse:%d liid:%d", reuse, iid);
+	return 0;
+}
+
+static void glink_spi_rx_done_work(struct work_struct *work)
+{
+	struct glink_channel *channel = container_of(work, struct glink_channel,
+						     intent_work);
+	struct glink_spi *glink = channel->glink;
+	struct glink_core_rx_intent *intent, *tmp;
+	unsigned long flags;
+
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
+
+	spin_lock_irqsave(&channel->intent_lock, flags);
+	list_for_each_entry_safe(intent, tmp, &channel->done_intents, node) {
+		list_del(&intent->node);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
+
+		__glink_spi_rx_done(glink, channel, intent, true);
+
+		spin_lock_irqsave(&channel->intent_lock, flags);
+	}
+	spin_unlock_irqrestore(&channel->intent_lock, flags);
+
+	atomic_dec(&glink->activity_cnt);
+}
+
 static void glink_spi_rx_done(struct glink_spi *glink,
 			       struct glink_channel *channel,
 			       struct glink_core_rx_intent *intent)
 {
+	unsigned long flags;
+	int ret = -EAGAIN;
+
 	/* We don't send RX_DONE to intentless systems */
 	if (glink->intentless) {
 		kfree(intent->data);
@@ -1373,58 +1402,21 @@ static void glink_spi_rx_done(struct glink_spi *glink,
 
 	/* Take it off the tree of receive intents */
 	if (!intent->reuse) {
-		spin_lock(&channel->intent_lock);
+		spin_lock_irqsave(&channel->intent_lock, flags);
 		idr_remove(&channel->liids, intent->id);
-		spin_unlock(&channel->intent_lock);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
 	}
 
 	/* Schedule the sending of a rx_done indication */
-	spin_lock(&channel->intent_lock);
-	list_add_tail(&intent->node, &channel->done_intents);
-	spin_unlock(&channel->intent_lock);
+	if (list_empty(&channel->done_intents))
+		ret = __glink_spi_rx_done(glink, channel, intent, false);
 
-	schedule_work(&channel->intent_work);
-}
-
-static void glink_spi_rx_done_work(struct work_struct *work)
-{
-	struct glink_channel *channel = container_of(work, struct glink_channel,
-						     intent_work);
-	struct glink_spi *glink = channel->glink;
-	struct glink_core_rx_intent *intent, *tmp;
-	struct {
-		u16 id;
-		u16 lcid;
-		u32 liid;
-		u64 reserved;
-	} __packed cmd;
-
-	unsigned int lcid = channel->lcid;
-	unsigned int iid;
-	bool reuse;
-	unsigned long flags;
-
-	spin_lock_irqsave(&channel->intent_lock, flags);
-	list_for_each_entry_safe(intent, tmp, &channel->done_intents, node) {
-		list_del(&intent->node);
-		spin_unlock_irqrestore(&channel->intent_lock, flags);
-		iid = intent->id;
-		reuse = intent->reuse;
-
-		cmd.id = reuse ? SPI_CMD_RX_DONE_W_REUSE : SPI_CMD_RX_DONE;
-		cmd.lcid = lcid;
-		cmd.liid = iid;
-
-		CH_INFO(channel, "reuse:%d liid:%d", reuse, iid);
-		glink_spi_tx(glink, &cmd, sizeof(cmd), NULL, 0, true);
-		intent->offset = 0;
-		if (!reuse) {
-			kfree(intent->data);
-			kfree(intent);
-		}
+	if (ret) {
 		spin_lock_irqsave(&channel->intent_lock, flags);
+		list_add_tail(&intent->node, &channel->done_intents);
+		schedule_work(&channel->intent_work);
+		spin_unlock_irqrestore(&channel->intent_lock, flags);
 	}
-	spin_unlock_irqrestore(&channel->intent_lock, flags);
 }
 
 /* Locally initiated rpmsg_create_ept */
@@ -1501,12 +1493,11 @@ close_link:
 
 	/*
 	 * Send a close request to "undo" our open-ack. The close-ack will
-	 * release the last reference.
+	 * release glink_spi_send_open_req() reference and the last reference
+	 * will be release after rx_close or transport unregister by calling
+	 * glink_spi_remove().
 	 */
 	glink_spi_send_close_req(glink, channel);
-
-	/* Release glink_spi_send_open_req() reference */
-	kref_put(&channel->refcount, glink_spi_channel_release);
 
 	return ret;
 }
@@ -1594,7 +1585,6 @@ static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 {
 	struct glink_channel *channel = to_glink_channel(ept);
 	struct glink_spi *glink = channel->glink;
-	struct rpmsg_channel_info chinfo;
 	unsigned long flags;
 
 	spin_lock_irqsave(&channel->recv_lock, flags);
@@ -1602,13 +1592,6 @@ static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 	spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 	/* Decouple the potential rpdev from the channel */
-	if (channel->rpdev) {
-		strlcpy(chinfo.name, channel->name, sizeof(chinfo.name));
-		chinfo.src = RPMSG_ADDR_ANY;
-		chinfo.dst = RPMSG_ADDR_ANY;
-
-		rpmsg_unregister_device(&glink->dev, &chinfo);
-	}
 	channel->rpdev = NULL;
 
 	glink_spi_send_close_req(glink, channel);
@@ -1637,7 +1620,6 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 
 		rpmsg_unregister_device(&glink->dev, &chinfo);
 	}
-	channel->rpdev = NULL;
 
 	glink_spi_send_close_ack(glink, channel->rcid);
 
@@ -1945,7 +1927,7 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size) {
-		spin_lock(&channel->recv_lock);
+		spin_lock_irqsave(&channel->recv_lock, flags);
 		if (channel->ept.cb) {
 			channel->ept.cb(channel->ept.rpdev,
 					intent->data,
@@ -1953,7 +1935,7 @@ static int glink_spi_rx_data(struct glink_spi *glink,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 		}
-		spin_unlock(&channel->recv_lock);
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 		intent->offset = 0;
 		channel->buf = NULL;
@@ -2011,7 +1993,7 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size) {
-		spin_lock(&channel->recv_lock);
+		spin_lock_irqsave(&channel->recv_lock, flags);
 		if (channel->ept.cb) {
 			channel->ept.cb(channel->ept.rpdev,
 					intent->data,
@@ -2019,7 +2001,7 @@ static int glink_spi_rx_short_data(struct glink_spi *glink,
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 		}
-		spin_unlock(&channel->recv_lock);
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 		intent->offset = 0;
 		channel->buf = NULL;
@@ -2043,6 +2025,8 @@ static void glink_spi_defer_work(struct work_struct *work)
 	unsigned int param4;
 	unsigned int cmd;
 
+	atomic_inc(&glink->activity_cnt);
+	spi_resume(&glink->cmpnt);
 	for (;;) {
 		spin_lock_irqsave(&glink->rx_lock, flags);
 		if (list_empty(&glink->rx_queue)) {
@@ -2078,6 +2062,7 @@ static void glink_spi_defer_work(struct work_struct *work)
 
 		kfree(dcmd);
 	}
+	atomic_dec(&glink->activity_cnt);
 }
 
 static int glink_spi_rx_defer(struct glink_spi *glink,
@@ -2236,7 +2221,8 @@ static void glink_spi_work(struct kthread_work *work)
 		kfree(rx_data);
 		glink_spi_rx_advance(glink, rx_avail);
 
-	} while (inactive_cycles < MAX_INACTIVE_CYCLES && !glink->in_reset);
+	} while (inactive_cycles < MAX_INACTIVE_CYCLES &&
+		 !atomic_read(&glink->in_reset));
 	glink_spi_xprt_set_irq_mode(glink);
 }
 
@@ -2256,7 +2242,7 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 {
 	struct glink_spi *glink = dev_get_drvdata(dev);
 	struct glink_cmpnt *cmpnt = &glink->cmpnt;
-	int ret;
+	int ret = 0;
 
 	switch (event) {
 	case WDSP_EVENT_PRE_BOOTUP:
@@ -2270,7 +2256,7 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 			GLINK_ERR(glink, "Failed to get transport device\n");
 		break;
 	case WDSP_EVENT_POST_BOOTUP:
-		glink->in_reset = false;
+		atomic_set(&glink->in_reset, 0);
 		ret = glink_spi_send_version(glink);
 		if (ret)
 			GLINK_ERR(glink, "failed to send version %d\n", ret);
@@ -2285,13 +2271,15 @@ static int glink_spi_cmpnt_event_handler(struct device *dev, void *priv,
 	case WDSP_EVENT_RESUME:
 		break;
 	case WDSP_EVENT_SUSPEND:
+		if (atomic_read(&glink->activity_cnt))
+			ret = -EBUSY;
 		break;
 	default:
 		GLINK_INFO(glink, "unhandled event %d", event);
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 /* glink_spi_cmpnt_ops - Callback operations registered wtih wdsp framework */
@@ -2412,9 +2400,8 @@ struct glink_spi *qcom_glink_spi_register(struct device *parent,
 	idr_init(&glink->lcids);
 	idr_init(&glink->rcids);
 
-	glink->in_reset = true;
-	glink->activity_flag = 0;
-	spin_lock_init(&glink->activity_lock);
+	atomic_set(&glink->in_reset, 1);
+	atomic_set(&glink->activity_cnt, 0);
 
 	ret = glink_spi_init_pipe("tx-descriptors", node, &glink->tx_pipe);
 	if (ret)
@@ -2468,7 +2455,7 @@ static void glink_spi_remove(struct glink_spi *glink)
 
 	GLINK_INFO(glink, "\n");
 
-	glink->in_reset = true;
+	atomic_set(&glink->in_reset, 1);
 	kthread_cancel_work_sync(&glink->rx_work);
 	cancel_work_sync(&glink->rx_defer_work);
 
@@ -2477,15 +2464,26 @@ static void glink_spi_remove(struct glink_spi *glink)
 		dev_warn(&glink->dev, "Can't remove GLINK devices: %d\n", ret);
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		spin_unlock_irqrestore(&glink->idr_lock, flags);
+		/* cancel_work_sync may sleep */
+		cancel_work_sync(&channel->intent_work);
+		spin_lock_irqsave(&glink->idr_lock, flags);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
-		if (kref_put(&channel->refcount, glink_spi_channel_release))
-			idr_remove(&glink->lcids, cid);
+		kref_put(&channel->refcount, glink_spi_channel_release);
+		idr_remove(&glink->lcids, cid);
 	}
 
 	/* Release any defunct local channels, waiting for close-req */
-	idr_for_each_entry(&glink->lcids, channel, cid)
+	idr_for_each_entry(&glink->lcids, channel, cid) {
 		kref_put(&channel->refcount, glink_spi_channel_release);
+		idr_remove(&glink->lcids, cid);
+	}
 
 	idr_destroy(&glink->lcids);
 	idr_destroy(&glink->rcids);
