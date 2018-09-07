@@ -803,7 +803,6 @@ static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 			if (fg_alpha != 0xff) {
 				bg_alpha = fg_alpha;
 				blend_op |= SDE_BLEND_FG_MOD_ALPHA |
-					SDE_BLEND_FG_INV_MOD_ALPHA |
 					SDE_BLEND_BG_MOD_ALPHA |
 					SDE_BLEND_BG_INV_MOD_ALPHA;
 			} else {
