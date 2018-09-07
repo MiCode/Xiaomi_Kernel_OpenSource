@@ -3124,6 +3124,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
+	_sde_crtc_check_dest_scaler_data(crtc, crtc->state);
 }
 
 static void _sde_crtc_setup_is_ppsplit(struct drm_crtc_state *state)
