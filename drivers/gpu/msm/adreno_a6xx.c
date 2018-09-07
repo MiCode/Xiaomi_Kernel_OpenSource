@@ -15,7 +15,6 @@
 #include <linux/pm_opp.h>
 #include <linux/jiffies.h>
 #include <linux/clk/qcom.h>
-#include <soc/qcom/scm.h>
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -650,12 +649,12 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
 		on = false;
 
-	if (gmu_core_isenabled(device) || adreno_is_a608(adreno_dev)) {
-		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
+	if (gmu_core_isenabled(device)) {
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
 			on ? __get_gmu_ao_cgc_mode_cntl(adreno_dev) : 0);
-		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
 			on ? __get_gmu_ao_cgc_delay_cntl(adreno_dev) : 0);
-		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
 			on ? __get_gmu_ao_cgc_hyst_cntl(adreno_dev) : 0);
 	}
 
@@ -678,13 +677,13 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	regs = a6xx_hwcg_registers[i].regs;
 
 	/* Disable SP clock before programming HWCG registers */
-	//gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
 	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
 		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
 
 	/* Enable SP clock */
-	//gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
@@ -948,29 +947,10 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	if (!device->mmu.secured)
 		return 0;
 
-	/*
-	 * Resume call to write the zap shader base address into the
-	 * appropriate register,
-	 * skip if retention is supported for the CPZ register
-	 */
-	if (adreno_dev->zap_loaded) {
-		int ret;
-		struct scm_desc desc = {0};
-
-		desc.args[0] = 0;
-		desc.args[1] = 13;
-		desc.arginfo = SCM_ARGS(2);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, 0xA), &desc);
-		if (ret) {
-			pr_err("SCM resume call failed with error %d\n", ret);
-			return ret;
-		}
-
-	}
-
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
 		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(zap)) {
 			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
@@ -2640,7 +2620,7 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	if (counter == 0)
 		return -EINVAL;
 
-	if (!gmu_core_isenabled(device) && !adreno_is_a608(adreno_dev))
+	if (!gmu_core_isenabled(device))
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
