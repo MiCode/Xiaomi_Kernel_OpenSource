@@ -297,7 +297,7 @@ void inv_convert_and_push_8bytes(struct inv_mpu_state *st, u16 hdr,
 
 	inv_push_8bytes_buffer(st, hdr, t, out);
 }
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 static void store_acc_boot_sample(struct inv_mpu_state *st, u64 t,
 						s16 x, s16 y, s16 z)
 {
