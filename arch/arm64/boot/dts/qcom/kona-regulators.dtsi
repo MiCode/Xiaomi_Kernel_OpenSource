@@ -8,6 +8,7 @@
 /* Stub regulators */
 / {
 	/* PM8150 S3 + S2 + S1 = VDD_CX supply */
+	VDD_CX_LEVEL_AO:
 	VDD_CX_LEVEL: S3A_LEVEL: pm8150_s3_level: regulator-pm8150-s3-level {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8150_s3_level";

@@ -530,9 +530,13 @@ qcom,msm-imem@146bf000 {
 		#clock-cells = <1>;
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-kona";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
