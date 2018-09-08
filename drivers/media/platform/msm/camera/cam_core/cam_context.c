@@ -56,7 +56,7 @@ int cam_context_shutdown(struct cam_context *ctx)
 	}
 
 	if (!rc)
-		cam_destroy_device_hdl(ctx_hdl);
+		rc = cam_destroy_device_hdl(ctx_hdl);
 	return rc;
 }
 

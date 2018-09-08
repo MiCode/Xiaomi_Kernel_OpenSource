@@ -176,6 +176,7 @@
 	};
 
 	cnss_sdio: qcom,cnss_sdio {
+		status = "disabled";
 		compatible = "qcom,cnss_sdio";
 		subsys-name = "AR6320";
 		/**
@@ -239,10 +240,6 @@
 	};
 };
 
-&wcnss {
-	status = "disabled";
-};
-
 &msm_gpio {
 	sdc2_wlan_gpio_on: sdc2_wlan_gpio_on {
 		mux {
@@ -298,7 +295,7 @@
 	&sdc2_wlan_gpio_off>;
 	qcom,nonremovable;
 	qcom,core_3_0v_support;
-	status = "ok";
+	status = "disabled";
 };
 
 &i2c_4 {
