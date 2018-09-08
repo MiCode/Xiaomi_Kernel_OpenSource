@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
+#include <linux/dma-iommu.h>
 #include <trace/events/iommu.h>
 #include "io-pgtable.h"
 
@@ -31,19 +32,6 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 		return pgprot_noncached(prot);
 	else if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
 		return pgprot_writecombine(prot);
-	return prot;
-}
-
-static int __get_iommu_pgprot(unsigned long attrs, int prot,
-			      bool coherent)
-{
-	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
-		prot |= IOMMU_NOEXEC;
-	if ((attrs & DMA_ATTR_STRONGLY_ORDERED))
-		prot |= IOMMU_MMIO;
-	if (coherent)
-		prot |= IOMMU_CACHE;
-
 	return prot;
 }
 
@@ -318,20 +306,6 @@ static void __fast_dma_page_dev_to_cpu(struct page *page, unsigned long off,
 		set_bit(PG_dcache_clean, &page->flags);
 }
 
-static int __fast_dma_direction_to_prot(enum dma_data_direction dir)
-{
-	switch (dir) {
-	case DMA_BIDIRECTIONAL:
-		return IOMMU_READ | IOMMU_WRITE;
-	case DMA_TO_DEVICE:
-		return IOMMU_READ;
-	case DMA_FROM_DEVICE:
-		return IOMMU_WRITE;
-	default:
-		return 0;
-	}
-}
-
 static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 				   unsigned long offset, size_t size,
 				   enum dma_data_direction dir,
@@ -345,10 +319,8 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	unsigned long offset_from_phys_to_map = phys_plus_off & ~FAST_PAGE_MASK;
 	size_t len = ALIGN(size + offset_from_phys_to_map, FAST_PAGE_SIZE);
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
-	int prot = __fast_dma_direction_to_prot(dir);
 	bool is_coherent = is_dma_coherent(dev, attrs);
-
-	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
+	int prot = dma_info_to_prot(dir, is_coherent, attrs);
 
 	if (!skip_sync && !is_coherent)
 		__fast_dma_page_cpu_to_dev(phys_to_page(phys_to_map),
@@ -515,12 +487,10 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	unsigned long flags;
 	struct sg_mapping_iter miter;
 	unsigned int count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
-	int prot = IOMMU_READ | IOMMU_WRITE; /* TODO: extract from attrs */
 	bool is_coherent = is_dma_coherent(dev, attrs);
+	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
 	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
-
-	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
 	*handle = DMA_ERROR_CODE;
 
@@ -684,7 +654,7 @@ static dma_addr_t fast_smmu_dma_map_resource(
 	if (dma_addr == DMA_ERROR_CODE)
 		return dma_addr;
 
-	prot = __fast_dma_direction_to_prot(dir);
+	prot = dma_info_to_prot(dir, false, attrs);
 	prot |= IOMMU_MMIO;
 
 	if (iommu_map(mapping->domain, dma_addr, phys_addr - offset,
