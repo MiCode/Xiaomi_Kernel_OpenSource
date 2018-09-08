@@ -111,7 +111,6 @@ enum {
 	SLAVE_PCT,
 	RESTRICT_CHG_ENABLE,
 	RESTRICT_CHG_CURRENT,
-	FCC_STEPPING_IN_PROGRESS,
 };
 
 /*******
@@ -379,26 +378,11 @@ static ssize_t restrict_cur_store(struct class *c, struct class_attribute *attr,
 }
 static CLASS_ATTR_RW(restrict_cur);
 
-/****************************
- * FCC STEPPING IN PROGRESS *
- ****************************/
-static ssize_t fcc_stepping_in_progress_show(struct class *c,
-				struct class_attribute *attr, char *ubuf)
-{
-	struct pl_data *chip = container_of(c, struct pl_data,
-			qcom_batt_class);
-
-	return snprintf(ubuf, PAGE_SIZE, "%d\n", chip->step_fcc);
-}
-static CLASS_ATTR_RO(fcc_stepping_in_progress);
-
 static struct attribute *batt_class_attrs[] = {
 	[VER]			= &class_attr_version.attr,
 	[SLAVE_PCT]		= &class_attr_slave_pct.attr,
 	[RESTRICT_CHG_ENABLE]	= &class_attr_restrict_chg.attr,
 	[RESTRICT_CHG_CURRENT]	= &class_attr_restrict_cur.attr,
-	[FCC_STEPPING_IN_PROGRESS]
-				= &class_attr_fcc_stepping_in_progress.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(batt_class);
