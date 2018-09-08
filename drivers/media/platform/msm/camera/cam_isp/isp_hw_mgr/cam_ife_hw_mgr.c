@@ -764,6 +764,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 			if (!ife_src_res->hw_res[j])
 				continue;
 
+			hw_intf = ife_src_res->hw_res[j]->hw_intf;
+
 			if (j == CAM_ISP_HW_SPLIT_LEFT) {
 				vfe_acquire.vfe_out.split_id  =
 					CAM_ISP_HW_SPLIT_LEFT;
@@ -771,7 +773,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 					/*TBD */
 					vfe_acquire.vfe_out.is_master     = 1;
 					vfe_acquire.vfe_out.dual_slave_core =
-						1;
+						(hw_intf->hw_idx == 0) ? 1 : 0;
 				} else {
 					vfe_acquire.vfe_out.is_master   = 0;
 					vfe_acquire.vfe_out.dual_slave_core =
@@ -781,10 +783,10 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 				vfe_acquire.vfe_out.split_id  =
 					CAM_ISP_HW_SPLIT_RIGHT;
 				vfe_acquire.vfe_out.is_master       = 0;
-				vfe_acquire.vfe_out.dual_slave_core = 0;
+				vfe_acquire.vfe_out.dual_slave_core =
+					(hw_intf->hw_idx == 0) ? 1 : 0;
 			}
 
-			hw_intf = ife_src_res->hw_res[j]->hw_intf;
 			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 				&vfe_acquire,
 				sizeof(struct cam_vfe_acquire_args));
@@ -1054,7 +1056,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	}
 
 	/* Acquire Left if not already acquired */
-	for (i = 0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
+	for (i = CAM_IFE_CSID_HW_NUM_MAX - 1; i >= 0; i--) {
 		if (!ife_hw_mgr->csid_devices[i])
 			continue;
 
@@ -1070,7 +1072,7 @@ static int cam_ife_mgr_acquire_cid_res(
 		}
 	}
 
-	if (i == CAM_IFE_CSID_HW_NUM_MAX || !csid_acquire.node_res) {
+	if (i == -1 || !csid_acquire.node_res) {
 		CAM_ERR(CAM_ISP, "Can not acquire ife cid resource for path %d",
 			csid_path);
 		goto put_res;
