@@ -211,7 +211,7 @@ config MSM_TZ_SMMU
 
 config MSM_SERVICE_LOCATOR
 	bool "Service Locator"
-	depends on MSM_QMI_INTERFACE
+	depends on QCOM_QMI_HELPERS
 	help
 	  The Service Locator provides a library to retrieve location
 	  information given a service identifier. Location here translates
