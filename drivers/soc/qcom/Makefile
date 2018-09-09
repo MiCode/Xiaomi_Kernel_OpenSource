@@ -29,6 +29,7 @@ CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
+obj-$(CONFIG_QCOM_MINIDUMP) += msm_minidump.o minidump_log.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
 obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
