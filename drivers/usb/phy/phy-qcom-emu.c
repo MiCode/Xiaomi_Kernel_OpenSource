@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -102,7 +102,7 @@ static int qcusb_emu_phy_probe(struct platform_device *pdev)
 		return ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"qcratch_base");
+							"qscratch_base");
 	if (res) {
 		qphy->qscratch_base = devm_ioremap_nocache(dev, res->start,
 						resource_size(res));
