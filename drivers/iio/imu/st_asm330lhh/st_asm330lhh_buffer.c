@@ -225,8 +225,8 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 			<  sensor->max_buffer_time) {
 		if (sensor->bufsample_cnt < ASM_MAXSAMPLE) {
 			sensor->asm_samplist[sensor->bufsample_cnt]->xyz[0] = x;
-			sensor->asm_samplist[sensor->bufsample_cnt]->xyz[1] = x;
-			sensor->asm_samplist[sensor->bufsample_cnt]->xyz[2] = x;
+			sensor->asm_samplist[sensor->bufsample_cnt]->xyz[1] = y;
+			sensor->asm_samplist[sensor->bufsample_cnt]->xyz[2] = z;
 			sensor->asm_samplist[sensor->bufsample_cnt]->tsec =
 				ktime_to_timespec(sensor->timestamp).tv_sec;
 			sensor->asm_samplist[sensor->bufsample_cnt]->tnsec =
