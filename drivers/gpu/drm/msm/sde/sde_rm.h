@@ -57,12 +57,14 @@ enum sde_rm_topology_name {
  *                               reservation list during the AtomicTest phase.
  * @SDE_RM_TOPCTL_DSPP: Require layer mixers with DSPP capabilities
  * @SDE_RM_TOPCTL_DS  : Require layer mixers with DS capabilities
+ * @SDE_RM_TOPCTL_CWB  : Require layer mixers with CWB capabilities
  */
 enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_RESERVE_LOCK,
 	SDE_RM_TOPCTL_RESERVE_CLEAR,
 	SDE_RM_TOPCTL_DSPP,
 	SDE_RM_TOPCTL_DS,
+	SDE_RM_TOPCTL_CWB,
 };
 
 /**

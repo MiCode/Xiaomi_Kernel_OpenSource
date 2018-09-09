@@ -179,8 +179,9 @@ static const u8 *_sde_edid_find_block(const u8 *in_buf, u32 start_offset,
 	 * * edid buffer 1, byte 2 being 0 means no non-DTD/DATA block
 	 *   collection present and no DTD data present.
 	 */
+
 	if ((dbc_offset == 0) || (dbc_offset == 4)) {
-		SDE_ERROR("EDID: no DTD or non-DTD data present\n");
+		SDE_EDID_DEBUG("EDID: no DTD or non-DTD data present\n");
 		return NULL;
 	}
 
