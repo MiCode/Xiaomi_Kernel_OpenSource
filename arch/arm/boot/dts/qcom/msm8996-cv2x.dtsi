@@ -531,7 +531,7 @@
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
-		qcom,invert = <1>;		/* Output high */
+		qcom,invert = <0>;		/* Output low */
 		status = "okay";
 	};
 };
