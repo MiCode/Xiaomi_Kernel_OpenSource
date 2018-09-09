@@ -615,17 +615,16 @@ static int smblib_set_usb_pd_fsw(struct smb_charger *chg, int voltage)
 {
 	int rc = 0;
 
-	switch (voltage) {
-	case MICRO_5V:
+	if (voltage == MICRO_5V)
 		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_5V);
-		break;
-	case MICRO_9V:
+	else if (voltage > MICRO_5V && voltage < MICRO_9V)
+		rc = smblib_set_opt_switcher_freq(chg,
+				chg->chg_freq.freq_6V_8V);
+	else if (voltage >= MICRO_9V && voltage < MICRO_12V)
 		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_9V);
-		break;
-	case MICRO_12V:
+	else if (voltage == MICRO_12V)
 		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_12V);
-		break;
-	default:
+	else {
 		smblib_err(chg, "Couldn't set Fsw: invalid voltage %d\n",
 				voltage);
 		return -EINVAL;
