@@ -60,6 +60,7 @@
 #include <asm/ptrace.h>
 #include <asm/virt.h>
 #include <asm/system_misc.h>
+#include <soc/qcom/minidump.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -824,6 +825,7 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 		pr_crit("CPU%u: stopping\n", cpu);
 		__show_regs(regs);
 		dump_stack();
+		dump_stack_minidump(regs->sp);
 		raw_spin_unlock(&stop_lock);
 	}
 
