@@ -3086,8 +3086,8 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-#define SMMU_BASE	0x60000000 /* Device address range base */
-#define SMMU_SIZE	0x90000000 /* Device address range size */
+#define SMMU_BASE	0x90000000 /* Device address range base */
+#define SMMU_SIZE	0x60000000 /* Device address range size */
 
 static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 {
