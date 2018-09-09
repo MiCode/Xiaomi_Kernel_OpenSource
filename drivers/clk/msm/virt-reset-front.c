@@ -47,8 +47,8 @@ static int virtrc_front_get_clk_id(struct reset_controller_dev *rcdev,
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size,
-			UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", map->clk_name,
 				ret);
@@ -109,7 +109,8 @@ static int __virtrc_front_reset(struct reset_controller_dev *rcdev,
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", map->clk_name,
 				ret);
