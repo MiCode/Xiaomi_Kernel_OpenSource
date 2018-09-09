@@ -1982,6 +1982,14 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	rc = smblib_write(chg, CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG,
+					FAST_CHARGE_SAFETY_TIMER_768_MIN);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
 				(chip->dt.auto_recharge_vbat_mv != -EINVAL) ?
 				VBAT_BASED_RECHG_BIT : 0);
