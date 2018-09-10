@@ -682,27 +682,19 @@ static int mdp3_handle_null_commit(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	int retry_count = 2;
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
+	u32 tpg_cfg = 0, dmap_cfg = 0;
 
-	if (!dma->source_config.format && !dma->source_config.stride) {
-		pr_debug("Null commit already handled\n");
-		return 0;
-	}
-
-	/*
-	 * Size and stride are set to 0 to ensure that DMA pipe does not
-	 * fetch anything whenever we get a null commit. The values will be
-	 * reconfigured to the correct values in the next commit.
+	/* To block the fetch start to fetch block, program the TPG
+	 * with constant color so that all the transactions are blocked
+	 * during the transition from secure to non-secure and vice-versa.
 	 */
 
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, 0);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE, 0);
+	tpg_cfg = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_TEST_CTL);
+	tpg_cfg |= BIT(31);
+	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_TEST_COL_VAR1, 0);
+	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_TEST_CTL, tpg_cfg);
 
 	spin_lock_irqsave(&dma->dma_lock, flag);
-	dma->source_config.format = 0;
-	dma->source_config.stride = 0;
-	mdp3_irq_disable(MDP3_INTR_LCDC_UNDERFLOW);
-	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_UNDERFLOW_CTL, 0x80000000);
-
 	if (!intf->active) {
 		pr_debug("%s start interface\n", __func__);
 		intf->start(intf);
@@ -718,6 +710,7 @@ static int mdp3_handle_null_commit(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	init_completion(&dma->vsync_comp);
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
 	mdp3_dma_callback_enable(dma, cb_type);
+	dma->update_src_cfg = true;
 
 retry_vsync:
 	pr_debug("wait for vsync_comp started\n");
@@ -734,6 +727,12 @@ retry_vsync:
 		rc = -1;
 	}
 	pr_debug("wait for vsync_comp done\n");
+
+	dmap_cfg = MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG);
+	if (dmap_cfg & BIT(21)) {
+		dmap_cfg &= ~BIT(21);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dmap_cfg);
+	}
 
 return rc;
 
@@ -775,6 +774,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	int rc = 0;
 	int retry_count = 2;
 	int vsync = 0;
+	u32 tpg_cfg = 0;
 
 	ATRACE_BEGIN(__func__);
 	pr_debug("mdp3_dmap_update\n");
@@ -804,6 +804,15 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 	if (dma->ccs_config.ccs_dirty)
 		mdp3_ccs_update(dma, true);
 	mutex_unlock(&dma->pp_lock);
+
+	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO) {
+		tpg_cfg = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_TEST_CTL);
+		if (tpg_cfg & BIT(31)) {
+			tpg_cfg &= ~BIT(31);
+			MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_TEST_CTL, tpg_cfg);
+		}
+	}
+
 	spin_lock_irqsave(&dma->dma_lock, flag);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)(buf +
 			dma->roi.y * dma->source_config.stride +
@@ -843,9 +852,6 @@ retry_vsync:
 			rc = -1;
 		}
 		ATRACE_END("mdp3_wait_for_vsync_comp");
-
-		if (!mdp3_res->irq_ref_count[MDP3_INTR_LCDC_UNDERFLOW])
-			mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
 	}
 	pr_debug("$%s wait for vsync_comp out\n", __func__);
 	ATRACE_END(__func__);
@@ -1327,6 +1333,7 @@ int dsi_video_config(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
 
 	v->underflow_color |= 0x80000000;
 	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_UNDERFLOW_CTL, v->underflow_color);
+	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_TEST_CTL, 0x70000000);
 
 	return 0;
 }

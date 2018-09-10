@@ -56,8 +56,7 @@
 			synaptics,do-not-disable-regulators;
 			synaptics,wakeup-gestures-en;
 			synaptics,resume-in-workqueue;
-			synaptics,x-flip;
-			synaptics,y-flip;
+			synaptics,fw-name = "PR1814809-s1222_30303032.img";
 			/delete-property/ synaptics,reset-gpio;
 			/delete-property/ synaptics,display-coords;
 			/delete-property/ synaptics,panel-coords;

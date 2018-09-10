@@ -13,6 +13,9 @@
 
 #include <linux/device.h>
 #include <linux/iio/iio.h>
+#include <linux/input.h>
+#include <linux/ktime.h>
+#include <linux/slab.h>
 
 /*
  * Module version:
@@ -86,6 +89,16 @@ static const struct iio_event_spec st_asm330lhh_flush_event = {
 
 #define ST_ASM330LHH_RX_MAX_LENGTH	8
 #define ST_ASM330LHH_TX_MAX_LENGTH	8
+
+#ifdef CONFIG_ENABLE_ASM_ACC_GYRO_BUFFERING
+#define ASM_MAXSAMPLE        4000
+#define G_MAX                    23920640
+struct asm_sample {
+	int xyz[3];
+	unsigned int tsec;
+	unsigned long long tnsec;
+};
+#endif
 
 struct st_asm330lhh_transfer_buffer {
 	u8 rx_buf[ST_ASM330LHH_RX_MAX_LENGTH];
@@ -170,6 +183,17 @@ struct st_asm330lhh_sensor {
 	u16 watermark;
 	u8 batch_mask;
 	u8 batch_addr;
+#ifdef CONFIG_ENABLE_ASM_ACC_GYRO_BUFFERING
+	bool read_boot_sample;
+	int bufsample_cnt;
+	bool buffer_asm_samples;
+	struct kmem_cache *asm_cachepool;
+	struct asm_sample *asm_samplist[ASM_MAXSAMPLE];
+	ktime_t timestamp;
+	int max_buffer_time;
+	struct input_dev *buf_dev;
+	int report_evt_cnt;
+#endif
 };
 
 /**
@@ -242,4 +266,9 @@ ssize_t st_asm330lhh_set_watermark(struct device *dev,
 int st_asm330lhh_set_fifo_mode(struct st_asm330lhh_hw *hw,
 			       enum st_asm330lhh_fifo_mode fifo_mode);
 int st_asm330lhh_suspend_fifo(struct st_asm330lhh_hw *hw);
+int st_asm330lhh_update_watermark(struct st_asm330lhh_sensor *sensor,
+					u16 watermark);
+int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable);
+int asm330_check_acc_gyro_early_buff_enable_flag(
+		struct st_asm330lhh_sensor *sensor);
 #endif /* ST_ASM330LHH_H */

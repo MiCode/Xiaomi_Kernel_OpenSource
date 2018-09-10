@@ -56,6 +56,15 @@
 	pps {
 		use-system-time-ts;
 	};
+
+	qcom,ipc_router_external_ap_xprt {
+		compatible = "qcom,ipc-router-mhi-dev-xprt";
+		qcom,out-chan-id = <20>;
+		qcom,in-chan-id = <21>;
+		qcom,xprt-remote = "external-ap";
+		qcom,xprt-linkid = <2>;
+		qcom,xprt-version = <1>;
+	};
 };
 
 &cnss_pcie {
@@ -97,7 +106,7 @@
 		spi-max-frequency = <4800000>;
 		reg = <0>;
 		interrupt-parent = <&tlmm_pinmux>;
-		interrupts = <68 0>;
+		interrupts = <68 IRQ_TYPE_EDGE_RISING>;
 		reset-gpio = <&tlmm_pinmux 89 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;

@@ -1035,6 +1035,11 @@ static int bg_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+static void bg_spi_shutdown(struct spi_device *spi)
+{
+	bg_spi_remove(spi);
+}
+
 static int bgcom_pm_suspend(struct device *dev)
 {
 	uint32_t cmnd_reg = 0;
@@ -1089,6 +1094,7 @@ static struct spi_driver bg_spi_driver = {
 	},
 	.probe = bg_spi_probe,
 	.remove = bg_spi_remove,
+	.shutdown = bg_spi_shutdown,
 };
 
 module_spi_driver(bg_spi_driver);
