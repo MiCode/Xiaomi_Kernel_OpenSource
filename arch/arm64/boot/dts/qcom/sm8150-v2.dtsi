@@ -580,7 +580,7 @@
 &cpu4_computemon {
 	qcom,core-dev-table =
 		< 1920000 MHZ_TO_MBPS( 200, 4) >,
-		< 2841600 MHZ_TO_MBPS(1017, 4) >,
+		< 2793600 MHZ_TO_MBPS(1017, 4) >,
 		< 3000000 MHZ_TO_MBPS(2092, 4) >;
 };
 
