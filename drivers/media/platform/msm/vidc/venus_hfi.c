@@ -29,6 +29,7 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <soc/qcom/cx_ipeak.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/soc/qcom/smem.h>
@@ -1383,6 +1384,49 @@ static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 	return prop;
 }
 
+static int __set_clk_rate(struct venus_hfi_device *device,
+		struct clock_info *cl, u64 rate)
+{
+	int rc = 0;
+	u64 threshold_freq = device->res->clk_freq_threshold;
+	struct cx_ipeak_client *ipeak = device->res->cx_ipeak_context;
+	struct clk *clk = cl->clk;
+
+	if (device->clk_freq < threshold_freq && rate >= threshold_freq) {
+		rc = cx_ipeak_update(ipeak, true);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"cx_ipeak_update failed! ipeak %pK\n", ipeak);
+			return rc;
+		}
+		dprintk(VIDC_PROF, "cx_ipeak_update: up, clk freq = %lu\n",
+			device->clk_freq);
+	}
+
+	rc = clk_set_rate(clk, rate);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to set clock rate %llu %s: %d\n",
+			__func__, rate, cl->name, rc);
+		return rc;
+	}
+
+	device->clk_freq = rate;
+
+	if (device->clk_freq >= threshold_freq && rate < threshold_freq) {
+		rc = cx_ipeak_update(ipeak, false);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"cx_ipeak_update failed! ipeak %pK\n", ipeak);
+			return rc;
+		}
+		dprintk(VIDC_PROF, "cx_ipeak_update: down, clk freq = %lu\n",
+			device->clk_freq);
+	}
+
+	return rc;
+}
+
 static int __set_clocks(struct venus_hfi_device *device, u32 freq)
 {
 	struct clock_info *cl;
@@ -1390,14 +1434,9 @@ static int __set_clocks(struct venus_hfi_device *device, u32 freq)
 
 	venus_hfi_for_each_clock(device, cl) {
 		if (cl->has_scaling) {/* has_scaling */
-			device->clk_freq = freq;
-			rc = clk_set_rate(cl->clk, freq);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to set clock rate %u %s: %d %s\n",
-					freq, cl->name, rc, __func__);
+			rc = __set_clk_rate(device, cl, freq);
+			if (rc)
 				return rc;
-			}
 
 			trace_msm_vidc_perf_clock_scale(cl->name, freq);
 			dprintk(VIDC_PROF, "Scaling clock %s to %u\n",
@@ -3956,7 +3995,8 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		 * it to the lowest frequency possible
 		 */
 		if (cl->has_scaling)
-			clk_set_rate(cl->clk, clk_round_rate(cl->clk, 0));
+			__set_clk_rate(device, cl,
+					clk_round_rate(cl->clk, 0));
 
 		rc = clk_set_flags(cl->clk, CLKFLAG_RETAIN_PERIPH);
 		if (rc) {
