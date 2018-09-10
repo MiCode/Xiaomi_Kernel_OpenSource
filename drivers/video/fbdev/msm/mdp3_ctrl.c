@@ -2976,14 +2976,17 @@ static int mdp3_vsync_retire_setup(struct msm_fb_data_type *mfd)
 		return -ENOMEM;
 	}
 
-	/* Add retire vsync handler */
-	retire_client.handler = mdp3_vsync_retire_handle_vsync;
-	retire_client.arg = mdp3_session;
+	if (mfd->panel_info->type == MIPI_CMD_PANEL) {
+		/* Add retire vsync handler */
+		retire_client.handler = mdp3_vsync_retire_handle_vsync;
+		retire_client.arg = mdp3_session;
 
-	if (mdp3_session->dma)
-		mdp3_session->dma->retire_client = retire_client;
+		if (mdp3_session->dma)
+			mdp3_session->dma->retire_client = retire_client;
 
-	INIT_WORK(&mdp3_session->retire_work, mdp3_vsync_retire_work_handler);
+		INIT_WORK(&mdp3_session->retire_work,
+			mdp3_vsync_retire_work_handler);
+	}
 
 	return 0;
 }
@@ -3162,13 +3165,10 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_session->vsync_before_commit = true;
 	mdp3_session->dyn_pu_state = mfd->panel_info->partial_update_enabled;
 
-	if (mfd->panel_info->mipi.dms_mode ||
-			mfd->panel_info->type == MIPI_CMD_PANEL) {
-		rc = mdp3_vsync_retire_setup(mfd);
-		if (IS_ERR_VALUE(rc)) {
-			pr_err("unable to create vsync timeline\n");
-			goto init_done;
-		}
+	rc = mdp3_vsync_retire_setup(mfd);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("unable to create vsync timeline\n");
+		goto init_done;
 	}
 init_done:
 	if (IS_ERR_VALUE(rc))
