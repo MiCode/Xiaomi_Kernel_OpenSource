@@ -150,6 +150,9 @@ Required properties:
 			    binding above.
 
 Optional properties:
+- pwms:
+    Value type: <prop-encoded-array>
+    Definition: The PWM device (phandle) used for controlling backlight.
 - qcom,platform-spi-dc-gpio: Pull down this gpio indicate current package is command,
         Pull up this gpio indicate current package is parameter or pixels.
 - qcom,platform-reset-gpio:             Specifies the panel reset gpio.
@@ -164,7 +167,6 @@ Optional properties:
 	-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 	-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 	-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
-
 Example:
 	mdss_spi_panel: qcom,mdss_spi_panel {
 		compatible = "qcom,mdss-spi-panel";
@@ -175,6 +177,7 @@ Example:
 		qcom,platform-te-gpio = <&tlmm 57 0>;
 		qcom,platform-reset-gpio = <&tlmm 42 0>;
 		qcom,platform-spi-dc-gpio = <&tlmm 39 0>;
+		pwms = <&pms405_l1 0 1000000>;
 
 		qcom,panel-supply-entries {
 			#address-cells = <1>;
