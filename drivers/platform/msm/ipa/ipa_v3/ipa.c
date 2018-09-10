@@ -2597,11 +2597,6 @@ void ipa3_q6_post_shutdown_cleanup(void)
 
 	IPADBG_LOW("ENTER\n");
 
-	if (!ipa3_ctx->uc_ctx.uc_loaded) {
-		IPAERR("uC is not loaded. Skipping\n");
-		return;
-	}
-
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	/* Handle the issue where SUSPEND was removed for some reason */
@@ -2617,6 +2612,11 @@ void ipa3_q6_post_shutdown_cleanup(void)
 	}
 
 	ipa3_halt_q6_gsi_channels(prod);
+
+	if (!ipa3_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded. Skipping\n");
+		return;
+	}
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
