@@ -215,7 +215,8 @@ static void delete_first_node(void)
 			kfree(msg->buff);
 			kfree(msg);
 			ipa3_odl_ctx->stats.odl_drop_pkt++;
-			IPA_STATS_DEC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+			if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue))
+				atomic_dec(&ipa3_odl_ctx->stats.numer_in_queue);
 		}
 	} else {
 		IPADBG("List Empty\n");
@@ -244,10 +245,11 @@ int ipa3_send_adpl_msg(unsigned long skb_data)
 	msg->buff = data;
 	msg->len = skb->len;
 	mutex_lock(&ipa3_odl_ctx->adpl_msg_lock);
-	if (ipa3_odl_ctx->stats.numer_in_queue >= MAX_QUEUE_TO_ODL)
+	if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue) >=
+						MAX_QUEUE_TO_ODL)
 		delete_first_node();
 	list_add_tail(&msg->link, &ipa3_odl_ctx->adpl_msg_list);
-	IPA_STATS_INC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+	atomic_inc(&ipa3_odl_ctx->stats.numer_in_queue);
 	mutex_unlock(&ipa3_odl_ctx->adpl_msg_lock);
 	IPA_STATS_INC_CNT(ipa3_odl_ctx->stats.odl_rx_pkt);
 
@@ -342,7 +344,7 @@ int ipa3_odl_pipe_open(void)
 	IPADBG("Setup endpoint config success\n");
 
 	ipa3_odl_ctx->stats.odl_drop_pkt = 0;
-	ipa3_odl_ctx->stats.numer_in_queue = 0;
+	atomic_set(&ipa3_odl_ctx->stats.numer_in_queue, 0);
 	ipa3_odl_ctx->stats.odl_rx_pkt = 0;
 	ipa3_odl_ctx->stats.odl_tx_diag_pkt = 0;
 	/*
@@ -422,7 +424,7 @@ void ipa3_odl_pipe_cleanup(bool is_ssr)
 	 */
 	ipa3_odl_ctx->odl_ctl_msg_wq_flag = true;
 	ipa3_odl_ctx->stats.odl_drop_pkt = 0;
-	ipa3_odl_ctx->stats.numer_in_queue = 0;
+	atomic_set(&ipa3_odl_ctx->stats.numer_in_queue, 0);
 	ipa3_odl_ctx->stats.odl_rx_pkt = 0;
 	ipa3_odl_ctx->stats.odl_tx_diag_pkt = 0;
 	IPADBG("Wake up odl ctl\n");
@@ -465,7 +467,8 @@ static ssize_t ipa_adpl_read(struct file *filp, char __user *buf, size_t count,
 			msg = list_first_entry(&ipa3_odl_ctx->adpl_msg_list,
 					struct ipa3_push_msg_odl, link);
 			list_del(&msg->link);
-			IPA_STATS_DEC_CNT(ipa3_odl_ctx->stats.numer_in_queue);
+			if (atomic_read(&ipa3_odl_ctx->stats.numer_in_queue))
+				atomic_dec(&ipa3_odl_ctx->stats.numer_in_queue);
 		}
 
 		mutex_unlock(&ipa3_odl_ctx->adpl_msg_lock);
