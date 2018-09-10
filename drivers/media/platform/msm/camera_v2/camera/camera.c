@@ -933,6 +933,7 @@ int camera_init_v4l2(struct device *dev, unsigned int *session)
 	pvdev->vdev->ioctl_ops = &camera_v4l2_ioctl_ops;
 	pvdev->vdev->minor     = -1;
 	pvdev->vdev->vfl_type  = VFL_TYPE_GRABBER;
+	pvdev->vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	rc = video_register_device(pvdev->vdev,
 		VFL_TYPE_GRABBER, -1);
 	if (WARN_ON(rc < 0))
