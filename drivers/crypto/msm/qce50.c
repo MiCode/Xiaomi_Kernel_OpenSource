@@ -5983,6 +5983,7 @@ static int qce_smmu_init(struct qce_device *pce_dev)
 	struct dma_iommu_mapping *mapping;
 	int attr = 1;
 	int ret = 0;
+	struct device *dev = pce_dev->pdev;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
 				CRYPTO_SMMU_IOVA_START, CRYPTO_SMMU_IOVA_SIZE);
@@ -6004,6 +6005,13 @@ static int qce_smmu_init(struct qce_device *pce_dev)
 		pr_err("Attach device failed, err = %d\n", ret);
 		goto ext_fail_set_attr;
 	}
+
+	if (!dev->dma_parms)
+		dev->dma_parms = devm_kzalloc(dev,
+				sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
+
 	pce_dev->smmu_mapping = mapping;
 	return ret;
 
