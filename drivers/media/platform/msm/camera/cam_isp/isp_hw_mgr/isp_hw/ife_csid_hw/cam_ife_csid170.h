@@ -52,6 +52,7 @@ static struct cam_ife_csid_ipp_reg_offset  cam_ife_csid_170_ipp_reg_offset = {
 	.csid_ipp_timestamp_perv1_eof_addr   = 0x2ac,
 	/* configurations */
 	.pix_store_en_shift_val              = 7,
+	.early_eof_en_shift_val              = 29,
 };
 
 static struct cam_ife_csid_rdi_reg_offset cam_ife_csid_170_rdi_0_reg_offset = {

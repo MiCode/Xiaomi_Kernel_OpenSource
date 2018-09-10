@@ -77,7 +77,7 @@
 #define CSID_DEBUG_ENABLE_LONG_PKT_CAPTURE        BIT(5)
 #define CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE        BIT(6)
 #define CSID_DEBUG_ENABLE_HBI_VBI_INFO            BIT(7)
-
+#define CSID_DEBUG_DISABLE_EARLY_EOF              BIT(8)
 
 /* enum cam_csid_path_halt_mode select the path halt mode control */
 enum cam_csid_path_halt_mode {
@@ -137,6 +137,7 @@ struct cam_ife_csid_ipp_reg_offset {
 
 	/* configuration */
 	uint32_t  pix_store_en_shift_val;
+	uint32_t  early_eof_en_shift_val;
 };
 
 struct cam_ife_csid_rdi_reg_offset {
