@@ -75,6 +75,8 @@ its hardware characteristcs.
 	  AMBA markee):
 		- "arm,coresight-replicator"
 		- "arm,coresight-cti"
+		- "qcom,coresight-tpda"
+		- "qcom,coresight-tpdm"
 
 	* port or ports: same as above.
 
@@ -112,6 +114,40 @@ its hardware characteristcs.
 * Optional property for CATU :
 	* interrupts : Exactly one SPI may be listed for reporting the address
 	  error
+
+* Required property for TPDAs:
+
+	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
+
+* Optional properties for TPDAs:
+
+	* qcom,bc-elem-size: specifies the BC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, bc element size).
+
+	* qcom,tc-elem-size: specifies the TC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, tc element size).
+
+	* qcom,dsb-elem-size: specifies the DSB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, dsb element size).
+
+	* qcom,cmb-elem-size: specifies the CMB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, cmb element size).
+
+* Optional properties for TPDM:
+
+	* qcom,clk-enable: specifies whether additional clock bit needs to be
+	  set for M4M TPDM.
+
+	* qcom,msr-fix-req: boolean, indicating if MSRs need to be programmed
+	  after enabling the subunit.
+
+	* qcom,tpdm-clks: List of additional clocks required.
+
+	* qcom,tpdm-regs: List of regulators required.
 
 Example:
 
@@ -257,6 +293,40 @@ Example:
 		};
 	};
 
+	tpda_mss: tpda@7043000 {
+		compatible = "qcom,coresight-tpda", "arm,primecell";
+		reg = <0x7043000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-mss";
+
+		qcom,tpda-atid = <67>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_mss_out_funnel_in1: endpoint {
+				remote-endpoint =
+					<&funnel_in1_in_tpda_mss>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				tpda_mss_in_tpdm_mss: endpoint {
+				slave-mode;
+				remote-endpoint =
+					<&tpdm_mss_out_tpda_mss>;
+				};
+			};
+		};
+	};
 3. Sources
 	ptm@2201c000 {
 		compatible = "arm,coresight-etm3x", "arm,primecell";
@@ -320,5 +390,21 @@ Example:
 		};
 	};
 
+	tpdm_mss: tpdm@7042000 {
+		compatible = "qcom,coresight-tpdm", "arm,primecell";
+		reg = <0x7042000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-mss";
+
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
+
+		port{
+			tpdm_mss_out_tpda_mss: endpoint {
+				remote-endpoint = <&tpda_mss_in_tpdm_mss>;
+		};
+	};
+};
 [1]. There is currently two version of STM: STM32 and STM500.  Both
 have the same HW interface and as such don't need an explicit binding name.
