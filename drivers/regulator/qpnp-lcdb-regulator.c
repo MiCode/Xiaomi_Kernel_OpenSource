@@ -1151,6 +1151,7 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 		return rc;
 	}
 
+	val &= SET_OUTPUT_VOLTAGE_MASK;
 	if (val < VOLTAGE_STEP_50MV_OFFSET) {
 		*voltage_mv = VOLTAGE_MIN_STEP_100_MV +
 				(val * VOLTAGE_STEP_100_MV);
