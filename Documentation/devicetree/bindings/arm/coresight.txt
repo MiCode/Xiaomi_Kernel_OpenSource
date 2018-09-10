@@ -150,6 +150,20 @@ its hardware characteristcs.
 
 	* qcom,tpdm-regs: List of regulators required.
 
+* Optional properties for CSRs:
+
+	* qcom,usb-bam-support: boolean, indicates CSR has the ability to operate on
+	  usb bam, include enable,disable and flush.
+
+	* qcom,hwctrl-set-support: boolean, indicates CSR has the ability to operate on
+	  to "HWCTRL" register.
+
+	* qcom,set-byte-cntr-support:boolean, indicates CSR has the ability to operate on
+	  to "BYTECNT" register.
+
+	* qcom,timestamp-support:boolean, indicates CSR support sys interface to read
+	  timestamp value.
+
 Example:
 
 1. Sinks
