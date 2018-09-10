@@ -34,6 +34,7 @@
 #define RM_RQ_CLEAR(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_CLEAR))
 #define RM_RQ_DSPP(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DSPP))
 #define RM_RQ_DS(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DS))
+#define RM_RQ_CWB(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_CWB))
 #define RM_IS_TOPOLOGY_MATCH(t, r) ((t).num_lm == (r).num_lm && \
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
@@ -610,16 +611,17 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 	const struct sde_pingpong_cfg *pp_cfg;
 	struct sde_rm_hw_iter iter;
 	bool is_valid_dspp, is_valid_ds, ret;
-	u32 display_pref;
+	u32 display_pref, cwb_pref;
 
 	*dspp = NULL;
 	*ds = NULL;
 	*pp = NULL;
 	display_pref = lm_cfg->features & BIT(SDE_DISP_PRIMARY_PREF);
+	cwb_pref = lm_cfg->features & BIT(SDE_DISP_CWB_PREF);
 
-	SDE_DEBUG("check lm %d: dspp %d ds %d pp %d display_pref: %d\n",
+	SDE_DEBUG("check lm %d: dspp %d ds %d pp %d disp_pref: %d cwb_pref%d\n",
 		lm_cfg->id, lm_cfg->dspp, lm_cfg->ds,
-		lm_cfg->pingpong, display_pref);
+		lm_cfg->pingpong, display_pref, cwb_pref);
 
 	/* Check if this layer mixer is a peer of the proposed primary LM */
 	if (primary_lm) {
@@ -661,6 +663,16 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 				lm_cfg->ds);
 			return ret;
 		}
+
+		/**
+		 * If CWB is enabled and LM is not CWB supported
+		 * then return false.
+		 */
+		if (RM_RQ_CWB(reqs) && !cwb_pref) {
+			SDE_DEBUG("fail: cwb supported lm not allocated\n");
+			return false;
+		}
+
 	} else if (!(reqs->hw_res.is_primary && display_pref)) {
 		SDE_DEBUG(
 			"display preference is not met. is_primary: %d display_pref: %d\n",
@@ -1486,6 +1498,13 @@ static int _sde_rm_populate_requirements(
 	if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
 		conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI)
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
+
+	/**
+	 * Set the requirement for LM which has CWB support if CWB is
+	 * found enabled.
+	 */
+	if (!RM_RQ_CWB(reqs) && sde_encoder_in_clone_mode(enc))
+		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_CWB);
 
 	SDE_DEBUG("top_ctrl: 0x%llX num_h_tiles: %d\n", reqs->top_ctrl,
 			reqs->hw_res.display_num_of_h_tiles);
