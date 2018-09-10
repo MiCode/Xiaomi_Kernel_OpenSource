@@ -58,6 +58,8 @@ its hardware characteristcs.
 	  layout using the generic DT graph presentation found in
 	  "bindings/graph.txt".
 
+	* coresight-name: unique descriptive name of the component.
+
 * Additional required properties for System Trace Macrocells (STM):
 	* reg: along with the physical base address and length of the register
 	  set as described above, another entry is required to describe the
@@ -72,8 +74,14 @@ its hardware characteristcs.
 	* compatible: Currently supported value is (note the absence of the
 	  AMBA markee):
 		- "arm,coresight-replicator"
+		- "arm,coresight-cti"
 
 	* port or ports: same as above.
+
+	* coresight-name: unique descriptive name of the component.
+
+* Optional properties for all components:
+	* reg-names: names corresponding to each reg property value.
 
 * Optional properties for ETM/PTMs:
 
@@ -91,6 +99,15 @@ its hardware characteristcs.
 
 	* arm,scatter-gather: boolean. Indicates that the TMC-ETR can safely
 	  use the SG mode on this system.
+
+	* arm,default-sink: represents the default compile time CoreSight sink
+
+	* coresight-ctis: represents flush and reset CTIs for TMC buffer
+
+	* qcom,force-reg-dump: enables TMC reg dump support
+
+	* arm,sg-enable : indicates whether scatter gather feature is enabled
+	  by default for TMC ETR configuration.
 
 * Optional property for CATU :
 	* interrupts : Exactly one SPI may be listed for reporting the address
