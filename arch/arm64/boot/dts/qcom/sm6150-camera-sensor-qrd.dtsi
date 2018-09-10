@@ -19,9 +19,9 @@
 		cell-index = <0>;
 		reg = <0x00 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm6150l_flash0>;
-		torch-source = <&pm6150l_torch1>;
-		switch-source = <&pm6150l_switch0>;
+		flash-source = <&pm6150l_flash0 &pm6150l_flash1>;
+		torch-source = <&pm6150l_torch0 &pm6150l_torch1>;
+		switch-source = <&pm6150l_switch2 &pm6150l_switch2>;
 		status = "ok";
 	};
 
@@ -29,9 +29,9 @@
 		cell-index = <1>;
 		reg = <0x01 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm6150l_flash1>;
-		torch-source = <&pm6150l_torch1>;
-		switch-source = <&pm6150l_switch1>;
+		flash-source = <&pm6150l_flash0 &pm6150l_flash1>;
+		torch-source = <&pm6150l_torch0 &pm6150l_torch1>;
+		switch-source = <&pm6150l_switch2 &pm6150l_switch2>;
 		status = "ok";
 	};
 
@@ -108,7 +108,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 	};
 
 	actuator_front: qcom,actuator@1 {
@@ -121,7 +121,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 	};
 
 	eeprom_rear: qcom,eeprom@0 {
@@ -138,7 +138,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <0 80000 105000 0 0>;
+		rgltr-load-current = <0 80000 105000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -175,7 +175,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <105000 0 80000 0 0>;
+		rgltr-load-current = <105000 0 80000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
@@ -212,7 +212,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <0 80000 105000 0 0>;
+		rgltr-load-current = <0 80000 105000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
@@ -296,7 +296,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0>;
-		rgltr-load-current = <0 80000 105000 0>;
+		rgltr-load-current = <105000 0 80000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
