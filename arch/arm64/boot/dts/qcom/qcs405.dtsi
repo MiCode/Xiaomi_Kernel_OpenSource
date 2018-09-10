@@ -1194,10 +1194,21 @@
 		reg-names = "nand_phys",
 			    "bam_phys";
 		qcom,reg-adjustment-offset = <0x4000>;
-		qcom,qpic-clk-rpmh;
 
 		interrupts = <0 49 0>;
 		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+			/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 400000>;
+
+		clock-names = "core_clk";
+		clocks = <&clock_rpmcc RPM_SMD_QPIC_CLK>;
 
 		status = "disabled";
 	};
