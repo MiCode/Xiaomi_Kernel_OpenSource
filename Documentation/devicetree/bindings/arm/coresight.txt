@@ -184,6 +184,23 @@ its hardware characteristcs.
 
 	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
 
+* Optional properties for funnels:
+
+	* qcom,duplicate-funnel: boolean, indicates its a duplicate of an
+	  existing funnel. Funnel devices are now capable of supporting
+	  multiple-input and multiple-output configuration with in built
+	  hardware filtering for TPDM devices. Each set of input-output
+	  combination is treated as independent funnel device.
+	  funnel-base-dummy and funnel-base-real reg-names must be specified
+	  when this property is enabled.
+
+	* reg-names: funnel-base-dummy: dummy register space used by a
+	  duplicate funnel. Should be a valid register address space that
+	  no other device is using.
+
+	* reg-names: funnel-base-real: actual register space for the
+	  duplicate funnel.
+
 Example:
 
 1. Sinks
