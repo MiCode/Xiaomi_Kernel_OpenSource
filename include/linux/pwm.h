@@ -38,7 +38,7 @@ enum pwm_polarity {
  * current PWM hardware state.
  */
 struct pwm_args {
-	unsigned int period;
+	u64 period;
 	enum pwm_polarity polarity;
 };
 
@@ -65,9 +65,9 @@ enum pwm_output_type {
  * @cycles_per_duty: number of PWM period cycles an entry stays at
  */
 struct pwm_output_pattern {
-	unsigned int *duty_pattern;
+	u64 *duty_pattern;
 	unsigned int num_entries;
-	unsigned int cycles_per_duty;
+	u64 cycles_per_duty;
 };
 
 /*
@@ -78,8 +78,8 @@ struct pwm_output_pattern {
  * @enabled: PWM enabled status
  */
 struct pwm_state {
-	unsigned int period;
-	unsigned int duty_cycle;
+	u64 period;
+	u64 duty_cycle;
 	enum pwm_polarity polarity;
 	enum pwm_output_type output_type;
 	struct pwm_output_pattern *output_pattern;
@@ -135,7 +135,25 @@ static inline void pwm_set_period(struct pwm_device *pwm, unsigned int period)
 		pwm->state.period = period;
 }
 
+static inline void pwm_set_period_extend(struct pwm_device *pwm, u64 period)
+{
+	if (pwm)
+		pwm->state.period = period;
+}
+
 static inline unsigned int pwm_get_period(const struct pwm_device *pwm)
+{
+	struct pwm_state state;
+
+	pwm_get_state(pwm, &state);
+
+	if (state.period > UINT_MAX)
+		pr_warn("PWM period %llu is truncated\n", state.period);
+
+	return (unsigned int)state.period;
+}
+
+static inline u64 pwm_get_period_extend(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
 
@@ -150,7 +168,25 @@ static inline void pwm_set_duty_cycle(struct pwm_device *pwm, unsigned int duty)
 		pwm->state.duty_cycle = duty;
 }
 
+static inline void pwm_set_duty_cycle_extend(struct pwm_device *pwm, u64 duty)
+{
+	if (pwm)
+		pwm->state.duty_cycle = duty;
+}
+
 static inline unsigned int pwm_get_duty_cycle(const struct pwm_device *pwm)
+{
+	struct pwm_state state;
+
+	pwm_get_state(pwm, &state);
+
+	if (state.duty_cycle > UINT_MAX)
+		pr_warn("PWM duty cycle %llu is truncated\n", state.duty_cycle);
+
+	return (unsigned int)state.duty_cycle;
+}
+
+static inline u64 pwm_get_duty_cycle_extend(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
 
@@ -287,6 +323,8 @@ pwm_set_relative_duty_cycle(struct pwm_state *state, unsigned int duty_cycle,
  * @request: optional hook for requesting a PWM
  * @free: optional hook for freeing a PWM
  * @config: configure duty cycles and period length for this PWM
+ * @config_extend: configure duty cycles and period length for this
+ *	PWM with u64 data type
  * @set_polarity: configure the polarity of this PWM
  * @capture: capture and report PWM signal
  * @enable: enable PWM output toggling
@@ -309,6 +347,8 @@ struct pwm_ops {
 	void (*free)(struct pwm_chip *chip, struct pwm_device *pwm);
 	int (*config)(struct pwm_chip *chip, struct pwm_device *pwm,
 		      int duty_ns, int period_ns);
+	int (*config_extend)(struct pwm_chip *chip, struct pwm_device *pwm,
+		      u64 duty_ns, u64 period_ns);
 	int (*set_polarity)(struct pwm_chip *chip, struct pwm_device *pwm,
 			    enum pwm_polarity polarity);
 	int (*capture)(struct pwm_chip *chip, struct pwm_device *pwm,
@@ -366,8 +406,8 @@ struct pwm_chip {
  * @duty_cycle: duty cycle of the PWM signal (in nanoseconds)
  */
 struct pwm_capture {
-	unsigned int period;
-	unsigned int duty_cycle;
+	u64 period;
+	u64 duty_cycle;
 };
 
 #if IS_ENABLED(CONFIG_PWM)
@@ -409,6 +449,31 @@ static inline int pwm_config(struct pwm_device *pwm, int duty_ns,
 		return -EINVAL;
 
 	if (duty_ns < 0 || period_ns < 0)
+		return -EINVAL;
+
+	pwm_get_state(pwm, &state);
+	if (state.duty_cycle == duty_ns && state.period == period_ns)
+		return 0;
+
+	state.duty_cycle = duty_ns;
+	state.period = period_ns;
+	return pwm_apply_state(pwm, &state);
+}
+
+/**
+ * pwm_config_extend() - change PWM period and duty length with u64 data type
+ * @pwm: PWM device
+ * @duty_ns: "on" time (in nanoseconds)
+ * @period_ns: duration (in nanoseconds) of one cycle
+ *
+ * Returns: 0 on success or a negative error code on failure.
+ */
+static inline int pwm_config_extend(struct pwm_device *pwm, u64 duty_ns,
+			     u64 period_ns)
+{
+	struct pwm_state state;
+
+	if (!pwm)
 		return -EINVAL;
 
 	pwm_get_state(pwm, &state);
