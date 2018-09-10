@@ -43,14 +43,14 @@
 #define PWM_PERIOD_DEFAULT_NS		1000000
 
 struct pwm_setting {
-	u32	pre_period_ns;
-	u32	period_ns;
-	u32	duty_ns;
+	u64	pre_period_ns;
+	u64	period_ns;
+	u64	duty_ns;
 };
 
 struct led_setting {
-	u32			on_ms;
-	u32			off_ms;
+	u64			on_ms;
+	u64			off_ms;
 	enum led_brightness	brightness;
 	bool			blink;
 	bool			breath;
@@ -164,24 +164,16 @@ static int __tri_led_set(struct qpnp_led_dev *led)
 
 static int qpnp_tri_led_set(struct qpnp_led_dev *led)
 {
-	u32 on_ms, off_ms, period_ns, duty_ns;
+	u64 on_ms, off_ms, period_ns, duty_ns;
 	enum led_brightness brightness = led->led_setting.brightness;
 	int rc = 0;
 
 	if (led->led_setting.blink) {
 		on_ms = led->led_setting.on_ms;
 		off_ms = led->led_setting.off_ms;
-		if (on_ms > INT_MAX / NSEC_PER_MSEC)
-			duty_ns = INT_MAX - 1;
-		else
-			duty_ns = on_ms * NSEC_PER_MSEC;
 
-		if (on_ms + off_ms > INT_MAX / NSEC_PER_MSEC) {
-			period_ns = INT_MAX;
-			duty_ns = (period_ns / (on_ms + off_ms)) * on_ms;
-		} else {
-			period_ns = (on_ms + off_ms) * NSEC_PER_MSEC;
-		}
+		duty_ns = on_ms * NSEC_PER_MSEC;
+		period_ns = (on_ms + off_ms) * NSEC_PER_MSEC;
 
 		if (period_ns < duty_ns && duty_ns != 0)
 			period_ns = duty_ns + 1;
@@ -191,15 +183,14 @@ static int qpnp_tri_led_set(struct qpnp_led_dev *led)
 
 		if (brightness == LED_OFF)
 			duty_ns = 0;
-		else if (period_ns > INT_MAX / brightness)
-			duty_ns = (period_ns / LED_FULL) * brightness;
-		else
-			duty_ns = (period_ns * brightness) / LED_FULL;
+
+		duty_ns = period_ns * brightness;
+		do_div(duty_ns, LED_FULL);
 
 		if (period_ns < duty_ns && duty_ns != 0)
 			period_ns = duty_ns + 1;
 	}
-	dev_dbg(led->chip->dev, "PWM settings for %s led: period = %dns, duty = %dns\n",
+	dev_dbg(led->chip->dev, "PWM settings for %s led: period = %lluns, duty = %lluns\n",
 				led->cdev.name, period_ns, duty_ns);
 
 	led->pwm_setting.duty_ns = duty_ns;
