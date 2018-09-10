@@ -654,7 +654,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	fps = d->fps;
 	width = max(d->input_width, BASELINE_DIMENSIONS.width);
 	height = max(d->input_height, BASELINE_DIMENSIONS.height);
-	bitrate = d->bitrate / 1000000;
+	bitrate = d->bitrate > 0 ? d->bitrate / 1000000 :
+		__lut(width, height, fps)->bitrate;
 	lcu_size = d->lcu_size;
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
