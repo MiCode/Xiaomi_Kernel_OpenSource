@@ -952,8 +952,8 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			goto self_recovery;
 		break;
 	case CNSS_REASON_RDDM:
-		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 		cnss_bus_collect_dump_info(plat_priv);
+		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 		break;
 	case CNSS_REASON_DEFAULT:
 	case CNSS_REASON_TIMEOUT:
