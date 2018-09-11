@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012,2018, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CORESIGHT_PRIV_H
@@ -10,6 +10,7 @@
 #include <linux/io.h>
 #include <linux/coresight.h>
 #include <linux/pm_runtime.h>
+#include "coresight-common.h"
 
 /*
  * Coresight management registers (0xf00-0xfcc)
