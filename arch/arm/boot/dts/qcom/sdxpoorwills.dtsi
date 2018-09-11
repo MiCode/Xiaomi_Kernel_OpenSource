@@ -85,14 +85,16 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0x400000>;
-			size = <0x1400000>;
+			size = <0x400000>;
+			status = "disabled";
 		};
 
 		qseecom_ta_mem: qseecom_ta_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0x400000>;
-			size = <0x1000000>;
+			size = <0x400000>;
+			status = "disabled";
 		};
 	};
 

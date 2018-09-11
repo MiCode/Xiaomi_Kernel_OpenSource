@@ -25,6 +25,14 @@
 	status = "okay";
 };
 
+&qseecom_mem {
+	status = "okay";
+};
+
+&qseecom_ta_mem {
+	status = "okay";
+};
+
 &blsp1_uart2b_hs {
 	status = "okay";
 };
