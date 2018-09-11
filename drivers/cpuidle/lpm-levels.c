@@ -606,7 +606,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	struct power_params *pwr_params;
 
 	if ((sleep_disabled && !cpu_isolated(dev->cpu)) || sleep_us < 0)
-		return 0;
+		return best_level;
 
 	idx_restrict = cpu->nlevels + 1;
 
@@ -683,8 +683,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	max_residency = pwr_params->max_residency;
 
 	if ((predicted || (idx_restrict != (cpu->nlevels + 1)))
-			&& ((best_level >= 0)
-			&& (best_level < (cpu->nlevels-1)))) {
+			&& (best_level < (cpu->nlevels-1))) {
 		htime = predicted + cpu->tmr_add;
 		if (htime == cpu->tmr_add)
 			htime = idx_restrict_time;
