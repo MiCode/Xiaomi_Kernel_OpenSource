@@ -238,6 +238,7 @@ struct dwc3_msm {
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
 	struct workqueue_struct *dwc3_wq;
+	struct workqueue_struct *sm_usb_wq;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
 	unsigned int		max_power;
@@ -1705,7 +1706,7 @@ static int msm_dwc3_usbdev_notify(struct notifier_block *self,
 	}
 
 	mdwc->hc_died = true;
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 	return 0;
 }
 
@@ -2060,15 +2061,34 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	if (ret)
 		dev_err(mdwc->dev, "%s: dwc3_core init failed (%d)\n",
 							__func__, ret);
+
+	/* Get initial P3 status and enable IN_P3 event */
+	if (dwc3_is_usb31(dwc))
+		val = dwc3_msm_read_reg_field(mdwc->base,
+			DWC31_LINK_GDBGLTSSM,
+			DWC3_GDBGLTSSM_LINKSTATE_MASK);
+	else
+		val = dwc3_msm_read_reg_field(mdwc->base,
+			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
+	atomic_set(&mdwc->in_p3, val == DWC3_LINK_STATE_U3);
+	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
+
+	/* Set the core in host mode if it was in host mode during pm_suspend */
+	if (mdwc->in_host_mode) {
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
+		dwc3_en_sleep_mode(dwc);
+	}
+
 }
 
-static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
+static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 {
 	unsigned long timeout;
 	u32 reg = 0;
 
-	if ((mdwc->in_host_mode || mdwc->in_device_mode)
-			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart) {
+	if (!ignore_p3_state && ((mdwc->in_host_mode || mdwc->in_device_mode)
+			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart)) {
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
 			return -EBUSY;
@@ -2267,7 +2287,7 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	return ret;
 }
 
-static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
+static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 {
 	int ret;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -2329,7 +2349,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return -EBUSY;
 	}
 
-	ret = dwc3_msm_prepare_suspend(mdwc);
+	ret = dwc3_msm_prepare_suspend(mdwc, force_power_collapse);
 	if (ret) {
 		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return ret;
@@ -2407,8 +2427,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->xo_clk);
 
 	/* Perform controller power collapse */
-	if (!mdwc->in_host_mode && (!mdwc->in_device_mode ||
-					mdwc->in_restart)) {
+	if (!(mdwc->in_host_mode || mdwc->in_device_mode) ||
+	      mdwc->in_restart || force_power_collapse) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
@@ -2568,8 +2588,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
-		u32 tmp;
-
 		if (mdwc->iommu_map) {
 			ret = arm_iommu_attach_device(mdwc->dev,
 					mdwc->iommu_map);
@@ -2583,18 +2601,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
 		dwc3_msm_power_collapse_por(mdwc);
-
-		/* Get initial P3 status and enable IN_P3 event */
-		if (dwc3_is_usb31(dwc))
-			tmp = dwc3_msm_read_reg_field(mdwc->base,
-				DWC31_LINK_GDBGLTSSM,
-				DWC3_GDBGLTSSM_LINKSTATE_MASK);
-		else
-			tmp = dwc3_msm_read_reg_field(mdwc->base,
-				DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
-		atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
-		dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
-					PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
@@ -2678,7 +2684,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 }
 
 static void dwc3_resume_work(struct work_struct *w)
@@ -3376,6 +3382,18 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	/*
+	 * Create freezable workqueue for sm_work so that it gets scheduled only
+	 * after pm_resume has happened completely. This helps in avoiding race
+	 * conditions between xhci_plat_resume and xhci_runtime_resume; and also
+	 * between hcd disconnect and xhci_resume.
+	 */
+	mdwc->sm_usb_wq = create_freezable_workqueue("k_sm_usb");
+	if (!mdwc->sm_usb_wq) {
+		destroy_workqueue(mdwc->dwc3_wq);
+		return -ENOMEM;
+	}
+
 	/* Get all clks and gdsc reference */
 	ret = dwc3_msm_get_clk_gdsc(mdwc);
 	if (ret) {
@@ -3627,6 +3645,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->pm_qos_latency = 0;
 	}
 
+	if (of_property_read_bool(node, "qcom,host-poweroff-in-pm-suspend")) {
+		dwc->host_poweroff_in_pm_suspend = true;
+		dev_dbg(mdwc->dev, "%s: Core power collapse on host PM suspend\n",
+								__func__);
+	}
+
 	mutex_init(&mdwc->suspend_resume_mutex);
 
 	if (of_property_read_bool(node, "extcon")) {
@@ -3665,6 +3689,7 @@ uninit_iommu:
 	}
 	of_platform_depopulate(&pdev->dev);
 err:
+	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
 	return ret;
 }
@@ -3744,6 +3769,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 			arm_iommu_detach_device(mdwc->dev);
 		arm_iommu_release_mapping(mdwc->iommu_map);
 	}
+
+	destroy_workqueue(mdwc->sm_usb_wq);
+	destroy_workqueue(mdwc->dwc3_wq);
 
 	return 0;
 }
@@ -4385,7 +4413,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		schedule_delayed_work(&mdwc->sm_work, delay);
+		queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, delay);
 
 ret:
 	return;
@@ -4394,6 +4422,7 @@ ret:
 #ifdef CONFIG_PM_SLEEP
 static int dwc3_msm_pm_suspend(struct device *dev)
 {
+	int ret = 0;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
@@ -4401,14 +4430,40 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	dbg_event(0xFF, "PM Sus", 0);
 
 	flush_workqueue(mdwc->dwc3_wq);
-	if (!atomic_read(&dwc->in_lpm)) {
-		dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
-		return -EBUSY;
+
+	/*
+	 * Check if pm_suspend can proceed irrespective of runtimePM state of
+	 * host.
+	 */
+	if (!dwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
+		if (!atomic_read(&dwc->in_lpm)) {
+			dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
+			return -EBUSY;
+		}
+
+		atomic_set(&mdwc->pm_suspended, 1);
+
+		return 0;
 	}
 
-	atomic_set(&mdwc->pm_suspended, 1);
+	/*
+	 * PHYs also need to be power collapsed, so call notify_disconnect
+	 * before suspend to ensure it.
+	 */
+	usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
+	mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+	usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
+	mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 
-	return 0;
+	/*
+	 * Power collapse the core. Hence call dwc3_msm_suspend with
+	 * 'force_power_collapse' set to 'true'.
+	 */
+	ret = dwc3_msm_suspend(mdwc, true);
+	if (!ret)
+		atomic_set(&mdwc->pm_suspended, 1);
+
+	return ret;
 }
 
 static int dwc3_msm_pm_resume(struct device *dev)
@@ -4422,6 +4477,28 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	/* flush to avoid race in read/write of pm_suspended */
 	flush_workqueue(mdwc->dwc3_wq);
 	atomic_set(&mdwc->pm_suspended, 0);
+
+	if (!dwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
+		/* kick in otg state machine */
+		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+
+		return 0;
+	}
+
+	/* Resume dwc to avoid unclocked access by xhci_plat_resume */
+	dwc3_msm_resume(mdwc);
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	/* Restore PHY flags if hibernated in host mode */
+	mdwc->hs_phy->flags |= PHY_HOST_MODE;
+	usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+	if (dwc->maximum_speed >= USB_SPEED_SUPER) {
+		mdwc->ss_phy->flags |= PHY_HOST_MODE;
+		usb_phy_notify_connect(mdwc->ss_phy,
+					USB_SPEED_SUPER);
+	}
 
 	/* kick in otg state machine */
 	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
@@ -4450,7 +4527,7 @@ static int dwc3_msm_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "DWC3-msm runtime suspend\n");
 	dbg_event(0xFF, "RT Sus", 0);
 
-	return dwc3_msm_suspend(mdwc);
+	return dwc3_msm_suspend(mdwc, false);
 }
 
 static int dwc3_msm_runtime_resume(struct device *dev)
