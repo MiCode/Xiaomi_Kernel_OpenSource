@@ -28,6 +28,8 @@
 #include <linux/vmalloc.h>
 #include <linux/sizes.h>
 #include <linux/cma.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 
 #include <asm/memory.h>
 #include <asm/highmem.h>
@@ -118,7 +120,8 @@ __dma_alloc_remap(struct page *page, size_t size, gfp_t gfp, pgprot_t prot,
 
 static void __dma_free_remap(void *cpu_addr, size_t size, bool no_warn);
 
-static inline pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot);
+static inline pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
+					bool coherent);
 
 static void *arm_dma_remap(struct device *dev, void *cpu_addr,
 			dma_addr_t handle, size_t size,
@@ -126,6 +129,30 @@ static void *arm_dma_remap(struct device *dev, void *cpu_addr,
 
 static void arm_dma_unremap(struct device *dev, void *remapped_addr,
 				size_t size);
+
+
+static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
+				 bool coherent)
+{
+	if (attrs & DMA_ATTR_STRONGLY_ORDERED)
+		return pgprot_stronglyordered(prot);
+	else if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
+		return pgprot_writecombine(prot);
+	return prot;
+}
+
+static bool is_dma_coherent(struct device *dev, unsigned long attrs,
+			    bool is_coherent)
+{
+	if (attrs & DMA_ATTR_FORCE_COHERENT)
+		is_coherent = true;
+	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
+		is_coherent = false;
+	else if (is_device_dma_coherent(dev))
+		is_coherent = true;
+
+	return is_coherent;
+}
 
 /**
  * arm_dma_map_page - map a portion of a page for streaming DMA
@@ -687,19 +714,6 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 }
 
-static inline pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot)
-{
-	if (attrs & DMA_ATTR_WRITE_COMBINE)
-		prot = pgprot_writecombine(prot);
-	else if (attrs & DMA_ATTR_STRONGLY_ORDERED)
-		prot = pgprot_stronglyordered(prot);
-	/* if non-consistent just pass back what was given */
-	else if ((attrs & DMA_ATTR_NON_CONSISTENT) == 0)
-		prot = pgprot_dmacoherent(prot);
-
-	return prot;
-}
-
 static void *__alloc_simple_buffer(struct device *dev, size_t size, gfp_t gfp,
 				   struct page **ret_page)
 {
@@ -874,7 +888,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 void *arm_dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		    gfp_t gfp, unsigned long attrs)
 {
-	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
+	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL, false);
 
 	return __dma_alloc(dev, size, handle, gfp, prot, false,
 			   attrs, __builtin_return_address(0));
@@ -916,7 +930,7 @@ static void *arm_dma_remap(struct device *dev, void *cpu_addr,
 {
 	void *ptr;
 	struct page *page = pfn_to_page(dma_to_pfn(dev, handle));
-	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
+	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL, false);
 	unsigned long offset = handle & ~PAGE_MASK;
 
 	size = PAGE_ALIGN(size + offset);
@@ -959,7 +973,8 @@ int arm_dma_mmap(struct device *dev, struct vm_area_struct *vma,
 		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
 		 unsigned long attrs)
 {
-	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot);
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
+						false);
 	return __arm_dma_mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
 
@@ -1499,16 +1514,18 @@ __iommu_alloc_remap(struct page **pages, size_t size, gfp_t gfp, pgprot_t prot,
  */
 static dma_addr_t
 __iommu_create_mapping(struct device *dev, struct page **pages, size_t size,
-		       unsigned long attrs)
+			int coherent_flag)
 {
 	struct dma_iommu_mapping *mapping = to_dma_iommu_mapping(dev);
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 	dma_addr_t dma_addr, iova;
 	int i;
+	int prot = IOMMU_READ | IOMMU_WRITE;
 
 	dma_addr = __alloc_iova(mapping, size);
 	if (dma_addr == ARM_MAPPING_ERROR)
 		return dma_addr;
+	prot |= coherent_flag ? IOMMU_CACHE : 0;
 
 	iova = dma_addr;
 	for (i = 0; i < count; ) {
@@ -1523,8 +1540,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size,
 				break;
 
 		len = (j - i) << PAGE_SHIFT;
-		ret = iommu_map(mapping->domain, iova, phys, len,
-				__dma_info_to_prot(DMA_BIDIRECTIONAL, attrs));
+		ret = iommu_map(mapping->domain, iova, phys, len, prot);
 		if (ret < 0)
 			goto fail;
 		iova += len;
@@ -1594,7 +1610,7 @@ static void *__iommu_alloc_simple(struct device *dev, size_t size, gfp_t gfp,
 	if (!addr)
 		return NULL;
 
-	*handle = __iommu_create_mapping(dev, &page, size, attrs);
+	*handle = __iommu_create_mapping(dev, &page, size, coherent_flag);
 	if (*handle == ARM_MAPPING_ERROR)
 		goto err_mapping;
 
@@ -1619,17 +1635,19 @@ static void *__arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	    dma_addr_t *handle, gfp_t gfp, unsigned long attrs,
 	    int coherent_flag)
 {
-	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
 	struct page **pages;
 	void *addr = NULL;
+	pgprot_t prot;
 
 	*handle = ARM_MAPPING_ERROR;
 	size = PAGE_ALIGN(size);
 
-	if (coherent_flag  == COHERENT || !gfpflags_allow_blocking(gfp))
+	if (coherent_flag == COHERENT || !gfpflags_allow_blocking(gfp))
 		return __iommu_alloc_simple(dev, size, gfp, handle,
 					    coherent_flag, attrs);
 
+	coherent_flag = is_dma_coherent(dev, attrs, coherent_flag);
+	prot = __get_dma_pgprot(attrs, PAGE_KERNEL, coherent_flag);
 	/*
 	 * Following is a work-around (a.k.a. hack) to prevent pages
 	 * with __GFP_COMP being passed to split_page() which cannot
@@ -1643,7 +1661,7 @@ static void *__arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	if (!pages)
 		return NULL;
 
-	*handle = __iommu_create_mapping(dev, pages, size, attrs);
+	*handle = __iommu_create_mapping(dev, pages, size, coherent_flag);
 	if (*handle == ARM_MAPPING_ERROR)
 		goto err_buffer;
 
@@ -1710,7 +1728,8 @@ static int arm_iommu_mmap_attrs(struct device *dev,
 		struct vm_area_struct *vma, void *cpu_addr,
 		dma_addr_t dma_addr, size_t size, unsigned long attrs)
 {
-	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot);
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
+					is_dma_coherent(dev, attrs, NORMAL));
 
 	return __arm_iommu_mmap_attrs(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
@@ -1755,7 +1774,8 @@ void __arm_iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 void arm_iommu_free_attrs(struct device *dev, size_t size,
 		    void *cpu_addr, dma_addr_t handle, unsigned long attrs)
 {
-	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs, NORMAL);
+	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs,
+				is_dma_coherent(dev, attrs, NORMAL));
 }
 
 void arm_coherent_iommu_free_attrs(struct device *dev, size_t size,
@@ -1910,11 +1930,18 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 	unsigned int total_length = 0, current_offset = 0;
 	dma_addr_t iova;
 	int prot = __dma_info_to_prot(dir, attrs);
+	bool coherent;
 
 	for_each_sg(sg, s, nents, i)
 		total_length += s->length;
 
 	iova = __alloc_iova(mapping, total_length);
+	if (iova == ARM_MAPPING_ERROR)
+		return 0;
+
+	coherent = of_dma_is_coherent(dev->of_node);
+	prot |= is_dma_coherent(dev, attrs, coherent) ? IOMMU_CACHE : 0;
+
 	ret = iommu_map_sg(mapping->domain, iova, sg, nents, prot);
 	if (ret != total_length) {
 		__free_iova(mapping, iova, total_length);
@@ -2001,6 +2028,12 @@ void arm_iommu_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
 {
 	struct scatterlist *s;
 	int i;
+	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
+	dma_addr_t iova = sg_dma_address(sg);
+	bool iova_coherent = iommu_is_iova_coherent(mapping->domain, iova);
+
+	if (iova_coherent)
+		return;
 
 	for_each_sg(sg, s, nents, i)
 		__dma_page_dev_to_cpu(sg_page(s), s->offset, s->length, dir);
@@ -2019,6 +2052,13 @@ void arm_iommu_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 {
 	struct scatterlist *s;
 	int i;
+
+	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
+	dma_addr_t iova = sg_dma_address(sg);
+	bool iova_coherent = iommu_is_iova_coherent(mapping->domain, iova);
+
+	if (iova_coherent)
+		return;
 
 	for_each_sg(sg, s, nents, i)
 		__dma_page_cpu_to_dev(sg_page(s), s->offset, s->length, dir);
@@ -2078,7 +2118,8 @@ static dma_addr_t arm_iommu_map_page(struct device *dev, struct page *page,
 	     unsigned long offset, size_t size, enum dma_data_direction dir,
 	     unsigned long attrs)
 {
-	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+	if (!is_dma_coherent(dev, attrs, false) &&
+	      !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
 		__dma_page_cpu_to_dev(page, offset, size, dir);
 
 	return arm_coherent_iommu_map_page(dev, page, offset, size, dir, attrs);
@@ -2126,7 +2167,8 @@ static void arm_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 	if (!iova)
 		return;
 
-	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+	if (!(is_dma_coherent(dev, attrs, false) ||
+	      (attrs & DMA_ATTR_SKIP_CPU_SYNC)))
 		__dma_page_dev_to_cpu(page, offset, size, dir);
 
 	iommu_unmap(mapping->domain, iova, len);
@@ -2197,8 +2239,10 @@ static void arm_iommu_sync_single_for_cpu(struct device *dev,
 	dma_addr_t iova = handle & PAGE_MASK;
 	struct page *page = phys_to_page(iommu_iova_to_phys(mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
+	bool iova_coherent = iommu_is_iova_coherent(mapping->domain, handle);
 
-	__dma_page_dev_to_cpu(page, offset, size, dir);
+	if (!iova_coherent)
+		__dma_page_dev_to_cpu(page, offset, size, dir);
 }
 
 static void arm_iommu_sync_single_for_device(struct device *dev,
@@ -2208,8 +2252,10 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 	dma_addr_t iova = handle & PAGE_MASK;
 	struct page *page = phys_to_page(iommu_iova_to_phys(mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
+	bool iova_coherent = iommu_is_iova_coherent(mapping->domain, handle);
 
-	__dma_page_cpu_to_dev(page, offset, size, dir);
+	if (!iova_coherent)
+		__dma_page_cpu_to_dev(page, offset, size, dir);
 }
 
 const struct dma_map_ops iommu_ops = {
