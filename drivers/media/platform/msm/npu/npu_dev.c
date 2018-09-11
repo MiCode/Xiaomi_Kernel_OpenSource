@@ -166,9 +166,9 @@ static struct npu_reg npu_saved_bw_registers[] = {
 };
 
 static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
-	{"ipc_irq", 0},
-	{"error_irq", 0},
-	{"wdg_bite_irq", 0},
+	{"ipc_irq", 0, IRQF_TRIGGER_HIGH},
+	{"error_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
+	{"wdg_bite_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
 };
 
 /* -------------------------------------------------------------------------
@@ -1494,7 +1494,7 @@ static int npu_irq_init(struct npu_device *npu_dev)
 
 	memcpy(npu_dev->irq, npu_irq_info, sizeof(npu_irq_info));
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
-		irq_type = IRQF_TRIGGER_RISING | IRQF_ONESHOT;
+		irq_type = npu_irq_info[i].irq_type;
 		npu_dev->irq[i].irq = platform_get_irq_byname(
 			npu_dev->pdev, npu_dev->irq[i].name);
 		if (npu_dev->irq[i].irq < 0) {
