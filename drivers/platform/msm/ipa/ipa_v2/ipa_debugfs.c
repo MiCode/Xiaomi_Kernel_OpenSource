@@ -92,6 +92,8 @@ const char *ipa_event_name[] = {
 	__stringify(ADD_BRIDGE_VLAN_MAPPING),
 	__stringify(DEL_BRIDGE_VLAN_MAPPING),
 	__stringify(WLAN_FWR_SSR_BEFORE_SHUTDOWN),
+	__stringify(IPA_GSB_CONNECT),
+	__stringify(IPA_GSB_DISCONNECT),
 };
 
 const char *ipa_hdr_l2_type_name[] = {
