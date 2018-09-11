@@ -4237,6 +4237,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	struct sde_crtc_irq_info *node = NULL;
 	struct drm_event event;
 	u32 power_on;
+	bool in_cont_splash = false;
 	int ret, i;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
@@ -4319,8 +4320,18 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		if (sde_encoder_in_cont_splash(encoder)) {
+			in_cont_splash = true;
+			break;
+		}
+	}
+
 	/* avoid clk/bw downvote if cont-splash is enabled */
-	if (!sde_kms->splash_data.cont_splash_en)
+	if (!in_cont_splash)
 		sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {

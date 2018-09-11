@@ -922,7 +922,8 @@ static int _sde_rm_reserve_ctls(
 			if (top->top_name == SDE_RM_TOPOLOGY_PPSPLIT &&
 					!has_ppsplit)
 				continue;
-		} else if (!(reqs->hw_res.is_primary && primary_pref)) {
+		} else if (!(reqs->hw_res.is_primary && primary_pref) &&
+				!_ctl_ids) {
 			SDE_DEBUG(
 				"display pref not met. is_primary: %d primary_pref: %d\n",
 				reqs->hw_res.is_primary, primary_pref);
@@ -1171,119 +1172,66 @@ static int _sde_rm_make_next_rsvp(
 }
 
 /**
- * sde_rm_get_pp_dsc_for_cont_splash - retrieve the current dsc enabled blocks
- *	and disable autorefresh if enabled.
+ * _sde_rm_get_hw_blk_for_cont_splash - retrieve the LM blocks on given CTL
+ * and populate the connected HW blk ids in sde_splash_display
  * @rm:	Pointer to resource manager structure
- * @sde_kms: Pointer to sde kms structure
- * @max_dsc_cnt: number of DSC blocks supported in the hw
- * @dsc_ids: pointer to store the active DSC block IDs
- * return: number of active DSC blocks
+ * @ctl: Pointer to CTL hardware block
+ * @splash_display: Pointer to struct sde_splash_display
+ * return: number of active LM blocks for this CTL block
  */
-static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
-					struct sde_kms *sde_kms,
-					int max_dsc_cnt, u8 *dsc_ids)
+static int _sde_rm_get_hw_blk_for_cont_splash(struct sde_rm *rm,
+		struct sde_hw_ctl *ctl,
+		struct sde_splash_display *splash_display)
 {
-	int index = 0;
-	int value, dsc_cnt = 0;
-	struct sde_rm_hw_iter iter_pp;
+	u32 lm_reg;
+	struct sde_rm_hw_iter iter_lm, iter_pp;
+	struct sde_hw_pingpong *pp;
 
-	if (!rm || !sde_kms || !dsc_ids) {
+	if (!rm || !ctl || !splash_display) {
 		SDE_ERROR("invalid input parameters\n");
 		return 0;
 	}
 
-	SDE_DEBUG("max_dsc_cnt = %d\n", max_dsc_cnt);
+	sde_rm_init_hw_iter(&iter_lm, 0, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&iter_pp, 0, SDE_HW_BLK_PINGPONG);
-	while (_sde_rm_get_hw_locked(rm, &iter_pp)) {
-		struct sde_hw_pingpong *pp =
-				to_sde_hw_pingpong(iter_pp.blk->hw);
+	while (_sde_rm_get_hw_locked(rm, &iter_lm)) {
+		_sde_rm_get_hw_locked(rm, &iter_pp);
 
-		if (!pp->ops.get_dsc_status) {
-			SDE_ERROR("get_dsc_status ops not initialized\n");
+		if (splash_display->lm_cnt >= MAX_DATA_PATH_PER_DSIPLAY)
+			break;
+
+		lm_reg = ctl->ops.read_ctl_layers(ctl, iter_lm.blk->id);
+		if (!lm_reg)
+			continue;
+
+		splash_display->lm_ids[splash_display->lm_cnt++] =
+			iter_lm.blk->id;
+		SDE_DEBUG("lm_cnt=%d lm_reg[%d]=0x%x\n", splash_display->lm_cnt,
+				iter_lm.blk->id - LM_0, lm_reg);
+
+		if (ctl->ops.get_staged_sspp &&
+				ctl->ops.get_staged_sspp(ctl, iter_lm.blk->id,
+					&splash_display->pipes[
+					splash_display->pipe_cnt], 1)) {
+			splash_display->pipe_cnt++;
+		} else {
+			SDE_ERROR("no pipe detected on LM-%d\n",
+					iter_lm.blk->id - LM_0);
 			return 0;
 		}
 
-		value = pp->ops.get_dsc_status(pp);
-		SDE_DEBUG("DSC[%d]=0x%x, dsc_cnt = %d\n",
-				index, value, dsc_cnt);
-		if (value) {
-			dsc_ids[dsc_cnt] = index + DSC_0;
-			dsc_cnt++;
-		}
-
-		index++;
-	}
-
-	return dsc_cnt;
-}
-
-/**
- * _sde_rm_get_ctl_lm_for_cont_splash - retrieve the current LM blocks
- * @ctl: Pointer to CTL hardware block
- * @max_lm_cnt: number of LM blocks supported in the hw
- * @lm_cnt: number of LM blocks already active
- * @lm_ids: pointer to store the active LM block IDs
- * @top: pointer to the current "ctl_top" structure
- * @index: ctl_top index
- * return: number of active LM blocks for this CTL block
- */
-static int _sde_rm_get_ctl_lm_for_cont_splash(struct sde_hw_ctl *ctl,
-				int max_lm_cnt, u8 lm_cnt,
-				u8 *lm_ids, struct ctl_top *top,
-				int index)
-{
-	int j;
-	struct sde_splash_lm_hw *lm;
-
-	if (!ctl || !top || !lm_ids) {
-		SDE_ERROR("invalid input parameters\n");
-		return 0;
-	}
-
-	lm = top->lm;
-	for (j = 0; j < max_lm_cnt; j++) {
-		lm[top->ctl_lm_cnt].lm_reg_value =
-			ctl->ops.read_ctl_layers(ctl, j + LM_0);
-		SDE_DEBUG("ctl[%d]_top --> lm[%d]=0x%x, j=%d\n",
-			index, top->ctl_lm_cnt,
-			lm[top->ctl_lm_cnt].lm_reg_value, j);
-		SDE_DEBUG("lm_cnt = %d\n", lm_cnt);
-		if (lm[top->ctl_lm_cnt].lm_reg_value) {
-			lm[top->ctl_lm_cnt].ctl_id = index;
-			lm_ids[lm_cnt++] = j + LM_0;
-			lm[top->ctl_lm_cnt].lm_id = j + LM_0;
-			SDE_DEBUG("ctl_id=%d, lm[%d].lm_id = %d\n",
-				lm[top->ctl_lm_cnt].ctl_id,
-				top->ctl_lm_cnt,
-				lm[top->ctl_lm_cnt].lm_id);
-			top->ctl_lm_cnt++;
+		pp = to_sde_hw_pingpong(iter_pp.blk->hw);
+		if (pp && pp->ops.get_dsc_status &&
+				pp->ops.get_dsc_status(pp)) {
+			splash_display->dsc_ids[splash_display->dsc_cnt++] =
+				iter_pp.blk->id;
+			SDE_DEBUG("lm/pp[%d] path, using dsc[%d]\n",
+					iter_lm.blk->id - LM_0,
+					iter_pp.blk->id - DSC_0);
 		}
 	}
-	return top->ctl_lm_cnt;
-}
 
-/**
- * _sde_rm_get_ctl_top_for_cont_splash - retrieve the current LM blocks
- * @ctl: Pointer to CTL hardware block
- * @top: pointer to the current "ctl_top" structure thats needs update
- * @index: ctl_top index
- */
-static void _sde_rm_get_ctl_top_for_cont_splash(struct sde_hw_ctl *ctl,
-		struct ctl_top *top)
-{
-	if (!ctl || !top) {
-		SDE_ERROR("invalid input parameters\n");
-		return;
-	}
-
-	if (!ctl->ops.get_ctl_intf) {
-		SDE_ERROR("get_ctl_intf not initialized\n");
-		return;
-	}
-
-	top->intf_sel = ctl->ops.get_ctl_intf(ctl);
-
-	SDE_DEBUG("id=%d intf_sel=%d\n", ctl->idx, top->intf_sel);
+	return splash_display->lm_cnt;
 }
 
 int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
@@ -1295,6 +1243,8 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	int index = 0, ctl_top_cnt;
 	struct sde_kms *sde_kms = NULL;
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_splash_display *splash_display;
+	u8 intf_sel;
 
 	if (!priv || !rm || !cat || !splash_data) {
 		SDE_ERROR("invalid input parameters\n");
@@ -1314,52 +1264,43 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	}
 	sde_kms = to_sde_kms(priv->kms);
 
-	if (ctl_top_cnt > ARRAY_SIZE(splash_data->top)) {
-		SDE_ERROR("Mismatch in ctl_top array size\n");
-		return -EINVAL;
-	}
+	hw_mdp = sde_rm_get_mdp(rm);
 
 	sde_rm_init_hw_iter(&iter_c, 0, SDE_HW_BLK_CTL);
 	while (_sde_rm_get_hw_locked(rm, &iter_c)) {
 		struct sde_hw_ctl *ctl = to_sde_hw_ctl(iter_c.blk->hw);
 
-		_sde_rm_get_ctl_top_for_cont_splash(ctl,
-					&splash_data->top[index]);
-		if (splash_data->top[index].intf_sel) {
-			splash_data->lm_cnt +=
-				_sde_rm_get_ctl_lm_for_cont_splash
-					(ctl,
-					cat->mixer_count,
-					splash_data->lm_cnt,
-					splash_data->lm_ids,
-					&splash_data->top[index], index);
-			splash_data->ctl_ids[splash_data->ctl_top_cnt]
-							= index + CTL_0;
-			splash_data->ctl_top_cnt++;
-			splash_data->cont_splash_en = true;
+		if (!ctl->ops.get_ctl_intf) {
+			SDE_ERROR("get_ctl_intf not initialized\n");
+			return -EINVAL;
 		}
-		index++;
+
+		intf_sel = ctl->ops.get_ctl_intf(ctl);
+		if (intf_sel) {
+			splash_display =  &splash_data->splash_display[index];
+			SDE_DEBUG("finding resources for display=%d ctl=%d\n",
+					index, iter_c.blk->id - CTL_0);
+
+			_sde_rm_get_hw_blk_for_cont_splash(rm,
+					ctl, splash_display);
+			splash_display->cont_splash_enabled = true;
+			splash_display->ctl_ids[splash_display->ctl_cnt++] =
+				iter_c.blk->id;
+
+			if (hw_mdp && hw_mdp->ops.get_split_flush_status) {
+				splash_display->single_flush_en =
+					hw_mdp->ops.get_split_flush_status(
+							hw_mdp);
+			}
+
+			if (!splash_display->single_flush_en ||
+					(iter_c.blk->id != CTL_0))
+				index++;
+
+			if (index >= ARRAY_SIZE(splash_data->splash_display))
+				break;
+		}
 	}
-
-	/* Skip DSC blk reads if cont_splash is disabled */
-	if (!splash_data->cont_splash_en)
-		return 0;
-
-	splash_data->dsc_cnt =
-		_sde_rm_get_pp_dsc_for_cont_splash(rm,
-				sde_kms,
-				cat->dsc_count,
-				splash_data->dsc_ids);
-
-	hw_mdp = sde_rm_get_mdp(rm);
-	if (hw_mdp && hw_mdp->ops.get_split_flush_status) {
-		splash_data->single_flush_en =
-			hw_mdp->ops.get_split_flush_status(hw_mdp);
-	}
-
-	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d sf=%d\n",
-		splash_data->ctl_top_cnt, splash_data->lm_cnt,
-		splash_data->dsc_cnt, splash_data->single_flush_en);
 
 	return 0;
 }
@@ -1376,6 +1317,7 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 	struct sde_rm_topology_def topology;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct sde_splash_display *splash_display = NULL;
 	int i;
 
 	if (!enc->dev || !enc->dev->dev_private) {
@@ -1389,11 +1331,22 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 	}
 	sde_kms = to_sde_kms(priv->kms);
 
-	for (i = 0; i < sde_kms->splash_data.lm_cnt; i++)
-		SDE_DEBUG("splash_data.lm_ids[%d] = %d\n",
-			i, sde_kms->splash_data.lm_ids[i]);
+	for (i = 0; i < ARRAY_SIZE(sde_kms->splash_data.splash_display); i++) {
+		if (enc == sde_kms->splash_data.splash_display[i].encoder)
+			splash_display =
+				&sde_kms->splash_data.splash_display[i];
+	}
 
-	if (sde_kms->splash_data.lm_cnt !=
+	if (!splash_display) {
+		SDE_ERROR("invalid splash data for enc:%d\n", enc->base.id);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < splash_display->lm_cnt; i++)
+		SDE_DEBUG("splash_data.lm_ids[%d] = %d\n",
+			i, splash_display->lm_ids[i]);
+
+	if (splash_display->lm_cnt !=
 			reqs->topology->num_lm)
 		SDE_DEBUG("Configured splash screen LMs != needed LM cnt\n");
 
@@ -1410,11 +1363,11 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 	 * - Only then allow to grab from mixers with DSPP capability
 	 */
 	ret = _sde_rm_reserve_lms(rm, rsvp, reqs,
-				sde_kms->splash_data.lm_ids);
+				splash_display->lm_ids);
 	if (ret && !RM_RQ_DSPP(reqs)) {
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
 		ret = _sde_rm_reserve_lms(rm, rsvp, reqs,
-					sde_kms->splash_data.lm_ids);
+					splash_display->lm_ids);
 	}
 
 	if (ret) {
@@ -1427,17 +1380,17 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 	 * - Check mixers without Split Display
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
-	for (i = 0; i < sde_kms->splash_data.ctl_top_cnt; i++)
+	for (i = 0; i < splash_display->ctl_cnt; i++)
 		SDE_DEBUG("splash_data.ctl_ids[%d] = %d\n",
-			i, sde_kms->splash_data.ctl_ids[i]);
+			i, splash_display->ctl_ids[i]);
 
 	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology,
-			sde_kms->splash_data.ctl_ids);
+			splash_display->ctl_ids);
 	if (ret && !reqs->topology->needs_split_display) {
 		memcpy(&topology, reqs->topology, sizeof(topology));
 		topology.needs_split_display = true;
 		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology,
-				sde_kms->splash_data.ctl_ids);
+				splash_display->ctl_ids);
 	}
 	if (ret) {
 		SDE_ERROR("unable to find appropriate CTL\n");
@@ -1449,12 +1402,12 @@ static int _sde_rm_make_next_rsvp_for_cont_splash(
 	if (ret)
 		return ret;
 
-	for (i = 0; i < sde_kms->splash_data.dsc_cnt; i++)
+	for (i = 0; i < splash_display->dsc_cnt; i++)
 		SDE_DEBUG("splash_data.dsc_ids[%d] = %d\n",
-			i, sde_kms->splash_data.dsc_ids[i]);
+			i, splash_display->dsc_ids[i]);
 
 	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology,
-				sde_kms->splash_data.dsc_ids);
+				splash_display->dsc_ids);
 	if (ret)
 		return ret;
 
@@ -1696,6 +1649,21 @@ static int _sde_rm_commit_rsvp(
 	return ret;
 }
 
+static bool sde_rm_is_display_in_cont_splash(struct sde_kms *sde_kms,
+		struct drm_encoder *enc)
+{
+	int i;
+	struct sde_splash_display *splash_dpy;
+
+	for (i = 0; i < MAX_DSI_DISPLAYS; i++) {
+		splash_dpy = &sde_kms->splash_data.splash_display[i];
+		if (splash_dpy->encoder ==  enc)
+			return splash_dpy->cont_splash_enabled;
+	}
+
+	return false;
+}
+
 int sde_rm_reserve(
 		struct sde_rm *rm,
 		struct drm_encoder *enc,
@@ -1726,7 +1694,7 @@ int sde_rm_reserve(
 	sde_kms = to_sde_kms(priv->kms);
 
 	/* Check if this is just a page-flip */
-	if (!sde_kms->splash_data.cont_splash_en &&
+	if (!sde_rm_is_display_in_cont_splash(sde_kms, enc) &&
 			!drm_atomic_crtc_needs_modeset(crtc_state))
 		return 0;
 
@@ -1778,8 +1746,8 @@ int sde_rm_reserve(
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
-	if (sde_kms->splash_data.cont_splash_en) {
-		SDE_DEBUG("cont_splash feature enabled\n");
+	if (sde_rm_is_display_in_cont_splash(sde_kms, enc)) {
+		SDE_DEBUG("cont_splash enabled on enc-%d\n", enc->base.id);
 		ret = _sde_rm_make_next_rsvp_for_cont_splash
 			(rm, enc, crtc_state, conn_state, rsvp_nxt, &reqs);
 	} else {

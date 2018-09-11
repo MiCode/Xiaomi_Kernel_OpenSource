@@ -57,6 +57,9 @@
 #define CTL_FLUSH_MASK_ROT              BIT(27)
 #define CTL_FLUSH_MASK_CTL              BIT(17)
 
+#define CTL_NUM_EXT			4
+#define CTL_SSPP_MAX_RECTS		2
+
 #define SDE_REG_RESET_TIMEOUT_US        2000
 
 #define UPDATE_MASK(m, idx, en)           \
@@ -141,6 +144,40 @@ static const u32 cdm_flush_tbl[CDM_MAX] = {SDE_NONE, 0};
  */
 static const u32 cwb_flush_tbl[CWB_MAX] = {SDE_NONE, SDE_NONE, SDE_NONE, 2, 3,
 	4, 5};
+
+/**
+ * struct ctl_sspp_stage_reg_map: Describes bit layout for a sspp stage cfg
+ * @ext: Index to indicate LAYER_x_EXT id for given sspp
+ * @start: Start position of blend stage bits for given sspp
+ * @bits: Number of bits from @start assigned for given sspp
+ * @sec_bit_mask: Bitmask to add to LAYER_x_EXT1 for missing bit of sspp
+ */
+struct ctl_sspp_stage_reg_map {
+	u32 ext;
+	u32 start;
+	u32 bits;
+	u32 sec_bit_mask;
+};
+
+/* list of ctl_sspp_stage_reg_map for all the sppp */
+static const struct ctl_sspp_stage_reg_map
+sspp_reg_cfg_tbl[SSPP_MAX][CTL_SSPP_MAX_RECTS] = {
+	/* SSPP_NONE */{ {0, 0, 0, 0}, {0, 0, 0, 0} },
+	/* SSPP_VIG0 */{ {0, 0, 3, BIT(0)}, {3, 0, 4, 0} },
+	/* SSPP_VIG1 */{ {0, 3, 3, BIT(2)}, {3, 4, 4, 0} },
+	/* SSPP_VIG2 */{ {0, 6, 3, BIT(4)}, {3, 8, 4, 0} },
+	/* SSPP_VIG3 */{ {0, 26, 3, BIT(6)}, {3, 12, 4, 0} },
+	/* SSPP_RGB0 */{ {0, 9, 3, BIT(8)}, {0, 0, 0, 0} },
+	/* SSPP_RGB1 */{ {0, 12, 3, BIT(10)}, {0, 0, 0, 0} },
+	/* SSPP_RGB2 */{ {0, 15, 3, BIT(12)}, {0, 0, 0, 0} },
+	/* SSPP_RGB3 */{ {0, 29, 3, BIT(14)}, {0, 0, 0, 0} },
+	/* SSPP_DMA0 */{ {0, 18, 3, BIT(16)}, {2, 8, 4, 0} },
+	/* SSPP_DMA1 */{ {0, 21, 3, BIT(18)}, {2, 12, 4, 0} },
+	/* SSPP_DMA2 */{ {2, 0, 4, 0}, {2, 16, 4, 0} },
+	/* SSPP_DMA3 */{ {2, 4, 4, 0}, {2, 20, 4, 0} },
+	/* SSPP_CURSOR0 */{ {1, 20, 4, 0}, {0, 0, 0, 0} },
+	/* SSPP_CURSOR1 */{ {0, 26, 4, 0}, {0, 0, 0, 0} }
+};
 
 /**
  * Individual flush bit in CTL_FLUSH
@@ -880,6 +917,52 @@ exit:
 	SDE_REG_WRITE(c, CTL_LAYER_EXT3(lm), mixercfg_ext3);
 }
 
+static u32 sde_hw_ctl_get_staged_sspp(struct sde_hw_ctl *ctx, enum sde_lm lm,
+		struct sde_sspp_index_info *info, u32 info_max_cnt)
+{
+	int i, j;
+	u32 count = 0;
+	u32 mask = 0;
+	bool staged;
+	u32 mixercfg[CTL_NUM_EXT];
+	struct sde_hw_blk_reg_map *c;
+	const struct ctl_sspp_stage_reg_map *sspp_cfg;
+
+	if (!ctx || (lm >= LM_MAX) || !info)
+		return count;
+
+	c = &ctx->hw;
+	mixercfg[0] = SDE_REG_READ(c, CTL_LAYER(lm));
+	mixercfg[1] = SDE_REG_READ(c, CTL_LAYER_EXT(lm));
+	mixercfg[2] = SDE_REG_READ(c, CTL_LAYER_EXT2(lm));
+	mixercfg[3] = SDE_REG_READ(c, CTL_LAYER_EXT3(lm));
+
+	for (i = SSPP_VIG0; i < SSPP_MAX; i++) {
+		for (j = 0; j < CTL_SSPP_MAX_RECTS; j++) {
+			if (count >= info_max_cnt)
+				goto end;
+
+			sspp_cfg = &sspp_reg_cfg_tbl[i][j];
+			if (!sspp_cfg->bits || sspp_cfg->ext >= CTL_NUM_EXT)
+				continue;
+
+			mask = ((0x1 << sspp_cfg->bits) - 1) << sspp_cfg->start;
+			staged = mixercfg[sspp_cfg->ext] & mask;
+			if (!staged)
+				staged = mixercfg[1] & sspp_cfg->sec_bit_mask;
+
+			if (staged) {
+				info[count].sspp = i;
+				info[count].is_virtual = j;
+				count++;
+			}
+		}
+	}
+
+end:
+	return count;
+}
+
 static int sde_hw_ctl_intf_cfg_v1(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg_v1 *cfg)
 {
@@ -1196,6 +1279,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->wait_reset_status = sde_hw_ctl_wait_reset_status;
 	ops->clear_all_blendstages = sde_hw_ctl_clear_all_blendstages;
 	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
+	ops->get_staged_sspp = sde_hw_ctl_get_staged_sspp;
 	ops->update_bitmask_sspp = sde_hw_ctl_update_bitmask_sspp;
 	ops->update_bitmask_mixer = sde_hw_ctl_update_bitmask_mixer;
 	ops->update_bitmask_dspp = sde_hw_ctl_update_bitmask_dspp;
