@@ -142,6 +142,15 @@ dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpiep-qrd.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_TRINKET) += \
+		trinket-rumi-overlay.dtbo
+
+trinket-rumi-overlay.dtbo-base := trinket.dtb
+else
+dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb
+endif
+
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp.dtb \
 	sdxprairie-mtp.dtb
