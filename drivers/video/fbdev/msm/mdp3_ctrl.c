@@ -306,8 +306,8 @@ void vsync_count_down(void *arg)
 		atomic_dec(&session->vsync_countdown);
 		MDSS_XLOG(atomic_read(&session->vsync_countdown),
 				session->dma->vsync_period);
-	if (atomic_read(&session->vsync_countdown) == 0)
-		schedule_work(&session->clk_off_work);
+		if (atomic_read(&session->vsync_countdown) == 0)
+			schedule_work(&session->clk_off_work);
 	}
 }
 
