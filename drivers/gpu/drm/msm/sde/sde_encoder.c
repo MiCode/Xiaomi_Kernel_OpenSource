@@ -3663,15 +3663,9 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		if (!ctl)
 			continue;
 
-		/* make reg dma kickoff as blocking for vidoe-mode */
-		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
-					is_vid_mode);
-
 		if (phys->connector)
 			topology = sde_connector_get_topology_name(
 					phys->connector);
-
 		/*
 		 * don't wait on ppsplit slaves or skipped encoders because
 		 * they dont receive irqs
@@ -3682,18 +3676,22 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
-				!phys->ops.needs_single_flush(phys))
+				!phys->ops.needs_single_flush(phys)) {
+			if (ctl->ops.reg_dma_flush)
+				ctl->ops.reg_dma_flush(ctl, is_vid_mode);
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-		else if (ctl->ops.get_pending_flush)
+		} else if (ctl->ops.get_pending_flush) {
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
+		}
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
 	if (pending_flush.pending_flush_mask && sde_enc->cur_master) {
-		_sde_encoder_trigger_flush(
-				&sde_enc->base,
-				sde_enc->cur_master,
-				&pending_flush);
+		ctl = sde_enc->cur_master->hw_ctl;
+		if (ctl->ops.reg_dma_flush)
+			ctl->ops.reg_dma_flush(ctl, is_vid_mode);
+		_sde_encoder_trigger_flush(&sde_enc->base, sde_enc->cur_master,
+						&pending_flush);
 	}
 
 	/* update pending_kickoff_cnt AFTER flush but before trigger start */
