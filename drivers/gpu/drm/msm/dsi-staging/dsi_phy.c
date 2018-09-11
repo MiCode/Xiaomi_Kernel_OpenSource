@@ -578,6 +578,8 @@ int dsi_phy_drv_init(struct msm_dsi_phy *dsi_phy)
 	snprintf(dbg_name, DSI_DEBUG_NAME_LEN, "dsi%d_phy", dsi_phy->index);
 	sde_dbg_reg_register_base(dbg_name, dsi_phy->hw.base,
 				msm_iomap_size(dsi_phy->pdev, "dsi_phy"));
+	sde_dbg_reg_register_dump_range(dbg_name, dbg_name, 0,
+				msm_iomap_size(dsi_phy->pdev, "dsi_phy"), 0);
 	return 0;
 }
 
