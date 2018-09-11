@@ -1579,6 +1579,9 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A6XX_INT_UCHE_TRAP_INTR:
 		KGSL_DRV_CRIT_RATELIMIT(device, "UCHE: Trap interrupt\n");
 		break;
+	case A6XX_INT_TSB_WRITE_ERROR:
+		KGSL_DRV_CRIT_RATELIMIT(device, "TSB: Write error interrupt\n");
+		break;
 	default:
 		KGSL_DRV_CRIT_RATELIMIT(device, "Unknown interrupt %d\n", bit);
 	}
@@ -1750,7 +1753,8 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
 	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
 	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR))
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
 
 static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
@@ -1783,7 +1787,7 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 25 - UCHE_TRAP_INTR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 26 - DEBBUS_INTR_0 */
 	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_1 */
-	ADRENO_IRQ_CALLBACK(NULL), /* 28 - UNUSED */
+	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 28 - TSBWRITEERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 29 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 30 - ISDB_CPU_IRQ */
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
