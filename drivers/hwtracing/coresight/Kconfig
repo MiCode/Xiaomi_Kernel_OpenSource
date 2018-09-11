@@ -114,4 +114,11 @@ config CORESIGHT_CPU_DEBUG
 	  properly, please refer Documentation/trace/coresight-cpu-debug.txt
 	  for detailed description and the example for usage.
 
+config CORESIGHT_CTI
+	bool "CoreSight Cross Trigger Interface driver"
+	help
+	  This driver provides support for Cross Trigger Interface that is
+	  used to input or output i.e. pass cross trigger events from one
+	  hardware component to another. It can also be used to pass
+	  software generated events.
 endif
