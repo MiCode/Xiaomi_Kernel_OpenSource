@@ -1144,6 +1144,18 @@ config HID_ALPS
 	Say Y here if you have a Alps touchpads over i2c-hid or usbhid
 	and want support for its special functionalities.
 
+config HID_QVR
+	tristate "QVR support"
+	depends on HID
+	help
+	Say 'Y' or 'M' if you want to connect an external device to
+	stream sensor data for QVR support.
+
+	This module handles sensor data from external device and
+	writes it in to shared memory. Sensor data includes
+	temperature, accelerometer, gyroscope, magnetometer data.
+
+	If unsure, say Y.
 endmenu
 
 endif # HID
