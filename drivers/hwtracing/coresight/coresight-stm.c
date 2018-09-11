@@ -215,7 +215,7 @@ static void stm_disable(struct coresight_device *csdev,
 		spin_unlock(&drvdata->spinlock);
 
 		/* Wait until the engine has completely stopped */
-		coresight_timeout(drvdata, STMTCSR, STMTCSR_BUSY_BIT, 0);
+		coresight_timeout(drvdata->base, STMTCSR, STMTCSR_BUSY_BIT, 0);
 
 		pm_runtime_put(drvdata->dev);
 
