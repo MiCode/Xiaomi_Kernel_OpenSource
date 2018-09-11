@@ -4281,7 +4281,7 @@ static int flush_space(struct btrfs_root *root,
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 static inline u64
