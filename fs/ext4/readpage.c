@@ -301,6 +301,7 @@ int ext4_mpage_readpages(struct address_space *mapping,
 			bio->bi_private = ctx;
 			if (is_readahead)
 				flags = flags | REQ_RAHEAD;
+			flags = flags | (ctx ? REQ_NOENCRYPT : 0);
 			bio_set_op_attrs(bio, REQ_OP_READ, flags);
 		}
 
