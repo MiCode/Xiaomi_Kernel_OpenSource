@@ -5,6 +5,7 @@
 
 #include <linux/atomic.h>
 #include <linux/bug.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
@@ -74,6 +75,50 @@ static struct rpmh_ctrlr *get_rpmh_ctrlr(const struct device *dev)
 
 	return &drv->client;
 }
+
+static int check_ctrlr_state(struct rpmh_ctrlr *ctrlr, enum rpmh_state state)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	/* Do not allow setting active votes when in solver mode */
+	spin_lock_irqsave(&ctrlr->cache_lock, flags);
+	if (ctrlr->in_solver_mode && state == RPMH_ACTIVE_ONLY_STATE)
+		ret = -EBUSY;
+	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+
+	return ret;
+}
+
+/**
+ * rpmh_mode_solver_set: Indicate that the RSC controller hardware has
+ * been configured to be in solver mode
+ *
+ * @dev: the device making the request
+ * @enable: Boolean value indicating if the controller is in solver mode.
+ *
+ * When solver mode is enabled, passthru API will not be able to send wake
+ * votes, just awake and active votes.
+ */
+int rpmh_mode_solver_set(const struct device *dev, bool enable)
+{
+	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
+	unsigned long flags;
+
+	for (;;) {
+		spin_lock_irqsave(&ctrlr->cache_lock, flags);
+		if (rpmh_rsc_ctrlr_is_idle(ctrlr_to_drv(ctrlr))) {
+			ctrlr->in_solver_mode = enable;
+			spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
+		udelay(10);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(rpmh_mode_solver_set);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r)
 {
@@ -231,7 +276,12 @@ int rpmh_write_async(const struct device *dev, enum rpmh_state state,
 		     const struct tcs_cmd *cmd, u32 n)
 {
 	struct rpmh_request *rpm_msg;
+	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	int ret;
+
+	ret = check_ctrlr_state(ctrlr, state);
+	if (ret)
+		return ret;
 
 	rpm_msg = kzalloc(sizeof(*rpm_msg), GFP_ATOMIC);
 	if (!rpm_msg)
@@ -263,10 +313,15 @@ int rpmh_write(const struct device *dev, enum rpmh_state state,
 {
 	DECLARE_COMPLETION_ONSTACK(compl);
 	DEFINE_RPMH_MSG_ONSTACK(dev, state, &compl, rpm_msg);
+	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	int ret;
 
 	if (!cmd || !n || n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
+
+	ret = check_ctrlr_state(ctrlr, state);
+	if (ret)
+		return ret;
 
 	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
 	rpm_msg.msg.num_cmds = n;
@@ -356,6 +411,10 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 
 	if (!cmd || !n)
 		return -EINVAL;
+
+	ret = check_ctrlr_state(ctrlr, state);
+	if (ret)
+		return ret;
 
 	while (n[count] > 0)
 		count++;
