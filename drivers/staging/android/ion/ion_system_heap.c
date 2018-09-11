@@ -76,8 +76,8 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 
 	page = ion_page_pool_alloc(pool, from_pool);
 
-	if (!page)
-		return 0;
+	if (IS_ERR(page))
+		return page;
 
 	if ((MAKE_ION_ALLOC_DMA_READY && vmid <= 0) || !(*from_pool))
 		ion_pages_sync_for_device(dev, page, PAGE_SIZE << order,
@@ -128,7 +128,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size < order_to_size(orders[i]))
@@ -137,7 +137,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 			continue;
 		from_pool = !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC);
 		page = alloc_buffer_page(heap, buffer, orders[i], &from_pool);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		info->page = page;
@@ -148,7 +148,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 	}
 	kfree(info);
 
-	return NULL;
+	return ERR_PTR(-ENOMEM);
 }
 
 static struct page_info *alloc_from_pool_preferred(
@@ -161,7 +161,7 @@ static struct page_info *alloc_from_pool_preferred(
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		if (size < order_to_size(orders[i]))
@@ -170,7 +170,7 @@ static struct page_info *alloc_from_pool_preferred(
 			continue;
 
 		page = alloc_from_secure_pool_order(heap, buffer, orders[i]);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		info->page = page;
@@ -181,7 +181,7 @@ static struct page_info *alloc_from_pool_preferred(
 	}
 
 	page = split_page_from_secure_pool(heap, buffer);
-	if (page) {
+	if (!IS_ERR(page)) {
 		info->page = page;
 		info->order = 0;
 		info->from_pool = true;
@@ -265,7 +265,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	struct sg_table table_sync = {0};
 	struct scatterlist *sg;
 	struct scatterlist *sg_sync;
-	int ret;
+	int ret = -ENOMEM;
 	struct list_head pages;
 	struct list_head pages_from_pool;
 	struct page_info *info, *tmp_info;
@@ -294,8 +294,10 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 					sys_heap, buffer, size_remaining,
 					max_order);
 
-		if (!info)
+		if (IS_ERR(info)) {
+			ret = PTR_ERR(info);
 			goto err;
+		}
 
 		sz = (1 << info->order) * PAGE_SIZE;
 
@@ -402,7 +404,7 @@ err:
 		free_buffer_page(sys_heap, buffer, info->page, info->order);
 		kfree(info);
 	}
-	return -ENOMEM;
+	return ret;
 }
 
 void ion_system_heap_free(struct ion_buffer *buffer)
