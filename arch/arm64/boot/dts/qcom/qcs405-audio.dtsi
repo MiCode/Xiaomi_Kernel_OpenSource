@@ -48,8 +48,8 @@
 		status = "okay";
 		compatible = "explore,ep92a6";
 		reg = <0x64>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <107 IRQ_TYPE_EDGE_FALLING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ep_reset_n_active &ep_mute_active &ep_int_active>;
 	};
 };
 
@@ -162,6 +162,11 @@
 			output-low;
 		};
 	};
+};
+
+&dai_mi2s1 {
+	qcom,msm-mi2s-rx-lines = <0>;
+	qcom,msm-mi2s-tx-lines = <15>;
 };
 
 &dai_mi2s4 {
