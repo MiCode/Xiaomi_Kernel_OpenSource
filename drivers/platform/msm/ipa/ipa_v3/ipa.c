@@ -4318,8 +4318,10 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 		ipa3_ctx->smp2p_info.ipa_clk_on = true;
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
-			BIT(IPA_SMP2P_SMEM_STATE_MASK),
-			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
+			IPA_SMP2P_SMEM_STATE_MASK,
+			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
+			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = true;
 	IPADBG("IPA clocks are %s\n",
@@ -4335,8 +4337,10 @@ void ipa3_reset_freeze_vote(void)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("FREEZE_VOTE");
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
-		BIT(IPA_SMP2P_SMEM_STATE_MASK),
-		BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
+			IPA_SMP2P_SMEM_STATE_MASK,
+			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
+			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;
