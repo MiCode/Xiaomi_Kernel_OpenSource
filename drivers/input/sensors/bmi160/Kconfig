@@ -1,0 +1,121 @@
+#
+# Makefile for Bosch sensors driver.
+#
+config BOSCH_DRIVER_LOG_FUNC
+	tristate "Bosch Sensortec driver smart log function support"
+	depends on (I2C || SPI_MASTER) && SYSFS
+	help
+	 If you say yes here, you get support for smart log function in Bosch Sensortec driver.
+
+config SENSORS_BMA2X2
+	tristate "BMA2x2 acceleration sensor support"
+	depends on I2C
+	help
+	  If you say yes here, you get support for Bosch Sensortec's
+	  acceleration sensors BMA255/BMA254/BMA355/BMA250E/BMA222E/BMA280.
+
+config SENSORS_BMA2X2_ENABLE_INT1
+	tristate "BMA2X2 acceleration sensor interrupt INT1 support"
+	depends on SENSORS_BMA2X2
+	help
+	 If you say yes here, you get INT1 support for Bosch Sensortec
+	 acceleration sensors BMA255/BMA250E/BMA222E/BMA280.
+	 Select it will disable interrupt INT2 support
+
+config SENSORS_BMA2X2_ENABLE_INT2
+	tristate "BMA2X2 acceleration sensor interrupt INT2 support"
+	depends on SENSORS_BMA2X2 && !SENSORS_BMA2X2_ENABLE_INT1
+	help
+	 If you say yes here, you get INT2 support for Bosch Sensortec
+	 acceleration sensors BMA255/BMA250E/BMA222E/BMA280.
+	 Can only open if you do NOT open interrupt INT1 support
+
+config SIG_MOTION
+	tristate "support significant motion sensor function"
+	depends on SENSORS_BMA2X2  && ( SENSORS_BMA2X2_ENABLE_INT1 || SENSORS_BMA2X2_ENABLE_INT2)
+	help
+	 If you say yes here, if you want to support Bosch significant motion sensor function
+
+config DOUBLE_TAP
+	tristate "support double tap sensor function"
+	depends on SENSORS_BMA2X2  && ( SENSORS_BMA2X2_ENABLE_INT1 || SENSORS_BMA2X2_ENABLE_INT2)
+	help
+	 If you say yes here, you get support Bosch double tap sensor function
+
+config SENSORS_BMG
+	tristate "Bosch Gyroscope Sensor Driver"
+	depends on I2C
+	help
+	 If you say yes here, you get support for Bosch Sensortec's
+	 gyroscope sensor drivers of BMG160/BMI055/BMI058 e.t.c.
+
+config SENSORS_BMG_FIFO
+	tristate "Bosch Gyroscope FIFO Support"
+	depends on SENSORS_BMG
+	help
+	 If you say yes here, you get support for Gyroscope sensor FIFO operations.
+	 Please check whether the chip supports fifo feature to open it.
+
+config SENSORS_BMI058
+	tristate "BMI058 Sensor Support"
+	depends on (SENSORS_BMG || SENSORS_BMA2X2)
+	help
+	 If you say yes here, you get support for Bosch Sensortec's
+	 sensor driver of BMI058.
+
+config SENSORS_YAS537
+	tristate "YAS537 Magnetic Sensor Driver"
+	depends on I2C
+	help
+	 If you say yes here, you get support for YAMAHA
+	 sensor YAS537 Magnetic Sensor
+
+config SENSORS_BMM050
+	tristate "BMM050 Magnetic Sensor Driver"
+	depends on I2C
+	help
+	 If you say yes here, you get support for Bosch Sensortec's
+	 sensor BMM050 Magnetic Sensor
+
+config SENSORS_AKM09911
+	tristate "AKM09911 Mag Sensor Driver"
+	depends on I2C
+	help
+	 If you say yes here, you get support AKM09911 Sensor support.
+
+config SENSORS_AKM09912
+	tristate "AKM09912 Mag Sensor Driver"
+	depends on I2C
+	help
+	 If you say yes here, you get support AKM09912 Sensor support.
+
+config SENSORS_BMA420
+	tristate "BMA4XY Sensor Support"
+	depends on I2C || SPI_MASTER
+	help
+	If you say yes here, you get support for Bosch Sensortec's sensor driver of BMA420.
+config SENSORS_BMA421
+	tristate "BMA4XY Sensor Support"
+	depends on I2C || SPI_MASTER
+	help
+	If you say yes here, you get support for Bosch Sensortec's sensor driver of BMA421.
+config SENSORS_BMA422
+	tristate "BMA4XY Sensor Support"
+	depends on I2C || SPI_MASTER
+	help
+	If you say yes here, you get support for Bosch Sensortec's sensor driver of BMA422.
+config SENSORS_BMA455
+	tristate "BMA4XY Sensor Support"
+	depends on I2C || SPI_MASTER
+	help
+	If you say yes here, you get support for Bosch Sensortec's sensor driver of BMA455.
+
+config BMA4XY_MAG_INTERFACE_SUPPORT
+tristate "BMA4XY Sensor mag interface support"
+depends on SENSORS_BMA4XY
+	help
+	 If you say yes here, you get support for Bosch Sensortec's
+	 sensor driver of BMA4XY with mag sensor support.
+
+
+
