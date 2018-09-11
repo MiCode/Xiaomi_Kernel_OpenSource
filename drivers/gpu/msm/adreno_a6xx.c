@@ -2904,6 +2904,18 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
+static void a6xx_perfcounter_init(struct adreno_device *adreno_dev)
+{
+	/*
+	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4/5 is not present on A608.
+	 * Mark them as broken so that they can't be used.
+	 */
+	if (adreno_is_a608(adreno_dev)) {
+		a6xx_pwrcounters_gpmu[4].countable = KGSL_PERFCOUNTER_BROKEN;
+		a6xx_pwrcounters_gpmu[5].countable = KGSL_PERFCOUNTER_BROKEN;
+	}
+}
+
 static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
@@ -3003,6 +3015,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
+	.perfcounter_init = a6xx_perfcounter_init,
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 };
