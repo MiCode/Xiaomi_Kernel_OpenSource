@@ -1151,6 +1151,7 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 		return rc;
 	}
 
+	val &= SET_OUTPUT_VOLTAGE_MASK;
 	if (val < VOLTAGE_STEP_50MV_OFFSET) {
 		*voltage_mv = VOLTAGE_MIN_STEP_100_MV +
 				(val * VOLTAGE_STEP_100_MV);
@@ -1826,7 +1827,7 @@ static int qpnp_lcdb_init_bst(struct qpnp_lcdb *lcdb)
 
 		if (lcdb->bst.pd_strength != -EINVAL) {
 			rc = qpnp_lcdb_masked_write(lcdb, lcdb->base +
-				LCDB_NCP_PD_CTL_REG, BOOST_PD_STRENGTH_BIT,
+				LCDB_BST_PD_CTL_REG, BOOST_PD_STRENGTH_BIT,
 				lcdb->bst.pd_strength ?
 				BOOST_PD_STRENGTH_BIT : 0);
 			if (rc < 0) {
