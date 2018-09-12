@@ -2900,6 +2900,7 @@
 };
 
 &vcodec0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
