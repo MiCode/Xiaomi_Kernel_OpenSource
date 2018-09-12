@@ -37,6 +37,7 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-tear-check-frame-rate = <4500>;
+		qcom,mdss-dsi-idle-fps = <10>;
 		qcom,mdss-dsi-on-command = [
 			15 01 00 00 00 00 02 fe 01
 			15 01 00 00 00 00 02 0a f0
