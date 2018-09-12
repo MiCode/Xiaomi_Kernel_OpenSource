@@ -947,29 +947,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 }
 
-/* adreno_snapshot_gmu - Snapshot the Adreno GMU state
- * @device - KGSL device to snapshot
- * @snapshot - Pointer to the snapshot instance
- * This is a hook function called by kgsl_snapshot to snapshot the
- * Adreno specific information for the GMU snapshot.  In turn, this function
- * calls the GMU specific snapshot function to get core specific information.
- */
-void adreno_snapshot_gmu(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	/* Add GMU specific sections */
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, snapshot))
-		gmu_dev_ops->snapshot(adreno_dev, snapshot);
-
-	if (gpudev->snapshot_debugbus)
-		gpudev->snapshot_debugbus(adreno_dev, snapshot);
-
-}
-
 /*
  * adreno_snapshot_cp_roq - Dump CP merciu data in snapshot
  * @device: Device being snapshotted
