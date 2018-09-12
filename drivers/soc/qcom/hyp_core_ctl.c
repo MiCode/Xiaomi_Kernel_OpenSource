@@ -20,6 +20,24 @@
 #include <linux/slab.h>
 #include <linux/cpuhotplug.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+
+#include <microvisor/microvisor.h>
+
+#define MAX_RESERVE_CPUS (num_possible_cpus()/2)
+
+/**
+ * struct hyp_core_ctl_cpumap - vcpu to pcpu mapping for the other guest
+ * @sid: System call id to be used while referring to this vcpu
+ * @pcpu: The physical CPU number corresponding to this vcpu
+ *
+ */
+struct hyp_core_ctl_cpu_map {
+	okl4_kcap_t sid;
+	okl4_cpu_id_t pcpu;
+};
 
 /**
  * struct hyp_core_ctl_data - The private data structure of this driver
@@ -32,6 +50,8 @@
  * @our_isolated_cpus: The CPUs isolated by hyp_core_ctl driver. output.
  * @final_reserved_cpus: The CPUs reserved for the Hypervisor. output.
  *
+ * @syscall_id: The system call id for manipulating vcpu to pcpu mappings.
+ * @cpumap: The vcpu to pcpu mapping table
  */
 struct hyp_core_ctl_data {
 	spinlock_t lock;
@@ -41,6 +61,8 @@ struct hyp_core_ctl_data {
 	cpumask_t reserve_cpus;
 	cpumask_t our_isolated_cpus;
 	cpumask_t final_reserved_cpus;
+	okl4_kcap_t syscall_id;
+	struct hyp_core_ctl_cpu_map cpumap[NR_CPUS];
 };
 
 #define CREATE_TRACE_POINTS
@@ -190,6 +212,77 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 	return 0;
 }
 
+static int hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
+{
+	struct _okl4_sys_scheduler_affinity_get_return result;
+	int i, ret = 0;
+
+	cpumask_clear(&hcd->reserve_cpus);
+
+	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
+		if (hcd->cpumap[i].sid == 0)
+			break;
+
+		result = _okl4_sys_scheduler_affinity_get(hcd->syscall_id,
+							  hcd->cpumap[i].sid);
+		if (result.error != OKL4_ERROR_OK) {
+			pr_err("fail to get pcpu for vcpu%d. err=%u\n",
+					i, result.error);
+			ret = -EPERM;
+			break;
+		}
+		hcd->cpumap[i].pcpu = result.cpu_index;
+		cpumask_set_cpu(hcd->cpumap[i].pcpu, &hcd->reserve_cpus);
+		pr_debug("vcpu%u map to pcpu%u\n", i, result.cpu_index);
+	}
+
+	cpumask_copy(&hcd->final_reserved_cpus, &hcd->reserve_cpus);
+	pr_info("reserve_cpus=%*pbl ret=%d\n",
+		 cpumask_pr_args(&hcd->reserve_cpus), ret);
+
+	return ret;
+}
+
+static int hyp_core_ctl_parse_dt(struct platform_device *pdev,
+				 struct hyp_core_ctl_data *hcd)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int len, ret, i;
+	u32 *reg_values;
+
+	len = of_property_count_u32_elems(np, "reg");
+	if (len < 2 || len > MAX_RESERVE_CPUS + 1) {
+		pr_err("incorrect reg dt param. err=%d\n", len);
+		return -EINVAL;
+	}
+
+	reg_values = kmalloc_array(len, sizeof(*reg_values), GFP_KERNEL);
+	if (!reg_values)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "reg", reg_values, len);
+	if (ret < 0) {
+		pr_err("fail to read reg dt param. err=%d\n", ret);
+		return -EINVAL;
+	}
+
+	hcd->syscall_id = reg_values[0];
+
+	ret = 0;
+	for (i = 1; i < len; i++) {
+		if (reg_values[i] == 0) {
+			ret = -EINVAL;
+			pr_err("incorrect sid for vcpu%d\n", i);
+		}
+
+		hcd->cpumap[i-1].sid = reg_values[i];
+		pr_debug("vcpu=%d sid=%u\n", i-1, hcd->cpumap[i-1].sid);
+	}
+
+	kfree(reg_values);
+	return ret;
+}
+
 static void hyp_core_ctl_enable(bool enable)
 {
 	spin_lock(&the_hcd->lock);
@@ -242,7 +335,7 @@ static struct attribute_group hyp_core_ctl_attr_group = {
 	.name = "hyp_core_ctl",
 };
 
-static int __init hyp_core_ctl_init(void)
+static int hyp_core_ctl_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct hyp_core_ctl_data *hcd;
@@ -254,10 +347,15 @@ static int __init hyp_core_ctl_init(void)
 		goto out;
 	}
 
-	ret = cpulist_parse(CONFIG_QCOM_HYP_CORE_CTL_RESERVE_CPUS,
-			    &hcd->reserve_cpus);
+	ret = hyp_core_ctl_parse_dt(pdev, hcd);
 	if (ret < 0) {
-		pr_err("Incorrect default reserve CPUs. ret=%d\n", ret);
+		pr_err("Fail to parse dt. ret=%d\n", ret);
+		goto free_hcd;
+	}
+
+	ret = hyp_core_ctl_init_reserve_cpus(hcd);
+	if (ret < 0) {
+		pr_err("Fail to get reserve CPUs from Hyp. ret=%d\n", ret);
 		goto free_hcd;
 	}
 
@@ -297,4 +395,21 @@ free_hcd:
 out:
 	return ret;
 }
-late_initcall(hyp_core_ctl_init);
+
+static const struct of_device_id hyp_core_ctl_match_table[] = {
+	{ .compatible = "qcom,hyp-core-ctl" },
+	{},
+};
+
+static struct platform_driver hyp_core_ctl_driver = {
+	.probe = hyp_core_ctl_probe,
+	.driver = {
+		.name = "hyp_core_ctl",
+		.owner = THIS_MODULE,
+		.of_match_table = hyp_core_ctl_match_table,
+	 },
+};
+
+builtin_platform_driver(hyp_core_ctl_driver);
+MODULE_DESCRIPTION("Core Control for Hypervisor");
+MODULE_LICENSE("GPL v2");
