@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1265,7 +1265,9 @@ static irqreturn_t smb138x_handle_temperature_change(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb138x *chip = irq_data->parent_data;
 
-	power_supply_changed(chip->parallel_psy);
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
 	return IRQ_HANDLED;
 }
 
