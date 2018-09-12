@@ -164,7 +164,7 @@ struct lpg_pwm_config {
 	u32	prediv;
 	u32	clk_exp;
 	u16	pwm_value;
-	u32	best_period_ns;
+	u64	best_period_ns;
 };
 
 struct qpnp_lpg_lut {
@@ -185,8 +185,8 @@ struct qpnp_lpg_channel {
 	u8				src_sel;
 	u8				subtype;
 	bool				lut_written;
-	int				current_period_ns;
-	int				current_duty_ns;
+	u64				current_period_ns;
+	u64				current_duty_ns;
 };
 
 struct qpnp_lpg_chip {
@@ -723,17 +723,17 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 	return rc;
 }
 
-static void __qpnp_lpg_calc_pwm_period(int period_ns,
+static void __qpnp_lpg_calc_pwm_period(u64 period_ns,
 			struct lpg_pwm_config *pwm_config)
 {
 	struct qpnp_lpg_channel *lpg = container_of(pwm_config,
 			struct qpnp_lpg_channel, pwm_config);
 	struct lpg_pwm_config configs[NUM_PWM_SIZE];
 	int i, j, m, n;
-	int tmp1, tmp2;
-	int clk_period_ns = 0, pwm_clk_period_ns;
-	int clk_delta_ns = INT_MAX, min_clk_delta_ns = INT_MAX;
-	int pwm_period_delta = INT_MAX, min_pwm_period_delta = INT_MAX;
+	u64 tmp1, tmp2;
+	u64 clk_period_ns = 0, pwm_clk_period_ns;
+	u64 clk_delta_ns = U64_MAX, min_clk_delta_ns = U64_MAX;
+	u64 pwm_period_delta = U64_MAX, min_pwm_period_delta = U64_MAX;
 	int pwm_size_step;
 
 	/*
@@ -755,7 +755,8 @@ static void __qpnp_lpg_calc_pwm_period(int period_ns,
 				for (m = 0; m < ARRAY_SIZE(pwm_exponent); m++) {
 					tmp1 = 1 << pwm_exponent[m];
 					tmp1 *= clk_prediv[j];
-					tmp2 = NSEC_PER_SEC / clk_freq_hz[i];
+					tmp2 = NSEC_PER_SEC;
+					do_div(tmp2, clk_freq_hz[i]);
 
 					clk_period_ns = tmp1 * tmp2;
 
@@ -785,10 +786,7 @@ static void __qpnp_lpg_calc_pwm_period(int period_ns,
 
 		configs[n].best_period_ns *= 1 << pwm_size[n];
 		/* Find the closest setting for PWM period */
-		if (min_clk_delta_ns < INT_MAX >> pwm_size[n])
-			pwm_period_delta = min_clk_delta_ns << pwm_size[n];
-		else
-			pwm_period_delta = INT_MAX;
+		pwm_period_delta = min_clk_delta_ns << pwm_size[n];
 		if (pwm_period_delta < min_pwm_period_delta) {
 			min_pwm_period_delta = pwm_period_delta;
 			memcpy(pwm_config, &configs[n],
@@ -806,21 +804,20 @@ static void __qpnp_lpg_calc_pwm_period(int period_ns,
 			pwm_config->clk_exp -= pwm_size_step;
 		}
 	}
-	pr_debug("PWM setting for period_ns %d: pwm_clk = %dHZ, prediv = %d, exponent = %d, pwm_size = %d\n",
+	pr_debug("PWM setting for period_ns %llu: pwm_clk = %dHZ, prediv = %d, exponent = %d, pwm_size = %d\n",
 			period_ns, pwm_config->pwm_clk, pwm_config->prediv,
 			pwm_config->clk_exp, pwm_config->pwm_size);
-	pr_debug("Actual period: %dns\n", pwm_config->best_period_ns);
+	pr_debug("Actual period: %lluns\n", pwm_config->best_period_ns);
 }
 
-static void __qpnp_lpg_calc_pwm_duty(int period_ns, int duty_ns,
+static void __qpnp_lpg_calc_pwm_duty(u64 period_ns, u64 duty_ns,
 			struct lpg_pwm_config *pwm_config)
 {
 	u16 pwm_value, max_pwm_value;
 	u64 tmp;
 
 	tmp = (u64)duty_ns << pwm_config->pwm_size;
-	do_div(tmp, period_ns);
-	pwm_value = (u16)tmp;
+	pwm_value = (u16)div64_u64(tmp, period_ns);
 
 	max_pwm_value = (1 << pwm_config->pwm_size) - 1;
 	if (pwm_value > max_pwm_value)
@@ -828,20 +825,13 @@ static void __qpnp_lpg_calc_pwm_duty(int period_ns, int duty_ns,
 	pwm_config->pwm_value = pwm_value;
 }
 
-static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
-		struct pwm_device *pwm, int duty_ns, int period_ns)
+static int qpnp_lpg_config(struct qpnp_lpg_channel *lpg,
+		u64 duty_ns, u64 period_ns)
 {
-	struct qpnp_lpg_channel *lpg;
-	int rc = 0;
-
-	lpg = pwm_dev_to_qpnp_lpg(pwm_chip, pwm);
-	if (lpg == NULL) {
-		dev_err(pwm_chip->dev, "lpg not found\n");
-		return -ENODEV;
-	}
+	int rc;
 
 	if (duty_ns > period_ns) {
-		dev_err(pwm_chip->dev, "Duty %dns is larger than period %dns\n",
+		dev_err(lpg->chip->dev, "Duty %lluns is larger than period %lluns\n",
 						duty_ns, period_ns);
 		return -EINVAL;
 	}
@@ -855,7 +845,7 @@ static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
 					lpg->ramp_config.pattern,
 					lpg->ramp_config.pattern_length);
 			if (rc < 0) {
-				dev_err(pwm_chip->dev, "set LUT pattern failed for LPG%d, rc=%d\n",
+				dev_err(lpg->chip->dev, "set LUT pattern failed for LPG%d, rc=%d\n",
 						lpg->lpg_idx, rc);
 				return rc;
 			}
@@ -869,7 +859,7 @@ static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
 
 	rc = qpnp_lpg_set_pwm_config(lpg);
 	if (rc < 0) {
-		dev_err(pwm_chip->dev, "Config PWM failed for channel %d, rc=%d\n",
+		dev_err(lpg->chip->dev, "Config PWM failed for channel %d, rc=%d\n",
 						lpg->lpg_idx, rc);
 		return rc;
 	}
@@ -878,6 +868,34 @@ static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
 	lpg->current_duty_ns = duty_ns;
 
 	return rc;
+}
+
+static int qpnp_lpg_pwm_config(struct pwm_chip *pwm_chip,
+		struct pwm_device *pwm, int duty_ns, int period_ns)
+{
+	struct qpnp_lpg_channel *lpg;
+
+	lpg = pwm_dev_to_qpnp_lpg(pwm_chip, pwm);
+	if (lpg == NULL) {
+		dev_err(pwm_chip->dev, "lpg not found\n");
+		return -ENODEV;
+	}
+
+	return qpnp_lpg_config(lpg, (u64)duty_ns, (u64)period_ns);
+}
+
+static int qpnp_lpg_pwm_config_extend(struct pwm_chip *pwm_chip,
+		struct pwm_device *pwm, u64 duty_ns, u64 period_ns)
+{
+	struct qpnp_lpg_channel *lpg;
+
+	lpg = pwm_dev_to_qpnp_lpg(pwm_chip, pwm);
+	if (lpg == NULL) {
+		dev_err(pwm_chip->dev, "lpg not found\n");
+		return -ENODEV;
+	}
+
+	return qpnp_lpg_config(lpg, duty_ns, period_ns);
 }
 
 static int qpnp_lpg_pbs_trigger_enable(struct qpnp_lpg_channel *lpg, bool en)
@@ -1065,9 +1083,9 @@ static int qpnp_lpg_pwm_set_output_pattern(struct pwm_chip *pwm_chip,
 	struct pwm_device *pwm, struct pwm_output_pattern *output_pattern)
 {
 	struct qpnp_lpg_channel *lpg;
-	int rc = 0, i, period_ns, duty_ns;
+	u64 period_ns, duty_ns, tmp;
 	u32 *percentages;
-	u64 tmp;
+	int rc = 0, i;
 
 	lpg = pwm_dev_to_qpnp_lpg(pwm_chip, pwm);
 	if (lpg == NULL) {
@@ -1087,18 +1105,17 @@ static int qpnp_lpg_pwm_set_output_pattern(struct pwm_chip *pwm_chip,
 	if (!percentages)
 		return -ENOMEM;
 
-	period_ns = pwm_get_period(pwm);
+	period_ns = pwm_get_period_extend(pwm);
 	for (i = 0; i < output_pattern->num_entries; i++) {
 		duty_ns = output_pattern->duty_pattern[i];
 		if (duty_ns > period_ns) {
-			dev_err(lpg->chip->dev, "duty %dns is larger than period %dns\n",
+			dev_err(lpg->chip->dev, "duty %lluns is larger than period %lluns\n",
 					duty_ns, period_ns);
 			goto err;
 		}
 		/* Translate the pattern in duty_ns to percentage */
 		tmp = (u64)duty_ns * 100;
-		do_div(tmp, period_ns);
-		percentages[i] = (u32)tmp;
+		percentages[i] = (u32)div64_u64(tmp, period_ns);
 	}
 
 	rc = qpnp_lpg_set_lut_pattern(lpg, percentages,
@@ -1239,8 +1256,8 @@ static void qpnp_lpg_pwm_dbg_show(struct pwm_chip *pwm_chip, struct seq_file *s)
 		seq_printf(s, "     prediv = %d\n", cfg->prediv);
 		seq_printf(s, "     exponent = %d\n", cfg->clk_exp);
 		seq_printf(s, "     pwm_value = %d\n", cfg->pwm_value);
-		seq_printf(s, "  Requested period: %dns, best period = %dns\n",
-				pwm_get_period(pwm), cfg->best_period_ns);
+		seq_printf(s, "  Requested period: %lluns, best period = %lluns\n",
+			pwm_get_period_extend(pwm), cfg->best_period_ns);
 
 		ramp = &lpg->ramp_config;
 		if (pwm_get_output_type(pwm) == PWM_OUTPUT_MODULATED) {
@@ -1271,6 +1288,7 @@ static void qpnp_lpg_pwm_dbg_show(struct pwm_chip *pwm_chip, struct seq_file *s)
 
 static const struct pwm_ops qpnp_lpg_pwm_ops = {
 	.config = qpnp_lpg_pwm_config,
+	.config_extend = qpnp_lpg_pwm_config_extend,
 	.get_output_type_supported = qpnp_lpg_pwm_output_types_supported,
 	.set_output_type = qpnp_lpg_pwm_set_output_type,
 	.set_output_pattern = qpnp_lpg_pwm_set_output_pattern,
