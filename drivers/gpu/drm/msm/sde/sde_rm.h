@@ -184,13 +184,14 @@ int sde_rm_reserve(struct sde_rm *rm,
 		bool test_only);
 
 /**
- * sde_rm_reserve - Given the encoder for the display chain, release any
+ * sde_rm_release - Given the encoder for the display chain, release any
  *	HW blocks previously reserved for that use case.
  * @rm: SDE Resource Manager handle
  * @enc: DRM Encoder handle
+ * @nxt: Choose option to release rsvp_nxt
  * @Return: 0 on Success otherwise -ERROR
  */
-void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc);
+void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc, bool nxt);
 
 /**
  * sde_rm_get_mdp - Retrieve HW block for MDP TOP.
