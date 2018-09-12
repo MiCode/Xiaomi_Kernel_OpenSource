@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/export.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 #include <linux/clk/qcom.h>
@@ -177,9 +178,101 @@ const struct clk_ops clk_branch_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
+static int clk_branch2_set_rate(struct clk_hw *hw, unsigned long rate,
+			    unsigned long parent_rate)
+{
+	struct clk_branch *branch = to_clk_branch(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+	unsigned long curr_rate, new_rate, other_rate = 0;
+	int ret = 0;
+
+	if (!parent)
+		return -EPERM;
+
+	if (!branch->aggr_sibling_rates || !clk_hw_is_prepared(hw)) {
+		branch->rate = rate;
+		return 0;
+	}
+
+	other_rate = clk_aggregate_rate(hw, parent->core);
+	curr_rate = max(other_rate, branch->rate);
+	new_rate = max(other_rate, rate);
+
+	if (new_rate != curr_rate) {
+		ret = clk_set_rate(parent->clk, new_rate);
+		if (ret) {
+			pr_err("Failed to scale %s to %lu\n",
+				clk_hw_get_name(parent), new_rate);
+			goto err;
+		}
+	}
+	branch->rate = rate;
+err:
+	return ret;
+}
+
+static long clk_branch2_round_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long *parent_rate)
+{
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+	unsigned long rrate = 0;
+
+	if (!parent)
+		return -EPERM;
+
+	rrate = clk_hw_round_rate(parent, rate);
+	/*
+	 * If the rounded rate that's returned is valid, update the parent_rate
+	 * field so that the set_rate() call can be propagated to the parent.
+	 */
+	if (rrate > 0)
+		*parent_rate = rrate;
+	else
+		pr_warn("Failed to get the parent's (%s) rounded rate\n",
+					clk_hw_get_name(parent));
+
+	return rrate;
+}
+
+static unsigned long clk_branch2_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	return to_clk_branch(hw)->rate;
+}
+
 static int clk_branch2_enable(struct clk_hw *hw)
 {
 	return clk_branch_toggle(hw, true, clk_branch2_check_halt);
+}
+
+static int clk_branch2_prepare(struct clk_hw *hw)
+{
+	struct clk_branch *branch = to_clk_branch(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+	unsigned long curr_rate, branch_rate = branch->rate;
+	int ret = 0;
+
+	if (!parent)
+		return -EPERM;
+
+	/*
+	 * Do the rate aggregation and scaling of the RCG in the prepare/
+	 * unprepare functions to avoid potential RPM(/h) communication due to
+	 * votes on the voltage rails.
+	 */
+	if (branch->aggr_sibling_rates) {
+		curr_rate = clk_aggregate_rate(hw, parent->core);
+		if (branch_rate > curr_rate) {
+			ret = clk_set_rate(parent->clk, branch_rate);
+			if (ret) {
+				pr_err("Failed to scale %s to %lu\n",
+					clk_hw_get_name(parent), branch_rate);
+				goto exit;
+			}
+		}
+	}
+exit:
+	return ret;
 }
 
 static void clk_branch2_disable(struct clk_hw *hw)
@@ -187,10 +280,34 @@ static void clk_branch2_disable(struct clk_hw *hw)
 	clk_branch_toggle(hw, false, clk_branch2_check_halt);
 }
 
+static void clk_branch2_unprepare(struct clk_hw *hw)
+{
+	struct clk_branch *branch = to_clk_branch(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+	unsigned long curr_rate, new_rate, branch_rate = branch->rate;
+
+	if (!parent)
+		return;
+
+	if (branch->aggr_sibling_rates) {
+		new_rate = clk_aggregate_rate(hw, parent->core);
+		curr_rate = max(new_rate, branch_rate);
+		if (new_rate < curr_rate)
+			if (clk_set_rate(parent->clk, new_rate))
+				pr_err("Failed to scale %s to %lu\n",
+					clk_hw_get_name(parent), new_rate);
+	}
+}
+
 const struct clk_ops clk_branch2_ops = {
+	.prepare = clk_branch2_prepare,
 	.enable = clk_branch2_enable,
+	.unprepare = clk_branch2_unprepare,
 	.disable = clk_branch2_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.set_rate = clk_branch2_set_rate,
+	.round_rate = clk_branch2_round_rate,
+	.recalc_rate = clk_branch2_recalc_rate,
 	.set_flags = clk_branch_set_flags,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
