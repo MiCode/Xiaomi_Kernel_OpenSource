@@ -37,6 +37,7 @@ struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 		.ctx = 0,
 		.mempool = POOL_TYPE_MUX_APPS,
 		.num_tbl_entries = 0,
+		.md_info_inited = 0,
 		.tbl = NULL,
 		.ops = NULL,
 	},
@@ -46,6 +47,7 @@ struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 		.ctx = 0,
 		.mempool = POOL_TYPE_MDM_MUX,
 		.num_tbl_entries = 0,
+		.md_info_inited = 0,
 		.tbl = NULL,
 		.ops = NULL,
 	},
@@ -54,6 +56,7 @@ struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 		.ctx = 0,
 		.mempool = POOL_TYPE_MDM2_MUX,
 		.num_tbl_entries = 0,
+		.md_info_inited = 0,
 		.tbl = NULL,
 		.ops = NULL,
 	},
@@ -62,6 +65,7 @@ struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 		.ctx = 0,
 		.mempool = POOL_TYPE_QSC_MUX,
 		.num_tbl_entries = 0,
+		.md_info_inited = 0,
 		.tbl = NULL,
 		.ops = NULL,
 	}
@@ -85,6 +89,8 @@ void diag_md_open_all()
 
 	for (i = 0; i < NUM_DIAG_MD_DEV; i++) {
 		ch = &diag_md[i];
+		if (!ch->md_info_inited)
+			continue;
 		if (ch->ops && ch->ops->open)
 			ch->ops->open(ch->ctx, DIAG_MEMORY_DEVICE_MODE);
 	}
@@ -101,6 +107,8 @@ void diag_md_close_all()
 
 	for (i = 0; i < NUM_DIAG_MD_DEV; i++) {
 		ch = &diag_md[i];
+		if (!ch->md_info_inited)
+			continue;
 
 		if (ch->ops && ch->ops->close)
 			ch->ops->close(ch->ctx, DIAG_MEMORY_DEVICE_MODE);
@@ -158,6 +166,8 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	mutex_unlock(&driver->md_session_lock);
 
 	ch = &diag_md[id];
+	if (!ch || !ch->md_info_inited)
+		return -EINVAL;
 
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
@@ -228,6 +238,8 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
+		if (!ch->md_info_inited)
+			continue;
 		for (j = 0; j < ch->num_tbl_entries && !err; j++) {
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
@@ -325,6 +337,8 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 		return -EINVAL;
 
 	ch = &diag_md[id];
+	if (!ch || !ch->md_info_inited)
+		return -EINVAL;
 
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
@@ -365,6 +379,7 @@ int diag_md_init(void)
 			ch->tbl[j].ctx = 0;
 		}
 		spin_lock_init(&(ch->lock));
+		ch->md_info_inited = 1;
 	}
 
 	return 0;
@@ -393,6 +408,7 @@ int diag_md_mdm_init(void)
 			ch->tbl[j].ctx = 0;
 		}
 		spin_lock_init(&(ch->lock));
+		ch->md_info_inited = 1;
 	}
 
 	return 0;
