@@ -4689,8 +4689,8 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 	pval.intval = POWER_SUPPLY_TYPEC_PR_SOURCE;
 	rc = smblib_set_prop_typec_power_role(chg, &pval);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-			pval.intval, rc);
+		smblib_err(chg, "Couldn't set typec source only mode rc=%d\n",
+					rc);
 		goto out;
 	}
 
@@ -4704,9 +4704,19 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 		goto out;
 	}
 
-	/* Emark cable */
-	if ((stat & SRC_RA_OPEN_BIT) &&
-			!smblib_rsbux_low(chg, RSBU_K_300K_UV)) {
+	if (smblib_rsbux_low(chg, RSBU_K_300K_UV)) {
+		/* Moisture detected, enable sink only mode */
+		pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
+		rc = smblib_set_prop_typec_power_role(chg, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't set typec sink only rc=%d\n",
+				rc);
+			goto out;
+		}
+
+		chg->lpd_reason = LPD_MOISTURE_DETECTED;
+
+	} else {
 		/* Floating cable, disable water detection irq temporarily */
 		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 					TYPEC_WATER_DETECTION_INT_EN_BIT, 0);
@@ -4726,17 +4736,6 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 		}
 
 		chg->lpd_reason = LPD_FLOATING_CABLE;
-	} else {
-		/* Moisture detected, enable sink only mode */
-		pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
-		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-				pval.intval, rc);
-			goto out;
-		}
-
-		chg->lpd_reason = LPD_MOISTURE_DETECTED;
 	}
 
 	/* recheck in 60 seconds */
