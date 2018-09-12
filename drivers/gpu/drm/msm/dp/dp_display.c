@@ -98,7 +98,6 @@ struct dp_display_private {
 	struct delayed_work hdcp_cb_work;
 	struct delayed_work connect_work;
 	struct work_struct attention_work;
-	struct mutex hdcp_mutex;
 	struct mutex session_lock;
 
 	u32 active_stream_cnt;
@@ -293,7 +292,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 	}
 
 	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
-	mutex_destroy(&dp->hdcp_mutex);
 }
 
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
@@ -308,8 +306,6 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	}
 
 	parser = dp->parser;
-
-	mutex_init(&dp->hdcp_mutex);
 
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 	hdcp_init_data.drm_aux       = dp->aux->drm_aux;
@@ -852,45 +848,40 @@ end:
 	return rc;
 }
 
-static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
+static void dp_display_stream_disable(struct dp_display_private *dp,
+			struct dp_panel *dp_panel)
 {
-	int idx;
-	struct dp_panel *dp_panel;
-
-	mutex_lock(&dp->session_lock);
-
-	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
-		if (!dp->active_panels[idx])
-			continue;
-
-		dp_panel = dp->active_panels[idx];
-
-		dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
-		dp->ctrl->stream_off(dp->ctrl, dp_panel);
-
-		mutex_lock(&dp_panel->audio->ops_lock);
-
-		if (dp_panel->audio_supported)
-			dp_panel->audio->off(dp_panel->audio);
+	if (!dp->active_stream_cnt) {
+		pr_err("invalid active_stream_cnt (%d)\n");
+		return;
 	}
 
-	dp->ctrl->link_maintenance(dp->ctrl);
+	pr_debug("stream_id=%d, active_stream_cnt=%d\n",
+			dp_panel->stream_id, dp->active_stream_cnt);
 
-	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
-		if (!dp->active_panels[idx])
-			continue;
+	dp->ctrl->stream_off(dp->ctrl, dp_panel);
+	dp->active_panels[dp_panel->stream_id] = NULL;
+	dp->active_stream_cnt--;
+}
 
-		dp_panel = dp->active_panels[idx];
+static int dp_display_stream_enable(struct dp_display_private *dp,
+			struct dp_panel *dp_panel)
+{
+	int rc = 0;
 
-		dp->ctrl->stream_on(dp->ctrl, dp_panel);
+	rc = dp->ctrl->stream_on(dp->ctrl, dp_panel);
 
-		if (dp_panel->audio_supported)
-			dp_panel->audio->on(dp_panel->audio);
+	if (dp->debug->tpg_state)
+		dp_panel->tpg_config(dp_panel, true);
 
-		mutex_unlock(&dp_panel->audio->ops_lock);
+	if (!rc) {
+		dp->active_panels[dp_panel->stream_id] = dp_panel;
+		dp->active_stream_cnt++;
 	}
 
-	mutex_unlock(&dp->session_lock);
+	pr_debug("dp active_stream_cnt:%d\n", dp->active_stream_cnt);
+
+	return rc;
 }
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
@@ -934,12 +925,12 @@ static void dp_display_attention_work(struct work_struct *work)
 
 	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
 		dp->link->send_test_response(dp->link);
-		dp_display_handle_maintenance_req(dp);
+		dp->ctrl->link_maintenance(dp->ctrl);
 		goto mst_attention;
 	}
 
 	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED)
-		dp_display_handle_maintenance_req(dp);
+		dp->ctrl->link_maintenance(dp->ctrl);
 
 	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->cp_irq)
 		dp->hdcp.ops->cp_irq(dp->hdcp.data);
@@ -1352,26 +1343,6 @@ static int dp_display_set_stream_info(struct dp_display *dp_display,
 	return rc;
 }
 
-static int dp_display_stream_enable(struct dp_display_private *dp,
-			struct dp_panel *dp_panel)
-{
-	int rc = 0;
-
-	rc = dp->ctrl->stream_on(dp->ctrl, dp_panel);
-
-	if (dp->debug->tpg_state)
-		dp_panel->tpg_config(dp_panel, true);
-
-	if (!rc) {
-		dp->active_panels[dp_panel->stream_id] = dp_panel;
-		dp->active_stream_cnt++;
-	}
-
-	pr_debug("dp active_stream_cnt:%d\n", dp->active_stream_cnt);
-
-	return rc;
-}
-
 static int dp_display_enable(struct dp_display *dp_display, void *panel)
 {
 	int rc = 0;
@@ -1386,13 +1357,8 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 
 	mutex_lock(&dp->session_lock);
 
-	if (atomic_read(&dp->aborted)) {
-		pr_err("aborted\n");
-		goto end;
-	}
-
-	if (!dp_display_is_ready(dp) || !dp->core_initialized) {
-		pr_err("display not ready\n");
+	if (!dp->core_initialized) {
+		pr_err("host not initialized\n");
 		goto end;
 	}
 
@@ -1411,8 +1377,6 @@ static void dp_display_stream_post_enable(struct dp_display_private *dp,
 {
 	dp_panel->spd_config(dp_panel);
 	dp_panel->setup_hdr(dp_panel, NULL);
-
-	dp_panel->audio->register_ext_disp(dp_panel->audio);
 }
 
 static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
@@ -1436,10 +1400,8 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 		goto end;
 	}
 
-	if (atomic_read(&dp->aborted)) {
-		pr_err("aborted\n");
+	if (atomic_read(&dp->aborted))
 		goto end;
-	}
 
 	if (!dp_display_is_ready(dp) || !dp->core_initialized) {
 		pr_err("display not ready\n");
@@ -1479,7 +1441,6 @@ end:
 static int dp_display_stream_pre_disable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
-	dp_panel->audio->deregister_ext_disp(dp_panel->audio);
 	dp->ctrl->stream_pre_off(dp->ctrl, dp_panel);
 
 	return 0;
@@ -1526,22 +1487,6 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
-}
-
-static void dp_display_stream_disable(struct dp_display_private *dp,
-			struct dp_panel *dp_panel)
-{
-	if (!dp->active_stream_cnt) {
-		pr_err("invalid active_stream_cnt (%d)\n");
-		return;
-	}
-
-	pr_debug("stream_id=%d, active_stream_cnt=%d\n",
-			dp_panel->stream_id, dp->active_stream_cnt);
-
-	dp->ctrl->stream_off(dp->ctrl, dp_panel);
-	dp->active_panels[dp_panel->stream_id] = NULL;
-	dp->active_stream_cnt--;
 }
 
 static int dp_display_disable(struct dp_display *dp_display, void *panel)
@@ -1770,13 +1715,8 @@ static void dp_display_convert_to_dp_mode(struct dp_display *dp_display,
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 	dp_panel = panel;
 
-	mutex_lock(&dp->session_lock);
-
 	memset(dp_mode, 0, sizeof(*dp_mode));
-
 	dp_panel->convert_to_dp_mode(dp_panel, drm_mode, dp_mode);
-
-	mutex_unlock(&dp->session_lock);
 }
 
 static int dp_display_config_hdr(struct dp_display *dp_display, void *panel,

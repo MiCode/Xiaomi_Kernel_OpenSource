@@ -29,8 +29,6 @@ struct dp_audio {
 	u32 lane_count;
 	u32 bw_code;
 
-	struct mutex ops_lock;
-
 	/**
 	 * on()
 	 *
@@ -52,28 +50,6 @@ struct dp_audio {
 	 * Returns the error code in case of failure, 0 in success case.
 	 */
 	int (*off)(struct dp_audio *dp_audio);
-
-	/**
-	 * register_ext_disp()
-	 *
-	 * Registers the audio with external display module.
-	 *
-	 * @dp_audio: an instance of struct dp_audio.
-	 *
-	 * Returns the error code in case of failure, 0 in success case.
-	 */
-	int (*register_ext_disp)(struct dp_audio *dp_audio);
-
-	/**
-	 * deregister_ext_disp()
-	 *
-	 * Deregisters the audio with external display module.
-	 *
-	 * @dp_audio: an instance of struct dp_audio.
-	 *
-	 * Returns the error code in case of failure, 0 in success case.
-	 */
-	int (*deregister_ext_disp)(struct dp_audio *dp_audio);
 };
 
 /**
