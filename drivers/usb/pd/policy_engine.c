@@ -472,6 +472,7 @@ struct usbpd {
 
 	struct list_head	instance;
 
+	bool		has_dp;
 	u16			ss_lane_svid;
 
 	/* ext msg support */
@@ -494,6 +495,7 @@ static LIST_HEAD(_usbpd);	/* useful for debugging */
 static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
+	EXTCON_DISP_DP,
 	EXTCON_NONE,
 };
 
@@ -610,6 +612,13 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 	}
 
 	pd->ss_lane_svid = hdlr->svid;
+
+	/* DP 4 Lane mode  */
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 4);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) for notify DP 4 Lane", ret);
+		goto err_exit;
+	}
 
 err_exit:
 	return ret;
@@ -1645,11 +1654,19 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 	u8 i, num_vdos = PD_MSG_HDR_COUNT(rx_msg->hdr) - 1;
 	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
 	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
-	bool has_dp = false;
 	struct usbpd_svid_handler *handler;
 
-	usbpd_dbg(&pd->dev, "VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x\n",
-			svid, cmd, cmd_type, vdm_hdr);
+	usbpd_dbg(&pd->dev,
+			"VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x has_dp: %s\n",
+			svid, cmd, cmd_type, vdm_hdr,
+			pd->has_dp ? "true" : "false");
+
+	if ((svid == 0xFF01) && (pd->has_dp == false)) {
+		pd->has_dp = true;
+
+		/* Set to USB and DP cocurrency mode */
+		extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 2);
+	}
 
 	/* if it's a supported SVID, pass the message to the handler */
 	handler = find_svid_handler(pd, svid);
@@ -1807,9 +1824,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 						handler->discovered = true;
 					}
 				}
-
-				if (svid == 0xFF01)
-					has_dp = true;
 			}
 			break;
 
@@ -2163,6 +2177,13 @@ static void usbpd_sm(struct work_struct *w)
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		dual_role_instance_changed(pd->dual_role);
+
+		if (pd->has_dp) {
+			pd->has_dp = false;
+
+			/* Set to USB only mode when cable disconnected */
+			extcon_blocking_sync(pd->extcon, EXTCON_DISP_DP, 0);
+		}
 
 		goto sm_done;
 	}
