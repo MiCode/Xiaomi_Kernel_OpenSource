@@ -868,3 +868,20 @@
 	     USB3_DP_PCS_USB3_RXEQTRAINING_DFE_TIME_S2 0x07 0
 	     0xffffffff 0xffffffff 0x00>;
 };
+
+/* qcedev override */
+&qcom_cedev {
+	qcom_cedev_ns_cb {
+		iommus = <&apps_smmu 0x512 0>,
+			 <&apps_smmu 0x518 0>,
+			 <&apps_smmu 0x519 0>,
+			 <&apps_smmu 0x51f 0>;
+	};
+
+	qcom_cedev_s_cb {
+		iommus = <&apps_smmu 0x513 0>,
+			 <&apps_smmu 0x51c 0>,
+			 <&apps_smmu 0x51d 0>,
+			 <&apps_smmu 0x51e 0>;
+	};
+};
