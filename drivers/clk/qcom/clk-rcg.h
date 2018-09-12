@@ -142,7 +142,7 @@ extern const struct clk_ops clk_dyn_rcg_ops;
  * @current_freq: last cached frequency when using branches with shared RCGs
  * @enable_safe_config: When set, the RCG is parked at CXO when it's disabled
  * @clkr: regmap clock handle
- *
+ * @flags: additional flag parameters for the RCG
  */
 struct clk_rcg2 {
 	u32			cmd_rcgr;
@@ -154,6 +154,8 @@ struct clk_rcg2 {
 	unsigned long		current_freq;
 	bool			enable_safe_config;
 	struct clk_regmap	clkr;
+	u8			flags;
+#define FORCE_ENABLE_RCG	BIT(0)
 };
 
 #define to_clk_rcg2(_hw) container_of(to_clk_regmap(_hw), struct clk_rcg2, clkr)
