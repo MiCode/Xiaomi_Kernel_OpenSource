@@ -331,8 +331,12 @@ int rpmh_write(const struct device *dev, enum rpmh_state state,
 		return ret;
 
 	ret = wait_for_completion_timeout(&compl, RPMH_TIMEOUT_MS);
-	WARN_ON(!ret);
-	return (ret > 0) ? 0 : -ETIMEDOUT;
+	if (!ret) {
+		rpmh_rsc_debug(ctrlr_to_drv(ctrlr));
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(rpmh_write);
 
@@ -459,7 +463,7 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 			 * the completion on our stack and that's bad once
 			 * we've returned from the function.
 			 */
-			WARN_ON(1);
+			rpmh_rsc_debug(ctrlr_to_drv(ctrlr));
 			ret = -ETIMEDOUT;
 			goto exit;
 		}

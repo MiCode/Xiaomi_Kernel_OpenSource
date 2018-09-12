@@ -95,6 +95,7 @@ struct rpmh_ctrlr {
  * @tcs_in_use: s/w state of the TCS
  * @lock:       synchronize state of the controller
  * @client:     handle to the DRV's client.
+ * @irq:        IRQ at gic
  */
 struct rsc_drv {
 	const char *name;
@@ -106,6 +107,7 @@ struct rsc_drv {
 	DECLARE_BITMAP(tcs_in_use, MAX_TCS_NR);
 	spinlock_t lock;
 	struct rpmh_ctrlr client;
+	int irq;
 };
 
 int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg);
@@ -117,4 +119,5 @@ int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 
+void rpmh_rsc_debug(struct rsc_drv *drv);
 #endif /* __RPM_INTERNAL_H__ */
