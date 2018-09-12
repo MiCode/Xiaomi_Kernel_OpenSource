@@ -458,8 +458,9 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 
 		mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONNECTED);
 
-		ep_pcie_mask_irq_event(mhi_ctx->phandle,
-				EP_PCIE_INT_EVT_MHI_A7, true);
+		if (!mhi_ctx->mhi_int)
+			ep_pcie_mask_irq_event(mhi_ctx->phandle,
+					EP_PCIE_INT_EVT_MHI_A7, true);
 		break;
 	case IPA_MHI_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
@@ -2758,8 +2759,9 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
-		EP_PCIE_EVENT_MHI_A7 |
 		EP_PCIE_EVENT_LINKDOWN;
+	if (!mhi_ctx->mhi_int)
+		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
 	mhi_ctx->event_reg.user = mhi_ctx;
 	mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
 	mhi_ctx->event_reg.callback = mhi_dev_sm_pcie_handler;
@@ -2902,8 +2904,9 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
-		EP_PCIE_EVENT_MHI_A7 |
 		EP_PCIE_EVENT_LINKDOWN;
+	if (!mhi_ctx->mhi_int)
+		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
 	mhi_ctx->event_reg.user = mhi_ctx;
 	mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
 	mhi_ctx->event_reg.callback = mhi_dev_sm_pcie_handler;
