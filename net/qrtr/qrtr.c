@@ -555,14 +555,22 @@ static struct qrtr_node *qrtr_node_lookup(unsigned int nid)
  */
 static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 {
+	struct qrtr_node *tnode = NULL;
 	char name[32] = {0,};
 
 	if (nid == QRTR_EP_NID_AUTO)
 		return;
+	if (nid == node->nid)
+		return;
+
+	down_read(&qrtr_node_lock);
+	tnode = radix_tree_lookup(&qrtr_nodes, nid);
+	up_read(&qrtr_node_lock);
+	if (tnode)
+		return;
 
 	down_write(&qrtr_node_lock);
-	if (!radix_tree_lookup(&qrtr_nodes, nid))
-		radix_tree_insert(&qrtr_nodes, nid, node);
+	radix_tree_insert(&qrtr_nodes, nid, node);
 
 	if (node->nid == QRTR_EP_NID_AUTO)
 		node->nid = nid;
