@@ -1363,10 +1363,11 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 					"AOP mailbox init failed: %d\n", ret);
 	}
 
-	/* disable LM during boot time */
-	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-	set_bit(GMU_ENABLED, &device->gmu_core.flags);
+	/* disable LM if the feature is not enabled */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 
+	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 
 	return 0;

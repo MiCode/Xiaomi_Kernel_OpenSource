@@ -3574,7 +3574,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	uint64_t adj = 0;
+	int64_t adj = 0;
 
 	memset(stats, 0, sizeof(*stats));
 
@@ -3587,6 +3587,9 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
+			if (adj < 0 && -adj > gpu_busy)
+				adj = -gpu_busy;
+
 			gpu_busy += adj;
 		}
 
