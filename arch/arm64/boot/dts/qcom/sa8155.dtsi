@@ -70,6 +70,10 @@
 /* Add regulator nodes specific to SA8155 */
 #include "sa8155-regulator.dtsi"
 
+&slpi_tlmm {
+	status = "ok";
+};
+
 &cam_csiphy0 {
 	mipi-csi-vdd-supply = <&pm8150_2_l8>;
 };

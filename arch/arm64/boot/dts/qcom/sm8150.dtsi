@@ -4027,6 +4027,7 @@
 	status = "ok";
 };
 #include "sm8150-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
 #include "sm8150-regulator.dtsi"
 #include "sm8150-ion.dtsi"
 #include "sm8150-bus.dtsi"
