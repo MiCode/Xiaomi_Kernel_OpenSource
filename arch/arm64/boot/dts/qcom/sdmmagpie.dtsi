@@ -719,9 +719,14 @@
 		reg = <0x182a0018 0x4>;
 	};
 
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x1000>;
+	};
+
 	clock_debug: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdmmagpie";
-		qcom,cc-count = <7>;
+		qcom,cc-count = <8>;
 		qcom,gcc = <&clock_gcc>;
 		qcom,videocc = <&clock_videocc>;
 		qcom,camcc = <&clock_camcc>;
@@ -729,6 +734,7 @@
 		qcom,gpucc = <&clock_gpucc>;
 		qcom,npucc = <&clock_npucc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo_clk_src";
 		#clock-cells = <1>;
