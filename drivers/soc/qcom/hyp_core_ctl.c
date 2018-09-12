@@ -17,7 +17,6 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
-#include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/cpuhotplug.h>
 #include <uapi/linux/sched/types.h>
@@ -48,120 +47,6 @@ struct hyp_core_ctl_data {
 #include <trace/events/hyp_core_ctl.h>
 
 static struct hyp_core_ctl_data *the_hcd;
-
-static char reserve_cpus_param[32] = CONFIG_QCOM_HYP_CORE_CTL_RESERVE_CPUS;
-
-static struct kparam_string reserve_cpus_arg = {
-	.maxlen = sizeof(reserve_cpus_param),
-	.string = reserve_cpus_param,
-};
-
-static int set_reserve_cpus(const char *buf, const struct kernel_param *kp)
-{
-	int ret;
-
-	if (!the_hcd || the_hcd->reservation_enabled)
-		return -EPERM;
-
-	ret = param_set_copystring(buf, kp);
-	if (ret < 0)
-		return ret;
-
-	ret = cpulist_parse(reserve_cpus_param, &the_hcd->reserve_cpus);
-	if (ret < 0) {
-		pr_err("fail to set reserve_cpus_param. err=%d\n", ret);
-		return -EINVAL;
-	}
-
-	pr_debug("reserve_cpumask_param is set to %*pbl\n",
-		 cpumask_pr_args(&the_hcd->reserve_cpus));
-
-	return 0;
-}
-
-/*
- * Since this driver is built statically, the sysfs files corresponding
- * to the module param can be accessed even when the init routine
- * fails. Implement the get methods to return error in such scenario.
- */
-static int get_reserve_cpus(char *buffer, const struct kernel_param *kp)
-{
-	if (!the_hcd)
-		return -ENODEV;
-
-	return param_get_string(buffer, kp);
-}
-
-static const struct kernel_param_ops reserve_cpus_ops = {
-	.set = set_reserve_cpus,
-	.get = get_reserve_cpus,
-};
-module_param_cb(reserve_cpus, &reserve_cpus_ops, &reserve_cpus_arg, 0644);
-
-static int hyp_core_ctl_enable(bool enable)
-{
-	int ret = 0;
-
-	spin_lock(&the_hcd->lock);
-	if (enable == the_hcd->reservation_enabled)
-		goto out;
-
-	if (cpumask_empty(&the_hcd->reserve_cpus)) {
-		ret = -EPERM;
-		goto out;
-	}
-
-	trace_hyp_core_ctl_enable(enable);
-	pr_debug("reservation %s\n", enable ? "enabled" : "disabled");
-
-	the_hcd->reservation_enabled = enable;
-	the_hcd->pending = true;
-	wake_up_process(the_hcd->task);
-out:
-	spin_unlock(&the_hcd->lock);
-	return ret;
-}
-
-static bool reservation_enabled_param;
-static int set_reservation_enabled(const char *buf,
-				   const struct kernel_param *kp)
-{
-	int ret;
-	bool old_val = reservation_enabled_param;
-
-	if (!the_hcd)
-		return -EPERM;
-
-	ret = param_set_bool(buf, kp);
-	if (ret < 0) {
-		pr_err("fail to set reservation_enabled_param err=%d\n", ret);
-		return ret;
-	}
-
-	ret = hyp_core_ctl_enable(reservation_enabled_param);
-	if (ret < 0) {
-		pr_err("fail to enable reservation. ret=%d\n", ret);
-		reservation_enabled_param = old_val;
-		return ret;
-	}
-
-	return 0;
-}
-
-static int get_reservation_enabled(char *buffer, const struct kernel_param *kp)
-{
-	if (!the_hcd)
-		return -ENODEV;
-
-	return param_get_bool(buffer, kp);
-}
-
-static const struct kernel_param_ops reservertation_enabled_ops = {
-	.set = set_reservation_enabled,
-	.get = get_reservation_enabled,
-};
-module_param_cb(enable, &reservertation_enabled_ops,
-		&reservation_enabled_param, 0644);
 
 static inline void hyp_core_ctl_print_status(char *msg)
 {
@@ -305,6 +190,58 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 	return 0;
 }
 
+static void hyp_core_ctl_enable(bool enable)
+{
+	spin_lock(&the_hcd->lock);
+	if (enable == the_hcd->reservation_enabled)
+		goto out;
+
+	trace_hyp_core_ctl_enable(enable);
+	pr_debug("reservation %s\n", enable ? "enabled" : "disabled");
+
+	the_hcd->reservation_enabled = enable;
+	the_hcd->pending = true;
+	wake_up_process(the_hcd->task);
+out:
+	spin_unlock(&the_hcd->lock);
+}
+
+static ssize_t enable_store(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	bool enable;
+	int ret;
+
+	ret = kstrtobool(buf, &enable);
+	if (ret < 0)
+		return -EINVAL;
+
+	hyp_core_ctl_enable(enable);
+
+	return count;
+}
+
+static ssize_t enable_show(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	if (!the_hcd)
+		return -EPERM;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", the_hcd->reservation_enabled);
+}
+
+static DEVICE_ATTR_RW(enable);
+
+static struct attribute *hyp_core_ctl_attrs[] = {
+	&dev_attr_enable.attr,
+	NULL
+};
+
+static struct attribute_group hyp_core_ctl_attr_group = {
+	.attrs = hyp_core_ctl_attrs,
+	.name = "hyp_core_ctl",
+};
+
 static int __init hyp_core_ctl_init(void)
 {
 	int ret;
@@ -317,7 +254,8 @@ static int __init hyp_core_ctl_init(void)
 		goto out;
 	}
 
-	ret = cpulist_parse(reserve_cpus_param, &hcd->reserve_cpus);
+	ret = cpulist_parse(CONFIG_QCOM_HYP_CORE_CTL_RESERVE_CPUS,
+			    &hcd->reserve_cpus);
 	if (ret < 0) {
 		pr_err("Incorrect default reserve CPUs. ret=%d\n", ret);
 		goto free_hcd;
@@ -334,17 +272,27 @@ static int __init hyp_core_ctl_init(void)
 
 	sched_setscheduler_nocheck(hcd->task, SCHED_FIFO, &param);
 
+	ret = sysfs_create_group(&cpu_subsys.dev_root->kobj,
+				 &hyp_core_ctl_attr_group);
+	if (ret < 0) {
+		pr_err("Fail to create sysfs files. ret=%d\n", ret);
+		goto stop_task;
+	}
+
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "qcom/hyp_core_ctl:online",
 				hyp_core_ctl_hp_online,
 				hyp_core_ctl_hp_offline);
 	if (ret < 0) {
 		pr_err("Fail to register the hotplug callback. ret=%d\n", ret);
-		goto stop_task;
+		goto remove_sysfs;
 	}
 
 	the_hcd = hcd;
 	return 0;
 
+remove_sysfs:
+	sysfs_remove_group(&cpu_subsys.dev_root->kobj,
+			   &hyp_core_ctl_attr_group);
 stop_task:
 	kthread_stop(hcd->task);
 free_hcd:
