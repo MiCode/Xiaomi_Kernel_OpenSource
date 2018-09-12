@@ -980,6 +980,12 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 				__func__, inst);
 		return -EINVAL;
 	}
+
+	if (inst->session_type == MSM_VIDC_CVP) {
+		dprintk(VIDC_DBG, "%s: cvp session\n", __func__);
+		return 0;
+	}
+
 	count = inst->core->resources.codec_data_count;
 	fourcc = inst->session_type == MSM_VIDC_DECODER ?
 		inst->fmts[OUTPUT_PORT].fourcc :
