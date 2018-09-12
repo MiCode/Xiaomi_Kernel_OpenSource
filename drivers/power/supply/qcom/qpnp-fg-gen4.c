@@ -2967,6 +2967,11 @@ static void status_change_work(struct work_struct *work)
 	int rc, batt_soc, batt_temp;
 	bool input_present, qnovo_en;
 
+	if (fg->battery_missing) {
+		pm_relax(fg->dev);
+		return;
+	}
+
 	if (!chip->pl_disable_votable)
 		chip->pl_disable_votable = find_votable("PL_DISABLE");
 
@@ -3093,6 +3098,13 @@ static int fg_sram_dump_sysfs(const char *val, const struct kernel_param *kp)
 
 	chip = power_supply_get_drvdata(bms_psy);
 	fg = &chip->fg;
+
+	power_supply_put(bms_psy);
+	if (fg->battery_missing) {
+		pr_warn("Battery is missing\n");
+		return 0;
+	}
+
 	if (fg_sram_dump)
 		schedule_delayed_work(&fg->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));
@@ -3135,6 +3147,7 @@ static int fg_restart_sysfs(const char *val, const struct kernel_param *kp)
 
 	chip = power_supply_get_drvdata(bms_psy);
 	fg = &chip->fg;
+	power_supply_put(bms_psy);
 	rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 	if (rc < 0) {
 		pr_err("Error in restarting FG, rc=%d\n", rc);
@@ -3175,6 +3188,8 @@ static int fg_esr_fast_cal_sysfs(const char *val, const struct kernel_param *kp)
 	}
 
 	chip = power_supply_get_drvdata(bms_psy);
+	power_supply_put(bms_psy);
+
 	if (!chip)
 		return -ENODEV;
 
@@ -3612,6 +3627,19 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	struct fg_dev *fg = &chip->fg;
 	int rc;
 	u8 buf[4], val, mask;
+
+	rc = fg_read(fg, ADC_RR_INT_RT_STS(fg), &val, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			ADC_RR_INT_RT_STS(fg), rc);
+		return rc;
+	}
+	fg->battery_missing = (val & ADC_RR_BT_MISS_BIT);
+
+	if (fg->battery_missing) {
+		pr_warn("Not initializing FG because of battery missing\n");
+		return 0;
+	}
 
 	fg_encode(fg->sp, FG_SRAM_CUTOFF_VOLT, chip->dt.cutoff_volt_mv, buf);
 	rc = fg_sram_write(fg, fg->sp[FG_SRAM_CUTOFF_VOLT].addr_word,
@@ -4554,7 +4582,8 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(fg->dev, true);
-	schedule_delayed_work(&fg->profile_load_work, 0);
+	if (!fg->battery_missing)
+		schedule_delayed_work(&fg->profile_load_work, 0);
 
 	pr_debug("FG GEN4 driver probed successfully\n");
 	return 0;
