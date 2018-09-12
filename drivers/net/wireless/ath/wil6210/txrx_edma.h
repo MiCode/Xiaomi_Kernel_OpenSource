@@ -1,17 +1,6 @@
-/*
- * Copyright (c) 2012-2016,2018, The Linux Foundation. All rights reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+/* SPDX-License-Identifier: ISC */
+/* Copyright (c) 2012-2016,2018-2019, The Linux Foundation.
+ * All rights reserved.
  */
 
 #ifndef WIL6210_TXRX_EDMA_H
@@ -23,9 +12,9 @@
 #define WIL_SRING_SIZE_ORDER_MIN	(WIL_RING_SIZE_ORDER_MIN)
 #define WIL_SRING_SIZE_ORDER_MAX	(WIL_RING_SIZE_ORDER_MAX)
 /* RX sring order should be bigger than RX ring order */
-#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(11)
+#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(12)
 #define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(12)
-#define WIL_RX_BUFF_ARR_SIZE_DEFAULT (1536)
+#define WIL_RX_BUFF_ARR_SIZE_DEFAULT (2600)
 
 #define WIL_DEFAULT_RX_STATUS_RING_ID 0
 #define WIL_RX_DESC_RING_ID 0
