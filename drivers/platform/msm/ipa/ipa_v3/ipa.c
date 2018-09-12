@@ -2701,8 +2701,31 @@ int _ipa_init_sram_v3(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
+	if (ipa_get_hw_type() >= IPA_HW_v4_5) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(apps_hdr_proc_ctx_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(apps_hdr_proc_ctx_ofst));
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(nat_tbl_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(nat_tbl_ofst));
+	}
+	if (ipa_get_hw_type() >= IPA_HW_v4_0) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(pdn_config_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(pdn_config_ofst));
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(stats_quota_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(stats_quota_ofst));
+	}
+	if (ipa_get_hw_type() <= IPA_HW_v3_5 ||
+		ipa_get_hw_type() > IPA_HW_v4_0) {
+		ipa3_sram_set_canary(ipa_sram_mmio,
+			IPA_MEM_PART(modem_ofst) - 4);
+		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
+	}
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		(ipa_get_hw_type() >= IPA_HW_v3_5) ?
 			IPA_MEM_PART(uc_event_ring_ofst) :

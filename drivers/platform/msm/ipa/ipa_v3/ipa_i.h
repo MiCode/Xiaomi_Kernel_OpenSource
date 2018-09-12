@@ -1753,17 +1753,33 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |  MODEM HDR              |
  * +-------------------------+
+ * |  APPS HDR (IPA4.5)      |
+ * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
  * | MODEM PROC CTX          |
  * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
  * | APPS PROC CTX           |
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
  * |    CANARY               |
+ * +-------------------------+
+ * | NAT TABLE (IPA4.5)      |
+ * +-------------------------+
+ * | NAT IDX TABLE (IPA4.5)  |
+ * +-------------------------+
+ * | NAT EXP TABLE (IPA4.5)  |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
  * +-------------------------+
  * | PDN CONFIG              |
  * +-------------------------+
@@ -1773,57 +1789,27 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * | QUOTA STATS             |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
  * | TETH STATS              |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 FLT STATS            |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V4 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * | V6 RT STATS             |
- * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |    CANARY               |
+ * | FnR STATS               |
  * +-------------------------+
  * | DROP STATS              |
  * +-------------------------+
- * |    CANARY               |
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | MODEM MEM               |
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
- * |  MODEM MEM              |
+ * |    Dummy (IPA4.5)       |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
- * |  UC EVENT RING          | From IPA 3.5
+ * | UC EVENT RING (IPA3.5)  |
  * +-------------------------+
  */
 struct ipa3_mem_partition {
 	u32 ofst_start;
-	u32 nat_ofst;
-	u32 nat_size;
 	u32 v4_flt_hash_ofst;
 	u32 v4_flt_hash_size;
 	u32 v4_flt_hash_size_ddr;
@@ -1868,6 +1854,12 @@ struct ipa3_mem_partition {
 	u32 apps_hdr_proc_ctx_ofst;
 	u32 apps_hdr_proc_ctx_size;
 	u32 apps_hdr_proc_ctx_size_ddr;
+	u32 nat_tbl_ofst;
+	u32 nat_tbl_size;
+	u32 nat_index_tbl_ofst;
+	u32 nat_index_tbl_size;
+	u32 nat_exp_tbl_ofst;
+	u32 nat_exp_tbl_size;
 	u32 modem_comp_decomp_ofst;
 	u32 modem_comp_decomp_size;
 	u32 modem_ofst;
@@ -1899,6 +1891,10 @@ struct ipa3_mem_partition {
 	u32 stats_quota_size;
 	u32 stats_tethering_ofst;
 	u32 stats_tethering_size;
+	u32 stats_fnr_ofst;
+	u32 stats_fnr_size;
+
+	/* Irrelevant starting IPA4.5 */
 	u32 stats_flt_v4_ofst;
 	u32 stats_flt_v4_size;
 	u32 stats_flt_v6_ofst;
@@ -1907,6 +1903,7 @@ struct ipa3_mem_partition {
 	u32 stats_rt_v4_size;
 	u32 stats_rt_v6_ofst;
 	u32 stats_rt_v6_size;
+
 	u32 stats_drop_ofst;
 	u32 stats_drop_size;
 };
