@@ -66,6 +66,8 @@
 #define RSC_PDC_DRV_DATA		0x38
 #define RSC_PDC_DATA_OFFSET		0x08
 
+bool rpmh_standalone;
+
 static u32 read_tcs_reg(struct rsc_drv *drv, int reg, int tcs_id, int cmd_id)
 {
 	return readl_relaxed(drv->tcs_base + reg + RSC_DRV_TCS_OFFSET * tcs_id +
@@ -807,6 +809,8 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 									ret);
 		return ret;
 	}
+
+	rpmh_standalone = (cmd_db_is_standalone() == 1);
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)

@@ -110,6 +110,8 @@ struct rsc_drv {
 	int irq;
 };
 
+extern bool rpmh_standalone;
+
 int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg);
 int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv,
 			     const struct tcs_request *msg);

@@ -279,6 +279,9 @@ int rpmh_write_async(const struct device *dev, enum rpmh_state state,
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	int ret;
 
+	if (rpmh_standalone)
+		return 0;
+
 	ret = check_ctrlr_state(ctrlr, state);
 	if (ret)
 		return ret;
@@ -318,6 +321,9 @@ int rpmh_write(const struct device *dev, enum rpmh_state state,
 
 	if (!cmd || !n || n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
 
 	ret = check_ctrlr_state(ctrlr, state);
 	if (ret)
@@ -416,6 +422,9 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 	if (!cmd || !n)
 		return -EINVAL;
 
+	if (rpmh_standalone)
+		return 0;
+
 	ret = check_ctrlr_state(ctrlr, state);
 	if (ret)
 		return ret;
@@ -496,6 +505,9 @@ int rpmh_write_pdc_data(const struct device *dev,
 	if (!n || n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
 
+	if (rpmh_standalone)
+		return 0;
+
 	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
 	rpm_msg.msg.num_cmds = n;
 	rpm_msg.msg.wait_for_compl = false;
@@ -544,6 +556,9 @@ int rpmh_flush(const struct device *dev)
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	int ret;
 
+	if (rpmh_standalone)
+		return 0;
+
 	if (!ctrlr->dirty) {
 		pr_debug("Skipping flush, TCS has latest data.\n");
 		return 0;
@@ -591,6 +606,9 @@ int rpmh_invalidate(const struct device *dev)
 {
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	int ret;
+
+	if (rpmh_standalone)
+		return 0;
 
 	invalidate_batch(ctrlr);
 	ctrlr->dirty = true;
