@@ -43,6 +43,9 @@
 #define SDE_MAX_DE_CURVES		3
 #endif
 
+#define MAX_DSI_DISPLAYS		2
+#define MAX_DATA_PATH_PER_DSIPLAY	2
+
 enum sde_format_flags {
 	SDE_FORMAT_FLAG_YUV_BIT,
 	SDE_FORMAT_FLAG_DX_BIT,
@@ -549,65 +552,75 @@ struct sde_hw_dim_layer {
 };
 
 /**
- * struct sde_splash_lm_hw - Struct contains LM block properties
- * @lm_id:	stores the current LM ID
- * @ctl_id:	stores the current CTL ID associated with the LM.
- * @lm_reg_value:Store the LM block register value
+ * struct sde_splash_mem - Struct contains splah memory info
+ * @splash_buf_size: Indicates the size of the memory region
+ * @splash_buf_base: Address of specific splash memory region
+ * @ramdump_size: Size of ramdump buffer region
+ * @ramdump_base: Address of ramdump region reserved by bootloader
+ * @ref_cnt:	Tracks the map count to help in sharing splash memory
  */
-struct sde_splash_lm_hw {
-	u8 lm_id;
-	u8 ctl_id;
-	u32 lm_reg_value;
+struct sde_splash_mem {
+	u32 splash_buf_size;
+	unsigned long splash_buf_base;
+	u32 ramdump_size;
+	unsigned long ramdump_base;
+	u32 ref_cnt;
 };
 
 /**
- * struct ctl_top - Struct contains CTL block properties
- * @intf_sel:	stores the intf selected in the CTL block
- * @lm:		Pointer to store the list of LMs in the CTL block
- * @ctl_lm_cnt:	stores the active number of MDSS "LM" blocks in the CTL block
+ * struct sde_sspp_index_info - Struct containing sspp identifier info
+ * @sspp:	Enum value indicates sspp id
+ * @is_virtual: Boolean to identify if virtual or base
  */
-struct ctl_top {
-	u8 intf_sel;
-	struct sde_splash_lm_hw lm[LM_MAX - LM_0];
-	u8 ctl_lm_cnt;
+struct sde_sspp_index_info {
+	enum sde_sspp sspp;
+	bool is_virtual;
+};
+
+/**
+ * struct sde_splash_data - Struct contains details of resources and hw blocks
+ * used in continuous splash on a specific display.
+ * @cont_splash_enabled:  Stores the cont_splash status (enabled/disabled)
+ * @single_flush_en: Stores if the single flush is enabled
+ * @encoder:	Pointer to the drm encoder object used for this display
+ * @splash:     Pointer to struct sde_splash_mem used for this display
+ * @ctl_ids:	Stores the valid MDSS ctl block ids for the current mode
+ * @lm_ids:	Stores the valid MDSS layer mixer block ids for the current mode
+ * @dsc_ids:	Stores the valid MDSS DSC block ids for the current mode
+ * @pipes:      Array of sspp info detected on this display
+ * @ctl_cnt:    Stores the active number of MDSS "top" blks of the current mode
+ * @lm_cnt:	Stores the active number of MDSS "LM" blks for the current mode
+ * @dsc_cnt:	Stores the active number of MDSS "dsc" blks for the current mode
+ * @pipe_cnt:	Stores the active number of "sspp" blks connected
+ */
+struct sde_splash_display {
+	bool cont_splash_enabled;
+	bool single_flush_en;
+	struct drm_encoder *encoder;
+	struct sde_splash_mem *splash;
+	u8 ctl_ids[MAX_DATA_PATH_PER_DSIPLAY];
+	u8 lm_ids[MAX_DATA_PATH_PER_DSIPLAY];
+	u8 dsc_ids[MAX_DATA_PATH_PER_DSIPLAY];
+	struct sde_sspp_index_info pipes[MAX_DATA_PATH_PER_DSIPLAY];
+	u8 ctl_cnt;
+	u8 lm_cnt;
+	u8 dsc_cnt;
+	u8 pipe_cnt;
 };
 
 /**
  * struct sde_splash_data - Struct contains details of continuous splash
- *	memory region and initial pipeline configuration.
- * @resource_handoff_pending: boolean to notify boot up resource handoff
- *			is pending.
- * @splash_base:	Base address of continuous splash region reserved
- *                      by bootloader
- * @splash_size:	Size of continuous splash region
- * @ramdump_base:	Base address of ramdump display region reserved
- *                      by bootloader
- * @ramdump_size:	Size of ramdump buffer region
- * @top:	struct ctl_top objects
- * @ctl_ids:	stores the valid MDSS ctl block ids for the current mode
- * @lm_ids:	stores the valid MDSS layer mixer block ids for the current mode
- * @dsc_ids:	stores the valid MDSS DSC block ids for the current mode
- * @ctl_top_cnt:stores the active number of MDSS "top" blks of the current mode
- * @lm_cnt:	stores the active number of MDSS "LM" blks for the current mode
- * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
- * @cont_splash_en:	Stores the cont_splash status (enabled/disabled)
- * @single_flush_en: Stores if the single flush is enabled.
+ *	for all the displays connected by probe time
+ * @num_splash_regions:  Indicates number of splash memory regions from dtsi
+ * @num_splash_displays: Indicates count of active displays in continuous splash
+ * @splash_mem:          Array of all struct sde_splash_mem listed from dtsi
+ * @splash_display:      Array of all struct sde_splash_display
  */
 struct sde_splash_data {
-	bool resource_handoff_pending;
-	unsigned long splash_base;
-	u32 splash_size;
-	unsigned long ramdump_base;
-	u32 ramdump_size;
-	struct ctl_top top[CTL_MAX - CTL_0];
-	u8 ctl_ids[CTL_MAX - CTL_0];
-	u8 lm_ids[LM_MAX - LM_0];
-	u8 dsc_ids[DSC_MAX - DSC_0];
-	u8 ctl_top_cnt;
-	u8 lm_cnt;
-	u8 dsc_cnt;
-	bool cont_splash_en;
-	bool single_flush_en;
+	u32 num_splash_regions;
+	u32 num_splash_displays;
+	struct sde_splash_mem splash_mem[MAX_DSI_DISPLAYS];
+	struct sde_splash_display splash_display[MAX_DSI_DISPLAYS];
 };
 
 /**

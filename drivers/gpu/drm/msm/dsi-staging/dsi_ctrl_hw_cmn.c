@@ -485,18 +485,20 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
 }
 
-void dsi_ctrl_hw_cmn_debug_bus(struct dsi_ctrl_hw *ctrl)
+void dsi_ctrl_hw_cmn_debug_bus(struct dsi_ctrl_hw *ctrl, u32 *entries, u32 size)
 {
-	u32 reg = 0;
+	u32 reg = 0, i = 0;
 
-	DSI_W32(ctrl, DSI_DEBUG_BUS_CTL, 0x181);
-
-	/* make sure that debug test point is enabled */
-	wmb();
-	reg = DSI_R32(ctrl, DSI_DEBUG_BUS_STATUS);
-
-	pr_err("[DSI_%d] debug bus status:0x%x\n", ctrl->index, reg);
+	for (i = 0; i < size; i++) {
+		DSI_W32(ctrl, DSI_DEBUG_BUS_CTL, entries[i]);
+		/* make sure that debug test point is enabled */
+		wmb();
+		reg = DSI_R32(ctrl, DSI_DEBUG_BUS_STATUS);
+		pr_err("[DSI_%d] debug bus ctrl: 0x%x status:0x%x\n",
+				ctrl->index, entries[i], reg);
+	}
 }
+
 /**
  * cmd_engine_setup() - setup dsi host controller for command mode
  * @ctrl:          Pointer to the controller host hardware.

@@ -246,7 +246,9 @@ struct dp_hpd *dp_gpio_hpd_get(struct device *dev,
 
 	gpio_hpd->base.simulate_connect = dp_gpio_hpd_simulate_connect;
 	gpio_hpd->base.simulate_attention = dp_gpio_hpd_simulate_attention;
-	gpio_hpd->base.hpd_high = gpio_hpd->hpd;
+
+	if (gpio_hpd->hpd)
+		queue_delayed_work(system_wq, &gpio_hpd->work, 0);
 
 	return &gpio_hpd->base;
 
