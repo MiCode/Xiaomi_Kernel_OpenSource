@@ -479,6 +479,7 @@
 		qcom,cdc-mad-dmic-rate = <600000>;
 
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+		qcom,vreg-micb-supply = <&BOB>;
 
 		tavil_spi_0: wcd_spi {
 			compatible = "qcom,wcd-spi-v2";
