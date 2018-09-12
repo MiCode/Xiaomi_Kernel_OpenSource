@@ -2418,8 +2418,13 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 		if (alt == 0 && ((gsi->d_port.in_ep &&
 				!gsi->d_port.in_ep->driver_data) ||
 				(gsi->d_port.out_ep &&
-				!gsi->d_port.out_ep->driver_data)))
+				!gsi->d_port.out_ep->driver_data))) {
 			ipa_disconnect_handler(&gsi->d_port);
+			post_event(&gsi->d_port, EVT_DISCONNECTED);
+			queue_work(gsi->d_port.ipa_usb_wq,
+				&gsi->d_port.usb_ipa_w);
+			log_event_dbg("%s: Disconnecting\n", __func__);
+		}
 
 		gsi->data_interface_up = alt;
 		log_event_dbg("DATA_INTERFACE id = %d, status = %d",
@@ -2506,11 +2511,11 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
-	/*
-	 * GPS doesn't use any data interface, hence bail out as there is no
-	 * GSI specific handling needed.
+	/* For functions such as MBIM that support alternate data
+	 * interface, suspend/resume handling becomes a no-op if the
+	 * data interface is not selected.
 	 */
-	if (gsi->prot_id == USB_PROT_GPS_CTRL) {
+	if (!gsi->data_interface_up) {
 		log_event_dbg("%s: suspend done\n", __func__);
 		usb_gsi_check_pending_wakeup(f);
 		return;
@@ -2550,7 +2555,7 @@ static void gsi_resume(struct usb_function *f)
 	/* Check any pending cpkt, and queue immediately on resume */
 	gsi_ctrl_send_notification(gsi);
 
-	if (gsi->prot_id == USB_PROT_GPS_CTRL) {
+	if (!gsi->data_interface_up) {
 		log_event_dbg("%s: resume done\n", __func__);
 		return;
 	}
