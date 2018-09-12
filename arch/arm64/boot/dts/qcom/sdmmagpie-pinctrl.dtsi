@@ -13,7 +13,8 @@
 &soc {
 	tlmm: pinctrl@3400000 {
 		compatible = "qcom,sdmmagpie-pinctrl";
-		reg = <0x03400000 0xdc2000>;
+		reg = <0x03400000 0xdc2000>, <0x17c000f0 0x60>;
+		reg-names = "pinctrl", "spi_cfg";
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
