@@ -23,6 +23,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
 #include <linux/clk.h>
+#include <linux/extcon.h>
 #include <linux/reset.h>
 
 enum ldo_levels {
@@ -133,6 +134,8 @@ struct msm_ssphy_qmp {
 	struct reset_control	*phy_reset;
 	struct reset_control	*phy_phy_reset;
 	struct reset_control	*global_phy_reset;
+	struct extcon_dev	*extcon_dp;
+	struct notifier_block	dp_nb;
 	bool			power_enabled;
 	bool			clk_enabled;
 	bool			cable_connected;
@@ -377,6 +380,17 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 	switch (phy->phy.type) {
 	case USB_PHY_TYPE_USB3_AND_DP:
 		/* override hardware control for reset of qmp phy */
+		if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
+			if (val > 0) {
+				dev_dbg(phy->phy.dev,
+					"USB QMP PHY: Update TYPEC CTRL(%d)\n",
+					val);
+				writel_relaxed(val, phy->base +
+				 phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
+			}
+			break;
+		}
+
 		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
 			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
 			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
@@ -485,7 +499,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	}
 
 	/* perform software reset of PHY common logic */
-	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP)
+	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP &&
+				!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
 		writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
@@ -522,6 +537,25 @@ static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
 	int ret = 0;
+
+	if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
+		dev_dbg(uphy->dev, "Resetting USB part of QMP phy\n");
+
+		/* Assert USB3 PHY CSR reset */
+		ret = reset_control_assert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset assert failed\n");
+			goto exit;
+		}
+
+		/* Deassert USB3 PHY CSR reset */
+		ret = reset_control_deassert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset deassert failed\n");
+			goto exit;
+		}
+		return 0;
+	}
 
 	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
 	/* Assert global PHY reset */
@@ -713,6 +747,49 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
 	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
 	phy->cable_connected = false;
+	return 0;
+}
+
+static int msm_ssphy_qmp_dp_notifier(struct notifier_block *nb,
+		unsigned long dp_lane, void *ptr)
+{
+	struct msm_ssphy_qmp *phy = container_of(nb,
+			struct msm_ssphy_qmp, dp_nb);
+
+	if (dp_lane == 2 || dp_lane == 4)
+		phy->phy.flags |= PHY_USB_DP_CONCURRENT_MODE;
+	else
+		phy->phy.flags &= ~PHY_USB_DP_CONCURRENT_MODE;
+
+	return 0;
+
+}
+
+static int msm_ssphy_qmp_extcon_register(struct msm_ssphy_qmp *phy,
+				struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	struct extcon_dev *edev;
+	int ret = 0;
+
+	if (!of_property_read_bool(node, "extcon"))
+		return 0;
+
+	edev = extcon_get_edev_by_phandle(dev, 0);
+	if (IS_ERR(edev)) {
+		dev_err(dev, "failed to get phandle for msm_ssphy_qmp\n");
+		return PTR_ERR(edev);
+	}
+
+	phy->extcon_dp = edev;
+	phy->dp_nb.notifier_call = msm_ssphy_qmp_dp_notifier;
+	ret = extcon_register_blocking_notifier(edev, EXTCON_DISP_DP,
+								&phy->dp_nb);
+	if (ret < 0) {
+		dev_err(dev, "failed to register blocking notifier\n");
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -1064,6 +1141,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		phy->phy.reset		= msm_ssphy_qmp_dp_combo_reset;
 	else
 		phy->phy.reset		= msm_ssphy_qmp_reset;
+
+	ret = msm_ssphy_qmp_extcon_register(phy, dev);
+	if (ret)
+		goto err;
 
 	ret = usb_add_phy_dev(&phy->phy);
 
