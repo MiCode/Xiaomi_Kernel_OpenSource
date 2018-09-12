@@ -2720,6 +2720,7 @@ static struct clk_branch gcc_ufs_phy_phy_aux_hw_ctl_clk = {
 };
 
 static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
+	.halt_reg = 0x7701c,
 	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x7701c,
@@ -2732,6 +2733,7 @@ static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
 };
 
 static struct clk_branch gcc_ufs_phy_tx_symbol_0_clk = {
+	.halt_reg = 0x77018,
 	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x77018,
