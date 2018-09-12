@@ -60,8 +60,9 @@ static inline const char *hdcp2_app_cmd_str(enum hdcp2_app_cmd cmd)
 void *hdcp1_init(void);
 void hdcp1_deinit(void *data);
 bool hdcp1_feature_supported(void *data);
-int hdcp1_set_keys(void *data, uint32_t *aksv_msb, uint32_t *aksv_lsb);
+int hdcp1_start(void *data, u32 *aksv_msb, u32 *aksv_lsb);
 int hdcp1_set_enc(void *data, bool enable);
+void hdcp1_stop(void *data);
 
 void *hdcp2_init(u32 device_type);
 void hdcp2_deinit(void *ctx);
@@ -84,8 +85,7 @@ static inline bool hdcp1_feature_supported(void *data)
 	return false;
 }
 
-static inline int hdcp1_set_keys(void *data, uint32_t *aksv_msb,
-		uint32_t *aksv_lsb)
+static inline int hdcp1_start(void *data, u32 *aksv_msb, u32 *aksv_lsb)
 {
 	return 0;
 }
@@ -93,6 +93,10 @@ static inline int hdcp1_set_keys(void *data, uint32_t *aksv_msb,
 static inline int hdcp1_set_enc(void *data, bool enable)
 {
 	return 0;
+}
+
+static inline void hdcp1_stop(void *data)
+{
 }
 
 static inline void *hdcp2_init(u32 device_type)
