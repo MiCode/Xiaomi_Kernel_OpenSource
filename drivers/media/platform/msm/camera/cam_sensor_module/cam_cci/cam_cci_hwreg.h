@@ -56,15 +56,17 @@
 #define CCI_IRQ_STATUS_0_I2C_M1_Q0_REPORT_BMSK                         0x10000
 #define CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK                            0x1000
 #define CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD                          0x100000
+#define CCI_IRQ_STATUS_1_I2C_M1_RD_PAUSE                              0x200000
 #define CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK                           0x100
 #define CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK                            0x10
 #define CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK                          0x18000EE6
 #define CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK                          0x60EE6000
 #define CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK                               0x1
 #define CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD                           0x10000
+#define CCI_IRQ_STATUS_1_I2C_M0_RD_PAUSE                               0x20000
 #define CCI_I2C_M0_RD_THRESHOLD_ADDR                                0x00000120
 #define CCI_I2C_M1_RD_THRESHOLD_ADDR                                0x00000220
-#define CCI_I2C_RD_THRESHOLD_VALUE                                        0x38
+#define CCI_I2C_RD_THRESHOLD_VALUE                                        0x30
 #define CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR                               0x00000c00
 
 #define DEBUG_TOP_REG_START                                                0x0
