@@ -4574,8 +4574,8 @@ static int cam_icp_mgr_create_wq(void)
 	if (rc)
 		goto debugfs_create_failed;
 
-	icp_hw_mgr.icp_pc_flag = false;
-	icp_hw_mgr.ipe_bps_pc_flag = false;
+	icp_hw_mgr.icp_pc_flag = true;
+	icp_hw_mgr.ipe_bps_pc_flag = true;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
