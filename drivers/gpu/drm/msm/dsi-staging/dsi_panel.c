@@ -1771,6 +1771,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 
 	panel->sync_broadcast_en = utils->read_bool(utils->data,
 			"qcom,cmd-sync-wait-broadcast");
+
+	panel->lp11_init = utils->read_bool(utils->data,
+			"qcom,mdss-dsi-lp11-init");
 	return 0;
 }
 
@@ -3781,14 +3784,6 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 		goto error;
 	}
 
-	if (panel->lp11_init) {
-		rc = dsi_panel_power_off(panel);
-		if (rc) {
-			pr_err("[%s] panel power_Off failed, rc=%d\n",
-			       panel->name, rc);
-			goto error;
-		}
-	}
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -3805,13 +3800,11 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	if (!panel->lp11_init) {
-		rc = dsi_panel_power_off(panel);
-		if (rc) {
-			pr_err("[%s] panel power_Off failed, rc=%d\n",
-			       panel->name, rc);
-			goto error;
-		}
+	rc = dsi_panel_power_off(panel);
+	if (rc) {
+		pr_err("[%s] panel power_Off failed, rc=%d\n",
+		       panel->name, rc);
+		goto error;
 	}
 error:
 	mutex_unlock(&panel->panel_lock);
