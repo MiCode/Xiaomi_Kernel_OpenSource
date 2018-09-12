@@ -2969,7 +2969,7 @@
 			compatible = "qcom,qcedev,context-bank";
 			label = "secure_context";
 			iommus = <&apps_smmu 0x513 0>;
-			virtual-addr = <0x60200000>;
+			virtual-addr = <0xa0000000>;
 			virtual-size = <0x40000000>;
 			qcom,secure-context-bank;
 		};
