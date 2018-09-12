@@ -802,6 +802,9 @@ void clk_hw_reparent(struct clk_hw *hw, struct clk_hw *new_parent);
 void clk_hw_set_rate_range(struct clk_hw *hw, unsigned long min_rate,
 			   unsigned long max_rate);
 
+unsigned long clk_aggregate_rate(struct clk_hw *hw,
+					const struct clk_core *parent);
+
 static inline void __clk_hw_set_clk(struct clk_hw *dst, struct clk_hw *src)
 {
 	dst->clk = src->clk;

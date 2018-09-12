@@ -522,6 +522,26 @@ void clk_hw_set_rate_range(struct clk_hw *hw, unsigned long min_rate,
 EXPORT_SYMBOL_GPL(clk_hw_set_rate_range);
 
 /*
+ * Aggregate the rate of all the enabled child nodes and exclude that
+ * of the child node for which this request was made.
+ */
+unsigned long clk_aggregate_rate(struct clk_hw *hw,
+					const struct clk_core *parent)
+{
+	struct clk_core *child;
+	unsigned long aggre_rate = 0;
+
+	hlist_for_each_entry(child, &parent->children, child_node) {
+		if (child->enable_count &&
+				strcmp(child->name, hw->init->name))
+			aggre_rate = max(child->rate, aggre_rate);
+	}
+
+	return aggre_rate;
+}
+EXPORT_SYMBOL_GPL(clk_aggregate_rate);
+
+/*
  * Helper for finding best parent to provide a given frequency. This can be used
  * directly as a determine_rate callback (e.g. for a mux), or from a more
  * complex clock that may combine a mux with other operations.
