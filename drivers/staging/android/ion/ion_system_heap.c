@@ -329,7 +329,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 
 err_free_sg2:
 	/* We failed to zero buffers. Bypass pool */
-	buffer->flags |= ION_PRIV_FLAG_SHRINKER_FREE;
+	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
 		ion_system_secure_heap_unassign_sg(table, vmid);
