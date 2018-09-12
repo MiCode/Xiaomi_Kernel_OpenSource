@@ -57,6 +57,11 @@ static int qcedev_setup_context_bank(struct context_bank_info *cb,
 			goto release_mapping;
 		}
 	}
+	if (!dev->dma_parms)
+		dev->dma_parms = devm_kzalloc(dev,
+				sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
 
 	rc = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (rc) {
