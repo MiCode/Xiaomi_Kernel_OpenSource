@@ -4423,7 +4423,7 @@ static void dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 		dbg_log_string("stop_device_mode completed");
 }
 
-int dwc3_msm_release_ss_lane(struct device *dev)
+int dwc3_msm_release_ss_lane(struct device *dev, bool usb_dp_concurrent_mode)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = NULL;
@@ -4437,6 +4437,16 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 	if (dwc == NULL) {
 		dev_err(dev, "dwc3 controller is not initialized yet.\n");
 		return -EAGAIN;
+	}
+
+	/*
+	 * If the MPA connected is multi_func capable set the flag assuming
+	 * that USB and DP is operating in concurrent mode and bail out early.
+	 */
+	if (usb_dp_concurrent_mode) {
+		mdwc->ss_phy->flags |= PHY_USB_DP_CONCURRENT_MODE;
+		dbg_event(0xFF, "USB_DP_CONCURRENT_MODE", 1);
+		return 0;
 	}
 
 	dbg_event(0xFF, "ss_lane_release", 0);
@@ -5244,6 +5254,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 					USB_SPEED_SUPER);
 			usb_phy_notify_disconnect(mdwc->ss_phy,
 					USB_SPEED_SUPER);
+			mdwc->ss_phy->flags &= ~PHY_USB_DP_CONCURRENT_MODE;
 		}
 		redriver_notify_disconnect(mdwc->ss_redriver_node);
 
@@ -5365,6 +5376,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
 		redriver_notify_disconnect(mdwc->ss_redriver_node);
+		mdwc->ss_phy->flags &= ~PHY_USB_DP_CONCURRENT_MODE;
 		dwc3_override_vbus_status(mdwc, false);
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 0);
