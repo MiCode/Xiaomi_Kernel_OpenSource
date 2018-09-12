@@ -1003,8 +1003,10 @@ static int pl_disable_vote_callback(struct votable *votable,
 	chip->fcc_stepper_enable = pval.intval;
 	pr_debug("FCC Stepper %s\n", pval.intval ? "enabled" : "disabled");
 
-	if (chip->fcc_stepper_enable)
+	if (chip->fcc_stepper_enable) {
 		cancel_delayed_work_sync(&chip->fcc_stepper_work);
+		vote(chip->pl_awake_votable, FCC_STEPPER_VOTER, false, 0);
+	}
 
 	total_fcc_ua = get_effective_result_locked(chip->fcc_votable);
 
@@ -1042,13 +1044,14 @@ static int pl_disable_vote_callback(struct votable *votable,
 				&slave_fcc_ua);
 
 		if (chip->fcc_stepper_enable) {
-			vote(chip->pl_awake_votable, FCC_STEPPER_VOTER,
-					true, 0);
 			get_fcc_stepper_params(chip, master_fcc_ua,
 					slave_fcc_ua);
-			if (chip->step_fcc)
+			if (chip->step_fcc) {
+				vote(chip->pl_awake_votable, FCC_STEPPER_VOTER,
+					true, 0);
 				schedule_delayed_work(&chip->fcc_stepper_work,
 					0);
+			}
 		} else {
 			/*
 			 * If there is an increase in slave share
@@ -1174,12 +1177,13 @@ static int pl_disable_vote_callback(struct votable *votable,
 			chip->total_settled_ua = 0;
 			chip->pl_settled_ua = 0;
 		} else {
-			vote(chip->pl_awake_votable, FCC_STEPPER_VOTER,
-					true, 0);
 			get_fcc_stepper_params(chip, total_fcc_ua, 0);
-			if (chip->step_fcc)
+			if (chip->step_fcc) {
+				vote(chip->pl_awake_votable, FCC_STEPPER_VOTER,
+					true, 0);
 				schedule_delayed_work(&chip->fcc_stepper_work,
 					0);
+			}
 		}
 
 		rerun_election(chip->fv_votable);
