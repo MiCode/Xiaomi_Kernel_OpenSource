@@ -34,8 +34,6 @@ config PFK_WRAPPED_KEY_SUPPORTED
 	default n
 	help
 		Adds wrapped key support in PFK driver. Instead of setting
-		the key directly from vold, it unwraps the key in a secure
-		environment and sets the key in ICE. This is because the key
-		is not directly available in HLOS and needs to be unwrapped
-		in a secure environment.
+		the key directly in ICE, it unwraps the key and sets the key
+		in ICE.
 endmenu

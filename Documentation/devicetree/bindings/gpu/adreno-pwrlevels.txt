@@ -2,7 +2,7 @@ Qualcomm Technologies, Inc. GPU powerlevels
 
 Powerlevels are defined in sets by qcom,gpu-pwrlevels. Multiple sets (bins)
 can be defined within qcom,gpu-pwrelvel-bins. Each powerlevel defines a
-voltage, bus, and bandwitdh level.
+voltage, bus, bandwidth level, and a DVM value.
 
 - qcom,gpu-pwrlevel-bins:	Contains one or more qcom,gpu-pwrlevels sets
 
@@ -28,3 +28,8 @@ Properties:
 				settings)
 - qcom,bus-min			Minimum bus level to set for the power level
 - qcom,bus-max			maximum bus level to set for the power level
+- qcom,dvm-val:			Value that is used as a register setting for
+				the ACD power feature. It helps determine the
+				threshold for when ACD activates. 0xFFFFFFFF
+				is the default value, and the setting where
+				ACD will never activate.

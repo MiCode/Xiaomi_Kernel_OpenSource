@@ -17,6 +17,7 @@
 #endif
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
+#include <linux/pfk.h>
 
 /* Encryption parameters */
 #define FS_IV_SIZE			16
@@ -61,11 +62,18 @@ struct fscrypt_symlink_data {
 	char encrypted_path[1];
 } __packed;
 
+enum ci_mode_info {
+	CI_NONE_MODE = 0,
+	CI_DATA_MODE,
+	CI_FNAME_MODE,
+};
+
 /*
  * A pointer to this structure is stored in the file system's in-core
  * representation of an inode.
  */
 struct fscrypt_info {
+	u8 ci_mode;
 	u8 ci_data_mode;
 	u8 ci_filename_mode;
 	u8 ci_flags;
@@ -105,11 +113,11 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 	return false;
 }
 
-static inline bool is_private_mode(struct fscrypt_info *ci)
+static inline bool is_private_data_mode(struct fscrypt_info *ci)
 {
-	return  ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
+	return ci->ci_mode == CI_DATA_MODE &&
+		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
 }
-
 
 /* crypto.c */
 extern struct kmem_cache *fscrypt_info_cachep;

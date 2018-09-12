@@ -158,10 +158,6 @@ static struct clk_rcg2 video_cc_xo_clk_src = {
 		.parent_names = video_cc_parent_names_2,
 		.num_parents = 2,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000},
 	},
 };
 

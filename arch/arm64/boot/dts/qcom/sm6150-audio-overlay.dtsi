@@ -32,7 +32,7 @@
 		clocks = <&clock_audio_tx_1 0>,
 			 <&clock_audio_tx_2 0>;
 		qcom,tx-swr-gpios = <&tx_swr_gpios>;
-		qcom,tx-dmic-sample-rate = <4800000>;
+		qcom,tx-dmic-sample-rate = <2400000>;
 		swr_2: tx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -136,7 +136,13 @@
 		"IN3_AUX", "AUX_OUT",
 		"TX SWR_ADC0", "ADC1_OUTPUT",
 		"TX SWR_ADC2", "ADC2_OUTPUT",
-		"TX SWR_ADC3", "ADC3_OUTPUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
 		"SpkrLeft IN", "WSA_SPK1 OUT",
 		"SpkrRight IN", "WSA_SPK2 OUT",
 		"WSA_SPK1 OUT", "VA_MCLK",
@@ -361,10 +367,12 @@
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&wcd934x_mclk_default>;
 		pinctrl-1 = <&wcd934x_mclk_default>;
+		qcom,use-pinctrl = <1>;
 		qcom,audio-ref-clk-gpio = <&pm6150_gpios 8 0>;
 		clock-names = "osr_clk";
 		clocks = <&pm6150_clkdiv>;
 		qcom,node_has_rpm_clock;
+		pmic-clock-names = "pm6150_div_clk1";
 		#clock-cells = <1>;
 	};
 

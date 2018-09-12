@@ -43,6 +43,12 @@ Optional properties:
 			Ex. "base", "domain-addr", "sw-reset", "hw-ctrl-addr".
  - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC
 			is disabled.
+ - qcom,skip-disable:	Boolean flag indicating that the GDSC must not be
+			physically disabled upon a software disable request.
+			Instead, the GDSC will be disabled by the always-on
+			processor (AOP) upon entering system sleep.  The AOP
+			will also perform a special reset sequence for the GDSC
+			upon resuming from system sleep.
  - qcom,disallow-clear: Presence denotes the periph & core memory will not be
 			cleared, unless the required subsystem does not invoke
 			the api which will allow clearing the bits.

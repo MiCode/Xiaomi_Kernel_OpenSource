@@ -257,12 +257,18 @@ static int mhi_system_resume(struct device *dev)
 int mhi_system_suspend(struct device *dev)
 {
 	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+	int ret;
 
 	MHI_LOG("Entered\n");
 
 	/* if rpm status still active then force suspend */
-	if (!pm_runtime_status_suspended(dev))
-		return mhi_runtime_suspend(dev);
+	if (!pm_runtime_status_suspended(dev)) {
+		ret = mhi_runtime_suspend(dev);
+		if (ret) {
+			MHI_LOG("suspend failed ret:%d\n", ret);
+			return ret;
+		}
+	}
 
 	pm_runtime_set_suspended(dev);
 	pm_runtime_disable(dev);

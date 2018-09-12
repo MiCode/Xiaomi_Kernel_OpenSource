@@ -976,7 +976,7 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 }
 
 /* Wait for any pending TLB invalidations to complete */
-static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
+static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 				void __iomem *sync, void __iomem *status)
 {
 	unsigned int spin_cnt, delay;
@@ -985,7 +985,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
 		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
 			if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
-				return;
+				return 0;
 			cpu_relax();
 		}
 		udelay(delay);
@@ -993,6 +993,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked\n");
+	return -EINVAL;
 }
 
 static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
@@ -1001,8 +1002,10 @@ static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu->global_sync_lock, flags);
-	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
-			    base + ARM_SMMU_GR0_sTLBGSTATUS);
+	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
+					base + ARM_SMMU_GR0_sTLBGSTATUS))
+		dev_err_ratelimited(smmu->dev,
+				    "TLB global sync failed!\n");
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 }
 
@@ -1014,8 +1017,12 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
-	__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
-			    base + ARM_SMMU_CB_TLBSTATUS);
+	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
+					base + ARM_SMMU_CB_TLBSTATUS))
+		dev_err_ratelimited(smmu->dev,
+				"TLB sync on cb%d failed for device %s\n",
+				smmu_domain->cfg.cbndx,
+				dev_name(smmu_domain->dev));
 	spin_unlock_irqrestore(&smmu_domain->sync_lock, flags);
 }
 
@@ -1634,6 +1641,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
 	}
+
+	if (attributes & (1 << DOMAIN_ATTR_NO_CFRE))
+		reg &= ~SCTLR_CFRE;
 
 	if ((!(attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) || !stage1)
@@ -3201,6 +3211,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_NO_CFRE));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN:
 		*((int *)data) = smmu_domain->qsmmuv500_errata1_min_iova_align;
 		ret = 0;
@@ -3415,6 +3430,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_NO_CFRE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_NO_CFRE;
 		ret = 0;
 		break;
 	default:
@@ -4957,6 +4978,12 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 	unsigned long flags;
 	u32 halt, fsr, sctlr_orig, sctlr, status;
 	void __iomem *base, *cb_base;
+
+	if (of_property_read_bool(tbu->dev->of_node,
+						"qcom,opt-out-tbu-halting")) {
+		dev_notice(tbu->dev, "TBU opted-out for halting!\n");
+		return -EBUSY;
+	}
 
 	spin_lock_irqsave(&tbu->halt_lock, flags);
 	if (tbu->halt_count) {

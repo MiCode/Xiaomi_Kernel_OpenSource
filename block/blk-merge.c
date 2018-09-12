@@ -7,9 +7,9 @@
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/scatterlist.h>
-#include <linux/pfk.h>
-#include <trace/events/block.h>
 
+#include <trace/events/block.h>
+#include <linux/pfk.h>
 #include "blk.h"
 
 static struct bio *blk_bio_discard_split(struct request_queue *q,
@@ -705,6 +705,7 @@ static struct request *attempt_merge(struct request_queue *q,
 
 	if (crypto_not_mergeable(req->bio, next->bio))
 		return 0;
+
 	/*
 	 * If we are allowed to merge, then append bio list
 	 * from next to rq and release next. merge_requests_fn

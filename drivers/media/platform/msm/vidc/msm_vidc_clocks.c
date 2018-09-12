@@ -241,8 +241,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		list_for_each_entry_safe(temp, next,
 				&inst->registeredbufs.list, list) {
 			if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -257,7 +256,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		if ((!filled_len || !device_addr) &&
 			(inst->session_type != MSM_VIDC_CVP)) {
-			dprintk(VIDC_DBG, "%s No ETBs\n", __func__);
+			dprintk(VIDC_DBG, "%s: no input for session %x\n",
+				__func__, hash32_ptr(inst->session));
 			continue;
 		}
 
@@ -920,8 +920,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
 		if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			if (inst->session_type == MSM_VIDC_ENCODER &&
@@ -935,7 +934,8 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	if (!filled_len || !device_addr) {
-		dprintk(VIDC_DBG, "%s No ETBs\n", __func__);
+		dprintk(VIDC_DBG, "%s no input for session %x\n",
+			__func__, hash32_ptr(inst->session));
 		goto no_clock_change;
 	}
 
@@ -1189,6 +1189,7 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 slice_mode = 0;
 		u32 rc_mode = 0;
+		u32 output_width, output_height, fps, mbps;
 
 		switch (inst->fmts[CAPTURE_PORT].fourcc) {
 		case V4L2_PIX_FMT_VP8:
@@ -1206,9 +1207,16 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		}
 		slice_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+		output_height = inst->prop.height[CAPTURE_PORT];
+		output_width = inst->prop.width[CAPTURE_PORT];
+		fps = inst->prop.fps;
+		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 		if (slice_mode ==
-			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
+			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
+			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
+			mbps < CBR_MB_LIMIT)) {
 			pdata.video_work_route = 1;
+			dprintk(VIDC_DBG, "Configured work route = 1");
 		}
 	} else {
 		return -EINVAL;
@@ -1311,6 +1319,7 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 
 	if (inst->clk_data.low_latency_mode) {
 		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		dprintk(VIDC_DBG, "Configured work mode = 1");
 		goto decision_done;
 	}
 

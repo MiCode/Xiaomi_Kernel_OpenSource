@@ -323,6 +323,7 @@
 				<0x15182238 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1c00 0x400>;
+			qcom,opt-out-tbu-halting;
 			qcom,regulator-names = "vdd";
 			vdd-supply = <&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc>;
 			clock-names = "gcc_aggre_noc_pcie_tbu_clk";
@@ -345,7 +346,7 @@
 			reg = <0x151A5000 0x1000>,
 				<0x15182240 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1c00 0x400>;
+			qcom,stream-id-range = <0x2000 0x400>;
 			/* No GDSC */
 			qcom,msm-bus,name = "apps_smmu";
 			qcom,msm-bus,num-cases = <2>;

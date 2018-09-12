@@ -406,6 +406,28 @@
 			qcom,bus-max = <0>;
 		};
 	};
+
+	qcom,l3-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,l3-pwrlevels";
+
+		qcom,l3-pwrlevel@0 {
+			reg = <0>;
+			qcom,l3-freq = <0>;
+		};
+
+		qcom,l3-pwrlevel@1 {
+			reg = <1>;
+			qcom,l3-freq = <1344000000>;
+		};
+
+		qcom,l3-pwrlevel@2 {
+			reg = <2>;
+			qcom,l3-freq = <1612800000>;
+		};
+	};
 };
 
 /* NPU overrides */
@@ -415,7 +437,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "qcom,npu-pwrlevels";
-		initial-pwrlevel = <3>;
+		initial-pwrlevel = <5>;
 		qcom,npu-pwrlevel@0 {
 			reg = <0>;
 			clk-freq = <300000000
@@ -487,12 +509,12 @@
 		};
 		qcom,npu-pwrlevel@3 {
 			reg = <3>;
-			clk-freq = <773000000
+			clk-freq = <652000000
 					19200000
 					300000000
 					19200000
 					19200000
-					773000000
+					652000000
 					403000000
 					75000000
 					19200000
@@ -501,7 +523,7 @@
 					150000000
 					300000000
 					19200000
-					773000000
+					652000000
 					19200000
 					0
 					0
@@ -510,6 +532,29 @@
 		};
 		qcom,npu-pwrlevel@4 {
 			reg = <4>;
+			clk-freq = <811000000
+					19200000
+					400000000
+					19200000
+					19200000
+					811000000
+					533000000
+					75000000
+					19200000
+					300000000
+					400000000
+					150000000
+					400000000
+					19200000
+					811000000
+					19200000
+					0
+					0
+					0
+					0>;
+		};
+		qcom,npu-pwrlevel@5 {
+			reg = <5>;
 			clk-freq = <908000000
 					19200000
 					400000000
@@ -531,7 +576,6 @@
 					0
 					0>;
 		};
-		/delete-node/ qcom,npu-pwrlevel@5;
 	};
 };
 

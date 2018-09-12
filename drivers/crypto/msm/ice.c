@@ -63,6 +63,9 @@
 #define QCOM_UD_FOOTER_SIZE	0x4000
 #define QCOM_UD_FOOTER_SECS	(QCOM_UD_FOOTER_SIZE / QCOM_SECT_LEN_IN_BYTE)
 
+#define ICE_CRYPTO_CXT_FDE 1
+#define ICE_CRYPTO_CXT_FBE 2
+
 static int ice_fde_flag;
 
 struct ice_clk_info {
@@ -116,16 +119,13 @@ struct ice_device {
 static int qti_ice_setting_config(struct request *req,
 		struct platform_device *pdev,
 		struct ice_crypto_setting *crypto_data,
-		struct ice_data_setting *setting)
+		struct ice_data_setting *setting, uint32_t cxt)
 {
-	struct ice_device *ice_dev = NULL;
-
-	ice_dev = platform_get_drvdata(pdev);
+	struct ice_device *ice_dev = platform_get_drvdata(pdev);
 
 	if (!ice_dev) {
 		pr_debug("%s no ICE device\n", __func__);
-
-		/* make the caller finish peacfully */
+		/* make the caller finish peacefully */
 		return 0;
 	}
 
@@ -141,13 +141,17 @@ static int qti_ice_setting_config(struct request *req,
 		memcpy(&setting->crypto_data, crypto_data,
 				sizeof(setting->crypto_data));
 
-		if (rq_data_dir(req) == WRITE &&
-					(ice_fde_flag & QCOM_ICE_ENCRYPT))
-			setting->encr_bypass = false;
-		else if (rq_data_dir(req) == READ &&
-					(ice_fde_flag & QCOM_ICE_DECRYPT))
-			setting->decr_bypass = false;
-		else {
+		if (rq_data_dir(req) == WRITE) {
+			if ((cxt == ICE_CRYPTO_CXT_FBE) ||
+				((cxt == ICE_CRYPTO_CXT_FDE) &&
+					(ice_fde_flag & QCOM_ICE_ENCRYPT)))
+				setting->encr_bypass = false;
+		} else if (rq_data_dir(req) == READ) {
+			if ((cxt == ICE_CRYPTO_CXT_FBE) ||
+				((cxt == ICE_CRYPTO_CXT_FDE) &&
+					(ice_fde_flag & QCOM_ICE_DECRYPT)))
+				setting->decr_bypass = false;
+		} else {
 			/* Should I say BUG_ON */
 			setting->encr_bypass = true;
 			setting->decr_bypass = true;
@@ -156,6 +160,7 @@ static int qti_ice_setting_config(struct request *req,
 
 	return 0;
 }
+
 void qcom_ice_set_fde_flag(int flag)
 {
 	ice_fde_flag = flag;
@@ -1482,7 +1487,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		}
 
 		return qti_ice_setting_config(req, pdev,
-				&pfk_crypto_data, setting);
+				&pfk_crypto_data, setting, ICE_CRYPTO_CXT_FBE);
 	}
 
 	if (ice_fde_flag && req->part && req->part->info
@@ -1510,7 +1515,8 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 					return 0;
 				else
 					return qti_ice_setting_config(req, pdev,
-						&ice_data, setting);
+						&ice_data, setting,
+						ICE_CRYPTO_CXT_FDE);
 			}
 		}
 	}

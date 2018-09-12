@@ -176,6 +176,7 @@
 
 /* GEN4 bit definitions */
 #define GEN4_ESR_FAST_CRG_IVAL_MASK		GENMASK(7, 4)
+#define GEN4_ESR_FAST_CRG_IVAL_SHIFT		4
 #define GEN4_ESR_FCC_300MA			0x0
 #define GEN4_ESR_FCC_600MA			0x1
 #define GEN4_ESR_FCC_1A				0x2
@@ -266,6 +267,9 @@
 
 #define BATT_INFO_IADC_MSB(chip)		(chip->batt_info_base + 0xAF)
 #define IADC_MSB_MASK				GENMASK(6, 0)
+
+#define BATT_INFO_FG_CNV_CHAR_CFG(chip)		(chip->batt_info_base + 0xB7)
+#define SMB_MEASURE_EN_BIT			BIT(2)
 
 #define BATT_INFO_TM_MISC(chip)			(chip->batt_info_base + 0xE5)
 #define FORCE_SEQ_RESP_TOGGLE_BIT		BIT(6)

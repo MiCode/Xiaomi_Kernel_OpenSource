@@ -215,6 +215,7 @@
 				qcom,bus-freq = <12>;
 				qcom,bus-min = <10>;
 				qcom,bus-max = <12>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
@@ -223,6 +224,7 @@
 				qcom,bus-freq = <10>;
 				qcom,bus-min = <9>;
 				qcom,bus-max = <11>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 
@@ -232,6 +234,7 @@
 				qcom,bus-freq = <9>;
 				qcom,bus-min = <8>;
 				qcom,bus-max = <10>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
@@ -240,6 +243,7 @@
 				qcom,bus-freq = <8>;
 				qcom,bus-min = <7>;
 				qcom,bus-max = <9>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 
@@ -249,6 +253,7 @@
 				qcom,bus-freq = <5>;
 				qcom,bus-min = <5>;
 				qcom,bus-max = <7>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@5 {
@@ -257,6 +262,7 @@
 				qcom,bus-freq = <4>;
 				qcom,bus-min = <3>;
 				qcom,bus-max = <5>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 
 			qcom,gpu-pwrlevel@6 {
@@ -265,6 +271,7 @@
 				qcom,bus-freq = <0>;
 				qcom,bus-min = <0>;
 				qcom,bus-max = <0>;
+				qcom,dvm-val = <0xffffffff>;
 			};
 		};
 	};
@@ -329,6 +336,10 @@
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
 				"memnoc_clk", "gpu_cc_ahb";
+
+		/* AOP mailbox for sending ACD enable and disable messages */
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 
 		qcom,gmu-pwrlevels {
 			#address-cells = <1>;

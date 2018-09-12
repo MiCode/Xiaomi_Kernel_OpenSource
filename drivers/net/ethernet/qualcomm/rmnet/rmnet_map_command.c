@@ -99,6 +99,8 @@ static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
 {
 	struct rmnet_map_dl_ind *tmp;
 
+	port->dl_marker_flush = 0;
+
 	list_for_each_entry(tmp, &port->dl_list, list)
 		tmp->dl_hdr_handler(dlhdr);
 }
@@ -107,9 +109,17 @@ static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
 				     struct rmnet_map_dl_ind_trl *dltrl)
 {
 	struct rmnet_map_dl_ind *tmp;
+	struct napi_struct *napi;
 
 	list_for_each_entry(tmp, &port->dl_list, list)
 		tmp->dl_trl_handler(dltrl);
+
+	if (port->dl_marker_flush) {
+		napi = get_current_napi_context();
+		napi_gro_flush(napi, false);
+	}
+
+	port->dl_marker_flush = -1;
 }
 
 static void rmnet_map_process_flow_start(struct sk_buff *skb,
@@ -253,6 +263,8 @@ void rmnet_map_cmd_exit(struct rmnet_port *port)
 void rmnet_map_cmd_init(struct rmnet_port *port)
 {
 	INIT_LIST_HEAD(&port->dl_list);
+
+	port->dl_marker_flush = -1;
 }
 
 int rmnet_map_dl_ind_register(struct rmnet_port *port,

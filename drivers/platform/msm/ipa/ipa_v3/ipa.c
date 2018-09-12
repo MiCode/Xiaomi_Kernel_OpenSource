@@ -59,6 +59,7 @@
 
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
+#include "ipa_odl.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -4443,6 +4444,38 @@ static int ipa3_gsi_pre_fw_load_init(void)
 	return 0;
 }
 
+static int ipa3_alloc_gsi_channel(void)
+{
+	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	enum ipa_client_type type;
+	int code = 0;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		type = ipa3_get_client_by_pipe(i);
+		gsi_ep_cfg = ipa3_get_gsi_ep_info(type);
+		IPADBG("for ep %d client is %d\n", i, type);
+		if (!gsi_ep_cfg)
+			continue;
+
+		ret = gsi_alloc_channel_ee(gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee, &code);
+		if (ret == GSI_STATUS_SUCCESS) {
+			IPADBG("alloc gsi ch %d ee %d with code %d\n",
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee,
+					code);
+		} else {
+			IPAERR("failed to alloc ch %d ee %d code %d\n",
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee,
+					code);
+			return ret;
+		}
+	}
+	return ret;
+}
 /**
  * ipa3_post_init() - Initialize the IPA Driver (Part II).
  * This part contains all initialization which requires interaction with
@@ -4670,6 +4703,17 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_register_device;
 	}
 	IPADBG("IPA gsi is registered\n");
+	/* GSI 2.2 requires to allocate all EE GSI channel
+	 * during device bootup.
+	 */
+	if (ipa3_get_gsi_ver(resource_p->ipa_hw_type) == GSI_VER_2_2) {
+		result = ipa3_alloc_gsi_channel();
+		if (result) {
+			IPAERR("Failed to alloc the GSI channels\n");
+			result = -ENODEV;
+			goto fail_alloc_gsi_channel;
+		}
+	}
 
 	/* setup the AP-IPA pipes */
 	if (ipa3_setup_apps_pipes()) {
@@ -4733,6 +4777,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 fail_teth_bridge_driver_init:
 	ipa3_teardown_apps_pipes();
+fail_alloc_gsi_channel:
 fail_setup_apps_pipes:
 	gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
 fail_register_device:
@@ -5510,6 +5555,16 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
 			MAJOR(ipa3_ctx->cdev.dev_num),
 			MINOR(ipa3_ctx->cdev.dev_num));
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1) {
+		result = ipa_odl_init();
+		if (result) {
+			IPADBG("Error: ODL init fialed\n");
+			result = -ENODEV;
+			goto fail_cdev_add;
+		}
+	}
+
 	/*
 	 * for IPA 4.0 offline charge is not needed and we need to prevent
 	 * power collapse until IPA uC is loaded.
@@ -5519,7 +5574,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_unvote();
 	return 0;
-
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa3_dma_shutdown();
