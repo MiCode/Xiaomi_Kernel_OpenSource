@@ -442,13 +442,8 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 }
 
 
-static int cam_mem_util_check_flags(struct cam_mem_mgr_alloc_cmd *cmd)
+static int cam_mem_util_check_alloc_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 {
-	if (!cmd->flags) {
-		CAM_ERR(CAM_MEM, "Invalid flags");
-		return -EINVAL;
-	}
-
 	if (cmd->num_hdl > CAM_MEM_MMU_MAX_HANDLE) {
 		CAM_ERR(CAM_MEM, "Num of mmu hdl exceeded maximum(%d)",
 			CAM_MEM_MMU_MAX_HANDLE);
@@ -571,7 +566,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	}
 	len = cmd->len;
 
-	rc = cam_mem_util_check_flags(cmd);
+	rc = cam_mem_util_check_alloc_flags(cmd);
 	if (rc) {
 		CAM_ERR(CAM_MEM, "Invalid flags: flags = %X", cmd->flags);
 		return rc;
