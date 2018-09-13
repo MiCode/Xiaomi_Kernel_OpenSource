@@ -34,6 +34,8 @@
 #define IPA_WDI_RESUMED BIT(2)
 #define IPA_UC_POLL_SLEEP_USEC 100
 
+#define GSI_STOP_MAX_RETRY_CNT 10
+
 struct ipa_wdi_res {
 	struct ipa_wdi_buffer_info *res;
 	unsigned int nents;
@@ -882,6 +884,8 @@ static int ipa3_wdi2_gsi_alloc_evt_ring(
 	evt_scratch.wdi.update_ri_mod_timer_running = 0;
 	evt_scratch.wdi.evt_comp_count = 0;
 	evt_scratch.wdi.last_update_ri = 0;
+	evt_scratch.wdi.resvd1 = 0;
+	evt_scratch.wdi.resvd2 = 0;
 	result = gsi_write_evt_ring_scratch(*evt_ring_hdl, evt_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("Error writing WDI event ring scratch: %d\n", result);
@@ -1114,6 +1118,7 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 			result = -ENOMEM;
 			goto gsi_timeout;
 		}
+		gsi_evt_ring_props.rp_update_addr = va;
 	} else {
 		len = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_size :
 			in->u.ul.rdy_ring_size;
@@ -1190,13 +1195,13 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 			result = -ENOMEM;
 			goto gsi_timeout;
 		}
-
+		gsi_evt_ring_props.rp_update_addr = va;
 		gsi_scratch.wdi.wdi_rx_vdev_id = 0xff;
 		gsi_scratch.wdi.wdi_rx_fw_desc = 0xff;
 		gsi_scratch.wdi.endp_metadatareg_offset =
 					ipahal_get_reg_mn_ofst(
 					IPA_ENDP_INIT_HDR_METADATA_n, 0,
-							ipa_ep_idx);
+							ipa_ep_idx)/4;
 		gsi_scratch.wdi.qmap_id = 0;
 	}
 
@@ -1259,7 +1264,7 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 		min(UPDATE_RI_MODERATION_THRESHOLD, num_ring_ele);
 	gsi_scratch.wdi.update_ri_moderation_counter = 0;
 	gsi_scratch.wdi.wdi_rx_tre_proc_in_progress = 0;
-
+	gsi_scratch.wdi.resv1 = 0;
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl,
 			gsi_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
@@ -1267,13 +1272,6 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 				result);
 		goto fail_write_channel_scratch;
 	}
-
-	result =  gsi_start_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("gsi_start_channel failed %d\n", result);
-		goto fail_start_channel;
-	}
-	IPADBG("GSI channel started\n");
 
 	/* for AP+STA stats update */
 	if (in->wdi_notify)
@@ -1302,7 +1300,6 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 
 ipa_cfg_ep_fail:
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
-fail_start_channel:
 fail_write_channel_scratch:
 	gsi_dealloc_channel(ep->gsi_chan_hdl);
 gsi_timeout:
@@ -1860,18 +1857,6 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	result = ipa3_stop_gsi_channel(clnt_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("GSI stop chan err: %d.\n", result);
-		ipa_assert();
-		return result;
-	}
-	result = ipa3_reset_gsi_channel(clnt_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("Failed to reset chan: %d.\n", result);
-		ipa_assert();
-		return result;
-	}
 	result = gsi_reset_evt_ring(ep->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to reset evt ring: %d.\n",
@@ -2336,6 +2321,10 @@ int ipa3_suspend_gsi_wdi_pipe(u32 clnt_hdl)
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
 	int res = 0;
+	u32 source_pipe_bitmask = 0;
+	bool disable_force_clear = false;
+	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
+	int retry_cnt = 0;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(ipa3_get_client_mapping(clnt_hdl));
 	if (ipa_ep_idx < 0) {
@@ -2351,14 +2340,55 @@ int ipa3_suspend_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 	if (ep->valid) {
 		IPADBG("suspended pipe %d\n", ipa_ep_idx);
-		res = ipa3_stop_gsi_channel(ipa_ep_idx);
+		source_pipe_bitmask = 1 <<
+			ipa3_get_ep_mapping(ep->client);
+		res = ipa3_enable_force_clear(clnt_hdl,
+				false, source_pipe_bitmask);
 		if (res) {
-			IPAERR("failed to stop LAN channel\n");
-			ipa_assert();
+			/*
+			 * assuming here modem SSR, AP can remove
+			 * the delay in this case
+			 */
+			IPAERR("failed to force clear %d\n", res);
+			IPAERR("remove delay from SCND reg\n");
+			ep_ctrl_scnd.endp_delay = false;
+			ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_CTRL_SCND_n, clnt_hdl,
+					&ep_ctrl_scnd);
+		} else {
+			disable_force_clear = true;
 		}
+retry_gsi_stop:
+		res = ipa3_stop_gsi_channel(ipa_ep_idx);
+		if (res != 0 && res != -GSI_STATUS_AGAIN &&
+				res != -GSI_STATUS_TIMED_OUT) {
+			IPAERR("failed to stop channel res = %d\n", res);
+			goto fail_stop_channel;
+		} else if (res == -GSI_STATUS_AGAIN) {
+			IPADBG("GSI stop channel failed retry cnt = %d\n",
+						retry_cnt);
+			retry_cnt++;
+			if (retry_cnt >= GSI_STOP_MAX_RETRY_CNT)
+				goto fail_stop_channel;
+			goto retry_gsi_stop;
+		} else {
+			IPADBG("GSI channel %ld STOP\n", ep->gsi_chan_hdl);
+		}
+
+		res = ipa3_reset_gsi_channel(clnt_hdl);
+		if (res != GSI_STATUS_SUCCESS) {
+			IPAERR("Failed to reset chan: %d.\n", res);
+			goto fail_stop_channel;
+		}
+
 	}
+	if (disable_force_clear)
+		ipa3_disable_force_clear(clnt_hdl);
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->gsi_offload_state &= ~IPA_WDI_RESUMED;
+	return res;
+fail_stop_channel:
+	ipa_assert();
 	return res;
 }
 
@@ -2511,6 +2541,7 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	int result = 0;
 	struct ipa3_ep_context *ep;
 	union __packed gsi_channel_scratch gsi_scratch;
+	int retry_cnt = 0;
 
 	memset(&gsi_scratch, 0, sizeof(gsi_scratch));
 	ep = &ipa3_ctx->ep[clnt_hdl];
@@ -2522,18 +2553,25 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 			result);
 		goto fail_read_channel_scratch;
 	}
-	result = ipa3_stop_gsi_channel(clnt_hdl);
-	if (result != 0) {
+	if (ep->gsi_offload_state == (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
+						IPA_WDI_RESUMED)) {
+retry_gsi_stop:
+		result = ipa3_stop_gsi_channel(clnt_hdl);
 		if (result != 0 && result != -GSI_STATUS_AGAIN &&
-			result != -GSI_STATUS_TIMED_OUT) {
+				result != -GSI_STATUS_TIMED_OUT) {
 			IPAERR("GSI stop channel failed %d\n",
-			result);
+					result);
+			goto fail_stop_channel;
+		} else if (result == -GSI_STATUS_AGAIN) {
+			IPADBG("GSI stop channel failed retry cnt = %d\n",
+						retry_cnt);
+			retry_cnt++;
+			if (retry_cnt >= GSI_STOP_MAX_RETRY_CNT)
+				goto fail_stop_channel;
+			goto retry_gsi_stop;
+		} else {
+			IPADBG("GSI channel %ld STOP\n", ep->gsi_chan_hdl);
 		}
-		goto fail_stop_channel;
-	}
-	if (result == 0) {
-		IPAERR("GSI channel %ld STOP\n",
-			ep->gsi_chan_hdl);
 	}
 	gsi_scratch.wdi.qmap_id = qmap_id;
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl,
@@ -2543,10 +2581,13 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 			result);
 		goto fail_write_channel_scratch;
 	}
-	result =  gsi_start_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("gsi_start_channel failed %d\n", result);
-		goto fail_start_channel;
+	if (ep->gsi_offload_state == (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
+						IPA_WDI_RESUMED)) {
+		result =  gsi_start_channel(ep->gsi_chan_hdl);
+		if (result != GSI_STATUS_SUCCESS) {
+			IPAERR("gsi_start_channel failed %d\n", result);
+			goto fail_start_channel;
+		}
 	}
 	return 0;
 fail_start_channel:
