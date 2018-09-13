@@ -6218,7 +6218,6 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
-	int rc;
 	struct vb2_buffer *vb;
 	u32 port;
 
@@ -6254,7 +6253,7 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 	mutex_unlock(&inst->bufq[port].lock);
 
-	return rc;
+	return 0;
 }
 
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
