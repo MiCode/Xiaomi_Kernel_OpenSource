@@ -628,7 +628,8 @@
 				"qcom,shutdown-ack";
 
 		/* GPIO output to wcnss */
-		qcom,gpio-force-stop = <&modem_smp2p_out 0 0>;
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 		memory-region = <&wlan_fw_mem>;
 	};
 
