@@ -505,7 +505,8 @@ again:
 		for (j = 1; j < cpu->nlevels; j++) {
 			struct lpm_cpu_level *level = &cpu->levels[j];
 			uint32_t min_residency = level->pwr.min_residency;
-			uint32_t max_residency = level->pwr.max_residency;
+			uint32_t max_residency = 0;
+			struct lpm_cpu_level *lvl;
 			uint32_t failed = 0;
 			uint64_t total = 0;
 
@@ -520,8 +521,10 @@ again:
 				*idx_restrict = j;
 				do_div(total, failed);
 				for (i = 0; i < j; i++) {
+					lvl = &cpu->levels[i];
+					max_residency = lvl->pwr.max_residency;
 					if (total < max_residency) {
-						*idx_restrict = i+1;
+						*idx_restrict = i + 1;
 						total = max_residency;
 						break;
 					}
