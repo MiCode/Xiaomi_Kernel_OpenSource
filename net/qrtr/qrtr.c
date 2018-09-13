@@ -926,9 +926,8 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 
 	mutex_lock(&qrtr_port_lock);
 	if (!*port) {
-		rc = idr_alloc(&qrtr_ports, ipc,
-			       QRTR_MIN_EPH_SOCKET, QRTR_MAX_EPH_SOCKET + 1,
-			       GFP_ATOMIC);
+		rc = idr_alloc_cyclic(&qrtr_ports, ipc, QRTR_MIN_EPH_SOCKET,
+				      QRTR_MAX_EPH_SOCKET + 1, GFP_ATOMIC);
 		if (rc >= 0)
 			*port = rc;
 	} else if (*port < QRTR_MIN_EPH_SOCKET &&
@@ -937,7 +936,8 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 	} else if (*port == QRTR_PORT_CTRL) {
 		rc = idr_alloc(&qrtr_ports, ipc, 0, 1, GFP_ATOMIC);
 	} else {
-		rc = idr_alloc(&qrtr_ports, ipc, *port, *port + 1, GFP_ATOMIC);
+		rc = idr_alloc_cyclic(&qrtr_ports, ipc, *port, *port + 1,
+				      GFP_ATOMIC);
 		if (rc >= 0)
 			*port = rc;
 	}
