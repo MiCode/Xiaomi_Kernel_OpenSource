@@ -36,6 +36,9 @@
 #define IPA_GENERIC_AGGR_TIME_LIMIT 500 /* 0.5msec */
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 
+#define IPA_GSB_AGGR_BYTE_LIMIT 14
+#define IPA_GSB_RX_BUFF_BASE_SZ 16384
+
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
 #define IPA_REAL_GENERIC_RX_BUFF_SZ(X) (SKB_DATA_ALIGN(\
 		(X) + NET_SKB_PAD) +\
@@ -3049,11 +3052,14 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			/* recycle skb for GSB use case */
 			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 				sys->free_rx_wrapper =
-					ipa3_recycle_rx_wrapper;
+					ipa3_free_rx_wrapper;
 				sys->repl_hdlr =
-					ipa3_replenish_rx_cache_recycle;
+					ipa3_replenish_rx_cache;
+				/* Overwrite buffer size & aggr limit for GSB */
 				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
-					IPA_GENERIC_RX_BUFF_BASE_SZ);
+					IPA_GSB_RX_BUFF_BASE_SZ);
+				in->ipa_ep_cfg.aggr.aggr_byte_limit =
+					IPA_GSB_AGGR_BYTE_LIMIT;
 			} else {
 				sys->free_rx_wrapper =
 					ipa3_free_rx_wrapper;
