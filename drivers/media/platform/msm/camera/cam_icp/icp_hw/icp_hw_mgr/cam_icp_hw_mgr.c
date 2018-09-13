@@ -50,6 +50,7 @@
 #include "cam_soc_util.h"
 #include "cam_trace.h"
 #include "cam_cpas_api.h"
+#include "cam_common_util.h"
 
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
@@ -3393,6 +3394,11 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 			io_cfg_ptr[i].direction, io_cfg_ptr[i].fence,
 			io_cfg_ptr[i].resource_type);
 	}
+
+	if (prepare_args->num_in_map_entries > 1)
+		prepare_args->num_in_map_entries =
+			cam_common_util_remove_duplicate_arr(
+			sync_in_obj, prepare_args->num_in_map_entries);
 
 	if (prepare_args->num_in_map_entries > 1) {
 		rc = cam_sync_merge(&sync_in_obj[0],
