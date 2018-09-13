@@ -2615,6 +2615,24 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_get_prop_low_power(struct smb_charger *chg,
+					  union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	val->intval = !(stat & SRC_HIGH_BATT_BIT);
+
+	return 0;
+}
+
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 					  union power_supply_propval *val)
 {
@@ -4049,17 +4067,17 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 		smblib_dbg(chg, PR_INTERRUPT, "Scheduling OTG work\n");
 		schedule_delayed_work(&chg->uusb_otg_work,
 				msecs_to_jiffies(chg->otg_delay_ms));
-		return IRQ_HANDLED;
+		goto out;
 	}
 
 	if (chg->pr_swap_in_progress || chg->pd_hard_reset)
-		return IRQ_HANDLED;
+		goto out;
 
 	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
 			rc);
-		return IRQ_HANDLED;
+		goto out;
 	}
 
 	/* liquid presence detected, to check further */
@@ -4072,6 +4090,10 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 						msecs_to_jiffies(300));
 	}
 
+	if (chg->usb_psy)
+		power_supply_changed(chg->usb_psy);
+
+out:
 	return IRQ_HANDLED;
 }
 

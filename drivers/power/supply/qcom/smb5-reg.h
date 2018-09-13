@@ -155,6 +155,15 @@ enum {
 
 #define DCDC_CFG_REF_MAX_PSNS_REG		(DCDC_BASE + 0x8C)
 
+#define DCDC_ENG_SDCDC_CFG5_REG			(DCDC_BASE + 0xC4)
+#define ENG_SDCDC_BAT_HPWR_MASK			GENMASK(7, 6)
+enum {
+	BOOST_MODE_THRESH_3P3_V,
+	BOOST_MODE_THRESH_3P4_V = 0x40,
+	BOOST_MODE_THRESH_3P5_V = 0x80,
+	BOOST_MODE_THRESH_3P6_V = 0xC0
+};
+
 /********************************
  *  BATIF Peripheral Registers  *
  ********************************/
@@ -305,6 +314,7 @@ enum {
 
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)
+#define SRC_HIGH_BATT_BIT			BIT(5)
 #define SRC_DEBUG_ACCESS_BIT			BIT(4)
 #define SRC_RD_OPEN_BIT				BIT(3)
 #define SRC_RD_RA_VCONN_BIT			BIT(2)
