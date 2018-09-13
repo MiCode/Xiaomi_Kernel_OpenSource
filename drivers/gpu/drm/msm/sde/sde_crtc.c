@@ -5560,6 +5560,8 @@ int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc_state);
 
+	sde_cp_crtc_clear(crtc);
+
 	for (prop_idx = 0; prop_idx < CRTC_PROP_COUNT; prop_idx++) {
 		uint64_t val = cstate->property_values[prop_idx].value;
 		uint64_t def;
