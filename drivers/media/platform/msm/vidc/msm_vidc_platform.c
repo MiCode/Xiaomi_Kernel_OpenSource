@@ -175,6 +175,10 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 		.key = "qcom,hw-resp-timeout",
 		.value = 250,
 	},
+	{
+		.key = "qcom,dcvs",
+		.value = 1,
+	},
 };
 
 static struct msm_vidc_common_data sm8150_common_data[] = {
