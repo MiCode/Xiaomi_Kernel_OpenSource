@@ -5342,40 +5342,42 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 	const struct drm_crtc_state *state, uint64_t *val)
 {
-	struct drm_encoder *encoder;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	uint32_t offset, i;
-	bool conn_offset = 0, is_cmd = true;
+	struct drm_connector_state *old_conn_state, *new_conn_state;
+	struct drm_connector *conn;
+	struct sde_connector *sde_conn = NULL;
+	struct msm_display_info disp_info;
+	bool is_vid = false;
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
-	for (i = 0; i < cstate->num_connectors; ++i) {
-		conn_offset = sde_connector_needs_offset(cstate->connectors[i]);
-		if (conn_offset)
-			break;
-	}
+	for_each_oldnew_connector_in_state(state->state, conn, old_conn_state,
+							new_conn_state, i) {
+		if (!new_conn_state || new_conn_state->crtc != crtc)
+			continue;
 
-	/**
-	 * set the cmd flag only when all the encoders attached
-	 * to the crtc are in cmd mode. Consider all other cases
-	 * as video mode.
-	 */
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc == crtc)
-			is_cmd = sde_encoder_check_mode(encoder,
-					MSM_DISPLAY_CAP_CMD_MODE);
+		sde_conn = to_sde_connector(new_conn_state->connector);
+		if (sde_conn->display && sde_conn->ops.get_info) {
+			sde_conn->ops.get_info(conn, &disp_info,
+							sde_conn->display);
+			is_vid |= disp_info.capabilities &
+						MSM_DISPLAY_CAP_VID_MODE;
+		}
 	}
 
 	offset = sde_crtc_get_property(cstate, CRTC_PROP_OUTPUT_FENCE_OFFSET);
 
-	/**
-	 * set the offset to 0 only for cmd mode panels, so
-	 * the release fence for the current frame can be
-	 * triggered right after PP_DONE interrupt.
+	/*
+	 * Increment trigger offset for vidoe mode alone as its release fence
+	 * can be triggered only after the next frame-update. For cmd mode &
+	 * virtual displays the release fence for the current frame can be
+	 * triggered right after PP_DONE/WB_DONE interrupt
 	 */
-	offset = is_cmd ? 0 : (offset + conn_offset);
+	if (is_vid)
+		offset++;
 
 	/*
 	 * Hwcomposer now queries the fences using the commit list in atomic
