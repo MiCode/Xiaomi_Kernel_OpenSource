@@ -170,6 +170,9 @@
 
 			qcom,pmic-revid = <&pm8150b_revid>;
 
+			qcom,thermal-mitigation
+					= <3000000 1500000 1000000 500000>;
+
 			qcom,charger-temp-max = <800>;
 			qcom,smb-temp-max = <800>;
 
