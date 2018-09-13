@@ -279,20 +279,17 @@ static int __init hyp_core_ctl_init(void)
 		goto stop_task;
 	}
 
-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "qcom/hyp_core_ctl:online",
-				hyp_core_ctl_hp_online,
-				hyp_core_ctl_hp_offline);
-	if (ret < 0) {
-		pr_err("Fail to register the hotplug callback. ret=%d\n", ret);
-		goto remove_sysfs;
-	}
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+				  "qcom/hyp_core_ctl:online",
+				  hyp_core_ctl_hp_online, NULL);
+
+	cpuhp_setup_state_nocalls(CPUHP_HYP_CORE_CTL_ISOLATION_DEAD,
+				  "qcom/hyp_core_ctl:dead",
+				  NULL, hyp_core_ctl_hp_offline);
 
 	the_hcd = hcd;
 	return 0;
 
-remove_sysfs:
-	sysfs_remove_group(&cpu_subsys.dev_root->kobj,
-			   &hyp_core_ctl_attr_group);
 stop_task:
 	kthread_stop(hcd->task);
 free_hcd:
