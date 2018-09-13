@@ -1493,6 +1493,12 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_isp_start_args         start_isp;
 	int rc = 0;
 
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		CAM_INFO(CAM_ISP, "Last request id to flush is %lld",
+			flush_req->req_id);
+		ctx->last_flush_req = flush_req->req_id;
+	}
+
 	CAM_DBG(CAM_ISP, "try to flush pending list");
 	spin_lock_bh(&ctx->lock);
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
@@ -2231,6 +2237,17 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		packet->header.request_id);
 	CAM_DBG(CAM_ISP, "Packet size 0x%x", packet->header.size);
 	CAM_DBG(CAM_ISP, "packet op %d", packet->header.op_code);
+
+	if (packet->header.request_id <= ctx->last_flush_req) {
+		CAM_INFO(CAM_ISP,
+			"request %lld has been flushed, reject packet",
+			packet->header.request_id);
+		rc = -EINVAL;
+		goto free_req;
+	}
+
+	if (packet->header.request_id > ctx->last_flush_req)
+		ctx->last_flush_req = 0;
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));

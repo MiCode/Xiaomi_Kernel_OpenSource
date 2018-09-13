@@ -1494,6 +1494,9 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 
 	mutex_lock(&link->req.lock);
 	if (flush_info->flush_type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		link->last_flush_id = flush_info->req_id;
+		CAM_INFO(CAM_CRM, "Last request id to flush is %lld",
+			flush_info->req_id);
 		for (i = 0; i < in_q->num_slots; i++) {
 			slot = &in_q->slot[i];
 			slot->req_id = -1;
@@ -2422,6 +2425,7 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 		goto link_hdl_fail;
 	}
 	link_info->link_hdl = link->link_hdl;
+	link->last_flush_id = 0;
 
 	/* Allocate memory to hold data of all linked devs */
 	rc = __cam_req_mgr_create_subdevs(&link->l_dev,
@@ -2546,6 +2550,17 @@ int cam_req_mgr_schedule_request(
 		rc = -EINVAL;
 		goto end;
 	}
+
+	if (sched_req->req_id <= link->last_flush_id) {
+		CAM_INFO(CAM_CRM,
+			"request %d is flushed, last_flush_id to flush %lld",
+			sched_req->req_id, link->last_flush_id);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (sched_req->req_id > link->last_flush_id)
+		link->last_flush_id = 0;
 
 	CAM_DBG(CAM_CRM, "link 0x%x req %lld, sync_mode %d",
 		sched_req->link_hdl, sched_req->req_id, sched_req->sync_mode);

@@ -183,6 +183,7 @@ struct cam_flash_func_tbl {
  * @cci_i2c_master      : I2C structure
  * @io_master_info      : Information about the communication master
  * @i2c_data            : I2C register settings
+ * @last_flush_req      : last request to flush
  */
 struct cam_flash_ctrl {
 	struct cam_hw_soc_info              soc_info;
@@ -208,6 +209,7 @@ struct cam_flash_ctrl {
 	enum   cci_i2c_master_t             cci_i2c_master;
 	struct camera_io_master             io_master_info;
 	struct i2c_data_settings            i2c_data;
+	uint32_t                            last_flush_req;
 };
 
 int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);

@@ -216,6 +216,7 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		cam_actuator_establish_link;
 	a_ctrl->bridge_intf.ops.apply_req =
 		cam_actuator_apply_request;
+	a_ctrl->last_flush_req = 0;
 
 	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
 
@@ -373,6 +374,7 @@ static int32_t cam_actuator_driver_platform_probe(
 		cam_actuator_apply_request;
 	a_ctrl->bridge_intf.ops.flush_req =
 		cam_actuator_flush_request;
+	a_ctrl->last_flush_req = 0;
 
 	platform_set_drvdata(pdev, a_ctrl);
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);

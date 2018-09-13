@@ -126,6 +126,19 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		return -EINVAL;
 	}
 
+	if ((csl_packet->header.op_code & 0xFFFFFF) !=
+		CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG &&
+		csl_packet->header.request_id <= s_ctrl->last_flush_req
+		&& s_ctrl->last_flush_req != 0) {
+		CAM_DBG(CAM_SENSOR,
+			"reject request %lld, last request to flush %lld",
+			csl_packet->header.request_id, s_ctrl->last_flush_req);
+		return -EINVAL;
+	}
+
+	if (csl_packet->header.request_id > s_ctrl->last_flush_req)
+		s_ctrl->last_flush_req = 0;
+
 	i2c_data = &(s_ctrl->i2c_data);
 	CAM_DBG(CAM_SENSOR, "Header OpCode: %d", csl_packet->header.op_code);
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
@@ -504,6 +517,7 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->streamon_count = 0;
 	s_ctrl->streamoff_count = 0;
 	s_ctrl->is_probe_succeed = 0;
+	s_ctrl->last_flush_req = 0;
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
@@ -690,6 +704,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+		s_ctrl->last_flush_req = 0;
 		CAM_INFO(CAM_SENSOR,
 			"CAM_ACQUIRE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
 			s_ctrl->sensordata->slave_info.sensor_id,
@@ -746,6 +761,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr);
 		s_ctrl->streamon_count = 0;
 		s_ctrl->streamoff_count = 0;
+		s_ctrl->last_flush_req = 0;
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -1175,6 +1191,12 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 	if (s_ctrl->i2c_data.per_frame == NULL) {
 		CAM_ERR(CAM_SENSOR, "i2c frame data is NULL");
 		return -EINVAL;
+	}
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		s_ctrl->last_flush_req = flush_req->req_id;
+		CAM_DBG(CAM_SENSOR, "last reqest to flush is %lld",
+			flush_req->req_id);
 	}
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {

@@ -457,6 +457,19 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
 	CAM_DBG(CAM_ACTUATOR, "Pkt opcode: %d", csl_packet->header.op_code);
 
+	if ((csl_packet->header.op_code & 0xFFFFFF) !=
+		CAM_ACTUATOR_PACKET_OPCODE_INIT &&
+		csl_packet->header.request_id <= a_ctrl->last_flush_req
+		&& a_ctrl->last_flush_req != 0) {
+		CAM_DBG(CAM_ACTUATOR,
+			"reject request %lld, last request to flush %lld",
+			csl_packet->header.request_id, a_ctrl->last_flush_req);
+		return -EINVAL;
+	}
+
+	if (csl_packet->header.request_id > a_ctrl->last_flush_req)
+		a_ctrl->last_flush_req = 0;
+
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_ACTUATOR_PACKET_OPCODE_INIT:
 		offset = (uint32_t *)&csl_packet->payload;
@@ -781,6 +794,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		a_ctrl->bridge_intf.link_hdl = -1;
 		a_ctrl->bridge_intf.session_hdl = -1;
 		a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
+		a_ctrl->last_flush_req = 0;
 		kfree(power_info->power_setting);
 		kfree(power_info->power_down_setting);
 		power_info->power_setting = NULL;
@@ -810,6 +824,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			goto release_mutex;
 		}
 		a_ctrl->cam_act_state = CAM_ACTUATOR_START;
+		a_ctrl->last_flush_req = 0;
 	}
 		break;
 	case CAM_STOP_DEV: {
@@ -896,6 +911,12 @@ int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
 	if (a_ctrl->i2c_data.per_frame == NULL) {
 		CAM_ERR(CAM_ACTUATOR, "i2c frame data is NULL");
 		return -EINVAL;
+	}
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
+		a_ctrl->last_flush_req = flush_req->req_id;
+		CAM_DBG(CAM_ACTUATOR, "last reqest to flush is %lld",
+			flush_req->req_id);
 	}
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {

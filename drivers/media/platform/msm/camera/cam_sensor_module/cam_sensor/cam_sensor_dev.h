@@ -94,6 +94,7 @@ struct intf_params {
  * @streamoff_count: Count to hold the number of times stream off called
  * @bob_reg_index: Hold to BoB regulator index
  * @bob_pwm_switch: Boolean flag to switch into PWM mode for BoB regulator
+ * @last_flush_req: Last request to flush
  */
 struct cam_sensor_ctrl_t {
 	struct platform_device *pdev;
@@ -118,6 +119,7 @@ struct cam_sensor_ctrl_t {
 	uint32_t streamoff_count;
 	int bob_reg_index;
 	bool bob_pwm_switch;
+	uint32_t last_flush_req;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */
