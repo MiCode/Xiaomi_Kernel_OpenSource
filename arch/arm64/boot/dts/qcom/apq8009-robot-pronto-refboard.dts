@@ -172,7 +172,7 @@
 
 			cdc-vdda-cp-supply = <&pm8916_s4>;
 			qcom,cdc-vdda-cp-voltage = <1800000 2100000>;
-			qcom,cdc-vdda-cp-current = <1800000>;
+			qcom,cdc-vdda-cp-current = <770000>;
 
 			cdc-vdd-io-supply = <&pm8916_l5>;
 			qcom,cdc-vdd-io-voltage = <1800000 1800000>;
@@ -180,7 +180,7 @@
 
 			cdc-vdd-pa-supply = <&pm8916_s4>;
 			qcom,cdc-vdd-pa-voltage = <1800000 2100000>;
-			qcom,cdc-vdd-pa-current = <1800000>;
+			qcom,cdc-vdd-pa-current = <5000>;
 
 			cdc-vdd-mic-bias-supply = <&pm8916_l13>;
 			qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
