@@ -102,24 +102,34 @@
 #define GSI_TRB_ADDR_BIT_53_MASK	(1 << 21)
 #define GSI_TRB_ADDR_BIT_55_MASK	(1 << 23)
 
-#define	GSI_GENERAL_CFG_REG		(QSCRATCH_REG_OFFSET + 0xFC)
+#define	GSI_GENERAL_CFG_REG(offset) (QSCRATCH_REG_OFFSET + offset)
 #define	GSI_RESTART_DBL_PNTR_MASK	BIT(20)
 #define	GSI_CLK_EN_MASK			BIT(12)
 #define	BLOCK_GSI_WR_GO_MASK		BIT(1)
 #define	GSI_EN_MASK			BIT(0)
 
-#define GSI_DBL_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x110) + (n*4))
-#define GSI_DBL_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x120) + (n*4))
-#define GSI_RING_BASE_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x130) + (n*4))
-#define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x144) + (n*4))
+#define GSI_DBL_ADDR_L(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
+#define GSI_DBL_ADDR_H(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
+#define GSI_RING_BASE_ADDR_L(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
+#define GSI_RING_BASE_ADDR_H(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
 
-#define	GSI_IF_STS	(QSCRATCH_REG_OFFSET + 0x1A4)
+#define	GSI_IF_STS(offset)	(QSCRATCH_REG_OFFSET + offset)
 #define	GSI_WR_CTRL_STATE_MASK	BIT(15)
 
 #define DWC3_GEVNTCOUNT_EVNTINTRPTMASK		(1 << 31)
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(n)	(n << 22)
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
 #define DWC3_GEVENT_TYPE_GSI			0x3
+
+enum usb_gsi_reg {
+	GENERAL_CFG_REG,
+	DBL_ADDR_L,
+	DBL_ADDR_H,
+	RING_BASE_ADDR_L,
+	RING_BASE_ADDR_H,
+	IF_STS,
+	GSI_REG_MAX,
+};
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -272,6 +282,8 @@ struct dwc3_msm {
 	struct mutex suspend_resume_mutex;
 
 	enum usb_device_speed override_usb_speed;
+	u32			*gsi_reg;
+	int			gsi_reg_offset_cnt;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -938,8 +950,9 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	int n = ep->ep_intr_num - 1;
 
-	dwc3_msm_write_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n),
-			dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
+	dwc3_msm_write_reg(mdwc->base,
+		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
+		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
 	if (request->mapped_db_reg_phs_addr_lsb)
 		dma_unmap_resource(dwc->sysdev,
@@ -956,12 +969,16 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		ep->name, request->db_reg_phs_addr_lsb,
 		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
 
-	dwc3_msm_write_reg(mdwc->base, GSI_DBL_ADDR_L(n),
-			(u32)request->mapped_db_reg_phs_addr_lsb);
+	dwc3_msm_write_reg(mdwc->base,
+		GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
+		(u32)request->mapped_db_reg_phs_addr_lsb);
 	dev_dbg(mdwc->dev, "Ring Base Addr %d: %x (LSB)\n", n,
-			dwc3_msm_read_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n)));
+		dwc3_msm_read_reg(mdwc->base,
+			GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L],
+								(n))));
 	dev_dbg(mdwc->dev, "GSI DB Addr %d: %x (LSB)\n", n,
-			dwc3_msm_read_reg(mdwc->base, GSI_DBL_ADDR_L(n)));
+		dwc3_msm_read_reg(mdwc->base,
+			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n))));
 }
 
 /**
@@ -1295,14 +1312,18 @@ static void gsi_enable(struct usb_ep *ep)
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG, GSI_CLK_EN_MASK, 1);
+		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+		GSI_CLK_EN_MASK, 1);
 	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG, GSI_RESTART_DBL_PNTR_MASK, 1);
+		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+		GSI_RESTART_DBL_PNTR_MASK, 1);
 	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG, GSI_RESTART_DBL_PNTR_MASK, 0);
+		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+		GSI_RESTART_DBL_PNTR_MASK, 0);
 	dev_dbg(mdwc->dev, "%s: Enable GSI\n", __func__);
 	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG, GSI_EN_MASK, 1);
+		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+		GSI_EN_MASK, 1);
 }
 
 /**
@@ -1321,7 +1342,8 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG, BLOCK_GSI_WR_GO_MASK, block_db);
+		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+		BLOCK_GSI_WR_GO_MASK, block_db);
 }
 
 /**
@@ -1338,7 +1360,7 @@ static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	while (dwc3_msm_read_reg_field(mdwc->base,
-		GSI_IF_STS, GSI_WR_CTRL_STATE_MASK)) {
+		GSI_IF_STS(mdwc->gsi_reg[IF_STS]), GSI_WR_CTRL_STATE_MASK)) {
 		if (!timeout--) {
 			dev_err(mdwc->dev,
 			"Unable to suspend GSI ch. WR_CTRL_STATE != 0\n");
@@ -3316,7 +3338,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
-	int ret = 0, i;
+	int ret = 0, size = 0, i;
 	u32 val;
 	unsigned long irq_type;
 
@@ -3468,6 +3490,29 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
+
+	if (mdwc->num_gsi_event_buffers) {
+		of_get_property(node, "qcom,gsi-reg-offset", &size);
+		if (size) {
+			mdwc->gsi_reg = devm_kzalloc(dev, size, GFP_KERNEL);
+			if (!mdwc->gsi_reg)
+				return -ENOMEM;
+
+			mdwc->gsi_reg_offset_cnt =
+					(size / sizeof(*mdwc->gsi_reg));
+			if (mdwc->gsi_reg_offset_cnt != GSI_REG_MAX) {
+				dev_err(dev, "invalid reg offset count\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,gsi-reg-offset", mdwc->gsi_reg,
+				mdwc->gsi_reg_offset_cnt);
+		} else {
+			dev_err(dev, "err provide qcom,gsi-reg-offset\n");
+			return -EINVAL;
+		}
+	}
 
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
