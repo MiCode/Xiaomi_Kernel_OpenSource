@@ -495,14 +495,8 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 
 	dp->aux->state |= DP_STATE_NOTIFICATION_SENT;
 
-	if (!dp->mst.mst_active) {
-		if (dp->dp_display.is_sst_connected == hpd) {
-			pr_debug("SKIPPED:hpd:%d\n", hpd);
-			goto skip_wait;
-		}
-
+	if (!dp->mst.mst_active)
 		dp->dp_display.is_sst_connected = hpd;
-	}
 
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(dp);
@@ -566,31 +560,6 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dp->core_initialized = true;
 }
 
-static int dp_display_update_pclk(struct dp_display_private *dp)
-{
-	int rc = 0;
-	u32 rate, max_pclk_khz;
-	u32 const enc_factx10 = 8;
-	u32 const default_bpp = 30;
-
-	if (dp->debug->max_pclk_khz) {
-		dp->dp_display.max_pclk_khz = dp->debug->max_pclk_khz;
-		goto end;
-	}
-
-	rate = drm_dp_bw_code_to_link_rate(dp->link->link_params.bw_code);
-	rate /= default_bpp;
-
-	max_pclk_khz = dp->link->link_params.lane_count * rate * enc_factx10;
-
-	dp->dp_display.max_pclk_khz = min(dp->parser->max_pclk_khz,
-						max_pclk_khz);
-
-	pr_debug("dp max_pclk_khz = %d\n", dp->dp_display.max_pclk_khz);
-end:
-	return rc;
-}
-
 static void dp_display_host_deinit(struct dp_display_private *dp)
 {
 	if (!dp->core_initialized) {
@@ -623,6 +592,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->is_connected = true;
 
+	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+
 	dp_display_host_init(dp);
 
 	if (dp->debug->psm_enabled) {
@@ -648,13 +619,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp_display_process_mst_hpd_high(dp);
 
 	mutex_lock(&dp->session_lock);
-	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
-	if (rc) {
-		mutex_unlock(&dp->session_lock);
-		goto end;
-	}
-
-	rc = dp_display_update_pclk(dp);
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, false);
 	if (rc) {
 		mutex_unlock(&dp->session_lock);
 		goto end;
@@ -958,6 +923,11 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 			dp->power_on);
 
 	if (!dp->hpd->hpd_high) {
+		if (!dp->is_connected) {
+			pr_debug("already disconnected\n");
+			return 0;
+		}
+
 		/* cancel any pending request */
 		atomic_set(&dp->aborted, 1);
 		dp->ctrl->abort(dp->ctrl);
@@ -1285,7 +1255,17 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 
 	dp_display_host_init(dp);
 
-	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
+	/*
+	 * Execute the dp controller power on in shallow mode here.
+	 * In normal cases, controller should have been powered on
+	 * by now. In some cases like suspend/resume or framework
+	 * reboot, we end up here without a powered on controller.
+	 * Cable may have been removed in suspended state. In that
+	 * case, link training is bound to fail on system resume.
+	 * So, we execute in shallow mode here to do only minimal
+	 * and required things.
+	 */
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active, true);
 	if (rc)
 		goto end;
 

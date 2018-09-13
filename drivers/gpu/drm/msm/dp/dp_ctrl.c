@@ -80,6 +80,7 @@ struct dp_ctrl_private {
 	atomic_t aborted;
 
 	u32 vic;
+	u32 stream_count;
 	struct dp_mst_channel_info mst_ch_info;
 };
 
@@ -150,8 +151,8 @@ trigger_idle:
 	if (!wait_for_completion_timeout(&ctrl->idle_comp,
 			idle_pattern_completion_timeout_ms))
 		pr_warn("time out\n");
-
-	pr_debug("mainlink off done\n");
+	else
+		pr_debug("mainlink off done\n");
 }
 
 /**
@@ -175,17 +176,10 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 	}
 }
 
-static int dp_ctrl_wait4video_ready(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_wait4video_ready(struct dp_ctrl_private *ctrl)
 {
-	int ret = 0;
-
-	ret = wait_for_completion_timeout(&ctrl->video_comp, HZ / 2);
-	if (ret <= 0) {
-		pr_err("SEND_VIDEO time out (%d)\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
+	if (!wait_for_completion_timeout(&ctrl->video_comp, HZ / 2))
+		pr_warn("SEND_VIDEO time out\n");
 }
 
 static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
@@ -566,7 +560,7 @@ static void dp_ctrl_disable_link_clock(struct dp_ctrl_private *ctrl)
 	ctrl->power->clk_enable(ctrl->power, DP_LINK_PM, false);
 }
 
-static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 {
 	int rc = -EINVAL;
 	u32 link_train_max_retries = 100;
@@ -584,11 +578,24 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl)
 		pr_debug("bw_code=%d, lane_count=%d\n",
 			link_params->bw_code, link_params->lane_count);
 
-		dp_ctrl_enable_link_clock(ctrl);
+		rc = dp_ctrl_enable_link_clock(ctrl);
+		if (rc)
+			break;
+
 		dp_ctrl_configure_source_link_params(ctrl, true);
 
 		rc = dp_ctrl_setup_main_link(ctrl);
 		if (!rc)
+			break;
+
+		/*
+		 * Shallow means link training failure is not important.
+		 * If it fails, we still keep the link clocks on.
+		 * In this mode, the system expects DP to be up
+		 * even though the cable is removed. Disconnect interrupt
+		 * will eventually trigger and shutdown DP.
+		 */
+		if (shallow)
 			break;
 
 		dp_ctrl_link_rate_down_shift(ctrl);
@@ -747,8 +754,10 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_COMPLETED;
 
-	dp_ctrl_send_video(ctrl);
-	ret = dp_ctrl_wait4video_ready(ctrl);
+	if (ctrl->stream_count) {
+		dp_ctrl_send_video(ctrl);
+		dp_ctrl_wait4video_ready(ctrl);
+	}
 end:
 	return ret;
 }
@@ -784,7 +793,7 @@ static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 
 	ctrl->aux->init(ctrl->aux, ctrl->parser->aux_cfg);
 
-	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl, ctrl->mst_mode);
+	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl, ctrl->mst_mode, false);
 	if (ret)
 		pr_err("failed to enable DP controller\n");
 
@@ -1007,17 +1016,13 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 
 	dp_ctrl_mst_send_act(ctrl);
 
-	rc = dp_ctrl_wait4video_ready(ctrl);
-	if (rc)
-		goto error;
+	dp_ctrl_wait4video_ready(ctrl);
+
+	ctrl->stream_count++;
 
 	link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
 	pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
 
-	return rc;
-
-error:
-	dp_ctrl_disable_stream_clocks(ctrl, panel);
 	return rc;
 }
 
@@ -1082,9 +1087,10 @@ static void dp_ctrl_stream_off(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	panel->hw_cfg(panel, false);
 
 	dp_ctrl_disable_stream_clocks(ctrl, panel);
+	ctrl->stream_count--;
 }
 
-static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
+static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode, bool shallow)
 {
 	int rc = 0;
 	struct dp_ctrl_private *ctrl;
@@ -1116,8 +1122,9 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 		ctrl->link->link_params.bw_code,
 		ctrl->link->link_params.lane_count);
 
-	rc = dp_ctrl_link_setup(ctrl);
-	if (rc)
+	rc = dp_ctrl_link_setup(ctrl, shallow);
+	/* Ignore errors in case of shallow processing */
+	if (!shallow && rc)
 		goto end;
 
 	ctrl->power_on = true;
