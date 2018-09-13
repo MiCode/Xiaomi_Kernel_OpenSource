@@ -1897,6 +1897,7 @@
 
 #include "sdmmagpie-pinctrl.dtsi"
 #include "sdmmagpie-gdsc.dtsi"
+#include "sdmmagpie-bus.dtsi"
 #include "sdmmagpie-qupv3.dtsi"
 
 &pcie_0_gdsc {
