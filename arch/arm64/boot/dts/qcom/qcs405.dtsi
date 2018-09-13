@@ -667,9 +667,9 @@
 			reg = <0x60000 0x6000>;
 	};
 
-	apcs: syscon@b011000 {
+	apcs: syscon@b011008 {
 		compatible = "syscon";
-		reg = <0xb011000 0x4>;
+		reg = <0xb011008 0x4>;
 	};
 
 	apcs_glb: mailbox@b011000 {
