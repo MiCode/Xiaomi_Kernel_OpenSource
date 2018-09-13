@@ -34,11 +34,15 @@
  * struct hyp_core_ctl_cpumap - vcpu to pcpu mapping for the other guest
  * @sid: System call id to be used while referring to this vcpu
  * @pcpu: The physical CPU number corresponding to this vcpu
+ * @curr_pcpu: The current physical CPU number corresponding to this vcpu.
+ *             The curr_pcu is set to another CPU when the original assigned
+ *             CPU i.e pcpu can't be used due to thermal condition.
  *
  */
 struct hyp_core_ctl_cpu_map {
 	okl4_kcap_t sid;
 	okl4_cpu_id_t pcpu;
+	okl4_cpu_id_t curr_pcpu;
 };
 
 /**
@@ -109,10 +113,121 @@ static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
 
 static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 {
+	cpumask_t vcpu_adjust_mask;
+	int i, orig_cpu, curr_cpu, replacement_cpu;
+	okl4_error_t err;
+
+	/*
+	 * When thermal conditions are not present, we return
+	 * from here.
+	 */
 	if (cpumask_equal(temp, &hcd->final_reserved_cpus))
 		return;
 
+	/*
+	 * When we can't match with the original reserve CPUs request,
+	 * don't change the existing scheme. We can't assign the
+	 * same physical CPU to multiple virtual CPUs.
+	 *
+	 * This may only happen when thermal isolate more CPUs.
+	 */
+	if (cpumask_weight(temp) < cpumask_weight(&hcd->reserve_cpus)) {
+		pr_debug("Fail to reserve some CPUs\n");
+		return;
+	}
+
 	cpumask_copy(&hcd->final_reserved_cpus, temp);
+	cpumask_clear(&vcpu_adjust_mask);
+
+	/*
+	 * In the first pass, we traverse all virtual CPUs and try
+	 * to assign their original physical CPUs if they are
+	 * reserved. if the original physical CPU is not reserved,
+	 * then check the current physical CPU is reserved or not.
+	 * so that we continue to use the current physical CPU.
+	 *
+	 * If both original CPU and the current CPU are not reserved,
+	 * we have to find a replacement. These virtual CPUs are
+	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
+	 */
+	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
+		if (hcd->cpumap[i].sid == 0)
+			break;
+
+		orig_cpu = hcd->cpumap[i].pcpu;
+		curr_cpu = hcd->cpumap[i].curr_pcpu;
+
+		if (cpumask_test_cpu(orig_cpu, &hcd->final_reserved_cpus)) {
+			cpumask_clear_cpu(orig_cpu, temp);
+
+			if (orig_cpu == curr_cpu)
+				continue;
+
+			/*
+			 * The original pcpu corresponding to this vcpu i.e i
+			 * is available in final_reserved_cpus. so restore
+			 * the assignment.
+			 */
+			err = _okl4_sys_scheduler_affinity_set(hcd->syscall_id,
+						hcd->cpumap[i].sid, orig_cpu);
+			if (err != OKL4_ERROR_OK) {
+				pr_err("fail to assign pcpu for vcpu#%d\n", i);
+				continue;
+			}
+
+			hcd->cpumap[i].curr_pcpu = orig_cpu;
+			pr_debug("err=%u vcpu=%d pcpu=%u curr_cpu=%u\n",
+					err, i, hcd->cpumap[i].pcpu,
+					hcd->cpumap[i].curr_pcpu);
+			continue;
+		}
+
+		/*
+		 * The original CPU is not available but the previously
+		 * assigned CPU i.e curr_cpu is still available. so keep
+		 * using it.
+		 */
+		if (cpumask_test_cpu(curr_cpu, &hcd->final_reserved_cpus)) {
+			cpumask_clear_cpu(curr_cpu, temp);
+			continue;
+		}
+
+		/*
+		 * A replacement CPU is found in the 2nd pass below. Make
+		 * a note of this virtual CPU for which both original and
+		 * current physical CPUs are not available in the
+		 * final_reserved_cpus.
+		 */
+		cpumask_set_cpu(i, &vcpu_adjust_mask);
+	}
+
+	/*
+	 * The vcpu_adjust_mask contain the virtual CPUs that needs
+	 * re-assignment. The temp CPU mask contains the remaining
+	 * reserved CPUs. so we pick one by one from the remaining
+	 * reserved CPUs and assign them to the pending virtual
+	 * CPUs.
+	 */
+	for_each_cpu(i, &vcpu_adjust_mask) {
+		replacement_cpu = cpumask_any(temp);
+		cpumask_clear_cpu(replacement_cpu, temp);
+
+		err = _okl4_sys_scheduler_affinity_set(hcd->syscall_id,
+					hcd->cpumap[i].sid, replacement_cpu);
+		if (err != OKL4_ERROR_OK) {
+			pr_err("fail to assign pcpu for vcpu#%d\n", i);
+			continue;
+		}
+
+		hcd->cpumap[i].curr_pcpu = replacement_cpu;
+		pr_debug("adjust err=%u vcpu=%d pcpu=%u curr_cpu=%u\n",
+				err, i, hcd->cpumap[i].pcpu,
+				hcd->cpumap[i].curr_pcpu);
+
+	}
+
+	/* Did we reserve more CPUs than needed? */
+	WARN_ON(!cpumask_empty(temp));
 }
 
 static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
@@ -469,6 +584,7 @@ static int hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 			break;
 		}
 		hcd->cpumap[i].pcpu = result.cpu_index;
+		hcd->cpumap[i].curr_pcpu = result.cpu_index;
 		cpumask_set_cpu(hcd->cpumap[i].pcpu, &hcd->reserve_cpus);
 		pr_debug("vcpu%u map to pcpu%u\n", i, result.cpu_index);
 	}
