@@ -167,6 +167,7 @@ static inline int cnss_wlan_pm_control(struct device *dev, bool vote)
 	return 0;
 }
 #endif /* CONFIG_PCI_MSM */
+extern int cnss_pci_is_device_down(struct device *dev);
 extern void cnss_schedule_recovery(struct device *dev,
 				   enum cnss_recovery_reason reason);
 extern int cnss_self_recovery(struct device *dev,

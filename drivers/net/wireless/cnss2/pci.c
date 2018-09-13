@@ -236,6 +236,27 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 }
 #endif /* CONFIG_PCI_MSM */
 
+int cnss_pci_is_device_down(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_pci_data *pci_priv;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	return test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) |
+		pci_priv->pci_link_down_ind;
+}
+EXPORT_SYMBOL(cnss_pci_is_device_down);
+
 int cnss_pci_recovery_update_status(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv;
