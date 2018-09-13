@@ -1993,6 +1993,17 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		}
 	}
 
+	if (kgsl_gmu_isenabled(device) && adreno_dev->perfctr_ifpc_lo == 0) {
+		ret = adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 4,
+				&adreno_dev->perfctr_ifpc_lo, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
+		if (ret) {
+			WARN_ONCE(1, "Unable to get perf counter for IFPC\n");
+			adreno_dev->perfctr_ifpc_lo = 0;
+		}
+	}
+
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.bif_ram_cycles = 0;
@@ -2001,6 +2012,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
 	adreno_dev->busy_data.bif_starved_ram = 0;
 	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
+	adreno_dev->busy_data.num_ifpc = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -3552,6 +3564,17 @@ static void adreno_power_stats(struct kgsl_device *device,
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;
 	}
+
+	if (adreno_dev->perfctr_ifpc_lo != 0) {
+		uint32_t num_ifpc;
+
+		num_ifpc = counter_delta(device, adreno_dev->perfctr_ifpc_lo,
+				&busy->num_ifpc);
+		adreno_dev->ifpc_count += num_ifpc;
+		if (num_ifpc > 0)
+			trace_adreno_ifpc_count(adreno_dev->ifpc_count);
+	}
+
 	if (adreno_dev->lm_threshold_count &&
 			gpudev->count_throttles)
 		gpudev->count_throttles(adreno_dev, adj);
