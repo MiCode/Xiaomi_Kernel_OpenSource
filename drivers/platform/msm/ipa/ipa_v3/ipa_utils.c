@@ -5662,8 +5662,217 @@ int ipa3_alloc_rule_id(struct idr *rule_ids)
 	 * Distinction by high bit: Modem Ids are high bit asserted.
 	 */
 	return idr_alloc(rule_ids, NULL,
-		ipahal_get_low_rule_id(), ipahal_get_rule_id_hi_bit(),
+		ipahal_get_low_rule_id(),
+		ipahal_get_rule_id_hi_bit(),
 		GFP_KERNEL);
+}
+
+static int __ipa3_alloc_counter_hdl
+	(struct ipa_ioc_flt_rt_counter_alloc *counter)
+{
+	int id;
+
+	/* assign a handle using idr to this counter block */
+	id = idr_alloc(&ipa3_ctx->flt_rt_counters.hdl, counter,
+		ipahal_get_low_hdl_id(), ipahal_get_high_hdl_id(),
+		GFP_ATOMIC);
+
+	return id;
+}
+
+int ipa3_alloc_counter_id(struct ipa_ioc_flt_rt_counter_alloc *counter)
+{
+	int i, unused_cnt, unused_max, unused_start_id;
+
+	idr_preload(GFP_KERNEL);
+	spin_lock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+
+	/* allocate hw counters */
+	counter->hw_counter.start_id = 0;
+	counter->hw_counter.end_id = 0;
+	unused_cnt = 0;
+	unused_max = 0;
+	unused_start_id = 0;
+	if (counter->hw_counter.num_counters == 0)
+		goto sw_counter_alloc;
+	/* find the start id which can be used for the block */
+	for (i = 0; i < IPA_FLT_RT_HW_COUNTER; i++) {
+		if (!ipa3_ctx->flt_rt_counters.used_hw[i])
+			unused_cnt++;
+		else {
+			/* tracking max unused block in case allow less */
+			if (unused_cnt > unused_max) {
+				unused_start_id = i - unused_cnt + 2;
+				unused_max = unused_cnt;
+			}
+			unused_cnt = 0;
+		}
+		/* find it, break and use this 1st possible block */
+		if (unused_cnt == counter->hw_counter.num_counters) {
+			counter->hw_counter.start_id = i - unused_cnt + 2;
+			counter->hw_counter.end_id = i + 1;
+			break;
+		}
+	}
+	if (counter->hw_counter.start_id == 0) {
+		/* if not able to find such a block but allow less */
+		if (counter->hw_counter.allow_less && unused_max) {
+			/* give the max possible unused blocks */
+			counter->hw_counter.num_counters = unused_max;
+			counter->hw_counter.start_id = unused_start_id;
+			counter->hw_counter.end_id =
+				unused_start_id + unused_max - 1;
+		} else {
+			/* not able to find such a block */
+			counter->hw_counter.num_counters = 0;
+			counter->hw_counter.start_id = 0;
+			counter->hw_counter.end_id = 0;
+			goto err;
+		}
+	}
+
+sw_counter_alloc:
+	/* allocate sw counters */
+	counter->sw_counter.start_id = 0;
+	counter->sw_counter.end_id = 0;
+	unused_cnt = 0;
+	unused_max = 0;
+	unused_start_id = 0;
+	if (counter->sw_counter.num_counters == 0)
+		goto mark_hw_cnt;
+	/* find the start id which can be used for the block */
+	for (i = 0; i < IPA_FLT_RT_SW_COUNTER; i++) {
+		if (!ipa3_ctx->flt_rt_counters.used_sw[i])
+			unused_cnt++;
+		else {
+			/* tracking max unused block in case allow less */
+			if (unused_cnt > unused_max) {
+				unused_start_id = i - unused_cnt +
+					2 + IPA_FLT_RT_HW_COUNTER;
+				unused_max = unused_cnt;
+			}
+			unused_cnt = 0;
+		}
+		/* find it, break and use this 1st possible block */
+		if (unused_cnt == counter->sw_counter.num_counters) {
+			counter->sw_counter.start_id = i - unused_cnt +
+				2 + IPA_FLT_RT_HW_COUNTER;
+			counter->sw_counter.end_id =
+				i + 1 + IPA_FLT_RT_HW_COUNTER;
+			break;
+		}
+	}
+	if (counter->sw_counter.start_id == 0) {
+		/* if not able to find such a block but allow less */
+		if (counter->sw_counter.allow_less && unused_max) {
+			/* give the max possible unused blocks */
+			counter->sw_counter.num_counters = unused_max;
+			counter->sw_counter.start_id = unused_start_id;
+			counter->sw_counter.end_id =
+				unused_start_id + unused_max - 1;
+		} else {
+			/* not able to find such a block */
+			counter->sw_counter.num_counters = 0;
+			counter->sw_counter.start_id = 0;
+			counter->sw_counter.end_id = 0;
+			goto err;
+		}
+	}
+
+mark_hw_cnt:
+	/* add hw counters, set used to 1 */
+	if (counter->hw_counter.num_counters == 0)
+		goto mark_sw_cnt;
+	unused_start_id = counter->hw_counter.start_id;
+	if (unused_start_id < 1 ||
+		unused_start_id > IPA_FLT_RT_HW_COUNTER) {
+		IPAERR("unexpected hw_counter start id %d\n",
+			   unused_start_id);
+		goto err;
+	}
+	for (i = 0; i < counter->hw_counter.num_counters; i++)
+		ipa3_ctx->flt_rt_counters.used_hw[unused_start_id + i - 1]
+			= 1;
+mark_sw_cnt:
+	/* add sw counters, set used to 1 */
+	if (counter->sw_counter.num_counters == 0)
+		goto done;
+	unused_start_id = counter->sw_counter.start_id
+		- IPA_FLT_RT_HW_COUNTER;
+	if (unused_start_id < 1 ||
+		unused_start_id > IPA_FLT_RT_SW_COUNTER) {
+		IPAERR("unexpected sw_counter start id %d\n",
+			   unused_start_id);
+		goto err;
+	}
+	for (i = 0; i < counter->sw_counter.num_counters; i++)
+		ipa3_ctx->flt_rt_counters.used_sw[unused_start_id + i - 1]
+			= 1;
+done:
+	/* get a handle from idr for dealloc */
+	counter->hdl = __ipa3_alloc_counter_hdl(counter);
+	spin_unlock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+	idr_preload_end();
+	return 0;
+
+err:
+	counter->hdl = -1;
+	spin_unlock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+	idr_preload_end();
+	return -ENOMEM;
+}
+
+void ipa3_counter_remove_hdl(int hdl)
+{
+	struct ipa_ioc_flt_rt_counter_alloc *counter;
+	int offset = 0;
+
+	spin_lock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+	counter = idr_find(&ipa3_ctx->flt_rt_counters.hdl, hdl);
+	if (counter == NULL) {
+		IPAERR("unexpected hdl %d\n", hdl);
+		goto err;
+	}
+	/* remove counters belong to this hdl, set used back to 0 */
+	offset = counter->hw_counter.start_id - 1;
+	if (offset >= 0 && offset + counter->hw_counter.num_counters
+		< IPA_FLT_RT_HW_COUNTER) {
+		memset(&ipa3_ctx->flt_rt_counters.used_hw + offset,
+			   0, counter->hw_counter.num_counters * sizeof(bool));
+	} else {
+		IPAERR("unexpected hdl %d\n", hdl);
+		goto err;
+	}
+	offset = counter->sw_counter.start_id - 1 - IPA_FLT_RT_HW_COUNTER;
+	if (offset >= 0 && offset + counter->sw_counter.num_counters
+		< IPA_FLT_RT_SW_COUNTER) {
+		memset(&ipa3_ctx->flt_rt_counters.used_sw + offset,
+		   0, counter->sw_counter.num_counters * sizeof(bool));
+	} else {
+		IPAERR("unexpected hdl %d\n", hdl);
+		goto err;
+	}
+	/* remove the handle */
+	idr_remove(&ipa3_ctx->flt_rt_counters.hdl, hdl);
+err:
+	spin_unlock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+}
+
+void ipa3_counter_id_remove_all(void)
+{
+	struct ipa_ioc_flt_rt_counter_alloc *counter;
+	int hdl;
+
+	spin_lock(&ipa3_ctx->flt_rt_counters.hdl_lock);
+	/* remove all counters, set used back to 0 */
+	memset(&ipa3_ctx->flt_rt_counters.used_hw, 0,
+		   sizeof(ipa3_ctx->flt_rt_counters.used_hw));
+	memset(&ipa3_ctx->flt_rt_counters.used_sw, 0,
+		   sizeof(ipa3_ctx->flt_rt_counters.used_sw));
+	/* remove all handles */
+	idr_for_each_entry(&ipa3_ctx->flt_rt_counters.hdl, counter, hdl)
+		idr_remove(&ipa3_ctx->flt_rt_counters.hdl, hdl);
+	spin_unlock(&ipa3_ctx->flt_rt_counters.hdl_lock);
 }
 
 int ipa3_id_alloc(void *ptr)
@@ -6268,7 +6477,9 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
 	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
 	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_add_rt_rule_v2 = ipa3_add_rt_rule_v2;
 	api_ctrl->ipa_add_rt_rule_usr = ipa3_add_rt_rule_usr;
+	api_ctrl->ipa_add_rt_rule_usr_v2 = ipa3_add_rt_rule_usr_v2;
 	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
 	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
 	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
@@ -6276,10 +6487,14 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_put_rt_tbl = ipa3_put_rt_tbl;
 	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
 	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
+	api_ctrl->ipa_mdfy_rt_rule_v2 = ipa3_mdfy_rt_rule_v2;
 	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_add_flt_rule_v2 = ipa3_add_flt_rule_v2;
 	api_ctrl->ipa_add_flt_rule_usr = ipa3_add_flt_rule_usr;
+	api_ctrl->ipa_add_flt_rule_usr_v2 = ipa3_add_flt_rule_usr_v2;
 	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
+	api_ctrl->ipa_mdfy_flt_rule_v2 = ipa3_mdfy_flt_rule_v2;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
 	api_ctrl->ipa_reset_flt = ipa3_reset_flt;
 	api_ctrl->ipa_allocate_nat_device = ipa3_allocate_nat_device;

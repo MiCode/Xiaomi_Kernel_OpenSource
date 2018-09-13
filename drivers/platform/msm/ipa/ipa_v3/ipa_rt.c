@@ -125,7 +125,8 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 	gen_params.priority = entry->prio;
 	gen_params.id = entry->rule_id;
-	gen_params.rule = (const struct ipa_rt_rule *)&entry->rule;
+	gen_params.rule = (const struct ipa_rt_rule_i *)&entry->rule;
+	gen_params.cnt_idx = entry->cnt_idx;
 
 	res = ipahal_rt_generate_hw_rule(&gen_params, &entry->hw_len, buf);
 	if (res)
@@ -944,10 +945,12 @@ static int __ipa_rt_validate_rule_id(u16 rule_id)
 
 	return 0;
 }
-static int __ipa_rt_validate_hndls(const struct ipa_rt_rule *rule,
+static int __ipa_rt_validate_hndls(const struct ipa_rt_rule_i *rule,
 				struct ipa3_hdr_entry **hdr,
 				struct ipa3_hdr_proc_ctx_entry **proc_ctx)
 {
+	int index;
+
 	if (rule->hdr_hdl && rule->hdr_proc_ctx_hdl) {
 		IPAERR_RL("rule contains both hdr_hdl and hdr_proc_ctx_hdl\n");
 		return -EPERM;
@@ -974,11 +977,35 @@ static int __ipa_rt_validate_hndls(const struct ipa_rt_rule *rule,
 		return -EPERM;
 	}
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		if (rule->enable_stats && rule->cnt_idx) {
+			if (!ipahal_is_rule_cnt_id_valid(rule->cnt_idx)) {
+				IPAERR_RL(
+					"invalid cnt_idx %hhu out of range\n",
+					rule->cnt_idx);
+				return -EPERM;
+			}
+			index = rule->cnt_idx - 1;
+			if (!ipa3_ctx->flt_rt_counters.used_hw[index]) {
+				IPAERR_RL(
+					"invalid cnt_idx %hhu not alloc by driver\n",
+					rule->cnt_idx);
+				return -EPERM;
+			}
+		}
+	} else {
+		if (rule->enable_stats) {
+			IPAERR_RL(
+				"enable_stats won't support on ipa_hw_type %d\n",
+				ipa3_ctx->ipa_hw_type);
+			return -EPERM;
+		}
+	}
 	return 0;
 }
 
 static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
-		const struct ipa_rt_rule *rule,
+		const struct ipa_rt_rule_i *rule,
 		struct ipa3_rt_tbl *tbl, struct ipa3_hdr_entry *hdr,
 		struct ipa3_hdr_proc_ctx_entry *proc_ctx,
 		u16 rule_id, bool user)
@@ -1014,6 +1041,10 @@ static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1)
 		(*(entry))->rule.dst = IPA_CLIENT_APPS_WAN_COAL_CONS;
 
+	if (rule->enable_stats)
+		(*entry)->cnt_idx = rule->cnt_idx;
+	else
+		(*entry)->cnt_idx = 0;
 	return 0;
 
 alloc_rule_id_fail:
@@ -1057,7 +1088,7 @@ ipa_insert_failed:
 }
 
 static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
-		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl,
+		const struct ipa_rt_rule_i *rule, u8 at_rear, u32 *rule_hdl,
 		u16 rule_id, bool user)
 {
 	struct ipa3_rt_tbl *tbl;
@@ -1106,7 +1137,7 @@ error:
 }
 
 static int __ipa_add_rt_rule_after(struct ipa3_rt_tbl *tbl,
-		const struct ipa_rt_rule *rule, u32 *rule_hdl,
+		const struct ipa_rt_rule_i *rule, u32 *rule_hdl,
 		struct ipa3_rt_entry **add_after_entry)
 {
 	struct ipa3_rt_entry *entry;
@@ -1139,6 +1170,68 @@ error:
 	return -EPERM;
 }
 
+static void __ipa_convert_rt_rule_in(struct ipa_rt_rule rule_in,
+	struct ipa_rt_rule_i *rule_out)
+{
+	if (unlikely(sizeof(struct ipa_rt_rule) >
+			sizeof(struct ipa_rt_rule_i))) {
+		IPAERR_RL("invalid size in: %d size out: %d\n",
+			sizeof(struct ipa_rt_rule),
+			sizeof(struct ipa_rt_rule_i));
+		return;
+	}
+	memset(rule_out, 0, sizeof(struct ipa_rt_rule_i));
+	memcpy(rule_out, &rule_in, sizeof(struct ipa_rt_rule));
+}
+
+static void __ipa_convert_rt_rule_out(struct ipa_rt_rule_i rule_in,
+	struct ipa_rt_rule *rule_out)
+{
+	if (unlikely(sizeof(struct ipa_rt_rule) >
+			sizeof(struct ipa_rt_rule_i))) {
+		IPAERR_RL("invalid size in:%d size out:%d\n",
+			sizeof(struct ipa_rt_rule),
+			sizeof(struct ipa_rt_rule_i));
+		return;
+	}
+	memset(rule_out, 0, sizeof(struct ipa_rt_rule));
+	memcpy(rule_out, &rule_in, sizeof(struct ipa_rt_rule));
+}
+
+static void __ipa_convert_rt_mdfy_in(struct ipa_rt_rule_mdfy rule_in,
+	struct ipa_rt_rule_mdfy_i *rule_out)
+{
+	if (unlikely(sizeof(struct ipa_rt_rule_mdfy) >
+			sizeof(struct ipa_rt_rule_mdfy_i))) {
+		IPAERR_RL("invalid size in:%d size out:%d\n",
+			sizeof(struct ipa_rt_rule_mdfy),
+			sizeof(struct ipa_rt_rule_mdfy_i));
+		return;
+	}
+	memset(rule_out, 0, sizeof(struct ipa_rt_rule_mdfy_i));
+	memcpy(&rule_out->rule, &rule_in.rule,
+		sizeof(struct ipa_rt_rule));
+	rule_out->rt_rule_hdl = rule_in.rt_rule_hdl;
+	rule_out->status = rule_in.status;
+}
+
+static void __ipa_convert_rt_mdfy_out(struct ipa_rt_rule_mdfy_i rule_in,
+	struct ipa_rt_rule_mdfy *rule_out)
+{
+	if (unlikely(sizeof(struct ipa_rt_rule_mdfy) >
+			sizeof(struct ipa_rt_rule_mdfy_i))) {
+		IPAERR_RL("invalid size in:%d size out:%d\n",
+			sizeof(struct ipa_rt_rule_mdfy),
+			sizeof(struct ipa_rt_rule_mdfy_i));
+		return;
+	}
+	memset(rule_out, 0, sizeof(struct ipa_rt_rule_mdfy));
+	memcpy(&rule_out->rule, &rule_in.rule,
+		sizeof(struct ipa_rt_rule));
+	rule_out->rt_rule_hdl = rule_in.rt_rule_hdl;
+	rule_out->status = rule_in.status;
+}
+
 /**
  * ipa3_add_rt_rule() - Add the specified routing rules to SW and optionally
  * commit to IPA HW
@@ -1152,6 +1245,21 @@ error:
 int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 {
 	return ipa3_add_rt_rule_usr(rules, false);
+}
+
+/**
+ * ipa3_add_rt_rule_v2() - Add the specified routing rules to SW
+ * and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+
+int ipa3_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules)
+{
+	return ipa3_add_rt_rule_usr_v2(rules, false);
 }
 
 /**
@@ -1169,6 +1277,7 @@ int ipa3_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 {
 	int i;
 	int ret;
+	struct ipa_rt_rule_i rule;
 
 	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
 		IPAERR_RL("bad param\n");
@@ -1181,8 +1290,9 @@ int ipa3_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 		/* if hashing not supported, all tables are non-hash tables*/
 		if (ipa3_ctx->ipa_fltrt_not_hashable)
 			rules->rules[i].rule.hashable = false;
+		__ipa_convert_rt_rule_in(rules->rules[i].rule, &rule);
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
-					&rules->rules[i].rule,
+					&rule,
 					rules->rules[i].at_rear,
 					&rules->rules[i].rt_rule_hdl,
 					0,
@@ -1190,6 +1300,7 @@ int ipa3_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 			IPAERR_RL("failed to add rt rule %d\n", i);
 			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
+			__ipa_convert_rt_rule_out(rule, &rules->rules[i].rule);
 			rules->rules[i].status = 0;
 		}
 	}
@@ -1207,6 +1318,66 @@ bail:
 }
 
 /**
+ * ipa3_add_rt_rule_usr_v2() - Add the specified routing rules
+ * to SW and optionally commit to IPA HW
+ * @rules:		[inout] set of routing rules to add
+ * @user_only:	[in] indicate installed by userspace module
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+
+int ipa3_add_rt_rule_usr_v2(struct ipa_ioc_add_rt_rule_v2 *rules,
+	bool user_only)
+{
+	int i;
+	int ret;
+
+	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
+		IPAERR_RL("bad param\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (i = 0; i < rules->num_rules; i++) {
+		rules->rt_tbl_name[IPA_RESOURCE_NAME_MAX-1] = '\0';
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			((struct ipa_rt_rule_add_i *)
+			rules->rules)[i].rule.hashable = false;
+		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
+					&(((struct ipa_rt_rule_add_i *)
+					rules->rules)[i].rule),
+					((struct ipa_rt_rule_add_i *)
+					rules->rules)[i].at_rear,
+					&(((struct ipa_rt_rule_add_i *)
+					rules->rules)[i].rt_rule_hdl),
+					0,
+					user_only)) {
+			IPAERR_RL("failed to add rt rule %d\n", i);
+			((struct ipa_rt_rule_add_i *)rules->rules)[i].status
+				= IPA_RT_STATUS_OF_ADD_FAILED;
+		} else {
+			((struct ipa_rt_rule_add_i *)
+			rules->rules)[i].status = 0;
+		}
+	}
+
+	if (rules->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
+			ret = -EPERM;
+			goto bail;
+		}
+
+	ret = 0;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
+
+/**
  * ipa3_add_rt_rule_ext() - Add the specified routing rules to SW with rule id
  * and optionally commit to IPA HW
  * @rules:	[inout] set of routing rules to add
@@ -1216,6 +1387,58 @@ bail:
  * Note:	Should not be called from atomic context
  */
 int ipa3_add_rt_rule_ext(struct ipa_ioc_add_rt_rule_ext *rules)
+{
+	int i;
+	int ret;
+	struct ipa_rt_rule_i rule;
+
+	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
+		IPAERR_RL("bad parm\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (i = 0; i < rules->num_rules; i++) {
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			rules->rules[i].rule.hashable = false;
+		__ipa_convert_rt_rule_in(
+				rules->rules[i].rule, &rule);
+		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
+					&rule,
+					rules->rules[i].at_rear,
+					&rules->rules[i].rt_rule_hdl,
+					rules->rules[i].rule_id, true)) {
+			IPAERR_RL("failed to add rt rule %d\n", i);
+			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+		} else {
+			__ipa_convert_rt_rule_out(rule, &rules->rules[i].rule);
+			rules->rules[i].status = 0;
+		}
+	}
+
+	if (rules->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
+			ret = -EPERM;
+			goto bail;
+		}
+
+	ret = 0;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
+/**
+ * ipa3_add_rt_rule_ext_v2() - Add the specified routing rules
+ * to SW with rule id and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_add_rt_rule_ext_v2(struct ipa_ioc_add_rt_rule_ext_v2 *rules)
 {
 	int i;
 	int ret;
@@ -1229,16 +1452,23 @@ int ipa3_add_rt_rule_ext(struct ipa_ioc_add_rt_rule_ext *rules)
 	for (i = 0; i < rules->num_rules; i++) {
 		/* if hashing not supported, all tables are non-hash tables*/
 		if (ipa3_ctx->ipa_fltrt_not_hashable)
-			rules->rules[i].rule.hashable = false;
+			((struct ipa_rt_rule_add_ext_i *)
+			rules->rules)[i].rule.hashable = false;
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
-					&rules->rules[i].rule,
-					rules->rules[i].at_rear,
-					&rules->rules[i].rt_rule_hdl,
-					rules->rules[i].rule_id, true)) {
+					&(((struct ipa_rt_rule_add_ext_i *)
+					rules->rules)[i].rule),
+					((struct ipa_rt_rule_add_ext_i *)
+					rules->rules)[i].at_rear,
+					&(((struct ipa_rt_rule_add_ext_i *)
+					rules->rules)[i].rt_rule_hdl),
+					((struct ipa_rt_rule_add_ext_i *)
+					rules->rules)[i].rule_id, true)) {
 			IPAERR_RL("failed to add rt rule %d\n", i);
-			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+			((struct ipa_rt_rule_add_ext_i *)
+			rules->rules)[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
-			rules->rules[i].status = 0;
+			((struct ipa_rt_rule_add_ext_i *)
+			rules->rules)[i].status = 0;
 		}
 	}
 
@@ -1264,6 +1494,117 @@ bail:
  * Note:	Should not be called from atomic context
  */
 int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
+{
+	int i;
+	int ret = 0;
+	struct ipa3_rt_tbl *tbl = NULL;
+	struct ipa3_rt_entry *entry = NULL;
+	struct ipa_rt_rule_i rule;
+
+	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
+		IPAERR_RL("bad param\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+	rules->rt_tbl_name[IPA_RESOURCE_NAME_MAX-1] = '\0';
+	tbl = __ipa3_find_rt_tbl(rules->ip, rules->rt_tbl_name);
+	if (tbl == NULL || (tbl->cookie != IPA_RT_TBL_COOKIE)) {
+		IPAERR_RL("failed finding rt tbl name = %s\n",
+			rules->rt_tbl_name);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (!tbl->rule_cnt) {
+		IPAERR_RL("tbl->rule_cnt == 0");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	entry = ipa3_id_find(rules->add_after_hdl);
+	if (!entry) {
+		IPAERR_RL("failed finding rule %d in rt tbls\n",
+			rules->add_after_hdl);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (entry->cookie != IPA_RT_RULE_COOKIE) {
+		IPAERR_RL("Invalid cookie value =  %u rule %d in rt tbls\n",
+			entry->cookie, rules->add_after_hdl);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (entry->tbl != tbl) {
+		IPAERR_RL("given rt rule does not match the table\n");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	/*
+	 * do not allow any rule to be added at "default" routing
+	 * table
+	 */
+	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
+		(tbl->rule_cnt > 0)) {
+		IPAERR_RL("cannot add rules to default rt table\n");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	/*
+	 * we add all rules one after the other, if one insertion fails, it cuts
+	 * the chain (all following will receive fail status) following calls to
+	 * __ipa_add_rt_rule_after will fail (entry == NULL)
+	 */
+
+	for (i = 0; i < rules->num_rules; i++) {
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			rules->rules[i].rule.hashable = false;
+		__ipa_convert_rt_rule_in(
+				rules->rules[i].rule, &rule);
+		if (__ipa_add_rt_rule_after(tbl,
+					&rule,
+					&rules->rules[i].rt_rule_hdl,
+					&entry)) {
+			IPAERR_RL("failed to add rt rule %d\n", i);
+			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+		} else {
+			rules->rules[i].status = 0;
+			__ipa_convert_rt_rule_out(rule, &rules->rules[i].rule);
+		}
+	}
+
+	if (rules->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
+			IPAERR_RL("failed to commit\n");
+			ret = -EPERM;
+			goto bail;
+		}
+
+	ret = 0;
+	goto bail;
+
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
+/**
+ * ipa3_add_rt_rule_after_v2() - Add the given routing rules
+ * after the specified rule to SW and optionally commit to IPA
+ * HW
+ * @rules:	[inout] set of routing rules to add + handle where to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_add_rt_rule_after_v2(struct ipa_ioc_add_rt_rule_after_v2
+	*rules)
 {
 	int i;
 	int ret = 0;
@@ -1332,15 +1673,20 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 	for (i = 0; i < rules->num_rules; i++) {
 		/* if hashing not supported, all tables are non-hash tables*/
 		if (ipa3_ctx->ipa_fltrt_not_hashable)
-			rules->rules[i].rule.hashable = false;
+			((struct ipa_rt_rule_add_i *)
+			rules->rules)[i].rule.hashable = false;
 		if (__ipa_add_rt_rule_after(tbl,
-					&rules->rules[i].rule,
-					&rules->rules[i].rt_rule_hdl,
+					&(((struct ipa_rt_rule_add_i *)
+					rules->rules)[i].rule),
+					&(((struct ipa_rt_rule_add_i *)
+					rules->rules)[i].rt_rule_hdl),
 					&entry)) {
 			IPAERR_RL("failed to add rt rule %d\n", i);
-			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+			((struct ipa_rt_rule_add_i *)
+			rules->rules)[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
-			rules->rules[i].status = 0;
+			((struct ipa_rt_rule_add_i *)
+			rules->rules)[i].status = 0;
 		}
 	}
 
@@ -1774,7 +2120,7 @@ ret:
 }
 
 
-static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
+static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy_i *rtrule)
 {
 	struct ipa3_rt_entry *entry;
 	struct ipa3_hdr_entry *hdr = NULL;
@@ -1847,7 +2193,10 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
 
 	entry->hw_len = 0;
 	entry->prio = 0;
-
+	if (rtrule->rule.enable_stats)
+		entry->cnt_idx = rtrule->rule.cnt_idx;
+	else
+		entry->cnt_idx = 0;
 	return 0;
 
 error:
@@ -1866,6 +2215,7 @@ int ipa3_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 {
 	int i;
 	int result;
+	struct ipa_rt_rule_mdfy_i rule;
 
 	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR_RL("bad param\n");
@@ -1877,11 +2227,60 @@ int ipa3_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 		/* if hashing not supported, all tables are non-hash tables*/
 		if (ipa3_ctx->ipa_fltrt_not_hashable)
 			hdls->rules[i].rule.hashable = false;
-		if (__ipa_mdfy_rt_rule(&hdls->rules[i])) {
+		__ipa_convert_rt_mdfy_in(hdls->rules[i], &rule);
+		if (__ipa_mdfy_rt_rule(&rule)) {
 			IPAERR_RL("failed to mdfy rt rule %i\n", i);
 			hdls->rules[i].status = IPA_RT_STATUS_OF_MDFY_FAILED;
 		} else {
 			hdls->rules[i].status = 0;
+			__ipa_convert_rt_mdfy_out(rule, &hdls->rules[i]);
+		}
+	}
+
+	if (hdls->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(hdls->ip)) {
+			result = -EPERM;
+			goto bail;
+		}
+	result = 0;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+
+	return result;
+}
+
+/**
+ * ipa3_mdfy_rt_rule_v2() - Modify the specified routing rules
+ * in SW and optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *hdls)
+{
+	int i;
+	int result;
+
+	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
+		IPAERR_RL("bad param\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (i = 0; i < hdls->num_rules; i++) {
+		/* if hashing not supported, all tables are non-hash tables*/
+		if (ipa3_ctx->ipa_fltrt_not_hashable)
+			((struct ipa_rt_rule_mdfy_i *)
+			hdls->rules)[i].rule.hashable = false;
+		if (__ipa_mdfy_rt_rule(&(((struct ipa_rt_rule_mdfy_i *)
+			hdls->rules)[i]))) {
+			IPAERR_RL("failed to mdfy rt rule %i\n", i);
+			((struct ipa_rt_rule_mdfy_i *)
+			hdls->rules)[i].status = IPA_RT_STATUS_OF_MDFY_FAILED;
+		} else {
+			((struct ipa_rt_rule_mdfy_i *)
+			hdls->rules)[i].status = 0;
 		}
 	}
 

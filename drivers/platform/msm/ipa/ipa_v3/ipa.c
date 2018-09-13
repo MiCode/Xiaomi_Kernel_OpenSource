@@ -673,9 +673,13 @@ static int ipa3_send_gsb_msg(unsigned long usr_param, uint8_t msg_type)
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
+	int i;
+	u32 usr_pyld_sz;
 	u32 pyld_sz;
 	u8 header[128] = { 0 };
 	u8 *param = NULL;
+	u8 *kptr = NULL;
+	unsigned long uptr = 0;
 	bool is_vlan_mode;
 	struct ipa_ioc_nat_alloc_mem nat_mem;
 	struct ipa_ioc_nat_ipv6ct_table_alloc table_alloc;
@@ -690,6 +694,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_wigig_fst_switch fst_switch;
 	size_t sz;
 	int pre_entry;
+	int hdl;
 
 	IPADBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
 
@@ -1854,6 +1859,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		nat_del.table_index = 0;
 		retval = ipa3_nat_del_cmd(&nat_del);
 		retval = ipa3_clean_modem_rule();
+		ipa3_counter_id_remove_all();
 		break;
 
 	case IPA_IOC_QUERY_WLAN_CLIENT:
@@ -1876,6 +1882,721 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+	case IPA_IOC_ADD_RT_RULE_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_add_rt_rule_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_rt_rule_v2 *)header)->num_rules;
+		if (unlikely(((struct ipa_ioc_add_rt_rule_v2 *)
+			header)->rule_add_size >
+			sizeof(struct ipa_rt_rule_add_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_add_rt_rule_v2 *)
+			header)->rule_add_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_add_rt_rule_v2 *)
+			header)->rule_add_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_rt_rule_add_i) * pre_entry;
+		uptr = ((struct ipa_ioc_add_rt_rule_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_rt_rule_add_i),
+				(void *)param + i *
+				((struct ipa_ioc_add_rt_rule_v2 *)
+				header)->rule_add_size,
+				((struct ipa_ioc_add_rt_rule_v2 *)
+				header)->rule_add_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_rt_rule_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_add_rt_rule_usr_v2(
+			(struct ipa_ioc_add_rt_rule_v2 *)header, true)) {
+			IPAERR_RL("ipa3_add_rt_rule_usr_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_add_rt_rule_v2 *)
+				header)->rule_add_size,
+				kptr + i * sizeof(struct ipa_rt_rule_add_i),
+				((struct ipa_ioc_add_rt_rule_v2 *)
+				header)->rule_add_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_ADD_RT_RULE_EXT_V2:
+		if (copy_from_user(header,
+				(const void __user *)arg,
+				sizeof(struct ipa_ioc_add_rt_rule_ext_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_rt_rule_ext_v2 *)
+			header)->num_rules;
+		if (unlikely(((struct ipa_ioc_add_rt_rule_ext_v2 *)
+			header)->rule_add_ext_size >
+			sizeof(struct ipa_rt_rule_add_ext_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_add_rt_rule_ext_v2 *)
+			header)->rule_add_ext_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_add_rt_rule_ext_v2 *)
+			header)->rule_add_ext_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_rt_rule_add_ext_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_add_rt_rule_ext_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i *
+				sizeof(struct ipa_rt_rule_add_ext_i),
+				(void *)param + i *
+				((struct ipa_ioc_add_rt_rule_ext_v2 *)
+				header)->rule_add_ext_size,
+				((struct ipa_ioc_add_rt_rule_ext_v2 *)
+				header)->rule_add_ext_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_rt_rule_ext_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_add_rt_rule_ext_v2(
+			(struct ipa_ioc_add_rt_rule_ext_v2 *)header)) {
+			IPAERR_RL("ipa3_add_rt_rule_ext_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_add_rt_rule_ext_v2 *)
+				header)->rule_add_ext_size,
+				kptr + i *
+				sizeof(struct ipa_rt_rule_add_ext_i),
+				((struct ipa_ioc_add_rt_rule_ext_v2 *)
+				header)->rule_add_ext_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_ADD_RT_RULE_AFTER_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_add_rt_rule_after_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_rt_rule_after_v2 *)
+			header)->num_rules;
+		if (unlikely(((struct ipa_ioc_add_rt_rule_after_v2 *)
+			header)->rule_add_size >
+			sizeof(struct ipa_rt_rule_add_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_add_rt_rule_after_v2 *)
+			header)->rule_add_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_add_rt_rule_after_v2 *)
+			header)->rule_add_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_rt_rule_add_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_add_rt_rule_after_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_rt_rule_add_i),
+				(void *)param + i *
+				((struct ipa_ioc_add_rt_rule_after_v2 *)
+				header)->rule_add_size,
+				((struct ipa_ioc_add_rt_rule_after_v2 *)
+				header)->rule_add_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_rt_rule_after_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_add_rt_rule_after_v2(
+			(struct ipa_ioc_add_rt_rule_after_v2 *)header)) {
+			IPAERR_RL("ipa3_add_rt_rule_after_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_add_rt_rule_after_v2 *)
+				header)->rule_add_size,
+				kptr + i * sizeof(struct ipa_rt_rule_add_i),
+				((struct ipa_ioc_add_rt_rule_after_v2 *)
+				header)->rule_add_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_MDFY_RT_RULE_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_mdfy_rt_rule_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)->num_rules;
+		if (unlikely(((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)->rule_mdfy_size >
+			sizeof(struct ipa_rt_rule_mdfy_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)->rule_mdfy_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)->rule_mdfy_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_rt_rule_mdfy_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_rt_rule_mdfy_i),
+				(void *)param + i *
+				((struct ipa_ioc_mdfy_rt_rule_v2 *)
+				header)->rule_mdfy_size,
+				((struct ipa_ioc_mdfy_rt_rule_v2 *)
+				header)->rule_mdfy_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_mdfy_rt_rule_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_mdfy_rt_rule_v2((struct ipa_ioc_mdfy_rt_rule_v2 *)
+			header)) {
+			IPAERR_RL("ipa3_mdfy_rt_rule_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_mdfy_rt_rule_v2 *)
+				header)->rule_mdfy_size,
+				kptr + i * sizeof(struct ipa_rt_rule_mdfy_i),
+				((struct ipa_ioc_mdfy_rt_rule_v2 *)
+				header)->rule_mdfy_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_ADD_FLT_RULE_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_add_flt_rule_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_flt_rule_v2 *)header)->num_rules;
+		if (unlikely(((struct ipa_ioc_add_flt_rule_v2 *)
+			header)->flt_rule_size >
+			sizeof(struct ipa_flt_rule_add_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_add_flt_rule_v2 *)
+			header)->flt_rule_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_add_flt_rule_v2 *)
+			header)->flt_rule_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_flt_rule_add_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_add_flt_rule_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_flt_rule_add_i),
+				(void *)param + i *
+				((struct ipa_ioc_add_flt_rule_v2 *)
+				header)->flt_rule_size,
+				((struct ipa_ioc_add_flt_rule_v2 *)
+				header)->flt_rule_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_flt_rule_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_add_flt_rule_usr_v2((struct ipa_ioc_add_flt_rule_v2 *)
+				header, true)) {
+			IPAERR_RL("ipa3_add_flt_rule_usr_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_add_flt_rule_v2 *)
+				header)->flt_rule_size,
+				kptr + i * sizeof(struct ipa_flt_rule_add_i),
+				((struct ipa_ioc_add_flt_rule_v2 *)
+				header)->flt_rule_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_ADD_FLT_RULE_AFTER_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_add_flt_rule_after_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_flt_rule_after_v2 *)
+			 header)->num_rules;
+		if (unlikely(((struct ipa_ioc_add_flt_rule_after_v2 *)
+			header)->flt_rule_size >
+			sizeof(struct ipa_flt_rule_add_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_add_flt_rule_after_v2 *)
+			header)->flt_rule_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_add_flt_rule_after_v2 *)
+			header)->flt_rule_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_flt_rule_add_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_add_flt_rule_after_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_flt_rule_add_i),
+				(void *)param + i *
+				((struct ipa_ioc_add_flt_rule_after_v2 *)
+				header)->flt_rule_size,
+				((struct ipa_ioc_add_flt_rule_after_v2 *)
+				header)->flt_rule_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_add_flt_rule_after_v2(
+			(struct ipa_ioc_add_flt_rule_after_v2 *)header)) {
+			IPAERR_RL("ipa3_add_flt_rule_after_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_add_flt_rule_after_v2 *)
+				header)->flt_rule_size,
+				kptr + i * sizeof(struct ipa_flt_rule_add_i),
+				((struct ipa_ioc_add_flt_rule_after_v2 *)
+				header)->flt_rule_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_MDFY_FLT_RULE_V2:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_mdfy_flt_rule_v2))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_mdfy_flt_rule_v2 *)
+			 header)->num_rules;
+		if (unlikely(((struct ipa_ioc_mdfy_flt_rule_v2 *)
+			header)->rule_mdfy_size >
+			sizeof(struct ipa_flt_rule_mdfy_i))) {
+			IPAERR_RL("unexpected rule_add_size %d\n",
+			((struct ipa_ioc_mdfy_flt_rule_v2 *)
+			header)->rule_mdfy_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_mdfy_flt_rule_v2 *)
+			header)->rule_mdfy_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_flt_rule_mdfy_i)
+			* pre_entry;
+		uptr = ((struct ipa_ioc_mdfy_flt_rule_v2 *)
+			header)->rules;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_flt_rule_mdfy_i),
+				(void *)param + i *
+				((struct ipa_ioc_mdfy_flt_rule_v2 *)
+				header)->rule_mdfy_size,
+				((struct ipa_ioc_mdfy_flt_rule_v2 *)
+				header)->rule_mdfy_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+			(uintptr_t)kptr;
+		if (ipa3_mdfy_flt_rule_v2
+			((struct ipa_ioc_mdfy_flt_rule_v2 *)header)) {
+			IPAERR_RL("ipa3_mdfy_flt_rule_v2 fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_mdfy_flt_rule_v2 *)
+				header)->rule_mdfy_size,
+				kptr + i * sizeof(struct ipa_flt_rule_mdfy_i),
+				((struct ipa_ioc_mdfy_flt_rule_v2 *)
+				header)->rule_mdfy_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_FNR_COUNTER_ALLOC:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_flt_rt_counter_alloc))) {
+			IPAERR("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (((struct ipa_ioc_flt_rt_counter_alloc *)
+			header)->hw_counter.num_counters >
+			IPA_FLT_RT_HW_COUNTER ||
+			((struct ipa_ioc_flt_rt_counter_alloc *)
+			header)->sw_counter.num_counters >
+			IPA_FLT_RT_SW_COUNTER) {
+			IPAERR("failed: wrong sw/hw num_counters\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (((struct ipa_ioc_flt_rt_counter_alloc *)
+			header)->hw_counter.num_counters == 0 &&
+			((struct ipa_ioc_flt_rt_counter_alloc *)
+			header)->sw_counter.num_counters == 0) {
+			IPAERR("failed: both sw/hw num_counters 0\n");
+			retval = -EFAULT;
+			break;
+		}
+		retval = ipa3_alloc_counter_id
+			((struct ipa_ioc_flt_rt_counter_alloc *)header);
+		if (retval < 0) {
+			IPAERR("ipa3_alloc_counter_id failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((void __user *)arg, header,
+			sizeof(struct ipa_ioc_flt_rt_counter_alloc))) {
+			IPAERR("copy_to_user fails\n");
+			retval = -EFAULT;
+			ipa3_counter_remove_hdl(
+			((struct ipa_ioc_flt_rt_counter_alloc *)
+			header)->hdl);
+			break;
+		}
+		break;
+
+	case IPA_IOC_FNR_COUNTER_DEALLOC:
+		hdl = (int)arg;
+		if (hdl < 0) {
+			IPAERR("IPA_FNR_COUNTER_DEALLOC failed: hdl %d\n",
+				hdl);
+			retval = -EFAULT;
+			break;
+		}
+		ipa3_counter_remove_hdl(hdl);
+		break;
+
+	case IPA_IOC_FNR_COUNTER_QUERY:
+		if (copy_from_user(header, (const void __user *)arg,
+			sizeof(struct ipa_ioc_flt_rt_query))) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_flt_rt_query *)
+			header)->end_id - ((struct ipa_ioc_flt_rt_query *)
+			header)->start_id + 1;
+		if (pre_entry <= 0 || pre_entry > IPA_MAX_FLT_RT_CNT_INDEX) {
+			IPAERR("IPA_IOC_FNR_COUNTER_QUERY failed: num %d\n",
+				pre_entry);
+			retval = -EFAULT;
+			break;
+		}
+		if (((struct ipa_ioc_flt_rt_query *)header)->stats_size
+			> sizeof(struct ipa_flt_rt_stats)) {
+			IPAERR_RL("unexpected stats_size %d\n",
+			((struct ipa_ioc_flt_rt_query *)header)->stats_size);
+			retval = -EFAULT;
+			break;
+		};
+		/* user payload size */
+		usr_pyld_sz = ((struct ipa_ioc_flt_rt_query *)
+			header)->stats_size * pre_entry;
+		/* actual payload structure size in kernel */
+		pyld_sz = sizeof(struct ipa_flt_rt_stats) * pre_entry;
+		uptr = ((struct ipa_ioc_flt_rt_query *)
+			header)->stats;
+		if (unlikely(!uptr)) {
+			IPAERR_RL("unexpected NULL rules\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc param with same payload size as user payload */
+		param = kzalloc(usr_pyld_sz, GFP_KERNEL);
+		if (!param) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)uptr,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_from_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		/* alloc kernel pointer with actual payload size */
+		kptr = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!kptr) {
+			IPAERR_RL("kzalloc fails\n");
+			retval = -ENOMEM;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy(kptr + i * sizeof(struct ipa_flt_rt_stats),
+				(void *)param + i *
+				((struct ipa_ioc_flt_rt_query *)
+				header)->stats_size,
+				((struct ipa_ioc_flt_rt_query *)
+				header)->stats_size);
+		/* modify the rule pointer to the kernel pointer */
+		((struct ipa_ioc_flt_rt_query *)
+			header)->stats = (uintptr_t)kptr;
+		retval = ipa_get_flt_rt_stats
+			((struct ipa_ioc_flt_rt_query *)header);
+		if (retval < 0) {
+			IPAERR("ipa_get_flt_rt_stats failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		for (i = 0; i < pre_entry; i++)
+			memcpy((void *)param + i *
+				((struct ipa_ioc_flt_rt_query *)
+				header)->stats_size,
+				kptr + i * sizeof(struct ipa_flt_rt_stats),
+				((struct ipa_ioc_flt_rt_query *)
+				header)->stats_size);
+		if (copy_to_user((void __user *)uptr, param,
+			usr_pyld_sz)) {
+			IPAERR_RL("copy_to_user fails\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
 
 	case IPA_IOC_WIGIG_FST_SWITCH:
 		IPADBG("Got IPA_IOCTL_WIGIG_FST_SWITCH\n");
@@ -1894,6 +2615,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
 	}
+	kfree(kptr);
 	kfree(param);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
@@ -5765,6 +6487,12 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
 	INIT_LIST_HEAD(&rset->head_rt_tbl_list);
 	idr_init(&rset->rule_ids);
+	idr_init(&ipa3_ctx->flt_rt_counters.hdl);
+	spin_lock_init(&ipa3_ctx->flt_rt_counters.hdl_lock);
+	memset(&ipa3_ctx->flt_rt_counters.used_hw, 0,
+		   sizeof(ipa3_ctx->flt_rt_counters.used_hw));
+	memset(&ipa3_ctx->flt_rt_counters.used_sw, 0,
+		   sizeof(ipa3_ctx->flt_rt_counters.used_sw));
 
 	INIT_LIST_HEAD(&ipa3_ctx->intf_list);
 	INIT_LIST_HEAD(&ipa3_ctx->msg_list);

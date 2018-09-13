@@ -89,7 +89,12 @@ struct ipa_api_controller {
 
 	int (*ipa_add_rt_rule)(struct ipa_ioc_add_rt_rule *rules);
 
+	int (*ipa_add_rt_rule_v2)(struct ipa_ioc_add_rt_rule_v2 *rules);
+
 	int (*ipa_add_rt_rule_usr)(struct ipa_ioc_add_rt_rule *rules,
+							bool user_only);
+
+	int (*ipa_add_rt_rule_usr_v2)(struct ipa_ioc_add_rt_rule_v2 *rules,
 							bool user_only);
 
 	int (*ipa_del_rt_rule)(struct ipa_ioc_del_rt_rule *hdls);
@@ -106,14 +111,23 @@ struct ipa_api_controller {
 
 	int (*ipa_mdfy_rt_rule)(struct ipa_ioc_mdfy_rt_rule *rules);
 
+	int (*ipa_mdfy_rt_rule_v2)(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
+
 	int (*ipa_add_flt_rule)(struct ipa_ioc_add_flt_rule *rules);
+
+	int (*ipa_add_flt_rule_v2)(struct ipa_ioc_add_flt_rule_v2 *rules);
 
 	int (*ipa_add_flt_rule_usr)(struct ipa_ioc_add_flt_rule *rules,
 								bool user_only);
 
+	int (*ipa_add_flt_rule_usr_v2)
+		(struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only);
+
 	int (*ipa_del_flt_rule)(struct ipa_ioc_del_flt_rule *hdls);
 
 	int (*ipa_mdfy_flt_rule)(struct ipa_ioc_mdfy_flt_rule *rules);
+
+	int (*ipa_mdfy_flt_rule_v2)(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
 
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 
