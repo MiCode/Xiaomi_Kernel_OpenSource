@@ -30,6 +30,7 @@ void rmnet_enable_all_flows(void *port);
 void rmnet_set_powersave_format(void *port);
 void rmnet_clear_powersave_format(void *port);
 void rmnet_get_packets(void *port, u64 *rx, u64 *tx);
+int rmnet_get_powersave_notif(void *port);
 #else
 static inline void *rmnet_get_qmi_pt(void *port)
 {
@@ -70,6 +71,11 @@ static inline void rmnet_set_port_format(void *port)
 
 static inline void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 {
+}
+
+static inline int rmnet_get_powersave_notif(void *port)
+{
+	return 0;
 }
 
 #endif /* CONFIG_QCOM_QMI_RMNET */
