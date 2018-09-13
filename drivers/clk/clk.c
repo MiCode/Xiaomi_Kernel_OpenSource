@@ -25,6 +25,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/clkdev.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 
 #include "clk.h"
@@ -3726,6 +3728,166 @@ static void devm_clk_hw_release(struct device *dev, void *res)
 	clk_hw_unregister(*(struct clk_hw **)res);
 }
 
+#define MAX_LEN_OPP_HANDLE	50
+#define LEN_OPP_HANDLE		16
+
+static int derive_device_list(struct device **device_list,
+				struct clk_core *core,
+				struct device_node *np,
+				char *clk_handle_name, int count)
+{
+	int j;
+	struct platform_device *pdev;
+	struct device_node *dev_node;
+
+	for (j = 0; j < count; j++) {
+		device_list[j] = NULL;
+		dev_node = of_parse_phandle(np, clk_handle_name, j);
+		if (!dev_node) {
+			pr_err("Unable to get device_node pointer for %s opp-handle (%s)\n",
+					core->name, clk_handle_name);
+			return -ENODEV;
+		}
+
+		pdev = of_find_device_by_node(dev_node);
+		if (!pdev) {
+			pr_err("Unable to find platform_device node for %s opp-handle\n",
+						core->name);
+			return -ENODEV;
+		}
+		device_list[j] = &pdev->dev;
+	}
+	return 0;
+}
+
+static int clk_get_voltage(struct clk_core *core, unsigned long rate, int n)
+{
+	struct clk_vdd_class *vdd;
+	int level, corner;
+
+	/* Use the first regulator in the vdd class for the OPP table. */
+	vdd = core->vdd_class;
+	if (vdd->num_regulators > 1) {
+		corner = vdd->vdd_uv[vdd->num_regulators * n];
+	} else {
+		level = clk_find_vdd_level(core, rate);
+		if (level < 0) {
+			pr_err("Could not find vdd level\n");
+			return -EINVAL;
+		}
+		corner = vdd->vdd_uv[level];
+	}
+
+	if (!corner) {
+		pr_err("%s: Unable to find vdd level for rate %lu\n",
+					core->name, rate);
+		return -EINVAL;
+	}
+
+	return corner;
+}
+
+static int clk_add_and_print_opp(struct clk_hw *hw,
+				struct device **device_list, int count,
+				unsigned long rate, int uv, int n)
+{
+	struct clk_core *core = hw->core;
+	int j, ret = 0;
+
+	for (j = 0; j < count; j++) {
+		ret = dev_pm_opp_add(device_list[j], rate, uv);
+		if (ret) {
+			pr_err("%s: couldn't add OPP for %lu - err: %d\n",
+						core->name, rate, ret);
+			return ret;
+		}
+
+		if (n == 0 || n == core->num_rate_max - 1 ||
+					rate == clk_hw_round_rate(hw, INT_MAX))
+			pr_info("%s: set OPP pair(%lu Hz: %u uV) on %s\n",
+						core->name, rate, uv,
+						dev_name(device_list[j]));
+	}
+	return ret;
+}
+
+static void clk_populate_clock_opp_table(struct device_node *np,
+						struct clk_hw *hw)
+{
+	struct device **device_list;
+	struct clk_core *core = hw->core;
+	char clk_handle_name[MAX_LEN_OPP_HANDLE];
+	int n, len, count, uv, ret;
+	unsigned long rate = 0, rrate = 0;
+
+	if (!core || !core->num_rate_max)
+		return;
+
+	if (strlen(core->name) + LEN_OPP_HANDLE < MAX_LEN_OPP_HANDLE) {
+		ret = snprintf(clk_handle_name, ARRAY_SIZE(clk_handle_name),
+				"qcom,%s-opp-handle", core->name);
+		if (ret < strlen(core->name) + LEN_OPP_HANDLE) {
+			pr_err("%s: Failed to hold clk_handle_name\n",
+							core->name);
+			return;
+		}
+	} else {
+		pr_err("clk name (%s) too large to fit in clk_handle_name\n",
+							core->name);
+		return;
+	}
+
+	if (of_find_property(np, clk_handle_name, &len)) {
+		count = len/sizeof(u32);
+
+		device_list = kmalloc_array(count, sizeof(struct device *),
+							GFP_KERNEL);
+		if (!device_list)
+			return;
+
+		ret = derive_device_list(device_list, core, np,
+					clk_handle_name, count);
+		if (ret < 0) {
+			pr_err("Failed to fill device_list for %s\n",
+						clk_handle_name);
+			goto err_derive_device_list;
+		}
+	} else {
+		pr_debug("Unable to find %s\n", clk_handle_name);
+		return;
+	}
+
+	for (n = 0; ; n++) {
+		rrate = clk_hw_round_rate(hw, rate + 1);
+		if (!rate) {
+			pr_err("clk_round_rate failed for %s\n",
+							core->name);
+			goto err_derive_device_list;
+		}
+
+		/*
+		 * If clk_hw_round_rate gives the same value on consecutive
+		 * iterations, exit the loop since we're at the maximum clock
+		 * frequency.
+		 */
+		if (rate == rrate)
+			break;
+		rate = rrate;
+
+		uv = clk_get_voltage(core, rate, n);
+		if (uv < 0)
+			goto err_derive_device_list;
+
+		ret = clk_add_and_print_opp(hw, device_list, count,
+							rate, uv, n);
+		if (ret)
+			goto err_derive_device_list;
+	}
+
+err_derive_device_list:
+	kfree(device_list);
+}
+
 /**
  * devm_clk_register - resource managed clk_register()
  * @dev: device that is registering this clock
@@ -3752,6 +3914,7 @@ struct clk *devm_clk_register(struct device *dev, struct clk_hw *hw)
 		devres_free(clkp);
 	}
 
+	clk_populate_clock_opp_table(dev->of_node, hw);
 	return clk;
 }
 EXPORT_SYMBOL_GPL(devm_clk_register);
@@ -3782,6 +3945,7 @@ int devm_clk_hw_register(struct device *dev, struct clk_hw *hw)
 		devres_free(hwp);
 	}
 
+	clk_populate_clock_opp_table(dev->of_node, hw);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(devm_clk_hw_register);
