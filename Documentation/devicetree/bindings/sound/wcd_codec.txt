@@ -154,6 +154,7 @@ Optional properties:
  - cdc-vdd-buck-sido-supply: phandle of vdd buck sido supply's regulator device tree node.
  - qcom,cdc-vdd-buck-sido-voltage: vdd buck sido supply's voltage level min and max in mV.
  - qcom,cdc-vdd-buck-sido-current: lvdd buck sido supply's max current in mA.
+ - qcom,vreg-micb-supply: phandle to change micbias load depending on usecase.
 Example:
 
 pahu_codec {
@@ -220,6 +221,8 @@ pahu_codec {
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 C0 02 17 02];
 	qcom,cdc-dmic-sample-rate = <4800000>;
 	qcom,cdc-mad-dmic-rate = <600000>;
+
+	qcom,vreg-micb-supply = <&BOB>;
 
 	qcom,wdsp-cmpnt-dev-name = "pahu_codec";
 
