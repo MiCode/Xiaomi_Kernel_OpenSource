@@ -838,7 +838,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	 * search and delays the trace unnecessarily.
 	 */
 	trace_kgsl_mmu_pagefault(ctx->kgsldev, addr,
-			ptname, write ? "write" : "read");
+			ptname,
+			context != NULL ? context->proc_priv->comm : "unknown",
+			write ? "write" : "read");
 
 	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE,
 		&adreno_dev->ft_pf_policy))
@@ -846,7 +848,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	if (!no_page_fault_log && __ratelimit(&_rs)) {
 		KGSL_MEM_CRIT(ctx->kgsldev,
-			"GPU PAGE FAULT: addr = %lX pid= %d\n", addr, ptname);
+			"GPU PAGE FAULT: addr = %lX pid= %d name=%s\n", addr,
+			ptname,
+			context != NULL ? context->proc_priv->comm : "unknown");
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"context=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
 			ctx->name, ptbase, contextidr,

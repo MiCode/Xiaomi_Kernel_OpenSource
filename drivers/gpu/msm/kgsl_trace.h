@@ -821,14 +821,15 @@ TRACE_EVENT(kgsl_constraint,
 TRACE_EVENT(kgsl_mmu_pagefault,
 
 	TP_PROTO(struct kgsl_device *device, unsigned long page,
-		 unsigned int pt, const char *op),
+		 unsigned int pt, const char *name, const char *op),
 
-	TP_ARGS(device, page, pt, op),
+	TP_ARGS(device, page, pt, name, op),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
 		__field(unsigned long, page)
 		__field(unsigned int, pt)
+		__string(name, name)
 		__string(op, op)
 	),
 
@@ -836,13 +837,14 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 		__assign_str(device_name, device->name);
 		__entry->page = page;
 		__entry->pt = pt;
+		__assign_str(name, name);
 		__assign_str(op, op);
 	),
 
 	TP_printk(
-		"d_name=%s page=0x%lx pt=%u op=%s",
+		"d_name=%s page=0x%lx pt=%u op=%s name=%s",
 		__get_str(device_name), __entry->page, __entry->pt,
-		__get_str(op)
+		__get_str(op), __get_str(name)
 	)
 );
 
