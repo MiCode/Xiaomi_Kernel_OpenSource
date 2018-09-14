@@ -348,6 +348,8 @@ struct icnss_priv {
 	u16 line_number;
 	struct mutex dev_lock;
 	bool is_hyp_disabled;
+	uint32_t fw_error_fatal_irq;
+	uint32_t fw_early_crash_irq;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 };
 
