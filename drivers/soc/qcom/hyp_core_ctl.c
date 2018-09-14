@@ -670,16 +670,78 @@ static ssize_t enable_store(struct device *dev, struct device_attribute *attr,
 static ssize_t enable_show(struct device *dev, struct device_attribute *attr,
 			   char *buf)
 {
-	if (!the_hcd)
-		return -EPERM;
-
 	return scnprintf(buf, PAGE_SIZE, "%u\n", the_hcd->reservation_enabled);
 }
 
 static DEVICE_ATTR_RW(enable);
 
+static ssize_t status_show(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct hyp_core_ctl_data *hcd = the_hcd;
+	ssize_t count;
+	int i;
+
+	mutex_lock(&hcd->reservation_mutex);
+
+	count = scnprintf(buf, PAGE_SIZE, "enabled=%d\n",
+			  hcd->reservation_enabled);
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "reserve_cpus=%*pbl\n",
+			   cpumask_pr_args(&hcd->reserve_cpus));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "reserved_cpus=%*pbl\n",
+			   cpumask_pr_args(&hcd->final_reserved_cpus));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "our_isolated_cpus=%*pbl\n",
+			   cpumask_pr_args(&hcd->our_isolated_cpus));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "online_cpus=%*pbl\n",
+			   cpumask_pr_args(cpu_online_mask));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "isolated_cpus=%*pbl\n",
+			   cpumask_pr_args(cpu_isolated_mask));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+		   "thermal_cpus=%*pbl\n",
+		   cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+			   "Vcpu to Pcpu mappings:\n");
+
+	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
+		struct _okl4_sys_scheduler_affinity_get_return result;
+
+		if (hcd->cpumap[i].sid == 0)
+			break;
+
+		result = _okl4_sys_scheduler_affinity_get(hcd->syscall_id,
+							  hcd->cpumap[i].sid);
+		if (result.error != OKL4_ERROR_OK)
+			continue;
+
+		count += scnprintf(buf + count, PAGE_SIZE - count,
+			 "vcpu=%d pcpu=%u curr_pcpu=%u hyp_pcpu=%u\n",
+			 i, hcd->cpumap[i].pcpu, hcd->cpumap[i].curr_pcpu,
+			 result.cpu_index);
+
+	}
+
+	mutex_unlock(&hcd->reservation_mutex);
+
+	return count;
+}
+
+static DEVICE_ATTR_RO(status);
+
 static struct attribute *hyp_core_ctl_attrs[] = {
 	&dev_attr_enable.attr,
+	&dev_attr_status.attr,
 	NULL
 };
 
