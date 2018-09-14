@@ -12,6 +12,8 @@
  */
 
 #include "msm8917.dtsi"
+#include "msm8917-audio.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017";
 	compatible = "qcom,apq8017";
