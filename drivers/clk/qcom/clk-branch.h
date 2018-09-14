@@ -43,6 +43,7 @@ struct clk_branch {
 
 extern const struct clk_ops clk_branch_ops;
 extern const struct clk_ops clk_branch2_ops;
+extern const struct clk_ops clk_branch2_hw_ctl_ops;
 extern const struct clk_ops clk_branch_simple_ops;
 
 #define to_clk_branch(_hw) \
