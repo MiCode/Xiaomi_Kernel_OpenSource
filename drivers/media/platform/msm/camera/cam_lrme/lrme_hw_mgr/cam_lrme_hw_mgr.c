@@ -765,6 +765,12 @@ static int cam_lrme_mgr_hw_start(void *hw_mgr_priv, void *hw_start_args)
 		return -EINVAL;
 	}
 
+	rc = hw_device->hw_intf.hw_ops.process_cmd(
+			hw_device->hw_intf.hw_priv,
+			CAM_LRME_HW_CMD_DUMP_REGISTER,
+			&g_lrme_hw_mgr.debugfs_entry.dump_register,
+			sizeof(bool));
+
 	return rc;
 }
 
@@ -963,6 +969,35 @@ static int cam_lrme_mgr_hw_config(void *hw_mgr_priv,
 	return rc;
 }
 
+static int cam_lrme_mgr_create_debugfs_entry(void)
+{
+	int rc = 0;
+
+	g_lrme_hw_mgr.debugfs_entry.dentry =
+		debugfs_create_dir("camera_lrme", NULL);
+	if (!g_lrme_hw_mgr.debugfs_entry.dentry) {
+		CAM_ERR(CAM_LRME, "failed to create dentry");
+		return -ENOMEM;
+	}
+
+	if (!debugfs_create_bool("dump_register",
+		0644,
+		g_lrme_hw_mgr.debugfs_entry.dentry,
+		&g_lrme_hw_mgr.debugfs_entry.dump_register)) {
+		CAM_ERR(CAM_LRME, "failed to create dump register entry");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	return rc;
+
+err:
+	debugfs_remove_recursive(g_lrme_hw_mgr.debugfs_entry.dentry);
+	g_lrme_hw_mgr.debugfs_entry.dentry = NULL;
+	return rc;
+}
+
+
 int cam_lrme_mgr_register_device(
 	struct cam_hw_intf *lrme_hw_intf,
 	struct cam_iommu_handle *device_iommu,
@@ -1112,6 +1147,8 @@ int cam_lrme_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf,
 	hw_mgr_intf->hw_flush = cam_lrme_mgr_hw_flush;
 
 	g_lrme_hw_mgr.event_cb = cam_lrme_dev_buf_done_cb;
+
+	cam_lrme_mgr_create_debugfs_entry();
 
 	CAM_DBG(CAM_LRME, "Hw mgr init done");
 	return rc;
