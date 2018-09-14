@@ -222,11 +222,11 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	bool no_kernel_mapping = dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING,
 					attrs);
 	bool skip_zeroing = dma_get_attr(DMA_ATTR_SKIP_ZEROING, attrs);
-	int pageno;
+	unsigned int pageno;
 	unsigned long order;
 	void *addr = NULL;
 	struct removed_region *dma_mem = dev->removed_mem;
-	int nbits;
+	unsigned int nbits;
 	unsigned int align;
 
 	if (!gfpflags_allow_blocking(gfp))
