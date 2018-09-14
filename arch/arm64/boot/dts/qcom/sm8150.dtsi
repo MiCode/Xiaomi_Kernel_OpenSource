@@ -780,6 +780,8 @@
 
 #include "sm8150-camera.dtsi"
 
+#include "msm-qvr-external.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
