@@ -575,6 +575,7 @@
 			   "chg_temp";
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,sw-jeita-enable;
+	qcom,wd-bark-time-secs = <16>;
 };
 
 &smb1390 {
