@@ -1407,10 +1407,10 @@
 
 		/* PM QoS */
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <44 44>;
+		qcom,pm-qos-irq-latency = <67 67>;
 		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
-		qcom,pm-qos-cmdq-latency-us = <44 44>, <44 44>;
-		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
+		qcom,pm-qos-cmdq-latency-us = <67 67>, <67 67>;
+		qcom,pm-qos-legacy-latency-us = <67 67>, <67 67>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>;
@@ -1470,9 +1470,9 @@
 
 		/* PM QoS */
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <44 44>;
+		qcom,pm-qos-irq-latency = <67 67>;
 		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
-		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
+		qcom,pm-qos-legacy-latency-us = <67 67>, <67 67>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
