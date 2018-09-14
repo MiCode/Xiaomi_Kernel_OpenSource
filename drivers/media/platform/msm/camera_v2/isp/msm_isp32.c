@@ -28,7 +28,7 @@
 #define VFE32_EQUAL_SLICE_UB 194
 #define VFE32_AXI_SLICE_UB 792
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
-#define VFE32_RDI_BASE(idx) (idx ? 0x734 + 0x4 * (idx - 1) : 0x06FC)
+#define VFE32_RDI_BASE(idx) (idx ? 0x734 + 0x70 * (idx - 1) : 0x06FC)
 #define VFE32_XBAR_BASE(idx) (0x40 + 0x4 * (idx / 4))
 #define VFE32_XBAR_SHIFT(idx) ((idx % 4) * 8)
 #define VFE32_PING_PONG_BASE(wm, ping_pong) \
