@@ -272,3 +272,12 @@ config SPMI_PMIC_CLKDIV
 	  Technologies, Inc. SPMI PMIC. It configures the frequency of
 	  clkdiv outputs of the PMIC. These clocks are typically wired
 	  through alternate functions on GPIO pins.
+
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	Always On Processor manages few shared clocks on some Qualcomm
+	Technologies, Inc. SoCs. It accepts requests from other hardware
+	subsystems via QMP mailboxes.
+	Say Y to support the clocks managed by AOP on platforms such as sdm845.
