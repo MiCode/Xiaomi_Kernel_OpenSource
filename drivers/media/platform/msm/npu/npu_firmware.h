@@ -31,8 +31,10 @@
 #define REG_NPU_HOST_CTRL_VALUE     NPU_GPR2
 /* Simulates an interrupt for FW->HOST, used for pre-silicon */
 #define REG_FW_TO_HOST_EVENT        NPU_GPR3
+/* Read/Written by both host and dsp for sync between driver and dsp */
+#define  REG_HOST_DSP_CTRL_STATUS    NPU_GPR4
 /* Data value for debug */
-#define REG_NPU_FW_DEBUG_DATA       NPU_GPR4
+#define REG_NPU_FW_DEBUG_DATA       NPU_GPR13
 
 /* Started job count */
 #define REG_FW_JOB_CNT_START        NPU_GPR14
@@ -86,6 +88,30 @@
 		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT)
 #define HOST_CTRL_STATUS_FW_PAUSE_VAL \
 		(1 << HOST_CTRL_STATUS_FW_PAUSE)
+
+
+/* NPU HOST DSP Control/Status Register */
+/* notification of power up */
+/* following bits are set by host and read by dsp */
+#define HOST_DSP_CTRL_STATUS_PWR_UP_BIT         0
+/* notification of power dwn */
+#define HOST_DSP_CTRL_STATUS_PWR_DWN_BIT        1
+/* following bits are set by dsp and read by host */
+/* notification of power up acknowlegement*/
+#define HOST_DSP_CTRL_STATUS_PWR_UP_ACK_BIT     4
+/* notification of power down acknowlegement*/
+#define HOST_DSP_CTRL_STATUS_PWR_DWN_ACK_BIT    5
+
+
+/* 32 bit values of the bit fields above */
+#define HOST_DSP_CTRL_STATUS_PWR_UP_VAL \
+		(1 << HOST_DSP_CTRL_STATUS_PWR_UP_BIT)
+#define HOST_DSP_CTRL_STATUS_PWR_DWN_VAL \
+		(1 << HOST_DSP_CTRL_STATUS_PWR_DWN_BIT)
+#define HOST_DSP_CTRL_STATUS_PWR_UP_ACK_VAL \
+		(1 << HOST_DSP_CTRL_STATUS_PWR_UP_ACK_BIT)
+#define HOST_DSP_CTRL_STATUS_PWR_DWN_ACK_VAL \
+		(1 << HOST_DSP_CTRL_STATUS_PWR_DWN_ACK_BIT)
 
 /* Queue table header definition */
 struct hfi_queue_tbl_header {
