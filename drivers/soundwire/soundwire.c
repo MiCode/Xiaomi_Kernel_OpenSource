@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,7 +241,7 @@ int swr_remove_from_group(struct swr_device *dev, u8 dev_num)
 	if (!dev->group_id)
 		return 0;
 
-	if (master->gr_sid == dev_num)
+	if (master->gr_sid != dev_num)
 		return 0;
 
 	if (master->remove_from_group && master->remove_from_group(master))
