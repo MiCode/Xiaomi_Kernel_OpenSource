@@ -68,6 +68,8 @@
 #define CFGRXOVR4				0x00E9
 #define RXSQCTRL				0x00B5
 #define CFGRXOVR6				0x00BF
+#define MPHY_RX_ATTR_ADDR_START			0x81
+#define MPHY_RX_ATTR_ADDR_END			0xC1
 
 #define is_mphy_tx_attr(attr)			(attr < RX_MODE)
 #define RX_MIN_ACTIVATETIME_UNIT_US		100
@@ -164,6 +166,14 @@
 
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
+
+#define DL_FC0ProtectionTimeOutVal_Default	8191
+#define DL_TC0ReplayTimeOutVal_Default		65535
+#define DL_AFC0ReqTimeOutVal_Default		32767
+
+#define DME_LocalFC0ProtectionTimeOutVal	0xD041
+#define DME_LocalTC0ReplayTimeOutVal		0xD042
+#define DME_LocalAFC0ReqTimeOutVal		0xD043
 
 /* PA power modes */
 enum {

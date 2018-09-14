@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,7 @@ UFSCHD_CLK_GATING_STATES;
 #define EM(a)	{ a, #a },
 #define EMe(a)	{ a, #a }
 
-TRACE_EVENT(ufshcd_clk_gating,
-
+DECLARE_EVENT_CLASS(ufshcd_state_change_template,
 	TP_PROTO(const char *dev_name, int state),
 
 	TP_ARGS(dev_name, state),
@@ -70,10 +69,36 @@ TRACE_EVENT(ufshcd_clk_gating,
 		__entry->state = state;
 	),
 
-	TP_printk("%s: gating state changed to %s",
+	TP_printk("%s: state changed to %s",
 		__get_str(dev_name),
 		__print_symbolic(__entry->state, UFSCHD_CLK_GATING_STATES))
 );
+
+DEFINE_EVENT_PRINT(ufshcd_state_change_template, ufshcd_clk_gating,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state),
+	TP_printk("%s: state changed to %s", __get_str(dev_name),
+		__print_symbolic(__entry->state,
+				{ CLKS_OFF, "CLKS_OFF" },
+				{ CLKS_ON, "CLKS_ON" },
+				{ REQ_CLKS_OFF, "REQ_CLKS_OFF" },
+				{ REQ_CLKS_ON, "REQ_CLKS_ON" }))
+);
+
+DEFINE_EVENT_PRINT(ufshcd_state_change_template, ufshcd_hibern8_on_idle,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state),
+	TP_printk("%s: state changed to %s", __get_str(dev_name),
+		__print_symbolic(__entry->state,
+			{ HIBERN8_ENTERED, "HIBERN8_ENTER" },
+			{ HIBERN8_EXITED, "HIBERN8_EXIT" },
+			{ REQ_HIBERN8_ENTER, "REQ_HIBERN8_ENTER" },
+			{ REQ_HIBERN8_EXIT, "REQ_HIBERN8_EXIT" }))
+);
+
+DEFINE_EVENT(ufshcd_state_change_template, ufshcd_auto_bkops_state,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state));
 
 TRACE_EVENT(ufshcd_clk_scaling,
 
@@ -101,26 +126,6 @@ TRACE_EVENT(ufshcd_clk_scaling,
 	TP_printk("%s: %s %s from %u to %u Hz",
 		__get_str(dev_name), __get_str(state), __get_str(clk),
 		__entry->prev_state, __entry->curr_state)
-);
-
-TRACE_EVENT(ufshcd_auto_bkops_state,
-
-	TP_PROTO(const char *dev_name, const char *state),
-
-	TP_ARGS(dev_name, state),
-
-	TP_STRUCT__entry(
-		__string(dev_name, dev_name)
-		__string(state, state)
-	),
-
-	TP_fast_assign(
-		__assign_str(dev_name, dev_name);
-		__assign_str(state, state);
-	),
-
-	TP_printk("%s: auto bkops - %s",
-		__get_str(dev_name), __get_str(state))
 );
 
 DECLARE_EVENT_CLASS(ufshcd_profiling_template,
@@ -196,29 +201,29 @@ DECLARE_EVENT_CLASS(ufshcd_template,
 );
 
 DEFINE_EVENT(ufshcd_template, ufshcd_system_suspend,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      int dev_state, int link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_system_resume,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      int dev_state, int link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_runtime_suspend,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      int dev_state, int link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_runtime_resume,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      int dev_state, int link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_init,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      int dev_state, int link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 TRACE_EVENT(ufshcd_command,
 	TP_PROTO(const char *dev_name, const char *str, unsigned int tag,
@@ -250,10 +255,10 @@ TRACE_EVENT(ufshcd_command,
 	),
 
 	TP_printk(
-		"%s: %s: tag: %u, DB: 0x%x, size: %d, IS: %u, LBA: %llu, opcode: 0x%x",
-		__get_str(str), __get_str(dev_name), __entry->tag,
-		__entry->doorbell, __entry->transfer_len,
-		__entry->intr, __entry->lba, (u32)__entry->opcode
+		"%s: %14s: tag: %-2u cmd: 0x%-2x lba: %-9llu size: %-7d DB: 0x%-8x IS: 0x%x",
+		__get_str(dev_name), __get_str(str), __entry->tag,
+		(u32)__entry->opcode, __entry->lba, __entry->transfer_len,
+		__entry->doorbell, __entry->intr
 	)
 );
 
