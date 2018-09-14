@@ -16,6 +16,7 @@ header-y += msm_sde_rotator.h
 header-y += radio-iris.h
 header-y += radio-iris-commands.h
 header-y += cam_lrme.h
+header-y += cam_hyp_intf.h
 header-y += msm_cam_sensor.h
 header-y += msm_camera.h
 header-y += msm_camsensor_sdk.h
