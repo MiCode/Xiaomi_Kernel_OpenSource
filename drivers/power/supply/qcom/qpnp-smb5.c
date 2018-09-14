@@ -291,11 +291,7 @@ out:
 #define MICRO_P1A			100000
 #define MICRO_1PA			1000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
-#define MIN_WD_BARK_TIME		16
 #define DEFAULT_WD_BARK_TIME		64
-#define BITE_WDOG_TIMEOUT_8S		0x3
-#define BARK_WDOG_TIMEOUT_MASK		GENMASK(3, 2)
-#define BARK_WDOG_TIMEOUT_SHIFT		2
 static int smb5_parse_dt(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -2348,6 +2344,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= wdog_bark_irq_handler,
+		.wake		= true,
 	},
 	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
