@@ -42,6 +42,7 @@ struct rmnet_bearer_map {
 	u8  ack_req;
 	u32 grant_before_ps;
 	u16 seq_before_ps;
+	u32 ancillary;
 };
 
 struct svc_info {

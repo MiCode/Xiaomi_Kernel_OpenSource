@@ -55,9 +55,10 @@ TRACE_EVENT(dfc_qmi_tc,
 TRACE_EVENT(dfc_flow_ind,
 
 	TP_PROTO(int src, int idx, u8 mux_id, u8 bearer_id, u32 grant,
-		 u16 seq_num, u8 ack_req),
+		 u16 seq_num, u8 ack_req, u32 ancillary),
 
-	TP_ARGS(src, idx, mux_id, bearer_id, grant, seq_num, ack_req),
+	TP_ARGS(src, idx, mux_id, bearer_id, grant, seq_num, ack_req,
+		ancillary),
 
 	TP_STRUCT__entry(
 		__field(int, src)
@@ -67,6 +68,7 @@ TRACE_EVENT(dfc_flow_ind,
 		__field(u32, grant)
 		__field(u16, seq)
 		__field(u8, ack_req)
+		__field(u32, ancillary)
 	),
 
 	TP_fast_assign(
@@ -77,12 +79,13 @@ TRACE_EVENT(dfc_flow_ind,
 		__entry->grant = grant;
 		__entry->seq = seq_num;
 		__entry->ack_req = ack_req;
+		__entry->ancillary = ancillary;
 	),
 
-	TP_printk("src=%d idx[%d]: mux_id=%u bearer_id=%u grant=%u "
-		  "seq_num=%u ack_req=%u",
+	TP_printk("src=%d [%d]: mid=%u bid=%u grant=%u seq=%u ack=%u anc=%u",
 		__entry->src, __entry->idx, __entry->mid, __entry->bid,
-		__entry->grant, __entry->seq, __entry->ack_req)
+		__entry->grant, __entry->seq, __entry->ack_req,
+		__entry->ancillary)
 );
 
 TRACE_EVENT(dfc_flow_check,

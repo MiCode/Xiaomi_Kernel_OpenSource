@@ -533,6 +533,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
 		bearer->seq = 0;
 		bearer->ack_req = 0;
+		bearer->ancillary = 0;
 		do_wake = 1;
 	}
 
