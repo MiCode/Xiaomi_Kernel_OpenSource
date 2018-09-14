@@ -2681,7 +2681,6 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
-	hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 
 	CAM_DBG(CAM_ICP, "Exit");
 	return rc;
@@ -3940,7 +3939,6 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		CAM_DBG(CAM_ICP, "Last Release");
 		cam_icp_mgr_icp_power_collapse(hw_mgr);
 		cam_icp_hw_mgr_reset_clk_info(hw_mgr);
-		hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		rc = cam_ipe_bps_deint(hw_mgr);
 	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -4072,47 +4070,29 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 		return -EFAULT;
 	}
 
-	if (!hw_mgr->ctxt_cnt) {
-		hw_mgr->secure_mode = icp_dev_acquire_info.secure_mode;
-	} else {
-		if (hw_mgr->secure_mode != icp_dev_acquire_info.secure_mode) {
-			CAM_ERR(CAM_ICP,
-				"secure mode mismatch driver:%d, context:%d",
-				hw_mgr->secure_mode,
-				icp_dev_acquire_info.secure_mode);
-			return -EINVAL;
-		}
-	}
-
 	acquire_size = sizeof(struct cam_icp_acquire_dev_info) +
 		((icp_dev_acquire_info.num_out_res - 1) *
 		sizeof(struct cam_icp_res_info));
 	ctx_data->icp_dev_acquire_info = kzalloc(acquire_size, GFP_KERNEL);
-	if (!ctx_data->icp_dev_acquire_info) {
-		if (!hw_mgr->ctxt_cnt)
-			hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
+	if (!ctx_data->icp_dev_acquire_info)
 		return -ENOMEM;
-	}
 
 	if (copy_from_user(ctx_data->icp_dev_acquire_info,
 		(void __user *)args->acquire_info, acquire_size)) {
 		CAM_ERR(CAM_ICP, "Failed in acquire: size = %d", acquire_size);
-		if (!hw_mgr->ctxt_cnt)
-			hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		kfree(ctx_data->icp_dev_acquire_info);
 		ctx_data->icp_dev_acquire_info = NULL;
 		return -EFAULT;
 	}
 
-	CAM_DBG(CAM_ICP, "%x %x %x %x %x %x %x %u",
+	CAM_DBG(CAM_ICP, "%x %x %x %x %x %x %x",
 		ctx_data->icp_dev_acquire_info->dev_type,
 		ctx_data->icp_dev_acquire_info->in_res.format,
 		ctx_data->icp_dev_acquire_info->in_res.width,
 		ctx_data->icp_dev_acquire_info->in_res.height,
 		ctx_data->icp_dev_acquire_info->in_res.fps,
 		ctx_data->icp_dev_acquire_info->num_out_res,
-		ctx_data->icp_dev_acquire_info->scratch_mem_size,
-		hw_mgr->secure_mode);
+		ctx_data->icp_dev_acquire_info->scratch_mem_size);
 
 	p_icp_out = ctx_data->icp_dev_acquire_info->out_res;
 	for (i = 0; i < icp_dev_acquire_info.num_out_res; i++)
