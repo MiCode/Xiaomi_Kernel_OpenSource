@@ -3822,7 +3822,7 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		enum sde_enc_split_role prv_role, new_role;
-		bool active;
+		bool active = false;
 
 		phys = sde_enc->phys_encs[i];
 		if (!phys || !phys->ops.update_split_role || !phys->hw_pp)

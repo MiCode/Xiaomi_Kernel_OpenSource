@@ -526,7 +526,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	u32 reset_status = 0;
 	int new_cnt = -1, old_cnt = -1;
 	u32 event = 0;
-	int pend_ret_fence_cnt;
+	int pend_ret_fence_cnt = 0;
 
 	if (!phys_enc)
 		return;

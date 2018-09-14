@@ -501,7 +501,7 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 			funcs->commit(encoder);
 	}
 
-	if (kms->funcs->commit) {
+	if (kms && kms->funcs && kms->funcs->commit) {
 		DRM_DEBUG_ATOMIC("triggering commit\n");
 		kms->funcs->commit(kms, old_state);
 	}
