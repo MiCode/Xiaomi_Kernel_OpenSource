@@ -897,6 +897,12 @@ static void dp_display_attention_work(struct work_struct *work)
 	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, attention_work);
 
+	if (!dp->core_initialized)
+		return;
+
+	if (dp->link->process_request(dp->link))
+		return;
+
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		if (dp_display_is_sink_count_zero(dp)) {
 			dp_display_handle_disconnect(dp);
@@ -970,8 +976,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 		dp_display_handle_disconnect(dp);
 		atomic_set(&dp->aborted, 0);
-	} else if (dp->hpd->hpd_irq && dp->core_initialized) {
-		dp->link->process_request(dp->link);
+	} else if (dp->hpd->hpd_irq) {
 		queue_work(dp->wq, &dp->attention_work);
 	} else {
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
