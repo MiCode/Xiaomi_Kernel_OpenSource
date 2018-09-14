@@ -19,6 +19,7 @@
 #include <net/pkt_sched.h>
 #include "qmi_rmnet_i.h"
 #include <trace/events/dfc.h>
+#include <linux/module.h>
 #include <linux/moduleparam.h>
 
 #define NLMSG_FLOW_ACTIVATE 1
@@ -30,7 +31,11 @@
 #define FLAG_POWERSAVE_MASK 0x0010
 #define DFC_MODE_MULTIQ 2
 
-#define PS_INTERVAL (0x0004 * HZ)
+unsigned int rmnet_wq_frequency __read_mostly = 4;
+module_param(rmnet_wq_frequency, uint, 0644);
+MODULE_PARM_DESC(rmnet_wq_frequency, "Frequency of PS check");
+
+#define PS_INTERVAL (((!rmnet_wq_frequency) ? 1 : rmnet_wq_frequency) * HZ)
 #define NO_DELAY (0x0000 * HZ)
 
 #ifdef CONFIG_QCOM_QMI_DFC
@@ -684,6 +689,7 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 	if (unlikely(!real_work || !real_work->port))
 		return;
 
+	/* Min Delay for retry errors */
 	lock_delay = qmi_rmnet_work_get_active(real_work->port) ?
 			PS_INTERVAL : (HZ / 50);
 
@@ -693,7 +699,18 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 	}
 	if (!qmi_rmnet_work_get_active(real_work->port)) {
 		qmi_rmnet_work_set_active(real_work->port, 1);
-		qmi_rmnet_set_powersave_mode(real_work->port, 0);
+		/* Retry after small delay if qmi error
+		 * This resumes UL grants by disabling
+		 * powersave mode if successful.
+		 */
+		if (qmi_rmnet_set_powersave_mode(real_work->port, 0) < 0) {
+			qmi_rmnet_work_set_active(real_work->port, 0);
+			queue_delayed_work(rmnet_ps_wq,
+					   &real_work->work, lock_delay);
+			rtnl_unlock();
+			return;
+
+		}
 		goto end;
 	}
 
@@ -705,7 +722,17 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 
 	if (!rxd && !txd) {
 		qmi_rmnet_work_set_active(real_work->port, 0);
-		qmi_rmnet_set_powersave_mode(real_work->port, 1);
+		/* Retry after lock delay if enabling powersave fails.
+		 * This will cause UL grants to continue being sent
+		 * suboptimally. Keeps wq active until successful.
+		 */
+		if (qmi_rmnet_set_powersave_mode(real_work->port, 1) < 0) {
+			qmi_rmnet_work_set_active(real_work->port, 1);
+			queue_delayed_work(rmnet_ps_wq,
+					   &real_work->work, PS_INTERVAL);
+
+		}
+
 		rtnl_unlock();
 		return;
 	}
