@@ -493,12 +493,14 @@ int mhi_arch_link_off(struct mhi_controller *mhi_cntrl, bool graceful)
 
 		arch_info->pcie_state = pci_store_saved_state(pci_dev);
 		pci_disable_device(pci_dev);
-		ret = pci_set_power_state(pci_dev, PCI_D3hot);
-		if (ret) {
-			MHI_ERR("Failed to set D3hot, ret:%d\n", ret);
-			return ret;
-		}
 	}
+
+	/*
+	 * We will always attempt to put link into D3hot, however
+	 * link down may have happened due to error fatal, so
+	 * ignoring the return code
+	 */
+	pci_set_power_state(pci_dev, PCI_D3hot);
 
 	/* release the resources */
 	msm_pcie_pm_control(MSM_PCIE_SUSPEND, mhi_cntrl->bus, pci_dev, NULL, 0);
