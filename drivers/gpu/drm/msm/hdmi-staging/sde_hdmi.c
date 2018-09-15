@@ -2025,6 +2025,16 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 		return;
 	}
 
+	/* Setup the line number to send the packet on */
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control |= BIT(16);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+
+	/* Setup the packet to be sent every frame */
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control |= BIT(1);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+
 	/* Setup Packet header and payload */
 	packet_header = type_code | (version << 8) | (length << 16);
 	hdmi_write(hdmi, HDMI_GENERIC0_HDR, packet_header);
@@ -2083,14 +2093,20 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 	hdmi_write(hdmi, HDMI_GENERIC0_6, packet_payload);
 
 enable_packet_control:
-	/*
-	 * GENERIC0_LINE | GENERIC0_CONT | GENERIC0_SEND
-	 * Setup HDMI TX generic packet control
-	 * Enable this packet to transmit every frame
-	 * Enable HDMI TX engine to transmit Generic packet 1
-	 */
+
+	/* Flush the contents to the register */
 	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
-	packet_control |= BIT(0) | BIT(1) | BIT(2) | BIT(16);
+	packet_control |= BIT(2);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+
+	/* Clear the flush bit of the register */
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control &= ~BIT(2);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+
+	/* Start sending the packets*/
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control |= BIT(0);
 	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
 }
 

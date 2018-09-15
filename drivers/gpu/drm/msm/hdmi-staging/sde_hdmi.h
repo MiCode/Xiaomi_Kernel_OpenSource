@@ -224,7 +224,7 @@ enum hdmi_tx_scdc_access_type {
 #define HDMI_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
 #define HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
 
-#define HDMI_GEN_PKT_CTRL_CLR_MASK 0x7
+#define HDMI_GEN_PKT_CTRL_CLR_MASK 0x3f0007
 
 /* for AVI program */
 #define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
