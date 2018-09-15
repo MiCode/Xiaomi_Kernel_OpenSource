@@ -282,6 +282,9 @@ static int clk_divider_bestdiv(struct clk_hw *hw, struct clk_hw *parent,
 	unsigned long parent_rate, best = 0, now, maxdiv;
 	unsigned long parent_rate_saved = *best_parent_rate;
 
+	if (!hw || !parent)
+		return -EINVAL;
+
 	if (!rate)
 		rate = 1;
 

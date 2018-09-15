@@ -248,13 +248,18 @@ static int clk_branch2_enable(struct clk_hw *hw)
 
 static int clk_branch2_prepare(struct clk_hw *hw)
 {
-	struct clk_branch *branch = to_clk_branch(hw);
-	struct clk_hw *parent = clk_hw_get_parent(hw);
-	unsigned long curr_rate, branch_rate = branch->rate;
+	struct clk_branch *branch;
+	struct clk_hw *parent;
+	unsigned long curr_rate;
 	int ret = 0;
 
-	if (!parent)
-		return -EPERM;
+	if (!hw)
+		return -EINVAL;
+
+	branch = to_clk_branch(hw);
+	parent = clk_hw_get_parent(hw);
+	if (!branch)
+		return -EINVAL;
 
 	/*
 	 * Do the rate aggregation and scaling of the RCG in the prepare/
@@ -262,12 +267,15 @@ static int clk_branch2_prepare(struct clk_hw *hw)
 	 * votes on the voltage rails.
 	 */
 	if (branch->aggr_sibling_rates) {
+		if (!parent)
+			return -EINVAL;
 		curr_rate = clk_aggregate_rate(hw, parent->core);
-		if (branch_rate > curr_rate) {
-			ret = clk_set_rate(parent->clk, branch_rate);
+
+		if (branch->rate > curr_rate) {
+			ret = clk_set_rate(parent->clk, branch->rate);
 			if (ret) {
 				pr_err("Failed to scale %s to %lu\n",
-					clk_hw_get_name(parent), branch_rate);
+					clk_hw_get_name(parent), branch->rate);
 				goto exit;
 			}
 		}
@@ -283,16 +291,23 @@ static void clk_branch2_disable(struct clk_hw *hw)
 
 static void clk_branch2_unprepare(struct clk_hw *hw)
 {
-	struct clk_branch *branch = to_clk_branch(hw);
-	struct clk_hw *parent = clk_hw_get_parent(hw);
-	unsigned long curr_rate, new_rate, branch_rate = branch->rate;
+	struct clk_branch *branch;
+	struct clk_hw *parent;
+	unsigned long curr_rate, new_rate;
 
-	if (!parent)
+	if (!hw)
+		return;
+
+	branch = to_clk_branch(hw);
+	parent = clk_hw_get_parent(hw);
+	if (!branch)
 		return;
 
 	if (branch->aggr_sibling_rates) {
+		if (!parent)
+			return;
 		new_rate = clk_aggregate_rate(hw, parent->core);
-		curr_rate = max(new_rate, branch_rate);
+		curr_rate = max(new_rate, branch->rate);
 		if (new_rate < curr_rate)
 			if (clk_set_rate(parent->clk, new_rate))
 				pr_err("Failed to scale %s to %lu\n",

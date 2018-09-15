@@ -1004,15 +1004,14 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	struct freq_tbl f = { 0 };
 	unsigned long src_rate;
 	unsigned long num, den;
 	u32 mask = BIT(rcg->hid_width) - 1;
 	u32 hid_div, cfg;
 	int i, num_parents = clk_hw_get_num_parents(hw);
-	struct clk_hw *parent;
 
-	parent = clk_hw_get_parent(hw);
 	if (!parent)
 		return -EINVAL;
 
