@@ -499,6 +499,12 @@ static ktime_t __hrtimer_next_event_base(struct hrtimer_cpu_base *cpu_base,
 	struct hrtimer_clock_base *base;
 	ktime_t expires;
 
+	/*
+	 * Skip initializing cpu_base->next_timer to NULL as we skip updating
+	 * next_timer in below loop if the timer is being exluded.
+	 */
+	if (!exclude)
+		cpu_base->next_timer = NULL;
 	for_each_active_base(base, cpu_base, active) {
 		struct timerqueue_node *next;
 		struct hrtimer *timer;
