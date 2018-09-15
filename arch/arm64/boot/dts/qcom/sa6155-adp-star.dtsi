@@ -85,3 +85,9 @@
 
 	status = "ok";
 };
+
+&usb0 {
+	dwc3@a600000 {
+		dr_mode = "peripheral";
+	};
+};
