@@ -23,6 +23,7 @@
 #include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
 #include "cam_hw_ops.h"
+#include <media/adsp-shmem-device.h>
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
@@ -1475,6 +1476,14 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 				cci_dev->cci_i2c_queue_info[i][j].
 				max_queue_size);
 		}
+	}
+
+
+	if (cci_dev->pdev->id == ADSP_CCI
+	&& adsp_shmem_get_state() != CAMERA_STATUS_END) {
+		/* Used by aDSP */
+		cci_dev->cci_state = CCI_STATE_ENABLED;
+		return 0;
 	}
 
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;

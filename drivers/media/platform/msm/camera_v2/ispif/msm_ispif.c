@@ -29,6 +29,7 @@
 #include "msm_camera_io_util.h"
 #include "cam_hw_ops.h"
 #include "cam_soc_api.h"
+#include <media/adsp-shmem-device.h>
 
 #ifdef CONFIG_MSM_ISPIF_V1
 #include "msm_ispif_hwreg_v1.h"
@@ -444,6 +445,13 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	memset(ispif->stereo_configured, 0, sizeof(ispif->stereo_configured));
 	atomic_set(&ispif->reset_trig[VFE0], 1);
 	/* initiate reset of ISPIF */
+
+
+	if (adsp_shmem_get_state() != CAMERA_STATUS_END) {
+		pr_info("%s camera is in use by aDSP\n", __func__);
+		return rc;
+	}
+
 	msm_camera_io_w(ISPIF_RST_CMD_MASK,
 				ispif->base + ISPIF_RST_CMD_ADDR);
 

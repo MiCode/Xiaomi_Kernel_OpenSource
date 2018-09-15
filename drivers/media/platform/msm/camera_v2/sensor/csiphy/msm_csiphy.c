@@ -30,6 +30,7 @@
 #include "include/msm_csiphy_5_0_1_hwreg.h"
 #include "include/msm_csiphy_10_0_0_hwreg.h"
 #include "cam_hw_ops.h"
+#include <media/adsp-shmem-device.h>
 
 #define DBG_CSIPHY 0
 #define SOF_DEBUG_ENABLE 1
@@ -2162,11 +2163,15 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csiphy_get_subdev_id(csiphy_dev, arg);
 		break;
 	case VIDIOC_MSM_CSIPHY_IO_CFG:
-		rc = msm_csiphy_cmd(csiphy_dev, arg);
+		rc = 0;
+		if (adsp_shmem_get_state() == CAMERA_STATUS_END)
+			rc = msm_csiphy_cmd(csiphy_dev, arg);
 		break;
 	case VIDIOC_MSM_CSIPHY_RELEASE:
 	case MSM_SD_SHUTDOWN:
-		rc = msm_csiphy_release(csiphy_dev, arg);
+		rc = 0;
+		if (adsp_shmem_get_state() == CAMERA_STATUS_END)
+			rc = msm_csiphy_release(csiphy_dev, arg);
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		if (!csiphy_dev || !csiphy_dev->ctrl_reg ||
