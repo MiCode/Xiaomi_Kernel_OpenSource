@@ -4486,7 +4486,7 @@ static DEFINE_SPINLOCK(zombie_list_lock);
  * object, it will not preserve its functionality. Once the last 'user'
  * gives up the object, we'll destroy the thing.
  */
-int perf_event_release_kernel(struct perf_event *event)
+static int __perf_event_release_kernel(struct perf_event *event)
 {
 	struct perf_event_context *ctx = event->ctx;
 	struct perf_event *child, *tmp;
@@ -4500,8 +4500,7 @@ int perf_event_release_kernel(struct perf_event *event)
 	if (event->state == PERF_EVENT_STATE_ZOMBIE)
 		return 0;
 
-	if (event->cpu != -1 && !cpu_online(event->cpu) &&
-		event->state == PERF_EVENT_STATE_ACTIVE) {
+	if (event->cpu != -1 && per_cpu(is_hotplugging, event->cpu)) {
 		event->state = PERF_EVENT_STATE_ZOMBIE;
 
 		spin_lock(&zombie_list_lock);
@@ -4619,6 +4618,17 @@ again:
 no_ctx:
 	put_event(event); /* Must be the 'last' reference */
 	return 0;
+}
+
+int perf_event_release_kernel(struct perf_event *event)
+{
+	int ret;
+
+	mutex_lock(&pmus_lock);
+	ret = __perf_event_release_kernel(event);
+	mutex_unlock(&pmus_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(perf_event_release_kernel);
 
@@ -11556,7 +11566,7 @@ static void perf_event_zombie_cleanup(unsigned int cpu)
 		 * PMU expects it to be in an active state
 		 */
 		event->state = PERF_EVENT_STATE_ACTIVE;
-		perf_event_release_kernel(event);
+		__perf_event_release_kernel(event);
 
 		spin_lock(&zombie_list_lock);
 	}
@@ -11571,6 +11581,7 @@ int perf_event_start_swevents(unsigned int cpu)
 	struct perf_event *event;
 	int idx;
 
+	mutex_lock(&pmus_lock);
 	perf_event_zombie_cleanup(cpu);
 	perf_deferred_install_in_context(cpu);
 
@@ -11586,6 +11597,8 @@ int perf_event_start_swevents(unsigned int cpu)
 	}
 	srcu_read_unlock(&pmus_srcu, idx);
 	per_cpu(is_hotplugging, cpu) = false;
+	mutex_unlock(&pmus_lock);
+
 	return 0;
 }
 
