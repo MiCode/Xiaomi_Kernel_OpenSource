@@ -396,12 +396,13 @@ static struct clk_branch gpu_cc_sleep_clk = {
 
 static struct clk_branch gpu_cc_ahb_clk = {
 	.halt_reg = 0x1078,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x1078,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
