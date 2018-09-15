@@ -1257,15 +1257,16 @@ static int fg_dma_init(struct fg_dev *fg)
 		return rc;
 	}
 
-	/* Configure PEEK_MUX only for PM8150B v1.0 */
-	if (fg->wa_flags & PM8150B_V1_DMA_WA) {
-		val = ALG_ACTIVE_PEEK_CFG;
-		rc = fg_write(fg, BATT_INFO_PEEK_MUX4(fg), &val, 1);
-		if (rc < 0) {
-			pr_err("failed to configure batt_info_peek_mux4 rc:%d\n",
-				rc);
-			return rc;
-		}
+	/*
+	 * Configure PEEK_MUX for ALG active signal always for PM8150B.
+	 * For v1.0, it is used for DMA workaround. For v2.0 onwards, it is
+	 * used for ADC lockup workaround.
+	 */
+	val = ALG_ACTIVE_PEEK_CFG;
+	rc = fg_write(fg, BATT_INFO_PEEK_MUX4(fg), &val, 1);
+	if (rc < 0) {
+		pr_err("failed to configure batt_info_peek_mux4 rc:%d\n", rc);
+		return rc;
 	}
 
 	return 0;

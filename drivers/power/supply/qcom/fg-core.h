@@ -76,6 +76,8 @@
 
 #define ESR_FCC_VOTER		"fg_esr_fcc"
 
+#define FG_PARALLEL_EN_VOTER	"fg_parallel_en"
+
 #define BUCKET_COUNT			8
 #define BUCKET_SOC_PCT			(256 / BUCKET_COUNT)
 
@@ -148,6 +150,7 @@ enum fg_irq_index {
 	IMA_RDY_IRQ,
 	FG_GEN3_IRQ_MAX,
 	/* GEN4 FG_MEM_IF */
+	MEM_ATTN_IRQ,
 	DMA_XCP_IRQ,
 	/* GEN4 FG_ADC_RR */
 	BATT_TEMP_COLD_IRQ,
