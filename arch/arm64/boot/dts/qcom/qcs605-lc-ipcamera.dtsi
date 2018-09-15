@@ -83,16 +83,6 @@
 	status = "ok";
 };
 
-&usb0 {
-	dwc3@a600000 {
-		dr_mode = "host";
-	};
-};
-
-&icnss {
-	status = "disabled";
-};
-
 &msm_sdw_codec {
 	status = "disabled";
 };
