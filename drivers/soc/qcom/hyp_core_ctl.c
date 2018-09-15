@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/cpu_cooling.h>
 #include <linux/mutex.h>
+#include <linux/debugfs.h>
 
 #include <microvisor/microvisor.h>
 
@@ -750,6 +751,73 @@ static struct attribute_group hyp_core_ctl_attr_group = {
 	.name = "hyp_core_ctl",
 };
 
+#define CPULIST_SZ 32
+static ssize_t read_reserve_cpus(struct file *file, char __user *ubuf,
+				 size_t count, loff_t *ppos)
+{
+	char kbuf[CPULIST_SZ];
+	int ret;
+
+	ret = scnprintf(kbuf, CPULIST_SZ, "%*pbl\n",
+			cpumask_pr_args(&the_hcd->reserve_cpus));
+
+	return simple_read_from_buffer(ubuf, count, ppos, kbuf, ret);
+}
+
+static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
+				  size_t count, loff_t *ppos)
+{
+	char kbuf[CPULIST_SZ];
+	int ret;
+	cpumask_t temp_mask;
+
+	ret = simple_write_to_buffer(kbuf, CPULIST_SZ - 1, ppos, ubuf, count);
+	if (ret < 0)
+		return ret;
+
+	kbuf[ret] = '\0';
+	ret = cpulist_parse(kbuf, &temp_mask);
+	if (ret < 0)
+		return ret;
+
+	if (cpumask_weight(&temp_mask) !=
+			cpumask_weight(&the_hcd->reserve_cpus)) {
+		pr_err("incorrect reserve CPU count. expected=%u\n",
+				cpumask_weight(&the_hcd->reserve_cpus));
+		return -EINVAL;
+	}
+
+	spin_lock(&the_hcd->lock);
+	if (the_hcd->reservation_enabled) {
+		count = -EPERM;
+		pr_err("reservation is enabled, can't change reserve_cpus\n");
+	} else {
+		cpumask_copy(&the_hcd->reserve_cpus, &temp_mask);
+	}
+	spin_unlock(&the_hcd->lock);
+
+	return count;
+}
+
+static const struct file_operations debugfs_reserve_cpus_ops = {
+	.read = read_reserve_cpus,
+	.write = write_reserve_cpus,
+};
+
+static void hyp_core_ctl_debugfs_init(void)
+{
+	struct dentry *dir, *file;
+
+	dir = debugfs_create_dir("hyp_core_ctl", NULL);
+	if (IS_ERR_OR_NULL(dir))
+		return;
+
+	file = debugfs_create_file("reserve_cpus", 0644, dir, NULL,
+				   &debugfs_reserve_cpus_ops);
+	if (!file)
+		debugfs_remove(dir);
+}
+
 static int hyp_core_ctl_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -802,6 +870,7 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 				  NULL, hyp_core_ctl_hp_offline);
 
 	cpu_cooling_max_level_notifier_register(&hyp_core_ctl_nb);
+	hyp_core_ctl_debugfs_init();
 
 	the_hcd = hcd;
 	return 0;
