@@ -24,9 +24,9 @@
 /delete-node/ &kgsl_smmu;
 
 &soc {
-	/delete-node/ llcc_bw_opp_table;
-	/delete-node/ ddr_bw_opp_table;
-	/delete-node/ suspendable_ddr_bw_opp_table;
+	/delete-node/ llcc-bw-opp-table;
+	/delete-node/ ddr-bw-opp-table;
+	/delete-node/ suspendable-ddr-bw-opp-table;
 };
 
 &mdss_mdp {
@@ -617,7 +617,7 @@
 };
 
 &soc {
-	llcc_bw_opp_table {
+	llcc_bw_opp_table: llcc-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
 		BW_OPP_ENTRY( 300, 16); /*  4577 MB/s */
@@ -628,7 +628,7 @@
 		BW_OPP_ENTRY(1000, 16); /* 15258 MB/s */
 	};
 
-	ddr_bw_opp_table {
+	ddr_bw_opp_table: ddr-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
 		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
@@ -643,7 +643,7 @@
 		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
 	};
 
-	suspendable_ddr_bw_opp_table {
+	suspendable_ddr_bw_opp_table: suspendable-ddr-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
 		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
