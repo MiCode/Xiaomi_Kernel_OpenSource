@@ -14,7 +14,7 @@
 
 &soc {
 	rpmh-regulator-smpa2 {
-		compatible = "qcom,rpmh-vrm-regulator";
+		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "cx.lvl";
 
