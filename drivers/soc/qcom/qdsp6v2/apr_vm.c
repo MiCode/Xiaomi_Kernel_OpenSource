@@ -541,7 +541,7 @@ static int apr_vm_cb_thread(void *data)
 					&apr_rx_buf_len,
 					0xFFFFFFFF,
 					0);
-		} while (time_before(jiffies, delay) && (ret == -EAGAIN) &&
+		} while (time_before(jiffies, delay) && (ret == -EINTR) &&
 			(apr_rx_buf_len == 0));
 		if (ret) {
 			pr_err("%s: habmm_socket_recv failed %d\n",

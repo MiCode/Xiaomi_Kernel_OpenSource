@@ -155,14 +155,27 @@
 					<45 512 207108 14432000>;
 	};
 
+
 	subsys_notif_virt: qcom,subsys_notif_virt@2d000000 {
 		compatible = "qcom,subsys-notif-virt";
-		reg = <0x2d000000 0x18>;
+		reg = <0x2d000000 0x400>;
 		reg-names = "vdev_base";
+
+		adsp {
+			subsys-name = "adsp";
+			interrupts = <0 43 0>;
+			interrupt-names = "state-irq";
+			type = "virtual";
+			offset = <0>;
+		};
 		wlan {
 			subsys-name = "AR6320";
-			offset = <16>;
+			interrupts = <0 43 0>;
+			interrupt-names = "state-irq";
+			type = "virtual";
+			offset = <512>;
 		};
+
 	};
 };
 

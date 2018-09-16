@@ -55,6 +55,7 @@ struct rtac_cal_block_data	rtac_cal[MAX_RTAC_BLOCKS] = {
 struct rtac_common_data {
 	atomic_t			usage_count;
 	atomic_t			apr_err_code;
+	struct mutex			rtac_fops_mutex;
 };
 
 static struct rtac_common_data		rtac_common;
@@ -123,11 +124,6 @@ struct mutex			rtac_asm_apr_mutex;
 struct mutex			rtac_voice_mutex;
 struct mutex			rtac_voice_apr_mutex;
 struct mutex			rtac_afe_apr_mutex;
-
-static struct mutex			rtac_asm_cal_mutex;
-static struct mutex			rtac_adm_cal_mutex;
-static struct mutex			rtac_afe_cal_mutex;
-static struct mutex			rtac_voice_cal_mutex;
 
 int rtac_clear_mapping(uint32_t cal_type)
 {
@@ -322,7 +318,9 @@ static int rtac_open(struct inode *inode, struct file *f)
 	int	result = 0;
 	pr_debug("%s\n", __func__);
 
+	mutex_lock(&rtac_common.rtac_fops_mutex);
 	atomic_inc(&rtac_common.usage_count);
+	mutex_unlock(&rtac_common.rtac_fops_mutex);
 	return result;
 }
 
@@ -333,12 +331,15 @@ static int rtac_release(struct inode *inode, struct file *f)
 	int	i;
 	pr_debug("%s\n", __func__);
 
+	mutex_lock(&rtac_common.rtac_fops_mutex);
 	atomic_dec(&rtac_common.usage_count);
 	pr_debug("%s: ref count %d!\n", __func__,
 		atomic_read(&rtac_common.usage_count));
 
-	if (atomic_read(&rtac_common.usage_count) > 0)
+	if (atomic_read(&rtac_common.usage_count) > 0) {
+		mutex_unlock(&rtac_common.rtac_fops_mutex);
 		goto done;
+	}
 
 	for (i = 0; i < MAX_RTAC_BLOCKS; i++) {
 		result2 = rtac_unmap_cal_buffer(i);
@@ -355,6 +356,7 @@ static int rtac_release(struct inode *inode, struct file *f)
 			result = result2;
 		}
 	}
+	mutex_unlock(&rtac_common.rtac_fops_mutex);
 done:
 	return result;
 }
@@ -1804,84 +1806,64 @@ static long rtac_ioctl_shared(struct file *f,
 	}
 
 	case AUDIO_GET_RTAC_ADM_CAL:
-		mutex_lock(&rtac_adm_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 ADM_CMD_GET_PP_PARAMS_V6 :
 				 ADM_CMD_GET_PP_PARAMS_V5;
 		result = send_adm_apr((void *) arg, opcode);
-		mutex_unlock(&rtac_adm_cal_mutex);
 		break;
 	case AUDIO_SET_RTAC_ADM_CAL:
-		mutex_lock(&rtac_adm_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 ADM_CMD_SET_PP_PARAMS_V6 :
 				 ADM_CMD_SET_PP_PARAMS_V5;
 		result = send_adm_apr((void *) arg, opcode);
-		mutex_unlock(&rtac_adm_cal_mutex);
 		break;
 	case AUDIO_GET_RTAC_ASM_CAL:
-		mutex_lock(&rtac_asm_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 ASM_STREAM_CMD_GET_PP_PARAMS_V3 :
 				 ASM_STREAM_CMD_GET_PP_PARAMS_V2;
 		result = send_rtac_asm_apr((void *) arg, opcode);
-		mutex_unlock(&rtac_asm_cal_mutex);
 		break;
 	case AUDIO_SET_RTAC_ASM_CAL:
-		mutex_lock(&rtac_asm_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 ASM_STREAM_CMD_SET_PP_PARAMS_V3 :
 				 ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 		result = send_rtac_asm_apr((void *) arg, opcode);
-		mutex_unlock(&rtac_asm_cal_mutex);
 		break;
 	case AUDIO_GET_RTAC_CVS_CAL:
-		mutex_lock(&rtac_voice_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 VSS_ICOMMON_CMD_GET_PARAM_V3 :
 				 VSS_ICOMMON_CMD_GET_PARAM_V2;
 		result = send_voice_apr(RTAC_CVS, (void *) arg, opcode);
-		mutex_unlock(&rtac_voice_cal_mutex);
 		break;
 	case AUDIO_SET_RTAC_CVS_CAL:
-		mutex_lock(&rtac_voice_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 VSS_ICOMMON_CMD_SET_PARAM_V3 :
 				 VSS_ICOMMON_CMD_SET_PARAM_V2;
 		result = send_voice_apr(RTAC_CVS, (void *) arg, opcode);
-		mutex_unlock(&rtac_voice_cal_mutex);
 		break;
 	case AUDIO_GET_RTAC_CVP_CAL:
-		mutex_lock(&rtac_voice_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 VSS_ICOMMON_CMD_GET_PARAM_V3 :
 				 VSS_ICOMMON_CMD_GET_PARAM_V2;
 		result = send_voice_apr(RTAC_CVP, (void *) arg, opcode);
-		mutex_unlock(&rtac_voice_cal_mutex);
 		break;
 	case AUDIO_SET_RTAC_CVP_CAL:
-		mutex_lock(&rtac_voice_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 VSS_ICOMMON_CMD_SET_PARAM_V3 :
 				 VSS_ICOMMON_CMD_SET_PARAM_V2;
 		result = send_voice_apr(RTAC_CVP, (void *) arg, opcode);
-		mutex_unlock(&rtac_voice_cal_mutex);
 		break;
 	case AUDIO_GET_RTAC_AFE_CAL:
-		mutex_lock(&rtac_afe_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 AFE_PORT_CMD_GET_PARAM_V3 :
 				 AFE_PORT_CMD_GET_PARAM_V2;
 		result = send_rtac_afe_apr((void __user *) arg, opcode);
-		mutex_unlock(&rtac_afe_cal_mutex);
 		break;
 	case AUDIO_SET_RTAC_AFE_CAL:
-		mutex_lock(&rtac_afe_cal_mutex);
 		opcode = q6common_is_instance_id_supported() ?
 				 AFE_PORT_CMD_SET_PARAM_V3 :
 				 AFE_PORT_CMD_SET_PARAM_V2;
 		result = send_rtac_afe_apr((void __user *) arg, opcode);
-		mutex_unlock(&rtac_afe_cal_mutex);
 		break;
 	default:
 		pr_err("%s: Invalid IOCTL, command = %d!\n",
@@ -1897,6 +1879,7 @@ static long rtac_ioctl(struct file *f,
 {
 	int result = 0;
 
+	mutex_lock(&rtac_common.rtac_fops_mutex);
 	if (!arg) {
 		pr_err("%s: No data sent to driver!\n", __func__);
 		result = -EFAULT;
@@ -1904,6 +1887,7 @@ static long rtac_ioctl(struct file *f,
 		result = rtac_ioctl_shared(f, cmd, (void __user *)arg);
 	}
 
+	mutex_unlock(&rtac_common.rtac_fops_mutex);
 	return result;
 }
 
@@ -1926,6 +1910,7 @@ static long rtac_compat_ioctl(struct file *f,
 {
 	int result = 0;
 
+	mutex_lock(&rtac_common.rtac_fops_mutex);
 	if (!arg) {
 		pr_err("%s: No data sent to driver!\n", __func__);
 		result = -EINVAL;
@@ -1978,6 +1963,7 @@ process:
 		break;
 	}
 done:
+	mutex_unlock(&rtac_common.rtac_fops_mutex);
 	return result;
 }
 #else
@@ -2005,6 +1991,7 @@ static int __init rtac_init(void)
 	/* Driver */
 	atomic_set(&rtac_common.usage_count, 0);
 	atomic_set(&rtac_common.apr_err_code, 0);
+	mutex_init(&rtac_common.rtac_fops_mutex);
 
 	/* ADM */
 	memset(&rtac_adm_data, 0, sizeof(rtac_adm_data));
@@ -2013,7 +2000,6 @@ static int __init rtac_init(void)
 	init_waitqueue_head(&rtac_adm_apr_data.cmd_wait);
 	mutex_init(&rtac_adm_mutex);
 	mutex_init(&rtac_adm_apr_mutex);
-	mutex_init(&rtac_adm_cal_mutex);
 
 	rtac_adm_buffer = kzalloc(
 		rtac_cal[ADM_RTAC_CAL].map_data.map_size, GFP_KERNEL);
@@ -2030,7 +2016,6 @@ static int __init rtac_init(void)
 		init_waitqueue_head(&rtac_asm_apr_data[i].cmd_wait);
 	}
 	mutex_init(&rtac_asm_apr_mutex);
-	mutex_init(&rtac_asm_cal_mutex);
 
 	rtac_asm_buffer = kzalloc(
 		rtac_cal[ASM_RTAC_CAL].map_data.map_size, GFP_KERNEL);
@@ -2046,7 +2031,6 @@ static int __init rtac_init(void)
 	atomic_set(&rtac_afe_apr_data.cmd_state, 0);
 	init_waitqueue_head(&rtac_afe_apr_data.cmd_wait);
 	mutex_init(&rtac_afe_apr_mutex);
-	mutex_init(&rtac_afe_cal_mutex);
 
 	rtac_afe_buffer = kzalloc(
 		rtac_cal[AFE_RTAC_CAL].map_data.map_size, GFP_KERNEL);
@@ -2067,7 +2051,6 @@ static int __init rtac_init(void)
 	}
 	mutex_init(&rtac_voice_mutex);
 	mutex_init(&rtac_voice_apr_mutex);
-	mutex_init(&rtac_voice_cal_mutex);
 
 	rtac_voice_buffer = kzalloc(
 		rtac_cal[VOICE_RTAC_CAL].map_data.map_size, GFP_KERNEL);

@@ -23,7 +23,9 @@
 #ifdef CONFIG_USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
 #endif
+#ifdef CONFIG_MSM_MHI
 #include "diagfwd_mhi.h"
+#endif
 #include "diag_dci.h"
 
 #ifndef CONFIG_USB_QCOM_DIAG_BRIDGE

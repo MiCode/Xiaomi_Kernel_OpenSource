@@ -130,7 +130,7 @@ static int msm_audio_ion_smmu_map(struct ion_client *client,
 			&cmd_rsp_size,
 			0xFFFFFFFF,
 			0);
-	} while (time_before(jiffies, delay) && (rc == -EAGAIN) &&
+	} while (time_before(jiffies, delay) && (rc == -EINTR) &&
 			(cmd_rsp_size == 0));
 	if (rc) {
 		pr_err("%s: habmm_socket_recv failed %d\n",
@@ -218,7 +218,7 @@ static int msm_audio_ion_smmu_unmap(struct ion_client *client,
 					0xFFFFFFFF,
 					0);
 			} while (time_before(jiffies, delay) &&
-					(rc == -EAGAIN) && (cmd_rsp_size == 0));
+					(rc == -EINTR) && (cmd_rsp_size == 0));
 			if (rc) {
 				pr_err("%s: habmm_socket_recv failed %d\n",
 					__func__, rc);

@@ -1312,10 +1312,10 @@ static int __from_user_pgc_lut_data_legacy(
 		return -EFAULT;
 
 	if (num_r_stages > GC_LUT_SEGMENTS || num_b_stages > GC_LUT_SEGMENTS
-	    || num_r_stages > GC_LUT_SEGMENTS || !num_r_stages || !num_b_stages
+	    || num_g_stages > GC_LUT_SEGMENTS || !num_r_stages || !num_b_stages
 	    || !num_g_stages) {
 		pr_err("invalid number of stages r_stages %d b_stages %d g_stages %d\n",
-		       num_r_stages, num_b_stages, num_r_stages);
+		       num_r_stages, num_b_stages, num_g_stages);
 		return -EFAULT;
 	}
 

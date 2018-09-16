@@ -12,10 +12,7 @@
 
 /dts-v1/;
 
-#include "skeleton64.dtsi"
-#include "vplatform-lfv-msm8996.dtsi"
-#include <dt-bindings/clock/msm-clocks-8996.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "vplatform-lfv-msm8996-ivi-common.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996";
@@ -23,151 +20,14 @@
 	qcom,msm-id = <246 0x0>;
 };
 
-&soc {
-	qcom,msm-audio-ion-vm {
-		compatible = "qcom,msm-audio-ion-vm";
-		qcom,smmu-enabled;
-	};
-
-	qcom,hab {
-		compatible = "qcom,hab";
-		vmid = <2>;
-
-		mmidgrp100: mmidgrp100 {
-			grp-start-id = <100>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp200: mmidgrp200 {
-			grp-start-id = <200>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp300: mmidgrp300 {
-			grp-start-id = <300>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp400: mmidgrp400 {
-			grp-start-id = <400>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp500: mmidgrp500 {
-			grp-start-id = <500>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp600: mmidgrp600 {
-			grp-start-id = <600>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp700: mmidgrp700 {
-			grp-start-id = <700>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp800: mmidgrp800 {
-			grp-start-id = <800>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp900: mmidgrp900 {
-			grp-start-id = <900>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp1000: mmidgrp1000 {
-			grp-start-id = <1000>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-	};
-
-	qcom,cnss {
-		compatible = "qcom,cnss";
-		wlan-bootstrap-gpio = <&tlmm 46 0>;
-		vdd-wlan-en-supply = <&wlan_en_vreg>;
-		vdd-wlan-supply = <&rome_vreg>;
-		vdd-wlan-io-supply = <&pm8994_s4>;
-		vdd-wlan-xtal-supply = <&pm8994_l30>;
-		vdd-wlan-core-supply = <&pm8994_s3>;
-		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
-		qcom,wlan-en-vreg-support;
-		qcom,notify-modem-status;
-		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
-		pinctrl-0 = <&cnss_bootstrap_active>;
-		pinctrl-1 = <&cnss_bootstrap_sleep>;
-
-		qcom,msm-bus,name = "msm-cnss";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-					/* No vote */
-					<45 512 0 0>,
-					/* Up to 200 Mbps */
-					<45 512 41421 1520000>,
-					/* Up to 400 Mbps */
-					<45 512 96650 1520000>,
-					/* Up to 800 Mbps */
-					<45 512 207108 14432000>;
-	};
-
-	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
-		compatible = "qcom,subsys-notif-virt";
-		reg = <0x2D000000 0x100>;
-		reg-names = "vdev_base";
-		adsp {
-			subsys-name = "adsp";
-			interrupts = <0 43 0>;
-			interrupt-names = "state-irq";
-			type = "virtual";
-			offset = <0>;
-		};
-	};
-};
-
 &reserved_memory {
-		pmem_shared: pmem_shared_region@d0000000 {
-			reg = <0 0xd0000000 0 0x20000000>;
+		pmem_shared: pmem_shared_region@1154ca000 {
+			reg = <0x1 0x154ca000 0x0 0x154ca000>;
 			label = "pmem_shared_mem";
 		};
 
-		ion_system: ion_system_region@100000000 {
-			reg = <0x1 0x0 0 0x10000000>;
+		ion_system: ion_system_region@12a994000 {
+			reg = <0x1 0x2a994000 0x0 0x154ca000>;
 			label = "ion_system_mem";
 		};
-};
-
-#include "vplatform-lfv-msm8996-usb.dtsi"
-
-&usb3 {
-	status = "okay";
-	qcom,no-wakeup-src-in-hostmode;
-};
-
-&usb2s {
-	status = "okay";
-};
-
-&qusb_phy0 {
-	status = "okay";
-};
-
-&qusb_phy1 {
-	status = "okay";
-};
-
-&ssphy {
-	status = "okay";
 };
