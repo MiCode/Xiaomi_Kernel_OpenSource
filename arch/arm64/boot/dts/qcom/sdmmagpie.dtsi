@@ -2016,6 +2016,7 @@
 #include "sdmmagpie-pm.dtsi"
 #include "pm6150.dtsi"
 #include "pm6150l.dtsi"
+#include "pm8009.dtsi"
 #include "sdmmagpie-regulator.dtsi"
 #include "sdmmagpie-coresight.dtsi"
 #include "sdmmagpie-thermal.dtsi"
