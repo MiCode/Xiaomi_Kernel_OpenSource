@@ -916,16 +916,24 @@ static void pil_load_seg_work_fn(struct work_struct *work)
 
 static int pil_load_segs(struct pil_desc *desc)
 {
+	int ret = 0;
 	int seg_id = 0;
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg_data *pil_seg_data;
 	struct pil_seg *seg;
-	DECLARE_BITMAP(err_map, priv->num_segs);
+	unsigned long *err_map;
+
+	err_map = kcalloc(BITS_TO_LONGS(priv->num_segs), sizeof(unsigned long),
+				GFP_KERNEL);
+	if (!err_map)
+		return -ENOMEM;
 
 	pil_seg_data = kcalloc(priv->num_segs, sizeof(*pil_seg_data),
 				GFP_KERNEL);
-	if (!pil_seg_data)
-		return -ENOMEM;
+	if (!pil_seg_data) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	/* Initialize and spawn a thread for each segment */
 	list_for_each_entry(seg, &desc->priv->segs, list) {
@@ -964,9 +972,11 @@ static int pil_load_segs(struct pil_desc *desc)
 
 	/* Each segment can fail due to different reason. Send a generic err */
 	if (!bitmap_empty(err_map, priv->num_segs))
-		return -EFAULT;
+		ret = -EFAULT;
 
-	return 0;
+out:
+	kfree(err_map);
+	return ret;
 }
 
 /**
