@@ -896,7 +896,6 @@ static int pil_notify_aop(struct pil_desc *desc, char *status)
 static DECLARE_RWSEM(pil_pm_rwsem);
 
 struct pil_seg_data {
-	int seg_id;
 	struct pil_desc *desc;
 	struct pil_seg *seg;
 	struct work_struct load_seg_work;
@@ -937,7 +936,6 @@ static int pil_load_segs(struct pil_desc *desc)
 
 	/* Initialize and spawn a thread for each segment */
 	list_for_each_entry(seg, &desc->priv->segs, list) {
-		pil_seg_data[seg_id].seg_id = seg_id;
 		pil_seg_data[seg_id].desc = desc;
 		pil_seg_data[seg_id].seg = seg;
 
