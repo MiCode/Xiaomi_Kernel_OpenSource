@@ -127,7 +127,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 	int32_t iommu_hdl, int32_t sec_mmu_hdl)
 {
 	struct cam_patch_desc *patch_desc = NULL;
-	uint64_t   iova_addr;
+	dma_addr_t iova_addr;
 	uint64_t   cpu_addr;
 	uint32_t   temp;
 	uint32_t  *dst_cpu_addr;

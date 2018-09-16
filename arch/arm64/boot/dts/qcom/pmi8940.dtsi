@@ -571,7 +571,7 @@
 			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
-			qcom,actuator-type = "lra";
+			qcom,actuator-type = <0>;
 			qcom,wave-shape = "square";
 			qcom,vmax-mv = <2000>;
 			qcom,ilim-ma = <800>;

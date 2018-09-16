@@ -160,7 +160,9 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
-struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
+static struct ion_heap *__ion_carveout_heap_create(
+					struct ion_platform_heap *heap_data,
+					bool sync)
 {
 	struct ion_carveout_heap *carveout_heap;
 	int ret;
@@ -172,7 +174,8 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	page = pfn_to_page(PFN_DOWN(heap_data->base));
 	size = heap_data->size;
 
-	ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
+	if (sync)
+		ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
 
 	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
@@ -195,6 +198,11 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
 	return &carveout_heap->heap;
+}
+
+struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
+{
+	return __ion_carveout_heap_create(heap_data, true);
 }
 
 void ion_carveout_heap_destroy(struct ion_heap *heap)
@@ -362,7 +370,7 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 	heap_data.size = size;
 
 	/* This will zero memory initially */
-	entry->heap = ion_carveout_heap_create(&heap_data);
+	entry->heap = __ion_carveout_heap_create(&heap_data, false);
 	if (IS_ERR(entry->heap))
 		goto out_free;
 

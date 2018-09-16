@@ -57,7 +57,6 @@ enum cam_isp_ctx_activated_substate {
 	CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED,
 	CAM_ISP_CTX_ACTIVATED_HW_ERROR,
 	CAM_ISP_CTX_ACTIVATED_HALT,
-	CAM_ISP_CTX_ACTIVATED_FLUSH,
 	CAM_ISP_CTX_ACTIVATED_MAX,
 };
 
@@ -155,7 +154,6 @@ struct cam_isp_context_state_monitor {
  * @subscribe_event:           The irq event mask that CRM subscribes to, IFE
  *                             will invoke CRM cb at those event.
  * @last_applied_req_id:       Last applied request id
- * @frame_skip_count:          Number of frame to skip before change state
  * @state_monitor_head:        Write index to the state monitoring array
  * @cam_isp_ctx_state_monitor: State monitoring array
  * @rdi_only_context:          Get context type information.
@@ -180,7 +178,6 @@ struct cam_isp_context {
 	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;
 	int64_t                          last_applied_req_id;
-	uint32_t                         frame_skip_count;
 	atomic64_t                       state_monitor_head;
 	struct cam_isp_context_state_monitor cam_isp_ctx_state_monitor[
 		CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES];

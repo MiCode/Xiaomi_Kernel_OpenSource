@@ -65,15 +65,12 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		&cci_dev->soc_info;
 	void __iomem *base = soc_info->reg_map[0].mem_base;
 	unsigned long flags;
-	bool burst_read_assert = false;
+	bool rd_done_th_assert = false;
 
 	irq_status0 = cam_io_r_mb(base + CCI_IRQ_STATUS_0_ADDR);
 	irq_status1 = cam_io_r_mb(base + CCI_IRQ_STATUS_1_ADDR);
-	cam_io_w_mb(irq_status0, base + CCI_IRQ_CLEAR_0_ADDR);
-	cam_io_w_mb(irq_status1, base + CCI_IRQ_CLEAR_1_ADDR);
-	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
-
 	CAM_DBG(CAM_CCI, "irq0:%x irq1:%x", irq_status0, irq_status1);
+
 	if (irq_status0 & CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK) {
 		if (cci_dev->cci_master_info[MASTER_0].reset_pending == TRUE) {
 			cci_dev->cci_master_info[MASTER_0].reset_pending =
@@ -92,18 +89,23 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	if ((irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK) &&
 		(irq_status1 & CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD)) {
 		cci_dev->cci_master_info[MASTER_0].status = 0;
+		rd_done_th_assert = true;
+		complete(&cci_dev->cci_master_info[MASTER_0].th_complete);
 		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
-		burst_read_assert = true;
 	}
 	if ((irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK) &&
-		(!burst_read_assert)) {
+		(!rd_done_th_assert)) {
 		cci_dev->cci_master_info[MASTER_0].status = 0;
+		rd_done_th_assert = true;
+		if (cci_dev->is_burst_read)
+			complete(
+			&cci_dev->cci_master_info[MASTER_0].th_complete);
 		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
 	}
 	if ((irq_status1 & CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD) &&
-		(!burst_read_assert)) {
+		(!rd_done_th_assert)) {
 		cci_dev->cci_master_info[MASTER_0].status = 0;
-		complete(&cci_dev->cci_master_info[MASTER_0].reset_complete);
+		complete(&cci_dev->cci_master_info[MASTER_0].th_complete);
 	}
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK) {
 		struct cam_cci_master_info *cci_master_info;
@@ -142,18 +144,23 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	if ((irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK) &&
 		(irq_status1 & CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD)) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
+		rd_done_th_assert = true;
+		complete(&cci_dev->cci_master_info[MASTER_1].th_complete);
 		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
-		burst_read_assert = true;
 	}
 	if ((irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK) &&
-		(!burst_read_assert)) {
+		(!rd_done_th_assert)) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
+		rd_done_th_assert = true;
+		if (cci_dev->is_burst_read)
+			complete(
+			&cci_dev->cci_master_info[MASTER_1].th_complete);
 		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
 	}
 	if ((irq_status1 & CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD) &&
-		(!burst_read_assert)) {
+		(!rd_done_th_assert)) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
-		complete(&cci_dev->cci_master_info[MASTER_1].reset_complete);
+		complete(&cci_dev->cci_master_info[MASTER_1].th_complete);
 	}
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_Q0_REPORT_BMSK) {
 		struct cam_cci_master_info *cci_master_info;
@@ -189,6 +196,12 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			&cci_dev->cci_master_info[MASTER_1].lock_q[QUEUE_1],
 			flags);
 	}
+	if (irq_status1 & CCI_IRQ_STATUS_1_I2C_M0_RD_PAUSE)
+		CAM_DBG(CAM_CCI, "RD_PAUSE ON MASTER_0");
+
+	if (irq_status1 & CCI_IRQ_STATUS_1_I2C_M1_RD_PAUSE)
+		CAM_DBG(CAM_CCI, "RD_PAUSE ON MASTER_1");
+
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 		cam_io_w_mb(CCI_M0_RESET_RMSK,
@@ -211,6 +224,19 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			base + CCI_HALT_REQ_ADDR);
 		CAM_DBG(CAM_CCI, "MASTER_1 error 0x%x", irq_status0);
 	}
+
+	if ((rd_done_th_assert) || (!cci_dev->is_burst_read)) {
+		cam_io_w_mb(irq_status1, base + CCI_IRQ_CLEAR_1_ADDR);
+		CAM_DBG(CAM_CCI, "clear irq_status0:%x irq_status1:%x",
+			irq_status0, irq_status1);
+	} else {
+		spin_lock_irqsave(&cci_dev->lock_status, flags);
+		cci_dev->irq_status1 |= irq_status1;
+		spin_unlock_irqrestore(&cci_dev->lock_status, flags);
+	}
+
+	cam_io_w_mb(irq_status0, base + CCI_IRQ_CLEAR_0_ADDR);
+	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
 

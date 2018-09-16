@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,7 +82,7 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp);
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
-	uint64_t *iova_ptr, size_t *len_ptr);
+	dma_addr_t *iova_ptr, size_t *len_ptr);
 /**
  * @brief: Returns CPU address information about buffer
  *

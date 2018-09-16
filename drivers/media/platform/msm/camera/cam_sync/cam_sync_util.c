@@ -287,6 +287,64 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 	kfree(cb_info);
 }
 
+void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
+	uint32_t status)
+{
+	struct sync_callback_info  *sync_cb;
+	struct sync_user_payload   *payload_info;
+	struct sync_callback_info  *temp_sync_cb;
+	struct sync_table_row      *signalable_row;
+	struct sync_user_payload   *temp_payload_info;
+
+	signalable_row = sync_dev->sync_table + sync_obj;
+	if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
+		CAM_DBG(CAM_SYNC,
+			"Accessing invalid sync object:%i", sync_obj);
+		return;
+	}
+
+	/* Dispatch kernel callbacks if any were registered earlier */
+	list_for_each_entry_safe(sync_cb,
+		temp_sync_cb, &signalable_row->callback_list, list) {
+		sync_cb->status = status;
+		list_del_init(&sync_cb->list);
+		queue_work(sync_dev->work_queue,
+			&sync_cb->cb_dispatch_work);
+	}
+
+	/* Dispatch user payloads if any were registered earlier */
+	list_for_each_entry_safe(payload_info, temp_payload_info,
+		&signalable_row->user_payload_list, list) {
+		spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
+		if (!sync_dev->cam_sync_eventq) {
+			spin_unlock_bh(
+				&sync_dev->cam_sync_eventq_lock);
+			break;
+		}
+		spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
+		cam_sync_util_send_v4l2_event(
+			CAM_SYNC_V4L_EVENT_ID_CB_TRIG,
+			sync_obj,
+			status,
+			payload_info->payload_data,
+			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64));
+
+		list_del_init(&payload_info->list);
+		/*
+		 * We can free the list node here because
+		 * sending V4L event will make a deep copy
+		 * anyway
+		 */
+		 kfree(payload_info);
+	}
+
+	/*
+	 * This needs to be done because we want to unblock anyone
+	 * who might be blocked and waiting on this sync object
+	 */
+	complete_all(&signalable_row->signaled);
+}
+
 void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
 	int status,
@@ -310,26 +368,6 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	v4l2_event_queue(sync_dev->vdev, &event);
 	CAM_DBG(CAM_SYNC, "send v4l2 event for sync_obj :%d",
 		sync_obj);
-}
-
-int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
-	uint32_t status,
-	struct list_head *sync_list)
-{
-	struct cam_signalable_info *signalable_info = NULL;
-
-	signalable_info = kzalloc(sizeof(*signalable_info), GFP_ATOMIC);
-	if (!signalable_info)
-		return -ENOMEM;
-
-	signalable_info->sync_obj = sync_obj;
-	signalable_info->status = status;
-
-	list_add_tail(&signalable_info->list, sync_list);
-	CAM_DBG(CAM_SYNC, "Add sync_obj :%d with status :%d to signalable list",
-		sync_obj, status);
-
-	return 0;
 }
 
 int cam_sync_util_update_parent_state(struct sync_table_row *parent_row,

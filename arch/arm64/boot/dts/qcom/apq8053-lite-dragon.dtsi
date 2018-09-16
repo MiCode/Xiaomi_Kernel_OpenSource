@@ -466,7 +466,6 @@
 
 &pmi_haptic{
 	status = "disabled";
-	qcom,actuator-type = "lra";
 	qcom,lra-auto-res-mode="qwd";
 	qcom,lra-high-z="opt1";
 	qcom,lra-res-cal-period = <0>;

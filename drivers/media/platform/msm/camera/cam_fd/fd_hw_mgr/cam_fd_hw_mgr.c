@@ -536,7 +536,7 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 	int rc = -EINVAL;
 	uint32_t i, j, plane, num_out_buf, num_in_buf;
 	struct cam_buf_io_cfg *io_cfg;
-	uint64_t io_addr[CAM_PACKET_MAX_PLANES];
+	dma_addr_t io_addr[CAM_PACKET_MAX_PLANES];
 	uint64_t cpu_addr[CAM_PACKET_MAX_PLANES];
 	size_t size;
 	bool need_io_map, need_cpu_map;
