@@ -32,6 +32,11 @@ qcom,alium_860_89032_0000_3600mAh {
 				4201000  4300000  3600000
 				4301000  4350000  2500000>;
 
+	/* COOL = 5 DegC, WARM = 40 DegC */
+	qcom,jeita-soft-thresholds = <0x5314 0x25e3>;
+	/* COLD = 0 DegC, HOT = 45 DegC */
+	qcom,jeita-hard-thresholds = <0x58cd 0x20b8>;
+
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;
 		qcom,lut-data = <3426 3519 3581 3613 3630>;
