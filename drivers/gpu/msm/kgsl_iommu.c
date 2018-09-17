@@ -870,11 +870,21 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, addr);
 
 	if (!no_page_fault_log && __ratelimit(&_rs)) {
+		const char *api_str;
+
+		if (context != NULL) {
+			struct adreno_context *drawctxt =
+					ADRENO_CONTEXT(context);
+
+			api_str = get_api_type_str(drawctxt->type);
+		} else
+			api_str = "UNKNOWN";
+
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"GPU PAGE FAULT: addr = %lX pid= %d\n", addr, ptname);
 		KGSL_MEM_CRIT(ctx->kgsldev,
-			"context=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
-			ctx->name, ptbase, contextidr,
+			"context=%s ctx_type=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
+			ctx->name, api_str, ptbase, contextidr,
 			write ? "write" : "read", fault_type);
 
 		/* Don't print the debug if this is a permissions fault */
