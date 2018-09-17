@@ -2872,16 +2872,11 @@ static int perf_event_modify_breakpoint(struct perf_event *bp,
 	_perf_event_disable(bp);
 
 	err = modify_user_hw_breakpoint_check(bp, attr, true);
-	if (err) {
-		if (!bp->attr.disabled)
-			_perf_event_enable(bp);
 
-		return err;
-	}
-
-	if (!attr->disabled)
+	if (!bp->attr.disabled)
 		_perf_event_enable(bp);
-	return 0;
+
+	return err;
 }
 
 static int perf_event_modify_attr(struct perf_event *event,
@@ -5953,6 +5948,7 @@ perf_output_sample_ustack(struct perf_output_handle *handle, u64 dump_size,
 		unsigned long sp;
 		unsigned int rem;
 		u64 dyn_size;
+		mm_segment_t fs;
 
 		/*
 		 * We dump:
@@ -5970,7 +5966,10 @@ perf_output_sample_ustack(struct perf_output_handle *handle, u64 dump_size,
 
 		/* Data. */
 		sp = perf_user_stack_pointer(regs);
+		fs = get_fs();
+		set_fs(USER_DS);
 		rem = __output_copy_user(handle, (void *) sp, dump_size);
+		set_fs(fs);
 		dyn_size = dump_size - rem;
 
 		perf_output_skip(handle, rem);
