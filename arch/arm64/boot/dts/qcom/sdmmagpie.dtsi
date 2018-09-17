@@ -1809,6 +1809,7 @@
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc GIC_SPI 162 IRQ_TYPE_EDGE_RISING>,
@@ -1880,6 +1881,7 @@
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc GIC_SPI 578 IRQ_TYPE_EDGE_RISING>,
