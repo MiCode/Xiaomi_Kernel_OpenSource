@@ -2610,12 +2610,6 @@ static int smb5_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (alarmtimer_get_rtcdev())
-		alarm_init(&chg->lpd_recheck_timer, ALARM_REALTIME,
-				smblib_lpd_recheck_timer);
-	else
-		return -EPROBE_DEFER;
-
 	rc = smblib_init(chg);
 	if (rc < 0) {
 		pr_err("Smblib_init failed rc=%d\n", rc);
