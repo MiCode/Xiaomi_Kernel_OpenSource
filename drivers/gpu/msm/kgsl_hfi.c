@@ -8,6 +8,7 @@
 #include "kgsl_gmu.h"
 #include "adreno.h"
 #include "kgsl_trace.h"
+#include "kgsl_pwrctrl.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
 		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
@@ -641,9 +642,6 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
-/* Levels greater than or equal to LM_DCVS_LEVEL are subject to throttling */
-#define LM_DCVS_LEVEL 4
-
 int hfi_start(struct kgsl_device *device,
 		struct gmu_device *gmu, uint32_t boot_state)
 {
@@ -706,11 +704,8 @@ int hfi_start(struct kgsl_device *device,
 			return result;
 
 		if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-			/* We want all bits starting at LM_DCVS_LEVEL to be 1 */
-			int lm_data = -1 << (LM_DCVS_LEVEL - 1);
-
-			result = hfi_send_feature_ctrl(gmu,
-					HFI_FEATURE_LM, 1, lm_data);
+			result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
+					device->pwrctrl.throttle_mask);
 			if (result)
 				return result;
 		}

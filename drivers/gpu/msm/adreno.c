@@ -1060,6 +1060,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	unsigned int timeout;
+	unsigned int throt = 4;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
 		dev_err(device->dev, "Unable to read 'label'\n");
@@ -1088,6 +1089,14 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
+
+	/* Get throttle power level */
+	of_property_read_u32(node, "qcom,throttle-pwrlevel", &throt);
+
+	if (throt < device->pwrctrl.num_pwrlevels)
+		device->pwrctrl.throttle_mask =
+			GENMASK(device->pwrctrl.num_pwrlevels - 1,
+				device->pwrctrl.num_pwrlevels - 1 - throt);
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
