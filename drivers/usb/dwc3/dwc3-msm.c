@@ -2329,6 +2329,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool hibernation)
 		return -EBUSY;
 	}
 
+	if (!mdwc->in_host_mode && (mdwc->vbus_active && !mdwc->suspend)) {
+		dev_dbg(mdwc->dev,
+			"Received wakeup event before the core suspend\n");
+		mutex_unlock(&mdwc->suspend_resume_mutex);
+		return -EBUSY;
+	}
+
 	ret = dwc3_msm_prepare_suspend(mdwc);
 	if (ret) {
 		mutex_unlock(&mdwc->suspend_resume_mutex);
