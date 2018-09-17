@@ -74,26 +74,32 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 
 	ret = register_pm_notifier(&sleepstate_pm_nb);
 	if (ret)
-		pr_err("%s: power state notif error %d\n", __func__, ret);
+		dev_err(&pdev->dev, "%s: power state notif error %d\n",
+							__func__, ret);
 
 	wakeup_source_init(&notify_ws, "smp2p-sleepstate");
 
 	irq = of_irq_get_byname(node, "smp2p-sleepstate-in");
 	if (irq <= 0) {
-		pr_err("failed for irq getbyname for smp2p_sleep_state\n");
-		wakeup_source_trash(&notify_ws);
-		return -EPROBE_DEFER;
+		dev_err(&pdev->dev,
+			"failed for irq getbyname for smp2p_sleep_state\n");
+		ret = -EPROBE_DEFER;
+		goto err;
 	}
-	pr_info("got smp2p-sleepstate-in irq %d\n", irq);
+	dev_info(&pdev->dev, "got smp2p-sleepstate-in irq %d\n", irq);
 	ret = devm_request_threaded_irq(dev, irq, NULL,
 		(irq_handler_t)smp2p_sleepstate_handler,
 		IRQF_TRIGGER_RISING, "smp2p_sleepstate", dev);
 	if (ret) {
-		pr_err("fail to register smp2p threaded_irq=%d\n", irq);
-		wakeup_source_trash(&notify_ws);
-		return ret;
+		dev_err(&pdev->dev, "fail to register smp2p threaded_irq=%d\n",
+									irq);
+		goto err;
 	}
 	return 0;
+err:
+	wakeup_source_trash(&notify_ws);
+	unregister_pm_notifier(&sleepstate_pm_nb);
+	return ret;
 }
 
 static const struct of_device_id smp2p_slst_match_table[] = {
