@@ -104,6 +104,9 @@ SoCs:
 - SXR1130
   compatible = "qcom,sxr1130"
 
+- QRD1130
+  compatible = "qcom,sxr1130-qrd"
+
 - MSM8952
   compatible = "qcom,msm8952"
 
