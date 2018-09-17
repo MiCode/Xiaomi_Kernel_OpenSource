@@ -20,6 +20,7 @@
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0x0a600000 0xf8c00>;
 		reg-names = "core_base";
+		iommus = <&apps_smmu 0x1a0 0x0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
