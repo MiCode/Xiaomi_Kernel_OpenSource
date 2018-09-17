@@ -118,11 +118,9 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 			   ssr->seq_num);
 
 		ret = rpmsg_send(ssr->ept, &msg, sizeof(msg));
-		if (ret) {
+		if (ret)
 			GLINK_ERR(dev, "fail to send do cleanup to %s %d\n",
 				  nb->ssr_label, ret);
-			return NOTIFY_DONE;
-		}
 
 		ret = wait_for_completion_timeout(&ssr->completion, HZ);
 		if (!ret)
