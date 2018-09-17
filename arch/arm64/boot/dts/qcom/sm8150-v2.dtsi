@@ -562,6 +562,9 @@
 	/* Updated chip ID */
 	qcom,chipid = <0x06040001>;
 
+	/* Power level to start throttling */
+	qcom,throttle-pwrlevel = <2>;
+
 	/* Updated Bus Scale Settings */
 	qcom,msm-bus,num-cases = <12>;
 
