@@ -16,6 +16,8 @@
 
 #include "sxr1120-lc.dtsi"
 #include "sxr1120-lc-mtp.dtsi"
+#include "sxr1120-audio.dtsi"
+#include "sxr1120-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SXR1120 LC Groot+PM8005 Ext. Audio Codec MTP";
