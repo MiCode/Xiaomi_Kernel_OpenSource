@@ -1616,6 +1616,9 @@ static int count_ext_prop(struct usb_configuration *c, int interface)
 	struct usb_function *f;
 	int j;
 
+	if (interface >= c->next_interface_id)
+		return -EINVAL;
+
 	f = c->interface[interface];
 	for (j = 0; j < f->os_desc_n; ++j) {
 		struct usb_os_desc *d;
@@ -1634,6 +1637,9 @@ static int len_ext_prop(struct usb_configuration *c, int interface)
 	struct usb_function *f;
 	struct usb_os_desc *d;
 	int j, res;
+
+	if (interface >= c->next_interface_id)
+		return -EINVAL;
 
 	res = 10; /* header length */
 	f = c->interface[interface];
@@ -2027,6 +2033,8 @@ unknown:
 				if (w_length == 0x0A) {
 					count = count_ext_prop(os_desc_cfg,
 						interface);
+					if (count < 0)
+						return count;
 					put_unaligned_le16(count, buf + 8);
 					count = len_ext_prop(os_desc_cfg,
 						interface);
@@ -2036,6 +2044,8 @@ unknown:
 				} else {
 					count = count_ext_prop(os_desc_cfg,
 						interface);
+					if (count < 0)
+						return count;
 					put_unaligned_le16(count, buf + 8);
 					count = len_ext_prop(os_desc_cfg,
 						interface);
