@@ -1594,6 +1594,7 @@ static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 {
 	struct glink_channel *channel = to_glink_channel(ept);
 	struct glink_spi *glink = channel->glink;
+	struct rpmsg_channel_info chinfo;
 	unsigned long flags;
 
 	spin_lock_irqsave(&channel->recv_lock, flags);
@@ -1601,6 +1602,13 @@ static void glink_spi_destroy_ept(struct rpmsg_endpoint *ept)
 	spin_unlock_irqrestore(&channel->recv_lock, flags);
 
 	/* Decouple the potential rpdev from the channel */
+	if (channel->rpdev) {
+		strlcpy(chinfo.name, channel->name, sizeof(chinfo.name));
+		chinfo.src = RPMSG_ADDR_ANY;
+		chinfo.dst = RPMSG_ADDR_ANY;
+
+		rpmsg_unregister_device(&glink->dev, &chinfo);
+	}
 	channel->rpdev = NULL;
 
 	glink_spi_send_close_req(glink, channel);
@@ -1629,6 +1637,7 @@ static void glink_spi_rx_close(struct glink_spi *glink, unsigned int rcid)
 
 		rpmsg_unregister_device(&glink->dev, &chinfo);
 	}
+	channel->rpdev = NULL;
 
 	glink_spi_send_close_ack(glink, channel->rcid);
 
