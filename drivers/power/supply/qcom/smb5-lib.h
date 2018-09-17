@@ -197,12 +197,6 @@ static const unsigned int smblib_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
-enum lpd_reason {
-	LPD_NONE,
-	LPD_MOISTURE_DETECTED,
-	LPD_FLOATING_CABLE,
-};
-
 enum lpd_stage {
 	LPD_STAGE_NONE,
 	LPD_STAGE_FLOAT,
@@ -398,7 +392,6 @@ struct smb_charger {
 	int			smb_temp_max;
 	u8			typec_try_mode;
 	int			lpd_stage;
-	int			lpd_reason;
 
 	/* workaround flag */
 	u32			wa_flags;

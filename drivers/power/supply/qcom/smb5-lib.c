@@ -3672,27 +3672,15 @@ enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 							lpd_recheck_timer);
 	int rc;
 
-	if (chg->lpd_reason == LPD_MOISTURE_DETECTED) {
-		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
-		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-				pval.intval, rc);
-			return ALARMTIMER_NORESTART;
-		}
-	} else {
-		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-					TYPEC_WATER_DETECTION_INT_EN_BIT,
-					TYPEC_WATER_DETECTION_INT_EN_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set TYPE_C_INTERRUPT_EN_CFG_2_REG rc=%d\n",
-					rc);
-			return ALARMTIMER_NORESTART;
-		}
+	pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+	rc = smblib_set_prop_typec_power_role(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
+			pval.intval, rc);
+		return ALARMTIMER_NORESTART;
 	}
 
 	chg->lpd_stage = LPD_STAGE_NONE;
-	chg->lpd_reason = LPD_NONE;
 
 	return ALARMTIMER_NORESTART;
 }
@@ -3731,11 +3719,9 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 		if (rc < 0)
 			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
 				pval.intval, rc);
-		chg->lpd_reason = LPD_MOISTURE_DETECTED;
 		alarm_start_relative(&chg->lpd_recheck_timer,
 						ms_to_ktime(60000));
 	} else {
-		chg->lpd_reason = LPD_NONE;
 		chg->typec_mode = smblib_get_prop_typec_mode(chg);
 	}
 
@@ -4572,36 +4558,25 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 	/* Emark cable */
 	if ((stat & SRC_RA_OPEN_BIT) &&
 			!smblib_rsbux_low(chg, RSBU_K_300K_UV)) {
-		/* Floating cable, disable water detection irq temporarily */
-		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-					TYPEC_WATER_DETECTION_INT_EN_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set TYPE_C_INTERRUPT_EN_CFG_2_REG rc=%d\n",
-					rc);
-			goto out;
-		}
-
 		/* restore DRP mode */
 		pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0) {
+		if (rc < 0)
 			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
 				pval.intval, rc);
-			goto out;
-		}
 
-		chg->lpd_reason = LPD_FLOATING_CABLE;
-	} else {
-		/* Moisture detected, enable sink only mode */
-		pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
-		rc = smblib_set_prop_typec_power_role(chg, &pval);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-				pval.intval, rc);
-			goto out;
-		}
+		chg->lpd_stage = LPD_STAGE_NONE;
+		vote(chg->awake_votable, LPD_VOTER, false, 0);
+		return;
+	}
 
-		chg->lpd_reason = LPD_MOISTURE_DETECTED;
+	/* Moisture detected, enable sink only mode */
+	pval.intval = POWER_SUPPLY_TYPEC_PR_SINK;
+	rc = smblib_set_prop_typec_power_role(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
+			pval.intval, rc);
+		goto out;
 	}
 
 	/* recheck in 60 seconds */
