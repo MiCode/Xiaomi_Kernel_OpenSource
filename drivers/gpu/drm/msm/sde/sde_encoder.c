@@ -3289,12 +3289,6 @@ static void sde_encoder_frame_done_callback(
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
 
-	if (!drm_enc || !sde_enc->cur_master) {
-		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
-				drm_enc, drm_enc ? sde_enc->cur_master : 0);
-		return;
-	}
-
 	sde_enc->crtc_frame_event_cb_data.connector =
 				sde_enc->cur_master->connector;
 
