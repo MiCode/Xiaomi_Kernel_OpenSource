@@ -568,9 +568,11 @@ void dp_drm_bridge_deinit(void *data)
 }
 
 enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
-		struct drm_display_mode *mode, void *display)
+		struct drm_display_mode *mode,
+		void *display)
 {
 	struct dp_display *dp_disp;
+	struct dp_debug *debug;
 	struct sde_connector *sde_conn;
 
 	if (!mode || !display || !connector) {
@@ -585,7 +587,22 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	}
 
 	dp_disp = display;
+	debug = dp_disp->get_debug(dp_disp);
+
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
-	return dp_disp->validate_mode(dp_disp, sde_conn->drv_panel, mode);
+	if (mode->clock > dp_disp->max_pclk_khz) {
+		DP_MST_DEBUG("clk:%d, max:%d\n", mode->clock,
+				dp_disp->max_pclk_khz);
+		return MODE_BAD;
+	}
+
+	if (debug->debug_en && (mode->hdisplay != debug->hdisplay ||
+			mode->vdisplay != debug->vdisplay ||
+			mode->vrefresh != debug->vrefresh ||
+			mode->picture_aspect_ratio != debug->aspect_ratio))
+		return MODE_BAD;
+
+	return dp_disp->validate_mode(dp_disp, sde_conn->drv_panel,
+			mode->clock);
 }

@@ -122,11 +122,18 @@ static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
 	ctrl->catalog->state_ctrl(ctrl->catalog, state);
 }
 
-static void dp_ctrl_push_idle(struct dp_ctrl_private *ctrl,
-				enum dp_stream_id strm)
+static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 {
-	int const idle_pattern_completion_timeout_ms = HZ / 10;
+	int const idle_pattern_completion_timeout_ms = 3 * HZ / 100;
+	struct dp_ctrl_private *ctrl;
 	u32 state = 0x0;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	if (!ctrl->power_on) {
 		pr_err("CTRL off, return\n");
@@ -151,7 +158,7 @@ trigger_idle:
 
 	if (!wait_for_completion_timeout(&ctrl->idle_comp,
 			idle_pattern_completion_timeout_ms))
-		pr_warn("time out\n");
+		pr_warn("PUSH_IDLE time out\n");
 
 	pr_debug("mainlink off done\n");
 }
@@ -294,12 +301,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 
 	tries = 0;
 	old_v_level = ctrl->link->phy_params.v_level;
-	while (1) {
-		if (atomic_read(&ctrl->aborted)) {
-			ret = -EINVAL;
-			break;
-		}
-
+	while (!atomic_read(&ctrl->aborted)) {
 		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
 		ret = dp_ctrl_read_link_status(ctrl, link_status);
@@ -415,11 +417,6 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	}
 
 	do  {
-		if (atomic_read(&ctrl->aborted)) {
-			ret = -EINVAL;
-			break;
-		}
-
 		drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
 
 		ret = dp_ctrl_read_link_status(ctrl, link_status);
@@ -442,7 +439,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 			ret = -EINVAL;
 			break;
 		}
-	} while (1);
+	} while (!atomic_read(&ctrl->aborted));
 end:
 	ctrl->aux->state &= ~DP_STATE_TRAIN_2_STARTED;
 
@@ -470,10 +467,8 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
 
 	ret = drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
-	if (ret) {
-		pr_err_ratelimited("link_configure failed, rc=%d\n", ret);
+	if (ret)
 		goto end;
-	}
 
 	ret = drm_dp_dpcd_write(ctrl->aux->drm_aux,
 		DP_MAIN_LINK_CHANNEL_CODING_SET, &encoding, 1);
@@ -509,13 +504,16 @@ end:
 	return ret;
 }
 
-static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 {
 	int ret = 0;
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
+		goto end;
+
+	if (!train)
 		goto end;
 
 	/*
@@ -550,17 +548,14 @@ static void dp_ctrl_set_clock_rate(struct dp_ctrl_private *ctrl,
 		pr_err("%s clock could not be set with rate %d\n", name, rate);
 }
 
-static int dp_ctrl_enable_link_clock(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	u32 rate = drm_dp_bw_code_to_link_rate(ctrl->link->link_params.bw_code);
-	enum dp_pm_type type = DP_LINK_PM;
 
-	pr_debug("rate=%d\n", rate);
+	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk", DP_CTRL_PM,
+		drm_dp_bw_code_to_link_rate(ctrl->link->link_params.bw_code));
 
-	dp_ctrl_set_clock_rate(ctrl, "link_clk", type, rate);
-
-	ret = ctrl->power->clk_enable(ctrl->power, type, true);
+	ret = ctrl->power->clk_enable(ctrl->power, DP_CTRL_PM, true);
 	if (ret) {
 		pr_err("Unabled to start link clocks\n");
 		ret = -EINVAL;
@@ -569,46 +564,9 @@ static int dp_ctrl_enable_link_clock(struct dp_ctrl_private *ctrl)
 	return ret;
 }
 
-static void dp_ctrl_disable_link_clock(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_disable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 {
-	ctrl->power->clk_enable(ctrl->power, DP_LINK_PM, false);
-}
-
-static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl)
-{
-	int rc = -EINVAL;
-	u32 link_train_max_retries = 100;
-	struct dp_catalog_ctrl *catalog;
-	struct dp_link_params *link_params;
-
-	catalog = ctrl->catalog;
-	link_params = &ctrl->link->link_params;
-
-	catalog->hpd_config(catalog, true);
-	catalog->phy_lane_cfg(catalog, ctrl->orientation,
-				link_params->lane_count);
-
-	while (--link_train_max_retries || !atomic_read(&ctrl->aborted)) {
-		pr_debug("bw_code=%d, lane_count=%d\n",
-			link_params->bw_code, link_params->lane_count);
-
-		dp_ctrl_enable_link_clock(ctrl);
-		dp_ctrl_configure_source_link_params(ctrl, true);
-
-		rc = dp_ctrl_setup_main_link(ctrl);
-		if (!rc)
-			break;
-
-		dp_ctrl_link_rate_down_shift(ctrl);
-
-		dp_ctrl_configure_source_link_params(ctrl, false);
-		dp_ctrl_disable_link_clock(ctrl);
-
-		/* hw recommended delays before retrying link training */
-		msleep(20);
-	}
-
-	return rc;
+	return ctrl->power->clk_enable(ctrl->power, DP_CTRL_PM, false);
 }
 
 static int dp_ctrl_enable_stream_clocks(struct dp_ctrl_private *ctrl,
@@ -687,7 +645,6 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip, bool reset)
 		catalog->phy_reset(ctrl->catalog);
 	}
 	catalog->enable_irq(ctrl->catalog, true);
-	atomic_set(&ctrl->aborted, 0);
 
 	return 0;
 }
@@ -729,24 +686,51 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 	if (!ctrl->power_on || atomic_read(&ctrl->aborted)) {
 		pr_err("CTRL off, return\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_COMPLETED;
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_FAILED;
 	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_STARTED;
 
-	ctrl->catalog->reset(ctrl->catalog);
-	dp_ctrl_disable_link_clock(ctrl);
-	ret = dp_ctrl_link_setup(ctrl);
+	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
+
+	do {
+		if (ret == -EAGAIN) {
+			/* try with lower link rate */
+			dp_ctrl_link_rate_down_shift(ctrl);
+
+			dp_ctrl_configure_source_link_params(ctrl, false);
+		}
+
+		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
+			ctrl->orientation, ctrl->link->link_params.lane_count);
+
+		/*
+		 * Disable and re-enable the mainlink clock since the
+		 * link clock might have been adjusted as part of the
+		 * link maintenance.
+		 */
+		dp_ctrl_disable_mainlink_clocks(ctrl);
+
+		ret = dp_ctrl_enable_mainlink_clocks(ctrl);
+		if (ret)
+			continue;
+
+		dp_ctrl_configure_source_link_params(ctrl, true);
+
+		reinit_completion(&ctrl->idle_comp);
+
+		ret = dp_ctrl_setup_main_link(ctrl, true);
+	} while (ret == -EAGAIN);
 
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_STARTED;
+
 	if (ret)
 		ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_FAILED;
 	else
 		ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_COMPLETED;
-end:
+
 	return ret;
 }
 
@@ -769,13 +753,13 @@ static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 
 	pr_debug("start\n");
 
+	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl, DP_STREAM_0);
 	/*
 	 * The global reset will need DP link ralated clocks to be
 	 * running. Add the global reset just before disabling the
 	 * link clocks and core clocks.
 	 */
-	ctrl->catalog->reset(ctrl->catalog);
-	ctrl->dp_ctrl.stream_pre_off(&ctrl->dp_ctrl, ctrl->panel);
+	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 	ctrl->dp_ctrl.stream_off(&ctrl->dp_ctrl, ctrl->panel);
 	ctrl->dp_ctrl.off(&ctrl->dp_ctrl);
 
@@ -840,6 +824,19 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 
 	pr_debug("%s: %s\n", success ? "success" : "failed",
 			dp_link_get_phy_test_pattern(pattern_requested));
+}
+
+static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
+{
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("invalid params\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+	ctrl->catalog->reset(ctrl->catalog);
 }
 
 static void dp_ctrl_send_video(struct dp_ctrl_private *ctrl)
@@ -1055,16 +1052,12 @@ static void dp_ctrl_mst_stream_pre_off(struct dp_ctrl *dp_ctrl,
 static void dp_ctrl_stream_pre_off(struct dp_ctrl *dp_ctrl,
 		struct dp_panel *panel)
 {
-	struct dp_ctrl_private *ctrl;
-
 	if (!dp_ctrl || !panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-
-	dp_ctrl_push_idle(ctrl, panel->stream_id);
+	dp_ctrl_push_idle(dp_ctrl, panel->stream_id);
 
 	dp_ctrl_mst_stream_pre_off(dp_ctrl, panel);
 }
@@ -1088,6 +1081,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 	int rc = 0;
 	struct dp_ctrl_private *ctrl;
 	u32 rate = 0;
+	u32 link_train_max_retries = 100;
 
 	if (!dp_ctrl) {
 		rc = -EINVAL;
@@ -1096,8 +1090,12 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
+	atomic_set(&ctrl->aborted, 0);
+
 	ctrl->mst_mode = mst_mode;
 	rate = ctrl->panel->link_info.rate;
+
+	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
 		pr_debug("using phy test link parameters\n");
@@ -1112,11 +1110,38 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 		ctrl->link->link_params.bw_code,
 		ctrl->link->link_params.lane_count);
 
-	rc = dp_ctrl_link_setup(ctrl);
+	ctrl->catalog->phy_lane_cfg(ctrl->catalog,
+			ctrl->orientation, ctrl->link->link_params.lane_count);
+
+	rc = dp_ctrl_enable_mainlink_clocks(ctrl);
 	if (rc)
 		goto end;
 
+	reinit_completion(&ctrl->idle_comp);
+
+	dp_ctrl_configure_source_link_params(ctrl, true);
+
+	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
+		rc = dp_ctrl_setup_main_link(ctrl, true);
+		if (!rc)
+			break;
+
+		/* try with lower link rate */
+		dp_ctrl_link_rate_down_shift(ctrl);
+
+		dp_ctrl_configure_source_link_params(ctrl, false);
+
+		dp_ctrl_disable_mainlink_clocks(ctrl);
+		/* hw recommended delay before re-enabling clocks */
+		msleep(20);
+
+		dp_ctrl_enable_mainlink_clocks(ctrl);
+	}
+
 	ctrl->power_on = true;
+
+	pr_debug("End-\n");
+
 end:
 	return rc;
 }
@@ -1136,7 +1161,7 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 	/* Make sure DP is disabled before clk disable */
 	wmb();
 
-	dp_ctrl_disable_link_clock(ctrl);
+	dp_ctrl_disable_mainlink_clocks(ctrl);
 
 	ctrl->mst_mode = false;
 	ctrl->power_on = false;
@@ -1224,8 +1249,10 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->deinit    = dp_ctrl_host_deinit;
 	dp_ctrl->on        = dp_ctrl_on;
 	dp_ctrl->off       = dp_ctrl_off;
+	dp_ctrl->push_idle = dp_ctrl_push_idle;
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
+	dp_ctrl->reset	   = dp_ctrl_reset;
 	dp_ctrl->link_maintenance = dp_ctrl_link_maintenance;
 	dp_ctrl->process_phy_test_request = dp_ctrl_process_phy_test_request;
 	dp_ctrl->stream_on = dp_ctrl_stream_on;

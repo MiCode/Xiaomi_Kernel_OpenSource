@@ -41,7 +41,6 @@ struct dp_aux_private {
 	bool read;
 	bool no_send_addr;
 	bool no_send_stop;
-	bool enabled;
 
 	u32 offset;
 	u32 segment;
@@ -624,16 +623,12 @@ static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
-	if (aux->enabled)
-		return;
-
 	dp_aux_reset_phy_config_indices(aux_cfg);
 	aux->catalog->setup(aux->catalog, aux_cfg);
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
 	atomic_set(&aux->aborted, 0);
 	aux->retry_cnt = 0;
-	aux->enabled = true;
 }
 
 static void dp_aux_deinit(struct dp_aux *dp_aux)
@@ -647,12 +642,8 @@ static void dp_aux_deinit(struct dp_aux *dp_aux)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
-	if (!aux->enabled)
-		return;
-
 	atomic_set(&aux->aborted, 1);
 	aux->catalog->enable(aux->catalog, false);
-	aux->enabled = false;
 }
 
 static int dp_aux_register(struct dp_aux *dp_aux)

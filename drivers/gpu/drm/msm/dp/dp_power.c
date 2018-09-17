@@ -147,25 +147,49 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 {
 	int rc = 0;
+	struct dss_module_power *core, *ctrl, *strm0, *strm1;
 	struct device *dev;
-	enum dp_pm_type module;
+
+	core = &power->parser->mp[DP_CORE_PM];
+	ctrl = &power->parser->mp[DP_CTRL_PM];
+	strm0 = &power->parser->mp[DP_STREAM0_PM];
+	strm1 = &power->parser->mp[DP_STREAM1_PM];
 
 	dev = &power->pdev->dev;
 
+	if (!core || !ctrl) {
+		pr_err("invalid power_data\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
 	if (enable) {
-		for (module = DP_CORE_PM; module < DP_MAX_PM; module++) {
-			struct dss_module_power *pm =
-				&power->parser->mp[module];
+		rc = msm_dss_get_clk(dev, core->clk_config, core->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_CORE_PM), rc);
+			goto exit;
+		}
 
-			if (!pm->num_clk)
-				continue;
+		rc = msm_dss_get_clk(dev, ctrl->clk_config, ctrl->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_CTRL_PM), rc);
+			goto ctrl_get_error;
+		}
 
-			rc = msm_dss_get_clk(dev, pm->clk_config, pm->num_clk);
-			if (rc) {
-				pr_err("failed to get %s clk. err=%d\n",
-					dp_parser_pm_name(module), rc);
-				goto exit;
-			}
+		rc = msm_dss_get_clk(dev, strm0->clk_config, strm0->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_STREAM0_PM), rc);
+			goto strm0_get_error;
+		}
+
+		rc = msm_dss_get_clk(dev, strm1->clk_config, strm1->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_STREAM1_PM), rc);
+			goto strm1_get_error;
 		}
 
 		power->pixel_clk_rcg = devm_clk_get(dev, "pixel_clk_rcg");
@@ -204,16 +228,20 @@ static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 		if (power->pixel1_clk_rcg)
 			devm_clk_put(dev, power->pixel1_clk_rcg);
 
-		for (module = DP_CORE_PM; module < DP_MAX_PM; module++) {
-			struct dss_module_power *pm =
-				&power->parser->mp[module];
-
-			if (!pm->num_clk)
-				continue;
-
-			msm_dss_put_clk(pm->clk_config, pm->num_clk);
-		}
+		msm_dss_put_clk(ctrl->clk_config, ctrl->num_clk);
+		msm_dss_put_clk(core->clk_config, core->num_clk);
+		msm_dss_put_clk(strm0->clk_config, strm0->num_clk);
+		msm_dss_put_clk(strm1->clk_config, strm1->num_clk);
 	}
+
+	return rc;
+
+strm1_get_error:
+	msm_dss_put_clk(strm0->clk_config, strm0->num_clk);
+strm0_get_error:
+	msm_dss_put_clk(ctrl->clk_config, ctrl->num_clk);
+ctrl_get_error:
+	msm_dss_put_clk(core->clk_config, core->num_clk);
 exit:
 	return rc;
 }
@@ -272,24 +300,35 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 
 	mp = &power->parser->mp[pm_type];
 
-	if (pm_type >= DP_MAX_PM) {
+	if ((pm_type != DP_CORE_PM) && (pm_type != DP_CTRL_PM) &&
+			(pm_type != DP_STREAM0_PM) &&
+			(pm_type != DP_STREAM1_PM)) {
 		pr_err("unsupported power module: %s\n",
 				dp_parser_pm_name(pm_type));
 		return -EINVAL;
 	}
 
 	if (enable) {
-		if (pm_type == DP_CORE_PM && power->core_clks_on) {
+		if ((pm_type == DP_CORE_PM)
+			&& (power->core_clks_on)) {
 			pr_debug("core clks already enabled\n");
 			return 0;
 		}
 
-		if ((pm_type == DP_STREAM0_PM) && (power->strm0_clks_on)) {
+		if ((pm_type == DP_CTRL_PM)
+			&& (power->link_clks_on)) {
+			pr_debug("links clks already enabled\n");
+			return 0;
+		}
+
+		if ((pm_type == DP_STREAM0_PM)
+			&& (power->strm0_clks_on)) {
 			pr_debug("strm0 clks already enabled\n");
 			return 0;
 		}
 
-		if ((pm_type == DP_STREAM1_PM) && (power->strm1_clks_on)) {
+		if ((pm_type == DP_STREAM1_PM)
+			&& (power->strm1_clks_on)) {
 			pr_debug("strm1 clks already enabled\n");
 			return 0;
 		}
@@ -306,11 +345,6 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 				power->core_clks_on = true;
 			}
 		}
-
-		if (pm_type == DP_LINK_PM && power->link_clks_on) {
-			pr_debug("links clks already enabled\n");
-			return 0;
-		}
 	}
 
 	rc = dp_power_clk_set_rate(power, pm_type, enable);
@@ -323,12 +357,12 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 
 	if (pm_type == DP_CORE_PM)
 		power->core_clks_on = enable;
+	else if (pm_type == DP_CTRL_PM)
+		power->link_clks_on = enable;
 	else if (pm_type == DP_STREAM0_PM)
 		power->strm0_clks_on = enable;
 	else if (pm_type == DP_STREAM1_PM)
 		power->strm1_clks_on = enable;
-	else if (pm_type == DP_LINK_PM)
-		power->link_clks_on = enable;
 
 	pr_debug("%s clocks for %s\n",
 			enable ? "enable" : "disable",
@@ -603,10 +637,15 @@ static int dp_power_deinit(struct dp_power *dp_power)
 	power = container_of(dp_power, struct dp_power_private, dp_power);
 
 	dp_power_clk_enable(dp_power, DP_CORE_PM, false);
-
+	/*
+	 * If the display power on event was not successful, for example if
+	 * there was a link training failure, then the link clocks could
+	 * possibly still be on. In this scenario, we need to turn off the
+	 * link clocks as soon as the cable is disconnected so that the clock
+	 * state is cleaned up before subsequent connection events.
+	 */
 	if (power->link_clks_on)
-		dp_power_clk_enable(dp_power, DP_LINK_PM, false);
-
+		dp_power_clk_enable(dp_power, DP_CTRL_PM, false);
 	rc = sde_power_resource_enable(power->phandle,
 			power->dp_core_client, false);
 	if (rc) {
