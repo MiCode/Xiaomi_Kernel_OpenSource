@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1422,8 +1422,9 @@ static void adreno_fault_header(struct kgsl_device *device,
 			ib2base, ib2sz, drawctxt->rb->id);
 
 		pr_fault(device, cmdbatch,
-			"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
-			cmdbatch->context->id, cmdbatch->timestamp, status,
+			"gpu fault ctx %d ctx_type %s ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			cmdbatch->context->id, get_api_type_str(drawctxt->type),
+			cmdbatch->timestamp, status,
 			rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
 
 		if (rb != NULL)

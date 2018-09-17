@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,18 +77,6 @@
  */
 #define SIZE_PIPE_ENTRY(cnt) (50 + (cnt) * 62)
 #define SIZE_LOG_ENTRY(cnt) (6 + (cnt) * 5)
-
-static struct adreno_context_type ctxt_type_table[] = {KGSL_CONTEXT_TYPES};
-
-static const char *get_api_type_str(unsigned int type)
-{
-	int i;
-	for (i = 0; i < ARRAY_SIZE(ctxt_type_table) - 1; i++) {
-		if (ctxt_type_table[i].type == type)
-			return ctxt_type_table[i].str;
-	}
-	return "UNKNOWN";
-}
 
 static inline uint _ib_start(struct adreno_device *adreno_dev,
 			 unsigned int *cmds)
