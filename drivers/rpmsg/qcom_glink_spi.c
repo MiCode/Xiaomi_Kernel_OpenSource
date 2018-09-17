@@ -402,8 +402,6 @@ static void glink_spi_channel_release(struct kref *ref)
 	unsigned long flags;
 
 	CH_INFO(channel, "\n");
-	cancel_work_sync(&channel->intent_work);
-
 	spin_lock_irqsave(&channel->intent_lock, flags);
 	idr_destroy(&channel->liids);
 	idr_destroy(&channel->riids);
