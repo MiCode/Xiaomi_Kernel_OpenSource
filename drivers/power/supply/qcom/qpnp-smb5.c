@@ -1555,6 +1555,7 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	/* Use simple write to enable only required interrupts */
 	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_1_REG,
 				TYPEC_CCOUT_DETACH_INT_EN_BIT |
 				TYPEC_CCOUT_ATTACH_INT_EN_BIT);
@@ -1564,11 +1565,10 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+	/* Use simple write to enable only required interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
-				TYPEC_WATER_DETECTION_INT_EN_BIT,
-				TYPEC_SRC_BATT_HPWR_INT_EN_BIT
-				| TYPEC_WATER_DETECTION_INT_EN_BIT);
+				TYPEC_WATER_DETECTION_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
