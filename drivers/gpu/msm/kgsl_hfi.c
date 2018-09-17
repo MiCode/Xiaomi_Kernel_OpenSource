@@ -185,6 +185,7 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		uint32_t queue_sz_bytes)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(hfi->kgsldev);
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
@@ -198,6 +199,17 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		{ HFI_DBG_IDX, HFI_DBG_PRI, HFI_QUEUE_STATUS_ENABLED },
 		{ HFI_DSP_IDX_0, HFI_DSP_PRI_0, HFI_QUEUE_STATUS_DISABLED },
 	};
+
+	/*
+	 * Overwrite the queue IDs for A630, A615 and A616 as they use
+	 * legacy firmware. Legacy firmware has different queue IDs for
+	 * message, debug and dispatch queues.
+	 */
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
+		queue[HFI_MSG_ID].idx = HFI_MSG_IDX_LEGACY;
+		queue[HFI_DBG_ID].idx = HFI_DBG_IDX_LEGACY;
+		queue[HFI_DSP_ID_0].idx = HFI_DSP_IDX_0_LEGACY;
+	}
 
 	/* Fill Table Header */
 	tbl = mem_addr->hostptr;

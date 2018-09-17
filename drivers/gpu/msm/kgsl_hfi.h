@@ -34,6 +34,11 @@ struct hfi_queue_table;
 #define HFI_DSP_IDX_BASE 3
 #define HFI_DSP_IDX_0 3
 
+#define HFI_CMD_IDX_LEGACY 0
+#define HFI_DSP_IDX_0_LEGACY 1
+#define HFI_MSG_IDX_LEGACY 4
+#define HFI_DBG_IDX_LEGACY 5
+
 #define HFI_QUEUE_STATUS_DISABLED 0
 #define HFI_QUEUE_STATUS_ENABLED  1
 
