@@ -1,0 +1,276 @@
+Overview of Linux kernel MHI support
+====================================
+
+Modem-Host Interface (MHI)
+=========================
+MHI used by the host to control and communicate with modem over high speed
+peripheral bus. Even though MHI can be easily adapt to any peripheral buses,
+primarily used with PCIe based devices. The host has one or more PCIe root
+ports connected to modem device. The host has limited access to device memory
+space, including register configuration and control the device operation.
+Data transfers are invoked from the device.
+
+All data structures used by MHI are in the host system memory. Using PCIe
+interface, the device accesses those data structures. MHI data structures and
+data buffers in the host system memory regions are mapped for device.
+
+Memory spaces
+-------------
+PCIe Configurations : Used for enumeration and resource management, such as
+interrupt and base addresses.  This is done by mhi control driver.
+
+MMIO
+----
+MHI MMIO : Memory mapped IO consists of set of registers in the device hardware,
+which are mapped to the host memory space through PCIe base address register
+(BAR)
+
+MHI control registers : Access to MHI configurations registers
+(struct mhi_controller.regs).
+
+MHI BHI register: Boot host interface registers (struct mhi_controller.bhi) used
+for firmware download before MHI initialization.
+
+Channel db array : Doorbell registers (struct mhi_chan.tre_ring.db_addr) used by
+host to notify device there is new work to do.
+
+Event db array : Associated with event context array
+(struct mhi_event.ring.db_addr), host uses to notify device free events are
+available.
+
+Data structures
+---------------
+Host memory : Directly accessed by the host to manage the MHI data structures
+and buffers. The device accesses the host memory over the PCIe interface.
+
+Channel context array : All channel configurations are organized in channel
+context data array.
+
+struct __packed mhi_chan_ctxt;
+struct mhi_ctxt.chan_ctxt;
+
+Transfer rings : Used by host to schedule work items for a channel and organized
+as a circular queue of transfer descriptors (TD).
+
+struct __packed mhi_tre;
+struct mhi_chan.tre_ring;
+
+Event context array : All event configurations are organized in event context
+data array.
+
+struct mhi_ctxt.er_ctxt;
+struct __packed mhi_event_ctxt;
+
+Event rings: Used by device to send completion and state transition messages to
+host
+
+struct mhi_event.ring;
+struct __packed mhi_tre;
+
+Command context array: All command configurations are organized in command
+context data array.
+
+struct __packed mhi_cmd_ctxt;
+struct mhi_ctxt.cmd_ctxt;
+
+Command rings: Used by host to send MHI commands to device
+
+struct __packed mhi_tre;
+struct mhi_cmd.ring;
+
+Transfer rings
+--------------
+MHI channels are logical, unidirectional data pipes between host and device.
+Each channel associated with a single transfer ring.  The data direction can be
+either inbound (device to host) or outbound (host to device).  Transfer
+descriptors are managed by using transfer rings, which are defined for each
+channel between device and host and resides in the host memory.
+
+Transfer ring Pointer:	  	Transfer Ring Array
+[Read Pointer (RP)] ----------->[Ring Element] } TD
+[Write Pointer (WP)]-		[Ring Element]
+                     -		[Ring Element]
+		      --------->[Ring Element]
+				[Ring Element]
+
+1. Host allocate memory for transfer ring
+2. Host sets base, read pointer, write pointer in corresponding channel context
+3. Ring is considered empty when RP == WP
+4. Ring is considered full when WP + 1 == RP
+4. RP indicates the next element to be serviced by device
+4. When host new buffer to send, host update the Ring element with buffer
+   information
+5. Host increment the WP to next element
+6. Ring the associated channel DB.
+
+Event rings
+-----------
+Events from the device to host are organized in event rings and defined in event
+descriptors.  Event rings are array of EDs that resides in the host memory.
+
+Transfer ring Pointer:	  	Event Ring Array
+[Read Pointer (RP)] ----------->[Ring Element] } ED
+[Write Pointer (WP)]-		[Ring Element]
+                     -		[Ring Element]
+		      --------->[Ring Element]
+				[Ring Element]
+
+1. Host allocate memory for event ring
+2. Host sets base, read pointer, write pointer in corresponding channel context
+3. Both host and device has local copy of RP, WP
+3. Ring is considered empty (no events to service) when WP + 1 == RP
+4. Ring is full of events when RP == WP
+4. RP - 1 = last event device programmed
+4. When there is a new event device need to send, device update ED pointed by RP
+5. Device increment RP to next element
+6. Device trigger and interrupt
+
+Example Operation for data transfer:
+
+1. Host prepare TD with buffer information
+2. Host increment Chan[id].ctxt.WP
+3. Host ring channel DB register
+4. Device wakes up process the TD
+5. Device generate a completion event for that TD by updating ED
+6. Device increment Event[id].ctxt.RP
+7. Device trigger MSI to wake host
+8. Host wakes up and check event ring for completion event
+9. Host update the Event[i].ctxt.WP to indicate processed of completion event.
+
+Time sync
+---------
+To synchronize two applications between host and external modem, MHI provide
+native support to get external modems free running timer value in a fast
+reliable method. MHI clients do not need to create client specific methods to
+get modem time.
+
+When client requests modem time, MHI host will automatically capture host time
+at that moment so clients are able to do accurate drift adjustment.
+
+Example:
+
+Client request time @ time T1
+
+Host Time: Tx
+Modem Time: Ty
+
+Client request time @ time T2
+Host Time: Txx
+Modem Time: Tyy
+
+Then drift is:
+Tyy - Ty + <drift> == Txx - Tx
+
+Clients are free to implement their own drift algorithms, what MHI host provide
+is a way to accurately correlate host time with external modem time.
+
+To avoid link level latencies, controller must support capabilities to disable
+any link level latency.
+
+During Time capture host will:
+	1. Capture host time
+	2. Trigger doorbell to capture modem time
+
+It's important time between Step 2 to Step 1 is deterministic as possible.
+Therefore, MHI host will:
+	1. Disable any MHI related to low power modes.
+	2. Disable preemption
+	3. Request bus master to disable any link level latencies. Controller
+	should disable all low power modes such as L0s, L1, L1ss.
+
+MHI States
+----------
+
+enum MHI_STATE {
+MHI_STATE_RESET : MHI is in reset state, POR state. Host is not allowed to
+		  access device MMIO register space.
+MHI_STATE_READY : Device is ready for initialization. Host can start MHI
+		  initialization by programming MMIO
+MHI_STATE_M0 : MHI is in fully active state, data transfer is active
+MHI_STATE_M1 : Device in a suspended state
+MHI_STATE_M2 : MHI in low power mode, device may enter lower power mode.
+MHI_STATE_M3 : Both host and device in suspended state.  PCIe link is not
+	       accessible to device.
+
+MHI Initialization
+------------------
+
+1. After system boots, the device is enumerated over PCIe interface
+2. Host allocate MHI context for event, channel and command arrays
+3. Initialize context array, and prepare interrupts
+3. Host waits until device enter READY state
+4. Program MHI MMIO registers and set device into MHI_M0 state
+5. Wait for device to enter M0 state
+
+Linux Software Architecture
+===========================
+
+MHI Controller
+--------------
+MHI controller is also the MHI bus master. In charge of managing the physical
+link between host and device.  Not involved in actual data transfer.  At least
+for PCIe based buses, for other type of bus, we can expand to add support.
+
+Roles:
+1. Turn on PCIe bus and configure the link
+2. Configure MSI, SMMU, and IOMEM
+3. Allocate struct mhi_controller and register with MHI bus framework
+2. Initiate power on and shutdown sequence
+3. Initiate suspend and resume
+
+Usage
+-----
+
+1. Allocate control data structure by calling mhi_alloc_controller()
+2. Initialize mhi_controller with all the known information such as:
+   - Device Topology
+   - IOMMU window
+   - IOMEM mapping
+   - Device to use for memory allocation, and of_node with DT configuration
+   - Configure asynchronous callback functions
+3. Register MHI controller with MHI bus framework by calling
+   of_register_mhi_controller()
+
+After successfully registering controller can initiate any of these power modes:
+
+1. Power up sequence
+   - mhi_prepare_for_power_up()
+   - mhi_async_power_up()
+   - mhi_sync_power_up()
+2. Power down sequence
+   - mhi_power_down()
+   - mhi_unprepare_after_power_down()
+3. Initiate suspend
+   - mhi_pm_suspend()
+4. Initiate resume
+   - mhi_pm_resume()
+
+MHI Devices
+-----------
+Logical device that bind to maximum of two physical MHI channels. Once MHI is in
+powered on state, each supported channel by controller will be allocated as a
+mhi_device.
+
+Each supported device would be enumerated under
+/sys/bus/mhi/devices/
+
+struct mhi_device;
+
+MHI Driver
+----------
+Each MHI driver can bind to one or more MHI devices. MHI host driver will bind
+mhi_device to mhi_driver.
+
+All registered drivers are visible under
+/sys/bus/mhi/drivers/
+
+struct mhi_driver;
+
+Usage
+-----
+
+1. Register driver using mhi_driver_register
+2. Before sending data, prepare device for transfer by calling
+   mhi_prepare_for_transfer
+3. Initiate data transfer by calling mhi_queue_transfer
+4. After finish, call mhi_unprepare_from_transfer to end data transfer

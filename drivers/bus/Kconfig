@@ -181,6 +181,25 @@ config DA8XX_MSTPRI
 	  configuration. Allows to adjust the priorities of all master
 	  peripherals.
 
+config MHI_BUS
+	tristate "Modem Host Interface"
+	help
+	  MHI Host Interface is a communication protocol to be used by the host
+	  to control and communcate with modem over a high speed peripheral bus.
+	  Enabling this module will allow host to communicate with external
+	  devices that support MHI protocol.
+
+config MHI_DEBUG
+	 bool "MHI debug support"
+	 depends on MHI_BUS
+	 help
+	   Say yes here to enable debugging support in the MHI transport
+	   and individual MHI client drivers. This option will impact
+	   throughput as individual MHI packets and state transitions
+	   will be logged.
+
 source "drivers/bus/fsl-mc/Kconfig"
+source "drivers/bus/mhi/controllers/Kconfig"
+source "drivers/bus/mhi/devices/Kconfig"
 
 endmenu
