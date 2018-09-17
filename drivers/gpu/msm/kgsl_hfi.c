@@ -45,13 +45,10 @@
 	 (((minor) & 0x7FFFFF) << 5) | \
 	 ((branch) & 0x1F))
 
-static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx);
-
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		unsigned int *output, unsigned int max_size)
 {
-	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
@@ -64,12 +61,9 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
 		return -EINVAL;
 
-	spin_lock_bh(&hfi->read_queue_lock);
-
 	if (hdr->read_index == hdr->write_index) {
 		hdr->rx_req = 1;
-		result = -ENODATA;
-		goto done;
+		return -ENODATA;
 	}
 
 	/* Clear the output data before populating */
@@ -83,8 +77,7 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		dev_err(&gmu->pdev->dev,
 		"HFI message too big: hdr:0x%x rd idx=%d\n",
 			msg_hdr, hdr->read_index);
-		result = -EMSGSIZE;
-		goto done;
+		return -EMSGSIZE;
 	}
 
 	read = hdr->read_index;
@@ -108,8 +101,6 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 
 	hdr->read_index = read;
 
-done:
-	spin_unlock_bh(&hfi->read_queue_lock);
 	return result;
 }
 
@@ -240,7 +231,8 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 #define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
 	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 
-static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
+static void receive_ack_cmd(struct kgsl_device *device,
+		struct gmu_device *gmu, void *rcvd)
 {
 	uint32_t *ack = rcvd;
 	uint32_t hdr = ack[0];
@@ -274,8 +266,8 @@ static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
 				"HFI ACK: Waiters: 0x%8.8X\n", waiters[j]);
 	}
 
-	adreno_set_gpu_fault(ADRENO_DEVICE(hfi->kgsldev), ADRENO_GMU_FAULT);
-	adreno_dispatcher_schedule(hfi->kgsldev);
+	adreno_set_gpu_fault(ADRENO_DEVICE(device), ADRENO_GMU_FAULT);
+	adreno_dispatcher_schedule(device);
 }
 
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
@@ -308,18 +300,15 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 			&ret_cmd->msg_complete,
 			msecs_to_jiffies(HFI_RSP_TIMEOUT));
 	if (!rc) {
-		/* Check one more time to make sure there is no response */
-		hfi_process_queue(gmu, HFI_MSG_IDX);
-		if (!completion_done(&ret_cmd->msg_complete)) {
-			dev_err(&gmu->pdev->dev,
-				"Timed out waiting on ack for 0x%8.8x (id %d, sequence %d)\n",
-				cmd[0],
-				MSG_HDR_GET_ID(*cmd),
-				MSG_HDR_GET_SEQNUM(*cmd));
-			rc = -ETIMEDOUT;
-		}
-	} else
-		rc = 0;
+		dev_err(&gmu->pdev->dev,
+				"Receiving GMU ack %d timed out\n",
+				MSG_HDR_GET_ID(*cmd));
+		rc = -ETIMEDOUT;
+		goto done;
+	}
+
+	/* If we got here we succeeded */
+	rc = 0;
 done:
 	spin_lock_bh(&hfi->msglock);
 	list_del(&ret_cmd->node);
@@ -560,11 +549,12 @@ static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
 			cmd->type, cmd->timestamp, cmd->data);
 }
 
-static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
+static void hfi_v1_receiver(struct kgsl_device *device,
+		struct gmu_device *gmu, uint32_t *rcvd)
 {
 	/* V1 ACK Handler */
 	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_V1_MSG_ACK) {
-		receive_ack_cmd(gmu, rcvd);
+		receive_ack_cmd(device, gmu, rcvd);
 		return;
 	}
 
@@ -584,45 +574,55 @@ static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
 	}
 }
 
-static void hfi_process_queue(struct gmu_device *gmu, uint32_t queue_idx)
-{
-	uint32_t rcvd[MAX_RCVD_SIZE];
-
-	while (hfi_queue_read(gmu, queue_idx, rcvd, sizeof(rcvd)) > 0) {
-		/* Special case if we're v1 */
-		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
-			hfi_v1_receiver(gmu, rcvd);
-			continue;
-		}
-
-		/* V2 ACK Handler */
-		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-			receive_ack_cmd(gmu, rcvd);
-			continue;
-		}
-
-		/* V2 Request Handler */
-		switch (MSG_HDR_GET_ID(rcvd[0])) {
-		case F2H_MSG_ERR: /* No Reply */
-			receive_err_req(gmu, rcvd);
-			break;
-		case F2H_MSG_DEBUG: /* No Reply */
-			receive_debug_req(gmu, rcvd);
-			break;
-		default: /* No Reply */
-			dev_err(&gmu->pdev->dev,
-				"HFI request %d not supported\n",
-				MSG_HDR_GET_ID(rcvd[0]));
-			break;
-		}
-	}
-}
-
 void hfi_receiver(unsigned long data)
 {
-	/* Process all read (firmware to host) queues */
-	hfi_process_queue((struct gmu_device *) data, HFI_MSG_IDX);
-	hfi_process_queue((struct gmu_device *) data, HFI_DBG_IDX);
+	struct kgsl_device *device;
+	struct gmu_device *gmu;
+	uint32_t rcvd[MAX_RCVD_SIZE];
+	int read_queue[] = {
+		HFI_MSG_IDX,
+		HFI_DBG_IDX,
+	};
+	int q;
+
+	if (!data)
+		return;
+
+	device = (struct kgsl_device *)data;
+	gmu = KGSL_GMU_DEVICE(device);
+
+	/* While we are here, check all of the queues for messages */
+	for (q = 0; q < ARRAY_SIZE(read_queue); q++) {
+		while (hfi_queue_read(gmu, read_queue[q],
+				rcvd, sizeof(rcvd)) > 0) {
+			/* Special case if we're v1 */
+			if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
+				hfi_v1_receiver(device, gmu, rcvd);
+				continue;
+			}
+
+			/* V2 ACK Handler */
+			if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
+				receive_ack_cmd(device, gmu, rcvd);
+				continue;
+			}
+
+			/* V2 Request Handler */
+			switch (MSG_HDR_GET_ID(rcvd[0])) {
+			case F2H_MSG_ERR: /* No Reply */
+				receive_err_req(gmu, rcvd);
+				break;
+			case F2H_MSG_DEBUG: /* No Reply */
+				receive_debug_req(gmu, rcvd);
+				break;
+			default: /* No Reply */
+				dev_err(&gmu->pdev->dev,
+					"HFI request %d not supported\n",
+					MSG_HDR_GET_ID(rcvd[0]));
+				break;
+			}
+		};
+	}
 }
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
