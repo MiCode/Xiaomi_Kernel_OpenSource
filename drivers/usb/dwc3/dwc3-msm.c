@@ -4393,7 +4393,6 @@ ret:
 #ifdef CONFIG_PM_SLEEP
 static int dwc3_msm_pm_suspend(struct device *dev)
 {
-	int ret = 0;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
@@ -4406,11 +4405,9 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
-	ret = dwc3_msm_suspend(mdwc);
-	if (!ret)
-		atomic_set(&mdwc->pm_suspended, 1);
+	atomic_set(&mdwc->pm_suspended, 1);
 
-	return ret;
+	return 0;
 }
 
 static int dwc3_msm_pm_resume(struct device *dev)
