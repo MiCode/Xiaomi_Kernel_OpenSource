@@ -138,6 +138,51 @@
 		clock-names = "va_core_clk";
 		clocks = <&clock_audio_va 0>;
 	};
+
+	wcd937x_codec: wcd937x-codec {
+		compatible = "qcom,wcd937x-codec";
+		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
+			<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
+			<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
+			<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
+			<4 DSD_R 0x2 0 DSD_R>;
+		qcom,tx_swr_ch_map = <0 ADC1 0x1 0 ADC1>,
+			<1 ADC2 0x1 0 ADC3>, <1 ADC3 0x2 0 ADC4>,
+			<2 DMIC0 0x1 0 DMIC0>, <2 DMIC1 0x2 0 DMIC1>,
+			<2 MBHC 0x4 0 DMIC2>, <3 DMIC2 0x1 0 DMIC4>,
+			<3 DMIC3 0x2 0 DMIC5>, <3 DMIC4 0x4 0 DMIC6>,
+			<3 DMIC5 0x8 0 DMIC7>;
+
+		qcom,wcd-rst-gpio-node = <&wcd937x_rst_gpio>;
+		qcom,rx-slave = <&wcd937x_rx_slave>;
+		qcom,tx-slave = <&wcd937x_tx_slave>;
+
+		cdc-vdd-ldo-rxtx-supply = <&L10A>;
+		qcom,cdc-vdd-ldo-rxtx-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-ldo-rxtx-current = <25000>;
+
+		cdc-vddpx-1-supply = <&L10A>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+
+		cdc-vdd-buck-supply = <&L15A>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-vdd-mic-bias-supply = <&BOB>;
+		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
+		qcom,cdc-vdd-mic-bias-current = <25000>;
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
+					   "cdc-vddpx-1",
+					   "cdc-vdd-buck",
+					   "cdc-vdd-mic-bias";
+	};
+
 };
 
 &sm6150_snd {
@@ -194,50 +239,6 @@
 };
 
 &soc {
-	wcd937x_codec: wcd937x-codec {
-		compatible = "qcom,wcd937x-codec";
-		qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
-			<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
-			<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
-			<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
-			<4 DSD_R 0x2 0 DSD_R>;
-		qcom,tx_swr_ch_map = <0 ADC1 0x1 0 ADC1>,
-			<1 ADC2 0x1 0 ADC3>, <1 ADC3 0x2 0 ADC4>,
-			<2 DMIC0 0x1 0 DMIC0>, <2 DMIC1 0x2 0 DMIC1>,
-			<2 MBHC 0x4 0 DMIC2>, <3 DMIC2 0x1 0 DMIC4>,
-			<3 DMIC3 0x2 0 DMIC5>, <3 DMIC4 0x4 0 DMIC6>,
-			<3 DMIC5 0x8 0 DMIC7>;
-
-		qcom,wcd-rst-gpio-node = <&wcd937x_rst_gpio>;
-		qcom,rx-slave = <&wcd937x_rx_slave>;
-		qcom,tx-slave = <&wcd937x_tx_slave>;
-
-		cdc-vdd-ldo-rxtx-supply = <&L10A>;
-		qcom,cdc-vdd-ldo-rxtx-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-ldo-rxtx-current = <25000>;
-
-		cdc-vddpx-1-supply = <&L10A>;
-		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
-		qcom,cdc-vddpx-1-current = <10000>;
-
-		cdc-vdd-buck-supply = <&L15A>;
-		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-buck-current = <650000>;
-
-		cdc-vdd-mic-bias-supply = <&BOB>;
-		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
-		qcom,cdc-vdd-mic-bias-current = <25000>;
-
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
-
-		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
-					   "cdc-vddpx-1",
-					   "cdc-vdd-buck",
-					   "cdc-vdd-mic-bias";
-	};
-
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
