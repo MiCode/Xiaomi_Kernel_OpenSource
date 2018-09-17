@@ -464,6 +464,7 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 	struct device *dev = ctx->dev;
+	int rf_clk3_pin_idx;
 
 	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
 		return 0;
@@ -472,9 +473,14 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 	if (rc)
 		return rc;
 
-	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin, "rf_clk3_pin_clk");
-	if (rc)
-		msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	rf_clk3_pin_idx = of_property_match_string(dev->of_node, "clock-names",
+						   "rf_clk3_pin_clk");
+	if (rf_clk3_pin_idx >= 0) {
+		rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin,
+				       "rf_clk3_pin_clk");
+		if (rc)
+			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	}
 
 	return rc;
 }

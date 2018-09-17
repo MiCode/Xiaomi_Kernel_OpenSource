@@ -77,3 +77,15 @@
 	/delete-node/ cpuss-2-step;
 	/delete-node/ cpuss-3-step;
 };
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_ss_phy {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};

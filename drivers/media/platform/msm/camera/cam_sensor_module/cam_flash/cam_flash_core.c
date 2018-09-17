@@ -371,12 +371,12 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_FIREHIGH) {
-				if (fctrl->flash_state !=
-					CAM_FLASH_STATE_CONFIG) {
+				if (fctrl->flash_state ==
+					CAM_FLASH_STATE_START) {
 					CAM_WARN(CAM_FLASH,
-					"Cannot apply Start Dev:Prev state: %d",
+					"Wrong state :Prev state: %d",
 					fctrl->flash_state);
-					return rc;
+					return -EINVAL;
 				}
 				rc = cam_flash_prepare(fctrl, true);
 				if (rc) {
@@ -387,8 +387,27 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				rc = cam_flash_high(fctrl, flash_data);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
-						"FLASH ON failed : %d",
-						rc);
+						"FLASH ON failed : %d", rc);
+			}
+			if (flash_data->opcode ==
+				CAMERA_SENSOR_FLASH_OP_FIRELOW) {
+				if (fctrl->flash_state ==
+					CAM_FLASH_STATE_START) {
+					CAM_WARN(CAM_FLASH,
+					"Wrong state :Prev state: %d",
+					fctrl->flash_state);
+					return -EINVAL;
+				}
+				rc = cam_flash_prepare(fctrl, true);
+				if (rc) {
+					CAM_ERR(CAM_FLASH,
+					"Enable Regulator Failed rc = %d", rc);
+					return rc;
+				}
+				rc = cam_flash_low(fctrl, flash_data);
+				if (rc)
+					CAM_ERR(CAM_FLASH,
+						"TORCH ON failed : %d", rc);
 			}
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_OFF) {
@@ -522,7 +541,6 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				goto apply_setting_err;
 			}
 		} else if (flash_data->opcode == CAM_PKT_NOP_OPCODE) {
-			flash_data->opcode = 0;
 			CAM_DBG(CAM_FLASH, "NOP Packet");
 		} else {
 			rc = -EINVAL;
@@ -618,7 +636,7 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 				CAM_FLASH_STATE_CONFIG;
 			break;
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE:
-			CAM_DBG(CAM_FLASH, "Widget Flash Operation");
+			CAM_DBG(CAM_FLASH, "INIT Fire Operation");
 				flash_operation_info =
 					(struct cam_flash_set_on_off *) cmd_buf;
 				fctrl->nrt_info.cmn_attr.count =

@@ -1688,9 +1688,10 @@ static int a5xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 /* number of cycles when clock is throttle by less than 50% (CRC) */
 #define CRC_LESS50PCT 3
 
-static uint64_t a5xx_read_throttling_counters(struct adreno_device *adreno_dev)
+static int64_t a5xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
-	int i, adj;
+	int i;
+	int64_t adj;
 	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 

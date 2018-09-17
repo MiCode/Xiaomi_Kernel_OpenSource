@@ -147,6 +147,13 @@ int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 	return ret;
 }
 
+int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev)
+{
+	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_OUT_CTRL(1), 0x8);
+
+	return 0;
+}
+
 /* -------------------------------------------------------------------------
  * Functions - ION Memory
  * -------------------------------------------------------------------------
@@ -171,7 +178,7 @@ static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
 		pr_err("ion buf %x has been mapped\n");
 		ret_val = NULL;
 	} else {
-		ret_val = kmalloc(sizeof(struct npu_ion_buf), GFP_KERNEL);
+		ret_val = kzalloc(sizeof(*ret_val), GFP_KERNEL);
 		if (ret_val) {
 			ret_val->fd = buf_hdl;
 			ret_val->size = size;

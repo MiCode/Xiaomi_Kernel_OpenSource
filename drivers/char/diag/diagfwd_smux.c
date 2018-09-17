@@ -286,8 +286,8 @@ int diag_smux_init(void)
 
 	for (i = 0; i < NUM_SMUX_DEV; i++) {
 		ch = &diag_smux[i];
-		strlcpy(wq_name, "DIAG_SMUX_", 11);
-		strlcat(wq_name, ch->name, sizeof(ch->name));
+		strlcpy(wq_name, "DIAG_SMUX_", sizeof(wq_name));
+		strlcat(wq_name, ch->name, sizeof(wq_name));
 		ch->smux_wq = create_singlethread_workqueue(wq_name);
 		if (!ch->smux_wq) {
 			err = -ENOMEM;

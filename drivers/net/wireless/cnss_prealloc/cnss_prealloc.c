@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/stacktrace.h>
 #include <linux/spinlock.h>
+#include <net/cnss_prealloc.h>
 
 static DEFINE_SPINLOCK(alloc_lock);
 
@@ -23,7 +24,7 @@ static DEFINE_SPINLOCK(alloc_lock);
 
 struct wcnss_prealloc {
 	int occupied;
-	unsigned int size;
+	size_t size;
 	void *ptr;
 #ifdef CONFIG_SLUB_DEBUG
 	unsigned long stack_trace[WCNSS_MAX_STACK_TRACE];
@@ -143,7 +144,7 @@ static inline
 void wcnss_prealloc_save_stack_trace(struct wcnss_prealloc *entry) {}
 #endif
 
-void *wcnss_prealloc_get(unsigned int size)
+void *wcnss_prealloc_get(size_t size)
 {
 	int i = 0;
 	unsigned long flags;
@@ -200,7 +201,7 @@ void wcnss_prealloc_check_memory_leak(void)
 			j++;
 		}
 
-		pr_err("Size: %u, addr: %pK, backtrace:\n",
+		pr_err("Size: %zu, addr: %pK, backtrace:\n",
 		       wcnss_allocs[i].size, wcnss_allocs[i].ptr);
 		print_stack_trace(&wcnss_allocs[i].trace, 1);
 	}

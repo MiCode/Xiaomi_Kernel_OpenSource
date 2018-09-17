@@ -21,6 +21,7 @@
 #include <linux/sched/rt.h>
 #include <linux/syscore_ops.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/sched/core_ctl.h>
 
 #include <trace/events/sched.h>
 #include "sched.h"
@@ -80,6 +81,9 @@ static DEFINE_SPINLOCK(state_lock);
 static void apply_need(struct cluster_data *state);
 static void wake_up_core_ctl_thread(struct cluster_data *state);
 static bool initialized;
+
+ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
+static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
 static void cpuset_next(struct cluster_data *cluster);
@@ -660,6 +664,7 @@ static void update_running_avg(void)
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
+	last_nr_big = big_avg;
 	walt_rotation_checkpoint(big_avg);
 }
 
@@ -851,6 +856,38 @@ int core_ctl_set_boost(bool boost)
 }
 EXPORT_SYMBOL(core_ctl_set_boost);
 
+void core_ctl_notifier_register(struct notifier_block *n)
+{
+	atomic_notifier_chain_register(&core_ctl_notifier, n);
+}
+
+void core_ctl_notifier_unregister(struct notifier_block *n)
+{
+	atomic_notifier_chain_unregister(&core_ctl_notifier, n);
+}
+
+static void core_ctl_call_notifier(void)
+{
+	struct core_ctl_notif_data ndata;
+	struct notifier_block *nb;
+
+	/*
+	 * Don't bother querying the stats when the notifier
+	 * chain is empty.
+	 */
+	rcu_read_lock();
+	nb = rcu_dereference_raw(core_ctl_notifier.head);
+	rcu_read_unlock();
+
+	if (!nb)
+		return;
+
+	ndata.nr_big = last_nr_big;
+	ndata.coloc_load_pct = walt_get_default_coloc_group_load();
+
+	atomic_notifier_call_chain(&core_ctl_notifier, 0, &ndata);
+}
+
 void core_ctl_check(u64 window_start)
 {
 	int cpu;
@@ -886,6 +923,8 @@ void core_ctl_check(u64 window_start)
 		if (eval_need(cluster))
 			wake_up_core_ctl_thread(cluster);
 	}
+
+	core_ctl_call_notifier();
 }
 
 static void move_cpu_lru(struct cpu_data *cpu_data)

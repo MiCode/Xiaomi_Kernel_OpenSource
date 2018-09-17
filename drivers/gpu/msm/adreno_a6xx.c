@@ -675,14 +675,27 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	regs = a6xx_hwcg_registers[i].regs;
 
-	/* Disable SP clock before programming HWCG registers */
-	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	/*
+	 * Disable SP clock before programming HWCG registers.
+	 * A608 GPU is not having the GX power domain. Hence
+	 * skip GMU_GX registers for A608.
+	 */
+
+	if (!adreno_is_a608(adreno_dev))
+		gmu_core_regrmw(device,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
 	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
 		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
 
-	/* Enable SP clock */
-	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	/*
+	 * Enable SP clock after programming HWCG registers.
+	 * A608 GPU is not having the GX power domain. Hence
+	 * skip GMU_GX registers for A608.
+	 */
+	if (!adreno_is_a608(adreno_dev))
+		gmu_core_regrmw(device,
+			A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
@@ -810,18 +823,20 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	} else if (adreno_is_a608(adreno_dev)) {
-		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x800060);
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x00800060);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
 	} else {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x010000C0);
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	/* For a608 Mem pool size is reduced to 1/4 */
-	if (adreno_is_a608(adreno_dev))
-		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 32);
-	else
+	if (adreno_is_a608(adreno_dev)) {
+		/* For a608 Mem pool size is reduced to 48 */
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_DBG_ADDR, 47);
+	} else {
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
+	}
 
 	/* Setting the primFifo thresholds values */
 	if (adreno_is_a640(adreno_dev))
@@ -1399,6 +1414,37 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i;
+	int64_t adj = 0;
+	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	for (i = 0; i < ARRAY_SIZE(counts); i++) {
+		if (!adreno_dev->gpmu_throttle_counters[i])
+			counts[i] = 0;
+		else
+			counts[i] = counter_delta(KGSL_DEVICE(adreno_dev),
+					adreno_dev->gpmu_throttle_counters[i],
+					&busy->throttle_cycles[i]);
+	}
+
+	/*
+	 * The adjustment is the number of cycles lost to throttling, which
+	 * is calculated as a weighted average of the cycles throttled
+	 * at 10%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * the busy count includes the throttled cycles. Therefore, we want
+	 * to remove them to prevent appearing to be busier than
+	 * we actually are.
+	 */
+	adj = -((counts[0] * 1) + (counts[1] * 5) + (counts[2] * 9)) / 10;
+
+	trace_kgsl_clock_throttling(0, counts[1], counts[2],
+			counts[0], adj);
+	return adj;
+}
+
 static void a6xx_count_throttles(struct adreno_device *adreno_dev,
 	uint64_t adj)
 {
@@ -1532,6 +1578,9 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 		break;
 	case A6XX_INT_UCHE_TRAP_INTR:
 		KGSL_DRV_CRIT_RATELIMIT(device, "UCHE: Trap interrupt\n");
+		break;
+	case A6XX_INT_TSB_WRITE_ERROR:
+		KGSL_DRV_CRIT_RATELIMIT(device, "TSB: Write error interrupt\n");
 		break;
 	default:
 		KGSL_DRV_CRIT_RATELIMIT(device, "Unknown interrupt %d\n", bit);
@@ -1704,7 +1753,8 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
 	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
 	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR))
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
 
 static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
@@ -1737,7 +1787,7 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 25 - UCHE_TRAP_INTR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 26 - DEBBUS_INTR_0 */
 	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_1 */
-	ADRENO_IRQ_CALLBACK(NULL), /* 28 - UNUSED */
+	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 28 - TSBWRITEERROR */
 	ADRENO_IRQ_CALLBACK(NULL), /* 29 - UNUSED */
 	ADRENO_IRQ_CALLBACK(NULL), /* 30 - ISDB_CPU_IRQ */
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
@@ -1750,7 +1800,6 @@ static struct adreno_irq a6xx_irq = {
 
 static struct adreno_snapshot_sizes a6xx_snap_sizes = {
 	.cp_pfp = 0x33,
-	.roq = 0x400,
 };
 
 static struct adreno_snapshot_data a6xx_snapshot_data = {
@@ -2619,7 +2668,10 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	if (counter == 0)
 		return -EINVAL;
 
-	if (!gmu_core_isenabled(device))
+	/* We can use GPU without GMU and allow it to count GPU busy cycles */
+	if (!gmu_core_isenabled(device) &&
+			!kgsl_is_register_offset(device,
+				A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK))
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
@@ -2923,7 +2975,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
-	.snapshot_debugbus = a6xx_snapshot_debugbus,
 	.irq = &a6xx_irq,
 	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
@@ -2935,6 +2986,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.regulator_disable = a6xx_sptprac_disable,
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
 	.count_throttles = a6xx_count_throttles,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,

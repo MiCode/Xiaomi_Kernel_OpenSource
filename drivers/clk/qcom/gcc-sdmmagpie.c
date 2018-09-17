@@ -1698,109 +1698,6 @@ static struct clk_branch gcc_gpu_vs_clk = {
 	},
 };
 
-static struct clk_branch gcc_mss_axis2_clk = {
-	.halt_reg = 0x8a008,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8a008,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_axis2_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_cfg_ahb_clk = {
-	.halt_reg = 0x8a000,
-	.halt_check = BRANCH_HALT,
-	.hwcg_reg = 0x8a000,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x8a000,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_cfg_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_gpll0_div_clk_src = {
-	.halt_check = BRANCH_HALT_DELAY,
-	.clkr = {
-		.enable_reg = 0x52004,
-		.enable_mask = BIT(17),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_gpll0_div_clk_src",
-			.parent_names = (const char *[]){
-				"gcc_pll0_main_div_cdiv",
-			},
-			.num_parents = 1,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_mfab_axis_clk = {
-	.halt_reg = 0x8a004,
-	.halt_check = BRANCH_VOTED,
-	.hwcg_reg = 0x8a004,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x8a004,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_mfab_axis_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_q6_memnoc_axi_clk = {
-	.halt_reg = 0x8a154,
-	.halt_check = BRANCH_VOTED,
-	.clkr = {
-		.enable_reg = 0x8a154,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_q6_memnoc_axi_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_snoc_axi_clk = {
-	.halt_reg = 0x8a150,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8a150,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_snoc_axi_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mss_vs_clk = {
-	.halt_reg = 0x7a048,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x7a048,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_vs_clk",
-			.parent_names = (const char *[]){
-				"gcc_vsensor_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_npu_axi_clk = {
 	.halt_reg = 0x4d008,
 	.halt_check = BRANCH_HALT,
@@ -3112,13 +3009,14 @@ static struct clk_branch gcc_cpuss_gnoc_clk = {
 };
 
 /* Measure-only clock for ddrss_gcc_debug_clk. */
-static struct clk_dummy measure_only_bimc_clk = {
+static struct clk_dummy measure_only_mccc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_bimc_clk",
+		.name = "measure_only_mccc_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
+
 
 /* Measure-only clock for gcc_cfg_noc_ahb_clk. */
 static struct clk_dummy measure_only_cnoc_clk = {
@@ -3148,7 +3046,7 @@ static struct clk_dummy measure_only_snoc_clk = {
 };
 
 struct clk_hw *gcc_sdmmagpie_hws[] = {
-	[MEASURE_ONLY_BIMC_CLK] = &measure_only_bimc_clk.hw,
+	[MEASURE_ONLY_BIMC_CLK] = &measure_only_mccc_clk.hw,
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
 	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,
@@ -3195,13 +3093,6 @@ static struct clk_regmap *gcc_sdmmagpie_clocks[] = {
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_GPU_VS_CLK] = &gcc_gpu_vs_clk.clkr,
-	[GCC_MSS_AXIS2_CLK] = &gcc_mss_axis2_clk.clkr,
-	[GCC_MSS_CFG_AHB_CLK] = &gcc_mss_cfg_ahb_clk.clkr,
-	[GCC_MSS_GPLL0_DIV_CLK_SRC] = &gcc_mss_gpll0_div_clk_src.clkr,
-	[GCC_MSS_MFAB_AXIS_CLK] = &gcc_mss_mfab_axis_clk.clkr,
-	[GCC_MSS_Q6_MEMNOC_AXI_CLK] = &gcc_mss_q6_memnoc_axi_clk.clkr,
-	[GCC_MSS_SNOC_AXI_CLK] = &gcc_mss_snoc_axi_clk.clkr,
-	[GCC_MSS_VS_CLK] = &gcc_mss_vs_clk.clkr,
 	[GCC_NPU_AXI_CLK] = &gcc_npu_axi_clk.clkr,
 	[GCC_NPU_CFG_AHB_CLK] = &gcc_npu_cfg_ahb_clk.clkr,
 	[GCC_NPU_GPLL0_CLK_SRC] = &gcc_npu_gpll0_clk_src.clkr,
@@ -3336,6 +3227,7 @@ static const struct qcom_reset_map gcc_sdmmagpie_resets[] = {
 	[GCC_USB3_DP_PHY_SEC_BCR] = { 0x50014 },
 	[GCC_USB3_PHY_PRIM_BCR] = { 0x50000 },
 	[GCC_USB3_PHY_SEC_BCR] = { 0x5000c },
+	[GCC_QUSB2PHY_PRIM_BCR] = { 0x26000 },
 };
 
 static struct clk_dfs gcc_dfs_clocks[] = {

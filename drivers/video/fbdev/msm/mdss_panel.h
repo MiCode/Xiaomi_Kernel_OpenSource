@@ -60,6 +60,7 @@ enum fps_resolution {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
+#define SPI_PANEL               13	/* SPI */
 
 #define DSC_PPS_LEN		128
 
@@ -108,6 +109,7 @@ enum {
 	MDSS_PANEL_INTF_DSI,
 	MDSS_PANEL_INTF_EDP,
 	MDSS_PANEL_INTF_HDMI,
+	MDSS_PANEL_INTF_SPI,
 };
 
 enum {
@@ -429,6 +431,10 @@ struct edp_panel_info {
 	char frame_rate;	/* fps */
 };
 
+struct spi_panel_info {
+	char frame_rate;	/* fps */
+};
+
 /**
  * struct dynamic_fps_data - defines dynamic fps related data
  * @hfp: horizontal front porch
@@ -741,6 +747,7 @@ struct mdss_panel_info {
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
+	struct spi_panel_info spi;
 
 	bool is_dba_panel;
 
@@ -877,6 +884,9 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 			frame_rate = panel_info->lcdc.frame_rate;
 			break;
 		}
+	case SPI_PANEL:
+		frame_rate = panel_info->spi.frame_rate;
+		break;
 	default:
 		pixel_total = (panel_info->lcdc.h_back_porch +
 			  panel_info->lcdc.h_front_porch +

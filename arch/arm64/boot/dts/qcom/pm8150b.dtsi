@@ -170,6 +170,9 @@
 
 			qcom,pmic-revid = <&pm8150b_revid>;
 
+			qcom,thermal-mitigation
+					= <3000000 1500000 1000000 500000>;
+
 			qcom,charger-temp-max = <800>;
 			qcom,smb-temp-max = <800>;
 
@@ -433,11 +436,14 @@
 					     <0x2 0x43 0x1 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x43 0x2 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x43 0x3
-							IRQ_TYPE_EDGE_RISING>;
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x43 0x4
+							IRQ_TYPE_EDGE_FALLING>;
 				interrupt-names = "ima-rdy",
 						  "ima-xcp",
 						  "dma-xcp",
-						  "dma-grant";
+						  "dma-grant",
+						  "mem-attn";
 			};
 		};
 	};
@@ -597,7 +603,7 @@
 	};
 
 	pm8150b-ibat-lvl1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150b_bcl 1>;
@@ -628,7 +634,7 @@
 	};
 
 	pm8150b-vbat-lvl1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 3>;
@@ -644,7 +650,7 @@
 	};
 
 	pm8150b-vbat-lvl2 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 4>;

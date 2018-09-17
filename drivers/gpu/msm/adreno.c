@@ -1338,6 +1338,10 @@ static int adreno_probe(struct platform_device *pdev)
 		device->mmu.va_padding = adreno_dev->gpucore->va_padding;
 	}
 
+	if (adreno_dev->gpucore->cx_ipeak_gpu_freq)
+		device->pwrctrl.cx_ipeak_gpu_freq =
+				adreno_dev->gpucore->cx_ipeak_gpu_freq;
+
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;
@@ -3570,7 +3574,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	uint64_t adj = 0;
+	int64_t adj = 0;
 
 	memset(stats, 0, sizeof(*stats));
 
@@ -3583,6 +3587,9 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
+			if (adj < 0 && -adj > gpu_busy)
+				adj = -gpu_busy;
+
 			gpu_busy += adj;
 		}
 
@@ -3843,7 +3850,6 @@ static const struct kgsl_functable adreno_functable = {
 	.device_private_create = adreno_device_private_create,
 	.device_private_destroy = adreno_device_private_destroy,
 	/* Optional functions */
-	.snapshot_gmu = adreno_snapshot_gmu,
 	.drawctxt_create = adreno_drawctxt_create,
 	.drawctxt_detach = adreno_drawctxt_detach,
 	.drawctxt_destroy = adreno_drawctxt_destroy,

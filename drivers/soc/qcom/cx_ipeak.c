@@ -182,6 +182,7 @@ static int cx_ipeak_probe(struct platform_device *pdev)
 
 static const struct of_device_id cx_ipeak_match_table[] = {
 	{ .compatible = "qcom,cx-ipeak-sdm660"},
+	{ .compatible = "qcom,cx-ipeak-sm6150"},
 	{}
 };
 

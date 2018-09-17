@@ -109,8 +109,8 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 	int ret;
 	int vmid;
 
+	memset(&buffer, 0, sizeof(struct ion_buffer));
 	buffer.heap = sys_heap;
-	buffer.flags = 0;
 
 	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
 					buffer.flags);
@@ -167,6 +167,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	size_t pool_size, size;
 	int ret;
 
+	memset(&buffer, 0, sizeof(struct ion_buffer));
 	buffer.heap = sys_heap;
 	buffer.flags = info->vmid;
 

@@ -47,6 +47,13 @@
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-hs = <66666667>;
 		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,gsi-reg-offset =
+			<0x0fc /* GSI_GENERAL_CFG */
+			 0x110 /* GSI_DBL_ADDR_L */
+			 0x120 /* GSI_DBL_ADDR_H */
+			 0x130 /* GSI_RING_BASE_ADDR_L */
+			 0x144 /* GSI_RING_BASE_ADDR_H */
+			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
 		qcom,msm-bus,name = "usb0";
@@ -163,7 +170,7 @@
 
 	/* Primary USB port related QMP USB PHY */
 	usb_qmp_phy: ssphy@88e6000 {
-		compatible = "qcom,usb-ssphy-qmp-v2";
+		compatible = "qcom,usb-ssphy-qmp-usb3-or-dp";
 		reg = <0x88e6000 0x1000>;
 		reg-names = "qmp_phy_base";
 
@@ -297,9 +304,9 @@
 		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
 				"ref_clk", "com_aux_clk", "cfg_ahb_clk";
 
-		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_SP0_BCR>,
+		resets = <&clock_gcc GCC_USB3_PHY_PRIM_SP0_BCR>,
 			<&clock_gcc GCC_USB3PHY_PHY_PRIM_SP0_BCR>;
-		reset-names = "phy_phy_reset", "phy_reset";
+		reset-names = "phy_reset", "phy_phy_reset";
 	};
 
 	usb_audio_qmi_dev {

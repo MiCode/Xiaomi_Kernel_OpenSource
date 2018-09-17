@@ -116,8 +116,11 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 	rb->wptr = rb->_wptr;
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
-	if (ret)
-		kgsl_device_snapshot(KGSL_DEVICE(adreno_dev), NULL, false);
+	if (ret) {
+		/* If WPTR update fails, set the fault and trigger recovery */
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+	}
 
 }
 

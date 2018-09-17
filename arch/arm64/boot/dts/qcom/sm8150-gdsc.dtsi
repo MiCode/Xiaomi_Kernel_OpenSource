@@ -211,6 +211,7 @@
 		qcom,skip-disable;
 		qcom,gds-timeout = <500>;
 		qcom,clk-dis-wait-val = <8>;
+		mboxes = <&qmp_aop 0>;
 		status = "disabled";
 	};
 

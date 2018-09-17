@@ -24,11 +24,20 @@ struct callback_param {
 static int ipa_pm_ut_setup(void **ppriv)
 {
 	int i;
+	int vote;
 
 	IPA_UT_DBG("Start Setup\n");
 
 	/* decrement UT vote */
 	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IPA_UT");
+
+	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
+	if (vote) {
+		IPA_UT_ERR("clock vote is not zero %d\n", vote);
+		IPA_UT_TEST_FAIL_REPORT("clock is voted");
+		IPA_ACTIVE_CLIENTS_INC_SPECIAL("IPA_UT");
+		return -EINVAL;
+	}
 
 	/*decouple PM from RPM */
 	ipa3_ctx->enable_clock_scaling = false;
@@ -112,7 +121,7 @@ static int clean_up(int n, ...)
 }
 
 
-/* test 1.1 */
+/* test 1 */
 static int ipa_pm_ut_single_registration(void *priv)
 {
 	int rc = 0;
@@ -156,7 +165,8 @@ static int ipa_pm_ut_single_registration(void *priv)
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -177,8 +187,8 @@ static int ipa_pm_ut_single_registration(void *priv)
 
 	rc = ipa_pm_deregister(hdl);
 	if (rc == 0) {
-		IPA_UT_ERR("deregister was not unsuccesful - rc = %d\n", rc);
-		IPA_UT_TEST_FAIL_REPORT("deregister was not unsuccesful");
+		IPA_UT_ERR("deregister succeeded while it should not\n");
+		IPA_UT_TEST_FAIL_REPORT("deregister should not succeed");
 		return -EFAULT;
 	}
 
@@ -197,7 +207,7 @@ static int ipa_pm_ut_single_registration(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 0) {
@@ -215,8 +225,8 @@ static int ipa_pm_ut_single_registration(void *priv)
 
 	rc = ipa_pm_activate(hdl);
 	if (rc == 0) {
-		IPA_UT_ERR("activate was not unsuccesful- rc = %d\n", rc);
-		IPA_UT_TEST_FAIL_REPORT("activate was not unsuccesful");
+		IPA_UT_ERR("activate succeeded while it should not\n");
+		IPA_UT_TEST_FAIL_REPORT("activate should not succeed");
 		return -EFAULT;
 	}
 
@@ -229,7 +239,7 @@ static int ipa_pm_ut_single_registration(void *priv)
 	return 0;
 }
 
-/* test 1.1 */
+/* test 2 */
 static int ipa_pm_ut_double_register_activate(void *priv)
 {
 	int rc = 0;
@@ -280,14 +290,16 @@ static int ipa_pm_ut_double_register_activate(void *priv)
 		return -EFAULT;
 	}
 
+	/* It is possible that previous activation already completed. */
 	rc = ipa_pm_activate(hdl);
-	if (rc != -EINPROGRESS) {
-		IPA_UT_ERR("fail to do nothing - rc = %d\n", rc);
-		IPA_UT_TEST_FAIL_REPORT("do nothing failed");
+	if (rc != -EINPROGRESS && rc != 0) {
+		IPA_UT_ERR("second time activation failed - rc = %d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("second time activation failed");
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -306,7 +318,7 @@ static int ipa_pm_ut_double_register_activate(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 1) {
@@ -333,7 +345,7 @@ static int ipa_pm_ut_double_register_activate(void *priv)
 	return rc;
 }
 
-/* test 2 */
+/* test 3 */
 static int ipa_pm_ut_deferred_deactivate(void *priv)
 {
 	int rc = 0;
@@ -377,7 +389,8 @@ static int ipa_pm_ut_deferred_deactivate(void *priv)
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -411,7 +424,7 @@ static int ipa_pm_ut_deferred_deactivate(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 1) {
@@ -439,7 +452,7 @@ static int ipa_pm_ut_deferred_deactivate(void *priv)
 }
 
 
-/*test 3*/
+/* test 4 */
 static int ipa_pm_ut_two_clients_activate(void *priv)
 {
 	int rc = 0;
@@ -447,7 +460,7 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 	u32 pipes;
 	struct callback_param user_data_USB;
 	struct callback_param user_data_WLAN;
-
+	bool wait_for_completion;
 
 	struct ipa_pm_init_params init_params = {
 		.threshold_size = 2,
@@ -512,7 +525,7 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 	}
 
 	rc = ipa_pm_associate_ipa_cons_to_client(hdl_WLAN,
-		IPA_CLIENT_WLAN2_CONS);
+		IPA_CLIENT_USB_DPL_CONS);
 	if (rc) {
 		IPA_UT_ERR("fail to map client 2 to multiplt pipes rc = %d\n",
 			rc);
@@ -527,14 +540,19 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 		return -EFAULT;
 	}
 
+	/* It could be that USB enabled clocks so WLAN will be activated
+	 * without delay.
+	 */
 	rc = ipa_pm_activate(hdl_WLAN);
-	if (rc != -EINPROGRESS) {
-		IPA_UT_ERR("fail to queue work for client 2 - rc = %d\n", rc);
-		IPA_UT_TEST_FAIL_REPORT("queue activate work failed");
+	if (rc != -EINPROGRESS && rc != 0) {
+		IPA_UT_ERR("failed to activate WLAN - rc = %d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("failed to activate WLAN");
 		return -EFAULT;
 	}
+	wait_for_completion = !rc ? false : true;
 
-	if (!wait_for_completion_timeout(&user_data_USB.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data_USB.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback 1\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -546,13 +564,17 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data_WLAN.complete, HZ)) {
+	if (wait_for_completion &&
+		!wait_for_completion_timeout(&user_data_WLAN.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback 2\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
 	}
 
-	if (user_data_WLAN.evt != IPA_PM_CLIENT_ACTIVATED) {
+	/* In case WLAN activated immediately, there will be no event */
+	if (wait_for_completion &&
+		user_data_WLAN.evt != IPA_PM_CLIENT_ACTIVATED) {
 		IPA_UT_ERR("Callback = %d\n", user_data_WLAN.evt);
 		IPA_UT_TEST_FAIL_REPORT("wrong callback called");
 		return -EFAULT;
@@ -576,7 +598,7 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 
 	rc = ipa_pm_activate(hdl_USB);
 	if (rc) {
@@ -587,13 +609,14 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 
 	pipes = 1 << ipa_get_ep_mapping(IPA_CLIENT_USB_CONS);
 	pipes |= 1 << ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
-	pipes |= 1 << ipa_get_ep_mapping(IPA_CLIENT_WLAN2_CONS);
+	pipes |= 1 << ipa_get_ep_mapping(IPA_CLIENT_USB_DPL_CONS);
 
 	IPA_UT_DBG("pipes = %d\n", pipes);
 
 	rc = ipa_pm_handle_suspend(pipes);
 
-	if (!wait_for_completion_timeout(&user_data_USB.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data_USB.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for wakeup_callback 1\n");
 		IPA_UT_TEST_FAIL_REPORT("wakeup callback not called");
 		return -ETIME;
@@ -605,7 +628,8 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data_WLAN.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data_WLAN.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for wakeup_callback 2\n");
 		IPA_UT_TEST_FAIL_REPORT("wakeup callback not called");
 		return -ETIME;
@@ -637,7 +661,8 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 
 	rc = ipa_pm_handle_suspend(pipes);
 
-	if (!wait_for_completion_timeout(&user_data_USB.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data_USB.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for wakeup_callback 1\n");
 		IPA_UT_TEST_FAIL_REPORT("wakeup callback not called");
 		return -ETIME;
@@ -653,7 +678,7 @@ static int ipa_pm_ut_two_clients_activate(void *priv)
 	return rc;
 }
 
-/* test 4 */
+/* test 5 */
 static int ipa_pm_ut_deactivate_all_deferred(void *priv)
 {
 
@@ -726,7 +751,8 @@ static int ipa_pm_ut_deactivate_all_deferred(void *priv)
 		return -EFAULT;
 	}
 
-	if (!wait_for_completion_timeout(&user_data.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback 1\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -790,7 +816,7 @@ static int ipa_pm_ut_deactivate_all_deferred(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 1) {
 		IPA_UT_ERR("clock vote is at %d\n", vote);
@@ -854,7 +880,7 @@ static int ipa_pm_ut_deactivate_after_activate(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote) {
 		IPA_UT_ERR("clock vote is at %d\n", vote);
@@ -877,7 +903,7 @@ static int ipa_pm_ut_deactivate_after_activate(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote) {
 		IPA_UT_ERR("clock vote is at %d\n", vote);
@@ -941,7 +967,8 @@ static int ipa_pm_ut_atomic_activate(void *priv)
 	}
 	spin_unlock_irqrestore(&lock, flags);
 
-	if (!wait_for_completion_timeout(&user_data.complete, HZ)) {
+	if (!wait_for_completion_timeout(&user_data.complete,
+		msecs_to_jiffies(2000))) {
 		IPA_UT_ERR("timeout waiting for activate_callback\n");
 		IPA_UT_TEST_FAIL_REPORT("activate callback not called");
 		return -ETIME;
@@ -1046,7 +1073,7 @@ static int ipa_pm_ut_deactivate_loop(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 2) {
 		IPA_UT_ERR("clock vote is at %d\n", vote);
@@ -1089,7 +1116,7 @@ static int ipa_pm_ut_deactivate_loop(void *priv)
 		}
 	}
 
-	msleep(200);
+	msleep(2000);
 	vote = atomic_read(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (vote != 1) {
 		IPA_UT_ERR("clock vote is at %d\n", vote);
@@ -1184,7 +1211,7 @@ static int ipa_pm_ut_set_perf_profile(void *priv)
 		return -EFAULT;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 2) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1313,7 +1340,7 @@ static int ipa_pm_ut_group_tput(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 1) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1350,7 +1377,7 @@ static int ipa_pm_ut_group_tput(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 2) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1480,7 +1507,7 @@ static int ipa_pm_ut_skip_clk_vote_tput(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 2) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1517,7 +1544,7 @@ static int ipa_pm_ut_skip_clk_vote_tput(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 3) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1647,7 +1674,7 @@ static int ipa_pm_ut_simple_exception(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 2) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);
@@ -1684,7 +1711,7 @@ static int ipa_pm_ut_simple_exception(void *priv)
 		return -EINVAL;
 	}
 
-	msleep(200);
+	msleep(2000);
 	idx = ipa3_ctx->ipa3_active_clients.bus_vote_idx;
 	if (idx != 3) {
 		IPA_UT_ERR("clock plan is at %d\n", idx);

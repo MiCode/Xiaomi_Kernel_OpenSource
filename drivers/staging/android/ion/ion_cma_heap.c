@@ -232,11 +232,34 @@ out:
 	return ret;
 }
 
+static void *ion_secure_cma_map_kernel(struct ion_heap *heap,
+				       struct ion_buffer *buffer)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return NULL;
+	}
+	return ion_heap_map_kernel(heap, buffer);
+}
+
+static int ion_secure_cma_map_user(struct ion_heap *mapper,
+				   struct ion_buffer *buffer,
+				   struct vm_area_struct *vma)
+{
+	if (!hlos_accessible_buffer(buffer)) {
+		pr_info("%s: Mapping non-HLOS accessible buffer disallowed\n",
+			__func__);
+		return -EINVAL;
+	}
+	return ion_heap_map_user(mapper, buffer, vma);
+}
+
 static struct ion_heap_ops ion_secure_cma_ops = {
 	.allocate = ion_secure_cma_allocate,
 	.free = ion_secure_cma_free,
-	.map_user = ion_heap_map_user,
-	.map_kernel = ion_heap_map_kernel,
+	.map_user = ion_secure_cma_map_user,
+	.map_kernel = ion_secure_cma_map_kernel,
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 

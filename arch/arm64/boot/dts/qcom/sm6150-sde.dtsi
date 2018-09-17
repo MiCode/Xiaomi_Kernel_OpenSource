@@ -31,7 +31,7 @@
 		clock-names = "gcc_iface", "gcc_bus",
 				"iface_clk", "core_clk", "vsync_clk",
 				"lut_clk", "rot_clk";
-		clock-rate = <0 0 0 256000000 19200000 256000000>;
+		clock-rate = <0 0 0 256000000 19200000 192000000>;
 		clock-max-rate = <0 0 0 307000000 19200000 307000000>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
@@ -61,6 +61,9 @@
 				      0x0 0x0 0x0>;
 		qcom,sde-mixer-size = <0x320>;
 		qcom,sde-mixer-display-pref = "primary", "none", "none",
+					      "none", "none", "none";
+
+		qcom,sde-mixer-cwb-pref = "none", "none", "cwb",
 					      "none", "none", "none";
 
 		qcom,sde-dspp-top-off = <0x1300>;
@@ -127,7 +130,7 @@
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2160>;
 		qcom,sde-wb-linewidth = <2160>;
-		qcom,sde-mixer-blendstages = <0xb>;
+		qcom,sde-mixer-blendstages = <0x9>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x200>;
 		qcom,sde-panic-per-pipe;
@@ -253,8 +256,7 @@
 		reg = <0xaf20000 0x1c44>,
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
-		qcom,sde-rsc-version = <1>;
-		status = "disabled";
+		qcom,sde-rsc-version = <2>;
 
 		vdd-supply = <&mdss_core_gdsc>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,

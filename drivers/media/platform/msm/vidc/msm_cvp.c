@@ -304,8 +304,9 @@ static int msm_cvp_request_power(struct msm_vidc_inst *inst,
 
 	inst->clk_data.min_freq = max(power->clock_cycles_a,
 		power->clock_cycles_b);
-	inst->clk_data.ddr_bw = power->ddr_bw;
-	inst->clk_data.sys_cache_bw = power->sys_cache_bw;
+	/* convert client provided bps into kbps as expected by driver */
+	inst->clk_data.ddr_bw = power->ddr_bw / 1000;
+	inst->clk_data.sys_cache_bw = power->sys_cache_bw / 1000;
 	rc = msm_cvp_scale_clocks_and_bus(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,

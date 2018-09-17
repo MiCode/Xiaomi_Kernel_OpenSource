@@ -352,13 +352,14 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	 */
 	/* Decoder parameters */
 	int width, height, lcu_size, fps, dpb_bpp;
-	bool unified_dpb_opb, dpb_compression_enabled,
+	bool unified_dpb_opb, dpb_compression_enabled = true,
 		opb_compression_enabled = false,
 		llc_ref_read_l2_cache_enabled = false,
 		llc_top_line_buf_enabled = false;
 	fp_t dpb_read_compression_factor, dpb_opb_scaling_ratio,
 		dpb_write_compression_factor, opb_write_compression_factor,
 		qsmmu_bw_overhead_factor;
+	bool is_h264_category = true;
 
 	/* Derived parameters */
 	int lcu_per_frame, collocated_bytes_per_lcu, tnbr_per_lcu;
@@ -423,18 +424,19 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	motion_vector_complexity = FP(integer_part, frac_part, 100);
 
-	dpb_write_compression_factor = !dpb_compression_enabled ? FP_ONE :
-		__compression_ratio(__lut(width, height, fps), dpb_bpp);
-
-	dpb_write_compression_factor = d->use_dpb_read ?
-		dpb_read_compression_factor :
-		dpb_write_compression_factor;
+	dpb_write_compression_factor = dpb_read_compression_factor;
 	opb_write_compression_factor = opb_compression_enabled ?
 		dpb_write_compression_factor : FP_ONE;
 
+	if (d->codec == HAL_VIDEO_CODEC_HEVC ||
+		d->codec == HAL_VIDEO_CODEC_VP9) {
+		/* H264, VP8, MPEG2 use the same settings */
+		/* HEVC, VP9 use the same setting */
+		is_h264_category = false;
+	}
 	if (d->use_sys_cache) {
 		llc_ref_read_l2_cache_enabled = true;
-		if (d->codec == HAL_VIDEO_CODEC_H264)
+		if (is_h264_category)
 			llc_top_line_buf_enabled = true;
 	}
 
@@ -464,16 +466,15 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	ddr.vsp_write = fp_div(fp_mult(FP_INT(bitrate),
 				vsp_write_factor), FP_INT(8));
 
-	ddr.collocated_read = FP_INT(lcu_per_frame *
-			collocated_bytes_per_lcu * fps / bps(1));
+	ddr.collocated_read = fp_div(FP_INT(lcu_per_frame *
+			collocated_bytes_per_lcu * fps), FP_INT(bps(1)));
 	ddr.collocated_write = ddr.collocated_read;
 
-	y_bw_no_ubwc_8bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(32 * 8)), FP_INT(1000 * 1000));
-	y_bw_no_ubwc_10bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(48 * 4)), FP_INT(1000 * 1000));
+	y_bw_no_ubwc_8bpp = fp_div(fp_mult(
+		FP_INT((int)(width * height)), FP_INT((int)fps)),
+		FP_INT(1000 * 1000));
+	y_bw_no_ubwc_10bpp = fp_div(fp_mult(y_bw_no_ubwc_8bpp, FP_INT(256)),
+				FP_INT(192));
 
 	ddr.dpb_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
 	ddr.dpb_read = fp_div(fp_mult(ddr.dpb_read,
@@ -488,16 +489,15 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	dpb_total = ddr.dpb_read + ddr.dpb_write;
 
 	if (llc_ref_read_l2_cache_enabled) {
-		ddr.dpb_read = fp_div(ddr.dpb_read,
-		d->codec == HAL_VIDEO_CODEC_H264 ? FP(1, 15, 100) :
-		FP(1, 30, 100));
-		llc.dpb_read = dpb_total - ddr.dpb_read;
+		ddr.dpb_read = fp_div(ddr.dpb_read, is_h264_category ?
+					FP(1, 15, 100) : FP(1, 30, 100));
+		llc.dpb_read = dpb_total - ddr.dpb_write - ddr.dpb_read;
 	}
 
 	ddr.opb_read = FP_ZERO;
 	ddr.opb_write = unified_dpb_opb ? FP_ZERO : (dpb_bpp == 8 ?
 		y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp);
-	ddr.opb_write = fp_div(ddr.opb_write,
+	ddr.opb_write = fp_div(fp_mult(dpb_factor, ddr.opb_write),
 		fp_mult(dpb_opb_scaling_ratio, opb_write_compression_factor));
 
 	ddr.line_buffer_read = FP_INT(tnbr_per_lcu *
@@ -518,7 +518,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
-	llc.total = llc.dpb_read + llc.line_buffer_read + llc.line_buffer_write;
+	llc.total = llc.dpb_read + llc.line_buffer_read +
+			llc.line_buffer_write + ddr.total;
 
 	/* Dump all the variables for easier debugging */
 	if (debug) {
@@ -606,8 +607,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	/* Encoder Parameters */
 	int width, height, fps, lcu_size, bitrate, lcu_per_frame,
 		collocated_bytes_per_lcu, tnbr_per_lcu, dpb_bpp,
-		original_color_format, dpb_ubwc_tile_width,
-		dpb_ubwc_tile_height, vertical_tile_width;
+		original_color_format, vertical_tile_width;
 	bool work_mode_1, original_compression_enabled,
 		low_power, rotation, cropping_or_scaling,
 		b_frames_enabled = false,
@@ -617,6 +617,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	fp_t bins_to_bit_factor, dpb_compression_factor,
 		original_compression_factor,
+		original_compression_factor_y,
 		y_bw_no_ubwc_8bpp, y_bw_no_ubwc_10bpp,
 		input_compression_factor,
 		ref_y_read_bw_factor, ref_cbcr_read_bw_factor,
@@ -653,19 +654,18 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	fps = d->fps;
 	width = max(d->input_width, BASELINE_DIMENSIONS.width);
 	height = max(d->input_height, BASELINE_DIMENSIONS.height);
-	bitrate = __lut(width, height, fps)->bitrate;
+	bitrate = d->bitrate > 0 ? d->bitrate / 1000000 :
+		__lut(width, height, fps)->bitrate;
 	lcu_size = d->lcu_size;
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
 		DIV_ROUND_UP(height, lcu_size);
-	tnbr_per_lcu = lcu_size == 16 ? 128 :
-		lcu_size == 32 ? 64 : 128;
+	tnbr_per_lcu = 16;
 
-	y_bw_no_ubwc_8bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(32 * 8)), FP_INT(1000 * 1000));
-	y_bw_no_ubwc_10bpp = fp_div(fp_div(fp_mult(
-		FP_INT((int)(width * height)), FP_INT((int)(256 * fps))),
-		FP_INT(48 * 4)), FP_INT(1000 * 1000));
+	y_bw_no_ubwc_8bpp = fp_div(fp_mult(
+		FP_INT((int)(width * height)), FP_INT(fps)),
+		FP_INT(1000 * 1000));
+	y_bw_no_ubwc_10bpp = fp_div(fp_mult(y_bw_no_ubwc_8bpp,
+		FP_INT(256)), FP_INT(192));
 
 	b_frames_enabled = d->b_frames_enabled;
 	original_color_format = d->num_formats >= 1 ?
@@ -679,8 +679,6 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	low_power = d->power_mode == VIDC_POWER_LOW;
 	bins_to_bit_factor = work_mode_1 ?
 		FP_INT(0) : FP_INT(4);
-	dpb_ubwc_tile_width = dpb_bpp == 8 ? 32 : 48;
-	dpb_ubwc_tile_height = dpb_bpp == 8 ? 8 : 4;
 
 	if (d->use_sys_cache) {
 		llc_ref_chroma_cache_enabled = true;
@@ -709,13 +707,24 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	input_compression_factor = FP(integer_part, frac_part, 100);
 
-	original_compression_factor =
-		original_compression_enabled ? d->use_dpb_read ?
-			dpb_compression_factor : input_compression_factor :
-		FP_ONE;
+	original_compression_factor = original_compression_factor_y =
+		!original_compression_enabled ? FP_ONE :
+		__compression_ratio(__lut(width, height, fps), dpb_bpp);
+	/* use input cr if it is valid (not 1), otherwise use lut */
+	if (original_compression_enabled &&
+		input_compression_factor != FP_ONE) {
+		original_compression_factor = input_compression_factor;
+		/* Luma usually has lower compression factor than Chroma,
+		 * input cf is overall cf, add 1.08 factor for Luma cf
+		 */
+		original_compression_factor_y =
+			input_compression_factor > FP(1, 8, 100) ?
+			fp_div(input_compression_factor, FP(1, 8, 100)) :
+			input_compression_factor;
+	}
 
 	mese_read_factor = fp_div(FP_INT((width * height * fps)/4),
-		original_compression_factor);
+		original_compression_factor_y);
 	mese_read_factor = fp_div(fp_mult(mese_read_factor, FP(2, 53, 100)),
 		 FP_INT(1000 * 1000));
 
@@ -726,8 +735,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	collocated_bytes_per_lcu = lcu_size == 16 ? 16 :
 				lcu_size == 32 ? 64 : 256;
 
-	ddr.collocated_read = FP_INT(lcu_per_frame *
-			collocated_bytes_per_lcu * fps / bps(1));
+	ddr.collocated_read = fp_div(FP_INT(lcu_per_frame *
+			collocated_bytes_per_lcu * fps), FP_INT(bps(1)));
 
 	ddr.collocated_write = ddr.collocated_read;
 
@@ -765,7 +774,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	ddr.orig_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
 	ddr.orig_read = fp_div(fp_mult(ddr.orig_read, FP(1, 50, 100)),
-		input_compression_factor);
+		original_compression_factor);
 
 	ddr.line_buffer_read = FP_INT(tnbr_per_lcu * lcu_per_frame *
 		fps / bps(1));
@@ -777,13 +786,12 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	}
 
 	ddr.mese_read = dpb_bpp == 8 ? y_bw_no_ubwc_8bpp : y_bw_no_ubwc_10bpp;
-	ddr.mese_read = fp_div(ddr.mese_read,
-		fp_mult(FP(1, 37, 100), original_compression_factor)) +
-		mese_read_factor;
+	ddr.mese_read = fp_div(fp_mult(ddr.mese_read, FP(1, 37, 100)),
+		original_compression_factor_y) + mese_read_factor;
 
 	ddr.mese_write = FP_INT((width * height)/512) +
 		fp_div(FP_INT((width * height)/4),
-		original_compression_factor) +
+		original_compression_factor_y) +
 		FP_INT((width * height)/128);
 	ddr.mese_write = fp_div(fp_mult(ddr.mese_write, FP_INT(fps)),
 		FP_INT(1000 * 1000));
@@ -796,10 +804,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		ddr.line_buffer_read + ddr.line_buffer_write +
 		ddr.mese_read + ddr.mese_write;
 
-	llc.total = llc.ref_read_crcb + llc.line_buffer;
-
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
+	llc.total = llc.ref_read_crcb + llc.line_buffer + ddr.total;
 
 	if (debug) {
 		struct dump dump[] = {
@@ -811,6 +818,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"cropping or scaling", "%d", cropping_or_scaling},
 		{"low power mode", "%d", low_power},
 		{"work Mode", "%d", work_mode_1},
+		{"B frame enabled", "%d", b_frames_enabled},
 		{"original frame format", "%#x", original_color_format},
 		{"original compression enabled", "%d",
 			original_compression_enabled},
@@ -831,6 +839,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"bins to bit factor", DUMP_FP_FMT, bins_to_bit_factor},
 		{"original compression factor", DUMP_FP_FMT,
 			original_compression_factor},
+		{"original compression factor y", DUMP_FP_FMT,
+			original_compression_factor_y},
 		{"mese read factor", DUMP_FP_FMT,
 			mese_read_factor},
 		{"qsmmu_bw_overhead_factor",

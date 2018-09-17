@@ -76,6 +76,10 @@ Optional properties:
 			[1] for details.
  - qcom,msm-bus,vectors-KBps: Required if qcom,msm-bus,name is specified.  See
 			[1] for an explanation of the data format.
+ - mboxes:		Mailbox tuple containing QMP mailbox phandle and channel
+			identifier.  If this is specified, then a QMP message
+			should be sent to enable the GDSC instead of setting
+			SW_COLLAPSE=0.
 
 [1]: Documentation/devicetree/bindings/arm/msm/msm_bus.txt
 

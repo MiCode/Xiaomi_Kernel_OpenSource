@@ -234,6 +234,16 @@ config MSM_NPUCC_SM8150
 	  SM8150 devices.
 	  Say Y if you want to enable use of the Network Processing Unit.
 
+config MSM_SCC_SM8150
+	tristate "SM8150 Sensor Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.  The sensor controller contains several QUP clocks
+	  which can be managed using DFS.  This controller is typically owned by
+	  the sensor processor.  However, on some systems it is instead owned
+	  by the application processor.
+
 config MSM_VIDEOCC_SM8150
 	tristate "SM8150 Video Clock Controller"
 	depends on COMMON_CLK_QCOM
@@ -396,6 +406,15 @@ config MSM_DISPCC_SM6150
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
+config MSM_CAMCC_SDMMAGPIE
+	tristate "SDMMAGPIE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 config MSM_DISPCC_SDMMAGPIE
 	tristate "SDMMAGPIE Display Clock Controller"
 	depends on COMMON_CLK_QCOM
@@ -439,3 +458,11 @@ config MSM_GPUCC_SDMMAGPIE
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  SDMMAGPIE devices.
 	  Say Y if you want to support graphics clocks.
+
+config MSM_DEBUGCC_SDMMAGPIE
+	tristate "SDMMAGPIE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support the clock measurement functionality.

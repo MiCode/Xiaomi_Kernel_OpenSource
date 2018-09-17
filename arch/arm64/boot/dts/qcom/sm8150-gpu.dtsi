@@ -78,6 +78,7 @@
 		qcom,initial-pwrlevel = <5>;
 
 		qcom,gpu-quirk-secvid-set-once;
+		qcom,gpu-quirk-cx-gdsc;
 
 		qcom,idle-timeout = <80>; //msecs
 		qcom,no-nap;

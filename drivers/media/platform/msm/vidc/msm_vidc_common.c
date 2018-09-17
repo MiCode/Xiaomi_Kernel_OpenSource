@@ -753,11 +753,8 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 		return HAL_VIDEO_DECODER_PRIMARY;
 	}
 
-	if (!is_decode_session(inst)) {
-		dprintk(VIDC_DBG, "%s: not a decode session %x\n",
-			__func__, hash32_ptr(inst->session));
+	if (!is_decode_session(inst))
 		return HAL_VIDEO_DECODER_PRIMARY;
-	}
 
 	if (inst->stream_output_mode == HAL_VIDEO_DECODER_SECONDARY)
 		return HAL_VIDEO_DECODER_SECONDARY;
@@ -945,6 +942,9 @@ enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 	switch (fourcc) {
 	case V4L2_PIX_FMT_NV12:
 		format = HAL_COLOR_FORMAT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV12_512:
+		format = HAL_COLOR_FORMAT_NV12_512;
 		break;
 	case V4L2_PIX_FMT_NV21:
 		format = HAL_COLOR_FORMAT_NV21;
@@ -2240,7 +2240,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	msm_vidc_handle_hw_error(core);
 	if (response->status == VIDC_ERR_NOC_ERROR) {
 		dprintk(VIDC_WARN, "Got NOC error");
-		MSM_VIDC_ERROR(true);
+		MSM_VIDC_ERROR(false);
 	}
 
 	dprintk(VIDC_DBG, "Calling core_release\n");
@@ -2508,6 +2508,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 			__func__, planes[0], planes[1]);
 		goto exit;
 	}
+	mbuf->flags &= ~MSM_VIDC_FLAG_QUEUED;
 	vb = &mbuf->vvb.vb2_buf;
 
 	vb->planes[0].bytesused = response->input_done.filled_len;
@@ -2641,6 +2642,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				&fill_buf_done->packet_buffer1);
 		goto exit;
 	}
+	mbuf->flags &= ~MSM_VIDC_FLAG_QUEUED;
 	vb = &mbuf->vvb.vb2_buf;
 
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME)
@@ -3262,7 +3264,11 @@ static int msm_comm_session_init(int flipped_state,
 		return -EINVAL;
 	}
 
-	msm_comm_init_clocks_and_bus_data(inst);
+	rc = msm_comm_init_clocks_and_bus_data(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to initialize clocks and bus data\n");
+		goto exit;
+	}
 
 	dprintk(VIDC_DBG, "%s: inst %pK\n", __func__, inst);
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
@@ -4239,6 +4245,29 @@ enum hal_buffer get_hal_buffer_type(unsigned int type,
 	}
 }
 
+int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type)
+{
+	int count = 0;
+	struct msm_vidc_buffer *mbuf;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+		if (mbuf->vvb.vb2_buf.type != type)
+			continue;
+		if (!(mbuf->flags & MSM_VIDC_FLAG_QUEUED))
+			continue;
+		count++;
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return count;
+}
+
 static int num_pending_qbufs(struct msm_vidc_inst *inst, u32 type)
 {
 	int count = 0;
@@ -4297,6 +4326,7 @@ static int msm_comm_qbuf_to_hfi(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: Failed to qbuf: %d\n", __func__, rc);
 		goto err_bad_input;
 	}
+	mbuf->flags |= MSM_VIDC_FLAG_QUEUED;
 	msm_vidc_debugfs_update(inst, e);
 
 err_bad_input:
@@ -6217,7 +6247,6 @@ struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf)
 {
-	int rc;
 	struct vb2_buffer *vb;
 	u32 port;
 
@@ -6253,7 +6282,7 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 	mutex_unlock(&inst->bufq[port].lock);
 
-	return rc;
+	return 0;
 }
 
 int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,

@@ -286,11 +286,12 @@ static void usb_read_work_fn(struct work_struct *work)
 		req->buf = ch->read_buf;
 		req->length = USB_MAX_OUT_BUF;
 		err = usb_diag_read(ch->hdl, req);
-		if (err && err != -EIO) {
+		if (err) {
 			pr_debug("diag: In %s, error in reading from USB %s, err: %d\n",
 				 __func__, ch->name, err);
 			atomic_set(&ch->read_pending, 0);
-			queue_work(ch->usb_wq, &(ch->read_work));
+			if (err != -EIO)
+				queue_work(ch->usb_wq, &(ch->read_work));
 		}
 	} else {
 		pr_err_ratelimited("diag: In %s invalid read req\n", __func__);
@@ -658,8 +659,8 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	INIT_WORK(&(ch->connect_work), usb_connect_work_fn);
 	INIT_WORK(&(ch->disconnect_work), usb_disconnect_work_fn);
 	init_waitqueue_head(&ch->wait_q);
-	strlcpy(wq_name, "DIAG_USB_", DIAG_USB_STRING_SZ);
-	strlcat(wq_name, ch->name, sizeof(ch->name));
+	strlcpy(wq_name, "DIAG_USB_", sizeof(wq_name));
+	strlcat(wq_name, ch->name, sizeof(wq_name));
 	ch->usb_wq = create_singlethread_workqueue(wq_name);
 	if (!ch->usb_wq)
 		goto err;

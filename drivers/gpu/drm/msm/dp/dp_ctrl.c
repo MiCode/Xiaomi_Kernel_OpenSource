@@ -166,7 +166,8 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 		bool enable)
 {
 	if (enable) {
-		ctrl->catalog->lane_mapping(ctrl->catalog);
+		ctrl->catalog->lane_mapping(ctrl->catalog, ctrl->orientation,
+						ctrl->parser->l_map);
 		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
 		ctrl->catalog->config_ctrl(ctrl->catalog);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);

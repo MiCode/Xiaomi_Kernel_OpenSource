@@ -1232,6 +1232,16 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &neg_one,
 	},
+	{
+		.procname	= "hung_task_selective_monitoring",
+		.data		= &sysctl_hung_task_selective_monitoring,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
+
 #endif
 #ifdef CONFIG_RT_MUTEXES
 	{

@@ -2597,11 +2597,6 @@ void ipa3_q6_post_shutdown_cleanup(void)
 
 	IPADBG_LOW("ENTER\n");
 
-	if (!ipa3_ctx->uc_ctx.uc_loaded) {
-		IPAERR("uC is not loaded. Skipping\n");
-		return;
-	}
-
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	/* Handle the issue where SUSPEND was removed for some reason */
@@ -2617,6 +2612,11 @@ void ipa3_q6_post_shutdown_cleanup(void)
 	}
 
 	ipa3_halt_q6_gsi_channels(prod);
+
+	if (!ipa3_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded. Skipping\n");
+		return;
+	}
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
@@ -3586,7 +3586,6 @@ void ipa3_enable_clks(void)
  */
 void _ipa_disable_clks_v3_0(void)
 {
-	ipa3_suspend_apps_pipes(true);
 	ipa3_uc_notify_clk_state(false);
 	if (ipa3_clk) {
 		IPADBG_LOW("disabling gcc_ipa_clk\n");
@@ -3831,6 +3830,7 @@ static void __ipa3_dec_client_disable_clks(void)
 	ret = atomic_sub_return(1, &ipa3_ctx->ipa3_active_clients.cnt);
 	if (ret > 0)
 		goto unlock_mutex;
+	ipa3_suspend_apps_pipes(true);
 	ipa3_disable_clks();
 
 unlock_mutex:
@@ -4268,7 +4268,7 @@ int ipa3_init_interrupts(void)
 	return 0;
 
 fail_add_interrupt_handler:
-	free_irq(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
+	ipa3_interrupts_destroy(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
 	return result;
 }
 
@@ -4318,8 +4318,10 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 		ipa3_ctx->smp2p_info.ipa_clk_on = true;
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
-			BIT(IPA_SMP2P_SMEM_STATE_MASK),
-			BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
+			IPA_SMP2P_SMEM_STATE_MASK,
+			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
+			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = true;
 	IPADBG("IPA clocks are %s\n",
@@ -4335,8 +4337,10 @@ void ipa3_reset_freeze_vote(void)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("FREEZE_VOTE");
 
 	qcom_smem_state_update_bits(ipa3_ctx->smp2p_info.smem_state,
-		BIT(IPA_SMP2P_SMEM_STATE_MASK),
-		BIT(ipa3_ctx->smp2p_info.ipa_clk_on | (1 << 1)));
+			IPA_SMP2P_SMEM_STATE_MASK,
+			((ipa3_ctx->smp2p_info.ipa_clk_on <<
+			IPA_SMP2P_OUT_CLK_VOTE_IDX) |
+			(1 << IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX)));
 
 	ipa3_ctx->smp2p_info.res_sent = false;
 	ipa3_ctx->smp2p_info.ipa_clk_on = false;

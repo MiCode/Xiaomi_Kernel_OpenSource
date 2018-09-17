@@ -505,8 +505,10 @@ static int load_gmu_fw(struct kgsl_device *device)
 				gmu_core_regwrite(device, tcm_addr + j,
 					fwptr[j]);
 		} else {
+			uint32_t offset = blk->addr - (uint32_t)md->gmuaddr;
+
 			/* Copy the memory directly */
-			memcpy(md->hostptr, fw, blk->size);
+			memcpy(md->hostptr + offset, fw, blk->size);
 		}
 
 		fw += blk->size;
@@ -1259,6 +1261,37 @@ static uint32_t lm_limit(struct adreno_device *adreno_dev)
 	return adreno_dev->lm_limit;
 }
 
+static int a640_throttling_counters[ADRENO_GPMU_THROTTLE_COUNTERS] = {
+	0x11, 0x15, 0x19
+};
+
+static void _setup_throttling_counters(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(a640_throttling_counters); i++) {
+		adreno_dev->busy_data.throttle_cycles[i] = 0;
+
+		if (!a640_throttling_counters[i])
+			continue;
+		if (adreno_dev->gpmu_throttle_counters[i])
+			continue;
+
+		ret = adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
+				a640_throttling_counters[i],
+				&adreno_dev->gpmu_throttle_counters[i],
+				NULL,
+				PERFCOUNTER_FLAG_KERNEL);
+		if (ret)
+			dev_err_once(&gmu->pdev->dev,
+				"Unable to get counter for LM: GPMU_PWR %d\n",
+				a640_throttling_counters[i]);
+	}
+}
+
 #define LIMITS_CONFIG(t, s, c, i, a) ( \
 		(t & 0xF) | \
 		((s & 0xF) << 4) | \
@@ -1277,6 +1310,12 @@ void a6xx_gmu_enable_lm(struct kgsl_device *device)
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
+
+	/* a640 only needs to set up throttling counters for DCVS */
+	if (adreno_is_a640(adreno_dev)) {
+		_setup_throttling_counters(adreno_dev);
+		return;
+	}
 
 	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
 		GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
@@ -1392,7 +1431,6 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	struct gmu_mem_type_desc desc[] = {
 		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
 		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
-		{gmu->bw_mem, SNAPSHOT_GMU_BWMEM},
 		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
 	unsigned int val, i;
 

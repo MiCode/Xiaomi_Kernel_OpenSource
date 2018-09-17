@@ -589,8 +589,8 @@ static ssize_t block_size_store(struct device *dev,
 	if (!drvdata->byte_cntr)
 		return -EINVAL;
 
-	if (val && val < 16) {
-		pr_err("Assign minimum block size of 16 bytes\n");
+	if (val && val < 4096) {
+		pr_err("Assign minimum block size of 4096 bytes\n");
 		return -EINVAL;
 	}
 

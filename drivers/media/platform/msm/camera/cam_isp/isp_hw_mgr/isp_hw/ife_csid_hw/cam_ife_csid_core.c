@@ -42,6 +42,9 @@
 #define CAM_IFE_CSID_QTIMER_MUL_FACTOR                 10000
 #define CAM_IFE_CSID_QTIMER_DIV_FACTOR                 192
 
+/* Max number of sof irq's triggered in case of SOF freeze */
+#define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 12
+
 static int cam_ife_csid_is_ipp_ppp_format_supported(
 	uint32_t in_format)
 {
@@ -1410,13 +1413,41 @@ static int cam_ife_csid_disable_csi2(
 	if (csid_hw->csi2_cfg_cnt)
 		return 0;
 
-	/*Disable the CSI2 rx inerrupts */
+	/* Disable the CSI2 rx inerrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
+
+	/* Reset the Rx CFG registers */
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 
 	return 0;
+}
+
+static void cam_ife_csid_halt_csi2(
+	struct cam_ife_csid_hw          *csid_hw)
+{
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
+
+	csid_reg = csid_hw->csid_info->csid_reg;
+	soc_info = &csid_hw->hw_info->soc_info;
+	CAM_INFO(CAM_ISP, "CSID: %d cnt: %d Halt csi2 rx",
+		csid_hw->hw_intf->hw_idx, csid_hw->csi2_cfg_cnt);
+
+	/* Disable the CSI2 rx inerrupts */
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
+
+	/* Reset the Rx CFG registers */
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
 }
 
 static int cam_ife_csid_init_config_pxl_path(
@@ -2501,6 +2532,10 @@ static int cam_ife_csid_start(void *hw_priv, void *start_args,
 		goto end;
 	}
 
+	/* Reset sof irq debug fields */
+	csid_hw->sof_irq_triggered = false;
+	csid_hw->irq_debug_cnt = 0;
+
 	CAM_DBG(CAM_ISP, "CSID:%d res_type :%d res_id:%d",
 		csid_hw->hw_intf->hw_idx, res->res_type, res->res_id);
 
@@ -2653,10 +2688,13 @@ static int cam_ife_csid_sof_irq_debug(
 		}
 	}
 
-	if (sof_irq_enable)
+	if (sof_irq_enable) {
 		csid_hw->csid_debug |= CSID_DEBUG_ENABLE_SOF_IRQ;
-	else
+		csid_hw->sof_irq_triggered = true;
+	} else {
 		csid_hw->csid_debug &= ~CSID_DEBUG_ENABLE_SOF_IRQ;
+		csid_hw->sof_irq_triggered = false;
+	}
 
 	CAM_INFO(CAM_ISP, "SOF freeze: CSID SOF irq %s",
 		(sof_irq_enable == true) ? "enabled" : "disabled");
@@ -2709,6 +2747,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
 	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
 	uint32_t val, irq_status_ppp = 0;
+	bool fatal_err_detected = false;
+	uint32_t sof_irq_debug_en = 0;
 
 	csid_hw = (struct cam_ife_csid_hw *)data;
 
@@ -2777,22 +2817,27 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE0_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 0 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		fatal_err_detected = true;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE1_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 1 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		fatal_err_detected = true;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE2_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 2 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		fatal_err_detected = true;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 3 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		fatal_err_detected = true;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_TG_FIFO_OVERFLOW) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d TG OVER  FLOW",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d TG OVER FLOW",
 			 csid_hw->hw_intf->hw_idx);
+		fatal_err_detected = true;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_EOT_RECEPTION",
@@ -2827,24 +2872,27 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			 csid_hw->hw_intf->hw_idx);
 	}
 
+	if (fatal_err_detected)
+		cam_ife_csid_halt_csi2(csid_hw);
+
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOT_IRQ) {
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL0_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL1_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL2_EOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL2_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL3_EOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL3_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
@@ -2852,22 +2900,22 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOT_IRQ) {
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL0_SOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL0_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL1_SOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL1_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL2_SOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL2_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL3_SOT_CAPTURED) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PHY_DL3_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
@@ -2875,44 +2923,48 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_LONG_PKT_CAPTURE) &&
 		(irq_status_rx & CSID_CSI2_RX_INFO_LONG_PKT_CAPTURED)) {
-		CAM_ERR(CAM_ISP, "CSID:%d LONG_PKT_CAPTURED",
+		CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d LONG_PKT_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_long_pkt_0_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d long packet VC :%d DT:%d WC:%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSID:%d long packet VC :%d DT:%d WC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x3F), (val & 0xFFFF));
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_long_pkt_1_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d long packet ECC :%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d long packet ECC :%d",
 			csid_hw->hw_intf->hw_idx, val);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_long_pkt_ftr_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d long pkt cal CRC:%d expected CRC:%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSID:%d long pkt cal CRC:%d expected CRC:%d",
 			csid_hw->hw_intf->hw_idx, (val >> 16), (val & 0xFFFF));
 	}
 	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_SHORT_PKT_CAPTURE) &&
 		(irq_status_rx & CSID_CSI2_RX_INFO_SHORT_PKT_CAPTURED)) {
-		CAM_ERR(CAM_ISP, "CSID:%d SHORT_PKT_CAPTURED",
+		CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d SHORT_PKT_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_short_pkt_0_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d short pkt VC :%d DT:%d LC:%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSID:%d short pkt VC :%d DT:%d LC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x1F), (val & 0xFFFF));
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_short_pkt_1_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d short packet ECC :%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d short packet ECC :%d",
 			csid_hw->hw_intf->hw_idx, val);
 	}
 
 	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE) &&
 		(irq_status_rx & CSID_CSI2_RX_INFO_CPHY_PKT_HDR_CAPTURED)) {
-		CAM_ERR(CAM_ISP, "CSID:%d CPHY_PKT_HDR_CAPTURED",
+		CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_PKT_HDR_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csi2_reg->csid_csi2_rx_captured_cphy_pkt_hdr_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d cphy packet VC :%d DT:%d WC:%d",
+		CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSID:%d cphy packet VC :%d DT:%d WC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x1F), (val & 0xFFFF));
 	}
@@ -2927,20 +2979,23 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		}
 
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_SOF) &&
-			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d IPP SOF received",
+			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)) {
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d IPP SOF received",
 				csid_hw->hw_intf->hw_idx);
+			if (csid_hw->sof_irq_triggered)
+				csid_hw->irq_debug_cnt++;
+		}
 
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d IPP EOF received",
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d IPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
 		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d IPP fifo over flow",
 				csid_hw->hw_intf->hw_idx);
-			/*Stop IPP path immediately */
+			/* Stop IPP path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
 				soc_info->reg_map[0].mem_base +
 				csid_reg->ipp_reg->csid_pxl_ctrl_addr);
@@ -2957,20 +3012,23 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		}
 
 		if ((irq_status_ppp & CSID_PATH_INFO_INPUT_SOF) &&
-			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d PPP SOF received",
+			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)) {
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d PPP SOF received",
 				csid_hw->hw_intf->hw_idx);
+			if (csid_hw->sof_irq_triggered)
+				csid_hw->irq_debug_cnt++;
+		}
 
 		if ((irq_status_ppp & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d PPP EOF received",
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d PPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
 		if (irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d PPP fifo over flow",
 				csid_hw->hw_intf->hw_idx);
-			/*Stop PPP path immediately */
+			/* Stop PPP path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
 				soc_info->reg_map[0].mem_base +
 				csid_reg->ppp_reg->csid_pxl_ctrl_addr);
@@ -2985,24 +3043,32 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		}
 
 		if ((irq_status_rdi[i] & CSID_PATH_INFO_INPUT_SOF) &&
-			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)) {
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID RDI:%d SOF received", i);
+			if (csid_hw->sof_irq_triggered)
+				csid_hw->irq_debug_cnt++;
+		}
 
 		if ((irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID RDI:%d EOF received", i);
 
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d RDI fifo over flow",
 				csid_hw->hw_intf->hw_idx);
-			/*Stop RDI path immediately */
+			/* Stop RDI path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
 				soc_info->reg_map[0].mem_base +
 				csid_reg->rdi_reg[i]->csid_rdi_ctrl_addr);
 		}
+	}
+
+	if (csid_hw->irq_debug_cnt >= CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX) {
+		cam_ife_csid_sof_irq_debug(csid_hw, &sof_irq_debug_en);
+		csid_hw->irq_debug_cnt = 0;
 	}
 
 	CAM_DBG(CAM_ISP, "IRQ Handling exit");

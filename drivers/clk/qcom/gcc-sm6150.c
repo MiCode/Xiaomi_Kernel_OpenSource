@@ -3424,8 +3424,8 @@ static const struct qcom_reset_map gcc_sm6150_resets[] = {
 	[GCC_PCIE_PHY_COM_BCR] = { 0x6f010 },
 	[GCC_UFS_PHY_BCR] = { 0x77000 },
 	[GCC_USB20_SEC_BCR] = { 0xa6000 },
-	[GCC_USB3_DP_PHY_PRIM_SP0_BCR] = { 0x50010 },
 	[GCC_USB3PHY_PHY_PRIM_SP0_BCR] = { 0x50008 },
+	[GCC_USB3_PHY_PRIM_SP0_BCR] = { 0x50000 },
 };
 
 static struct clk_dfs gcc_dfs_clocks[] = {

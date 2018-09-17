@@ -289,6 +289,7 @@ out:
 
 #define MICRO_1P5A			1500000
 #define MICRO_P1A			100000
+#define MICRO_1PA			1000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define MIN_WD_BARK_TIME		16
 #define DEFAULT_WD_BARK_TIME		64
@@ -348,7 +349,8 @@ static int smb5_parse_dt(struct smb5 *chip)
 	rc = of_property_read_u32(node,
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chg->otg_cl_ua = MICRO_1P5A;
+		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
+							MICRO_1PA : MICRO_1P5A;
 
 	rc = of_property_read_u32(node, "qcom,chg-term-src",
 			&chip->dt.term_current_src);
@@ -437,6 +439,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 					&chg->otg_delay_ms);
 	if (rc < 0)
 		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
+
+	chg->fcc_stepper_enable = of_property_read_bool(node,
+					"qcom,fcc-stepping-enable");
 
 	rc = of_property_match_string(node, "io-channel-names",
 			"usb_in_voltage");
@@ -529,6 +534,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
 	POWER_SUPPLY_PROP_TYPEC_SRC_RP,
+	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
@@ -615,6 +621,12 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_SRC_RP:
 		rc = smblib_get_prop_typec_select_rp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_LOW_POWER:
+		if (chg->sink_src_mode == SRC_MODE)
+			rc = smblib_get_prop_low_power(chg, val);
+		else
+			rc = -ENODATA;
 		break;
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		val->intval = chg->pd_active;
@@ -1174,6 +1186,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
+	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1261,7 +1274,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		if (chg->die_health == -EINVAL)
-			rc = smblib_get_prop_die_health(chg, val);
+			val->intval = smblib_get_prop_die_health(chg);
 		else
 			val->intval = chg->die_health;
 		break;
@@ -1291,6 +1304,8 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
 		val->intval = 0;
+	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
+		val->intval = chg->fcc_stepper_enable;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -1549,8 +1564,11 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
-				TYPEC_WATER_DETECTION_INT_EN_BIT);
+	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT |
+				TYPEC_WATER_DETECTION_INT_EN_BIT,
+				TYPEC_SRC_BATT_HPWR_INT_EN_BIT
+				| TYPEC_WATER_DETECTION_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
@@ -1591,6 +1609,8 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 {
 	int rc;
 
+	/* For micro USB connector, use extcon by default */
+	chg->use_extcon = true;
 	chg->pd_not_supported = true;
 
 	rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
@@ -1797,6 +1817,13 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	/* set OTG current limit */
+	rc = smblib_set_charge_param(chg, &chg->param.otg_cl, chg->otg_cl_ua);
+	if (rc < 0) {
+		pr_err("Couldn't set otg current limit rc=%d\n", rc);
+		return rc;
+	}
+
 	/* vote 0mA on usb_icl for non battery platforms */
 	vote(chg->usb_icl_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
@@ -1832,8 +1859,9 @@ static int smb5_init_hw(struct smb5 *chip)
 	if (chg->smb_version != PMI632_SUBTYPE) {
 		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
 				USBIN_AICL_PERIODIC_RERUN_EN_BIT
-				| USBIN_AICL_ADC_EN_BIT,
-				USBIN_AICL_PERIODIC_RERUN_EN_BIT);
+				| USBIN_AICL_ADC_EN_BIT | USBIN_AICL_EN_BIT,
+				USBIN_AICL_PERIODIC_RERUN_EN_BIT
+				| USBIN_AICL_EN_BIT);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
 			return rc;
@@ -1965,6 +1993,14 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	rc = smblib_write(chg, CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG,
+					FAST_CHARGE_SAFETY_TIMER_768_MIN);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set CHGR_FAST_CHARGE_SAFETY_TIMER_CFG_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
 				(chip->dt.auto_recharge_vbat_mv != -EINVAL) ?
 				VBAT_BASED_RECHG_BIT : 0);
@@ -2041,6 +2077,14 @@ static int smb5_init_hw(struct smb5 *chip)
 			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
 			return rc;
 		}
+	}
+
+	rc = smblib_masked_write(chg, DCDC_ENG_SDCDC_CFG5_REG,
+			ENG_SDCDC_BAT_HPWR_MASK, BOOST_MODE_THRESH_3P6_V);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure DCDC_ENG_SDCDC_CFG5 rc=%d\n",
+				rc);
+		return rc;
 	}
 
 	return rc;
@@ -2597,18 +2641,24 @@ static int smb5_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = smb5_parse_dt(chip);
-	if (rc < 0) {
-		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
-	}
-
 	rc = smb5_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
 			pr_err("Couldn't setup chg_config rc=%d\n", rc);
 		return rc;
 	}
+
+	rc = smb5_parse_dt(chip);
+	if (rc < 0) {
+		pr_err("Couldn't parse device tree rc=%d\n", rc);
+		return rc;
+	}
+
+	if (alarmtimer_get_rtcdev())
+		alarm_init(&chg->lpd_recheck_timer, ALARM_REALTIME,
+				smblib_lpd_recheck_timer);
+	else
+		return -EPROBE_DEFER;
 
 	rc = smblib_init(chg);
 	if (rc < 0) {
@@ -2618,20 +2668,6 @@ static int smb5_probe(struct platform_device *pdev)
 
 	/* set driver data before resources request it */
 	platform_set_drvdata(pdev, chip);
-
-	rc = smb5_init_vbus_regulator(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize vbus regulator rc=%d\n",
-			rc);
-		goto cleanup;
-	}
-
-	rc = smb5_init_vconn_regulator(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize vconn regulator rc=%d\n",
-				rc);
-		goto cleanup;
-	}
 
 	/* extcon registration */
 	chg->extcon = devm_extcon_dev_allocate(chg->dev, smblib_extcon_cable);
@@ -2653,6 +2689,30 @@ static int smb5_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
 		goto cleanup;
+	}
+
+	/*
+	 * VBUS regulator enablement/disablement for host mode is handled
+	 * by USB-PD driver only. For micro-USB and non-PD typeC designs,
+	 * the VBUS regulator is enabled/disabled by the smb driver itself
+	 * before sending extcon notifications.
+	 * Hence, register vbus and vconn regulators for PD supported designs
+	 * only.
+	 */
+	if (!chg->pd_not_supported) {
+		rc = smb5_init_vbus_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vbus regulator rc=%d\n",
+				rc);
+			goto cleanup;
+		}
+
+		rc = smb5_init_vconn_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vconn regulator rc=%d\n",
+				rc);
+			goto cleanup;
+		}
 	}
 
 	switch (chg->smb_version) {

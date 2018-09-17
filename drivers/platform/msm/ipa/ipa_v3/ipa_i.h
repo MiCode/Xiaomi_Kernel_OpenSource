@@ -229,6 +229,8 @@ enum {
 # define __cpuc_flush_dcache_area __flush_dcache_area
 #endif
 
+#define IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX 0
+#define IPA_SMP2P_OUT_CLK_VOTE_IDX 1
 #define IPA_SMP2P_SMEM_STATE_MASK 3
 
 
@@ -2398,6 +2400,7 @@ int ipa3_active_clients_log_print_buffer(char *buf, int size);
 int ipa3_active_clients_log_print_table(char *buf, int size);
 void ipa3_active_clients_log_clear(void);
 int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
+void ipa3_interrupts_destroy(u32 ipa_irq, struct device *ipa_dev);
 int __ipa3_del_rt_rule(u32 rule_hdl);
 int __ipa3_del_hdr(u32 hdr_hdl, bool by_user);
 int __ipa3_release_hdr(u32 hdr_hdl);

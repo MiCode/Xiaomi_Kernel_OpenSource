@@ -26,11 +26,8 @@
 #define PREMATURE_CNT_HIGH 5
 
 struct power_params {
-	uint32_t latency_us;		/* Enter + Exit latency */
-	uint32_t ss_power;		/* Steady state power */
-	uint32_t energy_overhead;	/* Enter + exit over head */
-	uint32_t time_overhead_us;	/* Enter + exit overhead */
-	uint32_t residencies[NR_LPM_LEVELS];
+	uint32_t entry_latency;		/* Entry latency */
+	uint32_t exit_latency;		/* Exit latency */
 	uint32_t min_residency;
 	uint32_t max_residency;
 };
@@ -62,7 +59,7 @@ struct lpm_cpu {
 struct lpm_level_avail {
 	bool idle_enabled;
 	bool suspend_enabled;
-	uint32_t latency_us;
+	uint32_t exit_latency;
 	struct kobject *kobj;
 	struct kobj_attribute idle_enabled_attr;
 	struct kobj_attribute suspend_enabled_attr;
