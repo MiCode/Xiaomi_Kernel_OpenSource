@@ -95,6 +95,9 @@ SoCs:
 - SDM660
   compatible = "qcom,sdm660"
 
+- SDM455
+  compatible = "qcom,sdm455"
+
 - SDA658
   compatible = "qcom,sda658"
 
@@ -292,6 +295,9 @@ compatible = "qcom,sdm660-cdp"
 compatible = "qcom,sdm660-mtp"
 compatible = "qcom,sdm660-qrd"
 compatible = "qcom,sda660-qrd"
+compatible = "qcom,sdm455-mtp"
+compatible = "qcom,sdm455-qrd"
+compatible = "qcom,sdm455-cdp"
 compatible = "qcom,sda658-mtp"
 compatible = "qcom,sda658-cdp"
 compatible = "qcom,sda660-mtp"

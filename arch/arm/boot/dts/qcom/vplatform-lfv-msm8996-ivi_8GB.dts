@@ -1,0 +1,33 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "vplatform-lfv-msm8996-ivi-common.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996";
+	compatible = "qcom,msm8996";
+	qcom,msm-id = <246 0x0>;
+};
+
+&reserved_memory {
+		pmem_shared: pmem_shared_region@13ff75000 {
+			reg = <0x1 0x3ff75000 0x0 0x3ff75000>;
+			label = "pmem_shared_mem";
+		};
+
+		ion_system: ion_system_region@17feea000 {
+			reg = <0x1 0x7feea000 0x0 0x3ff75000>;
+			label = "ion_system_mem";
+		};
+};

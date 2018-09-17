@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -478,6 +478,13 @@ static int glink_spi_xprt_rx_cmd(struct edge_info *einfo, void *dst,
 	int ret;
 
 	read_id = einfo->rx_fifo_read;
+	if ((read_id > (einfo->rx_fifo_start + einfo->fifo_size)) ||
+		(read_id < einfo->rx_fifo_start)) {
+		pr_err("%s: Invalid rx_fifo_read: %d, start: %d, size: %d\n",
+			__func__, read_id, einfo->rx_fifo_start,
+			einfo->fifo_size);
+		return -EINVAL;
+	}
 	do {
 		if ((read_id + size_to_read) >=
 		    (einfo->rx_fifo_start + einfo->fifo_size))
@@ -716,11 +723,11 @@ static void process_rx_cmd(struct edge_info *einfo,
 	struct rx_short_data_desc {
 		unsigned char data[SHORT_PKT_SIZE];
 	};
-	struct command *cmd;
+	struct command *cmd = NULL;
 	struct intent_desc *intents;
 	struct rx_desc *rx_descp;
 	struct rx_short_data_desc *rx_sd_descp;
-	int offset = 0;
+	uint64_t offset = 0;
 	int rcu_id;
 	uint16_t rcid;
 	uint16_t name_len;
@@ -736,6 +743,8 @@ static void process_rx_cmd(struct edge_info *einfo,
 	}
 
 	while (offset < rx_size) {
+		if (offset + sizeof(*cmd) > rx_size)
+			goto err;
 		cmd = (struct command *)(rx_data + offset);
 		offset += sizeof(*cmd);
 		switch (cmd->id) {
@@ -754,7 +763,12 @@ static void process_rx_cmd(struct edge_info *einfo,
 		case OPEN_CMD:
 			rcid = cmd->param1;
 			name_len = (uint16_t)(cmd->param2 & 0xFFFF);
+			if (name_len > GLINK_NAME_SIZE)
+				goto err;
 			prio = (uint16_t)((cmd->param2 & 0xFFFF0000) >> 16);
+			if (offset + ALIGN(name_len, FIFO_ALIGNMENT) >
+				rx_size)
+				goto err;
 			name = (char *)(rx_data + offset);
 			offset += ALIGN(name_len, FIFO_ALIGNMENT);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
@@ -780,6 +794,8 @@ static void process_rx_cmd(struct edge_info *einfo,
 
 		case RX_INTENT_CMD:
 			for (i = 0; i < cmd->param2; i++) {
+				if (offset + sizeof(*intents) > rx_size)
+					goto err;
 				intents = (struct intent_desc *)
 						(rx_data + offset);
 				offset += sizeof(*intents);
@@ -815,6 +831,8 @@ static void process_rx_cmd(struct edge_info *einfo,
 		case TX_DATA_CONT_CMD:
 		case TRACER_PKT_CMD:
 		case TRACER_PKT_CONT_CMD:
+			if (offset + sizeof(*rx_descp) > rx_size)
+				goto err;
 			rx_descp = (struct rx_desc *)(rx_data + offset);
 			offset += sizeof(*rx_descp);
 			process_rx_data(einfo, cmd->id, cmd->param1,
@@ -824,6 +842,8 @@ static void process_rx_cmd(struct edge_info *einfo,
 			break;
 
 		case TX_SHORT_DATA_CMD:
+			if (offset + sizeof(*rx_sd_descp) > rx_size)
+				goto err;
 			rx_sd_descp = (struct rx_short_data_desc *)
 							(rx_data + offset);
 			offset += sizeof(*rx_sd_descp);
@@ -852,6 +872,13 @@ static void process_rx_cmd(struct edge_info *einfo,
 		}
 	}
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
+	return;
+err:
+	srcu_read_unlock(&einfo->use_ref, rcu_id);
+	if (cmd)
+		pr_err("%s: invalid size of rx_data: %d, cmd : %d\n",
+			__func__, rx_size, cmd->id);
+	return;
 }
 
 /**

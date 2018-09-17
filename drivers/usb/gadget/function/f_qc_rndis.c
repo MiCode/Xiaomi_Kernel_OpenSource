@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -911,6 +911,13 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	int			status;
 	struct usb_ep		*ep;
 
+	status = rndis_ipa_init(&rndis_ipa_params);
+	if (status) {
+		pr_err("%s: failed to init rndis_ipa\n", __func__);
+		return status;
+	}
+
+	rndis_ipa_supported = true;
 	/* maybe allocate device-global string IDs */
 	if (rndis_qc_string_defs[0].id == 0) {
 
@@ -1203,11 +1210,8 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	struct f_rndis_qc_opts *opts = container_of(fi,
 				struct f_rndis_qc_opts, func_inst);
 	struct f_rndis_qc	*rndis;
-	int		status;
 
 	/* allocate and initialize one new instance */
-	status = -ENOMEM;
-
 	opts = container_of(fi, struct f_rndis_qc_opts, func_inst);
 
 	opts->refcnt++;
@@ -1221,7 +1225,6 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
 		rndis_ipa_params.host_ethaddr,
 		rndis_ipa_params.device_ethaddr);
-	rndis_ipa_supported = true;
 	ether_addr_copy(rndis->ethaddr, rndis_ipa_params.host_ethaddr);
 	rndis_ipa_params.device_ready_notify = rndis_net_ready_notify;
 
@@ -1263,19 +1266,9 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	rndis->func.resume = rndis_qc_resume;
 	rndis->func.free_func = rndis_qc_free;
 
-	status = rndis_ipa_init(&rndis_ipa_params);
-	if (status) {
-		pr_err("%s: failed to init rndis_ipa\n", __func__);
-		goto fail;
-	}
-
 	_rndis_qc = rndis;
 
 	return &rndis->func;
-fail:
-	kfree(rndis);
-	_rndis_qc = NULL;
-	return ERR_PTR(status);
 }
 
 static struct usb_function *qcrndis_alloc(struct usb_function_instance *fi)

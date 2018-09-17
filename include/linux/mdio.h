@@ -11,6 +11,53 @@
 
 #include <uapi/linux/mdio.h>
 
+struct mdio_device {
+	struct device dev;
+
+	const struct dev_pm_ops *pm_ops;
+	struct mii_bus *bus;
+
+	int (*bus_match)(struct device *dev, struct device_driver *drv);
+	void (*device_free)(struct mdio_device *mdiodev);
+	void (*device_remove)(struct mdio_device *mdiodev);
+
+	/* Bus address of the MDIO device (0-31) */
+	int addr;
+	int flags;
+};
+#define to_mdio_device(d) container_of(d, struct mdio_device, dev)
+
+/* struct mdio_driver_common: Common to all MDIO drivers */
+struct mdio_driver_common {
+	struct device_driver driver;
+	int flags;
+};
+#define MDIO_DEVICE_FLAG_PHY		1
+#define to_mdio_common_driver(d) \
+	container_of(d, struct mdio_driver_common, driver)
+
+/* struct mdio_driver: Generic MDIO driver */
+struct mdio_driver {
+	struct mdio_driver_common mdiodrv;
+
+	/*
+	 * Called during discovery.  Used to set
+	 * up device-specific structures, if any
+	 */
+	int (*probe)(struct mdio_device *mdiodev);
+
+	/* Clears up any memory if needed */
+	void (*remove)(struct mdio_device *mdiodev);
+};
+#define to_mdio_driver(d)						\
+	container_of(to_mdio_common_driver(d), struct mdio_driver, mdiodrv)
+
+void mdio_device_free(struct mdio_device *mdiodev);
+struct mdio_device *mdio_device_create(struct mii_bus *bus, int addr);
+int mdio_device_register(struct mdio_device *mdiodev);
+void mdio_device_remove(struct mdio_device *mdiodev);
+int mdio_driver_register(struct mdio_driver *drv);
+void mdio_driver_unregister(struct mdio_driver *drv);
 
 static inline bool mdio_phy_id_is_c45(int phy_id)
 {

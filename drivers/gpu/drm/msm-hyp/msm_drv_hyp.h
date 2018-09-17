@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -48,6 +48,10 @@ enum msm_mdp_display_id {
 	DISPLAY_ID_SECONDARY,
 	DISPLAY_ID_TERTIARY,
 	DISPLAY_ID_QUATERNARY,
+	DISPLAY_ID_QUINARY,
+	DISPLAY_ID_SENARY,
+	DISPLAY_ID_SEPTENARY,
+	DISPLAY_ID_OCTONARY,
 	DISPLAY_ID_MAX
 };
 
@@ -71,6 +75,14 @@ static inline enum msm_mdp_display_id msm_get_display_id(
 		return DISPLAY_ID_TERTIARY;
 	else if (!strcmp(display_type, "quaternary"))
 		return DISPLAY_ID_QUATERNARY;
+	else if (!strcmp(display_type, "quinary"))
+		return DISPLAY_ID_QUINARY;
+	else if (!strcmp(display_type, "senary"))
+		return DISPLAY_ID_SENARY;
+	else if (!strcmp(display_type, "septenary"))
+		return DISPLAY_ID_SEPTENARY;
+	else if (!strcmp(display_type, "octonary"))
+		return DISPLAY_ID_OCTONARY;
 	else
 		return DISPLAY_ID_NONE;
 };

@@ -13,7 +13,6 @@ Optional properties:
 - qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
 - qcom,fastrpc-vmid-heap-shared:  Flag for Dynamic heap feature, to
                                   share HLOS memory buffer to ADSP
-- qcom,secure-domains:  FastRPC secure domain configuration
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
