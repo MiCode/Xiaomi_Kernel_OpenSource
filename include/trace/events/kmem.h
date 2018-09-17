@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,9 +336,14 @@ DECLARE_EVENT_CLASS(ion_alloc,
 		 const char *heap_name,
 		 size_t len,
 		 unsigned int mask,
-		 unsigned int flags),
+		 unsigned int flags,
+		 pid_t client_pid,
+		 char *current_comm,
+		 pid_t current_pid,
+		 void *buffer),
 
-	TP_ARGS(client_name, heap_name, len, mask, flags),
+	TP_ARGS(client_name, heap_name, len, mask, flags, client_pid,
+					current_comm, current_pid, buffer),
 
 	TP_STRUCT__entry(
 		__array(char,		client_name, 64)
@@ -346,6 +351,10 @@ DECLARE_EVENT_CLASS(ion_alloc,
 		__field(size_t,		len)
 		__field(unsigned int,	mask)
 		__field(unsigned int,	flags)
+		__field(pid_t,		client_pid)
+		__array(char,		current_comm, 16)
+		__field(pid_t,		current_pid)
+		__field(void *,		buffer)
 	),
 
 	TP_fast_assign(
@@ -354,14 +363,24 @@ DECLARE_EVENT_CLASS(ion_alloc,
 		__entry->len		= len;
 		__entry->mask		= mask;
 		__entry->flags		= flags;
+		__entry->client_pid	= client_pid;
+		strlcpy(__entry->current_comm, current_comm, 16);
+		__entry->current_pid	= current_pid;
+		__entry->buffer		= buffer;
 	),
 
-	TP_printk("client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x",
+	TP_printk("client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x "
+			"client_pid=%d current_comm=%s current_pid=%d "
+			"buffer=%pK",
 		__entry->client_name,
 		__entry->heap_name,
 		__entry->len,
 		__entry->mask,
-		__entry->flags)
+		__entry->flags,
+		__entry->client_pid,
+		__entry->current_comm,
+		__entry->current_pid,
+		__entry->buffer)
 );
 
 DEFINE_EVENT(ion_alloc, ion_alloc_buffer_start,
@@ -370,9 +389,14 @@ DEFINE_EVENT(ion_alloc, ion_alloc_buffer_start,
 		 const char *heap_name,
 		 size_t len,
 		 unsigned int mask,
-		 unsigned int flags),
+		 unsigned int flags,
+		 pid_t client_pid,
+		 char *current_comm,
+		 pid_t current_pid,
+		 void *buffer),
 
-	TP_ARGS(client_name, heap_name, len, mask, flags)
+	TP_ARGS(client_name, heap_name, len, mask, flags, client_pid,
+					current_comm, current_pid, buffer)
 );
 
 DEFINE_EVENT(ion_alloc, ion_alloc_buffer_end,
@@ -381,9 +405,67 @@ DEFINE_EVENT(ion_alloc, ion_alloc_buffer_end,
 		 const char *heap_name,
 		 size_t len,
 		 unsigned int mask,
-		 unsigned int flags),
+		 unsigned int flags,
+		 pid_t client_pid,
+		 char *current_comm,
+		 pid_t current_pid,
+		 void *buffer),
 
-	TP_ARGS(client_name, heap_name, len, mask, flags)
+	TP_ARGS(client_name, heap_name, len, mask, flags, client_pid,
+					current_comm, current_pid, buffer)
+);
+
+DECLARE_EVENT_CLASS(ion_free,
+
+	TP_PROTO(const char *client_name,
+		 pid_t client_pid,
+		 char *current_comm,
+		 pid_t current_pid,
+		 void *buffer,
+		 size_t size),
+
+	TP_ARGS(client_name, client_pid, current_comm, current_pid,
+							buffer, size),
+
+	TP_STRUCT__entry(
+		__array(char,		client_name, 64)
+		__field(pid_t,		client_pid)
+		__array(char,		current_comm, 16)
+		__field(pid_t,		current_pid)
+		__field(void *,	buffer)
+		__field(size_t,	size)
+	),
+
+	TP_fast_assign(
+		strlcpy(__entry->client_name, client_name, 64);
+		__entry->client_pid	= client_pid;
+		strlcpy(__entry->current_comm, current_comm, 16);
+		__entry->current_pid	= current_pid;
+		__entry->buffer		= buffer;
+		__entry->size		= size;
+	),
+
+	TP_printk("client_name=%s client_pid=%d current_comm=%s "
+				"current_pid=%d buffer=%pK size=%zu",
+		__entry->client_name,
+		__entry->client_pid,
+		__entry->current_comm,
+		__entry->current_pid,
+		__entry->buffer,
+		__entry->size)
+);
+
+DEFINE_EVENT(ion_free, ion_free_buffer,
+
+	TP_PROTO(const char *client_name,
+		 pid_t client_pid,
+		 char *current_comm,
+		 pid_t current_pid,
+		 void *buffer,
+		 size_t size),
+
+	TP_ARGS(client_name, client_pid, current_comm, current_pid,
+							buffer, size)
 );
 
 DECLARE_EVENT_CLASS(ion_alloc_error,
