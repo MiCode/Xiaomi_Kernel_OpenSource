@@ -1801,11 +1801,11 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * | MODEM MEM               |
  * +-------------------------+
- * |    CANARY               |
- * +-------------------------+
  * |    Dummy (IPA4.5)       |
  * +-------------------------+
- * | UC EVENT RING (IPA3.5)  |
+ * |    CANARY (IPA4.5)      |
+ * +-------------------------+
+ * | UC DESC RAM (IPA3.5)    |
  * +-------------------------+
  */
 struct ipa3_mem_partition {
@@ -1883,8 +1883,8 @@ struct ipa3_mem_partition {
 	u32 apps_v6_rt_hash_size;
 	u32 apps_v6_rt_nhash_ofst;
 	u32 apps_v6_rt_nhash_size;
-	u32 uc_event_ring_ofst;
-	u32 uc_event_ring_size;
+	u32 uc_descriptor_ram_ofst;
+	u32 uc_descriptor_ram_size;
 	u32 pdn_config_ofst;
 	u32 pdn_config_size;
 	u32 stats_quota_ofst;
