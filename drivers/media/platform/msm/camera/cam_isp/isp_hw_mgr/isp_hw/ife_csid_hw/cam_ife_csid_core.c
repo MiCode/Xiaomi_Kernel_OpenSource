@@ -45,6 +45,9 @@
 /* Max number of sof irq's triggered in case of SOF freeze */
 #define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 6
 
+/* Max CSI Rx irq error count threshold value */
+#define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               100
+
 static int cam_ife_csid_is_ipp_format_supported(
 	uint32_t in_format)
 {
@@ -423,6 +426,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	if (val != 0)
 		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
 			csid_hw->hw_intf->hw_idx, val);
+	csid_hw->error_irq_count = 0;
 
 	return rc;
 }
@@ -1046,6 +1050,7 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 			csid_hw->hw_intf->hw_idx);
 
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
+	csid_hw->error_irq_count = 0;
 	return rc;
 }
 
@@ -2645,18 +2650,22 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE0_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 0 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE1_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 1 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE2_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 2 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 3 over flow",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_TG_FIFO_OVERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d TG OVER  FLOW",
@@ -2677,6 +2686,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CRC) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_CRC",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_ECC) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_ECC",
@@ -2689,10 +2699,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_STREAM_UNDERFLOW",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d UNBOUNDED_FRAME",
 			 csid_hw->hw_intf->hw_idx);
+		csid_hw->error_irq_count++;
 	}
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOT_IRQ) {
@@ -2858,6 +2870,26 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		csid_hw->irq_debug_cnt = 0;
 	}
 
+	if (csid_hw->error_irq_count >
+		CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT) {
+		/* Mask line overflow, underflow, unbound interrupts */
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
+
+		val &=  ~(CSID_CSI2_RX_ERROR_LANE0_FIFO_OVERFLOW |
+			CSID_CSI2_RX_ERROR_LANE1_FIFO_OVERFLOW |
+			CSID_CSI2_RX_ERROR_LANE2_FIFO_OVERFLOW |
+			CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW |
+			CSID_CSI2_RX_ERROR_CRC                 |
+			CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW    |
+			CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME);
+
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
+		CAM_WARN(CAM_ISP, "Masked csi rx error interrupts");
+		csid_hw->error_irq_count = 0;
+	}
+
 	CAM_DBG(CAM_ISP, "IRQ Handling exit");
 	return IRQ_HANDLED;
 }
@@ -2975,6 +3007,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	}
 
 	ife_csid_hw->csid_debug = 0;
+	ife_csid_hw->error_irq_count = 0;
 	return 0;
 err:
 	if (rc) {
