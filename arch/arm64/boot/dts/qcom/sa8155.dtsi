@@ -611,6 +611,14 @@
 	qcom,panel-force-clock-lane-hs;
 };
 
+&mdss_dsi0_pll {
+	/delete-property/ qcom,dsi-pll-ssc-en;
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ qcom,dsi-pll-ssc-en;
+};
+
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
 	qcom,sde-mixer-display-pref = "primary", "none", "none",
