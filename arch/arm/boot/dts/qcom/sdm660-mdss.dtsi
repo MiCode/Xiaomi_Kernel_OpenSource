@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -382,10 +382,19 @@
 				 <&clock_mmss MMSS_MDSS_ESC0_CLK>,
 				 <&clock_mmss BYTE0_CLK_SRC>,
 				 <&clock_mmss PCLK0_CLK_SRC>,
-				 <&clock_mmss MMSS_MDSS_BYTE0_INTF_CLK>;
+				 <&clock_mmss MMSS_MDSS_BYTE0_INTF_CLK>,
+				 <&mdss_dsi0_pll BYTE0_MUX_CLK>,
+				 <&mdss_dsi0_pll PIX0_MUX_CLK>,
+				 <&mdss_dsi0_pll BYTE0_SRC_CLK>,
+				 <&mdss_dsi0_pll PIX0_SRC_CLK>,
+				 <&mdss_dsi0_pll SHADOW_BYTE0_SRC_CLK>,
+				 <&mdss_dsi0_pll SHADOW_PIX0_SRC_CLK>;
 			clock-names = "byte_clk", "pixel_clk", "core_clk",
 				"byte_clk_rcg", "pixel_clk_rcg",
-				"byte_intf_clk";
+				"byte_intf_clk", "pll_byte_clk_mux",
+				"pll_pixel_clk_mux", "pll_byte_clk_src",
+				"pll_pixel_clk_src", "pll_shadow_byte_clk_src",
+				"pll_shadow_pixel_clk_src";
 
 			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
@@ -423,10 +432,19 @@
 				 <&clock_mmss MMSS_MDSS_ESC1_CLK>,
 				 <&clock_mmss BYTE1_CLK_SRC>,
 				 <&clock_mmss PCLK1_CLK_SRC>,
-				 <&clock_mmss MMSS_MDSS_BYTE1_INTF_CLK>;
+				 <&clock_mmss MMSS_MDSS_BYTE1_INTF_CLK>,
+				 <&mdss_dsi1_pll BYTE1_MUX_CLK>,
+				 <&mdss_dsi1_pll PIX1_MUX_CLK>,
+				 <&mdss_dsi1_pll BYTE1_SRC_CLK>,
+				 <&mdss_dsi1_pll PIX1_SRC_CLK>,
+				 <&mdss_dsi1_pll SHADOW_BYTE1_SRC_CLK>,
+				 <&mdss_dsi1_pll SHADOW_PIX1_SRC_CLK>;
 			clock-names = "byte_clk", "pixel_clk", "core_clk",
 				"byte_clk_rcg", "pixel_clk_rcg",
-				"byte_intf_clk";
+				"byte_intf_clk", "pll_byte_clk_mux",
+				"pll_pixel_clk_mux", "pll_byte_clk_src",
+				"pll_pixel_clk_src", "pll_shadow_byte_clk_src",
+				"pll_shadow_pixel_clk_src";
 
 			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
