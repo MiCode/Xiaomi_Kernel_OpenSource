@@ -1719,7 +1719,7 @@ config ARM_MODULE_PLTS
 
 choice
 	prompt "Virtual Memory Reclaim"
-	default NO_VM_RECLAIM
+	default ENABLE_VMALLOC_SAVING
 	help
 	  Select the method of reclaiming virtual memory. Two values
 	  are allowed to choose, one is NO_VM_RECLAIM, the other is
