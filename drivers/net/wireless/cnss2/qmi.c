@@ -164,8 +164,9 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	req.num_clients = daemon_support ? 2 : 1;
 	cnss_pr_dbg("Number of clients is %d\n", req.num_clients);
 
-	req.wake_msi = cnss_bus_get_wake_irq(plat_priv);
-	if (req.wake_msi) {
+	ret = cnss_bus_get_wake_irq(plat_priv);
+	if (ret > 0) {
+		req.wake_msi = ret;
 		cnss_pr_dbg("WAKE MSI base data is %d\n", req.wake_msi);
 		req.wake_msi_valid = 1;
 	}

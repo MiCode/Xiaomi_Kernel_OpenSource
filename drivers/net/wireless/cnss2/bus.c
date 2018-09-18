@@ -162,7 +162,7 @@ int cnss_bus_alloc_fw_mem(struct cnss_plat_data *plat_priv)
 	}
 }
 
-u32 cnss_bus_get_wake_irq(struct cnss_plat_data *plat_priv)
+int cnss_bus_get_wake_irq(struct cnss_plat_data *plat_priv)
 {
 	if (!plat_priv)
 		return -ENODEV;
