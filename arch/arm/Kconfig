@@ -1760,7 +1760,7 @@ source "mm/Kconfig"
 
 choice
 	prompt "Virtual Memory Reclaim"
-	default NO_VM_RECLAIM
+	default ENABLE_VMALLOC_SAVING
 	help
 	  Select the method of reclaiming virtual memory
 
