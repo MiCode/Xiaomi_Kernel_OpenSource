@@ -40,25 +40,21 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
+};
 
-	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
-		#clock-cells = <1>;
-	};
+&clock_rpmh {
+	compatible = "qcom,dummycc";
+	clock-output-names = "rpmh_clocks";
+};
 
-	clock_aop: qcom,aop {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
-		#clock-cells = <1>;
-	};
+&clock_aop {
+	compatible = "qcom,dummycc";
+	clock-output-names = "aop_clocks";
+};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gcc_clocks";
 };
 
 &ipa_hw {
