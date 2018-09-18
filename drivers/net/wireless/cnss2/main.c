@@ -259,6 +259,9 @@ int cnss_wlan_enable(struct device *dev,
 	if (qmi_bypass)
 		return 0;
 
+	if (cnss_get_bus_type(plat_priv->device_id) == CNSS_BUS_USB)
+		goto skip_cfg;
+
 	if (!config || !host_version) {
 		cnss_pr_err("Invalid config or host_version pointer\n");
 		return -EINVAL;
