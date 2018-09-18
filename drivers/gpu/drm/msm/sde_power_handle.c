@@ -1084,15 +1084,15 @@ int sde_cx_ipeak_vote(struct sde_power_handle *phandle, struct dss_clk *clock,
 	int ret = 0;
 	u64 curr_core_clk_rate, max_core_clk_rate, prev_core_clk_rate;
 
-	if (phandle->dss_cx_ipeak) {
+	if (!phandle->dss_cx_ipeak) {
 		pr_debug("%pS->%s: Invalid input\n",
 				__builtin_return_address(0), __func__);
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 
 	if (strcmp("core_clk", clock->clk_name)) {
 		pr_debug("Not a core clk , cx_ipeak vote not needed\n");
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 
 	curr_core_clk_rate = clock->rate;
