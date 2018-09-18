@@ -24,6 +24,8 @@
 #include "cam_cdm_util.h"
 #include "cam_cpas_api.h"
 
+#define CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX 2
+
 struct cam_vfe_mux_camif_data {
 	void __iomem                                *mem_base;
 	struct cam_hw_intf                          *hw_intf;
@@ -40,6 +42,7 @@ struct cam_vfe_mux_camif_data {
 	uint32_t                           last_pixel;
 	uint32_t                           last_line;
 	bool                               enable_sof_irq_debug;
+	uint32_t                           irq_debug_cnt;
 };
 
 static int cam_vfe_camif_validate_pix_pattern(uint32_t pattern)
@@ -266,6 +269,10 @@ static int cam_vfe_camif_resource_start(
 	CAM_DBG(CAM_ISP, "hw id:%d RUP val:%d", camif_res->hw_intf->hw_idx,
 		rsrc_data->reg_data->reg_update_cmd_data);
 
+	/* disable sof irq debug flag */
+	rsrc_data->enable_sof_irq_debug = false;
+	rsrc_data->irq_debug_cnt = 0;
+
 	CAM_DBG(CAM_ISP, "Start Camif IFE %d Done", camif_res->hw_intf->hw_idx);
 	return 0;
 }
@@ -440,11 +447,21 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	switch (payload->evt_id) {
 	case CAM_ISP_HW_EVENT_SOF:
 		if (irq_status0 & camif_priv->reg_data->sof_irq_mask) {
-			if (camif_priv->enable_sof_irq_debug)
-				CAM_ERR_RATE_LIMIT(CAM_ISP, "Received SOF");
-			else
-				CAM_DBG(CAM_ISP, "Received SOF");
+			if ((camif_priv->enable_sof_irq_debug) &&
+				(camif_priv->irq_debug_cnt <=
+				CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
+				CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
 
+				camif_priv->irq_debug_cnt++;
+				if (camif_priv->irq_debug_cnt ==
+					CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX) {
+					camif_priv->enable_sof_irq_debug =
+						false;
+					camif_priv->irq_debug_cnt = 0;
+				}
+			} else {
+				CAM_DBG(CAM_ISP, "Received SOF");
+			}
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		break;
