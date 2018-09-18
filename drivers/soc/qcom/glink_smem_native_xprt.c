@@ -831,24 +831,31 @@ static bool get_rx_fifo(struct edge_info *einfo)
  */
 static void tx_wakeup_worker(struct edge_info *einfo)
 {
+	struct glink_transport_if xprt_if = einfo->xprt_if;
 	bool trigger_wakeup = false;
+	bool trigger_resume = false;
 	unsigned long flags;
 
 	if (einfo->in_ssr)
 		return;
-	if (einfo->tx_resume_needed && fifo_write_avail(einfo)) {
-		einfo->tx_resume_needed = false;
-		einfo->xprt_if.glink_core_if_ptr->tx_resume(
-						&einfo->xprt_if);
-	}
+
 	spin_lock_irqsave(&einfo->write_lock, flags);
+	if (fifo_write_avail(einfo)) {
+		if (einfo->tx_blocked_signal_sent)
+			einfo->tx_blocked_signal_sent = false;
+		if (einfo->tx_resume_needed) {
+			einfo->tx_resume_needed = false;
+			trigger_resume = true;
+		}
+	}
 	if (waitqueue_active(&einfo->tx_blocked_queue)) { /* tx waiting ?*/
-		einfo->tx_blocked_signal_sent = false;
 		trigger_wakeup = true;
 	}
 	spin_unlock_irqrestore(&einfo->write_lock, flags);
 	if (trigger_wakeup)
 		wake_up_all(&einfo->tx_blocked_queue);
+	if (trigger_resume)
+		xprt_if.glink_core_if_ptr->tx_resume(&xprt_if);
 }
 
 /**
