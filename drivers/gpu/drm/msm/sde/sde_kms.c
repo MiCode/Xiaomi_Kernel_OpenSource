@@ -3315,12 +3315,18 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	/*
 	 * Attempt continuous splash handoff only if reserved
-	 * splash memory is found.
+	 * splash memory is found & release resources on any error
+	 * in finding display hw config in splash
 	 */
-	if (sde_kms->splash_data.num_splash_regions)
-		sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
+	if (sde_kms->splash_data.num_splash_regions &&
+			sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
 					&sde_kms->splash_data,
-					sde_kms->catalog);
+					sde_kms->catalog)) {
+		SDE_DEBUG("freeing continuous splash resources\n");
+		_sde_kms_unmap_all_splash_regions(sde_kms);
+		memset(&sde_kms->splash_data, 0x0,
+				sizeof(struct sde_splash_data));
+	}
 
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
