@@ -222,17 +222,17 @@
 
 	cpubw: qcom,cpubw {
 		compatible = "qcom,devbw";
-		governor = "cpufreq";
+		governor = "performance";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			< MHZ_TO_MBPS(200, 2) >, /*   381 MB/s */
-			< MHZ_TO_MBPS(470, 2) >, /*   896 MB/s */
-			< MHZ_TO_MBPS(547, 2) >, /*  1043 MB/s */
-			< MHZ_TO_MBPS(691, 2) >, /*  1317 MB/s */
-			< MHZ_TO_MBPS(806, 2) >, /*  1537 MB/s */
-			< MHZ_TO_MBPS(940, 2) >, /*  1792 MB/s */
-			< MHZ_TO_MBPS(1383, 2) >; /* 2637 MB/s */
+			< MHZ_TO_MBPS(200, 4) >, /*   762 MB/s */
+			< MHZ_TO_MBPS(470, 4) >, /*  1792 MB/s */
+			< MHZ_TO_MBPS(547, 4) >, /*  2086 MB/s */
+			< MHZ_TO_MBPS(691, 4) >, /*  2634 MB/s */
+			< MHZ_TO_MBPS(806, 4) >, /*  3074 MB/s */
+			< MHZ_TO_MBPS(940, 4) >, /*  3584 MB/s */
+			< MHZ_TO_MBPS(1383, 4) >; /* 5274 MB/s */
 	};
 
 	devfreq_compute: qcom,devfreq-compute {
