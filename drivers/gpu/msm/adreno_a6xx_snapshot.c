@@ -1493,7 +1493,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on, gx_on = true;
 	unsigned int i, roq_size;
 
@@ -1544,8 +1543,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* CP_SQE indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
-		A6XX_CP_SQE_STAT_ADDR, A6XX_CP_SQE_STAT_DATA,
-		0, snap_data->sect_sizes->cp_pfp);
+		A6XX_CP_SQE_STAT_ADDR, A6XX_CP_SQE_STAT_DATA, 0, 0x33);
 
 	/* CP_DRAW_STATE */
 	kgsl_snapshot_indexed_registers(device, snapshot,

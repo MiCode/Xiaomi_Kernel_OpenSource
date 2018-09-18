@@ -1798,14 +1798,6 @@ static struct adreno_irq a6xx_irq = {
 	.mask = A6XX_INT_MASK,
 };
 
-static struct adreno_snapshot_sizes a6xx_snap_sizes = {
-	.cp_pfp = 0x33,
-};
-
-static struct adreno_snapshot_data a6xx_snapshot_data = {
-	.sect_sizes = &a6xx_snap_sizes,
-};
-
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_A },
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_B },
@@ -2988,7 +2980,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
 	.irq = &a6xx_irq,
-	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a6xx_platform_setup,
