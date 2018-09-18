@@ -32,6 +32,9 @@
 
 #define MAX_COUNT_SIZE_SUPPORTED	128
 
+#define SDE_RSC_REV_1			0x1
+#define SDE_RSC_REV_2			0x2
+
 struct sde_rsc_priv;
 
 /**
@@ -148,6 +151,12 @@ struct sde_rsc_timer_config {
  *			invalid state. It can be blocked by this boolean entry.
  * primary_client:	A client which is allowed to make command state request
  *			and ab/ib vote on display rsc
+ * single_tcs_execution_time: worst case time to execute one tcs vote
+ *			(sleep/wake)
+ * backoff_time_ns:	time to only wake tcs in any mode
+ * mode_threshold_time_ns: time to wake TCS in mode-0, must be greater than
+ *			backoff time
+ * time_slot_0_ns:	time for sleep & wake TCS in mode-1
  * master_drm:		Primary client waits for vsync on this drm object based
  *			on crtc id
  * rsc_vsync_wait:   Refcount to indicate if we have to wait for the vsync.
@@ -179,6 +188,11 @@ struct sde_rsc_priv {
 	bool power_collapse;
 	bool power_collapse_block;
 	struct sde_rsc_client *primary_client;
+
+	u32 single_tcs_execution_time;
+	u32 backoff_time_ns;
+	u32 mode_threshold_time_ns;
+	u32 time_slot_0_ns;
 
 	struct drm_device *master_drm;
 	atomic_t rsc_vsync_wait;
