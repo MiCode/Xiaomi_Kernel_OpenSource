@@ -1555,10 +1555,8 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	/* Use simple write to enable only required interrupts */
-	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_1_REG,
-				TYPEC_CCOUT_DETACH_INT_EN_BIT |
-				TYPEC_CCOUT_ATTACH_INT_EN_BIT);
+	/* Use simple write to clear interrupts */
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_1_REG, 0);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
