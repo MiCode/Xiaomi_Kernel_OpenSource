@@ -73,6 +73,7 @@ enum haptics_custom_effect_param {
 #define HAP_SC_DET_MAX_COUNT		5
 #define HAP_SC_DET_TIME_US		1000000
 #define FF_EFFECT_COUNT_MAX		32
+#define HAP_DISABLE_DELAY_USEC		1000
 
 /* haptics module register definitions */
 #define REG_HAP_STATUS1			0x0A
@@ -219,6 +220,7 @@ struct qti_hap_chip {
 	struct qti_hap_effect		constant;
 	struct regulator		*vdd_supply;
 	struct hrtimer			stop_timer;
+	struct hrtimer			hap_disable_timer;
 	struct dentry			*hap_debugfs;
 	spinlock_t			bus_lock;
 	ktime_t				last_sc_time;
@@ -528,9 +530,24 @@ static int qti_haptics_config_play_rate_us(struct qti_hap_chip *chip,
 	return rc;
 }
 
-static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
+static int qti_haptics_brake_enable(struct qti_hap_chip *chip, bool en)
 {
 	u8 addr, mask, val;
+	int rc;
+
+	addr = REG_HAP_EN_CTL2;
+	mask = HAP_BRAKE_EN_BIT;
+	val = en ? HAP_BRAKE_EN_BIT : 0;
+	rc = qti_haptics_masked_write(chip, addr, mask, val);
+	if (rc < 0)
+		dev_err(chip->dev, "write BRAKE_EN failed, rc=%d\n", rc);
+
+	return rc;
+}
+
+static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
+{
+	u8 addr,  val;
 	int i, rc;
 
 	addr = REG_HAP_BRAKE;
@@ -547,11 +564,7 @@ static int qti_haptics_config_brake(struct qti_hap_chip *chip, u8 *brake)
 	 * Set BRAKE_EN regardless of the brake pattern, this helps to stop
 	 * playing immediately once the valid values in WF_Sx are played.
 	 */
-	addr = REG_HAP_EN_CTL2;
-	val = mask = HAP_BRAKE_EN_BIT;
-	rc = qti_haptics_masked_write(chip, addr, mask, val);
-	if (rc < 0)
-		dev_err(chip->dev, "set EN_CTL2 failed, rc=%d\n", rc);
+	rc = qti_haptics_brake_enable(chip, true);
 
 	return rc;
 }
@@ -571,15 +584,45 @@ static int qti_haptics_lra_auto_res_enable(struct qti_hap_chip *chip, bool en)
 	return rc;
 }
 
+#define HAP_CLEAR_PLAYING_RATE_US	15
+static int qti_haptics_clear_settings(struct qti_hap_chip *chip)
+{
+	int rc;
+	u8 pattern[HAP_WAVEFORM_BUFFER_MAX] = {1, 0, 0, 0, 0, 0, 0, 0};
+
+	rc = qti_haptics_brake_enable(chip, false);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_haptics_lra_auto_res_enable(chip, false);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_haptics_config_play_rate_us(chip, HAP_CLEAR_PLAYING_RATE_US);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_haptics_write(chip, REG_HAP_WF_S1, pattern,
+			HAP_WAVEFORM_BUFFER_MAX);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_haptics_play(chip, true);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_haptics_play(chip, false);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 {
 	struct qti_hap_play_info *play = &chip->play;
 	struct qti_hap_config *config = &chip->config;
 	int rc = 0;
-
-	rc = qti_haptics_module_en(chip, true);
-	if (rc < 0)
-		return rc;
 
 	rc = qti_haptics_config_play_rate_us(chip, config->play_rate_us);
 	if (rc < 0)
@@ -608,6 +651,7 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 			return rc;
 
 		play->playing_pattern = false;
+		play->effect = NULL;
 	} else {
 		rc = qti_haptics_config_vmax(chip, config->vmax_mv);
 		if (rc < 0)
@@ -648,11 +692,6 @@ static int qti_haptics_load_predefined_effect(struct qti_hap_chip *chip,
 
 	play->effect = &chip->predefined[effect_idx];
 	play->playing_pos = 0;
-
-	rc = qti_haptics_module_en(chip, true);
-	if (rc < 0)
-		return rc;
-
 	rc = qti_haptics_config_vmax(chip, play->vmax_mv);
 	if (rc < 0)
 		return rc;
@@ -794,15 +833,15 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 	struct qti_hap_play_info *play = &chip->play;
 	int rc = 0, tmp, i;
 	s16 level, data[CUSTOM_DATA_LEN];
+	ktime_t rem;
+	s64 time_us;
 
-	if (chip->vdd_supply && !chip->vdd_enabled) {
-		rc = regulator_enable(chip->vdd_supply);
-		if (rc < 0) {
-			dev_err(chip->dev, "Enable VDD supply failed, rc=%d\n",
-					rc);
-			return rc;
-		}
-		chip->vdd_enabled = true;
+	if (hrtimer_active(&chip->hap_disable_timer)) {
+		rem = hrtimer_get_remaining(&chip->hap_disable_timer);
+		time_us = ktime_to_us(rem);
+		dev_dbg(chip->dev, "waiting for playing clear sequence: %lld us\n",
+				time_us);
+		usleep_range(time_us, time_us + 100);
 	}
 
 	switch (effect->type) {
@@ -818,27 +857,22 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 		if (rc < 0) {
 			dev_err(chip->dev, "Play constant waveform failed, rc=%d\n",
 					rc);
-			goto disable_vdd;
+			return rc;
 		}
 		break;
 
 	case FF_PERIODIC:
-		if (chip->effects_count == 0) {
-			rc = -EINVAL;
-			goto disable_vdd;
-		}
+		if (chip->effects_count == 0)
+			return -EINVAL;
 
 		if (effect->u.periodic.waveform != FF_CUSTOM) {
 			dev_err(chip->dev, "Only accept custom waveforms\n");
-			rc = -EINVAL;
-			goto disable_vdd;
+			return -EINVAL;
 		}
 
 		if (copy_from_user(data, effect->u.periodic.custom_data,
-					sizeof(s16) * CUSTOM_DATA_LEN)) {
-			rc = -EFAULT;
-			goto disable_vdd;
-		}
+					sizeof(s16) * CUSTOM_DATA_LEN))
+			return -EFAULT;
 
 		for (i = 0; i < chip->effects_count; i++)
 			if (chip->predefined[i].id ==
@@ -848,8 +882,7 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 		if (i == chip->effects_count) {
 			dev_err(chip->dev, "predefined effect %d is NOT supported\n",
 					data[0]);
-			rc = -EINVAL;
-			goto disable_vdd;
+			return -EINVAL;
 		}
 
 		level = effect->u.periodic.magnitude;
@@ -862,7 +895,7 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 		if (rc < 0) {
 			dev_err(chip->dev, "Play predefined effect %d failed, rc=%d\n",
 					chip->predefined[i].id, rc);
-			goto disable_vdd;
+			return rc;
 		}
 
 		get_play_length(play, &play->length_us);
@@ -877,30 +910,27 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 		 * send stop playing command after it's done.
 		 */
 		if (copy_to_user(effect->u.periodic.custom_data, data,
-					sizeof(s16) * CUSTOM_DATA_LEN)) {
-			rc = -EFAULT;
-			goto disable_vdd;
-		}
+					sizeof(s16) * CUSTOM_DATA_LEN))
+			return -EFAULT;
 		break;
 
 	default:
 		dev_err(chip->dev, "Unsupported effect type: %d\n",
 				effect->type);
-		break;
+		return -EINVAL;
 	}
 
-	return 0;
-disable_vdd:
-	if (chip->vdd_supply && chip->vdd_enabled) {
-		rc = regulator_disable(chip->vdd_supply);
+	if (chip->vdd_supply && !chip->vdd_enabled) {
+		rc = regulator_enable(chip->vdd_supply);
 		if (rc < 0) {
-			dev_err(chip->dev, "Disable VDD supply failed, rc=%d\n",
+			dev_err(chip->dev, "Enable VDD supply failed, rc=%d\n",
 					rc);
 			return rc;
 		}
-		chip->vdd_enabled = false;
+		chip->vdd_enabled = true;
 	}
-	return rc;
+
+	return 0;
 }
 
 static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
@@ -913,6 +943,10 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 
 	dev_dbg(chip->dev, "playback, val = %d\n", val);
 	if (!!val) {
+		rc = qti_haptics_module_en(chip, true);
+		if (rc < 0)
+			return rc;
+
 		rc = qti_haptics_play(chip, true);
 		if (rc < 0)
 			return rc;
@@ -943,10 +977,6 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 		if (rc < 0)
 			return rc;
 
-		rc = qti_haptics_module_en(chip, false);
-		if (rc < 0)
-			return rc;
-
 		if (chip->play_irq_en) {
 			disable_irq_nosync(chip->play_irq);
 			chip->play_irq_en = false;
@@ -959,7 +989,7 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 static int qti_haptics_erase(struct input_dev *dev, int effect_id)
 {
 	struct qti_hap_chip *chip = input_get_drvdata(dev);
-	int rc = 0;
+	int delay_us, rc = 0;
 
 	if (chip->vdd_supply && chip->vdd_enabled) {
 		rc = regulator_disable(chip->vdd_supply);
@@ -970,6 +1000,22 @@ static int qti_haptics_erase(struct input_dev *dev, int effect_id)
 		}
 		chip->vdd_enabled = false;
 	}
+
+	rc = qti_haptics_clear_settings(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "clear setting failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->play.effect)
+		delay_us = chip->play.effect->play_rate_us;
+	else
+		delay_us = chip->config.play_rate_us;
+
+	delay_us += HAP_DISABLE_DELAY_USEC;
+	hrtimer_start(&chip->hap_disable_timer,
+			ktime_set(0, delay_us * NSEC_PER_USEC),
+			HRTIMER_MODE_REL);
 
 	return rc;
 }
@@ -1097,15 +1143,23 @@ static enum hrtimer_restart qti_hap_stop_timer(struct hrtimer *timer)
 
 	chip->play.length_us = 0;
 	rc = qti_haptics_play(chip, false);
-	if (rc < 0) {
+	if (rc < 0)
 		dev_err(chip->dev, "Stop playing failed, rc=%d\n", rc);
-		goto err_out;
-	}
+
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart qti_hap_disable_timer(struct hrtimer *timer)
+{
+	struct qti_hap_chip *chip = container_of(timer, struct qti_hap_chip,
+			hap_disable_timer);
+	int rc;
 
 	rc = qti_haptics_module_en(chip, false);
 	if (rc < 0)
-		dev_err(chip->dev, "Disable module failed, rc=%d\n", rc);
-err_out:
+		dev_err(chip->dev, "Disable haptics module failed, rc=%d\n",
+				rc);
+
 	return HRTIMER_NORESTART;
 }
 
@@ -1846,7 +1900,9 @@ static int qti_haptics_probe(struct platform_device *pdev)
 
 	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	chip->stop_timer.function = qti_hap_stop_timer;
-
+	hrtimer_init(&chip->hap_disable_timer, CLOCK_MONOTONIC,
+						HRTIMER_MODE_REL);
+	chip->hap_disable_timer.function = qti_hap_disable_timer;
 	input_dev->name = "qti-haptics";
 	input_set_drvdata(input_dev, chip);
 	chip->input_dev = input_dev;
@@ -1908,6 +1964,26 @@ static int qti_haptics_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void qti_haptics_shutdown(struct platform_device *pdev)
+{
+	struct qti_hap_chip *chip = dev_get_drvdata(&pdev->dev);
+	int rc;
+
+	dev_dbg(chip->dev, "Shutdown!\n");
+
+	qti_haptics_module_en(chip, false);
+
+	if (chip->vdd_supply && chip->vdd_enabled) {
+		rc = regulator_disable(chip->vdd_supply);
+		if (rc < 0) {
+			dev_err(chip->dev, "Disable VDD supply failed, rc=%d\n",
+					rc);
+			return;
+		}
+		chip->vdd_enabled = false;
+	}
+}
+
 static const struct of_device_id haptics_match_table[] = {
 	{ .compatible = "qcom,haptics" },
 	{ .compatible = "qcom,pm660-haptics" },
@@ -1918,10 +1994,12 @@ static const struct of_device_id haptics_match_table[] = {
 static struct platform_driver qti_haptics_driver = {
 	.driver		= {
 		.name = "qcom,haptics",
+		.owner = THIS_MODULE,
 		.of_match_table = haptics_match_table,
 	},
 	.probe		= qti_haptics_probe,
 	.remove		= qti_haptics_remove,
+	.shutdown	= qti_haptics_shutdown,
 };
 module_platform_driver(qti_haptics_driver);
 
