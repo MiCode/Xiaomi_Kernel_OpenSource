@@ -16,7 +16,6 @@
 #include "msm8909-mtp.dtsi"
 #include "8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
-#include "apq8009-audio-external_codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Dragon Board";
@@ -26,24 +25,95 @@
 };
 
 &soc {
-	ext-codec {
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_prim_mi2s_gpios: msm_cdc_pinctrl_pri {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_sleep &pri_mi2s_ws_sleep
+			 &pri_mi2s_dout_sleep &pri_mi2s_din_sleep
+			 &ext_amp_ctrl_sleep &amp_mute_sleep>;
+		pinctrl-1 = <&pri_mi2s_active &pri_mi2s_ws_active
+			 &pri_mi2s_dout_active &pri_mi2s_din_active
+			 &ext_amp_ctrl_active &amp_mute_active>;
+
+	};
+
+	audio_codec_mtp: sound {
+		status = "ok";
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,model = "msm8909-212-som-snd-card";
 		qcom,msm-mbhc-hphl-swh = <0>;
+
 		qcom,audio-routing =
-			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
-			"MADINPUT", "MCLK",
-			"AMIC2", "MIC BIAS2",
-			"MIC BIAS2", "Headset Mic",
-			"DMIC0", "MIC BIAS1",
-			"MIC BIAS1", "Digital Mic0",
-			"DMIC1", "MIC BIAS1",
-			"MIC BIAS1", "Digital Mic1",
-			"DMIC2", "MIC BIAS3",
-			"MIC BIAS3", "Digital Mic2",
-			"DMIC3", "MIC BIAS3",
-			"MIC BIAS3", "Digital Mic3",
-			"SpkrLeft IN", "SPK1 OUT",
-			"SpkrRight IN", "SPK2 OUT";
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"RX_I2S_CLK", "MCLK",
+			"TX_I2S_CLK", "MCLK",
+			"MIC BIAS Internal1", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS Internal1", "Secondary Mic",
+			"AMIC1", "MIC BIAS Internal1",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS Internal1",
+			"DMIC1", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic1",
+			"DMIC2", "DIGITAL_REGULATOR",
+			"DIGITAL_REGULATOR", "Digital Mic2";
+
+		qcom,pri-mi2s-gpios = <&cdc_prim_mi2s_gpios>;
+		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+		qcom,afe-rxtx-lb;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&pcm_noirq>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+			"msm-pcm-dsp.2", "msm-voip-dsp",
+			"msm-pcm-voice", "msm-pcm-loopback",
+			"msm-compress-dsp", "msm-pcm-hostless",
+			"msm-pcm-afe", "msm-lsm-client",
+			"msm-pcm-routing", "msm-pcm-dsp-noirq";
+		asoc-cpu = <&dai_pri_auxpcm>,
+			<&dai_mi2s0>, <&dai_mi2s1>,
+			<&dai_mi2s2>, <&dai_mi2s3>,
+			<&dai_mi2s4>, <&dai_mi2s5>,
+			<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+			<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
+			<&bt_sco_rx>, <&bt_sco_tx>,
+			<&int_fm_rx>, <&int_fm_tx>,
+			<&afe_pcm_rx>, <&afe_pcm_tx>,
+			<&afe_proxy_rx>, <&afe_proxy_tx>,
+			<&incall_record_rx>, <&incall_record_tx>,
+			<&incall_music_rx>, <&incall_music_2_rx>,
+			<&bt_a2dp_rx>, <&afe_loopback_tx>;
+
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
+			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+			"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.6",
+			"msm-dai-q6-dev.16384", "msmdai-q6-dev.16385",
+			"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+			"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+			"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+			"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+			"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
+			"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+			"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+			"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+			"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+			"msm-dai-q6-dev.12290", "msm-dai-q6-dev.24577";
+
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+				<&pmic_analog_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+				"analog-codec";
 	};
 
 	sound-9335 {
@@ -95,6 +165,72 @@
 
 &wcnss {
 	status = "disabled";
+};
+
+&pm8916_1 {
+	pmic_analog_codec: analog-codec@f000 {
+		compatible = "qcom,pmic-analog-codec";
+		reg = <0xf000 0x200>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x1 0xf0 0x0 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x1 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x2 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x3 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x4 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x5 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x6 IRQ_TYPE_NONE>,
+			     <0x1 0xf0 0x7 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x0 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x1 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x2 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x3 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x4 IRQ_TYPE_NONE>,
+			     <0x1 0xf1 0x5 IRQ_TYPE_NONE>;
+		interrupt-names = "spk_cnp_int",
+				   "spk_clip_int",
+				   "spk_ocp_int",
+				   "ins_rem_det1",
+				   "but_rel_det",
+				   "but_press_det",
+				   "ins_rem_det",
+				   "mbhc_int",
+				   "ear_ocp_int",
+				   "hphr_ocp_int",
+				   "hphl_ocp_det",
+				   "ear_cnp_int",
+				   "hphr_cnp_int",
+				   "hphl_cnp_int";
+
+		cdc-vdda-cp-supply = <&pm8916_s4>;
+		qcom,cdc-vdda-cp-voltage = <1800000 2200000>;
+		qcom,cdc-vdda-cp-current = <770000>;
+
+		cdc-vdd-pa-supply = <&pm8916_l5>;
+		qcom,cdc-vdd-pa-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-pa-current = <5000>;
+
+		cdc-vdd-mic-bias-supply = <&pm8916_l13>;
+		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
+		qcom,cdc-vdd-mic-bias-current = <25000>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+
+		qcom,cdc-static-supplies = "cdc-vdda-cp",
+					   "cdc-vdd-pa";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+
+		msm_digital_codec: msm-dig-codec {
+			compatible = "qcom,msm-digital-codec";
+			reg = <0x0771C000 0x0>;
+			cdc-vdd-digital-supply = <&pm8916_l5>;
+			qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+			qcom,cdc-vdd-digital-current = <5000>;
+			qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+		};
+	};
 };
 
 &msm_gpio {
@@ -192,7 +328,7 @@
 		qcom,recharge-thresh-mv = <100>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 		regulator-name = "smb1360_otg_vreg";
-		status= "disabled";
+		status= "okay";
 	};
 };
 
@@ -220,4 +356,8 @@
 
 &blsp1_uart2_hs {
 	status = "ok";
+};
+
+&blsp1_uart1 {
+	status = "disabled";
 };
