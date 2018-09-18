@@ -1166,6 +1166,11 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_tzlog: tz-log@1468B720 {
+		compatible = "qcom,tz-log";
+		reg = <0x1468B720 0x2000>;
+	};
+
 	qcom_seecom: qseecom@90000000{
 		compatible = "qcom,qseecom";
 		reg = <0x90000000 0x600000>;
