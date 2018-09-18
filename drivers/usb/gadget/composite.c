@@ -150,6 +150,7 @@ int config_ep_by_speed(struct usb_gadget *g,
 			struct usb_function *f,
 			struct usb_ep *_ep)
 {
+	struct usb_composite_dev *cdev;
 	struct usb_endpoint_descriptor *chosen_desc = NULL;
 	struct usb_descriptor_header **speed_desc = NULL;
 
@@ -160,6 +161,8 @@ int config_ep_by_speed(struct usb_gadget *g,
 
 	if (!g || !f || !_ep)
 		return -EIO;
+
+	cdev = get_gadget_data(g);
 
 	/* select desired speed */
 	switch (g->speed) {
@@ -186,6 +189,13 @@ int config_ep_by_speed(struct usb_gadget *g,
 	default:
 		speed_desc = f->fs_descriptors;
 	}
+
+	if (!speed_desc) {
+		DBG(cdev, "%s desc not present for function %s\n",
+			usb_speed_string(g->speed), f->name);
+		return -EIO;
+	}
+
 	/* find descriptors */
 	for_each_ep_desc(speed_desc, d_spd) {
 		chosen_desc = (struct usb_endpoint_descriptor *)*d_spd;
@@ -228,12 +238,9 @@ ep_found:
 			_ep->maxburst = comp_desc->bMaxBurst + 1;
 			break;
 		default:
-			if (comp_desc->bMaxBurst != 0) {
-				struct usb_composite_dev *cdev;
-
-				cdev = get_gadget_data(g);
+			if (comp_desc->bMaxBurst != 0)
 				ERROR(cdev, "ep0 bMaxBurst must be 0\n");
-			}
+
 			_ep->maxburst = 1;
 			break;
 		}
