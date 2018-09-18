@@ -2199,6 +2199,29 @@ int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
 }
 
 /**
+ * dsi_ctrl_config_clk_gating() - Enable/disable DSI PHY clk gating.
+ * @dsi_ctrl:                     DSI controller handle.
+ * @enable:                       Enable/disable DSI PHY clk gating
+ * @clk_selection:                clock to enable/disable clock gating
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_config_clk_gating(struct dsi_ctrl *dsi_ctrl, bool enable,
+			enum dsi_clk_gate_type clk_selection)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->hw.ops.config_clk_gating)
+		dsi_ctrl->hw.ops.config_clk_gating(&dsi_ctrl->hw, enable,
+				clk_selection);
+
+	return 0;
+}
+
+/**
  * dsi_ctrl_phy_reset_config() - Mask/unmask propagation of ahb reset signal
  *	to DSI PHY hardware.
  * @dsi_ctrl:        DSI controller handle.
