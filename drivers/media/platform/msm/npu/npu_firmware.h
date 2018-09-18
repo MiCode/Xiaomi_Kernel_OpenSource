@@ -78,6 +78,8 @@
 #define HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT   2
 /* Host requests to pause fw during boot up */
 #define HOST_CTRL_STATUS_FW_PAUSE                   3
+/* Host requests to disable watchdog */
+#define HOST_CTRL_STATUS_DISABLE_WDOG_BIT  4
 
 /* 32 bit values of the bit fields above */
 #define HOST_CTRL_STATUS_IPC_ADDRESS_READY_VAL \
@@ -88,6 +90,8 @@
 		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT)
 #define HOST_CTRL_STATUS_FW_PAUSE_VAL \
 		(1 << HOST_CTRL_STATUS_FW_PAUSE)
+#define HOST_CTRL_STATUS_DISABLE_WDOG_VAL \
+		(1 << HOST_CTRL_STATUS_DISABLE_WDOG_BIT)
 
 
 /* NPU HOST DSP Control/Status Register */

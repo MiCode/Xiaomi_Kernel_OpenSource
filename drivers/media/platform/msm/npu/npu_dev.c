@@ -706,6 +706,8 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
 	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_CLEAR(0), NPU_ERROR_IRQ_MASK);
 	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_ENABLE(0), NPU_ERROR_IRQ_MASK);
+	REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_OWNER(0), NPU_ERROR_IRQ_MASK);
+	REGW(npu_dev, NPU_MASTERn_WDOG_IRQ_OWNER(0), NPU_WDOG_IRQ_MASK);
 
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
