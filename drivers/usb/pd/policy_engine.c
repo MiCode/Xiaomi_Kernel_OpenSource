@@ -2007,6 +2007,13 @@ static void vconn_swap(struct usbpd *pd)
 		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
 		kick_sm(pd, VCONN_ON_TIME);
 	} else {
+		if (!pd->vconn) {
+			pd->vconn = devm_regulator_get(pd->dev.parent, "vconn");
+			if (IS_ERR(pd->vconn)) {
+				usbpd_err(&pd->dev, "Unable to get vconn\n");
+				return;
+			}
+		}
 		ret = regulator_enable(pd->vconn);
 		if (ret) {
 			usbpd_err(&pd->dev, "Unable to enable vconn\n");
@@ -2056,6 +2063,13 @@ static int enable_vbus(struct usbpd *pd)
 		msleep(100);	/* need to wait an additional tCCDebounce */
 
 enable_reg:
+	if (!pd->vbus) {
+		pd->vbus = devm_regulator_get(pd->dev.parent, "vbus");
+		if (IS_ERR(pd->vbus)) {
+			usbpd_err(&pd->dev, "Unable to get vbus\n");
+			return -EAGAIN;
+		}
+	}
 	ret = regulator_enable(pd->vbus);
 	if (ret)
 		usbpd_err(&pd->dev, "Unable to enable vbus (%d)\n", ret);
@@ -2279,6 +2293,14 @@ static void usbpd_sm(struct work_struct *w)
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
+				if (!pd->vconn) {
+					pd->vconn = devm_regulator_get(
+						pd->dev.parent, "vconn");
+					if (IS_ERR(pd->vconn)) {
+						usbpd_err(&pd->dev, "Unable to get vconn\n");
+						return;
+					}
+				}
 				ret = regulator_enable(pd->vconn);
 				if (ret)
 					usbpd_err(&pd->dev, "Unable to enable vconn\n");
@@ -4131,18 +4153,6 @@ struct usbpd *usbpd_create(struct device *parent)
 			EXTCON_PROP_USB_TYPEC_POLARITY);
 	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_SS);
-
-	pd->vbus = devm_regulator_get(parent, "vbus");
-	if (IS_ERR(pd->vbus)) {
-		ret = PTR_ERR(pd->vbus);
-		goto put_psy;
-	}
-
-	pd->vconn = devm_regulator_get(parent, "vconn");
-	if (IS_ERR(pd->vconn)) {
-		ret = PTR_ERR(pd->vconn);
-		goto put_psy;
-	}
 
 	pd->vconn_is_external = device_property_present(parent,
 					"qcom,vconn-uses-external-source");
