@@ -106,7 +106,7 @@
 		spi-max-frequency = <4800000>;
 		reg = <0>;
 		interrupt-parent = <&tlmm_pinmux>;
-		interrupts = <68 0>;
+		interrupts = <68 IRQ_TYPE_EDGE_RISING>;
 		reset-gpio = <&tlmm_pinmux 89 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
@@ -328,5 +328,20 @@
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 		qcom,vadc-thermal-node;
+	};
+};
+
+&pmd9650_pon {
+	interrupts = <0x0 0x8 0x0>, <0x0 0x8 0x1>;
+	interrupt-names = "kpdpwr", "resin";
+	qcom,s3-src = "resin";
+
+	qcom,pon_2 {
+		qcom,pon-type = <1>;
+		qcom,support-reset = <1>;
+		qcom,s1-timer = <0>;
+		qcom,s2-timer = <2000>;
+		qcom,s2-type = <7>;
+		qcom,pull-up = <1>;
 	};
 };

@@ -245,3 +245,10 @@
 	status = "ok";
 	qcom,disable-bms;
 };
+
+&pm8916_chg {
+	status = "ok";
+	qcom,charging-disabled;
+	qcom,use-default-batt-values;
+};
+

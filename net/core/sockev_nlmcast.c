@@ -69,14 +69,17 @@ static int sockev_client_cb(struct notifier_block *nb,
 	struct nlmsghdr *nlh;
 	struct sknlsockevmsg *smsg;
 	struct socket *sock;
+	struct sock *sk;
 
 	sock = (struct socket *)data;
-	if (socknlmsgsk == 0)
-		goto done;
-	if ((socknlmsgsk == NULL) || (sock == NULL) || (sock->sk == NULL))
+	if (!socknlmsgsk || !sock)
 		goto done;
 
-	if (sock->sk->sk_family != AF_INET && sock->sk->sk_family != AF_INET6)
+	sk = sock->sk;
+	if (!sk)
+		goto done;
+
+	if (sk->sk_family != AF_INET && sk->sk_family != AF_INET6)
 		goto done;
 
 	if (event != SOCKEV_BIND && event != SOCKEV_LISTEN)
@@ -98,12 +101,11 @@ static int sockev_client_cb(struct notifier_block *nb,
 	memset(smsg, 0, sizeof(struct sknlsockevmsg));
 	smsg->pid = current->pid;
 	_sockev_event(event, smsg->event, sizeof(smsg->event));
-	smsg->skfamily = sock->sk->sk_family;
-	smsg->skstate = sock->sk->sk_state;
-	smsg->skprotocol = sock->sk->sk_protocol;
-	smsg->sktype = sock->sk->sk_type;
-	smsg->skflags = sock->sk->sk_flags;
-
+	smsg->skfamily = sk->sk_family;
+	smsg->skstate = sk->sk_state;
+	smsg->skprotocol = sk->sk_protocol;
+	smsg->sktype = sk->sk_type;
+	smsg->skflags = sk->sk_flags;
 	nlmsg_notify(socknlmsgsk, skb, 0, SKNLGRP_SOCKEV, 0, GFP_KERNEL);
 done:
 	return 0;
