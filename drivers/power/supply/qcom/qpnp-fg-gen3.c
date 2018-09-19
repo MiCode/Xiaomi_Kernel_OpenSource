@@ -2346,7 +2346,26 @@ out:
 	mutex_unlock(&chip->cyc_ctr.lock);
 }
 
-static const char *fg_get_cycle_count(struct fg_dev *fg)
+static int fg_get_cycle_count(struct fg_dev *fg)
+{
+	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
+	int i, len = 0;
+
+	if (!chip->cyc_ctr.en)
+		return 0;
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	for (i = 0; i < BUCKET_COUNT; i++)
+		len += chip->cyc_ctr.count[i];
+
+	mutex_unlock(&chip->cyc_ctr.lock);
+
+	len = len / BUCKET_COUNT;
+
+	return len;
+}
+
+static const char *fg_get_cycle_counts(struct fg_dev *fg)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
 	int i, len = 0;
@@ -3605,8 +3624,11 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		pval->intval = fg->bp.float_volt_uv;
 		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		pval->intval = fg_get_cycle_count(fg);
+		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
-		pval->strval = fg_get_cycle_count(fg);
+		pval->strval = fg_get_cycle_counts(fg);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_get_charge_raw(fg, &pval->intval);
@@ -3826,6 +3848,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
