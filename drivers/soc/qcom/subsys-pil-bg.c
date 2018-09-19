@@ -193,6 +193,9 @@ static long bgpil_tzapp_comm(struct pil_bg_data *pbd,
 	struct tzapp_bg_req *bg_tz_req;
 	struct tzapp_bg_rsp *bg_tz_rsp;
 	int rc, req_len, rsp_len;
+	unsigned char *ascii;
+	char fiwmare_version[100] = {'\0'};
+	char ascii_string[5];
 
 	/* Fill command structure */
 	req_len = sizeof(struct tzapp_bg_req);
@@ -218,10 +221,16 @@ static long bgpil_tzapp_comm(struct pil_bg_data *pbd,
 	if (req->tzapp_bg_cmd == BGPIL_GET_BG_VERSION) {
 		int i;
 
-		pr_info("BG FW ver ");
-		for (i = 0; i < bg_tz_rsp->bg_info_len; i++)
+		pr_info("BG FW version ");
+		for (i = 0; i < bg_tz_rsp->bg_info_len; i++) {
 			pr_info("0x%08x ", bg_tz_rsp->bg_info[i]);
-			pr_info("\n");
+			ascii = (unsigned char *)&bg_tz_rsp->bg_info[i];
+			snprintf(ascii_string, PAGE_SIZE, "%c%c%c%c", ascii[0],
+						ascii[1], ascii[2], ascii[3]);
+			strlcat(fiwmare_version, ascii_string,
+						PAGE_SIZE);
+		}
+		pr_info("%s\n", fiwmare_version);
 	}
 end:
 	return rc;
