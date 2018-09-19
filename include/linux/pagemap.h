@@ -239,8 +239,13 @@ static inline struct page *page_cache_alloc_cold(struct address_space *x)
 
 static inline gfp_t readahead_gfp_mask(struct address_space *x)
 {
-	return mapping_gfp_mask(x) |
-				  __GFP_COLD | __GFP_NORETRY | __GFP_NOWARN;
+	gfp_t gfp_mask = mapping_gfp_mask(x) |
+				__GFP_COLD | __GFP_NORETRY | __GFP_NOWARN;
+
+	if (gfp_mask & __GFP_MOVABLE)
+		gfp_mask |= __GFP_CMA;
+
+	return gfp_mask;
 }
 
 typedef int filler_t(struct file *, struct page *);
