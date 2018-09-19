@@ -1595,6 +1595,7 @@
 #include "kona-bus.dtsi"
 #include "kona-ion.dtsi"
 #include "kona-pcie.dtsi"
+#include "kona-mhi.dtsi"
 #include "msm-arm-smmu-kona.dtsi"
 #include "kona-pinctrl.dtsi"
 #include "kona-smp2p.dtsi"
