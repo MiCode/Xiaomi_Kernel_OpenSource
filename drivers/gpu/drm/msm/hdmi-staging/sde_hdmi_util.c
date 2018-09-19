@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,7 @@ static const char *sde_hdmi_hdr_sname(enum sde_hdmi_hdr_state hdr_state)
 	switch (hdr_state) {
 	case HDR_DISABLE: return "HDR_DISABLE";
 	case HDR_ENABLE: return "HDR_ENABLE";
+	case HDR_RESET: return "HDR_RESET";
 	default: return "HDR_INVALID_STATE";
 	}
 }
@@ -984,18 +985,23 @@ u8 sde_hdmi_hdr_get_ops(u8 curr_state,
 	u8 new_state)
 {
 
-	/** There could be 3 valid state transitions:
+	/** There could be 4 valid state transitions:
 	 * 1. HDR_DISABLE -> HDR_ENABLE
 	 *
 	 * In this transition, we shall start sending
 	 * HDR metadata with metadata from the HDR clip
 	 *
-	 * 2. HDR_ENABLE -> HDR_ENABLE
+	 * 2. HDR_ENABLE -> HDR_RESET
 	 *
 	 * In this transition, we will keep sending
 	 * HDR metadata but with EOTF and metadata as 0
 	 *
-	 * 3. HDR_ENABLE -> HDR_DISABLE
+	 * 3. HDR_RESET -> HDR_ENABLE
+	 *
+	 * In this transition, we will start sending
+	 * HDR metadata with metadata from the HDR clip
+	 *
+	 * 4. HDR_RESET -> HDR_DISABLE
 	 *
 	 * In this transition, we will stop sending
 	 * metadata to the sink and clear PKT_CTRL register
@@ -1009,12 +1015,18 @@ u8 sde_hdmi_hdr_get_ops(u8 curr_state,
 						sde_hdmi_hdr_sname(new_state));
 		return HDR_SEND_INFO;
 	} else if ((curr_state == HDR_ENABLE)
+				&& (new_state == HDR_RESET)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_SEND_INFO;
+	} else if ((curr_state == HDR_RESET)
 				&& (new_state == HDR_ENABLE)) {
 		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
 						sde_hdmi_hdr_sname(curr_state),
 						sde_hdmi_hdr_sname(new_state));
 		return HDR_SEND_INFO;
-	} else if ((curr_state == HDR_ENABLE)
+	} else if ((curr_state == HDR_RESET)
 				&& (new_state == HDR_DISABLE)) {
 		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
 						sde_hdmi_hdr_sname(curr_state),
