@@ -243,13 +243,13 @@ struct sde_hw_ctl_ops {
 		struct sde_hw_intf_cfg *cfg);
 
 	/**
-	 * Reset ctl_path iterface config
-	 * @ctx
+	 * Reset ctl_path interface config
+	 * @ctx   : ctl path ctx pointer
 	 * @cfg    : interface config structure pointer
 	 * @merge_3d_idx	: index of merge3d blk
 	 * @Return: error code
 	 */
-	int (*reset_post_te_disable)(struct sde_hw_ctl *ctx,
+	int (*reset_post_disable)(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg_v1 *cfg, u32 merge_3d_idx);
 
 	/** update cwb  for ctl_path
