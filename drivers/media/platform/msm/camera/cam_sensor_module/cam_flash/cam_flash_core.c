@@ -859,6 +859,7 @@ int cam_flash_establish_link(struct cam_req_mgr_core_dev_link_setup *link)
 		return -EINVAL;
 	}
 
+	mutex_lock(&fctrl->flash_mutex);
 	if (link->link_enable) {
 		fctrl->bridge_intf.link_hdl = link->link_hdl;
 		fctrl->bridge_intf.crm_cb = link->crm_cb;
@@ -866,6 +867,7 @@ int cam_flash_establish_link(struct cam_req_mgr_core_dev_link_setup *link)
 		fctrl->bridge_intf.link_hdl = -1;
 		fctrl->bridge_intf.crm_cb = NULL;
 	}
+	mutex_unlock(&fctrl->flash_mutex);
 
 	return 0;
 }
