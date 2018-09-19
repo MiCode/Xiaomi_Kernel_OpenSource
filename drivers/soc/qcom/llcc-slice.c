@@ -145,17 +145,8 @@ struct llcc_slice_desc *llcc_slice_getd(struct device *dev, const char *name)
 	const char *slice_name;
 	struct property *prop;
 
-	if (!np) {
-		dev_err(dev, "%s() currently only supports DT\n", __func__);
+	if (!np || !of_get_property(np, "cache-slice-names", NULL))
 		return ERR_PTR(-ENOENT);
-	}
-
-	if (!of_get_property(np, "cache-slice-names", NULL)) {
-		dev_err(dev,
-			"%s() requires a \"cache-slice-names\" property\n",
-			__func__);
-		return ERR_PTR(-ENOENT);
-	}
 
 	of_property_for_each_string(np, "cache-slice-names", prop, slice_name) {
 		if (!strcmp(name, slice_name))
