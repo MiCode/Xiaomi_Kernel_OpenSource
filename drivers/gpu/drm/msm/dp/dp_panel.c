@@ -1328,11 +1328,6 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		goto end;
 	}
 
-	if (dp_panel->stream_id >= DP_STREAM_MAX) {
-		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
-		return -EINVAL;
-	}
-
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
