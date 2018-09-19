@@ -287,7 +287,7 @@ EXPORT_SYMBOL(cam_mem_get_cpu_buf);
 int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 {
 	int rc = 0, idx;
-	uint32_t ion_cache_ops;
+	uint32_t cache_dir;
 	unsigned long dmabuf_flag = 0;
 
 	if (!cmd)
@@ -301,39 +301,57 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 
 	if (!tbl.bufq[idx].active) {
 		rc = -EINVAL;
-		goto fail;
+		goto end;
 	}
 
 	if (cmd->buf_handle != tbl.bufq[idx].buf_handle) {
 		rc = -EINVAL;
-		goto fail;
+		goto end;
 	}
 
 	rc = dma_buf_get_flags(tbl.bufq[idx].dma_buf, &dmabuf_flag);
 	if (rc) {
 		CAM_ERR(CAM_MEM, "cache get flags failed %d", rc);
-		goto fail;
+		goto end;
 	}
 
 	if (dmabuf_flag & ION_FLAG_CACHED) {
 		switch (cmd->mem_cache_ops) {
 		case CAM_MEM_CLEAN_CACHE:
-			ion_cache_ops = 1;
+			cache_dir = DMA_FROM_DEVICE;
 			break;
 		case CAM_MEM_INV_CACHE:
-			ion_cache_ops = 2;
+			cache_dir = DMA_TO_DEVICE;
 			break;
 		case CAM_MEM_CLEAN_INV_CACHE:
-			ion_cache_ops = 3;
+			cache_dir = DMA_BIDIRECTIONAL;
 			break;
 		default:
 			CAM_ERR(CAM_MEM,
 				"invalid cache ops :%d", cmd->mem_cache_ops);
 			rc = -EINVAL;
-			goto fail;
+			goto end;
 		}
+	} else {
+		CAM_DBG(CAM_MEM, "BUF is not cached");
+		goto end;
 	}
-fail:
+
+	rc = dma_buf_begin_cpu_access(tbl.bufq[idx].dma_buf,
+		cache_dir);
+	if (rc) {
+		CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
+		goto end;
+	}
+
+	rc = dma_buf_end_cpu_access(tbl.bufq[idx].dma_buf,
+		cache_dir);
+	if (rc) {
+		CAM_ERR(CAM_MEM, "dma end access failed rc=%d", rc);
+		goto end;
+	}
+
+end:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
