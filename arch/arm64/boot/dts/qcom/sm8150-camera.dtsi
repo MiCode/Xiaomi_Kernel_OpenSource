@@ -534,7 +534,7 @@
 			"svs_l1", "nominal", "turbo";
 		control-camnoc-axi-clk;
 		camnoc-bus-width = <32>;
-		camnoc-axi-clk-bw-margin-perc = <10>;
+		camnoc-axi-clk-bw-margin-perc = <20>;
 		qcom,msm-bus,name = "cam_ahb";
 		qcom,msm-bus,num-cases = <7>;
 		qcom,msm-bus,num-paths = <1>;
