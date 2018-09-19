@@ -1915,20 +1915,34 @@ iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 	struct iommu_domain *domain = mapping->domain;
 	dma_addr_t dma_base = mapping->base;
 	u64 size = mapping->bits << PAGE_SHIFT;
+	int ret;
+	bool own_cookie;
 
-	/* Prepare the domain */
-	if (iommu_get_dma_cookie(domain))
-		return -EINVAL;
+	/*
+	 * if own_cookie is false, then we are sharing the iova_cookie with
+	 * another driver, and should not free it on error. Cleanup will be
+	 * done when the iommu_domain is freed.
+	 */
+	own_cookie = !domain->iova_cookie;
 
-	if (iommu_dma_init_domain(domain, dma_base, size, dev))
-		goto out_put_cookie;
+	if (own_cookie) {
+		ret = iommu_get_dma_cookie(domain);
+		if (ret) {
+			dev_err(dev, "iommu_get_dma_cookie failed: %d\n", ret);
+			return ret;
+		}
+	}
+
+	ret = iommu_dma_init_domain(domain, dma_base, size, dev);
+	if (ret) {
+		dev_err(dev, "iommu_dma_init_domain failed: %d\n", ret);
+		if (own_cookie)
+			iommu_put_dma_cookie(domain);
+		return ret;
+	}
 
 	mapping->ops = &iommu_dma_ops;
 	return 0;
-
-out_put_cookie:
-	iommu_put_dma_cookie(domain);
-	return -EINVAL;
 }
 
 static int

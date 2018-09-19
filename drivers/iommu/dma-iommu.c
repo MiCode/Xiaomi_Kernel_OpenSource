@@ -267,6 +267,10 @@ static int iommu_dma_arm_smmu_errata_init(struct iommu_domain *domain)
 	int vmid = VMID_HLOS;
 	int min_iova_align = 0;
 
+	/* Called for each device in the iommu group */
+	if (cookie->guard_page)
+		return 0;
+
 	iommu_domain_get_attr(domain,
 			DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
 			&min_iova_align);
