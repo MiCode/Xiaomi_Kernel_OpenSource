@@ -401,6 +401,8 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
 	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
 	mode_info->clk_rate = dsi_mode.priv_info->clk_rate_hz;
+	mode_info->mdp_transfer_time_us =
+		dsi_mode.priv_info->mdp_transfer_time_us;
 
 	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
@@ -486,7 +488,7 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 	case DSI_OP_CMD_MODE:
 		sde_kms_info_add_keystr(info, "panel mode", "command");
 		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
-				panel->cmd_config.mdp_transfer_time_us);
+				mode_info->mdp_transfer_time_us);
 		sde_kms_info_add_keystr(info, "qsync support",
 				panel->qsync_min_fps ? "true" : "false");
 		break;
