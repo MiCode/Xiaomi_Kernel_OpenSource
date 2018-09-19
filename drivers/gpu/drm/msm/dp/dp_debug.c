@@ -149,7 +149,7 @@ static ssize_t dp_debug_write_edid(struct file *file,
 			goto bail;
 		}
 
-		if (edid_buf_index < debug->edid_size)
+		if (debug->edid && (edid_buf_index < debug->edid_size))
 			debug->edid[edid_buf_index++] = d;
 
 		buf_t += char_to_nib;
