@@ -899,6 +899,7 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 			count = DP_GET_SINK_COUNT(count);
 			if (!count) {
 				pr_err("no downstream ports connected\n");
+				panel->link->sink_count.count = 0;
 				rc = -ENOTCONN;
 				goto end;
 			}
