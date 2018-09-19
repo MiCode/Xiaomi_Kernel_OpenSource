@@ -2791,6 +2791,11 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	if (z == 0)
 		z = 10;
 
+	if (info->bdata->x_flip)
+		x = X_AXIS_MAX - x;
+	if (info->bdata->y_flip)
+		y = Y_AXIS_MAX - y;
+
 	if (x == X_AXIS_MAX)
 		x--;
 
@@ -4345,6 +4350,9 @@ static int parse_dt(struct device *dev,
 	} else {
 		bdata->reset_gpio = GPIO_NOT_DEFINED;
 	}
+
+	bdata->x_flip = of_property_read_bool(np, "st,x-flip");
+	bdata->y_flip = of_property_read_bool(np, "st,y-flip");
 
 	return OK;
 }
