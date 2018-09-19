@@ -1863,6 +1863,10 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 				result);
 		goto fail_dealloc_channel;
 	}
+
+	if (!ep->keep_ipa_awake)
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
 	result = ipa3_release_gsi_channel(clnt_hdl);
 	if (result) {
 		IPAERR("GSI dealloc channel failed %d\n",
@@ -1870,11 +1874,6 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 		goto fail_dealloc_channel;
 	}
 	ipa_release_uc_smmu_mappings(clnt_hdl);
-
-	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
-
-	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	/* for AP+STA stats update */
 	if (ipa3_ctx->uc_wdi_ctx.stats_notify)
@@ -2589,6 +2588,7 @@ retry_gsi_stop:
 			goto fail_start_channel;
 		}
 	}
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return 0;
 fail_start_channel:
 fail_read_channel_scratch:
