@@ -2464,7 +2464,7 @@ static int __arm_iommu_attach_device(struct device *dev,
 {
 	int err;
 
-	err = iommu_attach_device(mapping->domain, dev);
+	err = iommu_attach_group(mapping->domain, dev->iommu_group);
 	if (err)
 		return err;
 
