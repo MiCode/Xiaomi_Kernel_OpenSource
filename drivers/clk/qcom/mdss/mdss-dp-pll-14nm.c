@@ -292,6 +292,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x21;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x1;
+		pdb->lane_mode_1 = 0xc6;
 		break;
 	case DP_VCO_HSCLK_RATE_2700MHZDIV1000:
 		pdb->hsclk_sel = 0x24;
@@ -303,6 +304,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x38;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x1;
+		pdb->lane_mode_1 = 0xc4;
 		break;
 	case DP_VCO_HSCLK_RATE_5400MHZDIV1000:
 		pdb->hsclk_sel = 0x20;
@@ -314,6 +316,7 @@ static int dp_vco_pll_init_db_14nm(struct dp_pll_db *pdb,
 		pdb->lock_cmp2_mode0 = 0x70;
 		pdb->lock_cmp3_mode0 = 0x00;
 		pdb->phy_vco_div = 0x2;
+		pdb->lane_mode_1 = 0xc4;
 		break;
 	default:
 		return -EINVAL;
@@ -417,6 +420,11 @@ int dp_config_vco_rate_14nm(struct dp_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(dp_res->pll_base,
 		QSERDES_COM_CORE_CLK_EN, 0x0f);
 	wmb(); /* make sure write happens */
+
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX0_OFFSET + TXn_LANE_MODE_1, pdb->lane_mode_1);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+		QSERDES_TX1_OFFSET + TXn_LANE_MODE_1, pdb->lane_mode_1);
 
 	if (pdb->orientation == ORIENTATION_CC2)
 		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc8);
