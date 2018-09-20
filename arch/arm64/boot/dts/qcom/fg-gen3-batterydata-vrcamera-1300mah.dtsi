@@ -14,10 +14,13 @@ qcom,kayo_1300mah {
 	/* #kayo_1300mah_averaged_masterslave_feb26th2018 */
 	qcom,max-voltage-uv = <4200000>;
 	qcom,nom-batt-capacity-mah = <1300>;
+	qcom,fastchg-current-ma = <2600>;
 	qcom,batt-id-kohm = <100>;
-	qcom,jeita-fcc-ranges = <0   100  975000
-				101  450  1300000
-				451  600  1105000>;
+	qcom,jeita-fcc-ranges = <0   100  260000
+				101  200  650000
+				201  450  2600000
+				451  500  650000
+				501  600  260000>;
 	qcom,jeita-fv-ranges = <0   100  4000000
 				101 200  4100000
 				201 450  4200000
