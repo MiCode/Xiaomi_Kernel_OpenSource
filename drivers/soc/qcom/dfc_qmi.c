@@ -589,9 +589,9 @@ static int dfc_bearer_flow_ctl(struct net_device *dev,
 		if (itm->bearer_id == bearer->bearer_id) {
 			qlen = qmi_rmnet_flow_control(dev, itm->tcm_handle,
 						    enable);
-			trace_dfc_qmi_tc(itm->bearer_id, itm->flow_id,
-					 bearer->grant_size, qlen,
-					 itm->tcm_handle, enable);
+			trace_dfc_qmi_tc(dev->name, itm->bearer_id,
+					 itm->flow_id, bearer->grant_size,
+					 qlen, itm->tcm_handle, enable);
 			rc++;
 		}
 	}
@@ -630,7 +630,7 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 	else
 		netif_tx_stop_all_queues(dev);
 
-	trace_dfc_qmi_tc(0xFF, 0, fc_info->num_bytes, 0, 0, enable);
+	trace_dfc_qmi_tc(dev->name, 0xFF, 0, fc_info->num_bytes, 0, 0, enable);
 
 	if (enable == 0 && ack_req)
 		dfc_send_ack(dev, fc_info->bearer_id,
@@ -902,7 +902,8 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	if (unlikely(!bearer))
 		goto out;
 
-	trace_dfc_flow_check(bearer->bearer_id, len, bearer->grant_size);
+	trace_dfc_flow_check(dev->name, bearer->bearer_id,
+			     len, bearer->grant_size);
 
 	if (!bearer->grant_size)
 		goto out;
@@ -925,4 +926,16 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 out:
 	spin_unlock(&qos->qos_lock);
+}
+
+void dfc_qmi_wq_flush(struct qmi_info *qmi)
+{
+	struct dfc_qmi_data *dfc_data;
+	int i;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		dfc_data = (struct dfc_qmi_data *)(qmi->fc_info[i].dfc_client);
+		if (dfc_data)
+			flush_workqueue(dfc_data->dfc_wq);
+	}
 }
