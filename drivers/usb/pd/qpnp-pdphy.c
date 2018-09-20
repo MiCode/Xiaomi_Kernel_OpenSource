@@ -442,7 +442,7 @@ int pd_phy_signal(enum pd_sig_type sig)
 	val = (sig == CABLE_RESET_SIG ? TX_CONTROL_FRAME_TYPE_CABLE_RESET : 0)
 		| TX_CONTROL_SEND_SIGNAL;
 
-	//ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
+	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
 	if (ret)
 		return ret;
 
