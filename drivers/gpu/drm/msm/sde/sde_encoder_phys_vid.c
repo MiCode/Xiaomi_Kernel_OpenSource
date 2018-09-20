@@ -744,11 +744,10 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
 	/*
-	 * For single flush cases (dual-ctl or pp-split), skip setting the
-	 * flush bit for the slave intf, since both intfs use same ctl
-	 * and HW will only flush the master.
+	 * For pp-split, skip setting the flush bit for the slave intf,
+	 * since both intfs use same ctl and HW will only flush the master.
 	 */
-	if (sde_encoder_phys_vid_needs_single_flush(phys_enc) &&
+	if (_sde_encoder_phys_is_ppsplit(phys_enc) &&
 		!sde_encoder_phys_vid_is_master(phys_enc))
 		goto skip_flush;
 
