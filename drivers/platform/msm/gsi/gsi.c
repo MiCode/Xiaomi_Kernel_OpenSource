@@ -116,8 +116,7 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 
 static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 	struct gsi_chan_ctx *ctx,
-	uint32_t tm,
-	enum gsi_chan_state next_state)
+	uint32_t tm)
 {
 	int poll_cnt;
 	int gsi_pending_intr;
@@ -166,9 +165,6 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 			ch,
 			ctx->state,
 			gsi_pending_intr);
-
-		if (ctx->state == next_state)
-			break;
 	}
 
 }
@@ -1956,6 +1952,7 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	case GSI_CHAN_PROT_XHCI:
 	case GSI_CHAN_PROT_GPI:
 	case GSI_CHAN_PROT_XDCI:
+	case GSI_CHAN_PROT_WDI:
 		prot = props->prot;
 		prot_msb = 0;
 		break;
@@ -2474,8 +2471,7 @@ int gsi_start_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Start, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_START_CMD_TIMEOUT_MS,
-		GSI_CHAN_STATE_STARTED);
+		GSI_START_CMD_TIMEOUT_MS);
 
 	if (ctx->state != GSI_CHAN_STATE_STARTED) {
 		/*
@@ -2548,8 +2544,7 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	GSIDBG("GSI Channel Stop, waiting for completion\n");
 	gsi_channel_state_change_wait(chan_hdl,
 		ctx,
-		GSI_STOP_CMD_TIMEOUT_MS,
-		GSI_CHAN_STATE_STOPPED);
+		GSI_STOP_CMD_TIMEOUT_MS);
 
 	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
 		ctx->state != GSI_CHAN_STATE_STOP_IN_PROC) {
@@ -3234,6 +3229,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
 		ctx->stats.callback_to_poll++;
 	}

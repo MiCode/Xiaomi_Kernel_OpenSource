@@ -12,6 +12,11 @@ Required properties:
 	corresponding ch-mask entries for possible port types
 	of the master port.
 
+Optional properties:
+- qcom,swr-wakeup-required : should be set to 1 if wakeup is required
+from LPASS as part of soundwire data-toggle interrupt sequence
+for given target.
+
 * wsa881x
 
 Required properties:
@@ -34,6 +39,7 @@ swr0: swr_master {
 		#size-cells = <0>;
 
 		qcom,swr-num-ports = <8>;
+		qcom,swr-wakeup-required = <1>;
 		qcom,swr-port-mapping = <1 SPKR_L 0x1>,
 		<2 SPKR_L_COMP 0xF>, <3 SPKR_L_BOOST 0x3>,
 		<4 SPKR_R 0x1>, <5 SPKR_R_COMP 0xF>,

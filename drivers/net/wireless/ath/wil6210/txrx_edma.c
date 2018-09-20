@@ -358,8 +358,8 @@ static int wil_init_rx_sring(struct wil6210_priv *wil,
 	struct wil_status_ring *sring = &wil->srings[ring_id];
 	int rc;
 
-	wil_dbg_misc(wil, "init RX sring: size=%u, ring_id=%u\n", sring->size,
-		     ring_id);
+	wil_dbg_misc(wil, "init RX sring: size=%u, ring_id=%u\n",
+		     status_ring_size, ring_id);
 
 	memset(&sring->rx_data, 0, sizeof(sring->rx_data));
 
@@ -746,6 +746,16 @@ static int wil_ring_init_tx_edma(struct wil6210_vif *vif, int ring_id,
 
  out:
 	return rc;
+}
+
+static int wil_tx_ring_modify_edma(struct wil6210_vif *vif, int ring_id,
+				   int cid, int tid)
+{
+	struct wil6210_priv *wil = vif_to_wil(vif);
+
+	wil_err(wil, "ring modify is not supported for EDMA\n");
+
+	return -EOPNOTSUPP;
 }
 
 /* This function is used only for RX SW reorder */
@@ -1601,6 +1611,7 @@ void wil_init_txrx_ops_edma(struct wil6210_priv *wil)
 	wil->txrx_ops.tx_desc_map = wil_tx_desc_map_edma;
 	wil->txrx_ops.tx_desc_unmap = wil_tx_desc_unmap_edma;
 	wil->txrx_ops.tx_ring_tso = __wil_tx_ring_tso_edma;
+	wil->txrx_ops.tx_ring_modify = wil_tx_ring_modify_edma;
 	/* RX ops */
 	wil->txrx_ops.rx_init = wil_rx_init_edma;
 	wil->txrx_ops.wmi_addba_rx_resp = wmi_addba_rx_resp_edma;

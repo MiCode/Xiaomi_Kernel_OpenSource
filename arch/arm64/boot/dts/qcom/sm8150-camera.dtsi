@@ -405,10 +405,10 @@
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3.3 GB */
+					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
 					iova-region-start = <0xda00000>;
-					iova-region-len = <0xd2500000>;
+					iova-region-len = <0xace00000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
@@ -1031,11 +1031,12 @@
 			<&clock_camcc CAM_CC_IPE_0_CLK>;
 
 		clock-rates =
+			<0 0 0 300000000 0>,
 			<0 0 0 475000000 0>,
 			<0 0 0 520000000 0>,
 			<0 0 0 600000000 0>,
 			<0 0 0 600000000 0>;
-		clock-cntl-level = "svs", "svs_l1",
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
 		status = "ok";
 	};
@@ -1064,11 +1065,12 @@
 			<&clock_camcc CAM_CC_IPE_1_CLK>;
 
 		clock-rates =
+			<0 0 0 300000000 0>,
 			<0 0 0 475000000 0>,
 			<0 0 0 520000000 0>,
 			<0 0 0 600000000 0>,
 			<0 0 0 600000000 0>;
-		clock-cntl-level = "svs", "svs_l1",
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
 		status = "ok";
 	};
@@ -1097,11 +1099,12 @@
 			<&clock_camcc CAM_CC_BPS_CLK>;
 
 		clock-rates =
+			<0 0 0 200000000 0>,
 			<0 0 0 400000000 0>,
 			<0 0 0 480000000 0>,
 			<0 0 0 600000000 0>,
 			<0 0 0 600000000 0>;
-		clock-cntl-level = "svs", "svs_l1",
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
 				"nominal", "turbo";
 		status = "ok";
 	};

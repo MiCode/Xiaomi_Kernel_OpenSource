@@ -333,6 +333,7 @@ enum {
 	MIXER_PAIR_MASK,
 	MIXER_BLOCKS,
 	MIXER_DISP,
+	MIXER_CWB,
 	MIXER_PROP_MAX,
 };
 
@@ -570,6 +571,8 @@ static struct sde_prop_type mixer_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{MIXER_BLOCKS, "qcom,sde-mixer-blocks", false, PROP_TYPE_NODE},
 	{MIXER_DISP, "qcom,sde-mixer-display-pref", false,
+		PROP_TYPE_STRING_ARRAY},
+	{MIXER_CWB, "qcom,sde-mixer-cwb-pref", false,
 		PROP_TYPE_STRING_ARRAY},
 };
 
@@ -1626,6 +1629,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	for (i = 0, mixer_count = 0, pp_idx = 0, dspp_idx = 0,
 			ds_idx = 0; i < off_count; i++) {
 		const char *disp_pref = NULL;
+		const char *cwb_pref = NULL;
 
 		mixer_base = PROP_VALUE_ACCESS(prop_value, MIXER_OFF, i);
 		if (!mixer_base)
@@ -1672,6 +1676,11 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			mixer_prop[MIXER_DISP].prop_name, i, &disp_pref);
 		if (disp_pref && !strcmp(disp_pref, "primary"))
 			set_bit(SDE_DISP_PRIMARY_PREF, &mixer->features);
+
+		of_property_read_string_index(np,
+			mixer_prop[MIXER_CWB].prop_name, i, &cwb_pref);
+		if (cwb_pref && !strcmp(cwb_pref, "cwb"))
+			set_bit(SDE_DISP_CWB_PREF, &mixer->features);
 
 		mixer->pingpong = pp_count > 0 ? pp_idx + PINGPONG_0
 							: PINGPONG_MAX;

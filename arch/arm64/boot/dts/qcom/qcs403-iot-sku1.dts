@@ -77,3 +77,7 @@
 	/delete-node/ cpuss-2-step;
 	/delete-node/ cpuss-3-step;
 };
+
+&qnand_1 {
+	status = "ok";
+};

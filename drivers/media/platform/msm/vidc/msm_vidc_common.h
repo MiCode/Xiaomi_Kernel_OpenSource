@@ -24,7 +24,8 @@
 #define DEFAULT_FRAME_QUALITY 80
 #define FRAME_QUALITY_STEP 1
 #define HEIC_GRID_DIMENSION 512
-#define CBR_MB_LIMIT                           (1280*720/256*30)
+#define CBR_MB_LIMIT                           (((1280+15)/16)*((720+15)/16)*30)
+#define CBR_VFR_MB_LIMIT                       (((640+15)/16)*((480+15)/16)*30)
 
 struct vb2_buf_entry {
 	struct list_head list;
@@ -214,7 +215,7 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
-		struct vb2_buffer *vb);
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
@@ -250,4 +251,5 @@ void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
 int msm_comm_release_mark_data(struct msm_vidc_inst *inst);
 int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
+int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type);
 #endif

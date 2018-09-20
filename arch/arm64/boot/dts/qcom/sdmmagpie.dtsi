@@ -39,6 +39,7 @@
 		hsuart0 = &qupv3_se3_4uart;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 	};
 
 	cpus {
@@ -50,6 +51,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -85,6 +88,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_100>;
 			L2_100: l2-cache {
@@ -115,6 +120,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x200>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_200>;
 			L2_200: l2-cache {
@@ -144,6 +151,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x300>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_300>;
 			L2_300: l2-cache {
@@ -173,6 +182,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x400>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_400>;
 			L2_400: l2-cache {
@@ -202,6 +213,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x500>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_500>;
 			L2_500: l2-cache {
@@ -231,6 +244,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x600>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1740>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			cache-size = <0x10000>;
 			next-level-cache = <&L2_600>;
 			L2_600: l2-cache {
@@ -269,6 +284,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x700>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1740>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			cache-size = <0x10000>;
 			next-level-cache = <&L2_700>;
 			L2_700: l2-cache {
@@ -331,14 +348,82 @@
 			};
 
 			cluster1 {
-				core6 {
+				core0 {
 					cpu = <&CPU6>;
 				};
 
-				core7 {
+				core1 {
 					cpu = <&CPU7>;
 				};
 			};
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				300000	18
+				768000	23
+				1017600	36
+				1248000	52
+				1497600	76
+				1612800	92
+				1804800	119
+			>;
+			idle-cost-data = <
+				16 12 8 6
+			>;
+		};
+
+		CPU_COST_1: core-cost1 {
+			busy-cost-data = <
+				300000	166
+				806400	293
+				1094400	470
+				1324800	676
+				1708800	1060
+				1939200	1362
+				2169600	1801
+				2361600	2326
+				2438400	2568
+			>;
+			idle-cost-data = <
+				100 80 60 40
+			>;
+		};
+
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				300000	5
+				768000	5
+				1017600	7
+				1248000	8
+				1497600	10
+				1612800	12
+				1804800	14
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+
+		CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+				300000	19
+				806400	21
+				1094400	26
+				1324800	33
+				1708800	43
+				1939200	50
+				2169600	60
+				2361600	62
+				2438400	63
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
 		};
 	};
 
@@ -654,8 +739,11 @@
 	};
 
 	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+		compatible = "qcom,camcc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -680,9 +768,11 @@
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dispcc-sdmmagpie", "syscon";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -697,6 +787,43 @@
 		#reset-cells = <1>;
 	};
 
+	clock_cpucc: qcom,cpucc@18321000 {
+		compatible = "qcom,clk-cpu-osm-sdmmagpie";
+		reg = <0x18321000 0x1400>,
+			<0x18323000 0x1400>,
+			<0x18325800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base",
+			"osm_perfcl_base";
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
+	cpucc_debug: syscon@182a0018 {
+		compatible = "syscon";
+		reg = <0x182a0018 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x1000>;
+	};
+
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdmmagpie";
+		qcom,cc-count = <8>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		qcom,npucc = <&clock_npucc>;
+		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo_clk_src";
+		#clock-cells = <1>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
@@ -706,6 +833,13 @@
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
 		interrupts = <GIC_PPI 5 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	dsu_pmu@0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&CPU0>, <&CPU1>, <&CPU2>, <&CPU3>,
+		       <&CPU4>, <&CPU5>, <&CPU6>, <&CPU7>;
 	};
 
 	qcom,msm-imem@146aa000 {
@@ -841,6 +975,15 @@
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
 	};
 
 	qcom,chd_sliver {
@@ -1028,6 +1171,16 @@
 			qcom,dump-node = <&L2_TLB_700>;
 			qcom,dump-id = <0x127>;
 		};
+
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
+
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x141>;
+		};
 	};
 
 	thermal_zones: thermal-zones {};
@@ -1077,6 +1230,10 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -1085,6 +1242,14 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0x6c000>;
 		};
 	};
 
@@ -1601,6 +1766,111 @@
 		status = "disabled";
 	};
 
+	ufsphy_mem: ufsphy_mem@1d87000 {
+		reg = <0x1d87000 0xddc>; /* PHY regs */
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+
+		lanes-per-direction = <1>;
+
+		clock-names = "ref_clk_src",
+			"ref_clk",
+			"ref_aux_clk";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+
+		status = "disabled";
+	};
+
+	ufshc_mem: ufshc@1d84000 {
+		compatible = "qcom,ufshc";
+		reg = <0x1d84000 0x3000>;
+		interrupts = <0 265 0>;
+		phys = <&ufsphy_mem>;
+		phy-names = "ufsphy";
+
+		lanes-per-direction = <1>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
+		spm-level = <5>;
+
+		clock-names =
+			"core_clk",
+			"bus_aggr_clk",
+			"iface_clk",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"ref_clk",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk";
+		clocks =
+			<&clock_gcc GCC_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_UFS_PHY_AHB_CLK>,
+			<&clock_gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
+			<&clock_gcc GCC_UFS_PHY_ICE_CORE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>;
+		freq-table-hz =
+			<50000000 240000000>,
+			<0 0>,
+			<0 0>,
+			<37500000 150000000>,
+			<75000000 300000000>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+
+		qcom,msm-bus,name = "ufshc_mem";
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
+		<123 512 0 0>, <1 757 0 0>,          /* No vote */
+		<123 512 922 0>, <1 757 1000 0>,     /* PWM G1 */
+		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G2 */
+		<123 512 3688 0>, <1 757 1000 0>,    /* PWM G3 */
+		<123 512 7376 0>, <1 757 1000 0>,    /* PWM G4 */
+		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
+		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
+		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
+
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x3f 0xC0>;
+		qcom,pm-qos-cpu-group-latency-us = <67 67>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
+
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "core_reset";
+		non-removable;
+
+		status = "disabled";
+	};
+
 	qcom,lpass@62400000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x62400000 0x00100>;
@@ -1717,8 +1987,8 @@
 
 #include "sdmmagpie-pinctrl.dtsi"
 #include "sdmmagpie-gdsc.dtsi"
+#include "sdmmagpie-bus.dtsi"
 #include "sdmmagpie-qupv3.dtsi"
-#include "sdmmagpie-thermal.dtsi"
 
 &pcie_0_gdsc {
 	status = "ok";
@@ -1839,3 +2109,120 @@
 #include "pm6150l.dtsi"
 #include "sdmmagpie-regulator.dtsi"
 #include "sdmmagpie-coresight.dtsi"
+#include "sdmmagpie-thermal.dtsi"
+
+&pm6150_vadc {
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "rf_pa0_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "rf_pa1_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM4_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150_adc_tm {
+	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM3_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM4_PU2>;
+
+	/* Channel nodes */
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	rf_pa1_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM4_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pm6150l_vadc {
+	conn_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	smb_therm {
+		reg = <ADC_AMUX_THM2>;
+		label = "smb_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	camera_ftherm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		label = "camera_ftherm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	nvm_therm {
+		reg = <ADC_GPIO4_PU2>;
+		label = "nvm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150l_adc_tm {
+	io-channels = <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
+			<&pm6150l_vadc ADC_AMUX_THM3_PU2>,
+			<&pm6150l_vadc ADC_GPIO4_PU2>;
+
+	/* Channel nodes */
+	conn_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	camera_ftherm {
+		reg = <ADC_AMUX_THM3_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	nvm_therm {
+		reg = <ADC_GPIO4_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};

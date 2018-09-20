@@ -165,7 +165,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
 };
 
 &dsi_sim_vid {
@@ -269,6 +269,13 @@
 &dsi_td4328_truly_video {
 	qcom,mdss-dsi-t-clk-post = <0x0e>;
 	qcom,mdss-dsi-t-clk-pre = <0x32>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =
@@ -287,6 +294,13 @@
 &dsi_td4328_truly_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x0e>;
 	qcom,mdss-dsi-t-clk-pre = <0x32>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x1c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x1c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =
@@ -298,6 +312,8 @@
 
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <16 16 1 1 16 16>;
 		};
 	};
 };

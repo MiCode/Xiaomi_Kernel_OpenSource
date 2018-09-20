@@ -1206,6 +1206,7 @@ static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 {
 	int rc = 0;
+	struct dp_panel_private *panel;
 	struct dp_panel_info *pinfo;
 
 	if (!dp_panel) {
@@ -1214,27 +1215,22 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 		goto end;
 	}
 
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	pinfo = &dp_panel->pinfo;
 
 	/*
 	 * print resolution info as this is a result
 	 * of user initiated action of cable connection
 	 */
-	pr_info("SET NEW RESOLUTION:\n");
-	pr_info("%dx%d@%dfps\n", pinfo->h_active,
-		pinfo->v_active, pinfo->refresh_rate);
-	pr_info("h_porches(back|front|width) = (%d|%d|%d)\n",
-			pinfo->h_back_porch,
-			pinfo->h_front_porch,
-			pinfo->h_sync_width);
-	pr_info("v_porches(back|front|width) = (%d|%d|%d)\n",
-			pinfo->v_back_porch,
-			pinfo->v_front_porch,
-			pinfo->v_sync_width);
-	pr_info("pixel clock (KHz)=(%d)\n", pinfo->pixel_clk_khz);
-	pr_info("bpp = %d\n", pinfo->bpp);
-	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
-		pinfo->v_active_low);
+	pr_info("DP RESOLUTION: active(back|front|width|low)\n");
+	pr_info("%d(%d|%d|%d|%d)x%d(%d|%d|%d|%d)@%dfps %dbpp %dKhz %dLR %dLn\n",
+		pinfo->h_active, pinfo->h_back_porch, pinfo->h_front_porch,
+		pinfo->h_sync_width, pinfo->h_active_low,
+		pinfo->v_active, pinfo->v_back_porch, pinfo->v_front_porch,
+		pinfo->v_sync_width, pinfo->v_active_low,
+		pinfo->refresh_rate, pinfo->bpp, pinfo->pixel_clk_khz,
+		panel->link->link_params.bw_code,
+		panel->link->link_params.lane_count);
 end:
 	return rc;
 }
@@ -1271,6 +1267,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 	connector->hdr_max_luminance = 0;
 	connector->hdr_avg_luminance = 0;
 	connector->hdr_min_luminance = 0;
+	connector->hdr_supported = false;
 
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 

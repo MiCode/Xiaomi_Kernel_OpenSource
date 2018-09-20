@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-qcom,alium_860_89032_0000_3600mah_averaged_masterslave_jun15th2018 {
-	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Jun15th2018*/
+qcom,alium_860_89032_0000_3600mah_averaged_masterslave_aug6th2018 {
+	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Aug6th2018*/
 	qcom,max-voltage-uv = <4350000>;
 	qcom,fastchg-current-ma = <5400>;
 	qcom,jeita-fcc-ranges = <0  100  2500000
@@ -28,29 +28,29 @@ qcom,alium_860_89032_0000_3600mah_averaged_masterslave_jun15th2018 {
 	qcom,battery-beta = <4250>;
 	qcom,therm-room-temp = <100000>;
 	qcom,fg-cc-cv-threshold-mv = <4340>;
-	qcom,battery-type = "alium_860_89032_0000_3600mah_jun15th2018";
+	qcom,battery-type = "alium_860_89032_0000_3600mah_aug6th2018";
 	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
 	qcom,therm-center-offset = <0x70>;
 	qcom,therm-pull-up = <100>;
 	qcom,rslow-normal-coeffs = <0xa4 0x01 0x24 0x13>;
-	qcom,rslow-low-coeffs = <0xa7 0xd5 0x0e 0x13>;
-	qcom,checksum = <0xCDFB>;
-	qcom,gui-version = "PM8150GUI - 1.0.0.7";
+	qcom,rslow-low-coeffs = <0xa4 0x01 0x24 0x13>;
+	qcom,checksum = <0x99F7>;
+	qcom,gui-version = "PM855GUI - 1.0.0.10";
 	qcom,fg-profile-data = [
-		09 00 B5 EA
-		3F CC 33 AA
-		E7 C2 00 00
-		13 BC 83 8A
-		03 80 D1 92
-		AB 9D 47 80
+		09 00 BD EA
+		40 CC E8 BC
+		DD C3 00 00
+		B0 C5 72 92
+		F3 87 C8 A2
+		E6 9C E2 87
 		18 00 A4 01
 		24 13 47 FD
 		A9 F2 CE 07
-		32 00 A6 00
-		EF F5 CB FD
-		11 0D 4A 23
-		60 2A C1 23
-		6F 42 F8 43
+		32 00 0E E3
+		06 ED 2E EA
+		83 FD 5B 14
+		B8 1C 75 3A
+		5C 42 CA 3A
 		40 00 3A 00
 		40 00 48 00
 		3B 00 34 00

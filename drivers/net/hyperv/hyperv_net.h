@@ -207,7 +207,7 @@ int netvsc_recv_callback(struct net_device *net,
 void netvsc_channel_cb(void *context);
 int netvsc_poll(struct napi_struct *napi, int budget);
 
-void rndis_set_subchannel(struct work_struct *w);
+int rndis_set_subchannel(struct net_device *ndev, struct netvsc_device *nvdev);
 int rndis_filter_open(struct netvsc_device *nvdev);
 int rndis_filter_close(struct netvsc_device *nvdev);
 struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
@@ -724,6 +724,8 @@ struct net_device_context {
 	struct hv_device *device_ctx;
 	/* netvsc_device */
 	struct netvsc_device __rcu *nvdev;
+	/* list of netvsc net_devices */
+	struct list_head list;
 	/* reconfigure work */
 	struct delayed_work dwork;
 	/* last reconfig time */

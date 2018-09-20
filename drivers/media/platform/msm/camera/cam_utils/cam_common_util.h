@@ -32,4 +32,18 @@
 int cam_common_util_get_string_index(const char **strings,
 	uint32_t num_strings, char *matching_string, uint32_t *index);
 
+/**
+ * cam_common_util_remove_duplicate_arr()
+ *
+ * @brief                  Move all the unique integers to the start of
+ *                         the array and return the number of unique integers
+ *
+ * @array:                 Pointer to the first integer of array
+ * @num:                   Number of elements in array
+ *
+ * @return:                Number of unique integers in array
+ */
+uint32_t cam_common_util_remove_duplicate_arr(int32_t *array,
+	uint32_t num);
+
 #endif /* _CAM_COMMON_UTIL_H_ */

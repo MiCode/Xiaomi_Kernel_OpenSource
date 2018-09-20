@@ -445,7 +445,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba);
 static int ufshcd_enable_clocks(struct ufs_hba *hba);
 static int ufshcd_disable_clocks(struct ufs_hba *hba,
 				 bool is_gating_context);
-static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+static int ufshcd_disable_clocks_keep_link_active(struct ufs_hba *hba,
 					      bool is_gating_context);
 static void ufshcd_hold_all(struct ufs_hba *hba);
 static void ufshcd_release_all(struct ufs_hba *hba);
@@ -1791,7 +1791,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	 * hibern8 manually, this is to avoid auto hibern8
 	 * racing during clock frequency scaling sequence.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled) {
 		ret = ufshcd_uic_hibern8_enter(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -1804,7 +1805,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		goto scale_up_gear;
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled) {
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -2267,15 +2269,16 @@ static void ufshcd_gate_work(struct work_struct *work)
 	}
 
 	/*
-	 * If auto hibern8 is supported then the link will already
+	 * If auto hibern8 is supported and enabled then the link will already
 	 * be in hibern8 state and the ref clock can be gated.
 	 */
-	if ((ufshcd_is_auto_hibern8_supported(hba) ||
+	if ((((ufshcd_is_auto_hibern8_supported(hba) &&
+	       hba->hibern8_on_idle.is_enabled)) ||
 	     !ufshcd_is_link_active(hba)) && !hba->no_ref_clk_gating)
 		ufshcd_disable_clocks(hba, true);
 	else
 		/* If link is active, device ref_clk can't be switched off */
-		ufshcd_disable_clocks_skip_ref_clk(hba, true);
+		ufshcd_disable_clocks_keep_link_active(hba, true);
 
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
@@ -2757,6 +2760,7 @@ static void __ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba,
 	/* wait for all the outstanding requests to finish */
 	ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	ufshcd_set_auto_hibern8_timer(hba, delay_ms);
+	hba->hibern8_on_idle.is_enabled = !!delay_ms;
 	up_write(&hba->lock);
 	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release_all(hba);
@@ -2871,7 +2875,7 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
 		__ufshcd_set_auto_hibern8_timer(hba,
 			value ? hba->hibern8_on_idle.delay_ms : value);
-		goto update;
+		goto out;
 	}
 
 	if (value) {
@@ -2887,7 +2891,6 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
-update:
 	hba->hibern8_on_idle.is_enabled = value;
 out:
 	return count;
@@ -6282,7 +6285,8 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		if (hba->uic_async_done) {
 			complete(hba->uic_async_done);
 			retval = IRQ_HANDLED;
-		} else if (ufshcd_is_auto_hibern8_supported(hba)) {
+		} else if (ufshcd_is_auto_hibern8_supported(hba) &&
+			   hba->hibern8_on_idle.is_enabled) {
 			/*
 			 * If uic_async_done flag is not set then this
 			 * is an Auto hibern8 err interrupt.
@@ -6952,7 +6956,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 * process of gating when the err handler runs.
 	 */
 	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
-	    ufshcd_is_auto_hibern8_supported(hba))) {
+	    ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		hba->ufs_stats.clk_hold.ctx = ERR_HNDLR_WORK;
 		ufshcd_hold(hba, false);
@@ -8708,7 +8713,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * Enable auto hibern8 if supported, after full host and
 	 * device initialization.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba))
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)
 		ufshcd_set_auto_hibern8_timer(hba,
 				      hba->hibern8_on_idle.delay_ms);
 out:
@@ -9422,7 +9428,7 @@ out:
 }
 
 static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-			       bool skip_ref_clk, bool is_gating_context)
+			       bool keep_link_active, bool is_gating_context)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -9454,7 +9460,13 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+			/*
+			 * To keep link active, both device ref clock and unipro
+			 * clock should be kept ON.
+			 */
+			if (keep_link_active &&
+			    (!strcmp(clki->name, "ref_clk") ||
+			     !strcmp(clki->name, "core_clk_unipro")))
 				continue;
 
 			clk_state_changed = on ^ clki->enabled;
@@ -9529,7 +9541,7 @@ static int ufshcd_disable_clocks(struct ufs_hba *hba,
 	return  ufshcd_setup_clocks(hba, false, false, is_gating_context);
 }
 
-static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+static int ufshcd_disable_clocks_keep_link_active(struct ufs_hba *hba,
 					      bool is_gating_context)
 {
 	return  ufshcd_setup_clocks(hba, false, true, is_gating_context);
@@ -10012,8 +10024,11 @@ disable_clks:
 	if (!ufshcd_is_link_active(hba))
 		ret = ufshcd_disable_clocks(hba, false);
 	else
-		/* If link is active, device ref_clk can't be switched off */
-		ret = ufshcd_disable_clocks_skip_ref_clk(hba, false);
+		/*
+		 * If link is active, device ref_clk and unipro clock can't be
+		 * switched off.
+		 */
+		ret = ufshcd_disable_clocks_keep_link_active(hba, false);
 	if (ret)
 		goto set_link_active;
 
@@ -10613,8 +10628,6 @@ void ufshcd_remove(struct ufs_hba *hba)
 		if (hba->devfreq)
 			devfreq_remove_device(hba->devfreq);
 	}
-
-	ufshcd_exit_latency_hist(hba);
 
 	ufshcd_hba_exit(hba);
 	ufsdbg_remove_debugfs(hba);

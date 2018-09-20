@@ -79,6 +79,7 @@ static LIST_HEAD(sysmon_list);
 static DEFINE_MUTEX(sysmon_list_lock);
 
 static const int notif_map[SUBSYS_NOTIF_TYPE_COUNT] = {
+	[0 ... SUBSYS_NOTIF_TYPE_COUNT - 1] = SSCTL_SSR_EVENT_INVALID,
 	[SUBSYS_BEFORE_POWERUP] = SSCTL_SSR_EVENT_BEFORE_POWERUP,
 	[SUBSYS_AFTER_POWERUP] = SSCTL_SSR_EVENT_AFTER_POWERUP,
 	[SUBSYS_BEFORE_SHUTDOWN] = SSCTL_SSR_EVENT_BEFORE_SHUTDOWN,
@@ -117,6 +118,11 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 	},
 	{}
 };
+
+static bool is_ssctl_event(enum subsys_notif_type notif)
+{
+	return notif_map[notif] != SSCTL_SSR_EVENT_INVALID;
+}
 
 static int ssctl_new_server(struct qmi_handle *qmi, struct qmi_service *svc)
 {
@@ -258,8 +264,8 @@ int sysmon_send_event(struct subsys_desc *dest_desc,
 	int ret;
 	struct qmi_txn txn;
 
-	if (notif < 0 || notif >= SUBSYS_NOTIF_TYPE_COUNT || event_ss == NULL
-		|| dest_ss == NULL)
+	if (notif < 0 || notif >= SUBSYS_NOTIF_TYPE_COUNT ||
+	    !is_ssctl_event(notif) || event_ss == NULL || dest_ss == NULL)
 		return -EINVAL;
 
 	mutex_lock(&sysmon_list_lock);

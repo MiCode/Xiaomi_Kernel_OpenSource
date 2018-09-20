@@ -24,7 +24,7 @@ struct ipa3_odlstats {
 	u32 odl_rx_pkt;
 	u32 odl_tx_diag_pkt;
 	u32 odl_drop_pkt;
-	u32 numer_in_queue;
+	atomic_t numer_in_queue;
 };
 
 struct odl_state_bit_mask {

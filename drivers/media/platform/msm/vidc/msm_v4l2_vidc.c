@@ -496,7 +496,34 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{.compatible = "qcom,msm-vidc,mem-cdsp"},
 	{}
 };
+static int msm_vidc_register_video_device(enum session_type sess_type,
+		int nr, struct msm_vidc_core *core, struct device *dev)
+{
+	int rc = 0;
 
+	core->vdev[sess_type].vdev.release =
+		msm_vidc_release_video_device;
+	core->vdev[sess_type].vdev.fops = &msm_v4l2_vidc_fops;
+	core->vdev[sess_type].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
+	core->vdev[sess_type].vdev.vfl_dir = VFL_DIR_M2M;
+	core->vdev[sess_type].type = sess_type;
+	core->vdev[sess_type].vdev.v4l2_dev = &core->v4l2_dev;
+	rc = video_register_device(&core->vdev[sess_type].vdev,
+					VFL_TYPE_GRABBER, nr);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to register the video device\n");
+		return rc;
+	}
+	video_set_drvdata(&core->vdev[sess_type].vdev, core);
+	dev = &core->vdev[sess_type].vdev.dev;
+	rc = device_create_file(dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to create video device file\n");
+		video_unregister_device(&core->vdev[sess_type].vdev);
+		return rc;
+	}
+	return 0;
+}
 static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -536,75 +563,29 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	}
 
 	/* setup the decoder device */
-	core->vdev[MSM_VIDC_DECODER].vdev.release =
-		msm_vidc_release_video_device;
-	core->vdev[MSM_VIDC_DECODER].vdev.fops = &msm_v4l2_vidc_fops;
-	core->vdev[MSM_VIDC_DECODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
-	core->vdev[MSM_VIDC_DECODER].vdev.vfl_dir = VFL_DIR_M2M;
-	core->vdev[MSM_VIDC_DECODER].type = MSM_VIDC_DECODER;
-	core->vdev[MSM_VIDC_DECODER].vdev.v4l2_dev = &core->v4l2_dev;
-	rc = video_register_device(&core->vdev[MSM_VIDC_DECODER].vdev,
-					VFL_TYPE_GRABBER, nr);
+	rc = msm_vidc_register_video_device(MSM_VIDC_DECODER,
+			nr, core, dev);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to register video decoder device");
-		goto err_dec_register;
-	}
-
-	video_set_drvdata(&core->vdev[MSM_VIDC_DECODER].vdev, core);
-	dev = &core->vdev[MSM_VIDC_DECODER].vdev.dev;
-	rc = device_create_file(dev, &dev_attr_link_name);
-	if (rc) {
-		dprintk(VIDC_ERR,
-				"Failed to create link name sysfs for decoder");
-		goto err_dec_attr_link_name;
+		dprintk(VIDC_ERR, "Failed to register video decoder\n");
+		goto err_dec;
 	}
 
 	/* setup the encoder device */
-	core->vdev[MSM_VIDC_ENCODER].vdev.release =
-		msm_vidc_release_video_device;
-	core->vdev[MSM_VIDC_ENCODER].vdev.fops = &msm_v4l2_vidc_fops;
-	core->vdev[MSM_VIDC_ENCODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
-	core->vdev[MSM_VIDC_ENCODER].vdev.vfl_dir = VFL_DIR_M2M;
-	core->vdev[MSM_VIDC_ENCODER].type = MSM_VIDC_ENCODER;
-	core->vdev[MSM_VIDC_ENCODER].vdev.v4l2_dev = &core->v4l2_dev;
-	rc = video_register_device(&core->vdev[MSM_VIDC_ENCODER].vdev,
-				VFL_TYPE_GRABBER, nr + 1);
+	rc = msm_vidc_register_video_device(MSM_VIDC_ENCODER,
+			nr + 1, core, dev);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to register video encoder device");
-		goto err_enc_register;
-	}
-
-	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER].vdev, core);
-	dev = &core->vdev[MSM_VIDC_ENCODER].vdev.dev;
-	rc = device_create_file(dev, &dev_attr_link_name);
-	if (rc) {
-		dprintk(VIDC_ERR,
-				"Failed to create link name sysfs for encoder");
-		goto err_enc_attr_link_name;
+		dprintk(VIDC_ERR, "Failed to register video encoder\n");
+		goto err_enc;
 	}
 
 	/* setup the cvp device */
-	core->vdev[MSM_VIDC_CVP].vdev.release =
-		msm_vidc_release_video_device;
-	core->vdev[MSM_VIDC_CVP].vdev.fops = &msm_v4l2_vidc_fops;
-	core->vdev[MSM_VIDC_CVP].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
-	core->vdev[MSM_VIDC_CVP].vdev.vfl_dir = VFL_DIR_M2M;
-	core->vdev[MSM_VIDC_CVP].type = MSM_VIDC_CVP;
-	core->vdev[MSM_VIDC_CVP].vdev.v4l2_dev = &core->v4l2_dev;
-	rc = video_register_device(&core->vdev[MSM_VIDC_CVP].vdev,
-				VFL_TYPE_GRABBER, nr + 2);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to register video cvp device");
-		goto err_cvp_register;
-	}
-
-	video_set_drvdata(&core->vdev[MSM_VIDC_CVP].vdev, core);
-	dev = &core->vdev[MSM_VIDC_CVP].vdev.dev;
-	rc = device_create_file(dev, &dev_attr_link_name);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to create link name sysfs for cvp");
-		goto err_cvp_attr_link_name;
+	if (core->resources.domain_cvp) {
+		rc = msm_vidc_register_video_device(MSM_VIDC_CVP,
+				nr + 2, core, dev);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to register video CVP\n");
+			goto err_cvp;
+		}
 	}
 
 	/* finish setting up the 'core' */
@@ -661,21 +642,20 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 err_fail_sub_device_probe:
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
 err_cores_exceeded:
-	device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
+	if (core->resources.domain_cvp) {
+		device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
 			&dev_attr_link_name);
-err_cvp_attr_link_name:
-	video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
-err_cvp_register:
+		video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
+	}
+err_cvp:
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
 			&dev_attr_link_name);
-err_enc_attr_link_name:
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
-err_enc_register:
+err_enc:
 	device_remove_file(&core->vdev[MSM_VIDC_DECODER].vdev.dev,
 			&dev_attr_link_name);
-err_dec_attr_link_name:
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
-err_dec_register:
+err_dec:
 	v4l2_device_unregister(&core->v4l2_dev);
 err_v4l2_register:
 	sysfs_remove_group(&pdev->dev.kobj, &msm_vidc_core_attr_group);
@@ -745,9 +725,11 @@ static int msm_vidc_remove(struct platform_device *pdev)
 		venus_boot_deinit();
 
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
-	device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
+	if (core->resources.domain_cvp) {
+		device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
 				&dev_attr_link_name);
-	video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
+		video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
+	}
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
 				&dev_attr_link_name);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);

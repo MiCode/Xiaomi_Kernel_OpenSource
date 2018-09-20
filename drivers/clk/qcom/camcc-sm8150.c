@@ -38,7 +38,7 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_MM_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
 enum {
@@ -137,7 +137,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.config_ctl_hi1_val = 0x00000024,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
-	.test_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -149,6 +149,9 @@ static const struct alpha_pll_config cam_cc_pll0_config_sm8150_v2 = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -223,14 +226,14 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 };
 
 static const struct alpha_pll_config cam_cc_pll1_config = {
-	.l = 0x27,
-	.alpha = 0x1000,
+	.l = 0x1F,
+	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
-	.test_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -242,6 +245,9 @@ static const struct alpha_pll_config cam_cc_pll1_config_sm8150_v2 = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -287,7 +293,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 static const struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x32,
 	.alpha = 0x0,
-	.config_ctl_val = 0x10000927,
+	.config_ctl_val = 0x10000807,
 	.config_ctl_hi_val = 0x00000011,
 	.config_ctl_hi1_val = 0x04300142,
 	.test_ctl_val = 0x04000400,
@@ -349,7 +355,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.config_ctl_hi1_val = 0x00000024,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
-	.test_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -361,6 +367,9 @@ static const struct alpha_pll_config cam_cc_pll3_config_sm8150_v2 = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -411,7 +420,7 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.config_ctl_hi1_val = 0x00000024,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000002,
-	.test_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -423,6 +432,9 @@ static const struct alpha_pll_config cam_cc_pll4_config_sm8150_v2 = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000020,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -1029,8 +1041,8 @@ static struct clk_rcg2 cam_cc_ife_lite_1_csid_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_ipe_0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(375000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
-	F(475000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
+	F(300000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
+	F(450000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	F(520000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	F(600000000, P_CAM_CC_PLL1_OUT_EVEN, 1, 0, 0),
 	{ }
@@ -1128,8 +1140,8 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
-	F(19200000, P_BI_TCXO_MX, 1, 0, 0),
 	F(12000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 8),
+	F(19200000, P_BI_TCXO_MX, 1, 0, 0),
 	F(24000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 4),
 	F(68571429, P_CAM_CC_PLL2_OUT_EARLY, 14, 0, 0),
 	{ }

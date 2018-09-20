@@ -28,6 +28,7 @@ Required properties:
 Optional properties:
 - qcom,rt:	Specifies if the framework worker thread for this
 		controller device should have "real-time" priority.
+- qcom,disable-autosuspend: Specifies to disable runtime PM auto suspend.
 
 SPI slave nodes must be children of the SPI master node and can contain
 properties described in Documentation/devicetree/bindings/spi/spi-bus.txt

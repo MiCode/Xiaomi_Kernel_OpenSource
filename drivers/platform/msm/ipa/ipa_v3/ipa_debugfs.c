@@ -1152,7 +1152,7 @@ static ssize_t ipa3_read_odlstats(struct file *file, char __user *ubuf,
 			ipa3_odl_ctx->stats.odl_rx_pkt,
 			ipa3_odl_ctx->stats.odl_tx_diag_pkt,
 			ipa3_odl_ctx->stats.odl_drop_pkt,
-			ipa3_odl_ctx->stats.numer_in_queue);
+			atomic_read(&ipa3_odl_ctx->stats.numer_in_queue));
 
 	cnt += nbytes;
 

@@ -25,7 +25,7 @@
 #include "thermal_mitigation_device_service_v01.h"
 
 #define QMI_CDEV_DRIVER		"qmi-cooling-device"
-#define QMI_TMD_RESP_TOUT_MSEC	50
+#define QMI_TMD_RESP_TOUT	msecs_to_jiffies(100)
 #define QMI_CLIENT_NAME_LENGTH	40
 
 enum qmi_device_type {
@@ -166,7 +166,7 @@ static int qmi_tmd_send_state_request(struct qmi_cooling_device *qmi_cdev,
 		goto qmi_send_exit;
 	}
 
-	ret = qmi_txn_wait(&txn, QMI_TMD_RESP_TOUT_MSEC);
+	ret = qmi_txn_wait(&txn, QMI_TMD_RESP_TOUT);
 	if (ret < 0) {
 		pr_err("qmi set state:%d txn wait failed for %s ret:%d\n",
 			state, qmi_cdev->cdev_name, ret);
@@ -324,7 +324,7 @@ static int verify_devices_and_register(struct qmi_tmd_instance *tmd)
 		goto reg_exit;
 	}
 
-	ret = qmi_txn_wait(&txn, QMI_TMD_RESP_TOUT_MSEC);
+	ret = qmi_txn_wait(&txn, QMI_TMD_RESP_TOUT);
 	if (ret < 0) {
 		pr_err("Transaction wait error for inst_id:0x%x ret:%d\n",
 			tmd->inst_id, ret);

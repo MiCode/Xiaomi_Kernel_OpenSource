@@ -236,9 +236,12 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
  * sde_encoder_update_caps_for_cont_splash - update encoder settings during
  *	device bootup when cont_splash is enabled
  * @drm_enc:    Pointer to drm encoder structure
+ * @splash_display: Pointer to sde_splash_display corresponding to this encoder
+ * @enable:	boolean indicates enable or displae state of splash
  * @Return:     true if successful in updating the encoder structure
  */
-int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder);
+int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
+		struct sde_splash_display *splash_display, bool enable);
 
 /**
  * sde_encoder_display_failure_notification - update sde encoder state for
@@ -284,5 +287,12 @@ int sde_encoder_in_clone_mode(struct drm_encoder *enc);
  * @enable:	enable/disable flag
  */
 void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
+
+/**
+ * sde_encoder_in_cont_splash - checks if display is in continuous splash
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     true if display in continuous splash
+ */
+int sde_encoder_in_cont_splash(struct drm_encoder *enc);
 
 #endif /* __SDE_ENCODER_H__ */

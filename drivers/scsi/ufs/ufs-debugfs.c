@@ -1230,7 +1230,8 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 		 * hibern8 manually, this is to avoid auto hibern8
 		 * racing during clock frequency scaling sequence.
 		 */
-		if (ufshcd_is_auto_hibern8_supported(hba)) {
+		if (ufshcd_is_auto_hibern8_supported(hba) &&
+		    hba->hibern8_on_idle.is_enabled) {
 			ret = ufshcd_uic_hibern8_enter(hba);
 			if (ret)
 				goto out;
@@ -1240,7 +1241,8 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 		if (ret)
 			goto out;
 
-		if (ufshcd_is_auto_hibern8_supported(hba))
+		if (ufshcd_is_auto_hibern8_supported(hba) &&
+		    hba->hibern8_on_idle.is_enabled)
 			ret = ufshcd_uic_hibern8_exit(hba);
 
 		if (scale_up) {

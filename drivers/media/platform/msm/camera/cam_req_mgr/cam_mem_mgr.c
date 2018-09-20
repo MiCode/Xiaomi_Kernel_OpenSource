@@ -244,37 +244,42 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr, size_t *len)
 	if (!tbl.bufq[idx].active)
 		return -EPERM;
 
-	mutex_lock(&tbl.bufq[idx].q_lock);
 	if (buf_handle != tbl.bufq[idx].buf_handle) {
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	dmabuf = tbl.bufq[idx].dma_buf;
-	if (!dmabuf) {
-		CAM_ERR(CAM_MEM, "Invalid DMA buffer pointer");
+	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) {
-		if (!tbl.bufq[idx].kmdvaddr) {
-			rc = cam_mem_util_map_cpu_va(dmabuf,
-				&kvaddr, &klen);
-			if (rc)
-				goto exit_func;
-			tbl.bufq[idx].kmdvaddr = kvaddr;
+	if (!tbl.bufq[idx].kmdvaddr) {
+		mutex_lock(&tbl.bufq[idx].q_lock);
+		dmabuf = tbl.bufq[idx].dma_buf;
+		if (!dmabuf) {
+			CAM_ERR(CAM_MEM, "Invalid DMA buffer pointer");
+			rc = -EINVAL;
+			goto release_mutex;
 		}
-	} else {
-		rc = -EINVAL;
-		goto exit_func;
+
+		rc = cam_mem_util_map_cpu_va(dmabuf,
+			&kvaddr, &klen);
+		if (rc)
+			goto release_mutex;
+
+		tbl.bufq[idx].kmdvaddr = kvaddr;
+		mutex_unlock(&tbl.bufq[idx].q_lock);
 	}
 
 	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 	*len = tbl.bufq[idx].len;
 
-exit_func:
+	return rc;
+
+release_mutex:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
+exit_func:
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);

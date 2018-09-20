@@ -36,6 +36,7 @@
 #define A6XX_INT_UCHE_TRAP_INTR         25
 #define A6XX_INT_DEBBUS_INTR_0          26
 #define A6XX_INT_DEBBUS_INTR_1          27
+#define A6XX_INT_TSB_WRITE_ERROR	28
 #define A6XX_INT_ISDB_CPU_IRQ           30
 #define A6XX_INT_ISDB_UNDER_DEBUG       31
 

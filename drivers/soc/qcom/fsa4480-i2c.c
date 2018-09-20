@@ -194,6 +194,7 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	if (!fsa_priv)
 		return -EINVAL;
 
+	atomic_set(&(fsa_priv->usbc_mode), 0);
 	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	return blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);

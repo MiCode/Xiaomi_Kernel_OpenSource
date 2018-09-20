@@ -161,6 +161,13 @@
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
 			};
+
+			lcdb_bst_vreg: bst {
+				label = "bst";
+				regulator-name = "lcdb_bst";
+				regulator-min-microvolt = <4700000>;
+				regulator-max-microvolt = <6275000>;
+			};
 		};
 
 		flash_led: qcom,leds@d300 {
@@ -422,7 +429,7 @@
 	};
 
 	pm8150l-vph-lvl1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150l_bcl 3>;
@@ -438,7 +445,7 @@
 	};
 
 	pm8150l-vph-lvl2 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150l_bcl 4>;

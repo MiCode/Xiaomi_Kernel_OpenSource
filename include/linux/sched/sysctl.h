@@ -11,6 +11,7 @@ extern int	     sysctl_hung_task_check_count;
 extern unsigned int  sysctl_hung_task_panic;
 extern unsigned long sysctl_hung_task_timeout_secs;
 extern int sysctl_hung_task_warnings;
+extern int sysctl_hung_task_selective_monitoring;
 extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
 					 void __user *buffer,
 					 size_t *lenp, loff_t *ppos);
@@ -128,5 +129,10 @@ extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
 					int write, void __user *buffer,
 					size_t *lenp, loff_t *ppos);
 #endif
+
+#define LIB_PATH_LENGTH 512
+extern char sched_lib_name[LIB_PATH_LENGTH];
+extern unsigned int sched_lib_mask_check;
+extern unsigned int sched_lib_mask_force;
 
 #endif /* _LINUX_SCHED_SYSCTL_H */

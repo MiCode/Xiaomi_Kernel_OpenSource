@@ -137,7 +137,8 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 		 * secure environment to ensure the data is actually present
 		 * in RAM
 		 */
-		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
+		dmac_flush_range(chunk_list,
+			(void *)chunk_list + chunk_list_len);
 
 		ret = secure_buffer_change_chunk(chunk_list_phys,
 				nchunks, V2_CHUNK_SIZE, lock);

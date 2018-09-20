@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs403.dtsi"
-#include "qcs405-nowcd-audio-overlay.dtsi"
+#include "qcs405-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 RCM IOT";
@@ -76,4 +76,20 @@
 
 	/delete-node/ cpuss-2-step;
 	/delete-node/ cpuss-3-step;
+};
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_ss_phy {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};
+
+&qnand_1 {
+	status = "ok";
 };

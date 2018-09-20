@@ -20,11 +20,20 @@
 #include <linux/sched/debug.h>
 
 #include <trace/events/sched.h>
+#include <linux/sched/sysctl.h>
 
 /*
  * The number of tasks checked:
  */
 int __read_mostly sysctl_hung_task_check_count = PID_MAX_LIMIT;
+
+/*
+ * Selective monitoring of hung tasks.
+ *
+ * if set to 1, khungtaskd skips monitoring tasks, which has
+ * task_struct->hang_detection_enabled value not set, else monitors all tasks.
+ */
+int sysctl_hung_task_selective_monitoring = 1;
 
 /*
  * Limit number of tasks checked in a batch.
@@ -44,6 +53,7 @@ int __read_mostly sysctl_hung_task_warnings = 10;
 
 static int __read_mostly did_panic;
 static bool hung_task_show_lock;
+static bool hung_task_call_panic;
 
 static struct task_struct *watchdog_task;
 
@@ -127,10 +137,8 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 	touch_nmi_watchdog();
 
 	if (sysctl_hung_task_panic) {
-		if (hung_task_show_lock)
-			debug_show_all_locks();
-		trigger_all_cpu_backtrace();
-		panic("hung_task: blocked tasks");
+		hung_task_show_lock = true;
+		hung_task_call_panic = true;
 	}
 }
 
@@ -187,12 +195,19 @@ static void check_hung_uninterruptible_tasks(unsigned long timeout)
 		}
 		/* use "==" to skip the TASK_KILLABLE tasks waiting on NFS */
 		if (t->state == TASK_UNINTERRUPTIBLE)
-			check_hung_task(t, timeout);
+			/* Check for selective monitoring */
+			if (!sysctl_hung_task_selective_monitoring ||
+			    t->hang_detection_enabled)
+				check_hung_task(t, timeout);
 	}
  unlock:
 	rcu_read_unlock();
 	if (hung_task_show_lock)
 		debug_show_all_locks();
+	if (hung_task_call_panic) {
+		trigger_all_cpu_backtrace();
+		panic("hung_task: blocked tasks");
+	}
 }
 
 static long hung_timeout_jiffies(unsigned long last_checked,

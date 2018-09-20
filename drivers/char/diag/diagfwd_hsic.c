@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -392,6 +392,7 @@ static struct diag_remote_dev_ops diag_hsic_fwd_ops = {
 	.queue_read = hsic_queue_read,
 	.write = hsic_write,
 	.fwd_complete = hsic_fwd_complete,
+	.remote_proc_check = NULL,
 };
 
 int diag_hsic_init(void)
@@ -407,8 +408,8 @@ int diag_hsic_init(void)
 		INIT_WORK(&(ch->read_work), hsic_read_work_fn);
 		INIT_WORK(&(ch->open_work), hsic_open_work_fn);
 		INIT_WORK(&(ch->close_work), hsic_close_work_fn);
-		strlcpy(wq_name, "DIAG_HSIC_", DIAG_HSIC_STRING_SZ);
-		strlcat(wq_name, ch->name, sizeof(ch->name));
+		strlcpy(wq_name, "DIAG_HSIC_", sizeof(wq_name));
+		strlcat(wq_name, ch->name, sizeof(wq_name));
 		ch->hsic_wq = create_singlethread_workqueue(wq_name);
 		if (!ch->hsic_wq)
 			goto fail;

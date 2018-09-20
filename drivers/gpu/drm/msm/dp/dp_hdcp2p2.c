@@ -438,6 +438,26 @@ end:
 	return supported;
 }
 
+static void dp_hdcp2p2_force_encryption(void *data, bool enable)
+{
+	struct dp_hdcp2p2_ctrl *ctrl = data;
+	struct sde_hdcp_2x_ops *lib = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	lib = ctrl->lib;
+	if (!lib) {
+		pr_err("invalid lib ops data\n");
+		return;
+	}
+
+	if (lib->force_encryption)
+		lib->force_encryption(ctrl->lib_ctx, enable);
+}
+
 static void dp_hdcp2p2_send_msg_work(struct kthread_work *work)
 {
 	int rc = 0;
@@ -788,6 +808,7 @@ void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 		.reauthenticate = dp_hdcp2p2_reauthenticate,
 		.authenticate = dp_hdcp2p2_authenticate,
 		.feature_supported = dp_hdcp2p2_feature_supported,
+		.force_encryption = dp_hdcp2p2_force_encryption,
 		.off = dp_hdcp2p2_off,
 		.cp_irq = dp_hdcp2p2_cp_irq,
 	};

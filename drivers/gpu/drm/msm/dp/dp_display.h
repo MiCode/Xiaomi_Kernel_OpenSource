@@ -48,7 +48,6 @@ struct dp_display {
 	struct dp_bridge *bridge;
 	struct drm_connector *base_connector;
 	void *base_dp_panel;
-	bool is_connected;
 	bool is_sst_connected;
 	u32 max_pclk_khz;
 	void *dp_mst_prv_info;
@@ -61,8 +60,8 @@ struct dp_display {
 
 	int (*set_mode)(struct dp_display *dp_display, void *panel,
 			struct dp_display_mode *mode);
-	int (*validate_mode)(struct dp_display *dp_display, void *panel,
-			u32 mode_pclk_khz);
+	enum drm_mode_status (*validate_mode)(struct dp_display *dp_display,
+			void *panel, struct drm_display_mode *mode);
 	int (*get_modes)(struct dp_display *dp_display, void *panel,
 		struct dp_display_mode *dp_mode);
 	int (*prepare)(struct dp_display *dp_display, void *panel);

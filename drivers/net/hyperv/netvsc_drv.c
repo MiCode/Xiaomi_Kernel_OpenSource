@@ -66,6 +66,8 @@ static int debug = -1;
 module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 
+static LIST_HEAD(netvsc_dev_list);
+
 static void netvsc_change_rx_flags(struct net_device *net, int change)
 {
 	struct net_device_context *ndev_ctx = netdev_priv(net);
@@ -911,8 +913,20 @@ static int netvsc_attach(struct net_device *ndev,
 	if (IS_ERR(nvdev))
 		return PTR_ERR(nvdev);
 
-	/* Note: enable and attach happen when sub-channels setup */
+	if (nvdev->num_chn > 1) {
+		ret = rndis_set_subchannel(ndev, nvdev);
 
+		/* if unavailable, just proceed with one queue */
+		if (ret) {
+			nvdev->max_chn = 1;
+			nvdev->num_chn = 1;
+		}
+	}
+
+	/* In any case device is now ready */
+	netif_device_attach(ndev);
+
+	/* Note: enable and attach happen when sub-channels setup */
 	netif_carrier_off(ndev);
 
 	if (netif_running(ndev)) {
@@ -1737,13 +1751,10 @@ out_unlock:
 
 static struct net_device *get_netvsc_bymac(const u8 *mac)
 {
-	struct net_device *dev;
+	struct net_device_context *ndev_ctx;
 
-	ASSERT_RTNL();
-
-	for_each_netdev(&init_net, dev) {
-		if (dev->netdev_ops != &device_ops)
-			continue;	/* not a netvsc device */
+	list_for_each_entry(ndev_ctx, &netvsc_dev_list, list) {
+		struct net_device *dev = hv_get_drvdata(ndev_ctx->device_ctx);
 
 		if (ether_addr_equal(mac, dev->perm_addr))
 			return dev;
@@ -1754,25 +1765,18 @@ static struct net_device *get_netvsc_bymac(const u8 *mac)
 
 static struct net_device *get_netvsc_byref(struct net_device *vf_netdev)
 {
+	struct net_device_context *net_device_ctx;
 	struct net_device *dev;
 
-	ASSERT_RTNL();
+	dev = netdev_master_upper_dev_get(vf_netdev);
+	if (!dev || dev->netdev_ops != &device_ops)
+		return NULL;	/* not a netvsc device */
 
-	for_each_netdev(&init_net, dev) {
-		struct net_device_context *net_device_ctx;
+	net_device_ctx = netdev_priv(dev);
+	if (!rtnl_dereference(net_device_ctx->nvdev))
+		return NULL;	/* device is removed */
 
-		if (dev->netdev_ops != &device_ops)
-			continue;	/* not a netvsc device */
-
-		net_device_ctx = netdev_priv(dev);
-		if (!rtnl_dereference(net_device_ctx->nvdev))
-			continue;	/* device is removed */
-
-		if (rtnl_dereference(net_device_ctx->vf_netdev) == vf_netdev)
-			return dev;	/* a match */
-	}
-
-	return NULL;
+	return dev;
 }
 
 /* Called when VF is injecting data into network stack.
@@ -2035,6 +2039,9 @@ static int netvsc_probe(struct hv_device *dev,
 
 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
 
+	if (nvdev->num_chn > 1)
+		schedule_work(&nvdev->subchan_work);
+
 	/* hw_features computed in rndis_netdev_set_hwcaps() */
 	net->features = net->hw_features |
 		NETIF_F_HIGHDMA | NETIF_F_SG |
@@ -2050,15 +2057,19 @@ static int netvsc_probe(struct hv_device *dev,
 	else
 		net->max_mtu = ETH_DATA_LEN;
 
-	ret = register_netdev(net);
+	rtnl_lock();
+	ret = register_netdevice(net);
 	if (ret != 0) {
 		pr_err("Unable to register netdev.\n");
 		goto register_failed;
 	}
 
-	return ret;
+	list_add(&net_device_ctx->list, &netvsc_dev_list);
+	rtnl_unlock();
+	return 0;
 
 register_failed:
+	rtnl_unlock();
 	rndis_filter_device_remove(dev, nvdev);
 rndis_failed:
 	free_percpu(net_device_ctx->vf_stats);
@@ -2104,6 +2115,7 @@ static int netvsc_remove(struct hv_device *dev)
 		rndis_filter_device_remove(dev, nvdev);
 
 	unregister_netdevice(net);
+	list_del(&ndev_ctx->list);
 
 	rtnl_unlock();
 	rcu_read_unlock();

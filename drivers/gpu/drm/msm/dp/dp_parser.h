@@ -27,6 +27,7 @@ enum dp_pm_type {
 	DP_PHY_PM,
 	DP_STREAM0_PM,
 	DP_STREAM1_PM,
+	DP_LINK_PM,
 	DP_MAX_PM
 };
 
@@ -38,6 +39,7 @@ static inline const char *dp_parser_pm_name(enum dp_pm_type module)
 	case DP_PHY_PM:		return "DP_PHY_PM";
 	case DP_STREAM0_PM:	return "DP_STREAM0_PM";
 	case DP_STREAM1_PM:	return "DP_STREAM1_PM";
+	case DP_LINK_PM:	return "DP_LINK_PM";
 	default:		return "???";
 	}
 }
@@ -136,7 +138,8 @@ enum dp_phy_aux_config_type {
  */
 enum dp_phy_version {
 	DP_PHY_VERSION_UNKNOWN,
-	DP_PHY_VERSION_4_2_0,
+	DP_PHY_VERSION_2_0_0 = 0x200,
+	DP_PHY_VERSION_4_2_0 = 0x420,
 	DP_PHY_VERSION_MAX
 };
 
@@ -211,6 +214,21 @@ struct dp_parser {
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);
 	void (*get_io_buf)(struct dp_parser *parser, char *name);
 	void (*clear_io_buf)(struct dp_parser *parser);
+};
+
+enum dp_phy_lane_num {
+	DP_PHY_LN0 = 0,
+	DP_PHY_LN1 = 1,
+	DP_PHY_LN2 = 2,
+	DP_PHY_LN3 = 3,
+	DP_MAX_PHY_LN = 4,
+};
+
+enum dp_mainlink_lane_num {
+	DP_ML0 = 0,
+	DP_ML1 = 1,
+	DP_ML2 = 2,
+	DP_ML3 = 3,
 };
 
 /**

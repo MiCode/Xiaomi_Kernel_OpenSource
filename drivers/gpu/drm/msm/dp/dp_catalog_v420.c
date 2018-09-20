@@ -63,36 +63,6 @@ struct dp_catalog_private_v420 {
 	char exe_mode[SZ_4];
 };
 
-static u32 dp_read(struct dp_catalog_private_v420 *catalog,
-		struct dp_io_data *io_data, u32 offset)
-{
-	u32 data = 0;
-
-	if (!strcmp(catalog->exe_mode, "hw") ||
-	    !strcmp(catalog->exe_mode, "all")) {
-		data = readl_relaxed(io_data->io.base + offset);
-	} else if (!strcmp(catalog->exe_mode, "sw")) {
-		if (io_data->buf)
-			memcpy(&data, io_data->buf + offset, sizeof(offset));
-	}
-
-	return data;
-}
-
-static void dp_write(struct dp_catalog_private_v420 *catalog,
-		struct dp_io_data *io_data, u32 offset, u32 data)
-{
-	if (!strcmp(catalog->exe_mode, "hw") ||
-	    !strcmp(catalog->exe_mode, "all"))
-		writel_relaxed(data, io_data->io.base + offset);
-
-	if (!strcmp(catalog->exe_mode, "sw") ||
-	    !strcmp(catalog->exe_mode, "all")) {
-		if (io_data->buf)
-			memcpy(io_data->buf + offset, &data, sizeof(data));
-	}
-}
-
 static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 		struct dp_aux_cfg *cfg)
 {
@@ -108,12 +78,13 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 	catalog = dp_catalog_get_priv_v420(aux);
 
 	io_data = catalog->io->dp_phy;
-	dp_write(catalog, io_data, DP_PHY_PD_CTL, 0x67);
+	dp_write(catalog->exe_mode, io_data, DP_PHY_PD_CTL, 0x67);
 	wmb(); /* make sure PD programming happened */
 
 	/* Turn on BIAS current for PHY/PLL */
 	io_data = catalog->io->dp_pll;
-	dp_write(catalog, io_data, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x17);
+	dp_write(catalog->exe_mode, io_data, QSERDES_COM_BIAS_EN_CLKBUFLR_EN,
+			0x17);
 	wmb(); /* make sure BIAS programming happened */
 
 	io_data = catalog->io->dp_phy;
@@ -122,12 +93,13 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
 			dp_phy_aux_config_type_to_string(i),
 			cfg[i].offset, cfg[i].lut[cfg[i].current_index]);
-		dp_write(catalog, io_data, cfg[i].offset,
+		dp_write(catalog->exe_mode, io_data, cfg[i].offset,
 			cfg[i].lut[cfg[i].current_index]);
 	}
 	wmb(); /* make sure DP AUX CFG programming happened */
 
-	dp_write(catalog, io_data, DP_PHY_AUX_INTERRUPT_MASK_V420, 0x1F);
+	dp_write(catalog->exe_mode, io_data, DP_PHY_AUX_INTERRUPT_MASK_V420,
+			0x1F);
 }
 
 static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
@@ -179,9 +151,9 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 		if (panel->stream_id == DP_STREAM_1)
 			reg_off = MMSS_DP_PIXEL1_M_V420 - MMSS_DP_PIXEL_M_V420;
 
-		pixel_m = dp_read(catalog, io_data,
+		pixel_m = dp_read(catalog->exe_mode, io_data,
 				MMSS_DP_PIXEL_M_V420 + reg_off);
-		pixel_n = dp_read(catalog, io_data,
+		pixel_n = dp_read(catalog->exe_mode, io_data,
 				MMSS_DP_PIXEL_N_V420 + reg_off);
 		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
@@ -205,8 +177,8 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 	}
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_MVID + mvid_off, mvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_NVID + nvid_off, nvid);
+	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_MVID + mvid_off, mvid);
+	dp_write(catalog->exe_mode, io_data, DP_SOFTWARE_NVID + nvid_off, nvid);
 }
 
 static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
@@ -229,7 +201,7 @@ static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
 	info |= ((orientation & 0x0F) << 4);
 	pr_debug("Shared Info = 0x%x\n", info);
 
-	dp_write(catalog, io_data, DP_PHY_SPARE0_V420, info);
+	dp_write(catalog->exe_mode, io_data, DP_PHY_SPARE0_V420, info);
 }
 
 static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
@@ -254,12 +226,12 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 
 	/* program default setting first */
 	io_data = catalog->io->dp_ln_tx0;
-	dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
-	dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
+	dp_write(catalog->exe_mode, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
+	dp_write(catalog->exe_mode, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
 
 	io_data = catalog->io->dp_ln_tx1;
-	dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
-	dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
+	dp_write(catalog->exe_mode, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
+	dp_write(catalog->exe_mode, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
 
 	/* Enable MUX to use Cursor values from these registers */
 	value0 |= BIT(5);
@@ -268,12 +240,16 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 	/* Configure host and panel only if both values are allowed */
 	if (value0 != 0xFF && value1 != 0xFF) {
 		io_data = catalog->io->dp_ln_tx0;
-		dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, value0);
-		dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, value1);
+		dp_write(catalog->exe_mode, io_data, TXn_TX_DRV_LVL_V420,
+				value0);
+		dp_write(catalog->exe_mode, io_data, TXn_TX_EMP_POST1_LVL,
+				value1);
 
 		io_data = catalog->io->dp_ln_tx1;
-		dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, value0);
-		dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, value1);
+		dp_write(catalog->exe_mode, io_data, TXn_TX_DRV_LVL_V420,
+				value0);
+		dp_write(catalog->exe_mode, io_data, TXn_TX_EMP_POST1_LVL,
+				value1);
 
 		pr_debug("hw: vx_value=0x%x px_value=0x%x\n",
 			value0, value1);

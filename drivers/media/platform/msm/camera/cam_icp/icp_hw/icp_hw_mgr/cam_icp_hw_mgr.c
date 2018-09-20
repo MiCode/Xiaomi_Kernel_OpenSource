@@ -50,6 +50,7 @@
 #include "cam_soc_util.h"
 #include "cam_trace.h"
 #include "cam_cpas_api.h"
+#include "cam_common_util.h"
 
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
@@ -2001,6 +2002,11 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 	struct crm_workq_task *task;
 	struct hfi_msg_work_data *task_data;
 
+	if (!data) {
+		CAM_ERR(CAM_ICP, "irq cb data is NULL");
+		return rc;
+	}
+
 	spin_lock_irqsave(&hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
 	if (!task) {
@@ -3100,7 +3106,7 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	task_data->type = ICP_WORKQ_TASK_MSG_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	size_in_words = (*(uint32_t *)task_data->data) >> 2;
-	CAM_INFO(CAM_ICP, "size_in_words %u", size_in_words);
+	CAM_DBG(CAM_ICP, "size_in_words %u", size_in_words);
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
 	if (rc)
@@ -3388,6 +3394,11 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 			io_cfg_ptr[i].direction, io_cfg_ptr[i].fence,
 			io_cfg_ptr[i].resource_type);
 	}
+
+	if (prepare_args->num_in_map_entries > 1)
+		prepare_args->num_in_map_entries =
+			cam_common_util_remove_duplicate_arr(
+			sync_in_obj, prepare_args->num_in_map_entries);
 
 	if (prepare_args->num_in_map_entries > 1) {
 		rc = cam_sync_merge(&sync_in_obj[0],

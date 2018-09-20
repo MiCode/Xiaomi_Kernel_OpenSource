@@ -826,7 +826,7 @@ static int diag_socket_write(void *ctxt, unsigned char *buf, int len)
 		 * -EAGAIN means that the number of packets in flight is at
 		 * max capactity and the peripheral hasn't read the data.
 		 */
-		if (err != -EAGAIN) {
+		if (err != -EAGAIN && err != -ECONNRESET) {
 			pr_err_ratelimited("diag: In %s, error sending data, err: %d, ch: %s\n",
 					   __func__, err, info->name);
 		}
@@ -861,7 +861,7 @@ static void __diag_socket_init(struct diag_socket_info *info)
 	info->data_ready = 0;
 	atomic_set(&info->flow_cnt, 0);
 	spin_lock_init(&info->lock);
-	strlcpy(wq_name, info->name, sizeof(info->name));
+	strlcpy(wq_name, info->name, sizeof(wq_name));
 	init_waitqueue_head(&info->read_wait_q);
 	info->wq = create_singlethread_workqueue(wq_name);
 	if (!info->wq) {

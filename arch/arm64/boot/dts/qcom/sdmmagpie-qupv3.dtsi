@@ -17,7 +17,7 @@
 	qupv3_0: qcom,qupv3_0_geni_se@0x8c0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x8c0000 0x2000>;
-		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_1>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
 
@@ -263,7 +263,7 @@
 	qupv3_1: qcom,qupv3_1_geni_se@0xac0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0xac0000 0x2000>;
-		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_2>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
 

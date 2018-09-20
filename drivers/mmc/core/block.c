@@ -3467,6 +3467,91 @@ out:
 	return ret;
 }
 
+static void  mmc_cmdq_wait_for_small_sector_read(struct mmc_card *card)
+{
+	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+	int ret;
+
+	if ((card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
+		ctx->active_small_sector_read_reqs) {
+		ret = wait_event_interruptible(ctx->queue_empty_wq,
+					      !ctx->active_reqs);
+		if (ret) {
+			pr_err("%s: failed while waiting for the CMDQ to be empty %s err (%d)\n",
+				mmc_hostname(host), __func__, ret);
+			BUG_ON(1);
+		}
+		/* clear the counter now */
+		ctx->active_small_sector_read_reqs = 0;
+		/*
+		 * If there were small sector (less than 8 sectors) read
+		 * operations in progress then we have to wait for the
+		 * outstanding requests to finish and should also have
+		 * atleast 6 microseconds delay before queuing the DCMD
+		 * request.
+		 */
+		udelay(MMC_QUIRK_CMDQ_DELAY_BEFORE_DCMD);
+	}
+}
+
+static int mmc_blk_cmdq_issue_drv_op(struct mmc_card *card, struct request *req)
+{
+	struct mmc_queue_req *mq_rq;
+	u8 **ext_csd;
+	u32 status;
+	int ret;
+
+	mq_rq = req_to_mmc_queue_req(req);
+	ext_csd = mq_rq->drv_op_data;
+
+	ret = mmc_cmdq_halt_on_empty_queue(card->host);
+	if (ret) {
+		pr_err("%s: failed to halt on empty queue\n",
+						mmc_hostname(card->host));
+		blk_end_request_all(req, ret);
+		mmc_put_card(card);
+		return ret;
+	}
+
+	switch (mq_rq->drv_op) {
+	case MMC_DRV_OP_GET_EXT_CSD:
+		ret = mmc_get_ext_csd(card, ext_csd);
+		if (ret) {
+			pr_err("%s: failed to get ext_csd\n",
+						mmc_hostname(card->host));
+			goto out_unhalt;
+		}
+		break;
+	case MMC_DRV_OP_GET_CARD_STATUS:
+		ret = mmc_send_status(card, &status);
+		if (ret) {
+			pr_err("%s: failed to get status\n",
+						mmc_hostname(card->host));
+			goto out_unhalt;
+		}
+		ret = status;
+		break;
+	default:
+		pr_err("%s: unknown driver specific operation\n",
+					mmc_hostname(card->host));
+		ret = -EINVAL;
+		break;
+	}
+	mq_rq->drv_op_result = ret;
+	ret = ret ? BLK_STS_IOERR : BLK_STS_OK;
+
+out_unhalt:
+	blk_end_request_all(req, ret);
+	ret = mmc_cmdq_halt(card->host, false);
+	if (ret)
+		pr_err("%s: %s: failed to unhalt\n",
+				mmc_hostname(card->host), __func__);
+	mmc_put_card(card);
+
+	return ret;
+}
+
 static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 {
 	int ret, err = 0;
@@ -3510,42 +3595,26 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 
 	if (req) {
-		struct mmc_host *host = card->host;
-		struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
-
-		if ((req_op(req) == REQ_OP_FLUSH ||
-			req_op(req) ==  REQ_OP_DISCARD) &&
-			(card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
-			ctx->active_small_sector_read_reqs) {
-			ret = wait_event_interruptible(ctx->queue_empty_wq,
-						      !ctx->active_reqs);
-			if (ret) {
-				pr_err("%s: failed while waiting for the CMDQ to be empty %s err (%d)\n",
-					mmc_hostname(host), __func__, ret);
-				BUG_ON(1);
-			}
-			/* clear the counter now */
-			ctx->active_small_sector_read_reqs = 0;
-			/*
-			 * If there were small sector (less than 8 sectors) read
-			 * operations in progress then we have to wait for the
-			 * outstanding requests to finish and should also have
-			 * atleast 6 microseconds delay before queuing the DCMD
-			 * request.
-			 */
-			udelay(MMC_QUIRK_CMDQ_DELAY_BEFORE_DCMD);
-		}
-
-		if (req_op(req) == REQ_OP_DISCARD) {
+		switch (req_op(req)) {
+		case REQ_OP_DISCARD:
+			mmc_cmdq_wait_for_small_sector_read(card);
 			ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
-		} else if (req_op(req) == REQ_OP_SECURE_ERASE) {
+			break;
+		case REQ_OP_SECURE_ERASE:
 			if (!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
 				ret = mmc_blk_cmdq_issue_secdiscard_rq(mq, req);
 			else
 				ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
-		} else if (req_op(req) == REQ_OP_FLUSH) {
+			break;
+		case REQ_OP_FLUSH:
+			mmc_cmdq_wait_for_small_sector_read(card);
 			ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
-		} else {
+			break;
+		case REQ_OP_DRV_IN:
+		case REQ_OP_DRV_OUT:
+			ret = mmc_blk_cmdq_issue_drv_op(card, req);
+			break;
+		default:
 			ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
 			/*
 			 * If issuing of the request fails with eitehr EBUSY or
@@ -3568,6 +3637,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 				 */
 				goto out;
 			}
+			break;
 		}
 	}
 
@@ -4018,17 +4088,6 @@ static int mmc_dbg_card_status_get(void *data, u64 *val)
 	struct request *req;
 	int ret;
 
-	mmc_get_card(card);
-	if (mmc_card_cmdq(card)) {
-		ret = mmc_cmdq_halt_on_empty_queue(card->host);
-		if (ret) {
-			pr_err("%s: halt failed while doing %s err (%d)\n",
-					mmc_hostname(card->host), __func__,
-					ret);
-			goto out;
-		}
-	}
-
 	/* Ask the block layer about the card status */
 	req = blk_get_request(mq->queue, REQ_OP_DRV_IN, __GFP_RECLAIM);
 	if (IS_ERR(req))
@@ -4042,13 +4101,6 @@ static int mmc_dbg_card_status_get(void *data, u64 *val)
 	}
 	blk_put_request(req);
 
-	if (mmc_card_cmdq(card)) {
-		if (mmc_cmdq_halt(card->host, false))
-			pr_err("%s: %s: cmdq unhalt failed\n",
-			       mmc_hostname(card->host), __func__);
-	}
-out:
-	mmc_put_card(card);
 	return ret;
 }
 DEFINE_SIMPLE_ATTRIBUTE(mmc_dbg_card_status_fops, mmc_dbg_card_status_get,
@@ -4071,18 +4123,6 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	buf = kmalloc(EXT_CSD_STR_LEN + 1, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
-
-	mmc_get_card(card);
-	if (mmc_card_cmdq(card)) {
-		err = mmc_cmdq_halt_on_empty_queue(card->host);
-		if (err) {
-			pr_err("%s: halt failed while doing %s err (%d)\n",
-					mmc_hostname(card->host), __func__,
-					err);
-			mmc_put_card(card);
-			goto out_free_halt;
-		}
-	}
 
 	/* Ask the block layer for the EXT CSD */
 	req = blk_get_request(mq->queue, REQ_OP_DRV_IN, __GFP_RECLAIM);
@@ -4112,23 +4152,10 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = buf;
 
-	if (mmc_card_cmdq(card)) {
-		if (mmc_cmdq_halt(card->host, false))
-			pr_err("%s: %s: cmdq unhalt failed\n",
-			       mmc_hostname(card->host), __func__);
-	}
-
-	mmc_put_card(card);
 	kfree(ext_csd);
 	return 0;
+
 out_free:
-	if (mmc_card_cmdq(card)) {
-		if (mmc_cmdq_halt(card->host, false))
-			pr_err("%s: %s: cmdq unhalt failed\n",
-			       mmc_hostname(card->host), __func__);
-	}
-	mmc_put_card(card);
-out_free_halt:
 	kfree(buf);
 	return err;
 }

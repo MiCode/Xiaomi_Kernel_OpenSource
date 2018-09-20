@@ -308,14 +308,17 @@ static void _sde_encoder_pm_qos_add_request(struct drm_encoder *drm_enc)
 	if (!cpu_mask)
 		return;
 
-	req = &sde_kms->pm_qos_cpu_req;
-	req->type = PM_QOS_REQ_AFFINE_CORES;
-	cpumask_empty(&req->cpus_affine);
-	for_each_possible_cpu(cpu) {
-		if ((1 << cpu) & cpu_mask)
-			cpumask_set_cpu(cpu, &req->cpus_affine);
+	if (atomic_inc_return(&sde_kms->pm_qos_counts) == 1) {
+		req = &sde_kms->pm_qos_cpu_req;
+		req->type = PM_QOS_REQ_AFFINE_CORES;
+		cpumask_empty(&req->cpus_affine);
+		for_each_possible_cpu(cpu) {
+			if ((1 << cpu) & cpu_mask)
+				cpumask_set_cpu(cpu, &req->cpus_affine);
+		}
+		pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY,
+							cpu_dma_latency);
 	}
-	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
 
 	SDE_EVT32_VERBOSE(DRMID(drm_enc), cpu_mask, cpu_dma_latency);
 }
@@ -340,7 +343,9 @@ static void _sde_encoder_pm_qos_remove_request(struct drm_encoder *drm_enc)
 	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
 		return;
 
-	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
+	atomic_add_unless(&sde_kms->pm_qos_counts, -1, 0);
+	if (atomic_read(&sde_kms->pm_qos_counts) == 0)
+		pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
 }
 
 static struct drm_connector_state *_sde_encoder_get_conn_state(
@@ -438,6 +443,14 @@ int sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
 
 	return sde_enc && sde_enc->cur_master &&
 		sde_enc->cur_master->in_clone_mode;
+}
+
+int sde_encoder_in_cont_splash(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+
+	return sde_enc && sde_enc->cur_master &&
+		sde_enc->cur_master->cont_splash_enabled;
 }
 
 static inline int _sde_encoder_power_enable(struct sde_encoder_virt *sde_enc,
@@ -2892,7 +2905,7 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 
 	if (sde_enc->cur_master->hw_ctl &&
 			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1 &&
-			!sde_kms->splash_data.cont_splash_en)
+			!sde_enc->cur_master->cont_splash_enabled)
 		sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1(
 				sde_enc->cur_master->hw_ctl,
 				&sde_enc->cur_master->intf_cfg_v1);
@@ -3146,7 +3159,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		if (sde_enc->phys_encs[i]) {
-			sde_enc->phys_encs[i]->cont_splash_settings = false;
+			sde_enc->phys_encs[i]->cont_splash_enabled = false;
 			sde_enc->phys_encs[i]->cont_splash_single_flush = 0;
 			sde_enc->phys_encs[i]->connector = NULL;
 		}
@@ -3288,6 +3301,12 @@ static void sde_encoder_frame_done_callback(
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
+
+	if (!drm_enc || !sde_enc->cur_master) {
+		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
+				drm_enc, drm_enc ? sde_enc->cur_master : 0);
+		return;
+	}
 
 	sde_enc->crtc_frame_event_cb_data.connector =
 				sde_enc->cur_master->connector;
@@ -3622,17 +3641,20 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	u32 pending_kickoff_cnt;
 	struct msm_drm_private *priv = NULL;
 	struct sde_kms *sde_kms = NULL;
+	bool is_vid_mode = false;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
+	is_vid_mode = sde_enc->disp_info.capabilities &
+					MSM_DISPLAY_CAP_VID_MODE;
+
 	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
-		bool wait_for_dma = false;
 
 		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
 			continue;
@@ -3641,18 +3663,9 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		if (!ctl)
 			continue;
 
-		if (phys->ops.wait_dma_trigger)
-			wait_for_dma = phys->ops.wait_dma_trigger(
-					phys);
-
-		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
-					wait_for_dma);
-
 		if (phys->connector)
 			topology = sde_connector_get_topology_name(
 					phys->connector);
-
 		/*
 		 * don't wait on ppsplit slaves or skipped encoders because
 		 * they dont receive irqs
@@ -3663,18 +3676,22 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
-				!phys->ops.needs_single_flush(phys))
+				!phys->ops.needs_single_flush(phys)) {
+			if (ctl->ops.reg_dma_flush)
+				ctl->ops.reg_dma_flush(ctl, is_vid_mode);
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-		else if (ctl->ops.get_pending_flush)
+		} else if (ctl->ops.get_pending_flush) {
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
+		}
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
 	if (pending_flush.pending_flush_mask && sde_enc->cur_master) {
-		_sde_encoder_trigger_flush(
-				&sde_enc->base,
-				sde_enc->cur_master,
-				&pending_flush);
+		ctl = sde_enc->cur_master->hw_ctl;
+		if (ctl->ops.reg_dma_flush)
+			ctl->ops.reg_dma_flush(ctl, is_vid_mode);
+		_sde_encoder_trigger_flush(&sde_enc->base, sde_enc->cur_master,
+						&pending_flush);
 	}
 
 	/* update pending_kickoff_cnt AFTER flush but before trigger start */
@@ -4350,8 +4367,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		}
 	}
 
-	if (_sde_encoder_is_dsc_enabled(drm_enc) &&
-		!sde_kms->splash_data.cont_splash_en) {
+	if (_sde_encoder_is_dsc_enabled(drm_enc) && sde_enc->cur_master &&
+			!sde_enc->cur_master->cont_splash_enabled) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
 		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
@@ -5160,10 +5177,13 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
 /**
  * sde_encoder_update_caps_for_cont_splash - update encoder settings during
  *	device bootup when cont_splash is enabled
- * @drm_enc:    Pointer to drm encoder structure
+ * @drm_enc:	Pointer to drm encoder structure
+ * @splash_display: Pointer to sde_splash_display corresponding to this encoder
+ * @enable:	boolean indicates enable or displae state of splash
  * @Return:	true if successful in updating the encoder structure
  */
-int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
+int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
+		struct sde_splash_display *splash_display, bool enable)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
@@ -5200,6 +5220,21 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	}
 	SDE_DEBUG_ENC(sde_enc,
 			"num of connectors: %d\n", priv->num_connectors);
+
+	SDE_DEBUG_ENC(sde_enc, "enable: %d\n", enable);
+	if (!enable) {
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			phys_enc = sde_enc->phys_encs[i];
+			if (phys_enc)
+				phys_enc->cont_splash_enabled = false;
+		}
+		return ret;
+	}
+
+	if (!splash_display) {
+		SDE_ERROR_ENC(sde_enc, "invalid splash data\n");
+		return  -EINVAL;
+	}
 
 	for (i = 0; i < priv->num_connectors; i++) {
 		SDE_DEBUG_ENC(sde_enc, "connector id: %d\n",
@@ -5341,9 +5376,9 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 
 		/* update connector for master and slave phys encoders */
 		phys->connector = conn;
+		phys->cont_splash_enabled = true;
 		phys->cont_splash_single_flush =
-			sde_kms->splash_data.single_flush_en;
-		phys->cont_splash_settings = true;
+			splash_display->single_flush_en;
 
 		phys->hw_pp = sde_enc->hw_pp[i];
 		if (phys->ops.cont_splash_mode_set)

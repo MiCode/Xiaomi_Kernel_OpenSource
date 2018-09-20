@@ -1001,7 +1001,9 @@ struct task_struct {
 	struct sysv_shm			sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
+	/* hung task detection */
 	unsigned long			last_switch_count;
+	bool hang_detection_enabled;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;
@@ -1918,6 +1920,7 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 # define vcpu_is_preempted(cpu)	false
 #endif
 
+extern long msm_sched_setaffinity(pid_t pid, struct cpumask *new_mask);
 extern long sched_setaffinity(pid_t pid, const struct cpumask *new_mask);
 extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 

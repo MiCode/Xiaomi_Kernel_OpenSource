@@ -219,6 +219,7 @@
 				<RPMH_REGULATOR_MODE_LPM
 				RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
+		proxy-supply = <&pm6150_l4>;
 		L4A: pm6150_l4: regulator-pm6150-l4 {
 			regulator-name = "pm6150_l4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -226,6 +227,8 @@
 			regulator-max-microvolt = <975000>;
 			qcom,init-voltage = <875000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <23800>;
 		};
 	};
 
@@ -387,6 +390,7 @@
 				<RPMH_REGULATOR_MODE_LPM
 				RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
+		proxy-supply = <&pm6150_l13>;
 		L13A: pm6150_l13: regulator-pm6150-l13 {
 			regulator-name = "pm6150_l13";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -394,6 +398,8 @@
 			regulator-max-microvolt = <1900000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <115000>;
 		};
 	};
 
@@ -558,6 +564,7 @@
 				<RPMH_REGULATOR_MODE_LPM
 				RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
+		proxy-supply = <&pm6150l_l3>;
 		L3C: pm6150l_l3: regulator-pm6150l-l3 {
 			regulator-name = "pm6150l_l3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -565,6 +572,8 @@
 			regulator-max-microvolt = <1260000>;
 			qcom,init-voltage = <1232000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <51800>;
 		};
 	};
 

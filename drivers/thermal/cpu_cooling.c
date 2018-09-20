@@ -156,7 +156,7 @@ static unsigned long get_level(struct cpufreq_cooling_device *cpufreq_cdev,
 static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 				unsigned long mode, void *_unused)
 {
-	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct cpufreq_cooling_device *cpufreq_cdev, *next;
 	unsigned int cpu;
 
 	switch (mode) {
@@ -168,8 +168,8 @@ static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
-		mutex_lock(&cooling_list_lock);
-		list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+		list_for_each_entry_safe(cpufreq_cdev, next, &cpufreq_cdev_list,
+						node) {
 			if (cpufreq_cdev->cpu_id == -1)
 				continue;
 			mutex_lock(&core_isolate_lock);
@@ -193,7 +193,6 @@ static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 			}
 			mutex_unlock(&core_isolate_lock);
 		}
-		mutex_unlock(&cooling_list_lock);
 
 		atomic_set(&in_suspend, 0);
 		break;

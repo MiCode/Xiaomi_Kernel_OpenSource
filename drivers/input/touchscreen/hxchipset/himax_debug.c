@@ -2913,7 +2913,7 @@ int himax_debug_init(void)
 	struct himax_ts_data *ts = private_ts;
 	int err = 0;
 
-	I("%s:Enter\n", __func__);
+	D("%s:Enter\n", __func__);
 
 	if (ts == NULL) {
 		E("%s: ts struct is NULL\n", __func__);

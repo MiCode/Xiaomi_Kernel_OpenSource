@@ -334,7 +334,7 @@ COMPAT_SYSCALL_DEFINE3(sched_setaffinity, compat_pid_t, pid,
 	if (retval)
 		goto out;
 
-	retval = sched_setaffinity(pid, new_mask);
+	retval = msm_sched_setaffinity(pid, new_mask);
 out:
 	free_cpumask_var(new_mask);
 	return retval;

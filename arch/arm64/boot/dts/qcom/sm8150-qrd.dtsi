@@ -49,6 +49,13 @@
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	/* ESR fast calibration */
+	qcom,fg-esr-timer-chg-fast = <0 7>;
+	qcom,fg-esr-timer-dischg-fast = <0 7>;
+	qcom,fg-esr-timer-chg-slow = <0 96>;
+	qcom,fg-esr-timer-dischg-slow = <0 96>;
+	qcom,fg-esr-cal-soc-thresh = <26 230>;
+	qcom,fg-esr-cal-temp-thresh = <10 40>;
 };
 
 &soc {
@@ -519,6 +526,38 @@
 
 &spmi_debug_bus {
 	status = "ok";
+};
+
+&pm8150b_haptics {
+	qcom,vmax-mv = <2545>;
+	qcom,play-rate-us = <4255>;
+	wf_0 {
+		/* CLICK */
+		qcom,wf-pattern = [3e 3e 3e 3e];
+		qcom,wf-play-rate-us = <4255>;
+	};
+	wf_1 {
+		/* DOUBLE CLICK */
+		qcom,wf-play-rate-us = <7143>;
+	};
+	wf_2 {
+		/* TICK */
+		qcom,wf-play-rate-us = <4000>;
+	};
+	wf_3 {
+		/* THUD */
+		qcom,wf-pattern = [7e 7e 7e 7e];
+		qcom,wf-play-rate-us = <4255>;
+	};
+	wf_4 {
+		/* POP */
+		qcom,wf-play-rate-us = <5000>;
+	};
+	wf_5 {
+		/* HEAVY CLICK */
+		qcom,wf-pattern = [7e 7e 7e 7e];
+		qcom,wf-play-rate-us = <4255>;
+	};
 };
 
 &pm8150b_charger {

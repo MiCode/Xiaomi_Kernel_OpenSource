@@ -124,13 +124,6 @@ DEFINE_EVENT(net_dev_template, net_dev_queue,
 	TP_ARGS(skb)
 );
 
-DEFINE_EVENT(net_dev_template, netif_receive_skb,
-
-	TP_PROTO(struct sk_buff *skb),
-
-	TP_ARGS(skb)
-);
-
 DEFINE_EVENT(net_dev_template, netif_rx,
 
 	TP_PROTO(struct sk_buff *skb),
@@ -210,6 +203,13 @@ DEFINE_EVENT(net_dev_rx_verbose_template, napi_gro_frags_entry,
 );
 
 DEFINE_EVENT(net_dev_rx_verbose_template, napi_gro_receive_entry,
+
+	TP_PROTO(const struct sk_buff *skb),
+
+	TP_ARGS(skb)
+);
+
+DEFINE_EVENT(net_dev_rx_verbose_template, netif_receive_skb,
 
 	TP_PROTO(const struct sk_buff *skb),
 

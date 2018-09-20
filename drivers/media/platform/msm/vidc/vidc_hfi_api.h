@@ -406,6 +406,8 @@ enum hal_vp9_level {
 	HAL_VP9_LEVEL_41 = 0x00000080,
 	HAL_VP9_LEVEL_5  = 0x00000100,
 	HAL_VP9_LEVEL_51 = 0x00000200,
+	HAL_VP9_LEVEL_6  = 0x00000400,
+	HAL_VP9_LEVEL_61 = 0x00000800,
 };
 
 struct hal_frame_rate {
@@ -436,6 +438,7 @@ enum hal_uncompressed_format {
 	HAL_COLOR_FORMAT_RGBA8888       = 0x00008000,
 	HAL_COLOR_FORMAT_RGBA8888_UBWC  = 0x00010000,
 	HAL_COLOR_FORMAT_P010           = 0x00020000,
+	HAL_COLOR_FORMAT_NV12_512       = 0x00040000,
 	HAL_UNUSED_COLOR                = 0x10000000,
 };
 
@@ -1391,7 +1394,7 @@ struct vidc_bus_vote_data {
 	enum hal_video_codec codec;
 	enum hal_uncompressed_format color_formats[2];
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
-	int input_height, input_width, fps;
+	int input_height, input_width, fps, bitrate;
 	int output_height, output_width;
 	int compression_ratio;
 	int complexity_factor;

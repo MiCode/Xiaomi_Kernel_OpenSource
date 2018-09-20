@@ -367,6 +367,9 @@ static ssize_t notrace stm_generic_packet(struct stm_data *stm_data,
 	if (!(drvdata && local_read(&drvdata->mode)))
 		return -EACCES;
 
+	if (!drvdata->master_enable)
+		return -EPERM;
+
 	if (channel >= drvdata->numsp)
 		return -EINVAL;
 

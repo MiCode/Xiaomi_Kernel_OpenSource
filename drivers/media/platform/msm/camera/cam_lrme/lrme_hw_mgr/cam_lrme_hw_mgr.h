@@ -52,10 +52,21 @@ enum cam_lrme_hw_mgr_ctx_priority {
 /**
  * struct cam_lrme_mgr_work_data : HW Mgr work data
  *
- * hw_device : Pointer to the hw device
+ * @hw_device                    : Pointer to the hw device
  */
 struct cam_lrme_mgr_work_data {
 	struct cam_lrme_device *hw_device;
+};
+
+/**
+ * struct cam_lrme_debugfs_entry : debugfs entry struct
+ *
+ * @dentry                       : entry of debugfs
+ * @dump_register                : flag to dump registers
+ */
+struct cam_lrme_debugfs_entry {
+	struct dentry   *dentry;
+	bool             dump_register;
 };
 
 /**
@@ -98,6 +109,7 @@ struct cam_lrme_device {
  * @frame_req       : List of frame request to use
  * @lrme_caps       : LRME capabilities
  * @event_cb        : IRQ callback function
+ * @debugfs_entry   : debugfs entry to set debug prop
  */
 struct cam_lrme_hw_mgr {
 	uint32_t                      device_count;
@@ -110,6 +122,7 @@ struct cam_lrme_hw_mgr {
 	struct cam_lrme_frame_request frame_req[CAM_CTX_REQ_MAX * CAM_CTX_MAX];
 	struct cam_lrme_query_cap_cmd lrme_caps;
 	cam_hw_event_cb_func          event_cb;
+	struct cam_lrme_debugfs_entry debugfs_entry;
 };
 
 int cam_lrme_mgr_register_device(struct cam_hw_intf *lrme_hw_intf,

@@ -346,6 +346,12 @@ struct sde_hw_sspp_ops {
 			struct sde_hw_pipe_cfg *cfg,
 			enum sde_sspp_multirect_index index);
 
+	/* get_sourceaddress - get pipe current source addresses of a plane
+	 * @ctx: Pointer to pipe context
+	 * @is_virtual: If true get address programmed for R1 in multirect
+	 */
+	u32 (*get_sourceaddress)(struct sde_hw_pipe *ctx, bool is_virtual);
+
 	/**
 	 * setup_csc - setup color space conversion
 	 * @ctx: Pointer to pipe context

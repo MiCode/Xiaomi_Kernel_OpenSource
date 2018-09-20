@@ -65,11 +65,13 @@ enum cam_lrme_cb_type {
  * @CAM_LRME_HW_CMD_prepare_hw_update : Prepare HW update
  * @CAM_LRME_HW_CMD_REGISTER_CB       : register HW manager callback
  * @CAM_LRME_HW_CMD_SUBMIT            : Submit frame to HW
+ * @CAM_LRME_HW_CMD_DUMP_REGISTER     : dump register values
  */
 enum cam_lrme_hw_cmd_type {
 	CAM_LRME_HW_CMD_PREPARE_HW_UPDATE,
 	CAM_LRME_HW_CMD_REGISTER_CB,
 	CAM_LRME_HW_CMD_SUBMIT,
+	CAM_LRME_HW_CMD_DUMP_REGISTER,
 };
 
 /**

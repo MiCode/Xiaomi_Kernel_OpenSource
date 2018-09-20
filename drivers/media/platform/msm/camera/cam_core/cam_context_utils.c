@@ -275,7 +275,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	uint64_t packet_addr;
 	struct cam_packet *packet;
 	size_t len = 0;
-	int32_t i = 0;
+	int32_t i = 0, j = 0;
 
 	if (!ctx || !cmd) {
 		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
@@ -355,6 +355,15 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	req->status = 1;
 	req->req_priv = cfg.priv;
 
+	for (i = 0; i < req->num_out_map_entries; i++) {
+		rc = cam_sync_get_obj_ref(req->out_map_entries[i].sync_id);
+		if (rc) {
+			CAM_ERR(CAM_CTXT, "Can't get ref for sync %d",
+				req->out_map_entries[i].sync_id);
+			goto put_ref;
+		}
+	}
+
 	if (req->num_in_map_entries > 0) {
 		spin_lock(&ctx->lock);
 		list_add_tail(&req->list, &ctx->pending_req_list);
@@ -365,17 +374,17 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 				"[%s][%d] : Moving req[%llu] from free_list to pending_list",
 				ctx->dev_name, ctx->ctx_id, req->request_id);
 
-		for (i = 0; i < req->num_in_map_entries; i++) {
+		for (j = 0; j < req->num_in_map_entries; j++) {
 			cam_context_getref(ctx);
 			rc = cam_sync_register_callback(
 					cam_context_sync_callback,
 					(void *)req,
-					req->in_map_entries[i].sync_id);
+					req->in_map_entries[j].sync_id);
 			if (rc) {
 				CAM_ERR(CAM_CTXT,
 					"[%s][%d] Failed register fence cb: %d ret = %d",
 					ctx->dev_name, ctx->ctx_id,
-					req->in_map_entries[i].sync_id, rc);
+					req->in_map_entries[j].sync_id, rc);
 				spin_lock(&ctx->lock);
 				list_del_init(&req->list);
 				spin_unlock(&ctx->lock);
@@ -388,16 +397,23 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 
 				cam_context_putref(ctx);
 
-				goto free_req;
+				goto put_ref;
 			}
 			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
-				req->in_map_entries[i].sync_id, rc);
+				req->in_map_entries[j].sync_id, rc);
 		}
 		goto end;
 	}
 
 	return rc;
 
+put_ref:
+	for (--i; i >= 0; i--) {
+		rc = cam_sync_put_obj_ref(req->out_map_entries[i].sync_id);
+		if (rc)
+			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
+				req->out_map_entries[i].sync_id);
+	}
 free_req:
 	spin_lock(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);

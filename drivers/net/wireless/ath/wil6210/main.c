@@ -80,9 +80,9 @@ static const struct kernel_param_ops mtu_max_ops = {
 module_param_cb(mtu_max, &mtu_max_ops, &mtu_max, 0444);
 MODULE_PARM_DESC(mtu_max, " Max MTU value.");
 
-static uint rx_ring_order	 = WIL_RX_RING_SIZE_ORDER_DEFAULT;
-static uint tx_ring_order	 = WIL_TX_RING_SIZE_ORDER_DEFAULT;
-static uint bcast_ring_order	 = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
+static uint rx_ring_order;
+static uint tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+static uint bcast_ring_order = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
 
 static int ring_order_set(const char *val, const struct kernel_param *kp)
 {
@@ -362,6 +362,8 @@ static void _wil6210_disconnect(struct wil6210_vif *vif, const u8 *bssid,
 			vif->bss = NULL;
 		}
 		clear_bit(wil_vif_fwconnecting, vif->status);
+		clear_bit(wil_vif_ft_roam, vif->status);
+
 		break;
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_P2P_GO:
@@ -1716,6 +1718,11 @@ int __wil_up(struct wil6210_priv *wil)
 		return rc;
 
 	/* Rx RING. After MAC and beacon */
+	if (rx_ring_order == 0)
+		rx_ring_order = wil->hw_version < HW_VER_TALYN_MB ?
+			WIL_RX_RING_SIZE_ORDER_DEFAULT :
+			WIL_RX_RING_SIZE_ORDER_TALYN_DEFAULT;
+
 	rc = wil->txrx_ops.rx_init(wil, 1 << rx_ring_order);
 	if (rc)
 		return rc;

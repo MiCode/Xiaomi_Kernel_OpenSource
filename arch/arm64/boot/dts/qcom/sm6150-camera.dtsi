@@ -275,7 +275,8 @@
 
 		msm_cam_smmu_jpeg {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1060 0x8>;
+			iommus = <&apps_smmu 0xd80 0x20>,
+				<&apps_smmu  0xda0 0x20>;
 			label = "jpeg";
 			jpeg_iova_mem_map: iova-mem-map {
 				/* IO region is approximately 3.4 GB */

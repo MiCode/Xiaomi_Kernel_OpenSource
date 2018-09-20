@@ -80,7 +80,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
 			qcom,bus-governor = "msm-vidc-llcc";
-			qcom,bus-range-kbps = <1000 1326000>;
+			qcom,bus-range-kbps = <1000 6533000>;
 		};
 
 		/* MMUs */

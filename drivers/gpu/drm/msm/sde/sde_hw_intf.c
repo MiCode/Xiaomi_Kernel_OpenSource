@@ -175,7 +175,7 @@ static void sde_hw_intf_avr_ctrl(struct sde_hw_intf *ctx,
 	if (avr_params->avr_mode) {
 		avr_ctrl = BIT(0);
 		avr_mode = (avr_params->avr_mode == AVR_ONE_SHOT_MODE) ?
-			(BIT(1) | BIT(8)) : 0x0;
+			(BIT(0) | BIT(8)) : 0x0;
 	}
 
 	SDE_REG_WRITE(c, INTF_AVR_CONTROL, avr_ctrl);

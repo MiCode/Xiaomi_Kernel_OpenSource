@@ -36,6 +36,9 @@
 #define IPA_GENERIC_AGGR_TIME_LIMIT 500 /* 0.5msec */
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 
+#define IPA_GSB_AGGR_BYTE_LIMIT 14
+#define IPA_GSB_RX_BUFF_BASE_SZ 16384
+
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
 #define IPA_REAL_GENERIC_RX_BUFF_SZ(X) (SKB_DATA_ALIGN(\
 		(X) + NET_SKB_PAD) +\
@@ -3039,7 +3042,6 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			INIT_DELAYED_WORK(&sys->replenish_rx_work,
 				ipa3_replenish_rx_work_func);
 			atomic_set(&sys->curr_polling_state, 0);
-			sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
 			sys->rx_pool_sz = in->desc_fifo_sz /
 				IPA_FIFO_ELEMENT_SIZE - 1;
 			if (sys->rx_pool_sz > IPA_ODU_RX_POOL_SZ)
@@ -3047,8 +3049,23 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			sys->pyld_hdlr = ipa3_odu_rx_pyld_hdlr;
 			sys->get_skb = ipa3_get_skb_ipa_rx;
 			sys->free_skb = ipa3_free_skb_rx;
-			sys->free_rx_wrapper = ipa3_free_rx_wrapper;
-			sys->repl_hdlr = ipa3_replenish_rx_cache;
+			/* recycle skb for GSB use case */
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+				sys->free_rx_wrapper =
+					ipa3_free_rx_wrapper;
+				sys->repl_hdlr =
+					ipa3_replenish_rx_cache;
+				/* Overwrite buffer size & aggr limit for GSB */
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
+					IPA_GSB_RX_BUFF_BASE_SZ);
+				in->ipa_ep_cfg.aggr.aggr_byte_limit =
+					IPA_GSB_AGGR_BYTE_LIMIT;
+			} else {
+				sys->free_rx_wrapper =
+					ipa3_free_rx_wrapper;
+				sys->repl_hdlr = ipa3_replenish_rx_cache;
+				sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
+			}
 		} else if (in->client ==
 				IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
 			IPADBG("assigning policy to client:%d",
@@ -3323,6 +3340,13 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 				result = -EFAULT;
 				goto fail_and_disable_clocks;
 			}
+			if (ipa3_cfg_ep_hdr_ext(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.hdr_ext)) {
+				IPAERR("fail config hdr_ext prop of EP %d\n",
+						ipa_ep_idx);
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
+			}
 			if (ipa3_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP %d\n",
@@ -3553,10 +3577,8 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
-	spin_lock_bh(&sys->spinlock);
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
 					   struct ipa3_rx_pkt_wrapper, link);
-	spin_unlock_bh(&sys->spinlock);
 	rx_pkt_rcvd = (struct ipa3_rx_pkt_wrapper *)notify->xfer_user_data;
 
 	if (rx_pkt_expected != rx_pkt_rcvd) {

@@ -500,7 +500,6 @@ static void diag_rpmsg_close_work_fn(struct work_struct *work)
 	if (!rpmsg_info || !rpmsg_info->inited || !rpmsg_info->hdl)
 		return;
 	atomic_set(&rpmsg_info->opened, 0);
-	dev_set_drvdata(&rpmsg_info->hdl->dev, NULL);
 	rpmsg_info->hdl = NULL;
 	diagfwd_channel_close(rpmsg_info->fwd_ctxt);
 }
@@ -622,8 +621,8 @@ static void __diag_rpmsg_init(struct diag_rpmsg_info *rpmsg_info)
 	init_waitqueue_head(&rpmsg_info->wait_q);
 	init_waitqueue_head(&rpmsg_info->read_wait_q);
 	mutex_init(&rpmsg_info->lock);
-	strlcpy(wq_name, "DIAG_RPMSG_", 12);
-	strlcat(wq_name, rpmsg_info->name, sizeof(rpmsg_info->name));
+	strlcpy(wq_name, "DIAG_RPMSG_", sizeof(wq_name));
+	strlcat(wq_name, rpmsg_info->name, sizeof(wq_name));
 	rpmsg_info->wq = create_singlethread_workqueue(wq_name);
 	if (!rpmsg_info->wq) {
 		pr_err("diag: In %s, unable to create workqueue for rpmsg ch:%s\n",

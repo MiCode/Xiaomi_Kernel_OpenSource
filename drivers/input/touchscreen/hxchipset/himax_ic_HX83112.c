@@ -92,7 +92,8 @@ static bool hx83112_sense_off(void)
 		 *=====================
 		 */
 		g_core_fp.fp_register_read(pic_op->addr_cs_central_state, FOUR_BYTE_ADDR_SZ, tmp_data, 0);
-		I("%s: Check enter_save_mode data[0]=%X\n", __func__, tmp_data[0]);
+		D("%s: Check enter_save_mode data[0]=%X\n",
+			__func__, tmp_data[0]);
 
 		if (tmp_data[0] == 0x0C) {
 			/*
@@ -167,7 +168,8 @@ static bool hx83112_chip_detect(void)
 
 			I("%s:IC name = %s\n", __func__, private_ts->chip_name);
 
-			I("Himax IC package %x%x%x in\n", tmp_data[3], tmp_data[2], tmp_data[1]);
+			D("Himax IC package %x%x%x in\n",
+				tmp_data[3], tmp_data[2], tmp_data[1]);
 			ret_data = true;
 			break;
 		}
@@ -184,7 +186,7 @@ static void hx83112_chip_init(void)
 {
 
 	private_ts->chip_cell_type = CHIP_IS_IN_CELL;
-	I("%s:IC cell type = %d\n",  __func__,  private_ts->chip_cell_type);
+	D("%s:IC cell type = %d\n",  __func__,  private_ts->chip_cell_type);
 	IC_CHECKSUM = HX_TP_BIN_CHECKSUM_CRC;
 	/* Himax: Set FW and CFG Flash Address */
 	FW_VER_MAJ_FLASH_ADDR  = 49157;  /* 0x00C005 */
@@ -211,7 +213,7 @@ static void hx83112_chip_init(void)
 #ifdef CONFIG_CHIP_DTCFG
 static int himax_hx83112_probe(struct platform_device *pdev)
 {
-	I("%s:Enter\n", __func__);
+	D("%s:Enter\n", __func__);
 	g_core_fp.fp_chip_detect = hx83112_chip_detect;
 	g_core_fp.fp_chip_init = hx83112_chip_init;
 	return 0;
@@ -246,7 +248,7 @@ static struct platform_driver himax_hx83112_driver = {
 
 static int __init himax_hx83112_init(void)
 {
-	I("%s\n", __func__);
+	D("%s\n", __func__);
 	platform_driver_register(&himax_hx83112_driver);
 	return 0;
 }
@@ -259,7 +261,7 @@ static void __exit himax_hx83112_exit(void)
 #else
 static int himax_hx83112_probe(void)
 {
-	I("%s:Enter\n", __func__);
+	D("%s:Enter\n", __func__);
 
 	g_core_fp.fp_chip_detect = hx83112_chip_detect;
 	g_core_fp.fp_chip_init = hx83112_chip_init;
@@ -278,7 +280,7 @@ static int __init himax_hx83112_init(void)
 {
 	int ret = 0;
 
-	I("%s\n", __func__);
+	D("%s\n", __func__);
 	ret = himax_hx83112_probe();
 	return 0;
 }

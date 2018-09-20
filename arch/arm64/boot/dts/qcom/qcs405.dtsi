@@ -39,10 +39,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region0: removed_region@85600000 {
+		removed_region0: removed_region@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85600000 0x0 0x900000>;
+			reg = <0x0 0x85800000 0x0 0x700000>;
 		};
 
 		smem_region: smem@85f00000 {
@@ -59,25 +59,25 @@
 		wlan_fw_mem: wlan_fw_mem@86400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86400000 0x0 0x1c00000>;
+			reg = <0x0 0x86400000 0x0 0x1100000>;
 		};
 
-		adsp_fw_mem: adsp_fw_mem@88000000 {
+		adsp_fw_mem: adsp_fw_mem@87500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88000000 0x0 0x1a00000>;
+			reg = <0x0 0x87500000 0x0 0x1a00000>;
 		};
 
-		cdsp_fw_mem: cdsp_fw_mem@89a00000 {
+		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x89a00000 0x0 0x600000>;
+			reg = <0x0 0x88f00000 0x0 0x600000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@8a000000 {
+		wlan_msa_mem: wlan_msa_region@89500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8a000000 0x0 0x100000>;
+			reg = <0x0 0x89500000 0x0 0x100000>;
 		};
 
 		secure_mem: secure_region {
@@ -309,7 +309,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pms405_s1_level>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
-		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
+		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		clock-names = "cxo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
@@ -628,7 +628,8 @@
 				"qcom,shutdown-ack";
 
 		/* GPIO output to wcnss */
-		qcom,gpio-force-stop = <&modem_smp2p_out 0 0>;
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 		memory-region = <&wlan_fw_mem>;
 	};
 
@@ -667,9 +668,9 @@
 			reg = <0x60000 0x6000>;
 	};
 
-	apcs: syscon@b011000 {
+	apcs: syscon@b011008 {
 		compatible = "syscon";
-		reg = <0xb011000 0x4>;
+		reg = <0xb011008 0x4>;
 	};
 
 	apcs_glb: mailbox@b011000 {
@@ -758,6 +759,8 @@
 			compatible = "qcom,msm-mdf-cb";
 			label = "adsp";
 			qcom,smmu-enabled;
+			iommus = <&apps_smmu 0x0800 0x0>;
+			qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 		};
 
 		qcom,msm_mdf_cb2 {
@@ -810,7 +813,7 @@
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 
 			label = "wcnss";
-			qcom,glink-label = "wcnss";
+			qcom,glink-label = "mpss";
 
 			qcom,wcnss_qrtr {
 				qcom,glink-channels = "IPCRTR";
@@ -1192,10 +1195,21 @@
 		reg-names = "nand_phys",
 			    "bam_phys";
 		qcom,reg-adjustment-offset = <0x4000>;
-		qcom,qpic-clk-rpmh;
 
 		interrupts = <0 49 0>;
 		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+			/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 400000>;
+
+		clock-names = "core_clk";
+		clocks = <&clock_rpmcc RPM_SMD_QPIC_CLK>;
 
 		status = "disabled";
 	};

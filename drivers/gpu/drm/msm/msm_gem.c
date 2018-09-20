@@ -78,6 +78,9 @@ static struct page **get_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
+	if (obj->import_attach)
+		return msm_obj->pages;
+
 	if (!msm_obj->pages) {
 		struct drm_device *dev = obj->dev;
 		struct page **p;
@@ -644,8 +647,14 @@ void *msm_gem_get_vaddr(struct drm_gem_object *obj)
 			ret = PTR_ERR(pages);
 			goto fail;
 		}
-		msm_obj->vaddr = vmap(pages, obj->size >> PAGE_SHIFT,
+
+		if (obj->import_attach)
+			msm_obj->vaddr =
+				dma_buf_vmap(obj->import_attach->dmabuf);
+		else
+			msm_obj->vaddr = vmap(pages, obj->size >> PAGE_SHIFT,
 				VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+
 		if (msm_obj->vaddr == NULL) {
 			ret = -ENOMEM;
 			goto fail;
@@ -742,7 +751,11 @@ static void msm_gem_vunmap_locked(struct drm_gem_object *obj)
 	if (!msm_obj->vaddr || WARN_ON(!is_vunmapable(msm_obj)))
 		return;
 
-	vunmap(msm_obj->vaddr);
+	if (obj->import_attach)
+		dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+	else
+		vunmap(msm_obj->vaddr);
+
 	msm_obj->vaddr = NULL;
 }
 
@@ -1134,8 +1147,6 @@ int msm_gem_delayed_import(struct drm_gem_object *obj)
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct msm_gem_object *msm_obj;
-	uint32_t size;
-	int npages;
 	int ret = 0;
 
 	if (!obj) {
@@ -1171,18 +1182,8 @@ int msm_gem_delayed_import(struct drm_gem_object *obj)
 				ret);
 		goto fail_import;
 	}
-
-	size = PAGE_ALIGN(attach->dmabuf->size);
-	npages = size >> PAGE_SHIFT;
-
 	msm_obj->sgt = sgt;
-	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages,
-			NULL, npages);
-	if (ret) {
-		DRM_ERROR("fail drm_prime_sg_to_page_addr_arrays, err=%d\n",
-				ret);
-		goto fail_import;
-	}
+	msm_obj->pages = NULL;
 
 fail_import:
 	return ret;
@@ -1194,7 +1195,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	struct msm_gem_object *msm_obj;
 	struct drm_gem_object *obj = NULL;
 	uint32_t size;
-	int ret, npages;
+	int ret;
 	unsigned long flags = 0;
 
 	/* if we don't have IOMMU, don't bother pretending we can import: */
@@ -1212,32 +1213,16 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	drm_gem_private_object_init(dev, obj, size);
 
-	npages = size >> PAGE_SHIFT;
-
 	msm_obj = to_msm_bo(obj);
 	mutex_lock(&msm_obj->lock);
 	msm_obj->sgt = sgt;
-	msm_obj->pages = kvmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
-	if (!msm_obj->pages) {
-		mutex_unlock(&msm_obj->lock);
-		ret = -ENOMEM;
-		goto fail;
-	}
-
+	msm_obj->pages = NULL;
 	/*
 	 * If sg table is NULL, user should call msm_gem_delayed_import to add
 	 * back the sg table to the drm gem object
 	 */
-	if (sgt) {
-		ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages,
-				NULL, npages);
-		if (ret) {
-			mutex_unlock(&msm_obj->lock);
-			goto fail;
-		}
-	} else {
+	if (!sgt)
 		msm_obj->flags |= MSM_BO_EXTBUF;
-	}
 
 	/*
 	 * For all uncached buffers, there is no need to perform cache
