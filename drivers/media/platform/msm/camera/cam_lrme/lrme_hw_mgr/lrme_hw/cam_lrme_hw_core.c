@@ -855,7 +855,8 @@ int cam_lrme_hw_stop(void *hw_priv, void *hw_stop_args, uint32_t arg_size)
 
 	mutex_lock(&lrme_hw->hw_mutex);
 
-	if (lrme_hw->open_count == 0) {
+	if (lrme_hw->open_count == 0 ||
+		lrme_hw->hw_state == CAM_HW_STATE_POWER_DOWN) {
 		mutex_unlock(&lrme_hw->hw_mutex);
 		CAM_ERR(CAM_LRME, "Error Unbalanced stop");
 		return -EINVAL;
@@ -884,10 +885,8 @@ int cam_lrme_hw_stop(void *hw_priv, void *hw_stop_args, uint32_t arg_size)
 	}
 
 	rc = cam_lrme_soc_disable_resources(lrme_hw);
-	if (rc) {
+	if (rc)
 		CAM_ERR(CAM_LRME, "Failed in Disable SOC, rc=%d", rc);
-		goto unlock;
-	}
 
 	lrme_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	if (lrme_core->state == CAM_LRME_CORE_STATE_IDLE) {
@@ -1049,9 +1048,9 @@ int cam_lrme_hw_flush(void *hw_priv, void *hw_flush_args, uint32_t arg_size)
 
 	if (lrme_core->state != CAM_LRME_CORE_STATE_PROCESSING &&
 		lrme_core->state != CAM_LRME_CORE_STATE_REQ_PENDING &&
-		lrme_core->state == CAM_LRME_CORE_STATE_REQ_PROC_PEND) {
+		lrme_core->state != CAM_LRME_CORE_STATE_REQ_PROC_PEND) {
 		mutex_unlock(&lrme_hw->hw_mutex);
-		CAM_DBG(CAM_LRME, "Stop not needed in %d state",
+		CAM_DBG(CAM_LRME, "Flush is not needed in %d state",
 			lrme_core->state);
 		return 0;
 	}
