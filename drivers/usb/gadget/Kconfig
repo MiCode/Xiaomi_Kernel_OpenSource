@@ -232,6 +232,9 @@ config USB_F_AUDIO_SRC
 config USB_F_ACC
 	tristate
 
+config USB_F_QDSS
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -556,6 +559,16 @@ config USB_CONFIGFS_F_CCID
 	  endpoint. This driver provides a character device interface
 	  allowing a userspace component to be able to provide the
 	  implementation necessary to interface with the smartcard.
+
+config USB_CONFIGFS_F_QDSS
+	bool "USB QDSS function"
+	select USB_F_QDSS
+	depends on USB_CONFIGFS
+	help
+	  USB QDSS function driver to get hwtracing related data over
+	  USB. USB QDSS function driver which allows communication
+	  between USB BAM and QDSS BAM for QDSS debug functionality
+	  over USB.
 
 choice
 	tristate "USB Gadget precomposed configurations"
