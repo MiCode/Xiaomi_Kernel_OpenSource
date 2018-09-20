@@ -1335,24 +1335,14 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 codec = inst->fmts[CAPTURE_PORT].fourcc;
-		u32 width = inst->prop.width[OUTPUT_PORT];
 
 		pdata.video_work_mode = VIDC_WORK_MODE_2;
 
 		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
-		{
-			if (width <= 3840)  {
-				pdata.video_work_mode = VIDC_WORK_MODE_1;
-				goto decision_done;
-			}
-			break;
-		}
 		case V4L2_PIX_FMT_TME:
-		{
 			pdata.video_work_mode = VIDC_WORK_MODE_1;
 			goto decision_done;
-		}
 		}
 
 	} else {
