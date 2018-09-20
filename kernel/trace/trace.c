@@ -2945,6 +2945,9 @@ int trace_vbprintk(unsigned long ip, const char *fmt, va_list args)
 
 	memcpy(entry->buf, tbuffer, sizeof(u32) * len);
 	if (!call_filter_check_discard(call, entry, buffer, event)) {
+		len = vscnprintf(tbuffer, TRACE_BUF_SIZE, fmt, args);
+		stm_log(OST_ENTITY_TRACE_PRINTK, tbuffer, len+1);
+
 		__buffer_unlock_commit(buffer, event);
 		ftrace_trace_stack(tr, buffer, flags, 6, pc, NULL);
 	}
