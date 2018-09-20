@@ -79,6 +79,52 @@ int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 	return regmap_update_bits(chg->regmap, addr, mask, val);
 }
 
+int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
+					struct iio_channel **chan)
+{
+	int rc = 0;
+
+	rc = of_property_match_string(chg->dev->of_node,
+					"io-channel-names", propname);
+	if (rc < 0)
+		return 0;
+
+	*chan = iio_channel_get(chg->dev, propname);
+	if (IS_ERR(*chan)) {
+		rc = PTR_ERR(*chan);
+		if (rc != -EPROBE_DEFER)
+			smblib_err(chg, "%s channel unavailable, %d\n",
+							propname, rc);
+		*chan = NULL;
+	}
+
+	return rc;
+}
+
+#define DIV_FACTOR_MICRO_V_I	1
+#define DIV_FACTOR_MILI_V_I	1000
+#define DIV_FACTOR_DECIDEGC	100
+int smblib_read_iio_channel(struct smb_charger *chg, struct iio_channel *chan,
+							int div, int *data)
+{
+	int rc = 0;
+	*data = -ENODATA;
+
+	if (chan) {
+		rc = iio_read_channel_processed(chan, data);
+		if (rc < 0) {
+			smblib_err(chg, "Error in reading IIO channel data, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		if (div != 0)
+			*data /= div;
+	}
+
+	return rc;
+}
+
 int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 {
 	int rc, cc_minus_ua;
@@ -886,6 +932,14 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 
+	/* Remove SW thermal regulation WA votes */
+	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	vote(chg->pl_disable_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	vote(chg->dc_suspend_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	if (chg->cp_disable_votable)
+		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
+								false, 0);
+
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_set_adapter_allowance(chg,
 			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
@@ -1233,6 +1287,22 @@ static int smblib_usb_irq_enable_vote_callback(struct votable *votable,
 			chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
 	}
+
+	return 0;
+}
+
+static int smblib_wdog_snarl_irq_en_vote_callback(struct votable *votable,
+				void *data, int enable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[WDOG_SNARL_IRQ].irq)
+		return 0;
+
+	if (enable)
+		enable_irq(chg->irq_info[WDOG_SNARL_IRQ].irq);
+	else
+		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 
 	return 0;
 }
@@ -2058,6 +2128,268 @@ int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable)
 	return 0;
 }
 
+static int smblib_set_sw_thermal_regulation(struct smb_charger *chg,
+						bool enable)
+{
+	int rc = 0;
+
+	if (!(chg->wa_flags & SW_THERM_REGULATION_WA))
+		return rc;
+
+	if (enable) {
+		/*
+		 * Configure min time to quickly address thermal
+		 * condition.
+		 */
+		rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
+			SNARL_WDOG_TIMEOUT_MASK, SNARL_WDOG_TMOUT_62P5MS);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure snarl wdog tmout, rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		vote(chg->wdog_snarl_irq_en_votable, SW_THERM_REGULATION_VOTER,
+							true, 0);
+		/*
+		 * Schedule SW_THERM_REGULATION_WORK directly if USB input
+		 * is suspended due to SW thermal regulation WA since WDOG
+		 * IRQ won't trigger with input suspended.
+		 */
+		if (is_client_vote_enabled(chg->usb_icl_votable,
+						SW_THERM_REGULATION_VOTER)) {
+			vote(chg->awake_votable, SW_THERM_REGULATION_VOTER,
+								true, 0);
+			schedule_delayed_work(&chg->thermal_regulation_work, 0);
+		}
+	} else {
+		vote(chg->wdog_snarl_irq_en_votable, SW_THERM_REGULATION_VOTER,
+							false, 0);
+		cancel_delayed_work_sync(&chg->thermal_regulation_work);
+		vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	}
+
+	smblib_dbg(chg, PR_MISC, "WDOG SNARL INT %s\n",
+				enable ? "Enabled" : "Disabled");
+
+	return rc;
+}
+
+static int smblib_update_thermal_readings(struct smb_charger *chg)
+{
+	union power_supply_propval pval = {0, };
+	int rc = 0;
+
+	if (!chg->pl.psy)
+		chg->pl.psy = power_supply_get_by_name("parallel");
+
+	rc = smblib_read_iio_channel(chg, chg->iio.die_temp_chan,
+				DIV_FACTOR_DECIDEGC, &chg->die_temp);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read DIE TEMP channel, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_read_iio_channel(chg, chg->iio.connector_temp_chan,
+				DIV_FACTOR_DECIDEGC, &chg->connector_temp);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read CONN TEMP channel, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_read_iio_channel(chg, chg->iio.skin_temp_chan,
+				DIV_FACTOR_DECIDEGC, &chg->skin_temp);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SKIN TEMP channel, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP) {
+		rc = smblib_read_iio_channel(chg, chg->iio.smb_temp_chan,
+					DIV_FACTOR_DECIDEGC, &chg->smb_temp);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read SMB TEMP channel, rc=%d\n",
+					rc);
+			return rc;
+		}
+	} else if (chg->pl.psy && chg->sec_chg_selected ==
+					POWER_SUPPLY_CHARGER_SEC_PL) {
+		rc = power_supply_get_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_CHARGER_TEMP, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get smb charger temp, rc=%d\n",
+					rc);
+			return rc;
+		}
+		chg->smb_temp = pval.intval;
+	} else {
+		chg->smb_temp = -ENODATA;
+	}
+
+	return rc;
+}
+
+/* SW thermal regulation thresholds in deciDegC */
+#define DIE_TEMP_RST_THRESH		1000
+#define DIE_TEMP_REG_H_THRESH		800
+#define DIE_TEMP_REG_L_THRESH		600
+
+#define CONNECTOR_TEMP_SHDN_THRESH	700
+#define CONNECTOR_TEMP_RST_THRESH	600
+#define CONNECTOR_TEMP_REG_H_THRESH	550
+#define CONNECTOR_TEMP_REG_L_THRESH	500
+
+#define SMB_TEMP_SHDN_THRESH		1400
+#define SMB_TEMP_RST_THRESH		900
+#define SMB_TEMP_REG_H_THRESH		800
+#define SMB_TEMP_REG_L_THRESH		600
+
+#define SKIN_TEMP_SHDN_THRESH		700
+#define SKIN_TEMP_RST_THRESH		600
+#define SKIN_TEMP_REG_H_THRESH		550
+#define SKIN_TEMP_REG_L_THRESH		500
+
+#define THERM_REG_RECHECK_DELAY_1S	1000	/* 1 sec */
+#define THERM_REG_RECHECK_DELAY_8S	8000	/* 8 sec */
+static int smblib_process_thermal_readings(struct smb_charger *chg)
+{
+	int rc = 0, wdog_timeout = SNARL_WDOG_TMOUT_8S;
+	u32 thermal_status = TEMP_BELOW_RANGE;
+	bool suspend_input = false, disable_smb = false;
+
+	/*
+	 * Following is the SW thermal regulation flow:
+	 *
+	 * TEMP_SHUT_DOWN_LEVEL: If either connector temp or skin temp
+	 * exceeds their respective SHDN threshold. Need to suspend input
+	 * and secondary charger.
+	 *
+	 * TEMP_SHUT_DOWN_SMB_LEVEL: If smb temp exceed its SHDN threshold
+	 * but connector and skin temp are below it. Need to suspend SMB.
+	 *
+	 * TEMP_ALERT_LEVEL: If die, connector, smb or skin temp exceeds it's
+	 * respective RST threshold. Stay put and monitor temperature closely.
+	 *
+	 * TEMP_ABOVE_RANGE or TEMP_WITHIN_RANGE or TEMP_BELOW_RANGE: If die,
+	 * connector, smb or skin temp exceeds it's respective REG_H or REG_L
+	 * threshold. Unsuspend input and SMB.
+	 */
+	if (chg->connector_temp > CONNECTOR_TEMP_SHDN_THRESH ||
+		chg->skin_temp > SKIN_TEMP_SHDN_THRESH) {
+		thermal_status = TEMP_SHUT_DOWN;
+		wdog_timeout = SNARL_WDOG_TMOUT_1S;
+		suspend_input = true;
+		disable_smb = true;
+		goto out;
+	}
+
+	if (chg->smb_temp > SMB_TEMP_SHDN_THRESH) {
+		thermal_status = TEMP_SHUT_DOWN_SMB;
+		wdog_timeout = SNARL_WDOG_TMOUT_1S;
+		disable_smb = true;
+		goto out;
+	}
+
+	if (chg->connector_temp > CONNECTOR_TEMP_RST_THRESH ||
+			chg->skin_temp > SKIN_TEMP_RST_THRESH ||
+			chg->smb_temp > SMB_TEMP_RST_THRESH ||
+			chg->die_temp > DIE_TEMP_RST_THRESH) {
+		thermal_status = TEMP_ALERT_LEVEL;
+		wdog_timeout = SNARL_WDOG_TMOUT_1S;
+		goto out;
+	}
+
+	if (chg->connector_temp > CONNECTOR_TEMP_REG_H_THRESH ||
+			chg->skin_temp > SKIN_TEMP_REG_H_THRESH ||
+			chg->smb_temp > SMB_TEMP_REG_H_THRESH ||
+			chg->die_temp > DIE_TEMP_REG_H_THRESH) {
+		thermal_status = TEMP_ABOVE_RANGE;
+		wdog_timeout = SNARL_WDOG_TMOUT_1S;
+		goto out;
+	}
+
+	if (chg->connector_temp > CONNECTOR_TEMP_REG_L_THRESH ||
+			chg->skin_temp > SKIN_TEMP_REG_L_THRESH ||
+			chg->smb_temp > SMB_TEMP_REG_L_THRESH ||
+			chg->die_temp > DIE_TEMP_REG_L_THRESH) {
+		thermal_status = TEMP_WITHIN_RANGE;
+		wdog_timeout = SNARL_WDOG_TMOUT_8S;
+	}
+out:
+	smblib_dbg(chg, PR_MISC, "Current temperatures: \tDIE_TEMP: %d,\tCONN_TEMP: %d,\tSMB_TEMP: %d,\tSKIN_TEMP: %d\nTHERMAL_STATUS: %d\n",
+			chg->die_temp, chg->connector_temp, chg->smb_temp,
+			chg->skin_temp, thermal_status);
+
+	if (thermal_status != chg->thermal_status) {
+		chg->thermal_status = thermal_status;
+		/*
+		 * If thermal level changes to TEMP ALERT LEVEL, don't
+		 * enable/disable main/parallel charging.
+		 */
+		if (chg->thermal_status == TEMP_ALERT_LEVEL)
+			goto exit;
+
+		/* Enable/disable SMB_EN pin */
+		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
+			SMB_EN_OVERRIDE_BIT | SMB_EN_OVERRIDE_VALUE_BIT,
+			(disable_smb ? SMB_EN_OVERRIDE_BIT :
+			(SMB_EN_OVERRIDE_BIT | SMB_EN_OVERRIDE_VALUE_BIT)));
+		if (rc < 0)
+			smblib_err(chg, "Couldn't set SMB_EN, rc=%d\n", rc);
+
+		/*
+		 * Enable/disable secondary charger through votables to ensure
+		 * that if SMB_EN pin get's toggled somehow, secondary charger
+		 * remains enabled/disabled according to SW thermal regulation.
+		 */
+		if (!chg->cp_disable_votable)
+			chg->cp_disable_votable = find_votable("CP_DISABLE");
+		if (chg->cp_disable_votable)
+			vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
+							disable_smb, 0);
+
+		vote(chg->pl_disable_votable, SW_THERM_REGULATION_VOTER,
+							disable_smb, 0);
+		smblib_dbg(chg, PR_MISC, "Parallel %s as per SW thermal regulation\n",
+				disable_smb ? "disabled" : "enabled");
+
+		/*
+		 * If thermal level changes to TEMP_SHUT_DOWN_SMB, don't
+		 * enable/disable main charger.
+		 */
+		if (chg->thermal_status == TEMP_SHUT_DOWN_SMB)
+			goto exit;
+
+		/* Suspend input if SHDN threshold reached */
+		vote(chg->dc_suspend_votable, SW_THERM_REGULATION_VOTER,
+							suspend_input, 0);
+		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
+							suspend_input, 0);
+		smblib_dbg(chg, PR_MISC, "USB/DC %s as per SW thermal regulation\n",
+				suspend_input ? "suspended" : "unsuspended");
+	}
+exit:
+	/*
+	 * On USB suspend, WDOG IRQ stops triggering. To continue thermal
+	 * monitoring and regulation until USB is plugged out, reschedule
+	 * the SW thermal regulation work without releasing the wake lock.
+	 */
+	if (is_client_vote_enabled(chg->usb_icl_votable,
+					SW_THERM_REGULATION_VOTER)) {
+		schedule_delayed_work(&chg->thermal_regulation_work,
+				msecs_to_jiffies(THERM_REG_RECHECK_DELAY_1S));
+		return 0;
+	}
+
+	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
+			SNARL_WDOG_TIMEOUT_MASK, wdog_timeout);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't set WD SNARL timer, rc=%d\n", rc);
+
+	vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	return rc;
+}
+
 /*******************
  * DC PSY GETTERS *
  *******************/
@@ -2685,6 +3017,22 @@ int smblib_get_prop_die_health(struct smb_charger *chg)
 	int rc;
 	u8 stat;
 
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		if (chg->die_temp == -ENODATA)
+			return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+		if (chg->die_temp > DIE_TEMP_RST_THRESH)
+			return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+		if (chg->die_temp > DIE_TEMP_REG_H_THRESH)
+			return POWER_SUPPLY_HEALTH_HOT;
+
+		if (chg->die_temp > DIE_TEMP_REG_L_THRESH)
+			return POWER_SUPPLY_HEALTH_WARM;
+
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
+
 	rc = smblib_read(chg, DIE_TEMP_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read DIE_TEMP_STATUS_REG, rc=%d\n",
@@ -2709,10 +3057,26 @@ int smblib_get_prop_connector_health(struct smb_charger *chg)
 	int rc;
 	u8 stat;
 
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		if (chg->connector_temp == -ENODATA)
+			return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+		if (chg->connector_temp > CONNECTOR_TEMP_RST_THRESH)
+			return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+		if (chg->connector_temp > CONNECTOR_TEMP_REG_H_THRESH)
+			return POWER_SUPPLY_HEALTH_HOT;
+
+		if (chg->connector_temp > CONNECTOR_TEMP_REG_L_THRESH)
+			return POWER_SUPPLY_HEALTH_WARM;
+
+		return POWER_SUPPLY_HEALTH_COOL;
+	}
+
 	rc = smblib_read(chg, CONNECTOR_TEMP_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read CONNECTOR_TEMP_STATUS_REG, rc=%d\n",
-									rc);
+				rc);
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 
@@ -3506,6 +3870,12 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
 
+		/* Enable SW Thermal regulation */
+		rc = smblib_set_sw_thermal_regulation(chg, true);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't start SW thermal regulation WA, rc=%d\n",
+				rc);
+
 		/* Remove FCC_STEPPER 1.5A init vote to allow FCC ramp up */
 		if (chg->fcc_stepper_enable)
 			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
@@ -3515,6 +3885,12 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		schedule_delayed_work(&chg->pl_enable_work,
 					msecs_to_jiffies(PL_DELAY_MS));
 	} else {
+		/* Disable SW Thermal Regulation */
+		rc = smblib_set_sw_thermal_regulation(chg, false);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't stop SW thermal regulation WA, rc=%d\n",
+				rc);
+
 		if (chg->wa_flags & BOOST_BACK_WA) {
 			data = chg->irq_info[SWITCHER_POWER_OK_IRQ].irq_data;
 			if (data) {
@@ -3980,6 +4356,14 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
 
+	/* Remove SW thermal regulation WA votes */
+	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	vote(chg->pl_disable_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	vote(chg->dc_suspend_votable, SW_THERM_REGULATION_VOTER, false, 0);
+	if (chg->cp_disable_votable)
+		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
+								false, 0);
+
 	chg->pulse_cnt = 0;
 	chg->usb_icl_delta_ua = 0;
 	chg->voltage_min_uv = MICRO_5V;
@@ -4343,6 +4727,22 @@ irqreturn_t switcher_power_ok_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
+		cancel_delayed_work_sync(&chg->thermal_regulation_work);
+		vote(chg->awake_votable, SW_THERM_REGULATION_VOTER, true, 0);
+		schedule_delayed_work(&chg->thermal_regulation_work, 0);
+	}
+
+	return IRQ_HANDLED;
+}
+
 irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -4549,6 +4949,23 @@ static void smblib_pl_enable_work(struct work_struct *work)
 	smblib_dbg(chg, PR_PARALLEL, "timer expired, enabling parallel\n");
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
+}
+
+static void smblib_thermal_regulation_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						thermal_regulation_work.work);
+	int rc;
+
+	rc = smblib_update_thermal_readings(chg);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't read current thermal values %d\n",
+					rc);
+
+	rc = smblib_process_thermal_readings(chg);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't run sw thermal regulation %d\n",
+					rc);
 }
 
 #define JEITA_SOFT			0
@@ -4833,6 +5250,16 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->wdog_snarl_irq_en_votable = create_votable("SNARL_WDOG_IRQ_ENABLE",
+					VOTE_SET_ANY,
+					smblib_wdog_snarl_irq_en_vote_callback,
+					chg);
+	if (IS_ERR(chg->wdog_snarl_irq_en_votable)) {
+		rc = PTR_ERR(chg->wdog_snarl_irq_en_votable);
+		chg->wdog_snarl_irq_en_votable = NULL;
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -4878,6 +5305,8 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->bb_removal_work, smblib_bb_removal_work);
 	INIT_DELAYED_WORK(&chg->lpd_ra_open_work, smblib_lpd_ra_open_work);
 	INIT_DELAYED_WORK(&chg->lpd_detach_work, smblib_lpd_detach_work);
+	INIT_DELAYED_WORK(&chg->thermal_regulation_work,
+					smblib_thermal_regulation_work);
 	chg->fake_capacity = -EINVAL;
 	chg->fake_input_current_limited = -EINVAL;
 	chg->fake_batt_status = -EINVAL;
@@ -4980,6 +5409,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->bb_removal_work);
 		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
+		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();
