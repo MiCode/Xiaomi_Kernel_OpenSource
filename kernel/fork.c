@@ -1769,7 +1769,7 @@ struct task_struct *fork_idle(int cpu)
 			    cpu_to_node(cpu));
 	if (!IS_ERR(task)) {
 		init_idle_pids(task->pids);
-		init_idle(task, cpu, false);
+		init_idle(task, cpu);
 	}
 
 	return task;
