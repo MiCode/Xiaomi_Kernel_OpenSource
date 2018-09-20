@@ -396,10 +396,10 @@ static void ping_other_cpus(struct msm_watchdog_data *wdog_dd)
 	}
 }
 
-static void pet_task_wakeup(unsigned long data)
+static void pet_task_wakeup(struct timer_list *t)
 {
 	struct msm_watchdog_data *wdog_dd =
-		(struct msm_watchdog_data *)data;
+		from_timer(wdog_dd, t, pet_timer);
 	wdog_dd->timer_expired = true;
 	wdog_dd->timer_fired = sched_clock();
 	wake_up(&wdog_dd->pet_complete);
@@ -703,9 +703,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	wdog_dd->user_pet_complete = true;
 	wdog_dd->user_pet_enabled = false;
 	wake_up_process(wdog_dd->watchdog_task);
-	init_timer(&wdog_dd->pet_timer);
-	wdog_dd->pet_timer.data = (unsigned long)wdog_dd;
-	wdog_dd->pet_timer.function = pet_task_wakeup;
+	timer_setup(&wdog_dd->pet_timer, pet_task_wakeup, 0);
 	wdog_dd->pet_timer.expires = jiffies + delay_time;
 	add_timer(&wdog_dd->pet_timer);
 
