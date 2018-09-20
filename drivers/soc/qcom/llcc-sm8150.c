@@ -62,9 +62,9 @@ static struct llcc_slice_config sm8150_data[] =  {
 	SCT_ENTRY("vidsc1",      3, 3, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("voice",       5, 5, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("audio",       6, 6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhp_grow", 7, 7, 3072, 1, 0, 0xFF0, 0xF, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modemhp_grow", 7, 7, 3072, 1, 0, 0xFF, 0xF00, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem",       8, 8, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhw",     9, 9, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modemhw",     9, 9, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute",     10, 10, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpuhtw",      11, 11, 512, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpu",         12, 12, 2560, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
@@ -77,8 +77,8 @@ static struct llcc_slice_config sm8150_data[] =  {
 	SCT_ENTRY("npu",         23, 23, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("wlan_hw",     24, 24, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem_vpe",   29, 29, 256, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("ap_tcm",      30, 30, 128, 3, 0, 0x0,  0x3, 1, 0, 0, 1, 0),
-	SCT_ENTRY("write_cache", 31, 31, 128, 1, 1, 0x3,  0x0, 0, 0, 0, 0, 0),
+	SCT_ENTRY("ap_tcm",      30, 30, 256, 3, 1, 0x0,  0x1, 1, 0, 0, 1, 0),
+	SCT_ENTRY("write_cache", 31, 31, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0),
 };
 
 static int sm8150_qcom_llcc_probe(struct platform_device *pdev)
