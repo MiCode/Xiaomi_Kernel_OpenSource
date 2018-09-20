@@ -22,6 +22,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/swap.h>
+#include <linux/sched/signal.h>
 
 #include "ion.h"
 
@@ -80,6 +81,9 @@ struct page *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 	struct page *page = NULL;
 
 	BUG_ON(!pool);
+
+	if (fatal_signal_pending(current))
+		return ERR_PTR(-EINTR);
 
 	if (*from_pool && mutex_trylock(&pool->mutex)) {
 		if (pool->high_count)
