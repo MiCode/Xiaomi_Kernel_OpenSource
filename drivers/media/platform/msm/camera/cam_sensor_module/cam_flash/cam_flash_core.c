@@ -495,7 +495,6 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				goto apply_setting_err;
 			}
 		} else if (flash_data->opcode == CAM_PKT_NOP_OPCODE) {
-			flash_data->opcode = 0;
 			CAM_DBG(CAM_FLASH, "NOP Packet");
 		} else {
 			rc = -EINVAL;

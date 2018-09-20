@@ -1157,7 +1157,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 {
 	int rc = 0;
 	struct cam_ctx_request          *req;
-	struct cam_ctx_request          *active_req;
+	struct cam_ctx_request          *active_req = NULL;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_ctx_req          *active_req_isp;
 	struct cam_isp_context          *ctx_isp = NULL;
@@ -1177,8 +1177,10 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 *
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+	spin_lock_bh(&ctx->lock);
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
 		list);
+	spin_unlock_bh(&ctx->lock);
 
 	/*
 	 * Check whehter the request id is matching the tip, if not, this means
@@ -1201,19 +1203,25 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 			"Reject apply request (id %lld) due to congestion(cnt = %d)",
 			req->request_id,
 			ctx_isp->active_req_cnt);
-		if (!list_empty(&ctx->active_req_list)) {
+
+		spin_lock_bh(&ctx->lock);
+		if (!list_empty(&ctx->active_req_list))
 			active_req = list_first_entry(&ctx->active_req_list,
 				struct cam_ctx_request, list);
-			active_req_isp =
-				(struct cam_isp_ctx_req *) active_req->req_priv;
-			__cam_isp_ctx_handle_buf_done_fail_log(active_req_isp);
-		} else {
+		else
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"WARNING: should not happen (cnt = %d) but active_list empty",
 				ctx_isp->active_req_cnt);
+		spin_unlock_bh(&ctx->lock);
+
+		if (active_req) {
+			active_req_isp =
+				(struct cam_isp_ctx_req *) active_req->req_priv;
+			__cam_isp_ctx_handle_buf_done_fail_log(active_req_isp);
 		}
-			rc = -EFAULT;
-			goto end;
+
+		rc = -EFAULT;
+		goto end;
 	}
 	req_isp->bubble_report = apply->report_if_bubble;
 
@@ -1997,7 +2005,7 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct cam_ctx_request           *req = NULL;
 	struct cam_isp_ctx_req           *req_isp;
 	uint64_t                          packet_addr;
@@ -2073,6 +2081,15 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
 
+	for (i = 0; i < req_isp->num_fence_map_out; i++) {
+		rc = cam_sync_get_obj_ref(req_isp->fence_map_out[i].sync_id);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Can't get ref for fence %d",
+				req_isp->fence_map_out[i].sync_id);
+			goto put_ref;
+		}
+	}
+
 	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
 		req_isp->num_cfg, req_isp->num_fence_map_out,
 		req_isp->num_fence_map_in);
@@ -2114,7 +2131,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		}
 	}
 	if (rc)
-		goto free_req;
+		goto put_ref;
 
 	CAM_DBG(CAM_REQ,
 		"Preprocessing Config req_id %lld successful on ctx %u",
@@ -2122,6 +2139,13 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 	return rc;
 
+put_ref:
+	for (--i; i >= 0; i--) {
+		rc = cam_sync_put_obj_ref(req_isp->fence_map_out[i].sync_id);
+		if (rc)
+			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
+				req_isp->fence_map_out[i].sync_id);
+	}
 free_req:
 	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
