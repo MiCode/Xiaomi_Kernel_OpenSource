@@ -453,8 +453,13 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		goto update_time;
 	}
 
-	rc = power_supply_get_property(chip->batt_psy,
-			chip->step_chg_config->param.psy_prop, &pval);
+	if (chip->step_chg_config->param.use_bms)
+		rc = power_supply_get_property(chip->bms_psy,
+				chip->step_chg_config->param.psy_prop, &pval);
+	else
+		rc = power_supply_get_property(chip->batt_psy,
+				chip->step_chg_config->param.psy_prop, &pval);
+
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
 			chip->step_chg_config->param.prop_name, rc);
@@ -521,8 +526,13 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
 		goto reschedule;
 
-	rc = power_supply_get_property(chip->batt_psy,
-			chip->jeita_fcc_config->param.psy_prop, &pval);
+	if (chip->jeita_fcc_config->param.use_bms)
+		rc = power_supply_get_property(chip->bms_psy,
+				chip->jeita_fcc_config->param.psy_prop, &pval);
+	else
+		rc = power_supply_get_property(chip->batt_psy,
+				chip->jeita_fcc_config->param.psy_prop, &pval);
+
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
 				chip->jeita_fcc_config->param.prop_name, rc);
@@ -650,7 +660,7 @@ static void status_change_work(struct work_struct *work)
 	int reschedule_step_work_us = 0;
 	union power_supply_propval prop = {0, };
 
-	if (!is_batt_available(chip))
+	if (!is_batt_available(chip) || !is_bms_available(chip))
 		goto exit_work;
 
 	handle_battery_insertion(chip);
