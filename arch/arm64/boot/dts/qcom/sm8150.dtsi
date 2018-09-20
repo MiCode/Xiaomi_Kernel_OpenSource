@@ -2659,6 +2659,7 @@
 
 			label = "adsp";
 			qcom,glink-label = "lpass";
+			cpu-affinity = <1 2>;
 
 			qcom,adsp_qrtr {
 				qcom,glink-channels = "IPCRTR";
