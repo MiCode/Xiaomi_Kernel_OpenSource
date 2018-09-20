@@ -4323,17 +4323,17 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 
 	error_status = cam_ife_hw_mgr_get_err_type(ife_hwr_mgr_ctx,
 		evt_payload);
-
-	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
-		return error_status;
+	if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending)) {
+		rc = error_status;
+		goto end;
+	}
 
 	switch (error_status) {
 	case CAM_ISP_HW_ERROR_OVERFLOW:
 	case CAM_ISP_HW_ERROR_P2I_ERROR:
 	case CAM_ISP_HW_ERROR_VIOLATION:
 		CAM_ERR(CAM_ISP, "Enter: error_type (%d)", error_status);
-		rc = -EFAULT;
-
+		rc = error_status;
 		if (g_ife_hw_mgr.debug_cfg.enable_recovery)
 			error_event_data.recovery_enabled = true;
 
@@ -4360,6 +4360,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		break;
 	}
 
+end:
 	return rc;
 }
 
