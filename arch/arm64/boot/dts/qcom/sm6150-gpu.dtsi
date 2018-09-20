@@ -162,7 +162,7 @@
 
 				qcom,speed-bin = <0>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
 				/* SVS_L1 */
@@ -235,7 +235,7 @@
 
 				qcom,speed-bin = <177>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <5>;
 				qcom,ca-target-pwrlevel = <3>;
 
 				/* SVS_L1 */
@@ -308,7 +308,7 @@
 
 				qcom,speed-bin = <187>;
 
-				qcom,initial-pwrlevel = <3>;
+				qcom,initial-pwrlevel = <6>;
 				qcom,ca-target-pwrlevel = <4>;
 
 				qcom,gpu-pwrlevel@0 {
