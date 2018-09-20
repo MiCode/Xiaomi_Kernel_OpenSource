@@ -21,6 +21,8 @@
 #include <trace/events/dfc.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 
 #define NLMSG_FLOW_ACTIVATE 1
 #define NLMSG_FLOW_DEACTIVATE 2
@@ -558,6 +560,59 @@ void qmi_rmnet_burst_fc_check(struct net_device *dev,
 	dfc_qmi_burst_check(dev, qos, ip_type, mark, len);
 }
 EXPORT_SYMBOL(qmi_rmnet_burst_fc_check);
+
+int qmi_rmnet_get_queue(struct net_device *dev, struct sk_buff *skb)
+{
+	struct qos_info *qos = rmnet_get_qos_pt(dev);
+	int txq = 0, ip_type = AF_INET;
+	unsigned int len = skb->len;
+	struct rmnet_flow_map *itm;
+	u32 mark = skb->mark;
+
+	if (!qos)
+		return 0;
+
+	switch (skb->protocol) {
+	/* TCPv4 ACKs */
+	case htons(ETH_P_IP):
+		ip_type = AF_INET;
+		if ((!mark) &&
+		    (ip_hdr(skb)->protocol == IPPROTO_TCP) &&
+		    (len == 40 || len == 52) &&
+		    (ip_hdr(skb)->ihl == 5) &&
+		    ((tcp_flag_word(tcp_hdr(skb)) & 0xFF00) == TCP_FLAG_ACK))
+			return 1;
+		break;
+
+	/* TCPv6 ACKs */
+	case htons(ETH_P_IPV6):
+		ip_type = AF_INET6;
+		if ((!mark) &&
+		    (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP) &&
+		    (len == 60 || len == 72) &&
+		    ((tcp_flag_word(tcp_hdr(skb)) & 0xFF00) == TCP_FLAG_ACK))
+			return 1;
+		/* Fall through */
+	}
+
+	/* Default flows */
+	if (!mark)
+		return 0;
+
+	/* Dedicated flows */
+	spin_lock_bh(&qos->qos_lock);
+
+	itm = qmi_rmnet_get_flow_map(qos, mark, ip_type);
+	if (unlikely(!itm))
+		goto done;
+
+	txq = itm->tcm_handle;
+
+done:
+	spin_unlock_bh(&qos->qos_lock);
+	return txq;
+}
+EXPORT_SYMBOL(qmi_rmnet_get_queue);
 
 inline unsigned int qmi_rmnet_grant_per(unsigned int grant)
 {

@@ -166,7 +166,13 @@ static u16 rmnet_vnd_select_queue(struct net_device *dev,
 				  void *accel_priv,
 				  select_queue_fallback_t fallback)
 {
-	return 0;
+	struct rmnet_priv *priv = netdev_priv(dev);
+	int txq = 0;
+
+	if (priv->real_dev)
+		txq = qmi_rmnet_get_queue(dev, skb);
+
+	return (txq < dev->real_num_tx_queues) ? txq : 0;
 }
 
 static const struct net_device_ops rmnet_vnd_ops = {

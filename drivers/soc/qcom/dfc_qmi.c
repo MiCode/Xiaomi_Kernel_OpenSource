@@ -1016,7 +1016,7 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 	struct rmnet_flow_map *itm;
 	u32 start_grant;
 
-	spin_lock(&qos->qos_lock);
+	spin_lock_bh(&qos->qos_lock);
 
 	itm = qmi_rmnet_get_flow_map(qos, mark, ip_type);
 	if (unlikely(!itm))
@@ -1049,7 +1049,7 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 		dfc_bearer_flow_ctl(dev, bearer, qos);
 
 out:
-	spin_unlock(&qos->qos_lock);
+	spin_unlock_bh(&qos->qos_lock);
 }
 
 void dfc_qmi_wq_flush(struct qmi_info *qmi)
