@@ -1204,9 +1204,9 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 		if (slice_mode ==
 			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
 			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
-			mbps < CBR_MB_LIMIT) ||
+			mbps <= CBR_MB_LIMIT) ||
 			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-			mbps < CBR_VFR_MB_LIMIT)) {
+			mbps <= CBR_VFR_MB_LIMIT)) {
 			pdata.video_work_route = 1;
 			dprintk(VIDC_DBG, "Configured work route = 1");
 		}
