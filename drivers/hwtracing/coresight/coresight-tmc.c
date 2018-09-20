@@ -89,7 +89,7 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 	}
 
 	if (!ret)
-		dev_info(drvdata->dev, "TMC read start\n");
+		dev_dbg(drvdata->dev, "TMC read start\n");
 
 	return ret;
 }
@@ -111,7 +111,7 @@ static int tmc_read_unprepare(struct tmc_drvdata *drvdata)
 	}
 
 	if (!ret)
-		dev_info(drvdata->dev, "TMC read end\n");
+		dev_dbg(drvdata->dev, "TMC read end\n");
 
 	return ret;
 }
