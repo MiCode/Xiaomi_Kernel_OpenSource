@@ -60,11 +60,38 @@
 #define DEFAULT_AGGR_TIME_LIMIT 1000 /* 1ms */
 #define DEFAULT_AGGR_PKT_LIMIT 0
 
-#define RNDIS_IPA_ERROR(fmt, args...) \
-		pr_err(DRV_NAME "@%s@%d@ctx:%s: "\
-				fmt, __func__, __LINE__, current->comm, ## args)
+#define IPA_RNDIS_IPC_LOG_PAGES 50
+
+#define IPA_RNDIS_IPC_LOGGING(buf, fmt, args...) \
+	do { \
+		if (buf) \
+			ipc_log_string((buf), fmt, __func__, __LINE__, \
+				## args); \
+	} while (0)
+
+static void *ipa_rndis_logbuf;
+
 #define RNDIS_IPA_DEBUG(fmt, args...) \
-			pr_debug("ctx: %s, "fmt, current->comm, ## args)
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_rndis_logbuf) { \
+			IPA_RNDIS_IPC_LOGGING(ipa_rndis_logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define RNDIS_IPA_DEBUG_XMIT(fmt, args...) \
+	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+
+#define RNDIS_IPA_ERROR(fmt, args...) \
+	do { \
+		pr_err(DRV_NAME "@%s@%d@ctx:%s: "\
+			fmt, __func__, __LINE__, current->comm, ## args);\
+		if (ipa_rndis_logbuf) { \
+			IPA_RNDIS_IPC_LOGGING(ipa_rndis_logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
 
 #define NULL_CHECK_RETVAL(ptr) \
 		do { \
@@ -910,7 +937,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 
 	netif_trans_update(net);
 
-	RNDIS_IPA_DEBUG
+	RNDIS_IPA_DEBUG_XMIT
 		("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
 		skb->len, skb->protocol,
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts));
@@ -1028,7 +1055,9 @@ static void rndis_ipa_tx_complete_notify(
 	rndis_ipa_ctx->net->stats.tx_packets++;
 	rndis_ipa_ctx->net->stats.tx_bytes += skb->len;
 
-	atomic_dec(&rndis_ipa_ctx->outstanding_pkts);
+	if (atomic_read(&rndis_ipa_ctx->outstanding_pkts) > 0)
+		atomic_dec(&rndis_ipa_ctx->outstanding_pkts);
+
 	if
 		(netif_queue_stopped(rndis_ipa_ctx->net) &&
 		netif_carrier_ok(rndis_ipa_ctx->net) &&
@@ -2658,12 +2687,21 @@ static ssize_t rndis_ipa_debugfs_atomic_read
 
 static int rndis_ipa_init_module(void)
 {
+	ipa_rndis_logbuf = ipc_log_context_create(IPA_RNDIS_IPC_LOG_PAGES,
+		"ipa_rndis", 0);
+	if (ipa_rndis_logbuf == NULL)
+		RNDIS_IPA_DEBUG("failed to create IPC log, continue...\n");
+
 	pr_info("RNDIS_IPA module is loaded.");
 	return 0;
 }
 
 static void rndis_ipa_cleanup_module(void)
 {
+	if (ipa_rndis_logbuf)
+		ipc_log_context_destroy(ipa_rndis_logbuf);
+	ipa_rndis_logbuf = NULL;
+
 	pr_info("RNDIS_IPA module is unloaded.");
 }
 

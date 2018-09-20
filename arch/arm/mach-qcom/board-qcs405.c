@@ -30,3 +30,19 @@ DT_MACHINE_START(QCS405_DT,
 	.init_machine		= qcs405_init,
 	.dt_compat		= qcs405_dt_match,
 MACHINE_END
+
+static const char *qcs403_dt_match[] __initconst = {
+	"qcom,qcs403",
+	NULL
+};
+
+static void __init qcs403_init(void)
+{
+	board_dt_populate(NULL);
+}
+
+DT_MACHINE_START(QCS403_DT,
+	"Qualcomm Technologies, Inc. QCS403 (Flattened Device Tree)")
+	.init_machine           = qcs403_init,
+	.dt_compat              = qcs403_dt_match,
+MACHINE_END

@@ -142,6 +142,13 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Value type: <phandle>
 	Definition: If specified, can be used to get PMIC revision information.
 
+- qcom,leds-per-string
+	Usage:      optional
+	Value type: <u32>
+	Definition: If specified, can be used to calculate available current
+		    during selfie flash operation. If not specified, available
+		    current calculated is simply the configured threshold.
+
 Following properties are for child subnodes that are needed for WLED preflash
 (or torch), flash and switch. These child subnodes can be specified only for
 PMICs that has WLED5 (e.g. PM8150L).

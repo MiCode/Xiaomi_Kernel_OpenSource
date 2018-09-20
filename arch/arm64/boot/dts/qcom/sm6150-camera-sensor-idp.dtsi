@@ -106,7 +106,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 	};
 
 	actuator_front: qcom,actuator@1 {
@@ -119,7 +119,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 	};
 
 	ois_rear: qcom,ois@0 {
@@ -132,7 +132,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 		status = "disabled";
 	};
 
@@ -150,7 +150,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <0 80000 105000 0 0>;
+		rgltr-load-current = <0 80000 105000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -187,7 +187,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <105000 0 80000 0 0>;
+		rgltr-load-current = <105000 0 80000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
@@ -224,7 +224,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2850000 1200000 0 2800000>;
 		rgltr-max-voltage = <1800000 2850000 1200000 0 2800000>;
-		rgltr-load-current = <0 80000 105000 0 0>;
+		rgltr-load-current = <0 80000 105000 0 100000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active

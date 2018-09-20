@@ -100,7 +100,8 @@ struct dp_catalog_ctrl {
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
 	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);
-	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl);
+	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl, bool flipped,
+				char *lane_map);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
@@ -293,10 +294,40 @@ static inline u8 dp_header_get_parity(u32 data)
 	return parity_byte;
 }
 
+static inline u32 dp_read(char *exe_mode, struct dp_io_data *io_data,
+				u32 offset)
+{
+	u32 data = 0;
+
+	if (!strcmp(exe_mode, "hw") || !strcmp(exe_mode, "all")) {
+		data = readl_relaxed(io_data->io.base + offset);
+	} else if (!strcmp(exe_mode, "sw")) {
+		if (io_data->buf)
+			memcpy(&data, io_data->buf + offset, sizeof(offset));
+	}
+
+	return data;
+}
+
+static inline void dp_write(char *exe_mode, struct dp_io_data *io_data,
+				u32 offset, u32 data)
+{
+	if (!strcmp(exe_mode, "hw") || !strcmp(exe_mode, "all"))
+		writel_relaxed(data, io_data->io.base + offset);
+
+	if (!strcmp(exe_mode, "sw") || !strcmp(exe_mode, "all")) {
+		if (io_data->buf)
+			memcpy(io_data->buf + offset, &data, sizeof(data));
+	}
+}
+
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser);
 void dp_catalog_put(struct dp_catalog *catalog);
 
 int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
+		void *io);
+
+int dp_catalog_get_v200(struct device *dev, struct dp_catalog *catalog,
 		void *io);
 
 #endif /* _DP_CATALOG_H_ */

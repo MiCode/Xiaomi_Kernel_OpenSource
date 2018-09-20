@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,camcc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/clock/qcom,videocc-sm8150.h>
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,npucc-sm8150.h>
@@ -711,7 +712,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0xc00000>;
+			size = <0x0 0x1000000>;
 		};
 
 		cdsp_mem: cdsp_region {
@@ -758,7 +759,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0x2000000>;
+			size = <0x0 0x2800000>;
 			linux,cma-default;
 		};
 	};
@@ -1461,6 +1462,14 @@
 		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_scc: qcom,scc@2b10000 {
+		compatible = "qcom,scc-sm8150";
+		reg = <0x2b10000 0x30000>;
+		vdd_scc_cx-supply = <&pm8150_l8_level>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -2455,7 +2464,7 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x5a3 0x0>;
-			shared-cb = <2>;
+			shared-cb = <4>;
 			dma-coherent;
 		};
 	};
@@ -2969,7 +2978,7 @@
 			compatible = "qcom,qcedev,context-bank";
 			label = "secure_context";
 			iommus = <&apps_smmu 0x513 0>;
-			virtual-addr = <0x60200000>;
+			virtual-addr = <0xa0000000>;
 			virtual-size = <0x40000000>;
 			qcom,secure-context-bank;
 		};
@@ -4027,6 +4036,7 @@
 	status = "ok";
 };
 #include "sm8150-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
 #include "sm8150-regulator.dtsi"
 #include "sm8150-ion.dtsi"
 #include "sm8150-bus.dtsi"

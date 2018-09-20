@@ -229,6 +229,8 @@ enum {
 # define __cpuc_flush_dcache_area __flush_dcache_area
 #endif
 
+#define IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX 0
+#define IPA_SMP2P_OUT_CLK_VOTE_IDX 1
 #define IPA_SMP2P_SMEM_STATE_MASK 3
 
 

@@ -13,6 +13,7 @@ msm_drm-y := \
 	dp/dp_power.o \
 	dp/dp_catalog.o \
 	dp/dp_catalog_v420.o \
+	dp/dp_catalog_v200.o \
 	dp/dp_aux.o \
 	dp/dp_panel.o \
 	dp/dp_link.o \

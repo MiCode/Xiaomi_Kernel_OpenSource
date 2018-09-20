@@ -47,7 +47,6 @@
 		swr0 = &swr0;
 		swr1 = &swr1;
 		swr2 = &swr2;
-		swr3 = &swr3;
 	};
 
 	cpus {
@@ -805,6 +804,19 @@
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+		qcom,cam_cc_csi0phytimer_clk_src-opp-handle = <&cam_csiphy0>;
+		qcom,cam_cc_csi1phytimer_clk_src-opp-handle = <&cam_csiphy1>;
+		qcom,cam_cc_csi2phytimer_clk_src-opp-handle = <&cam_csiphy2>;
+		qcom,cam_cc_cci_clk_src-opp-handle = <&cam_cci>;
+		qcom,cam_cc_ife_0_csid_clk_src-opp-handle = <&cam_csid0>;
+		qcom,cam_cc_ife_0_clk_src-opp-handle = <&cam_vfe0>;
+		qcom,cam_cc_ife_1_csid_clk_src-opp-handle = <&cam_csid1>;
+		qcom,cam_cc_ife_1_clk_src-opp-handle = <&cam_vfe1>;
+		qcom,cam_cc_ife_lite_csid_clk_src-opp-handle = <&cam_csid_lite>;
+		qcom,cam_cc_ife_lite_clk_src-opp-handle = <&cam_vfe_lite>;
+		qcom,cam_cc_icp_clk_src-opp-handle = <&cam_a5>;
+		qcom,cam_cc_ipe_0_clk_src-opp-handle = <&cam_ipe0>;
+		qcom,cam_cc_bps_clk_src-opp-handle = <&cam_bps>;
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
@@ -824,6 +836,7 @@
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -1336,6 +1349,46 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<78 512 0 0>, <1 606 0 0>,
+			/* 400 KB/s*/
+			<78 512 1046 3200>,
+			<1 606 1600 3200>,
+			/* 20 MB/s */
+			<78 512 52286 160000>,
+			<1 606 80000 160000>,
+			/* 25 MB/s */
+			<78 512 65360 200000>,
+			<1 606 100000 200000>,
+			/* 50 MB/s */
+			<78 512 130718 400000>,
+			<1 606 133320 133320>,
+			/* 100 MB/s */
+			<78 512 261438 400000>,
+			<1 606 150000 300000>,
+			/* 200 MB/s */
+			<78 512 261438 400000>,
+			<1 606 300000 300000>,
+			/* 400 MB/s */
+			<78 512 261438 1100000>,
+			<1 606 300000 300000>,
+			/* Max. bandwidth */
+			<78 512 1338562 4096000>,
+			<1 606 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 400000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <44 44>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-cmdq-latency-us = <44 44>, <44 44>;
+		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
+
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
@@ -1361,6 +1414,42 @@
 				      "SDR104";
 
 		qcom,devfreq,freq-table = <50000000 202000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 1600>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 80000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 100000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 200000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 200000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 400000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <44 44>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
@@ -2674,7 +2763,7 @@
 };
 
 &usb0 {
-	extcon = <&pm6150_pdphy>, <&eud>;
+	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
 };
 
 &pm6150_vadc {
@@ -2887,6 +2976,7 @@
 };
 
 &vcodec0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 

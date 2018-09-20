@@ -117,7 +117,7 @@
 
 &soc {
 	qcom,lpass@62400000 {
-		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 	};
 };
 

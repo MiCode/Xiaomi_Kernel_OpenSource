@@ -51,13 +51,6 @@
 	};
 };
 
-&slim_aud {
-	tavil_codec {
-		swr3: swr_master {
-		};
-	};
-};
-
 &q6core {
 	sm6150_snd: sound {
 		compatible = "qcom,sm6150-asoc-snd";

@@ -285,7 +285,7 @@ struct sde_encoder_irq {
  * @irq:			IRQ tracking structures
  * @has_intf_te:		Interface TE configuration support
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
- * @cont_splash_settings	Variable to store continuous splash settings.
+ * @cont_splash_enabled:	Variable to store continuous splash settings.
  * @in_clone_mode		Indicates if encoder is in clone mode ref@CWB
  * @vfp_cached:			cached vertical front porch to be used for
  *				programming ROT and MDP fetch start
@@ -324,7 +324,7 @@ struct sde_encoder_phys {
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 	bool has_intf_te;
 	u32 cont_splash_single_flush;
-	bool cont_splash_settings;
+	bool cont_splash_enabled;
 	bool in_clone_mode;
 	int vfp_cached;
 };
@@ -690,7 +690,7 @@ static inline bool sde_encoder_phys_needs_single_flush(
 	if (!phys_enc)
 		return false;
 
-	return phys_enc->cont_splash_settings ?
+	return phys_enc->cont_splash_enabled ?
 			phys_enc->cont_splash_single_flush :
 			(_sde_encoder_phys_is_ppsplit(phys_enc) ||
 				_sde_encoder_phys_is_dual_ctl(phys_enc));

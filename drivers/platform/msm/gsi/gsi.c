@@ -1952,6 +1952,7 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	case GSI_CHAN_PROT_XHCI:
 	case GSI_CHAN_PROT_GPI:
 	case GSI_CHAN_PROT_XDCI:
+	case GSI_CHAN_PROT_WDI:
 		prot = props->prot;
 		prot_msb = 0;
 		break;
@@ -3228,6 +3229,8 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(gsi_ctx->per.ee));
 		atomic_set(&ctx->poll_mode, mode);
 		ctx->stats.callback_to_poll++;
 	}

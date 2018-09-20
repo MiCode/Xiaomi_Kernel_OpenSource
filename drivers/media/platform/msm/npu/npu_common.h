@@ -166,6 +166,7 @@ struct npu_thermalctrl {
 struct npu_irq {
 	char *name;
 	int irq;
+	int irq_type;
 };
 
 struct npu_device {

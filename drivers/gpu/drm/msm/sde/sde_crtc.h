@@ -148,7 +148,6 @@ struct sde_crtc_fps_info {
 	u32 frame_count;
 	ktime_t last_sampled_time_us;
 	u32 measured_fps;
-	u32 fps_periodicity;
 };
 
 /*
@@ -242,7 +241,6 @@ struct sde_crtc {
 	u64 play_count;
 	ktime_t vblank_cb_time;
 	ktime_t vblank_last_cb_time;
-	ktime_t *time_buf;
 	struct sde_crtc_fps_info fps_info;
 	struct device *sysfs_dev;
 	struct kernfs_node *vsync_event_sf;
@@ -289,7 +287,6 @@ struct sde_crtc {
 	struct list_head rp_head;
 
 	u32 plane_mask_old;
-	u32 next_time_index;
 
 	/* blob for histogram data */
 	struct drm_property_blob *hist_blob;

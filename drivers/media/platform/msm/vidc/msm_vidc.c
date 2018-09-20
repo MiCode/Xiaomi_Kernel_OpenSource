@@ -282,6 +282,9 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 	case V4L2_PIX_FMT_NV12:
 		color_format = COLOR_FMT_NV12;
 		break;
+	case V4L2_PIX_FMT_NV12_512:
+		color_format = COLOR_FMT_NV12_512;
+		break;
 	case V4L2_PIX_FMT_NV12_UBWC:
 		color_format = COLOR_FMT_NV12_UBWC;
 		break;
@@ -303,6 +306,8 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 			inst->prop.width[port]);
 	f->fmt.pix_mp.plane_fmt[0].reserved[0] = VENUS_Y_SCANLINES(color_format,
 			inst->prop.height[port]);
+	f->fmt.pix_mp.plane_fmt[0].sizeimage = VENUS_BUFFER_SIZE(color_format,
+			inst->prop.width[port], inst->prop.height[port]);
 
 	dprintk(VIDC_DBG,
 		"g_fmt: %x : type %d wxh %dx%d pixelfmt %#x num_planes %d size[0] %d size[1] %d in_reconfig %d\n",
@@ -925,8 +930,10 @@ int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
 	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
 		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
 		(codec != V4L2_PIX_FMT_VP8)) {
-		if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
-		    mbps < CBR_MB_LIMIT)
+		if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR &&
+		    mbps < CBR_MB_LIMIT) ||
+		   (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
+		    mbps < CBR_VFR_MB_LIMIT))
 			hrd_buf_size.vbv_hdr_buf_size = 500;
 		else
 			hrd_buf_size.vbv_hdr_buf_size = 1000;

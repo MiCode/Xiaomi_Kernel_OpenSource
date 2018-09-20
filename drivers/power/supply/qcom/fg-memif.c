@@ -1273,6 +1273,9 @@ static int fg_dma_init(struct fg_dev *fg)
 
 int fg_memif_init(struct fg_dev *fg)
 {
+	if (fg->battery_missing)
+		return 0;
+
 	if (fg->use_dma)
 		return fg_dma_init(fg);
 

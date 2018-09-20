@@ -18,6 +18,7 @@
 #include <linux/wait.h>
 #include <linux/rwsem.h>
 #include <linux/ipc_logging.h>
+#include <linux/uidgid.h>
 
 #include <net/sock.h>
 
@@ -37,6 +38,8 @@
 /* qrtr socket states */
 #define QRTR_STATE_MULTI	-2
 #define QRTR_STATE_INIT	-1
+
+#define AID_VENDOR_QRTR	KGIDT_INIT(2906)
 
 /**
  * struct qrtr_hdr_v1 - (I|R)PCrouter packet header version 1
@@ -449,18 +452,8 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 				timeo);
 		if (ret < 0)
 			return ret;
-		if (!ret) {
-			waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
-			if (!waiter)
-				return -ENOMEM;
-			waiter->sk = sk;
-			sock_hold(sk);
-
-			mutex_lock(&node->qrtr_tx_lock);
-			list_add_tail(&waiter->node, &flow->waiters);
-			mutex_unlock(&node->qrtr_tx_lock);
+		if (!ret)
 			return -EAGAIN;
-		}
 
 		if (!node->ep)
 			return -EPIPE;
@@ -475,6 +468,17 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 		mutex_unlock(&node->qrtr_tx_lock);
 	}
 
+	if (confirm_rx) {
+		waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
+		if (!waiter)
+			return -ENOMEM;
+		waiter->sk = sk;
+		sock_hold(sk);
+
+		mutex_lock(&node->qrtr_tx_lock);
+		list_add_tail(&waiter->node, &flow->waiters);
+		mutex_unlock(&node->qrtr_tx_lock);
+	}
 	return confirm_rx;
 }
 
@@ -552,21 +556,31 @@ static struct qrtr_node *qrtr_node_lookup(unsigned int nid)
  */
 static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 {
+	struct qrtr_node *tnode = NULL;
 	char name[32] = {0,};
 
 	if (nid == QRTR_EP_NID_AUTO)
 		return;
+	if (nid == node->nid)
+		return;
+
+	down_read(&qrtr_node_lock);
+	tnode = radix_tree_lookup(&qrtr_nodes, nid);
+	up_read(&qrtr_node_lock);
+	if (tnode)
+		return;
 
 	down_write(&qrtr_node_lock);
-	if (!radix_tree_lookup(&qrtr_nodes, nid))
-		radix_tree_insert(&qrtr_nodes, nid, node);
+	radix_tree_insert(&qrtr_nodes, nid, node);
 
 	if (node->nid == QRTR_EP_NID_AUTO)
 		node->nid = nid;
 	up_write(&qrtr_node_lock);
 
-	snprintf(name, sizeof(name), "qrtr_%d", nid);
-	node->ilc = ipc_log_context_create(QRTR_LOG_PAGE_CNT, name, 0);
+	if (!node->ilc) {
+		snprintf(name, sizeof(name), "qrtr_%d", nid);
+		node->ilc = ipc_log_context_create(QRTR_LOG_PAGE_CNT, name, 0);
+	}
 }
 
 /**
@@ -915,17 +929,18 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 
 	mutex_lock(&qrtr_port_lock);
 	if (!*port) {
-		rc = idr_alloc(&qrtr_ports, ipc,
-			       QRTR_MIN_EPH_SOCKET, QRTR_MAX_EPH_SOCKET + 1,
-			       GFP_ATOMIC);
+		rc = idr_alloc_cyclic(&qrtr_ports, ipc, QRTR_MIN_EPH_SOCKET,
+				      QRTR_MAX_EPH_SOCKET + 1, GFP_ATOMIC);
 		if (rc >= 0)
 			*port = rc;
-	} else if (*port < QRTR_MIN_EPH_SOCKET && !capable(CAP_NET_ADMIN)) {
+	} else if (*port < QRTR_MIN_EPH_SOCKET &&
+		   !(capable(CAP_NET_ADMIN) || in_egroup_p(AID_VENDOR_QRTR))) {
 		rc = -EACCES;
 	} else if (*port == QRTR_PORT_CTRL) {
 		rc = idr_alloc(&qrtr_ports, ipc, 0, 1, GFP_ATOMIC);
 	} else {
-		rc = idr_alloc(&qrtr_ports, ipc, *port, *port + 1, GFP_ATOMIC);
+		rc = idr_alloc_cyclic(&qrtr_ports, ipc, *port, *port + 1,
+				      GFP_ATOMIC);
 		if (rc >= 0)
 			*port = rc;
 	}
@@ -1493,8 +1508,7 @@ static int qrtr_addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct ifaddrmsg *ifm;
 	int rc;
 
-	if (!netlink_capable(skb, CAP_NET_ADMIN) &&
-	    !netlink_capable(skb, CAP_NET_BIND_SERVICE))
+	if (!netlink_capable(skb, CAP_NET_ADMIN))
 		return -EPERM;
 
 	ASSERT_RTNL();

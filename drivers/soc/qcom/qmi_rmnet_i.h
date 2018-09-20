@@ -60,6 +60,7 @@ struct qos_info {
 	struct list_head bearer_head;
 	u32 default_grant;
 	u32 tran_num;
+	spinlock_t qos_lock;
 };
 
 struct flow_info {
@@ -110,9 +111,11 @@ int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
 
 void dfc_qmi_client_exit(void *dfc_data);
 
-void dfc_qmi_burst_check(struct net_device *dev,
-			 struct qos_info *qos, struct sk_buff *skb,
-			 struct qmi_info *qmi);
+void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
+			 int ip_type, u32 mark, unsigned int len);
+
+int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
+
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -139,7 +142,7 @@ static inline void dfc_qmi_client_exit(void *dfc_data)
 
 static inline void
 dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
-		    struct sk_buff *skb, struct qmi_info *qmi)
+		    int ip_type, u32 mark, unsigned int len)
 {
 }
 #endif

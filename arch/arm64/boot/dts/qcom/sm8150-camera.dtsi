@@ -405,10 +405,10 @@
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3.3 GB */
+					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
 					iova-region-start = <0xda00000>;
-					iova-region-len = <0xd2500000>;
+					iova-region-len = <0xacdfffff>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};

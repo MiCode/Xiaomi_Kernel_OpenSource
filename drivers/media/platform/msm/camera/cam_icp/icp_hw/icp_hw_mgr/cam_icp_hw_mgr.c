@@ -2001,6 +2001,11 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 	struct crm_workq_task *task;
 	struct hfi_msg_work_data *task_data;
 
+	if (!data) {
+		CAM_ERR(CAM_ICP, "irq cb data is NULL");
+		return rc;
+	}
+
 	spin_lock_irqsave(&hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
 	if (!task) {
@@ -3100,7 +3105,7 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	task_data->type = ICP_WORKQ_TASK_MSG_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	size_in_words = (*(uint32_t *)task_data->data) >> 2;
-	CAM_INFO(CAM_ICP, "size_in_words %u", size_in_words);
+	CAM_DBG(CAM_ICP, "size_in_words %u", size_in_words);
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
 	if (rc)

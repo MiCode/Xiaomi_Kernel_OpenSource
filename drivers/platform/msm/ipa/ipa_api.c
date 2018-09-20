@@ -196,6 +196,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI_DPL_CONS),
 	__stringify(RESERVERD_PROD_82),
 	__stringify(IPA_CLIENT_ODL_DPL_CONS),
+	__stringify(IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD),
+	__stringify(IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS),
 };
 
 /**

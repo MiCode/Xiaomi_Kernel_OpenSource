@@ -882,19 +882,6 @@ static int mdss_spi_panel_parse_dt(struct device_node *np,
 	return 0;
 }
 
-static void mdss_spi_panel_pwm_cfg(struct spi_panel_data *ctrl)
-{
-	if (ctrl->pwm_pmi)
-		return;
-
-	ctrl->pwm_bl = pwm_request(ctrl->pwm_lpg_chan, "lcd-bklt");
-	if (IS_ERR_OR_NULL(ctrl->pwm_bl)) {
-		pr_err("%s: Error: lpg_chan=%d pwm request failed",
-				__func__, ctrl->pwm_lpg_chan);
-	}
-	ctrl->pwm_enabled = 0;
-}
-
 static void mdss_spi_panel_bklt_pwm(struct spi_panel_data *ctrl, int level)
 {
 	int ret;
@@ -924,23 +911,12 @@ static void mdss_spi_panel_bklt_pwm(struct spi_panel_data *ctrl, int level)
 			__func__, ctrl->bklt_ctrl, ctrl->pwm_period,
 				ctrl->pwm_pmic_gpio, ctrl->pwm_lpg_chan);
 
-	if (ctrl->pwm_period >= USEC_PER_SEC) {
-		ret = pwm_config(ctrl->pwm_bl, duty, ctrl->pwm_period);
-		if (ret) {
-			pr_err("%s: pwm_config() failed err=%d\n",
-					__func__, ret);
-			return;
-		}
-	} else {
-		period_ns = ctrl->pwm_period * NSEC_PER_USEC;
-		ret = pwm_config(ctrl->pwm_bl,
-				level * period_ns / ctrl->bklt_max,
-				period_ns);
-		if (ret) {
-			pr_err("%s: pwm_config() failed err=%d\n",
-					__func__, ret);
-			return;
-		}
+	period_ns = ctrl->pwm_period * NSEC_PER_USEC;
+	ret = pwm_config(ctrl->pwm_bl,
+			level * period_ns / ctrl->bklt_max, period_ns);
+	if (ret) {
+		pr_err("%s: pwm_config() failed err=%d\n", __func__, ret);
+		return;
 	}
 
 	if (!ctrl->pwm_enabled) {
@@ -1189,8 +1165,17 @@ static int spi_panel_device_register(struct device_node *pan_node,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
-	if (ctrl_pdata->bklt_ctrl == SPI_BL_PWM)
-		mdss_spi_panel_pwm_cfg(ctrl_pdata);
+	if (ctrl_pdata->bklt_ctrl == SPI_BL_PWM) {
+		if (ctrl_pdata->pwm_pmi)
+			return -EINVAL;
+
+		ctrl_pdata->pwm_bl = devm_of_pwm_get(&ctrl_pdev->dev,
+					ctrl_pdev->dev.of_node, NULL);
+		if (IS_ERR_OR_NULL(ctrl_pdata->pwm_bl))
+			pr_err("%s: Error: devm_of_pwm_get failed",
+				__func__);
+		ctrl_pdata->pwm_enabled = 0;
+	}
 
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
 	ctrl_pdata->panel_data.get_fb_node = mdss_spi_get_fb_node_cb;

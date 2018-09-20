@@ -855,6 +855,7 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
+	.enable_safe_config = true,
 	.freq_tbl = ftbl_cam_cc_slow_ahb_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_slow_ahb_clk_src",
@@ -981,7 +982,7 @@ static struct clk_branch cam_cc_cci_clk = {
 
 static struct clk_branch cam_cc_core_ahb_clk = {
 	.halt_reg = 0xb144,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xb144,
 		.enable_mask = BIT(0),

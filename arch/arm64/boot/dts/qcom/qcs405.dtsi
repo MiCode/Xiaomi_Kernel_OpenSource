@@ -309,7 +309,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pms405_s1_level>;
 		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
-		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
+		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		clock-names = "cxo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
@@ -628,7 +628,8 @@
 				"qcom,shutdown-ack";
 
 		/* GPIO output to wcnss */
-		qcom,gpio-force-stop = <&modem_smp2p_out 0 0>;
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 		memory-region = <&wlan_fw_mem>;
 	};
 
@@ -667,9 +668,9 @@
 			reg = <0x60000 0x6000>;
 	};
 
-	apcs: syscon@b011000 {
+	apcs: syscon@b011008 {
 		compatible = "syscon";
-		reg = <0xb011000 0x4>;
+		reg = <0xb011008 0x4>;
 	};
 
 	apcs_glb: mailbox@b011000 {
@@ -1194,10 +1195,21 @@
 		reg-names = "nand_phys",
 			    "bam_phys";
 		qcom,reg-adjustment-offset = <0x4000>;
-		qcom,qpic-clk-rpmh;
 
 		interrupts = <0 49 0>;
 		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+			/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 400000>;
+
+		clock-names = "core_clk";
+		clocks = <&clock_rpmcc RPM_SMD_QPIC_CLK>;
 
 		status = "disabled";
 	};

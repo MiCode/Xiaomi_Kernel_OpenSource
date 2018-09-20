@@ -23,6 +23,8 @@
 		clock-names = "iface_clk";
 		clock-rate = <0>;
 		gdsc-supply = <&mdss_core_gdsc>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;

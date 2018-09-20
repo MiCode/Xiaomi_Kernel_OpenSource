@@ -1307,9 +1307,10 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	disable_irq(gmu->gmu_interrupt_num);
 	disable_irq(hfi->hfi_interrupt_num);
 
-	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long)device);
+	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
 	INIT_LIST_HEAD(&hfi->msglist);
 	spin_lock_init(&hfi->msglock);
+	spin_lock_init(&hfi->read_queue_lock);
 	hfi->kgsldev = device;
 
 	/* Retrieves GMU/GPU power level configurations*/
@@ -1362,10 +1363,11 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 					"AOP mailbox init failed: %d\n", ret);
 	}
 
-	/* disable LM during boot time */
-	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-	set_bit(GMU_ENABLED, &device->gmu_core.flags);
+	/* disable LM if the feature is not enabled */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 
+	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 
 	return 0;

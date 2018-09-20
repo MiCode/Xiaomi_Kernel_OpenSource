@@ -23,6 +23,12 @@
 /delete-node/ &apps_smmu;
 /delete-node/ &kgsl_smmu;
 
+&soc {
+	/delete-node/ llcc_bw_opp_table;
+	/delete-node/ ddr_bw_opp_table;
+	/delete-node/ suspendable_ddr_bw_opp_table;
+};
+
 &mdss_mdp {
 	qcom,fullsize-va-map;
 };
@@ -69,6 +75,11 @@
 &clock_npucc {
 	compatible = "qcom,npucc-sm8150-v2", "syscon";
 };
+
+&clock_scc {
+	compatible = "qcom,scc-sm8150-v2";
+};
+
 #include "msm-arm-smmu-sm8150-v2.dtsi"
 
 &pcie0 {
@@ -381,7 +392,7 @@
 			qcom,gpu-freq = <585000000>;
 			qcom,bus-freq = <7>;
 			qcom,bus-min = <6>;
-			qcom,bus-max = <8>;
+			qcom,bus-max = <11>;
 		};
 
 		qcom,gpu-pwrlevel@1 {
@@ -389,7 +400,7 @@
 			qcom,gpu-freq = <585000000>;
 			qcom,bus-freq = <7>;
 			qcom,bus-min = <6>;
-			qcom,bus-max = <8>;
+			qcom,bus-max = <11>;
 		};
 
 		qcom,gpu-pwrlevel@2 {
@@ -397,7 +408,7 @@
 			qcom,gpu-freq = <585000000>;
 			qcom,bus-freq = <7>;
 			qcom,bus-min = <6>;
-			qcom,bus-max = <8>;
+			qcom,bus-max = <11>;
 		};
 
 		qcom,gpu-pwrlevel@3 {
@@ -405,7 +416,7 @@
 			qcom,gpu-freq = <427000000>;
 			qcom,bus-freq = <6>;
 			qcom,bus-min = <5>;
-			qcom,bus-max = <7>;
+			qcom,bus-max = <9>;
 		};
 
 		qcom,gpu-pwrlevel@4 {
@@ -413,7 +424,7 @@
 			qcom,gpu-freq = <345000000>;
 			qcom,bus-freq = <3>;
 			qcom,bus-min = <3>;
-			qcom,bus-max = <5>;
+			qcom,bus-max = <8>;
 		};
 
 		qcom,gpu-pwrlevel@5 {
@@ -421,7 +432,7 @@
 			qcom,gpu-freq = <257000000>;
 			qcom,bus-freq = <2>;
 			qcom,bus-min = <1>;
-			qcom,bus-max = <3>;
+			qcom,bus-max = <8>;
 		};
 
 		qcom,gpu-pwrlevel@6 {
@@ -605,52 +616,53 @@
 	};
 };
 
-&llcc_bw_opp_table {
-	compatible = "operating-points-v2";
-	BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
-	BW_OPP_ENTRY( 300, 16); /*  4577 MB/s */
-	BW_OPP_ENTRY( 466, 16); /*  7110 MB/s */
-	BW_OPP_ENTRY( 600, 16); /*  9155 MB/s */
-	BW_OPP_ENTRY( 806, 16); /* 12298 MB/s */
-	BW_OPP_ENTRY( 933, 16); /* 14236 MB/s */
-	BW_OPP_ENTRY(1000, 16); /* 15258 MB/s */
-};
+&soc {
+	llcc_bw_opp_table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
+		BW_OPP_ENTRY( 300, 16); /*  4577 MB/s */
+		BW_OPP_ENTRY( 466, 16); /*  7110 MB/s */
+		BW_OPP_ENTRY( 600, 16); /*  9155 MB/s */
+		BW_OPP_ENTRY( 806, 16); /* 12298 MB/s */
+		BW_OPP_ENTRY( 933, 16); /* 14236 MB/s */
+		BW_OPP_ENTRY(1000, 16); /* 15258 MB/s */
+	};
 
-&ddr_bw_opp_table {
-	compatible = "operating-points-v2";
-	BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
-	BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
-	BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
-	BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
-	BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
-	BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
-	BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
-	BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
-	BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
-	BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
-	BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
-};
+	ddr_bw_opp_table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
 
-&suspendable_ddr_bw_opp_table {
-	compatible = "operating-points-v2";
-	BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
-	BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
-	BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
-	BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
-	BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
-	BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
-	BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
-	BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
-	BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
-	BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
-	BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
-	BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	suspendable_ddr_bw_opp_table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
 };
-
 &cpu4_computemon {
 	qcom,core-dev-table =
 		< 1920000 MHZ_TO_MBPS( 200, 4) >,
-		< 2841600 MHZ_TO_MBPS(1017, 4) >,
+		< 2793600 MHZ_TO_MBPS(1017, 4) >,
 		< 3000000 MHZ_TO_MBPS(2092, 4) >;
 };
 

@@ -22,8 +22,17 @@
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define MAX_BDF_FILE_NAME		11
-#define DEFAULT_BDF_FILE_NAME		"bdwlan.elf"
-#define BDF_FILE_NAME_PREFIX		"bdwlan.e"
+#define ELF_BDF_FILE_NAME		"bdwlan.elf"
+#define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+#define BIN_BDF_FILE_NAME		"bdwlan.bin"
+#define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
+#define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
+
+enum cnss_bdf_type {
+	CNSS_BDF_BIN,
+	CNSS_BDF_ELF,
+	CNSS_BDF_DUMMY = 255,
+};
 
 #ifdef CONFIG_CNSS2_DEBUG
 static unsigned int qmi_timeout = 10000;
@@ -42,16 +51,11 @@ static bool daemon_support;
 module_param(daemon_support, bool, 0600);
 MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
 
-static bool bdf_bypass;
+static unsigned int bdf_type = CNSS_BDF_ELF;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(bdf_bypass, bool, 0600);
-MODULE_PARM_DESC(bdf_bypass, "If BDF is not found, send dummy BDF to FW");
+module_param(bdf_type, uint, 0600);
+MODULE_PARM_DESC(bdf_type, "Type of board data file to be downloaded");
 #endif
-
-enum cnss_bdf_type {
-	CNSS_BDF_BIN,
-	CNSS_BDF_ELF,
-};
 
 static char *cnss_qmi_mode_to_str(enum cnss_driver_mode mode)
 {
@@ -443,18 +447,33 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
-	if (plat_priv->board_info.board_id == 0xFF)
-		snprintf(filename, sizeof(filename), DEFAULT_BDF_FILE_NAME);
-	else
-		snprintf(filename, sizeof(filename),
-			 BDF_FILE_NAME_PREFIX "%02x",
-			 plat_priv->board_info.board_id);
-
-	if (bdf_bypass) {
-		cnss_pr_info("bdf_bypass is enabled, sending dummy BDF\n");
-		temp = filename;
+	switch (bdf_type) {
+	case CNSS_BDF_ELF:
+		if (plat_priv->board_info.board_id == 0xFF)
+			snprintf(filename, sizeof(filename), ELF_BDF_FILE_NAME);
+		else
+			snprintf(filename, sizeof(filename),
+				 ELF_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		break;
+	case CNSS_BDF_BIN:
+		if (plat_priv->board_info.board_id == 0xFF)
+			snprintf(filename, sizeof(filename), BIN_BDF_FILE_NAME);
+		else
+			snprintf(filename, sizeof(filename),
+				 BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 plat_priv->board_info.board_id);
+		break;
+	case CNSS_BDF_DUMMY:
+		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
+		snprintf(filename, sizeof(filename), DUMMY_BDF_FILE_NAME);
+		temp = DUMMY_BDF_FILE_NAME;
 		remaining = MAX_BDF_FILE_NAME;
 		goto bypass_bdf;
+	default:
+		cnss_pr_err("Invalid BDF type: %d\n", bdf_type);
+		ret = -EINVAL;
+		goto err_req_fw;
 	}
 
 	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
@@ -479,7 +498,7 @@ bypass_bdf:
 		req->data_valid = 1;
 		req->end_valid = 1;
 		req->bdf_type_valid = 1;
-		req->bdf_type = CNSS_BDF_ELF;
+		req->bdf_type = bdf_type;
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;
@@ -534,7 +553,7 @@ bypass_bdf:
 	return 0;
 
 err_send:
-	if (!bdf_bypass)
+	if (bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 err_req_fw:
 	CNSS_ASSERT(0);

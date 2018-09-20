@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,6 +72,8 @@ error:
 static inline int is_fm_port(uint8_t port_num)
 {
 	if (port_num == CHRK_SB_PGD_PORT_TX1_FM ||
+		port_num == CHRKVER3_SB_PGD_PORT_TX1_FM ||
+		port_num == CHRKVER3_SB_PGD_PORT_TX2_FM ||
 		port_num == CHRK_SB_PGD_PORT_TX2_FM)
 		return 1;
 	else
@@ -138,9 +140,16 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	/* txport */
 	/* Multiple Channel Setting */
 	if (is_fm_port(port_num)) {
-		reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
-				(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
+		if (port_num == CHRKVER3_SB_PGD_PORT_TX1_FM)
+			reg_val = (0x1 << CHRKVER3_SB_PGD_PORT_TX1_FM);
+		else if (port_num == CHRKVER3_SB_PGD_PORT_TX2_FM)
+			reg_val = (0x1 << CHRKVER3_SB_PGD_PORT_TX2_FM);
+		else
+			reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
+					(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
+
 		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_INFO("writing reg_val (%d) to reg(%x)", reg_val, reg);
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
 			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);

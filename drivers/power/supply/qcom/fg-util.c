@@ -153,7 +153,7 @@ int fg_get_sram_prop(struct fg_dev *fg, enum fg_sram_param_id id,
 		return -EINVAL;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	rc = fg_sram_read(fg, fg->sp[id].addr_word, fg->sp[id].addr_byte,
 		buf, fg->sp[id].len, FG_IMA_DEFAULT);
@@ -353,25 +353,28 @@ void fg_notify_charger(struct fg_dev *fg)
 	if (!fg->profile_available)
 		return;
 
-	prop.intval = fg->bp.float_volt_uv;
-	rc = power_supply_set_property(fg->batt_psy,
-			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
-	if (rc < 0) {
-		pr_err("Error in setting voltage_max property on batt_psy, rc=%d\n",
-			rc);
-		return;
+	if (fg->bp.float_volt_uv > 0) {
+		prop.intval = fg->bp.float_volt_uv;
+		rc = power_supply_set_property(fg->batt_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		if (rc < 0) {
+			pr_err("Error in setting voltage_max property on batt_psy, rc=%d\n",
+				rc);
+			return;
+		}
 	}
 
-	prop.intval = fg->bp.fastchg_curr_ma * 1000;
-	rc = power_supply_set_property(fg->batt_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &prop);
-	if (rc < 0) {
-		pr_err("Error in setting constant_charge_current_max property on batt_psy, rc=%d\n",
-			rc);
-		return;
+	if (fg->bp.fastchg_curr_ma > 0) {
+		prop.intval = fg->bp.fastchg_curr_ma * 1000;
+		rc = power_supply_set_property(fg->batt_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&prop);
+		if (rc < 0) {
+			pr_err("Error in setting constant_charge_current_max property on batt_psy, rc=%d\n",
+				rc);
+			return;
+		}
 	}
-
-	fg_dbg(fg, FG_STATUS, "Notified charger on float voltage and FCC\n");
 }
 
 bool batt_psy_initialized(struct fg_dev *fg)
@@ -512,7 +515,7 @@ int fg_sram_write(struct fg_dev *fg, u16 address, u8 offset,
 		return -ENXIO;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	if (!fg_sram_address_valid(fg, address, len))
 		return -EFAULT;
@@ -595,7 +598,7 @@ int fg_sram_read(struct fg_dev *fg, u16 address, u8 offset,
 		return -ENXIO;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	if (!fg_sram_address_valid(fg, address, len))
 		return -EFAULT;

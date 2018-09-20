@@ -500,7 +500,6 @@ static void diag_rpmsg_close_work_fn(struct work_struct *work)
 	if (!rpmsg_info || !rpmsg_info->inited || !rpmsg_info->hdl)
 		return;
 	atomic_set(&rpmsg_info->opened, 0);
-	dev_set_drvdata(&rpmsg_info->hdl->dev, NULL);
 	rpmsg_info->hdl = NULL;
 	diagfwd_channel_close(rpmsg_info->fwd_ctxt);
 }
