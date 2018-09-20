@@ -80,3 +80,17 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&soc {
+	usb2_extcon: usb2_extcon {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&tlmm 27 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_ssrd_det_default>;
+	};
+};
+
+&usb2s {
+	extcon = <&usb2_extcon>;
+};
