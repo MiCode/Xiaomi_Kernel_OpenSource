@@ -7580,12 +7580,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			if (capacity_orig < capacity_orig_of(cpu))
 				continue;
 
-			/*
-			 * Favor CPUs with smaller capacity for non latency
-			 * sensitive tasks.
-			 */
-			if (capacity_orig > target_capacity)
-				continue;
+
+
 
 			/*
 			 * Case B) Non latency sensitive tasks on IDLE CPUs.
