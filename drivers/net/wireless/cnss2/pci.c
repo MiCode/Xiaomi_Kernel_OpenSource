@@ -1881,6 +1881,11 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
 
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload is in progress, ignore device error\n");
+		return;
+	}
+
 	if (pci_priv->driver_ops && pci_priv->driver_ops->update_status)
 		pci_priv->driver_ops->update_status(pci_priv->pci_dev,
 						    CNSS_FW_DOWN);
