@@ -170,9 +170,7 @@
 		};
 		wlan {
 			subsys-name = "AR6320";
-			interrupts = <0 43 0>;
-			interrupt-names = "state-irq";
-			type = "virtual";
+			type = "native";
 			offset = <512>;
 		};
 
