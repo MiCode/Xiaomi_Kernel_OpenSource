@@ -80,6 +80,8 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
+	trace_rmnet_perf_low(RMNET_MODULE, RMNET_PERF_DLVR_SKB, 0xDEF, 0xDEF,
+			     0xDEF, 0xDEF, NULL, NULL);
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
 	rmnet_vnd_rx_fixup(skb->dev, skb->len);
@@ -303,6 +305,8 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 	if (skb->pkt_type == PACKET_LOOPBACK)
 		return RX_HANDLER_PASS;
 
+	trace_rmnet_perf_low(RMNET_MODULE, RMNET_RCV_FROM_PND, 0xDEF,
+			     0xDEF, 0xDEF, 0xDEF, NULL, NULL);
 	dev = skb->dev;
 	port = rmnet_get_port(dev);
 
@@ -333,6 +337,8 @@ void rmnet_egress_handler(struct sk_buff *skb)
 	int err;
 	u32 skb_len;
 
+	trace_rmnet_perf_low(RMNET_MODULE, RMNET_PERF_TX_UL_PKT, 0xDEF, 0xDEF,
+			     0xDEF, 0xDEF, (void *)skb, NULL);
 	sk_pacing_shift_update(skb->sk, 8);
 
 	orig_dev = skb->dev;
