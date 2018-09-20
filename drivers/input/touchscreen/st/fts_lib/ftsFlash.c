@@ -235,7 +235,7 @@ int flashProcedure(const char *path, int force, int keep_cx)
 int flash_status(void)
 {
 	u8 cmd[2] = {FLASH_CMD_READSTATUS, 0x00};
-	u8 readData;
+	u8 readData = 0;
 
 	logError(0, "%s %s:Reading ...\n", tag, __func__);
 	if (fts_readCmd(cmd, 2, &readData, FLASH_STATUS_BYTES) < 0) {
@@ -589,7 +589,7 @@ int flash_burn(Firmware fw, int force_burn, int keep_cx)
 int wait_for_flash_ready(u8 type)
 {
 	u8 cmd[2] = {FLASH_CMD_READ_REGISTER, type};
-	u8 readData;
+	u8 readData = 0;
 	int i, res = -1;
 
 	logError(0, "%s Waiting for flash ready ...\n", tag);
