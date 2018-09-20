@@ -839,7 +839,7 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 	if (hrtimer_active(&chip->hap_disable_timer)) {
 		rem = hrtimer_get_remaining(&chip->hap_disable_timer);
 		time_us = ktime_to_us(rem);
-		dev_dbg(chip->dev, "waiting for playing clear sequence: %ld us\n",
+		dev_dbg(chip->dev, "waiting for playing clear sequence: %lld us\n",
 				time_us);
 		usleep_range(time_us, time_us + 100);
 	}
@@ -1157,7 +1157,8 @@ static enum hrtimer_restart qti_hap_disable_timer(struct hrtimer *timer)
 
 	rc = qti_haptics_module_en(chip, false);
 	if (rc < 0)
-		dev_err(chip->dev, "Disable haptics module failed\n", rc);
+		dev_err(chip->dev, "Disable haptics module failed, rc=%d\n",
+				rc);
 
 	return HRTIMER_NORESTART;
 }
@@ -1519,7 +1520,7 @@ static int wf_repeat_n_dbgfs_write(void *data, u64 val)
 			break;
 
 	if (i == ARRAY_SIZE(wf_repeat))
-		pr_err("wf_repeat value %lu is invalid\n", val);
+		pr_err("wf_repeat value %llu is invalid\n", val);
 	else
 		effect->wf_repeat_n = i;
 
@@ -1545,7 +1546,7 @@ static int wf_s_repeat_n_dbgfs_write(void *data, u64 val)
 			break;
 
 	if (i == ARRAY_SIZE(wf_s_repeat))
-		pr_err("wf_s_repeat value %lu is invalid\n", val);
+		pr_err("wf_s_repeat value %llu is invalid\n", val);
 	else
 		effect->wf_s_repeat_n = i;
 
