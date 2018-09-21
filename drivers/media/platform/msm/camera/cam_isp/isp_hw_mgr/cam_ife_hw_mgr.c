@@ -2259,7 +2259,8 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	struct cam_isp_stop_args          stop_isp;
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	struct cam_ife_hw_mgr_res        *hw_mgr_res;
-	uint32_t                          i;
+	struct cam_isp_resource_node     *rsrc_node = NULL;
+	uint32_t                          i, camif_debug;
 
 	if (!hw_mgr_priv || !start_isp) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -2291,6 +2292,24 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 				CAM_IFE_CSID_SET_CSID_DEBUG,
 				&g_ife_hw_mgr.debug_cfg.csid_debug,
 				sizeof(g_ife_hw_mgr.debug_cfg.csid_debug));
+	}
+
+	camif_debug = g_ife_hw_mgr.debug_cfg.camif_debug;
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			rsrc_node = hw_mgr_res->hw_res[i];
+			if (rsrc_node->process_cmd && (rsrc_node->res_id ==
+				CAM_ISP_HW_VFE_IN_CAMIF)) {
+				rc = hw_mgr_res->hw_res[i]->process_cmd(
+					hw_mgr_res->hw_res[i],
+					CAM_ISP_HW_CMD_SET_CAMIF_DEBUG,
+					&camif_debug,
+					sizeof(camif_debug));
+			}
+		}
 	}
 
 	rc = cam_ife_hw_mgr_init_hw(ctx);
@@ -4443,6 +4462,28 @@ DEFINE_SIMPLE_ATTRIBUTE(cam_ife_csid_debug,
 	cam_ife_get_csid_debug,
 	cam_ife_set_csid_debug, "%16llu");
 
+static int cam_ife_set_camif_debug(void *data, u64 val)
+{
+	g_ife_hw_mgr.debug_cfg.camif_debug = val;
+	CAM_DBG(CAM_ISP,
+		"Set camif enable_diag_sensor_status value :%lld", val);
+	return 0;
+}
+
+static int cam_ife_get_camif_debug(void *data, u64 *val)
+{
+	*val = g_ife_hw_mgr.debug_cfg.camif_debug;
+	CAM_DBG(CAM_ISP,
+		"Set camif enable_diag_sensor_status value :%lld",
+		g_ife_hw_mgr.debug_cfg.csid_debug);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_ife_camif_debug,
+	cam_ife_get_camif_debug,
+	cam_ife_set_camif_debug, "%16llu");
+
 static int cam_ife_hw_mgr_debug_register(void)
 {
 	g_ife_hw_mgr.debug_cfg.dentry = debugfs_create_dir("camera_ife",
@@ -4466,6 +4507,14 @@ static int cam_ife_hw_mgr_debug_register(void)
 		g_ife_hw_mgr.debug_cfg.dentry,
 		&g_ife_hw_mgr.debug_cfg.enable_recovery)) {
 		CAM_ERR(CAM_ISP, "failed to create enable_recovery");
+		goto err;
+	}
+
+	if (!debugfs_create_file("ife_camif_debug",
+		0644,
+		g_ife_hw_mgr.debug_cfg.dentry, NULL,
+		&cam_ife_camif_debug)) {
+		CAM_ERR(CAM_ISP, "failed to create cam_ife_camif_debug");
 		goto err;
 	}
 	g_ife_hw_mgr.debug_cfg.enable_recovery = 0;
