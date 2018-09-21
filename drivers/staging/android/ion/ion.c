@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -603,10 +603,12 @@ static struct ion_handle *__ion_alloc(
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
 		trace_ion_alloc_buffer_start(client->name, heap->name, len,
-					     heap_id_mask, flags);
+				heap_id_mask, flags, client->pid, current->comm,
+					current->pid, (void *)buffer);
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		trace_ion_alloc_buffer_end(client->name, heap->name, len,
-					   heap_id_mask, flags);
+				heap_id_mask, flags, client->pid, current->comm,
+					current->pid, (void *)buffer);
 		if (!IS_ERR(buffer))
 			break;
 
@@ -713,6 +715,9 @@ static void user_ion_free_nolock(struct ion_client *client,
 		WARN(1, "%s: User does not have access!\n", __func__);
 		return;
 	}
+	trace_ion_free_buffer(client->name, client->pid, current->comm,
+			      current->pid, (void *)handle->buffer,
+			      handle->buffer->size);
 	user_ion_handle_put_nolock(handle);
 }
 
