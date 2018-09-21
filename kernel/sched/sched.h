@@ -2940,7 +2940,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 */
 		if (sysctl_sched_boost == CONSERVATIVE_BOOST &&
 				task_util(p) <=
-				sysctl_sched_min_task_util_for_boost_colocation)
+				sysctl_sched_min_task_util_for_boost)
 			policy = SCHED_BOOST_NONE;
 	}
 
