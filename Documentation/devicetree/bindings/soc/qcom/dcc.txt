@@ -1,0 +1,67 @@
+* Data Capture and Compare (DCC)
+
+DCC (Data Capture and Compare) is a DMA engine, which is used to save
+configuration data or system memory contents during catastrophic failure or
+SW trigger.
+It can also perform CRC over the same configuration or memory space.
+
+Required properties:
+
+- compatible : name of the component used for driver matching, should be
+	       "qcom,dcc" or "qcom,dcc_v2"
+
+- reg : physical base address and length of the register set(s), SRAM and XPU
+	of the component.
+
+- reg-names : names corresponding to each reg property value.
+	      dcc-base: Base address for DCC configuration reg
+	      dcc-ram-base: Start of HLOS address space in SRAM
+	      dcc-xpu-base: Base address for XPU configuration reg
+
+- dcc-ram-offset: Address offset from the start of the SRAM address space.
+
+Optional properties:
+
+- clocks: phandle reference to the parent clock.
+
+- clock-names: Name of the clock that needs to be enabled for the HW to run.
+	       Turned off when the subsystem is disabled.
+
+- qcom,save-reg: boolean, To save dcc registers state in memory after dcc
+		 enable and disable
+
+- qcom,data-sink: string, To specify default data sink for dcc, should be one
+		  of the following:
+		  "atb"	  : To send captured data over ATB to a trace sink
+		  "sram"  : To save captured data in dcc internal SRAM.
+
+- qcom,curr-link-list: int, To specify the link list to use for the default list.
+
+- qcom,link-list: The values to be programmed into the default link list.
+		  The enum values for DCC operations is defined in dt-bindings/soc/qcom,dcc_v2.h
+		  The following gives basic structure to be used for each operation:
+		  <DCC_operation addr val apb_bus>
+		  val is to be interpreted based on what operation is to be performed.
+
+Example:
+
+	dcc: dcc@4b3000 {
+		compatible = "qcom,dcc";
+		reg = <0x4b3000 0x1000>,
+		      <0x4b4000 0x2000>,
+		      <0x4b0000 0x1>;
+		reg-names = "dcc-base", "dcc-ram-base", "dcc-xpu-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_ahb_clk>;
+		clock-names = "dcc_clk";
+
+		qcom,curr-link-list = <2>;
+		qcom,link-list = <DCC_READ 0x1740300 6 0>,
+				 <DCC_READ 0x1620500 4 0>,
+				 <DCC_READ 0x7840000 1 0>,
+				 <DCC_READ 0x7841010 12 0>,
+				 <DCC_READ 0x7842000 16 0>,
+				 <DCC_READ 0x7842500 2 0>;
+		qcom,save-reg;
+	};
+
