@@ -13,37 +13,42 @@
 
 &i2c_2 {
 	status = "okay";
-	qcom,camera@0 {
+	qcom,camera@2 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
 		reg = <0x2>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
+		cam_vdig-supply = <&pm660_l7>;
 		cam_vio-supply = <&pm660_l13>;
-		qcom,cam-vreg-name = "cam_vio";
-		qcom,cam-vreg-min-voltage = <1800000>;
-		qcom,cam-vreg-max-voltage = <1800000>;
-		qcom,cam-vreg-op-mode = <30000>;
+		qcom,cam-vreg-type = <0 0>;
+		qcom,cam-vreg-name = "cam_vdig","cam_vio";
+		qcom,cam-vreg-min-voltage = <1200000 1800000>;
+		qcom,cam-vreg-max-voltage = <1200000 1800000>;
+		qcom,cam-vreg-op-mode = <200000 0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk1_default
-				&cam_sensor_front_default>;
-		pinctrl-1 = <&cam_sensor_mclk1_sleep &cam_sensor_front_sleep>;
-		gpios = <&msm_gpio 27 0>,
-			<&msm_gpio 28 0>,
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_default>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
+		gpios = <&msm_gpio 26 0>,
+			<&msm_gpio 35 0>,
+			<&msm_gpio 34 0>,
 			<&msm_gpio 23 0>;
 		qcom,gpio-reset = <1>;
-		qcom,gpio-vana = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-vana = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_STANDBY",
 			"CAM_RESET",
 			"CAM_VANA";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		status = "ok";
-		clocks = <&clock_gcc clk_mclk1_clk_src>,
-				<&clock_gcc clk_gcc_camss_mclk1_clk>;
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk0_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};
@@ -53,7 +58,7 @@
 		compatible = "qcom,camera";
 		reg = <0x1>;
 		qcom,csiphy-sd-index = <0>;
-		qcom,csid-sd-index = <0>;
+		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
 		cam_vio-supply = <&pm660_l13>;
 		qcom,cam-vreg-name = "cam_vio";
