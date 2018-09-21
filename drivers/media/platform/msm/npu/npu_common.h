@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/mailbox/qmp.h>
 
 #include "npu_mgr.h"
 
@@ -197,7 +198,7 @@ struct npu_device {
 	struct npu_smmu_ctx smmu_ctx;
 	struct npu_debugfs_ctx debugfs_ctx;
 
-	struct npu_mbox mbox[NPU_MAX_MBOX_NUM];
+	struct npu_mbox mbox_aop;
 
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;

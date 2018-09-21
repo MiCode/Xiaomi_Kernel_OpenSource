@@ -40,6 +40,7 @@
 #define DDR_MAPPED_SIZE         0x60000000
 
 #define PERF_MODE_DEFAULT 0
+#define MBOX_OP_TIMEOUTMS 1000
 
 /* -------------------------------------------------------------------------
  * File Scope Prototypes
@@ -1524,6 +1525,29 @@ static int npu_irq_init(struct npu_device *npu_dev)
 	return ret;
 }
 
+static int npu_mbox_init(struct npu_device *npu_dev)
+{
+	struct platform_device *pdev = npu_dev->pdev;
+	struct npu_mbox *mbox_aop = &npu_dev->mbox_aop;
+	int ret = 0;
+
+	if (of_find_property(pdev->dev.of_node, "mboxes", NULL)) {
+		mbox_aop->client.dev = &pdev->dev;
+		mbox_aop->client.tx_block = true;
+		mbox_aop->client.tx_tout = MBOX_OP_TIMEOUTMS;
+		mbox_aop->client.knows_txdone = false;
+
+		mbox_aop->chan = mbox_request_channel(&mbox_aop->client, 0);
+		if (IS_ERR(mbox_aop->chan)) {
+			ret = PTR_ERR(mbox_aop->chan);
+			pr_err("mailbox channel request failed, ret=%d\n", ret);
+			mbox_aop->chan = NULL;
+		}
+	}
+
+	return ret;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -1569,6 +1593,10 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 
 	rc = npu_irq_init(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
+	rc = npu_mbox_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
 
@@ -1680,6 +1708,8 @@ error_class_device_create:
 	class_destroy(npu_dev->class);
 error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
+	if (npu_dev->mbox_aop.chan)
+		mbox_free_channel(npu_dev->mbox_aop.chan);
 error_get_dev_num:
 	return rc;
 }
@@ -1700,6 +1730,9 @@ static int npu_remove(struct platform_device *pdev)
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	platform_set_drvdata(pdev, NULL);
+	if (npu_dev->mbox_aop.chan)
+		mbox_free_channel(npu_dev->mbox_aop.chan);
+
 	return 0;
 }
 
