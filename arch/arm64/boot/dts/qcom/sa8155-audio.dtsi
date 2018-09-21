@@ -517,7 +517,7 @@
 	spi_codec@0 {
 		compatible = "qcom,spi-msm-codec-slave";
 		reg = <0>;
-		spi-max-frequency = <12800000>;
+		spi-max-frequency = <10000000>;
 		spi-cpha;
 	};
 };
