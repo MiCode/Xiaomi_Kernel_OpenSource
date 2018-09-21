@@ -183,6 +183,42 @@ static struct clk_alpha_pll_postdiv gpu_cc_pll0_out_even = {
 	},
 };
 
+static struct clk_alpha_pll gpu_cc_pll1 = {
+	.offset = 0x100,
+	.vco_table = fabia_vco,
+	.num_vco = ARRAY_SIZE(fabia_vco),
+	.type = FABIA_PLL,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gpu_cc_pll1",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_fabia_pll_ops,
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
+		},
+	},
+};
+
+static struct clk_alpha_pll_postdiv gpu_cc_pll1_out_even = {
+	.offset = 0x100,
+	.post_div_shift = 8,
+	.post_div_table = post_div_table_fabia_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_fabia_even),
+	.width = 4,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "gpu_cc_pll1_out_even",
+		.parent_names = (const char *[]){ "gpu_cc_pll1" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_generic_pll_postdiv_ops,
+	},
+};
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
@@ -216,8 +252,8 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(430000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(565000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(650000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(750000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(780000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(800000000, P_GPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
+	F(825000000, P_GPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
 	{ }
 };
 
@@ -243,8 +279,8 @@ static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 			[VDD_GX_LOW_L1] = 430000000,
 			[VDD_GX_NOMINAL] = 565000000,
 			[VDD_GX_NOMINAL_L1] = 650000000,
-			[VDD_GX_HIGH] = 750000000,
-			[VDD_GX_HIGH_L1] = 780000000},
+			[VDD_GX_HIGH] = 800000000,
+			[VDD_GX_HIGH_L1] = 825000000},
 	},
 };
 
@@ -488,6 +524,8 @@ static struct clk_regmap *gpu_cc_sdmmagpie_clocks[] = {
 	[GPU_CC_GX_VSENSE_CLK] = &gpu_cc_gx_vsense_clk.clkr,
 	[GPU_CC_PLL0] = &gpu_cc_pll0.clkr,
 	[GPU_CC_PLL0_OUT_EVEN] = &gpu_cc_pll0_out_even.clkr,
+	[GPU_CC_PLL1] = &gpu_cc_pll1.clkr,
+	[GPU_CC_PLL1_OUT_EVEN] = &gpu_cc_pll1_out_even.clkr,
 };
 
 static const struct regmap_config gpu_cc_sdmmagpie_regmap_config = {
@@ -552,6 +590,7 @@ static int gpu_cc_sdmmagpie_probe(struct platform_device *pdev)
 	}
 
 	clk_fabia_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
+	clk_fabia_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll0_config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sdmmagpie_desc, regmap);
 	if (ret) {
