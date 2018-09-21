@@ -137,6 +137,33 @@
 #define AGERA_PLL_TEST_CTL_U		0x1c
 #define AGERA_PLL_POST_DIV_MASK		0x3
 
+/* LUCID PLL speficic settings and offsets */
+#define LUCID_PLL_OFF_L_VAL		0x04
+#define LUCID_PLL_OFF_CAL_L_VAL		0x08
+#define LUCID_PLL_OFF_USER_CTL		0x0c
+#define LUCID_PLL_OFF_USER_CTL_U	0x10
+#define LUCID_PLL_OFF_USER_CTL_U1	0x14
+#define LUCID_PLL_OFF_CONFIG_CTL	0x18
+#define LUCID_PLL_OFF_CONFIG_CTL_U	0x1c
+#define LUCID_PLL_OFF_CONFIG_CTL_U1	0x20
+#define LUCID_PLL_OFF_TEST_CTL		0x24
+#define LUCID_PLL_OFF_TEST_CTL_U	0x28
+#define LUCID_PLL_OFF_TEST_CTL_U1	0x2c
+#define LUCID_PLL_OFF_STATUS		0x30
+#define LUCID_PLL_OFF_OPMODE		0x38
+#define LUCID_PLL_OFF_ALPHA_VAL		0x40
+#define LUCID_PLL_OFF_FRAC		0x40
+
+#define LUCID_PLL_CAL_VAL		0x44
+#define LUCID_PLL_STANDBY		0x0
+#define LUCID_PLL_RUN			0x1
+#define LUCID_PLL_OUT_MASK		0x7
+#define LUCID_PCAL_DONE			BIT(26)
+#define LUCID_PLL_RATE_MARGIN		500
+#define LUCID_PLL_ACK_LATCH		BIT(29)
+#define LUCID_PLL_UPDATE		BIT(22)
+#define LUCID_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
+
 #define to_clk_alpha_pll(_hw) container_of(to_clk_regmap(_hw), \
 					   struct clk_alpha_pll, clkr)
 
@@ -453,7 +480,8 @@ static unsigned long alpha_pll_calc_rate(const struct clk_alpha_pll *pll,
 	int alpha_bw = ALPHA_BITWIDTH;
 
 	if (pll->type == TRION_PLL || pll->type == REGERA_PLL
-			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL)
+			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL
+			|| pll->type == LUCID_PLL)
 		alpha_bw = ALPHA_REG_16BITWIDTH;
 
 	return (prate * l) + ((prate * a) >> alpha_bw);
@@ -490,7 +518,8 @@ alpha_pll_round_rate(const struct clk_alpha_pll *pll, unsigned long rate,
 	 * the fractional divider.
 	 */
 	if (pll->type == TRION_PLL || pll->type == REGERA_PLL
-			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL)
+			|| pll->type == FABIA_PLL || pll->type == AGERA_PLL
+			|| pll->type == LUCID_PLL)
 		alpha_bw = ALPHA_REG_16BITWIDTH;
 
 	/* Upper ALPHA_BITWIDTH bits of Alpha */
@@ -2290,3 +2319,327 @@ const struct clk_ops clk_agera_pll_ops = {
 	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL(clk_agera_pll_ops);
+
+static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
+					struct regmap *regmap)
+{
+	u32 mode_regval, opmode_regval;
+	int ret;
+
+	ret = regmap_read(regmap, pll->offset + PLL_MODE, &mode_regval);
+	ret |= regmap_read(regmap, pll->offset + LUCID_PLL_OFF_OPMODE,
+				&opmode_regval);
+	if (ret)
+		return 0;
+
+	return ((opmode_regval & LUCID_PLL_RUN) &&
+			(mode_regval & PLL_OUTCTRL));
+}
+
+int clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config)
+{
+	int ret;
+
+	if (lucid_pll_is_enabled(pll, regmap)) {
+		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		return 0;
+	}
+
+	/*
+	 * Disable the PLL if it's already been initialized. Not doing so might
+	 * lead to the PLL running with the old frequency configuration.
+	 */
+	if (pll->inited) {
+		ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
+						PLL_RESET_N, 0);
+		if (ret)
+			return ret;
+	}
+
+	if (config->l)
+		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_L_VAL,
+				config->l);
+
+	regmap_write(regmap, pll->offset + LUCID_PLL_OFF_CAL_L_VAL,
+			LUCID_PLL_CAL_VAL);
+
+	if (config->alpha)
+		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_ALPHA_VAL,
+				config->alpha);
+	if (config->config_ctl_val)
+		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_CONFIG_CTL,
+				config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_CONFIG_CTL_U,
+				config->config_ctl_hi_val);
+
+	if (config->config_ctl_hi1_val)
+		regmap_write(regmap, pll->offset + LUCID_PLL_OFF_USER_CTL_U1,
+				config->config_ctl_hi1_val);
+
+	if (config->post_div_mask)
+		regmap_update_bits(regmap, pll->offset + LUCID_PLL_OFF_USER_CTL,
+			config->post_div_mask, config->post_div_val);
+
+	regmap_update_bits(regmap, pll->offset + PLL_MODE,
+				 LUCID_PLL_HW_UPDATE_LOGIC_BYPASS,
+				 LUCID_PLL_HW_UPDATE_LOGIC_BYPASS);
+
+	/* Disable PLL output */
+	ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
+					PLL_OUTCTRL, 0);
+	if (ret)
+		return ret;
+
+	/* Set operation mode to OFF */
+	regmap_write(regmap, pll->offset + LUCID_PLL_OFF_OPMODE,
+			LUCID_PLL_STANDBY);
+
+	/* PLL should be in OFF mode before continuing */
+	wmb();
+
+	/* Place the PLL in STANDBY mode */
+	ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
+				 PLL_RESET_N, PLL_RESET_N);
+	if (ret)
+		return ret;
+
+	pll->inited = true;
+	return 0;
+}
+
+static int alpha_pll_lucid_enable(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &val);
+	if (ret)
+		return ret;
+
+	/* If in FSM mode, just vote for it */
+	if (val & PLL_VOTE_FSM_ENA) {
+		ret = clk_enable_regmap(hw);
+		if (ret)
+			return ret;
+		return wait_for_pll_enable_active(pll);
+	}
+
+	if (unlikely(!pll->inited)) {
+		ret = clk_lucid_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+	}
+
+	/* Set operation mode to RUN */
+	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_OPMODE,
+				LUCID_PLL_RUN);
+
+	ret = wait_for_pll_enable_lock(pll);
+	if (ret)
+		return ret;
+
+	/* Enable the PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset +
+				LUCID_PLL_OFF_USER_CTL,
+				LUCID_PLL_OUT_MASK, LUCID_PLL_OUT_MASK);
+	if (ret)
+		return ret;
+
+	/* Enable the global PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+				 PLL_OUTCTRL, PLL_OUTCTRL);
+	if (ret)
+		return ret;
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+	return ret;
+}
+
+static void alpha_pll_lucid_disable(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &val);
+	if (ret)
+		return;
+
+	/* If in FSM mode, just unvote it */
+	if (val & PLL_VOTE_FSM_ENA) {
+		clk_disable_regmap(hw);
+		return;
+	}
+
+	/* Disable the global PLL output */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+							PLL_OUTCTRL, 0);
+	if (ret)
+		return;
+
+	/* Disable the PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset +
+				LUCID_PLL_OFF_USER_CTL,
+				LUCID_PLL_OUT_MASK, 0);
+	if (ret)
+		return;
+
+	/* Place the PLL mode in STANDBY */
+	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_OPMODE,
+			LUCID_PLL_STANDBY);
+
+	regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+				PLL_RESET_N, PLL_RESET_N);
+}
+
+/*
+ * The Lucid PLL requires a power-on self-calibration which happens when the
+ * PLL comes out of reset. The calibration is performed at an output frequency
+ * of ~1300 MHz which means that SW will have to vote on a voltage that's
+ * equal to or greater than SVS_L1 on the corresponding rail. Since this is not
+ * feasable to do in the atomic enable path, temporarily bring up the PLL here,
+ * let it calibrate, and place it in standby before returning.
+ */
+static int alpha_pll_lucid_prepare(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	struct clk_hw *p;
+	u32 regval;
+	unsigned long prate;
+	int ret;
+
+	/* Return early if calibration is not needed. */
+	ret = regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_STATUS,
+		      &regval);
+	if (regval & LUCID_PCAL_DONE)
+		return ret;
+
+	p = clk_hw_get_parent(hw);
+	if (!p)
+		return -EINVAL;
+
+	prate = clk_hw_get_rate(p);
+	ret = clk_vote_rate_vdd(hw->core, LUCID_PLL_CAL_VAL * prate);
+	if (ret)
+		return ret;
+
+	ret = alpha_pll_lucid_enable(hw);
+	if (ret)
+		goto ret_path;
+
+	alpha_pll_lucid_disable(hw);
+ret_path:
+	clk_unvote_rate_vdd(hw->core, LUCID_PLL_CAL_VAL * prate);
+	return 0;
+}
+
+static unsigned long
+alpha_pll_lucid_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 l, frac;
+
+	regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_L_VAL, &l);
+	regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_ALPHA_VAL,
+					&frac);
+
+	return alpha_pll_calc_rate(pll, parent_rate, l, frac);
+}
+
+static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	u32 regval, l;
+	u64 a;
+	int ret;
+
+	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
+
+	/*
+	 * Due to a limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + LUCID_PLL_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_L_VAL, l);
+	regmap_write(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_ALPHA_VAL,
+							a);
+
+	/* Latch the PLL input */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+			   LUCID_PLL_UPDATE, LUCID_PLL_UPDATE);
+	if (ret)
+		return ret;
+
+	/* Wait for 2 reference cycles before checking the ACK bit. */
+	udelay(1);
+	regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &regval);
+	if (!(regval & LUCID_PLL_ACK_LATCH)) {
+		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		return -EINVAL;
+	}
+
+	/* Return the latch input to 0 */
+	ret = regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+			   LUCID_PLL_UPDATE, 0);
+	if (ret)
+		return ret;
+
+	if (clk_hw_is_enabled(hw)) {
+		ret = wait_for_pll_enable_lock(pll);
+		if (ret)
+			return ret;
+	}
+
+	/* Wait for PLL output to stabilize */
+	udelay(100);
+	return 0;
+}
+
+static int alpha_pll_lucid_is_enabled(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+
+	return lucid_pll_is_enabled(pll, pll->clkr.regmap);
+}
+
+const struct clk_ops clk_alpha_pll_lucid_ops = {
+	.prepare = alpha_pll_lucid_prepare,
+	.enable = alpha_pll_lucid_enable,
+	.disable = alpha_pll_lucid_disable,
+	.is_enabled = alpha_pll_lucid_is_enabled,
+	.recalc_rate = alpha_pll_lucid_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = alpha_pll_lucid_set_rate,
+	.list_registers = clk_alpha_pll_list_registers,
+};
+EXPORT_SYMBOL(clk_alpha_pll_lucid_ops);
+
+const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
+	.enable = alpha_pll_lucid_enable,
+	.disable = alpha_pll_lucid_disable,
+	.is_enabled = alpha_pll_lucid_is_enabled,
+	.recalc_rate = alpha_pll_lucid_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_fixed_lucid_ops);
+
+const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
+	.recalc_rate = clk_alpha_pll_postdiv_recalc_rate,
+	.round_rate = clk_alpha_pll_postdiv_round_rate,
+	.set_rate = clk_alpha_pll_postdiv_set_rate,
+};
+EXPORT_SYMBOL(clk_alpha_pll_postdiv_lucid_ops);
