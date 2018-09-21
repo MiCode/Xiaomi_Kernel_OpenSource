@@ -15,6 +15,18 @@
 	status = "ok";
 };
 
+&pm8916_chg{
+	status = "ok";
+};
+
+&pm8916_bms{
+	status = "ok";
+};
+
+&pm8916_vib{
+	status = "ok";
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
