@@ -10,6 +10,7 @@
 #include <linux/phy/phy.h>
 #include <linux/gpio/consumer.h>
 #include <linux/reset-controller.h>
+#include <linux/interconnect.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -19,6 +20,10 @@
 #include "ufs_quirks.h"
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
+
+#define UFS_DDR "ufs-ddr"
+#define CPU_UFS "cpu-ufs"
+
 
 enum {
 	TSTBUS_UAWM,
@@ -578,7 +583,6 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	return 0;
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 		const char *speed_mode)
 {
@@ -632,24 +636,83 @@ static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
 	}
 }
 
+static int ufs_qcom_get_ib_ab(struct ufs_qcom_host *host, int index,
+			      struct qcom_bus_vectors *ufs_ddr_vec,
+			      struct qcom_bus_vectors *cpu_ufs_vec)
+{
+	struct qcom_bus_path *usecase;
+
+	if (!host->qbsd)
+		return -EINVAL;
+
+	if (index > host->qbsd->num_usecase)
+		return -EINVAL;
+
+	usecase = host->qbsd->usecase;
+
+	/*
+	 *
+	 * usecase:0  usecase:0
+	 * ufs->ddr   cpu->ufs
+	 * |vec[0&1] | vec[2&3]|
+	 * +----+----+----+----+
+	 * | ab | ib | ab | ib |
+	 * |----+----+----+----+
+	 * .
+	 * .
+	 * .
+	 * usecase:n  usecase:n
+	 * ufs->ddr   cpu->ufs
+	 * |vec[0&1] | vec[2&3]|
+	 * +----+----+----+----+
+	 * | ab | ib | ab | ib |
+	 * |----+----+----+----+
+	 */
+
+	/* index refers to offset in usecase */
+	ufs_ddr_vec->ab = usecase[index].vec[0].ab;
+	ufs_ddr_vec->ib = usecase[index].vec[0].ib;
+
+	cpu_ufs_vec->ab = usecase[index].vec[1].ab;
+	cpu_ufs_vec->ib = usecase[index].vec[1].ib;
+
+	return 0;
+}
+
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
 {
 	int err = 0;
+	struct qcom_bus_scale_data *d = host->qbsd;
+	struct qcom_bus_vectors path0, path1;
+	struct device *dev = host->hba->dev;
 
-	if (vote != host->bus_vote.curr_vote) {
-		err = msm_bus_scale_client_update_request(
-				host->bus_vote.client_handle, vote);
-		if (err) {
-			dev_err(host->hba->dev,
-				"%s: msm_bus_scale_client_update_request() failed: bus_client_handle=0x%x, vote=%d, err=%d\n",
-				__func__, host->bus_vote.client_handle,
-				vote, err);
-			goto out;
-		}
-
-		host->bus_vote.curr_vote = vote;
+	err = ufs_qcom_get_ib_ab(host, vote, &path0, &path1);
+	if (err) {
+		dev_err(dev, "Error: failed (%d) to get ib/ab\n",
+			err);
+		return err;
 	}
-out:
+
+	dev_dbg(dev, "Setting vote: %d: ufs-ddr: ab: %llu ib: %llu\n", vote,
+		path0.ab, path0.ib);
+	err = icc_set_bw(d->ufs_ddr, path0.ab, path0.ib);
+	if (err) {
+		dev_err(dev, "Error: failed setting (%s) bus vote\n", err,
+			UFS_DDR);
+		return err;
+	}
+
+	dev_dbg(dev, "Setting: cpu-ufs: ab: %llu ib: %llu\n", path1.ab,
+		path1.ib);
+	err = icc_set_bw(d->cpu_ufs, path1.ab, path1.ib);
+	if (err) {
+		dev_err(dev, "Error: failed setting (%s) bus vote\n", err,
+			CPU_UFS);
+		return err;
+	}
+
+	host->bus_vote.curr_vote = vote;
+
 	return err;
 }
 
@@ -701,34 +764,122 @@ store_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static struct qcom_bus_scale_data *ufs_qcom_get_bus_scale_data(struct device
+							       *dev)
+
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *of_node = dev->of_node;
+	struct qcom_bus_scale_data *qsd;
+	struct qcom_bus_path *usecase = NULL;
+	int ret = 0, i = 0, j, num_paths, len;
+	const uint32_t *vec_arr = NULL;
+	bool mem_err = false;
+
+	if (!pdev) {
+		dev_err(dev, "Null platform device!\n");
+		return NULL;
+	}
+
+	qsd = devm_kzalloc(dev, sizeof(struct qcom_bus_scale_data), GFP_KERNEL);
+	if (!qsd)
+		return NULL;
+
+	ret = of_property_read_string(of_node, "qcom,ufs-bus-bw,name",
+				      &qsd->name);
+	if (ret) {
+		dev_err(dev, "Error: (%d) Bus name missing!\n", ret);
+		return NULL;
+	}
+
+	ret = of_property_read_u32(of_node, "qcom,ufs-bus-bw,num-cases",
+		&qsd->num_usecase);
+	if (ret) {
+		pr_err("Error: num-usecases not found\n");
+		goto err;
+	}
+
+	usecase = devm_kzalloc(dev, (sizeof(struct qcom_bus_path) *
+				   qsd->num_usecase), GFP_KERNEL);
+	if (!usecase)
+		return NULL;
+
+	ret = of_property_read_u32(of_node, "qcom,ufs-bus-bw,num-paths",
+				   &num_paths);
+	if (ret) {
+		pr_err("Error: num_paths not found\n");
+		return NULL;
+	}
+
+	vec_arr = of_get_property(of_node, "qcom,ufs-bus-bw,vectors-KBps",
+				  &len);
+	if (vec_arr == NULL) {
+		pr_err("Error: Vector array not found\n");
+		return NULL;
+	}
+
+	for (i = 0; i < qsd->num_usecase; i++) {
+		usecase[i].num_paths = num_paths;
+		usecase[i].vec = devm_kzalloc(dev, num_paths *
+					      sizeof(struct qcom_bus_vectors),
+					      GFP_KERNEL);
+		if (!usecase[i].vec) {
+			mem_err = true;
+			dev_err(dev, "Error: Failed to alloc mem for vectors\n");
+			goto err;
+		}
+
+		for (j = 0; j < num_paths; j++) {
+			uint32_t tab;
+			int idx = ((i * num_paths) + j) * 2;
+
+			tab = vec_arr[idx];
+			usecase[i].vec[j].ab = ((tab & 0xff000000) >> 24) |
+				((tab & 0x00ff0000) >> 8) |
+				((tab & 0x0000ff00) << 8) | (tab << 24);
+
+			tab = vec_arr[idx + 1];
+			usecase[i].vec[j].ib = ((tab & 0xff000000) >> 24) |
+				((tab & 0x00ff0000) >> 8) |
+				((tab & 0x0000ff00) << 8) | (tab << 24);
+
+			dev_dbg(dev, "ab: %llu ib:%llu [i]: %d [j]: %d\n",
+				usecase[i].vec[j].ab, usecase[i].vec[j].ib, i,
+				j);
+		}
+	}
+
+	qsd->usecase = usecase;
+	return qsd;
+err:
+	return NULL;
+}
+
 static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 {
-	int err;
-	struct msm_bus_scale_pdata *bus_pdata;
+	int err = 0;
 	struct device *dev = host->hba->dev;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct device_node *np = dev->of_node;
+	struct qcom_bus_scale_data *qsd;
 
-	bus_pdata = msm_bus_cl_get_pdata(pdev);
-	if (!bus_pdata) {
-		dev_err(dev, "%s: failed to get bus vectors\n", __func__);
-		err = -ENODATA;
-		goto out;
+	qsd = ufs_qcom_get_bus_scale_data(dev);
+	if (!qsd) {
+		dev_err(dev, "Failed: getting bus_scale data\n");
+		return 0;
+	}
+	host->qbsd = qsd;
+
+	qsd->ufs_ddr = of_icc_get(dev, UFS_DDR);
+	if (IS_ERR(qsd->ufs_ddr)) {
+		dev_err(dev, "Error: (%d) failed getting %s path\n",
+			PTR_ERR(qsd->ufs_ddr), UFS_DDR);
+		return PTR_ERR(qsd->ufs_ddr);
 	}
 
-	err = of_property_count_strings(np, "qcom,bus-vector-names");
-	if (err < 0 || err != bus_pdata->num_usecases) {
-		dev_err(dev, "%s: qcom,bus-vector-names not specified correctly %d\n",
-				__func__, err);
-		goto out;
-	}
-
-	host->bus_vote.client_handle = msm_bus_scale_register_client(bus_pdata);
-	if (!host->bus_vote.client_handle) {
-		dev_err(dev, "%s: msm_bus_scale_register_client failed\n",
-				__func__);
-		err = -EFAULT;
-		goto out;
+	qsd->cpu_ufs = of_icc_get(dev, CPU_UFS);
+	if (IS_ERR(qsd->cpu_ufs)) {
+		dev_err(dev, "Error: (%d) failed getting %s path\n",
+			PTR_ERR(qsd->cpu_ufs), CPU_UFS);
+		return PTR_ERR(qsd->cpu_ufs);
 	}
 
 	/* cache the vote index for minimum and maximum bandwidth */
@@ -741,25 +892,19 @@ static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 	host->bus_vote.max_bus_bw.attr.name = "max_bus_bw";
 	host->bus_vote.max_bus_bw.attr.mode = S_IRUGO | S_IWUSR;
 	err = device_create_file(dev, &host->bus_vote.max_bus_bw);
-out:
+	if (err)
+		dev_err(dev, "Error: (%d) Failed to create sysfs entries\n",
+			err);
+
+	/* Full throttle */
+	err = ufs_qcom_set_bus_vote(host, host->bus_vote.max_bw_vote);
+	if (err)
+		dev_err(dev, "Error: (%d) Failed to set max bus vote\n", err);
+
+	dev_info(dev, "-- Registered bus voting! (%d) --\n", err);
+
 	return err;
 }
-#else /* CONFIG_MSM_BUS_SCALING */
-static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
-{
-	return 0;
-}
-
-static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
-{
-	return 0;
-}
-
-static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
-{
-	return 0;
-}
-#endif /* CONFIG_MSM_BUS_SCALING */
 
 static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 {

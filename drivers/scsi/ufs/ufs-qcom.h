@@ -197,6 +197,25 @@ struct ufs_qcom_testbus {
 
 struct gpio_desc;
 
+struct qcom_bus_vectors {
+	uint32_t ab;
+	uint32_t ib;
+};
+
+struct qcom_bus_path {
+	unsigned int num_paths;
+	struct qcom_bus_vectors *vec;
+};
+
+struct qcom_bus_scale_data {
+	struct qcom_bus_path *usecase;
+	unsigned int num_usecase;
+	struct icc_path *ufs_ddr;
+	struct icc_path *cpu_ufs;
+
+	const char *name;
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -242,6 +261,7 @@ struct ufs_qcom_host {
 	int limit_tx_pwm_gear;
 	int limit_rx_pwm_gear;
 	bool disable_lpm;
+	struct qcom_bus_scale_data *qbsd;
 };
 
 static inline u32
