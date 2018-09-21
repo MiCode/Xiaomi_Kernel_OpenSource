@@ -376,6 +376,13 @@ int hab_mem_import(struct uhab_context *ctx,
 	}
 	spin_unlock_bh(&ctx->imp_lock);
 
+	if ((exp->payload_count << PAGE_SHIFT) != param->sizebytes) {
+		pr_err("input size %d don't match buffer size %d\n",
+			param->sizebytes, exp->payload_count << PAGE_SHIFT);
+		ret = -EINVAL;
+		goto err_imp;
+	}
+
 	if (!found) {
 		pr_err("Fail to get export descriptor from export id %d\n",
 			param->exportid);
