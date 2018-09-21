@@ -17,3 +17,10 @@
 	compatible = "qcom,qm215";
 	qcom,msm-id = <386 0x0>;
 };
+
+&soc {
+	qcom,vidc@1d00000 {
+		qcom,allowed-clock-rates = <329140000 329140000
+					308570000 270000000 200000000>;
+	};
+};
