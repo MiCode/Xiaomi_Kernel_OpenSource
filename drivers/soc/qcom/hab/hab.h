@@ -45,6 +45,7 @@
 #include <linux/reboot.h>
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
+#include <soc/qcom/boot_stats.h>
 
 enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_MSG = 0x0,

@@ -1315,6 +1315,8 @@ static int __init hab_init(void)
 	int result;
 	dev_t dev;
 
+	place_marker("M - HAB INIT Start");
+
 	result = alloc_chrdev_region(&hab_driver.major, 0, 1, "hab");
 
 	if (result < 0) {
@@ -1371,6 +1373,8 @@ static int __init hab_init(void)
 	}
 
 	hab_stat_init(&hab_driver);
+
+	place_marker("M - HAB INIT End");
 
 	return result;
 
