@@ -659,6 +659,15 @@
 	};
 };
 
+&gmu {
+	reg = <0x2c6a000 0x30000>,
+		<0xb290000 0x10000>,
+		<0xb490000 0x10000>;
+	reg-names = "kgsl_gmu_reg",
+		"kgsl_gmu_pdc_cfg",
+		"kgsl_gmu_pdc_seq";
+};
+
 /* NPU overrides */
 &msm_npu {
 	iommus = <&apps_smmu 0x1081 0x400>;
