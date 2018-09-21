@@ -1397,6 +1397,7 @@ struct vidc_bus_vote_data {
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
 	int input_height, input_width, fps, bitrate;
 	int output_height, output_width;
+	int rotation;
 	int compression_ratio;
 	int complexity_factor;
 	int input_cr;
