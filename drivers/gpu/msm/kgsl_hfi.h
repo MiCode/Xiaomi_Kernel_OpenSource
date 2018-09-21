@@ -15,7 +15,7 @@
 
 #include <linux/types.h>
 
-#define HFI_QUEUE_SIZE			SZ_4K		/* bytes */
+#define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
 #define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
@@ -25,7 +25,11 @@
 #define HFI_QUEUE_DISPATCH_CNT 1
 #define HFI_QUEUE_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_CNT)
 
-#define HFIMEM_SIZE (HFI_QUEUE_SIZE * (HFI_QUEUE_MAX + 1))
+struct hfi_queue_table;
+
+/* Total header sizes + queue sizes + 16 for alignment */
+#define HFIMEM_SIZE (sizeof(struct hfi_queue_table) + 16 + \
+		(HFI_QUEUE_SIZE * HFI_QUEUE_MAX))
 
 #define HFI_CMD_ID 0
 #define HFI_MSG_ID 1
@@ -49,16 +53,6 @@
 
 #define HFI_RSP_TIMEOUT 5000 /* msec */
 #define HFI_H2F_CMD_IRQ_MASK BIT(0)
-
-#define HFI_QUEUE_OFFSET(i)		\
-		((sizeof(struct hfi_queue_table)) + \
-		((i) * HFI_QUEUE_SIZE))
-
-#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
-
-#define GMU_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->gmuaddr + HFI_QUEUE_OFFSET(i))
 
 #define HFI_IRQ_MSGQ_MASK		BIT(0)
 #define HFI_IRQ_SIDEMSGQ_MASK		BIT(1)

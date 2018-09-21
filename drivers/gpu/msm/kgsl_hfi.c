@@ -12,13 +12,14 @@
  */
 
 #include "kgsl_device.h"
+#include "kgsl_hfi.h"
 #include "kgsl_gmu.h"
 #include "adreno.h"
 #include "kgsl_trace.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
-		((sizeof(struct hfi_queue_table)) + \
-		((i) * HFI_QUEUE_SIZE))
+		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
+		 ((i) * HFI_QUEUE_SIZE))
 
 #define HOST_QUEUE_START_ADDR(hfi_mem, i) \
 	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
