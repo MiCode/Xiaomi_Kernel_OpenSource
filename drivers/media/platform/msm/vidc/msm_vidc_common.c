@@ -2240,7 +2240,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	msm_vidc_handle_hw_error(core);
 	if (response->status == VIDC_ERR_NOC_ERROR) {
 		dprintk(VIDC_WARN, "Got NOC error");
-		MSM_VIDC_ERROR(false);
+		MSM_VIDC_ERROR(true);
 	}
 
 	dprintk(VIDC_DBG, "Calling core_release\n");
