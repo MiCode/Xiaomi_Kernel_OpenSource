@@ -3052,6 +3052,8 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		err = mrq->cmd->error;
 	else if (mrq->data && mrq->data->error)
 		err = mrq->data->error;
+	if (cmdq_req->resp_err)
+		err = cmdq_req->resp_err;
 
 	if ((err || cmdq_req->resp_err) && !cmdq_req->skip_err_handling) {
 		pr_err("%s: %s: txfr error(%d)/resp_err(%d)\n",
@@ -3107,7 +3109,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 out:
 
 	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
-	if (!(err || cmdq_req->resp_err)) {
+	if (!err) {
 		mmc_host_clk_release(host);
 		wake_up(&ctx_info->wait);
 		mmc_put_card(host->card);
