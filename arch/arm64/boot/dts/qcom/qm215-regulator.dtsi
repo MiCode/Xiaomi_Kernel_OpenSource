@@ -16,31 +16,37 @@
 	/* PM8916 S1 VDD_CX supply */
 	rpm-regulator-smpa1 {
 		status = "okay";
-		pm8916_s1_corner: regulator-s1-corner {
+		pm8916_s1_level: regulator-s1-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_s1_corner";
+			regulator-name = "8916_s1_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
 		};
 
-		pm8916_s1_corner_ao: regulator-s1-corner-ao {
+		pm8916_s1_level_ao: regulator-s1-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_s1_corner_ao";
+			regulator-name = "8916_s1_level_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
 		};
 
-		pm8916_s1_floor_corner: regulator-s1-floor-corner {
+		pm8916_s1_floor_level: regulator-s1-floor-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_s1_floor_corner";
+			regulator-name = "8916_s1_floor_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-floor-corner;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
 			qcom,always-send-voltage;
 		};
 	};
@@ -85,23 +91,28 @@
 			status = "okay";
 		};
 
-		pm8916_l2_corner_ao: regulator-l2-corner-ao {
+		pm8916_l2_level_ao: regulator-l2-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_l2_corner_ao";
+			regulator-name = "8916_l2_level_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
 		};
 
-		pm8916_l2_corner_so: regulator-l2-corner-so {
+		pm8916_l2_level_so: regulator-l2-level-so {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_l2_corner_so";
+			regulator-name = "8916_l2_level_so";
 			qcom,set = <2>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
-			qcom,init-voltage-corner = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+			qcom,init-voltage-level =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		};
 	};
 
