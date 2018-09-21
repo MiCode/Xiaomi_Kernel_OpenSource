@@ -380,7 +380,7 @@ static int apr_vm_nb_receive(int32_t handle, void *dest_buff,
 
 static int apr_vm_cb_process_evt(char *buf, int len)
 {
-	struct apr_client_data data;
+	struct apr_client_data data = {0,};
 	struct apr_client *apr_client;
 	struct apr_svc *c_svc;
 	struct apr_hdr *hdr;
