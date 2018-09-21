@@ -332,8 +332,8 @@ static int ipa_prep_rt_tbl_for_cmt(enum ipa_ip_type ip,
 
 	if ((tbl->sz[IPA_RULE_HASHABLE] +
 		tbl->sz[IPA_RULE_NON_HASHABLE]) == 0) {
-		WARN_ON_RATELIMIT_IPA(1);
-		IPAERR_RL("rt tbl %s is with zero total size\n", tbl->name);
+		IPADBG("rt tbl %s is with zero total size\n", tbl->name);
+		return 0;
 	}
 
 	hdr_width = ipahal_get_hw_tbl_hdr_width();
