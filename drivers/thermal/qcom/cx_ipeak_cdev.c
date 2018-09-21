@@ -149,7 +149,7 @@ static int cxip_lm_cdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	cxip_lm_initialize_cxip_hw(cxip_dev);
+	cxip_lm_initialize_cxip_hw(cxip_dev->cx_ip_reg_base);
 
 	/* Set thermal vote till we get first vote from TF */
 	cxip_dev->state = true;
