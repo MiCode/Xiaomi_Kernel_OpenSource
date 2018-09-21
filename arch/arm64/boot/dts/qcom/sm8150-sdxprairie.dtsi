@@ -10,22 +10,8 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
-
-#include <dt-bindings/clock/qcom,gcc-sm8150.h>
-#include <dt-bindings/clock/qcom,camcc-sm8150.h>
-#include <dt-bindings/clock/qcom,rpmh.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sm8150-cdp.dtsi"
-
-#include "sdx5xm-external-soc.dtsi"
-#include "sm8150-sdx50m.dtsi"
-#include "sm8150-cdp-audio-overlay.dtsi"
-
-/ {
-	model = "SDX50M CDP";
-	compatible = "qcom,sm8150-cdp", "qcom,sm8150", "qcom,cdp";
-	qcom,board-id = <1 1>;
+&mdm3 {
+	compatible = "qcom,ext-sdxprairie";
+	qcom,mdm-link-info = "0306_01.01.00";
 };
+

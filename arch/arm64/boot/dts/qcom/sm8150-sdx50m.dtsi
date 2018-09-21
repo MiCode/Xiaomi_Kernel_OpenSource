@@ -11,31 +11,8 @@
  */
 
 &mdm3 {
-	pinctrl-names = "default", "mdm_active", "mdm_suspend";
-	pinctrl-0 = <&ap2mdm_pon_reset_default>;
-	pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;
-	pinctrl-2 = <&ap2mdm_sleep &mdm2ap_sleep>;
-	interrupt-map = <0 &tlmm 53 0x3
-			1 &tlmm 135 0x3>;
-	qcom,mdm2ap-errfatal-gpio = <&tlmm 53 0x00>;
-	qcom,ap2mdm-errfatal-gpio = <&tlmm 141 0x00>;
-	qcom,mdm2ap-status-gpio   = <&tlmm 142 0x00>;
-	qcom,ap2mdm-status-gpio   = <&tlmm 135 0x00>;
-	qcom,ap2mdm-soft-reset-gpio = <&pm8150l_gpios 9 0>;
+	compatible = "qcom,ext-sdx50m";
 	qcom,mdm-link-info = "0305_01.01.00";
-	qcom,esoc-skip-restart-for-mdm-crash;
-	status = "ok";
-};
-
-&pm8150l_gpios {
-	ap2mdm_pon_reset {
-		ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
-			/* MDM PON conrol*/
-			pins = "gpio9";
-			function = "normal";
-			power-source = <1>; /* 1.8V */
-		};
-	};
 };
 
 &wil6210 {
