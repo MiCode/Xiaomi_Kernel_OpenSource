@@ -50,6 +50,7 @@ enum cam_ife_hw_mgr_res_type {
  * @parent:              point to the parent resource node.
  * @children:            point to the children resource nodes
  * @child_num:           numbe of the child resource node.
+ * @is_secure            informs whether the resource is in secure mode or not
  *
  */
 struct cam_ife_hw_mgr_res {
@@ -63,6 +64,7 @@ struct cam_ife_hw_mgr_res {
 	struct cam_ife_hw_mgr_res       *parent;
 	struct cam_ife_hw_mgr_res       *child[CAM_IFE_HW_OUT_RES_MAX];
 	uint32_t                         num_children;
+	uint32_t                         is_secure;
 };
 
 

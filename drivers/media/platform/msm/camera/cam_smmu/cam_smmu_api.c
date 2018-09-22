@@ -1580,7 +1580,9 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 
 		if (rc < 0) {
 			CAM_ERR(CAM_SMMU,
-				"IOVA alloc failed for shared memory");
+				"IOVA alloc failed for shared memory, size=%zu, idx=%d, handle=%d",
+				*len_ptr, idx,
+				iommu_cb_set.cb_info[idx].handle);
 			goto err_unmap_sg;
 		}
 
@@ -1596,7 +1598,9 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 			rc = -ENOMEM;
 			goto err_unmap_sg;
 		} else {
-			CAM_DBG(CAM_SMMU, "iommu_map_sg returned %zu", size);
+			CAM_DBG(CAM_SMMU,
+				"iommu_map_sg returned iova=%pK, size=%zu",
+				iova, size);
 			*paddr_ptr = iova;
 			*len_ptr = size;
 		}
@@ -1618,8 +1622,8 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		goto err_unmap_sg;
 	}
 
-	CAM_DBG(CAM_SMMU, "region_id=%d, paddr=%pK, len=%d",
-		region_id, *paddr_ptr, *len_ptr);
+	CAM_DBG(CAM_SMMU, "iova=%pK, region_id=%d, paddr=%pK, len=%d",
+		iova, region_id, *paddr_ptr, *len_ptr);
 
 	if (table->sgl) {
 		CAM_DBG(CAM_SMMU,
@@ -1655,11 +1659,12 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 	if (!*paddr_ptr || !*len_ptr) {
 		CAM_ERR(CAM_SMMU, "Error: Space Allocation failed");
 		kfree(*mapping_info);
+		*mapping_info = NULL;
 		rc = -ENOSPC;
 		goto err_alloc;
 	}
-	CAM_DBG(CAM_SMMU, "dma_buf = %pK, dev = %pK, paddr= %pK, len = %u",
-		buf, (void *)iommu_cb_set.cb_info[idx].dev,
+	CAM_DBG(CAM_SMMU, "idx=%d, dma_buf=%pK, dev=%pK, paddr=%pK, len=%u",
+		idx, buf, (void *)iommu_cb_set.cb_info[idx].dev,
 		(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
 	return 0;
@@ -2253,7 +2258,9 @@ static int cam_smmu_map_stage2_buffer_and_add_to_list(int idx, int ion_fd,
 
 	dmabuf = dma_buf_get(ion_fd);
 	if (IS_ERR_OR_NULL((void *)(dmabuf))) {
-		CAM_ERR(CAM_SMMU, "Error: dma buf get failed");
+		CAM_ERR(CAM_SMMU,
+			"Error: dma buf get failed, idx=%d, ion_fd=%d",
+			idx, ion_fd);
 		rc = PTR_ERR(dmabuf);
 		goto err_out;
 	}
@@ -2265,7 +2272,9 @@ static int cam_smmu_map_stage2_buffer_and_add_to_list(int idx, int ion_fd,
 	 */
 	attach = dma_buf_attach(dmabuf, iommu_cb_set.cb_info[idx].dev);
 	if (IS_ERR_OR_NULL(attach)) {
-		CAM_ERR(CAM_SMMU, "Error: dma buf attach failed");
+		CAM_ERR(CAM_SMMU,
+			"Error: dma buf attach failed, idx=%d, ion_fd=%d",
+			idx, ion_fd);
 		rc = PTR_ERR(attach);
 		goto err_put;
 	}
@@ -2297,8 +2306,8 @@ static int cam_smmu_map_stage2_buffer_and_add_to_list(int idx, int ion_fd,
 	mapping_info->ref_count = 1;
 	mapping_info->buf = dmabuf;
 
-	CAM_DBG(CAM_SMMU, "ion_fd = %d, dev = %pK, paddr= %pK, len = %u",
-			ion_fd,
+	CAM_DBG(CAM_SMMU, "idx=%d, ion_fd=%d, dev=%pK, paddr=%pK, len=%u",
+			idx, ion_fd,
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
@@ -2354,15 +2363,16 @@ int cam_smmu_map_stage2_iova(int handle,
 
 	if (!iommu_cb_set.cb_info[idx].is_secure) {
 		CAM_ERR(CAM_SMMU,
-			"Error: can't map secure mem to non secure cb");
+			"Error: can't map secure mem to non secure cb, idx=%d",
+			idx);
 		return -EINVAL;
 	}
 
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (iommu_cb_set.cb_info[idx].handle != handle) {
 		CAM_ERR(CAM_SMMU,
-			"Error: hdl is not valid, table_hdl = %x, hdl = %x",
-			iommu_cb_set.cb_info[idx].handle, handle);
+			"Error: hdl is not valid, idx=%d, table_hdl=%x, hdl=%x",
+			idx, iommu_cb_set.cb_info[idx].handle, handle);
 		rc = -EINVAL;
 		goto get_addr_end;
 	}
@@ -2370,15 +2380,18 @@ int cam_smmu_map_stage2_iova(int handle,
 	buf_state = cam_smmu_check_secure_fd_in_list(idx, ion_fd, paddr_ptr,
 			len_ptr);
 	if (buf_state == CAM_SMMU_BUFF_EXIST) {
-		CAM_DBG(CAM_SMMU, "fd:%d already in list, give same addr back",
-			ion_fd);
+		CAM_DBG(CAM_SMMU,
+			"fd:%d already in list idx:%d, handle=%d give same addr back",
+			ion_fd, idx, handle);
 		rc = 0;
 		goto get_addr_end;
 	}
 	rc = cam_smmu_map_stage2_buffer_and_add_to_list(idx, ion_fd, dma_dir,
 			paddr_ptr, len_ptr);
 	if (rc < 0) {
-		CAM_ERR(CAM_SMMU, "Error: mapping or add list fail");
+		CAM_ERR(CAM_SMMU,
+			"Error: mapping or add list fail, idx=%d, handle=%d, fd=%d, rc=%d",
+			idx, handle, ion_fd, rc);
 		goto get_addr_end;
 	}
 
@@ -2519,14 +2532,16 @@ int cam_smmu_map_user_iova(int handle, int ion_fd,
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (iommu_cb_set.cb_info[idx].is_secure) {
 		CAM_ERR(CAM_SMMU,
-			"Error: can't map non-secure mem to secure cb");
+			"Error: can't map non-secure mem to secure cb idx=%d",
+			idx);
 		rc = -EINVAL;
 		goto get_addr_end;
 	}
 
 	if (iommu_cb_set.cb_info[idx].handle != handle) {
-		CAM_ERR(CAM_SMMU, "hdl is not valid, table_hdl = %x, hdl = %x",
-			iommu_cb_set.cb_info[idx].handle, handle);
+		CAM_ERR(CAM_SMMU,
+			"hdl is not valid, idx=%d, table_hdl = %x, hdl = %x",
+			idx, iommu_cb_set.cb_info[idx].handle, handle);
 		rc = -EINVAL;
 		goto get_addr_end;
 	}
@@ -2542,7 +2557,8 @@ int cam_smmu_map_user_iova(int handle, int ion_fd,
 	buf_state = cam_smmu_check_fd_in_list(idx, ion_fd, paddr_ptr, len_ptr);
 	if (buf_state == CAM_SMMU_BUFF_EXIST) {
 		CAM_ERR(CAM_SMMU,
-			"ion_fd: %d already in the list", ion_fd);
+			"fd:%d already in list idx:%d, handle=%d, give same addr back",
+			ion_fd, idx, handle);
 		rc = -EALREADY;
 		goto get_addr_end;
 	}
@@ -2550,7 +2566,9 @@ int cam_smmu_map_user_iova(int handle, int ion_fd,
 	rc = cam_smmu_map_buffer_and_add_to_list(idx, ion_fd, dma_dir,
 			paddr_ptr, len_ptr, region_id);
 	if (rc < 0)
-		CAM_ERR(CAM_SMMU, "mapping or add list fail");
+		CAM_ERR(CAM_SMMU,
+			"mapping or add list fail, idx=%d, fd=%d, region=%d, rc=%d",
+			idx, ion_fd, region_id, rc);
 
 get_addr_end:
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
