@@ -70,8 +70,12 @@ static int dwc3_get_dr_mode(struct dwc3 *dwc)
 	struct device *dev = dwc->dev;
 	unsigned int hw_mode;
 
-	if (dwc->dr_mode == USB_DR_MODE_UNKNOWN)
-		dwc->dr_mode = USB_DR_MODE_OTG;
+	if (dwc->dr_mode == USB_DR_MODE_UNKNOWN) {
+		if (dwc3_is_usb31(dwc))
+			dwc->dr_mode = USB_DR_MODE_DRD;
+		else
+			dwc->dr_mode = USB_DR_MODE_OTG;
+	}
 
 	mode = dwc->dr_mode;
 	hw_mode = DWC3_GHWPARAMS0_MODE(dwc->hwparams.hwparams0);
@@ -732,7 +736,7 @@ static void dwc3_core_setup_global_control(struct dwc3 *dwc)
 		 * SOF/ITP Mode Used
 		 */
 		if ((dwc->dr_mode == USB_DR_MODE_HOST ||
-				dwc->dr_mode == USB_DR_MODE_OTG) &&
+				dwc3_is_otg_or_drd(dwc)) &&
 				(dwc->revision >= DWC3_REVISION_210A &&
 				dwc->revision <= DWC3_REVISION_250A))
 			reg |= DWC3_GCTL_DSBLCLKGTNG | DWC3_GCTL_SOFITPSYNC;
@@ -992,8 +996,7 @@ int dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
 
-	if (dwc->dr_mode == USB_DR_MODE_HOST ||
-	    dwc->dr_mode == USB_DR_MODE_OTG) {
+	if (dwc->dr_mode == USB_DR_MODE_HOST || dwc3_is_otg_or_drd(dwc)) {
 		reg = dwc3_readl(dwc->regs, DWC3_GUCTL);
 
 		/*
@@ -1511,7 +1514,7 @@ skip_clk_reset:
 	if (ret)
 		goto err2;
 
-	if (dwc->dr_mode == USB_DR_MODE_OTG ||
+	if (dwc3_is_otg_or_drd(dwc) ||
 		dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
