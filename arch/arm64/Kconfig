@@ -1393,6 +1393,17 @@ config BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES
 	  Space separated list of names of dtbs to append when
 	  building a concatenated Image.gz-dtb.
 
+config KRYO_PMU_WORKAROUND
+	bool "Workaround for PMU IRQ burst"
+	default n
+	depends on ARM_PMU
+	help
+	  Disable Performance Monitor overflow interrupts
+	  when handling an monitor IRQ, to avoid simultaneous
+	  overflow interrupts from multiple monitors.
+
+	  Enable this flag for effect SoCs.
+
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"
 	depends on OF
