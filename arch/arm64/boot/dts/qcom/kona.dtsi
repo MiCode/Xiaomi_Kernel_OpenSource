@@ -26,6 +26,10 @@
 	qcom,msm-id = <356 0x10000>;
 	interrupt-parent = <&intc>;
 
+	aliases {
+		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -504,6 +508,131 @@ qcom,msm-imem@146bf000 {
 		compatible = "qcom,dummycc";
 		clock-output-names = "cpucc_clocks";
 		#clock-cells = <1>;
+	};
+
+	ufsphy_mem: ufsphy_mem@1d87000 {
+		reg = <0x1d87000 0xe00>; /* PHY regs */
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+
+		lanes-per-direction = <2>;
+
+		clock-names = "ref_clk_src",
+			"ref_clk",
+			"ref_aux_clk";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+
+		status = "disabled";
+	};
+
+	ufshc_mem: ufshc@1d84000 {
+		compatible = "qcom,ufshc";
+		reg = <0x1d84000 0x3000>;
+		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
+		phys = <&ufsphy_mem>;
+		phy-names = "ufsphy";
+
+		lanes-per-direction = <2>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
+
+		clock-names =
+			"core_clk",
+			"bus_aggr_clk",
+			"iface_clk",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"ref_clk",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk",
+			"rx_lane1_sync_clk";
+		clocks =
+			<&clock_gcc GCC_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_UFS_PHY_AHB_CLK>,
+			<&clock_gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
+			<&clock_gcc GCC_UFS_PHY_ICE_CORE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK>;
+		freq-table-hz =
+			<37500000 300000000>,
+			<0 0>,
+			<0 0>,
+			<37500000 300000000>,
+			<75000000 300000000>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+
+		qcom,msm-bus,name = "ufshc_mem";
+		qcom,msm-bus,num-cases = <22>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
+		<123 512 0 0>, <1 757 0 0>,          /* No vote */
+		<123 512 922 0>, <1 757 1000 0>,     /* PWM G1 */
+		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G2 */
+		<123 512 3688 0>, <1 757 1000 0>,    /* PWM G3 */
+		<123 512 7376 0>, <1 757 1000 0>,    /* PWM G4 */
+		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G1 L2 */
+		<123 512 3688 0>, <1 757 1000 0>,    /* PWM G2 L2 */
+		<123 512 7376 0>, <1 757 1000 0>,    /* PWM G3 L2 */
+		<123 512 14752 0>, <1 757 1000 0>,   /* PWM G4 L2 */
+		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
+		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 255591 0>, <1 757 1000 0>,  /* HS G1 RA L2 */
+		<123 512 511181 0>, <1 757 1000 0>,  /* HS G2 RA L2 */
+		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RA L2 */
+		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
+		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 298189 0>, <1 757 1000 0>,  /* HS G1 RB L2 */
+		<123 512 596378 0>, <1 757 1000 0>,  /* HS G2 RB L2 */
+		/* As UFS working in HS G3 RB L2 mode, aggregated
+		 * bandwidth (AB) should take care of providing
+		 * optimum throughput requested. However, as tested,
+		 * in order to scale up CNOC clock, instantaneous
+		 * bindwidth (IB) needs to be given a proper value too.
+		 */
+		<123 512 4194304 0>, <1 757 204800 409600>, /* HS G3 RB L2 */
+		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
+
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
+		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cpu-group-latency-us = <44 44>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
+
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "core_reset";
+
+		status = "disabled";
 	};
 
 	ipcc_mproc: qcom,ipcc@408000 {
