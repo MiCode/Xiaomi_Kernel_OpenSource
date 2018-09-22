@@ -1033,7 +1033,7 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 mhi_cntrl->dev_state == MHI_STATE_M0 ||
+				 mhi_cntrl->pm_state == MHI_PM_M0 ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
 
