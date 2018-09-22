@@ -2380,9 +2380,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 };
 
 static struct ipa3_mem_partition ipa_4_1_mem_part = {
-	.ofst_start			= 0x280,
-	.nat_ofst			= 0x0,
-	.nat_size			= 0x0,
+	.ofst_start				= 0x280,
 	.v4_flt_hash_ofst		= 0x288,
 	.v4_flt_hash_size		=  0x78,
 	.v4_flt_hash_size_ddr		= 0x4000,
@@ -2450,8 +2448,8 @@ static struct ipa3_mem_partition ipa_4_1_mem_part = {
 	.apps_v6_rt_hash_size		= 0x0,
 	.apps_v6_rt_nhash_ofst		= 0x23fc,
 	.apps_v6_rt_nhash_size		= 0x0,
-	.uc_event_ring_ofst		= 0x2400,
-	.uc_event_ring_size		= 0x400,
+	.uc_descriptor_ram_ofst		= 0x2400,
+	.uc_descriptor_ram_size		= 0x400,
 	.pdn_config_ofst		= 0xbd8,
 	.pdn_config_size		= 0x50,
 	.stats_quota_ofst		= 0xc30,
@@ -2471,9 +2469,7 @@ static struct ipa3_mem_partition ipa_4_1_mem_part = {
 };
 
 static struct ipa3_mem_partition ipa_4_2_mem_part = {
-	.ofst_start			= 0x280,
-	.nat_ofst			= 0x0,
-	.nat_size			= 0x0,
+	.ofst_start				= 0x280,
 	.v4_flt_hash_ofst		= 0x288,
 	.v4_flt_hash_size		= 0x0,
 	.v4_flt_hash_size_ddr		= 0x0,
@@ -2541,8 +2537,8 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.apps_v6_rt_hash_size		= 0x0,
 	.apps_v6_rt_nhash_ofst		= 0x1bfc,
 	.apps_v6_rt_nhash_size		= 0x0,
-	.uc_event_ring_ofst		= 0x1c00,
-	.uc_event_ring_size		= 0x400,
+	.uc_descriptor_ram_ofst		= 0x1c00,
+	.uc_descriptor_ram_size		= 0x400,
 	.pdn_config_ofst		= 0x9F8,
 	.pdn_config_size		= 0x50,
 	.stats_quota_ofst		= 0xa50,
@@ -2560,6 +2556,104 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.stats_drop_ofst		= 0xbf0,
 	.stats_drop_size		= 0x0,
 };
+
+static struct ipa3_mem_partition ipa_4_5_mem_part = {
+	.uc_info_ofst			= 0x80,
+	.uc_info_size			= 0x200,
+	.ofst_start			= 0x280,
+	.v4_flt_hash_ofst		= 0x288,
+	.v4_flt_hash_size		=  0x78,
+	.v4_flt_hash_size_ddr		= 0x4000,
+	.v4_flt_nhash_ofst		= 0x308,
+	.v4_flt_nhash_size		= 0x78,
+	.v4_flt_nhash_size_ddr		= 0x4000,
+	.v6_flt_hash_ofst		= 0x388,
+	.v6_flt_hash_size		= 0x78,
+	.v6_flt_hash_size_ddr		= 0x4000,
+	.v6_flt_nhash_ofst		= 0x408,
+	.v6_flt_nhash_size		= 0x78,
+	.v6_flt_nhash_size_ddr		= 0x4000,
+	.v4_rt_num_index		= 0xf,
+	.v4_modem_rt_index_lo		= 0x0,
+	.v4_modem_rt_index_hi		= 0x7,
+	.v4_apps_rt_index_lo		= 0x8,
+	.v4_apps_rt_index_hi		= 0xe,
+	.v4_rt_hash_ofst		= 0x488,
+	.v4_rt_hash_size		= 0x78,
+	.v4_rt_hash_size_ddr		= 0x4000,
+	.v4_rt_nhash_ofst		= 0x508,
+	.v4_rt_nhash_size		= 0x78,
+	.v4_rt_nhash_size_ddr		= 0x4000,
+	.v6_rt_num_index		= 0xf,
+	.v6_modem_rt_index_lo		= 0x0,
+	.v6_modem_rt_index_hi		= 0x7,
+	.v6_apps_rt_index_lo		= 0x8,
+	.v6_apps_rt_index_hi		= 0xe,
+	.v6_rt_hash_ofst		= 0x588,
+	.v6_rt_hash_size		= 0x78,
+	.v6_rt_hash_size_ddr		= 0x4000,
+	.v6_rt_nhash_ofst		= 0x608,
+	.v6_rt_nhash_size		= 0x78,
+	.v6_rt_nhash_size_ddr		= 0x4000,
+	.modem_hdr_ofst			= 0x688,
+	.modem_hdr_size			= 0x240,
+	.apps_hdr_ofst			= 0x8c8,
+	.apps_hdr_size			= 0x200,
+	.apps_hdr_size_ddr		= 0x800,
+	.modem_hdr_proc_ctx_ofst	= 0xad0,
+	.modem_hdr_proc_ctx_size	= 0x200,
+	.apps_hdr_proc_ctx_ofst		= 0xcd8,
+	.apps_hdr_proc_ctx_size		= 0x200,
+	.apps_hdr_proc_ctx_size_ddr	= 0x0,
+	.nat_tbl_ofst			= 0xee0,
+	.nat_tbl_size			= 0x800,
+	.nat_index_tbl_ofst		= 0x16e0,
+	.nat_index_tbl_size		= 0x100,
+	.nat_exp_tbl_ofst		= 0x17e0,
+	.nat_exp_tbl_size		= 0x400,
+	.pdn_config_ofst		= 0x1be8,
+	.pdn_config_size		= 0x50,
+	.stats_quota_ofst		= 0x1c40,
+	.stats_quota_size		= 0x78,
+	.stats_tethering_ofst		= 0x1cb8,
+	.stats_tethering_size		= 0x238,
+	.stats_flt_v4_ofst		= 0,
+	.stats_flt_v4_size		= 0,
+	.stats_flt_v6_ofst		= 0,
+	.stats_flt_v6_size		= 0,
+	.stats_rt_v4_ofst		= 0,
+	.stats_rt_v4_size		= 0,
+	.stats_rt_v6_ofst		= 0,
+	.stats_rt_v6_size		= 0,
+	.stats_fnr_ofst			= 0x1ef0,
+	.stats_fnr_size			= 0x800,
+	.stats_drop_ofst		= 0x26f0,
+	.stats_drop_size		= 0x20,
+	.modem_comp_decomp_ofst		= 0x0,
+	.modem_comp_decomp_size		= 0x0,
+	.modem_ofst			= 0x2718,
+	.modem_size			= 0x100c,
+	.apps_v4_flt_hash_ofst	= 0x2718,
+	.apps_v4_flt_hash_size	= 0x0,
+	.apps_v4_flt_nhash_ofst	= 0x2718,
+	.apps_v4_flt_nhash_size	= 0x0,
+	.apps_v6_flt_hash_ofst	= 0x2718,
+	.apps_v6_flt_hash_size	= 0x0,
+	.apps_v6_flt_nhash_ofst	= 0x2718,
+	.apps_v6_flt_nhash_size	= 0x0,
+	.apps_v4_rt_hash_ofst	= 0x2718,
+	.apps_v4_rt_hash_size	= 0x0,
+	.apps_v4_rt_nhash_ofst	= 0x2718,
+	.apps_v4_rt_nhash_size	= 0x0,
+	.apps_v6_rt_hash_ofst	= 0x2718,
+	.apps_v6_rt_hash_size	= 0x0,
+	.apps_v6_rt_nhash_ofst	= 0x2718,
+	.apps_v6_rt_nhash_size	= 0x0,
+	.uc_descriptor_ram_ofst	= 0x3800,
+	.uc_descriptor_ram_size	= 0x1000,
+	.end_ofst		= 0x4800,
+};
+
 
 /**
  * ipa3_get_clients_from_rm_resource() - get IPA clients which are related to an
@@ -4873,7 +4967,7 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 		ipa3_ctx->ctrl->mem_partition = &ipa_4_2_mem_part;
 		break;
 	case IPA_HW_v4_5:
-		ipa3_ctx->ctrl->mem_partition = &ipa_4_1_mem_part;
+		ipa3_ctx->ctrl->mem_partition = &ipa_4_5_mem_part;
 		break;
 	case IPA_HW_None:
 	case IPA_HW_v1_0:
@@ -4890,19 +4984,6 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 		IPAERR("unsupported version %d\n", type);
 		return -EPERM;
 	}
-
-	if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
-		IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(uc_event_ring_ofst));
-		return -ENODEV;
-	}
-
-	IPADBG("UC EVENT RING OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(uc_event_ring_ofst),
-		IPA_MEM_PART(uc_event_ring_size));
-
-	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
-		IPA_MEM_PART(nat_size));
 
 	if (IPA_MEM_PART(uc_info_ofst) & 3) {
 		IPAERR("UC INFO OFST 0x%x is unaligned\n",
@@ -5074,18 +5155,85 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 		return -ENODEV;
 	}
 
+	IPADBG("NAT TBL OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(nat_tbl_ofst),
+		IPA_MEM_PART(nat_tbl_size));
+
+	if (IPA_MEM_PART(nat_tbl_ofst) & 31) {
+		IPAERR("NAT TBL OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(nat_tbl_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("NAT INDEX TBL OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(nat_index_tbl_ofst),
+		IPA_MEM_PART(nat_index_tbl_size));
+
+	if (IPA_MEM_PART(nat_index_tbl_ofst) & 3) {
+		IPAERR("NAT INDEX TBL OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(nat_index_tbl_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("NAT EXP TBL OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(nat_exp_tbl_ofst),
+		IPA_MEM_PART(nat_exp_tbl_size));
+
+	if (IPA_MEM_PART(nat_exp_tbl_ofst) & 31) {
+		IPAERR("NAT EXP TBL OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(nat_exp_tbl_ofst));
+		return -ENODEV;
+	}
+
 	IPADBG("PDN CONFIG OFST 0x%x SIZE 0x%x\n",
 		IPA_MEM_PART(pdn_config_ofst),
 		IPA_MEM_PART(pdn_config_size));
 
-	if (IPA_MEM_PART(modem_ofst) & 7) {
-		IPAERR("MODEM OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(modem_ofst));
+	if (IPA_MEM_PART(pdn_config_ofst) & 7) {
+		IPAERR("PDN CONFIG OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(pdn_config_ofst));
 		return -ENODEV;
 	}
 
-	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
-		IPA_MEM_PART(modem_size));
+	IPADBG("QUOTA STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_quota_ofst),
+		IPA_MEM_PART(stats_quota_size));
+
+	if (IPA_MEM_PART(stats_quota_ofst) & 7) {
+		IPAERR("QUOTA STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_quota_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("TETHERING STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_tethering_ofst),
+		IPA_MEM_PART(stats_tethering_size));
+
+	if (IPA_MEM_PART(stats_tethering_ofst) & 7) {
+		IPAERR("TETHERING STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_tethering_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("FILTER AND ROUTING STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_fnr_ofst),
+		IPA_MEM_PART(stats_fnr_size));
+
+	if (IPA_MEM_PART(stats_fnr_ofst) & 7) {
+		IPAERR("FILTER AND ROUTING STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_fnr_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("DROP STATS OFST 0x%x SIZE 0x%x\n",
+	IPA_MEM_PART(stats_drop_ofst),
+		IPA_MEM_PART(stats_drop_size));
+
+	if (IPA_MEM_PART(stats_drop_ofst) & 7) {
+		IPAERR("DROP STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_drop_ofst));
+		return -ENODEV;
+	}
 
 	IPADBG("V4 APPS HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
 		IPA_MEM_PART(apps_v4_flt_hash_ofst),
@@ -5121,6 +5269,25 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 	IPADBG("V6 APPS NON-HASHABLE RT OFST 0x%x SIZE 0x%x\n",
 		IPA_MEM_PART(apps_v6_rt_nhash_ofst),
 		IPA_MEM_PART(apps_v6_rt_nhash_size));
+
+	if (IPA_MEM_PART(modem_ofst) & 7) {
+		IPAERR("MODEM OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(modem_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
+		IPA_MEM_PART(modem_size));
+
+	if (IPA_MEM_PART(uc_descriptor_ram_ofst) & 1023) {
+		IPAERR("UC DESCRIPTOR RAM OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(uc_descriptor_ram_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("UC DESCRIPTOR RAM OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(uc_descriptor_ram_ofst),
+		IPA_MEM_PART(uc_descriptor_ram_size));
 
 	return 0;
 }
