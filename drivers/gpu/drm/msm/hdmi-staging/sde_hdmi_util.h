@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,5 +200,6 @@ u8 sde_hdmi_hdr_get_ops(u8 curr_state,
 	u8 new_state);
 void sde_hdmi_ctrl_reset(struct hdmi *hdmi);
 void sde_hdmi_ctrl_cfg(struct hdmi *hdmi, bool power_on);
+u8 sde_hdmi_hdr_set_chksum(struct drm_msm_ext_panel_hdr_metadata *hdr_meta);
 
 #endif /* _SDE_HDMI_UTIL_H_ */

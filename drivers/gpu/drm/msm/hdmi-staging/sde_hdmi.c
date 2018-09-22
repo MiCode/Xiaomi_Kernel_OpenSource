@@ -2009,6 +2009,7 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 	u32 const version = 0x01;
 	u32 const length = 0x1a;
 	u32 const descriptor_id = 0x00;
+	u8 checksum;
 	struct hdmi *hdmi;
 	struct drm_connector *connector;
 
@@ -2029,7 +2030,19 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 	packet_header = type_code | (version << 8) | (length << 16);
 	hdmi_write(hdmi, HDMI_GENERIC0_HDR, packet_header);
 
-	packet_payload = (hdr_meta->eotf << 8);
+	/**
+	 * Checksum is not a mandatory field for
+	 * the HDR infoframe as per CEA-861-3 specification.
+	 * However some HDMI sinks still expect a
+	 * valid checksum to be included as part of
+	 * the infoframe. Hence compute and add
+	 * the checksum to improve sink interoperability
+	 * for our HDR solution on HDMI.
+	 */
+	checksum = sde_hdmi_hdr_set_chksum(hdr_meta);
+
+	packet_payload = (hdr_meta->eotf << 8) | checksum;
+
 	if (connector->hdr_metadata_type_one) {
 		packet_payload |= (descriptor_id << 16)
 			| (HDMI_GET_LSB(hdr_meta->display_primaries_x[0])

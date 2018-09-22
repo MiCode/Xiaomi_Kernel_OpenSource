@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,96 @@ static const char *sde_hdmi_hdr_sname(enum sde_hdmi_hdr_state hdr_state)
 	case HDR_ENABLE: return "HDR_ENABLE";
 	default: return "HDR_INVALID_STATE";
 	}
+}
+
+static u8 sde_hdmi_infoframe_checksum(u8 *ptr, size_t size)
+{
+	u8 csum = 0;
+	size_t i;
+
+	/* compute checksum */
+	for (i = 0; i < size; i++)
+		csum += ptr[i];
+
+	return 256 - csum;
+}
+
+u8 sde_hdmi_hdr_set_chksum(struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
+{
+	u8 *buff;
+	u8 *ptr;
+	u32 length;
+	u32 size;
+	u32 chksum = 0;
+	u32 const type_code = 0x87;
+	u32 const version = 0x01;
+	u32 const descriptor_id = 0x00;
+
+	/* length of metadata is 26 bytes */
+	length = 0x1a;
+	/* add 4 bytes for the header */
+	size = length + HDMI_INFOFRAME_HEADER_SIZE;
+
+	buff = kzalloc(size, GFP_KERNEL);
+
+	if (!buff) {
+		SDE_ERROR("invalid buff\n");
+		goto err_alloc;
+	}
+
+	ptr = buff;
+
+	buff[0] = type_code;
+	buff[1] = version;
+	buff[2] = length;
+	buff[3] = 0;
+	/* start infoframe payload */
+	buff += HDMI_INFOFRAME_HEADER_SIZE;
+
+	buff[0] = hdr_meta->eotf;
+	buff[1] = descriptor_id;
+
+	buff[2] = hdr_meta->display_primaries_x[0] & 0xff;
+	buff[3] = hdr_meta->display_primaries_x[0] >> 8;
+
+	buff[4] = hdr_meta->display_primaries_x[1] & 0xff;
+	buff[5] = hdr_meta->display_primaries_x[1] >> 8;
+
+	buff[6] = hdr_meta->display_primaries_x[2] & 0xff;
+	buff[7] = hdr_meta->display_primaries_x[2] >> 8;
+
+	buff[8] = hdr_meta->display_primaries_y[0] & 0xff;
+	buff[9] = hdr_meta->display_primaries_y[0] >> 8;
+
+	buff[10] = hdr_meta->display_primaries_y[1] & 0xff;
+	buff[11] = hdr_meta->display_primaries_y[1] >> 8;
+
+	buff[12] = hdr_meta->display_primaries_y[2] & 0xff;
+	buff[13] = hdr_meta->display_primaries_y[2] >> 8;
+
+	buff[14] = hdr_meta->white_point_x & 0xff;
+	buff[15] = hdr_meta->white_point_x >> 8;
+	buff[16] = hdr_meta->white_point_y & 0xff;
+	buff[17] = hdr_meta->white_point_y >> 8;
+
+	buff[18] = hdr_meta->max_luminance & 0xff;
+	buff[19] = hdr_meta->max_luminance >> 8;
+
+	buff[20] = hdr_meta->min_luminance & 0xff;
+	buff[21] = hdr_meta->min_luminance >> 8;
+
+	buff[22] = hdr_meta->max_content_light_level & 0xff;
+	buff[23] = hdr_meta->max_content_light_level >> 8;
+
+	buff[24] = hdr_meta->max_average_light_level & 0xff;
+	buff[25] = hdr_meta->max_average_light_level >> 8;
+
+	chksum = sde_hdmi_infoframe_checksum(ptr, size);
+
+	kfree(ptr);
+
+err_alloc:
+	return chksum;
 }
 
 /**
