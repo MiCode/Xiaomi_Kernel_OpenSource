@@ -751,6 +751,36 @@ struct __packed gsi_11ad_tx_channel_scratch {
 };
 
 /**
+ * gsi_wdi3_channel_scratch - WDI protocol 3 SW config area of
+ * channel scratch
+ *
+ * @wifi_rx_ri_addr_low: Low 32 bits of Transfer ring Read Index address.
+ * @wifi_rx_ri_addr_high: High 32 bits of Transfer ring Read Index address.
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @resv: reserved bits.
+ * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
+ *                  WLAN host will pass this information to IPA.
+ * @endp_metadata_reg_offset: Rx only, the offset of
+ *                 IPA_ENDP_INIT_HDR_METADATA_n of the
+ *                 corresponding endpoint in 4B words from IPA
+ *                 base address.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
+ */
+struct __packed gsi_wdi3_channel_scratch {
+	uint32_t wifi_rp_address_low;
+	uint32_t wifi_rp_address_high;
+	uint32_t update_rp_moderation_threshold : 5;
+	uint32_t reserved : 11;
+	uint32_t rx_pkt_offset : 16;
+	uint32_t endp_metadata_reg_offset : 16;
+	uint32_t qmap_id : 16;
+};
+
+/**
  * gsi_channel_scratch - channel scratch SW config area
  *
  */
@@ -761,6 +791,7 @@ union __packed gsi_channel_scratch {
 	struct __packed gsi_wdi_channel_scratch wdi;
 	struct __packed gsi_11ad_rx_channel_scratch rx_11ad;
 	struct __packed gsi_11ad_tx_channel_scratch tx_11ad;
+	struct __packed gsi_wdi3_channel_scratch wdi3;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -840,6 +871,22 @@ struct __packed gsi_11ad_evt_scratch {
 };
 
 /**
+ * gsi_wdi3_evt_scratch - wdi3 protocol SW config area of
+ * event scratch
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @reserved1: reserve bit.
+ * @reserved2: reserve bit.
+ */
+struct __packed gsi_wdi3_evt_scratch {
+	uint32_t update_rp_moderation_config : 8;
+	uint32_t reserved1 : 24;
+	uint32_t reserved2;
+};
+
+/**
  * gsi_evt_scratch - event scratch SW config area
  *
  */
@@ -848,6 +895,7 @@ union __packed gsi_evt_scratch {
 	struct __packed gsi_xdci_evt_scratch xdci;
 	struct __packed gsi_wdi_evt_scratch wdi;
 	struct __packed gsi_11ad_evt_scratch w11ad;
+	struct __packed gsi_wdi3_evt_scratch wdi3;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -1406,6 +1454,24 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 
 /**
+ * gsi_wdi3_write_evt_ring_db - write event ring doorbell address
+ *
+ * @chan_hdl: gsi channel handle
+ * @Return gsi_status
+ */
+void gsi_wdi3_write_evt_ring_db(unsigned long chan_hdl, uint32_t db_addr_low,
+	uint32_t db_addr_high);
+
+
+/**
+ * gsi_wdi3_dump_register - dump wdi3 related gsi registers
+ *
+ * @chan_hdl: gsi channel handle
+ */
+void gsi_wdi3_dump_register(unsigned long chan_hdl);
+
+
+/**
  * gsi_map_base - Peripheral should call this function to configure
  * access to the GSI registers.
 
@@ -1710,14 +1776,25 @@ static inline int gsi_map_virtual_ch_to_per_ep(
 }
 
 static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
-	 int *code)
+	int *code)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
+
 static inline int gsi_chk_intset_value(vodi)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline void gsi_wdi3_write_evt_ring_db(
+	unsigned long chan_hdl, uint32_t db_addr_low,
+	uint32_t db_addr_high)
+{
+}
+
+static inline void gsi_wdi3_dump_register(unsigned long chan_hdl)
+{
 }
 
 #endif

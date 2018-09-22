@@ -739,7 +739,7 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	return 0;
 }
 
-static int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
+int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova)
 {
@@ -1367,7 +1367,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_connect_gsi_wdi_pipe(in, out);
 
 	result = ipa3_uc_state_check();
@@ -1904,7 +1904,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_disconnect_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2017,12 +2017,12 @@ int ipa3_disable_gsi_wdi_pipe(u32 clnt_hdl)
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
-				clnt_hdl, ep->client);
+			clnt_hdl, ep->client);
 		/* remove delay on wlan-prod pipe*/
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
-		cons_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+		cons_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN2_CONS);
 		if (cons_hdl == IPA_EP_NOT_ALLOCATED) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_WLAN1_CONS);
@@ -2076,7 +2076,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_enable_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2141,7 +2141,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_disable_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2178,7 +2178,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
-		cons_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+		cons_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN2_CONS);
 		if (cons_hdl == IPA_EP_NOT_ALLOCATED) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_WLAN1_CONS);
@@ -2294,7 +2294,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_resume_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2448,7 +2448,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_suspend_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2607,7 +2607,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		IPAERR_RL("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (ipa3_ctx->ipa_wdi_over_gsi)
 		return ipa3_write_qmapid_gsi_wdi_pipe(clnt_hdl, qmap_id);
 
 	result = ipa3_uc_state_check();

@@ -1621,7 +1621,7 @@ struct ipa3_context {
 	bool use_ipa_teth_bridge;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
-	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1713,7 +1713,7 @@ struct ipa3_plat_drv_res {
 	u32 ee;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
-	bool ipa_wdi2_over_gsi;
+	bool ipa_wdi_over_gsi;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
@@ -2295,6 +2295,10 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova);
 
+int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova);
+
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
@@ -2532,6 +2536,7 @@ void ipa3_active_clients_unlock(void);
 int ipa3_wdi_init(void);
 int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
+int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 

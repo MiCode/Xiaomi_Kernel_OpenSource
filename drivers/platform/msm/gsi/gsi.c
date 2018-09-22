@@ -4156,6 +4156,94 @@ int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index)
 }
 EXPORT_SYMBOL(gsi_map_virtual_ch_to_per_ep);
 
+void gsi_wdi3_write_evt_ring_db(unsigned long evt_ring_hdl,
+	uint32_t db_addr_low, uint32_t db_addr_high)
+{
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return;
+	}
+
+	gsi_writel(db_addr_low, gsi_ctx->base +
+		GSI_EE_n_EV_CH_k_CNTXT_12_OFFS(evt_ring_hdl, gsi_ctx->per.ee));
+
+	gsi_writel(db_addr_high, gsi_ctx->base +
+		GSI_EE_n_EV_CH_k_CNTXT_13_OFFS(evt_ring_hdl, gsi_ctx->per.ee));
+}
+EXPORT_SYMBOL(gsi_wdi3_write_evt_ring_db);
+
+void gsi_wdi3_dump_register(unsigned long chan_hdl)
+{
+	uint32_t val;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return;
+	}
+	GSIDBG("reg dump ch id %d\n", chan_hdl);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_1_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_2_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_3_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_5_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_5_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_6_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_6_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_7_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_CNTXT_7_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_RE_FETCH_READ_PTR_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_RE_FETCH_READ_PTR_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_RE_FETCH_WRITE_PTR_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_RE_FETCH_WRITE_PTR_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_QOS_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_QOS_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS 0x%x\n", val);
+	val = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	GSIDBG("GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS 0x%x\n", val);
+}
+EXPORT_SYMBOL(gsi_wdi3_dump_register);
+
 static int msm_gsi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
