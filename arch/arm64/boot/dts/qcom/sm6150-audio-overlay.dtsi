@@ -193,6 +193,8 @@
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
 	qcom,codec-aux-devs = <&wcd937x_codec>;
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+				<&lpi_tlmm>, <&bolero>;
 };
 
 &soc {
