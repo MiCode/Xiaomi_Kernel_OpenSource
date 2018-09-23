@@ -667,6 +667,20 @@ static int snd_compressed_ioctl32(struct snd_pcm_substream *substream,
 	pr_debug("%s called with cmd = %d\n", __func__, cmd);
 	return err;
 }
+static int snd_user_ioctl32(struct snd_pcm_substream *substream,
+			  unsigned int cmd, void __user *arg)
+{
+	struct snd_pcm_runtime *runtime;
+	int err = -ENOIOCTLCMD;
+
+	if (PCM_RUNTIME_CHECK(substream))
+		return -ENXIO;
+	runtime = substream->runtime;
+	if (substream->ops->compat_ioctl)
+		err = substream->ops->compat_ioctl(substream, cmd, arg);
+	return err;
+}
+
 
 static long snd_pcm_ioctl_compat(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -748,6 +762,8 @@ static long snd_pcm_ioctl_compat(struct file *file, unsigned int cmd, unsigned l
 	default:
 		if (_IOC_TYPE(cmd) == 'C')
 			return snd_compressed_ioctl32(substream, cmd, argp);
+		else if (_IOC_TYPE(cmd) == 'U')
+			return snd_user_ioctl32(substream, cmd, argp);
 	}
 
 	return -ENOIOCTLCMD;
