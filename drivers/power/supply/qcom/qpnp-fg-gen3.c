@@ -23,6 +23,7 @@
 #include <linux/thermal.h>
 #include <linux/iio/consumer.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/qpnp/qpnp-misc.h>
 #include "fg-core.h"
 #include "fg-reg.h"
 
@@ -68,6 +69,8 @@
 #define RECHARGE_SOC_THR_OFFSET		0
 #define CHG_TERM_CURR_WORD		14
 #define CHG_TERM_CURR_OFFSET		1
+#define SYNC_SLEEP_THR_WORD		14
+#define SYNC_SLEEP_THR_OFFSET		3
 #define EMPTY_VOLT_WORD			15
 #define EMPTY_VOLT_OFFSET		0
 #define VBATT_LOW_WORD			15
@@ -139,6 +142,8 @@
 #define DELTA_MSOC_THR_v2_OFFSET	0
 #define RECHARGE_SOC_THR_v2_WORD	14
 #define RECHARGE_SOC_THR_v2_OFFSET	1
+#define SYNC_SLEEP_THR_v2_WORD		14
+#define SYNC_SLEEP_THR_v2_OFFSET	2
 #define CHG_TERM_CURR_v2_WORD		15
 #define CHG_TERM_BASE_CURR_v2_OFFSET	0
 #define CHG_TERM_CURR_v2_OFFSET		1
@@ -223,6 +228,8 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		2048, 100, 0, fg_encode_default, NULL),
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_WORD, RECHARGE_SOC_THR_OFFSET,
 		1, 256, 100, 0, fg_encode_default, NULL),
+	PARAM(SYNC_SLEEP_THR, SYNC_SLEEP_THR_WORD, SYNC_SLEEP_THR_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
 		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default,
 		NULL),
@@ -302,6 +309,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_v2_WORD,
 		RECHARGE_SOC_THR_v2_OFFSET, 1, 256, 100, 0, fg_encode_default,
 		NULL),
+	PARAM(SYNC_SLEEP_THR, SYNC_SLEEP_THR_v2_WORD, SYNC_SLEEP_THR_v2_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(RECHARGE_VBATT_THR, RECHARGE_VBATT_THR_v2_WORD,
 		RECHARGE_VBATT_THR_v2_OFFSET, 1, 1000, 15625, -2000,
 		fg_encode_voltage, NULL),
@@ -4232,6 +4241,22 @@ static int fg_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int twm_notifier_cb(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	struct fg_chip *chip = container_of(nb, struct fg_chip, twm_nb);
+
+	if (action != PMIC_TWM_CLEAR &&
+			action != PMIC_TWM_ENABLE) {
+		pr_debug("Unsupported option %lu\n", action);
+		return NOTIFY_OK;
+	}
+
+	chip->twm_state = (u8)action;
+
+	return NOTIFY_OK;
+}
+
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
@@ -4539,7 +4564,7 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (is_debug_batt_id(chip)) {
+	if (is_debug_batt_id(chip) || chip->dt.disable_esr_pull_dn) {
 		val = ESR_NO_PULL_DOWN;
 		rc = fg_masked_write(chip, BATT_INFO_ESR_PULL_DN_CFG(chip),
 			ESR_PULL_DOWN_MODE_MASK, val);
@@ -4571,6 +4596,21 @@ static int fg_hw_init(struct fg_chip *chip)
 				0x1, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in enabling ESR extraction rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.sync_sleep_threshold_ma != -EINVAL) {
+		fg_encode(chip->sp, FG_SRAM_SYNC_SLEEP_THR,
+			chip->dt.sync_sleep_threshold_ma, buf);
+		rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_SYNC_SLEEP_THR].addr_word,
+			chip->sp[FG_SRAM_SYNC_SLEEP_THR].addr_byte, buf,
+			chip->sp[FG_SRAM_SYNC_SLEEP_THR].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing sync_sleep_threshold=%d\n",
+				rc);
 			return rc;
 		}
 	}
@@ -5350,6 +5390,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.esr_timer_asleep[TIMER_MAX] = -EINVAL;
 	}
 
+	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-shutdown",
+		chip->dt.esr_timer_shutdown, NUM_ESR_TIMERS);
+	if (rc < 0) {
+		chip->dt.esr_timer_shutdown[TIMER_RETRY] = -EINVAL;
+		chip->dt.esr_timer_shutdown[TIMER_MAX] = -EINVAL;
+	}
+
 	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
 
 	chip->dt.force_load_profile = of_property_read_bool(node,
@@ -5512,7 +5559,21 @@ static int fg_parse_dt(struct fg_chip *chip)
 			chip->dt.bmd_en_delay_ms = temp;
 	}
 
+	chip->dt.sync_sleep_threshold_ma = -EINVAL;
+	rc = of_property_read_u32(node,
+		"qcom,fg-sync-sleep-threshold-ma", &temp);
+	if (!rc) {
+		if (temp >= 0 && temp < 997)
+			chip->dt.sync_sleep_threshold_ma = temp;
+	}
+
 	chip->dt.use_esr_sw = of_property_read_bool(node, "qcom,fg-use-sw-esr");
+
+	chip->dt.disable_esr_pull_dn = of_property_read_bool(node,
+					"qcom,fg-disable-esr-pull-dn");
+
+	chip->dt.disable_fg_twm = of_property_read_bool(node,
+					"qcom,fg-disable-in-twm");
 
 	return 0;
 }
@@ -5729,6 +5790,11 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	chip->twm_nb.notifier_call = twm_notifier_cb;
+	rc = qpnp_misc_twm_notifier_register(&chip->twm_nb);
+	if (rc < 0)
+		pr_err("Failed to register twm_notifier_cb rc=%d\n", rc);
+
 	rc = fg_register_interrupts(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Error in registering interrupts, rc:%d\n",
@@ -5851,6 +5917,7 @@ static void fg_gen3_shutdown(struct platform_device *pdev)
 {
 	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
 	int rc, bsoc;
+	u8 mask;
 
 	if (chip->charge_full) {
 		rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &bsoc);
@@ -5868,6 +5935,26 @@ static void fg_gen3_shutdown(struct platform_device *pdev)
 			return;
 		}
 	}
+	rc = fg_set_esr_timer(chip, chip->dt.esr_timer_shutdown[TIMER_RETRY],
+				chip->dt.esr_timer_shutdown[TIMER_MAX], false,
+				FG_IMA_NO_WLOCK);
+	if (rc < 0)
+		pr_err("Error in setting ESR timer at shutdown, rc=%d\n", rc);
+
+	if (chip->twm_state == PMIC_TWM_ENABLE && chip->dt.disable_fg_twm) {
+		rc = fg_masked_write(chip, BATT_SOC_EN_CTL(chip),
+					FG_ALGORITHM_EN_BIT, 0);
+		if (rc < 0)
+			pr_err("Error in disabling FG rc=%d\n", rc);
+
+		mask = BCL_RST_BIT | MEM_RST_BIT | ALG_RST_BIT;
+		rc = fg_masked_write(chip, BATT_SOC_RST_CTRL0(chip),
+					mask, mask);
+		if (rc < 0)
+			pr_err("Error in disabling FG resets rc=%d\n", rc);
+	}
+
+	fg_cleanup(chip);
 }
 
 static const struct of_device_id fg_gen3_match_table[] = {
