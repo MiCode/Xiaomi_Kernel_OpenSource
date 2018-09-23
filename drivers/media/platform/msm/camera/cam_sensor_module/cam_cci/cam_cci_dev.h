@@ -137,6 +137,7 @@ struct cam_cci_master_info {
 	uint8_t reset_pending;
 	struct mutex mutex;
 	struct completion reset_complete;
+	struct completion th_complete;
 	struct mutex mutex_q[NUM_QUEUES];
 	struct completion report_q[NUM_QUEUES];
 	atomic_t done_pending[NUM_QUEUES];
@@ -192,6 +193,11 @@ enum cam_cci_state_t {
  * @cci_wait_sync_cfg: CCI sync config
  * @cycles_per_us: Cycles per micro sec
  * @payload_size: CCI packet payload size
+ * @irq_status1: Store irq_status1 to be cleared after
+ *               draining FIFO buffer for burst read
+ * @lock_status: to protect changes to irq_status1
+ * @is_burst_read: Flag to determine if we are performing
+ *                 a burst read operation or not
  */
 struct cci_device {
 	struct v4l2_subdev subdev;
@@ -216,6 +222,9 @@ struct cci_device {
 	uint8_t payload_size;
 	char device_name[20];
 	uint32_t cpas_handle;
+	uint32_t irq_status1;
+	spinlock_t lock_status;
+	bool is_burst_read;
 };
 
 enum cam_cci_i2c_cmd_type {

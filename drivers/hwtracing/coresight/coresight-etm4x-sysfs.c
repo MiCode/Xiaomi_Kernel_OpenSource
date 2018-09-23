@@ -2073,16 +2073,16 @@ static u32 etmv4_cross_read(const struct device *dev, u32 offset)
 	coresight_simple_func(struct etmv4_drvdata, etmv4_cross_read,	\
 			      name, offset)
 
-coresight_etm4x_simple_func(trcpdcr, TRCPDCR);
-coresight_etm4x_simple_func(trcpdsr, TRCPDSR);
-coresight_etm4x_simple_func(trclsr, TRCLSR);
-coresight_etm4x_simple_func(trcauthstatus, TRCAUTHSTATUS);
-coresight_etm4x_simple_func(trcdevid, TRCDEVID);
-coresight_etm4x_simple_func(trcdevtype, TRCDEVTYPE);
-coresight_etm4x_simple_func(trcpidr0, TRCPIDR0);
-coresight_etm4x_simple_func(trcpidr1, TRCPIDR1);
-coresight_etm4x_simple_func(trcpidr2, TRCPIDR2);
-coresight_etm4x_simple_func(trcpidr3, TRCPIDR3);
+coresight_etm4x_cross_read(trcpdcr, TRCPDCR);
+coresight_etm4x_cross_read(trcpdsr, TRCPDSR);
+coresight_etm4x_cross_read(trclsr, TRCLSR);
+coresight_etm4x_cross_read(trcauthstatus, TRCAUTHSTATUS);
+coresight_etm4x_cross_read(trcdevid, TRCDEVID);
+coresight_etm4x_cross_read(trcdevtype, TRCDEVTYPE);
+coresight_etm4x_cross_read(trcpidr0, TRCPIDR0);
+coresight_etm4x_cross_read(trcpidr1, TRCPIDR1);
+coresight_etm4x_cross_read(trcpidr2, TRCPIDR2);
+coresight_etm4x_cross_read(trcpidr3, TRCPIDR3);
 coresight_etm4x_cross_read(trcoslsr, TRCOSLSR);
 coresight_etm4x_cross_read(trcconfig, TRCCONFIGR);
 coresight_etm4x_cross_read(trctraceid, TRCTRACEIDR);

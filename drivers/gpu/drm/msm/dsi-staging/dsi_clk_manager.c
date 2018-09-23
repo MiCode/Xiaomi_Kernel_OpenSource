@@ -490,17 +490,24 @@ static int dsi_link_hs_clk_stop(struct dsi_link_hs_clk_info *link_hs_clks)
 	return 0;
 }
 
-static int dsi_link_lp_clk_start(struct dsi_link_lp_clk_info *link_lp_clks)
+static int dsi_link_lp_clk_start(struct dsi_link_lp_clk_info *link_lp_clks,
+	int index)
 {
 	int rc = 0;
 	struct dsi_clk_mngr *mngr;
 	struct dsi_link_clks *l_clks;
 
+	if (index >= MAX_DSI_CTRL) {
+		pr_err("Invalid DSI ctrl index\n");
+		return -EINVAL;
+	}
+
 	l_clks = container_of(link_lp_clks, struct dsi_link_clks, lp_clks);
 
-	mngr = container_of(l_clks, struct dsi_clk_mngr, link_clks[0]);
+	mngr = container_of(l_clks, struct dsi_clk_mngr, link_clks[index]);
 	if (!mngr)
 		return -EINVAL;
+
 	/*
 	 * In an ideal world, cont_splash_enabled should not be required inside
 	 * the clock manager. But, in the current driver cont_splash_enabled
@@ -618,7 +625,7 @@ static int dsi_display_link_clk_enable(struct dsi_link_clks *clks,
 	m_clks = &clks[master_ndx];
 
 	if (l_type & DSI_LINK_LP_CLK) {
-		rc = dsi_link_lp_clk_start(&m_clks->lp_clks);
+		rc = dsi_link_lp_clk_start(&m_clks->lp_clks, master_ndx);
 		if (rc) {
 			pr_err("failed to turn on master lp link clocks, rc=%d\n",
 				rc);
@@ -642,7 +649,7 @@ static int dsi_display_link_clk_enable(struct dsi_link_clks *clks,
 			continue;
 
 		if (l_type & DSI_LINK_LP_CLK) {
-			rc = dsi_link_lp_clk_start(&clk->lp_clks);
+			rc = dsi_link_lp_clk_start(&clk->lp_clks, i);
 			if (rc) {
 				pr_err("failed to turn on lp link clocks, rc=%d\n",
 					rc);
@@ -775,13 +782,12 @@ static int dsi_display_link_clk_disable(struct dsi_link_clks *clks,
 	return rc;
 }
 
-static int dsi_clk_update_link_clk_state(struct dsi_link_clks *l_clks,
-	enum dsi_lclk_type l_type, u32 l_state, bool enable)
+static int dsi_clk_update_link_clk_state(struct dsi_clk_mngr *mngr,
+	struct dsi_link_clks *l_clks, enum dsi_lclk_type l_type, u32 l_state,
+	bool enable)
 {
 	int rc = 0;
-	struct dsi_clk_mngr *mngr;
 
-	mngr = container_of(l_clks, struct dsi_clk_mngr, link_clks[0]);
 	if (!mngr)
 		return -EINVAL;
 
@@ -840,22 +846,12 @@ error:
 	return rc;
 }
 
-static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
-				struct dsi_link_clks *l_clks, u32 l_state)
+static int dsi_update_clk_state(struct dsi_clk_mngr *mngr,
+	struct dsi_core_clks *c_clks, u32 c_state,
+	struct dsi_link_clks *l_clks, u32 l_state)
 {
 	int rc = 0;
-	struct dsi_clk_mngr *mngr;
 	bool l_c_on = false;
-
-	if (c_clks) {
-		mngr =
-		container_of(c_clks, struct dsi_clk_mngr, core_clks[0]);
-	} else if (l_clks) {
-		mngr =
-		container_of(l_clks, struct dsi_clk_mngr, link_clks[0]);
-	} else {
-		mngr = NULL;
-	}
 
 	if (!mngr)
 		return -EINVAL;
@@ -898,12 +894,12 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 
 	if (l_clks) {
 		if (l_state == DSI_CLK_ON) {
-			rc = dsi_clk_update_link_clk_state(l_clks,
+			rc = dsi_clk_update_link_clk_state(mngr, l_clks,
 				DSI_LINK_LP_CLK, l_state, true);
 			if (rc)
 				goto error;
 
-			rc = dsi_clk_update_link_clk_state(l_clks,
+			rc = dsi_clk_update_link_clk_state(mngr, l_clks,
 				DSI_LINK_HS_CLK, l_state, true);
 			if (rc)
 				goto error;
@@ -947,12 +943,12 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 				pr_debug("ECG: core and Link_on\n");
 			}
 
-			rc = dsi_clk_update_link_clk_state(l_clks,
+			rc = dsi_clk_update_link_clk_state(mngr, l_clks,
 				DSI_LINK_HS_CLK, l_state, false);
 			if (rc)
 				goto error;
 
-			rc = dsi_clk_update_link_clk_state(l_clks,
+			rc = dsi_clk_update_link_clk_state(mngr, l_clks,
 				DSI_LINK_LP_CLK, l_state, false);
 			if (rc)
 				goto error;
@@ -1102,7 +1098,7 @@ static int dsi_recheck_clk_state(struct dsi_clk_mngr *mngr)
 		old_l_clk_state, new_link_clk_state);
 
 	if (c_clks || l_clks) {
-		rc = dsi_update_clk_state(c_clks, new_core_clk_state,
+		rc = dsi_update_clk_state(mngr, c_clks, new_core_clk_state,
 					  l_clks, new_link_clk_state);
 		if (rc) {
 			pr_err("failed to update clock state, rc = %d\n", rc);

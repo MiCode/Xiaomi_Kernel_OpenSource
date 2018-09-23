@@ -138,15 +138,13 @@
 	};
 };
 
-&soc {
-	qcom,dsi-display@17 {
-		qcom,dsi-display-active;
+&ext_dsi_bridge_display {
+	qcom,dsi-display-active;
 
-		ports {
-			port@0 {
-				endpoint {
-					remote-endpoint = <&lt9611_in>;
-				};
+	ports {
+		port@0 {
+			endpoint {
+				remote-endpoint = <&lt9611_in>;
 			};
 		};
 	};
