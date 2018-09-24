@@ -348,7 +348,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	if (!st->inv_acc_cachepool) {
 		pr_err("inv_acc_cachepool cache create failed\n");
 		err = -ENOMEM;
-		goto clean_exit1;
+		return 0;
 	}
 
 	for (i = 0; i < INV_ACC_MAXSAMPLE; i++) {
@@ -357,7 +357,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 					GFP_KERNEL);
 		if (!st->inv_acc_samplist[i]) {
 			err = -ENOMEM;
-			goto clean_exit2;
+			goto clean_exit1;
 		}
 	}
 
@@ -367,7 +367,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	if (!st->inv_gyro_cachepool) {
 		pr_err("inv_gyro_cachepool cache create failed\n");
 		err = -ENOMEM;
-		goto clean_exit3;
+		goto clean_exit1;
 	}
 
 	for (i = 0; i < INV_GYRO_MAXSAMPLE; i++) {
@@ -376,7 +376,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 					GFP_KERNEL);
 		if (!st->inv_gyro_samplist[i]) {
 			err = -ENOMEM;
-			goto clean_exit4;
+			goto clean_exit2;
 		}
 	}
 
@@ -384,7 +384,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	if (!st->accbuf_dev) {
 		err = -ENOMEM;
 		pr_err("input device allocation failed\n");
-		goto clean_exit5;
+		goto clean_exit2;
 	}
 	st->accbuf_dev->name = "inv_accbuf";
 	st->accbuf_dev->id.bustype = BUS_I2C;
@@ -405,14 +405,14 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	if (err) {
 		pr_err("unable to register input device %s\n",
 				st->accbuf_dev->name);
-		goto clean_exit5;
+		goto clean_exit3;
 	}
 
 	st->gyrobuf_dev = input_allocate_device();
 	if (!st->gyrobuf_dev) {
 		err = -ENOMEM;
 		pr_err("input device allocation failed\n");
-		goto clean_exit6;
+		goto clean_exit4;
 	}
 	st->gyrobuf_dev->name = "inv_gyrobuf";
 	st->gyrobuf_dev->id.bustype = BUS_I2C;
@@ -433,7 +433,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	if (err) {
 		pr_err("unable to register input device %s\n",
 				st->gyrobuf_dev->name);
-		goto clean_exit6;
+		goto clean_exit5;
 	}
 
 	st->acc_buffer_inv_samples = true;
@@ -442,23 +442,24 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	inv_enable_acc_gyro(st);
 
 	return 1;
-clean_exit6:
-	input_free_device(st->gyrobuf_dev);
-	input_unregister_device(st->accbuf_dev);
+
 clean_exit5:
-	input_free_device(st->accbuf_dev);
+	input_free_device(st->gyrobuf_dev);
 clean_exit4:
+	input_unregister_device(st->accbuf_dev);
+clean_exit3:
+	input_free_device(st->accbuf_dev);
+clean_exit2:
 	for (i = 0; i < INV_GYRO_MAXSAMPLE; i++)
 		kmem_cache_free(st->inv_gyro_cachepool,
 				st->inv_gyro_samplist[i]);
-clean_exit3:
 	kmem_cache_destroy(st->inv_gyro_cachepool);
-clean_exit2:
+clean_exit1:
 	for (i = 0; i < INV_ACC_MAXSAMPLE; i++)
 		kmem_cache_free(st->inv_acc_cachepool,
 				st->inv_acc_samplist[i]);
-clean_exit1:
 	kmem_cache_destroy(st->inv_acc_cachepool);
+
 	return 0;
 }
 static void inv_acc_gyro_input_cleanup(

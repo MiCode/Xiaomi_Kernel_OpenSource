@@ -608,6 +608,9 @@ static ssize_t inv_basic_attr_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	int result;
 
+	if (inv_check_acc_gyro_early_buff_enable_flag(indio_dev))
+		return count;
+
 	mutex_lock(&indio_dev->mlock);
 	result = _basic_attr_store(dev, attr, buf, count);
 
