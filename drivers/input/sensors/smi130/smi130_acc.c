@@ -3869,7 +3869,7 @@ static int smi130_acc_read_accel_x(struct i2c_client *client,
 				signed char sensor_type, short *a_x)
 {
 	int comres = 0;
-	unsigned char data[2];
+	unsigned char data[2] = {0};
 
 	switch (sensor_type) {
 	case 0:
@@ -3938,7 +3938,7 @@ static int smi130_acc_read_accel_y(struct i2c_client *client,
 				signed char sensor_type, short *a_y)
 {
 	int comres = 0;
-	unsigned char data[2];
+	unsigned char data[2] = {0};
 
 	switch (sensor_type) {
 	case 0:
@@ -3996,7 +3996,7 @@ static int smi130_acc_read_accel_z(struct i2c_client *client,
 				signed char sensor_type, short *a_z)
 {
 	int comres = 0;
-	unsigned char data[2];
+	unsigned char data[2] = {0};
 
 	switch (sensor_type) {
 	case 0:
@@ -5072,7 +5072,7 @@ static int smi130_acc_read_accel_xyz(struct i2c_client *client,
 		signed char sensor_type, struct smi130_accacc *acc)
 {
 	int comres = 0;
-	unsigned char data[6];
+	unsigned char data[6] = {0};
 	struct smi130_acc_data *client_data = i2c_get_clientdata(client);
 #ifndef SMI_ACC2X2_SENSOR_IDENTIFICATION_ENABLE
 	int bitwidth;
@@ -5366,7 +5366,7 @@ static ssize_t smi130_acc_register_show(struct device *dev,
 	struct smi130_acc_data *smi130_acc = i2c_get_clientdata(client);
 
 	size_t count = 0;
-	u8 reg[0x40];
+	u8 reg[0x40] = {0};
 	int i;
 
 	for (i = 0; i < 0x40; i++) {
@@ -6940,7 +6940,7 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 	if (!client_data->smi_acc_cachepool) {
 		PERR("smi_acc_cachepool cache create failed\n");
 		err = -ENOMEM;
-		goto clean_exit1;
+		return 0;
 	}
 	for (i = 0; i < SMI_ACC_MAXSAMPLE; i++) {
 		client_data->smi130_acc_samplist[i] =
@@ -6948,7 +6948,7 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 					GFP_KERNEL);
 		if (!client_data->smi130_acc_samplist[i]) {
 			err = -ENOMEM;
-			goto clean_exit2;
+			goto clean_exit1;
 		}
 	}
 
@@ -6956,7 +6956,7 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 	if (!client_data->accbuf_dev) {
 		err = -ENOMEM;
 		PERR("input device allocation failed\n");
-		goto clean_exit3;
+		goto clean_exit1;
 	}
 	client_data->accbuf_dev->name = "smi130_accbuf";
 	client_data->accbuf_dev->id.bustype = BUS_I2C;
@@ -6977,7 +6977,7 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 	if (err) {
 		PERR("unable to register input device %s\n",
 				client_data->accbuf_dev->name);
-		goto clean_exit3;
+		goto clean_exit2;
 	}
 
 	client_data->acc_buffer_smi130_samples = true;
@@ -6988,14 +6988,14 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 
 	return 1;
 
-clean_exit3:
-	input_free_device(client_data->accbuf_dev);
 clean_exit2:
+	input_free_device(client_data->accbuf_dev);
+clean_exit1:
 	for (i = 0; i < SMI_ACC_MAXSAMPLE; i++)
 		kmem_cache_free(client_data->smi_acc_cachepool,
 				client_data->smi130_acc_samplist[i]);
-clean_exit1:
 	kmem_cache_destroy(client_data->smi_acc_cachepool);
+
 	return 0;
 }
 

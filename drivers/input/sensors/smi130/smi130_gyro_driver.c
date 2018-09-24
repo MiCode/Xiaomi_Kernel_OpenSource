@@ -422,7 +422,7 @@ static int smi_gyro_check_chip_id(struct i2c_client *client)
 static void smi_gyro_dump_reg(struct i2c_client *client)
 {
 	int i;
-	u8 dbg_buf[64];
+	u8 dbg_buf[64] = {0};
 	u8 dbg_buf_str[64 * 3 + 1] = "";
 
 	for (i = 0; i < BYTES_PER_LINE; i++) {
@@ -1768,7 +1768,7 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 	if (!client_data->smi_gyro_cachepool) {
 		PERR("smi_gyro_cachepool cache create failed\n");
 		err = -ENOMEM;
-		goto clean_exit1;
+		return 0;
 	}
 
 	for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++) {
@@ -1777,7 +1777,7 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 					GFP_KERNEL);
 		if (!client_data->smi130_gyro_samplist[i]) {
 			err = -ENOMEM;
-			goto clean_exit2;
+			goto clean_exit1;
 		}
 	}
 
@@ -1786,7 +1786,7 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 	if (!client_data->gyrobuf_dev) {
 		err = -ENOMEM;
 		PERR("input device allocation failed\n");
-		goto clean_exit3;
+		goto clean_exit1;
 	}
 	client_data->gyrobuf_dev->name = "smi130_gyrobuf";
 	client_data->gyrobuf_dev->id.bustype = BUS_I2C;
@@ -1807,7 +1807,7 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 	if (err) {
 		PERR("unable to register input device %s\n",
 				client_data->gyrobuf_dev->name);
-		goto clean_exit3;
+		goto clean_exit2;
 	}
 
 	client_data->gyro_buffer_smi130_samples = true;
@@ -1818,14 +1818,14 @@ static int smi130_gyro_early_buff_init(struct smi_gyro_client_data *client_data)
 
 	return 1;
 
-clean_exit3:
-	input_free_device(client_data->gyrobuf_dev);
 clean_exit2:
+	input_free_device(client_data->gyrobuf_dev);
+clean_exit1:
 	for (i = 0; i < SMI_GYRO_MAXSAMPLE; i++)
 		kmem_cache_free(client_data->smi_gyro_cachepool,
 				client_data->smi130_gyro_samplist[i]);
-clean_exit1:
 	kmem_cache_destroy(client_data->smi_gyro_cachepool);
+
 	return 0;
 }
 

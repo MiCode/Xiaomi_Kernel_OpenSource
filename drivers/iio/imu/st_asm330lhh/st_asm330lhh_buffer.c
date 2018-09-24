@@ -374,7 +374,7 @@ ssize_t st_asm330lhh_set_watermark(struct device *dev,
 	int err, val;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return 0;
+		return -EBUSY;
 
 	mutex_lock(&iio_dev->mlock);
 	if (iio_buffer_enabled(iio_dev)) {
@@ -504,10 +504,9 @@ static irqreturn_t st_asm330lhh_handler_thread(int irq, void *private)
 static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
-	int err = -1;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return err;
+		return 0;
 	else
 		return st_asm330lhh_update_fifo(iio_dev, true);
 }
@@ -515,10 +514,9 @@ static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
 static int st_asm330lhh_buffer_postdisable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
-	int err = -1;
 
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
-		return err;
+		return 0;
 	else
 		return st_asm330lhh_update_fifo(iio_dev, false);
 }
