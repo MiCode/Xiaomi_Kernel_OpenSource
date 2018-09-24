@@ -74,6 +74,52 @@ static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 	}
 }
 
+static int dsi_display_config_clk_gating(struct dsi_display *display,
+					bool enable)
+{
+	int rc = 0, i = 0;
+	struct dsi_display_ctrl *mctrl, *ctrl;
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mctrl = &display->ctrl[display->clk_master_idx];
+	if (!mctrl) {
+		pr_err("Invalid controller\n");
+		return -EINVAL;
+	}
+
+	rc = dsi_ctrl_config_clk_gating(mctrl->ctrl, enable, PIXEL_CLK |
+							DSI_PHY);
+	if (rc) {
+		pr_err("[%s] failed to %s clk gating, rc=%d\n",
+				display->name, enable ? "enable" : "disable",
+				rc);
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == mctrl))
+			continue;
+		/**
+		 * In Split DSI usecase we should not enable clock gating on
+		 * DSI PHY1 to ensure no display atrifacts are seen.
+		 */
+		rc = dsi_ctrl_config_clk_gating(ctrl->ctrl, enable, PIXEL_CLK);
+		if (rc) {
+			pr_err("[%s] failed to %s pixel clk gating, rc=%d\n",
+				display->name, enable ? "enable" : "disable",
+				rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static void dsi_display_set_ctrl_esd_check_flag(struct dsi_display *display,
 			bool enable)
 {
@@ -2977,6 +3023,10 @@ int dsi_pre_clkoff_cb(void *priv,
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
 					__func__, rc);
+			rc = dsi_display_config_clk_gating(display, false);
+			if (rc)
+				pr_err("[%s] failed to disable clk gating, rc=%d\n",
+						display->name, rc);
 
 			rc = dsi_display_phy_reset_config(display, false);
 			if (rc)
@@ -3054,6 +3104,13 @@ int dsi_post_clkon_cb(void *priv,
 					__func__, rc);
 				goto error;
 			}
+		}
+
+		rc = dsi_display_config_clk_gating(display, true);
+		if (rc) {
+			pr_err("[%s] failed to enable clk gating %d\n",
+					display->name, rc);
+			goto error;
 		}
 
 		rc = dsi_display_phy_reset_config(display, true);

@@ -393,6 +393,17 @@ int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**
+ * dsi_ctrl_config_clk_gating() - Enable/Disable DSI PHY clk gating
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:          Enable/disable DSI PHY clk gating
+ * @clk_selection:   clock selection for gating
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_config_clk_gating(struct dsi_ctrl *dsi_ctrl, bool enable,
+		 enum dsi_clk_gate_type clk_selection);
+
+/**
  * dsi_ctrl_soft_reset() - perform a soft reset on DSI controller
  * @dsi_ctrl:         DSI controller handle.
  *
