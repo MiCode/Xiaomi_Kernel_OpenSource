@@ -349,15 +349,8 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
 
 	new = ((unsigned long) &dst_default_metrics) | DST_METRICS_READ_ONLY;
 	prev = cmpxchg(&dst->_metrics, old, new);
-	if (prev == old) {
-		struct dst_metrics *old_p = (struct dst_metrics *)
-					    __DST_METRICS_PTR(old);
-
-		if (prev & DST_METRICS_REFCOUNTED) {
-			if (atomic_dec_and_test(&old_p->refcnt))
-				kfree(old_p);
-		}
-	}
+	if (prev == old)
+		kfree(__DST_METRICS_PTR(old));
 }
 EXPORT_SYMBOL(__dst_destroy_metrics_generic);
 
