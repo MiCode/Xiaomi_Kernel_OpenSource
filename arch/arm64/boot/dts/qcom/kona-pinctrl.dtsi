@@ -59,5 +59,91 @@
 			};
 		};
 
+		ap2mdm {
+			ap2mdm_active: ap2mdm_active {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio56", "gpio57";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio56", "gpio57";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+			ap2mdm_sleep: ap2mdm_sleep {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio56", "gpio57";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio56", "gpio57";
+					drive-strength = <8>;
+					bias-disable;
+				};
+
+			};
+		};
+
+		mdm2ap {
+			mdm2ap_active: mdm2ap_active {
+				mux {
+					/* mdm2ap-status
+					 * mdm2ap-errfatal
+					 * mdm2ap-vddmin
+					 */
+					pins = "gpio1", "gpio3";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio1", "gpio3";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+			mdm2ap_sleep: mdm2ap_sleep {
+				mux {
+					/* mdm2ap-status
+					 * mdm2ap-errfatal
+					 * mdm2ap-vddmin
+					 */
+					pins = "gpio1", "gpio3";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio1", "gpio3";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+		};
+
+		ap2mdm_pon_reset {
+			ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
+				mux {
+					/* MDM PON conrol*/
+					pins = "gpio145";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio145";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+		};
 	};
 };
