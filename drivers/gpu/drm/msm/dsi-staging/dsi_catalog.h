@@ -242,5 +242,7 @@ void dsi_ctrl_hw_kickoff_non_embedded_mode(struct dsi_ctrl_hw *ctrl,
 
 /* Definitions specific to 2.2 DSI controller hardware */
 bool dsi_ctrl_hw_22_get_cont_splash_status(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_22_config_clk_gating(struct dsi_ctrl_hw *ctrl, bool enable,
+		enum dsi_clk_gate_type clk_selection);
 
 #endif /* _DSI_CATALOG_H_ */

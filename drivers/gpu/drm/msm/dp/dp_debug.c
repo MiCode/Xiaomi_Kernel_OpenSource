@@ -275,10 +275,8 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_8];
 	size_t len = 0;
-	int const orientation_mask = 0x4;
 	int const hpd_data_mask = 0x7;
 	int hpd = 0;
-	int orientation = 0;
 
 	if (!debug)
 		return -ENODEV;
@@ -297,13 +295,10 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 		goto end;
 
 	hpd &= hpd_data_mask;
-	orientation = hpd & orientation_mask ?
-		ORIENTATION_CC2 : ORIENTATION_CC1;
 
 	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
 
-	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)),
-			orientation);
+	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)));
 end:
 	return len;
 }

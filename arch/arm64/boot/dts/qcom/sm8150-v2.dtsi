@@ -31,6 +31,8 @@
 
 &mdss_mdp {
 	qcom,fullsize-va-map;
+	qcom,sde-min-core-ib-kbps = <0>;
+	qcom,sde-min-llcc-ib-kbps = <0>;
 };
 
 &mdss_rotator {

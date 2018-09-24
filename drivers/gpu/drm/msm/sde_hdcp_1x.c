@@ -210,6 +210,7 @@ struct sde_hdcp_1x {
 	u8 bcaps;
 	u32 tp_msgid;
 	u32 an_0, an_1, aksv_0, aksv_1;
+	u32 aksv_msb, aksv_lsb;
 	bool sink_r0_ready;
 	bool reauth;
 	bool ksv_ready;
@@ -237,11 +238,9 @@ static int sde_hdcp_1x_count_one(u8 *array, u8 len)
 	return count;
 }
 
-static int sde_hdcp_1x_load_keys(void *input)
+static int sde_hdcp_1x_enable_hdcp_engine(void *input)
 {
 	int rc = 0;
-	u32 aksv_lsb, aksv_msb;
-	u8 aksv[5];
 	struct dss_io_data *dp_ahb;
 	struct dss_io_data *dp_aux;
 	struct dss_io_data *dp_link;
@@ -269,30 +268,8 @@ static int sde_hdcp_1x_load_keys(void *input)
 	dp_link = hdcp->init_data.dp_link;
 	reg_set = &hdcp->reg_set;
 
-	if (hdcp1_set_keys(hdcp->hdcp1_handle, &aksv_msb, &aksv_lsb)) {
-		pr_err("setting hdcp SW keys failed\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	pr_debug("%s: AKSV=%02x%08x\n", SDE_HDCP_STATE_NAME,
-		aksv_msb, aksv_lsb);
-
-	aksv[0] =  aksv_lsb        & 0xFF;
-	aksv[1] = (aksv_lsb >> 8)  & 0xFF;
-	aksv[2] = (aksv_lsb >> 16) & 0xFF;
-	aksv[3] = (aksv_lsb >> 24) & 0xFF;
-	aksv[4] =  aksv_msb        & 0xFF;
-
-	/* check there are 20 ones in AKSV */
-	if (sde_hdcp_1x_count_one(aksv, 5) != 20) {
-		pr_err("AKSV bit count failed\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	DSS_REG_W(dp_aux, reg_set->aksv_lsb, aksv_lsb);
-	DSS_REG_W(dp_aux, reg_set->aksv_msb, aksv_msb);
+	DSS_REG_W(dp_aux, reg_set->aksv_lsb, hdcp->aksv_lsb);
+	DSS_REG_W(dp_aux, reg_set->aksv_msb, hdcp->aksv_msb);
 
 	/* Setup seed values for random number An */
 	DSS_REG_W(dp_link, reg_set->entropy_ctrl0, 0xB1FFB0FF);
@@ -1142,20 +1119,29 @@ end:
 static int sde_hdcp_1x_authenticate(void *input)
 {
 	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
+	int rc = 0;
 
 	if (!hdcp) {
 		pr_err("invalid input\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto error;
 	}
 
 	flush_delayed_work(&hdcp->hdcp_auth_work);
 
 	if (!sde_hdcp_1x_state(HDCP_STATE_INACTIVE)) {
 		pr_err("invalid state\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto error;
 	}
 
-	if (!sde_hdcp_1x_load_keys(input)) {
+	rc = hdcp1_start(hdcp->hdcp1_handle, &hdcp->aksv_msb, &hdcp->aksv_lsb);
+	if (rc) {
+		pr_err("hdcp1_start failed (%d)\n", rc);
+		goto error;
+	}
+
+	if (!sde_hdcp_1x_enable_hdcp_engine(input)) {
 
 		queue_delayed_work(hdcp->workq,
 			&hdcp->hdcp_auth_work, HZ/2);
@@ -1164,7 +1150,8 @@ static int sde_hdcp_1x_authenticate(void *input)
 		sde_hdcp_1x_update_auth_status(hdcp);
 	}
 
-	return 0;
+error:
+	return rc;
 } /* hdcp_1x_authenticate */
 
 static int sde_hdcp_1x_reauthenticate(void *input)
@@ -1173,7 +1160,7 @@ static int sde_hdcp_1x_reauthenticate(void *input)
 	struct dss_io_data *io;
 	struct sde_hdcp_reg_set *reg_set;
 	struct sde_hdcp_int_set *isr;
-	u32 ret = 0, reg;
+	u32 reg;
 
 	if (!hdcp || !hdcp->init_data.dp_ahb) {
 		pr_err("invalid input\n");
@@ -1201,9 +1188,8 @@ static int sde_hdcp_1x_reauthenticate(void *input)
 	DSS_REG_W(io, reg_set->reset, reg & ~reg_set->reset_bit);
 
 	hdcp->hdcp_state = HDCP_STATE_INACTIVE;
-	sde_hdcp_1x_authenticate(hdcp);
 
-	return ret;
+	return sde_hdcp_1x_authenticate(hdcp);
 } /* hdcp_1x_reauthenticate */
 
 static void sde_hdcp_1x_off(void *input)
@@ -1263,6 +1249,8 @@ static void sde_hdcp_1x_off(void *input)
 	DSS_REG_W(io, reg_set->reset, reg & ~reg_set->reset_bit);
 
 	hdcp->sink_r0_ready = false;
+
+	hdcp1_stop(hdcp->hdcp1_handle);
 
 	pr_debug("%s: HDCP: Off\n", SDE_HDCP_STATE_NAME);
 } /* hdcp_1x_off */
@@ -1365,13 +1353,18 @@ error:
 static bool sde_hdcp_1x_feature_supported(void *input)
 {
 	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
+	bool feature_supported = false;
 
 	if (!hdcp) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	return hdcp1_feature_supported(hdcp->hdcp1_handle);
+	feature_supported = hdcp1_feature_supported(hdcp->hdcp1_handle);
+
+	pr_debug("feature_supported = %d\n", feature_supported);
+
+	return feature_supported;
 }
 
 void sde_hdcp_1x_deinit(void *input)

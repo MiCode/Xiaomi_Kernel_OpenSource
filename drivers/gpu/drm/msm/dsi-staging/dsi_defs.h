@@ -286,6 +286,18 @@ enum dsi_cmd_set_state {
 };
 
 /**
+ * enum dsi_clk_gate_type - Type of clock to be gated.
+ * @PIXEL_CLK:  DSI pixel clock.
+ * @BYTE_CLK:   DSI byte clock.
+ * @DSI_PHY:    DSI PHY.
+ */
+enum dsi_clk_gate_type {
+	PIXEL_CLK = 1,
+	BYTE_CLK = 2,
+	DSI_PHY = 4,
+};
+
+/**
  * enum dsi_phy_type - DSI phy types
  * @DSI_PHY_TYPE_DPHY:
  * @DSI_PHY_TYPE_CPHY:
