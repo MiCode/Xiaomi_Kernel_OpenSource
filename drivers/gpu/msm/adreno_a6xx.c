@@ -857,6 +857,13 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
+	/* Turn on GX_MEM retention */
+	if (gmu_core_isenabled(device) && adreno_is_a608(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL, 0x7FB);
+		/* For CP IPC interrupt */
+		kgsl_regwrite(device, A6XX_RBBM_INT_2_MASK, 0x00000010);
+	}
+
 	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,highest-bank-bit", &bit))
 		bit = MIN_HBB;

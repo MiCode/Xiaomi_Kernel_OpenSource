@@ -3,6 +3,7 @@ Qualcomm Technologies, Inc. GPU Graphics Management Unit (GMU)
 Required properties:
 - compatible :
 	- "qcom,gpu-gmu"
+	- "qcom,gpu-rgmu"
 - reg:		Specifies the PDC register base address and size.
 - reg-names:		Resource names used for the physical address
 		and length of PDC registers.
