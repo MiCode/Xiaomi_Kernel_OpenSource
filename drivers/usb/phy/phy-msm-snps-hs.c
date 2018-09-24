@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -20,6 +21,8 @@
 #include <linux/reset.h>
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL0		(0x3c)
+#define OPMODE_MASK				(0x3 << 3)
+#define OPMODE_NONDRIVING			(0x1 << 3)
 #define SLEEPM					BIT(0)
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL5		(0x50)
@@ -54,6 +57,7 @@
 #define TOGGLE_2WR				BIT(6)
 
 #define USB2_PHY_USB_PHY_CFG0			(0x94)
+#define UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN	BIT(0)
 #define UTMI_PHY_CMN_CTRL_OVERRIDE_EN		BIT(1)
 
 #define USB2_PHY_USB_PHY_REFCLK_CTRL		(0xa0)
@@ -89,12 +93,17 @@ struct msm_hsphy {
 	bool			power_enabled;
 	bool			suspended;
 	bool			cable_connected;
+	bool			dpdm_enable;
 
 	int			*param_override_seq;
 	int			param_override_seq_cnt;
 
 	void __iomem		*phy_rcal_reg;
 	u32			rcal_mask;
+
+	struct mutex		phy_lock;
+	struct regulator_desc	dpdm_rdesc;
+	struct regulator_dev	*dpdm_rdev;
 
 	void __iomem		*phy_rcal_reg;
 	u32			rcal_mask;
@@ -457,8 +466,14 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			(phy->phy.flags & PHY_HOST_MODE)) {
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */
-			msm_hsphy_enable_clocks(phy, false);
-			msm_hsphy_enable_power(phy, false);
+			mutex_lock(&phy->phy_lock);
+			if (!phy->dpdm_enable) {
+				msm_hsphy_enable_clocks(phy, false);
+				msm_hsphy_enable_power(phy, false);
+			} else {
+				dev_dbg(uphy->dev, "dpdm reg still active.  Keep clocks/ldo ON\n");
+			}
+			mutex_unlock(&phy->phy_lock);
 		}
 		phy->suspended = true;
 	} else { /* Bus resume and cable connect */
@@ -485,6 +500,114 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
 	phy->cable_connected = false;
+
+	return 0;
+}
+
+static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, phy->dpdm_enable);
+
+	mutex_lock(&phy->phy_lock);
+	if (!phy->dpdm_enable) {
+		ret = msm_hsphy_enable_power(phy, true);
+		if (ret) {
+			mutex_unlock(&phy->phy_lock);
+			return ret;
+		}
+
+		msm_hsphy_enable_clocks(phy, true);
+		msm_hsphy_reset(phy);
+
+		/*
+		 * For PMIC charger detection, place PHY in UTMI non-driving
+		 * mode which leaves Dp and Dm lines in high-Z state.
+		 */
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+					OPMODE_MASK, OPMODE_NONDRIVING);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN);
+
+		phy->dpdm_enable = true;
+	}
+	mutex_unlock(&phy->phy_lock);
+
+	return ret;
+}
+
+static int msm_hsphy_dpdm_regulator_disable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, phy->dpdm_enable);
+
+	mutex_lock(&phy->phy_lock);
+	if (phy->dpdm_enable) {
+		if (!phy->cable_connected) {
+			msm_hsphy_enable_clocks(phy, false);
+			ret = msm_hsphy_enable_power(phy, false);
+			if (ret < 0) {
+				mutex_unlock(&phy->phy_lock);
+				return ret;
+			}
+		}
+		phy->dpdm_enable = false;
+	}
+	mutex_unlock(&phy->phy_lock);
+
+	return ret;
+}
+
+static int msm_hsphy_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
+{
+	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
+
+	dev_dbg(phy->phy.dev, "%s dpdm_enable:%d\n",
+			__func__, phy->dpdm_enable);
+
+	return phy->dpdm_enable;
+}
+
+static struct regulator_ops msm_hsphy_dpdm_regulator_ops = {
+	.enable		= msm_hsphy_dpdm_regulator_enable,
+	.disable	= msm_hsphy_dpdm_regulator_disable,
+	.is_enabled	= msm_hsphy_dpdm_regulator_is_enabled,
+};
+
+static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
+{
+	struct device *dev = phy->phy.dev;
+	struct regulator_config cfg = {};
+	struct regulator_init_data *init_data;
+
+	init_data = devm_kzalloc(dev, sizeof(*init_data), GFP_KERNEL);
+	if (!init_data)
+		return -ENOMEM;
+
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS;
+	phy->dpdm_rdesc.owner = THIS_MODULE;
+	phy->dpdm_rdesc.type = REGULATOR_VOLTAGE;
+	phy->dpdm_rdesc.ops = &msm_hsphy_dpdm_regulator_ops;
+	phy->dpdm_rdesc.name = kbasename(dev->of_node->full_name);
+
+	cfg.dev = dev;
+	cfg.init_data = init_data;
+	cfg.driver_data = phy;
+	cfg.of_node = dev->of_node;
+
+	phy->dpdm_rdev = devm_regulator_register(dev, &phy->dpdm_rdesc, &cfg);
+	if (IS_ERR(phy->dpdm_rdev))
+		return PTR_ERR(phy->dpdm_rdev);
 
 	return 0;
 }
@@ -674,6 +797,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
+	mutex_init(&phy->phy_lock);
 	platform_set_drvdata(pdev, phy);
 
 	if (phy->emu_init_seq)
@@ -688,6 +812,12 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
 		return ret;
+
+	ret = msm_hsphy_regulator_init(phy);
+	if (ret) {
+		usb_remove_phy(&phy->phy);
+		return ret;
+	}
 
 	return 0;
 
