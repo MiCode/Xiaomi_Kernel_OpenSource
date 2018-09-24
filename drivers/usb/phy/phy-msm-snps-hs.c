@@ -26,11 +26,9 @@
 #define SLEEPM					BIT(0)
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL5		(0x50)
-#define ATERESET				BIT(0)
 #define POR					BIT(1)
 
 #define USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0	(0x54)
-#define VATESTENB_MASK				(0x3 << 0)
 #define RETENABLEN				BIT(3)
 #define FSEL_MASK				(0x7 << 4)
 #define FSEL_DEFAULT				(0x3 << 4)
@@ -48,13 +46,6 @@
 #define USB2_PHY_USB_PHY_HS_PHY_CTRL2		(0x64)
 #define USB2_SUSPEND_N				BIT(2)
 #define USB2_SUSPEND_N_SEL			BIT(3)
-
-#define USB2_PHY_USB_PHY_HS_PHY_TEST0		(0x80)
-#define TESTDATAIN_MASK				(0xff << 0)
-
-#define USB2_PHY_USB_PHY_HS_PHY_TEST1		(0x84)
-#define TESTDATAOUTSEL				BIT(4)
-#define TOGGLE_2WR				BIT(6)
 
 #define USB2_PHY_USB_PHY_CFG0			(0x94)
 #define UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN	BIT(0)
@@ -372,7 +363,8 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	msm_hsphy_reset(phy);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
-	UTMI_PHY_CMN_CTRL_OVERRIDE_EN, UTMI_PHY_CMN_CTRL_OVERRIDE_EN);
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN,
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL5,
 				POR, POR);
@@ -412,26 +404,9 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
 				VREGBYPASS, VREGBYPASS);
 
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL5,
-				ATERESET, ATERESET);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST1,
-				TESTDATAOUTSEL, TESTDATAOUTSEL);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST1,
-				TOGGLE_2WR, TOGGLE_2WR);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON0,
-				VATESTENB_MASK, 0);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_TEST0,
-				TESTDATAIN_MASK, 0);
-
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_SUSPEND_N_SEL, USB2_SUSPEND_N_SEL);
-
-	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-				USB2_SUSPEND_N, USB2_SUSPEND_N);
+				USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
+				USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
 				SLEEPM, SLEEPM);
@@ -443,7 +418,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				USB2_SUSPEND_N_SEL, 0);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
-	UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0);
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0);
 
 	return 0;
 }
