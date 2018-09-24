@@ -1579,12 +1579,20 @@ static void clear_battery_profile(struct fg_dev *fg)
 #define BOOTLOADER_LOAD_BIT	BIT(1)
 #define BOOTLOADER_RESTART_BIT	BIT(2)
 #define HLOS_RESTART_BIT	BIT(3)
+#define FIRST_PROFILE_LOAD_BIT	BIT(4)
 static bool is_profile_load_required(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	u8 buf[PROFILE_COMP_LEN], val;
-	bool profiles_same = false;
-	int rc;
+	bool profiles_same = false, valid_integrity = false;
+	int rc, i;
+	u8 white_list_values[] = {
+		HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT,
+		BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT,
+		BOOTLOADER_RESTART_BIT | HLOS_RESTART_BIT,
+		BOOTLOADER_LOAD_BIT | FIRST_PROFILE_LOAD_BIT,
+	};
 
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
@@ -1599,8 +1607,14 @@ static bool is_profile_load_required(struct fg_gen4_chip *chip)
 
 		/* Whitelist the values */
 		val &= ~PROFILE_LOAD_BIT;
-		if (val != HLOS_RESTART_BIT && val != BOOTLOADER_LOAD_BIT &&
-			val != (BOOTLOADER_LOAD_BIT | BOOTLOADER_RESTART_BIT)) {
+		for (i = 0; i < ARRAY_SIZE(white_list_values); i++)  {
+			if (val == white_list_values[i]) {
+				valid_integrity = true;
+				break;
+			}
+		}
+
+		if (!valid_integrity) {
 			val |= PROFILE_LOAD_BIT;
 			pr_warn("Garbage value in profile integrity word: 0x%x\n",
 				val);
