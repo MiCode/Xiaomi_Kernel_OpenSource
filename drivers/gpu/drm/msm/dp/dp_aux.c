@@ -492,30 +492,42 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 		goto end;
 	}
 
-	if ((msg->address + msg->size) > SZ_16K) {
+	if ((msg->address + msg->size) > SZ_4K) {
 		pr_err("invalid dpcd access: addr=0x%x, size=0x%x\n",
 				msg->address + msg->size);
 		goto address_error;
 	}
 
 	if (aux->native) {
+		aux->dp_aux.reg = msg->address;
+		aux->dp_aux.read = aux->read;
+		aux->dp_aux.size = msg->size;
+
+		reinit_completion(&aux->comp);
+
 		if (aux->read) {
-			aux->dp_aux.reg = msg->address;
-
-			reinit_completion(&aux->comp);
 			timeout = wait_for_completion_timeout(&aux->comp, HZ);
-			if (!timeout)
+			if (!timeout) {
 				pr_err("aux timeout for 0x%x\n", msg->address);
-
-			aux->dp_aux.reg = 0xFFFF;
+				ret = -ETIMEDOUT;
+				goto end;
+			}
 
 			memcpy(msg->buffer, aux->dpcd + msg->address,
 				msg->size);
-			aux->aux_error_num = DP_AUX_ERR_NONE;
 		} else {
 			memcpy(aux->dpcd + msg->address, msg->buffer,
 				msg->size);
+
+			timeout = wait_for_completion_timeout(&aux->comp, HZ);
+			if (!timeout) {
+				pr_err("aux timeout for 0x%x\n", msg->address);
+				ret = -ETIMEDOUT;
+				goto end;
+			}
 		}
+
+		aux->aux_error_num = DP_AUX_ERR_NONE;
 	} else {
 		if (aux->read && msg->address == 0x50) {
 			memcpy(msg->buffer,
@@ -545,6 +557,10 @@ address_error:
 	memset(msg->buffer, 0, msg->size);
 	ret = msg->size;
 end:
+	aux->dp_aux.reg = 0xFFFF;
+	aux->dp_aux.read = true;
+	aux->dp_aux.size = 0;
+
 	mutex_unlock(&aux->mutex);
 	return ret;
 }
