@@ -1190,6 +1190,12 @@ struct dwc3 {
 	unsigned int		vbus_active:1;
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned int		softconnect:1;
+	/*
+	 * If true, PM suspend allowed irrespective of host runtimePM state
+	 * and core will power collapse. This also leads to reset-resume of
+	 * connected devices on PM resume.
+	 */
+	bool			host_poweroff_in_pm_suspend;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))
