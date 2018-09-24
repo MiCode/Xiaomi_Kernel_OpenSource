@@ -41,10 +41,6 @@
 
 #define PERF_MODE_DEFAULT 0
 
-#define POWER_LEVEL_MIN_SVS 0
-#define POWER_LEVEL_LOW_SVS 1
-#define POWER_LEVEL_NOMINAL 4
-
 /* -------------------------------------------------------------------------
  * File Scope Prototypes
  * -------------------------------------------------------------------------
@@ -364,11 +360,6 @@ static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 	else
 		ret_level = therm_pwr_level;
 
-	/* adjust the power level */
-	/* force to lowsvs, minsvs not supported */
-	if (ret_level == POWER_LEVEL_MIN_SVS)
-		ret_level = POWER_LEVEL_LOW_SVS;
-
 	pr_debug("%s therm=%d active=%d uc=%d set level=%d\n", __func__,
 		therm_pwr_level, active_pwr_level, uc_pwr_level, ret_level);
 
@@ -432,9 +423,12 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 
 	if (perf_mode == PERF_MODE_DEFAULT)
-		pwr->uc_pwrlevel = POWER_LEVEL_NOMINAL;
+		pwr->uc_pwrlevel = pwr->default_pwrlevel;
 	else
 		pwr->uc_pwrlevel = perf_mode - 1;
+
+	if (pwr->uc_pwrlevel > pwr->max_pwrlevel)
+		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 
 	return npu_set_power_level(npu_dev);
 }
