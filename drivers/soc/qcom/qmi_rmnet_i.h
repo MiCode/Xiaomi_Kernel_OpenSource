@@ -40,6 +40,9 @@ struct rmnet_bearer_map {
 	u32 grant_thresh;
 	u16 seq;
 	u8  ack_req;
+	u32 grant_before_ps;
+	u16 seq_before_ps;
+	u32 ancillary;
 };
 
 struct svc_info {
@@ -70,11 +73,10 @@ struct flow_info {
 
 struct qmi_info {
 	int flag;
-	int flow_cnt;
-	struct flow_info flow[MAX_FLOW_NUM];
 	void *wda_client;
 	struct fc_info fc_info[MAX_CLIENT_NUM];
-	int active;
+	unsigned long ps_work_active;
+	int ps_enabled;
 };
 
 enum data_ep_type_enum_v01 {
@@ -116,6 +118,8 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
 
+void dfc_qmi_wq_flush(struct qmi_info *qmi);
+
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -143,6 +147,11 @@ static inline void dfc_qmi_client_exit(void *dfc_data)
 static inline void
 dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 		    int ip_type, u32 mark, unsigned int len)
+{
+}
+
+static inline void
+dfc_qmi_wq_flush(struct qmi_info *qmi)
 {
 }
 #endif

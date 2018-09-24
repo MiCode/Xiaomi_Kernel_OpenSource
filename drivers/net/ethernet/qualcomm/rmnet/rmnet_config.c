@@ -221,6 +221,7 @@ static void rmnet_dellink(struct net_device *dev, struct list_head *head)
 		hlist_del_init_rcu(&ep->hlnode);
 		rmnet_unregister_bridge(dev, port);
 		rmnet_vnd_dellink(mux_id, port, ep);
+		synchronize_rcu();
 		kfree(ep);
 	}
 	rmnet_unregister_real_device(real_dev, port);
@@ -244,7 +245,6 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 
 	port = rmnet_get_port_rtnl(dev);
 
-	rcu_read_lock();
 	rmnet_unregister_bridge(dev, port);
 
 	hash_for_each_safe(port->muxed_ep, bkt_ep, tmp_ep, ep, hlnode) {
@@ -252,10 +252,10 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 		rmnet_vnd_dellink(ep->mux_id, port, ep);
 
 		hlist_del_init_rcu(&ep->hlnode);
+		synchronize_rcu();
 		kfree(ep);
 	}
 
-	rcu_read_unlock();
 	unregister_netdevice_many(&list);
 
 	qmi_rmnet_qmi_exit(port->qmi_info, port);
@@ -587,6 +587,24 @@ void  rmnet_clear_powersave_format(void *port)
 	((struct rmnet_port *)port)->data_format &= ~RMNET_INGRESS_FORMAT_PS;
 }
 EXPORT_SYMBOL(rmnet_clear_powersave_format);
+
+void rmnet_enable_all_flows(void *port)
+{
+	struct rmnet_endpoint *ep;
+	unsigned long bkt;
+
+	if (unlikely(!port))
+		return;
+
+	rcu_read_lock();
+	hash_for_each_rcu(((struct rmnet_port *)port)->muxed_ep,
+			  bkt, ep, hlnode) {
+		qmi_rmnet_enable_all_flows(ep->egress_dev);
+	}
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL(rmnet_enable_all_flows);
+
 #endif
 
 /* Startup/Shutdown */

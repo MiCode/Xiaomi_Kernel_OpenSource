@@ -20,6 +20,7 @@
 #ifdef CONFIG_QCOM_QMI_RMNET
 void qmi_rmnet_qmi_exit(void *qmi_pt, void *port);
 void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt);
+void qmi_rmnet_enable_all_flows(struct net_device *dev);
 #else
 static inline void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 {
@@ -29,6 +30,11 @@ static inline void
 qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 {
 }
+
+static inline void
+qmi_rmnet_enable_all_flows(struct net_device *dev)
+{
+}
 #endif
 
 #ifdef CONFIG_QCOM_QMI_DFC
@@ -36,6 +42,7 @@ void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id);
 void qmi_rmnet_qos_exit(struct net_device *dev, void *qos);
 void qmi_rmnet_burst_fc_check(struct net_device *dev,
 			      int ip_type, u32 mark, unsigned int len);
+int qmi_rmnet_get_queue(struct net_device *dev, struct sk_buff *skb);
 #else
 static inline void *
 qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
@@ -52,15 +59,19 @@ qmi_rmnet_burst_fc_check(struct net_device *dev,
 			 int ip_type, u32 mark, unsigned int len)
 {
 }
+
+static inline int qmi_rmnet_get_queue(struct net_device *dev,
+				       struct sk_buff *skb)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
 int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable);
 void qmi_rmnet_work_init(void *port);
 void qmi_rmnet_work_exit(void *port);
-int qmi_rmnet_work_get_active(void *port);
-void qmi_rmnet_work_set_active(void *port, int status);
-void qmi_rmnet_work_restart(void *port);
+void qmi_rmnet_work_maybe_restart(void *port);
 #else
 static inline int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 {
@@ -77,12 +88,7 @@ static inline void qmi_rmnet_work_exit(void *port)
 {
 }
 
-static inline int  qmi_rmnet_work_get_active(void *port)
-{
-	return 0;
-
-}
-static inline void qmi_rmnet_work_set_active(void *port, int status)
+static inline void qmi_rmnet_work_maybe_restart(void *port)
 {
 
 }

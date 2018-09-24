@@ -18,14 +18,15 @@
 
 #include <linux/tracepoint.h>
 
-DECLARE_EVENT_CLASS(dfc_tc,
+TRACE_EVENT(dfc_qmi_tc,
 
-	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
-		 u32 tcm_handle, int enable),
+	TP_PROTO(const char *name, u8 bearer_id, u32 flow_id, u32 grant,
+		 int qlen, u32 tcm_handle, int enable),
 
-	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable),
+	TP_ARGS(name, bearer_id, flow_id, grant, qlen, tcm_handle, enable),
 
 	TP_STRUCT__entry(
+		__string(dev_name, name)
 		__field(u8, bid)
 		__field(u32, fid)
 		__field(u32, grant)
@@ -35,6 +36,7 @@ DECLARE_EVENT_CLASS(dfc_tc,
 	),
 
 	TP_fast_assign(
+		__assign_str(dev_name, name);
 		__entry->bid = bearer_id;
 		__entry->fid = flow_id;
 		__entry->grant = grant;
@@ -43,35 +45,20 @@ DECLARE_EVENT_CLASS(dfc_tc,
 		__entry->enable = enable;
 	),
 
-	TP_printk("bearer_id=%u grant=%u qdisc_len=%d flow_id=%u "
-		  "tcm_handle=0x%x %s",
+	TP_printk("dev=%s bearer_id=%u grant=%u len=%d flow_id=%u q=%d %s",
+		__get_str(dev_name),
 		__entry->bid, __entry->grant, __entry->qlen, __entry->fid,
 		__entry->tcm_handle,
 		__entry->enable ? "enable" : "disable")
 );
 
-DEFINE_EVENT(dfc_tc, dfc_qmi_tc,
-
-	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
-		 u32 tcm_handle, int enable),
-
-	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
-);
-
-DEFINE_EVENT(dfc_tc, dfc_qmi_tc_limit,
-
-	TP_PROTO(u8 bearer_id, u32 flow_id, u32 grant, int qlen,
-		 u32 tcm_handle, int enable),
-
-	TP_ARGS(bearer_id, flow_id, grant, qlen, tcm_handle, enable)
-);
-
 TRACE_EVENT(dfc_flow_ind,
 
 	TP_PROTO(int src, int idx, u8 mux_id, u8 bearer_id, u32 grant,
-		 u16 seq_num, u8 ack_req),
+		 u16 seq_num, u8 ack_req, u32 ancillary),
 
-	TP_ARGS(src, idx, mux_id, bearer_id, grant, seq_num, ack_req),
+	TP_ARGS(src, idx, mux_id, bearer_id, grant, seq_num, ack_req,
+		ancillary),
 
 	TP_STRUCT__entry(
 		__field(int, src)
@@ -81,6 +68,7 @@ TRACE_EVENT(dfc_flow_ind,
 		__field(u32, grant)
 		__field(u16, seq)
 		__field(u8, ack_req)
+		__field(u32, ancillary)
 	),
 
 	TP_fast_assign(
@@ -91,43 +79,49 @@ TRACE_EVENT(dfc_flow_ind,
 		__entry->grant = grant;
 		__entry->seq = seq_num;
 		__entry->ack_req = ack_req;
+		__entry->ancillary = ancillary;
 	),
 
-	TP_printk("src=%d idx[%d]: mux_id=%u bearer_id=%u grant=%u "
-		  "seq_num=%u ack_req=%u",
+	TP_printk("src=%d [%d]: mid=%u bid=%u grant=%u seq=%u ack=%u anc=%u",
 		__entry->src, __entry->idx, __entry->mid, __entry->bid,
-		__entry->grant, __entry->seq, __entry->ack_req)
+		__entry->grant, __entry->seq, __entry->ack_req,
+		__entry->ancillary)
 );
 
 TRACE_EVENT(dfc_flow_check,
 
-	TP_PROTO(u8 bearer_id, unsigned int len, u32 grant),
+	TP_PROTO(const char *name, u8 bearer_id, unsigned int len, u32 grant),
 
-	TP_ARGS(bearer_id, len, grant),
+	TP_ARGS(name, bearer_id, len, grant),
 
 	TP_STRUCT__entry(
+		__string(dev_name, name)
 		__field(u8, bearer_id)
 		__field(unsigned int, len)
 		__field(u32, grant)
 	),
 
 	TP_fast_assign(
+		__assign_str(dev_name, name)
 		__entry->bearer_id = bearer_id;
 		__entry->len = len;
 		__entry->grant = grant;
 	),
 
-	TP_printk("bearer_id=%u skb_len=%u current_grant=%u",
+	TP_printk("dev=%s bearer_id=%u skb_len=%u current_grant=%u",
+		__get_str(dev_name),
 		__entry->bearer_id, __entry->len, __entry->grant)
 );
 
 TRACE_EVENT(dfc_flow_info,
 
-	TP_PROTO(u8 bearer_id, u32 flow_id, int ip_type, u32 handle, int add),
+	TP_PROTO(const char *name, u8 bearer_id, u32 flow_id, int ip_type,
+		 u32 handle, int add),
 
-	TP_ARGS(bearer_id, flow_id, ip_type, handle, add),
+	TP_ARGS(name, bearer_id, flow_id, ip_type, handle, add),
 
 	TP_STRUCT__entry(
+		__string(dev_name, name)
 		__field(u8, bid)
 		__field(u32, fid)
 		__field(int, ip)
@@ -136,6 +130,7 @@ TRACE_EVENT(dfc_flow_info,
 	),
 
 	TP_fast_assign(
+		__assign_str(dev_name, name)
 		__entry->bid = bearer_id;
 		__entry->fid = flow_id;
 		__entry->ip = ip_type;
@@ -143,8 +138,9 @@ TRACE_EVENT(dfc_flow_info,
 		__entry->action = add;
 	),
 
-	TP_printk("%s: bearer_id=%u flow_id=%u ip_type=%d tcm_handle=0x%x",
+	TP_printk("%s: dev=%s bearer_id=%u flow_id=%u ip_type=%d q=%d",
 		__entry->action ? "add flow" : "delete flow",
+		__get_str(dev_name),
 		__entry->bid, __entry->fid, __entry->ip, __entry->handle)
 );
 
