@@ -1054,9 +1054,9 @@
 #define A6XX_RSCC_SEQ_BUSY_DRV0				0x23501
 #define A6XX_RSCC_SEQ_MEM_0_DRV0			0x23580
 #define A6XX_RSCC_TCS0_DRV0_STATUS			0x23746
-#define A6XX_RSCC_TCS1_DRV0_STATUS                      0x238AE
-#define A6XX_RSCC_TCS2_DRV0_STATUS                      0x23A16
-#define A6XX_RSCC_TCS3_DRV0_STATUS                      0x23B7E
+#define A6XX_RSCC_TCS1_DRV0_STATUS                      0x237EE
+#define A6XX_RSCC_TCS2_DRV0_STATUS                      0x23896
+#define A6XX_RSCC_TCS3_DRV0_STATUS                      0x2393E
 
 /* GPU PDC sequencer registers in AOSS.RPMh domain */
 #define PDC_GPU_ENABLE_PDC			0x1140
