@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/device.h>
@@ -63,13 +63,11 @@ struct gmu_iommu_context gmu_ctx[] = {
  *
  * We define an array and a simple allocator to keep track of the currently
  * active SMMU entries of GMU kernel mode context. Each entry is assigned
- * a unique address inside GMU kernel mode address range. The addresses
- * are assigned sequentially and aligned to 1MB each.
- *
+ * a unique address inside GMU kernel mode address range.
  */
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
-static unsigned int num_uncached_entries;
+static unsigned int uncached_alloc_offset;
 
 static void gmu_snapshot(struct kgsl_device *device);
 static void gmu_remove(struct kgsl_device *device);
@@ -199,7 +197,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 		md = &gmu_kmem_entries[entry_idx];
 		md->gmuaddr = gmu_vma[mem_type].start +
-			(num_uncached_entries * SZ_1M);
+			uncached_alloc_offset;
 		set_bit(entry_idx, &gmu_kmem_bitmap);
 		md->size = size;
 		md->mem_type = mem_type;
@@ -252,7 +250,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	}
 
 	if (mem_type == GMU_NONCACHED_KERNEL)
-		num_uncached_entries++;
+		uncached_alloc_offset += md->size;
 
 	return md;
 }
