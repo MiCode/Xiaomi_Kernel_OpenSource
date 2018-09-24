@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/batterydata-lib.h>
 
-int linear_interpolate(int y0, int x0, int y1, int x1, int x)
+int linear_interpolate_bms(int y0, int x0, int y1, int x1, int x)
 {
 	if (y0 == y1 || x == x0)
 		return y0;
@@ -25,7 +25,7 @@ int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 	return y0 + ((y1 - y0) * (x - x0) / (x1 - x0));
 }
 
-static int interpolate_single_lut_scaled(struct single_row_lut *lut,
+static int interpolate_single_lut_scaled_bms(struct single_row_lut *lut,
 						int x, int scale)
 {
 	int i, result;
@@ -47,7 +47,7 @@ static int interpolate_single_lut_scaled(struct single_row_lut *lut,
 	if (x == lut->x[i] * scale) {
 		result = lut->y[i];
 	} else {
-		result = linear_interpolate(
+		result = linear_interpolate_bms(
 			lut->y[i - 1],
 			lut->x[i - 1] * scale,
 			lut->y[i],
@@ -57,14 +57,14 @@ static int interpolate_single_lut_scaled(struct single_row_lut *lut,
 	return result;
 }
 
-int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp)
+int interpolate_fcc_bms(struct single_row_lut *fcc_temp_lut, int batt_temp)
 {
-	return interpolate_single_lut_scaled(fcc_temp_lut,
+	return interpolate_single_lut_scaled_bms(fcc_temp_lut,
 						batt_temp,
 						DEGC_SCALE);
 }
 
-int interpolate_scalingfactor_fcc(struct single_row_lut *fcc_sf_lut,
+int interpolate_scalingfactor_fcc_bms(struct single_row_lut *fcc_sf_lut,
 		int cycles)
 {
 	/*
@@ -72,12 +72,12 @@ int interpolate_scalingfactor_fcc(struct single_row_lut *fcc_sf_lut,
 	 * that case return 100%
 	 */
 	if (fcc_sf_lut)
-		return interpolate_single_lut_scaled(fcc_sf_lut, cycles, 1);
+		return interpolate_single_lut_scaled_bms(fcc_sf_lut, cycles, 1);
 	else
 		return 100;
 }
 
-int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
+int interpolate_scalingfactor_bms(struct sf_lut *sf_lut, int row_entry, int pc)
 {
 	int i, scalefactorrow1, scalefactorrow2, scalefactor, rows, cols;
 	int row1 = 0;
@@ -124,7 +124,7 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 		if (row_entry <= sf_lut->row_entries[i] * DEGC_SCALE)
 			break;
 	if (row_entry == sf_lut->row_entries[i] * DEGC_SCALE) {
-		scalefactor = linear_interpolate(
+		scalefactor = linear_interpolate_bms(
 				sf_lut->sf[row1][i],
 				sf_lut->percent[row1],
 				sf_lut->sf[row2][i],
@@ -133,21 +133,21 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 		return scalefactor;
 	}
 
-	scalefactorrow1 = linear_interpolate(
+	scalefactorrow1 = linear_interpolate_bms(
 				sf_lut->sf[row1][i - 1],
 				sf_lut->row_entries[i - 1] * DEGC_SCALE,
 				sf_lut->sf[row1][i],
 				sf_lut->row_entries[i] * DEGC_SCALE,
 				row_entry);
 
-	scalefactorrow2 = linear_interpolate(
+	scalefactorrow2 = linear_interpolate_bms(
 				sf_lut->sf[row2][i - 1],
 				sf_lut->row_entries[i - 1] * DEGC_SCALE,
 				sf_lut->sf[row2][i],
 				sf_lut->row_entries[i] * DEGC_SCALE,
 				row_entry);
 
-	scalefactor = linear_interpolate(
+	scalefactor = linear_interpolate_bms(
 				scalefactorrow1,
 				sf_lut->percent[row1],
 				scalefactorrow2,
@@ -158,7 +158,7 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 }
 
 /* get ocv given a soc  -- reverse lookup */
-int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_ocv_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp, int pc)
 {
 	int i, ocvrow1, ocvrow2, ocv, rows, cols;
@@ -199,7 +199,7 @@ int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 		if (batt_temp <= pc_temp_ocv->temp[i] * DEGC_SCALE)
 			break;
 	if (batt_temp == pc_temp_ocv->temp[i] * DEGC_SCALE) {
-		ocv = linear_interpolate(
+		ocv = linear_interpolate_bms(
 				pc_temp_ocv->ocv[row1][i],
 				pc_temp_ocv->percent[row1],
 				pc_temp_ocv->ocv[row2][i],
@@ -208,21 +208,21 @@ int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 		return ocv;
 	}
 
-	ocvrow1 = linear_interpolate(
+	ocvrow1 = linear_interpolate_bms(
 				pc_temp_ocv->ocv[row1][i - 1],
 				pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
 				pc_temp_ocv->ocv[row1][i],
 				pc_temp_ocv->temp[i] * DEGC_SCALE,
 				batt_temp);
 
-	ocvrow2 = linear_interpolate(
+	ocvrow2 = linear_interpolate_bms(
 				pc_temp_ocv->ocv[row2][i - 1],
 				pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
 				pc_temp_ocv->ocv[row2][i],
 				pc_temp_ocv->temp[i] * DEGC_SCALE,
 				batt_temp);
 
-	ocv = linear_interpolate(
+	ocv = linear_interpolate_bms(
 				ocvrow1,
 				pc_temp_ocv->percent[row1],
 				ocvrow2,
@@ -232,7 +232,7 @@ int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 	return ocv;
 }
 
-int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_pc_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp, int ocv)
 {
 	int i, j, pcj, pcj_minus_one, pc;
@@ -262,7 +262,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 			if (ocv >= pc_temp_ocv->ocv[i][j]) {
 				if (ocv == pc_temp_ocv->ocv[i][j])
 					return pc_temp_ocv->percent[i];
-				pc = linear_interpolate(
+				pc = linear_interpolate_bms(
 					pc_temp_ocv->percent[i],
 					pc_temp_ocv->ocv[i][j],
 					pc_temp_ocv->percent[i - 1],
@@ -288,7 +288,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 		if (pcj == 0
 			&& is_between(pc_temp_ocv->ocv[i][j],
 				pc_temp_ocv->ocv[i+1][j], ocv)) {
-			pcj = linear_interpolate(
+			pcj = linear_interpolate_bms(
 				pc_temp_ocv->percent[i],
 				pc_temp_ocv->ocv[i][j],
 				pc_temp_ocv->percent[i + 1],
@@ -299,7 +299,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 		if (pcj_minus_one == 0
 			&& is_between(pc_temp_ocv->ocv[i][j-1],
 				pc_temp_ocv->ocv[i+1][j-1], ocv)) {
-			pcj_minus_one = linear_interpolate(
+			pcj_minus_one = linear_interpolate_bms(
 				pc_temp_ocv->percent[i],
 				pc_temp_ocv->ocv[i][j-1],
 				pc_temp_ocv->percent[i + 1],
@@ -308,7 +308,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 		}
 
 		if (pcj && pcj_minus_one) {
-			pc = linear_interpolate(
+			pc = linear_interpolate_bms(
 				pcj_minus_one,
 				pc_temp_ocv->temp[j-1] * DEGC_SCALE,
 				pcj,
@@ -329,7 +329,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 	return 100;
 }
 
-int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+int interpolate_slope_bms(struct pc_temp_ocv_lut *pc_temp_ocv,
 					int batt_temp, int pc)
 {
 	int i, ocvrow1, ocvrow2, rows, cols;
@@ -385,14 +385,14 @@ int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
 			pc_temp_ocv->percent[row2]);
 		return slope;
 	}
-	ocvrow1 = linear_interpolate(
+	ocvrow1 = linear_interpolate_bms(
 			pc_temp_ocv->ocv[row1][i - 1],
 			pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
 			pc_temp_ocv->ocv[row1][i],
 			pc_temp_ocv->temp[i] * DEGC_SCALE,
 			batt_temp);
 
-	ocvrow2 = linear_interpolate(
+	ocvrow2 = linear_interpolate_bms(
 			pc_temp_ocv->ocv[row2][i - 1],
 				pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
 				pc_temp_ocv->ocv[row2][i],
@@ -411,7 +411,7 @@ int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
 }
 
 
-int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
+int interpolate_acc_bms(struct ibat_temp_acc_lut *ibat_acc_lut,
 					int batt_temp, int ibat)
 {
 	int i, accrow1, accrow2, rows, cols;
@@ -457,7 +457,7 @@ int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
 			break;
 
 	if (batt_temp == (ibat_acc_lut->temp[i] * DEGC_SCALE)) {
-		acc = linear_interpolate(
+		acc = linear_interpolate_bms(
 			ibat_acc_lut->acc[row1][i],
 			ibat_acc_lut->ibat[row1],
 			ibat_acc_lut->acc[row2][i],
@@ -466,21 +466,21 @@ int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
 		return acc;
 	}
 
-	accrow1 = linear_interpolate(
+	accrow1 = linear_interpolate_bms(
 		ibat_acc_lut->acc[row1][i - 1],
 		ibat_acc_lut->temp[i - 1] * DEGC_SCALE,
 		ibat_acc_lut->acc[row1][i],
 		ibat_acc_lut->temp[i] * DEGC_SCALE,
 		batt_temp);
 
-	accrow2 = linear_interpolate(
+	accrow2 = linear_interpolate_bms(
 		ibat_acc_lut->acc[row2][i - 1],
 		ibat_acc_lut->temp[i - 1] * DEGC_SCALE,
 		ibat_acc_lut->acc[row2][i],
 		ibat_acc_lut->temp[i] * DEGC_SCALE,
 		batt_temp);
 
-	acc = linear_interpolate(accrow1,
+	acc = linear_interpolate_bms(accrow1,
 			ibat_acc_lut->ibat[row1],
 			accrow2,
 			ibat_acc_lut->ibat[row2],
