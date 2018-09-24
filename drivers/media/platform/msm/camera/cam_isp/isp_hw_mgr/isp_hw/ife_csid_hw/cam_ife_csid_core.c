@@ -1525,6 +1525,15 @@ static int cam_ife_csid_init_config_pxl_path(
 			pxl_reg->csid_pxl_vcrop_addr);
 		CAM_DBG(CAM_ISP, "CSID:%d Vertical Crop config val: 0x%x",
 			csid_hw->hw_intf->hw_idx, val);
+
+		/* Enable generating early eof strobe based on crop config */
+		if (!(csid_hw->csid_debug & CSID_DEBUG_DISABLE_EARLY_EOF)) {
+			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+				pxl_reg->csid_pxl_cfg0_addr);
+			val |= (1 << pxl_reg->early_eof_en_shift_val);
+			cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+				pxl_reg->csid_pxl_cfg0_addr);
+		}
 	}
 
 	/* set frame drop pattern to 0 and period to 1 */
