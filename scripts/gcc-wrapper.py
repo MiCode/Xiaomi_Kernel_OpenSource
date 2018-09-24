@@ -43,6 +43,7 @@ allowed_warnings = set([
     "umid.c:388",
     "shash.c:92",
     "shash.c:128",
+    "smp.c:177",
  ])
 
 # Capture the name of the object file, can find it.
