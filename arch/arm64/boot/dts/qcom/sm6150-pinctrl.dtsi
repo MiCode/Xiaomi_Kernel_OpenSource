@@ -122,7 +122,7 @@
 				config {
 					pins = "gpio4", "gpio5";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-no-pull;
 				};
 			};
 		};
