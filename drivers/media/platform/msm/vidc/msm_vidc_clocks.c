@@ -932,6 +932,12 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 			break;
 		}
 	}
+
+	if (!inst->clk_data.entry) {
+		dprintk(VIDC_ERR, "%s No match found\n", __func__);
+		rc = -EINVAL;
+	}
+
 	return rc;
 }
 

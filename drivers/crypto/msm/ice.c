@@ -31,7 +31,8 @@
 #else
 #include <linux/bio.h>
 static inline int pfk_load_key_start(const struct bio *bio,
-	struct ice_crypto_setting *ice_setting, bool *is_pfe, bool async)
+	struct ice_crypto_setting *ice_setting, bool *is_pfe,
+	bool async, int ice_ver)
 {
 	return 0;
 }
@@ -132,14 +133,10 @@ static int ice_fde_flag;
 static struct ice_crypto_setting ice_data;
 
 static int qti_ice_setting_config(struct request *req,
-		struct platform_device *pdev,
+		struct ice_device *ice_dev,
 		struct ice_crypto_setting *crypto_data,
 		struct ice_data_setting *setting)
 {
-	struct ice_device *ice_dev = NULL;
-
-	ice_dev = platform_get_drvdata(pdev);
-
 	if (!ice_dev) {
 		pr_debug("%s no ICE device\n", __func__);
 
@@ -1477,12 +1474,19 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 	sector_t data_size;
 	union map_info *info;
 	unsigned long sec_end = 0;
+	struct ice_device *ice_dev = NULL;
+	int ice_rev = 0;
 
 	if (!pdev || !req) {
 		pr_err("%s: Invalid params passed\n", __func__);
 		return -EINVAL;
 	}
 
+	ice_dev = platform_get_drvdata(pdev);
+	if (!ice_dev) {
+		pr_err("%s: no ICE device\n", __func__);
+		return 0;
+	}
 	/*
 	 * It is not an error to have a request with no  bio
 	 * Such requests must bypass ICE. So first set bypass and then
@@ -1497,9 +1501,11 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		/* It is not an error to have a request with no  bio */
 		return 0;
 	}
-    //pr_err("%s bio is %pK\n", __func__, req->bio);
 
-	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
+	ice_rev = ICE_REV(ice_dev->ice_hw_version, MAJOR);
+
+	ret = pfk_load_key_start(req->bio, &pfk_crypto_data,
+				&is_pfe, async, ice_rev);
 	if (is_pfe) {
 		if (ret) {
 			if (ret != -EBUSY && ret != -EAGAIN)
@@ -1508,7 +1514,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 			return ret;
 		}
 
-		return qti_ice_setting_config(req, pdev,
+		return qti_ice_setting_config(req, ice_dev,
 				&pfk_crypto_data, setting);
 	}
 
@@ -1526,7 +1532,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 							__func__);
 				return -EINVAL;
 			}
-			return qti_ice_setting_config(req, pdev,
+			return qti_ice_setting_config(req, ice_dev,
 						crypto_data, setting);
 		}
 		return 0;
@@ -1548,8 +1554,8 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 				if ((req->__sector + data_size) > sec_end)
 					return 0;
 				else
-					return qti_ice_setting_config(req, pdev,
-						&ice_data, setting);
+					return qti_ice_setting_config(req,
+						ice_dev, &ice_data, setting);
 			}
 		}
 	}

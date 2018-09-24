@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,4 +32,26 @@ int cam_common_util_get_string_index(const char **strings,
 	}
 
 	return -EINVAL;
+}
+
+uint32_t cam_common_util_remove_duplicate_arr(int32_t *arr, uint32_t num)
+{
+	int i, j;
+	uint32_t wr_idx = 1;
+
+	if (!arr) {
+		CAM_ERR(CAM_UTIL, "Null input array");
+		return 0;
+	}
+
+	for (i = 1; i < num; i++) {
+		for (j = 0; j < wr_idx ; j++) {
+			if (arr[i] == arr[j])
+				break;
+		}
+		if (j == wr_idx)
+			arr[wr_idx++] = arr[i];
+	}
+
+	return wr_idx;
 }

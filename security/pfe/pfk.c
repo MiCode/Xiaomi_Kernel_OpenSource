@@ -347,7 +347,7 @@ static int pfk_get_key_for_bio(const struct bio *bio,
  */
 int pfk_load_key_start(const struct bio *bio,
 		struct ice_crypto_setting *ice_setting, bool *is_pfe,
-		bool async)
+		bool async, int ice_rev)
 {
 	int ret = 0;
 	struct pfk_key_info key_info = {NULL, NULL, 0, 0};
@@ -388,7 +388,7 @@ int pfk_load_key_start(const struct bio *bio,
 
 	ret = pfk_kc_load_key_start(key_info.key, key_info.key_size,
 			key_info.salt, key_info.salt_size, &key_index, async,
-			data_unit);
+			data_unit, ice_rev);
 	if (ret) {
 		if (ret != -EBUSY && ret != -EAGAIN)
 			pr_err("start: could not load key into pfk key cache, error %d\n",
