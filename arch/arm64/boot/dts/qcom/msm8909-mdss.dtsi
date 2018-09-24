@@ -28,6 +28,21 @@
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
 
+		qcom,regs-dump-mdp =    <0x0300 0x0358>,
+					<0x10000 0x101E0>,
+					<0x20004 0x0020044>,
+					<0x90000 0x90074>;
+		qcom,regs-dump-names-mdp =      "MDP_SYNC",
+						"PPP","PPP_FETCH",
+						"DMA_P";
+
+		qcom,regs-dump-vbif =   <0x0004 0x0010>,
+					<0x0194 0x01b0>,
+					<0x0200 0x020c>;
+
+		qcom,regs-dump-names-vbif =     "VBIF_CLK",
+						"VBIF_ERR","VBIF_XIN_HALT";
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
