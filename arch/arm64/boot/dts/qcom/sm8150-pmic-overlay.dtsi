@@ -79,6 +79,7 @@
 };
 
 &pm8150b_charger {
+	dpdm-supply = <&usb2_phy0>;
 	smb5_vconn: qcom,smb5-vconn {
 		regulator-name = "smb5-vconn";
 	};
