@@ -17,17 +17,6 @@ CFLAGS_REMOVE_cgroup-debug.o = -pg
 CFLAGS_REMOVE_irq_work.o = -pg
 endif
 
-# Prevents flicker of uninteresting __do_softirq()/__local_bh_disable_ip()
-# in coverage traces.
-KCOV_INSTRUMENT_softirq.o := n
-# These are called from save_stack_trace() on slub debug path,
-# and produce insane amounts of uninteresting coverage.
-KCOV_INSTRUMENT_module.o := n
-KCOV_INSTRUMENT_extable.o := n
-# Don't self-instrument.
-KCOV_INSTRUMENT_kcov.o := n
-KASAN_SANITIZE_kcov.o := n
-
 # cond_syscall is currently not LTO compatible
 CFLAGS_sys_ni.o = $(DISABLE_LTO)
 
@@ -76,7 +65,6 @@ obj-$(CONFIG_AUDITSYSCALL) += auditsc.o
 obj-$(CONFIG_AUDIT_WATCH) += audit_watch.o
 obj-$(CONFIG_AUDIT_TREE) += audit_tree.o
 obj-$(CONFIG_GCOV_KERNEL) += gcov/
-obj-$(CONFIG_KCOV) += kcov.o
 obj-$(CONFIG_KPROBES) += kprobes.o
 obj-$(CONFIG_KGDB) += debug/
 obj-$(CONFIG_DETECT_HUNG_TASK) += hung_task.o
