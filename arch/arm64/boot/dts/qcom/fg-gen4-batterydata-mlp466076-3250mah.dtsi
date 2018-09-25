@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-qcom,mlp466076_3250mah_averaged_masterslave_mar27th2018 {
-	/* #mlp466076_3250mAh_averaged_MasterSlave_Mar27th2018 */
+qcom,mlp466076_3250mah_averaged_masterslave_sept24th2018 {
+	/* #mlp466076_3250mAh_averaged_MasterSlave_sept24th2018 */
 	qcom,max-voltage-uv = <4400000>;
 	qcom,fastchg-current-ma = <6000>;
 	/* COLD = 0 DegC, HOT = 55 DegC */
@@ -29,115 +29,117 @@ qcom,mlp466076_3250mah_averaged_masterslave_mar27th2018 {
 	qcom,battery-beta = <4250>;
 	qcom,therm-room-temp = <100000>;
 	qcom,fg-cc-cv-threshold-mv = <4390>;
-	qcom,battery-type = "mlp466076_3250mah_mar27th2018";
+	qcom,battery-type = "qrd855_mlp466076_3200mah_sept24th2018";
 	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
 	qcom,therm-center-offset = <0x70>;
-	qcom,checksum = <0xC5FF>;
-	qcom,gui-version = "PM8150GUI - 0.0.0.32";
+	qcom,rslow-normal-coeffs = <0x43 0xfc 0xc9 0x12>;
+	qcom,rslow-low-coeffs = <0x07 0x15 0x8d 0xf5>;
+	qcom,checksum = <0x7F72>;
+	qcom,gui-version = "PM8150GUI - 1.0.0.10";
 	qcom,fg-profile-data = [
-		 09 00 31 EA
-		 85 C4 5A BA
-		 33 AA 00 00
-		 EE BC 66 8B
-		 F6 87 AC 95
-		 78 9A D2 87
-		 2F 00 6C 0C
-		 EF 02 B0 04
-		 41 02 CE 07
-		 00 00 A6 00
-		 70 07 CD 06
-		 64 14 66 25
-		 55 1C 06 0A
-		 E8 3A C0 43
-		 40 00 37 00
-		 40 00 4D 00
-		 41 00 33 00
-		 38 00 3B 00
-		 43 00 4C 00
-		 40 00 40 00
-		 3E 00 3B 00
-		 34 00 32 00
-		 2F 00 56 00
-		 4A 64 42 00
-		 49 00 40 08
-		 40 00 36 00
-		 36 00 40 10
-		 3C 10 36 00
-		 64 28 4A 48
-		 3E 60 39 0C
-		 40 00 D8 00
-		 66 20 C1 0C
-		 C7 02 61 FE
-		 2A 1C EA 0B
-		 5A 0D A2 22
-		 F6 17 3A 42
-		 2E 55 7F 02
-		 71 13 47 20
-		 B9 04 2E 0B
-		 9E 05 D4 1C
-		 D5 03 F7 05
-		 4D 02 8C 18
-		 D4 22 B5 45
-		 90 52 7F 14
-		 AE 20 60 04
-		 68 CB 66 AD
-		 DC 1C 7C D1
-		 B1 05 D3 BA
-		 78 18 AA 8A
-		 FD 85 18 92
-		 8F A0 09 80
-		 43 00 82 FC
-		 33 03 25 02
-		 00 F8 FE EC
-		 F4 DB F1 F7
-		 68 0B EA 14
-		 71 20 20 18
-		 A6 1E BD 03
-		 C8 05 54 01
+		 09 00 53 00
+		 77 DD 12 E2
+		 E4 DD 00 00
+		 49 BC 7B 8B
+		 F9 87 5A 9A
+		 A8 86 C3 87
+		 29 00 43 FC
+		 C9 12 DC 04
+		 75 FB CE 07
+		 32 00 43 EB
+		 7A ED B9 B5
+		 EF 0A C4 E2
+		 2B BC EF 0B
+		 40 02 5C DB
+		 60 00 46 00
+		 49 00 48 00
+		 3B 00 30 00
+		 30 00 37 00
+		 41 00 43 00
+		 45 00 60 00
+		 40 00 3A 00
+		 36 00 36 00
+		 33 00 5B 00
+		 4F 64 4A 00
+		 4F 08 4F 08
+		 60 F8 4D 00
+		 4A 00 5A 08
+		 59 08 4E 00
+		 93 20 6A 40
+		 59 58 52 10
+		 59 00 D8 08
+		 6A 21 E7 0D
+		 42 03 1F FC
+		 5B 1C 1C 03
+		 3A 04 8B 23
+		 FB 17 7A 3B
+		 B1 4C 31 02
+		 85 15 3A 21
+		 DB 0D E5 0B
+		 F7 04 E0 1C
+		 4D FB F6 04
+		 8B 03 7E 18
+		 9C 22 29 3C
+		 E3 4B 8C 16
+		 F6 20 FE ED
+		 C5 D3 01 D5
+		 D5 1C 03 CB
+		 AF 05 DD BA
+		 60 18 87 92
+		 73 84 70 9B
+		 8F 98 09 80
+		 67 FA 62 05
+		 58 03 C9 04
+		 00 00 1A E4
+		 C1 02 E9 0F
+		 E0 EB 80 A2
+		 6C 1F 1C 10
+		 93 04 29 02
+		 8D 04 6F 02
 		 CE 07 32 00
-		 15 03 4D 02
-		 90 02 35 04
-		 01 03 1D 03
-		 47 03 DB 02
-		 52 05 40 00
-		 3B 00 3E 00
-		 3F 64 40 00
-		 41 00 3E 08
-		 43 F8 40 00
-		 40 08 40 10
-		 40 10 36 00
-		 3F 28 42 48
-		 42 60 47 0C
-		 38 00 39 00
-		 3F 08 40 00
-		 40 00 40 00
-		 2F 10 3D 10
-		 3B 00 42 20
-		 53 40 37 58
-		 3D 0E 41 00
-		 40 00 40 08
-		 D8 00 28 20
-		 94 05 44 0A
-		 23 0D 8F 1C
-		 08 22 3D 45
-		 C4 52 4F 18
-		 41 02 26 05
-		 86 02 6A 11
-		 3F 0A EA 1F
-		 59 05 BC 02
-		 FA 05 A2 1C
-		 77 03 92 05
-		 A5 02 84 18
-		 A0 03 34 04
-		 C6 02 67 00
-		 E9 1F 2B 05
-		 FE 02 A8 05
-		 C4 1C 83 02
-		 F1 04 66 03
-		 A6 18 FC 02
-		 65 05 28 03
-		 71 00 61 01
+		 C3 01 CA 02
+		 6F 07 4A 03
+		 03 05 EC 04
+		 3E 04 71 04
+		 CD 02 4A 00
+		 3D 00 40 00
+		 42 64 44 00
+		 43 00 47 08
+		 44 00 4B 00
+		 50 00 4F 10
+		 46 10 3C 00
+		 45 20 48 40
+		 48 58 4D 0E
+		 48 00 40 00
+		 46 08 5E 00
+		 61 00 48 00
+		 43 08 59 08
+		 5B 00 5F 20
+		 74 40 5F 50
+		 53 10 5B 00
+		 70 00 E6 08
+		 D8 00 DD 20
+		 9A 04 2B 0B
+		 97 0D C7 1C
+		 55 23 E3 45
+		 1B 52 89 18
+		 B9 03 18 04
+		 DB 02 74 12
+		 3F 0A D4 20
+		 4A 04 8A 03
+		 32 05 C8 1C
+		 DF 02 66 04
+		 C4 03 A7 18
+		 2F 03 10 05
+		 C6 03 76 00
+		 D0 20 31 04
+		 AA 03 0E 05
+		 D3 1C 33 02
+		 A2 05 91 02
+		 AB 18 D6 02
+		 A7 05 B2 02
+		 7F 00 7F 01
 		 C0 00 FA 00
-		 38 0D 00 00
+		 F2 0C 00 00
 	];
 };
