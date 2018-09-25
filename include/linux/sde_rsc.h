@@ -48,6 +48,22 @@
 #define SDE_RSC_EVENT_SOLVER_DISABLED 0x20
 
 /**
+ * sde_rsc_client_type: sde rsc client type information
+ * SDE_RSC_PRIMARY_DISP_CLIENT:	A primary display client which can request
+ *				vid or cmd state switch.
+ * SDE_RSC_EXTERNAL_DISPLAY_CLIENT:An external display client which can
+ *                              request only clk state switch.
+ * SDE_RSC_CLK_CLIENT:		A clk client request for only rsc clocks
+ *				enabled and mode_2 exit state.
+ */
+enum sde_rsc_client_type {
+	SDE_RSC_PRIMARY_DISP_CLIENT,
+	SDE_RSC_EXTERNAL_DISP_CLIENT,
+	SDE_RSC_CLK_CLIENT,
+	SDE_RSC_INVALID_CLIENT,
+};
+
+/**
  * sde_rsc_state: sde rsc state information
  * SDE_RSC_IDLE_STATE: A client requests for idle state when there is no
  *                    pixel or cmd transfer expected. An idle vote from
@@ -75,6 +91,7 @@ enum sde_rsc_state {
  * @crtc_id:		crtc_id associated with this rsc client.
  * @rsc_index:	rsc index of a client - only index "0" valid.
  * @id:		Index of client. It will be assigned during client_create call
+ * @client_type: check sde_rsc_client_type information
  * @list:	list to attach client master list
  */
 struct sde_rsc_client {
@@ -83,6 +100,7 @@ struct sde_rsc_client {
 	int crtc_id;
 	u32 rsc_index;
 	u32 id;
+	enum sde_rsc_client_type client_type;
 	struct list_head list;
 };
 
@@ -133,16 +151,14 @@ struct sde_rsc_cmd_config {
  *               SDE_RSC_INDEX is valid rsc index.
  * @name:	 Caller needs to provide some valid string to identify
  *               the client. "primary", "dp", "hdmi" are suggested name.
- * @is_primary:	 Caller needs to provide information if client is primary
- *               or not. Primary client votes will be redirected to
- *               display rsc.
- * @config:	 fps, vtotal, porches, etc configuration for command mode
- *               panel
+ * @client_type: check client_type enum for information
+ * @vsync_source: This parameter is only valid for primary display. It provides
+ *               vsync source information
  *
  * Return: client node pointer.
  */
 struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *name,
-		bool is_primary_display);
+	enum sde_rsc_client_type client_type, u32 vsync_source);
 
 /**
  * sde_rsc_client_destroy() - Destroy the sde rsc client.
@@ -209,7 +225,7 @@ bool sde_rsc_client_is_state_update_complete(
 		struct sde_rsc_client *caller_client);
 
 /**
- * sde_rsc_client_vote() - ab/ib vote from rsc client
+ * sde_rsc_client_vote() - stores ab/ib vote for rsc client
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
  * @bus_id:	 data bus identifier
@@ -257,10 +273,21 @@ bool is_sde_rsc_available(int rsc_index);
  */
 enum sde_rsc_state get_sde_rsc_current_state(int rsc_index);
 
+/**
+ * sde_rsc_client_trigger_vote() - triggers ab/ib vote for rsc client
+ *
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ * @delta_vote:  if bw vote is increased or decreased
+ *
+ * Return: error code.
+ */
+int sde_rsc_client_trigger_vote(struct sde_rsc_client *caller_client,
+	bool delta_vote);
+
 #else
 
 static inline struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index,
-		char *name, bool is_primary_display)
+	char *name, enum sde_rsc_client_type client_type, u32 vsync_source)
 {
 	return NULL;
 }
@@ -320,6 +347,12 @@ static inline bool is_sde_rsc_available(int rsc_index)
 static inline enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
 {
 	return SDE_RSC_IDLE_STATE;
+}
+
+static inline int sde_rsc_client_trigger_vote(
+	struct sde_rsc_client *caller_client, bool delta_vote)
+{
+	return 0;
 }
 #endif /* CONFIG_DRM_SDE_RSC */
 
