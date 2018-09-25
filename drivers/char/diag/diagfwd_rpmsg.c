@@ -499,7 +499,6 @@ static void diag_rpmsg_close_work_fn(struct work_struct *work)
 							close_work);
 	if (!rpmsg_info || !rpmsg_info->inited || !rpmsg_info->hdl)
 		return;
-	atomic_set(&rpmsg_info->opened, 0);
 	rpmsg_info->hdl = NULL;
 	diagfwd_channel_close(rpmsg_info->fwd_ctxt);
 }
@@ -770,8 +769,10 @@ static void diag_rpmsg_remove(struct rpmsg_device *rpdev)
 		return;
 
 	rpmsg_info = diag_get_rpmsg_ptr(rpdev->id.name);
-	if (rpmsg_info)
+	if (rpmsg_info) {
+		atomic_set(&rpmsg_info->opened, 0);
 		queue_work(rpmsg_info->wq, &rpmsg_info->close_work);
+	}
 }
 
 static struct rpmsg_device_id rpmsg_diag_table[] = {
