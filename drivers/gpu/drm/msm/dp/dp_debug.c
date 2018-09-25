@@ -1079,7 +1079,14 @@ static ssize_t dp_debug_write_sim(struct file *file,
 
 		if (dp_debug_get_dpcd_buf(debug))
 			goto error;
+
+		debug->dp_debug.sim_mode = true;
+		debug->aux->set_sim_mode(debug->aux, true,
+			debug->edid, debug->dpcd);
 	} else {
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->dp_debug.sim_mode = false;
+
 		if (debug->edid) {
 			devm_kfree(debug->dev, debug->edid);
 			debug->edid = NULL;
@@ -1090,11 +1097,6 @@ static ssize_t dp_debug_write_sim(struct file *file,
 			debug->dpcd = NULL;
 		}
 	}
-
-	debug->dp_debug.sim_mode = !!sim;
-
-	debug->aux->set_sim_mode(debug->aux, debug->dp_debug.sim_mode,
-			debug->edid, debug->dpcd);
 end:
 	return len;
 error:
