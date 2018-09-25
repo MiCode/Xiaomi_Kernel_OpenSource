@@ -1989,20 +1989,17 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				  || (smmu_state->state == DETACH_SEC_REQ)))) {
 			smmu_state->state = catalog->sui_ns_allowed ?
 						ATTACH_SEC_REQ : ATTACH_ALL_REQ;
-			smmu_state->secure_level = secure_level;
 			smmu_state->transition_type = post_commit ?
 						POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
-				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
-						SDE_KMS_OPS_CLEANUP_PLANE_FB);
+				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
 			if (catalog->sui_misr_supported)
 				smmu_state->sui_misr_state =
 						SUI_MISR_DISABLE_REQ;
 		} else if ((smmu_state->state == DETACHED_SEC)
 				|| (smmu_state->state == DETACH_SEC_REQ)) {
 			smmu_state->state = ATTACH_SEC_REQ;
-			smmu_state->secure_level = secure_level;
 			smmu_state->transition_type = post_commit ?
 						POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
@@ -2019,9 +2016,9 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 
 	/* log only during actual transition times */
 	if (ops) {
-		SDE_DEBUG("crtc%d: state %d, secure_level %d, type %d ops %x\n",
+		SDE_DEBUG("crtc%d: state%d sec%d sec_lvl%d type%d ops%x\n",
 			DRMID(crtc), smmu_state->state,
-			smmu_state->secure_level,
+			secure_level, smmu_state->secure_level,
 			smmu_state->transition_type, ops);
 		SDE_EVT32(DRMID(crtc), secure_level, translation_mode,
 				smmu_state->state, smmu_state->transition_type,

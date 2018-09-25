@@ -658,8 +658,10 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	case ATTACH_ALL_REQ:
 		ret = _sde_kms_attach_all_cb(sde_kms, VMID_CP_PIXEL);
-		if (!ret)
+		if (!ret) {
 			smmu_state->state = ATTACHED;
+			smmu_state->secure_level = SDE_DRM_SEC_NON_SEC;
+		}
 		break;
 
 	case DETACH_SEC_REQ:
@@ -673,8 +675,10 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	case ATTACH_SEC_REQ:
 		ret = _sde_kms_attach_sec_cb(sde_kms, VMID_CP_PIXEL);
-		if (!ret)
+		if (!ret) {
 			smmu_state->state = ATTACHED;
+			smmu_state->secure_level = SDE_DRM_SEC_NON_SEC;
+		}
 		break;
 
 	default:
@@ -698,8 +702,9 @@ end:
 	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
 
-	SDE_DEBUG("crtc %d: old_state %d, new_state %d, ret %d\n",
-			DRMID(crtc), old_smmu_state, smmu_state->state, ret);
+	SDE_DEBUG("crtc %d: old_state %d, new_state %d, sec_lvl %d, ret %d\n",
+			DRMID(crtc), old_smmu_state, smmu_state->state,
+			smmu_state->secure_level, ret);
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
 			smmu_state->transition_error, smmu_state->secure_level,
 			smmu_state->sui_misr_state, ret, SDE_EVTLOG_FUNC_EXIT);
