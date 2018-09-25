@@ -79,6 +79,7 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 	vma = find_vma(current->mm, address);
 	if (!vma || !vma->vm_file) {
 		pr_err("cannot find vma\n");
+		rc = -EBADF;
 		goto err;
 	}
 
@@ -86,6 +87,7 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 	fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
 	if (fd == 0) {
 		pr_err("iterate_fd failed\n");
+		rc = -EBADF;
 		goto err;
 	}
 
@@ -93,10 +95,16 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 	page_offset = offset/PAGE_SIZE;
 
 	dmabuf = dma_buf_get(fd - 1);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		pr_err("dma_buf_get failed fd %d ret %pK\n", fd, dmabuf);
+		rc = -EBADF;
+		goto err;
+	}
 
 	attach = dma_buf_attach(dmabuf, hab_driver.dev);
 	if (IS_ERR_OR_NULL(attach)) {
 		pr_err("dma_buf_attach failed\n");
+		rc = -EBADF;
 		goto err;
 	}
 
@@ -104,6 +112,7 @@ static int habmem_get_dma_pages_from_va(unsigned long address,
 
 	if (IS_ERR_OR_NULL(sg_table)) {
 		pr_err("dma_buf_map_attachment failed\n");
+		rc = -EBADF;
 		goto err;
 	}
 
@@ -154,12 +163,16 @@ static int habmem_get_dma_pages_from_fd(int32_t fd,
 	int i, j, rc = 0;
 
 	dmabuf = dma_buf_get(fd);
-	if (IS_ERR(dmabuf))
-		return PTR_ERR(dmabuf);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		pr_err("dma_buf_get failed fd %d ret %pK\n", fd, dmabuf);
+		rc = -EBADF;
+		goto err;
+	}
 
 	attach = dma_buf_attach(dmabuf, hab_driver.dev);
 	if (IS_ERR_OR_NULL(attach)) {
 		pr_err("dma_buf_attach failed\n");
+		rc = -EBADF;
 		goto err;
 	}
 
@@ -167,6 +180,7 @@ static int habmem_get_dma_pages_from_fd(int32_t fd,
 
 	if (IS_ERR_OR_NULL(sg_table)) {
 		pr_err("dma_buf_map_attachment failed\n");
+		rc = -EBADF;
 		goto err;
 	}
 
