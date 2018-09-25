@@ -1302,6 +1302,12 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 		}
 	}
 
+	if (index != splash_data->num_splash_displays) {
+		SDE_DEBUG("mismatch active displays vs actually enabled :%d/%d",
+				splash_data->num_splash_displays, index);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
