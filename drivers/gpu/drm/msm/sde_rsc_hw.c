@@ -103,9 +103,6 @@
 #define SDE_RSC_MODE_1_VAL		1
 #define MAX_MODE2_ENTRY_TRY		3
 
-#define SDE_RSC_REV_1			0x1
-#define SDE_RSC_REV_2			0x2
-
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
 	struct sde_rsc_event *event;

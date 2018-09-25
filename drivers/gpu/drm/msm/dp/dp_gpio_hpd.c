@@ -151,8 +151,7 @@ static void dp_gpio_hpd_work(struct work_struct *work)
 	}
 }
 
-static int dp_gpio_hpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd,
-		int orientation)
+static int dp_gpio_hpd_simulate_connect(struct dp_hpd *dp_hpd, bool hpd)
 {
 	int rc = 0;
 	struct dp_gpio_hpd_private *gpio_hpd;
