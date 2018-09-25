@@ -215,14 +215,11 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 
 	atomic_set(&(mhi_info->read_ch.opened), 0);
 	atomic_set(&(mhi_info->write_ch.opened), 0);
+
+	flush_workqueue(mhi_info->mhi_wq);
+
 	if (close_flag == CLOSE_CHANNELS)
 		mhi_unprepare_from_transfer(mhi_info->mhi_dev);
-
-	if (!(atomic_read(&(mhi_info->read_ch.opened))))
-		flush_workqueue(mhi_info->mhi_wq);
-
-	if (!(atomic_read(&(mhi_info->write_ch.opened))))
-		flush_workqueue(mhi_info->mhi_wq);
 
 	mhi_buf_tbl_clear(mhi_info);
 	diag_remote_dev_close(mhi_info->dev_id);
