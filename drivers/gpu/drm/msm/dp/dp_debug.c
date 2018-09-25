@@ -593,6 +593,56 @@ static ssize_t dp_debug_read_connected(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_write_hdcp(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	int hdcp = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &hdcp) != 0)
+		goto end;
+
+	debug->dp_debug.hdcp_disabled = !hdcp;
+end:
+	return len;
+}
+
+static ssize_t dp_debug_read_hdcp(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = sizeof(debug->dp_debug.hdcp_status);
+
+	if (copy_to_user(user_buff, debug->dp_debug.hdcp_status, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
 static int dp_debug_check_buffer_overflow(int rc, int *max_size, int *len)
 {
 	if (rc >= *max_size) {
@@ -1232,6 +1282,12 @@ static const struct file_operations max_pclk_khz_fops = {
 	.read = dp_debug_max_pclk_khz_read,
 };
 
+static const struct file_operations hdcp_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_hdcp,
+	.read = dp_debug_read_hdcp,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1404,6 +1460,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs force_encryption failed, rc=%d\n",
 		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("hdcp", 0644, dir,
+					debug, &hdcp_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs hdcp failed, rc=%d\n",
+			DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 

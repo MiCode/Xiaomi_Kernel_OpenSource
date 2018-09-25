@@ -43,14 +43,19 @@
 static struct dp_display *g_dp_display;
 #define HPD_STRING_SIZE 30
 
+struct dp_hdcp_dev {
+	void *fd;
+	struct sde_hdcp_ops *ops;
+	enum sde_hdcp_version ver;
+};
+
 struct dp_hdcp {
 	void *data;
 	struct sde_hdcp_ops *ops;
 
-	void *hdcp1;
-	void *hdcp2;
+	u32 source_cap;
 
-	bool feature_enabled;
+	struct dp_hdcp_dev dev[HDCP_VERSION_MAX];
 };
 
 struct dp_mst {
@@ -116,8 +121,7 @@ static bool dp_display_framework_ready(struct dp_display_private *dp)
 
 static inline bool dp_display_is_hdcp_enabled(struct dp_display_private *dp)
 {
-	return dp->hdcp.feature_enabled && dp->link->hdcp_status.hdcp_version
-		&& dp->hdcp.ops;
+	return dp->link->hdcp_status.hdcp_version && dp->hdcp.ops;
 }
 
 static irqreturn_t dp_display_irq(int irq, void *dev_id)
@@ -162,16 +166,83 @@ static bool dp_display_is_ready(struct dp_display_private *dp)
 		dp->hpd->alt_mode_cfg_done;
 }
 
+static void dp_display_update_hdcp_status(struct dp_display_private *dp,
+					bool reset)
+{
+	if (reset) {
+		dp->link->hdcp_status.hdcp_state = HDCP_STATE_INACTIVE;
+		dp->link->hdcp_status.hdcp_version = HDCP_VERSION_NONE;
+	}
+
+	memset(dp->debug->hdcp_status, 0, sizeof(dp->debug->hdcp_status));
+
+	snprintf(dp->debug->hdcp_status, sizeof(dp->debug->hdcp_status),
+		"%s: %s\ncaps: %d\n",
+		sde_hdcp_version(dp->link->hdcp_status.hdcp_version),
+		sde_hdcp_state_name(dp->link->hdcp_status.hdcp_state),
+		dp->hdcp.source_cap);
+}
+
+static void dp_display_update_hdcp_info(struct dp_display_private *dp)
+{
+	void *fd = NULL;
+	struct dp_hdcp_dev *dev = NULL;
+	struct sde_hdcp_ops *ops = NULL;
+	int i = HDCP_VERSION_2P2;
+
+	dp_display_update_hdcp_status(dp, true);
+
+	dp->hdcp.data = NULL;
+	dp->hdcp.ops = NULL;
+
+	if (dp->debug->hdcp_disabled || dp->debug->sim_mode)
+		return;
+
+	while (i) {
+		dev = &dp->hdcp.dev[i];
+		ops = dev->ops;
+		fd = dev->fd;
+
+		i >>= 1;
+
+		if (!(dp->hdcp.source_cap & dev->ver))
+			continue;
+
+		if (ops->sink_support(fd)) {
+			dp->hdcp.data = fd;
+			dp->hdcp.ops = ops;
+			dp->link->hdcp_status.hdcp_version = dev->ver;
+			break;
+		}
+	}
+
+	pr_debug("HDCP version supported: %s\n",
+		sde_hdcp_version(dp->link->hdcp_status.hdcp_version));
+}
+
 static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
 	struct dp_display_private *dp;
 	struct delayed_work *dw = to_delayed_work(work);
 	struct sde_hdcp_ops *ops;
+	struct dp_link_hdcp_status *status;
 	void *data;
 	int rc = 0;
 	u32 hdcp_auth_state;
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
+	status = &dp->link->hdcp_status;
+
+	if (status->hdcp_state == HDCP_STATE_INACTIVE) {
+		dp_display_update_hdcp_info(dp);
+
+		if (dp_display_is_hdcp_enabled(dp)) {
+			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
+		} else {
+			dp_display_update_hdcp_status(dp, true);
+			return;
+		}
+	}
 
 	rc = dp->catalog->ctrl.read_hdcp_status(&dp->catalog->ctrl);
 	if (rc >= 0) {
@@ -182,14 +253,15 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	ops = dp->hdcp.ops;
 	data = dp->hdcp.data;
 
-	pr_debug("%s: %s\n",
-		sde_hdcp_version(dp->link->hdcp_status.hdcp_version),
-		sde_hdcp_state_name(dp->link->hdcp_status.hdcp_state));
+	pr_debug("%s: %s\n", sde_hdcp_version(status->hdcp_version),
+		sde_hdcp_state_name(status->hdcp_state));
+
+	dp_display_update_hdcp_status(dp, false);
 
 	if (dp->debug->force_encryption && ops && ops->force_encryption)
 		ops->force_encryption(data, dp->debug->force_encryption);
 
-	switch (dp->link->hdcp_status.hdcp_state) {
+	switch (status->hdcp_state) {
 	case HDCP_STATE_AUTHENTICATING:
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(data);
@@ -226,62 +298,35 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
-static void dp_display_update_hdcp_info(struct dp_display_private *dp)
+static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
 {
-	void *fd = NULL;
-	struct sde_hdcp_ops *ops = NULL;
-	bool hdcp2_present = false, hdcp1_present = false;
+	int i;
+	struct dp_hdcp_dev *hdcp_dev = dp->hdcp.dev;
 
-	if (!dp) {
-		pr_err("invalid input\n");
+	if (dp->debug->hdcp_disabled) {
+		pr_debug("hdcp disabled\n");
 		return;
 	}
 
-	dp->link->hdcp_status.hdcp_state = HDCP_STATE_INACTIVE;
-	dp->link->hdcp_status.hdcp_version = HDCP_VERSION_NONE;
+	for (i = 0; i < HDCP_VERSION_MAX; i++) {
+		struct dp_hdcp_dev *dev = &hdcp_dev[i];
+		struct sde_hdcp_ops *ops = dev->ops;
+		void *fd = dev->fd;
 
-	if (!dp->hdcp.feature_enabled) {
-		pr_debug("feature not enabled\n");
-		return;
+		if (!fd || !ops)
+			continue;
+
+		if (ops->feature_supported(fd))
+			dp->hdcp.source_cap |= dev->ver;
+		else
+			pr_warn("This device doesn't support %s\n",
+				sde_hdcp_version(dev->ver));
 	}
 
-	if (dp->debug->sim_mode) {
-		pr_debug("skip HDCP version checks for simulation mode\n");
-		return;
-	}
+	if (!dp->hdcp.source_cap)
+		dp->debug->hdcp_disabled = true;
 
-	fd = dp->hdcp.hdcp2;
-	if (fd)
-		ops = sde_dp_hdcp2p2_start(fd);
-
-	if (ops && ops->feature_supported)
-		hdcp2_present = ops->feature_supported(fd);
-
-	if (hdcp2_present)
-		dp->link->hdcp_status.hdcp_version = HDCP_VERSION_2P2;
-
-	if (!hdcp2_present) {
-		fd = dp->hdcp.hdcp1;
-		if (fd)
-			ops = sde_hdcp_1x_start(fd);
-
-		if (ops && ops->feature_supported)
-			hdcp1_present = ops->feature_supported(fd);
-
-		if (hdcp1_present)
-			dp->link->hdcp_status.hdcp_version = HDCP_VERSION_1X;
-	}
-
-	if (hdcp2_present || hdcp1_present) {
-		dp->hdcp.data = fd;
-		dp->hdcp.ops = ops;
-	} else {
-		dp->hdcp.data = NULL;
-		dp->hdcp.ops = NULL;
-	}
-
-	pr_debug("HDCP version supported: %s\n",
-		sde_hdcp_version(dp->link->hdcp_status.hdcp_version));
+	dp_display_update_hdcp_status(dp, false);
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
@@ -298,6 +343,7 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 {
 	struct sde_hdcp_init_data hdcp_init_data;
 	struct dp_parser *parser;
+	void *fd;
 	int rc = 0;
 
 	if (!dp) {
@@ -324,29 +370,35 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	hdcp_init_data.revision      = &dp->panel->link_info.revision;
 	hdcp_init_data.msm_hdcp_dev  = dp->parser->msm_hdcp_dev;
 
-	dp->hdcp.hdcp1 = sde_hdcp_1x_init(&hdcp_init_data);
-	if (IS_ERR_OR_NULL(dp->hdcp.hdcp1)) {
+	fd = sde_hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(fd)) {
 		pr_err("Error initializing HDCP 1.x\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
+	dp->hdcp.dev[HDCP_VERSION_1X].fd = fd;
+	dp->hdcp.dev[HDCP_VERSION_1X].ops = sde_hdcp_1x_get(fd);
+	dp->hdcp.dev[HDCP_VERSION_1X].ver = HDCP_VERSION_1X;
 	pr_debug("HDCP 1.3 initialized\n");
 
-	dp->hdcp.hdcp2 = sde_dp_hdcp2p2_init(&hdcp_init_data);
-	if (IS_ERR_OR_NULL(dp->hdcp.hdcp2)) {
+	fd = sde_dp_hdcp2p2_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(fd)) {
 		pr_err("Error initializing HDCP 2.x\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
+	dp->hdcp.dev[HDCP_VERSION_2P2].fd = fd;
+	dp->hdcp.dev[HDCP_VERSION_2P2].ops = sde_dp_hdcp2p2_get(fd);
+	dp->hdcp.dev[HDCP_VERSION_2P2].ver = HDCP_VERSION_2P2;
 	pr_debug("HDCP 2.2 initialized\n");
-
-	dp->hdcp.feature_enabled = true;
 
 	return 0;
 error:
 	dp_display_deinitialize_hdcp(dp);
+	dp->debug->hdcp_disabled = true;
+
 	return rc;
 }
 
@@ -474,6 +526,9 @@ static void dp_display_post_open(struct dp_display *dp_display)
 		pr_err("base connector not set\n");
 		return;
 	}
+
+	dp_display_update_hdcp_status(dp, true);
+	dp_display_check_source_hdcp_caps(dp);
 
 	/* if cable is already connected, send notification */
 	if (dp->hpd->hpd_high)
@@ -720,11 +775,11 @@ static void dp_display_clean(struct dp_display_private *dp)
 	struct dp_panel *dp_panel;
 
 	if (dp_display_is_hdcp_enabled(dp)) {
-		dp->link->hdcp_status.hdcp_state = HDCP_STATE_INACTIVE;
-
 		cancel_delayed_work_sync(&dp->hdcp_cb_work);
 		if (dp->hdcp.ops->off)
 			dp->hdcp.ops->off(dp->hdcp.data);
+
+		dp_display_update_hdcp_status(dp, true);
 	}
 
 	for (idx = DP_STREAM_0; idx < DP_STREAM_MAX; idx++) {
@@ -863,7 +918,7 @@ static void dp_display_attention_work(struct work_struct *work)
 			struct dp_display_private, attention_work);
 
 	if (dp->link->process_request(dp->link))
-		goto mst_attention;
+		goto cp_irq;
 
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		if (dp_display_is_sink_count_zero(dp)) {
@@ -899,7 +954,7 @@ static void dp_display_attention_work(struct work_struct *work)
 
 	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED)
 		dp->ctrl->link_maintenance(dp->ctrl);
-
+cp_irq:
 	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->cp_irq)
 		dp->hdcp.ops->cp_irq(dp->hdcp.data);
 mst_attention:
@@ -1401,15 +1456,8 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 		dp_panel->audio->on(dp_panel->audio);
 	}
 
-	dp_display_update_hdcp_info(dp);
-
-	if (dp_display_is_hdcp_enabled(dp)) {
-		cancel_delayed_work_sync(&dp->hdcp_cb_work);
-
-		dp->link->hdcp_status.hdcp_state = HDCP_STATE_AUTHENTICATING;
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ / 2);
-	}
-
+	cancel_delayed_work_sync(&dp->hdcp_cb_work);
+	queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
 end:
 	/* clear framework event notifier */
 	dp_display->post_open = NULL;
@@ -1449,11 +1497,11 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 	}
 
 	if (dp_display_is_hdcp_enabled(dp)) {
-		dp->link->hdcp_status.hdcp_state = HDCP_STATE_INACTIVE;
-
 		cancel_delayed_work_sync(&dp->hdcp_cb_work);
 		if (dp->hdcp.ops->off)
 			dp->hdcp.ops->off(dp->hdcp.data);
+
+		dp_display_update_hdcp_status(dp, true);
 	}
 
 	if (dp_panel->audio_supported)
