@@ -12,6 +12,7 @@
  */
 
 #include "msm8917.dtsi"
+#include "qm215-camera.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. QM215";
 	compatible = "qcom,qm215";
