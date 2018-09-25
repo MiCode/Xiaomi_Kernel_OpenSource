@@ -1000,7 +1000,8 @@ static bool dsi_display_get_cont_splash_status(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 	struct dsi_ctrl_hw *hw;
 
-	for (i = 0; i < display->ctrl_count ; i++) {
+	for (i = 0; (i < display->ctrl_count) &&
+	     (i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
 		ctrl = &(display->ctrl[i]);
 		if (!ctrl || !ctrl->ctrl)
 			continue;
