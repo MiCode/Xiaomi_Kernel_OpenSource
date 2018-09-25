@@ -144,6 +144,9 @@
 	qcom,mdss-dsi-panel-max-error-count = <3>;
 	qcom,mdss-dsi-min-refresh-rate = <53>;
 	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-bitclk;
+	qcom,mdss-dsi-dynamic-bitclk_freq = <711037824 724453632 737869440
+		751285248 764701056 778116864 791532672 804948480>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
