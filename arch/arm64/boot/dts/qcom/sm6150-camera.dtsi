@@ -46,8 +46,9 @@
 			"csi0phytimer_clk_src",
 			"csi0phytimer_clk";
 		src-clock-name = "csi0phytimer_clk_src";
-		clock-cntl-level = "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
+			<0 0 0 0 269333333 0 269333333 0>,
 			<0 0 0 0 384000000 0 269333333 0>;
 		status = "ok";
 	};
@@ -81,8 +82,9 @@
 			"csi1phytimer_clk_src",
 			"csi1phytimer_clk";
 		src-clock-name = "csi1phytimer_clk_src";
-		clock-cntl-level = "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
+			<0 0 0 0 269333333 0 269333333 0>,
 			<0 0 0 0 384000000 0 269333333 0>;
 
 		status = "ok";
@@ -117,8 +119,9 @@
 			"csi2phytimer_clk_src",
 			"csi2phytimer_clk";
 		src-clock-name = "csi2phytimer_clk_src";
-		clock-cntl-level = "turbo";
+		clock-cntl-level = "svs_l1", "turbo";
 		clock-rates =
+			<0 0 0 0 269333333 0 269333333 0>,
 			<0 0 0 0 384000000 0 269333333 0>;
 		status = "ok";
 	};
