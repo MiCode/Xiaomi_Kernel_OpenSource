@@ -237,6 +237,7 @@ struct fg_gen4_chip {
 	int			esr_actual;
 	int			esr_nominal;
 	int			soh;
+	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
 	bool			esr_fast_calib;
@@ -1759,6 +1760,13 @@ static void profile_load_work(struct work_struct *work)
 			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
 	}
 done:
+	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (!rc && (val & FIRST_PROFILE_LOAD_BIT)) {
+		fg_dbg(fg, FG_STATUS, "First profile load bit is set\n");
+		chip->first_profile_load = true;
+	}
+
 	rc = fg_gen4_bp_params_config(fg);
 	if (rc < 0)
 		pr_err("Error in configuring battery profile params, rc:%d\n",
@@ -3360,6 +3368,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
 		break;
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
+		pval->intval = chip->first_profile_load;
+		break;
 	case POWER_SUPPLY_PROP_SOH:
 		pval->intval = chip->soh;
 		break;
@@ -3406,7 +3417,9 @@ static int fg_psy_set_property(struct power_supply *psy,
 				  const union power_supply_propval *pval)
 {
 	struct fg_gen4_chip *chip = power_supply_get_drvdata(psy);
+	struct fg_dev *fg = &chip->fg;
 	int rc = 0;
+	u8 val, mask;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
@@ -3453,6 +3466,21 @@ static int fg_psy_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 		chip->soh = pval->intval;
 		break;
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
+		if (chip->first_profile_load && !pval->intval) {
+			fg_dbg(fg, FG_STATUS, "Clearing first profile load bit\n");
+			val = 0;
+			mask = FIRST_PROFILE_LOAD_BIT;
+			rc = fg_sram_masked_write(fg, PROFILE_INTEGRITY_WORD,
+					PROFILE_INTEGRITY_OFFSET, mask, val,
+					FG_IMA_DEFAULT);
+			if (rc < 0)
+				pr_err("Error in writing to profile integrity word rc=%d\n",
+					rc);
+			else
+				chip->first_profile_load = false;
+		}
+		break;
 	default:
 		break;
 	}
@@ -3470,6 +3498,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_ACTUAL:
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
+	case POWER_SUPPLY_PROP_CLEAR_SOH:
 		return 1;
 	default:
 		break;
@@ -3498,6 +3527,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+	POWER_SUPPLY_PROP_CLEAR_SOH,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
