@@ -48,7 +48,7 @@ TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREF
 ifeq ($(TARGET_KERNEL_CROSS_COMPILE_PREFIX),)
 KERNEL_CROSS_COMPILE := arm-eabi-
 else
-KERNEL_CROSS_COMPILE := $(TARGET_KERNEL_CROSS_COMPILE_PREFIX)
+KERNEL_CROSS_COMPILE := $(shell pwd)/$(TARGET_TOOLS_PREFIX)
 endif
 
 ifeq ($(KERNEL_LLVM_SUPPORT), true)
@@ -56,11 +56,11 @@ ifeq ($(KERNEL_LLVM_SUPPORT), true)
     ifeq ($(shell echo $(SDCLANG_PATH) | head -c 1),/)
        KERNEL_LLVM_BIN := $(SDCLANG_PATH)/clang
     else
-       KERNEL_LLVM_BIN := $(ANDROID_BUILD_TOP)/$(SDCLANG_PATH)/clang
+       KERNEL_LLVM_BIN := $(shell pwd)/$(SDCLANG_PATH)/clang
     endif
     $(warning "Using sdllvm" $(KERNEL_LLVM_BIN))
   else
-     KERNEL_LLVM_BIN := $(ANDROID_BUILD_TOP)/$(CLANG) #Using aosp-llvm compiler
+     KERNEL_LLVM_BIN := $(shell pwd)/$(CLANG) #Using aosp-llvm compiler
     $(warning "Using aosp-llvm" $(KERNEL_LLVM_BIN))
   endif
 endif
