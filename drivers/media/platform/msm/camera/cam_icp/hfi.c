@@ -536,6 +536,11 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 
 	val = cam_io_r(icp_base + HFI_REG_A5_CSR_NSEC_RESET);
 	cam_io_w_mb(val, icp_base + HFI_REG_A5_CSR_NSEC_RESET);
+
+	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_RESET,
+		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
+	cam_io_w_mb((uint32_t)INTR_DISABLE,
+		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 }
 
 void cam_hfi_enable_cpu(void __iomem *icp_base)
@@ -886,11 +891,6 @@ void cam_hfi_deinit(void __iomem *icp_base)
 	g_hfi->cmd_q_state = false;
 	g_hfi->msg_q_state = false;
 
-	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_RESET,
-		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
-
-	cam_io_w_mb((uint32_t)INTR_DISABLE,
-		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 	kzfree(g_hfi);
 	g_hfi = NULL;
 
