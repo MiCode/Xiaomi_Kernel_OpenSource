@@ -88,6 +88,7 @@ struct mbim_notify_port {
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
 	bool				notify_req_queued;
+	bool				notify_pending;
 };
 
 struct f_mbim {
@@ -732,12 +733,15 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_mbim *mbim = req->context;
 
-	pr_debug("dev:%pK\n", mbim);
+	pr_debug("dev:%pK, pending:%d\n", mbim, mbim->not_port.notify_pending);
 
 	spin_lock(&mbim->lock);
 	mbim->not_port.notify_req_queued = false;
 	switch (req->status) {
 	case 0:
+		/* Notify now if send_response completed before it */
+		if (mbim->not_port.notify_pending)
+			mbim_do_notify(mbim);
 		break;
 
 	case -ECONNRESET:
@@ -753,6 +757,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_err("Unknown status --> %d\n", req->status);
 		break;
 	}
+	mbim->not_port.notify_pending = false;
 
 	spin_unlock(&mbim->lock);
 
@@ -869,8 +874,15 @@ static void mbim_response_complete(struct usb_ep *ep, struct usb_request *req)
 
 	pr_debug("%s: queue notify request if any new response available [%d]\n"
 			, __func__, mbim->not_port.notify_req_queued);
+	/*
+	 * Some UDCs could report response_complete before nofify_complete.
+	 * Handle this by marking flag and notify from delayed notify_complete.
+	 */
 	spin_lock(&mbim->lock);
-	mbim_do_notify(mbim);
+	if (mbim->not_port.notify_req_queued)
+		mbim->not_port.notify_pending = true;
+	else
+		mbim_do_notify(mbim);
 	spin_unlock(&mbim->lock);
 }
 
