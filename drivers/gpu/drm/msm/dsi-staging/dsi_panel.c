@@ -2007,7 +2007,8 @@ static int dsi_panel_parse_jitter_config(
 				  &priv_info->panel_prefill_lines);
 	if (rc) {
 		pr_debug("panel prefill lines are not defined rc=%d\n", rc);
-		priv_info->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+		priv_info->panel_prefill_lines = mode->timing.v_back_porch +
+			mode->timing.v_sync_width + mode->timing.v_front_porch;
 	} else if (priv_info->panel_prefill_lines >=
 					DSI_V_TOTAL(&mode->timing)) {
 		pr_debug("invalid prefill lines config=%d setting to:%d\n",
