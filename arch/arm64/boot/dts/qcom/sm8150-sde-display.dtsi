@@ -357,6 +357,29 @@
 		qcom,dsi-panel = <&dsi_dual_nt36850_truly_cmd>;
 	};
 
+	dsi_nt35695b_truly_fhd_cmd_sec_display: qcom,dsi-display@20 {
+		label = "dsi_nt35695b_truly_fhd_cmd_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+
+	};
+
+	dsi_nt35695b_truly_fhd_video_sec_display: qcom,dsi-display@21 {
+		label = "dsi_nt35695b_truly_fhd_video_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "src_byte_clk1", "src_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
 	sde_dsi: qcom,dsi-display-primary {
 		compatible = "qcom,dsi-display";
 		label = "primary";
@@ -433,8 +456,8 @@
 		vdd-supply = <&display_panel_avdd_eldo>;
 
 		qcom,dsi-display-list =
-			<&dsi_nt35695b_truly_fhd_cmd_display
-			&dsi_nt35695b_truly_fhd_video_display>;
+			<&dsi_nt35695b_truly_fhd_cmd_sec_display
+			&dsi_nt35695b_truly_fhd_video_sec_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -467,7 +490,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi>;
+	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi &sde_dsi1>;
 };
 
 /* PHY TIMINGS REVISION T */
