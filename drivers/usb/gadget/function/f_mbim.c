@@ -87,15 +87,7 @@ struct mbim_ep_descs {
 struct mbim_notify_port {
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
-	u8				notify_state;
 	atomic_t			notify_count;
-};
-
-enum mbim_notify_state {
-	MBIM_NOTIFY_NONE,
-	MBIM_NOTIFY_CONNECT,
-	MBIM_NOTIFY_SPEED,
-	MBIM_NOTIFY_RESPONSE_AVAILABLE,
 };
 
 struct f_mbim {
@@ -697,76 +689,45 @@ static void mbim_remote_wakeup_work(struct work_struct *w)
  */
 static void mbim_do_notify(struct f_mbim *mbim)
 {
-	struct usb_request		*req = mbim->not_port.notify_req;
-	struct usb_cdc_notification	*event;
-	int				status;
-
-	pr_debug("notify_state: %d\n", mbim->not_port.notify_state);
+	struct usb_request	*req = mbim->not_port.notify_req;
+	int			status;
 
 	if (!req)
 		return;
 
-	event = req->buf;
-
-	switch (mbim->not_port.notify_state) {
-
-	case MBIM_NOTIFY_NONE:
+	if (!atomic_read(&mbim->online)) {
 		if (atomic_read(&mbim->not_port.notify_count) > 0)
-			pr_err("Pending notifications in MBIM_NOTIFY_NONE\n");
+			pr_err("Pending notifications in device offline\n");
 		else
 			pr_debug("No pending notifications\n");
 
 		return;
+	}
 
-	case MBIM_NOTIFY_RESPONSE_AVAILABLE:
-		pr_debug("Notification %02x sent\n", event->bNotificationType);
+	pr_debug("Notification sent\n");
 
-		if (atomic_read(&mbim->not_port.notify_count) <= 0) {
-			pr_debug("notify_response_avaliable: done\n");
-			return;
-		}
-
-		spin_unlock(&mbim->lock);
-		status = usb_func_ep_queue(&mbim->function,
-				mbim->not_port.notify,
-				req, GFP_ATOMIC);
-		spin_lock(&mbim->lock);
-		if (status) {
-			/* ignore if request already queued before bus_resume */
-			if (status != -EBUSY)
-				atomic_dec(&mbim->not_port.notify_count);
-			pr_err("Queue notify request failed, err: %d\n",
-					status);
-		}
-
+	if (atomic_read(&mbim->not_port.notify_count) <= 0) {
+		pr_debug("notify_response_available: done\n");
 		return;
 	}
 
-	event->bmRequestType = 0xA1;
-	event->wIndex = cpu_to_le16(mbim->ctrl_id);
-
-	/*
-	 * In double buffering if there is a space in FIFO,
-	 * completion callback can be called right after the call,
-	 * so unlocking
-	 */
-	atomic_inc(&mbim->not_port.notify_count);
-	pr_debug("queue request: notify_count = %d\n",
-		atomic_read(&mbim->not_port.notify_count));
 	spin_unlock(&mbim->lock);
-	status = usb_func_ep_queue(&mbim->function, mbim->not_port.notify, req,
-			GFP_ATOMIC);
+	status = usb_func_ep_queue(&mbim->function, mbim->not_port.notify,
+				   req, GFP_ATOMIC);
 	spin_lock(&mbim->lock);
 	if (status) {
-		atomic_dec(&mbim->not_port.notify_count);
-		pr_err("usb_func_ep_queue failed, err: %d\n", status);
+		/* ignore if request already queued before bus_resume */
+		if (status != -EBUSY)
+			atomic_dec(&mbim->not_port.notify_count);
+		pr_err("Queue notify request failed, err: %d\n", status);
 	}
+
+	return;
 }
 
 static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_mbim			*mbim = req->context;
-	struct usb_cdc_notification	*event = req->buf;
+	struct f_mbim *mbim = req->context;
 
 	pr_debug("dev:%pK\n", mbim);
 
@@ -781,7 +742,6 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ECONNRESET:
 	case -ESHUTDOWN:
 		/* connection gone */
-		mbim->not_port.notify_state = MBIM_NOTIFY_NONE;
 		atomic_set(&mbim->not_port.notify_count, 0);
 		pr_info("ESHUTDOWN/ECONNRESET, connection gone\n");
 		spin_unlock(&mbim->lock);
@@ -790,8 +750,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_lock(&mbim->lock);
 		break;
 	default:
-		pr_err("Unknown event %02x --> %d\n",
-			event->bNotificationType, req->status);
+		pr_err("Unknown status --> %d\n", req->status);
 		break;
 	}
 
@@ -1270,9 +1229,6 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 notify_ready:
 		mbim->data_interface_up = alt;
-		spin_lock(&mbim->lock);
-		mbim->not_port.notify_state = MBIM_NOTIFY_RESPONSE_AVAILABLE;
-		spin_unlock(&mbim->lock);
 	} else {
 		goto fail;
 	}
@@ -1321,7 +1277,6 @@ static void mbim_disable(struct usb_function *f)
 		mbim->not_port.notify->driver_data = NULL;
 	}
 	atomic_set(&mbim->not_port.notify_count, 0);
-	mbim->not_port.notify_state = MBIM_NOTIFY_NONE;
 
 	mbim_clear_queues(mbim);
 	mbim_reset_function_queue(mbim);
@@ -1417,6 +1372,9 @@ static void mbim_resume(struct usb_function *f)
 
 	cancel_delayed_work(&mbim->rwake_work);
 
+	if (!mbim->remote_wakeup_enabled)
+		atomic_set(&mbim->online, 1);
+
 	/* resume control path by queuing notify req */
 	spin_lock(&mbim->lock);
 	mbim_do_notify(mbim);
@@ -1427,9 +1385,6 @@ static void mbim_resume(struct usb_function *f)
 		pr_debug("MBIM data interface is not opened. Returning\n");
 		return;
 	}
-
-	if (!mbim->remote_wakeup_enabled)
-		atomic_set(&mbim->online, 1);
 
 	bam_data_resume(&mbim->bam_port, mbim->port_num, USB_FUNC_MBIM,
 			mbim->remote_wakeup_enabled);
@@ -1902,13 +1857,6 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 		pr_err("USB cable not connected\n");
 		mbim_unlock(&dev->write_excl);
 		return -EPIPE;
-	}
-
-	if (dev->not_port.notify_state != MBIM_NOTIFY_RESPONSE_AVAILABLE) {
-		pr_err("dev:%pK state=%d error\n", dev,
-			dev->not_port.notify_state);
-		mbim_unlock(&dev->write_excl);
-		return -EINVAL;
 	}
 
 	if (dev->function.func_is_suspended &&
