@@ -1505,8 +1505,12 @@ static int cam_ife_csid_init_config_pxl_path(
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg0_addr);
 
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+		pxl_reg->csid_pxl_cfg1_addr);
+
 	/* select the post irq sub sample strobe for time stamp capture */
-	cam_io_w_mb(CSID_TIMESTAMP_STB_POST_IRQ, soc_info->reg_map[0].mem_base +
+	val |= CSID_TIMESTAMP_STB_POST_IRQ;
+	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg1_addr);
 
 	if (path_data->crop_enable) {
