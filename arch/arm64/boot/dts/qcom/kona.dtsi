@@ -511,6 +511,13 @@ qcom,msm-imem@146bf000 {
 		interrupt-controller;
 	};
 
+	clock_xo: bi_tcxo {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <19200000>;
+		clock-output-names = "bi_tcxo";
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmh_clocks";
