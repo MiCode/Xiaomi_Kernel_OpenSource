@@ -338,6 +338,11 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"4.2",
 		"5",
 		"5.1",
+		"5.2",
+		"6",
+		"6.1",
+		"6.2",
+		"Unknown",
 		NULL,
 	};
 	static const char * const h264_loop_filter[] = {
@@ -514,6 +519,7 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"6",
 		"6.1",
 		"6.2",
+		"Unknown",
 		NULL,
 	};
 	static const char * const hevc_hierarchial_coding_type[] = {
