@@ -4281,6 +4281,40 @@
 					drive-strength = <2>;
 				};
 			};
+			emac_phy_intr: emac_phy_intr {
+				mux {
+					pins = "gpio124";
+					function = "emac_phy";
+				};
+				config {
+					pins = "gpio124";
+					bias-disable;  /* NO pull */
+					drive-strength = <8>;
+				};
+			};
+			emac_phy_reset_state: emac_phy_reset_state {
+				mux {
+					pins = "gpio79";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio79";
+					bias-pull-up;
+					drive-strength = <16>;
+				};
+			};
+			emac_pin_pps_0: emac_pin_pps_0 {
+				mux {
+					pins = "gpio81";
+					function = "emac_pps";
+				};
+
+				config {
+					pins = "gpio81";
+					drive-strength = <8>;  /* 8 mA */
+					bias-disable;  /* NO PULL*/
+				};
+			};
 		};
 
 		bt_en_active: bt_en_active {
