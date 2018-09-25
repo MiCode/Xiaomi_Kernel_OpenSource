@@ -591,6 +591,22 @@
 			};
 		};
 
+		fsa_usbc_ana_en_n@114 {
+			fsa_usbc_ana_en: fsa_usbc_ana_en {
+				mux {
+					pins = "gpio114";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio114";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+		};
+
 		pmx_sde_te {
 			sde_te_active: sde_te_active {
 				mux {
@@ -618,6 +634,60 @@
 				};
 			};
 		};
+
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio104";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio104";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_switch_active: sde_dp_switch_active {
+			mux {
+				pins = "gpio49";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio49";
+				bias-pull-up;		/* pull up */
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_switch_suspend: sde_dp_switch_suspend {
+			mux {
+				pins = "gpio49";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio49";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+
 
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
