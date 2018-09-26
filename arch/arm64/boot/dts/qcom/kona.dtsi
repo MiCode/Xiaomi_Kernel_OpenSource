@@ -362,6 +362,7 @@
 		compatible = "qcom,kona-llcc";
 		reg = <0x9200000 0x1d0000> , <0x9600000 0x50000>;
 		reg-names = "llcc_base", "llcc_broadcast_base";
+		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	timer {
