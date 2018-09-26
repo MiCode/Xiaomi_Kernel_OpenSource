@@ -503,6 +503,7 @@ struct dsi_cmd_engine_cfg {
  * @cmd_engine:            Cmd engine configuration if panel is in cmd mode.
  * @esc_clk_rate_khz:      Esc clock frequency in Hz.
  * @bit_clk_rate_hz:       Bit clock frequency in Hz.
+ * @bit_clk_rate_hz_override: DSI bit clk rate override from dt/sysfs.
  * @video_timing:          Video timing information of a frame.
  * @lane_map:              Mapping between logical and physical lanes.
  */
@@ -515,6 +516,7 @@ struct dsi_host_config {
 	} u;
 	u64 esc_clk_rate_hz;
 	u64 bit_clk_rate_hz;
+	u64 bit_clk_rate_hz_override;
 	struct dsi_mode_info video_timing;
 	struct dsi_lane_map lane_map;
 };
