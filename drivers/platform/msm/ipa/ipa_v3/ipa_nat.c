@@ -242,6 +242,7 @@ static int ipa3_nat_ipv6ct_init_device(
 	dev->smem_offset = smem_offset;
 
 	dev->is_dev_init = true;
+	dev->tmp_mem = tmp_mem;
 	mutex_unlock(&dev->lock);
 
 	IPADBG("ipa dev %s added successful. major:%d minor:%d\n", name,
