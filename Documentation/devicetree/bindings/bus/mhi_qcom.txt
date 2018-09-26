@@ -1,0 +1,97 @@
+Qualcomm Technologies Inc MHI Bus controller
+
+MHI control driver enables clients to communicate with external mode
+using MHI protocol.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- reg
+  Usage: required
+  Value type: Array (5-cell PCI resource) of <u32>
+  Definition: First cell is devfn, which is determined by pci bus topology.
+	Assign the other cells 0 since they are not used.
+
+- qcom,smmu-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: Required SMMU configuration bitmask for PCIe bus.
+	BIT mask:
+	BIT(0) : Attach address mapping to endpoint device
+	BIT(1) : Set attribute S1_BYPASS
+	BIT(2) : Set attribute FAST
+	BIT(3) : Set attribute ATOMIC
+	BIT(4) : Set attribute FORCE_COHERENT
+
+- qcom,addr-win
+  Usage: required if SMMU S1 translation is enabled
+  Value type: Array of <u64>
+  Definition: Pair of values describing iova start and stop address
+
+- qcom,msm-bus,name
+  Usage: required
+  Value type: <string>
+  Definition: string representing the bus scale client name to register
+
+- qcom,msm-bus,num-cases
+  Usage: required
+  Value type: <u32>
+  Definition: Must be set to two, MHI support two scales
+
+- qcom,msm-bus,num-paths
+  Usage: required
+  Value type: <u32>
+  Definition: Total number of master-slave pairs MHI host will vote. Must be set
+	to one.
+
+- qcom,msm-bus,vectors-KBps
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array of tuples which define the bus bandwidth requirements.
+	Each tuple is of length 4, values are master-id, slave-id,
+	arbitrated bandwidth in KBps, and instantaneous bandwidth in
+	KBps.
+
+- esoc-names
+  Usage: optional
+  Value type: <string>
+  Definition: if external modem managed by esoc framework, set string to "mdm"
+
+- esoc-0
+  Usage: required if device is managed by esoc framework
+  Value type: phandle
+  Definition: A esoc phandle pointing to external modem
+
+- MHI bus settings
+  Usage: required
+  Values: as defined by mhi.txt
+  Definition: Per definition of devicetree/bindings/bus/mhi.txt, define device
+	specific MHI configuration parameters.
+
+========
+Example:
+========
+
+/* pcie domain (root complex) modem connected to */
+&pcie1 {
+	/* pcie bus modem connected to */
+	pci,bus@1 {
+		reg = <0 0 0 0 0>;
+
+		qcom,mhi {
+			reg = <0 0 0 0 0>;
+			qcom,smmu-cfg = <0x3d>;
+			qcom,addr-win = <0x0 0x20000000 0x0 0x3fffffff>;
+			qcom,msm-bus,name = "mhi";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps = <45 512 0 0>,
+				<45 512 1200000000 650000000>;
+
+			<mhi bus configurations>
+		};
+	};
+};
