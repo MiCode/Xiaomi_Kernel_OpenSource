@@ -253,3 +253,6 @@
 &mdss_mdp {
 	connectors = <&sde_rscc &dsi_dp1 &sde_wb>;
 };
+
+/* Audio device tree */
+#include "sa6155-audio.dtsi"
