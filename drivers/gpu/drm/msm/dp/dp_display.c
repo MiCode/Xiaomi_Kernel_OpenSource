@@ -231,6 +231,10 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	u32 hdcp_auth_state;
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
+
+	if (!dp->power_on || atomic_read(&dp->aborted))
+		return;
+
 	status = &dp->link->hdcp_status;
 
 	if (status->hdcp_state == HDCP_STATE_INACTIVE) {
@@ -294,8 +298,10 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 
 	dp->link->hdcp_status.hdcp_state = state;
 
-	if (dp->is_connected)
+	mutex_lock(&dp->session_lock);
+	if (dp->power_on && !atomic_read(&dp->aborted))
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
+	mutex_unlock(&dp->session_lock);
 }
 
 static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
