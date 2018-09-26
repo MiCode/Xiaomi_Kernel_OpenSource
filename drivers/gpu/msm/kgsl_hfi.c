@@ -500,7 +500,8 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
-		cmd.gx_votes[i].acd = gmu->acd_dvm_vals[i];
+		/* Hardcode this to the max threshold since it is not used */
+		cmd.gx_votes[i].acd = 0xFFFFFFFF;
 		/* Divide by 1000 to convert to kHz */
 		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
@@ -520,6 +521,15 @@ static int hfi_send_bwtbl(struct gmu_device *gmu)
 	cmd->hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(*cmd));
 
 	return hfi_send_generic_req(gmu, HFI_CMD_ID, cmd);
+}
+
+static int hfi_send_acd_tbl(struct gmu_device *gmu)
+{
+	struct hfi_acd_table_cmd *cmd = &gmu->hfi.acd_tbl_cmd;
+
+	cmd->hdr = CMD_MSG_HDR(H2F_MSG_ACD_TBL, sizeof(*cmd));
+
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
 }
 
 static int hfi_send_test(struct gmu_device *gmu)
@@ -662,6 +672,20 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
+static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
+		struct adreno_device *adreno_dev)
+{
+	int ret = 0;
+
+	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag)) {
+		ret = hfi_send_acd_tbl(gmu);
+		if (!ret)
+			ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ACD, 1, 0);
+	}
+
+	return ret;
+}
+
 int hfi_start(struct kgsl_device *device,
 		struct gmu_device *gmu, uint32_t boot_state)
 {
@@ -716,10 +740,10 @@ int hfi_start(struct kgsl_device *device,
 	 */
 	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
 		result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ECP, 0, 0);
-		if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
-			result |= hfi_send_feature_ctrl(gmu,
-					HFI_FEATURE_ACD, 1, 0);
+		if (result)
+			return result;
 
+		result = hfi_send_acd_feature_ctrl(gmu, adreno_dev);
 		if (result)
 			return result;
 

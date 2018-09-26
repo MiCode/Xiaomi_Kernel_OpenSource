@@ -818,6 +818,38 @@ static void build_bwtable_cmd_cache(struct gmu_device *gmu)
 				votes->cnoc_votes.cmd_data[i][j];
 }
 
+static int gmu_acd_probe(struct gmu_device *gmu, struct device_node *node)
+{
+	struct hfi_acd_table_cmd *cmd = &gmu->hfi.acd_tbl_cmd;
+	struct device_node *acd_node;
+
+	acd_node = of_find_node_by_name(node, "qcom,gpu-acd-table");
+	if (!acd_node)
+		return -ENODEV;
+
+	cmd->hdr = 0xFFFFFFFF;
+	cmd->version = HFI_ACD_INIT_VERSION;
+	cmd->enable_by_level = 0;
+	cmd->stride = 0;
+	cmd->num_levels = 0;
+
+	of_property_read_u32(acd_node, "qcom,acd-stride", &cmd->stride);
+	if (!cmd->stride || cmd->stride > MAX_ACD_STRIDE)
+		return -EINVAL;
+
+	of_property_read_u32(acd_node, "qcom,acd-num-levels", &cmd->num_levels);
+	if (!cmd->num_levels || cmd->num_levels > MAX_ACD_NUM_LEVELS)
+		return -EINVAL;
+
+	of_property_read_u32(acd_node, "qcom,acd-enable-by-level",
+			&cmd->enable_by_level);
+	if (hweight32(cmd->enable_by_level) != cmd->num_levels)
+		return -EINVAL;
+
+	return of_property_read_u32_array(acd_node, "qcom,acd-data",
+			cmd->data, cmd->stride * cmd->num_levels);
+}
+
 /*
  * gmu_bus_vote_init - initialized RPMh votes needed for bw scaling by GMU.
  * @gmu: Pointer to GMU device
@@ -1321,7 +1353,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		int j = gmu->num_gpupwrlevels - 1 - i;
 
 		gmu->gpu_freqs[i] = pwr->pwrlevels[j].gpu_freq;
-		gmu->acd_dvm_vals[i] = pwr->pwrlevels[j].acd_dvm_val;
 	}
 
 	/* Initializes GPU b/w levels configuration */
@@ -1354,10 +1385,15 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		gmu->idle_level = GPU_HW_ACTIVE;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_ACD) && !noacd) {
-		ret = gmu_aop_mailbox_init(device, gmu);
-		if (ret)
-			dev_err(&gmu->pdev->dev,
+		if (!gmu_acd_probe(gmu, node)) {
+			/* Init the AOP mailbox if we have a valid ACD table */
+			ret = gmu_aop_mailbox_init(device, gmu);
+			if (ret)
+				dev_err(&gmu->pdev->dev,
 					"AOP mailbox init failed: %d\n", ret);
+		} else
+			dev_err(&gmu->pdev->dev,
+				"ACD probe failed: missing or invalid table\n");
 	}
 
 	/* disable LM if the feature is not enabled */
