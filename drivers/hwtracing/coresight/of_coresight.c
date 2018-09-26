@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012,2017, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -193,3 +193,21 @@ of_get_coresight_platform_data(struct device *dev,
 	return pdata;
 }
 EXPORT_SYMBOL_GPL(of_get_coresight_platform_data);
+
+int of_get_coresight_csr_name(struct device_node *node, const char **csr_name)
+{
+	int  ret;
+	struct device_node *csr_node;
+
+	csr_node = of_parse_phandle(node, "coresight-csr", 0);
+	if (!csr_node)
+		return -EINVAL;
+
+	ret = of_property_read_string(csr_node, "coresight-name", csr_name);
+	of_node_put(csr_node);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(of_get_coresight_csr_name);

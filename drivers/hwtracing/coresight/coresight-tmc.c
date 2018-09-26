@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2017, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -372,6 +372,34 @@ static int tmc_etr_setup_caps(struct tmc_drvdata *drvdata,
 	return dma_set_mask_and_coherent(drvdata->dev, DMA_BIT_MASK(dma_mask));
 }
 
+static int tmc_config_desc(struct tmc_drvdata *drvdata,
+				struct coresight_desc *desc)
+{
+	int ret = 0;
+
+	switch (drvdata->config_type) {
+	case TMC_CONFIG_TYPE_ETB:
+		desc->type = CORESIGHT_DEV_TYPE_SINK;
+		desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc->ops = &tmc_etb_cs_ops;
+		break;
+	case TMC_CONFIG_TYPE_ETR:
+		desc->type = CORESIGHT_DEV_TYPE_SINK;
+		desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc->ops = &tmc_etr_cs_ops;
+		break;
+	case TMC_CONFIG_TYPE_ETF:
+		desc->type = CORESIGHT_DEV_TYPE_LINKSINK;
+		desc->subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
+		desc->ops = &tmc_etf_cs_ops;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret = 0;
@@ -429,33 +457,28 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 	pm_runtime_put(&adev->dev);
 
+	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
+	if (ret)
+		dev_err(dev, "No csr data\n");
+	else {
+		drvdata->csr = coresight_csr_get(drvdata->csr_name);
+		if (IS_ERR(drvdata->csr)) {
+			dev_dbg(dev, "failed to get csr, defer probe\n");
+			return -EPROBE_DEFER;
+		}
+	}
+
 	desc.pdata = pdata;
 	desc.dev = dev;
 	desc.groups = coresight_tmc_groups;
+	ret = tmc_config_desc(drvdata, &desc);
+	if (ret)
+		goto out;
 
-	switch (drvdata->config_type) {
-	case TMC_CONFIG_TYPE_ETB:
-		desc.type = CORESIGHT_DEV_TYPE_SINK;
-		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
-		desc.ops = &tmc_etb_cs_ops;
-		break;
-	case TMC_CONFIG_TYPE_ETR:
-		desc.type = CORESIGHT_DEV_TYPE_SINK;
-		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
-		desc.ops = &tmc_etr_cs_ops;
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		ret = tmc_etr_setup_caps(drvdata, devid, id->data);
 		if (ret)
 			goto out;
-		break;
-	case TMC_CONFIG_TYPE_ETF:
-		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
-		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
-		desc.ops = &tmc_etf_cs_ops;
-		break;
-	default:
-		pr_err("%s: Unsupported TMC config\n", pdata->name);
-		ret = -EINVAL;
-		goto out;
 	}
 
 	drvdata->csdev = coresight_register(&desc);
