@@ -124,6 +124,16 @@ struct sde_connector_ops {
 	 */
 	int (*get_info)(struct msm_display_info *info, void *display);
 
+	/**
+	 * set_topology_ctl - set sde display topology property
+	 * @connector: Pointer to drm connector structure
+	 * @adj_mode: adjusted mode
+	 * @display: Pointer to private display structure
+	 * Returns: Zero on success
+	 */
+	int (*set_topology_ctl)(struct drm_connector *connector,
+		struct drm_display_mode *adj_mode, void *display);
+
 	int (*set_backlight)(void *display, u32 bl_lvl);
 
 

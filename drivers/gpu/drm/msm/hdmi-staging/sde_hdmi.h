@@ -103,6 +103,7 @@ enum hdmi_tx_feature_type {
  * @display_lock:     Mutex for sde_hdmi interface.
  * @ctrl:             Controller information for HDMI display.
  * @non_pluggable:    If HDMI display is non pluggable
+ * @display_topology: user requested display topology
  * @num_of_modes:     Number of modes supported by display if non pluggable.
  * @mode_list:        Mode list if non pluggable.
  * @mode:             Current display mode.
@@ -154,6 +155,7 @@ struct sde_hdmi {
 	struct sde_edid_ctrl *edid_ctrl;
 
 	bool non_pluggable;
+	u32 display_topology;
 	bool skip_ddc;
 	u32 num_of_modes;
 	struct list_head mode_list;
@@ -278,6 +280,17 @@ int sde_hdmi_get_displays(void **display_array, u32 max_display_count);
  */
 int sde_hdmi_connector_pre_deinit(struct drm_connector *connector,
 		void *display);
+
+/**
+ * sde_hdmi_set_top_ctl()- set display topology control property
+ * @connector: Pointer to drm connector structure
+ * @adj_mode: adjusted mode
+ * @display: Pointer to private display handle
+ *
+ * Return: error code
+ */
+int sde_hdmi_set_top_ctl(struct drm_connector *connector,
+			struct drm_display_mode *adj_mode, void *display);
 
 /**
  * sde_hdmi_connector_post_init()- perform additional initialization steps
@@ -566,6 +579,12 @@ static inline int sde_hdmi_get_displays(void **display_array,
 
 static inline int sde_hdmi_connector_pre_deinit(struct drm_connector *connector,
 		void *display)
+{
+	return 0;
+}
+
+static inline int sde_hdmi_set_top_ctl(struct drm_connector *connector,
+		struct drm_display_mode *adj_mode, void *display)
 {
 	return 0;
 }

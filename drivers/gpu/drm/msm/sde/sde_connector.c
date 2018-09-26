@@ -40,7 +40,8 @@ static const struct drm_prop_enum_list e_topology_control[] = {
 	{SDE_RM_TOPCTL_RESERVE_CLEAR,	"reserve_clear"},
 	{SDE_RM_TOPCTL_DSPP,		"dspp"},
 	{SDE_RM_TOPCTL_FORCE_TILING,	"force_tiling"},
-	{SDE_RM_TOPCTL_PPSPLIT,		"ppsplit"}
+	{SDE_RM_TOPCTL_PPSPLIT,		"ppsplit"},
+	{SDE_RM_TOPCTL_FORCE_MIXER,	"force_mixer"}
 };
 
 static const struct drm_prop_enum_list e_power_mode[] = {

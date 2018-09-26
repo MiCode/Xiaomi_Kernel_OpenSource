@@ -326,6 +326,7 @@ static int sde_encoder_virt_atomic_check(
 	struct sde_kms *sde_kms;
 	const struct drm_display_mode *mode;
 	struct drm_display_mode *adj_mode;
+	struct sde_connector *sde_conn = NULL;
 	int i = 0;
 	int ret = 0;
 
@@ -362,6 +363,13 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
+	sde_conn = to_sde_connector(conn_state->connector);
+	if (sde_conn) {
+		if (sde_conn->ops.set_topology_ctl)
+			sde_conn->ops.set_topology_ctl(conn_state->connector,
+					adj_mode, sde_conn->display);
+	}
+
 	/* Reserve dynamic resources now. Indicating AtomicTest phase */
 	if (!ret)
 		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
@@ -384,6 +392,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter pp_iter;
 	int i = 0, ret;
 
@@ -411,6 +420,13 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	} else if (!conn->state) {
 		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
 		return;
+	}
+
+	sde_conn = to_sde_connector(conn);
+	if (sde_conn) {
+		if (sde_conn->ops.set_topology_ctl)
+			sde_conn->ops.set_topology_ctl(conn,
+					adj_mode, sde_conn->display);
 	}
 
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */

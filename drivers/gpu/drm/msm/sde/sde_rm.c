@@ -36,6 +36,7 @@
 #define RM_RQ_DSPP(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DSPP))
 #define RM_RQ_PPSPLIT(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_PPSPLIT))
 #define RM_RQ_FORCE_TILING(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_FORCE_TILING))
+#define RM_RQ_FORCE_MIXER(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_FORCE_MIXER))
 
 /**
  * struct sde_rm_requirements - Reservation requirements parameter bundle
@@ -1192,6 +1193,8 @@ static int _sde_rm_populate_requirements(
 
 	reqs->top_ctrl = sde_connector_get_property(conn_state,
 			CONNECTOR_PROP_TOPOLOGY_CONTROL);
+	SDE_DEBUG("%s reqs->top_ctrl = %llu\n", __func__, reqs->top_ctrl);
+
 	sde_encoder_get_hw_resources(enc, &reqs->hw_res, conn_state);
 
 	/* Base assumption is LMs = h_tiles, conditions below may override */
@@ -1212,7 +1215,12 @@ static int _sde_rm_populate_requirements(
 		}
 
 	} else if (reqs->num_lm == 1) {
-		if (mode->hdisplay > rm->lm_max_width) {
+		if (RM_RQ_FORCE_MIXER(reqs)) {
+			/* user request serving wide display with 1 lm */
+			reqs->top_name = SDE_RM_TOPOLOGY_SINGLEPIPE;
+			reqs->num_ctl = 1;
+			reqs->needs_split_display = false;
+		} else if (mode->hdisplay > rm->lm_max_width) {
 			/* wide display, must split across 2 lm and merge */
 			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPEMERGE;
 			reqs->num_lm = 2;

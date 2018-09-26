@@ -52,6 +52,7 @@ enum sde_rm_topology_name {
  *                              of a single layer mixer.
  * @SDE_RM_TOPCTL_PPSPLIT: Require kernel to use pingpong split pipe
  *                         configuration instead of dual pipe.
+ * @SDE_RM_TOPCTL_FORCE_MIXER: Require kernel to force single mixer usage
  */
 enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_RESERVE_LOCK,
@@ -59,6 +60,7 @@ enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_DSPP,
 	SDE_RM_TOPCTL_FORCE_TILING,
 	SDE_RM_TOPCTL_PPSPLIT,
+	SDE_RM_TOPCTL_FORCE_MIXER,
 };
 
 /**

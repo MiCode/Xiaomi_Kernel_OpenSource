@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,16 @@ struct dsi_bridge {
 	struct dsi_display *display;
 	struct dsi_display_mode dsi_mode;
 };
+
+/**
+ * dsi_display_set_top_ctl - callback to set display topology property
+ * @connector: Pointer to drm connector structure
+ * @adj_mode: adjusted mode
+ * @display: Pointer to private display handle
+ * Returns: Zero on success
+ */
+int dsi_display_set_top_ctl(struct drm_connector *connector,
+			struct drm_display_mode *adj_mode, void *display);
 
 /**
  * dsi_conn_post_init - callback to perform additional initialization steps

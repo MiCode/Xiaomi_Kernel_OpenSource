@@ -1142,6 +1142,8 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	int i, size;
 	u32 phy_count = 0;
 	struct device_node *of_node;
+	const char *name;
+	u32 top = 0;
 
 	/* Parse controllers */
 	for (i = 0; i < MAX_DSI_CTRLS_PER_DISPLAY; i++) {
@@ -1187,6 +1189,24 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		display->dsi_split_swap =
 			of_property_read_bool(display->pdev->dev.of_node,
 					"qcom,dsi-split-swap");
+	}
+
+	rc = of_property_read_string(display->pdev->dev.of_node,
+				"qcom,display-topology-control",
+				&name);
+	if (rc) {
+		SDE_ERROR("unable to get qcom,display-topology-control,rc=%d\n",
+				rc);
+	} else {
+		SDE_DEBUG("%s qcom,display-topology-control = %s\n",
+				__func__, name);
+
+		if (!strcmp(name, "force-mixer"))
+			top = BIT(SDE_RM_TOPCTL_FORCE_MIXER);
+		else if (!strcmp(name, "force-tiling"))
+			top = BIT(SDE_RM_TOPCTL_FORCE_TILING);
+
+		display->display_topology = top;
 	}
 
 	if (of_get_property(display->pdev->dev.of_node, "qcom,dsi-panel",
