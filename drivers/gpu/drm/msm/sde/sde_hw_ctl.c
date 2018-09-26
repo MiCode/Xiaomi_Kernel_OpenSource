@@ -61,6 +61,7 @@
 #define CTL_SSPP_MAX_RECTS		2
 
 #define SDE_REG_RESET_TIMEOUT_US        2000
+#define SDE_REG_WAIT_RESET_TIMEOUT_US        100000
 
 #define UPDATE_MASK(m, idx, en)           \
 	((m) = (en) ? ((m) | BIT((idx))) : ((m) & ~BIT((idx))))
@@ -752,7 +753,7 @@ static int sde_hw_ctl_wait_reset_status(struct sde_hw_ctl *ctx)
 		return 0;
 
 	pr_debug("hw ctl reset is set for ctl:%d\n", ctx->idx);
-	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_US)) {
+	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_WAIT_RESET_TIMEOUT_US)) {
 		pr_err("hw recovery is not complete for ctl:%d\n", ctx->idx);
 		return -EINVAL;
 	}
