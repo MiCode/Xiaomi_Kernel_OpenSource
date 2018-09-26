@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@ static struct cnss_vreg_info cnss_vreg_info[] = {
 	{NULL, "vdd-wlan-xtal-aon", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-xtal", 1800000, 1800000, 0, 2},
 	{NULL, "vdd-wlan", 0, 0, 0, 0},
+	{NULL, "vdd-wlan-ctrl1", 0, 0, 0, 0},
+	{NULL, "vdd-wlan-ctrl2", 0, 0, 0, 0},
 	{NULL, "vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
 	{NULL, "wlan-ant-switch", 2700000, 2700000, 20000, 0},
 	{NULL, "wlan-soc-swreg", 1200000, 1200000, 0, 0},

@@ -722,6 +722,8 @@
 		compatible = "qcom,cnss";
 		wlan-en-gpio = <&tlmm 169 0>;
 		vdd-wlan-supply = <&vreg_wlan>;
+		vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
+		vdd-wlan-ctrl2-supply = <&vreg_conn_1p8>;
 		reg = <0x10000000 0x10000000>,
 			<0x20000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";
