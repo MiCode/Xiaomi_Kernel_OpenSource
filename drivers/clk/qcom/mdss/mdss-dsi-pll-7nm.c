@@ -1124,8 +1124,10 @@ static unsigned long vco_7nm_recalc_rate(struct clk_hw *hw,
 	u32 outdiv;
 	u64 pll_freq, tmp64;
 
-	if (!vco->priv)
+	if (!vco->priv) {
 		pr_err("vco priv is null\n");
+		return 0;
+	}
 
 	/*
 	 * Calculate the vco rate from HW registers only for handoff cases.

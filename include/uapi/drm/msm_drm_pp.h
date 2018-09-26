@@ -436,4 +436,23 @@ struct drm_msm_pa_dither {
 	__u32 matrix[DITHER_MATRIX_SZ];
 };
 
+/**
+ * struct drm_msm_ad4_roi_cfg - ad4 roi params config set
+ * by user-space client.
+ * @h_x - hotizontal direction start
+ * @h_y - hotizontal direction end
+ * @v_x - vertical direction start
+ * @v_y - vertical direction end
+ * @factor_in - the alpha value for inside roi region
+ * @factor_out - the alpha value for outside roi region
+ */
+#define DRM_MSM_AD4_ROI
+struct drm_msm_ad4_roi_cfg {
+	__u32 h_x;
+	__u32 h_y;
+	__u32 v_x;
+	__u32 v_y;
+	__u32 factor_in;
+	__u32 factor_out;
+};
 #endif /* _MSM_DRM_PP_H_ */
