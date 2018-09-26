@@ -20,14 +20,29 @@
 	qcom,msm-id = <246 0x0>;
 };
 
+&ion {
+	/delete-node/ qcom,ion-heap@25;
+
+	system_heap: qcom,ion-heap@25 {
+		reg = <25>;
+		qcom,ion-heap-type = "SYSTEM";
+	};
+
+	audio_heap: qcom,ion-heap@28 {
+		reg = <28>;
+		memory-region = <&ion_audio>;
+		qcom,ion-heap-type = "CARVEOUT";
+	};
+};
+
 &reserved_memory {
 		pmem_shared: pmem_shared_region@1154ca000 {
 			reg = <0x1 0x154ca000 0x0 0x154ca000>;
 			label = "pmem_shared_mem";
 		};
 
-		ion_system: ion_system_region@12a994000 {
-			reg = <0x1 0x2a994000 0x0 0x154ca000>;
-			label = "ion_system_mem";
+		ion_audio: ion_audio_region {
+			reg = <0 0xf0000000 0 0x00400000>;
+			label = "ion_audio_mem";
 		};
 };
