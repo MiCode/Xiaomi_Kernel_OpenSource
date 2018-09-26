@@ -3728,8 +3728,6 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,wlan-msa-fixed-region = <&pil_wlan_fw_mem>;
-		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
-		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 
 		vdd-cx-mx-supply = <&pm8150_l1>;
 		vdd-1.8-xo-supply = <&pm8150_l7>;
@@ -3737,6 +3735,12 @@
 		vdd-3.3-ch0-supply = <&pm8150l_l11>;
 		qcom,vdd-cx-mx-config = <752000 752000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
 	};
 
 	wil6210: qcom,wil6210 {
