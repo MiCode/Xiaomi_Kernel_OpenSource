@@ -1999,7 +1999,8 @@ static inline int blk_partition_remap(struct bio *bio)
 		trace_block_bio_remap(bio->bi_disk->queue, bio, part_devt(p),
 				bio->bi_iter.bi_sector - p->start_sect);
 	} else {
-		printk("%s: fail for partition %d\n", __func__, bio->bi_partno);
+		printk_ratelimited("%s: fail for partition %d\n",
+			__func__, bio->bi_partno);
 		ret = -EIO;
 	}
 	rcu_read_unlock();
@@ -2051,7 +2052,7 @@ generic_make_request_checks(struct bio *bio)
 
 	q = bio->bi_disk->queue;
 	if (unlikely(!q)) {
-		printk(KERN_ERR
+		printk_ratelimited(KERN_ERR
 		       "generic_make_request: Trying to access "
 			"nonexistent block-device %s (%Lu)\n",
 			bio_devname(bio, b), (long long)bio->bi_iter.bi_sector);
@@ -2630,7 +2631,8 @@ struct request *blk_peek_request(struct request_queue *q)
 			__blk_end_request_all(rq, ret == BLKPREP_INVALID ?
 					BLK_STS_TARGET : BLK_STS_IOERR);
 		} else {
-			printk(KERN_ERR "%s: bad return=%d\n", __func__, ret);
+			printk_ratelimited(KERN_ERR "%s: bad return=%d\n",
+				__func__, ret);
 			break;
 		}
 	}
