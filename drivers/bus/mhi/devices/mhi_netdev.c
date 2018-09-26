@@ -80,13 +80,6 @@ struct mhi_stats {
 	u32 alloc_failed;
 };
 
-/* important: do not exceed sk_buf->cb (48 bytes) */
-struct mhi_skb_priv {
-	void *buf;
-	size_t size;
-	struct mhi_netdev *mhi_netdev;
-};
-
 struct mhi_netdev {
 	int alias;
 	struct mhi_device *mhi_dev;
@@ -140,7 +133,6 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 {
 	u32 cur_mru = mhi_netdev->mru;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
-	struct mhi_skb_priv *skb_priv;
 	int ret;
 	struct sk_buff *skb;
 	int no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
@@ -158,15 +150,11 @@ static int mhi_netdev_alloc_skb(struct mhi_netdev *mhi_netdev, gfp_t gfp_t)
 			goto error_queue;
 		}
 
-		skb_priv = (struct mhi_skb_priv *)skb->cb;
-		skb_priv->buf = skb->data;
-		skb_priv->size = cur_mru;
-		skb_priv->mhi_netdev = mhi_netdev;
 		skb->dev = mhi_netdev->ndev;
 
 		spin_lock_bh(&mhi_netdev->rx_lock);
-		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb,
-					 skb_priv->size, MHI_EOT);
+		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, skb, cur_mru,
+					 MHI_EOT);
 		spin_unlock_bh(&mhi_netdev->rx_lock);
 
 		if (ret) {
@@ -301,12 +289,9 @@ static int mhi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct mhi_netdev *mhi_netdev = mhi_netdev_priv->mhi_netdev;
 	struct mhi_device *mhi_dev = mhi_netdev->mhi_dev;
 	int res = 0;
-	struct mhi_skb_priv *tx_priv;
 
 	MSG_VERB("Entered\n");
 
-	tx_priv = (struct mhi_skb_priv *)(skb->cb);
-	tx_priv->mhi_netdev = mhi_netdev;
 	read_lock_bh(&mhi_netdev->pm_lock);
 
 	if (unlikely(!mhi_netdev->enabled)) {
