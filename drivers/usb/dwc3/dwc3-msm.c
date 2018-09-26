@@ -1608,7 +1608,8 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&dwc->in_lpm) || dwc->dr_mode != USB_DR_MODE_OTG) {
+	if (atomic_read(&dwc->in_lpm) || (dwc->dr_mode != USB_DR_MODE_OTG
+		&& dwc->dr_mode != USB_DR_MODE_DRD)) {
 		dev_dbg(mdwc->dev, "%s failed!!!\n", __func__);
 		return;
 	}
@@ -2239,7 +2240,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	if (!mdwc->vbus_active && (dwc->dr_mode == USB_DR_MODE_OTG) &&
+	if (!mdwc->vbus_active && dwc3_is_otg_or_drd(dwc) &&
 		mdwc->otg_state == OTG_STATE_B_PERIPHERAL) {
 		/*
 		 * In some cases, the pm_runtime_suspend may be called by
@@ -2262,7 +2263,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * then check controller state of L2 and break
 	 * LPM sequence. Check this for device bus suspend case.
 	 */
-	if (((dwc->dr_mode == USB_DR_MODE_OTG) &&
+	if ((dwc3_is_otg_or_drd(dwc) &&
 			mdwc->otg_state == OTG_STATE_B_SUSPEND) &&
 			(dwc->gadget.state != USB_STATE_CONFIGURED)) {
 		pr_err("%s(): Trying to go in LPM with state:%d\n",
@@ -2964,7 +2965,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
 	mdwc->vbus_active = event;
-	if ((dwc->dr_mode == USB_DR_MODE_OTG) && !mdwc->in_restart)
+	if (dwc3_is_otg_or_drd(dwc) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return NOTIFY_DONE;
@@ -2979,7 +2980,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	if (!of_property_read_bool(node, "extcon")) {
-		if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		if (dwc3_is_otg_or_drd(dwc)) {
 			dev_dbg(mdwc->dev, "%s: no extcon, simulate vbus connect\n",
 								__func__);
 			mdwc->vbus_active = true;

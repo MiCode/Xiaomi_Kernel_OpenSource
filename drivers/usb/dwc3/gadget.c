@@ -2125,7 +2125,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	is_on = !!is_on;
 	dwc->softconnect = is_on;
 
-	if (((dwc->dr_mode == USB_DR_MODE_OTG) && !dwc->vbus_active)
+	if ((dwc3_is_otg_or_drd(dwc) && !dwc->vbus_active)
 			|| !dwc->gadget_driver) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
@@ -2256,7 +2256,7 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 	struct dwc3 *dwc = gadget_to_dwc(_gadget);
 	unsigned long flags;
 
-	if (dwc->dr_mode != USB_DR_MODE_OTG)
+	if (dwc->dr_mode != USB_DR_MODE_OTG && dwc->dr_mode != USB_DR_MODE_DRD)
 		return -EPERM;
 
 	is_active = !!is_active;

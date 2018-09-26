@@ -1508,6 +1508,12 @@ static inline bool dwc3_is_usb31(struct dwc3 *dwc)
 	return !!(dwc->revision & DWC3_REVISION_IS_DWC31);
 }
 
+static inline bool dwc3_is_otg_or_drd(struct dwc3 *dwc)
+{
+	return (dwc->dr_mode == USB_DR_MODE_OTG ||
+		dwc->dr_mode == USB_DR_MODE_DRD);
+}
+
 bool dwc3_has_imod(struct dwc3 *dwc);
 
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
