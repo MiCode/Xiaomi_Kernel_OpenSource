@@ -864,6 +864,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	phy->data_lanes = config->common_config.data_lanes;
 	phy->dst_format = config->common_config.dst_format;
 	phy->cfg.pll_source = pll_source;
+	phy->cfg.bit_clk_rate_hz = config->bit_clk_rate_hz;
 
 	/**
 	 * If PHY timing parameters are not present in panel dtsi file,

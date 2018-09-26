@@ -4175,7 +4175,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	display->config.bit_clk_rate_hz = bit_clk_rate;
+	display->config.bit_clk_rate_hz_override = bit_clk_rate;
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		struct dsi_display_ctrl *dsi_disp_ctrl = &display->ctrl[i];
@@ -4203,7 +4203,8 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		bit_rate = display->config.bit_clk_rate_hz * num_of_lanes;
+		bit_rate = display->config.bit_clk_rate_hz_override *
+						num_of_lanes;
 		bit_rate_per_lane = bit_rate;
 		do_div(bit_rate_per_lane, num_of_lanes);
 		pclk_rate = bit_rate;
@@ -4224,7 +4225,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 			goto error;
 		}
 
-		ctrl->host_config.bit_clk_rate_hz = bit_clk_rate;
+		ctrl->host_config.bit_clk_rate_hz_override = bit_clk_rate;
 error:
 		mutex_unlock(&ctrl->ctrl_lock);
 
