@@ -11,10 +11,6 @@
  */
 
 &soc {
-	qcom,lpass@62400000 {
-		status = "disabled";
-	};
-
 	qcom,glink {
 		modem {
 			status = "disabled";
