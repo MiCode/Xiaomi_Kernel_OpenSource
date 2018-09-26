@@ -371,14 +371,12 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 						memblock[i].hyp_mapping = 0;
 					}
 				}
-				if (memblock[i].client_id == 1) {
-					/*
-					 *	Check if the client id
-					 *	is of diag so that free
-					 *	the memory region of
-					 *	client's size + guard
-					 *	bytes of 4K.
-					 */
+				if (memblock[i].guard_band) {
+				/*
+				 *	Check if the client required guard band
+				 *	support so the memory region of client's
+				 *	size + guard bytes of 4K can be freed.
+				 */
 					size += MEMSHARE_GUARD_BYTES;
 				}
 				dma_free_attrs(memsh_drv->dev,
@@ -463,7 +461,7 @@ static void handle_alloc_generic_req(struct qmi_handle *handle,
 	}
 
 	if (!memblock[client_id].allotted) {
-		if (alloc_req->client_id == 1 && alloc_req->num_bytes > 0)
+		if (memblock[client_id].guard_band && alloc_req->num_bytes > 0)
 			size = alloc_req->num_bytes + MEMSHARE_GUARD_BYTES;
 		else
 			size = alloc_req->num_bytes;
@@ -555,14 +553,12 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 				__func__, client_id);
 		}
 		size = memblock[client_id].size;
-		if (memblock[client_id].client_id == 1) {
-			/*
-			 *	Check if the client id
-			 *	is of diag so that free
-			 *	the memory region of
-			 *	client's size + guard
-			 *	bytes of 4K.
-			 */
+		if (memblock[client_id].guard_band) {
+		/*
+		 *	Check if the client required guard band support so
+		 *	the memory region of client's size + guard
+		 *	bytes of 4K can be freed
+		 */
 			size += MEMSHARE_GUARD_BYTES;
 		}
 		dma_free_attrs(memsh_drv->dev, size,
@@ -655,7 +651,7 @@ static void handle_query_size_req(struct qmi_handle *handle,
 static void mem_share_svc_disconnect_cb(struct qmi_handle *qmi,
 				  unsigned int node, unsigned int port)
 {
-	pr_debug("memshare: Received QMI client disconnect event\n");
+	return;
 }
 
 static struct qmi_ops server_ops = {
@@ -787,6 +783,10 @@ static int memshare_child_probe(struct platform_device *pdev)
 							pdev->dev.of_node,
 							"qcom,allocate-on-request");
 
+	memblock[num_clients].guard_band = of_property_read_bool(
+							pdev->dev.of_node,
+							"qcom,guard-band");
+
 	rc = of_property_read_string(pdev->dev.of_node, "label",
 						&name);
 	if (rc) {
@@ -809,7 +809,7 @@ static int memshare_child_probe(struct platform_device *pdev)
    *	Memshare allocation for guaranteed clients
    */
 	if (memblock[num_clients].guarantee && size > 0) {
-		if (client_id == 1)
+		if (memblock[num_clients].guard_band)
 			size += MEMSHARE_GUARD_BYTES;
 		rc = memshare_alloc(memsh_child->dev,
 				size,

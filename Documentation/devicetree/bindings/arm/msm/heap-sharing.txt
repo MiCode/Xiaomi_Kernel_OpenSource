@@ -29,7 +29,13 @@ Optional properties for child nodes:
 
 - qcom,allocate-boot-time:	Indicates whether clients needs boot time memory allocation.
 
-Example:
+- qcom,allocate-on-request:	Indicates memory allocation happens only upon client request
+
+Note: qcom,allocate-boot-time and qcom,allocate-on-request are mutually exclusive rite now.
+
+- qcom,guard-band:	Indicates addition of a guard band memory allocation in addition to the client's memory region.
+
+Example 1:
 
 qcom,memshare {
 	compatible = "qcom,memshare";
@@ -39,6 +45,21 @@ qcom,memshare {
 		qcom,peripheral-size = <0x200000>;
 		qcom,client-id = <0>;
 		qcom,allocate-boot-time;
+		label = "modem";
+	};
+};
+
+Example 2:
+
+qcom,memshare {
+	compatible = "qcom,memshare";
+
+	qcom,client_3 {
+		compatible = "qcom,memshare-peripheral";
+		qcom,peripheral-size = <0x500000>;
+		qcom,client-id = <1>;
+		qcom,allocate-on-request;
+		qcom,guard-band;
 		label = "modem";
 	};
 };
