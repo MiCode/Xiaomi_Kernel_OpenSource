@@ -21,13 +21,6 @@
 		};
 	};
 
-	aliases {
-		mhi_rmnet0 = &mhi_rmnet_0;
-		mhi_rmnet1 = &mhi_rmnet_1;
-		mhi_uci0 = &mhi_uci;
-		mhi0 = &mhi;
-	};
-
 	gpio-leds {
 		compatible = "gpio-leds";
 
@@ -144,52 +137,6 @@
 		startup-delay-us = <2410>;
 		enable-active-high;
 		gpio = <&tlmm 125 0>;
-	};
-
-	mhi_rmnet_0: qcom,mhi-rmnet@0 {
-		compatible = "qcom,mhi-rmnet";
-		cell-index = <0>;
-		qcom,mhi = <&mhi>;
-		qcom,mhi-rx-channel = <101>;
-		qcom,mhi-tx-channel = <100>;
-		qcom,mhi-mru = <0x4000>;
-		status = "okay";
-	};
-
-	mhi_rmnet_1: qcom,mhi-rmnet@1 {
-		compatible = "qcom,mhi-rmnet";
-		cell-index = <1>;
-		qcom,mhi = <&mhi>;
-		qcom,mhi-rx-channel = <47>;
-		qcom,mhi-tx-channel = <46>;
-		qcom,mhi-mru = <0x4000>;
-		qcom,interface-name = "mhi_swip";
-		status = "okay";
-	};
-
-	mhi_uci: qcom,mhi-uci {
-		compatible = "qcom,mhi-uci";
-		qcom,mhi-uci-channels = <0 0xffff>,
-					<1 0x1000>,
-					<2 0xffff>,
-					<3 0xffff>,
-					<10 0xffff>,
-					<11 0x1000>,
-					<14 0xffff>,
-					<15 0x1000>,
-					<16 0xffff>,
-					<17 0x1000>,
-					<18 0xffff>,
-					<19 0x1000>,
-					<22 0xffff>,
-					<23 0x1000>,
-					<24 0xffff>,
-					<25 0x1000>,
-					<32 0xffff>,
-					<33 0x1000>;
-		qcom,mhi-uci-ctrlchan = <18>;
-		qcom,mhi = <&mhi>;
-		status = "okay";
 	};
 
 	qcom,diagfwd-usb {
@@ -360,85 +307,6 @@
 	qcom,boot-option = <0x0>;
 	/delete-property/ qcom,l1-supported;
 	/delete-property/ qcom,l1ss-supported;
-};
-
-&mdm3 {
-	pinctrl-names = "mdm_active", "mdm_suspend";
-	pinctrl-0 = <&ap2mdm_active &mdm2ap_active>;
-	pinctrl-1 = <&ap2mdm_sleep &mdm2ap_sleep>;
-	interrupt-map = <0 &tlmm 108 0x3
-			1 &tlmm 106 0x3
-			2 &tlmm 112 0x3>;
-	qcom,mdm2ap-errfatal-gpio = <&tlmm 108 0x00>;
-	qcom,ap2mdm-errfatal-gpio = <&tlmm 109 0x00>;
-	qcom,mdm2ap-status-gpio   = <&tlmm 106 0x00>;
-	qcom,ap2mdm-status-gpio   = <&tlmm 107 0x00>;
-	qcom,ap2mdm-soft-reset-gpio = <&pm8994_mpps 2 0x00>;
-	qcom,ap2mdm-vddmin-gpio = <&tlmm 111 0x00>;
-	qcom,mdm2ap-vddmin-gpio = <&tlmm 112 0x00>;
-	qcom,mdm-auto-boot;
-	qcom,ignore-ssr-failure;
-	qcom,mdm-link-info = "0302_02.01.00";
-	qcom,mdm-statusline-not-a-powersource;
-	qcom,mdm-userspace-handle-shutdown;
-	qcom,pil-force-shutdown;
-	qcom,shutdown-timeout-ms = <30000>;
-	qcom,reset-time-ms = <16203>;
-	status = "okay";
-};
-
-&mhi {
-	qcom,mhi-address-window = <0x0 0x80000000 0x1 0xffffffff>;
-	qcom,pci-dev_id = <0x0302>;
-	qcom,pci-domain = <2>;
-	qcom,pci-bus = <1>;
-	qcom,pci-slot = <0>;
-	esoc-names = "mdm";
-	esoc-0 = <&mdm3>;
-	qcom,msm-bus,name = "mhi";
-	qcom,msm-bus,num-cases = <2>;
-	qcom,msm-bus,num-paths = <1>;
-	qcom,msm-bus,vectors-KBps =
-		<100 512 0 0>,
-		<100 512 1200000000 650000000>;
-	mhi-chan-cfg-0 = <0x0 0x80 0x2 0x92>;
-	mhi-chan-cfg-1 = <0x1 0x80 0x2 0xa2>;
-	mhi-chan-cfg-2 = <0x2 0x80 0x1 0x91>;
-	mhi-chan-cfg-3 = <0x3 0x80 0x1 0xa1>;
-	mhi-chan-cfg-4 = <0x4 0x80 0x2 0x92>;
-	mhi-chan-cfg-5 = <0x5 0x80 0x2 0xa2>;
-	mhi-chan-cfg-6 = <0x6 0xa 0x2 0x92>;
-	mhi-chan-cfg-7 = <0x7 0xa 0x2 0xa2>;
-	mhi-chan-cfg-10 = <0xa 0x80 0x1 0x92>;
-	mhi-chan-cfg-11 = <0xb 0x80 0x1 0xa2>;
-	mhi-chan-cfg-14 = <0xe 0x40 0x1 0x92>;
-	mhi-chan-cfg-15 = <0xf 0x40 0x1 0xa2>;
-	mhi-chan-cfg-16 = <0x10 0x40 0x1 0x92>;
-	mhi-chan-cfg-17 = <0x11 0x40 0x1 0xa2>;
-	mhi-chan-cfg-18 = <0x12 0x40 0x1 0x92>;
-	mhi-chan-cfg-19 = <0x13 0x40 0x1 0xa2>;
-	mhi-chan-cfg-20 = <0x14 0xa 0x2 0x92>;
-	mhi-chan-cfg-21 = <0x15 0xa 0x2 0xa2>;
-	mhi-chan-cfg-22 = <0x16 0x40 0x2 0x92>;
-	mhi-chan-cfg-23 = <0x17 0x40 0x2 0xa2>;
-	mhi-chan-cfg-24 = <0x18 0xa 0x1 0x91>;
-	mhi-chan-cfg-25 = <0x19 0xa 0x1 0xa1>;
-	mhi-chan-cfg-32 = <0x20 0x80 0x2 0x92>;
-	mhi-chan-cfg-33 = <0x21 0x80 0x2 0xa2>;
-	mhi-chan-cfg-34 = <0x22 0x80 0x2 0x92>;
-	mhi-chan-cfg-35 = <0x23 0x80 0x2 0xa2>;
-	mhi-chan-cfg-46 = <0x2e 0x80 0x2 0x412>;
-	mhi-chan-cfg-47 = <0x2f 0x80 0x3 0x422>;
-	mhi-chan-cfg-100 = <0x64 0x80 0x4 0x652>;
-	mhi-chan-cfg-101 = <0x65 0x80 0x5 0x762>;
-	mhi-event-rings = <6>;
-	mhi-event-cfg-0 = <0x80 0x0 0x1 0 1 0x11>;
-	mhi-event-cfg-1 = <0x80 0x1 0x1 0 1 0x11>;
-	mhi-event-cfg-2 = <0x80 0x2 0x5 0 2 0x11>;
-	mhi-event-cfg-3 = <0x100 0x3 0x1 47 1 0x48>;
-	mhi-event-cfg-4 = <0x100 0x4 0x1 100 1 0x69>;
-	mhi-event-cfg-5 = <0x100 0x5 0x1 101 1 0x68>;
-	status = "okay";
 };
 
 &pm8994_gpios {
