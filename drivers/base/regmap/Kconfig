@@ -49,3 +49,14 @@ config REGMAP_SOUNDWIRE
 config REGMAP_SCCB
 	tristate
 	depends on I2C
+
+config REGMAP_WCD_IRQ
+	depends on SND_SOC
+	bool "Enable REGMAP IRQ for WCD"
+	select REGMAP_IRQ
+	default n
+	help
+	  Say 'y' here to enable REGMAP_IRQ for generic WCD IRQ.
+	  This config is intended for enabling REGMAP_IRQ for
+	  WCD IRQ. Generic WCD IRQ will be used for
+	  wcd937x and later targets.
