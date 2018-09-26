@@ -39,17 +39,6 @@
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
 
-#define SINGLE_CTL	1
-
-struct sde_rm_topology_def {
-	enum sde_rm_topology_name top_name;
-	int num_lm;
-	int num_comp_enc;
-	int num_intf;
-	int num_ctl;
-	int needs_split_display;
-};
-
 /**
  * toplogy information to be used when ctl path version does not
  * support driving more than one interface per ctl_path
@@ -1300,6 +1289,12 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 			if (index >= ARRAY_SIZE(splash_data->splash_display))
 				break;
 		}
+	}
+
+	if (index != splash_data->num_splash_displays) {
+		SDE_DEBUG("mismatch active displays vs actually enabled :%d/%d",
+				splash_data->num_splash_displays, index);
+		return -EINVAL;
 	}
 
 	return 0;

@@ -479,6 +479,8 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 	struct dp_aux_private *aux = container_of(drm_aux,
 		struct dp_aux_private, drm_aux);
 
+	mutex_lock(&aux->mutex);
+
 	ret = dp_aux_transfer_ready(aux, msg, false);
 	if (ret)
 		goto end;
@@ -536,12 +538,14 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 			DP_AUX_NATIVE_REPLY_DEFER : DP_AUX_I2C_REPLY_DEFER;
 	}
 
-	return msg->size;
+	ret = msg->size;
+	goto end;
 
 address_error:
 	memset(msg->buffer, 0, msg->size);
 	ret = msg->size;
 end:
+	mutex_unlock(&aux->mutex);
 	return ret;
 }
 
@@ -720,6 +724,8 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
+	mutex_lock(&aux->mutex);
+
 	aux->edid = edid;
 	aux->dpcd = dpcd;
 
@@ -727,6 +733,8 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 		aux->drm_aux.transfer = dp_aux_transfer_debug;
 	else
 		aux->drm_aux.transfer = dp_aux_transfer;
+
+	mutex_unlock(&aux->mutex);
 }
 
 static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,

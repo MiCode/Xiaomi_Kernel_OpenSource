@@ -271,6 +271,7 @@ struct sde_encoder_irq {
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
+ * @wbirq_refcount:	Reference count of wb irq request
  * @vsync_cnt:		Vsync count for the physical encoder
  * @underrun_cnt:	Underrun count for the physical encoder
  * @pending_kickoff_cnt:	Atomic counter tracking the number of kickoffs
@@ -315,6 +316,7 @@ struct sde_encoder_phys {
 	enum sde_enc_enable_state enable_state;
 	struct mutex *vblank_ctl_lock;
 	atomic_t vblank_refcount;
+	atomic_t wbirq_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
 	atomic_t pending_ctlstart_cnt;
@@ -651,17 +653,23 @@ void sde_encoder_helper_update_intf_cfg(
 static inline bool _sde_encoder_phys_is_dual_ctl(
 		struct sde_encoder_phys *phys_enc)
 {
+	struct sde_kms *sde_kms;
 	enum sde_rm_topology_name topology;
 
-	if (!phys_enc)
+	if (!phys_enc) {
+		pr_err("invalid phys_enc\n");
 		return false;
+	}
+
+	sde_kms = phys_enc->sde_kms;
+	if (!sde_kms) {
+		pr_err("invalid kms\n");
+		return false;
+	}
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
-		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
-		return true;
 
-	return false;
+	return sde_rm_topology_is_dual_ctl(&sde_kms->rm, topology);
 }
 
 /**
@@ -674,8 +682,10 @@ static inline bool _sde_encoder_phys_is_ppsplit(
 {
 	enum sde_rm_topology_name topology;
 
-	if (!phys_enc)
+	if (!phys_enc) {
+		pr_err("invalid phys_enc\n");
 		return false;
+	}
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
@@ -690,10 +700,8 @@ static inline bool sde_encoder_phys_needs_single_flush(
 	if (!phys_enc)
 		return false;
 
-	return phys_enc->cont_splash_enabled ?
-			phys_enc->cont_splash_single_flush :
-			(_sde_encoder_phys_is_ppsplit(phys_enc) ||
-				_sde_encoder_phys_is_dual_ctl(phys_enc));
+	return (_sde_encoder_phys_is_ppsplit(phys_enc) ||
+				!_sde_encoder_phys_is_dual_ctl(phys_enc));
 }
 
 /**

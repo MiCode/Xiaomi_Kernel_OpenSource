@@ -1825,10 +1825,15 @@ static int dsi_panel_parse_jitter_config(
 static int dsi_panel_parse_power_cfg(struct dsi_panel *panel)
 {
 	int rc = 0;
+	char *supply_name;
+
+	if (!strcmp(panel->type, "primary"))
+		supply_name = "qcom,panel-supply-entries";
+	else
+		supply_name = "qcom,panel-sec-supply-entries";
 
 	rc = dsi_pwr_of_get_vreg_data(&panel->utils,
-			&panel->power_info,
-			"qcom,panel-supply-entries");
+			&panel->power_info, supply_name);
 	if (rc) {
 		pr_err("[%s] failed to parse vregs\n", panel->name);
 		goto error;
@@ -1843,9 +1848,18 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 	int rc = 0;
 	const char *data;
 	struct dsi_parser_utils *utils = &panel->utils;
+	char *reset_gpio_name, *mode_set_gpio_name;
+
+	if (!strcmp(panel->type, "primary")) {
+		reset_gpio_name = "qcom,platform-reset-gpio";
+		mode_set_gpio_name = "qcom,panel-mode-gpio";
+	} else {
+		reset_gpio_name = "qcom,platform-sec-reset-gpio";
+		mode_set_gpio_name = "qcom,panel-sec-mode-gpio";
+	}
 
 	panel->reset_config.reset_gpio = utils->get_named_gpio(utils->data,
-					      "qcom,platform-reset-gpio", 0);
+					      reset_gpio_name, 0);
 	if (!gpio_is_valid(panel->reset_config.reset_gpio) &&
 		!panel->host_config.ext_bridge_mode) {
 		pr_err("[%s] failed get reset gpio, rc=%d\n", panel->name, rc);
@@ -1869,7 +1883,7 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 	}
 
 	panel->reset_config.lcd_mode_sel_gpio = utils->get_named_gpio(
-		utils->data, "qcom,panel-mode-gpio", 0);
+		utils->data, mode_set_gpio_name, 0);
 	if (!gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		pr_debug("%s:%d mode gpio not specified\n", __func__, __LINE__);
 
@@ -2883,7 +2897,7 @@ end:
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				struct device_node *parser_node,
-				struct dentry *root,
+				const char *type,
 				int topology_override)
 {
 	struct dsi_panel *panel;
@@ -2896,7 +2910,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 
 	panel->panel_of_node = of_node;
 	panel->parent = parent;
-	panel->root = root;
+	panel->type = type;
 
 	dsi_panel_update_util(panel, parser_node);
 	utils = &panel->utils;
