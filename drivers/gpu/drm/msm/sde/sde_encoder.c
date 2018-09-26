@@ -1773,8 +1773,7 @@ static int _sde_encoder_update_rsc_client(
 	struct drm_crtc *primary_crtc;
 	int pipe = -1;
 	int rc = 0;
-	int wait_refcount, i;
-	struct sde_encoder_phys *phys;
+	int wait_refcount;
 	u32 qsync_mode = 0;
 
 	if (!drm_enc || !drm_enc->dev) {
@@ -1809,16 +1808,9 @@ static int _sde_encoder_update_rsc_client(
 	 * secondary command mode panel.
 	 * Clone mode encoder can request CLK STATE only.
 	 */
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		phys = sde_enc->phys_encs[i];
-
-		if (phys) {
-			qsync_mode = sde_connector_get_property(
-					phys->connector->state,
-					CONNECTOR_PROP_QSYNC_MODE);
-			break;
-		}
-	}
+	if (sde_enc->cur_master)
+		qsync_mode = sde_connector_get_qsync_mode(
+				sde_enc->cur_master->connector);
 
 	if (sde_encoder_in_clone_mode(drm_enc))
 		rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
@@ -4369,6 +4361,11 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	else
 		ln_cnt1 = -EINVAL;
 
+	/* update the qsync parameters for the current frame */
+	if (sde_enc->cur_master)
+		sde_connector_set_qsync_params(
+				sde_enc->cur_master->connector);
+
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	SDE_ATRACE_BEGIN("sde_encoder_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -4385,8 +4382,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 				needs_hw_reset = true;
 			_sde_encoder_setup_dither(phys);
 
-			/* flush the mixer if qsync is enabled */
-			if (sde_enc->cur_master && sde_connector_qsync_updated(
+			if (sde_enc->cur_master &&
+					sde_connector_is_qsync_updated(
 					sde_enc->cur_master->connector)) {
 				_helper_flush_qsync(phys);
 			}

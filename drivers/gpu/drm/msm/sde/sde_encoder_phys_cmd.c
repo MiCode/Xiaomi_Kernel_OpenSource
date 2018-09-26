@@ -909,8 +909,7 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
 		return 0;
 
 	mode = &phys_enc->cached_mode;
-	qsync_mode = sde_connector_get_property(
-			conn->state, CONNECTOR_PROP_QSYNC_MODE);
+	qsync_mode = sde_connector_get_qsync_mode(conn);
 
 	if (mode && (qsync_mode == SDE_RM_QSYNC_CONTINUOUS_MODE)) {
 		u32 qsync_min_fps = 0;
@@ -1360,7 +1359,7 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		SDE_ERROR("failed wait_for_idle: %d\n", ret);
 	}
 
-	if (sde_connector_qsync_updated(phys_enc->connector)) {
+	if (sde_connector_is_qsync_updated(phys_enc->connector)) {
 		tc_cfg.sync_threshold_start =
 			_get_tearcheck_threshold(phys_enc);
 		if (phys_enc->has_intf_te &&
