@@ -3229,13 +3229,13 @@ static int cx_crc_check(void)
 {
 	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0,
 				ADDR_CRC_BYTE1};
-	unsigned char val[2];
+	unsigned char val[2] = {0};
 	unsigned char crc_status;
 	int res;
 	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
 	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
 			(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 
 	/* read 2 bytes because the first one is a dummy byte! */
 	res = fts_readCmd(regAdd1, sizeof(regAdd1), val, 2);
@@ -3251,7 +3251,6 @@ static int cx_crc_check(void)
 			tag, __func__, crc_status);
 		return crc_status;
 	}
-
 
 	logError(0, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
 	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
@@ -3283,7 +3282,7 @@ static void fts_fw_update_auto(struct work_struct *work)
 	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
 	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
 					(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int flag_init = 0;
 	int retval = 0;
 	int retval1 = 0;
