@@ -1194,19 +1194,19 @@ void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
 			board_file = WIL_BOARD_FILE_NAME;
 	}
 
-	if (wil->board_file_country[0] == '\0') {
+	if (wil->board_file_reg_suffix[0] == '\0') {
 		strlcpy(buf, board_file, len);
 		return;
 	}
 
 	/* use country specific board file */
-	if (len < strlen(board_file) + 4 /* for _XX and terminating null */)
+	if (len < strlen(board_file) + 1 + WIL_BRD_SUFFIX_LEN) /* 1 for '_' */
 		return;
 
 	ext = strrchr(board_file, '.');
 	prefix_len = (ext ? ext - board_file : strlen(board_file));
-	snprintf(buf, len, "%.*s_%.2s",
-		 prefix_len, board_file, wil->board_file_country);
+	snprintf(buf, len, "%.*s_%.3s",
+		 prefix_len, board_file, wil->board_file_reg_suffix);
 	if (ext)
 		strlcat(buf, ext, len);
 }
