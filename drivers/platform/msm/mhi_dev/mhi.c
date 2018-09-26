@@ -656,14 +656,12 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	struct mhi_dev_ring *ring = &mhi->ring[evnt_ring_idx];
 	union mhi_dev_ring_ctx *ctx;
 	struct mhi_addr transfer_addr;
-	static int count;
 
 	rc = ep_pcie_get_msi_config(mhi->phandle, &mhi->msi_cfg);
 	if (rc) {
 		pr_err("Error retrieving pcie msi logic\n");
 		return rc;
 	}
-	count++;
 
 	if (evnt_ring_idx > mhi->cfg.event_rings) {
 		pr_err("Invalid event ring idx: %lld\n", evnt_ring_idx);
@@ -805,7 +803,6 @@ static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi,
 static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 							struct mhi_dev *mhi)
 {
-	int rc = 0;
 	struct mhi_addr data_transfer;
 
 	if (ring->rd_offset != ring->wr_offset &&
