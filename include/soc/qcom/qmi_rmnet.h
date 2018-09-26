@@ -17,6 +17,13 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 
+struct qmi_rmnet_ps_ind {
+	void (*ps_on_handler)(void *);
+	void (*ps_off_handler)(void *);
+	struct list_head list;
+};
+
+
 #ifdef CONFIG_QCOM_QMI_RMNET
 void qmi_rmnet_qmi_exit(void *qmi_pt, void *port);
 void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt);
@@ -72,6 +79,15 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable);
 void qmi_rmnet_work_init(void *port);
 void qmi_rmnet_work_exit(void *port);
 void qmi_rmnet_work_maybe_restart(void *port);
+void qmi_rmnet_work_restart(void *port);
+
+int qmi_rmnet_ps_ind_register(void *port,
+			      struct qmi_rmnet_ps_ind *ps_ind);
+int qmi_rmnet_ps_ind_deregister(void *port,
+				struct qmi_rmnet_ps_ind *ps_ind);
+void qmi_rmnet_ps_off_notify(void *port);
+void qmi_rmnet_ps_on_notify(void *port);
+
 #else
 static inline int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 {
@@ -89,6 +105,27 @@ static inline void qmi_rmnet_work_exit(void *port)
 }
 
 static inline void qmi_rmnet_work_maybe_restart(void *port)
+{
+
+}
+
+static inline int qmi_rmnet_ps_ind_register(struct rmnet_port *port,
+				     struct qmi_rmnet_ps_ind *ps_ind)
+{
+	return 0;
+}
+static inline int qmi_rmnet_ps_ind_deregister(struct rmnet_port *port,
+				       struct qmi_rmnet_ps_ind *ps_ind)
+{
+	return 0;
+}
+
+static inline void qmi_rmnet_ps_off_notify(struct rmnet_port *port)
+{
+
+}
+
+static inline void qmi_rmnet_ps_on_notify(struct rmnet_port *port)
 {
 
 }

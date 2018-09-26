@@ -658,6 +658,7 @@ EXPORT_SYMBOL(qmi_rmnet_qos_exit);
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
 static struct workqueue_struct  *rmnet_ps_wq;
 static struct rmnet_powersave_work *rmnet_work;
+static struct list_head ps_list;
 
 struct rmnet_powersave_work {
 	struct delayed_work work;
@@ -665,6 +666,58 @@ struct rmnet_powersave_work {
 	u64 old_rx_pkts;
 	u64 old_tx_pkts;
 };
+
+void qmi_rmnet_ps_on_notify(void *port)
+{
+	struct qmi_rmnet_ps_ind *tmp;
+
+	list_for_each_entry(tmp, &ps_list, list)
+		tmp->ps_on_handler(port);
+}
+EXPORT_SYMBOL(qmi_rmnet_ps_on_notify);
+
+void qmi_rmnet_ps_off_notify(void *port)
+{
+	struct qmi_rmnet_ps_ind *tmp;
+
+	list_for_each_entry(tmp, &ps_list, list)
+		tmp->ps_off_handler(port);
+}
+EXPORT_SYMBOL(qmi_rmnet_ps_off_notify);
+
+int qmi_rmnet_ps_ind_register(void *port,
+			      struct qmi_rmnet_ps_ind *ps_ind)
+{
+
+	if (!port || !ps_ind || !ps_ind->ps_on_handler ||
+	    !ps_ind->ps_off_handler)
+		return -EINVAL;
+
+	list_add_rcu(&ps_ind->list, &ps_list);
+
+	return 0;
+}
+EXPORT_SYMBOL(qmi_rmnet_ps_ind_register);
+
+int qmi_rmnet_ps_ind_deregister(void *port,
+				struct qmi_rmnet_ps_ind *ps_ind)
+{
+	struct qmi_rmnet_ps_ind *tmp;
+
+	if (!port || !ps_ind)
+		return -EINVAL;
+
+	list_for_each_entry(tmp, &ps_list, list) {
+		if (tmp == ps_ind) {
+			list_del_rcu(&ps_ind->list);
+			goto done;
+		}
+	}
+
+done:
+	return 0;
+}
+EXPORT_SYMBOL(qmi_rmnet_ps_ind_deregister);
 
 int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 {
@@ -727,6 +780,11 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 
 		}
 		qmi->ps_enabled = 0;
+
+		if (rmnet_get_powersave_notif(real_work->port))
+			qmi_rmnet_ps_off_notify(real_work->port);
+
+
 		goto end;
 	}
 
@@ -744,6 +802,9 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		}
 		qmi->ps_enabled = 1;
 		clear_bit(PS_WORK_ACTIVE_BIT, &qmi->ps_work_active);
+
+		if (rmnet_get_powersave_notif(real_work->port))
+			qmi_rmnet_ps_on_notify(real_work->port);
 
 		return;
 	}
@@ -779,7 +840,7 @@ void qmi_rmnet_work_init(void *port)
 		rmnet_ps_wq = NULL;
 		return;
 	}
-
+	INIT_LIST_HEAD(&ps_list);
 	INIT_DEFERRABLE_WORK(&rmnet_work->work, qmi_rmnet_check_stats);
 	rmnet_work->port = port;
 	rmnet_get_packets(rmnet_work->port, &rmnet_work->old_rx_pkts,

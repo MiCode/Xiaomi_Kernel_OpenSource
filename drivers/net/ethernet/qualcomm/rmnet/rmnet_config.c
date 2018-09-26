@@ -605,6 +605,13 @@ void rmnet_enable_all_flows(void *port)
 }
 EXPORT_SYMBOL(rmnet_enable_all_flows);
 
+int rmnet_get_powersave_notif(void *port)
+{
+	if (!port)
+		return 0;
+	return ((struct rmnet_port *)port)->data_format & RMNET_FORMAT_PS_NOTIF;
+}
+EXPORT_SYMBOL(rmnet_get_powersave_notif);
 #endif
 
 /* Startup/Shutdown */
