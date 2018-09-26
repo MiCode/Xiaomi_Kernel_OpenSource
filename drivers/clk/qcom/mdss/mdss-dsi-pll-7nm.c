@@ -250,6 +250,18 @@ struct dsi_pll_7nm {
 	struct dsi_pll_regs reg_setup;
 };
 
+static inline bool dsi_pll_7nm_is_hw_revision_v1(
+		struct mdss_pll_resources *rsc)
+{
+	return (rsc->pll_interface_type == MDSS_DSI_PLL_7NM) ? true : false;
+}
+
+static inline bool dsi_pll_7nm_is_hw_revision_v2(
+		struct mdss_pll_resources *rsc)
+{
+	return (rsc->pll_interface_type == MDSS_DSI_PLL_7NM_V2) ? true : false;
+}
+
 static inline int pll_reg_read(void *context, unsigned int reg,
 					unsigned int *val)
 {
@@ -519,7 +531,11 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_7nm *pll,
 
 	dec = div_u64(dec_multiple, multiplier);
 
-	regs->pll_clock_inverters = 0;
+	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+		regs->pll_clock_inverters = 0x0;
+	else
+		regs->pll_clock_inverters = 0x28;
+
 	regs->pll_lockdet_rate = config->lock_timer;
 	regs->decimal_div_start = dec;
 	regs->frac_div_start_low = (frac & 0xff);
@@ -605,7 +621,12 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE_1, 0x01);
 	MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x00);
-	MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x21);
+
+	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+		MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x21);
+	else
+		MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x22);
+
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE, 0x01);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_TWO, 0x03);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_THREE, 0x00);
@@ -626,7 +647,11 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x29);
 	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x2f);
 	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x2a);
-	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
+
+	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+		MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x30);
+	else
+		MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x22);
 }
 
 static void dsi_pll_init_val(struct mdss_pll_resources *rsc)
@@ -717,7 +742,12 @@ static void dsi_pll_init_val(struct mdss_pll_resources *rsc)
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_MIN_DELAY, 0x00000019);
 	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, 0x00000000);
 	MDSS_PLL_REG_W(pll_base, PLL_SPARE_AND_JPC_OVERRIDES, 0x00000000);
-	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_1, 0x00000040);
+
+	if (dsi_pll_7nm_is_hw_revision_v1(rsc))
+		MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_1, 0x00000066);
+	else
+		MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_1, 0x00000040);
+
 	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_2, 0x00000020);
 	MDSS_PLL_REG_W(pll_base, PLL_ALOG_OBSV_BUS_CTRL_1, 0x00000000);
 	MDSS_PLL_REG_W(pll_base, PLL_COMMON_STATUS_ONE, 0x00000000);

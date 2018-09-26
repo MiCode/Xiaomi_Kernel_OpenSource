@@ -52,6 +52,14 @@
 	/delete-property/ qcom,smmu-s1-bypass;
 };
 
+&mdss_dsi0_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
+
+&mdss_dsi1_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
+
 &spss_utils {
 	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
 	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
