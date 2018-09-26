@@ -362,14 +362,15 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 	set_msm_bus_request_locked(BW_HIGH);
 	mutex_unlock(&smcinvoke_lock);
 	ret = scm_call2(SMCINVOKE_TZ_CMD, &desc);
-	mutex_lock(&smcinvoke_lock);
-	set_msm_bus_request_locked(BW_INACTIVE);
-	mutex_unlock(&smcinvoke_lock);
 
 	/* process listener request */
 	if (!ret && (desc.ret[0] == QSEOS_RESULT_INCOMPLETE ||
 		desc.ret[0] == QSEOS_RESULT_BLOCKED_ON_LISTENER))
 		ret = qseecom_process_listener_from_smcinvoke(&desc);
+
+	mutex_lock(&smcinvoke_lock);
+	set_msm_bus_request_locked(BW_INACTIVE);
+	mutex_unlock(&smcinvoke_lock);
 
 	*smcinvoke_result = (int32_t)desc.ret[1];
 	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0])
