@@ -2132,6 +2132,12 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		smp2p_wlan_1_in: qcom,smp2p-wlan-1-in {
+			qcom,entry-name = "wlan";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		 };
 	};
 
 	qcom,smp2p-adsp {
@@ -2489,6 +2495,13 @@
 		vdd-1.3-rfa-supply = <&pm6150l_l2>;
 		vdd-3.3-ch0-supply = <&pm6150l_l10>;
 		qcom,vdd-0.8-cx-mx-config = <640000 640000>;
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
+
 	};
 
 	qcom,rmtfs_sharedmem@0 {
