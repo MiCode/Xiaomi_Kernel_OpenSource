@@ -2904,9 +2904,8 @@ static void esr_calib_work(struct work_struct *work)
 	 * to disable the interrupt OR ESR fast calibration timer is expired
 	 * OR after one retry, disable ESR fast calibration.
 	 */
-	if ((chip->delta_esr_count >= chip->dt.delta_esr_disable_count) ||
-		chip->esr_fast_cal_timer_expired ||
-		(chip->esr_fast_calib_retry && chip->delta_esr_count > 0)) {
+	if (chip->delta_esr_count >= chip->dt.delta_esr_disable_count ||
+		chip->esr_fast_cal_timer_expired) {
 		rc = fg_gen4_esr_fast_calib_config(chip, false);
 		if (rc < 0)
 			pr_err("Error in configuring esr_fast_calib, rc=%d\n",
@@ -3235,6 +3234,9 @@ static int fg_esr_fast_cal_sysfs(const char *val, const struct kernel_param *kp)
 
 	if (!chip)
 		return -ENODEV;
+
+	if (fg_esr_fast_cal_en)
+		chip->delta_esr_count = 0;
 
 	rc = fg_gen4_esr_fast_calib_config(chip, fg_esr_fast_cal_en);
 	if (rc < 0)
