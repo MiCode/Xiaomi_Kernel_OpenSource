@@ -115,6 +115,14 @@
 		compatible = "qcom,wcd-dsp-glink";
 	};
 
+	micbias_supply_en_gpio: msm_cdc_pinctrl@126 {
+		status = "okay";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&micbias_supply_en_active>;
+		pinctrl-1 = <&micbias_supply_en_sleep>;
+	};
+
 };
 
 &slim_aud {
@@ -151,6 +159,9 @@
 		qcom,cdc-mad-dmic-rate = <600000>;
 
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+
+		qcom,has-micbias-supply-en-gpio;
+		qcom,micbias-supply-en-gpio-node = <&micbias_supply_en_gpio>;
 
 		wcd_spi_0: wcd_spi {
 			compatible = "qcom,wcd-spi-v2";
