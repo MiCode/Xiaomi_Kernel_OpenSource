@@ -250,8 +250,9 @@ static int ion_heap_deferred_free(void *data)
 
 int ion_heap_init_deferred_free(struct ion_heap *heap)
 {
+#ifndef CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE
 	struct sched_param param = { .sched_priority = 0 };
-
+#endif
 	INIT_LIST_HEAD(&heap->free_list);
 	init_waitqueue_head(&heap->waitqueue);
 	heap->task = kthread_run(ion_heap_deferred_free, heap,
@@ -261,7 +262,9 @@ int ion_heap_init_deferred_free(struct ion_heap *heap)
 		       __func__);
 		return PTR_ERR_OR_ZERO(heap->task);
 	}
+#ifndef CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE
 	sched_setscheduler(heap->task, SCHED_IDLE, &param);
+#endif
 	return 0;
 }
 
