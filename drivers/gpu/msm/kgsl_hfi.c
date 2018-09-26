@@ -174,10 +174,11 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 
 
 /* Sizes of the queue and message are in unit of dwords */
-void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
-		uint32_t queue_sz_bytes)
+void hfi_init(struct gmu_device *gmu)
 {
+	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(hfi->kgsldev);
+	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
@@ -218,7 +219,7 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		hdr->start_addr = GMU_QUEUE_START_ADDR(mem_addr, i);
 		hdr->type = QUEUE_HDR_TYPE(queue[i].idx, queue[i].pri, 0,  0);
 		hdr->status = queue[i].status;
-		hdr->queue_size = queue_sz_bytes >> 2; /* convert to dwords */
+		hdr->queue_size = HFI_QUEUE_SIZE >> 2; /* convert to dwords */
 		hdr->msg_size = 0;
 		hdr->drop_cnt = 0;
 		hdr->rx_wm = 0x1;

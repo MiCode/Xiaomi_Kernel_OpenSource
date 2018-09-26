@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -19,6 +19,7 @@
 #include "adreno_llc.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl.h"
+#include "kgsl_gmu.h"
 #include "kgsl_hfi.h"
 #include "kgsl_trace.h"
 
@@ -1435,6 +1436,7 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (sqe_fw->memdesc.hostptr == NULL) {
@@ -1444,7 +1446,17 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	return gmu_core_dev_load_firmware(device);
+	ret = gmu_core_dev_load_firmware(device);
+	if (ret)
+		return ret;
+
+	ret = gmu_memory_probe(device);
+	if (ret)
+		return ret;
+
+	hfi_init(gmu);
+
+	return 0;
 }
 
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)

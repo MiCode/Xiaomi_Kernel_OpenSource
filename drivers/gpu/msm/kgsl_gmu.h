@@ -206,9 +206,14 @@ struct gmu_device {
 	unsigned int idle_level;
 	unsigned int fault_count;
 	struct kgsl_mailbox mailbox;
+	bool preallocations;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);
 unsigned int gmu_get_memtype_base(enum gmu_mem_type type);
+
+int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk);
+int gmu_memory_probe(struct kgsl_device *device);
+int gmu_cache_finalize(struct kgsl_device *device);
 
 #endif /* __KGSL_GMU_H */

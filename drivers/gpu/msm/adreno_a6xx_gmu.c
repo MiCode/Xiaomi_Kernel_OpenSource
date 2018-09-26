@@ -1132,16 +1132,20 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 			dev_dbg(&gmu->pdev->dev,
 					"HFI VER: 0x%8.8x\n", blk->value);
 			break;
-		/* Skip preallocation requests for now */
 		case GMU_BLK_TYPE_PREALLOC_REQ:
 		case GMU_BLK_TYPE_PREALLOC_PERSIST_REQ:
+			ret = gmu_prealloc_req(device, blk);
+			if (ret)
+				return ret;
+			break;
 
 		default:
 			break;
 		}
 	}
 
-	return 0;
+	 /* Request any other cache ranges that might be required */
+	return gmu_cache_finalize(device);
 }
 
 #define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))

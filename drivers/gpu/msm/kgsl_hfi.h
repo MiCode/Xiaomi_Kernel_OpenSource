@@ -630,8 +630,7 @@ int hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
 		uint32_t boot_state);
 void hfi_stop(struct gmu_device *gmu);
 void hfi_receiver(unsigned long data);
-void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
-		uint32_t queue_sz_bytes);
+void hfi_init(struct gmu_device *gmu);
 
 /* hfi_send_req is only for external (to HFI) requests */
 int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data);

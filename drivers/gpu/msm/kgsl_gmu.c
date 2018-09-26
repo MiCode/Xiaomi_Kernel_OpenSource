@@ -363,6 +363,7 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->hfi_mem = NULL;
 	gmu->dump_mem = NULL;
 	gmu->gmu_log = NULL;
+	gmu->preallocations = false;
 
 	/* Unmap and free all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
@@ -396,66 +397,55 @@ static void gmu_memory_close(struct gmu_device *gmu)
 
 }
 
+static enum gmu_mem_type gmu_get_blk_memtype(struct gmu_block_header *blk)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(gmu_vma); i++) {
+		if (blk->addr >= gmu_vma[i].start &&
+				blk->addr + blk->value <=
+				gmu_vma[i].start + gmu_vma[i].size)
+			return (enum gmu_mem_type)i;
+	}
+
+	return GMU_MEM_TYPE_MAX;
+}
+
+int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	enum gmu_mem_type type;
+	struct gmu_memdesc *md;
+
+	/* Check to see if this memdesc is already around */
+	md = gmu_get_memdesc(blk->addr, blk->value);
+	if (md)
+		return 0;
+
+	type = gmu_get_blk_memtype(blk);
+	if (type >= GMU_MEM_TYPE_MAX)
+		return -EINVAL;
+
+	md = allocate_gmu_kmem(gmu, type, blk->addr, blk->value,
+			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	gmu->preallocations = true;
+
+	return 0;
+}
+
 /*
  * gmu_memory_probe() - probe GMU IOMMU context banks and allocate memory
  * to share with GMU in kernel mode.
  * @device: Pointer to KGSL device
- * @gmu: Pointer to GMU device
- * @node: Pointer to GMU device node
  */
-static int gmu_memory_probe(struct kgsl_device *device,
-		struct gmu_device *gmu, struct device_node *node)
+int gmu_memory_probe(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_memdesc *md;
 	int ret;
-
-	ret = gmu_iommu_init(gmu, node);
-	if (ret)
-		return ret;
-
-	/* Reserve a memdesc for ITCM. No actually memory allocated */
-	md = allocate_gmu_kmem(gmu, GMU_ITCM, gmu_vma[GMU_ITCM].start,
-			gmu_vma[GMU_ITCM].size, 0);
-	if (IS_ERR(md)) {
-		ret = PTR_ERR(md);
-		goto err_ret;
-	}
-
-	/* Reserve a memdesc for DTCM. No actually memory allocated */
-	md = allocate_gmu_kmem(gmu, GMU_DTCM, gmu_vma[GMU_DTCM].start,
-			gmu_vma[GMU_DTCM].size, 0);
-	if (IS_ERR(md)) {
-		ret = PTR_ERR(md);
-		goto err_ret;
-	}
-
-	/* Allocates & maps memory for DCACHE */
-	md = allocate_gmu_kmem(gmu, GMU_DCACHE, gmu_vma[GMU_DCACHE].start,
-			gmu_vma[GMU_DCACHE].size,
-			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(md)) {
-		ret = PTR_ERR(md);
-		goto err_ret;
-	}
-
-	/* Allocates & maps memory for ICACHE */
-	md = allocate_gmu_kmem(gmu, GMU_ICACHE, gmu_vma[GMU_ICACHE].start,
-			gmu_vma[GMU_ICACHE].size,
-			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(md)) {
-		ret = PTR_ERR(md);
-		goto err_ret;
-	}
-
-	/* Allocates & maps memory for WB DUMMY PAGE */
-	/* Must be the first UNCACHED alloc */
-	md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
-			DUMMY_SIZE, (IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(md)) {
-		ret = PTR_ERR(md);
-		goto err_ret;
-	}
 
 	/* Allocates & maps memory for HFI */
 	gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
@@ -481,17 +471,6 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	if (IS_ERR(gmu->gmu_log)) {
 		ret = PTR_ERR(gmu->gmu_log);
 		goto err_ret;
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
-		/* Allocation to account for future MEM_ALLOC buffers */
-		md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
-				0, SZ_32K,
-				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-		if (IS_ERR(md)) {
-			ret = PTR_ERR(md);
-			goto err_ret;
-		}
 	}
 
 	return 0;
@@ -1291,11 +1270,68 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 	return 0;
 }
 
+static int gmu_tcm_init(struct gmu_device *gmu)
+{
+	struct gmu_memdesc *md;
+
+	/* Reserve a memdesc for ITCM. No actually memory allocated */
+	md = allocate_gmu_kmem(gmu, GMU_ITCM, gmu_vma[GMU_ITCM].start,
+			gmu_vma[GMU_ITCM].size, 0);
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	/* Reserve a memdesc for DTCM. No actually memory allocated */
+	md = allocate_gmu_kmem(gmu, GMU_DTCM, gmu_vma[GMU_DTCM].start,
+			gmu_vma[GMU_DTCM].size, 0);
+
+	return PTR_ERR_OR_ZERO(md);
+}
+
+int gmu_cache_finalize(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct gmu_memdesc *md;
+
+	/* Preallocations were made so no need to request all this memory */
+	if (gmu->preallocations)
+		return 0;
+
+	md = allocate_gmu_kmem(gmu, GMU_ICACHE,
+			gmu_vma[GMU_ICACHE].start, gmu_vma[GMU_ICACHE].size,
+			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	md = allocate_gmu_kmem(gmu, GMU_DCACHE,
+			gmu_vma[GMU_DCACHE].start, gmu_vma[GMU_DCACHE].size,
+			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+			0, DUMMY_SIZE,
+			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(md))
+		return PTR_ERR(md);
+
+	if (ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_ECP)) {
+		/* Allocation to account for future MEM_ALLOC buffers */
+		md = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+				0, SZ_32K,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+		if (IS_ERR(md))
+			return PTR_ERR(md);
+	}
+
+	gmu->preallocations = true;
+
+	return 0;
+}
+
 /* Do not access any GMU registers in GMU probe function */
 static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 {
 	struct gmu_device *gmu;
-	struct gmu_memdesc *mem_addr = NULL;
 	struct kgsl_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1324,10 +1360,13 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		goto error;
 
 	/* Set up GMU IOMMU and shared memory with GMU */
-	ret = gmu_memory_probe(device, gmu, node);
+	ret = gmu_iommu_init(gmu, node);
 	if (ret)
 		goto error;
-	mem_addr = gmu->hfi_mem;
+
+	ret = gmu_tcm_init(gmu);
+	if (ret)
+		goto error;
 
 	/* Map and reserve GMU CSRs registers */
 	ret = gmu_reg_probe(device);
@@ -1383,8 +1422,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	ret = gmu_rpmh_init(device, gmu, pwr);
 	if (ret)
 		goto error;
-
-	hfi_init(&gmu->hfi, mem_addr, HFI_QUEUE_SIZE);
 
 	/* Set up GMU idle states */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_MIN_VOLT))
