@@ -50,6 +50,12 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 
+#ifdef CONFIG_CNSS_EMULATION
+#define EMULATION_HW			1
+#else
+#define EMULATION_HW			0
+#endif
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 static unsigned int pci_link_down_panic;
@@ -62,6 +68,21 @@ static bool fbc_bypass;
 module_param(fbc_bypass, bool, 0600);
 MODULE_PARM_DESC(fbc_bypass,
 		 "Bypass firmware download when loading WLAN driver");
+#endif
+
+#ifdef CONFIG_CNSS2_DEBUG
+#ifdef CONFIG_CNSS_EMULATION
+static unsigned int mhi_timeout = 90000;
+#else
+static unsigned int mhi_timeout;
+#endif
+module_param(mhi_timeout, uint, 0600);
+MODULE_PARM_DESC(mhi_timeout,
+		 "Timeout for MHI operation in milliseconds");
+
+#define MHI_TIMEOUT_OVERWRITE_MS	mhi_timeout
+#else
+#define MHI_TIMEOUT_OVERWRITE_MS	0
 #endif
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
@@ -228,6 +249,27 @@ int cnss_pci_link_down(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
+
+int cnss_pci_is_device_down(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_pci_data *pci_priv;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	return test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) |
+		pci_priv->pci_link_down_ind;
+}
+EXPORT_SYMBOL(cnss_pci_is_device_down);
 
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 {
@@ -568,7 +610,6 @@ int cnss_pci_dev_powerup(struct cnss_pci_data *pci_priv)
 	case QCA6174_DEVICE_ID:
 		ret = cnss_qca6174_powerup(pci_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		ret = cnss_qca6290_powerup(pci_priv);
@@ -595,7 +636,6 @@ int cnss_pci_dev_shutdown(struct cnss_pci_data *pci_priv)
 	case QCA6174_DEVICE_ID:
 		ret = cnss_qca6174_shutdown(pci_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		ret = cnss_qca6290_shutdown(pci_priv);
@@ -622,7 +662,6 @@ int cnss_pci_dev_crash_shutdown(struct cnss_pci_data *pci_priv)
 	case QCA6174_DEVICE_ID:
 		cnss_qca6174_crash_shutdown(pci_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		cnss_qca6290_crash_shutdown(pci_priv);
@@ -649,7 +688,6 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 	case QCA6174_DEVICE_ID:
 		ret = cnss_qca6174_ramdump(pci_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		ret = cnss_qca6290_ramdump(pci_priv);
@@ -2110,6 +2148,9 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 	if (fbc_bypass)
 		return 0;
 
+	if (MHI_TIMEOUT_OVERWRITE_MS)
+		pci_priv->mhi_ctrl->timeout_ms = MHI_TIMEOUT_OVERWRITE_MS;
+
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
 		goto out;
@@ -2242,7 +2283,6 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 				    ret);
 		cnss_power_off_device(plat_priv);
 		break;
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		ret = cnss_pci_enable_msi(pci_priv);
@@ -2253,6 +2293,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 			cnss_pci_disable_msi(pci_priv);
 			goto disable_bus;
 		}
+		if (EMULATION_HW)
+			break;
 		ret = cnss_suspend_pci_link(pci_priv);
 		if (ret)
 			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
@@ -2295,7 +2337,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	cnss_pci_free_fw_mem(pci_priv);
 
 	switch (pci_dev->device) {
-	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 		cnss_pci_unregister_mhi(pci_priv);
@@ -2318,8 +2359,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 
 static const struct pci_device_id cnss_pci_id_table[] = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
-	{ QCA6290_EMULATION_VENDOR_ID, QCA6290_EMULATION_DEVICE_ID,
-	  PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6290_VENDOR_ID, QCA6290_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6390_VENDOR_ID, QCA6390_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }

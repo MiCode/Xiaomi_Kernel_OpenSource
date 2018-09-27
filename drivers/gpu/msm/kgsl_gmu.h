@@ -132,7 +132,6 @@ struct kgsl_mailbox {
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
- * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
  * @hfi: HFI controller
@@ -169,7 +168,6 @@ struct gmu_device {
 	unsigned int gmu_interrupt_num;
 	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;
-	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;

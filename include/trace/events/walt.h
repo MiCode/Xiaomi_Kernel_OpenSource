@@ -442,6 +442,40 @@ TRACE_EVENT(sched_set_boost,
 	TP_printk("type %d", __entry->type)
 );
 
+TRACE_EVENT(sched_load_balance_skip_tasks,
+
+	TP_PROTO(int scpu, int dcpu, int grp_type, int pid, unsigned long h_load, unsigned long task_util, unsigned long affinity),
+
+	TP_ARGS(scpu, dcpu, grp_type, pid, h_load, task_util, affinity),
+
+	TP_STRUCT__entry(
+		__field(int,		scpu		)
+		__field(unsigned long,	src_util_cum	)
+		__field(int,		grp_type	)
+		__field(int,		dcpu		)
+		__field(unsigned long,	dst_util_cum	)
+		__field(int,		pid		)
+		__field(unsigned long,	affinity	)
+		__field(unsigned long,	task_util	)
+		__field(unsigned long,	h_load		)
+	),
+
+	TP_fast_assign(
+		__entry->scpu			= scpu;
+		__entry->src_util_cum		= cpu_rq(scpu)->cum_window_demand_scaled;
+		__entry->grp_type		= grp_type;
+		__entry->dcpu			= dcpu;
+		__entry->dst_util_cum		= cpu_rq(dcpu)->cum_window_demand_scaled;
+		__entry->pid			= pid;
+		__entry->affinity		= affinity;
+		__entry->task_util		= task_util;
+		__entry->h_load			= h_load;
+	),
+
+	TP_printk("source_cpu=%d util_cum=%lu group_type=%d dest_cpu=%d util_cum=%lu pid=%d affinity=%#lx task_util=%lu task_h_load=%lu",
+		__entry->scpu, __entry->src_util_cum, __entry->grp_type, __entry->dcpu, __entry->dst_util_cum, __entry->pid, __entry->affinity, __entry->task_util, __entry->h_load)
+);
+
 DECLARE_EVENT_CLASS(sched_cpu_load,
 
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost),

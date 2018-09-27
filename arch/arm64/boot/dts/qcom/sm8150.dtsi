@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,camcc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/clock/qcom,videocc-sm8150.h>
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,npucc-sm8150.h>
@@ -702,7 +703,7 @@
 		};
 
 		disp_rdump_memory: disp_rdump_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x00800000>;
+			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "disp_rdump_region";
 		};
 
@@ -711,7 +712,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0xc00000>;
+			size = <0x0 0x1000000>;
 		};
 
 		cdsp_mem: cdsp_region {
@@ -758,7 +759,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0x2000000>;
+			size = <0x0 0x2800000>;
 			linux,cma-default;
 		};
 	};
@@ -778,6 +779,8 @@
 #include "msm-rdbg.dtsi"
 
 #include "sm8150-camera.dtsi"
+
+#include "msm-qvr-external.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1461,6 +1464,14 @@
 		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_scc: qcom,scc@2b10000 {
+		compatible = "qcom,scc-sm8150";
+		reg = <0x2b10000 0x30000>;
+		vdd_scc_cx-supply = <&pm8150_l8_level>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -2455,7 +2466,7 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x5a3 0x0>;
-			shared-cb = <2>;
+			shared-cb = <4>;
 			dma-coherent;
 		};
 	};
@@ -2885,6 +2896,9 @@
 	qcom,smp2p_sleepstate {
 		compatible = "qcom,smp2p-sleepstate";
 		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
 	};
 
 	system_pm {
@@ -2969,7 +2983,7 @@
 			compatible = "qcom,qcedev,context-bank";
 			label = "secure_context";
 			iommus = <&apps_smmu 0x513 0>;
-			virtual-addr = <0x60200000>;
+			virtual-addr = <0xa0000000>;
 			virtual-size = <0x40000000>;
 			qcom,secure-context-bank;
 		};
@@ -3013,52 +3027,52 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
+		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
 		};
 
-		rpm_sw_dump {
+		rpm_sw {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
 		};
 
-		pmic_dump {
+		pmic {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe4>;
 		};
 
-		fcm_dump {
+		fcm {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xee>;
 		};
 
-		tmc_etf_dump {
+		tmc_etf {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xf0>;
 		};
 
-		tmc_etf_swao_dump {
+		etf_swao {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xf1>;
 		};
 
-		tmc_etr_reg_dump {
+		etr_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x100>;
 		};
 
-		tmc_etf_reg_dump {
+		etf_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x101>;
 		};
 
-		tmc_etf_swao_reg_dump {
+		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
 		};
 
-		misc_data_dump {
+		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
@@ -3588,6 +3602,106 @@
 		mbox-names = "aop";
 	};
 
+	qcom,cnss-qca6390@a0000000 {
+		compatible = "qcom,cnss-qca6390";
+		reg = <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_base", "smmu_iova_ipa";
+		pinctrl-names = "disabled";
+		pinctrl-0 = <>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x400000>;
+
+		mhi,max-channels = <30>;
+		mhi,timeout = <1000>;
+
+		mhi_chan@0 {
+			reg = <0>;
+			label = "LOOPBACK";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@1 {
+			reg = <1>;
+			label = "LOOPBACK";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@4 {
+			reg = <4>;
+			label = "DIAG";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@5 {
+			reg = <5>;
+			label = "DIAG";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+		};
+
+		mhi_chan@20 {
+			reg = <20>;
+			label = "IPCR";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <1>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+			mhi,auto-start;
+		};
+
+		mhi_chan@21 {
+			reg = <21>;
+			label = "IPCR";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x14>;
+			mhi,auto-queue;
+			mhi,auto-start;
+		};
+
+		mhi_event@0 {
+			mhi,num-elements = <32>;
+			mhi,intmod = <1>;
+			mhi,msi = <1>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+			mhi,data-type = <1>;
+		};
+
+		mhi_event@1 {
+			mhi,num-elements = <256>;
+			mhi,intmod = <1>;
+			mhi,msi = <2>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+		};
+	};
+
 	icnss: qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
@@ -3635,9 +3749,8 @@
 		qcom,use-ext-supply;
 		vddio-supply= <&pm8150_s5>;
 		qcom,use-ext-clocks;
-		clocks = <&clock_rpmh RPMH_RF_CLK3>,
-			 <&clock_rpmh RPMH_RF_CLK3_A>;
-		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		clocks = <&clock_rpmh RPMH_RF_CLK3>;
+		clock-names = "rf_clk3_clk";
 		qcom,smmu-support;
 		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,smmu-s1-en;
@@ -3928,6 +4041,7 @@
 	status = "ok";
 };
 #include "sm8150-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
 #include "sm8150-regulator.dtsi"
 #include "sm8150-ion.dtsi"
 #include "sm8150-bus.dtsi"

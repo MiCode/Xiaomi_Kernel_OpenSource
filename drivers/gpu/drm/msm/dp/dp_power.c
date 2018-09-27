@@ -436,8 +436,10 @@ static int dp_power_config_gpios(struct dp_power_private *power, bool flip,
 		dp_power_set_gpio(power, flip);
 	} else {
 		for (i = 0; i < mp->num_gpio; i++) {
-			gpio_set_value(config[i].gpio, 0);
-			gpio_free(config[i].gpio);
+			if (gpio_is_valid(config[i].gpio)) {
+				gpio_set_value(config[i].gpio, 0);
+				gpio_free(config[i].gpio);
+			}
 		}
 	}
 

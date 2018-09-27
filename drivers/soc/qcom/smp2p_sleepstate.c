@@ -13,10 +13,16 @@
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/interrupt.h>
+#include <linux/irqreturn.h>
+#include <linux/of_irq.h>
+#include <linux/of.h>
+#include <linux/pm_wakeup.h>
 
 #define PROC_AWAKE_ID 12 /* 12th bit */
 #define AWAKE_BIT BIT(PROC_AWAKE_ID)
 static struct qcom_smem_state *state;
+struct wakeup_source notify_ws;
 
 /**
  * sleepstate_pm_notifier() - PM notifier callback function.
@@ -48,9 +54,18 @@ static struct notifier_block sleepstate_pm_nb = {
 	.priority = INT_MAX,
 };
 
+static irqreturn_t smp2p_sleepstate_handler(int irq, void *ctxt)
+{
+	__pm_wakeup_event(&notify_ws, 200);
+	return IRQ_HANDLED;
+}
+
 static int smp2p_sleepstate_probe(struct platform_device *pdev)
 {
 	int ret;
+	int irq = -1;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 
 	state = qcom_smem_state_get(&pdev->dev, 0, &ret);
 	if (IS_ERR(state))
@@ -61,6 +76,23 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("%s: power state notif error %d\n", __func__, ret);
 
+	wakeup_source_init(&notify_ws, "smp2p-sleepstate");
+
+	irq = of_irq_get_byname(node, "smp2p-sleepstate-in");
+	if (irq <= 0) {
+		pr_err("failed for irq getbyname for smp2p_sleep_state\n");
+		wakeup_source_trash(&notify_ws);
+		return -EPROBE_DEFER;
+	}
+	pr_info("got smp2p-sleepstate-in irq %d\n", irq);
+	ret = devm_request_threaded_irq(dev, irq, NULL,
+		(irq_handler_t)smp2p_sleepstate_handler,
+		IRQF_TRIGGER_RISING, "smp2p_sleepstate", dev);
+	if (ret) {
+		pr_err("fail to register smp2p threaded_irq=%d\n", irq);
+		wakeup_source_trash(&notify_ws);
+		return ret;
+	}
 	return 0;
 }
 

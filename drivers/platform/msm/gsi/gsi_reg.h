@@ -18,10 +18,17 @@ enum gsi_register_ver {
 	GSI_REGISTER_MAX,
 };
 
+#ifdef GSI_REGISTER_VER_CURRENT
+#error GSI_REGISTER_VER_CURRENT already defined
+#endif
+
 #ifdef CONFIG_GSI_REGISTER_VERSION_2
 #include "gsi_reg_v2.h"
 #define GSI_REGISTER_VER_CURRENT GSI_REGISTER_VER_2
-#else
+#endif
+
+/* The default is V1 */
+#ifndef GSI_REGISTER_VER_CURRENT
 #include "gsi_reg_v1.h"
 #define GSI_REGISTER_VER_CURRENT GSI_REGISTER_VER_1
 #endif

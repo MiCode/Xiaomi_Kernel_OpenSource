@@ -83,6 +83,7 @@ struct clk_osm {
 
 static bool is_sdmshrike;
 static bool is_sm6150;
+static bool is_sdmmagpie;
 
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
@@ -1007,7 +1008,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (is_sdmshrike || is_sm6150)
+	if (is_sdmshrike || is_sm6150 || is_sdmmagpie)
 		return 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1068,6 +1069,9 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
 
+	is_sdmmagpie = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,clk-cpu-osm-sdmmagpie");
+
 	is_sm6150 = of_device_is_compatible(pdev->dev.of_node,
 				"qcom,clk-cpu-osm-sm6150");
 
@@ -1075,7 +1079,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 				"qcom,clk-cpu-osm-sdmshrike");
 	if (is_sdmshrike)
 		clk_cpu_osm_driver_sdmshrike_fixup();
-	else if (is_sm6150)
+	else if (is_sm6150 || is_sdmmagpie)
 		clk_cpu_osm_driver_sm6150_fixup();
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
@@ -1128,7 +1132,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (!is_sdmshrike && !is_sm6150) {
+	if (!is_sdmshrike && !is_sm6150 && !is_sdmmagpie) {
 		rc = clk_osm_read_lut(pdev, &perfpcl_clk);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to read OSM LUT for perf plus cluster, rc=%d\n",
@@ -1201,6 +1205,7 @@ exit:
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,clk-cpu-osm" },
 	{ .compatible = "qcom,clk-cpu-osm-sm6150" },
+	{ .compatible = "qcom,clk-cpu-osm-sdmmagpie" },
 	{ .compatible = "qcom,clk-cpu-osm-sdmshrike" },
 	{}
 };

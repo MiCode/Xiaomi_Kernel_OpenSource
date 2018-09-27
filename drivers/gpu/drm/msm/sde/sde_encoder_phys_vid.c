@@ -332,7 +332,7 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		rot_fetch_lines, vfp_fetch_lines,
 		rot_fetch_start_vsync_counter);
 
-	if (!phys_enc->sde_kms->splash_data.cont_splash_en) {
+	if (!phys_enc->cont_splash_enabled) {
 		SDE_EVT32(DRMID(phys_enc->parent), f.enable, f.fetch_start);
 
 		phys_enc->hw_ctl->ops.update_bitmask_intf(
@@ -476,7 +476,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 
 	vid_enc->timing_params = timing_params;
 
-	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
+	if (phys_enc->cont_splash_enabled) {
 		SDE_DEBUG_VIDENC(vid_enc,
 			"skipping intf programming since cont splash is enabled\n");
 		goto exit;
@@ -818,7 +818,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	/* reset state variables until after first update */
 	vid_enc->rot_fetch_valid = false;
 
-	if (!phys_enc->sde_kms->splash_data.cont_splash_en)
+	if (!phys_enc->cont_splash_enabled)
 		sde_encoder_helper_split_config(phys_enc,
 				phys_enc->hw_intf->idx);
 
@@ -840,8 +840,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	 * skip flushing intf during cont. splash handoff since bootloader
 	 * has already enabled the hardware and is single buffered.
 	 */
-
-	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
+	if (phys_enc->cont_splash_enabled) {
 		SDE_DEBUG_VIDENC(vid_enc,
 		"skipping intf flush bit set as cont. splash is enabled\n");
 		goto skip_flush;

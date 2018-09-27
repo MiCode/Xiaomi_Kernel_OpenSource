@@ -144,12 +144,31 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+static bool dp_display_is_ds_bridge(struct dp_panel *panel)
+{
+	return (panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+		DP_DWN_STRM_PORT_PRESENT);
+}
+
+static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
+{
+	return dp_display_is_ds_bridge(dp->panel) &&
+		(dp->link->sink_count.count == 0);
+}
+
+static bool dp_display_is_ready(struct dp_display_private *dp)
+{
+	return dp->hpd->hpd_high && dp->is_connected &&
+		!dp_display_is_sink_count_zero(dp) &&
+		dp->hpd->alt_mode_cfg_done;
+}
 
 static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
 	struct dp_display_private *dp;
 	struct delayed_work *dw = to_delayed_work(work);
 	struct sde_hdcp_ops *ops;
+	void *data;
 	int rc = 0;
 	u32 hdcp_auth_state;
 
@@ -162,20 +181,24 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	}
 
 	ops = dp->hdcp.ops;
+	data = dp->hdcp.data;
 
 	pr_debug("%s: %s\n",
 		sde_hdcp_version(dp->link->hdcp_status.hdcp_version),
 		sde_hdcp_state_name(dp->link->hdcp_status.hdcp_state));
 
+	if (dp->debug->force_encryption && ops && ops->force_encryption)
+		ops->force_encryption(data, dp->debug->force_encryption);
+
 	switch (dp->link->hdcp_status.hdcp_state) {
 	case HDCP_STATE_AUTHENTICATING:
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
-			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+			rc = dp->hdcp.ops->authenticate(data);
 		break;
 	case HDCP_STATE_AUTH_FAIL:
-		if (dp->power_on) {
+		if (dp_display_is_ready(dp) && dp->power_on) {
 			if (ops && ops->reauthenticate) {
-				rc = ops->reauthenticate(dp->hdcp.data);
+				rc = ops->reauthenticate(data);
 				if (rc)
 					pr_err("failed rc=%d\n", rc);
 			}
@@ -389,18 +412,6 @@ static const struct component_ops dp_display_comp_ops = {
 	.bind = dp_display_bind,
 	.unbind = dp_display_unbind,
 };
-
-static bool dp_display_is_ds_bridge(struct dp_panel *panel)
-{
-	return (panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
-		DP_DWN_STRM_PORT_PRESENT);
-}
-
-static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
-{
-	return dp_display_is_ds_bridge(dp->panel) &&
-		(dp->link->sink_count.count == 0);
-}
 
 static void dp_display_send_hpd_event(struct dp_display_private *dp)
 {
@@ -706,6 +717,11 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	dp_display_process_mst_hpd_low(dp);
 
 	rc = dp_display_send_hpd_notification(dp);
+
+	mutex_lock(&dp->session_lock);
+	if (!dp->active_stream_cnt)
+		dp->ctrl->off(dp->ctrl);
+	mutex_unlock(&dp->session_lock);
 
 	dp->panel->video_test = false;
 
@@ -1022,6 +1038,9 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	struct dp_panel_in panel_in = {
 		.dev = dev,
 	};
+	struct dp_debug_in debug_in = {
+		.dev = dev,
+	};
 
 	mutex_init(&dp->session_lock);
 
@@ -1137,11 +1156,17 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_hpd;
 	}
 
-	dp->debug = dp_debug_get(dev, dp->panel, dp->hpd,
-				dp->link, dp->aux,
-				&dp->dp_display.base_connector,
-				dp->catalog, dp->parser);
+	dp_display_initialize_hdcp(dp);
 
+	debug_in.panel = dp->panel;
+	debug_in.hpd = dp->hpd;
+	debug_in.link = dp->link;
+	debug_in.aux = dp->aux;
+	debug_in.connector = &dp->dp_display.base_connector;
+	debug_in.catalog = dp->catalog;
+	debug_in.parser = dp->parser;
+
+	dp->debug = dp_debug_get(&debug_in);
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);
@@ -1195,8 +1220,6 @@ static int dp_display_post_init(struct dp_display *dp_display)
 	if (rc)
 		goto end;
 
-	dp_display_initialize_hdcp(dp);
-
 	dp_display->post_init = NULL;
 end:
 	pr_debug("%s\n", rc ? "failed" : "success");
@@ -1239,17 +1262,11 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 	return 0;
 }
 
-static bool dp_display_is_ready(struct dp_display_private *dp)
-{
-	return dp->hpd->hpd_high && dp->is_connected &&
-		!dp_display_is_sink_count_zero(dp) &&
-		dp->hpd->alt_mode_cfg_done;
-}
-
 static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	int rc = 0;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1272,9 +1289,13 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	if (dp->power_on)
 		goto end;
 
-	if (dp_display_is_ready(dp))
-		dp_display_host_init(dp);
-	else
+	if (!dp_display_is_ready(dp))
+		goto end;
+
+	dp_display_host_init(dp);
+
+	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
+	if (rc)
 		goto end;
 
 	if (dp->debug->psm_enabled) {
@@ -1376,10 +1397,8 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 	}
 
 	rc = dp_display_stream_enable(dp, panel);
-	if (rc && (dp->active_stream_cnt == 0)) {
-		dp->ctrl->off(dp->ctrl);
+	if (rc)
 		goto end;
-	}
 
 	dp->power_on = true;
 end:
@@ -1413,7 +1432,7 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	mutex_lock(&dp->session_lock);
 
 	if (!dp->power_on) {
-		pr_debug("Link not setup, return\n");
+		pr_debug("stream not setup, return\n");
 		goto end;
 	}
 
@@ -1482,7 +1501,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 	mutex_lock(&dp->session_lock);
 
 	if (!dp->power_on) {
-		pr_debug("Link already powered off, return\n");
+		pr_debug("stream already powered off, return\n");
 		goto end;
 	}
 
@@ -1552,8 +1571,6 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 		goto end;
 	}
 
-	dp->ctrl->off(dp->ctrl);
-
 	/*
 	 * In case of framework reboot, the DP off sequence is executed without
 	 * any notification from driver. Initialize post_open callback to notify
@@ -1562,6 +1579,8 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	if (dp_display_is_ready(dp) && !dp->mst.mst_active) {
 		dp_display->post_open = dp_display_post_open;
 		dp->dp_display.is_sst_connected = false;
+
+		dp->ctrl->off(dp->ctrl);
 		dp_display_host_deinit(dp);
 	}
 

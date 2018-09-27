@@ -1571,7 +1571,7 @@ static int ipa_mhi_test_suspend(bool force, bool should_success)
 	if (should_success) {
 		if (p_ch_ctx_array->chstate !=
 			IPA_HW_MHI_CHANNEL_STATE_SUSPEND) {
-			IPA_UT_LOG("chstate is not suspend. ch %d chstate %s\n",
+			IPA_UT_LOG("chstate is not suspend! ch %d chstate %s\n",
 				IPA_MHI_TEST_FIRST_CHANNEL_ID + 1,
 				ipa_mhi_get_state_str(p_ch_ctx_array->chstate));
 			IPA_UT_TEST_FAIL_REPORT("channel state not suspend");
@@ -1601,7 +1601,7 @@ static int ipa_mhi_test_suspend(bool force, bool should_success)
 	if (should_success) {
 		if (p_ch_ctx_array->chstate !=
 			IPA_HW_MHI_CHANNEL_STATE_SUSPEND) {
-			IPA_UT_LOG("chstate is not running! ch %d chstate %s\n",
+			IPA_UT_LOG("chstate is not suspend! ch %d chstate %s\n",
 				IPA_MHI_TEST_FIRST_CHANNEL_ID,
 				ipa_mhi_get_state_str(p_ch_ctx_array->chstate));
 			IPA_UT_TEST_FAIL_REPORT("channel state not suspend");
@@ -2016,7 +2016,8 @@ static int ipa_mhi_test_suspend_host_wakeup(void)
 		return rc;
 	}
 
-	if (wait_for_completion_timeout(&mhi_test_wakeup_comp, HZ) == 0) {
+	if (wait_for_completion_timeout(&mhi_test_wakeup_comp,
+		msecs_to_jiffies(3500)) == 0) {
 		IPA_UT_LOG("timeout waiting for wakeup event\n");
 		IPA_UT_TEST_FAIL_REPORT("timeout waiting for wakeup event");
 		return -ETIME;

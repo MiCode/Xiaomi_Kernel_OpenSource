@@ -71,6 +71,7 @@ struct sde_hdcp_ops {
 	int (*reauthenticate)(void *input);
 	int (*authenticate)(void *hdcp_ctrl);
 	bool (*feature_supported)(void *input);
+	void (*force_encryption)(void *input, bool enable);
 	void (*off)(void *hdcp_ctrl);
 };
 

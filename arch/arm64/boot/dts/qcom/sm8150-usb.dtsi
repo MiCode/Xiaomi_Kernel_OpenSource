@@ -52,10 +52,17 @@
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-hs = <66666667>;
 		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,gsi-reg-offset =
+			<0x0fc /* GSI_GENERAL_CFG */
+			 0x110 /* GSI_DBL_ADDR_L */
+			 0x120 /* GSI_DBL_ADDR_H */
+			 0x130 /* GSI_RING_BASE_ADDR_L */
+			 0x144 /* GSI_RING_BASE_ADDR_H */
+			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
 
 		qcom,msm-bus,name = "usb0";
-		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <3>;
 		qcom,msm-bus,vectors-KBps =
 			/*  suspend vote */
@@ -73,7 +80,12 @@
 			<MSM_BUS_MASTER_USB3
 				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
 			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 2400>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>;
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>,
+
+			/*  min vote */
+			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_EBI_CH0 1 1>,
+			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 1 1>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 1 1>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
@@ -293,6 +305,7 @@
 			 USB3_DP_PCS_POWER_DOWN_CONTROL
 			 USB3_DP_PCS_SW_RESET
 			 USB3_DP_PCS_START_CONTROL
+			 0xffff /* USB3_PHY_PCS_MISC_TYPEC_CTRL */
 			 0x2a18 /* USB3_DP_DP_PHY_PD_CTL */
 			 USB3_DP_COM_POWER_DOWN_CTRL
 			 USB3_DP_COM_SW_RESET
@@ -362,6 +375,13 @@
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-hs = <66666667>;
 		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,gsi-reg-offset =
+			<0x0fc /* GSI_GENERAL_CFG */
+			 0x110 /* GSI_DBL_ADDR_L */
+			 0x120 /* GSI_DBL_ADDR_H */
+			 0x130 /* GSI_RING_BASE_ADDR_L */
+			 0x144 /* GSI_RING_BASE_ADDR_H */
+			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
 		qcom,charging-disabled;
 
@@ -398,6 +418,7 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
+			snps,bus-suspend-enable;
 			usb-core-id = <0>;
 			maximum-speed = "super-speed";
 			dr_mode = "otg";

@@ -70,6 +70,10 @@
 /* Add regulator nodes specific to SA8155 */
 #include "sa8155-regulator.dtsi"
 
+&slpi_tlmm {
+	status = "ok";
+};
+
 &cam_csiphy0 {
 	mipi-csi-vdd-supply = <&pm8150_2_l8>;
 };
@@ -173,6 +177,11 @@
 
 &ufsphy_mem {
 	vdda-phy-supply = <&pm8150_2_l18>;
+};
+
+&clock_scc {
+	vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
 };
 
 &thermal_zones {
@@ -603,7 +612,9 @@
 };
 
 &mdss_mdp {
-	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	qcom,sde-mixer-display-pref = "primary", "none", "none",
+				"none", "none", "none";
 };
 
 #include <dt-bindings/gpio/gpio.h>

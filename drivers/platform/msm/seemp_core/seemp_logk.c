@@ -608,6 +608,9 @@ static int seemp_logk_rtic_thread(void *data)
 {
 	struct el2_report_header_t *header;
 	int i;
+	int last_incident_number;
+
+	last_incident_number = 0;
 	header = (struct el2_report_header_t *) el2_shared_mem;
 
 	if (header->report_version < KP_EL2_REPORT_REVISION)
@@ -618,26 +621,25 @@ static int seemp_logk_rtic_thread(void *data)
 
 		report = el2_shared_mem +
 			sizeof(struct el2_report_header_t);
+		if (last_incident_number < report->num_incidents) {
+			for (i = 0; i < report->actor_count; i++) {
+				struct el2_actor_data_t *actor;
 
-		for (i = 0; i < report->actor_count; i++) {
-			struct el2_actor_data_t *actor;
+				actor = el2_shared_mem +
+					sizeof(struct el2_report_header_t) +
+					sizeof(struct el2_actor_report_t) +
+					i * (sizeof(struct el2_actor_data_t));
 
-			actor = el2_shared_mem +
-				sizeof(struct el2_report_header_t) +
-				sizeof(struct el2_actor_report_t) +
-				i * (sizeof(struct el2_actor_data_t));
-
-			seemp_logk_rtic(report->report_type,
-				actor->pid,
-				/*
-				 * leave this empty until
-				 * asset id is provided
-				 */
-				"",
-				report->asset_category,
-				report->response);
+				seemp_logk_rtic(report->report_type,
+					actor->pid,
+					report->asset_name,
+					report->asset_category,
+					report->response,
+					actor->name);
+			}
 		}
 
+		last_incident_number = report->num_incidents;
 		/* periodically check el2 report every second */
 		ssleep(1);
 	}

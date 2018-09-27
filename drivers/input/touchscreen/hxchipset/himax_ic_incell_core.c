@@ -315,7 +315,7 @@ static void himax_mcu_sense_on(uint8_t FlashMode)
 	uint8_t tmp_data[FOUR_BYTE_DATA_SZ];
 	int retry = 0;
 
-	I("Enter %s\n", __func__);
+	D("Enter %s\n", __func__);
 	g_core_fp.fp_interface_on();
 	g_core_fp.fp_register_write(pfw_op->addr_ctrl_fw_isr,
 		sizeof(pfw_op->data_clear), pfw_op->data_clear, false);
@@ -406,7 +406,8 @@ static bool himax_mcu_sense_off(void)
 		 *======================
 		 */
 		g_core_fp.fp_register_read(pic_op->addr_cs_central_state, FOUR_BYTE_ADDR_SZ, tmp_data, 0);
-		I("%s: Check enter_save_mode data[0]=%X\n", __func__, tmp_data[0]);
+		D("%s: Check enter_save_mode data[0]=%X\n",
+			__func__, tmp_data[0]);
 
 		if (tmp_data[0] == 0x0C) {
 			/*
@@ -472,7 +473,7 @@ static void himax_mcu_suspend_ic_action(void)
 
 static void himax_mcu_power_on_init(void)
 {
-	I("%s:\n", __func__);
+	D("%s:\n", __func__);
 	g_core_fp.fp_touch_information();
 	/* RawOut select initial */
 	g_core_fp.fp_register_write(pfw_op->addr_raw_out_sel, sizeof(pfw_op->data_clear), pfw_op->data_clear, false);
@@ -877,7 +878,7 @@ static void himax_mcu_read_FW_ver(void)
 
 		if ((data[1] == 0x3A && data[0] == 0xA3)
 			|| (data_2[1] == 0x72 && data_2[0] == 0xC0)) {
-			I("reload OK!\n");
+			D("reload OK!\n");
 			reload_status = 1;
 			break;
 		} else if (retry == 0) {
@@ -895,12 +896,13 @@ static void himax_mcu_read_FW_ver(void)
 		retry--;
 		msleep(20);
 		if (retry % 10 == 0)
-			I("reload fail ,delay 10ms retry=%d\n", retry);
+			E("reload fail ,delay 10ms retry=%d\n", retry);
 
 	}
 
-	I("%s : data[0]=0x%2.2X,data[1]=0x%2.2X,data_2[0]=0x%2.2X,data_2[1]=0x%2.2X\n", __func__, data[0], data[1], data_2[0], data_2[1]);
-	I("reload_status=%d\n", reload_status);
+	D("%s:data[]={0x%2.2X, 0x%2.2X}, data_2[]={0x%2.2X, 0x%2.2X}\n",
+		__func__, data[0], data[1], data_2[0], data_2[1]);
+	D("reload_status=%d\n", reload_status);
 	/*
 	 *=====================================
 	 * Read FW version : 0x1000_7004  but 05,06 are the real addr for FW Version
@@ -910,19 +912,19 @@ static void himax_mcu_read_FW_ver(void)
 	g_core_fp.fp_register_read(pfw_op->addr_fw_ver_addr, FOUR_BYTE_DATA_SZ, data, 0);
 	ic_data->vendor_panel_ver =  data[0];
 	ic_data->vendor_fw_ver = data[1] << 8 | data[2];
-	I("PANEL_VER : %X\n", ic_data->vendor_panel_ver);
-	I("FW_VER : %X\n", ic_data->vendor_fw_ver);
+	D("PANEL_VER : %X\n", ic_data->vendor_panel_ver);
+	D("FW_VER : %X\n", ic_data->vendor_fw_ver);
 	g_core_fp.fp_register_read(pfw_op->addr_fw_cfg_addr, FOUR_BYTE_DATA_SZ, data, 0);
 	ic_data->vendor_config_ver = data[2] << 8 | data[3];
 	/* I("CFG_VER : %X\n",ic_data->vendor_config_ver); */
 	ic_data->vendor_touch_cfg_ver = data[2];
-	I("TOUCH_VER : %X\n", ic_data->vendor_touch_cfg_ver);
+	D("TOUCH_VER : %X\n", ic_data->vendor_touch_cfg_ver);
 	ic_data->vendor_display_cfg_ver = data[3];
-	I("DISPLAY_VER : %X\n", ic_data->vendor_display_cfg_ver);
+	D("DISPLAY_VER : %X\n", ic_data->vendor_display_cfg_ver);
 	g_core_fp.fp_register_read(pfw_op->addr_fw_vendor_addr, FOUR_BYTE_DATA_SZ, data, 0);
 	ic_data->vendor_cid_maj_ver = data[2];
 	ic_data->vendor_cid_min_ver = data[3];
-	I("CID_VER : %X\n", (ic_data->vendor_cid_maj_ver << 8 | ic_data->vendor_cid_min_ver));
+	D("CID_VER : %X\n", (data[2] << 8 | data[3]));
 }
 
 static bool himax_mcu_read_event_stack(uint8_t *buf, uint8_t length)
@@ -956,10 +958,10 @@ static void himax_mcu_return_event_stack(void)
 	int retry = 20, i;
 	uint8_t tmp_data[FOUR_BYTE_DATA_SZ];
 
-	I("%s:entering\n", __func__);
+	D("%s:entering\n", __func__);
 
 	do {
-		I("now %d times\n!", retry);
+		D("now %d times\n!", retry);
 
 		for (i = 0; i < FOUR_BYTE_DATA_SZ; i++)
 			tmp_data[i] = psram_op->addr_rawdata_end[i];
@@ -970,7 +972,7 @@ static void himax_mcu_return_event_stack(void)
 		msleep(20);
 	} while ((tmp_data[1] != psram_op->addr_rawdata_end[1] && tmp_data[0] != psram_op->addr_rawdata_end[0]) && retry > 0);
 
-	I("%s: End of setting!\n", __func__);
+	D("%s: End of setting!\n", __func__);
 }
 
 static bool himax_mcu_calculateChecksum(bool change_iref)
@@ -1041,7 +1043,7 @@ static void himax_mcu_irq_switch(int switch_on)
 static int himax_mcu_assign_sorting_mode(uint8_t *tmp_data)
 {
 
-	I("%s:Now tmp_data[3]=0x%02X,tmp_data[2]=0x%02X,tmp_data[1]=0x%02X,tmp_data[0]=0x%02X\n",
+	D("%s:Now tmp[3]=0x%02X, tmp[2]=0x%02X, tmp[1]=0x%02X, tmp[0]=0x%02X\n",
 		__func__, tmp_data[3], tmp_data[2], tmp_data[1], tmp_data[0]);
 	g_core_fp.fp_flash_write_burst(pfw_op->addr_sorting_mode_en, tmp_data);
 
@@ -1050,9 +1052,8 @@ static int himax_mcu_assign_sorting_mode(uint8_t *tmp_data)
 
 static int himax_mcu_check_sorting_mode(uint8_t *tmp_data)
 {
-
 	g_core_fp.fp_register_read(pfw_op->addr_sorting_mode_en, FOUR_BYTE_DATA_SZ, tmp_data, 0);
-	I("%s: tmp_data[0]=%x,tmp_data[1]=%x\n", __func__, tmp_data[0], tmp_data[1]);
+	D("%s: tmp[0]=%x,tmp[1]=%x\n", __func__, tmp_data[0], tmp_data[1]);
 
 	return NO_ERR;
 }
@@ -1065,7 +1066,7 @@ static int himax_mcu_switch_mode(int mode)
 	int result = -1;
 	int retry = 200;
 
-	I("%s: Entering\n", __func__);
+	D("%s: Entering\n", __func__);
 
 	if (mode == 0) {
 		/* normal mode */
@@ -1114,14 +1115,15 @@ static int himax_mcu_switch_mode(int mode)
 	g_core_fp.fp_sense_on(0x01);
 
 	while (retry != 0) {
-		I("[%d] %s Read\n", retry, __func__);
+		D("[%d] %s Read\n", retry, __func__);
 		/* tmp_addr[3] = 0x10; tmp_addr[2] = 0x00; tmp_addr[1] = 0x7F; tmp_addr[0] = 0x04; */
 		g_core_fp.fp_check_sorting_mode(tmp_data);
 		msleep(100);
-		I("mode_read_cmd(0)=0x%2.2X,mode_read_cmd(1)=0x%2.2X\n", tmp_data[0], tmp_data[1]);
+		D("mode_read_cmd(0)=0x%2.2X,mode_read_cmd(1)=0x%2.2X\n",
+			tmp_data[0], tmp_data[1]);
 
 		if (tmp_data[0] == mode_read_cmd && tmp_data[1] == mode_read_cmd) {
-			I("Read OK!\n");
+			D("Read OK!\n");
 			result = 0;
 			break;
 		}
@@ -1262,7 +1264,7 @@ static bool himax_mcu_block_erase(int start_addr, int length)
 		}
 	}
 
-	I("%s:END\n", __func__);
+	D("%s:END\n", __func__);
 	return true;
 }
 
@@ -1626,7 +1628,7 @@ static void himax_mcu_get_DSRAM_data(uint8_t *info_data, bool DSRAM_Flag)
 #ifdef CORE_DRIVER
 static bool himax_mcu_detect_ic(void)
 {
-	I("%s: use default incell detect.\n", __func__);
+	D("%s: use default incell detect.\n", __func__);
 
 	return 0;
 }
@@ -1634,14 +1636,14 @@ static bool himax_mcu_detect_ic(void)
 
 static void himax_mcu_init_ic(void)
 {
-	I("%s: use default incell init.\n", __func__);
+	D("%s: use default incell init.\n", __func__);
 }
 
 
 #ifdef HX_RST_PIN_FUNC
 static void himax_mcu_pin_reset(void)
 {
-	I("%s: Now reset the Touch chip.\n", __func__);
+	D("%s: Now reset the Touch chip.\n", __func__);
 	himax_rst_gpio_set(private_ts->rst_gpio, 0);
 	msleep(20);
 	himax_rst_gpio_set(private_ts->rst_gpio, 1);
@@ -1653,7 +1655,8 @@ static void himax_mcu_ic_reset(uint8_t loadconfig, uint8_t int_off)
 	struct himax_ts_data *ts = private_ts;
 
 	HX_HW_RESET_ACTIVATE = 1;
-	I("%s,status: loadconfig=%d,int_off=%d\n", __func__, loadconfig, int_off);
+	D("%s, status: loadconfig=%d, int_off=%d\n",
+		__func__, loadconfig, int_off);
 
 	if (ts->rst_gpio >= 0) {
 		if (int_off)
@@ -1745,9 +1748,11 @@ static void himax_mcu_touch_information(void)
 	ic_data->HX_XY_REVERSE = FIX_HX_XY_REVERSE;
 	ic_data->HX_INT_IS_EDGE = FIX_HX_INT_IS_EDGE;
 #endif
-	I("%s:HX_RX_NUM =%d,HX_TX_NUM =%d,HX_MAX_PT=%d\n", __func__, ic_data->HX_RX_NUM, ic_data->HX_TX_NUM, ic_data->HX_MAX_PT);
-	I("%s:HX_XY_REVERSE =%d,HX_Y_RES =%d,HX_X_RES=%d\n", __func__, ic_data->HX_XY_REVERSE, ic_data->HX_Y_RES, ic_data->HX_X_RES);
-	I("%s:HX_INT_IS_EDGE =%d\n", __func__, ic_data->HX_INT_IS_EDGE);
+	D("%s:HX_RX_NUM =%d,HX_TX_NUM =%d,HX_MAX_PT=%d\n", __func__,
+		ic_data->HX_RX_NUM, ic_data->HX_TX_NUM, ic_data->HX_MAX_PT);
+	D("%s:HX_XY_REVERSE =%d,HX_Y_RES =%d,HX_X_RES=%d\n", __func__,
+		ic_data->HX_XY_REVERSE, ic_data->HX_Y_RES, ic_data->HX_X_RES);
+	D("%s:HX_INT_IS_EDGE =%d\n", __func__, ic_data->HX_INT_IS_EDGE);
 }
 
 static void himax_mcu_reload_config(void)
@@ -2464,7 +2469,7 @@ static void himax_mcu_fp_init(void)
 
 void himax_mcu_in_cmd_struct_init(void)
 {
-	I("%s: Entering!\n", __func__);
+	D("%s: Entering!\n", __func__);
 	g_core_cmd_op = kzalloc(sizeof(struct himax_core_command_operation), GFP_KERNEL);
 	if (!g_core_cmd_op)
 		return;
@@ -2581,7 +2586,7 @@ void himax_in_parse_assign_cmd(uint32_t addr, uint8_t *cmd, int len)
 
 void himax_mcu_in_cmd_init(void)
 {
-	I("%s: Entering!\n", __func__);
+	D("%s: Entering!\n", __func__);
 #ifdef CORE_IC
 	himax_in_parse_assign_cmd(ic_adr_ahb_addr_byte_0, pic_op->addr_ahb_addr_byte_0, sizeof(pic_op->addr_ahb_addr_byte_0));
 	himax_in_parse_assign_cmd(ic_adr_ahb_rdata_byte_0, pic_op->addr_ahb_rdata_byte_0, sizeof(pic_op->addr_ahb_rdata_byte_0));

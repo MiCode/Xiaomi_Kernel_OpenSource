@@ -306,6 +306,17 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane);
 void sde_plane_clear_multirect(const struct drm_plane_state *drm_state);
 
 /**
+ * sde_plane_validate_src_addr - validate if current sspp addr of given
+ * plane is within the input address range
+ * @drm_plane:	Pointer to DRM plane object
+ * @base_addr:	Start address of the input address range
+ * @size:	Size of the input address range
+ * @Return:	Non-zero if source pipe current address is not in input range
+ */
+int sde_plane_validate_src_addr(struct drm_plane *plane,
+		unsigned long base_addr, u32 size);
+
+/**
  * sde_plane_wait_input_fence - wait for input fence object
  * @plane:   Pointer to DRM plane object
  * @wait_ms: Wait timeout value

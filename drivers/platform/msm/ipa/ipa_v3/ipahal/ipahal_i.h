@@ -545,6 +545,7 @@ struct ipa_imm_cmd_hw_dma_task_32b_addr {
  *  the global flt tbl? (if not, then the per endp tables)
  * @flt_ret_hdr: Retain header in filter rule flag: Does matching flt rule
  *  specifies to retain header?
+ *  Starting IPA4.5, this will be true only if packet has L2 header.
  * @flt_rule_id: The ID of the matching filter rule. This info can be combined
  *  with endp_src_idx to locate the exact rule. ID=0x3FF reserved to specify
  *  flt miss. In case of miss, all flt info to be ignored

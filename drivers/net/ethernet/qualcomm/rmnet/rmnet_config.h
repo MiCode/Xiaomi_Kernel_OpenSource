@@ -107,7 +107,7 @@ struct rmnet_priv {
 	struct rmnet_pcpu_stats __percpu *pcpu_stats;
 	struct gro_cells gro_cells;
 	struct rmnet_priv_stats stats;
-	void *qos_info;
+	void __rcu *qos_info;
 };
 
 int rmnet_is_real_dev_registered(const struct net_device *real_dev);

@@ -937,7 +937,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		tmc_etr_enable_hw(drvdata);
 
 	drvdata->enable = true;
-	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
@@ -1018,6 +1017,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 			spin_unlock_irqrestore(&drvdata->spinlock, flags);
 			tmc_etr_bam_disable(drvdata);
 			usb_qdss_close(drvdata->usbch);
+			drvdata->mode = CS_MODE_DISABLED;
 			goto out;
 		} else {
 			tmc_etr_disable_hw(drvdata);

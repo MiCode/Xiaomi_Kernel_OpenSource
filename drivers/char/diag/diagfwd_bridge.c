@@ -176,8 +176,8 @@ int diagfwd_bridge_register(int id, int ctxt, struct diag_remote_dev_ops *ops)
 		if (!ch->dci_read_buf)
 			return -ENOMEM;
 		ch->dci_read_len = 0;
-		strlcpy(wq_name, "diag_dci_", 10);
-		strlcat(wq_name, ch->name, sizeof(ch->name));
+		strlcpy(wq_name, "diag_dci_", sizeof(wq_name));
+		strlcat(wq_name, ch->name, sizeof(wq_name));
 		INIT_WORK(&(ch->dci_read_work), bridge_dci_read_work_fn);
 		ch->dci_wq = create_singlethread_workqueue(wq_name);
 		if (!ch->dci_wq) {

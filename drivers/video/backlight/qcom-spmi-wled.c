@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/spinlock.h>
 #include <linux/qpnp/qpnp-revid.h>
@@ -222,6 +223,7 @@ struct wled {
 	struct platform_device *pdev;
 	struct regmap *regmap;
 	struct pmic_revid_data *pmic_rev_id;
+	struct power_supply *bms_psy;
 	struct mutex lock;
 	struct wled_config cfg;
 	ktime_t last_sc_event_time;
@@ -252,6 +254,7 @@ struct wled {
 	spinlock_t flash_lock;
 	enum wled_flash_mode flash_mode;
 	u8 num_strings;
+	u32 leds_per_string;
 };
 
 enum wled5_mod_sel {
@@ -1459,23 +1462,129 @@ static int wled_get_max_current(struct led_classdev *led_cdev,
 	return 0;
 }
 
+static int get_property_from_fg(struct wled *wled,
+		enum power_supply_property prop, int *val)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	if (!wled->bms_psy)
+		wled->bms_psy = power_supply_get_by_name("bms");
+
+	if (!wled->bms_psy)
+		return -ENODEV;
+
+	rc = power_supply_get_property(wled->bms_psy, prop, &pval);
+	if (rc < 0) {
+		pr_err("bms psy doesn't support reading prop %d rc = %d\n",
+			prop, rc);
+		return rc;
+	}
+
+	*val = pval.intval;
+	return rc;
+}
+
+#define V_HDRM_MV		400
+#define V_DROOP_MV		400
+#define V_LED_MV		3100
+#define I_FLASH_MAX_MA		60
+#define EFF_FACTOR		700
 static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 					int *max_current)
 {
 	struct wled *wled;
+	int rc, ocv_mv, r_bat_mohms, i_bat_ma, i_sink_ma = 0, max_fsc_ma;
+	int64_t p_out_string, p_out, p_in, v_safe_mv, i_flash_ma, v_ph_mv;
 
 	if (!strcmp(led_cdev->name, "wled_switch"))
 		wled = container_of(led_cdev, struct wled, switch_cdev);
 	else
 		return -ENODEV;
 
-	/*
-	 * For now, return the max brightness. Later this will be replaced with
-	 * the available current predicted based on battery parameters.
-	 */
-
-	*max_current = max(wled->flash_cdev.max_brightness,
+	max_fsc_ma = max(wled->flash_cdev.max_brightness,
 			wled->torch_cdev.max_brightness);
+	if (!wled->leds_per_string || (wled->num_strings == 2 &&
+					wled->leds_per_string == 8)) {
+		/* Allow max for 8s2p */
+		*max_current = max_fsc_ma;
+		return 0;
+	}
+
+	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_mv);
+	if (rc < 0) {
+		pr_err("Error in getting OCV rc=%d\n", rc);
+		return rc;
+	}
+	ocv_mv /= 1000;
+
+	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_CURRENT_NOW,
+		&i_bat_ma);
+	if (rc < 0) {
+		pr_err("Error in getting I_BAT rc=%d\n", rc);
+		return rc;
+	}
+	i_bat_ma /= 1000;
+
+	rc = get_property_from_fg(wled, POWER_SUPPLY_PROP_RESISTANCE,
+		&r_bat_mohms);
+	if (rc < 0) {
+		pr_err("Error in getting R_BAT rc=%d\n", rc);
+		return rc;
+	}
+	r_bat_mohms /= 1000;
+
+	pr_debug("ocv: %d i_bat: %d r_bat: %d\n", ocv_mv, i_bat_ma,
+		r_bat_mohms);
+
+	p_out_string = ((wled->leds_per_string * V_LED_MV) + V_HDRM_MV) *
+			I_FLASH_MAX_MA;
+	p_out = p_out_string * wled->num_strings;
+	p_in = (p_out * 1000) / EFF_FACTOR;
+
+	pr_debug("p_out_string: %lld, p_out: %lld, p_in: %lld\n", p_out_string,
+		p_out, p_in);
+
+	v_safe_mv = ocv_mv - V_DROOP_MV - ((i_bat_ma * r_bat_mohms) / 1000);
+	if (v_safe_mv <= 0) {
+		pr_err("V_safe_mv: %d, cannot support flash\n", v_safe_mv);
+		*max_current = 0;
+		return 0;
+	}
+
+	i_flash_ma = p_in / v_safe_mv;
+	v_ph_mv = ocv_mv - ((i_bat_ma + i_flash_ma) * r_bat_mohms) / 1000;
+
+	pr_debug("v_safe: %lld, i_flash: %lld, v_ph: %lld\n", v_safe_mv,
+		i_flash_ma, v_ph_mv);
+
+	i_sink_ma = max_fsc_ma;
+	if (wled->num_strings == 3 && wled->leds_per_string == 8) {
+		if (v_ph_mv < 3410) {
+			/* For 8s3p, I_sink(mA) = 25.396 * Vph(V) - 26.154 */
+			i_sink_ma = (((25396 * v_ph_mv) / 1000) - 26154) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (wled->num_strings == 3 && wled->leds_per_string == 6) {
+		if (v_ph_mv < 2800) {
+			/* For 6s3p, I_sink(mA) = 41.311 * Vph(V) - 52.334 */
+			i_sink_ma = (((41311 * v_ph_mv) / 1000) - 52334) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (wled->num_strings == 4 && wled->leds_per_string == 6) {
+		if (v_ph_mv < 3400) {
+			/* For 6s4p, I_sink(mA) = 26.24 * Vph(V) - 24.834 */
+			i_sink_ma = (((26240 * v_ph_mv) / 1000) - 24834) / 1000;
+			i_sink_ma *= wled->num_strings;
+		}
+	} else if (v_ph_mv < 3200) {
+		i_sink_ma = max_fsc_ma / 2;
+	}
+
+	/* Clamp the sink current to maximum FSC */
+	*max_current = min(i_sink_ma, max_fsc_ma);
+
+	pr_debug("i_sink_ma: %d\n", i_sink_ma);
 	return 0;
 }
 
@@ -1758,6 +1867,9 @@ static int wled_flash_configure(struct wled *wled)
 	if (is_wled4(wled))
 		return 0;
 
+	of_property_read_u32(wled->pdev->dev.of_node, "qcom,leds-per-string",
+		&wled->leds_per_string);
+
 	for_each_available_child_of_node(wled->pdev->dev.of_node, temp) {
 		rc = of_property_read_string(temp, "label", &cdev_name);
 		if (rc < 0)
@@ -1765,7 +1877,7 @@ static int wled_flash_configure(struct wled *wled)
 
 		if (!strcmp(cdev_name, "flash")) {
 			/* Value read in mA */
-			wled->fparams.fs_current = 40;
+			wled->fparams.fs_current = 50;
 			rc = of_property_read_u32(temp, "qcom,wled-flash-fsc",
 						&wled->fparams.fs_current);
 			if (!rc) {
@@ -1817,7 +1929,7 @@ static int wled_flash_configure(struct wled *wled)
 				wled->flash_cdev.default_trigger = "wled_flash";
 		} else if (!strcmp(cdev_name, "torch")) {
 			/* Value read in mA */
-			wled->tparams.fs_current = 30;
+			wled->tparams.fs_current = 50;
 			rc = of_property_read_u32(temp, "qcom,wled-torch-fsc",
 						&wled->tparams.fs_current);
 			if (!rc) {

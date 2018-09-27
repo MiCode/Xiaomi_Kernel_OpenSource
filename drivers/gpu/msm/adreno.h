@@ -390,6 +390,7 @@ struct adreno_device_private {
  * @gpmu_tsens: ID for the temporature sensor used by the GPMU
  * @max_power: Max possible power draw of a core, units elephant tail hairs
  * @va_padding: Size to pad allocations to, zero if not required
+ * @cx_ipeak_gpu_freq : Default Cx Ipeak GPU frequency
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -421,6 +422,7 @@ struct adreno_gpu_core {
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
 	uint64_t va_padding;
+	unsigned int cx_ipeak_gpu_freq;
 };
 
 
@@ -951,8 +953,6 @@ struct adreno_gpudev {
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
-	void (*snapshot_debugbus)(struct adreno_device *adreno_dev,
-			struct kgsl_snapshot *snapshot);
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
 	void (*remove)(struct adreno_device *);
@@ -967,7 +967,7 @@ struct adreno_gpudev {
 	void (*pwrlevel_change_settings)(struct adreno_device *,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post);
-	uint64_t (*read_throttling_counters)(struct adreno_device *);
+	int64_t (*read_throttling_counters)(struct adreno_device *);
 	void (*count_throttles)(struct adreno_device *, uint64_t adj);
 	int (*enable_pwr_counters)(struct adreno_device *,
 				unsigned int counter);
@@ -1123,9 +1123,6 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_context *context);
-
-void adreno_snapshot_gmu(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot);
 
 int adreno_reset(struct kgsl_device *device, int fault);
 

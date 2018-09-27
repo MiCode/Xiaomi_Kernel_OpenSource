@@ -34,6 +34,19 @@
 		compatible = "qcom,q6core-audio";
 		bolero: bolero-cdc {
 			compatible = "qcom,bolero-codec";
+			tx_macro: tx-macro@62ec0000 {
+				swr2: tx_swr_master {
+				};
+			};
+
+			rx_macro: rx-macro@62ee0000 {
+				swr1: rx_swr_master {
+				};
+			};
+			wsa_macro: wsa-macro@62f00000 {
+				swr0: wsa_swr_master {
+				};
+			};
 		};
 	};
 };

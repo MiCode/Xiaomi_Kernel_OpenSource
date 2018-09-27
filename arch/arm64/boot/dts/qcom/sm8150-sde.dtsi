@@ -512,7 +512,7 @@
 		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-0";
 		cell-index = <0>;
-		reg = <0xae94400 0x7c0>;
+		reg = <0xae94400 0x760>;
 		reg-names = "dsi_phy";
 		vdda-0p9-supply = <&pm8150_l5>;
 		qcom,platform-strength-ctrl = [55 03
@@ -544,7 +544,7 @@
 		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-1";
 		cell-index = <1>;
-		reg = <0xae96400 0x7c0>;
+		reg = <0xae96400 0x760>;
 		reg-names = "dsi_phy";
 		vdda-0p9-supply = <&pm8150_l5>;
 		qcom,platform-strength-ctrl = [55 03

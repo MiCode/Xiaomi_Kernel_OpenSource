@@ -147,6 +147,8 @@ static int synaptics_rmi4_suspend(struct device *dev);
 
 static int synaptics_rmi4_resume(struct device *dev);
 
+static int synaptics_rmi4_defer_probe(struct platform_device *pdev);
+
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
@@ -4226,7 +4228,6 @@ EXPORT_SYMBOL(synaptics_rmi4_new_function);
 static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
 	int retval;
-	unsigned char attr_count;
 	struct synaptics_rmi4_data *rmi4_data;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	const struct synaptics_dsx_board_data *bdata;
@@ -4277,6 +4278,31 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 
 	vir_button_map = bdata->vir_button_map;
 
+	rmi4_data->initialized = false;
+#ifdef CONFIG_FB
+	rmi4_data->fb_notifier.notifier_call =
+					synaptics_rmi4_dsi_panel_notifier_cb;
+	retval = msm_drm_register_client(&rmi4_data->fb_notifier);
+	if (retval < 0) {
+		dev_err(&pdev->dev,
+				"%s: Failed to register fb notifier client\n",
+				__func__);
+	}
+#endif
+	return retval;
+}
+
+static int synaptics_rmi4_defer_probe(struct platform_device *pdev)
+{
+	int retval;
+	struct synaptics_rmi4_data *rmi4_data;
+	const struct synaptics_dsx_hw_interface *hw_if;
+	const struct synaptics_dsx_board_data *bdata;
+	unsigned char attr_count;
+
+	rmi4_data = platform_get_drvdata(pdev);
+	hw_if = rmi4_data->hw_if;
+	bdata = hw_if->board_data;
 	retval = synaptics_rmi4_get_reg(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&pdev->dev,
@@ -4334,18 +4360,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 				__func__);
 		goto err_set_input_dev;
 	}
-
-#ifdef CONFIG_FB
-	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_dsi_panel_notifier_cb;
-	retval = msm_drm_register_client(&rmi4_data->fb_notifier);
-	if (retval < 0) {
-
-
-		dev_err(&pdev->dev,
-				"%s: Failed to register fb notifier client\n",
-				__func__);
-	}
-#endif
 
 #ifdef USE_EARLYSUSPEND
 	rmi4_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -4591,9 +4605,17 @@ static int synaptics_rmi4_dsi_panel_notifier_cb(struct notifier_block *self,
 		if (event == MSM_DRM_EVENT_BLANK) {
 			transition = *(int *)evdata->data;
 			if (transition == MSM_DRM_BLANK_POWERDOWN) {
+				if (!rmi4_data->initialized)
+					return -ECANCELED;
 				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
 				rmi4_data->fb_ready = false;
 			} else if (transition == MSM_DRM_BLANK_UNBLANK) {
+				if (!rmi4_data->initialized) {
+					if (synaptics_rmi4_defer_probe(
+							rmi4_data->pdev))
+						return -ECANCELED;
+					rmi4_data->initialized = true;
+				}
 				synaptics_rmi4_resume(&rmi4_data->pdev->dev);
 				rmi4_data->fb_ready = true;
 			}

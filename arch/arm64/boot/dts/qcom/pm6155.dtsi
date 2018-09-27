@@ -1,0 +1,175 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	qcom,pm6155@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm6155_1_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x1 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr", "resin";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+
+			qcom,pon_1 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
+				qcom,pull-up = <1>;
+				linux,code = <KEY_POWER>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+				qcom,pull-up = <1>;
+				linux,code = <KEY_VOLUMEDOWN>;
+			};
+		};
+
+		pm6155_1_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x200>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <2>;
+			clock-output-names = "pm6155_1_div_clk1",
+						"pm6155_1_div_clk2";
+			clocks = <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "xo";
+		};
+
+		pm6155_1_rtc: qcom,pm6155_1_rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm6155_1_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,pm6155_1_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
+
+		pm6155_1_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0 IRQ_TYPE_NONE>,
+					<0x0 0xc7 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>,
+					<0x0 0xc9 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6155_1_gpio1", "pm6155_1_gpio2",
+					  "pm6155_1_gpio3", "pm6155_1_gpio4",
+					  "pm6155_1_gpio5", "pm6155_1_gpio6",
+					  "pm6155_1_gpio7", "pm6155_1_gpio8",
+					  "pm6155_1_gpio9", "pm6155_1_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		pm6155_1_sdam_2: sdam@b100 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0xb100 0x100>;
+		};
+
+	};
+
+	qcom,pm6155@1 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
+
+	/* below definitions are for the second instance of pm6155 */
+	qcom,pm6155@4 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x4 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
+		pm6155_2_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x200>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <2>;
+			clock-output-names = "pm6155_2_div_clk1",
+						"pm6155_2_div_clk2";
+			clocks = <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "xo";
+		};
+
+		pm6155_2_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x4 0xc0 0 IRQ_TYPE_NONE>,
+					<0x4 0xc1 0 IRQ_TYPE_NONE>,
+					<0x4 0xc2 0 IRQ_TYPE_NONE>,
+					<0x4 0xc3 0 IRQ_TYPE_NONE>,
+					<0x4 0xc4 0 IRQ_TYPE_NONE>,
+					<0x4 0xc5 0 IRQ_TYPE_NONE>,
+					<0x4 0xc6 0 IRQ_TYPE_NONE>,
+					<0x4 0xc7 0 IRQ_TYPE_NONE>,
+					<0x4 0xc8 0 IRQ_TYPE_NONE>,
+					<0x4 0xc9 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6155_2_gpio1", "pm6155_2_gpio2",
+					"pm6155_2_gpio3", "pm6155_2_gpio4",
+					"pm6155_2_gpio5", "pm6155_2_gpio6",
+					"pm6155_2_gpio7", "pm6155_2_gpio8",
+					"pm6155_2_gpio9", "pm6155_2_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
+	qcom,pm6155@5 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x5 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};
