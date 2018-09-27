@@ -247,6 +247,7 @@ struct cnss_plat_data {
 	u32 diag_reg_read_len;
 	u8 *diag_reg_read_buf;
 	bool cal_done;
+	bool powered_on;
 	char firmware_name[13];
 };
 
