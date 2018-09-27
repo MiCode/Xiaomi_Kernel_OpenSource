@@ -394,7 +394,7 @@ err_free_sg2:
 	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
-		ion_hyp_unassign_sg(table, &vmid, 1, true);
+		ion_hyp_unassign_sg(table, &vmid, 1, true, false);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
@@ -435,7 +435,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 		if (vmid < 0)
 			ion_heap_buffer_zero(buffer);
 	} else if (vmid > 0) {
-		if (ion_hyp_unassign_sg(table, &vmid, 1, true))
+		if (ion_hyp_unassign_sg(table, &vmid, 1, true, false))
 			return;
 	}
 
