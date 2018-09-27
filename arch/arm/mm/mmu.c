@@ -1158,9 +1158,6 @@ void __init adjust_lowmem_bounds(void)
 	u64 vmalloc_limit;
 	struct memblock_region *reg;
 	phys_addr_t lowmem_limit = 0;
-#ifdef CONFIG_ENABLE_VMALLOC_SAVING
-	struct memblock_region *prev_reg = NULL;
-#endif
 
 	/*
 	 * Let's use our own (unoptimized) equivalent of __pa() that is
@@ -1170,17 +1167,6 @@ void __init adjust_lowmem_bounds(void)
 	 * and therefore __pa() is defined.
 	 */
 	vmalloc_limit = (u64)(uintptr_t)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;
-
-#ifdef CONFIG_ENABLE_VMALLOC_SAVING
-	for_each_memblock(memory, reg) {
-		if (prev_reg == NULL) {
-			prev_reg = reg;
-			continue;
-		}
-		vmalloc_limit += reg->base - (prev_reg->base + prev_reg->size);
-		prev_reg = reg;
-	}
-#endif
 
 	for_each_memblock(memory, reg) {
 		phys_addr_t block_start = reg->base;
