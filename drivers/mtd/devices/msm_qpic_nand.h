@@ -177,6 +177,8 @@
 #define MSM_NAND_VERSION(info)         MSM_NAND_REG_ADJUSTED(info, 0x30F08)
 #define MSM_NAND_READ_LOCATION_0(info)      MSM_NAND_REG(info, 0x30F20)
 #define MSM_NAND_READ_LOCATION_1(info)      MSM_NAND_REG(info, 0x30F24)
+#define MSM_NAND_READ_LOCATION_LAST_CW_0(info) MSM_NAND_REG(info, 0x30F40)
+#define MSM_NAND_READ_LOCATION_LAST_CW_1(info) MSM_NAND_REG(info, 0x30F44)
 
 /* device commands */
 #define MSM_NAND_CMD_PAGE_READ          0x32
@@ -209,13 +211,13 @@ struct msm_nand_sps_cmd {
 };
 
 struct msm_nand_cmd_setup_desc {
-	struct sps_command_element ce[11];
+	struct sps_command_element ce[13];
 	uint32_t flags;
 	uint32_t num_ce;
 };
 
 struct msm_nand_cmd_cw_desc {
-	struct sps_command_element ce[3];
+	struct sps_command_element ce[5];
 	uint32_t flags;
 	uint32_t num_ce;
 };

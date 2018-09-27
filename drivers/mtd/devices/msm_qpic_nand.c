@@ -666,7 +666,7 @@ out:
  * complaint to ONFI spec or not. If yes, then it reads the ONFI parameter
  * page to get the device parameters.
  */
-#define ONFI_CMDS 9
+#define ONFI_CMDS 10
 static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 {
 	struct msm_nand_chip *chip = &info->nand_chip;
@@ -765,6 +765,13 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
 			rdata, 0);
 	cmd++;
+
+	if (chip->qpic_version >= 2) {
+		msm_nand_prep_single_desc(cmd,
+			MSM_NAND_READ_LOCATION_LAST_CW_0(info), WRITE,
+			rdata, 0);
+		cmd++;
+	}
 
 	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
 		data.exec, SPS_IOVEC_FLAG_NWD);
@@ -1185,12 +1192,24 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 					MSM_NAND_READ_LOCATION_0(info),
 					WRITE, rdata);
 			curr_ce++;
+			if (chip->qpic_version >= 2) {
+				msm_nand_prep_ce(curr_ce,
+					MSM_NAND_READ_LOCATION_LAST_CW_0(info),
+					WRITE, rdata);
+				curr_ce++;
+			}
 		} else {
 			rdata = (0 << 0) | (chip->cw_size << 16) | (1 << 31);
 			msm_nand_prep_ce(curr_ce,
 					MSM_NAND_READ_LOCATION_0(info),
 					WRITE, rdata);
 			curr_ce++;
+			if (chip->qpic_version >= 2) {
+				msm_nand_prep_ce(curr_ce,
+					MSM_NAND_READ_LOCATION_LAST_CW_0(info),
+					WRITE, rdata);
+				curr_ce++;
+			}
 		}
 	}
 	if (ops->mode == MTD_OPS_AUTO_OOB) {
@@ -1208,6 +1227,12 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 					WRITE,
 					rdata);
 			curr_ce++;
+			if (chip->qpic_version >= 2) {
+				msm_nand_prep_ce(curr_ce,
+					MSM_NAND_READ_LOCATION_LAST_CW_0(info),
+					WRITE, rdata);
+				curr_ce++;
+			}
 		}
 		if (curr_cw == (args->cwperpage - 1) && ops->oobbuf) {
 			offset = 512 - ((args->cwperpage - 1) << 2);
@@ -1219,15 +1244,29 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			rdata = (offset << 0) | (size << 16) |
 				(last_read << 31);
 
-			if (!ops->datbuf)
+			if (!ops->datbuf) {
 				msm_nand_prep_ce(curr_ce,
 						MSM_NAND_READ_LOCATION_0(info),
 						WRITE, rdata);
-			else
+				curr_ce++;
+				if (chip->qpic_version >= 2) {
+					msm_nand_prep_ce(curr_ce,
+					MSM_NAND_READ_LOCATION_LAST_CW_0(info),
+					WRITE, rdata);
+					curr_ce++;
+				}
+			} else {
 				msm_nand_prep_ce(curr_ce,
 						MSM_NAND_READ_LOCATION_1(info),
 						WRITE, rdata);
-			curr_ce++;
+				curr_ce++;
+				if (chip->qpic_version >= 2) {
+					msm_nand_prep_ce(curr_ce,
+					MSM_NAND_READ_LOCATION_LAST_CW_1(info),
+					WRITE, rdata);
+					curr_ce++;
+				}
+			}
 		}
 	}
 sub_exec_cmd:
@@ -2603,7 +2642,7 @@ struct msm_nand_blk_isbad_data {
  * checking whether the bad block byte location contains 0xFF or not. If it
  * doesn't contain 0xFF, then it is considered as bad block.
  */
-#define ISBAD_CMDS 9
+#define ISBAD_CMDS 10
 static int msm_nand_block_isbad(struct mtd_info *mtd, loff_t ofs)
 {
 	struct msm_nand_info *info = mtd->priv;
@@ -2681,6 +2720,13 @@ static int msm_nand_block_isbad(struct mtd_info *mtd, loff_t ofs)
 	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
 			rdata, 0);
 	cmd++;
+
+	if (chip->qpic_version >= 2) {
+		msm_nand_prep_single_desc(cmd,
+			MSM_NAND_READ_LOCATION_LAST_CW_0(info), WRITE,
+			rdata, 0);
+		cmd++;
+	}
 
 	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
 			data.exec, SPS_IOVEC_FLAG_NWD);
