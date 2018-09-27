@@ -847,7 +847,7 @@ static void st_asm330lhh_enable_acc_gyro(struct st_asm330lhh_hw *hw)
 			continue;
 		sensor = iio_priv(hw->iio_devs[i]);
 		sensor->odr = 104;
-		sensor->watermark = 3;
+		sensor->watermark = 30;
 		st_asm330lhh_update_fifo(hw->iio_devs[i], false);
 
 		if (sensor->id == ST_ASM330LHH_ID_ACC)

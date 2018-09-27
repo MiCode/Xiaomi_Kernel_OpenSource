@@ -278,7 +278,7 @@ static int inv_i2c_mem_read(struct inv_mpu_state *st, u8 mpu_addr, u16 mem_addr,
 	return res;
 }
 
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
 static void inv_enable_acc_gyro(struct inv_mpu_state *st)
 {
 	struct iio_dev *indio_dev = iio_priv_to_dev(st);
@@ -286,6 +286,12 @@ static void inv_enable_acc_gyro(struct inv_mpu_state *st)
 	int gyro_hz = 100;
 
 	/**Enable the ACCEL**/
+	st->sensor_l[SENSOR_L_ACCEL].on = 0;
+	st->trigger_state = RATE_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+
+	inv_switch_power_in_lp(st, true);
 	st->chip_config.accel_fs = ACCEL_FSR_2G;
 	inv_set_accel_sf(st);
 	st->trigger_state = MISC_TRIGGER;
@@ -302,6 +308,12 @@ static void inv_enable_acc_gyro(struct inv_mpu_state *st)
 	set_inv_enable(indio_dev);
 
 	/**Enable the GYRO**/
+	st->sensor_l[SENSOR_L_GYRO].on = 0;
+	st->trigger_state = RATE_TRIGGER;
+	inv_check_sensor_on(st);
+	set_inv_enable(indio_dev);
+
+	inv_switch_power_in_lp(st, true);
 	st->chip_config.fsr = GYRO_FSR_250DPS;
 	inv_set_gyro_sf(st);
 	st->trigger_state = MISC_TRIGGER;
@@ -317,13 +329,7 @@ static void inv_enable_acc_gyro(struct inv_mpu_state *st)
 	inv_check_sensor_on(st);
 	set_inv_enable(indio_dev);
 }
-#else
-static void inv_enable_acc_gyro(struct inv_mpu_state *st)
-{
-}
-#endif
 
-#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
 static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 {
 	int i = 0, err = 0;
@@ -432,6 +438,7 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 
 	st->acc_buffer_inv_samples = true;
 	st->gyro_buffer_inv_samples = true;
+
 	inv_enable_acc_gyro(st);
 
 	return 1;

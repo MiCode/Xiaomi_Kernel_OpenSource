@@ -1157,7 +1157,7 @@ static int fg_batt_miss_irq_en_cb(struct votable *votable, void *data,
 		enable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
 	} else {
 		disable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
-		disable_irq(chip->irqs[BATT_MISSING_IRQ].irq);
+		disable_irq_nosync(chip->irqs[BATT_MISSING_IRQ].irq);
 	}
 
 	return 0;
@@ -1176,7 +1176,7 @@ static int fg_delta_bsoc_irq_en_cb(struct votable *votable, void *data,
 		enable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
 	} else {
 		disable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
-		disable_irq(chip->irqs[BSOC_DELTA_IRQ].irq);
+		disable_irq_nosync(chip->irqs[BSOC_DELTA_IRQ].irq);
 	}
 
 	return 0;

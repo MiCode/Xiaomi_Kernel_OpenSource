@@ -271,6 +271,9 @@ static int inv_set_batch(struct inv_mpu_state *st)
 	u64 timeout;
 	int required_fifo_size;
 
+#ifdef CONFIG_ENABLE_IAM_ACC_GYRO_BUFFERING
+	st->batch.timeout = 100;
+#endif
 	if (st->batch.timeout) {
 		required_fifo_size = st->batch.timeout * st->eng_info[ENGINE_GYRO].running_rate
 					* st->batch.pk_size / 1000;

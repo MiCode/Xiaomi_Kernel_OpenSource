@@ -202,7 +202,7 @@ static void dw8250_set_termios(struct uart_port *p, struct ktermios *termios,
 	unsigned int rate;
 	int ret;
 
-	if (IS_ERR(d->clk) || !old)
+	if (IS_ERR(d->clk))
 		goto out;
 
 	/* Not requesting clock rates below 1.8432Mhz */
