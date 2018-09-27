@@ -1074,6 +1074,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_catalog;
 	}
 
+	g_dp_display->is_mst_supported = dp->parser->has_mst;
+
 	dp->catalog = dp_catalog_get(dev, dp->parser);
 	if (IS_ERR(dp->catalog)) {
 		rc = PTR_ERR(dp->catalog);
@@ -2123,7 +2125,10 @@ int dp_display_get_num_of_displays(void)
 
 int dp_display_get_num_of_streams(void)
 {
-	return 2;
+	if (g_dp_display->is_mst_supported)
+		return DP_STREAM_MAX;
+
+	return 0;
 }
 
 static int dp_display_remove(struct platform_device *pdev)
