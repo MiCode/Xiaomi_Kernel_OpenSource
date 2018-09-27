@@ -516,3 +516,4 @@
 		};
 	};
 };
+#include "trinket-pinctrl.dtsi"
