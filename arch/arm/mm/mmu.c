@@ -1168,19 +1168,6 @@ void __init adjust_lowmem_bounds(void)
 	 */
 	vmalloc_limit = (u64)(uintptr_t)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;
 
-#ifdef CONFIG_ENABLE_VMALLOC_SAVING
-	struct memblock_region *prev_reg = NULL;
-
-	for_each_memblock(memory, reg) {
-		if (prev_reg == NULL) {
-			prev_reg = reg;
-			continue;
-		}
-		vmalloc_limit += reg->base - (prev_reg->base + prev_reg->size);
-		prev_reg = reg;
-	}
-#endif
-
 	for_each_memblock(memory, reg) {
 		phys_addr_t block_start = reg->base;
 		phys_addr_t block_end = reg->base + reg->size;
