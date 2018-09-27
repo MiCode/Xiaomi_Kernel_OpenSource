@@ -144,6 +144,13 @@ hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 				get_refcnt(vchan->refcount),
 				payload_type, sizebytes);
 			vchan = NULL;
+		} else if (vchan->otherend_closed || vchan->closed) {
+			pr_err("closed already remote %d local %d vcid %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
+				vchan->otherend_closed, vchan->closed,
+				vchan->id, vchan->otherend_id,
+				vchan->session_id, get_refcnt(vchan->refcount),
+				vchan_id, session_id, payload_type, sizebytes);
+			vchan = NULL;
 		} else if (!kref_get_unless_zero(&vchan->refcount)) {
 			/*
 			 * this happens when refcnt is already zero
@@ -151,13 +158,6 @@ hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 			 */
 			pr_err("failed to inc vcid %pK %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
 				vchan, vchan->id, vchan->otherend_id,
-				vchan->session_id, get_refcnt(vchan->refcount),
-				vchan_id, session_id, payload_type, sizebytes);
-			vchan = NULL;
-		} else if (vchan->otherend_closed || vchan->closed) {
-			pr_err("closed already remote %d local %d vcid %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
-				vchan->otherend_closed, vchan->closed,
-				vchan->id, vchan->otherend_id,
 				vchan->session_id, get_refcnt(vchan->refcount),
 				vchan_id, session_id, payload_type, sizebytes);
 			vchan = NULL;
