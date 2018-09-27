@@ -640,7 +640,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u64 rate = 0, fps;
 	struct clock_data *dcvs = NULL;
-	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 7;
+	u32 operating_rate, vsp_factor_num = 10, vsp_factor_den = 5;
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
@@ -687,8 +687,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
-		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((fps * filled_len * 8) * 10) / 7;
+		/* vsp perf is about 0.5 bits/cycle */
+		vsp_cycles += ((fps * filled_len * 8) * 10) / 5;
 
 		fw_cycles = fps * inst->core->resources.fw_cycles;
 
@@ -760,6 +760,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 				"msm_vidc_clock_voting %d\n",
 				 msm_vidc_clock_voting);
 			freq_core_max = msm_vidc_clock_voting;
+			decrement = false;
 			break;
 		}
 
@@ -767,6 +768,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
 			freq_core_max = msm_vidc_max_freq(core);
+			decrement = false;
 			break;
 		}
 		/* increment even if one session requested for it */
