@@ -1417,7 +1417,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	ch = client->channel;
 	mhi = ch->ring->mhi_dev;
 	el = req->el;
-	transfer_len = req->len;
+	transfer_len = req->transfer_len;
 	snd_cmpl = req->snd_cmpl;
 	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
@@ -2125,7 +2125,7 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 			(mreq->len - usr_buf_remaining);
 		ch->tre_bytes_left -= bytes_to_read;
 		mreq->el = el;
-		mreq->actual_len = bytes_read;
+		mreq->transfer_len = bytes_to_read;
 		mreq->rd_offset = ring->rd_offset;
 		mhi_log(MHI_MSG_VERBOSE, "reading %d bytes from chan %d\n",
 				bytes_to_read, mreq->chan);
@@ -2289,6 +2289,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		write_to_loc = el->tre.data_buf_ptr;
 		wreq->rd_offset = ring->rd_offset;
 		wreq->el = el;
+		wreq->transfer_len = bytes_to_write;
 		rc = mhi_transfer_device_to_host(write_to_loc,
 						(void *) read_from_loc,
 						bytes_to_write,
