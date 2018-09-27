@@ -289,15 +289,12 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].input_height = max(inst->prop.height[OUTPUT_PORT],
-				inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].output_width =  max(inst->prop.width[CAPTURE_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].output_height =
-				max(inst->prop.height[CAPTURE_PORT],
-				inst->prop.height[OUTPUT_PORT]);
+		vote_data[i].input_width = inst->prop.width[OUTPUT_PORT];
+		vote_data[i].input_height = inst->prop.height[OUTPUT_PORT];
+		vote_data[i].output_width = inst->prop.width[CAPTURE_PORT];
+		vote_data[i].output_height = inst->prop.height[CAPTURE_PORT];
+		vote_data[i].rotation =
+			msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
 		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
 				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
 		vote_data[i].b_frames_enabled =
