@@ -519,6 +519,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	struct drm_connector *conn;
+	struct sde_connector *sde_conn;
 	int event;
 	u32 pending_kickoff_cnt;
 
@@ -526,6 +527,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		return -EINVAL;
 
 	conn = phys_enc->connector;
+	sde_conn = to_sde_connector(conn);
 	cmd_enc->pp_timeout_report_cnt++;
 	pending_kickoff_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 
@@ -549,7 +551,8 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 
 	/* check if panel is still sending TE signal or not */
-	if (sde_connector_esd_status(phys_enc->connector))
+	if (sde_connector_esd_status(phys_enc->connector) ||
+	    sde_conn->panel_dead)
 		goto exit;
 
 	/* to avoid flooding, only log first time, and "dead" time */
