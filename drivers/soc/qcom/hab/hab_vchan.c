@@ -90,7 +90,7 @@ hab_vchan_free(struct kref *ref)
 	vchan->ctx = NULL;
 
 	/* release vchan from pchan. no more msg for this vchan */
-	write_lock(&pchan->vchans_lock);
+	write_lock_bh(&pchan->vchans_lock);
 	list_for_each_entry_safe(vc, vc_tmp, &pchan->vchannels, pnode) {
 		if (vchan == vc) {
 			list_del(&vc->pnode);
@@ -99,7 +99,7 @@ hab_vchan_free(struct kref *ref)
 			break;
 		}
 	}
-	write_unlock(&pchan->vchans_lock);
+	write_unlock_bh(&pchan->vchans_lock);
 
 	/* release idr at the last so same idr will not be used early */
 	spin_lock_bh(&pchan->vid_lock);
@@ -262,7 +262,7 @@ static void hab_vchan_schedule_free(struct kref *ref)
 	 * similar logic is in ctx free. if ctx free runs first,
 	 * this is skipped
 	 */
-	write_lock(&ctx->ctx_lock);
+	write_lock_bh(&ctx->ctx_lock);
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
 		if (vchan == vchanin) {
 			pr_debug("vchan free refcnt = %d\n",
@@ -273,7 +273,7 @@ static void hab_vchan_schedule_free(struct kref *ref)
 			break;
 		}
 	}
-	write_unlock(&ctx->ctx_lock);
+	write_unlock_bh(&ctx->ctx_lock);
 
 	if (bnotify)
 		hab_vchan_stop_notify(vchan);

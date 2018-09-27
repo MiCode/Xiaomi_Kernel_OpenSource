@@ -117,7 +117,7 @@ void hab_ctx_free(struct kref *ref)
 	struct export_desc *exp, *exp_tmp;
 
 	/* garbage-collect exp/imp buffers */
-	write_lock(&ctx->exp_lock);
+	write_lock_bh(&ctx->exp_lock);
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->exp_whse, node) {
 		list_del(&exp->node);
 		pr_debug("potential leak exp %d vcid %X recovered\n",
@@ -125,7 +125,7 @@ void hab_ctx_free(struct kref *ref)
 		habmem_hyp_revoke(exp->payload, exp->payload_count);
 		habmem_remove_export(exp);
 	}
-	write_unlock(&ctx->exp_lock);
+	write_unlock_bh(&ctx->exp_lock);
 
 	spin_lock_bh(&ctx->imp_lock);
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
@@ -159,27 +159,27 @@ void hab_ctx_free(struct kref *ref)
 			ctx->kernel, ctx->closing, ctx->owner);
 
 	/* check vchans in this ctx */
-	write_lock(&ctx->ctx_lock);
+	write_lock_bh(&ctx->ctx_lock);
 	list_for_each_entry(vchan, &ctx->vchannels, node) {
 		pr_warn("leak vchan id %X cnt %X remote %d in ctx\n",
 				vchan->id, get_refcnt(vchan->refcount),
 				vchan->otherend_id);
 	}
-	write_unlock(&ctx->ctx_lock);
+	write_unlock_bh(&ctx->ctx_lock);
 
 	/* check pending open */
 	if (ctx->pending_cnt)
 		pr_warn("potential leak of pendin_open nodes %d\n",
 			ctx->pending_cnt);
 
-	write_lock(&ctx->ctx_lock);
+	write_lock_bh(&ctx->ctx_lock);
 	list_for_each_entry(node, &ctx->pending_open, node) {
 		pr_warn("leak pending open vcid %X type %d subid %d openid %d\n",
 			node->request.xdata.vchan_id, node->request.type,
 			node->request.xdata.sub_id,
 			node->request.xdata.open_id);
 	}
-	write_unlock(&ctx->ctx_lock);
+	write_unlock_bh(&ctx->ctx_lock);
 
 	/* check vchans belong to this ctx in all hab/mmid devices */
 	for (i = 0; i < hab_driver.ndevices; i++) {
