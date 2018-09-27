@@ -218,7 +218,15 @@ struct virtual_channel *hab_get_vchan_fromvcid(int32_t vcid,
 	read_lock(&ctx->ctx_lock);
 	list_for_each_entry(vchan, &ctx->vchannels, node) {
 		if (vcid == vchan->id) {
-			kref_get(&vchan->refcount);
+			if (vchan->otherend_closed || vchan->closed ||
+				!kref_get_unless_zero(&vchan->refcount)) {
+				pr_debug("failed to inc vcid %x remote %x session %d refcnt %d close_flg remote %d local %d\n",
+					vchan->id, vchan->otherend_id,
+					vchan->session_id,
+					get_refcnt(vchan->refcount),
+					vchan->otherend_closed, vchan->closed);
+				vchan = NULL;
+			}
 			read_unlock(&ctx->ctx_lock);
 			return vchan;
 		}
