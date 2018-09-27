@@ -1652,7 +1652,6 @@
 #include "pm8937-rpm-regulator.dtsi"
 #include "msm8917-regulator.dtsi"
 #include "pm8937.dtsi"
-#include "msm8917-audio.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8917-thermal.dtsi"
 
