@@ -15,6 +15,7 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,msm8953-pinctrl";
 		reg = <0x1000000 0x300000>;
+		reg-names = "pinctrl_regs";
 		interrupts = <0 208 0>;
 		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
